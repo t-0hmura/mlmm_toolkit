@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlmm"
+description = "ML/MM calculator Interface"
+readme = "README.md"
+authors = [{name = "Takuto Ohmura"}]
+license = {file = "LICENSE"}
+dynamic = ["version"]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "matplotlib",
+    "plotly",
+    "kaleido",
+    "autograd",
+    "dask",
+    "distributed",
+    "joblib",
+    "natsort",
+    "h5py",
+    "psutil",
+    "pyyaml",
+    "sympy",
+    "scikit-learn",
+    "ase",
+    "biopython",
+    "fabric",
+    "rmsd",
+    "jinja2",
+    "rdkit",
+    "numba",
+    "openmm[cuda12]",
+    "parmed",
+    "pysisyphus @ git+https://github.com/t-0hmura/pysisyphus.git",
+]
+
+[project.optional-dependencies]
+uma = ["fairchem-core==2.2.0"]
+aimnet2 = ["aimnet @ git+https://github.com/isayevlab/aimnetcentral.git"]
+
+[project.scripts]
+mlmm = "mlmm.mlmm_pysis:run_pysis"
+def_ml_region = "mlmm.def_ml_region:def_ml_region"
+add_elem_info = "mlmm.utils:add_elem_info_console"
+get_freeze_indices = "mlmm.utils:get_freeze_indices_console"
+xyz_geom2pdb = "mlmm.utils:xyz_geom2pdb_console"
+partial_hessian_dimer = "mlmm.partial_hessian_dimer_cli:main"
+cartesian_bond_scan = "mlmm.cartesian_bond_scan_cli:main"
+energy_summary = "mlmm.energy_summary:main"
+trj2fig = "mlmm.trj2fig:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mlmm*"]
+
+[tool.setuptools]
+package-data = { "mlmm" = ["py.typed"] }
+
+[tool.setuptools.dynamic]
+version = {attr = "mlmm.__version__"}

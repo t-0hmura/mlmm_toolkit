@@ -1,0 +1,25 @@
+geom:
+  type: cart
+  fn: structure.pdb
+opt:
+  type: lbfgs
+  thresh: gau
+  max_cycles: 10000
+  do_hess: false           # not request a Hessian at the end
+calc:
+  type: mlmm
+  real_pdb: complex.pdb
+  real_parm7: complex.parm7
+  real_rst7: complex.rst7
+  model_pdb: ml_region.pdb
+  model_charge: 0
+  model_mult: 1
+  backend: uma
+  vib_run: true           # do a frequency analysis
+  out_hess_torch: false   # return Hessian as torch.Tensor on device when true
+  ml_device: 'auto'
+  ml_cuda_idx: 0
+  mm_device: 'cpu'
+  mm_cuda_idx: 0
+  mm_threads: 16
+  mem: 100000

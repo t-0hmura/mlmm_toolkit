@@ -1,0 +1,36 @@
+geom:
+  fn: ./coord/gs_hei.xyz          # initial geometry (.xyz or .pdb)
+  freeze_atoms: [0, 1, 2]         # indices kept fixed
+calc:                             # ML/MM calculator settings
+  real_pdb:      ./parm/complex.pdb
+  real_parm7:    complex.parm7
+  real_rst7:     complex.rst7
+  model_pdb:     ml_region.pdb
+  model_charge:  -1
+  model_mult:    1
+  backend:       aimnet2
+  ml_device:     auto
+  ml_cuda_idx:   0
+  mm_device:     cpu
+  mm_cuda_idx:   0
+  mm_threads:    16
+  mem:           100000           # scratch memory (MB)
+misc:
+  out_dir: ./dump/dimer/          # optimisation output
+  vib_dir: ./dump/vib/            # vibrational analysis
+  dump: false                     # write every step to traj
+dimer:
+  thresh_loose: gau_loose
+  thresh:       baker
+  update_interval_hessian: 50
+  lobpcg: true
+  partial_mm_cutoff: 2.4          # Å radius for partial Hessian
+  max_cycles: 100000
+  max_cycles_preopt: 100000       # optional – defaults to max_cycles
+  mem: 100000
+  neg_freq_thresh: 10.0           # cm^-1 threshold for "imaginary"
+flatten:                          # multi-mode flatten loop
+  amp_ang:   0.20                 # carbon displacement amplitude (Å)
+  max_iter:  20                   # maximum flatten cycles
+  sep_cutoff: 2.0                 # Å separation between mode centers
+  k: 10                           # 10 | Number of representative atoms to displace
