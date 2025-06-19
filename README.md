@@ -85,7 +85,7 @@ Periodic boundary conditions & implementation for molecular dynamics are planned
 |-------------|-------|
 | **Python 3.11** | Any distribution is fine. Conda is a convenient choice for easy handling. |
 | **CUDA runtime ≥ 12.6** | CUDA 12.8 is required for RTX 50 series. |
-| Linux / WSL 2 | macOS is *not* supported because OpenMM GPU backend requires CUDA. |
+| Linux / WSL 2 | macOS is *not* supported because GPU backend requires CUDA. |
 
 ### 1.2. (Optional) Create a conda environment
 
