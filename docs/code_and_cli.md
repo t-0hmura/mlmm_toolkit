@@ -39,7 +39,7 @@ The package installs several small utilities which become available on your `$PA
 ### `def_ml_region` – Automated ML‑region extractor
 
 ```bash
-def_ml_region   --real complex.pdb   --center ligand.pdb   --out ml_region.pdb   --radius_ml 2.6   --radius_het 3.6   --include_H2O false   --exclude_backbone false
+def_ml_region --real complex.pdb --center ligand.pdb --out ml_region.pdb --radius_ml 2.6 --radius_het 3.6 --include_H2O false --exclude_backbone false
 ```
 
 | Option | Default | Meaning |
