@@ -297,7 +297,7 @@ calc:
   model_mult: 1
   backend: uma
   vib_run: false           # whether to do a frequency analysis
-  out_hess_torch: false   # return Hessian as torch.Tensor on device when true
+  out_hess_torch: false    # return Hessian as torch.Tensor on device when true
   ml_device: 'auto'
   ml_cuda_idx: 0
   mm_device: 'cpu'
@@ -329,7 +329,7 @@ core = MLMMCore(
     link_mlmm      = None,             # default: None, link atom pairs are auto determined.
     dist_link      = 1.09,             # Bond length (Å) between link atom and boundary atom
     backend        = "uma",            # ML backend: "uma" or "aimnet2"
-    vib_run        = True,            # Whether to compute numerical Hessian (True = finite difference)
+    vib_run        = True,             # Whether to compute numerical Hessian (True = finite difference)
     ml_device      = "auto",           # ML backend device: "auto", "cuda", or "cpu"
     ml_cuda_idx    = 0,                # GPU index for ML backend (if using CUDA)
     mm_device      = "cpu",            # MM backend device: "auto", "cuda", or "cpu"
