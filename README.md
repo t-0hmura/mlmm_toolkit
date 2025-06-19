@@ -43,7 +43,8 @@ Periodic boundary conditions & implementation for molecular dynamics are planned
 ---
 
 ### Quick install
-* **AIMNet2 and UMA**
+* **AIMNet2 and UMA**  
+
   For CUDA 12.6:
   ```bash
   pip install fairchem-core==2.2.0
@@ -67,6 +68,7 @@ Periodic boundary conditions & implementation for molecular dynamics are planned
   ```
 
 * **UMA**  
+
   For CUDA 12.6:
   ```bash
   pip install "mlmm[uma] @ git+https://github.com/t-0hmura/mlmm_calc.git"
