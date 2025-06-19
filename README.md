@@ -158,8 +158,6 @@ If `AmberTools` is loaded, unload it before installing to prevent conflict for *
 module unload amber
 ```
 
----
-
 ### 1.7. Test
 
 ```bash
