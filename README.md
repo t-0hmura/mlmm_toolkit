@@ -61,12 +61,12 @@ Periodic boundary conditions & implementation for molecular dynamics are planned
   huggingface-cli login
   ```
 
-* **AIMNet2**
+* **AIMNet2**  
   ```bash
   pip install "mlmm[aimnet2] @ git+https://github.com/t-0hmura/mlmm_calc.git"
   ```
 
-* **UMA**
+* **UMA**  
   For CUDA 12.6:
   ```bash
   pip install "mlmm[uma] @ git+https://github.com/t-0hmura/mlmm_calc.git"
