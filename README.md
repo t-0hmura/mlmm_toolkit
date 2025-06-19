@@ -4,8 +4,6 @@
 
 <img src="./MLMM_overview.jpg" alt="Overview of ML/MM calculator" width="100%">  
 
----
-
 Quantum mechanics/molecular mechanics (QM/MM) methods have long been used to analyze enzyme reaction mechanisms in *silico* by tracking the energy changes that accompany chemical reactions. While treating the active site with QM and the remainder with MM yields atomic-level insight, the high computational cost of the QM layer is a major limitation. Replacing the QM layer with machine-learning (ML) interatomic potentials while preserving accuracy gives rise to ML/MM methods, which offer substantial speedups.
 
 This **ML/MM calculator** employs AIMNet2 or UMA potentials, supports link atoms (allowing amino‑acid residues to be included in the ML region), and can output full-system Hessians. In addition, to curb the expense of transition-state searches in systems containing thousands of atoms, a Partial Hessian Dimer (**Ph-Dimer**) algorithm relies on partial Hessians restricted to the active-site region. Moreover, a command-line interface streamlines the entire workflow—from an enzyme–substrate complex to the evaluation of ($\Delta G$) and ($\Delta G^{\ddagger}$). The toolset presented here enables faster and more straightforward analyses of enzyme reaction mechanisms.
@@ -36,11 +34,8 @@ The MM layer uses **OpenMM**. Any force field capable of generating parameters (
 Interfaces are available for **ASE** and **PySiSyphus**.  
 Periodic boundary conditions & implementation for molecular dynamics are planned for future releases but are *not* yet implemented.
 
----
 
 ## 1. Installation Guide
-
----
 
 ### Quick install
 * **AIMNet2 and UMA**  
@@ -101,8 +96,6 @@ conda create -n mlmm python=3.11 -y
 conda activate mlmm
 ```
 
----
-
 ### 1.3. Install PyTorch
 
 Choose the wheel that matches your CUDA driver:
@@ -120,8 +113,6 @@ If you are on an HPC cluster that uses *environment modules*, load CUDA **before
 ```bash
 module load cuda/12.6
 ```
-
----
 
 ### 1.4. Install the ML/MM calculator
 
@@ -151,8 +142,6 @@ Choose one of the following backends:
 > The sequence above avoids conflicting pins. You may see *warning* messages, but the installation is still functional.  
 > Once both backends are present **and** you require CUDA 12.8, reinstall PyTorch so that the wheel version matches your driver (FairChem currently pulls `torch‑2.6`):
 
----
-
 ### 1.5. Authenticate for UMA (Hugging Face)
 
 UMA model is on Hugging Face Hub. Log in **once** (See https://github.com/facebookresearch/fairchem):
@@ -160,8 +149,6 @@ UMA model is on Hugging Face Hub. Log in **once** (See https://github.com/faceb
 ```bash
 huggingface-cli login
 ```
-
----
 
 ### 1.6. Avoid AmberTools conflicts (optional)
 
@@ -184,7 +171,6 @@ PY
 
 A successful installation prints a version string without raising exceptions.
 
----
 
 ## 2. Preparing an Enzyme–Substrate System
 
@@ -211,7 +197,6 @@ A successful installation prints a version string without raising exceptions.
 
    **Important:** atom order, residue names, and residue numbers must match between the *full* PDB and the *ML‑region* PDB. (If you use PyMOL, tick **“Original atom order”** when exporting the molecule.)
 
----
 
 ## 3. Using the Calculator
 
@@ -259,8 +244,6 @@ write("final.pdb", atoms)
 > • If `model_charge` or `model_mult` is omitted, the charge is estimated with **RDKit**, and the multiplicity defaults to 1 — set them explicitly for safety.  
 > • `model_mult` is available with `uma` backend.  
 > • `ml_device="auto"` selects a CUDA-capable GPU automatically (the first available one).
-
----
 
 ### 3.2 Example for PySiSyphus Interface: <https://pysisyphus.readthedocs.io>
 
@@ -334,8 +317,6 @@ Run with:
 mlmm input.yaml
 ```
 
----
-
 ### 3.3 Base‑Level API
 
 ```python
@@ -370,8 +351,6 @@ forces   = results["forces"]       # ndarray (N, 3), eV Å-1
 hessian  = results["hessian"]      # torch.Tensor (3N, 3N), eV Å-2
 ```
 
----
-
 ### 3.4 Command‑Line Utilities
 
 The ML/MM calculator ships with a small set of single‑purpose command‑line helpers. All tools are installed automatically when you install this package and therefore become available on your `$PATH`.
@@ -389,8 +368,6 @@ The ML/MM calculator ships with a small set of single‑purpose command‑line h
 
 Detailed option tables and usage examples for each utility are provided in [docs/code_and_cli.md](docs/code_and_cli.md).
 
----
-
 ## 4. Tips
 
 * **Large systems & Hessians**  
@@ -399,8 +376,6 @@ Detailed option tables and usage examples for each utility are provided in [docs
 * **Reaction‑path searches**  
   Growing‑String / NEB methods require properly pre-aligned reactant and product structures.  
   Best practice: **minimize** the reactant, clone or edit it into the product, or run a 1‑D coordinate scan and pick end‑points.
-
----
 
 ## License
 
