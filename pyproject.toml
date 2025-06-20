@@ -27,7 +27,7 @@ dependencies = [
     "pyyaml",
     "sympy",
     "scikit-learn",
-    "ase",
+    "ase>=3.25.0",
     "biopython",
     "fabric",
     "rmsd",
@@ -38,10 +38,6 @@ dependencies = [
     "parmed",
     "pysisyphus @ git+https://github.com/t-0hmura/pysisyphus.git",
 ]
-
-[project.optional-dependencies]
-uma = ["fairchem-core==2.2.0"]
-aimnet2 = ["aimnet @ git+https://github.com/isayevlab/aimnetcentral.git"]
 
 [project.scripts]
 mlmm = "mlmm.mlmm_pysis:run_pysis"
