@@ -140,6 +140,8 @@ class MLMMCore:
         mm_cuda_idx: int = 0,
         mm_threads: int = 16,
         freeze_atoms: List[int] | None = None,
+
+        out_ml_region_with_H: bool = False
     ):
         """
         Args:
@@ -188,6 +190,8 @@ class MLMMCore:
         self.model_pdb = os.path.join(self.tmpdir, "model.pdb")
         self.model_parm7 = os.path.join(self.tmpdir, "model.parm7")
         self.model_rst7 = os.path.join(self.tmpdir, "model.rst7")
+
+        self.model_H_pdb = model_pdb.replace(".pdb", "_H.pdb")
         
         mol = pmd.load_file(real_parm7, real_rst7)
         mol.box = None
@@ -505,6 +509,10 @@ class MLMMCore:
         atoms_real, atoms_model, atoms_model_LH, added_link_atoms = self._prep_3_layer_atoms(
             coord_ang
         )
+
+        if out_ml_region_with_H:
+            if not os.path.exists(self.model_H_pdb):
+                atoms_model_LH.write(self.model_H_pdb)
 
         # 2. high-level evaluation
         # ---------------------------------------------------------------------
