@@ -169,6 +169,11 @@ PY
 
 A successful installation prints a version string without raising exceptions.
 
+### 1.8. (Optional) direct MaxFlux method (Useful NEB-like reaction path search method)
+```bash
+pip install cyipopt
+pip install git+https://github.com/t-0hmura/torch-dmf.git
+```
 
 ## 2. Preparing an Enzyme–Substrate System
 
