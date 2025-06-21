@@ -210,6 +210,7 @@ class MLMMCore:
         self.selection_indices = self._mk_model_parm7()
 
         self.freeze_atoms = [] if freeze_atoms is None else list(freeze_atoms)
+        self.out_ml_region_with_H = out_ml_region_with_H
 
         # (optional) vib directory
         # ---------------------------------------------------------------------
@@ -510,7 +511,7 @@ class MLMMCore:
             coord_ang
         )
 
-        if out_ml_region_with_H:
+        if self.out_ml_region_with_H:
             if not os.path.exists(self.model_H_pdb):
                 atoms_model_LH.write(self.model_H_pdb)
 
