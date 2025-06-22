@@ -97,8 +97,9 @@ class PartialHessianDimer:
         # ---------------------------------------------------------------------
         mlmm_kwargs: Optional[dict] = None,
         dimer_kwargs: Optional[dict] = None,
-        # tensor device
+        # tensor dtype/device
         # ---------------------------------------------------------------------
+        H_dtype: torch.dtype = torch.float32,
         H_device: Union[str, torch.device] = "auto",
     ):
         # basic paths
@@ -148,7 +149,7 @@ class PartialHessianDimer:
 
         # dtype / device
         # ---------------------------------------------------------------------
-        self.H_dtype = self.mlmm_kwargs.get("H_dtype", torch.float32)
+        self.H_dtype = H_dtype
         if isinstance(H_device, str) and H_device == "auto":
             self.H_device = (
                 torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -177,7 +178,8 @@ class PartialHessianDimer:
         # ---------------------------------------------------------------------
         masses_amu = np.array([atomic_masses[z] for z in self.geom.atomic_numbers])
         self.masses_amu_np = masses_amu
-        self.masses_amu_t = torch.tensor(masses_amu, dtype=self.H_dtype, device=self.H_device)
+        self.masses_au_t = torch.tensor(masses_amu * AMU2AU,
+                                        dtype=self.H_dtype, device=self.H_device)
         # for mass-scaled flatten
         self.mass_scale = np.sqrt(12.011 / masses_amu)[:, None]
 
@@ -203,75 +205,38 @@ class PartialHessianDimer:
     # ================================================================
     # helper – TR projection
     # ================================================================
-    def _project_out_tr(self, H: torch.Tensor, coords_bohr_t: torch.Tensor, masses_amu_t: torch.Tensor) -> torch.Tensor:
+    def _project_out_tr(
+        self, H: torch.Tensor, coords_bohr_t: torch.Tensor
+    ) -> torch.Tensor:
         if coords_bohr_t.ndim == 1:
             coords_bohr_t = coords_bohr_t.view(-1, 3)
         elif coords_bohr_t.shape[-1] != 3:
             coords_bohr_t = coords_bohr_t.reshape(-1, 3)
-
-        B  = _build_tr_basis(coords_bohr_t, masses_amu_t)
-        Bt = B.T
-        G  = torch.linalg.solve(Bt @ B, Bt @ H)          # (6, 3N_act)
-        H = H - B @ G - G.T @ Bt + B @ torch.linalg.solve(Bt @ B, (Bt @ H @ B)) @ Bt
-        return H
-
-    # ================================================================
-    # shared helper – drop zero-rows / restore
-    # ================================================================
-    @staticmethod
-    def _reduce_hessian(H: torch.Tensor, tol: float = 1e-8) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Remove rows/cols with ‖row‖ ≤ tol  (returns H, active_dof)."""
-        row_nonzero = torch.linalg.norm(H, dim=1) > tol
-        active_dof  = torch.nonzero(row_nonzero, as_tuple=False).squeeze()
-
-        if active_dof.numel() == H.shape[0]:   # no reduction
-            return H, None
-
-        H = H[active_dof][:, active_dof]
-        return H, active_dof
+        B = _build_tr_basis(coords_bohr_t, self.masses_au_t)
+        P = torch.eye(B.shape[0], dtype=H.dtype, device=H.device) - B @ torch.linalg.solve(
+            B.T @ B, B.T
+        )
+        return P @ H @ P
 
     # ================================================================
     # helper – lowest-mode writer
     # ================================================================
     def _write_lowest_mode(self, H: torch.Tensor) -> np.ndarray:
-        # 1) reduce Hessian ----------------------------------------------------
-        H, active = self._reduce_hessian(H)
-
-        # 2) build coords / masses for active atoms ---------------------------
-        coords_full = torch.as_tensor(self.geom.coords, dtype=self.H_dtype, device=self.H_device).view(-1, 3)
-        if active is None:
-            coords_act  = coords_full
-            masses_act  = self.masses_amu_t
-        else:
-            atoms_act   = torch.unique(active // 3)
-            coords_act  = coords_full[atoms_act]
-            masses_act  = self.masses_amu_t[atoms_act]
-
-        # 3) TR projection -----------------------------------------------------
-        H_proj = self._project_out_tr(H, coords_act, masses_act)
-
-        # 4) lowest eigen-mode -------------------------------------------------
+        coords_t = torch.tensor(self.geom.coords,
+                                dtype=self.H_dtype,
+                                device=self.H_device).view(-1, 3)
+        Hproj = self._project_out_tr(H, coords_t)
         if self.lobpcg:
-            w, v = torch.lobpcg(H_proj, k=1, largest=False)
-            mode_red = v[:, 0]
+            eigvals, eigvecs = torch.lobpcg(Hproj, k=1, largest=False)
+            mode_vec = eigvecs[:, 0]
         else:
-            w, v = torch.linalg.eigh(H_proj)
-            mode_red = v[:, torch.argmin(w)]
+            eigvals, eigvecs = torch.linalg.eigh(Hproj)
+            mode_vec = eigvecs[:, torch.argmin(eigvals)]
 
-        # 5) re-expand eigenvector to full length ------------------------------
-        n_full   = 3 * len(self.geom.atomic_numbers)
-        mode_vec = torch.zeros(n_full, dtype=H_proj.dtype, device=H_proj.device)
-        if active is None:
-            mode_vec[:] = mode_red
-        else:
-            mode_vec[active] = mode_red
-
-        # 6) zero out static-freeze DOF ---------------------------------------
         for idx in self.freeze_atoms_static:
             mode_vec[3*idx : 3*idx + 3] = 0.0
-
-        # 7) normalise & save --------------------------------------------------
-        mode = (mode_vec / torch.linalg.norm(mode_vec)).view(-1, 3).cpu().numpy()
+            
+        mode = (mode_vec / torch.linalg.norm(mode_vec)).reshape(-1, 3).cpu().numpy()
         np.savetxt(self.mode_path, mode, fmt="%.10f")
         return mode
 
@@ -289,7 +254,7 @@ class PartialHessianDimer:
     # ================================================================
     # helper – full Hessian (zero out freeze_atoms)
     # ================================================================
-    def _full_hessian(self) -> Tuple[np.ndarray, torch.Tensor]:
+    def _full_hessian(self) -> Tuple[np.ndarray, np.ndarray]:
         """Calculate the full Hessian and perform vibrational analysis after
         zeroing all degrees of freedom corresponding to ``freeze_atoms`` (the
         3×3 blocks and their interactions with other atoms).
@@ -298,9 +263,8 @@ class PartialHessianDimer:
         -------
         freqs : np.ndarray
             Frequencies in cm⁻¹.
-        modes : torch.Tensor
-            Mass-weighted eigenvectors with shape ``(nmode, 3N)`` on the same
-            device as the Hessian.
+        modes : np.ndarray
+            Mass-weighted eigenvectors with shape ``(nmode, 3N)``.
         """
         # 1. obtain the Hessian
         # ---------------------------------------------------------------------
@@ -378,22 +342,21 @@ class PartialHessianDimer:
             if ok:
                 break
             # re-diagonalise partial Hessian & update mode
-            H = self._partial_hessian()
-            self._write_lowest_mode(H)
+            Hpart = self._partial_hessian()
+            self._write_lowest_mode(Hpart)
         return total
 
     # ================================================================
     # helper – flatten imaginary modes
     # ================================================================
     @staticmethod
-    def _representative_atoms(mode_vec: torch.Tensor, k: int = 10) -> np.ndarray:
+    def _representative_atoms(mode_vec: np.ndarray, k: int = 10) -> np.ndarray:
         """Return indices of the k atoms with the largest displacements."""
-        vec = mode_vec.view(-1, 3)
-        idx = torch.argsort(torch.linalg.norm(vec, dim=1))[-k:]
-        return idx.cpu().numpy()
+        vec = mode_vec.reshape(-1, 3)
+        return np.argsort(np.linalg.norm(vec, axis=1))[-k:]
 
     def _flatten_once(
-        self, freqs: np.ndarray, modes: torch.Tensor
+        self, freqs: np.ndarray, modes: np.ndarray
     ) -> bool:  # returns True if flatten performed
         neg_idx = np.where(freqs < -abs(self.neg_freq_thresh))[0]
         if len(neg_idx) <= 1:
@@ -419,7 +382,7 @@ class PartialHessianDimer:
         amp_bohr = self.flatten_amp_ang / BOHR2ANG
 
         for idx in targets:
-            v = modes[idx].detach().cpu().numpy().reshape(-1, 3)
+            v = modes[idx].reshape(-1, 3)
             v /= np.linalg.norm(v)
             disp = amp_bohr * self.mass_scale * v  # Bohr
             ref = self.geom.coords.reshape(-1, 3)
@@ -470,41 +433,37 @@ class PartialHessianDimer:
         # 1  build partial Hessian & loose loop
         # ---------------------------------------------------------------------
         print("\n>>> Loose-threshold Dimer with partial Hessian\n")
-        H = self._partial_hessian()
-        self._write_lowest_mode(H)
-        del H; torch.cuda.empty_cache()
+        Hpart = self._partial_hessian()
+        self._write_lowest_mode(Hpart)
         cycles_loose = self._dimer_loop(self.thresh_loose)
 
         # 2  final-threshold Dimer loop
         # ---------------------------------------------------------------------
         print("\n>>> Final-threshold Dimer\n")
-        H = self._partial_hessian()
-        self._write_lowest_mode(H)
-        del H; torch.cuda.empty_cache()
+        Hpart = self._partial_hessian()
+        self._write_lowest_mode(Hpart)
         cycles_final = self._dimer_loop(self.thresh)
 
         total_cycles = cycles_loose + cycles_final
 
         # 3  flatten loop
         # ---------------------------------------------------------------------
-        if self.flatten_amp_ang > 0.0 and self.flatten_max_iter > 0:
-            print("\n>>> Flatten extra imaginary modes\n")
-            for it in range(self.flatten_max_iter):
-                freqs, modes = self._full_hessian()
-                n_imag = np.sum(freqs < -abs(self.neg_freq_thresh))
-                print(f"  flatten iter {it:02d}: n_imag = {n_imag}")
-                if n_imag <= 1:
-                    break
-                did_flatten = self._flatten_once(freqs, modes)
-                if not did_flatten:
-                    break
-                # after displacement → run final-threshold Dimer again
-                H = self._partial_hessian()
-                self._write_lowest_mode(H)
-                del H; torch.cuda.empty_cache()
-                total_cycles += self._dimer_loop(self.thresh)
-            else:
-                print("  Warning: flatten_max_iter reached.")
+        print("\n>>> Flatten extra imaginary modes\n")
+        for it in range(self.flatten_max_iter):
+            freqs, modes = self._full_hessian()
+            n_imag = np.sum(freqs < -abs(self.neg_freq_thresh))
+            print(f"  flatten iter {it:02d}: n_imag = {n_imag}")
+            if n_imag <= 1:
+                break
+            did_flatten = self._flatten_once(freqs, modes)
+            if not did_flatten:
+                break
+            # after displacement → run final-threshold Dimer again
+            Hpart = self._partial_hessian()
+            self._write_lowest_mode(Hpart)
+            total_cycles += self._dimer_loop(self.thresh)
+        else:
+            print("  Warning: flatten_max_iter reached.")
 
         # 4  export final structure
         # ---------------------------------------------------------------------
@@ -536,7 +495,7 @@ class PartialHessianDimer:
         )
         for rank, idx in enumerate(neg_idx):
             freq = freqs[idx]
-            mode_vec = modes[idx].detach().cpu().numpy().reshape(len(self.geom.atomic_numbers), 3)
+            mode_vec = modes[idx].reshape(len(self.geom.atomic_numbers), 3)
             out_xyz = self.vib_dir / f"mode{rank:02d}_{freq:+.2f}cm-1.xyz"
             write_vib_traj_xyz(
                 atoms=atoms, mode=mode_vec, filename=str(out_xyz),
@@ -555,5 +514,4 @@ class PartialHessianDimer:
         h, rem = divmod(int(time.time() - wall0), 3600)
         m, s = divmod(rem, 60)
         print(f"Total Dimer cycles      : {total_cycles}")
-        print(f"Elapsed time            : {h}:{m}:{s}")
-
+        print(f"Elapsed time            : {h} h {m} m {s} s")

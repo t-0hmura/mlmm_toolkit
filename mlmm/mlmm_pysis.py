@@ -21,6 +21,9 @@ from mlmm.mlmm_calc import MLMMCore
 
 EV2AU = 1 / AU2EV   # eV → Hartree
 
+# Hessian dtype
+H_dtype = torch.float32
+
 class mlmm(Calculator):
     implemented_properties = ['energy', 'forces', 'hessian', 'charges']
 
@@ -39,6 +42,7 @@ class mlmm(Calculator):
                  vib_run: bool = False,
                  vib_dir: str = None,
                  out_hess_torch: bool = False,
+                 hess_torch_double: bool = False,
 
                  ml_device: str = "auto",
                  ml_cuda_idx: int = 0,
@@ -98,6 +102,7 @@ class mlmm(Calculator):
                  freeze_atoms = freeze_atoms)
 
         self.out_hess_torch = out_hess_torch
+        self.hess_torch_double = hess_torch_double
 
     @staticmethod
     def _results_get_energy(results):
@@ -109,7 +114,12 @@ class mlmm(Calculator):
     
     def _results_get_hessian(self, results):
         if self.out_hess_torch: # (N,3,N,3) → (N*3,N*3) on device
-            return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR))
+            if self.hess_torch_double:
+                return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).requires_grad_(False)
+            elif H_dtype != torch.float64:
+                return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).to(H_dtype).requires_grad_(False)
+            else:
+                return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).requires_grad_(False)
         else: # (N,3,N,3) → (N*3,N*3)
             return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).cpu().numpy()
 

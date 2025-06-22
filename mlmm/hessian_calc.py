@@ -45,7 +45,7 @@ def clone_atoms(atoms):
 # ---------------------------------------------------------------------
 # Finite-difference Hessian
 # ---------------------------------------------------------------------
-def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None) -> np.ndarray:
+def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None):
     """
     Numerically compute the full Cartesian Hessian (second derivatives).
 
@@ -153,7 +153,7 @@ def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None)
 
     # enforce symmetry & return
     # ---------------------------------------------------------------------
-    return H_full
+    return (H_full + H_full.T) / 2.0
 
 
 # ---------------------------------------------------------------------
@@ -224,9 +224,8 @@ def calc_freq_from_hessian(
         Vibrational frequencies (cm⁻¹). Imaginary modes are negative.
     hnu_eV : ndarray
         Zero-point energies hν (eV) for the same modes.
-    modes : torch.Tensor
-        Mass-weighted eigenvectors, shape (nmode, 3N). Frozen DOF are zero and
-        returned on the same device as ``H``.
+    modes_np : ndarray
+        Mass-weighted eigenvectors, shape (nmode, 3N). Frozen DOF are zero.
     """
 
     # ---------------------------------------------------------------------
@@ -268,10 +267,10 @@ def calc_freq_from_hessian(
         masses = torch.as_tensor(masses_amu_act,
                                  dtype=H.dtype, device=H.device)
         B       = _build_tr_basis(coords, masses)
-
-        Bt = B.T
-        G  = torch.linalg.solve(Bt @ B, Bt @ H)          # (6,3N)
-        H  = H - B @ G - G.T @ Bt + B @ torch.linalg.solve(Bt @ B, (Bt @ H @ B)) @ Bt
+        P       = torch.eye(B.shape[0], dtype=H.dtype, device=H.device) \
+                - B @ torch.linalg.solve(B.T @ B, B.T)
+        H = P @ H @ P
+        H = (H + H.T) / 2.0
 
     # ---------------------------------------------------------------------
     # 2)   Mass-weighting and diagonalization
@@ -279,10 +278,11 @@ def calc_freq_from_hessian(
     m_vec = np.repeat(_get_masses(elem_act), 3)   # amu
     m     = torch.as_tensor(m_vec, dtype=H.dtype, device=H.device)
     inv_sqrt_m = torch.sqrt(1.0 / m)
-    H  = inv_sqrt_m[:, None] * H * inv_sqrt_m
-    H.requires_grad_(False)
+    Hmw  = inv_sqrt_m[:, None] * H * inv_sqrt_m
+    Hmw.requires_grad_(False)
 
-    omega2, modes = torch.linalg.eigh(H)
+    omega2, modes = torch.linalg.eigh(Hmw)
+    del H, Hmw; torch.cuda.empty_cache()
 
     # ---------------------------------------------------------------------
     # 3)   Remove low frequencies and report eigenvalues
@@ -299,16 +299,16 @@ def calc_freq_from_hessian(
     sel      = torch.abs(omega2) > tol
     omega2   = omega2[sel]
     modes    = modes[:, sel]          # (3N_act, nmode)
-    modes    = modes.T                # (nmode, 3N_act)
+    modes_np = modes.T.detach().cpu().numpy()
 
     # ---------------------------------------------------------------------
     # 4)   Pad eigenvectors to length 3N
     # ---------------------------------------------------------------------
     if reduced:
-        nmode = modes.shape[0]
-        full_modes = torch.zeros((nmode, n_tot), dtype=modes.dtype, device=modes.device)
-        full_modes[:, active_dof] = modes
-        modes = full_modes
+        nmode = modes_np.shape[0]
+        full_modes = np.zeros((nmode, n_tot), dtype=modes_np.dtype)
+        full_modes[:, active_dof.cpu().numpy()] = modes_np
+        modes_np = full_modes
 
     # ---------------------------------------------------------------------
     # 5)   Convert to frequencies and hν
@@ -332,7 +332,7 @@ def calc_freq_from_hessian(
     freqs_cm = (hnu / units.invcm).cpu().numpy()
     hnu_eV   = hnu.cpu().numpy()
 
-    return freqs_cm, hnu_eV, modes
+    return freqs_cm, hnu_eV, modes_np
 
 
 # ---------------------------------------------------------------------
