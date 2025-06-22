@@ -35,9 +35,15 @@ class mlmm_ase(Calculator):
                  mm_device: str = "cpu",
                  mm_cuda_idx: int = 0,
                  mm_threads: int = 16,
-                 freeze_atoms: List[int] | None = None):
+                 freeze_atoms: List[int] | None = None,
+                 H_double: bool = False):
         """
         ML/MM calculator for ASE
+
+        Parameters
+        ----------
+        H_double : bool
+            Use double precision for Hessian-related tensors.
         """
         super().__init__()
         self.core = MLMMCore(
@@ -60,7 +66,8 @@ class mlmm_ase(Calculator):
                  mm_device = mm_device,
                  mm_cuda_idx = mm_cuda_idx,
                  mm_threads = mm_threads,
-                 freeze_atoms = freeze_atoms)
+                 freeze_atoms = freeze_atoms,
+                 H_double = H_double)
 
     # ---------------------------------------------------------------------
     def calculate(self, atoms, properties, system_changes=all_changes):
