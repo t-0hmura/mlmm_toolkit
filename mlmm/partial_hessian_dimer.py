@@ -97,9 +97,8 @@ class PartialHessianDimer:
         # ---------------------------------------------------------------------
         mlmm_kwargs: Optional[dict] = None,
         dimer_kwargs: Optional[dict] = None,
-        # tensor dtype/device
+        # tensor device
         # ---------------------------------------------------------------------
-        H_dtype: torch.dtype = torch.float32,
         H_device: Union[str, torch.device] = "auto",
     ):
         # basic paths
@@ -149,7 +148,7 @@ class PartialHessianDimer:
 
         # dtype / device
         # ---------------------------------------------------------------------
-        self.H_dtype = H_dtype
+        self.H_dtype = self.mlmm_kwargs.get("H_dtype", torch.float32)
         if isinstance(H_device, str) and H_device == "auto":
             self.H_device = (
                 torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

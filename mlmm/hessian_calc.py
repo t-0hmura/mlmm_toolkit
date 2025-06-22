@@ -19,8 +19,6 @@ from ase.atoms import Atoms
 from ase.io import write
 from pysisyphus.constants import BOHR2ANG, ANG2BOHR, AU2EV, AMU2AU
 
-# Hessian dtype
-H_dtype = torch.float32
 
 # ---------------------------------------------------------------------
 # Utilities
