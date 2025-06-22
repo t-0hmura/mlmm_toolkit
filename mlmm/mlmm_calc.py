@@ -40,6 +40,9 @@ from mlmm.hessian_calc import hessian_calc
 
 # UMA / fairchem and AIMNet2 is imported lazily inside the class to avoid hard dependency
 
+# Hessian dtype
+H_dtype = torch.float32
+
 # ---------------------------------------------------------------------
 # OpenMM → ASE calculator wrapper
 # ---------------------------------------------------------------------
@@ -530,7 +533,7 @@ class MLMMCore:
                     return self.predictor.predict(batch_h)["energy"].squeeze()
                 self.predictor.model.train()
                 H_flat = torch.autograd.functional.hessian(energy_fn, pos.view(-1))
-                H_high = H_flat.view(n_ml, 3, n_ml, 3).to(torch.double).detach()
+                H_high = H_flat.view(n_ml, 3, n_ml, 3).to(H_dtype).detach()
                 self.predictor.model.eval()
             else:
                 H_high = None
@@ -547,7 +550,7 @@ class MLMMCore:
                 results_h["forces"].to(torch.double).detach().cpu().numpy()
             )
             H_high = (
-                results_h["hessian"].to(torch.double)
+                results_h["hessian"].to(H_dtype)
                 if return_hessian and "hessian" in results_h
                 else None
             )
@@ -609,21 +612,20 @@ class MLMMCore:
                     atoms_real, self.calc_real_low, delta=0.01,
                     info_path=os.path.join(self.vib_dir, "real.log"),
                 )
-                H_tot = torch.tensor(H_tot, dtype=torch.double, device=self.ml_device) \
-                           .reshape(n_real, 3, n_real, 3)
+                H_tot = torch.tensor(H_tot, dtype=H_dtype, device=self.ml_device).reshape(n_real, 3, n_real, 3)
 
                 H_model = hessian_calc(
                     atoms_model, self.calc_model_low, delta=0.01,
                     info_path=os.path.join(self.vib_dir, "model.log"),
                 )
-                H_model = torch.tensor(H_model, dtype=torch.double, device=self.ml_device) \
+                H_model = torch.tensor(H_model, dtype=H_dtype, device=self.ml_device) \
                             .reshape(len(atoms_model), 3, len(atoms_model), 3)
             else:
                 H_tot = torch.zeros((n_real, 3, n_real, 3),
-                                     dtype=torch.double, device=self.ml_device)
+                                     dtype=H_dtype, device=self.ml_device)
                 n_ml = len(self.selection_indices)
                 H_model = torch.zeros((n_ml, 3, n_ml, 3),
-                                      dtype=torch.double, device=self.ml_device)
+                                      dtype=H_dtype, device=self.ml_device)
 
             n_ml = len(self.selection_indices)
 
@@ -646,14 +648,12 @@ class MLMMCore:
             for link_idx, ml_idx, mm_idx in added_link_atoms:
                 ml_model_idx = rev_index[ml_idx]
 
-                r_ml = torch.tensor(atoms_model_LH[ml_model_idx].position,
-                                    dtype=torch.double, device=self.ml_device)
-                r_mm = torch.tensor(atoms_real[mm_idx].position,
-                                    dtype=torch.double, device=self.ml_device)
+                r_ml = torch.tensor(atoms_model_LH[ml_model_idx].position, device=self.ml_device)
+                r_mm = torch.tensor(atoms_real[mm_idx].position, device=self.ml_device)
                 vec = r_mm - r_ml
                 Rlen = torch.norm(vec)
                 u = vec / Rlen
-                I3 = torch.eye(3, dtype=torch.double, device=self.ml_device)
+                I3 = torch.eye(3, device=self.ml_device)
                 du_dQ = (I3 - torch.outer(u, u)) / Rlen
                 dR_dQ = I3 - self.dist_link * du_dQ
                 dR_dM = self.dist_link * du_dQ
@@ -664,9 +664,7 @@ class MLMMCore:
             # ---------------------------------------------------------------------
             #  (0) self-diagonal Jᵀ·H·J  and 2-nd term
             # ---------------------------------------------------------------------
-            F_high_torch = torch.as_tensor(F_model_high,
-                                           dtype=torch.double,
-                                           device=self.ml_device)
+            F_high_torch = torch.as_tensor(F_model_high, dtype=torch.double, device=self.ml_device)
 
             for link_idx, ml_idx, mm_idx, K in link_data:
                 # Jᵀ H J
@@ -690,11 +688,7 @@ class MLMMCore:
 
                 r_ml_np = atoms_model_LH[rev_index[ml_idx]].position
                 r_mm_np = atoms_real[mm_idx].position
-                pos = torch.as_tensor(
-                    np.concatenate([r_ml_np, r_mm_np]),
-                    dtype=torch.double,
-                    device=self.ml_device
-                )
+                pos = torch.as_tensor(np.concatenate([r_ml_np, r_mm_np]),device=self.ml_device)
                 pos.requires_grad = True
 
                 def g(p):
@@ -705,8 +699,7 @@ class MLMMCore:
                     rL = rq + self.dist_link * uvec
                     return torch.dot(f_L, rL)  # scalar
 
-                H_corr6 = torch.autograd.functional.hessian(g, pos).detach()  # (6×6)
-                H_corr6 = 0.5*(H_corr6 + H_corr6.T)
+                H_corr6 = torch.autograd.functional.hessian(g, pos).to(H_dtype).detach() # (6×6)
 
                 H_tot[ml_idx, :, ml_idx, :] += H_corr6[0:3, 0:3]
                 H_tot[ml_idx, :, mm_idx, :] += H_corr6[0:3, 3:6]

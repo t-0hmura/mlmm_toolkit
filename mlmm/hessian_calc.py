@@ -19,6 +19,8 @@ from ase.atoms import Atoms
 from ase.io import write
 from pysisyphus.constants import BOHR2ANG, ANG2BOHR, AU2EV, AMU2AU
 
+# Hessian dtype
+H_dtype = torch.float32
 
 # ---------------------------------------------------------------------
 # Utilities
@@ -45,7 +47,7 @@ def clone_atoms(atoms):
 # ---------------------------------------------------------------------
 # Finite-difference Hessian
 # ---------------------------------------------------------------------
-def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None):
+def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None) -> np.ndarray:
     """
     Numerically compute the full Cartesian Hessian (second derivatives).
 
@@ -153,7 +155,7 @@ def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None)
 
     # enforce symmetry & return
     # ---------------------------------------------------------------------
-    return (H_full + H_full.T) / 2.0
+    return H_full
 
 
 # ---------------------------------------------------------------------
@@ -277,11 +279,10 @@ def calc_freq_from_hessian(
     m_vec = np.repeat(_get_masses(elem_act), 3)   # amu
     m     = torch.as_tensor(m_vec, dtype=H.dtype, device=H.device)
     inv_sqrt_m = torch.sqrt(1.0 / m)
-    Hmw  = inv_sqrt_m[:, None] * H * inv_sqrt_m
-    Hmw.requires_grad_(False)
+    H  = inv_sqrt_m[:, None] * H * inv_sqrt_m
+    H.requires_grad_(False)
 
-    omega2, modes = torch.linalg.eigh(Hmw)
-    del H, Hmw; torch.cuda.empty_cache()
+    omega2, modes = torch.linalg.eigh(H)
 
     # ---------------------------------------------------------------------
     # 3)   Remove low frequencies and report eigenvalues
