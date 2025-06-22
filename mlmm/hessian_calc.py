@@ -235,8 +235,9 @@ def calc_freq_from_hessian(
         Vibrational frequencies (cm⁻¹). Imaginary modes are negative.
     hnu_eV : ndarray
         Zero-point energies hν (eV) for the same modes.
-    modes_np : ndarray
-        Mass-weighted eigenvectors, shape (nmode, 3N). Frozen DOF are zero.
+    modes_t : torch.Tensor
+        Mass-weighted eigenvectors, shape ``(nmode, 3N)`` kept on the
+        same device as ``H``.  Frozen DOF are zero.
     """
 
     # ---------------------------------------------------------------------
@@ -309,19 +310,18 @@ def calc_freq_from_hessian(
             print(f"{neg_idx.numel()} negative eigenvalues detected:")
             print(vals)
 
-    sel      = torch.abs(omega2) > tol
-    omega2   = omega2[sel]
-    modes    = modes[:, sel]          # (3N_act, nmode)
-    modes_np = modes.T.detach().cpu().numpy()
+    sel    = torch.abs(omega2) > tol
+    omega2 = omega2[sel]
+    modes  = modes[:, sel].T        # (nmode, 3N_act)
 
     # ---------------------------------------------------------------------
     # 4)   Pad eigenvectors to length 3N
     # ---------------------------------------------------------------------
     if reduced:
-        nmode = modes_np.shape[0]
-        full_modes = np.zeros((nmode, n_tot), dtype=modes_np.dtype)
-        full_modes[:, active_dof.cpu().numpy()] = modes_np
-        modes_np = full_modes
+        nmode = modes.shape[0]
+        full = torch.zeros((nmode, n_tot), dtype=modes.dtype, device=modes.device)
+        full[:, active_dof] = modes
+        modes = full
 
     # ---------------------------------------------------------------------
     # 5)   Convert to frequencies and hν
@@ -345,7 +345,7 @@ def calc_freq_from_hessian(
     freqs_cm = (hnu / units.invcm).cpu().numpy()
     hnu_eV   = hnu.cpu().numpy()
 
-    return freqs_cm, hnu_eV, modes_np
+    return freqs_cm, hnu_eV, modes
 
 
 # ---------------------------------------------------------------------
