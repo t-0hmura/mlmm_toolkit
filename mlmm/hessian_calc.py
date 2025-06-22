@@ -149,10 +149,10 @@ def hessian_calc(
     # assemble full (3N, 3N) Hessian
     # ---------------------------------------------------------------------
     N = len(atoms)
-    H_full = np.zeros((3 * N, 3 * N), dtype=dtype)
+    H = np.zeros((3 * N, 3 * N), dtype=dtype)
     for i_local, i_atom in enumerate(movable):
         for j_local, j_atom in enumerate(movable):
-            H_full[
+            H[
                 3 * i_atom : 3 * i_atom + 3,
                 3 * j_atom : 3 * j_atom + 3,
             ] = H_sub[
@@ -160,11 +160,13 @@ def hessian_calc(
                 3 * j_local : 3 * j_local + 3,
             ]
 
-    # enforce symmetry in-place & return
-    # ---------------------------------------------------------------------
-    H_full += H_full.T
-    H_full *= 0.5
-    return H_full
+    # Symmetrize the Hessian (x1.5 vram)
+    with torch.no_grad():
+        idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
+        avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
+        H[idx[0], idx[1]] = avg
+        H[idx[1], idx[0]] = avg       # mirror copy
+    return H
 
 
 # ---------------------------------------------------------------------
