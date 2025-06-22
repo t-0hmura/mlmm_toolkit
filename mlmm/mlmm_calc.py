@@ -569,7 +569,7 @@ class MLMMCore:
         # 4. combine energies
         # ---------------------------------------------------------------------
         total_E = E_real_low + E_model_high - E_model_low
-        results: Dict = {"energy": total_E.detach()}
+        results: Dict = {"energy": total_E}
 
         # 5. combine forces
         # ---------------------------------------------------------------------
@@ -594,7 +594,7 @@ class MLMMCore:
                 redistributed = J @ grad_link
                 F_combined[ml_idx] += redistributed[:3]
                 F_combined[mm_idx] += redistributed[3:]
-            results["forces"] = F_combined.detach()
+            results["forces"] = F_combined
 
 
         # 6. Hessian assembly
