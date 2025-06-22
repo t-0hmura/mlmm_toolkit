@@ -273,16 +273,17 @@ def calc_freq_from_hessian(
     # 1)   TR projection (optional)
     # ---------------------------------------------------------------------
     if project_tr and coords_bohr_act is not None and masses_amu_act is not None:
-        coords = torch.as_tensor(coords_bohr_act,
-                                 dtype=H.dtype, device=H.device)
-        masses = torch.as_tensor(masses_amu_act,
-                                 dtype=H.dtype, device=H.device)
-        B       = _build_tr_basis(coords, masses)
-        P       = torch.eye(B.shape[0], dtype=H.dtype, device=H.device) \
-                - B @ torch.linalg.solve(B.T @ B, B.T)
-        H = P @ H @ P
-        H += H.T
-        H *= 0.5
+        coords = torch.as_tensor(coords_bohr_act, dtype=H.dtype, device=H.device)
+        masses = torch.as_tensor(masses_amu_act, dtype=H.dtype, device=H.device)
+        B = _build_tr_basis(coords, masses)
+        Bt = B.T
+        BtB_inv = torch.linalg.inv(Bt @ B)
+        with torch.no_grad():
+            G = BtB_inv @ (Bt @ H)
+            H.sub_(B @ G)
+            HB = H @ B
+            H.sub_(HB @ BtB_inv @ Bt)
+            H.copy_(0.5 * (H + H.T))
 
     # ---------------------------------------------------------------------
     # 2)   Mass-weighting and diagonalization

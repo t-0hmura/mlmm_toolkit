@@ -117,10 +117,7 @@ class mlmm(Calculator):
     def _results_get_hessian(self, results):
         if self.out_hess_torch: # (N,3,N,3) → (N*3,N*3) on device
             target_dtype = torch.float64 if self.hess_torch_double else H_dtype
-            return (
-                results['hessian'].flatten(0, 1).flatten(-2, -1)
-                * (EV2AU / ANG2BOHR / ANG2BOHR)
-            ).to(target_dtype).requires_grad_(False)
+            return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).to(target_dtype).requires_grad_(False)
         else: # (N,3,N,3) → (N*3,N*3)
             return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).cpu().numpy()
 

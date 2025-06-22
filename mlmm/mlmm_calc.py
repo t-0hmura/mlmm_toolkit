@@ -475,11 +475,11 @@ class MLMMCore:
         return sum(at.GetFormalCharge() for at in mol.GetAtoms())
 
     @staticmethod
-    def symmetrize_4idx(H4: torch.Tensor) -> torch.Tensor:
-        n  = H4.shape[0]
-        H2 = H4.reshape(3 * n, 3 * n)
-        H2.add_(H2.T).mul_(0.5)
-        return H2.view(n, 3, n, 3).requires_grad_(False)
+    def symmetrize_4idx(H: torch.Tensor) -> torch.Tensor:
+        n  = H.shape[0]
+        H = H.reshape(3 * n, 3 * n)
+        H = (H + H.T) / 2.0  # symmetrize
+        return H.view(n, 3, n, 3).requires_grad_(False)
 
     # ==================================================================
     #                        MAIN API
@@ -713,8 +713,7 @@ class MLMMCore:
                     return torch.dot(f_L, rL)  # scalar
 
                 H_corr6 = torch.autograd.functional.hessian(g, pos).detach()  # (6×6)
-                H_corr6 += H_corr6.T
-                H_corr6 *= 0.5
+                H_corr6 = 0.5 * (H_corr6 + H_corr6.T)  # symmetrize
 
                 H_tot[ml_idx, :, ml_idx, :] += H_corr6[0:3, 0:3]
                 H_tot[ml_idx, :, mm_idx, :] += H_corr6[0:3, 3:6]

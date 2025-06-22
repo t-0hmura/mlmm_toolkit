@@ -205,38 +205,70 @@ class PartialHessianDimer:
     # ================================================================
     # helper – TR projection
     # ================================================================
-    def _project_out_tr(
-        self, H: torch.Tensor, coords_bohr_t: torch.Tensor
-    ) -> torch.Tensor:
+    def _project_out_tr(self, H: torch.Tensor, coords_bohr_t: torch.Tensor) -> torch.Tensor:
         if coords_bohr_t.ndim == 1:
             coords_bohr_t = coords_bohr_t.view(-1, 3)
         elif coords_bohr_t.shape[-1] != 3:
             coords_bohr_t = coords_bohr_t.reshape(-1, 3)
+
         B = _build_tr_basis(coords_bohr_t, self.masses_au_t)
-        P = torch.eye(B.shape[0], dtype=H.dtype, device=H.device) - B @ torch.linalg.solve(
-            B.T @ B, B.T
-        )
-        return P @ H @ P
+        Bt = B.T
+        BtB_inv = torch.linalg.inv(Bt @ B)
+
+        with torch.no_grad():
+            G = BtB_inv @ (Bt @ H)
+            H.sub_(B @ G)
+            HB = H @ B
+            H.sub_(HB @ BtB_inv @ Bt)
+            H.copy_(0.5 * (H + H.T))
+
+        return H
 
     # ================================================================
     # helper – lowest-mode writer
     # ================================================================
-    def _write_lowest_mode(self, H: torch.Tensor) -> np.ndarray:
-        coords_t = torch.tensor(self.geom.coords,
+    def _write_lowest_mode(
+        self,
+        H: torch.Tensor,
+        tol: float = 1e-6,  # threshold to detect zero rows/cols
+    ) -> np.ndarray:
+        # --- project out translational / rotational modes ---------------
+        coords_t = torch.as_tensor(self.geom.coords,
                                 dtype=self.H_dtype,
                                 device=self.H_device).view(-1, 3)
-        Hproj = self._project_out_tr(H, coords_t)
-        if self.lobpcg:
-            eigvals, eigvecs = torch.lobpcg(Hproj, k=1, largest=False)
-            mode_vec = eigvecs[:, 0]
-        else:
-            eigvals, eigvecs = torch.linalg.eigh(Hproj)
-            mode_vec = eigvecs[:, torch.argmin(eigvals)]
+        H = self._project_out_tr(H, coords_t)
 
+        # --- detect active DOF (rows with norm > tol) -------------------
+        row_nonzero = torch.linalg.norm(H, dim=1) > tol
+        active_dof  = torch.nonzero(row_nonzero, as_tuple=False).squeeze()
+
+        if active_dof.numel() == 0:
+            raise RuntimeError("No active DOF.")
+
+        reduced = active_dof.numel() != H.shape[0]
+        H_red   = H[active_dof][:, active_dof] if reduced else H
+
+        # --- diagonalize ------------------------------------------------
+        if self.lobpcg:
+            eigvals, eigvecs = torch.lobpcg(H_red, k=1, largest=False)
+            mode_vec_red = eigvecs[:, 0]
+        else:
+            eigvals, eigvecs = torch.linalg.eigh(H_red)
+            mode_vec_red = eigvecs[:, torch.argmin(eigvals)]
+
+        # --- pad to full length ----------------------------------------
+        if reduced:
+            mode_full = torch.zeros(H.shape[0], dtype=H.dtype, device=H.device)
+            mode_full[active_dof] = mode_vec_red
+        else:
+            mode_full = mode_vec_red
+
+        # --- zero out statically frozen atoms ---------------------------
         for idx in self.freeze_atoms_static:
-            mode_vec[3*idx : 3*idx + 3] = 0.0
-            
-        mode = (mode_vec / torch.linalg.norm(mode_vec)).reshape(-1, 3).cpu().numpy()
+            mode_full[3 * idx : 3 * idx + 3] = 0.0
+
+        # --- normalize, save, return -----------------------------------
+        mode = (mode_full / torch.linalg.norm(mode_full)).reshape(-1, 3).cpu().numpy()
         np.savetxt(self.mode_path, mode, fmt="%.10f")
         return mode
 
@@ -342,8 +374,8 @@ class PartialHessianDimer:
             if ok:
                 break
             # re-diagonalise partial Hessian & update mode
-            Hpart = self._partial_hessian()
-            self._write_lowest_mode(Hpart)
+            H = self._partial_hessian()
+            self._write_lowest_mode(H)
         return total
 
     # ================================================================
@@ -433,15 +465,15 @@ class PartialHessianDimer:
         # 1  build partial Hessian & loose loop
         # ---------------------------------------------------------------------
         print("\n>>> Loose-threshold Dimer with partial Hessian\n")
-        Hpart = self._partial_hessian()
-        self._write_lowest_mode(Hpart)
+        H = self._partial_hessian()
+        self._write_lowest_mode(H)
         cycles_loose = self._dimer_loop(self.thresh_loose)
 
         # 2  final-threshold Dimer loop
         # ---------------------------------------------------------------------
         print("\n>>> Final-threshold Dimer\n")
-        Hpart = self._partial_hessian()
-        self._write_lowest_mode(Hpart)
+        H = self._partial_hessian()
+        self._write_lowest_mode(H)
         cycles_final = self._dimer_loop(self.thresh)
 
         total_cycles = cycles_loose + cycles_final
@@ -459,8 +491,8 @@ class PartialHessianDimer:
             if not did_flatten:
                 break
             # after displacement → run final-threshold Dimer again
-            Hpart = self._partial_hessian()
-            self._write_lowest_mode(Hpart)
+            H = self._partial_hessian()
+            self._write_lowest_mode(H)
             total_cycles += self._dimer_loop(self.thresh)
         else:
             print("  Warning: flatten_max_iter reached.")
