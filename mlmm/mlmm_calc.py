@@ -473,13 +473,6 @@ class MLMMCore:
         rdDetermineBonds.DetermineBonds(mol)
         return sum(at.GetFormalCharge() for at in mol.GetAtoms())
 
-    @staticmethod
-    def symmetrize_4idx(H4: torch.Tensor) -> torch.Tensor:
-        n  = H4.shape[0]
-        H2 = H4.reshape(3 * n, 3 * n)
-        H2 = 0.5 * (H2 + H2.T)
-        return H2.view(n, 3, n, 3).requires_grad_(False)
-
     # ==================================================================
     #                        MAIN API
     # ==================================================================
@@ -558,7 +551,6 @@ class MLMMCore:
                 if return_hessian and "hessian" in results_h
                 else None
             )
-        H_high = self.symmetrize_4idx(H_high) if H_high is not None else None
 
         # 3. low-level OpenMM energies
         # ---------------------------------------------------------------------
@@ -577,7 +569,7 @@ class MLMMCore:
         # 4. combine energies
         # ---------------------------------------------------------------------
         total_E = E_real_low + E_model_high - E_model_low
-        results: Dict = {"energy": total_E}
+        results: Dict = {"energy": total_E.detach()}
 
         # 5. combine forces
         # ---------------------------------------------------------------------
@@ -602,7 +594,7 @@ class MLMMCore:
                 redistributed = J @ grad_link
                 F_combined[ml_idx] += redistributed[:3]
                 F_combined[mm_idx] += redistributed[3:]
-            results["forces"] = F_combined
+            results["forces"] = F_combined.detach()
 
 
         # 6. Hessian assembly
@@ -753,10 +745,6 @@ class MLMMCore:
                         H_tot[mm_a, :, ml_b, :] += H_tr[3:6, 0:3]
                         H_tot[mm_a, :, mm_b, :] += H_tr[3:6, 3:6]
 
-            # ---------------------------------------------------------------------
-            #  final symmetrization
-            # ---------------------------------------------------------------------
-            H_tot = self.symmetrize_4idx(H_tot)
             results["hessian"] = H_tot.detach()
 
         # 7. Charges

@@ -178,8 +178,7 @@ class PartialHessianDimer:
         # ---------------------------------------------------------------------
         masses_amu = np.array([atomic_masses[z] for z in self.geom.atomic_numbers])
         self.masses_amu_np = masses_amu
-        self.masses_au_t = torch.tensor(masses_amu * AMU2AU,
-                                        dtype=self.H_dtype, device=self.H_device)
+        self.masses_au_t = torch.tensor(masses_amu * AMU2AU, dtype=self.H_dtype, device=self.H_device)
         # for mass-scaled flatten
         self.mass_scale = np.sqrt(12.011 / masses_amu)[:, None]
 
@@ -225,12 +224,12 @@ class PartialHessianDimer:
         coords_t = torch.tensor(self.geom.coords,
                                 dtype=self.H_dtype,
                                 device=self.H_device).view(-1, 3)
-        Hproj = self._project_out_tr(H, coords_t)
+        H = self._project_out_tr(H, coords_t)
         if self.lobpcg:
-            eigvals, eigvecs = torch.lobpcg(Hproj, k=1, largest=False)
+            eigvals, eigvecs = torch.lobpcg(H, k=1, largest=False)
             mode_vec = eigvecs[:, 0]
         else:
-            eigvals, eigvecs = torch.linalg.eigh(Hproj)
+            eigvals, eigvecs = torch.linalg.eigh(H)
             mode_vec = eigvecs[:, torch.argmin(eigvals)]
 
         for idx in self.freeze_atoms_static:
@@ -342,8 +341,8 @@ class PartialHessianDimer:
             if ok:
                 break
             # re-diagonalise partial Hessian & update mode
-            Hpart = self._partial_hessian()
-            self._write_lowest_mode(Hpart)
+            H = self._partial_hessian()
+            self._write_lowest_mode(H)
         return total
 
     # ================================================================
@@ -433,15 +432,15 @@ class PartialHessianDimer:
         # 1  build partial Hessian & loose loop
         # ---------------------------------------------------------------------
         print("\n>>> Loose-threshold Dimer with partial Hessian\n")
-        Hpart = self._partial_hessian()
-        self._write_lowest_mode(Hpart)
+        H = self._partial_hessian()
+        self._write_lowest_mode(H)
         cycles_loose = self._dimer_loop(self.thresh_loose)
 
         # 2  final-threshold Dimer loop
         # ---------------------------------------------------------------------
         print("\n>>> Final-threshold Dimer\n")
-        Hpart = self._partial_hessian()
-        self._write_lowest_mode(Hpart)
+        H = self._partial_hessian()
+        self._write_lowest_mode(H)
         cycles_final = self._dimer_loop(self.thresh)
 
         total_cycles = cycles_loose + cycles_final
@@ -460,8 +459,8 @@ class PartialHessianDimer:
                 if not did_flatten:
                     break
                 # after displacement → run final-threshold Dimer again
-                Hpart = self._partial_hessian()
-                self._write_lowest_mode(Hpart)
+                H = self._partial_hessian()
+                self._write_lowest_mode(H)
                 total_cycles += self._dimer_loop(self.thresh)
             else:
                 print("  Warning: flatten_max_iter reached.")
@@ -515,5 +514,5 @@ class PartialHessianDimer:
         h, rem = divmod(int(time.time() - wall0), 3600)
         m, s = divmod(rem, 60)
         print(f"Total Dimer cycles      : {total_cycles}")
-        print(f"Elapsed time            : {h} h {m} m {s} s")
+        print(f"Elapsed time            : {h}:{m}:{s}")
 

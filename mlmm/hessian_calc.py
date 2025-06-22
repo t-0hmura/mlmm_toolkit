@@ -270,7 +270,6 @@ def calc_freq_from_hessian(
         P       = torch.eye(B.shape[0], dtype=H.dtype, device=H.device) \
                 - B @ torch.linalg.solve(B.T @ B, B.T)
         H = P @ H @ P
-        H = (H + H.T) / 2.0
 
     # ---------------------------------------------------------------------
     # 2)   Mass-weighting and diagonalization
