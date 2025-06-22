@@ -289,7 +289,7 @@ class PartialHessianDimer:
     # ================================================================
     # helper – full Hessian (zero out freeze_atoms)
     # ================================================================
-    def _full_hessian(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _full_hessian(self) -> Tuple[np.ndarray, torch.Tensor]:
         """Calculate the full Hessian and perform vibrational analysis after
         zeroing all degrees of freedom corresponding to ``freeze_atoms`` (the
         3×3 blocks and their interactions with other atoms).
@@ -298,8 +298,9 @@ class PartialHessianDimer:
         -------
         freqs : np.ndarray
             Frequencies in cm⁻¹.
-        modes : np.ndarray
-            Mass-weighted eigenvectors with shape ``(nmode, 3N)``.
+        modes : torch.Tensor
+            Mass-weighted eigenvectors with shape ``(nmode, 3N)`` on the same
+            device as the Hessian.
         """
         # 1. obtain the Hessian
         # ---------------------------------------------------------------------
@@ -385,13 +386,14 @@ class PartialHessianDimer:
     # helper – flatten imaginary modes
     # ================================================================
     @staticmethod
-    def _representative_atoms(mode_vec: np.ndarray, k: int = 10) -> np.ndarray:
+    def _representative_atoms(mode_vec: torch.Tensor, k: int = 10) -> np.ndarray:
         """Return indices of the k atoms with the largest displacements."""
-        vec = mode_vec.reshape(-1, 3)
-        return np.argsort(np.linalg.norm(vec, axis=1))[-k:]
+        vec = mode_vec.view(-1, 3)
+        idx = torch.argsort(torch.linalg.norm(vec, dim=1))[-k:]
+        return idx.cpu().numpy()
 
     def _flatten_once(
-        self, freqs: np.ndarray, modes: np.ndarray
+        self, freqs: np.ndarray, modes: torch.Tensor
     ) -> bool:  # returns True if flatten performed
         neg_idx = np.where(freqs < -abs(self.neg_freq_thresh))[0]
         if len(neg_idx) <= 1:
@@ -417,7 +419,7 @@ class PartialHessianDimer:
         amp_bohr = self.flatten_amp_ang / BOHR2ANG
 
         for idx in targets:
-            v = modes[idx].reshape(-1, 3)
+            v = modes[idx].detach().cpu().numpy().reshape(-1, 3)
             v /= np.linalg.norm(v)
             disp = amp_bohr * self.mass_scale * v  # Bohr
             ref = self.geom.coords.reshape(-1, 3)
@@ -534,7 +536,7 @@ class PartialHessianDimer:
         )
         for rank, idx in enumerate(neg_idx):
             freq = freqs[idx]
-            mode_vec = modes[idx].reshape(len(self.geom.atomic_numbers), 3)
+            mode_vec = modes[idx].detach().cpu().numpy().reshape(len(self.geom.atomic_numbers), 3)
             out_xyz = self.vib_dir / f"mode{rank:02d}_{freq:+.2f}cm-1.xyz"
             write_vib_traj_xyz(
                 atoms=atoms, mode=mode_vec, filename=str(out_xyz),
