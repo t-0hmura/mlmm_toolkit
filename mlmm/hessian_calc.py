@@ -45,7 +45,14 @@ def clone_atoms(atoms):
 # ---------------------------------------------------------------------
 # Finite-difference Hessian
 # ---------------------------------------------------------------------
-def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None):
+def hessian_calc(
+    atoms,
+    calc,
+    delta: float = 0.01,
+    info_path: str | None = None,
+    *,
+    dtype: np.dtype = np.float64,
+):
     """
     Numerically compute the full Cartesian Hessian (second derivatives).
 
@@ -64,6 +71,8 @@ def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None)
         Displacement size.
     info_path : str | None
         If given, progress info is appended to this file.
+    dtype : numpy dtype, default float64
+        Data type of the returned Hessian.
 
     Returns
     -------
@@ -86,7 +95,7 @@ def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None)
         N = len(atoms)
         return np.zeros((3 * N, 3 * N))
 
-    H_sub = np.empty((n_dof, n_dof))
+    H_sub = np.empty((n_dof, n_dof), dtype=dtype)
     row = 0
 
     # progress logging
@@ -140,7 +149,7 @@ def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None)
     # assemble full (3N, 3N) Hessian
     # ---------------------------------------------------------------------
     N = len(atoms)
-    H_full = np.zeros((3 * N, 3 * N))
+    H_full = np.zeros((3 * N, 3 * N), dtype=dtype)
     for i_local, i_atom in enumerate(movable):
         for j_local, j_atom in enumerate(movable):
             H_full[
@@ -151,9 +160,11 @@ def hessian_calc(atoms, calc, delta: float = 0.01, info_path: str | None = None)
                 3 * j_local : 3 * j_local + 3,
             ]
 
-    # enforce symmetry & return
+    # enforce symmetry in-place & return
     # ---------------------------------------------------------------------
-    return (H_full + H_full.T) / 2.0
+    H_full += H_full.T
+    H_full *= 0.5
+    return H_full
 
 
 # ---------------------------------------------------------------------
@@ -270,7 +281,8 @@ def calc_freq_from_hessian(
         P       = torch.eye(B.shape[0], dtype=H.dtype, device=H.device) \
                 - B @ torch.linalg.solve(B.T @ B, B.T)
         H = P @ H @ P
-        H = (H + H.T) / 2.0
+        H += H.T
+        H *= 0.5
 
     # ---------------------------------------------------------------------
     # 2)   Mass-weighting and diagonalization
@@ -278,11 +290,11 @@ def calc_freq_from_hessian(
     m_vec = np.repeat(_get_masses(elem_act), 3)   # amu
     m     = torch.as_tensor(m_vec, dtype=H.dtype, device=H.device)
     inv_sqrt_m = torch.sqrt(1.0 / m)
-    Hmw  = inv_sqrt_m[:, None] * H * inv_sqrt_m
-    Hmw.requires_grad_(False)
-
-    omega2, modes = torch.linalg.eigh(Hmw)
-    del H, Hmw; torch.cuda.empty_cache()
+    H *= inv_sqrt_m[:, None]
+    H *= inv_sqrt_m
+    H.requires_grad_(False)
+    omega2, modes = torch.linalg.eigh(H)
+    del H, inv_sqrt_m, m; torch.cuda.empty_cache()
 
     # ---------------------------------------------------------------------
     # 3)   Remove low frequencies and report eigenvalues

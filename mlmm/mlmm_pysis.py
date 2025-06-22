@@ -42,7 +42,7 @@ class mlmm(Calculator):
                  vib_run: bool = False,
                  vib_dir: str = None,
                  out_hess_torch: bool = False,
-                 hess_torch_double: bool = False,
+                 H_double: bool = False,
 
                  ml_device: str = "auto",
                  ml_cuda_idx: int = 0,
@@ -68,6 +68,7 @@ class mlmm(Calculator):
 
             vib_run (bool): Whether to run vibrational analysis.
             out_hess_torch (bool): Whether to output Hessian in torch format. True: torch.Tensor (N,3,N,3) on device, False: numpy.ndarray (N*3,N*3) on cpu.
+            H_double (bool): Use double precision for Hessian-related tensors.
 
             ml_device (str): Device to use for ML calculations. Options are "auto", "cpu", or "cuda".
             ml_cuda_idx (int): CUDA device index if using GPU.
@@ -99,10 +100,11 @@ class mlmm(Calculator):
                  mm_device = mm_device,
                  mm_cuda_idx = mm_cuda_idx,
                  mm_threads = mm_threads,
-                 freeze_atoms = freeze_atoms)
+                 freeze_atoms = freeze_atoms,
+                 H_double = H_double)
 
         self.out_hess_torch = out_hess_torch
-        self.hess_torch_double = hess_torch_double
+        self.hess_torch_double = H_double
 
     @staticmethod
     def _results_get_energy(results):
@@ -114,12 +116,11 @@ class mlmm(Calculator):
     
     def _results_get_hessian(self, results):
         if self.out_hess_torch: # (N,3,N,3) → (N*3,N*3) on device
-            if self.hess_torch_double:
-                return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).requires_grad_(False)
-            elif H_dtype != torch.float64:
-                return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).to(H_dtype).requires_grad_(False)
-            else:
-                return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).requires_grad_(False)
+            target_dtype = torch.float64 if self.hess_torch_double else H_dtype
+            return (
+                results['hessian'].flatten(0, 1).flatten(-2, -1)
+                * (EV2AU / ANG2BOHR / ANG2BOHR)
+            ).to(target_dtype).requires_grad_(False)
         else: # (N,3,N,3) → (N*3,N*3)
             return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).cpu().numpy()
 

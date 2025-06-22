@@ -133,6 +133,7 @@ class MLMMCore:
         # === hessian / vib =============================================
         vib_run: bool = False,
         vib_dir: str | None = None,
+        H_double: bool = False,
         # === device selection ===========================================
         ml_device: str = "auto",
         ml_cuda_idx: int = 0,
@@ -163,6 +164,7 @@ class MLMMCore:
             mm_cuda_idx (int): CUDA device index if using GPU.
             mm_threads (int): Number of threads to use for CPU calculations. {7950X3D/4.20GHz 16 threads faster than RTX 3090 (2x faster for 8->16, Almos same for 16->32)}
             freeze_atoms (List[int] | None): 0-based indices of atoms to freeze during MM Hessian calculations.
+            H_double (bool): Use double precision for Hessian-related tensors.
         """
         self.backend = backend.lower()
         if self.backend not in ("uma", "aimnet2"):
@@ -206,6 +208,10 @@ class MLMMCore:
         self.selection_indices = self._mk_model_parm7()
 
         self.freeze_atoms = [] if freeze_atoms is None else list(freeze_atoms)
+
+        self.H_double = bool(H_double)
+        self.H_dtype = torch.float64 if self.H_double else torch.float32
+        self.H_np_dtype = np.float64 if self.H_double else np.float32
 
         # (optional) vib directory
         # ---------------------------------------------------------------------
@@ -472,7 +478,7 @@ class MLMMCore:
     def symmetrize_4idx(H4: torch.Tensor) -> torch.Tensor:
         n  = H4.shape[0]
         H2 = H4.reshape(3 * n, 3 * n)
-        H2 = 0.5 * (H2 + H2.T)
+        H2.add_(H2.T).mul_(0.5)
         return H2.view(n, 3, n, 3).requires_grad_(False)
 
     # ==================================================================
@@ -528,7 +534,7 @@ class MLMMCore:
                     return self.predictor.predict(batch_h)["energy"].squeeze()
                 self.predictor.model.train()
                 H_flat = torch.autograd.functional.hessian(energy_fn, pos.view(-1))
-                H_high = H_flat.view(n_ml, 3, n_ml, 3).to(torch.double).detach()
+                H_high = H_flat.view(n_ml, 3, n_ml, 3).to(self.H_dtype).detach()
                 self.predictor.model.eval()
             else:
                 H_high = None
@@ -545,7 +551,7 @@ class MLMMCore:
                 results_h["forces"].to(torch.double).detach().cpu().numpy()
             )
             H_high = (
-                results_h["hessian"].to(torch.double)
+                results_h["hessian"].to(self.H_dtype)
                 if return_hessian and "hessian" in results_h
                 else None
             )
@@ -607,22 +613,24 @@ class MLMMCore:
                 H_tot = hessian_calc(
                     atoms_real, self.calc_real_low, delta=0.01,
                     info_path=os.path.join(self.vib_dir, "real.log"),
+                    dtype=self.H_np_dtype,
                 )
-                H_tot = torch.tensor(H_tot, dtype=torch.double, device=self.ml_device) \
+                H_tot = torch.tensor(H_tot, dtype=self.H_dtype, device=self.ml_device) \
                            .reshape(n_real, 3, n_real, 3)
 
                 H_model = hessian_calc(
                     atoms_model, self.calc_model_low, delta=0.01,
                     info_path=os.path.join(self.vib_dir, "model.log"),
+                    dtype=self.H_np_dtype,
                 )
-                H_model = torch.tensor(H_model, dtype=torch.double, device=self.ml_device) \
+                H_model = torch.tensor(H_model, dtype=self.H_dtype, device=self.ml_device) \
                             .reshape(len(atoms_model), 3, len(atoms_model), 3)
             else:
                 H_tot = torch.zeros((n_real, 3, n_real, 3),
-                                     dtype=torch.double, device=self.ml_device)
+                                     dtype=self.H_dtype, device=self.ml_device)
                 n_ml = len(self.selection_indices)
                 H_model = torch.zeros((n_ml, 3, n_ml, 3),
-                                      dtype=torch.double, device=self.ml_device)
+                                      dtype=self.H_dtype, device=self.ml_device)
 
             n_ml = len(self.selection_indices)
 
@@ -646,13 +654,13 @@ class MLMMCore:
                 ml_model_idx = rev_index[ml_idx]
 
                 r_ml = torch.tensor(atoms_model_LH[ml_model_idx].position,
-                                    dtype=torch.double, device=self.ml_device)
+                                    dtype=self.H_dtype, device=self.ml_device)
                 r_mm = torch.tensor(atoms_real[mm_idx].position,
-                                    dtype=torch.double, device=self.ml_device)
+                                    dtype=self.H_dtype, device=self.ml_device)
                 vec = r_mm - r_ml
                 Rlen = torch.norm(vec)
                 u = vec / Rlen
-                I3 = torch.eye(3, dtype=torch.double, device=self.ml_device)
+                I3 = torch.eye(3, dtype=self.H_dtype, device=self.ml_device)
                 du_dQ = (I3 - torch.outer(u, u)) / Rlen
                 dR_dQ = I3 - self.dist_link * du_dQ
                 dR_dM = self.dist_link * du_dQ
@@ -664,7 +672,7 @@ class MLMMCore:
             #  (0) self-diagonal Jᵀ·H·J  and 2-nd term
             # ---------------------------------------------------------------------
             F_high_torch = torch.as_tensor(F_model_high,
-                                           dtype=torch.double,
+                                           dtype=self.H_dtype,
                                            device=self.ml_device)
 
             for link_idx, ml_idx, mm_idx, K in link_data:
@@ -691,7 +699,7 @@ class MLMMCore:
                 r_mm_np = atoms_real[mm_idx].position
                 pos = torch.as_tensor(
                     np.concatenate([r_ml_np, r_mm_np]),
-                    dtype=torch.double,
+                    dtype=self.H_dtype,
                     device=self.ml_device
                 )
                 pos.requires_grad = True
@@ -705,7 +713,8 @@ class MLMMCore:
                     return torch.dot(f_L, rL)  # scalar
 
                 H_corr6 = torch.autograd.functional.hessian(g, pos).detach()  # (6×6)
-                H_corr6 = 0.5*(H_corr6 + H_corr6.T)
+                H_corr6 += H_corr6.T
+                H_corr6 *= 0.5
 
                 H_tot[ml_idx, :, ml_idx, :] += H_corr6[0:3, 0:3]
                 H_tot[ml_idx, :, mm_idx, :] += H_corr6[0:3, 3:6]
@@ -749,6 +758,8 @@ class MLMMCore:
             # ---------------------------------------------------------------------
             H_tot = self.symmetrize_4idx(H_tot)
             results["hessian"] = H_tot.detach()
+            del H_high, H_model, F_high_torch
+            torch.cuda.empty_cache()
 
         # 7. Charges
         # ---------------------------------------------------------------------
