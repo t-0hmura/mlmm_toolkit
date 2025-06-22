@@ -448,22 +448,23 @@ class PartialHessianDimer:
 
         # 3  flatten loop
         # ---------------------------------------------------------------------
-        print("\n>>> Flatten extra imaginary modes\n")
-        for it in range(self.flatten_max_iter):
-            freqs, modes = self._full_hessian()
-            n_imag = np.sum(freqs < -abs(self.neg_freq_thresh))
-            print(f"  flatten iter {it:02d}: n_imag = {n_imag}")
-            if n_imag <= 1:
-                break
-            did_flatten = self._flatten_once(freqs, modes)
-            if not did_flatten:
-                break
-            # after displacement → run final-threshold Dimer again
-            Hpart = self._partial_hessian()
-            self._write_lowest_mode(Hpart)
-            total_cycles += self._dimer_loop(self.thresh)
-        else:
-            print("  Warning: flatten_max_iter reached.")
+        if self.flatten_amp_ang > 0.0 and self.flatten_max_iter > 0:
+            print("\n>>> Flatten extra imaginary modes\n")
+            for it in range(self.flatten_max_iter):
+                freqs, modes = self._full_hessian()
+                n_imag = np.sum(freqs < -abs(self.neg_freq_thresh))
+                print(f"  flatten iter {it:02d}: n_imag = {n_imag}")
+                if n_imag <= 1:
+                    break
+                did_flatten = self._flatten_once(freqs, modes)
+                if not did_flatten:
+                    break
+                # after displacement → run final-threshold Dimer again
+                Hpart = self._partial_hessian()
+                self._write_lowest_mode(Hpart)
+                total_cycles += self._dimer_loop(self.thresh)
+            else:
+                print("  Warning: flatten_max_iter reached.")
 
         # 4  export final structure
         # ---------------------------------------------------------------------
