@@ -177,7 +177,7 @@ class PartialHessianDimer:
         # ---------------------------------------------------------------------
         masses_amu = np.array([atomic_masses[z] for z in self.geom.atomic_numbers])
         self.masses_amu_np = masses_amu
-        self.masses_au_t = torch.tensor(masses_amu * AMU2AU, dtype=self.H_dtype, device=self.H_device)
+        self.masses_amu_t = torch.tensor(masses_amu, dtype=self.H_dtype, device=self.H_device)
         # for mass-scaled flatten
         self.mass_scale = np.sqrt(12.011 / masses_amu)[:, None]
 
@@ -203,38 +203,75 @@ class PartialHessianDimer:
     # ================================================================
     # helper – TR projection
     # ================================================================
-    def _project_out_tr(
-        self, H: torch.Tensor, coords_bohr_t: torch.Tensor
-    ) -> torch.Tensor:
+    def _project_out_tr(self, H: torch.Tensor, coords_bohr_t: torch.Tensor, masses_amu_t: torch.Tensor) -> torch.Tensor:
         if coords_bohr_t.ndim == 1:
             coords_bohr_t = coords_bohr_t.view(-1, 3)
         elif coords_bohr_t.shape[-1] != 3:
             coords_bohr_t = coords_bohr_t.reshape(-1, 3)
-        B = _build_tr_basis(coords_bohr_t, self.masses_au_t)
-        P = torch.eye(B.shape[0], dtype=H.dtype, device=H.device) - B @ torch.linalg.solve(
-            B.T @ B, B.T
-        )
-        return P @ H @ P
+
+        B  = _build_tr_basis(coords_bohr_t, masses_amu_t)
+        Bt = B.T
+        G  = torch.linalg.solve(Bt @ B, Bt @ H)          # (6, 3N_act)
+        H = H - B @ G - G.T @ Bt + B @ torch.linalg.solve(Bt @ B, (Bt @ H @ B)) @ Bt
+        return H
+
+    # ================================================================
+    # shared helper – drop zero-rows / restore
+    # ================================================================
+    @staticmethod
+    def _reduce_hessian(H: torch.Tensor, tol: float = 1e-8) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Remove rows/cols with ‖row‖ ≤ tol  (returns H, active_dof)."""
+        row_nonzero = torch.linalg.norm(H, dim=1) > tol
+        active_dof  = torch.nonzero(row_nonzero, as_tuple=False).squeeze()
+
+        if active_dof.numel() == H.shape[0]:   # no reduction
+            return H, None
+
+        H = H[active_dof][:, active_dof]
+        return H, active_dof
 
     # ================================================================
     # helper – lowest-mode writer
     # ================================================================
     def _write_lowest_mode(self, H: torch.Tensor) -> np.ndarray:
-        coords_t = torch.tensor(self.geom.coords,
-                                dtype=self.H_dtype,
-                                device=self.H_device).view(-1, 3)
-        H = self._project_out_tr(H, coords_t)
-        if self.lobpcg:
-            eigvals, eigvecs = torch.lobpcg(H, k=1, largest=False)
-            mode_vec = eigvecs[:, 0]
-        else:
-            eigvals, eigvecs = torch.linalg.eigh(H)
-            mode_vec = eigvecs[:, torch.argmin(eigvals)]
+        # 1) reduce Hessian ----------------------------------------------------
+        H, active = self._reduce_hessian(H)
 
+        # 2) build coords / masses for active atoms ---------------------------
+        coords_full = torch.as_tensor(self.geom.coords, dtype=self.H_dtype, device=self.H_device).view(-1, 3)
+        if active is None:
+            coords_act  = coords_full
+            masses_act  = self.masses_amu_t
+        else:
+            atoms_act   = torch.unique(active // 3)
+            coords_act  = coords_full[atoms_act]
+            masses_act  = self.masses_amu_t[atoms_act]
+
+        # 3) TR projection -----------------------------------------------------
+        H_proj = self._project_out_tr(H, coords_act, masses_act)
+
+        # 4) lowest eigen-mode -------------------------------------------------
+        if self.lobpcg:
+            w, v = torch.lobpcg(H_proj, k=1, largest=False)
+            mode_red = v[:, 0]
+        else:
+            w, v = torch.linalg.eigh(H_proj)
+            mode_red = v[:, torch.argmin(w)]
+
+        # 5) re-expand eigenvector to full length ------------------------------
+        n_full   = 3 * len(self.geom.atomic_numbers)
+        mode_vec = torch.zeros(n_full, dtype=H_proj.dtype, device=H_proj.device)
+        if active is None:
+            mode_vec[:] = mode_red
+        else:
+            mode_vec[active] = mode_red
+
+        # 6) zero out static-freeze DOF ---------------------------------------
         for idx in self.freeze_atoms_static:
             mode_vec[3*idx : 3*idx + 3] = 0.0
-            
-        mode = (mode_vec / torch.linalg.norm(mode_vec)).reshape(-1, 3).cpu().numpy()
+
+        # 7) normalise & save --------------------------------------------------
+        mode = (mode_vec / torch.linalg.norm(mode_vec)).view(-1, 3).cpu().numpy()
         np.savetxt(self.mode_path, mode, fmt="%.10f")
         return mode
 

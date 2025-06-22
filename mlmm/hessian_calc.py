@@ -267,9 +267,10 @@ def calc_freq_from_hessian(
         masses = torch.as_tensor(masses_amu_act,
                                  dtype=H.dtype, device=H.device)
         B       = _build_tr_basis(coords, masses)
-        P       = torch.eye(B.shape[0], dtype=H.dtype, device=H.device) \
-                - B @ torch.linalg.solve(B.T @ B, B.T)
-        H = P @ H @ P
+
+        Bt = B.T
+        G  = torch.linalg.solve(Bt @ B, Bt @ H)          # (6,3N)
+        H  = H - B @ G - G.T @ Bt + B @ torch.linalg.solve(Bt @ B, (Bt @ H @ B)) @ Bt
 
     # ---------------------------------------------------------------------
     # 2)   Mass-weighting and diagonalization
