@@ -284,7 +284,12 @@ def calc_freq_from_hessian(
             H.sub_(B @ G)
             HB = H @ B
             H.sub_(HB @ BtB_inv @ Bt)
-            H.copy_(0.5 * (H + H.T))
+            # Symmetrize the Hessian (x1.5 vram)
+            with torch.no_grad():
+                idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
+                avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
+                H[idx[0], idx[1]] = avg
+                H[idx[1], idx[0]] = avg       # mirror copy
 
     # ---------------------------------------------------------------------
     # 2)   Mass-weighting and diagonalization
