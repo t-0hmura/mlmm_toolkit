@@ -286,7 +286,7 @@ class PartialHessianDimer:
     # ================================================================
     # helper – full Hessian (zero out freeze_atoms)
     # ================================================================
-    def _full_hessian(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _full_hessian(self) -> Tuple[np.ndarray, torch.Tensor]:
         """Calculate the full Hessian and perform vibrational analysis after
         zeroing all degrees of freedom corresponding to ``freeze_atoms`` (the
         3×3 blocks and their interactions with other atoms).
@@ -295,8 +295,8 @@ class PartialHessianDimer:
         -------
         freqs : np.ndarray
             Frequencies in cm⁻¹.
-        modes : np.ndarray
-            Mass-weighted eigenvectors with shape ``(nmode, 3N)``.
+        modes : torch.Tensor
+            Mass-weighted eigenvectors with shape ``(nmode, 3N)`` on GPU.
         """
         # 1. obtain the Hessian
         # ---------------------------------------------------------------------
@@ -382,39 +382,46 @@ class PartialHessianDimer:
     # helper – flatten imaginary modes
     # ================================================================
     @staticmethod
-    def _representative_atoms(mode_vec: np.ndarray, k: int = 10) -> np.ndarray:
+    def _representative_atoms(mode_vec: torch.Tensor, k: int = 10) -> np.ndarray:
         """Return indices of the k atoms with the largest displacements."""
-        vec = mode_vec.reshape(-1, 3)
-        return np.argsort(np.linalg.norm(vec, axis=1))[-k:]
+        vec = mode_vec.view(-1, 3)
+        norms = torch.linalg.norm(vec, dim=1)
+        return torch.argsort(norms)[-k:].cpu().numpy()
 
     def _flatten_once(
-        self, freqs: np.ndarray, modes: np.ndarray
+        self, freqs: np.ndarray, modes: torch.Tensor
     ) -> bool:  # returns True if flatten performed
         neg_idx = np.where(freqs < -abs(self.neg_freq_thresh))[0]
         if len(neg_idx) <= 1:
             return False
         # sort ascending (most negative first)
         sorted_neg = neg_idx[np.argsort(freqs[neg_idx])]
-        coords_ang = self.geom.coords.reshape(-1, 3) * BOHR2ANG
-        targets = [sorted_neg[1]]  # start from 2nd most negative
+        coords_ang = torch.as_tensor(
+            self.geom.coords.reshape(-1, 3) * BOHR2ANG,
+            dtype=modes.dtype,
+            device=modes.device,
+        )
+        targets = [int(sorted_neg[1])]  # start from 2nd most negative
         reps = [self._representative_atoms(modes[sorted_neg[1]], k=self.flatten_k)]
         for idx in sorted_neg[2:]:
             rep = self._representative_atoms(modes[idx], k=self.flatten_k)
             if all(
-                np.min(
-                    np.linalg.norm(coords_ang[rep][:, None, :] -
-                                   coords_ang[rp][None, :, :], axis=2)
-                ) >= self.flatten_sep_cutoff
+                torch.min(
+                    torch.linalg.norm(
+                        coords_ang[rep][:, None, :] - coords_ang[rp][None, :, :],
+                        dim=2,
+                    )
+                ).item() >= self.flatten_sep_cutoff
                 for rp in reps
             ):
-                targets.append(idx)
+                targets.append(int(idx))
                 reps.append(rep)
 
         sp_calc = MLMM(out_hess_torch=False, **self.mlmm_kwargs)
         amp_bohr = self.flatten_amp_ang / BOHR2ANG
 
         for idx in targets:
-            v = modes[idx].reshape(-1, 3)
+            v = modes[idx].view(-1, 3).detach().cpu().numpy()
             v /= np.linalg.norm(v)
             disp = amp_bohr * self.mass_scale * v  # Bohr
             ref = self.geom.coords.reshape(-1, 3)
@@ -527,7 +534,7 @@ class PartialHessianDimer:
         )
         for rank, idx in enumerate(neg_idx):
             freq = freqs[idx]
-            mode_vec = modes[idx].reshape(len(self.geom.atomic_numbers), 3)
+            mode_vec = modes[idx].view(len(self.geom.atomic_numbers), 3).cpu().numpy()
             out_xyz = self.vib_dir / f"mode{rank:02d}_{freq:+.2f}cm-1.xyz"
             write_vib_traj_xyz(
                 atoms=atoms, mode=mode_vec, filename=str(out_xyz),
