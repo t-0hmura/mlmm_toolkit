@@ -560,7 +560,7 @@ class MLMMCore:
                 if return_hessian and "hessian" in results_h
                 else None
             )
-        H_high = self.symmetrize_4idx(H_high) if H_high is not None else None
+        # H_high = self.symmetrize_4idx(H_high) if H_high is not None else None  # symmetrization is off due to high memory usage
 
         # 3. low-level OpenMM energies
         # ---------------------------------------------------------------------
@@ -760,7 +760,7 @@ class MLMMCore:
             # ---------------------------------------------------------------------
             #  final symmetrization
             # ---------------------------------------------------------------------
-            H_tot = self.symmetrize_4idx(H_tot)
+            # H_tot = self.symmetrize_4idx(H_tot) # symmetrization is off due to high memory usage
             results["hessian"] = H_tot.detach()
             del H_high, H_model, F_high_torch
             torch.cuda.empty_cache()

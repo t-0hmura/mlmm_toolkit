@@ -77,7 +77,7 @@ def hessian_calc(
     Returns
     -------
     ndarray
-        Symmetrized Cartesian Hessian of shape ``(3N, 3N)`` where
+        Cartesian Hessian of shape ``(3N, 3N)`` where
         ``N == len(atoms)`` (fixed-atom rows/cols are zero).
     """
     # movable / fixed atom lists
@@ -279,12 +279,12 @@ def calc_freq_from_hessian(
             H.sub_(B @ G)
             HB = H @ B
             H.sub_(HB @ BtB_inv @ Bt)
-            # Symmetrize the Hessian (x1.5 vram)
-            with torch.no_grad():
-                idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
-                avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
-                H[idx[0], idx[1]] = avg
-                H[idx[1], idx[0]] = avg       # mirror copy
+            # Symmetrize the Hessian (x1.5 vram)  # symmetrization is off due to high memory usage
+            # with torch.no_grad():
+            #     idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
+            #     avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
+            #     H[idx[0], idx[1]] = avg
+            #     H[idx[1], idx[0]] = avg       # mirror copy
 
     # ---------------------------------------------------------------------
     # 2)   Mass-weighting and diagonalization

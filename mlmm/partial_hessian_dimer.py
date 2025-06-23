@@ -221,11 +221,11 @@ class PartialHessianDimer:
             HB = H @ B
             H.sub_(HB @ BtB_inv @ Bt)
             # Symmetrize the Hessian (x1.5 vram)
-            with torch.no_grad():
-                idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
-                avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
-                H[idx[0], idx[1]] = avg
-                H[idx[1], idx[0]] = avg       # mirror copy
+            # with torch.no_grad():
+            #     idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
+            #     avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
+            #     H[idx[0], idx[1]] = avg
+            #     H[idx[1], idx[0]] = avg       # mirror copy
 
         return H
 
@@ -237,12 +237,6 @@ class PartialHessianDimer:
         H: torch.Tensor,
         tol: float = 1e-6,  # threshold to detect zero rows/cols
     ) -> np.ndarray:
-        # --- project out translational / rotational modes ---------------
-        coords_t = torch.as_tensor(self.geom.coords,
-                                dtype=self.H_dtype,
-                                device=self.H_device).view(-1, 3)
-        H = self._project_out_tr(H, coords_t)
-
         # --- detect active DOF (rows with norm > tol) -------------------
         row_nonzero = torch.linalg.norm(H, dim=1) > tol
         active_dof  = torch.nonzero(row_nonzero, as_tuple=False).squeeze()
@@ -251,14 +245,49 @@ class PartialHessianDimer:
             raise RuntimeError("No active DOF.")
 
         reduced = active_dof.numel() != H.shape[0]
-        H_red   = H[active_dof][:, active_dof] if reduced else H
+        H   = H[active_dof][:, active_dof] if reduced else H
+
+        # --- project out translational / rotational modes ---------------
+        coords_all = torch.as_tensor(
+            self.geom.coords, dtype=self.H_dtype, device=self.H_device
+        ).view(-1, 3)
+        if reduced:
+            atom_map_full = (active_dof // 3).cpu().numpy()
+            active_atoms = np.unique(atom_map_full)
+            coords_act = coords_all[active_atoms]
+            masses_act = torch.as_tensor(
+                self.masses_amu_np[active_atoms],
+                dtype=self.H_dtype,
+                device=self.H_device,
+            )
+        else:
+            coords_act = coords_all
+            masses_act = torch.as_tensor(
+                self.masses_amu_np,
+                dtype=self.H_dtype,
+                device=self.H_device,
+            )
+
+        B = _build_tr_basis(coords_act, masses_act)
+        Bt = B.T
+        BtB_inv = torch.linalg.inv(Bt @ B)
+
+        with torch.no_grad():
+            G = BtB_inv @ (Bt @ H)
+            H.sub_(B @ G)
+            HB = H @ B
+            H.sub_(HB @ BtB_inv @ Bt)
+            idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
+            avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
+            H[idx[0], idx[1]] = avg
+            H[idx[1], idx[0]] = avg
 
         # --- diagonalize ------------------------------------------------
         if self.lobpcg:
-            eigvals, eigvecs = torch.lobpcg(H_red, k=1, largest=False)
+            eigvals, eigvecs = torch.lobpcg(H, k=1, largest=False)
             mode_vec_red = eigvecs[:, 0]
         else:
-            eigvals, eigvecs = torch.linalg.eigh(H_red)
+            eigvals, eigvecs = torch.linalg.eigh(H)
             mode_vec_red = eigvecs[:, torch.argmin(eigvals)]
 
         # --- pad to full length ----------------------------------------
