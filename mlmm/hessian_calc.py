@@ -271,14 +271,24 @@ def calc_freq_from_hessian(
     if project_tr and coords_bohr_act is not None and masses_amu_act is not None:
         coords = torch.as_tensor(coords_bohr_act, dtype=H.dtype, device=H.device)
         masses = torch.as_tensor(masses_amu_act, dtype=H.dtype, device=H.device)
-        B = _build_tr_basis(coords, masses)
-        Bt = B.T
-        BtB_inv = torch.linalg.inv(Bt @ B)
-        with torch.no_grad():
-            G = BtB_inv @ (Bt @ H)
-            H.sub_(B @ G)
-            HB = H @ B
-            H.sub_(HB @ BtB_inv @ Bt)
+
+        B       = _build_tr_basis(coords, masses)      # (3N,6)
+        Bt      = B.T
+        BtB_inv = torch.linalg.inv(Bt @ B)                              # (6,6)
+
+        BtH = Bt @ H          # (6,3N) = Bt H₀
+        HB  = H  @ B          # (3N,6) = H₀ B
+
+        # --- 1)  H  ←  H₀  -  B (BtB)⁻¹ (Bt H₀) ------------------------------
+        H.sub_(B @ (BtB_inv @ BtH))
+
+        # --- 2)  H  ←  H  -  H₀ B (BtB)⁻¹ Bt ---------------------------------
+        H.sub_(HB @ BtB_inv @ Bt)
+
+        # --- 3)  H  ←  H  +  B (BtB)⁻¹ (Bt H₀ B) (BtB)⁻¹ Bt ------------------
+        H.add_(B @ (BtB_inv @ (BtH @ B)) @ BtB_inv @ Bt)
+
+        del BtH, HB, BtB_inv, B; torch.cuda.empty_cache()
 
     # ---------------------------------------------------------------------
     # 2)   Mass-weighting and diagonalization

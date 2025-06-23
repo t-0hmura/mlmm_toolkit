@@ -478,15 +478,7 @@ class MLMMCore:
     def symmetrize_4idx(H: torch.Tensor) -> torch.Tensor:
         n  = H.shape[0]
         H = H.reshape(3 * n, 3 * n)
-        # Symmetrize the Hessian (x1.5 vram)
-        with torch.no_grad():
-            idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
-            avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
-            H[idx[0], idx[1]] = avg
-            H[idx[1], idx[0]] = avg       # mirror copy
-
-        # # (x2 vram)
-        # H = 0.5 * (H + H.T)
+        H = 0.5 * (H + H.T)
         return H.view(n, 3, n, 3).requires_grad_(False)
 
     # ==================================================================

@@ -203,7 +203,7 @@ class PartialHessianDimer:
         return sorted(set(self.freeze_atoms_static) | set(dyn))
 
     # ================================================================
-    # helper – TR projection
+    # helper – TR projection (in-place)
     # ================================================================
     def _project_out_tr(self, H: torch.Tensor, coords_bohr_t: torch.Tensor) -> torch.Tensor:
         if coords_bohr_t.ndim == 1:
@@ -211,15 +211,23 @@ class PartialHessianDimer:
         elif coords_bohr_t.shape[-1] != 3:
             coords_bohr_t = coords_bohr_t.reshape(-1, 3)
 
-        B = _build_tr_basis(coords_bohr_t, self.masses_au_t)
-        Bt = B.T
-        BtB_inv = torch.linalg.inv(Bt @ B)
+        B       = _build_tr_basis(coords_bohr_t, self.masses_au_t)      # (3N,6)
+        Bt      = B.T
+        BtB_inv = torch.linalg.inv(Bt @ B)                              # (6,6)
 
-        with torch.no_grad():
-            G = BtB_inv @ (Bt @ H)
-            H.sub_(B @ G)
-            HB = H @ B
-            H.sub_(HB @ BtB_inv @ Bt)
+        BtH = Bt @ H          # (6,3N) = Bt H₀
+        HB  = H  @ B          # (3N,6) = H₀ B
+
+        # --- 1)  H  ←  H₀  -  B (BtB)⁻¹ (Bt H₀) ------------------------------
+        H.sub_(B @ (BtB_inv @ BtH))
+
+        # --- 2)  H  ←  H  -  H₀ B (BtB)⁻¹ Bt ---------------------------------
+        H.sub_(HB @ BtB_inv @ Bt)
+
+        # --- 3)  H  ←  H  +  B (BtB)⁻¹ (Bt H₀ B) (BtB)⁻¹ Bt ------------------
+        H.add_(B @ (BtB_inv @ (BtH @ B)) @ BtB_inv @ Bt)
+
+        del B, Bt, BtB_inv, BtH, HB; torch.cuda.empty_cache()
 
         return H
 
