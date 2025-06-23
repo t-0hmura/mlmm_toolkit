@@ -51,7 +51,6 @@ from ase.io import read, write
 from ase.data import atomic_masses
 
 from mlmm import mlmm as MLMM
-from mlmm import get_freeze_indices
 from .hessian_calc import (
     calc_freq_from_hessian, write_vib_traj_xyz, _build_tr_basis
 )
@@ -187,20 +186,57 @@ class PartialHessianDimer:
         # ---------------------------------------------------------------------
         self._template_real_atoms = read(self.real_pdb)
 
+        # ML region indices (0-based w.r.t real_pdb ordering)
+        # -----------------------------------------------------------------
+        self.ml_indices = self._extract_ml_indices()
+
         # clean old traj
         # ---------------------------------------------------------------------
         (self.out_dir / "optimization_all.trj").unlink(missing_ok=True)
 
     # ================================================================
+    # helper – ML region indices
+    # ================================================================
+    def _extract_ml_indices(self) -> List[int]:
+        """Return indices of atoms belonging to the ML region."""
+        model_ids: set[str] = set()
+        with open(self.model_pdb, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith(("ATOM", "HETATM")):
+                    model_ids.add(
+                        f"{line[12:16].strip()} {line[17:20].strip()} {line[22:26].strip()}"
+                    )
+
+        ml_idx: list[int] = []
+        with open(self.real_pdb, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith(("ATOM", "HETATM")):
+                    idx = int(line[6:11]) - 1
+                    atom_id = f"{line[12:16].strip()} {line[17:20].strip()} {line[22:26].strip()}"
+                    if atom_id in model_ids:
+                        ml_idx.append(idx)
+        return ml_idx
+
+    # ================================================================
     # helper – dynamic freeze list
     # ================================================================
     def _compute_dynamic_freeze(self) -> List[int]:
+        if self.partial_mm_cutoff <= 0.0:
+            return self.freeze_atoms_static.copy()
+
         atoms = self._template_real_atoms.copy()
         atoms.set_positions(self.geom.coords.reshape(-1, 3) * BOHR2ANG)
-        tmp_pdb = self.tmpdir / "real_cur.pdb"
-        write(tmp_pdb, atoms)
-        dyn = get_freeze_indices(str(tmp_pdb), self.model_pdb, self.partial_mm_cutoff)
-        return sorted(set(self.freeze_atoms_static) | set(dyn))
+        coords = atoms.get_positions()
+        ml_coords = coords[self.ml_indices]
+
+        frozen = set(self.freeze_atoms_static)
+        for i, pos in enumerate(coords):
+            if i in self.ml_indices:
+                continue
+            if np.min(np.linalg.norm(ml_coords - pos, axis=1)) > self.partial_mm_cutoff:
+                frozen.add(i)
+
+        return sorted(frozen)
 
     # ================================================================
     # helper – TR projection (in-place)
@@ -234,7 +270,7 @@ class PartialHessianDimer:
     # ================================================================
     # helper – lowest-mode writer
     # ================================================================
-    def _write_lowest_mode(self, H: torch.Tensor) -> np.ndarray:
+    def _write_lowest_mode(self, H: torch.Tensor, freeze_atoms: Optional[List[int]] = None) -> np.ndarray:
         coords_t = torch.tensor(self.geom.coords, dtype=self.H_dtype, device=self.H_device).view(-1, 3)
         H = self._project_out_tr(H, coords_t)
         if self.lobpcg:
@@ -244,7 +280,10 @@ class PartialHessianDimer:
             eigvals, eigvecs = torch.linalg.eigh(H)
             mode_vec = eigvecs[:, torch.argmin(eigvals)]
 
-        for idx in self.freeze_atoms_static:
+        if freeze_atoms is None:
+            freeze_atoms = self.freeze_atoms_static
+
+        for idx in freeze_atoms:
             mode_vec[3*idx : 3*idx + 3] = 0.0
             
         mode = (mode_vec / torch.linalg.norm(mode_vec)).reshape(-1, 3).cpu().numpy()
@@ -254,12 +293,13 @@ class PartialHessianDimer:
     # ================================================================
     # helper – partial Hessian (dynamic freeze)
     # ================================================================
-    def _partial_hessian(self) -> torch.Tensor:
-        vib_kw = dict(self.mlmm_kwargs, freeze_atoms=self._compute_dynamic_freeze())
+    def _partial_hessian(self) -> Tuple[torch.Tensor, List[int]]:
+        freeze = self._compute_dynamic_freeze()
+        vib_kw = dict(self.mlmm_kwargs, freeze_atoms=freeze)
         calc = MLMM(out_hess_torch=True, vib_run=True, **vib_kw)
         H = calc.get_hessian(self.geom.atom_types, self.geom.coords)["hessian"].to(self.H_dtype)
         del calc; torch.cuda.empty_cache()
-        return H
+        return H, freeze
 
     # ================================================================
     # helper – full Hessian (zero out freeze_atoms)
@@ -323,6 +363,7 @@ class PartialHessianDimer:
             calculator=calc, N_raw=self.mode_path, mem=self.mem,
             write_orientations=False, seed=0, **self.dimer_kwargs
         )
+        self.geom.freeze_atoms = self.freeze_atoms_static.copy()
         self.geom.set_calculator(dimer)
         opt = LBFGS(
             self.geom, max_cycles=n_steps, thresh=threshold, out_dir=self.out_dir,
@@ -351,8 +392,8 @@ class PartialHessianDimer:
             if ok:
                 break
             # re-diagonalise partial Hessian & update mode
-            H = self._partial_hessian()
-            self._write_lowest_mode(H)
+            H, frz = self._partial_hessian()
+            self._write_lowest_mode(H, frz)
             del H; torch.cuda.empty_cache()
         return total
 
@@ -438,6 +479,7 @@ class PartialHessianDimer:
             calc_pre = MLMM(out_hess_torch=False, **self.mlmm_kwargs)
             ml_idx = list(getattr(calc_pre, "selection_indices",
                                 getattr(calc_pre, "core").selection_indices))
+            self.ml_indices = ml_idx
             self.geom.freeze_atoms = sorted(set(self.freeze_atoms_static) | set(ml_idx))
             self.geom.set_calculator(calc_pre)
             LBFGS(
@@ -450,16 +492,16 @@ class PartialHessianDimer:
         # 1  build partial Hessian & loose loop
         # ---------------------------------------------------------------------
         print("\n>>> Loose-threshold Dimer with partial Hessian\n")
-        H = self._partial_hessian()
-        self._write_lowest_mode(H)
+        H, frz = self._partial_hessian()
+        self._write_lowest_mode(H, frz)
         del H; torch.cuda.empty_cache()
         cycles_loose = self._dimer_loop(self.thresh_loose)
 
         # 2  final-threshold Dimer loop
         # ---------------------------------------------------------------------
         print("\n>>> Final-threshold Dimer\n")
-        H = self._partial_hessian()
-        self._write_lowest_mode(H)
+        H, frz = self._partial_hessian()
+        self._write_lowest_mode(H, frz)
         del H; torch.cuda.empty_cache()
         cycles_final = self._dimer_loop(self.thresh)
 
@@ -479,8 +521,8 @@ class PartialHessianDimer:
             if not did_flatten:
                 break
             # after displacement → run final-threshold Dimer again
-            H = self._partial_hessian()
-            self._write_lowest_mode(H)
+            H, frz = self._partial_hessian()
+            self._write_lowest_mode(H, frz)
             del H; torch.cuda.empty_cache()
             total_cycles += self._dimer_loop(self.thresh)
         else:
