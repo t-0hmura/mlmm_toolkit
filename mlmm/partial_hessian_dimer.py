@@ -221,7 +221,7 @@ class PartialHessianDimer:
     # helper – dynamic freeze list
     # ================================================================
     def _compute_dynamic_freeze(self) -> List[int]:
-        if self.partial_mm_cutoff <= 0.0:
+        if self.partial_mm_cutoff <= 0.1:
             return self.freeze_atoms_static.copy()
 
         atoms = self._template_real_atoms.copy()
@@ -281,7 +281,6 @@ class PartialHessianDimer:
         translational/rotational projection.  The returned mode is padded back to
         the full length ``3N`` and written to ``mode.dat``.
         """
-
         # --------------------------------------------------------------
         # 0)   Detect active degrees of freedom and reduce Hessian
         # --------------------------------------------------------------
@@ -347,14 +346,23 @@ class PartialHessianDimer:
         else:
             mode_vec = mode_vec_red
 
+        # --------------------------------------------------------------
+        # 4)   Zero out frozen atoms (vectorised, no Python loop)
+        # --------------------------------------------------------------
         if freeze_atoms is None:
             freeze_atoms = self.freeze_atoms_static
 
-        for idx in freeze_atoms:
-            mode_vec[3 * idx : 3 * idx + 3] = 0.0
+        if freeze_atoms:
+            freeze_idx = torch.as_tensor(freeze_atoms, dtype=torch.long, device=mode_vec.device)
+            flat_idx = (freeze_idx.unsqueeze(1) * 3 + torch.arange(3, device=mode_vec.device)).reshape(-1)
+            mode_vec[flat_idx] = 0.0
 
+        # --------------------------------------------------------------
+        # 5)   Normalise, reshape, save, return
+        # --------------------------------------------------------------
         mode = (mode_vec / torch.linalg.norm(mode_vec)).reshape(-1, 3).cpu().numpy()
         np.savetxt(self.mode_path, mode, fmt="%.10f")
+
         return mode
 
     # ================================================================
