@@ -52,7 +52,6 @@ def hessian_calc(
     info_path: str | None = None,
     *,
     dtype: np.dtype = np.float64,
-    device: str | torch.device = "cpu",
 ):
     """
     Numerically compute the full Cartesian Hessian (second derivatives).
@@ -77,10 +76,9 @@ def hessian_calc(
 
     Returns
     -------
-    torch.Tensor
+    ndarray
         Cartesian Hessian of shape ``(3N, 3N)`` where
-        ``N == len(atoms)`` (fixed-atom rows/cols are zero).  The
-        tensor is allocated on ``device``.
+        ``N == len(atoms)`` (fixed-atom rows/cols are zero).
     """
     # movable / fixed atom lists
     # ---------------------------------------------------------------------
@@ -93,14 +91,11 @@ def hessian_calc(
     n_dof = 3 * m
 
     # Short-circuit: all atoms frozen → return zeros
-    torch_dtype = torch.float64 if dtype == np.float64 else torch.float32
-    device = torch.device(device)
-
     if m == 0:
         N = len(atoms)
-        return torch.zeros((3 * N, 3 * N), dtype=torch_dtype, device=device)
+        return np.zeros((3 * N, 3 * N))
 
-    H_sub = torch.empty((n_dof, n_dof), dtype=torch_dtype, device=device)
+    H_sub = np.empty((n_dof, n_dof), dtype=dtype)
     row = 0
 
     # progress logging
@@ -128,8 +123,7 @@ def hessian_calc(
             Fm = minus.calc.get_forces(minus)
 
             # Central difference:  −∂F/∂x = ∂²E/∂x²
-            diff = torch.as_tensor(Fm - Fp, dtype=torch_dtype, device=device)
-            H_sub[row] = diff[movable].reshape(-1) / (2 * delta)
+            H_sub[row] = (Fm - Fp)[movable].ravel() / (2 * delta)
             row += 1
 
         # logging
@@ -155,7 +149,7 @@ def hessian_calc(
     # assemble full (3N, 3N) Hessian
     # ---------------------------------------------------------------------
     N = len(atoms)
-    H = torch.zeros((3 * N, 3 * N), dtype=torch_dtype, device=device)
+    H = np.zeros((3 * N, 3 * N), dtype=dtype)
     for i_local, i_atom in enumerate(movable):
         for j_local, j_atom in enumerate(movable):
             H[
@@ -165,7 +159,6 @@ def hessian_calc(
                 3 * i_local : 3 * i_local + 3,
                 3 * j_local : 3 * j_local + 3,
             ]
-
     return H
 
 
