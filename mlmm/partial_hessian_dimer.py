@@ -295,7 +295,8 @@ class PartialHessianDimer:
     # ================================================================
     def _partial_hessian(self) -> Tuple[torch.Tensor, List[int]]:
         freeze = self._compute_dynamic_freeze()
-        vib_kw = dict(self.mlmm_kwargs, freeze_atoms=freeze)
+        vib_kw = self.mlmm_kwargs.copy()
+        vib_kw["freeze_atoms"] = freeze
         calc = MLMM(out_hess_torch=True, vib_run=True, **vib_kw)
         H = calc.get_hessian(self.geom.atom_types, self.geom.coords)["hessian"].to(self.H_dtype)
         del calc; torch.cuda.empty_cache()
