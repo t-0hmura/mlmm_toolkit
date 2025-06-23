@@ -250,8 +250,7 @@ class PartialHessianDimer:
         vib_kw = dict(self.mlmm_kwargs, freeze_atoms=self._compute_dynamic_freeze())
         calc = MLMM(out_hess_torch=True, vib_run=True, **vib_kw)
         H = calc.get_hessian(self.geom.atom_types, self.geom.coords)["hessian"].to(self.H_dtype)
-        del calc
-        torch.cuda.empty_cache()
+        del calc; torch.cuda.empty_cache()
         return H
 
     # ================================================================
@@ -304,8 +303,7 @@ class PartialHessianDimer:
 
         # 4. cleanup
         # ---------------------------------------------------------------------
-        del calc, H
-        torch.cuda.empty_cache()
+        del calc, H; torch.cuda.empty_cache()
         return freqs, modes
 
     # ================================================================
@@ -347,6 +345,7 @@ class PartialHessianDimer:
             # re-diagonalise partial Hessian & update mode
             H = self._partial_hessian()
             self._write_lowest_mode(H)
+            del H; torch.cuda.empty_cache()
         return total
 
     # ================================================================
@@ -445,6 +444,7 @@ class PartialHessianDimer:
         print("\n>>> Loose-threshold Dimer with partial Hessian\n")
         H = self._partial_hessian()
         self._write_lowest_mode(H)
+        del H; torch.cuda.empty_cache()
         cycles_loose = self._dimer_loop(self.thresh_loose)
 
         # 2  final-threshold Dimer loop
@@ -452,6 +452,7 @@ class PartialHessianDimer:
         print("\n>>> Final-threshold Dimer\n")
         H = self._partial_hessian()
         self._write_lowest_mode(H)
+        del H; torch.cuda.empty_cache()
         cycles_final = self._dimer_loop(self.thresh)
 
         total_cycles = cycles_loose + cycles_final
@@ -466,11 +467,13 @@ class PartialHessianDimer:
             if n_imag <= 1:
                 break
             did_flatten = self._flatten_once(freqs, modes)
+            del freqs, modes; torch.cuda.empty_cache()
             if not did_flatten:
                 break
             # after displacement → run final-threshold Dimer again
             H = self._partial_hessian()
             self._write_lowest_mode(H)
+            del H; torch.cuda.empty_cache()
             total_cycles += self._dimer_loop(self.thresh)
         else:
             print("  Warning: flatten_max_iter reached.")

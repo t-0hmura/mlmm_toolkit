@@ -115,11 +115,22 @@ class mlmm(Calculator):
         return (results['forces'] * (EV2AU / ANG2BOHR)).flatten()
     
     def _results_get_hessian(self, results):
-        if self.out_hess_torch: # (N,3,N,3) → (N*3,N*3) on device
+        scale = EV2AU / ANG2BOHR / ANG2BOHR
+
+        H = results.pop("hessian")
+
+        if self.out_hess_torch:
             target_dtype = torch.float64 if self.hess_torch_double else H_dtype
-            return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).to(target_dtype).requires_grad_(False)
-        else: # (N,3,N,3) → (N*3,N*3)
-            return (results['hessian'].flatten(0, 1).flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).cpu().numpy()
+            H = H.view(H.size(0)*3, H.size(2)*3).to(target_dtype)
+            H.mul_(scale)
+            H = H.detach().requires_grad_(False)
+        else:
+            H = H.view(H.size(0)*3, H.size(2)*3)
+            H.mul_(scale)
+            H = H.detach().cpu().numpy()
+
+        del results; torch.cuda.empty_cache()
+        return H
 
     # API for Pysisyphus
     # ---------------------------------------------------------------------
@@ -127,6 +138,7 @@ class mlmm(Calculator):
         coord_ang = np.asarray(coords).reshape(-1, 3) * BOHR2ANG
         res = self.core.compute(coord_ang, return_forces=False, return_hessian=False)
         energy = self._results_get_energy(res)
+        del res
         return dict(energy=energy)
 
     def get_forces(self, elem, coords):
@@ -134,6 +146,7 @@ class mlmm(Calculator):
         res = self.core.compute(coord_ang, return_forces=True, return_hessian=False)
         energy = self._results_get_energy(res)
         forces = self._results_get_forces(res)
+        del res
         return dict(energy=energy, forces=forces)
 
     def get_hessian(self, elem, coords):
@@ -142,6 +155,7 @@ class mlmm(Calculator):
         energy = self._results_get_energy(res)
         forces = self._results_get_forces(res)
         hessian = self._results_get_hessian(res)
+        del res; torch.cuda.empty_cache()
         return dict(energy=energy, forces=forces, hessian=hessian)
 
 def run_pysis():

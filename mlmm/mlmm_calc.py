@@ -622,16 +622,14 @@ class MLMMCore:
                     info_path=os.path.join(self.vib_dir, "real.log"),
                     dtype=self.H_np_dtype,
                 )
-                H_tot = torch.tensor(H_tot, dtype=self.H_dtype, device=self.ml_device) \
-                           .reshape(n_real, 3, n_real, 3)
+                H_tot = torch.from_numpy(H_tot).to(self.ml_device).to(self.H_dtype).reshape(n_real, 3, n_real, 3)
 
                 H_model = hessian_calc(
                     atoms_model, self.calc_model_low, delta=0.01,
                     info_path=os.path.join(self.vib_dir, "model.log"),
                     dtype=self.H_np_dtype,
                 )
-                H_model = torch.tensor(H_model, dtype=self.H_dtype, device=self.ml_device) \
-                            .reshape(len(atoms_model), 3, len(atoms_model), 3)
+                H_model = torch.from_numpy(H_model).to(self.ml_device).to(self.H_dtype).reshape(len(atoms_model), 3, len(atoms_model), 3)
             else:
                 H_tot = torch.zeros((n_real, 3, n_real, 3),
                                      dtype=self.H_dtype, device=self.ml_device)
@@ -648,7 +646,8 @@ class MLMMCore:
                     gi = self.selection_indices[i]
                     for j in range(n_ml):
                         gj = self.selection_indices[j]
-                        H_tot[gi, :, gj, :] += H_high[i, :, j, :] - H_model[i, :, j, :]
+                        H_tot[gi, :, gj, :].add_(H_high[i, :, j, :]).sub_(H_model[i, :, j, :])
+            del H_model
 
             # ---------------------------------------------------------------------
             #  link metadata & Jacobian
@@ -689,10 +688,10 @@ class MLMMCore:
                     H_l = H_high[link_idx, :, link_idx, :]    # (3×3)
                     H_self = K.T @ H_l @ K                   # (6×6)
 
-                    H_tot[ml_idx, :, ml_idx, :] += H_self[0:3, 0:3]
-                    H_tot[ml_idx, :, mm_idx, :] += H_self[0:3, 3:6]
-                    H_tot[mm_idx, :, ml_idx, :] += H_self[3:6, 0:3]
-                    H_tot[mm_idx, :, mm_idx, :] += H_self[3:6, 3:6]
+                    H_tot[ml_idx, :, ml_idx, :].add_(H_self[0:3, 0:3])
+                    H_tot[ml_idx, :, mm_idx, :].add_(H_self[0:3, 3:6])
+                    H_tot[mm_idx, :, ml_idx, :].add_(H_self[3:6, 0:3])
+                    H_tot[mm_idx, :, mm_idx, :].add_(H_self[3:6, 3:6])
 
                 # 2-nd term  Σ ∂Jᵀ/∂x · f_L
                 # ---------------------------------------------------------------------
@@ -709,7 +708,7 @@ class MLMMCore:
                     dtype=self.H_dtype,
                     device=self.ml_device
                 )
-                pos.requires_grad = True
+                pos.requires_grad_(True)
 
                 def g(p):
                     rq = p[0:3]
@@ -722,10 +721,10 @@ class MLMMCore:
                 H_corr6 = torch.autograd.functional.hessian(g, pos).detach()  # (6×6)
                 H_corr6 = 0.5 * (H_corr6 + H_corr6.T)  # symmetrize
 
-                H_tot[ml_idx, :, ml_idx, :] += H_corr6[0:3, 0:3]
-                H_tot[ml_idx, :, mm_idx, :] += H_corr6[0:3, 3:6]
-                H_tot[mm_idx, :, ml_idx, :] += H_corr6[3:6, 0:3]
-                H_tot[mm_idx, :, mm_idx, :] += H_corr6[3:6, 3:6]
+                H_tot[ml_idx, :, ml_idx, :].add_(H_corr6[0:3, 0:3])
+                H_tot[ml_idx, :, mm_idx, :].add_(H_corr6[0:3, 3:6])
+                H_tot[mm_idx, :, ml_idx, :].add_(H_corr6[3:6, 0:3])
+                H_tot[mm_idx, :, mm_idx, :].add_(H_corr6[3:6, 3:6])
 
             # ---------------------------------------------------------------------
             #  (a) link–ML off-diagonals  Jᵀ H J
@@ -737,10 +736,10 @@ class MLMMCore:
                         H_row = K.T @ H_coup                    # (6×3)
                         H_col = H_coup.T @ K                    # (3×6)
 
-                        H_tot[ml_idx, :, gj, :] += H_row[0:3, :]
-                        H_tot[mm_idx, :, gj, :] += H_row[3:6, :]
-                        H_tot[gj, :, ml_idx, :] += H_col[:, 0:3]
-                        H_tot[gj, :, mm_idx, :] += H_col[:, 3:6]
+                        H_tot[ml_idx, :, gj, :].add_(H_row[0:3, :])
+                        H_tot[mm_idx, :, gj, :].add_(H_row[3:6, :])
+                        H_tot[gj, :, ml_idx, :].add_(H_col[:, 0:3])
+                        H_tot[gj, :, mm_idx, :].add_(H_col[:, 3:6])
 
             # ---------------------------------------------------------------------
             #  (b) link–link couplings  Jᵀ H J
@@ -754,14 +753,13 @@ class MLMMCore:
                         H_ab = H_high[link_idx_a, :, link_idx_b, :]   # 3×3
                         H_tr = K_a.T @ H_ab @ K_b                    # (6×6)
 
-                        H_tot[ml_a, :, ml_b, :] += H_tr[0:3, 0:3]
-                        H_tot[ml_a, :, mm_b, :] += H_tr[0:3, 3:6]
-                        H_tot[mm_a, :, ml_b, :] += H_tr[3:6, 0:3]
-                        H_tot[mm_a, :, mm_b, :] += H_tr[3:6, 3:6]
+                        H_tot[ml_a, :, ml_b, :].add_(H_tr[0:3, 0:3])
+                        H_tot[ml_a, :, mm_b, :].add_(H_tr[0:3, 3:6])
+                        H_tot[mm_a, :, ml_b, :].add_(H_tr[3:6, 0:3])
+                        H_tot[mm_a, :, mm_b, :].add_(H_tr[3:6, 3:6])
 
             results["hessian"] = H_tot.detach()
-            del H_high, H_model, F_high_torch
-            torch.cuda.empty_cache()
+            del H_high, F_high_torch, H_tot; torch.cuda.empty_cache()
 
         # 7. Charges
         # ---------------------------------------------------------------------

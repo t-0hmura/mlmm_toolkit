@@ -174,6 +174,7 @@ def analyze_single_structure(
         # <<< TR-PROJ <<<
         verbose=False,
     )
+    del H, _; torch.cuda.empty_cache()
 
     # Insurance against 0 frequencies
     zero_tol = 1e-6            # cm⁻¹
