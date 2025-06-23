@@ -372,7 +372,12 @@ class PartialHessianDimer:
         freeze = self._compute_dynamic_freeze()
         vib_kw = self.mlmm_kwargs.copy()
         vib_kw["freeze_atoms"] = freeze
-        calc = MLMM(out_hess_torch=True, vib_run=True, **vib_kw)
+
+        if self.partial_mm_cutoff <= 0.1:
+            calc = MLMM(out_hess_torch=True, vib_run=False, **vib_kw)
+        else:
+            calc = MLMM(out_hess_torch=True, vib_run=True, **vib_kw)
+
         H = calc.get_hessian(self.geom.atom_types, self.geom.coords)["hessian"].to(self.H_dtype)
         del calc; torch.cuda.empty_cache()
         return H, freeze
