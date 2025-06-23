@@ -220,89 +220,26 @@ class PartialHessianDimer:
             H.sub_(B @ G)
             HB = H @ B
             H.sub_(HB @ BtB_inv @ Bt)
-            # Symmetrize the Hessian (x1.5 vram)
-            # with torch.no_grad():
-            #     idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
-            #     avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
-            #     H[idx[0], idx[1]] = avg
-            #     H[idx[1], idx[0]] = avg       # mirror copy
 
         return H
 
     # ================================================================
     # helper – lowest-mode writer
     # ================================================================
-    def _write_lowest_mode(
-        self,
-        H: torch.Tensor,
-        tol: float = 1e-6,  # threshold to detect zero rows/cols
-    ) -> np.ndarray:
-        # --- detect active DOF (rows with norm > tol) -------------------
-        row_nonzero = torch.linalg.norm(H, dim=1) > tol
-        active_dof  = torch.nonzero(row_nonzero, as_tuple=False).squeeze()
-
-        if active_dof.numel() == 0:
-            raise RuntimeError("No active DOF.")
-
-        reduced = active_dof.numel() != H.shape[0]
-        H   = H[active_dof][:, active_dof] if reduced else H
-
-        # --- project out translational / rotational modes ---------------
-        coords_all = torch.as_tensor(
-            self.geom.coords, dtype=self.H_dtype, device=self.H_device
-        ).view(-1, 3)
-        if reduced:
-            atom_map_full = (active_dof // 3).cpu().numpy()
-            active_atoms = np.unique(atom_map_full)
-            coords_act = coords_all[active_atoms]
-            masses_act = torch.as_tensor(
-                self.masses_amu_np[active_atoms],
-                dtype=self.H_dtype,
-                device=self.H_device,
-            )
-        else:
-            coords_act = coords_all
-            masses_act = torch.as_tensor(
-                self.masses_amu_np,
-                dtype=self.H_dtype,
-                device=self.H_device,
-            )
-
-        B = _build_tr_basis(coords_act, masses_act)
-        Bt = B.T
-        BtB_inv = torch.linalg.inv(Bt @ B)
-
-        with torch.no_grad():
-            G = BtB_inv @ (Bt @ H)
-            H.sub_(B @ G)
-            HB = H @ B
-            H.sub_(HB @ BtB_inv @ Bt)
-            idx = torch.triu_indices(H.size(0), H.size(0), 1, device=H.device)
-            avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
-            H[idx[0], idx[1]] = avg
-            H[idx[1], idx[0]] = avg
-
-        # --- diagonalize ------------------------------------------------
+    def _write_lowest_mode(self, H: torch.Tensor) -> np.ndarray:
+        coords_t = torch.tensor(self.geom.coords, dtype=self.H_dtype, device=self.H_device).view(-1, 3)
+        H = self._project_out_tr(H, coords_t)
         if self.lobpcg:
             eigvals, eigvecs = torch.lobpcg(H, k=1, largest=False)
-            mode_vec_red = eigvecs[:, 0]
+            mode_vec = eigvecs[:, 0]
         else:
             eigvals, eigvecs = torch.linalg.eigh(H)
-            mode_vec_red = eigvecs[:, torch.argmin(eigvals)]
+            mode_vec = eigvecs[:, torch.argmin(eigvals)]
 
-        # --- pad to full length ----------------------------------------
-        if reduced:
-            mode_full = torch.zeros(H.shape[0], dtype=H.dtype, device=H.device)
-            mode_full[active_dof] = mode_vec_red
-        else:
-            mode_full = mode_vec_red
-
-        # --- zero out statically frozen atoms ---------------------------
         for idx in self.freeze_atoms_static:
-            mode_full[3 * idx : 3 * idx + 3] = 0.0
-
-        # --- normalize, save, return -----------------------------------
-        mode = (mode_full / torch.linalg.norm(mode_full)).reshape(-1, 3).cpu().numpy()
+            mode_vec[3*idx : 3*idx + 3] = 0.0
+            
+        mode = (mode_vec / torch.linalg.norm(mode_vec)).reshape(-1, 3).cpu().numpy()
         np.savetxt(self.mode_path, mode, fmt="%.10f")
         return mode
 

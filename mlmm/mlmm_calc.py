@@ -484,6 +484,9 @@ class MLMMCore:
             avg = 0.5 * (H[idx[0], idx[1]] + H[idx[1], idx[0]])
             H[idx[0], idx[1]] = avg
             H[idx[1], idx[0]] = avg       # mirror copy
+
+        # # (x2 vram)
+        # H = 0.5 * (H + H.T)
         return H.view(n, 3, n, 3).requires_grad_(False)
 
     # ==================================================================
@@ -560,7 +563,6 @@ class MLMMCore:
                 if return_hessian and "hessian" in results_h
                 else None
             )
-        # H_high = self.symmetrize_4idx(H_high) if H_high is not None else None  # symmetrization is off due to high memory usage
 
         # 3. low-level OpenMM energies
         # ---------------------------------------------------------------------
@@ -757,10 +759,6 @@ class MLMMCore:
                         H_tot[mm_a, :, ml_b, :] += H_tr[3:6, 0:3]
                         H_tot[mm_a, :, mm_b, :] += H_tr[3:6, 3:6]
 
-            # ---------------------------------------------------------------------
-            #  final symmetrization
-            # ---------------------------------------------------------------------
-            # H_tot = self.symmetrize_4idx(H_tot) # symmetrization is off due to high memory usage
             results["hessian"] = H_tot.detach()
             del H_high, H_model, F_high_torch
             torch.cuda.empty_cache()
