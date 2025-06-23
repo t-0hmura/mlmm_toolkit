@@ -227,14 +227,18 @@ class PartialHessianDimer:
         atoms = self._template_real_atoms.copy()
         atoms.set_positions(self.geom.coords.reshape(-1, 3) * BOHR2ANG)
         coords = atoms.get_positions()
-        ml_coords = coords[self.ml_indices]
+
+        coords_t = torch.as_tensor(coords, dtype=self.H_dtype, device=self.H_device)
+        ml_coords_t = coords_t[self.ml_indices]
+
+        dmat = torch.cdist(ml_coords_t, coords_t)
+        min_dist = torch.min(dmat, dim=0).values
+
+        freeze_mask = min_dist > self.partial_mm_cutoff
+        freeze_mask[self.ml_indices] = False
 
         frozen = set(self.freeze_atoms_static)
-        for i, pos in enumerate(coords):
-            if i in self.ml_indices:
-                continue
-            if np.min(np.linalg.norm(ml_coords - pos, axis=1)) > self.partial_mm_cutoff:
-                frozen.add(i)
+        frozen.update(torch.nonzero(freeze_mask).view(-1).cpu().tolist())
 
         return sorted(frozen)
 
