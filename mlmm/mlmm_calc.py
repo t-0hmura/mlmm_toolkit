@@ -613,15 +613,15 @@ class MLMMCore:
                     atoms_real, self.calc_real_low, delta=0.01,
                     info_path=os.path.join(self.vib_dir, "real.log"),
                     dtype=self.H_np_dtype,
-                    device=self.ml_device,
-                ).to(self.H_dtype).reshape(n_real, 3, n_real, 3)
+                )
+                H_tot = torch.from_numpy(H_tot).to(self.ml_device).to(self.H_dtype).reshape(n_real, 3, n_real, 3)
 
                 H_model = hessian_calc(
                     atoms_model, self.calc_model_low, delta=0.01,
                     info_path=os.path.join(self.vib_dir, "model.log"),
                     dtype=self.H_np_dtype,
-                    device=self.ml_device,
-                ).to(self.H_dtype).reshape(len(atoms_model), 3, len(atoms_model), 3)
+                )
+                H_model = torch.from_numpy(H_model).to(self.ml_device).to(self.H_dtype).reshape(len(atoms_model), 3, len(atoms_model), 3)
             else:
                 H_tot = torch.zeros((n_real, 3, n_real, 3),
                                      dtype=self.H_dtype, device=self.ml_device)
