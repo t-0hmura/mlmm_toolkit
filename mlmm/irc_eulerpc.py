@@ -39,12 +39,12 @@ Trajectory  →  ./dump/irc/final_geometries.trj
 """
 from __future__ import annotations
 
-# ------------------ stdlib │ 3rd-party -----------------------------
+# ------------------ stdlib │ 3rd-party -------------------------------
 import argparse
+import time
 from pathlib import Path
 from typing import Final, List, Optional
 
-import time
 import numpy as np
 import torch
 import yaml
@@ -53,11 +53,11 @@ from ase.io import read, write
 from mlmm.mlmm_pysis import mlmm as MLMM
 from pysisyphus.constants import AMU2AU, ANG2BOHR, BOHR2ANG
 
-# ------------------- constants -------------------------------------
-EPS: Final[float] = 1.0e-12           # numerical guard
-RICHARDSON_MAX_K: Final[int] = 15    # 2**15 ≈ 65 k Richardson points
+# ------------------- constants ---------------------------------------
+EPS: Final[float] = 1.0e-12
+RICHARDSON_MAX_K: Final[int] = 15          # 2**15 ≈ 65 k Richardson points
 
-# ------------------- utilities -------------------------------------
+# ------------------- utilities ---------------------------------------
 def _sr1_update(z: torch.Tensor, dx: torch.Tensor) -> torch.Tensor:
     return torch.outer(z, z) / (torch.dot(z, dx) + EPS)
 
@@ -75,7 +75,7 @@ def bofill_update(H: torch.Tensor, dx: torch.Tensor, dg: torch.Tensor) -> None:
                                      (torch.dot(dx, dx) + EPS))
     H += mix * _sr1_update(z, dx) + (1.0 - mix) * _psb_update(z, dx)
 
-# ------------------- distance-weighted fit ------------------
+# ------------------- distance-weighted fit ---------------------------
 class DWI:
     """Two-point distance-weighted interpolator (GPU-friendly)."""
 
@@ -96,7 +96,7 @@ class DWI:
         self.gradients: list[torch.Tensor] = []
         self.hessians:  list[torch.Tensor] = []
 
-    # --------------------- storage ---------------------
+    # ------------- storage -----------------
     def update(
         self,
         coords: torch.Tensor,
@@ -116,12 +116,12 @@ class DWI:
         self.gradients.append(gradient.to(self.device, dtype=self.dtype))
         self.hessians.append(hessian.to(self.device, dtype=self.dtype))
 
-    # --------------------- interpolation ---------------------
+    # ------------- interpolation -----------
     @staticmethod
     def _taylor(
         energy: float, grad: torch.Tensor, hess: torch.Tensor, step: torch.Tensor
     ) -> torch.Tensor:
-        """Second-order Taylor polynomial of *E* at a displaced point."""
+        """Second-order Taylor polynomial."""
         return energy + torch.dot(step, grad) + 0.5 * torch.dot(step, hess @ step)
 
     @staticmethod
@@ -142,7 +142,7 @@ class DWI:
         dx1, dx2 = coords - c1, coords - c2
         d1, d2   = torch.linalg.norm(dx1), torch.linalg.norm(dx2)
 
-        # exact match → return cached value
+        # exact match → cached value
         if d1 < 1.0e-16:
             return (self.energies[0] if not gradient
                     else (self.energies[0], self.gradients[0].clone()))
@@ -175,19 +175,19 @@ class DWI:
         grad_dwi = dw1 * t1 + w1 * t1_g - dw1 * t2 + w2 * t2_g
         return energy.item(), grad_dwi
 
-# ------------------- IRC driver -----------------------------------
+# ------------------- IRC driver -------------------------------------
 class EulerPC:
     """
     Euler Predictor–Corrector IRC driver in mass-weighted space.
-    Traces forward (products) and backward (reactants) branches.
+    Produces *backward.trj* / *forward.trj* step-wise, then merges them.
     """
 
-    # ------------- init -------------
+    # ------------- init --------------------
     def __init__(
         self,
         ts_xyz: str | Path,
         *,
-        step_length: float = 0.10,       # amu½·Bohr
+        step_length: float = 0.10,         # amu½·Bohr
         max_cycles: int = 25,
         max_pred_steps: int = 500,
         out_dir: str | Path = "./dump/irc/",
@@ -214,8 +214,8 @@ class EulerPC:
         masses_au   = torch.as_tensor(
             np.array([atomic_masses[z] for z in self.atoms.get_atomic_numbers()])
             * AMU2AU, dtype=self.dtype, device=self.device)
-        self.m_sqrt = torch.sqrt(masses_au)               # (N,)
-        self.m_sqrt_3N = self.m_sqrt.repeat_interleave(3) # (3 N,)
+        self.m_sqrt = torch.sqrt(masses_au)                 # (N,)
+        self.m_sqrt_3N = self.m_sqrt.repeat_interleave(3)   # (3N,)
 
         # freeze mask
         self.freeze_atoms = [] if freeze_atoms is None else list(freeze_atoms)
@@ -232,18 +232,18 @@ class EulerPC:
 
         self.mlmm_kwargs = {} if mlmm_kwargs is None else dict(mlmm_kwargs)
 
-    # ------------- mass-weight helpers -------------
+    # ------------- mass-weight helpers -----
     def _mw(self,  x: torch.Tensor) -> torch.Tensor: return x * self.m_sqrt_3N
     def _unmw(self, x: torch.Tensor) -> torch.Tensor: return x / self.m_sqrt_3N
     def _grad_mw(self, g: torch.Tensor) -> torch.Tensor: return g / self.m_sqrt_3N
 
     def _conv_fact(self, G: torch.Tensor, min_fact: float = 2.0) -> float:
-        """Scale predictor sub-step count by gradient norm ratio."""
+        """Scale predictor sub-step count by gradient-norm ratio."""
         return max(min_fact,
                    torch.linalg.norm(G * self.m_sqrt_3N).item()
                    / (torch.linalg.norm(G).item() + EPS))
 
-    # ------------- ML/MM backend -------------
+    # ------------- ML/MM backend ----------
     def _build_calc(self, *, out_hess: bool = False):
         cfg = dict(self.mlmm_kwargs)
         cfg["out_hess_torch"] = out_hess
@@ -280,11 +280,28 @@ class EulerPC:
         del calc  # free GPU
         return energy, grad, H_MW
 
-    # ------------- single-branch propagation -------------
-    def _propagate(self, sign: int) -> list[np.ndarray]:
+    # ------------- I/O helper -------------
+    def _write_frame(self, coords_bohr: torch.Tensor, trj_path: Path,
+                     append: bool) -> None:
+        """Write single geometry to a trajectory file."""
+        at = self.atoms.copy()
+        at.set_positions(coords_bohr.view(-1, 3).cpu().numpy() * BOHR2ANG)
+        write(trj_path, at, append=append)
+
+    # ------------- single-branch propagation
+    def _propagate(
+        self,
+        sign: int,
+        *,
+        trj_path: Path,
+    ) -> list[np.ndarray]:
         """
-        sign = +1 → products, -1 → reactants branch
+        sign = +1 → products / forward
+        sign = -1 → reactants / backward
+        Writes each step to *trj_path*.
         """
+        branch = "forward" if sign > 0 else "backward"
+
         # transition state
         E_ts, g_ts, H_ts = self._compute(self.coords0, hessian=True)
         Q_ts, G_ts       = self._mw(self.coords0), self._grad_mw(g_ts)
@@ -299,16 +316,23 @@ class EulerPC:
         E, g, _ = self._compute(self._unmw(Q), hessian=False)
         G       = self._grad_mw(g)
 
-        # DWI initialisation
+        # initialise DWI
         dwi = DWI(device=self.device, dtype=self.dtype)
         dwi.update(Q_ts, E_ts, G_ts, H_ts)
         dwi.update(Q,    E,    G,    H_ts)
 
-        # trajectory container
+        # trajectory container&nbsp;+ first two frames
         path = [self.coords0.view(-1, 3).cpu().numpy(),
                 self._unmw(Q).view(-1, 3).cpu().numpy()]
+        # ---------------- write initial frames ---------------
+        self._write_frame(self.coords0, trj_path, append=False)
+        self._write_frame(self._unmw(Q), trj_path, append=True)
+        # -----------------------------------------------------
 
         H = H_ts.clone()  # working Hessian
+
+        print(f"  {branch.capitalize()} :: Cycle 00 | "
+              f"E = {E:.8f} Eh | |G|_MW = {torch.linalg.norm(G):.3e}")
 
         for cycle in range(self.max_cycles):
             Q0 = Q.clone()
@@ -342,9 +366,18 @@ class EulerPC:
             # advance
             Q, G = Q_corr, G_corr
             path.append(self._unmw(Q).view(-1, 3).cpu().numpy())
+
+            # write step geometry --------------------------------
+            self._write_frame(self._unmw(Q), trj_path, append=True)
+
+            # progress print
+            print(f"  {branch.capitalize()} :: Cycle {cycle+1:02d} | "
+                  f"E = {E_corr:.8f} Eh | |G|_MW = {torch.linalg.norm(G):.3e}")
+
+        print(f"  {branch.capitalize()} path finished: {len(path)-1} steps.\n")
         return path
 
-    # ------------- Richardson corrector -------------
+    # ------------- Richardson corrector ----
     def _corrector_step(
         self, Q0: torch.Tensor, step_length: float, dwi: DWI
     ) -> torch.Tensor:
@@ -371,32 +404,47 @@ class EulerPC:
                 break
         return richardson[(k, k)]
 
-    # ------------- public API -------------
+    # ------------- public API ------------
     def run(self) -> None:
-        """Compute both IRC branches and write the merged trajectory."""
+        """Compute both IRC branches and write trajectories."""
         start_time = time.time()
+        print("==========  Euler Predictor–Corrector IRC  ==========")
+        print(f" Device      : {self.device}")
+        print(f" Step length : {self.step_length:.3f} amu½·Bohr")
+        print(f" Max cycles  : {self.max_cycles}")
+        print("=====================================================\n")
 
-        print("Starting IRC path search with Euler Predictor–Corrector method...")
+        # output file paths ----------------------------------
+        trj_bwd = self.out_dir / "backward.trj"
+        trj_fwd = self.out_dir / "forward.trj"
+        if trj_bwd.exists(): trj_bwd.unlink()
+        if trj_fwd.exists(): trj_fwd.unlink()
 
-        print('Backward path search (TS → Reactants)')
-        path_bwd = self._propagate(sign=-1)   # TS → Reactants
+        print("Backward path search (TS → Reactants)")
+        path_bwd = self._propagate(sign=-1, trj_path=trj_bwd)   # TS → Reactants
         torch.cuda.empty_cache()
-        print('Forward path search (TS → Products)')
-        path_fwd = self._propagate(sign=+1)   # TS → Products
+
+        print("Forward path search (TS → Products)")
+        path_fwd = self._propagate(sign=+1, trj_path=trj_fwd)   # TS → Products
         torch.cuda.empty_cache()
 
+        # merge & write final trajectory ----------------------
         merged   = path_bwd[::-1] + path_fwd[1:]  # drop duplicated TS
         traj_file = self.out_dir / "final_geometries.trj"
+        if traj_file.exists(): traj_file.unlink()
         for i, frame in enumerate(merged):
             at = self.atoms.copy()
             at.set_positions(frame * BOHR2ANG)
             write(traj_file, at, append=i != 0)
 
         elapsed = time.time() - start_time
-        hours, minutes, seconds = int(elapsed // 3600), int((elapsed % 3600) // 60), elapsed % 60
-        print(f"IRC path search completed in {hours}h {minutes}m {seconds:.2f}s.")
+        h, m, s = int(elapsed // 3600), int((elapsed % 3600) // 60), elapsed % 60
+        print(f"IRC search completed in {h} h {m} m {s:.1f} s.")
+        print(f"  • {trj_bwd.name}  ({len(path_bwd)-1} steps + TS)")
+        print(f"  • {trj_fwd.name}  ({len(path_fwd)-1} steps + TS)")
+        print(f"  • {traj_file.name} (merged)\n")
 
-# ------------------- CLI helpers ----------------------------------
+# ------------------- CLI helpers ------------------------------------
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="irc_eulerpc",
@@ -415,7 +463,7 @@ def _load_yaml(path: str | Path) -> dict:
     with open(path, "r", encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 
-# ------------------- script entry ---------------------------------
+# ------------------- script entry -----------------------------------
 def main() -> None:
     args = _build_parser().parse_args()
 
