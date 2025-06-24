@@ -17,9 +17,24 @@ Usage
 # YAML-driven
 $ irc_eulerpc input.yaml
 
+YAML example:
+  geom:
+    fn: ./dump/dimer/final_geometry.xyz
+    freeze_atoms: [0, 1]        # optional
+  irc:
+    max_steps:   25
+    step_size:   0.10           # amu½·Bohr
+    pc_steps:    500
+    out_dir:     ./dump/irc/
+    device:      auto           # "auto" | "cpu" | "cuda:0" …
+  calc:                         # forwarded to MLMM(**calc)
+    real_pdb:   ./parm/complex.pdb
+    real_parm7: ./parm/complex.parm7
+    ...
+
 Outputs
 -------
-Trajectory →  ./dump/irc/final_geometries.trj
+Trajectory  →  ./dump/irc/final_geometries.trj
 (change via YAML key `irc.out_dir`)
 """
 from __future__ import annotations
@@ -60,7 +75,7 @@ def bofill_update(H: torch.Tensor, dx: torch.Tensor, dg: torch.Tensor) -> None:
                                      (torch.dot(dx, dx) + EPS))
     H += mix * _sr1_update(z, dx) + (1.0 - mix) * _psb_update(z, dx)
 
-# --------------------------- distance-weighted fit -----------------------------
+# ------------------- distance-weighted fit ------------------
 class DWI:
     """Two-point distance-weighted interpolator (GPU-friendly)."""
 
@@ -385,20 +400,20 @@ class EulerPC:
 # ------------------- CLI helpers ----------------------------------
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="Mass-weighted Euler Predictor–Corrector IRC search (ML/MM)"
+        prog="irc_eulerpc",
+        description="Mass-weighted Euler Predictor–Corrector IRC search (ML/MM)",
     )
-    # YAML
-    p.add_argument("-c", "--config", type=str,
-                   help="YAML config file (overrides all CLI flags).")
-    # legacy CLI
-    p.add_argument("--ts",   dest="ts_xyz",      default="./coord/ts.xyz")
-    p.add_argument("--step", dest="step_length", default=0.10, type=float)
-    p.add_argument("--max-cycles", dest="max_cycles",     default=25,  type=int)
-    p.add_argument("--pc-steps",   dest="max_pred_steps", default=500, type=int)
-    p.add_argument("--out",  dest="out_dir",     default="./dump/irc/")
-    p.add_argument("--device",      default="auto")
-    p.add_argument("--freeze", dest="freeze_atoms", nargs="*", type=int, default=[])
-    p.add_argument("--log-level",   default="INFO")
+    p.add_argument(
+        "config",
+        metavar="input.yaml",
+        type=str,
+        help="YAML configuration file describing geometry, IRC parameters and ML/MM backend.",
+    )
+    p.add_argument(
+        "--log-level",
+        default="INFO",
+        help="Initial verbosity (overridden by irc.log_level in YAML, if present).",
+    )
     return p
 
 
@@ -410,38 +425,22 @@ def _load_yaml(path: str | Path) -> dict:
 def main() -> None:
     args = _build_parser().parse_args()
 
-    # YAML path
-    if args.config:
-        cfg = _load_yaml(args.config)
+    cfg = _load_yaml(args.config)
 
-        geom = cfg.get("geom", {})
-        irc  = cfg.get("irc",  {})
-        mlmm = cfg.get("calc", {})
+    geom = cfg.get("geom", {})
+    irc  = cfg.get("irc",  {})
+    mlmm = cfg.get("calc", {})
 
-        EulerPC(
-            ts_xyz      = geom.get("fn", "./coord/ts.xyz"),
-            step_length = irc .get("step_size", 0.10),
-            max_cycles  = irc .get("max_steps", 25),
-            max_pred_steps = irc.get("pc_steps", 500),
-            out_dir     = irc .get("out_dir", "./dump/irc/"),
-            device      = irc .get("device", "auto"),
-            freeze_atoms= geom.get("freeze_atoms", []),
-            mlmm_kwargs = mlmm,
-            log_level   = irc.get("log_level", "INFO"),
-        ).run()
-        return
-
-    # pure CLI path
     EulerPC(
-        ts_xyz       = args.ts_xyz,
-        step_length  = args.step_length,
-        max_cycles   = args.max_cycles,
-        max_pred_steps = args.max_pred_steps,
-        out_dir      = args.out_dir,
-        device       = args.device,
-        freeze_atoms = args.freeze_atoms,
-        mlmm_kwargs  = {},
-        log_level    = args.log_level,
+        ts_xyz      = geom.get("fn", "./coord/ts.xyz"),
+        step_length = irc.get("step_size", 0.10),
+        max_cycles  = irc.get("max_steps", 25),
+        max_pred_steps = irc.get("pc_steps", 500),
+        out_dir     = irc.get("out_dir", "./dump/irc/"),
+        device      = irc.get("device", "auto"),
+        freeze_atoms= geom.get("freeze_atoms", []),
+        mlmm_kwargs = mlmm,
+        log_level   = irc.get("log_level", args.log_level),
     ).run()
 
 
