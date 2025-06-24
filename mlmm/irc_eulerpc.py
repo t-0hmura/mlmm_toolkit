@@ -286,7 +286,7 @@ class EulerPC:
         """Write single geometry to a trajectory file."""
         at = self.atoms.copy()
         at.set_positions(coords_bohr.view(-1, 3).cpu().numpy() * BOHR2ANG)
-        write(trj_path, at, append=append)
+        write(trj_path, at, append=append, format='xyz')
 
     # ------------- single-branch propagation
     def _propagate(
@@ -435,14 +435,14 @@ class EulerPC:
         for i, frame in enumerate(merged):
             at = self.atoms.copy()
             at.set_positions(frame * BOHR2ANG)
-            write(traj_file, at, append=i != 0)
+            write(traj_file, at, append=i != 0, format='xyz')
 
         elapsed = time.time() - start_time
         h, m, s = int(elapsed // 3600), int((elapsed % 3600) // 60), elapsed % 60
         print(f"IRC search completed in {h} h {m} m {s:.1f} s.")
-        print(f"  • {trj_bwd.name}  ({len(path_bwd)-1} steps + TS)")
-        print(f"  • {trj_fwd.name}  ({len(path_fwd)-1} steps + TS)")
-        print(f"  • {traj_file.name} (merged)\n")
+        print(f"    {trj_bwd.name}  ({len(path_bwd)-1} steps + TS)")
+        print(f"    {trj_fwd.name}  ({len(path_fwd)-1} steps + TS)")
+        print(f"    {traj_file.name} (merged)\n")
 
 # ------------------- CLI helpers ------------------------------------
 def _build_parser() -> argparse.ArgumentParser:
