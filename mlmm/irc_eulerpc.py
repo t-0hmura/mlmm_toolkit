@@ -41,10 +41,10 @@ from __future__ import annotations
 
 # ------------------ stdlib │ 3rd-party -----------------------------
 import argparse
-import logging
 from pathlib import Path
 from typing import Final, List, Optional
 
+import time
 import numpy as np
 import torch
 import yaml
@@ -195,13 +195,7 @@ class EulerPC:
         mlmm_kwargs: Optional[dict] = None,
         H_dtype: torch.dtype = torch.float32,
         device: str | torch.device = "auto",
-        log_level: str = "INFO",
     ):
-        # logging
-        logging.basicConfig(format="%(levelname)s:%(name)s: %(message)s",
-                            level=log_level.upper())
-        self.log = logging.getLogger("EulerPC")
-
         # geometry
         self.atoms  = read(str(ts_xyz))
         self.natom  = len(self.atoms)
@@ -291,8 +285,6 @@ class EulerPC:
         """
         sign = +1 → products, -1 → reactants branch
         """
-        self.log.info("Starting %s branch", "forward (+1)" if sign == 1 else "backward (-1)")
-
         # transition state
         E_ts, g_ts, H_ts = self._compute(self.coords0, hessian=True)
         Q_ts, G_ts       = self._mw(self.coords0), self._grad_mw(g_ts)
@@ -350,9 +342,6 @@ class EulerPC:
             # advance
             Q, G = Q_corr, G_corr
             path.append(self._unmw(Q).view(-1, 3).cpu().numpy())
-            self.log.debug("Cycle %d  |ΔQ| = %.3e",
-                           cycle, torch.linalg.norm(Q - Q0))
-
         return path
 
     # ------------- Richardson corrector -------------
@@ -385,8 +374,16 @@ class EulerPC:
     # ------------- public API -------------
     def run(self) -> None:
         """Compute both IRC branches and write the merged trajectory."""
+        start_time = time.time()
+
+        print("Starting IRC path search with Euler Predictor–Corrector method...")
+
+        print('Backward path search (TS → Reactants)')
         path_bwd = self._propagate(sign=-1)   # TS → Reactants
+        torch.cuda.empty_cache()
+        print('Forward path search (TS → Products)')
         path_fwd = self._propagate(sign=+1)   # TS → Products
+        torch.cuda.empty_cache()
 
         merged   = path_bwd[::-1] + path_fwd[1:]  # drop duplicated TS
         traj_file = self.out_dir / "final_geometries.trj"
@@ -395,7 +392,9 @@ class EulerPC:
             at.set_positions(frame * BOHR2ANG)
             write(traj_file, at, append=i != 0)
 
-        self.log.info("IRC path saved to %s", traj_file)
+        elapsed = time.time() - start_time
+        hours, minutes, seconds = int(elapsed // 3600), int((elapsed % 3600) // 60), elapsed % 60
+        print(f"IRC path search completed in {hours}h {minutes}m {seconds:.2f}s.")
 
 # ------------------- CLI helpers ----------------------------------
 def _build_parser() -> argparse.ArgumentParser:
@@ -408,11 +407,6 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="input.yaml",
         type=str,
         help="YAML configuration file describing geometry, IRC parameters and ML/MM backend.",
-    )
-    p.add_argument(
-        "--log-level",
-        default="INFO",
-        help="Initial verbosity (overridden by irc.log_level in YAML, if present).",
     )
     return p
 
@@ -440,7 +434,6 @@ def main() -> None:
         device      = irc.get("device", "auto"),
         freeze_atoms= geom.get("freeze_atoms", []),
         mlmm_kwargs = mlmm,
-        log_level   = irc.get("log_level", args.log_level),
     ).run()
 
 
