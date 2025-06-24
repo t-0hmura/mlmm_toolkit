@@ -15,7 +15,7 @@ This script reimplements the EulerPC algorithm for IRC based on the pysisyphus.i
 Usage
 -----------
 # YAML-driven
-$ python euler_pc_irc.py --config params.yaml
+$ irc_eulerpc input.yaml
 
 Outputs
 -------
