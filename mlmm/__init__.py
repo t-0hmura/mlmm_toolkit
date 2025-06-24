@@ -28,5 +28,4 @@ __all__ = [
     "PartialHessianDimer",
     "analyze_single_structure",
     "analyze_three_structures",
-    "EulerPC",
 ]
