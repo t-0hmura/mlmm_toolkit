@@ -34,6 +34,7 @@ partial_hessian_dimer = "mlmm.partial_hessian_dimer_cli:main"
 cartesian_bond_scan = "mlmm.cartesian_bond_scan_cli:main"
 energy_summary = "mlmm.energy_summary:main"
 trj2fig = "mlmm.trj2fig:main"
+irc_eulerpc = 'mlmm.irc_eulerpc:main'
 
 [tool.setuptools.packages.find]
 where = ["."]

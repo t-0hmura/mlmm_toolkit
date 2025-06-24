@@ -9,6 +9,7 @@ from .hessian_calc import hessian_calc, calc_freq_from_hessian, write_vib_traj_x
 from .cartesian_bond_scan import CartesianBondScan
 from .partial_hessian_dimer import PartialHessianDimer
 from .energy_summary import analyze_single_structure, analyze_three_structures
+from .irc_eulerpc import EulerPC
 
 __version__ = "0.0.1"
 
@@ -27,4 +28,5 @@ __all__ = [
     "PartialHessianDimer",
     "analyze_single_structure",
     "analyze_three_structures",
+    "EulerPC",
 ]
