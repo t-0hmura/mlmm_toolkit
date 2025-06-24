@@ -43,7 +43,7 @@ For CUDA 12.6:
 ```bash
 pip install fairchem-core==2.2.0
 pip install git+https://github.com/isayevlab/aimnetcentral.git
-pip install git+https://github.com/t-0hmura/mlmm_calc.git
+pip install git+https://github.com/t-0hmura/mlmm_tools.git
 huggingface-cli login
 ```
 
@@ -52,7 +52,7 @@ For CUDA 12.8 (required for RTX 50 series):
 pip install fairchem-core==2.2.0
 pip install git+https://github.com/isayevlab/aimnetcentral.git
 pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
-pip install git+https://github.com/t-0hmura/mlmm_calc.git
+pip install git+https://github.com/t-0hmura/mlmm_tools.git
 huggingface-cli login
 ```
 
@@ -100,14 +100,14 @@ Choose one of the following backends:
 * **AIMNet2 only**
   ```bash
   pip install git+https://github.com/isayevlab/aimnetcentral.git
-  pip install git+https://github.com/t-0hmura/mlmm_calc.git
+  pip install git+https://github.com/t-0hmura/mlmm_tools.git
   ```
 
 * **UMA only**
   ```bash
   pip install fairchem-core==2.2.0
   # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
-  pip install git+https://github.com/t-0hmura/mlmm_calc.git
+  pip install git+https://github.com/t-0hmura/mlmm_tools.git
   ```
 
 * **Both backends** *(order matters)*
@@ -115,7 +115,7 @@ Choose one of the following backends:
   pip install fairchem-core==2.2.0
   pip install git+https://github.com/isayevlab/aimnetcentral.git
   # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
-  pip install git+https://github.com/t-0hmura/mlmm_calc.git
+  pip install git+https://github.com/t-0hmura/mlmm_tools.git
   ```
 
 > **Why this order?**  
