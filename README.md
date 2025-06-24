@@ -1,4 +1,4 @@
-# **ML/MM calculator** — towards Accelerated Mechanistic Investigation of Enzymatic Reactions
+# **ML/MM tools** — towards Accelerated Mechanistic Investigation of Enzymatic Reactions
 
 ## Overview
 
