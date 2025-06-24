@@ -24,7 +24,7 @@ YAML example:
   irc:
     max_steps:   25
     step_size:   0.10           # amu½·Bohr
-    pc_steps:    500
+    pc_steps:    20
     out_dir:     ./dump/irc/
     device:      auto           # "auto" | "cpu" | "cuda:0" …
   calc:                         # forwarded to MLMM(**calc)
@@ -189,7 +189,7 @@ class EulerPC:
         *,
         step_length: float = 0.10,         # amu½·Bohr
         max_cycles: int = 25,
-        max_pred_steps: int = 500,
+        max_pred_steps: int = 20,
         out_dir: str | Path = "./dump/irc/",
         freeze_atoms: Optional[List[int]] = None,
         mlmm_kwargs: Optional[dict] = None,
@@ -477,7 +477,7 @@ def main() -> None:
         ts_xyz      = geom.get("fn", "./coord/ts.xyz"),
         step_length = irc.get("step_size", 0.10),
         max_cycles  = irc.get("max_steps", 25),
-        max_pred_steps = irc.get("pc_steps", 500),
+        max_pred_steps = irc.get("pc_steps", 20),
         out_dir     = irc.get("out_dir", "./dump/irc/"),
         device      = irc.get("device", "auto"),
         freeze_atoms= geom.get("freeze_atoms", []),
