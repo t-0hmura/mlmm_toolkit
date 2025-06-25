@@ -79,6 +79,7 @@ class mlmm(Calculator):
             freeze_atoms (List[int] | None): 0-based indices of atoms to freeze during MM Hessian calculations.
         """
         self.model_charge_init = model_charge if model_charge is not None else 0
+        self._freeze_atoms = [] if freeze_atoms is None else list(freeze_atoms)
         super().__init__(charge=self.model_charge_init, mult=1, **kwargs)
         self.core = MLMMCore(
                  real_pdb = real_pdb,
@@ -100,11 +101,23 @@ class mlmm(Calculator):
                  mm_device = mm_device,
                  mm_cuda_idx = mm_cuda_idx,
                  mm_threads = mm_threads,
-                 freeze_atoms = freeze_atoms,
+                 freeze_atoms = self._freeze_atoms,
                  H_double = H_double)
 
         self.out_hess_torch = out_hess_torch
         self.hess_torch_double = H_double
+        self.freeze_atoms = freeze_atoms
+
+    # ------------------------------------------------------------------
+    @property
+    def freeze_atoms(self) -> List[int] | None:
+        """Indices of frozen atoms."""
+        return self.core.freeze_atoms
+
+    @freeze_atoms.setter
+    def freeze_atoms(self, indices: List[int] | None):
+        self._freeze_atoms = [] if indices is None else list(indices)
+        self.core.freeze_atoms = self._freeze_atoms
 
     @staticmethod
     def _results_get_energy(results):

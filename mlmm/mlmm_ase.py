@@ -46,6 +46,7 @@ class mlmm_ase(Calculator):
             Use double precision for Hessian-related tensors.
         """
         super().__init__()
+        self._freeze_atoms = [] if freeze_atoms is None else list(freeze_atoms)
         self.core = MLMMCore(
                  real_pdb = real_pdb,
                  real_parm7 = real_parm7,
@@ -66,8 +67,21 @@ class mlmm_ase(Calculator):
                  mm_device = mm_device,
                  mm_cuda_idx = mm_cuda_idx,
                  mm_threads = mm_threads,
-                 freeze_atoms = freeze_atoms,
+                 freeze_atoms = self._freeze_atoms,
                  H_double = H_double)
+
+        self.freeze_atoms = freeze_atoms
+
+    # ------------------------------------------------------------------
+    @property
+    def freeze_atoms(self) -> List[int] | None:
+        """Indices of frozen atoms."""
+        return self.core.freeze_atoms
+
+    @freeze_atoms.setter
+    def freeze_atoms(self, indices: List[int] | None):
+        self._freeze_atoms = [] if indices is None else list(indices)
+        self.core.freeze_atoms = self._freeze_atoms
 
     # ---------------------------------------------------------------------
     def calculate(self, atoms, properties, system_changes=all_changes):
