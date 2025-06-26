@@ -512,13 +512,6 @@ class MLMMCore:
             coord_ang
         )
 
-        # Check for NaN values in positions
-        if np.isnan(atoms_real.get_positions()).any() or np.isnan(atoms_model.get_positions()).any() or np.isnan(atoms_model_LH.get_positions()).any():
-            print("NaN values found in atom positions. Re-evaluating atoms.")
-            atoms_real, atoms_model, atoms_model_LH, added_link_atoms = self._prep_3_layer_atoms(coord_ang)
-            if np.isnan(atoms_real.get_positions()).any() or np.isnan(atoms_model.get_positions()).any() or np.isnan(atoms_model_LH.get_positions()).any():
-                raise ValueError("NaN values found in atom positions after re-evaluation.")
-
         # 2. high-level evaluation
         # ---------------------------------------------------------------------
         if self.backend == "uma":
