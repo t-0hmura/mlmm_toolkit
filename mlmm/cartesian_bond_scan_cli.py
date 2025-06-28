@@ -15,7 +15,7 @@ from __future__ import annotations
 import sys
 import argparse
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, List
 
 import yaml
 from mlmm.cartesian_bond_scan import CartesianBondScan
@@ -35,7 +35,8 @@ def build_scanner(cfg: Dict) -> CartesianBondScan:
     misc_cfg = cfg.get("misc", {})
 
     scanner = CartesianBondScan(
-        input_path = geom_cfg.get("fn", "./coord/gs.xyz"),
+        input_path = geom_cfg.get("fn", None),
+        freeze_atoms = list(geom_cfg.get("freeze_atoms", [])),
         scan_bond  = tuple(scan_cfg.get("bond", (0, 1))),
         scan_step  = float(scan_cfg.get("step", 0.05)),
         scan_range= tuple(scan_cfg.get("scan_range", (1.4, 4.0))),
