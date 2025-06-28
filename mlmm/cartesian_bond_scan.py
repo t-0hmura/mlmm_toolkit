@@ -36,7 +36,6 @@ class CartesianBondScan:
         # scan settings
         # ---------------------------------------------------------------------
         input_path: str,
-        freeze_atoms: List[int] = [],
         scan_bond: Tuple[int, int],
         scan_step: float,                 # Å
         scan_range: Tuple[float, float], # Å (min,max)
@@ -44,6 +43,7 @@ class CartesianBondScan:
         thresh: str,
         max_cycles: int,
         out_dir: str,
+        freeze_atoms: List[int] = [],
         out_fn: str = "final_geometries.trj",
         # MLMM calculator
         # ---------------------------------------------------------------------
@@ -163,7 +163,7 @@ class CartesianBondScan:
                 break
 
             # optimize
-            geom.freeze_atoms = list(self.scan_bond)
+            geom.freeze_atoms = sorted(list(self.scan_bond) + list(self.freeze_atoms))
             opt = LBFGS(geom, max_cycles=self.max_cycles,
                         thresh=self.thresh, out_dir=self.out_dir)
             opt.run()
