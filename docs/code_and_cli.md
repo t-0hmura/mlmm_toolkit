@@ -29,17 +29,17 @@ The package installs several small utilities which become available on your `$PA
 |------|---------|------------------|
 | `def_ml_region` | Build an ML region with residues around one or more substrate in a protein–substrate complex. | Preparing the subsystem for ML/MM calculator |
 | `xyz_geom2pdb`  | Convert an XYZ geometry or trajectory to a multi‑model PDB while borrowing atom/residue metadata from a reference PDB. | Exporting optimization results for visualization |
-| `add_elem_info` | Append element symbols (PDB columns 77–78) by calling Open Babel. | Fixing element fields before running external tools |
+| `add_elem_info` | Append element symbols (PDB columns 77–78) | Fixing element fields before running external tools |
 | `get_freeze_indices` | List atom indices to *freeze* based on their distance from the ML region. | Constraining outer‑shell atoms during local relaxations |
-| `cartesian_bond_scan` | Scan a bond length with ML/MM optimization at each step. | Generating aligned structures along a reaction coordinate |
-| `partial_hessian_dimer` | Dimer‑based TS search with partial Hessian updates. | Locating transition states in large systems |
+| `bond_scan` | Scan a bond length with ML/MM optimization at each step. | Generating aligned structures along a reaction coordinate |
+| `ts_search` | Dimer‑based TS search with partial Hessian updates. | Locating transition states in large systems |
 | `energy_summary` | Compute ΔE/ΔG tables and plots from reactant, TS and product structures. | Summarizing reaction energetics |
 | `trj2fig` | Plot ΔE from an XYZ trajectory and export the highest peak frame. | Visualizing optimization or scan profiles |
 
 ### `def_ml_region` – Automated ML‑region extractor
 
 ```bash
-def_ml_region --real complex.pdb --center ligand.pdb --out ml_region.pdb --radius_ml 2.6 --radius_het 3.6 --include_H2O false --exclude_backbone false
+def_ml_region --real complex.pdb --center ligand.pdb --out ml_region.pdb --radius_ml 2.6 --radius_het 3.6 --include_H2O false --exclude_backbone true
 ```
 
 | Option | Default | Meaning |
@@ -50,7 +50,7 @@ def_ml_region --real complex.pdb --center ligand.pdb --out ml_region.pdb --radiu
 | `--radius_ml` | `2.6` Å | Residues with any atom ≤ radius from the substrate are included. |
 | `--radius_het` | `3.6` Å | Cut‑off distance between hetero atoms in the center residues and those in other residues. |
 | `--include_H2O` | `false` | Keep water molecules inside the ML region. |
-| `--exclude_backbone` | `false` | When `true`, only side chains are kept; `false` preserves backbone connectivity. |
+| `--exclude_backbone` | `true` | When `true`, only side chains are kept; `false` preserves backbone connectivity. |
 
 Example:
 
@@ -81,8 +81,6 @@ add_elem_info protein.pdb       # over‑write in place
 add_elem_info input.pdb output_with_elem.pdb
 ```
 
-Open Babel is imported only when needed; the rest of the package works even if the library is missing.
-
 | Argument | Default | Meaning |
 |----------|---------|---------|
 | `input` | *(required)* | Input PDB file |
@@ -101,12 +99,12 @@ get_freeze_indices --real complex.pdb --model ml_region.pdb --range 8.0 --out fr
 | `--range` | *(required)* | Relaxed range in Å from ML-region |
 | `--out` | `stdout` | Output text file of indices |
 
-Indices are written one per line. Omit `--out` to print them to stdout and pipe the list directly into `ase.constraints.FixedAtoms` or other tools.
+Indices are written in a line. Omit `--out` to print them to stdout and pipe the list directly into `ase.constraints.FixedAtoms` or other tools.
 
-### `cartesian_bond_scan` – Single‑bond scan
+### `bond_scan` – Single‑bond scan
 
 ```bash
-cartesian_bond_scan scan.yml
+bond_scan scan.yml
 ```
 
 Runs an inward and outward scan along a chosen bond. Each scan point is optimized with LBFGS and saved to `final_geometries.trj`.
@@ -126,10 +124,10 @@ Runs an inward and outward scan along a chosen bond. Each scan point is optimize
 
 See `examples/cartesian_scan.yml` for a complete template.
 
-### `partial_hessian_dimer` – Partial-Hessian ML/MM Dimer search   
+### `ts_search` – Partial-Hessian ML/MM Dimer search   
 
 ```bash
-partial_hessian_dimer config.yml
+ts_search config.yml
 ```
 
 The script drives a **mixed ML/MM transition-state search** that combines  
@@ -199,7 +197,7 @@ calc:
 
 ---
 
-*For a richer template see* `examples/partial_hessian_dimer.yml`.
+*For a richer template see* `examples/ts_search.yml`.
 
 ### `energy_summary` – Gibbs‑energy profiler
 
