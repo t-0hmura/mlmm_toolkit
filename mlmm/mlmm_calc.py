@@ -437,7 +437,7 @@ class MLMMCore:
             ml_i = ml_idx - 1
             mm_i = mm_idx - 1
 
-            ml_elem = atoms_real[ml_i].symbol.upper()
+            ml_elem = atoms_real[ml_i].symbol
             if ml_elem == "C":
                 dist = 1.09
             elif ml_elem == "N":
