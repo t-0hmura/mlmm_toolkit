@@ -172,7 +172,7 @@ pip install git+https://github.com/t-0hmura/torch-dmf.git
 
    ```bash
    def_ml_region -r input_complex.pdb -c input_substrate.pdb -o output_ml_region.pdb\
-    --radius_ml 6.0 --include_H2O false --exclude_backbone false
+    --radius_ml 6.0 --include_H2O false --exclude_backbone true
    ```
 
    **Options**  
