@@ -546,13 +546,13 @@ class PartialHessianDimer:
         if self.max_cycles_preopt == 0:
             # 0  no pre-opt
             # ---------------------------------------------------------------------
-            print("\n>>> No pre-optimisation\n")
+            print("\n>>> No pre-optimization\n")
             self.geom.freeze_atoms = self.freeze_atoms_static.copy()
             torch.cuda.empty_cache()
         else:
             # 0  pre-opt
             # ---------------------------------------------------------------------
-            print("\n>>> Pre-optimisation\n")
+            print("\n>>> Pre-optimization\n")
             calc_pre = MLMM(out_hess_torch=False, **self.mlmm_kwargs)
             ml_idx = list(getattr(calc_pre, "selection_indices",
                                 getattr(calc_pre, "core").selection_indices))

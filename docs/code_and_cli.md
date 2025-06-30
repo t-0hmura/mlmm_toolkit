@@ -135,12 +135,12 @@ partial_hessian_dimer config.yml
 The script drives a **mixed ML/MM transition-state search** that combines  
 
 1. *Partial* Hessians (ML region + nearby MM; distant MM rows/cols = 0)  
-2. Periodic Dimer optimisation (loose → final thresholds)  
+2. Periodic Dimer optimization (loose → final thresholds)  
 3. A **mass-scaled multi-mode flatten loop** that flattens extra imaginary modes  
     until only the transition-state mode remains.
 
 Before launching the Dimer loops the geometry of **MM region** is relaxed with LBFGS. The
-cycle limit for this pre-optimisation is controlled by `dimer.max_cycles_preopt`
+cycle limit for this pre-optimization is controlled by `dimer.max_cycles_preopt`
 (defaults to `dimer.max_cycles`).
 
 ---
@@ -152,7 +152,7 @@ cycle limit for this pre-optimisation is controlled by `dimer.max_cycles_preopt`
 | **geom.fn** | `./coord/gs_hei.xyz` | Input geometry (`.xyz` or `.pdb`) |
 | **geom.freeze_atoms** | `[]` | List of indices kept fixed *throughout* |
 | **geom.real_pdb** | `./parm/complex.pdb` | Template for PDB overlays |
-| **misc.out_dir** | `./dump/dimer/` | Optimisation output directory |
+| **misc.out_dir** | `./dump/dimer/` | optimization output directory |
 | **misc.vib_dir** | `./dump/vib/` | Directory for vibrational analysis |
 | **misc.dump** | `false` | Write intermediate trajectories |
 | **dimer.thresh_loose** | `gau_loose` | Loose LBFGS tolerance |
