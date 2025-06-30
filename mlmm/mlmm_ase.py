@@ -22,7 +22,6 @@ class mlmm_ase(Calculator):
                  model_charge: int = None,
                  model_mult: int = 1,
                  link_mlmm: List[Tuple[str, str]] | None = None,
-                 dist_link: float = 1.09,
                  backend: str = "uma",  # "uma" or "aimnet2"
 
                  ml_device: str = "auto",
@@ -52,7 +51,6 @@ class mlmm_ase(Calculator):
                  model_charge = model_charge,
                  model_mult = model_mult,
                  link_mlmm = link_mlmm,
-                 dist_link = dist_link,
                  backend = backend,
 
                  vib_run = False,

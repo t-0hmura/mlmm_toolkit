@@ -32,7 +32,6 @@ class mlmm(Calculator):
                  model_charge: int = None,
                  model_mult: int = 1,
                  link_mlmm: List[Tuple[str, str]] | None = None,
-                 dist_link: float = 1.09,
                  backend: str = "uma",  # "uma" or "aimnet2"
 
                  vib_run: bool = False,
@@ -59,7 +58,6 @@ class mlmm(Calculator):
             model_charge (int): Charge of the model system. If None, charge of model system is calculated automatically with RDKit.
             model_mult (int): Multiplicity of the model system. Default is 1 (singlet).
             link_mlmm (List[Tuple[str, str]] | None): List of tuples specifying the link atoms between ML and MM regions. e.g.) [("CB  ARG   294", "CA  ARG   294")]. If None, link atoms are determined automatically based on distance and element type.
-            dist_link (float): Distance for link atoms.
             backend (str): ML backend to use. Options are "uma" or "aimnet2".
 
             vib_run (bool): Whether to run vibrational analysis.
@@ -85,7 +83,6 @@ class mlmm(Calculator):
 
                  model_charge = model_charge,
                  link_mlmm = link_mlmm,
-                 dist_link = dist_link,
                  backend = backend,
 
                  vib_run = vib_run,
