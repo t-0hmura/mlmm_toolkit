@@ -26,10 +26,6 @@ Save CSV only:
     trj2fig -i traj.xyz -o energy.csv -r 5 --unit hartree
 
 Default reference frame is 0; change it with “-r IDX”.
-
-Author
-------
-Takuto Ohmura – 7 Jun 2025
 """
 from __future__ import annotations
 

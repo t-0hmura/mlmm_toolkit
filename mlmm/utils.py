@@ -8,10 +8,6 @@ Three commands are installed via ``setup.py``::
 
 Each command can also be accessed as a Python API (see the function names
 below).
-
-Author
-------
-Takuto Ohmura – May 26th 2025
 """
 from __future__ import annotations
 

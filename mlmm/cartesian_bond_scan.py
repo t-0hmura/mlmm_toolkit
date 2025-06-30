@@ -5,10 +5,6 @@ CartesianBondScan – ML/MM geometry scan along a single bond
 * High-level ML / Low-level MM handled by MLMM calculator.
 * Performs an inward (shortening) and outward (elongating) scan.
 * Each scan point is locally optimized with LBFGS.
-
-Author
-------
-Takuto Ohmura - 07 Jun 2025
 """
 from __future__ import annotations
 

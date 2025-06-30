@@ -4,10 +4,6 @@ CLI wrapper to run CartesianBondScan from a YAML configuration file.
 Usage
 -----
 $ cartesian_bond_scan my_scan.yml
-
-Author
-------
-Takuto Ohmura
 """
 
 from __future__ import annotations

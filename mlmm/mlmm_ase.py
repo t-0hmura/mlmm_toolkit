@@ -2,10 +2,6 @@
 
 This class allows ASE to evaluate energies and forces using the hybrid
 machine-learning/molecular-mechanics model.
-
-Author
-------
-Takuto Ohmura
 """
 
 import numpy as np

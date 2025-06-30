@@ -5,10 +5,6 @@ Run Partial-Hessian ML/MM Dimer search from a YAML configuration file
 Usage
 -----
 $ partial_hessian_dimer config.yml
-
-Author
-------
-Takuto Ohmura
 """
 
 from __future__ import annotations

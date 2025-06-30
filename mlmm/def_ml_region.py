@@ -71,10 +71,6 @@ Dependencies
 * Python ≥ 3.9
 * Biopython ≥ 1.80 (for `Bio.PDB`)
 * NumPy (indirectly via Biopython)
-
-Author
-------
-Takuto Ohmura – May 23rd 2025
 """
 
 from __future__ import annotations
@@ -143,9 +139,9 @@ def parse_args() -> argparse.Namespace:
                         "(default: 3.6)")
     p.add_argument("--include_H2O", type=str2bool, default=False,
                    help="Include water molecules (default: false)")
-    p.add_argument("--exclude_backbone", type=str2bool, default=False,
+    p.add_argument("--exclude_backbone", type=str2bool, default=True,
                    help="Delete all main-chain atoms from non-substrate residues "
-                        "(default: false)")
+                        "(default: true)")
     return p.parse_args()
 
 

@@ -2,10 +2,6 @@
 
 Provides energy, force and Hessian evaluations through the PySisyphus
 framework.
-
-Author
-------
-Takuto Ohmura
 """
 
 import numpy as np

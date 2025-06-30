@@ -28,10 +28,6 @@ Workflow
 4. **Export** final geometry and surviving imaginary mode(s).
 
 The script below follows this logic exactly; nothing is omitted.
-
-Author
-------
-Takuto Ohmura – updated 13 Jun 2025
 """
 
 from __future__ import annotations

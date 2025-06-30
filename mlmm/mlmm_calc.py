@@ -7,10 +7,6 @@ ML/MM link-atom Jacobian redistribution and optional Hessian support.
 
 Select the ML backend with the argument ``backend`` ("uma" | "aimnet2").
 The default is "uma".
-
-Author
-------
-Takuto Ohmura – May 23rd 2025
 """
 
 import os
@@ -128,7 +124,6 @@ class MLMMCore:
         model_charge: int | None = None,
         model_mult: int = 1,
         link_mlmm: List[Tuple[str, str]] | None = None,
-        dist_link: float = 1.09,
         backend: str = "uma",  # "uma" or "aimnet2"
         # === hessian / vib =============================================
         vib_run: bool = False,
@@ -152,8 +147,6 @@ class MLMMCore:
             model_charge (int): Charge of the model system. If None, charge of model system is calculated automatically with RDKit.
             model_mult (int): Multiplicity of the model system. Default is 1 (singlet). UMA backend only.
             link_mlmm (List[Tuple[str, str]] | None): List of tuples specifying the link atoms between ML and MM regions. e.g.) [("CB  ARG   294", "CA  ARG   294")]. If None, link atoms are determined automatically based on distance and element type.
-            dist_link (float): Distance for link atoms.
-            backend (str): ML backend to use. Options are "uma" or "aimnet2".
 
             vib_run (bool): Whether to run vibrational analysis.
 
@@ -162,7 +155,7 @@ class MLMMCore:
 
             mm_device (str): Device to use for calculations. Options are "auto", "cpu", or "cuda".
             mm_cuda_idx (int): CUDA device index if using GPU.
-            mm_threads (int): Number of threads to use for CPU calculations. {7950X3D/4.20GHz 16 threads faster than RTX 3090 (2x faster for 8->16, Almos same for 16->32)}
+            mm_threads (int): Number of threads to use for CPU calculations.
             freeze_atoms (List[int] | None): 0-based indices of atoms to freeze during MM Hessian calculations.
             H_double (bool): Use double precision for Hessian-related tensors.
         """
@@ -191,13 +184,12 @@ class MLMMCore:
         self.model_parm7 = os.path.join(self.tmpdir, "model.parm7")
         self.model_rst7 = os.path.join(self.tmpdir, "model.rst7")
         
-        mol = pmd.load_file(real_parm7, real_rst7)
+        mol = pmd.load_file(self.real_parm7, self.real_rst7)
         mol.box = None
-        mol.save(real_parm7, overwrite=True)
-        mol.save(real_rst7, overwrite=True)
+        mol.save(self.real_parm7, overwrite=True)
+        mol.save(self.real_rst7, overwrite=True)
 
         self.link_mlmm = link_mlmm
-        self.dist_link = dist_link
 
         if backend == "aimnet2" and model_mult != 1:
             raise ValueError("Multiplicity except 1 is not supported for AIMNet2 backend.")
@@ -444,11 +436,27 @@ class MLMMCore:
         for ml_idx, mm_idx in self.mlmm_links:
             ml_i = ml_idx - 1
             mm_i = mm_idx - 1
+
+            ml_elem = atoms_real[ml_i].symbol.upper()
+            if ml_elem == "C":
+                dist = 1.09
+            elif ml_elem == "N":
+                dist = 1.01
+            else:
+                raise ValueError(
+                    f"Unsupported link atom element: {ml_elem}. "
+                    "Only C and N are supported for parent of link atoms."
+                )
+
             vec = atoms_real[mm_i].position - atoms_real[ml_i].position
+            R = np.linalg.norm(vec)
+            if R < 1e-6:
+                continue  # skip if the atoms are at the same position
             u = vec / np.linalg.norm(vec)
-            H_pos = atoms_real[ml_i].position + u * self.dist_link
+            H_pos = atoms_real[ml_i].position + u * dist
             atoms_model_LH += Atoms("H", positions=[H_pos])
-            added_link_atoms.append((len(atoms_model_LH) - 1, ml_i, mm_i))
+            # (link_idx_in_model_LH , ml_idx_in_REAL , mm_idx_in_REAL , dist)
+            added_link_atoms.append((len(atoms_model_LH) - 1, ml_i, mm_i, dist))
 
         if self.freeze_atoms:
             atoms_real.set_constraint(FixAtoms(indices=self.freeze_atoms))
@@ -462,7 +470,7 @@ class MLMMCore:
 
     # ---------------------------------------------------------------------
     def _calc_model_charge(self) -> int:
-        """ Calculate Formal charge of MODEL (+link-H) system with RDkit. (Setting charge manually is recommended.) """
+        """ Calculate Formal charge of MODEL (+link-H) system with RDkit. """
         atoms = read(self.real_pdb)
         real_coord = atoms.get_positions()
         _, _, atoms_model_LH, _ = self._prep_3_layer_atoms(real_coord)
@@ -505,6 +513,8 @@ class MLMMCore:
         dict
             keys present according to request flags.
         """
+
+        rev_index = {idx: pos for pos, idx in enumerate(self.selection_indices)}
 
         # 1. build Atoms objects
         # ---------------------------------------------------------------------
@@ -582,8 +592,8 @@ class MLMMCore:
             for i, ridx in enumerate(self.selection_indices):
                 F_combined[ridx] += F_model_high[i] - F_model_low[i]
 
-            for link_idx, ml_idx, mm_idx in added_link_atoms:
-                ml_model_idx = self.selection_indices.index(ml_idx)
+            for link_idx, ml_idx, mm_idx, dist in added_link_atoms:
+                ml_model_idx = rev_index[ml_idx]
                 r_ml = atoms_model_LH[ml_model_idx].position
                 r_mm = atoms_real[mm_idx].position
                 grad_link = F_model_high[link_idx]
@@ -592,8 +602,8 @@ class MLMMCore:
                 u = vec / R
                 I = np.eye(3)
                 du_dQ = (I - np.outer(u, u)) / R
-                dR_dQ = I - self.dist_link * du_dQ
-                dR_dM = self.dist_link * du_dQ
+                dR_dQ = I - dist * du_dQ
+                dR_dM = dist * du_dQ
                 J = np.hstack([dR_dQ, dR_dM]).T
                 redistributed = J @ grad_link
                 F_combined[ml_idx] += redistributed[:3]
@@ -644,11 +654,9 @@ class MLMMCore:
             # ---------------------------------------------------------------------
             #  link metadata & Jacobian
             # ---------------------------------------------------------------------
-            link_data: List[Tuple[int, int, int, torch.Tensor]] = []
+            link_data: List[Tuple[int, int, int, float, torch.Tensor]] = []
 
-            rev_index = {idx: pos for pos, idx in enumerate(self.selection_indices)}
-
-            for link_idx, ml_idx, mm_idx in added_link_atoms:
+            for link_idx, ml_idx, mm_idx, dist in added_link_atoms:
                 ml_model_idx = rev_index[ml_idx]
 
                 r_ml = torch.tensor(atoms_model_LH[ml_model_idx].position,
@@ -660,11 +668,12 @@ class MLMMCore:
                 u = vec / Rlen
                 I3 = torch.eye(3, dtype=self.H_dtype, device=self.ml_device)
                 du_dQ = (I3 - torch.outer(u, u)) / Rlen
-                dR_dQ = I3 - self.dist_link * du_dQ
-                dR_dM = self.dist_link * du_dQ
+                dR_dQ = I3 - dist * du_dQ
+                dR_dM = dist * du_dQ
                 K = torch.hstack([dR_dQ, dR_dM])           # (3×6)
 
-                link_data.append((link_idx, ml_idx, mm_idx, K))
+                # (link_idx_REAL , ml_idx_REAL , mm_idx_REAL , dist , K)
+                link_data.append((link_idx, ml_idx, mm_idx, dist, K))
 
             # ---------------------------------------------------------------------
             #  (0) self-diagonal Jᵀ·H·J  and 2-nd term
@@ -673,7 +682,7 @@ class MLMMCore:
                                            dtype=self.H_dtype,
                                            device=self.ml_device)
 
-            for link_idx, ml_idx, mm_idx, K in link_data:
+            for link_idx, ml_idx, mm_idx, dist, K in link_data:
                 # Jᵀ H J
                 # ---------------------------------------------------------------------
                 if H_high is not None:
@@ -707,7 +716,7 @@ class MLMMCore:
                     rm = p[3:6]
                     v = rm - rq
                     uvec = v / torch.norm(v)
-                    rL = rq + self.dist_link * uvec
+                    rL = rq + dist * uvec
                     return torch.dot(f_L, rL)  # scalar
 
                 H_corr6 = torch.autograd.functional.hessian(g, pos).detach()  # (6×6)
@@ -722,7 +731,7 @@ class MLMMCore:
             #  (a) link–ML off-diagonals  Jᵀ H J
             # ---------------------------------------------------------------------
             if H_high is not None:
-                for link_idx, ml_idx, mm_idx, K in link_data:
+                for link_idx, ml_idx, mm_idx, dist, K in link_data:
                     for j_ml, gj in enumerate(self.selection_indices):
                         H_coup = H_high[link_idx, :, j_ml, :]   # 3×3
                         H_row = K.T @ H_coup                    # (6×3)
@@ -739,9 +748,9 @@ class MLMMCore:
             if H_high is not None:
                 n_links = len(link_data)
                 for a in range(n_links):
-                    link_idx_a, ml_a, mm_a, K_a = link_data[a]
+                    link_idx_a, ml_a, mm_a, dist_a, K_a = link_data[a]
                     for b in range(a + 1, n_links):
-                        link_idx_b, ml_b, mm_b, K_b = link_data[b]
+                        link_idx_b, ml_b, mm_b, dist_b, K_b = link_data[b]
                         H_ab = H_high[link_idx_a, :, link_idx_b, :]   # 3×3
                         H_tr = K_a.T @ H_ab @ K_b                    # (6×6)
 

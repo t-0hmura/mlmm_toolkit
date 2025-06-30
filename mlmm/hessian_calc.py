@@ -1,10 +1,6 @@
 """Hessian utilities and vibrational analysis helpers for the ML/MM workflow.
 
 These routines construct Hessians, compute frequencies and handle I/O.
-
-Author
-------
-Takuto Ohmura
 """
 
 import os
