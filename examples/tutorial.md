@@ -133,8 +133,7 @@ trj2fig -i current_geometries.trj -o gs.png --output-peak 5_gs_peak.xyz
 
 Starts from `5_gs_peak.xyz` and refines the TS with the
 **PH‑Dimer** algorithm.  
-The optimized TS is saved as
-`./dump/dimer/6_tsopt_final_geometry.xyz`.
+The optimized TS is saved as `./dump/dimer/final_geometry.xyz`.
 
 ### 4.6  IRC – `7_irc.yaml`
 

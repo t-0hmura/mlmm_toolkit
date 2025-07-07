@@ -238,7 +238,7 @@ mlmm_kwargs = dict(
     mm_device    = "cpu",
     mm_cuda_idx  = 0,
     mm_threads   = 16,
-    mem          = 10000,      # MB – Pysisyphus scratch memory
+    mem          = 10000, # MB – Pysisyphus scratch memory (If it is large, it is automatically reduced.)
 )
 
 geom = geom_from_pdb("structure.pdb")
@@ -280,7 +280,7 @@ calc:
   mm_device: 'cpu'
   mm_cuda_idx: 0
   mm_threads: 16
-  mem: 100000
+  mem: 10000 # MB – Pysisyphus scratch memory (If it is large, it is automatically reduced.)
 ```
 
 Run with:

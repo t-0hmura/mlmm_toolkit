@@ -24,4 +24,4 @@ calc:
   mm_device: 'cpu'
   mm_cuda_idx: 0
   mm_threads: 16
-  mem: 100000
+  mem: 10000
