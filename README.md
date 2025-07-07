@@ -166,6 +166,8 @@ module unload amber
 
 
 ## 3. Using the Calculator
+### Quick‑start examples.
+Fully working scripts are provided in the `examples/` directory so you can try the calculator straight away. Start with the minimal `toy_system` example, then explore realistic enzyme cases in `chorismate_mutase` and `methyltransferase`. For a step‑by‑step walkthrough of an entire reaction‑energy profile—from structure preparation to $\Delta G^{\ddagger}$ evaluation—see `examples/tutorial.md`.
 
 ### Units at a glance
 
