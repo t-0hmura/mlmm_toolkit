@@ -5,10 +5,11 @@ core = MLMMCore(
     real_parm7     = "complex.parm7",  # Amber topology for the full system
     real_rst7      = "complex.rst7",   # Amber coordinates for the full system
     model_pdb      = "ml_region.pdb",  # ML region only (trimmed PDB)
-    model_charge   = 0,               # Formal charge of the ML region including link H atoms
+    model_charge   = 0,                # Formal charge of the ML region including link H atoms
     model_mult     = 1,                # Spin multiplicity of the ML region (used by UMA only)
     link_mlmm      = None,             # default: None, link atom pairs are auto determined.
     backend        = "uma",            # ML backend: "uma" or "aimnet2"
+    uma_model      = "uma-s-1"         # Model name for uma backend.
     vib_run        = False,            # Whether to compute numerical Hessian (True = finite difference)
     ml_device      = "auto",           # ML backend device: "auto", "cuda", or "cpu"
     ml_cuda_idx    = 0,                # GPU index for ML backend (if using CUDA)

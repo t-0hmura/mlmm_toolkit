@@ -27,7 +27,7 @@ The ML region can therefore include entire amino‑acid side chains when necessa
 | Potential | Repository |
 |-----------|------------|
 | **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> |
-| **UMA** (uma-s-1)   | <https://github.com/facebookresearch/fairchem> |
+| **UMA** | <https://github.com/facebookresearch/fairchem> |
 
 The MM layer uses **OpenMM**. Any force field capable of generating parameters (e.g., AMBER ff14SB + TIP3P + GAFF2) can be used.
 
@@ -139,23 +139,6 @@ If `AmberTools` is loaded, unload it before installing to prevent conflict for *
 module unload amber
 ```
 
-### 1.7. Test
-
-```bash
-python3 - <<'PY'
-from mlmm import MLMMCore
-print("ML/MM core version:", MLMMCore.__version__)
-PY
-```
-
-A successful installation prints a version string without raising exceptions.
-
-<!-- ### 1.8. (Optional) direct MaxFlux method (Useful NEB-like reaction path search method)
-```bash
-pip install cyipopt
-pip install git+https://github.com/t-0hmura/torch-dmf.git
-``` -->
-
 ## 2. Preparing an Enzyme–Substrate System
 
 1. **Build a structural model of the complex.**  
@@ -204,9 +187,10 @@ mlmm_kwargs = dict(
     real_parm7   = "complex.parm7",
     real_rst7    = "complex.rst7",
     model_pdb    = "ml_region.pdb",
-    model_charge = -1,             # Charge of ML region including link atoms
+    model_charge = 0,              # Charge of ML region including link atoms
     model_mult   = 1,              # Multiplicity of ML region
     backend      = "uma",          # "uma" or "aimnet2"
+    uma_model    = "uma-s-1"
     ml_device    = "auto",         # "auto" | "cuda" | "cpu"
     ml_cuda_idx  = 0,
     mm_device    = "cpu",
@@ -243,7 +227,7 @@ mlmm_kwargs = dict(
     real_parm7   = "complex.parm7",
     real_rst7    = "complex.rst7",
     model_pdb    = "ml_region.pdb",
-    model_charge = -1,
+    model_charge = 0,
     model_mult   = 1,
     backend      = "aimnet2",
     ml_device    = "auto",
@@ -282,9 +266,10 @@ calc:
   real_parm7: complex.parm7
   real_rst7: complex.rst7
   model_pdb: ml_region.pdb
-  model_charge: -1
+  model_charge: 0
   model_mult: 1
   backend: uma
+  uma_model: uma-s-1
   vib_run: false           # whether to do a frequency analysis
   out_hess_torch: false    # return Hessian as torch.Tensor on device when true
   ml_device: 'auto'
@@ -311,11 +296,12 @@ core = MLMMCore(
     real_parm7     = "complex.parm7",  # Amber topology for the full system
     real_rst7      = "complex.rst7",   # Amber coordinates for the full system
     model_pdb      = "ml_region.pdb",  # ML region only (trimmed PDB)
-    model_charge   = -1,               # Formal charge of the ML region including link H atoms
+    model_charge   = 0,                # Formal charge of the ML region including link H atoms
     model_mult     = 1,                # Spin multiplicity of the ML region (used by UMA only)
     link_mlmm      = None,             # default: None, link atom pairs are auto determined.
     dist_link      = 1.09,             # Bond length (Å) between link atom and boundary atom
     backend        = "uma",            # ML backend: "uma" or "aimnet2"
+    uma_model      = "uma-s-1"         # Model name for uma backend.
     vib_run        = True,             # Whether to compute numerical Hessian (True = finite difference)
     ml_device      = "auto",           # ML backend device: "auto", "cuda", or "cpu"
     ml_cuda_idx    = 0,                # GPU index for ML backend (if using CUDA)
@@ -351,15 +337,6 @@ The ML/MM calculator ships with a small set of single‑purpose command‑line h
 | `trj2fig` | Plot ΔE from an XYZ trajectory and export the highest peak frame. | Visualizing optimization or scan profiles. |
 
 Detailed option tables and usage examples for each utility are provided in [docs/code_and_cli.md](docs/code_and_cli.md).
-
-## 4. Tips
-
-* **Large systems & Hessians**  
-  When you attempt Hessian‑based methods for systems containing several thousand atoms, NumPy tensor operations inside **PySiSyphus** become the bottleneck. Consequently, some PySiSyphus features are impractical for very large systems.
-
-* **Reaction‑path searches**  
-  Growing‑String / NEB methods require properly pre-aligned reactant and product structures.  
-  Best practice: **minimize** the reactant, clone or edit it into the product, or run a 1‑D coordinate scan and pick end‑points.
 
 ## License
 

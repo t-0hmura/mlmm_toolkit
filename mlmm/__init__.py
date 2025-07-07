@@ -10,7 +10,7 @@ from .cartesian_bond_scan import CartesianBondScan
 from .partial_hessian_dimer import PartialHessianDimer
 from .energy_summary import analyze_single_structure, analyze_three_structures
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
 __all__ = [
     "__version__", 

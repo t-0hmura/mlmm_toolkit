@@ -21,7 +21,7 @@ dependencies = [
     "rdkit",
     "openmm[cuda12]",
     "parmed",
-    "pysisyphus @ git+https://github.com/t-0hmura/pysisyphus.git",
+    "pysisyphus @ git+https://github.com/t-0hmura/pysisyphus_for_mlmm.git",
 ]
 
 [project.scripts]

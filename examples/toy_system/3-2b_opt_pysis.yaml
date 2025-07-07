@@ -5,7 +5,8 @@ opt:
   type: lbfgs
   thresh: gau
   max_cycles: 10000
-  do_hess: false           # not request a Hessian at the end
+  do_hess: false           # do not request a Hessian at the end
+  dump: false              # do not output trajectory
 calc:
   type: mlmm
   real_pdb: complex.pdb
@@ -15,8 +16,9 @@ calc:
   model_charge: 0
   model_mult: 1
   backend: uma
-  vib_run: true           # do a frequency analysis
-  out_hess_torch: false   # return Hessian as torch.Tensor on device when true
+  uma_model: uma-s-1
+  vib_run: false           # whether to do a frequency analysis
+  out_hess_torch: false    # return Hessian as torch.Tensor on device when true
   ml_device: 'auto'
   ml_cuda_idx: 0
   mm_device: 'cpu'

@@ -33,6 +33,7 @@ class mlmm(Calculator):
                  model_mult: int = 1,
                  link_mlmm: List[Tuple[str, str]] | None = None,
                  backend: str = "uma",  # "uma" or "aimnet2"
+                 uma_model = "uma-s-1p1", # currently, uma-s-1p1 or uma-m-1p1
 
                  vib_run: bool = False,
                  vib_dir: str = None,
@@ -59,6 +60,7 @@ class mlmm(Calculator):
             model_mult (int): Multiplicity of the model system. Default is 1 (singlet).
             link_mlmm (List[Tuple[str, str]] | None): List of tuples specifying the link atoms between ML and MM regions. e.g.) [("CB  ARG   294", "CA  ARG   294")]. If None, link atoms are determined automatically based on distance and element type.
             backend (str): ML backend to use. Options are "uma" or "aimnet2".
+            uma_model (str): Model name for uma backend.
 
             vib_run (bool): Whether to run vibrational analysis.
             out_hess_torch (bool): Whether to output Hessian in torch format. True: torch.Tensor (N,3,N,3) on device, False: numpy.ndarray (N*3,N*3) on cpu.
@@ -84,6 +86,7 @@ class mlmm(Calculator):
                  model_charge = model_charge,
                  link_mlmm = link_mlmm,
                  backend = backend,
+                 uma_model = uma_model,
 
                  vib_run = vib_run,
                  vib_dir = vib_dir,

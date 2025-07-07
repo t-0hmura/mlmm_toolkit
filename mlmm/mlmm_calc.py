@@ -125,6 +125,7 @@ class MLMMCore:
         model_mult: int = 1,
         link_mlmm: List[Tuple[str, str]] | None = None,
         backend: str = "uma",  # "uma" or "aimnet2"
+        uma_model = "uma-s-1p1", # currently, uma-s-1, uma-s-1p1 or uma-m-1p1 are available
         # === hessian / vib =============================================
         vib_run: bool = False,
         vib_dir: str | None = None,
@@ -147,8 +148,12 @@ class MLMMCore:
             model_charge (int): Charge of the model system. If None, charge of model system is calculated automatically with RDKit.
             model_mult (int): Multiplicity of the model system. Default is 1 (singlet). UMA backend only.
             link_mlmm (List[Tuple[str, str]] | None): List of tuples specifying the link atoms between ML and MM regions. e.g.) [("CB  ARG   294", "CA  ARG   294")]. If None, link atoms are determined automatically based on distance and element type.
+            backend (str): ML backend to use. Options are "uma" or "aimnet2".
+            uma_model (str): Model name for uma backend.
 
             vib_run (bool): Whether to run vibrational analysis.
+            out_hess_torch (bool): Whether to output Hessian in torch format. True: torch.Tensor (N,3,N,3) on device, False: numpy.ndarray (N*3,N*3) on cpu.
+            H_double (bool): Use double precision for Hessian-related tensors.
 
             ml_device (str): Device to use for ML calculations. Options are "auto", "cpu", or "cuda".
             ml_cuda_idx (int): CUDA device index if using GPU.
@@ -157,7 +162,6 @@ class MLMMCore:
             mm_cuda_idx (int): CUDA device index if using GPU.
             mm_threads (int): Number of threads to use for CPU calculations.
             freeze_atoms (List[int] | None): 0-based indices of atoms to freeze during MM Hessian calculations.
-            H_double (bool): Use double precision for Hessian-related tensors.
         """
         self.backend = backend.lower()
         if self.backend not in ("uma", "aimnet2"):
@@ -243,7 +247,7 @@ class MLMMCore:
             self._AtomicData = AtomicData
             self._data_list_collater = data_list_collater
 
-            self.predictor = pretrained_mlip.get_predict_unit("uma-s-1", device=self.device_str)
+            self.predictor = pretrained_mlip.get_predict_unit(uma_model, device=self.device_str)
 
             self.predictor.model.eval()
             for m in self.predictor.model.modules():
