@@ -49,7 +49,7 @@ def build_runner(cfg: Dict) -> PartialHessianDimer:
         out_dir      = misc_cfg.get("out_dir", "./dump/dimer/"),
         vib_dir      = misc_cfg.get("vib_dir", "./dump/vib/"),
 
-        # thresholds & optimiser
+        # thresholds & optimizer
         # ---------------------------------------------------------------------
         thresh_loose        = dimer_cfg.get("thresh_loose", "gau_loose"),
         thresh              = dimer_cfg.get("thresh", "baker"),

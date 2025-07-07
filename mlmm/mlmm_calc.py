@@ -373,7 +373,7 @@ class MLMMCore:
             if len(set(ml_indices)) != len(ml_indices) or len(set(mm_indices)) != len(mm_indices):
                 raise ValueError("Duplicated ML or MM indices in link specification.")
             mlmm_links = list(zip(ml_indices, mm_indices))
-        else:  # automatic neighbour detection
+        else:  # automatic neighbor detection
             threshold = 1.7
             ml_set = {a["idx"] for a in leap_atoms if a["id"] in ml_region}
             coords = {a["idx"]: a["coord"] for a in leap_atoms}

@@ -15,7 +15,7 @@ For a quick sanity check, you can also run `bash run.sh` in
 
 1. **Build the solvated enzyme–substrate complex and generate AMBER
    parameters.**  
-   * Minimise, equilibrate and run 40 ns of MD.  
+   * Minimize, equilibrate and run 40 ns of MD.  
    * From the trajectory, extract a snapshot and trim it to retain the
      protein, the substrate and every water molecule within 6 Å.  
    * Regenerate topology/parameter files for this trimmed *real* system.
@@ -93,9 +93,9 @@ energy_summary 10_energy_summary.yaml   # (viii)
 
 ---
 
-### 4.1  Optimisation – `1_opt.yaml`
+### 4.1  optimization – `1_opt.yaml`
 
-Optimises the MD snapshot while freezing atoms farther than 10 Å from
+optimizes the MD snapshot while freezing atoms farther than 10 Å from
 the ML region.  
 The final structure is written to
 `./dump/opt1/final_geometry.xyz` and copied to
@@ -114,14 +114,14 @@ xyz_geom2pdb -i final_geometries.trj -o scan_path.pdb -r ../../parm/complex.pdb
 Pick two representative frames as the *reactant* and *product* from `scan_path.pdb` :
 `2_scan_reac.pdb`, `2_scan_prod.pdb`.
 
-### 4.3  Reactant / product optimisations – `3_opt.yaml`, `4_opt.yaml`
+### 4.3  Reactant / product optimizations – `3_opt.yaml`, `4_opt.yaml`
 
 Refine the two structures chosen above.  
 Results are stored in `./dump/opt2/` and `./dump/opt3/`.
 
 ### 4.4  Growing‑String search – `5_gs.yaml`
 
-Runs a GSM search between the optimised reactant and product.  
+Runs a GSM search between the optimized reactant and product.  
 Afterwards:
 
 ```bash
@@ -134,7 +134,7 @@ trj2fig -i current_geometries.trj -o gs.png --output-peak 5_gs_peak.xyz
 
 Starts from `5_gs_peak.xyz` and refines the TS with the
 **PH‑Dimer** algorithm.  
-The optimised TS is saved as
+The optimized TS is saved as
 `./dump/dimer/6_tsopt_final_geometry.xyz`.
 
 ### 4.6  IRC – `7_irc.yaml`
@@ -143,7 +143,7 @@ Propagates the TS downhill in both directions.
 The final frames (`7_irc_backward_last.xyz`,
 `7_irc_forward_last.xyz`) provide improved reactant/product guesses.
 
-### 4.7  Endpoint optimisations – `8_opt.yaml`, `9_opt.yaml`
+### 4.7  Endpoint optimizations – `8_opt.yaml`, `9_opt.yaml`
 
 Relax the IRC endpoints to obtain the *final* reactant and product
 geometries (stored in `./dump/opt4/` and `./dump/opt5/`).
@@ -169,13 +169,13 @@ All intermediate files live under `./dump/`.
 
 | Stage | Chorismate‑mutase | Fur6 |
 |------:|------------------:|-----:|
-| Geometry optimisation      | 0 h 06 m 45 s | 0 h 08 m 23 s |
+| Geometry optimization      | 0 h 06 m 45 s | 0 h 08 m 23 s |
 | Bond scan                  | 0 h 06 m 54 s | 0 h 05 m 46 s |
-| R/P optimisation           | 0 h 01 m 32 s | 0 h 02 m 18 s |
+| R/P optimization           | 0 h 01 m 32 s | 0 h 02 m 18 s |
 | GSM                        | 0 h 05 m 14 s | 0 h 06 m 01 s |
 | **PH‑Dimer TS**            | **0 h 33 m 50 s** | **0 h 49 m 00 s** |
 | IRC                        | 0 h 05 m 01 s | 0 h 07 m 31 s |
-| Endpoint optimisation      | 0 h 01 m 56 s | 0 h 02 m 27 s |
+| Endpoint optimization      | 0 h 01 m 56 s | 0 h 02 m 27 s |
 | Thermochemistry            | 0 h 13 m 35 s | 0 h 20 m 50 s |
 | **Total**                  | **1 h 14 m 47 s** | **1 h 42 m 16 s** |
 

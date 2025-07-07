@@ -14,7 +14,7 @@ cos:
 opt:
  type: string                            # Optimizer for GrowingString
  stop_in_when_full: 20                   # Stop string optimization N cycles after fully grown. Disabled by -1. Usually it's a better idea to further converge the string, after is fully grown.
- align: False                            # Enble Kabsch algorithm. Should be True with type: cart
+ align: False                            # Disable Kabsch algorithm. Should be false when using freeze_atoms.
  scale_step: global                      # Scale down step as whole (global) or per image (per_image)
  max_cycles: 10000                       # Maximum number of cycles for the optimizer
  dump: True

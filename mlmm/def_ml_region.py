@@ -18,7 +18,7 @@ Key features
   2. Additionally, hetero-atoms (non-C/H) of any residue that fall within
      **--radius_het** Å of a substrate hetero-atom pull in their parent residues.  
   3. Waters are included only when `--include_H2O true` is given.  
-  4. Sequence neighbours (±1 in residue index) that were pulled in *only* via
+  4. Sequence neighbors (±1 in residue index) that were pulled in *only* via
      chain continuity are removed again unless they also satisfy the cut-off
      criteria above.
 
@@ -213,7 +213,7 @@ def select_residues(complex_struct, substrate_res_list: List[PDB.Residue.Residue
                 continue
             maybe_add(neigh)
 
-    # remove sequence neighbours that were pulled in only via chain continuity
+    # remove sequence neighbors that were pulled in only via chain continuity
     for lig in substrate_res_list:
         model, chain, resinfo = lig.get_full_id()[1:4]
         seq = resinfo[1]
