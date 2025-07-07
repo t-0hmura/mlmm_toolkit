@@ -61,15 +61,15 @@ examples/
 
 The canonical pipeline consists of **ten YAML job files**:
 
-| Stage | YAML file(s)              | Purpose                                        | Typical wall‑time \* |
-|------:|---------------------------|------------------------------------------------|----------------------|
-| (i)   | `1_opt.yaml`              | Freeze‑shell minimisation of the snapshot      | 5 – 10 min |
-| (ii)  | `2_scan.yaml`             | 1‑D bond‑length scan → seed R/P                | 5 – 10 min |
-| (iii) | `3_opt.yaml`, `4_opt.yaml`| Relax *reactant* and *product*                 | 1 – 2 min |
-| (iv)  | `5_gs.yaml`               | Growing‑String MEP search                      | 5 – 10 min |
-| (v)   | `6_tsopt.yaml`            | **PH‑Dimer** transition‑state refinement       | **30 – 60 min** |
-| (vi)  | `7_irc.yaml`              | IRC propagation                                | 5 – 10 min |
-| (vii) | `8_opt.yaml`, `9_opt.yaml`| Endpoint relaxation                            | 2 – 3 min |
+| Stage | YAML file(s)              | Purpose                                             | Typical wall‑time \* |
+|------:|---------------------------|-----------------------------------------------------|----------------------|
+| (i)   | `1_opt.yaml`              | Initial optimization of the snapshot                | 5 – 10 min |
+| (ii)  | `2_scan.yaml`             | 1‑D bond‑length scan → seed Reactant/Product        | 5 – 10 min |
+| (iii) | `3_opt.yaml`, `4_opt.yaml`| Relax *reactant* and *product* obtained by scan     | 1 – 2 min |
+| (iv)  | `5_gs.yaml`               | Minimum Energy Path search by Growing String Method | 5 – 10 min |
+| (v)   | `6_tsopt.yaml`            | **PH‑Dimer** transition‑state refinement            | **30 – 60 min** |
+| (vi)  | `7_irc.yaml`              | IRC propagation                                     | 5 – 10 min |
+| (vii) | `8_opt.yaml`, `9_opt.yaml`| Endpoint relaxation → Final Reactant/Product        | 2 – 3 min |
 | (viii)| `10_energy_summary.yaml`  | $\Delta E$ / $\Delta G$ tables + optional energy plots         | 10 – 30 min |
 
 \* Ryzen 7950X3D + RTX 5080; see Section 5 for full benchmarks.
@@ -156,10 +156,9 @@ reactant, TS and product:
 energy_summary 10_energy_summary.yaml
 ```
 
-This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^{\ddagger}$ and can optionally write an
-interactive energy diagram.
+This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^{\ddagger}$ and can optionally write figures of energy diagrams.
 
-All intermediate files live under `./dump/`.
+> All intermediate files live under `./dump/`.
 
 ---
 
