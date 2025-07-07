@@ -35,6 +35,7 @@ The package installs several small utilities which become available on your `$PA
 | `ts_search` | Dimer‑based TS search with partial Hessian updates. | Locating transition states in large systems |
 | `energy_summary` | Compute ΔE/ΔG tables and plots from reactant, TS and product structures. | Summarizing reaction energetics |
 | `trj2fig` | Plot ΔE from an XYZ trajectory and export the highest peak frame. | Visualizing optimization or scan profiles |
+| `mlmm` | PySiSyphus wrapper for running calculations with the ML/MM calculator. | Running ML/MM calculations via PySiSyphus |
 
 ### `def_ml_region` – Automated ML‑region extractor
 
@@ -46,7 +47,7 @@ def_ml_region --real complex.pdb --center ligand.pdb --out ml_region.pdb --radiu
 |--------|---------|---------|
 | `-r, --real` | *(required)* | Full protein–substrate complex (PDB) from which the ML region will be carved out. |
 | `-c, --center` | *(required)* | PDB containing the ligand/substrate whose heavy atoms act as distance centers. |
-| `-o, --out` | `ml_region.pdb` | Output file containing only the atoms selected for the ML region. |
+| `-o, --out` | *(required)* | Output file containing only the atoms selected for the ML region. |
 | `--radius_ml` | `2.6` Å | Residues with any atom ≤ radius from the substrate are included. |
 | `--radius_het` | `3.6` Å | Cut‑off distance between hetero atoms in the center residues and those in other residues. |
 | `--include_H2O` | `false` | Keep water molecules inside the ML region. |
@@ -122,7 +123,8 @@ Runs an inward and outward scan along a chosen bond. Each scan point is optimize
 | `scan.out_fn` | `final_geometries.trj` | Trajectory file name |
 | `calc.*` | – | Options forwarded to the ML/MM calculator |
 
-See `examples/cartesian_scan.yml` for a complete template.
+See `examples/chorismate_mutase/2_scan.yaml` for an example (another
+enzyme folders contain a similar `2_scan.yaml`).
 
 ### `ts_search` – Partial-Hessian ML/MM Dimer search   
 
@@ -197,7 +199,8 @@ calc:
 
 ---
 
-*For a richer template see* `examples/ts_search.yml`.
+See `examples/chorismate_mutase/6_tsopt.yaml` for an example (another
+enzyme folders contain a similar `6_tsopt.yaml`).
 
 ### `energy_summary` – Gibbs‑energy profiler
 
@@ -216,7 +219,8 @@ Computes electronic and vibrational contributions for reactant, transition state
 | `--temp` | `298.15` K | Temperature for vibrational corrections |
 | `--no_annotation` | *(flag)* | Do not label energy diagrams |
 
-A ready‑to‑use YAML file is provided as `examples/energy_summary.yml`.
+See `examples/chorismate_mutase/10_energy_summary.yaml` for an example (another
+enzyme folders contain a similar `10_energy_summary.yaml`).
 
 ### `trj2fig` – Plot energy from an XYZ trajectory
 
