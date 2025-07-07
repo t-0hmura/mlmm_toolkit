@@ -216,13 +216,13 @@ write("final.pdb", atoms)
 > • `model_mult` is available with `uma` backend.  
 > • `ml_device="auto"` selects a CUDA-capable GPU automatically (the first available one).
 
-### 3.2 Example for Pysisyphus Interface: <https://Pysisyphus.readthedocs.io>
+### 3.2 Example for Pysisyphus Interface: <https://pysisyphus.readthedocs.io>
 
 #### (a) Direct API
 
 ```python
-from Pysisyphus.io.pdb import geom_from_pdb
-from Pysisyphus.optimizers.LBFGS import LBFGS
+from pysisyphus.io.pdb import geom_from_pdb
+from pysisyphus.optimizers.LBFGS import LBFGS
 from mlmm import mlmm            # Pysisyphus calculator
 
 mlmm_kwargs = dict(
