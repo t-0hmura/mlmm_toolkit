@@ -225,7 +225,7 @@ enzyme folders contain a similar `10_energy_summary.yaml`).
 ### `trj2fig` – Plot energy from an XYZ trajectory
 
 ```bash
-trj2fig -i traj.xyz -o energy.png --output-peak ts.pdb --reverse-x
+trj2fig -i traj.xyz -o energy.png --output-peak ts.xyz --reverse-x
 ```
 
 Extract energies from the two-line comments of an XYZ trajectory, plot the ΔE profile and optionally write the peak structure or a CSV table.

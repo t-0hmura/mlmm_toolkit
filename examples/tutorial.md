@@ -48,8 +48,8 @@ identical to those in the full `complex.pdb`.
 ```text
 examples/
 ├── chorismate_mutase/       # Example: chorismate‑mutase Claisen shift
-│   ├── coord/               # Input + intermediate geometries
-│   ├── parm/                # Topology/parameters, original complex PDB,
+│   ├── coord/               # Input + intermediate geometries (for example)
+│   ├── parm/                # Topology/parameters, original complex PDB and user defined ML region (PDB)
 │   │   └── freeze.txt       # Indices (>10 Å) to freeze; paste into YAML
 │   ├── yaml/                # 1_opt.yaml … 10_energy_summary.yaml
 │   └── run.sh               # Bash script to run the full workflow
@@ -104,8 +104,14 @@ The final structure is written to
 ### 4.2  Bond scan – `2_scan.yaml`
 
 Performs a 1‑D scan along the forming bond.  
-The trajectory is saved in `./dump/cart_scan/`.  
-Pick two representative frames as the *reactant* and *product*:
+The trajectory is saved in `./dump/cart_scan/final_geometries.trj`.  
+Afterwards:
+
+```bash
+xyz_geom2pdb -i final_geometries.trj -o scan_path.pdb -r ../../parm/complex.pdb
+```
+
+Pick two representative frames as the *reactant* and *product* from `scan_path.pdb` :
 `2_scan_reac.pdb`, `2_scan_prod.pdb`.
 
 ### 4.3  Reactant / product optimisations – `3_opt.yaml`, `4_opt.yaml`
@@ -119,7 +125,7 @@ Runs a GSM search between the optimised reactant and product.
 Afterwards:
 
 ```bash
-trj2fig -i gs.trj --output-peak 5_gs_peak.xyz
+trj2fig -i current_geometries.trj -o gs.png --output-peak 5_gs_peak.xyz
 ```
 
 `5_gs_peak.xyz` serves as the initial guess for the TS search.
@@ -154,8 +160,7 @@ energy_summary 10_energy_summary.yaml
 This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^{\ddagger}$ and can optionally write an
 interactive energy diagram.
 
-All intermediate files live under `./dump/`; the `coord/` directory
-mirrors the key geometries for quick inspection.
+All intermediate files live under `./dump/`.
 
 ---
 
