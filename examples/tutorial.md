@@ -22,14 +22,13 @@ For a quick sanity check, you can also run `bash run.sh` in
 
    > If you use PYMOL, select complex and then `select byres (resn WAT within 6 of sele) or sele` to select water molecules.
 
-2. **Collect the three required input files.**
+2. **Collect the three required input files** (Example file name).
 
    * `complex.pdb`  
    * `complex.parm7`  
    * `complex.rst7`
 
-3. **Define the ML region** around the substrate and save it as
-   `ml_region.pdb` (see Section&nbsp;2).
+3. **Define the ML region** around the substrate and save it as `ml_region.pdb` (Example file name.).
 
 ---
 
