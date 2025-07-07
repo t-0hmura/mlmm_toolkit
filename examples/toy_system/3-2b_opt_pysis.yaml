@@ -16,7 +16,7 @@ calc:
   model_charge: 0
   model_mult: 1
   backend: uma
-  uma_model: uma-s-1
+  uma_model: uma-s-1p1
   vib_run: false           # whether to do a frequency analysis
   out_hess_torch: false    # return Hessian as torch.Tensor on device when true
   ml_device: 'auto'
