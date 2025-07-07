@@ -52,7 +52,7 @@ examples/
 │   ├── parm/                # Topology/parameters, original complex PDB and user defined ML region (PDB)
 │   │   └── freeze.txt       # Indices (>10 Å) to freeze; paste into YAML
 │   ├── yaml/                # 1_opt.yaml … 10_energy_summary.yaml
-│   └── run.sh               # Bash script to run the full workflow
+│   └── run.sh               # Bash script to run the full workflow test
 └── methyltransferase/       # Example: Fur6 methyl‑transferase
 ```
 
