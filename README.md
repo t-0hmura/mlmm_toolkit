@@ -34,7 +34,7 @@ The MM layer uses **OpenMM**. Any force field capable of generating parameters (
 Interfaces are available for **ASE** and **Pysisyphus**.  
 Periodic boundary conditions & implementation for molecular dynamics are planned for future releases but are *not* yet implemented.
 
-Select UMA models from `uma_model` parameter.
+> You can select UMA models from `uma_model` parameter.
 
 ## 1. Installation Guide
 
@@ -332,7 +332,7 @@ The ML/MM calculator ships with a small set of single‑purpose command‑line h
 |------|---------|------------------|
 | `def_ml_region` | Build an ML region with residues around one or more substrate in a protein–substrate complex. | Preparing the subsystem for ML/MM calculator |
 | `xyz_geom2pdb`  | Convert an XYZ geometry or trajectory to a multi‑model PDB while borrowing atom / residue metadata from a reference PDB. | Exporting Pysisyphus‑ or ASE‑optimized coordinates so that they can be visualized in PyMOL, VMD, Chimera X, etc. |
-| `add_elem_info` | Append element symbols (PDB columns 77–78) | Fixing element fields before running external tools that rely on them, e.g. Amber’s `tleap`. |
+| `add_elem_info` | Append element symbols (PDB columns 77–78) | Fixing element fields after running external tools omit them, e.g. Amber’s `tleap`. |
 | `get_freeze_indices` | List atom indices to *freeze*  based on their distance from the ML region. | Constraining outer‑shell atoms to speed up local relaxations. |
 | `bond_scan` | Scan a bond length with ML/MM optimization at each step. | Generating pre‑aligned structures along a reaction coordinate. |
 | `ts_search` | Dimer‑based TS search with partial Hessian updates. | Locating transition states in large systems. |
