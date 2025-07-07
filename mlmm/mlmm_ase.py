@@ -24,6 +24,7 @@ class mlmm_ase(Calculator):
                  link_mlmm: List[Tuple[str, str]] | None = None,
                  backend: str = "uma",  # "uma" or "aimnet2"
                  uma_model = "uma-s-1p1", # currently, uma-s-1p1 or uma-m-1p1
+                 uma_task_name = 'omol',  # Currently, oc20, omat, omol, odac and omc are available.
 
                  ml_device: str = "auto",
                  ml_cuda_idx: int = 0,
@@ -54,6 +55,7 @@ class mlmm_ase(Calculator):
                  link_mlmm = link_mlmm,
                  backend = backend,
                  uma_model = uma_model,
+                 uma_task_name = uma_task_name,
 
                  vib_run = False,
 

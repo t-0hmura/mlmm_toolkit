@@ -125,7 +125,8 @@ class MLMMCore:
         model_mult: int = 1,
         link_mlmm: List[Tuple[str, str]] | None = None,
         backend: str = "uma",  # "uma" or "aimnet2"
-        uma_model = "uma-s-1p1", # currently, uma-s-1, uma-s-1p1 or uma-m-1p1 are available
+        uma_model = "uma-s-1p1", # Currently, uma-s-1, uma-s-1p1 and uma-m-1p1 are available
+        uma_task_name = 'omol',  # Currently, oc20, omat, omol, odac and omc are available.
         # === hessian / vib =============================================
         vib_run: bool = False,
         vib_dir: str | None = None,
@@ -150,6 +151,7 @@ class MLMMCore:
             link_mlmm (List[Tuple[str, str]] | None): List of tuples specifying the link atoms between ML and MM regions. e.g.) [("CB  ARG   294", "CA  ARG   294")]. If None, link atoms are determined automatically based on distance and element type.
             backend (str): ML backend to use. Options are "uma" or "aimnet2".
             uma_model (str): Model name for uma backend.
+            uma_task_name (str): See document of fairchem. Default is omol, and and it is generally best to leave it unchanged.
 
             vib_run (bool): Whether to run vibrational analysis.
             out_hess_torch (bool): Whether to output Hessian in torch format. True: torch.Tensor (N,3,N,3) on device, False: numpy.ndarray (N*3,N*3) on cpu.
@@ -268,6 +270,8 @@ class MLMMCore:
             model.set_lrcoulomb_method("simple")
             self.calc_model_high = model
 
+        self.uma_task_name = uma_task_name
+
         # total charge of MODEL system
         self.model_charge = (model_charge if model_charge is not None else self._calc_model_charge())
         self.model_mult = model_mult
@@ -307,7 +311,7 @@ class MLMMCore:
             radius=self.predictor.model.module.backbone.cutoff,
             r_edges=False,
         ).to(self.ml_device)
-        data.dataset = "omol"
+        data.dataset = self.uma_task_name
         return self._data_list_collater([data], otf_graph=True).to(self.ml_device)
 
     def _prepare_input(self, elem, coord):
