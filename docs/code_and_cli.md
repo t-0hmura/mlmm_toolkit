@@ -29,7 +29,7 @@ The package installs several small utilities which become available on your `$PA
 |------|---------|------------------|
 | `def_ml_region` | Build an ML region with residues around one or more substrate in a protein–substrate complex. | Preparing the subsystem for ML/MM calculator |
 | `xyz_geom2pdb`  | Convert an XYZ geometry or trajectory to a multi‑model PDB while borrowing atom/residue metadata from a reference PDB. | Exporting optimization results for visualization |
-| `add_elem_info` | Append element symbols (PDB columns 77–78) | Fixing element fields before running external tools |
+| `add_elem_info` | Append element symbols (PDB columns 77–78) | Fixing element fields after running external tools |
 | `get_freeze_indices` | List atom indices to *freeze* based on their distance from the ML region. | Constraining outer‑shell atoms during local relaxations |
 | `bond_scan` | Scan a bond length with ML/MM optimization at each step. | Generating aligned structures along a reaction coordinate |
 | `ts_search` | Dimer‑based TS search with partial Hessian updates. | Locating transition states in large systems |
