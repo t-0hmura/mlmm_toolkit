@@ -190,7 +190,7 @@ mlmm_kwargs = dict(
     model_charge = 0,              # Charge of ML region including link atoms
     model_mult   = 1,              # Multiplicity of ML region
     backend      = "uma",          # "uma" or "aimnet2"
-    uma_model    = "uma-s-1p1"
+    uma_model    = "uma-s-1p1",
     ml_device    = "auto",         # "auto" | "cuda" | "cpu"
     ml_cuda_idx  = 0,
     mm_device    = "cpu",
@@ -300,7 +300,7 @@ core = MLMMCore(
     model_mult     = 1,                # Spin multiplicity of the ML region (used by UMA only)
     link_mlmm      = None,             # default: None, link atom pairs are auto determined.
     backend        = "uma",            # ML backend: "uma" or "aimnet2"
-    uma_model      = "uma-s-1p1"       # Model name for uma backend.
+    uma_model      = "uma-s-1p1",      # Model name for uma backend.
     vib_run        = True,             # Whether to compute numerical Hessian (True = finite difference)
     ml_device      = "auto",           # ML backend device: "auto", "cuda", or "cpu"
     ml_cuda_idx    = 0,                # GPU index for ML backend (if using CUDA)
