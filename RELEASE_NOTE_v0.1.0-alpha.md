@@ -12,10 +12,10 @@
 
 ## Key Features  
 
-* **Dual ML back‑ends – UMA & AIMNet 2**: choose speed or accuracy.  
-* **Automatic link‑atom boundaries** allowing entire side‑chains in the ML region.  
-* **ASE calculator & PySiSyphus driver** for optimisations, scans, and TS searches.  
-* **Partial‑Hessian Dimer (PH‑Dimer) optimiser** scalable to ~10 000‑atom systems.  
+* **Dual ML back‑ends – UMA & AIMNet 2**
+* **Automatic link‑atom boundaries**
+* **ASE calculator & PySiSyphus driver**  
+* **Partial‑Hessian Dimer (PH‑Dimer) optimiser**  
 * **CLI helpers**: `def_ml_region`, `ts_search`, `energy_summary`, and others.
 
 ---
