@@ -340,7 +340,7 @@ Detailed option tables and usage examples for each utility are provided in [docs
 
 ## License
 
-Distributed under the terms of the **MIT License**.
+ML/MM tools itself is distributed under the terms of the **MIT License**.
 
 ## Citation
 If you find this work helpful for your research, please cite:  
