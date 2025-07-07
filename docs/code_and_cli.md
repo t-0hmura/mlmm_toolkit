@@ -87,7 +87,7 @@ add_elem_info input.pdb output_with_elem.pdb
 | `input` | *(required)* | Input PDB file |
 | `output` | same as `input` | Output file name (in-place if omitted) |
 
-### `get_freeze_indices` – Distance‑based atom freeze list
+### `get_freeze_indices` – Distance‑based atom freeze list (0-based)
 
 ```bash
 get_freeze_indices --real complex.pdb --model ml_region.pdb --range 8.0 --out freeze.txt

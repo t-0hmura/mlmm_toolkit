@@ -4,7 +4,7 @@ Three commands are installed via ``setup.py``::
 
     xyz_geom2pdb   – Convert XYZ geometry / trajectory to PDB.
     add_elem_info  – Add element symbols (cols 77–78) to a PDB using Biopython.
-    get_freeze_indices – List atom indices to freeze based on distance from ML region.
+    get_freeze_indices – List atom indices (0-based) to freeze based on distance from ML region.
 
 Each command can also be accessed as a Python API (see the function names
 below).
