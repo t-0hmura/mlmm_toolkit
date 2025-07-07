@@ -299,7 +299,6 @@ core = MLMMCore(
     model_charge   = 0,                # Formal charge of the ML region including link H atoms
     model_mult     = 1,                # Spin multiplicity of the ML region (used by UMA only)
     link_mlmm      = None,             # default: None, link atom pairs are auto determined.
-    dist_link      = 1.09,             # Bond length (Å) between link atom and boundary atom
     backend        = "uma",            # ML backend: "uma" or "aimnet2"
     uma_model      = "uma-s-1p1"       # Model name for uma backend.
     vib_run        = True,             # Whether to compute numerical Hessian (True = finite difference)
