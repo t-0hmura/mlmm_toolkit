@@ -23,7 +23,7 @@ The MM layer uses **OpenMM** and works with any force field capable of generatin
 
 ## Command-Line Utilities
 
-The package installs several small utilities which become available on your `$PATH`.
+The package installs several small utilities which become available on your `$PATH`. To verify the installation, run `bash run.sh` inside `examples/toy_system/` for a quick demonstration of the calculator.
 
 | Tool | Purpose | Typical use‑case |
 |------|---------|------------------|
@@ -35,7 +35,7 @@ The package installs several small utilities which become available on your `$PA
 | `ts_search` | Dimer‑based TS search with partial Hessian updates. | Locating transition states in large systems |
 | `energy_summary` | Compute ΔE/ΔG tables and plots from reactant, TS and product structures. | Summarizing reaction energetics |
 | `trj2fig` | Plot ΔE from an XYZ trajectory and export the highest peak frame. | Visualizing optimization or scan profiles |
-| `mlmm` | PySiSyphus wrapper for running calculations with the ML/MM calculator. | Running ML/MM calculations via PySiSyphus |
+| `mlmm` | Pysisyphus wrapper for running calculations with the ML/MM calculator. | Running ML/MM calculations via Pysisyphus |
 
 ### `def_ml_region` – Automated ML‑region extractor
 

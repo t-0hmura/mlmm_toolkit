@@ -31,7 +31,7 @@ The ML region can therefore include entire amino‑acid side chains when necessa
 
 The MM layer uses **OpenMM**. Any force field capable of generating parameters (e.g., AMBER ff14SB + TIP3P + GAFF2) can be used.
 
-Interfaces are available for **ASE** and **PySiSyphus**.  
+Interfaces are available for **ASE** and **Pysisyphus**.  
 Periodic boundary conditions & implementation for molecular dynamics are planned for future releases but are *not* yet implemented.
 
 Select UMA models from `uma_model` parameter.
@@ -168,14 +168,14 @@ module unload amber
 
 ## 3. Using the Calculator
 ### Quick‑start examples.
-Fully working scripts are provided in the `examples/` directory so you can try the calculator straight away. Start with the minimal `toy_system` example, then explore realistic enzyme cases in `chorismate_mutase` and `methyltransferase`. For a step‑by‑step walkthrough of an entire reaction‑energy profile—from structure preparation to $\Delta G^{\ddagger}$ evaluation—see `examples/tutorial.md`.
+Fully working scripts are provided in the `examples/` directory so you can try the calculator straight away. Start with the minimal `toy_system` example, then explore realistic enzyme cases in `chorismate_mutase` and `methyltransferase`. Inside `examples/toy_system/`, running `bash run.sh` executes a short calculator test. For a step‑by‑step walkthrough of an entire reaction‑energy profile—from structure preparation to $\Delta G^{\ddagger}$ evaluation—see `examples/tutorial.md`.
 
 ### Units at a glance
 
 | Interface       | Energy | Distance | Force        | Hessian        |
 |-----------------|--------|----------|--------------|----------------|
 | **Core & ASE**  | eV     | Å        | eV Å-1       | eV Å-2         |
-| **PySiSyphus**  | Hartree| Bohr     | Ha Bohr-1    | Ha Bohr-2      |
+| **Pysisyphus**  | Hartree| Bohr     | Ha Bohr-1    | Ha Bohr-2      |
 
 
 ### 3.1 Example for ASE Interface: <https://wiki.fysik.dtu.dk/ase>
@@ -216,14 +216,14 @@ write("final.pdb", atoms)
 > • `model_mult` is available with `uma` backend.  
 > • `ml_device="auto"` selects a CUDA-capable GPU automatically (the first available one).
 
-### 3.2 Example for PySiSyphus Interface: <https://pysisyphus.readthedocs.io>
+### 3.2 Example for Pysisyphus Interface: <https://Pysisyphus.readthedocs.io>
 
 #### (a) Direct API
 
 ```python
-from pysisyphus.io.pdb import geom_from_pdb
-from pysisyphus.optimizers.LBFGS import LBFGS
-from mlmm import mlmm            # PySiSyphus calculator
+from Pysisyphus.io.pdb import geom_from_pdb
+from Pysisyphus.optimizers.LBFGS import LBFGS
+from mlmm import mlmm            # Pysisyphus calculator
 
 mlmm_kwargs = dict(
     real_pdb     = "complex.pdb",
@@ -238,7 +238,7 @@ mlmm_kwargs = dict(
     mm_device    = "cpu",
     mm_cuda_idx  = 0,
     mm_threads   = 16,
-    mem          = 10000,      # MB – PySiSyphus scratch memory
+    mem          = 10000,      # MB – Pysisyphus scratch memory
 )
 
 geom = geom_from_pdb("structure.pdb")
@@ -331,7 +331,7 @@ The ML/MM calculator ships with a small set of single‑purpose command‑line h
 | Tool | Purpose | Typical use‑case |
 |------|---------|------------------|
 | `def_ml_region` | Build an ML region with residues around one or more substrate in a protein–substrate complex. | Preparing the subsystem for ML/MM calculator |
-| `xyz_geom2pdb`  | Convert an XYZ geometry or trajectory to a multi‑model PDB while borrowing atom / residue metadata from a reference PDB. | Exporting Pysisyphus- or ASE‑optimized coordinates so that they can be visualized in PyMOL, VMD, Chimera X, etc. |
+| `xyz_geom2pdb`  | Convert an XYZ geometry or trajectory to a multi‑model PDB while borrowing atom / residue metadata from a reference PDB. | Exporting Pysisyphus‑ or ASE‑optimized coordinates so that they can be visualized in PyMOL, VMD, Chimera X, etc. |
 | `add_elem_info` | Append element symbols (PDB columns 77–78) | Fixing element fields before running external tools that rely on them, e.g. Amber’s `tleap`. |
 | `get_freeze_indices` | List atom indices to *freeze*  based on their distance from the ML region. | Constraining outer‑shell atoms to speed up local relaxations. |
 | `bond_scan` | Scan a bond length with ML/MM optimization at each step. | Generating pre‑aligned structures along a reaction coordinate. |

@@ -1,4 +1,4 @@
-# ML/MM Workflow Tutorial – *revised*
+# ML/MM Workflow Tutorial
 
 This tutorial demonstrates **step by step** how to reproduce the
 reaction‑path workflow described in our accompanying paper
@@ -6,6 +6,8 @@ reaction‑path workflow described in our accompanying paper
 Enzymatic Reactions*). All commands refer to the files in
 `examples/chorismate_mutase/`, but the same procedure applies
 unchanged to any other system.
+For a quick sanity check, you can also run `bash run.sh` in
+`examples/toy_system/` to make sure the calculator works.
 
 ---
 
@@ -18,7 +20,7 @@ unchanged to any other system.
      protein, the substrate and every water molecule within 6 Å.  
    * Regenerate topology/parameter files for this trimmed *real* system.
 
-   > If you use pymol, select complex and then `select byres (resn WAT within 6 of sele) or sele` to select water molecules.
+   > If you use PYMOL, select complex and then `select byres (resn WAT within 6 of sele) or sele` to select water molecules.
 
 2. **Collect the three required input files.**
 
@@ -50,7 +52,7 @@ examples/
 │   ├── parm/                # Topology/parameters, original complex PDB,
 │   │   └── freeze.txt       # Indices (>10 Å) to freeze; paste into YAML
 │   ├── yaml/                # 1_opt.yaml … 10_energy_summary.yaml
-│   └── run.sh               # bash script to
+│   └── run.sh               # Bash script to run the full workflow
 └── methyltransferase/       # Example: Fur6 methyl‑transferase
 ```
 
@@ -69,7 +71,7 @@ The canonical pipeline consists of **ten YAML job files**:
 | (v)   | `6_tsopt.yaml`            | **PH‑Dimer** transition‑state refinement       | **30 – 60 min** |
 | (vi)  | `7_irc.yaml`              | IRC propagation                                | 5 – 10 min |
 | (vii) | `8_opt.yaml`, `9_opt.yaml`| Endpoint relaxation                            | 2 – 3 min |
-| (viii)| `10_energy_summary.yaml`  | ΔE / ΔG tables + optional energy plots         | 10 – 30 min |
+| (viii)| `10_energy_summary.yaml`  | $\Delta E$ / $\Delta G$ tables + optional energy plots         | 10 – 30 min |
 
 \* Ryzen 7950X3D + RTX 5080; see Section 5 for full benchmarks.
 
@@ -149,7 +151,7 @@ reactant, TS and product:
 energy_summary 10_energy_summary.yaml
 ```
 
-This command prints ΔG, ΔG‡, ΔE and ΔE‡ and can optionally write an
+This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^{\ddagger}$ and can optionally write an
 interactive energy diagram.
 
 All intermediate files live under `./dump/`; the `coord/` directory
@@ -176,7 +178,7 @@ mirrors the key geometries for quick inspection.
 
 ## 6  Energetic results
 
-| Reaction | ΔE‡ (kcal mol⁻¹) | ΔE | ΔG‡ | ΔG | ΔE‡<sub>QM/MM</sub> | ΔG‡<sub>Exp.</sub> |
+| Reaction | $\Delta E^{\ddagger}$ (kcal mol⁻¹) | $\Delta E$ | $\Delta G^{\ddagger}$ | $\Delta G$ | $\Delta E^{\ddagger}$<sub>QM/MM</sub> | $\Delta G^{\ddagger}$<sub>Exp.</sub> |
 |----------|-----------------:|----:|----:|----:|---------------------:|-------------------:|
 | CM — Claisen rearrangement | 18.1 | −23.4 | 14.7 | −23.3 | 16.1 | 15.4 |
 | Fur6 — methyl transfer     | 10.2 | −62.5 |  9.6 | −58.3 |  8.6 | — |
