@@ -151,7 +151,7 @@ class MLMMCore:
             link_mlmm (List[Tuple[str, str]] | None): List of tuples specifying the link atoms between ML and MM regions. e.g.) [("CB  ARG   294", "CA  ARG   294")]. If None, link atoms are determined automatically based on distance and element type.
             backend (str): ML backend to use. Options are "uma" or "aimnet2".
             uma_model (str): Model name for uma backend.
-            uma_task_name (str): See document of fairchem. Default is omol, and and it is generally best to leave it unchanged.
+            uma_task_name (str): See document of fairchem. Default is omol, and it is generally best to leave it unchanged.
 
             vib_run (bool): Whether to run vibrational analysis.
             out_hess_torch (bool): Whether to output Hessian in torch format. True: torch.Tensor (N,3,N,3) on device, False: numpy.ndarray (N*3,N*3) on cpu.
