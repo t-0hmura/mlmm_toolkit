@@ -13,7 +13,7 @@ calc:
   real_parm7: complex.parm7
   real_rst7: complex.rst7
   model_pdb: ml_region.pdb
-  model_charge: 0
+  model_charge: -1
   model_mult: 1
   backend: uma
   uma_model: uma-s-1p1
