@@ -301,6 +301,7 @@ core = MLMMCore(
     link_mlmm      = None,             # default: None, link atom pairs are auto determined.
     backend        = "uma",            # ML backend: "uma" or "aimnet2"
     uma_model      = "uma-s-1p1",      # Model name for uma backend.
+    uma_taskname   = "omol"            # See document of fairchem. Default is 'omol', and and it is generally best to leave it unchanged.
     vib_run        = True,             # Whether to compute numerical Hessian (True = finite difference)
     ml_device      = "auto",           # ML backend device: "auto", "cuda", or "cpu"
     ml_cuda_idx    = 0,                # GPU index for ML backend (if using CUDA)
