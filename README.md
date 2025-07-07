@@ -34,6 +34,7 @@ The MM layer uses **OpenMM**. Any force field capable of generating parameters (
 Interfaces are available for **ASE** and **PySiSyphus**.  
 Periodic boundary conditions & implementation for molecular dynamics are planned for future releases but are *not* yet implemented.
 
+Select UMA models from `uma_model` parameter.
 
 ## 1. Installation Guide
 

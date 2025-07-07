@@ -17,7 +17,7 @@ Supported ML potentials:
 | Potential | Repository |
 |-----------|-----------|
 | **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> |
-| **UMA** (uma-s-1)   | <https://github.com/facebookresearch/fairchem> |
+| **UMA** | <https://github.com/facebookresearch/fairchem> |
 
 The MM layer uses **OpenMM** and works with any force field capable of generating parameters.
 
