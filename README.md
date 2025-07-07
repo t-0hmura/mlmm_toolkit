@@ -187,7 +187,7 @@ mlmm_kwargs = dict(
     real_parm7   = "complex.parm7",
     real_rst7    = "complex.rst7",
     model_pdb    = "ml_region.pdb",
-    model_charge = 0,              # Charge of ML region including link atoms
+    model_charge = -1,             # Charge of ML region including link atoms
     model_mult   = 1,              # Multiplicity of ML region
     backend      = "uma",          # "uma" or "aimnet2"
     uma_model    = "uma-s-1p1",
@@ -227,7 +227,7 @@ mlmm_kwargs = dict(
     real_parm7   = "complex.parm7",
     real_rst7    = "complex.rst7",
     model_pdb    = "ml_region.pdb",
-    model_charge = 0,
+    model_charge = -1,
     model_mult   = 1,
     backend      = "aimnet2",
     ml_device    = "auto",
@@ -266,7 +266,7 @@ calc:
   real_parm7: complex.parm7
   real_rst7: complex.rst7
   model_pdb: ml_region.pdb
-  model_charge: 0
+  model_charge: -1
   model_mult: 1
   backend: uma
   uma_model: uma-s-1p1
@@ -296,7 +296,7 @@ core = MLMMCore(
     real_parm7     = "complex.parm7",  # Amber topology for the full system
     real_rst7      = "complex.rst7",   # Amber coordinates for the full system
     model_pdb      = "ml_region.pdb",  # ML region only (trimmed PDB)
-    model_charge   = 0,                # Formal charge of the ML region including link H atoms
+    model_charge   = -1,               # Formal charge of the ML region including link H atoms
     model_mult     = 1,                # Spin multiplicity of the ML region (used by UMA only)
     link_mlmm      = None,             # default: None, link atom pairs are auto determined.
     backend        = "uma",            # ML backend: "uma" or "aimnet2"
