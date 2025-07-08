@@ -192,6 +192,7 @@ This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^
 | Reaction | $\Delta E^{\ddagger}$ (kcal mol⁻¹) | $\Delta E$ | $\Delta G^{\ddagger}$ | $\Delta G$ | $\Delta E^{\ddagger}$<sub>QM/MM</sub> | $\Delta G^{\ddagger}$<sub>Exp.</sub> |
 |----------|-----------------:|----:|----:|----:|---------------------:|-------------------:|
 | CM — Claisen rearrangement | 18.1 | −23.4 | 14.7 | −23.3 | 16.1 | 15.4 |
+| CM — Arg90Ala Mutant       | 30.8 | −18.0 | 28.9 | −17.6 | — | — |
 | Fur6 — methyl transfer     | 10.2 | −62.5 |  9.6 | −58.3 |  8.6 | — |
 
 ---
