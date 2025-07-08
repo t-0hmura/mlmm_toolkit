@@ -57,7 +57,7 @@ examples/
 ```
 
 The `cm_mutation` workflow reuses the original chorismate‑mutase setup but
-mutates residue 89 from arginine to alanine.  The side chain was removed in the
+mutates residue 90 from arginine to alanine. The side chain was removed in the
 topology/parameter and the two PDB files used as GSM inputs, replacing the side chain except $C_{\beta}$ with hydrogens.
 Freeze indices correspond to the original system, and the model charge is
 decreased by one (`model_charge: -1`).  Running `run.sh` executes the steps from
@@ -189,11 +189,13 @@ This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^
 
 ## 6  Energetic results
 
-| Reaction | $\Delta E^{\ddagger}$ (kcal mol⁻¹) | $\Delta E$ | $\Delta G^{\ddagger}$ | $\Delta G$ | $\Delta E^{\ddagger}$<sub>QM/MM</sub> | $\Delta G^{\ddagger}$<sub>Exp.</sub> |
+| Reaction | $\Delta E^{\ddagger}$ (kcal mol<sup>-1</sup>) | $\Delta E$ | $\Delta G^{\ddagger}$ | $\Delta G$ | $\Delta E^{\ddagger}$<sub>QM/MM</sub> | $\Delta G^{\ddagger}$<sub>Exp.</sub> |
 |----------|-----------------:|----:|----:|----:|---------------------:|-------------------:|
 | CM — Claisen rearrangement | 18.1 | −23.4 | 14.7 | −23.3 | 16.1 | 15.4 |
 | CM — Arg90Ala Mutant       | 30.8 | −18.0 | 28.9 | −17.6 | — | — |
 | Fur6 — methyl transfer     | 10.2 | −62.5 |  9.6 | −58.3 |  8.6 | — |
+
+From these data it is evident that both the CM Claisen rearrangement and the Fur6 methyl-transfer reaction possess activation barriers low enough for the reactions to proceed at room temperature, with computed values lying within a few kcal mol<sup>-1</sup> of the available experimental and QM/MM results. Moreover, in the CM Arg90Ala mutant—where Arg90 is thought to contribute catalytically—the activation barrier rises sharply, consistent with the experimentally observed loss of activity (Kast P. et al., 2000, J. Biol. Chem. 275 (47), 36832–36838).
 
 ---
 

@@ -168,14 +168,14 @@ module unload amber
 
 ## 3. Using the Calculator
 ### Quick‑start examples.
-Fully working scripts are provided in the `examples/` directory so you can try the calculator straight away. Start with the minimal `toy_system` example, then explore realistic enzyme cases in `chorismate_mutase` and `methyltransferase`. Inside `examples/toy_system/`, running `bash run.sh` executes a short calculator test. For a step‑by‑step walkthrough of an entire reaction‑energy profile—from structure preparation to $\Delta G^{\ddagger}$ evaluation—see `examples/tutorial.md`.
+Fully working scripts are provided in the `examples/` directory so you can try the calculator straight away. Start with the minimal `toy_system` example, then explore realistic enzyme cases in `chorismate_mutase` and `methyltransferase`. Inside `examples/toy_system/`, running `bash run.sh` executes a short calculator test. For a step‑by‑step walkthrough of an entire reaction‑energy profile—from structure preparation to $\Delta G^{\ddagger}$ evaluation—see [examples/tutorial.md](examples/tutorial.md).
 
 ### Units at a glance
 
 | Interface       | Energy | Distance | Force        | Hessian        |
 |-----------------|--------|----------|--------------|----------------|
-| **Core & ASE**  | eV     | Å        | eV Å-1       | eV Å-2         |
-| **Pysisyphus**  | Hartree| Bohr     | Ha Bohr-1    | Ha Bohr-2      |
+| **Core & ASE**  | eV     | Å        | eV Å<sup>-1</sup>       | eV Å<sup>-2</sup>         |
+| **Pysisyphus**  | Hartree| Bohr     | Ha Bohr<sup>-1</sup>    | Ha Bohr<sup>-2</sup>      |
 
 
 ### 3.1 Example for ASE Interface: <https://wiki.fysik.dtu.dk/ase>
