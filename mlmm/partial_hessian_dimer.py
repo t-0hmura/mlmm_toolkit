@@ -26,8 +26,6 @@ Workflow
          partial Hessian.  
    * Repeat until ≤ 1 imaginary mode or ``flatten_max_iter``.
 4. **Export** final geometry and surviving imaginary mode(s).
-
-The script below follows this logic exactly; nothing is omitted.
 """
 
 from __future__ import annotations

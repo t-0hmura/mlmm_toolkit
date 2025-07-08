@@ -1,10 +1,10 @@
 """
-Run Partial-Hessian ML/MM Dimer search from a YAML configuration file
+Run Partial-Hessian ML/MM Dimer search from a YAML input file
 (updated for mass-scaled multi-mode flattening).
 
 Usage
 -----
-$ partial_hessian_dimer config.yml
+$ ts_search input.yml
 """
 
 from __future__ import annotations
@@ -86,13 +86,13 @@ def build_runner(cfg: Dict) -> PartialHessianDimer:
 # ---------------------------------------------------------------------
 def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
-        prog="partial_hessian_dimer",
-        description="Run Partial-Hessian ML/MM Dimer search from a YAML config."
+        prog="ts_search",
+        description="Run ML/MM Partial Hessian Dimer TS search from a YAML input."
     )
-    parser.add_argument("config", help="YAML configuration file.")
+    parser.add_argument("input", help="YAML input file.")
     args = parser.parse_args(argv)
 
-    cfg_path = Path(args.config)
+    cfg_path = Path(args.input)
     if not cfg_path.is_file():
         sys.exit(f"[ERROR] YAML file not found: {cfg_path}")
 
@@ -105,7 +105,7 @@ def main(argv: list[str] | None = None):
     try:
         runner = build_runner(cfg)
     except Exception as e:          # catch bad keys / types early
-        sys.exit(f"[ERROR] Invalid configuration: {e}")
+        sys.exit(f"[ERROR] Invalid input: {e}")
 
     runner.run()
 

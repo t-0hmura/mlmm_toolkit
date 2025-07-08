@@ -63,7 +63,7 @@ Options
                     for additional residue inclusion (default: 3.6 Å).
 --include_H2O bool  Include crystallographic/explicit waters (default: false).
 --exclude_backbone bool Remove all main-chain atoms (N, H, CA, HA, C, O) from every
-                    amino-acid residue except the substrate (default: false).
+                    amino-acid residue except the substrate (default: true).
                     For PRO, the N and CA atoms are retained.
                     If false, only terminal N and C caps are removed.
 Dependencies

@@ -33,7 +33,7 @@ class CartesianBondScan:
         # ---------------------------------------------------------------------
         input_path: str,
         scan_bond: Tuple[int, int],
-        scan_step: float,                 # Å
+        scan_step: float,                # Å
         scan_range: Tuple[float, float], # Å (min,max)
         init_thresh: str,
         thresh: str,
@@ -174,34 +174,3 @@ class CartesianBondScan:
                 else:
                     f.write(geom.as_xyz() + "\n")
 
-"""
-Example
--------
-scanner = CartesianBondScan(
-    input_path="./dump/opt1/final_geometry.xyz",
-    scan_bond=(100, 110),
-    scan_step=0.05,                 # Å
-    scan_range=(1.4, 4.0),         # Å (min, max)
-    init_thresh="gau",
-    thresh="gau",
-    max_cycles=10_000,
-    out_dir="./dump/cart_scan/",
-    out_fn="final_geometries.trj",
-    mlmm_kwargs=dict(
-        real_pdb="./parm/complex.pdb",
-        real_parm7="./parm/complex.parm7",
-        real_rst7="./parm/complex.rst7",
-        model_pdb="./parm/ml_region.pdb",
-        model_charge=1,
-        model_mult=1,
-        backend="aimnet2",
-        ml_device="auto",
-        ml_cuda_idx=0,
-        mm_device="cpu",
-        mm_cuda_idx=0,
-        mm_threads=16,
-        mem=100_000,
-    ),
-)
-scanner.run()
-"""

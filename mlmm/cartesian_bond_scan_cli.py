@@ -1,9 +1,9 @@
 """
-CLI wrapper to run CartesianBondScan from a YAML configuration file.
+CLI wrapper to run CartesianBondScan from a YAML input file.
 
 Usage
 -----
-$ cartesian_bond_scan my_scan.yml
+$ bond_scan my_scan.yml
 """
 
 from __future__ import annotations
@@ -51,13 +51,13 @@ def build_scanner(cfg: Dict) -> CartesianBondScan:
 # ---------------------------------------------------------------------
 def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
-        prog="cartesian_bond_scan",
-        description="Run CartesianBondScan from YAML config",
+        prog="bond_scan",
+        description="Run CartesianBondScan from YAML input",
     )
-    parser.add_argument("config", help="YAML configuration file")
+    parser.add_argument("input", help="YAML input file")
     args = parser.parse_args(argv)
 
-    cfg_path = Path(args.config)
+    cfg_path = Path(args.input)
     if not cfg_path.exists():
         sys.exit(f"[ERROR] YAML file not found: {cfg_path}")
 
