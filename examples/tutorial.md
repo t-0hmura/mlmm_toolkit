@@ -52,8 +52,17 @@ examples/
 │   │   └── freeze.txt       # Indices (>10 Å) to freeze; paste into YAML
 │   ├── yaml/                # 1_opt.yaml … 10_energy_summary.yaml
 │   └── run.sh               # Bash script to run the full workflow test
+├── cm_mutation/             # Example: Arg90 → Ala mutant of chorismate‑mutase
 └── methyltransferase/       # Example: Fur6 methyl‑transferase
 ```
+
+The `cm_mutation` workflow reuses the original chorismate‑mutase setup but
+mutates residue 89 from arginine to alanine.  The side chain was removed in the
+topology/parameter and the two PDB files used as GSM inputs, replacing the side chain except $C_{\beta}$ with hydrogens.
+Freeze indices correspond to the original system, and the model charge is
+decreased by one (`model_charge: -1`).  Running `run.sh` executes the steps from
+`3_opt.yaml` to `10_energy_summary.yaml` to probe how this mutation affects the
+reaction barrier.
 
 ---
 
