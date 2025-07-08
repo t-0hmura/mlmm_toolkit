@@ -148,7 +148,7 @@ module unload amber
 2. **Generate parameter/topology and coordinate files**  
    Create `.pdb`, `.parm7`, and `.rst7` files of the complex (see the OpenMM tutorial at https://openmm.github.io/openmm-cookbook/latest/tutorials).
    To mimic aqueous conditions, the complex should be solvated, and water molecules located beyond about 6 Å from the complex should be removed to reduce computational cost.  
-   **Note that elemental information (column 77-78) is required in the pdb file when you use tleap.**  
+   > Note that elemental information (column 77-78) is omitted in the pdb file when you use tleap. Use `add_elem_info` after tleap.  
 
 3. **Define the ML region.**  
    Use the bundled CLI tool **`def_ml_region`** (installed automatically and appears in `$PATH`) or any molecular viewer.  
