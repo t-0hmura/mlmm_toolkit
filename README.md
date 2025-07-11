@@ -10,7 +10,7 @@ Here, we present **ML/MM tools**, an open-source command-line toolkit centered o
 
 ---
 
-This package provides a **machine‑learning / molecular‑mechanics (ML/MM) hybrid calculator**.  
+This package provides a **machine‑learning / molecular‑mechanics (ML/MM) hybrid calculator** and surrounding **CLI toolsets** enable you to get **$\Delta G$ and $\Delta G^{\ddagger}$ of Enzymatic Reaction** from Protein-Substrate complex structure easily.  
 By combining a machine‑learning interatomic potential with classical force fields, it enables efficient calculation of very large systems such as proteins and enzyme‑substrate complexes.
 
 This calculator provides:
@@ -126,7 +126,7 @@ Choose one of the following backends:
 
 ### 1.5. Authenticate for UMA (Hugging Face)
 
-UMA model is on Hugging Face Hub. Log in **once** (See https://github.com/facebookresearch/fairchem):
+UMA model is on Hugging Face Hub. You need to log in once (See https://github.com/facebookresearch/fairchem):
 
 ```bash
 huggingface-cli login
@@ -167,6 +167,9 @@ module unload amber
 
 
 ## 3. Using the Calculator
+
+The ML/MM calculator offers interfaces for **ASE** and **Pysisyphus**. When using Pysisyphus, we recommend the partially GPU-enabled version that is installed automatically alongside `mlmm_tools`.
+
 ### Quick‑start examples.
 Fully working scripts are provided in the `examples/` directory so you can try the calculator straight away. Start with the minimal `toy_system` example, then explore realistic enzyme cases in `chorismate_mutase` and `methyltransferase`. Inside `examples/toy_system/`, running `bash run.sh` executes a short calculator test. For a step‑by‑step walkthrough of an entire reaction‑energy profile—from structure preparation to $\Delta G^{\ddagger}$ evaluation—see [examples/tutorial.md](examples/tutorial.md).
 

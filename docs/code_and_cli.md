@@ -61,7 +61,7 @@ def_ml_region --real complex.pdb --center ligand.pdb --out ml_region.pdb --radiu
 
 This generates `ml_region.pdb` containing all protein residues and HETATMs within 6.0 Å of any atom in `ligand.pdb`.
 
-### `xyz_geom2pdb` – XYZ → PDB converter
+### `xyz_geom2pdb` – XYZ (`.xyz` and `.trj`) → PDB converter
 
 ```bash
 xyz_geom2pdb --input traj.xyz --ref ref.pdb --output traj.pdb
@@ -115,7 +115,7 @@ Runs an inward and outward scan along a chosen bond. Each scan point is optimize
 | `geom.fn` | `./coord/gs.xyz` | Starting geometry (XYZ or PDB) |
 | `scan.bond` | `[0, 1]` | Pair of 0‑based atom indices to scan |
 | `scan.step` | `0.05` Å | Displacement per step |
-| `scan.scan_range` | `[1.4, 4.0]` Å | Minimum and maximum bond length |
+| `scan.scan_range` | `[1.4, 4.0]` Å | Minimum and maximum bond length. |
 | `scan.init_thresh` | `gau` | Threshold for the first optimization |
 | `scan.thresh` | `gau` | Threshold for subsequent steps |
 | `scan.max_cycles` | `10000` | LBFGS cycle limit |
@@ -126,7 +126,9 @@ Runs an inward and outward scan along a chosen bond. Each scan point is optimize
 See `examples/chorismate_mutase/2_scan.yaml` for an example (another
 enzyme folders contain a similar `2_scan.yaml`).
 
-### `ts_search` – Partial-Hessian ML/MM Dimer search   
+> Bond lenth of input geometry must be included in `scan.scan_range`.
+
+### `ts_search` – TS search by Partial Hessian Dimer algorithm for ML/MM    
 
 ```bash
 ts_search config.yml
@@ -165,8 +167,8 @@ cycle limit for this pre-optimization is controlled by `dimer.max_cycles_preopt`
 | **dimer.neg_freq_thresh** | `10.0` | cm⁻¹ cutoff for “imaginary” |
 | **flatten.amp_ang** | `0.20` | Carbon displacement amplitude (Å) |
 | **flatten.max_iter** | `20` | Max flatten iterations |
-| **flatten.sep_cutoff** | `2.0` | Å between representative atoms of modes |
-| **flatten.k** | `10` | Number of representative atoms to displace |
+| **flatten.sep_cutoff** | `2.0` | Å between representative moving atoms of modes |
+| **flatten.k** | `10` | Number of representative moving atoms of modes |
 | **calc.* ** | – | ML/MM calculator kwargs (must include `model_pdb`) |
 | **dimer_kwargs.* ** | – | Extra kwargs forwarded to Pysisyphus `Dimer` |
 
@@ -217,7 +219,7 @@ Computes electronic and vibrational contributions for reactant, transition state
 | `geom.prod` | *(required)* | Product structure |
 | `calc.*` | – | ML/MM calculator options |
 | `--temp` | `298.15` K | Temperature for vibrational corrections |
-| `--no_annotation` | *(flag)* | Do not label energy diagrams |
+| `--no_annotation` | *(flag)* | Do not show value in energy diagrams |
 
 See `examples/chorismate_mutase/10_energy_summary.yaml` for an example (another
 enzyme folders contain a similar `10_energy_summary.yaml`).

@@ -46,10 +46,10 @@ identical to those in the full `complex.pdb`.
 
 ```text
 examples/
-├── chorismate_mutase/       # Example: chorismate‑mutase Claisen shift
+├── chorismate_mutase/       # Example: chorismate‑mutase claisen rearrangement
 │   ├── coord/               # Input + intermediate geometries (for example)
 │   ├── parm/                # Topology/parameters, original complex PDB and user defined ML region (PDB)
-│   │   └── freeze.txt       # Indices (>10 Å) to freeze; paste into YAML
+│   │   └── freeze.txt       # Indices (>10 Å) to freeze; use as `freeze_atoms` parameter in YAML
 │   ├── yaml/                # 1_opt.yaml … 10_energy_summary.yaml
 │   └── run.sh               # Bash script to run the full workflow test
 ├── cm_mutation/             # Example: Arg90 → Ala mutant of chorismate‑mutase
@@ -68,7 +68,7 @@ reaction barrier.
 
 ## 4  Workflow overview
 
-The canonical pipeline consists of **ten YAML job files**:
+The canonical pipeline consists of **10 YAML job files**:
 
 | Stage | YAML file(s)              | Purpose                                             | Typical wall‑time \* |
 |------:|---------------------------|-----------------------------------------------------|----------------------|
@@ -83,7 +83,7 @@ The canonical pipeline consists of **ten YAML job files**:
 
 \* Ryzen 7950X3D + RTX 5080; see Section 5 for full benchmarks.
 
-The helper script `examples/chorismate_mutase/run.sh` executes the
+The bash script `examples/chorismate_mutase/run.sh` executes the
 stages in order:
 
 ```bash
@@ -125,7 +125,7 @@ Pick two representative frames as the *reactant* and *product* from `scan_path.p
 ### 4.3  Reactant / product optimizations – `3_opt.yaml`, `4_opt.yaml`
 
 Refine the two structures chosen above.  
-Results are stored in `./dump/opt2/` and `./dump/opt3/`.
+Results are stored as `./dump/opt2/final_geometry.xyz` and `./dump/opt3/final_geometry.xyz`.
 
 ### 4.4  Growing‑String search – `5_gs.yaml`
 
@@ -147,13 +147,13 @@ The optimized TS is saved as `./dump/dimer/final_geometry.xyz`.
 ### 4.6  IRC – `7_irc.yaml`
 
 Propagates the TS downhill in both directions.  
-The final frames (`7_irc_backward_last.xyz`,
-`7_irc_forward_last.xyz`) provide improved reactant/product guesses.
+The final frames (`./dump/irc/backward_last.xyz` → `7_irc_backward_last.xyz`, 
+`./dump/irc/forward_last.xyz` → `7_irc_forward_last.xyz`) provide improved reactant/product guesses.
 
 ### 4.7  Endpoint optimizations – `8_opt.yaml`, `9_opt.yaml`
 
 Relax the IRC endpoints to obtain the *final* reactant and product
-geometries (stored in `./dump/opt4/` and `./dump/opt5/`).
+geometries (stored as `./dump/opt4/final_geometry.xyz` and `./dump/opt5/final_geometry.xyz`).
 
 ### 4.8  Energy summary – `10_energy_summary.yaml`
 
@@ -164,10 +164,10 @@ reactant, TS and product:
 energy_summary 10_energy_summary.yaml
 ```
 
-This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^{\ddagger}$ and can optionally write figures of energy diagrams.
+This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^{\ddagger}$ and write figures of energy diagrams.
 
 > All intermediate files live under `./dump/`.
-
+> In this example, all input geometries are stored in `./coord/`.
 ---
 
 ## 5  Benchmarks  
