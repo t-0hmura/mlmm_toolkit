@@ -10,7 +10,7 @@ Here, we present **ML/MM tools**, an open-source command-line toolkit centered o
 
 ---
 
-This package provides a **machine‑learning / molecular‑mechanics (ML/MM) hybrid calculator** and surrounding **CLI toolsets** enable you to get **$\Delta G$ and $\Delta G^{\ddagger}$ of Enzymatic Reaction** from Protein-Substrate complex structure easily.  
+This package provides a **machine‑learning / molecular‑mechanics (ML/MM) hybrid calculator** and surrounding **CLI toolsets** that enable you to get **$\Delta G$ and $\Delta G^{\ddagger}$ of Enzymatic Reaction** from Protein-Substrate complex structure easily.  
 By combining a machine‑learning interatomic potential with classical force fields, it enables efficient calculation of very large systems such as proteins and enzyme‑substrate complexes.
 
 This calculator provides:
@@ -351,7 +351,7 @@ Detailed option tables and usage examples for each utility are provided in [docs
 
 ## License
 
-ML/MM tools is distributed under the **GNU General Public License version 3 (GPL-3.0)** because some of its command-line (CLI) utilities depend on Pysisyphus.
+ML/MM tools are distributed under the **GNU General Public License version 3 (GPL-3.0)** because some of its command-line (CLI) utilities depend on Pysisyphus.
 
 ## Citation
 If you find this work helpful for your research, please cite:  
