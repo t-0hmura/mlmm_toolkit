@@ -154,7 +154,7 @@ class MLMMCore:
             uma_task_name (str): See document of fairchem. Default is omol, and it is generally best to leave it unchanged.
 
             vib_run (bool): Whether to run vibrational analysis.
-            out_hess_torch (bool): Whether to output Hessian in torch format. True: torch.Tensor (N,3,N,3) on device, False: numpy.ndarray (N*3,N*3) on cpu.
+            vib_dir (str): Output directory for progress logs and results of vibrational analysis.
             H_double (bool): Use double precision for Hessian-related tensors.
 
             ml_device (str): Device to use for ML calculations. Options are "auto", "cpu", or "cuda".

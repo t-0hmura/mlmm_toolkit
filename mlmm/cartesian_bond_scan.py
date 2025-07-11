@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import Tuple, Sequence, Union, Optional
+from typing import Tuple, Sequence, Union, Optional, List
 
 import numpy as np
 from mlmm import mlmm as MLMM

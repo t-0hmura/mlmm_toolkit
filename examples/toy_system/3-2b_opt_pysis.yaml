@@ -19,7 +19,7 @@ calc:
   uma_model: uma-s-1p1
   vib_run: false           # whether to do a frequency analysis
   out_hess_torch: false    # return Hessian as torch.Tensor on device when true
-  H_double: false          # calculate and retrun Hessian as float64 when true, else float32
+  H_double: false          # calculate and return Hessian as float64 when true, else float32
   ml_device: 'auto'
   ml_cuda_idx: 0
   mm_device: 'cpu'
