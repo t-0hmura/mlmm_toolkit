@@ -2,7 +2,7 @@
 
 ## Overview
 
-<img src="./MLMM_overview.jpg" alt="Overview of ML/MM calculator" width="100%">  
+<img src="./docs/MLMM_overview.jpg" alt="Overview of ML/MM calculator" width="100%">  
 
 Quantum mechanics/molecular mechanics (QM/MM) methods have long been used to analyze enzymatic reaction mechanisms *in silico*. While treating the active site with QM and the remainder with MM yields atomic-level insight, the high computational cost of the QM region is a major limitation. Replacing the QM region with machine-learning (ML) interatomic potentials yields ML/MM approaches that retain accuracy while reducing computational cost and time.
 

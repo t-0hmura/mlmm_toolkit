@@ -8,7 +8,7 @@ The ML/MM hybrid calculator combines a machine-learning potential with classical
 
 - **Energies**
 - **Forces**
-- **Hessians** – analytical in the ML region and numerical or padded in the MM region
+- **Hessians** – ***Analytical*** in the ML region, ***Numerical*** or ***0-padded*** in the MM region  
 
 Covalent bonds cut at the QM/MM boundary are capped with hydrogen link atoms so that entire side chains can be included in the ML region.
 
