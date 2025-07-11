@@ -4,7 +4,7 @@ PartialHessianDimer – ML/MM dimer search with partial Hessian & mass-scaled mu
 
 Workflow
 --------
-0. **Pre-opt (ML region frozen)** – relaxs starting structure.
+0. **Pre-opt (ML region frozen)** – relaxes starting structure.
 1. **Loose-threshold Dimer**  
    * Build *partial* Hessian (ML + MM ≤ cutoff) using dynamic `freeze_atoms`.  
    * Extract most-negative mode → `mode.dat`.  
