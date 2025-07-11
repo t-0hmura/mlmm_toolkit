@@ -36,7 +36,7 @@ Periodic boundary conditions & implementation for molecular dynamics are planned
 
 > You can select UMA models from `uma_model` parameter.
 
-**This software is still under development. Please use it with care.**
+***This software is still under development. Please use it with care.***
 
 ## 1. Installation Guide
 
