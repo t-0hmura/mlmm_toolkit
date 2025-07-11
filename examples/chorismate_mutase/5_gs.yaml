@@ -9,11 +9,11 @@ cos:
   climb_rms: 0.005                        # rms(forces) threshold for enabling CI
   climb_lanczos: True                     # Use tangent obtained from Lanczos algorithm for CI.
   climb_lanczos_rms: 0.005                # rms(forces) threshold for enabling Lanczos algorithm.
-  reparam_check: rms                      # Criterian for growing new frontier nodes (rms/norm).
+  reparam_check: rms                      # Criterion for growing new frontier nodes (rms/norm).
   perp_thresh: 0.005                      # Threshold for growing new frontier nodes.
 opt:
   type: string                            # Optimizer for GrowingString
-  stop_in_when_full: 20                   # Stop string optimization N cycles after fully grown. Disabled by -1. Usually it's a better idea to further converge the string, after is fully grown.
+  stop_in_when_full: 20                   # Stop string optimization N cycles after fully grown. Disabled by -1. Usually it's a better idea to further converge the string, after it is fully grown.
   align: False                            # Disable Kabsch algorithm. Should be false when using freeze_atoms.
   scale_step: global                      # Scale down step as whole (global) or per image (per_image)
   max_cycles: 10000                       # Maximum number of cycles for the optimizer
