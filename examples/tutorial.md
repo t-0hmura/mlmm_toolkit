@@ -2,7 +2,7 @@
 
 This tutorial demonstrates **step by step** how to reproduce the
 reaction‑path workflow described in our accompanying paper
-(*ML/MM tools — towards Accelerated Mechanistic Investigation of
+(*ML/MM tools — toward Accelerated Mechanistic Investigation of
 Enzymatic Reactions*). All commands refer to the files in
 `examples/chorismate_mutase/`, but the same procedure applies
 unchanged to any other system.
@@ -48,7 +48,7 @@ identical to those in the full `complex.pdb`.
 examples/
 ├── chorismate_mutase/       # Example: chorismate‑mutase claisen rearrangement
 │   ├── coord/               # Input + intermediate geometries (for example)
-│   ├── parm/                # Topology/parameters, original complex PDB and user defined ML region (PDB)
+│   ├── parm/                # Topology/parameters, original complex PDB and user-defined ML region (PDB)
 │   │   └── freeze.txt       # Indices (>10 Å) to freeze; use as `freeze_atoms` parameter in YAML
 │   ├── yaml/                # 1_opt.yaml … 10_energy_summary.yaml
 │   └── run.sh               # Bash script to run the full workflow test
@@ -76,7 +76,7 @@ The canonical pipeline consists of **10 YAML job files**:
 | (ii)  | `2_scan.yaml`             | 1‑D bond‑length scan → seed Reactant/Product        | 5 – 10 min |
 | (iii) | `3_opt.yaml`, `4_opt.yaml`| Relax *reactant* and *product* obtained by scan     | 1 – 2 min |
 | (iv)  | `5_gs.yaml`               | Minimum Energy Path search by Growing String Method | 5 – 10 min |
-| (v)   | `6_tsopt.yaml`            | **PH‑Dimer** transition‑state refinement            | **30 – 60 min** |
+| (v)   | `6_tsopt.yaml`            | **PH‑Dimer** transition state refinement            | **30 – 60 min** |
 | (vi)  | `7_irc.yaml`              | IRC propagation                                     | 5 – 10 min |
 | (vii) | `8_opt.yaml`, `9_opt.yaml`| Endpoint relaxation → Final Reactant/Product        | 2 – 3 min |
 | (viii)| `10_energy_summary.yaml`  | Table and Figures of $\Delta E,G$                   | 10 – 30 min |
@@ -138,7 +138,7 @@ trj2fig -i current_geometries.trj -o gs.png --output-peak 5_gs_peak.xyz
 
 `5_gs_peak.xyz` serves as the initial guess for the TS search.
 
-### 4.5  Transition‑state search – `6_tsopt.yaml`
+### 4.5  Transition state search – `6_tsopt.yaml`
 
 Starts from `5_gs_peak.xyz` and refines the TS with the
 **PH‑Dimer** algorithm.  
@@ -164,7 +164,7 @@ reactant, TS and product:
 energy_summary 10_energy_summary.yaml
 ```
 
-This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^{\ddagger}$ and write figures of energy diagrams.
+This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^{\ddagger}$ and writes figures of energy diagrams.
 
 > All intermediate files live under `./dump/`.
 > In this example, all input geometries are stored in `./coord/`.

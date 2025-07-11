@@ -126,7 +126,7 @@ Runs an inward and outward scan along a chosen bond. Each scan point is optimize
 See `examples/chorismate_mutase/2_scan.yaml` for an example (another
 enzyme folders contain a similar `2_scan.yaml`).
 
-> Bond lenth of input geometry must be included in `scan.scan_range`.
+> Bond length of input geometry must be included in `scan.scan_range`.
 
 ### `ts_search` – TS search by Partial Hessian Dimer algorithm for ML/MM    
 
@@ -201,7 +201,7 @@ calc:
 
 ---
 
-See `examples/chorismate_mutase/6_tsopt.yaml` for an example (another
+See `examples/chorismate_mutase/6_tsopt.yaml` for an example (other
 enzyme folders contain a similar `6_tsopt.yaml`).
 
 ### `energy_summary` – Gibbs‑energy profiler
@@ -215,7 +215,7 @@ Computes electronic and vibrational contributions for reactant, transition state
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `geom.reac` | *(required)* | Reactant structure |
-| `geom.ts` | *(required)* | Transition‑state structure |
+| `geom.ts` | *(required)* | Transition state structure |
 | `geom.prod` | *(required)* | Product structure |
 | `calc.*` | – | ML/MM calculator options |
 | `--temp` | `298.15` K | Temperature for vibrational corrections |
