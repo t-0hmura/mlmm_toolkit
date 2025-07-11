@@ -349,7 +349,7 @@ Detailed option tables and usage examples for each utility are provided in [docs
 
 ## License
 
-ML/MM tools itself is distributed under the terms of the **MIT License**.
+ML/MM tools is distributed under the **GNU General Public License version 3 (GPL-3.0)** because some of its command-line (CLI) utilities depend on Pysisyphus.
 
 ## Citation
 If you find this work helpful for your research, please cite:  
