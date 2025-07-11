@@ -17,7 +17,7 @@ This calculator provides:
 
 * **Energies**  
 * **Forces**  
-* **Hessians** – analytical in the ML region, **numerical or *0-padded*** in the MM region  
+* **Hessians** – ***Analytical*** in the ML region, ***Numerical*** or ***0-padded*** in the MM region  
 
 Covalent bonds cut at the QM/MM boundary are capped with hydrogen *link atoms*.  
 The ML region can therefore include entire amino‑acid side chains when necessary.
