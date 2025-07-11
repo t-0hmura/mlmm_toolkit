@@ -170,7 +170,7 @@ module unload amber
 
 The ML/MM calculator offers interfaces for **ASE** and **Pysisyphus**. When using Pysisyphus, we recommend the partially GPU-enabled version that is installed automatically alongside `mlmm_tools`.
 
-> If you need the calculation to be fully deterministic and your GPU memory is ample, set both ml_device and mm_device to 'cuda', and, in the Pysisyphus interface, set H_double to true.
+> If you need the calculation to be fully deterministic and your GPU memory is ample, set both `ml_device` and `mm_device` to `cuda`, and, in the Pysisyphus interface, set `H_double` to `true`.
 
 ### Quick‑start examples.
 Fully working scripts are provided in the `examples/` directory so you can try the calculator straight away. Start with the minimal `toy_system` example, then explore realistic enzyme cases in `chorismate_mutase` and `methyltransferase`. Inside `examples/toy_system/`, running `bash run.sh` executes a short calculator test. For a step‑by‑step walkthrough of an entire reaction‑energy profile—from structure preparation to $\Delta G^{\ddagger}$ evaluation—see [examples/tutorial.md](examples/tutorial.md).
