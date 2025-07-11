@@ -90,10 +90,6 @@ class PartialHessianDimer:
         # ---------------------------------------------------------------------
         mlmm_kwargs: Optional[dict] = None,
         dimer_kwargs: Optional[dict] = None,
-        # tensor dtype/device
-        # ---------------------------------------------------------------------
-        H_dtype: torch.dtype = torch.float32,
-        H_device: Union[str, torch.device] = "auto",
     ):
         # basic paths
         # ---------------------------------------------------------------------
@@ -142,13 +138,18 @@ class PartialHessianDimer:
 
         # dtype / device
         # ---------------------------------------------------------------------
-        self.H_dtype = H_dtype
-        if isinstance(H_device, str) and H_device == "auto":
-            self.H_device = (
-                torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-            )
+        if self.mlmm_kwargs.get('H_double', False) == True:
+            self.H_dtype = torch.float64
         else:
-            self.H_device = torch.device(H_device) if isinstance(H_device, str) else H_device
+            self.H_dtype = torch.float32
+
+        ml_device = self.mlmm_kwargs.get('ml_device', 'auto')
+        ml_cuda_idx = self.mlmm_kwargs.get('ml_cuda_idx', 0)
+        if ml_device == "auto":
+            ml_device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.H_device = torch.device(
+            f"cuda:{ml_cuda_idx}" if ml_device == "cuda" else "cpu"
+        )
 
         # workspace
         # ---------------------------------------------------------------------
@@ -372,7 +373,7 @@ class PartialHessianDimer:
         else:
             calc = MLMM(out_hess_torch=True, vib_run=True, **vib_kw)
 
-        H = calc.get_hessian(self.geom.atom_types, self.geom.coords)["hessian"].to(self.H_dtype)
+        H = calc.get_hessian(self.geom.atom_types, self.geom.coords)["hessian"].to(dtype=self.H_dtype, device=self.H_device)
         del calc; torch.cuda.empty_cache()
         return H, freeze
 
@@ -397,7 +398,7 @@ class PartialHessianDimer:
         H = calc.get_hessian(
             self.geom.atom_types,
             self.geom.coords
-        )["hessian"].to(self.H_dtype)
+        )["hessian"].to(dtype=self.H_dtype, device=self.H_device)
 
         # 2. zero elements belonging to freeze_atoms
         # ---------------------------------------------------------------------

@@ -17,9 +17,6 @@ from mlmm.mlmm_calc import MLMMCore
 
 EV2AU = 1 / AU2EV   # eV → Hartree
 
-# Hessian dtype
-H_dtype = torch.float32
-
 class mlmm(Calculator):
     implemented_properties = ['energy', 'forces', 'hessian', 'charges']
 
@@ -132,7 +129,7 @@ class mlmm(Calculator):
         H = results.pop("hessian")
 
         if self.out_hess_torch:
-            target_dtype = torch.float64 if self.hess_torch_double else H_dtype
+            target_dtype = torch.float64 if self.hess_torch_double else torch.float32
             H = H.view(H.size(0)*3, H.size(2)*3).to(target_dtype)
             H.mul_(scale)
             H = H.detach().requires_grad_(False)
