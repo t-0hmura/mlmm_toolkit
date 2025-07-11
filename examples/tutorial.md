@@ -193,7 +193,7 @@ This command prints $\Delta G$, $\Delta G^{\ddagger}$, $\Delta E$ and $\Delta E^
 |----------|-----------------:|----:|----:|----:|---------------------:|-------------------:|
 | CM — Claisen rearrangement | 18.1 | −23.4 | 14.7 | −23.3 | 16.1 | 15.4 |
 | CM — Arg90Ala Mutant       | 30.8 | −18.0 | 28.9 | −17.6 | — | — |
-| Fur6 — methyl transfer     | 10.2 | −62.5 |  9.6 | −58.3 |  8.6 | — |
+| Fur6 — methyl transfer     |  9.0 | −64.9 |  7.9 | −60.0 |  8.6 | — |
 
 From these data it is evident that both the CM Claisen rearrangement and the Fur6 methyl-transfer reaction possess activation barriers low enough for the reactions to proceed at room temperature, with computed values lying within a few kcal mol<sup>-1</sup> of the available experimental and QM/MM results. Moreover, in the CM Arg90Ala mutant—where Arg90 is thought to contribute catalytically—the activation barrier rises sharply, consistent with the experimentally observed loss of activity (Kast P. et al., 2000, J. Biol. Chem. 275 (47), 36832–36838).
 
