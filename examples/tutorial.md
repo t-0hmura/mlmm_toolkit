@@ -79,7 +79,7 @@ The canonical pipeline consists of **10 YAML job files**:
 | (v)   | `6_tsopt.yaml`            | **PH‑Dimer** transition‑state refinement            | **30 – 60 min** |
 | (vi)  | `7_irc.yaml`              | IRC propagation                                     | 5 – 10 min |
 | (vii) | `8_opt.yaml`, `9_opt.yaml`| Endpoint relaxation → Final Reactant/Product        | 2 – 3 min |
-| (viii)| `10_energy_summary.yaml`  | $\Delta E$ / $\Delta G$  tables + optional energy plots         | 10 – 30 min |
+| (viii)| `10_energy_summary.yaml`  | Table and Figures of $\Delta E$ and $\Delta G$      | 10 – 30 min |
 
 \* Ryzen 7950X3D + RTX 5080; see Section 5 for full benchmarks.
 
