@@ -1,4 +1,4 @@
-# **ML/MM tools** — toward Accelerated Mechanistic Investigation of Enzymatic Reactions
+# **ML/MM tools** — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions
 
 ## Overview
 

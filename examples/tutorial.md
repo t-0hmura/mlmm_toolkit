@@ -2,7 +2,7 @@
 
 This tutorial demonstrates **step by step** how to reproduce the
 reaction‑path workflow described in our accompanying paper
-(*ML/MM tools — toward Accelerated Mechanistic Investigation of
+(*ML/MM tools — Toward Accelerated Mechanistic Investigation of
 Enzymatic Reactions*). All commands refer to the files in
 `examples/chorismate_mutase/`, but the same procedure applies
 unchanged to any other system.
