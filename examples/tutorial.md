@@ -34,8 +34,7 @@ For a quick sanity check, you can also run `bash run.sh` in
 
 ## 2  ML‑region setup
 
-Run the CLI helper  
-`def_ml_region` *(see `docs/code_and_cli.md`)* **or** use a molecular
+Run the CLI helper `def_ml_region` *(see `docs/code_and_cli.md`)* **or** use a molecular
 viewer to select residues close to the substrate.  
 Ensure that atom order, atom names, residue IDs and residue names are
 identical to those in the full `complex.pdb`.
