@@ -124,7 +124,7 @@ Choose one of the following backends:
 > **Why this order?**  
 > AIMNet2 depends on numpy < 2.0 (a constraint inherited from ASE ≥ 3.25); if you install fairchem after AIMNet2, it will try to upgrade NumPy (and potentially SymPy and other libraries), creating version conflicts.  
 > The sequence above avoids conflicting pins. You may see *warning* messages, but the installation is still functional.  
-> Once both backends are present **and** you require CUDA 12.8, reinstall PyTorch so that the wheel version matches your driver (FairChem currently pulls `torch‑2.6`):
+> Once both backends are present **and** you require CUDA 12.8, reinstall PyTorch so that the wheel version matches your driver (FairChem currently pulls `torch‑2.6`).
 
 ### 1.5. Authenticate for UMA (Hugging Face)
 
