@@ -22,6 +22,6 @@ atoms = read("structure.pdb")
 atoms.calc = mlmm_ase(**mlmm_kwargs)
 
 opt = LBFGS(atoms, logfile="opt.log")
-opt.run(fmax=0.01, steps=10000)
+opt.run(fmax=0.02, steps=10000)
 
 write("final.pdb", atoms)
