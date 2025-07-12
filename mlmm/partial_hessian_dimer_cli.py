@@ -87,7 +87,7 @@ def build_runner(cfg: Dict) -> PartialHessianDimer:
 def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         prog="ts_search",
-        description="Run ML/MM Partial Hessian Dimer TS search from a YAML input."
+        description="Run ML/MM Partial Hessian Guided Dimer TS search from a YAML input."
     )
     parser.add_argument("input", help="YAML input file.")
     args = parser.parse_args(argv)

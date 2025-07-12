@@ -1,5 +1,5 @@
 """
-PartialHessianDimer – ML/MM dimer search with partial Hessian & mass-scaled multi-mode flattening
+Partial Hessian Guided Dimer (PHG-DImer) – ML/MM dimer search with partial Hessian & mass-scaled multi-mode flattening
 ================================================================================================
 
 Workflow

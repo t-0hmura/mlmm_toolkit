@@ -128,7 +128,7 @@ enzyme folders contain a similar `2_scan.yaml`).
 
 > Bond length of input geometry must be included in `scan.scan_range`.
 
-### `ts_search` – TS search by Partial Hessian Dimer algorithm for ML/MM    
+### `ts_search` – TS search by Partial Hessian Guided Dimer algorithm for ML/MM    
 
 ```bash
 ts_search config.yml
