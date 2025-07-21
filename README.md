@@ -1,12 +1,12 @@
-# **ML/MM tools** — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions
+# **ML/MM toolkit** — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions
 
 ## Overview
 
-<img src="./docs/MLMM_overview.jpg" alt="Overview of ML/MM calculator" width="100%">  
+<img src="./docs/MLMM_overview.jpg" alt="Overview of ML/MM toolkit" width="100%">  
 
 Quantum mechanics/molecular mechanics (QM/MM) methods have long been used to analyze enzymatic reaction mechanisms *in silico*. While treating the active site with QM and the remainder with MM reduces the computational cost, the inherently high computational cost of the QM calculation is still a major limitation for their application to a wide variety of enzymes. Replacing QM with machine-learning (ML) interatomic potentials yields ML/MM approaches that can further reduce computational cost while retaining accuracy.
 
-Here, we present **ML/MM tools**, an open-source command-line toolkit for ML/MM calculations that employs that employs AIMNet2 or UMA potentials. This toolkit streamlines the workflow necessary for the enzymatic reaction mechanism analyses such as energy minimization, transition-state (TS) search, and vibrational analysis to calculate the reaction free energy ($\Delta G$) and activation free energy ($\Delta G^{\ddagger}$) for a given enzyme–substrate complex structure. A link atom boundary treatment is implemented to include amino‑acid residues in the ML region and full-system Hessians are available for TS searches and vibrational analyses. To accelerate TS searches in systems comprising  around 10,000  atoms, we developed a *Partial Hessian Guided Dimer (PHG-Dimer)* method that uses the active-site Hessian to determine initial dimer orientation. We also integrated a mass‑scaled flattening loop to suppress spurious imaginary modes. Collectively, the ML/MM tools make enzymatic mechanistic investigations more accessible.
+Here, we present **ML/MM toolkit**, an open-source command-line toolkit for ML/MM calculations that employs that employs AIMNet2 or UMA potentials. This toolkit streamlines the workflow necessary for the enzymatic reaction mechanism analyses such as energy minimization, transition-state (TS) search, and vibrational analysis to calculate the reaction free energy ($\Delta G$) and activation free energy ($\Delta G^{\ddagger}$) for a given enzyme–substrate complex structure. A link atom boundary treatment is implemented to include amino‑acid residues in the ML region and full-system Hessians are available for TS searches and vibrational analyses. To accelerate TS searches in systems comprising  around 10,000  atoms, we developed a *Partial Hessian Guided Dimer (PHG-Dimer)* method that uses the active-site Hessian to determine initial dimer orientation. We also integrated a mass‑scaled flattening loop to suppress spurious imaginary modes. Collectively, the ML/MM toolkit make enzymatic mechanistic investigations more accessible.
 
 > **UMA‑only workflow**   
 > If you wish to perform chemical‑reaction‑mechanism analysis using **UMA alone** (without the ML/MM hybrid layer), a dedicated **UMA – PySisyphus Interface** is available at https://github.com/t-0hmura/uma_pysis.
@@ -48,7 +48,7 @@ For CUDA 12.6:
 ```bash
 pip install fairchem-core==2.3.0
 pip install git+https://github.com/isayevlab/aimnetcentral.git
-pip install git+https://github.com/t-0hmura/mlmm_tools.git
+pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 huggingface-cli login
 ```
 
@@ -57,7 +57,7 @@ For CUDA 12.8 (required for RTX 50 series):
 pip install fairchem-core==2.3.0
 pip install git+https://github.com/isayevlab/aimnetcentral.git
 pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
-pip install git+https://github.com/t-0hmura/mlmm_tools.git
+pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 huggingface-cli login
 ```
 
@@ -98,21 +98,21 @@ If you are on an HPC cluster that uses *environment modules*, load CUDA **before
 module load cuda/12.6
 ```
 
-### 1.4. Install the ML/MM calculator
+### 1.4. Install ML/MM toolkit
 
 Choose one of the following backends:
 
 * **AIMNet2 only**
   ```bash
   pip install git+https://github.com/isayevlab/aimnetcentral.git
-  pip install git+https://github.com/t-0hmura/mlmm_tools.git
+  pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
   ```
 
 * **UMA only**
   ```bash
   pip install fairchem-core==2.3.0
   # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
-  pip install git+https://github.com/t-0hmura/mlmm_tools.git
+  pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
   ```
 
 * **Both backends** *(order matters)*
@@ -120,7 +120,7 @@ Choose one of the following backends:
   pip install fairchem-core==2.3.0
   pip install git+https://github.com/isayevlab/aimnetcentral.git
   # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
-  pip install git+https://github.com/t-0hmura/mlmm_tools.git
+  pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
   ```
 
 > **Why this order?**  
@@ -172,7 +172,7 @@ module unload amber
 
 ## 3. Using the Calculator
 
-The ML/MM calculator offers interfaces for **ASE** and **Pysisyphus**. When using Pysisyphus, we recommend the partially GPU-enabled version that is installed automatically alongside `mlmm_tools`.
+The ML/MM calculator implemented in ML/MM toolkit offers interfaces for **ASE** and **Pysisyphus**. When using Pysisyphus, we recommend the partially GPU-enabled version that is installed automatically alongside `mlmm_toolkit`.
 
 > If you need the calculation to be deterministic and your VRAM is ample, set both `ml_device` and `mm_device` to `cuda`, and, in the Pysisyphus interface, set `H_double` to `true`.
 
@@ -336,11 +336,11 @@ hessian  = results["hessian"]      # torch.Tensor (3N, 3N), eV Å-2
 
 ### 3.4 Command‑Line Utilities
 
-The ML/MM calculator ships with a small set of single‑purpose command‑line helpers. All tools are installed automatically when you install this package and therefore become available on your `$PATH`.
+ML/MM toolkit ships with a small set of single‑purpose command‑line helpers. All tools are installed automatically when you install this package and therefore become available on your `$PATH`.
 
 | Tool | Purpose | Typical use‑case |
 |------|---------|------------------|
-| `def_ml_region` | Build an ML region with residues around one or more substrate in a protein–substrate complex. | Preparing the subsystem for ML/MM calculator |
+| `def_ml_region` | Build an ML region with residues around one or more substrate in a protein–substrate complex. | Preparing the subsystem for ML/MM calculation |
 | `xyz_geom2pdb`  | Convert an XYZ geometry or trajectory to a multi‑model PDB while borrowing atom / residue metadata from a reference PDB. | Exporting Pysisyphus‑ or ASE‑optimized coordinates so that they can be visualized in PyMOL, VMD, Chimera X, etc. |
 | `add_elem_info` | Append element symbols (PDB columns 77–78) | Fixing element fields after running external tools omit them, e.g. Amber’s `tleap`. |
 | `get_freeze_indices` | List atom indices (0-based) to *freeze*  based on their distance from the ML region. | Constraining outer‑shell atoms to speed up local relaxations. |
@@ -353,7 +353,7 @@ Detailed option tables and usage examples for each utility are provided in [docs
 
 ## License
 
-**ML/MM tools** is distributed under the **GNU General Public License version 3 (GPL-3.0)** because some of its command-line (CLI) utilities depend on Pysisyphus.
+**ML/MM toolkit** is distributed under the **GNU General Public License version 3 (GPL-3.0)** because some of its command-line (CLI) utilities depend on Pysisyphus.
 
 ## Citation
 If you find this work helpful for your research, please cite:  

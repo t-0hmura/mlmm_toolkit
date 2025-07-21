@@ -1,4 +1,4 @@
-"""Public API exports for the ML/MM calculator package."""
+"""Public API exports for the ML/MM toolkit package."""
 
 from .mlmm_calc  import MLMMCore
 from .mlmm_pysis import mlmm

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlmm"
-description = "ML/MM tools Interface"
+description = "ML/MM toolkit Interface"
 readme = "README.md"
 authors = [{name = "Takuto Ohmura"}]
 license = {file = "LICENSE"}
