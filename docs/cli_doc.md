@@ -1,25 +1,6 @@
-# Code Overview and CLI Tools
+# CLI Tools Overview
 
-This document provides an overview of the ML/MM calculator code features and detailed usage for the bundled command-line utilities.
-
-## Code Features
-
-The ML/MM hybrid calculator combines a machine-learning potential with classical molecular mechanics. It can compute:
-
-- **Energies**
-- **Forces**
-- **Hessians** – ***Analytical*** in the ML region, ***Numerical*** or ***0-padded*** in the MM region  
-
-Covalent bonds cut at the QM/MM boundary are capped with hydrogen link atoms so that entire side chains can be included in the ML region.
-
-Supported ML potentials:
-
-| Potential | Repository |
-|-----------|-----------|
-| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> |
-| **UMA** | <https://github.com/facebookresearch/fairchem> |
-
-The MM layer uses **OpenMM** and works with any force field capable of generating parameters.
+This document provides an overview of detailed usage for the bundled command-line utilities in the ML/MM tookit.
 
 ## Command-Line Utilities
 

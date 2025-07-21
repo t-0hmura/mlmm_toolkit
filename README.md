@@ -1,4 +1,4 @@
-# **ML/MM tools** — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions
+# **ML/MM toolkit** — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions
 
 ## Overview
 
@@ -6,7 +6,7 @@
 
 Quantum mechanics/molecular mechanics (QM/MM) methods have long been used to analyze enzymatic reaction mechanisms *in silico*. While treating the active site with QM and the remainder with MM reduces the computational cost, the inherently high computational cost of the QM calculation is still a major limitation for their application to a wide variety of enzymes. Replacing QM with machine-learning (ML) interatomic potentials yields ML/MM approaches that can further reduce computational cost while retaining accuracy.
 
-Here, we present **ML/MM tools**, an open-source command-line toolkit for ML/MM calculations that employs that employs AIMNet2 or UMA potentials. This toolkit streamlines the workflow necessary for the enzymatic reaction mechanism analyses such as energy minimization, transition-state (TS) search, and vibrational analysis to calculate the reaction free energy ($\Delta G$) and activation free energy ($\Delta G^{\ddagger}$) for a given enzyme–substrate complex structure. A link atom boundary treatment is implemented to include amino‑acid residues in the ML region and full-system Hessians are available for TS searches and vibrational analyses. To accelerate TS searches in systems comprising  around 10,000  atoms, we developed a *Partial Hessian Guided Dimer (PHG-Dimer)* method that uses the active-site Hessian to determine initial dimer orientation. We also integrated a mass‑scaled flattening loop to suppress spurious imaginary modes. Collectively, the ML/MM tools make enzymatic mechanistic investigations more accessible.
+Here, we present **ML/MM toolkit**, an open-source command-line toolkit for ML/MM calculations that employs that employs AIMNet2 or UMA potentials. This toolkit streamlines the workflow necessary for the enzymatic reaction mechanism analyses such as energy minimization, transition-state (TS) search, and vibrational analysis to calculate the reaction free energy ($\Delta G$) and activation free energy ($\Delta G^{\ddagger}$) for a given enzyme–substrate complex structure. A link atom boundary treatment is implemented to include amino‑acid residues in the ML region and full-system Hessians are available for TS searches and vibrational analyses. To accelerate TS searches in systems comprising  around 10,000  atoms, we developed a *Partial Hessian Guided Dimer (PHG-Dimer)* method that uses the active-site Hessian to determine initial dimer orientation. We also integrated a mass‑scaled flattening loop to suppress spurious imaginary modes. Collectively, the ML/MM toolkit make enzymatic mechanistic investigations more accessible.
 
 > **UMA‑only workflow**   
 > If you wish to perform chemical‑reaction‑mechanism analysis using **UMA alone** (without the ML/MM hybrid layer), a dedicated **UMA – PySisyphus Interface** is available at https://github.com/t-0hmura/uma_pysis.
@@ -48,7 +48,7 @@ For CUDA 12.6:
 ```bash
 pip install fairchem-core==2.3.0
 pip install git+https://github.com/isayevlab/aimnetcentral.git
-pip install git+https://github.com/t-0hmura/mlmm_tools.git
+pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 huggingface-cli login
 ```
 
@@ -57,7 +57,7 @@ For CUDA 12.8 (required for RTX 50 series):
 pip install fairchem-core==2.3.0
 pip install git+https://github.com/isayevlab/aimnetcentral.git
 pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
-pip install git+https://github.com/t-0hmura/mlmm_tools.git
+pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 huggingface-cli login
 ```
 
@@ -105,14 +105,14 @@ Choose one of the following backends:
 * **AIMNet2 only**
   ```bash
   pip install git+https://github.com/isayevlab/aimnetcentral.git
-  pip install git+https://github.com/t-0hmura/mlmm_tools.git
+  pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
   ```
 
 * **UMA only**
   ```bash
   pip install fairchem-core==2.3.0
   # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
-  pip install git+https://github.com/t-0hmura/mlmm_tools.git
+  pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
   ```
 
 * **Both backends** *(order matters)*
@@ -120,7 +120,7 @@ Choose one of the following backends:
   pip install fairchem-core==2.3.0
   pip install git+https://github.com/isayevlab/aimnetcentral.git
   # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
-  pip install git+https://github.com/t-0hmura/mlmm_tools.git
+  pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
   ```
 
 > **Why this order?**  
@@ -172,7 +172,7 @@ module unload amber
 
 ## 3. Using the Calculator
 
-The ML/MM calculator offers interfaces for **ASE** and **Pysisyphus**. When using Pysisyphus, we recommend the partially GPU-enabled version that is installed automatically alongside `mlmm_tools`.
+The ML/MM calculator offers interfaces for **ASE** and **Pysisyphus**. When using Pysisyphus, we recommend the partially GPU-enabled version that is installed automatically alongside `mlmm_toolkit`.
 
 > If you need the calculation to be deterministic and your VRAM is ample, set both `ml_device` and `mm_device` to `cuda`, and, in the Pysisyphus interface, set `H_double` to `true`.
 
@@ -349,11 +349,11 @@ The ML/MM calculator ships with a small set of single‑purpose command‑line h
 | `energy_summary` | Compute ΔE/ΔG tables and plots from reactant, TS and product structures. | Summarizing reaction energetics. |
 | `trj2fig` | Plot ΔE from an XYZ trajectory and export the highest peak frame. | Visualizing optimization or scan profiles. |
 
-Detailed option tables and usage examples for each utility are provided in [docs/code_and_cli.md](docs/code_and_cli.md).
+Detailed option tables and usage examples for each utility are provided in [docs/cli_doc.md](docs/cli_doc.md).
 
 ## License
 
-**ML/MM tools** is distributed under the **GNU General Public License version 3 (GPL-3.0)** because some of its command-line (CLI) utilities depend on Pysisyphus.
+**ML/MM toolkit** is distributed under the **GNU General Public License version 3 (GPL-3.0)** because some of its command-line (CLI) utilities depend on Pysisyphus.
 
 ## Citation
 If you find this work helpful for your research, please cite:  
