@@ -2,10 +2,8 @@
 
 This tutorial demonstrates **step by step** how to reproduce the
 reaction‑path workflow described in our accompanying paper
-(*ML/MM tools — Toward Accelerated Mechanistic Investigation of
-Enzymatic Reactions*). All commands refer to the files in
-`examples/chorismate_mutase/`, but the same procedure applies
-unchanged to any other system.
+(*ML/MM toolkit — Toward Accelerated Mechanistic Investigation of
+Enzymatic Reactions*).  
 For a quick sanity check, you can also run `bash run.sh` in
 `examples/toy_system/` to make sure the calculator works.
 
