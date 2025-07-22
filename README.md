@@ -46,7 +46,7 @@ Periodic boundary conditions & implementation for molecular dynamics are planned
 
 For CUDA 12.6:
 ```bash
-pip install fairchem-core==2.3.0
+pip install fairchem-core
 pip install git+https://github.com/isayevlab/aimnetcentral.git
 pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 huggingface-cli login
@@ -54,7 +54,7 @@ huggingface-cli login
 
 For CUDA 12.8 (required for RTX 50 series):
 ```bash
-pip install fairchem-core==2.3.0
+pip install fairchem-core
 pip install git+https://github.com/isayevlab/aimnetcentral.git
 pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
@@ -110,14 +110,14 @@ Choose one of the following backends:
 
 * **UMA only**
   ```bash
-  pip install fairchem-core==2.3.0
+  pip install fairchem-core
   # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
   pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
   ```
 
 * **Both backends** *(order matters)*
   ```bash
-  pip install fairchem-core==2.3.0
+  pip install fairchem-core
   pip install git+https://github.com/isayevlab/aimnetcentral.git
   # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
   pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
