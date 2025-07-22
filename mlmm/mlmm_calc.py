@@ -255,7 +255,6 @@ class MLMMCore:
             for m in self.predictor.model.modules():
                 if isinstance(m, nn.Dropout):
                     m.p = 0.0 # set dropout rate to 0.0 for Hessian evaluation
-                    m.eval()
 
         else:  # AIMNet2
             try:
