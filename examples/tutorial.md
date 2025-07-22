@@ -50,7 +50,7 @@ examples/
 │   ├── yaml/                # 1_opt.yaml … 10_energy_summary.yaml
 │   └── run.sh               # Bash script to run the full workflow test
 ├── cm_mutation/             # Example: Arg90 → Ala mutant of chorismate‑mutase
-└── methyltransferase/       # Example: Fur6 methyl‑transferase
+└── methyltransferase/       # Example: Fur6 methyl‑transferase (Zhao F. et al. 2024, Biochem. 63, 806–814.)
 ```
 
 The `cm_mutation` workflow reuses the original chorismate‑mutase setup but
