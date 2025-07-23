@@ -17,7 +17,7 @@ By combining a machine‑learning interatomic potential with classical force fie
 
 This calculator provides:
 
-* **Energies**  
+* **Energy**  
 * **Forces**  
 * **Hessians** – ***Analytical*** in the ML region, ***Numerical*** or ***0-padded*** in the MM region  
 
@@ -285,9 +285,9 @@ calc:
   vib_run: false           # whether to do a frequency analysis
   out_hess_torch: false    # return Hessian as torch.Tensor on device when true
   H_double: false          # calculate and return Hessian as float64 when true, else float32
-  ml_device: 'auto'
+  ml_device: auto
   ml_cuda_idx: 0
-  mm_device: 'cpu'
+  mm_device: cpu
   mm_cuda_idx: 0
   mm_threads: 16
   mem: 10000 # MB – Pysisyphus scratch memory (If it is large, it is automatically reduced.)
