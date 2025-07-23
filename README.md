@@ -353,7 +353,7 @@ Detailed option tables and usage examples for each utility are provided in [docs
 
 ## License
 
-**ML/MM toolkit** is distributed under the **GNU General Public License version 3 (GPL-3.0)**.
+**ML/MM toolkit** is distributed under the **GNU General Public License version 3 (GPL-3.0)** derived from Pysisyphus.
 
 ## Citation
 If you find this work helpful for your research, please cite:  
