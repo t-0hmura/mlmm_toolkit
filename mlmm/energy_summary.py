@@ -78,7 +78,7 @@ from mlmm import calc_freq_from_hessian, mlmm
 KB_eV   = KB * JOULE2EV
 H2KCAL  = AU2KCALPERMOL
 EV2KCAL = (1.0 / JOULE2EV) * NA / 4184
-CM2EV   = PLANCK * C * 1e-2 * JOULE2EV  # retained for potential use
+CM2EV   = PLANCK * C * 1e-2 * JOULE2EV 
 
 # ---------------------------------------------------------------------
 #   Vibrational corrections
