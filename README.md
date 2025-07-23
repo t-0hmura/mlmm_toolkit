@@ -87,7 +87,7 @@ Choose the wheel that matches your CUDA driver:
 # --- CUDA 12.6 ---
 pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu126
 
-# --- CUDA 12.8 (required for RTX 50 series) ---
+# --- CUDA 12.8 (recommended for RTX 50 series) ---
 pip install torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 ```
 
