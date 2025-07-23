@@ -51,7 +51,7 @@ pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 huggingface-cli login
 ```
 
-For CUDA 12.8 (required for RTX 50 series):
+For CUDA 12.8 (recommended for RTX 50 series):
 ```bash
 pip install fairchem-core
 pip install git+https://github.com/isayevlab/aimnetcentral.git
