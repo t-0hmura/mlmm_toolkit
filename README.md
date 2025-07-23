@@ -67,7 +67,7 @@ huggingface-cli login
 | Requirement | Notes |
 |-------------|-------|
 | **Python 3.11** | Any distribution is fine. Conda or Docker is a convenient choice for easy handling. |
-| **CUDA runtime ≥ 12.6** | CUDA 12.8 is required for RTX 50 series. |
+| **CUDA runtime ≥ 12.6** | CUDA 12.8 is recommended for RTX 50 series. |
 | Linux / WSL 2 | – |
 
 ### 1.2. (Optional) Create a conda environment
