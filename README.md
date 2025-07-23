@@ -34,7 +34,6 @@ The ML region can therefore include entire amino‑acid side chains when necessa
 The MM layer uses **OpenMM**. Any force field capable of generating parameters (e.g., AMBER ff14SB + TIP3P + GAFF2) can be used.
 
 Interfaces are available for **ASE** and **Pysisyphus**.  
-Periodic boundary conditions & implementation for molecular dynamics are planned for future releases but are *not* yet implemented.
 
 > You can select UMA models from `uma_model` parameter.
 
