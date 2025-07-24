@@ -356,4 +356,4 @@ Detailed option tables and usage examples for each utility are provided in [docs
 
 ## Citation
 If you find this work helpful for your research, please cite:  
-[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. doi:10.26434/chemrxiv-2025-jft1k
+[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. [doi:10.26434/chemrxiv-2025-jft1k](https://doi.org/10.26434/chemrxiv-2025-jft1k)
