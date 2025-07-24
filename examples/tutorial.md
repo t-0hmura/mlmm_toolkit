@@ -55,7 +55,7 @@ examples/
 
 The `cm_mutation` workflow reuses the original chorismate‑mutase setup but
 mutates residue 90 from arginine to alanine. The side chain was removed in the
-topology/parameter and the two PDB files used as GSM inputs, replacing the side chain except $C_{\beta}$ with hydrogens.
+topology/parameter and the two PDB files used as GSM inputs, replacing the side chain except $C\beta$ with hydrogens.
 Freeze indices correspond to the original system, and the model charge is
 decreased by one (`model_charge: -1`).  Running `run.sh` executes the steps from
 `3_opt.yaml` to `10_energy_summary.yaml` to probe how this mutation affects the
