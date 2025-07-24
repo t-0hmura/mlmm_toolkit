@@ -12,8 +12,8 @@ Here, we present **ML/MM toolkit**, an open-source command-line toolkit for ML/M
 > If you wish to perform chemical‑reaction‑mechanism analysis using **UMA alone** (without the ML/MM hybrid layer), a dedicated **UMA – Pysisyphus Interface** is available at **https://github.com/t-0hmura/uma_pysis**.
 ---
 
-This package provides a **machine‑learning / molecular‑mechanics (ML/MM) hybrid calculator** and surrounding **CLI toolsets** that enable you to get **$\Delta G$ and $\Delta G^{\ddagger}$ of Enzymatic Reaction** from Protein-Substrate complex structure easily.  
-By combining a machine‑learning interatomic potential with classical force fields, it enables efficient calculation of very large systems such as proteins and enzyme‑substrate complexes.
+This package provides a **Machine‑Learning / Molecular‑Mechanics (ML/MM) hybrid calculator** and surrounding **CLI toolsets** that enable you to get **$\Delta G$ and $\Delta G^{\ddagger}$ of Enzymatic Reaction** from Protein-Substrate complex structure easily.  
+By combining a *Machine Learning Interatomic Potential* (MLIP) with classical force fields, it enables efficient calculation of very large systems such as proteins and enzyme‑substrate complexes.
 
 This calculator provides:
 
