@@ -73,7 +73,7 @@ The canonical pipeline consists of **10 YAML job files**:
 | (ii)  | `2_scan.yaml`             | 1‑D bond‑length scan → seed Reactant/Product        | 5 – 10 min |
 | (iii) | `3_opt.yaml`, `4_opt.yaml`| Relax *reactant* and *product* obtained by scan     | 1 – 2 min |
 | (iv)  | `5_gs.yaml`               | Minimum Energy Path search by Growing String Method | 5 – 10 min |
-| (v)   | `6_tsopt.yaml`            | **PH‑Dimer** transition state refinement            | **30 – 60 min** |
+| (v)   | `6_tsopt.yaml`            | **PHG‑Dimer** transition state refinement           | **30 – 60 min** |
 | (vi)  | `7_irc.yaml`              | IRC propagation                                     | 5 – 10 min |
 | (vii) | `8_opt.yaml`, `9_opt.yaml`| Endpoint relaxation → Final Reactant/Product        | 2 – 3 min |
 | (viii)| `10_energy_summary.yaml`  | Table and Figures of $\Delta E,G$                   | 10 – 30 min |
