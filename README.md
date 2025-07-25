@@ -66,20 +66,11 @@ huggingface-cli login
 
 | Requirement | Notes |
 |-------------|-------|
-| **Python 3.11** | Any distribution is fine. Conda or Docker is a convenient choice for easy handling. |
+| **Python 3.11** | – |
 | **CUDA runtime ≥ 12.6** | CUDA 12.8 is recommended for RTX 50 series. |
 | Linux / WSL 2 | – |
 
-### 1.2. (Optional) Create a conda environment
-
-Skip this block if you already manage Python another way. Replace **`mlmm`** with any name you like.
-
-```bash
-conda create -n mlmm python=3.11 -y
-conda activate mlmm
-```
-
-### 1.3. Install PyTorch
+### 1.2. Install PyTorch
 
 Choose the wheel that matches your CUDA driver:
 
@@ -97,7 +88,7 @@ If you are on an HPC cluster that uses *environment modules*, load CUDA **before
 module load cuda/12.6
 ```
 
-### 1.4. Install ML/MM toolkit
+### 1.3. Install ML/MM toolkit
 
 Choose one of the following backends:
 
@@ -127,7 +118,7 @@ Choose one of the following backends:
 > The sequence above avoids conflicting pins. You may see *warning* messages, but the installation is still functional.  
 > Once both backends are present **and** you require CUDA 12.8, reinstall PyTorch so that the wheel version matches your driver (FairChem currently pulls `torch‑2.6`).
 
-### 1.5. Authenticate for UMA (Hugging Face)
+### 1.4. Authenticate for UMA (Hugging Face)
 
 UMA model is on Hugging Face Hub. You need to log in once (See https://github.com/facebookresearch/fairchem):
 
@@ -135,7 +126,7 @@ UMA model is on Hugging Face Hub. You need to log in once (See https://github.c
 huggingface-cli login
 ```
 
-### 1.6. Avoid AmberTools conflicts (optional)
+### 1.5. Avoid AmberTools conflicts (optional)
 
 If `AmberTools` is loaded, unload it before installing to prevent conflict for **ParmEd**, as in:
 
