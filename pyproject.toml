@@ -11,6 +11,8 @@ license = {file = "LICENSE"}
 dynamic = ["version"]
 requires-python = ">=3.11"
 dependencies = [
+    "fairchem-core @ git+https://github.com/t-0hmura/fairchem.git#subdirectory=packages/fairchem-core",
+    "aimnet @ git+https://github.com/t-0hmura/aimnetcentral.git",
     "numpy<2.0",
     "matplotlib",
     "plotly",
@@ -21,6 +23,7 @@ dependencies = [
     "rdkit",
     "openmm[cuda12]",
     "parmed",
+    "torch>=2.6.0",
     "pysisyphus @ git+https://github.com/t-0hmura/pysisyphus_for_mlmm.git",
 ]
 

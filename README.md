@@ -45,17 +45,14 @@ Interfaces are available for **ASE** and **Pysisyphus**.
 
 For CUDA 12.6:
 ```bash
-pip install fairchem-core
-pip install git+https://github.com/isayevlab/aimnetcentral.git
+pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu126
 pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 huggingface-cli login
 ```
 
 For CUDA 12.8 (recommended for RTX 50 series):
 ```bash
-pip install fairchem-core
-pip install git+https://github.com/isayevlab/aimnetcentral.git
-pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+pip install torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 huggingface-cli login
 ```
@@ -88,35 +85,11 @@ If you are on an HPC cluster that uses *environment modules*, load CUDA **before
 module load cuda/12.6
 ```
 
-### 1.3. Install ML/MM toolkit
-
-Choose one of the following backends:
-
-* **AIMNet2 only**
-  ```bash
-  pip install git+https://github.com/isayevlab/aimnetcentral.git
-  pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
-  ```
-
-* **UMA only**
-  ```bash
-  pip install fairchem-core
-  # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
-  pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
-  ```
-
-* **Both backends** *(order matters)*
-  ```bash
-  pip install fairchem-core
-  pip install git+https://github.com/isayevlab/aimnetcentral.git
-  # pip install --force-reinstall torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128 # for CUDA 12.8
-  pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
-  ```
-
-> **Why this order?**  
-> Pysisyphus depends on numpy < 2.0 (a constraint inherited from ASE ≥ 3.25); if you install fairchem after AIMNet2, it will try to upgrade NumPy (and potentially SymPy and other libraries), creating version conflicts.  
-> The sequence above avoids conflicting pins. You may see *warning* messages, but the installation is still functional.  
-> Once both backends are present **and** you require CUDA 12.8, reinstall PyTorch so that the wheel version matches your driver (FairChem currently pulls `torch‑2.6`).
+### 1.4. Install ML/MM toolkit
+```
+pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
+```
+> In order to resolve its dependencies, `mlmm_toolkit` internally installs `fairchem-core` and `aimnet` from forked repositories.
 
 ### 1.4. Authenticate for UMA (Hugging Face)
 
