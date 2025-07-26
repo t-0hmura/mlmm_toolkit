@@ -41,7 +41,7 @@ Interfaces are available for **ASE** and **Pysisyphus**.
 
 ## 1. Installation Guide
 
-### Quick install
+### Quick install (including `fairchem-core` and `pysisyphus` installation)
 
 For CUDA 12.6:
 ```bash
