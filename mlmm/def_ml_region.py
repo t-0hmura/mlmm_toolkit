@@ -235,7 +235,7 @@ def select_residues(complex_struct, substrate_res_list: List[PDB.Residue.Residue
 def augment_disulfides(structure, selected_ids: Set[Tuple],
                        cutoff: float = DISULFIDE_CUTOFF):
     sg_atoms = [r["SG"] for r in structure.get_residues()
-                if r.get_resname() == "CYS" and "SG" in r]
+                if r.get_resname() in {"CYS", "CYX"} and "SG" in r]
 
     if not sg_atoms:
         return
