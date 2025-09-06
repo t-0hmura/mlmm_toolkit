@@ -31,7 +31,7 @@ calc:
   model_charge: -1
   model_mult: 1
   backend: uma
-  uma_model: uma-s-1
+  uma_model: uma-s-1p1
   ml_device: auto
   ml_cuda_idx: 0
   mm_device: cpu

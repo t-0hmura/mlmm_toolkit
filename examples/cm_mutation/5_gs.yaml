@@ -31,6 +31,7 @@ calc:
   model_charge: -1
   model_mult: 1
   backend: uma
+  uma_model: uma-s-1p1
   vib_run: true      
   out_hess_torch: false 
   ml_device: auto
