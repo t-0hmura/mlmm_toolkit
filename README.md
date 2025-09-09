@@ -85,7 +85,7 @@ If you are on an HPC cluster that uses *environment modules*, load CUDA **before
 module load cuda/12.6
 ```
 
-### 1.4. Install ML/MM toolkit
+### 1.3. Install ML/MM toolkit
 ```
 pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 ```
