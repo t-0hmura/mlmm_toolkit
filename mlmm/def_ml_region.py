@@ -25,7 +25,7 @@ Key features
 * **Side-chain/backbone truncation rules**  
   * **Isolated residues** (segment length = 1) are trimmed to *pure side-chain*:
     backbone atoms {N, CA, C, O, OXT, H/H1-3, HN, HA/HA2/HA3} are deleted  
-    (exception – PRO never loses N, CA, HA* so the five-membered ring stays
+    (exception – **PRO never loses N, CA, HA\*** so the five-membered ring stays
     intact).  
   * **Continuous peptide stretches** retain their internal backbone; only
     terminal caps are removed (N-terminal: N/H*, C-terminal: C/O/OXT).  
@@ -33,7 +33,8 @@ Key features
     is in the ML region, its partner cysteine is added automatically.
   * **`--exclude_backbone true`**: for *all* amino-acid residues **except the
     substrate**, the entire main-chain scaffold (N, H*, CA, HA*, C, O) is removed,
-    leaving only side-chain atoms.
+    leaving only side-chain atoms. **For PRO, the N, CA, and HA\* atoms are
+    retained.**
 
 * **Output**  
   A new PDB (<output_pdb>) that contains only the selected residues, already
@@ -64,7 +65,7 @@ Options
 --include_H2O bool  Include crystallographic/explicit waters (default: false).
 --exclude_backbone bool Remove all main-chain atoms (N, H, CA, HA, C, O) from every
                     amino-acid residue except the substrate (default: true).
-                    For PRO, the N and CA atoms are retained.
+                    **For PRO, the N, CA, and HA* atoms are retained.**
                     If false, only terminal N and C caps are removed.
 Dependencies
 ------------
@@ -97,14 +98,13 @@ AMINO_ACIDS: Set[str] = {
 
     # Non-standard amino acids (e.g., modified residues)
     "SEP", "TPO", "HIP", "PTR", "ASA", "CIR", "FOR", "MVA", "IIL", "AIB",
-    "HTN", "CSO", "CSD", "CSX", "OCS", "SEC", "KCX", "MLY", "LLP", "PYL",
+    "HTN", "CSO", "CSD", "CSX", "OCS", "KCX", "MLY", "LLP",
     "DLY", "HYP", "DPR", "CGA", "DGL", "PCA", "SAR", "NMC", "PFF", "NFA",
     "MSE", "OMT", "ASH", "HID", "HIE", "CYX"
-
 }
 
 DISULFIDE_CUTOFF = 2.5   # Å Sγ–Sγ
-EXACT_EPS = 1e-3          # Å tolerance for exact match
+EXACT_EPS = 1e-3         # Å tolerance for exact match
 WATER_NAMES = {"HOH", "WAT", "TIP3"}
 
 # ---------------------------------------------------------------------
@@ -127,7 +127,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("-c", "--center", dest="substrate_pdb", required=True,
                    metavar="ligand.pdb",
                    help="Substrate/ligand PDB file (one or more residues)")
-    p.add_argument("-o", "--out",  dest="output_pdb",    required=True,
+    p.add_argument("-o", "--out",  dest="output_pdb",    required=False,
                    metavar="ml_region.pdb",
                    help="Output PDB file for the extracted ML region")
 
@@ -140,8 +140,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--include_H2O", type=str2bool, default=False,
                    help="Include water molecules (default: false)")
     p.add_argument("--exclude_backbone", type=str2bool, default=True,
-                   help="Delete all main-chain atoms from non-substrate residues "
-                        "(default: true)")
+                   help=("Delete all main-chain atoms from non-substrate residues "
+                         "(default: true). For PRO, the N, CA, and HA* atoms are retained."))
     return p.parse_args()
 
 
@@ -310,6 +310,7 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], substrate_ids: Set[T
 
     # ---------------------------------------------------------------------
     #   Optional: remove *all* backbone atoms from every non-substrate residue
+    #             PRO keeps N, CA, and HA* to preserve the ring.
     # ---------------------------------------------------------------------
     if exclude_backbone:
         for fid in selected_ids:
@@ -319,7 +320,11 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], substrate_ids: Set[T
             if res.get_resname() in WATER_NAMES:
                 continue
             if res.get_resname() in AMINO_ACIDS:
-                skip.setdefault(fid, set()).update(BACKBONE_ALL)
+                if res.get_resname() == "PRO":
+                    to_remove = BACKBONE_ALL - {"N", "CA", "HA", "H", "H1", "H2", "H3"}
+                else:
+                    to_remove = BACKBONE_ALL
+                skip.setdefault(fid, set()).update(to_remove)
 
     return skip
 
