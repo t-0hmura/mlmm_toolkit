@@ -21,7 +21,7 @@ dependencies = [
     "ase>=3.25.0",
     "biopython",
     "rdkit",
-    "OpenMM,
+    "OpenMM",
     "OpenMM-CUDA-12",
     "ParmEd,
     "torch>=2.6.0",
