@@ -21,7 +21,8 @@ dependencies = [
     "ase>=3.25.0",
     "biopython",
     "rdkit",
-    "openmm[cuda12]",
+    "OpenMM,
+    "OpenMM-CUDA-12"
     "parmed",
     "torch>=2.6.0",
     "pysisyphus @ git+https://github.com/t-0hmura/pysisyphus_for_mlmm.git",
