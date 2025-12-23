@@ -37,7 +37,7 @@ Interfaces are available for **ASE** and **Pysisyphus**.
 
 > You can select UMA models from `uma_model` parameter.
 
-***This software is still under development. Please use it with care.***
+***This software is still under development. Please use it at your own risk.***
 
 ## 1. Installation Guide
 
