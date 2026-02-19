@@ -1,0 +1,111 @@
+# `path-search`
+
+## Overview
+
+> **Summary:** Build a continuous MEP from two or more structures with recursive GSM segmentation. Automatically refines only regions with bond changes and exports the highest-energy image (HEI) as a TS candidate.
+
+`mlmm path-search` constructs a continuous minimum-energy path (MEP) between two or more structures ordered along a reaction. Each adjacent pair is processed by a Growing String Method (GSM) using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), which couples FAIR-Chem UMA with hessian_ff. The HEI+/-1 images are refined with LBFGS, covalent changes are analysed, and only regions exhibiting bond changes recurse; kink regions rely on linear interpolation plus single-structure optimizations. Multi-structure inputs are stitched into a single MEP with RMSD bridging when necessary. Configuration precedence is **CLI > YAML > defaults**.
+
+## Usage
+
+```bash
+mlmm path-search -i R.pdb IM1.pdb P.pdb \
+    --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
+    [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb {True|False}]
+    [--thresh PRESET] [--dump {True|False}] [--out-dir DIR] [--args-yaml FILE]
+```
+
+### Examples
+
+```bash
+# Minimal pocket-only MEP between two states
+mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
+    --model-pdb ml_region.pdb -q 0
+
+# Multistep path with YAML overrides, frozen atoms, and merged full-system output
+mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
+    --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
+    --args-yaml params.yaml --ref-pdb holo_template.pdb --out-dir ./run_ps
+```
+
+## Workflow
+
+1. **Initial segment (per adjacent pair A->B)** -- Run GSM with ML/MM to obtain a preliminary MEP.
+2. **Localize barrier** -- Find the highest-energy image (HEI); optimize HEI+/-1 with LBFGS to obtain End1 and End2.
+3. **Refine** -- If End1-End2 shows no covalent changes (a kink), insert `search.kink_max_nodes` linear images and optimize each. Otherwise, run a refinement GSM between End1 and End2.
+4. **Recurse selectively** -- Evaluate covalent changes for (A->End1) and (End2->B); recurse only on changing sides.
+5. **Stitch subpaths** -- Concatenate sub-MEPs with duplicate removal via RMSD. If endpoints mismatch beyond `search.bridge_rmsd_thresh`, insert a bridge GSM. Interfaces with covalent changes spawn a recursive segment instead of a bridge.
+6. **Optional alignment and merge** -- After pre-opt, `--align` rigidly co-aligns inputs and refines freezes. With `--ref-pdb`, pocket trajectories merge into full templates and segments are annotated for plotting/analysis.
+
+## CLI options
+
+| Option | Description | Default |
+| --- | --- | --- |
+| `-i, --input PATH...` | Two or more full-enzyme PDBs in reaction order. Repeat `-i` or pass multiple paths after one flag. | Required |
+| `--real-parm7 PATH` | Amber parm7 topology for the full enzyme complex. | Required |
+| `--model-pdb PATH` | PDB defining the ML (high-level) region atoms for ML/MM. | Required |
+| `-q, --charge INT` | Charge of the ML region (integer). | Required |
+| `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
+| `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
+| `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
+| `--max-cycles INT` | Max GSM macro-cycles. | `300` |
+| `--climb {True\|False}` | Enable TS refinement for segment GSM. | `True` |
+| `--pre-opt {True\|False}` | Pre-optimize endpoints with LBFGS before segmentation. | `True` |
+| `--align / --no-align` | Rigidly align inputs after pre-opt. | Enabled |
+| `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`). | _Default_ |
+| `--dump {True\|False}` | Save optimizer dumps. | `False` |
+| `--out-dir PATH` | Output directory. | `./result_path_search/` |
+| `--ref-pdb PATH...` | Full template PDB(s) for final merge. | _None_ |
+| `--args-yaml FILE` | YAML overrides (`geom`, `calc`/`mlmm`, `gs`, `opt`, `lbfgs`, `bond`, `search`). | _None_ |
+
+## Outputs
+
+```text
+out_dir/ (default: ./result_path_search/)
+  summary.yaml                  # MEP-level run summary (no full settings dump)
+  summary.log                   # Human-readable summary
+  mep.trj                       # Final MEP (always written)
+  mep.pdb                       # Final MEP (PDB when ref template available)
+  mep_w_ref.pdb                 # Full-system merged MEP (requires --ref-pdb)
+  mep_w_ref_seg_XX.pdb          # Per-segment merged MEPs (bond-change segments; requires --ref-pdb)
+  mep_seg_XX.trj / mep_seg_XX.pdb  # Pocket-only per-segment paths
+  hei_seg_XX.xyz / hei_seg_XX.pdb  # Pocket HEI and optional PDB per bond-change segment
+  hei_w_ref_seg_XX.pdb          # Merged HEI per bond-change segment (requires --ref-pdb)
+  mep_plot.png                  # Delta-E profile vs image index (from trj2fig)
+  energy_diagram_MEP.png        # State-level energy diagram relative to the reactant (kcal/mol)
+  seg_000_*/                    # Segment-level GSM and refinement artefacts
+```
+
+## YAML configuration
+
+Configuration precedence is **CLI > YAML > defaults**. The YAML root must be a mapping. Accepted sections:
+
+- **`geom`** -- `coord_type` (`"cart"` default), `freeze_atoms` (0-based indices).
+- **`calc` / `mlmm`** -- ML/MM calculator settings: `input_pdb`, `real_parm7`, `model_pdb`, `model_charge`, `model_mult`, UMA controls (`uma_model`, `uma_task_name`, `ml_hessian_mode`), device selection, freeze atoms.
+- **`gs`** -- Growing String settings: `max_nodes`, `climb`, `climb_rms`, `climb_fixed`, `reparam_every_full`, `reparam_check`.
+- **`opt`** -- StringOptimizer controls: `max_cycles`, `print_every`, `dump`, `dump_restart`, `out_dir`.
+- **`lbfgs`** -- Single-structure optimizer controls for HEI+/-1 refinement: `keep_last`, `beta`, `gamma_mult`, `max_step`, `control_step`, `double_damp`, `mu_reg`, `max_mu_reg_adaptions`.
+- **`bond`** -- Bond-change detection: `bond_factor`, `margin_fraction`, `delta_fraction`.
+- **`search`** -- Recursion logic: `max_depth`, `stitch_rmsd_thresh`, `bridge_rmsd_thresh`, `max_nodes_segment`, `max_nodes_bridge`, `kink_max_nodes`, `max_seq_kink`.
+
+## Notes
+
+- Inputs: provide at least two full-enzyme PDBs to `-i/--input` in reaction order.
+- Preflight checks validate `-i/--input` and `--ref-pdb` paths before starting GSM.
+- ML/MM physics: always supply `--real-parm7`, `--model-pdb`, `-q/--charge`, and optionally `-m/--multiplicity`.
+- Freeze atoms: `--freeze-atoms "1,3,5"` stores zero-based indices and merges with YAML `geom.freeze_atoms`.
+- Nodes and recursion: segment vs bridge nodes differ via `search.max_nodes_segment` and `search.max_nodes_bridge`. Kinks use `search.kink_max_nodes` (default 3) linear nodes. Recursion depth is capped by `search.max_depth` (default 10).
+- Optimizers: GSM employs pysisyphus `GrowingString` + `StringOptimizer`; single-structure refinements always use LBFGS.
+- Final merge rule with `--align True`: when `--ref-pdb` is provided, the first reference PDB is used for all pairs.
+- Console output prints the state sequence (e.g., `R --> TS1 --> IM1 --> ... --> P`) plus the labels/energies used to build the energy diagram.
+- `summary.log` rendering is resilient to missing payload fields. Internally, defaults are applied for:
+  `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`.
+
+---
+
+## See Also
+
+- [path-opt](path_opt.md) -- Single-pass MEP optimization (no recursive refinement)
+- [opt](opt.md) -- Single-structure geometry optimization
+- [all](all.md) -- End-to-end workflow that calls path-search internally
+- [trj2fig](trj2fig.md) -- Plot energy profiles from MEP trajectories

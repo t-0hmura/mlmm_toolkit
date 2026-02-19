@@ -1,0 +1,314 @@
+# はじめに
+
+## 概要
+
+`mlmm_toolkit` は、機械学習原子間ポテンシャル（UMA）と分子力学（hessian_ff）を ONIOM 的に結合した **ML/MM 法** を用いて、**PDB 構造** から **酵素反応経路** を自動的に構築する Python 製の CLI ツールキットです。
+
+多くのワークフローにおいて、**1 コマンド** で反応経路の**初期推定（first-pass）**を得ることができます。
+```bash
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+```
+
+---
+さらに `--tsopt True --thermo True --dft True` を追加すると、**MEP 探索 → TS 最適化 → IRC → 熱化学解析 → DFT 一点計算** までまとめて実行できます。
+```bash
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt True --thermo True --dft True
+```
+---
+
+入力として、(i) 反応順に並べたタンパク質-リガンド複合体の PDB を 2 つ以上（R → ... → P）、(ii) `--scan-lists` を指定した 1 つの PDB、または (iii) TS 候補 1 構造 + `--tsopt True` を与えると、`mlmm` が次を自動化します。
+
+- ユーザーが指定した基質の周辺から **活性部位ポケット** を抽出し、計算用の **クラスターモデル** を構築
+- AmberTools を用いて **Amber トポロジ（parm7/rst7）** を自動生成し、**hessian_ff** の MM エンジンに渡す
+- ML 領域を UMA で、MM 領域を hessian_ff で計算する **ONIOM 的 ML/MM** エネルギー・力・ヘシアンを構築
+- Growing String Method (GSM) や Direct Max Flux (DMF) などの経路最適化手法で **最小エネルギー経路 (MEP)** を探索
+- 必要に応じて **遷移状態** を最適化し、**振動解析**・**IRC 計算**・**DFT 一点計算** を実行
+
+```{important}
+単一コマンドの TS 結果は「候補」として扱ってください。酵素反応では、endpoint 品質、ポケット定義、拘束、scan ターゲットの調整を伴う反復が一般的です。最終解釈の前に、`freq` と `irc` の両方で TS を必ず検証してください。
+```
+
+ML 領域の計算には Meta の UMA（MLIP）を、MM 領域の計算には hessian_ff（Amber 力場ベースの PyTorch 実装）を用います。
+
+一連の処理は CLI から呼び出せるように統一されており、手作業を最小化して **多段階の酵素反応メカニズム** を組み立てられるように設計しています。
+
+```{important}
+- 入力 PDB ファイルには**水素原子**が含まれている必要があります。
+- 複数の PDB を提供する場合、**同じ原子が同じ順序**で含まれている必要があります（座標のみ異なる可能性があります）。そうでない場合はエラーが発生します。
+- ML/MM 計算には **`--real-parm7`**（全系の Amber トポロジ）と **`--model-pdb`**（ML 領域を定義する PDB）が必要です。`all` ワークフローではこれらが自動生成されます。
+```
+
+```{tip}
+初めて使う場合は、まず [概念とワークフロー](concepts.md) を参照してください。
+セットアップや実行中にエラーが発生した場合は [トラブルシューティング](troubleshooting.md) を参照してください。
+```
+
+### CLI の慣習
+
+| 慣習 | 例 | 備考 |
+|-----|-----|------|
+| **真偽値オプション** | `--tsopt True`, `--dft False` | 大文字小文字は区別しない（`true`/`1`/`yes` も可）。ただしフラグ形式（`--tsopt` のみ）は不可 |
+| **残基セレクタ** | `'SAM,GPP'`, `'A:123,B:456'` | 複数値はシェル展開防止のためクォート |
+| **電荷マッピング** | `--ligand-charge 'SAM:1,GPP:-3'` | コロン（`:`）またはイコール（`=`）で名前と電荷を区切り、カンマでエントリを区切る |
+| **原子セレクタ** | `'TYR,285,CA'` または `'TYR 285 CA'` | 区切り文字: 空白、カンマ、スラッシュ、バッククォート、バックスラッシュ |
+
+### 水素原子付与の推奨ツール
+
+PDB に水素原子がない場合は、mlmm を実行する前に次のいずれかを使ってください。
+
+| ツール | コマンド例 | 備考 |
+|--------|------------|------|
+| **reduce** (Richardson Lab) | `reduce input.pdb > output.pdb` | 高速、結晶構造に広く使用 |
+| **pdb2pqr** | `pdb2pqr --ff=AMBER input.pdb output.pqr` | 水素を追加し部分電荷を割り当て |
+| **Open Babel** | `obabel input.pdb -O output.pdb -h` | 汎用ケモインフォマティクスツールキット |
+| **mm-parm --add-h** | `mlmm mm-parm -i input.pdb --add-h True` | PDBFixer による水素付加（AmberTools 経由） |
+
+複数の PDB 入力で同一の原子順序を確保するには、すべての構造に同じ水素付与ツールを一貫した設定で適用してください。
+
+```{warning}
+このソフトウェアはまだ開発中です。自己責任でご使用ください。
+```
+
+---
+
+## インストール
+
+`mlmm_toolkit` は、CUDA 対応 GPU を備えた Linux 環境（ローカルワークステーションまたは HPC クラスター）向けに設計されています。特に **PyTorch**、**fairchem-core (UMA)**、**gpu4pyscf-cuda12x** などの依存関係は、動作する CUDA インストールを前提としています。
+
+### 前提条件
+
+mlmm_toolkit は以下のコンポーネントを使用します:
+
+- **UMA（fairchem-core）**: ML 領域のエネルギー・力・ヘシアン計算
+- **hessian_ff**: MM 領域の Amber 力場計算（C++ 拡張のビルドが必要）
+- **AmberTools**: `mm-parm` サブコマンドによる parm7/rst7 の自動生成（tleap、antechamber、parmchk2）
+
+詳細は上流プロジェクトを参照してください:
+- fairchem / UMA: <https://github.com/facebookresearch/fairchem>, <https://huggingface.co/facebook/UMA>
+- Hugging Faceトークンとセキュリティ: <https://huggingface.co/docs/hub/security-tokens>
+
+### クイックスタート
+
+以下は多くの CUDA 12.9 クラスターで動作する最小限のセットアップ例です。
+
+```bash
+# 1) CUDA 対応の PyTorch ビルドをインストール
+pip install torch --index-url https://download.pytorch.org/whl/cu129
+
+# 2) GitHub から mlmm_toolkit をインストール
+pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
+
+# 3) hessian_ff の C++ 拡張をビルド
+cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
+
+# 4) Plotly 図表エクスポート用のヘッドレス Chrome をインストール
+plotly_get_chrome -y
+```
+
+最後に、UMA モデルをダウンロードできるように **Hugging Face Hub** にログインします:
+
+```bash
+huggingface-cli login
+```
+
+これはマシン/環境ごとに 1 回だけ行う必要があります。
+
+### AmberTools のインストール
+
+`mm-parm` サブコマンド（parm7/rst7 の自動生成）には AmberTools が必要です。conda での導入が最も簡単です:
+
+```bash
+conda install -c conda-forge ambertools -y
+```
+
+AmberTools がインストールされていなくても、`--real-parm7` を手動で用意すれば他のサブコマンドは動作します。
+
+### ステップバイステップインストール
+
+環境を段階的に構築する場合:
+
+1. **CUDA をロード（HPC で環境モジュールを使用する場合）**
+
+   ```bash
+   module load cuda/12.9
+   ```
+
+2. **conda 環境を作成してアクティブ化**
+
+   ```bash
+   conda create -n mlmm python=3.11 -y
+   conda activate mlmm
+   ```
+
+3. **AmberTools をインストール**
+
+   ```bash
+   conda install -c conda-forge ambertools -y
+   ```
+
+4. **cyipopt をインストール（オプション: DMF 法に必要）**
+
+   ```bash
+   conda install -c conda-forge cyipopt -y
+   ```
+
+5. **適切な CUDA ビルドの PyTorch をインストール**
+
+   ```bash
+   pip install torch --index-url https://download.pytorch.org/whl/cu129
+   ```
+
+6. **mlmm_toolkit 本体をインストール**
+
+   ```bash
+   pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
+   ```
+
+7. **hessian_ff の C++ 拡張をビルド**
+
+   ```bash
+   cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
+   ```
+
+8. **Plotly 可視化用 Chrome をインストール**
+
+   ```bash
+   plotly_get_chrome -y
+   ```
+
+9. **Hugging Face Hub にログイン**
+
+   ```bash
+   huggingface-cli login
+   ```
+
+10. **インストールの確認**
+
+    ```bash
+    mlmm --version
+    ```
+
+    インストールされたバージョンが表示されます（例: `{{ version }}`）。
+
+---
+
+## コマンドラインの基本
+
+メインのエントリーポイントは `pip` でインストールされる `mlmm` コマンドです。内部的には **Click** ライブラリを使用しており、デフォルトのサブコマンドは `all` です。
+
+つまり:
+
+```bash
+mlmm [OPTIONS] ...
+# は以下と同等
+mlmm all [OPTIONS] ...
+```
+
+`all` ワークフローは、クラスター抽出、MM パラメータ化、MEP 探索、TS 最適化、振動解析、オプションの DFT 一点計算を 1 つのコマンドで連続実行する**オーケストレーター**です。
+
+---
+
+## メインワークフローモード
+
+### 複数構造 MEP ワークフロー（反応物 → 生成物）
+
+推定反応座標に沿った複数の完全な PDB 構造（例: R → I1 → I2 → P）がすでにある場合に使用します。
+
+**最小例**
+
+```bash
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+```
+
+**詳細例**
+
+```bash
+mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --out-dir ./result_all --tsopt True --thermo True --dft True
+```
+
+動作:
+
+- 反応順序で 2 つ以上の**完全系**を受け取る
+- 各構造の触媒クラスターモデルを抽出
+- AmberTools で parm7/rst7 を自動生成
+- ML/MM 計算機を用いて**再帰的 MEP 探索**を実行
+- PDB テンプレートが利用可能な場合、クラスターモデル MEP を**完全系**にマージ
+- オプションで各セグメントに対して TS 最適化、振動解析、DFT 一点計算を実行
+
+---
+
+### 単一構造 + 段階的スキャン
+
+**1 つの PDB 構造**しかないが、反応に沿ってどの原子間距離が変化するかが分かっている場合に使用します。
+
+```bash
+mlmm -i R.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
+    --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20)]'
+```
+
+---
+
+### 単一構造 TSOPT のみモード
+
+すでに**遷移状態候補**があり、それを最適化して IRC 計算を行いたい場合に使用します。
+
+```bash
+mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt True
+```
+
+---
+
+## 重要な CLI オプションと動作
+
+| オプション | 説明 |
+|----------|------|
+| `-i, --input PATH...` | 入力構造。**2 つ以上の PDB** → MEP 探索; **1 つの PDB + `--scan-lists`** → 段階的スキャン; **1 つの PDB + `--tsopt True`** → TSOPT のみ |
+| `-c, --center TEXT` | 基質/抽出中心を定義。残基名（`'SAM,GPP'`）、残基ID（`A:123,B:456`）、または PDB パスをサポート |
+| `--ligand-charge TEXT` | 電荷情報: マッピング（`'SAM:1,GPP:-3'`）または単一整数 |
+| `-q, --charge INT` | ML 領域の総電荷の強制上書き |
+| `--real-parm7 PATH` | 全系の Amber parm7 トポロジ（`all` では自動生成） |
+| `--model-pdb PATH` | ML 領域を定義する PDB ファイル（`all` では自動生成） |
+| `--tsopt {True\|False}` | TS 最適化と IRC を有効化 |
+| `--thermo {True\|False}` | 振動解析と熱化学を実行 |
+| `--dft {True\|False}` | DFT 一点計算を実行 |
+| `--out-dir PATH` | トップレベル出力ディレクトリ |
+| `--opt-mode light\|heavy` | 最適化手法: Light (LBFGS/Dimer) または Heavy (RFO/RS-I-RFO) |
+| `--mep-mode gsm\|dmf` | MEP 手法: Growing String Method または Direct Max Flux |
+
+すべてのオプションと YAML スキーマについては [all](all.md) および [YAML リファレンス](yaml-reference.md) を参照してください。
+
+---
+
+## CLI サブコマンド
+
+| サブコマンド | 役割 | ドキュメント |
+|------------|------|------------|
+| `all` | エンドツーエンドワークフロー | [all](all.md) |
+| `extract` | 活性部位ポケット抽出 | [extract](extract.md) |
+| `mm-parm` | Amber parm7/rst7 構築 | [mm_parm](mm_parm.md) |
+| `define-layer` | 4 層 ML/MM 領域定義 | [define_layer](define_layer.md) |
+| `opt` | 構造最適化 | [opt](opt.md) |
+| `tsopt` | 遷移状態最適化 | [tsopt](tsopt.md) |
+| `path-opt` | MEP 最適化 (GSM/DMF) | [path_opt](path_opt.md) |
+| `path-search` | 再帰的 MEP 探索 | [path_search](path_search.md) |
+| `scan` | 1D 結合長スキャン | [scan](scan.md) |
+| `scan2d` | 2D 距離スキャン | [scan2d](scan2d.md) |
+| `scan3d` | 3D 距離スキャン | [scan3d](scan3d.md) |
+| `irc` | IRC 計算 | [irc](irc.md) |
+| `freq` | 振動解析 | [freq](freq.md) |
+| `dft` | DFT 一点計算 | [dft](dft.md) |
+| `trj2fig` | エネルギープロファイルプロット | [trj2fig](trj2fig.md) |
+| `oniom-gaussian` | Gaussian ONIOM 入力生成 | [oniom_export](oniom_export.md) |
+| `oniom-orca` | ORCA QM/MM 入力生成 | [oniom_export](oniom_export.md) |
+
+---
+
+## ヘルプ
+
+任意のサブコマンドについて:
+
+```bash
+mlmm <subcommand> --help
+```
+
+これは利用可能なオプション、デフォルト、および短い説明を表示します。

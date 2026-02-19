@@ -1,0 +1,34 @@
+from pysisyphus.interpolate import IDPP, LST, Interpolator, Redund, Geodesic
+
+
+INTERPOLATE = {
+    "idpp": IDPP.IDPP,
+    "lst": LST.LST,
+    "redund": Redund.Redund,
+    "linear": Interpolator.Interpolator,
+    "geodesic": Geodesic.Geodesic,
+}
+
+
+def interpolate(initial_geom, final_geom, between, kind="linear",
+                only_between=False, align=False, interpol_kwargs=None):
+    if interpol_kwargs is None:
+        interpol_kwargs = {}
+    """ only_between: return only the interpolated images."""
+    interpolate_class = INTERPOLATE[kind]
+    interpolator = interpolate_class((initial_geom, final_geom), between,
+                                     align=align, **interpol_kwargs)
+    if only_between:
+        return interpolator.interpolate(initial_geom, final_geom)
+    else:
+        return interpolator.interpolate_all()
+
+
+def interpolate_all(geoms, between, kind="linear", align=False, **interpol_kwargs):
+    if (between == 0) or (kind is None):
+        return geoms
+
+    interpolate_class = INTERPOLATE[kind]
+    interpolator = interpolate_class(geoms, between, align=align, **interpol_kwargs)
+
+    return interpolator.interpolate_all()

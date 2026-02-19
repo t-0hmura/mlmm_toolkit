@@ -1,0 +1,1062 @@
+"""
+ML/MM vibrational frequency analysis with PHVA support and thermochemistry.
+
+Example:
+    mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
+
+For detailed documentation, see: docs/freq.md
+"""
+
+from __future__ import annotations
+
+import sys
+import textwrap
+import time
+from copy import deepcopy
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import click
+import numpy as np
+import torch
+import ase.units as units
+import yaml
+from ase import Atoms
+from ase.data import atomic_masses
+from ase.io import write
+
+from pysisyphus.constants import AMU2AU, ANG2BOHR, AU2EV, BOHR2ANG
+from pysisyphus.helpers import geom_loader
+
+from .mlmm_calc import mlmm
+from .opt import (
+    CALC_KW as OPT_CALC_KW,
+    GEOM_KW as OPT_GEOM_KW,
+    _normalize_geom_freeze as _normalize_geom_freeze_opt,
+    _parse_freeze_atoms as _parse_freeze_atoms_opt,
+)
+from .utils import (
+    apply_ref_pdb_override,
+    apply_layer_freeze_constraints,
+    apply_yaml_overrides,
+    convert_xyz_to_pdb,
+    format_elapsed,
+    format_freeze_atoms_for_echo,
+    load_yaml_dict,
+    merge_freeze_atom_indices,
+    prepare_input_structure,
+    pretty_block,
+    resolve_charge_spin_or_raise,
+    parse_indices_string,
+    build_model_pdb_from_bfactors,
+    build_model_pdb_from_indices,
+    strip_inherited_keys,
+)
+def _torch_device(auto: str = "auto") -> torch.device:
+    if auto == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return torch.device(auto)
+
+
+# ===================================================================
+#          Mass-weighted TR projection & vibrational analysis
+# ===================================================================
+
+def _build_tr_basis(coords_bohr_t: torch.Tensor,
+                    masses_au_t: torch.Tensor) -> torch.Tensor:
+    """
+    Mass-weighted translation/rotation basis (Tx, Ty, Tz, Rx, Ry, Rz), shape (3N, r<=6).
+    """
+    device, dtype = coords_bohr_t.device, coords_bohr_t.dtype
+    N = coords_bohr_t.shape[0]
+    m_au = masses_au_t.to(dtype=dtype, device=device)
+    m_sqrt = torch.sqrt(m_au).reshape(-1, 1)
+
+    com = (m_au.reshape(-1, 1) * coords_bohr_t).sum(0) / m_au.sum()
+    x = coords_bohr_t - com
+
+    eye3 = torch.eye(3, dtype=dtype, device=device)
+    cols = []
+    for i in range(3):
+        cols.append((eye3[i].repeat(N, 1) * m_sqrt).reshape(-1, 1))
+    for i in range(3):
+        rot = torch.cross(x, eye3[i].expand_as(x), dim=1) * m_sqrt
+        cols.append(rot.reshape(-1, 1))
+    return torch.cat(cols, dim=1)
+
+
+def _tr_orthonormal_basis(coords_bohr_t: torch.Tensor,
+                          masses_au_t: torch.Tensor,
+                          rtol: float = 1e-12) -> Tuple[torch.Tensor, int]:
+    """
+    Orthonormalize TR basis in mass-weighted space by SVD. Returns (Q, rank).
+    """
+    B = _build_tr_basis(coords_bohr_t, masses_au_t)
+    U, S, Vh = torch.linalg.svd(B, full_matrices=False)
+    r = int((S > rtol * S.max()).sum().item())
+    Q = U[:, :r]
+    del B, S, Vh, U
+    return Q, r
+
+
+def _mw_projected_hessian(H_t: torch.Tensor,
+                          coords_bohr_t: torch.Tensor,
+                          masses_au_t: torch.Tensor) -> torch.Tensor:
+    """
+    Project out translations/rotations in mass-weighted space:
+    Hmw = M^{-1/2} H M^{-1/2};  P = I - QQ^T;  Hmw_proj = P Hmw P
+
+    To save memory, update **H_t in-place** (no clone) and return it.
+    No explicit symmetrization. The eigen-decomposition uses only the upper triangle (UPLO="U").
+    """
+    dtype, device = H_t.dtype, H_t.device
+    with torch.no_grad():
+        masses_amu_t = (masses_au_t / AMU2AU).to(dtype=dtype, device=device)
+        m3 = torch.repeat_interleave(masses_amu_t, 3)
+        # Use a single base vector for inverse sqrt mass and create views (no extra large allocations)
+        inv_sqrt_m = torch.sqrt(1.0 / m3)
+        inv_sqrt_m_col = inv_sqrt_m.view(1, -1)
+        inv_sqrt_m_row = inv_sqrt_m.view(-1, 1)
+
+        # In-place mass-weighting on input Hessian
+        H_t.mul_(inv_sqrt_m_row)
+        H_t.mul_(inv_sqrt_m_col)
+
+        Q, _ = _tr_orthonormal_basis(coords_bohr_t, masses_au_t)  # (3N, r)
+        Qt = Q.T
+
+        QtH = Qt @ H_t                   # (r,3N)
+        H_t.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
+
+        HQ = QtH.T                       # (3N,r)
+        H_t.addmm_(HQ, Qt, beta=1.0, alpha=-1.0)
+
+        QtHQ = QtH @ Q                   # (r,r)
+        tmp = Q @ QtHQ                   # (3N,r)
+        H_t.addmm_(tmp, Qt, beta=1.0, alpha=1.0)
+
+        del masses_amu_t, m3, inv_sqrt_m, inv_sqrt_m_col, inv_sqrt_m_row
+        del Q, Qt, QtH, HQ, QtHQ, tmp
+
+        if torch.cuda.is_available() and device.type == "cuda":
+            torch.cuda.empty_cache()
+        # Return the in-place updated mass-weighted & TR-projected Hessian
+        return H_t
+
+
+# ---- PHVA helper: mass-weighted Hessian without TR projection (for active subspace) ----
+def _mass_weighted_hessian(H_t: torch.Tensor,
+                           masses_au_t: torch.Tensor) -> torch.Tensor:
+    """
+    Return Hmw = M^{-1/2} H M^{-1/2} (no symmetrization/TR projection; in-place).
+    """
+    dtype, device = H_t.dtype, H_t.device
+    with torch.no_grad():
+        masses_amu_t = (masses_au_t / AMU2AU).to(dtype=dtype, device=device)
+        m3 = torch.repeat_interleave(masses_amu_t, 3)
+        inv_sqrt_m = torch.sqrt(1.0 / m3)
+        inv_sqrt_m_col = inv_sqrt_m.view(1, -1)
+        inv_sqrt_m_row = inv_sqrt_m.view(-1, 1)
+        # In-place mass-weighting on input Hessian
+        H_t.mul_(inv_sqrt_m_row)
+        H_t.mul_(inv_sqrt_m_col)
+        del masses_amu_t, m3, inv_sqrt_m, inv_sqrt_m_col, inv_sqrt_m_row
+        return H_t
+
+
+def _frequencies_cm_and_modes(H_t: torch.Tensor,
+                              atomic_numbers: List[int],
+                              coords_bohr: np.ndarray,
+                              device: torch.device,
+                              tol: float = 1e-6,
+                              freeze_idx: Optional[List[int]] = None) -> Tuple[np.ndarray, torch.Tensor]:
+    """
+    Diagonalize a (possibly PHVA/active-subspace) TR-projected mass-weighted Hessian
+    to obtain frequencies (cm^-1) and mass-weighted eigenvectors (modes).
+
+    If `freeze_idx` is provided (list of 0-based atom indices), perform
+    Partial Hessian Vibrational Analysis (PHVA). Supports two cases:
+
+      A) Full Hessian given (3N×3N):
+         1) build Hmw = M^{-1/2} H M^{-1/2}
+         2) take the active subspace by removing DOF of frozen atoms
+         3) perform TR projection **only in the active subspace** (always applied)
+         4) diagonalize and embed eigenvectors back to 3N by zero-filling frozen DOF
+
+      B) Already-reduced (active-block) Hessian given (3N_act×3N_act), e.g.
+         when UMA is called with return_partial_hessian=True:
+         1) mass-weight with **active** masses only
+         2) TR projection in the active space
+         3) diagonalize and embed back to 3N by zero-filling frozen DOF
+
+    Returns:
+      freqs_cm : (nmode,) numpy, negatives are imaginary
+      modes    : (nmode, 3N) torch (mass-weighted eigenvectors)
+    """
+    with torch.no_grad():
+        Z = np.array(atomic_numbers, dtype=int)
+        N = int(len(Z))
+        masses_amu = np.array([atomic_masses[z] for z in Z])  # amu
+        masses_au_t = torch.as_tensor(masses_amu * AMU2AU, dtype=H_t.dtype, device=device)
+        coords_bohr_t = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_t.dtype, device=device)
+
+        # --------------------------------------------
+        # PHVA path (active DOF subspace with TR-proj)
+        # --------------------------------------------
+        if freeze_idx is not None and len(freeze_idx) > 0:
+            # Active atom indices
+            frozen_set = set(int(i) for i in freeze_idx if 0 <= int(i) < N)
+            active_idx = [i for i in range(N) if i not in frozen_set]
+            n_active = len(active_idx)
+            if n_active == 0:
+                # All atoms are frozen → no modes
+                freqs_cm = np.zeros((0,), dtype=float)
+                modes = torch.zeros((0, 3 * N), dtype=H_t.dtype, device=H_t.device)
+                return freqs_cm, modes
+
+            # Determine whether the provided Hessian is already the active block (3N_act×3N_act).
+            expected_act_dim = 3 * n_active
+            is_partial = (H_t.shape[0] == expected_act_dim and H_t.shape[1] == expected_act_dim)
+
+            if is_partial:
+                # --- Case B: Active-subspace Hessian supplied ---
+                # Mass-weight using only active atoms → project TR modes in the active space
+                # → diagonalise → embed back into the full space.
+                masses_act = masses_au_t[active_idx]
+                coords_act = coords_bohr_t[active_idx, :]
+
+                # in-place mass-weight (active masses)
+                Hmw_act = _mass_weighted_hessian(H_t, masses_act)
+
+                # TR basis and projection in the active space
+                Q, _ = _tr_orthonormal_basis(coords_act, masses_act)  # (3N_act, r)
+                Qt = Q.T
+                QtH = Qt @ Hmw_act
+                Hmw_act.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
+                Hmw_act.addmm_(QtH.T, Qt, beta=1.0, alpha=-1.0)
+                QtHQ = QtH @ Q
+                Hmw_act.addmm_(Q @ QtHQ, Qt, beta=1.0, alpha=1.0)
+
+                # Diagonalize (upper triangle only; no symmetrization)
+                omega2, Vsub = torch.linalg.eigh(Hmw_act, UPLO="U")
+
+                # Free the (only) Hessian ASAP
+                del Hmw_act
+                del H_t
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                sel = torch.abs(omega2) > tol
+                omega2 = omega2[sel]
+                Vsub = Vsub[:, sel]  # (3N_act, nsel)
+
+                # Embed to full 3N (mass-weighted eigenvectors)
+                modes = torch.zeros((Vsub.shape[1], 3 * N), dtype=Vsub.dtype, device=Vsub.device)
+                mask_dof = torch.ones(3 * N, dtype=torch.bool, device=Vsub.device)
+                for i in frozen_set:
+                    mask_dof[3 * i:3 * i + 3] = False
+                modes[:, mask_dof] = Vsub.T
+                del Q, Qt, QtH, QtHQ, mask_dof
+
+            else:
+                # --- Case A: Full Hessian (3N×3N) supplied ---
+                # Apply full mass-weighting → extract the active block → project TR modes in the active space.
+                H_t = _mass_weighted_hessian(H_t, masses_au_t)
+
+                # Build active mask (boolean) and immediately carve out the active block
+                mask_dof = torch.ones(3 * N, dtype=torch.bool, device=H_t.device)
+                for i in frozen_set:
+                    mask_dof[3 * i:3 * i + 3] = False
+
+                # Create the reduced Hessian; free the full one immediately to keep only one in VRAM
+                H_act = H_t[mask_dof][:, mask_dof]
+                del H_t
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                H_t = H_act
+                del H_act
+
+                coords_act = coords_bohr_t[active_idx, :]
+                masses_act = masses_au_t[active_idx]
+                Q, _ = _tr_orthonormal_basis(coords_act, masses_act)  # (3N_act, r)
+                Qt = Q.T
+
+                QtH = Qt @ H_t
+                H_t.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
+
+                H_t.addmm_(QtH.T, Qt, beta=1.0, alpha=-1.0)
+
+                QtH = QtH @ Q
+                H_t.addmm_(Q @ QtH, Qt, beta=1.0, alpha=1.0)
+
+                # No symmetrization; diagonalize using upper triangle only
+                omega2, Vsub = torch.linalg.eigh(H_t, UPLO="U")
+
+                # Free the (only) Hessian ASAP
+                del H_t
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                sel = torch.abs(omega2) > tol
+                omega2 = omega2[sel]
+                Vsub = Vsub[:, sel]  # (3N_act, nsel)
+
+                modes = torch.zeros((Vsub.shape[1], 3 * N), dtype=Vsub.dtype, device=Vsub.device)
+                modes[:, mask_dof] = Vsub.T  # (nsel, 3N_act) → place into active DOF
+                del Vsub, mask_dof, Q, Qt, QtH
+
+        else:
+            # Legacy behavior: TR-projection in full DOF → diagonalization (both in-place; no symmetrization)
+            H_t = _mw_projected_hessian(H_t, coords_bohr_t, masses_au_t)
+            omega2, V = torch.linalg.eigh(H_t, UPLO="U")
+
+            # Free the (only) Hessian ASAP
+            del H_t
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            sel = torch.abs(omega2) > tol
+            omega2 = omega2[sel]
+            modes = V[:, sel].T
+            del V
+
+        # Convert to frequencies (cm^-1)
+        s_new = (units._hbar * 1e10 / np.sqrt(units._e * units._amu) * np.sqrt(AU2EV) / BOHR2ANG)
+        hnu = s_new * torch.sqrt(torch.abs(omega2))
+        hnu = torch.where(omega2 < 0, -hnu, hnu)
+        freqs_cm = (hnu / units.invcm).detach().cpu().numpy()
+
+        del omega2, hnu, sel
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return freqs_cm, modes
+
+
+def _mw_mode_to_cart(mode_mw_3N_t: torch.Tensor,
+                     masses_au_t: torch.Tensor) -> np.ndarray:
+    """
+    Convert one mass-weighted eigenvector (3N,) to Cartesian (3N,) and L2-normalize.
+    """
+    with torch.no_grad():
+        masses_amu_t = (masses_au_t / AMU2AU).to(dtype=mode_mw_3N_t.dtype, device=mode_mw_3N_t.device)
+        m3 = torch.repeat_interleave(masses_amu_t, 3)
+        v_cart = torch.sqrt(1.0 / m3) * mode_mw_3N_t
+        v_cart.div_(torch.linalg.norm(v_cart))
+        arr = v_cart.detach().cpu().numpy()
+        del masses_amu_t, m3, v_cart
+        return arr
+
+
+def _calc_full_hessian_torch(
+    geom,
+    calc_kwargs: Dict[str, Any],
+    device: torch.device,
+    *,
+    refresh_geom_meta: bool = False,
+) -> Tuple[torch.Tensor, float]:
+    """Return (Hessian torch tensor, energy Hartree) from the ML/MM calculator."""
+
+    kw = dict(calc_kwargs or {})
+    kw["out_hess_torch"] = True
+    calc = mlmm(**kw)
+    result = calc.get_hessian(geom.atoms, geom.coords)
+
+    if refresh_geom_meta:
+        within = result.get("within_partial_hessian")
+        if within is None and kw.get("return_partial_hessian"):
+            try:
+                core = getattr(calc, "core", None)
+                if core is not None and hasattr(core, "_build_within_partial_hessian"):
+                    within = core._build_within_partial_hessian()
+            except Exception:
+                within = None
+        if within is not None:
+            geom.within_partial_hessian = within
+        elif "hessian" in result:
+            geom.within_partial_hessian = None
+
+        try:
+            core = getattr(calc, "core", None)
+            if core is not None and hasattr(core, "hess_active_atoms"):
+                active_atoms = np.asarray(core.hess_active_atoms, dtype=int)
+                geom._hess_active_atoms_last = active_atoms
+                if active_atoms.size:
+                    active_dofs = np.empty(active_atoms.size * 3, dtype=int)
+                    for i, a in enumerate(active_atoms):
+                        base = 3 * int(a)
+                        active_dofs[3 * i:3 * i + 3] = (base, base + 1, base + 2)
+                else:
+                    active_dofs = np.zeros(0, dtype=int)
+                geom._hess_active_dofs_last = active_dofs
+        except Exception:
+            pass
+
+    H = result["hessian"]
+    if not isinstance(H, torch.Tensor):
+        H = torch.as_tensor(H)
+    H = H.to(device=device)
+    energy = float(result.get("energy", 0.0))
+    return H, energy
+
+
+def _write_mode_trj_and_pdb(geom,
+                            mode_vec_3N: np.ndarray,
+                            out_trj: Path,
+                            out_pdb: Path,
+                            amplitude_ang: float = 0.8,
+                            n_frames: int = 20,
+                            comment: str = "mode",
+                            ref_pdb: Optional[Path] = None) -> None:
+    """Write a single mode animation as .trj (XYZ-like) and .pdb.
+
+    If `ref_pdb` is provided and is a .pdb file, the .pdb is generated by
+    converting the .trj using the input PDB as the template (same as path_opt).
+    """
+    ref_ang = geom.coords.reshape(-1, 3) * BOHR2ANG
+    mode = mode_vec_3N.reshape(-1, 3).copy()
+    mode /= np.linalg.norm(mode)
+
+    # .trj (concatenated XYZ-like trajectory)
+    if ref_pdb is not None and ref_pdb.suffix.lower() == ".pdb":
+        # Emit a simple XYZ-like trajectory in Å for the converter
+        with out_trj.open("w", encoding="utf-8") as f:
+            for i in range(n_frames):
+                phase = np.sin(2.0 * np.pi * i / n_frames)
+                coords = ref_ang + phase * amplitude_ang * mode  # Å
+                f.write(f"{len(geom.atoms)}\n{comment} frame={i+1}/{n_frames}\n")
+                for sym, (x, y, z) in zip(geom.atoms, coords):
+                    f.write(f"{sym:2s} {x: .8f} {y: .8f} {z: .8f}\n")
+        # Generate PDB using the input PDB as template
+        try:
+            convert_xyz_to_pdb(out_trj, ref_pdb, out_pdb)
+        except Exception:
+            # Fallback: generate MODEL/ENDMDL using ASE
+            atoms0 = Atoms(geom.atoms, positions=ref_ang, pbc=False)
+            for i in range(n_frames):
+                phase = np.sin(2.0 * np.pi * i / n_frames)
+                ai = atoms0.copy()
+                ai.set_positions(ref_ang + phase * amplitude_ang * mode)
+                write(out_pdb, ai, append=(i != 0))
+        return
+
+    # If no ref_pdb is given, use the legacy behavior (use pysisyphus.make_trj_str if available)
+    try:
+        from pysisyphus.xyzloader import make_trj_str  # type: ignore
+        amp_ang = amplitude_ang
+        steps = np.sin(2.0 * np.pi * np.arange(n_frames) / n_frames)[:, None, None] * (amp_ang * mode[None, :, :])
+        traj_ang = ref_ang[None, :, :] + steps  # (T,N,3) in Å
+        traj_bohr = traj_ang.reshape(n_frames, -1, 3) * ANG2BOHR
+        comments = [f"{comment}  frame={i+1}/{n_frames}" for i in range(n_frames)]
+        trj_str = make_trj_str(geom.atoms, traj_bohr, comments=comments)
+        out_trj.write_text(trj_str, encoding="utf-8")
+    except Exception:
+        with out_trj.open("w", encoding="utf-8") as f:
+            for i in range(n_frames):
+                phase = np.sin(2.0 * np.pi * i / n_frames)
+                coords = ref_ang + phase * amplitude_ang * mode
+                f.write(f"{len(geom.atoms)}\n{comment} frame={i+1}/{n_frames}\n")
+                for sym, (x, y, z) in zip(geom.atoms, coords):
+                    f.write(f"{sym:2s} {x: .8f} {y: .8f} {z: .8f}\n")
+
+    # .pdb (MODEL/ENDMDL via ASE)
+    atoms0 = Atoms(geom.atoms, positions=ref_ang, pbc=False)
+    for i in range(n_frames):
+        phase = np.sin(2.0 * np.pi * i / n_frames)
+        ai = atoms0.copy()
+        ai.set_positions(ref_ang + phase * amplitude_ang * mode)
+        write(out_pdb, ai, append=(i != 0))
+
+
+# ===================================================================
+#                         Defaults for CLI
+# ===================================================================
+
+# Geometry defaults — shared with opt.py
+GEOM_KW: Dict[str, Any] = deepcopy(OPT_GEOM_KW)
+
+# ML/MM calculator defaults — shared with opt.py
+CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
+
+# Frequency writer defaults
+FREQ_KW: Dict[str, Any] = {
+    "max_write": 20,          # Number of modes to export (after sorting)
+    "amplitude_ang": 0.8,     # Mode animation amplitude in Å
+    "n_frames": 20,           # Frames per sinusoidal animation
+    "sort": "value",          # Sort modes by value (cm^-1) or absolute value
+    "out_dir": "./result_freq/",  # Default output directory
+}
+
+# Thermochemistry defaults
+THERMO_KW: Dict[str, Any] = {
+    "temperature": 298.15,    # Kelvin
+    "pressure_atm": 1.0,      # Atmospheric pressure (converted to Pa internally)
+    "dump": False,            # Write thermoanalysis.yaml when True
+}
+
+
+# ===================================================================
+#                            CLI
+# ===================================================================
+
+@click.command(
+    help="ML/MM vibrational frequency analysis (PHVA-compatible).",
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+@click.option(
+    "-i", "--input",
+    "input_path",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    required=True,
+    help="Enzyme complex PDB used by both geom_loader and the ML/MM calculator.",
+)
+@click.option(
+    "--real-parm7",
+    "real_parm7",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    required=True,
+    help="Amber parm7 topology for the full enzyme complex.",
+)
+@click.option(
+    "--model-pdb",
+    "model_pdb",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    required=False,
+    help="PDB defining atoms belonging to the ML region. Optional when --detect-layer is enabled.",
+)
+@click.option(
+    "--model-indices",
+    "model_indices_str",
+    type=str,
+    default=None,
+    show_default=False,
+    help="Comma-separated atom indices for the ML region (ranges allowed like 1-5). "
+         "Used when --model-pdb is omitted.",
+)
+@click.option(
+    "--model-indices-one-based/--model-indices-zero-based",
+    "model_indices_one_based",
+    default=True,
+    show_default=True,
+    help="Interpret --model-indices as 1-based (default) or 0-based.",
+)
+@click.option(
+    "--detect-layer/--no-detect-layer",
+    "detect_layer",
+    default=True,
+    show_default=True,
+    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+         "If disabled, you must provide --model-pdb or --model-indices.",
+)
+@click.option("-q", "--charge", type=int, default=None, show_default=False, help="ML region charge.")
+@click.option(
+    "-m",
+    "--multiplicity",
+    "spin",
+    type=int,
+    default=None,
+    show_default=False,
+    help="Spin multiplicity (2S+1) for the ML region. Defaults to 1 when omitted.",
+)
+@click.option(
+    "--freeze-atoms",
+    "freeze_atoms_text",
+    type=str,
+    default=None,
+    show_default=False,
+    help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
+)
+@click.option(
+    "--hess-cutoff",
+    "hess_cutoff",
+    type=float,
+    default=None,
+    show_default=False,
+    help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
+         "Applied to movable MM atoms and can be combined with --detect-layer.",
+)
+@click.option(
+    "--movable-cutoff",
+    "movable_cutoff",
+    type=float,
+    default=None,
+    show_default=False,
+    help="Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. "
+         "Providing --movable-cutoff disables --detect-layer.",
+)
+@click.option(
+    "--hessian-calc-mode",
+    type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
+    default=None,
+    help="How UMA builds the ML Hessian (Analytical or FiniteDifference); "
+         "overrides calc.hessian_calc_mode from YAML.",
+)
+@click.option("--max-write", type=int, default=FREQ_KW["max_write"], show_default=True,
+              help="Maximum number of modes to export.")
+@click.option("--amplitude-ang", type=float, default=FREQ_KW["amplitude_ang"], show_default=True,
+              help="Mode animation amplitude (Å).")
+@click.option("--n-frames", type=int, default=FREQ_KW["n_frames"], show_default=True,
+              help="Frames per vibrational mode animation.")
+@click.option(
+    "--sort",
+    type=click.Choice(["value", "abs"]),
+    default=FREQ_KW["sort"],
+    show_default=True,
+    help="Sort modes by signed value or absolute value.",
+)
+@click.option("--temperature", type=float, default=THERMO_KW["temperature"], show_default=True,
+              help="Temperature (K) for thermochemistry summary.")
+@click.option("--pressure", "pressure_atm",
+              type=float, default=THERMO_KW["pressure_atm"], show_default=True,
+              help="Pressure (atm) for thermochemistry summary.")
+@click.option("--dump", type=click.BOOL, default=THERMO_KW["dump"], show_default=True,
+              help="Write 'thermoanalysis.yaml' alongside the console summary.")
+@click.option("--out-dir", type=str, default=FREQ_KW["out_dir"], show_default=True, help="Output directory.")
+@click.option(
+    "--active-dof-mode",
+    type=click.Choice(["all", "ml-only", "partial", "unfrozen"], case_sensitive=False),
+    default="partial",
+    show_default=True,
+    help="Active DOF selection for frequency analysis: "
+         "all (all atoms), ml-only (ML only), partial (ML + Hessian-target MM, default), "
+         "unfrozen (all non-frozen atoms).",
+)
+@click.option(
+    "--args-yaml",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="YAML overrides (sections: geom, calc/mlmm, freq, thermo).",
+)
+@click.option(
+    "--ref-pdb",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Reference PDB topology to use when --input is XYZ (keeps XYZ coordinates).",
+)
+def cli(
+    input_path: Path,
+    real_parm7: Path,
+    model_pdb: Optional[Path],
+    model_indices_str: Optional[str],
+    model_indices_one_based: bool,
+    detect_layer: bool,
+    charge: Optional[int],
+    spin: Optional[int],
+    freeze_atoms_text: Optional[str],
+    hess_cutoff: Optional[float],
+    movable_cutoff: Optional[float],
+    hessian_calc_mode: Optional[str],
+    max_write: int,
+    amplitude_ang: float,
+    n_frames: int,
+    sort: str,
+    temperature: float,
+    pressure_atm: float,
+    dump: bool,
+    out_dir: str,
+    active_dof_mode: str,
+    args_yaml: Optional[Path],
+    ref_pdb: Optional[Path],
+) -> None:
+    time_start = time.perf_counter()
+
+    # Validate input format: PDB directly, or XYZ with --ref-pdb
+    suffix = input_path.suffix.lower()
+    if suffix not in (".pdb", ".xyz"):
+        click.echo("ERROR: --input must be a PDB or XYZ file.", err=True)
+        sys.exit(1)
+    if suffix == ".xyz" and ref_pdb is None:
+        click.echo("ERROR: --ref-pdb is required when --input is an XYZ file.", err=True)
+        sys.exit(1)
+
+    prepared_input = prepare_input_structure(input_path)
+    try:
+        apply_ref_pdb_override(prepared_input, ref_pdb)
+    except click.BadParameter as e:
+        click.echo(f"ERROR: {e}", err=True)
+        prepared_input.cleanup()
+        sys.exit(1)
+
+    geom_input_path = prepared_input.geom_path
+    source_path = prepared_input.source_path  # PDB topology for output conversion
+    charge, spin = resolve_charge_spin_or_raise(prepared_input, charge, spin)
+
+    try:
+        freeze_atoms_cli = _parse_freeze_atoms_opt(freeze_atoms_text)
+    except click.BadParameter as e:
+        click.echo(f"ERROR: {e}", err=True)
+        prepared_input.cleanup()
+        sys.exit(1)
+
+    model_indices: Optional[List[int]] = None
+    if model_indices_str:
+        try:
+            model_indices = parse_indices_string(model_indices_str, one_based=model_indices_one_based)
+        except click.BadParameter as e:
+            click.echo(f"ERROR: {e}", err=True)
+            prepared_input.cleanup()
+            sys.exit(1)
+
+    try:
+        yaml_cfg = load_yaml_dict(args_yaml)
+    except ValueError as e:
+        click.echo(f"ERROR: {e}", err=True)
+        prepared_input.cleanup()
+        sys.exit(1)
+
+    geom_cfg = deepcopy(GEOM_KW)
+    calc_cfg = deepcopy(CALC_KW)
+    freq_cfg = dict(FREQ_KW)
+    thermo_cfg = dict(THERMO_KW)
+
+    apply_yaml_overrides(
+        yaml_cfg,
+        [
+            (geom_cfg, (("geom",),)),
+            (calc_cfg, (("calc",), ("mlmm",))),
+            (freq_cfg, (("freq",),)),
+            (thermo_cfg, (("thermo",), ("freq", "thermo"))),
+        ],
+    )
+    if hessian_calc_mode is not None:
+        calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
+
+    try:
+        geom_freeze = _normalize_geom_freeze_opt(geom_cfg.get("freeze_atoms"))
+    except click.BadParameter as e:
+        click.echo(f"ERROR: {e}", err=True)
+        prepared_input.cleanup()
+        sys.exit(1)
+    geom_cfg["freeze_atoms"] = geom_freeze
+    if freeze_atoms_cli:
+        merge_freeze_atom_indices(geom_cfg, freeze_atoms_cli)
+    freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
+
+    freq_cfg["max_write"] = int(max_write)
+    freq_cfg["amplitude_ang"] = float(amplitude_ang)
+    freq_cfg["n_frames"] = int(n_frames)
+    freq_cfg["sort"] = str(sort)
+    freq_cfg["out_dir"] = out_dir
+
+    thermo_cfg["temperature"] = float(temperature)
+    thermo_cfg["pressure_atm"] = float(pressure_atm)
+    thermo_cfg["dump"] = bool(dump)
+
+    out_dir_path = Path(freq_cfg["out_dir"]).resolve()
+
+    calc_cfg["model_charge"] = int(charge)
+    calc_cfg["model_mult"] = int(spin)
+    calc_cfg["input_pdb"] = str(source_path)
+    calc_cfg["real_parm7"] = str(real_parm7)
+    calc_cfg["freeze_atoms"] = freeze_atoms_final
+    calc_cfg.setdefault("return_partial_hessian", True)
+
+    # movable_cutoff implies full distance-based layer assignment.
+    # hess_cutoff alone can be combined with --detect-layer.
+    if movable_cutoff is not None:
+        if detect_layer:
+            click.echo("[layer] --movable-cutoff provided; disabling --detect-layer.", err=True)
+        detect_layer = False
+
+    layer_source_pdb = source_path
+    if detect_layer and layer_source_pdb.suffix.lower() != ".pdb":
+        click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
+        prepared_input.cleanup()
+        sys.exit(1)
+
+    model_pdb_path: Optional[Path] = None
+    layer_info: Optional[Dict[str, List[int]]] = None
+
+    if detect_layer:
+        try:
+            model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
+            calc_cfg["use_bfactor_layers"] = True
+            click.echo(
+                f"[layer] Detected B-factor layers: ML={len(layer_info.get('ml_indices', []))}, "
+                f"MovableMM={len(layer_info.get('movable_mm_indices', []))}, "
+                f"FrozenMM={len(layer_info.get('frozen_indices', []))}"
+            )
+        except Exception as e:
+            if model_pdb is None and not model_indices:
+                click.echo(f"ERROR: {e}", err=True)
+                prepared_input.cleanup()
+                sys.exit(1)
+            click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
+            detect_layer = False
+
+    if not detect_layer:
+        if model_pdb is None and not model_indices:
+            click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
+            prepared_input.cleanup()
+            sys.exit(1)
+        if model_pdb is not None:
+            model_pdb_path = Path(model_pdb)
+        else:
+            if layer_source_pdb.suffix.lower() != ".pdb":
+                click.echo("ERROR: --model-indices requires a PDB input (or --ref-pdb).", err=True)
+                prepared_input.cleanup()
+                sys.exit(1)
+            try:
+                model_pdb_path = build_model_pdb_from_indices(layer_source_pdb, out_dir_path, model_indices or [])
+            except Exception as e:
+                click.echo(f"ERROR: {e}", err=True)
+                prepared_input.cleanup()
+                sys.exit(1)
+        calc_cfg["use_bfactor_layers"] = False
+
+    if model_pdb_path is None:
+        click.echo("ERROR: Failed to resolve model PDB for the ML region.", err=True)
+        prepared_input.cleanup()
+        sys.exit(1)
+
+    calc_cfg["model_pdb"] = str(model_pdb_path)
+    freeze_atoms_final = apply_layer_freeze_constraints(
+        geom_cfg,
+        calc_cfg,
+        layer_info,
+        echo_fn=click.echo,
+    )
+
+    # Distance-based overrides for Hessian-target and movable MM selection.
+    if hess_cutoff is not None:
+        calc_cfg["hess_cutoff"] = hess_cutoff
+    if movable_cutoff is not None:
+        calc_cfg["movable_cutoff"] = movable_cutoff
+        calc_cfg["use_bfactor_layers"] = False
+
+    for key in ("input_pdb", "real_parm7", "model_pdb", "mm_fd_dir"):
+        val = calc_cfg.get(key)
+        if val:
+            calc_cfg[key] = str(Path(val).expanduser().resolve())
+    out_dir_path.mkdir(parents=True, exist_ok=True)
+
+    click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
+    echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
+    echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
+    click.echo(pretty_block("calc", echo_calc))
+    echo_freq = strip_inherited_keys({**freq_cfg, "out_dir": str(out_dir_path)}, FREQ_KW, mode="same")
+    click.echo(pretty_block("freq", echo_freq))
+    echo_thermo = strip_inherited_keys(thermo_cfg, THERMO_KW, mode="same")
+    click.echo(pretty_block("thermo", echo_thermo))
+
+    coord_type = geom_cfg.get("coord_type", "cart")
+    geometry = geom_loader(geom_input_path, coord_type=coord_type)
+
+    masses_amu = np.array([atomic_masses[z] for z in geometry.atomic_numbers])
+    device = _torch_device(calc_cfg.get("ml_device", "auto"))
+    masses_au_t = torch.as_tensor(masses_amu * AMU2AU, dtype=torch.float32, device=device)
+
+    # Get layer indices from calculator for active DOF mode
+    n_atoms = len(geometry.atoms)
+    all_indices = set(range(n_atoms))
+
+    # Create temporary calculator to get layer indices
+    temp_calc = mlmm(**calc_cfg)
+    calc_core = temp_calc.core if hasattr(temp_calc, 'core') else temp_calc
+    ml_indices = set(getattr(calc_core, 'ml_indices', []) or [])
+    hess_mm_indices = set(getattr(calc_core, 'hess_mm_indices', []) or [])
+    movable_mm_indices = set(getattr(calc_core, 'movable_mm_indices', []) or [])
+    del temp_calc
+
+    # Determine active DOF based on mode
+    # all -> all atoms active
+    # ml-only -> ML only
+    # partial -> ML + Hessian-target MM (default)
+    # unfrozen -> all except frozen MM
+    active_dof_mode_lower = active_dof_mode.lower()
+    if active_dof_mode_lower == "all":
+        active_indices = all_indices
+        click.echo("[active-dof] Using all atoms for frequency analysis.")
+    elif active_dof_mode_lower == "ml-only":
+        active_indices = ml_indices
+        click.echo(f"[active-dof] Using ML atoms only for frequency analysis (n={len(active_indices)}).")
+    elif active_dof_mode_lower == "partial":
+        active_indices = ml_indices | hess_mm_indices
+        click.echo(
+            f"[active-dof] Using ML + Hessian-target MM atoms for frequency analysis (n={len(active_indices)})."
+        )
+    elif active_dof_mode_lower == "unfrozen":
+        active_indices = ml_indices | hess_mm_indices | movable_mm_indices
+        click.echo(f"[active-dof] Using all non-frozen atoms for frequency analysis (n={len(active_indices)}).")
+    else:
+        active_indices = ml_indices | hess_mm_indices  # Default to partial
+        click.echo(f"[active-dof] Defaulting to partial mode (n={len(active_indices)}).")
+
+    # Atoms not in active_indices become frozen for frequency analysis
+    freeze_for_freq = sorted(all_indices - active_indices)
+    # Also include any explicitly frozen atoms from config
+    explicit_freeze = set(calc_cfg.get("freeze_atoms") or [])
+    freeze_list = sorted(set(freeze_for_freq) | explicit_freeze)
+
+    try:
+        H_t, energy_ha = _calc_full_hessian_torch(geometry, calc_cfg, device)
+        coords_bohr = geometry.coords.reshape(-1, 3)
+        freqs_cm, modes_mw = _frequencies_cm_and_modes(
+            H_t,
+            geometry.atomic_numbers,
+            coords_bohr,
+            device,
+            freeze_idx=freeze_list if freeze_list else None,
+        )
+
+        del H_t
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        order = (
+            np.argsort(np.abs(freqs_cm))
+            if freq_cfg["sort"] == "abs"
+            else np.argsort(freqs_cm)
+        )
+        n_write = int(min(freq_cfg["max_write"], len(order)))
+        click.echo(
+            f"[INFO] Total modes: {len(freqs_cm)} → writing {n_write} mode(s) ({freq_cfg['sort']} ordering)."
+        )
+
+        ref_pdb = input_path
+        for k, idx in enumerate(order[:n_write], start=1):
+            freq_val = float(freqs_cm[idx])
+            mode_cart_3N = _mw_mode_to_cart(modes_mw[idx], masses_au_t)
+            out_trj = out_dir_path / f"mode_{k:04d}_{freq_val:+.2f}cm-1.trj"
+            out_pdb = out_dir_path / f"mode_{k:04d}_{freq_val:+.2f}cm-1.pdb"
+            _write_mode_trj_and_pdb(
+                geometry,
+                mode_cart_3N,
+                out_trj,
+                out_pdb,
+                amplitude_ang=freq_cfg["amplitude_ang"],
+                n_frames=freq_cfg["n_frames"],
+                comment=f"mode {k}  {freq_val:+.2f} cm-1",
+                ref_pdb=ref_pdb,
+            )
+
+        (out_dir_path / "frequencies_cm-1.txt").write_text(
+            "\n".join(f"{i+1:4d}  {float(freqs_cm[j]):+12.4f}" for i, j in enumerate(order)),
+            encoding="utf-8",
+        )
+
+        del modes_mw
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        try:
+            from thermoanalysis.QCData import QCData
+            from thermoanalysis.constants import J2AU, J2CAL, NA
+            from thermoanalysis.thermo import thermochemistry
+
+            qc_data = {
+                "coords3d": geometry.coords.reshape(-1, 3) * BOHR2ANG,
+                "wavenumbers": freqs_cm,
+                "scf_energy": float(energy_ha),
+                "masses": masses_amu,
+                "mult": int(spin),
+            }
+            qc = QCData(qc_data, point_group="c1", mult=int(spin))
+
+            T = float(thermo_cfg["temperature"])
+            p_atm = float(thermo_cfg["pressure_atm"])
+            p_pa = p_atm * 101325.0  # Pa
+
+            tr = thermochemistry(qc, T, pressure=p_pa)  # default: QRRHO
+
+            # Converters
+            au2CalMol = (1.0 / J2AU) * NA * J2CAL
+            to_cal_per_mol = lambda x: float(x) * au2CalMol
+            J_per_Kmol_to_cal_per_Kmol = lambda j: float(j) * J2CAL
+
+            # Counts
+            n_imag = int(np.sum(freqs_cm < 0.0))
+
+            # Compose summary
+            EE = float(tr.U_el)
+            ZPE = float(tr.ZPE)
+            dE_therm = float(tr.U_therm)               # Thermal correction to Energy (includes ZPE)
+            dH_therm = float(tr.H - tr.U_el)           # Thermal correction to Enthalpy (= U_therm + kBT)
+            dG_therm = float(tr.dG)                    # Thermal correction to Free Energy (= G - EE)
+
+            sum_EE_ZPE = EE + ZPE
+            sum_EE_thermal_E = float(tr.U_tot)         # = EE + U_therm
+            sum_EE_thermal_H = float(tr.H)             # = H
+            sum_EE_thermal_G = float(tr.G)             # = G
+
+            E_thermal_cal = to_cal_per_mol(tr.U_therm)               # cal/mol
+            Cv_cal_per_Kmol = J_per_Kmol_to_cal_per_Kmol(tr.c_tot)   # cal/(mol*K)
+            S_cal_per_Kmol  = to_cal_per_mol(tr.S_tot)               # cal/(mol*K)
+
+            # Echo summary (Gaussian-like)
+            click.echo("\nThermochemistry Summary")
+            click.echo("------------------------")
+            click.echo(f"Temperature (K)         = {T:.2f}")
+            click.echo(f"Pressure    (atm)       = {p_atm:.4f}")
+            if freeze_list:
+                click.echo("[NOTE] Thermochemistry uses active DOF (PHVA) due to frozen atoms.")
+            click.echo(f"Number of Imaginary Freq = {n_imag:d}\n")
+
+            def _ha(x): return f"{float(x): .6f} Ha"
+            def _cal(x): return f"{float(x): .2f} cal/mol"
+            def _calK(x): return f"{float(x): .2f} cal/(mol*K)"
+
+            click.echo(f"Electronic Energy (EE)                 = {_ha(EE)}")
+            click.echo(f"Zero-point Energy Correction           = {_ha(ZPE)}")
+            click.echo(f"Thermal Correction to Energy           = {_ha(dE_therm)}")
+            click.echo(f"Thermal Correction to Enthalpy         = {_ha(dH_therm)}")
+            click.echo(f"Thermal Correction to Free Energy      = {_ha(dG_therm)}")
+            click.echo(f"EE + Zero-point Energy                 = {_ha(sum_EE_ZPE)}")
+            click.echo(f"EE + Thermal Energy Correction         = {_ha(sum_EE_thermal_E)}")
+            click.echo(f"EE + Thermal Enthalpy Correction       = {_ha(sum_EE_thermal_H)}")
+            click.echo(f"EE + Thermal Free Energy Correction    = {_ha(sum_EE_thermal_G)}")
+            click.echo("")
+            click.echo(f"E (Thermal)                            = {_cal(E_thermal_cal)}")
+            click.echo(f"Heat Capacity (Cv)                     = {_calK(Cv_cal_per_Kmol)}")
+            click.echo(f"Entropy (S)                            = {_calK(S_cal_per_Kmol)}")
+            click.echo("")
+
+            # Dump YAML when requested
+            if bool(thermo_cfg["dump"]):
+                out_yaml = out_dir_path / "thermoanalysis.yaml"
+                payload = {
+                    "temperature_K": T,
+                    "pressure_atm": p_atm,
+                    "num_imag_freq": n_imag,
+                    "electronic_energy_ha": EE,
+                    "zpe_correction_ha": ZPE,
+                    "thermal_correction_energy_ha": dE_therm,
+                    "thermal_correction_enthalpy_ha": dH_therm,
+                    "thermal_correction_free_energy_ha": dG_therm,
+                    "sum_EE_and_ZPE_ha": sum_EE_ZPE,
+                    "sum_EE_and_thermal_energy_ha": sum_EE_thermal_E,
+                    "sum_EE_and_thermal_enthalpy_ha": sum_EE_thermal_H,
+                    "sum_EE_and_thermal_free_energy_ha": sum_EE_thermal_G,
+                    "E_thermal_cal_per_mol": E_thermal_cal,
+                    "Cv_cal_per_mol_K": Cv_cal_per_Kmol,
+                    "S_cal_per_mol_K": S_cal_per_Kmol,
+                }
+                with out_yaml.open("w", encoding="utf-8") as f:
+                    yaml.safe_dump(payload, f, sort_keys=False, allow_unicode=True)
+                click.echo(f"[dump] Wrote thermoanalysis summary → {out_yaml}")
+
+        except ImportError:
+            click.echo("[thermo] WARNING: 'thermoanalysis' package not found; skipped thermochemistry summary.", err=True)
+        except Exception as e:
+            import traceback
+            tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+            click.echo("Unhandled error during thermochemistry summary:\n" + textwrap.indent(tb, "  "), err=True)
+
+        click.echo(f"[DONE] Wrote modes and list → {out_dir_path}")
+
+        click.echo(format_elapsed("[time] Elapsed Time for Freq", time_start))
+
+    except KeyboardInterrupt:
+        click.echo("\nInterrupted by user.", err=True)
+        sys.exit(130)
+    except Exception as e:
+        import traceback
+        tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+        click.echo("Unhandled error during frequency analysis:\n" + textwrap.indent(tb, "  "), err=True)
+        sys.exit(1)
+    finally:
+        prepared_input.cleanup()
+
+
+# Allow `python -m mlmm_toolkit.freq` direct execution
+if __name__ == "__main__":
+    cli()
