@@ -1,7 +1,7 @@
 # 概念とワークフロー
 
 このページでは、`mlmm_toolkit` を使ううえでの **全体像** を説明します。
-ML/MM 4 層システム、ONIOM 分解、「ポケット」「テンプレート」「セグメント」「画像（image）」が何を指すのか、そしてトップレベルの `all` が各サブコマンドをどう組み合わせるのかを把握するためのページです。
+ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート」「セグメント」「画像（image）」が何を指すのか、そしてトップレベルの `all` が各サブコマンドをどう組み合わせるのかを把握するためのページです。
 
 ---
 
@@ -20,7 +20,7 @@ ML/MM 4 層システム、ONIOM 分解、「ポケット」「テンプレート
    │        │        ↓
    │        │   real.parm7 + real.rst7
    │        │
-   │        ├─ (任意) 4層定義           [define-layer] ← B-factor によるレイヤーエンコード
+   │        ├─ (任意) 3層定義           [define-layer] ← B-factor によるレイヤーエンコード
    │        │
    │        ├─ (任意) 段階的スキャン    [scan]         ← 単一構造ワークフロー
    │        │        ↓
@@ -45,18 +45,17 @@ ML/MM 4 層システム、ONIOM 分解、「ポケット」「テンプレート
 
 ## 重要な概念
 
-### ML/MM 4層システム
+### ML/MM 3層システム
 
-`mlmm_toolkit` の中核は、ONIOM 的な ML/MM 結合スキームです。系を以下の 4 層に分割し、各層に異なるレベルの理論を適用します。
+`mlmm_toolkit` の中核は、ONIOM 的な ML/MM 結合スキームです。系を以下の 3 層に分割し、各層に異なるレベルの理論を適用します。
 
 | 層 | B-factor | 計算レベル | 説明 |
 |----|----------|-----------|------|
-| **Layer 1: ML 領域** | 10.0 | UMA（MLIP） | 活性部位。エネルギー・力・ヘシアンすべてを UMA で計算 |
-| **Layer 2: Hessian-MM** | 20.0 | hessian_ff（MM） | ML 領域近傍の MM 原子。エネルギー・力・ヘシアンを MM で計算 |
-| **Layer 3: Movable-MM** | 30.0 | hessian_ff（MM） | ML 領域から離れた MM 原子。エネルギーと力のみ計算（ヘシアン対象外） |
-| **Layer 4: Frozen** | 40.0 | なし | 座標固定。計算不参加 |
+| **Layer 1: ML 領域** | 0.0 | UMA（MLIP） | 活性部位。エネルギー・力・ヘシアンすべてを UMA で計算 |
+| **Layer 2: Movable-MM** | 10.0 | hessian_ff（MM） | 最適化時に移動可能な MM 原子 |
+| **Layer 3: Frozen** | 20.0 | なし | 座標固定。計算不参加 |
 
-B-factor 値は PDB ファイルの温度因子カラム（列 61-66）にエンコードされます。`define-layer` サブコマンドで自動設定できます。
+B-factor 値は PDB ファイルの温度因子カラム（列 61-66）にエンコードされます。`define-layer` サブコマンドで自動設定できます。Hessian 対象 MM 原子は `hess_cutoff` や `hess_mm_atoms` で別途制御します。
 
 ### ONIOM エネルギー分解
 
@@ -180,7 +179,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt True
 | `all` | エンドツーエンドワークフロー | [all.md](all.md) |
 | `extract` | ポケット抽出 | [extract.md](extract.md) |
 | `mm-parm` | Amber トポロジ構築 | [mm_parm.md](mm_parm.md) |
-| `define-layer` | 4 層 ML/MM 領域定義 | [define_layer.md](define_layer.md) |
+| `define-layer` | 3 層 ML/MM 領域定義 | [define_layer.md](define_layer.md) |
 | `path-search` | 再帰的 MEP 探索 | [path_search.md](path_search.md) |
 | `tsopt` | TS 最適化 | [tsopt.md](tsopt.md) |
 | `oniom-gaussian` | Gaussian ONIOM 入力生成 | [oniom_export.md](oniom_export.md) |

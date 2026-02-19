@@ -45,7 +45,7 @@ geom:
 
 **注記:**
 - `freeze_atoms` は PDB 入力時の `--freeze-links` 検出原子とマージされます。
-- ML/MM モードでは、Layer 4（Frozen）の原子が自動的に `freeze_atoms` に追加されます。
+- ML/MM モードでは、Frozen 層の原子が自動的に `freeze_atoms` に追加されます。
 - `irc` では `geom.coord_type` が YAML/CLI マージ後に `cart` へ強制されます。
 
 ---
@@ -82,18 +82,18 @@ calc:
   print_vram: false                      # CUDA VRAM 使用量を表示
   return_partial_hessian: false          # アクティブ DOF のみの部分ヘシアンを返す
   freeze_atoms: []                       # geom.freeze_atoms から継承
-  # 4層設定:
-  hess_cutoff: null                      # Å: ML 領域からの距離カットオフ (Layer 2)
-  movable_cutoff: null                   # Å: ML 領域からの距離カットオフ (Layer 3)
+  # 層設定:
+  hess_cutoff: null                      # Å: Hessian 対象 MM の距離カットオフ
+  movable_cutoff: null                   # Å: movable MM の距離カットオフ
   use_bfactor_layers: false              # 入力 PDB の B-factor から層を読み取り
-  hess_mm_atoms: null                    # 明示的 Layer 2 原子インデックス (0始まり)
-  movable_mm_atoms: null                 # 明示的 Layer 3 原子インデックス (0始まり)
-  frozen_mm_atoms: null                  # 明示的 Layer 4 原子インデックス (0始まり)
+  hess_mm_atoms: null                    # 明示的 Hessian 対象 MM 原子インデックス (0始まり)
+  movable_mm_atoms: null                 # 明示的 movable MM 原子インデックス (0始まり)
+  frozen_mm_atoms: null                  # 明示的 frozen MM 原子インデックス (0始まり)
 ```
 
 **注記:**
 - `ml_hessian_mode: Analytical` が推奨です（VRAM に余裕がある場合）。
-- `hess_cutoff`/`movable_cutoff` を指定しない場合、ML 以外の全原子が Layer 2（Hessian-MM）に分類されます。
+- `hess_cutoff`/`movable_cutoff` を指定しない場合、ML 以外の全原子が Hessian 対象 MM に分類されます。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
 

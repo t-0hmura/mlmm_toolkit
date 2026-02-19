@@ -10,11 +10,11 @@ This page provides definitions for abbreviations and technical terms used throug
 |------|-----------|-------------|
 | **ML/MM** | Machine Learning / Molecular Mechanics | A multi-scale method that couples a machine-learning interatomic potential (for the reactive region) with a classical force field (for the surrounding environment). Analogous to QM/MM but with ML replacing QM. |
 | **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | A multi-layer energy decomposition scheme. mlmm_toolkit uses an ONIOM-like subtraction: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low. |
-| **Real system** | — | The full set of atoms (all 4 layers). Evaluated at the MM (low) level in the ONIOM decomposition. |
+| **Real system** | — | The full set of atoms (all 3 layers). Evaluated at the MM (low) level in the ONIOM decomposition. |
 | **Model system** | — | The ML region (Layer 1). Evaluated at both the UMA (high) and MM (low) levels in the ONIOM decomposition. |
 | **hessian_ff** | — | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm_toolkit. |
-| **4-layer system** | — | mlmm_toolkit's partitioning scheme: ML (B=10.0), Hessian-MM (B=20.0), Movable-MM (B=30.0), Frozen (B=40.0). Encoded in PDB B-factors. |
-| **B-factor encoding** | — | Convention of storing layer membership in the PDB B-factor (temperature factor) column: 10.0 = ML, 20.0 = Hessian-MM, 30.0 = Movable-MM, 40.0 = Frozen. |
+| **3-layer system** | — | mlmm_toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen (B=20.0). |
+| **B-factor encoding** | — | Convention of storing layer membership in the PDB B-factor (temperature factor) column: 0.0 = ML, 10.0 = Movable-MM, 20.0 = Frozen. Hessian-target MM is controlled by cutoffs/explicit indices. |
 
 ---
 

@@ -42,7 +42,7 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 - **ジオメトリ読み込みと凍結処理**: 構造は `pysisyphus.helpers.geom_loader` で読み込まれます。`--freeze-atoms "1,3,5"` は 1 始まりインデックスを受け付け、YAML `geom.freeze_atoms` とマージされます。マージされたリストはジオメトリエコーと ML/MM 計算機の両方に渡され、PHVA が有効になります。
 - **ML/MM 計算機**: ML 領域は `--model-pdb` で提供され、Amber パラメータは `--real-parm7` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のヘシアンを選択します。計算機は完全な 3N x 3N ヘシアンまたはアクティブ自由度のサブブロックを返す場合があります。
 - **PHVA と TR 射影**: 凍結原子がある場合、固有解析はアクティブ部分空間内で行われ、並進/回転モードがそこに射影されます。3N x 3N とアクティブブロックの両方のヘシアンが受け付けられ、振動数は cm^-1 で報告されます（負の値 = 虚数）。
-- **アクティブ自由度モード**: `--active-dof-mode` は B 因子レイヤーに基づいて振動解析に含まれる原子を制御します: `all`（B=10,20,30,40）、`ml-only`（B=10）、`partial`（B=10,20、デフォルト）、`unfrozen`（B=10,20,30）。
+- **アクティブ自由度モード**: `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層, B=0）、`partial`（ML + Hessian 対象 MM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
 - **モードエクスポート**: `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `.trj`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML デフォルトに合致します。
 - **熱化学**: `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（EE、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。CLI の圧力（atm）は内部で Pa に変換されます。`--dump True` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。
 - **デバイス選択**: `ml_device="auto"` は CUDA が利用可能な場合にトリガーし、それ以外は CPU。内部の TR 射影/モード組み立ては転送を最小化するため同じデバイスで実行されます。
@@ -61,7 +61,7 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 | `-q, --charge INT` | ML 領域の電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
-| `--hess-cutoff FLOAT` | Hessian-MM レイヤーのカットオフ距離。 | _None_ |
+| `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM レイヤーのカットオフ距離。 | _None_ |
 | `--hessian-calc-mode CHOICE` | ヘシアンモード（`Analytical` または `FiniteDifference`）。 | _None_ |
 | `--max-write INT` | エクスポートするモード数。 | `20` |

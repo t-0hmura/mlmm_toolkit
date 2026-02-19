@@ -20,7 +20,7 @@ Given **(i) two or more full protein-ligand PDB files** (R, ..., P), **or (ii) o
 
 - extracts an **active-site pocket** around user-defined substrates to build a **cluster model**,
 - generates **Amber parm7/rst7** topology files for the MM region (`mm-parm`),
-- assigns a **4-layer ML/MM partitioning** (`define-layer`),
+- assigns a **3-layer ML/MM partitioning** (`define-layer`),
 - explores **minimum-energy paths (MEPs)** with path optimization methods such as the Growing String Method (GSM) and Direct Max Flux (DMF),
 - _optionally_ optimizes **transition states**, runs **vibrational analysis**, **IRC calculations**, and **single-point DFT calculations**.
 
@@ -258,7 +258,7 @@ The `mlmm all` command orchestrates a multi-step pipeline. When run individually
 ```text
 1. extract     - Extract active-site pocket from full protein-ligand PDB
 2. mm-parm     - Generate Amber parm7/rst7 topology (requires AmberTools)
-3. define-layer - Assign 4-layer ML/MM partitioning (B-factor encoding)
+3. define-layer - Assign 3-layer ML/MM partitioning (B-factor encoding)
 4. path-search - Recursive MEP search (Growing String Method)
 5. tsopt       - Transition state optimization
 6. freq        - Vibrational analysis and thermochemistry
@@ -291,7 +291,7 @@ Behavior:
 
 - takes two or more **full systems** in reaction order,
 - extracts catalytic cluster models for each structure,
-- generates Amber parm7/rst7 topology and assigns 4-layer ML/MM partitioning,
+- generates Amber parm7/rst7 topology and assigns 3-layer ML/MM partitioning,
 - performs a **recursive MEP search** via `path-search` by default (outputs under `path_search/`),
 - optionally switches to a **single-pass** `path-opt` run with `--refine-path False`,
 - when PDB templates are available, merges the cluster-model MEP back into the **full system**,
@@ -422,7 +422,7 @@ Most users will primarily call `mlmm all`. The CLI also exposes individual subco
 | `all` | End-to-end workflow | [all](all.md) |
 | `extract` | Extract active-site pocket (cluster model) | [extract](extract.md) |
 | `mm-parm` | Generate Amber parm7/rst7 topology | [mm_parm](mm_parm.md) |
-| `define-layer` | Assign 4-layer ML/MM partitioning | [define_layer](define_layer.md) |
+| `define-layer` | Assign 3-layer ML/MM partitioning | [define_layer](define_layer.md) |
 | `opt` | Geometry optimization | [opt](opt.md) |
 | `tsopt` | Transition state optimization | [tsopt](tsopt.md) |
 | `path-opt` | MEP optimization (GSM/DMF) | [path_opt](path_opt.md) |

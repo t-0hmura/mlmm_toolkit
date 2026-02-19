@@ -157,4 +157,4 @@ The link-H block (when added) follows a TER record as contiguous HETATM records.
 - [Concepts](concepts.md) -- Full system vs. pocket (cluster model)
 - [CLI Conventions](cli-conventions.md) -- Residue selectors and charge specification
 - [mm-parm](mm_parm.md) -- Generate Amber topology from the extracted pocket
-- [define-layer](define_layer.md) -- Assign 4-layer ML/MM partitioning
+- [define-layer](define_layer.md) -- Assign 3-layer ML/MM partitioning

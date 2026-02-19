@@ -2,6 +2,8 @@
 
 ## Overview
 
+<img src="./docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="100%"> 
+
 `mlmm_toolkit` is a Python CLI toolkit for **enzymatic reaction mechanism analysis** using the **ML/MM (ONIOM) hybrid method**. It combines a machine-learning interatomic potential (UMA) for the active site with a classical force field (hessian_ff) for the surrounding protein environment.
 
 A **single command** can generate a first-pass enzymatic reaction path with ML/MM accuracy:
@@ -24,7 +26,7 @@ mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" -q 1 \
 Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt True`**, `mlmm_toolkit` automatically:
 
 - extracts an **active-site pocket** around user-defined substrates,
-- assigns **4-layer ONIOM regions** (ML / Hess MM / Movable MM / Frozen) via B-factor encoding,
+- assigns **3-layer ONIOM regions** (ML / Movable MM / Frozen) via B-factor encoding,
 - generates **MM parameters** (parm7/rst7) using AmberTools,
 - explores **minimum-energy paths (MEPs)** with GSM or DMF,
 - *optionally* optimizes **transition states**, runs **vibrational analysis**, **IRC**, and **single-point DFT**,
@@ -50,14 +52,14 @@ using Meta's **UMA** machine-learning interatomic potential for the ML region an
 | Calculator | UMA only | ONIOM: UMA + hessian_ff |
 | Energy | E_ML(full) | E_MM(real) + E_ML(model) - E_MM(model) |
 | Boundary | None | Link atom (H cap) + Jacobian chain rule |
-| Atom layers | freeze/active (2 layers) | ML / Hess MM / Movable MM / Frozen (4 layers) |
-| Layer encoding | None | B-factor (10/20/30/40) |
+| Atom layers | freeze/active (2 layers) | ML / Movable MM / Frozen (3 layers) |
+| Layer encoding | None | B-factor (0/10/20) |
 | Additional CLI | None | `--real-parm7`, `--model-pdb`, `--detect-layer` |
 
 ## Documentation
 
 - [**Getting Started**](docs/getting-started.md) — Installation and first steps
-- [**Concepts**](docs/concepts.md) — 4-layer system, ONIOM, link atoms
+- [**Concepts**](docs/concepts.md) — 3-layer system, ONIOM, link atoms
 - [**YAML Reference**](docs/yaml-reference.md) — Advanced configuration via `--args-yaml`
 - [**Troubleshooting**](docs/troubleshooting.md) — Common errors and fixes
 - **Full command index**: [docs/index.md](docs/index.md)
@@ -122,7 +124,7 @@ mlmm mm-parm -i complex.pdb --ligand-charge "PRE:-2"
 # 2. Extract active-site pocket
 mlmm extract -i complex.pdb -c '353' --ligand-charge "PRE:-2" -r 6.0
 
-# 3. Assign 4-layer ONIOM regions
+# 3. Assign 3-layer ONIOM regions
 mlmm define-layer -i complex.pdb --model-pdb pocket.pdb
 
 # 4. Optimize geometry
@@ -160,7 +162,7 @@ mlmm dft -i optimized.pdb --real-parm7 complex.parm7 -q 1
 |---|---|---|
 | `mm-parm` | Generate parm7/rst7 topology via AmberTools | [docs/mm_parm.md](docs/mm_parm.md) |
 | `extract` | Extract active-site pocket (cluster model) | [docs/extract.md](docs/extract.md) |
-| `define-layer` | Assign 4-layer B-factor encoding | [docs/define_layer.md](docs/define_layer.md) |
+| `define-layer` | Assign 3-layer B-factor encoding | [docs/define_layer.md](docs/define_layer.md) |
 | `add-elem-info` | Add/repair PDB element columns (77-78) | [docs/add_elem_info.md](docs/add_elem_info.md) |
 | `fix-altloc` | Resolve alternate conformations | [docs/fix_altloc.md](docs/fix_altloc.md) |
 
@@ -195,16 +197,17 @@ mlmm dft -i optimized.pdb --real-parm7 complex.parm7 -q 1
 
 ---
 
-## 4-Layer ONIOM System
+## 3-Layer ONIOM System
 
-`mlmm_toolkit` uses a 4-layer system encoded in PDB B-factor columns:
+`mlmm_toolkit` uses a 3-layer system encoded in PDB B-factor columns:
 
 | Layer | B-factor | Description | Hessian |
 |---|---|---|---|
-| ML | 10.0 | Active site (UMA energy/force/Hessian) | Yes |
-| Hess MM | 20.0 | Near-active-site MM (hessian_ff Hessian) | Yes |
-| Movable MM | 30.0 | Outer MM shell (hessian_ff force only) | No |
-| Frozen | 40.0 | Distant protein (coordinates fixed) | No |
+| ML | 0.0 | Active site (UMA energy/force/Hessian) | Yes |
+| Movable MM | 10.0 | MM atoms allowed to move | No (by B-factor alone) |
+| Frozen | 20.0 | Distant protein (coordinates fixed) | No |
+
+Hessian-target MM atoms are selected by calculator settings (`hess_cutoff`, explicit `hess_mm_atoms`, or equivalent YAML), not by a dedicated B-factor layer.
 
 Use `mlmm define-layer` to assign layers automatically based on a model PDB (the ML region).
 

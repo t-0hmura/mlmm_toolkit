@@ -286,7 +286,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt Tru
 | `all` | エンドツーエンドワークフロー | [all](all.md) |
 | `extract` | 活性部位ポケット抽出 | [extract](extract.md) |
 | `mm-parm` | Amber parm7/rst7 構築 | [mm_parm](mm_parm.md) |
-| `define-layer` | 4 層 ML/MM 領域定義 | [define_layer](define_layer.md) |
+| `define-layer` | 3 層 ML/MM 領域定義 | [define_layer](define_layer.md) |
 | `opt` | 構造最適化 | [opt](opt.md) |
 | `tsopt` | 遷移状態最適化 | [tsopt](tsopt.md) |
 | `path-opt` | MEP 最適化 (GSM/DMF) | [path_opt](path_opt.md) |

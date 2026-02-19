@@ -48,8 +48,8 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
   subspace with translation/rotation modes projected there. Both 3N x 3N and active-block
   Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
 - **Active DOF mode**: `--active-dof-mode` controls which atoms are included in the
-  frequency analysis based on B-factor layers: `all` (B=10,20,30,40), `ml-only` (B=10),
-  `partial` (B=10,20, default), `unfrozen` (B=10,20,30).
+  frequency analysis: `all` (all atoms), `ml-only` (ML layer, B=0),
+  `partial` (ML + Hessian-target MM; default), `unfrozen` (non-frozen layers, typically B=0/10).
 - **Mode export**: `--max-write` limits how many modes are animated. Modes are sorted by
   value (or absolute value with `--sort abs`). Each exported mode writes `.trj` (XYZ-like
   trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering).
@@ -76,7 +76,7 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 | `-q, --charge INT` | ML region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
-| `--hess-cutoff FLOAT` | Cutoff distance for Hessian-MM layer. | _None_ |
+| `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | _None_ |
 | `--max-write INT` | Number of modes to export. | `20` |

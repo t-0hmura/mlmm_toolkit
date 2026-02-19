@@ -1,6 +1,6 @@
 # Concepts & Workflow
 
-This page explains the key terms in mlmm_toolkit -- pockets, templates, segments, images, and the ML/MM 4-layer system -- and how the `all` command ties together the subcommands.
+This page explains the key terms in mlmm_toolkit -- pockets, templates, segments, images, and the ML/MM 3-layer system -- and how the `all` command ties together the subcommands.
 
 ---
 
@@ -17,7 +17,7 @@ Full system(s) (PDB/XYZ/GJF)
    |        |
    |        +- Amber topology          [mm-parm]     <- generates parm7/rst7 via AmberTools
    |        |        |
-   |        +- 4-layer assignment       [define-layer] <- B-factor encoding for ML/MM layers
+   |        +- 3-layer assignment       [define-layer] <- B-factor encoding for ML/MM layers
    |        |        |
    |        |        v
    |        |   Layered ML/MM system (PDB with B-factors)
@@ -44,22 +44,22 @@ Transition states: treat HEI / `tsopt` outputs as **TS candidates** until valida
 
 ---
 
-## ML/MM 4-layer system
+## ML/MM 3-layer system
 
-A central concept in mlmm_toolkit is the **4-layer ML/MM partitioning** of the system. Each atom belongs to one of four layers, encoded in the PDB B-factor column:
+A central concept in mlmm_toolkit is the **3-layer ML/MM partitioning** of the system. Each atom belongs to one of three layers, encoded in the PDB B-factor column:
 
 | Layer | B-factor | Description |
 |-------|----------|-------------|
-| **ML** (Layer 1) | 10.0 | The reactive region. Full UMA energy, forces, and Hessian. |
-| **Hessian-MM** (Layer 2) | 20.0 | Near MM region. hessian_ff provides energy, forces, **and Hessian**. |
-| **Movable-MM** (Layer 3) | 30.0 | Far MM region. hessian_ff provides energy and forces only (no Hessian). |
-| **Frozen** (Layer 4) | 40.0 | Coordinates are fixed; no optimization. |
+| **ML** (Layer 1) | 0.0 | The reactive region. Full UMA energy, forces, and Hessian. |
+| **Movable-MM** (Layer 2) | 10.0 | MM atoms allowed to move during optimization. |
+| **Frozen** (Layer 3) | 20.0 | Coordinates are fixed; no optimization. |
 
-The `define-layer` subcommand assigns these layers based on distance from the ML region:
+The `define-layer` subcommand assigns these B-factors based on distance from the ML region:
 
-- Atoms within `--radius-partial-hessian` (default 3.6 A) of the ML region are assigned to Hessian-MM.
-- Atoms within `--radius-freeze` (default 8.0 A) of the ML region are assigned to Movable-MM.
-- Atoms beyond `--radius-freeze` are Frozen.
+- Atoms/residues within `--radius-freeze` (default 8.0 A) are assigned to Movable-MM.
+- Atoms/residues beyond `--radius-freeze` are Frozen.
+
+Hessian-target MM atoms are controlled by calculator options (`hess_cutoff`, explicit `hess_mm_atoms`, etc.), not by a dedicated B-factor layer.
 
 ```{tip}
 The B-factor encoding allows you to visually inspect layer assignments in any molecular viewer that can color by B-factor.
@@ -140,7 +140,7 @@ Pocket extraction is controlled by:
 - `-r/--radius`, `--radius-het2het`, `--include-H2O`, `--exclude-backbone`, `--add-linkH`, `--selected-resn`.
 
 ### Real system vs. Model system (ONIOM terminology)
-- **Real system**: the entire set of atoms (all 4 layers). Evaluated at the MM (low) level.
+- **Real system**: the entire set of atoms (all 3 layers). Evaluated at the MM (low) level.
 - **Model system**: the ML region (Layer 1 only). Evaluated at both the UMA (high) and MM (low) levels.
 
 ### Images and segments
@@ -224,7 +224,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt True
 | `all` | End-to-end workflow | [all.md](all.md) |
 | `extract` | Pocket extraction | [extract.md](extract.md) |
 | `mm-parm` | Amber topology generation | [mm_parm.md](mm_parm.md) |
-| `define-layer` | 4-layer assignment | [define_layer.md](define_layer.md) |
+| `define-layer` | 3-layer assignment | [define_layer.md](define_layer.md) |
 | `path-search` | Recursive MEP search | [path_search.md](path_search.md) |
 | `tsopt` | TS optimization | [tsopt.md](tsopt.md) |
 | `freq` | Vibrational analysis | [freq.md](freq.md) |

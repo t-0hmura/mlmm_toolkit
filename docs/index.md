@@ -133,7 +133,7 @@ ja/index
 | [`extract`](extract.md) | Extract active-site pocket (cluster model) from protein-ligand complex |
 | [`add-elem-info`](add_elem_info.md) | Repair PDB element columns (77-78) |
 | [`mm-parm`](mm_parm.md) | Build AMBER topology (parm7/rst7) with tleap + GAFF2 |
-| [`define-layer`](define_layer.md) | Define 4-layer ML/MM regions via B-factor annotation |
+| [`define-layer`](define_layer.md) | Define 3-layer ML/MM regions via B-factor annotation |
 
 ### Geometry Optimization
 | Subcommand | Description |
@@ -225,12 +225,13 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 ## Key Concepts
 
-### ML/MM 4-Layer System
-mlmm_toolkit uses a 4-layer partitioning scheme encoded via PDB B-factors:
-- **ML region** (B=10.0): Treated with UMA machine-learning potential
-- **Hessian-MM** (B=20.0): MM atoms included in Hessian calculation
-- **Movable-MM** (B=30.0): MM atoms that move during optimization
-- **Frozen** (B=40.0): Fixed MM atoms
+### ML/MM 3-Layer System
+mlmm_toolkit uses a 3-layer partitioning scheme encoded via PDB B-factors:
+- **ML region** (B=0.0): Treated with UMA machine-learning potential
+- **Movable-MM** (B=10.0): MM atoms that move during optimization
+- **Frozen** (B=20.0): Fixed MM atoms
+
+Hessian-target MM atoms are selected by calculator options (`hess_cutoff` / explicit lists), not by a dedicated B-factor layer.
 
 ### Charge and spin
 - Use `--ligand-charge` to specify unknown residue charges: `'SAM:1,GPP:-3'`

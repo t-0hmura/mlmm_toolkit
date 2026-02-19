@@ -2,21 +2,20 @@
 
 ## Overview
 
-> **Summary:** Define a 4-layer ML/MM system based on distance from the ML region and encode the layer assignments as B-factors in the output PDB.
+> **Summary:** Define a 3-layer ML/MM system based on distance from the ML region and encode the layer assignments as B-factors in the output PDB.
 
-`mlmm define-layer` partitions an enzyme system into four concentric layers around the ML region and writes the assignments as PDB B-factors. The ML region can be specified via a model PDB, explicit atom indices, or a combination of both.
+`mlmm define-layer` partitions an enzyme system into three layers around the ML region and writes the assignments as PDB B-factors. The ML region can be specified via a model PDB, explicit atom indices, or a combination of both.
 
-### 4-Layer System
+### 3-Layer System
 | Layer | Name | B-factor | Description |
 | --- | --- | --- | --- |
-| 1 | ML | 10.0 | Atoms in the ML region |
-| 2 | Hess-MM | 20.0 | MM residues within `--radius-partial-hessian` of ML |
-| 3 | Movable-MM | 30.0 | MM residues within `--radius-freeze` but beyond `--radius-partial-hessian` |
-| 4 | Frozen | 40.0 | MM residues beyond `--radius-freeze` |
+| 1 | ML | 0.0 | Atoms in the ML region |
+| 2 | Movable-MM | 10.0 | MM atoms/residues within `--radius-freeze` of ML |
+| 3 | Frozen | 20.0 | MM atoms/residues beyond `--radius-freeze` |
 
 ### Layer assignment strategy
-- **Residues WITHOUT ML atoms:** the entire residue is assigned to a single layer based on the minimum distance from any ML atom to any atom in the residue.
-- **Residues WITH ML atoms:** non-ML atoms within the same residue are classified individually by distance.
+- **Residues without ML atoms:** the entire residue is assigned to a single layer based on the minimum distance from any ML atom to any atom in the residue.
+- **Residues with ML atoms:** non-ML atoms in the same residue are classified individually by distance.
 
 ## Usage
 ```bash
@@ -33,16 +32,16 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
 # Using explicit atom indices (0-based)
 mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labeled.pdb
 
-# Custom radii
+# Custom movable/frozen cutoff
 mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
-    --radius-partial-hessian 4.0 --radius-freeze 10.0 -o labeled.pdb
+    --radius-freeze 10.0 -o labeled.pdb
 ```
 
 ## Description
 1. **ML region identification** -- The ML region is defined by `--model-pdb` (atom matching against the input PDB) or `--model-indices` (explicit atom indices). If `--model-indices` is provided, it takes precedence over `--model-pdb`.
 2. **Distance computation** -- For each non-ML atom (or residue), the minimum distance from any ML atom is computed.
-3. **Layer assignment** -- Atoms/residues are assigned to Layer 2, 3, or 4 based on the distance thresholds `--radius-partial-hessian` and `--radius-freeze`.
-4. **Output** -- The output PDB has B-factors set to the layer values (10, 20, 30, 40). A summary of layer assignments is printed to the console.
+3. **Layer assignment** -- Non-ML atoms/residues are assigned to Movable-MM or Frozen by `--radius-freeze`.
+4. **Output** -- The output PDB has B-factors set to layer values (0, 10, 20). A summary of layer assignments is printed to the console.
 
 ## CLI options
 | Option | Description | Default |
@@ -50,20 +49,20 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 | `-i, --input PATH` | Input PDB file containing the full system. | Required |
 | `--model-pdb PATH` | PDB file defining atoms in the ML region. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (e.g. `"0,1,2,3"` or `"1-10,15,20-25"`). Takes precedence over `--model-pdb`. | _None_ |
-| `--radius-partial-hessian FLOAT` | Distance cutoff (A) from ML region for Hess-MM layer (Layer 2). | `3.6` |
-| `--radius-freeze FLOAT` | Distance cutoff (A) from ML region for Movable-MM layer (Layer 3). Atoms beyond this are frozen. | `8.0` |
+| `--radius-partial-hessian FLOAT` | Deprecated in 3-layer mode (kept for backward compatibility). | `0.0` |
+| `--radius-freeze FLOAT` | Distance cutoff (A) from ML region for Movable-MM. Atoms beyond this are Frozen. | `8.0` |
 | `-o, --output PATH` | Output PDB file with B-factors set to layer values. | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 
 ## Outputs
 ```
-<output>.pdb                # PDB with B-factors set to 10 / 20 / 30 / 40
+<output>.pdb                # PDB with B-factors set to 0 / 10 / 20
 (stdout)                    # Summary table of layer assignments and atom counts
 ```
 
 ## Notes
 - Distance is calculated as the minimum distance from any ML atom to any atom in the residue.
-- Default radii: `--radius-partial-hessian=3.6` A, `--radius-freeze=8.0` A.
+- `--radius-partial-hessian` is accepted for compatibility but ignored in 3-layer mode.
 - The output PDB preserves all original atom records; only the B-factor column is modified.
 
 ---

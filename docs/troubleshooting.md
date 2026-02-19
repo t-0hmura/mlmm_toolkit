@@ -221,20 +221,20 @@ Fixes to try:
 - Inspect the layer-assigned PDB visually (color by B-factor in your molecular viewer).
 - Check that `--model-pdb` correctly defines the ML region atoms.
 - Adjust the distance cutoffs in `define-layer`:
-  - `--radius-partial-hessian` (default 3.6 A): controls Hessian-MM boundary.
   - `--radius-freeze` (default 8.0 A): controls Movable-MM/Frozen boundary.
-- If using `use_bfactor_layers: true` in YAML, verify that B-factor values match the expected encoding (10.0, 20.0, 30.0, 40.0 with tolerance 1.0).
+- If needed, control Hessian-target MM separately in calc options (`hess_cutoff`, `hess_mm_atoms`).
+- If using `use_bfactor_layers: true` in YAML, verify that B-factor values match the expected encoding (0.0, 10.0, 20.0 with tolerance 1.0).
 
 ---
 
 ### B-factor values are not recognized
 Typical symptoms:
 - Calculator treats all atoms as frozen or all as ML.
-- B-factor values are not one of {10.0, 20.0, 30.0, 40.0}.
+- B-factor values are not one of {0.0, 10.0, 20.0}.
 
 Fix:
 - Re-run `define-layer` to ensure correct B-factor encoding.
-- A tolerance of 1.0 is applied: B-factors in [9.0, 11.0] map to ML, [19.0, 21.0] to Hessian-MM, etc.
+- A tolerance of 1.0 is applied: B-factors near 0/10/20 map to ML/Movable/Frozen.
 - Do not manually edit B-factors to arbitrary values.
 
 ---
@@ -309,7 +309,7 @@ Fixes to try:
 - **Reduce ML region size**: use a smaller extraction radius or manually trim `--model-pdb`.
 - **Use FiniteDifference ML Hessian**: set `--hessian-calc-mode FiniteDifference` (uses less VRAM but is slower).
 - **Move MM to CPU**: set `mm_device: cpu` in YAML (default).
-- **Reduce Hessian-MM region**: decrease `--radius-partial-hessian` in `define-layer` or increase `--radius-freeze`.
+- **Reduce Hessian-target MM region**: decrease `hess_cutoff` (YAML/CLI where available).
 - **Use a GPU with more VRAM**: 24 GB+ recommended for systems with 500+ ML atoms; 48 GB+ for 1000+ ML atoms.
 - **Reduce pocket size**: use a smaller `--radius` during extraction.
 
@@ -358,10 +358,10 @@ Fixes to try:
 
 ## Performance / stability tips
 
-- **Out of memory (VRAM)**: reduce ML region size, reduce Hessian-MM region, reduce nodes (`--max-nodes`), or use lighter optimizer settings (`--opt-mode light`).
+- **Out of memory (VRAM)**: reduce ML region size, reduce Hessian-target MM region, reduce nodes (`--max-nodes`), or use lighter optimizer settings (`--opt-mode light`).
 - **Analytical ML Hessian is slow or OOM**: use `--hessian-calc-mode FiniteDifference` for the ML region. Only use `Analytical` if you have ample VRAM (24 GB+ recommended for 300+ ML atoms).
 - **MM Hessian**: `mm_fd: true` (default) uses finite-difference for MM Hessian. Analytical MM Hessian (`mm_fd: false`) is faster for small systems but may require more memory.
-- **Large systems (2000+ atoms)**: ensure frozen atoms are properly set (Layer 4) to reduce the movable DOF count. Use `define-layer` with appropriate cutoffs.
+- **Large systems (2000+ atoms)**: ensure frozen atoms are properly set (Frozen layer, B=20) to reduce the movable DOF count. Use `define-layer` with appropriate cutoffs.
 - **Multi-GPU**: place ML on one GPU (`ml_cuda_idx: 0`) and MM on another (`mm_device: cuda`, `mm_cuda_idx: 1`) if available.
 
 ---

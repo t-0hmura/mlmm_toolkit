@@ -111,7 +111,7 @@
 対処:
 - **ML ヘシアンモードを有限差分に切り替え**: `--hessian-calc-mode FiniteDifference`（解析ヘシアンは VRAM を多く消費）
 - **ポケットサイズを縮小**: `--radius` を小さくしてクラスターモデルの原子数を減らす
-- **4 層分割を活用**: `hess_cutoff` と `movable_cutoff` を設定し、ヘシアン計算対象の原子数を制限:
+- **3 層 + Hessian 対象制御を活用**: `hess_cutoff` と `movable_cutoff` を設定し、ヘシアン計算対象の原子数を制限:
   ```yaml
   calc:
     hess_cutoff: 3.6
@@ -273,7 +273,7 @@ Please run `mlmm add-elem-info -i ...` to populate element columns before runnin
 - オプティマイザモードを切り替える: `--opt-mode light` (Dimer) または `--opt-mode heavy` (RS-I-RFO)
 - 余分な虚モードのフラット化を有効にする: `--flatten-imag-mode True`
 - 最大サイクル数を増やす: `--tsopt-max-cycles 20000`
-- 4 層の `hess_cutoff` を調整して、ヘシアン計算に含む原子の範囲を広げる
+- `hess_cutoff` を調整して、ヘシアン計算に含む原子の範囲を広げる
 
 ---
 
@@ -306,10 +306,10 @@ Please run `mlmm add-elem-info -i ...` to populate element columns before runnin
 
 ## パフォーマンス / 安定性のヒント
 
-- **VRAM 不足**: `--radius` を減らす、4 層分割で `hess_cutoff`/`movable_cutoff` を設定する
+- **VRAM 不足**: `--radius` を減らす、`hess_cutoff`/`movable_cutoff` を設定する
 - **解析ヘシアンが遅いまたは OOM**: `--hessian-calc-mode FiniteDifference` を使用。`Analytical` は十分な VRAM がある場合のみ推奨
 - **MM ヘシアン計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
-- **大規模系（1000 原子以上）**: `define-layer` で 4 層を適切に定義し、Layer 4（Frozen）で計算コストを削減
+- **大規模系（1000 原子以上）**: `define-layer` で 3 層を適切に定義し、Frozen 層で計算コストを削減
 - **ML と MM の並列実行**: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。`mm_threads` で CPU スレッド数を調整可能
 
 ---

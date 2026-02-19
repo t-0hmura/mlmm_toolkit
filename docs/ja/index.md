@@ -61,7 +61,7 @@ glossary
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
 | タンパク質-リガンド複合体からQM領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
 | MM トポロジ（parm7/rst7）を構築 | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
-| ML/MM 4層領域を定義 | `mlmm define-layer` | [define_layer.md](define_layer.md) |
+| ML/MM 3層領域を定義 | `mlmm define-layer` | [define_layer.md](define_layer.md) |
 | 単一構造を最適化 | `mlmm opt` | [opt.md](opt.md) |
 | 遷移状態を探索・最適化 | `mlmm tsopt` | [tsopt.md](tsopt.md) |
 | 最小エネルギー経路を探索 | `mlmm path-search` | [path_search.md](path_search.md) |
@@ -79,7 +79,7 @@ glossary
 ### はじめに
 
 - [**はじめに**](getting-started.md) - インストール、クイックスタート、概要
-- [**概念とワークフロー**](concepts.md) - ML/MM 4層システム、ONIOM 分解、各ステージの全体像
+- [**概念とワークフロー**](concepts.md) - ML/MM 3層システム、ONIOM 分解、各ステージの全体像
 - [**CLI 規約**](cli-conventions.md) - ブール値オプション、セレクタ、B-factor 層エンコーディング、電荷指定などの共通規約
 - [**トラブルシューティング**](troubleshooting.md) - よくあるエラーと対処法
 - [**システム要件**](#システム要件) - ハードウェアとソフトウェアの前提条件
@@ -96,7 +96,7 @@ glossary
 | [`extract`](extract.md) | タンパク質-リガンド複合体から活性部位ポケット（クラスターモデル）を抽出 |
 | [`add-elem-info`](add_elem_info.md) | PDB の元素カラム（77-78）を修復 |
 | [`mm-parm`](mm_parm.md) | AmberTools (tleap + GAFF2) を使用して Amber トポロジ（parm7/rst7）を構築 |
-| [`define-layer`](define_layer.md) | ML 領域からの距離に基づき 4 層 ML/MM 領域を定義し、B-factor でエンコード |
+| [`define-layer`](define_layer.md) | ML 領域からの距離に基づき 3 層 ML/MM 領域を定義し、B-factor でエンコード |
 
 #### 構造最適化
 | サブコマンド | 説明 |
@@ -184,12 +184,13 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 ## 重要な概念
 
-### ML/MM 4層システム
-mlmm_toolkit は PDB の B-factor を用いた 4 層分割スキームを使用します:
-- **ML 領域**（B=10.0）: UMA 機械学習ポテンシャルで計算
-- **Hessian-MM**（B=20.0）: hessian_ff によるMM エネルギー/力/ヘシアンを含む
-- **Movable-MM**（B=30.0）: 最適化時に移動可能な MM 原子（ヘシアン計算対象外）
-- **Frozen**（B=40.0）: 座標固定の MM 原子
+### ML/MM 3層システム
+mlmm_toolkit は PDB の B-factor を用いた 3 層分割スキームを使用します:
+- **ML 領域**（B=0.0）: UMA 機械学習ポテンシャルで計算
+- **Movable-MM**（B=10.0）: 最適化時に移動可能な MM 原子
+- **Frozen**（B=20.0）: 座標固定の MM 原子
+
+Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_cutoff` や `hess_mm_atoms` で制御します。
 
 ### 電荷とスピン
 - 未知残基の電荷を指定するには `--ligand-charge` を使用: `'SAM:1,GPP:-3'`

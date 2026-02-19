@@ -88,13 +88,13 @@ mlmm:
   return_partial_hessian: false          # Return only active-DOF Hessian block
 
   # --- Layer configuration ---
-  freeze_atoms: []                       # 0-based indices of atoms to freeze (Layer 4)
+  freeze_atoms: []                       # 0-based indices of atoms to freeze (Frozen layer)
   hess_cutoff: null                      # Angstrom; MM atoms within this distance of ML get Hessian (null = all movable)
   movable_cutoff: null                   # Angstrom; MM atoms within this distance of ML are movable (null = use freeze_atoms)
   use_bfactor_layers: false              # If true, read layer assignments from input PDB B-factors
-  hess_mm_atoms: null                    # Explicit Layer 2 atom indices (0-based; overrides cutoffs)
-  movable_mm_atoms: null                 # Explicit Layer 3 atom indices (0-based; overrides cutoffs)
-  frozen_mm_atoms: null                  # Explicit Layer 4 atom indices (0-based; overrides cutoffs)
+  hess_mm_atoms: null                    # Explicit Hessian-target MM atom indices (0-based; overrides cutoffs)
+  movable_mm_atoms: null                 # Explicit movable MM atom indices (0-based; overrides cutoffs)
+  frozen_mm_atoms: null                  # Explicit frozen MM atom indices (0-based; overrides cutoffs)
 
   # --- Diagnostics ---
   print_timing: true                     # Print ML/MM Hessian timing breakdown
@@ -594,4 +594,4 @@ dft:
 - [path-search](path_search.md) - Recursive MEP search
 - [freq](freq.md) - Vibrational analysis
 - [dft](dft.md) - DFT calculations
-- [Concepts](concepts.md) - ML/MM 4-layer system and ONIOM energy decomposition
+- [Concepts](concepts.md) - ML/MM 3-layer system and ONIOM energy decomposition

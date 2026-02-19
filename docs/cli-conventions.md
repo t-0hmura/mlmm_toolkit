@@ -50,18 +50,17 @@ mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q
 
 ## B-factor Layer Encoding
 
-mlmm_toolkit uses the PDB B-factor column to encode the 4-layer ML/MM partitioning:
+mlmm_toolkit uses the PDB B-factor column to encode the 3-layer ML/MM partitioning:
 
 | Layer | B-factor | Meaning |
 |-------|----------|---------|
-| ML | 10.0 | UMA energy/force/Hessian |
-| Hessian-MM | 20.0 | hessian_ff energy/force/Hessian |
-| Movable-MM | 30.0 | hessian_ff energy/force only |
-| Frozen | 40.0 | Coordinates fixed |
+| ML | 0.0 | UMA energy/force/Hessian |
+| Movable-MM | 10.0 | MM atoms allowed to move |
+| Frozen | 20.0 | Coordinates fixed |
 
 The `define-layer` subcommand writes these B-factors into the PDB. You can inspect layer assignments in any molecular viewer that supports B-factor coloring.
 
-A tolerance of 1.0 is used when reading B-factors, so values like 9.5 or 10.5 are treated as ML (10.0).
+A tolerance of 1.0 is used when reading B-factors, so values near 0/10/20 are mapped to ML/Movable/Frozen.
 
 ---
 

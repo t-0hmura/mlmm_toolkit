@@ -26,14 +26,14 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 
 Forces and Hessians follow the same subtraction pattern.
 
-## Four-layer partitioning for Hessian / optimization
+## Layering for Hessian / optimization
 
-The implementation can optionally split MM atoms into layers that control which atoms receive an MM finite-difference Hessian and which atoms are frozen:
+The implementation uses 3-layer B-factor encoding and optional Hessian-target MM selection:
 
-- **ML region** (B-factor = 10.0): Treated with UMA machine-learning potential
-- **Hessian-MM** (B-factor = 20.0): MM atoms included in Hessian calculation
-- **Movable-MM** (B-factor = 30.0): MM atoms that move during optimization
-- **Frozen** (B-factor = 40.0): Fixed MM atoms
+- **ML region** (B-factor = 0.0): Treated with UMA machine-learning potential
+- **Movable-MM** (B-factor = 10.0): MM atoms that move during optimization
+- **Frozen** (B-factor = 20.0): Fixed MM atoms
+- **Hessian-target MM** (not a dedicated B-factor): selected by `hess_cutoff` and/or explicit `hess_mm_atoms`
 
 Layer assignment is controlled by `hess_cutoff`, `movable_cutoff`, `use_bfactor_layers`, and explicit `*_mm_atoms` lists.
 
