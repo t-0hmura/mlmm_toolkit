@@ -11,7 +11,20 @@
 ## 最小例
 
 ```bash
-mlmm irc -i ts.pdb -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
+mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
+```
+
+```bash
+# YAML で最小設定（real_parm7/model_pdb を config に記述）
+cat > irc_min.yaml << 'YAML'
+calc:
+  real_parm7: real.parm7
+  model_pdb: ml_region.pdb
+  use_bfactor_layers: false
+YAML
+mlmm irc -i ts.pdb -q 0 -m 1 --config irc_min.yaml \
+  --max-cycles 50 --out-dir ./result_irc_yaml
 ```
 
 ## 出力の見方
@@ -28,29 +41,35 @@ mlmm irc -i ts.pdb -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 1. 正方向のみを実行する。
 
 ```bash
-mlmm irc -i ts.xyz -q -1 -m 2 --forward --no-backward \
+mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  --no-detect-layer -q -1 -m 2 --forward --no-backward \
   --out-dir ./result_irc_forward
 ```
 
 2. ステップサイズと root を調整する。
 
 ```bash
-mlmm irc -i ts.xyz -q 0 -m 1 --step-size 0.20 --root 1 \
+mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  --no-detect-layer -q 0 -m 1 --step-size 0.20 --root 1 \
   --out-dir ./result_irc_step
 ```
 
 3. 有限差分ヘシアンで確認する。
 
 ```bash
-mlmm irc -i ts.pdb -q 0 -m 1 --hessian-calc-mode FiniteDifference \
+mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  --no-detect-layer -q 0 -m 1 --hessian-calc-mode FiniteDifference \
   --max-cycles 80 --out-dir ./result_irc_fd
 ```
 
 ## 使用法
 
 ```bash
-mlmm irc -i INPUT.pdb -q CHARGE [-m MULT]
+mlmm irc -i INPUT.pdb --real-parm7 real.parm7
+    [--model-pdb ml_region.pdb | --model-indices "1,2,3" | --detect-layer]
+    [-q CHARGE] [-m MULT]
     [--max-cycles N] [--step-size Ds] [--root k]
+    [--detect-layer/--no-detect-layer]
     [--forward/--no-forward] [--backward/--no-backward]
     [--out-dir DIR]
     [--hessian-calc-mode Analytical|FiniteDifference]
@@ -62,11 +81,13 @@ mlmm irc -i INPUT.pdb -q CHARGE [-m MULT]
 
 ```bash
 # 有限差分ヘシアンとカスタムステップサイズによる正方向のみの IRC
-mlmm irc -i ts.xyz -q -1 -m 2 --forward --no-backward \
+mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    --no-detect-layer -q -1 -m 2 --forward --no-backward \
     --step-size 0.2 --hessian-calc-mode FiniteDifference --out-dir ./irc_fd/
 
 # PDB 入力を使用（軌跡も PDB としてエクスポート）
-mlmm irc -i ts.pdb -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc/
+mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc/
 ```
 
 ## ワークフロー
@@ -81,6 +102,11 @@ mlmm irc -i ts.pdb -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc/
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`.trj`/...）。 | 必須 |
+| `--real-parm7 PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
+| `--model-pdb PATH` | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 | _None_ |
+| `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 | _None_ |
+| `--model-indices-one-based/--model-indices-zero-based` | `--model-indices` を 1 始まり/0 始まりとして解釈。 | `True`（1 始まり） |
+| `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（`B=0/10/20`）から ML/MM レイヤーを検出。 | `True` |
 | `-q, --charge INT` | 総電荷。YAML の `calc.charge` を上書き。 | 強く推奨 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.spin` を上書き。 | `1` |
 | `--max-cycles INT` | IRC ステップの最大数。`irc.max_cycles` を上書き。 | _デフォルト_ |

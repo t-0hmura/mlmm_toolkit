@@ -8,6 +8,8 @@
 
 各グリッド点のエネルギーはバイアスなしで再評価され、PES グリッドとコンタープロットが作成されます。出力にはグリッド点ごとの XYZ スナップショット、PES をまとめた `surface.csv`、2D コンターマップ（`scan2d_map.png`）、底面投影付き 3D ランドスケープ（`scan2d_landscape.html`）が含まれます。
 
+scan 系コマンドは `--args-yaml`（単層）で YAML を与える設計で、マージ優先順位は **内部デフォルト < `--args-yaml` < 明示 CLI** です（`opt`/`tsopt`/`path-*` のような `--config` + `--override-yaml` は未対応）。
+
 ## 使用法
 
 ```bash
@@ -91,6 +93,8 @@ out_dir/  (デフォルト: ./result_scan2d/)
 ```
 
 ## YAML 設定（`--args-yaml`）
+
+scan 系のマージ優先順位は **内部デフォルト < `--args-yaml` < 明示 CLI** です。
 
 ミニマル例（[opt](opt.md) と同じキーで拡張）:
 

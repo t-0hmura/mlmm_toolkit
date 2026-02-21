@@ -38,5 +38,8 @@ jobs:
           python scripts/smoke_docs_commands.py
 
       - name: Smoke dump trajectories
+        timeout-minutes: 30
+        env:
+          MLMM_DUMP_CASE_TIMEOUT_SEC: "300"
         run: |
           python scripts/smoke_dump_trajectories.py

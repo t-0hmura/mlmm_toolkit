@@ -99,6 +99,29 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 - 座標ファイルと parm7 間の元素検証はベストエフォートです。原子順序は不変と仮定されます。
 - Gaussian の場合、`--near` カットオフは ONIOM 最適化中にどの MM 原子が移動可能かを決定します。
 
+## 失敗時の最短復旧レシピ
+1. エクスポート開始時に `ImportError: parmed` が出る。
+
+```bash
+python -c "import parmed; print(parmed.__version__)"
+pip install parmed
+```
+
+2. 元素/原子順検証（`--element-check`）で失敗する。
+
+```bash
+mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+  -o system.com --element-check
+```
+
+3. QM/MM 境界やレイヤー割り当てが不自然。
+
+```bash
+mlmm define-layer -i pocket.pdb --real-parm7 real.parm7 -o layered.pdb
+mlmm oniom-orca --parm7 real.parm7 -i layered.pdb --model-pdb ml_region.pdb \
+  -o system.inp
+```
+
 ---
 
 ## 関連項目

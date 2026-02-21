@@ -96,6 +96,29 @@ Both subcommands read an Amber parm7 topology file and generate QM/MM input file
 - For Gaussian, the `--near` cutoff determines which MM atoms are allowed to move during the ONIOM optimization.
 - Gaussian `NonBon` is written with Amber-standard 1-4 electrostatic scaling (`-1.2`).
 
+## Quick failure recovery
+1. `ImportError: parmed` when starting export.
+
+```bash
+python -c "import parmed; print(parmed.__version__)"
+pip install parmed
+```
+
+2. Element/order validation fails (`--element-check`).
+
+```bash
+mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+  -o system.com --element-check
+```
+
+3. QM/MM boundary or layer assignment looks wrong.
+
+```bash
+mlmm define-layer -i pocket.pdb --real-parm7 real.parm7 -o layered.pdb
+mlmm oniom-orca --parm7 real.parm7 -i layered.pdb --model-pdb ml_region.pdb \
+  -o system.inp
+```
+
 ---
 
 ## See Also

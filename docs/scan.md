@@ -13,7 +13,7 @@
 
 `mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples FAIR-Chem UMA and hessian_ff.
 
-When you provide multiple `--scan-lists` literals after a single flag, stages run sequentially and each stage starts from the previous stage's relaxed structure. After the biased walk, optional unbiased pre-/post-optimizations (`--preopt`, `--endopt`) can clean up geometries before writing `result.*` to disk. Configuration precedence is **CLI > YAML > internal defaults**; YAML sections include `geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`, and `bond`.
+When you provide multiple `--scan-lists` literals after a single flag, stages run sequentially and each stage starts from the previous stage's relaxed structure. After the biased walk, optional unbiased pre-/post-optimizations (`--preopt`, `--endopt`) can clean up geometries before writing `result.*` to disk. For the scan family, YAML is supplied via `--args-yaml` (single layer), and merge precedence is **internal defaults < `--args-yaml` < explicit CLI**. (Unlike `opt`/`tsopt`/`path-*`, scan commands do not use `--config` + `--override-yaml` yet.)
 
 ## Minimal example
 
@@ -157,7 +157,7 @@ out_dir/ (default: ./result_scan/)
 ```
 
 ## YAML configuration (`--args-yaml`)
-The YAML root must be a mapping. Configuration precedence is **CLI > YAML > internal defaults**.
+The YAML root must be a mapping. For scan commands, merge precedence is **internal defaults < `--args-yaml` < explicit CLI**.
 
 ### Section `geom`
 - `coord_type`: Coordinate type (cartesian vs dlc internals).

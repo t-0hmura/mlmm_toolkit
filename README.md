@@ -229,11 +229,35 @@ mlmm --help
 mlmm <subcommand> --help
 mlmm <subcommand> --help-advanced
 mlmm all --help-advanced
+# Equivalent module invocation
+python -m mlmm_toolkit --help
 ```
 
 `mlmm all --help` shows core options. Use `mlmm all --help-advanced` for the full option list.
 `scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-gaussian`, `oniom-orca`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
 For advanced configuration, use `--args-yaml` on individual subcommands, or `--config`/`--override-yaml` on `mlmm all`. See [YAML Reference](docs/yaml-reference.md).
+
+---
+
+## Docs / Smoke Checks
+
+To keep docs and CLI behavior in sync:
+
+```bash
+python scripts/check_intro_template.py
+python scripts/check_markdown_links.py
+python scripts/smoke_docs_commands.py
+```
+
+To verify trajectory dump behavior across `opt` / `tsopt` routes:
+
+```bash
+# Optional: override per-case timeout in seconds (default: 300)
+export MLMM_DUMP_CASE_TIMEOUT_SEC=300
+python scripts/smoke_dump_trajectories.py
+```
+
+`smoke_dump_trajectories.py` auto-detects a toy fixture (or uses `MLMM_DUMP_FIXTURE_DIR`) and checks both dump-on and dump-off paths, including legacy bool compatibility (`--dump True`).
 
 ---
 

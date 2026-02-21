@@ -15,7 +15,7 @@ from click.testing import CliRunner
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS_ROOT = REPO_ROOT / "docs"
 TOOL_NAME = "mlmm"
-CLI_MODULE = "mlmm_toolkit.cli"
+CLI_MODULE = "mlmm_toolkit"
 
 sys.path.insert(0, str(REPO_ROOT))
 

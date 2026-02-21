@@ -13,7 +13,7 @@
 
 `mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--real-parm7` から読み取られ、オプティマイザーは PySisyphus LBFGS です。
 
-設定セクション（`geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias`）は YAML で上書きでき、優先順位は **CLI > YAML > 内部デフォルト** です。YAML と `--freeze-atoms` で提供される凍結原子はオプティマイザーと ML/MM 計算機の間で共有されます。
+設定セクション（`geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias`）は `--args-yaml`（単層 YAML）で上書きされ、優先順位は **内部デフォルト < `--args-yaml` < 明示 CLI** です。YAML と `--freeze-atoms` で提供される凍結原子はオプティマイザーと ML/MM 計算機の間で共有されます。
 
 ## 使用法
 

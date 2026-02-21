@@ -13,7 +13,7 @@
 
 `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--real-parm7`; the optimizer is PySisyphus LBFGS.
 
-Configuration sections (`geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`) may be overridden through YAML with precedence **CLI > YAML > internal defaults**. Frozen atoms supplied through YAML and `--freeze-atoms` are shared between the optimizer and the ML/MM calculator.
+Configuration sections (`geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`) are overridden via `--args-yaml` (single YAML layer) with precedence **internal defaults < `--args-yaml` < explicit CLI**. Frozen atoms supplied through YAML and `--freeze-atoms` are shared between the optimizer and the ML/MM calculator.
 
 ## Usage
 ```bash

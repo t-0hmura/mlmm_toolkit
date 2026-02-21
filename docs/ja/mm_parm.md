@@ -94,6 +94,28 @@ LEaP が不明な残基を報告した場合、antechamber（GAFF2、AM1-BCC 電
 - **AmberTools**（`tleap`、`antechamber`、`parmchk2`）が PATH 上に利用可能であること。
 - **PDBFixer** + **OpenMM** は `--add-h` の場合**のみ**必要。
 
+## 失敗時の最短復旧レシピ
+1. AmberTools コマンドが見つからない。
+
+```bash
+which tleap antechamber parmchk2
+mlmm mm-parm -i input.pdb --keep-temp
+```
+
+2. 非標準残基でビルドが停止する。
+
+```bash
+mlmm mm-parm -i input.pdb --keep-temp
+# keep-temp で残した tleap ログを確認し、残基パラメータを追加して再実行
+```
+
+3. `--add-h` が環境依存で失敗する。
+
+```bash
+python -c "import pdbfixer, openmm; print('ok')"
+mlmm mm-parm -i input.pdb --no-add-h
+```
+
 ---
 
 ## 関連項目

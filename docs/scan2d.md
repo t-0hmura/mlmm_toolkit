@@ -8,6 +8,8 @@
 
 Energies at each grid point are re-evaluated without the bias to populate a PES grid and contour plot. Outputs include per-point XYZ snapshots, `surface.csv` summarizing the PES, a 2D contour map (`scan2d_map.png`), and a 3D landscape with bottom projection (`scan2d_landscape.html`).
 
+For scan-family commands, YAML is provided through `--args-yaml` (single layer), and merge precedence is **internal defaults < `--args-yaml` < explicit CLI**. (Unlike `opt`/`tsopt`/`path-*`, scan commands do not support `--config` + `--override-yaml` yet.)
+
 ## Usage
 ```bash
 mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
@@ -109,6 +111,8 @@ out_dir/  (default: ./result_scan2d/)
 ```
 
 ## YAML configuration (`--args-yaml`)
+
+Merge precedence for scan-family commands is **internal defaults < `--args-yaml` < explicit CLI**.
 
 A minimal example (extend with the same keys documented in [opt](opt.md)):
 

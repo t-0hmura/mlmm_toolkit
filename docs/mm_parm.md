@@ -83,6 +83,28 @@ Even if the build fails, when `--add-h` and hydrogen addition succeeded, the hyd
 - **AmberTools** (`tleap`, `antechamber`, `parmchk2`) must be available on PATH.
 - **PDBFixer** + **OpenMM** are required **only** when using `--add-h`.
 
+## Quick failure recovery
+1. AmberTools commands are missing.
+
+```bash
+which tleap antechamber parmchk2
+mlmm mm-parm -i input.pdb --keep-temp
+```
+
+2. Build stops on nonstandard residues.
+
+```bash
+mlmm mm-parm -i input.pdb --keep-temp
+# Check tleap log in the kept temp directory, then provide custom residue params.
+```
+
+3. `--add-h` fails in the active environment.
+
+```bash
+python -c "import pdbfixer, openmm; print('ok')"
+mlmm mm-parm -i input.pdb --no-add-h
+```
+
 ---
 
 ## See Also
