@@ -9,7 +9,7 @@
 A **single command** can generate a first-pass enzymatic reaction path with ML/MM accuracy:
 
 ```bash
-mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" -q 1
+mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2"
 ```
 
 ---
@@ -17,13 +17,13 @@ mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" -q 1
 The full workflow — **MEP search → TS optimization → IRC → thermochemistry → single-point DFT** — can be run in one command:
 
 ```bash
-mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" -q 1 \
-    --tsopt True --thermo True --dft True
+mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" \
+    --tsopt --thermo --dft
 ```
 
 ---
 
-Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt True`**, `mlmm_toolkit` automatically:
+Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm_toolkit` automatically:
 
 - extracts an **active-site pocket** around user-defined substrates,
 - assigns **3-layer ONIOM regions** (ML / Movable MM / Frozen) via B-factor encoding,
@@ -40,7 +40,7 @@ using Meta's **UMA** machine-learning interatomic potential for the ML region an
 > **Important (prerequisites):**
 > - Input PDB files must already contain **hydrogen atoms**.
 > - When providing multiple PDBs, they must contain **the same atoms in the same order** (only coordinates may differ).
-> - Boolean CLI options are passed explicitly as `True`/`False` (e.g., `--tsopt True`).
+> - Boolean CLI options are toggle-style: use `--flag` / `--no-flag` (e.g., `--tsopt`, `--no-dft`).
 > - A **parm7 topology** file (AmberTools) is required for MM calculations; use `mlmm mm-parm` to generate one.
 
 ## Key difference from pdb2reaction
@@ -60,7 +60,9 @@ using Meta's **UMA** machine-learning interatomic potential for the ML region an
 
 - [**Getting Started**](docs/getting-started.md) — Installation and first steps
 - [**Concepts**](docs/concepts.md) — 3-layer system, ONIOM, link atoms
-- [**YAML Reference**](docs/yaml-reference.md) — Advanced configuration via `--args-yaml`
+- [**CLI Command Reference (generated)**](docs/reference/commands/index.md)
+- [**YAML Schema (generated)**](docs/reference/yaml.md)
+- [**YAML Reference**](docs/yaml-reference.md) — Advanced configuration (`--args-yaml`, or layered `--config`/`--override-yaml` in `all`)
 - [**Troubleshooting**](docs/troubleshooting.md) — Common errors and fixes
 - **Full command index**: [docs/index.md](docs/index.md)
 
@@ -100,13 +102,13 @@ conda install -c conda-forge cyipopt -y
 
 ### Full workflow (multi-structure)
 ```bash
-mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" -q 1 \
-    --tsopt True --thermo True --dft True
+mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" \
+    --tsopt --thermo --dft
 ```
 
 ### Scan mode (single structure)
 ```bash
-mlmm all -i R.pdb -c PRE --ligand-charge "PRE:-2" -q 1 \
+mlmm all -i R.pdb -c PRE --ligand-charge "PRE:-2" \
     --scan-lists "[('PRE 353 O1\'','PRE 353 C3',1.2)]"
 ```
 
@@ -114,6 +116,12 @@ mlmm all -i R.pdb -c PRE --ligand-charge "PRE:-2" -q 1 \
 ```bash
 mlmm tsopt -i TS_candidate_layered.pdb --real-parm7 complex.parm7 \
     -q 1 --opt-mode light
+```
+
+### Generate a starter config template
+```bash
+mlmm init --out mlmm_all.config.yaml
+mlmm all --config mlmm_all.config.yaml --dry-run
 ```
 
 ### Step-by-step workflow
@@ -155,6 +163,7 @@ mlmm dft -i optimized.pdb --real-parm7 complex.parm7 -q 1
 | Subcommand | Role | Documentation |
 |---|---|---|
 | `all` | End-to-end: extraction → MEP → TS → IRC → freq → DFT | [docs/all.md](docs/all.md) |
+| `init` | Generate a starter YAML template for `mlmm all` | [docs/init.md](docs/init.md) |
 
 ### Structure Preparation
 
@@ -218,9 +227,13 @@ Use `mlmm define-layer` to assign layers automatically based on a model PDB (the
 ```bash
 mlmm --help
 mlmm <subcommand> --help
+mlmm <subcommand> --help-advanced
+mlmm all --help-advanced
 ```
 
-For advanced configuration (optimizer settings, Hessian options, etc.), use `--args-yaml` with a YAML file. See [YAML Reference](docs/yaml-reference.md).
+`mlmm all --help` shows core options. Use `mlmm all --help-advanced` for the full option list.
+`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-gaussian`, `oniom-orca`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
+For advanced configuration, use `--args-yaml` on individual subcommands, or `--config`/`--override-yaml` on `mlmm all`. See [YAML Reference](docs/yaml-reference.md).
 
 ---
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -23,6 +24,7 @@ import time
 import traceback
 
 import click
+from click.core import ParameterSource
 import numpy as np
 import yaml
 
@@ -40,6 +42,7 @@ from .opt import (
 )
 from .utils import (
     apply_layer_freeze_constraints,
+    deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
     pretty_block,
@@ -326,6 +329,132 @@ def _format_row_for_echo(row: List[Any]) -> str:
     return "[" + ", ".join(_fmt(v) for v in row) + "]"
 
 
+def _first_existing_artifact(out_dir: Path, patterns: Sequence[str]) -> Optional[Path]:
+    for pattern in patterns:
+        matches = sorted(out_dir.glob(pattern))
+        if matches:
+            return matches[0]
+    return None
+
+
+def _link_or_copy_file(src: Path, dst: Path) -> bool:
+    try:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if dst.exists() or dst.is_symlink():
+            if dst.is_dir() and not dst.is_symlink():
+                shutil.rmtree(dst)
+            else:
+                dst.unlink()
+        os.symlink(src.resolve(), dst)
+        return True
+    except Exception:
+        try:
+            shutil.copy2(src, dst)
+            return True
+        except Exception:
+            return False
+
+
+def _write_output_summary_md(out_dir: Path) -> None:
+    """Write summary.md and expose key outputs at out_dir root."""
+    try:
+        out_dir = out_dir.resolve()
+        artifact_specs = [
+            ("key_ml_region_with_linkH.xyz", "ML region with link hydrogens (XYZ)", ["ml_region_with_linkH.xyz"]),
+            ("key_result.yaml", "DFT + ML(dft)/MM result summary", ["result.yaml"]),
+        ]
+
+        found: List[Tuple[str, str, Path]] = []
+        missing: List[Tuple[str, str]] = []
+        for key_name, label, patterns in artifact_specs:
+            src = _first_existing_artifact(out_dir, patterns)
+            if src is None:
+                missing.append((key_name, label))
+                continue
+            dst = out_dir / key_name
+            try:
+                same = dst.exists() and src.resolve() == dst.resolve()
+            except Exception:
+                same = False
+            if not same and not _link_or_copy_file(src, dst):
+                missing.append((key_name, label))
+                continue
+            found.append((key_name, label, src))
+
+        lines: List[str] = [
+            "# DFT Output Summary",
+            "",
+            "## Location",
+            f"- Output directory: `{out_dir}`",
+            "",
+            "## Main Artifacts",
+        ]
+        if found:
+            for key_name, label, src in found:
+                rel = src.relative_to(out_dir)
+                lines.append(f"- {label}: `{rel}` (shortcut: `{key_name}`)")
+        else:
+            lines.append("- No expected DFT artifacts were found in this output directory.")
+
+        lines.extend(
+            [
+                "",
+                "## Root Shortcuts",
+                "- `key_*` files are symlinks when possible, otherwise copied files.",
+            ]
+        )
+        if found:
+            for key_name, label, _ in found:
+                lines.append(f"- `{key_name}` -> {label}")
+        if missing:
+            lines.append("- Missing shortcuts (source file not found or linking failed):")
+            for key_name, label in missing:
+                lines.append(f"  - `{key_name}` ({label})")
+
+        lines.extend(
+            [
+                "",
+                "## Quick Next Checks",
+            ]
+        )
+        if any(k == "key_result.yaml" for k, _, _ in found):
+            lines.append("- Start from `key_result.yaml` to review energies and charge/spin tables.")
+        if any(k == "key_ml_region_with_linkH.xyz" for k, _, _ in found):
+            lines.append("- Inspect `key_ml_region_with_linkH.xyz` to confirm the capped ML region.")
+        if not found:
+            lines.append("- Re-run DFT and check warnings in stdout/stderr to regenerate outputs.")
+
+        summary_md = out_dir / "summary.md"
+        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        click.echo(f"[write] Wrote '{summary_md}'.")
+    except Exception as e:
+        click.echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
+
+
+def _resolve_yaml_sources(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+) -> Tuple[Optional[Path], Optional[Path], bool]:
+    if override_yaml is not None and args_yaml_legacy is not None:
+        raise click.BadParameter(
+            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+        )
+    if args_yaml_legacy is not None:
+        return config_yaml, args_yaml_legacy, True
+    return config_yaml, override_yaml, False
+
+
+def _load_merged_yaml_cfg(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    deep_update(merged, load_yaml_dict(config_yaml))
+    deep_update(merged, load_yaml_dict(override_yaml))
+    return merged
+
+
 # ---- PySCF helpers copied from the legacy DFT script ----
 def fast_iao_mullikan_spin_pop(mol, dm, iaos, verbose=None):
     import numpy
@@ -537,12 +666,42 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=True,
 )
 @click.option(
-    "--args-yaml",
+    "--config",
+    "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="Optional YAML overrides under geom/calc/mlmm/dft.",
+    help="Base YAML configuration file applied before explicit CLI options.",
 )
+@click.option(
+    "--override-yaml",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Final YAML override file (highest priority YAML layer).",
+)
+@click.option(
+    "--args-yaml",
+    "args_yaml_legacy",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
+)
+@click.option(
+    "--show-config/--no-show-config",
+    "show_config",
+    default=False,
+    show_default=True,
+    help="Print resolved configuration and continue execution.",
+)
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    default=False,
+    show_default=True,
+    help="Validate options and print the execution plan without running DFT.",
+)
+@click.pass_context
 def cli(
+    ctx: click.Context,
     input_path: Path,
     real_parm7: Path,
     model_pdb: Optional[Path],
@@ -557,12 +716,38 @@ def cli(
     conv_tol: float,
     grid_level: int,
     out_dir: Path,
-    args_yaml: Optional[Path],
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+    show_config: bool,
+    dry_run: bool,
 ) -> None:
     if input_path.suffix.lower() != ".pdb":
         raise click.BadParameter("Input structure must be a PDB file for ML/MM DFT.")
 
-    prepared_input = prepare_input_structure(input_path)
+    def _is_param_explicit(name: str) -> bool:
+        try:
+            source = ctx.get_parameter_source(name)
+            return source not in (None, ParameterSource.DEFAULT)
+        except Exception:
+            return False
+
+    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+        args_yaml_legacy=args_yaml_legacy,
+    )
+    if used_legacy_yaml:
+        click.echo(
+            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
+            err=True,
+        )
+    merged_yaml_cfg = _load_merged_yaml_cfg(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+    )
+
+    prepared_input = None
     workspace: Optional[MLRegionWorkspace] = None
 
     model_indices: Optional[List[int]] = None
@@ -573,14 +758,12 @@ def cli(
             raise click.ClickException(str(e))
 
     try:
-        yaml_cfg = load_yaml_dict(args_yaml)
-
         geom_kw = deepcopy(OPT_GEOM_KW)
         calc_kw = deepcopy(OPT_CALC_KW)
         dft_kw = dict(DFT_KW)
 
         apply_yaml_overrides(
-            yaml_cfg,
+            merged_yaml_cfg,
             [
                 (geom_kw, (("geom",),)),
                 (calc_kw, (("calc",), ("mlmm",))),
@@ -588,19 +771,98 @@ def cli(
             ],
         )
 
+        if _is_param_explicit("conv_tol"):
+            dft_kw["conv_tol"] = float(conv_tol)
+        if _is_param_explicit("max_cycle"):
+            dft_kw["max_cycle"] = int(max_cycle)
+        if _is_param_explicit("grid_level"):
+            dft_kw["grid_level"] = int(grid_level)
+        if _is_param_explicit("out_dir"):
+            dft_kw["out_dir"] = str(out_dir)
+
+        func_basis_value = str(dft_kw.get("func_basis", func_basis))
+        if _is_param_explicit("func_basis"):
+            func_basis_value = func_basis
+        xc, basis = _parse_func_basis(func_basis_value)
+
         geom_kw["coord_type"] = "cart"
         geom_kw["freeze_atoms"] = _normalize_geom_freeze_opt(geom_kw.get("freeze_atoms"))
         freeze_atoms_cli = _parse_freeze_atoms_opt(freeze_atoms_text)
-        merged_freeze = merge_freeze_atom_indices(geom_kw, freeze_atoms_cli)
-        calc_kw["freeze_atoms"] = merged_freeze
+        calc_kw["freeze_atoms"] = merge_freeze_atom_indices(geom_kw, freeze_atoms_cli)
 
-        out_dir_path = Path(out_dir).resolve()
+        detect_layer_enabled = bool(calc_kw.get("use_bfactor_layers", True))
+        if _is_param_explicit("detect_layer"):
+            detect_layer_enabled = bool(detect_layer)
 
         layer_source_pdb = input_path.resolve()
-        model_pdb_cfg = model_pdb if model_pdb is not None else calc_kw.get("model_pdb")
+        model_pdb_cfg = calc_kw.get("model_pdb")
+        if model_pdb is not None:
+            model_pdb_cfg = model_pdb
         model_pdb_path: Optional[Path] = None
+        layer_info: Optional[Dict[str, List[int]]] = None
 
-        if detect_layer:
+        model_multiplicity = int(calc_kw.get("model_mult", spin))
+        if _is_param_explicit("spin"):
+            model_multiplicity = int(spin)
+        calc_kw["model_mult"] = model_multiplicity
+        calc_kw["model_charge"] = int(charge)
+
+        dft_block = {
+            "charge": int(charge),
+            "multiplicity": int(calc_kw["model_mult"]),
+            "xc": xc,
+            "basis": basis,
+            "conv_tol": dft_kw["conv_tol"],
+            "max_cycle": dft_kw["max_cycle"],
+            "grid_level": dft_kw["grid_level"],
+            "out_dir": str(Path(dft_kw["out_dir"]).resolve()),
+        }
+
+        click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_kw, key="freeze_atoms")))
+        click.echo(pretty_block("calc", {k: calc_kw[k] for k in sorted(calc_kw.keys()) if k not in {"freeze_atoms"}}))
+        click.echo(pretty_block("dft", dft_block))
+
+        if show_config:
+            click.echo(
+                pretty_block(
+                    "yaml_layers",
+                    {
+                        "config": None if config_yaml is None else str(config_yaml),
+                        "override_yaml": None if override_yaml is None else str(override_yaml),
+                        "merged_keys": sorted(merged_yaml_cfg.keys()),
+                    },
+                )
+            )
+
+        if dry_run:
+            if (not detect_layer_enabled) and (model_pdb_cfg is None) and (not model_indices):
+                raise click.ClickException(
+                    "Provide --model-pdb or --model-indices when --no-detect-layer."
+                )
+            click.echo(
+                pretty_block(
+                    "dry_run_plan",
+                    {
+                        "will_prepare_input": True,
+                        "detect_layer": bool(detect_layer_enabled),
+                        "model_region_source": (
+                            "bfactor"
+                            if detect_layer_enabled
+                            else ("model_pdb" if model_pdb_cfg is not None else "model_indices")
+                        ),
+                        "model_indices_count": 0 if not model_indices else len(model_indices),
+                        "output_dir": str(Path(dft_kw["out_dir"]).resolve()),
+                    },
+                )
+            )
+            click.echo("[dry-run] Validation complete. DFT execution was skipped.")
+            return
+
+        prepared_input = prepare_input_structure(input_path)
+        out_dir_path = Path(dft_kw["out_dir"]).resolve()
+        out_dir_path.mkdir(parents=True, exist_ok=True)
+
+        if detect_layer_enabled:
             try:
                 model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
                 calc_kw["use_bfactor_layers"] = True
@@ -613,9 +875,9 @@ def cli(
                 if model_pdb_cfg is None and not model_indices:
                     raise click.ClickException(str(e))
                 click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-                detect_layer = False
+                detect_layer_enabled = False
 
-        if not detect_layer:
+        if not detect_layer_enabled:
             if model_pdb_cfg is None and not model_indices:
                 raise click.ClickException("Provide --model-pdb or --model-indices when --no-detect-layer.")
             if model_pdb_cfg is not None:
@@ -633,38 +895,13 @@ def cli(
         calc_kw["input_pdb"] = str(input_path.resolve())
         calc_kw["real_parm7"] = str(real_parm7.resolve())
         calc_kw["model_pdb"] = str(model_pdb_path.resolve())
-        merged_freeze = apply_layer_freeze_constraints(
+        apply_layer_freeze_constraints(
             geom_kw,
             calc_kw,
-            layer_info if detect_layer else None,
+            layer_info if detect_layer_enabled else None,
             echo_fn=click.echo,
         )
-        calc_kw["model_charge"] = int(charge)
-        calc_kw["model_mult"] = int(spin)
-
-        dft_kw["conv_tol"] = float(conv_tol)
-        dft_kw["max_cycle"] = int(max_cycle)
-        dft_kw["grid_level"] = int(grid_level)
-        dft_kw["out_dir"] = str(out_dir)
-
-        xc, basis = _parse_func_basis(func_basis)
-
-        click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_kw, key="freeze_atoms")))
-        click.echo(pretty_block("calc", {k: calc_kw[k] for k in sorted(calc_kw.keys()) if k not in {"freeze_atoms"}}))
-        click.echo(pretty_block("dft", {
-            "charge": charge,
-            "multiplicity": spin,
-            "xc": xc,
-            "basis": basis,
-            "conv_tol": dft_kw["conv_tol"],
-            "max_cycle": dft_kw["max_cycle"],
-            "grid_level": dft_kw["grid_level"],
-            "out_dir": dft_kw["out_dir"],
-        }))
-
         time_start = time.perf_counter()
-        out_dir_path = Path(dft_kw["out_dir"]).resolve()
-        out_dir_path.mkdir(parents=True, exist_ok=True)
 
         workspace = _prepare_ml_region_workspace(
             input_pdb=Path(calc_kw["input_pdb"]),
@@ -672,6 +909,9 @@ def cli(
             model_pdb=Path(calc_kw["model_pdb"]),
             link_mlmm=calc_kw.get("link_mlmm"),
         )
+        model_charge = int(calc_kw["model_charge"])
+        model_mult = int(calc_kw["model_mult"])
+        model_spin2s = model_mult - 1
 
         xyz_path = out_dir_path / "ml_region_with_linkH.xyz"
         xyz_path.write_text(_atoms_to_xyz_string(workspace.atoms_model_lh, "ML region + link-H"))
@@ -687,8 +927,8 @@ def cli(
         mol.build(
             atom=_atoms_to_pyscf_atoms(workspace.atoms_model_lh),
             unit="Angstrom",
-            charge=int(charge),
-            spin=int(spin - 1),
+            charge=model_charge,
+            spin=model_spin2s,
             basis=basis,
         )
 
@@ -700,13 +940,13 @@ def cli(
             gpu4pyscf.activate()
             from gpu4pyscf import dft as gdf
 
-            mf = gdf.RKS(mol) if spin == 1 else gdf.UKS(mol)
+            mf = gdf.RKS(mol) if model_spin2s == 0 else gdf.UKS(mol)
             using_gpu = True
             engine_label = "gpu4pyscf"
         except Exception:
             from pyscf import dft as pdft
 
-            mf = pdft.RKS(mol) if spin == 1 else pdft.UKS(mol)
+            mf = pdft.RKS(mol) if model_spin2s == 0 else pdft.UKS(mol)
 
         mf.xc = xc
         mf.max_cycle = int(dft_kw["max_cycle"])
@@ -806,8 +1046,8 @@ def cli(
 
         result_yaml = {
             "input": {
-                "charge": int(charge),
-                "multiplicity": int(spin),
+                "charge": model_charge,
+                "multiplicity": model_mult,
                 "xc": xc,
                 "basis": basis,
                 "conv_tol": dft_kw["conv_tol"],
@@ -838,6 +1078,7 @@ def cli(
         result_file = out_dir_path / "result.yaml"
         result_file.write_text(yaml.safe_dump(result_yaml, sort_keys=False, allow_unicode=True))
         click.echo(f"[write] Wrote '{result_file}'.")
+        _write_output_summary_md(out_dir_path)
 
         click.echo(f"\nE_DFT (Hartree): {e_h:.12f}")
         click.echo(f"E_DFT (kcal/mol): {e_kcal:.6f}")
@@ -860,7 +1101,8 @@ def cli(
         click.echo("Unhandled error during ML/MM DFT:\n" + textwrap.indent(tb, "  "), err=True)
         sys.exit(1)
     finally:
-        prepared_input.cleanup()
+        if prepared_input is not None:
+            prepared_input.cleanup()
         if workspace is not None:
             workspace.cleanup()
 

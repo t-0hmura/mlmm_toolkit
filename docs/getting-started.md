@@ -10,13 +10,13 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
 ```
 
 ---
-You can also run **MEP search, TS optimization, IRC, thermochemistry, and single-point DFT** in a single run by adding `--tsopt True --thermo True --dft True`:
+You can also run **MEP search, TS optimization, IRC, thermochemistry, and single-point DFT** in a single run by adding `--tsopt --thermo --dft`:
 ```bash
-mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt True --thermo True --dft True
+mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo --dft
 ```
 ---
 
-Given **(i) two or more full protein-ligand PDB files** (R, ..., P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt True`**, `mlmm` automatically:
+Given **(i) two or more full protein-ligand PDB files** (R, ..., P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm` automatically:
 
 - extracts an **active-site pocket** around user-defined substrates to build a **cluster model**,
 - generates **Amber parm7/rst7** topology files for the MM region (`mm-parm`),
@@ -46,6 +46,7 @@ The CLI is designed to generate **multi-step enzymatic reaction mechanisms** wit
 
 ```{tip}
 If you are new to the project, read [Concepts & Workflow](concepts.md) first.
+For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md).
 If you encounter an error during setup or runtime, refer to [Troubleshooting](troubleshooting.md).
 ```
 
@@ -53,7 +54,7 @@ If you encounter an error during setup or runtime, refer to [Troubleshooting](tr
 
 | Convention | Example |
 |------------|---------|
-| **Boolean options** | `--tsopt True`, `--dft False` (case-insensitive; `true`/`1`/`yes` also work, but flag-style `--tsopt` alone is not allowed) |
+| **Boolean options** | `--tsopt`, `--no-dft` (recommended). Legacy value-style (`--tsopt True`, `--dft 0`) is still accepted with a deprecation warning. |
 | **Residue selectors** | `'SAM,GPP'` or `'A:123,B:456'` |
 | **Charge mapping** | `--ligand-charge 'SAM:1,GPP:-3'` |
 | **Atom selectors** | `'TYR,285,CA'` or `'TYR 285 CA'` |
@@ -228,6 +229,14 @@ If you prefer to build the environment piece by piece:
 
 ---
 
+## Quickstart routes (recommended)
+
+- [Quickstart: run `mlmm all`](quickstart-all.md)
+- [Quickstart: run `mlmm scan` with `--spec`](quickstart-scan-spec.md)
+- [Quickstart: validate TS with `mlmm tsopt` -> `mlmm freq`](quickstart-tsopt-freq.md)
+
+---
+
 ## Command line basics
 
 The main entry point is the `mlmm` command, installed via `pip`. Internally it uses the **Click** library, and the default subcommand is `all`.
@@ -284,7 +293,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
 **Richer example**
 
 ```bash
-mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --out-dir ./result_all --tsopt True --thermo True --dft True
+mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --out-dir ./result_all --tsopt --thermo --dft
 ```
 
 Behavior:
@@ -293,7 +302,7 @@ Behavior:
 - extracts catalytic cluster models for each structure,
 - generates Amber parm7/rst7 topology and assigns 3-layer ML/MM partitioning,
 - performs a **recursive MEP search** via `path-search` by default (outputs under `path_search/`),
-- optionally switches to a **single-pass** `path-opt` run with `--refine-path False`,
+- optionally switches to a **single-pass** `path-opt` run with `--no-refine-path`,
 - when PDB templates are available, merges the cluster-model MEP back into the **full system**,
 - optionally runs TS optimization, vibrational analysis, and single-point DFT calculations for each segment.
 
@@ -320,7 +329,7 @@ mlmm -i R.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --scan-lists '[("TYR 2
 **Richer example**
 
 ```bash
-mlmm -i SINGLE.pdb -c 'SAM,GPP' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]' --mult 1 --out-dir ./result_scan_all --tsopt True --thermo True --dft True
+mlmm -i SINGLE.pdb -c 'SAM,GPP' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]' --multiplicity 1 --out-dir ./result_scan_all --tsopt --thermo --dft
 ```
 
 Key points:
@@ -332,7 +341,7 @@ Key points:
 - Supplying one `--scan-lists` literal runs a single scan stage; multiple literals run sequential stages. Pass multiple literals after a single flag (repeated flags are not accepted).
 - Each stage writes a `stage_XX/result.pdb`, which is treated as a candidate intermediate or product.
 - The default `all` workflow refines the concatenated stages with recursive `path-search`.
-- With `--refine-path False`, it instead performs a single-pass `path-opt` chain and skips the recursive refiner.
+- With `--no-refine-path`, it instead performs a single-pass `path-opt` chain and skips the recursive refiner.
 
 This mode is useful for building reaction paths starting from a single structure.
 
@@ -347,13 +356,13 @@ Provide exactly one PDB and enable `--tsopt`:
 **Minimal example**
 
 ```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt True
+mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 ```
 
 **Richer example**
 
 ```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt True --thermo True --dft True --out-dir ./result_tsopt_only
+mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo --dft --out-dir ./result_tsopt_only
 ```
 
 Behavior:
@@ -365,7 +374,7 @@ Behavior:
 - produces UMA, Gibbs, and DFT//UMA energy diagrams.
 
 ```{important}
-Single-input runs require **either** `--scan-lists` (staged scan -> GSM) **or** `--tsopt True` (TSOPT-only). Supplying only a single `-i` without one of these will not trigger a full workflow.
+Single-input runs require **either** `--scan-lists` (staged scan -> GSM) **or** `--tsopt` (TSOPT-only). Supplying only a single `-i` without one of these will not trigger a full workflow.
 ```
 
 ---
@@ -376,17 +385,17 @@ Below are the most commonly used options across workflows.
 
 | Option | Description |
 |--------|-------------|
-| `-i, --input PATH...` | Input structures. **>= 2 PDBs** -> MEP search; **1 PDB + `--scan-lists`** -> staged scan -> GSM; **1 PDB + `--tsopt True`** -> TSOPT-only mode. |
+| `-i, --input PATH...` | Input structures. **>= 2 PDBs** -> MEP search; **1 PDB + `--scan-lists`** -> staged scan -> GSM; **1 PDB + `--tsopt`** -> TSOPT-only mode. |
 | `-c, --center TEXT` | Defines the substrate / extraction center. Supports residue names (`'SAM,GPP'`), residue IDs (`A:123,B:456`), or PDB paths. |
 | `--ligand-charge TEXT` | Charge info: mapping (`'SAM:1,GPP:-3'`) or single integer. |
 | `-q, --charge INT` | Hard override of total system charge. |
-| `-m, --mult INT` | Spin multiplicity (e.g., `1` for singlet). Note: Use `--multiplicity` in subcommands other than `all`. |
+| `-m, --multiplicity INT` | Spin multiplicity (e.g., `1` for singlet). |
 | `--scan-lists TEXT...` | Staged distance scans for single-input runs. |
 | `--out-dir PATH` | Top-level output directory. |
-| `--tsopt {True\|False}` | Enable TS optimization and IRC. |
-| `--thermo {True\|False}` | Run vibrational analysis and thermochemistry. |
-| `--dft {True\|False}` | Perform single-point DFT calculations. |
-| `--refine-path {True\|False}` | Recursive MEP refinement (default) vs single-pass. |
+| `--tsopt/--no-tsopt` | Enable TS optimization and IRC. |
+| `--thermo/--no-thermo` | Run vibrational analysis and thermochemistry. |
+| `--dft/--no-dft` | Perform single-point DFT calculations. |
+| `--refine-path/--no-refine-path` | Recursive MEP refinement (default) vs single-pass. |
 | `--opt-mode light\|heavy` | Optimization method: Light (LBFGS/Dimer) or Heavy (RFO/RS-I-RFO). |
 | `--mep-mode gsm\|dmf` | MEP method: Growing String Method or Direct Max Flux. |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. **Analytical recommended when VRAM available.** |
@@ -416,10 +425,13 @@ Each segment directory under `path_search/` also gets its own `summary.log` and 
 ## CLI commands
 
 Most users will primarily call `mlmm all`. The CLI also exposes individual subcommands -- each supports `-h/--help`.
+`mlmm all --help` shows core options and `mlmm all --help-advanced` shows the complete list.
+`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-gaussian`, `oniom-orca`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
 
 | Subcommand | Role | Documentation |
 |------------|------|---------------|
 | `all` | End-to-end workflow | [all](all.md) |
+| `init` | Generate a starter YAML template for `mlmm all` | [init](init.md) |
 | `extract` | Extract active-site pocket (cluster model) | [extract](extract.md) |
 | `mm-parm` | Generate Amber parm7/rst7 topology | [mm_parm](mm_parm.md) |
 | `define-layer` | Assign 3-layer ML/MM partitioning | [define_layer](define_layer.md) |
@@ -436,7 +448,7 @@ Most users will primarily call `mlmm all`. The CLI also exposes individual subco
 | `oniom-gaussian` | Export to Gaussian ONIOM format | [oniom_export](oniom_export.md) |
 | `oniom-orca` | Export to ORCA ONIOM format | [oniom_export](oniom_export.md) |
 | `trj2fig` | Plot energy profiles | [trj2fig](trj2fig.md) |
-| `energy-diagram` | Draw state energy diagram from numeric values | [energy-diagram](energy-diagram.md) |
+| `energy-diagram` | Draw state energy diagram from numeric values | [energy_diagram](energy_diagram.md) |
 | `add-elem-info` | Repair PDB element columns | [add_elem_info](add_elem_info.md) |
 
 ```{important}
@@ -459,13 +471,13 @@ mlmm -i R.pdb P.pdb -c 'SUBSTRATE' --ligand-charge 'SUB:-1'
 
 # Full workflow with post-processing
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt True --thermo True --dft True
+    --tsopt --thermo --dft
 
 # Single structure with staged scan
 mlmm -i SINGLE.pdb -c 'LIG' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
 
 # TS-only optimization
-mlmm -i TS.pdb -c 'LIG' --tsopt True --thermo True
+mlmm -i TS.pdb -c 'LIG' --tsopt --thermo
 
 # Individual subcommands (after running extract + mm-parm + define-layer)
 mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
@@ -481,9 +493,9 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m
 | `--ligand-charge` | Substrate charges (e.g., `'SAM:1,GPP:-3'`) |
 | `--real-parm7` | Amber parm7 topology file (required for subcommands) |
 | `--model-pdb` | ML region PDB file (required for subcommands) |
-| `--tsopt True` | Enable TS optimization + IRC |
-| `--thermo True` | Run vibrational analysis |
-| `--dft True` | Run single-point DFT |
+| `--tsopt` | Enable TS optimization + IRC |
+| `--thermo` | Run vibrational analysis |
+| `--dft` | Run single-point DFT |
 | `--out-dir` | Output directory |
 
 ---
@@ -494,6 +506,8 @@ For any subcommand:
 
 ```bash
 mlmm <subcommand> --help
+mlmm <subcommand> --help-advanced
+mlmm all --help-advanced
 ```
 
-This prints the available options, defaults, and a short description.
+For `all`, `--help` is intentionally short. Use `--help-advanced` to see every option.

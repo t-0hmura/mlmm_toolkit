@@ -1,6 +1,7 @@
 # Troubleshooting
 
 This page collects common failure modes and practical fixes. Search this page for the error message you encounter.
+If you want a symptom-first entrypoint, start with [Common Error Recipes](recipes-common-errors.md) and then return here for details.
 
 ---
 
@@ -66,7 +67,7 @@ Symptoms:
 Fixes to try:
 - Increase `--radius` (e.g., 2.6 -> 3.5 A).
 - Use `--selected-resn` to force-include residues (e.g., `--selected-resn 'A:123,B:456'`).
-- If backbone trimming is too aggressive, set `--exclude-backbone False`.
+- If backbone trimming is too aggressive, set `--no-exclude-backbone`.
 
 ---
 
@@ -323,7 +324,7 @@ Symptoms:
 
 Fixes to try:
 - Switch optimizer modes: `--opt-mode light` (Dimer) or `--opt-mode heavy` (RS-I-RFO).
-- Enable flattening of extra imaginary modes: `--flatten-imag-mode True`.
+- Enable flattening of extra imaginary modes: `--flatten-imag-mode`.
 - Increase max cycles: `--tsopt-max-cycles 20000`.
 - Use tighter convergence: `--thresh baker` or `--thresh gau_tight`.
 
@@ -350,7 +351,7 @@ Symptoms:
 
 Fixes to try:
 - Increase `--max-nodes` (e.g., 15 or 20) for complex reactions.
-- Enable endpoint pre-optimization: `--preopt True`.
+- Enable endpoint pre-optimization: `--preopt`.
 - Try the alternative MEP method: `--mep-mode dmf` (if GSM fails) or vice versa.
 - Adjust bond detection parameters in YAML (`bond.bond_factor`, `bond.delta_fraction`).
 

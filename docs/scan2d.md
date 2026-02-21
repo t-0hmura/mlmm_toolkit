@@ -2,7 +2,7 @@
 
 ## Overview
 
-> **Summary:** Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations. You provide one `--scan-lists` literal with two quadruples `(i, j, low_A, high_A)`.
+> **Summary:** Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations. Use `--spec` (YAML/JSON, recommended) or legacy `--scan-lists`.
 
 `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. The scan iterates d1 first, relaxing the structure with only the d1 restraint active, then iterates d2 for each d1 value with both restraints applied.
 
@@ -11,29 +11,53 @@ Energies at each grid point are re-evaluated without the bias to populate a PES 
 ## Usage
 ```bash
 mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q CHARGE [-m SPIN] --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]" \
+    -q CHARGE [-m SPIN] \
+    [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
     [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
     [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
-    [--dump {True|False}] [--out-dir DIR] [--args-yaml FILE] \
-    [--preopt {True|False}] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
+    [--dump/--no-dump] [--out-dir DIR] [--args-yaml FILE] \
+    [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
 ### Examples
 ```bash
-# Minimum example (two ranges for d1 and d2)
+# Recommended: YAML/JSON spec
+cat > scan2d.yaml << 'YAML'
+one_based: true
+pairs:
+  - [12, 45, 1.30, 3.10]
+  - [10, 55, 1.20, 3.20]
+YAML
+mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 --spec scan2d.yaml --print-parsed
+
+# Legacy: Python literal
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 
 # LBFGS scan with TRJ dumps and fixed color scale for the contour plot
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
-    --max-step-size 0.20 --dump True --out-dir ./result_scan2d/ --preopt True --baseline min \
+    --max-step-size 0.20 --dump --out-dir ./result_scan2d/ --preopt --baseline min \
     --zmin 0.0 --zmax 40.0
 ```
 
+## `--spec` format (recommended)
+
+```yaml
+one_based: true   # optional; defaults to CLI --one-based/--zero-based
+pairs:
+  - [12, 45, 1.30, 3.10]
+  - [10, 55, 1.20, 3.20]
+```
+
+- `pairs` is required and must contain exactly 2 quadruples.
+- Each quadruple is `(i, j, low_A, high_A)`.
+- Indices may be integers or PDB selectors (same as `--scan-lists`).
+
 ## Workflow
-1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (FAIR-Chem UMA + hessian_ff), and optionally run an unbiased pre-optimization when `--preopt True`.
-2. **Grid construction** -- Parse `--scan-lists` into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
+1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (FAIR-Chem UMA + hessian_ff), and optionally run an unbiased pre-optimization when `--preopt`.
+2. **Grid construction** -- Parse targets from `--spec` (recommended) or legacy `--scan-lists` into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
 5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`.
@@ -53,17 +77,19 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
-| `--scan-lists TEXT` | Python literal with two quadruples: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Required |
+| `--spec FILE` | YAML/JSON spec with `pairs` (2 quadruples) and optional `one_based`. | Recommended |
+| `--scan-lists TEXT` | Legacy Python literal with two quadruples: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Alternative to `--spec` |
 | `--one-based / --zero-based` | Interpret `(i,j)` indices in `--scan-lists` as 1-based or 0-based. | `True` (1-based) |
+| `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (A). Determines grid density. | `0.20` |
 | `--bias-k FLOAT` | Harmonic well strength k (eV/A^2). | `100.0` |
 | `--relax-max-cycles INT` | Maximum LBFGS cycles per biased relaxation. | `10000` |
-| `--dump {True\|False}` | Write inner d2 scan TRJs per d1 slice. | `False` |
+| `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `--out-dir TEXT` | Base output directory. | `./result_scan2d/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--args-yaml FILE` | YAML overrides (sections: `geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
-| `--preopt {True\|False}` | Run an unbiased pre-optimization before scanning. | `True` |
+| `--preopt/--no-preopt` | Run an unbiased pre-optimization before scanning. | `True` |
 | `--baseline {min,first}` | Reference for relative energy (kcal/mol). | `min` |
 | `--zmin FLOAT` | Lower bound of the contour color scale (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Upper bound of the contour color scale (kcal/mol). | Autoscaled |
@@ -77,8 +103,8 @@ out_dir/  (default: ./result_scan2d/)
 ├── grid/
 │   ├── point_i###_j###.xyz       # Relaxed geometry for every (i, j) pair
 │   ├── point_i###_j###.pdb       # PDB companion (when input is PDB)
-│   ├── preopt_i###_j###.xyz      # Pre-optimized structure (when --preopt True)
-│   └── inner_path_d1_###.trj     # Inner d2 trajectory per d1 slice (when --dump True)
+│   ├── preopt_i###_j###.xyz      # Pre-optimized structure (when --preopt)
+│   └── inner_path_d1_###.trj     # Inner d2 trajectory per d1 slice (when --dump)
 └── (stdout)                      # Progress and energy summaries
 ```
 
@@ -109,6 +135,8 @@ bias:
 ```
 
 ## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
 - The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) keeps the entire enzyme complex. The ML region comes from `--model-pdb`; Amber parameters are read from `--real-parm7`.
 - The bias is always removed before final energies are recorded, so `surface.csv` is directly comparable across grid points.
 - When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also converted to PDB files with B-factor annotations: ML-region atoms = 100.00, frozen atoms = 50.00, both = 150.00.
@@ -117,6 +145,8 @@ bias:
 ---
 
 ## See Also
+
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 
 - [scan](scan.md) -- 1D bond-length driven scan
 - [scan3d](scan3d.md) -- 3D distance grid scan

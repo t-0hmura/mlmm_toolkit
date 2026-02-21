@@ -1,6 +1,6 @@
 # YAML 設定リファレンス
 
-このドキュメントは、`mlmm` の各コマンドで利用される YAML 設定の完全なリファレンスです。設定ファイルは `--args-yaml` で指定し、適用順序は **デフォルト → CLI → YAML**（YAMLが最優先）です。
+このドキュメントは、`mlmm` の各コマンドで利用される YAML 設定の完全なリファレンスです。`mlmm all` では `--config` と `--override-yaml`（`--args-yaml` は `--override-yaml` の legacy alias）による多層指定をサポートし、適用順序は **デフォルト < config < CLI < override-yaml** です。
 
 ---
 
@@ -60,7 +60,7 @@ calc:
   real_parm7: null                       # 全系の Amber parm7 トポロジ (CLI --real-parm7)
   model_pdb: null                        # ML 領域を定義する PDB (CLI --model-pdb)
   model_charge: 0                        # ML 領域の電荷 (CLI -q で上書き)
-  model_mult: 1                          # ML 領域のスピン多重度 (CLI -s で上書き)
+  model_mult: 1                          # ML 領域のスピン多重度 (CLI -m で上書き)
   link_mlmm: null                        # リンク原子ペアの明示指定 (null で自動検出)
   uma_model: uma-s-1p1                   # UMA 事前学習モデル名
   uma_task_name: omol                    # UMA バッチに記録されるタスクタグ

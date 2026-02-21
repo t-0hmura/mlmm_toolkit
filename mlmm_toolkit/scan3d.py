@@ -60,6 +60,7 @@ from .utils import (
     convert_xyz_to_pdb,
     load_pdb_atom_metadata,
     parse_scan_list_quads,
+    parse_scan_spec_quads,
     axis_label_csv,
     axis_label_html,
     PDB_ATOM_META_HEADER,
@@ -205,8 +206,15 @@ def _make_lbfgs(
     "--scan-list",
     "scan_list_raw",
     type=str,
-    required=True,
+    required=False,
     help='Python-like list with three quadruples: "[(i1,j1,low1,high1),(i2,j2,low2,high2),(i3,j3,low3,high3)]".',
+)
+@click.option(
+    "--spec",
+    "spec_path",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    required=False,
+    help="YAML/JSON scan spec file (recommended). Use this instead of --scan-list.",
 )
 @click.option(
     "--one-based/--zero-based",
@@ -214,6 +222,13 @@ def _make_lbfgs(
     default=True,
     show_default=True,
     help="Interpret (i,j) indices in --scan-list(s) as 1-based (default) or 0-based.",
+)
+@click.option(
+    "--print-parsed/--no-print-parsed",
+    "print_parsed",
+    default=False,
+    show_default=True,
+    help="Print parsed scan targets after resolving --spec/--scan-list.",
 )
 @click.option(
     "--max-step-size",
@@ -292,8 +307,10 @@ def cli(
     freeze_atoms_cli: Optional[str],
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
-    scan_list_raw: str,
+    scan_list_raw: Optional[str],
+    spec_path: Optional[Path],
     one_based: bool,
+    print_parsed: bool,
     max_step_size: float,
     bias_k: float,
     relax_max_cycles: int,
@@ -478,20 +495,47 @@ def cli(
             if source_path.suffix.lower() == ".pdb":
                 pdb_atom_meta = load_pdb_atom_metadata(source_path)
 
-            parsed, raw_pairs = parse_scan_list_quads(
-                scan_list_raw,
-                expected_len=3,
-                one_based=one_based,
-                atom_meta=pdb_atom_meta,
-                option_name="--scan-list",
-            )
+            if spec_path is not None and scan_list_raw is not None:
+                raise click.BadParameter("Use either --spec or --scan-list, not both.")
+            scan_one_based = bool(one_based)
+            scan_source = "--scan-list"
+            if spec_path is not None:
+                parsed, raw_pairs, scan_one_based = parse_scan_spec_quads(
+                    spec_path,
+                    expected_len=3,
+                    one_based_default=one_based,
+                    atom_meta=pdb_atom_meta,
+                    option_name="--spec",
+                )
+                scan_source = f"--spec ({spec_path})"
+            else:
+                if scan_list_raw is None:
+                    raise click.BadParameter("Provide either --spec or --scan-list.")
+                parsed, raw_pairs = parse_scan_list_quads(
+                    scan_list_raw,
+                    expected_len=3,
+                    one_based=scan_one_based,
+                    atom_meta=pdb_atom_meta,
+                    option_name="--scan-list",
+                )
             (i1, j1, low1, high1), (i2, j2, low2, high2), (i3, j3, low3, high3) = parsed
-            d1_label_csv = axis_label_csv("d1", i1, j1, one_based, pdb_atom_meta, raw_pairs[0])
-            d2_label_csv = axis_label_csv("d2", i2, j2, one_based, pdb_atom_meta, raw_pairs[1])
-            d3_label_csv = axis_label_csv("d3", i3, j3, one_based, pdb_atom_meta, raw_pairs[2])
+            d1_label_csv = axis_label_csv("d1", i1, j1, scan_one_based, pdb_atom_meta, raw_pairs[0])
+            d2_label_csv = axis_label_csv("d2", i2, j2, scan_one_based, pdb_atom_meta, raw_pairs[1])
+            d3_label_csv = axis_label_csv("d3", i3, j3, scan_one_based, pdb_atom_meta, raw_pairs[2])
             d1_label_html = axis_label_html(d1_label_csv)
             d2_label_html = axis_label_html(d2_label_csv)
             d3_label_html = axis_label_html(d3_label_csv)
+            if print_parsed:
+                click.echo(
+                    pretty_block(
+                        "scan-parsed",
+                        {
+                            "source": scan_source,
+                            "one_based": bool(scan_one_based),
+                            "pairs_0based": parsed,
+                        },
+                    )
+                )
             click.echo(
                 pretty_block(
                     "scan-list (0-based)",

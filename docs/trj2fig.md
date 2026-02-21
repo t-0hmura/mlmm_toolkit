@@ -79,6 +79,9 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## See Also
 
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+
 - [path_search](path_search.md) -- Recursive MEP search (produces XYZ trajectories suitable for trj2fig)
 - [irc](irc.md) -- IRC from TS (produces trajectories for energy profiling)
 - [all](all.md) -- End-to-end workflow

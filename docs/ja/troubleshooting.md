@@ -2,6 +2,7 @@
 
 このページでは、`mlmm` でよく遭遇するエラーと対処法をまとめます。
 エラーメッセージでページ内検索すると、該当するセクションを素早く見つけることができます。
+症状から先に当たりを付けたい場合は、先に [典型エラー別レシピ](recipes-common-errors.md) を見てからこのページに戻ってください。
 
 ---
 
@@ -194,7 +195,7 @@ Please run `mlmm add-elem-info -i ...` to populate element columns before runnin
 対処の例:
 - `--radius` を増やす（例: 2.6 → 3.5 Å）
 - `--selected-resn` で残基を強制包含する（例: `--selected-resn 'A:123,B:456'`）
-- 主鎖削除が強すぎる場合は `--exclude-backbone False` を試す
+- 主鎖削除が強すぎる場合は `--no-exclude-backbone` を試す
 
 ---
 
@@ -271,7 +272,7 @@ Please run `mlmm add-elem-info -i ...` to populate element columns before runnin
 
 対処の例:
 - オプティマイザモードを切り替える: `--opt-mode light` (Dimer) または `--opt-mode heavy` (RS-I-RFO)
-- 余分な虚モードのフラット化を有効にする: `--flatten-imag-mode True`
+- 余分な虚モードのフラット化を有効にする: `--flatten-imag-mode`
 - 最大サイクル数を増やす: `--tsopt-max-cycles 20000`
 - `hess_cutoff` を調整して、ヘシアン計算に含む原子の範囲を広げる
 
@@ -298,7 +299,7 @@ Please run `mlmm add-elem-info -i ...` to populate element columns before runnin
 
 対処の例:
 - `--max-nodes` を増やす（複雑な反応には 15 や 20 など）
-- 端点の事前最適化を有効にする: `--preopt True`
+- 端点の事前最適化を有効にする: `--preopt`
 - 別の MEP 手法を試す: `--mep-mode dmf`（GSM が失敗した場合）またはその逆
 - YAML で結合検出パラメータを調整（`bond.bond_factor`、`bond.delta_fraction`）
 

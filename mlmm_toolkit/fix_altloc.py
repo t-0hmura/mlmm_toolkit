@@ -326,9 +326,40 @@ def fix_altloc_file(
 # CLI
 # =============================================================================
 
+def _fix_altloc_short_help() -> str:
+    return "\n".join(
+        [
+            "Usage: mlmm fix-altloc [OPTIONS]",
+            "",
+            "Drop alternate locations from PDB files.",
+            "",
+            "Core options:",
+            "  -i, --input PATH                 Input PDB file or directory.",
+            "  -o, --out PATH                   Output file/directory.",
+            "  --recursive BOOL                 Recurse when input is a directory.",
+            "  --inplace BOOL                   Rewrite input file(s) in place.",
+            "  --help-advanced                  Show full fix-altloc options and exit.",
+            "",
+            "Use '--help-advanced' to see all fix-altloc options.",
+        ]
+    )
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     def _parse_bool(value: str) -> bool:
         return argparse_bool(value)
+
+    argv_list = list(argv) if argv is not None else None
+    if argv_list is not None:
+        wants_adv = "--help-advanced" in argv_list
+        wants_help = ("--help" in argv_list) or ("-h" in argv_list)
+        if wants_help and not wants_adv:
+            click.echo(_fix_altloc_short_help())
+            return 0
+        if wants_adv:
+            argv_list = [a for a in argv_list if a != "--help-advanced"]
+            if ("--help" not in argv_list) and ("-h" not in argv_list):
+                argv_list.append("--help")
 
     parser = argparse.ArgumentParser(
         description=(
@@ -368,7 +399,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=False,
         help="Process files even if no altLoc is detected (default: skip files without altLoc). Use True/False.",
     )
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv_list)
 
     pdb_files = collect_pdb_files(args.input, args.recursive)
     if not pdb_files:

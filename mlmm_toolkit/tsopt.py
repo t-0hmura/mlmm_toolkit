@@ -13,14 +13,17 @@ from __future__ import annotations
 
 import sys
 import textwrap
+import os
+import shutil
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, Tuple, List, Sequence
 
 import click
 import numpy as np
 import torch
+from click.core import ParameterSource
 from ase import Atoms
 from ase.io import write
 from ase.data import atomic_masses
@@ -63,6 +66,7 @@ from .utils import (
     append_xyz_trajectory as _append_xyz_trajectory,
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
+    deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
     pretty_block,
@@ -130,6 +134,148 @@ def _clear_cuda_cache(tensor: Optional[torch.Tensor] = None) -> None:
     if torch.cuda.is_available():
         if tensor is None or tensor.is_cuda:
             torch.cuda.empty_cache()
+
+
+def _first_existing_artifact(out_dir: Path, patterns: Sequence[str]) -> Optional[Path]:
+    """Resolve the first existing artifact for a list of relative patterns."""
+    for pattern in patterns:
+        if any(ch in pattern for ch in "*?[]"):
+            for candidate in sorted(out_dir.glob(pattern)):
+                if candidate.is_file():
+                    return candidate.resolve()
+            continue
+        candidate = out_dir / pattern
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def _link_or_copy_file(src: Path, dst: Path) -> bool:
+    """Create a symlink when possible; fall back to copy."""
+    try:
+        if dst.exists() or dst.is_symlink():
+            if dst.is_dir():
+                return False
+            dst.unlink()
+        rel = os.path.relpath(src, start=dst.parent)
+        dst.symlink_to(rel)
+        return True
+    except Exception:
+        try:
+            shutil.copy2(src, dst)
+            return True
+        except Exception:
+            return False
+
+
+def _write_output_summary_md(out_dir: Path) -> None:
+    """Write summary.md and expose key outputs at out_dir root."""
+    try:
+        out_dir = out_dir.resolve()
+        if not out_dir.exists():
+            return
+
+        root_specs: List[Tuple[str, Sequence[str]]] = [
+            ("Final TS geometry (XYZ)", ["final_geometry.xyz"]),
+            ("Final TS geometry (PDB)", ["final_geometry.pdb"]),
+            ("Optimization trajectory", ["optimization_all.trj", "optimization.trj"]),
+            ("Optimization trajectory (PDB)", ["optimization_all.pdb", "optimization.pdb"]),
+            ("Imaginary mode trajectory", ["vib/final_imag_mode_*.trj"]),
+            ("Imaginary mode (PDB)", ["vib/final_imag_mode_*.pdb"]),
+        ]
+        root_lines: List[str] = []
+        for label, patterns in root_specs:
+            src = _first_existing_artifact(out_dir, patterns)
+            if src is None:
+                continue
+            rel = os.path.relpath(src, start=out_dir)
+            root_lines.append(f"- {label}: [`{rel}`]({rel})")
+
+        shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
+            ("key_ts.xyz", "TS geometry (XYZ)", ["final_geometry.xyz"]),
+            ("key_ts.pdb", "TS geometry (PDB)", ["final_geometry.pdb"]),
+            ("key_opt.trj", "Optimization trajectory", ["optimization_all.trj", "optimization.trj"]),
+            ("key_opt.pdb", "Optimization trajectory (PDB)", ["optimization_all.pdb", "optimization.pdb"]),
+            ("key_imag_mode.trj", "Imaginary mode trajectory", ["vib/final_imag_mode_*.trj"]),
+            ("key_imag_mode.pdb", "Imaginary mode (PDB)", ["vib/final_imag_mode_*.pdb"]),
+        ]
+        shortcut_lines: List[str] = []
+        for name, label, patterns in shortcut_specs:
+            src = _first_existing_artifact(out_dir, patterns)
+            if src is None:
+                continue
+            dst = out_dir / name
+            try:
+                same = src.resolve() == dst.resolve()
+            except Exception:
+                same = False
+            if not same and not _link_or_copy_file(src, dst):
+                continue
+            src_rel = os.path.relpath(src, start=out_dir)
+            shortcut_lines.append(
+                f"- {label}: [`{name}`]({name}) (source: `{src_rel}`)"
+            )
+
+        lines: List[str] = [
+            "# TS-Opt Summary",
+            "",
+            f"- Generated: `{time.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
+            f"- Output directory: `{out_dir}`",
+            "",
+            "## Primary Artifacts",
+        ]
+        if root_lines:
+            lines.extend(root_lines)
+        else:
+            lines.append("- No primary artifacts detected yet.")
+        lines.extend(
+            [
+                "",
+                "## Root Shortcuts",
+                "- `key_*` files are symlinks when possible, otherwise copied files.",
+            ]
+        )
+        if shortcut_lines:
+            lines.extend(shortcut_lines)
+        else:
+            lines.append("- No shortcuts were generated.")
+        lines.extend(
+            [
+                "",
+                "## Notes",
+                "- Start from `key_ts.xyz` (or `key_ts.pdb`) and `key_imag_mode.trj` for TS validation.",
+            ]
+        )
+
+        summary_md = out_dir / "summary.md"
+        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        click.echo(f"[write] Wrote '{summary_md}'.")
+    except Exception as e:
+        click.echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
+
+
+def _resolve_yaml_sources(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+) -> Tuple[Optional[Path], Optional[Path], bool]:
+    if override_yaml is not None and args_yaml_legacy is not None:
+        raise click.BadParameter(
+            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+        )
+    if args_yaml_legacy is not None:
+        return config_yaml, args_yaml_legacy, True
+    return config_yaml, override_yaml, False
+
+
+def _load_merged_yaml_cfg(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    deep_update(merged, load_yaml_dict(config_yaml))
+    deep_update(merged, load_yaml_dict(override_yaml))
+    return merged
 
 
 
@@ -1751,8 +1897,12 @@ hessian_dimer_KW = {
          "overrides calc.hessian_calc_mode from YAML.",
 )
 @click.option("--max-cycles", type=int, default=10000, show_default=True, help="Maximum total LBFGS cycles.")
-@click.option("--dump", type=click.BOOL, default=False, show_default=True,
-              help="Write concatenated trajectory 'optimization_all.trj'.")
+@click.option(
+    "--dump/--no-dump",
+    default=False,
+    show_default=True,
+    help="Write concatenated trajectory 'optimization_all.trj'.",
+)
 @click.option("--out-dir", type=str, default=OUT_DIR_TSOPT, show_default=True, help="Output directory.")
 @click.option(
     "--thresh",
@@ -1784,12 +1934,42 @@ hessian_dimer_KW = {
          "unfrozen (all except frozen layer).",
 )
 @click.option(
-    "--args-yaml",
+    "--config",
+    "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="YAML with extra args (sections: geom, calc/mlmm, opt, hessian_dimer, rsirfo).",
+    help="Base YAML configuration file applied before explicit CLI options.",
 )
+@click.option(
+    "--override-yaml",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Final YAML override file (highest priority YAML layer).",
+)
+@click.option(
+    "--args-yaml",
+    "args_yaml_legacy",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
+)
+@click.option(
+    "--show-config/--no-show-config",
+    "show_config",
+    default=False,
+    show_default=True,
+    help="Print resolved configuration and continue execution.",
+)
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    default=False,
+    show_default=True,
+    help="Validate options and print the execution plan without running TS optimization.",
+)
+@click.pass_context
 def cli(
+    ctx: click.Context,
     input_path: Path,
     ref_pdb: Optional[Path],
     real_parm7: Path,
@@ -1810,8 +1990,34 @@ def cli(
     opt_mode: str,
     partial_hessian_flatten: bool,
     active_dof_mode: str,
-    args_yaml: Optional[Path],
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+    show_config: bool,
+    dry_run: bool,
 ) -> None:
+    def _is_param_explicit(name: str) -> bool:
+        try:
+            source = ctx.get_parameter_source(name)
+            return source not in (None, ParameterSource.DEFAULT)
+        except Exception:
+            return False
+
+    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+        args_yaml_legacy=args_yaml_legacy,
+    )
+    if used_legacy_yaml:
+        click.echo(
+            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
+            err=True,
+        )
+    merged_yaml_cfg = _load_merged_yaml_cfg(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+    )
+
     # Handle input: PDB directly, or XYZ with --ref-pdb for topology
     suffix = input_path.suffix.lower()
     if suffix == ".pdb":
@@ -1860,7 +2066,8 @@ def cli(
     )
     use_heavy = (mode_resolved == "heavy")
 
-    yaml_cfg = load_yaml_dict(args_yaml)
+    config_layer_cfg = load_yaml_dict(config_yaml)
+    override_layer_cfg = load_yaml_dict(override_yaml)
     geom_cfg: Dict[str, Any] = deepcopy(GEOM_KW)
     calc_cfg: Dict[str, Any] = deepcopy(CALC_KW)
     opt_cfg: Dict[str, Any] = dict(OPT_BASE_KW)
@@ -1869,7 +2076,7 @@ def cli(
     rsirfo_cfg: Dict[str, Any] = dict(RSIRFO_KW)
 
     apply_yaml_overrides(
-        yaml_cfg,
+        config_layer_cfg,
         [
             (geom_cfg, (("geom",),)),
             (calc_cfg, (("calc",), ("mlmm",))),
@@ -1878,8 +2085,55 @@ def cli(
             (rsirfo_cfg, (("rsirfo",),)),
         ],
     )
-    if hessian_calc_mode is not None:
+    if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
         calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
+    if _is_param_explicit("max_cycles"):
+        opt_cfg["max_cycles"] = int(max_cycles)
+    if _is_param_explicit("dump"):
+        opt_cfg["dump"] = bool(dump)
+    if _is_param_explicit("out_dir"):
+        opt_cfg["out_dir"] = out_dir
+    if _is_param_explicit("thresh") and thresh is not None:
+        opt_cfg["thresh"] = str(thresh)
+        simple_cfg["thresh"] = str(thresh)
+        rsirfo_cfg["thresh"] = str(thresh)
+    if _is_param_explicit("detect_layer"):
+        calc_cfg["use_bfactor_layers"] = bool(detect_layer)
+    if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
+        calc_cfg["hess_cutoff"] = float(hess_cutoff)
+    if _is_param_explicit("movable_cutoff") and movable_cutoff is not None:
+        calc_cfg["movable_cutoff"] = float(movable_cutoff)
+        calc_cfg["use_bfactor_layers"] = False
+
+    model_charge_value = calc_cfg.get("model_charge", charge)
+    if model_charge_value is None:
+        model_charge_value = charge
+    calc_cfg["model_charge"] = int(model_charge_value)
+    if _is_param_explicit("charge"):
+        calc_cfg["model_charge"] = int(charge)
+
+    model_mult_value = calc_cfg.get("model_mult", spin)
+    if model_mult_value is None:
+        model_mult_value = spin
+    calc_cfg["model_mult"] = int(model_mult_value)
+    if _is_param_explicit("spin"):
+        calc_cfg["model_mult"] = int(spin)
+
+    if model_pdb is not None:
+        calc_cfg["model_pdb"] = str(model_pdb)
+    calc_cfg["input_pdb"] = str(source_path)
+    calc_cfg["real_parm7"] = str(real_parm7)
+
+    apply_yaml_overrides(
+        override_layer_cfg,
+        [
+            (geom_cfg, (("geom",),)),
+            (calc_cfg, (("calc",), ("mlmm",))),
+            (opt_cfg, (("opt",),)),
+            (simple_cfg, (("hessian_dimer",),)),
+            (rsirfo_cfg, (("rsirfo",),)),
+        ],
+    )
 
     try:
         geom_freeze = _normalize_geom_freeze_opt(geom_cfg.get("freeze_atoms"))
@@ -1893,9 +2147,6 @@ def cli(
     freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
     calc_cfg["freeze_atoms"] = freeze_atoms_final
 
-    opt_cfg["max_cycles"] = int(max_cycles)
-    opt_cfg["dump"] = bool(dump)
-    opt_cfg["out_dir"] = out_dir
     # Propagate opt.print_every to TS optimizers (LBFGS in light mode, RS-I-RFO in heavy mode).
     if "print_every" in opt_cfg:
         try:
@@ -1906,34 +2157,83 @@ def cli(
                 rsirfo_cfg["print_every"] = pe
         except Exception:
             pass
-    if thresh is not None:
-        opt_cfg["thresh"] = str(thresh)
-        simple_cfg["thresh"] = str(thresh)
 
     out_dir_path = Path(opt_cfg["out_dir"]).resolve()
 
-    calc_cfg["model_charge"] = int(charge)
-    calc_cfg["model_mult"] = int(spin)
-    calc_cfg["input_pdb"] = str(source_path)
-    calc_cfg["real_parm7"] = str(real_parm7)
-
     # movable_cutoff implies full distance-based layer assignment.
     # hess_cutoff alone is allowed with detect-layer and is applied on movable MM atoms.
-    if movable_cutoff is not None:
-        if detect_layer:
-            click.echo("[layer] --movable-cutoff provided; disabling --detect-layer.", err=True)
-        detect_layer = False
+    detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
+    model_pdb_cfg = calc_cfg.get("model_pdb")
+    if calc_cfg.get("movable_cutoff") is not None:
+        if detect_layer_enabled:
+            click.echo("[layer] movable_cutoff is set; disabling --detect-layer.", err=True)
+        detect_layer_enabled = False
+        calc_cfg["use_bfactor_layers"] = False
 
     layer_source_pdb = source_path
-    if detect_layer and layer_source_pdb.suffix.lower() != ".pdb":
+    if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
         click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
         prepared_input.cleanup()
         sys.exit(1)
 
+    if show_config:
+        click.echo(
+            pretty_block(
+                "yaml_layers",
+                {
+                    "config": None if config_yaml is None else str(config_yaml),
+                    "override_yaml": None if override_yaml is None else str(override_yaml),
+                    "merged_keys": sorted(merged_yaml_cfg.keys()),
+                },
+            )
+        )
+
+    if dry_run:
+        model_region_source = "bfactor"
+        if not detect_layer_enabled:
+            if model_pdb_cfg is not None:
+                model_region_source = "model_pdb"
+            elif model_indices:
+                model_region_source = "model_indices"
+            else:
+                click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
+                prepared_input.cleanup()
+                sys.exit(1)
+        if (
+            not detect_layer_enabled
+            and model_pdb_cfg is None
+            and model_indices
+            and layer_source_pdb.suffix.lower() != ".pdb"
+        ):
+            click.echo("ERROR: --model-indices requires a PDB input (or --ref-pdb).", err=True)
+            prepared_input.cleanup()
+            sys.exit(1)
+        click.echo(
+            pretty_block(
+                "dry_run_plan",
+                {
+                    "input_geometry": str(geom_input_path),
+                    "output_dir": str(out_dir_path),
+                    "optimizer_mode": "heavy-rsirfo" if use_heavy else "light-dimer",
+                    "detect_layer": bool(detect_layer_enabled),
+                    "model_region_source": model_region_source,
+                    "model_indices_count": 0 if not model_indices else len(model_indices),
+                    "hessian_calc_mode": calc_cfg.get("hessian_calc_mode"),
+                    "partial_hessian_flatten": bool(partial_hessian_flatten),
+                    "active_dof_mode": str(active_dof_mode),
+                    "will_run_tsopt": True,
+                    "will_write_summary": True,
+                },
+            )
+        )
+        click.echo("[dry-run] Validation complete. TS optimization execution was skipped.")
+        prepared_input.cleanup()
+        return
+
     model_pdb_path: Optional[Path] = None
     layer_info: Optional[Dict[str, List[int]]] = None
 
-    if detect_layer:
+    if detect_layer_enabled:
         try:
             model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
             calc_cfg["use_bfactor_layers"] = True
@@ -1943,20 +2243,20 @@ def cli(
                 f"FrozenMM={len(layer_info.get('frozen_indices', []))}"
             )
         except Exception as e:
-            if model_pdb is None and not model_indices:
+            if model_pdb_cfg is None and not model_indices:
                 click.echo(f"ERROR: {e}", err=True)
                 prepared_input.cleanup()
                 sys.exit(1)
             click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-            detect_layer = False
+            detect_layer_enabled = False
 
-    if not detect_layer:
-        if model_pdb is None and not model_indices:
+    if not detect_layer_enabled:
+        if model_pdb_cfg is None and not model_indices:
             click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
             prepared_input.cleanup()
             sys.exit(1)
-        if model_pdb is not None:
-            model_pdb_path = Path(model_pdb)
+        if model_pdb_cfg is not None:
+            model_pdb_path = Path(model_pdb_cfg)
         else:
             if layer_source_pdb.suffix.lower() != ".pdb":
                 click.echo("ERROR: --model-indices requires a PDB input (or --ref-pdb).", err=True)
@@ -1982,13 +2282,6 @@ def cli(
         layer_info,
         echo_fn=click.echo,
     )
-
-    # Hessian-target MM selection by distance from ML (default: 0.0 Å = ML-only).
-    calc_cfg["hess_cutoff"] = hess_cutoff
-    if movable_cutoff is not None:
-        calc_cfg["movable_cutoff"] = movable_cutoff
-    if movable_cutoff is not None:
-        calc_cfg["use_bfactor_layers"] = False
 
     for key in ("input_pdb", "real_parm7", "model_pdb", "mm_fd_dir"):
         val = calc_cfg.get(key)
@@ -2392,6 +2685,7 @@ def cli(
         else:
             final_xyz = out_dir_path / "final_geometry.xyz"
 
+        _write_output_summary_md(out_dir_path)
         click.echo(format_elapsed("[time] Elapsed Time for TS Opt", time_start))
 
     except ZeroStepLength:

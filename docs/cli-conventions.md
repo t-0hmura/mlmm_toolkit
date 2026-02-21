@@ -6,27 +6,51 @@ This page documents the conventions used across all `mlmm` commands. Understandi
 
 ## Boolean Options
 
-All boolean CLI options require an explicit value -- you cannot use flag-style `--tsopt` alone:
+Boolean options are normalized at the root CLI.
+Use toggle style by default:
 
 ```bash
-# Correct (any of these work)
---tsopt True --thermo True --dft False
---tsopt true --thermo TRUE --dft false   # case-insensitive
---tsopt 1 --thermo yes --dft 0           # 1/0, yes/no also accepted
+# Recommended
+--tsopt --thermo --no-dft
+--dump                 # same as legacy: --dump True
+--no-dump              # same as legacy: --dump False
 
-# Wrong (will not work)
---tsopt         # flag-style (no value) is not supported
+# Also supported for backward compatibility (deprecated)
+--tsopt True --thermo yes --dft 0
 ```
 
-The CLI accepts `True`, `true`, `TRUE`, `1`, `yes`, `Yes`, `y`, `t` for truthy values, and `False`, `false`, `FALSE`, `0`, `no`, `No`, `n`, `f` for falsy values.
+Legacy value-style boolean syntax (`--flag True/False`) is still accepted but emits a deprecation warning.
+The legacy parser accepts `True/False`, `1/0`, `yes/no`, `y/n`, `t/f`, and `on/off` (case-insensitive).
 
 Common boolean options:
 - `--tsopt`, `--thermo`, `--dft` -- enable post-processing stages
-- `--freeze-links` -- freeze link-hydrogen parents (default: `True`)
 - `--dump` -- write trajectory files
 - `--preopt`, `--endopt` -- pre/post optimization toggles
 - `--climb` -- enable climbing image in MEP search
-- `--convert-files` -- generate PDB/GJF companion files
+
+---
+
+## Progressive Help (`all`)
+
+`mlmm all` uses two help levels:
+
+```bash
+mlmm all --help            # core options only
+mlmm all --help-advanced   # full option list
+```
+
+`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-gaussian`, `oniom-orca`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
+
+---
+
+## Init Template
+
+Generate a starter YAML and run a parse-only check:
+
+```bash
+mlmm init --out mlmm_all.config.yaml
+mlmm all --config mlmm_all.config.yaml --dry-run
+```
 
 ---
 
@@ -152,7 +176,7 @@ In the mapping format, residue names are matched case-insensitively. Unmapped no
 ```
 
 ```{note}
-In the `all` command, use `-m/--mult`. In other subcommands, use `-m/--multiplicity`.
+Use `-m/--multiplicity` consistently in `all` and the calculation subcommands. `mm-parm` uses `--ligand-mult` for residue multiplicity metadata, which is a separate option.
 ```
 
 ---
@@ -201,15 +225,15 @@ The three tokens (residue name, residue number, atom name) can appear in any ord
 
 ## YAML Configuration
 
-Advanced settings can be passed via `--args-yaml`:
+Advanced settings can be passed via layered YAML inputs:
 
 ```bash
-mlmm all -i R.pdb P.pdb -c 'LIG' --args-yaml config.yaml
+mlmm all -i R.pdb P.pdb -c 'LIG' --config config.yaml --override-yaml override.yaml
 ```
 
-YAML values take **highest precedence**:
+Precedence:
 ```
-defaults -> CLI options -> YAML (wins)
+defaults < config < CLI options < override-yaml
 ```
 
 See [YAML Reference](yaml-reference.md) for all available options.
@@ -243,5 +267,6 @@ Default output directories:
 ## See Also
 
 - [Getting Started](getting-started.md) -- Installation and first run
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Common errors and fixes
 - [YAML Reference](yaml-reference.md) -- Complete configuration options

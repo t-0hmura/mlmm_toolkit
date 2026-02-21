@@ -300,6 +300,26 @@ def str2bool(v: str) -> bool:
     return v.lower() in {"true", "1", "yes", "y"}
 
 
+def _extract_short_help() -> str:
+    return "\n".join(
+        [
+            "Usage: mlmm extract [OPTIONS]",
+            "",
+            "Extract a binding pocket around substrate residues.",
+            "",
+            "Core options:",
+            "  -i, --input PATH [PATH ...]      Input complex PDB file(s).",
+            "  -c, --center SPEC                Substrate selector (PDB / residue IDs / residue names).",
+            "  -o, --output PATH [PATH ...]     Output pocket PDB path(s).",
+            "  -r, --radius FLOAT               Pocket inclusion radius in angstrom.",
+            "  --ligand-charge VALUE            Total or mapped ligand charge.",
+            "  --help-advanced                  Show full extract options and exit.",
+            "",
+            "Use '--help-advanced' to see all extractor options.",
+        ]
+    )
+
+
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     """
     Parse CLI arguments.
@@ -314,6 +334,18 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     argparse.Namespace
         Parameters for running the pocket extraction.
     """
+    argv_list = list(argv) if argv is not None else None
+    if argv_list is not None:
+        wants_adv = "--help-advanced" in argv_list
+        wants_help = ("--help" in argv_list) or ("-h" in argv_list)
+        if wants_help and not wants_adv:
+            click.echo(_extract_short_help())
+            raise SystemExit(0)
+        if wants_adv:
+            argv_list = [a for a in argv_list if a != "--help-advanced"]
+            if ("--help" not in argv_list) and ("-h" not in argv_list):
+                argv_list.append("--help")
+
     p = argparse.ArgumentParser(
         description=(
             "Extract a binding pocket around substrate residues (from a PDB or residue IDs/names), "
@@ -383,7 +415,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help=("Enable INFO-level logging."
               " default: True.")
     )
-    return p.parse_args(args=argv)
+    return p.parse_args(args=argv_list)
 
 
 def load_structure(path: str, name: str) -> PDB.Structure.Structure:

@@ -2,45 +2,107 @@
 
 ## Overview
 
-> **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `--scan-lists` to define target distances. Multiple stages run sequentially, each starting from the previous stage's relaxed result.
+> **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `--spec` (YAML/JSON, recommended) to define targets; `--scan-lists` remains as a legacy Python-literal input.
 
 ### Quick reference
 - **Use when:** You have a single structure and need to drive specific inter-atomic distances toward target values to explore a plausible path (often before `path-search`/`path-opt`).
-- **Input:** One structure + one or more `--scan-lists` literals (each literal = one stage).
-- **Defaults:** LBFGS optimizer, `--preopt True`, `--endopt True`, `--max-step-size 0.20` A.
-- **Outputs:** Per-stage `result.xyz` (+ optional `.pdb`), and optional concatenated trajectories when `--dump True`.
-- **Note:** `--scan-lists` is parsed as a **Python literal**; quoting/escaping matters (see examples).
+- **Input:** One structure + `--spec scan.yaml` (recommended), or one/more legacy `--scan-lists` literals (each literal = one stage).
+- **Defaults:** LBFGS optimizer, `--preopt`, `--endopt`, `--max-step-size 0.20` A.
+- **Outputs:** Per-stage `result.xyz` (+ optional `.pdb`), and optional concatenated trajectories when `--dump`.
+- **Note:** Prefer `--spec` to avoid shell-quoting issues. `--scan-lists` is still supported as legacy.
 
 `mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples FAIR-Chem UMA and hessian_ff.
 
 When you provide multiple `--scan-lists` literals after a single flag, stages run sequentially and each stage starts from the previous stage's relaxed structure. After the biased walk, optional unbiased pre-/post-optimizations (`--preopt`, `--endopt`) can clean up geometries before writing `result.*` to disk. Configuration precedence is **CLI > YAML > internal defaults**; YAML sections include `geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`, and `bond`.
 
+## Minimal example
+
+```bash
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
+```
+
+## Output checklist
+
+- `result_scan/stage_01/result.pdb` (or `result.xyz`)
+- `result_scan/stage_02/result.pdb` (or `result.xyz`)
+- `result_scan/stage_*/scan.trj` and `scan.pdb` when `--dump` is enabled
+
+## Common examples
+
+1. First validate parsed scan targets from YAML spec.
+
+```bash
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --spec scan.yaml --print-parsed
+```
+
+2. Use legacy literal input for compatibility.
+
+```bash
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --scan-lists "[(12,45,2.20)]"
+```
+
+3. Dump trajectories for stage-by-stage inspection.
+
+```bash
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --spec scan.yaml --dump --out-dir ./result_scan_dump
+```
+
 ## Usage
 ```bash
 mlmm scan -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-          -q CHARGE [-m MULT] --scan-lists "[(I,J,TARGET_ANG)]" [options]
+          -q CHARGE [-m MULT] \
+          [--spec scan.yaml | --scan-lists "[(I,J,TARGET_ANG)]"] [options]
 ```
 
 ### Examples
 ```bash
-# Single stage pushing one bond from 1.6 to 2.2 A
+# Recommended: YAML/JSON spec
+cat > scan.yaml << 'YAML'
+one_based: true
+stages:
+  - [[12, 45, 2.20]]
+  - [[10, 55, 1.35], [23, 34, 1.80]]
+YAML
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 --spec scan.yaml --print-parsed
+
+# Legacy: Python literal
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 --scan-lists "[(12,45,2.20)]"
 
 # Two stages with dumps, frozen atoms, and YAML overrides
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     -q -1 -m 1 --freeze-atoms "1,3,5" --scan-lists "[(12,45,2.20)]" \
-    "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump True \
+    "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
     --args-yaml params.yaml --out-dir ./result_scan/
 ```
+
+## `--spec` format (recommended)
+
+`--spec` accepts YAML/JSON with a mapping root:
+
+```yaml
+one_based: true   # optional; defaults to CLI --one-based/--zero-based
+stages:
+  - [[12, 45, 2.20]]
+  - [[10, 55, 1.35], [23, 34, 1.80]]
+```
+
+- `stages` is required.
+- Each stage is a list of `(i, j, target_A)` triples.
+- Indices may be integers or PDB selectors (for PDB input), same as `--scan-lists`.
 
 ## Workflow
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
    or defaults. Provide `--real-parm7`, `--model-pdb`, `-q/--charge`, and optionally
    `-m/--multiplicity` for the ML/MM calculator.
-2. Optionally run an unbiased preoptimization (`--preopt True`) before any
+2. Optionally run an unbiased preoptimization (`--preopt`) before any
    biasing so the starting point is relaxed.
-3. For each stage literal supplied via `--scan-lists`, parse and normalize the
+3. Parse stage targets from `--spec` (recommended) or legacy `--scan-lists`, then normalize the
    `(i, j)` indices (1-based by default). When the input is a PDB, each entry
    may be either an integer index or an atom selector string like `'TYR,285,CA'`;
    selector fields can be separated by spaces, commas, slashes, backticks, or
@@ -55,7 +117,7 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
    `k` comes from `--bias-k` (eV/A^2) and is converted once to Hartree/Bohr^2.
    Coordinates are stored in Bohr for PySisyphus and converted internally for reporting.
 6. After the last step of each stage, optionally run an unbiased relaxation
-   (`--endopt True`) before reporting covalent bond changes and writing the
+   (`--endopt`) before reporting covalent bond changes and writing the
    `result.*` files.
 7. Repeat for every stage; optional trajectories are dumped only when `--dump`
    is `True`.
@@ -68,14 +130,16 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). | Required |
 | `-q, --charge INT` | Total ML-region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
-| `--scan-lists TEXT` | Python literal(s) with `(i, j, target_A)` tuples. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Required |
+| `--spec FILE` | YAML/JSON scan spec. Mapping root with `stages`; optional `one_based`. | Recommended |
+| `--scan-lists TEXT` | Legacy Python literal(s) with `(i, j, target_A)` tuples. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Alternative to `--spec` |
 | `--zero-based` | Interpret atom indices as 0-based instead of 1-based. | `False` (1-based) |
+| `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `--spec`/`--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (A). Controls the number of integration steps. | `0.20` |
 | `--bias-k FLOAT` | Harmonic bias strength `k` in eV/A^2. | `100` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--preopt {True\|False}` | Run an unbiased optimization before scanning. | `True` |
-| `--endopt {True\|False}` | Run an unbiased optimization after each stage. | `True` |
-| `--dump {True\|False}` | Dump concatenated biased trajectories (`scan.trj`/`scan.pdb`). | `False` |
+| `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
+| `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `True` |
+| `--dump/--no-dump` | Dump concatenated biased trajectories (`scan.trj`/`scan.pdb`). | `False` |
 | `--out-dir TEXT` | Output directory root. | `./result_scan/` |
 | `--args-yaml FILE` | YAML overrides for `geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`, `bond`. | _None_ |
 
@@ -88,7 +152,7 @@ out_dir/ (default: ./result_scan/)
 └─ stage_XX/                 # One folder per stage (k = 01..K)
     ├─ result.xyz            # Final (possibly endopt) geometry
     ├─ result.pdb            # If input was PDB
-    ├─ scan.trj              # Concatenated biased step frames when --dump True
+    ├─ scan.trj              # Concatenated biased step frames when --dump
     └─ scan.pdb              # PDB version of scan.trj (PDB inputs only)
 ```
 
@@ -118,6 +182,9 @@ The YAML root must be a mapping. Configuration precedence is **CLI > YAML > inte
 ---
 
 ## See Also
+
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [scan2d](scan2d.md) -- 2D distance grid scan
 - [scan3d](scan3d.md) -- 3D distance grid scan

@@ -100,6 +100,9 @@ Both subcommands read an Amber parm7 topology file and generate QM/MM input file
 
 ## See Also
 
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+
 - [mm_parm](mm_parm.md) -- Build AMBER topology (parm7/rst7)
 - [define_layer](define_layer.md) -- Define ML/MM layers
 - [opt](opt.md) -- ML/MM geometry optimization

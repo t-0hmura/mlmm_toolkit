@@ -103,6 +103,9 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 
 ## 関連項目
 
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
+
 - [mm_parm](mm_parm.md) -- AMBER トポロジー（parm7/rst7）の構築
 - [define_layer](define_layer.md) -- ML/MM レイヤーの定義
 - [opt](opt.md) -- ML/MM 構造最適化

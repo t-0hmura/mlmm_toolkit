@@ -183,7 +183,7 @@ Use this when you already have a TS candidate (or want a quick TS optimization o
 Typical command:
 
 ```bash
-mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt True
+mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 ```
 
 ---
@@ -204,7 +204,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt True
 ## Important CLI conventions
 
 ```{important}
-- Boolean options are passed explicitly as `True`/`False` (e.g., `--tsopt True`).
+- Boolean options are toggle-style: use `--flag` / `--no-flag` (e.g., `--tsopt`, `--no-tsopt`).
 - With multiple PDB inputs, all files should have the **same atoms in the same order** (only coordinates differ).
 - For enzyme use-cases, you usually want hydrogens present in the input PDB.
 - Most subcommands require `--real-parm7` and `--model-pdb` for ML/MM calculations.
@@ -216,6 +216,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt True
 
 ### Getting started
 - [Getting Started](getting-started.md) -- installation and first run
+- [Common Error Recipes](recipes-common-errors.md) -- symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- common errors and fixes
 
 ### Core subcommands

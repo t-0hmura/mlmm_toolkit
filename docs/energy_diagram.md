@@ -39,3 +39,12 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o
 ## Notes
 - Input order is used directly as plotting order.
 - At least two numeric values are required.
+
+---
+
+## See Also
+
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+- [trj2fig](trj2fig.md) -- Plot profile from trajectory energies
+- [all](all.md) -- End-to-end workflow with built-in energy diagram output

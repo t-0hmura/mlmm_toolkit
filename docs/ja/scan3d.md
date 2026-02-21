@@ -2,10 +2,10 @@
 
 ## 概要
 
-> **要約:** 調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）グリッドスキャンを実行します。1 つの `--scan-lists` リテラルに 3 つの四つ組 `(i, j, low, high)` を指定します。
+> **要約:** 調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）グリッドスキャンを実行します。`--spec`（YAML/JSON、推奨）または legacy の `--scan-lists` を使用します。
 
 ### 概要
-- **入力:** 1 つの完全酵素 PDB + **1 つ**の `--scan-lists` リテラル（3 つの四つ組）。
+- **入力:** 1 つの完全酵素 PDB + `--spec scan3d.yaml`（推奨）または **1 つ**の legacy `--scan-lists` リテラル（3 つの四つ組）。
 - **グリッド順序:** d1 が最初にスキャンされ、次に各 d1 値について d2（両方の拘束が有効）、次に各 (d1, d2) について d3（3 つの拘束すべてが有効）。
 - **エネルギー:** 記録されるエネルギーは**バイアスなし**で評価されるため、グリッド点間で直接比較可能。
 - **出力:** `surface.csv`、`grid/` 下のグリッド点ごとのジオメトリ、HTML アイソサーフェスプロット（`scan3d_density.html`）。
@@ -20,11 +20,11 @@
 ```bash
 mlmm scan3d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     -q CHARGE [-m MULT] \
-    --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]" \
+    [--spec scan3d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
     [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
     [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
-    [--dump {True|False}] [--out-dir DIR] [--args-yaml FILE] \
-    [--preopt {True|False}] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
+    [--dump/--no-dump] [--out-dir DIR] [--args-yaml FILE] \
+    [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
 ### 例
@@ -37,13 +37,13 @@ mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 # 事前最適化とカスタム出力ディレクトリ付き
 mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
-    --max-step-size 0.20 --dump True --out-dir ./result_scan3d/ \
-    --preopt True --baseline min
+    --max-step-size 0.20 --dump --out-dir ./result_scan3d/ \
+    --preopt --baseline min
 ```
 
 ## ワークフロー
 
-1. `geom_loader` で構造を読み込み、CLI から電荷/スピンを解決し、`--preopt True` の場合は任意でバイアスなし事前最適化を実行。
+1. `geom_loader` で構造を読み込み、CLI から電荷/スピンを解決し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
 2. 単一の `--scan-lists` リテラルを解析して 3 つの四つ組にします（デフォルト 1 始まりインデックス、`--zero-based` 指定時は 0 始まり）。PDB 入力の場合、各原子エントリは整数インデックスまたは `"TYR,285,CA"` のようなセレクター文字列が使用可能。区切り文字はスペース、カンマ、スラッシュ、バッククォート、バックスラッシュ。
 3. 外側ループ `d1[i]`: d1 拘束のみで緩和。d1 値が最も近い以前のスキャン済みジオメトリから開始。
 4. 中間ループ `d2[j]`: d1 と d2 の拘束で緩和。最も近い (d1, d2) ジオメトリから開始。
@@ -65,17 +65,19 @@ mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
 | `--hess-cutoff FLOAT` | Hessian-MM レイヤーのカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM レイヤーのカットオフ距離。 | _None_ |
-| `--scan-lists TEXT` | 3 つの四つ組 `(i,j,low,high)` を含む単一 Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | 必須 |
+| `--spec FILE` | `pairs`（3 四つ組）を持つ YAML/JSON 仕様。`one_based` を任意指定可能。 | 推奨 |
+| `--scan-lists TEXT` | legacy: 3 つの四つ組 `(i,j,low,high)` を含む単一 Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | `--spec` の代替 |
 | `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
+| `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (A)。グリッド密度を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和ウェル強度 k (eV/A^2)。 | `100.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの最大オプティマイザーサイクル。 | `10000` |
-| `--dump {True\|False}` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
+| `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `--out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
 | `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_ |
 | `--args-yaml FILE` | `geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias` の YAML 上書き。 | _None_ |
 | `--ref-pdb FILE` | 非 PDB 入力用の参照 PDB トポロジー。 | _None_ |
-| `--preopt {True\|False}` | スキャン前にバイアスなし最適化を実行。 | `True` |
+| `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `True` |
 | `--baseline {min,first}` | kcal/mol エネルギーをグローバル最小値または `(i,j,k)=(0,0,0)` がゼロになるようシフト。 | `min` |
 | `--zmin FLOAT` | アイソサーフェスカラーバンドの手動下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | アイソサーフェスカラーバンドの手動上限（kcal/mol）。 | 自動スケール |
@@ -92,6 +94,8 @@ out_dir/ (デフォルト: ./result_scan3d/)
 ```
 
 ## 注意事項
+
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は 1D/2D スキャンと同じ `HarmonicBiasCalculator` を再利用します。
 - `--baseline` のデフォルトはグローバル最小値です。`--baseline first` は `(i,j,k)=(0,0,0)` グリッド点が存在する場合にそれを基準にします。

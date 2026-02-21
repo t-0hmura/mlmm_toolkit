@@ -69,5 +69,8 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 
 ## 関連項目
 
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
+
 - [mm_parm](mm_parm.md) -- AMBER トポロジー構築（正しい元素カラムが必要）
 - [extract](extract.md) -- タンパク質-リガンド複合体から活性部位ポケットを抽出

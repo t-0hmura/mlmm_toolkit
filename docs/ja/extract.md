@@ -14,10 +14,10 @@
 ### 残基包含規則
 - 基質残基は常に含まれます。
 - 標準カットオフ（`--radius`、デフォルト 2.6 A）:
-  - `--exclude-backbone false` の場合: **任意の原子**がカットオフ内にある残基を含めます。
-  - `--exclude-backbone true`（デフォルト）の場合: **アミノ酸残基**では、適格原子は**非主鎖**（N, H*, CA, HA*, C, O, OXT 以外）でなければなりません。非アミノ酸残基は任意の原子で適格となります。
+  - `--no-exclude-backbone` の場合: **任意の原子**がカットオフ内にある残基を含めます。
+  - `--exclude-backbone`（デフォルト）の場合: **アミノ酸残基**では、適格原子は**非主鎖**（N, H*, CA, HA*, C, O, OXT 以外）でなければなりません。非アミノ酸残基は任意の原子で適格となります。
 - 独立したヘテロ-ヘテロ近接（`--radius-het2het`）: **基質ヘテロ原子（C/H 以外）** がカットオフ内の**タンパク質ヘテロ原子**に近接する残基を追加します。
-- 水分子はデフォルトで含まれます（`--include-H2O true`; HOH/WAT/TIP3/SOL）。
+- 水分子はデフォルトで含まれます（`--include-H2O`; HOH/WAT/TIP3/SOL）。
 - `--selected-resn` で残基を強制包含できます（鎖とインサーションコードに対応）。
 
 ## 使用法
@@ -25,9 +25,9 @@
 ```bash
 mlmm extract -i INPUT.pdb [INPUT2.pdb ...] -c <substrate_spec> \
     [-o OUTPUT.pdb ...] [-r <A>] [--radius-het2het <A>] \
-    [--include-H2O {true|false}] [--exclude-backbone {true|false}] \
-    [--add-linkH {true|false}] [--selected-resn "CHAIN:RES" ...] \
-    [--ligand-charge <number|"RES:Q,...">] [--verbose {true|false}]
+    [--include-H2O/--no-include-H2O] [--exclude-backbone/--no-exclude-backbone] \
+    [--add-linkH/--no-add-linkH] [--selected-resn "CHAIN:RES" ...] \
+    [--ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
 ```
 
 ### 例
@@ -45,7 +45,7 @@ mlmm extract -i complex.pdb -c "GPP,MMT" -o pocket.pdb --ligand-charge -4
 
 # マルチ構造から単一マルチモデル出力、ヘテロ-ヘテロ近接有効
 mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
-    -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose true
+    -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose
 ```
 
 ## ワークフロー
@@ -53,7 +53,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
 1. **入力構造の読み込み** -- 1 つ以上の完全タンパク質-基質複合体 PDB を読み込みます。
 2. **基質の特定** -- `-c/--center` で指定された基質を PDB パス、残基 ID（例: `A:123` または `123,124`）、または残基名（例: `GPP,MMT`）で同定します。
 3. **ポケット残基の選択** -- カットオフ距離に基づいて周囲の残基を選択します。`--exclude-backbone` が有効な場合、アミノ酸の主鎖原子は除外されます。
-4. **リンク水素の付加** -- `--add-linkH true` の場合、切断された共有結合にリンク水素を付加します。
+4. **リンク水素の付加** -- `--add-linkH` の場合、切断された共有結合にリンク水素を付加します。
 5. **電荷の導出** -- `--ligand-charge` が指定された場合、アミノ酸、イオン、リガンド電荷を合算してポケットの総電荷を算出します。
 6. **出力の書き込み** -- ポケット PDB を指定されたパスに書き出します。
 
@@ -66,12 +66,12 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
 | `-o, --output PATH...` | 出力ポケット PDB パス。 | _None_ |
 | `-r, --radius FLOAT` | ポケット包含カットオフ (A)。 | `2.6` |
 | `--radius-het2het FLOAT` | ヘテロ-ヘテロカットオフ (A)。 | `0.0` |
-| `--include-H2O {true\|false}` | 水分子を含める（HOH/WAT/TIP3/SOL）。 | `true` |
-| `--exclude-backbone {true\|false}` | 非基質アミノ酸の主鎖原子を除外。 | `true` |
-| `--add-linkH {true\|false}` | 切断結合にリンク水素を付加。 | `true` |
+| `--include-H2O/--no-include-H2O` | 水分子を含める（HOH/WAT/TIP3/SOL）。 | `true` |
+| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除外。 | `true` |
+| `--add-linkH/--no-add-linkH` | 切断結合にリンク水素を付加。 | `false` |
 | `--selected-resn TEXT` | 強制包含する残基。 | `""` |
 | `--ligand-charge TEXT` | 総電荷または残基名ごとのマッピング（例: `"GPP:-3,MMT:-1"`）。 | _None_ |
-| `--verbose {true\|false}` | 詳細ログを有効化。 | `true` |
+| `--verbose/--no-verbose` | 詳細ログを有効化。 | `true` |
 
 ## 出力
 
@@ -81,6 +81,8 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
 ```
 
 ## 注意事項
+
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - 基質は PDB パス、残基 ID（`A:123` や `123,124`）、または残基名（`GPP,MMT`）で指定できます。
 - 名前ベースの指定では同名の残基がすべて選択されます。意図しない選択に注意してください。

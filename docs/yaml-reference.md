@@ -1,6 +1,6 @@
 # YAML Reference
 
-This document provides a comprehensive reference for all YAML configuration options used across `mlmm` subcommands. Configuration files are passed via `--args-yaml` and follow the precedence: **defaults -> CLI -> YAML** (YAML has highest precedence).
+This document provides a comprehensive reference for all YAML configuration options used across `mlmm` subcommands. In `mlmm all`, layered YAML is supported via `--config` and `--override-yaml` (`--args-yaml` is a legacy alias of `--override-yaml`) with precedence **defaults < config < CLI < override-yaml**.
 
 ---
 

@@ -12,12 +12,15 @@ For detailed documentation, see: docs/irc.md
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Sequence, Tuple
 
+import os
+import shutil
 import sys
 import textwrap
 
 import click
+from click.core import ParameterSource
 import yaml
 import time
 import numpy as np
@@ -36,6 +39,7 @@ from .utils import (
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
     load_yaml_dict,
+    deep_update,
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
@@ -88,6 +92,30 @@ IRC_KW_DEFAULT: Dict[str, Any] = {
 }
 
 
+def _resolve_yaml_sources(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+) -> Tuple[Optional[Path], Optional[Path], bool]:
+    if override_yaml is not None and args_yaml_legacy is not None:
+        raise click.BadParameter(
+            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+        )
+    if args_yaml_legacy is not None:
+        return config_yaml, args_yaml_legacy, True
+    return config_yaml, override_yaml, False
+
+
+def _load_merged_yaml_cfg(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    deep_update(merged, load_yaml_dict(config_yaml))
+    deep_update(merged, load_yaml_dict(override_yaml))
+    return merged
+
+
 def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: Path) -> None:
     if trj_path.exists():
         try:
@@ -95,6 +123,124 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
             click.echo(f"[convert] Wrote '{out_path}'.")
         except Exception as e:
             click.echo(f"[convert] WARNING: Failed to convert '{trj_path.name}' to PDB: {e}", err=True)
+
+
+def _first_existing_artifact(out_dir: Path, patterns: Sequence[str]) -> Optional[Path]:
+    """Resolve the first existing artifact for a list of relative patterns."""
+    for pattern in patterns:
+        if any(ch in pattern for ch in "*?[]"):
+            for candidate in sorted(out_dir.glob(pattern)):
+                if candidate.is_file():
+                    return candidate.resolve()
+            continue
+        candidate = out_dir / pattern
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def _link_or_copy_file(src: Path, dst: Path) -> bool:
+    """Create a symlink when possible; fall back to copy."""
+    try:
+        if dst.exists() or dst.is_symlink():
+            if dst.is_dir():
+                return False
+            dst.unlink()
+        rel = os.path.relpath(src, start=dst.parent)
+        dst.symlink_to(rel)
+        return True
+    except Exception:
+        try:
+            shutil.copy2(src, dst)
+            return True
+        except Exception:
+            return False
+
+
+def _write_output_summary_md(out_dir: Path) -> None:
+    """Write summary.md and expose key outputs at out_dir root."""
+    try:
+        out_dir = out_dir.resolve()
+        if not out_dir.exists():
+            return
+
+        root_specs: List[Tuple[str, Sequence[str]]] = [
+            ("Complete IRC trajectory", ["*finished_irc.trj"]),
+            ("Forward IRC trajectory", ["*forward_irc.trj"]),
+            ("Backward IRC trajectory", ["*backward_irc.trj"]),
+            ("Complete IRC trajectory (PDB)", ["*finished_irc.pdb"]),
+            ("Forward IRC trajectory (PDB)", ["*forward_irc.pdb"]),
+            ("Backward IRC trajectory (PDB)", ["*backward_irc.pdb"]),
+            ("IRC HDF5 dump", ["*irc_data.h5"]),
+        ]
+        root_lines: List[str] = []
+        for label, patterns in root_specs:
+            src = _first_existing_artifact(out_dir, patterns)
+            if src is None:
+                continue
+            rel = os.path.relpath(src, start=out_dir)
+            root_lines.append(f"- {label}: [`{rel}`]({rel})")
+
+        shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
+            ("key_irc.trj", "Complete IRC trajectory", ["*finished_irc.trj"]),
+            ("key_irc_forward.trj", "Forward IRC trajectory", ["*forward_irc.trj"]),
+            ("key_irc_backward.trj", "Backward IRC trajectory", ["*backward_irc.trj"]),
+            ("key_irc.pdb", "Complete IRC trajectory (PDB)", ["*finished_irc.pdb"]),
+            ("key_irc_data.h5", "IRC HDF5 dump", ["*irc_data.h5"]),
+        ]
+        shortcut_lines: List[str] = []
+        for name, label, patterns in shortcut_specs:
+            src = _first_existing_artifact(out_dir, patterns)
+            if src is None:
+                continue
+            dst = out_dir / name
+            try:
+                same = src.resolve() == dst.resolve()
+            except Exception:
+                same = False
+            if not same and not _link_or_copy_file(src, dst):
+                continue
+            src_rel = os.path.relpath(src, start=out_dir)
+            shortcut_lines.append(
+                f"- {label}: [`{name}`]({name}) (source: `{src_rel}`)"
+            )
+
+        lines: List[str] = [
+            "# IRC Summary",
+            "",
+            f"- Generated: `{time.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
+            f"- Output directory: `{out_dir}`",
+            "",
+            "## Primary Artifacts",
+        ]
+        if root_lines:
+            lines.extend(root_lines)
+        else:
+            lines.append("- No primary artifacts detected yet.")
+        lines.extend(
+            [
+                "",
+                "## Root Shortcuts",
+                "- `key_*` files are symlinks when possible, otherwise copied files.",
+            ]
+        )
+        if shortcut_lines:
+            lines.extend(shortcut_lines)
+        else:
+            lines.append("- No shortcuts were generated.")
+        lines.extend(
+            [
+                "",
+                "## Notes",
+                "- Start from `key_irc.trj` and compare `key_irc_forward.trj` / `key_irc_backward.trj` branches.",
+            ]
+        )
+
+        summary_md = out_dir / "summary.md"
+        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        click.echo(f"[write] Wrote '{summary_md}'.")
+    except Exception as e:
+        click.echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
 
 
 # --------------------------
@@ -164,8 +310,18 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 @click.option("--max-cycles", type=int, default=None, help="Maximum number of IRC steps; overrides irc.max_cycles from YAML.")
 @click.option("--step-size", type=float, default=None, help="Step length in mass-weighted coordinates; overrides irc.step_length from YAML.")
 @click.option("--root", type=int, default=None, help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
-@click.option("--forward", type=bool, default=None, help="Run the forward IRC; overrides irc.forward from YAML. Specify True/False explicitly.")
-@click.option("--backward", type=bool, default=None, help="Run the backward IRC; overrides irc.backward from YAML. Specify True/False explicitly.")
+@click.option(
+    "--forward/--no-forward",
+    "forward",
+    default=None,
+    help="Run the forward IRC; overrides irc.forward from YAML.",
+)
+@click.option(
+    "--backward/--no-backward",
+    "backward",
+    default=None,
+    help="Run the backward IRC; overrides irc.backward from YAML.",
+)
 @click.option("--out-dir", type=str, default="./result_irc/", show_default=True, help="Output directory; overrides irc.out_dir from YAML.")
 @click.option(
     "--hessian-calc-mode",
@@ -174,10 +330,38 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help="How UMA builds the Hessian (Analytical or FiniteDifference); overrides calc.hessian_calc_mode from YAML.",
 )
 @click.option(
-    "--args-yaml",
+    "--config",
+    "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="YAML file providing extra parameters (sections: geom, calc, irc).",
+    help="Base YAML configuration file applied before explicit CLI options.",
+)
+@click.option(
+    "--override-yaml",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Final YAML override file (highest priority YAML layer).",
+)
+@click.option(
+    "--args-yaml",
+    "args_yaml_legacy",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
+)
+@click.option(
+    "--show-config/--no-show-config",
+    "show_config",
+    default=False,
+    show_default=True,
+    help="Print resolved configuration and continue execution.",
+)
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    default=False,
+    show_default=True,
+    help="Validate options and print the execution plan without running IRC.",
 )
 @click.option(
     "--ref-pdb",
@@ -185,7 +369,9 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     default=None,
     help="Reference PDB topology to use when --input is XYZ (keeps XYZ coordinates).",
 )
+@click.pass_context
 def cli(
+    ctx: click.Context,
     input_path: Path,
     real_parm7: Optional[Path],
     model_pdb: Optional[Path],
@@ -201,9 +387,35 @@ def cli(
     backward: Optional[bool],
     out_dir: str,
     hessian_calc_mode: Optional[str],
-    args_yaml: Optional[Path],
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+    show_config: bool,
+    dry_run: bool,
     ref_pdb: Optional[Path],
 ) -> None:
+    def _is_param_explicit(name: str) -> bool:
+        try:
+            source = ctx.get_parameter_source(name)
+            return source not in (None, ParameterSource.DEFAULT)
+        except Exception:
+            return False
+
+    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+        args_yaml_legacy=args_yaml_legacy,
+    )
+    if used_legacy_yaml:
+        click.echo(
+            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
+            err=True,
+        )
+    merged_yaml_cfg = _load_merged_yaml_cfg(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+    )
+
     prepared_input = prepare_input_structure(input_path)
     try:
         apply_ref_pdb_override(prepared_input, ref_pdb)
@@ -227,75 +439,139 @@ def cli(
         time_start = time.perf_counter()
 
         # --------------------------
-        # 1) Assemble configuration: defaults -> YAML overrides -> CLI overrides
+        # 1) Assemble configuration: defaults < config < CLI(explicit) < override
         # --------------------------
-        yaml_cfg = load_yaml_dict(args_yaml)
+        config_layer_cfg = load_yaml_dict(config_yaml)
+        override_layer_cfg = load_yaml_dict(override_yaml)
 
         geom_cfg: Dict[str, Any] = dict(GEOM_KW_DEFAULT)
         calc_cfg: Dict[str, Any] = dict(CALC_KW_DEFAULT)
-        irc_cfg:  Dict[str, Any] = dict(IRC_KW_DEFAULT)
+        irc_cfg: Dict[str, Any] = dict(IRC_KW_DEFAULT)
+        # Keep command-level default for detect-layer unless YAML/explicit CLI overrides it.
+        calc_cfg["use_bfactor_layers"] = bool(detect_layer)
 
         apply_yaml_overrides(
-            yaml_cfg,
+            config_layer_cfg,
             [
                 (geom_cfg, (("geom",),)),
-                (calc_cfg, (("calc",),)),
+                (calc_cfg, (("calc",), ("mlmm",))),
                 (irc_cfg, (("irc",),)),
             ],
         )
 
-        # CLI overrides
-        calc_cfg["model_charge"] = int(charge)
-        calc_cfg["model_mult"] = int(spin)
+        if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
+            calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
+        if _is_param_explicit("max_cycles") and max_cycles is not None:
+            irc_cfg["max_cycles"] = int(max_cycles)
+        if _is_param_explicit("step_size") and step_size is not None:
+            irc_cfg["step_length"] = float(step_size)
+        if _is_param_explicit("root") and root is not None:
+            irc_cfg["root"] = int(root)
+        if _is_param_explicit("forward") and forward is not None:
+            irc_cfg["forward"] = bool(forward)
+        if _is_param_explicit("backward") and backward is not None:
+            irc_cfg["backward"] = bool(backward)
+        if _is_param_explicit("out_dir"):
+            irc_cfg["out_dir"] = str(out_dir)
+        if _is_param_explicit("detect_layer"):
+            calc_cfg["use_bfactor_layers"] = bool(detect_layer)
+
+        model_charge_value = calc_cfg.get("model_charge", charge)
+        if model_charge_value is None:
+            model_charge_value = charge
+        calc_cfg["model_charge"] = int(model_charge_value)
+        if _is_param_explicit("charge"):
+            calc_cfg["model_charge"] = int(charge)
+
+        model_mult_value = calc_cfg.get("model_mult", spin)
+        if model_mult_value is None:
+            model_mult_value = spin
+        calc_cfg["model_mult"] = int(model_mult_value)
+        if _is_param_explicit("spin"):
+            calc_cfg["model_mult"] = int(spin)
+
+        calc_cfg["input_pdb"] = str(source_path)
         if real_parm7 is not None:
             calc_cfg["real_parm7"] = str(real_parm7)
-        # Default to partial Hessian to reduce VRAM unless explicitly overridden in YAML.
-        yaml_calc = {}
-        if isinstance(yaml_cfg, dict):
-            yaml_calc = yaml_cfg.get("calc", {}) or yaml_cfg.get("mlmm", {}) or {}
-        if "return_partial_hessian" not in (yaml_calc or {}):
-            calc_cfg["return_partial_hessian"] = True
+        if model_pdb is not None:
+            calc_cfg["model_pdb"] = str(model_pdb)
 
-        if hessian_calc_mode is not None:
-            # pass through exactly as chosen; uma_pysis normalizes internally
-            calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
-
-        if max_cycles is not None:
-            irc_cfg["max_cycles"] = int(max_cycles)
-        if step_size is not None:
-            irc_cfg["step_length"] = float(step_size)
-        if root is not None:
-            irc_cfg["root"] = int(root)
-        if forward is not None:
-            irc_cfg["forward"] = bool(forward)
-        if backward is not None:
-            irc_cfg["backward"] = bool(backward)
-        if out_dir:
-            irc_cfg["out_dir"] = str(out_dir)
+        apply_yaml_overrides(
+            override_layer_cfg,
+            [
+                (geom_cfg, (("geom",),)),
+                (calc_cfg, (("calc",), ("mlmm",))),
+                (irc_cfg, (("irc",),)),
+            ],
+        )
 
         # Normalize any existing freeze list from YAML before wiring it to UMA
         merge_freeze_atom_indices(geom_cfg)
-
-        # Ensure the calculator receives the freeze list used by geometry
-        #      (so FD Hessian can skip frozen DOF, etc.)
         calc_cfg["freeze_atoms"] = list(geom_cfg.get("freeze_atoms", []))
-
-        calc_cfg["input_pdb"] = str(source_path)
         if not calc_cfg.get("real_parm7"):
             raise click.BadParameter("Missing --real-parm7 (or calc.real_parm7 in YAML).")
 
         out_dir_path = Path(irc_cfg["out_dir"]).resolve()
+        layer_source_pdb = source_path
+        detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
+        model_pdb_cfg = calc_cfg.get("model_pdb")
+
+        if show_config:
+            click.echo(
+                pretty_block(
+                    "yaml_layers",
+                    {
+                        "config": None if config_yaml is None else str(config_yaml),
+                        "override_yaml": None if override_yaml is None else str(override_yaml),
+                        "merged_keys": sorted(merged_yaml_cfg.keys()),
+                    },
+                )
+            )
+
+        if dry_run:
+            model_region_source = "bfactor"
+            if not detect_layer_enabled:
+                if model_pdb_cfg is not None:
+                    model_region_source = "model_pdb"
+                elif model_indices:
+                    model_region_source = "model_indices"
+                else:
+                    raise click.BadParameter("Provide --model-pdb or --model-indices when --no-detect-layer.")
+            if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
+                raise click.BadParameter("--detect-layer requires a PDB input (or --ref-pdb).")
+            if (
+                not detect_layer_enabled
+                and model_pdb_cfg is None
+                and model_indices
+                and layer_source_pdb.suffix.lower() != ".pdb"
+            ):
+                raise click.BadParameter("--model-indices requires a PDB input (or --ref-pdb).")
+            click.echo(
+                pretty_block(
+                    "dry_run_plan",
+                    {
+                        "input_geometry": str(geom_input_path),
+                        "output_dir": str(out_dir_path),
+                        "detect_layer": bool(detect_layer_enabled),
+                        "model_region_source": model_region_source,
+                        "model_indices_count": 0 if not model_indices else len(model_indices),
+                        "will_run_irc": True,
+                        "will_write_trajectories": True,
+                    },
+                )
+            )
+            click.echo("[dry-run] Validation complete. IRC execution was skipped.")
+            return
+
         out_dir_path.mkdir(parents=True, exist_ok=True)
 
-        layer_source_pdb = source_path
-        if detect_layer and layer_source_pdb.suffix.lower() != ".pdb":
+        if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
             raise click.BadParameter("--detect-layer requires a PDB input (or --ref-pdb).")
 
-        model_pdb_cfg = model_pdb if model_pdb is not None else calc_cfg.get("model_pdb")
         model_pdb_path: Optional[Path] = None
         layer_info: Optional[Dict[str, List[int]]] = None
 
-        if detect_layer:
+        if detect_layer_enabled:
             try:
                 model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
                 calc_cfg["use_bfactor_layers"] = True
@@ -308,9 +584,9 @@ def cli(
                 if model_pdb_cfg is None and not model_indices:
                     raise click.BadParameter(str(e))
                 click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-                detect_layer = False
+                detect_layer_enabled = False
 
-        if not detect_layer:
+        if not detect_layer_enabled:
             if model_pdb_cfg is None and not model_indices:
                 raise click.BadParameter("Provide --model-pdb or --model-indices when --no-detect-layer.")
             if model_pdb_cfg is not None:
@@ -416,6 +692,7 @@ def cli(
                 out_dir_path / f"{irc_cfg.get('prefix','')}{'backward_irc.pdb'}",
             )
 
+        _write_output_summary_md(out_dir_path)
         click.echo(format_elapsed("[time] Elapsed Time for IRC", time_start))
 
     except KeyboardInterrupt:

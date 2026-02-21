@@ -89,6 +89,9 @@ The PySisyphus interface returns values converted to atomic units (Hartree/Bohr)
 
 ## See Also
 
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+
 - [opt](opt.md) -- Single-structure geometry optimization using the ML/MM calculator
 - [tsopt](tsopt.md) -- Transition state optimization
 - [freq](freq.md) -- Vibrational frequency analysis

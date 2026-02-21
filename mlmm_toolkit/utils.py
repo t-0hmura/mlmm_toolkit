@@ -689,6 +689,141 @@ def parse_scan_list_quads(
     return parsed, list(obj)
 
 
+def _load_scan_spec_root(
+    spec_path: Path,
+    *,
+    option_name: str = "--spec",
+) -> Mapping[str, Any]:
+    """Load a scan spec (YAML/JSON) and ensure mapping root."""
+    try:
+        with open(spec_path, "r", encoding="utf-8") as handle:
+            data = yaml.safe_load(handle)
+    except Exception as exc:
+        raise click.BadParameter(
+            f"Failed to parse {option_name} file '{spec_path}': {exc}"
+        )
+
+    if data is None:
+        raise click.BadParameter(f"{option_name} file '{spec_path}' is empty.")
+    if not isinstance(data, Mapping):
+        raise click.BadParameter(
+            f"{option_name} file '{spec_path}' must have a mapping at the YAML/JSON root."
+        )
+    return data
+
+
+def _spec_one_based(
+    value: Any,
+    *,
+    default: bool,
+    option_name: str = "--spec",
+) -> bool:
+    """Resolve one_based value from spec with CLI fallback."""
+    if value is None:
+        return bool(default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        key = value.strip().lower()
+        if key in {"1", "true", "yes", "y", "on"}:
+            return True
+        if key in {"0", "false", "no", "n", "off"}:
+            return False
+    raise click.BadParameter(
+        f"{option_name} field 'one_based' must be a boolean (true/false)."
+    )
+
+
+def _first_spec_field(
+    spec_cfg: Mapping[str, Any],
+    candidates: _Sequence[str],
+) -> Tuple[Optional[str], Any]:
+    for key in candidates:
+        if key in spec_cfg:
+            return key, spec_cfg[key]
+    return None, None
+
+
+def parse_scan_spec_stages(
+    spec_path: Path,
+    *,
+    one_based_default: bool,
+    atom_meta: Optional[_Sequence[Dict[str, Any]]],
+    option_name: str = "--spec",
+) -> Tuple[List[List[Tuple[int, int, float]]], bool]:
+    """Parse staged 1D scan spec into 0-based stage triples."""
+    spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
+    stages_key, stages_raw = _first_spec_field(
+        spec_cfg, ("stages", "scan_lists", "scan-lists")
+    )
+    if stages_key is None:
+        raise click.BadParameter(
+            f"{option_name} must define 'stages' (or legacy 'scan_lists')."
+        )
+    if not isinstance(stages_raw, (list, tuple)) or len(stages_raw) == 0:
+        raise click.BadParameter(f"{option_name} field '{stages_key}' must be a non-empty list.")
+
+    one_based = _spec_one_based(
+        spec_cfg.get("one_based"), default=one_based_default, option_name=option_name
+    )
+    stages: List[List[Tuple[int, int, float]]] = []
+    for stage_idx, stage_raw in enumerate(stages_raw, start=1):
+        if not isinstance(stage_raw, (list, tuple)):
+            raise click.BadParameter(
+                f"{option_name} {stages_key}[{stage_idx}] must be a list of (i,j,target) entries."
+            )
+        parsed, _ = parse_scan_list_triples(
+            repr(list(stage_raw)),
+            one_based=one_based,
+            atom_meta=atom_meta,
+            option_name=f"{option_name} {stages_key}[{stage_idx}]",
+        )
+        if not parsed:
+            raise click.BadParameter(
+                f"{option_name} {stages_key}[{stage_idx}] must contain at least one (i,j,target) triple."
+            )
+        for i, j, target in parsed:
+            if target <= 0.0:
+                raise click.BadParameter(
+                    f"Non-positive target distance in {option_name} {stages_key}[{stage_idx}]: {(i, j, target)}."
+                )
+        stages.append(parsed)
+    return stages, one_based
+
+
+def parse_scan_spec_quads(
+    spec_path: Path,
+    *,
+    expected_len: int,
+    one_based_default: bool,
+    atom_meta: Optional[_Sequence[Dict[str, Any]]],
+    option_name: str = "--spec",
+) -> Tuple[List[Tuple[int, int, float, float]], List[Tuple[Any, Any, float, float]], bool]:
+    """Parse 2D/3D scan spec into 0-based quad tuples."""
+    spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
+    pairs_key, pairs_raw = _first_spec_field(
+        spec_cfg, ("pairs", "scan_list", "scan-list", "scan_lists", "scan-lists")
+    )
+    if pairs_key is None:
+        raise click.BadParameter(
+            f"{option_name} must define 'pairs' (or legacy 'scan_list')."
+        )
+    if not isinstance(pairs_raw, (list, tuple)):
+        raise click.BadParameter(f"{option_name} field '{pairs_key}' must be a list.")
+
+    one_based = _spec_one_based(
+        spec_cfg.get("one_based"), default=one_based_default, option_name=option_name
+    )
+    parsed, raw_pairs = parse_scan_list_quads(
+        repr(list(pairs_raw)),
+        expected_len=expected_len,
+        one_based=one_based,
+        atom_meta=atom_meta,
+        option_name=f"{option_name} {pairs_key}",
+    )
+    return parsed, raw_pairs, one_based
+
+
 PDB_ATOM_META_HEADER = f"{'id':>5} {'atom':<4} {'res':<4} {'resid':>4} {'el':<2}"
 
 

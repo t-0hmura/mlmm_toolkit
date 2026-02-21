@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **要約:** 調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。1 つの `--scan-lists` リテラルに 2 つの四つ組 `(i, j, low_A, high_A)` を指定します。
+> **要約:** 調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。`--spec`（YAML/JSON、推奨）または legacy の `--scan-lists` を使用します。
 
 `mlmm scan2d` は `--max-step-size` を使用して 2 つの結合距離の線形グリッドを構築し、適切な拘束を適用して各グリッド点を緩和し、バイアスなしの ML/MM エネルギーを可視化用に記録します。スキャンはまず d1 を反復し d1 拘束のみで構造を緩和し、次に各 d1 値について d2 を反復し両方の拘束を適用します。
 
@@ -12,11 +12,12 @@
 
 ```bash
 mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q CHARGE [-m SPIN] --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]" \
+    -q CHARGE [-m SPIN] \
+    [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
     [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
     [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
-    [--dump {True|False}] [--out-dir DIR] [--args-yaml FILE] \
-    [--preopt {True|False}] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
+    [--dump/--no-dump] [--out-dir DIR] [--args-yaml FILE] \
+    [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
 ### 例
@@ -29,13 +30,13 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 # TRJ ダンプ付き LBFGS スキャン、コンタープロットの固定カラースケール
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
-    --max-step-size 0.20 --dump True --out-dir ./result_scan2d/ --preopt True --baseline min \
+    --max-step-size 0.20 --dump --out-dir ./result_scan2d/ --preopt --baseline min \
     --zmin 0.0 --zmax 40.0
 ```
 
 ## ワークフロー
 
-1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM 計算機（FAIR-Chem UMA + OpenMM）を構築し、`--preopt True` の場合は任意でバイアスなし事前最適化を実行。
+1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM 計算機（FAIR-Chem UMA + OpenMM）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
 2. **グリッド構築** -- `--scan-lists` を 2 つの四つ組に解析し、インデックスを正規化（デフォルト 1 始まりまたは `"TYR,285,CA"` のような PDB 原子セレクター）。`ceil(|high - low| / h) + 1` 点の線形グリッドを構築（`h = --max-step-size`）。
 3. **外側ループ（d1）** -- 各 d1 値について、**d1 拘束のみ**で系を緩和。
 4. **内側ループ（d2）** -- 現在の d1 での各 d2 値について、最も近い収束済み構造から開始し**両方の拘束**で緩和。
@@ -57,17 +58,19 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
 | `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定で `--detect-layer` が無効化。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
-| `--scan-lists TEXT` | 2 つの四つ組を含む Python リテラル: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | 必須 |
+| `--spec FILE` | `pairs`（2 四つ組）を持つ YAML/JSON 仕様。`one_based` を任意指定可能。 | 推奨 |
+| `--scan-lists TEXT` | legacy: 2 つの四つ組を含む Python リテラル: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | `--spec` の代替 |
 | `--one-based / --zero-based` | `--scan-lists` の `(i,j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
+| `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (A)。グリッド密度を決定。 | `0.20` |
 | `--bias-k FLOAT` | 調和ウェル強度 k (eV/A^2)。 | `100.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの最大 LBFGS サイクル。 | `10000` |
-| `--dump {True\|False}` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
+| `--dump/--no-dump` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
 | `--out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--args-yaml FILE` | YAML 上書き（セクション: `geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias`）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
-| `--preopt {True\|False}` | スキャン前にバイアスなし事前最適化を実行。 | `True` |
+| `--preopt/--no-preopt` | スキャン前にバイアスなし事前最適化を実行。 | `True` |
 | `--baseline {min,first}` | 相対エネルギーの基準（kcal/mol）。 | `min` |
 | `--zmin FLOAT` | コンターカラースケールの下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | コンターカラースケールの上限（kcal/mol）。 | 自動スケール |
@@ -82,8 +85,8 @@ out_dir/  (デフォルト: ./result_scan2d/)
 ├── grid/
 │   ├── point_i###_j###.xyz       # 各 (i, j) ペアの緩和ジオメトリ
 │   ├── point_i###_j###.pdb       # PDB コンパニオン（入力が PDB の場合）
-│   ├── preopt_i###_j###.xyz      # 事前最適化構造（--preopt True 時）
-│   └── inner_path_d1_###.trj     # d1 スライスごとの内側 d2 軌跡（--dump True 時）
+│   ├── preopt_i###_j###.xyz      # 事前最適化構造（--preopt 時）
+│   └── inner_path_d1_###.trj     # d1 スライスごとの内側 d2 軌跡（--dump 時）
 └── (stdout)                      # 進捗とエネルギーサマリー
 ```
 
@@ -114,6 +117,8 @@ bias:
 ```
 
 ## 注意事項
+
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は酵素複合体全体を保持します。ML 領域は `--model-pdb` から、Amber パラメータは `--real-parm7` から読み取られます。
 - バイアスは最終エネルギー記録前に常に除去されるため、`surface.csv` はグリッド点間で直接比較可能です。

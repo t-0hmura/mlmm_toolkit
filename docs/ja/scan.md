@@ -2,24 +2,61 @@
 
 ## 概要
 
-> **要約:** ML/MM 計算機を使用して、調和拘束による結合距離スキャンで反応座標を駆動します。`--scan-lists` でターゲット距離を定義します。複数ステージは順次実行され、各ステージは前ステージの緩和構造から開始します。
+> **要約:** ML/MM 計算機を使用して、調和拘束による結合距離スキャンで反応座標を駆動します。`--spec`（YAML/JSON、推奨）でターゲット距離を定義し、`--scan-lists` は legacy 入力として残します。
 
 ### 概要
 - **用途:** 単一構造があり、特定の距離を変化させて反応経路を探索したい場合に使用（多くの場合 `path-search`/`path-opt` の前段階）。
-- **入力:** 1 つの構造 + 1 つ以上の `--scan-lists` リテラル（各リテラル = 1 ステージ）。
-- **デフォルト:** LBFGS オプティマイザー、`--preopt True`、`--endopt True`、`--max-step-size 0.20` A。
-- **出力:** ステージごとの `result.xyz`（+ 任意で `.pdb`）、`--dump True` 時は連結軌跡。
-- **注記:** `--scan-lists` は **Python リテラル**として解析されます。クオートとエスケープに注意してください（例を参照）。
+- **入力:** 1 つの構造 + `--spec scan.yaml`（推奨）または 1 つ以上の legacy `--scan-lists` リテラル（各リテラル = 1 ステージ）。
+- **デフォルト:** LBFGS オプティマイザー、`--preopt`、`--endopt`、`--max-step-size 0.20` A。
+- **出力:** ステージごとの `result.xyz`（+ 任意で `.pdb`）、`--dump` 時は連結軌跡。
+- **注記:** 可能な限り `--spec` を使ってください。`--scan-lists` は **Python リテラル**のためクオート/エスケープが必要です。
 
 `mlmm scan` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して調和拘束による段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットが更新され、拘束ウェルが適用され、LBFGS で構造が緩和されます。ML/MM 計算機は FAIR-Chem UMA と OpenMM をリンク原子なしで結合します。
 
 単一フラグの後に複数の `--scan-lists` リテラルを提供すると、ステージは順次実行され、各ステージは前ステージの緩和構造から開始します。バイアス付きウォークの後、任意のバイアスなし事前/事後最適化（`--preopt`、`--endopt`）でジオメトリを整えてから `result.*` をディスクに書き出します。設定の優先順位は **CLI > YAML > 内部デフォルト** です。YAML セクションは `geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias`、`bond` を含みます。
 
+## 最小例
+
+```bash
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
+```
+
+## 出力の見方
+
+- `result_scan/stage_01/result.pdb`（または `result.xyz`）
+- `result_scan/stage_02/result.pdb`（または `result.xyz`）
+- `--dump` 指定時は `result_scan/stage_*/scan.trj` と `scan.pdb`
+
+## よくある例
+
+1. YAML の解釈結果を表示して入力を確認する。
+
+```bash
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --spec scan.yaml --print-parsed
+```
+
+2. 互換性のため legacy リテラル入力を使う。
+
+```bash
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --scan-lists "[(12,45,2.20)]"
+```
+
+3. ステージごとの軌跡を保存して確認する。
+
+```bash
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --spec scan.yaml --dump --out-dir ./result_scan_dump
+```
+
 ## 使用法
 
 ```bash
 mlmm scan -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-          -q CHARGE [-m MULT] --scan-lists "[(I,J,TARGET_ANG)]" [options]
+          -q CHARGE [-m MULT] \
+          [--spec scan.yaml | --scan-lists "[(I,J,TARGET_ANG)]"] [options]
 ```
 
 ### 例
@@ -32,21 +69,21 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 # ダンプ付き 2 ステージ、凍結原子、YAML 上書き
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     -q -1 -m 1 --freeze-atoms "1,3,5" --scan-lists "[(12,45,2.20)]" \
-    "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump True \
+    "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
     --args-yaml params.yaml --out-dir ./result_scan/
 ```
 
 ## ワークフロー
 
 1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM 計算機に `--real-parm7`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
-2. 任意でバイアスなし事前最適化（`--preopt True`）を実行し、開始点を緩和します。
+2. 任意でバイアスなし事前最適化（`--preopt`）を実行し、開始点を緩和します。
 3. `--scan-lists` で提供された各ステージリテラルについて、`(i, j)` インデックスを解析して正規化します（デフォルトは 1 始まり）。入力が PDB の場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
 4. 結合ごとの変位を計算してステップに分割します:
    - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
    - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
    - 各ペアの増分変化は `delta_k = delta_k / N` (A)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * delta_k`。
 5. すべてのステップを進み、調和ウェル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/A^2）から取得され、Hartree/Bohr^2 に一度変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
-6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt True`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
+6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
 7. すべてのステージで繰り返します。任意の軌跡は `--dump` が `True` の場合のみダンプされます。
 
 ## CLI オプション
@@ -58,14 +95,16 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。 | 必須 |
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
-| `--scan-lists TEXT` | `(i, j, target_A)` タプルを含む Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
+| `--spec FILE` | `stages` を持つ YAML/JSON スキャン仕様。`one_based` を任意指定可能。 | 推奨 |
+| `--scan-lists TEXT` | legacy: `(i, j, target_A)` タプルを含む Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | `--spec` の代替 |
 | `--zero-based` | 原子インデックスを 1 始まりではなく 0 始まりとして解釈。 | `False`（1 始まり） |
+| `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のステージ情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (A)。積分ステップ数を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/A^2）。 | `100` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--preopt {True\|False}` | スキャン前にバイアスなし最適化を実行。 | `True` |
-| `--endopt {True\|False}` | 各ステージ後にバイアスなし最適化を実行。 | `True` |
-| `--dump {True\|False}` | 連結バイアス軌跡（`scan.trj`/`scan.pdb`）をダンプ。 | `False` |
+| `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `True` |
+| `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `True` |
+| `--dump/--no-dump` | 連結バイアス軌跡（`scan.trj`/`scan.pdb`）をダンプ。 | `False` |
 | `--out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
 | `--args-yaml FILE` | `geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias`、`bond` の YAML 上書き。 | _None_ |
 
@@ -79,7 +118,7 @@ out_dir/ (デフォルト: ./result_scan/)
 └─ stage_XX/                 # ステージごとに 1 フォルダ（k = 01..K）
     ├─ result.xyz            # 最終（endopt 済みの可能性あり）ジオメトリ
     ├─ result.pdb            # 入力が PDB の場合
-    ├─ scan.trj              # --dump True 時のバイアスステップフレーム連結
+    ├─ scan.trj              # --dump 時のバイアスステップフレーム連結
     └─ scan.pdb              # scan.trj の PDB 版（PDB 入力のみ）
 ```
 
@@ -115,6 +154,9 @@ YAML ルートはマッピングでなければなりません。設定の優先
 ---
 
 ## 関連項目
+
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [scan2d](scan2d.md) -- 2D 距離グリッドスキャン
 - [scan3d](scan3d.md) -- 3D 距離グリッドスキャン

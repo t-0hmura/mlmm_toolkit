@@ -12,11 +12,14 @@ from __future__ import annotations
 import sys
 import textwrap
 import time
+import os
+import shutil
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Sequence
 
 import click
+from click.core import ParameterSource
 import numpy as np
 import torch
 import ase.units as units
@@ -40,6 +43,7 @@ from .utils import (
     apply_layer_freeze_constraints,
     apply_yaml_overrides,
     convert_xyz_to_pdb,
+    deep_update,
     format_elapsed,
     format_freeze_atoms_for_echo,
     load_yaml_dict,
@@ -52,6 +56,146 @@ from .utils import (
     build_model_pdb_from_indices,
     strip_inherited_keys,
 )
+
+
+def _resolve_yaml_sources(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+) -> Tuple[Optional[Path], Optional[Path], bool]:
+    if override_yaml is not None and args_yaml_legacy is not None:
+        raise click.BadParameter(
+            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+        )
+    if args_yaml_legacy is not None:
+        return config_yaml, args_yaml_legacy, True
+    return config_yaml, override_yaml, False
+
+
+def _load_merged_yaml_cfg(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    deep_update(merged, load_yaml_dict(config_yaml))
+    deep_update(merged, load_yaml_dict(override_yaml))
+    return merged
+
+
+def _first_existing_artifact(out_dir: Path, patterns: Sequence[str]) -> Optional[Path]:
+    """Resolve the first existing artifact for a list of relative patterns."""
+    for pattern in patterns:
+        if any(ch in pattern for ch in "*?[]"):
+            for candidate in sorted(out_dir.glob(pattern)):
+                if candidate.is_file():
+                    return candidate.resolve()
+            continue
+        candidate = out_dir / pattern
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def _link_or_copy_file(src: Path, dst: Path) -> bool:
+    """Create a symlink when possible; fall back to copy."""
+    try:
+        if dst.exists() or dst.is_symlink():
+            if dst.is_dir():
+                return False
+            dst.unlink()
+        rel = os.path.relpath(src, start=dst.parent)
+        dst.symlink_to(rel)
+        return True
+    except Exception:
+        try:
+            shutil.copy2(src, dst)
+            return True
+        except Exception:
+            return False
+
+
+def _write_output_summary_md(out_dir: Path) -> None:
+    """Write summary.md and expose key outputs at out_dir root."""
+    try:
+        out_dir = out_dir.resolve()
+        if not out_dir.exists():
+            return
+
+        root_specs: List[Tuple[str, Sequence[str]]] = [
+            ("Frequencies table", ["frequencies_cm-1.txt"]),
+            ("Lowest written mode trajectory", ["mode_0001_*.trj", "mode_*.trj"]),
+            ("Lowest written mode (PDB)", ["mode_0001_*.pdb", "mode_*.pdb"]),
+            ("Thermochemistry dump", ["thermoanalysis.yaml"]),
+        ]
+        root_lines: List[str] = []
+        for label, patterns in root_specs:
+            src = _first_existing_artifact(out_dir, patterns)
+            if src is None:
+                continue
+            rel = os.path.relpath(src, start=out_dir)
+            root_lines.append(f"- {label}: [`{rel}`]({rel})")
+
+        shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
+            ("key_frequencies.txt", "Frequencies table", ["frequencies_cm-1.txt"]),
+            ("key_mode_1.trj", "Lowest written mode trajectory", ["mode_0001_*.trj", "mode_*.trj"]),
+            ("key_mode_1.pdb", "Lowest written mode (PDB)", ["mode_0001_*.pdb", "mode_*.pdb"]),
+            ("key_thermo.yaml", "Thermochemistry dump", ["thermoanalysis.yaml"]),
+        ]
+        shortcut_lines: List[str] = []
+        for name, label, patterns in shortcut_specs:
+            src = _first_existing_artifact(out_dir, patterns)
+            if src is None:
+                continue
+            dst = out_dir / name
+            try:
+                same = src.resolve() == dst.resolve()
+            except Exception:
+                same = False
+            if not same and not _link_or_copy_file(src, dst):
+                continue
+            src_rel = os.path.relpath(src, start=out_dir)
+            shortcut_lines.append(
+                f"- {label}: [`{name}`]({name}) (source: `{src_rel}`)"
+            )
+
+        lines: List[str] = [
+            "# Freq Summary",
+            "",
+            f"- Generated: `{time.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
+            f"- Output directory: `{out_dir}`",
+            "",
+            "## Primary Artifacts",
+        ]
+        if root_lines:
+            lines.extend(root_lines)
+        else:
+            lines.append("- No primary artifacts detected yet.")
+        lines.extend(
+            [
+                "",
+                "## Root Shortcuts",
+                "- `key_*` files are symlinks when possible, otherwise copied files.",
+            ]
+        )
+        if shortcut_lines:
+            lines.extend(shortcut_lines)
+        else:
+            lines.append("- No shortcuts were generated.")
+        lines.extend(
+            [
+                "",
+                "## Notes",
+                "- Start from `key_frequencies.txt`; TS validation should confirm one dominant imaginary mode.",
+            ]
+        )
+
+        summary_md = out_dir / "summary.md"
+        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        click.echo(f"[write] Wrote '{summary_md}'.")
+    except Exception as e:
+        click.echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
+
+
 def _torch_device(auto: str = "auto") -> torch.device:
     if auto == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -608,8 +752,12 @@ THERMO_KW: Dict[str, Any] = {
 @click.option("--pressure", "pressure_atm",
               type=float, default=THERMO_KW["pressure_atm"], show_default=True,
               help="Pressure (atm) for thermochemistry summary.")
-@click.option("--dump", type=click.BOOL, default=THERMO_KW["dump"], show_default=True,
-              help="Write 'thermoanalysis.yaml' alongside the console summary.")
+@click.option(
+    "--dump/--no-dump",
+    default=THERMO_KW["dump"],
+    show_default=True,
+    help="Write 'thermoanalysis.yaml' alongside the console summary.",
+)
 @click.option("--out-dir", type=str, default=FREQ_KW["out_dir"], show_default=True, help="Output directory.")
 @click.option(
     "--active-dof-mode",
@@ -621,10 +769,38 @@ THERMO_KW: Dict[str, Any] = {
          "unfrozen (all non-frozen atoms).",
 )
 @click.option(
-    "--args-yaml",
+    "--config",
+    "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="YAML overrides (sections: geom, calc/mlmm, freq, thermo).",
+    help="Base YAML configuration file applied before explicit CLI options.",
+)
+@click.option(
+    "--override-yaml",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Final YAML override file (highest priority YAML layer).",
+)
+@click.option(
+    "--args-yaml",
+    "args_yaml_legacy",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
+)
+@click.option(
+    "--show-config/--no-show-config",
+    "show_config",
+    default=False,
+    show_default=True,
+    help="Print resolved configuration and continue execution.",
+)
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    default=False,
+    show_default=True,
+    help="Validate options and print the execution plan without running frequency analysis.",
 )
 @click.option(
     "--ref-pdb",
@@ -632,7 +808,9 @@ THERMO_KW: Dict[str, Any] = {
     default=None,
     help="Reference PDB topology to use when --input is XYZ (keeps XYZ coordinates).",
 )
+@click.pass_context
 def cli(
+    ctx: click.Context,
     input_path: Path,
     real_parm7: Path,
     model_pdb: Optional[Path],
@@ -654,10 +832,36 @@ def cli(
     dump: bool,
     out_dir: str,
     active_dof_mode: str,
-    args_yaml: Optional[Path],
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+    show_config: bool,
+    dry_run: bool,
     ref_pdb: Optional[Path],
 ) -> None:
     time_start = time.perf_counter()
+
+    def _is_param_explicit(name: str) -> bool:
+        try:
+            source = ctx.get_parameter_source(name)
+            return source not in (None, ParameterSource.DEFAULT)
+        except Exception:
+            return False
+
+    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+        args_yaml_legacy=args_yaml_legacy,
+    )
+    if used_legacy_yaml:
+        click.echo(
+            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
+            err=True,
+        )
+    merged_yaml_cfg = _load_merged_yaml_cfg(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+    )
 
     # Validate input format: PDB directly, or XYZ with --ref-pdb
     suffix = input_path.suffix.lower()
@@ -697,7 +901,8 @@ def cli(
             sys.exit(1)
 
     try:
-        yaml_cfg = load_yaml_dict(args_yaml)
+        config_layer_cfg = load_yaml_dict(config_yaml)
+        override_layer_cfg = load_yaml_dict(override_yaml)
     except ValueError as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
@@ -707,9 +912,11 @@ def cli(
     calc_cfg = deepcopy(CALC_KW)
     freq_cfg = dict(FREQ_KW)
     thermo_cfg = dict(THERMO_KW)
+    # Keep command-level default for detect-layer unless YAML/explicit CLI overrides it.
+    calc_cfg["use_bfactor_layers"] = bool(detect_layer)
 
     apply_yaml_overrides(
-        yaml_cfg,
+        config_layer_cfg,
         [
             (geom_cfg, (("geom",),)),
             (calc_cfg, (("calc",), ("mlmm",))),
@@ -717,8 +924,66 @@ def cli(
             (thermo_cfg, (("thermo",), ("freq", "thermo"))),
         ],
     )
-    if hessian_calc_mode is not None:
+
+    if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
         calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
+
+    if _is_param_explicit("max_write"):
+        freq_cfg["max_write"] = int(max_write)
+    if _is_param_explicit("amplitude_ang"):
+        freq_cfg["amplitude_ang"] = float(amplitude_ang)
+    if _is_param_explicit("n_frames"):
+        freq_cfg["n_frames"] = int(n_frames)
+    if _is_param_explicit("sort"):
+        freq_cfg["sort"] = str(sort)
+    if _is_param_explicit("out_dir"):
+        freq_cfg["out_dir"] = out_dir
+    if _is_param_explicit("active_dof_mode"):
+        freq_cfg["active_dof_mode"] = str(active_dof_mode)
+
+    if _is_param_explicit("temperature"):
+        thermo_cfg["temperature"] = float(temperature)
+    if _is_param_explicit("pressure_atm"):
+        thermo_cfg["pressure_atm"] = float(pressure_atm)
+    if _is_param_explicit("dump"):
+        thermo_cfg["dump"] = bool(dump)
+
+    if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
+        calc_cfg["hess_cutoff"] = float(hess_cutoff)
+    if _is_param_explicit("movable_cutoff") and movable_cutoff is not None:
+        calc_cfg["movable_cutoff"] = float(movable_cutoff)
+    if _is_param_explicit("detect_layer"):
+        calc_cfg["use_bfactor_layers"] = bool(detect_layer)
+
+    model_charge_value = calc_cfg.get("model_charge", charge)
+    if model_charge_value is None:
+        model_charge_value = charge
+    calc_cfg["model_charge"] = int(model_charge_value)
+    if _is_param_explicit("charge"):
+        calc_cfg["model_charge"] = int(charge)
+
+    model_mult_value = calc_cfg.get("model_mult", spin)
+    if model_mult_value is None:
+        model_mult_value = spin
+    calc_cfg["model_mult"] = int(model_mult_value)
+    if _is_param_explicit("spin"):
+        calc_cfg["model_mult"] = int(spin)
+
+    calc_cfg["input_pdb"] = str(source_path)
+    calc_cfg["real_parm7"] = str(real_parm7)
+    if model_pdb is not None:
+        calc_cfg["model_pdb"] = str(model_pdb)
+    calc_cfg.setdefault("return_partial_hessian", True)
+
+    apply_yaml_overrides(
+        override_layer_cfg,
+        [
+            (geom_cfg, (("geom",),)),
+            (calc_cfg, (("calc",), ("mlmm",))),
+            (freq_cfg, (("freq",),)),
+            (thermo_cfg, (("thermo",), ("freq", "thermo"))),
+        ],
+    )
 
     try:
         geom_freeze = _normalize_geom_freeze_opt(geom_cfg.get("freeze_atoms"))
@@ -730,35 +995,77 @@ def cli(
     if freeze_atoms_cli:
         merge_freeze_atom_indices(geom_cfg, freeze_atoms_cli)
     freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
-
-    freq_cfg["max_write"] = int(max_write)
-    freq_cfg["amplitude_ang"] = float(amplitude_ang)
-    freq_cfg["n_frames"] = int(n_frames)
-    freq_cfg["sort"] = str(sort)
-    freq_cfg["out_dir"] = out_dir
-
-    thermo_cfg["temperature"] = float(temperature)
-    thermo_cfg["pressure_atm"] = float(pressure_atm)
-    thermo_cfg["dump"] = bool(dump)
-
-    out_dir_path = Path(freq_cfg["out_dir"]).resolve()
-
-    calc_cfg["model_charge"] = int(charge)
-    calc_cfg["model_mult"] = int(spin)
-    calc_cfg["input_pdb"] = str(source_path)
-    calc_cfg["real_parm7"] = str(real_parm7)
     calc_cfg["freeze_atoms"] = freeze_atoms_final
-    calc_cfg.setdefault("return_partial_hessian", True)
 
-    # movable_cutoff implies full distance-based layer assignment.
-    # hess_cutoff alone can be combined with --detect-layer.
-    if movable_cutoff is not None:
-        if detect_layer:
-            click.echo("[layer] --movable-cutoff provided; disabling --detect-layer.", err=True)
-        detect_layer = False
-
+    out_dir_path = Path(freq_cfg.get("out_dir", FREQ_KW["out_dir"])).resolve()
     layer_source_pdb = source_path
-    if detect_layer and layer_source_pdb.suffix.lower() != ".pdb":
+    detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
+    model_pdb_cfg = calc_cfg.get("model_pdb")
+    movable_cutoff_value = calc_cfg.get("movable_cutoff")
+    if movable_cutoff_value is not None:
+        if detect_layer_enabled:
+            click.echo("[layer] movable_cutoff is set; disabling detect-layer mode.", err=True)
+        detect_layer_enabled = False
+        calc_cfg["use_bfactor_layers"] = False
+
+    if show_config:
+        click.echo(
+            pretty_block(
+                "yaml_layers",
+                {
+                    "config": None if config_yaml is None else str(config_yaml),
+                    "override_yaml": None if override_yaml is None else str(override_yaml),
+                    "merged_keys": sorted(merged_yaml_cfg.keys()),
+                },
+            )
+        )
+
+    if dry_run:
+        model_region_source = "bfactor"
+        if not detect_layer_enabled:
+            if model_pdb_cfg is not None:
+                model_region_source = "model_pdb"
+            elif model_indices:
+                model_region_source = "model_indices"
+            else:
+                click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
+                prepared_input.cleanup()
+                sys.exit(1)
+        if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
+            click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
+            prepared_input.cleanup()
+            sys.exit(1)
+        if (
+            not detect_layer_enabled
+            and model_pdb_cfg is None
+            and model_indices
+            and layer_source_pdb.suffix.lower() != ".pdb"
+        ):
+            click.echo("ERROR: --model-indices requires a PDB input (or --ref-pdb).", err=True)
+            prepared_input.cleanup()
+            sys.exit(1)
+        click.echo(
+            pretty_block(
+                "dry_run_plan",
+                {
+                    "input_geometry": str(geom_input_path),
+                    "output_dir": str(out_dir_path),
+                    "detect_layer": bool(detect_layer_enabled),
+                    "model_region_source": model_region_source,
+                    "model_indices_count": 0 if not model_indices else len(model_indices),
+                    "active_dof_mode": str(freq_cfg.get("active_dof_mode", active_dof_mode)),
+                    "will_run_frequency_analysis": True,
+                    "will_write_modes": True,
+                    "will_dump_thermo_yaml": bool(thermo_cfg.get("dump", False)),
+                },
+            )
+        )
+        click.echo("[dry-run] Validation complete. Frequency execution was skipped.")
+        return
+
+    out_dir_path.mkdir(parents=True, exist_ok=True)
+
+    if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
         click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
         prepared_input.cleanup()
         sys.exit(1)
@@ -766,7 +1073,7 @@ def cli(
     model_pdb_path: Optional[Path] = None
     layer_info: Optional[Dict[str, List[int]]] = None
 
-    if detect_layer:
+    if detect_layer_enabled:
         try:
             model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
             calc_cfg["use_bfactor_layers"] = True
@@ -776,20 +1083,20 @@ def cli(
                 f"FrozenMM={len(layer_info.get('frozen_indices', []))}"
             )
         except Exception as e:
-            if model_pdb is None and not model_indices:
+            if model_pdb_cfg is None and not model_indices:
                 click.echo(f"ERROR: {e}", err=True)
                 prepared_input.cleanup()
                 sys.exit(1)
             click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-            detect_layer = False
+            detect_layer_enabled = False
 
-    if not detect_layer:
-        if model_pdb is None and not model_indices:
+    if not detect_layer_enabled:
+        if model_pdb_cfg is None and not model_indices:
             click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
             prepared_input.cleanup()
             sys.exit(1)
-        if model_pdb is not None:
-            model_pdb_path = Path(model_pdb)
+        if model_pdb_cfg is not None:
+            model_pdb_path = Path(model_pdb_cfg)
         else:
             if layer_source_pdb.suffix.lower() != ".pdb":
                 click.echo("ERROR: --model-indices requires a PDB input (or --ref-pdb).", err=True)
@@ -816,18 +1123,10 @@ def cli(
         echo_fn=click.echo,
     )
 
-    # Distance-based overrides for Hessian-target and movable MM selection.
-    if hess_cutoff is not None:
-        calc_cfg["hess_cutoff"] = hess_cutoff
-    if movable_cutoff is not None:
-        calc_cfg["movable_cutoff"] = movable_cutoff
-        calc_cfg["use_bfactor_layers"] = False
-
     for key in ("input_pdb", "real_parm7", "model_pdb", "mm_fd_dir"):
         val = calc_cfg.get(key)
         if val:
             calc_cfg[key] = str(Path(val).expanduser().resolve())
-    out_dir_path.mkdir(parents=True, exist_ok=True)
 
     click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
     echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
@@ -839,7 +1138,9 @@ def cli(
     click.echo(pretty_block("thermo", echo_thermo))
 
     coord_type = geom_cfg.get("coord_type", "cart")
-    geometry = geom_loader(geom_input_path, coord_type=coord_type)
+    coord_kwargs = dict(geom_cfg)
+    coord_kwargs.pop("coord_type", None)
+    geometry = geom_loader(geom_input_path, coord_type=coord_type, **coord_kwargs)
 
     masses_amu = np.array([atomic_masses[z] for z in geometry.atomic_numbers])
     device = _torch_device(calc_cfg.get("ml_device", "auto"))
@@ -862,7 +1163,7 @@ def cli(
     # ml-only -> ML only
     # partial -> ML + Hessian-target MM (default)
     # unfrozen -> all except frozen MM
-    active_dof_mode_lower = active_dof_mode.lower()
+    active_dof_mode_lower = str(freq_cfg.get("active_dof_mode", active_dof_mode)).lower()
     if active_dof_mode_lower == "all":
         active_indices = all_indices
         click.echo("[active-dof] Using all atoms for frequency analysis.")
@@ -912,7 +1213,7 @@ def cli(
             f"[INFO] Total modes: {len(freqs_cm)} → writing {n_write} mode(s) ({freq_cfg['sort']} ordering)."
         )
 
-        ref_pdb = input_path
+        ref_pdb_for_modes = source_path if source_path.suffix.lower() == ".pdb" else None
         for k, idx in enumerate(order[:n_write], start=1):
             freq_val = float(freqs_cm[idx])
             mode_cart_3N = _mw_mode_to_cart(modes_mw[idx], masses_au_t)
@@ -926,7 +1227,7 @@ def cli(
                 amplitude_ang=freq_cfg["amplitude_ang"],
                 n_frames=freq_cfg["n_frames"],
                 comment=f"mode {k}  {freq_val:+.2f} cm-1",
-                ref_pdb=ref_pdb,
+                ref_pdb=ref_pdb_for_modes,
             )
 
         (out_dir_path / "frequencies_cm-1.txt").write_text(
@@ -948,9 +1249,9 @@ def cli(
                 "wavenumbers": freqs_cm,
                 "scf_energy": float(energy_ha),
                 "masses": masses_amu,
-                "mult": int(spin),
+                "mult": int(calc_cfg["model_mult"]),
             }
-            qc = QCData(qc_data, point_group="c1", mult=int(spin))
+            qc = QCData(qc_data, point_group="c1", mult=int(calc_cfg["model_mult"]))
 
             T = float(thermo_cfg["temperature"])
             p_atm = float(thermo_cfg["pressure_atm"])
@@ -1041,6 +1342,7 @@ def cli(
             tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
             click.echo("Unhandled error during thermochemistry summary:\n" + textwrap.indent(tb, "  "), err=True)
 
+        _write_output_summary_md(out_dir_path)
         click.echo(f"[DONE] Wrote modes and list → {out_dir_path}")
 
         click.echo(format_elapsed("[time] Elapsed Time for Freq", time_start))

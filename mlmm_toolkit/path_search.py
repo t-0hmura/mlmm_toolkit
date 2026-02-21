@@ -21,12 +21,14 @@ import traceback
 import textwrap
 import tempfile
 import os
+import shutil
 import time  # timing
 import re    # used in _segment_base_id
 
 import click
 import numpy as np
 import yaml
+from click.core import ParameterSource
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.cos.GrowingString import GrowingString
@@ -52,6 +54,7 @@ from .utils import (
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
     load_yaml_dict,
+    deep_update,
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
@@ -65,6 +68,9 @@ from .utils import (
     parse_indices_string,
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
+    read_bfactors_from_pdb,
+    has_valid_layer_bfactors,
+    parse_layer_indices_from_bfactors,
     collect_single_option_values,
 )
 from .preflight import validate_existing_files
@@ -145,6 +151,30 @@ _parse_freeze_atoms = _parse_freeze_atoms_opt
 _normalize_geom_freeze = _normalize_geom_freeze_opt
 
 
+def _resolve_yaml_sources(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+) -> Tuple[Optional[Path], Optional[Path], bool]:
+    if override_yaml is not None and args_yaml_legacy is not None:
+        raise click.BadParameter(
+            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+        )
+    if args_yaml_legacy is not None:
+        return config_yaml, args_yaml_legacy, True
+    return config_yaml, override_yaml, False
+
+
+def _load_merged_yaml_cfg(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    deep_update(merged, load_yaml_dict(config_yaml))
+    deep_update(merged, load_yaml_dict(override_yaml))
+    return merged
+
+
 def _write_xyz_trj_with_energy(images: Sequence, energies: Sequence[float], path: Path) -> None:
     """
     Write an XYZ `.trj` with the energy on line 2 of each block.
@@ -162,6 +192,122 @@ def _write_xyz_trj_with_energy(images: Sequence, energies: Sequence[float], path
         blocks.append(s_mod)
     with open(path, "w") as f:
         f.write("".join(blocks))
+
+
+def _first_existing_artifact(out_dir: Path, patterns: Sequence[str]) -> Optional[Path]:
+    """Resolve the first existing artifact for a list of relative patterns."""
+    for pattern in patterns:
+        if any(ch in pattern for ch in "*?[]"):
+            for candidate in sorted(out_dir.glob(pattern)):
+                if candidate.is_file():
+                    return candidate.resolve()
+            continue
+        candidate = out_dir / pattern
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def _link_or_copy_file(src: Path, dst: Path) -> bool:
+    """Create a symlink when possible; fall back to copy."""
+    try:
+        if dst.exists() or dst.is_symlink():
+            if dst.is_dir():
+                return False
+            dst.unlink()
+        rel = os.path.relpath(src, start=dst.parent)
+        dst.symlink_to(rel)
+        return True
+    except Exception:
+        try:
+            shutil.copy2(src, dst)
+            return True
+        except Exception:
+            return False
+
+
+def _write_output_summary_md(out_dir: Path) -> None:
+    """Write summary.md and expose key outputs at out_dir root."""
+    try:
+        out_dir = out_dir.resolve()
+        if not out_dir.exists():
+            return
+
+        root_specs: List[Tuple[str, str]] = [
+            ("summary.yaml", "YAML summary"),
+            ("summary.log", "Text summary"),
+            ("mep.trj", "MEP trajectory"),
+            ("mep.pdb", "MEP trajectory (PDB)"),
+            ("mep_w_ref.pdb", "MEP merged with reference"),
+            ("mep_plot.png", "MEP profile plot"),
+            ("energy_diagram_MEP.png", "State energy diagram"),
+        ]
+        root_lines: List[str] = []
+        for rel, label in root_specs:
+            if (out_dir / rel).is_file():
+                root_lines.append(f"- {label}: [`{rel}`]({rel})")
+
+        shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
+            ("key_mep.trj", "Primary MEP trajectory", ["mep.trj"]),
+            ("key_mep.pdb", "Primary MEP PDB", ["mep.pdb", "mep_w_ref.pdb"]),
+            ("key_ts.xyz", "TS candidate (XYZ)", ["hei_seg_*.xyz"]),
+            ("key_ts.pdb", "TS candidate (PDB)", ["hei_seg_*.pdb", "hei_w_ref_seg_*.pdb"]),
+            ("key_mep_plot.png", "MEP profile plot", ["mep_plot.png"]),
+            ("key_energy_diagram_MEP.png", "State energy diagram", ["energy_diagram_MEP.png"]),
+        ]
+        shortcut_lines: List[str] = []
+        for name, label, patterns in shortcut_specs:
+            src = _first_existing_artifact(out_dir, patterns)
+            if src is None:
+                continue
+            dst = out_dir / name
+            try:
+                same = src.resolve() == dst.resolve()
+            except Exception:
+                same = False
+            if not same and not _link_or_copy_file(src, dst):
+                continue
+            src_rel = os.path.relpath(src, start=out_dir)
+            shortcut_lines.append(
+                f"- {label}: [`{name}`]({name}) (source: `{src_rel}`)"
+            )
+
+        lines: List[str] = [
+            "# Path-Search Summary",
+            "",
+            f"- Generated: `{time.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
+            f"- Output directory: `{out_dir}`",
+            "",
+            "## Primary Artifacts",
+        ]
+        if root_lines:
+            lines.extend(root_lines)
+        else:
+            lines.append("- No primary artifacts detected yet.")
+        lines.extend(
+            [
+                "",
+                "## Root Shortcuts",
+                "- `key_*` files are symlinks when possible, otherwise copied files.",
+            ]
+        )
+        if shortcut_lines:
+            lines.extend(shortcut_lines)
+        else:
+            lines.append("- No shortcuts were generated.")
+        lines.extend(
+            [
+                "",
+                "## Notes",
+                "- Start from `summary.log` for a concise narrative and from `summary.yaml` for machine-readable values.",
+            ]
+        )
+
+        summary_md = out_dir / "summary.md"
+        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        click.echo(f"[write] Wrote '{summary_md}'.")
+    except Exception as e:
+        click.echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
 
 
 def _maybe_convert_to_pdb(in_path: Path, ref_pdb_path: Optional[Path], out_path: Optional[Path] = None) -> Optional[Path]:
@@ -1572,10 +1718,18 @@ def _merge_final_and_write(final_images: List[Any],
               help=("Number of internal nodes (string has max_nodes+2 images including endpoints). "
                     "Used for *segment* GSM unless overridden by YAML search.max_nodes_segment."))
 @click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum GSM optimization cycles.")
-@click.option("--climb", type=click.BOOL, default=True, show_default=True,
-              help="Enable transition-state search after path growth.")
-@click.option("--dump", type=click.BOOL, default=False, show_default=True,
-              help="Dump GSM/single-optimization trajectories during the run.")
+@click.option(
+    "--climb/--no-climb",
+    default=True,
+    show_default=True,
+    help="Enable transition-state search after path growth.",
+)
+@click.option(
+    "--dump/--no-dump",
+    default=False,
+    show_default=True,
+    help="Dump GSM/single-optimization trajectories during the run.",
+)
 @click.option(
     "--sopt-mode",
     "sopt_mode",
@@ -1592,15 +1746,42 @@ def _merge_final_and_write(final_images: List[Any],
     help="Convergence preset for GSM/StringOptimizer and single LBFGS runs (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
 )
 @click.option(
-    "--args-yaml",
+    "--config",
+    "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="YAML with extra args (sections: geom, calc/mlmm, gs, opt, lbfgs, bond, search)."
+    help="Base YAML configuration file applied before explicit CLI options.",
 )
 @click.option(
-    "--pre-opt",
+    "--override-yaml",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Final YAML override file (highest priority YAML layer).",
+)
+@click.option(
+    "--args-yaml",
+    "args_yaml_legacy",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
+)
+@click.option(
+    "--show-config/--no-show-config",
+    "show_config",
+    default=False,
+    show_default=True,
+    help="Print resolved configuration and continue execution.",
+)
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    default=False,
+    show_default=True,
+    help="Validate options and print the execution plan without running path search.",
+)
+@click.option(
+    "--pre-opt/--no-pre-opt",
     "pre_opt",
-    type=click.BOOL,
     default=True,
     show_default=True,
     help="If False, skip initial single-structure optimizations of inputs."
@@ -1648,7 +1829,11 @@ def cli(
     sopt_mode: str,
     out_dir: str,
     thresh: Optional[str],
-    args_yaml: Optional[Path],
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+    show_config: bool,
+    dry_run: bool,
     pre_opt: bool,
     align: bool,
     ref_pdb_paths: Optional[Sequence[Path]],
@@ -1674,6 +1859,28 @@ def cli(
         )
         ref_pdb_paths = tuple(ref_parsed)
     # --- end of robust parsing fix ---
+
+    def _is_param_explicit(name: str) -> bool:
+        try:
+            source = ctx.get_parameter_source(name)
+            return source not in (None, ParameterSource.DEFAULT)
+        except Exception:
+            return False
+
+    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+        args_yaml_legacy=args_yaml_legacy,
+    )
+    if used_legacy_yaml:
+        click.echo(
+            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
+            err=True,
+        )
+    merged_yaml_cfg = _load_merged_yaml_cfg(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+    )
 
     time_start = time.perf_counter()  # start timing
     command_str = "mlmm path-search " + " ".join(sys.argv[1:])
@@ -1702,23 +1909,24 @@ def cli(
                 )
         prepared_inputs = [prepare_input_structure(p) for p in p_list]
         # --------------------------
-        # 1) Resolve settings (defaults ← YAML ← CLI)
+        # 1) Resolve settings (defaults < config < CLI(explicit) < override)
         # --------------------------
-        yaml_cfg = load_yaml_dict(args_yaml)
+        config_layer_cfg = load_yaml_dict(config_yaml)
+        override_layer_cfg = load_yaml_dict(override_yaml)
 
         mep_mode_kind = mep_mode.lower().strip()
 
         geom_cfg = dict(GEOM_KW)
         calc_cfg = dict(CALC_KW)
-        gs_cfg   = dict(GS_KW)
-        opt_cfg  = dict(STOPT_KW)
+        gs_cfg = dict(GS_KW)
+        opt_cfg = dict(STOPT_KW)
         lbfgs_cfg = dict(LBFGS_KW)
-        bond_cfg  = dict(BOND_KW)
+        bond_cfg = dict(BOND_KW)
         search_cfg = dict(SEARCH_KW)
-        dmf_cfg  = dict(DMF_KW)
+        dmf_cfg = dict(DMF_KW)
 
         apply_yaml_overrides(
-            yaml_cfg,
+            config_layer_cfg,
             [
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
@@ -1765,31 +1973,182 @@ def cli(
                 resolved_charge,
                 resolved_spin,
             )
-        calc_cfg["model_charge"] = resolved_charge
-        calc_cfg["model_mult"] = resolved_spin
+        charge_value = calc_cfg.get("model_charge", resolved_charge)
+        if charge_value is None:
+            charge_value = resolved_charge
+        calc_cfg["model_charge"] = int(charge_value)
+        if _is_param_explicit("charge"):
+            calc_cfg["model_charge"] = int(resolved_charge)
+
+        spin_value = calc_cfg.get("model_mult", resolved_spin)
+        if spin_value is None:
+            spin_value = resolved_spin
+        calc_cfg["model_mult"] = int(spin_value)
+        if _is_param_explicit("spin"):
+            calc_cfg["model_mult"] = int(resolved_spin)
 
         first_input = p_list[0]
         calc_cfg["input_pdb"] = str(first_input)
         calc_cfg["real_parm7"] = str(real_parm7)
 
-        out_dir_path = Path(out_dir).resolve()
+        detect_layer_effective = bool(calc_cfg.get("use_bfactor_layers", detect_layer))
+        if _is_param_explicit("detect_layer"):
+            detect_layer_effective = bool(detect_layer)
 
-        # movable_cutoff implies full distance-based layer assignment.
-        # hess_cutoff alone can be combined with --detect-layer.
-        if movable_cutoff is not None:
-            if detect_layer:
-                click.echo("[layer] --movable-cutoff provided; disabling --detect-layer.", err=True)
-            detect_layer = False
+        if _is_param_explicit("max_nodes"):
+            gs_cfg["max_nodes"] = int(max_nodes)
+            search_cfg["max_nodes_segment"] = int(max_nodes)
+        if _is_param_explicit("max_cycles"):
+            opt_cfg["max_cycles"] = int(max_cycles)
+            opt_cfg["stop_in_when_full"] = int(max_cycles)
+            dmf_cfg["max_cycles"] = int(max_cycles)
+        if _is_param_explicit("climb"):
+            gs_cfg["climb"] = bool(climb)
+            gs_cfg["climb_lanczos"] = bool(climb)
+        if _is_param_explicit("dump"):
+            opt_cfg["dump"] = bool(dump)
+            lbfgs_cfg["dump"] = bool(dump)
+        if _is_param_explicit("out_dir"):
+            opt_cfg["out_dir"] = out_dir
+            lbfgs_cfg["out_dir"] = out_dir
+        if _is_param_explicit("thresh") and thresh is not None:
+            opt_cfg["thresh"] = str(thresh)
+            lbfgs_cfg["thresh"] = str(thresh)
+        if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
+            calc_cfg["hess_cutoff"] = float(hess_cutoff)
+        if _is_param_explicit("movable_cutoff") and movable_cutoff is not None:
+            calc_cfg["movable_cutoff"] = float(movable_cutoff)
+            detect_layer_effective = False
+
+        apply_yaml_overrides(
+            override_layer_cfg,
+            [
+                (geom_cfg, (("geom",),)),
+                (calc_cfg, (("calc",), ("mlmm",))),
+                (gs_cfg, (("gs",),)),
+                (opt_cfg, (("opt",),)),
+                (lbfgs_cfg, (("sopt", "lbfgs"), ("lbfgs",))),
+                (bond_cfg, (("bond",),)),
+                (search_cfg, (("search",),)),
+                (dmf_cfg, (("dmf",),)),
+            ],
+        )
+
+        out_dir_path = Path(opt_cfg.get("out_dir", out_dir)).resolve()
+        detect_layer_effective = bool(calc_cfg.get("use_bfactor_layers", detect_layer_effective))
+
+        model_pdb_effective: Optional[Path] = None
+        if _is_param_explicit("model_pdb") and model_pdb is not None:
+            model_pdb_effective = Path(model_pdb)
+        else:
+            model_pdb_cfg = calc_cfg.get("model_pdb")
+            if isinstance(model_pdb_cfg, (str, Path)) and str(model_pdb_cfg).strip():
+                model_pdb_effective = Path(model_pdb_cfg)
+
+        hess_cutoff_effective = calc_cfg.get("hess_cutoff")
+        movable_cutoff_effective = calc_cfg.get("movable_cutoff")
+        if movable_cutoff_effective is not None:
+            if detect_layer_effective:
+                click.echo("[layer] movable_cutoff is set; disabling detect-layer.", err=True)
+            detect_layer_effective = False
 
         layer_source_pdb = first_input
-        if detect_layer and layer_source_pdb.suffix.lower() != ".pdb":
+        if detect_layer_effective and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input.", err=True)
             sys.exit(1)
+
+        if dry_run:
+            layer_info_preview: Optional[Dict[str, List[int]]] = None
+            model_region_source = "bfactor"
+
+            if detect_layer_effective:
+                try:
+                    bfactors = read_bfactors_from_pdb(layer_source_pdb)
+                    if not bfactors:
+                        raise ValueError(f"No ATOM/HETATM records found in {layer_source_pdb}.")
+                    if not has_valid_layer_bfactors(bfactors):
+                        raise ValueError(
+                            "Invalid or missing layer B-factors (expected ~0/10/20). "
+                            "Provide --no-detect-layer with --model-pdb/--model-indices."
+                        )
+                    layer_info_preview = parse_layer_indices_from_bfactors(bfactors)
+                    if not layer_info_preview.get("ml_indices"):
+                        raise ValueError("No ML atoms detected from B-factors (value ~0).")
+                except Exception as e:
+                    if model_pdb_effective is None and not model_indices:
+                        click.echo(f"ERROR: {e}", err=True)
+                        sys.exit(1)
+                    click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
+                    detect_layer_effective = False
+
+            if not detect_layer_effective:
+                if model_pdb_effective is not None:
+                    model_region_source = "model_pdb"
+                elif model_indices:
+                    model_region_source = "model_indices"
+                    if layer_source_pdb.suffix.lower() != ".pdb":
+                        click.echo("ERROR: --model-indices requires a PDB input.", err=True)
+                        sys.exit(1)
+                    n_atoms = 0
+                    with layer_source_pdb.open("r", encoding="utf-8", errors="ignore") as fh:
+                        for line in fh:
+                            if line.startswith(("ATOM  ", "HETATM")):
+                                n_atoms += 1
+                    bad_idx = [i for i in model_indices if i < 0 or i >= n_atoms]
+                    if bad_idx:
+                        click.echo(
+                            f"ERROR: model index out of range: {bad_idx[0]} (valid: 0 <= idx < {n_atoms})",
+                            err=True,
+                        )
+                        sys.exit(1)
+                else:
+                    click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
+                    sys.exit(1)
+
+            if show_config:
+                click.echo(
+                    pretty_block(
+                        "yaml_layers",
+                        {
+                            "config": None if config_yaml is None else str(config_yaml),
+                            "override": None if override_yaml is None else str(override_yaml),
+                            "merged_keys": sorted(merged_yaml_cfg.keys()),
+                        },
+                    )
+                )
+
+            dry_payload: Dict[str, Any] = {
+                "input_count": len(p_list),
+                "input_first": str(p_list[0]) if p_list else None,
+                "input_last": str(p_list[-1]) if p_list else None,
+                "output_dir": str(out_dir_path),
+                "mep_mode": mep_mode_kind,
+                "detect_layer": bool(detect_layer_effective),
+                "model_region_source": model_region_source,
+                "model_indices_count": 0 if not model_indices else len(model_indices),
+                "pre_opt": bool(pre_opt),
+                "align": bool(align),
+                "max_depth": int(search_cfg.get("max_depth", SEARCH_KW["max_depth"])),
+                "max_nodes_segment": int(search_cfg.get("max_nodes_segment", gs_cfg.get("max_nodes", 0))),
+                "will_run_path_search": True,
+                "will_write_summary": True,
+            }
+            if layer_info_preview is not None:
+                dry_payload["layer_counts"] = {
+                    "ml": len(layer_info_preview.get("ml_indices", [])),
+                    "movable_mm": len(layer_info_preview.get("movable_mm_indices", [])),
+                    "frozen": len(layer_info_preview.get("frozen_indices", [])),
+                    "unassigned": len(layer_info_preview.get("unassigned_indices", [])),
+                }
+
+            click.echo(pretty_block("dry_run_plan", dry_payload))
+            click.echo("[dry-run] Validation complete. Path search execution was skipped.")
+            return
 
         model_pdb_path: Optional[Path] = None
         layer_info: Optional[Dict[str, List[int]]] = None
 
-        if detect_layer:
+        if detect_layer_effective:
             try:
                 model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
                 calc_cfg["use_bfactor_layers"] = True
@@ -1799,18 +2158,18 @@ def cli(
                     f"FrozenMM={len(layer_info.get('frozen_indices', []))}"
                 )
             except Exception as e:
-                if model_pdb is None and not model_indices:
+                if model_pdb_effective is None and not model_indices:
                     click.echo(f"ERROR: {e}", err=True)
                     sys.exit(1)
                 click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-                detect_layer = False
+                detect_layer_effective = False
 
-        if not detect_layer:
-            if model_pdb is None and not model_indices:
+        if not detect_layer_effective:
+            if model_pdb_effective is None and not model_indices:
                 click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
                 sys.exit(1)
-            if model_pdb is not None:
-                model_pdb_path = Path(model_pdb)
+            if model_pdb_effective is not None:
+                model_pdb_path = Path(model_pdb_effective)
             else:
                 if layer_source_pdb.suffix.lower() != ".pdb":
                     click.echo("ERROR: --model-indices requires a PDB input.", err=True)
@@ -1835,10 +2194,10 @@ def cli(
         )
 
         # Distance-based overrides for Hessian-target and movable MM selection.
-        if hess_cutoff is not None:
-            calc_cfg["hess_cutoff"] = hess_cutoff
-        if movable_cutoff is not None:
-            calc_cfg["movable_cutoff"] = movable_cutoff
+        if hess_cutoff_effective is not None:
+            calc_cfg["hess_cutoff"] = float(hess_cutoff_effective)
+        if movable_cutoff_effective is not None:
+            calc_cfg["movable_cutoff"] = float(movable_cutoff_effective)
             calc_cfg["use_bfactor_layers"] = False
 
         for key in ("input_pdb", "real_parm7", "model_pdb", "mm_fd_dir"):
@@ -1846,25 +2205,8 @@ def cli(
             if isinstance(val, (str, Path)):
                 calc_cfg[key] = str(Path(val).expanduser().resolve())
 
-        gs_cfg["max_nodes"] = int(max_nodes)
-        opt_cfg["max_cycles"] = int(max_cycles)
-        opt_cfg["stop_in_when_full"] = int(max_cycles)
-        gs_cfg["climb"] = bool(climb)
-        gs_cfg["climb_lanczos"] = bool(climb)
-
-        opt_cfg["dump"] = bool(dump)
-        opt_cfg["out_dir"] = out_dir
-        if thresh is not None:
-            opt_cfg["thresh"] = str(thresh)
-            lbfgs_cfg["thresh"] = str(thresh)
-
-        lbfgs_cfg["dump"] = bool(dump)
-        lbfgs_cfg["out_dir"] = out_dir
-
-        if "max_nodes_segment" not in yaml_cfg.get("search", {}):
-            search_cfg["max_nodes_segment"] = int(max_nodes)
-
-        out_dir_path = Path(out_dir).resolve()
+        opt_cfg["stop_in_when_full"] = int(opt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
+        out_dir_path = Path(opt_cfg.get("out_dir", out_dir)).resolve()
         echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
         echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
         echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
@@ -1882,7 +2224,24 @@ def cli(
         click.echo(pretty_block("bond", echo_bond))
         click.echo(pretty_block("search", echo_search))
         # Echo pre-optimization and alignment flags
-        click.echo(pretty_block("run_flags", {"pre_opt": bool(pre_opt), "align": bool(align)}))
+        click.echo(
+            pretty_block(
+                "run_flags",
+                {"pre_opt": bool(pre_opt), "align": bool(align), "mep_mode": mep_mode_kind},
+            )
+        )
+
+        if show_config:
+            click.echo(
+                pretty_block(
+                    "yaml_layers",
+                    {
+                        "config": None if config_yaml is None else str(config_yaml),
+                        "override": None if override_yaml is None else str(override_yaml),
+                        "merged_keys": sorted(merged_yaml_cfg.keys()),
+                    },
+                )
+            )
 
         if int(opt_cfg.get("max_cycles", 0)) <= 0:
             click.echo("[INFO] max_cycles <= 0: skipping path search.")
@@ -1918,7 +2277,7 @@ def cli(
                 new_geoms.append(g_opt)
             geoms = new_geoms
         else:
-            click.echo("[init] Skipping endpoint pre-optimization as requested by --pre-opt False.")
+            click.echo("[init] Skipping endpoint pre-optimization as requested by --no-pre-opt.")
 
         # Align all inputs to the first structure, guided by freeze constraints, when requested
         align_thresh = str(opt_cfg.get("thresh", "gau"))
@@ -2350,6 +2709,8 @@ def cli(
             click.echo(f"[write] Wrote '{out_dir_path / 'summary.log'}'.")
         except Exception as e:
             click.echo(f"[write] WARNING: Failed to write summary.log: {e}", err=True)
+
+        _write_output_summary_md(out_dir_path)
 
         # --------------------------
         # 8) Elapsed time

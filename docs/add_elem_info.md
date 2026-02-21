@@ -74,5 +74,8 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 
 ## See Also
 
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+
 - [mm_parm](mm_parm.md) -- Build AMBER topology (requires correct element columns)
 - [extract](extract.md) -- Extract active-site pocket from protein-ligand complex

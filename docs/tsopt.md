@@ -15,20 +15,59 @@
 - **`heavy` (RS-I-RFO, default):** Conservative optimizer with full Hessian work. Generally more robust.
 - **`light` (Dimer):** Lighter-weight search using partial Hessian guided Dimer. Often cheaper per step.
 
+## Minimal example
+
+```bash
+mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --out-dir ./result_tsopt
+```
+
+## Output checklist
+
+- `result_tsopt/summary.md`
+- `result_tsopt/key_ts.xyz` (or `key_ts.pdb`)
+- `result_tsopt/key_imag_mode.trj`
+- `result_tsopt/final_geometry.pdb` (or `final_geometry.xyz`)
+- `result_tsopt/vib/final_imag_mode_*.trj`
+- `result_tsopt/vib/final_imag_mode_*.pdb`
+
+## Common examples
+
+1. Use light mode with analytical Hessian when VRAM is sufficient.
+
+```bash
+mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt_light
+```
+
+2. Keep a full optimization trajectory for inspection.
+
+```bash
+mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --dump --out-dir ./result_tsopt_dump
+```
+
+3. Run heavy mode with YAML overrides.
+
+```bash
+mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
+```
+
 ## Usage
 ```bash
 mlmm tsopt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
     -q CHARGE [-m SPIN] [--freeze-atoms "1,3,5"] [--max-cycles N] \
-    [--dump {True|False}] [--out-dir DIR] [--thresh PRESET] \
+    [--dump/--no-dump] [--out-dir DIR] [--thresh PRESET] \
     [--opt-mode light|heavy] [--hessian-calc-mode Analytical|FiniteDifference] \
-    [--args-yaml FILE]
+    [--config FILE] [--override-yaml FILE] [--show-config] [--dry-run] [--args-yaml FILE]
 ```
 
 ### Examples
 ```bash
 # Default heavy mode (RS-I-RFO)
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 -m 1 --max-cycles 8000 --dump True --out-dir ./result_tsopt/
+    -q 0 -m 1 --max-cycles 8000 --dump --out-dir ./result_tsopt/
 
 # Light mode (Dimer) with analytical Hessian
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
@@ -62,30 +101,40 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | UMA Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
-| `--dump {True\|False}` | Write concatenated trajectory `optimization_all.trj`. | `False` |
+| `--dump/--no-dump` | Write concatenated trajectory `optimization_all.trj`. | `False` |
 | `--out-dir TEXT` | Output directory. | `./result_tsopt/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--opt-mode CHOICE` | TS optimizer mode: `light` (Dimer) or `heavy` (RS-I-RFO). | `heavy` |
 | `--partial-hessian-flatten / --full-hessian-flatten` | Use partial Hessian (ML only) for imaginary mode detection in flatten loop. | `True` (partial) |
 | `--active-dof-mode CHOICE` | Active DOF for final frequency analysis: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
-| `--args-yaml FILE` | YAML overrides (sections: `geom`, `calc`/`mlmm`, `opt`, `hessian_dimer`, `rsirfo`). | _None_ |
+| `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
+| `--override-yaml FILE` | Final YAML override file (highest-priority YAML layer). | _None_ |
+| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
+| `--show-config/--no-show-config` | Print resolved config layers and continue execution. | `False` |
+| `--dry-run/--no-dry-run` | Validate inputs/config and print the execution plan without running TS optimization. | `False` |
 
 ## Outputs
 ```
 out_dir/  (default: ./result_tsopt/)
+├── summary.md                   # Quick index of key outputs
+├── key_ts.xyz                   # Shortcut to final TS geometry (or key_ts.pdb)
+├── key_imag_mode.trj            # Shortcut to a representative imaginary mode
+├── key_opt.trj                  # Shortcut to optimization trajectory (when available)
 ├── final_geometry.xyz            # Always written
 ├── final_geometry.pdb            # When the input was PDB
-├── optimization_all.trj          # Concatenated Dimer segments (when --dump True)
-├── optimization_all.pdb          # PDB companion (when --dump True and input was PDB)
+├── optimization_all.trj          # Concatenated Dimer segments (when --dump)
+├── optimization_all.pdb          # PDB companion (when --dump and input was PDB)
 ├── vib/
 │   ├── final_imag_mode_±XXXX.Xcm-1.trj   # Imaginary mode trajectory
 │   └── final_imag_mode_±XXXX.Xcm-1.pdb   # Imaginary mode PDB companion
 └── .dimer_mode.dat               # Dimer orientation seed (light mode)
 ```
 
-## YAML configuration (`--args-yaml`)
+## YAML configuration (`--config` / `--override-yaml` / `--args-yaml`)
 
-Provide a mapping; YAML values override CLI. Shared sections reuse the same structure as other ML/MM CLIs.
+Use `--config` for the base mapping and `--override-yaml` for the final YAML override (`--args-yaml` is a legacy alias of `--override-yaml`). Merge precedence is:
+
+`defaults < config < explicit CLI < override`.
 
 ```yaml
 geom:
@@ -125,6 +174,8 @@ rsirfo:
 ```
 
 ## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
 - Imaginary-mode detection uses a default threshold of ~5 cm^-1 (configurable via `hessian_dimer.neg_freq_thresh_cm`). The selected `root` determines which imaginary mode is exported.
 - `--freeze-atoms` accepts 1-based indices and is merged with YAML `geom.freeze_atoms`.
 - Convergence presets propagate to both the outer bookkeeping (`opt`) and the inner LBFGS segments (`hessian_dimer.lbfgs`).
@@ -133,6 +184,8 @@ rsirfo:
 ---
 
 ## See Also
+
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 
 - [opt](opt.md) -- Single-structure geometry optimization
 - [freq](freq.md) -- Confirm a single imaginary frequency for the validated TS

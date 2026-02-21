@@ -104,7 +104,7 @@
 | **ポケット** | Active-site Pocket | 基質周辺を切り出した部分構造。MEP/TS 探索の計算量削減に使用。「クラスターモデル」とも。 |
 | **クラスターモデル** | Cluster Model | ポケットの別名。酵素-基質複合体から計算可能なサイズに切り出した部分系。 |
 | **リンク水素** | Link Hydrogen | ポケット抽出時に切断された結合をキャップするために付加する水素原子。 |
-| **主鎖** | Backbone | タンパク質の主骨格（N-Ca-C-O 原子）。`--exclude-backbone True` で除外可能。 |
+| **主鎖** | Backbone | タンパク質の主骨格（N-Ca-C-O 原子）。`--exclude-backbone` で除外可能。 |
 | **B-factor** | Temperature Factor | PDB の温度因子カラム。mlmm_toolkit では 3 層の層割り当てをエンコードするために使用。 |
 
 ---
@@ -137,7 +137,7 @@
 
 | 用語 | 説明 |
 |------|------|
-| **真偽値オプション** | `True` または `False`（大文字始まり）を取る CLI フラグ。例: `--tsopt True`。 |
+| **真偽値オプション** | `True` または `False`（大文字始まり）を取る CLI フラグ。例: `--tsopt`。 |
 | **残基セレクタ** | `'SAM,GPP'`（名前）や `'A:123,B:456'`（チェーン:ID）のような指定方法。 |
 | **原子セレクタ** | `'TYR,285,CA'` のように残基名・番号・原子名で特定の原子を指定する方法。 |
 | **B-factor 層エンコーディング** | PDB の B-factor カラムを使用して 3 層の層割り当て（0.0, 10.0, 20.0）をエンコードする方式。Hessian 対象 MM 原子は別設定で制御。 |
@@ -148,6 +148,7 @@
 
 - [はじめに](getting-started.md) -- インストールと初回実行
 - [概念とワークフロー](concepts.md) -- ML/MM 3層システム、ONIOM 分解、ワークフローの全体像
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- よくあるエラーと対処法
 - [YAML リファレンス](yaml-reference.md) -- 設定ファイルの仕様
 - [ML/MM 計算機](mlmm_calc.md) -- UMA + hessian_ff エンジンの詳細

@@ -847,6 +847,7 @@ def run_pipeline(args: Args) -> None:
 )
 @click.option(
     "-i",
+    "--input",
     "pdb",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,

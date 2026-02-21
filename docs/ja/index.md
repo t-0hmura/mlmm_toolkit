@@ -10,7 +10,11 @@
 :hidden:
 
 getting-started
+quickstart-all
+quickstart-scan-spec
+quickstart-tsopt-freq
 concepts
+recipes-common-errors
 troubleshooting
 cli-conventions
 ```
@@ -21,6 +25,7 @@ cli-conventions
 :hidden:
 
 all
+init
 extract
 add_elem_info
 mm_parm
@@ -58,7 +63,11 @@ glossary
 
 | ユースケース | 推奨コマンド | ガイド |
 |--------------|--------------|--------|
+| 最初の 1 回を実行（エンドツーエンド） | `mlmm all` | [クイックスタート: all](quickstart-all.md) |
+| 単一構造スキャン（`--spec`） | `mlmm scan` | [クイックスタート: scan + spec](quickstart-scan-spec.md) |
+| TS 検証（`tsopt` -> `freq`） | `mlmm tsopt`, `mlmm freq` | [クイックスタート: tsopt -> freq](quickstart-tsopt-freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
+| `all` 用 YAML テンプレートを生成 | `mlmm init` | [init.md](init.md) |
 | タンパク質-リガンド複合体からQM領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
 | MM トポロジ（parm7/rst7）を構築 | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
 | ML/MM 3層領域を定義 | `mlmm define-layer` | [define_layer.md](define_layer.md) |
@@ -68,6 +77,7 @@ glossary
 | 遷移状態からIRCを実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Gaussian/ORCA ONIOM入力を生成 | `mlmm oniom-gaussian` / `oniom-orca` | [oniom_export.md](oniom_export.md) |
+| 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes-common-errors.md) |
 | 全体像（概念・用語）の把握 | -- | [概念とワークフロー](concepts.md) |
 | よくあるエラーの解決 | -- | [トラブルシューティング](troubleshooting.md) |
 | 略語や用語を調べる | -- | [用語集](glossary.md) |
@@ -80,6 +90,7 @@ glossary
 
 - [**はじめに**](getting-started.md) - インストール、クイックスタート、概要
 - [**概念とワークフロー**](concepts.md) - ML/MM 3層システム、ONIOM 分解、各ステージの全体像
+- [**典型エラー別レシピ**](recipes-common-errors.md) - 症状別の最短対処ルート
 - [**CLI 規約**](cli-conventions.md) - ブール値オプション、セレクタ、B-factor 層エンコーディング、電荷指定などの共通規約
 - [**トラブルシューティング**](troubleshooting.md) - よくあるエラーと対処法
 - [**システム要件**](#システム要件) - ハードウェアとソフトウェアの前提条件
@@ -87,6 +98,7 @@ glossary
 ### メインワークフロー
 
 - [`all`](all.md) - **エンドツーエンドワークフロー**: 抽出 → MM パラメータ化 → スキャン → MEP 探索 → TS 最適化 → IRC → 熱化学 → DFT
+- [`init`](init.md) - `mlmm all` 用 YAML テンプレートを生成
 
 ### CLI サブコマンド
 
@@ -133,6 +145,8 @@ glossary
 
 ### 設定・リファレンス
 
+- [**CLI コマンドリファレンス（自動生成）**](../reference/commands/index.md)
+- [**YAML スキーマ（自動生成）**](../reference/yaml.md)
 - [**YAML リファレンス**](yaml-reference.md) - 全サブコマンドの YAML 設定オプション
 - [**ML/MM 計算機**](mlmm_calc.md) - UMA + hessian_ff ONIOM エンジンの詳細
 - [**用語集**](glossary.md) - 略語と技術用語の定義
@@ -165,19 +179,19 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
 ### TS 最適化を含む完全ワークフロー
 ```bash
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt True --thermo True --dft True
+    --tsopt --thermo --dft
 ```
 
 ### 単一構造スキャンモード
 ```bash
-mlmm -i R.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]'
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 --spec scan.yaml --print-parsed
 ```
 
 ### TS 最適化のみ
 ```bash
 mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt True
+    --tsopt
 ```
 
 ---
@@ -198,15 +212,16 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 - スピン多重度は `-m/--multiplicity`（デフォルト: 1）で設定
 
 ### ブール値オプション
-すべてのブール値 CLI オプションは明示的に `True` または `False` を指定する必要があります:
+ブール値 CLI オプションは toggle 形式（`--flag` / `--no-flag`）で指定します:
 ```bash
---tsopt True --thermo True --dft False
+--tsopt --thermo --no-dft
 ```
 
 ### YAML 設定
-高度な設定は `--args-yaml` で指定できます。
+設定の多層適用には `--config` と `--override-yaml` を推奨します。
+（`--args-yaml` は `--override-yaml` の legacy alias として残っています。）
 ```bash
-mlmm all -i R.pdb P.pdb -c 'LIG' --args-yaml config.yaml
+mlmm all -i R.pdb P.pdb -c 'LIG' --config base.yaml --override-yaml override.yaml
 ```
 すべてのオプションについては [YAML リファレンス](yaml-reference.md) を参照してください。
 

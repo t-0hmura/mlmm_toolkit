@@ -96,7 +96,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | **Pocket** | Active-site Pocket | A truncated structure around the substrate(s) used to reduce system size for MEP/TS search. Also called "cluster model". |
 | **Cluster Model** | — | Synonym for pocket; a computationally tractable subset of the full enzyme-substrate complex. |
 | **Link Hydrogen** | — | A hydrogen atom added to cap severed bonds when extracting a pocket from a larger structure. |
-| **Backbone** | — | The main chain of a protein (N-C_alpha-C-O atoms). Can be excluded during pocket extraction with `--exclude-backbone True`. |
+| **Backbone** | — | The main chain of a protein (N-C_alpha-C-O atoms). Can be excluded during pocket extraction with `--exclude-backbone`. |
 
 ---
 
@@ -128,7 +128,7 @@ This page provides definitions for abbreviations and technical terms used throug
 
 | Term | Description |
 |------|-------------|
-| **Boolean option** | CLI flags that take `True` or `False` (capitalized). Example: `--tsopt True`. |
+| **Boolean option** | CLI flags that take `True` or `False` (capitalized). Example: `--tsopt`. |
 | **Residue selector** | A specification like `'SAM,GPP'` (names) or `'A:123,B:456'` (chain:ID). |
 | **Atom selector** | A specification like `'TYR,285,CA'` identifying a specific atom by residue name, number, and atom name. |
 
@@ -138,5 +138,6 @@ This page provides definitions for abbreviations and technical terms used throug
 
 - [Getting Started](getting-started.md) -- installation and a first run
 - [Concepts & Workflow](concepts.md) -- how pocket extraction, ML/MM layers, MEP search, and post-processing fit together
+- [Common Error Recipes](recipes-common-errors.md) -- symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- common errors and fixes
 - [YAML Reference](yaml-reference.md) -- configuration file format

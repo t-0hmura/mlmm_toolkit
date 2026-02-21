@@ -4,15 +4,58 @@
 
 > **Summary:** Build a continuous MEP from two or more structures with recursive GSM segmentation. Automatically refines only regions with bond changes and exports the highest-energy image (HEI) as a TS candidate.
 
-`mlmm path-search` constructs a continuous minimum-energy path (MEP) between two or more structures ordered along a reaction. Each adjacent pair is processed by a Growing String Method (GSM) using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), which couples FAIR-Chem UMA with hessian_ff. The HEI+/-1 images are refined with LBFGS, covalent changes are analysed, and only regions exhibiting bond changes recurse; kink regions rely on linear interpolation plus single-structure optimizations. Multi-structure inputs are stitched into a single MEP with RMSD bridging when necessary. Configuration precedence is **CLI > YAML > defaults**.
+`mlmm path-search` constructs a continuous minimum-energy path (MEP) between two or more structures ordered along a reaction. Each adjacent pair is processed by a Growing String Method (GSM) using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), which couples FAIR-Chem UMA with hessian_ff. The HEI+/-1 images are refined with LBFGS, covalent changes are analysed, and only regions exhibiting bond changes recurse; kink regions rely on linear interpolation plus single-structure optimizations. Multi-structure inputs are stitched into a single MEP with RMSD bridging when necessary. Configuration precedence is **defaults < config < explicit CLI < override** (`--config`, then `--override-yaml`; `--args-yaml` is a legacy alias).
+
+## Minimal example
+
+```bash
+mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
+  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
+```
+
+## Output checklist
+
+- `result_path_search/mep.trj`
+- `result_path_search/summary.yaml`
+- `result_path_search/summary.log`
+- `result_path_search/summary.md`
+- `result_path_search/key_mep.trj` / `result_path_search/key_ts.xyz` (when available)
+- `result_path_search/mep_plot.png` (when plotting succeeds)
+
+## Common examples
+
+1. Build a multistep path with explicit intermediates.
+
+```bash
+mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --real-parm7 real.parm7 \
+  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
+```
+
+2. Merge pocket trajectories back into a full template.
+
+```bash
+mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
+  --model-pdb ml_region.pdb -q 0 --ref-pdb holo_template.pdb \
+  --out-dir ./result_path_search_merge
+```
+
+3. Run a lighter pass without pre-optimization or alignment.
+
+```bash
+mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
+  --model-pdb ml_region.pdb -q 0 --no-pre-opt --no-align --max-nodes 8 \
+  --out-dir ./result_path_search_fast
+```
 
 ## Usage
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
     --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
-    [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb {True|False}]
-    [--thresh PRESET] [--dump {True|False}] [--out-dir DIR] [--args-yaml FILE]
+    [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
+    [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
+    [--config FILE] [--override-yaml FILE] [--args-yaml FILE]
+    [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
 
 ### Examples
@@ -25,7 +68,8 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 # Multistep path with YAML overrides, frozen atoms, and merged full-system output
 mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
     --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
-    --args-yaml params.yaml --ref-pdb holo_template.pdb --out-dir ./run_ps
+    --config base.yaml --override-yaml override.yaml \
+    --ref-pdb holo_template.pdb --out-dir ./run_ps
 ```
 
 ## Workflow
@@ -43,20 +87,24 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 | --- | --- | --- |
 | `-i, --input PATH...` | Two or more full-enzyme PDBs in reaction order. Repeat `-i` or pass multiple paths after one flag. | Required |
 | `--real-parm7 PATH` | Amber parm7 topology for the full enzyme complex. | Required |
-| `--model-pdb PATH` | PDB defining the ML (high-level) region atoms for ML/MM. | Required |
-| `-q, --charge INT` | Charge of the ML region (integer). | Required |
+| `--model-pdb PATH` | PDB defining the ML (high-level) region atoms for ML/MM. Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
+| `-q, --charge INT` | Charge of the ML region (integer). Defaults to `0` when omitted (YAML may override). | `0` |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
-| `--climb {True\|False}` | Enable TS refinement for segment GSM. | `True` |
-| `--pre-opt {True\|False}` | Pre-optimize endpoints with LBFGS before segmentation. | `True` |
+| `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
+| `--pre-opt/--no-pre-opt` | Pre-optimize endpoints with LBFGS before segmentation. | `True` |
 | `--align / --no-align` | Rigidly align inputs after pre-opt. | Enabled |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`). | _Default_ |
-| `--dump {True\|False}` | Save optimizer dumps. | `False` |
+| `--dump/--no-dump` | Save optimizer dumps. | `False` |
 | `--out-dir PATH` | Output directory. | `./result_path_search/` |
 | `--ref-pdb PATH...` | Full template PDB(s) for final merge. | _None_ |
-| `--args-yaml FILE` | YAML overrides (`geom`, `calc`/`mlmm`, `gs`, `opt`, `lbfgs`, `bond`, `search`). | _None_ |
+| `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
+| `--override-yaml FILE` | Final YAML override layer (highest-priority YAML). | _None_ |
+| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
+| `--show-config/--no-show-config` | Print resolved configuration (including YAML layer metadata) and continue. | `False` |
+| `--dry-run/--no-dry-run` | Validate options and print the execution plan without running path search. | `False` |
 
 ## Outputs
 
@@ -64,6 +112,12 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 out_dir/ (default: ./result_path_search/)
   summary.yaml                  # MEP-level run summary (no full settings dump)
   summary.log                   # Human-readable summary
+  summary.md                    # Quick navigation page with key artifact links
+  key_mep.trj                   # Root shortcut to primary MEP trajectory (symlink/copy)
+  key_mep.pdb                   # Root shortcut to primary MEP PDB (symlink/copy)
+  key_ts.xyz / key_ts.pdb       # Root shortcuts to TS candidate snapshots (when available)
+  key_mep_plot.png              # Root shortcut to MEP profile plot (when available)
+  key_energy_diagram_MEP.png    # Root shortcut to state energy diagram (when available)
   mep.trj                       # Final MEP (always written)
   mep.pdb                       # Final MEP (PDB when ref template available)
   mep_w_ref.pdb                 # Full-system merged MEP (requires --ref-pdb)
@@ -76,9 +130,11 @@ out_dir/ (default: ./result_path_search/)
   seg_000_*/                    # Segment-level GSM and refinement artefacts
 ```
 
-## YAML configuration
+## YAML configuration (`--config`, `--override-yaml`, `--args-yaml`)
 
-Configuration precedence is **CLI > YAML > defaults**. The YAML root must be a mapping. Accepted sections:
+Merge order is **defaults < config < explicit CLI < override**.
+`--args-yaml` is kept as a legacy alias of `--override-yaml`.
+The YAML root must be a mapping. Accepted sections:
 
 - **`geom`** -- `coord_type` (`"cart"` default), `freeze_atoms` (0-based indices).
 - **`calc` / `mlmm`** -- ML/MM calculator settings: `input_pdb`, `real_parm7`, `model_pdb`, `model_charge`, `model_mult`, UMA controls (`uma_model`, `uma_task_name`, `ml_hessian_mode`), device selection, freeze atoms.
@@ -90,14 +146,17 @@ Configuration precedence is **CLI > YAML > defaults**. The YAML root must be a m
 
 ## Notes
 
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
 - Inputs: provide at least two full-enzyme PDBs to `-i/--input` in reaction order.
 - Preflight checks validate `-i/--input` and `--ref-pdb` paths before starting GSM.
-- ML/MM physics: always supply `--real-parm7`, `--model-pdb`, `-q/--charge`, and optionally `-m/--multiplicity`.
+- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli-conventions.md).
 - Freeze atoms: `--freeze-atoms "1,3,5"` stores zero-based indices and merges with YAML `geom.freeze_atoms`.
 - Nodes and recursion: segment vs bridge nodes differ via `search.max_nodes_segment` and `search.max_nodes_bridge`. Kinks use `search.kink_max_nodes` (default 3) linear nodes. Recursion depth is capped by `search.max_depth` (default 10).
 - Optimizers: GSM employs pysisyphus `GrowingString` + `StringOptimizer`; single-structure refinements always use LBFGS.
-- Final merge rule with `--align True`: when `--ref-pdb` is provided, the first reference PDB is used for all pairs.
+- Final merge rule with `--align`: when `--ref-pdb` is provided, the first reference PDB is used for all pairs.
 - Console output prints the state sequence (e.g., `R --> TS1 --> IM1 --> ... --> P`) plus the labels/energies used to build the energy diagram.
+- `summary.md` is generated after the run and points to the main artifacts plus `key_*` root shortcuts.
 - `summary.log` rendering is resilient to missing payload fields. Internally, defaults are applied for:
   `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`.
 

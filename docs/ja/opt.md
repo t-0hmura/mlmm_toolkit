@@ -4,7 +4,46 @@
 
 > **要約:** ML/MM 計算機を使用して L-BFGS（デフォルト）または RFO で単一構造を局所極小に最適化します。入力は PDB ファイルが必須で、B 因子アノテーション付きの XYZ および PDB ジオメトリを出力します。
 
-`mlmm opt` は、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して PySisyphus LBFGS による単一構造の構造最適化を実行します。計算機は FAIR-Chem UMA（ML 高レイヤー）と OpenMM（MM 低レイヤー）をリンク原子なしで結合します。ML 領域は `--model-pdb` で定義されます。設定は YAML セクション `geom`、`calc`（エイリアス `mlmm`）、`opt`、`lbfgs` を使用します。優先順位は **CLI > YAML > 内部デフォルト** です。
+`mlmm opt` は、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して PySisyphus LBFGS による単一構造の構造最適化を実行します。計算機は FAIR-Chem UMA（ML 高レイヤー）と OpenMM（MM 低レイヤー）をリンク原子なしで結合します。ML 領域は `--model-pdb` で定義されます。設定は YAML セクション `geom`、`calc`（エイリアス `mlmm`）、`opt`、`lbfgs` を使用します。優先順位は **内部デフォルト < config < 明示CLI < override** です。
+
+## 最小例
+
+```bash
+mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --out-dir ./result_opt
+```
+
+## 出力の見方
+
+- `result_opt/summary.md`
+- `result_opt/key_opt.xyz`（または `key_opt.pdb`）
+- `result_opt/key_opt.trj`（軌跡がある場合）
+- `result_opt/final_geometry.xyz`
+- `result_opt/final_geometry.pdb`（入力が PDB の場合）
+- `result_opt/optimization.trj`（`--dump` 有効時）
+
+## よくある例
+
+1. 収束を厳しくして軌跡を保存する。
+
+```bash
+mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
+```
+
+2. 最適化中に 1 本の距離拘束をかける。
+
+```bash
+mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --dist-freeze "[(12,45,2.20)]" --bias-k 20.0 --out-dir ./result_opt_rest
+```
+
+3. heavy モード（RFO）で最適化する。
+
+```bash
+mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
+```
 
 ## 使用法
 
@@ -12,7 +51,8 @@
 mlmm opt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q CHARGE [-m MULT]
     [--dist-freeze "[(I,J,TARGET_A), ...]"] [--one-based|--zero-based] [--bias-k FLOAT]
     [--freeze-atoms "1,3,5"] [--max-cycles N] [--thresh PRESET]
-    [--dump {True|False}] [--out-dir DIR] [--args-yaml FILE]
+    [--dump/--no-dump] [--out-dir DIR] [--config FILE] [--override-yaml FILE]
+    [--show-config] [--dry-run] [--args-yaml FILE]
 ```
 
 ### 例
@@ -21,7 +61,8 @@ mlmm opt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q CHARGE [-
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
 
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
-    --freeze-atoms "1,3,5,7" --thresh gau_tight --dump True --out-dir ./result_opt/ --args-yaml ./args.yaml
+    --freeze-atoms "1,3,5,7" --thresh gau_tight --dump --out-dir ./result_opt/ \
+    --config ./base.yaml --override-yaml ./override.yaml
 ```
 
 ## ワークフロー
@@ -45,9 +86,13 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
 | `--max-cycles INT` | 最適化反復のハードリミット。 | `10000` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`）。 | _デフォルト_ |
-| `--dump {True\|False}` | 軌跡ダンプ（`optimization.trj`）を出力。 | `False` |
+| `--dump/--no-dump` | 軌跡ダンプ（`optimization.trj`）を出力。 | `False` |
 | `--out-dir PATH` | 出力ディレクトリ。 | `./result_opt/` |
-| `--args-yaml FILE` | YAML 上書き（セクション `geom`、`calc`、`opt`、`lbfgs`）。 | _None_ |
+| `--config FILE` | ベースYAML設定ファイル。 | _None_ |
+| `--override-yaml FILE` | 最終YAML上書きファイル（YAML層の最優先）。 | _None_ |
+| `--args-yaml FILE` | `--override-yaml` の legacy alias。 | _None_ |
+| `--show-config/--no-show-config` | 実行前に解決済みYAMLレイヤ情報を表示。 | `False` |
+| `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。 | `False` |
 
 ### 収束閾値プリセット
 
@@ -65,6 +110,12 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 
 ```text
 out_dir/ (デフォルト: ./result_opt/)
+  summary.md                 # 主要成果物のインデックス
+  key_opt.xyz                # final_geometry.xyz へのショートカット
+  key_opt.pdb                # final_geometry.pdb へのショートカット（存在時）
+  key_opt.trj                # 最適化軌跡へのショートカット
+  key_opt_traj.pdb           # 最適化軌跡PDBへのショートカット（存在時）
+  key_restart.yml            # リスタートスナップショットへのショートカット（存在時）
   final_geometry.xyz          # 最適化されたジオメトリ（常に書き出し）
   final_geometry.pdb          # 入力が PDB の場合に XYZ から変換（B 因子アノテーション付き）
   optimization.trj            # 軌跡（--dump または opt.dump: true の場合）
@@ -76,7 +127,7 @@ out_dir/ (デフォルト: ./result_opt/)
 
 ## YAML 設定
 
-YAML 値は CLI を上書きし、CLI は内部デフォルトを上書きします。受け付けるセクション:
+設定は **内部デフォルト < config < 明示CLI < override** の順で適用されます。受け付けるセクション:
 
 ### `geom`
 
@@ -85,7 +136,7 @@ YAML 値は CLI を上書きし、CLI は内部デフォルトを上書きしま
 
 ### `calc` / `mlmm`
 
-- `input_pdb`、`real_parm7`、`model_pdb`: 必須ファイルパス（文字列）。CLI オプションが常にこれらを上書き。
+- `input_pdb`、`real_parm7`、`model_pdb`: 必須ファイルパス（文字列）。
 - `model_charge`（`-q/--charge`、必須）と `model_mult`（`-m/--multiplicity`、デフォルト 1）。
 - `link_mlmm`: ML/MM リンクペアを固定する `(ML_atom_id, MM_atom_id)` 文字列のオプションリスト（リンク原子は作成されません）。
 - UMA 制御: `uma_model`（デフォルト `"uma-s-1p1"`）、`uma_task_name`（デフォルト `"omol"`）、`ml_hessian_mode`（`"Analytical"` または `"FiniteDifference"`）、`out_hess_torch`（bool）、`H_double`（bool）。
@@ -109,11 +160,13 @@ L-BFGS 固有の拡張: `keep_last`、`beta`、`gamma_mult`、`max_step`、`cont
 
 ## 注意事項
 
-- **物理入力:** ML 領域の `-q/--charge` を必ず指定してください。`-m/--multiplicity`（多重度）のデフォルトは 1 です。
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+
+- 電荷/多重度の運用ルールは [CLI Conventions](cli-conventions.md) に集約しています。
 - **デバイス:** `ml_device="auto"` は CUDA が利用可能な場合に選択します。`mm_device` は OpenMM の配置を制御します。
 - **ヘシアン:** `calc.out_hess_torch=True` は PyTorch テンソルを返します（`calc.H_double` で任意に倍精度）。
 - **終了コード:** `ZeroStepLength` -> 終了コード **2**、`OptimizationError` -> **3**、`KeyboardInterrupt` -> **130**、その他の未処理例外 -> **1**。
-- **優先順位:** 設定は **CLI > YAML > 内部デフォルト** の順序で適用されます。
+- **優先順位:** 設定は **内部デフォルト < config < 明示CLI < override** の順序で適用されます。
 
 ---
 

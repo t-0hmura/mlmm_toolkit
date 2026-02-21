@@ -10,11 +10,19 @@
 :hidden:
 
 getting-started
+quickstart-all
+quickstart-scan-spec
+quickstart-tsopt-freq
 concepts
+recipes-common-errors
 troubleshooting
 cli-conventions
 ja/getting-started
+ja/quickstart-all
+ja/quickstart-scan-spec
+ja/quickstart-tsopt-freq
 ja/concepts
+ja/recipes-common-errors
 ja/troubleshooting
 ja/cli-conventions
 ```
@@ -25,6 +33,7 @@ ja/cli-conventions
 :hidden:
 
 all
+init
 extract
 add_elem_info
 mm_parm
@@ -44,6 +53,7 @@ oniom_export
 fix_altloc
 energy_diagram
 ja/all
+ja/init
 ja/extract
 ja/add_elem_info
 ja/mm_parm
@@ -69,6 +79,8 @@ ja/energy_diagram
 :caption: Reference
 :hidden:
 
+reference/commands/index
+reference/yaml
 yaml-reference
 mlmm_calc
 glossary
@@ -92,7 +104,11 @@ ja/index
 
 | Use Case | Command | Guide |
 |-------------------------|---------|-------|
+| First run (end-to-end) | `mlmm all` | [Quickstart: all](quickstart-all.md) |
+| Single-structure staged scan (`--spec`) | `mlmm scan` | [Quickstart: scan with spec](quickstart-scan-spec.md) |
+| TS validation (`tsopt` -> `freq`) | `mlmm tsopt`, `mlmm freq` | [Quickstart: tsopt -> freq](quickstart-tsopt-freq.md) |
 | Run complete reaction path search from PDB | `mlmm all` | [all.md](all.md) |
+| Generate a starter YAML config for `all` | `mlmm init` | [init.md](init.md) |
 | Extract QM region from protein-ligand complex | `mlmm extract` | [extract.md](extract.md) |
 | Build MM topology (parm7/rst7) | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
 | Define ML/MM layers | `mlmm define-layer` | [define_layer.md](define_layer.md) |
@@ -103,6 +119,7 @@ ja/index
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Export to Gaussian/ORCA ONIOM | `mlmm oniom-gaussian` / `oniom-orca` | [oniom_export.md](oniom_export.md) |
 | Follow worked tutorials | -- | [Tutorial](getting-started.md) |
+| Diagnose failures by symptom | -- | [Common Error Recipes](recipes-common-errors.md) |
 | Understand the big picture (concepts & terms) | -- | [Concepts & Workflow](concepts.md) |
 | Resolve common errors | -- | [Troubleshooting](troubleshooting.md) |
 | Look up abbreviations and terms | -- | [Glossary](glossary.md) |
@@ -115,6 +132,7 @@ ja/index
 |-------|------|
 | **Installation & first run** | [Getting Started](getting-started.md) |
 | **Key terms & workflow overview** | [Concepts & Workflow](concepts.md) |
+| **Symptom-first failure routing** | [Common Error Recipes](recipes-common-errors.md) |
 | **Common errors & fixes** | [Troubleshooting](troubleshooting.md) |
 | **CLI conventions & input requirements** | [CLI Conventions](cli-conventions.md) |
 
@@ -126,6 +144,7 @@ ja/index
 | Subcommand | Description |
 |------------|-------------|
 | [`all`](all.md) | End-to-end workflow: extraction -> MM parm -> MEP -> TS optimization -> IRC -> freq -> DFT |
+| [`init`](init.md) | Generate a starter YAML template for `mlmm all` |
 
 ### Structure Preparation
 | Subcommand | Description |
@@ -174,6 +193,8 @@ ja/index
 
 | Topic | Page |
 |-------|------|
+| **CLI command reference (generated)** | [Command Reference](reference/commands/index.md) |
+| **YAML schema (generated)** | [YAML Schema (Generated)](reference/yaml.md) |
 | **YAML configuration options** | [YAML Reference](yaml-reference.md) |
 | **ML/MM calculator architecture** | [ML/MM Calculator](mlmm_calc.md) |
 | **Terminology** | [Glossary](glossary.md) |
@@ -206,19 +227,19 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
 ### Full workflow with TS optimization
 ```bash
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt True --thermo True --dft True
+    --tsopt --thermo --dft
 ```
 
 ### Single-structure scan mode
 ```bash
-mlmm -i R.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]'
+mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 --spec scan.yaml --print-parsed
 ```
 
 ### TS-only optimization
 ```bash
 mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt True
+    --tsopt
 ```
 
 ---
@@ -239,15 +260,16 @@ Hessian-target MM atoms are selected by calculator options (`hess_cutoff` / expl
 - Spin multiplicity is set with `-m/--multiplicity` (default `1`)
 
 ### Boolean options
-All boolean CLI options must be explicitly set to `True` or `False`:
+Boolean CLI options use toggle form (`--flag` / `--no-flag`):
 ```bash
---tsopt True --thermo True --dft False
+--tsopt --thermo --no-dft
 ```
 
 ### YAML configuration
-Advanced settings can be provided with `--args-yaml`.
+Layered settings are recommended via `--config` and `--override-yaml`.
+(`--args-yaml` remains as a legacy alias of `--override-yaml`.)
 ```bash
-mlmm all -i R.pdb P.pdb -c 'LIG' --args-yaml config.yaml
+mlmm all -i R.pdb P.pdb -c 'LIG' --config base.yaml --override-yaml override.yaml
 ```
 See the [YAML Reference](yaml-reference.md) for all options.
 

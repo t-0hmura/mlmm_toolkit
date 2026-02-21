@@ -39,3 +39,12 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o
 ## 注意事項
 - 入力順がそのまま描画順になります。
 - 入力値は最低2点必要です。
+
+---
+
+## 関連項目
+
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
+- [trj2fig](trj2fig.md) -- 軌跡エネルギーからプロファイルを描画
+- [all](all.md) -- エネルギーダイアグラム出力を含むエンドツーエンド実行

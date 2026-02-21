@@ -4,7 +4,46 @@
 
 > **Summary:** Optimizes a single structure to a local minimum using L-BFGS (default) or RFO with the ML/MM calculator. Input must be a PDB file; output includes XYZ and PDB geometries with B-factor annotations.
 
-`mlmm opt` performs single-structure geometry optimization using PySisyphus LBFGS with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The calculator couples FAIR-Chem UMA (ML high layer) with hessian_ff (MM low layer) without link-atom insertion; the ML region is defined by `--model-pdb`. Configuration uses YAML sections `geom`, `calc` (alias `mlmm`), `opt`, and `lbfgs`. Precedence is **CLI > YAML > internal defaults**.
+`mlmm opt` performs single-structure geometry optimization using PySisyphus LBFGS with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The calculator couples FAIR-Chem UMA (ML high layer) with hessian_ff (MM low layer) without link-atom insertion; the ML region is defined by `--model-pdb`. Configuration uses YAML sections `geom`, `calc` (alias `mlmm`), `opt`, and `lbfgs`. Precedence is **defaults < config < explicit CLI < override**.
+
+## Minimal example
+
+```bash
+mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --out-dir ./result_opt
+```
+
+## Output checklist
+
+- `result_opt/summary.md`
+- `result_opt/key_opt.xyz` (or `key_opt.pdb`)
+- `result_opt/key_opt.trj` (when trajectory is available)
+- `result_opt/final_geometry.xyz`
+- `result_opt/final_geometry.pdb` (when the input is PDB)
+- `result_opt/optimization.trj` (when `--dump` is enabled)
+
+## Common examples
+
+1. Tighten convergence and keep an optimization trajectory.
+
+```bash
+mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
+```
+
+2. Apply one harmonic distance restraint during optimization.
+
+```bash
+mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --dist-freeze "[(12,45,2.20)]" --bias-k 20.0 --out-dir ./result_opt_rest
+```
+
+3. Switch to heavy mode (RFO).
+
+```bash
+mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
+```
 
 ## Usage
 
@@ -12,7 +51,8 @@
 mlmm opt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q CHARGE [-m MULT]
     [--dist-freeze "[(I,J,TARGET_A), ...]"] [--one-based|--zero-based] [--bias-k FLOAT]
     [--freeze-atoms "1,3,5"] [--max-cycles N] [--thresh PRESET]
-    [--dump {True|False}] [--out-dir DIR] [--args-yaml FILE]
+    [--dump/--no-dump] [--out-dir DIR] [--config FILE] [--override-yaml FILE]
+    [--show-config] [--dry-run] [--args-yaml FILE]
 ```
 
 ### Examples
@@ -21,7 +61,8 @@ mlmm opt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q CHARGE [-
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
 
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
-    --freeze-atoms "1,3,5,7" --thresh gau_tight --dump True --out-dir ./result_opt/ --args-yaml ./args.yaml
+    --freeze-atoms "1,3,5,7" --thresh gau_tight --dump --out-dir ./result_opt/ \
+    --config ./base.yaml --override-yaml ./override.yaml
 ```
 
 ## Workflow
@@ -53,9 +94,13 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`). | _None_ |
 | `--opt-mode {light\|heavy\|lbfgs\|rfo}` | Optimizer mode: `light` (LBFGS) or `heavy` (RFO with Hessian). | `light` |
 | `--layer-opt / --no-layer-opt` | Enable LayerOpt-style microiteration (heavy mode only). | Disabled |
-| `--dump {True\|False}` | Emit trajectory dumps (`optimization.trj`). | `False` |
+| `--dump/--no-dump` | Emit trajectory dumps (`optimization.trj`). | `False` |
 | `--out-dir PATH` | Output directory. | `./result_opt/` |
-| `--args-yaml FILE` | YAML overrides (sections `geom`, `calc`, `opt`, `lbfgs`, `rfo`). | _None_ |
+| `--config FILE` | Base YAML configuration file. | _None_ |
+| `--override-yaml FILE` | Final YAML override file (highest-priority YAML layer). | _None_ |
+| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
+| `--show-config/--no-show-config` | Print resolved YAML layer information before execution. | `False` |
+| `--dry-run/--no-dry-run` | Validate options and print execution plan without running optimization. | `False` |
 
 ### Convergence threshold presets
 
@@ -73,6 +118,12 @@ Forces in Hartree/bohr, steps in bohr.
 
 ```text
 out_dir/ (default: ./result_opt/)
+  summary.md                 # Quick index of key outputs
+  key_opt.xyz                # Shortcut to final_geometry.xyz
+  key_opt.pdb                # Shortcut to final_geometry.pdb (when available)
+  key_opt.trj                # Shortcut to optimization trajectory
+  key_opt_traj.pdb           # Shortcut to optimization trajectory PDB (when available)
+  key_restart.yml            # Shortcut to a restart snapshot (when available)
   final_geometry.xyz          # Final optimized geometry (always)
   final_geometry.pdb          # Converted from XYZ when the input was a PDB (B-factors annotated)
   optimization.trj            # Trajectory (written when --dump or opt.dump: true)
@@ -84,7 +135,7 @@ Console output prints resolved configuration blocks (`geom`, `calc`, `opt`, `lbf
 
 ## YAML configuration
 
-YAML values override CLI, which override internal defaults. Accepted sections:
+Settings are applied with **defaults < config < explicit CLI < override**. Accepted sections:
 
 ### `geom`
 
@@ -93,7 +144,7 @@ YAML values override CLI, which override internal defaults. Accepted sections:
 
 ### `calc` / `mlmm`
 
-- `input_pdb`, `real_parm7`, `model_pdb`: required file paths (strings). CLI options always override these.
+- `input_pdb`, `real_parm7`, `model_pdb`: required file paths (strings).
 - `model_charge` (`-q/--charge`, required) and `model_mult` (`-m/--multiplicity`, default 1).
 - `link_mlmm`: optional list of `(ML_atom_id, MM_atom_id)` strings to pin ML/MM link pairs (no link atoms created).
 - UMA controls: `uma_model` (default `"uma-s-1p1"`), `uma_task_name` (default `"omol"`), `ml_hessian_mode` (`"Analytical"` or `"FiniteDifference"`), `out_hess_torch` (bool), `H_double` (bool).
@@ -117,11 +168,13 @@ Extends `opt` with L-BFGS specifics: `keep_last`, `beta`, `gamma_mult`, `max_ste
 
 ## Notes
 
-- **Physics inputs:** you must supply `-q/--charge` for the ML region. `-m/--multiplicity` defaults to 1.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
+- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli-conventions.md).
 - **Devices:** `ml_device="auto"` selects CUDA when available; `mm_device` controls MM backend device placement.
 - **Hessians:** `calc.out_hess_torch=True` returns PyTorch tensors (optionally double precision via `calc.H_double`).
 - **Exit codes:** `ZeroStepLength` -> exit code **2**; `OptimizationError` -> **3**; `KeyboardInterrupt` -> **130**; any other unhandled exception -> **1**.
-- **Precedence:** settings are applied with **CLI > YAML > internal defaults**.
+- **Precedence:** settings are applied with **defaults < config < explicit CLI < override**.
 
 ---
 
