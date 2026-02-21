@@ -21,10 +21,10 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 出力の見方
 
-- `result_dft/ml_region_with_linkH.xyz`
-- `result_dft/result.yaml`
 - `result_dft/summary.md`
 - `result_dft/key_ml_region_with_linkH.xyz`, `result_dft/key_result.yaml`（symlink/copy ショートカット）
+- `result_dft/ml_region_with_linkH.xyz`
+- `result_dft/result.yaml`
 - 標準出力の ML(dft)/MM 合成エネルギー表示
 
 ## よくある例

@@ -24,11 +24,11 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 ## Output checklist
 
+- `result_path_opt/summary.md`
+- `result_path_opt/key_mep.trj` / `result_path_opt/key_ts.xyz`
 - `result_path_opt/final_geometries.trj`
 - `result_path_opt/hei.xyz`
 - `result_path_opt/hei.pdb` (when PDB conversion is available)
-- `result_path_opt/summary.md`
-- `result_path_opt/key_mep.trj` / `result_path_opt/key_ts.xyz`
 
 ## Common examples
 

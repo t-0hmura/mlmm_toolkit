@@ -24,11 +24,11 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 ## 出力の見方
 
+- `result_path_opt/summary.md`
+- `result_path_opt/key_mep.trj` / `result_path_opt/key_ts.xyz`
 - `result_path_opt/final_geometries.trj`
 - `result_path_opt/hei.xyz`
 - `result_path_opt/hei.pdb`（PDB 変換が有効な場合）
-- `result_path_opt/summary.md`
-- `result_path_opt/key_mep.trj` / `result_path_opt/key_ts.xyz`
 
 ## よくある例
 

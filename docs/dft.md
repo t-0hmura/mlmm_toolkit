@@ -21,10 +21,10 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## Output checklist
 
-- `result_dft/ml_region_with_linkH.xyz`
-- `result_dft/result.yaml`
 - `result_dft/summary.md`
 - `result_dft/key_ml_region_with_linkH.xyz`, `result_dft/key_result.yaml` (symlink/copy shortcuts)
+- `result_dft/ml_region_with_linkH.xyz`
+- `result_dft/result.yaml`
 - Standard output block with ML(dft)/MM combined energy
 
 ## Common examples

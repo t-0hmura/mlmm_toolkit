@@ -15,11 +15,11 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 
 ## Output checklist
 
+- `result_path_search/summary.md`
+- `result_path_search/key_mep.trj` / `result_path_search/key_ts.xyz` (when available)
 - `result_path_search/mep.trj`
 - `result_path_search/summary.yaml`
 - `result_path_search/summary.log`
-- `result_path_search/summary.md`
-- `result_path_search/key_mep.trj` / `result_path_search/key_ts.xyz` (when available)
 - `result_path_search/mep_plot.png` (when plotting succeeds)
 
 ## Common examples

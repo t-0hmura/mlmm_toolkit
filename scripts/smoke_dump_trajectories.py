@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CLI_MODULE = "mlmm_toolkit.cli"
 DEFAULT_TOY_FIXTURE = Path("/data2/tohmura/mlmm_workspace/mlmm_test/toy")
+TIMEOUT_ENV = "MLMM_DUMP_CASE_TIMEOUT_SEC"
 
 
 @dataclass(frozen=True)
@@ -47,14 +49,20 @@ def _frame_count(xyz_path: Path) -> int:
     return n
 
 
-def _run_cli(args: list[str]) -> None:
+def _run_cli(args: list[str], timeout_sec: float | None = None) -> None:
     cmd = [sys.executable, "-m", CLI_MODULE, *args]
-    proc = subprocess.run(
-        cmd,
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-    )
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=timeout_sec,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"Command timed out after {timeout_sec} sec: {' '.join(cmd)}"
+        ) from exc
     if proc.returncode != 0:
         tail = (proc.stdout + "\n" + proc.stderr)[-5000:]
         raise RuntimeError(f"Command failed: {' '.join(cmd)}\n{tail}")
@@ -115,10 +123,10 @@ def _resolve_fixture() -> Fixture | None:
     return None
 
 
-def _validate_case(case: Case, base_dir: Path) -> None:
+def _validate_case(case: Case, base_dir: Path, timeout_sec: float | None = None) -> None:
     out_dir = base_dir / case.name
     args = [*case.args, "--out-dir", str(out_dir)]
-    _run_cli(args)
+    _run_cli(args, timeout_sec=timeout_sec)
 
     for rel in case.expect_present:
         p = out_dir / rel
@@ -201,10 +209,19 @@ def main() -> int:
         ),
     ]
 
+    timeout_raw = os.environ.get(TIMEOUT_ENV, "").strip()
+    timeout_sec = float(timeout_raw) if timeout_raw else None
+    if timeout_sec is not None and timeout_sec <= 0:
+        timeout_sec = None
+
     with tempfile.TemporaryDirectory(prefix="mlmm_dump_smoke_") as td:
         base_dir = Path(td)
-        for case in cases:
-            _validate_case(case, base_dir)
+        for idx, case in enumerate(cases, start=1):
+            print(f"[dump-smoke] case {idx}/{len(cases)}: {case.name}")
+            started = time.perf_counter()
+            _validate_case(case, base_dir, timeout_sec=timeout_sec)
+            elapsed = time.perf_counter() - started
+            print(f"[dump-smoke] case ok: {case.name} ({elapsed:.1f}s)")
 
     print(f"[dump-smoke] validated {len(cases)} cases with fixture '{fixture.name}'.")
     return 0
