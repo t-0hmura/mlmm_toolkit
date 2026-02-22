@@ -77,7 +77,7 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | --- | --- | --- |
 | `-i, --input PATH` | 入力 PDB ファイル（酵素複合体）。 | 必須 |
 | `--real-parm7 PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
-| `--model-pdb PATH` | ML 領域原子を定義する PDB。 | 必須 |
+| `--model-pdb PATH` | ML 領域原子を定義する PDB。`--detect-layer` 有効時は省略可。 | _None_ |
 | `-q, --charge INT` | ML 領域の電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--dist-freeze TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
@@ -160,9 +160,9 @@ L-BFGS 固有の拡張: `keep_last`、`beta`、`gamma_mult`、`max_step`、`cont
 
 ## 注意事項
 
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
-- 電荷/多重度の運用ルールは [CLI Conventions](cli-conventions.md) に集約しています。
+- 電荷/多重度の運用ルールは [CLI Conventions](cli_conventions.md) に集約しています。
 - **デバイス:** `ml_device="auto"` は CUDA が利用可能な場合に選択します。`mm_device` は OpenMM の配置を制御します。
 - **ヘシアン:** `calc.out_hess_torch=True` は PyTorch テンソルを返します（`calc.H_double` で任意に倍精度）。
 - **終了コード:** `ZeroStepLength` -> 終了コード **2**、`OptimizationError` -> **3**、`KeyboardInterrupt` -> **130**、その他の未処理例外 -> **1**。

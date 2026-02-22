@@ -174,7 +174,7 @@ rsirfo:
 ```
 
 ## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - Imaginary-mode detection uses a default threshold of ~5 cm^-1 (configurable via `hessian_dimer.neg_freq_thresh_cm`). The selected `root` determines which imaginary mode is exported.
 - `--freeze-atoms` accepts 1-based indices and is merged with YAML `geom.freeze_atoms`.
@@ -185,7 +185,7 @@ rsirfo:
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 
 - [opt](opt.md) -- Single-structure geometry optimization
 - [freq](freq.md) -- Confirm a single imaginary frequency for the validated TS

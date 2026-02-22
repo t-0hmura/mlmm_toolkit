@@ -33,7 +33,7 @@ mlmm init [--out PATH] [--force]
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 - [all](all.md) -- Run with `--config` / `--override-yaml`
-- [YAML Reference](yaml-reference.md) -- Full configurable keys
+- [YAML Reference](yaml_reference.md) -- Full configurable keys

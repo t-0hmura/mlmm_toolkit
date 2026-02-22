@@ -8,7 +8,26 @@
 
 各グリッド点のエネルギーはバイアスなしで再評価され、PES グリッドとコンタープロットが作成されます。出力にはグリッド点ごとの XYZ スナップショット、PES をまとめた `surface.csv`、2D コンターマップ（`scan2d_map.png`）、底面投影付き 3D ランドスケープ（`scan2d_landscape.html`）が含まれます。
 
-scan 系コマンドは `--args-yaml`（単層）で YAML を与える設計で、マージ優先順位は **内部デフォルト < `--args-yaml` < 明示 CLI** です（`opt`/`tsopt`/`path-*` のような `--config` + `--override-yaml` は未対応）。
+scan 系コマンドは `--config`（ベース）と `--override-yaml`（最終上書き）で YAML を 2 層指定できます。`--args-yaml` は `--override-yaml` の legacy エイリアスです。マージ優先順位は **内部デフォルト < `--config` < `--override-yaml` < 明示 CLI** です。
+
+## 最小例
+
+```bash
+mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
+```
+
+## 出力の見方
+
+- `result_scan2d/surface.csv`
+- `result_scan2d/grid/point_i000_j000.xyz`
+- `result_scan2d/scan2d_map.png` と `result_scan2d/scan2d_landscape.html`
+
+## よくある例
+
+1. YAML spec の解釈結果を先に確認する。
+2. 後方互換のため legacy `--scan-lists` を使う。
+3. `--dump` を有効にして d1 ごとの内側軌跡を保存する。
 
 ## 使用法
 
@@ -18,7 +37,8 @@ mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
     [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
     [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
-    [--dump/--no-dump] [--out-dir DIR] [--args-yaml FILE] \
+    [--dump/--no-dump] [--out-dir DIR] \
+    [--config FILE] [--override-yaml FILE | --args-yaml FILE] \
     [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
@@ -70,7 +90,9 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--dump/--no-dump` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
 | `--out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
-| `--args-yaml FILE` | YAML 上書き（セクション: `geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias`）。 | _None_ |
+| `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
+| `--override-yaml FILE` | 最終 YAML 上書きファイル（YAML レイヤーの最優先）。 | _None_ |
+| `--args-yaml FILE` | `--override-yaml` の legacy エイリアス。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし事前最適化を実行。 | `True` |
 | `--baseline {min,first}` | 相対エネルギーの基準（kcal/mol）。 | `min` |
@@ -92,9 +114,9 @@ out_dir/  (デフォルト: ./result_scan2d/)
 └── (stdout)                      # 進捗とエネルギーサマリー
 ```
 
-## YAML 設定（`--args-yaml`）
+## YAML 設定（`--config` / `--override-yaml` / `--args-yaml`）
 
-scan 系のマージ優先順位は **内部デフォルト < `--args-yaml` < 明示 CLI** です。
+scan 系のマージ優先順位は **内部デフォルト < `--config` < `--override-yaml` < 明示 CLI** です。`--args-yaml` は `--override-yaml` の legacy エイリアスです。
 
 ミニマル例（[opt](opt.md) と同じキーで拡張）:
 
@@ -122,7 +144,7 @@ bias:
 
 ## 注意事項
 
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は酵素複合体全体を保持します。ML 領域は `--model-pdb` から、Amber パラメータは `--real-parm7` から読み取られます。
 - バイアスは最終エネルギー記録前に常に除去されるため、`surface.csv` はグリッド点間で直接比較可能です。

@@ -40,9 +40,35 @@ class RenderedFile:
     content: str
 
 
+@dataclass(frozen=True)
+class CommandDoc:
+    name: str
+    stem: str
+
+
 def _collect_subcommands() -> list[str]:
     ctx = click.Context(root_cli)
     return sorted(root_cli.list_commands(ctx))
+
+
+def _doc_stem(command_name: str) -> str:
+    # Keep command spelling in headings/tables, but standardize filenames.
+    return command_name.replace("-", "_")
+
+
+def _collect_command_docs() -> list[CommandDoc]:
+    docs: list[CommandDoc] = []
+    used_stems: dict[str, str] = {}
+    for name in _collect_subcommands():
+        stem = _doc_stem(name)
+        prev = used_stems.get(stem)
+        if prev is not None and prev != name:
+            raise RuntimeError(
+                f"Command doc stem collision: '{prev}' and '{name}' both map to '{stem}'."
+            )
+        used_stems[stem] = name
+        docs.append(CommandDoc(name=name, stem=stem))
+    return docs
 
 
 def _capture_help(command_name: str, *, advanced: bool) -> str:
@@ -72,10 +98,10 @@ def _render_command_page(command_name: str, help_text: str) -> str:
     )
 
 
-def _render_commands_index(command_names: list[str]) -> str:
-    toctree_body = "\n".join(command_names)
+def _render_commands_index(command_docs: list[CommandDoc]) -> str:
+    toctree_body = "\n".join(doc.stem for doc in command_docs)
     rows = "\n".join(
-        f"| `{TOOL_NAME} {name}` | [{name}]({name}.md) |" for name in command_names
+        f"| `{TOOL_NAME} {doc.name}` | [{doc.name}]({doc.stem}.md) |" for doc in command_docs
     )
     return (
         "# CLI Command Reference\n\n"
@@ -151,25 +177,25 @@ pairs:
 
 
 def _render() -> list[RenderedFile]:
-    command_names = _collect_subcommands()
+    command_docs = _collect_command_docs()
     rendered: list[RenderedFile] = []
 
-    for name in command_names:
+    for doc in command_docs:
         try:
-            help_text = _capture_help(name, advanced=True)
+            help_text = _capture_help(doc.name, advanced=True)
         except RuntimeError:
-            help_text = _capture_help(name, advanced=False)
+            help_text = _capture_help(doc.name, advanced=False)
         rendered.append(
             RenderedFile(
-                path=COMMANDS_ROOT / f"{name}.md",
-                content=_render_command_page(name, help_text),
+                path=COMMANDS_ROOT / f"{doc.stem}.md",
+                content=_render_command_page(doc.name, help_text),
             )
         )
 
     rendered.append(
         RenderedFile(
             path=COMMANDS_ROOT / "index.md",
-            content=_render_commands_index(command_names),
+            content=_render_commands_index(command_docs),
         )
     )
     rendered.append(RenderedFile(path=YAML_REF_PATH, content=_render_yaml_reference()))

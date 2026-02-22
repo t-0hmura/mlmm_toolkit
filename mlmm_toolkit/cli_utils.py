@@ -1,8 +1,4 @@
-# mlmm_toolkit/cli_utils.py
-
-"""
-CLI utilities for standardized exception handling.
-"""
+"""CLI utilities for standardized exception handling."""
 
 from __future__ import annotations
 
@@ -52,7 +48,7 @@ def run_cli(
     try:
         fn()
     except KeyboardInterrupt:
-        click.echo("\nInterrupted by user.", err=True)
+        click.echo("Interrupted by user.", err=True)
         sys.exit(130)
     except Exception as e:
         if zero_step_exc is not None and isinstance(e, zero_step_exc):

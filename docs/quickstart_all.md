@@ -30,6 +30,6 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 ## Next step
 
-- Single-structure scan route: [Quickstart: `mlmm scan` with `--spec`](quickstart-scan-spec.md)
-- TS validation route: [Quickstart: `mlmm tsopt` -> `mlmm freq`](quickstart-tsopt-freq.md)
+- Single-structure scan route: [Quickstart: `mlmm scan` with `--spec`](quickstart_scan_spec.md)
+- TS validation route: [Quickstart: `mlmm tsopt` -> `mlmm freq`](quickstart_tsopt_freq.md)
 - Full option reference: [all](all.md)

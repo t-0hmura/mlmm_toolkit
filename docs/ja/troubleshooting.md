@@ -2,7 +2,7 @@
 
 このページでは、`mlmm` でよく遭遇するエラーと対処法をまとめます。
 エラーメッセージでページ内検索すると、該当するセクションを素早く見つけることができます。
-症状から先に当たりを付けたい場合は、先に [典型エラー別レシピ](recipes-common-errors.md) を見てからこのページに戻ってください。
+症状から先に当たりを付けたい場合は、先に [典型エラー別レシピ](recipes_common_errors.md) を見てからこのページに戻ってください。
 
 ---
 
@@ -43,7 +43,7 @@
 
 ---
 
-### hessian_ff のビルドエラー
+## hessian_ff ビルドの問題
 
 症状:
 - `import hessian_ff` で ImportError が出る
@@ -259,6 +259,22 @@ Please run `mlmm add-elem-info -i ...` to populate element columns before runnin
   ```bash
   mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
   ```
+
+---
+
+## B-factor レイヤー割り当ての問題
+
+### `--detect-layer` が想定どおりに働かない
+
+症状:
+- B-factor からのレイヤー自動判定で、ML / Movable / Frozen の分割が想定と異なる
+- `--detect-layer` 有効時に `--model-pdb` なしで実行すると失敗する
+
+対処:
+- 入力が PDB（または `--ref-pdb` 付き XYZ）であることを確認する
+- `define-layer` で B-factor を明示的に再付与し、生成された PDB を使う
+- 距離ベース制御を使う場合は `hess_cutoff` / `movable_cutoff` を指定し、必要なら `--no-detect-layer` に切り替える
+- `--movable-cutoff` を与えると `--detect-layer` が無効化される点に注意する
 
 ---
 

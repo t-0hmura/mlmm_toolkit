@@ -182,7 +182,7 @@ rsirfo:
 
 ## 注意事項
 
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - 虚数モード検出はデフォルト閾値 ~5 cm^-1 を使用します（`hessian_dimer.neg_freq_thresh_cm` で設定可能）。選択された `root` がどの虚数モードをエクスポートするかを決定します。
 - `--freeze-atoms` は 1 始まりインデックスを受け付け、YAML `geom.freeze_atoms` とマージされます。

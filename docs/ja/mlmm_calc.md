@@ -92,10 +92,10 @@ PySisyphus インターフェースは原子単位（Hartree/Bohr）に変換さ
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [opt](opt.md) -- ML/MM 計算機を使用した単一構造の構造最適化
 - [tsopt](tsopt.md) -- 遷移状態最適化
 - [freq](freq.md) -- 振動解析
-- [YAML リファレンス](yaml-reference.md) -- `calc`/`mlmm` 設定キー
+- [YAML リファレンス](yaml_reference.md) -- `calc`/`mlmm` 設定キー

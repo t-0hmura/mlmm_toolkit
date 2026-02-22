@@ -33,7 +33,7 @@ mlmm init [--out PATH] [--force]
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 - [all](all.md) -- `--config` / `--override-yaml` を使った実行
-- [YAML リファレンス](yaml-reference.md) -- 設定キーの全体像
+- [YAML リファレンス](yaml_reference.md) -- 設定キーの全体像

@@ -4,6 +4,7 @@ These routines construct Hessians, compute frequencies and handle I/O.
 """
 
 import os
+from contextlib import nullcontext
 import numpy as np
 import time
 import torch
@@ -87,47 +88,50 @@ def hessian_calc(
     H_sub = np.empty((n_dof, n_dof), dtype=dtype)
     row = 0
 
+    log_cm = nullcontext(None)
     if info_path is not None:
         os.makedirs(os.path.dirname(info_path), exist_ok=True)
-        log = open(info_path, "w", encoding="utf-8")
-        log.write("Hessian calculation by numerical differentiation\n")
-        log.write("------------------------------------------------\n")
-        t0 = time.time()
-        checkpoints = [int(m * k / 10) for k in range(1, 11)]  # every 10 %
+        log_cm = open(info_path, "w", encoding="utf-8")
 
-    for count, a in enumerate(movable, start=1):
-        for coord in range(3):
-            plus = clone_atoms(atoms)
-            plus.calc = calc
-            plus.positions[a, coord] += delta
-            Fp = plus.calc.get_forces(plus)
+    with log_cm as log:
+        if info_path is not None:
+            log.write("Hessian calculation by numerical differentiation\n")
+            log.write("------------------------------------------------\n")
+            t0 = time.time()
+            checkpoints = [int(m * k / 10) for k in range(1, 11)]  # every 10 %
 
-            minus = clone_atoms(atoms)
-            minus.calc = calc
-            minus.positions[a, coord] -= delta
-            Fm = minus.calc.get_forces(minus)
+        for count, a in enumerate(movable, start=1):
+            for coord in range(3):
+                plus = clone_atoms(atoms)
+                plus.calc = calc
+                plus.positions[a, coord] += delta
+                Fp = plus.calc.get_forces(plus)
 
-            # Central difference:  −∂F/∂x = ∂²E/∂x²
-            H_sub[row] = (Fm - Fp)[movable].ravel() / (2 * delta)
-            row += 1
+                minus = clone_atoms(atoms)
+                minus.calc = calc
+                minus.positions[a, coord] -= delta
+                Fm = minus.calc.get_forces(minus)
 
-        if info_path is not None and count in checkpoints:
-            pct = checkpoints.index(count) * 10 + 10
+                # Central difference:  −∂F/∂x = ∂²E/∂x²
+                H_sub[row] = (Fm - Fp)[movable].ravel() / (2 * delta)
+                row += 1
+
+            if info_path is not None and count in checkpoints:
+                pct = checkpoints.index(count) * 10 + 10
+                elapsed = time.time() - t0
+                total_est = elapsed * 100.0 / pct
+                remaining = total_est - elapsed
+                me, se = divmod(int(elapsed), 60)
+                mr, sr = divmod(int(remaining), 60)
+                log.write(
+                    f"{pct:3d}% ({count}/{m})   Elapsed {me}m{se}s   ETA {mr}m{sr}s\n"
+                )
+                log.flush()
+
+        if info_path is not None:
             elapsed = time.time() - t0
-            total_est = elapsed * 100.0 / pct
-            remaining = total_est - elapsed
             me, se = divmod(int(elapsed), 60)
-            mr, sr = divmod(int(remaining), 60)
-            log.write(
-                f"{pct:3d}% ({count}/{m})   Elapsed {me}m{se}s   ETA {mr}m{sr}s\n"
-            )
-            log.flush()
-
-    if info_path is not None:
-        elapsed = time.time() - t0
-        me, se = divmod(int(elapsed), 60)
-        log.write(f"Done in {me}m{se}s\n")
-        log.close()
+            log.write(f"Done in {me}m{se}s\n")
 
     N = len(atoms)
     H = np.zeros((3 * N, 3 * N), dtype=dtype)

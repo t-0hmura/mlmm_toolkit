@@ -146,11 +146,11 @@ The YAML root must be a mapping. Accepted sections:
 
 ## Notes
 
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - Inputs: provide at least two full-enzyme PDBs to `-i/--input` in reaction order.
 - Preflight checks validate `-i/--input` and `--ref-pdb` paths before starting GSM.
-- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli-conventions.md).
+- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli_conventions.md).
 - Freeze atoms: `--freeze-atoms "1,3,5"` stores zero-based indices and merges with YAML `geom.freeze_atoms`.
 - Nodes and recursion: segment vs bridge nodes differ via `search.max_nodes_segment` and `search.max_nodes_bridge`. Kinks use `search.kink_max_nodes` (default 3) linear nodes. Recursion depth is capped by `search.max_depth` (default 10).
 - Optimizers: GSM employs pysisyphus `GrowingString` + `StringOptimizer`; single-structure refinements always use LBFGS.

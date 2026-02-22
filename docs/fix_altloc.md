@@ -117,7 +117,7 @@ Output:
 ```
 
 ## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - Atom serial numbers are **NOT renumbered** (gaps may remain after duplicate removal).
 - `CONECT` and other connectivity/annotation records are **NOT updated**.

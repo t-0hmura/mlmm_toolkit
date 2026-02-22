@@ -9,14 +9,14 @@
 :caption: ガイド
 :hidden:
 
-getting-started
-quickstart-all
-quickstart-scan-spec
-quickstart-tsopt-freq
+getting_started
+quickstart_all
+quickstart_scan_spec
+quickstart_tsopt_freq
 concepts
-recipes-common-errors
+recipes_common_errors
 troubleshooting
-cli-conventions
+cli_conventions
 ```
 
 ```{toctree}
@@ -51,7 +51,7 @@ energy_diagram
 :caption: リファレンス
 :hidden:
 
-yaml-reference
+yaml_reference
 mlmm_calc
 glossary
 ```
@@ -63,9 +63,9 @@ glossary
 
 | ユースケース | 推奨コマンド | ガイド |
 |--------------|--------------|--------|
-| 最初の 1 回を実行（エンドツーエンド） | `mlmm all` | [クイックスタート: all](quickstart-all.md) |
-| 単一構造スキャン（`--spec`） | `mlmm scan` | [クイックスタート: scan + spec](quickstart-scan-spec.md) |
-| TS 検証（`tsopt` -> `freq`） | `mlmm tsopt`, `mlmm freq` | [クイックスタート: tsopt -> freq](quickstart-tsopt-freq.md) |
+| 最初の 1 回を実行（エンドツーエンド） | `mlmm all` | [クイックスタート: all](quickstart_all.md) |
+| 単一構造スキャン（`--spec`） | `mlmm scan` | [クイックスタート: scan + spec](quickstart_scan_spec.md) |
+| TS 検証（`tsopt` -> `freq`） | `mlmm tsopt`, `mlmm freq` | [クイックスタート: tsopt -> freq](quickstart_tsopt_freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
 | `all` 用 YAML テンプレートを生成 | `mlmm init` | [init.md](init.md) |
 | タンパク質-リガンド複合体からQM領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
@@ -77,7 +77,7 @@ glossary
 | 遷移状態からIRCを実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Gaussian/ORCA ONIOM入力を生成 | `mlmm oniom-gaussian` / `oniom-orca` | [oniom_export.md](oniom_export.md) |
-| 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes-common-errors.md) |
+| 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes_common_errors.md) |
 | 全体像（概念・用語）の把握 | -- | [概念とワークフロー](concepts.md) |
 | よくあるエラーの解決 | -- | [トラブルシューティング](troubleshooting.md) |
 | 略語や用語を調べる | -- | [用語集](glossary.md) |
@@ -88,10 +88,10 @@ glossary
 
 ### はじめに
 
-- [**はじめに**](getting-started.md) - インストール、クイックスタート、概要
+- [**はじめに**](getting_started.md) - インストール、クイックスタート、概要
 - [**概念とワークフロー**](concepts.md) - ML/MM 3層システム、ONIOM 分解、各ステージの全体像
-- [**典型エラー別レシピ**](recipes-common-errors.md) - 症状別の最短対処ルート
-- [**CLI 規約**](cli-conventions.md) - ブール値オプション、セレクタ、B-factor 層エンコーディング、電荷指定などの共通規約
+- [**典型エラー別レシピ**](recipes_common_errors.md) - 症状別の最短対処ルート
+- [**CLI 規約**](cli_conventions.md) - ブール値オプション、セレクタ、B-factor 層エンコーディング、電荷指定などの共通規約
 - [**トラブルシューティング**](troubleshooting.md) - よくあるエラーと対処法
 - [**システム要件**](#システム要件) - ハードウェアとソフトウェアの前提条件
 
@@ -147,7 +147,7 @@ glossary
 
 - [**CLI コマンドリファレンス（自動生成）**](../reference/commands/index.md)
 - [**YAML スキーマ（自動生成）**](../reference/yaml.md)
-- [**YAML リファレンス**](yaml-reference.md) - 全サブコマンドの YAML 設定オプション
+- [**YAML リファレンス**](yaml_reference.md) - 全サブコマンドの YAML 設定オプション
 - [**ML/MM 計算機**](mlmm_calc.md) - UMA + hessian_ff ONIOM エンジンの詳細
 - [**用語集**](glossary.md) - 略語と技術用語の定義
 
@@ -223,7 +223,7 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 ```bash
 mlmm all -i R.pdb P.pdb -c 'LIG' --config base.yaml --override-yaml override.yaml
 ```
-すべてのオプションについては [YAML リファレンス](yaml-reference.md) を参照してください。
+すべてのオプションについては [YAML リファレンス](yaml_reference.md) を参照してください。
 
 ---
 

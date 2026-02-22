@@ -9,22 +9,22 @@
 :caption: Guides
 :hidden:
 
-getting-started
-quickstart-all
-quickstart-scan-spec
-quickstart-tsopt-freq
+getting_started
+quickstart_all
+quickstart_scan_spec
+quickstart_tsopt_freq
 concepts
-recipes-common-errors
+recipes_common_errors
 troubleshooting
-cli-conventions
-ja/getting-started
-ja/quickstart-all
-ja/quickstart-scan-spec
-ja/quickstart-tsopt-freq
+cli_conventions
+ja/getting_started
+ja/quickstart_all
+ja/quickstart_scan_spec
+ja/quickstart_tsopt_freq
 ja/concepts
-ja/recipes-common-errors
+ja/recipes_common_errors
 ja/troubleshooting
-ja/cli-conventions
+ja/cli_conventions
 ```
 
 ```{toctree}
@@ -81,10 +81,10 @@ ja/energy_diagram
 
 reference/commands/index
 reference/yaml
-yaml-reference
+yaml_reference
 mlmm_calc
 glossary
-ja/yaml-reference
+ja/yaml_reference
 ja/mlmm_calc
 ja/glossary
 ```
@@ -104,9 +104,9 @@ ja/index
 
 | Use Case | Command | Guide |
 |-------------------------|---------|-------|
-| First run (end-to-end) | `mlmm all` | [Quickstart: all](quickstart-all.md) |
-| Single-structure staged scan (`--spec`) | `mlmm scan` | [Quickstart: scan with spec](quickstart-scan-spec.md) |
-| TS validation (`tsopt` -> `freq`) | `mlmm tsopt`, `mlmm freq` | [Quickstart: tsopt -> freq](quickstart-tsopt-freq.md) |
+| First run (end-to-end) | `mlmm all` | [Quickstart: all](quickstart_all.md) |
+| Single-structure staged scan (`--spec`) | `mlmm scan` | [Quickstart: scan with spec](quickstart_scan_spec.md) |
+| TS validation (`tsopt` -> `freq`) | `mlmm tsopt`, `mlmm freq` | [Quickstart: tsopt -> freq](quickstart_tsopt_freq.md) |
 | Run complete reaction path search from PDB | `mlmm all` | [all.md](all.md) |
 | Generate a starter YAML config for `all` | `mlmm init` | [init.md](init.md) |
 | Extract QM region from protein-ligand complex | `mlmm extract` | [extract.md](extract.md) |
@@ -118,8 +118,8 @@ ja/index
 | Run IRC from a transition state | `mlmm irc` | [irc.md](irc.md) |
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Export to Gaussian/ORCA ONIOM | `mlmm oniom-gaussian` / `oniom-orca` | [oniom_export.md](oniom_export.md) |
-| Follow worked tutorials | -- | [Tutorial](getting-started.md) |
-| Diagnose failures by symptom | -- | [Common Error Recipes](recipes-common-errors.md) |
+| Follow worked tutorials | -- | [Tutorial](getting_started.md) |
+| Diagnose failures by symptom | -- | [Common Error Recipes](recipes_common_errors.md) |
 | Understand the big picture (concepts & terms) | -- | [Concepts & Workflow](concepts.md) |
 | Resolve common errors | -- | [Troubleshooting](troubleshooting.md) |
 | Look up abbreviations and terms | -- | [Glossary](glossary.md) |
@@ -130,11 +130,11 @@ ja/index
 
 | Topic | Page |
 |-------|------|
-| **Installation & first run** | [Getting Started](getting-started.md) |
+| **Installation & first run** | [Getting Started](getting_started.md) |
 | **Key terms & workflow overview** | [Concepts & Workflow](concepts.md) |
-| **Symptom-first failure routing** | [Common Error Recipes](recipes-common-errors.md) |
+| **Symptom-first failure routing** | [Common Error Recipes](recipes_common_errors.md) |
 | **Common errors & fixes** | [Troubleshooting](troubleshooting.md) |
-| **CLI conventions & input requirements** | [CLI Conventions](cli-conventions.md) |
+| **CLI conventions & input requirements** | [CLI Conventions](cli_conventions.md) |
 
 ---
 
@@ -195,7 +195,7 @@ ja/index
 |-------|------|
 | **CLI command reference (generated)** | [Command Reference](reference/commands/index.md) |
 | **YAML schema (generated)** | [YAML Schema (Generated)](reference/yaml.md) |
-| **YAML configuration options** | [YAML Reference](yaml-reference.md) |
+| **YAML configuration options** | [YAML Reference](yaml_reference.md) |
 | **ML/MM calculator architecture** | [ML/MM Calculator](mlmm_calc.md) |
 | **Terminology** | [Glossary](glossary.md) |
 
@@ -271,7 +271,7 @@ Layered settings are recommended via `--config` and `--override-yaml`.
 ```bash
 mlmm all -i R.pdb P.pdb -c 'LIG' --config base.yaml --override-yaml override.yaml
 ```
-See the [YAML Reference](yaml-reference.md) for all options.
+See the [YAML Reference](yaml_reference.md) for all options.
 
 ---
 

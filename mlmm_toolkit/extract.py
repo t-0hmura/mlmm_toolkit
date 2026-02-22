@@ -8,9 +8,9 @@ Usage (CLI)
 -----------
     mlmm extract -i INPUT.pdb [INPUT2.pdb ...] -c <substrate_spec> \
         [-o OUTPUT.pdb ...] [-r <Å>] [--radius-het2het <Å>] \
-        [--include-H2O {true|false}] [--exclude-backbone {true|false}] \
-        [--add-linkH {true|false}] [--selected-resn "CHAIN:RES" ...] \
-        [--ligand-charge <number|"RES:Q,...">] [--verbose {true|false}]
+        [--include-H2O/--no-include-H2O] [--exclude-backbone/--no-exclude-backbone] \
+        [--add-linkH/--no-add-linkH] [--selected-resn "CHAIN:RES" ...] \
+        [--ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
 
 Examples
 --------
@@ -26,7 +26,7 @@ Examples
 
     # Multi-structure to single multi-MODEL output with hetero-hetero proximity enabled
     mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
-        -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose true
+        -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose
 
 Description
 -----------
@@ -39,15 +39,15 @@ Residue inclusion
 -----
 - Always include the substrate residues.
 - Standard cutoff (``--radius``, default 2.6 Å):
-  - If ``--exclude-backbone false``: include any residue if **any atom** is within the cutoff.
-  - If ``--exclude-backbone true`` (default): for **amino‑acid residues**, the qualifying atom
+  - If ``--no-exclude-backbone``: include any residue if **any atom** is within the cutoff.
+  - If ``--exclude-backbone`` (default): for **amino‑acid residues**, the qualifying atom
     must be **non‑backbone** (not in {N, H*, CA, HA*, C, O, OXT}); non‑amino‑acid residues qualify by any atom.
 - Independent hetero–hetero proximity (``--radius-het2het``):
   add residues if a **substrate hetero atom (non‑C/H)** is within the cutoff of a **protein hetero atom**.
-  With ``--exclude-backbone true``, amino‑acid neighbors must be **non‑backbone** atoms.
-- Waters are included by default (``--include-H2O true``; HOH/WAT/TIP3/SOL).
+  With ``--exclude-backbone``, amino‑acid neighbors must be **non‑backbone** atoms.
+- Waters are included by default (``--include-H2O``; disable with ``--no-include-H2O``).
 - ``--selected-resn`` force‑includes residues (chain and insertion codes supported).
-- When ``--exclude-backbone false`` and a selected residue’s **backbone atom** contacts the substrate
+- When ``--no-exclude-backbone`` and a selected residue’s **backbone atom** contacts the substrate
   (within either cutoff), include its peptide‑adjacent N‑side and C‑side neighbors (C–N ≤ 1.9 Å). For true termini,
   keep the respective terminal cap atoms (N/H* or C/O/OXT).
 - **Disulfide safeguard:** if a selected CYS/CYX forms an SG–SG contact ≤ 2.5 Å, include both partners.
@@ -61,7 +61,7 @@ Truncation (capping)
   - **PRO/HYP** retain N, CA, HA, H* to keep the ring.
 - **Continuous peptide stretches** keep internal backbone; only **terminal caps** are removed
   (N‑cap: N/H*; C‑cap: C/O/OXT). TER‑aware segmentation prevents crossing chain breaks.
-- With ``--exclude-backbone true`` (default), delete main‑chain atoms on all **non‑substrate amino acids**,
+- With ``--exclude-backbone`` (default), delete main‑chain atoms on all **non‑substrate amino acids**,
   except for the specific PRO/HYP retention and PRO‑adjacency preservation above.
 - **Non‑amino‑acid residues**: atoms named like protein backbone ({"N","CA","HA","H","H1","H2","H3"})
   are **never deleted** by capping logic.
@@ -125,7 +125,7 @@ Notes
   - ``--radius-het2het`` default: **0 Å** (off). Internally treated as **0.001 Å** if ``0`` is given.
   - ``--include-H2O`` default: **true**.
   - ``--exclude-backbone`` default: **true**.
-  - ``--add-linkH`` default: **true**.
+  - ``--add-linkH`` default: **false**.
   - ``--ligand-charge`` default: **None** (unknown residues counted as 0 unless set).
   - Output default: single input → ``pocket.pdb``; multiple inputs → ``pocket_{original_filename}.pdb``.
 - **Geometry thresholds and tolerances:**
@@ -291,14 +291,6 @@ ResidueKey = Tuple[str, str, int, str, str]
 #   Helpers
 # ---------------------------------------------------------------------
 
-def str2bool(v: str) -> bool:
-    """
-    Return a boolean for common truthy strings.
-    """
-    if isinstance(v, bool):
-        return v
-    return v.lower() in {"true", "1", "yes", "y"}
-
 
 def _extract_short_help() -> str:
     return "\n".join(
@@ -347,6 +339,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                 argv_list.append("--help")
 
     p = argparse.ArgumentParser(
+        prog="mlmm extract",
         description=(
             "Extract a binding pocket around substrate residues (from a PDB or residue IDs/names), "
             "with biochemically aware truncation and optional link‑H; supports multi‑structure input "
@@ -388,15 +381,24 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
               "but is internally treated as 0.001 Å. (default: 0)")
     )
     p.add_argument(
-        "--include-H2O", type=str2bool, default=True,
+        "--include-H2O", "--include-h2o",
+        dest="include_H2O",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help="Include waters (HOH/WAT/TIP3/SOL). (default: True)"
     )
     p.add_argument(
-        "--exclude-backbone", type=str2bool, default=True,
+        "--exclude-backbone",
+        dest="exclude_backbone",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help="Delete main‑chain atoms (N, H*, CA, HA*, C, O) from non‑substrate amino acids; PRO/HYP keep N, CA, HA, H*. (default: True)"
     )
     p.add_argument(
-        "--add-linkH", type=str2bool, default=False,
+        "--add-linkH",
+        dest="add_linkH",
+        action=argparse.BooleanOptionalAction,
+        default=False,
         help="Add carbon‑only link‑H at 1.09 Å along cut‑bond directions; appended after a TER as HL/LKH HETATM records. (default: False)"
     )
     p.add_argument(
@@ -411,7 +413,10 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
               "'GPP:-3,MMT:-1'. In mapping mode, any other unknown residues remain 0.")
     )
     p.add_argument(
-        "-v", "--verbose", type=str2bool, default=True,
+        "-v", "--verbose",
+        dest="verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help=("Enable INFO-level logging."
               " default: True.")
     )

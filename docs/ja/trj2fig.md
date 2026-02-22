@@ -76,7 +76,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [path_search](path_search.md) -- 再帰的 MEP 探索（trj2fig に適した XYZ 軌跡を生成）

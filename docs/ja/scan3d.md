@@ -13,7 +13,26 @@
 
 `mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--real-parm7` から読み取られ、オプティマイザーは PySisyphus LBFGS です。
 
-設定セクション（`geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias`）は `--args-yaml`（単層 YAML）で上書きされ、優先順位は **内部デフォルト < `--args-yaml` < 明示 CLI** です。YAML と `--freeze-atoms` で提供される凍結原子はオプティマイザーと ML/MM 計算機の間で共有されます。
+設定セクション（`geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias`）は `--config`（ベース）と `--override-yaml`（最終上書き）で 2 層指定できます。`--args-yaml` は `--override-yaml` の legacy エイリアスです。優先順位は **内部デフォルト < `--config` < `--override-yaml` < 明示 CLI** です。YAML と `--freeze-atoms` で提供される凍結原子はオプティマイザーと ML/MM 計算機の間で共有されます。
+
+## 最小例
+
+```bash
+mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 --spec scan3d.yaml --print-parsed --out-dir ./result_scan3d/
+```
+
+## 出力の見方
+
+- `result_scan3d/surface.csv`
+- `result_scan3d/grid/point_i000_j000_k000.xyz`
+- `result_scan3d/scan3d_density.html`
+
+## よくある例
+
+1. YAML spec の `pairs` を先に検証する。
+2. 後方互換のため legacy `--scan-lists` を使う。
+3. `--dump` を有効にして `(d1,d2)` スライスごとの d3 軌跡を保存する。
 
 ## 使用法
 
@@ -23,7 +42,8 @@ mlmm scan3d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     [--spec scan3d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
     [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
     [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
-    [--dump/--no-dump] [--out-dir DIR] [--args-yaml FILE] \
+    [--dump/--no-dump] [--out-dir DIR] \
+    [--config FILE] [--override-yaml FILE | --args-yaml FILE] \
     [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
@@ -75,7 +95,9 @@ mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `--out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
 | `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_ |
-| `--args-yaml FILE` | `geom`、`calc`/`mlmm`、`opt`、`lbfgs`、`bias` の YAML 上書き。 | _None_ |
+| `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
+| `--override-yaml FILE` | 最終 YAML 上書きファイル（YAML レイヤーの最優先）。 | _None_ |
+| `--args-yaml FILE` | `--override-yaml` の legacy エイリアス。 | _None_ |
 | `--ref-pdb FILE` | 非 PDB 入力用の参照 PDB トポロジー。 | _None_ |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `True` |
 | `--baseline {min,first}` | kcal/mol エネルギーをグローバル最小値または `(i,j,k)=(0,0,0)` がゼロになるようシフト。 | `min` |
@@ -95,7 +117,7 @@ out_dir/ (デフォルト: ./result_scan3d/)
 
 ## 注意事項
 
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は 1D/2D スキャンと同じ `HarmonicBiasCalculator` を再利用します。
 - `--baseline` のデフォルトはグローバル最小値です。`--baseline first` は `(i,j,k)=(0,0,0)` グリッド点が存在する場合にそれを基準にします。
@@ -111,4 +133,4 @@ out_dir/ (デフォルト: ./result_scan3d/)
 - [scan2d](scan2d.md) -- 2D 距離グリッドスキャン
 - [opt](opt.md) -- 構造最適化（スキャン前に実行する場合が多い）
 - [all](all.md) -- エンドツーエンドワークフロー
-- [YAML リファレンス](yaml-reference.md) -- スキャンの完全な設定オプション
+- [YAML リファレンス](yaml_reference.md) -- スキャンの完全な設定オプション

@@ -36,10 +36,6 @@ from pathlib import Path
 from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple
 
 import click
-try:
-    from .cli_utils import argparse_bool
-except Exception:  # pragma: no cover - support direct execution
-    from mlmm_toolkit.cli_utils import argparse_bool
 
 COORD_RECORDS = ("ATOM  ", "HETATM")
 ANISOU_RECORD = "ANISOU"
@@ -336,8 +332,10 @@ def _fix_altloc_short_help() -> str:
             "Core options:",
             "  -i, --input PATH                 Input PDB file or directory.",
             "  -o, --out PATH                   Output file/directory.",
-            "  --recursive BOOL                 Recurse when input is a directory.",
-            "  --inplace BOOL                   Rewrite input file(s) in place.",
+            "  --recursive/--no-recursive       Recurse when input is a directory.",
+            "  --inplace/--no-inplace           Rewrite input file(s) in place.",
+            "  --overwrite/--no-overwrite       Allow overwriting existing outputs.",
+            "  --force/--no-force               Process files even if no altLoc is detected.",
             "  --help-advanced                  Show full fix-altloc options and exit.",
             "",
             "Use '--help-advanced' to see all fix-altloc options.",
@@ -346,9 +344,6 @@ def _fix_altloc_short_help() -> str:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    def _parse_bool(value: str) -> bool:
-        return argparse_bool(value)
-
     argv_list = list(argv) if argv is not None else None
     if argv_list is not None:
         wants_adv = "--help-advanced" in argv_list
@@ -377,27 +372,27 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument(
         "--recursive",
-        type=_parse_bool,
+        action=argparse.BooleanOptionalAction,
         default=False,
-        help="When input is a directory, process *.pdb recursively (including subdirectories). Use True/False.",
+        help="When input is a directory, process *.pdb recursively (including subdirectories).",
     )
     parser.add_argument(
         "--inplace",
-        type=_parse_bool,
+        action=argparse.BooleanOptionalAction,
         default=False,
-        help="Overwrite input file(s) in place (creates .bak next to each file). Use True/False.",
+        help="Overwrite input file(s) in place (creates .bak next to each file).",
     )
     parser.add_argument(
         "--overwrite",
-        type=_parse_bool,
+        action=argparse.BooleanOptionalAction,
         default=False,
-        help="Allow overwriting existing output files. Use True/False.",
+        help="Allow overwriting existing output files.",
     )
     parser.add_argument(
         "--force",
-        type=_parse_bool,
+        action=argparse.BooleanOptionalAction,
         default=False,
-        help="Process files even if no altLoc is detected (default: skip files without altLoc). Use True/False.",
+        help="Process files even if no altLoc is detected (default: skip files without altLoc).",
     )
     args = parser.parse_args(argv_list)
 

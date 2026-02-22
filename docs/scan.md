@@ -13,7 +13,7 @@
 
 `mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples FAIR-Chem UMA and hessian_ff.
 
-When you provide multiple `--scan-lists` literals after a single flag, stages run sequentially and each stage starts from the previous stage's relaxed structure. After the biased walk, optional unbiased pre-/post-optimizations (`--preopt`, `--endopt`) can clean up geometries before writing `result.*` to disk. For the scan family, YAML is supplied via `--args-yaml` (single layer), and merge precedence is **internal defaults < `--args-yaml` < explicit CLI**. (Unlike `opt`/`tsopt`/`path-*`, scan commands do not use `--config` + `--override-yaml` yet.)
+When you provide multiple `--scan-lists` literals after a single flag, stages run sequentially and each stage starts from the previous stage's relaxed structure. After the biased walk, optional unbiased pre-/post-optimizations (`--preopt`, `--endopt`) can clean up geometries before writing `result.*` to disk. For the scan family, YAML can be layered via `--config` (base) and `--override-yaml` (final overlay); `--args-yaml` remains as a legacy alias of `--override-yaml`. Merge precedence is **internal defaults < `--config` < `--override-yaml` < explicit CLI**.
 
 ## Minimal example
 
@@ -78,7 +78,7 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     -q -1 -m 1 --freeze-atoms "1,3,5" --scan-lists "[(12,45,2.20)]" \
     "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
-    --args-yaml params.yaml --out-dir ./result_scan/
+    --override-yaml params.yaml --out-dir ./result_scan/
 ```
 
 ## `--spec` format (recommended)
@@ -128,8 +128,14 @@ stages:
 | `-i, --input PATH` | Input PDB (or XYZ with `--ref-pdb` for topology). | Required |
 | `--real-parm7 PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` is enabled or `--model-indices` is provided. | _None_ |
+| `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed). | _None_ |
+| `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
+| `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors. | `True` |
 | `-q, --charge INT` | Total ML-region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
+| `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
+| `--hess-cutoff FLOAT` | MM-Hessian distance cutoff (A) from ML atoms. | _None_ |
+| `--movable-cutoff FLOAT` | Movable-MM distance cutoff (A); providing this disables `--detect-layer`. | _None_ |
 | `--spec FILE` | YAML/JSON scan spec. Mapping root with `stages`; optional `one_based`. | Recommended |
 | `--scan-lists TEXT` | Legacy Python literal(s) with `(i, j, target_A)` tuples. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Alternative to `--spec` |
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
@@ -137,13 +143,17 @@ stages:
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (A). Controls the number of integration steps. | `0.20` |
 | `--bias-k FLOAT` | Harmonic bias strength `k` in eV/A^2. | `100` |
 | `--opt-mode {lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
+| `--max-cycles INT` | Maximum LBFGS cycles per biased step and per pre/end optimization stage. | `10000` |
 | `--relax-max-cycles INT` | Compatibility alias of `--max-cycles`; overrides `--max-cycles` when provided. | _None_ |
-| `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `True` |
 | `--dump/--no-dump` | Dump concatenated biased trajectories (`scan.trj`/`scan.pdb`). | `False` |
 | `--out-dir TEXT` | Output directory root. | `./result_scan/` |
-| `--args-yaml FILE` | YAML overrides for `geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`, `bond`. | _None_ |
+| `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
+| `--config FILE` | Base YAML configuration file (applied first). | _None_ |
+| `--override-yaml FILE` | Final YAML override file (highest-priority YAML layer). | _None_ |
+| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
+| `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
 
 ## Outputs
 ```
@@ -158,8 +168,8 @@ out_dir/ (default: ./result_scan/)
     └─ scan.pdb              # PDB version of scan.trj (PDB inputs only)
 ```
 
-## YAML configuration (`--args-yaml`)
-The YAML root must be a mapping. For scan commands, merge precedence is **internal defaults < `--args-yaml` < explicit CLI**.
+## YAML configuration (`--config` / `--override-yaml` / `--args-yaml`)
+The YAML root must be a mapping. For scan commands, merge precedence is **internal defaults < `--config` < `--override-yaml` < explicit CLI**. `--args-yaml` is a legacy alias of `--override-yaml`.
 
 ### Section `geom`
 - `coord_type`: Coordinate type (cartesian vs dlc internals).
@@ -185,7 +195,7 @@ The YAML root must be a mapping. For scan commands, merge precedence is **intern
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [scan2d](scan2d.md) -- 2D distance grid scan

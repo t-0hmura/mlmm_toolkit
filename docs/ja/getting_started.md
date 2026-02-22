@@ -40,7 +40,7 @@ ML 領域の計算には Meta の UMA（MLIP）を、MM 領域の計算には he
 
 ```{tip}
 初めて使う場合は、まず [概念とワークフロー](concepts.md) を参照してください。
-症状から切り分ける場合は、まず [典型エラー別レシピ](recipes-common-errors.md) を参照してください。
+症状から切り分ける場合は、まず [典型エラー別レシピ](recipes_common_errors.md) を参照してください。
 セットアップや実行中にエラーが発生した場合は [トラブルシューティング](troubleshooting.md) を参照してください。
 ```
 
@@ -195,9 +195,9 @@ AmberTools がインストールされていなくても、`--real-parm7` を手
 
 ## 推奨クイックスタート導線
 
-- [クイックスタート: `mlmm all`](quickstart-all.md)
-- [クイックスタート: `mlmm scan` + `--spec`](quickstart-scan-spec.md)
-- [クイックスタート: `mlmm tsopt` -> `mlmm freq`](quickstart-tsopt-freq.md)
+- [クイックスタート: `mlmm all`](quickstart_all.md)
+- [クイックスタート: `mlmm scan` + `--spec`](quickstart_scan_spec.md)
+- [クイックスタート: `mlmm tsopt` -> `mlmm freq`](quickstart_tsopt_freq.md)
 
 ---
 
@@ -214,6 +214,24 @@ mlmm all [OPTIONS] ...
 ```
 
 `all` ワークフローは、クラスター抽出、MM パラメータ化、MEP 探索、TS 最適化、振動解析、オプションの DFT 一点計算を 1 つのコマンドで連続実行する**オーケストレーター**です。
+
+---
+
+## 典型ワークフロー
+
+`mlmm all` を個別サブコマンドへ分解すると、典型的には次の順で進みます。
+
+```text
+1. extract      - 完全系 PDB から活性部位ポケットを抽出
+2. mm-parm      - Amber parm7/rst7 を生成
+3. define-layer - 3 層 ML/MM 分割を付与（B-factor エンコード）
+4. path-search  - 再帰的 MEP 探索（GSM/DMF）
+5. tsopt        - 遷移状態最適化
+6. freq         - 振動解析と熱化学
+7. dft          - DFT 一点計算
+```
+
+`all` は上記 1-7 を自動実行します。必要に応じて各ステップを単独で実行してデバッグできます。
 
 ---
 
@@ -284,7 +302,18 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 | `--opt-mode light\|heavy` | 最適化手法: Light (LBFGS/Dimer) または Heavy (RFO/RS-I-RFO) |
 | `--mep-mode gsm\|dmf` | MEP 手法: Growing String Method または Direct Max Flux |
 
-すべてのオプションと YAML スキーマについては [all](all.md) および [YAML リファレンス](yaml-reference.md) を参照してください。
+すべてのオプションと YAML スキーマについては [all](all.md) および [YAML リファレンス](yaml_reference.md) を参照してください。
+
+---
+
+## 実行サマリー
+
+`mlmm all` 実行後、トップレベル出力には次が保存されます。
+
+- `summary.log` -- 人が読むための実行要約
+- `summary.yaml` -- 機械処理向けの要約
+
+代表的には、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。`path_search/` 以下の各セグメントにも個別 summary が出力されます。
 
 ---
 
@@ -311,8 +340,43 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 | `freq` | 振動解析 | [freq](freq.md) |
 | `dft` | DFT 一点計算 | [dft](dft.md) |
 | `trj2fig` | エネルギープロファイルプロット | [trj2fig](trj2fig.md) |
+| `energy-diagram` | 数値系列から状態エネルギー図を描画 | [energy-diagram](energy_diagram.md) |
 | `oniom-gaussian` | Gaussian ONIOM 入力生成 | [oniom_export](oniom_export.md) |
 | `oniom-orca` | ORCA QM/MM 入力生成 | [oniom_export](oniom_export.md) |
+
+---
+
+## クイックリファレンス
+
+よく使う実行パターン:
+
+```bash
+# 2 構造以上で基本 MEP 探索
+mlmm -i R.pdb P.pdb -c 'SUBSTRATE' --ligand-charge 'SUB:-1'
+
+# TS/熱化学/DFT まで実行
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo --dft
+
+# 1 構造 + staged scan
+mlmm -i SINGLE.pdb -c 'LIG' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
+
+# TS 候補の単独最適化
+mlmm -i TS.pdb -c 'LIG' --tsopt --thermo
+```
+
+主要オプション:
+
+| オプション | 用途 |
+|----------|------|
+| `-i` | 入力構造（単数または複数） |
+| `-c` | 抽出中心（基質）指定 |
+| `--ligand-charge` | 基質電荷指定（例: `'SAM:1,GPP:-3'`） |
+| `--real-parm7` | Amber parm7（個別サブコマンドで必要） |
+| `--model-pdb` | ML 領域定義 PDB（個別サブコマンドで必要） |
+| `--tsopt` | TS 最適化 + IRC |
+| `--thermo` | 振動解析/熱化学 |
+| `--dft` | DFT 一点計算 |
+| `--out-dir` | 出力ディレクトリ |
 
 ---
 

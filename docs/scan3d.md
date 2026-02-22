@@ -13,7 +13,23 @@
 
 `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--real-parm7`; the optimizer is PySisyphus LBFGS.
 
-Configuration sections (`geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`) are overridden via `--args-yaml` (single YAML layer) with precedence **internal defaults < `--args-yaml` < explicit CLI**. Frozen atoms supplied through YAML and `--freeze-atoms` are shared between the optimizer and the ML/MM calculator.
+Configuration sections (`geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`) can be layered via `--config` (base) and `--override-yaml` (final overlay); `--args-yaml` remains as a legacy alias of `--override-yaml`. Merge precedence is **internal defaults < `--config` < `--override-yaml` < explicit CLI**. Frozen atoms supplied through YAML and `--freeze-atoms` are shared between the optimizer and the ML/MM calculator.
+
+## Minimal example
+```bash
+mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 --spec scan3d.yaml --print-parsed --out-dir ./result_scan3d/
+```
+
+## Output checklist
+- `result_scan3d/surface.csv`
+- `result_scan3d/grid/point_i000_j000_k000.xyz`
+- `result_scan3d/scan3d_density.html`
+
+## Common examples
+1. Validate parsed `pairs` from a YAML spec before running a full grid.
+2. Run with legacy `--scan-lists` for backward compatibility.
+3. Enable `--dump` to keep inner d3 trajectories for each `(d1,d2)` slice.
 
 ## Usage
 ```bash
@@ -22,7 +38,8 @@ mlmm scan3d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     [--spec scan3d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
     [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
     [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
-    [--dump/--no-dump] [--out-dir DIR] [--args-yaml FILE] \
+    [--dump/--no-dump] [--out-dir DIR] \
+    [--config FILE] [--override-yaml FILE | --args-yaml FILE] \
     [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
@@ -106,7 +123,9 @@ pairs:
 | `--dump/--no-dump` | Write inner d3 scan TRJs per (d1, d2) slice. | `False` |
 | `--out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
 | `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ |
-| `--args-yaml FILE` | YAML overrides for `geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`. | _None_ |
+| `--config FILE` | Base YAML configuration file (applied first). | _None_ |
+| `--override-yaml FILE` | Final YAML override file (highest-priority YAML layer). | _None_ |
+| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
 | `--baseline {min,first}` | Shift kcal/mol energies so the global min or `(i,j,k)=(0,0,0)` is zero. | `min` |
@@ -124,7 +143,7 @@ out_dir/ (default: ./result_scan3d/)
 ```
 
 ## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) reuses the same
   `HarmonicBiasCalculator` as the 1D/2D scans.
@@ -142,10 +161,10 @@ out_dir/ (default: ./result_scan3d/)
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 
 - [scan](scan.md) -- 1D bond-length driven scan
 - [scan2d](scan2d.md) -- 2D distance grid scan
 - [opt](opt.md) -- Geometry optimization (often precedes scan)
 - [all](all.md) -- End-to-end workflow
-- [YAML Reference](yaml-reference.md) -- Full scan configuration options
+- [YAML Reference](yaml_reference.md) -- Full scan configuration options

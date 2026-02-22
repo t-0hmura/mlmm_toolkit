@@ -450,7 +450,7 @@ def scan_freeze_atoms_toward_target_inplace(
                     ).run()
                 except (ZeroStepLength, OptimizationError) as e:
                     if verbose:
-                        click.echo(f"[scan] WARNING: Exceptional occured in final relaxation: {e} (continue...)", err=True)
+                        click.echo(f"[scan] WARNING: Exception occurred in final relaxation: {e} (continue...)", err=True)
                 g_mob.freeze_atoms = np.array([], int)
                 converged = True
                 n_steps_done = istep
@@ -477,7 +477,7 @@ def scan_freeze_atoms_toward_target_inplace(
                 ).run()
             except (ZeroStepLength, OptimizationError) as e:
                 if verbose:
-                    click.echo(f"[scan] WARNING: Exceptional occured in relaxation: {e} (continue...)", err=True)
+                    click.echo(f"[scan] WARNING: Exception occurred in relaxation: {e} (continue...)", err=True)
             finally:
                 g_mob.freeze_atoms = np.array([], int)
 

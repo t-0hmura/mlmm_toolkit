@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import subprocess
 import sys
@@ -16,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS_ROOT = REPO_ROOT / "docs"
 TOOL_NAME = "mlmm"
 CLI_MODULE = "mlmm_toolkit"
+DOCS_SMOKE_COMMAND_TIMEOUT_SEC = float(os.environ.get("DOCS_SMOKE_COMMAND_TIMEOUT_SEC", "120"))
 
 sys.path.insert(0, str(REPO_ROOT))
 
@@ -209,12 +211,19 @@ def _run_help_smoke(commands: list[str]) -> None:
 
 
 def _run_all_dry_run_smoke(commands: list[str]) -> None:
-    probe = subprocess.run(
-        [sys.executable, "-m", CLI_MODULE, "all", "--help"],
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-    )
+    try:
+        probe = subprocess.run(
+            [sys.executable, "-m", CLI_MODULE, "all", "--help"],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=DOCS_SMOKE_COMMAND_TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            "[dry-run-smoke] timeout while probing availability for "
+            f"'{TOOL_NAME} all --help' ({DOCS_SMOKE_COMMAND_TIMEOUT_SEC:g}s)."
+        ) from exc
     probe_output = f"{probe.stdout}\n{probe.stderr}"
     if "Command 'all' is unavailable" in probe_output or "Missing dependency:" in probe_output:
         print("[dry-run-smoke] skipped: 'all' command is unavailable in this environment.")
@@ -247,19 +256,31 @@ def _run_all_dry_run_smoke(commands: list[str]) -> None:
             if args[0] != "all":
                 continue
             dry_args = _sanitize_all_args(args, fixture)
-            completed = subprocess.run(
-                [sys.executable, "-m", CLI_MODULE, *dry_args],
-                cwd=REPO_ROOT,
-                text=True,
-                capture_output=True,
-            )
+            try:
+                completed = subprocess.run(
+                    [sys.executable, "-m", CLI_MODULE, *dry_args],
+                    cwd=REPO_ROOT,
+                    text=True,
+                    capture_output=True,
+                    timeout=DOCS_SMOKE_COMMAND_TIMEOUT_SEC,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError(
+                    f"[dry-run-smoke] timeout for docs command ({DOCS_SMOKE_COMMAND_TIMEOUT_SEC:g}s):\n"
+                    f"  {raw}\n"
+                    f"sanitized args:\n"
+                    f"  {TOOL_NAME} {' '.join(dry_args)}"
+                ) from exc
             if completed.returncode != 0:
                 raise RuntimeError(
                     f"[dry-run-smoke] failed for docs command:\n  {raw}\n"
                     f"sanitized args:\n  {TOOL_NAME} {' '.join(dry_args)}\n\n"
                     f"stdout:\n{completed.stdout}\n\nstderr:\n{completed.stderr}"
                 )
-    print(f"[dry-run-smoke] validated {len(all_cmds)} docs examples.")
+    print(
+        f"[dry-run-smoke] validated {len(all_cmds)} docs examples "
+        f"(timeout={DOCS_SMOKE_COMMAND_TIMEOUT_SEC:g}s)."
+    )
 
 
 def main() -> int:

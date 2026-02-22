@@ -139,7 +139,7 @@ out_dir/ (デフォルト: ./result_freq/)
 
 ## 注意事項
 
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - ML/MM 計算機は Hartree/Bohr^2 でヘシアンを返します。cm^-1 への変換はツールキットの他の箇所で使用される PySisyphus/ASE 規約に従います。
 - 熱化学はオプションの `thermoanalysis` パッケージに依存します。未インストール時は警告のみ出力され、実行は継続します。
@@ -153,4 +153,4 @@ out_dir/ (デフォルト: ./result_freq/)
 - [opt](opt.md) -- 構造最適化（多くの場合 freq の前に実行）
 - [dft](dft.md) -- より高レベルのエネルギー精密化のための DFT 一点計算
 - [all](all.md) -- `--thermo` 付きエンドツーエンドワークフロー
-- [YAML リファレンス](yaml-reference.md) -- `freq` と `thermo` の完全な設定オプション
+- [YAML リファレンス](yaml_reference.md) -- `freq` と `thermo` の完全な設定オプション

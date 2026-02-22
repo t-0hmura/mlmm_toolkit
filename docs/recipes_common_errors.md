@@ -34,7 +34,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 - First checks:
   - Ensure total charge and multiplicity are physically correct for the target state.
   - If using residue maps, validate each residue key in `--ligand-charge`.
-  - Verify the resolution rules in [CLI Conventions](cli-conventions.md) when results look physically inconsistent.
+  - Verify the resolution rules in [CLI Conventions](cli_conventions.md) when results look physically inconsistent.
 - Typical fix path:
   - Prefer explicit `-q` and `-m` for critical runs, then retry scan/path/tsopt.
 

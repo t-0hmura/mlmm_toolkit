@@ -62,7 +62,7 @@ OUTPUT.(png|jpg|jpeg|svg|pdf)
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 - [trj2fig](trj2fig.md) -- Plot profile from trajectory energies
 - [all](all.md) -- End-to-end workflow with built-in energy diagram output

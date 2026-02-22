@@ -151,7 +151,7 @@ out_dir/ (default: ./result_freq/)
 - Console blocks summarizing resolved `geom`, `calc`, `freq`, and thermochemistry settings.
 
 ## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - The ML/MM calculator returns Hessians in Hartree/Bohr^2. Conversions to cm^-1 follow the
   PySisyphus/ASE conventions used elsewhere in the toolkit.
@@ -163,10 +163,10 @@ out_dir/ (default: ./result_freq/)
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 
 - [tsopt](tsopt.md) -- Optimize TS candidates (validate with freq/IRC; expected: one imaginary frequency)
 - [opt](opt.md) -- Geometry optimization (often precedes freq)
 - [dft](dft.md) -- Single-point DFT for higher-level energy refinement
 - [all](all.md) -- End-to-end workflow with `--thermo`
-- [YAML Reference](yaml-reference.md) -- Full `freq` and `thermo` configuration options
+- [YAML Reference](yaml_reference.md) -- Full `freq` and `thermo` configuration options

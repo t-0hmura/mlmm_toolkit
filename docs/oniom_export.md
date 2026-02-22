@@ -26,7 +26,8 @@ mlmm oniom-gaussian --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pd
 mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
     -o output.inp [-q CHARGE] [-m MULT] [--method "B3LYP D3BJ def2-SVP"] \
     [--total-charge INT] [--total-mult INT] \
-    [--nproc INT] [--element-check|--no-element-check]
+    [--nproc INT] [--near FLOAT] [--orcaff PATH] \
+    [--convert-orcaff|--no-convert-orcaff] [--element-check|--no-element-check]
 ```
 
 ### Examples
@@ -82,6 +83,9 @@ Both subcommands read an Amber parm7 topology file and generate QM/MM input file
 | `--total-charge INT` | Total charge of full QM+MM system (`Charge_Total`). | topology-derived |
 | `--total-mult INT` | Total multiplicity of full QM+MM system (`Mult_Total`). | same as `--mult` |
 | `--nproc INT` | Number of processors. | `8` |
+| `--near FLOAT` | Distance cutoff (Å) used to define ActiveAtoms when no layer B-factors are present. | `6.0` |
+| `--orcaff PATH` | Path to ORCAFF.prms; if omitted, exporter uses/creates `<parm7_stem>.ORCAFF.prms`. | auto |
+| `--convert-orcaff/--no-convert-orcaff` | Auto-run `orca_mm -convff -AMBER` when ORCAFF.prms is missing. | `True` |
 
 ## Outputs
 ```
@@ -123,7 +127,7 @@ mlmm oniom-orca --parm7 real.parm7 -i layered.pdb --model-pdb ml_region.pdb \
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [mm_parm](mm_parm.md) -- Build AMBER topology (parm7/rst7)

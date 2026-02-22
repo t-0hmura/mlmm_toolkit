@@ -161,9 +161,9 @@ Provide a YAML mapping with sections `geom`, `calc`, and `irc`. Merge order is d
 
 ## Notes
 
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
-- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli-conventions.md).
+- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli_conventions.md).
 - UMA options are passed directly to the mlmm calculator. With `device: "auto"`, the calculator selects GPU/CPU automatically.
 - If `hessian_calc_mode: "FiniteDifference"`, `geom.freeze_atoms` can be used to skip frozen DOF in FD Hessian construction.
 - `--step-size` is in mass-weighted coordinates; `--root` selects the imaginary-frequency index used for the initial displacement.

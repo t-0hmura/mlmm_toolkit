@@ -58,11 +58,11 @@ using Meta's **UMA** machine-learning interatomic potential for the ML region an
 
 ## Documentation
 
-- [**Getting Started**](docs/getting-started.md) — Installation and first steps
+- [**Getting Started**](docs/getting_started.md) — Installation and first steps
 - [**Concepts**](docs/concepts.md) — 3-layer system, ONIOM, link atoms
 - [**CLI Command Reference (generated)**](docs/reference/commands/index.md)
 - [**YAML Schema (generated)**](docs/reference/yaml.md)
-- [**YAML Reference**](docs/yaml-reference.md) — Advanced configuration (`--args-yaml`, or layered `--config`/`--override-yaml` in `all`)
+- [**YAML Reference**](docs/yaml_reference.md) — Advanced configuration (`--args-yaml`, or layered `--config`/`--override-yaml` in `all`)
 - [**Troubleshooting**](docs/troubleshooting.md) — Common errors and fixes
 - **Full command index**: [docs/index.md](docs/index.md)
 
@@ -235,7 +235,7 @@ python -m mlmm_toolkit --help
 
 `mlmm all --help` shows core options. Use `mlmm all --help-advanced` for the full option list.
 `scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-gaussian`, `oniom-orca`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
-For advanced configuration, use `--args-yaml` on individual subcommands, or `--config`/`--override-yaml` on `mlmm all`. See [YAML Reference](docs/yaml-reference.md).
+For advanced configuration, use `--args-yaml` on individual subcommands, or `--config`/`--override-yaml` on `mlmm all`. See [YAML Reference](docs/yaml_reference.md).
 
 ---
 

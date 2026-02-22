@@ -11,7 +11,6 @@ For detailed documentation, see: docs/mm_parm.md
 
 from __future__ import annotations
 
-import argparse
 import os
 import re
 import shutil
@@ -198,20 +197,6 @@ def run(cmd: List[str], cwd: Optional[Path] = None, logfile: Optional[Path] = No
     if logfile:
         logfile.write_text("".join(lines), encoding="utf-8", errors="ignore")
     return rc
-
-
-def parse_bool(s: Optional[str]) -> bool:
-    """Robust bool parser: accepts True/False/1/0/yes/no/on/off (case-insensitive)."""
-    if s is None:
-        return True
-    if isinstance(s, bool):
-        return s
-    sl = str(s).strip().lower()
-    if sl in {"1", "true", "t", "yes", "y", "on"}:
-        return True
-    if sl in {"0", "false", "f", "no", "n", "off"}:
-        return False
-    raise argparse.ArgumentTypeError(f"Invalid boolean value for --add-ter or --add-h: {s}")
 
 
 def parse_ligand_charge(expr: Optional[str]) -> Dict[str, int]:
@@ -891,21 +876,23 @@ def run_pipeline(args: Args) -> None:
     help="Keep temporary working directory (in current dir) for debugging.",
 )
 @click.option(
-    "--add-ter",
-    "--add_TER",
+    "--add-ter/--no-add-ter",
+    "--add_TER/--no-add_TER",
     "add_TER",
-    default="True",
+    default=True,
+    show_default=True,
     help=(
-        "If True (default), insert TER before/after target residues. "
+        "Insert TER before/after target residues. "
         "When contiguous, TER is not inserted between them."
     ),
 )
 @click.option(
-    "--add-h",
-    "--add_H",
+    "--add-h/--no-add-h",
+    "--add_H/--no-add_H",
     "add_H",
-    default="False",
-    help="If True, add hydrogens using PDBFixer at the specified --pH (default False).",
+    default=False,
+    show_default=True,
+    help="Add hydrogens using PDBFixer at the specified --pH.",
 )
 @click.option(
     "--ph",
@@ -928,8 +915,8 @@ def cli(
     ligand_mult: Optional[str],
     allow_nonstandard_aa: bool,
     keep_temp: bool,
-    add_TER: str,
-    add_H: str,
+    add_TER: bool,
+    add_H: bool,
     ph: float,
     ff_set: str,
 ) -> None:
@@ -941,8 +928,8 @@ def cli(
         ligand_mult=parse_ligand_mult(ligand_mult),
         allow_nonstandard_aa=allow_nonstandard_aa,
         keep_temp=keep_temp,
-        add_TER=parse_bool(add_TER),
-        add_H=parse_bool(add_H),
+        add_TER=bool(add_TER),
+        add_H=bool(add_H),
         ph=ph,
         ff_set=ff_set,
         out_prefix_given=(out_prefix is not None),

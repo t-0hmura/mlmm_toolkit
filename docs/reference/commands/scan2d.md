@@ -58,18 +58,22 @@ Options:
                                   100.0]
   --relax-max-cycles INTEGER      Maximum LBFGS cycles per biased relaxation
                                   (also used for preopt).  [default: 10000]
-  --dump BOOLEAN                  Write inner d2 scan TRJs per d1 slice.
-                                  [default: False]
+  --dump / --no-dump              Write inner d2 scan TRJs per d1 slice.
+                                  [default: no-dump]
   --out-dir TEXT                  Base output directory.  [default:
                                   ./result_scan2d/]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never).
-  --args-yaml FILE                YAML file with extra args (sections: geom,
-                                  calc/mlmm, opt, lbfgs, bias).
+  --config FILE                   Base YAML configuration file applied before
+                                  explicit CLI options.
+  --override-yaml FILE            Final YAML override file (highest-priority
+                                  YAML layer).
+  --args-yaml FILE                [legacy] Alias of --override-yaml; kept for
+                                  backward compatibility.
   --ref-pdb FILE                  Reference PDB topology to use when --input is
                                   XYZ (keeps XYZ coordinates).
-  --preopt BOOLEAN                Run an unbiased pre-optimization.  [default:
-                                  True]
+  --preopt / --no-preopt          Run an unbiased pre-optimization.  [default:
+                                  preopt]
   --baseline [min|first]          Reference for relative energy (kcal/mol):
                                   'min' or 'first' (i=0,j=0).  [default: min]
   --zmin FLOAT                    Lower bound of the contour color scale

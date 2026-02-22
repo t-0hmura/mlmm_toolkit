@@ -1247,33 +1247,6 @@ class MLMMCore:
                 H_flat = (H_flat + H_flat.t()).mul_(0.5)
                 H = H_flat.view(n_hess_active, 3, n_hess_active, 3)
 
-            # Temporary debug: report Hessian finiteness before handing it to the optimizer.
-            try:
-                H_dbg = H.reshape(-1)
-                n_total = int(H_dbg.numel())
-                n_nan = int(torch.isnan(H_dbg).sum().item())
-                n_posinf = int(torch.isposinf(H_dbg).sum().item())
-                n_neginf = int(torch.isneginf(H_dbg).sum().item())
-                finite_mask = torch.isfinite(H_dbg)
-                n_finite = int(finite_mask.sum().item())
-                if n_finite > 0:
-                    H_finite = H_dbg[finite_mask]
-                    h_min = float(H_finite.min().item())
-                    h_max = float(H_finite.max().item())
-                    h_absmax = float(H_finite.abs().max().item())
-                else:
-                    h_min = float("nan")
-                    h_max = float("nan")
-                    h_absmax = float("nan")
-                click.echo(
-                    "[HessianDebug] "
-                    f"shape={tuple(H.shape)} total={n_total} finite={n_finite} "
-                    f"nan={n_nan} +inf={n_posinf} -inf={n_neginf} "
-                    f"min={h_min:.3e} max={h_max:.3e} absmax={h_absmax:.3e}"
-                )
-            except Exception as exc:
-                click.echo(f"[HessianDebug] Failed to evaluate Hessian finiteness: {exc}")
-
             if self.return_partial_hessian:
                 results["hessian"] = H.detach()
                 results["within_partial_hessian"] = self._build_within_partial_hessian()

@@ -161,10 +161,10 @@ Merge order is **defaults < config < explicit CLI < override**.
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [path-search](path_search.md) -- Recursive MEP search with automatic refinement (for 2+ structures)
 - [opt](opt.md) -- Single-structure geometry optimization
 - [all](all.md) -- End-to-end workflow (uses path-search by default)
-- [YAML Reference](yaml-reference.md) -- Full `gs`, `opt` configuration options
+- [YAML Reference](yaml_reference.md) -- Full `gs`, `opt` configuration options

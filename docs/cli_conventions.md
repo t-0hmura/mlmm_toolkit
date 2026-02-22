@@ -236,7 +236,7 @@ Precedence:
 defaults < config < CLI options < override-yaml
 ```
 
-See [YAML Reference](yaml-reference.md) for all available options.
+See [YAML Reference](yaml_reference.md) for all available options.
 
 ---
 
@@ -266,7 +266,7 @@ Default output directories:
 
 ## See Also
 
-- [Getting Started](getting-started.md) -- Installation and first run
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Getting Started](getting_started.md) -- Installation and first run
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Common errors and fixes
-- [YAML Reference](yaml-reference.md) -- Complete configuration options
+- [YAML Reference](yaml_reference.md) -- Complete configuration options

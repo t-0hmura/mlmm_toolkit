@@ -30,6 +30,6 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 ## 次の導線
 
-- 単一構造スキャン: [クイックスタート: `mlmm scan` + `--spec`](quickstart-scan-spec.md)
-- TS 検証: [クイックスタート: `mlmm tsopt` -> `mlmm freq`](quickstart-tsopt-freq.md)
+- 単一構造スキャン: [クイックスタート: `mlmm scan` + `--spec`](quickstart_scan_spec.md)
+- TS 検証: [クイックスタート: `mlmm tsopt` -> `mlmm freq`](quickstart_tsopt_freq.md)
 - 全オプション: [all](all.md)

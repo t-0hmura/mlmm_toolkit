@@ -163,10 +163,10 @@ out_dir/ (デフォルト: ./result_path_opt/)
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [path-search](path_search.md) -- 自動精密化付き再帰的 MEP 探索（2 つ以上の構造用）
 - [opt](opt.md) -- 単一構造の構造最適化
 - [all](all.md) -- エンドツーエンドワークフロー（デフォルトで path-search を使用）
-- [YAML リファレンス](yaml-reference.md) -- `gs`、`opt` の完全な設定オプション
+- [YAML リファレンス](yaml_reference.md) -- `gs`、`opt` の完全な設定オプション

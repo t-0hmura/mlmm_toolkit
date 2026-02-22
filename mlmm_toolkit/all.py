@@ -2162,14 +2162,14 @@ def cli(
             "-q", str(int(q_int)),
             "-m", str(int(spin)),
             "--out-dir", str(scan_dir),
-            "--preopt", "True" if scan_preopt_use else "False",
-            "--endopt", "True" if scan_endopt_use else "False",
+            "--preopt" if scan_preopt_use else "--no-preopt",
+            "--endopt" if scan_endopt_use else "--no-endopt",
             "--opt-mode", str(scan_opt_mode_use),
         ]
         scan_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
         if dump_override_requested:
-            scan_args.extend(["--dump", "True" if dump else "False"])
+            scan_args.append("--dump" if dump else "--no-dump")
 
         if scan_one_based is not None:
             scan_args.append("--one-based" if scan_one_based else "--zero-based")

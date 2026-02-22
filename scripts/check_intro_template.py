@@ -12,6 +12,8 @@ DOCS_ROOT = REPO_ROOT / "docs"
 TARGETS = (
     "all",
     "scan",
+    "scan2d",
+    "scan3d",
     "tsopt",
     "freq",
     "opt",

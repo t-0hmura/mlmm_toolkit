@@ -8,7 +8,23 @@
 
 Energies at each grid point are re-evaluated without the bias to populate a PES grid and contour plot. Outputs include per-point XYZ snapshots, `surface.csv` summarizing the PES, a 2D contour map (`scan2d_map.png`), and a 3D landscape with bottom projection (`scan2d_landscape.html`).
 
-For scan-family commands, YAML is provided through `--args-yaml` (single layer), and merge precedence is **internal defaults < `--args-yaml` < explicit CLI**. (Unlike `opt`/`tsopt`/`path-*`, scan commands do not support `--config` + `--override-yaml` yet.)
+For scan-family commands, YAML can be layered via `--config` (base) and `--override-yaml` (final overlay); `--args-yaml` remains as a legacy alias of `--override-yaml`. Merge precedence is **internal defaults < `--config` < `--override-yaml` < explicit CLI**.
+
+## Minimal example
+```bash
+mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
+```
+
+## Output checklist
+- `result_scan2d/surface.csv`
+- `result_scan2d/grid/point_i000_j000.xyz`
+- `result_scan2d/scan2d_map.png` and `result_scan2d/scan2d_landscape.html`
+
+## Common examples
+1. Validate parsed scan targets from a YAML spec.
+2. Run with the legacy `--scan-lists` literal for backward compatibility.
+3. Enable `--dump` to store inner trajectories per outer d1 step.
 
 ## Usage
 ```bash
@@ -17,7 +33,8 @@ mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
     [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
     [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
     [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
-    [--dump/--no-dump] [--out-dir DIR] [--args-yaml FILE] \
+    [--dump/--no-dump] [--out-dir DIR] \
+    [--config FILE] [--override-yaml FILE | --args-yaml FILE] \
     [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
@@ -89,7 +106,9 @@ pairs:
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `--out-dir TEXT` | Base output directory. | `./result_scan2d/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
-| `--args-yaml FILE` | YAML overrides (sections: `geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `bias`). | _None_ |
+| `--config FILE` | Base YAML configuration file (applied first). | _None_ |
+| `--override-yaml FILE` | Final YAML override file (highest-priority YAML layer). | _None_ |
+| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased pre-optimization before scanning. | `True` |
 | `--baseline {min,first}` | Reference for relative energy (kcal/mol). | `min` |
@@ -110,9 +129,9 @@ out_dir/  (default: ./result_scan2d/)
 └── (stdout)                      # Progress and energy summaries
 ```
 
-## YAML configuration (`--args-yaml`)
+## YAML configuration (`--config` / `--override-yaml` / `--args-yaml`)
 
-Merge precedence for scan-family commands is **internal defaults < `--args-yaml` < explicit CLI**.
+Merge precedence for scan-family commands is **internal defaults < `--config` < `--override-yaml` < explicit CLI**. `--args-yaml` is a legacy alias of `--override-yaml`.
 
 A minimal example (extend with the same keys documented in [opt](opt.md)):
 
@@ -139,7 +158,7 @@ bias:
 ```
 
 ## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) keeps the entire enzyme complex. The ML region comes from `--model-pdb`; Amber parameters are read from `--real-parm7`.
 - The bias is always removed before final energies are recorded, so `surface.csv` is directly comparable across grid points.
@@ -150,7 +169,7 @@ bias:
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 
 - [scan](scan.md) -- 1D bond-length driven scan
 - [scan3d](scan3d.md) -- 3D distance grid scan

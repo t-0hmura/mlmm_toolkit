@@ -1092,22 +1092,26 @@ def _maybe_convert_outputs_to_pdb(
 )
 @click.option(
     "--radius-partial-hessian",
+    "--hess-cutoff",
     "radius_partial_hessian",
     type=float,
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
-         "Applied to movable MM atoms and can be combined with --detect-layer.",
+         "Applied to movable MM atoms and can be combined with --detect-layer. "
+         "`--hess-cutoff` is a compatibility alias.",
 )
 @click.option(
     "--radius-freeze",
+    "--movable-cutoff",
     "radius_freeze",
     type=float,
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for movable MM atoms. "
-         "MM atoms beyond this are frozen. "
-         "Providing --radius-freeze disables --detect-layer and uses distance-based layer assignment.",
+     "MM atoms beyond this are frozen. "
+         "Providing --radius-freeze disables --detect-layer and uses distance-based layer assignment. "
+         "`--movable-cutoff` is a compatibility alias.",
 )
 @click.option(
     "--dist-freeze",

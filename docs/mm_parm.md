@@ -20,6 +20,7 @@ When `--add-h`, hydrogens are added at the specified `--pH` using PDBFixer befor
 mlmm mm-parm -i INPUT.pdb [--out-prefix PREFIX] \
              [--ligand-charge "RES=-3,ABC:+1"] \
              [--ligand-mult "RES=2,ABC:1"] \
+             [--allow-nonstandard-aa] \
              [--keep-temp] \
              [--add-ter/--no-add-ter] \
              [--add-h/--no-add-h] [--pH 7.0] \
@@ -66,6 +67,7 @@ Even if the build fails, when `--add-h` and hydrogen addition succeeded, the hyd
 | `--out-prefix TEXT` | Output prefix for parm7/rst7/pdb files. | Stem of input PDB |
 | `--ligand-charge TEXT` | Map residue name to formal charge, e.g. `"GPP=-3,MMT=-1"`. | _None_ |
 | `--ligand-mult TEXT` | Map residue name to spin multiplicity (`-m`), e.g. `"HEM=1,NO:2"`. | `1` |
+| `--allow-nonstandard-aa` | Allow antechamber parameterization for amino-acid-like modified residues (N/CA/C present). | `False` |
 | `--keep-temp` | Keep intermediate files/logs in a working directory (for debugging). | `False` |
 | `--add-ter/--no-add-ter` | Insert TER before/after ligand/water/ion blocks. | `True` |
 | `--add-h/--no-add-h` | Add hydrogens at `--pH` using PDBFixer. | `False` |
@@ -109,7 +111,7 @@ mlmm mm-parm -i input.pdb --no-add-h
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [all](all.md) -- End-to-end workflow (calls mm-parm internally)

@@ -69,7 +69,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [mm_parm](mm_parm.md) -- Build AMBER topology (parm7/rst7) before layer definition

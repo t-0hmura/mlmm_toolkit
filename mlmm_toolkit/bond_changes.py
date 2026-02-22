@@ -1,4 +1,4 @@
-# mlmm_toolkit/bond_changes.py
+# bond_changes.py
 
 """
 bond_changes — Bond-change detection and reporting utilities
@@ -6,7 +6,7 @@ bond_changes — Bond-change detection and reporting utilities
 
 Usage (API)
 -----
-    from mlmm_toolkit.bond_changes import compare_structures, summarize_changes
+    from <package>.bond_changes import compare_structures, summarize_changes
 
 Examples::
     >>> result = compare_structures(geom_reactant, geom_product, device="cpu")

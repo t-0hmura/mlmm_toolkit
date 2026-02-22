@@ -62,7 +62,7 @@ OUTPUT.(png|jpg|jpeg|svg|pdf)
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 - [trj2fig](trj2fig.md) -- 軌跡エネルギーからプロファイルを描画
 - [all](all.md) -- エネルギーダイアグラム出力を含むエンドツーエンド実行

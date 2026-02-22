@@ -44,6 +44,7 @@ from .utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
+    deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
     pretty_block,
@@ -102,6 +103,30 @@ BOND_KW: Dict[str, Any] = {
     "margin_fraction": 0.05,     # float, fractional margin to tolerate small deviations
     "delta_fraction": 0.05,      # float, change threshold to flag bond formation/breaking
 }
+
+
+def _resolve_yaml_sources(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+) -> tuple[Optional[Path], Optional[Path], bool]:
+    if override_yaml is not None and args_yaml_legacy is not None:
+        raise click.BadParameter(
+            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+        )
+    if args_yaml_legacy is not None:
+        return config_yaml, args_yaml_legacy, True
+    return config_yaml, override_yaml, False
+
+
+def _load_merged_yaml_cfg(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    deep_update(merged, load_yaml_dict(config_yaml))
+    deep_update(merged, load_yaml_dict(override_yaml))
+    return merged
 
 
 def _coords3d_to_xyz_string(geom, energy: Optional[float] = None) -> str:
@@ -353,8 +378,13 @@ def _snapshot_geometry(g) -> Any:
     show_default=False,
     help="Compatibility alias of --max-cycles (overrides it when provided).",
 )
-@click.option("--dump", type=click.BOOL, default=False, show_default=True,
-              help="Write stage trajectory as scan.trj (and scan.pdb for PDB input).")
+@click.option(
+    "--dump/--no-dump",
+    "dump",
+    default=False,
+    show_default=True,
+    help="Write stage trajectory as scan.trj (and scan.pdb for PDB input).",
+)
 @click.option("--out-dir", type=str, default="./result_scan/", show_default=True,
               help="Base output directory.")
 @click.option(
@@ -364,10 +394,24 @@ def _snapshot_geometry(g) -> Any:
     help="Convergence preset for relaxations (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
 )
 @click.option(
-    "--args-yaml",
+    "--config",
+    "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="YAML file with extra args (sections: geom, calc/mlmm, opt, lbfgs, bias, bond).",
+    help="Base YAML configuration file applied before explicit CLI options.",
+)
+@click.option(
+    "--override-yaml",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Final YAML override file (highest-priority YAML layer).",
+)
+@click.option(
+    "--args-yaml",
+    "args_yaml_legacy",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
 )
 @click.option(
     "--ref-pdb",
@@ -375,10 +419,20 @@ def _snapshot_geometry(g) -> Any:
     default=None,
     help="Reference PDB topology to use when --input is XYZ (keeps XYZ coordinates).",
 )
-@click.option("--preopt", type=click.BOOL, default=True, show_default=True,
-              help="Pre-optimize initial structure without bias before the scan.")
-@click.option("--endopt", type=click.BOOL, default=True, show_default=True,
-              help="After each stage, run an additional unbiased optimization of the stage result.")
+@click.option(
+    "--preopt/--no-preopt",
+    "preopt",
+    default=True,
+    show_default=True,
+    help="Pre-optimize initial structure without bias before the scan.",
+)
+@click.option(
+    "--endopt/--no-endopt",
+    "endopt",
+    default=True,
+    show_default=True,
+    help="After each stage, run an additional unbiased optimization of the stage result.",
+)
 def cli(
     input_path: Path,
     real_parm7: Path,
@@ -403,12 +457,24 @@ def cli(
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
-    args_yaml: Optional[Path],
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
     ref_pdb: Optional[Path],
     preopt: bool,
     endopt: bool,
 ) -> None:
     time_start = time.perf_counter()
+    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+        args_yaml_legacy=args_yaml_legacy,
+    )
+    if used_legacy_yaml:
+        click.echo(
+            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
+            err=True,
+        )
 
     if relax_max_cycles is not None:
         max_cycles = int(relax_max_cycles)
@@ -455,7 +521,10 @@ def cli(
                     click.echo(f"ERROR: {e}", err=True)
                     sys.exit(1)
 
-            yaml_cfg = load_yaml_dict(args_yaml)
+            yaml_cfg = _load_merged_yaml_cfg(
+                config_yaml=config_yaml,
+                override_yaml=override_yaml,
+            )
 
             geom_cfg = dict(GEOM_KW)
             calc_cfg = dict(CALC_KW)

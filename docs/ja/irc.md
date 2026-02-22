@@ -161,9 +161,9 @@ out_dir/ (デフォルト: ./result_irc/)
 
 ## 注意事項
 
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
-- 電荷/多重度の運用ルールは [CLI Conventions](cli-conventions.md) に集約しています。
+- 電荷/多重度の運用ルールは [CLI Conventions](cli_conventions.md) に集約しています。
 - UMA オプションは mlmm 計算機に直接渡されます。`device: "auto"` の場合、計算機は GPU/CPU を自動選択します。
 - `hessian_calc_mode: "FiniteDifference"` の場合、`geom.freeze_atoms` を使用して FD ヘシアン構築で凍結自由度をスキップできます。
 - `--step-size` は質量加重座標です。`--root` は初期変位に使用する虚数振動数インデックスを選択します。

@@ -43,9 +43,7 @@ ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート
 
 ---
 
-## 重要な概念
-
-### ML/MM 3層システム
+## ML/MM 3層システム
 
 `mlmm_toolkit` の中核は、ONIOM 的な ML/MM 結合スキームです。系を以下の 3 層に分割し、各層に異なるレベルの理論を適用します。
 
@@ -57,7 +55,7 @@ ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート
 
 B-factor 値は PDB ファイルの温度因子カラム（列 61-66）にエンコードされます。`define-layer` サブコマンドで自動設定できます。Hessian 対象 MM 原子は `hess_cutoff` や `hess_mm_atoms` で別途制御します。
 
-### ONIOM エネルギー分解
+## ONIOM 的エネルギー分解
 
 全系の ML/MM エネルギーは次のように計算されます:
 
@@ -72,7 +70,7 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 
 力とヘシアンも同様の ONIOM 分解で結合されます。リンク水素の寄与はヤコビアンを用いて ML 原子と MM 原子に再分配されます。
 
-### hessian_ff（MM エンジン）
+## hessian_ff: MM エンジン
 
 `hessian_ff` は Amber 力場パラメータ（parm7）をベースとした C++ ネイティブ拡張の力場計算エンジンです。主な特徴:
 
@@ -80,12 +78,14 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 - **CPU 実行**: GPU メモリを UMA 推論に専有させるため、MM 計算は CPU で実行
 - **Amber 互換**: ff19SB/ff14SB、GAFF2 などの Amber 力場に対応
 
-### parm7 と rst7
+## Amber parm7/rst7 トポロジ
 
 - **parm7（prmtop）**: Amber のトポロジファイル。原子タイプ、結合、角度、二面角、VDW パラメータ、部分電荷などを含む
 - **rst7（inpcrd）**: Amber の座標/速度ファイル。原子座標を含む
 
 `mm-parm` サブコマンドが PDB から parm7/rst7 を自動生成します。非標準リガンドには GAFF2 + AM1-BCC で自動パラメータ化します。
+
+## 主要オブジェクトと用語
 
 ### 全系とポケット（クラスターモデル）
 
@@ -170,8 +170,8 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 ## 次に読むページ
 
 ### 入門
-- [はじめに](getting-started.md) -- インストールと初回実行
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [はじめに](getting_started.md) -- インストールと初回実行
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- よくあるエラーと対処法
 
 ### 主要サブコマンド
@@ -187,5 +187,5 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 | `oniom-orca` | ORCA QM/MM 入力生成 | [oniom_export.md](oniom_export.md) |
 
 ### リファレンス
-- [YAML リファレンス](yaml-reference.md) -- 全オプションの YAML 設定
+- [YAML リファレンス](yaml_reference.md) -- 全オプションの YAML 設定
 - [用語集](glossary.md) -- 用語リファレンス

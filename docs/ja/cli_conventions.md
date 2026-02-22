@@ -235,7 +235,7 @@ mlmm all -i R.pdb P.pdb -c 'LIG' --config config.yaml --override-yaml override.y
 デフォルト < config < CLI オプション < override-yaml
 ```
 
-利用可能なすべてのオプションは [YAML リファレンス](yaml-reference.md) を参照してください。
+利用可能なすべてのオプションは [YAML リファレンス](yaml_reference.md) を参照してください。
 
 ---
 
@@ -262,8 +262,8 @@ mlmm all -i R.pdb P.pdb -c 'LIG' --config config.yaml --override-yaml override.y
 
 ## 関連項目
 
-- [はじめに](getting-started.md) -- インストールと初回実行
+- [はじめに](getting_started.md) -- インストールと初回実行
 - [概念とワークフロー](concepts.md) -- ML/MM 3層システム、ONIOM 分解の全体像
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- よくあるエラーと対処法
-- [YAML リファレンス](yaml-reference.md) -- 全設定オプション
+- [YAML リファレンス](yaml_reference.md) -- 全設定オプション

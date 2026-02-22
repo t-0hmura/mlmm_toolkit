@@ -21,6 +21,7 @@
 mlmm mm-parm -i INPUT.pdb [--out-prefix PREFIX] \
              [--ligand-charge "RES=-3,ABC:+1"] \
              [--ligand-mult "RES=2,ABC:1"] \
+             [--allow-nonstandard-aa] \
              [--keep-temp] \
              [--add-ter/--no-add-ter] \
              [--add-h/--no-add-h] [--pH 7.0] \
@@ -75,6 +76,7 @@ LEaP が不明な残基を報告した場合、antechamber（GAFF2、AM1-BCC 電
 | `--out-prefix TEXT` | parm7/rst7/pdb ファイルの出力接頭辞。 | 入力 PDB のファイル名幹 |
 | `--ligand-charge TEXT` | 残基名と形式電荷のマッピング（例: `"GPP=-3,MMT=-1"`）。 | _None_ |
 | `--ligand-mult TEXT` | 残基名とスピン多重度（`-m`）のマッピング（例: `"HEM=1,NO:2"`）。 | `1` |
+| `--allow-nonstandard-aa` | 非標準アミノ酸様残基（N/CA/C を含む）の antechamber パラメータ化を許可。 | `False` |
 | `--keep-temp` | 作業ディレクトリの中間ファイル/ログを保持（デバッグ用）。 | `False` |
 | `--add-ter/--no-add-ter` | リガンド/水/イオンブロックの前後に TER を挿入。 | `True` |
 | `--add-h/--no-add-h` | PDBFixer で `--pH` に基づいて水素を付加。 | `False` |
@@ -120,7 +122,7 @@ mlmm mm-parm -i input.pdb --no-add-h
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [all](all.md) -- エンドツーエンドワークフロー（内部で mm-parm を呼び出し）

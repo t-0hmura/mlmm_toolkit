@@ -146,11 +146,11 @@ YAML ルートはマッピングでなければなりません。受け付ける
 
 ## 注意事項
 
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - 入力: `-i/--input` に反応順の完全酵素 PDB を少なくとも 2 つ提供してください。
 - preflight チェックで `-i/--input` と `--ref-pdb` のファイル存在を実行前に検証します。
-- 電荷/多重度の運用ルールは [CLI Conventions](cli-conventions.md) に集約しています。
+- 電荷/多重度の運用ルールは [CLI Conventions](cli_conventions.md) に集約しています。
 - 凍結原子: `--freeze-atoms "1,3,5"` は 0 始まりインデックスとして保存され、YAML `geom.freeze_atoms` とマージされます。
 - ノードと再帰: セグメント vs ブリッジのノードは `search.max_nodes_segment` と `search.max_nodes_bridge` で異なります。キンクは `search.kink_max_nodes`（デフォルト 3）の線形ノードを使用します。再帰深度は `search.max_depth`（デフォルト 10）で制限されます。
 - オプティマイザー: GSM は pysisyphus `GrowingString` + `StringOptimizer` を使用し、単一構造精密化は常に LBFGS を使用します。

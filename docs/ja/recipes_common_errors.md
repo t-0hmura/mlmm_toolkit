@@ -34,7 +34,7 @@
 - 最初の確認:
   - 対象状態に対して総電荷・多重度が妥当か。
   - `--ligand-charge` の残基キーが入力構造と一致しているか。
-  - 結果が物理的に不自然な場合は [CLI Conventions](cli-conventions.md) の解決ルールを再確認。
+  - 結果が物理的に不自然な場合は [CLI Conventions](cli_conventions.md) の解決ルールを再確認。
 - 典型的な修正手順:
   - 重要な実行では `-q` / `-m` を明示し、scan/path/tsopt を再試行。
 

@@ -77,7 +77,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [mm_parm](mm_parm.md) -- レイヤー定義前に AMBER トポロジー（parm7/rst7）を構築

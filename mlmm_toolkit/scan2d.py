@@ -47,6 +47,7 @@ from .opt import (
 from .utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
+    deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
     pretty_block,
@@ -94,6 +95,30 @@ BIAS_KW: Dict[str, Any] = {"k": 100.0}  # eV/Å^2
 HARTREE_TO_KCAL_MOL = 627.50961
 
 _snapshot_geometry = functools.partial(snapshot_geometry, coord_type_default="cart")
+
+
+def _resolve_yaml_sources(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
+) -> tuple[Optional[Path], Optional[Path], bool]:
+    if override_yaml is not None and args_yaml_legacy is not None:
+        raise click.BadParameter(
+            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+        )
+    if args_yaml_legacy is not None:
+        return config_yaml, args_yaml_legacy, True
+    return config_yaml, override_yaml, False
+
+
+def _load_merged_yaml_cfg(
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    deep_update(merged, load_yaml_dict(config_yaml))
+    deep_update(merged, load_yaml_dict(override_yaml))
+    return merged
 
 
 def _select_closest_state(
@@ -280,7 +305,13 @@ def _make_lbfgs(
     show_default=True,
     help="Maximum LBFGS cycles per biased relaxation (also used for preopt).",
 )
-@click.option("--dump", type=click.BOOL, default=False, show_default=True, help="Write inner d2 scan TRJs per d1 slice.")
+@click.option(
+    "--dump/--no-dump",
+    "dump",
+    default=False,
+    show_default=True,
+    help="Write inner d2 scan TRJs per d1 slice.",
+)
 @click.option(
     "--out-dir",
     type=str,
@@ -296,11 +327,27 @@ def _make_lbfgs(
     help="Convergence preset (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
 )
 @click.option(
-    "--args-yaml",
+    "--config",
+    "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
     show_default=False,
-    help="YAML file with extra args (sections: geom, calc/mlmm, opt, lbfgs, bias).",
+    help="Base YAML configuration file applied before explicit CLI options.",
+)
+@click.option(
+    "--override-yaml",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    show_default=False,
+    help="Final YAML override file (highest-priority YAML layer).",
+)
+@click.option(
+    "--args-yaml",
+    "args_yaml_legacy",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    show_default=False,
+    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
 )
 @click.option(
     "--ref-pdb",
@@ -308,7 +355,13 @@ def _make_lbfgs(
     default=None,
     help="Reference PDB topology to use when --input is XYZ (keeps XYZ coordinates).",
 )
-@click.option("--preopt", type=click.BOOL, default=True, show_default=True, help="Run an unbiased pre-optimization.")
+@click.option(
+    "--preopt/--no-preopt",
+    "preopt",
+    default=True,
+    show_default=True,
+    help="Run an unbiased pre-optimization.",
+)
 @click.option(
     "--baseline",
     type=click.Choice(["min", "first"]),
@@ -352,7 +405,9 @@ def cli(
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
-    args_yaml: Optional[Path],
+    config_yaml: Optional[Path],
+    override_yaml: Optional[Path],
+    args_yaml_legacy: Optional[Path],
     ref_pdb: Optional[Path],
     preopt: bool,
     baseline: str,
@@ -360,6 +415,16 @@ def cli(
     zmax: Optional[float],
 ) -> None:
     time_start = time.perf_counter()
+    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+        config_yaml=config_yaml,
+        override_yaml=override_yaml,
+        args_yaml_legacy=args_yaml_legacy,
+    )
+    if used_legacy_yaml:
+        click.echo(
+            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
+            err=True,
+        )
 
     # Validate input format: PDB directly, or XYZ with --ref-pdb
     suffix = input_path.suffix.lower()
@@ -395,7 +460,10 @@ def cli(
                     click.echo(f"ERROR: {exc}", err=True)
                     sys.exit(1)
 
-            yaml_cfg = load_yaml_dict(args_yaml)
+            yaml_cfg = _load_merged_yaml_cfg(
+                config_yaml=config_yaml,
+                override_yaml=override_yaml,
+            )
 
             geom_cfg = dict(GEOM_KW)
             calc_cfg = dict(CALC_KW)

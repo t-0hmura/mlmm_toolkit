@@ -6,22 +6,22 @@
 :maxdepth: 1
 :hidden:
 
-add-elem-info
+add_elem_info
 all
-define-layer
+define_layer
 dft
-energy-diagram
+energy_diagram
 extract
-fix-altloc
+fix_altloc
 freq
 init
 irc
-mm-parm
-oniom-gaussian
-oniom-orca
+mm_parm
+oniom_gaussian
+oniom_orca
 opt
-path-opt
-path-search
+path_opt
+path_search
 scan
 scan2d
 scan3d
@@ -31,22 +31,22 @@ tsopt
 
 | Command | Page |
 |---|---|
-| `mlmm add-elem-info` | [add-elem-info](add-elem-info.md) |
+| `mlmm add-elem-info` | [add-elem-info](add_elem_info.md) |
 | `mlmm all` | [all](all.md) |
-| `mlmm define-layer` | [define-layer](define-layer.md) |
+| `mlmm define-layer` | [define-layer](define_layer.md) |
 | `mlmm dft` | [dft](dft.md) |
-| `mlmm energy-diagram` | [energy-diagram](energy-diagram.md) |
+| `mlmm energy-diagram` | [energy-diagram](energy_diagram.md) |
 | `mlmm extract` | [extract](extract.md) |
-| `mlmm fix-altloc` | [fix-altloc](fix-altloc.md) |
+| `mlmm fix-altloc` | [fix-altloc](fix_altloc.md) |
 | `mlmm freq` | [freq](freq.md) |
 | `mlmm init` | [init](init.md) |
 | `mlmm irc` | [irc](irc.md) |
-| `mlmm mm-parm` | [mm-parm](mm-parm.md) |
-| `mlmm oniom-gaussian` | [oniom-gaussian](oniom-gaussian.md) |
-| `mlmm oniom-orca` | [oniom-orca](oniom-orca.md) |
+| `mlmm mm-parm` | [mm-parm](mm_parm.md) |
+| `mlmm oniom-gaussian` | [oniom-gaussian](oniom_gaussian.md) |
+| `mlmm oniom-orca` | [oniom-orca](oniom_orca.md) |
 | `mlmm opt` | [opt](opt.md) |
-| `mlmm path-opt` | [path-opt](path-opt.md) |
-| `mlmm path-search` | [path-search](path-search.md) |
+| `mlmm path-opt` | [path-opt](path_opt.md) |
+| `mlmm path-search` | [path-search](path_search.md) |
 | `mlmm scan` | [scan](scan.md) |
 | `mlmm scan2d` | [scan2d](scan2d.md) |
 | `mlmm scan3d` | [scan3d](scan3d.md) |

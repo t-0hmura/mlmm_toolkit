@@ -85,7 +85,7 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | `-q, --charge INT` | Charge of the ML region. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--radius-partial-hessian FLOAT` | Distance cutoff (A) from ML region for Hessian-MM atoms. Disables `--detect-layer`. | _None_ |
+| `--radius-partial-hessian FLOAT` | Distance cutoff (A) from ML region for Hessian-MM atoms. Can be combined with `--detect-layer`. | _None_ |
 | `--radius-freeze FLOAT` | Distance cutoff (A) from ML region for movable MM atoms. Atoms beyond this are frozen. | _None_ |
 | `--dist-freeze TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints. | _None_ |
 | `--one-based / --zero-based` | Index convention for `--dist-freeze`. | 1-based |
@@ -168,9 +168,9 @@ Extends `opt` with L-BFGS specifics: `keep_last`, `beta`, `gamma_mult`, `max_ste
 
 ## Notes
 
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
-- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli-conventions.md).
+- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli_conventions.md).
 - **Devices:** `ml_device="auto"` selects CUDA when available; `mm_device` controls MM backend device placement.
 - **Hessians:** `calc.out_hess_torch=True` returns PyTorch tensors (optionally double precision via `calc.H_double`).
 - **Exit codes:** `ZeroStepLength` -> exit code **2**; `OptimizationError` -> **3**; `KeyboardInterrupt` -> **130**; any other unhandled exception -> **1**.

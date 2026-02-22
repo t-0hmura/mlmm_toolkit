@@ -308,7 +308,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 
 ## 注意事項
 
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes-common-errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - **Python >= 3.11** が必要です。
 - **基質 (`-c/--center`) と（必要な場合は）`--ligand-charge` は実質的に必須です。**
@@ -328,5 +328,5 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 - [freq](freq.md) -- 振動解析と熱化学
 - [dft](dft.md) -- DFT 一点計算
 - [trj2fig](trj2fig.md) -- 軌跡からエネルギープロファイルをプロット
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- よくあるエラーと対処法

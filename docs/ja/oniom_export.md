@@ -26,7 +26,9 @@ mlmm oniom-gaussian --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pd
 ```bash
 mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
     -o output.inp [-q CHARGE] [-m MULT] [--method "B3LYP D3BJ def2-SVP"] \
-    [--nproc INT] [--element-check|--no-element-check]
+    [--total-charge INT] [--total-mult INT] \
+    [--nproc INT] [--near FLOAT] [--orcaff PATH] \
+    [--convert-orcaff|--no-convert-orcaff] [--element-check|--no-element-check]
 ```
 
 ### 例
@@ -82,7 +84,12 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 | `--method TEXT` | QM メソッドと基底関数。 | `B3LYP D3BJ def2-SVP` |
 | `-q, --charge INT` | QM 領域の電荷。 | `0` |
 | `-m, --mult INT` | QM 領域の多重度。 | `1` |
+| `--total-charge INT` | 全 QM+MM 系の総電荷（`Charge_Total`）。 | トポロジ由来 |
+| `--total-mult INT` | 全 QM+MM 系の総多重度（`Mult_Total`）。 | `--mult` と同じ |
 | `--nproc INT` | プロセッサ数。 | `8` |
+| `--near FLOAT` | B-factor レイヤーが無い場合に ActiveAtoms を決める距離カットオフ（Å）。 | `6.0` |
+| `--orcaff PATH` | ORCAFF.prms へのパス。省略時は `<parm7_stem>.ORCAFF.prms` を使用/生成。 | 自動 |
+| `--convert-orcaff/--no-convert-orcaff` | ORCAFF.prms が無い場合に `orca_mm -convff -AMBER` 自動実行を試行。 | `True` |
 
 ## 出力
 
@@ -126,7 +133,7 @@ mlmm oniom-orca --parm7 real.parm7 -i layered.pdb --model-pdb ml_region.pdb \
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [mm_parm](mm_parm.md) -- AMBER トポロジー（parm7/rst7）の構築

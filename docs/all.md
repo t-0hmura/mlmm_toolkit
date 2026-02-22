@@ -310,7 +310,7 @@ The resulting effective YAML is forwarded to downstream subcommands. Each tool r
 
 ## Notes
 
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - **Python >= 3.11** is required.
 - **Substrate (`-c/--center`) and (when needed) `--ligand-charge` are practically required.**
@@ -330,5 +330,5 @@ The resulting effective YAML is forwarded to downstream subcommands. Each tool r
 - [freq](freq.md) -- Vibrational analysis and thermochemistry
 - [dft](dft.md) -- Single-point DFT calculations
 - [trj2fig](trj2fig.md) -- Plot energy profiles from trajectories
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Common errors and fixes

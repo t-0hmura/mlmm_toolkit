@@ -87,6 +87,15 @@ class HarmonicFixBondLengths(Calculator):
         }
 
 
+def _iter_constraints(atoms):
+    constraints = getattr(atoms, "constraints", None)
+    if constraints is None:
+        return []
+    if isinstance(constraints, (list, tuple)):
+        return list(constraints)
+    return [constraints]
+
+
 def build_harmonic_constraint_calculators(atoms, k_fix=300.0, k_bond=300.0):
     """
     Build harmonic-restraint calculators from ASE constraints.
@@ -97,13 +106,7 @@ def build_harmonic_constraint_calculators(atoms, k_fix=300.0, k_bond=300.0):
     """
 
     calculators = []
-    raw = getattr(atoms, "constraints", None)
-    if raw is None:
-        constraints = []
-    elif isinstance(raw, (list, tuple)):
-        constraints = list(raw)
-    else:
-        constraints = [raw]
+    constraints = _iter_constraints(atoms)
     remaining_constraints = []
     for constraint in constraints:
         if isinstance(constraint, FixAtoms):
@@ -133,3 +136,13 @@ def build_harmonic_constraint_calculators(atoms, k_fix=300.0, k_bond=300.0):
     if remaining_constraints != constraints:
         atoms.set_constraint(remaining_constraints or None)
     return calculators
+
+
+def add_harmonic_constraints(atoms, calculators, k_fix=300.0, k_bond=300.0):
+    """
+    Append harmonic constraint calculators to a calculator list.
+    """
+
+    calcs = list(calculators) if calculators is not None else []
+    calcs.extend(build_harmonic_constraint_calculators(atoms, k_fix=k_fix, k_bond=k_bond))
+    return calcs

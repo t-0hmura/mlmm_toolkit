@@ -68,20 +68,24 @@ Options:
                                   (pre|end)opt stage.  [default: 10000]
   --relax-max-cycles INTEGER      Compatibility alias of --max-cycles (overrides
                                   it when provided).
-  --dump BOOLEAN                  Write stage trajectory as scan.trj (and
-                                  scan.pdb for PDB input).  [default: False]
+  --dump / --no-dump              Write stage trajectory as scan.trj (and
+                                  scan.pdb for PDB input).  [default: no-dump]
   --out-dir TEXT                  Base output directory.  [default:
                                   ./result_scan/]
   --thresh TEXT                   Convergence preset for relaxations (gau_loose|
                                   gau|gau_tight|gau_vtight|baker|never).
-  --args-yaml FILE                YAML file with extra args (sections: geom,
-                                  calc/mlmm, opt, lbfgs, bias, bond).
+  --config FILE                   Base YAML configuration file applied before
+                                  explicit CLI options.
+  --override-yaml FILE            Final YAML override file (highest-priority
+                                  YAML layer).
+  --args-yaml FILE                [legacy] Alias of --override-yaml; kept for
+                                  backward compatibility.
   --ref-pdb FILE                  Reference PDB topology to use when --input is
                                   XYZ (keeps XYZ coordinates).
-  --preopt BOOLEAN                Pre-optimize initial structure without bias
-                                  before the scan.  [default: True]
-  --endopt BOOLEAN                After each stage, run an additional unbiased
+  --preopt / --no-preopt          Pre-optimize initial structure without bias
+                                  before the scan.  [default: preopt]
+  --endopt / --no-endopt          After each stage, run an additional unbiased
                                   optimization of the stage result.  [default:
-                                  True]
+                                  endopt]
   -h, --help                      Show this message and exit.
 ```

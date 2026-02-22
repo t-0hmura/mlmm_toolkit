@@ -144,7 +144,7 @@ dft:
 ```
 
 ## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - Link hydrogens are detected automatically (C/N parents within 1.7 A) unless explicit `link_mlmm` pairs are provided via YAML. Unsupported parent elements raise an error.
 - DFT options (functional/basis, SCF controls) remain YAML-overridable under the `dft` key.
@@ -154,7 +154,7 @@ dft:
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 
 - [freq](freq.md) -- Vibrational frequency analysis (often precedes DFT refinement)
 - [opt](opt.md) -- Single-structure geometry optimization
