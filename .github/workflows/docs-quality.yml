@@ -37,6 +37,10 @@ jobs:
         run: |
           python scripts/smoke_docs_commands.py
 
+      - name: Check all->scan option contract
+        run: |
+          python scripts/check_all_scan_contract.py
+
       - name: Smoke dump trajectories
         timeout-minutes: 30
         env:

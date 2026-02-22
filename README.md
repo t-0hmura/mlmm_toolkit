@@ -247,6 +247,7 @@ To keep docs and CLI behavior in sync:
 python scripts/check_intro_template.py
 python scripts/check_markdown_links.py
 python scripts/smoke_docs_commands.py
+python scripts/check_all_scan_contract.py
 ```
 
 To verify trajectory dump behavior across `opt` / `tsopt` routes:

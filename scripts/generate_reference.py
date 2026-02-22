@@ -48,7 +48,12 @@ def _collect_subcommands() -> list[str]:
 def _capture_help(command_name: str, *, advanced: bool) -> str:
     runner = CliRunner()
     args = [command_name, "--help-advanced"] if advanced else [command_name, "--help"]
-    result = runner.invoke(root_cli, args, catch_exceptions=False)
+    result = runner.invoke(
+        root_cli,
+        args,
+        catch_exceptions=False,
+        prog_name=TOOL_NAME,
+    )
     if result.exit_code != 0:
         raise RuntimeError(
             f"Failed to collect help for '{TOOL_NAME} {command_name}' "

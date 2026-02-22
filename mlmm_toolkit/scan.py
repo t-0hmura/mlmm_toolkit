@@ -219,7 +219,7 @@ def _snapshot_geometry(g) -> Any:
 
 
 @click.command(
-    help="Bond-length driven scan with staged harmonic restraints and relaxation (UMA only).",
+    help="Bond-length driven scan with staged harmonic restraints and relaxation (ML/MM).",
     context_settings={"help_option_names": ["-h", "--help"], "allow_extra_args": True},
 )
 @click.option(
@@ -332,11 +332,26 @@ def _snapshot_geometry(g) -> Any:
 @click.option("--bias-k", type=float, default=100, show_default=True,
               help="Harmonic well strength k [eV/Å^2].")
 @click.option(
+    "--opt-mode",
+    type=click.Choice(["lbfgs", "rfo", "light", "heavy"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Compatibility option for mlmm all forwarding. "
+         "scan relaxations currently use LBFGS regardless of this value.",
+)
+@click.option(
     "--max-cycles",
     type=int,
     default=10000,
     show_default=True,
     help="Maximum LBFGS cycles per biased step and per (pre|end)opt stage.",
+)
+@click.option(
+    "--relax-max-cycles",
+    type=int,
+    default=None,
+    show_default=False,
+    help="Compatibility alias of --max-cycles (overrides it when provided).",
 )
 @click.option("--dump", type=click.BOOL, default=False, show_default=True,
               help="Write stage trajectory as scan.trj (and scan.pdb for PDB input).")
@@ -382,7 +397,9 @@ def cli(
     print_parsed: bool,
     max_step_size: float,
     bias_k: Optional[float],
+    opt_mode: Optional[str],
     max_cycles: int,
+    relax_max_cycles: Optional[int],
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
@@ -392,6 +409,17 @@ def cli(
     endopt: bool,
 ) -> None:
     time_start = time.perf_counter()
+
+    if relax_max_cycles is not None:
+        max_cycles = int(relax_max_cycles)
+    if max_cycles <= 0:
+        raise click.BadParameter("--max-cycles must be > 0.")
+    if opt_mode is not None and str(opt_mode).lower() not in {"lbfgs", "light"}:
+        click.echo(
+            f"[scan] NOTE: --opt-mode={opt_mode} is accepted for compatibility, "
+            "but scan relaxations use LBFGS.",
+            err=True,
+        )
 
     # Validate input format: PDB directly, or XYZ with --ref-pdb
     suffix = input_path.suffix.lower()
