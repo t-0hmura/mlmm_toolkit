@@ -49,6 +49,7 @@ freq
 irc
 dft
 trj2fig
+oniom_export
 oniom_gaussian
 oniom_orca
 fix_altloc
@@ -70,6 +71,7 @@ ja/freq
 ja/irc
 ja/dft
 ja/trj2fig
+ja/oniom_export
 ja/oniom_gaussian
 ja/oniom_orca
 ja/fix_altloc

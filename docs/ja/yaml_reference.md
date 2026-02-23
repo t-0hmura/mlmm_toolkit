@@ -1,8 +1,6 @@
 # YAML 設定リファレンス
 
 
----
-
 ## 概要
 
 
@@ -276,7 +274,31 @@ rsirfo:
  trust_update: true # 信頼領域更新
  trust_min: 0.00 # 最小信頼半径
  trust_max: 0.30 # 最大信頼半径
- out_dir:./result_tsopt/ # 出力ディレクトリ
+out_dir:./result_tsopt/ # 出力ディレクトリ
+```
+
+---
+
+### `sopt`
+
+path-search で使用する単一構造最適化設定（HEI±1 ノードおよび kink ノード）。
+
+```yaml
+sopt:
+ lbfgs:
+ # 上記 lbfgs セクションと同じキー
+ thresh: gau
+ max_cycles: 10000
+ out_dir:./result_path_search/
+ dump: false
+ # ...（詳細は lbfgs セクション参照）
+ rfo:
+ # 上記 rfo セクションと同じキー
+ thresh: gau
+ max_cycles: 10000
+ out_dir:./result_path_search/
+ dump: false
+ # ...（詳細は rfo セクション参照）
 ```
 
 ---

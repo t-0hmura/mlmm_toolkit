@@ -1,0 +1,861 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="CLI 規約" href="cli_conventions.html"><link rel="prev" title="典型エラー別レシピ" href="recipes_common_errors.html">
+
+    <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
+        <title>トラブルシューティング - mlmm_toolkit</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=867b138e" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #2980B9;
+  --color-brand-content: #2980B9;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #56B4E9;
+  --color-brand-content: #56B4E9;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #56B4E9;
+  --color-brand-content: #56B4E9;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">mlmm_toolkit</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">mlmm_toolkit</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart_all.html">Quickstart: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart_scan_spec.html">Quickstart: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> with <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart_tsopt_freq.html">Quickstart: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../recipes_common_errors.html">Common Error Recipes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli_conventions.html">CLI Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">はじめに</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_all.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_scan_spec.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> + <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_tsopt_freq.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">概念とワークフロー</a></li>
+<li class="toctree-l1"><a class="reference internal" href="recipes_common_errors.html">典型エラー別レシピ</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">トラブルシューティング</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli_conventions.html">CLI 規約</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Commands</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extract.html">extract</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../opt.html"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tsopt.html"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../path_opt.html"><code class="docutils literal notranslate"><span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../path_search.html"><code class="docutils literal notranslate"><span class="pre">path-search</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scan.html"><code class="docutils literal notranslate"><span class="pre">scan</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scan2d.html"><code class="docutils literal notranslate"><span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scan3d.html"><code class="docutils literal notranslate"><span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../freq.html"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="opt.html"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="tsopt.html"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="path_opt.html"><code class="docutils literal notranslate"><span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="path_search.html"><code class="docutils literal notranslate"><span class="pre">path-search</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="scan.html"><code class="docutils literal notranslate"><span class="pre">scan</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="scan2d.html"><code class="docutils literal notranslate"><span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="scan3d.html"><code class="docutils literal notranslate"><span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="freq.html"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../reference/commands/index.html">CLI Command Reference</a><input aria-label="Toggle navigation of CLI Command Reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/all.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/define_layer.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/dft.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">dft</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">energy-diagram</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/extract.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">extract</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/freq.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/init.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">init</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/irc.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">irc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/path_opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/path_search.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-search</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/scan.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/scan2d.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/scan3d.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/tsopt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/yaml.html">YAML Schema (Generated)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../yaml_reference.html">YAML Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mlmm_calc.html">ML/MM Calculator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml_reference.html">YAML 設定リファレンス</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mlmm_calc.html">ML/MM 計算機</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">用語集</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Language</span></p>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="index.html">mlmm_toolkit ドキュメント</a><input aria-label="Toggle navigation of mlmm_toolkit ドキュメント" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html">はじめに</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart_all.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart_scan_spec.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> + <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart_tsopt_freq.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html">概念とワークフロー</a></li>
+<li class="toctree-l2"><a class="reference internal" href="recipes_common_errors.html">典型エラー別レシピ</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">トラブルシューティング</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli_conventions.html">CLI 規約</a></li>
+<li class="toctree-l2"><a class="reference internal" href="all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="opt.html"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="tsopt.html"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="path_opt.html"><code class="docutils literal notranslate"><span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="path_search.html"><code class="docutils literal notranslate"><span class="pre">path-search</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="scan.html"><code class="docutils literal notranslate"><span class="pre">scan</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="scan2d.html"><code class="docutils literal notranslate"><span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="scan3d.html"><code class="docutils literal notranslate"><span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="freq.html"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="yaml_reference.html">YAML 設定リファレンス</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlmm_calc.html">ML/MM 計算機</a></li>
+<li class="toctree-l2"><a class="reference internal" href="glossary.html">用語集</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/ja/troubleshooting.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="id1">
+<h1>トラブルシューティング<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h1>
+<p>このページでは、<code class="docutils literal notranslate"><span class="pre">mlmm</span></code> でよく遭遇するエラーと対処法をまとめます。
+エラーメッセージでページ内検索すると、該当するセクションを素早く見つけることができます。
+症状から先に当たりを付けたい場合は、先に <a class="reference internal" href="recipes_common_errors.html"><span class="std std-doc">典型エラー別レシピ</span></a> を見てからこのページに戻ってください。</p>
+<hr class="docutils" />
+<section id="id2">
+<h2>実行前チェックリスト<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>長時間の計算を実行する前に、以下を確認してください。</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">-h</span></code> でヘルプが表示される</p></li>
+<li><p>UMA のモデルがダウンロードできる（Hugging Face のログイン/トークンが利用可能）</p></li>
+<li><p>AmberTools（tleap, antechamber, parmchk2）が PATH 上にある（<code class="docutils literal notranslate"><span class="pre">mm-parm</span></code> を使う場合）</p></li>
+<li><p>hessian_ff の C++ 拡張がビルド済み</p></li>
+<li><p>酵素系ワークフローでは、入力 PDB に <strong>水素</strong> と <strong>元素記号（element column）</strong> が入っている</p></li>
+<li><p>複数の PDB を与える場合、<strong>同じ原子が同じ順序</strong> で並んでいる（座標だけが異なる）</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="id3">
+<h2>インストール / 環境の問題<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<section id="ambertools">
+<h3>AmberTools が見つからない<a class="headerlink" href="#ambertools" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code> 実行時に「AmberTools (tleap, antechamber, parmchk2) not found on PATH」と表示される。</p></li>
+</ul>
+<p>対処:</p>
+<ul class="simple">
+<li><p>conda で AmberTools をインストールします:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>ambertools<span class="w"> </span>-y
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>HPC クラスターでは環境モジュールでロードする場合もあります:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>module<span class="w"> </span>load<span class="w"> </span>ambertools
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>AmberTools なしでも、<code class="docutils literal notranslate"><span class="pre">--real-parm7</span></code> を手動で用意すれば <code class="docutils literal notranslate"><span class="pre">opt</span></code>、<code class="docutils literal notranslate"><span class="pre">tsopt</span></code>、<code class="docutils literal notranslate"><span class="pre">path-search</span></code> 等は動作します。</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="hessian-ff">
+<h2>hessian_ff ビルドの問題<a class="headerlink" href="#hessian-ff" title="Link to this heading">¶</a></h2>
+<p>症状:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">hessian_ff</span></code> で ImportError が出る</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">make</span></code> が失敗する（コンパイラが見つからない、ヘッダが見つからない等）</p></li>
+</ul>
+<p>対処:</p>
+<ul class="simple">
+<li><p>C++ コンパイラ（gcc 8+ または clang）がインストールされていることを確認:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>g++<span class="w"> </span>--version
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>PyTorch のヘッダが利用可能であることを確認:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import torch; print(torch.utils.cmake_prefix_path)&quot;</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>ビルドを再実行:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="k">$(</span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hessian_ff; print(hessian_ff.__path__[0])&quot;</span><span class="k">)</span>/native<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>clean<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make
+</pre></div>
+</div>
+<hr class="docutils" />
+<section id="uma-hugging-face">
+<h3>UMA のダウンロード/認証エラー（Hugging Face）<a class="headerlink" href="#uma-hugging-face" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p>モデルをダウンロードできない、認証が必要、といったエラー。</p></li>
+</ul>
+<p>対処:</p>
+<ul class="simple">
+<li><p>環境/マシンごとに一度ログインします:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>login
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>HPC では、計算ノードから HF キャッシュ（ホームディレクトリ等）に書き込み可能か確認してください。</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="cuda-pytorch">
+<h3>CUDA / PyTorch の不整合<a class="headerlink" href="#cuda-pytorch" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p>GPU があるのに <code class="docutils literal notranslate"><span class="pre">torch.cuda.is_available()</span></code> が False</p></li>
+<li><p>import 時に CUDA runtime error が出る</p></li>
+</ul>
+<p>対処:</p>
+<ul class="simple">
+<li><p>クラスタの CUDA バージョンに適合する PyTorch をインストールしてください:</p></li>
+<li><p>GPU が見えているか確認します:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nvidia-smi
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import torch; print(torch.version.cuda, torch.cuda.is_available())&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="cuda-oom">
+<h3>CUDA メモリ不足（OOM）<a class="headerlink" href="#cuda-oom" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">torch.cuda.OutOfMemoryError</span></code> が発生</p></li>
+<li><p>「CUDA out of memory」メッセージ</p></li>
+</ul>
+<p>対処:</p>
+<ul class="simple">
+<li><p><strong>ML ヘシアンモードを有限差分に切り替え</strong>: <code class="docutils literal notranslate"><span class="pre">--hessian-calc-mode</span> <span class="pre">FiniteDifference</span></code>（解析ヘシアンは VRAM を多く消費）</p></li>
+<li><p><strong>ポケットサイズを縮小</strong>: <code class="docutils literal notranslate"><span class="pre">--radius</span></code> を小さくしてクラスターモデルの原子数を減らす</p></li>
+<li><p><strong>3 層 + Hessian 対象制御を活用</strong>: <code class="docutils literal notranslate"><span class="pre">hess_cutoff</span></code> と <code class="docutils literal notranslate"><span class="pre">movable_cutoff</span></code> を設定し、ヘシアン計算対象の原子数を制限:</p></li>
+</ul>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">calc</span><span class="p">:</span>
+<span class="nt">hess_cutoff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.6</span>
+<span class="nt">movable_cutoff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8.0</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">define-layer</span></code> で事前に層を定義</strong>し、<code class="docutils literal notranslate"><span class="pre">use_bfactor_layers:</span> <span class="pre">true</span></code> で読み取る</p></li>
+<li><p><strong>GPU メモリが大きいカードに変更</strong>（16 GB 以上推奨、500 原子以上の系）</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="dmf-cyipopt">
+<h3>DMF モードが動かない（cyipopt がない）<a class="headerlink" href="#dmf-cyipopt" title="Link to this heading">¶</a></h3>
+<p>DMF（<code class="docutils literal notranslate"><span class="pre">--mep-mode</span> <span class="pre">dmf</span></code>）を使うときに IPOPT/cyipopt の import エラーが出る場合:</p>
+<p>対処:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mlmm_toolkit</span></code> をインストールする前に、conda-forge から <code class="docutils literal notranslate"><span class="pre">cyipopt</span></code> をインストールしてください:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>cyipopt
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="chrome">
+<h3>図のエクスポートが失敗する（Chrome がない）<a class="headerlink" href="#chrome" title="Link to this heading">¶</a></h3>
+<p>Plotly/Chrome 系のエラーで静的画像が出ない場合:</p>
+<p>対処:</p>
+<ul class="simple">
+<li><p>headless Chrome をインストールしてください:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>plotly_get_chrome<span class="w"> </span>-y
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="id4">
+<h2>入力 / 抽出の問題<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<section id="element-symbols-are-missing-add-elem-info">
+<h3>「Element symbols are missing… add-elem-info を実行してください」<a class="headerlink" href="#element-symbols-are-missing-add-elem-info" title="Link to this heading">¶</a></h3>
+<p>典型的なメッセージ:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Element symbols are missing in &#39;...&#39;.
+Please run `mlmm add-elem-info -i...` to populate element columns before running extract.
+</pre></div>
+</div>
+<p>対処:</p>
+<ul class="simple">
+<li><p>次を実行して element 列（元素記号列）を補完します:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>add-elem-info<span class="w"> </span>-i<span class="w"> </span>input.pdb<span class="w"> </span>-o<span class="w"> </span>input_with_elem.pdb
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>その後、<code class="docutils literal notranslate"><span class="pre">extract</span></code> / <code class="docutils literal notranslate"><span class="pre">all</span></code> を補完後の PDB で再実行します。</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="atom-count-mismatchatom-order-mismatch">
+<h3>「Atom count mismatch」「Atom order mismatch」<a class="headerlink" href="#atom-count-mismatchatom-order-mismatch" title="Link to this heading">¶</a></h3>
+<p>典型的なメッセージ:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[multi] Atom count mismatch between input #1 and input #2:...
+[multi] Atom order mismatch between input #1 and input #2.
+</pre></div>
+</div>
+<p>対処:</p>
+<ul class="simple">
+<li><p><strong>すべて</strong> の構造を同じ前処理ワークフロー（同じプロトン化ツール、同じ設定）で作り直します。</p></li>
+<li><p>MD 由来なら、同一のトポロジ/軌跡からフレーム抽出する方が安全です。</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="id5">
+<h3>「ポケットが空っぽ / 必要な残基が落ちる」<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p>抽出ポケットが想定より小さい</p></li>
+<li><p>触媒残基が含まれない</p></li>
+</ul>
+<p>対処の例:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--radius</span></code> を増やす（例: 2.6 → 3.5 Å）</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--selected-resn</span></code> で残基を強制包含する（例: <code class="docutils literal notranslate"><span class="pre">--selected-resn</span> <span class="pre">'A:123,B:456'</span></code>）</p></li>
+<li><p>主鎖削除が強すぎる場合は <code class="docutils literal notranslate"><span class="pre">--no-exclude-backbone</span></code> を試す</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="parm7-mm">
+<h2>parm7 / MM の問題<a class="headerlink" href="#parm7-mm" title="Link to this heading">¶</a></h2>
+<section id="parm7-pdb">
+<h3>parm7 と入力 PDB の原子数不整合<a class="headerlink" href="#parm7-pdb" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p>「Coordinate shape mismatch for… got (N, 3), expected (M, 3)」</p></li>
+<li><p>「Atom count mismatch: parm7 has M atoms, but coordinate file has N atoms」</p></li>
+</ul>
+<p>対処:</p>
+<ul class="simple">
+<li><p>parm7 を生成した PDB と、計算に使う PDB が同一の原子セットであることを確認</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code> で parm7 を再生成する場合、出力される PDB（<code class="docutils literal notranslate"><span class="pre">&lt;prefix&gt;.pdb</span></code>）を計算入力として使用</p></li>
+<li><p>tleap が水素を追加/削除している可能性があるため、<code class="docutils literal notranslate"><span class="pre">mm-parm</span></code> 出力の PDB を入力に使う</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="id6">
+<h3>parm7 の元素順序が PDB と一致しない<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code> で「Element sequence mismatch at atom index…」</p></li>
+</ul>
+<p>対処:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--no-element-check</span></code> で元素チェックを無効化（結果を手動で検証すること）</p></li>
+<li><p>正しい対処は、parm7 生成時と同じ PDB を <code class="docutils literal notranslate"><span class="pre">-i</span></code> に指定すること</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="antechamber">
+<h3>antechamber が失敗する<a class="headerlink" href="#antechamber" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code> 実行中に「antechamber failed (see log)」</p></li>
+</ul>
+<p>対処:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--keep-temp</span></code> を付けて再実行し、<code class="docutils literal notranslate"><span class="pre">&lt;resname&gt;.antechamber.log</span></code> を確認:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>mm-parm<span class="w"> </span>-i<span class="w"> </span>input.pdb<span class="w"> </span>--ligand-charge<span class="w"> </span><span class="s1">&#39;LIG:-1&#39;</span><span class="w"> </span>--keep-temp
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>リガンドの電荷と多重度が正しいか確認（<code class="docutils literal notranslate"><span class="pre">--ligand-charge</span></code>, <code class="docutils literal notranslate"><span class="pre">--ligand-mult</span></code>）</p></li>
+<li><p>水素が正しく付加されているか確認</p></li>
+<li><p>入力 PDB の TER レコードが適切か確認</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="id7">
+<h2>電荷 / スピンの問題<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<section id="id8">
+<h3>「電荷が必須」系のエラー<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<p>対処:</p>
+<ul class="simple">
+<li><p>電荷を明示する:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>path-search<span class="w"> </span>-i<span class="w"> </span>R.pdb<span class="w"> </span>P.pdb<span class="w"> </span>--real-parm7<span class="w"> </span>real.parm7<span class="w"> </span>--model-pdb<span class="w"> </span>model.pdb<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>あるいは（抽出ありの場合）残基名ごとの電荷マッピングを与える:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>-i<span class="w"> </span>R.pdb<span class="w"> </span>P.pdb<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;SAM,GPP&#39;</span><span class="w"> </span>--ligand-charge<span class="w"> </span><span class="s1">&#39;SAM:1,GPP:-3&#39;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="b-factor">
+<h2>B-factor レイヤー割り当ての問題<a class="headerlink" href="#b-factor" title="Link to this heading">¶</a></h2>
+<section id="detect-layer">
+<h3><code class="docutils literal notranslate"><span class="pre">--detect-layer</span></code> が想定どおりに働かない<a class="headerlink" href="#detect-layer" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p>B-factor からのレイヤー自動判定で、ML / Movable / Frozen の分割が想定と異なる</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--detect-layer</span></code> 有効時に <code class="docutils literal notranslate"><span class="pre">--model-pdb</span></code> なしで実行すると失敗する</p></li>
+</ul>
+<p>対処:</p>
+<ul class="simple">
+<li><p>入力が PDB（または <code class="docutils literal notranslate"><span class="pre">--ref-pdb</span></code> 付き XYZ）であることを確認する</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">define-layer</span></code> で B-factor を明示的に再付与し、生成された PDB を使う</p></li>
+<li><p>距離ベース制御を使う場合は <code class="docutils literal notranslate"><span class="pre">hess_cutoff</span></code> / <code class="docutils literal notranslate"><span class="pre">movable_cutoff</span></code> を指定し、必要なら <code class="docutils literal notranslate"><span class="pre">--no-detect-layer</span></code> に切り替える</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--movable-cutoff</span></code> を与えると <code class="docutils literal notranslate"><span class="pre">--detect-layer</span></code> が無効化される点に注意する</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="id9">
+<h2>計算 / 収束の問題<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h2>
+<section id="ts">
+<h3>TS 最適化が収束しない<a class="headerlink" href="#ts" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p>TS 最適化が多くのサイクルを回しても収束しない</p></li>
+<li><p>最適化後も複数の虚振動数が残る</p></li>
+</ul>
+<p>対処の例:</p>
+<ul class="simple">
+<li><p>オプティマイザモードを切り替える: <code class="docutils literal notranslate"><span class="pre">--opt-mode</span> <span class="pre">light</span></code> (Dimer) または <code class="docutils literal notranslate"><span class="pre">--opt-mode</span> <span class="pre">heavy</span></code> (RS-I-RFO)</p></li>
+<li><p>余分な虚モードのフラット化を有効にする: <code class="docutils literal notranslate"><span class="pre">--flatten-imag-mode</span></code></p></li>
+<li><p>最大サイクル数を増やす: <code class="docutils literal notranslate"><span class="pre">--tsopt-max-cycles</span> <span class="pre">20000</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hess_cutoff</span></code> を調整して、ヘシアン計算に含む原子の範囲を広げる</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="irc">
+<h3>IRC が正常に終了しない<a class="headerlink" href="#irc" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p>IRC が明確な極小に到達する前に停止</p></li>
+<li><p>エネルギーが振動したり勾配が大きいまま</p></li>
+</ul>
+<p>対処の例:</p>
+<ul class="simple">
+<li><p>ステップサイズを減らす: <code class="docutils literal notranslate"><span class="pre">--step-size</span> <span class="pre">0.05</span></code>（デフォルトは 0.10）</p></li>
+<li><p>最大サイクル数を増やす: <code class="docutils literal notranslate"><span class="pre">--max-cycles</span> <span class="pre">200</span></code></p></li>
+<li><p>IRC 実行前に TS 候補で虚数振動数が 1 本であることを確認</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="mep-gsm-dmf">
+<h3>MEP 探索（GSM/DMF）が失敗または予期しない結果<a class="headerlink" href="#mep-gsm-dmf" title="Link to this heading">¶</a></h3>
+<p>症状:</p>
+<ul class="simple">
+<li><p>経路探索が有効な MEP なしで終了</p></li>
+<li><p>結合変化が正しく検出されない</p></li>
+</ul>
+<p>対処の例:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--max-nodes</span></code> を増やす（複雑な反応には 15 や 20 など）</p></li>
+<li><p>端点の事前最適化を有効にする: <code class="docutils literal notranslate"><span class="pre">--preopt</span></code></p></li>
+<li><p>別の MEP 手法を試す: <code class="docutils literal notranslate"><span class="pre">--mep-mode</span> <span class="pre">dmf</span></code>（GSM が失敗した場合）またはその逆</p></li>
+<li><p>YAML で結合検出パラメータを調整（<code class="docutils literal notranslate"><span class="pre">bond.bond_factor</span></code>、<code class="docutils literal notranslate"><span class="pre">bond.delta_fraction</span></code>）</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="id10">
+<h2>パフォーマンス / 安定性のヒント<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>VRAM 不足</strong>: <code class="docutils literal notranslate"><span class="pre">--radius</span></code> を減らす、<code class="docutils literal notranslate"><span class="pre">hess_cutoff</span></code>/<code class="docutils literal notranslate"><span class="pre">movable_cutoff</span></code> を設定する</p></li>
+<li><p><strong>解析ヘシアンが遅いまたは OOM</strong>: <code class="docutils literal notranslate"><span class="pre">--hessian-calc-mode</span> <span class="pre">FiniteDifference</span></code> を使用。<code class="docutils literal notranslate"><span class="pre">Analytical</span></code> は十分な VRAM がある場合のみ推奨</p></li>
+<li><p><strong>MM ヘシアン計算が遅い</strong>: <code class="docutils literal notranslate"><span class="pre">hess_cutoff</span></code> を設定して Hessian-MM 原子数を制限する</p></li>
+<li><p><strong>大規模系（1000 原子以上）</strong>: <code class="docutils literal notranslate"><span class="pre">define-layer</span></code> で 3 層を適切に定義し、Frozen 層で計算コストを削減</p></li>
+<li><p><strong>ML と MM の並列実行</strong>: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。<code class="docutils literal notranslate"><span class="pre">mm_threads</span></code> で CPU スレッド数を調整可能</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="id11">
+<h2>不具合報告のときに添えると助かる情報<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>実行したコマンド（コピペ可能な形）</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">summary.log</span></code>（またはコンソール出力）</p></li>
+<li><p>再現する最小入力（可能なら）</p></li>
+<li><p>OS / Python / CUDA / PyTorch バージョン</p></li>
+<li><p>AmberTools / hessian_ff のバージョン</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="cli_conventions.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">CLI 規約</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="recipes_common_errors.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">典型エラー別レシピ</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Takuto Ohmura
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">トラブルシューティング</a><ul>
+<li><a class="reference internal" href="#id2">実行前チェックリスト</a></li>
+<li><a class="reference internal" href="#id3">インストール / 環境の問題</a><ul>
+<li><a class="reference internal" href="#ambertools">AmberTools が見つからない</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#hessian-ff">hessian_ff ビルドの問題</a><ul>
+<li><a class="reference internal" href="#uma-hugging-face">UMA のダウンロード/認証エラー（Hugging Face）</a></li>
+<li><a class="reference internal" href="#cuda-pytorch">CUDA / PyTorch の不整合</a></li>
+<li><a class="reference internal" href="#cuda-oom">CUDA メモリ不足（OOM）</a></li>
+<li><a class="reference internal" href="#dmf-cyipopt">DMF モードが動かない（cyipopt がない）</a></li>
+<li><a class="reference internal" href="#chrome">図のエクスポートが失敗する（Chrome がない）</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id4">入力 / 抽出の問題</a><ul>
+<li><a class="reference internal" href="#element-symbols-are-missing-add-elem-info">「Element symbols are missing… add-elem-info を実行してください」</a></li>
+<li><a class="reference internal" href="#atom-count-mismatchatom-order-mismatch">「Atom count mismatch」「Atom order mismatch」</a></li>
+<li><a class="reference internal" href="#id5">「ポケットが空っぽ / 必要な残基が落ちる」</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#parm7-mm">parm7 / MM の問題</a><ul>
+<li><a class="reference internal" href="#parm7-pdb">parm7 と入力 PDB の原子数不整合</a></li>
+<li><a class="reference internal" href="#id6">parm7 の元素順序が PDB と一致しない</a></li>
+<li><a class="reference internal" href="#antechamber">antechamber が失敗する</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id7">電荷 / スピンの問題</a><ul>
+<li><a class="reference internal" href="#id8">「電荷が必須」系のエラー</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#b-factor">B-factor レイヤー割り当ての問題</a><ul>
+<li><a class="reference internal" href="#detect-layer"><code class="docutils literal notranslate"><span class="pre">--detect-layer</span></code> が想定どおりに働かない</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id9">計算 / 収束の問題</a><ul>
+<li><a class="reference internal" href="#ts">TS 最適化が収束しない</a></li>
+<li><a class="reference internal" href="#irc">IRC が正常に終了しない</a></li>
+<li><a class="reference internal" href="#mep-gsm-dmf">MEP 探索（GSM/DMF）が失敗または予期しない結果</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id10">パフォーマンス / 安定性のヒント</a></li>
+<li><a class="reference internal" href="#id11">不具合報告のときに添えると助かる情報</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=58440f0e"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=cb5fb026"></script>
+    </body>
+</html>

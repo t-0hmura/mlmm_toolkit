@@ -1,0 +1,781 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="tsopt" href="tsopt.html"><link rel="prev" title="define-layer" href="define_layer.html">
+
+    <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
+        <title>opt - mlmm_toolkit</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=867b138e" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #2980B9;
+  --color-brand-content: #2980B9;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #56B4E9;
+  --color-brand-content: #56B4E9;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #56B4E9;
+  --color-brand-content: #56B4E9;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">mlmm_toolkit</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <span class="sidebar-brand-text">mlmm_toolkit</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_all.html">Quickstart: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_scan_spec.html">Quickstart: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> with <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_tsopt_freq.html">Quickstart: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="recipes_common_errors.html">Common Error Recipes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli_conventions.html">CLI Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/getting_started.html">はじめに</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/quickstart_all.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/quickstart_scan_spec.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> + <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/quickstart_tsopt_freq.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/concepts.html">概念とワークフロー</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/recipes_common_errors.html">典型エラー別レシピ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/troubleshooting.html">トラブルシューティング</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/cli_conventions.html">CLI 規約</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Commands</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="extract.html">extract</a></li>
+<li class="toctree-l1"><a class="reference internal" href="add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="tsopt.html"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="path_opt.html"><code class="docutils literal notranslate"><span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="path_search.html"><code class="docutils literal notranslate"><span class="pre">path-search</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="scan.html"><code class="docutils literal notranslate"><span class="pre">scan</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="scan2d.html"><code class="docutils literal notranslate"><span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="scan3d.html"><code class="docutils literal notranslate"><span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="freq.html"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/opt.html"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/tsopt.html"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/path_opt.html"><code class="docutils literal notranslate"><span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/path_search.html"><code class="docutils literal notranslate"><span class="pre">path-search</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/scan.html"><code class="docutils literal notranslate"><span class="pre">scan</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/scan2d.html"><code class="docutils literal notranslate"><span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/scan3d.html"><code class="docutils literal notranslate"><span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/freq.html"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="reference/commands/index.html">CLI Command Reference</a><input aria-label="Toggle navigation of CLI Command Reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/all.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/define_layer.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/dft.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">dft</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">energy-diagram</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/extract.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">extract</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/freq.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/init.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">init</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/irc.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">irc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/path_opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/path_search.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-search</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/scan.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/scan2d.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/scan3d.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/tsopt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference/yaml.html">YAML Schema (Generated)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml_reference.html">YAML Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mlmm_calc.html">ML/MM Calculator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/yaml_reference.html">YAML 設定リファレンス</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/mlmm_calc.html">ML/MM 計算機</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/glossary.html">用語集</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Language</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="ja/index.html">mlmm_toolkit ドキュメント</a><input aria-label="Toggle navigation of mlmm_toolkit ドキュメント" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="ja/getting_started.html">はじめに</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/quickstart_all.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/quickstart_scan_spec.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> + <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/quickstart_tsopt_freq.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/concepts.html">概念とワークフロー</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/recipes_common_errors.html">典型エラー別レシピ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/troubleshooting.html">トラブルシューティング</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/cli_conventions.html">CLI 規約</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/opt.html"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/tsopt.html"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/path_opt.html"><code class="docutils literal notranslate"><span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/path_search.html"><code class="docutils literal notranslate"><span class="pre">path-search</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/scan.html"><code class="docutils literal notranslate"><span class="pre">scan</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/scan2d.html"><code class="docutils literal notranslate"><span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/scan3d.html"><code class="docutils literal notranslate"><span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/freq.html"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/yaml_reference.html">YAML 設定リファレンス</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/mlmm_calc.html">ML/MM 計算機</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/glossary.html">用語集</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/opt.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="opt">
+<h1><code class="docutils literal notranslate"><span class="pre">opt</span></code><a class="headerlink" href="#opt" title="Link to this heading">¶</a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<blockquote>
+<div><p><strong>Summary:</strong> Optimizes a single structure to a local minimum using L-BFGS (default) or RFO with the ML/MM calculator. Input must be a PDB file; output includes XYZ and PDB geometries with B-factor annotations.</p>
+</div></blockquote>
+</section>
+<section id="minimal-example">
+<h2>Minimal example<a class="headerlink" href="#minimal-example" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>opt<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--real-parm7<span class="w"> </span>real.parm7<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span><span class="w"> </span>--out-dir<span class="w"> </span>./result_opt
+</pre></div>
+</div>
+</section>
+<section id="output-checklist">
+<h2>Output checklist<a class="headerlink" href="#output-checklist" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">result_opt/final_geometry.xyz</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">result_opt/final_geometry.pdb</span></code> (when the input is PDB)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">result_opt/optimization_trj.xyz</span></code> (when <code class="docutils literal notranslate"><span class="pre">--dump</span></code> is enabled)</p></li>
+</ul>
+</section>
+<section id="common-examples">
+<h2>Common examples<a class="headerlink" href="#common-examples" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Tighten convergence and keep an optimization trajectory.</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>opt<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--real-parm7<span class="w"> </span>real.parm7<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span><span class="w"> </span>--thresh<span class="w"> </span>gau_tight<span class="w"> </span>--dump<span class="w"> </span>--out-dir<span class="w"> </span>./result_opt_tight
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Apply one harmonic distance restraint during optimization.</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>opt<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--real-parm7<span class="w"> </span>real.parm7<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span><span class="w"> </span>--dist-freeze<span class="w"> </span><span class="s2">&quot;[(12,45,2.20)]&quot;</span><span class="w"> </span>--bias-k<span class="w"> </span><span class="m">20</span>.0<span class="w"> </span>--out-dir<span class="w"> </span>./result_opt_rest
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p>Switch to heavy mode (RFO).</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>opt<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--real-parm7<span class="w"> </span>real.parm7<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span><span class="w"> </span>--opt-mode<span class="w"> </span>heavy<span class="w"> </span>--out-dir<span class="w"> </span>./result_opt_rfo
+</pre></div>
+</div>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>opt<span class="w"> </span>-i<span class="w"> </span>INPUT.pdb<span class="w"> </span>--real-parm7<span class="w"> </span>real.parm7<span class="w"> </span>--model-pdb<span class="w"> </span>model.pdb<span class="w"> </span>-q<span class="w"> </span>CHARGE<span class="w"> </span><span class="o">[</span>-m<span class="w"> </span>MULT<span class="o">]</span>
+<span class="w"> </span><span class="o">[</span>--dist-freeze<span class="w"> </span><span class="s2">&quot;[(I,J,TARGET_A),...]&quot;</span><span class="o">]</span><span class="w"> </span><span class="o">[</span>--one-based<span class="p">|</span>--zero-based<span class="o">]</span><span class="w"> </span><span class="o">[</span>--bias-k<span class="w"> </span>FLOAT<span class="o">]</span>
+<span class="w"> </span><span class="o">[</span>--freeze-atoms<span class="w"> </span><span class="s2">&quot;1,3,5&quot;</span><span class="o">]</span><span class="w"> </span><span class="o">[</span>--max-cycles<span class="w"> </span>N<span class="o">]</span><span class="w"> </span><span class="o">[</span>--thresh<span class="w"> </span>PRESET<span class="o">]</span>
+</pre></div>
+</div>
+<section id="examples">
+<h3>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>opt<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--real-parm7<span class="w"> </span>real.parm7<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span>
+
+mlmm<span class="w"> </span>opt<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--real-parm7<span class="w"> </span>real.parm7<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span><span class="w"> </span>-m<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>--freeze-atoms<span class="w"> </span><span class="s2">&quot;1,3,5,7&quot;</span><span class="w"> </span>--thresh<span class="w"> </span>gau_tight<span class="w"> </span>--dump<span class="w"> </span>--out-dir<span class="w"> </span>./result_opt/<span class="w"> </span><span class="se">\</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="workflow">
+<h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Input handling:</strong> the tool requires <code class="docutils literal notranslate"><span class="pre">-i/--input</span></code> to be a PDB file (the enzyme complex). The optimizer reads coordinates from this PDB via <code class="docutils literal notranslate"><span class="pre">pysisyphus.helpers.geom_loader</span></code>.</p></li>
+<li><p><strong>Harmonic distance restraints</strong> are available via <code class="docutils literal notranslate"><span class="pre">--dist-freeze</span></code> with strength set by <code class="docutils literal notranslate"><span class="pre">--bias-k</span></code> (eV/Angstrom^2).</p></li>
+<li><p><strong>PDB conversion note:</strong> after converting XYZ/TRJ to PDB, B-factors are annotated as: ML-region atoms = 100.00, frozen atoms = 50.00, atoms that are both ML and frozen = 150.00.</p></li>
+</ul>
+</section>
+<section id="cli-options">
+<h2>CLI options<a class="headerlink" href="#cli-options" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-i,</span> <span class="pre">--input</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Input structure file (PDB or XYZ).</p></td>
+<td><p>Required</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ref-pdb</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Reference PDB topology when input is XYZ.</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--real-parm7</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Amber parm7 topology for the full enzyme.</p></td>
+<td><p>Required</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--model-pdb</span> <span class="pre">PATH</span></code></p></td>
+<td><p>PDB defining the ML region atoms. Optional when <code class="docutils literal notranslate"><span class="pre">--detect-layer</span></code> is enabled.</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--model-indices</span> <span class="pre">TEXT</span></code></p></td>
+<td><p>Comma-separated atom indices for the ML region (ranges allowed, e.g. <code class="docutils literal notranslate"><span class="pre">1-5</span></code>). Alternative to <code class="docutils literal notranslate"><span class="pre">--model-pdb</span></code>.</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--model-indices-one-based</span> <span class="pre">/</span> <span class="pre">--model-indices-zero-based</span></code></p></td>
+<td><p>Index convention for <code class="docutils literal notranslate"><span class="pre">--model-indices</span></code>.</p></td>
+<td><p>1-based</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--detect-layer</span> <span class="pre">/</span> <span class="pre">--no-detect-layer</span></code></p></td>
+<td><p>Auto-detect ML/MM layers from B-factors (0/10/20).</p></td>
+<td><p>Enabled</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q,</span> <span class="pre">--charge</span> <span class="pre">INT</span></code></p></td>
+<td><p>Charge of the ML region.</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-m,</span> <span class="pre">--multiplicity</span> <span class="pre">INT</span></code></p></td>
+<td><p>Spin multiplicity (2S+1).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--freeze-atoms</span> <span class="pre">TEXT</span></code></p></td>
+<td><p>Comma-separated 1-based indices to freeze.</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--radius-partial-hessian</span> <span class="pre">FLOAT</span></code></p></td>
+<td><p>Distance cutoff (A) from ML region for Hessian-MM atoms. Can be combined with <code class="docutils literal notranslate"><span class="pre">--detect-layer</span></code>.</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--radius-freeze</span> <span class="pre">FLOAT</span></code></p></td>
+<td><p>Distance cutoff (A) from ML region for movable MM atoms. Atoms beyond this are frozen.</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dist-freeze</span> <span class="pre">TEXT</span></code></p></td>
+<td><p>Python-literal <code class="docutils literal notranslate"><span class="pre">(i,</span> <span class="pre">j,</span> <span class="pre">target_A)</span></code> tuples for harmonic restraints.</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--one-based</span> <span class="pre">/</span> <span class="pre">--zero-based</span></code></p></td>
+<td><p>Index convention for <code class="docutils literal notranslate"><span class="pre">--dist-freeze</span></code>.</p></td>
+<td><p>1-based</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--bias-k</span> <span class="pre">FLOAT</span></code></p></td>
+<td><p>Harmonic bias strength (eV/A^2).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10.0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-cycles</span> <span class="pre">INT</span></code></p></td>
+<td><p>Hard limit on optimization iterations.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10000</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--thresh</span> <span class="pre">TEXT</span></code></p></td>
+<td><p>Convergence preset (<code class="docutils literal notranslate"><span class="pre">gau_loose</span></code>, <code class="docutils literal notranslate"><span class="pre">gau</span></code>, <code class="docutils literal notranslate"><span class="pre">gau_tight</span></code>, <code class="docutils literal notranslate"><span class="pre">gau_vtight</span></code>, <code class="docutils literal notranslate"><span class="pre">baker</span></code>).</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--opt-mode</span> <span class="pre">{light|heavy|lbfgs|rfo}</span></code></p></td>
+<td><p>Optimizer mode: <code class="docutils literal notranslate"><span class="pre">light</span></code> (LBFGS) or <code class="docutils literal notranslate"><span class="pre">heavy</span></code> (RFO with Hessian).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">light</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--layer-opt</span> <span class="pre">/</span> <span class="pre">--no-layer-opt</span></code></p></td>
+<td><p>Enable LayerOpt-style microiteration (heavy mode only).</p></td>
+<td><p>Disabled</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--dump/--no-dump</span></code></p></td>
+<td><p>Emit trajectory dumps (<code class="docutils literal notranslate"><span class="pre">optimization_trj.xyz</span></code>).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--out-dir</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Output directory.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">./result_opt/</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">FILE</span></code></p></td>
+<td><p>Base YAML configuration file.</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--show-config/--no-show-config</span></code></p></td>
+<td><p>Print resolved YAML layer information before execution.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run/--no-dry-run</span></code></p></td>
+<td><p>Validate options and print execution plan without running optimization.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="convergence-threshold-presets">
+<h3>Convergence threshold presets<a class="headerlink" href="#convergence-threshold-presets" title="Link to this heading">¶</a></h3>
+<p>Forces in Hartree/bohr, steps in bohr.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Preset</p></th>
+<th class="head"><p>Purpose</p></th>
+<th class="head"><p>max|F|</p></th>
+<th class="head"><p>RMS(F)</p></th>
+<th class="head"><p>max|step|</p></th>
+<th class="head"><p>RMS(step)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gau_loose</span></code></p></td>
+<td><p>Loose/quick pre-optimization; rough path searches</p></td>
+<td><p>2.5e-3</p></td>
+<td><p>1.7e-3</p></td>
+<td><p>1.0e-2</p></td>
+<td><p>6.7e-3</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gau</span></code></p></td>
+<td><p>Standard Gaussian-like tightness for routine work</p></td>
+<td><p>4.5e-4</p></td>
+<td><p>3.0e-4</p></td>
+<td><p>1.8e-3</p></td>
+<td><p>1.2e-3</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gau_tight</span></code></p></td>
+<td><p>Tighter; better structures / freq / TS refinement</p></td>
+<td><p>1.5e-5</p></td>
+<td><p>1.0e-5</p></td>
+<td><p>6.0e-5</p></td>
+<td><p>4.0e-5</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gau_vtight</span></code></p></td>
+<td><p>Very tight; benchmarking/high-precision final structures</p></td>
+<td><p>2.0e-6</p></td>
+<td><p>1.0e-6</p></td>
+<td><p>6.0e-6</p></td>
+<td><p>4.0e-6</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">baker</span></code></p></td>
+<td><p>Baker-style rule (converged if <code class="docutils literal notranslate"><span class="pre">max|F|</span> <span class="pre">&lt;</span> <span class="pre">3e-4</span></code> <strong>and</strong> <code class="docutils literal notranslate"><span class="pre">|dE|</span> <span class="pre">&lt;</span> <span class="pre">1e-6</span> <span class="pre">or</span> <span class="pre">max|step|</span> <span class="pre">&lt;</span> <span class="pre">3e-4</span></code>)</p></td>
+<td><p>3.0e-4</p></td>
+<td><p>2.0e-4</p></td>
+<td><p>3.0e-4</p></td>
+<td><p>2.0e-4</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="outputs">
+<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading">¶</a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>out_dir/ (default:./result_opt/)
+ final_geometry.xyz # Final optimized geometry (always)
+ final_geometry.pdb # Converted from XYZ when the input was a PDB (B-factors annotated)
+ optimization_trj.xyz # Trajectory (written when --dump or opt.dump: true)
+ optimization.pdb # Converted from TRJ when input was PDB and dumping is enabled
+ restart*.yml # Restart files every opt.dump_restart cycles (if enabled)
+</pre></div>
+</div>
+<p>Console output prints resolved configuration blocks (<code class="docutils literal notranslate"><span class="pre">geom</span></code>, <code class="docutils literal notranslate"><span class="pre">calc</span></code>, <code class="docutils literal notranslate"><span class="pre">opt</span></code>, <code class="docutils literal notranslate"><span class="pre">lbfgs</span></code>), progress every <code class="docutils literal notranslate"><span class="pre">print_every</span></code> cycles, and a final wall-clock time summary.</p>
+</section>
+<section id="yaml-configuration">
+<h2>YAML configuration<a class="headerlink" href="#yaml-configuration" title="Link to this heading">¶</a></h2>
+<p>Settings are applied with <strong>defaults &lt; config &lt; explicit CLI &lt; override</strong>. Accepted sections:</p>
+<section id="geom">
+<h3><code class="docutils literal notranslate"><span class="pre">geom</span></code><a class="headerlink" href="#geom" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">coord_type</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;cart&quot;</span></code> default): Cartesian vs. <code class="docutils literal notranslate"><span class="pre">&quot;dlc&quot;</span></code> delocalized internal coordinates.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">freeze_atoms</span></code> (<code class="docutils literal notranslate"><span class="pre">[]</span></code>): 0-based indices to freeze during optimization.</p></li>
+</ul>
+</section>
+<section id="calc-mlmm">
+<h3><code class="docutils literal notranslate"><span class="pre">calc</span></code> / <code class="docutils literal notranslate"><span class="pre">mlmm</span></code><a class="headerlink" href="#calc-mlmm" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">input_pdb</span></code>, <code class="docutils literal notranslate"><span class="pre">real_parm7</span></code>, <code class="docutils literal notranslate"><span class="pre">model_pdb</span></code>: required file paths (strings).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_charge</span></code> (<code class="docutils literal notranslate"><span class="pre">-q/--charge</span></code>, required) and <code class="docutils literal notranslate"><span class="pre">model_mult</span></code> (<code class="docutils literal notranslate"><span class="pre">-m/--multiplicity</span></code>, default 1).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">link_mlmm</span></code>: optional list of <code class="docutils literal notranslate"><span class="pre">(ML_atom_id,</span> <span class="pre">MM_atom_id)</span></code> strings to pin ML/MM link pairs (no link atoms created).</p></li>
+<li><p>UMA controls: <code class="docutils literal notranslate"><span class="pre">uma_model</span></code> (default <code class="docutils literal notranslate"><span class="pre">&quot;uma-s-1p1&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">uma_task_name</span></code> (default <code class="docutils literal notranslate"><span class="pre">&quot;omol&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">ml_hessian_mode</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;Analytical&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;FiniteDifference&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">out_hess_torch</span></code> (bool), <code class="docutils literal notranslate"><span class="pre">H_double</span></code> (bool).</p></li>
+<li><p>Device selection: <code class="docutils literal notranslate"><span class="pre">ml_device</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code>/<code class="docutils literal notranslate"><span class="pre">&quot;cuda&quot;</span></code>/<code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">ml_cuda_idx</span></code>, <code class="docutils literal notranslate"><span class="pre">mm_device</span></code>, <code class="docutils literal notranslate"><span class="pre">mm_cuda_idx</span></code>, <code class="docutils literal notranslate"><span class="pre">mm_threads</span></code>.</p></li>
+<li><p>MM finite difference: <code class="docutils literal notranslate"><span class="pre">mm_fd</span></code> (bool), <code class="docutils literal notranslate"><span class="pre">mm_fd_dir</span></code> (output dir for FD info), and whether to <code class="docutils literal notranslate"><span class="pre">return_partial_hessian</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">freeze_atoms</span></code>: propagated from <code class="docutils literal notranslate"><span class="pre">geom.freeze_atoms</span></code> so ML/MM and optimizer share the same frozen atoms.</p></li>
+</ul>
+</section>
+<section id="id1">
+<h3><code class="docutils literal notranslate"><span class="pre">opt</span></code><a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<p>Shared optimizer controls:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">thresh</span></code> presets (see convergence table above).</p></li>
+<li><p>Common controls: <code class="docutils literal notranslate"><span class="pre">max_cycles</span></code> (default 10000), <code class="docutils literal notranslate"><span class="pre">print_every</span></code> (100), <code class="docutils literal notranslate"><span class="pre">min_step_norm</span></code> (1e-8) with <code class="docutils literal notranslate"><span class="pre">assert_min_step</span></code> True.</p></li>
+<li><p>Convergence toggles: <code class="docutils literal notranslate"><span class="pre">rms_force</span></code>, <code class="docutils literal notranslate"><span class="pre">rms_force_only</span></code>, <code class="docutils literal notranslate"><span class="pre">max_force_only</span></code>, <code class="docutils literal notranslate"><span class="pre">force_only</span></code>.</p></li>
+<li><p>Extras: <code class="docutils literal notranslate"><span class="pre">converge_to_geom_rms_thresh</span></code>, <code class="docutils literal notranslate"><span class="pre">overachieve_factor</span></code>, <code class="docutils literal notranslate"><span class="pre">check_eigval_structure</span></code>.</p></li>
+<li><p>Line search: <code class="docutils literal notranslate"><span class="pre">line_search</span></code> (bool, default True).</p></li>
+<li><p>Bookkeeping: <code class="docutils literal notranslate"><span class="pre">dump</span></code>, <code class="docutils literal notranslate"><span class="pre">dump_restart</span></code>, <code class="docutils literal notranslate"><span class="pre">prefix</span></code>, <code class="docutils literal notranslate"><span class="pre">out_dir</span></code> (default <code class="docutils literal notranslate"><span class="pre">./result_opt/</span></code>).</p></li>
+</ul>
+</section>
+<section id="lbfgs">
+<h3><code class="docutils literal notranslate"><span class="pre">lbfgs</span></code><a class="headerlink" href="#lbfgs" title="Link to this heading">¶</a></h3>
+<p>Extends <code class="docutils literal notranslate"><span class="pre">opt</span></code> with L-BFGS specifics: <code class="docutils literal notranslate"><span class="pre">keep_last</span></code>, <code class="docutils literal notranslate"><span class="pre">beta</span></code>, <code class="docutils literal notranslate"><span class="pre">gamma_mult</span></code>, <code class="docutils literal notranslate"><span class="pre">max_step</span></code>, <code class="docutils literal notranslate"><span class="pre">control_step</span></code>, <code class="docutils literal notranslate"><span class="pre">double_damp</span></code>, <code class="docutils literal notranslate"><span class="pre">mu_reg</span></code>, <code class="docutils literal notranslate"><span class="pre">max_mu_reg_adaptions</span></code>.</p>
+</section>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>For symptom-first diagnosis, start with <a class="reference internal" href="recipes_common_errors.html"><span class="std std-doc">Common Error Recipes</span></a>, then use <a class="reference internal" href="troubleshooting.html"><span class="std std-doc">Troubleshooting</span></a> for detailed fixes.</p></li>
+<li><p>Charge/multiplicity policy is documented centrally in <a class="reference internal" href="cli_conventions.html"><span class="std std-doc">CLI Conventions</span></a>.</p></li>
+<li><p><strong>Devices:</strong> <code class="docutils literal notranslate"><span class="pre">ml_device=&quot;auto&quot;</span></code> selects CUDA when available; <code class="docutils literal notranslate"><span class="pre">mm_device</span></code> controls MM backend device placement.</p></li>
+<li><p><strong>Hessians:</strong> <code class="docutils literal notranslate"><span class="pre">calc.out_hess_torch=True</span></code> returns PyTorch tensors (optionally double precision via <code class="docutils literal notranslate"><span class="pre">calc.H_double</span></code>).</p></li>
+<li><p><strong>Exit codes:</strong> <code class="docutils literal notranslate"><span class="pre">ZeroStepLength</span></code> -&gt; exit code <strong>2</strong>; <code class="docutils literal notranslate"><span class="pre">OptimizationError</span></code> -&gt; <strong>3</strong>; <code class="docutils literal notranslate"><span class="pre">KeyboardInterrupt</span></code> -&gt; <strong>130</strong>; any other unhandled exception -&gt; <strong>1</strong>.</p></li>
+<li><p><strong>Precedence:</strong> settings are applied with <strong>defaults &lt; config &lt; explicit CLI &lt; override</strong>.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="tsopt.html"><span class="std std-doc">tsopt</span></a> – Optimize transition states (saddle points) instead of minima</p></li>
+<li><p><a class="reference internal" href="freq.html"><span class="std std-doc">freq</span></a> – Vibrational analysis to confirm a minimum was reached</p></li>
+<li><p><a class="reference internal" href="all.html"><span class="std std-doc">all</span></a> – End-to-end workflow that pre-optimizes endpoints</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="tsopt.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="define_layer.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Takuto Ohmura
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#minimal-example">Minimal example</a></li>
+<li><a class="reference internal" href="#output-checklist">Output checklist</a></li>
+<li><a class="reference internal" href="#common-examples">Common examples</a></li>
+<li><a class="reference internal" href="#usage">Usage</a><ul>
+<li><a class="reference internal" href="#examples">Examples</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#workflow">Workflow</a></li>
+<li><a class="reference internal" href="#cli-options">CLI options</a><ul>
+<li><a class="reference internal" href="#convergence-threshold-presets">Convergence threshold presets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#outputs">Outputs</a></li>
+<li><a class="reference internal" href="#yaml-configuration">YAML configuration</a><ul>
+<li><a class="reference internal" href="#geom"><code class="docutils literal notranslate"><span class="pre">geom</span></code></a></li>
+<li><a class="reference internal" href="#calc-mlmm"><code class="docutils literal notranslate"><span class="pre">calc</span></code> / <code class="docutils literal notranslate"><span class="pre">mlmm</span></code></a></li>
+<li><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li><a class="reference internal" href="#lbfgs"><code class="docutils literal notranslate"><span class="pre">lbfgs</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#notes">Notes</a></li>
+<li><a class="reference internal" href="#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=58440f0e"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=cb5fb026"></script>
+    </body>
+</html>
