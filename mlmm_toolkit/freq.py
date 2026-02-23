@@ -115,86 +115,8 @@ def _link_or_copy_file(src: Path, dst: Path) -> bool:
 
 
 def _write_output_summary_md(out_dir: Path) -> None:
-    """Write summary.md and expose key outputs at out_dir root."""
-    try:
-        out_dir = out_dir.resolve()
-        if not out_dir.exists():
-            return
-
-        root_specs: List[Tuple[str, Sequence[str]]] = [
-            ("Frequencies table", ["frequencies_cm-1.txt"]),
-            ("Lowest written mode trajectory", ["mode_0001_*_trj.xyz", "mode_*_trj.xyz"]),
-            ("Lowest written mode (PDB)", ["mode_0001_*.pdb", "mode_*.pdb"]),
-            ("Thermochemistry dump", ["thermoanalysis.yaml"]),
-        ]
-        root_lines: List[str] = []
-        for label, patterns in root_specs:
-            src = _first_existing_artifact(out_dir, patterns)
-            if src is None:
-                continue
-            rel = os.path.relpath(src, start=out_dir)
-            root_lines.append(f"- {label}: [`{rel}`]({rel})")
-
-        shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
-            ("key_frequencies.txt", "Frequencies table", ["frequencies_cm-1.txt"]),
-            ("key_mode_1_trj.xyz", "Lowest written mode trajectory", ["mode_0001_*_trj.xyz", "mode_*_trj.xyz"]),
-            ("key_mode_1.pdb", "Lowest written mode (PDB)", ["mode_0001_*.pdb", "mode_*.pdb"]),
-            ("key_thermo.yaml", "Thermochemistry dump", ["thermoanalysis.yaml"]),
-        ]
-        shortcut_lines: List[str] = []
-        for name, label, patterns in shortcut_specs:
-            src = _first_existing_artifact(out_dir, patterns)
-            if src is None:
-                continue
-            dst = out_dir / name
-            try:
-                same = src.resolve() == dst.resolve()
-            except Exception:
-                same = False
-            if not same and not _link_or_copy_file(src, dst):
-                continue
-            src_rel = os.path.relpath(src, start=out_dir)
-            shortcut_lines.append(
-                f"- {label}: [`{name}`]({name}) (source: `{src_rel}`)"
-            )
-
-        lines: List[str] = [
-            "# Freq Summary",
-            "",
-            f"- Generated: `{time.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
-            f"- Output directory: `{out_dir}`",
-            "",
-            "## Primary Artifacts",
-        ]
-        if root_lines:
-            lines.extend(root_lines)
-        else:
-            lines.append("- No primary artifacts detected yet.")
-        lines.extend(
-            [
-                "",
-                "## Root Shortcuts",
-                "- `key_*` files are symlinks when possible, otherwise copied files.",
-            ]
-        )
-        if shortcut_lines:
-            lines.extend(shortcut_lines)
-        else:
-            lines.append("- No shortcuts were generated.")
-        lines.extend(
-            [
-                "",
-                "## Notes",
-                "- Start from `key_frequencies.txt`; TS validation should confirm one dominant imaginary mode.",
-            ]
-        )
-
-        summary_md = out_dir / "summary.md"
-        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-        click.echo(f"[write] Wrote '{summary_md}'.")
-    except Exception as e:
-        click.echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
-
+    """summary.md and key_* outputs are disabled."""
+    return None
 
 def _torch_device(auto: str = "auto") -> torch.device:
     if auto == "auto":
@@ -1322,7 +1244,7 @@ def cli(
             tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
             click.echo("Unhandled error during thermochemistry summary:\n" + textwrap.indent(tb, "  "), err=True)
 
-        _write_output_summary_md(out_dir_path)
+        # summary.md and key_* outputs are disabled.
         click.echo(f"[DONE] Wrote modes and list → {out_dir_path}")
 
         click.echo(format_elapsed("[time] Elapsed Time for Freq", time_start))

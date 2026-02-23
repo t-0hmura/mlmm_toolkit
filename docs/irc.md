@@ -28,9 +28,6 @@ mlmm irc -i ts.pdb -q 0 -m 1 --config irc_min.yaml \
 
 ## Output checklist
 
-- `result_irc/summary.md`
-- `result_irc/key_irc_trj.xyz`
-- `result_irc/key_irc_forward_trj.xyz`
 - `result_irc/finished_irc_trj.xyz`
 - `result_irc/forward_irc_trj.xyz`
 
@@ -114,11 +111,6 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```text
 out_dir/ (default:./result_irc/)
- summary.md # Quick index of key outputs
- key_irc_trj.xyz # Shortcut to finished_irc_trj.xyz
- key_irc_forward_trj.xyz # Shortcut to forward_irc_trj.xyz
- key_irc.pdb # Shortcut to finished_irc.pdb (when available)
- key_irc_data.h5 # Shortcut to irc_data.h5 (when available)
  <prefix>irc_data.h5 # HDF5 dump written every irc.dump_every steps
  <prefix>finished_irc_trj.xyz # Full IRC trajectory (XYZ/TRJ)
  <prefix>forward_irc_trj.xyz # Forward path segment

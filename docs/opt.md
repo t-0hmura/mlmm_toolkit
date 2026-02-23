@@ -14,9 +14,6 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## Output checklist
 
-- `result_opt/summary.md`
-- `result_opt/key_opt.xyz` (or `key_opt.pdb`)
-- `result_opt/key_opt_trj.xyz` (when trajectory is available)
 - `result_opt/final_geometry.xyz`
 - `result_opt/final_geometry.pdb` (when the input is PDB)
 - `result_opt/optimization_trj.xyz` (when `--dump` is enabled)
@@ -112,12 +109,6 @@ Forces in Hartree/bohr, steps in bohr.
 
 ```text
 out_dir/ (default:./result_opt/)
- summary.md # Quick index of key outputs
- key_opt.xyz # Shortcut to final_geometry.xyz
- key_opt.pdb # Shortcut to final_geometry.pdb (when available)
- key_opt_trj.xyz # Shortcut to optimization trajectory
- key_opt_traj.pdb # Shortcut to optimization trajectory PDB (when available)
- key_restart.yml # Shortcut to a restart snapshot (when available)
  final_geometry.xyz # Final optimized geometry (always)
  final_geometry.pdb # Converted from XYZ when the input was a PDB (B-factors annotated)
  optimization_trj.xyz # Trajectory (written when --dump or opt.dump: true)

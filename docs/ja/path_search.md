@@ -14,8 +14,6 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 
 ## 出力の見方
 
-- `result_path_search/summary.md`
-- `result_path_search/key_mep_trj.xyz` / `result_path_search/key_ts.xyz`（利用可能時）
 - `result_path_search/mep_trj.xyz`
 - `result_path_search/summary.yaml`
 - `result_path_search/summary.log`
@@ -107,12 +105,6 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 out_dir/ (デフォルト:./result_path_search/)
  summary.yaml # MEP レベルの実行サマリー（完全設定ダンプなし）
  summary.log # 人間が読めるサマリー
- summary.md # 主要成果物へ移動しやすいナビゲーションページ
- key_mep_trj.xyz # 主要 MEP 軌跡へのショートカット（symlink/copy）
- key_mep.pdb # 主要 MEP PDB へのショートカット（symlink/copy）
- key_ts.xyz / key_ts.pdb # TS 候補スナップショットへのショートカット（利用可能時）
- key_mep_plot.png # MEP プロファイルへのショートカット（利用可能時）
- key_energy_diagram_MEP.png # 状態エネルギーダイアグラムへのショートカット（利用可能時）
  mep_trj.xyz # 最終 MEP（常に書き出し）
  mep.pdb # 最終 MEP（参照テンプレート利用可能時は PDB）
  mep_w_ref.pdb # 全系マージ MEP（--ref-pdb 必要）
@@ -150,7 +142,6 @@ YAML ルートはマッピングでなければなりません。受け付ける
 - オプティマイザー: GSM は pysisyphus `GrowingString` + `StringOptimizer` を使用し、単一構造精密化は常に LBFGS を使用します。
 - `--align` での最終マージ規則: `--ref-pdb` が提供された場合、最初の参照 PDB がすべてのペアに使用されます。
 - コンソールには状態シーケンス（例: `R --> TS1 --> IM1 -->... --> P`）とエネルギーダイアグラム構築に使用されるラベル/エネルギーが出力されます。
-- 実行後に `summary.md` が生成され、主要成果物と `key_*` 直下ショートカットを一覧できます。
 - `summary.log` は一部のフィールド欠落時でも生成可能です。内部で次のキーに既定値を補います:
  `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`。
 

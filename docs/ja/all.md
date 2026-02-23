@@ -18,11 +18,9 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --out-dir ./
 
 ## 出力の見方
 
-- `result_all/summary.md`
 - `result_all/summary.log`
 - `result_all/summary.yaml`
 - `result_all/path_search/mep.pdb`（または `result_all/path_search/seg_*/`）
-- `result_all/key_ts.pdb` / `result_all/key_freq_TS.csv`（後処理結果がある場合）
 
 ## よくある例
 
@@ -234,13 +232,6 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 ...
  summary.yaml # トップレベルサマリーのミラー（path_search 実行時）
  summary.log
- summary.md # 主要成果物へ移動しやすいナビゲーションページ
- key_mep_trj.xyz # 主要 MEP 軌跡へのショートカット（symlink/copy）
- key_mep.pdb # 主要 MEP PDB へのショートカット（symlink/copy）
- key_ts.pdb / key_ts.xyz # TS 構造へのショートカット（利用可能時）
- key_freq_TS.csv # TS 振動数へのショートカット（利用可能時）
- key_dft_TS.yaml # TS DFT 結果へのショートカット（利用可能時）
- key_irc_plot.png # IRC プロットへのショートカット（利用可能時）
  mep_plot.png
  energy_diagram_MEP.png
  energy_diagram_UMA_all.png # 集約後処理ダイアグラム（有効時）

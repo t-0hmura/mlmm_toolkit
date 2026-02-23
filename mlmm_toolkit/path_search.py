@@ -227,88 +227,8 @@ def _link_or_copy_file(src: Path, dst: Path) -> bool:
 
 
 def _write_output_summary_md(out_dir: Path) -> None:
-    """Write summary.md and expose key outputs at out_dir root."""
-    try:
-        out_dir = out_dir.resolve()
-        if not out_dir.exists():
-            return
-
-        root_specs: List[Tuple[str, str]] = [
-            ("summary.yaml", "YAML summary"),
-            ("summary.log", "Text summary"),
-            ("mep_trj.xyz", "MEP trajectory"),
-            ("mep.pdb", "MEP trajectory (PDB)"),
-            ("mep_w_ref.pdb", "MEP merged with reference"),
-            ("mep_plot.png", "MEP profile plot"),
-            ("energy_diagram_MEP.png", "State energy diagram"),
-        ]
-        root_lines: List[str] = []
-        for rel, label in root_specs:
-            if (out_dir / rel).is_file():
-                root_lines.append(f"- {label}: [`{rel}`]({rel})")
-
-        shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
-            ("key_mep_trj.xyz", "Primary MEP trajectory", ["mep_trj.xyz"]),
-            ("key_mep.pdb", "Primary MEP PDB", ["mep.pdb", "mep_w_ref.pdb"]),
-            ("key_ts.xyz", "TS candidate (XYZ)", ["hei_seg_*.xyz"]),
-            ("key_ts.pdb", "TS candidate (PDB)", ["hei_seg_*.pdb", "hei_w_ref_seg_*.pdb"]),
-            ("key_mep_plot.png", "MEP profile plot", ["mep_plot.png"]),
-            ("key_energy_diagram_MEP.png", "State energy diagram", ["energy_diagram_MEP.png"]),
-        ]
-        shortcut_lines: List[str] = []
-        for name, label, patterns in shortcut_specs:
-            src = _first_existing_artifact(out_dir, patterns)
-            if src is None:
-                continue
-            dst = out_dir / name
-            try:
-                same = src.resolve() == dst.resolve()
-            except Exception:
-                same = False
-            if not same and not _link_or_copy_file(src, dst):
-                continue
-            src_rel = os.path.relpath(src, start=out_dir)
-            shortcut_lines.append(
-                f"- {label}: [`{name}`]({name}) (source: `{src_rel}`)"
-            )
-
-        lines: List[str] = [
-            "# Path-Search Summary",
-            "",
-            f"- Generated: `{time.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
-            f"- Output directory: `{out_dir}`",
-            "",
-            "## Primary Artifacts",
-        ]
-        if root_lines:
-            lines.extend(root_lines)
-        else:
-            lines.append("- No primary artifacts detected yet.")
-        lines.extend(
-            [
-                "",
-                "## Root Shortcuts",
-                "- `key_*` files are symlinks when possible, otherwise copied files.",
-            ]
-        )
-        if shortcut_lines:
-            lines.extend(shortcut_lines)
-        else:
-            lines.append("- No shortcuts were generated.")
-        lines.extend(
-            [
-                "",
-                "## Notes",
-                "- Start from `summary.log` for a concise narrative and from `summary.yaml` for machine-readable values.",
-            ]
-        )
-
-        summary_md = out_dir / "summary.md"
-        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-        click.echo(f"[write] Wrote '{summary_md}'.")
-    except Exception as e:
-        click.echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
-
+    """summary.md and key_* outputs are disabled."""
+    return None
 
 def _maybe_convert_to_pdb(in_path: Path, ref_pdb_path: Optional[Path], out_path: Optional[Path] = None) -> Optional[Path]:
     """
@@ -2678,20 +2598,14 @@ def cli(
                 "mep": mep_info,
                 "segments": summary.get("segments", []),
                 "energy_diagrams": summary.get("energy_diagrams", []),
-                "key_files": {
-                    "summary.yaml": "YAML-format summary",
-                    "summary.log": "This summary",
-                    "mep_plot.png": "ML/MM MEP energy plot",
-                    "energy_diagram_MEP.png": "Compressed MEP diagram",
-                },
+                "key_files": {},
             }
             write_summary_log(out_dir_path / "summary.log", summary_payload)
             click.echo(f"[write] Wrote '{out_dir_path / 'summary.log'}'.")
         except Exception as e:
             click.echo(f"[write] WARNING: Failed to write summary.log: {e}", err=True)
 
-        _write_output_summary_md(out_dir_path)
-
+        # summary.md and key_* outputs are disabled.
         # --------------------------
         # 8) Elapsed time
         # --------------------------

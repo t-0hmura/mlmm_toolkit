@@ -23,8 +23,6 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 ## Output checklist
 
-- `result_path_opt/summary.md`
-- `result_path_opt/key_mep_trj.xyz` / `result_path_opt/key_ts.xyz`
 - `result_path_opt/final_geometries_trj.xyz`
 - `result_path_opt/hei.xyz`
 - `result_path_opt/hei.pdb` (when PDB conversion is available)
@@ -112,10 +110,6 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 ## Outputs
 ```
 out_dir/ (default:./result_path_opt/)
-├─ summary.md # Quick navigation page with key artifact links
-├─ key_mep_trj.xyz # Root shortcut to primary MEP trajectory (symlink/copy)
-├─ key_mep.pdb # Root shortcut to primary MEP PDB (symlink/copy)
-├─ key_ts.xyz / key_ts.pdb # Root shortcuts to TS candidate snapshots (symlink/copy)
 ├─ final_geometries_trj.xyz # XYZ trajectory with per-image energies in the comment line
 ├─ final_geometries.pdb # Same as_trj.xyz but mapped back to the reference PDB ordering
 ├─ hei.xyz # Highest-energy image (XYZ, always written)

@@ -26,9 +26,6 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 出力の見方
 
-- `result_tsopt/summary.md`
-- `result_tsopt/key_ts.xyz`（または `key_ts.pdb`）
-- `result_tsopt/key_imag_mode_trj.xyz`
 - `result_tsopt/final_geometry.pdb`（または `final_geometry.xyz`）
 - `result_tsopt/vib/final_imag_mode_*_trj.xyz`
 - `result_tsopt/vib/final_imag_mode_*.pdb`
@@ -120,10 +117,6 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```
 out_dir/ (デフォルト:./result_tsopt/)
-├── summary.md # 主要成果物のインデックス
-├── key_ts.xyz # 最終TS構造へのショートカット（または key_ts.pdb）
-├── key_imag_mode_trj.xyz # 代表的な虚数モードへのショートカット
-├── key_opt_trj.xyz # 最適化軌跡へのショートカット（存在する場合）
 ├── final_geometry.xyz # 常に書き出し
 ├── final_geometry.pdb # 入力が PDB の場合
 ├── optimization_all_trj.xyz # 連結 Dimer セグメント（--dump 時）

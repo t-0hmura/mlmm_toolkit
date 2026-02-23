@@ -14,8 +14,6 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 
 ## Output checklist
 
-- `result_path_search/summary.md`
-- `result_path_search/key_mep_trj.xyz` / `result_path_search/key_ts.xyz` (when available)
 - `result_path_search/mep_trj.xyz`
 - `result_path_search/summary.yaml`
 - `result_path_search/summary.log`
@@ -107,12 +105,6 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 out_dir/ (default:./result_path_search/)
  summary.yaml # MEP-level run summary (no full settings dump)
  summary.log # Human-readable summary
- summary.md # Quick navigation page with key artifact links
- key_mep_trj.xyz # Root shortcut to primary MEP trajectory (symlink/copy)
- key_mep.pdb # Root shortcut to primary MEP PDB (symlink/copy)
- key_ts.xyz / key_ts.pdb # Root shortcuts to TS candidate snapshots (when available)
- key_mep_plot.png # Root shortcut to MEP profile plot (when available)
- key_energy_diagram_MEP.png # Root shortcut to state energy diagram (when available)
  mep_trj.xyz # Final MEP (always written)
  mep.pdb # Final MEP (PDB when ref template available)
  mep_w_ref.pdb # Full-system merged MEP (requires --ref-pdb)
@@ -149,7 +141,6 @@ The YAML root must be a mapping. Accepted sections:
 - Optimizers: GSM employs pysisyphus `GrowingString` + `StringOptimizer`; single-structure refinements always use LBFGS.
 - Final merge rule with `--align`: when `--ref-pdb` is provided, the first reference PDB is used for all pairs.
 - Console output prints the state sequence (e.g., `R --> TS1 --> IM1 -->... --> P`) plus the labels/energies used to build the energy diagram.
-- `summary.md` is generated after the run and points to the main artifacts plus `key_*` root shortcuts.
 - `summary.log` rendering is resilient to missing payload fields. Internally, defaults are applied for:
  `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`.
 

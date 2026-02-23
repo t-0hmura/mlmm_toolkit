@@ -171,84 +171,8 @@ def _link_or_copy_file(src: Path, dst: Path) -> bool:
 
 
 def _write_output_summary_md(out_dir: Path) -> None:
-    """Write summary.md and expose key outputs at out_dir root."""
-    try:
-        out_dir = out_dir.resolve()
-        if not out_dir.exists():
-            return
-
-        root_specs: List[Tuple[str, str]] = [
-            ("final_geometries_trj.xyz", "MEP trajectory"),
-            ("final_geometries.pdb", "MEP trajectory (PDB)"),
-            ("hei.xyz", "TS candidate (XYZ)"),
-            ("hei.pdb", "TS candidate (PDB)"),
-            ("dmf_initial_trj.xyz", "DMF initial interpolation"),
-        ]
-        root_lines: List[str] = []
-        for rel, label in root_specs:
-            if (out_dir / rel).is_file():
-                root_lines.append(f"- {label}: [`{rel}`]({rel})")
-
-        shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
-            ("key_mep_trj.xyz", "Primary MEP trajectory", ["final_geometries_trj.xyz"]),
-            ("key_mep.pdb", "Primary MEP PDB", ["final_geometries.pdb"]),
-            ("key_ts.xyz", "TS candidate (XYZ)", ["hei.xyz"]),
-            ("key_ts.pdb", "TS candidate (PDB)", ["hei.pdb"]),
-        ]
-        shortcut_lines: List[str] = []
-        for name, label, patterns in shortcut_specs:
-            src = _first_existing_artifact(out_dir, patterns)
-            if src is None:
-                continue
-            dst = out_dir / name
-            try:
-                same = src.resolve() == dst.resolve()
-            except Exception:
-                same = False
-            if not same and not _link_or_copy_file(src, dst):
-                continue
-            src_rel = os.path.relpath(src, start=out_dir)
-            shortcut_lines.append(
-                f"- {label}: [`{name}`]({name}) (source: `{src_rel}`)"
-            )
-
-        lines: List[str] = [
-            "# Path-Opt Summary",
-            "",
-            f"- Generated: `{time.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
-            f"- Output directory: `{out_dir}`",
-            "",
-            "## Primary Artifacts",
-        ]
-        if root_lines:
-            lines.extend(root_lines)
-        else:
-            lines.append("- No primary artifacts detected yet.")
-        lines.extend(
-            [
-                "",
-                "## Root Shortcuts",
-                "- `key_*` files are symlinks when possible, otherwise copied files.",
-            ]
-        )
-        if shortcut_lines:
-            lines.extend(shortcut_lines)
-        else:
-            lines.append("- No shortcuts were generated.")
-        lines.extend(
-            [
-                "",
-                "## Notes",
-                "- Start from `final_geometries_trj.xyz` for the path and `hei.xyz` for the TS candidate snapshot.",
-            ]
-        )
-
-        summary_md = out_dir / "summary.md"
-        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-        click.echo(f"[write] Wrote '{summary_md}'.")
-    except Exception as e:
-        click.echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
-
+    """summary.md and key_* outputs are disabled."""
+    return None
 
 def _resolve_yaml_sources(
     config_yaml: Optional[Path],
@@ -1428,8 +1352,7 @@ def cli(
             click.echo(f"[HEI] ERROR: Failed to dump HEI: {e}", err=True)
             sys.exit(5)
 
-        _write_output_summary_md(out_dir_path)
-
+        # summary.md and key_* outputs are disabled.
         click.echo(format_elapsed("[time] Elapsed Time for Path Opt", time_start))
 
     except OptimizationError as e:

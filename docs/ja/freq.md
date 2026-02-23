@@ -22,9 +22,6 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 出力の見方
 
-- `result_freq/summary.md`
-- `result_freq/key_frequencies.txt`
-- `result_freq/key_mode_1_trj.xyz`
 - `result_freq/frequencies_cm-1.txt`
 - `result_freq/mode_*_trj.xyz`
 - `result_freq/mode_*.pdb`（PDB 入力の場合）
@@ -120,11 +117,6 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 
 ```
 out_dir/ (デフォルト:./result_freq/)
- summary.md # 主要成果物のインデックス
- key_frequencies.txt # frequencies_cm-1.txt へのショートカット
- key_mode_1_trj.xyz # 代表モード軌跡へのショートカット
- key_mode_1.pdb # 代表モードPDBへのショートカット（存在時）
- key_thermo.yaml # thermoanalysis.yaml へのショートカット（存在時）
  mode_XXXX_{+/-freq}cm-1_trj.xyz # XYZ ライク軌跡、モードごとの正弦波アニメーション
  mode_XXXX_{+/-freq}cm-1.pdb # 酵素原子順序にマップバックされた PDB アニメーション
  frequencies_cm-1.txt # 選択されたキーでソートされた全計算振動数（cm^-1）

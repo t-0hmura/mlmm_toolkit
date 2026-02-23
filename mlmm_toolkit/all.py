@@ -122,79 +122,8 @@ def _link_or_copy_file(src: Path, dst: Path) -> bool:
 
 
 def _write_output_summary_md(out_dir: Path) -> None:
-    """Write summary.md and expose key outputs at out_dir root."""
-    try:
-        out_dir = out_dir.resolve()
-        if not out_dir.exists():
-            return
-
-        root_specs: List[Tuple[str, str]] = [
-            ("summary.yaml", "YAML summary"),
-            ("summary.log", "Text summary"),
-            ("mep_trj.xyz", "MEP trajectory"),
-            ("mep.pdb", "MEP trajectory (PDB)"),
-            ("mep_w_ref.pdb", "MEP merged with reference"),
-            ("mep_plot.png", "MEP profile plot"),
-            ("energy_diagram_MEP.png", "State energy diagram"),
-            ("energy_diagram_UMA_all.png", "All-segment UMA diagram"),
-            ("irc_plot_all.png", "Aggregated IRC plot"),
-        ]
-        root_lines: List[str] = []
-        for rel, label in root_specs:
-            if (out_dir / rel).is_file():
-                root_lines.append(f"- {label}: [`{rel}`]({rel})")
-
-        shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
-            ("key_mep_trj.xyz", "Primary MEP trajectory", ["mep_trj.xyz", "path_search/mep_trj.xyz", "path_opt/final_geometries_trj.xyz"]),
-            ("key_mep.pdb", "Primary MEP PDB", ["mep.pdb", "path_search/mep.pdb", "path_opt/final_geometries.pdb"]),
-            ("key_ts.pdb", "TS structure (PDB)", ["ts_seg_01.pdb", "path_search/post_seg_*/ts/final_geometry.pdb", "path_opt/post_seg_*/ts/final_geometry.pdb", "tsopt_single/ts/final_geometry.pdb"]),
-            ("key_ts.xyz", "TS structure (XYZ)", ["ts_seg_01.xyz", "path_search/post_seg_*/ts/final_geometry.xyz", "path_opt/post_seg_*/ts/final_geometry.xyz", "tsopt_single/ts/final_geometry.xyz"]),
-            ("key_freq_TS.csv", "TS frequencies", ["path_search/post_seg_*/freq/TS/frequencies.csv", "path_opt/post_seg_*/freq/TS/frequencies.csv", "tsopt_single/freq/TS/frequencies.csv"]),
-            ("key_dft_TS.yaml", "TS DFT result", ["path_search/post_seg_*/dft/TS/result.yaml", "path_opt/post_seg_*/dft/TS/result.yaml", "tsopt_single/dft/TS/result.yaml"]),
-            ("key_irc_plot.png", "IRC plot", ["irc_plot_all.png", "path_search/post_seg_*/irc/irc_plot.png", "path_opt/post_seg_*/irc/irc_plot.png", "tsopt_single/irc/irc_plot.png"]),
-        ]
-        shortcut_lines: List[str] = []
-        for name, label, patterns in shortcut_specs:
-            src = _first_existing_artifact(out_dir, patterns)
-            if src is None:
-                continue
-            dst = out_dir / name
-            try:
-                same = src.resolve() == dst.resolve()
-            except Exception:
-                same = False
-            if not same and not _link_or_copy_file(src, dst):
-                continue
-            src_rel = os.path.relpath(src, start=out_dir)
-            shortcut_lines.append(
-                f"- {label}: [`{name}`]({name}) (source: `{src_rel}`)"
-            )
-
-        lines: List[str] = [
-            "# Run Summary",
-            "",
-            f"- Generated: `{time.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
-            f"- Output directory: `{out_dir}`",
-            "",
-            "## Primary Artifacts",
-        ]
-        if root_lines:
-            lines.extend(root_lines)
-        else:
-            lines.append("- No primary artifacts detected yet.")
-        lines.extend(["", "## Root Shortcuts", "- `key_*` files are symlinks when possible, otherwise copied files."])
-        if shortcut_lines:
-            lines.extend(shortcut_lines)
-        else:
-            lines.append("- No shortcuts were generated.")
-        lines.extend(["", "## Notes", "- Start from `summary.log` for a concise narrative and from `summary.yaml` for machine-readable values."])
-
-        summary_md = out_dir / "summary.md"
-        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-        _echo(f"[write] Wrote '{summary_md}'.")
-    except Exception as e:
-        _echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
-
+    """summary.md and key_* outputs are disabled."""
+    return None
 
 def _run_cli_main(
     cmd_name: str,
@@ -2069,15 +1998,7 @@ def cli(
             "segments": summary.get("segments", []),
             "energy_diagrams": list(energy_diagrams),
             "post_segments": [segment_log],
-            "key_files": {
-                "summary.yaml": "YAML-format summary",
-                "summary.log": "This summary",
-                "energy_diagram_UMA_all.png": "UMA R-TS-P energies",
-                "energy_diagram_G_UMA_all.png": "UMA Gibbs R-TS-P",
-                "energy_diagram_DFT_all.png": "DFT R-TS-P",
-                "energy_diagram_G_DFT_plus_UMA_all.png": "DFT//UMA Gibbs R-TS-P",
-                "irc_plot_all.png": "Aggregated IRC plot",
-            },
+            "key_files": {},
         }
         try:
             write_summary_log(tsroot / "summary.log", summary_payload)
@@ -2106,7 +2027,7 @@ def cli(
         except Exception as e:
             _echo(f"[all] WARNING: failed to copy irc_plot_all.png: {e}", err=True)
 
-        _write_output_summary_md(out_dir)
+        # summary.md and key_* outputs are disabled.
         _echo_section("=== [all] TSOPT-only pipeline finished successfully ===")
         _echo(format_elapsed("[all] Elapsed for Whole Pipeline", time_start))
         return
@@ -2315,17 +2236,7 @@ def cli(
                 "segments": summary.get("segments", []),
                 "energy_diagrams": summary.get("energy_diagrams", []),
                 "post_segments": list(post_segment_logs),
-                "key_files": {
-                    "summary.yaml": "YAML-format summary",
-                    "summary.log": "This summary",
-                    "mep_plot.png": "ML/MM MEP energy plot",
-                    "energy_diagram_MEP.png": "Compressed MEP diagram",
-                    "energy_diagram_UMA_all.png": "UMA R-TS-P energies (all segments)",
-                    "energy_diagram_G_UMA_all.png": "UMA Gibbs R-TS-P (all segments)",
-                    "energy_diagram_DFT_all.png": "DFT R-TS-P (all segments)",
-                    "energy_diagram_G_DFT_plus_UMA_all.png": "DFT//UMA Gibbs R-TS-P (all segments)",
-                    "irc_plot_all.png": "Aggregated IRC plot",
-                },
+                "key_files": {},
             }
             write_summary_log(path_dir / "summary.log", summary_payload)
             _copy_path_outputs_to_root()
@@ -2337,7 +2248,7 @@ def cli(
     # --------------------------
     if not (do_tsopt or do_thermo or do_dft):
         _write_pipeline_summary_log([])
-        _write_output_summary_md(out_dir)
+        # summary.md and key_* outputs are disabled.
         # Elapsed time
         _echo(format_elapsed("[all] Elapsed for Whole Pipeline", time_start))
         return
@@ -2348,7 +2259,7 @@ def cli(
     if not segments:
         _echo("[post] No segments found in summary; nothing to do.")
         _write_pipeline_summary_log([])
-        _write_output_summary_md(out_dir)
+        # summary.md and key_* outputs are disabled.
         _echo(format_elapsed("[all] Elapsed for Whole Pipeline", time_start))
         return
 
@@ -2357,7 +2268,7 @@ def cli(
     if not reactive:
         _echo("[post] No bond-change segments. Skipping TS/thermo/DFT.")
         _write_pipeline_summary_log([])
-        _write_output_summary_md(out_dir)
+        # summary.md and key_* outputs are disabled.
         _echo(format_elapsed("[all] Elapsed for Whole Pipeline", time_start))
         return
 
@@ -2698,7 +2609,7 @@ def cli(
         _echo(f"[write] WARNING: Failed to refresh summary.yaml with energy diagram metadata: {e}", err=True)
 
     _write_pipeline_summary_log(post_segment_logs)
-    _write_output_summary_md(out_dir)
+    # summary.md and key_* outputs are disabled.
     _echo(format_elapsed("[all] Elapsed for Whole Pipeline", time_start))
 
 

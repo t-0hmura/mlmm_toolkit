@@ -15,9 +15,6 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 出力の見方
 
-- `result_opt/summary.md`
-- `result_opt/key_opt.xyz`（または `key_opt.pdb`）
-- `result_opt/key_opt_trj.xyz`（軌跡がある場合）
 - `result_opt/final_geometry.xyz`
 - `result_opt/final_geometry.pdb`（入力が PDB の場合）
 - `result_opt/optimization_trj.xyz`（`--dump` 有効時）
@@ -105,12 +102,6 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 
 ```text
 out_dir/ (デフォルト:./result_opt/)
- summary.md # 主要成果物のインデックス
- key_opt.xyz # final_geometry.xyz へのショートカット
- key_opt.pdb # final_geometry.pdb へのショートカット（存在時）
- key_opt_trj.xyz # 最適化軌跡へのショートカット
- key_opt_traj.pdb # 最適化軌跡PDBへのショートカット（存在時）
- key_restart.yml # リスタートスナップショットへのショートカット（存在時）
  final_geometry.xyz # 最適化されたジオメトリ（常に書き出し）
  final_geometry.pdb # 入力が PDB の場合に XYZ から変換（B 因子アノテーション付き）
  optimization_trj.xyz # 軌跡（--dump または opt.dump: true の場合）

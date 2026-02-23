@@ -28,9 +28,6 @@ mlmm irc -i ts.pdb -q 0 -m 1 --config irc_min.yaml \
 
 ## 出力の見方
 
-- `result_irc/summary.md`
-- `result_irc/key_irc_trj.xyz`
-- `result_irc/key_irc_forward_trj.xyz`
 - `result_irc/finished_irc_trj.xyz`
 - `result_irc/forward_irc_trj.xyz`
 
@@ -114,11 +111,6 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```text
 out_dir/ (デフォルト:./result_irc/)
- summary.md # 主要成果物のインデックス
- key_irc_trj.xyz # finished_irc_trj.xyz へのショートカット
- key_irc_forward_trj.xyz # forward_irc_trj.xyz へのショートカット
- key_irc.pdb # finished_irc.pdb へのショートカット（存在時）
- key_irc_data.h5 # irc_data.h5 へのショートカット（存在時）
  <prefix>irc_data.h5 # irc.dump_every ステップごとに書き出される HDF5 ダンプ
  <prefix>finished_irc_trj.xyz # 完全 IRC 軌跡（XYZ/TRJ）
  <prefix>forward_irc_trj.xyz # 正方向パスセグメント

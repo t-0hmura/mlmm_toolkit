@@ -24,9 +24,6 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## Output checklist
 
-- `result_tsopt/summary.md`
-- `result_tsopt/key_ts.xyz` (or `key_ts.pdb`)
-- `result_tsopt/key_imag_mode_trj.xyz`
 - `result_tsopt/final_geometry.pdb` (or `final_geometry.xyz`)
 - `result_tsopt/vib/final_imag_mode_*_trj.xyz`
 - `result_tsopt/vib/final_imag_mode_*.pdb`
@@ -113,10 +110,6 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ## Outputs
 ```
 out_dir/ (default:./result_tsopt/)
-├── summary.md # Quick index of key outputs
-├── key_ts.xyz # Shortcut to final TS geometry (or key_ts.pdb)
-├── key_imag_mode_trj.xyz # Shortcut to a representative imaginary mode
-├── key_opt_trj.xyz # Shortcut to optimization trajectory (when available)
 ├── final_geometry.xyz # Always written
 ├── final_geometry.pdb # When the input was PDB
 ├── optimization_all_trj.xyz # Concatenated Dimer segments (when --dump)

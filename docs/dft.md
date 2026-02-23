@@ -21,8 +21,6 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## Output checklist
 
-- `result_dft/summary.md`
-- `result_dft/key_ml_region_with_linkH.xyz`, `result_dft/key_result.yaml` (symlink/copy shortcuts)
 - `result_dft/ml_region_with_linkH.xyz`
 - `result_dft/result.yaml`
 - Standard output block with ML(dft)/MM combined energy
@@ -98,9 +96,6 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q -1 -
 out_dir/ (default:./result_dft/)
 ├── ml_region_with_linkH.xyz # ML-region coordinates (with link-H) used for DFT
 ├── result.yaml # DFT + ML(dft)/MM energy summary, charges, spin densities
-├── summary.md # Quick guide to key outputs
-├── key_ml_region_with_linkH.xyz # Shortcut to ML region xyz (symlink/copy)
-├── key_result.yaml # Shortcut to result summary (symlink/copy)
 └── (stdout) # Pretty-printed configuration blocks and energies
 ```
 

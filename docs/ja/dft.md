@@ -21,8 +21,6 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 出力の見方
 
-- `result_dft/summary.md`
-- `result_dft/key_ml_region_with_linkH.xyz`, `result_dft/key_result.yaml`（symlink/copy ショートカット）
 - `result_dft/ml_region_with_linkH.xyz`
 - `result_dft/result.yaml`
 - 標準出力の ML(dft)/MM 合成エネルギー表示
@@ -104,9 +102,6 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q -1 -
 out_dir/ (デフォルト:./result_dft/)
 ├── ml_region_with_linkH.xyz # DFT に使用された ML 領域座標（リンク水素付き）
 ├── result.yaml # DFT + ML(dft)/MM エネルギーサマリー、電荷、スピン密度
-├── summary.md # 主要出力を追うためのクイックガイド
-├── key_ml_region_with_linkH.xyz # ML 領域 xyz へのショートカット（symlink/copy）
-├── key_result.yaml # 結果サマリーへのショートカット（symlink/copy）
 └── (stdout) # 整形された設定ブロックとエネルギーの出力
 ```
 

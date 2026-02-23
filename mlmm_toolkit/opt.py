@@ -102,88 +102,8 @@ def _link_or_copy_file(src: Path, dst: Path) -> bool:
 
 
 def _write_output_summary_md(out_dir: Path) -> None:
-    """Write summary.md and expose key outputs at out_dir root."""
-    try:
-        out_dir = out_dir.resolve()
-        if not out_dir.exists():
-            return
-
-        root_specs: List[Tuple[str, Sequence[str]]] = [
-            ("Optimized geometry (XYZ)", ["final_geometry.xyz"]),
-            ("Optimized geometry (PDB)", ["final_geometry.pdb"]),
-            ("Optimization trajectory", ["optimization_all_trj.xyz", "optimization_trj.xyz"]),
-            ("Optimization trajectory (PDB)", ["optimization_all.pdb", "optimization.pdb"]),
-            ("Restart snapshot", ["restart*.yml"]),
-        ]
-        root_lines: List[str] = []
-        for label, patterns in root_specs:
-            src = _first_existing_artifact(out_dir, patterns)
-            if src is None:
-                continue
-            rel = os.path.relpath(src, start=out_dir)
-            root_lines.append(f"- {label}: [`{rel}`]({rel})")
-
-        shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
-            ("key_opt.xyz", "Optimized geometry (XYZ)", ["final_geometry.xyz"]),
-            ("key_opt.pdb", "Optimized geometry (PDB)", ["final_geometry.pdb"]),
-            ("key_opt_trj.xyz", "Optimization trajectory", ["optimization_all_trj.xyz", "optimization_trj.xyz"]),
-            ("key_opt_traj.pdb", "Optimization trajectory (PDB)", ["optimization_all.pdb", "optimization.pdb"]),
-            ("key_restart.yml", "Restart snapshot", ["restart*.yml"]),
-        ]
-        shortcut_lines: List[str] = []
-        for name, label, patterns in shortcut_specs:
-            src = _first_existing_artifact(out_dir, patterns)
-            if src is None:
-                continue
-            dst = out_dir / name
-            try:
-                same = src.resolve() == dst.resolve()
-            except Exception:
-                same = False
-            if not same and not _link_or_copy_file(src, dst):
-                continue
-            src_rel = os.path.relpath(src, start=out_dir)
-            shortcut_lines.append(
-                f"- {label}: [`{name}`]({name}) (source: `{src_rel}`)"
-            )
-
-        lines: List[str] = [
-            "# Opt Summary",
-            "",
-            f"- Generated: `{time.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
-            f"- Output directory: `{out_dir}`",
-            "",
-            "## Primary Artifacts",
-        ]
-        if root_lines:
-            lines.extend(root_lines)
-        else:
-            lines.append("- No primary artifacts detected yet.")
-        lines.extend(
-            [
-                "",
-                "## Root Shortcuts",
-                "- `key_*` files are symlinks when possible, otherwise copied files.",
-            ]
-        )
-        if shortcut_lines:
-            lines.extend(shortcut_lines)
-        else:
-            lines.append("- No shortcuts were generated.")
-        lines.extend(
-            [
-                "",
-                "## Notes",
-                "- Start from `key_opt.xyz` (or `key_opt.pdb`) and inspect `key_opt_trj.xyz` when available.",
-            ]
-        )
-
-        summary_md = out_dir / "summary.md"
-        summary_md.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-        click.echo(f"[write] Wrote '{summary_md}'.")
-    except Exception as e:
-        click.echo(f"[write] WARNING: Failed to write summary.md: {e}", err=True)
-
+    """summary.md and key_* outputs are disabled."""
+    return None
 
 def _resolve_yaml_sources(
     config_yaml: Optional[Path],
@@ -1716,7 +1636,7 @@ def cli(
             frozen_layer_indices=frozen_layer_indices,
         )
 
-        _write_output_summary_md(out_dir_path)
+        # summary.md and key_* outputs are disabled.
         click.echo(format_elapsed("[time] Elapsed Time for Opt", time_start))
 
     except ZeroStepLength:

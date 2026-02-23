@@ -23,8 +23,6 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 ## 出力の見方
 
-- `result_path_opt/summary.md`
-- `result_path_opt/key_mep_trj.xyz` / `result_path_opt/key_ts.xyz`
 - `result_path_opt/final_geometries_trj.xyz`
 - `result_path_opt/hei.xyz`
 - `result_path_opt/hei.pdb`（PDB 変換が有効な場合）
@@ -109,10 +107,6 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 ```
 out_dir/ (デフォルト:./result_path_opt/)
-├─ summary.md # 主要成果物へ移動しやすいナビゲーションページ
-├─ key_mep_trj.xyz # 主要 MEP 軌跡へのショートカット（symlink/copy）
-├─ key_mep.pdb # 主要 MEP PDB へのショートカット（symlink/copy）
-├─ key_ts.xyz / key_ts.pdb # TS 候補スナップショットへのショートカット（symlink/copy）
 ├─ final_geometries_trj.xyz # コメント行にイメージごとのエネルギーを含む XYZ 軌跡
 ├─ final_geometries.pdb #_trj.xyz と同じだが参照 PDB 順序にマップ
 ├─ hei.xyz # 最高エネルギーイメージ（XYZ、常に書き出し）
