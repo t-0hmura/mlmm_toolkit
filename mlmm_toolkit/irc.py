@@ -161,6 +161,120 @@ def _write_output_summary_md(out_dir: Path) -> None:
     """summary.md and key_* outputs are disabled."""
     return None
 
+# --------------------------
+# CLI
+# --------------------------
+
+@click.command(
+    help="Run an IRC calculation with EulerPC. Only the documented CLI options are accepted; all other settings come from YAML.",
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+@click.option(
+    "-i", "--input",
+    "input_path",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    required=True,
+    help="Input structure file (.pdb, .xyz, _trj.xyz, etc.).",
+)
+@click.option(
+    "--real-parm7",
+    "real_parm7",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    required=False,
+    help="Amber parm7 topology for the whole enzyme (MM region). "
+         "If omitted, must be provided in YAML as calc.real_parm7.",
+)
+@click.option(
+    "--model-pdb",
+    "model_pdb",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    required=False,
+    help="PDB defining atoms belonging to the ML region. Optional when --detect-layer is enabled.",
+)
+@click.option(
+    "--model-indices",
+    "model_indices_str",
+    type=str,
+    default=None,
+    show_default=False,
+    help="Comma-separated atom indices for the ML region (ranges allowed like 1-5). "
+         "Used when --model-pdb is omitted.",
+)
+@click.option(
+    "--model-indices-one-based/--model-indices-zero-based",
+    "model_indices_one_based",
+    default=True,
+    show_default=True,
+    help="Interpret --model-indices as 1-based (default) or 0-based.",
+)
+@click.option(
+    "--detect-layer/--no-detect-layer",
+    "detect_layer",
+    default=True,
+    show_default=True,
+    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+         "If disabled, you must provide --model-pdb or --model-indices.",
+)
+@click.option("-q", "--charge", type=int, default=None, show_default=False, help="Total charge; overrides calc.charge from YAML.")
+@click.option(
+    "-m",
+    "--multiplicity",
+    "spin",
+    type=int,
+    default=None,
+    show_default=False,
+    help="Spin multiplicity (2S+1); overrides calc.spin from YAML.",
+)
+@click.option("--max-cycles", type=int, default=None, help="Maximum number of IRC steps; overrides irc.max_cycles from YAML.")
+@click.option("--step-size", type=float, default=None, help="Step length in mass-weighted coordinates; overrides irc.step_length from YAML.")
+@click.option("--root", type=int, default=None, help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
+@click.option(
+    "--forward/--no-forward",
+    "forward",
+    default=None,
+    help="Run the forward IRC; overrides irc.forward from YAML.",
+)
+@click.option(
+    "--backward/--no-backward",
+    "backward",
+    default=None,
+    help="Run the backward IRC; overrides irc.backward from YAML.",
+)
+@click.option("--out-dir", type=str, default="./result_irc/", show_default=True, help="Output directory; overrides irc.out_dir from YAML.")
+@click.option(
+    "--hessian-calc-mode",
+    type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
+    default=None,
+    help="How UMA builds the Hessian (Analytical or FiniteDifference); overrides calc.hessian_calc_mode from YAML.",
+)
+@click.option(
+    "--config",
+    "config_yaml",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Base YAML configuration file applied before explicit CLI options.",
+)
+@click.option(
+    "--show-config/--no-show-config",
+    "show_config",
+    default=False,
+    show_default=True,
+    help="Print resolved configuration and continue execution.",
+)
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    default=False,
+    show_default=True,
+    help="Validate options and print the execution plan without running IRC.",
+)
+@click.option(
+    "--ref-pdb",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Reference PDB topology to use when --input is XYZ (keeps XYZ coordinates).",
+)
+@click.pass_context
 def cli(
     ctx: click.Context,
     input_path: Path,
