@@ -25,6 +25,14 @@ dist/
 test-reports/
 .coverage
 
+# Sphinx documentation
+docs/_build/
+docs/_static/*.css.map
+docs/_static/*.js.map
+docs/_autosummary/
+docs/.myst_cache/
+docs/.ipynb_checkpoints/
+
 *.bak
 *.swp
 *.tmp
