@@ -38,7 +38,7 @@ Options:
                                   True]
   --add-linkH BOOLEAN             Add link hydrogens for severed bonds (carbon-
                                   only) in pockets.  [default: False]
-  --selected_resn TEXT            Force-include residues (comma/space separated;
+  --selected-resn TEXT            Force-include residues (comma/space separated;
                                   chain/insertion codes allowed).  [default: ""]
   --ligand-charge TEXT            Either a total charge (number) to distribute
                                   across unknown residues or a mapping like

@@ -37,6 +37,41 @@ def _iter_links(path: Path) -> list[tuple[int, str]]:
     return links
 
 
+def _iter_toctree_targets(path: Path) -> list[tuple[int, str]]:
+    targets: list[tuple[int, str]] = []
+    in_toctree = False
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            marker = stripped[3:].strip().lower()
+            if not in_toctree and marker.startswith("{toctree}"):
+                in_toctree = True
+                continue
+            if in_toctree:
+                in_toctree = False
+            continue
+        if not in_toctree:
+            continue
+        if not stripped or stripped.startswith(":"):
+            continue
+        targets.append((lineno, stripped.split()[0]))
+    return targets
+
+
+def _resolve_doc_target(path: Path, target: str) -> Path | None:
+    if not target or target.startswith(EXTERNAL_PREFIXES) or target.startswith("#"):
+        return None
+    if "*" in target:
+        return None
+    base = (path.parent / target).resolve()
+    if base.suffix:
+        return base
+    for candidate in (base.with_suffix(".md"), base.with_suffix(".rst"), base):
+        if candidate.exists():
+            return candidate
+    return base.with_suffix(".md")
+
+
 def _check_path(path: Path, errors: list[str]) -> None:
     for lineno, target in _iter_links(path):
         if not target or target.startswith(EXTERNAL_PREFIXES):
@@ -50,6 +85,15 @@ def _check_path(path: Path, errors: list[str]) -> None:
         if not resolved.exists():
             errors.append(
                 f"{path.relative_to(REPO_ROOT)}:{lineno}: broken local link -> {target}"
+            )
+
+    for lineno, target in _iter_toctree_targets(path):
+        resolved = _resolve_doc_target(path, target)
+        if resolved is None:
+            continue
+        if not resolved.exists():
+            errors.append(
+                f"{path.relative_to(REPO_ROOT)}:{lineno}: broken toctree target -> {target}"
             )
 
 

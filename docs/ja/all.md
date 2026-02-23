@@ -94,7 +94,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
  - 任意で `--ligand-charge` を総数値（分配）またはマッピング（例: `GPP:-3,MMT:-1`）として提供します。
  - 抽出器は入力ごとのポケット PDB を `<out-dir>/pockets/` に書き出します。
  - 抽出器の**最初のモデルのポケット総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
- - 追加の抽出トグル: `--radius`、`--radius-het2het`、`--include-H2O/--no-include-H2O`、`--exclude-backbone/--no-exclude-backbone`、`--add-linkH/--no-add-linkH`、`--selected_resn`、`--verbose/--no-verbose`。
+ - 追加の抽出トグル: `--radius`、`--radius-het2het`、`--include-H2O/--no-include-H2O`、`--exclude-backbone/--no-exclude-backbone`、`--add-linkH/--no-add-linkH`、`--selected-resn`、`--verbose/--no-verbose`。
 
 2. **ML/MM 準備**
  - 最初のポケットを `<out-dir>/ml_region.pdb` として `--model-pdb` に使用します。リンク水素をこの定義から除外したい場合は、抽出時に `--no-add-linkH`（デフォルト）を保持します。
@@ -145,7 +145,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--include-H2O/--no-include-H2O` | 水分子を含める。 | 抽出器デフォルト |
 | `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去。 | 抽出器デフォルト |
 | `--add-linkH/--no-add-linkH` | 切断結合にリンク水素を付加。 | 抽出器デフォルト |
-| `--selected_resn TEXT` | 強制包含する残基。 | `""` |
+| `--selected-resn TEXT` | 強制包含する残基。 | `""` |
 | `--verbose/--no-verbose` | INFO レベルの抽出器ログを有効化。 | 抽出器デフォルト |
 
 ### MM 準備オプション

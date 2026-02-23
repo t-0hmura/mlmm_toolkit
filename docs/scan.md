@@ -9,7 +9,7 @@
 - **Input:** One structure + `--spec scan.yaml` (recommended), or one/more `--scan-lists` literals (each literal = one stage).
 - **Defaults:** LBFGS optimizer, `--preopt`, `--endopt`, `--max-step-size 0.20` A.
 - **Outputs:** Per-stage `result.xyz` (+ optional `.pdb`), and optional concatenated trajectories when `--dump`.
-- **Note:** Prefer `--spec` to avoid shell-quoting issues. `--scan-lists` is still supported as.
+- **Note:** Prefer `--spec` to avoid shell-quoting issues. `--scan-lists` is still supported.
 
 `mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples FAIR-Chem UMA and hessian_ff.
 
@@ -69,7 +69,7 @@ YAML
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed
 
-# : Python literal
+# Alternative: Python literal
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,2.20)]"
 

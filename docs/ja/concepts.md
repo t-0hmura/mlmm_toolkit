@@ -183,8 +183,8 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 | `define-layer` | 3 層 ML/MM 領域定義 | [define_layer.md](define_layer.md) |
 | `path-search` | 再帰的 MEP 探索 | [path_search.md](path_search.md) |
 | `tsopt` | TS 最適化 | [tsopt.md](tsopt.md) |
-| `oniom-gaussian` | Gaussian ONIOM 入力生成 | [oniom_export.md](oniom_export.md) |
-| `oniom-orca` | ORCA QM/MM 入力生成 | [oniom_export.md](oniom_export.md) |
+| `oniom-gaussian` | Gaussian ONIOM 入力生成 | [oniom_gaussian.md](oniom_gaussian.md) |
+| `oniom-orca` | ORCA QM/MM 入力生成 | [oniom_orca.md](oniom_orca.md) |
 
 ### リファレンス
 - [YAML リファレンス](yaml_reference.md) -- 全オプションの YAML 設定

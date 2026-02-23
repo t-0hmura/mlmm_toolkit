@@ -340,8 +340,8 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 | `dft` | DFT 一点計算 | [dft](dft.md) |
 | `trj2fig` | エネルギープロファイルプロット | [trj2fig](trj2fig.md) |
 | `energy-diagram` | 数値系列から状態エネルギー図を描画 | [energy-diagram](energy_diagram.md) |
-| `oniom-gaussian` | Gaussian ONIOM 入力生成 | [oniom_export](oniom_export.md) |
-| `oniom-orca` | ORCA QM/MM 入力生成 | [oniom_export](oniom_export.md) |
+| `oniom-gaussian` | Gaussian ONIOM 入力生成 | [oniom_gaussian](oniom_gaussian.md) |
+| `oniom-orca` | ORCA QM/MM 入力生成 | [oniom_orca](oniom_orca.md) |
 
 ---
 

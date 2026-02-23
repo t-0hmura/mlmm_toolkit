@@ -13,7 +13,7 @@
 
 `mlmm mm-parm` は PDB から Amber トポロジー/座標ファイルを生成します。入力 PDB はデフォルトでは構造修正なしにそのまま使用されます。不明な残基は antechamber（GAFF2、AM1-BCC 電荷）と parmchk2 で自動的にパラメータ化されます。ジスルフィド結合は SG-SG（または S-S）距離が 2.3 A 以内であることから幾何学的に推定されます。非標準アミノ酸（選択された力場で認識されない N/CA/C を含む残基）は自動処理**されません** -- 手動でパラメータ化するようメッセージを表示してビルドを中断します。
 
-`--add-h` の場合、指定された `--pH` で PDBFixer を使用して tleap 処理前に水素が付加されます。他の構造修正は行われません。`--ff-set ff14SB` を使用すると、力場は ff14SB（タンパク質）+ TIP3P（水）（+ phosaa14SB）に切り替わります。
+`--add-h` の場合、指定された `--ph` で PDBFixer を使用して tleap 処理前に水素が付加されます。他の構造修正は行われません。`--ff-set ff14SB` を使用すると、力場は ff14SB（タンパク質）+ TIP3P（水）（+ phosaa14SB）に切り替わります。
 
 ## 使用法
 
@@ -24,7 +24,7 @@ mlmm mm-parm -i INPUT.pdb [--out-prefix PREFIX] \
  [--allow-nonstandard-aa] \
  [--keep-temp] \
  [--add-ter/--no-add-ter] \
- [--add-h/--no-add-h] [--pH 7.0] \
+ [--add-h/--no-add-h] [--ph 7.0] \
  [--ff-set ff19SB|ff14SB]
 ```
 
@@ -33,7 +33,7 @@ mlmm mm-parm -i INPUT.pdb [--out-prefix PREFIX] \
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
  --ligand-charge "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
- --add-ter --ff-set ff19SB --add-h --pH 7.0
+ --add-ter --ff-set ff19SB --add-h --ph 7.0
 ```
 
 ## 説明
@@ -79,8 +79,8 @@ LEaP が不明な残基を報告した場合、antechamber（GAFF2、AM1-BCC 電
 | `--allow-nonstandard-aa` | 非標準アミノ酸様残基（N/CA/C を含む）の antechamber パラメータ化を許可。 | `False` |
 | `--keep-temp` | 作業ディレクトリの中間ファイル/ログを保持（デバッグ用）。 | `False` |
 | `--add-ter/--no-add-ter` | リガンド/水/イオンブロックの前後に TER を挿入。 | `True` |
-| `--add-h/--no-add-h` | PDBFixer で `--pH` に基づいて水素を付加。 | `False` |
-| `--pH FLOAT` | PDBFixer の水素付加用 pH（`--add-h` の場合のみ使用）。 | `7.0` |
+| `--add-h/--no-add-h` | PDBFixer で `--ph` に基づいて水素を付加。 | `False` |
+| `--ph FLOAT` | PDBFixer の水素付加用 pH（`--add-h` の場合のみ使用）。 | `7.0` |
 | `--ff-set {ff19SB\|ff14SB}` | 力場セット: ff19SB（デフォルト）または ff14SB。 | `ff19SB` |
 
 ## 出力

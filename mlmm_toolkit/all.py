@@ -279,7 +279,7 @@ def _build_mm_parm7(
     ligand_mult_expr: Optional[str],
     out_dir: Path,
     ff_set: str,
-    add_TER: bool,
+    add_ter: bool,
     keep_temp: bool,
     allow_nonstandard_aa: bool,
 ) -> Tuple[Path, Path]:
@@ -294,8 +294,8 @@ def _build_mm_parm7(
         ligand_mult=_mm_mult_mapping(ligand_mult_expr),
         allow_nonstandard_aa=bool(allow_nonstandard_aa),
         keep_temp=bool(keep_temp),
-        add_TER=bool(add_TER),
-        add_H=False,
+        add_ter=bool(add_ter),
+        add_h=False,
         ph=7.0,
         ff_set=str(ff_set),
         out_prefix_given=True,
@@ -471,7 +471,7 @@ def _convert_scan_lists_to_pocket_indices(
         raise click.BadParameter(
             f"--scan-lists #{stage_idx} tuple #{tuple_idx} ({side_label}) references atom index {idx_one_based} "
             f"(key {msg_key}) which is not present in the pocket after extraction. "
-            "Increase extraction coverage (e.g., --radius/--radius-het2het, --selected_resn, or set --exclude-backbone False), "
+            "Increase extraction coverage (e.g., --radius/--radius-het2het, --selected-resn, or set --exclude-backbone False), "
             "or choose atoms that survive in the pocket."
         )
 
@@ -1239,7 +1239,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Remove backbone atoms on non‑substrate amino acids (with PRO/HYP safeguards).")
 @click.option("--add-linkH", "add_linkh", type=click.BOOL, default=False, show_default=True,
               help="Add link hydrogens for severed bonds (carbon-only) in pockets.")
-@click.option("--selected_resn", type=str, default="", show_default=True,
+@click.option("--selected-resn", type=str, default="", show_default=True,
               help="Force-include residues (comma/space separated; chain/insertion codes allowed).")
 @click.option("--ligand-charge", type=str, default=None,
               help=("Either a total charge (number) to distribute across unknown residues "
@@ -1674,7 +1674,7 @@ def cli(
         ligand_mult_expr=mm_ligand_mult,
         out_dir=mm_dir,
         ff_set=mm_ff_set,
-        add_TER=mm_add_ter,
+        add_ter=mm_add_ter,
         keep_temp=mm_keep_temp,
         allow_nonstandard_aa=mm_allow_nonstandard_aa,
     )

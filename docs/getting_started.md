@@ -444,8 +444,8 @@ Most users will primarily call `mlmm all`. The CLI also exposes individual subco
 | `irc` | IRC calculation | [irc](irc.md) |
 | `freq` | Vibrational analysis | [freq](freq.md) |
 | `dft` | Single-point DFT | [dft](dft.md) |
-| `oniom-gaussian` | Export to Gaussian ONIOM format | [oniom_export](oniom_export.md) |
-| `oniom-orca` | Export to ORCA ONIOM format | [oniom_export](oniom_export.md) |
+| `oniom-gaussian` | Export to Gaussian ONIOM format | [oniom_gaussian](oniom_gaussian.md) |
+| `oniom-orca` | Export to ORCA QM/MM format | [oniom_orca](oniom_orca.md) |
 | `trj2fig` | Plot energy profiles | [trj2fig](trj2fig.md) |
 | `energy-diagram` | Draw state energy diagram from numeric values | [energy-diagram](energy_diagram.md) |
 | `add-elem-info` | Repair PDB element columns | [add_elem_info](add_elem_info.md) |

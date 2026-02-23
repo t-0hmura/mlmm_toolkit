@@ -13,7 +13,7 @@
 
 `mlmm mm-parm` generates Amber topology/coordinate files from a PDB. The input PDB is used without structural fixing by default. Unknown residues are automatically parameterized with antechamber (GAFF2, AM1-BCC charges) and parmchk2. Disulfide bonds are inferred geometrically from SG-SG (or S-S) distances within 2.3 A. Nonstandard amino acids (residues containing N/CA/C that are not recognized by the selected force field) are **not** handled automatically -- the build aborts with a message asking you to parameterize them manually.
 
-When `--add-h`, hydrogens are added at the specified `--pH` using PDBFixer before tleap processing. No other structural fixing is performed. With `--ff-set ff14SB`, the force field switches to ff14SB (proteins) + TIP3P (water) (+ phosaa14SB).
+When `--add-h`, hydrogens are added at the specified `--ph` using PDBFixer before tleap processing. No other structural fixing is performed. With `--ff-set ff14SB`, the force field switches to ff14SB (proteins) + TIP3P (water) (+ phosaa14SB).
 
 ## Usage
 ```bash
@@ -23,7 +23,7 @@ mlmm mm-parm -i INPUT.pdb [--out-prefix PREFIX] \
  [--allow-nonstandard-aa] \
  [--keep-temp] \
  [--add-ter/--no-add-ter] \
- [--add-h/--no-add-h] [--pH 7.0] \
+ [--add-h/--no-add-h] [--ph 7.0] \
  [--ff-set ff19SB|ff14SB]
 ```
 
@@ -31,7 +31,7 @@ mlmm mm-parm -i INPUT.pdb [--out-prefix PREFIX] \
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
  --ligand-charge "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
- --add-ter --ff-set ff19SB --add-h --pH 7.0
+ --add-ter --ff-set ff19SB --add-h --ph 7.0
 ```
 
 ## Description
@@ -70,8 +70,8 @@ Even if the build fails, when `--add-h` and hydrogen addition succeeded, the hyd
 | `--allow-nonstandard-aa` | Allow antechamber parameterization for amino-acid-like modified residues (N/CA/C present). | `False` |
 | `--keep-temp` | Keep intermediate files/logs in a working directory (for debugging). | `False` |
 | `--add-ter/--no-add-ter` | Insert TER before/after ligand/water/ion blocks. | `True` |
-| `--add-h/--no-add-h` | Add hydrogens at `--pH` using PDBFixer. | `False` |
-| `--pH FLOAT` | pH for PDBFixer hydrogen addition (used only with `--add-h`). | `7.0` |
+| `--add-h/--no-add-h` | Add hydrogens at `--ph` using PDBFixer. | `False` |
+| `--ph FLOAT` | pH for PDBFixer hydrogen addition (used only with `--add-h`). | `7.0` |
 | `--ff-set {ff19SB\|ff14SB}` | Force field set: ff19SB (default) or ff14SB. | `ff19SB` |
 
 ## Outputs

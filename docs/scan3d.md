@@ -54,7 +54,7 @@ YAML
 mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan3d.yaml --print-parsed
 
-# : Python literal
+# Alternative: Python literal
 mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]"
 

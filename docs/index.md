@@ -49,7 +49,8 @@ freq
 irc
 dft
 trj2fig
-oniom_export
+oniom_gaussian
+oniom_orca
 fix_altloc
 energy_diagram
 ja/all
@@ -69,7 +70,8 @@ ja/freq
 ja/irc
 ja/dft
 ja/trj2fig
-ja/oniom_export
+ja/oniom_gaussian
+ja/oniom_orca
 ja/fix_altloc
 ja/energy_diagram
 ```
@@ -117,7 +119,8 @@ ja/index
 | Search for minimum energy path | `mlmm path-search` | [path_search.md](path_search.md) |
 | Run IRC from a transition state | `mlmm irc` | [irc.md](irc.md) |
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Export to Gaussian/ORCA ONIOM | `mlmm oniom-gaussian` / `oniom-orca` | [oniom_export.md](oniom_export.md) |
+| Export to Gaussian ONIOM | `mlmm oniom-gaussian` | [oniom_gaussian.md](oniom_gaussian.md) |
+| Export to ORCA QM/MM | `mlmm oniom-orca` | [oniom_orca.md](oniom_orca.md) |
 | Follow worked tutorials | -- | [Tutorial](getting_started.md) |
 | Diagnose failures by symptom | -- | [Common Error Recipes](recipes_common_errors.md) |
 | Understand the big picture (concepts & terms) | -- | [Concepts & Workflow](concepts.md) |
@@ -184,8 +187,8 @@ ja/index
 ### Export
 | Subcommand | Description |
 |------------|-------------|
-| [`oniom-gaussian`](oniom_export.md) | Export to Gaussian ONIOM format |
-| [`oniom-orca`](oniom_export.md) | Export to ORCA ONIOM format |
+| [`oniom-gaussian`](oniom_gaussian.md) | Export to Gaussian ONIOM format |
+| [`oniom-orca`](oniom_orca.md) | Export to ORCA QM/MM format |
 
 ---
 

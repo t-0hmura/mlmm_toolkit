@@ -11,8 +11,8 @@ Usage: mlmm irc [OPTIONS]
 Options:
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Input structure file (.pdb, .xyz, _trj.xyz, etc.).
-                                  [required]
+  -i, --input FILE                Input structure file (.pdb, .xyz, _trj.xyz,
+                                  etc.).  [required]
   --real-parm7 FILE               Amber parm7 topology for the whole enzyme (MM
                                   region). If omitted, must be provided in YAML
                                   as calc.real_parm7.

@@ -41,7 +41,8 @@ freq
 irc
 dft
 trj2fig
-oniom_export
+oniom_gaussian
+oniom_orca
 fix_altloc
 energy_diagram
 ```
@@ -76,7 +77,8 @@ glossary
 | 最小エネルギー経路を探索 | `mlmm path-search` | [path_search.md](path_search.md) |
 | 遷移状態からIRCを実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Gaussian/ORCA ONIOM入力を生成 | `mlmm oniom-gaussian` / `oniom-orca` | [oniom_export.md](oniom_export.md) |
+| Gaussian ONIOM 入力を生成 | `mlmm oniom-gaussian` | [oniom_gaussian.md](oniom_gaussian.md) |
+| ORCA QM/MM 入力を生成 | `mlmm oniom-orca` | [oniom_orca.md](oniom_orca.md) |
 | 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes_common_errors.md) |
 | 全体像（概念・用語）の把握 | -- | [概念とワークフロー](concepts.md) |
 | よくあるエラーの解決 | -- | [トラブルシューティング](troubleshooting.md) |
@@ -140,8 +142,8 @@ glossary
 #### エクスポート
 | サブコマンド | 説明 |
 |---------|------|
-| [`oniom-gaussian`](oniom_export.md) | Amber parm7 から Gaussian ONIOM 入力を生成 |
-| [`oniom-orca`](oniom_export.md) | Amber parm7 から ORCA QM/MM 入力を生成 |
+| [`oniom-gaussian`](oniom_gaussian.md) | Amber parm7 から Gaussian ONIOM 入力を生成 |
+| [`oniom-orca`](oniom_orca.md) | Amber parm7 から ORCA QM/MM 入力を生成 |
 
 ### 設定・リファレンス
 

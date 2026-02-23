@@ -14,10 +14,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CLI_MODULE = "mlmm_toolkit"
-DEFAULT_TOY_FIXTURE = Path("/data2/tohmura/mlmm_workspace/mlmm_test/toy")
 TIMEOUT_ENV = "MLMM_DUMP_CASE_TIMEOUT_SEC"
 GENERIC_TIMEOUT_ENV = "DOCS_DUMP_CASE_TIMEOUT_SEC"
-DEFAULT_CASE_TIMEOUT_SEC = 300.0
+DEFAULT_CASE_TIMEOUT_SEC = 900.0
 
 
 @dataclass(frozen=True)
@@ -115,7 +114,7 @@ def _resolve_fixture() -> Fixture | None:
     env_dir = os.environ.get("MLMM_DUMP_FIXTURE_DIR")
     if env_dir:
         candidates.append(Path(env_dir).expanduser())
-    candidates.append(DEFAULT_TOY_FIXTURE)
+    # Prefer repository-contained fixture to avoid machine-specific paths.
     candidates.append(REPO_ROOT / "hessian_ff" / "tests" / "data" / "small")
 
     for base in candidates:
@@ -155,7 +154,7 @@ def main() -> int:
     if fixture is None:
         print(
             "[dump-smoke] skipped: no fixture found. "
-            "Set MLMM_DUMP_FIXTURE_DIR or provide mlmm_test toy inputs."
+            "Set MLMM_DUMP_FIXTURE_DIR or provide hessian_ff/tests/data/small inputs."
         )
         return 0
 

@@ -96,7 +96,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
  - Optionally provide `--ligand-charge` as a total number (distributed) or a mapping (e.g., `GPP:-3,MMT:-1`).
  - The extractor writes per-input pocket PDBs under `<out-dir>/pockets/`.
  - The extractor's **first-model total pocket charge** is used as the total charge in later steps, cast to the nearest integer with a console note if rounding occurs.
- - Additional extractor toggles: `--radius`, `--radius-het2het`, `--include-H2O/--no-include-H2O`, `--exclude-backbone/--no-exclude-backbone`, `--add-linkH/--no-add-linkH`, `--selected_resn`, `--verbose/--no-verbose`.
+ - Additional extractor toggles: `--radius`, `--radius-het2het`, `--include-H2O/--no-include-H2O`, `--exclude-backbone/--no-exclude-backbone`, `--add-linkH/--no-add-linkH`, `--selected-resn`, `--verbose/--no-verbose`.
 
 2. **ML/MM preparation**
  - Use the first pocket as `<out-dir>/ml_region.pdb` for `--model-pdb`. Keep `--no-add-linkH` (the default) during extraction if you prefer to omit link hydrogens from this definition.
@@ -146,7 +146,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--include-H2O/--no-include-H2O` | Include water molecules. | Extractor default |
 | `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | Extractor default |
 | `--add-linkH/--no-add-linkH` | Add link hydrogens for severed bonds. | Extractor default |
-| `--selected_resn TEXT` | Residues to force include. | `""` |
+| `--selected-resn TEXT` | Residues to force include. | `""` |
 | `--verbose/--no-verbose` | Enable INFO-level extractor logging. | Extractor default |
 
 ### MM Preparation Options

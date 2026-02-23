@@ -134,7 +134,7 @@ HINT_MESSAGE = (
     "[HINT] When the build fails, please check:\n"
     "  - TER records are present between protein chains in the input PDB.\n"
     "  - Ligand formal charges and spin multiplicities (defaults: 0 and 1) are set correctly via --ligand-charge/--ligand-mult.\n"
-    "  - Hydrogens have been correctly added to the ligand (e.g. with --add-h/--pH).\n"
+    "  - Hydrogens have been correctly added to the ligand (e.g. with --add-h/--ph).\n"
 )
 
 # ff19SB/OPC3 + nucleic/lipid/GLYCAM + GAFF2
@@ -590,7 +590,7 @@ def ambertools_route(
     keep_temp: bool,
     tmpdir: Path,
     ff_set: str,
-    add_TER: bool,
+    add_ter: bool,
 ) -> Tuple[Path, Path]:
     """
     AmberTools route:
@@ -611,7 +611,7 @@ def ambertools_route(
 
     # PDB as-is, optional TER insertion
     fixed_pdb = copy_pdb_no_fix(pdb, tmpdir)
-    if add_TER:
+    if add_ter:
         special_resnames: Set[str] = set(ligand_charge.keys()) | set(WATER_RES) | set(ION.keys())
         fixed_pdb_with_ter = tmpdir / "fixed_withTER.pdb"
         insert_ter_around_special_residues(fixed_pdb, fixed_pdb_with_ter, special_resnames)
@@ -704,8 +704,8 @@ class Args:
     ligand_mult: Dict[str, int]
     allow_nonstandard_aa: bool
     keep_temp: bool
-    add_TER: bool
-    add_H: bool
+    add_ter: bool
+    add_h: bool
     ph: float
     ff_set: str  # "ff19SB" or "ff14SB"
     out_prefix_given: bool  # whether user explicitly provided --out-prefix
@@ -724,7 +724,7 @@ def run_pipeline(args: Args) -> None:
     if args.out_prefix_given:
         final_pdb_out = Path(f"{args.out_prefix}.pdb").resolve()
     else:
-        if args.add_H:
+        if args.add_h:
             final_pdb_out = Path(f"{Path(args.pdb).stem}_parm.pdb").resolve()
         else:
             final_pdb_out = None
@@ -746,7 +746,7 @@ def run_pipeline(args: Args) -> None:
 
         # Optional: add hydrogens via PDBFixer at specified pH
         prepared_pdb = local_pdb
-        if args.add_H:
+        if args.add_h:
             fixed_pdb = tmpdir_path / "input_withH.pdb"
             click.echo(f"[mm-parm] Adding hydrogens with PDBFixer at pH={args.ph:.2f} ...")
             try:
@@ -766,8 +766,8 @@ def run_pipeline(args: Args) -> None:
         try:
             click.echo("[mm-parm] AmberTools detected. Using tleap + GAFF2 (AM1-BCC).")
             click.echo(
-                f"[mm-parm] FF set: {args.ff_set} | add_TER: {args.add_TER} | "
-                f"add_H: {args.add_H} (pH={args.ph:.2f})"
+                f"[mm-parm] FF set: {args.ff_set} | add_ter: {args.add_ter} | "
+                f"add_h: {args.add_h} (pH={args.ph:.2f})"
             )
             parm7, rst7 = ambertools_route(
                 prepared_pdb,
@@ -778,7 +778,7 @@ def run_pipeline(args: Args) -> None:
                 args.keep_temp,
                 tmpdir_path,
                 ff_set=args.ff_set,
-                add_TER=args.add_TER,
+                add_ter=args.add_ter,
             )
         except Exception as e:
             # Fallback export of H-added PDB on failure
@@ -836,7 +836,7 @@ def run_pipeline(args: Args) -> None:
     "pdb",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="Input PDB file (used as-is; optional hydrogens via --add-h/--pH).",
+    help="Input PDB file (used as-is; optional hydrogens via --add-h/--ph).",
 )
 @click.option(
     "--out-prefix",
@@ -877,8 +877,7 @@ def run_pipeline(args: Args) -> None:
 )
 @click.option(
     "--add-ter/--no-add-ter",
-    "--add_TER/--no-add_TER",
-    "add_TER",
+    "add_ter",
     default=True,
     show_default=True,
     help=(
@@ -888,15 +887,13 @@ def run_pipeline(args: Args) -> None:
 )
 @click.option(
     "--add-h/--no-add-h",
-    "--add_H/--no-add_H",
-    "add_H",
+    "add_h",
     default=False,
     show_default=True,
-    help="Add hydrogens using PDBFixer at the specified --pH.",
+    help="Add hydrogens using PDBFixer at the specified --ph.",
 )
 @click.option(
     "--ph",
-    "--pH",
     "ph",
     type=float,
     default=7.0,
@@ -915,8 +912,8 @@ def cli(
     ligand_mult: Optional[str],
     allow_nonstandard_aa: bool,
     keep_temp: bool,
-    add_TER: bool,
-    add_H: bool,
+    add_ter: bool,
+    add_h: bool,
     ph: float,
     ff_set: str,
 ) -> None:
@@ -928,8 +925,8 @@ def cli(
         ligand_mult=parse_ligand_mult(ligand_mult),
         allow_nonstandard_aa=allow_nonstandard_aa,
         keep_temp=keep_temp,
-        add_TER=bool(add_TER),
-        add_H=bool(add_H),
+        add_ter=bool(add_ter),
+        add_h=bool(add_h),
         ph=ph,
         ff_set=ff_set,
         out_prefix_given=(out_prefix is not None),
