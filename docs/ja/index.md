@@ -179,19 +179,19 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
 ### TS 最適化を含む完全ワークフロー
 ```bash
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt --thermo --dft
+ --tsopt --thermo --dft
 ```
 
 ### 単一構造スキャンモード
 ```bash
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --spec scan.yaml --print-parsed
+ -q 0 --spec scan.yaml --print-parsed
 ```
 
 ### TS 最適化のみ
 ```bash
 mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt
+ --tsopt
 ```
 
 ---
@@ -218,10 +218,8 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 ```
 
 ### YAML 設定
-設定の多層適用には `--config` と `--override-yaml` を推奨します。
-（`--args-yaml` は `--override-yaml` の legacy alias として残っています。）
+
 ```bash
-mlmm all -i R.pdb P.pdb -c 'LIG' --config base.yaml --override-yaml override.yaml
 ```
 すべてのオプションについては [YAML リファレンス](yaml_reference.md) を参照してください。
 
@@ -232,22 +230,22 @@ mlmm all -i R.pdb P.pdb -c 'LIG' --config base.yaml --override-yaml override.yam
 典型的な `mlmm all` 実行の出力:
 ```
 result_all/
-├── ml_region.pdb              # ML 領域定義
-├── summary.log                # 人間が読めるサマリー
-├── summary.yaml               # 機械可読サマリー
-├── pockets/                   # 抽出されたクラスターモデル
-├── mm_parm/                   # AMBER トポロジファイル
-├── scan/                      # （オプション）スキャン結果
-├── path_search/               # MEP軌跡とダイアグラム
-│   ├── mep.trj               # MEP軌跡
-│   ├── mep.pdb               # PDB形式のMEP
-│   ├── mep_w_ref.pdb         # 全系とマージされたMEP
-│   └── seg_*/                 # セグメントごとの詳細
-└── path_search/post_seg_*/    # 後処理出力
-    ├── tsopt/                 # TS最適化結果
-    ├── irc/                   # IRC軌跡
-    ├── freq/                  # 振動モード
-    └── dft/                   # DFT結果
+├── ml_region.pdb # ML 領域定義
+├── summary.log # 人間が読めるサマリー
+├── summary.yaml # 機械可読サマリー
+├── pockets/ # 抽出されたクラスターモデル
+├── mm_parm/ # AMBER トポロジファイル
+├── scan/ # （オプション）スキャン結果
+├── path_search/ # MEP軌跡とダイアグラム
+│ ├── mep.trj # MEP軌跡
+│ ├── mep.pdb # PDB形式のMEP
+│ ├── mep_w_ref.pdb # 全系とマージされたMEP
+│ └── seg_*/ # セグメントごとの詳細
+└── path_search/post_seg_*/ # 後処理出力
+ ├── tsopt/ # TS最適化結果
+ ├── irc/ # IRC軌跡
+ ├── freq/ # 振動モード
+ └── dft/ # DFT結果
 ```
 
 ---

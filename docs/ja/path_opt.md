@@ -13,13 +13,12 @@
 
 `mlmm path-opt` は、ML/MM 計算機による PySisyphus `GrowingString` を使用して 2 つの酵素状態間の最小エネルギー経路を最適化します。ML/MM 計算機はリンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義され、Amber トポロジーは `--real-parm7` から取得され、両端点は全系座標を含む PDB として提供されます。
 
-設定は YAML（`geom`、`calc`/`mlmm`、`gs`、`opt`）から取得され、**defaults < config < 明示指定 CLI < override**（`--config` → `--override-yaml`）でマージされます。`--args-yaml` は `--override-yaml` の legacy alias です。`StringOptimizer.align` は無効のままです。代わりに、外部の Kabsch ベースのアライメント/精密化ルーチンが、経路成長前にすべてのイメージをアラインします（YAML/CLI からの凍結原子を尊重）。
 
 ## 最小例
 
 ```bash
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --out-dir ./result_path_opt
+ -q 0 --out-dir ./result_path_opt
 ```
 
 ## 出力の見方
@@ -36,28 +35,28 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 ```bash
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --preopt --preopt-max-cycles 20000 --out-dir ./result_path_opt_preopt
+ -q 0 --preopt --preopt-max-cycles 20000 --out-dir ./result_path_opt_preopt
 ```
 
 2. まずは高速に確認するため climb を無効化する。
 
 ```bash
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --no-climb --max-nodes 8 --out-dir ./result_path_opt_fast
+ -q 0 --no-climb --max-nodes 8 --out-dir ./result_path_opt_fast
 ```
 
 3. 凍結原子を指定し、ダンプを保存する。
 
 ```bash
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_path_opt_dump
+ -q 0 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_path_opt_dump
 ```
 
 ## 使用法
 
 ```bash
 mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
-              -q CHARGE [-m MULT] [options]
+ -q CHARGE [-m MULT] [options]
 ```
 
 ### 例
@@ -68,12 +67,11 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 # 凍結原子、ノード数増加、YAML 多層設定
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
-    --freeze-atoms "1,3,5,7" --max-nodes 10 --max-cycles 200 --dump --out-dir ./result_path_opt/ \
-    --config ./base.yaml --override-yaml ./override.yaml
+ --freeze-atoms "1,3,5,7" --max-nodes 10 --max-cycles 200 --dump --out-dir ./result_path_opt/ \
 
 # 端点の事前最適化付き
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
-    --preopt --preopt-max-cycles 20000
+ --preopt --preopt-max-cycles 20000
 ```
 
 ## ワークフロー
@@ -104,32 +102,29 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 | `--dump/--no-dump` | `out_dir` 内にオプティマイザー軌跡とリスタートをダンプ。 | `False` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_path_opt/` |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
-| `--override-yaml FILE` | 最後に適用される上書き YAML（YAML 最優先レイヤ）。 | _None_ |
-| `--args-yaml FILE` | `--override-yaml` の legacy alias。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。 | `False` |
 
 ## 出力
 
 ```
-out_dir/ (デフォルト: ./result_path_opt/)
-├─ summary.md                  # 主要成果物へ移動しやすいナビゲーションページ
-├─ key_mep.trj                 # 主要 MEP 軌跡へのショートカット（symlink/copy）
-├─ key_mep.pdb                 # 主要 MEP PDB へのショートカット（symlink/copy）
-├─ key_ts.xyz / key_ts.pdb     # TS 候補スナップショットへのショートカット（symlink/copy）
-├─ final_geometries.trj        # コメント行にイメージごとのエネルギーを含む XYZ 軌跡
-├─ final_geometries.pdb        # .trj と同じだが参照 PDB 順序にマップ
-├─ hei.xyz                     # 最高エネルギーイメージ（XYZ、常に書き出し）
-├─ hei.pdb                     # PDB 形式の HEI（参照 PDB が利用可能な場合）
-├─ align_refine/               # 外部アライメント/精密化の成果物
-├─ preopt/                     # 端点事前最適化出力（--preopt 時）
-└─ <optimizer dumps>           # --dump または opt.dump_restart > 0 の場合
+out_dir/ (デフォルト:./result_path_opt/)
+├─ summary.md # 主要成果物へ移動しやすいナビゲーションページ
+├─ key_mep.trj # 主要 MEP 軌跡へのショートカット（symlink/copy）
+├─ key_mep.pdb # 主要 MEP PDB へのショートカット（symlink/copy）
+├─ key_ts.xyz / key_ts.pdb # TS 候補スナップショットへのショートカット（symlink/copy）
+├─ final_geometries.trj # コメント行にイメージごとのエネルギーを含む XYZ 軌跡
+├─ final_geometries.pdb #.trj と同じだが参照 PDB 順序にマップ
+├─ hei.xyz # 最高エネルギーイメージ（XYZ、常に書き出し）
+├─ hei.pdb # PDB 形式の HEI（参照 PDB が利用可能な場合）
+├─ align_refine/ # 外部アライメント/精密化の成果物
+├─ preopt/ # 端点事前最適化出力（--preopt 時）
+└─ <optimizer dumps> # --dump または opt.dump_restart > 0 の場合
 ```
 
-## YAML 設定（`--config`, `--override-yaml`, `--args-yaml`）
 
 マージ順は **defaults < config < 明示指定 CLI < override** です。
-`--args-yaml` は `--override-yaml` の legacy alias として維持されています。
+
 
 ### セクション `geom`
 

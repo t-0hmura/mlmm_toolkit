@@ -4,13 +4,12 @@
 
 > **要約:** 再帰的 GSM セグメンテーションにより 2 つ以上の構造から連続した MEP を構築します。結合変化のある領域のみを自動的に精密化し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。
 
-`mlmm path-search` は、反応に沿って順序付けられた 2 つ以上の構造間の連続した最小エネルギー経路（MEP）を構築します。隣接する各ペアは ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用した Growing String Method（GSM）で処理されます。ML/MM 計算機は FAIR-Chem UMA と OpenMM をリンク原子なしで結合します。HEI+/-1 イメージは LBFGS で精密化され、共有結合変化が分析され、結合変化を示す領域のみが再帰します。キンク領域は線形補間と単一構造最適化に依存します。マルチ構造入力は、必要に応じて RMSD ブリッジングにより単一の MEP に統合されます。設定の優先順位は **defaults < config < 明示指定 CLI < override**（`--config` → `--override-yaml`）で、`--args-yaml` は legacy alias です。
 
 ## 最小例
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
-  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
+ --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
 ## 出力の見方
@@ -28,34 +27,33 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --real-parm7 real.parm7 \
-  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
+ --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
 2. ポケット軌跡をフルテンプレートへマージする。
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
-  --model-pdb ml_region.pdb -q 0 --ref-pdb holo_template.pdb \
-  --out-dir ./result_path_search_merge
+ --model-pdb ml_region.pdb -q 0 --ref-pdb holo_template.pdb \
+ --out-dir ./result_path_search_merge
 ```
 
 3. 事前最適化とアライメントを無効にして軽く試す。
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
-  --model-pdb ml_region.pdb -q 0 --no-pre-opt --no-align --max-nodes 8 \
-  --out-dir ./result_path_search_fast
+ --model-pdb ml_region.pdb -q 0 --no-pre-opt --no-align --max-nodes 8 \
+ --out-dir ./result_path_search_fast
 ```
 
 ## 使用法
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
-    --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
-    [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
-    [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
-    [--config FILE] [--override-yaml FILE] [--args-yaml FILE]
-    [--show-config/--no-show-config] [--dry-run/--no-dry-run]
+ --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
+ [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
+ [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
+ [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
 
 ### 例
@@ -63,13 +61,12 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 ```bash
 # ミニマルなポケットのみの 2 状態間 MEP
 mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
-    --model-pdb ml_region.pdb -q 0
+ --model-pdb ml_region.pdb -q 0
 
 # YAML 上書き、凍結原子、全系マージ出力付きマルチステップ経路
 mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
-    --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
-    --config base.yaml --override-yaml override.yaml \
-    --ref-pdb holo_template.pdb --out-dir ./run_ps
+ --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
+ --ref-pdb holo_template.pdb --out-dir ./run_ps
 ```
 
 ## ワークフロー
@@ -101,39 +98,36 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 | `--out-dir PATH` | 出力ディレクトリ。 | `./result_path_search/` |
 | `--ref-pdb PATH...` | 最終マージ用の完全テンプレート PDB。 | _None_ |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
-| `--override-yaml FILE` | 最後に適用される上書き YAML（YAML 最優先レイヤ）。 | _None_ |
-| `--args-yaml FILE` | `--override-yaml` の legacy alias。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。 | `False` |
 
 ## 出力
 
 ```text
-out_dir/ (デフォルト: ./result_path_search/)
-  summary.yaml                  # MEP レベルの実行サマリー（完全設定ダンプなし）
-  summary.log                   # 人間が読めるサマリー
-  summary.md                    # 主要成果物へ移動しやすいナビゲーションページ
-  key_mep.trj                   # 主要 MEP 軌跡へのショートカット（symlink/copy）
-  key_mep.pdb                   # 主要 MEP PDB へのショートカット（symlink/copy）
-  key_ts.xyz / key_ts.pdb       # TS 候補スナップショットへのショートカット（利用可能時）
-  key_mep_plot.png              # MEP プロファイルへのショートカット（利用可能時）
-  key_energy_diagram_MEP.png    # 状態エネルギーダイアグラムへのショートカット（利用可能時）
-  mep.trj                       # 最終 MEP（常に書き出し）
-  mep.pdb                       # 最終 MEP（参照テンプレート利用可能時は PDB）
-  mep_w_ref.pdb                 # 全系マージ MEP（--ref-pdb 必要）
-  mep_w_ref_seg_XX.pdb          # セグメントごとのマージ MEP（結合変化セグメント; --ref-pdb 必要）
-  mep_seg_XX.trj / mep_seg_XX.pdb  # ポケットのみのセグメント別経路
-  hei_seg_XX.xyz / hei_seg_XX.pdb  # ポケット HEI と結合変化セグメントごとのオプション PDB
-  hei_w_ref_seg_XX.pdb          # 結合変化セグメントごとのマージ HEI（--ref-pdb 必要）
-  mep_plot.png                  # イメージインデックスに対する Delta-E プロファイル（trj2fig より）
-  energy_diagram_MEP.png        # 反応物基準の状態レベルエネルギーダイアグラム（kcal/mol）
-  seg_000_*/                    # セグメントレベルの GSM と精密化成果物
+out_dir/ (デフォルト:./result_path_search/)
+ summary.yaml # MEP レベルの実行サマリー（完全設定ダンプなし）
+ summary.log # 人間が読めるサマリー
+ summary.md # 主要成果物へ移動しやすいナビゲーションページ
+ key_mep.trj # 主要 MEP 軌跡へのショートカット（symlink/copy）
+ key_mep.pdb # 主要 MEP PDB へのショートカット（symlink/copy）
+ key_ts.xyz / key_ts.pdb # TS 候補スナップショットへのショートカット（利用可能時）
+ key_mep_plot.png # MEP プロファイルへのショートカット（利用可能時）
+ key_energy_diagram_MEP.png # 状態エネルギーダイアグラムへのショートカット（利用可能時）
+ mep.trj # 最終 MEP（常に書き出し）
+ mep.pdb # 最終 MEP（参照テンプレート利用可能時は PDB）
+ mep_w_ref.pdb # 全系マージ MEP（--ref-pdb 必要）
+ mep_w_ref_seg_XX.pdb # セグメントごとのマージ MEP（結合変化セグメント; --ref-pdb 必要）
+ mep_seg_XX.trj / mep_seg_XX.pdb # ポケットのみのセグメント別経路
+ hei_seg_XX.xyz / hei_seg_XX.pdb # ポケット HEI と結合変化セグメントごとのオプション PDB
+ hei_w_ref_seg_XX.pdb # 結合変化セグメントごとのマージ HEI（--ref-pdb 必要）
+ mep_plot.png # イメージインデックスに対する Delta-E プロファイル（trj2fig より）
+ energy_diagram_MEP.png # 反応物基準の状態レベルエネルギーダイアグラム（kcal/mol）
+ seg_000_*/ # セグメントレベルの GSM と精密化成果物
 ```
 
-## YAML 設定（`--config`, `--override-yaml`, `--args-yaml`）
 
 マージ順は **defaults < config < 明示指定 CLI < override** です。
-`--args-yaml` は `--override-yaml` の legacy alias として維持されています。
+
 YAML ルートはマッピングでなければなりません。受け付けるセクション:
 
 - **`geom`** -- `coord_type`（デフォルト `"cart"`）、`freeze_atoms`（0 始まりインデックス）。
@@ -155,10 +149,10 @@ YAML ルートはマッピングでなければなりません。受け付ける
 - ノードと再帰: セグメント vs ブリッジのノードは `search.max_nodes_segment` と `search.max_nodes_bridge` で異なります。キンクは `search.kink_max_nodes`（デフォルト 3）の線形ノードを使用します。再帰深度は `search.max_depth`（デフォルト 10）で制限されます。
 - オプティマイザー: GSM は pysisyphus `GrowingString` + `StringOptimizer` を使用し、単一構造精密化は常に LBFGS を使用します。
 - `--align` での最終マージ規則: `--ref-pdb` が提供された場合、最初の参照 PDB がすべてのペアに使用されます。
-- コンソールには状態シーケンス（例: `R --> TS1 --> IM1 --> ... --> P`）とエネルギーダイアグラム構築に使用されるラベル/エネルギーが出力されます。
+- コンソールには状態シーケンス（例: `R --> TS1 --> IM1 -->... --> P`）とエネルギーダイアグラム構築に使用されるラベル/エネルギーが出力されます。
 - 実行後に `summary.md` が生成され、主要成果物と `key_*` 直下ショートカットを一覧できます。
 - `summary.log` は一部のフィールド欠落時でも生成可能です。内部で次のキーに既定値を補います:
-  `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`。
+ `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`。
 
 ---
 

@@ -4,13 +4,12 @@
 
 > **Summary:** Build a continuous MEP from two or more structures with recursive GSM segmentation. Automatically refines only regions with bond changes and exports the highest-energy image (HEI) as a TS candidate.
 
-`mlmm path-search` constructs a continuous minimum-energy path (MEP) between two or more structures ordered along a reaction. Each adjacent pair is processed by a Growing String Method (GSM) using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), which couples FAIR-Chem UMA with hessian_ff. The HEI+/-1 images are refined with LBFGS, covalent changes are analysed, and only regions exhibiting bond changes recurse; kink regions rely on linear interpolation plus single-structure optimizations. Multi-structure inputs are stitched into a single MEP with RMSD bridging when necessary. Configuration precedence is **defaults < config < explicit CLI < override** (`--config`, then `--override-yaml`; `--args-yaml` is a legacy alias).
 
 ## Minimal example
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
-  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
+ --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
 ## Output checklist
@@ -28,34 +27,33 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --real-parm7 real.parm7 \
-  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
+ --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
 2. Merge pocket trajectories back into a full template.
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
-  --model-pdb ml_region.pdb -q 0 --ref-pdb holo_template.pdb \
-  --out-dir ./result_path_search_merge
+ --model-pdb ml_region.pdb -q 0 --ref-pdb holo_template.pdb \
+ --out-dir ./result_path_search_merge
 ```
 
 3. Run a lighter pass without pre-optimization or alignment.
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
-  --model-pdb ml_region.pdb -q 0 --no-pre-opt --no-align --max-nodes 8 \
-  --out-dir ./result_path_search_fast
+ --model-pdb ml_region.pdb -q 0 --no-pre-opt --no-align --max-nodes 8 \
+ --out-dir ./result_path_search_fast
 ```
 
 ## Usage
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
-    --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
-    [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
-    [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
-    [--config FILE] [--override-yaml FILE] [--args-yaml FILE]
-    [--show-config/--no-show-config] [--dry-run/--no-dry-run]
+ --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
+ [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
+ [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
+ [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
 
 ### Examples
@@ -63,13 +61,12 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 ```bash
 # Minimal pocket-only MEP between two states
 mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
-    --model-pdb ml_region.pdb -q 0
+ --model-pdb ml_region.pdb -q 0
 
 # Multistep path with YAML overrides, frozen atoms, and merged full-system output
 mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
-    --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
-    --config base.yaml --override-yaml override.yaml \
-    --ref-pdb holo_template.pdb --out-dir ./run_ps
+ --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
+ --ref-pdb holo_template.pdb --out-dir ./run_ps
 ```
 
 ## Workflow
@@ -101,39 +98,35 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 | `--out-dir PATH` | Output directory. | `./result_path_search/` |
 | `--ref-pdb PATH...` | Full template PDB(s) for final merge. | _None_ |
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
-| `--override-yaml FILE` | Final YAML override layer (highest-priority YAML). | _None_ |
-| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layer metadata) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running path search. | `False` |
 
 ## Outputs
 
 ```text
-out_dir/ (default: ./result_path_search/)
-  summary.yaml                  # MEP-level run summary (no full settings dump)
-  summary.log                   # Human-readable summary
-  summary.md                    # Quick navigation page with key artifact links
-  key_mep.trj                   # Root shortcut to primary MEP trajectory (symlink/copy)
-  key_mep.pdb                   # Root shortcut to primary MEP PDB (symlink/copy)
-  key_ts.xyz / key_ts.pdb       # Root shortcuts to TS candidate snapshots (when available)
-  key_mep_plot.png              # Root shortcut to MEP profile plot (when available)
-  key_energy_diagram_MEP.png    # Root shortcut to state energy diagram (when available)
-  mep.trj                       # Final MEP (always written)
-  mep.pdb                       # Final MEP (PDB when ref template available)
-  mep_w_ref.pdb                 # Full-system merged MEP (requires --ref-pdb)
-  mep_w_ref_seg_XX.pdb          # Per-segment merged MEPs (bond-change segments; requires --ref-pdb)
-  mep_seg_XX.trj / mep_seg_XX.pdb  # Pocket-only per-segment paths
-  hei_seg_XX.xyz / hei_seg_XX.pdb  # Pocket HEI and optional PDB per bond-change segment
-  hei_w_ref_seg_XX.pdb          # Merged HEI per bond-change segment (requires --ref-pdb)
-  mep_plot.png                  # Delta-E profile vs image index (from trj2fig)
-  energy_diagram_MEP.png        # State-level energy diagram relative to the reactant (kcal/mol)
-  seg_000_*/                    # Segment-level GSM and refinement artefacts
+out_dir/ (default:./result_path_search/)
+ summary.yaml # MEP-level run summary (no full settings dump)
+ summary.log # Human-readable summary
+ summary.md # Quick navigation page with key artifact links
+ key_mep.trj # Root shortcut to primary MEP trajectory (symlink/copy)
+ key_mep.pdb # Root shortcut to primary MEP PDB (symlink/copy)
+ key_ts.xyz / key_ts.pdb # Root shortcuts to TS candidate snapshots (when available)
+ key_mep_plot.png # Root shortcut to MEP profile plot (when available)
+ key_energy_diagram_MEP.png # Root shortcut to state energy diagram (when available)
+ mep.trj # Final MEP (always written)
+ mep.pdb # Final MEP (PDB when ref template available)
+ mep_w_ref.pdb # Full-system merged MEP (requires --ref-pdb)
+ mep_w_ref_seg_XX.pdb # Per-segment merged MEPs (bond-change segments; requires --ref-pdb)
+ mep_seg_XX.trj / mep_seg_XX.pdb # Pocket-only per-segment paths
+ hei_seg_XX.xyz / hei_seg_XX.pdb # Pocket HEI and optional PDB per bond-change segment
+ hei_w_ref_seg_XX.pdb # Merged HEI per bond-change segment (requires --ref-pdb)
+ mep_plot.png # Delta-E profile vs image index (from trj2fig)
+ energy_diagram_MEP.png # State-level energy diagram relative to the reactant (kcal/mol)
+ seg_000_*/ # Segment-level GSM and refinement artefacts
 ```
 
-## YAML configuration (`--config`, `--override-yaml`, `--args-yaml`)
 
 Merge order is **defaults < config < explicit CLI < override**.
-`--args-yaml` is kept as a legacy alias of `--override-yaml`.
 The YAML root must be a mapping. Accepted sections:
 
 - **`geom`** -- `coord_type` (`"cart"` default), `freeze_atoms` (0-based indices).
@@ -155,10 +148,10 @@ The YAML root must be a mapping. Accepted sections:
 - Nodes and recursion: segment vs bridge nodes differ via `search.max_nodes_segment` and `search.max_nodes_bridge`. Kinks use `search.kink_max_nodes` (default 3) linear nodes. Recursion depth is capped by `search.max_depth` (default 10).
 - Optimizers: GSM employs pysisyphus `GrowingString` + `StringOptimizer`; single-structure refinements always use LBFGS.
 - Final merge rule with `--align`: when `--ref-pdb` is provided, the first reference PDB is used for all pairs.
-- Console output prints the state sequence (e.g., `R --> TS1 --> IM1 --> ... --> P`) plus the labels/energies used to build the energy diagram.
+- Console output prints the state sequence (e.g., `R --> TS1 --> IM1 -->... --> P`) plus the labels/energies used to build the energy diagram.
 - `summary.md` is generated after the run and points to the main artifacts plus `key_*` root shortcuts.
 - `summary.log` rendering is resilient to missing payload fields. Internally, defaults are applied for:
-  `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`.
+ `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`.
 
 ---
 

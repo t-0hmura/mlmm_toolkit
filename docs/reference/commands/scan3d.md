@@ -41,17 +41,17 @@ Options:
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
                                   layer.
-  --scan-lists, --scan-list TEXT  Python-like list with three quadruples: "[(i1,
+  --scan-lists TEXT               Python-like list with three quadruples: "[(i1,
                                   j1,low1,high1),(i2,j2,low2,high2),(i3,j3,low3,
                                   high3)]".
   --spec FILE                     YAML/JSON scan spec file (recommended). Use
-                                  this instead of --scan-list.
-  --one-based / --zero-based      Interpret (i,j) indices in --scan-list(s) as
+                                  this instead of --scan-lists.
+  --one-based / --zero-based      Interpret (i,j) indices in --scan-lists as
                                   1-based (default) or 0-based.  [default: one-
                                   based]
   --print-parsed / --no-print-parsed
                                   Print parsed scan targets after resolving
-                                  --spec/--scan-list.  [default: no-print-
+                                  --spec/--scan-lists.  [default: no-print-
                                   parsed]
   --max-step-size FLOAT           Maximum spacing between successive distance
                                   targets [Å].  [default: 0.2]
@@ -67,10 +67,6 @@ Options:
                                   u_vtight|baker|never).
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
-  --override-yaml FILE            Final YAML override file (highest-priority
-                                  YAML layer).
-  --args-yaml FILE                [legacy] Alias of --override-yaml; kept for
-                                  backward compatibility.
   --ref-pdb FILE                  Reference PDB topology to use when --input is
                                   XYZ (keeps XYZ coordinates).
   --preopt / --no-preopt          Run an unbiased pre-optimization.  [default:

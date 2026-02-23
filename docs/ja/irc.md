@@ -6,25 +6,24 @@
 
 `mlmm irc` は EulerPC 積分器を使用して IRC 計算を実行します。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`.trj`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
 
-設定の優先順位は: **デフォルト < `--config` < 明示CLI < `--override-yaml`** です。`--args-yaml` は `--override-yaml` の legacy alias として引き続き利用できます。
 
 ## 最小例
 
 ```bash
 mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
+ --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 ```
 
 ```bash
 # YAML で最小設定（real_parm7/model_pdb を config に記述）
 cat > irc_min.yaml << 'YAML'
 calc:
-  real_parm7: real.parm7
-  model_pdb: ml_region.pdb
-  use_bfactor_layers: false
+ real_parm7: real.parm7
+ model_pdb: ml_region.pdb
+ use_bfactor_layers: false
 YAML
 mlmm irc -i ts.pdb -q 0 -m 1 --config irc_min.yaml \
-  --max-cycles 50 --out-dir ./result_irc_yaml
+ --max-cycles 50 --out-dir ./result_irc_yaml
 ```
 
 ## 出力の見方
@@ -34,7 +33,6 @@ mlmm irc -i ts.pdb -q 0 -m 1 --config irc_min.yaml \
 - `result_irc/key_irc_forward.trj`
 - `result_irc/finished_irc.trj`
 - `result_irc/forward_irc.trj`
-- `result_irc/backward_irc.trj`
 
 ## よくある例
 
@@ -42,39 +40,36 @@ mlmm irc -i ts.pdb -q 0 -m 1 --config irc_min.yaml \
 
 ```bash
 mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  --no-detect-layer -q -1 -m 2 --forward --no-backward \
-  --out-dir ./result_irc_forward
+ --out-dir ./result_irc_forward
 ```
 
 2. ステップサイズと root を調整する。
 
 ```bash
 mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  --no-detect-layer -q 0 -m 1 --step-size 0.20 --root 1 \
-  --out-dir ./result_irc_step
+ --no-detect-layer -q 0 -m 1 --step-size 0.20 --root 1 \
+ --out-dir ./result_irc_step
 ```
 
 3. 有限差分ヘシアンで確認する。
 
 ```bash
 mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  --no-detect-layer -q 0 -m 1 --hessian-calc-mode FiniteDifference \
-  --max-cycles 80 --out-dir ./result_irc_fd
+ --no-detect-layer -q 0 -m 1 --hessian-calc-mode FiniteDifference \
+ --max-cycles 80 --out-dir ./result_irc_fd
 ```
 
 ## 使用法
 
 ```bash
 mlmm irc -i INPUT.pdb --real-parm7 real.parm7
-    [--model-pdb ml_region.pdb | --model-indices "1,2,3" | --detect-layer]
-    [-q CHARGE] [-m MULT]
-    [--max-cycles N] [--step-size Ds] [--root k]
-    [--detect-layer/--no-detect-layer]
-    [--forward/--no-forward] [--backward/--no-backward]
-    [--out-dir DIR]
-    [--hessian-calc-mode Analytical|FiniteDifference]
-    [--config FILE] [--override-yaml FILE|--args-yaml FILE]
-    [--show-config] [--dry-run]
+ [--model-pdb ml_region.pdb | --model-indices "1,2,3" | --detect-layer]
+ [-q CHARGE] [-m MULT]
+ [--max-cycles N] [--step-size Ds] [--root k]
+ [--detect-layer/--no-detect-layer]
+ [--out-dir DIR]
+ [--hessian-calc-mode Analytical|FiniteDifference]
+ [--show-config] [--dry-run]
 ```
 
 ### 例
@@ -82,20 +77,16 @@ mlmm irc -i INPUT.pdb --real-parm7 real.parm7
 ```bash
 # 有限差分ヘシアンとカスタムステップサイズによる正方向のみの IRC
 mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    --no-detect-layer -q -1 -m 2 --forward --no-backward \
-    --step-size 0.2 --hessian-calc-mode FiniteDifference --out-dir ./irc_fd/
+ --step-size 0.2 --hessian-calc-mode FiniteDifference --out-dir ./irc_fd/
 
 # PDB 入力を使用（軌跡も PDB としてエクスポート）
 mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc/
+ --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc/
 ```
 
 ## ワークフロー
 
 1. **入力準備** -- `geom_loader` でサポートされる任意の形式を受け付けます。入力が `.pdb` の場合、軌跡も PDB 形式に変換されます。
-2. **設定のマージ** -- デフォルト -> `--config` -> 明示CLI -> `--override-yaml` の順でセクション `geom`、`calc`、`irc` をマージします（`--args-yaml` は `--override-yaml` の legacy alias）。`-q/--charge` と `-m/--multiplicity` の両方を明示的に指定することを強く推奨します。
-3. **IRC 積分** -- EulerPC が `irc.forward/backward`、`irc.step_length`、`irc.root`、および UMA で設定されたヘシアンワークフローに従って正方向/逆方向の分岐を積分します。
-4. **出力** -- 軌跡（`finished`、`forward`、`backward`）が `.trj` として書き出され、入力が `.pdb` の場合は追加で `.pdb` としても書き出されます。
 
 ## CLI オプション
 
@@ -113,37 +104,31 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--step-size FLOAT` | 質量加重座標でのステップ長。`irc.step_length` を上書き。 | _デフォルト_ |
 | `--root INT` | 初期変位の虚数モードインデックス。`irc.root` を上書き。 | _デフォルト_ |
 | `--forward/--no-forward` | 正方向 IRC を実行。`irc.forward` を上書き。 | `True` |
-| `--backward/--no-backward` | 逆方向 IRC を実行。`irc.backward` を上書き。 | `True` |
 | `--out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |
 | `--hessian-calc-mode CHOICE` | UMA がヘシアンを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | _デフォルト_ |
 | `--config FILE` | 明示CLI適用前に読み込むベース YAML。 | _None_ |
-| `--override-yaml FILE` | 最終 YAML 上書き（YAML レイヤー最優先）。 | _None_ |
-| `--args-yaml FILE` | `--override-yaml` の legacy alias。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。 | `False` |
 
 ## 出力
 
 ```text
-out_dir/ (デフォルト: ./result_irc/)
-  summary.md                      # 主要成果物のインデックス
-  key_irc.trj                     # finished_irc.trj へのショートカット
-  key_irc_forward.trj             # forward_irc.trj へのショートカット
-  key_irc_backward.trj            # backward_irc.trj へのショートカット
-  key_irc.pdb                     # finished_irc.pdb へのショートカット（存在時）
-  key_irc_data.h5                 # irc_data.h5 へのショートカット（存在時）
-  <prefix>irc_data.h5              # irc.dump_every ステップごとに書き出される HDF5 ダンプ
-  <prefix>finished_irc.trj         # 完全 IRC 軌跡（XYZ/TRJ）
-  <prefix>forward_irc.trj          # 正方向パスセグメント
-  <prefix>backward_irc.trj         # 逆方向パスセグメント
-  <prefix>finished_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
-  <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb の場合のみ）
-  <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
+out_dir/ (デフォルト:./result_irc/)
+ summary.md # 主要成果物のインデックス
+ key_irc.trj # finished_irc.trj へのショートカット
+ key_irc_forward.trj # forward_irc.trj へのショートカット
+ key_irc.pdb # finished_irc.pdb へのショートカット（存在時）
+ key_irc_data.h5 # irc_data.h5 へのショートカット（存在時）
+ <prefix>irc_data.h5 # irc.dump_every ステップごとに書き出される HDF5 ダンプ
+ <prefix>finished_irc.trj # 完全 IRC 軌跡（XYZ/TRJ）
+ <prefix>forward_irc.trj # 正方向パスセグメント
+ <prefix>finished_irc.pdb # PDB 変換（入力が.pdb の場合のみ）
+ <prefix>forward_irc.pdb # PDB 変換（入力が.pdb の場合のみ）
 ```
 
 ## YAML 設定
 
-セクション `geom`、`calc`、`irc` を含む YAML マッピングを提供します。マージ順は **デフォルト < config < 明示CLI < override** です（`--args-yaml` は `--override-yaml` の legacy alias）。
+セクション `geom`、`calc`、`irc` を含む YAML マッピングを提供します。マージ順は **デフォルト < config < 明示CLI < override** です（
 
 ### CLI から YAML へのマッピング
 
@@ -155,7 +140,6 @@ out_dir/ (デフォルト: ./result_irc/)
 | `--max-cycles` | `irc.max_cycles` |
 | `--root` | `irc.root` |
 | `--forward` | `irc.forward` |
-| `--backward` | `irc.backward` |
 | `--out-dir` | `irc.out_dir` |
 | `--hessian-calc-mode` | `calc.hessian_calc_mode` |
 

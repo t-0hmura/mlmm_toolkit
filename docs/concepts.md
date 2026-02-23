@@ -10,30 +10,30 @@ Most workflows follow this flow:
 
 ```text
 Full system(s) (PDB/XYZ/GJF)
-   |
-   +- (optional) pocket extraction   [extract]     <- requires PDB when you use --center/-c
-   |        |
-   |   Pocket/cluster model(s) (PDB)
-   |        |
-   |        +- Amber topology          [mm-parm]     <- generates parm7/rst7 via AmberTools
-   |        |        |
-   |        +- 3-layer assignment       [define-layer] <- B-factor encoding for ML/MM layers
-   |        |        |
-   |        |        v
-   |        |   Layered ML/MM system (PDB with B-factors)
-   |        |        |
-   |        +- (optional) staged scan   [scan]       <- single-structure workflows
-   |        |        |
-   |        |        v
-   |        |   Ordered intermediates
-   |        |
-   |        +- MEP search               [path-search] or [path-opt]
-   |                 |
-   |            MEP trajectory (mep.trj) + energy diagrams
-   |
-   +- (optional) TS optimization + IRC  [tsopt] -> [irc]
-             +- (optional) thermo       [freq]
-             +- (optional) single-point DFT     [dft]
+ |
+ +- (optional) pocket extraction [extract] <- requires PDB when you use --center/-c
+ | |
+ | Pocket/cluster model(s) (PDB)
+ | |
+ | +- Amber topology [mm-parm] <- generates parm7/rst7 via AmberTools
+ | | |
+ | +- 3-layer assignment [define-layer] <- B-factor encoding for ML/MM layers
+ | | |
+ | | v
+ | | Layered ML/MM system (PDB with B-factors)
+ | | |
+ | +- (optional) staged scan [scan] <- single-structure workflows
+ | | |
+ | | v
+ | | Ordered intermediates
+ | |
+ | +- MEP search [path-search] or [path-opt]
+ | |
+ | MEP trajectory (mep.trj) + energy diagrams
+ |
+ +- (optional) TS optimization + IRC [tsopt] -> [irc]
+ +- (optional) thermo [freq]
+ +- (optional) single-point DFT [dft]
 ```
 
 Each stage is available as an individual subcommand. The `mlmm all` command runs many stages end-to-end.
@@ -145,7 +145,7 @@ Pocket extraction is controlled by:
 
 ### Images and segments
 - **Image**: a single geometry (one "node") along a chain-of-states path.
-- **Segment**: an MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2, ...). A multi-structure run is decomposed into segments.
+- **Segment**: an MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2,...). A multi-structure run is decomposed into segments.
 
 ### Templates and file conversion (`--convert-files`)
 `mlmm` often writes a **trajectory** (e.g., `mep.trj`, `irc.trj`). When you supply topology-aware inputs (PDB templates or Gaussian inputs), it can optionally write companion files:
@@ -158,7 +158,7 @@ This behavior is controlled globally by `--convert-files {True|False}` (default:
 
 ## Three common workflow modes
 
-### 1) Multi-structure MEP search (R -> ... -> P)
+### 1) Multi-structure MEP search (R ->... -> P)
 Use this when you already have **two or more** full structures along a reaction coordinate.
 
 Typical command:
@@ -174,7 +174,7 @@ Typical command:
 
 ```bash
 mlmm -i holo.pdb -c '308,309' \
-  --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]'
+ --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]'
 ```
 
 ### 3) TSOPT-only mode (pocket TS optimization)

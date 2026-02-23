@@ -19,21 +19,21 @@
 
 ```bash
 mlmm mm-parm -i INPUT.pdb [--out-prefix PREFIX] \
-             [--ligand-charge "RES=-3,ABC:+1"] \
-             [--ligand-mult "RES=2,ABC:1"] \
-             [--allow-nonstandard-aa] \
-             [--keep-temp] \
-             [--add-ter/--no-add-ter] \
-             [--add-h/--no-add-h] [--pH 7.0] \
-             [--ff-set ff19SB|ff14SB]
+ [--ligand-charge "RES=-3,ABC:+1"] \
+ [--ligand-mult "RES=2,ABC:1"] \
+ [--allow-nonstandard-aa] \
+ [--keep-temp] \
+ [--add-ter/--no-add-ter] \
+ [--add-h/--no-add-h] [--pH 7.0] \
+ [--ff-set ff19SB|ff14SB]
 ```
 
 ### 例
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
-    --ligand-charge "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
-    --add-ter --ff-set ff19SB --add-h --pH 7.0
+ --ligand-charge "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
+ --add-ter --ff-set ff19SB --add-h --pH 7.0
 ```
 
 ## 説明
@@ -64,9 +64,9 @@ LEaP が不明な残基を報告した場合、antechamber（GAFF2、AM1-BCC 電
 - `<prefix>.parm7` -- prmtop トポロジー
 - `<prefix>.rst7` -- ASCII inpcrd（LEaP が生成した `complex.inpcrd` のコピー）
 - `<prefix>.pdb` -- LEaP `savepdb` 出力:
-  - `--out-prefix` 指定時: `<out_prefix>.pdb`
-  - `--out-prefix` 省略かつ `--add-h`: `<input_stem>_parm.pdb`
-  - `--out-prefix` 省略かつ `--no-add-h`: PDB は書き出されません
+ - `--out-prefix` 指定時: `<out_prefix>.pdb`
+ - `--out-prefix` 省略かつ `--add-h`: `<input_stem>_parm.pdb`
+ - `--out-prefix` 省略かつ `--no-add-h`: PDB は書き出されません
 
 ## CLI オプション
 
@@ -86,9 +86,9 @@ LEaP が不明な残基を報告した場合、antechamber（GAFF2、AM1-BCC 電
 ## 出力
 
 ```
-<prefix>.parm7         # Amber prmtop トポロジー
-<prefix>.rst7          # Amber ASCII inpcrd 座標
-<prefix>.pdb           # LEaP savepdb 出力（上記の命名規則を参照）
+<prefix>.parm7 # Amber prmtop トポロジー
+<prefix>.rst7 # Amber ASCII inpcrd 座標
+<prefix>.pdb # LEaP savepdb 出力（上記の命名規則を参照）
 ```
 
 ## 要件

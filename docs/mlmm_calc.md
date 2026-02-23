@@ -54,8 +54,8 @@ The MM backend can be selected via the `mm_backend` parameter:
 **Example YAML configuration:**
 ```yaml
 mlmm:
-  mm_backend: openmm  # Use OpenMM for MM calculations
-  mm_device: cuda     # Use CUDA (or "cpu")
+ mm_backend: openmm # Use OpenMM for MM calculations
+ mm_device: cuda # Use CUDA (or "cpu")
 ```
 
 ### UMA Hessian modes

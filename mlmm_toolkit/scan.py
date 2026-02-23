@@ -112,7 +112,7 @@ def _resolve_yaml_sources(
 ) -> tuple[Optional[Path], Optional[Path], bool]:
     if override_yaml is not None and args_yaml_legacy is not None:
         raise click.BadParameter(
-            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+            "Use a single YAML source option."
         )
     if args_yaml_legacy is not None:
         return config_yaml, args_yaml_legacy, True
@@ -328,12 +328,11 @@ def _snapshot_geometry(g) -> Any:
 )
 @click.option(
     "--scan-lists",
-    "--scan-list",
     "scan_lists_raw",
     type=str,
     multiple=True,
     required=False,
-    help="Python-like list of (i,j,target) per stage. Pass a single --scan-list(s) followed by "
+    help="Python-like list of (i,j,target) per stage. Pass a single --scan-lists followed by "
          "multiple literals to run sequential stages, e.g. --scan-lists '[(0,1,1.50)]' '[(5,7,1.20)]'.",
 )
 @click.option(
@@ -341,16 +340,16 @@ def _snapshot_geometry(g) -> Any:
     "spec_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="YAML/JSON scan spec file (recommended). Use this instead of --scan-list(s).",
+    help="YAML/JSON scan spec file (recommended). Use this instead of --scan-lists.",
 )
 @click.option("--one-based/--zero-based", "one_based", default=True, show_default=True,
-              help="Interpret (i,j) indices in --scan-list(s) as 1-based (default) or 0-based.")
+              help="Interpret (i,j) indices in --scan-lists as 1-based (default) or 0-based.")
 @click.option(
     "--print-parsed/--no-print-parsed",
     "print_parsed",
     default=False,
     show_default=True,
-    help="Print parsed scan targets after resolving --spec/--scan-list(s).",
+    help="Print parsed scan targets after resolving --spec/--scan-lists.",
 )
 @click.option("--max-step-size", type=float, default=0.20, show_default=True,
               help="Maximum change in any scanned bond length per step [Å].")
@@ -401,19 +400,6 @@ def _snapshot_geometry(g) -> Any:
     help="Base YAML configuration file applied before explicit CLI options.",
 )
 @click.option(
-    "--override-yaml",
-    type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    default=None,
-    help="Final YAML override file (highest-priority YAML layer).",
-)
-@click.option(
-    "--args-yaml",
-    "args_yaml_legacy",
-    type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    default=None,
-    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
-)
-@click.option(
     "--ref-pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
@@ -458,8 +444,6 @@ def cli(
     out_dir: str,
     thresh: Optional[str],
     config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
     ref_pdb: Optional[Path],
     preopt: bool,
     endopt: bool,
@@ -467,14 +451,9 @@ def cli(
     time_start = time.perf_counter()
     config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
         config_yaml=config_yaml,
-        override_yaml=override_yaml,
-        args_yaml_legacy=args_yaml_legacy,
+        override_yaml=None,
+        args_yaml_legacy=None,
     )
-    if used_legacy_yaml:
-        click.echo(
-            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
-            err=True,
-        )
 
     if relax_max_cycles is not None:
         max_cycles = int(relax_max_cycles)
@@ -523,7 +502,7 @@ def cli(
 
             yaml_cfg = _load_merged_yaml_cfg(
                 config_yaml=config_yaml,
-                override_yaml=override_yaml,
+                override_yaml=None,
             )
 
             geom_cfg = dict(GEOM_KW)
@@ -664,14 +643,14 @@ def cli(
                 pdb_atom_meta = load_pdb_atom_metadata(source_path)
 
             cli_scan_values = collect_single_option_values(
-                sys.argv[1:], ("--scan-lists", "--scan-list"), "--scan-list/--scan-lists"
+                sys.argv[1:], ("--scan-lists",), "--scan-lists"
             )
             if spec_path is not None and cli_scan_values:
-                raise click.BadParameter("Use either --spec or --scan-list(s), not both.")
+                raise click.BadParameter("Use either --spec or --scan-lists, not both.")
 
             stages: List[List[Tuple[int, int, float]]]
             scan_one_based = bool(one_based)
-            scan_source = "--scan-list(s)"
+            scan_source = "--scan-lists"
             if spec_path is not None:
                 stages, scan_one_based = parse_scan_spec_stages(
                     spec_path,
@@ -682,7 +661,7 @@ def cli(
                 scan_source = f"--spec ({spec_path})"
             else:
                 if not cli_scan_values:
-                    raise click.BadParameter("Provide either --spec or --scan-list(s).")
+                    raise click.BadParameter("Provide either --spec or --scan-lists.")
                 stages = []
                 for idx, raw in enumerate(cli_scan_values, start=1):
                     parsed, _ = parse_scan_list_triples(

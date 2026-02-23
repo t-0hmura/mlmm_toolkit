@@ -27,7 +27,6 @@ mlmm init [--out PATH] [--force]
 ## Notes
 
 - The generated file is a starting point, not an exhaustive schema.
-- Runtime precedence is: `defaults < --config < CLI < --override-yaml`.
 
 ---
 
@@ -35,5 +34,4 @@ mlmm init [--out PATH] [--force]
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
-- [all](all.md) -- Run with `--config` / `--override-yaml`
 - [YAML Reference](yaml_reference.md) -- Full configurable keys

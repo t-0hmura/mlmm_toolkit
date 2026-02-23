@@ -18,20 +18,20 @@ When `--add-h`, hydrogens are added at the specified `--pH` using PDBFixer befor
 ## Usage
 ```bash
 mlmm mm-parm -i INPUT.pdb [--out-prefix PREFIX] \
-             [--ligand-charge "RES=-3,ABC:+1"] \
-             [--ligand-mult "RES=2,ABC:1"] \
-             [--allow-nonstandard-aa] \
-             [--keep-temp] \
-             [--add-ter/--no-add-ter] \
-             [--add-h/--no-add-h] [--pH 7.0] \
-             [--ff-set ff19SB|ff14SB]
+ [--ligand-charge "RES=-3,ABC:+1"] \
+ [--ligand-mult "RES=2,ABC:1"] \
+ [--allow-nonstandard-aa] \
+ [--keep-temp] \
+ [--add-ter/--no-add-ter] \
+ [--add-h/--no-add-h] [--pH 7.0] \
+ [--ff-set ff19SB|ff14SB]
 ```
 
 ### Example
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
-    --ligand-charge "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
-    --add-ter --ff-set ff19SB --add-h --pH 7.0
+ --ligand-charge "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
+ --add-ter --ff-set ff19SB --add-h --pH 7.0
 ```
 
 ## Description
@@ -56,9 +56,9 @@ Even if the build fails, when `--add-h` and hydrogen addition succeeded, the hyd
 - `<prefix>.parm7` -- prmtop topology
 - `<prefix>.rst7` -- ASCII inpcrd (the LEaP-produced `complex.inpcrd` is copied)
 - `<prefix>.pdb` -- LEaP `savepdb` output:
-  - If `--out-prefix` is given: `<out_prefix>.pdb`
-  - If `--out-prefix` is omitted and `--add-h`: `<input_stem>_parm.pdb`
-  - If `--out-prefix` is omitted and `--no-add-h`: no PDB is written
+ - If `--out-prefix` is given: `<out_prefix>.pdb`
+ - If `--out-prefix` is omitted and `--add-h`: `<input_stem>_parm.pdb`
+ - If `--out-prefix` is omitted and `--no-add-h`: no PDB is written
 
 ## CLI options
 | Option | Description | Default |
@@ -76,9 +76,9 @@ Even if the build fails, when `--add-h` and hydrogen addition succeeded, the hyd
 
 ## Outputs
 ```
-<prefix>.parm7         # Amber prmtop topology
-<prefix>.rst7          # Amber ASCII inpcrd coordinates
-<prefix>.pdb           # LEaP savepdb output (see naming rules above)
+<prefix>.parm7 # Amber prmtop topology
+<prefix>.rst7 # Amber ASCII inpcrd coordinates
+<prefix>.pdb # LEaP savepdb output (see naming rules above)
 ```
 
 ## Requirements

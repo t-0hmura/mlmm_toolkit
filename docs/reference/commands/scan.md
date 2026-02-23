@@ -42,19 +42,19 @@ Options:
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
                                   layer.
-  --scan-lists, --scan-list TEXT  Python-like list of (i,j,target) per stage.
-                                  Pass a single --scan-list(s) followed by
+  --scan-lists TEXT               Python-like list of (i,j,target) per stage.
+                                  Pass a single --scan-lists followed by
                                   multiple literals to run sequential stages,
                                   e.g. --scan-lists '[(0,1,1.50)]'
                                   '[(5,7,1.20)]'.
   --spec FILE                     YAML/JSON scan spec file (recommended). Use
-                                  this instead of --scan-list(s).
-  --one-based / --zero-based      Interpret (i,j) indices in --scan-list(s) as
+                                  this instead of --scan-lists.
+  --one-based / --zero-based      Interpret (i,j) indices in --scan-lists as
                                   1-based (default) or 0-based.  [default: one-
                                   based]
   --print-parsed / --no-print-parsed
                                   Print parsed scan targets after resolving
-                                  --spec/--scan-list(s).  [default: no-print-
+                                  --spec/--scan-lists.  [default: no-print-
                                   parsed]
   --max-step-size FLOAT           Maximum change in any scanned bond length per
                                   step [Å].  [default: 0.2]
@@ -76,10 +76,6 @@ Options:
                                   gau|gau_tight|gau_vtight|baker|never).
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
-  --override-yaml FILE            Final YAML override file (highest-priority
-                                  YAML layer).
-  --args-yaml FILE                [legacy] Alias of --override-yaml; kept for
-                                  backward compatibility.
   --ref-pdb FILE                  Reference PDB topology to use when --input is
                                   XYZ (keeps XYZ coordinates).
   --preopt / --no-preopt          Pre-optimize initial structure without bias

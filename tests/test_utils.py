@@ -198,6 +198,19 @@ def test_pretty_block():
     assert "key3" in output
 
 
+def test_pretty_block_with_numpy_scalars():
+    """pretty_block should accept NumPy scalar/list inputs without YAML errors."""
+    from mlmm_toolkit.utils import pretty_block
+
+    data = {"freeze_atoms": [np.int64(0), np.int64(2)], "ratio": np.float64(1.5)}
+    output = pretty_block("freeze_atoms (effective)", data)
+
+    assert "freeze_atoms" in output
+    assert "- 0" in output
+    assert "- 2" in output
+    assert "ratio: 1.5" in output
+
+
 def test_merge_freeze_atom_indices():
     """Test freeze atom index merging (requires geom_cfg dict)."""
     from mlmm_toolkit.utils import merge_freeze_atom_indices

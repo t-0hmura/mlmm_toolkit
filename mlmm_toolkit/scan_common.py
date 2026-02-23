@@ -75,7 +75,7 @@ def add_scan_common_options(
             type=click.BOOL,
             default=one_based_default,
             show_default=True,
-            help="Interpret (i,j) indices in --scan-list as 1-based (default) or 0-based.",
+            help="Interpret (i,j) indices in --scan-lists as 1-based (default) or 0-based.",
         ),
         click.option(
             "--max-step-size",
@@ -137,12 +137,6 @@ def add_scan_common_options(
                 "Convergence preset (gau_loose|gau|gau_tight|gau_vtight|baker|never). "
                 f"{thresh_note}"
             ),
-        ),
-        click.option(
-            "--args-yaml",
-            type=click.Path(path_type=Path, exists=True, dir_okay=False),
-            default=None,
-            help="YAML file with extra args (sections: geom, calc, opt, lbfgs, rfo, bias).",
         ),
         click.option(
             "--preopt",

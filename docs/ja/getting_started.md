@@ -16,7 +16,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo
 ```
 ---
 
-入力として、(i) 反応順に並べたタンパク質-リガンド複合体の PDB を 2 つ以上（R → ... → P）、(ii) `--scan-lists` を指定した 1 つの PDB、または (iii) TS 候補 1 構造 + `--tsopt` を与えると、`mlmm` が次を自動化します。
+入力として、(i) 反応順に並べたタンパク質-リガンド複合体の PDB を 2 つ以上（R →... → P）、(ii) `--scan-lists` を指定した 1 つの PDB、または (iii) TS 候補 1 構造 + `--tsopt` を与えると、`mlmm` が次を自動化します。
 
 - ユーザーが指定した基質の周辺から **活性部位ポケット** を抽出し、計算用の **クラスターモデル** を構築
 - AmberTools を用いて **Amber トポロジ（parm7/rst7）** を自動生成し、**hessian_ff** の MM エンジンに渡す
@@ -48,7 +48,6 @@ ML 領域の計算には Meta の UMA（MLIP）を、MM 領域の計算には he
 
 | 慣習 | 例 | 備考 |
 |-----|-----|------|
-| **真偽値オプション** | `--tsopt`, `--no-dft` | 推奨は toggle 形式。旧記法（`--tsopt True`, `--dft 0`）も当面は受理されるが deprecation warning が出る |
 | **残基セレクタ** | `'SAM,GPP'`, `'A:123,B:456'` | 複数値はシェル展開防止のためクォート |
 | **電荷マッピング** | `--ligand-charge 'SAM:1,GPP:-3'` | コロン（`:`）またはイコール（`=`）で名前と電荷を区切り、カンマでエントリを区切る |
 | **原子セレクタ** | `'TYR,285,CA'` または `'TYR 285 CA'` | 区切り文字: 空白、カンマ、スラッシュ、バッククォート、バックスラッシュ |
@@ -130,66 +129,66 @@ AmberTools がインストールされていなくても、`--real-parm7` を手
 
 1. **CUDA をロード（HPC で環境モジュールを使用する場合）**
 
-   ```bash
-   module load cuda/12.9
-   ```
+ ```bash
+ module load cuda/12.9
+ ```
 
 2. **conda 環境を作成してアクティブ化**
 
-   ```bash
-   conda create -n mlmm python=3.11 -y
-   conda activate mlmm
-   ```
+ ```bash
+ conda create -n mlmm python=3.11 -y
+ conda activate mlmm
+ ```
 
 3. **AmberTools をインストール**
 
-   ```bash
-   conda install -c conda-forge ambertools -y
-   ```
+ ```bash
+ conda install -c conda-forge ambertools -y
+ ```
 
 4. **cyipopt をインストール（オプション: DMF 法に必要）**
 
-   ```bash
-   conda install -c conda-forge cyipopt -y
-   ```
+ ```bash
+ conda install -c conda-forge cyipopt -y
+ ```
 
 5. **適切な CUDA ビルドの PyTorch をインストール**
 
-   ```bash
-   pip install torch --index-url https://download.pytorch.org/whl/cu129
-   ```
+ ```bash
+ pip install torch --index-url https://download.pytorch.org/whl/cu129
+ ```
 
 6. **mlmm_toolkit 本体をインストール**
 
-   ```bash
-   pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
-   ```
+ ```bash
+ pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
+ ```
 
 7. **hessian_ff の C++ 拡張をビルド**
 
-   ```bash
-   cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
-   ```
+ ```bash
+ cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
+ ```
 
 8. **Plotly 可視化用 Chrome をインストール**
 
-   ```bash
-   plotly_get_chrome -y
-   ```
+ ```bash
+ plotly_get_chrome -y
+ ```
 
 9. **Hugging Face Hub にログイン**
 
-   ```bash
-   huggingface-cli login
-   ```
+ ```bash
+ huggingface-cli login
+ ```
 
 10. **インストールの確認**
 
-    ```bash
-    mlmm --version
-    ```
+ ```bash
+ mlmm --version
+ ```
 
-    インストールされたバージョンが表示されます（例: `{{ version }}`）。
+ インストールされたバージョンが表示されます（例: `{{ version }}`）。
 
 ---
 
@@ -208,9 +207,9 @@ AmberTools がインストールされていなくても、`--real-parm7` を手
 つまり:
 
 ```bash
-mlmm [OPTIONS] ...
+mlmm [OPTIONS]...
 # は以下と同等
-mlmm all [OPTIONS] ...
+mlmm all [OPTIONS]...
 ```
 
 `all` ワークフローは、クラスター抽出、MM パラメータ化、MEP 探索、TS 最適化、振動解析、オプションの DFT 一点計算を 1 つのコマンドで連続実行する**オーケストレーター**です。
@@ -222,13 +221,13 @@ mlmm all [OPTIONS] ...
 `mlmm all` を個別サブコマンドへ分解すると、典型的には次の順で進みます。
 
 ```text
-1. extract      - 完全系 PDB から活性部位ポケットを抽出
-2. mm-parm      - Amber parm7/rst7 を生成
+1. extract - 完全系 PDB から活性部位ポケットを抽出
+2. mm-parm - Amber parm7/rst7 を生成
 3. define-layer - 3 層 ML/MM 分割を付与（B-factor エンコード）
-4. path-search  - 再帰的 MEP 探索（GSM/DMF）
-5. tsopt        - 遷移状態最適化
-6. freq         - 振動解析と熱化学
-7. dft          - DFT 一点計算
+4. path-search - 再帰的 MEP 探索（GSM/DMF）
+5. tsopt - 遷移状態最適化
+6. freq - 振動解析と熱化学
+7. dft - DFT 一点計算
 ```
 
 `all` は上記 1-7 を自動実行します。必要に応じて各ステップを単独で実行してデバッグできます。
@@ -270,7 +269,7 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --
 
 ```bash
 mlmm -i R.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20)]'
+ --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20)]'
 ```
 
 ---

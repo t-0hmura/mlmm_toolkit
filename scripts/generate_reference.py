@@ -156,7 +156,6 @@ pairs:
         "# YAML Schema (Generated)\n\n"
         f"{AUTO_NOTICE}\n\n"
         f"- Source template: `{PACKAGE_NAME}.init._ALL_TEMPLATE`\n"
-        "- Merge precedence (`all`): `defaults < --config < CLI < --override-yaml`\n"
         f"- Template digest: `{digest}`\n\n"
         "## Top-level Keys\n\n"
         "| Key |\n"

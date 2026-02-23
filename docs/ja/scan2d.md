@@ -2,19 +2,18 @@
 
 ## 概要
 
-> **要約:** 調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。`--spec`（YAML/JSON、推奨）または legacy の `--scan-lists` を使用します。
+> **要約:** 調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。`--spec`（YAML/JSON、推奨）または `--scan-lists` を使用します。
 
 `mlmm scan2d` は `--max-step-size` を使用して 2 つの結合距離の線形グリッドを構築し、適切な拘束を適用して各グリッド点を緩和し、バイアスなしの ML/MM エネルギーを可視化用に記録します。スキャンはまず d1 を反復し d1 拘束のみで構造を緩和し、次に各 d1 値について d2 を反復し両方の拘束を適用します。
 
 各グリッド点のエネルギーはバイアスなしで再評価され、PES グリッドとコンタープロットが作成されます。出力にはグリッド点ごとの XYZ スナップショット、PES をまとめた `surface.csv`、2D コンターマップ（`scan2d_map.png`）、底面投影付き 3D ランドスケープ（`scan2d_landscape.html`）が含まれます。
 
-scan 系コマンドは `--config`（ベース）と `--override-yaml`（最終上書き）で YAML を 2 層指定できます。`--args-yaml` は `--override-yaml` の legacy エイリアスです。マージ優先順位は **内部デフォルト < `--config` < `--override-yaml` < 明示 CLI** です。
 
 ## 最小例
 
 ```bash
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
+ -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
 ```
 
 ## 出力の見方
@@ -26,20 +25,19 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ## よくある例
 
 1. YAML spec の解釈結果を先に確認する。
-2. 後方互換のため legacy `--scan-lists` を使う。
+2. `--scan-lists` を使う。
 3. `--dump` を有効にして d1 ごとの内側軌跡を保存する。
 
 ## 使用法
 
 ```bash
 mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q CHARGE [-m SPIN] \
-    [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
-    [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
-    [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
-    [--dump/--no-dump] [--out-dir DIR] \
-    [--config FILE] [--override-yaml FILE | --args-yaml FILE] \
-    [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
+ -q CHARGE [-m SPIN] \
+ [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
+ [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
+ [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
+ [--dump/--no-dump] [--out-dir DIR] \
+ [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
 ### 例
@@ -47,13 +45,13 @@ mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ```bash
 # ミニマル例（d1 と d2 の 2 つの範囲）
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
+ -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 
 # TRJ ダンプ付き LBFGS スキャン、コンタープロットの固定カラースケール
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
-    --max-step-size 0.20 --dump --out-dir ./result_scan2d/ --preopt --baseline min \
-    --zmin 0.0 --zmax 40.0
+ -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
+ --max-step-size 0.20 --dump --out-dir ./result_scan2d/ --preopt --baseline min \
+ --zmin 0.0 --zmax 40.0
 ```
 
 ## ワークフロー
@@ -81,7 +79,7 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定で `--detect-layer` が無効化。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
 | `--spec FILE` | `pairs`（2 四つ組）を持つ YAML/JSON 仕様。`one_based` を任意指定可能。 | 推奨 |
-| `--scan-lists TEXT` | legacy: 2 つの四つ組を含む Python リテラル: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | `--spec` の代替 |
+| `--scan-lists TEXT` | : 2 つの四つ組を含む Python リテラル: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | `--spec` の代替 |
 | `--one-based / --zero-based` | `--scan-lists` の `(i,j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (A)。グリッド密度を決定。 | `0.20` |
@@ -91,8 +89,6 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
-| `--override-yaml FILE` | 最終 YAML 上書きファイル（YAML レイヤーの最優先）。 | _None_ |
-| `--args-yaml FILE` | `--override-yaml` の legacy エイリアス。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし事前最適化を実行。 | `True` |
 | `--baseline {min,first}` | 相対エネルギーの基準（kcal/mol）。 | `min` |
@@ -102,44 +98,42 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ## 出力
 
 ```
-out_dir/  (デフォルト: ./result_scan2d/)
-├── surface.csv                   # PES グリッド: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged
-├── scan2d_map.png                # 2D コンターマップ
-├── scan2d_landscape.html         # 3D サーフェス可視化（Plotly）
+out_dir/ (デフォルト:./result_scan2d/)
+├── surface.csv # PES グリッド: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged
+├── scan2d_map.png # 2D コンターマップ
+├── scan2d_landscape.html # 3D サーフェス可視化（Plotly）
 ├── grid/
-│   ├── point_i###_j###.xyz       # 各 (i, j) ペアの緩和ジオメトリ
-│   ├── point_i###_j###.pdb       # PDB コンパニオン（入力が PDB の場合）
-│   ├── preopt_i###_j###.xyz      # 事前最適化構造（--preopt 時）
-│   └── inner_path_d1_###.trj     # d1 スライスごとの内側 d2 軌跡（--dump 時）
-└── (stdout)                      # 進捗とエネルギーサマリー
+│ ├── point_i###_j###.xyz # 各 (i, j) ペアの緩和ジオメトリ
+│ ├── point_i###_j###.pdb # PDB コンパニオン（入力が PDB の場合）
+│ ├── preopt_i###_j###.xyz # 事前最適化構造（--preopt 時）
+│ └── inner_path_d1_###.trj # d1 スライスごとの内側 d2 軌跡（--dump 時）
+└── (stdout) # 進捗とエネルギーサマリー
 ```
 
-## YAML 設定（`--config` / `--override-yaml` / `--args-yaml`）
 
-scan 系のマージ優先順位は **内部デフォルト < `--config` < `--override-yaml` < 明示 CLI** です。`--args-yaml` は `--override-yaml` の legacy エイリアスです。
 
 ミニマル例（[opt](opt.md) と同じキーで拡張）:
 
 ```yaml
 geom:
-  coord_type: cart
-  freeze_atoms: []
+ coord_type: cart
+ freeze_atoms: []
 calc:
-  charge: 0
-  spin: 1
+ charge: 0
+ spin: 1
 mlmm:
-  real_parm7: real.parm7
-  model_pdb: ml_region.pdb
+ real_parm7: real.parm7
+ model_pdb: ml_region.pdb
 opt:
-  thresh: baker
-  max_cycles: 10000
-  dump: false
-  out_dir: ./result_scan2d/
+ thresh: baker
+ max_cycles: 10000
+ dump: false
+ out_dir:./result_scan2d/
 lbfgs:
-  max_step: 0.3
-  out_dir: ./result_scan2d/
+ max_step: 0.3
+ out_dir:./result_scan2d/
 bias:
-  k: 100.0
+ k: 100.0
 ```
 
 ## 注意事項

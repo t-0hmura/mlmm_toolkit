@@ -68,6 +68,52 @@ def _fixed_indices_from_constraints(atoms: Atoms) -> set[int]:
     return fixed
 
 
+def _normalize_prmtop_lj_tables(parm7_path: str) -> None:
+    """Normalize LJ table lengths in parm7 files generated from sliced structures.
+
+    ParmEd slicing can leave ``LENNARD_JONES_*COEF`` longer than the ``POINTERS``
+    ``NTYPES`` expectation. Trim only the trailing unused tail when detected.
+    """
+    from parmed.amber import AmberFormat, AmberParm
+
+    try:
+        AmberParm(parm7_path)
+        return
+    except Exception as exc:
+        msg = str(exc)
+        if (
+            "FLAG LENNARD_JONES_ACOEF" not in msg
+            and "FLAG LENNARD_JONES_BCOEF" not in msg
+        ):
+            raise
+
+    af = AmberFormat(parm7_path)
+    pointers = list(af.parm_data.get("POINTERS", []))
+    if len(pointers) < 2:
+        raise ValueError(f"Invalid POINTERS section in parm7: {parm7_path}")
+    ntypes = int(pointers[1])
+    expected = ntypes * (ntypes + 1) // 2
+
+    changed = False
+    for key in ("LENNARD_JONES_ACOEF", "LENNARD_JONES_BCOEF"):
+        values = list(af.parm_data.get(key, []))
+        if len(values) == expected:
+            continue
+        if len(values) < expected:
+            raise ValueError(
+                f"{key} has {len(values)} entries but expected at least {expected} "
+                f"from NTYPES={ntypes} in {parm7_path}."
+            )
+        af.parm_data[key] = values[:expected]
+        changed = True
+
+    if changed:
+        af.write_parm(parm7_path)
+
+    # Validate normalized topology immediately.
+    AmberParm(parm7_path)
+
+
 # ======================================================================
 #                    hessian_ff (MM) -> ASE calculator
 # ======================================================================
@@ -628,6 +674,7 @@ class MLMMCore:
         model = real[selection]
         model.box = None
         model.save(self.model_parm7, overwrite=True)
+        _normalize_prmtop_lj_tables(self.model_parm7)
         model.save(self.model_rst7, overwrite=True)
         return selection
 
@@ -681,16 +728,16 @@ class MLMMCore:
 
                 movable_from_layer = set(layer_info["movable_mm_indices"]) & mm_indices
                 frozen_from_layer = set(layer_info["frozen_indices"]) & mm_indices
-                legacy_hess_from_layer = set(layer_info["hess_mm_indices"]) & mm_indices
+                hess_from_layer = set(layer_info["hess_mm_indices"]) & mm_indices
 
                 # Unassigned MM atoms default to movable.
-                assigned_mm = movable_from_layer | frozen_from_layer | legacy_hess_from_layer
+                assigned_mm = movable_from_layer | frozen_from_layer | hess_from_layer
                 unassigned_mm = mm_indices - assigned_mm
                 movable_pool = set(movable_from_layer) | set(unassigned_mm)
 
                 # Hessian-target MM selection:
                 #   1) If hess_cutoff is set, use distance-to-ML over movable MM pool.
-                #   2) Otherwise, keep any legacy Layer-2 assignments (if present).
+                #   2) Otherwise, keep any Layer-2 assignments (if present).
                 hess_mm: set[int]
                 if self.hess_cutoff is not None:
                     ml_coords = coords[self.ml_indices]
@@ -703,7 +750,7 @@ class MLMMCore:
                     hess_cut = float(self.hess_cutoff)
                     hess_mm = {idx for idx in movable_pool if min_dist_to_ml(idx) <= hess_cut}
                 else:
-                    hess_mm = set(legacy_hess_from_layer)
+                    hess_mm = set(hess_from_layer)
 
                 movable_mm = movable_pool - hess_mm
 

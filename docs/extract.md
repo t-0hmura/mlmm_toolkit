@@ -11,11 +11,11 @@ This is typically the **first step** in an mlmm_toolkit workflow, producing a sm
 ## Usage
 
 ```bash
-mlmm extract -i INPUT.pdb [INPUT2.pdb ...] -c <substrate_spec> \
-    [-o OUTPUT.pdb ...] [-r <A>] [--radius-het2het <A>] \
-    [--include-H2O/--no-include-H2O] [--exclude-backbone/--no-exclude-backbone] \
-    [--add-linkH/--no-add-linkH] [--selected-resn "CHAIN:RES" ...] \
-    [--ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
+mlmm extract -i INPUT.pdb [INPUT2.pdb...] -c <substrate_spec> \
+ [-o OUTPUT.pdb...] [-r <A>] [--radius-het2het <A>] \
+ [--include-H2O/--no-include-H2O] [--exclude-backbone/--no-exclude-backbone] \
+ [--add-linkH/--no-add-linkH] [--selected-resn "CHAIN:RES"...] \
+ [--ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
 ```
 
 ---
@@ -28,14 +28,14 @@ mlmm extract -i complex.pdb -c A:123 -o pocket.pdb --ligand-charge -3
 
 # Substrate provided as a PDB; per-resname charge mapping
 mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb \
-    --ligand-charge "GPP:-3,MMT:-1"
+ --ligand-charge "GPP:-3,MMT:-1"
 
 # Name-based substrate selection including all matches
 mlmm extract -i complex.pdb -c "GPP,MMT" -o pocket.pdb --ligand-charge -4
 
 # Multi-structure to single multi-MODEL output with hetero-hetero proximity
 mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
-    -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose
+ -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose
 ```
 
 ---
@@ -64,19 +64,19 @@ The `--center` option accepts three forms:
 
 ### By PDB file
 ```bash
--c substrate.pdb      # Exact coordinate match on the first input; IDs propagated to others
+-c substrate.pdb # Exact coordinate match on the first input; IDs propagated to others
 ```
 
 ### By residue ID
 ```bash
--c '123,456'          # Residues 123 and 456
--c 'A:123,B:456'      # Chain A residue 123, Chain B residue 456
--c '123A'             # Residue 123 with insertion code A
+-c '123,456' # Residues 123 and 456
+-c 'A:123,B:456' # Chain A residue 123, Chain B residue 456
+-c '123A' # Residue 123 with insertion code A
 ```
 
 ### By residue name
 ```bash
--c 'GPP,MMT'          # All residues named GPP or MMT (case-insensitive)
+-c 'GPP,MMT' # All residues named GPP or MMT (case-insensitive)
 ```
 
 If multiple residues share the same name, **all** matches are included and a WARNING is logged.
@@ -87,8 +87,8 @@ If multiple residues share the same name, **all** matches are included and a WAR
 
 1. **Substrate residues** are always included.
 2. **Standard cutoff** (`--radius`, default 2.6 A):
-   - With `--exclude-backbone` (default): amino-acid residues qualify only if a **non-backbone** atom is within the cutoff.
-   - With `--no-exclude-backbone`: any atom within the cutoff qualifies the residue.
+ - With `--exclude-backbone` (default): amino-acid residues qualify only if a **non-backbone** atom is within the cutoff.
+ - With `--no-exclude-backbone`: any atom within the cutoff qualifies the residue.
 3. **Hetero-hetero proximity** (`--radius-het2het`): adds residues if a substrate hetero atom (non-C/H) is within the cutoff of a protein hetero atom.
 4. **Waters** are included by default (`--include-H2O`).
 5. **`--selected-resn`** force-includes residues regardless of distance.
@@ -100,7 +100,7 @@ If multiple residues share the same name, **all** matches are included and a WAR
 ## Truncation (Capping)
 
 - **Isolated residues**: keep pure side-chain only (remove backbone atoms N, CA, C, O, OXT and associated H).
-  - PRO/HYP retain N, CA, HA, H to keep the ring intact.
+ - PRO/HYP retain N, CA, HA, H to keep the ring intact.
 - **Continuous peptide stretches**: keep internal backbone; only terminal caps are removed.
 - With `--exclude-backbone` (default): delete main-chain atoms on all non-substrate amino acids (with PRO/HYP exceptions).
 
@@ -123,8 +123,8 @@ The extraction process computes a charge summary:
 - **Amino acids**: nominal integer charges from a built-in dictionary (standard + modified residues).
 - **Ions**: built-in charges for common ions (ZN, MG, FE2, etc.). Waters are 0.
 - **Unknown residues**: 0 unless `--ligand-charge` is given.
-  - `--ligand-charge <number>`: total charge distributed across unknown substrate residues.
-  - `--ligand-charge "RES1:Q1,RES2:Q2"`: per-residue-name charges; other unknowns remain 0.
+ - `--ligand-charge <number>`: total charge distributed across unknown substrate residues.
+ - `--ligand-charge "RES1:Q1,RES2:Q2"`: per-residue-name charges; other unknowns remain 0.
 
 ---
 

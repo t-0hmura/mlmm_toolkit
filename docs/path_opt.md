@@ -13,13 +13,12 @@
 
 `mlmm path-opt` optimizes a minimum-energy path between two enzyme states using PySisyphus `GrowingString` with the ML/MM calculator. The ML/MM calculator keeps the full enzyme complex without link atoms: the ML region is defined by `--model-pdb`, the Amber topology comes from `--real-parm7`, and both endpoints are supplied as PDBs containing the full system coordinates.
 
-Configuration comes from YAML (`geom`, `calc`/`mlmm`, `gs`, `opt`) and is merged as **defaults < config < explicit CLI < override** (`--config`, then `--override-yaml`; `--args-yaml` is a legacy alias of `--override-yaml`). `StringOptimizer.align` remains disabled; instead, an external Kabsch-based alignment/refinement routine aligns all images prior to path growth (respecting any frozen atoms from YAML/CLI).
 
 ## Minimal example
 
 ```bash
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --out-dir ./result_path_opt
+ -q 0 --out-dir ./result_path_opt
 ```
 
 ## Output checklist
@@ -36,27 +35,27 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 ```bash
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --preopt --preopt-max-cycles 20000 --out-dir ./result_path_opt_preopt
+ -q 0 --preopt --preopt-max-cycles 20000 --out-dir ./result_path_opt_preopt
 ```
 
 2. Disable climbing-image refinement for a quick first pass.
 
 ```bash
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --no-climb --max-nodes 8 --out-dir ./result_path_opt_fast
+ -q 0 --no-climb --max-nodes 8 --out-dir ./result_path_opt_fast
 ```
 
 3. Freeze selected atoms and keep optimizer dumps.
 
 ```bash
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_path_opt_dump
+ -q 0 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_path_opt_dump
 ```
 
 ## Usage
 ```bash
 mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
-              -q CHARGE [-m MULT] [options]
+ -q CHARGE [-m MULT] [options]
 ```
 
 ### Examples
@@ -66,29 +65,28 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 # With frozen atoms, more nodes, and layered YAML overrides
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
-    --freeze-atoms "1,3,5,7" --max-nodes 10 --max-cycles 200 --dump --out-dir ./result_path_opt/ \
-    --config ./base.yaml --override-yaml ./override.yaml
+ --freeze-atoms "1,3,5,7" --max-nodes 10 --max-cycles 200 --dump --out-dir ./result_path_opt/ \
 
 # With endpoint pre-optimization
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
-    --preopt --preopt-max-cycles 20000
+ --preopt --preopt-max-cycles 20000
 ```
 
 ## Workflow
 1. **Load endpoints** -- Read both PDB structures and resolve charge/spin from CLI or defaults.
-   Set up the ML/MM calculator with `--real-parm7`, `--model-pdb`, and charge/spin.
+ Set up the ML/MM calculator with `--real-parm7`, `--model-pdb`, and charge/spin.
 2. **Pre-alignment** -- All endpoints after the first are Kabsch-aligned to the first
-   structure. If `freeze_atoms` is defined, only those atoms participate in the RMSD
-   fit; the resulting transform is applied to all atoms.
+ structure. If `freeze_atoms` is defined, only those atoms participate in the RMSD
+ fit; the resulting transform is applied to all atoms.
 3. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
-   by LBFGS (using the same ML/MM calculator) before alignment and string growth.
-   The number of LBFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
+ by LBFGS (using the same ML/MM calculator) before alignment and string growth.
+ The number of LBFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
 4. **String growth** -- PySisyphus `GrowingString` grows the path between the endpoints
-   using `(max_nodes + 2)` images including endpoints.
+ using `(max_nodes + 2)` images including endpoints.
 5. **Climbing image** -- With `--climb`, a climbing-image refinement is applied after
-   the string grows fully, and the highest-energy image (HEI) is reported.
+ the string grows fully, and the highest-energy image (HEI) is reported.
 6. **Output** -- Final path trajectory and HEI are written as XYZ and PDB files.
-   PDB conversion is performed when the inputs are PDBs.
+ PDB conversion is performed when the inputs are PDBs.
 
 ## CLI options
 | Option | Description | Default |
@@ -108,31 +106,26 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 | `--dump/--no-dump` | Dump optimizer trajectories and restarts inside `out_dir`. | `False` |
 | `--out-dir TEXT` | Output directory. | `./result_path_opt/` |
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
-| `--override-yaml FILE` | Final YAML override layer (highest-priority YAML). | _None_ |
-| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layers) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running optimization. | `False` |
 
 ## Outputs
 ```
-out_dir/ (default: ./result_path_opt/)
-├─ summary.md                  # Quick navigation page with key artifact links
-├─ key_mep.trj                 # Root shortcut to primary MEP trajectory (symlink/copy)
-├─ key_mep.pdb                 # Root shortcut to primary MEP PDB (symlink/copy)
-├─ key_ts.xyz / key_ts.pdb     # Root shortcuts to TS candidate snapshots (symlink/copy)
-├─ final_geometries.trj        # XYZ trajectory with per-image energies in the comment line
-├─ final_geometries.pdb        # Same as .trj but mapped back to the reference PDB ordering
-├─ hei.xyz                     # Highest-energy image (XYZ, always written)
-├─ hei.pdb                     # HEI in PDB format (when reference PDB is available)
-├─ align_refine/               # External alignment/refinement artifacts
-├─ preopt/                     # Endpoint pre-optimization outputs (present when --preopt)
-└─ <optimizer dumps>           # Present when --dump or opt.dump_restart > 0
+out_dir/ (default:./result_path_opt/)
+├─ summary.md # Quick navigation page with key artifact links
+├─ key_mep.trj # Root shortcut to primary MEP trajectory (symlink/copy)
+├─ key_mep.pdb # Root shortcut to primary MEP PDB (symlink/copy)
+├─ key_ts.xyz / key_ts.pdb # Root shortcuts to TS candidate snapshots (symlink/copy)
+├─ final_geometries.trj # XYZ trajectory with per-image energies in the comment line
+├─ final_geometries.pdb # Same as.trj but mapped back to the reference PDB ordering
+├─ hei.xyz # Highest-energy image (XYZ, always written)
+├─ hei.pdb # HEI in PDB format (when reference PDB is available)
+├─ align_refine/ # External alignment/refinement artifacts
+├─ preopt/ # Endpoint pre-optimization outputs (present when --preopt)
+└─ <optimizer dumps> # Present when --dump or opt.dump_restart > 0
 ```
 
-## YAML configuration (`--config`, `--override-yaml`, `--args-yaml`)
 Merge order is **defaults < config < explicit CLI < override**.
-`--args-yaml` is kept as a legacy alias of `--override-yaml`.
-
 ### Section `geom`
 - `coord_type`: Coordinate type (cartesian vs dlc internals).
 - `freeze_atoms`: 0-based frozen atoms merged with CLI `--freeze-atoms`.

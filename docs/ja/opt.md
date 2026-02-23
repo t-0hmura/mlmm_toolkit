@@ -10,7 +10,7 @@
 
 ```bash
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --out-dir ./result_opt
+ -q 0 --out-dir ./result_opt
 ```
 
 ## 出力の見方
@@ -28,31 +28,29 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
+ -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
 ```
 
 2. 最適化中に 1 本の距離拘束をかける。
 
 ```bash
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --dist-freeze "[(12,45,2.20)]" --bias-k 20.0 --out-dir ./result_opt_rest
+ -q 0 --dist-freeze "[(12,45,2.20)]" --bias-k 20.0 --out-dir ./result_opt_rest
 ```
 
 3. heavy モード（RFO）で最適化する。
 
 ```bash
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
+ -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
 ## 使用法
 
 ```bash
 mlmm opt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q CHARGE [-m MULT]
-    [--dist-freeze "[(I,J,TARGET_A), ...]"] [--one-based|--zero-based] [--bias-k FLOAT]
-    [--freeze-atoms "1,3,5"] [--max-cycles N] [--thresh PRESET]
-    [--dump/--no-dump] [--out-dir DIR] [--config FILE] [--override-yaml FILE]
-    [--show-config] [--dry-run] [--args-yaml FILE]
+ [--dist-freeze "[(I,J,TARGET_A),...]"] [--one-based|--zero-based] [--bias-k FLOAT]
+ [--freeze-atoms "1,3,5"] [--max-cycles N] [--thresh PRESET]
 ```
 
 ### 例
@@ -61,8 +59,7 @@ mlmm opt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q CHARGE [-
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
 
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
-    --freeze-atoms "1,3,5,7" --thresh gau_tight --dump --out-dir ./result_opt/ \
-    --config ./base.yaml --override-yaml ./override.yaml
+ --freeze-atoms "1,3,5,7" --thresh gau_tight --dump --out-dir ./result_opt/ \
 ```
 
 ## ワークフロー
@@ -89,8 +86,6 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization.trj`）を出力。 | `False` |
 | `--out-dir PATH` | 出力ディレクトリ。 | `./result_opt/` |
 | `--config FILE` | ベースYAML設定ファイル。 | _None_ |
-| `--override-yaml FILE` | 最終YAML上書きファイル（YAML層の最優先）。 | _None_ |
-| `--args-yaml FILE` | `--override-yaml` の legacy alias。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済みYAMLレイヤ情報を表示。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。 | `False` |
 
@@ -109,18 +104,18 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 ## 出力
 
 ```text
-out_dir/ (デフォルト: ./result_opt/)
-  summary.md                 # 主要成果物のインデックス
-  key_opt.xyz                # final_geometry.xyz へのショートカット
-  key_opt.pdb                # final_geometry.pdb へのショートカット（存在時）
-  key_opt.trj                # 最適化軌跡へのショートカット
-  key_opt_traj.pdb           # 最適化軌跡PDBへのショートカット（存在時）
-  key_restart.yml            # リスタートスナップショットへのショートカット（存在時）
-  final_geometry.xyz          # 最適化されたジオメトリ（常に書き出し）
-  final_geometry.pdb          # 入力が PDB の場合に XYZ から変換（B 因子アノテーション付き）
-  optimization.trj            # 軌跡（--dump または opt.dump: true の場合）
-  optimization.pdb            # 入力が PDB でダンプ有効時に TRJ から変換
-  restart*.yml                # opt.dump_restart サイクルごとのリスタートファイル（有効時）
+out_dir/ (デフォルト:./result_opt/)
+ summary.md # 主要成果物のインデックス
+ key_opt.xyz # final_geometry.xyz へのショートカット
+ key_opt.pdb # final_geometry.pdb へのショートカット（存在時）
+ key_opt.trj # 最適化軌跡へのショートカット
+ key_opt_traj.pdb # 最適化軌跡PDBへのショートカット（存在時）
+ key_restart.yml # リスタートスナップショットへのショートカット（存在時）
+ final_geometry.xyz # 最適化されたジオメトリ（常に書き出し）
+ final_geometry.pdb # 入力が PDB の場合に XYZ から変換（B 因子アノテーション付き）
+ optimization.trj # 軌跡（--dump または opt.dump: true の場合）
+ optimization.pdb # 入力が PDB でダンプ有効時に TRJ から変換
+ restart*.yml # opt.dump_restart サイクルごとのリスタートファイル（有効時）
 ```
 
 コンソールには解決済みの設定ブロック（`geom`、`calc`、`opt`、`lbfgs`）、`print_every` サイクルごとの進捗、最終的な実行時間サマリーが出力されます。

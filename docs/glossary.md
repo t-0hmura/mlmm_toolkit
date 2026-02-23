@@ -22,8 +22,8 @@ This page provides definitions for abbreviations and technical terms used throug
 
 | Term | Full Name | Description |
 |------|-----------|-------------|
-| **parm7** | Amber Parameter/Topology File | A file containing atom types, partial charges, bonding connectivity, and force field parameters for an Amber system. Also called .prmtop. |
-| **rst7** | Amber Restart File | A file containing atomic coordinates (and optionally velocities and box dimensions) for an Amber system. Also called .inpcrd. |
+| **parm7** | Amber Parameter/Topology File | A file containing atom types, partial charges, bonding connectivity, and force field parameters for an Amber system. Also called.prmtop. |
+| **rst7** | Amber Restart File | A file containing atomic coordinates (and optionally velocities and box dimensions) for an Amber system. Also called.inpcrd. |
 | **AmberTools** | — | A free suite of tools for molecular dynamics preparation, including tleap, antechamber, and parmchk2. Required by `mlmm mm-parm`. |
 | **tleap** | — | An AmberTools program that builds Amber topology/coordinate files from PDB structures and force field libraries. |
 | **antechamber** | — | An AmberTools program that assigns GAFF2 atom types and AM1-BCC partial charges to small molecules. |
@@ -46,7 +46,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | **NEB** | Nudged Elastic Band | A chain-of-states method that uses spring forces to maintain image spacing along a reaction path. |
 | **HEI** | Highest-Energy Image | The image along an MEP with maximum energy; often used as a TS guess. |
 | **Image** | — | A single geometry (one "node") along a chain-of-states path. |
-| **Segment** | — | An MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2, ...). |
+| **Segment** | — | An MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2,...). |
 
 ---
 

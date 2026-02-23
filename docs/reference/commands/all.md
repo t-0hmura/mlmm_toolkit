@@ -80,10 +80,6 @@ Options:
                                   scan/tsopt/freq.  [default: False]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
-  --override-yaml FILE            Final YAML override file (highest priority
-                                  YAML layer).
-  --args-yaml FILE                [legacy] Alias of --override-yaml; kept for
-                                  backward compatibility.
   --show-config / --no-show-config
                                   Print resolved configuration and continue
                                   execution.  [default: no-show-config]
@@ -131,9 +127,9 @@ Options:
   --dft-max-cycle INTEGER         Override dft --max-cycle value.
   --dft-conv-tol FLOAT            Override dft --conv-tol value.
   --dft-grid-level INTEGER        Override dft --grid-level value.
-  --scan-lists, --scan-list TEXT  Python-like list of (i,j,target_Å) per stage
+  --scan-lists TEXT               Python-like list of (i,j,target_Å) per stage
                                   for **single-structure** scan. Pass a single
-                                  --scan-list(s) followed by multiple literals,
+                                  --scan-lists followed by multiple literals,
                                   e.g. "[(12,45,1.35)]"
                                   "[(10,55,2.20),(23,34,1.80)]". Indices refer
                                   to the original full PDB (1-based) or PDB atom

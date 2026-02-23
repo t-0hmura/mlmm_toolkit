@@ -2,18 +2,17 @@
 
 ## Overview
 
-> **Summary:** Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations. Use `--spec` (YAML/JSON, recommended) or legacy `--scan-lists`.
+> **Summary:** Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations. Use `--spec` (YAML/JSON, recommended) or `--scan-lists`.
 
 `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. The scan iterates d1 first, relaxing the structure with only the d1 restraint active, then iterates d2 for each d1 value with both restraints applied.
 
 Energies at each grid point are re-evaluated without the bias to populate a PES grid and contour plot. Outputs include per-point XYZ snapshots, `surface.csv` summarizing the PES, a 2D contour map (`scan2d_map.png`), and a 3D landscape with bottom projection (`scan2d_landscape.html`).
 
-For scan-family commands, YAML can be layered via `--config` (base) and `--override-yaml` (final overlay); `--args-yaml` remains as a legacy alias of `--override-yaml`. Merge precedence is **internal defaults < `--config` < `--override-yaml` < explicit CLI**.
 
 ## Minimal example
 ```bash
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
+ -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
 ```
 
 ## Output checklist
@@ -23,19 +22,18 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## Common examples
 1. Validate parsed scan targets from a YAML spec.
-2. Run with the legacy `--scan-lists` literal for backward compatibility.
+2. Run with the `--scan-lists` literal.
 3. Enable `--dump` to store inner trajectories per outer d1 step.
 
 ## Usage
 ```bash
 mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q CHARGE [-m SPIN] \
-    [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
-    [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
-    [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
-    [--dump/--no-dump] [--out-dir DIR] \
-    [--config FILE] [--override-yaml FILE | --args-yaml FILE] \
-    [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
+ -q CHARGE [-m SPIN] \
+ [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
+ [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
+ [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
+ [--dump/--no-dump] [--out-dir DIR] \
+ [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
 ### Examples
@@ -44,30 +42,30 @@ mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 cat > scan2d.yaml << 'YAML'
 one_based: true
 pairs:
-  - [12, 45, 1.30, 3.10]
-  - [10, 55, 1.20, 3.20]
+ - [12, 45, 1.30, 3.10]
+ - [10, 55, 1.20, 3.20]
 YAML
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --spec scan2d.yaml --print-parsed
+ -q 0 --spec scan2d.yaml --print-parsed
 
-# Legacy: Python literal
+# : Python literal
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
+ -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 
 # LBFGS scan with TRJ dumps and fixed color scale for the contour plot
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
-    --max-step-size 0.20 --dump --out-dir ./result_scan2d/ --preopt --baseline min \
-    --zmin 0.0 --zmax 40.0
+ -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
+ --max-step-size 0.20 --dump --out-dir ./result_scan2d/ --preopt --baseline min \
+ --zmin 0.0 --zmax 40.0
 ```
 
 ## `--spec` format (recommended)
 
 ```yaml
-one_based: true   # optional; defaults to CLI --one-based/--zero-based
+one_based: true # optional; defaults to CLI --one-based/--zero-based
 pairs:
-  - [12, 45, 1.30, 3.10]
-  - [10, 55, 1.20, 3.20]
+ - [12, 45, 1.30, 3.10]
+ - [10, 55, 1.20, 3.20]
 ```
 
 - `pairs` is required and must contain exactly 2 quadruples.
@@ -76,7 +74,7 @@ pairs:
 
 ## Workflow
 1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (FAIR-Chem UMA + hessian_ff), and optionally run an unbiased pre-optimization when `--preopt`.
-2. **Grid construction** -- Parse targets from `--spec` (recommended) or legacy `--scan-lists` into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
+2. **Grid construction** -- Parse targets from `--spec` (recommended) or `--scan-lists` into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
 5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`.
@@ -97,7 +95,7 @@ pairs:
 | `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
 | `--spec FILE` | YAML/JSON spec with `pairs` (2 quadruples) and optional `one_based`. | Recommended |
-| `--scan-lists TEXT` | Legacy Python literal with two quadruples: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Alternative to `--spec` |
+| `--scan-lists TEXT` | Python literal with two quadruples: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Alternative to `--spec` |
 | `--one-based / --zero-based` | Interpret `(i,j)` indices in `--scan-lists` as 1-based or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (A). Determines grid density. | `0.20` |
@@ -107,8 +105,6 @@ pairs:
 | `--out-dir TEXT` | Base output directory. | `./result_scan2d/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
-| `--override-yaml FILE` | Final YAML override file (highest-priority YAML layer). | _None_ |
-| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased pre-optimization before scanning. | `True` |
 | `--baseline {min,first}` | Reference for relative energy (kcal/mol). | `min` |
@@ -117,44 +113,40 @@ pairs:
 
 ## Outputs
 ```
-out_dir/  (default: ./result_scan2d/)
-├── surface.csv                   # PES grid: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged
-├── scan2d_map.png                # 2D contour map
-├── scan2d_landscape.html         # 3D surface visualization (Plotly)
+out_dir/ (default:./result_scan2d/)
+├── surface.csv # PES grid: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged
+├── scan2d_map.png # 2D contour map
+├── scan2d_landscape.html # 3D surface visualization (Plotly)
 ├── grid/
-│   ├── point_i###_j###.xyz       # Relaxed geometry for every (i, j) pair
-│   ├── point_i###_j###.pdb       # PDB companion (when input is PDB)
-│   ├── preopt_i###_j###.xyz      # Pre-optimized structure (when --preopt)
-│   └── inner_path_d1_###.trj     # Inner d2 trajectory per d1 slice (when --dump)
-└── (stdout)                      # Progress and energy summaries
+│ ├── point_i###_j###.xyz # Relaxed geometry for every (i, j) pair
+│ ├── point_i###_j###.pdb # PDB companion (when input is PDB)
+│ ├── preopt_i###_j###.xyz # Pre-optimized structure (when --preopt)
+│ └── inner_path_d1_###.trj # Inner d2 trajectory per d1 slice (when --dump)
+└── (stdout) # Progress and energy summaries
 ```
 
-## YAML configuration (`--config` / `--override-yaml` / `--args-yaml`)
 
-Merge precedence for scan-family commands is **internal defaults < `--config` < `--override-yaml` < explicit CLI**. `--args-yaml` is a legacy alias of `--override-yaml`.
-
-A minimal example (extend with the same keys documented in [opt](opt.md)):
 
 ```yaml
 geom:
-  coord_type: cart
-  freeze_atoms: []
+ coord_type: cart
+ freeze_atoms: []
 calc:
-  charge: 0
-  spin: 1
+ charge: 0
+ spin: 1
 mlmm:
-  real_parm7: real.parm7
-  model_pdb: ml_region.pdb
+ real_parm7: real.parm7
+ model_pdb: ml_region.pdb
 opt:
-  thresh: baker
-  max_cycles: 10000
-  dump: false
-  out_dir: ./result_scan2d/
+ thresh: baker
+ max_cycles: 10000
+ dump: false
+ out_dir:./result_scan2d/
 lbfgs:
-  max_step: 0.3
-  out_dir: ./result_scan2d/
+ max_step: 0.3
+ out_dir:./result_scan2d/
 bias:
-  k: 100.0
+ k: 100.0
 ```
 
 ## Notes

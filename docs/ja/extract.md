@@ -14,8 +14,8 @@
 ### 残基包含規則
 - 基質残基は常に含まれます。
 - 標準カットオフ（`--radius`、デフォルト 2.6 A）:
-  - `--no-exclude-backbone` の場合: **任意の原子**がカットオフ内にある残基を含めます。
-  - `--exclude-backbone`（デフォルト）の場合: **アミノ酸残基**では、適格原子は**非主鎖**（N, H*, CA, HA*, C, O, OXT 以外）でなければなりません。非アミノ酸残基は任意の原子で適格となります。
+ - `--no-exclude-backbone` の場合: **任意の原子**がカットオフ内にある残基を含めます。
+ - `--exclude-backbone`（デフォルト）の場合: **アミノ酸残基**では、適格原子は**非主鎖**（N, H*, CA, HA*, C, O, OXT 以外）でなければなりません。非アミノ酸残基は任意の原子で適格となります。
 - 独立したヘテロ-ヘテロ近接（`--radius-het2het`）: **基質ヘテロ原子（C/H 以外）** がカットオフ内の**タンパク質ヘテロ原子**に近接する残基を追加します。
 - 水分子はデフォルトで含まれます（`--include-H2O`; HOH/WAT/TIP3/SOL）。
 - `--selected-resn` で残基を強制包含できます（鎖とインサーションコードに対応）。
@@ -23,11 +23,11 @@
 ## 使用法
 
 ```bash
-mlmm extract -i INPUT.pdb [INPUT2.pdb ...] -c <substrate_spec> \
-    [-o OUTPUT.pdb ...] [-r <A>] [--radius-het2het <A>] \
-    [--include-H2O/--no-include-H2O] [--exclude-backbone/--no-exclude-backbone] \
-    [--add-linkH/--no-add-linkH] [--selected-resn "CHAIN:RES" ...] \
-    [--ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
+mlmm extract -i INPUT.pdb [INPUT2.pdb...] -c <substrate_spec> \
+ [-o OUTPUT.pdb...] [-r <A>] [--radius-het2het <A>] \
+ [--include-H2O/--no-include-H2O] [--exclude-backbone/--no-exclude-backbone] \
+ [--add-linkH/--no-add-linkH] [--selected-resn "CHAIN:RES"...] \
+ [--ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
 ```
 
 ### 例
@@ -38,14 +38,14 @@ mlmm extract -i complex.pdb -c A:123 -o pocket.pdb --ligand-charge -3
 
 # PDB で基質を指定; 残基名ごとの電荷マッピング（その他は 0）
 mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb \
-    --ligand-charge "GPP:-3,MMT:-1"
+ --ligand-charge "GPP:-3,MMT:-1"
 
 # 名前ベースの基質選択（すべてのマッチを含む）
 mlmm extract -i complex.pdb -c "GPP,MMT" -o pocket.pdb --ligand-charge -4
 
 # マルチ構造から単一マルチモデル出力、ヘテロ-ヘテロ近接有効
 mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
-    -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose
+ -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose
 ```
 
 ## ワークフロー
@@ -102,13 +102,13 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
 
 1. 基質残基は常に包含。
 2. 標準カットオフ（`--radius`）:
-   - `--exclude-backbone`（既定）: アミノ酸は**非主鎖原子**が近接した場合のみ包含。
-   - `--no-exclude-backbone`: 任意原子の近接で包含。
+ - `--exclude-backbone`（既定）: アミノ酸は**非主鎖原子**が近接した場合のみ包含。
+ - `--no-exclude-backbone`: 任意原子の近接で包含。
 3. ヘテロ-ヘテロ近接（`--radius-het2het`）で追加包含。
 4. `--selected-resn` は距離条件を無視して強制包含。
 5. セーフガード:
-   - ジスルフィド（SG-SG <= 2.5 A）は対になる Cys を同時包含。
-   - PRO 隣接残基はペプチド結合維持のため追加包含。
+ - ジスルフィド（SG-SG <= 2.5 A）は対になる Cys を同時包含。
+ - PRO 隣接残基はペプチド結合維持のため追加包含。
 
 ## 切断（キャッピング）
 
@@ -138,15 +138,15 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
 - 複数入力 PDB（同一原子順序）を受け付けます。
 - 各モデルで選択した残基の**和集合**を全モデルへ適用します。
 - 出力規則:
-  - `-o` 1 つ: マルチ MODEL PDB
-  - `-o` を入力数分指定: 各入力ごとの単独 PDB
-  - `-o` 省略: `pocket_<source>.pdb`
+ - `-o` 1 つ: マルチ MODEL PDB
+ - `-o` を入力数分指定: 各入力ごとの単独 PDB
+ - `-o` 省略: `pocket_<source>.pdb`
 
 ## 出力
 
 ```
-<output>.pdb                # 活性部位ポケット PDB（リンク水素を含む場合あり）
-(stdout)                    # ポケット情報サマリー（残基数、原子数、電荷）
+<output>.pdb # 活性部位ポケット PDB（リンク水素を含む場合あり）
+(stdout) # ポケット情報サマリー（残基数、原子数、電荷）
 ```
 
 ## 注意事項

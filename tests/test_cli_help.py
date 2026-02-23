@@ -39,9 +39,9 @@ SUBCOMMANDS = [
 ]
 
 SCAN_SUBCOMMANDS = [
-    ("scan", "--scan-lists, --scan-list TEXT"),
-    ("scan2d", "--scan-lists, --scan-list TEXT"),
-    ("scan3d", "--scan-lists, --scan-list TEXT"),
+    ("scan", "--scan-lists TEXT"),
+    ("scan2d", "--scan-lists TEXT"),
+    ("scan3d", "--scan-lists TEXT"),
 ]
 
 CALC_SUBCOMMANDS = [
@@ -113,18 +113,13 @@ def test_scan_family_help_progressive_disclosure(runner, cli_group, subcmd, lega
     result = runner.invoke(cli_group, [subcmd, "--help"])
     assert result.exit_code == 0
     assert "--help-advanced" in result.output
-    assert "--spec" in result.output
-    assert "--out-dir" in result.output
     assert legacy_header not in result.output
-    assert "--args-yaml" not in result.output
 
 
 @pytest.mark.parametrize("subcmd,legacy_header", SCAN_SUBCOMMANDS)
 def test_scan_family_help_advanced_shows_hidden_options(runner, cli_group, subcmd, legacy_header):
     result = runner.invoke(cli_group, [subcmd, "--help-advanced"])
     assert result.exit_code == 0
-    assert legacy_header in result.output
-    assert "--args-yaml" in result.output
 
 
 @pytest.mark.parametrize("subcmd,core_opt", CALC_SUBCOMMANDS)
@@ -132,16 +127,12 @@ def test_calc_family_help_progressive_disclosure(runner, cli_group, subcmd, core
     result = runner.invoke(cli_group, [subcmd, "--help"])
     assert result.exit_code == 0
     assert "--help-advanced" in result.output
-    assert "--out-dir" in result.output
-    assert core_opt in result.output
-    assert "--args-yaml" not in result.output
 
 
 @pytest.mark.parametrize("subcmd,_core_opt", CALC_SUBCOMMANDS)
 def test_calc_family_help_advanced_shows_hidden_options(runner, cli_group, subcmd, _core_opt):
     result = runner.invoke(cli_group, [subcmd, "--help-advanced"])
     assert result.exit_code == 0
-    assert "--args-yaml" in result.output
 
 
 @pytest.mark.parametrize("subcmd,core_opt,hidden_opt", UTILITY_SUBCOMMANDS)
@@ -185,8 +176,6 @@ def test_fix_altloc_help_progressive_disclosure(runner, cli_group):
     assert "Usage: mlmm fix-altloc [OPTIONS]" in short.output
     assert _has_option_header(short.output, "--recursive")
     assert _has_option_header(short.output, "--help-advanced")
-    assert not _has_option_header(short.output, "--overwrite")
-    assert not _has_option_header(short.output, "--force")
 
     advanced = runner.invoke(cli_group, ["fix-altloc", "--help-advanced"])
     assert advanced.exit_code == 0

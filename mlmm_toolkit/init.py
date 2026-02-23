@@ -8,7 +8,6 @@ import click
 
 
 _ALL_TEMPLATE = """# Starter config for `mlmm all`
-# Merge order: defaults < --config < CLI < --override-yaml
 
 extract:
   radius: 2.6

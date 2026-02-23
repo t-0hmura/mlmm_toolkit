@@ -192,7 +192,7 @@ def _resolve_yaml_sources(
 ) -> Tuple[Optional[Path], Optional[Path], bool]:
     if override_yaml is not None and args_yaml_legacy is not None:
         raise click.BadParameter(
-            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+            "Use a single YAML source option."
         )
     if args_yaml_legacy is not None:
         return config_yaml, args_yaml_legacy, True
@@ -1173,19 +1173,6 @@ def _maybe_convert_outputs_to_pdb(
     help="Base YAML configuration file applied before explicit CLI options.",
 )
 @click.option(
-    "--override-yaml",
-    type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    default=None,
-    help="Final YAML override file (highest priority YAML layer).",
-)
-@click.option(
-    "--args-yaml",
-    "args_yaml_legacy",
-    type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    default=None,
-    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
-)
-@click.option(
     "--show-config/--no-show-config",
     "show_config",
     default=False,
@@ -1224,8 +1211,6 @@ def cli(
     opt_mode: str,
     layer_opt: bool,
     config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
     show_config: bool,
     dry_run: bool,
 ) -> None:
@@ -1241,17 +1226,12 @@ def cli(
 
     config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
         config_yaml=config_yaml,
-        override_yaml=override_yaml,
-        args_yaml_legacy=args_yaml_legacy,
+        override_yaml=None,
+        args_yaml_legacy=None,
     )
-    if used_legacy_yaml:
-        click.echo(
-            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
-            err=True,
-        )
     merged_yaml_cfg = _load_merged_yaml_cfg(
         config_yaml=config_yaml,
-        override_yaml=override_yaml,
+        override_yaml=None,
     )
 
     # Handle input: PDB directly, or XYZ with --ref-pdb for topology

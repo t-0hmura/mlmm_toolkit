@@ -20,40 +20,40 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 ## Recipe 1: Extraction fails before MEP starts
 
 - Signal:
-  - Errors mention missing element symbols, atom-count mismatch, or empty pockets.
+ - Errors mention missing element symbols, atom-count mismatch, or empty pockets.
 - First checks:
-  - Confirm all inputs are prepared by the same workflow and atom ordering is consistent.
-  - Ensure element columns are present before running `extract` or `all`.
+ - Confirm all inputs are prepared by the same workflow and atom ordering is consistent.
+ - Ensure element columns are present before running `extract` or `all`.
 - Typical fix path:
-  - Repair elements -> rerun extraction -> confirm pocket size and residue inclusion.
+ - Repair elements -> rerun extraction -> confirm pocket size and residue inclusion.
 
 ## Recipe 2: Charge/spin validation fails
 
 - Signal:
-  - Errors mention unresolved charge, especially for non-`.gjf` inputs.
+ - Errors mention unresolved charge, especially for non-`.gjf` inputs.
 - First checks:
-  - Ensure total charge and multiplicity are physically correct for the target state.
-  - If using residue maps, validate each residue key in `--ligand-charge`.
-  - Verify the resolution rules in [CLI Conventions](cli_conventions.md) when results look physically inconsistent.
+ - Ensure total charge and multiplicity are physically correct for the target state.
+ - If using residue maps, validate each residue key in `--ligand-charge`.
+ - Verify the resolution rules in [CLI Conventions](cli_conventions.md) when results look physically inconsistent.
 - Typical fix path:
-  - Prefer explicit `-q` and `-m` for critical runs, then retry scan/path/tsopt.
+ - Prefer explicit `-q` and `-m` for critical runs, then retry scan/path/tsopt.
 
 ## Recipe 3: Build or environment blockers
 
 - Signal:
-  - `mm-parm` tooling not found, `hessian_ff` import failures, CUDA mismatch.
+ - `mm-parm` tooling not found, `hessian_ff` import failures, CUDA mismatch.
 - First checks:
-  - Confirm required executables and Python extension modules exist in the active env.
-  - Validate GPU visibility and PyTorch CUDA compatibility.
+ - Confirm required executables and Python extension modules exist in the active env.
+ - Validate GPU visibility and PyTorch CUDA compatibility.
 - Typical fix path:
-  - Repair toolchain/build first, then rerun with `--dry-run` before full execution.
+ - Repair toolchain/build first, then rerun with `--dry-run` before full execution.
 
 ## Recipe 4: Convergence and post-processing failures
 
 - Signal:
-  - TSOPT stalls, IRC branches look unstable, or MEP refinement stops unexpectedly.
+ - TSOPT stalls, IRC branches look unstable, or MEP refinement stops unexpectedly.
 - First checks:
-  - Confirm TS candidate quality with one dominant imaginary mode.
-  - Reduce optimizer aggressiveness and increase cycle limits.
+ - Confirm TS candidate quality with one dominant imaginary mode.
+ - Reduce optimizer aggressiveness and increase cycle limits.
 - Typical fix path:
-  - Run a smaller diagnostic case, tune thresholds/step sizes, then scale back up.
+ - Run a smaller diagnostic case, tune thresholds/step sizes, then scale back up.

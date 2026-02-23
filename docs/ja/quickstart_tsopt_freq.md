@@ -14,14 +14,14 @@ TS 候補を最適化し、振動解析で妥当性を確認します。
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --out-dir ./result_tsopt
+ -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
 ## 2. 最適化結果に対して振動解析
 
 ```bash
 mlmm freq -i ./result_tsopt/final_geometry.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --out-dir ./result_freq
+ -q 0 -m 1 --out-dir ./result_freq
 ```
 
 ## まず確認する出力

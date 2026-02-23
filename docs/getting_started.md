@@ -16,7 +16,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --th
 ```
 ---
 
-Given **(i) two or more full protein-ligand PDB files** (R, ..., P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm` automatically:
+Given **(i) two or more full protein-ligand PDB files** (R,..., P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm` automatically:
 
 - extracts an **active-site pocket** around user-defined substrates to build a **cluster model**,
 - generates **Amber parm7/rst7** topology files for the MM region (`mm-parm`),
@@ -54,7 +54,6 @@ If you encounter an error during setup or runtime, refer to [Troubleshooting](tr
 
 | Convention | Example |
 |------------|---------|
-| **Boolean options** | `--tsopt`, `--no-dft` (recommended). Legacy value-style (`--tsopt True`, `--dft 0`) is still accepted with a deprecation warning. |
 | **Residue selectors** | `'SAM,GPP'` or `'A:123,B:456'` |
 | **Charge mapping** | `--ligand-charge 'SAM:1,GPP:-3'` |
 | **Atom selectors** | `'TYR,285,CA'` or `'TYR 285 CA'` |
@@ -103,8 +102,8 @@ Below is a minimal setup example that works on many CUDA 12.9 clusters. Adjust m
 
 pip install torch --index-url https://download.pytorch.org/whl/cu129
 cd /path/to/mlmm_toolkit
-pip install -e .
-cd hessian_ff/native && make && cd ../..
+pip install -e.
+cd hessian_ff/native && make && cd../..
 plotly_get_chrome -y
 ```
 
@@ -125,24 +124,24 @@ huggingface-cli login
 You only need to do this once per machine / environment.
 
 - If you want to use the Direct Max Flux (DMF) method for MEP search, create a conda environment and install cyipopt before installing mlmm_toolkit.
-  ```bash
-  # Create and activate a dedicated conda environment
-  conda create -n mlmm python=3.11 -y
-  conda activate mlmm
+ ```bash
+ # Create and activate a dedicated conda environment
+ conda create -n mlmm python=3.11 -y
+ conda activate mlmm
 
-  # Install cyipopt (required for the DMF method in MEP search)
-  conda install -c conda-forge cyipopt -y
-  ```
+ # Install cyipopt (required for the DMF method in MEP search)
+ conda install -c conda-forge cyipopt -y
+ ```
 
 - If you are on an HPC cluster that uses *environment modules*, load CUDA **before** installing PyTorch, like this:
-  ```bash
-  module load cuda/12.9
-  ```
+ ```bash
+ module load cuda/12.9
+ ```
 
 - **AmberTools** is required for the `mlmm mm-parm` subcommand (Amber topology generation). Install it separately:
-  ```bash
-  conda install -c conda-forge ambertools -y
-  ```
+ ```bash
+ conda install -c conda-forge ambertools -y
+ ```
 
 
 ### Step-by-step installation
@@ -151,81 +150,81 @@ If you prefer to build the environment piece by piece:
 
 1. **Load CUDA (if you use environment modules on an HPC cluster)**
 
-   ```bash
-   module load cuda/12.9
-   ```
+ ```bash
+ module load cuda/12.9
+ ```
 
 2. **Create and activate a conda environment**
 
-   ```bash
-   conda create -n mlmm python=3.11 -y
-   conda activate mlmm
-   ```
+ ```bash
+ conda create -n mlmm python=3.11 -y
+ conda activate mlmm
+ ```
 
 3. **Install cyipopt**
-   Required if you want to use the DMF method in MEP search.
+ Required if you want to use the DMF method in MEP search.
 
-   ```bash
-   conda install -c conda-forge cyipopt -y
-   ```
+ ```bash
+ conda install -c conda-forge cyipopt -y
+ ```
 
 4. **Install AmberTools**
-   Required for the `mlmm mm-parm` subcommand (Amber topology generation with tleap/antechamber).
+ Required for the `mlmm mm-parm` subcommand (Amber topology generation with tleap/antechamber).
 
-   ```bash
-   conda install -c conda-forge ambertools -y
-   ```
+ ```bash
+ conda install -c conda-forge ambertools -y
+ ```
 
 5. **Install PyTorch with the right CUDA build**
 
-   For CUDA 12.9:
+ For CUDA 12.9:
 
-   ```bash
-   pip install torch --index-url https://download.pytorch.org/whl/cu129
-   ```
+ ```bash
+ pip install torch --index-url https://download.pytorch.org/whl/cu129
+ ```
 
-   (You may use another compatible version if your cluster recommends it.)
+ (You may use another compatible version if your cluster recommends it.)
 
 6. **Install `mlmm_toolkit` itself**
 
-   ```bash
-   cd /path/to/mlmm_toolkit
-   pip install -e .
-   ```
+ ```bash
+ cd /path/to/mlmm_toolkit
+ pip install -e.
+ ```
 
 7. **Build the `hessian_ff` C++ native extension**
 
-   ```bash
-   cd hessian_ff/native && make
-   ```
+ ```bash
+ cd hessian_ff/native && make
+ ```
 
-   This compiles the C++ code that provides fast Amber force field energy, force, and Hessian calculations.
+ This compiles the C++ code that provides fast Amber force field energy, force, and Hessian calculations.
 
 8. **Install Chrome for visualization**
 
-   ```bash
-   plotly_get_chrome -y
-   ```
+ ```bash
+ plotly_get_chrome -y
+ ```
 
 9. **Log in to Hugging Face Hub (UMA model)**
 
-   ```bash
-   huggingface-cli login
-   ```
+ ```bash
+ huggingface-cli login
+ ```
 
-   See also:
+ See also:
 
-   - <https://github.com/facebookresearch/fairchem>
-   - <https://huggingface.co/facebook/UMA>
-   - <https://huggingface.co/docs/hub/security-tokens>
+ - <https://github.com/facebookresearch/fairchem>
+ - <https://huggingface.co/facebook/UMA>
+ - <https://huggingface.co/docs/hub/security-tokens>
 
 10. **Verify installation**
 
-    ```bash
-    mlmm --version
-    ```
+ ```bash
+ mlmm --version
+ ```
 
-    This should display the installed version (e.g., `{{ version }}`).
+ This should display the installed version (e.g., `{{ version }}`).
 
 ---
 
@@ -244,9 +243,9 @@ The main entry point is the `mlmm` command, installed via `pip`. Internally it u
 This is equivalent to:
 
 ```bash
-mlmm [OPTIONS] ...
+mlmm [OPTIONS]...
 # is equivalent to
-mlmm all [OPTIONS] ...
+mlmm all [OPTIONS]...
 ```
 
 The `all` command runs the full pipeline -- cluster extraction, MM parameterization, layer definition, MEP search, TS optimization, vibrational analysis, and optional DFT -- in a single invocation.
@@ -265,13 +264,13 @@ If you omit `--center/-c`, cluster extraction is skipped and the **full input st
 The `mlmm all` command orchestrates a multi-step pipeline. When run individually, the typical workflow is:
 
 ```text
-1. extract     - Extract active-site pocket from full protein-ligand PDB
-2. mm-parm     - Generate Amber parm7/rst7 topology (requires AmberTools)
+1. extract - Extract active-site pocket from full protein-ligand PDB
+2. mm-parm - Generate Amber parm7/rst7 topology (requires AmberTools)
 3. define-layer - Assign 3-layer ML/MM partitioning (B-factor encoding)
 4. path-search - Recursive MEP search (Growing String Method)
-5. tsopt       - Transition state optimization
-6. freq        - Vibrational analysis and thermochemistry
-7. dft         - Single-point DFT energy refinement
+5. tsopt - Transition state optimization
+6. freq - Vibrational analysis and thermochemistry
+7. dft - Single-point DFT energy refinement
 ```
 
 The `all` command runs steps 1-7 automatically. You can also run each step individually for debugging or custom workflows.
@@ -336,8 +335,8 @@ Key points:
 
 - `--scan-lists` describes **staged distance scans** on the extracted cluster model.
 - Each tuple `(i, j, target_A)` is:
-  - a PDB atom selector string like `'TYR,285,CA'` (**delimiters can be: space/comma/slash/backtick/backslash ` ` `,` `/` `` ` `` `\`**) **or** a 1-based atom index,
-  - automatically remapped to the cluster-model indices.
+ - a PDB atom selector string like `'TYR,285,CA'` (**delimiters can be: space/comma/slash/backtick/backslash ` ` `,` `/` `` ` `` `\`**) **or** a 1-based atom index,
+ - automatically remapped to the cluster-model indices.
 - Supplying one `--scan-lists` literal runs a single scan stage; multiple literals run sequential stages. Pass multiple literals after a single flag (repeated flags are not accepted).
 - Each stage writes a `stage_XX/result.pdb`, which is treated as a candidate intermediate or product.
 - The default `all` workflow refines the concatenated stages with recursive `path-search`.
@@ -452,7 +451,6 @@ Most users will primarily call `mlmm all`. The CLI also exposes individual subco
 | `add-elem-info` | Repair PDB element columns | [add_elem_info](add_elem_info.md) |
 
 ```{important}
-Subcommands (except `all`) typically require `--real-parm7` (Amber topology) and `--model-pdb` (ML region PDB) for ML/MM calculations. The `all` command generates these automatically during the workflow. In extracted cluster models, the atom closest to the Link-H cap is automatically **frozen**. If you build a cluster model yourself, set the Link-H residue name to `LKH` and atom name to `HL`, or specify atoms to freeze via `--args-yaml` -> `geom.freeze_atoms`.
 ```
 
 ```{tip}
@@ -471,7 +469,7 @@ mlmm -i R.pdb P.pdb -c 'SUBSTRATE' --ligand-charge 'SUB:-1'
 
 # Full workflow with post-processing
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt --thermo --dft
+ --tsopt --thermo --dft
 
 # Single structure with staged scan
 mlmm -i SINGLE.pdb -c 'LIG' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'

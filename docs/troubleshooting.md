@@ -20,20 +20,20 @@ Before a long run, verify:
 
 ## Input / extraction problems
 
-### "Element symbols are missing ... please run add-elem-info"
+### "Element symbols are missing... please run add-elem-info"
 Typical message:
 
 ```text
 Element symbols are missing in '...'.
-Please run `mlmm add-elem-info -i ...` to populate element columns before running extract.
+Please run `mlmm add-elem-info -i...` to populate element columns before running extract.
 ```
 
 Fix:
 - Run:
 
-  ```bash
-  mlmm add-elem-info -i input.pdb -o input_with_elem.pdb
-  ```
+ ```bash
+ mlmm add-elem-info -i input.pdb -o input_with_elem.pdb
+ ```
 
 - Then re-run `extract` / `all` using the updated PDB.
 
@@ -42,11 +42,11 @@ Why it happens:
 
 ---
 
-### "[multi] Atom count mismatch ..." or "[multi] Atom order mismatch ..."
+### "[multi] Atom count mismatch..." or "[multi] Atom order mismatch..."
 Typical messages:
 
 ```text
-[multi] Atom count mismatch between input #1 and input #2: ...
+[multi] Atom count mismatch between input #1 and input #2:...
 [multi] Atom order mismatch between input #1 and input #2.
 ```
 
@@ -73,21 +73,21 @@ Fixes to try:
 
 ## Charge / spin problems
 
-### "Charge is required ..." (non-GJF inputs)
+### "Charge is required..." (non-GJF inputs)
 Many stages need a total charge when the input is not `.gjf`. If you omit `-q/--charge`, the workflow may attempt to derive charge from `--ligand-charge` (PDB-only) or from a `.gjf` template.
 
 Fix:
 - Provide charge and multiplicity explicitly:
 
-  ```bash
-  mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
-  ```
+ ```bash
+ mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
+ ```
 
 - Or (when using extraction) provide a residue-name mapping:
 
-  ```bash
-  mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
-  ```
+ ```bash
+ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+ ```
 
 ---
 
@@ -109,23 +109,23 @@ mm-parm requires AmberTools (tleap, antechamber, parmchk2).
 Fix:
 - Install AmberTools via conda:
 
-  ```bash
-  conda install -c conda-forge ambertools -y
-  ```
+ ```bash
+ conda install -c conda-forge ambertools -y
+ ```
 
 - Or load the appropriate module on HPC:
 
-  ```bash
-  module load ambertools
-  ```
+ ```bash
+ module load ambertools
+ ```
 
 - Verify availability:
 
-  ```bash
-  which tleap
-  which antechamber
-  which parmchk2
-  ```
+ ```bash
+ which tleap
+ which antechamber
+ which parmchk2
+ ```
 
 ---
 
@@ -139,9 +139,9 @@ Fixes to try:
 - Ensure `--ligand-charge` is specified correctly: `--ligand-charge 'GPP:-3,SAM:1'`.
 - Try running antechamber manually on the extracted ligand PDB to diagnose the issue:
 
-  ```bash
-  antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2
-  ```
+ ```bash
+ antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2
+ ```
 
 ---
 
@@ -175,21 +175,21 @@ Typical symptoms:
 Fixes to try:
 - Ensure you have a C++ compiler (g++ >= 9) installed:
 
-  ```bash
-  g++ --version
-  ```
+ ```bash
+ g++ --version
+ ```
 
 - On HPC, load a compiler module:
 
-  ```bash
-  module load gcc/11
-  ```
+ ```bash
+ module load gcc/11
+ ```
 
 - Clean and rebuild:
 
-  ```bash
-  cd hessian_ff/native && make clean && make
-  ```
+ ```bash
+ cd hessian_ff/native && make clean && make
+ ```
 
 ---
 
@@ -203,11 +203,11 @@ ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'
 Fix:
 - The C++ native extension needs to be built first:
 
-  ```bash
-  cd hessian_ff/native && make
-  ```
+ ```bash
+ cd hessian_ff/native && make
+ ```
 
-- Ensure the `hessian_ff` package is in your Python path (it should be if you installed mlmm_toolkit with `pip install -e .`).
+- Ensure the `hessian_ff` package is in your Python path (it should be if you installed mlmm_toolkit with `pip install -e.`).
 
 ---
 
@@ -222,7 +222,7 @@ Fixes to try:
 - Inspect the layer-assigned PDB visually (color by B-factor in your molecular viewer).
 - Check that `--model-pdb` correctly defines the ML region atoms.
 - Adjust the distance cutoffs in `define-layer`:
-  - `--radius-freeze` (default 8.0 A): controls Movable-MM/Frozen boundary.
+ - `--radius-freeze` (default 8.0 A): controls Movable-MM/Frozen boundary.
 - If needed, control Hessian-target MM separately in calc options (`hess_cutoff`, `hess_mm_atoms`).
 - If using `use_bfactor_layers: true` in YAML, verify that B-factor values match the expected encoding (0.0, 10.0, 20.0 with tolerance 1.0).
 
@@ -249,9 +249,9 @@ Symptoms:
 Fix:
 - Log in once per environment/machine:
 
-  ```bash
-  huggingface-cli login
-  ```
+ ```bash
+ huggingface-cli login
+ ```
 
 - On HPC, ensure your home directory (or HF cache directory) is writable from compute nodes.
 
@@ -266,10 +266,10 @@ Fixes:
 - Install a PyTorch build matching your cluster CUDA runtime.
 - Confirm GPU visibility:
 
-  ```bash
-  nvidia-smi
-  python -c "import torch; print(torch.version.cuda, torch.cuda.is_available())"
-  ```
+ ```bash
+ nvidia-smi
+ python -c "import torch; print(torch.version.cuda, torch.cuda.is_available())"
+ ```
 
 ---
 
@@ -279,9 +279,9 @@ If you use DMF (`--mep-mode dmf`) and see errors importing IPOPT/cyipopt:
 Fix:
 - Install `cyipopt` from conda-forge (recommended) before installing `mlmm_toolkit`:
 
-  ```bash
-  conda install -c conda-forge cyipopt
-  ```
+ ```bash
+ conda install -c conda-forge cyipopt
+ ```
 
 ---
 
@@ -291,9 +291,9 @@ If figure export fails and you see Plotly/Chrome-related errors:
 Fix:
 - Install a headless Chrome once:
 
-  ```bash
-  plotly_get_chrome -y
-  ```
+ ```bash
+ plotly_get_chrome -y
+ ```
 
 ---
 

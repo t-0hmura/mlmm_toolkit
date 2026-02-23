@@ -16,19 +16,19 @@
 
 ```bash
 mlmm oniom-gaussian --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
-    -o output.com [-q CHARGE] [-m MULT] [--method "B3LYP/6-31G(d,p)"] \
-    [--near FLOAT] [--nproc INT] [--mem TEXT] \
-    [--element-check|--no-element-check]
+ -o output.com [-q CHARGE] [-m MULT] [--method "B3LYP/6-31G(d,p)"] \
+ [--near FLOAT] [--nproc INT] [--mem TEXT] \
+ [--element-check|--no-element-check]
 ```
 
 ### oniom-orca
 
 ```bash
 mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
-    -o output.inp [-q CHARGE] [-m MULT] [--method "B3LYP D3BJ def2-SVP"] \
-    [--total-charge INT] [--total-mult INT] \
-    [--nproc INT] [--near FLOAT] [--orcaff PATH] \
-    [--convert-orcaff|--no-convert-orcaff] [--element-check|--no-element-check]
+ -o output.inp [-q CHARGE] [-m MULT] [--method "B3LYP D3BJ def2-SVP"] \
+ [--total-charge INT] [--total-mult INT] \
+ [--nproc INT] [--near FLOAT] [--orcaff PATH] \
+ [--convert-orcaff|--no-convert-orcaff] [--element-check|--no-element-check]
 ```
 
 ### 例
@@ -36,11 +36,11 @@ mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
 ```bash
 # Gaussian ONIOM 入力を生成
 mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
-    -o system.com -q 0 -m 1
+ -o system.com -q 0 -m 1
 
 # ORCA QM/MM 入力を生成
 mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
-    -o system.inp -q 0 -m 1
+ -o system.inp -q 0 -m 1
 ```
 
 ## 説明
@@ -51,8 +51,8 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 2. **座標の読み込み**（任意）: `-i/--input` が提供された場合、PDB または XYZ 座標ファイルを読み込みます。`--element-check` が有効（デフォルト）な場合、元素配列が parm7 トポロジーと一致することを検証。
 3. **QM 領域の同定**: `--model-pdb` が提供された場合、ML 領域 PDB の原子を全系とマッチングして QM（高）レイヤーを定義。
 4. **入力の生成**: 適切な入力ファイルを書き出します:
-   - **Gaussian**: `%nproc`、`%mem`、メソッド指定、レイヤー割り当て付き原子座標、コネクティビティを含む ONIOM 入力。QM 領域から `--near` Angstrom 以内の可動原子を同定。
-   - **ORCA**: `%pal nprocs`、メソッド指定、QM 原子選択、MM パラメータ用 parm7 ファイル参照を含む QM/MM 入力。
+ - **Gaussian**: `%nproc`、`%mem`、メソッド指定、レイヤー割り当て付き原子座標、コネクティビティを含む ONIOM 入力。QM 領域から `--near` Angstrom 以内の可動原子を同定。
+ - **ORCA**: `%pal nprocs`、メソッド指定、QM 原子選択、MM パラメータ用 parm7 ファイル参照を含む QM/MM 入力。
 
 ## CLI オプション
 
@@ -94,8 +94,8 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 ## 出力
 
 ```
-<output>.com / <output>.gjf   # Gaussian ONIOM 入力（oniom-gaussian）
-<output>.inp                  # ORCA QM/MM 入力（oniom-orca）
+<output>.com / <output>.gjf # Gaussian ONIOM 入力（oniom-gaussian）
+<output>.inp # ORCA QM/MM 入力（oniom-orca）
 ```
 
 - コンソールに QM 原子数のサマリー、（ORCA の場合）入力と一緒に parm7 ファイルをコピーするリマインダーが出力されます。
@@ -118,7 +118,7 @@ pip install parmed
 
 ```bash
 mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
-  -o system.com --element-check
+ -o system.com --element-check
 ```
 
 3. QM/MM 境界やレイヤー割り当てが不自然。
@@ -126,7 +126,7 @@ mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 ```bash
 mlmm define-layer -i pocket.pdb --real-parm7 real.parm7 -o layered.pdb
 mlmm oniom-orca --parm7 real.parm7 -i layered.pdb --model-pdb ml_region.pdb \
-  -o system.inp
+ -o system.inp
 ```
 
 ---

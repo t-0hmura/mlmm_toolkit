@@ -32,18 +32,18 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## Workflow
 1. Parse the XYZ trajectory and extract Hartree energies from the first
-   floating-point number found on each frame's comment line. If no energies are
-   found or a frame comment lacks a parseable energy, an error is raised.
+ floating-point number found on each frame's comment line. If no energies are
+ found or a frame comment lacks a parseable energy, an error is raised.
 2. Normalize the reference specification:
-   - `init` -- frame `0` (or the last frame when `--reverse-x` is active).
-   - `None`/`none`/`null` -- absolute energies (no referencing).
-   - Integer literal -- the corresponding 0-based frame index.
+ - `init` -- frame `0` (or the last frame when `--reverse-x` is active).
+ - `None`/`none`/`null` -- absolute energies (no referencing).
+ - Integer literal -- the corresponding 0-based frame index.
 3. Convert energies to either kcal/mol (default) or Hartree and, when a
-   reference is active, subtract the reference value to produce delta-E.
+ reference is active, subtract the reference value to produce delta-E.
 4. Build the Plotly figure (strong ticks, spline interpolation, markers, no
-   title) and export it to every requested extension.
+ title) and export it to every requested extension.
 5. Optionally emit a CSV table with columns `frame`, `energy_hartree`, and the
-   appropriate delta-E or absolute-E column in the requested unit.
+ appropriate delta-E or absolute-E column in the requested unit.
 
 ## CLI options
 | Option | Description | Default |
@@ -57,23 +57,22 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## Outputs
 ```
-<output>.[png|jpg|jpeg|html|svg|pdf]  # Plotly export for every requested extension (defaults to energy.png)
-<output>.csv                          # Optional energy table when CSV is requested
+<output>.[png|jpg|jpeg|html|svg|pdf] # Plotly export for every requested extension (defaults to energy.png)
+<output>.csv # Optional energy table when CSV is requested
 ```
 - When no `-o` or positional outputs are provided, a single `energy.png` is written
-  to the current directory.
+ to the current directory.
 - CSV exports include `frame`, `energy_hartree`, and either a delta-E column
-  (`delta_kcal`/`delta_hartree`) or absolute column (`energy_kcal`/`energy_hartree`
-  when no reference is applied).
+ (`delta_kcal`/`delta_hartree`) or absolute column (`energy_kcal`/`energy_hartree`
+ when no reference is applied).
 - PNG uses Plotly's PNG export with `scale=2` for higher resolution.
 
 ## Notes
 - Energies are taken from the first decimal number in each comment; malformed
-  comments raise an error.
+ comments raise an error.
 - Unsupported file extensions in `-o` cause an error.
 - `--reverse-x` flips both the axis direction and the behavior of `-r init` so
-  the visualized path reads backwards.
-- The legacy `--output-peak` option has been removed.
+- The `--output-peak` option has been removed.
 
 ---
 

@@ -17,15 +17,15 @@
 ```yaml
 one_based: true
 stages:
-  - [[12, 45, 2.20]]
-  - [[10, 55, 1.35], [23, 34, 1.80]]
+ - [[12, 45, 2.20]]
+ - [[10, 55, 1.35], [23, 34, 1.80]]
 ```
 
 ## 2. 実行
 
 ```bash
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
+ -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
 ```
 
 ## まず確認する出力
@@ -36,7 +36,6 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 補足
 
-- 推奨は `--spec` です。legacy 互換として `--scan-lists` も残っています。
 - 詳細オプションは `mlmm scan --help-advanced` で確認できます。
 
 ## 次の導線

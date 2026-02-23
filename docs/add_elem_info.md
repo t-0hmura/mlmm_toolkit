@@ -31,22 +31,22 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 
 ## Workflow
 1. Parse the input PDB with `Bio.PDB.PDBParser`, mirroring the residue
-   definitions used in `extract.py` (`AMINO_ACIDS`, `WATER_RES`, `ION`).
+ definitions used in `extract.py` (`AMINO_ACIDS`, `WATER_RES`, `ION`).
 2. For each atom, guess the element by combining the atom name, residue name,
-   and whether the record is HETATM:
-   - **Ion residues:** Prefers residue-derived elements; polyatomic ions
-     (e.g., NH4, H3O+) are assigned per atom (H/N/O).
-   - **Proteins, nucleic acids, water:** Maps H/D to H; water atoms to O/H;
-     first-letter mapping for P/N/O/S; recognizes Se; carbon labels
-     (CA/CB/CG/...) to C.
-   - **Ligands/cofactors:** Uses atom-name prefixes (C*/P*, excluding CL) and
-     two-letter/one-letter normalization; recognizes halogens (Cl/Br/I/F).
+ and whether the record is HETATM:
+ - **Ion residues:** Prefers residue-derived elements; polyatomic ions
+ (e.g., NH4, H3O+) are assigned per atom (H/N/O).
+ - **Proteins, nucleic acids, water:** Maps H/D to H; water atoms to O/H;
+ first-letter mapping for P/N/O/S; recognizes Se; carbon labels
+ (CA/CB/CG/...) to C.
+ - **Ligands/cofactors:** Uses atom-name prefixes (C*/P*, excluding CL) and
+ two-letter/one-letter normalization; recognizes halogens (Cl/Br/I/F).
 3. Write the structure through `PDBIO`:
-   - No `-o/--out` given: overwrites the input file.
-   - `-o/--out` given: writes to the specified path.
+ - No `-o/--out` given: overwrites the input file.
+ - `-o/--out` given: writes to the specified path.
 4. Print a summary reporting total atoms, newly assigned, kept existing,
-   overwritten (when `--overwrite`), per-element counts, and up to 50
-   unresolved atoms (model/chain/residue/atom/serial).
+ overwritten (when `--overwrite`), per-element counts, and up to 50
+ unresolved atoms (model/chain/residue/atom/serial).
 
 ## CLI options
 | Option | Description | Default |
@@ -57,16 +57,16 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 
 ## Outputs
 - A PDB file with element columns (77-78) populated or corrected:
-  - `-o/--out` given: writes to that path.
-  - No output path: overwrites the input file.
+ - `-o/--out` given: writes to that path.
+ - No output path: overwrites the input file.
 - Console report with totals for processed/assigned atoms, per-element
-  counts, and up to 50 unresolved atoms.
+ counts, and up to 50 unresolved atoms.
 
 ## Notes
 - Only columns 77-78 are modified; coordinates, occupancies, B-factors, charges, altlocs,
-  insertion codes, and record ordering stay untouched.
+ insertion codes, and record ordering stay untouched.
 - Existing element fields are detected by scanning the original file's ATOM/HETATM lines
-  (serials 7-11, elements 77-78) to reflect the true presence and avoid parser side effects.
+ (serials 7-11, elements 77-78) to reflect the true presence and avoid parser side effects.
 - Recognizes standard water/nucleic/protein residue names; treats deuterium "D" as hydrogen "H".
 - Depends on Biopython (`Bio.PDB`) and Click.
 

@@ -102,7 +102,6 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
     xyz = tmp / "input.xyz"
     gjf = tmp / "input.gjf"
     cfg = tmp / "config.yaml"
-    override = tmp / "override.yaml"
     out_dir = tmp / "result_all"
 
     r_pdb.write_text(pdb_text, encoding="utf-8")
@@ -110,7 +109,6 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
     xyz.write_text("1\n\nC 0.0 0.0 0.0\n", encoding="utf-8")
     gjf.write_text("%chk=test\n#p hf/3-21g\n\nTitle\n\n0 1\nC 0.0 0.0 0.0\n\n", encoding="utf-8")
     cfg.write_text("extract:\n  radius: 2.6\n", encoding="utf-8")
-    override.write_text("path_search:\n  max_nodes: 10\n", encoding="utf-8")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     return {
@@ -119,7 +117,6 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
         "xyz": xyz,
         "gjf": gjf,
         "config": cfg,
-        "override": override,
         "out_dir": out_dir,
     }
 
@@ -149,12 +146,8 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
             while i < len(args) and not args[i].startswith("-"):
                 i += 1
             continue
-        if tok in {"--config", "--args-yaml"}:
+        if tok == "--config":
             out.extend([tok, str(fixture["config"])])
-            i += 2
-            continue
-        if tok == "--override-yaml":
-            out.extend([tok, str(fixture["override"])])
             i += 2
             continue
         if tok == "--out-dir":

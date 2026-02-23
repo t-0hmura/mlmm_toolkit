@@ -30,14 +30,14 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --out-dir ./
 
 ```bash
 mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" \
-  --tsopt --thermo --dft --out-dir ./result_all
+ --tsopt --thermo --dft --out-dir ./result_all
 ```
 
 2. 単一構造 + 段階的スキャンを実行する。
 
 ```bash
 mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
-  --multiplicity 1 --out-dir ./result_scan_all
+ --multiplicity 1 --out-dir ./result_scan_all
 ```
 
 3. 重い処理を流す前に計画だけ確認する。
@@ -50,23 +50,22 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --dry-run
 
 ```bash
 # 標準（反応順のマルチ構造アンサンブル）
-mlmm all -i R.pdb [I1.pdb ...] P.pdb -c <substrate-spec> [--ligand-charge <map-or-number>]
-                  [--multiplicity <2S+1>] [--max-nodes N] [--max-cycles N]
-                  [--climb/--no-climb] [--sopt-mode lbfgs|rfo|light|heavy]
-                  [--opt-mode light|lbfgs|heavy|rfo]
-                  [--dump/--no-dump] [--config config.yaml] [--override-yaml override.yaml]
-                  [--pre-opt/--no-pre-opt] [--hessian-calc-mode Analytical|FiniteDifference] [--out-dir DIR]
-                  [--tsopt/--no-tsopt] [--thermo/--no-thermo] [--dft/--no-dft]
-                  [--tsopt-max-cycles N] [--freq-* overrides] [--dft-* overrides]
+mlmm all -i R.pdb [I1.pdb...] P.pdb -c <substrate-spec> [--ligand-charge <map-or-number>]
+ [--multiplicity <2S+1>] [--max-nodes N] [--max-cycles N]
+ [--climb/--no-climb] [--sopt-mode lbfgs|rfo|light|heavy]
+ [--opt-mode light|lbfgs|heavy|rfo]
+ [--pre-opt/--no-pre-opt] [--hessian-calc-mode Analytical|FiniteDifference] [--out-dir DIR]
+ [--tsopt/--no-tsopt] [--thermo/--no-thermo] [--dft/--no-dft]
+ [--tsopt-max-cycles N] [--freq-* overrides] [--dft-* overrides]
 
 # 単一構造 + 段階的スキャン
 mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
-                  --multiplicity 1 --sopt-mode lbfgs --pre-opt \
-                  --out-dir result_all --tsopt --thermo --dft
+ --multiplicity 1 --sopt-mode lbfgs --pre-opt \
+ --out-dir result_all --tsopt --thermo --dft
 
 # 単一構造 TSOPT のみモード（経路探索なし）
 mlmm all -i single.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
-                  --tsopt --thermo --dft --out-dir result_tsopt_single
+ --tsopt --thermo --dft --out-dir result_tsopt_single
 ```
 
 ### 例
@@ -77,52 +76,52 @@ mlmm all -i reactant.pdb product.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1
 
 # 中間体付きアンサンブル、残基 ID 基質指定、完全な後処理
 mlmm all -i A.pdb B.pdb C.pdb -c "308,309" --ligand-charge "-1" \
-  --multiplicity 1 --max-nodes 10 --max-cycles 100 --climb \
-  --sopt-mode lbfgs --no-dump --config params.yaml --pre-opt \
-  --out-dir result_all --tsopt --thermo --dft
+ --multiplicity 1 --max-nodes 10 --max-cycles 100 --climb \
+ --sopt-mode lbfgs --no-dump --config params.yaml --pre-opt \
+ --out-dir result_all --tsopt --thermo --dft
 
 # 単一構造 + スキャンで順序付き系列を構築
 mlmm all -i A.pdb -c "308,309" --scan-lists "[(10,55,2.20),(23,34,1.80)]" \
-  --multiplicity 1 --out-dir result_scan_all --tsopt --thermo --dft
+ --multiplicity 1 --out-dir result_scan_all --tsopt --thermo --dft
 
 # 単一構造 TSOPT のみモード（path_search なし）
 mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
-  --tsopt --thermo --dft --out-dir result_tsopt_only
+ --tsopt --thermo --dft --out-dir result_tsopt_only
 ```
 
 ## ワークフロー
 
 1. **活性部位ポケット抽出**（複数入力時はマルチ構造の和集合）
-   - 基質を定義します（`-c/--center`、PDB、残基 ID、または残基名で指定）。
-   - 任意で `--ligand-charge` を総数値（分配）またはマッピング（例: `GPP:-3,MMT:-1`）として提供します。
-   - 抽出器は入力ごとのポケット PDB を `<out-dir>/pockets/` に書き出します。
-   - 抽出器の**最初のモデルのポケット総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
-   - 追加の抽出トグル: `--radius`、`--radius-het2het`、`--include-H2O/--no-include-H2O`、`--exclude-backbone/--no-exclude-backbone`、`--add-linkH/--no-add-linkH`、`--selected_resn`、`--verbose/--no-verbose`。
+ - 基質を定義します（`-c/--center`、PDB、残基 ID、または残基名で指定）。
+ - 任意で `--ligand-charge` を総数値（分配）またはマッピング（例: `GPP:-3,MMT:-1`）として提供します。
+ - 抽出器は入力ごとのポケット PDB を `<out-dir>/pockets/` に書き出します。
+ - 抽出器の**最初のモデルのポケット総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
+ - 追加の抽出トグル: `--radius`、`--radius-het2het`、`--include-H2O/--no-include-H2O`、`--exclude-backbone/--no-exclude-backbone`、`--add-linkH/--no-add-linkH`、`--selected_resn`、`--verbose/--no-verbose`。
 
 2. **ML/MM 準備**
-   - 最初のポケットを `<out-dir>/ml_region.pdb` として `--model-pdb` に使用します。リンク水素をこの定義から除外したい場合は、抽出時に `--no-add-linkH`（デフォルト）を保持します。
-   - 最初の完全入力 PDB に対して `mm_parm` を一度実行し、`<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7` を構築します。これは自動的に `--real-parm7` として渡されます。
-   - このステージは `--auto-mm-ff-set`、`--auto-mm-add-ter`、`--auto-mm-keep-temp` で調整できます。
+ - 最初のポケットを `<out-dir>/ml_region.pdb` として `--model-pdb` に使用します。リンク水素をこの定義から除外したい場合は、抽出時に `--no-add-linkH`（デフォルト）を保持します。
+ - 最初の完全入力 PDB に対して `mm_parm` を一度実行し、`<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7` を構築します。これは自動的に `--real-parm7` として渡されます。
+ - このステージは `--auto-mm-ff-set`、`--auto-mm-add-ter`、`--auto-mm-keep-temp` で調整できます。
 
 3. **任意の段階的スキャン（単一入力のみ）**
-   - 完全入力 PDB が 1 つのみで `--scan-lists` が指定された場合、抽出されたポケット PDB に対して UMA 計算機を使用した段階的な結合距離駆動スキャンを実行します。
-   - 各ステージの最終緩和構造（`stage_XX/result.pdb`）が中間体/生成物候補として収集されます。
-   - 経路探索の入力系列は `[初期ポケット, stage_01/result.pdb, stage_02/result.pdb, ...]` となります。
+ - 完全入力 PDB が 1 つのみで `--scan-lists` が指定された場合、抽出されたポケット PDB に対して UMA 計算機を使用した段階的な結合距離駆動スキャンを実行します。
+ - 各ステージの最終緩和構造（`stage_XX/result.pdb`）が中間体/生成物候補として収集されます。
+ - 経路探索の入力系列は `[初期ポケット, stage_01/result.pdb, stage_02/result.pdb,...]` となります。
 
 4. **ポケット入力での MEP 探索（再帰的 GSM）**
-   - このコマンドから転送されたオプションで `path_search` を実行します。
-   - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、単一の元の完全 PDB がすべてのポケット入力の参照テンプレートとして再利用（繰り返し）されます。
+ - このコマンドから転送されたオプションで `path_search` を実行します。
+ - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、単一の元の完全 PDB がすべてのポケット入力の参照テンプレートとして再利用（繰り返し）されます。
 
 5. **全系へのマージと任意の後処理**
-   - ポケット MEP は `<out-dir>/path_search/` 内で元の全系テンプレートにマージされます。
-   - ポケットのみと全系の軌跡、セグメントごとのマージ PDB、サマリーが書き出されます。
-   - `--tsopt`: HEI ポケットで TS を最適化し、虚数モードに沿った変位による擬似 IRC を実行し、結合状態マッチングにより正方向/逆方向の対応を割り当て、セグメントダイアグラムを描画します。
-   - `--thermo`: (R, TS, P) で UMA 熱化学を計算し、Gibbs ダイアグラムを追加します。
-   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//UMA Gibbs ダイアグラムも生成されます。
+ - ポケット MEP は `<out-dir>/path_search/` 内で元の全系テンプレートにマージされます。
+ - ポケットのみと全系の軌跡、セグメントごとのマージ PDB、サマリーが書き出されます。
+ - `--tsopt`: HEI ポケットで TS を最適化し、虚数モードに沿った変位による擬似 IRC を実行し、結合状態マッチングにより正方向/逆方向の対応を割り当て、セグメントダイアグラムを描画します。
+ - `--thermo`: (R, TS, P) で UMA 熱化学を計算し、Gibbs ダイアグラムを追加します。
+ - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//UMA Gibbs ダイアグラムも生成されます。
 
 6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
-   - ステップ (4)-(5) をスキップし、ポケットで `tsopt` を実行し、擬似 IRC と両端の極小化を行い、R-TS-P の UMA エネルギーダイアグラムを構築し、任意で UMA Gibbs、DFT、DFT//UMA ダイアグラムを追加します。
-   - このモードでのみ、**より高いエネルギー**の IRC 端点が反応物 (R) として採用されます。
+ - ステップ (4)-(5) をスキップし、ポケットで `tsopt` を実行し、擬似 IRC と両端の極小化を行い、R-TS-P の UMA エネルギーダイアグラムを構築し、任意で UMA Gibbs、DFT、DFT//UMA ダイアグラムを追加します。
+ - このモードでのみ、**より高いエネルギー**の IRC 端点が反応物 (R) として採用されます。
 
 ## CLI オプション
 
@@ -136,8 +135,6 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--out-dir PATH` | トップレベル出力ディレクトリ。 | `./result_all/` |
 | `--dump/--no-dump` | オプティマイザーダンプを保存。 | `False` |
 | `--config FILE` | 先に適用するベース YAML。 | _None_ |
-| `--override-yaml FILE` | 最後に適用する上書き YAML（YAML 内で最優先）。 | _None_ |
-| `--args-yaml FILE` | `--override-yaml` の legacy alias。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済み設定を表示。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せず検証と計画表示のみ行う。 | `False` |
 
@@ -223,65 +220,65 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 
 ```text
 <out-dir>/
-  ml_region.pdb                     # ML 領域定義（最初のポケットのコピー）
-  pockets/
-    pocket_<input1_basename>.pdb
-    pocket_<input2_basename>.pdb
-    ...
-  mm_parm/
-    <input1_basename>.parm7         # 最初の完全酵素入力 PDB から生成
-    <input1_basename>.rst7
-  scan/                             # 単一構造+スキャンモードの場合のみ
-    stage_01/result.pdb
-    stage_02/result.pdb
-    ...
-  summary.yaml                      # トップレベルサマリーのミラー（path_search 実行時）
-  summary.log
-  summary.md                        # 主要成果物へ移動しやすいナビゲーションページ
-  key_mep.trj                       # 主要 MEP 軌跡へのショートカット（symlink/copy）
-  key_mep.pdb                       # 主要 MEP PDB へのショートカット（symlink/copy）
-  key_ts.pdb / key_ts.xyz           # TS 構造へのショートカット（利用可能時）
-  key_freq_TS.csv                   # TS 振動数へのショートカット（利用可能時）
-  key_dft_TS.yaml                   # TS DFT 結果へのショートカット（利用可能時）
-  key_irc_plot.png                  # IRC プロットへのショートカット（利用可能時）
-  mep_plot.png
-  energy_diagram_MEP.png
-  energy_diagram_UMA_all.png             # 集約後処理ダイアグラム（有効時）
-  energy_diagram_G_UMA_all.png
-  energy_diagram_DFT_all.png
-  energy_diagram_G_DFT_plus_UMA_all.png
-  irc_plot_all.png
-  path_search/                           # path_search 実行時
-    mep.trj
-    mep.pdb
-    mep_w_ref.pdb
-    mep_w_ref_seg_XX.pdb
-    summary.yaml
-    summary.log
-    mep_plot.png
-    energy_diagram_MEP.png
-    post_seg_XX/                         # 後処理有効時
-      ts/ ...
-      irc/ ...
-      freq/ ...                          # --thermo の場合
-      dft/  ...                          # --dft の場合
-      energy_diagram_UMA.png
-      energy_diagram_G_UMA.png
-      energy_diagram_DFT.png
-      energy_diagram_G_DFT_plus_UMA.png
-  tsopt_single/                          # 単一構造 TSOPT のみモードの場合
-    ts/ ...
-    irc/ ...
-    structures/
-      reactant.pdb
-      ts.pdb
-      product.pdb
-    freq/ ...                            # --thermo の場合
-    dft/  ...                            # --dft の場合
-    energy_diagram_UMA.png
-    energy_diagram_G_UMA.png
-    energy_diagram_DFT.png
-    energy_diagram_G_DFT_plus_UMA.png
+ ml_region.pdb # ML 領域定義（最初のポケットのコピー）
+ pockets/
+ pocket_<input1_basename>.pdb
+ pocket_<input2_basename>.pdb
+...
+ mm_parm/
+ <input1_basename>.parm7 # 最初の完全酵素入力 PDB から生成
+ <input1_basename>.rst7
+ scan/ # 単一構造+スキャンモードの場合のみ
+ stage_01/result.pdb
+ stage_02/result.pdb
+...
+ summary.yaml # トップレベルサマリーのミラー（path_search 実行時）
+ summary.log
+ summary.md # 主要成果物へ移動しやすいナビゲーションページ
+ key_mep.trj # 主要 MEP 軌跡へのショートカット（symlink/copy）
+ key_mep.pdb # 主要 MEP PDB へのショートカット（symlink/copy）
+ key_ts.pdb / key_ts.xyz # TS 構造へのショートカット（利用可能時）
+ key_freq_TS.csv # TS 振動数へのショートカット（利用可能時）
+ key_dft_TS.yaml # TS DFT 結果へのショートカット（利用可能時）
+ key_irc_plot.png # IRC プロットへのショートカット（利用可能時）
+ mep_plot.png
+ energy_diagram_MEP.png
+ energy_diagram_UMA_all.png # 集約後処理ダイアグラム（有効時）
+ energy_diagram_G_UMA_all.png
+ energy_diagram_DFT_all.png
+ energy_diagram_G_DFT_plus_UMA_all.png
+ irc_plot_all.png
+ path_search/ # path_search 実行時
+ mep.trj
+ mep.pdb
+ mep_w_ref.pdb
+ mep_w_ref_seg_XX.pdb
+ summary.yaml
+ summary.log
+ mep_plot.png
+ energy_diagram_MEP.png
+ post_seg_XX/ # 後処理有効時
+ ts/...
+ irc/...
+ freq/... # --thermo の場合
+ dft/... # --dft の場合
+ energy_diagram_UMA.png
+ energy_diagram_G_UMA.png
+ energy_diagram_DFT.png
+ energy_diagram_G_DFT_plus_UMA.png
+ tsopt_single/ # 単一構造 TSOPT のみモードの場合
+ ts/...
+ irc/...
+ structures/
+ reactant.pdb
+ ts.pdb
+ product.pdb
+ freq/... # --thermo の場合
+ dft/... # --dft の場合
+ energy_diagram_UMA.png
+ energy_diagram_G_UMA.png
+ energy_diagram_DFT.png
+ energy_diagram_G_DFT_plus_UMA.png
 ```
 
 ## YAML 設定
@@ -289,8 +286,6 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 `all` は 2 層の YAML を受け付けます:
 
 - `--config FILE`: ベース設定。
-- `--override-yaml FILE`: 最終上書き層。
-- `--args-yaml FILE`: `--override-yaml` の legacy alias。
 
 適用順序:
 

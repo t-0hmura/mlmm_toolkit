@@ -4,13 +4,12 @@
 
 > **Summary:** Optimizes a single structure to a local minimum using L-BFGS (default) or RFO with the ML/MM calculator. Input must be a PDB file; output includes XYZ and PDB geometries with B-factor annotations.
 
-`mlmm opt` performs single-structure geometry optimization using PySisyphus LBFGS with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The calculator couples FAIR-Chem UMA (ML high layer) with hessian_ff (MM low layer) without link-atom insertion; the ML region is defined by `--model-pdb`. Configuration uses YAML sections `geom`, `calc` (alias `mlmm`), `opt`, and `lbfgs`. Precedence is **defaults < config < explicit CLI < override**.
 
 ## Minimal example
 
 ```bash
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --out-dir ./result_opt
+ -q 0 --out-dir ./result_opt
 ```
 
 ## Output checklist
@@ -28,31 +27,29 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
+ -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
 ```
 
 2. Apply one harmonic distance restraint during optimization.
 
 ```bash
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --dist-freeze "[(12,45,2.20)]" --bias-k 20.0 --out-dir ./result_opt_rest
+ -q 0 --dist-freeze "[(12,45,2.20)]" --bias-k 20.0 --out-dir ./result_opt_rest
 ```
 
 3. Switch to heavy mode (RFO).
 
 ```bash
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
+ -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
 ## Usage
 
 ```bash
 mlmm opt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q CHARGE [-m MULT]
-    [--dist-freeze "[(I,J,TARGET_A), ...]"] [--one-based|--zero-based] [--bias-k FLOAT]
-    [--freeze-atoms "1,3,5"] [--max-cycles N] [--thresh PRESET]
-    [--dump/--no-dump] [--out-dir DIR] [--config FILE] [--override-yaml FILE]
-    [--show-config] [--dry-run] [--args-yaml FILE]
+ [--dist-freeze "[(I,J,TARGET_A),...]"] [--one-based|--zero-based] [--bias-k FLOAT]
+ [--freeze-atoms "1,3,5"] [--max-cycles N] [--thresh PRESET]
 ```
 
 ### Examples
@@ -61,8 +58,7 @@ mlmm opt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q CHARGE [-
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
 
 mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
-    --freeze-atoms "1,3,5,7" --thresh gau_tight --dump --out-dir ./result_opt/ \
-    --config ./base.yaml --override-yaml ./override.yaml
+ --freeze-atoms "1,3,5,7" --thresh gau_tight --dump --out-dir ./result_opt/ \
 ```
 
 ## Workflow
@@ -97,8 +93,6 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | `--dump/--no-dump` | Emit trajectory dumps (`optimization.trj`). | `False` |
 | `--out-dir PATH` | Output directory. | `./result_opt/` |
 | `--config FILE` | Base YAML configuration file. | _None_ |
-| `--override-yaml FILE` | Final YAML override file (highest-priority YAML layer). | _None_ |
-| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layer information before execution. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running optimization. | `False` |
 
@@ -117,18 +111,18 @@ Forces in Hartree/bohr, steps in bohr.
 ## Outputs
 
 ```text
-out_dir/ (default: ./result_opt/)
-  summary.md                 # Quick index of key outputs
-  key_opt.xyz                # Shortcut to final_geometry.xyz
-  key_opt.pdb                # Shortcut to final_geometry.pdb (when available)
-  key_opt.trj                # Shortcut to optimization trajectory
-  key_opt_traj.pdb           # Shortcut to optimization trajectory PDB (when available)
-  key_restart.yml            # Shortcut to a restart snapshot (when available)
-  final_geometry.xyz          # Final optimized geometry (always)
-  final_geometry.pdb          # Converted from XYZ when the input was a PDB (B-factors annotated)
-  optimization.trj            # Trajectory (written when --dump or opt.dump: true)
-  optimization.pdb            # Converted from TRJ when input was PDB and dumping is enabled
-  restart*.yml                # Restart files every opt.dump_restart cycles (if enabled)
+out_dir/ (default:./result_opt/)
+ summary.md # Quick index of key outputs
+ key_opt.xyz # Shortcut to final_geometry.xyz
+ key_opt.pdb # Shortcut to final_geometry.pdb (when available)
+ key_opt.trj # Shortcut to optimization trajectory
+ key_opt_traj.pdb # Shortcut to optimization trajectory PDB (when available)
+ key_restart.yml # Shortcut to a restart snapshot (when available)
+ final_geometry.xyz # Final optimized geometry (always)
+ final_geometry.pdb # Converted from XYZ when the input was a PDB (B-factors annotated)
+ optimization.trj # Trajectory (written when --dump or opt.dump: true)
+ optimization.pdb # Converted from TRJ when input was PDB and dumping is enabled
+ restart*.yml # Restart files every opt.dump_restart cycles (if enabled)
 ```
 
 Console output prints resolved configuration blocks (`geom`, `calc`, `opt`, `lbfgs`), progress every `print_every` cycles, and a final wall-clock time summary.

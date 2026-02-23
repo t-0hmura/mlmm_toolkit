@@ -19,7 +19,7 @@
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --out-dir ./result_tsopt
+ -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
 ## Output checklist
@@ -37,51 +37,50 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt_light
+ -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt_light
 ```
 
 2. Keep a full optimization trajectory for inspection.
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --dump --out-dir ./result_tsopt_dump
+ -q 0 -m 1 --dump --out-dir ./result_tsopt_dump
 ```
 
 3. Run heavy mode with YAML overrides.
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
+ -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
 ```
 
 ## Usage
 ```bash
 mlmm tsopt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
-    -q CHARGE [-m SPIN] [--freeze-atoms "1,3,5"] [--max-cycles N] \
-    [--dump/--no-dump] [--out-dir DIR] [--thresh PRESET] \
-    [--opt-mode light|heavy] [--hessian-calc-mode Analytical|FiniteDifference] \
-    [--config FILE] [--override-yaml FILE] [--show-config] [--dry-run] [--args-yaml FILE]
+ -q CHARGE [-m SPIN] [--freeze-atoms "1,3,5"] [--max-cycles N] \
+ [--dump/--no-dump] [--out-dir DIR] [--thresh PRESET] \
+ [--opt-mode light|heavy] [--hessian-calc-mode Analytical|FiniteDifference] \
 ```
 
 ### Examples
 ```bash
 # Default heavy mode (RS-I-RFO)
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 -m 1 --max-cycles 8000 --dump --out-dir ./result_tsopt/
+ -q 0 -m 1 --max-cycles 8000 --dump --out-dir ./result_tsopt/
 
 # Light mode (Dimer) with analytical Hessian
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt/
+ -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt/
 ```
 
 ## Workflow
 1. **Input handling** -- Load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge/spin. Freeze atoms from CLI and YAML are merged.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (FAIR-Chem UMA + hessian_ff). The `--hessian-calc-mode` controls whether UMA evaluates Hessians analytically or via finite difference.
 3. **Light mode (Dimer):**
-   - The Hessian Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected).
-   - When the flatten loop is enabled, the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
+ - The Hessian Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected).
+ - When the flatten loop is enabled, the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
 4. **Heavy mode (RS-I-RFO):**
-   - Runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section.
+ - Runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section.
 5. **Mode export** -- The converged imaginary mode is written to `vib/` as `.trj`/`.pdb` pairs. Final geometry and optional trajectory are also saved.
 
 ## CLI options
@@ -108,69 +107,65 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--partial-hessian-flatten / --full-hessian-flatten` | Use partial Hessian (ML only) for imaginary mode detection in flatten loop. | `True` (partial) |
 | `--active-dof-mode CHOICE` | Active DOF for final frequency analysis: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
-| `--override-yaml FILE` | Final YAML override file (highest-priority YAML layer). | _None_ |
-| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
 | `--show-config/--no-show-config` | Print resolved config layers and continue execution. | `False` |
 | `--dry-run/--no-dry-run` | Validate inputs/config and print the execution plan without running TS optimization. | `False` |
 
 ## Outputs
 ```
-out_dir/  (default: ./result_tsopt/)
-├── summary.md                   # Quick index of key outputs
-├── key_ts.xyz                   # Shortcut to final TS geometry (or key_ts.pdb)
-├── key_imag_mode.trj            # Shortcut to a representative imaginary mode
-├── key_opt.trj                  # Shortcut to optimization trajectory (when available)
-├── final_geometry.xyz            # Always written
-├── final_geometry.pdb            # When the input was PDB
-├── optimization_all.trj          # Concatenated Dimer segments (when --dump)
-├── optimization_all.pdb          # PDB companion (when --dump and input was PDB)
+out_dir/ (default:./result_tsopt/)
+├── summary.md # Quick index of key outputs
+├── key_ts.xyz # Shortcut to final TS geometry (or key_ts.pdb)
+├── key_imag_mode.trj # Shortcut to a representative imaginary mode
+├── key_opt.trj # Shortcut to optimization trajectory (when available)
+├── final_geometry.xyz # Always written
+├── final_geometry.pdb # When the input was PDB
+├── optimization_all.trj # Concatenated Dimer segments (when --dump)
+├── optimization_all.pdb # PDB companion (when --dump and input was PDB)
 ├── vib/
-│   ├── final_imag_mode_±XXXX.Xcm-1.trj   # Imaginary mode trajectory
-│   └── final_imag_mode_±XXXX.Xcm-1.pdb   # Imaginary mode PDB companion
-└── .dimer_mode.dat               # Dimer orientation seed (light mode)
+│ ├── final_imag_mode_±XXXX.Xcm-1.trj # Imaginary mode trajectory
+│ └── final_imag_mode_±XXXX.Xcm-1.pdb # Imaginary mode PDB companion
+└──.dimer_mode.dat # Dimer orientation seed (light mode)
 ```
 
-## YAML configuration (`--config` / `--override-yaml` / `--args-yaml`)
 
-Use `--config` for the base mapping and `--override-yaml` for the final YAML override (`--args-yaml` is a legacy alias of `--override-yaml`). Merge precedence is:
 
 `defaults < config < explicit CLI < override`.
 
 ```yaml
 geom:
-  coord_type: cart
-  freeze_atoms: []
+ coord_type: cart
+ freeze_atoms: []
 calc:
-  charge: 0
-  spin: 1
+ charge: 0
+ spin: 1
 mlmm:
-  real_parm7: real.parm7
-  model_pdb: ml_region.pdb
+ real_parm7: real.parm7
+ model_pdb: ml_region.pdb
 opt:
-  thresh: baker
-  max_cycles: 10000
-  dump: false
-  out_dir: ./result_tsopt/
+ thresh: baker
+ max_cycles: 10000
+ dump: false
+ out_dir:./result_tsopt/
 hessian_dimer:
-  thresh_loose: gau_loose
-  thresh: baker
-  update_interval_hessian: 500
-  neg_freq_thresh_cm: 5.0
-  flatten_amp_ang: 0.1
-  flatten_max_iter: 50
-  root: 0
-  dimer:
-    length: 0.0189
-    rotation_max_cycles: 15
-  lbfgs:
-    thresh: baker
-    max_cycles: 10000
-    max_step: 0.3
+ thresh_loose: gau_loose
+ thresh: baker
+ update_interval_hessian: 500
+ neg_freq_thresh_cm: 5.0
+ flatten_amp_ang: 0.1
+ flatten_max_iter: 50
+ root: 0
+ dimer:
+ length: 0.0189
+ rotation_max_cycles: 15
+ lbfgs:
+ thresh: baker
+ max_cycles: 10000
+ max_step: 0.3
 rsirfo:
-  thresh: baker
-  max_cycles: 10000
-  roots: [0]
-  hessian_update: bofill
+ thresh: baker
+ max_cycles: 10000
+ roots: [0]
+ hessian_update: bofill
 ```
 
 ## Notes

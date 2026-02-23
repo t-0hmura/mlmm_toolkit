@@ -33,7 +33,7 @@ OUT_DIR_PATH_SEARCH = "./result_path_search/"
 #   Frozen MM atoms: 20.0
 #
 # NOTE:
-#   BFACTOR_HESS_MM is kept as a compatibility alias (same as movable MM).
+#   BFACTOR_HESS_MM uses the same value as movable MM for unified 3-layer encoding.
 #   Hessian-target MM atoms are selected dynamically (e.g., by hess_cutoff),
 #   not by a dedicated B-factor layer.
 BFACTOR_ML = 0.0
@@ -78,7 +78,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "mm_threads": 16,
     "mm_fd": True,
     "mm_fd_dir": None,
-    "mm_fd_delta": 1e-3,         # Legacy parameter (kept for backward compatibility)
+    "mm_fd_delta": 1e-3,         # Legacy parameter (retained)
     "symmetrize_hessian": True,  # Symmetrize final Hessian as 0.5*(H+H^T)
     "print_timing": True,        # Print ML/MM Hessian timing breakdown
     "print_vram": False,         # Print CUDA VRAM usage (peak) during Hessian
@@ -250,7 +250,6 @@ SEARCH_KW: Dict[str, Any] = {
     "max_depth": 10,
     "stitch_rmsd_thresh": 1.0e-4,
     "bridge_rmsd_thresh": 1.0e-4,
-    "rmsd_align": True,
     "max_nodes_segment": 10,
     "max_nodes_bridge": 5,
     "kink_max_nodes": 3,

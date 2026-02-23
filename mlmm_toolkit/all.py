@@ -241,6 +241,17 @@ def _append_cli_arg(args: List[str], flag: str, value: Any | None) -> None:
         args.extend([flag, str(value)])
 
 
+def _append_toggle_arg(args: List[str], flag: str, value: Any | None) -> None:
+    """Append Click bool-toggle option as ``--flag`` / ``--no-flag`` when value is not ``None``."""
+    if value is None:
+        return
+    if not isinstance(value, bool):
+        raise TypeError(f"Toggle flag '{flag}' requires bool value, got {type(value).__name__}.")
+    base = flag if not flag.startswith("--no-") else f"--{flag[5:]}"
+    neg = f"--no-{base[2:]}"
+    args.append(base if value else neg)
+
+
 def _resolve_override_dir(default: Path, override: Path | None) -> Path:
     """Return ``override`` when provided (respecting absolute paths); otherwise ``default``."""
     if override is None:
@@ -252,21 +263,9 @@ def _resolve_override_dir(default: Path, override: Path | None) -> Path:
 
 def _resolve_yaml_sources(
     config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
 ) -> Tuple[Optional[Path], Optional[Path], bool]:
-    """Resolve config/override YAML inputs and legacy alias usage."""
-    if override_yaml is not None and args_yaml_legacy is not None:
-        raise click.BadParameter(
-            "Use either --override-yaml or --args-yaml (legacy alias), not both."
-        )
-
-    used_legacy_alias = False
-    if args_yaml_legacy is not None:
-        used_legacy_alias = True
-        override_yaml = args_yaml_legacy
-
-    return config_yaml, override_yaml, used_legacy_alias
+    """Resolve YAML inputs for the all pipeline."""
+    return config_yaml, None, False
 
 
 def _build_effective_args_yaml(
@@ -788,14 +787,14 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         ts_args.extend(["--opt-mode", str(opt_mode)])
 
     _append_cli_arg(ts_args, "--max-cycles", overrides.get("max_cycles"))
-    _append_cli_arg(ts_args, "--dump", overrides.get("dump"))
+    _append_toggle_arg(ts_args, "--dump", overrides.get("dump"))
 
     hess_mode = overrides.get("hessian_calc_mode")
     if hess_mode:
         ts_args.extend(["--hessian-calc-mode", str(hess_mode)])
 
     if args_yaml is not None:
-        ts_args.extend(["--args-yaml", str(args_yaml)])
+        ts_args.extend(["--config", str(args_yaml)])
 
     _echo(f"[tsopt] Running tsopt on HEI → out={ts_dir}")
     _run_cli_main("tsopt", _ts_opt.cli, ts_args, on_nonzero="raise", prefix="tsopt")
@@ -1135,14 +1134,14 @@ def _run_freq_for_state(pdb_path: Path,
         args.extend(["--sort", str(overrides.get("sort"))])
     _append_cli_arg(args, "--temperature", overrides.get("temperature"))
     _append_cli_arg(args, "--pressure", overrides.get("pressure"))
-    _append_cli_arg(args, "--dump", dump_use)
+    _append_toggle_arg(args, "--dump", dump_use)
 
     hess_mode = overrides.get("hessian_calc_mode")
     if hess_mode:
         args.extend(["--hessian-calc-mode", str(hess_mode)])
 
     if args_yaml is not None:
-        args.extend(["--args-yaml", str(args_yaml)])
+        args.extend(["--config", str(args_yaml)])
     _run_cli_main("freq", _freq_cli.cli, args, on_nonzero="warn", on_exception="raise", prefix="freq")
     # parse thermoanalysis.yaml if any
     y = fdir / "thermoanalysis.yaml"
@@ -1189,7 +1188,7 @@ def _run_dft_for_state(pdb_path: Path,
     _append_cli_arg(args, "--grid-level", overrides.get("grid_level"))
 
     if args_yaml is not None:
-        args.extend(["--args-yaml", str(args_yaml)])
+        args.extend(["--config", str(args_yaml)])
     _run_cli_main("dft", _dft_cli.cli, args, on_nonzero="warn", on_exception="raise", prefix="dft")
     y = out_dir / "result.yaml"
     if y.exists():
@@ -1358,10 +1357,6 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Dump GSM / single-structure trajectories during the run, forwarding the same flag to scan/tsopt/freq.")
 @click.option("--config", "config_yaml", type=click.Path(path_type=Path, exists=True, dir_okay=False),
               default=None, help="Base YAML configuration file applied before explicit CLI options.")
-@click.option("--override-yaml", type=click.Path(path_type=Path, exists=True, dir_okay=False),
-              default=None, help="Final YAML override file (highest priority YAML layer).")
-@click.option("--args-yaml", "args_yaml_legacy", type=click.Path(path_type=Path, exists=True, dir_okay=False),
-              default=None, help="[legacy] Alias of --override-yaml; kept for backward compatibility.")
 @click.option("--show-config/--no-show-config", "show_config", default=False, show_default=True,
               help="Print resolved configuration and continue execution.")
 @click.option("--dry-run/--no-dry-run", "dry_run", default=False, show_default=True,
@@ -1421,11 +1416,10 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 # ===== NEW: staged scan specification for single-structure route =====
 @click.option(
     "--scan-lists",
-    "--scan-list",
     "scan_lists_raw",
     type=str, multiple=True, required=False,
     help='Python-like list of (i,j,target_Å) per stage for **single-structure** scan. '
-         'Pass a single --scan-list(s) followed by multiple literals, e.g. '
+         'Pass a single --scan-lists followed by multiple literals, e.g. '
          '"[(12,45,1.35)]" "[(10,55,2.20),(23,34,1.80)]". '
          'Indices refer to the original full PDB (1-based) or PDB atom selectors like "TYR,285,CA"; '
          'they are auto-mapped to the pocket after extraction. Stage results feed into path_search.',
@@ -1471,8 +1465,6 @@ def cli(
     opt_mode: Optional[str],
     dump: bool,
     config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
     show_config: bool,
     dry_run: bool,
     pre_opt: bool,
@@ -1524,19 +1516,10 @@ def cli(
     except Exception:
         dump_override_requested = False
 
-    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
-        config_yaml=config_yaml,
-        override_yaml=override_yaml,
-        args_yaml_legacy=args_yaml_legacy,
-    )
-    if used_legacy_yaml:
-        click.echo(
-            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
-            err=True,
-        )
+    config_yaml, override_yaml, _ = _resolve_yaml_sources(config_yaml=config_yaml)
     args_yaml, merged_yaml_cfg = _build_effective_args_yaml(
         config_yaml=config_yaml,
-        override_yaml=override_yaml,
+        override_yaml=None,
         tmp_prefix="mlmm_all_merged_",
     )
 
@@ -1553,9 +1536,7 @@ def cli(
         )
         input_paths = tuple(i_parsed)
 
-    scan_vals = collect_single_option_values(
-        argv_all, ("--scan-lists", "--scan-list"), "--scan-list(s)"
-    )
+    scan_vals = collect_single_option_values(argv_all, ("--scan-lists",), "--scan-lists")
     if scan_vals:
         scan_lists_raw = tuple(scan_vals)
 
@@ -2178,7 +2159,7 @@ def cli(
         _append_cli_arg(scan_args, "--bias-k", scan_bias_k)
         _append_cli_arg(scan_args, "--relax-max-cycles", scan_relax_max_cycles)
         if args_yaml is not None:
-            scan_args.extend(["--args-yaml", str(args_yaml)])
+            scan_args.extend(["--config", str(args_yaml)])
         # Forward all converted --scan-lists (aligned to the pocket atom order)
         for literal in scan_stage_literals:
             scan_args.extend(["--scan-lists", literal])
@@ -2230,14 +2211,14 @@ def cli(
     # Nodes, cycles, climb, optimizer, dump, out-dir, pre-opt, args-yaml
     ps_args.extend(["--max-nodes", str(int(max_nodes))])
     ps_args.extend(["--max-cycles", str(int(max_cycles))])
-    ps_args.extend(["--climb", "True" if climb else "False"])
+    ps_args.append("--climb" if climb else "--no-climb")
     ps_sopt = "light" if sopt_mode.lower() in ("lbfgs", "light") else "heavy"
     ps_args.extend(["--sopt-mode", ps_sopt])
-    ps_args.extend(["--dump", "True" if dump else "False"])
+    ps_args.append("--dump" if dump else "--no-dump")
     ps_args.extend(["--out-dir", str(path_dir)])
-    ps_args.extend(["--pre-opt", "True" if pre_opt else "False"])
+    ps_args.append("--pre-opt" if pre_opt else "--no-pre-opt")
     if args_yaml is not None:
-        ps_args.extend(["--args-yaml", str(args_yaml)])
+        ps_args.extend(["--config", str(args_yaml)])
 
     # Auto-provide ref templates (original full PDBs) for full-system merge.
     # Multi-structure: one ref per original input; single+scan: reuse the single template for all pockets.

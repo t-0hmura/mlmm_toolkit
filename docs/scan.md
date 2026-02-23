@@ -2,24 +2,23 @@
 
 ## Overview
 
-> **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `--spec` (YAML/JSON, recommended) to define targets; `--scan-lists` remains as a legacy Python-literal input.
+> **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `--spec` (YAML/JSON, recommended) to define targets; `--scan-lists` remains as a Python-literal input.
 
 ### Quick reference
 - **Use when:** You have a single structure and need to drive specific inter-atomic distances toward target values to explore a plausible path (often before `path-search`/`path-opt`).
-- **Input:** One structure + `--spec scan.yaml` (recommended), or one/more legacy `--scan-lists` literals (each literal = one stage).
+- **Input:** One structure + `--spec scan.yaml` (recommended), or one/more `--scan-lists` literals (each literal = one stage).
 - **Defaults:** LBFGS optimizer, `--preopt`, `--endopt`, `--max-step-size 0.20` A.
 - **Outputs:** Per-stage `result.xyz` (+ optional `.pdb`), and optional concatenated trajectories when `--dump`.
-- **Note:** Prefer `--spec` to avoid shell-quoting issues. `--scan-lists` is still supported as legacy.
+- **Note:** Prefer `--spec` to avoid shell-quoting issues. `--scan-lists` is still supported as.
 
 `mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples FAIR-Chem UMA and hessian_ff.
 
-When you provide multiple `--scan-lists` literals after a single flag, stages run sequentially and each stage starts from the previous stage's relaxed structure. After the biased walk, optional unbiased pre-/post-optimizations (`--preopt`, `--endopt`) can clean up geometries before writing `result.*` to disk. For the scan family, YAML can be layered via `--config` (base) and `--override-yaml` (final overlay); `--args-yaml` remains as a legacy alias of `--override-yaml`. Merge precedence is **internal defaults < `--config` < `--override-yaml` < explicit CLI**.
 
 ## Minimal example
 
 ```bash
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
+ -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
 ```
 
 ## Output checklist
@@ -34,28 +33,28 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --spec scan.yaml --print-parsed
+ -q 0 --spec scan.yaml --print-parsed
 ```
 
-2. Use legacy literal input for compatibility.
+2. Use literal input.
 
 ```bash
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --scan-lists "[(12,45,2.20)]"
+ -q 0 --scan-lists "[(12,45,2.20)]"
 ```
 
 3. Dump trajectories for stage-by-stage inspection.
 
 ```bash
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 --spec scan.yaml --dump --out-dir ./result_scan_dump
+ -q 0 --spec scan.yaml --dump --out-dir ./result_scan_dump
 ```
 
 ## Usage
 ```bash
 mlmm scan -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-          -q CHARGE [-m MULT] \
-          [--spec scan.yaml | --scan-lists "[(I,J,TARGET_ANG)]"] [options]
+ -q CHARGE [-m MULT] \
+ [--spec scan.yaml | --scan-lists "[(I,J,TARGET_ANG)]"] [options]
 ```
 
 ### Examples
@@ -64,21 +63,20 @@ mlmm scan -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 cat > scan.yaml << 'YAML'
 one_based: true
 stages:
-  - [[12, 45, 2.20]]
-  - [[10, 55, 1.35], [23, 34, 1.80]]
+ - [[12, 45, 2.20]]
+ - [[10, 55, 1.35], [23, 34, 1.80]]
 YAML
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --spec scan.yaml --print-parsed
+ -q 0 --spec scan.yaml --print-parsed
 
-# Legacy: Python literal
+# : Python literal
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --scan-lists "[(12,45,2.20)]"
+ -q 0 --scan-lists "[(12,45,2.20)]"
 
 # Two stages with dumps, frozen atoms, and YAML overrides
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q -1 -m 1 --freeze-atoms "1,3,5" --scan-lists "[(12,45,2.20)]" \
-    "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
-    --override-yaml params.yaml --out-dir ./result_scan/
+ -q -1 -m 1 --freeze-atoms "1,3,5" --scan-lists "[(12,45,2.20)]" \
+ "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
 ```
 
 ## `--spec` format (recommended)
@@ -86,10 +84,10 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 `--spec` accepts YAML/JSON with a mapping root:
 
 ```yaml
-one_based: true   # optional; defaults to CLI --one-based/--zero-based
+one_based: true # optional; defaults to CLI --one-based/--zero-based
 stages:
-  - [[12, 45, 2.20]]
-  - [[10, 55, 1.35], [23, 34, 1.80]]
+ - [[12, 45, 2.20]]
+ - [[10, 55, 1.35], [23, 34, 1.80]]
 ```
 
 - `stages` is required.
@@ -98,29 +96,29 @@ stages:
 
 ## Workflow
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
-   or defaults. Provide `--real-parm7`, `--model-pdb`, `-q/--charge`, and optionally
-   `-m/--multiplicity` for the ML/MM calculator.
+ or defaults. Provide `--real-parm7`, `--model-pdb`, `-q/--charge`, and optionally
+ `-m/--multiplicity` for the ML/MM calculator.
 2. Optionally run an unbiased preoptimization (`--preopt`) before any
-   biasing so the starting point is relaxed.
-3. Parse stage targets from `--spec` (recommended) or legacy `--scan-lists`, then normalize the
-   `(i, j)` indices (1-based by default). When the input is a PDB, each entry
-   may be either an integer index or an atom selector string like `'TYR,285,CA'`;
-   selector fields can be separated by spaces, commas, slashes, backticks, or
-   backslashes and may be in any order.
+ biasing so the starting point is relaxed.
+3. Parse stage targets from `--spec` (recommended) or `--scan-lists`, then normalize the
+ `(i, j)` indices (1-based by default). When the input is a PDB, each entry
+ may be either an integer index or an atom selector string like `'TYR,285,CA'`;
+ selector fields can be separated by spaces, commas, slashes, backticks, or
+ backslashes and may be in any order.
 4. Compute the per-bond displacement and split into steps:
-   - For scan tuples `[(i, j, target_A)]`, compute `delta = target - current_distance_A`.
-   - With `--max-step-size = h`, the stage takes `N = ceil(max(|delta|) / h)` biased relaxations.
-   - Each pair's incremental change is `delta_k = delta_k / N` (A). At step `s`, the temporary
-     target is `r_k(s) = r_k(0) + s * delta_k`.
+ - For scan tuples `[(i, j, target_A)]`, compute `delta = target - current_distance_A`.
+ - With `--max-step-size = h`, the stage takes `N = ceil(max(|delta|) / h)` biased relaxations.
+ - Each pair's incremental change is `delta_k = delta_k / N` (A). At step `s`, the temporary
+ target is `r_k(s) = r_k(0) + s * delta_k`.
 5. March through all steps, applying the harmonic wells
-   `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with LBFGS.
-   `k` comes from `--bias-k` (eV/A^2) and is converted once to Hartree/Bohr^2.
-   Coordinates are stored in Bohr for PySisyphus and converted internally for reporting.
+ `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with LBFGS.
+ `k` comes from `--bias-k` (eV/A^2) and is converted once to Hartree/Bohr^2.
+ Coordinates are stored in Bohr for PySisyphus and converted internally for reporting.
 6. After the last step of each stage, optionally run an unbiased relaxation
-   (`--endopt`) before reporting covalent bond changes and writing the
-   `result.*` files.
+ (`--endopt`) before reporting covalent bond changes and writing the
+ `result.*` files.
 7. Repeat for every stage; optional trajectories are dumped only when `--dump`
-   is `True`.
+ is `True`.
 
 ## CLI options
 | Option | Description | Default |
@@ -137,41 +135,34 @@ stages:
 | `--hess-cutoff FLOAT` | MM-Hessian distance cutoff (A) from ML atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM distance cutoff (A); providing this disables `--detect-layer`. | _None_ |
 | `--spec FILE` | YAML/JSON scan spec. Mapping root with `stages`; optional `one_based`. | Recommended |
-| `--scan-lists TEXT` | Legacy Python literal(s) with `(i, j, target_A)` tuples. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Alternative to `--spec` |
+| `--scan-lists TEXT` | Python literal(s) with `(i, j, target_A)` tuples. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Alternative to `--spec` |
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `--spec`/`--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (A). Controls the number of integration steps. | `0.20` |
 | `--bias-k FLOAT` | Harmonic bias strength `k` in eV/A^2. | `100` |
 | `--opt-mode {lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
 | `--max-cycles INT` | Maximum LBFGS cycles per biased step and per pre/end optimization stage. | `10000` |
-| `--relax-max-cycles INT` | Compatibility alias of `--max-cycles`; overrides `--max-cycles` when provided. | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `True` |
 | `--dump/--no-dump` | Dump concatenated biased trajectories (`scan.trj`/`scan.pdb`). | `False` |
 | `--out-dir TEXT` | Output directory root. | `./result_scan/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
-| `--override-yaml FILE` | Final YAML override file (highest-priority YAML layer). | _None_ |
-| `--args-yaml FILE` | Legacy alias of `--override-yaml`. | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
 
 ## Outputs
 ```
-out_dir/ (default: ./result_scan/)
-├─ preopt/                   # Present when --preopt is True
-│  ├─ result.xyz
-│  └─ result.pdb             # Only for PDB inputs
-└─ stage_XX/                 # One folder per stage (k = 01..K)
-    ├─ result.xyz            # Final (possibly endopt) geometry
-    ├─ result.pdb            # If input was PDB
-    ├─ scan.trj              # Concatenated biased step frames when --dump
-    └─ scan.pdb              # PDB version of scan.trj (PDB inputs only)
+out_dir/ (default:./result_scan/)
+├─ preopt/ # Present when --preopt is True
+│ ├─ result.xyz
+│ └─ result.pdb # Only for PDB inputs
+└─ stage_XX/ # One folder per stage (k = 01..K)
+ ├─ result.xyz # Final (possibly endopt) geometry
+ ├─ result.pdb # If input was PDB
+ ├─ scan.trj # Concatenated biased step frames when --dump
+ └─ scan.pdb # PDB version of scan.trj (PDB inputs only)
 ```
 
-## YAML configuration (`--config` / `--override-yaml` / `--args-yaml`)
-The YAML root must be a mapping. For scan commands, merge precedence is **internal defaults < `--config` < `--override-yaml` < explicit CLI**. `--args-yaml` is a legacy alias of `--override-yaml`.
-
-### Section `geom`
 - `coord_type`: Coordinate type (cartesian vs dlc internals).
 - `freeze_atoms`: 0-based frozen atoms merged with CLI `--freeze-atoms`.
 
@@ -186,10 +177,10 @@ The YAML root must be a mapping. For scan commands, merge precedence is **intern
 
 ### Section `bond`
 - UMA-based bond-change detection:
-  - `device` (`"cuda"`): UMA device for graph analysis.
-  - `bond_factor` (`1.20`): Covalent-radius scaling for cutoff.
-  - `margin_fraction` (`0.05`): Fractional tolerance for comparisons.
-  - `delta_fraction` (`0.05`): Minimum relative change to flag formation/breaking.
+ - `device` (`"cuda"`): UMA device for graph analysis.
+ - `bond_factor` (`1.20`): Covalent-radius scaling for cutoff.
+ - `margin_fraction` (`0.05`): Fractional tolerance for comparisons.
+ - `delta_fraction` (`0.05`): Minimum relative change to flag formation/breaking.
 
 ---
 

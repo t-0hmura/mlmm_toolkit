@@ -227,19 +227,19 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
 ### Full workflow with TS optimization
 ```bash
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt --thermo --dft
+ --tsopt --thermo --dft
 ```
 
 ### Single-structure scan mode
 ```bash
 mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 --spec scan.yaml --print-parsed
+ -q 0 --spec scan.yaml --print-parsed
 ```
 
 ### TS-only optimization
 ```bash
 mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-    --tsopt
+ --tsopt
 ```
 
 ---
@@ -266,10 +266,8 @@ Boolean CLI options use toggle form (`--flag` / `--no-flag`):
 ```
 
 ### YAML configuration
-Layered settings are recommended via `--config` and `--override-yaml`.
-(`--args-yaml` remains as a legacy alias of `--override-yaml`.)
+()
 ```bash
-mlmm all -i R.pdb P.pdb -c 'LIG' --config base.yaml --override-yaml override.yaml
 ```
 See the [YAML Reference](yaml_reference.md) for all options.
 
@@ -280,22 +278,22 @@ See the [YAML Reference](yaml_reference.md) for all options.
 Typical `mlmm all` output:
 ```
 result_all/
-├── ml_region.pdb              # ML-region definition
-├── summary.log                # Human-readable summary
-├── summary.yaml               # Machine-readable summary
-├── pockets/                   # Extracted cluster models
-├── mm_parm/                   # AMBER topology files
-├── scan/                      # (Optional) scan results
-├── path_search/               # MEP trajectories and diagrams
-│   ├── mep.trj               # MEP trajectory
-│   ├── mep.pdb               # MEP in PDB format
-│   ├── mep_w_ref.pdb         # MEP merged with full system
-│   └── seg_*/                 # Per-segment details
-└── path_search/post_seg_*/    # Post-processing outputs
-    ├── tsopt/                 # TS optimization results
-    ├── irc/                   # IRC trajectories
-    ├── freq/                  # Vibrational modes
-    └── dft/                   # DFT results
+├── ml_region.pdb # ML-region definition
+├── summary.log # Human-readable summary
+├── summary.yaml # Machine-readable summary
+├── pockets/ # Extracted cluster models
+├── mm_parm/ # AMBER topology files
+├── scan/ # (Optional) scan results
+├── path_search/ # MEP trajectories and diagrams
+│ ├── mep.trj # MEP trajectory
+│ ├── mep.pdb # MEP in PDB format
+│ ├── mep_w_ref.pdb # MEP merged with full system
+│ └── seg_*/ # Per-segment details
+└── path_search/post_seg_*/ # Post-processing outputs
+ ├── tsopt/ # TS optimization results
+ ├── irc/ # IRC trajectories
+ ├── freq/ # Vibrational modes
+ └── dft/ # DFT results
 ```
 
 ---

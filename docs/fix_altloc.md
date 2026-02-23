@@ -7,11 +7,11 @@ duplicates.
 
 ### Behavior
 1. Blank the PDB altLoc column (column 17, 1-based) with a single space.
-   - This is a 1-character replacement (no shifting / no reformatting).
+ - This is a 1-character replacement (no shifting / no reformatting).
 2. If the same atom appears multiple times due to alternate locations
-   (altLoc like A/B/... or custom labels like H/L), keep the "best" one:
-   - Highest occupancy first
-   - If tied (or occupancy missing), keep the earliest one in the file
+ (altLoc like A/B/... or custom labels like H/L), keep the "best" one:
+ - Highest occupancy first
+ - If tied (or occupancy missing), keep the earliest one in the file
 
 ### Handled records
 - `ATOM` / `HETATM`: altLoc selection and blanking
@@ -38,7 +38,7 @@ mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb
 # Process a directory recursively
 mlmm fix-altloc -i ./structures -o ./cleaned --recursive
 
-# Overwrite input files in-place (creates .bak backups)
+# Overwrite input files in-place (creates.bak backups)
 mlmm fix-altloc -i ./structures --inplace --recursive
 
 # Force processing even if no altLoc is detected
@@ -47,16 +47,16 @@ mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb --force
 
 ## Workflow
 1. Check if the input file contains any non-blank altLoc characters (column 17).
-   - If no altLoc is found and `--force` is not set, skip the file.
+ - If no altLoc is found and `--force` is not set, skip the file.
 2. For each ATOM/HETATM record, build an identity key ignoring the altLoc field:
-   - record name, atom name, residue name, chain ID, residue sequence, insertion code, segID
+ - record name, atom name, residue name, chain ID, residue sequence, insertion code, segID
 3. Among atoms with the same identity key, select the one with:
-   - Highest occupancy (columns 55–60)
-   - If tied, the earliest appearance in the file
+ - Highest occupancy (columns 55–60)
+ - If tied, the earliest appearance in the file
 4. Write output with:
-   - Only the selected atoms retained
-   - altLoc column (17) blanked to a single space
-   - ANISOU records filtered to match retained atoms
+ - Only the selected atoms retained
+ - altLoc column (17) blanked to a single space
+ - ANISOU records filtered to match retained atoms
 
 ## CLI options
 | Option | Description | Default |
@@ -70,10 +70,10 @@ mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb --force
 
 ## Outputs
 - A PDB file with alternate locations removed:
-  - File input: `<input>_clean.pdb` by default (when `-o/--out` is omitted)
-  - Directory input: `<input>_clean/` directory by default (mirrors subpaths)
-  - `OUTPUT.pdb` if `-o/--out` is provided
-  - Original file overwritten if `--inplace` is set (backup saved as `<input>.pdb.bak`)
+ - File input: `<input>_clean.pdb` by default (when `-o/--out` is omitted)
+ - Directory input: `<input>_clean/` directory by default (mirrors subpaths)
+ - `OUTPUT.pdb` if `-o/--out` is provided
+ - Original file overwritten if `--inplace` is set (backup saved as `<input>.pdb.bak`)
 
 ## Integration with `all` workflow
 When running the `mlmm all` workflow, `fix-altloc` can be automatically
@@ -92,9 +92,9 @@ When different altLoc states contain different atoms (e.g., altLoc A has atoms
 N, CA, CB, CG while altLoc B has N, CA, CB, CD), `fix-altloc` handles this correctly:
 
 - **Duplicate atoms** (same residue + atom name in multiple altLocs, e.g., N, CA, CB):
-  The best one is selected based on occupancy (highest first, then earliest in file).
+ The best one is selected based on occupancy (highest first, then earliest in file).
 - **Unique atoms** (only present in one altLoc, e.g., CG in A, CD in B):
-  ALL unique atoms are preserved in the output.
+ ALL unique atoms are preserved in the output.
 
 This ensures the output structure contains all atoms from all altLoc states,
 with only true duplicates resolved to a single conformer.
@@ -102,18 +102,18 @@ with only true duplicates resolved to a single conformer.
 **Example:**
 ```
 Input:
-  ATOM   1  N  AALA A 1 ...  0.50  # altLoc A
-  ATOM   2  CA AALA A 1 ...  0.50  # altLoc A
-  ATOM   3  CG AALA A 1 ...  0.50  # altLoc A only
-  ATOM   4  N  BALA A 1 ...  0.40  # altLoc B
-  ATOM   5  CA BALA A 1 ...  0.40  # altLoc B
-  ATOM   6  CD BALA A 1 ...  0.40  # altLoc B only
+ ATOM 1 N AALA A 1... 0.50 # altLoc A
+ ATOM 2 CA AALA A 1... 0.50 # altLoc A
+ ATOM 3 CG AALA A 1... 0.50 # altLoc A only
+ ATOM 4 N BALA A 1... 0.40 # altLoc B
+ ATOM 5 CA BALA A 1... 0.40 # altLoc B
+ ATOM 6 CD BALA A 1... 0.40 # altLoc B only
 
 Output:
-  ATOM   1  N   ALA A 1 ...  0.50  # from A (higher occ)
-  ATOM   2  CA  ALA A 1 ...  0.50  # from A (higher occ)
-  ATOM   3  CG  ALA A 1 ...  0.50  # kept (A only)
-  ATOM   6  CD  ALA A 1 ...  0.40  # kept (B only)
+ ATOM 1 N ALA A 1... 0.50 # from A (higher occ)
+ ATOM 2 CA ALA A 1... 0.50 # from A (higher occ)
+ ATOM 3 CG ALA A 1... 0.50 # kept (A only)
+ ATOM 6 CD ALA A 1... 0.40 # kept (B only)
 ```
 
 ## Notes
@@ -122,7 +122,7 @@ Output:
 - Atom serial numbers are **NOT renumbered** (gaps may remain after duplicate removal).
 - `CONECT` and other connectivity/annotation records are **NOT updated**.
 - Only column 17 (altLoc) is modified; coordinates, occupancies, B-factors, charges,
-  insertion codes, and record ordering stay untouched (except for duplicate removal).
+ insertion codes, and record ordering stay untouched (except for duplicate removal).
 - MODEL/ENDMDL blocks are processed independently.
 
 ## API usage
@@ -132,6 +132,6 @@ from mlmm_toolkit.fix_altloc import has_altloc, fix_altloc_file
 
 # Check if a file has altLoc
 if has_altloc(Path("input.pdb")):
-    # Fix altLoc
-    was_processed = fix_altloc_file("input.pdb", "output.pdb", overwrite=True)
+ # Fix altLoc
+ was_processed = fix_altloc_file("input.pdb", "output.pdb", overwrite=True)
 ```

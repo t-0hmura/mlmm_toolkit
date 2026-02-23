@@ -104,7 +104,7 @@ def _resolve_yaml_sources(
 ) -> tuple[Optional[Path], Optional[Path], bool]:
     if override_yaml is not None and args_yaml_legacy is not None:
         raise click.BadParameter(
-            "Use either --override-yaml or --args-yaml (legacy alias), not both."
+            "Use a single YAML source option."
         )
     if args_yaml_legacy is not None:
         return config_yaml, args_yaml_legacy, True
@@ -263,7 +263,6 @@ def _make_lbfgs(
 )
 @click.option(
     "--scan-lists",
-    "--scan-list",
     "scan_list_raw",
     type=str,
     required=False,
@@ -274,21 +273,21 @@ def _make_lbfgs(
     "spec_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="YAML/JSON scan spec file (recommended). Use this instead of --scan-list.",
+    help="YAML/JSON scan spec file (recommended). Use this instead of --scan-lists.",
 )
 @click.option(
     "--one-based/--zero-based",
     "one_based",
     default=True,
     show_default=True,
-    help="Interpret (i,j) indices in --scan-list(s) as 1-based (default) or 0-based.",
+    help="Interpret (i,j) indices in --scan-lists as 1-based (default) or 0-based.",
 )
 @click.option(
     "--print-parsed/--no-print-parsed",
     "print_parsed",
     default=False,
     show_default=True,
-    help="Print parsed scan targets after resolving --spec/--scan-list.",
+    help="Print parsed scan targets after resolving --spec/--scan-lists.",
 )
 @click.option(
     "--max-step-size",
@@ -333,21 +332,6 @@ def _make_lbfgs(
     default=None,
     show_default=False,
     help="Base YAML configuration file applied before explicit CLI options.",
-)
-@click.option(
-    "--override-yaml",
-    type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    default=None,
-    show_default=False,
-    help="Final YAML override file (highest-priority YAML layer).",
-)
-@click.option(
-    "--args-yaml",
-    "args_yaml_legacy",
-    type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    default=None,
-    show_default=False,
-    help="[legacy] Alias of --override-yaml; kept for backward compatibility.",
 )
 @click.option(
     "--ref-pdb",
@@ -406,8 +390,6 @@ def cli(
     out_dir: str,
     thresh: Optional[str],
     config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
     ref_pdb: Optional[Path],
     preopt: bool,
     baseline: str,
@@ -417,14 +399,9 @@ def cli(
     time_start = time.perf_counter()
     config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
         config_yaml=config_yaml,
-        override_yaml=override_yaml,
-        args_yaml_legacy=args_yaml_legacy,
+        override_yaml=None,
+        args_yaml_legacy=None,
     )
-    if used_legacy_yaml:
-        click.echo(
-            "[deprecation] --args-yaml is deprecated; use --override-yaml.",
-            err=True,
-        )
 
     # Validate input format: PDB directly, or XYZ with --ref-pdb
     suffix = input_path.suffix.lower()
@@ -462,7 +439,7 @@ def cli(
 
             yaml_cfg = _load_merged_yaml_cfg(
                 config_yaml=config_yaml,
-                override_yaml=override_yaml,
+                override_yaml=None,
             )
 
             geom_cfg = dict(GEOM_KW)
@@ -600,9 +577,9 @@ def cli(
                 pdb_atom_meta = load_pdb_atom_metadata(source_path)
 
             if spec_path is not None and scan_list_raw is not None:
-                raise click.BadParameter("Use either --spec or --scan-list, not both.")
+                raise click.BadParameter("Use either --spec or --scan-lists, not both.")
             scan_one_based = bool(one_based)
-            scan_source = "--scan-list"
+            scan_source = "--scan-lists"
             if spec_path is not None:
                 parsed, raw_pairs, scan_one_based = parse_scan_spec_quads(
                     spec_path,
@@ -614,13 +591,13 @@ def cli(
                 scan_source = f"--spec ({spec_path})"
             else:
                 if scan_list_raw is None:
-                    raise click.BadParameter("Provide either --spec or --scan-list.")
+                    raise click.BadParameter("Provide either --spec or --scan-lists.")
                 parsed, raw_pairs = parse_scan_list_quads(
                     scan_list_raw,
                     expected_len=2,
                     one_based=scan_one_based,
                     atom_meta=pdb_atom_meta,
-                    option_name="--scan-list",
+                    option_name="--scan-lists",
                 )
             (i1, j1, low1, high1), (i2, j2, low2, high2) = parsed
             d1_label_csv = axis_label_csv("d1", i1, j1, scan_one_based, pdb_atom_meta, raw_pairs[0])

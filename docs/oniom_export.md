@@ -16,29 +16,29 @@
 ### oniom-gaussian
 ```bash
 mlmm oniom-gaussian --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
-    -o output.com [-q CHARGE] [-m MULT] [--method "B3LYP/6-31G(d,p)"] \
-    [--near FLOAT] [--nproc INT] [--mem TEXT] \
-    [--element-check|--no-element-check]
+ -o output.com [-q CHARGE] [-m MULT] [--method "B3LYP/6-31G(d,p)"] \
+ [--near FLOAT] [--nproc INT] [--mem TEXT] \
+ [--element-check|--no-element-check]
 ```
 
 ### oniom-orca
 ```bash
 mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
-    -o output.inp [-q CHARGE] [-m MULT] [--method "B3LYP D3BJ def2-SVP"] \
-    [--total-charge INT] [--total-mult INT] \
-    [--nproc INT] [--near FLOAT] [--orcaff PATH] \
-    [--convert-orcaff|--no-convert-orcaff] [--element-check|--no-element-check]
+ -o output.inp [-q CHARGE] [-m MULT] [--method "B3LYP D3BJ def2-SVP"] \
+ [--total-charge INT] [--total-mult INT] \
+ [--nproc INT] [--near FLOAT] [--orcaff PATH] \
+ [--convert-orcaff|--no-convert-orcaff] [--element-check|--no-element-check]
 ```
 
 ### Examples
 ```bash
 # Generate Gaussian ONIOM input
 mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
-    -o system.com -q 0 -m 1
+ -o system.com -q 0 -m 1
 
 # Generate ORCA QM/MM input
 mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
-    -o system.inp -q 0 -m 1
+ -o system.inp -q 0 -m 1
 ```
 
 ## Description
@@ -49,8 +49,8 @@ Both subcommands read an Amber parm7 topology file and generate QM/MM input file
 2. **Load coordinates** (optional): When `-i/--input` is provided, read a PDB or XYZ coordinate file. If `--element-check` is enabled (default), validate that the element sequence matches the parm7 topology.
 3. **Identify QM region**: When `--model-pdb` is supplied, match atoms from the ML-region PDB to the full system to define the QM (high) layer.
 4. **Generate input**: Write the appropriate input file:
-   - **Gaussian**: ONIOM input with `%nproc`, `%mem`, method specification, atom coordinates with layer assignments, connectivity, and automatic link-atom annotations at QM/MM covalent boundaries. Movable atoms within `--near` angstroms of the QM region are identified.
-   - **ORCA**: QM/MM input with `%pal nprocs`, method specification, QM atom selection, `Charge_Total`/`Mult_Total`, and a reference to the ORCAFF force-field file. ORCA handles link-atom placement from QM/MM boundary connectivity.
+ - **Gaussian**: ONIOM input with `%nproc`, `%mem`, method specification, atom coordinates with layer assignments, connectivity, and automatic link-atom annotations at QM/MM covalent boundaries. Movable atoms within `--near` angstroms of the QM region are identified.
+ - **ORCA**: QM/MM input with `%pal nprocs`, method specification, QM atom selection, `Charge_Total`/`Mult_Total`, and a reference to the ORCAFF force-field file. ORCA handles link-atom placement from QM/MM boundary connectivity.
 
 ## CLI options
 
@@ -89,8 +89,8 @@ Both subcommands read an Amber parm7 topology file and generate QM/MM input file
 
 ## Outputs
 ```
-<output>.com / <output>.gjf   # Gaussian ONIOM input (oniom-gaussian)
-<output>.inp                  # ORCA QM/MM input (oniom-orca)
+<output>.com / <output>.gjf # Gaussian ONIOM input (oniom-gaussian)
+<output>.inp # ORCA QM/MM input (oniom-orca)
 ```
 - Console summary with QM atom count and (for ORCA) a reminder to copy the parm7 file alongside the input.
 
@@ -112,7 +112,7 @@ pip install parmed
 
 ```bash
 mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
-  -o system.com --element-check
+ -o system.com --element-check
 ```
 
 3. QM/MM boundary or layer assignment looks wrong.
@@ -120,7 +120,7 @@ mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 ```bash
 mlmm define-layer -i pocket.pdb --real-parm7 real.parm7 -o layered.pdb
 mlmm oniom-orca --parm7 real.parm7 -i layered.pdb --model-pdb ml_region.pdb \
-  -o system.inp
+ -o system.inp
 ```
 
 ---

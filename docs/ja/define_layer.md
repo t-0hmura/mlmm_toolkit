@@ -23,8 +23,8 @@
 
 ```bash
 mlmm define-layer -i INPUT.pdb --model-pdb MODEL.pdb [--model-indices "0,1,2,..."] \
-    [--radius-partial-hessian FLOAT] [--radius-freeze FLOAT] \
-    [-o OUTPUT.pdb] [--one-based|--zero-based]
+ [--radius-partial-hessian FLOAT] [--radius-freeze FLOAT] \
+ [-o OUTPUT.pdb] [--one-based|--zero-based]
 ```
 
 ### 例
@@ -38,7 +38,7 @@ mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labe
 
 # カスタム半径
 mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
-    --radius-freeze 10.0 -o labeled.pdb
+ --radius-freeze 10.0 -o labeled.pdb
 ```
 
 ## 説明
@@ -55,7 +55,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 | `-i, --input PATH` | 全系を含む入力 PDB ファイル。 | 必須 |
 | `--model-pdb PATH` | ML 領域の原子を定義する PDB ファイル。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（例: `"0,1,2,3"` または `"1-10,15,20-25"`）。`--model-pdb` より優先。 | _None_ |
-| `--radius-partial-hessian FLOAT` | 3 層モードでは非推奨（後方互換のため残存）。 | `0.0` |
+| `--radius-partial-hessian FLOAT` | 3 層モードでは非推奨（残存）。 | `0.0` |
 | `--radius-freeze FLOAT` | ML 領域からの Movable-MM の距離カットオフ (A)。これを超える原子は Frozen。 | `8.0` |
 | `-o, --output PATH` | B 因子がレイヤー値に設定された出力 PDB ファイル。 | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
@@ -63,14 +63,14 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 ## 出力
 
 ```
-<output>.pdb                # B 因子が 0 / 10 / 20 に設定された PDB
-(stdout)                    # レイヤー割り当てと原子数のサマリーテーブル
+<output>.pdb # B 因子が 0 / 10 / 20 に設定された PDB
+(stdout) # レイヤー割り当てと原子数のサマリーテーブル
 ```
 
 ## 注意事項
 
 - 距離は任意の ML 原子から残基内の任意の原子までの最小距離として計算されます。
-- `--radius-partial-hessian` は後方互換のため受け付けますが、3 層モードでは無視されます。
+- `--radius-partial-hessian` は受け付けますが、3 層モードでは無視されます。
 - 出力 PDB は元のすべての原子レコードを保持します。変更されるのは B 因子カラムのみです。
 
 ---

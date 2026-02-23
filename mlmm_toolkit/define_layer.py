@@ -22,7 +22,7 @@ from .defaults import (
 )
 
 # Default radii for layer definition
-# NOTE: kept for backward compatibility (no-op in 3-layer mode).
+# NOTE: reserved in 3-layer mode (no-op).
 DEFAULT_RADIUS_PARTIAL_HESSIAN = 0.0  # Å
 DEFAULT_RADIUS_FREEZE = 8.0  # Å
 
@@ -172,14 +172,14 @@ def compute_layer_indices_by_residue(
     ml_indices : List[int]
         0-based indices of ML region atoms
     radius_partial_hessian : float
-        Deprecated in 3-layer mode. Kept for API compatibility.
+        Deprecated in 3-layer mode. Ignored by the 3-layer assignment.
     radius_freeze : float
         Distance cutoff (Å) for movable MM atoms
 
     Returns
     -------
     Dict[str, List[int]]
-        Dictionary with keys: ml_indices, hess_mm_indices (empty for compatibility),
+        Dictionary with keys: ml_indices, hess_mm_indices (empty in 3-layer mode),
         movable_mm_indices, frozen_indices
     """
     ml_set = set(ml_indices)
@@ -328,7 +328,7 @@ def define_layers(
     model_indices : Optional[List[int]]
         Explicit 0-based indices of ML region atoms (takes precedence over model_pdb)
     radius_partial_hessian : float
-        Deprecated in 3-layer mode (kept for compatibility).
+        Deprecated in 3-layer mode (ignored).
     radius_freeze : float
         Distance cutoff (Å) for movable MM atoms (default: 8.0)
 
@@ -409,7 +409,7 @@ def define_layers(
     type=float,
     default=DEFAULT_RADIUS_PARTIAL_HESSIAN,
     show_default=True,
-    help="Deprecated in 3-layer mode (kept for backward compatibility).",
+    help="Deprecated in 3-layer mode (ignored).",
 )
 @click.option(
     "--radius-freeze",

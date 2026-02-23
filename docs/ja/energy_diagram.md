@@ -8,14 +8,14 @@
 - **入力:** `-i/--input` で与える数値列（複数トークンまたはリスト形式文字列）。
 - **出力:** 画像ファイル 1 つ（`.png` / `.jpg` / `.jpeg` / `.svg` / `.pdf`）。
 - **デフォルト出力:** `energy_diagram.png`。
-- **状態ラベル:** `--label-x` で任意指定。省略時は `S1`, `S2`, ...。
+- **状態ラベル:** `--label-x` で任意指定。省略時は `S1`, `S2`,...。
 - **用途:** 既にエネルギー値があり、図だけ作成したいとき。
 
 `mlmm energy-diagram` は与えた数値を可視化するだけで、PDB/XYZ を読み込まず、`--thermo` / `--dft` のような計算も実行しません。
 
 ## 使用法
 ```bash
-mlmm energy-diagram -i VALUES... [-o OUTPUT] [--label-x ...] [--label-y ...]
+mlmm energy-diagram -i VALUES... [-o OUTPUT] [--label-x...] [--label-y...]
 ```
 
 ## 例
@@ -33,16 +33,16 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o
 ## ワークフロー
 1. `-i/--input` から値を収集します（繰り返し指定、1 フラグ後の複数値、リスト文字列に対応）。
 2. 全値を float として解釈し、2 点未満なら早期にエラーを返します。
-3. 任意の `--label-x` を解釈します。未指定時は `S1`, `S2`, ... を自動生成します。
+3. 任意の `--label-x` を解釈します。未指定時は `S1`, `S2`,... を自動生成します。
 4. `--label-x` の個数と値の個数の一致を検証し、図を描画します。
 5. `-o/--output` に画像を保存し、保存先パスを表示します。
 
 ## CLI オプション
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input TEXT ...` | 数値入力（複数引数またはリスト形式文字列） | 必須 |
+| `-i, --input TEXT...` | 数値入力（複数引数またはリスト形式文字列） | 必須 |
 | `-o, --output PATH` | 出力画像パス（`.png/.jpg/.jpeg/.svg/.pdf`） | `energy_diagram.png` |
-| `--label-x TEXT ...` | X軸状態ラベル（入力値と同じ個数が必要） | `S1, S2, ...` |
+| `--label-x TEXT...` | X軸状態ラベル（入力値と同じ個数が必要） | `S1, S2,...` |
 | `--label-y TEXT` | Y軸ラベル | `ΔE (kcal/mol)` |
 
 ## 出力

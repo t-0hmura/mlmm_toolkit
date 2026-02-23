@@ -21,7 +21,7 @@
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --out-dir ./result_tsopt
+ -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
 ## 出力の見方
@@ -39,31 +39,30 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt_light
+ -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt_light
 ```
 
 2. 最適化軌跡を保存して確認する。
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --dump --out-dir ./result_tsopt_dump
+ -q 0 -m 1 --dump --out-dir ./result_tsopt_dump
 ```
 
 3. heavy モードを YAML 上書きと併用する。
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
+ -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
 ```
 
 ## 使用法
 
 ```bash
 mlmm tsopt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
-    -q CHARGE [-m SPIN] [--freeze-atoms "1,3,5"] [--max-cycles N] \
-    [--dump/--no-dump] [--out-dir DIR] [--thresh PRESET] \
-    [--opt-mode light|heavy] [--hessian-calc-mode Analytical|FiniteDifference] \
-    [--config FILE] [--override-yaml FILE] [--show-config] [--dry-run] [--args-yaml FILE]
+ -q CHARGE [-m SPIN] [--freeze-atoms "1,3,5"] [--max-cycles N] \
+ [--dump/--no-dump] [--out-dir DIR] [--thresh PRESET] \
+ [--opt-mode light|heavy] [--hessian-calc-mode Analytical|FiniteDifference] \
 ```
 
 ### 例
@@ -71,11 +70,11 @@ mlmm tsopt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
 ```bash
 # デフォルト heavy モード（RS-I-RFO）
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 -m 1 --max-cycles 8000 --dump --out-dir ./result_tsopt/
+ -q 0 -m 1 --max-cycles 8000 --dump --out-dir ./result_tsopt/
 
 # light モード（Dimer）、解析的ヘシアン
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-    -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt/
+ -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt/
 ```
 
 ## ワークフロー
@@ -83,10 +82,10 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 1. **入力処理** -- 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
 2. **ML/MM 計算機の構築** -- ML/MM 計算機（FAIR-Chem UMA + OpenMM）を構築します。`--hessian-calc-mode` は UMA がヘシアンを解析的に評価するか有限差分で評価するかを制御します。
 3. **Light モード（Dimer）:**
-   - ヘシアン Dimer ステージは、正確なヘシアン（アクティブ部分空間、TR 射影済み）を評価して Dimer 方向を定期的に更新します。
-   - フラットンループが有効な場合、保存されたアクティブヘシアンは変位と勾配差分を使用した Bofill で更新されます。各ループで虚数モードを推定し、一度フラットンし、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
+ - ヘシアン Dimer ステージは、正確なヘシアン（アクティブ部分空間、TR 射影済み）を評価して Dimer 方向を定期的に更新します。
+ - フラットンループが有効な場合、保存されたアクティブヘシアンは変位と勾配差分を使用した Bofill で更新されます。各ループで虚数モードを推定し、一度フラットンし、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
 4. **Heavy モード（RS-I-RFO）:**
-   - RS-I-RFO オプティマイザーを、`rsirfo` YAML セクションで定義されたオプションのヘシアン参照ファイルとマイクロサイクル制御とともに実行します。
+ - RS-I-RFO オプティマイザーを、`rsirfo` YAML セクションで定義されたオプションのヘシアン参照ファイルとマイクロサイクル制御とともに実行します。
 5. **モードエクスポート** -- 収束した虚数モードが `vib/` に `.trj`/`.pdb` ペアとして書き出されます。最終ジオメトリとオプションの軌跡も保存されます。
 
 ## CLI オプション
@@ -114,70 +113,66 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--partial-hessian-flatten / --full-hessian-flatten` | フラットンループでの虚数モード検出に部分ヘシアン（ML のみ）を使用。 | `True`（部分） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
-| `--override-yaml FILE` | 最後に適用する最優先 YAML 上書きファイル。 | _None_ |
-| `--args-yaml FILE` | `--override-yaml` の legacy alias。 | _None_ |
 | `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに入力/設定を検証し、実行計画を表示。 | `False` |
 
 ## 出力
 
 ```
-out_dir/  (デフォルト: ./result_tsopt/)
-├── summary.md                   # 主要成果物のインデックス
-├── key_ts.xyz                   # 最終TS構造へのショートカット（または key_ts.pdb）
-├── key_imag_mode.trj            # 代表的な虚数モードへのショートカット
-├── key_opt.trj                  # 最適化軌跡へのショートカット（存在する場合）
-├── final_geometry.xyz            # 常に書き出し
-├── final_geometry.pdb            # 入力が PDB の場合
-├── optimization_all.trj          # 連結 Dimer セグメント（--dump 時）
-├── optimization_all.pdb          # PDB コンパニオン（--dump かつ入力が PDB の場合）
+out_dir/ (デフォルト:./result_tsopt/)
+├── summary.md # 主要成果物のインデックス
+├── key_ts.xyz # 最終TS構造へのショートカット（または key_ts.pdb）
+├── key_imag_mode.trj # 代表的な虚数モードへのショートカット
+├── key_opt.trj # 最適化軌跡へのショートカット（存在する場合）
+├── final_geometry.xyz # 常に書き出し
+├── final_geometry.pdb # 入力が PDB の場合
+├── optimization_all.trj # 連結 Dimer セグメント（--dump 時）
+├── optimization_all.pdb # PDB コンパニオン（--dump かつ入力が PDB の場合）
 ├── vib/
-│   ├── final_imag_mode_±XXXX.Xcm-1.trj   # 虚数モード軌跡
-│   └── final_imag_mode_±XXXX.Xcm-1.pdb   # 虚数モード PDB コンパニオン
-└── .dimer_mode.dat               # Dimer 方向シード（light モード）
+│ ├── final_imag_mode_±XXXX.Xcm-1.trj # 虚数モード軌跡
+│ └── final_imag_mode_±XXXX.Xcm-1.pdb # 虚数モード PDB コンパニオン
+└──.dimer_mode.dat # Dimer 方向シード（light モード）
 ```
 
-## YAML 設定（`--config` / `--override-yaml` / `--args-yaml`）
 
-`--config` をベース設定に、`--override-yaml` を最終上書きに使います（`--args-yaml` は `--override-yaml` の legacy alias）。マージ優先順位は次の通りです:
 
 `defaults < config < 明示 CLI < override`。
 
 ```yaml
 geom:
-  coord_type: cart
-  freeze_atoms: []
+ coord_type: cart
+ freeze_atoms: []
 calc:
-  charge: 0
-  spin: 1
+ charge: 0
+ spin: 1
 mlmm:
-  real_parm7: real.parm7
-  model_pdb: ml_region.pdb
+ real_parm7: real.parm7
+ model_pdb: ml_region.pdb
 opt:
-  thresh: baker
-  max_cycles: 10000
-  dump: false
-  out_dir: ./result_tsopt/
+ thresh: baker
+ max_cycles: 10000
+ dump: false
+ out_dir:./result_tsopt/
 hessian_dimer:
-  thresh_loose: gau_loose
-  thresh: baker
-  update_interval_hessian: 500
-  neg_freq_thresh_cm: 5.0
-  flatten_amp_ang: 0.1
-  flatten_max_iter: 50
-  root: 0
-  dimer:
-    length: 0.0189
-    rotation_max_cycles: 15
-  lbfgs:
-    thresh: baker
-    max_cycles: 10000
-    max_step: 0.3
+ thresh_loose: gau_loose
+ thresh: baker
+ update_interval_hessian: 500
+ neg_freq_thresh_cm: 5.0
+ flatten_amp_ang: 0.1
+ flatten_max_iter: 50
+ root: 0
+ dimer:
+ length: 0.0189
+ rotation_max_cycles: 15
+ lbfgs:
+ thresh: baker
+ max_cycles: 10000
+ max_step: 0.3
 rsirfo:
-  thresh: baker
-  max_cycles: 10000
-  roots: [0]
-  hessian_update: bofill
+ thresh: baker
+ max_cycles: 10000
+ roots: [0]
+ hessian_update: bofill
 ```
 
 ## 注意事項

@@ -14,7 +14,7 @@ If you want post-processing in the same run:
 
 ```bash
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
-  --tsopt --thermo --dft --out-dir ./result_all
+ --tsopt --thermo --dft --out-dir ./result_all
 ```
 
 ## What to check

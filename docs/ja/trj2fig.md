@@ -36,9 +36,9 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 1. XYZ 軌跡を解析し、各フレームのコメント行に見つかる最初の浮動小数点数から Hartree エネルギーを抽出します。エネルギーが見つからないか、フレームコメントに解析可能なエネルギーがない場合はエラーが発生します。
 2. 基準仕様を正規化します:
-   - `init` -- フレーム `0`（`--reverse-x` が有効な場合は最後のフレーム）。
-   - `None`/`none`/`null` -- 絶対エネルギー（基準なし）。
-   - 整数リテラル -- 対応する 0 始まりフレームインデックス。
+ - `init` -- フレーム `0`（`--reverse-x` が有効な場合は最後のフレーム）。
+ - `None`/`none`/`null` -- 絶対エネルギー（基準なし）。
+ - 整数リテラル -- 対応する 0 始まりフレームインデックス。
 3. エネルギーを kcal/mol（デフォルト）または Hartree に変換し、基準が有効な場合は基準値を減算して delta-E を生成します。
 4. Plotly 図（太字目盛り、スプライン補間、マーカー、タイトルなし）を構築し、要求されたすべての拡張子にエクスポートします。
 5. 任意で `frame`、`energy_hartree`、および要求された単位の適切な delta-E または絶対 E カラムを含む CSV テーブルを出力します。
@@ -57,8 +57,8 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 ## 出力
 
 ```
-<output>.[png|jpg|jpeg|html|svg|pdf]  # 要求された拡張子ごとの Plotly エクスポート（デフォルトは energy.png）
-<output>.csv                          # CSV 要求時のオプションエネルギーテーブル
+<output>.[png|jpg|jpeg|html|svg|pdf] # 要求された拡張子ごとの Plotly エクスポート（デフォルトは energy.png）
+<output>.csv # CSV 要求時のオプションエネルギーテーブル
 ```
 
 - `-o` も位置出力も提供されない場合、カレントディレクトリに `energy.png` が 1 つ書き出されます。

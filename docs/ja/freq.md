@@ -12,13 +12,12 @@
 
 `mlmm freq` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `.trj` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
 
-設定は **デフォルト < `--config` < 明示CLI < `--override-yaml`** に従います（`geom`、`calc`/`mlmm`、`freq`、`thermo`）。`--args-yaml` は `--override-yaml` の legacy alias として引き続き利用できます。ML 領域は `--model-pdb` で、完全酵素トポロジーは `--real-parm7` で提供され、入力座標は完全酵素 PDB（リンク原子なし）でなければなりません。
 
 ## 最小例
 
 ```bash
 mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --out-dir ./result_freq
+ -q 0 -m 1 --out-dir ./result_freq
 ```
 
 ## 出力の見方
@@ -36,34 +35,33 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
+ -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
 ```
 
 2. 凍結原子を指定した PHVA と熱化学ダンプを実行する。
 
 ```bash
 mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
+ -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
 3. VRAM に余裕があるノードで解析的ヘシアンを使う。
 
 ```bash
 mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
-  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
+ -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
 ## 使用法
 
 ```bash
 mlmm freq -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
-    -q CHARGE [-m MULT] [--freeze-atoms "1,3,5"] \
-    [--max-write N] [--amplitude-ang FLOAT] [--n-frames N] [--sort {value|abs}] \
-    [--temperature K] [--pressure atm] [--dump/--no-dump] \
-    [--hessian-calc-mode {Analytical|FiniteDifference}] \
-    [--active-dof-mode {all|ml-only|partial|unfrozen}] \
-    [--out-dir DIR] [--config FILE] [--override-yaml FILE|--args-yaml FILE] \
-    [--show-config] [--dry-run]
+ -q CHARGE [-m MULT] [--freeze-atoms "1,3,5"] \
+ [--max-write N] [--amplitude-ang FLOAT] [--n-frames N] [--sort {value|abs}] \
+ [--temperature K] [--pressure atm] [--dump/--no-dump] \
+ [--hessian-calc-mode {Analytical|FiniteDifference}] \
+ [--active-dof-mode {all|ml-only|partial|unfrozen}] \
+ [--show-config] [--dry-run]
 ```
 
 ### 例
@@ -74,7 +72,7 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
 
 # カスタムオプション付き PHVA
 mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
-    --freeze-atoms "1,3,5,7" --max-write 10 --sort abs --dump --config ./freq.yaml
+ --freeze-atoms "1,3,5,7" --max-write 10 --sort abs --dump --config ./freq.yaml
 ```
 
 ## ワークフロー
@@ -114,8 +112,6 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_freq/` |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--config FILE` | 明示CLI適用前に読み込むベース YAML。 | _None_ |
-| `--override-yaml FILE` | 最終 YAML 上書き（YAML レイヤー最優先）。 | _None_ |
-| `--args-yaml FILE` | `--override-yaml` の legacy alias。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。 | `False` |
 | `--ref-pdb FILE` | 非 PDB 入力用の参照 PDB トポロジー。 | _None_ |
@@ -123,16 +119,16 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 ## 出力
 
 ```
-out_dir/ (デフォルト: ./result_freq/)
-  summary.md                      # 主要成果物のインデックス
-  key_frequencies.txt             # frequencies_cm-1.txt へのショートカット
-  key_mode_1.trj                  # 代表モード軌跡へのショートカット
-  key_mode_1.pdb                  # 代表モードPDBへのショートカット（存在時）
-  key_thermo.yaml                 # thermoanalysis.yaml へのショートカット（存在時）
-  mode_XXXX_{+/-freq}cm-1.trj    # XYZ ライク軌跡、モードごとの正弦波アニメーション
-  mode_XXXX_{+/-freq}cm-1.pdb    # 酵素原子順序にマップバックされた PDB アニメーション
-  frequencies_cm-1.txt            # 選択されたキーでソートされた全計算振動数（cm^-1）
-  thermoanalysis.yaml             # --dump 時のオプション熱化学ペイロード
+out_dir/ (デフォルト:./result_freq/)
+ summary.md # 主要成果物のインデックス
+ key_frequencies.txt # frequencies_cm-1.txt へのショートカット
+ key_mode_1.trj # 代表モード軌跡へのショートカット
+ key_mode_1.pdb # 代表モードPDBへのショートカット（存在時）
+ key_thermo.yaml # thermoanalysis.yaml へのショートカット（存在時）
+ mode_XXXX_{+/-freq}cm-1.trj # XYZ ライク軌跡、モードごとの正弦波アニメーション
+ mode_XXXX_{+/-freq}cm-1.pdb # 酵素原子順序にマップバックされた PDB アニメーション
+ frequencies_cm-1.txt # 選択されたキーでソートされた全計算振動数（cm^-1）
+ thermoanalysis.yaml # --dump 時のオプション熱化学ペイロード
 ```
 
 - コンソールには解決済みの `geom`、`calc`、`freq`、熱化学設定をまとめたブロックが出力されます。

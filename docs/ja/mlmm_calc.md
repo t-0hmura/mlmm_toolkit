@@ -55,8 +55,8 @@ MM バックエンドは `mm_backend` パラメータで選択できます：
 **YAML 設定例:**
 ```yaml
 mlmm:
-  mm_backend: openmm  # OpenMM を MM 計算に使用
-  mm_device: cuda     # CUDA を使用 (または "cpu")
+ mm_backend: openmm # OpenMM を MM 計算に使用
+ mm_device: cuda # CUDA を使用 (または "cpu")
 ```
 
 ### UMA ヘシアンモード

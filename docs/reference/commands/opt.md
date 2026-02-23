@@ -76,10 +76,6 @@ Options:
                                   layer-opt]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
-  --override-yaml FILE            Final YAML override file (highest priority
-                                  YAML layer).
-  --args-yaml FILE                [legacy] Alias of --override-yaml; kept for
-                                  backward compatibility.
   --show-config / --no-show-config
                                   Print resolved configuration and continue
                                   execution.  [default: no-show-config]

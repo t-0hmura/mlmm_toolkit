@@ -12,15 +12,10 @@ Use toggle style by default:
 ```bash
 # Recommended
 --tsopt --thermo --no-dft
---dump                 # same as legacy: --dump True
---no-dump              # same as legacy: --dump False
 
-# Also supported for backward compatibility (deprecated)
 --tsopt True --thermo yes --dft 0
 ```
 
-Legacy value-style boolean syntax (`--flag True/False`) is still accepted but emits a deprecation warning.
-The legacy parser accepts `True/False`, `1/0`, `yes/no`, `y/n`, `t/f`, and `on/off` (case-insensitive).
 
 Common boolean options:
 - `--tsopt`, `--thermo`, `--dft` -- enable post-processing stages
@@ -35,8 +30,8 @@ Common boolean options:
 `mlmm all` uses two help levels:
 
 ```bash
-mlmm all --help            # core options only
-mlmm all --help-advanced   # full option list
+mlmm all --help # core options only
+mlmm all --help-advanced # full option list
 ```
 
 `scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-gaussian`, `oniom-orca`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
@@ -59,8 +54,8 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 Most subcommands (except `all`, `extract`, `mm-parm`, and `define-layer`) require two additional options for ML/MM calculations:
 
 ```bash
---real-parm7 real.parm7    # Amber parm7 topology file for the full (real) system
---model-pdb model.pdb      # PDB file defining the ML (model) region atoms
+--real-parm7 real.parm7 # Amber parm7 topology file for the full (real) system
+--model-pdb model.pdb # PDB file defining the ML (model) region atoms
 ```
 
 The `all` command generates these files automatically during the workflow (via `mm-parm` and `define-layer`). When running subcommands individually, you must provide them explicitly.
@@ -94,21 +89,21 @@ Residue selectors identify which residues to use as substrates or extraction cen
 
 ### By residue name
 ```bash
--c 'SAM,GPP'          # Select all residues named SAM or GPP
--c 'LIG'              # Select all residues named LIG
+-c 'SAM,GPP' # Select all residues named SAM or GPP
+-c 'LIG' # Select all residues named LIG
 ```
 
 ### By residue ID
 ```bash
--c '123,456'          # Residues 123 and 456
--c 'A:123,B:456'      # Chain A residue 123, Chain B residue 456
--c '123A'             # Residue 123 with insertion code A
--c 'A:123A'           # Chain A, residue 123, insertion code A
+-c '123,456' # Residues 123 and 456
+-c 'A:123,B:456' # Chain A residue 123, Chain B residue 456
+-c '123A' # Residue 123 with insertion code A
+-c 'A:123A' # Chain A, residue 123, insertion code A
 ```
 
 ### By PDB file
 ```bash
--c substrate.pdb      # Use coordinates from a separate PDB to locate substrates
+-c substrate.pdb # Use coordinates from a separate PDB to locate substrates
 ```
 
 ```{note}
@@ -121,14 +116,14 @@ When selecting by residue name, if multiple residues share the same name, **all*
 
 ### Per-residue mapping (recommended)
 ```bash
---ligand-charge 'SAM:1,GPP:-3'    # SAM has charge +1, GPP has charge -3
---ligand-charge 'LIG:-2'          # LIG has charge -2
+--ligand-charge 'SAM:1,GPP:-3' # SAM has charge +1, GPP has charge -3
+--ligand-charge 'LIG:-2' # LIG has charge -2
 ```
 
 ### Total charge override
 ```bash
--q 0                              # Force total system charge to 0
--q -1                             # Force total system charge to -1
+-q 0 # Force total system charge to 0
+-q -1 # Force total system charge to -1
 ```
 
 ### Charge resolution order
@@ -154,13 +149,13 @@ The `--ligand-charge` option supports two formats:
 
 ### Mapping format (recommended)
 ```bash
---ligand-charge 'SAM:1,GPP:-3'     # Per-residue name mapping
---ligand-charge 'LIG:-2'           # Single residue mapping
+--ligand-charge 'SAM:1,GPP:-3' # Per-residue name mapping
+--ligand-charge 'LIG:-2' # Single residue mapping
 ```
 
 ### Integer format
 ```bash
---ligand-charge -3                  # Total charge for all unknown residues
+--ligand-charge -3 # Total charge for all unknown residues
 ```
 
 In the mapping format, residue names are matched case-insensitively. Unmapped non-standard residues default to charge 0.
@@ -170,9 +165,9 @@ In the mapping format, residue names are matched case-insensitively. Unmapped no
 ## Spin Multiplicity
 
 ```bash
--m 1      # Singlet (default)
--m 2      # Doublet
--m 3      # Triplet
+-m 1 # Singlet (default)
+-m 2 # Doublet
+-m 3 # Triplet
 ```
 
 ```{note}
@@ -187,7 +182,7 @@ Atom selectors identify specific atoms for scans and restraints. They can be:
 
 ### Integer index (1-based by default)
 ```bash
---scan-lists '[(1, 5, 2.0)]'      # Atoms 1 and 5, target distance 2.0 A
+--scan-lists '[(1, 5, 2.0)]' # Atoms 1 and 5, target distance 2.0 A
 ```
 
 ### PDB-style selector string
@@ -228,7 +223,6 @@ The three tokens (residue name, residue number, atom name) can appear in any ord
 Advanced settings can be passed via layered YAML inputs:
 
 ```bash
-mlmm all -i R.pdb P.pdb -c 'LIG' --config config.yaml --override-yaml override.yaml
 ```
 
 Precedence:
@@ -245,7 +239,7 @@ See [YAML Reference](yaml_reference.md) for all available options.
 Use `--out-dir` to specify where results are saved:
 
 ```bash
---out-dir ./my_results/    # Custom output directory
+--out-dir ./my_results/ # Custom output directory
 ```
 
 Default output directories:

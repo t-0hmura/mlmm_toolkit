@@ -20,8 +20,8 @@
 ## Usage
 ```bash
 mlmm define-layer -i INPUT.pdb --model-pdb MODEL.pdb [--model-indices "0,1,2,..."] \
-    [--radius-partial-hessian FLOAT] [--radius-freeze FLOAT] \
-    [-o OUTPUT.pdb] [--one-based|--zero-based]
+ [--radius-partial-hessian FLOAT] [--radius-freeze FLOAT] \
+ [-o OUTPUT.pdb] [--one-based|--zero-based]
 ```
 
 ### Examples
@@ -34,7 +34,7 @@ mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labe
 
 # Custom movable/frozen cutoff
 mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
-    --radius-freeze 10.0 -o labeled.pdb
+ --radius-freeze 10.0 -o labeled.pdb
 ```
 
 ## Description
@@ -49,20 +49,20 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 | `-i, --input PATH` | Input PDB file containing the full system. | Required |
 | `--model-pdb PATH` | PDB file defining atoms in the ML region. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (e.g. `"0,1,2,3"` or `"1-10,15,20-25"`). Takes precedence over `--model-pdb`. | _None_ |
-| `--radius-partial-hessian FLOAT` | Deprecated in 3-layer mode (kept for backward compatibility). | `0.0` |
+| `--radius-partial-hessian FLOAT` | Deprecated in 3-layer mode (kept ). | `0.0` |
 | `--radius-freeze FLOAT` | Distance cutoff (A) from ML region for Movable-MM. Atoms beyond this are Frozen. | `8.0` |
 | `-o, --output PATH` | Output PDB file with B-factors set to layer values. | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 
 ## Outputs
 ```
-<output>.pdb                # PDB with B-factors set to 0 / 10 / 20
-(stdout)                    # Summary table of layer assignments and atom counts
+<output>.pdb # PDB with B-factors set to 0 / 10 / 20
+(stdout) # Summary table of layer assignments and atom counts
 ```
 
 ## Notes
 - Distance is calculated as the minimum distance from any ML atom to any atom in the residue.
-- `--radius-partial-hessian` is accepted for compatibility but ignored in 3-layer mode.
+- `--radius-partial-hessian` is accepted but ignored in 3-layer mode.
 - The output PDB preserves all original atom records; only the B-factor column is modified.
 
 ---

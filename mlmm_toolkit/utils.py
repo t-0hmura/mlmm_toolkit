@@ -214,8 +214,31 @@ def pretty_block(title: str, content: Dict[str, Any]) -> str:
     """
     Return a YAML-formatted block with an underlined title.
     """
-    body = yaml.safe_dump(content, sort_keys=False, allow_unicode=True).strip()
+    body = yaml.safe_dump(_to_yaml_safe(content), sort_keys=False, allow_unicode=True).strip()
     return f"{title}\n" + "-" * len(title) + "\n" + (body if body else "(empty)") + "\n"
+
+
+def _to_yaml_safe(value: Any) -> Any:
+    """Recursively convert NumPy values/containers into YAML-safe builtins."""
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return [_to_yaml_safe(v) for v in value.tolist()]
+    if isinstance(value, Mapping):
+        out: Dict[Any, Any] = {}
+        for k, v in value.items():
+            nk = _to_yaml_safe(k)
+            if isinstance(nk, (list, tuple, set, dict)):
+                nk = str(nk)
+            out[nk] = _to_yaml_safe(v)
+        return out
+    if isinstance(value, tuple):
+        return [_to_yaml_safe(v) for v in value]
+    if isinstance(value, list):
+        return [_to_yaml_safe(v) for v in value]
+    if isinstance(value, set):
+        return [_to_yaml_safe(v) for v in sorted(value, key=lambda x: str(x))]
+    return value
 
 
 def strip_inherited_keys(
@@ -598,7 +621,7 @@ def parse_scan_list_triples(
     option_name: str,
     return_one_based: bool = False,
 ) -> Tuple[List[Tuple[int, int, float]], List[Tuple[Any, Any, float]]]:
-    """Parse --scan-list style triples into indices (0-based by default)."""
+    """Parse --scan-lists triples into indices (0-based by default)."""
     try:
         obj = ast.literal_eval(raw)
     except Exception as e:
@@ -646,7 +669,7 @@ def parse_scan_list_quads(
     atom_meta: Optional[_Sequence[Dict[str, Any]]],
     option_name: str,
 ) -> Tuple[List[Tuple[int, int, float, float]], List[Tuple[Any, Any, float, float]]]:
-    """Parse --scan-list style quadruples into 0-based indices."""
+    """Parse --scan-lists quadruples into 0-based indices."""
     try:
         obj = ast.literal_eval(raw)
     except Exception as e:
@@ -753,13 +776,9 @@ def parse_scan_spec_stages(
 ) -> Tuple[List[List[Tuple[int, int, float]]], bool]:
     """Parse staged 1D scan spec into 0-based stage triples."""
     spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
-    stages_key, stages_raw = _first_spec_field(
-        spec_cfg, ("stages", "scan_lists", "scan-lists")
-    )
+    stages_key, stages_raw = _first_spec_field(spec_cfg, ("stages",))
     if stages_key is None:
-        raise click.BadParameter(
-            f"{option_name} must define 'stages' (or legacy 'scan_lists')."
-        )
+        raise click.BadParameter(f"{option_name} must define 'stages'.")
     if not isinstance(stages_raw, (list, tuple)) or len(stages_raw) == 0:
         raise click.BadParameter(f"{option_name} field '{stages_key}' must be a non-empty list.")
 
@@ -801,13 +820,9 @@ def parse_scan_spec_quads(
 ) -> Tuple[List[Tuple[int, int, float, float]], List[Tuple[Any, Any, float, float]], bool]:
     """Parse 2D/3D scan spec into 0-based quad tuples."""
     spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
-    pairs_key, pairs_raw = _first_spec_field(
-        spec_cfg, ("pairs", "scan_list", "scan-list", "scan_lists", "scan-lists")
-    )
+    pairs_key, pairs_raw = _first_spec_field(spec_cfg, ("pairs",))
     if pairs_key is None:
-        raise click.BadParameter(
-            f"{option_name} must define 'pairs' (or legacy 'scan_list')."
-        )
+        raise click.BadParameter(f"{option_name} must define 'pairs'.")
     if not isinstance(pairs_raw, (list, tuple)):
         raise click.BadParameter(f"{option_name} field '{pairs_key}' must be a list.")
 
@@ -1405,7 +1420,7 @@ def resolve_charge_spin_or_raise(
 ) -> Tuple[int, int]:
     """Resolve charge/spin from inputs with tool defaults as fallbacks.
 
-    The ``prepared`` argument is accepted for API compatibility and is not used.
+    The ``prepared`` argument is accepted for API stability and is not used.
     """
     if charge is None:
         charge = charge_default
@@ -1687,7 +1702,7 @@ def write_layer_bfactors_to_pdb(
         ML atoms: 0.0
         Movable MM atoms: 10.0
         Frozen MM atoms: 20.0
-        Hessian MM atoms: compatibility alias (same as movable MM)
+        Hessian MM atoms: encoded with the same B-factor as movable MM
 
     Parameters
     ----------

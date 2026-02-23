@@ -8,14 +8,14 @@
 - **Input:** Numeric energies passed via `-i/--input` (multiple tokens or list-like string).
 - **Output:** One image file (`.png`, `.jpg`, `.jpeg`, `.svg`, or `.pdf`).
 - **Default output:** `energy_diagram.png`.
-- **State labels:** Optional `--label-x`; defaults to `S1`, `S2`, ...
+- **State labels:** Optional `--label-x`; defaults to `S1`, `S2`,...
 - **Use when:** You already have energies and only need a formatted diagram.
 
 `mlmm energy-diagram` only visualizes numbers you provide. It does not read PDB/XYZ structures and does not run thermochemistry (`--thermo`) or DFT (`--dft`) steps.
 
 ## Usage
 ```bash
-mlmm energy-diagram -i VALUES... [-o OUTPUT] [--label-x ...] [--label-y ...]
+mlmm energy-diagram -i VALUES... [-o OUTPUT] [--label-x...] [--label-y...]
 ```
 
 ## Examples
@@ -33,16 +33,16 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o
 ## Workflow
 1. Collect values from `-i/--input` (supports repeated flags, multiple values after one flag, and list-like strings).
 2. Parse all input values as floats and fail early if fewer than two values are provided.
-3. Parse optional `--label-x` values. If omitted, labels are auto-generated as `S1`, `S2`, ...
+3. Parse optional `--label-x` values. If omitted, labels are auto-generated as `S1`, `S2`,...
 4. Validate label count (`--label-x`) against value count, then render the diagram.
 5. Save the image to `-o/--output` and print the saved path.
 
 ## CLI options
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input TEXT ...` | Numeric values (multiple args or list-like string). | Required |
+| `-i, --input TEXT...` | Numeric values (multiple args or list-like string). | Required |
 | `-o, --output PATH` | Output image path (`.png/.jpg/.jpeg/.svg/.pdf`). | `energy_diagram.png` |
-| `--label-x TEXT ...` | X-axis state labels. Count must match input value count. | `S1, S2, ...` |
+| `--label-x TEXT...` | X-axis state labels. Count must match input value count. | `S1, S2,...` |
 | `--label-y TEXT` | Y-axis label. | `ΔE (kcal/mol)` |
 
 ## Outputs

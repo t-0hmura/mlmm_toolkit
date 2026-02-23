@@ -27,7 +27,6 @@ mlmm init [--out PATH] [--force]
 ## 補足
 
 - 生成される YAML は最小テンプレートです（完全スキーマではありません）。
-- 優先順位は `defaults < --config < CLI < --override-yaml` です。
 
 ---
 
@@ -35,5 +34,4 @@ mlmm init [--out PATH] [--force]
 
 - [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
-- [all](all.md) -- `--config` / `--override-yaml` を使った実行
 - [YAML リファレンス](yaml_reference.md) -- 設定キーの全体像
