@@ -25,7 +25,7 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - `result_scan/stage_01/result.pdb`（または `result.xyz`）
 - `result_scan/stage_02/result.pdb`（または `result.xyz`）
-- `--dump` 指定時は `result_scan/stage_*/scan.trj` と `scan.pdb`
+- `--dump` 指定時は `result_scan/stage_*/scan_trj.xyz` と `scan.pdb`
 
 ## よくある例
 
@@ -109,7 +109,7 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 LBFGS サイクル。 | `10000` |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `True` |
 | `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `True` |
-| `--dump/--no-dump` | 連結バイアス軌跡（`scan.trj`/`scan.pdb`）をダンプ。 | `False` |
+| `--dump/--no-dump` | 連結バイアス軌跡（`scan_trj.xyz`/`scan.pdb`）をダンプ。 | `False` |
 | `--out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
@@ -125,8 +125,8 @@ out_dir/ (デフォルト:./result_scan/)
 └─ stage_XX/ # ステージごとに 1 フォルダ（k = 01..K）
  ├─ result.xyz # 最終（endopt 済みの可能性あり）ジオメトリ
  ├─ result.pdb # 入力が PDB の場合
- ├─ scan.trj # --dump 時のバイアスステップフレーム連結
- └─ scan.pdb # scan.trj の PDB 版（PDB 入力のみ）
+ ├─ scan_trj.xyz # --dump 時のバイアスステップフレーム連結
+ └─ scan.pdb # scan_trj.xyz の PDB 版（PDB 入力のみ）
 ```
 
 

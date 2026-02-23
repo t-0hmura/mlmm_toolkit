@@ -323,11 +323,11 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.h5_fn = self.get_path_for_fn(h5_fn, with_prefix=False)
         self.h5_group_name = h5_group_name
 
-        current_fn = "current_geometries.trj" if self.is_cos else "current_geometry.xyz"
+        current_fn = "current_geometries_trj.xyz" if self.is_cos else "current_geometry.xyz"
         self.current_fn = self.get_path_for_fn(current_fn)
-        final_fn = "final_geometries.trj" if self.is_cos else "final_geometry.xyz"
+        final_fn = "final_geometries_trj.xyz" if self.is_cos else "final_geometry.xyz"
         self.final_fn = self.get_path_for_fn(final_fn)
-        self.hei_trj_fn = self.get_path_for_fn("cos_hei.trj")
+        self.hei_trj_fn = self.get_path_for_fn("cos_hei_trj.xyz")
         try:
             os.remove(self.hei_trj_fn)
         except FileNotFoundError:
@@ -340,7 +340,7 @@ class Optimizer(metaclass=abc.ABCMeta):
             setattr(self, la, list())
 
         if self.dump:
-            out_trj_fn = self.get_path_for_fn("optimization.trj")
+            out_trj_fn = self.get_path_for_fn("optimization_trj.xyz")
             self.out_trj_handle = open(out_trj_fn, "w")
             # Call with reset=True to delete remnants of previous calculations, unless
             # the optimizer was restarted. Given a previous optimization with, e.g. 30
@@ -682,7 +682,7 @@ class Optimizer(metaclass=abc.ABCMeta):
             handle.write(content)
 
     def write_image_trjs(self):
-        base_name = "image_{:03d}.trj"
+        base_name = "image_{:03d}_trj.xyz"
         for i, image in enumerate(self.geometry.images):
             image_fn = base_name.format(i)
             comment = f"cycle {self.cur_cycle}"
@@ -740,9 +740,9 @@ class Optimizer(metaclass=abc.ABCMeta):
         as_xyz_str = self.geometry.as_xyz()
 
         if self.is_cos:
-            out_fn = "cycle_{:03d}.trj".format(self.cur_cycle)
+            out_fn = "cycle_{:03d}_trj.xyz".format(self.cur_cycle)
             self.write_to_out_dir(out_fn, as_xyz_str)
-            # Also write separate .trj files for every image in the cos
+            # Also write separate _trj.xyz files for every image in the cos
             self.write_image_trjs()
 
             # Dump current HEI
@@ -751,7 +751,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 handle.write(self.geometry.images[max_ind].as_xyz() + "\n")
 
         else:
-            # Append to .trj file
+            # Append to _trj.xyz file
             self.out_trj_handle.write(as_xyz_str + "\n")
             self.out_trj_handle.flush()
         # Dump to HDF5
@@ -816,7 +816,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                     # I should improve my logging :)
                     print(msg)
                     self.log(msg)
-                    sim_fn = "too_similar.trj"
+                    sim_fn = "too_similar_trj.xyz"
                     with open(sim_fn, "w") as handle:
                         handle.write(self.geometry.as_xyz())
                     print(f"Dumped latest coordinates to '{sim_fn}'.")

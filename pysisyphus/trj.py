@@ -34,12 +34,12 @@ INTERPOLATE = {
 
 
 def parse_args(args):
-    parser = argparse.ArgumentParser("Utility to transform .xyz and .trj files.")
+    parser = argparse.ArgumentParser("Utility to transform .xyz and _trj.xyz files.")
 
     parser.add_argument(
         "fns",
         nargs="+",
-        help="Filenames of .xyz and/or .trj files (xyz and trj can be mixed).",
+        help="Filenames of .xyz and/or _trj.xyz files (xyz and trj can be mixed).",
     )
 
     action_group = parser.add_mutually_exclusive_group(required=True)
@@ -55,7 +55,7 @@ def parse_args(args):
         help="Split a supplied geometries in multiple .xyz files.",
     )
     action_group.add_argument(
-        "--reverse", action="store_true", help="Reverse a .trj file."
+        "--reverse", action="store_true", help="Reverse a _trj.xyz file."
     )
     action_group.add_argument(
         "--cleantrj",
@@ -68,12 +68,12 @@ def parse_args(args):
         help="Evenly redistribute geometries along a splined path.",
     )
     action_group.add_argument(
-        "--first", type=int, help="Copy the first N geometries to a new .trj file."
+        "--first", type=int, help="Copy the first N geometries to a new _trj.xyz file."
     )
     action_group.add_argument(
         "--every",
         type=int,
-        help="Create new .trj with every N-th geometry. "
+        help="Create new _trj.xyz with every N-th geometry. "
         "Always includes the first and last point.",
     )
     action_group.add_argument(
@@ -106,7 +106,7 @@ def parse_args(args):
     action_group.add_argument(
         "--join",
         action="store_true",
-        help="Combine the given .xyz/.trj files into one .trj file.",
+        help="Combine the given .xyz/_trj.xyz files into one _trj.xyz file.",
     )
     action_group.add_argument(
         "--match",
@@ -414,7 +414,7 @@ def dump_geoms(
     xyz_per_geom = [geom.as_xyz() for geom in geoms]
     if dump_trj:
         trj_str = "\n".join(xyz_per_geom)
-        trj_fn = f"{fn_base}{trj_infix}.trj"
+        trj_fn = f"{fn_base}{trj_infix}_trj.xyz"
         with open(trj_fn, "w") as handle:
             handle.write(trj_str)
         print(f"Wrote all geometries to {trj_fn}.")

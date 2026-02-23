@@ -15,8 +15,8 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 ## 出力の見方
 
 - `result_path_search/summary.md`
-- `result_path_search/key_mep.trj` / `result_path_search/key_ts.xyz`（利用可能時）
-- `result_path_search/mep.trj`
+- `result_path_search/key_mep_trj.xyz` / `result_path_search/key_ts.xyz`（利用可能時）
+- `result_path_search/mep_trj.xyz`
 - `result_path_search/summary.yaml`
 - `result_path_search/summary.log`
 - `result_path_search/mep_plot.png`（プロット生成時）
@@ -108,16 +108,16 @@ out_dir/ (デフォルト:./result_path_search/)
  summary.yaml # MEP レベルの実行サマリー（完全設定ダンプなし）
  summary.log # 人間が読めるサマリー
  summary.md # 主要成果物へ移動しやすいナビゲーションページ
- key_mep.trj # 主要 MEP 軌跡へのショートカット（symlink/copy）
+ key_mep_trj.xyz # 主要 MEP 軌跡へのショートカット（symlink/copy）
  key_mep.pdb # 主要 MEP PDB へのショートカット（symlink/copy）
  key_ts.xyz / key_ts.pdb # TS 候補スナップショットへのショートカット（利用可能時）
  key_mep_plot.png # MEP プロファイルへのショートカット（利用可能時）
  key_energy_diagram_MEP.png # 状態エネルギーダイアグラムへのショートカット（利用可能時）
- mep.trj # 最終 MEP（常に書き出し）
+ mep_trj.xyz # 最終 MEP（常に書き出し）
  mep.pdb # 最終 MEP（参照テンプレート利用可能時は PDB）
  mep_w_ref.pdb # 全系マージ MEP（--ref-pdb 必要）
  mep_w_ref_seg_XX.pdb # セグメントごとのマージ MEP（結合変化セグメント; --ref-pdb 必要）
- mep_seg_XX.trj / mep_seg_XX.pdb # ポケットのみのセグメント別経路
+ mep_seg_XX_trj.xyz / mep_seg_XX.pdb # ポケットのみのセグメント別経路
  hei_seg_XX.xyz / hei_seg_XX.pdb # ポケット HEI と結合変化セグメントごとのオプション PDB
  hei_w_ref_seg_XX.pdb # 結合変化セグメントごとのマージ HEI（--ref-pdb 必要）
  mep_plot.png # イメージインデックスに対する Delta-E プロファイル（trj2fig より）

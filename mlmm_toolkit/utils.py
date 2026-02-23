@@ -1372,7 +1372,7 @@ def _count_atoms_in_file(path: Path) -> int:
                 if line.startswith(("ATOM  ", "HETATM")):
                     count += 1
         return count
-    elif suffix in (".xyz", ".trj"):
+    elif suffix == ".xyz":
         # XYZ format: first line is atom count
         with open(path, "r") as f:
             first_line = f.readline().strip()

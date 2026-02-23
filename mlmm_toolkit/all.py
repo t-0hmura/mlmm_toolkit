@@ -131,7 +131,7 @@ def _write_output_summary_md(out_dir: Path) -> None:
         root_specs: List[Tuple[str, str]] = [
             ("summary.yaml", "YAML summary"),
             ("summary.log", "Text summary"),
-            ("mep.trj", "MEP trajectory"),
+            ("mep_trj.xyz", "MEP trajectory"),
             ("mep.pdb", "MEP trajectory (PDB)"),
             ("mep_w_ref.pdb", "MEP merged with reference"),
             ("mep_plot.png", "MEP profile plot"),
@@ -145,7 +145,7 @@ def _write_output_summary_md(out_dir: Path) -> None:
                 root_lines.append(f"- {label}: [`{rel}`]({rel})")
 
         shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
-            ("key_mep.trj", "Primary MEP trajectory", ["mep.trj", "path_search/mep.trj", "path_opt/final_geometries.trj"]),
+            ("key_mep_trj.xyz", "Primary MEP trajectory", ["mep_trj.xyz", "path_search/mep_trj.xyz", "path_opt/final_geometries_trj.xyz"]),
             ("key_mep.pdb", "Primary MEP PDB", ["mep.pdb", "path_search/mep.pdb", "path_opt/final_geometries.pdb"]),
             ("key_ts.pdb", "TS structure (PDB)", ["ts_seg_01.pdb", "path_search/post_seg_*/ts/final_geometry.pdb", "path_opt/post_seg_*/ts/final_geometry.pdb", "tsopt_single/ts/final_geometry.pdb"]),
             ("key_ts.xyz", "TS structure (XYZ)", ["ts_seg_01.xyz", "path_search/post_seg_*/ts/final_geometry.xyz", "path_opt/post_seg_*/ts/final_geometry.xyz", "tsopt_single/ts/final_geometry.xyz"]),
@@ -746,7 +746,7 @@ def _save_single_geom_as_pdb_for_tools(g: Any, ref_pdb: Path, out_dir: Path, nam
     Returns PDB path.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    xyz_trj = out_dir / f"{name}.trj"
+    xyz_trj = out_dir / f"{name}_trj.xyz"
     _path_search._write_xyz_trj_with_energy([g], [float(g.energy)], xyz_trj)
     pdb_out = out_dir / f"{name}.pdb"
     _path_search._maybe_convert_to_pdb(xyz_trj, ref_pdb_path=ref_pdb, out_path=pdb_out)
@@ -876,8 +876,8 @@ def _pseudo_irc_and_match(seg_idx: int,
 
     # IRC mini plots (TS→min)
     try:
-        trj_plus  = irc_dir / f"seg_{seg_idx:02d}_irc_plus_opt/optimization.trj"
-        trj_minus = irc_dir / f"seg_{seg_idx:02d}_irc_minus_opt/optimization.trj"
+        trj_plus  = irc_dir / f"seg_{seg_idx:02d}_irc_plus_opt/optimization_trj.xyz"
+        trj_minus = irc_dir / f"seg_{seg_idx:02d}_irc_minus_opt/optimization_trj.xyz"
         if trj_plus.exists():
             run_trj2fig(trj_plus, [irc_dir / f"irc_plus_plot.png"], unit="kcal", reference="init", reverse_x=False)
         if trj_minus.exists():
@@ -949,7 +949,7 @@ def _pseudo_irc_and_match(seg_idx: int,
     try:
         for side in ("left", "right"):
             tag, gmin = mapping[side]
-            trj = irc_dir / f"irc_{side}.trj"
+            trj = irc_dir / f"irc_{side}_trj.xyz"
             _path_search._write_xyz_trj_with_energy([g_ts, gmin], [float(g_ts.energy), float(gmin.energy)], trj)
             run_trj2fig(trj, [irc_dir / f"irc_{side}_plot.png"], unit="kcal", reference="init", reverse_x=False)
     except Exception:
@@ -960,7 +960,7 @@ def _pseudo_irc_and_match(seg_idx: int,
     try:
         g_left = mapping["left"][1]
         g_right = mapping["right"][1]
-        irc_trj = irc_dir / "finished_irc.trj"
+        irc_trj = irc_dir / "finished_irc_trj.xyz"
         _path_search._write_xyz_trj_with_energy(
             [g_left, g_ts, g_right],
             [float(g_left.energy), float(g_ts.energy), float(g_right.energy)],
@@ -1077,7 +1077,7 @@ def _merge_irc_trajectories_to_single_plot(
     if not all_blocks:
         return
 
-    tmp_trj = out_png.with_suffix(".trj")
+    tmp_trj = out_png.with_name(f"{out_png.stem}_trj.xyz")
     ensure_dir(tmp_trj.parent)
     try:
         tmp_trj.write_text("\n".join(all_blocks) + "\n", encoding="utf-8")
@@ -2275,7 +2275,7 @@ def cli(
                 if src.exists():
                     shutil.copy2(src, out_dir / name)
             for stem in ("mep", "mep_w_ref"):
-                for ext in (".trj", ".xyz"):
+                for ext in ("_trj.xyz", ".xyz"):
                     src = path_dir / f"{stem}{ext}"
                     if src.exists():
                         shutil.copy2(src, out_dir / src.name)

@@ -178,9 +178,9 @@ def _write_output_summary_md(out_dir: Path) -> None:
         root_specs: List[Tuple[str, Sequence[str]]] = [
             ("Final TS geometry (XYZ)", ["final_geometry.xyz"]),
             ("Final TS geometry (PDB)", ["final_geometry.pdb"]),
-            ("Optimization trajectory", ["optimization_all.trj", "optimization.trj"]),
+            ("Optimization trajectory", ["optimization_all_trj.xyz", "optimization_trj.xyz"]),
             ("Optimization trajectory (PDB)", ["optimization_all.pdb", "optimization.pdb"]),
-            ("Imaginary mode trajectory", ["vib/final_imag_mode_*.trj"]),
+            ("Imaginary mode trajectory", ["vib/final_imag_mode_*_trj.xyz"]),
             ("Imaginary mode (PDB)", ["vib/final_imag_mode_*.pdb"]),
         ]
         root_lines: List[str] = []
@@ -194,9 +194,9 @@ def _write_output_summary_md(out_dir: Path) -> None:
         shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
             ("key_ts.xyz", "TS geometry (XYZ)", ["final_geometry.xyz"]),
             ("key_ts.pdb", "TS geometry (PDB)", ["final_geometry.pdb"]),
-            ("key_opt.trj", "Optimization trajectory", ["optimization_all.trj", "optimization.trj"]),
+            ("key_opt_trj.xyz", "Optimization trajectory", ["optimization_all_trj.xyz", "optimization_trj.xyz"]),
             ("key_opt.pdb", "Optimization trajectory (PDB)", ["optimization_all.pdb", "optimization.pdb"]),
-            ("key_imag_mode.trj", "Imaginary mode trajectory", ["vib/final_imag_mode_*.trj"]),
+            ("key_imag_mode_trj.xyz", "Imaginary mode trajectory", ["vib/final_imag_mode_*_trj.xyz"]),
             ("key_imag_mode.pdb", "Imaginary mode (PDB)", ["vib/final_imag_mode_*.pdb"]),
         ]
         shortcut_lines: List[str] = []
@@ -243,7 +243,7 @@ def _write_output_summary_md(out_dir: Path) -> None:
             [
                 "",
                 "## Notes",
-                "- Start from `key_ts.xyz` (or `key_ts.pdb`) and `key_imag_mode.trj` for TS validation.",
+                "- Start from `key_ts.xyz` (or `key_ts.pdb`) and `key_imag_mode_trj.xyz` for TS validation.",
             ]
         )
 
@@ -518,13 +518,13 @@ def _write_mode_trj_and_pdb(geom,
                             n_frames: int = 20,
                             comment: str = "imag mode") -> None:
     """
-    Write a single imaginary mode animation both as .trj (XYZ-like) and .pdb.
+    Write a single imaginary mode animation both as _trj.xyz (XYZ-like) and .pdb.
     """
     ref_ang = geom.coords.reshape(-1, 3) * BOHR2ANG
     mode = mode_vec_3N.reshape(-1, 3).copy()
     mode /= np.linalg.norm(mode)
 
-    # .trj (XYZ-like concatenation)
+    # _trj.xyz (XYZ-like concatenation)
     try:
         from pysisyphus.xyzloader import make_trj_str  # type: ignore
         amp_ang = amplitude_ang
@@ -590,7 +590,7 @@ def _write_all_imag_modes(
         v_cart = v_cart / norm
 
         stem = f"{filename_prefix}_{rank:02d}_mode{mode_idx:04d}_{freq:+.2f}cm-1"
-        out_trj = vib_dir / f"{stem}.trj"
+        out_trj = vib_dir / f"{stem}_trj.xyz"
         out_pdb = vib_dir / f"{stem}.pdb"
         _write_mode_trj_and_pdb(
             geom,
@@ -1186,7 +1186,7 @@ class HessianDimer:
         self.mode_path = self.out_dir / ".dimer_mode.dat"
 
         self.dump = bool(dump)
-        self.optim_all_path = self.out_dir / "optimization_all.trj"
+        self.optim_all_path = self.out_dir / "optimization_all_trj.xyz"
 
     # ----- One dimer segment for up to n_steps; returns (steps_done, converged) -----
     def _dimer_segment(self, threshold: str, n_steps: int) -> Tuple[int, bool]:
@@ -1229,7 +1229,7 @@ class HessianDimer:
 
         # Append to concatenated trajectory if dump enabled
         if self.dump:
-            _append_xyz_trajectory(self.optim_all_path, self.out_dir / "optimization.trj")
+            _append_xyz_trajectory(self.optim_all_path, self.out_dir / "optimization_trj.xyz")
         return steps, converged
 
     # ----- Hessian caching for 0-step convergence -----
@@ -1901,7 +1901,7 @@ hessian_dimer_KW = {
     "--dump/--no-dump",
     default=False,
     show_default=True,
-    help="Write concatenated trajectory 'optimization_all.trj'.",
+    help="Write concatenated trajectory 'optimization_all_trj.xyz'.",
 )
 @click.option("--out-dir", type=str, default=OUT_DIR_TSOPT, show_default=True, help="Output directory.")
 @click.option(
@@ -2003,7 +2003,7 @@ def cli(
     if suffix == ".pdb":
         # PDB input: use directly
         prepared_input = prepare_input_structure(input_path)
-    elif suffix in (".xyz", ".trj"):
+    elif suffix == ".xyz":
         # XYZ input: require --ref-pdb for topology
         if ref_pdb is None:
             click.echo("ERROR: XYZ/TRJ input requires --ref-pdb to specify PDB topology.", err=True)
@@ -2300,7 +2300,7 @@ def cli(
         if use_heavy:
             # Heavy mode: RS-I-RFO with full Hessian
             click.echo("\n=== TS optimization (RS-I-RFO heavy mode) started ===\n")
-            optim_all_path = out_dir_path / "optimization_all.trj"
+            optim_all_path = out_dir_path / "optimization_all_trj.xyz"
             if bool(opt_cfg["dump"]) and optim_all_path.exists():
                 optim_all_path.unlink()
 
@@ -2362,7 +2362,7 @@ def cli(
                 optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
                 optimizer.run()
                 if bool(opt_cfg["dump"]):
-                    _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization.trj")
+                    _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
             click.echo("\n=== TS optimization (RS-I-RFO heavy mode) finished ===\n")
 
@@ -2499,7 +2499,7 @@ def cli(
                         optimizer.run()
                         click.echo("\n=== TS optimization (RS-I-RFO) finished ===\n")
                         if bool(opt_cfg["dump"]):
-                            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization.trj")
+                            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
                         geometry.set_calculator(None)
                         del optimizer, base_calc
                         _clear_cuda_cache()
@@ -2639,7 +2639,7 @@ def cli(
             except Exception as e:
                 click.echo(f"[convert] WARNING: Failed to convert final geometry to PDB: {e}", err=True)
 
-            all_trj = out_dir_path / "optimization_all.trj"
+            all_trj = out_dir_path / "optimization_all_trj.xyz"
             if all_trj.exists():
                 try:
                     opt_pdb = out_dir_path / "optimization_all.pdb"

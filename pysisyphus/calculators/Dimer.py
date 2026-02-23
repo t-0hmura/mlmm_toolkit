@@ -611,11 +611,11 @@ class Dimer(Calculator):
         # Now we (have an updated self.N and) can do the force projections
         N = self.N
         # self.log(f"Orientation N:\n\t{N}")
-        # Save orientation N in human-readable format, aka .trj
+        # Save orientation N in human-readable format, aka _trj.xyz
         # file in Angstrom.
         if self.write_orientations:
             trj_str = get_tangent_trj_str(atoms, coords, N)
-            trj_fn = self.make_fn("N.trj")
+            trj_fn = self.make_fn("N_trj.xyz")
             with open(trj_fn, "w") as handle:
                 handle.write(trj_str)
             self.log(f"Wrote current orientation animation to '{trj_fn}'")

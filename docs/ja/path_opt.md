@@ -7,7 +7,7 @@
 ### 概要
 - **用途:** 反応物と生成物の端点 (R -> P) があり、初回パスの MEP が必要な場合に使用します。
 - **手法:** ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による PySisyphus `GrowingString`。
-- **出力:** `final_geometries.trj`（経路）および `hei.xyz`（HEI）、任意で `.pdb` コンパニオン。
+- **出力:** `final_geometries_trj.xyz`（経路）および `hei.xyz`（HEI）、任意で `.pdb` コンパニオン。
 - **デフォルト:** `--climb`、`--max-nodes 10`、`--max-cycles 300`。
 - **次のステップ:** HEI を `tsopt` -> `freq`（虚数モード 1 つを期待）-> `irc` で検証。
 
@@ -24,8 +24,8 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 ## 出力の見方
 
 - `result_path_opt/summary.md`
-- `result_path_opt/key_mep.trj` / `result_path_opt/key_ts.xyz`
-- `result_path_opt/final_geometries.trj`
+- `result_path_opt/key_mep_trj.xyz` / `result_path_opt/key_ts.xyz`
+- `result_path_opt/final_geometries_trj.xyz`
 - `result_path_opt/hei.xyz`
 - `result_path_opt/hei.pdb`（PDB 変換が有効な場合）
 
@@ -110,11 +110,11 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 ```
 out_dir/ (デフォルト:./result_path_opt/)
 ├─ summary.md # 主要成果物へ移動しやすいナビゲーションページ
-├─ key_mep.trj # 主要 MEP 軌跡へのショートカット（symlink/copy）
+├─ key_mep_trj.xyz # 主要 MEP 軌跡へのショートカット（symlink/copy）
 ├─ key_mep.pdb # 主要 MEP PDB へのショートカット（symlink/copy）
 ├─ key_ts.xyz / key_ts.pdb # TS 候補スナップショットへのショートカット（symlink/copy）
-├─ final_geometries.trj # コメント行にイメージごとのエネルギーを含む XYZ 軌跡
-├─ final_geometries.pdb #.trj と同じだが参照 PDB 順序にマップ
+├─ final_geometries_trj.xyz # コメント行にイメージごとのエネルギーを含む XYZ 軌跡
+├─ final_geometries.pdb #_trj.xyz と同じだが参照 PDB 順序にマップ
 ├─ hei.xyz # 最高エネルギーイメージ（XYZ、常に書き出し）
 ├─ hei.pdb # PDB 形式の HEI（参照 PDB が利用可能な場合）
 ├─ align_refine/ # 外部アライメント/精密化の成果物

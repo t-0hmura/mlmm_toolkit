@@ -108,7 +108,7 @@ class XTB(Calculator):
             "gradient",
             "xtbopt.xyz",
             "g98.out",
-            "xtb.trj",
+            "xtb_trj.xyz",
             # "json:xtbout.json",
             "charges:charges",
             "xcontrol",
@@ -331,7 +331,7 @@ class XTB(Calculator):
 
     def parse_md(self, path):
         assert (path / "xtbmdok").exists(), "File xtbmdok does not exist!"
-        geoms = geom_loader(path / "xtb.trj")
+        geoms = geom_loader(path / "xtb_trj.xyz")
         return geoms
 
     def run_opt(self, atoms, coords, keep=True, keep_log=False):

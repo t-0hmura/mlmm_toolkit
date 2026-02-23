@@ -4,7 +4,7 @@
 
 > **要約:** ML/MM 計算機を使用した EulerPC 予測子-補正子積分器により、遷移状態から反応物と生成物の方向へ固有反応座標（IRC）を追跡します。
 
-`mlmm irc` は EulerPC 積分器を使用して IRC 計算を実行します。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`.trj`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
+`mlmm irc` は EulerPC 積分器を使用して IRC 計算を実行します。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
 
 
 ## 最小例
@@ -29,10 +29,10 @@ mlmm irc -i ts.pdb -q 0 -m 1 --config irc_min.yaml \
 ## 出力の見方
 
 - `result_irc/summary.md`
-- `result_irc/key_irc.trj`
-- `result_irc/key_irc_forward.trj`
-- `result_irc/finished_irc.trj`
-- `result_irc/forward_irc.trj`
+- `result_irc/key_irc_trj.xyz`
+- `result_irc/key_irc_forward_trj.xyz`
+- `result_irc/finished_irc_trj.xyz`
+- `result_irc/forward_irc_trj.xyz`
 
 ## よくある例
 
@@ -92,7 +92,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`.trj`/...）。 | 必須 |
+| `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。 | 必須 |
 | `--real-parm7 PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 | _None_ |
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 | _None_ |
@@ -115,13 +115,13 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ```text
 out_dir/ (デフォルト:./result_irc/)
  summary.md # 主要成果物のインデックス
- key_irc.trj # finished_irc.trj へのショートカット
- key_irc_forward.trj # forward_irc.trj へのショートカット
+ key_irc_trj.xyz # finished_irc_trj.xyz へのショートカット
+ key_irc_forward_trj.xyz # forward_irc_trj.xyz へのショートカット
  key_irc.pdb # finished_irc.pdb へのショートカット（存在時）
  key_irc_data.h5 # irc_data.h5 へのショートカット（存在時）
  <prefix>irc_data.h5 # irc.dump_every ステップごとに書き出される HDF5 ダンプ
- <prefix>finished_irc.trj # 完全 IRC 軌跡（XYZ/TRJ）
- <prefix>forward_irc.trj # 正方向パスセグメント
+ <prefix>finished_irc_trj.xyz # 完全 IRC 軌跡（XYZ/TRJ）
+ <prefix>forward_irc_trj.xyz # 正方向パスセグメント
  <prefix>finished_irc.pdb # PDB 変換（入力が.pdb の場合のみ）
  <prefix>forward_irc.pdb # PDB 変換（入力が.pdb の場合のみ）
 ```

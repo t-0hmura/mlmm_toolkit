@@ -14,7 +14,7 @@ def parse_args(args):
     parser.add_argument("trj")
     parser.add_argument("filter")
     parser.add_argument("--first", type=int, metavar="N", default=None,
-                        help="Only consider first N geometries in .trj."
+                        help="Only consider first N geometries in _trj.xyz."
     )
 
     return parser.parse_args(args)
@@ -65,5 +65,5 @@ def run():
     print(f"Found {len(valid_geoms)} valid geometries.")
     print(f"Found {len(invalid_geoms)} invalid geometries.")
 
-    write_geoms_to_trj(valid_geoms, "filtered_valid.trj")
-    write_geoms_to_trj(invalid_geoms, "filtered_invalid.trj")
+    write_geoms_to_trj(valid_geoms, "filtered_valid_trj.xyz")
+    write_geoms_to_trj(invalid_geoms, "filtered_invalid_trj.xyz")

@@ -26,9 +26,9 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - `result_tsopt/summary.md`
 - `result_tsopt/key_ts.xyz` (or `key_ts.pdb`)
-- `result_tsopt/key_imag_mode.trj`
+- `result_tsopt/key_imag_mode_trj.xyz`
 - `result_tsopt/final_geometry.pdb` (or `final_geometry.xyz`)
-- `result_tsopt/vib/final_imag_mode_*.trj`
+- `result_tsopt/vib/final_imag_mode_*_trj.xyz`
 - `result_tsopt/vib/final_imag_mode_*.pdb`
 
 ## Common examples
@@ -81,7 +81,7 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  - When the flatten loop is enabled, the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
 4. **Heavy mode (RS-I-RFO):**
  - Runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section.
-5. **Mode export** -- The converged imaginary mode is written to `vib/` as `.trj`/`.pdb` pairs. Final geometry and optional trajectory are also saved.
+5. **Mode export** -- The converged imaginary mode is written to `vib/` as `_trj.xyz`/`.pdb` pairs. Final geometry and optional trajectory are also saved.
 
 ## CLI options
 | Option | Description | Default |
@@ -100,7 +100,7 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | UMA Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
-| `--dump/--no-dump` | Write concatenated trajectory `optimization_all.trj`. | `False` |
+| `--dump/--no-dump` | Write concatenated trajectory `optimization_all_trj.xyz`. | `False` |
 | `--out-dir TEXT` | Output directory. | `./result_tsopt/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--opt-mode CHOICE` | TS optimizer mode: `light` (Dimer) or `heavy` (RS-I-RFO). | `heavy` |
@@ -115,14 +115,14 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 out_dir/ (default:./result_tsopt/)
 ├── summary.md # Quick index of key outputs
 ├── key_ts.xyz # Shortcut to final TS geometry (or key_ts.pdb)
-├── key_imag_mode.trj # Shortcut to a representative imaginary mode
-├── key_opt.trj # Shortcut to optimization trajectory (when available)
+├── key_imag_mode_trj.xyz # Shortcut to a representative imaginary mode
+├── key_opt_trj.xyz # Shortcut to optimization trajectory (when available)
 ├── final_geometry.xyz # Always written
 ├── final_geometry.pdb # When the input was PDB
-├── optimization_all.trj # Concatenated Dimer segments (when --dump)
+├── optimization_all_trj.xyz # Concatenated Dimer segments (when --dump)
 ├── optimization_all.pdb # PDB companion (when --dump and input was PDB)
 ├── vib/
-│ ├── final_imag_mode_±XXXX.Xcm-1.trj # Imaginary mode trajectory
+│ ├── final_imag_mode_±XXXX.Xcm-1_trj.xyz # Imaginary mode trajectory
 │ └── final_imag_mode_±XXXX.Xcm-1.pdb # Imaginary mode PDB companion
 └──.dimer_mode.dat # Dimer orientation seed (light mode)
 ```

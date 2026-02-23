@@ -356,7 +356,7 @@ class GrowingString(GrowingChainOfStates):
         # )
         # except AssertionError as err:
         # trj_str = self.as_xyz()
-        # fn = "failed_reparametrization.trj"
+        # fn = "failed_reparametrization_trj.xyz"
         # with open(fn, "w") as handle:
         # handle.write(trj_str)
         # print(f"Wrote coordinates of failed reparametrization to '{fn}'")
@@ -481,7 +481,7 @@ class GrowingString(GrowingChainOfStates):
             reparametrized = True
             # Writing is deactivated, as this does not respect an out_dir or
             # something similar.
-            # with open("reparametrized.trj", "w") as handle:
+            # with open("reparametrized_trj.xyz", "w") as handle:
             # handle.write(self.as_xyz())
 
         return reparametrized

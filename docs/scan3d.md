@@ -135,7 +135,7 @@ out_dir/ (default:./result_scan3d/)
  scan3d_density.html # 3D energy isosurface visualization
  grid/point_i###_j###_k###.xyz # Relaxed geometry for each grid point
  grid/point_i###_j###_k###.pdb # PDB companions (B-factors: ML=100, frozen=50, both=150)
- grid/inner_path_d1_###_d2_###.trj # Present only when --dump is True
+ grid/inner_path_d1_###_d2_###_trj.xyz # Present only when --dump is True
 ```
 
 ## Notes

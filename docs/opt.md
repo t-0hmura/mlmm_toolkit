@@ -16,10 +16,10 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - `result_opt/summary.md`
 - `result_opt/key_opt.xyz` (or `key_opt.pdb`)
-- `result_opt/key_opt.trj` (when trajectory is available)
+- `result_opt/key_opt_trj.xyz` (when trajectory is available)
 - `result_opt/final_geometry.xyz`
 - `result_opt/final_geometry.pdb` (when the input is PDB)
-- `result_opt/optimization.trj` (when `--dump` is enabled)
+- `result_opt/optimization_trj.xyz` (when `--dump` is enabled)
 
 ## Common examples
 
@@ -90,7 +90,7 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`). | _None_ |
 | `--opt-mode {light\|heavy\|lbfgs\|rfo}` | Optimizer mode: `light` (LBFGS) or `heavy` (RFO with Hessian). | `light` |
 | `--layer-opt / --no-layer-opt` | Enable LayerOpt-style microiteration (heavy mode only). | Disabled |
-| `--dump/--no-dump` | Emit trajectory dumps (`optimization.trj`). | `False` |
+| `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`). | `False` |
 | `--out-dir PATH` | Output directory. | `./result_opt/` |
 | `--config FILE` | Base YAML configuration file. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layer information before execution. | `False` |
@@ -115,12 +115,12 @@ out_dir/ (default:./result_opt/)
  summary.md # Quick index of key outputs
  key_opt.xyz # Shortcut to final_geometry.xyz
  key_opt.pdb # Shortcut to final_geometry.pdb (when available)
- key_opt.trj # Shortcut to optimization trajectory
+ key_opt_trj.xyz # Shortcut to optimization trajectory
  key_opt_traj.pdb # Shortcut to optimization trajectory PDB (when available)
  key_restart.yml # Shortcut to a restart snapshot (when available)
  final_geometry.xyz # Final optimized geometry (always)
  final_geometry.pdb # Converted from XYZ when the input was a PDB (B-factors annotated)
- optimization.trj # Trajectory (written when --dump or opt.dump: true)
+ optimization_trj.xyz # Trajectory (written when --dump or opt.dump: true)
  optimization.pdb # Converted from TRJ when input was PDB and dumping is enabled
  restart*.yml # Restart files every opt.dump_restart cycles (if enabled)
 ```

@@ -32,7 +32,7 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - `result_scan/stage_01/result.pdb`
 - `result_scan/stage_02/result.pdb`
-- `--dump` 指定時は `scan.trj` / `scan.pdb`
+- `--dump` 指定時は `scan_trj.xyz` / `scan.pdb`
 
 ## 補足
 

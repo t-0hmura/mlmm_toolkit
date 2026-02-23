@@ -134,7 +134,7 @@ def _validate_case(case: Case, base_dir: Path, timeout_sec: float | None = None)
         p = out_dir / rel
         if not p.exists():
             raise RuntimeError(f"[{case.name}] expected '{rel}' to exist.")
-        if p.suffix in {".trj", ".xyz"}:
+        if p.suffix == ".xyz":
             n_frames = _frame_count(p)
             if n_frames <= 0:
                 raise RuntimeError(f"[{case.name}] '{rel}' has no frames.")
@@ -176,38 +176,38 @@ def main() -> int:
         Case(
             name="opt_light_dump",
             args=["opt", *common, "--opt-mode", "light", "--dump"],
-            expect_present=("optimization.trj", "optimization_all.trj"),
+            expect_present=("optimization_trj.xyz", "optimization_all_trj.xyz"),
         ),
         Case(
             name="opt_heavy_dump",
             args=["opt", *common, "--opt-mode", "heavy", "--dump"],
-            expect_present=("optimization_all.trj",),
+            expect_present=("optimization_all_trj.xyz",),
         ),
         Case(
             name="opt_heavy_layeropt_dump",
             args=["opt", *common, "--opt-mode", "heavy", "--layer-opt", "--dump"],
-            expect_present=("optimization_all.trj",),
+            expect_present=("optimization_all_trj.xyz",),
         ),
         Case(
             name="tsopt_light_dump",
             args=["tsopt", *common, "--opt-mode", "light", "--dump"],
-            expect_present=("optimization_all.trj",),
+            expect_present=("optimization_all_trj.xyz",),
         ),
         Case(
             name="tsopt_heavy_dump",
             args=["tsopt", *common, "--opt-mode", "heavy", "--dump"],
-            expect_present=("optimization_all.trj",),
+            expect_present=("optimization_all_trj.xyz",),
         ),
         Case(
             name="tsopt_heavy_nodump",
             args=["tsopt", *common, "--opt-mode", "heavy", "--no-dump"],
             expect_present=(),
-            expect_absent=("optimization.trj", "optimization_all.trj"),
+            expect_absent=("optimization_trj.xyz", "optimization_all_trj.xyz"),
         ),
         Case(
             name="opt_light_dump_legacy_bool",
             args=["opt", *common, "--opt-mode", "light", "--dump", "True"],
-            expect_present=("optimization.trj", "optimization_all.trj"),
+            expect_present=("optimization_trj.xyz", "optimization_all_trj.xyz"),
         ),
     ]
 

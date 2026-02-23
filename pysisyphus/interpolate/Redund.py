@@ -23,7 +23,7 @@ class Redund(Interpolator):
                 for geom in self.geoms
             ]
 
-    def dump_progress(self, geoms, out_fn="redund_interpol_fail.trj"):
+    def dump_progress(self, geoms, out_fn="redund_interpol_fail_trj.xyz"):
         write_geoms_to_trj(geoms, out_fn)
         print(f"Dumped interpolation progress to '{out_fn}'.")
 
@@ -135,7 +135,7 @@ class Redund(Interpolator):
             f"Encountered breakdown of current primitive internals.\n"
             "Restarting interpolation with reduced number of internals."
         )
-        self.dump_progress(geoms, out_fn=f"redund_interpol_fail.trj")
+        self.dump_progress(geoms, out_fn=f"redund_interpol_fail_trj.xyz")
         print()
         # Recursive call with reduced set of primitive internals
         return self.interpolate(**interpolate_kwargs, typed_prims=new_typed_prims)

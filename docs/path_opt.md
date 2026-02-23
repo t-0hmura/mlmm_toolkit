@@ -7,7 +7,7 @@
 ### Quick reference
 - **Use when:** You have reactant and product endpoints (R -> P) and want a first-pass MEP.
 - **Method:** PySisyphus `GrowingString` with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`).
-- **Outputs:** `final_geometries.trj` (path) and `hei.xyz` (HEI), plus optional `.pdb` companions.
+- **Outputs:** `final_geometries_trj.xyz` (path) and `hei.xyz` (HEI), plus optional `.pdb` companions.
 - **Defaults:** `--climb`, `--max-nodes 10`, `--max-cycles 300`.
 - **Next step:** Validate the HEI with `tsopt` -> `freq` (expect one imaginary mode) -> `irc`.
 
@@ -24,8 +24,8 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 ## Output checklist
 
 - `result_path_opt/summary.md`
-- `result_path_opt/key_mep.trj` / `result_path_opt/key_ts.xyz`
-- `result_path_opt/final_geometries.trj`
+- `result_path_opt/key_mep_trj.xyz` / `result_path_opt/key_ts.xyz`
+- `result_path_opt/final_geometries_trj.xyz`
 - `result_path_opt/hei.xyz`
 - `result_path_opt/hei.pdb` (when PDB conversion is available)
 
@@ -113,11 +113,11 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 ```
 out_dir/ (default:./result_path_opt/)
 ├─ summary.md # Quick navigation page with key artifact links
-├─ key_mep.trj # Root shortcut to primary MEP trajectory (symlink/copy)
+├─ key_mep_trj.xyz # Root shortcut to primary MEP trajectory (symlink/copy)
 ├─ key_mep.pdb # Root shortcut to primary MEP PDB (symlink/copy)
 ├─ key_ts.xyz / key_ts.pdb # Root shortcuts to TS candidate snapshots (symlink/copy)
-├─ final_geometries.trj # XYZ trajectory with per-image energies in the comment line
-├─ final_geometries.pdb # Same as.trj but mapped back to the reference PDB ordering
+├─ final_geometries_trj.xyz # XYZ trajectory with per-image energies in the comment line
+├─ final_geometries.pdb # Same as_trj.xyz but mapped back to the reference PDB ordering
 ├─ hei.xyz # Highest-energy image (XYZ, always written)
 ├─ hei.pdb # HEI in PDB format (when reference PDB is available)
 ├─ align_refine/ # External alignment/refinement artifacts

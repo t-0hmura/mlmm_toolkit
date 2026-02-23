@@ -207,7 +207,7 @@ def prepare_merge(geom1, bond_diff, geom2=None, del1=None, del2=None, dump=False
     if dump:
         kept_coords, kept_comments = zip(*backup)
         align_coords(kept_coords)
-        fn = "merge_dump.trj"
+        fn = "merge_dump_trj.xyz"
         coords_to_trj(fn, union.atoms, kept_coords, comments=kept_comments)
 
     return union
@@ -346,7 +346,7 @@ def run_merge():
         frozen_geom, lig_geom, make_bonds, prot_del, lig_del
     )
 
-    trj_fn = "merged.trj"
+    trj_fn = "merged_trj.xyz"
     trj = "\n".join([geom.as_xyz() for geom in (aligned, rest)])
     with open(trj_fn, "w") as handle:
         handle.write(trj)

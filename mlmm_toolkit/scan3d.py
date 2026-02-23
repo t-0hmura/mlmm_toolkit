@@ -900,7 +900,7 @@ def cli(
                         )
 
                     if dump and trj_blocks:
-                        trj_path = grid_dir / f"inner_path_d1_{d1_tag}_d2_{d2_tag}.trj"
+                        trj_path = grid_dir / f"inner_path_d1_{d1_tag}_d2_{d2_tag}_trj.xyz"
                         try:
                             with open(trj_path, "w") as handle:
                                 handle.write("".join(trj_blocks))

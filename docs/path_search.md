@@ -15,8 +15,8 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 ## Output checklist
 
 - `result_path_search/summary.md`
-- `result_path_search/key_mep.trj` / `result_path_search/key_ts.xyz` (when available)
-- `result_path_search/mep.trj`
+- `result_path_search/key_mep_trj.xyz` / `result_path_search/key_ts.xyz` (when available)
+- `result_path_search/mep_trj.xyz`
 - `result_path_search/summary.yaml`
 - `result_path_search/summary.log`
 - `result_path_search/mep_plot.png` (when plotting succeeds)
@@ -108,16 +108,16 @@ out_dir/ (default:./result_path_search/)
  summary.yaml # MEP-level run summary (no full settings dump)
  summary.log # Human-readable summary
  summary.md # Quick navigation page with key artifact links
- key_mep.trj # Root shortcut to primary MEP trajectory (symlink/copy)
+ key_mep_trj.xyz # Root shortcut to primary MEP trajectory (symlink/copy)
  key_mep.pdb # Root shortcut to primary MEP PDB (symlink/copy)
  key_ts.xyz / key_ts.pdb # Root shortcuts to TS candidate snapshots (when available)
  key_mep_plot.png # Root shortcut to MEP profile plot (when available)
  key_energy_diagram_MEP.png # Root shortcut to state energy diagram (when available)
- mep.trj # Final MEP (always written)
+ mep_trj.xyz # Final MEP (always written)
  mep.pdb # Final MEP (PDB when ref template available)
  mep_w_ref.pdb # Full-system merged MEP (requires --ref-pdb)
  mep_w_ref_seg_XX.pdb # Per-segment merged MEPs (bond-change segments; requires --ref-pdb)
- mep_seg_XX.trj / mep_seg_XX.pdb # Pocket-only per-segment paths
+ mep_seg_XX_trj.xyz / mep_seg_XX.pdb # Pocket-only per-segment paths
  hei_seg_XX.xyz / hei_seg_XX.pdb # Pocket HEI and optional PDB per bond-change segment
  hei_w_ref_seg_XX.pdb # Merged HEI per bond-change segment (requires --ref-pdb)
  mep_plot.png # Delta-E profile vs image index (from trj2fig)

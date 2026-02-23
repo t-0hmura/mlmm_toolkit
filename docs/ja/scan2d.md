@@ -106,7 +106,7 @@ out_dir/ (デフォルト:./result_scan2d/)
 │ ├── point_i###_j###.xyz # 各 (i, j) ペアの緩和ジオメトリ
 │ ├── point_i###_j###.pdb # PDB コンパニオン（入力が PDB の場合）
 │ ├── preopt_i###_j###.xyz # 事前最適化構造（--preopt 時）
-│ └── inner_path_d1_###.trj # d1 スライスごとの内側 d2 軌跡（--dump 時）
+│ └── inner_path_d1_###_trj.xyz # d1 スライスごとの内側 d2 軌跡（--dump 時）
 └── (stdout) # 進捗とエネルギーサマリー
 ```
 

@@ -116,7 +116,7 @@ class AFIR(Calculator):
         After convergence, artificial potential & forces, as well as real energies
         and forces can be plotted with 'pysisplot --afir'. The highest energy point
         along the AFIR path can then be selected for a subsequent TS-optimization,
-        e.g. via 'pysistrj --get [index] optimzation.trj'.
+        e.g. via 'pysistrj --get [index] optimzation_trj.xyz'.
 
         Future versions of pysisyphus may provide drivers for more automatted
         AFIR calculations.

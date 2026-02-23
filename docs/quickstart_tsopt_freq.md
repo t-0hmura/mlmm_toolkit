@@ -28,7 +28,7 @@ mlmm freq -i ./result_tsopt/final_geometry.pdb --real-parm7 real.parm7 --model-p
 
 - `result_tsopt/final_geometry.pdb`
 - `result_freq/frequencies_cm-1.txt`
-- `result_freq/mode_*.trj` and `result_freq/mode_*.pdb`
+- `result_freq/mode_*_trj.xyz` and `result_freq/mode_*.pdb`
 
 For a valid first-order saddle, frequencies should contain exactly one imaginary mode (negative cm^-1).
 

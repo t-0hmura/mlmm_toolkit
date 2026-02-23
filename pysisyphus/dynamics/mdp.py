@@ -193,8 +193,8 @@ def mdp(
         md_fin_minus = run_md(geom, **md_kwargs)
 
         if dump:
-            dump_coords(geom.atoms, md_fin_plus.coords, "mdp_plus.trj")
-            dump_coords(geom.atoms, md_fin_minus.coords, "mdp_minus.trj")
+            dump_coords(geom.atoms, md_fin_plus.coords, "mdp_plus_trj.xyz")
+            dump_coords(geom.atoms, md_fin_minus.coords, "mdp_minus_trj.xyz")
 
         mdp_result = MDPResult(
             ascent_xs=None,
@@ -255,7 +255,7 @@ def mdp(
 
     ascent_xs = np.array(ascent_xs)
     if dump:
-        dump_coords(geom.atoms, ascent_xs, "mdp_ee_ascent.trj")
+        dump_coords(geom.atoms, ascent_xs, "mdp_ee_ascent_trj.xyz")
     x0 = geom.coords.copy()
 
     print(highlight_text("Runninig initialization trajectories", level=1))
@@ -288,8 +288,8 @@ def mdp(
         md_init_kwargs["v0"] = -v0.copy()
         md_init_minus = run_md(geom, **md_init_kwargs)
 
-        dump_coords(geom.atoms, md_init_plus.coords, f"mdp_ee_init_plus_{i:02d}.trj")
-        dump_coords(geom.atoms, md_init_minus.coords, f"mdp_ee_init_minus_{i:02d}.trj")
+        dump_coords(geom.atoms, md_init_plus.coords, f"mdp_ee_init_plus_{i:02d}_trj.xyz")
+        dump_coords(geom.atoms, md_init_minus.coords, f"mdp_ee_init_minus_{i:02d}_trj.xyz")
 
         # Check if both MDs run into different basins of attraction.
         # We (try to) do this by calculating the overlap between the
@@ -310,8 +310,8 @@ def mdp(
             print("Trajectories ran into different basins. Breaking.")
             break
     if dump:
-        dump_coords(geom.atoms, md_init_plus.coords, "mdp_ee_init_plus.trj")
-        dump_coords(geom.atoms, md_init_minus.coords, "mdp_ee_init_minus.trj")
+        dump_coords(geom.atoms, md_init_plus.coords, "mdp_ee_init_plus_trj.xyz")
+        dump_coords(geom.atoms, md_init_minus.coords, "mdp_ee_init_minus_trj.xyz")
     assert init_trajs_converged
     print(f"Ran 2*{i+1} initialization trajectories.")
     print()
@@ -349,8 +349,8 @@ def mdp(
     md_fin_minus_term = md_fin_minus.terminated
 
     if dump:
-        dump_coords(geom.atoms, md_fin_plus.coords, "mdp_ee_fin_plus.trj")
-        dump_coords(geom.atoms, md_fin_minus.coords, "mdp_ee_fin_minus.trj")
+        dump_coords(geom.atoms, md_fin_plus.coords, "mdp_ee_fin_plus_trj.xyz")
+        dump_coords(geom.atoms, md_fin_minus.coords, "mdp_ee_fin_minus_trj.xyz")
 
     mdp_result = MDPResult(
         ascent_xs=ascent_xs,

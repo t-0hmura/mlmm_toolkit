@@ -25,7 +25,7 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - `result_scan/stage_01/result.pdb` (or `result.xyz`)
 - `result_scan/stage_02/result.pdb` (or `result.xyz`)
-- `result_scan/stage_*/scan.trj` and `scan.pdb` when `--dump` is enabled
+- `result_scan/stage_*/scan_trj.xyz` and `scan.pdb` when `--dump` is enabled
 
 ## Common examples
 
@@ -144,7 +144,7 @@ stages:
 | `--max-cycles INT` | Maximum LBFGS cycles per biased step and per pre/end optimization stage. | `10000` |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `True` |
-| `--dump/--no-dump` | Dump concatenated biased trajectories (`scan.trj`/`scan.pdb`). | `False` |
+| `--dump/--no-dump` | Dump concatenated biased trajectories (`scan_trj.xyz`/`scan.pdb`). | `False` |
 | `--out-dir TEXT` | Output directory root. | `./result_scan/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
@@ -159,8 +159,8 @@ out_dir/ (default:./result_scan/)
 └─ stage_XX/ # One folder per stage (k = 01..K)
  ├─ result.xyz # Final (possibly endopt) geometry
  ├─ result.pdb # If input was PDB
- ├─ scan.trj # Concatenated biased step frames when --dump
- └─ scan.pdb # PDB version of scan.trj (PDB inputs only)
+ ├─ scan_trj.xyz # Concatenated biased step frames when --dump
+ └─ scan.pdb # PDB version of scan_trj.xyz (PDB inputs only)
 ```
 
 - `coord_type`: Coordinate type (cartesian vs dlc internals).

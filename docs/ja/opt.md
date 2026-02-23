@@ -17,10 +17,10 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - `result_opt/summary.md`
 - `result_opt/key_opt.xyz`（または `key_opt.pdb`）
-- `result_opt/key_opt.trj`（軌跡がある場合）
+- `result_opt/key_opt_trj.xyz`（軌跡がある場合）
 - `result_opt/final_geometry.xyz`
 - `result_opt/final_geometry.pdb`（入力が PDB の場合）
-- `result_opt/optimization.trj`（`--dump` 有効時）
+- `result_opt/optimization_trj.xyz`（`--dump` 有効時）
 
 ## よくある例
 
@@ -83,7 +83,7 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
 | `--max-cycles INT` | 最適化反復のハードリミット。 | `10000` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`）。 | _デフォルト_ |
-| `--dump/--no-dump` | 軌跡ダンプ（`optimization.trj`）を出力。 | `False` |
+| `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`）を出力。 | `False` |
 | `--out-dir PATH` | 出力ディレクトリ。 | `./result_opt/` |
 | `--config FILE` | ベースYAML設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済みYAMLレイヤ情報を表示。 | `False` |
@@ -108,12 +108,12 @@ out_dir/ (デフォルト:./result_opt/)
  summary.md # 主要成果物のインデックス
  key_opt.xyz # final_geometry.xyz へのショートカット
  key_opt.pdb # final_geometry.pdb へのショートカット（存在時）
- key_opt.trj # 最適化軌跡へのショートカット
+ key_opt_trj.xyz # 最適化軌跡へのショートカット
  key_opt_traj.pdb # 最適化軌跡PDBへのショートカット（存在時）
  key_restart.yml # リスタートスナップショットへのショートカット（存在時）
  final_geometry.xyz # 最適化されたジオメトリ（常に書き出し）
  final_geometry.pdb # 入力が PDB の場合に XYZ から変換（B 因子アノテーション付き）
- optimization.trj # 軌跡（--dump または opt.dump: true の場合）
+ optimization_trj.xyz # 軌跡（--dump または opt.dump: true の場合）
  optimization.pdb # 入力が PDB でダンプ有効時に TRJ から変換
  restart*.yml # opt.dump_restart サイクルごとのリスタートファイル（有効時）
 ```

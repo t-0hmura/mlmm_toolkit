@@ -364,13 +364,13 @@ def run_tsopt_from_cos(
 
     # Dump HEI data
     #
-    # Cartesian tangent and an animated .trj file
+    # Cartesian tangent and an animated _trj.xyz file
     cart_hei_fn = "cart_hei_tangent"
     np.savetxt(cart_hei_fn, cart_hei_tangent)
     trj = get_tangent_trj_str(
         ts_geom.atoms, ts_geom.cart_coords, cart_hei_tangent, points=10
     )
-    trj_fn = cart_hei_fn + ".trj"
+    trj_fn = cart_hei_fn + "_trj.xyz"
     with open(trj_fn, "w") as handle:
         handle.write(trj)
     print(f"Wrote animated HEI tangent to {trj_fn}\n")
@@ -645,7 +645,7 @@ def run_md(geom, calc_getter, md_kwargs):
     md_result = md(geom, v0=v0, steps=steps, dt=dt, gaussians=gaussians, **md_kwargs)
 
     # from pysisyphus.xyzloader import coords_to_trj
-    # trj_fn = "md.trj"
+    # trj_fn = "md_trj.xyz"
     # _ = coords_to_trj(
     # trj_fn, geom.atoms, md_result.coords[::md_kwargs["dump_stride"]]
     # )
@@ -742,7 +742,7 @@ def run_scan(geom, calc_getter, scan_kwargs, callback=None):
         scan_energies = np.concatenate((minus_energies[::-1], plus_energies))
 
         trj = "\n".join([geom.as_xyz() for geom in scan_geoms])
-        with open("relaxed_scan.trj", "w") as handle:
+        with open("relaxed_scan_trj.xyz", "w") as handle:
             handle.write(trj)
         scan_data = np.stack((scan_vals, scan_energies), axis=1)
         np.savetxt(f"relaxed_scan.dat", scan_data)
@@ -1680,10 +1680,10 @@ def main(run_dict, restart=False, yaml_dir="./", scheduler=None):
                 **barrier_kwargs,
             )
 
-            # Dump TS and endopt geoms to .trj. But only when we did not optimize
+            # Dump TS and endopt geoms to _trj.xyz. But only when we did not optimize
             # separate fragments.
             if len(left_geoms) == 1 and len(right_geoms) in (0, 1):
-                trj_fn = "left_ts_right_geoms.trj"
+                trj_fn = "left_ts_right_geoms_trj.xyz"
                 write_geoms_to_trj(
                     list(it.chain(left_geoms, [irc_geom], right_geoms)),
                     trj_fn,
@@ -1734,8 +1734,8 @@ def do_clean(force=False):
     A similar function could be used to store everything ..."""
     cwd = Path(".").resolve()
     rm_globs = (
-        "cycle*.trj",
-        "interpolated.trj",
+        "cycle*_trj.xyz",
+        "interpolated_trj.xyz",
         "interpolated.image*.xyz",
         "calculator.log",
         "optimizer.log",
@@ -1743,7 +1743,7 @@ def do_clean(force=False):
         "wfoverlap.log",
         "host_*.calculator.log",
         "host_*.wfoverlap.log",
-        "wfo_*.out" "optimization.trj",
+        "wfo_*.out" "optimization_trj.xyz",
         "cos.log",
         "*.gradient",
         "optimizer_results.yaml",
@@ -1783,7 +1783,7 @@ def do_clean(force=False):
         "image_*",
         "splined_ts_guess.xyz",
         "splined_hei_tangent",
-        "cart_hei_tangent.trj",
+        "cart_hei_tangent_trj.xyz",
         "dimer_ts.xyz",
         "dimer_pickle",
         "interpolated.geom_*.xyz",
@@ -1796,7 +1796,7 @@ def do_clean(force=False):
         "*_CDD.cub",
         "internal_coords.log",
         "hei_tangent",
-        "optimization.trj",
+        "optimization_trj.xyz",
         "splined_hei.xyz",
         "ts_opt.xyz",
         "final_geometry.xyz",
@@ -1806,7 +1806,7 @@ def do_clean(force=False):
         "optimization.h5",
         "afir.h5",
         # Optimization files
-        "*_optimization.trj",
+        "*_optimization_trj.xyz",
         # Preopt files
         "first_*",
         "last_*",
@@ -1820,14 +1820,14 @@ def do_clean(force=False):
         "backward_*",
         "forward_*",
         # Misc
-        "*imaginary_mode_*.trj",
+        "*imaginary_mode_*_trj.xyz",
         "cart_hei_tangent",
         "ts_calculated_init_cart_hessian",
         "calculated_final_cart_hessian",
         "*final_geometry.xyz",
-        "*final_geometries.trj",
+        "*final_geometries_trj.xyz",
         "current_geometry.xyz",
-        "*current_geometries.trj",
+        "*current_geometries_trj.xyz",
         "hess_calc_cyc*.h5",
         "ts_hess_calc_cyc*.h5",
         "hess_init_irc.h5",
@@ -1839,18 +1839,18 @@ def do_clean(force=False):
         "hess_calc_irc*.h5",
         "rebuilt_primitives.xyz",
         "RUN.yaml",
-        "middle_for_preopt.trj",
-        "relaxed_scan.trj",
-        "too_similar.trj",
+        "middle_for_preopt_trj.xyz",
+        "relaxed_scan_trj.xyz",
+        "too_similar_trj.xyz",
         # MDP
-        "mdp_ee_ascent.trj",
-        "mdp_ee_fin_*.trj",
-        "mdp_ee_init_*.trj",
+        "mdp_ee_ascent_trj.xyz",
+        "mdp_ee_fin_*_trj.xyz",
+        "mdp_ee_init_*_trj.xyz",
         "aligned.geom*xyz",
-        "cos_hei.trj",
+        "cos_hei_trj.xyz",
         # Dimer
         "calculator_*.N",
-        "calculator_*.N.trj",
+        "calculator_*.N_trj.xyz",
         "dimer.log",
         "*.gfnff_topo",
         # DFTB+
@@ -1861,9 +1861,9 @@ def do_clean(force=False):
         "*.XplusY.DAT",
         "*.dftb.out",
         "rsprfo_*",
-        "reparametrized.trj",
-        "end_geoms_and_ts.trj",
-        "left_ts_right_geoms.trj",
+        "reparametrized_trj.xyz",
+        "end_geoms_and_ts_trj.xyz",
+        "left_ts_right_geoms_trj.xyz",
         "ts_final_hessian.h5",
         "third_deriv.h5",
         "*.ao_ovlp_rec",

@@ -121,7 +121,7 @@ out_dir/ (default:./result_scan2d/)
 │ ├── point_i###_j###.xyz # Relaxed geometry for every (i, j) pair
 │ ├── point_i###_j###.pdb # PDB companion (when input is PDB)
 │ ├── preopt_i###_j###.xyz # Pre-optimized structure (when --preopt)
-│ └── inner_path_d1_###.trj # Inner d2 trajectory per d1 slice (when --dump)
+│ └── inner_path_d1_###_trj.xyz # Inner d2 trajectory per d1 slice (when --dump)
 └── (stdout) # Progress and energy summaries
 ```
 

@@ -108,7 +108,7 @@ out_dir/ (デフォルト:./result_scan3d/)
  scan3d_density.html # 3D エネルギーアイソサーフェス可視化
  grid/point_i###_j###_k###.xyz # 各グリッド点の緩和ジオメトリ
  grid/point_i###_j###_k###.pdb # PDB コンパニオン（B 因子: ML=100, frozen=50, both=150）
- grid/inner_path_d1_###_d2_###.trj # --dump が True の場合のみ
+ grid/inner_path_d1_###_d2_###_trj.xyz # --dump が True の場合のみ
 ```
 
 ## 注意事項

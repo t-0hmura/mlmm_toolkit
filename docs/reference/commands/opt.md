@@ -62,8 +62,8 @@ Options:
   --max-cycles INTEGER            Maximum number of optimization cycles.
                                   [default: 10000]
   --dump / --no-dump              Write optimization trajectories
-                                  ('optimization.trj' and
-                                  'optimization_all.trj').  [default: no-dump]
+                                  ('optimization_trj.xyz' and
+                                  'optimization_all_trj.xyz').  [default: no-dump]
   --out-dir TEXT                  Output directory.  [default: ./result_opt/]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never).

@@ -78,7 +78,7 @@ class GrowingNT:
         self.initialize()
 
         if self.dump:
-            self.trj_fn = self.get_path("newton_trajectory.trj")
+            self.trj_fn = self.get_path("newton_trajectory_trj.xyz")
 
     def get_path(self, fn):
         return self.out_dir / fn

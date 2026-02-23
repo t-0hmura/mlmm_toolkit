@@ -382,7 +382,7 @@ def _snapshot_geometry(g) -> Any:
     "dump",
     default=False,
     show_default=True,
-    help="Write stage trajectory as scan.trj (and scan.pdb for PDB input).",
+    help="Write stage trajectory as scan_trj.xyz (and scan.pdb for PDB input).",
 )
 @click.option("--out-dir", type=str, default="./result_scan/", show_default=True,
               help="Base output directory.")
@@ -870,7 +870,7 @@ def cli(
                     click.echo(f"[stage {k}] WARNING: Failed to evaluate bond changes: {e}", err=True)
 
                 if dump and trj_blocks:
-                    trj_path = stage_dir / "scan.trj"
+                    trj_path = stage_dir / "scan_trj.xyz"
                     with open(trj_path, "w") as f:
                         f.write("".join(trj_blocks))
                     click.echo(f"[write] Wrote '{trj_path}'.")

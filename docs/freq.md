@@ -7,10 +7,10 @@
 ### Quick reference
 - **Use when:** You want to validate a minimum/TS candidate and/or compute thermo corrections from ML/MM.
 - **Frozen atoms:** Supported via PHVA (partial Hessian vibrational analysis).
-- **Outputs:** `frequencies_cm-1.txt`, per-mode `.trj` and `.pdb` animations, plus `thermoanalysis.yaml` when enabled.
+- **Outputs:** `frequencies_cm-1.txt`, per-mode `_trj.xyz` and `.pdb` animations, plus `thermoanalysis.yaml` when enabled.
 - **TS check:** A properly converged TS is expected to have **exactly one** imaginary frequency (negative cm^-1).
 
-`mlmm freq` performs vibrational analysis with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), honoring frozen atoms via PHVA. It exports normal-mode animations as `.trj` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
+`mlmm freq` performs vibrational analysis with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
 
 
 ## Minimal example
@@ -24,9 +24,9 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - `result_freq/summary.md`
 - `result_freq/key_frequencies.txt`
-- `result_freq/key_mode_1.trj`
+- `result_freq/key_mode_1_trj.xyz`
 - `result_freq/frequencies_cm-1.txt`
-- `result_freq/mode_*.trj`
+- `result_freq/mode_*_trj.xyz`
 - `result_freq/mode_*.pdb` (for PDB inputs)
 
 ## Common examples
@@ -89,7 +89,7 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
  frequency analysis: `all` (all atoms), `ml-only` (ML layer, B=0),
  `partial` (ML + Hessian-target MM; default), `unfrozen` (non-frozen layers, typically B=0/10).
 - **Mode export**: `--max-write` limits how many modes are animated. Modes are sorted by
- value (or absolute value with `--sort abs`). Each exported mode writes `.trj` (XYZ-like
+ value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` (XYZ-like
  trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering).
  The sinusoidal animation amplitude (`--amplitude-ang`) and frame count (`--n-frames`)
  match the YAML defaults.
@@ -136,10 +136,10 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 out_dir/ (default:./result_freq/)
  summary.md # Quick index of key outputs
  key_frequencies.txt # Shortcut to frequencies_cm-1.txt
- key_mode_1.trj # Shortcut to a representative mode trajectory
+ key_mode_1_trj.xyz # Shortcut to a representative mode trajectory
  key_mode_1.pdb # Shortcut to representative mode PDB (when available)
  key_thermo.yaml # Shortcut to thermoanalysis.yaml (when available)
- mode_XXXX_{+/-freq}cm-1.trj # XYZ-like trajectory, sinusoidal animation per mode
+ mode_XXXX_{+/-freq}cm-1_trj.xyz # XYZ-like trajectory, sinusoidal animation per mode
  mode_XXXX_{+/-freq}cm-1.pdb # PDB animation mapped back onto the enzyme ordering
  frequencies_cm-1.txt # All computed frequencies (cm^-1) sorted by the chosen key
  thermoanalysis.yaml # Optional thermochemistry payload when --dump

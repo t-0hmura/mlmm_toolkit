@@ -45,7 +45,7 @@ class MicroOptimizer:
         self.coord_diffs = list()
         self.grad_diffs = list()
 
-        self.trj_fn = "microopt.trj"
+        self.trj_fn = "microopt_trj.xyz"
         if Path(self.trj_fn).exists():
             os.remove(self.trj_fn)
 

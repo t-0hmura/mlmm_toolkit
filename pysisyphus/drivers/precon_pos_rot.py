@@ -100,7 +100,7 @@ class SteepestDescent:
         self.all_coords = self.all_coords[: i + 1]
 
         if to_dump:
-            with open(f"{self.prefix}optimization.trj", "w") as handle:
+            with open(f"{self.prefix}optimization_trj.xyz", "w") as handle:
                 handle.write("\n".join(to_dump))
 
 
@@ -643,7 +643,7 @@ def precon_pos_rot(reactants, products, prefix=None, config=CONFIG):
     backup_coords(5)
     print()
 
-    with open(make_fn("s5.trj"), "w") as handle:
+    with open(make_fn("s5_trj.xyz"), "w") as handle:
         handle.write("\n".join([geom.as_xyz() for geom in (runion, punion)]))
 
     def dump_stages(fn, atoms, coords_list):
@@ -652,8 +652,8 @@ def precon_pos_rot(reactants, products, prefix=None, config=CONFIG):
         fn = make_fn(fn)
         coords_to_trj(fn, atoms, coords_list, comments=comments)
 
-    dump_stages("r_coords.trj", runion.atoms, r_coords)
-    dump_stages("p_coords.trj", punion.atoms, p_coords)
+    dump_stages("r_coords_trj.xyz", runion.atoms, r_coords)
+    dump_stages("p_coords_trj.xyz", punion.atoms, p_coords)
 
     runion.set_calculator(None)
     punion.set_calculator(None)

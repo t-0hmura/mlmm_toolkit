@@ -53,7 +53,7 @@ Options:
                                   calc.hessian_calc_mode from YAML.
   --max-cycles INTEGER            Maximum total LBFGS cycles.  [default: 10000]
   --dump / --no-dump              Write concatenated trajectory
-                                  'optimization_all.trj'.  [default: no-dump]
+                                  'optimization_all_trj.xyz'.  [default: no-dump]
   --out-dir TEXT                  Output directory.  [default: ./result_tsopt/]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never).

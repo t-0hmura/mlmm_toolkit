@@ -763,7 +763,7 @@ def parse_args(args):
     group.add_argument("--gau", nargs="*")
     group.add_argument("--scan", action="store_true")
     group.add_argument(
-        "--trj", help="Plot energy values from the comments of a " ".trj file."
+        "--trj", help="Plot energy values from the comments of a " "_trj.xyz file."
     )
 
     return parser.parse_args(args)
@@ -937,7 +937,7 @@ def plot_scan(h5_fn="scan.h5"):
 
 
 def plot_trj_energies(trj):
-    """Parse comments of .xyz/.trj as energies and plot."""
+    """Parse comments of .xyz/_trj.xyz as energies and plot."""
     atoms_coords, comments = parse_xyz(trj, with_comment=True)
     try:
         energies = np.array(comments, dtype=float)

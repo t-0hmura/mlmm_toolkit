@@ -111,7 +111,7 @@ def _write_output_summary_md(out_dir: Path) -> None:
         root_specs: List[Tuple[str, Sequence[str]]] = [
             ("Optimized geometry (XYZ)", ["final_geometry.xyz"]),
             ("Optimized geometry (PDB)", ["final_geometry.pdb"]),
-            ("Optimization trajectory", ["optimization_all.trj", "optimization.trj"]),
+            ("Optimization trajectory", ["optimization_all_trj.xyz", "optimization_trj.xyz"]),
             ("Optimization trajectory (PDB)", ["optimization_all.pdb", "optimization.pdb"]),
             ("Restart snapshot", ["restart*.yml"]),
         ]
@@ -126,7 +126,7 @@ def _write_output_summary_md(out_dir: Path) -> None:
         shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
             ("key_opt.xyz", "Optimized geometry (XYZ)", ["final_geometry.xyz"]),
             ("key_opt.pdb", "Optimized geometry (PDB)", ["final_geometry.pdb"]),
-            ("key_opt.trj", "Optimization trajectory", ["optimization_all.trj", "optimization.trj"]),
+            ("key_opt_trj.xyz", "Optimization trajectory", ["optimization_all_trj.xyz", "optimization_trj.xyz"]),
             ("key_opt_traj.pdb", "Optimization trajectory (PDB)", ["optimization_all.pdb", "optimization.pdb"]),
             ("key_restart.yml", "Restart snapshot", ["restart*.yml"]),
         ]
@@ -174,7 +174,7 @@ def _write_output_summary_md(out_dir: Path) -> None:
             [
                 "",
                 "## Notes",
-                "- Start from `key_opt.xyz` (or `key_opt.pdb`) and inspect `key_opt.trj` when available.",
+                "- Start from `key_opt.xyz` (or `key_opt.pdb`) and inspect `key_opt_trj.xyz` when available.",
             ]
         )
 
@@ -279,7 +279,7 @@ class MicroIterationOptimizer:
         self.echo = echo_fn or click.echo
         self.dump = bool(dump)
         self.out_dir = Path(self.inner_rfo_kwargs.get("out_dir", "./result_opt/"))
-        self.optim_all_path = self.out_dir / "optimization_all.trj"
+        self.optim_all_path = self.out_dir / "optimization_all_trj.xyz"
 
         self.is_converged = False
         self.cur_cycle = 0
@@ -332,7 +332,7 @@ class MicroIterationOptimizer:
             if self.dump:
                 _append_xyz_trajectory(
                     self.optim_all_path,
-                    outer_opt.get_path_for_fn("optimization.trj"),
+                    outer_opt.get_path_for_fn("optimization_trj.xyz"),
                 )
 
             # Update main geometry with outer-optimized coords
@@ -365,7 +365,7 @@ class MicroIterationOptimizer:
             if self.dump:
                 _append_xyz_trajectory(
                     self.optim_all_path,
-                    inner_opt.get_path_for_fn("optimization.trj"),
+                    inner_opt.get_path_for_fn("optimization_trj.xyz"),
                 )
 
             # Update main geometry with inner-optimized coords
@@ -438,7 +438,7 @@ class PartialHessianMicroIterationOptimizer:
         self.inner_opt_cls = inner_opt_cls
         self.dump = bool(dump)
         self.out_dir = Path(self.inner_rfo_kwargs.get("out_dir", "./result_opt/"))
-        self.optim_all_path = self.out_dir / "optimization_all.trj"
+        self.optim_all_path = self.out_dir / "optimization_all_trj.xyz"
 
         self.is_converged = False
         self.cur_cycle = 0
@@ -512,7 +512,7 @@ class PartialHessianMicroIterationOptimizer:
                 if self.dump:
                     _append_xyz_trajectory(
                         self.optim_all_path,
-                        outer_opt.get_path_for_fn("optimization.trj"),
+                        outer_opt.get_path_for_fn("optimization_trj.xyz"),
                     )
 
                 # Update main geometry
@@ -548,7 +548,7 @@ class PartialHessianMicroIterationOptimizer:
             if self.dump:
                 _append_xyz_trajectory(
                     self.optim_all_path,
-                    inner_opt.get_path_for_fn("optimization.trj"),
+                    inner_opt.get_path_for_fn("optimization_trj.xyz"),
                 )
 
             # Update main geometry
@@ -887,8 +887,8 @@ def _maybe_convert_outputs_to_pdb(
     frozen_layer_indices: Optional[List[int]] = None,
 ) -> None:
     """
-    If the input is a PDB, convert outputs (final_geometry.xyz and, if dump, optimization_all.trj /
-    optimization.trj) to PDB,
+    If the input is a PDB, convert outputs (final_geometry.xyz and, if dump, optimization_all_trj.xyz /
+    optimization_trj.xyz) to PDB,
     and annotate B-factors for the 3-layer ML/MM system.
 
     B-factor encoding (3-layer system):
@@ -938,11 +938,11 @@ def _maybe_convert_outputs_to_pdb(
     except Exception as e:
         click.echo(f"[convert] WARNING: Failed to convert final geometry to PDB: {e}", err=True)
 
-    # optimization_all.trj / optimization.trj → PDB (if dump)
+    # optimization_all_trj.xyz / optimization_trj.xyz → PDB (if dump)
     if dump:
         try:
             wrote_any = False
-            all_trj_path = get_trj_fn("optimization_all.trj")
+            all_trj_path = get_trj_fn("optimization_all_trj.xyz")
             if all_trj_path.exists():
                 all_opt_pdb = out_dir / "optimization_all.pdb"
                 convert_xyz_to_pdb(all_trj_path, ref_pdb, all_opt_pdb)
@@ -970,7 +970,7 @@ def _maybe_convert_outputs_to_pdb(
                     )
                     click.echo(f"[annot]   B-factors set in '{all_opt_pdb}' (ML=100, frozen=50, both=150).")
 
-            trj_path = get_trj_fn("optimization.trj")
+            trj_path = get_trj_fn("optimization_trj.xyz")
             if trj_path.exists():
                 opt_pdb = out_dir / "optimization.pdb"
                 convert_xyz_to_pdb(trj_path, ref_pdb, opt_pdb)
@@ -1000,7 +1000,7 @@ def _maybe_convert_outputs_to_pdb(
 
             if not wrote_any:
                 click.echo(
-                    "[convert] WARNING: neither 'optimization_all.trj' nor 'optimization.trj' was found; "
+                    "[convert] WARNING: neither 'optimization_all_trj.xyz' nor 'optimization_trj.xyz' was found; "
                     "skipping trajectory PDB conversion.",
                     err=True,
                 )
@@ -1141,7 +1141,7 @@ def _maybe_convert_outputs_to_pdb(
     "--dump/--no-dump",
     default=False,
     show_default=True,
-    help="Write optimization trajectories ('optimization.trj' and 'optimization_all.trj').",
+    help="Write optimization trajectories ('optimization_trj.xyz' and 'optimization_all_trj.xyz').",
 )
 @click.option("--out-dir", type=str, default="./result_opt/", show_default=True, help="Output directory.")
 @click.option(
@@ -1239,7 +1239,7 @@ def cli(
     if suffix == ".pdb":
         # PDB input: use directly
         prepared_input = prepare_input_structure(input_path)
-    elif suffix in (".xyz", ".trj"):
+    elif suffix == ".xyz":
         # XYZ input: require --ref-pdb for topology
         if ref_pdb is None:
             click.echo("ERROR: XYZ/TRJ input requires --ref-pdb to specify PDB topology.", err=True)
@@ -1690,9 +1690,9 @@ def cli(
             final_xyz_path = optimizer.final_fn if isinstance(optimizer.final_fn, Path) else Path(optimizer.final_fn)
 
         if bool(opt_cfg["dump"]):
-            optim_all_path = out_dir_path / "optimization_all.trj"
+            optim_all_path = out_dir_path / "optimization_all_trj.xyz"
             if not optim_all_path.exists():
-                trj_path = optimizer.get_path_for_fn("optimization.trj")
+                trj_path = optimizer.get_path_for_fn("optimization_trj.xyz")
                 _append_xyz_trajectory(optim_all_path, trj_path, reset=True)
 
         # Extract layer indices from calculator for layer-based B-factor encoding

@@ -97,7 +97,7 @@ def geom_loader(fn, coord_type="cart", iterable=False, **coord_kwargs):
         ".mol2": geom_from_mol2,
         ".pdb": geom_from_pdb,
         ".json": geom_from_qcschema,
-        ".trj": geoms_from_trj,
+        "_trj.xyz": geoms_from_trj,
         ".xyz": geom_from_xyz_file,
         ".zmat": geom_from_zmat_fn,
         "": geoms_from_inline_xyz,
@@ -117,7 +117,7 @@ def geom_loader(fn, coord_type="cart", iterable=False, **coord_kwargs):
     if index is not None:
         geom = geom[index]
 
-    if iterable and (ext in (".trj", "")) and index is None:
+    if iterable and (ext in ("_trj.xyz", "")) and index is None:
         geom = tuple(geom)
     elif not iterable and ext == "" and len(geom) == 1:
         geom = geom[0]
@@ -518,7 +518,7 @@ def do_final_hessian(
     if write_imag_modes:
         imag_modes = imag_modes_from_geom(geom)
         for i, imag_mode in enumerate(imag_modes):
-            trj_fn = out_dir / (prefix + f"imaginary_mode_{i:03d}.trj")
+            trj_fn = out_dir / (prefix + f"imaginary_mode_{i:03d}_trj.xyz")
             imag_fns.append(trj_fn)
             with open(trj_fn, "w") as handle:
                 handle.write(imag_mode.trj_str)

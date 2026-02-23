@@ -28,9 +28,9 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - `result_tsopt/summary.md`
 - `result_tsopt/key_ts.xyz`（または `key_ts.pdb`）
-- `result_tsopt/key_imag_mode.trj`
+- `result_tsopt/key_imag_mode_trj.xyz`
 - `result_tsopt/final_geometry.pdb`（または `final_geometry.xyz`）
-- `result_tsopt/vib/final_imag_mode_*.trj`
+- `result_tsopt/vib/final_imag_mode_*_trj.xyz`
 - `result_tsopt/vib/final_imag_mode_*.pdb`
 
 ## よくある例
@@ -86,7 +86,7 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  - フラットンループが有効な場合、保存されたアクティブヘシアンは変位と勾配差分を使用した Bofill で更新されます。各ループで虚数モードを推定し、一度フラットンし、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
 4. **Heavy モード（RS-I-RFO）:**
  - RS-I-RFO オプティマイザーを、`rsirfo` YAML セクションで定義されたオプションのヘシアン参照ファイルとマイクロサイクル制御とともに実行します。
-5. **モードエクスポート** -- 収束した虚数モードが `vib/` に `.trj`/`.pdb` ペアとして書き出されます。最終ジオメトリとオプションの軌跡も保存されます。
+5. **モードエクスポート** -- 収束した虚数モードが `vib/` に `_trj.xyz`/`.pdb` ペアとして書き出されます。最終ジオメトリとオプションの軌跡も保存されます。
 
 ## CLI オプション
 
@@ -106,7 +106,7 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
 | `--hessian-calc-mode CHOICE` | UMA ヘシアンモード: `Analytical` または `FiniteDifference`。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザーサイクル。 | `10000` |
-| `--dump/--no-dump` | 連結軌跡 `optimization_all.trj` を書き出し。 | `False` |
+| `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_tsopt/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--opt-mode CHOICE` | TS オプティマイザーモード: `light`（Dimer）または `heavy`（RS-I-RFO）。 | `heavy` |
@@ -122,14 +122,14 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 out_dir/ (デフォルト:./result_tsopt/)
 ├── summary.md # 主要成果物のインデックス
 ├── key_ts.xyz # 最終TS構造へのショートカット（または key_ts.pdb）
-├── key_imag_mode.trj # 代表的な虚数モードへのショートカット
-├── key_opt.trj # 最適化軌跡へのショートカット（存在する場合）
+├── key_imag_mode_trj.xyz # 代表的な虚数モードへのショートカット
+├── key_opt_trj.xyz # 最適化軌跡へのショートカット（存在する場合）
 ├── final_geometry.xyz # 常に書き出し
 ├── final_geometry.pdb # 入力が PDB の場合
-├── optimization_all.trj # 連結 Dimer セグメント（--dump 時）
+├── optimization_all_trj.xyz # 連結 Dimer セグメント（--dump 時）
 ├── optimization_all.pdb # PDB コンパニオン（--dump かつ入力が PDB の場合）
 ├── vib/
-│ ├── final_imag_mode_±XXXX.Xcm-1.trj # 虚数モード軌跡
+│ ├── final_imag_mode_±XXXX.Xcm-1_trj.xyz # 虚数モード軌跡
 │ └── final_imag_mode_±XXXX.Xcm-1.pdb # 虚数モード PDB コンパニオン
 └──.dimer_mode.dat # Dimer 方向シード（light モード）
 ```

@@ -87,7 +87,7 @@ def relaxed_scan(
     actual_values = np.array(actual_values)
 
     if dump:
-        trj_fn = f"{title}_scan.trj"
+        trj_fn = f"{title}_scan_trj.xyz"
         with open(trj_fn, "w") as handle:
             handle.write(trj)
         print(f"Dumped optimized geometries to '{trj_fn}'.")
@@ -192,7 +192,7 @@ def relaxed_1d_scan(
             print(f"Step {cycle} did not converge. Breaking!")
             break
 
-    with open(f"{pref}relaxed_scan.trj", "w") as handle:
+    with open(f"{pref}relaxed_scan_trj.xyz", "w") as handle:
         handle.write("\n".join(scan_xyzs))
 
     scan_data = np.stack((scan_vals, scan_energies), axis=1)

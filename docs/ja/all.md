@@ -235,7 +235,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
  summary.yaml # トップレベルサマリーのミラー（path_search 実行時）
  summary.log
  summary.md # 主要成果物へ移動しやすいナビゲーションページ
- key_mep.trj # 主要 MEP 軌跡へのショートカット（symlink/copy）
+ key_mep_trj.xyz # 主要 MEP 軌跡へのショートカット（symlink/copy）
  key_mep.pdb # 主要 MEP PDB へのショートカット（symlink/copy）
  key_ts.pdb / key_ts.xyz # TS 構造へのショートカット（利用可能時）
  key_freq_TS.csv # TS 振動数へのショートカット（利用可能時）
@@ -249,7 +249,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
  energy_diagram_G_DFT_plus_UMA_all.png
  irc_plot_all.png
  path_search/ # path_search 実行時
- mep.trj
+ mep_trj.xyz
  mep.pdb
  mep_w_ref.pdb
  mep_w_ref_seg_XX.pdb

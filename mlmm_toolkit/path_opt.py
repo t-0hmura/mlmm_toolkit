@@ -178,11 +178,11 @@ def _write_output_summary_md(out_dir: Path) -> None:
             return
 
         root_specs: List[Tuple[str, str]] = [
-            ("final_geometries.trj", "MEP trajectory"),
+            ("final_geometries_trj.xyz", "MEP trajectory"),
             ("final_geometries.pdb", "MEP trajectory (PDB)"),
             ("hei.xyz", "TS candidate (XYZ)"),
             ("hei.pdb", "TS candidate (PDB)"),
-            ("dmf_initial.trj", "DMF initial interpolation"),
+            ("dmf_initial_trj.xyz", "DMF initial interpolation"),
         ]
         root_lines: List[str] = []
         for rel, label in root_specs:
@@ -190,7 +190,7 @@ def _write_output_summary_md(out_dir: Path) -> None:
                 root_lines.append(f"- {label}: [`{rel}`]({rel})")
 
         shortcut_specs: List[Tuple[str, str, Sequence[str]]] = [
-            ("key_mep.trj", "Primary MEP trajectory", ["final_geometries.trj"]),
+            ("key_mep_trj.xyz", "Primary MEP trajectory", ["final_geometries_trj.xyz"]),
             ("key_mep.pdb", "Primary MEP PDB", ["final_geometries.pdb"]),
             ("key_ts.xyz", "TS candidate (XYZ)", ["hei.xyz"]),
             ("key_ts.pdb", "TS candidate (PDB)", ["hei.pdb"]),
@@ -239,7 +239,7 @@ def _write_output_summary_md(out_dir: Path) -> None:
             [
                 "",
                 "## Notes",
-                "- Start from `final_geometries.trj` for the path and `hei.xyz` for the TS candidate snapshot.",
+                "- Start from `final_geometries_trj.xyz` for the path and `hei.xyz` for the TS candidate snapshot.",
             ]
         )
 
@@ -551,7 +551,7 @@ def _run_dmf_mep(
         dmf_options=dmf_opts,
     )
 
-    initial_trj = out_dir_path / "dmf_initial.trj"
+    initial_trj = out_dir_path / "dmf_initial_trj.xyz"
     ase_write(initial_trj, mxflx_fbenm.images, format="xyz")
     click.echo(f"[write] Wrote '{initial_trj}' ({len(mxflx_fbenm.images)} images).")
 
@@ -623,7 +623,7 @@ def _run_dmf_mep(
     hei_idx = _select_hei_index(energies)
 
     # Write final trajectory
-    final_trj = out_dir_path / "final_geometries.trj"
+    final_trj = out_dir_path / "final_geometries_trj.xyz"
     blocks = []
     for idx, (image, E) in enumerate(zip(mxflx.images, energies)):
         from io import StringIO
@@ -1318,9 +1318,9 @@ def cli(
         click.echo("\n=== Growing String optimization finished ===\n")
 
         # --------------------------
-        # 5) Write final path (final_geometries.trj)
+        # 5) Write final path (final_geometries_trj.xyz)
         # --------------------------
-        final_trj = out_dir_path / "final_geometries.trj"
+        final_trj = out_dir_path / "final_geometries_trj.xyz"
         try:
             try:
                 energies = np.array(gs.energy, dtype=float)

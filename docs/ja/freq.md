@@ -7,10 +7,10 @@
 ### 概要
 - **用途:** ML/MM による極小/TS 候補の検証および熱力学補正の計算。
 - **凍結原子:** PHVA（部分ヘシアン振動解析）でサポート。
-- **出力:** `frequencies_cm-1.txt`、モードごとの `.trj` と `.pdb` アニメーション、有効時は `thermoanalysis.yaml`。
+- **出力:** `frequencies_cm-1.txt`、モードごとの `_trj.xyz` と `.pdb` アニメーション、有効時は `thermoanalysis.yaml`。
 - **TS チェック:** 適切に収束した TS は**正確に 1 つ**の虚数振動数（負の cm^-1）を持つことが期待されます。
 
-`mlmm freq` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `.trj` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
+`mlmm freq` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
 
 
 ## 最小例
@@ -24,9 +24,9 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - `result_freq/summary.md`
 - `result_freq/key_frequencies.txt`
-- `result_freq/key_mode_1.trj`
+- `result_freq/key_mode_1_trj.xyz`
 - `result_freq/frequencies_cm-1.txt`
-- `result_freq/mode_*.trj`
+- `result_freq/mode_*_trj.xyz`
 - `result_freq/mode_*.pdb`（PDB 入力の場合）
 
 ## よくある例
@@ -81,7 +81,7 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 - **ML/MM 計算機**: ML 領域は `--model-pdb` で提供され、Amber パラメータは `--real-parm7` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のヘシアンを選択します。計算機は完全な 3N x 3N ヘシアンまたはアクティブ自由度のサブブロックを返す場合があります。
 - **PHVA と TR 射影**: 凍結原子がある場合、固有解析はアクティブ部分空間内で行われ、並進/回転モードがそこに射影されます。3N x 3N とアクティブブロックの両方のヘシアンが受け付けられ、振動数は cm^-1 で報告されます（負の値 = 虚数）。
 - **アクティブ自由度モード**: `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層, B=0）、`partial`（ML + Hessian 対象 MM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
-- **モードエクスポート**: `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `.trj`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML デフォルトに合致します。
+- **モードエクスポート**: `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `_trj.xyz`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML デフォルトに合致します。
 - **熱化学**: `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（EE、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。CLI の圧力（atm）は内部で Pa に変換されます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。
 - **デバイス選択**: `ml_device="auto"` は CUDA が利用可能な場合にトリガーし、それ以外は CPU。内部の TR 射影/モード組み立ては転送を最小化するため同じデバイスで実行されます。
 - **終了動作**: キーボード割り込みはコード 130 で終了。その他の失敗はトレースバックを出力してコード 1 で終了。
@@ -122,10 +122,10 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 out_dir/ (デフォルト:./result_freq/)
  summary.md # 主要成果物のインデックス
  key_frequencies.txt # frequencies_cm-1.txt へのショートカット
- key_mode_1.trj # 代表モード軌跡へのショートカット
+ key_mode_1_trj.xyz # 代表モード軌跡へのショートカット
  key_mode_1.pdb # 代表モードPDBへのショートカット（存在時）
  key_thermo.yaml # thermoanalysis.yaml へのショートカット（存在時）
- mode_XXXX_{+/-freq}cm-1.trj # XYZ ライク軌跡、モードごとの正弦波アニメーション
+ mode_XXXX_{+/-freq}cm-1_trj.xyz # XYZ ライク軌跡、モードごとの正弦波アニメーション
  mode_XXXX_{+/-freq}cm-1.pdb # 酵素原子順序にマップバックされた PDB アニメーション
  frequencies_cm-1.txt # 選択されたキーでソートされた全計算振動数（cm^-1）
  thermoanalysis.yaml # --dump 時のオプション熱化学ペイロード

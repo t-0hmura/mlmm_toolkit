@@ -639,7 +639,7 @@ def run_afir_path(
         # Update values for next cycle
         gamma += gamma_inrc
 
-    # reduce(lambda ap1, ap2: ap1 + ap2, afir_paths).dump_trj("dumped.trj")
+    # reduce(lambda ap1, ap2: ap1 + ap2, afir_paths).dump_trj("dumped_trj.xyz")
 
     # Construct TS guess from highest energy point along the AFIR path.
     if best_afir_path:
@@ -838,7 +838,7 @@ def run_afir_paths(
             logger.debug(f"rmsds different enough! {min_rmsd=:.6f} au")
             ts_guesses.append(ts_guess)
             afir_paths.append(afir_path)
-            afir_path.dump_trj(f"{prefix}_afir_path.trj")
+            afir_path.dump_trj(f"{prefix}_afir_path_trj.xyz")
             ts_guess.dump_xyz(f"{prefix}_ts_guess.xyz")
         elif min_rmsd:
             logger.debug(f"rmsds too similar! {min_rmsd=:.6f} au)")

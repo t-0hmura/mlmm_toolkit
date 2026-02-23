@@ -64,11 +64,11 @@ class Kick(Pipeline):
 
         # cycle_str = f"{self.cur_cycle:03d}_{self.cur_micro_cycle:03d}"
         # fn_base = f"cycle_{cycle_str}"
-        # trj_fn = f"{fn_base}.trj"
+        # trj_fn = f"{fn_base}_trj.xyz"
         # with open(trj_fn, "w") as handle:
             # handle.write(make_trj_str_from_geoms(opt_geoms))
 
-        # trj_filtered_fn = f"{fn_base}_filtered.trj"
+        # trj_filtered_fn = f"{fn_base}_filtered_trj.xyz"
         # with open(trj_filtered_fn, "w") as handle:
             # handle.write(make_trj_str_from_geoms(kept_geoms))
 

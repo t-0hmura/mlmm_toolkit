@@ -249,7 +249,7 @@ def run():
         c3d, velocities[i] = sampler()
         xyzs.append(geom.as_xyz(cart_coords=c3d))
 
-    trj_fn = f"samples_{n}.trj"
+    trj_fn = f"samples_{n}_trj.xyz"
     with open(trj_fn, "w") as handle:
         handle.write("\n".join(xyzs))
 

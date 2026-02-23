@@ -236,7 +236,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
  summary.yaml # mirrored top-level summary (when path_search runs)
  summary.log
  summary.md # quick navigation page with key artifact links
- key_mep.trj # root shortcut (symlink/copy) to primary MEP trajectory
+ key_mep_trj.xyz # root shortcut (symlink/copy) to primary MEP trajectory
  key_mep.pdb # root shortcut (symlink/copy) to primary MEP PDB
  key_ts.pdb / key_ts.xyz # root shortcut to TS structure (when available)
  key_freq_TS.csv # root shortcut to TS frequencies (when available)
@@ -250,7 +250,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
  energy_diagram_G_DFT_plus_UMA_all.png
  irc_plot_all.png
  path_search/ # present when path_search is executed
- mep.trj
+ mep_trj.xyz
  mep.pdb
  mep_w_ref.pdb
  mep_w_ref_seg_XX.pdb

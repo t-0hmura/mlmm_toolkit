@@ -901,7 +901,7 @@ def cli(
 
                 if dump and trj_blocks:
                     # Distance-based filename for inner path as well
-                    trj_path = grid_dir / f"inner_path_d1_{d1_tag}.trj"
+                    trj_path = grid_dir / f"inner_path_d1_{d1_tag}_trj.xyz"
                     try:
                         with open(trj_path, "w") as handle:
                             handle.write("".join(trj_blocks))

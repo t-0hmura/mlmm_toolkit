@@ -298,7 +298,7 @@ class IRC:
 
         self.mw_hessian = self._mw_hessian_active(self.init_hessian)
 
-        trj_fn = self.get_path_for_fn(f"{direction}_irc.trj")
+        trj_fn = self.get_path_for_fn(f"{direction}_irc_trj.xyz")
         self.trj_handle = open(trj_fn, "w")
 
         # We don't need an initial displacement when going downhill
@@ -794,7 +794,7 @@ class IRC:
         coords = coords.reshape(-1, len(self.atoms), 3) * BOHR2ANG
         if trj:
             trj_string = make_trj_str(self.atoms, coords, comments=self.all_energies)
-            trj_fn = self.get_path_for_fn(f"{prefix}_irc.trj")
+            trj_fn = self.get_path_for_fn(f"{prefix}_irc_trj.xyz")
             with open(trj_fn, "w") as handle:
                 handle.write(trj_string)
 

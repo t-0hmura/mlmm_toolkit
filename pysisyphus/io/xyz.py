@@ -6,7 +6,7 @@ from pysisyphus.helpers_pure import file_or_str
 from pysisyphus.xyzloader import split_xyz_str
 
 
-@file_or_str(".xyz", ".trj")
+@file_or_str(".xyz", "_trj.xyz")
 def parse_xyz(xyz_str, with_comment=False):
     lines = iter(xyz_str.strip().split("\n"))
     atoms_coords = list()

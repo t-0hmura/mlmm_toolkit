@@ -285,7 +285,7 @@ result_all/
 ├── mm_parm/ # AMBER topology files
 ├── scan/ # (Optional) scan results
 ├── path_search/ # MEP trajectories and diagrams
-│ ├── mep.trj # MEP trajectory
+│ ├── mep_trj.xyz # MEP trajectory
 │ ├── mep.pdb # MEP in PDB format
 │ ├── mep_w_ref.pdb # MEP merged with full system
 │ └── seg_*/ # Per-segment details

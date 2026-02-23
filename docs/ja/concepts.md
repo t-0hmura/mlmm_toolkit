@@ -28,7 +28,7 @@ ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート
  │ │
  │ └─ MEP 探索 [path-search] または [path-opt]
  │ ↓ ← ML/MM (UMA + hessian_ff) 計算
- │ MEP 軌跡 (mep.trj) + エネルギーダイアグラム
+ │ MEP 軌跡 (mep_trj.xyz) + エネルギーダイアグラム
  │
  └─ (任意) TS 最適化 + IRC [tsopt] → [irc]
  └─ (任意) 熱化学 [freq]
@@ -103,7 +103,7 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 
 ### テンプレートとファイル変換（`--convert-files`）
 
-`mlmm` は軌跡（例: `mep.trj`, `irc.trj`）を出力します。
+`mlmm` は軌跡（例: `mep_trj.xyz`, `irc_trj.xyz`）を出力します。
 PDB テンプレートがある場合、必要に応じて companion ファイルも出力できます。
 
 ---

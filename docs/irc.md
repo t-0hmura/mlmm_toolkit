@@ -4,7 +4,7 @@
 
 > **Summary:** Trace the intrinsic reaction coordinate (IRC) from a transition state toward reactant and product using the EulerPC predictor-corrector integrator with the ML/MM calculator.
 
-`mlmm irc` runs IRC calculations using the EulerPC integrator. The CLI is intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. Inputs can be any structure readable by `pysisyphus.helpers.geom_loader` (`.pdb`, `.xyz`, `.trj`,...). If the input is `.pdb`, the generated trajectories are additionally converted to PDB.
+`mlmm irc` runs IRC calculations using the EulerPC integrator. The CLI is intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. Inputs can be any structure readable by `pysisyphus.helpers.geom_loader` (`.pdb`, `.xyz`, `_trj.xyz`,...). If the input is `.pdb`, the generated trajectories are additionally converted to PDB.
 
 
 ## Minimal example
@@ -29,10 +29,10 @@ mlmm irc -i ts.pdb -q 0 -m 1 --config irc_min.yaml \
 ## Output checklist
 
 - `result_irc/summary.md`
-- `result_irc/key_irc.trj`
-- `result_irc/key_irc_forward.trj`
-- `result_irc/finished_irc.trj`
-- `result_irc/forward_irc.trj`
+- `result_irc/key_irc_trj.xyz`
+- `result_irc/key_irc_forward_trj.xyz`
+- `result_irc/finished_irc_trj.xyz`
+- `result_irc/forward_irc_trj.xyz`
 
 ## Common examples
 
@@ -92,7 +92,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Structure file (`.pdb`/`.xyz`/`.trj`/...). | Required |
+| `-i, --input PATH` | Structure file (`.pdb`/`.xyz`/`_trj.xyz`/...). | Required |
 | `--real-parm7 PATH` | Amber topology for the full enzyme/MM region. Required unless `calc.real_parm7` is set in YAML. | _None_ |
 | `--model-pdb PATH` | PDB defining the ML region. Required when `--no-detect-layer` and no `--model-indices` are given. | _None_ |
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed, e.g. `1-10,15`). Used when `--model-pdb` is omitted. | _None_ |
@@ -115,13 +115,13 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ```text
 out_dir/ (default:./result_irc/)
  summary.md # Quick index of key outputs
- key_irc.trj # Shortcut to finished_irc.trj
- key_irc_forward.trj # Shortcut to forward_irc.trj
+ key_irc_trj.xyz # Shortcut to finished_irc_trj.xyz
+ key_irc_forward_trj.xyz # Shortcut to forward_irc_trj.xyz
  key_irc.pdb # Shortcut to finished_irc.pdb (when available)
  key_irc_data.h5 # Shortcut to irc_data.h5 (when available)
  <prefix>irc_data.h5 # HDF5 dump written every irc.dump_every steps
- <prefix>finished_irc.trj # Full IRC trajectory (XYZ/TRJ)
- <prefix>forward_irc.trj # Forward path segment
+ <prefix>finished_irc_trj.xyz # Full IRC trajectory (XYZ/TRJ)
+ <prefix>forward_irc_trj.xyz # Forward path segment
  <prefix>finished_irc.pdb # PDB conversion (only if input was.pdb)
  <prefix>forward_irc.pdb # PDB conversion (only if input was.pdb)
 ```

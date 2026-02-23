@@ -161,7 +161,7 @@ class Pipeline:
         # print(overlaps)
         max_overlap_ind = overlaps.argmax()
         max_overlap = overlaps[max_overlap_ind]
-        similar_fn = f"similar_{self.similar_ind:03d}.trj"
+        similar_fn = f"similar_{self.similar_ind:03d}_trj.xyz"
         # print(f"max overlap is {max_overlap:.1f}, {similar_fn}, index {max_overlap_ind}")
         max_coords = self.starting_coords[max_overlap_ind]
         self.similar_ind += 1
@@ -223,7 +223,7 @@ class Pipeline:
             input_geoms = [self.get_input_geom(self.initial_geom)
                            for _ in range(self.cycle_size)]
             # Write input geometries to disk
-            self.write_geoms_to_trj(input_geoms, f"cycle_{self.cur_cycle:03d}_input.trj")
+            self.write_geoms_to_trj(input_geoms, f"cycle_{self.cur_cycle:03d}_input_trj.xyz")
             # Run optimizations on input geometries
             calc_start = time.time()
             opt_geoms = list()
@@ -254,7 +254,7 @@ class Pipeline:
 
             kept_num = len(kept_geoms)
 
-            trj_filtered_fn = f"cycle_{self.cur_cycle:03d}.trj"
+            trj_filtered_fn = f"cycle_{self.cur_cycle:03d}_trj.xyz"
             # Sort by energy
             kept_geoms = sorted(kept_geoms, key=lambda g: g.energy)
             if kept_geoms:
@@ -282,7 +282,7 @@ class Pipeline:
         if not self.new_energies:
             return []
 
-        fn = "final.trj"
+        fn = "final_trj.xyz"
         self.write_geoms_to_trj(self.new_geoms, fn)
         # self.new_energies = np.array(new_energies)
         np.savetxt("energies.dat", self.new_energies)
@@ -298,6 +298,6 @@ class Pipeline:
             rmsd, (_, matched_geom) = matched_rmsd(first_geom, geom)
             matched_geom.energy = energy
             matched_geoms.append(matched_geom)
-        fn_matched = "final_matched.trj"
+        fn_matched = "final_matched_trj.xyz"
         self.write_geoms_to_trj(matched_geoms, fn_matched)
         return matched_geoms
