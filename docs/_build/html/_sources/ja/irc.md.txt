@@ -95,7 +95,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | `--model-indices` を 1 始まり/0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（`B=0/10/20`）から ML/MM レイヤーを検出。 | `True` |
-| `-q, --charge INT` | 総電荷。YAML の `calc.charge` を上書き。 | 強く推奨 |
+| `-q, --charge INT` | 総電荷。YAML の `calc.charge` を上書き。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.spin` を上書き。 | `1` |
 | `--max-cycles INT` | IRC ステップの最大数。`irc.max_cycles` を上書き。 | _デフォルト_ |
 | `--step-size FLOAT` | 質量加重座標でのステップ長。`irc.step_length` を上書き。 | _デフォルト_ |

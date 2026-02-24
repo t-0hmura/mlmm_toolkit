@@ -236,6 +236,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -257,6 +258,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ja/oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -396,7 +398,8 @@ Options:
                                   PDB path, a residue-ID list like &#39;123,124&#39; or
                                   &#39;A:123,B:456&#39; (insertion codes OK: &#39;123A&#39; /
                                   &#39;A:123A&#39;), or a residue-name list like
-                                  &#39;GPP,MMT&#39;.  [required]
+                                  &#39;GPP,MMT&#39;. When omitted, extraction is skipped
+                                  and full structures are used directly.
   --out-dir DIRECTORY             Top-level output directory for the pipeline.
                                   [default: result_all]
   -r, --radius FLOAT              Inclusion cutoff (Å) around substrate atoms.
@@ -416,6 +419,8 @@ Options:
   --ligand-charge TEXT            Either a total charge (number) to distribute
                                   across unknown residues or a mapping like
                                   &#39;GPP:-3,MMT:-1&#39;.
+  -q, --charge INTEGER            Force total system charge. Highest priority
+                                  over derived charges.
   --auto-mm-ff-set [ff19sb|ff14sb]
                                   Force-field set forwarded to mm_parm (ff19SB
                                   uses OPC3; ff14SB uses TIP3P).  [default:
@@ -459,7 +464,7 @@ Options:
   --dry-run / --no-dry-run        Validate options and print the execution plan
                                   without running any stage.  [default: no-dry-
                                   run]
-  --pre-opt BOOLEAN               If False, skip initial single-structure
+  --preopt BOOLEAN                If False, skip initial single-structure
                                   optimizations of the pocket inputs.  [default:
                                   True]
   --hessian-calc-mode [analytical|finitedifference]

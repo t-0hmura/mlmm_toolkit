@@ -95,7 +95,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed, e.g. `1-10,15`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer/--no-detect-layer` | Detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | `True` |
-| `-q, --charge INT` | Total charge; overrides `calc.charge` from YAML. | Strongly recommended |
+| `-q, --charge INT` | Total charge; overrides `calc.charge` from YAML. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1); overrides `calc.spin`. | `1` |
 | `--max-cycles INT` | Max number of IRC steps; overrides `irc.max_cycles`. | _Default_ |
 | `--step-size FLOAT` | Step length in mass-weighted coordinates; overrides `irc.step_length`. | _Default_ |

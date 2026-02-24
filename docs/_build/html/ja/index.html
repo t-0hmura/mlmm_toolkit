@@ -721,8 +721,9 @@
 </section>
 <section id="id20">
 <h3>ブール値オプション<a class="headerlink" href="#id20" title="Link to this heading">¶</a></h3>
-<p>ブール値 CLI オプションは toggle 形式（<code class="docutils literal notranslate"><span class="pre">--flag</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-flag</span></code>）で指定します:</p>
+<p>ブール値 CLI オプションは <code class="docutils literal notranslate"><span class="pre">--flag</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-flag</span></code> と <code class="docutils literal notranslate"><span class="pre">--flag</span> <span class="pre">True/False</span></code> の両方を受理します（新規スクリプトでは toggle 形式を推奨）:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--tsopt<span class="w"> </span>--thermo<span class="w"> </span>--no-dft
+--tsopt<span class="w"> </span>True<span class="w"> </span>--thermo<span class="w"> </span>yes<span class="w"> </span>--dft<span class="w"> </span><span class="m">0</span>
 </pre></div>
 </div>
 </section>

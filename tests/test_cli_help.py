@@ -106,6 +106,15 @@ def test_all_help_advanced_shows_hidden_options(runner, cli_group):
     assert result.exit_code == 0
     assert "--scan-bias-k" in result.output
     assert "--freq-temperature" in result.output
+    assert "--opt-mode-post" in result.output
+    assert "--sopt-mode" not in result.output
+
+
+def test_path_search_help_advanced_uses_opt_mode_name(runner, cli_group):
+    result = runner.invoke(cli_group, ["path-search", "--help-advanced"])
+    assert result.exit_code == 0
+    assert "--opt-mode" in result.output
+    assert "--sopt-mode" not in result.output
 
 
 @pytest.mark.parametrize("subcmd,legacy_header", SCAN_SUBCOMMANDS)

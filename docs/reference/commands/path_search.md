@@ -57,7 +57,7 @@ Options:
                                   growth.  [default: climb]
   --dump / --no-dump              Dump GSM/single-optimization trajectories
                                   during the run.  [default: no-dump]
-  --sopt-mode [light|heavy]       Single-structure optimizer: light (=LBFGS) or
+  --opt-mode [light|heavy]        Single-structure optimizer: light (=LBFGS) or
                                   heavy (=RFO).  [default: light]
   --out-dir TEXT                  Output directory.  [default:
                                   ./result_path_search/]
@@ -72,8 +72,8 @@ Options:
   --dry-run / --no-dry-run        Validate options and print the execution plan
                                   without running path search.  [default: no-
                                   dry-run]
-  --pre-opt / --no-pre-opt        If False, skip initial single-structure
-                                  optimizations of inputs.  [default: pre-opt]
+  --preopt / --no-preopt          If False, skip initial single-structure
+                                  optimizations of inputs.  [default: preopt]
   --align / --no-align            After pre-optimization, align all inputs to
                                   the *first* input and match freeze_atoms using
                                   the align_freeze_atoms API. When --align is

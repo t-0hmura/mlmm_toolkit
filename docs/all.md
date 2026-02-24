@@ -50,15 +50,14 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --dry-run
 # Standard (multi-structure ensemble in reaction order)
 mlmm all -i R.pdb [I1.pdb...] P.pdb -c <substrate-spec> [--ligand-charge <map-or-number>]
  [--multiplicity <2S+1>] [--max-nodes N] [--max-cycles N]
- [--climb/--no-climb] [--sopt-mode lbfgs|rfo|light|heavy]
- [--opt-mode light|lbfgs|heavy|rfo]
- [--pre-opt/--no-pre-opt] [--hessian-calc-mode Analytical|FiniteDifference] [--out-dir DIR]
+ [--climb/--no-climb] [--opt-mode light|heavy] [--opt-mode-post light|heavy]
+ [--preopt/--no-preopt] [--hessian-calc-mode Analytical|FiniteDifference] [--out-dir DIR]
  [--tsopt/--no-tsopt] [--thermo/--no-thermo] [--dft/--no-dft]
  [--tsopt-max-cycles N] [--freq-* overrides] [--dft-* overrides]
 
 # Single-structure + staged scan
 mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
- --multiplicity 1 --sopt-mode lbfgs --pre-opt \
+ --multiplicity 1 --opt-mode light --preopt \
  --out-dir result_all --tsopt --thermo --dft
 
 # Single-structure TSOPT-only mode (no path search)
@@ -77,7 +76,7 @@ mlmm all -i reactant.pdb product.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1
 # Full ensemble with an intermediate, residue-ID substrate spec, and full post-processing
 mlmm all -i A.pdb B.pdb C.pdb -c "308,309" --ligand-charge "-1" \
  --multiplicity 1 --max-nodes 10 --max-cycles 100 --climb \
- --sopt-mode lbfgs --no-dump --config params.yaml --pre-opt \
+ --opt-mode light --no-dump --config params.yaml --preopt \
  --out-dir result_all --tsopt --thermo --dft
 
 # Single-structure + scan to build an ordered series
@@ -173,10 +172,12 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--sopt-mode TEXT` | Single-structure optimizer preset (`lbfgs`, `rfo`, `light`, `heavy`). | _Default_ |
-| `--opt-mode TEXT` | Optimizer preset for scan and tsopt (`light`, `lbfgs`, `heavy`, `rfo`). | _Default_ |
-| `--pre-opt/--no-pre-opt` | Pre-optimize endpoints before segmentation. | `True` |
+| `--opt-mode [light\|heavy]` | Optimizer preset for scan/path-search and single optimizations (`light` → LBFGS/Dimer, `heavy` → RFO/RSIRFO). | `light` |
+| `--opt-mode-post [light\|heavy]` | Optimizer preset override for TSOPT/post-IRC endpoint optimizations. | _None_ |
+| `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--hessian-calc-mode CHOICE` | UMA Hessian mode (`Analytical` or `FiniteDifference`). | _Default_ |
+
+TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (only when explicitly provided) -> TSOPT default (`heavy`).
 
 ### Scan Options (Single-Input Runs)
 

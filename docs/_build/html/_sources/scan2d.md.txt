@@ -89,8 +89,8 @@ pairs:
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors. | `True` |
-| `-q, --charge INT` | ML-region total charge. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1). | _None_ (defaults to `1`) |
+| `-q, --charge INT` | ML-region total charge. | Required |
+| `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |

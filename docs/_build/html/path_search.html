@@ -236,6 +236,7 @@
 <li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -257,6 +258,7 @@
 <li class="toctree-l1"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -416,7 +418,7 @@
 <li><p>Run a lighter pass without pre-optimization or alignment.</p></li>
 </ol>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>path-search<span class="w"> </span>-i<span class="w"> </span>reactant.pdb<span class="w"> </span>product.pdb<span class="w"> </span>--real-parm7<span class="w"> </span>real.parm7<span class="w"> </span><span class="se">\</span>
-<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span><span class="w"> </span>--no-pre-opt<span class="w"> </span>--no-align<span class="w"> </span>--max-nodes<span class="w"> </span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span><span class="w"> </span>--no-preopt<span class="w"> </span>--no-align<span class="w"> </span>--max-nodes<span class="w"> </span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>--out-dir<span class="w"> </span>./result_path_search_fast
 </pre></div>
 </div>
@@ -479,8 +481,8 @@ mlmm<span class="w"> </span>path-search<span class="w"> </span>-i<span class="w"
 <td><p><em>None</em></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q,</span> <span class="pre">--charge</span> <span class="pre">INT</span></code></p></td>
-<td><p>Charge of the ML region (integer). Defaults to <code class="docutils literal notranslate"><span class="pre">0</span></code> when omitted (YAML may override).</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Charge of the ML region (integer).</p></td>
+<td><p>Required</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-m,</span> <span class="pre">--multiplicity</span> <span class="pre">INT</span></code></p></td>
 <td><p>Spin multiplicity (2S+1).</p></td>
@@ -502,7 +504,7 @@ mlmm<span class="w"> </span>path-search<span class="w"> </span>-i<span class="w"
 <td><p>Enable TS refinement for segment GSM.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--pre-opt/--no-pre-opt</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--preopt/--no-preopt</span></code></p></td>
 <td><p>Pre-optimize endpoints with LBFGS before segmentation.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 </tr>

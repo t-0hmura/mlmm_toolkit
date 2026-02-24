@@ -22,8 +22,8 @@ Options:
                                   [required]
   --method TEXT                   QM method and basis set.  [default:
                                   B3LYP/6-31G(d,p)]
-  -q, --charge INTEGER            Charge of QM region.  [default: 0]
-  -m, --mult INTEGER              Multiplicity of QM region.  [default: 1]
+  -q, --charge INTEGER            Charge of QM region.  [required]
+  -m, --multiplicity INTEGER      Multiplicity of QM region.  [default: 1]
   --near FLOAT                    Distance cutoff for movable atoms (Angstrom).
                                   [default: 6.0]
   --nproc INTEGER                 Number of processors.  [default: 8]

@@ -204,7 +204,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 ## Important CLI conventions
 
 ```{important}
-- Boolean options are toggle-style: use `--flag` / `--no-flag` (e.g., `--tsopt`, `--no-tsopt`).
+- Boolean options accept both `--flag` / `--no-flag` and value style `--flag True/False` (`yes/no`, `1/0` are also accepted). Prefer toggle style.
 - With multiple PDB inputs, all files should have the **same atoms in the same order** (only coordinates differ).
 - For enzyme use-cases, you usually want hydrogens present in the input PDB.
 - Most subcommands require `--real-parm7` and `--model-pdb` for ML/MM calculations.

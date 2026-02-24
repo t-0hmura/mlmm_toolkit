@@ -1650,8 +1650,8 @@ def _merge_final_and_write(final_images: List[Any],
     help="Dump GSM/single-optimization trajectories during the run.",
 )
 @click.option(
-    "--sopt-mode",
-    "sopt_mode",
+    "--opt-mode",
+    "opt_mode",
     type=click.Choice(["light", "heavy"], case_sensitive=False),
     default="light",
     show_default=True,
@@ -1686,7 +1686,7 @@ def _merge_final_and_write(final_images: List[Any],
     help="Validate options and print the execution plan without running path search.",
 )
 @click.option(
-    "--pre-opt/--no-pre-opt",
+    "--preopt/--no-preopt",
     "pre_opt",
     default=True,
     show_default=True,
@@ -1732,7 +1732,7 @@ def cli(
     max_cycles: int,
     climb: bool,
     dump: bool,
-    sopt_mode: str,
+    opt_mode: str,
     out_dir: str,
     thresh: Optional[str],
     config_yaml: Optional[Path],
@@ -2022,6 +2022,7 @@ def cli(
                 "input_last": str(p_list[-1]) if p_list else None,
                 "output_dir": str(out_dir_path),
                 "mep_mode": mep_mode_kind,
+                "opt_mode": str(opt_mode),
                 "detect_layer": bool(detect_layer_effective),
                 "model_region_source": model_region_source,
                 "model_indices_count": 0 if not model_indices else len(model_indices),
@@ -2126,7 +2127,12 @@ def cli(
         click.echo(
             pretty_block(
                 "run_flags",
-                {"pre_opt": bool(pre_opt), "align": bool(align), "mep_mode": mep_mode_kind},
+                {
+                    "pre_opt": bool(pre_opt),
+                    "align": bool(align),
+                    "mep_mode": mep_mode_kind,
+                    "opt_mode": str(opt_mode),
+                },
             )
         )
 
@@ -2176,7 +2182,7 @@ def cli(
                 new_geoms.append(g_opt)
             geoms = new_geoms
         else:
-            click.echo("[init] Skipping endpoint pre-optimization as requested by --no-pre-opt.")
+            click.echo("[init] Skipping endpoint pre-optimization as requested by --no-preopt.")
 
         # Align all inputs to the first structure, guided by freeze constraints, when requested
         align_thresh = str(opt_cfg.get("thresh", "gau"))
@@ -2587,7 +2593,7 @@ def cli(
                 "tsopt": False,
                 "thermo": False,
                 "dft": False,
-                "opt_mode": sopt_mode,
+                "opt_mode": opt_mode,
                 "mep_mode": "path-search",
                 "uma_model": calc_cfg.get("uma_model"),
                 "command": command_str,

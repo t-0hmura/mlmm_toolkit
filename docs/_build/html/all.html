@@ -236,6 +236,7 @@
 <li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -257,6 +258,7 @@
 <li class="toctree-l1"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -429,13 +431,13 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <span class="w"> </span><span class="o">[</span>--multiplicity<span class="w"> </span>&lt;2S+1&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max-nodes<span class="w"> </span>N<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max-cycles<span class="w"> </span>N<span class="o">]</span>
 <span class="w"> </span><span class="o">[</span>--climb/--no-climb<span class="o">]</span><span class="w"> </span><span class="o">[</span>--sopt-mode<span class="w"> </span>lbfgs<span class="p">|</span>rfo<span class="p">|</span>light<span class="p">|</span>heavy<span class="o">]</span>
 <span class="w"> </span><span class="o">[</span>--opt-mode<span class="w"> </span>light<span class="p">|</span>lbfgs<span class="p">|</span>heavy<span class="p">|</span>rfo<span class="o">]</span>
-<span class="w"> </span><span class="o">[</span>--pre-opt/--no-pre-opt<span class="o">]</span><span class="w"> </span><span class="o">[</span>--hessian-calc-mode<span class="w"> </span>Analytical<span class="p">|</span>FiniteDifference<span class="o">]</span><span class="w"> </span><span class="o">[</span>--out-dir<span class="w"> </span>DIR<span class="o">]</span>
+<span class="w"> </span><span class="o">[</span>--preopt/--no-preopt<span class="o">]</span><span class="w"> </span><span class="o">[</span>--hessian-calc-mode<span class="w"> </span>Analytical<span class="p">|</span>FiniteDifference<span class="o">]</span><span class="w"> </span><span class="o">[</span>--out-dir<span class="w"> </span>DIR<span class="o">]</span>
 <span class="w"> </span><span class="o">[</span>--tsopt/--no-tsopt<span class="o">]</span><span class="w"> </span><span class="o">[</span>--thermo/--no-thermo<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dft/--no-dft<span class="o">]</span>
 <span class="w"> </span><span class="o">[</span>--tsopt-max-cycles<span class="w"> </span>N<span class="o">]</span><span class="w"> </span><span class="o">[</span>--freq-*<span class="w"> </span>overrides<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dft-*<span class="w"> </span>overrides<span class="o">]</span>
 
 <span class="c1"># Single-structure + staged scan</span>
 mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span>A.pdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;308,309&quot;</span><span class="w"> </span>--scan-lists<span class="w"> </span><span class="s2">&quot;[(12,45,1.35)]&quot;</span><span class="w"> </span><span class="s2">&quot;[(10,55,2.20)]&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w"> </span>--multiplicity<span class="w"> </span><span class="m">1</span><span class="w"> </span>--sopt-mode<span class="w"> </span>lbfgs<span class="w"> </span>--pre-opt<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>--multiplicity<span class="w"> </span><span class="m">1</span><span class="w"> </span>--sopt-mode<span class="w"> </span>lbfgs<span class="w"> </span>--preopt<span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>--out-dir<span class="w"> </span>result_all<span class="w"> </span>--tsopt<span class="w"> </span>--thermo<span class="w"> </span>--dft
 
 <span class="c1"># Single-structure TSOPT-only mode (no path search)</span>
@@ -452,7 +454,7 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <span class="c1"># Full ensemble with an intermediate, residue-ID substrate spec, and full post-processing</span>
 mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span>A.pdb<span class="w"> </span>B.pdb<span class="w"> </span>C.pdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;308,309&quot;</span><span class="w"> </span>--ligand-charge<span class="w"> </span><span class="s2">&quot;-1&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>--multiplicity<span class="w"> </span><span class="m">1</span><span class="w"> </span>--max-nodes<span class="w"> </span><span class="m">10</span><span class="w"> </span>--max-cycles<span class="w"> </span><span class="m">100</span><span class="w"> </span>--climb<span class="w"> </span><span class="se">\</span>
-<span class="w"> </span>--sopt-mode<span class="w"> </span>lbfgs<span class="w"> </span>--no-dump<span class="w"> </span>--config<span class="w"> </span>params.yaml<span class="w"> </span>--pre-opt<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>--sopt-mode<span class="w"> </span>lbfgs<span class="w"> </span>--no-dump<span class="w"> </span>--config<span class="w"> </span>params.yaml<span class="w"> </span>--preopt<span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>--out-dir<span class="w"> </span>result_all<span class="w"> </span>--tsopt<span class="w"> </span>--thermo<span class="w"> </span>--dft
 
 <span class="c1"># Single-structure + scan to build an ordered series</span>
@@ -477,8 +479,15 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <li><p>The extractor writes per-input pocket PDBs under <code class="docutils literal notranslate"><span class="pre">&lt;out-dir&gt;/pockets/</span></code>.</p></li>
 <li><p>The extractor’s <strong>first-model total pocket charge</strong> is used as the total charge in later steps, cast to the nearest integer with a console note if rounding occurs.</p></li>
 <li><p>Additional extractor toggles: <code class="docutils literal notranslate"><span class="pre">--radius</span></code>, <code class="docutils literal notranslate"><span class="pre">--radius-het2het</span></code>, <code class="docutils literal notranslate"><span class="pre">--include-H2O/--no-include-H2O</span></code>, <code class="docutils literal notranslate"><span class="pre">--exclude-backbone/--no-exclude-backbone</span></code>, <code class="docutils literal notranslate"><span class="pre">--add-linkH/--no-add-linkH</span></code>, <code class="docutils literal notranslate"><span class="pre">--selected-resn</span></code>, <code class="docutils literal notranslate"><span class="pre">--verbose/--no-verbose</span></code>.</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">-c/--center</span></code> is omitted, extraction is skipped and full input structures are used directly.</p></li>
 </ul>
-<ol class="arabic simple" start="2">
+<section id="charge-resolution-order">
+<h3>Charge resolution order<a class="headerlink" href="#charge-resolution-order" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">-q/--charge</span></code> (explicit CLI override) — highest priority.</p></li>
+<li><p>Pocket extraction charge summary (sum of amino acids, ions, and <code class="docutils literal notranslate"><span class="pre">--ligand-charge</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--ligand-charge</span></code> fallback when extraction is skipped.</p></li>
+<li><p>Default: none (abort if unresolved).</p></li>
 <li><p><strong>ML/MM preparation</strong></p></li>
 </ol>
 <ul class="simple">
@@ -518,6 +527,7 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <li><p>In this mode only, the IRC endpoint with <strong>higher energy</strong> is adopted as the reactant (R).</p></li>
 </ul>
 </section>
+</section>
 <section id="cli-options">
 <h2>CLI options<a class="headerlink" href="#cli-options" title="Link to this heading">¶</a></h2>
 <section id="input-output-options">
@@ -536,30 +546,34 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <td><p>Required</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-c,</span> <span class="pre">--center</span> <span class="pre">TEXT</span></code></p></td>
-<td><p>Substrate specification (PDB path, residue IDs, or residue names).</p></td>
-<td><p>Required for extraction</p></td>
+<td><p>Substrate specification (PDB path, residue IDs, or residue names). Omit to skip extraction.</p></td>
+<td><p><em>None</em></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ligand-charge</span> <span class="pre">TEXT</span></code></p></td>
 <td><p>Total charge or residue-specific mapping (e.g., <code class="docutils literal notranslate"><span class="pre">GPP:-3,MMT:-1</span></code>).</p></td>
 <td><p><em>None</em></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--out-dir</span> <span class="pre">PATH</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q,</span> <span class="pre">--charge</span> <span class="pre">INT</span></code></p></td>
+<td><p>Force total system charge (highest priority override).</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--out-dir</span> <span class="pre">PATH</span></code></p></td>
 <td><p>Top-level output directory.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">./result_all/</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dump/--no-dump</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--dump/--no-dump</span></code></p></td>
 <td><p>Save optimizer dumps.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">FILE</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">FILE</span></code></p></td>
 <td><p>Base YAML applied first.</p></td>
 <td><p><em>None</em></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--show-config/--no-show-config</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--show-config/--no-show-config</span></code></p></td>
 <td><p>Print resolved configuration before execution.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run/--no-dry-run</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run/--no-dry-run</span></code></p></td>
 <td><p>Validate and print plan without running stages.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 </tr>
@@ -672,7 +686,7 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <td><p>Optimizer preset for scan and tsopt (<code class="docutils literal notranslate"><span class="pre">light</span></code>, <code class="docutils literal notranslate"><span class="pre">lbfgs</span></code>, <code class="docutils literal notranslate"><span class="pre">heavy</span></code>, <code class="docutils literal notranslate"><span class="pre">rfo</span></code>).</p></td>
 <td><p><em>Default</em></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--pre-opt/--no-pre-opt</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--preopt/--no-preopt</span></code></p></td>
 <td><p>Pre-optimize endpoints before segmentation.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 </tr>
@@ -1031,7 +1045,10 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <li><a class="reference internal" href="#examples">Examples</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#workflow">Workflow</a></li>
+<li><a class="reference internal" href="#workflow">Workflow</a><ul>
+<li><a class="reference internal" href="#charge-resolution-order">Charge resolution order</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#cli-options">CLI options</a><ul>
 <li><a class="reference internal" href="#input-output-options">Input/Output Options</a></li>
 <li><a class="reference internal" href="#extraction-options">Extraction Options</a></li>

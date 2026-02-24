@@ -191,19 +191,13 @@ class DefaultGroup(click.Group):
             }
             bool_single_flag_options = {command_name: command_bool_single_flag_options}
 
-        args, used_legacy_bool = self._normalize_bool_argv(
+        args, _ = self._normalize_bool_argv(
             args,
             bool_value_options,
             bool_toggle_options,
             bool_toggle_negative_aliases,
             bool_single_flag_options,
         )
-        if used_legacy_bool:
-            click.echo(
-                "[deprecation] Legacy bool syntax '--flag True/False' is supported for now; "
-                "prefer '--flag/--no-flag'.",
-                err=True,
-            )
         return super().parse_args(ctx, args)
 
     def invoke(self, ctx):

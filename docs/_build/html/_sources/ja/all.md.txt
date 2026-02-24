@@ -52,13 +52,13 @@ mlmm all -i R.pdb [I1.pdb...] P.pdb -c <substrate-spec> [--ligand-charge <map-or
  [--multiplicity <2S+1>] [--max-nodes N] [--max-cycles N]
  [--climb/--no-climb] [--sopt-mode lbfgs|rfo|light|heavy]
  [--opt-mode light|lbfgs|heavy|rfo]
- [--pre-opt/--no-pre-opt] [--hessian-calc-mode Analytical|FiniteDifference] [--out-dir DIR]
+ [--preopt/--no-preopt] [--hessian-calc-mode Analytical|FiniteDifference] [--out-dir DIR]
  [--tsopt/--no-tsopt] [--thermo/--no-thermo] [--dft/--no-dft]
  [--tsopt-max-cycles N] [--freq-* overrides] [--dft-* overrides]
 
 # 単一構造 + 段階的スキャン
 mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
- --multiplicity 1 --sopt-mode lbfgs --pre-opt \
+ --multiplicity 1 --sopt-mode lbfgs --preopt \
  --out-dir result_all --tsopt --thermo --dft
 
 # 単一構造 TSOPT のみモード（経路探索なし）
@@ -75,7 +75,7 @@ mlmm all -i reactant.pdb product.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1
 # 中間体付きアンサンブル、残基 ID 基質指定、完全な後処理
 mlmm all -i A.pdb B.pdb C.pdb -c "308,309" --ligand-charge "-1" \
  --multiplicity 1 --max-nodes 10 --max-cycles 100 --climb \
- --sopt-mode lbfgs --no-dump --config params.yaml --pre-opt \
+ --sopt-mode lbfgs --no-dump --config params.yaml --preopt \
  --out-dir result_all --tsopt --thermo --dft
 
 # 単一構造 + スキャンで順序付き系列を構築
@@ -95,6 +95,13 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
  - 抽出器は入力ごとのポケット PDB を `<out-dir>/pockets/` に書き出します。
  - 抽出器の**最初のモデルのポケット総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
  - 追加の抽出トグル: `--radius`、`--radius-het2het`、`--include-H2O/--no-include-H2O`、`--exclude-backbone/--no-exclude-backbone`、`--add-linkH/--no-add-linkH`、`--selected-resn`、`--verbose/--no-verbose`。
+ - `-c/--center` を省略した場合は抽出をスキップし、完全入力構造をそのまま使用します。
+
+### 電荷の解決順序
+1. `-q/--charge`（明示的な CLI 上書き）— 最優先。
+2. ポケット抽出の電荷サマリー（アミノ酸、イオン、`--ligand-charge` の合計）。
+3. 抽出スキップ時の `--ligand-charge` フォールバック。
+4. デフォルト: なし（未解決なら中断）。
 
 2. **ML/MM 準備**
  - 最初のポケットを `<out-dir>/ml_region.pdb` として `--model-pdb` に使用します。リンク水素をこの定義から除外したい場合は、抽出時に `--no-add-linkH`（デフォルト）を保持します。
@@ -128,8 +135,9 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH...` | 反応順の 2 つ以上の完全 PDB（`--scan-lists` または `--tsopt` の場合のみ単一入力可）。 | 必須 |
-| `-c, --center TEXT` | 基質指定（PDB パス、残基 ID、または残基名）。 | 抽出に必須 |
+| `-c, --center TEXT` | 基質指定（PDB パス、残基 ID、または残基名）。省略時は抽出をスキップ。 | _None_ |
 | `--ligand-charge TEXT` | 総電荷または残基別マッピング（例: `GPP:-3,MMT:-1`）。 | _None_ |
+| `-q, --charge INT` | 総電荷を強制指定（最優先の上書き）。 | _None_ |
 | `--out-dir PATH` | トップレベル出力ディレクトリ。 | `./result_all/` |
 | `--dump/--no-dump` | オプティマイザーダンプを保存。 | `False` |
 | `--config FILE` | 先に適用するベース YAML。 | _None_ |
@@ -166,7 +174,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
 | `--sopt-mode TEXT` | 単一構造オプティマイザープリセット（`lbfgs`、`rfo`、`light`、`heavy`）。 | _デフォルト_ |
 | `--opt-mode TEXT` | スキャンおよび tsopt 用のオプティマイザープリセット（`light`、`lbfgs`、`heavy`、`rfo`）。 | _デフォルト_ |
-| `--pre-opt/--no-pre-opt` | セグメント化前に端点を事前最適化。 | `True` |
+| `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
 | `--hessian-calc-mode CHOICE` | UMA ヘシアンモード（`Analytical` または `FiniteDifference`）。 | _デフォルト_ |
 
 ### スキャンオプション（単一入力実行）

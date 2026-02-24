@@ -236,6 +236,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -257,6 +258,7 @@
 <li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -429,13 +431,13 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <span class="w"> </span><span class="o">[</span>--multiplicity<span class="w"> </span>&lt;2S+1&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max-nodes<span class="w"> </span>N<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max-cycles<span class="w"> </span>N<span class="o">]</span>
 <span class="w"> </span><span class="o">[</span>--climb/--no-climb<span class="o">]</span><span class="w"> </span><span class="o">[</span>--sopt-mode<span class="w"> </span>lbfgs<span class="p">|</span>rfo<span class="p">|</span>light<span class="p">|</span>heavy<span class="o">]</span>
 <span class="w"> </span><span class="o">[</span>--opt-mode<span class="w"> </span>light<span class="p">|</span>lbfgs<span class="p">|</span>heavy<span class="p">|</span>rfo<span class="o">]</span>
-<span class="w"> </span><span class="o">[</span>--pre-opt/--no-pre-opt<span class="o">]</span><span class="w"> </span><span class="o">[</span>--hessian-calc-mode<span class="w"> </span>Analytical<span class="p">|</span>FiniteDifference<span class="o">]</span><span class="w"> </span><span class="o">[</span>--out-dir<span class="w"> </span>DIR<span class="o">]</span>
+<span class="w"> </span><span class="o">[</span>--preopt/--no-preopt<span class="o">]</span><span class="w"> </span><span class="o">[</span>--hessian-calc-mode<span class="w"> </span>Analytical<span class="p">|</span>FiniteDifference<span class="o">]</span><span class="w"> </span><span class="o">[</span>--out-dir<span class="w"> </span>DIR<span class="o">]</span>
 <span class="w"> </span><span class="o">[</span>--tsopt/--no-tsopt<span class="o">]</span><span class="w"> </span><span class="o">[</span>--thermo/--no-thermo<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dft/--no-dft<span class="o">]</span>
 <span class="w"> </span><span class="o">[</span>--tsopt-max-cycles<span class="w"> </span>N<span class="o">]</span><span class="w"> </span><span class="o">[</span>--freq-*<span class="w"> </span>overrides<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dft-*<span class="w"> </span>overrides<span class="o">]</span>
 
 <span class="c1"># 単一構造 + 段階的スキャン</span>
 mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span>A.pdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;308,309&quot;</span><span class="w"> </span>--scan-lists<span class="w"> </span><span class="s2">&quot;[(12,45,1.35)]&quot;</span><span class="w"> </span><span class="s2">&quot;[(10,55,2.20)]&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w"> </span>--multiplicity<span class="w"> </span><span class="m">1</span><span class="w"> </span>--sopt-mode<span class="w"> </span>lbfgs<span class="w"> </span>--pre-opt<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>--multiplicity<span class="w"> </span><span class="m">1</span><span class="w"> </span>--sopt-mode<span class="w"> </span>lbfgs<span class="w"> </span>--preopt<span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>--out-dir<span class="w"> </span>result_all<span class="w"> </span>--tsopt<span class="w"> </span>--thermo<span class="w"> </span>--dft
 
 <span class="c1"># 単一構造 TSOPT のみモード（経路探索なし）</span>
@@ -451,7 +453,7 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <span class="c1"># 中間体付きアンサンブル、残基 ID 基質指定、完全な後処理</span>
 mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span>A.pdb<span class="w"> </span>B.pdb<span class="w"> </span>C.pdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;308,309&quot;</span><span class="w"> </span>--ligand-charge<span class="w"> </span><span class="s2">&quot;-1&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>--multiplicity<span class="w"> </span><span class="m">1</span><span class="w"> </span>--max-nodes<span class="w"> </span><span class="m">10</span><span class="w"> </span>--max-cycles<span class="w"> </span><span class="m">100</span><span class="w"> </span>--climb<span class="w"> </span><span class="se">\</span>
-<span class="w"> </span>--sopt-mode<span class="w"> </span>lbfgs<span class="w"> </span>--no-dump<span class="w"> </span>--config<span class="w"> </span>params.yaml<span class="w"> </span>--pre-opt<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>--sopt-mode<span class="w"> </span>lbfgs<span class="w"> </span>--no-dump<span class="w"> </span>--config<span class="w"> </span>params.yaml<span class="w"> </span>--preopt<span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>--out-dir<span class="w"> </span>result_all<span class="w"> </span>--tsopt<span class="w"> </span>--thermo<span class="w"> </span>--dft
 
 <span class="c1"># 単一構造 + スキャンで順序付き系列を構築</span>
@@ -476,8 +478,15 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <li><p>抽出器は入力ごとのポケット PDB を <code class="docutils literal notranslate"><span class="pre">&lt;out-dir&gt;/pockets/</span></code> に書き出します。</p></li>
 <li><p>抽出器の<strong>最初のモデルのポケット総電荷</strong>が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。</p></li>
 <li><p>追加の抽出トグル: <code class="docutils literal notranslate"><span class="pre">--radius</span></code>、<code class="docutils literal notranslate"><span class="pre">--radius-het2het</span></code>、<code class="docutils literal notranslate"><span class="pre">--include-H2O/--no-include-H2O</span></code>、<code class="docutils literal notranslate"><span class="pre">--exclude-backbone/--no-exclude-backbone</span></code>、<code class="docutils literal notranslate"><span class="pre">--add-linkH/--no-add-linkH</span></code>、<code class="docutils literal notranslate"><span class="pre">--selected-resn</span></code>、<code class="docutils literal notranslate"><span class="pre">--verbose/--no-verbose</span></code>。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-c/--center</span></code> を省略した場合は抽出をスキップし、完全入力構造をそのまま使用します。</p></li>
 </ul>
-<ol class="arabic simple" start="2">
+<section id="id8">
+<h3>電荷の解決順序<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">-q/--charge</span></code>（明示的な CLI 上書き）— 最優先。</p></li>
+<li><p>ポケット抽出の電荷サマリー（アミノ酸、イオン、<code class="docutils literal notranslate"><span class="pre">--ligand-charge</span></code> の合計）。</p></li>
+<li><p>抽出スキップ時の <code class="docutils literal notranslate"><span class="pre">--ligand-charge</span></code> フォールバック。</p></li>
+<li><p>デフォルト: なし（未解決なら中断）。</p></li>
 <li><p><strong>ML/MM 準備</strong></p></li>
 </ol>
 <ul class="simple">
@@ -518,10 +527,11 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <li><p>このモードでのみ、<strong>より高いエネルギー</strong>の IRC 端点が反応物 (R) として採用されます。</p></li>
 </ul>
 </section>
+</section>
 <section id="cli">
 <h2>CLI オプション<a class="headerlink" href="#cli" title="Link to this heading">¶</a></h2>
-<section id="id8">
-<h3>入出力オプション<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<section id="id9">
+<h3>入出力オプション<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h3>
 <div class="table-wrapper colwidths-auto docutils container">
 <table class="docutils align-default">
 <thead>
@@ -536,30 +546,34 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <td><p>必須</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-c,</span> <span class="pre">--center</span> <span class="pre">TEXT</span></code></p></td>
-<td><p>基質指定（PDB パス、残基 ID、または残基名）。</p></td>
-<td><p>抽出に必須</p></td>
+<td><p>基質指定（PDB パス、残基 ID、または残基名）。省略時は抽出をスキップ。</p></td>
+<td><p><em>None</em></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ligand-charge</span> <span class="pre">TEXT</span></code></p></td>
 <td><p>総電荷または残基別マッピング（例: <code class="docutils literal notranslate"><span class="pre">GPP:-3,MMT:-1</span></code>）。</p></td>
 <td><p><em>None</em></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--out-dir</span> <span class="pre">PATH</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q,</span> <span class="pre">--charge</span> <span class="pre">INT</span></code></p></td>
+<td><p>総電荷を強制指定（最優先の上書き）。</p></td>
+<td><p><em>None</em></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--out-dir</span> <span class="pre">PATH</span></code></p></td>
 <td><p>トップレベル出力ディレクトリ。</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">./result_all/</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dump/--no-dump</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--dump/--no-dump</span></code></p></td>
 <td><p>オプティマイザーダンプを保存。</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">FILE</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">FILE</span></code></p></td>
 <td><p>先に適用するベース YAML。</p></td>
 <td><p><em>None</em></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--show-config/--no-show-config</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--show-config/--no-show-config</span></code></p></td>
 <td><p>実行前に解決済み設定を表示。</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run/--no-dry-run</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run/--no-dry-run</span></code></p></td>
 <td><p>実行せず検証と計画表示のみ行う。</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 </tr>
@@ -567,8 +581,8 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 </table>
 </div>
 </section>
-<section id="id9">
-<h3>抽出オプション<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h3>
+<section id="id10">
+<h3>抽出オプション<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
 <div class="table-wrapper colwidths-auto docutils container">
 <table class="docutils align-default">
 <thead>
@@ -672,7 +686,7 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <td><p>スキャンおよび tsopt 用のオプティマイザープリセット（<code class="docutils literal notranslate"><span class="pre">light</span></code>、<code class="docutils literal notranslate"><span class="pre">lbfgs</span></code>、<code class="docutils literal notranslate"><span class="pre">heavy</span></code>、<code class="docutils literal notranslate"><span class="pre">rfo</span></code>）。</p></td>
 <td><p><em>デフォルト</em></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--pre-opt/--no-pre-opt</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--preopt/--no-preopt</span></code></p></td>
 <td><p>セグメント化前に端点を事前最適化。</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 </tr>
@@ -684,8 +698,8 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 </table>
 </div>
 </section>
-<section id="id10">
-<h3>スキャンオプション（単一入力実行）<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
+<section id="id11">
+<h3>スキャンオプション（単一入力実行）<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h3>
 <div class="table-wrapper colwidths-auto docutils container">
 <table class="docutils align-default">
 <thead>
@@ -731,8 +745,8 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 </table>
 </div>
 </section>
-<section id="id11">
-<h3>後処理オプション<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h3>
+<section id="id12">
+<h3>後処理オプション<a class="headerlink" href="#id12" title="Link to this heading">¶</a></h3>
 <div class="table-wrapper colwidths-auto docutils container">
 <table class="docutils align-default">
 <thead>
@@ -845,8 +859,8 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 </div>
 </section>
 </section>
-<section id="id12">
-<h2>出力<a class="headerlink" href="#id12" title="Link to this heading">¶</a></h2>
+<section id="id13">
+<h2>出力<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h2>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;out-dir&gt;/
  ml_region.pdb # ML 領域定義（最初のポケットのコピー）
  pockets/
@@ -939,8 +953,8 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 </table>
 </div>
 </section>
-<section id="id13">
-<h2>注意事項<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h2>
+<section id="id14">
+<h2>注意事項<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>症状起点で切り分ける場合は <a class="reference internal" href="recipes_common_errors.html"><span class="std std-doc">典型エラー別レシピ</span></a> を先に参照し、詳細は <a class="reference internal" href="troubleshooting.html"><span class="std std-doc">トラブルシューティング</span></a> を確認してください。</p></li>
 <li><p><strong>Python &gt;= 3.11</strong> が必要です。</p></li>
@@ -952,8 +966,8 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 </ul>
 </section>
 <hr class="docutils" />
-<section id="id14">
-<h2>関連項目<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h2>
+<section id="id15">
+<h2>関連項目<a class="headerlink" href="#id15" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="extract.html"><span class="std std-doc">extract</span></a> – 単独のポケット抽出（<code class="docutils literal notranslate"><span class="pre">all</span></code> が内部で呼び出し）</p></li>
 <li><p><a class="reference internal" href="mm_parm.html"><span class="std std-doc">mm_parm</span></a> – AMBER トポロジー構築（<code class="docutils literal notranslate"><span class="pre">all</span></code> が内部で呼び出し）</p></li>
@@ -1032,22 +1046,25 @@ mlmm<span class="w"> </span>all<span class="w"> </span>-i<span class="w"> </span
 <li><a class="reference internal" href="#id6">例</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id7">ワークフロー</a></li>
+<li><a class="reference internal" href="#id7">ワークフロー</a><ul>
+<li><a class="reference internal" href="#id8">電荷の解決順序</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#cli">CLI オプション</a><ul>
-<li><a class="reference internal" href="#id8">入出力オプション</a></li>
-<li><a class="reference internal" href="#id9">抽出オプション</a></li>
+<li><a class="reference internal" href="#id9">入出力オプション</a></li>
+<li><a class="reference internal" href="#id10">抽出オプション</a></li>
 <li><a class="reference internal" href="#mm">MM 準備オプション</a></li>
 <li><a class="reference internal" href="#mep">MEP 探索オプション</a></li>
-<li><a class="reference internal" href="#id10">スキャンオプション（単一入力実行）</a></li>
-<li><a class="reference internal" href="#id11">後処理オプション</a></li>
+<li><a class="reference internal" href="#id11">スキャンオプション（単一入力実行）</a></li>
+<li><a class="reference internal" href="#id12">後処理オプション</a></li>
 <li><a class="reference internal" href="#freq">Freq 上書き</a></li>
 <li><a class="reference internal" href="#dft">DFT 上書き</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id12">出力</a></li>
+<li><a class="reference internal" href="#id13">出力</a></li>
 <li><a class="reference internal" href="#yaml">YAML 設定</a></li>
-<li><a class="reference internal" href="#id13">注意事項</a></li>
-<li><a class="reference internal" href="#id14">関連項目</a></li>
+<li><a class="reference internal" href="#id14">注意事項</a></li>
+<li><a class="reference internal" href="#id15">関連項目</a></li>
 </ul>
 </li>
 </ul>

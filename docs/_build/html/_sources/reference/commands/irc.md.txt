@@ -31,6 +31,7 @@ Options:
                                   --model-pdb or --model-indices.  [default:
                                   detect-layer]
   -q, --charge INTEGER            Total charge; overrides calc.charge from YAML.
+                                  [required]
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1); overrides calc.spin
                                   from YAML.
   --max-cycles INTEGER            Maximum number of IRC steps; overrides

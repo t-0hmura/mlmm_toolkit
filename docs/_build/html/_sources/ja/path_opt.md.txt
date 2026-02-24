@@ -88,7 +88,7 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 | `-i, --input PATH PATH` | 反応物と生成物の PDB 構造。 | 必須 |
 | `--real-parm7 PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
-| `-q, --charge INT` | ML 領域の総電荷。省略時は `0`（YAML で上書き可）。 | `0` |
+| `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（0 始まりに変換; YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `10` |

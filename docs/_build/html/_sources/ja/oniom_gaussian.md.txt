@@ -76,8 +76,8 @@ mlmm oniom-gaussian --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pd
 | `--model-pdb PATH` | QM 領域原子を定義する PDB。 | _None_ |
 | `-o, --output PATH` | 出力 Gaussian 入力（`.com`/`.gjf`）。 | 必須 |
 | `--method TEXT` | QM メソッド/基底。 | `B3LYP/6-31G(d,p)` |
-| `-q, --charge INT` | QM 領域電荷。 | `0` |
-| `-m, --mult INT` | QM 領域多重度。 | `1` |
+| `-q, --charge INT` | QM 領域電荷。 | 必須 |
+| `-m, --multiplicity INT` | QM 領域多重度。 | `1` |
 | `--near FLOAT` | 可動 MM 原子を決める距離カットオフ。 | `6.0` |
 | `--nproc INT` | 使用コア数。 | `8` |
 | `--mem TEXT` | メモリ指定。 | `16GB` |

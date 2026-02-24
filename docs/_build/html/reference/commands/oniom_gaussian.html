@@ -236,6 +236,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -257,6 +258,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ja/oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -395,8 +397,8 @@ Options:
                                   [required]
   --method TEXT                   QM method and basis set.  [default:
                                   B3LYP/6-31G(d,p)]
-  -q, --charge INTEGER            Charge of QM region.  [default: 0]
-  -m, --mult INTEGER              Multiplicity of QM region.  [default: 1]
+  -q, --charge INTEGER            Charge of QM region.  [required]
+  -m, --multiplicity INTEGER      Multiplicity of QM region.  [default: 1]
   --near FLOAT                    Distance cutoff for movable atoms (Angstrom).
                                   [default: 6.0]
   --nproc INTEGER                 Number of processors.  [default: 8]

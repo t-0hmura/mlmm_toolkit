@@ -21,13 +21,13 @@ Options:
   -o, --output FILE               Output ORCA input file (.inp).  [required]
   --method TEXT                   QM method and basis set.  [default: B3LYP D3BJ
                                   def2-SVP]
-  -q, --charge INTEGER            Charge of QM region.  [default: 0]
-  -m, --mult INTEGER              Multiplicity of QM region.  [default: 1]
+  -q, --charge INTEGER            Charge of QM region.  [required]
+  -m, --multiplicity INTEGER      Multiplicity of QM region.  [default: 1]
   --total-charge INTEGER          Total charge of full QM+MM system for
                                   Charge_Total. Defaults to topology total
                                   charge.
   --total-mult INTEGER            Total multiplicity of full QM+MM system for
-                                  Mult_Total. Defaults to --mult.
+                                  Mult_Total. Defaults to --multiplicity.
   --nproc INTEGER                 Number of processors.  [default: 8]
   --near FLOAT                    Distance cutoff (Å) used to define ActiveAtoms
                                   when no layer B-factors are present.

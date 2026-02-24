@@ -214,9 +214,10 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 - スピン多重度は `-m/--multiplicity`（デフォルト: 1）で設定
 
 ### ブール値オプション
-ブール値 CLI オプションは toggle 形式（`--flag` / `--no-flag`）で指定します:
+ブール値 CLI オプションは `--flag` / `--no-flag` と `--flag True/False` の両方を受理します（新規スクリプトでは toggle 形式を推奨）:
 ```bash
 --tsopt --thermo --no-dft
+--tsopt True --thermo yes --dft 0
 ```
 
 ### YAML 設定

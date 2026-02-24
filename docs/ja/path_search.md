@@ -40,7 +40,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
- --model-pdb ml_region.pdb -q 0 --no-pre-opt --no-align --max-nodes 8 \
+ --model-pdb ml_region.pdb -q 0 --no-preopt --no-align --max-nodes 8 \
  --out-dir ./result_path_search_fast
 ```
 
@@ -50,6 +50,7 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
  --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
+ [--opt-mode light|heavy]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
@@ -70,7 +71,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 ## ワークフロー
 
 1. **初期セグメント（隣接ペア A->B ごと）** -- ML/MM で GSM を実行して予備 MEP を取得。
-2. **障壁の局所化** -- 最高エネルギーイメージ（HEI）を検出し、LBFGS で HEI+/-1 を最適化して End1 と End2 を取得。
+2. **障壁の局所化** -- 最高エネルギーイメージ（HEI）を検出し、選択した単一構造オプティマイザー（`--opt-mode`）で HEI+/-1 を最適化して End1 と End2 を取得。
 3. **精密化** -- End1-End2 に共有結合変化がない場合（キンク）、`search.kink_max_nodes` 個の線形イメージを挿入して各イメージを最適化。それ以外の場合、End1 と End2 間で精密化 GSM を実行。
 4. **選択的再帰** -- (A->End1) と (End2->B) の共有結合変化を評価し、変化のある側のみ再帰。
 5. **サブパスの統合** -- RMSD による重複除去でサブ MEP を連結。端点が `search.bridge_rmsd_thresh` を超えて不一致の場合はブリッジ GSM を挿入。共有結合変化のあるインターフェースはブリッジではなく再帰セグメントを生成。
@@ -89,7 +90,8 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `10` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--pre-opt/--no-pre-opt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `True` |
+| `--opt-mode [light\|heavy]` | 単一構造オプティマイザープリセット（`light` = LBFGS、`heavy` = RFO）。 | `light` |
+| `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に入力を剛体アライメント。 | 有効 |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`）。 | _デフォルト_ |
 | `--dump/--no-dump` | オプティマイザーダンプを保存。 | `False` |

@@ -72,12 +72,14 @@ Options:
   --climb BOOLEAN                 Enable transition-state climbing after growth
                                   for the **first** segment in each pair.
                                   [default: True]
-  --sopt-mode [lbfgs|rfo|light|heavy]
-                                  Single-structure optimizer kind for HEI±1 and
-                                  kink nodes.  [default: lbfgs]
-  --opt-mode TEXT                 Common optimizer mode forwarded to scan/tsopt
-                                  (--opt-mode). When unset, tools use their
-                                  defaults.
+  --opt-mode [light|heavy]        Optimizer mode forwarded to scan/path-search
+                                  and used for single optimizations: light
+                                  (=LBFGS/Dimer) or heavy (=RFO/RSIRFO).
+                                  [default: light]
+  --opt-mode-post [light|heavy]   Optimizer mode override for TSOPT/post-IRC
+                                  endpoint optimizations. If unset, uses --opt-
+                                  mode when explicitly provided; otherwise falls
+                                  back to tsopt defaults.
   --dump BOOLEAN                  Dump GSM / single-structure trajectories
                                   during the run, forwarding the same flag to
                                   scan/tsopt/freq.  [default: False]
@@ -89,7 +91,7 @@ Options:
   --dry-run / --no-dry-run        Validate options and print the execution plan
                                   without running any stage.  [default: no-dry-
                                   run]
-  --pre-opt BOOLEAN               If False, skip initial single-structure
+  --preopt BOOLEAN                If False, skip initial single-structure
                                   optimizations of the pocket inputs.  [default:
                                   True]
   --hessian-calc-mode [analytical|finitedifference]
@@ -111,8 +113,6 @@ Options:
                                   energy diagram. With --thermo True, also
                                   generate a DFT//UMA Gibbs diagram.  [default:
                                   False]
-  --tsopt-mode [light|heavy]      TS optimizer mode: light (Dimer) or heavy (RS-
-                                  I-RFO).  [default: light]
   --tsopt-max-cycles INTEGER      Override tsopt --max-cycles value.
   --tsopt-out-dir DIRECTORY       Override tsopt output subdirectory (relative
                                   paths are resolved against the default).

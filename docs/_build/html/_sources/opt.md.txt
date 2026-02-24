@@ -75,7 +75,7 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Alternative to `--model-pdb`. | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Index convention for `--model-indices`. | 1-based |
 | `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors (0/10/20). | Enabled |
-| `-q, --charge INT` | Charge of the ML region. | _None_ |
+| `-q, --charge INT` | Charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
 | `--radius-partial-hessian FLOAT` | Distance cutoff (A) from ML region for Hessian-MM atoms. Can be combined with `--detect-layer`. | _None_ |

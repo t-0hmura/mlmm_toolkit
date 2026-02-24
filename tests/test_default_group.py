@@ -74,7 +74,7 @@ def test_help_does_not_trigger_default_subcommand() -> None:
     assert "Commands:" in result.output
 
 
-def test_legacy_bool_syntax_emits_deprecation_message() -> None:
+def test_legacy_bool_syntax_does_not_emit_deprecation_message() -> None:
     cli = _make_group(normalize_bool_argv=_normalize_with_legacy_flag)
 
     @cli.command()
@@ -85,7 +85,7 @@ def test_legacy_bool_syntax_emits_deprecation_message() -> None:
     result = runner.invoke(cli, ["ping"])
     assert result.exit_code == 0
     assert "ping-called" in result.output
-    assert "Legacy bool syntax '--flag True/False'" in result.output
+    assert "Legacy bool syntax '--flag True/False'" not in result.output
 
 
 def test_help_advanced_shows_hidden_options() -> None:
@@ -137,7 +137,6 @@ def test_bool_toggle_accepts_value_style_syntax_via_auto_detection() -> None:
     result_false = runner.invoke(cli, ["scan", "--detect-layer", "False"])
     assert result_false.exit_code == 0
     assert "detect_layer=False" in result_false.output
-    assert "Legacy bool syntax '--flag True/False'" in result_false.output
 
     result_no = runner.invoke(cli, ["scan", "--no-detect-layer"])
     assert result_no.exit_code == 0
@@ -156,7 +155,6 @@ def test_single_flag_accepts_no_prefix_and_value_style_syntax() -> None:
     result_value_false = runner.invoke(cli, ["add-elem-info", "--overwrite", "False"])
     assert result_value_false.exit_code == 0
     assert "overwrite=False" in result_value_false.output
-    assert "Legacy bool syntax '--flag True/False'" in result_value_false.output
 
     result_no = runner.invoke(cli, ["add-elem-info", "--no-overwrite"])
     assert result_no.exit_code == 0
@@ -175,7 +173,6 @@ def test_toggle_with_non_no_negative_alias_accepts_no_prefix_and_values() -> Non
     result_false = runner.invoke(cli, ["define-layer", "--one-based", "False"])
     assert result_false.exit_code == 0
     assert "one_based=False" in result_false.output
-    assert "Legacy bool syntax '--flag True/False'" in result_false.output
 
     result_no = runner.invoke(cli, ["define-layer", "--no-one-based"])
     assert result_no.exit_code == 0

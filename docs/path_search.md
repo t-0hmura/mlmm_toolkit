@@ -40,7 +40,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
- --model-pdb ml_region.pdb -q 0 --no-pre-opt --no-align --max-nodes 8 \
+ --model-pdb ml_region.pdb -q 0 --no-preopt --no-align --max-nodes 8 \
  --out-dir ./result_path_search_fast
 ```
 
@@ -50,6 +50,7 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
  --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
+ [--opt-mode light|heavy]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
@@ -70,7 +71,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 ## Workflow
 
 1. **Initial segment (per adjacent pair A->B)** -- Run GSM with ML/MM to obtain a preliminary MEP.
-2. **Localize barrier** -- Find the highest-energy image (HEI); optimize HEI+/-1 with LBFGS to obtain End1 and End2.
+2. **Localize barrier** -- Find the highest-energy image (HEI); optimize HEI+/-1 with the selected single-structure optimizer (`--opt-mode`) to obtain End1 and End2.
 3. **Refine** -- If End1-End2 shows no covalent changes (a kink), insert `search.kink_max_nodes` linear images and optimize each. Otherwise, run a refinement GSM between End1 and End2.
 4. **Recurse selectively** -- Evaluate covalent changes for (A->End1) and (End2->B); recurse only on changing sides.
 5. **Stitch subpaths** -- Concatenate sub-MEPs with duplicate removal via RMSD. If endpoints mismatch beyond `search.bridge_rmsd_thresh`, insert a bridge GSM. Interfaces with covalent changes spawn a recursive segment instead of a bridge.
@@ -89,7 +90,8 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 | `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--pre-opt/--no-pre-opt` | Pre-optimize endpoints with LBFGS before segmentation. | `True` |
+| `--opt-mode [light\|heavy]` | Single-structure optimizer preset (`light` = LBFGS, `heavy` = RFO). | `light` |
+| `--preopt/--no-preopt` | Pre-optimize endpoints with LBFGS before segmentation. | `True` |
 | `--align / --no-align` | Rigidly align inputs after pre-opt. | Enabled |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`). | _Default_ |
 | `--dump/--no-dump` | Save optimizer dumps. | `False` |

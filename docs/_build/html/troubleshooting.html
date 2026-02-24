@@ -236,6 +236,7 @@
 <li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -257,6 +258,7 @@
 <li class="toctree-l1"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -452,7 +454,8 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 <h2>Charge / spin problems<a class="headerlink" href="#charge-spin-problems" title="Link to this heading">¶</a></h2>
 <section id="charge-is-required-non-gjf-inputs">
 <h3>“Charge is required…” (non-GJF inputs)<a class="headerlink" href="#charge-is-required-non-gjf-inputs" title="Link to this heading">¶</a></h3>
-<p>Many stages need a total charge when the input is not <code class="docutils literal notranslate"><span class="pre">.gjf</span></code>. If you omit <code class="docutils literal notranslate"><span class="pre">-q/--charge</span></code>, the workflow may attempt to derive charge from <code class="docutils literal notranslate"><span class="pre">--ligand-charge</span></code> (PDB-only) or from a <code class="docutils literal notranslate"><span class="pre">.gjf</span></code> template.</p>
+<p>Calculation subcommands require explicit <code class="docutils literal notranslate"><span class="pre">-q/--charge</span></code>.
+In <code class="docutils literal notranslate"><span class="pre">all</span></code>, charge is resolved in order: <code class="docutils literal notranslate"><span class="pre">-q/--charge</span></code> override -&gt; extraction summary -&gt; <code class="docutils literal notranslate"><span class="pre">--ligand-charge</span></code> fallback when extraction is skipped.</p>
 <p>Fix:</p>
 <ul class="simple">
 <li><p>Provide charge and multiplicity explicitly:</p></li>
@@ -461,7 +464,8 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 </pre></div>
 </div>
 <ul class="simple">
-<li><p>Or (when using extraction) provide a residue-name mapping:</p></li>
+<li><p>Or (when using extraction) provide a residue-name mapping:
+then run through <code class="docutils literal notranslate"><span class="pre">all</span></code>:</p></li>
 </ul>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>-i<span class="w"> </span>R.pdb<span class="w"> </span>P.pdb<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;SAM,GPP&#39;</span><span class="w"> </span>--ligand-charge<span class="w"> </span><span class="s1">&#39;SAM:1,GPP:-3&#39;</span>
 </pre></div>

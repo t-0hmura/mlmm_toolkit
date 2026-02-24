@@ -1318,11 +1318,26 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum GSM optimization cycles.")
 @click.option("--climb", type=click.BOOL, default=True, show_default=True,
               help="Enable transition-state climbing after growth for the **first** segment in each pair.")
-@click.option("--sopt-mode", type=click.Choice(["lbfgs", "rfo", "light", "heavy"], case_sensitive=False),
-              default="lbfgs", show_default=True,
-              help="Single-structure optimizer kind for HEI±1 and kink nodes.")
-@click.option("--opt-mode", type=str, default=None,
-              help="Common optimizer mode forwarded to scan/tsopt (--opt-mode). When unset, tools use their defaults.")
+@click.option(
+    "--opt-mode",
+    type=click.Choice(["light", "heavy"], case_sensitive=False),
+    default="light",
+    show_default=True,
+    help=(
+        "Optimizer mode forwarded to scan/path-search and used for single optimizations: "
+        "light (=LBFGS/Dimer) or heavy (=RFO/RSIRFO)."
+    ),
+)
+@click.option(
+    "--opt-mode-post",
+    type=click.Choice(["light", "heavy"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help=(
+        "Optimizer mode override for TSOPT/post-IRC endpoint optimizations. "
+        "If unset, uses --opt-mode when explicitly provided; otherwise falls back to tsopt defaults."
+    ),
+)
 @click.option("--dump", type=click.BOOL, default=False, show_default=True,
               help="Dump GSM / single-structure trajectories during the run, forwarding the same flag to scan/tsopt/freq.")
 @click.option("--config", "config_yaml", type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -1331,7 +1346,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Print resolved configuration and continue execution.")
 @click.option("--dry-run/--no-dry-run", "dry_run", default=False, show_default=True,
               help="Validate options and print the execution plan without running any stage.")
-@click.option("--pre-opt", "pre_opt", type=click.BOOL, default=True, show_default=True,
+@click.option("--preopt", "pre_opt", type=click.BOOL, default=True, show_default=True,
               help="If False, skip initial single-structure optimizations of the pocket inputs.")
 @click.option("--hessian-calc-mode",
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
@@ -1352,9 +1367,6 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Run freq on (R,TS,P) per reactive segment (or TSOPT-only mode) and build Gibbs free-energy diagram (UMA).")
 @click.option("--dft", "do_dft", type=click.BOOL, default=False, show_default=True,
               help="Run DFT single-point on (R,TS,P) and build DFT energy diagram. With --thermo True, also generate a DFT//UMA Gibbs diagram.")
-@click.option("--tsopt-mode", type=click.Choice(["light", "heavy"], case_sensitive=False),
-              default="light", show_default=True,
-              help="TS optimizer mode: light (Dimer) or heavy (RS-I-RFO).")
 @click.option("--tsopt-max-cycles", type=int, default=None,
               help="Override tsopt --max-cycles value.")
 @click.option("--tsopt-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
@@ -1432,8 +1444,8 @@ def cli(
     max_nodes: int,
     max_cycles: int,
     climb: bool,
-    sopt_mode: str,
-    opt_mode: Optional[str],
+    opt_mode: str,
+    opt_mode_post: Optional[str],
     dump: bool,
     config_yaml: Optional[Path],
     show_config: bool,
@@ -1452,7 +1464,6 @@ def cli(
     scan_relax_max_cycles: Optional[int],
     scan_preopt_override: Optional[bool],
     scan_endopt_override: Optional[bool],
-    tsopt_mode: str,
     tsopt_max_cycles: Optional[int],
     tsopt_out_dir: Optional[Path],
     freq_out_dir: Optional[Path],
@@ -1486,6 +1497,17 @@ def cli(
         dump_override_requested = dump_source not in (None, ParameterSource.DEFAULT)
     except Exception:
         dump_override_requested = False
+
+    opt_mode_set = False
+    opt_mode_post_set = False
+    try:
+        opt_mode_source = ctx.get_parameter_source("opt_mode")
+        opt_mode_set = opt_mode_source not in (None, ParameterSource.DEFAULT)
+        opt_mode_post_source = ctx.get_parameter_source("opt_mode_post")
+        opt_mode_post_set = opt_mode_post_source not in (None, ParameterSource.DEFAULT)
+    except Exception:
+        opt_mode_set = False
+        opt_mode_post_set = False
 
     config_yaml, override_yaml, _ = _resolve_yaml_sources(config_yaml=config_yaml)
     args_yaml, merged_yaml_cfg = _build_effective_args_yaml(
@@ -1524,7 +1546,12 @@ def cli(
             "or use a single PDB with --scan-lists, or a single PDB with --tsopt True."
         )
 
-    tsopt_opt_mode_default = opt_mode.lower() if opt_mode else "light"
+    if opt_mode_post_set and opt_mode_post is not None:
+        tsopt_opt_mode_default = opt_mode_post.lower()
+    elif opt_mode_set:
+        tsopt_opt_mode_default = opt_mode.lower()
+    else:
+        tsopt_opt_mode_default = "heavy"
     tsopt_overrides: Dict[str, Any] = {}
     if tsopt_max_cycles is not None:
         tsopt_overrides["max_cycles"] = int(tsopt_max_cycles)
@@ -1534,7 +1561,9 @@ def cli(
         tsopt_overrides["out_dir"] = tsopt_out_dir
     if hessian_calc_mode is not None:
         tsopt_overrides["hessian_calc_mode"] = hessian_calc_mode
-    if opt_mode is not None:
+    if opt_mode_post_set and opt_mode_post is not None:
+        tsopt_overrides["opt_mode"] = opt_mode_post.lower()
+    elif opt_mode_set:
         tsopt_overrides["opt_mode"] = tsopt_opt_mode_default
 
     freq_overrides: Dict[str, Any] = {}
@@ -1583,8 +1612,8 @@ def cli(
                 "max_nodes": int(max_nodes),
                 "max_cycles": int(max_cycles),
                 "climb": bool(climb),
-                "sopt_mode": str(sopt_mode),
-                "opt_mode": (None if opt_mode is None else str(opt_mode)),
+                "opt_mode": str(opt_mode),
+                "opt_mode_post": (None if opt_mode_post is None else str(opt_mode_post)),
                 "dump": bool(dump),
                 "pre_opt": bool(pre_opt),
                 "detect_layer": bool(detect_layer),
@@ -2128,8 +2157,7 @@ def cli(
         _echo("[all] Remapped --scan-lists indices from the full PDB to the pocket ordering.")
         scan_preopt_use = pre_opt if scan_preopt_override is None else bool(scan_preopt_override)
         scan_endopt_use = True if scan_endopt_override is None else bool(scan_endopt_override)
-        scan_opt_mode_use = (opt_mode.lower() if opt_mode else
-                              ("lbfgs" if sopt_mode.lower() in ("lbfgs", "light") else "rfo"))
+        scan_opt_mode_use = opt_mode.lower()
 
         scan_args: List[str] = [
             "-i", str(layered_pdb),
@@ -2202,15 +2230,14 @@ def cli(
     # Layered PDBs have B-factors → detect-layer will auto-identify layers
     ps_args.append("--detect-layer")
 
-    # Nodes, cycles, climb, optimizer, dump, out-dir, pre-opt, args-yaml
+    # Nodes, cycles, climb, optimizer, dump, out-dir, preopt, args-yaml
     ps_args.extend(["--max-nodes", str(int(max_nodes))])
     ps_args.extend(["--max-cycles", str(int(max_cycles))])
     ps_args.append("--climb" if climb else "--no-climb")
-    ps_sopt = "light" if sopt_mode.lower() in ("lbfgs", "light") else "heavy"
-    ps_args.extend(["--sopt-mode", ps_sopt])
+    ps_args.extend(["--opt-mode", str(opt_mode.lower())])
     ps_args.append("--dump" if dump else "--no-dump")
     ps_args.extend(["--out-dir", str(path_dir)])
-    ps_args.append("--pre-opt" if pre_opt else "--no-pre-opt")
+    ps_args.append("--preopt" if pre_opt else "--no-preopt")
     if args_yaml is not None:
         ps_args.extend(["--config", str(args_yaml)])
 
@@ -2299,7 +2326,8 @@ def cli(
                 "tsopt": do_tsopt,
                 "thermo": do_thermo,
                 "dft": do_dft,
-                "opt_mode": opt_mode.lower() if opt_mode else None,
+                "opt_mode": opt_mode.lower(),
+                "opt_mode_post": opt_mode_post.lower() if opt_mode_post else None,
                 "mep_mode": "path-search",
                 "uma_model": None,
                 "command": command_str,

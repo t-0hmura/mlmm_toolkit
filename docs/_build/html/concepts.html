@@ -236,6 +236,7 @@
 <li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -257,6 +258,7 @@
 <li class="toctree-l1"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
@@ -628,7 +630,7 @@
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <ul class="simple">
-<li><p>Boolean options are toggle-style: use <code class="docutils literal notranslate"><span class="pre">--flag</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-flag</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">--tsopt</span></code>, <code class="docutils literal notranslate"><span class="pre">--no-tsopt</span></code>).</p></li>
+<li><p>Boolean options accept both <code class="docutils literal notranslate"><span class="pre">--flag</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-flag</span></code> and value style <code class="docutils literal notranslate"><span class="pre">--flag</span> <span class="pre">True/False</span></code> (<code class="docutils literal notranslate"><span class="pre">yes/no</span></code>, <code class="docutils literal notranslate"><span class="pre">1/0</span></code> are also accepted). Prefer toggle style.</p></li>
 <li><p>With multiple PDB inputs, all files should have the <strong>same atoms in the same order</strong> (only coordinates differ).</p></li>
 <li><p>For enzyme use-cases, you usually want hydrogens present in the input PDB.</p></li>
 <li><p>Most subcommands require <code class="docutils literal notranslate"><span class="pre">--real-parm7</span></code> and <code class="docutils literal notranslate"><span class="pre">--model-pdb</span></code> for ML/MM calculations.</p></li>

@@ -50,15 +50,14 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --dry-run
 # 標準（反応順のマルチ構造アンサンブル）
 mlmm all -i R.pdb [I1.pdb...] P.pdb -c <substrate-spec> [--ligand-charge <map-or-number>]
  [--multiplicity <2S+1>] [--max-nodes N] [--max-cycles N]
- [--climb/--no-climb] [--sopt-mode lbfgs|rfo|light|heavy]
- [--opt-mode light|lbfgs|heavy|rfo]
- [--pre-opt/--no-pre-opt] [--hessian-calc-mode Analytical|FiniteDifference] [--out-dir DIR]
+ [--climb/--no-climb] [--opt-mode light|heavy] [--opt-mode-post light|heavy]
+ [--preopt/--no-preopt] [--hessian-calc-mode Analytical|FiniteDifference] [--out-dir DIR]
  [--tsopt/--no-tsopt] [--thermo/--no-thermo] [--dft/--no-dft]
  [--tsopt-max-cycles N] [--freq-* overrides] [--dft-* overrides]
 
 # 単一構造 + 段階的スキャン
 mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
- --multiplicity 1 --sopt-mode lbfgs --pre-opt \
+ --multiplicity 1 --opt-mode light --preopt \
  --out-dir result_all --tsopt --thermo --dft
 
 # 単一構造 TSOPT のみモード（経路探索なし）
@@ -75,7 +74,7 @@ mlmm all -i reactant.pdb product.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1
 # 中間体付きアンサンブル、残基 ID 基質指定、完全な後処理
 mlmm all -i A.pdb B.pdb C.pdb -c "308,309" --ligand-charge "-1" \
  --multiplicity 1 --max-nodes 10 --max-cycles 100 --climb \
- --sopt-mode lbfgs --no-dump --config params.yaml --pre-opt \
+ --opt-mode light --no-dump --config params.yaml --preopt \
  --out-dir result_all --tsopt --thermo --dft
 
 # 単一構造 + スキャンで順序付き系列を構築
@@ -172,10 +171,12 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `10` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `100` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--sopt-mode TEXT` | 単一構造オプティマイザープリセット（`lbfgs`、`rfo`、`light`、`heavy`）。 | _デフォルト_ |
-| `--opt-mode TEXT` | スキャンおよび tsopt 用のオプティマイザープリセット（`light`、`lbfgs`、`heavy`、`rfo`）。 | _デフォルト_ |
-| `--pre-opt/--no-pre-opt` | セグメント化前に端点を事前最適化。 | `True` |
+| `--opt-mode [light\|heavy]` | スキャン/path-search と単一構造最適化のプリセット（`light` → LBFGS/Dimer、`heavy` → RFO/RSIRFO）。 | `light` |
+| `--opt-mode-post [light\|heavy]` | TSOPT/IRC 後端点最適化向けのプリセット上書き。 | _None_ |
+| `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
 | `--hessian-calc-mode CHOICE` | UMA ヘシアンモード（`Analytical` または `FiniteDifference`）。 | _デフォルト_ |
+
+TSOPT の最適化モードは、`--opt-mode-post`（指定時）-> `--opt-mode`（明示指定時のみ）-> TSOPT の既定（`heavy`）の順で決まります。
 
 ### スキャンオプション（単一入力実行）
 
