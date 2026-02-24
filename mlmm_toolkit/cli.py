@@ -493,10 +493,10 @@ def extract_cmd(ctx: click.Context) -> None:
 cli.add_command(extract_cmd, name="extract")
 
 # Silence pysisyphus logger without muting application/global logging.
-# logging.disable(logging.CRITICAL)
-_pysisyphus_logger = logging.getLogger("pysisyphus")
-_pysisyphus_logger.setLevel(logging.CRITICAL)
-_pysisyphus_logger.propagate = False
+logging.disable(logging.CRITICAL)
+# _pysisyphus_logger = logging.getLogger("pysisyphus")
+# _pysisyphus_logger.setLevel(logging.CRITICAL)
+# _pysisyphus_logger.propagate = False
 
 # Filter noisy UMA/pydmf warnings that clutter CLI output
 warnings.filterwarnings(
