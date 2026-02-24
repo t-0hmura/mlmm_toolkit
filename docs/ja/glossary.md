@@ -67,7 +67,6 @@
 | **RFO** | Rational Function Optimization | 明示的なヘシアン情報を使用する信頼領域最適化法。`--opt-mode heavy` で使用。 |
 | **RS-I-RFO** | Restricted-Step Image-RFO | 1つの負固有値方向に沿う、鞍点（TS）最適化用の RFO 変種。 |
 | **Dimer** | Dimer Method | 完全なヘシアンを計算せずに最低曲率モードを推定する TS 最適化法。`--opt-mode light` の TSOPT で使用。 |
-| **LayerOpt** | Layer Optimization | ML 領域と外側領域を分離して最適化する手法。heavy モードで使用。 |
 
 ---
 

@@ -86,7 +86,6 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m
 | `--max-cycles INT` | Hard limit on optimization iterations. | `10000` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`). | _None_ |
 | `--opt-mode {light\|heavy\|lbfgs\|rfo}` | Optimizer mode: `light` (LBFGS) or `heavy` (RFO with Hessian). | `light` |
-| `--layer-opt / --no-layer-opt` | Enable LayerOpt-style microiteration (heavy mode only). | Disabled |
 | `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`). | `False` |
 | `--out-dir PATH` | Output directory. | `./result_opt/` |
 | `--config FILE` | Base YAML configuration file. | _None_ |

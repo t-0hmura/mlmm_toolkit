@@ -38,7 +38,6 @@ from .defaults import (
     OPT_BASE_KW,
     LBFGS_KW,
     RFO_KW,
-    LAYEROPT_KW,
     OPT_MODE_ALIASES,
     BFACTOR_ML,
     BFACTOR_MOVABLE_MM,
@@ -137,379 +136,6 @@ GEOM_KW: Dict[str, Any] = dict(GEOM_KW_DEFAULT)
 CALC_KW: Dict[str, Any] = dict(MLMM_CALC_KW)
 
 # Note: OPT_BASE_KW, LBFGS_KW, RFO_KW are imported from defaults.py
-
-
-# -----------------------------------------------
-# MicroIteration optimizer for LayerOpt-style optimization
-# -----------------------------------------------
-
-class MicroIterationOptimizer:
-    """
-    Microiteration optimizer implementing a LayerOpt-style pattern:
-    1. Fix ML region, optimize outer region with LBFGS
-    2. Fix outer region, optimize ML region with RFO
-    3. Repeat until convergence
-
-    This provides a simplified LayerOpt implementation suitable for ML/MM
-    calculations where the ML region indices are known.
-    """
-
-    def __init__(
-        self,
-        geometry,
-        ml_indices: List[int],
-        outer_lbfgs_kwargs: Dict[str, Any],
-        inner_rfo_kwargs: Dict[str, Any],
-        max_macro_cycles: int = 100,
-        outer_max_cycles: int = 1500,
-        outer_thresh: str = "gau_loose",
-        echo_fn=None,
-        dump: bool = False,
-    ):
-        """
-        Parameters
-        ----------
-        geometry : pysisyphus Geometry
-            Geometry with calculator attached
-        ml_indices : List[int]
-            0-based indices of ML region atoms
-        outer_lbfgs_kwargs : dict
-            LBFGS kwargs for outer optimization
-        inner_rfo_kwargs : dict
-            RFO kwargs for inner optimization
-        max_macro_cycles : int
-            Maximum macrocycles (outer+inner pairs)
-        outer_max_cycles : int
-            Max LBFGS cycles per outer optimization
-        outer_thresh : str
-            Convergence threshold for outer optimization
-        echo_fn : callable
-            Function to echo messages (default: click.echo)
-        """
-        self.geometry = geometry
-        self.ml_indices = sorted(set(int(i) for i in ml_indices))
-        self.n_atoms = len(geometry.atoms)
-        self.outer_indices = [i for i in range(self.n_atoms) if i not in self.ml_indices]
-
-        self.outer_lbfgs_kwargs = dict(outer_lbfgs_kwargs)
-        self.inner_rfo_kwargs = dict(inner_rfo_kwargs)
-        self.max_macro_cycles = max_macro_cycles
-        self.outer_max_cycles = outer_max_cycles
-        self.outer_thresh = outer_thresh
-        self.echo = echo_fn or click.echo
-        self.dump = bool(dump)
-        self.out_dir = Path(self.inner_rfo_kwargs.get("out_dir", "./result_opt/"))
-        self.optim_all_path = self.out_dir / "optimization_all_trj.xyz"
-
-        self.is_converged = False
-        self.cur_cycle = 0
-        self.micro_cycles = []
-
-    def run(self) -> None:
-        """Run microiteration optimization."""
-        from pysisyphus.Geometry import Geometry
-
-        # Store original freeze_atoms
-        calc = self.geometry.calculator
-        base_calc = calc.base if hasattr(calc, 'base') else calc
-        original_freeze = list(getattr(base_calc.core, 'freeze_atoms', []) or [])
-
-        self.echo("\n=== MicroIteration Optimization ===\n")
-        self.echo(f"ML region: {len(self.ml_indices)} atoms")
-        self.echo(f"Outer region: {len(self.outer_indices)} atoms")
-        if self.dump and self.optim_all_path.exists():
-            self.optim_all_path.unlink()
-
-        for macro in range(self.max_macro_cycles):
-            self.cur_cycle = macro
-            self.echo(f"\n--- Macrocycle {macro + 1}/{self.max_macro_cycles} ---\n")
-
-            # Step 1: Optimize outer region (freeze ML region)
-            self.echo("[MicroIter] Optimizing outer region (ML frozen)...")
-
-            # Set freeze atoms to ML region + original freeze
-            outer_freeze = sorted(set(self.ml_indices + original_freeze))
-            base_calc.core.freeze_atoms = outer_freeze
-
-            # Create fresh geometry for outer optimization
-            outer_geom = Geometry(
-                atoms=self.geometry.atoms,
-                coords=self.geometry.coords.copy(),
-                coord_type="cart",
-                freeze_atoms=outer_freeze,
-            )
-            outer_geom.set_calculator(calc)
-
-            outer_kwargs = dict(self.outer_lbfgs_kwargs)
-            outer_kwargs["max_cycles"] = self.outer_max_cycles
-            outer_kwargs["thresh"] = self.outer_thresh
-            outer_kwargs["prefix"] = f"mc{macro:03d}_outer"
-            outer_kwargs["dump"] = self.dump
-
-            outer_opt = LBFGS(outer_geom, **outer_kwargs)
-            outer_opt.run()
-            outer_cycles = outer_opt.cur_cycle + 1
-            if self.dump:
-                _append_xyz_trajectory(
-                    self.optim_all_path,
-                    outer_opt.get_path_for_fn("optimization_trj.xyz"),
-                )
-
-            # Update main geometry with outer-optimized coords
-            self.geometry.coords = outer_geom.coords.copy()
-
-            # Step 2: Optimize ML region (freeze outer region)
-            self.echo("[MicroIter] Optimizing ML region (outer frozen)...")
-
-            # Set freeze atoms to outer region + original freeze
-            inner_freeze = sorted(set(self.outer_indices + original_freeze))
-            base_calc.core.freeze_atoms = inner_freeze
-
-            # Create fresh geometry for inner optimization
-            inner_geom = Geometry(
-                atoms=self.geometry.atoms,
-                coords=self.geometry.coords.copy(),
-                coord_type="cart",
-                freeze_atoms=inner_freeze,
-            )
-            inner_geom.set_calculator(calc)
-
-            inner_kwargs = dict(self.inner_rfo_kwargs)
-            inner_kwargs["max_cycles"] = 1  # Single RFO step per macrocycle
-            inner_kwargs["prefix"] = f"mc{macro:03d}_inner"
-            inner_kwargs["dump"] = self.dump
-
-            inner_opt = RFOptimizer(inner_geom, **inner_kwargs)
-            inner_opt.run()
-            inner_cycles = inner_opt.cur_cycle + 1
-            if self.dump:
-                _append_xyz_trajectory(
-                    self.optim_all_path,
-                    inner_opt.get_path_for_fn("optimization_trj.xyz"),
-                )
-
-            # Update main geometry with inner-optimized coords
-            self.geometry.coords = inner_geom.coords.copy()
-
-            self.micro_cycles.append((outer_cycles, inner_cycles))
-            self.echo(f"[MicroIter] Macrocycle {macro + 1}: outer={outer_cycles}, inner={inner_cycles}")
-
-            # Check convergence using inner optimizer's convergence
-            if inner_opt.is_converged:
-                self.is_converged = True
-                self.echo("\n[MicroIter] Converged!")
-                break
-
-        # Restore original freeze_atoms
-        base_calc.core.freeze_atoms = original_freeze
-
-        total_outer = sum(o for o, _ in self.micro_cycles)
-        total_inner = sum(i for _, i in self.micro_cycles)
-        self.echo(f"\n[MicroIter] Total cycles: outer={total_outer}, inner={total_inner}")
-        self.echo(f"[MicroIter] Macrocycles: {self.cur_cycle + 1}, converged={self.is_converged}")
-
-    @property
-    def final_fn(self) -> Path:
-        """Return final geometry path (compatible with standard optimizer interface)."""
-        return self.out_dir / "final_geometry.xyz"
-
-    def get_path_for_fn(self, fn: str) -> Path:
-        """Get path for output files (compatible interface)."""
-        return self.out_dir / fn
-
-
-class PartialHessianMicroIterationOptimizer:
-    """
-    Microiteration optimizer for partial-Hessian workflows:
-    1) Freeze Hessian-target atoms, optimize non-Hessian movable atoms (LBFGS).
-    2) Freeze non-Hessian movable atoms, optimize Hessian-target atoms (RFO).
-    3) Repeat outer->inner cycles until a fixed-point criterion is met or macrocycle limit.
-    """
-
-    def __init__(
-        self,
-        geometry,
-        hess_indices: List[int],
-        outer_indices: List[int],
-        outer_lbfgs_kwargs: Dict[str, Any],
-        inner_rfo_kwargs: Dict[str, Any],
-        max_macro_cycles: int = 100,
-        outer_max_cycles: int = 1500,
-        inner_max_cycles: Optional[int] = None,
-        macro_disp_thresh_bohr: float = 5e-4,
-        outer_thresh: str = "gau_loose",
-        echo_fn=None,
-        inner_opt_cls=RFOptimizer,
-        dump: bool = False,
-    ):
-        self.geometry = geometry
-        self.hess_indices = sorted({int(i) for i in hess_indices})
-        self.outer_indices = sorted({int(i) for i in outer_indices if i not in set(self.hess_indices)})
-        self.n_atoms = len(geometry.atoms)
-
-        self.outer_lbfgs_kwargs = dict(outer_lbfgs_kwargs)
-        self.inner_rfo_kwargs = dict(inner_rfo_kwargs)
-        self.max_macro_cycles = max_macro_cycles
-        self.outer_max_cycles = outer_max_cycles
-        self.inner_max_cycles = int(inner_max_cycles) if inner_max_cycles is not None else None
-        self.macro_disp_thresh_bohr = float(macro_disp_thresh_bohr)
-        self.outer_thresh = outer_thresh
-        self.echo = echo_fn or click.echo
-        self.inner_opt_cls = inner_opt_cls
-        self.dump = bool(dump)
-        self.out_dir = Path(self.inner_rfo_kwargs.get("out_dir", "./result_opt/"))
-        self.optim_all_path = self.out_dir / "optimization_all_trj.xyz"
-
-        self.is_converged = False
-        self.cur_cycle = 0
-        self.micro_cycles = []
-
-    def run(self) -> None:
-        from pysisyphus.Geometry import Geometry
-
-        geom_calc = self.geometry.calculator
-        base_calc = geom_calc.base if hasattr(geom_calc, "base") else geom_calc
-        if hasattr(base_calc, "freeze_atoms"):
-            original_freeze = list(base_calc.freeze_atoms or [])
-        elif hasattr(base_calc, "core"):
-            original_freeze = list(getattr(base_calc.core, "freeze_atoms", []) or [])
-        else:
-            original_freeze = []
-
-        self.echo("\n=== Partial-Hessian MicroIteration Optimization ===\n")
-        self.echo(f"Hessian-target atoms: {len(self.hess_indices)}")
-        self.echo(f"Non-Hessian movable atoms: {len(self.outer_indices)}")
-        resolved_inner_max_cycles = self.inner_max_cycles
-        if resolved_inner_max_cycles is None:
-            try:
-                resolved_inner_max_cycles = int(self.inner_rfo_kwargs.get("max_cycles", 1))
-            except Exception:
-                resolved_inner_max_cycles = 1
-        resolved_inner_max_cycles = max(1, int(resolved_inner_max_cycles))
-        self.echo(f"Inner RFO max_cycles per macro: {resolved_inner_max_cycles}")
-        self.echo(f"Macro fixed-point disp threshold: {self.macro_disp_thresh_bohr:.2e} bohr")
-        if self.dump and self.optim_all_path.exists():
-            self.optim_all_path.unlink()
-
-        for macro in range(self.max_macro_cycles):
-            self.cur_cycle = macro
-            self.echo(f"\n--- Macrocycle {macro + 1}/{self.max_macro_cycles} ---\n")
-            macro_start_coords = np.array(self.geometry.coords, copy=True)
-
-            outer_cycles = 0
-            inner_cycles = 0
-            outer_converged = not self.outer_indices
-
-            # Step 1: Optimize non-Hessian movable atoms (freeze Hessian-target atoms)
-            if self.outer_indices:
-                self.echo("[PartialMicroIter] Optimizing non-Hessian movable atoms (Hessian atoms frozen)...")
-                outer_freeze = sorted(set(self.hess_indices + original_freeze))
-                if hasattr(base_calc, "freeze_atoms"):
-                    base_calc.freeze_atoms = list(outer_freeze)
-                elif hasattr(base_calc, "core"):
-                    base_calc.core.freeze_atoms = list(outer_freeze)
-                    if hasattr(base_calc.core, "_update_active_dof_mappings"):
-                        base_calc.core._update_active_dof_mappings()
-
-                outer_geom = Geometry(
-                    atoms=self.geometry.atoms,
-                    coords=self.geometry.coords.copy(),
-                    coord_type="cart",
-                    freeze_atoms=outer_freeze,
-                )
-                outer_geom.set_calculator(self.geometry.calculator)
-
-                outer_kwargs = dict(self.outer_lbfgs_kwargs)
-                outer_kwargs["max_cycles"] = self.outer_max_cycles
-                outer_kwargs["thresh"] = self.outer_thresh
-                outer_kwargs["prefix"] = f"mc{macro:03d}_outer"
-                outer_kwargs["dump"] = self.dump
-
-                outer_opt = LBFGS(outer_geom, **outer_kwargs)
-                outer_opt.run()
-                outer_cycles = outer_opt.cur_cycle + 1
-                outer_converged = bool(getattr(outer_opt, "is_converged", False))
-                if self.dump:
-                    _append_xyz_trajectory(
-                        self.optim_all_path,
-                        outer_opt.get_path_for_fn("optimization_trj.xyz"),
-                    )
-
-                # Update main geometry
-                self.geometry.coords = outer_geom.coords.copy()
-
-            # Step 2: Optimize Hessian-target atoms (freeze non-Hessian movable atoms)
-            self.echo("[PartialMicroIter] Optimizing Hessian-target atoms (non-Hessian movable frozen)...")
-            inner_freeze = sorted(set(self.outer_indices + original_freeze))
-            if hasattr(base_calc, "freeze_atoms"):
-                base_calc.freeze_atoms = list(inner_freeze)
-            elif hasattr(base_calc, "core"):
-                base_calc.core.freeze_atoms = list(inner_freeze)
-                if hasattr(base_calc.core, "_update_active_dof_mappings"):
-                    base_calc.core._update_active_dof_mappings()
-
-            inner_geom = Geometry(
-                atoms=self.geometry.atoms,
-                coords=self.geometry.coords.copy(),
-                coord_type="cart",
-                freeze_atoms=inner_freeze,
-            )
-            inner_geom.set_calculator(self.geometry.calculator)
-
-            inner_kwargs = dict(self.inner_rfo_kwargs)
-            inner_kwargs["max_cycles"] = resolved_inner_max_cycles
-            inner_kwargs["prefix"] = f"mc{macro:03d}_inner"
-            inner_kwargs["dump"] = self.dump
-
-            inner_opt = self.inner_opt_cls(inner_geom, **inner_kwargs)
-            inner_opt.run()
-            inner_cycles = inner_opt.cur_cycle + 1
-            inner_converged = bool(getattr(inner_opt, "is_converged", False))
-            if self.dump:
-                _append_xyz_trajectory(
-                    self.optim_all_path,
-                    inner_opt.get_path_for_fn("optimization_trj.xyz"),
-                )
-
-            # Update main geometry
-            self.geometry.coords = inner_geom.coords.copy()
-            macro_disp = float(
-                np.max(np.abs(np.asarray(self.geometry.coords) - np.asarray(macro_start_coords)))
-            )
-            macro_fixed_point = macro_disp <= self.macro_disp_thresh_bohr
-
-            self.micro_cycles.append((outer_cycles, inner_cycles))
-            self.echo(
-                f"[PartialMicroIter] Macrocycle {macro + 1}: "
-                f"outer={outer_cycles} (conv={outer_converged}), "
-                f"inner={inner_cycles} (conv={inner_converged}), "
-                f"max|Δx|={macro_disp:.3e} bohr (fixed_point={macro_fixed_point})"
-            )
-
-            if outer_converged and inner_converged and macro_fixed_point:
-                self.is_converged = True
-                self.echo("\n[PartialMicroIter] Converged!")
-                break
-
-        # Restore original freeze_atoms
-        if hasattr(base_calc, "freeze_atoms"):
-            base_calc.freeze_atoms = list(original_freeze)
-        elif hasattr(base_calc, "core"):
-            base_calc.core.freeze_atoms = list(original_freeze)
-            if hasattr(base_calc.core, "_update_active_dof_mappings"):
-                base_calc.core._update_active_dof_mappings()
-
-        total_outer = sum(o for o, _ in self.micro_cycles)
-        total_inner = sum(i for _, i in self.micro_cycles)
-        self.echo(f"\n[PartialMicroIter] Total cycles: outer={total_outer}, inner={total_inner}")
-        self.echo(f"[PartialMicroIter] Macrocycles: {self.cur_cycle + 1}, converged={self.is_converged}")
-
-    @property
-    def final_fn(self) -> Path:
-        return self.out_dir / "final_geometry.xyz"
-
-    def get_path_for_fn(self, fn: str) -> Path:
-        return self.out_dir / fn
 
 
 class HarmonicBiasCalculator:
@@ -1078,14 +704,6 @@ def _maybe_convert_outputs_to_pdb(
     help="Optimizer mode: light (LBFGS) or heavy (RFO with Hessian).",
 )
 @click.option(
-    "--layer-opt/--no-layer-opt",
-    "layer_opt",
-    default=False,
-    show_default=True,
-    help="Enable LayerOpt-style microiteration (heavy mode only). "
-         "Alternates between outer (LBFGS) and inner (RFO) optimization.",
-)
-@click.option(
     "--config",
     "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -1129,7 +747,6 @@ def cli(
     out_dir: str,
     thresh: Optional[str],
     opt_mode: str,
-    layer_opt: bool,
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
@@ -1432,7 +1049,7 @@ def cli(
 
         mode_str = "LBFGS (light)"
         if use_rfo:
-            mode_str = "RFO (heavy)" if not layer_opt else "RFO + LayerOpt (heavy)"
+            mode_str = "RFO (heavy)"
         click.echo(f"\n[mode] Optimizer: {mode_str}\n")
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
         # Show only non-default calc settings for concise logging
@@ -1502,98 +1119,14 @@ def cli(
 
         common_kwargs = dict(opt_cfg)
         common_kwargs["out_dir"] = str(out_dir_path)
-        used_partial_micro = False
 
-        # Check layer_opt compatibility
-        if layer_opt and not use_rfo:
-            click.echo("WARNING: --layer-opt requires heavy mode. Ignoring --layer-opt.", err=True)
-            layer_opt = False
+        if use_rfo:
+            rfo_args = {**rfo_cfg, **common_kwargs}
+            optimizer = RFOptimizer(geometry, **rfo_args)
 
-        if layer_opt:
-            # LayerOpt mode: microiteration optimization
-            # Get ML region indices from calculator
-            ml_indices = list(base_calc.core.selection_indices)
-            if not ml_indices:
-                click.echo("ERROR: No ML region indices found for LayerOpt.", err=True)
-                sys.exit(1)
-
-            # Load LayerOpt defaults
-            layeropt_cfg = dict(LAYEROPT_KW)
-
-            # Prepare outer LBFGS kwargs
-            outer_lbfgs_kwargs = {**lbfgs_cfg, **common_kwargs}
-            outer_lbfgs_kwargs["thresh"] = layeropt_cfg.get("outer_thresh", "gau_loose")
-
-            # Prepare inner RFO kwargs
-            inner_rfo_kwargs = {**rfo_cfg, **common_kwargs}
-            inner_rfo_kwargs["thresh"] = opt_cfg.get("thresh", "gau")
-
-            click.echo(pretty_block("layeropt", layeropt_cfg))
-
-            optimizer = MicroIterationOptimizer(
-                geometry=geometry,
-                ml_indices=ml_indices,
-                outer_lbfgs_kwargs=outer_lbfgs_kwargs,
-                inner_rfo_kwargs=inner_rfo_kwargs,
-                max_macro_cycles=int(opt_cfg.get("max_cycles", 10000)),
-                outer_max_cycles=layeropt_cfg.get("outer_max_cycles", 1500),
-                outer_thresh=layeropt_cfg.get("outer_thresh", "gau_loose"),
-                echo_fn=click.echo,
-                dump=bool(opt_cfg["dump"]),
-            )
-
-            click.echo("\n=== LayerOpt Optimization started ===\n")
+            click.echo("\n=== Optimization started ===\n")
             optimizer.run()
-            click.echo("\n=== LayerOpt Optimization finished ===\n")
-
-            # Write final geometry
-            final_xyz_path = out_dir_path / "final_geometry.xyz"
-            final_xyz_path.write_text(geometry.as_xyz(), encoding="utf-8")
-        elif use_rfo:
-            # Use partial-Hessian microiterations when non-Hessian movable atoms exist.
-            calc_core = base_calc.core if hasattr(base_calc, "core") else base_calc
-            movable_mm_indices = list(getattr(calc_core, "movable_mm_indices", []) or [])
-            hess_active_atoms = list(getattr(calc_core, "hess_active_atoms", []) or [])
-            use_partial_micro = bool(movable_mm_indices) and bool(hess_active_atoms)
-
-            if use_partial_micro:
-                used_partial_micro = True
-                layeropt_cfg = dict(LAYEROPT_KW)
-                outer_lbfgs_kwargs = {**lbfgs_cfg, **common_kwargs}
-                inner_rfo_kwargs = {**rfo_cfg, **common_kwargs}
-                outer_max_cycles = int(layeropt_cfg.get("outer_max_cycles", 1500))
-                if "max_cycles" in opt_cfg:
-                    outer_max_cycles = min(outer_max_cycles, int(opt_cfg["max_cycles"]))
-
-                # Inner RFO operates on the active DOF block (Hessian-target atoms).
-                # Ensure the calculator returns partial Hessians to keep Hessian/step
-                # dimensions consistent inside RFOptimizer updates.
-                if hasattr(calc_core, "return_partial_hessian"):
-                    calc_core.return_partial_hessian = True
-
-                optimizer = PartialHessianMicroIterationOptimizer(
-                    geometry=geometry,
-                    hess_indices=hess_active_atoms,
-                    outer_indices=movable_mm_indices,
-                    outer_lbfgs_kwargs=outer_lbfgs_kwargs,
-                    inner_rfo_kwargs=inner_rfo_kwargs,
-                    max_macro_cycles=int(opt_cfg.get("max_cycles", 10000)),
-                    outer_max_cycles=outer_max_cycles,
-                    outer_thresh=layeropt_cfg.get("outer_thresh", "gau_loose"),
-                    echo_fn=click.echo,
-                    dump=bool(opt_cfg["dump"]),
-                )
-
-                click.echo("\n=== Partial-Hessian MicroIteration (RFO) started ===\n")
-                optimizer.run()
-                click.echo("\n=== Partial-Hessian MicroIteration (RFO) finished ===\n")
-            else:
-                rfo_args = {**rfo_cfg, **common_kwargs}
-                optimizer = RFOptimizer(geometry, **rfo_args)
-
-                click.echo("\n=== Optimization started ===\n")
-                optimizer.run()
-                click.echo("\n=== Optimization finished ===\n")
+            click.echo("\n=== Optimization finished ===\n")
         else:
             lbfgs_args = {**lbfgs_cfg, **common_kwargs}
             optimizer = LBFGS(geometry, **lbfgs_args)
@@ -1603,11 +1136,7 @@ def cli(
             click.echo("\n=== Optimization finished ===\n")
 
         # Get final geometry path
-        if layer_opt or used_partial_micro:
-            final_xyz_path = out_dir_path / "final_geometry.xyz"
-            final_xyz_path.write_text(geometry.as_xyz(), encoding="utf-8")
-        else:
-            final_xyz_path = optimizer.final_fn if isinstance(optimizer.final_fn, Path) else Path(optimizer.final_fn)
+        final_xyz_path = optimizer.final_fn if isinstance(optimizer.final_fn, Path) else Path(optimizer.final_fn)
 
         if bool(opt_cfg["dump"]):
             optim_all_path = out_dir_path / "optimization_all_trj.xyz"

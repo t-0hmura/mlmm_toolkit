@@ -374,18 +374,6 @@ RSIRFO_KW: Dict[str, Any] = {
 }
 
 # -----------------------------------------------
-# LayerOpt defaults for heavy mode
-# -----------------------------------------------
-
-LAYEROPT_KW: Dict[str, Any] = {
-    "outer_opt": "lbfgs",
-    "outer_thresh": "gau_loose",
-    "outer_max_cycles": 1500,
-    "model_opt": "rfo",
-    "model_thresh": "never",
-}
-
-# -----------------------------------------------
 # DFT single-point defaults
 # -----------------------------------------------
 

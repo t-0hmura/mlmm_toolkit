@@ -183,11 +183,6 @@ def main() -> int:
             expect_present=("optimization_all_trj.xyz",),
         ),
         Case(
-            name="opt_heavy_layeropt_dump",
-            args=["opt", *common, "--opt-mode", "heavy", "--layer-opt", "--dump"],
-            expect_present=("optimization_all_trj.xyz",),
-        ),
-        Case(
             name="tsopt_light_dump",
             args=["tsopt", *common, "--opt-mode", "light", "--dump"],
             expect_present=("optimization_all_trj.xyz",),

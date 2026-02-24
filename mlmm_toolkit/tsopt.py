@@ -51,7 +51,6 @@ from .defaults import (
     DIMER_KW,
     HESSIAN_DIMER_KW,
     RSIRFO_KW,
-    LAYEROPT_KW,
     TSOPT_MODE_ALIASES,
     BFACTOR_ML,
     BFACTOR_MOVABLE_MM,
@@ -60,7 +59,6 @@ from .defaults import (
 from .opt import (
     _parse_freeze_atoms as _parse_freeze_atoms_opt,
     _normalize_geom_freeze as _normalize_geom_freeze_opt,
-    PartialHessianMicroIterationOptimizer,
 )
 from .utils import (
     append_xyz_trajectory as _append_xyz_trajectory,
@@ -2240,46 +2238,12 @@ def cli(
             if thresh is not None:
                 rsirfo_args["thresh"] = str(thresh)
 
-            # If non-Hessian movable atoms exist, use partial-Hessian microiterations.
             calc_core = base_calc.core if hasattr(base_calc, "core") else base_calc
-            movable_mm_indices = list(getattr(calc_core, "movable_mm_indices", []))
             hess_active_atoms = list(getattr(calc_core, "hess_active_atoms", []))
-            use_partial_micro = bool(movable_mm_indices) and bool(hess_active_atoms)
-
-            if use_partial_micro:
-                layeropt_cfg = dict(LAYEROPT_KW)
-                outer_lbfgs_kwargs = {**lbfgs_cfg, **opt_cfg}
-                outer_lbfgs_kwargs["out_dir"] = str(out_dir_path)
-                outer_lbfgs_kwargs["thresh"] = layeropt_cfg.get("outer_thresh", "gau_loose")
-                outer_max_cycles = int(layeropt_cfg.get("outer_max_cycles", 1500))
-                outer_max_cycles = min(outer_max_cycles, int(opt_cfg.get("max_cycles", outer_max_cycles)))
-
-                optimizer = PartialHessianMicroIterationOptimizer(
-                    geometry=geometry,
-                    hess_indices=hess_active_atoms,
-                    outer_indices=movable_mm_indices,
-                    outer_lbfgs_kwargs=outer_lbfgs_kwargs,
-                    inner_rfo_kwargs=rsirfo_args,
-                    max_macro_cycles=int(opt_cfg.get("max_cycles", 10000)),
-                    outer_max_cycles=outer_max_cycles,
-                    outer_thresh=layeropt_cfg.get("outer_thresh", "gau_loose"),
-                    echo_fn=click.echo,
-                    inner_opt_cls=RSIRFOptimizer,
-                    dump=bool(opt_cfg["dump"]),
-                )
-
-                # Keep Hessian dimensionality consistent with inner RS-I-RFO active DOF.
-                if hasattr(calc_core, "return_partial_hessian"):
-                    calc_core.return_partial_hessian = True
-
-                click.echo("\n=== Partial-Hessian MicroIteration (RS-I-RFO) started ===\n")
-                optimizer.run()
-                click.echo("\n=== Partial-Hessian MicroIteration (RS-I-RFO) finished ===\n")
-            else:
-                optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
-                optimizer.run()
-                if bool(opt_cfg["dump"]):
-                    _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+            optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
+            optimizer.run()
+            if bool(opt_cfg["dump"]):
+                _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
             click.echo("\n=== TS optimization (RS-I-RFO heavy mode) finished ===\n")
 
@@ -2293,8 +2257,6 @@ def cli(
             _clear_cuda_cache()
             mlmm_kwargs_for_heavy = dict(calc_cfg)
             mlmm_kwargs_for_heavy["out_hess_torch"] = True
-            if use_partial_micro:
-                mlmm_kwargs_for_heavy["return_partial_hessian"] = True
             device = _torch_device(simple_cfg.get("device", calc_cfg.get("ml_device", "auto")))
 
             # Determine active atoms for frequency analysis based on --active-dof-mode.
@@ -2470,7 +2432,7 @@ def cli(
 
             # Ensure final_geometry.xyz exists (partial-micro path may not write it).
             final_xyz = out_dir_path / "final_geometry.xyz"
-            if use_partial_micro or not final_xyz.exists():
+            if not final_xyz.exists():
                 final_xyz.write_text(geometry.as_xyz(), encoding="utf-8")
 
         else:

@@ -24,7 +24,6 @@
 | [`hessian_dimer`](#hessian_dimer) | Hessian Dimer TS optimization | tsopt |
 | [`rsirfo`](#rsirfo) | RS-I-RFO TS optimization | tsopt |
 | [`sopt`](#sopt) | Single-structure optimizer for path-search | path-search |
-| [`layeropt`](#layeropt) | Layer-wise optimization settings | tsopt (heavy mode) |
 
 ---
 
@@ -381,21 +380,6 @@ rsirfo:
 
 ---
 
-### `layeropt`
-
-Layer-wise optimization settings for heavy mode TSOPT. Controls outer-loop optimization (full system) and inner-loop optimization (model/ML region).
-
-```yaml
-layeropt:
- outer_opt: lbfgs # Outer optimizer: "lbfgs" or "rfo"
- outer_thresh: gau_loose # Convergence threshold for outer loop
- outer_max_cycles: 1500 # Max cycles for outer optimization
- model_opt: rfo # Model region optimizer: "lbfgs" or "rfo"
- model_thresh: never # Convergence threshold for model optimization
-```
-
----
-
 ## IRC Section
 
 (irc-section)=
@@ -554,11 +538,6 @@ bond:
 search:
  max_depth: 10
  max_nodes_segment: 10
-
-layeropt:
- outer_opt: lbfgs
- outer_thresh: gau_loose
- model_opt: rfo
 
 freq:
  max_write: 10

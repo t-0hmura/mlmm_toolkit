@@ -23,7 +23,6 @@
 | [`hessian_dimer`](#hessian_dimer) | ヘシアン・ダイマーTS 最適化 | tsopt |
 | [`rsirfo`](#rsirfo) | RS-I-RFO TS 最適化 | tsopt |
 | [`sopt`](#sopt) | path-search用単一構造最適化 | path-search |
-| [`layeropt`](#layeropt) | 層別最適化設定 | opt, tsopt |
 
 ---
 
@@ -303,23 +302,6 @@ sopt:
 
 ---
 
-## layeropt セクション
-
-### `layeropt`
-
-Heavy モード（RFO ベース）の最適化で使用する層別最適化の設定。外側ループと ML 領域ループを分離して最適化を行います。
-
-```yaml
-layeropt:
- outer_opt: lbfgs # 外側ループのオプティマイザ: lbfgs, rfo
- outer_thresh: gau_loose # 外側ループの収束プリセット
- outer_max_cycles: 1500 # 外側ループの最大反復数
- model_opt: rfo # ML 領域ループのオプティマイザ: lbfgs, rfo
- model_thresh: never # ML 領域ループの収束プリセット (never = 外側で判定)
-```
-
----
-
 ## IRC セクション
 
 (ja-irc-section)=
@@ -446,13 +428,6 @@ opt:
  max_cycles: 300
  dump: false
  out_dir:./result_all/
-
-layeropt:
- outer_opt: lbfgs
- outer_thresh: gau_loose
- outer_max_cycles: 1500
- model_opt: rfo
- model_thresh: never
 
 bond:
  bond_factor: 1.2

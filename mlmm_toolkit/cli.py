@@ -67,7 +67,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--model-indices-one-based",
             "--detect-layer",
             "--one-based",
-            "--layer-opt",
             "--dump",
             "--show-config",
             "--dry-run",

@@ -71,10 +71,6 @@ Options:
   --opt-mode [light|heavy|lbfgs|rfo]
                                   Optimizer mode: light (LBFGS) or heavy (RFO
                                   with Hessian).  [default: light]
-  --layer-opt / --no-layer-opt    Enable LayerOpt-style microiteration (heavy
-                                  mode only). Alternates between outer (LBFGS)
-                                  and inner (RFO) optimization.  [default: no-
-                                  layer-opt]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config

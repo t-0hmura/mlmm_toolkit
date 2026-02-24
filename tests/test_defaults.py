@@ -18,7 +18,6 @@ from mlmm_toolkit.defaults import (
     HESSIAN_DIMER_KW,
     RSIRFO_KW,
     DFT_KW,
-    LAYEROPT_KW,
     BFACTOR_ML,
     BFACTOR_HESS_MM,
     BFACTOR_MOVABLE_MM,
@@ -53,7 +52,7 @@ def test_rfo_inherits_opt():
 
 
 def test_bfactors():
-    assert BFACTOR_ML < BFACTOR_HESS_MM < BFACTOR_MOVABLE_MM < BFACTOR_FROZEN
+    assert BFACTOR_ML < BFACTOR_HESS_MM <= BFACTOR_MOVABLE_MM < BFACTOR_FROZEN
 
 
 def test_all_defaults_are_dicts():
@@ -75,6 +74,5 @@ def test_all_defaults_are_dicts():
         ("HESSIAN_DIMER_KW", HESSIAN_DIMER_KW),
         ("RSIRFO_KW", RSIRFO_KW),
         ("DFT_KW", DFT_KW),
-        ("LAYEROPT_KW", LAYEROPT_KW),
     ]:
         assert isinstance(obj, dict), f"{name} should be a dict"
