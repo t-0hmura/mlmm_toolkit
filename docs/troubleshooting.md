@@ -75,7 +75,7 @@ Fixes to try:
 
 ### "Charge is required..." (non-GJF inputs)
 Calculation subcommands require explicit `-q/--charge`.
-Automatic charge derivation from `--ligand-charge` is handled in the `all` workflow via pocket extraction.
+In `all`, charge is resolved in order: `-q/--charge` override -> extraction summary -> `--ligand-charge` fallback when extraction is skipped.
 
 Fix:
 - Provide charge and multiplicity explicitly:

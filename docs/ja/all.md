@@ -95,6 +95,13 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
  - 抽出器は入力ごとのポケット PDB を `<out-dir>/pockets/` に書き出します。
  - 抽出器の**最初のモデルのポケット総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
  - 追加の抽出トグル: `--radius`、`--radius-het2het`、`--include-H2O/--no-include-H2O`、`--exclude-backbone/--no-exclude-backbone`、`--add-linkH/--no-add-linkH`、`--selected-resn`、`--verbose/--no-verbose`。
+ - `-c/--center` を省略した場合は抽出をスキップし、完全入力構造をそのまま使用します。
+
+### 電荷の解決順序
+1. `-q/--charge`（明示的な CLI 上書き）— 最優先。
+2. ポケット抽出の電荷サマリー（アミノ酸、イオン、`--ligand-charge` の合計）。
+3. 抽出スキップ時の `--ligand-charge` フォールバック。
+4. デフォルト: なし（未解決なら中断）。
 
 2. **ML/MM 準備**
  - 最初のポケットを `<out-dir>/ml_region.pdb` として `--model-pdb` に使用します。リンク水素をこの定義から除外したい場合は、抽出時に `--no-add-linkH`（デフォルト）を保持します。
@@ -128,8 +135,9 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH...` | 反応順の 2 つ以上の完全 PDB（`--scan-lists` または `--tsopt` の場合のみ単一入力可）。 | 必須 |
-| `-c, --center TEXT` | 基質指定（PDB パス、残基 ID、または残基名）。 | 抽出に必須 |
+| `-c, --center TEXT` | 基質指定（PDB パス、残基 ID、または残基名）。省略時は抽出をスキップ。 | _None_ |
 | `--ligand-charge TEXT` | 総電荷または残基別マッピング（例: `GPP:-3,MMT:-1`）。 | _None_ |
+| `-q, --charge INT` | 総電荷を強制指定（最優先の上書き）。 | _None_ |
 | `--out-dir PATH` | トップレベル出力ディレクトリ。 | `./result_all/` |
 | `--dump/--no-dump` | オプティマイザーダンプを保存。 | `False` |
 | `--config FILE` | 先に適用するベース YAML。 | _None_ |

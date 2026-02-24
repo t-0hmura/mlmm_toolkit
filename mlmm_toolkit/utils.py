@@ -1416,13 +1416,19 @@ def resolve_charge_spin_or_raise(
     spin: Optional[int],
     *,
     spin_default: int = 1,
-    charge_default: int = 0,
+    charge_default: Optional[int] = None,
 ) -> Tuple[int, int]:
-    """Resolve charge/spin from inputs with tool defaults as fallbacks.
+    """Resolve charge/spin from inputs.
 
     The ``prepared`` argument is accepted for API stability and is not used.
+    Charge defaults to unresolved; callers must provide an explicit value or
+    pass ``charge_default`` intentionally.
     """
     if charge is None:
+        if charge_default is None:
+            raise click.ClickException(
+                "Total charge is unresolved. Provide -q/--charge."
+            )
         charge = charge_default
     if spin is None:
         spin = spin_default

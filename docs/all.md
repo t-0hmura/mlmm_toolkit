@@ -97,6 +97,13 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
  - The extractor writes per-input pocket PDBs under `<out-dir>/pockets/`.
  - The extractor's **first-model total pocket charge** is used as the total charge in later steps, cast to the nearest integer with a console note if rounding occurs.
  - Additional extractor toggles: `--radius`, `--radius-het2het`, `--include-H2O/--no-include-H2O`, `--exclude-backbone/--no-exclude-backbone`, `--add-linkH/--no-add-linkH`, `--selected-resn`, `--verbose/--no-verbose`.
+ - If `-c/--center` is omitted, extraction is skipped and full input structures are used directly.
+
+### Charge resolution order
+1. `-q/--charge` (explicit CLI override) — highest priority.
+2. Pocket extraction charge summary (sum of amino acids, ions, and `--ligand-charge`).
+3. `--ligand-charge` fallback when extraction is skipped.
+4. Default: none (abort if unresolved).
 
 2. **ML/MM preparation**
  - Use the first pocket as `<out-dir>/ml_region.pdb` for `--model-pdb`. Keep `--no-add-linkH` (the default) during extraction if you prefer to omit link hydrogens from this definition.
@@ -129,8 +136,9 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH...` | Two or more full PDBs in reaction order (single input allowed with `--scan-lists` or `--tsopt`). | Required |
-| `-c, --center TEXT` | Substrate specification (PDB path, residue IDs, or residue names). | Required for extraction |
+| `-c, --center TEXT` | Substrate specification (PDB path, residue IDs, or residue names). Omit to skip extraction. | _None_ |
 | `--ligand-charge TEXT` | Total charge or residue-specific mapping (e.g., `GPP:-3,MMT:-1`). | _None_ |
+| `-q, --charge INT` | Force total system charge (highest priority override). | _None_ |
 | `--out-dir PATH` | Top-level output directory. | `./result_all/` |
 | `--dump/--no-dump` | Save optimizer dumps. | `False` |
 | `--config FILE` | Base YAML applied first. | _None_ |

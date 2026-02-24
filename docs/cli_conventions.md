@@ -130,10 +130,13 @@ When selecting by residue name, if multiple residues share the same name, **all*
 -q -1 # Force total system charge to -1
 ```
 
-### Required-vs-derived policy
-1. Calculation subcommands (`scan`, `scan2d`, `scan3d`, `opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`, `oniom-gaussian`, `oniom-orca`) require explicit `-q/--charge`.
-2. The `all` workflow derives its working charge from pocket extraction (`--ligand-charge` participates there).
-3. Use explicit `-q` whenever you need deterministic charge control in standalone stages.
+### Charge resolution order
+1. `-q/--charge` (explicit CLI override) — highest priority.
+2. Pocket extraction charge summary (sum of amino acids, ions, and `--ligand-charge`).
+3. `--ligand-charge` fallback when extraction is skipped.
+4. Default: none (abort if unresolved).
+
+Calculation subcommands (`scan`, `scan2d`, `scan3d`, `opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`, `oniom-gaussian`, `oniom-orca`) still require explicit `-q/--charge`.
 
 ```{tip}
 Always provide `--ligand-charge` for non-standard residues (substrates, cofactors, unusual ligands) to ensure correct charge propagation.

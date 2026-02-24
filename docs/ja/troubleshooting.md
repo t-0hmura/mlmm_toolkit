@@ -260,6 +260,8 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
  mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
  ```
 
+`all` では電荷は `-q/--charge` 上書き -> 抽出サマリー -> （抽出スキップ時）`--ligand-charge` フォールバック の順で解決されます。
+
 ---
 
 ## B-factor レイヤー割り当ての問題

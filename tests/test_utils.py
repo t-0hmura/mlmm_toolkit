@@ -211,6 +211,31 @@ def test_pretty_block_with_numpy_scalars():
     assert "ratio: 1.5" in output
 
 
+def test_resolve_charge_spin_or_raise_requires_charge():
+    """Charge remains unresolved by default and should raise."""
+    from mlmm_toolkit.utils import PreparedInputStructure, resolve_charge_spin_or_raise
+
+    prepared = PreparedInputStructure(
+        source_path=Path("dummy.pdb"),
+        geom_path=Path("dummy.pdb"),
+    )
+    with pytest.raises(Exception, match="Total charge is unresolved"):
+        resolve_charge_spin_or_raise(prepared, charge=None, spin=None)
+
+
+def test_resolve_charge_spin_or_raise_accepts_explicit_charge():
+    """Explicit charge with omitted spin should resolve using spin default."""
+    from mlmm_toolkit.utils import PreparedInputStructure, resolve_charge_spin_or_raise
+
+    prepared = PreparedInputStructure(
+        source_path=Path("dummy.pdb"),
+        geom_path=Path("dummy.pdb"),
+    )
+    charge, spin = resolve_charge_spin_or_raise(prepared, charge=-1, spin=None)
+    assert charge == -1
+    assert spin == 1
+
+
 def test_merge_freeze_atom_indices():
     """Test freeze atom index merging (requires geom_cfg dict)."""
     from mlmm_toolkit.utils import merge_freeze_atom_indices

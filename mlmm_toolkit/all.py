@@ -36,7 +36,7 @@ from pysisyphus.helpers import geom_loader
 from pysisyphus.constants import BOHR2ANG, AU2KCALPERMOL
 
 # Local imports from the package
-from .extract import extract_api
+from .extract import extract_api, compute_charge_summary, log_charge_summary
 from . import path_search as _path_search
 from . import tsopt as _ts_opt
 from . import freq as _freq_cli
@@ -511,6 +511,36 @@ def _round_charge_with_note(q: float) -> int:
     if abs(float(q) - q_rounded) > 1e-6:
         click.echo(f"[all] NOTE: extractor total charge = {q:g} → rounded to integer {q_rounded} for the path search.")
     return q_rounded
+
+
+def _derive_charge_from_ligand_charge_when_extract_skipped(
+    pdb_path: Path,
+    ligand_charge: Optional[str],
+) -> Optional[int]:
+    """Derive total charge from a full-complex PDB using extract-style charge summary."""
+    if ligand_charge is None:
+        return None
+    try:
+        parser = PDB.PDBParser(QUIET=True)
+        complex_struct = parser.get_structure("complex", str(pdb_path))
+        selected_ids = {res.get_full_id() for res in complex_struct.get_residues()}
+        summary = compute_charge_summary(complex_struct, selected_ids, set(), ligand_charge)
+        log_charge_summary("[all]", summary)
+        q_total = float(summary.get("total_charge", 0.0))
+        click.echo("[all] Charge summary from full complex (--ligand-charge without extraction):")
+        click.echo(
+            f"  Protein: {summary.get('protein_charge', 0.0):+g},  "
+            f"Ligand: {summary.get('ligand_total_charge', 0.0):+g},  "
+            f"Ions: {summary.get('ion_total_charge', 0.0):+g},  "
+            f"Total: {q_total:+g}"
+        )
+        return _round_charge_with_note(q_total)
+    except Exception as e:
+        click.echo(
+            f"[all] NOTE: failed to derive total charge from --ligand-charge: {e}",
+            err=True,
+        )
+        return None
 
 
 def _pdb_needs_elem_fix(p: Path) -> bool:
@@ -1139,6 +1169,8 @@ _ALL_PRIMARY_HELP_OPTIONS = frozenset(
         "-c",
         "--center",
         "--ligand-charge",
+        "-q",
+        "--charge",
         "--out-dir",
         "--tsopt",
         "--thermo",
@@ -1216,11 +1248,12 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option(
     "-c", "--center", "center_spec",
-    type=str, required=True,
+    type=str, required=False, default=None,
     help=("Substrate specification for the extractor: "
           "a PDB path, a residue-ID list like '123,124' or 'A:123,B:456' "
           "(insertion codes OK: '123A' / 'A:123A'), "
-          "or a residue-name list like 'GPP,MMT'.")
+          "or a residue-name list like 'GPP,MMT'. "
+          "When omitted, extraction is skipped and full structures are used directly.")
 )
 @click.option(
     "--out-dir", "out_dir",
@@ -1244,6 +1277,14 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--ligand-charge", type=str, default=None,
               help=("Either a total charge (number) to distribute across unknown residues "
                     "or a mapping like 'GPP:-3,MMT:-1'."))
+@click.option(
+    "-q",
+    "--charge",
+    "charge_override",
+    type=int,
+    default=None,
+    help="Force total system charge. Highest priority over derived charges.",
+)
 @click.option("--auto-mm-ff-set", "mm_ff_set",
               type=click.Choice(["ff19SB", "ff14SB"], case_sensitive=False),
               default="ff19SB", show_default=True,
@@ -1371,7 +1412,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 def cli(
     ctx: click.Context,
     input_paths: Sequence[Path],
-    center_spec: str,
+    center_spec: Optional[str],
     out_dir: Path,
     radius: float,
     radius_het2het: float,
@@ -1380,6 +1421,7 @@ def cli(
     add_linkh: bool,
     selected_resn: str,
     ligand_charge: Optional[str],
+    charge_override: Optional[int],
     mm_ff_set: str,
     mm_add_ter: bool,
     mm_keep_temp: bool,
@@ -1534,6 +1576,8 @@ def cli(
             "all": {
                 "inputs": [str(p) for p in input_paths],
                 "center": center_spec,
+                "charge_override": charge_override,
+                "skip_extract": bool(center_spec is None or str(center_spec).strip() == ""),
                 "out_dir": str(out_dir),
                 "spin": int(spin),
                 "max_nodes": int(max_nodes),
@@ -1577,7 +1621,6 @@ def cli(
     path_dir = out_dir / "path_search"
     scan_dir = _resolve_override_dir(out_dir / "scan", scan_out_dir)  # for single-structure scan mode
     ensure_dir(out_dir)
-    ensure_dir(pockets_dir)
     if not single_tsopt_mode:
         ensure_dir(path_dir)  # path_search might be skipped only in tsopt-only mode
 
@@ -1610,48 +1653,78 @@ def cli(
             inputs_for_extract.append(p.resolve())
 
     extract_inputs = tuple(inputs_for_extract)
+    skip_extract = center_spec is None or str(center_spec).strip() == ""
 
-    _echo_section("=== [all] Stage 1/3 — Active-site pocket extraction (multi-structure union when applicable) ===")
-
-    # Build per-structure pocket output file list (one per input full PDB for extraction)
+    resolved_charge: Optional[int] = None
     pocket_outputs: List[Path] = []
-    for p in extract_inputs:
-        pocket_outputs.append((pockets_dir / f"pocket_{p.stem}.pdb").resolve())
 
-    # Run extractor via its public API (multi-structure union mode)
-    try:
-        ex_res = extract_api(
-            complex_pdb=[str(p) for p in extract_inputs],
-            center=center_spec,
-            output=[str(p) for p in pocket_outputs],
-            radius=float(radius),
-            radius_het2het=float(radius_het2het),
-            include_H2O=bool(include_h2o),
-            exclude_backbone=bool(exclude_backbone),
-            add_linkH=bool(add_linkh),
-            selected_resn=selected_resn or "",
-            ligand_charge=ligand_charge,
-            verbose=bool(verbose),
+    if skip_extract:
+        _echo_section(
+            "=== [all] Stage 1/3 — Extraction skipped (no -c/--center); using full structures as pockets ==="
         )
-    except Exception as e:
-        raise click.ClickException(f"[all] Extractor failed: {e}")
+        pocket_outputs = [p.resolve() for p in extract_inputs]
+        _echo("[all] Pocket inputs (full structures):")
+        for op in pocket_outputs:
+            _echo(f"  - {op}")
+        resolved_charge = _derive_charge_from_ligand_charge_when_extract_skipped(
+            extract_inputs[0], ligand_charge
+        )
+    else:
+        _echo_section(
+            "=== [all] Stage 1/3 — Active-site pocket extraction (multi-structure union when applicable) ==="
+        )
+        ensure_dir(pockets_dir)
+        for p in extract_inputs:
+            pocket_outputs.append((pockets_dir / f"pocket_{p.stem}.pdb").resolve())
 
-    # Report extractor outputs and charge breakdown
-    _echo("[all] Pocket files:")
-    for op in pocket_outputs:
-        _echo(f"  - {op}")
+        try:
+            ex_res = extract_api(
+                complex_pdb=[str(p) for p in extract_inputs],
+                center=center_spec,
+                output=[str(p) for p in pocket_outputs],
+                radius=float(radius),
+                radius_het2het=float(radius_het2het),
+                include_H2O=bool(include_h2o),
+                exclude_backbone=bool(exclude_backbone),
+                add_linkH=bool(add_linkh),
+                selected_resn=selected_resn or "",
+                ligand_charge=ligand_charge,
+                verbose=bool(verbose),
+            )
+        except Exception as e:
+            raise click.ClickException(f"[all] Extractor failed: {e}")
 
-    try:
-        cs = ex_res.get("charge_summary", {})
-        q_total = float(cs.get("total_charge", 0.0))
-        q_prot = float(cs.get("protein_charge", 0.0))
-        q_lig = float(cs.get("ligand_total_charge", 0.0))
-        q_ion = float(cs.get("ion_total_charge", 0.0))
-        _echo("\n[all] Charge summary from extractor (model #1):")
-        _echo(f"  Protein: {q_prot:+g},  Ligand: {q_lig:+g},  Ions: {q_ion:+g},  Total: {q_total:+g}")
-        q_int = _round_charge_with_note(q_total)
-    except Exception as e:
-        raise click.ClickException(f"[all] Could not obtain total charge from extractor: {e}")
+        _echo("[all] Pocket files:")
+        for op in pocket_outputs:
+            _echo(f"  - {op}")
+
+        try:
+            cs = ex_res.get("charge_summary", {})
+            q_total = float(cs.get("total_charge", 0.0))
+            q_prot = float(cs.get("protein_charge", 0.0))
+            q_lig = float(cs.get("ligand_total_charge", 0.0))
+            q_ion = float(cs.get("ion_total_charge", 0.0))
+            _echo("\n[all] Charge summary from extractor (model #1):")
+            _echo(
+                f"  Protein: {q_prot:+g},  Ligand: {q_lig:+g},  Ions: {q_ion:+g},  Total: {q_total:+g}"
+            )
+            resolved_charge = _round_charge_with_note(q_total)
+        except Exception as e:
+            raise click.ClickException(f"[all] Could not obtain total charge from extractor: {e}")
+
+    if charge_override is not None:
+        q_int = int(charge_override)
+        override_msg = f"[all] WARNING: -q/--charge override supplied; forcing TOTAL system charge to {q_int:+d}"
+        if resolved_charge is not None:
+            override_msg += f" (would otherwise use {int(resolved_charge):+d} from workflow)"
+        _echo(override_msg)
+    else:
+        if resolved_charge is None:
+            raise click.ClickException(
+                "[all] Total charge could not be resolved. Provide -q/--charge, "
+                "or provide --ligand-charge when extraction is skipped."
+            )
+        q_int = int(resolved_charge)
 
     # --------------------------
     # Stage 1b: ML-region definition (copy first pocket) and mm_parm on the first full input

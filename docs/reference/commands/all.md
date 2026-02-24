@@ -23,7 +23,8 @@ Options:
                                   PDB path, a residue-ID list like '123,124' or
                                   'A:123,B:456' (insertion codes OK: '123A' /
                                   'A:123A'), or a residue-name list like
-                                  'GPP,MMT'.  [required]
+                                  'GPP,MMT'. When omitted, extraction is skipped
+                                  and full structures are used directly.
   --out-dir DIRECTORY             Top-level output directory for the pipeline.
                                   [default: result_all]
   -r, --radius FLOAT              Inclusion cutoff (Å) around substrate atoms.
@@ -43,6 +44,8 @@ Options:
   --ligand-charge TEXT            Either a total charge (number) to distribute
                                   across unknown residues or a mapping like
                                   'GPP:-3,MMT:-1'.
+  -q, --charge INTEGER            Force total system charge. Highest priority
+                                  over derived charges.
   --auto-mm-ff-set [ff19sb|ff14sb]
                                   Force-field set forwarded to mm_parm (ff19SB
                                   uses OPC3; ff14SB uses TIP3P).  [default:

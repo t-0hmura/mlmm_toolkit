@@ -100,10 +100,13 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 -q -1 # ML 領域の総電荷を -1 に強制
 ```
 
-### 必須指定と自動導出の方針
-1. 計算系サブコマンド（`scan` / `scan2d` / `scan3d` / `opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft` / `oniom-gaussian` / `oniom-orca`）では `-q/--charge` を必須指定します。
-2. `all` ワークフローでは、ポケット抽出で得られた電荷（`--ligand-charge` を含む）を内部利用します。
-3. 個別ステージを直接実行する場合は、再現性のため `-q` を常に明示してください。
+### 電荷の解決順序
+1. `-q/--charge`（明示的な CLI 上書き）— 最優先。
+2. ポケット抽出の電荷サマリー（アミノ酸、イオン、`--ligand-charge` の合計）。
+3. 抽出をスキップした場合の `--ligand-charge` フォールバック。
+4. デフォルト: なし（未解決なら中断）。
+
+計算系サブコマンド（`scan` / `scan2d` / `scan3d` / `opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft` / `oniom-gaussian` / `oniom-orca`）では、引き続き `-q/--charge` の明示指定が必要です。
 
 ```{tip}
 非標準の残基（基質、補因子、特殊なリガンド）には必ず `--ligand-charge` を指定し、正しい電荷伝播を確保してください。
