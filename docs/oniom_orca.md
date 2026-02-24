@@ -77,10 +77,10 @@ Workflow:
 | `--model-pdb PATH` | PDB file defining QM region atoms. | _None_ |
 | `-o, --output PATH` | Output ORCA input file (`.inp`). | Required |
 | `--method TEXT` | QM method and basis set. | `B3LYP D3BJ def2-SVP` |
-| `-q, --charge INT` | Charge of QM region. | `0` |
-| `-m, --mult INT` | Multiplicity of QM region. | `1` |
+| `-q, --charge INT` | Charge of QM region. | Required |
+| `-m, --multiplicity INT` | Multiplicity of QM region. | `1` |
 | `--total-charge INT` | Total charge of full QM+MM system (`Charge_Total`). | topology-derived |
-| `--total-mult INT` | Total multiplicity of full QM+MM system (`Mult_Total`). | same as `--mult` |
+| `--total-mult INT` | Total multiplicity of full QM+MM system (`Mult_Total`). | same as `--multiplicity` |
 | `--nproc INT` | Number of processors. | `8` |
 | `--near FLOAT` | Distance cutoff used to define ActiveAtoms when layer tags are absent. | `6.0` |
 | `--orcaff PATH` | Path to ORCAFF.prms. | auto |

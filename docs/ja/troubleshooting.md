@@ -248,13 +248,13 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 ### 「電荷が必須」系のエラー
 
 対処:
-- 電荷を明示する:
+- 計算系サブコマンドでは `-q/--charge` を必ず明示する:
 
  ```bash
  mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0
  ```
 
-- あるいは（抽出ありの場合）残基名ごとの電荷マッピングを与える:
+- あるいは、抽出経由で自動導出させるため `all` を使い、残基名ごとの電荷マッピングを与える:
 
  ```bash
  mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'

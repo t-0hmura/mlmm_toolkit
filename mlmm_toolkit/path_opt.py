@@ -628,9 +628,8 @@ def _run_dmf_mep(
     "-q",
     "--charge",
     type=int,
-    default=None,
-    show_default=False,
-    help="Total charge (defaults to 0 when omitted).",
+    required=True,
+    help="Total charge.",
 )
 @click.option(
     "-m",

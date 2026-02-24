@@ -83,7 +83,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 | `-i, --input PATH...` | 反応順の 2 つ以上の完全酵素 PDB。`-i` を繰り返すか、1 つのフラグの後に複数パスを渡す。 | 必須 |
 | `--real-parm7 PATH` | 完全酵素複合体の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML/MM の ML（高レベル）領域原子を定義する PDB。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
-| `-q, --charge INT` | ML 領域の電荷（整数）。省略時は `0`（YAML で上書き可）。 | `0` |
+| `-q, --charge INT` | ML 領域の電荷（整数）。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `10` |

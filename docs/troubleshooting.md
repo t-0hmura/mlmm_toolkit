@@ -74,7 +74,8 @@ Fixes to try:
 ## Charge / spin problems
 
 ### "Charge is required..." (non-GJF inputs)
-Many stages need a total charge when the input is not `.gjf`. If you omit `-q/--charge`, the workflow may attempt to derive charge from `--ligand-charge` (PDB-only) or from a `.gjf` template.
+Calculation subcommands require explicit `-q/--charge`.
+Automatic charge derivation from `--ligand-charge` is handled in the `all` workflow via pocket extraction.
 
 Fix:
 - Provide charge and multiplicity explicitly:
@@ -84,6 +85,7 @@ Fix:
  ```
 
 - Or (when using extraction) provide a residue-name mapping:
+  then run through `all`:
 
  ```bash
  mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'

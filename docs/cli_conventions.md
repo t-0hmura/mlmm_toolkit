@@ -7,15 +7,19 @@ This page documents the conventions used across all `mlmm` commands. Understandi
 ## Boolean Options
 
 Boolean options are normalized at the root CLI.
-Use toggle style by default:
+Both notations are accepted:
 
 ```bash
 # Recommended
 --tsopt --thermo --no-dft
 
+# Also accepted
 --tsopt True --thermo yes --dft 0
 ```
 
+For options that are defined only as `--flag`, the root CLI also accepts `--no-flag` and `--flag False` as compatibility aliases.
+`extract` and `fix-altloc` are parser-wrapper subcommands (argparse backend), but the same bool normalization still applies at the root CLI.
+For these parser wrappers, root normalization keeps the existing hand-maintained bool option map as a fallback because option details are parsed downstream by argparse, not by Click option metadata.
 
 Common boolean options:
 - `--tsopt`, `--thermo`, `--dft` -- enable post-processing stages
@@ -126,16 +130,10 @@ When selecting by residue name, if multiple residues share the same name, **all*
 -q -1 # Force total system charge to -1
 ```
 
-### Charge resolution order
-1. `-q/--charge` (explicit CLI override) -- highest priority
-2. Pocket extraction (sums amino acids, ions, `--ligand-charge`)
-3. `--ligand-charge` as fallback (when extraction skipped)
-4. `.gjf` template metadata
-5. Default: none (unresolved charge aborts; provide `-q` or `.gjf` charge metadata, or use PDB `--ligand-charge`)
-
-```{note}
-`--ligand-charge` derivation is only applied for PDB inputs (including XYZ/GJF inputs when `--ref-pdb` is supplied) and only when charge is **not yet resolved**. If a `.gjf` template already provides a charge value before `--ligand-charge` is evaluated, the template charge takes precedence and `--ligand-charge` will not override it.
-```
+### Required-vs-derived policy
+1. Calculation subcommands (`scan`, `scan2d`, `scan3d`, `opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`, `oniom-gaussian`, `oniom-orca`) require explicit `-q/--charge`.
+2. The `all` workflow derives its working charge from pocket extraction (`--ligand-charge` participates there).
+3. Use explicit `-q` whenever you need deterministic charge control in standalone stages.
 
 ```{tip}
 Always provide `--ligand-charge` for non-standard residues (substrates, cofactors, unusual ligands) to ensure correct charge propagation.

@@ -40,7 +40,7 @@ using Meta's **UMA** machine-learning interatomic potential for the ML region an
 > **Important (prerequisites):**
 > - Input PDB files must already contain **hydrogen atoms**.
 > - When providing multiple PDBs, they must contain **the same atoms in the same order** (only coordinates may differ).
-> - Boolean CLI options are toggle-style: use `--flag` / `--no-flag` (e.g., `--tsopt`, `--no-dft`).
+> - Boolean CLI options accept both `--flag` / `--no-flag` and value style `--flag True/False` (`yes/no`, `1/0` are also accepted). Prefer toggle style in new scripts.
 > - A **parm7 topology** file (AmberTools) is required for MM calculations; use `mlmm mm-parm` to generate one.
 
 ## Key difference from pdb2reaction

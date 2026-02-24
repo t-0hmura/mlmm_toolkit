@@ -7,15 +7,19 @@
 ## ブール値オプション
 
 ブール値オプションは root CLI で正規化されます。
-基本は toggle 形式（`--flag/--no-flag`）を使ってください。
+次の2記法を受け付けます。
 
 ```bash
 # 推奨
 --tsopt --thermo --no-dft
 
+# 互換記法として受理
 --tsopt True --thermo yes --dft 0
 ```
 
+`--flag` 単独で定義されているオプションでも、互換のため `--no-flag` と `--flag False` を受理します。
+`extract` と `fix-altloc` は parser wrapper（argparse バックエンド）ですが、root CLI で同じ bool 正規化が適用されます。
+これらの parser wrapper では、オプション実体を Click ではなく argparse 側で解釈するため、root 側の bool 正規化は既存の手書き bool オプションマップをフォールバックとして維持します。
 
 よく使うブール値オプション:
 - `--tsopt`, `--thermo`, `--dft` -- 後処理ステージの有効化
@@ -96,12 +100,10 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 -q -1 # ML 領域の総電荷を -1 に強制
 ```
 
-### 電荷の解決順序
-1. `-q/--charge`（明示的な CLI 上書き）-- 最優先
-2. ポケット抽出（アミノ酸、イオン、`--ligand-charge` の合計）
-3. フォールバックとしての `--ligand-charge`（抽出がスキップされた場合）
-4. `.gjf` テンプレートのメタデータ
-5. デフォルト: なし（未解決なら中断）
+### 必須指定と自動導出の方針
+1. 計算系サブコマンド（`scan` / `scan2d` / `scan3d` / `opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft` / `oniom-gaussian` / `oniom-orca`）では `-q/--charge` を必須指定します。
+2. `all` ワークフローでは、ポケット抽出で得られた電荷（`--ligand-charge` を含む）を内部利用します。
+3. 個別ステージを直接実行する場合は、再現性のため `-q` を常に明示してください。
 
 ```{tip}
 非標準の残基（基質、補因子、特殊なリガンド）には必ず `--ligand-charge` を指定し、正しい電荷伝播を確保してください。

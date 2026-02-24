@@ -32,8 +32,7 @@ Options:
                                   (B=0/10/20). If disabled, you must provide
                                   --model-pdb or --model-indices.  [default:
                                   detect-layer]
-  -q, --charge INTEGER            Total system charge (defaults to 0 when
-                                  omitted).
+  -q, --charge INTEGER            Total system charge.  [required]
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1). Defaults to 1 when
                                   omitted.
   --mep-mode [gsm|dmf]            MEP method: gsm (GrowingString) or dmf (Direct

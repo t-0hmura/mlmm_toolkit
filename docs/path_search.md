@@ -83,7 +83,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 | `-i, --input PATH...` | Two or more full-enzyme PDBs in reaction order. Repeat `-i` or pass multiple paths after one flag. | Required |
 | `--real-parm7 PATH` | Amber parm7 topology for the full enzyme complex. | Required |
 | `--model-pdb PATH` | PDB defining the ML (high-level) region atoms for ML/MM. Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
-| `-q, --charge INT` | Charge of the ML region (integer). Defaults to `0` when omitted (YAML may override). | `0` |
+| `-q, --charge INT` | Charge of the ML region (integer). | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--max-nodes INT` | Internal nodes for segment GSM. | `10` |

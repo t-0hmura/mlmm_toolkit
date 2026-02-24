@@ -77,10 +77,10 @@ mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
 | `--model-pdb PATH` | QM 領域原子を定義する PDB。 | _None_ |
 | `-o, --output PATH` | 出力 ORCA 入力（`.inp`）。 | 必須 |
 | `--method TEXT` | QM メソッド/基底。 | `B3LYP D3BJ def2-SVP` |
-| `-q, --charge INT` | QM 領域電荷。 | `0` |
-| `-m, --mult INT` | QM 領域多重度。 | `1` |
+| `-q, --charge INT` | QM 領域電荷。 | 必須 |
+| `-m, --multiplicity INT` | QM 領域多重度。 | `1` |
 | `--total-charge INT` | 全 QM+MM 系の総電荷（`Charge_Total`）。 | トポロジ由来 |
-| `--total-mult INT` | 全 QM+MM 系の総多重度（`Mult_Total`）。 | `--mult` と同じ |
+| `--total-mult INT` | 全 QM+MM 系の総多重度（`Mult_Total`）。 | `--multiplicity` と同じ |
 | `--nproc INT` | 使用コア数。 | `8` |
 | `--near FLOAT` | ActiveAtoms 判定カットオフ（層タグなし時）。 | `6.0` |
 | `--orcaff PATH` | ORCAFF.prms のパス。 | 自動 |

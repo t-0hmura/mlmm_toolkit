@@ -10,10 +10,17 @@ import click
 LazySubcommands = Mapping[str, tuple[str, str, str]]
 BoolOptionsByCommand = Mapping[str, frozenset[str]]
 BoolNegativeAliasesByCommand = Mapping[str, Mapping[str, str]]
+BoolSingleFlagOptionsByCommand = Mapping[str, frozenset[str]]
 PrimaryHelpOptionsByCommand = Mapping[str, frozenset[str]]
 
 NormalizeBoolArgvFunc = Callable[
-    [list[str], BoolOptionsByCommand, BoolOptionsByCommand, BoolNegativeAliasesByCommand],
+    [
+        list[str],
+        BoolOptionsByCommand,
+        BoolOptionsByCommand,
+        BoolNegativeAliasesByCommand,
+        BoolSingleFlagOptionsByCommand,
+    ],
     tuple[list[str], bool],
 ]
 EnsureHelpAdvancedOptionFunc = Callable[[click.Command], click.Command]
@@ -58,6 +65,7 @@ class DefaultGroup(click.Group):
         command_bool_value_options: BoolOptionsByCommand | None = None,
         command_bool_toggle_options: BoolOptionsByCommand | None = None,
         command_bool_toggle_negative_aliases: BoolNegativeAliasesByCommand | None = None,
+        command_bool_single_flag_options: BoolSingleFlagOptionsByCommand | None = None,
         parser_wrapper_subcommands: frozenset[str] | None = None,
         subcommand_primary_help_options: PrimaryHelpOptionsByCommand | None = None,
         normalize_bool_argv: NormalizeBoolArgvFunc | None = None,
@@ -82,12 +90,80 @@ class DefaultGroup(click.Group):
         self._command_bool_toggle_negative_aliases = dict(
             command_bool_toggle_negative_aliases or {}
         )
+        self._command_bool_single_flag_options = dict(command_bool_single_flag_options or {})
+        self._resolved_bool_options_by_command: dict[
+            str, tuple[frozenset[str], frozenset[str], dict[str, str], frozenset[str]]
+        ] = {}
         self._parser_wrapper_subcommands = set(parser_wrapper_subcommands or set())
         self._subcommand_primary_help_options = dict(subcommand_primary_help_options or {})
         self._normalize_bool_argv = normalize_bool_argv
         self._ensure_help_advanced_option = ensure_help_advanced_option
         self._configure_subcommand_help_visibility = configure_subcommand_help_visibility
         self._build_unavailable_command = build_unavailable_command
+
+    @staticmethod
+    def _long_option_names(option_names: list[str]) -> tuple[str, ...]:
+        return tuple(name for name in option_names if name.startswith("--"))
+
+    def _resolve_bool_options(
+        self, ctx: click.Context, command_name: str
+    ) -> tuple[frozenset[str], frozenset[str], dict[str, str], frozenset[str]]:
+        cached = self._resolved_bool_options_by_command.get(command_name)
+        if cached is not None:
+            return cached
+
+        bool_value_options = set(
+            self._command_bool_value_options.get(command_name, frozenset())
+        )
+        bool_toggle_options = set(
+            self._command_bool_toggle_options.get(command_name, frozenset())
+        )
+        bool_toggle_negative_aliases = dict(
+            self._command_bool_toggle_negative_aliases.get(command_name, {})
+        )
+        bool_single_flag_options = set(
+            self._command_bool_single_flag_options.get(command_name, frozenset())
+        )
+
+        command = self.get_command(ctx, command_name)
+        if command is not None:
+            for param in command.params:
+                if not isinstance(param, click.Option):
+                    continue
+
+                positive_long_names = self._long_option_names(param.opts)
+                if not positive_long_names:
+                    continue
+
+                negative_long_names = self._long_option_names(param.secondary_opts)
+                if param.is_bool_flag:
+                    if negative_long_names:
+                        bool_toggle_options.update(positive_long_names)
+                        first_negative = negative_long_names[0]
+                        for index, positive_name in enumerate(positive_long_names):
+                            negative_name = (
+                                negative_long_names[index]
+                                if index < len(negative_long_names)
+                                else first_negative
+                            )
+                            bool_toggle_negative_aliases.setdefault(
+                                positive_name, negative_name
+                            )
+                    else:
+                        bool_single_flag_options.update(positive_long_names)
+                    continue
+
+                if isinstance(param.type, click.types.BoolParamType):
+                    bool_value_options.update(positive_long_names)
+
+        resolved = (
+            frozenset(bool_value_options),
+            frozenset(bool_toggle_options),
+            bool_toggle_negative_aliases,
+            frozenset(bool_single_flag_options),
+        )
+        self._resolved_bool_options_by_command[command_name] = resolved
+        return resolved
 
     def parse_args(self, ctx, args):
         show_help_or_version = any(a in ("-h", "--help", "--version") for a in args)
@@ -96,11 +172,31 @@ class DefaultGroup(click.Group):
             if not args or args[0].startswith("-"):
                 args.insert(0, self._default_cmd)
 
+        bool_value_options = self._command_bool_value_options
+        bool_toggle_options = self._command_bool_toggle_options
+        bool_toggle_negative_aliases = self._command_bool_toggle_negative_aliases
+        bool_single_flag_options = self._command_bool_single_flag_options
+        if args and not args[0].startswith("-"):
+            command_name = args[0]
+            (
+                command_bool_value_options,
+                command_bool_toggle_options,
+                command_toggle_negative_aliases,
+                command_bool_single_flag_options,
+            ) = self._resolve_bool_options(ctx, command_name)
+            bool_value_options = {command_name: command_bool_value_options}
+            bool_toggle_options = {command_name: command_bool_toggle_options}
+            bool_toggle_negative_aliases = {
+                command_name: command_toggle_negative_aliases
+            }
+            bool_single_flag_options = {command_name: command_bool_single_flag_options}
+
         args, used_legacy_bool = self._normalize_bool_argv(
             args,
-            self._command_bool_value_options,
-            self._command_bool_toggle_options,
-            self._command_bool_toggle_negative_aliases,
+            bool_value_options,
+            bool_toggle_options,
+            bool_toggle_negative_aliases,
+            bool_single_flag_options,
         )
         if used_legacy_bool:
             click.echo(

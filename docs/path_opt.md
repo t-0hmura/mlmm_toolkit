@@ -92,7 +92,7 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 | `-i, --input PATH PATH` | Reactant and product PDB structures. | Required |
 | `--real-parm7 PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
-| `-q, --charge INT` | Total ML-region charge. Defaults to `0` when omitted (YAML may override). | `0` |
+| `-q, --charge INT` | Total ML-region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (converted to 0-based; merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `10` |

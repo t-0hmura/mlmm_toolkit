@@ -992,7 +992,7 @@ def _maybe_convert_outputs_to_pdb(
     help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
-@click.option("-q", "--charge", type=int, default=None, show_default=False, help="ML region charge.")
+@click.option("-q", "--charge", type=int, required=True, help="ML region charge.")
 @click.option(
     "-m",
     "--multiplicity",

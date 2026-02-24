@@ -90,8 +90,8 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors. | `True` |
-| `-q, --charge INT` | Total charge of the ML region. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | _None_ |
+| `-q, --charge INT` | Total charge of the ML region. | Required |
+| `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |

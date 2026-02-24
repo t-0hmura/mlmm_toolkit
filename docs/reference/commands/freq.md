@@ -28,7 +28,7 @@ Options:
                                   (B=0/10/20). If disabled, you must provide
                                   --model-pdb or --model-indices.  [default:
                                   detect-layer]
-  -q, --charge INTEGER            ML region charge.
+  -q, --charge INTEGER            ML region charge.  [required]
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
                                   Defaults to 1 when omitted.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze

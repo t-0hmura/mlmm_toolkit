@@ -1766,8 +1766,7 @@ hessian_dimer_KW = {
     "-q",
     "--charge",
     type=int,
-    default=None,
-    show_default=False,
+    required=True,
     help="Total charge of the ML region.",
 )
 @click.option(

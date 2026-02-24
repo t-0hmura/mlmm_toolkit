@@ -215,7 +215,7 @@ def _write_output_summary_md(out_dir: Path) -> None:
     help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
-@click.option("-q", "--charge", type=int, default=None, show_default=False, help="Total charge; overrides calc.charge from YAML.")
+@click.option("-q", "--charge", type=int, required=True, help="Total charge; overrides calc.charge from YAML.")
 @click.option(
     "-m",
     "--multiplicity",

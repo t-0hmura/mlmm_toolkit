@@ -12,7 +12,7 @@ Options:
                                   and exit.
   -i, --input FILE...             Two endpoint structures (reactant/product);
                                   both must be full-enzyme PDBs.  [required]
-  -q, --charge INTEGER            Total charge (defaults to 0 when omitted).
+  -q, --charge INTEGER            Total charge.  [required]
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1). Defaults to 1 when
                                   omitted.
   --mep-mode [gsm|dmf]            MEP optimizer: Growing String Method (gsm) or

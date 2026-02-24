@@ -9,6 +9,7 @@ from mlmm_toolkit.advanced_help import (
     _configure_subcommand_help_visibility,
     _ensure_help_advanced_option,
 )
+from mlmm_toolkit.bool_compat import normalize_bool_argv as _normalize_bool_argv_impl
 from mlmm_toolkit.default_group import DefaultGroup
 
 
@@ -122,3 +123,60 @@ def test_lazy_import_failure_is_reported_as_click_exception() -> None:
     assert result.exit_code != 0
     assert "Command 'broken' is unavailable because the module could not be imported." in result.output
     assert "Missing dependency:" in result.output
+
+
+def test_bool_toggle_accepts_value_style_syntax_via_auto_detection() -> None:
+    cli = _make_group(normalize_bool_argv=_normalize_bool_argv_impl)
+
+    @cli.command(name="scan")
+    @click.option("--detect-layer/--no-detect-layer", default=True)
+    def scan_cmd(detect_layer: bool) -> None:
+        click.echo(f"detect_layer={detect_layer}")
+
+    runner = CliRunner()
+    result_false = runner.invoke(cli, ["scan", "--detect-layer", "False"])
+    assert result_false.exit_code == 0
+    assert "detect_layer=False" in result_false.output
+    assert "Legacy bool syntax '--flag True/False'" in result_false.output
+
+    result_no = runner.invoke(cli, ["scan", "--no-detect-layer"])
+    assert result_no.exit_code == 0
+    assert "detect_layer=False" in result_no.output
+
+
+def test_single_flag_accepts_no_prefix_and_value_style_syntax() -> None:
+    cli = _make_group(normalize_bool_argv=_normalize_bool_argv_impl)
+
+    @cli.command(name="add-elem-info")
+    @click.option("--overwrite", is_flag=True, default=False)
+    def add_elem_info_cmd(overwrite: bool) -> None:
+        click.echo(f"overwrite={overwrite}")
+
+    runner = CliRunner()
+    result_value_false = runner.invoke(cli, ["add-elem-info", "--overwrite", "False"])
+    assert result_value_false.exit_code == 0
+    assert "overwrite=False" in result_value_false.output
+    assert "Legacy bool syntax '--flag True/False'" in result_value_false.output
+
+    result_no = runner.invoke(cli, ["add-elem-info", "--no-overwrite"])
+    assert result_no.exit_code == 0
+    assert "overwrite=False" in result_no.output
+
+
+def test_toggle_with_non_no_negative_alias_accepts_no_prefix_and_values() -> None:
+    cli = _make_group(normalize_bool_argv=_normalize_bool_argv_impl)
+
+    @cli.command(name="define-layer")
+    @click.option("--one-based/--zero-based", default=True)
+    def define_layer_cmd(one_based: bool) -> None:
+        click.echo(f"one_based={one_based}")
+
+    runner = CliRunner()
+    result_false = runner.invoke(cli, ["define-layer", "--one-based", "False"])
+    assert result_false.exit_code == 0
+    assert "one_based=False" in result_false.output
+    assert "Legacy bool syntax '--flag True/False'" in result_false.output
+
+    result_no = runner.invoke(cli, ["define-layer", "--no-one-based"])
+    assert result_no.exit_code == 0
+    assert "one_based=False" in result_no.output

@@ -393,7 +393,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "-q",
             "--charge",
             "-m",
-            "--mult",
+            "--multiplicity",
             "--help-advanced",
         }
     ),
@@ -409,7 +409,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "-q",
             "--charge",
             "-m",
-            "--mult",
+            "--multiplicity",
             "--total-charge",
             "--total-mult",
             "--help-advanced",

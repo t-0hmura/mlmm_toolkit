@@ -1587,9 +1587,8 @@ def _merge_final_and_write(final_images: List[Any],
     "-q",
     "--charge",
     type=int,
-    default=None,
-    show_default=False,
-    help="Total system charge (defaults to 0 when omitted).",
+    required=True,
+    help="Total system charge.",
 )
 @click.option(
     "-m",

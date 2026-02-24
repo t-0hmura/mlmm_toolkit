@@ -76,8 +76,8 @@ Workflow:
 | `--model-pdb PATH` | PDB file defining QM region atoms. | _None_ |
 | `-o, --output PATH` | Output Gaussian input file (`.com` or `.gjf`). | Required |
 | `--method TEXT` | QM method and basis set. | `B3LYP/6-31G(d,p)` |
-| `-q, --charge INT` | Charge of QM region. | `0` |
-| `-m, --mult INT` | Multiplicity of QM region. | `1` |
+| `-q, --charge INT` | Charge of QM region. | Required |
+| `-m, --multiplicity INT` | Multiplicity of QM region. | `1` |
 | `--near FLOAT` | Distance cutoff for movable atoms (angstrom). | `6.0` |
 | `--nproc INT` | Number of processors. | `8` |
 | `--mem TEXT` | Memory allocation. | `16GB` |
