@@ -27,6 +27,8 @@ def _make_group(
     lazy_subcommands: dict[str, tuple[str, str, str]] | None = None,
     normalize_bool_argv=_normalize_passthrough,
     primary_help_options: dict[str, frozenset[str]] | None = None,
+    parser_wrapper_subcommands: frozenset[str] | None = None,
+    parser_wrapper_bool_option_providers=None,
 ) -> click.Group:
     @click.group(
         cls=DefaultGroup,
@@ -35,7 +37,8 @@ def _make_group(
         command_bool_value_options={},
         command_bool_toggle_options={},
         command_bool_toggle_negative_aliases={},
-        parser_wrapper_subcommands=frozenset(),
+        parser_wrapper_subcommands=parser_wrapper_subcommands or frozenset(),
+        parser_wrapper_bool_option_providers=parser_wrapper_bool_option_providers or {},
         subcommand_primary_help_options=primary_help_options or {},
         normalize_bool_argv=normalize_bool_argv,
         ensure_help_advanced_option=_ensure_help_advanced_option,
@@ -177,3 +180,25 @@ def test_toggle_with_non_no_negative_alias_accepts_no_prefix_and_values() -> Non
     result_no = runner.invoke(cli, ["define-layer", "--no-one-based"])
     assert result_no.exit_code == 0
     assert "one_based=False" in result_no.output
+
+
+def test_parser_wrapper_bool_provider_enables_value_style_normalization() -> None:
+    cli = _make_group(
+        normalize_bool_argv=_normalize_bool_argv_impl,
+        parser_wrapper_subcommands=frozenset({"extract"}),
+        parser_wrapper_bool_option_providers={"extract": lambda: frozenset({"--verbose"})},
+    )
+
+    @cli.command(
+        name="extract",
+        context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+    )
+    @click.pass_context
+    def extract_cmd(ctx: click.Context) -> None:
+        click.echo("|".join(ctx.args))
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["extract", "--verbose", "False"])
+    assert result.exit_code == 0
+    assert "--no-verbose" in result.output
+    assert "--verbose|False" not in result.output

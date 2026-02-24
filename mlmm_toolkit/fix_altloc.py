@@ -343,19 +343,7 @@ def _fix_altloc_short_help() -> str:
     )
 
 
-def main(argv: Optional[List[str]] = None) -> int:
-    argv_list = list(argv) if argv is not None else None
-    if argv_list is not None:
-        wants_adv = "--help-advanced" in argv_list
-        wants_help = ("--help" in argv_list) or ("-h" in argv_list)
-        if wants_help and not wants_adv:
-            click.echo(_fix_altloc_short_help())
-            return 0
-        if wants_adv:
-            argv_list = [a for a in argv_list if a != "--help-advanced"]
-            if ("--help" not in argv_list) and ("-h" not in argv_list):
-                argv_list.append("--help")
-
+def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Blank PDB altLoc column (col 17) without shifting, and keep one altLoc per atom "
@@ -394,6 +382,36 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=False,
         help="Process files even if no altLoc is detected (default: skip files without altLoc).",
     )
+    return parser
+
+
+def parser_wrapper_bool_options() -> frozenset[str]:
+    """Return argparse-backed boolean long options for root-level bool normalization."""
+    parser = _build_arg_parser()
+    options: set[str] = set()
+    for action in parser._actions:
+        if isinstance(action, argparse.BooleanOptionalAction):
+            options.update(
+                opt for opt in action.option_strings
+                if opt.startswith("--") and not opt.startswith("--no-")
+            )
+    return frozenset(options)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    argv_list = list(argv) if argv is not None else None
+    if argv_list is not None:
+        wants_adv = "--help-advanced" in argv_list
+        wants_help = ("--help" in argv_list) or ("-h" in argv_list)
+        if wants_help and not wants_adv:
+            click.echo(_fix_altloc_short_help())
+            return 0
+        if wants_adv:
+            argv_list = [a for a in argv_list if a != "--help-advanced"]
+            if ("--help" not in argv_list) and ("-h" not in argv_list):
+                argv_list.append("--help")
+
+    parser = _build_arg_parser()
     args = parser.parse_args(argv_list)
 
     pdb_files = collect_pdb_files(args.input, args.recursive)

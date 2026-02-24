@@ -19,7 +19,7 @@
 
 `--flag` 単独で定義されているオプションでも、互換のため `--no-flag` と `--flag False` を受理します。
 `extract` と `fix-altloc` は parser wrapper（argparse バックエンド）ですが、root CLI で同じ bool 正規化が適用されます。
-これらの parser wrapper では、オプション実体を Click ではなく argparse 側で解釈するため、root 側の bool 正規化は既存の手書き bool オプションマップをフォールバックとして維持します。
+これらの parser wrapper では、root 側が argparse 定義から bool オプションを自動取得して正規化するため、`--flag/--no-flag` と `--flag True/False` を手書きマップなしで同期できます。
 
 よく使うブール値オプション:
 - `--tsopt`, `--thermo`, `--dft` -- 後処理ステージの有効化

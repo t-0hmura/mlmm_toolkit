@@ -175,9 +175,23 @@ def which(cmd: str) -> Optional[str]:
     return shutil.which(cmd)
 
 
+_AMBERTOOLS_REQUIRED_COMMANDS: Tuple[str, ...] = ("tleap", "antechamber", "parmchk2")
+
+
+def ambertools_command_paths() -> Dict[str, Optional[str]]:
+    """Return resolved paths for required AmberTools executables."""
+    return {cmd: which(cmd) for cmd in _AMBERTOOLS_REQUIRED_COMMANDS}
+
+
+def missing_ambertools_commands(paths: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
+    """Return required AmberTools commands that are missing from PATH."""
+    resolved = paths if paths is not None else ambertools_command_paths()
+    return [cmd for cmd in _AMBERTOOLS_REQUIRED_COMMANDS if not resolved.get(cmd)]
+
+
 def ambertools_available() -> bool:
     """Return True if tleap, antechamber and parmchk2 are available on PATH."""
-    return which("tleap") is not None and which("antechamber") is not None and which("parmchk2") is not None
+    return not missing_ambertools_commands()
 
 
 def run(cmd: List[str], cwd: Optional[Path] = None, logfile: Optional[Path] = None) -> int:
@@ -715,8 +729,23 @@ def run_pipeline(args: Args) -> None:
     if not args.pdb.exists():
         sys.exit(f"PDB not found: {args.pdb}")
 
-    if not ambertools_available():
-        sys.exit("AmberTools (tleap, antechamber, parmchk2) not found on PATH; this script requires AmberTools.")
+    amber_paths = ambertools_command_paths()
+    missing_cmds = missing_ambertools_commands(amber_paths)
+    if missing_cmds:
+        found_lines = [
+            f"  {name}: {amber_paths[name]}"
+            for name in _AMBERTOOLS_REQUIRED_COMMANDS
+            if amber_paths.get(name)
+        ]
+        missing_text = ", ".join(missing_cmds)
+        details = "\n".join(found_lines) if found_lines else "  (none found)"
+        sys.exit(
+            "AmberTools preflight failed.\n"
+            f"Missing required command(s): {missing_text}\n"
+            "Required: tleap, antechamber, parmchk2\n"
+            "Detected command paths:\n"
+            f"{details}"
+        )
 
     # Decide PDB filename to export/copy (used both on success and as H-added fallback)
     # When --out-prefix is omitted and --add-h False, do not write <input_stem>_parm.pdb.

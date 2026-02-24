@@ -58,17 +58,7 @@ _COMMAND_BOOL_VALUE_OPTIONS: dict[str, frozenset[str]] = {
 }
 
 _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
-    "extract": frozenset(
-        {
-            "--include-H2O",
-            "--include-h2o",
-            "--exclude-backbone",
-            "--add-linkH",
-            "--verbose",
-        }
-    ),
     "mm-parm": frozenset({"--add-ter", "--add-h"}),
-    "fix-altloc": frozenset({"--recursive", "--inplace", "--overwrite", "--force"}),
     "scan": frozenset({"--one-based", "--dump", "--preopt", "--endopt"}),
     "scan2d": frozenset({"--one-based", "--dump", "--preopt"}),
     "scan3d": frozenset({"--one-based", "--dump", "--preopt"}),
@@ -449,11 +439,30 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
 
 _PARSER_WRAPPER_SUBCOMMANDS = frozenset({"extract", "fix-altloc"})
 
+
+def _extract_parser_wrapper_bool_options() -> frozenset[str]:
+    from . import extract as _extract_mod
+
+    return _extract_mod.parser_wrapper_bool_options()
+
+
+def _fix_altloc_parser_wrapper_bool_options() -> frozenset[str]:
+    from . import fix_altloc as _fix_altloc_mod
+
+    return _fix_altloc_mod.parser_wrapper_bool_options()
+
+
+_PARSER_WRAPPER_BOOL_OPTION_PROVIDERS = {
+    "extract": _extract_parser_wrapper_bool_options,
+    "fix-altloc": _fix_altloc_parser_wrapper_bool_options,
+}
+
 _DEFAULT_GROUP_KWARGS = {
     "command_bool_value_options": _COMMAND_BOOL_VALUE_OPTIONS,
     "command_bool_toggle_options": _COMMAND_BOOL_TOGGLE_OPTIONS,
     "command_bool_toggle_negative_aliases": _COMMAND_BOOL_TOGGLE_NEGATIVE_ALIASES,
     "parser_wrapper_subcommands": _PARSER_WRAPPER_SUBCOMMANDS,
+    "parser_wrapper_bool_option_providers": _PARSER_WRAPPER_BOOL_OPTION_PROVIDERS,
     "subcommand_primary_help_options": _SUBCOMMAND_PRIMARY_HELP_OPTIONS,
     "normalize_bool_argv": normalize_bool_argv,
     "ensure_help_advanced_option": _ensure_help_advanced_option,

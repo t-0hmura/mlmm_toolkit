@@ -12,6 +12,7 @@ BoolOptionsByCommand = Mapping[str, frozenset[str]]
 BoolNegativeAliasesByCommand = Mapping[str, Mapping[str, str]]
 BoolSingleFlagOptionsByCommand = Mapping[str, frozenset[str]]
 PrimaryHelpOptionsByCommand = Mapping[str, frozenset[str]]
+ParserWrapperBoolOptionProviders = Mapping[str, Callable[[], frozenset[str]]]
 
 NormalizeBoolArgvFunc = Callable[
     [
@@ -67,6 +68,7 @@ class DefaultGroup(click.Group):
         command_bool_toggle_negative_aliases: BoolNegativeAliasesByCommand | None = None,
         command_bool_single_flag_options: BoolSingleFlagOptionsByCommand | None = None,
         parser_wrapper_subcommands: frozenset[str] | None = None,
+        parser_wrapper_bool_option_providers: ParserWrapperBoolOptionProviders | None = None,
         subcommand_primary_help_options: PrimaryHelpOptionsByCommand | None = None,
         normalize_bool_argv: NormalizeBoolArgvFunc | None = None,
         ensure_help_advanced_option: EnsureHelpAdvancedOptionFunc | None = None,
@@ -95,11 +97,46 @@ class DefaultGroup(click.Group):
             str, tuple[frozenset[str], frozenset[str], dict[str, str], frozenset[str]]
         ] = {}
         self._parser_wrapper_subcommands = set(parser_wrapper_subcommands or set())
+        self._parser_wrapper_bool_option_providers = dict(
+            parser_wrapper_bool_option_providers or {}
+        )
+        self._resolved_parser_wrapper_bool_options: dict[str, frozenset[str]] = {}
         self._subcommand_primary_help_options = dict(subcommand_primary_help_options or {})
         self._normalize_bool_argv = normalize_bool_argv
         self._ensure_help_advanced_option = ensure_help_advanced_option
         self._configure_subcommand_help_visibility = configure_subcommand_help_visibility
         self._build_unavailable_command = build_unavailable_command
+
+    def _resolve_parser_wrapper_bool_options(self, command_name: str) -> frozenset[str]:
+        cached = self._resolved_parser_wrapper_bool_options.get(command_name)
+        if cached is not None:
+            return cached
+
+        provider = self._parser_wrapper_bool_option_providers.get(command_name)
+        if provider is None:
+            resolved = frozenset()
+            self._resolved_parser_wrapper_bool_options[command_name] = resolved
+            return resolved
+
+        try:
+            provided = provider()
+        except Exception:
+            resolved = frozenset()
+            self._resolved_parser_wrapper_bool_options[command_name] = resolved
+            return resolved
+
+        normalized: set[str] = set()
+        for name in provided:
+            if not name.startswith("--"):
+                continue
+            if name.startswith("--no-"):
+                normalized.add(f"--{name[5:]}")
+            else:
+                normalized.add(name)
+
+        resolved = frozenset(normalized)
+        self._resolved_parser_wrapper_bool_options[command_name] = resolved
+        return resolved
 
     @staticmethod
     def _long_option_names(option_names: list[str]) -> tuple[str, ...]:
@@ -123,6 +160,10 @@ class DefaultGroup(click.Group):
         )
         bool_single_flag_options = set(
             self._command_bool_single_flag_options.get(command_name, frozenset())
+        )
+
+        bool_toggle_options.update(
+            self._resolve_parser_wrapper_bool_options(command_name)
         )
 
         command = self.get_command(ctx, command_name)

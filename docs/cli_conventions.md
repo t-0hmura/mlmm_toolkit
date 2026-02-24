@@ -19,7 +19,7 @@ Both notations are accepted:
 
 For options that are defined only as `--flag`, the root CLI also accepts `--no-flag` and `--flag False` as compatibility aliases.
 `extract` and `fix-altloc` are parser-wrapper subcommands (argparse backend), but the same bool normalization still applies at the root CLI.
-For these parser wrappers, root normalization keeps the existing hand-maintained bool option map as a fallback because option details are parsed downstream by argparse, not by Click option metadata.
+For these parser wrappers, root normalization discovers bool options from the argparse definitions, so `--flag/--no-flag` and `--flag True/False` stay in sync without a separate hand-maintained map.
 
 Common boolean options:
 - `--tsopt`, `--thermo`, `--dft` -- enable post-processing stages
