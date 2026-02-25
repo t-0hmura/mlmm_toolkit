@@ -506,6 +506,10 @@ class HessianOptimizer(Optimizer):
                 self.H = self.geometry.hessian
                 key = "exact"
                 # self.save_hessian()
+            if self.using_active_dofs:
+                # Keep the optimizer Hessian in active-DOF space to avoid
+                # shape mismatches during quasi-Newton updates.
+                self.H = self.active_hessian(self.H)
             if not (self.cur_cycle == 0):
                 self.log(f"Recalculated {key} Hessian in cycle {self.cur_cycle}.")
             # Reset counter. It is also reset when the recalculation was initiated
@@ -515,7 +519,9 @@ class HessianOptimizer(Optimizer):
         else:
             dx = self.steps[-1]
             dg = -(self.forces[-1] - self.forces[-2])
+            H_work = self.H
             if self.using_active_dofs:
+                H_work = self.active_hessian(self.H)
                 dx = self.active_from_full(dx)
                 dg = self.active_from_full(dg)
             curv_cond = dx.dot(dg)
@@ -523,8 +529,8 @@ class HessianOptimizer(Optimizer):
                 self.log(
                     f"Curvature condition (s·y = {curv_cond:.4f} < 0) not satisfied!"
                 )
-            dH, key = self.hessian_update_func(self.H, dx, dg)
-            self.H = self.H + dH
+            dH, key = self.hessian_update_func(H_work, dx, dg)
+            self.H = H_work + dH
             self.log(f"Did {key} Hessian update.")
 
     def solve_rfo(self, rfo_mat, kind="min", prev_eigvec=None):

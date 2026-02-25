@@ -452,6 +452,8 @@ class Optimizer(metaclass=abc.ABCMeta):
                 f"\t max(|step|) <= {self.max_step_thresh:.6f} {su}",
                 f"\t   rms(step) <= {self.rms_step_thresh:.6f} {su}",
             )
+        if self.thresh == "baker":
+            use_threshs = use_threshs + ("\t   Δ(energy) <= 0.000001 E_h",)
         print(
             "Convergence thresholds"
             + (", (overachieved when)" if oaf > 0.0 else "")
@@ -590,14 +592,18 @@ class Optimizer(metaclass=abc.ABCMeta):
 
         if self.thresh == "baker":
             energy_converged = False
-            if self.cur_cycle > 0:
+            if len(self.energies) >= 2:
                 cur_energy = np.asarray(self.energies[-1])
                 prev_energy = np.asarray(self.energies[-2])
-                if cur_energy.shape != prev_energy.shape:
-                    energy_converged = False
-                else:
+                if cur_energy.shape == prev_energy.shape:
                     energy_converged = np.all(np.abs(cur_energy - prev_energy) < 1e-6)
-            converged = (max_force < 3e-4) and (energy_converged or (max_step < 3e-4))
+
+            # Enforce at least one new cycle after (re)start and require energy convergence.
+            convergence["energy_converged"] = bool(energy_converged)
+            conv_info = ConvInfo(self.cur_cycle, **convergence)
+            converged = (self.cur_cycle > self.last_cycle) and all(convergence.values())
+            # Keep Baker strict: don't bypass the energy criterion via overachievement.
+            overachieved = False
         return (
             any((converged_to_geom, converged, overachieved, geom_converged))
             and not_never,

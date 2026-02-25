@@ -1041,6 +1041,8 @@ def cli(
                 f"[layer] Applied distance cutoffs: "
                 f"hess={hess_cutoff_final} Å, freeze={movable_cutoff_final} Å"
             )
+        from .freq import _align_three_layer_hessian_targets as _freq_align_three_layer_hessian_targets
+        _freq_align_three_layer_hessian_targets(calc_cfg, echo_fn=click.echo)
 
         for key in ("input_pdb", "real_parm7", "model_pdb", "mm_fd_dir"):
             val = calc_cfg.get(key)
@@ -1117,10 +1119,30 @@ def cli(
             bias_calc.set_pairs(resolved_dist_freeze)
             geometry.set_calculator(bias_calc)
 
-        common_kwargs = dict(opt_cfg)
+        # Pass only opt-level values that differ from OPT_BASE defaults, so
+        # optimizer-specific YAML (e.g. rfo.print_every / lbfgs.print_every)
+        # is not overwritten by inherited defaults such as opt.print_every=100.
+        common_kwargs = strip_inherited_keys(dict(opt_cfg), OPT_BASE_KW, mode="same")
         common_kwargs["out_dir"] = str(out_dir_path)
 
         if use_rfo:
+            # Seed initial Hessian via shared freq backend so heavy opt starts
+            # from the same Hessian build path as frequency analysis.
+            click.echo("[opt] Seeding initial Hessian via shared freq backend.")
+            from .freq import (
+                _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
+                _torch_device as _freq_torch_device,
+            )
+            hess_device = _freq_torch_device(calc_cfg.get("ml_device", "auto"))
+            h_init, _ = _freq_calc_full_hessian_torch(
+                geometry,
+                calc_cfg,
+                hess_device,
+                refresh_geom_meta=True,
+            )
+            geometry.cart_hessian = h_init
+            click.echo(f"[opt] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+
             rfo_args = {**rfo_cfg, **common_kwargs}
             optimizer = RFOptimizer(geometry, **rfo_args)
 

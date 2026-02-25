@@ -87,6 +87,8 @@ from .freq import (
     _build_tr_basis,
     _tr_orthonormal_basis,
     _mass_weighted_hessian,
+    _align_three_layer_hessian_targets,
+    _resolve_active_atom_indices,
 )
 
 
@@ -860,45 +862,11 @@ def _get_active_dof_indices(
     active_dof_mode: str,
     freeze_atoms_final: List[int],
 ) -> Optional[List[int]]:
-    """
-    Determine active DOF indices based on active_dof_mode.
-
-    Returns:
-        None if all atoms should be active, otherwise list of atom indices (0-based).
-    """
-    if active_dof_mode.lower() == "all":
-        return None  # All atoms active
-
-    # Get layer indices from calculator
-    try:
-        temp_calc = mlmm(**calc_cfg)
-        calc_core = temp_calc.core if hasattr(temp_calc, 'core') else temp_calc
-        ml_indices = set(getattr(calc_core, 'ml_indices', []))
-        hess_mm_indices = set(getattr(calc_core, 'hess_mm_indices', []))
-        movable_mm_indices = set(getattr(calc_core, 'movable_mm_indices', []))
-        del temp_calc
-    except Exception:
-        ml_indices = set()
-        hess_mm_indices = set()
-        movable_mm_indices = set()
-
-    mode_lower = active_dof_mode.lower()
-    if mode_lower == "ml-only":
-        # ML only
-        active_indices = sorted(ml_indices)
-    elif mode_lower == "partial":
-        # ML + Hessian-target MM (default)
-        active_indices = sorted(ml_indices | hess_mm_indices)
-    elif mode_lower == "unfrozen":
-        # All non-frozen atoms
-        active_indices = sorted(ml_indices | hess_mm_indices | movable_mm_indices)
-    else:
+    del freeze_atoms_final  # Kept for backward-compatible signature.
+    active_indices, _ = _resolve_active_atom_indices(calc_cfg, n_atoms, active_dof_mode)
+    if active_indices is None:
         return None
-
-    if not active_indices:
-        return None
-
-    return active_indices
+    return sorted(active_indices)
 
 
 def _bofill_update_active(H_act: torch.Tensor,
@@ -1845,7 +1813,7 @@ hessian_dimer_KW = {
     default="partial",
     show_default=True,
     help="Active DOF selection for final frequency analysis: "
-         "all (all atoms), ml-only (ML only), partial (ML + Hessian-target MM, default), "
+         "all (all atoms), ml-only (ML only), partial (ML + MovableMM, default), "
          "unfrozen (all except frozen layer).",
 )
 @click.option(
@@ -2042,16 +2010,19 @@ def cli(
     freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
     calc_cfg["freeze_atoms"] = freeze_atoms_final
 
-    # Propagate opt.print_every to TS optimizers (LBFGS in light mode, RS-I-RFO in heavy mode).
-    if "print_every" in opt_cfg:
-        try:
-            pe = int(opt_cfg["print_every"])
-            if pe >= 1:
-                simple_cfg.setdefault("lbfgs", {})
-                simple_cfg["lbfgs"]["print_every"] = pe
-                rsirfo_cfg["print_every"] = pe
-        except Exception:
-            pass
+    # Propagate opt.print_every only when it is explicitly different from the
+    # base default. This avoids clobbering optimizer-specific YAML settings
+    # (e.g. hessian_dimer.lbfgs.print_every / rsirfo.print_every) with the
+    # inherited OPT_BASE default value.
+    try:
+        pe_opt = int(opt_cfg.get("print_every", OPT_BASE_KW.get("print_every", 100)))
+        pe_base = int(OPT_BASE_KW.get("print_every", 100))
+        if pe_opt >= 1 and pe_opt != pe_base:
+            simple_cfg.setdefault("lbfgs", {})
+            simple_cfg["lbfgs"]["print_every"] = pe_opt
+            rsirfo_cfg["print_every"] = pe_opt
+    except Exception:
+        pass
 
     out_dir_path = Path(opt_cfg["out_dir"]).resolve()
 
@@ -2177,6 +2148,7 @@ def cli(
         layer_info,
         echo_fn=click.echo,
     )
+    _align_three_layer_hessian_targets(calc_cfg, echo_fn=click.echo)
 
     for key in ("input_pdb", "real_parm7", "model_pdb", "mm_fd_dir"):
         val = calc_cfg.get(key)
@@ -2230,6 +2202,15 @@ def cli(
 
             base_calc = mlmm(**calc_cfg)
             geometry.set_calculator(base_calc)
+
+            click.echo("[tsopt] Seeding initial Hessian via shared freq backend.")
+            hess_device = _torch_device(simple_cfg.get("device", calc_cfg.get("ml_device", "auto")))
+            h_init = _calc_full_hessian_torch(geometry, calc_cfg, hess_device)
+            geometry.cart_hessian = h_init
+            click.echo(
+                f"[tsopt] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]})."
+            )
+            del h_init
 
             rsirfo_args = {**rsirfo_cfg}
             rsirfo_args["out_dir"] = str(out_dir_path)

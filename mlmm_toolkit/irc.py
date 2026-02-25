@@ -28,7 +28,7 @@ import numpy as np
 from pysisyphus.helpers import geom_loader
 from pysisyphus.irc.EulerPC import EulerPC
 from .mlmm_calc import mlmm
-from .freq import _torch_device, _calc_full_hessian_torch
+from .freq import _torch_device, _calc_full_hessian_torch, _align_three_layer_hessian_targets
 from .defaults import (
     GEOM_KW_DEFAULT,
     MLMM_CALC_KW as _UMA_CALC_KW,
@@ -508,6 +508,7 @@ def cli(
             layer_info,
             echo_fn=click.echo,
         )
+        _align_three_layer_hessian_targets(calc_cfg, echo_fn=click.echo)
 
         # Pretty-print configuration (expand freeze_atoms for readability)
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
@@ -547,6 +548,7 @@ def cli(
 
         # Seed the initial Hessian via the shared freq backend so IRC reuses
         # the same Hessian path as frequency analysis.
+        click.echo("[irc] Seeding initial Hessian via shared freq backend.")
         hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
         h_init, _ = _calc_full_hessian_torch(
             geometry,
@@ -555,6 +557,8 @@ def cli(
             refresh_geom_meta=True,
         )
         geometry.cart_hessian = h_init
+        click.echo(f"[irc] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+        del h_init
 
         # --------------------------
         # 3) Construct and run EulerPC

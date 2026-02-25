@@ -465,6 +465,92 @@ def _calc_full_hessian_torch(
     return H, energy
 
 
+def _collect_layer_atom_sets(calc_cfg: Dict[str, Any]) -> Dict[str, set[int]]:
+    """Collect ML/MM layer index sets from a temporary calculator instance."""
+    empty = {"ml": set(), "hess_mm": set(), "movable_mm": set(), "frozen_mm": set()}
+    try:
+        temp_calc = mlmm(**dict(calc_cfg))
+        calc_core = temp_calc.core if hasattr(temp_calc, "core") else temp_calc
+        layer_sets = {
+            "ml": set(getattr(calc_core, "ml_indices", []) or []),
+            "hess_mm": set(getattr(calc_core, "hess_mm_indices", []) or []),
+            "movable_mm": set(getattr(calc_core, "movable_mm_indices", []) or []),
+            "frozen_mm": set(getattr(calc_core, "frozen_layer_indices", []) or []),
+        }
+        del temp_calc
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return layer_sets
+    except Exception:
+        return empty
+
+
+def _align_three_layer_hessian_targets(
+    calc_cfg: Dict[str, Any],
+    *,
+    echo_fn=None,
+) -> bool:
+    """
+    In 3-layer detect-layer mode, align Hessian targets to MovableMM by default.
+
+    Returns True when a default policy was applied.
+    """
+    if not bool(calc_cfg.get("use_bfactor_layers", False)):
+        return False
+    if calc_cfg.get("movable_cutoff") is not None:
+        return False
+    if calc_cfg.get("hess_cutoff") is not None:
+        return False
+
+    explicit_layer_lists = any(
+        calc_cfg.get(key) is not None
+        for key in ("hess_mm_atoms", "movable_mm_atoms", "frozen_mm_atoms")
+    )
+    if explicit_layer_lists:
+        return False
+
+    calc_cfg["hess_cutoff"] = float("inf")
+    if echo_fn is not None:
+        echo_fn("[layer] 3-layer mode: using MovableMM atoms as Hessian targets.")
+    return True
+
+
+def _resolve_active_atom_indices(
+    calc_cfg: Dict[str, Any],
+    n_atoms: int,
+    active_dof_mode: str,
+) -> Tuple[Optional[set[int]], Dict[str, set[int]]]:
+    """Resolve active atom indices for active_dof_mode from calculator layer sets."""
+    layer_sets = _collect_layer_atom_sets(calc_cfg)
+    mode = str(active_dof_mode).lower()
+    if mode == "all":
+        return None, layer_sets
+
+    ml_indices = layer_sets["ml"]
+    hess_mm_indices = layer_sets["hess_mm"]
+    movable_mm_indices = layer_sets["movable_mm"]
+    frozen_mm_indices = layer_sets["frozen_mm"]
+    partial_mm_indices = hess_mm_indices if hess_mm_indices else movable_mm_indices
+
+    if mode == "ml-only":
+        active_indices = set(ml_indices)
+    elif mode == "partial":
+        active_indices = set(ml_indices) | set(partial_mm_indices)
+    elif mode == "unfrozen":
+        if ml_indices or hess_mm_indices or movable_mm_indices:
+            active_indices = set(ml_indices) | set(hess_mm_indices) | set(movable_mm_indices)
+        elif frozen_mm_indices:
+            active_indices = set(range(int(n_atoms))) - set(frozen_mm_indices)
+        else:
+            return None, layer_sets
+    else:
+        active_indices = set(ml_indices) | set(partial_mm_indices)
+
+    if not active_indices:
+        return None, layer_sets
+    return active_indices, layer_sets
+
+
 def _write_mode_trj_and_pdb(geom,
                             mode_vec_3N: np.ndarray,
                             out_trj: Path,
@@ -687,7 +773,7 @@ THERMO_KW: Dict[str, Any] = {
     default="partial",
     show_default=True,
     help="Active DOF selection for frequency analysis: "
-         "all (all atoms), ml-only (ML only), partial (ML + Hessian-target MM, default), "
+         "all (all atoms), ml-only (ML only), partial (ML + MovableMM, default), "
          "unfrozen (all non-frozen atoms).",
 )
 @click.option(
@@ -1048,40 +1134,34 @@ def cli(
     device = _torch_device(calc_cfg.get("ml_device", "auto"))
     masses_au_t = torch.as_tensor(masses_amu * AMU2AU, dtype=torch.float32, device=device)
 
-    # Get layer indices from calculator for active DOF mode
     n_atoms = len(geometry.atoms)
     all_indices = set(range(n_atoms))
+    three_layer_policy_applied = _align_three_layer_hessian_targets(calc_cfg, echo_fn=click.echo)
 
-    # Create temporary calculator to get layer indices
-    temp_calc = mlmm(**calc_cfg)
-    calc_core = temp_calc.core if hasattr(temp_calc, 'core') else temp_calc
-    ml_indices = set(getattr(calc_core, 'ml_indices', []) or [])
-    hess_mm_indices = set(getattr(calc_core, 'hess_mm_indices', []) or [])
-    movable_mm_indices = set(getattr(calc_core, 'movable_mm_indices', []) or [])
-    del temp_calc
-
-    # Determine active DOF based on mode
-    # all -> all atoms active
-    # ml-only -> ML only
-    # partial -> ML + Hessian-target MM (default)
-    # unfrozen -> all except frozen MM
+    # Determine active atoms based on mode
     active_dof_mode_lower = str(freq_cfg.get("active_dof_mode", active_dof_mode)).lower()
-    if active_dof_mode_lower == "all":
+    active_indices, layer_sets = _resolve_active_atom_indices(calc_cfg, n_atoms, active_dof_mode_lower)
+    ml_indices = layer_sets["ml"]
+    hess_mm_indices = layer_sets["hess_mm"]
+    movable_mm_indices = layer_sets["movable_mm"]
+    partial_mm_indices = hess_mm_indices if hess_mm_indices else movable_mm_indices
+
+    if active_dof_mode_lower == "all" or active_indices is None:
         active_indices = all_indices
         click.echo("[active-dof] Using all atoms for frequency analysis.")
     elif active_dof_mode_lower == "ml-only":
-        active_indices = ml_indices
         click.echo(f"[active-dof] Using ML atoms only for frequency analysis (n={len(active_indices)}).")
     elif active_dof_mode_lower == "partial":
-        active_indices = ml_indices | hess_mm_indices
-        click.echo(
-            f"[active-dof] Using ML + Hessian-target MM atoms for frequency analysis (n={len(active_indices)})."
-        )
+        if three_layer_policy_applied:
+            click.echo(f"[active-dof] Using ML + MovableMM atoms for frequency analysis (n={len(active_indices)}).")
+        elif hess_mm_indices:
+            click.echo(f"[active-dof] Using ML + Hessian-target MM atoms for frequency analysis (n={len(active_indices)}).")
+        else:
+            click.echo(f"[active-dof] Using ML + MovableMM atoms for frequency analysis (n={len(active_indices)}).")
     elif active_dof_mode_lower == "unfrozen":
-        active_indices = ml_indices | hess_mm_indices | movable_mm_indices
         click.echo(f"[active-dof] Using all non-frozen atoms for frequency analysis (n={len(active_indices)}).")
     else:
-        active_indices = ml_indices | hess_mm_indices  # Default to partial
+        active_indices = set(ml_indices) | set(partial_mm_indices)
         click.echo(f"[active-dof] Defaulting to partial mode (n={len(active_indices)}).")
 
     # Atoms not in active_indices become frozen for frequency analysis
