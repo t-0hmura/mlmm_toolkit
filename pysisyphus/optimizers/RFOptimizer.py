@@ -165,7 +165,7 @@ class RFOptimizer(HessianOptimizer):
         # Form full step. If we did not interpolate or interpolation failed,
         # ip_step will be zero.
         if isinstance(ip_step, torch.Tensor):
-            ip_step = ip_step.cpu().numpy()
+            ip_step = ip_step.detach().cpu().numpy()
         step = step + ip_step
 
         # Use the original, actually calculated, gradient
