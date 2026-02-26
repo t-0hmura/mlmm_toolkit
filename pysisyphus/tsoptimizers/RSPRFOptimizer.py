@@ -60,20 +60,35 @@ class RSPRFOptimizer(TSHessianOptimizer):
 
             # Maximize energy along the chosen TS mode. The matrix is hardcoded
             # as 2x2, so only first-order saddle point searches are supported.
-            H_aug_max = self.get_augmented_hessian(
-                eigvals[max_indices], gradient_trans[max_indices], alpha
+            # Try secular equation solver first (O(N) vs O(N^3))
+            secular_max = self.solve_rfo_secular(
+                eigvals[max_indices], gradient_trans[max_indices], alpha,
+                kind="max", prev_eigvec=self.prev_eigvec_max,
             )
-            step_max, eigval_max, nu_max, self.prev_eigvec_max = self.solve_rfo(
-                H_aug_max, "max", prev_eigvec=self.prev_eigvec_max
-            )
+            if secular_max is not None:
+                step_max, eigval_max, nu_max, self.prev_eigvec_max = secular_max
+            else:
+                H_aug_max = self.get_augmented_hessian(
+                    eigvals[max_indices], gradient_trans[max_indices], alpha
+                )
+                step_max, eigval_max, nu_max, self.prev_eigvec_max = self.solve_rfo(
+                    H_aug_max, "max", prev_eigvec=self.prev_eigvec_max
+                )
 
             # Minimize energy along all modes, but the TS mode.
-            H_aug_min = self.get_augmented_hessian(
-                eigvals[min_indices], gradient_trans[min_indices], alpha
+            secular_min = self.solve_rfo_secular(
+                eigvals[min_indices], gradient_trans[min_indices], alpha,
+                kind="min", prev_eigvec=self.prev_eigvec_min,
             )
-            step_min, eigval_min, nu_min, self.prev_eigvec_min = self.solve_rfo(
-                H_aug_min, "min", prev_eigvec=self.prev_eigvec_min
-            )
+            if secular_min is not None:
+                step_min, eigval_min, nu_min, self.prev_eigvec_min = secular_min
+            else:
+                H_aug_min = self.get_augmented_hessian(
+                    eigvals[min_indices], gradient_trans[min_indices], alpha
+                )
+                step_min, eigval_min, nu_min, self.prev_eigvec_min = self.solve_rfo(
+                    H_aug_min, "min", prev_eigvec=self.prev_eigvec_min
+                )
 
             # Calculate overlap between directions over the course of the micro cycles
             # if mu == 0:

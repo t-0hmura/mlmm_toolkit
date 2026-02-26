@@ -8,7 +8,6 @@
 - **用途:** 最適化された TS があり、ML/MM で反応物・生成物方向への最小エネルギー経路を追跡したい場合。
 - **手法:** 完全 ML/MM ヘシアン（FAIR-Chem UMA + hessian_ff）による EulerPC 予測子-補正子積分器。
 - **出力:** `finished_irc_trj.xyz`、`forward_irc_trj.xyz`、PDB 入力時は `.pdb` コンパニオン。
-- **デフォルト:** `--max-cycles 125`、`--step-size 0.10`、`--freeze-links` 有効、`--convert-files` 有効。
 - **次のステップ:** IRC 端点で [freq](freq.md) を実行し、[opt](opt.md) で真の極小に精密化。
 
 `mlmm irc` は EulerPC 積分器を使用して IRC 計算を実行します。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
@@ -56,7 +55,6 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 1. **入力準備** -- `geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
 2. **ML/MM 計算機の構築** -- `--real-parm7` と `--model-pdb` から ML/MM 計算機を構築します。`--hessian-calc-mode` は UMA ヘシアン評価を制御します。
-3. **リンク凍結検出** -- `--freeze-links`（デフォルト）により、リンク水素の親原子が検出され `geom.freeze_atoms` にマージされます。
 4. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` で正方向を無効化可能）。ステップサイズとサイクル数で積分長を制御します。
 5. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、PDB コンパニオンが生成されます。
 
@@ -76,7 +74,6 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--step-size FLOAT` | 質量加重座標でのステップ長。`irc.step_length` を上書き。 | `0.10` |
 | `--root INT` | 初期変位の虚数モードインデックス。`irc.root` を上書き。 | `0` |
 | `--forward/--no-forward` | 正方向 IRC を実行。`irc.forward` を上書き。 | `True` |
-| `--freeze-links/--no-freeze-links` | PDB 入力専用。リンク水素の親原子を凍結（`geom.freeze_atoms` にマージ）。 | `True` |
 | `--out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |
 | `--convert-files/--no-convert-files` | 参照 PDB 利用可能時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
 | `--hessian-calc-mode CHOICE` | UMA がヘシアンを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | _デフォルト_ |
@@ -163,7 +160,6 @@ irc:
 - UMA オプションは mlmm 計算機に直接渡されます。`device: "auto"` の場合、計算機は GPU/CPU を自動選択します。
 - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
 - `irc` は partial-first です。YAML で `calc.return_partial_hessian` を明示しない場合、初期ヘシアンは既定で部分ヘシアンになります。完全ヘシアンを使う場合は `calc.return_partial_hessian: false` を明示してください。
-- `--freeze-links` は PDB 入力にのみ適用され、ヘシアン構築中にリンク水素の親原子を凍結します。
 - `hessian_calc_mode: "FiniteDifference"` の場合、`geom.freeze_atoms` を使用して FD ヘシアン構築で凍結自由度をスキップできます。
 - `--step-size` は質量加重座標です。`--root` は初期変位に使用する虚数振動数インデックスを選択します。
 - 標準出力には進捗とタイミングが含まれます。終了コード: 成功時 `0`、`KeyboardInterrupt` 時 `130`、未処理例外時 `1`。

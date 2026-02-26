@@ -4,7 +4,7 @@
 Export ML/MM system to Gaussian/ORCA ONIOM input format from Amber parm7 topology.
 
 Example:
-    mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml.pdb -o out.com
+    mlmm oniom-gaussian --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb -o out.com
 
 For detailed documentation, see: docs/oniom_export.md
 """
@@ -12,6 +12,7 @@ For detailed documentation, see: docs/oniom_export.md
 from __future__ import annotations
 
 import re
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -24,6 +25,9 @@ try:
     import parmed as pmd
 except ImportError:
     pmd = None
+
+_GAUSSIAN_DEFAULT_METHOD = "B3LYP/6-31G(d,p)"
+_ORCA_DEFAULT_METHOD = "B3LYP D3BJ def2-SVP"
 
 
 def _check_parmed() -> None:
@@ -1490,6 +1494,31 @@ def _format_orca_index_set(indices: Set[int]) -> str:
     return "{" + " ".join(parts) + "}"
 
 
+def _manual_orcaff_command(parm7_path: Path, out_dir: Path) -> str:
+    """Return a shell command users can run to generate ORCAFF.prms manually."""
+    return (
+        f"cd {shlex.quote(str(out_dir.resolve()))} && "
+        f"orca_mm -convff -AMBER {shlex.quote(str(parm7_path.resolve()))}"
+    )
+
+
+def _resolve_oniom_mode(mode: Optional[str], output_path: Path) -> str:
+    """Resolve export mode using explicit `--mode` first, then output suffix."""
+    if mode is not None:
+        return str(mode).strip().lower()
+
+    suffix = output_path.suffix.lower()
+    if suffix in {".gjf", ".com"}:
+        return "g16"
+    if suffix == ".inp":
+        return "orca"
+
+    raise ValueError(
+        f"Could not infer export mode from -o/--output '{output_path}'. "
+        "Specify --mode (g16/orca) or use an output suffix: .gjf/.com (g16), .inp (orca)."
+    )
+
+
 def export_orca(
     parm7_path: Path,
     model_pdb: Optional[Path],
@@ -1652,6 +1681,7 @@ def export_orca(
 
     # Resolve/generate ORCAFF.prms
     out_dir = output_path.parent
+    manual_orcaff_cmd = _manual_orcaff_command(parm7_path, out_dir)
     if orcaff_path is None:
         expected = out_dir / f"{parm7_path.stem}.ORCAFF.prms"
         orcaff_path = expected
@@ -1661,11 +1691,11 @@ def export_orca(
             if orca_mm is None:
                 click.echo(
                     "[oniom-orca] WARNING: ORCAFF.prms not found and `orca_mm` is not available on PATH.\n"
-                    f"[oniom-orca]          Please generate it manually with: orca_mm -convff -AMBER {parm7_path.name}"
+                    f"[oniom-orca]          Run manually: {manual_orcaff_cmd}"
                 )
             else:
                 click.echo(
-                    f"[oniom-orca] Generating ORCAFF.prms via: orca_mm -convff -AMBER {parm7_path}"
+                    f"[oniom-orca] Generating ORCAFF.prms via: {manual_orcaff_cmd}"
                 )
                 proc = subprocess.run(
                     [orca_mm, "-convff", "-AMBER", str(parm7_path)],
@@ -1675,7 +1705,12 @@ def export_orca(
                     text=True,
                 )
                 if proc.returncode != 0:
-                    raise RuntimeError(f"orca_mm failed (exit {proc.returncode}). Output:\n{proc.stdout}")
+                    raise RuntimeError(
+                        "orca_mm failed "
+                        f"(exit {proc.returncode}).\n"
+                        f"Run manually: {manual_orcaff_cmd}\n"
+                        f"Output:\n{proc.stdout}"
+                    )
 
                 # Try to locate the generated file (orca_mm typically writes <stem>.ORCAFF.prms)
                 if not orcaff_path.exists():
@@ -1750,7 +1785,7 @@ end
         else:
             click.echo(
                 f"[oniom-orca] NOTE: ORCAFF.prms not found at '{orcaff_path}'. "
-                "Generate it with `orca_mm -convff -AMBER <topology>` and place it next to the input."
+                f"Run manually: {manual_orcaff_cmd}"
             )
 
 
@@ -1765,7 +1800,8 @@ end
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
-    "--parm7",
+    "--parm",
+    "parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
     help="Amber parm7 topology file.",
@@ -1800,7 +1836,7 @@ end
 @click.option(
     "--method",
     type=str,
-    default="B3LYP/6-31G(d,p)",
+    default=_GAUSSIAN_DEFAULT_METHOD,
     show_default=True,
     help="QM method and basis set.",
 )
@@ -1879,7 +1915,8 @@ def cli_gaussian(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
-    "--parm7",
+    "--parm",
+    "parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
     help="Amber parm7 topology file.",
@@ -1914,7 +1951,7 @@ def cli_gaussian(
 @click.option(
     "--method",
     type=str,
-    default="B3LYP D3BJ def2-SVP",
+    default=_ORCA_DEFAULT_METHOD,
     show_default=True,
     help="QM method and basis set.",
 )
@@ -2002,6 +2039,176 @@ def cli_orca(
             input_path=input_coords,
             element_check=element_check,
             near_cutoff=near,
+            orcaff_path=orcaff,
+            convert_orcaff=convert_orcaff,
+        )
+    except Exception as e:
+        click.echo(f"ERROR: {e}", err=True)
+        raise SystemExit(1)
+
+
+@click.command(
+    name="oniom-export",
+    help="Export ONIOM input from Amber parm7 topology (Gaussian g16 or ORCA).",
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+@click.option(
+    "--parm",
+    "parm7",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    required=True,
+    help="Amber parm7 topology file.",
+)
+@click.option(
+    "-i",
+    "--input",
+    "input_coords",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Coordinate file (.pdb or .xyz) for the current structure (atom order must match parm7).",
+)
+@click.option(
+    "--element-check/--no-element-check",
+    default=True,
+    show_default=True,
+    help="Validate that the element sequence in --input matches the parm7 topology.",
+)
+@click.option(
+    "--model-pdb",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="PDB file defining QM region atoms.",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path, dir_okay=False),
+    required=True,
+    help="Output file path (.gjf/.com for g16, .inp for ORCA when --mode is omitted).",
+)
+@click.option(
+    "--mode",
+    type=click.Choice(["g16", "orca"], case_sensitive=False),
+    default=None,
+    help="Export mode. If omitted, inferred from -o suffix: .gjf/.com -> g16, .inp -> orca.",
+)
+@click.option(
+    "--method",
+    type=str,
+    default=None,
+    help="QM method and basis set. Defaults depend on mode.",
+)
+@click.option(
+    "-q",
+    "--charge",
+    type=int,
+    required=True,
+    help="Charge of QM region.",
+)
+@click.option(
+    "-m",
+    "--multiplicity",
+    type=int,
+    default=1,
+    show_default=True,
+    help="Multiplicity of QM region.",
+)
+@click.option(
+    "--near",
+    type=float,
+    default=6.0,
+    show_default=True,
+    help="Distance cutoff for movable/active atoms (Angstrom).",
+)
+@click.option(
+    "--nproc",
+    type=int,
+    default=8,
+    show_default=True,
+    help="Number of processors.",
+)
+@click.option(
+    "--mem",
+    type=str,
+    default="16GB",
+    show_default=True,
+    help="Memory allocation (g16 mode).",
+)
+@click.option(
+    "--total-charge",
+    type=int,
+    default=None,
+    help="Total charge of full QM+MM system for ORCA Charge_Total (orca mode).",
+)
+@click.option(
+    "--total-mult",
+    type=int,
+    default=None,
+    help="Total multiplicity of full QM+MM system for ORCA Mult_Total (orca mode).",
+)
+@click.option(
+    "--orcaff",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to ORCAFF.prms (orca mode). If omitted, uses/creates <parm7_stem>.ORCAFF.prms in output directory.",
+)
+@click.option(
+    "--convert-orcaff/--no-convert-orcaff",
+    default=True,
+    show_default=True,
+    help="If ORCAFF.prms is missing, try `orca_mm -convff -AMBER` automatically (orca mode).",
+)
+def cli(
+    parm7: Path,
+    input_coords: Optional[Path],
+    element_check: bool,
+    model_pdb: Optional[Path],
+    output: Path,
+    mode: Optional[str],
+    method: Optional[str],
+    charge: int,
+    multiplicity: int,
+    near: float,
+    nproc: int,
+    mem: str,
+    total_charge: Optional[int],
+    total_mult: Optional[int],
+    orcaff: Optional[Path],
+    convert_orcaff: bool,
+) -> None:
+    """Export Gaussian/ORCA ONIOM input via a unified entrypoint."""
+    try:
+        resolved_mode = _resolve_oniom_mode(mode, output)
+
+        if resolved_mode == "g16":
+            export_gaussian(
+                parm7_path=parm7,
+                model_pdb=model_pdb,
+                output_path=output,
+                method=method or _GAUSSIAN_DEFAULT_METHOD,
+                qm_charge=charge,
+                qm_mult=multiplicity,
+                near_cutoff=near,
+                nproc=nproc,
+                mem=mem,
+                input_path=input_coords,
+                element_check=element_check,
+            )
+            return
+
+        export_orca(
+            parm7_path=parm7,
+            model_pdb=model_pdb,
+            output_path=output,
+            method=method or _ORCA_DEFAULT_METHOD,
+            qm_charge=charge,
+            qm_mult=multiplicity,
+            total_charge=total_charge,
+            total_mult=total_mult,
+            nproc=nproc,
+            near_cutoff=near,
+            input_path=input_coords,
+            element_check=element_check,
             orcaff_path=orcaff,
             convert_orcaff=convert_orcaff,
         )

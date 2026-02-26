@@ -8,7 +8,6 @@
 - **用途:** ML/MM による極小/TS 候補の検証および熱力学補正の計算。
 - **手法:** ML/MM 計算機（FAIR-Chem UMA + hessian_ff）による完全または部分ヘシアン振動解析（PHVA）。
 - **出力:** `frequencies_cm-1.txt`、モードごとの `_trj.xyz` と `.pdb` アニメーション、有効時は `thermoanalysis.yaml`。
-- **デフォルト:** `--max-write 20`、`--amplitude-ang 0.8`、`--n-frames 20`、`--freeze-links` 有効。
 - **次のステップ:** 結果を使用して極小（虚数振動数なし）または TS（正確に 1 つの虚数振動数）を確認。
 
 `mlmm freq` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
@@ -53,12 +52,10 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --freeze-links --dump --out-dir ./result_freq_links
 ```
 
 ## ワークフロー
 
-1. **ジオメトリ読み込みと凍結処理** -- 構造は `pysisyphus.helpers.geom_loader` で読み込まれます。`--freeze-atoms "1,3,5"` は 1 始まりインデックスを受け付け、YAML `geom.freeze_atoms` とマージされます。マージされたリストはジオメトリエコーと ML/MM 計算機の両方に渡され、PHVA が有効になります。`--freeze-links`（デフォルト）により、リンク水素の親原子が検出・凍結され、`geom.freeze_atoms` にマージされます。
 2. **ML/MM 計算機の構築** -- ML 領域は `--model-pdb` で提供され、Amber パラメータは `--real-parm7` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のヘシアンを選択します。計算機は完全な 3N x 3N ヘシアンまたはアクティブ自由度のサブブロックを返す場合があります。
    - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
 3. **PHVA と TR 射影** -- 凍結原子がある場合、固有解析はアクティブ部分空間内で行われ、並進/回転モードがそこに射影されます。3N x 3N とアクティブブロックの両方のヘシアンが受け付けられ、振動数は cm^-1 で報告されます（負の値 = 虚数）。
@@ -81,7 +78,6 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | ML 領域の電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
-| `--freeze-links/--no-freeze-links` | PDB 専用。リンク水素の親原子を凍結し `geom.freeze_atoms` にマージ。 | `True` |
 | `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM レイヤーのカットオフ距離。 | _None_ |
 | `--hessian-calc-mode CHOICE` | ヘシアンモード（`Analytical` または `FiniteDifference`）。 | _None_ |

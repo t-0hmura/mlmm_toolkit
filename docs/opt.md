@@ -7,7 +7,6 @@
 `mlmm opt` optimizes a single structure to a local minimum using L-BFGS (`--opt-mode light`, default), RFO (`--opt-mode heavy`), or a hybrid workflow (`--opt-mode hybrid`: LBFGS first, then flatten-loop restarts with RFO). The ML/MM calculator (FAIR-Chem UMA + hessian_ff) provides energies, gradients, and Hessians. Input structures can be `.pdb`, `.xyz`, `_trj.xyz`, or any format supported by `geom_loader`. Settings follow precedence: **defaults < config < explicit CLI < override**.
 
 When the starting structure is a PDB, the command also writes `.pdb` companions, controlled by `--convert-files/--no-convert-files` (enabled by default). PDB-specific conveniences include:
-- With `--freeze-links` (default `True`), parent atoms of link hydrogens are detected and merged into `geom.freeze_atoms` (0-based indices).
 - Output conversion produces `final_geometry.pdb` (and `optimization.pdb` when dumping trajectories) using the input PDB as the topology reference.
 - B-factors are annotated as: ML-region atoms = 100.00, frozen atoms = 50.00, atoms that are both ML and frozen = 150.00.
 
@@ -15,7 +14,6 @@ When the starting structure is a PDB, the command also writes `.pdb` companions,
 - **Use when:** You want to minimize a single enzyme structure to a local energy minimum with ML/MM.
 - **Method:** L-BFGS (light, default), RFO (heavy), or hybrid (LBFGS then RFO flatten-loop). The ML/MM calculator combines FAIR-Chem UMA for the ML region with hessian_ff for MM.
 - **Outputs:** `final_geometry.xyz`, `final_geometry.pdb` (PDB inputs), optional trajectory.
-- **Defaults:** `--opt-mode light`, `--thresh gau`, `--max-cycles 10000`, `--freeze-links` enabled.
 - **Next step:** Run [freq](freq.md) to confirm the structure is a true minimum (no imaginary frequencies).
 
 ## Minimal example
@@ -65,7 +63,6 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 1. **Input handling** -- The tool requires `-i/--input` to be a PDB file (the enzyme complex). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Hessian-target MM, B=20 frozen MM).
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (FAIR-Chem UMA + hessian_ff). `--real-parm7` provides Amber MM topology; `--model-pdb` defines the ML region.
-3. **Freeze-link detection** -- With `--freeze-links` (default), parent atoms of link hydrogens are detected and merged into `geom.freeze_atoms` (0-based). The merged set is propagated to the ML/MM calculator (`calc.freeze_atoms`).
 4. **Optimization** -- `--opt-mode light` runs L-BFGS; `--opt-mode heavy` runs RFOptimizer (RFO); `--opt-mode hybrid` runs L-BFGS first, then flatten-loop restarts with RFO.
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
 5. **Restraints** -- `--dist-freeze` consumes Python-literal tuples `(i, j, target_A)` where `target_A` is the target distance in angstrom; omitting the third element restrains the starting distance. `--bias-k` sets a global harmonic strength (eV/A^2). Indices default to 1-based but can be flipped to 0-based with `--zero-based`.
@@ -88,7 +85,6 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | Charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--freeze-links/--no-freeze-links` | Toggle link-hydrogen parent freezing (PDB inputs only). | `True` |
 | `--radius-partial-hessian FLOAT` | Distance cutoff (A) from ML region for Hessian-MM atoms. Can be combined with `--detect-layer`. | _None_ |
 | `--radius-freeze FLOAT` | Distance cutoff (A) from ML region for movable MM atoms. Atoms beyond this are frozen. | _None_ |
 | `--dist-freeze TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints. | _None_ |

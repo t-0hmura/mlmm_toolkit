@@ -78,8 +78,7 @@ glossary
 | 最小エネルギー経路を探索 | `mlmm path-search` | [path_search.md](path_search.md) |
 | 遷移状態からIRCを実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Gaussian ONIOM 入力を生成 | `mlmm oniom-gaussian` | [oniom_gaussian.md](oniom_gaussian.md) |
-| ORCA QM/MM 入力を生成 | `mlmm oniom-orca` | [oniom_orca.md](oniom_orca.md) |
+| Gaussian ONIOM / ORCA QM/MM 入力を生成 | `mlmm oniom-export --mode <g16|orca>` | [oniom_export.md](oniom_export.md) |
 | 数値から状態エネルギーダイアグラムを描画 | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
 | チュートリアルに従う | -- | [はじめに](getting_started.md) |
 | 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes_common_errors.md) |
@@ -148,8 +147,7 @@ glossary
 ### エクスポート
 | サブコマンド | 説明 |
 |---------|------|
-| [`oniom-gaussian`](oniom_gaussian.md) | Amber parm7 から Gaussian ONIOM 入力を生成 |
-| [`oniom-orca`](oniom_orca.md) | Amber parm7 から ORCA QM/MM 入力を生成 |
+| [`oniom-export`](oniom_export.md) | Amber parm7 から Gaussian ONIOM / ORCA QM/MM 入力を生成（`--mode g16|orca`） |
 
 ---
 

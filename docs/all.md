@@ -175,7 +175,6 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | Extractor default |
 | `--add-linkH/--no-add-linkH` | Add link hydrogens for severed bonds. | Extractor default |
 | `--selected-resn TEXT` | Residues to force include. | `""` |
-| `--freeze-links/--no-freeze-links` | Freeze link parents in pocket PDBs. | `True` |
 | `--verbose/--no-verbose` | Enable INFO-level extractor logging. | Extractor default |
 
 ### MM Preparation Options

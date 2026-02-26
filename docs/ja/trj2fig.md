@@ -2,10 +2,10 @@
 
 ## 概要
 
-> **要約:** XYZ 軌跡のコメント行からエネルギーを抽出し、相対または絶対エネルギープロファイルを計算し、Plotly 図と CSV テーブルとしてエクスポートします。
+> **要約:** XYZ 軌跡のコメント行からエネルギーを抽出（または UMA で再計算）し、相対または絶対エネルギープロファイルを計算して Plotly 図と CSV テーブルとしてエクスポートします。
 
 ### 概要
-- **入力:** 2 行目（コメント）に Hartree エネルギーが格納された XYZ 軌跡。
+- **入力:** 2 行目（コメント）に Hartree エネルギーが格納された XYZ 軌跡。`-q/--charge` と `-m/--multiplicity` による再計算も可能。
 - **基準モード:** 最初のフレーム（`init`）、基準なし（`None`）、または明示的な 0 始まりフレームインデックス。
 - **出力形式:** PNG（デフォルト）、JPEG、HTML、SVG、PDF、CSV。
 - **単位:** kcal/mol（デフォルト）または Hartree。
@@ -16,7 +16,8 @@
 ## 使用法
 
 ```bash
-mlmm trj2fig -i TRAJECTORY.xyz [-o OUTPUTS...] [-r REFERENCE] [--unit {kcal|hartree}] [--reverse-x]
+mlmm trj2fig -i TRAJECTORY.xyz [-o OUTPUTS...] [-r REFERENCE] [--unit {kcal|hartree}] \
+ [-q CHARGE] [-m MULTIPLICITY] [--reverse-x]
 ```
 
 ### 例
@@ -34,7 +35,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## ワークフロー
 
-1. XYZ 軌跡を解析し、各フレームのコメント行に見つかる最初の浮動小数点数から Hartree エネルギーを抽出します。エネルギーが見つからないか、フレームコメントに解析可能なエネルギーがない場合はエラーが発生します。
+1. XYZ 軌跡を解析します。デフォルトでは各フレームのコメント行から Hartree エネルギーを抽出します。`-q/--charge` または `-m/--multiplicity` が指定された場合は UMA（`uma-s-1p1`）で再計算します。
 2. 基準仕様を正規化します:
  - `init` -- フレーム `0`（`--reverse-x` が有効な場合は最後のフレーム）。
  - `None`/`none`/`null` -- 絶対エネルギー（基準なし）。
@@ -52,6 +53,8 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 | _追加引数_ | オプション後に列挙された位置ファイル名。`-o` リストとマージ。 | _None_ |
 | `--unit {kcal,hartree}` | プロット/エクスポートされる値のターゲット単位。 | `kcal` |
 | `-r, --reference TEXT` | 基準仕様（`init`、`None`、または 0 始まり整数）。 | `init` |
+| `-q, --charge INT` | UMA 再計算に使う総電荷。指定時に再計算を実行。 | _None_ |
+| `-m, --multiplicity INT` | UMA 再計算に使うスピン多重度 (2S+1)。指定時に再計算を実行。 | _None_ |
 | `--reverse-x` | X 軸を反転し、最後のフレームが左側に表示されます（`init` は最後のフレームになります）。 | `False` |
 
 ## 出力
@@ -68,6 +71,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 ## 注意事項
 
 - エネルギーは各コメントの最初の十進数から取得されます。不正なコメントではエラーが発生します。
+- 再計算時に電荷/多重度の片方のみを指定した場合、未指定側は `0` / `1` が使われます。
 - `-o` でサポートされていないファイル拡張子はエラーの原因となります。
 - `--reverse-x` は軸方向と `-r init` の動作の両方を反転し、可視化された経路が逆方向に読まれるようにします。
 - レガシーの `--output-peak` オプションは削除されました。

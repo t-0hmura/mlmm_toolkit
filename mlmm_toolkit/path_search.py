@@ -4,7 +4,7 @@
 ML/MM recursive GSM segmentation for multistep minimum-energy paths.
 
 Example:
-    mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
+    mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 
 For detailed documentation, see: docs/path_search.md
 """
@@ -125,6 +125,7 @@ SEARCH_KW: Dict[str, Any] = {
     "max_nodes_segment": 10,       # int, max_nodes override for recursive segments
     "max_nodes_bridge": 5,         # int, max_nodes override for bridge GSMs
     "kink_max_nodes": 3,           # int, nodes for linear interpolation when skipping GSM at a kink
+    "refine_mode": None,           # Optional[str], HEI seed policy (peak|minima)
 }
 
 # Multi-structure loader
@@ -306,6 +307,29 @@ def _segment_base_id(tag: str) -> str:
     """
     m = re.search(r"(seg_\d{3})", tag or "")
     return m.group(1) if m else (tag or "seg")
+
+
+def _is_local_minimum(idx: int, energies: Sequence[float]) -> bool:
+    if idx < 0 or idx >= len(energies):
+        return False
+    if idx == 0:
+        return len(energies) > 1 and energies[1] > energies[0]
+    if idx == len(energies) - 1:
+        return energies[-2] > energies[-1]
+    return energies[idx - 1] > energies[idx] and energies[idx + 1] > energies[idx]
+
+
+def _find_nearest_local_minimum(
+    hei_idx: int,
+    direction: int,
+    energies: Sequence[float],
+) -> Optional[int]:
+    i = hei_idx + direction
+    while 0 <= i < len(energies):
+        if _is_local_minimum(i, energies):
+            return i
+        i += direction
+    return None
 
 
 @dataclass
@@ -883,6 +907,7 @@ def _build_multistep_path(
     single_opt_cfg: Dict[str, Any],
     bond_cfg: Dict[str, Any],
     search_cfg: Dict[str, Any],
+    refine_mode_kind: str,
     out_dir: Path,
     ref_pdb_path: Optional[Path],
     depth: int,
@@ -927,8 +952,20 @@ def _build_multistep_path(
         _tag_images(gsm0.images, pair_index=pair_index)
         return CombinedPath(images=gsm0.images, energies=gsm0.energies, segments=[])
 
-    left_img = gsm0.images[hei - 1]
-    right_img = gsm0.images[hei + 1]
+    if refine_mode_kind == "minima":
+        left_idx = _find_nearest_local_minimum(hei_idx=hei, direction=-1, energies=gsm0.energies)
+        right_idx = _find_nearest_local_minimum(hei_idx=hei, direction=1, energies=gsm0.energies)
+        if left_idx is None:
+            left_idx = hei - 1
+        if right_idx is None:
+            right_idx = hei + 1
+        click.echo(f"[{tag0}] Using nearest local minima around HEI (left idx={left_idx}, right idx={right_idx}).")
+        left_img = gsm0.images[left_idx]
+        right_img = gsm0.images[right_idx]
+    else:
+        left_img = gsm0.images[hei - 1]
+        right_img = gsm0.images[hei + 1]
+        click.echo(f"[{tag0}] Refining HEI±1 (peak mode).")
 
     left_end = _optimize_single(left_img, shared_calc, single_opt_cfg, out_dir, tag=f"{tag0}_left", ref_pdb_path=ref_pdb_path)
     right_end = _optimize_single(right_img, shared_calc, single_opt_cfg, out_dir, tag=f"{tag0}_right", ref_pdb_path=ref_pdb_path)
@@ -1000,7 +1037,7 @@ def _build_multistep_path(
     if left_changed:
         subL = _build_multistep_path(
             gA, left_end, shared_calc, geom_cfg, gs_cfg, opt_cfg,
-            single_opt_cfg, bond_cfg, search_cfg,
+            single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}L",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
@@ -1015,7 +1052,7 @@ def _build_multistep_path(
     if right_changed:
         subR = _build_multistep_path(
             right_end, gB, shared_calc, geom_cfg, gs_cfg, opt_cfg,
-            single_opt_cfg, bond_cfg, search_cfg,
+            single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}R",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
@@ -1033,7 +1070,7 @@ def _build_multistep_path(
             shared_calc,
             geom_cfg, gs_cfg, opt_cfg,
             single_opt_cfg,
-            bond_cfg, search_cfg,
+            bond_cfg, search_cfg, refine_mode_kind,
             out_dir=out_dir,
             ref_pdb_path=ref_pdb_path,
             depth=depth + 1,
@@ -1486,7 +1523,7 @@ def _merge_final_and_write(final_images: List[Any],
           "followed by multiple space-separated paths (e.g., '-i A B C').")
 )
 @click.option(
-    "--real-parm7",
+    "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
@@ -1547,6 +1584,17 @@ def _merge_final_and_write(final_images: List[Any],
     default="gsm",
     show_default=True,
     help="MEP method: gsm (GrowingString) or dmf (Direct Max Flux).",
+)
+@click.option(
+    "--refine-mode",
+    type=click.Choice(["peak", "minima"], case_sensitive=False),
+    default=None,
+    show_default=True,
+    help=(
+        "Refinement seed around the highest-energy image: "
+        "'peak' uses HEI±1, 'minima' uses nearest local minima. "
+        "Defaults to peak for gsm and minima for dmf."
+    ),
 )
 @click.option(
     "--freeze-atoms",
@@ -1666,6 +1714,7 @@ def cli(
     charge: Optional[int],
     spin: Optional[int],
     mep_mode: str,
+    refine_mode: Optional[str],
     freeze_atoms_text: Optional[str],
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
@@ -1755,6 +1804,7 @@ def cli(
         override_layer_cfg = load_yaml_dict(override_yaml)
 
         mep_mode_kind = mep_mode.lower().strip()
+        refine_mode_kind = refine_mode.strip().lower() if refine_mode else None
 
         geom_cfg = dict(GEOM_KW)
         calc_cfg = dict(CALC_KW)
@@ -1859,6 +1909,8 @@ def cli(
         if _is_param_explicit("movable_cutoff") and movable_cutoff is not None:
             calc_cfg["movable_cutoff"] = float(movable_cutoff)
             detect_layer_effective = False
+        if _is_param_explicit("refine_mode"):
+            search_cfg["refine_mode"] = refine_mode_kind
 
         apply_yaml_overrides(
             override_layer_cfg,
@@ -1873,6 +1925,15 @@ def cli(
                 (dmf_cfg, (("dmf",),)),
             ],
         )
+
+        refine_mode_kind = search_cfg.get("refine_mode")
+        if refine_mode_kind is None:
+            refine_mode_kind = "peak" if mep_mode_kind == "gsm" else "minima"
+        else:
+            refine_mode_kind = str(refine_mode_kind).strip().lower()
+            if refine_mode_kind not in {"peak", "minima"}:
+                raise click.BadParameter(f"Unknown --refine-mode '{refine_mode_kind}'.")
+        search_cfg["refine_mode"] = refine_mode_kind
 
         out_dir_path = Path(opt_cfg.get("out_dir", out_dir)).resolve()
         detect_layer_effective = bool(calc_cfg.get("use_bfactor_layers", detect_layer_effective))
@@ -1963,6 +2024,7 @@ def cli(
                 "input_last": str(p_list[-1]) if p_list else None,
                 "output_dir": str(out_dir_path),
                 "mep_mode": mep_mode_kind,
+                "refine_mode": refine_mode_kind,
                 "opt_mode": str(opt_mode),
                 "detect_layer": bool(detect_layer_effective),
                 "model_region_source": model_region_source,
@@ -2072,6 +2134,7 @@ def cli(
                     "pre_opt": bool(pre_opt),
                     "align": bool(align),
                     "mep_mode": mep_mode_kind,
+                    "refine_mode": refine_mode_kind,
                     "opt_mode": str(opt_mode),
                 },
             )
@@ -2162,7 +2225,7 @@ def cli(
                 shared_calc,
                 geom_cfg, gs_cfg, opt_cfg,
                 lbfgs_cfg,
-                bond_cfg, search_cfg,
+                bond_cfg, search_cfg, refine_mode_kind,
                 out_dir=out_dir_path,
                 ref_pdb_path=ref_pdb_for_segments,
                 depth=0,
@@ -2182,7 +2245,7 @@ def cli(
                 shared_calc,
                 geom_cfg, gs_cfg, opt_cfg,
                 lbfgs_cfg,
-                bond_cfg, search_cfg,
+                bond_cfg, search_cfg, refine_mode_kind,
                 out_dir=out_dir_path,
                 ref_pdb_path=ref_pdb_for_segments,
                 depth=0,

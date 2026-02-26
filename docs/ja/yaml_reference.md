@@ -35,11 +35,9 @@
 ```yaml
 geom:
  coord_type: cart # 座標タイプ: "cart" (デカルト) または "dlc" (非局在化内部座標)
- freeze_atoms: [] # 0始まりの凍結原子インデックス; CLI --freeze-links 検出原子とマージ
 ```
 
 **注記:**
-- `freeze_atoms` は PDB 入力時の `--freeze-links` 検出原子とマージされます。
 - ML/MM モードでは、Frozen 層の原子が自動的に `freeze_atoms` に追加されます。
 - `irc` では `geom.coord_type` が YAML/CLI マージ後に `cart` へ強制されます。
 

@@ -425,7 +425,7 @@ Each segment directory under `path_search/` also gets its own `summary.log` and 
 
 Most users will primarily call `mlmm all`. The CLI also exposes individual subcommands -- each supports `-h/--help`.
 `mlmm all --help` shows core options and `mlmm all --help-advanced` shows the complete list.
-`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-gaussian`, `oniom-orca`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
+`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
 
 | Subcommand | Role | Documentation |
 |------------|------|---------------|
@@ -444,8 +444,7 @@ Most users will primarily call `mlmm all`. The CLI also exposes individual subco
 | `irc` | IRC calculation | [irc](irc.md) |
 | `freq` | Vibrational analysis | [freq](freq.md) |
 | `dft` | Single-point DFT | [dft](dft.md) |
-| `oniom-gaussian` | Export to Gaussian ONIOM format | [oniom_gaussian](oniom_gaussian.md) |
-| `oniom-orca` | Export to ORCA QM/MM format | [oniom_orca](oniom_orca.md) |
+| `oniom-export` | Export to Gaussian ONIOM / ORCA QM/MM (`--mode g16|orca`) | [oniom_export](oniom_export.md) |
 | `trj2fig` | Plot energy profiles | [trj2fig](trj2fig.md) |
 | `energy-diagram` | Draw state energy diagram from numeric values | [energy-diagram](energy_diagram.md) |
 | `add-elem-info` | Repair PDB element columns | [add_elem_info](add_elem_info.md) |

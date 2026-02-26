@@ -4,8 +4,8 @@
 ML/MM minimum-energy path optimization via Growing String Method or Direct Max Flux.
 
 Example:
-    mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
-    mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 -q 0 --mep-mode dmf
+    mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
+    mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 -q 0 --mep-mode dmf
 
 For detailed documentation, see: docs/path_opt.md
 """
@@ -606,6 +606,12 @@ def _run_dmf_mep(
 @click.option("--preopt-max-cycles", "preopt_max_cycles", type=int, default=10000, show_default=True,
               help="Maximum LBFGS cycles for endpoint pre-optimization when --preopt=True.")
 @click.option(
+    "--fix-ends/--no-fix-ends",
+    default=False,
+    show_default=True,
+    help="Fix endpoint structures during path growth.",
+)
+@click.option(
     "--dump/--no-dump",
     default=False,
     show_default=True,
@@ -641,7 +647,8 @@ def _run_dmf_mep(
     help="Validate options and print the execution plan without running path optimization.",
 )
 @click.option(
-    "--real-parm7",
+    "--parm",
+    "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
     help="Amber parm7 topology for the enzyme complex (MM layers).",
@@ -714,6 +721,7 @@ def cli(
     climb: bool,
     preopt: bool,
     preopt_max_cycles: int,
+    fix_ends: bool,
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
@@ -799,6 +807,9 @@ def cli(
         if _is_param_explicit("climb"):
             gs_cfg["climb"] = bool(climb)
             gs_cfg["climb_lanczos"] = bool(climb)
+        if _is_param_explicit("fix_ends"):
+            gs_cfg["fix_first"] = bool(fix_ends)
+            gs_cfg["fix_last"] = bool(fix_ends)
         if _is_param_explicit("dump"):
             opt_cfg["dump"] = bool(dump)
             lbfgs_cfg["dump"] = bool(dump)
@@ -942,6 +953,7 @@ def cli(
                         "input_endpoints": [str(p) for p in input_paths],
                         "output_dir": str(out_dir_path),
                         "mep_mode": mep_mode_kind,
+                        "fix_ends": bool(gs_cfg.get("fix_first", False) and gs_cfg.get("fix_last", False)),
                         "detect_layer": bool(detect_layer_enabled),
                         "model_region_source": model_region_source,
                         "model_indices_count": 0 if not model_indices else len(model_indices),
@@ -1031,6 +1043,7 @@ def cli(
                     "mep_mode": mep_mode_kind,
                     "preopt": bool(preopt),
                     "preopt_max_cycles": int(preopt_max_cycles_effective),
+                    "fix_ends": bool(gs_cfg.get("fix_first", False) and gs_cfg.get("fix_last", False)),
                 },
             )
         )

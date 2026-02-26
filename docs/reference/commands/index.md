@@ -17,8 +17,7 @@ freq
 init
 irc
 mm_parm
-oniom_gaussian
-oniom_orca
+oniom_export
 opt
 path_opt
 path_search
@@ -42,8 +41,7 @@ tsopt
 | `mlmm init` | [init](init.md) |
 | `mlmm irc` | [irc](irc.md) |
 | `mlmm mm-parm` | [mm-parm](mm_parm.md) |
-| `mlmm oniom-gaussian` | [oniom-gaussian](oniom_gaussian.md) |
-| `mlmm oniom-orca` | [oniom-orca](oniom_orca.md) |
+| `mlmm oniom-export` | [oniom-export](oniom_export.md) |
 | `mlmm opt` | [opt](opt.md) |
 | `mlmm path-opt` | [path-opt](path_opt.md) |
 | `mlmm path-search` | [path-search](path_search.md) |

@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **要約:** ML/MM 計算機を使用した Growing String Method（GSM）により、**正確に 2 つ**の酵素構造間の MEP を探索します。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。
+> **要約:** ML/MM 計算機で GSM または DMF を使い、**正確に 2 つ**の酵素構造間の MEP を探索します。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。
 
 ### 概要
 - **用途:** 反応物と生成物の端点 (R -> P) があり、初回パスの MEP が必要な場合に使用。
@@ -55,7 +55,7 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 ```bash
 mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
- -q CHARGE [-m MULT] [options]
+ -q CHARGE [-m MULT] [--mep-mode gsm|dmf] [--fix-ends/--no-fix-ends] [options]
 ```
 
 ### 例
@@ -77,8 +77,8 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 1. **端点の読み込み** -- 両方の PDB 構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--real-parm7`、`--model-pdb`、電荷/スピンで ML/MM 計算機を構築します。
 2. **事前アライメント** -- 最初の構造以降のすべての端点が最初の構造に Kabsch アライメントされます。`freeze_atoms` が定義されている場合、それらの原子のみが RMSD フィットに参加し、結果の変換がすべての原子に適用されます。
 3. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に LBFGS（同じ ML/MM 計算機を使用）で事前最適化されます。LBFGS サイクル数は `--preopt-max-cycles`（デフォルト: 10000）で制御されます。
-4. **ストリング成長** -- PySisyphus `GrowingString` が端点を含む `(max_nodes + 2)` イメージを使用して端点間の経路を成長させます。
-5. **クライミングイメージ** -- `--climb` の場合、ストリングが完全に成長した後にクライミングイメージ精密化が適用され、最高エネルギーイメージ（HEI）が報告されます。
+4. **経路最適化** -- `--mep-mode gsm` は PySisyphus `GrowingString`（端点込み `(max_nodes + 2)` イメージ）を使用し、`--mep-mode dmf` は Direct Max Flux を使用します。
+5. **クライミングイメージ（GSM のみ）** -- `--climb` の場合、ストリングが完全に成長した後にクライミングイメージ精密化が適用され、最高エネルギーイメージ（HEI）が報告されます。
 6. **出力** -- 最終経路軌跡と HEI が XYZ および PDB ファイルとして書き出されます。入力が PDB の場合に PDB 変換が実行されます。
 
 ## CLI オプション
@@ -89,7 +89,9 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
+| `--mep-mode [gsm\|dmf]` | MEP バックエンド。 | `gsm` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（0 始まりに変換; YAML `geom.freeze_atoms` とマージ）。 | _None_ |
+| `--fix-ends/--no-fix-ends` | GSM 成長中に端点構造を固定（`gs.fix_first/fix_last`）。 | `False` |
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `10` |
 | `--max-cycles INT` | オプティマイザーマクロ反復上限（成長 + 精密化）。`opt.stop_in_when_full` も設定。 | `300` |
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |
@@ -149,6 +151,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 - 正確に 2 つの構造が必要です。フォーマットは `geom_loader` に従います。
 - 電荷/スピン: CLI がデフォルトを上書きします。正しい状態のために常に明示的に設定してください。
 - `--max-nodes` は GSM ストリングの*内部*ノード/イメージ数を制御します（GSM の総イメージ = `max_nodes + 2`）。
+- `--fix-ends` は `gs.fix_first=True` と `gs.fix_last=True` に対応します（GSM モードに適用）。
 - `--climb` は標準のクライミングステップと Lanczos ベースの接線精密化の両方を切り替えます。
 - `--dump` は StringOptimizer の `opt.dump=True` に相当し、`out_dir` 内に軌跡ダンプを生成します。リスタート YAML は YAML で有効化された場合のみ書き出されます。
 - 終了コード: `0` 成功、`3` オプティマイザー失敗、`4` 軌跡書き出しエラー、`5` HEI エクスポートエラー、`130` 割り込み、`1` 予期しないエラー。

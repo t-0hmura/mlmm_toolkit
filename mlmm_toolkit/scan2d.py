@@ -1,7 +1,7 @@
 """ML/MM two-distance (d1, d2) grid scan with harmonic restraints.
 
 Example:
-    mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+    mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
         -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 
 For detailed documentation, see: docs/scan2d.md
@@ -167,7 +167,8 @@ def _make_lbfgs(
     help="Input enzyme complex PDB (required).",
 )
 @click.option(
-    "--real-parm7",
+    "--parm",
+    "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
     help="Amber parm7 topology for the enzyme (required).",

@@ -4,7 +4,7 @@
 ML/MM IRC calculation using the EulerPC predictor-corrector integrator.
 
 Example:
-    mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
+    mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 
 For detailed documentation, see: docs/irc.md
 """
@@ -55,7 +55,6 @@ from .utils import (
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
     yaml_section_has_key,
-    resolve_freeze_atoms,
 )
 from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file
 
@@ -125,7 +124,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help="Input structure file (.pdb, .xyz, _trj.xyz, etc.).",
 )
 @click.option(
-    "--real-parm7",
+    "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
@@ -174,12 +173,8 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help="Spin multiplicity (2S+1); overrides calc.spin from YAML.",
 )
 @click.option(
-    "--freeze-links/--no-freeze-links",
-    default=True,
-    show_default=True,
-    help="Freeze parent atoms of link hydrogens (PDB only).",
+    "--max-cycles", type=int, default=None, help="Maximum number of IRC steps; overrides irc.max_cycles from YAML."
 )
-@click.option("--max-cycles", type=int, default=None, help="Maximum number of IRC steps; overrides irc.max_cycles from YAML.")
 @click.option("--step-size", type=float, default=None, help="Step length in mass-weighted coordinates; overrides irc.step_length from YAML.")
 @click.option("--root", type=int, default=None, help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
 @click.option(
@@ -246,7 +241,6 @@ def cli(
     detect_layer: bool,
     charge: Optional[int],
     spin: Optional[int],
-    freeze_links: bool,
     max_cycles: Optional[int],
     step_size: Optional[float],
     root: Optional[int],
@@ -376,11 +370,9 @@ def cli(
 
         # Normalize any existing freeze list from YAML before wiring it to UMA
         merge_freeze_atom_indices(geom_cfg)
-        # Auto-detect and freeze parent atoms of link hydrogens (PDB only)
-        resolve_freeze_atoms(geom_cfg, source_path, freeze_links)
         calc_cfg["freeze_atoms"] = list(geom_cfg.get("freeze_atoms", []))
         if not calc_cfg.get("real_parm7"):
-            raise click.BadParameter("Missing --real-parm7 (or calc.real_parm7 in YAML).")
+            raise click.BadParameter("Missing --parm (or calc.real_parm7 in YAML).")
 
         out_dir_path = Path(irc_cfg["out_dir"]).resolve()
         layer_source_pdb = source_path

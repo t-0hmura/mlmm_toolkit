@@ -26,8 +26,7 @@ SUBCOMMANDS = [
     "init",
     "irc",
     "mm-parm",
-    "oniom-gaussian",
-    "oniom-orca",
+    "oniom-export",
     "opt",
     "path-opt",
     "path-search",
@@ -60,8 +59,7 @@ UTILITY_SUBCOMMANDS = [
     ("add-elem-info", "-o, --out", "--overwrite"),
     ("trj2fig", "--unit", "--reverse-x"),
     ("energy-diagram", "-o, --output", "--label-x"),
-    ("oniom-gaussian", "--method", "--mem"),
-    ("oniom-orca", "--method", "--orcaff"),
+    ("oniom-export", "--mode", "--orcaff"),
 ]
 
 

@@ -121,8 +121,7 @@ ja/index
 | Search for minimum energy path | `mlmm path-search` | [path_search.md](path_search.md) |
 | Run IRC from a transition state | `mlmm irc` | [irc.md](irc.md) |
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Export to Gaussian ONIOM | `mlmm oniom-gaussian` | [oniom_gaussian.md](oniom_gaussian.md) |
-| Export to ORCA QM/MM | `mlmm oniom-orca` | [oniom_orca.md](oniom_orca.md) |
+| Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export --mode <g16|orca>` | [oniom_export.md](oniom_export.md) |
 | Draw state energy diagram from numeric values | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
 | Follow worked tutorials | -- | [Tutorial](getting_started.md) |
 | Diagnose failures by symptom | -- | [Common Error Recipes](recipes_common_errors.md) |
@@ -191,8 +190,7 @@ ja/index
 ### Export
 | Subcommand | Description |
 |------------|-------------|
-| [`oniom-gaussian`](oniom_gaussian.md) | Export to Gaussian ONIOM format |
-| [`oniom-orca`](oniom_orca.md) | Export to ORCA QM/MM format |
+| [`oniom-export`](oniom_export.md) | Export to Gaussian ONIOM / ORCA QM/MM (`--mode g16|orca`) |
 
 ---
 

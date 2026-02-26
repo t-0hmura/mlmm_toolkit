@@ -5,7 +5,7 @@
 > **Summary:** Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations. Use `--spec` (YAML/JSON, recommended) or `--scan-lists`.
 
 ### At a glance
-- **Input:** One full enzyme PDB + `--spec scan3d.yaml` (recommended), or one `--scan-lists` literal (three quadruples).
+- **Input:** One full enzyme PDB + `--spec scan3d.yaml` (recommended), or one `--scan-lists` literal (three quadruples). Use `--csv` for plot-only mode.
 - **Grid ordering:** d1 is scanned first, then d2 for each d1 value (both restraints active), then d3 for each (d1, d2) with all three restraints active.
 - **Energies:** Recorded energies are evaluated **without bias**, so grid points are directly comparable.
 - **Outputs:** `surface.csv`, per-point geometries under `grid/`, and an HTML isosurface plot (`scan3d_density.html`).
@@ -36,6 +36,7 @@ mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ```bash
 mlmm scan3d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
+ [--csv precomputed_surface.csv] \
  [--spec scan3d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
  [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
  [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
@@ -150,18 +151,19 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 ## CLI options
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Full enzyme PDB (no link atoms). | Required |
-| `--real-parm7 PATH` | Amber parm7 topology for the full enzyme. | Required |
+| `-i, --input PATH` | Full enzyme PDB (no link atoms). | Required unless `--csv` |
+| `--real-parm7 PATH` | Amber parm7 topology for the full enzyme. | Required unless `--csv` |
 | `--model-pdb PATH` | PDB defining the ML region. | _None_ |
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors. | `True` |
-| `-q, --charge INT` | ML-region total charge. | Required |
+| `-q, --charge INT` | ML-region total charge. | Required unless `--csv` |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
 | `--hess-cutoff FLOAT` | Cutoff distance for Hessian-MM layer. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--spec FILE` | YAML/JSON spec with `pairs` (3 quadruples) and optional `one_based`. | Recommended |
+| `--csv FILE` | Load precomputed `surface.csv` and generate plot without running a scan. | _None_ |
 | `--scan-lists TEXT` | single Python literal with three quadruples `(i,j,low,high)`. `i`/`j` can be integer indices or PDB atom selectors. | Alternative to `--spec` |
 | `--one-based / --zero-based` | Interpret `(i, j)` indices as 1- or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |

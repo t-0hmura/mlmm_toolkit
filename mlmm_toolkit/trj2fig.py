@@ -19,7 +19,9 @@ from typing import List, Optional, Sequence, Tuple
 
 import click
 import plotly.graph_objs as go
-from pysisyphus.constants import AU2KCALPERMOL
+from ase import Atoms
+from ase.io import read
+from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 
 AXIS_WIDTH = 3         # axis and tick thickness
 FONT_SIZE = 18         # tick-label font size
@@ -52,6 +54,53 @@ def read_energies_xyz(fname: Path | str) -> List[float]:
     if not energies:
         raise RuntimeError(f"No energy data in {fname}")
     return energies
+
+
+def recompute_energies(
+    traj_path: Path,
+    charge: Optional[int],
+    multiplicity: Optional[int],
+) -> List[float]:
+    try:
+        import torch
+        from fairchem.core import pretrained_mlip
+        from fairchem.core.datasets import data_list_collater
+        from fairchem.core.datasets.atomic_data import AtomicData
+    except Exception as exc:
+        raise RuntimeError(
+            "Energy recomputation requires fairchem-core and torch."
+        ) from exc
+
+    frames_obj = read(traj_path, index=":", format="xyz")
+    frames = [frames_obj] if isinstance(frames_obj, Atoms) else list(frames_obj)
+    if not frames:
+        raise RuntimeError(f"No frames found in {traj_path}")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device=str(device))
+    predictor.model.eval()
+    backbone = getattr(getattr(predictor.model, "module", predictor.model), "backbone", None)
+    uma_max_neigh = getattr(backbone, "max_neighbors", None)
+    uma_radius = getattr(backbone, "cutoff", None)
+
+    q = int(charge if charge is not None else 0)
+    mult = int(multiplicity if multiplicity is not None else 1)
+    energies_h: List[float] = []
+    for atoms in frames:
+        atoms.info.update({"charge": q, "spin": mult})
+        data = AtomicData.from_ase(
+            atoms,
+            max_neigh=uma_max_neigh,
+            radius=uma_radius,
+            r_edges=False,
+        ).to(device)
+        data.dataset = "omol"
+        batch = data_list_collater([data], otf_graph=True).to(device)
+        with torch.no_grad():
+            res = predictor.predict(batch)
+        energy_ev = float(res["energy"].squeeze().detach().item())
+        energies_h.append(energy_ev / AU2EV)
+    return energies_h
 
 
 # ---------------------------------------------------------------------
@@ -252,6 +301,20 @@ def parse_cli() -> argparse.Namespace:
         help='Reference: "init" (initial frame; last frame if --reverse-x), "None" (absolute E), or an integer index.',
     )
     p.add_argument(
+        "-q",
+        "--charge",
+        type=int,
+        required=False,
+        help="Total charge. Recompute energies when supplied.",
+    )
+    p.add_argument(
+        "-m",
+        "--multiplicity",
+        type=int,
+        required=False,
+        help="Spin multiplicity (2S+1). Recompute energies when supplied.",
+    )
+    p.add_argument(
         "--reverse-x",
         action="store_true",
         help="Reverse the x-axis (last frame on the left).",
@@ -259,12 +322,24 @@ def parse_cli() -> argparse.Namespace:
     return p.parse_args()
 
 
-def run_trj2fig(input_path: Path, outs: Sequence[Path], unit: str, reference: str, reverse_x: bool) -> None:
+def run_trj2fig(
+    input_path: Path,
+    outs: Sequence[Path],
+    unit: str,
+    reference: str,
+    reverse_x: bool,
+    charge: Optional[int] = None,
+    multiplicity: Optional[int] = None,
+) -> None:
     traj = input_path.expanduser().resolve()
     if not traj.is_file():
         raise FileNotFoundError(traj)
 
-    energies = read_energies_xyz(traj)
+    if charge is None and multiplicity is None:
+        energies = read_energies_xyz(traj)
+    else:
+        click.echo("[trj2fig] Recomputing energies with UMA model ...")
+        energies = recompute_energies(traj, charge, multiplicity)
     values, ylabel, is_delta = transform_series(energies, reference, unit, reverse_x)
 
     need_plot = any(Path(o).suffix.lower() != ".csv" for o in outs)
@@ -276,7 +351,15 @@ def run_trj2fig(input_path: Path, outs: Sequence[Path], unit: str, reference: st
 
 def main() -> None:
     args = parse_cli()
-    run_trj2fig(Path(args.input), args.out, args.unit, args.reference, args.reverse_x)
+    run_trj2fig(
+        Path(args.input),
+        args.out,
+        args.unit,
+        args.reference,
+        args.reverse_x,
+        args.charge,
+        args.multiplicity,
+    )
 
 
 # ---------------------------------------------------------------------
@@ -323,6 +406,20 @@ def main() -> None:
     help='Reference: "init" (initial frame; last frame if --reverse-x), "None" (absolute E), or an integer index.',
 )
 @click.option(
+    "-q",
+    "--charge",
+    type=int,
+    default=None,
+    help="Total charge. Recompute energies when supplied.",
+)
+@click.option(
+    "-m",
+    "--multiplicity",
+    type=int,
+    default=None,
+    help="Spin multiplicity (2S+1). Recompute energies when supplied.",
+)
+@click.option(
     "--reverse-x",
     is_flag=True,
     help="Reverse the x-axis (last frame on the left).",
@@ -333,6 +430,8 @@ def cli(
     extra_outs: Tuple[Path, ...],
     unit: str,
     reference: str,
+    charge: Optional[int],
+    multiplicity: Optional[int],
     reverse_x: bool,
 ) -> None:
     # Combine outputs from -o with positional filenames that follow the options
@@ -340,7 +439,7 @@ def cli(
     if not all_outs:
         # Use the default when nothing is specified
         all_outs = [Path("energy.png")]
-    run_trj2fig(input_path, all_outs, unit, reference, reverse_x)
+    run_trj2fig(input_path, all_outs, unit, reference, reverse_x, charge, multiplicity)
 
 
 if __name__ == "__main__":

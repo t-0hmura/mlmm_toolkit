@@ -1,4 +1,4 @@
-# `oniom-gaussian`
+# Gaussian ONIOM Mode (`oniom-export --mode g16`)
 
 ## Overview
 
@@ -14,7 +14,7 @@
 ## Minimal example
 
 ```bash
-mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1
 ```
 
@@ -28,27 +28,27 @@ mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 1. Basic export with explicit method.
 
 ```bash
-mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --method "B3LYP/6-31G(d,p)"
 ```
 
 2. Disable element-sequence validation when atom order is already trusted.
 
 ```bash
-mlmm oniom-gaussian --parm7 real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
  -o system.gjf --no-element-check
 ```
 
 3. Tune optimization environment metadata.
 
 ```bash
-mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
 
 ## Workflow
 
-`oniom-gaussian` reads topology data from `--parm7` (via ParmEd), optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file.
+Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm7` (via ParmEd), optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file.
 
 1. Load atom/bond/charge data from parm7.
 2. Optionally load coordinates and run element-order validation (`--element-check`).
@@ -83,7 +83,7 @@ mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 
 ## See Also
 
-- [oniom-orca](oniom_orca.md) -- ORCA QM/MM exporter
+- [oniom_orca](oniom_orca.md) -- ORCA mode guide (`--mode orca`)
 - [oniom_export](oniom_export.md) -- Export overview and chooser
 - [mm_parm](mm_parm.md) -- Build Amber topology (`parm7`/`rst7`)
 - [define_layer](define_layer.md) -- Build/check layer annotations

@@ -107,7 +107,6 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 - Adds carbon-only link hydrogens at 1.09 A along severed bond vectors (CB-CA, CA-N, CA-C; PRO/HYP use CA-C only).
 - Inserted after a `TER` as contiguous `HETATM` records named `HL` in residue `LKH` (chain `L`). Serial numbers continue from the main block.
 - In multi-structure mode the same bonds are capped across all models; coordinates remain model-specific.
-- Link hydrogens are **parent atoms** for the purpose of `--freeze-links` in downstream commands (e.g., `scan`, `path-search`). When `--freeze-links` is enabled (default in most commands), the parent atoms of link hydrogens are frozen to keep the pocket boundary rigid.
 
 ### Charge summary (`--ligand-charge`)
 - Amino acids and common ions draw charges from internal dictionaries; waters are zero.

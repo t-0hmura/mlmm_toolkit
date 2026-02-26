@@ -8,7 +8,6 @@
 - **Use when:** You have a TS guess (HEI from `path-opt`/`path-search`, or your own structure) and want to refine it to a first-order saddle point with ML/MM.
 - **Method:** `heavy` = RS-I-RFO (default, generally more robust). `light` = Hessian Guided Dimer (often cheaper per step). `hybrid` = Dimer to convergence, then RS-I-RFO flatten loop only.
 - **Outputs:** `final_geometry.xyz`/`.pdb`, imaginary-mode animations in `vib/`.
-- **Defaults:** `--opt-mode heavy`, `--thresh baker`, `--max-cycles 10000`, `--freeze-links` enabled, `--flatten` disabled.
 - **Next step:** Run [freq](freq.md) to confirm exactly one imaginary frequency, then [irc](irc.md) to verify connectivity.
 
 ### Choosing `--opt-mode`
@@ -71,7 +70,6 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 1. **Input handling** -- Load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge/spin. Freeze atoms from CLI and YAML are merged.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (FAIR-Chem UMA + hessian_ff). The `--hessian-calc-mode` controls whether UMA evaluates Hessians analytically or via finite difference.
-3. **Freeze-link detection** -- With `--freeze-links` (default), parent atoms of link hydrogens are detected and frozen. The merged set is stored in `geom.freeze_atoms` and forwarded to the ML/MM calculator.
 4. **Light mode (Dimer):**
    - The Hessian Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected).
    - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
@@ -95,7 +93,6 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | Total charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--freeze-links/--no-freeze-links` | PDB-only. Freeze parents of link hydrogens (merged into `geom.freeze_atoms`). | `True` |
 | `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | UMA Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |

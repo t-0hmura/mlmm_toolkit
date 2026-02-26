@@ -1,4 +1,4 @@
-# `oniom-orca`
+# ORCA QM/MM モード（`oniom-export --mode orca`）
 
 ## 概要
 
@@ -14,7 +14,7 @@
 ## 最小の例
 
 ```bash
-mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
@@ -28,27 +28,27 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 1. 基本出力。
 
 ```bash
-mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
 2. 全 QM+MM 系の総電荷/総多重度を明示。
 
 ```bash
-mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
 3. ORCAFF を明示指定し自動変換を無効化。
 
 ```bash
-mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
 ## ワークフロー
 
-`oniom-orca` は `--parm7` からトポロジ情報を取得し、ORCA QM/MM 入力を書き出します。
+ORCA モード（`mlmm oniom-export --mode orca`）は `--parm7` からトポロジ情報を取得し、ORCA QM/MM 入力を書き出します。
 
 1. parm7 から原子・結合・電荷情報を取得。
 2. `-i/--input` がある場合は読み込み、`--element-check` で元素順を検証。
@@ -89,7 +89,8 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 - [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
-- [oniom-gaussian](oniom_gaussian.md) -- Gaussian ONIOM エクスポータ
+- [oniom_gaussian](oniom_gaussian.md) -- Gaussian モードガイド（`--mode g16`）
 - [oniom_export](oniom_export.md) -- エクスポート全体ガイド
 - [mm_parm](mm_parm.md) -- Amber トポロジ構築
 - [define_layer](define_layer.md) -- レイヤー定義/確認
+- ORCA 6.0 マニュアル（QM/MM）: <https://www.faccts.de/docs/orca/6.0/manual/contents/typical/qmmm.html>

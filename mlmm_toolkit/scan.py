@@ -4,7 +4,7 @@
 ML/MM staged bond-length scan with harmonic restraints.
 
 Example:
-    mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 --scan-lists "[(12,45,2.20)]"
+    mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 --scan-lists "[(12,45,2.20)]"
 
 For detailed documentation, see: docs/scan.md
 """
@@ -232,7 +232,8 @@ def _snapshot_geometry(g) -> Any:
     help="Full-enzyme PDB used by the ML/MM calculator and as reference for conversions.",
 )
 @click.option(
-    "--real-parm7",
+    "--parm",
+    "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
     help="Amber parm7 topology covering the entire enzyme complex.",

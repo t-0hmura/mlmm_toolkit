@@ -607,6 +607,107 @@ class HessianOptimizer(Optimizer):
         self.log(f"\teigenvalue_{verbose}={eigval:.8e}")
         return step, eigval, nu, follow_eigvec
 
+    def solve_rfo_secular(self, eigvals, gradient, alpha=1.0, kind="min",
+                          prev_eigvec=None, max_iter=50, tol=1e-12):
+        """Solve the RFO eigenvalue problem via the secular equation.
+
+        The augmented Hessian has arrowhead structure, so its eigenvalue
+        problem reduces to: f(mu) = sum g_i^2/(alpha*mu - lam_i) - mu = 0,
+        solvable in O(N) instead of O(N^3).
+
+        Returns (step, eigval, nu, eigvec) on success, None on failure.
+        """
+        is_torch = isinstance(eigvals, torch.Tensor)
+
+        # Convert all inputs to plain numpy/float for root-finding
+        _np = lambda x: x.detach().cpu().numpy().copy() if isinstance(x, torch.Tensor) else np.asarray(x, dtype=np.float64)
+        g = _np(gradient)
+        lam = _np(eigvals)
+        alpha = alpha.detach().cpu().item() if isinstance(alpha, torch.Tensor) else float(alpha)
+
+        n = len(lam)
+        g2 = g ** 2
+        nz = g2 > 1e-30
+        if not nz.any():
+            step = np.zeros(n)
+            eigvec = np.zeros(n + 1); eigvec[-1] = 1.0
+            if is_torch:
+                step = torch.zeros(n, device=eigvals.device, dtype=eigvals.dtype)
+                eigvec = torch.zeros(n + 1, device=eigvals.device, dtype=eigvals.dtype)
+                eigvec[-1] = 1.0
+            return step, 0.0, 1.0, eigvec
+
+        g2_nz, lam_nz = g2[nz], lam[nz]
+
+        def f_df(mu):
+            d = alpha * mu - lam_nz
+            return float(np.sum(g2_nz / d) - mu), float(-alpha * np.sum(g2_nz / d**2) - 1.0)
+
+        _, verbose = self.rfo_dict[kind]
+
+        # Bracket the root
+        if kind == "min":
+            pole = float(lam.min() / alpha)
+            mu = pole - max(float(np.sqrt(g2_nz.sum())) / alpha, 1.0)
+            for _ in range(20):
+                if f_df(mu)[0] > 0: break
+                mu = pole - 2.0 * (pole - mu)
+            else:
+                return None
+            lo, hi = mu, pole - 1e-15 * max(abs(pole), 1.0)
+        elif kind == "max":
+            pole = float(lam.max() / alpha)
+            mu = pole + max(float(np.sqrt(g2_nz.sum())) / alpha, 1.0)
+            for _ in range(20):
+                if f_df(mu)[0] < 0: break
+                mu = pole + 2.0 * (mu - pole)
+            else:
+                return None
+            lo, hi = pole + 1e-15 * max(abs(pole), 1.0), mu
+        else:
+            return None
+
+        # Newton-Raphson with bisection safeguard
+        mu_cur = (lo + hi) / 2.0
+        for _ in range(max_iter):
+            fval, dfval = f_df(mu_cur)
+            if abs(fval) < tol:
+                break
+            mu_new = mu_cur - fval / dfval if abs(dfval) > 1e-30 else (lo + hi) / 2.0
+            if mu_new <= lo or mu_new >= hi:
+                mu_new = (lo + hi) / 2.0
+            f_new = f_df(mu_new)[0]
+            if f_new > 0: lo = mu_new
+            else: hi = mu_new
+            mu_cur = mu_new
+        else:
+            self.log(f"Secular equation did not converge in {max_iter} iters.")
+            return None
+
+        self.log(f"\teigenvalue_{verbose}={mu_cur:.8e} (secular)")
+        self.log(f"\tnu_{verbose}={1.0:.8e}")
+
+        # Compute step: s_i = g_i / (alpha * mu - lam_i)
+        denom = alpha * mu_cur - lam
+        step_np = np.where(nz, g / denom, 0.0)
+
+        # Eigenvector for mode tracking
+        eigvec_np = np.append(step_np, 1.0)
+        eigvec_np /= np.linalg.norm(eigvec_np)
+
+        # Mode tracking check
+        if prev_eigvec is not None:
+            prev_np = _np(prev_eigvec)
+            if abs(float(np.dot(prev_np, eigvec_np))) < 0.3:
+                self.log("Secular eigvec overlap too low; falling back.")
+                return None
+
+        if is_torch:
+            step_np = torch.tensor(step_np, device=eigvals.device, dtype=eigvals.dtype)
+            eigvec_np = torch.tensor(eigvec_np, device=eigvals.device, dtype=eigvals.dtype)
+
+        return step_np, mu_cur, 1.0, eigvec_np
+
     def filter_small_eigvals(self, eigvals, eigvecs, mask=False):
         if isinstance(eigvals, torch.Tensor):
             small_inds = torch.abs(eigvals) < self.small_eigval_thresh
@@ -773,10 +874,20 @@ class HessianOptimizer(Optimizer):
         alpha = self.alpha0
         for mu in range(self.max_micro_cycles):
             self.log(f"{name} micro cycle {mu:02d}, alpha={alpha:.6f}")
-            H_aug = self.get_augmented_hessian(eigvals, gradient_, alpha)
-            rfo_step_, eigval_min, nu, self.prev_eigvec_min = self.solve_rfo( # heavy-compute
-                H_aug, "min", prev_eigvec=self.prev_eigvec_min
+            # Try secular equation solver first (O(N) vs O(N^3))
+            secular_result = self.solve_rfo_secular(
+                eigvals, gradient_, alpha, kind="min",
+                prev_eigvec=self.prev_eigvec_min,
             )
+            if secular_result is not None:
+                rfo_step_, eigval_min, nu, self.prev_eigvec_min = secular_result
+            else:
+                # Fallback to full eigendecomposition
+                self.log("Secular solver failed; using full eigendecomposition.")
+                H_aug = self.get_augmented_hessian(eigvals, gradient_, alpha)
+                rfo_step_, eigval_min, nu, self.prev_eigvec_min = self.solve_rfo(
+                    H_aug, "min", prev_eigvec=self.prev_eigvec_min
+                )
             if isinstance(rfo_step_, torch.Tensor):
                 rfo_norm_ = torch.linalg.norm(rfo_step_)
             else:
@@ -809,8 +920,14 @@ class HessianOptimizer(Optimizer):
                 "RS algorithm did not produce a desired step length in "
                 f"{self.max_micro_cycles} micro cycles. Trying RFO with α=1.0."
             )
-            H_aug = self.get_augmented_hessian(eigvals, gradient_, alpha=1.0)
-            rfo_step_, eigval_min, nu, _ = self.solve_rfo(H_aug, "min")
+            secular_result = self.solve_rfo_secular(
+                eigvals, gradient_, alpha=1.0, kind="min"
+            )
+            if secular_result is not None:
+                rfo_step_, eigval_min, nu, _ = secular_result
+            else:
+                H_aug = self.get_augmented_hessian(eigvals, gradient_, alpha=1.0)
+                rfo_step_, eigval_min, nu, _ = self.solve_rfo(H_aug, "min")
             if isinstance(rfo_step_, torch.Tensor):
                 rfo_norm_ = torch.linalg.norm(rfo_step_)
             else:

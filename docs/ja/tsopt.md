@@ -8,7 +8,6 @@
 - **用途:** TS 推測構造（`path-opt`/`path-search` からの HEI、またはユーザー独自の構造）を ML/MM で一次鞍点に精密化する場合。
 - **手法:** `heavy` = RS-I-RFO（デフォルト、一般的により堅牢）。`light` = ヘシアンガイド付き Dimer（ステップあたりのコストが低い場合が多い）。`hybrid` = Dimer で収束後、RS-I-RFO フラットンループのみ実行。
 - **出力:** `final_geometry.xyz`/`.pdb`、`vib/` 内の虚数モードアニメーション。
-- **デフォルト:** `--opt-mode heavy`、`--thresh baker`、`--max-cycles 10000`、`--freeze-links` 有効、`--flatten` 無効。
 - **次のステップ:** [freq](freq.md) で正確に 1 つの虚数振動数を確認し、[irc](irc.md) で結合性を検証。
 
 ### `--opt-mode` の選択
@@ -71,7 +70,6 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 1. **入力処理** -- 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
 2. **ML/MM 計算機の構築** -- ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を構築します。`--hessian-calc-mode` は UMA がヘシアンを解析的に評価するか有限差分で評価するかを制御します。
-3. **リンク凍結検出** -- `--freeze-links`（デフォルト）により、リンク水素の親原子が検出され凍結されます。マージされたセットは `geom.freeze_atoms` に格納され、ML/MM 計算機に転送されます。
 4. **Light モード（Dimer）:**
    - ヘシアン Dimer ステージは、正確なヘシアン（アクティブ部分空間、TR 射影済み）を評価して Dimer 方向を定期的に更新します。
    - フラットンループが有効な場合（`--flatten`）、保存されたアクティブヘシアンは変位と勾配差分を使用した Bofill で更新されます。各ループで虚数モードを推定し、一度フラットンし、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
@@ -95,7 +93,6 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--freeze-links/--no-freeze-links` | PDB 専用。リンク水素の親原子を凍結（`geom.freeze_atoms` にマージ）。 | `True` |
 | `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定時は `--detect-layer` が無効化。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
 | `--hessian-calc-mode CHOICE` | UMA ヘシアンモード: `Analytical` または `FiniteDifference`。 | _None_ |

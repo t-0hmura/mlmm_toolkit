@@ -59,6 +59,7 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
  --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
+ [--mep-mode gsm|dmf] [--refine-mode peak|minima]
  [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
  [--opt-mode light|heavy]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
@@ -80,13 +81,13 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 
 ## Workflow
 
-1. **Initial segment per pair (GSM)** -- Run `GrowingString` with ML/MM between each adjacent input (A->B) to obtain a coarse MEP and identify the highest-energy image (HEI).
-2. **Local relaxation around HEI** -- Refine HEI +/- 1 with the chosen single-structure optimizer (`opt-mode`) to recover nearby minima (`End1`, `End2`).
+1. **Initial segment per pair (GSM/DMF)** -- Run the selected MEP engine (`--mep-mode`) between each adjacent input (A->B) to obtain a coarse MEP and identify the highest-energy image (HEI).
+2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then optimize with the chosen single-structure optimizer (`opt-mode`) to recover nearby minima (`End1`, `End2`).
 3. **Decide between kink vs. refinement**:
  - If no covalent bond change is detected between `End1` and `End2`, treat the region as a *kink*: insert `search.kink_max_nodes` linear nodes and optimize each individually.
  - Otherwise, launch a **refinement segment (GSM)** between `End1` and `End2` to sharpen the barrier.
 4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent updates. Recursion depth is capped by `search.max_depth`.
-5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment (GSM). When the interface itself shows a bond change, a brand-new recursive segment replaces the bridge.
+5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment using the selected `--mep-mode`. When the interface itself shows a bond change, a brand-new recursive segment replaces the bridge.
 6. **Optional alignment and merge** -- After pre-opt, `--align` rigidly co-aligns inputs and refines freezes. With `--ref-pdb`, pocket trajectories merge into full templates and segments are annotated for plotting/analysis.
 
 Bond-change detection relies on `bond_changes.compare_structures` with thresholds surfaced under the `bond` YAML section.
@@ -100,6 +101,8 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--model-pdb PATH` | PDB defining the ML (high-level) region atoms for ML/MM. Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `-q, --charge INT` | Charge of the ML region (integer). | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
+| `--mep-mode [gsm\|dmf]` | MEP backend for segment/bridge searches. | `gsm` |
+| `--refine-mode [peak\|minima]` | HEI refinement seed rule. | `peak` for `gsm`, `minima` for `dmf` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
@@ -144,7 +147,7 @@ The YAML root must be a mapping. Accepted sections:
 - **`opt`** -- StringOptimizer controls: `max_cycles`, `print_every`, `dump`, `dump_restart`, `out_dir`.
 - **`lbfgs`** -- Single-structure optimizer controls for HEI+/-1 refinement: `keep_last`, `beta`, `gamma_mult`, `max_step`, `control_step`, `double_damp`, `mu_reg`, `max_mu_reg_adaptions`.
 - **`bond`** -- Bond-change detection: `bond_factor`, `margin_fraction`, `delta_fraction`.
-- **`search`** -- Recursion logic: `max_depth`, `stitch_rmsd_thresh`, `bridge_rmsd_thresh`, `max_nodes_segment`, `max_nodes_bridge`, `kink_max_nodes`, `max_seq_kink`.
+- **`search`** -- Recursion logic: `max_depth`, `stitch_rmsd_thresh`, `bridge_rmsd_thresh`, `max_nodes_segment`, `max_nodes_bridge`, `kink_max_nodes`, `max_seq_kink`, `refine_mode`.
 
 ## Notes
 
@@ -155,7 +158,7 @@ The YAML root must be a mapping. Accepted sections:
 - Charge/multiplicity policy is documented centrally in [CLI Conventions](cli_conventions.md).
 - Freeze atoms: `--freeze-atoms "1,3,5"` stores zero-based indices and merges with YAML `geom.freeze_atoms`.
 - Nodes and recursion: segment vs bridge nodes differ via `search.max_nodes_segment` and `search.max_nodes_bridge`. Kinks use `search.kink_max_nodes` (default 3) linear nodes. Recursion depth is capped by `search.max_depth` (default 10).
-- Optimizers: GSM employs pysisyphus `GrowingString` + `StringOptimizer`; single-structure refinements always use LBFGS.
+- Optimizers: `--mep-mode gsm` uses pysisyphus `GrowingString` + `StringOptimizer`; `--mep-mode dmf` uses Direct Max Flux. Single-structure refinements always use LBFGS.
 - Final merge rule with `--align`: when `--ref-pdb` is provided, the first reference PDB is used for all pairs.
 - Console output prints the state sequence (e.g., `R --> TS1 --> IM1 -->... --> P`) plus the labels/energies used to build the energy diagram.
 - `summary.log` rendering is resilient to missing payload fields. Internally, defaults are applied for:

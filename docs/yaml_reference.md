@@ -36,11 +36,9 @@ Geometry loading and coordinate handling.
 ```yaml
 geom:
  coord_type: cart # Coordinate type: "cart" (Cartesian) or "dlc" (delocalized internals)
- freeze_atoms: [] # 0-based indices of atoms to freeze; merged with CLI --freeze-links detection
 ```
 
 **Notes:**
-- `freeze_atoms` from YAML is merged with atoms detected via `--freeze-links` for PDB inputs
 - Frozen atoms have zeroed forces; their Hessian columns are also zeroed
 - For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging
 

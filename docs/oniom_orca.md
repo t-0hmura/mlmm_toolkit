@@ -1,4 +1,4 @@
-# `oniom-orca`
+# ORCA QM/MM Mode (`oniom-export --mode orca`)
 
 ## Overview
 
@@ -14,7 +14,7 @@
 ## Minimal example
 
 ```bash
-mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
@@ -28,27 +28,27 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 1. Basic export.
 
 ```bash
-mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
 2. Set explicit total charge/multiplicity for full QM+MM system.
 
 ```bash
-mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
 3. Use an explicit ORCAFF path and disable auto conversion.
 
 ```bash
-mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
 ## Workflow
 
-`oniom-orca` reads topology information from `--parm7` and writes ORCA QM/MM input.
+ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--parm7` and writes ORCA QM/MM input.
 
 1. Load atom/bond/charge data from parm7.
 2. Optionally load coordinates and validate element ordering (`--element-check`).
@@ -86,7 +86,8 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 
 ## See Also
 
-- [oniom-gaussian](oniom_gaussian.md) -- Gaussian ONIOM exporter
+- [oniom_gaussian](oniom_gaussian.md) -- Gaussian mode guide (`--mode g16`)
 - [oniom_export](oniom_export.md) -- Export overview and chooser
 - [mm_parm](mm_parm.md) -- Build Amber topology (`parm7`/`rst7`)
 - [define_layer](define_layer.md) -- Build/check layer annotations
+- ORCA 6.0 Manual (QM/MM): <https://www.faccts.de/docs/orca/6.0/manual/contents/typical/qmmm.html>

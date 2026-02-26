@@ -8,7 +8,6 @@
 - **Use when:** You have an optimized TS and want to trace the minimum-energy path toward reactant and product basins with ML/MM.
 - **Method:** EulerPC predictor-corrector integrator with full ML/MM Hessians (FAIR-Chem UMA + hessian_ff).
 - **Outputs:** `finished_irc_trj.xyz`, `forward_irc_trj.xyz`, and `.pdb` companions for PDB inputs.
-- **Defaults:** `--max-cycles 125`, `--step-size 0.10`, `--freeze-links` enabled, `--convert-files` enabled.
 - **Next step:** Run [freq](freq.md) on IRC endpoints, then [opt](opt.md) to refine them to true minima.
 
 `mlmm irc` runs IRC calculations using the EulerPC integrator with the ML/MM calculator. The CLI is intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. Inputs can be any structure readable by `pysisyphus.helpers.geom_loader` (`.pdb`, `.xyz`, `_trj.xyz`,...). If the input is `.pdb`, the generated trajectories are additionally converted to PDB.
@@ -56,7 +55,6 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 1. **Input preparation** -- Any format supported by `geom_loader` is accepted. When a reference PDB is available (input is `.pdb` or `--ref-pdb` is supplied), EulerPC trajectories are converted to PDB using that topology.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--real-parm7` and `--model-pdb`. The `--hessian-calc-mode` controls UMA Hessian evaluation.
-3. **Freeze-link detection** -- With `--freeze-links` (default), parent atoms of link hydrogens are detected and merged into `geom.freeze_atoms`.
 4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` disables forward). Step size and cycle count control integration length.
 5. **Output & conversion** -- Trajectories are written as XYZ; PDB companions are generated when a PDB template is available and `--convert-files` is enabled.
 
@@ -76,7 +74,6 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--step-size FLOAT` | Step length in mass-weighted coordinates; overrides `irc.step_length`. | `0.10` |
 | `--root INT` | Imaginary mode index for the initial displacement; overrides `irc.root`. | `0` |
 | `--forward/--no-forward` | Run the forward IRC; overrides `irc.forward`. | `True` |
-| `--freeze-links/--no-freeze-links` | For PDB inputs, freeze link-H parents (merged with `geom.freeze_atoms`). | `True` |
 | `--out-dir PATH` | Output directory; overrides `irc.out_dir`. | `./result_irc/` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a reference PDB is available. | `True` |
 | `--hessian-calc-mode CHOICE` | How UMA builds the Hessian (`Analytical` or `FiniteDifference`); overrides `calc.hessian_calc_mode`. | _Default_ |
@@ -163,7 +160,6 @@ irc:
 - UMA options are passed directly to the mlmm calculator. With `device: "auto"`, the calculator selects GPU/CPU automatically.
 - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
 - `irc` is partial-first: when YAML does not explicitly set `calc.return_partial_hessian`, IRC seeds/uses a partial Hessian by default. Set `calc.return_partial_hessian: false` to force full Hessian.
-- `--freeze-links` only applies to PDB inputs, keeping parent atoms of link hydrogens frozen during Hessian construction.
 - If `hessian_calc_mode: "FiniteDifference"`, `geom.freeze_atoms` can still be used to skip frozen DOF in FD Hessian construction.
 - `--step-size` is in mass-weighted coordinates; `--root` selects the imaginary-frequency index used for the initial displacement.
 - Standard output includes progress and timing. Exit codes: `0` on success, `130` on `KeyboardInterrupt`, `1` on unhandled exceptions.

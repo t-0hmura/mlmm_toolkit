@@ -8,7 +8,6 @@
 - **Use when:** You want to validate a minimum/TS candidate and/or compute thermo corrections from ML/MM.
 - **Method:** Full or partial Hessian vibrational analysis (PHVA) with the ML/MM calculator (FAIR-Chem UMA + hessian_ff).
 - **Outputs:** `frequencies_cm-1.txt`, per-mode `_trj.xyz` and `.pdb` animations, plus `thermoanalysis.yaml` when enabled.
-- **Defaults:** `--max-write 20`, `--amplitude-ang 0.8`, `--n-frames 20`, `--freeze-links` enabled.
 - **Next step:** Use results to confirm a minimum (no imaginary frequencies) or a TS (exactly one imaginary frequency).
 
 `mlmm freq` performs vibrational analysis with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
@@ -54,12 +53,10 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --freeze-links --dump --out-dir ./result_freq_links
 ```
 
 ## Workflow
 
-1. **Geometry loading & freeze handling** -- Structures are read via `pysisyphus.helpers.geom_loader`. `--freeze-atoms "1,3,5"` accepts 1-based indices and merges them with YAML `geom.freeze_atoms`; the merged list is passed to both the geometry echo and the ML/MM calculator, enabling PHVA. With `--freeze-links` (default), parent atoms of link hydrogens are detected and frozen, then merged with `geom.freeze_atoms`.
 2. **ML/MM calculator setup** -- The ML region is supplied via `--model-pdb`; Amber parameters are read from `--real-parm7`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active-DOF sub-block.
    - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
 3. **PHVA & TR projection** -- With frozen atoms, eigenanalysis occurs inside the active subspace with translation/rotation modes projected there. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
@@ -82,7 +79,6 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | ML region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
-| `--freeze-links/--no-freeze-links` | PDB-only. Freeze parents of link hydrogens and merge with `geom.freeze_atoms`. | `True` |
 | `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | _None_ |

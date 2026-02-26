@@ -319,7 +319,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 ## CLI サブコマンド
 
 `mlmm all --help` は主要オプションのみを表示します。`mlmm all --help-advanced` で全オプションを表示できます。
-`scan` / `scan2d` / `scan3d` と計算系サブコマンド（`opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft`）に加え、ユーティリティ系（`mm-parm` / `define-layer` / `add-elem-info` / `trj2fig` / `energy-diagram` / `oniom-gaussian` / `oniom-orca`）も同様に `--help` は主要オプションのみ、`--help-advanced` で全オプションを表示します。`extract` と `fix-altloc` も段階的 help に対応し、`--help-advanced` で parser の全オプションを表示します。
+`scan` / `scan2d` / `scan3d` と計算系サブコマンド（`opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft`）に加え、ユーティリティ系（`mm-parm` / `define-layer` / `add-elem-info` / `trj2fig` / `energy-diagram` / `oniom-export`）も同様に `--help` は主要オプションのみ、`--help-advanced` で全オプションを表示します。`extract` と `fix-altloc` も段階的 help に対応し、`--help-advanced` で parser の全オプションを表示します。
 
 | サブコマンド | 役割 | ドキュメント |
 |------------|------|------------|
@@ -340,8 +340,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 | `dft` | DFT 一点計算 | [dft](dft.md) |
 | `trj2fig` | エネルギープロファイルプロット | [trj2fig](trj2fig.md) |
 | `energy-diagram` | 数値系列から状態エネルギー図を描画 | [energy-diagram](energy_diagram.md) |
-| `oniom-gaussian` | Gaussian ONIOM 入力生成 | [oniom_gaussian](oniom_gaussian.md) |
-| `oniom-orca` | ORCA QM/MM 入力生成 | [oniom_orca](oniom_orca.md) |
+| `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16|orca`） | [oniom_export](oniom_export.md) |
 
 ---
 

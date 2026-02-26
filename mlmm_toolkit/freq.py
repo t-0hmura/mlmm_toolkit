@@ -2,7 +2,7 @@
 ML/MM vibrational frequency analysis with PHVA support and thermochemistry.
 
 Example:
-    mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
+    mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 
 For detailed documentation, see: docs/freq.md
 """
@@ -59,7 +59,6 @@ from .utils import (
     build_model_pdb_from_indices,
     strip_inherited_keys,
     yaml_section_has_key,
-    resolve_freeze_atoms,
 )
 from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli
 
@@ -619,7 +618,7 @@ THERMO_KW: Dict[str, Any] = {
     help="Enzyme complex PDB used by both geom_loader and the ML/MM calculator.",
 )
 @click.option(
-    "--real-parm7",
+    "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
@@ -673,12 +672,6 @@ THERMO_KW: Dict[str, Any] = {
     default=None,
     show_default=False,
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
-)
-@click.option(
-    "--freeze-links/--no-freeze-links",
-    default=True,
-    show_default=True,
-    help="Freeze parent atoms of link hydrogens (PDB only).",
 )
 @click.option(
     "--hess-cutoff",
@@ -785,7 +778,6 @@ def cli(
     charge: Optional[int],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
-    freeze_links: bool,
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     hessian_calc_mode: Optional[str],
@@ -961,11 +953,6 @@ def cli(
     geom_cfg["freeze_atoms"] = geom_freeze
     if freeze_atoms_cli:
         merge_freeze_atom_indices(geom_cfg, freeze_atoms_cli)
-    freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
-    calc_cfg["freeze_atoms"] = freeze_atoms_final
-
-    # Auto-detect and freeze parent atoms of link hydrogens (PDB only)
-    resolve_freeze_atoms(geom_cfg, source_path, freeze_links)
     freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
     calc_cfg["freeze_atoms"] = freeze_atoms_final
 

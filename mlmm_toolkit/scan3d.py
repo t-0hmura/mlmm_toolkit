@@ -2,7 +2,7 @@
 ML/MM three-distance scan with harmonic restraints (d1, d2, d3 grid).
 
 Example:
-    mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+    mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
         --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]"
 
 For detailed documentation, see: docs/scan3d.md
@@ -100,6 +100,15 @@ _VOLUME_GRID_N = 50  # 50×50×50 RBF interpolation grid
 _snapshot_geometry = functools.partial(snapshot_geometry, coord_type_default="cart")
 
 
+def _extract_axis_label(df: pd.DataFrame, column: str, fallback: Optional[str]) -> Optional[str]:
+    if column not in df.columns:
+        return fallback
+    values = df[column].dropna()
+    if values.empty:
+        return fallback
+    return str(values.iloc[0])
+
+
 def _make_lbfgs(
     geom,
     lbfgs_cfg: Dict[str, Any],
@@ -119,6 +128,248 @@ def _make_lbfgs(
     return LBFGS(geom, **args)
 
 
+def _finalize_surface_and_plot(
+    *,
+    df: pd.DataFrame,
+    final_dir: Path,
+    baseline: str,
+    zmin: Optional[float],
+    zmax: Optional[float],
+    d1_label_csv: Optional[str],
+    d2_label_csv: Optional[str],
+    d3_label_csv: Optional[str],
+    write_surface_csv: bool,
+    time_start: float,
+) -> None:
+    if df.empty:
+        click.echo("No grid records produced; aborting.", err=True)
+        sys.exit(1)
+
+    d1_label_csv = _extract_axis_label(df, "d1_label", d1_label_csv)
+    d2_label_csv = _extract_axis_label(df, "d2_label", d2_label_csv)
+    d3_label_csv = _extract_axis_label(df, "d3_label", d3_label_csv)
+    if d1_label_csv is None or d2_label_csv is None or d3_label_csv is None:
+        click.echo(
+            "[plot] WARNING: axis label metadata is missing in CSV; using generic labels.",
+            err=True,
+        )
+
+    d1_label_html = axis_label_html(d1_label_csv) if d1_label_csv else "d1 (Å)"
+    d2_label_html = axis_label_html(d2_label_csv) if d2_label_csv else "d2 (Å)"
+    d3_label_html = axis_label_html(d3_label_csv) if d3_label_csv else "d3 (Å)"
+
+    if "energy_kcal" not in df.columns:
+        if "energy_hartree" not in df.columns:
+            click.echo(
+                "[baseline] energy_kcal is missing and energy_hartree is not available in CSV; aborting.",
+                err=True,
+            )
+            sys.exit(1)
+
+        if baseline == "first":
+            ref_mask = (df["i"] == 0) & (df["j"] == 0) & (df["k"] == 0)
+            if not ref_mask.any():
+                click.echo(
+                    "[baseline] 'first' requested but (i=0,j=0,k=0) missing; using global minimum instead.",
+                    err=True,
+                )
+                ref_energy = float(df["energy_hartree"].min())
+            else:
+                ref_energy = float(df.loc[ref_mask, "energy_hartree"].iloc[0])
+        else:
+            ref_energy = float(df["energy_hartree"].min())
+        df["energy_kcal"] = (df["energy_hartree"] - ref_energy) * HARTREE_TO_KCAL_MOL
+
+    if write_surface_csv:
+        surface_csv = final_dir / "surface.csv"
+        df["d1_label"] = d1_label_csv
+        df["d2_label"] = d2_label_csv
+        df["d3_label"] = d3_label_csv
+        df.to_csv(surface_csv, index=False)
+        click.echo(f"[write] Wrote '{surface_csv}'.")
+
+    # ===== 3D RBF interpolation & visualization (isosurface) =====
+    d1_points = df["d1_A"].to_numpy(dtype=float)
+    d2_points = df["d2_A"].to_numpy(dtype=float)
+    d3_points = df["d3_A"].to_numpy(dtype=float)
+    z_points = df["energy_kcal"].to_numpy(dtype=float)
+
+    mask = (
+        np.isfinite(d1_points)
+        & np.isfinite(d2_points)
+        & np.isfinite(d3_points)
+        & np.isfinite(z_points)
+    )
+    if not np.any(mask):
+        click.echo("[plot] No finite data for plotting.", err=True)
+        sys.exit(1)
+
+    x_min, x_max = float(np.min(d1_points[mask])), float(np.max(d1_points[mask]))
+    y_min, y_max = float(np.min(d2_points[mask])), float(np.max(d2_points[mask]))
+    z_min_val, z_max_val = float(np.min(d3_points[mask])), float(np.max(d3_points[mask]))
+
+    xi = np.linspace(x_min, x_max, _VOLUME_GRID_N)
+    yi = np.linspace(y_min, y_max, _VOLUME_GRID_N)
+    zi = np.linspace(z_min_val, z_max_val, _VOLUME_GRID_N)
+
+    click.echo("[plot] 3D RBF interpolation on a 50×50×50 grid ...")
+    rbf3d = Rbf(
+        d1_points[mask],
+        d2_points[mask],
+        d3_points[mask],
+        z_points[mask],
+        function="multiquadric",
+    )
+
+    XI, YI, ZI = np.meshgrid(xi, yi, zi, indexing="xy")
+    X_flat = XI.flatten()
+    Y_flat = YI.flatten()
+    Z_flat = ZI.flatten()
+    E_flat = rbf3d(X_flat, Y_flat, Z_flat)
+
+    vmin = float(np.nanmin(E_flat)) if zmin is None else float(zmin)
+    vmax = float(np.nanmax(E_flat)) if zmax is None else float(zmax)
+    if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
+        vmin, vmax = float(np.nanmin(E_flat)), float(np.nanmax(E_flat))
+
+    # Discrete isosurfaces with banded colors
+    n_levels = 8
+    level_values = np.linspace(vmin, vmax, n_levels + 2)[1:-1]
+    level_colors = [
+        "#0d0887",
+        "#5b02a3",
+        "#9c179e",
+        "#cb4679",
+        "#ed7953",
+        "#fb9f3a",
+        "#fdca26",
+        "#f0f921",
+    ]
+    level_opacity = [
+        1.000, 0.667, 0.444, 0.296, 0.198, 0.132, 0.088, 0.059,
+    ]
+
+    isosurfaces = []
+    for lvl, color, opacity_lvl in zip(level_values, level_colors, level_opacity):
+        trace = go.Isosurface(
+            x=X_flat,
+            y=Y_flat,
+            z=Z_flat,
+            value=E_flat,
+            isomin=lvl,
+            isomax=lvl,
+            surface_count=1,
+            opacity=opacity_lvl,
+            showscale=False,
+            colorscale=[[0.0, color], [1.0, color]],
+            caps=dict(x_show=False, y_show=False, z_show=False),
+            name=f"{lvl:.1f} kcal/mol",
+        )
+        isosurfaces.append(trace)
+
+    colorbar_colorscale = [
+        [idx / (len(level_colors) - 1), col]
+        for idx, col in enumerate(level_colors)
+    ]
+    cb_tickvals = [float(v) for v in level_values]
+    cb_ticktext = [f"{v:.1f}" for v in level_values]
+
+    colorbar_trace = go.Scatter3d(
+        x=[x_min],
+        y=[y_min],
+        z=[z_min_val],
+        mode="markers",
+        marker=dict(
+            size=0,
+            opacity=0.0,
+            color=[vmin, vmax],
+            colorscale=colorbar_colorscale,
+            showscale=True,
+            colorbar=dict(
+                title=dict(text="(kcal/mol)", side="top", font=dict(size=16, color="#1C1C1C")),
+                tickfont=dict(size=14, color="#1C1C1C"),
+                ticks="inside",
+                ticklen=10,
+                tickcolor="#1C1C1C",
+                outlinecolor="#1C1C1C",
+                outlinewidth=2,
+                lenmode="fraction",
+                len=1.11,
+                x=1.05,
+                y=0.53,
+                xanchor="left",
+                yanchor="middle",
+                tickvals=cb_tickvals,
+                ticktext=cb_ticktext,
+            ),
+        ),
+        hoverinfo="none",
+        showlegend=False,
+    )
+
+    fig3d = go.Figure(data=isosurfaces + [colorbar_trace])
+    fig3d.update_layout(
+        title="3D Energy Landscape (ML/MM)",
+        width=900,
+        height=800,
+        scene=dict(
+            bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(
+                title=d1_label_html,
+                range=[x_min, x_max],
+                showline=True,
+                linewidth=4,
+                linecolor="#1C1C1C",
+                mirror=True,
+                ticks="inside",
+                tickwidth=4,
+                tickcolor="#1C1C1C",
+                gridcolor="rgba(0,0,0,0.1)",
+                zerolinecolor="rgba(0,0,0,0.1)",
+                showbackground=False,
+            ),
+            yaxis=dict(
+                title=d2_label_html,
+                range=[y_min, y_max],
+                showline=True,
+                linewidth=4,
+                linecolor="#1C1C1C",
+                mirror=True,
+                ticks="inside",
+                tickwidth=4,
+                tickcolor="#1C1C1C",
+                gridcolor="rgba(0,0,0,0.1)",
+                zerolinecolor="rgba(0,0,0,0.1)",
+                showbackground=False,
+            ),
+            zaxis=dict(
+                title=d3_label_html,
+                range=[z_min_val, z_max_val],
+                showline=True,
+                linewidth=4,
+                linecolor="#1C1C1C",
+                mirror=True,
+                ticks="inside",
+                tickwidth=4,
+                tickcolor="#1C1C1C",
+                gridcolor="rgba(0,0,0,0.1)",
+                zerolinecolor="rgba(0,0,0,0.1)",
+                showbackground=False,
+            ),
+            aspectmode="cube",
+        ),
+        margin=dict(l=10, r=20, b=10, t=40),
+        paper_bgcolor="white",
+    )
+
+    html3d = final_dir / "scan3d_density.html"
+    fig3d.write_html(str(html3d))
+    click.echo(f"[plot] Wrote '{html3d}'.")
+
+    click.echo("\n=== 3D Scan finished ===\n")
+    click.echo(format_elapsed("[time] Elapsed Time for 3D Scan", time_start))
+
+
 @click.command(
     help="3D distance scan with harmonic restraints using the ML/MM calculator.",
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -128,14 +379,15 @@ def _make_lbfgs(
     "--input",
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    required=True,
-    help="Input enzyme complex PDB (required).",
+    required=False,
+    help="Input structure file (.pdb/.xyz). Required unless --csv is provided.",
 )
 @click.option(
-    "--real-parm7",
+    "--parm",
+    "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    required=True,
-    help="Amber parm7 topology for the enzyme (required).",
+    required=False,
+    help="Amber parm7 topology for the enzyme. Required unless --csv is provided.",
 )
 @click.option(
     "--model-pdb",
@@ -167,7 +419,7 @@ def _make_lbfgs(
     help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
-@click.option("-q", "--charge", type=int, required=True, help="ML-region total charge.")
+@click.option("-q", "--charge", type=int, required=False, help="ML-region total charge.")
 @click.option(
     "-m",
     "--multiplicity",
@@ -216,6 +468,13 @@ def _make_lbfgs(
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
     help="YAML/JSON scan spec file (recommended). Use this instead of --scan-lists.",
+)
+@click.option(
+    "--csv",
+    "csv_path",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    required=False,
+    help="Plot-only mode: load a precomputed surface.csv and skip the 3D scan.",
 )
 @click.option(
     "--one-based/--zero-based",
@@ -310,8 +569,8 @@ def _make_lbfgs(
     help="Upper bound of the color scale (kcal/mol).",
 )
 def cli(
-    input_path: Path,
-    real_parm7: Path,
+    input_path: Optional[Path],
+    real_parm7: Optional[Path],
     model_pdb: Optional[Path],
     model_indices_str: Optional[str],
     model_indices_one_based: bool,
@@ -323,6 +582,7 @@ def cli(
     movable_cutoff: Optional[float],
     scan_list_raw: Optional[str],
     spec_path: Optional[Path],
+    csv_path: Optional[Path],
     one_based: bool,
     print_parsed: bool,
     max_step_size: float,
@@ -345,7 +605,37 @@ def cli(
         args_yaml_legacy=None,
     )
 
-    # Validate input format: PDB directly, or XYZ with --ref-pdb
+    if csv_path is not None:
+        final_dir = Path(out_dir).resolve()
+        ensure_dir(final_dir)
+        resolved_csv = Path(csv_path).resolve()
+        try:
+            df = pd.read_csv(resolved_csv)
+        except Exception as exc:
+            click.echo(f"[read] Failed to read CSV '{resolved_csv}': {exc}", err=True)
+            sys.exit(1)
+        click.echo(f"[read] Loaded precomputed grid from '{resolved_csv}'.")
+        _finalize_surface_and_plot(
+            df=df,
+            final_dir=final_dir,
+            baseline=baseline,
+            zmin=zmin,
+            zmax=zmax,
+            d1_label_csv=None,
+            d2_label_csv=None,
+            d3_label_csv=None,
+            write_surface_csv=False,
+            time_start=time_start,
+        )
+        return
+
+    if input_path is None:
+        click.echo("ERROR: -i/--input is required unless --csv is provided.", err=True)
+        sys.exit(1)
+    if real_parm7 is None:
+        click.echo("ERROR: --parm is required unless --csv is provided.", err=True)
+        sys.exit(1)
+
     suffix = input_path.suffix.lower()
     if suffix not in (".pdb", ".xyz"):
         click.echo("ERROR: --input must be a PDB or XYZ file.", err=True)
@@ -544,9 +834,6 @@ def cli(
             d1_label_csv = axis_label_csv("d1", i1, j1, scan_one_based, pdb_atom_meta, raw_pairs[0])
             d2_label_csv = axis_label_csv("d2", i2, j2, scan_one_based, pdb_atom_meta, raw_pairs[1])
             d3_label_csv = axis_label_csv("d3", i3, j3, scan_one_based, pdb_atom_meta, raw_pairs[2])
-            d1_label_html = axis_label_html(d1_label_csv)
-            d2_label_html = axis_label_html(d2_label_csv)
-            d3_label_html = axis_label_html(d3_label_csv)
             if print_parsed:
                 click.echo(
                     pretty_block(
@@ -897,218 +1184,18 @@ def cli(
                             )
 
             df = pd.DataFrame.from_records(records)
-            if df.empty:
-                click.echo("No grid records produced; aborting.", err=True)
-                sys.exit(1)
-
-            # Baseline energy
-            if baseline == "first":
-                mask = (df["i"] == 0) & (df["j"] == 0) & (df["k"] == 0)
-                if not mask.any():
-                    click.echo(
-                        "[baseline] 'first' requested but (i=0,j=0,k=0) missing; using global minimum instead.",
-                        err=True,
-                    )
-                    ref_energy = float(df["energy_hartree"].min())
-                else:
-                    ref_energy = float(df.loc[mask, "energy_hartree"].iloc[0])
-            else:
-                ref_energy = float(df["energy_hartree"].min())
-            df["energy_kcal"] = (df["energy_hartree"] - ref_energy) * HARTREE_TO_KCAL_MOL
-            df["d1_label"] = d1_label_csv
-            df["d2_label"] = d2_label_csv
-            df["d3_label"] = d3_label_csv
-
-            surface_csv = final_dir / "surface.csv"
-            df.to_csv(surface_csv, index=False)
-            click.echo(f"[write] Wrote '{surface_csv}'.")
-
-            # ===== 3D RBF interpolation & visualization (isosurface) =====
-            d1_points = df["d1_A"].to_numpy(dtype=float)
-            d2_points = df["d2_A"].to_numpy(dtype=float)
-            d3_points = df["d3_A"].to_numpy(dtype=float)
-            z_points = df["energy_kcal"].to_numpy(dtype=float)
-
-            mask = (
-                np.isfinite(d1_points)
-                & np.isfinite(d2_points)
-                & np.isfinite(d3_points)
-                & np.isfinite(z_points)
+            _finalize_surface_and_plot(
+                df=df,
+                final_dir=final_dir,
+                baseline=baseline,
+                zmin=zmin,
+                zmax=zmax,
+                d1_label_csv=d1_label_csv,
+                d2_label_csv=d2_label_csv,
+                d3_label_csv=d3_label_csv,
+                write_surface_csv=True,
+                time_start=time_start,
             )
-            if not np.any(mask):
-                click.echo("[plot] No finite data for plotting.", err=True)
-                sys.exit(1)
-
-            x_min, x_max = float(np.min(d1_points[mask])), float(np.max(d1_points[mask]))
-            y_min, y_max = float(np.min(d2_points[mask])), float(np.max(d2_points[mask]))
-            z_min_val, z_max_val = float(np.min(d3_points[mask])), float(np.max(d3_points[mask]))
-
-            xi = np.linspace(x_min, x_max, _VOLUME_GRID_N)
-            yi = np.linspace(y_min, y_max, _VOLUME_GRID_N)
-            zi = np.linspace(z_min_val, z_max_val, _VOLUME_GRID_N)
-
-            click.echo("[plot] 3D RBF interpolation on a 50×50×50 grid ...")
-            rbf3d = Rbf(
-                d1_points[mask],
-                d2_points[mask],
-                d3_points[mask],
-                z_points[mask],
-                function="multiquadric",
-            )
-
-            XI, YI, ZI = np.meshgrid(xi, yi, zi, indexing="xy")
-            X_flat = XI.flatten()
-            Y_flat = YI.flatten()
-            Z_flat = ZI.flatten()
-            E_flat = rbf3d(X_flat, Y_flat, Z_flat)
-
-            vmin = float(np.nanmin(E_flat)) if zmin is None else float(zmin)
-            vmax = float(np.nanmax(E_flat)) if zmax is None else float(zmax)
-            if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
-                vmin, vmax = float(np.nanmin(E_flat)), float(np.nanmax(E_flat))
-
-            # Discrete isosurfaces with banded colors
-            n_levels = 8
-            level_values = np.linspace(vmin, vmax, n_levels + 2)[1:-1]
-            level_colors = [
-                "#0d0887",
-                "#5b02a3",
-                "#9c179e",
-                "#cb4679",
-                "#ed7953",
-                "#fb9f3a",
-                "#fdca26",
-                "#f0f921",
-            ]
-            level_opacity = [
-                1.000, 0.667, 0.444, 0.296, 0.198, 0.132, 0.088, 0.059,
-            ]
-
-            isosurfaces = []
-            for lvl, color, opacity_lvl in zip(level_values, level_colors, level_opacity):
-                trace = go.Isosurface(
-                    x=X_flat,
-                    y=Y_flat,
-                    z=Z_flat,
-                    value=E_flat,
-                    isomin=lvl,
-                    isomax=lvl,
-                    surface_count=1,
-                    opacity=opacity_lvl,
-                    showscale=False,
-                    colorscale=[[0.0, color], [1.0, color]],
-                    caps=dict(x_show=False, y_show=False, z_show=False),
-                    name=f"{lvl:.1f} kcal/mol",
-                )
-                isosurfaces.append(trace)
-
-            # Add a dummy scatter trace to host a global colorbar
-            colorbar_colorscale = [
-                [idx / (len(level_colors) - 1), col]
-                for idx, col in enumerate(level_colors)
-            ]
-            cb_tickvals = [float(v) for v in level_values]
-            cb_ticktext = [f"{v:.1f}" for v in level_values]
-
-            colorbar_trace = go.Scatter3d(
-                x=[x_min],
-                y=[y_min],
-                z=[z_min_val],
-                mode="markers",
-                marker=dict(
-                    size=0,
-                    opacity=0.0,
-                    color=[vmin, vmax],
-                    colorscale=colorbar_colorscale,
-                    showscale=True,
-                    colorbar=dict(
-                        title=dict(text="(kcal/mol)", side="top", font=dict(size=16, color="#1C1C1C")),
-                        tickfont=dict(size=14, color="#1C1C1C"),
-                        ticks="inside",
-                        ticklen=10,
-                        tickcolor="#1C1C1C",
-                        outlinecolor="#1C1C1C",
-                        outlinewidth=2,
-                        lenmode="fraction",
-                        len=1.11,
-                        x=1.05,
-                        y=0.53,
-                        xanchor="left",
-                        yanchor="middle",
-                        tickvals=cb_tickvals,
-                        ticktext=cb_ticktext,
-                    ),
-                ),
-                hoverinfo="none",
-                showlegend=False,
-            )
-
-            # Axis labels
-            d1_label = d1_label_html
-            d2_label = d2_label_html
-            d3_label = d3_label_html
-
-            fig3d = go.Figure(data=isosurfaces + [colorbar_trace])
-            fig3d.update_layout(
-                title="3D Energy Landscape (ML/MM)",
-                width=900,
-                height=800,
-                scene=dict(
-                    bgcolor="rgba(0,0,0,0)",
-                    xaxis=dict(
-                        title=d1_label,
-                        range=[x_min, x_max],
-                        showline=True,
-                        linewidth=4,
-                        linecolor="#1C1C1C",
-                        mirror=True,
-                        ticks="inside",
-                        tickwidth=4,
-                        tickcolor="#1C1C1C",
-                        gridcolor="rgba(0,0,0,0.1)",
-                        zerolinecolor="rgba(0,0,0,0.1)",
-                        showbackground=False,
-                    ),
-                    yaxis=dict(
-                        title=d2_label,
-                        range=[y_min, y_max],
-                        showline=True,
-                        linewidth=4,
-                        linecolor="#1C1C1C",
-                        mirror=True,
-                        ticks="inside",
-                        tickwidth=4,
-                        tickcolor="#1C1C1C",
-                        gridcolor="rgba(0,0,0,0.1)",
-                        zerolinecolor="rgba(0,0,0,0.1)",
-                        showbackground=False,
-                    ),
-                    zaxis=dict(
-                        title=d3_label,
-                        range=[z_min_val, z_max_val],
-                        showline=True,
-                        linewidth=4,
-                        linecolor="#1C1C1C",
-                        mirror=True,
-                        ticks="inside",
-                        tickwidth=4,
-                        tickcolor="#1C1C1C",
-                        gridcolor="rgba(0,0,0,0.1)",
-                        zerolinecolor="rgba(0,0,0,0.1)",
-                        showbackground=False,
-                    ),
-                    aspectmode="cube",
-                ),
-                margin=dict(l=10, r=20, b=10, t=40),
-                paper_bgcolor="white",
-            )
-
-            html3d = final_dir / "scan3d_density.html"
-            fig3d.write_html(str(html3d))
-            click.echo(f"[plot] Wrote '{html3d}'.")
-
-            click.echo("\n=== 3D Scan finished ===\n")
-            click.echo(format_elapsed("[time] Elapsed Time for 3D Scan", time_start))
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)

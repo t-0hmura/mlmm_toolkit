@@ -38,7 +38,7 @@ mlmm all --help # 主要オプションのみ
 mlmm all --help-advanced # 全オプション
 ```
 
-`scan` / `scan2d` / `scan3d` と計算系サブコマンド（`opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft`）に加え、ユーティリティ系（`mm-parm` / `define-layer` / `add-elem-info` / `trj2fig` / `energy-diagram` / `oniom-gaussian` / `oniom-orca`）も同様に `--help` は主要オプションのみ、`--help-advanced` で全オプションを表示します。`extract` と `fix-altloc` も段階的 help に対応し、`--help-advanced` で parser の全オプションを表示します。
+`scan` / `scan2d` / `scan3d` と計算系サブコマンド（`opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft`）に加え、ユーティリティ系（`mm-parm` / `define-layer` / `add-elem-info` / `trj2fig` / `energy-diagram` / `oniom-export`）も同様に `--help` は主要オプションのみ、`--help-advanced` で全オプションを表示します。`extract` と `fix-altloc` も段階的 help に対応し、`--help-advanced` で parser の全オプションを表示します。
 
 ---
 
@@ -106,7 +106,7 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 3. 抽出をスキップした場合の `--ligand-charge` フォールバック。
 4. デフォルト: なし（未解決なら中断）。
 
-計算系サブコマンド（`scan` / `scan2d` / `scan3d` / `opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft` / `oniom-gaussian` / `oniom-orca`）では、引き続き `-q/--charge` の明示指定が必要です。
+計算系サブコマンド（`scan` / `scan2d` / `scan3d` / `opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft` / `oniom-export`）では、引き続き `-q/--charge` の明示指定が必要です。
 
 ```{tip}
 非標準の残基（基質、補因子、特殊なリガンド）には必ず `--ligand-charge` を指定し、正しい電荷伝播を確保してください。

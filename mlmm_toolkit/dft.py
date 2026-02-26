@@ -3,7 +3,7 @@
 """ML/MM-aware single-point DFT for the ML region with energy recombination.
 
 Example:
-    mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
+    mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 
 For detailed documentation, see: docs/dft.md
 """
@@ -468,7 +468,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     help="Full enzyme PDB used for ML/MM (must be .pdb).",
 )
 @click.option(
-    "--real-parm7",
+    "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,

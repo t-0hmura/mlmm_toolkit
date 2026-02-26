@@ -5,7 +5,7 @@
 > **要約:** 調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）グリッドスキャンを実行します。`--spec`（YAML/JSON、推奨）または `--scan-lists` を使用します。
 
 ### 概要
-- **入力:** 1 つの完全酵素 PDB + `--spec scan3d.yaml`（推奨）または **1 つ**の `--scan-lists` リテラル（3 つの四つ組）。
+- **入力:** 1 つの完全酵素 PDB + `--spec scan3d.yaml`（推奨）または **1 つ**の `--scan-lists` リテラル（3 つの四つ組）。`--csv` でプロット専用モードを利用可能。
 - **グリッド順序:** d1 が最初にスキャンされ、次に各 d1 値について d2（両方の拘束が有効）、次に各 (d1, d2) について d3（3 つの拘束すべてが有効）。
 - **エネルギー:** 記録されるエネルギーは**バイアスなし**で評価されるため、グリッド点間で直接比較可能。
 - **出力:** `surface.csv`、`grid/` 下のグリッド点ごとのジオメトリ、HTML アイソサーフェスプロット（`scan3d_density.html`）。
@@ -40,6 +40,7 @@ mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ```bash
 mlmm scan3d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
+ [--csv precomputed_surface.csv] \
  [--spec scan3d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
  [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
  [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
@@ -146,18 +147,19 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | 必須 |
-| `--real-parm7 PATH` | 完全酵素の Amber parm7 トポロジー。 | 必須 |
+| `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | `--csv` 指定時を除き必須 |
+| `--real-parm7 PATH` | 完全酵素の Amber parm7 トポロジー。 | `--csv` 指定時を除き必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。 | _None_ |
 | `--model-indices TEXT` | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | B 因子から ML/MM レイヤーを自動検出。 | `True` |
-| `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
+| `-q, --charge INT` | ML 領域の総電荷。 | `--csv` 指定時を除き必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
 | `--hess-cutoff FLOAT` | Hessian-MM レイヤーのカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM レイヤーのカットオフ距離。 | _None_ |
 | `--spec FILE` | `pairs`（3 四つ組）を持つ YAML/JSON 仕様。`one_based` を任意指定可能。 | 推奨 |
+| `--csv FILE` | 既存の `surface.csv` を読み込み、計算せずにプロットのみ生成。 | _None_ |
 | `--scan-lists TEXT` | 3 つの四つ組 `(i,j,low,high)` を含む単一 Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | `--spec` の代替 |
 | `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |

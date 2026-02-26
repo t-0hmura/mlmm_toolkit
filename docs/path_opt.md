@@ -2,7 +2,7 @@
 
 ## Overview
 
-> **Summary:** Find an MEP between **exactly two** enzyme structures using the Growing String Method (GSM) with the ML/MM calculator. Writes the path trajectory and exports the highest-energy image (HEI) as a TS candidate.
+> **Summary:** Find an MEP between **exactly two** enzyme structures using GSM or DMF with the ML/MM calculator. Writes the path trajectory and exports the highest-energy image (HEI) as a TS candidate.
 
 ### At a glance
 - **Use when:** You have reactant and product endpoints (R -> P) and want a first-pass MEP.
@@ -54,7 +54,7 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 ## Usage
 ```bash
 mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
- -q CHARGE [-m MULT] [options]
+ -q CHARGE [-m MULT] [--mep-mode gsm|dmf] [--fix-ends/--no-fix-ends] [options]
 ```
 
 ### Examples
@@ -80,10 +80,8 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 3. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
  by LBFGS (using the same ML/MM calculator) before alignment and string growth.
  The number of LBFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
-4. **String growth** -- PySisyphus `GrowingString` grows the path between the endpoints
- using `(max_nodes + 2)` images including endpoints.
-5. **Climbing image** -- With `--climb`, a climbing-image refinement is applied after
- the string grows fully, and the highest-energy image (HEI) is reported.
+4. **Path optimization** -- `--mep-mode gsm` uses PySisyphus `GrowingString` with `(max_nodes + 2)` images including endpoints; `--mep-mode dmf` uses Direct Max Flux.
+5. **Climbing image (GSM only)** -- With `--climb`, a climbing-image refinement is applied after string growth, and the highest-energy image (HEI) is reported.
 6. **Output** -- Final path trajectory and HEI are written as XYZ and PDB files.
  PDB conversion is performed when the inputs are PDBs.
 
@@ -95,7 +93,9 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `-q, --charge INT` | Total ML-region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
+| `--mep-mode [gsm\|dmf]` | MEP backend. | `gsm` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (converted to 0-based; merged with YAML `geom.freeze_atoms`). | _None_ |
+| `--fix-ends/--no-fix-ends` | Fix endpoint structures during GSM growth (`gs.fix_first/fix_last`). | `False` |
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `10` |
 | `--max-cycles INT` | Optimizer macro-iteration cap (growth + refinement). Also sets `opt.stop_in_when_full`. | `300` |
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
@@ -154,6 +154,7 @@ Merge order is **defaults < config < explicit CLI < override**.
 - Exactly two structures are required. Formats follow `geom_loader`.
 - Charge/spin: CLI overrides defaults. Always set them explicitly for correct states.
 - `--max-nodes` controls the number of *internal* nodes/images for the GSM string (total images = `max_nodes + 2` for GSM).
+- `--fix-ends` maps to `gs.fix_first=True` and `gs.fix_last=True` (applies to GSM mode).
 - `--climb` toggles both the standard climbing step and the Lanczos-based tangent refinement.
 - `--dump` mirrors `opt.dump=True` for the StringOptimizer, producing trajectory dumps inside `out_dir`. Restart YAML is written only when enabled in YAML.
 - Exit codes: `0` success, `3` optimizer failure, `4` trajectory write error, `5` HEI export error, `130` interrupt, `1` unexpected error.

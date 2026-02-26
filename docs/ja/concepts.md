@@ -152,7 +152,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 ### 個別サブコマンドを推奨するケース
 - あるステージだけを **切り出してデバッグ** したい（例: `mm-parm` のみ）
 - `--real-parm7` と `--model-pdb` を手動で用意して、カスタムワークフローを組みたい
-- `oniom-gaussian` や `oniom-orca` で Gaussian/ORCA ONIOM 入力を生成したい
+- `oniom-export --mode g16|orca` で Gaussian/ORCA ONIOM 入力を生成したい
 
 ---
 
@@ -183,8 +183,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 | `define-layer` | 3 層 ML/MM 領域定義 | [define_layer.md](define_layer.md) |
 | `path-search` | 再帰的 MEP 探索 | [path_search.md](path_search.md) |
 | `tsopt` | TS 最適化 | [tsopt.md](tsopt.md) |
-| `oniom-gaussian` | Gaussian ONIOM 入力生成 | [oniom_gaussian.md](oniom_gaussian.md) |
-| `oniom-orca` | ORCA QM/MM 入力生成 | [oniom_orca.md](oniom_orca.md) |
+| `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16|orca`） | [oniom_export.md](oniom_export.md) |
 
 ### リファレンス
 - [YAML リファレンス](yaml_reference.md) -- 全オプションの YAML 設定

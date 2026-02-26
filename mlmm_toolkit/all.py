@@ -688,7 +688,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
 
     ts_args: List[str] = [
         "-i", str(prepared_input.source_path),
-        "--real-parm7", str(real_parm7),
+        "--parm", str(real_parm7),
         "--model-pdb", str(model_pdb),
         "-q", str(int(charge)),
         "-m", str(int(spin)),
@@ -701,6 +701,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
 
     _append_cli_arg(ts_args, "--max-cycles", overrides.get("max_cycles"))
     _append_toggle_arg(ts_args, "--dump", overrides.get("dump"))
+    _append_toggle_arg(ts_args, "--micro-step", overrides.get("micro_step"))
 
     hess_mode = overrides.get("hessian_calc_mode")
     if hess_mode:
@@ -1032,7 +1033,7 @@ def _run_freq_for_state(pdb_path: Path,
 
     args = [
         "-i", str(pdb_path),
-        "--real-parm7", str(real_parm7),
+        "--parm", str(real_parm7),
         "--model-pdb", str(model_pdb),
         "-q", str(int(q_int)),
         "-m", str(int(spin)),
@@ -1087,7 +1088,7 @@ def _run_opt_for_state(
     opt_mode = str(opt_mode_default or "heavy").lower()
     args = [
         "-i", str(prepared_input.source_path),
-        "--real-parm7", str(real_parm7),
+        "--parm", str(real_parm7),
         "--model-pdb", str(model_pdb),
         "-q", str(int(q_int)),
         "-m", str(int(spin)),
@@ -1151,7 +1152,7 @@ def _run_dft_for_state(pdb_path: Path,
 
     args = [
         "-i", str(pdb_path),
-        "--real-parm7", str(real_parm7),
+        "--parm", str(real_parm7),
         "--model-pdb", str(model_pdb),
         "-q", str(int(q_int)),
         "-m", str(int(spin)),
@@ -1389,6 +1390,13 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Override tsopt --max-cycles value.")
 @click.option("--tsopt-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override tsopt output subdirectory (relative paths are resolved against the default).")
+@click.option(
+    "--micro-step/--no-micro-step",
+    "micro_step",
+    default=True,
+    show_default=True,
+    help="Forward to tsopt: in heavy mode, --no-micro-step forces RS-I-RFO max_micro_cycles=1.",
+)
 @click.option("--freq-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override freq output base directory (relative paths resolved against the default).")
 @click.option("--freq-max-write", type=int, default=None,
@@ -1484,6 +1492,7 @@ def cli(
     scan_endopt_override: Optional[bool],
     tsopt_max_cycles: Optional[int],
     tsopt_out_dir: Optional[Path],
+    micro_step: bool,
     freq_out_dir: Optional[Path],
     freq_max_write: Optional[int],
     freq_amplitude_ang: Optional[float],
@@ -1510,11 +1519,15 @@ def cli(
     command_str = "mlmm all " + " ".join(sys.argv[1:])
 
     dump_override_requested = False
+    micro_step_override_requested = False
     try:
         dump_source = ctx.get_parameter_source("dump")
         dump_override_requested = dump_source not in (None, ParameterSource.DEFAULT)
+        micro_step_source = ctx.get_parameter_source("micro_step")
+        micro_step_override_requested = micro_step_source not in (None, ParameterSource.DEFAULT)
     except Exception:
         dump_override_requested = False
+        micro_step_override_requested = False
 
     opt_mode_set = False
     opt_mode_post_set = False
@@ -1586,6 +1599,8 @@ def cli(
         tsopt_overrides["out_dir"] = tsopt_out_dir
     if hessian_calc_mode is not None:
         tsopt_overrides["hessian_calc_mode"] = hessian_calc_mode
+    if micro_step_override_requested:
+        tsopt_overrides["micro_step"] = bool(micro_step)
     if opt_mode_post_norm in {"light", "heavy", "hybrid"}:
         tsopt_overrides["opt_mode"] = opt_mode_post_norm
     elif opt_mode_set:
@@ -2218,7 +2233,7 @@ def cli(
 
         scan_args: List[str] = [
             "-i", str(layered_pdb),
-            "--real-parm7", str(real_parm7_path),
+            "--parm", str(real_parm7_path),
             "-q", str(int(q_int)),
             "-m", str(int(spin)),
             "--out-dir", str(scan_dir),
@@ -2283,7 +2298,7 @@ def cli(
     # Charge & spin
     ps_args.extend(["-q", str(q_int)])
     ps_args.extend(["-m", str(int(spin))])
-    ps_args.extend(["--real-parm7", str(real_parm7_path)])
+    ps_args.extend(["--parm", str(real_parm7_path)])
     # Layered PDBs have B-factors → detect-layer will auto-identify layers
     ps_args.append("--detect-layer")
 

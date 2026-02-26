@@ -217,7 +217,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 ### parm7 の元素順序が PDB と一致しない
 
 症状:
-- `oniom-gaussian` / `oniom-orca` で「Element sequence mismatch at atom index...」
+- `oniom-export` で「Element sequence mismatch at atom index...」
 
 対処:
 - `--no-element-check` で元素チェックを無効化（結果を手動で検証すること）

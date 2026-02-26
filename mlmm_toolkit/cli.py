@@ -29,8 +29,8 @@ _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
     "init": (".init", "cli", "Generate starter YAML templates."),
     "scan2d": (".scan2d", "cli", "Run 2D distance scan."),
     "scan3d": (".scan3d", "cli", "Run 3D distance scan."),
-    "oniom-gaussian": (".oniom_export", "cli_gaussian", "Export Gaussian ONIOM input."),
-    "oniom-orca": (".oniom_export", "cli_orca", "Export ORCA QM/MM input."),
+    "oniom-export": (".oniom_export", "cli", "Export ONIOM input (Gaussian g16 or ORCA)."),
+    "oniom-import": (".oniom_import", "cli", "Import ONIOM input and reconstruct XYZ/layered PDB."),
     "define-layer": (".define_layer", "cli", "Assign ML/MM layers to a structure."),
     "fix-altloc": (".fix_altloc", "cli", "Resolve PDB alternate locations."),
     "energy-diagram": (".energy_diagram", "cli", "Draw energy diagrams from values."),
@@ -95,6 +95,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--model-indices-one-based",
             "--detect-layer",
             "--climb",
+            "--fix-ends",
             "--preopt",
             "--dump",
             "--show-config",
@@ -132,6 +133,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--dry-run",
         }
     ),
+    "oniom-export": frozenset({"--element-check", "--convert-orcaff"}),
 }
 
 _COMMAND_BOOL_TOGGLE_NEGATIVE_ALIASES: dict[str, dict[str, str]] = {
@@ -174,7 +176,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
@@ -190,7 +192,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
@@ -206,13 +208,14 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
             "--charge",
             "-m",
             "--multiplicity",
+            "--csv",
             "--spec",
             "--out-dir",
             "--help-advanced",
@@ -222,7 +225,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
@@ -240,7 +243,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
@@ -248,6 +251,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "-m",
             "--multiplicity",
             "--mep-mode",
+            "--fix-ends",
             "--config",
             "--dry-run",
             "--max-nodes",
@@ -259,7 +263,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
@@ -267,6 +271,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "-m",
             "--multiplicity",
             "--mep-mode",
+            "--refine-mode",
             "--config",
             "--dry-run",
             "--max-nodes",
@@ -278,7 +283,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
@@ -297,7 +302,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
@@ -314,7 +319,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
@@ -333,7 +338,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--real-parm7",
+            "--parm",
             "--model-pdb",
             "--detect-layer",
             "-q",
@@ -370,14 +375,15 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--help-advanced",
         }
     ),
-    "oniom-gaussian": frozenset(
+    "oniom-export": frozenset(
         {
-            "--parm7",
+            "--parm",
             "-i",
             "--input",
             "--model-pdb",
             "-o",
             "--output",
+            "--mode",
             "--method",
             "-q",
             "--charge",
@@ -386,21 +392,14 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--help-advanced",
         }
     ),
-    "oniom-orca": frozenset(
+    "oniom-import": frozenset(
         {
-            "--parm7",
             "-i",
             "--input",
-            "--model-pdb",
+            "--mode",
             "-o",
-            "--output",
-            "--method",
-            "-q",
-            "--charge",
-            "-m",
-            "--multiplicity",
-            "--total-charge",
-            "--total-mult",
+            "--out-prefix",
+            "--ref-pdb",
             "--help-advanced",
         }
     ),
@@ -422,6 +421,10 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--unit",
             "-r",
             "--reference",
+            "-q",
+            "--charge",
+            "-m",
+            "--multiplicity",
             "--help-advanced",
         }
     ),

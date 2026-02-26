@@ -4,7 +4,7 @@
 ML/MM geometry optimization (LBFGS or RFO) with UMA + hessian_ff calculator.
 
 Example:
-    mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
+    mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 
 For detailed documentation, see: docs/opt.md
 """
@@ -68,7 +68,6 @@ from .utils import (
     update_pdb_bfactors_from_layers,
     normalize_choice,
     yaml_section_has_key,
-    resolve_freeze_atoms,
 )
 from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli
 
@@ -610,7 +609,7 @@ def _flatten_all_imag_modes_for_geom(
          "while PDB provides atom ordering and residue information for output conversion.",
 )
 @click.option(
-    "--real-parm7",
+    "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
@@ -665,12 +664,6 @@ def _flatten_all_imag_modes_for_geom(
     default=None,
     show_default=False,
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
-)
-@click.option(
-    "--freeze-links/--no-freeze-links",
-    default=True,
-    show_default=True,
-    help="Freeze parent atoms of link hydrogens (PDB only).",
 )
 @click.option(
     "--radius-partial-hessian",
@@ -740,6 +733,13 @@ def _flatten_all_imag_modes_for_geom(
     help="Optimizer mode: 'light' (=LBFGS), 'heavy' (=RFO), or 'hybrid' (=LBFGS then RFO flatten loop).",
 )
 @click.option(
+    "--micro-step/--no-micro-step",
+    "micro_step",
+    default=True,
+    show_default=True,
+    help="When --opt-mode heavy, --no-micro-step forces RFO max_micro_cycles=1.",
+)
+@click.option(
     "--config",
     "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -780,7 +780,6 @@ def cli(
     charge: Optional[int],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
-    freeze_links: bool,
     radius_partial_hessian: Optional[float],
     radius_freeze: Optional[float],
     dist_freeze_raw: Sequence[str],
@@ -791,6 +790,7 @@ def cli(
     out_dir: str,
     thresh: Optional[str],
     opt_mode: str,
+    micro_step: bool,
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
@@ -934,6 +934,8 @@ def cli(
                 (rfo_cfg, (("rfo",), ("opt", "rfo"))),
             ],
         )
+        if (not bool(micro_step)) and mode_resolved == "rfo":
+            rfo_cfg["max_micro_cycles"] = 1
         calc_paths = (("calc",), ("mlmm",))
         partial_explicit = (
             yaml_section_has_key(config_layer_cfg, calc_paths, "return_partial_hessian")
@@ -951,11 +953,6 @@ def cli(
         geom_cfg["freeze_atoms"] = geom_freeze
         if freeze_atoms_cli:
             merge_freeze_atom_indices(geom_cfg, freeze_atoms_cli)
-        freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
-        calc_cfg["freeze_atoms"] = freeze_atoms_final
-
-        # Auto-detect and freeze parent atoms of link hydrogens (PDB only)
-        resolve_freeze_atoms(geom_cfg, prepared_input.source_path, freeze_links)
         freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
         calc_cfg["freeze_atoms"] = freeze_atoms_final
 

@@ -1,4 +1,4 @@
-# `oniom-gaussian`
+# Gaussian ONIOM モード（`oniom-export --mode g16`）
 
 ## 概要
 
@@ -14,7 +14,7 @@
 ## 最小の例
 
 ```bash
-mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1
 ```
 
@@ -28,27 +28,27 @@ mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 1. メソッドを明示して出力。
 
 ```bash
-mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --method "B3LYP/6-31G(d,p)"
 ```
 
 2. 元素順チェックを無効化。
 
 ```bash
-mlmm oniom-gaussian --parm7 real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
  -o system.gjf --no-element-check
 ```
 
 3. 実行環境パラメータを調整。
 
 ```bash
-mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
 
 ## ワークフロー
 
-`oniom-gaussian` は `--parm7` からトポロジ情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使って Gaussian ONIOM 入力を書き出します。
+Gaussian モード（`mlmm oniom-export --mode g16`）は `--parm7` からトポロジ情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使って Gaussian ONIOM 入力を書き出します。
 
 1. parm7 から原子・結合・電荷情報を取得。
 2. `-i/--input` がある場合は読み込み、`--element-check` で元素順を検証。
@@ -86,7 +86,7 @@ mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
 - [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
-- [oniom-orca](oniom_orca.md) -- ORCA QM/MM エクスポータ
+- [oniom_orca](oniom_orca.md) -- ORCA モードガイド（`--mode orca`）
 - [oniom_export](oniom_export.md) -- エクスポート全体ガイド
 - [mm_parm](mm_parm.md) -- Amber トポロジ構築
 - [define_layer](define_layer.md) -- レイヤー定義/確認
