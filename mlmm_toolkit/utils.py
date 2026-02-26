@@ -388,6 +388,170 @@ def merge_freeze_atom_groups(*groups: Sequence[int]) -> List[int]:
     return sorted(merged)
 
 
+# =============================================================================
+# Link-freezing helpers
+# =============================================================================
+
+
+def parse_pdb_coords(pdb_path):
+    """Parse ATOM/HETATM records from *pdb_path* and separate link hydrogen (HL) atoms.
+
+    Returns:
+        A tuple (others, lkhs) where:
+            - others: list of tuples (index, x, y, z, line) for all atoms except the
+              'HL' atom of residue 'LKH'. ``index`` is the 0-based position in the
+              atom sequence as loaded from the *first* MODEL (or the full file if no
+              MODEL records are present).
+            - lkhs: list of tuples (x, y, z, line) for atoms where residue name is
+              'LKH' and atom name is 'HL' in the same MODEL selection.
+
+    Notes
+    -----
+        - Coordinates are read from standard PDB columns:
+          X: columns 31-38, Y: 39-46, Z: 47-54 (1-based indexing).
+        - If multiple MODEL blocks are present, only the first model is considered,
+          matching typical geom_loader behavior.
+    """
+    with open(pdb_path, "r") as f:
+        lines = f.readlines()
+
+    others = []
+    lkhs = []
+    model_seen = False
+    in_first_model = True
+    atom_index = 0
+    for line in lines:
+        if line.startswith("MODEL"):
+            if not model_seen:
+                model_seen = True
+                in_first_model = True
+            else:
+                in_first_model = False
+            continue
+        if line.startswith("ENDMDL"):
+            if model_seen and in_first_model:
+                break
+            continue
+        if model_seen and not in_first_model:
+            continue
+        if not (line.startswith("ATOM") or line.startswith("HETATM")):
+            continue
+
+        current_index = atom_index
+        atom_index += 1
+
+        name = line[12:16].strip()
+        resname = line[17:20].strip()
+        try:
+            x = float(line[30:38])
+            y = float(line[38:46])
+            z = float(line[46:54])
+        except ValueError:
+            continue
+
+        if resname == "LKH" and name == "HL":
+            lkhs.append((x, y, z, line))
+        else:
+            others.append((current_index, x, y, z, line))
+    return others, lkhs
+
+
+def nearest_index(point, pool):
+    """Find the nearest point in *pool* to *point* using Euclidean distance.
+
+    Args:
+        point: Tuple (x, y, z) representing the query coordinate.
+        pool: Iterable of tuples (index, x, y, z, line) to search.
+
+    Returns:
+        A tuple (index, distance) where:
+            - index is the 0-based index of the nearest entry in *pool* (or -1 if *pool* is empty).
+            - distance is the Euclidean distance to that entry (``inf`` if *pool* is empty).
+    """
+    x, y, z = point
+    best_i = -1
+    best_d2 = float("inf")
+    for atom_index, a, b, c, _ in pool:
+        d2 = (a - x) ** 2 + (b - y) ** 2 + (c - z) ** 2
+        if d2 < best_d2:
+            best_d2 = d2
+            best_i = atom_index
+    return best_i, math.sqrt(best_d2)
+
+
+def detect_freeze_links(pdb_path):
+    """Identify link-parent atom indices for 'LKH'/'HL' link hydrogens.
+
+    For each 'HL' atom in residue 'LKH', find the nearest atom among all other
+    ATOM/HETATM records and return the indices of those nearest neighbors in the
+    same atom ordering used by geometry loading (first MODEL if present).
+
+    Args:
+        pdb_path: Path to the input PDB file.
+
+    Returns:
+        List of 0-based indices into the full atom sequence (including any link H atoms)
+        corresponding to the nearest neighbors (link parents). Returns an empty list if
+        no LKH/HL atoms are present or if link hydrogens exist without any other atoms.
+    """
+    others, lkhs = parse_pdb_coords(pdb_path)
+
+    if not lkhs or not others:
+        return []
+
+    indices = []
+    for (x, y, z, line) in lkhs:
+        idx, dist = nearest_index((x, y, z), others)
+        if idx >= 0:
+            indices.append(idx)
+    return indices
+
+
+def detect_freeze_links_logged(pdb_path: Path) -> List[int]:
+    """Return link-parent indices and raise a user-facing error on failure."""
+    try:
+        return list(detect_freeze_links(pdb_path))
+    except Exception as e:
+        raise click.ClickException(
+            f"[freeze-links] Failed to detect link parents for '{pdb_path.name}': {e}"
+        ) from e
+
+
+def merge_detected_freeze_links(
+    geom_cfg: Dict[str, Any],
+    pdb_path: Path,
+    *,
+    prefix: str = "[freeze-links]",
+) -> List[int]:
+    """Detect link-parent atoms and merge them into ``geom_cfg['freeze_atoms']``."""
+    detected = detect_freeze_links_logged(pdb_path)
+    merged = merge_freeze_atom_indices(geom_cfg, detected)
+    if merged:
+        click.echo(f"{prefix} Freeze atoms (0-based): {','.join(map(str, merged))}")
+    return merged
+
+
+def resolve_freeze_atoms(
+    geom_cfg: Dict[str, Any],
+    source_path: Optional[Path],
+    freeze_links: bool,
+    *,
+    prefix: str = "[freeze-links]",
+    on_error: str = "raise",
+) -> List[int]:
+    """Normalize freeze_atoms and optionally merge detected link-parent atoms."""
+    merge_freeze_atom_indices(geom_cfg)
+    if not freeze_links or source_path is None or source_path.suffix.lower() != ".pdb":
+        return list(geom_cfg.get("freeze_atoms", []))
+    try:
+        return merge_detected_freeze_links(geom_cfg, source_path, prefix=prefix)
+    except Exception as e:
+        if on_error == "warn":
+            click.echo(f"{prefix} WARNING: Could not detect link parents: {e}", err=True)
+            return list(geom_cfg.get("freeze_atoms", []))
+        raise
+
+
 def apply_layer_freeze_constraints(
     geom_cfg: Dict[str, Any],
     calc_cfg: Dict[str, Any],
@@ -944,6 +1108,19 @@ def apply_yaml_overrides(
                 break
 
 
+def yaml_section_has_key(
+    yaml_cfg: Mapping[str, Any],
+    paths: _Sequence[_Sequence[str]],
+    key: str,
+) -> bool:
+    """Return True when any candidate YAML section explicitly defines ``key``."""
+    for path in paths:
+        section = _get_mapping_section(yaml_cfg, tuple(path))
+        if isinstance(section, Mapping) and (key in section):
+            return True
+    return False
+
+
 def load_yaml_dict(path: Optional[Path]) -> Dict[str, Any]:
     """
     Load a YAML file whose root must be a mapping. Return an empty dict if *path* is None.
@@ -1192,6 +1369,50 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
             write(out_pdb_path, atoms)  # Create/overwrite on the first frame
         else:
             write(out_pdb_path, atoms, append=True)  # Append subsequent frames using MODEL/ENDMDL
+
+
+# =============================================================================
+# Global toggle for XYZ/TRJ → PDB conversion
+# =============================================================================
+_CONVERT_FILES_ENABLED: bool = True
+
+
+def set_convert_file_enabled(enabled: bool) -> None:
+    """Globally enable or disable XYZ/TRJ conversions to PDB outputs."""
+    global _CONVERT_FILES_ENABLED
+    _CONVERT_FILES_ENABLED = bool(enabled)
+
+
+def is_convert_file_enabled() -> bool:
+    """Check if convert-files is globally enabled."""
+    return _CONVERT_FILES_ENABLED
+
+
+def convert_xyz_like_outputs(
+    xyz_path: Path,
+    ref_pdb_path: Optional[Path],
+    out_pdb_path: Optional[Path] = None,
+    *,
+    context: str = "outputs",
+    on_error: str = "raise",
+) -> bool:
+    """Convert an XYZ file to PDB output using ref topology.
+
+    Respects the global _CONVERT_FILES_ENABLED toggle.
+    Returns True when conversion succeeded; False otherwise.
+    """
+    if not _CONVERT_FILES_ENABLED:
+        return False
+    if ref_pdb_path is None or out_pdb_path is None:
+        return False
+    try:
+        convert_xyz_to_pdb(xyz_path, ref_pdb_path, out_pdb_path)
+        return True
+    except Exception as e:
+        if on_error == "warn":
+            click.echo(f"[convert] WARNING: Failed to convert {context}: {e}", err=True)
+            return False
+        raise click.ClickException(f"[convert] Failed to convert {context}: {e}") from e
 
 
 def pdb_keys_from_line(line: str) -> Tuple[Tuple, Tuple]:

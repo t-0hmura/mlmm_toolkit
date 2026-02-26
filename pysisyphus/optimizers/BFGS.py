@@ -36,7 +36,9 @@ class BFGS(Optimizer):
     @property
     def eye(self):
         size = self.geometry.coords.size
-        return np.eye(size)
+        if not hasattr(self, '_eye_cache') or self._eye_cache.shape[0] != size:
+            self._eye_cache = np.eye(size)
+        return self._eye_cache
 
     def bfgs_update(self, s, y):
         rho = 1 / s.dot(y)

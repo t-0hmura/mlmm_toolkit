@@ -236,26 +236,26 @@ class HessianOptimizer(Optimizer):
                 if len(inds) > 0:
                     if np.min(inds) < 0 or np.max(inds) >= vec.shape[0]:
                         return vec
-        except Exception:
+        except (ValueError, IndexError, TypeError):
             pass
         # Avoid double-slicing if vector is already in active space
         try:
             if vec.shape[0] == len(inds):
                 return vec
-        except Exception:
+        except (ValueError, IndexError, TypeError):
             pass
         try:
             if len(inds) > 0 and vec.shape[0] <= int(np.max(inds)):
                 # Indices exceed vector length → already active (compact) vector.
                 return vec
-        except Exception:
+        except (ValueError, IndexError, TypeError):
             pass
         if isinstance(vec, torch.Tensor):
             if vec.device.type == "cuda":
                 try:
                     vec_cpu = vec.detach().cpu().numpy()
                     return torch.as_tensor(vec_cpu[inds], dtype=vec.dtype, device=vec.device)
-                except Exception:
+                except (ValueError, IndexError, TypeError):
                     return vec
             idx = torch.as_tensor(inds, dtype=torch.long, device=vec.device)
             return vec.index_select(0, idx)
@@ -292,21 +292,21 @@ class HessianOptimizer(Optimizer):
                 if np.max(inds_arr) >= hessian.shape[0]:
                     # Likely already in active order; avoid double-slicing.
                     return hessian
-        except Exception:
+        except (ValueError, IndexError, TypeError):
             pass
         try:
             inds = np.asarray(inds, dtype=int)
             if len(inds) > 0:
                 max_valid = hessian.shape[0] - 1
                 inds = inds[(inds >= 0) & (inds <= max_valid)]
-        except Exception:
+        except (ValueError, IndexError, TypeError):
             pass
         if isinstance(hessian, torch.Tensor):
             if hessian.device.type == "cuda":
                 try:
                     hess_cpu = hessian.detach().cpu().numpy()
                     return torch.as_tensor(hess_cpu[np.ix_(inds, inds)], dtype=hessian.dtype, device=hessian.device)
-                except Exception:
+                except (ValueError, IndexError, TypeError):
                     return hessian
             idx = torch.as_tensor(inds, device=hessian.device, dtype=torch.int64)
             return hessian.index_select(0, idx).index_select(1, idx)
@@ -557,25 +557,11 @@ class HessianOptimizer(Optimizer):
         if is_sym:
             try:
                 eigenvalues, eigenvectors = (torch.linalg.eigh(rfo_mat) if is_torch else np.linalg.eigh(rfo_mat))
-            except (torch._C._LinAlgError, np.linalg.LinAlgError) as e:
-                try:
-                    eps = 1e-8
-                    if is_torch:
-                        I = torch.eye(rfo_mat.size(-1), device=rfo_mat.device, dtype=rfo_mat.dtype)
-                        rfo_mat = rfo_mat + eps * I
-                    else:
-                        I = np.eye(rfo_mat.shape[0])
-                        rfo_mat = rfo_mat + eps * I
-                    eigenvalues, eigenvectors = (torch.linalg.eigh(rfo_mat) if is_torch else np.linalg.eigh(rfo_mat))
-                except (torch._C._LinAlgError, np.linalg.LinAlgError) as e:
-                    self.log(f"Failed to diagonalize RFO matrix: {e}")
-                    self.log("Trying to use eig instead.")
-                    if is_torch:
-                        eigenvalues, eigenvectors = (torch.linalg.eig(rfo_mat) if is_torch else np.linalg.eig(rfo_mat))
-                    else:
-                        eigenvalues, eigenvectors = np.linalg.eig(rfo_mat)
-                    eigenvalues = eigenvalues.real
-                    eigenvectors = eigenvectors.real
+            except (torch._C._LinAlgError, np.linalg.LinAlgError):
+                self.log("eigh failed; falling back to eig.")
+                eigenvalues, eigenvectors = (torch.linalg.eig(rfo_mat) if is_torch else np.linalg.eig(rfo_mat))
+                eigenvalues = eigenvalues.real
+                eigenvectors = eigenvectors.real
         else:
             eigenvalues, eigenvectors = (torch.linalg.eig(rfo_mat) if is_torch else np.linalg.eig(rfo_mat))
             eigenvalues = eigenvalues.real
@@ -703,12 +689,9 @@ class HessianOptimizer(Optimizer):
         self._set_active_dofs(use_active)
 
         H = self.active_hessian(H)
-        try:
-            if gradient_full.shape[0] == H.shape[0]:
-                gradient = gradient_full
-            else:
-                gradient = self.active_from_full(gradient_full)
-        except Exception:
+        if gradient_full.shape[0] == H.shape[0]:
+            gradient = gradient_full
+        else:
             gradient = self.active_from_full(gradient_full)
 
         if isinstance(H, torch.Tensor):

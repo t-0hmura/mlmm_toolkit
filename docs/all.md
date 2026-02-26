@@ -2,13 +2,26 @@
 
 ## Overview
 
-> **Summary:** End-to-end enzymatic reaction workflow -- pocket extraction, optional staged scan, recursive MEP search (GSM), merge to full systems, with optional TS optimization, pseudo-IRC, thermochemistry, DFT, and DFT//UMA diagrams.
+> **Summary:** End-to-end enzymatic reaction workflow -- pocket extraction, MM topology preparation, optional staged scan, recursive MEP search (GSM), merge to full systems, with optional TS optimization, pseudo-IRC, thermochemistry, DFT, and DFT//UMA diagrams.
 
 `mlmm all` runs a one-shot pipeline centered on pocket models. It supports three modes:
 
 - **Multi-structure ensemble** -- Provide two or more full PDBs in reaction order. The tool extracts pockets, builds MM topology, runs recursive GSM MEP search, merges back into the full system, and optionally runs per-segment post-processing (TSOPT/freq/DFT).
 - **Single-structure + staged scan** -- Provide one PDB plus `--scan-lists`. The scan generates intermediate/product candidates that become MEP endpoints.
+  - One `--scan-lists` literal runs a single scan stage.
+  - Multiple stages are passed as multiple values after a single `--scan-lists` flag (the flag itself cannot be repeated).
 - **TSOPT-only** -- Provide a single PDB, omit `--scan-lists`, and set `--tsopt`. The tool runs TS optimization on the pocket, performs pseudo-IRC, minimizes both ends, and builds energy diagrams.
+
+```{important}
+`--tsopt` produces **TS candidates**. `all` automatically runs IRC and freq for validation, but always inspect the results (imaginary mode + endpoint connectivity) before mechanistic interpretation.
+```
+
+### At a glance
+- **Use when:** You want a complete end-to-end enzymatic reaction study with ML/MM, from pocket extraction through MEP search to optional TS/freq/DFT post-processing.
+- **Method:** Pocket extraction + MM topology (AmberTools) + GSM MEP search + optional TSOPT/IRC/freq/DFT.
+- **Outputs:** `summary.log`, `summary.yaml`, MEP trajectories, energy diagrams, per-segment post-processing.
+- **Defaults:** `--opt-mode light`, `--thresh gau`, `--max-cycles 300`, `--preopt` enabled, `--climb` enabled.
+- **Next step:** Inspect `summary.log` and energy diagrams; run standalone [tsopt](tsopt.md)/[freq](freq.md)/[dft](dft.md) for refinement.
 
 ## Minimal example
 
@@ -44,25 +57,12 @@ mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
 mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --dry-run
 ```
 
+PDB companions are generated when templates are available, controlled by `--convert-files/--no-convert-files` (enabled by default).
+
 ## Usage
 
 ```bash
-# Standard (multi-structure ensemble in reaction order)
-mlmm all -i R.pdb [I1.pdb...] P.pdb -c <substrate-spec> [--ligand-charge <map-or-number>]
- [--multiplicity <2S+1>] [--max-nodes N] [--max-cycles N]
- [--climb/--no-climb] [--opt-mode light|heavy] [--opt-mode-post light|heavy]
- [--preopt/--no-preopt] [--hessian-calc-mode Analytical|FiniteDifference] [--out-dir DIR]
- [--tsopt/--no-tsopt] [--thermo/--no-thermo] [--dft/--no-dft]
- [--tsopt-max-cycles N] [--freq-* overrides] [--dft-* overrides]
-
-# Single-structure + staged scan
-mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
- --multiplicity 1 --opt-mode light --preopt \
- --out-dir result_all --tsopt --thermo --dft
-
-# Single-structure TSOPT-only mode (no path search)
-mlmm all -i single.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
- --tsopt --thermo --dft --out-dir result_tsopt_single
+mlmm all -i INPUT1 [INPUT2...] -c SUBSTRATE [options]
 ```
 
 For help output, `mlmm all --help` shows core options and `mlmm all --help-advanced` shows the full option list.
@@ -91,44 +91,64 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 ## Workflow
 
 1. **Active-site pocket extraction** (multi-structure union when multiple inputs)
- - Define the substrate (`-c/--center`, by PDB, residue IDs, or residue names).
- - Optionally provide `--ligand-charge` as a total number (distributed) or a mapping (e.g., `GPP:-3,MMT:-1`).
- - The extractor writes per-input pocket PDBs under `<out-dir>/pockets/`.
- - The extractor's **first-model total pocket charge** is used as the total charge in later steps, cast to the nearest integer with a console note if rounding occurs.
- - Additional extractor toggles: `--radius`, `--radius-het2het`, `--include-H2O/--no-include-H2O`, `--exclude-backbone/--no-exclude-backbone`, `--add-linkH/--no-add-linkH`, `--selected-resn`, `--verbose/--no-verbose`.
- - If `-c/--center` is omitted, extraction is skipped and full input structures are used directly.
-
-### Charge resolution order
-1. `-q/--charge` (explicit CLI override) — highest priority.
-2. Pocket extraction charge summary (sum of amino acids, ions, and `--ligand-charge`).
-3. `--ligand-charge` fallback when extraction is skipped.
-4. Default: none (abort if unresolved).
+   - Define the substrate (`-c/--center`, by PDB, residue IDs, or residue names).
+   - Optionally provide `--ligand-charge` as a total number (distributed) or a mapping (e.g., `GPP:-3,MMT:-1`).
+   - The extractor writes per-input pocket PDBs under `<out-dir>/pockets/`.
+   - The extractor's **first-model total pocket charge** is used as the total charge in later steps, cast to the nearest integer with a console note if rounding occurs.
+   - Additional extractor toggles: `--radius`, `--radius-het2het`, `--include-H2O/--no-include-H2O`, `--exclude-backbone/--no-exclude-backbone`, `--add-linkH/--no-add-linkH`, `--selected-resn`, `--verbose/--no-verbose`.
+   - If `-c/--center` is omitted, extraction is skipped and full input structures are used directly.
 
 2. **ML/MM preparation**
- - Use the first pocket as `<out-dir>/ml_region.pdb` for `--model-pdb`. Keep `--no-add-linkH` (the default) during extraction if you prefer to omit link hydrogens from this definition.
- - Run `mm_parm` once on the first full input PDB to build `<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7`, automatically passed as `--real-parm7`.
- - Tune this stage with `--auto-mm-ff-set`, `--auto-mm-add-ter`, and `--auto-mm-keep-temp`.
+   - Use the first pocket as `<out-dir>/ml_region.pdb` for `--model-pdb`. Keep `--no-add-linkH` (the default) during extraction if you prefer to omit link hydrogens from this definition.
+   - Run `mm_parm` once on the first full input PDB to build `<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7`, automatically passed as `--real-parm7`.
+   - Tune this stage with `--auto-mm-ff-set`, `--auto-mm-add-ter`, and `--auto-mm-keep-temp`.
 
 3. **Optional staged scan (single-structure only)**
- - If exactly one full input PDB is provided and `--scan-lists` is given, the tool performs a staged, bond-length-driven scan on the extracted pocket PDB using the UMA calculator.
- - For each stage, the final relaxed structure (`stage_XX/result.pdb`) is collected as an intermediate/product candidate.
- - The ordered input series for the path search becomes: `[initial pocket, stage_01/result.pdb, stage_02/result.pdb,...]`.
+   - If exactly one full input PDB is provided and `--scan-lists` is given, the tool performs a staged, bond-length-driven scan on the extracted pocket PDB using the ML/MM calculator.
+   - For each stage, the final relaxed structure (`stage_XX/result.pdb`) is collected as an intermediate/product candidate.
+   - The ordered input series for the path search becomes: `[initial pocket, stage_01/result.pdb, stage_02/result.pdb,...]`.
 
 4. **MEP search (recursive GSM) on pocket inputs**
- - Runs `path_search` with options forwarded from this command.
- - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused (repeated) as the reference template for all pocket inputs.
+   - Runs `path_search` with options forwarded from this command.
+   - Use `--no-refine-path` to switch to a single-pass `path-opt` GSM chain without recursive refinement.
+   - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused (repeated) as the reference template for all pocket inputs.
 
 5. **Merge to full systems and optional post-processing**
- - The pocket MEP is merged back into the original full-system template(s) within `<out-dir>/path_search/`.
- - Pocket-only and full-system trajectories, per-segment merged PDBs, and a summary are written.
- - `--thermo`: Compute UMA thermochemistry on (R, TS, P) and add a Gibbs diagram.
- - `--dft`: Do DFT single-point on (R, TS, P) and add a DFT diagram. With `--thermo`, also generate a DFT//UMA Gibbs diagram.
+   - The pocket MEP is merged back into the original full-system template(s) within `<out-dir>/path_search/`.
+   - Pocket-only and full-system trajectories, per-segment merged PDBs, and a summary are written.
+   - `--tsopt`: run TS optimization on each HEI pocket, follow with EulerPC IRC, and emit segment energy diagrams.
+   - `--thermo`: Compute ML/MM thermochemistry on (R, TS, P) and add a Gibbs diagram.
+   - `--dft`: Do DFT single-point on (R, TS, P) and add a DFT diagram. With `--thermo`, also generate a DFT//UMA Gibbs diagram.
+   - Shared overrides include `--opt-mode`, `--opt-mode-post` (overrides TSOPT and post-IRC endpoint optimization modes), `--flatten/--no-flatten`, `--micro-step/--no-micro-step`, `--hessian-calc-mode`, `--tsopt-max-cycles`, `--tsopt-out-dir`, `--freq-*`, `--dft-*`.
+   - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
 
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
- - Skips steps (4)-(5) and runs `tsopt` on the pocket, does a pseudo-IRC and minimizes both ends, builds UMA energy diagrams for R-TS-P, and optionally adds UMA Gibbs, DFT, and DFT//UMA diagrams.
- - In this mode only, the IRC endpoint with **higher energy** is adopted as the reactant (R).
+   - Skips steps (4)-(5) and runs `tsopt` on the pocket, does a pseudo-IRC and minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//UMA diagrams.
+   - In this mode only, the IRC endpoint with **higher energy** is adopted as the reactant (R).
+
+### Charge and spin precedence
+
+**Charge resolution (highest to lowest priority):**
+
+| Priority | Source | When Used |
+|----------|--------|-----------|
+| 1 | `-q/--charge` | Explicit CLI override |
+| 2 | Pocket extraction | When `-c` is provided (sums amino acids, ions, `--ligand-charge`) |
+| 3 | `--ligand-charge` | Fallback when extraction is skipped |
+| 4 | Default | None (unresolved charge is an error) |
+
+**Spin resolution:** `--multiplicity` (CLI) -> default (1)
+
+> **Tip:** Always provide `--ligand-charge` for non-standard substrates to ensure correct charge propagation.
+
+### Input expectations
+- Extraction enabled (`-c/--center`): inputs must be **PDB** files so residues can be located.
+- Extraction skipped: inputs may be **PDB/XYZ**.
+- Multi-structure runs require at least 2 structures.
 
 ## CLI options
+
+> **Note:** Default values shown are used when the option is not specified.
 
 ### Input/Output Options
 
@@ -139,7 +159,8 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--ligand-charge TEXT` | Total charge or residue-specific mapping (e.g., `GPP:-3,MMT:-1`). | _None_ |
 | `-q, --charge INT` | Force total system charge (highest priority override). | _None_ |
 | `--out-dir PATH` | Top-level output directory. | `./result_all/` |
-| `--dump/--no-dump` | Save optimizer dumps. | `False` |
+| `--convert-files/--no-convert-files` | Global toggle for XYZ/TRJ to PDB companions when templates are available. | `True` |
+| `--dump/--no-dump` | Save optimizer dumps. Always forwarded to `path-search`/`path-opt`; forwarded to `scan`/`tsopt` only when explicitly set here. `freq` defaults to dump=True unless you pass `--no-dump`. | `False` |
 | `--config FILE` | Base YAML applied first. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration before execution. | `False` |
 | `--dry-run/--no-dry-run` | Validate and print plan without running stages. | `False` |
@@ -154,6 +175,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | Extractor default |
 | `--add-linkH/--no-add-linkH` | Add link hydrogens for severed bonds. | Extractor default |
 | `--selected-resn TEXT` | Residues to force include. | `""` |
+| `--freeze-links/--no-freeze-links` | Freeze link parents in pocket PDBs. | `True` |
 | `--verbose/--no-verbose` | Enable INFO-level extractor logging. | Extractor default |
 
 ### MM Preparation Options
@@ -172,12 +194,16 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--opt-mode [light\|heavy]` | Optimizer preset for scan/path-search and single optimizations (`light` → LBFGS/Dimer, `heavy` → RFO/RSIRFO). | `light` |
-| `--opt-mode-post [light\|heavy]` | Optimizer preset override for TSOPT/post-IRC endpoint optimizations. | _None_ |
+| `--opt-mode [light\|heavy]` | Optimizer preset for scan/path-search and single optimizations (`light` -> LBFGS/Dimer, `heavy` -> RFO/RSIRFO). | `light` |
+| `--opt-mode-post [light\|heavy\|hybrid]` | Optimizer preset override for TSOPT/post-IRC endpoint optimizations. | _None_ |
+| `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
+| `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
-| `--hessian-calc-mode CHOICE` | UMA Hessian mode (`Analytical` or `FiniteDifference`). | _Default_ |
+| `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments without recursive refinement. | `True` |
+| `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | _Default_ |
 
-TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (only when explicitly provided) -> TSOPT default (`heavy`).
+TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (only when explicitly provided) -> TSOPT default (`heavy`).  
+If `--opt-mode-post hybrid` is set, TSOPT falls back to `heavy`, while post-IRC endpoint optimization runs via `opt --opt-mode hybrid`.
 
 ### Scan Options (Single-Input Runs)
 
@@ -199,6 +225,8 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 | `--tsopt/--no-tsopt` | Run TS optimization + pseudo-IRC per reactive segment. | `False` |
 | `--thermo/--no-thermo` | Run vibrational analysis (`freq`) on R/TS/P. | `False` |
 | `--dft/--no-dft` | Run single-point DFT on R/TS/P. | `False` |
+| `--flatten/--no-flatten` | Enable extra-imaginary-mode flattening in `tsopt`. | `False` |
+| `--micro-step/--no-micro-step` | Forward to `tsopt`; when TSOPT runs in heavy mode, `--no-micro-step` forces `rsirfo.max_micro_cycles=1`. | `True` |
 | `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |
 | `--tsopt-out-dir PATH` | Custom tsopt subdirectory. | _None_ |
 
@@ -228,63 +256,77 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 
 ```text
 <out-dir>/
- ml_region.pdb # ML-region definition (copy of the first pocket)
+ ml_region.pdb                         # ML-region definition (copy of the first pocket)
  pockets/
- pocket_<input1_basename>.pdb
- pocket_<input2_basename>.pdb
-...
+  pocket_<input1_basename>.pdb
+  pocket_<input2_basename>.pdb
+  ...
  mm_parm/
- <input1_basename>.parm7 # Generated from the first full-enzyme input PDB
- <input1_basename>.rst7
- scan/ # present only in single-structure+scan mode
- stage_01/result.pdb
- stage_02/result.pdb
-...
- summary.yaml # mirrored top-level summary (when path_search runs)
+  <input1_basename>.parm7              # Generated from the first full-enzyme input PDB
+  <input1_basename>.rst7
+ scan/                                 # present only in single-structure+scan mode
+  stage_01/result.pdb
+  stage_02/result.pdb
+  ...
+ summary.yaml                          # mirrored top-level summary (when path_search runs)
  summary.log
  mep_plot.png
  energy_diagram_MEP.png
- energy_diagram_UMA_all.png # aggregated post-processing diagrams (when enabled)
+ energy_diagram_UMA_all.png            # aggregated post-processing diagrams (when enabled)
  energy_diagram_G_UMA_all.png
  energy_diagram_DFT_all.png
  energy_diagram_G_DFT_plus_UMA_all.png
  irc_plot_all.png
- path_search/ # present when path_search is executed
- mep_trj.xyz
- mep.pdb
- mep_w_ref.pdb
- mep_w_ref_seg_XX.pdb
- summary.yaml
- summary.log
- mep_plot.png
- energy_diagram_MEP.png
- post_seg_XX/ # when post-processing is enabled
- ts/...
- irc/...
- freq/... # with --thermo
- dft/... # with --dft
- energy_diagram_UMA.png
- energy_diagram_G_UMA.png
- energy_diagram_DFT.png
- energy_diagram_G_DFT_plus_UMA.png
- tsopt_single/ # present only in single-structure TSOPT-only mode
- ts/...
- irc/...
- structures/
- reactant.pdb
- ts.pdb
- product.pdb
- freq/... # with --thermo
- dft/... # with --dft
- energy_diagram_UMA.png
- energy_diagram_G_UMA.png
- energy_diagram_DFT.png
- energy_diagram_G_DFT_plus_UMA.png
+ path_search/                          # present when path_search is executed
+  mep_trj.xyz
+  mep.pdb
+  mep_w_ref.pdb
+  mep_w_ref_seg_XX.pdb
+  summary.yaml
+  summary.log
+  mep_plot.png
+  energy_diagram_MEP.png
+  post_seg_XX/                         # when post-processing is enabled
+   ts/...
+   irc/...
+   freq/...                            # with --thermo
+   dft/...                             # with --dft
+   energy_diagram_UMA.png
+   energy_diagram_G_UMA.png
+   energy_diagram_DFT.png
+   energy_diagram_G_DFT_plus_UMA.png
+ tsopt_single/                         # present only in single-structure TSOPT-only mode
+  ts/...
+  irc/...
+  structures/
+   reactant.pdb
+   ts.pdb
+   product.pdb
+  freq/...                             # with --thermo
+  dft/...                              # with --dft
+  energy_diagram_UMA.png
+  energy_diagram_G_UMA.png
+  energy_diagram_DFT.png
+  energy_diagram_G_DFT_plus_UMA.png
 ```
+
+### Reading `summary.log`
+The log is organized into numbered sections:
+- **[1] Global MEP overview** -- image/segment counts, MEP trajectory plot paths, and the aggregate MEP energy diagram.
+- **[2] Segment-level MEP summary (UMA path)** -- per-segment barriers, reaction energies, and bond-change summaries.
+- **[3] Per-segment post-processing (TSOPT / Thermo / DFT)** -- per-segment TS imaginary frequency checks, IRC outputs, and energy tables.
+- **[4] Energy diagrams (overview)** -- diagram tables for MEP/UMA/Gibbs/DFT series plus an optional cross-method summary table.
+- **[5] Output directory structure** -- a compact tree of generated files with inline annotations.
+
+### Reading `summary.yaml`
+The YAML is a compact, machine-readable summary. Common top-level keys include:
+- `out_dir`, `n_images`, `n_segments` -- run metadata and total counts.
+- `segments` -- list of per-segment entries with `index`, `tag`, `kind`, `barrier_kcal`, `delta_kcal`, and `bond_changes`.
+- `energy_diagrams` (optional) -- diagram payloads with `labels`, `energies_kcal`, `energies_au`, `ylabel`, and `image` paths.
 
 ## YAML configuration
 
-`all` now supports two YAML layers:
+`all` supports layered YAML:
 
 - `--config FILE`: base settings.
 
@@ -296,9 +338,30 @@ The resulting effective YAML is forwarded to downstream subcommands. Each tool r
 |------------|---------------|
 | [`path-search`](path_search.md) | `geom`, `calc`/`mlmm`, `gs`, `opt`, `lbfgs`, `bond`, `search` |
 | [`scan`](scan.md) | `geom`, `calc`/`mlmm`, `opt`, `lbfgs` |
-| [`tsopt`](tsopt.md) | `geom`, `calc`/`mlmm`, `opt` |
-| [`freq`](freq.md) | `geom`, `calc`/`mlmm`, `freq` |
+| [`tsopt`](tsopt.md) | `geom`, `calc`/`mlmm`, `opt`, `hessian_dimer`, `rsirfo` |
+| [`freq`](freq.md) | `geom`, `calc`/`mlmm`, `freq`, `thermo` |
 | [`dft`](dft.md) | `dft` |
+
+> **Note:** Applied after CLI values.
+
+**Minimal example:**
+```yaml
+calc:
+ charge: 0
+ spin: 1
+mlmm:
+ real_parm7: real.parm7
+ model_pdb: ml_region.pdb
+ uma_model: uma-s-1p1
+ ml_hessian_mode: Analytical     # recommended when VRAM permits
+gs:
+ max_nodes: 12
+ climb: true
+dft:
+ grid_level: 6
+```
+
+For a complete reference of all YAML options, see **[YAML Configuration Reference](yaml_reference.md)**.
 
 ## Notes
 
@@ -306,10 +369,15 @@ The resulting effective YAML is forwarded to downstream subcommands. Each tool r
 
 - **Python >= 3.11** is required.
 - **Substrate (`-c/--center`) and (when needed) `--ligand-charge` are practically required.**
+- Always provide `--ligand-charge` (numeric or per-residue mapping) when formal charges cannot be inferred so the correct total charge propagates to scan/MEP/TSOPT/DFT.
 - Single-structure mode requires either `--scan-lists` or `--tsopt`; otherwise at least two structures are needed.
-- Preflight checks now validate repeated `-i/--input` values as files and verify AmberTools commands (`tleap`, `antechamber`, `parmchk2`) before auto `mm_parm`.
-- Energies in diagrams are plotted relative to the first state in kcal/mol (converted from Hartree).
+- Preflight checks validate repeated `-i/--input` values as files and verify AmberTools commands (`tleap`, `antechamber`, `parmchk2`) before auto `mm_parm`.
+- Reference PDB templates for merging are derived automatically from the original inputs.
+- Convergence presets: `--thresh` defaults to `gau`; `--thresh-post` defaults to `baker`.
+- Extraction radii: passing `0` to `--radius` or `--radius-het2het` is internally clamped to `0.001 A` by the extractor.
+- Energies in diagrams are plotted relative to the first state (reactant) in kcal/mol (converted from Hartree).
 - Charge handling: the extractor's first-model total pocket charge is used as the path/scan/TSOPT total charge (rounded to int).
+- Omitting `-c/--center` skips extraction and feeds the entire input structures directly to the MEP/tsopt/freq/DFT stages; single-structure runs still require either `--scan-lists` or `--tsopt`.
 
 ---
 
@@ -324,3 +392,5 @@ The resulting effective YAML is forwarded to downstream subcommands. Each tool r
 - [trj2fig](trj2fig.md) -- Plot energy profiles from trajectories
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Common errors and fixes
+- [YAML Reference](yaml_reference.md) -- Complete YAML configuration options
+- [Glossary](glossary.md) -- Definitions of MEP, TS, IRC, GSM

@@ -4,6 +4,16 @@
 
 > **Summary:** Build a continuous MEP from two or more structures with recursive GSM segmentation. Automatically refines only regions with bond changes and exports the highest-energy image (HEI) as a TS candidate.
 
+### At a glance
+- **Use when:** You have R -> ... -> P structures (2+ inputs) and want a single stitched MEP with automatic refinement.
+- **Method:** Chains GSM segments and recursively refines only sub-intervals that still contain covalent changes.
+- **Outputs:** `mep_trj.xyz` (main trajectory), `summary.yaml` (segment-by-segment results), and optional plots/merged PDBs when enabled.
+- **Defaults:** `--opt-mode light` (LBFGS), `--preopt`, `--align`, `--thresh gau`.
+- **Next step:** HEI output alone does **not** validate a TS. Follow with [tsopt](tsopt.md), [freq](freq.md), and [irc](irc.md).
+
+`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory.
+
+If you only have **two** endpoints and do not need recursive refinement, [path-opt](path_opt.md) is the simpler option.
 
 ## Minimal example
 
@@ -70,12 +80,16 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 
 ## Workflow
 
-1. **Initial segment (per adjacent pair A->B)** -- Run GSM with ML/MM to obtain a preliminary MEP.
-2. **Localize barrier** -- Find the highest-energy image (HEI); optimize HEI+/-1 with the selected single-structure optimizer (`--opt-mode`) to obtain End1 and End2.
-3. **Refine** -- If End1-End2 shows no covalent changes (a kink), insert `search.kink_max_nodes` linear images and optimize each. Otherwise, run a refinement GSM between End1 and End2.
-4. **Recurse selectively** -- Evaluate covalent changes for (A->End1) and (End2->B); recurse only on changing sides.
-5. **Stitch subpaths** -- Concatenate sub-MEPs with duplicate removal via RMSD. If endpoints mismatch beyond `search.bridge_rmsd_thresh`, insert a bridge GSM. Interfaces with covalent changes spawn a recursive segment instead of a bridge.
+1. **Initial segment per pair (GSM)** -- Run `GrowingString` with ML/MM between each adjacent input (A->B) to obtain a coarse MEP and identify the highest-energy image (HEI).
+2. **Local relaxation around HEI** -- Refine HEI +/- 1 with the chosen single-structure optimizer (`opt-mode`) to recover nearby minima (`End1`, `End2`).
+3. **Decide between kink vs. refinement**:
+ - If no covalent bond change is detected between `End1` and `End2`, treat the region as a *kink*: insert `search.kink_max_nodes` linear nodes and optimize each individually.
+ - Otherwise, launch a **refinement segment (GSM)** between `End1` and `End2` to sharpen the barrier.
+4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent updates. Recursion depth is capped by `search.max_depth`.
+5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment (GSM). When the interface itself shows a bond change, a brand-new recursive segment replaces the bridge.
 6. **Optional alignment and merge** -- After pre-opt, `--align` rigidly co-aligns inputs and refines freezes. With `--ref-pdb`, pocket trajectories merge into full templates and segments are annotated for plotting/analysis.
+
+Bond-change detection relies on `bond_changes.compare_structures` with thresholds surfaced under the `bond` YAML section.
 
 ## CLI options
 
@@ -119,6 +133,7 @@ out_dir/ (default:./result_path_search/)
  seg_000_*/ # Segment-level GSM and refinement artefacts
 ```
 
+## YAML configuration
 
 Merge order is **defaults < config < explicit CLI < override**.
 The YAML root must be a mapping. Accepted sections:
@@ -149,6 +164,8 @@ The YAML root must be a mapping. Accepted sections:
 ---
 
 ## See Also
+
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 
 - [path-opt](path_opt.md) -- Single-pass MEP optimization (no recursive refinement)
 - [opt](opt.md) -- Single-structure geometry optimization

@@ -127,6 +127,27 @@ def geom_loader(fn, coord_type="cart", iterable=False, **coord_kwargs):
     return geom
 
 
+def _svd_align_core(coords_to_align, reference_coords):
+    """Compute the optimal rotation matrix aligning *coords_to_align* onto
+    *reference_coords* using SVD.  Both arrays must be (N, 3) and already
+    centroid-subtracted.
+
+    Returns ``(rot_mat, rotated_coords)`` where ``rot_mat`` is a (3, 3)
+    rotation matrix (reflection-free) and ``rotated_coords`` is
+    ``coords_to_align.dot(rot_mat)``.
+    """
+    # http://nghiaho.com/?page_id=671#comment-559906
+    tmp_mat = coords_to_align.T.dot(reference_coords)
+    U, W, Vt = np.linalg.svd(tmp_mat)
+    rot_mat = U.dot(Vt)
+    # Avoid reflections
+    if np.linalg.det(rot_mat) < 0:
+        U[:, -1] *= -1
+        rot_mat = U.dot(Vt)
+    rotated_coords = coords_to_align.dot(rot_mat)
+    return rot_mat, rotated_coords
+
+
 def align_geoms(geoms):
     # http://nghiaho.com/?page_id=671#comment-559906
     first_geom = geoms[0]
@@ -136,26 +157,16 @@ def align_geoms(geoms):
     first_geom.coords3d = last_centered
     atoms_per_image = len(first_geom.atoms)
 
-    # Don't rotate the first image, so just add identitiy matrices
+    # Don't rotate the first image, so just add identity matrices
     # for every atom.
     rot_mats = [np.eye(3)] * atoms_per_image
     for i, geom in enumerate(geoms[1:], 1):
         coords3d = geom.coords3d
         centroid = coords3d.mean(axis=0)
-        # Center next image
         centered = coords3d - centroid
-        tmp_mat = centered.T.dot(last_centered)
-        U, W, Vt = np.linalg.svd(tmp_mat)
-        rot_mat = U.dot(Vt)
-        # Avoid reflections
-        if np.linalg.det(rot_mat) < 0:
-            U[:, -1] *= -1
-            rot_mat = U.dot(Vt)
-        # Rotate the coords
-        rotated3d = centered.dot(rot_mat)
+        rot_mat, rotated3d = _svd_align_core(centered, last_centered)
         geom.coords3d = rotated3d
         last_centered = rotated3d
-        # Append one rotation matrix per atom
         rot_mats.extend([rot_mat] * atoms_per_image)
     return rot_mats
 
@@ -175,26 +186,17 @@ def procrustes(geometry, align_factor=1.0):
     for i, image in enumerate(geometry.images[1:], 1):
         coords3d = image.coords3d
         centroid = coords3d.mean(axis=0)
-        # Center next image
         centered = coords3d - centroid
-        tmp_mat = centered.T.dot(last_centered)
-        U, W, Vt = np.linalg.svd(tmp_mat)
-        rot_mat = U.dot(Vt)
-        # Avoid reflections
-        if np.linalg.det(rot_mat) < 0:
-            U[:, -1] *= -1
-            rot_mat = U.dot(Vt)
+        rot_mat, _ = _svd_align_core(centered, last_centered)
         # do a partial alignment if requested
         if not (0.0 <= align_factor <= 1.0):
             raise ValueError("align_factor must be between 0 and 1")
         # mix the rotation matrix with the identity matrix
         # align_factor=1 for full alignment (default); align_factor=0 for no alignment
         rot_mat = align_factor * rot_mat + (1 - align_factor) * np.eye(3)
-        # Rotate the coords
         rotated3d = centered.dot(rot_mat)
         geometry.set_coords_at(i, rotated3d.flatten())
         last_centered = rotated3d
-        # Append one rotation matrix per atom
         rot_mats.extend([rot_mat] * atoms_per_image)
     return rot_mats
 
@@ -213,17 +215,8 @@ def align_coords(coords_list):
     for i, coords in enumerate(coords_list[1:], 1):
         coords3d = coords.reshape(-1, 3)
         centroid = coords3d.mean(axis=0)
-        # Center next image
         centered = coords3d - centroid
-        tmp_mat = centered.T.dot(prev_centered)
-        U, W, Vt = np.linalg.svd(tmp_mat)
-        rot_mat = U.dot(Vt)
-        # Avoid reflections
-        if np.linalg.det(rot_mat) < 0:
-            U[:, -1] *= -1
-            rot_mat = U.dot(Vt)
-        # Rotate the coords
-        rotated3d = centered.dot(rot_mat)
+        rot_mat, rotated3d = _svd_align_core(centered, prev_centered)
         aligned_coords[i] = rotated3d
         prev_centered = rotated3d
     aligned_coords.reshape(coord_num, -1)

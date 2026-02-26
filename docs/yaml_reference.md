@@ -79,7 +79,7 @@ mlmm:
  out_hess_torch: true # Return Hessian as torch.Tensor
  H_double: false # Assemble/return Hessian in float64
  symmetrize_hessian: true # Symmetrize final Hessian as 0.5*(H+H^T)
- return_partial_hessian: false # Return only active-DOF Hessian block
+ return_partial_hessian: false # Base calculator default (CLI wrappers may default to true)
 
  # --- Layer configuration ---
  freeze_atoms: [] # 0-based indices of atoms to freeze (Frozen layer)
@@ -92,7 +92,7 @@ mlmm:
 
  # --- Diagnostics ---
  print_timing: true # Print ML/MM Hessian timing breakdown
- print_vram: false # Print CUDA VRAM usage during Hessian
+ print_vram: true # Print CUDA VRAM usage during Hessian
 ```
 
 **Notes:**
@@ -100,8 +100,9 @@ mlmm:
 - `mm_fd: true` uses finite-difference for MM Hessian; set to `false` to use analytical MM Hessian from hessian_ff
 - `real_parm7` and `model_pdb` are required for ML/MM calculations
 - `model_charge` and `model_mult` override `-q` and `-m` for the ML region specifically
-- `freq` sets `mlmm.return_partial_hessian = true` by default (PHVA); YAML can override
-- IRC forces `geom.coord_type = cart` and `mlmm.return_partial_hessian = false` regardless of YAML
+- `opt`, `tsopt`, `irc`, and `freq` use partial Hessian by default when `mlmm.return_partial_hessian` is not explicitly set in YAML.
+- To force full Hessian output in those commands, set `mlmm.return_partial_hessian: false` explicitly.
+- `irc` forces `geom.coord_type = cart` regardless of YAML.
 
 ### `opt`
 

@@ -4,11 +4,12 @@
 
 > **Summary:** Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology.
 
-### Quick reference
+### At a glance
 - **Use when:** You want to run Gaussian ONIOM on the same system prepared for ML/MM.
-- **Inputs:** `--parm7` (required), optional `-i/--input` (PDB/XYZ), optional `--model-pdb`.
-- **Output:** Gaussian ONIOM input with layer assignments and connectivity.
-- **Validation:** `--element-check` (default) compares coordinate-file element order against parm7.
+- **Method:** Reads Amber parm7 topology via ParmEd; maps model PDB to define QM layer; detects QM/MM boundaries and annotates link atoms.
+- **Outputs:** Gaussian `.com` or `.gjf` with method, coordinates, layer flags, and connectivity.
+- **Defaults:** `--method "B3LYP/6-31G(d,p)"`; `--nproc 8`; `--mem 16GB`; `--near 6.0`.
+- **Next step:** Run the exported input in Gaussian.
 
 ## Minimal example
 
@@ -45,20 +46,9 @@ mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
 
-## Usage
-
-```bash
-mlmm oniom-gaussian --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
- -o output.com [-q CHARGE] [-m MULT] [--method "B3LYP/6-31G(d,p)"] \
- [--near FLOAT] [--nproc INT] [--mem TEXT] \
- [--element-check|--no-element-check]
-```
-
-## Description
+## Workflow
 
 `oniom-gaussian` reads topology data from `--parm7` (via ParmEd), optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file.
-
-Workflow:
 
 1. Load atom/bond/charge data from parm7.
 2. Optionally load coordinates and run element-order validation (`--element-check`).
@@ -82,13 +72,8 @@ Workflow:
 | `--nproc INT` | Number of processors. | `8` |
 | `--mem TEXT` | Memory allocation. | `16GB` |
 
-## Outputs
-
-```text
-<output>.com / <output>.gjf
-```
-
 ## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - Requires `parmed`.
 - Element validation is best-effort and assumes invariant atom ordering.

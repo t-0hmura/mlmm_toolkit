@@ -479,7 +479,7 @@ _DEFAULT_GROUP_KWARGS = {
 )
 @click.version_option(version=__version__, prog_name="mlmm")
 def cli() -> None:
-    pass
+    click.echo(f"mlmm ver. {__version__}")
 
 
 @click.command(

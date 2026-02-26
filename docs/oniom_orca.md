@@ -4,11 +4,12 @@
 
 > **Summary:** Export an ML/MM system to ORCA QM/MM (`.inp`) using an Amber parm7 topology.
 
-### Quick reference
+### At a glance
 - **Use when:** You want ORCA QM/MM input compatible with Amber-derived parameters.
-- **Inputs:** `--parm7` (required), optional `-i/--input` (PDB/XYZ), optional `--model-pdb`.
-- **Output:** ORCA `.inp` with QM atom set and ORCAFF linkage.
-- **ORCAFF behavior:** If ORCAFF is missing, auto conversion can be attempted (`--convert-orcaff`, default on).
+- **Method:** Reads Amber parm7 topology via ParmEd; maps model PDB to define QM atoms; resolves ORCAFF parameters.
+- **Outputs:** ORCA `.inp` with QM atom set and ORCAFF linkage; `ORCAFF.prms` (reused, provided, or auto-generated).
+- **Defaults:** `--method "B3LYP D3BJ def2-SVP"`; `--nproc 8`; `--near 6.0`; `--convert-orcaff` on.
+- **Next step:** Run the exported input in ORCA.
 
 ## Minimal example
 
@@ -45,21 +46,9 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
-## Usage
-
-```bash
-mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
- -o output.inp [-q CHARGE] [-m MULT] [--method "B3LYP D3BJ def2-SVP"] \
- [--total-charge INT] [--total-mult INT] [--nproc INT] [--near FLOAT] \
- [--orcaff PATH] [--convert-orcaff|--no-convert-orcaff] \
- [--element-check|--no-element-check]
-```
-
-## Description
+## Workflow
 
 `oniom-orca` reads topology information from `--parm7` and writes ORCA QM/MM input.
-
-Workflow:
 
 1. Load atom/bond/charge data from parm7.
 2. Optionally load coordinates and validate element ordering (`--element-check`).
@@ -86,13 +75,8 @@ Workflow:
 | `--orcaff PATH` | Path to ORCAFF.prms. | auto |
 | `--convert-orcaff/--no-convert-orcaff` | Attempt `orca_mm -convff -AMBER` when ORCAFF is missing. | `True` |
 
-## Outputs
-
-```text
-<output>.inp
-```
-
 ## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - Requires `parmed`.
 - Element validation is best-effort and assumes invariant atom ordering.

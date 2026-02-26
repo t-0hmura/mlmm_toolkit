@@ -4,29 +4,35 @@
 
 > **要約:** 調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。`--spec`（YAML/JSON、推奨）または `--scan-lists` を使用します。
 
+### 概要
+- **入力:** 1 つの構造 + `--spec scan2d.yaml`（推奨）または 1 つの `--scan-lists` リテラル（正確に 2 つの四つ組）。
+- **グリッド順序:** 各軸は（事前）最適化済み構造に最も近い点から順にアクセスされるよう並べ替えられます。
+- **エネルギー:** `surface.csv` に書き出される値は常に**バイアスなし**で評価されるため、グリッド点間で直接比較可能です。
+- **出力:** `surface.csv`、`scan2d_map.png`、`scan2d_landscape.html`、`grid/` 下のグリッド点ごとの構造。
+- **注意:** `(high - low) / --max-step-size` が大きくなるとグリッドサイズが急速に増大します。
+
 `mlmm scan2d` は `--max-step-size` を使用して 2 つの結合距離の線形グリッドを構築し、適切な拘束を適用して各グリッド点を緩和し、バイアスなしの ML/MM エネルギーを可視化用に記録します。スキャンはまず d1 を反復し d1 拘束のみで構造を緩和し、次に各 d1 値について d2 を反復し両方の拘束を適用します。
 
 各グリッド点のエネルギーはバイアスなしで再評価され、PES グリッドとコンタープロットが作成されます。出力にはグリッド点ごとの XYZ スナップショット、PES をまとめた `surface.csv`、2D コンターマップ（`scan2d_map.png`）、底面投影付き 3D ランドスケープ（`scan2d_landscape.html`）が含まれます。
 
 
 ## 最小例
-
 ```bash
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
 ```
 
-## 出力の見方
-
+## 出力チェックリスト
 - `result_scan2d/surface.csv`
 - `result_scan2d/grid/point_i000_j000.xyz`
 - `result_scan2d/scan2d_map.png` と `result_scan2d/scan2d_landscape.html`
 
 ## よくある例
-
 1. YAML spec の解釈結果を先に確認する。
-2. `--scan-lists` を使う。
+2. `--scan-lists` リテラルを使う。
 3. `--dump` を有効にして d1 ごとの内側軌跡を保存する。
+
+> **注記:** `--spec` / `--scan-lists` の解釈結果を確認したい場合は `--print-parsed` を追加してください。
 
 ## 使用法
 
@@ -43,7 +49,17 @@ mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ### 例
 
 ```bash
-# ミニマル例（d1 と d2 の 2 つの範囲）
+# 推奨: YAML/JSON spec
+cat > scan2d.yaml << 'YAML'
+one_based: true
+pairs:
+ - [12, 45, 1.30, 3.10]
+ - [10, 55, 1.20, 3.20]
+YAML
+mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+ -q 0 --spec scan2d.yaml --print-parsed
+
+# 代替: Python リテラル
 mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 
@@ -54,10 +70,70 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  --zmin 0.0 --zmax 40.0
 ```
 
-## ワークフロー
+## `--spec` フォーマット（推奨）
 
-1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM 計算機（FAIR-Chem UMA + OpenMM）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
-2. **グリッド構築** -- `--scan-lists` を 2 つの四つ組に解析し、インデックスを正規化（デフォルト 1 始まりまたは `"TYR,285,CA"` のような PDB 原子セレクター）。`ceil(|high - low| / h) + 1` 点の線形グリッドを構築（`h = --max-step-size`）。
+```yaml
+one_based: true # 任意; デフォルトは CLI の --one-based/--zero-based
+pairs:
+ - [12, 45, 1.30, 3.10]
+ - [10, 55, 1.20, 3.20]
+```
+
+- `pairs` は必須で、正確に 2 つの四つ組を含む必要があります。
+- 各四つ組は `(i, j, low_A, high_A)` です。
+- インデックスは整数または PDB セレクター（`--scan-lists` と同じ）が使用可能です。
+
+## `--scan-lists` フォーマット
+
+`--scan-lists` は上級者向けの入力モードです。**単一の Python リテラル**文字列を受け付けます。シェルクォートに注意してください。
+
+### 基本構造
+
+リテラルは正確に **2 つ**の四つ組 `(atom1, atom2, low_A, high_A)` の Python リストです:
+
+```
+--scan-lists '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
+```
+
+- シェルが括弧やスペースを解釈しないよう、リテラル全体を**シングルクォート**で囲んでください。
+- 各四つ組は 1 つのスキャン軸を定義します: `atom1`--`atom2` 間の距離を `low_A` から `high_A` までスキャンします。
+- `scan` と異なり、**1 つのリテラル**のみ受け付けます（マルチステージ非対応）。
+
+### 原子の指定
+
+原子は**整数インデックス**または **PDB セレクター文字列**で指定できます:
+
+| 方法 | 例 | 備考 |
+| --- | --- | --- |
+| 整数インデックス | `(1, 5, 1.30, 3.10)` | デフォルトは 1 始まり（`--one-based`） |
+| PDB セレクター | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | 残基名、残基番号、原子名 |
+
+PDB セレクターのトークンは、カンマ `,`、スペース、スラッシュ `/`、バッククォート `` ` ``、バックスラッシュ `\` のいずれかで区切れます。トークンの順序は自由です。
+
+```bash
+# 以下はすべて同じ原子を指定:
+"TYR,285,CA"
+"TYR 285 CA"
+"TYR/285/CA"
+"285,TYR,CA" # 順序は自由
+```
+
+### クォート規則
+
+```bash
+# 正しい: リスト全体をシングルクォート、内側のセレクター文字列をダブルクォート
+--scan-lists '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20)]'
+
+# 正しい: 整数インデックスは内側のクォート不要
+--scan-lists '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
+
+# 非推奨: 外側をダブルクォートにすると内側のクォートをエスケープする必要あり
+--scan-lists "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+```
+
+## ワークフロー
+1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
+2. **グリッド構築** -- `--spec`（推奨）または `--scan-lists` からターゲットを 2 つの四つ組に解析し、インデックスを正規化（デフォルト 1 始まりまたは `"TYR,285,CA"` のような PDB 原子セレクター）。`ceil(|high - low| / h) + 1` 点の線形グリッドを構築（`h = --max-step-size`）。
 3. **外側ループ（d1）** -- 各 d1 値について、**d1 拘束のみ**で系を緩和。
 4. **内側ループ（d2）** -- 現在の d1 での各 d2 値について、最も近い収束済み構造から開始し**両方の拘束**で緩和。
 5. **エネルギー評価** -- 各 (i, j) ペアで ML/MM エネルギーをバイアスなしで評価し `surface.csv` に記録。
@@ -79,7 +155,7 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定で `--detect-layer` が無効化。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
 | `--spec FILE` | `pairs`（2 四つ組）を持つ YAML/JSON 仕様。`one_based` を任意指定可能。 | 推奨 |
-| `--scan-lists TEXT` | : 2 つの四つ組を含む Python リテラル: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | `--spec` の代替 |
+| `--scan-lists TEXT` | 2 つの四つ組を含む Python リテラル: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | `--spec` の代替 |
 | `--one-based / --zero-based` | `--scan-lists` の `(i,j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (A)。グリッド密度を決定。 | `0.20` |
@@ -110,9 +186,7 @@ out_dir/ (デフォルト:./result_scan2d/)
 └── (stdout) # 進捗とエネルギーサマリー
 ```
 
-
-
-ミニマル例（[opt](opt.md) と同じキーで拡張）:
+## YAML 設定
 
 ```yaml
 geom:
@@ -137,7 +211,6 @@ bias:
 ```
 
 ## 注意事項
-
 - 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は酵素複合体全体を保持します。ML 領域は `--model-pdb` から、Amber パラメータは `--real-parm7` から読み取られます。
@@ -148,6 +221,8 @@ bias:
 ---
 
 ## 関連項目
+
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 
 - [scan](scan.md) -- 1D 結合距離駆動スキャン
 - [scan3d](scan3d.md) -- 3D 距離グリッドスキャン

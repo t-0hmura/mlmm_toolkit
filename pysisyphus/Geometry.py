@@ -889,16 +889,14 @@ class Geometry:
                 break
 
     def reparametrize(self):
-        # Currently, self.calculator.get_coords is only implemented by the
-        # IPIPServer, but it is deactivated there.
+        if not hasattr(self.calculator, 'get_coords'):
+            return False
         try:
-            # TODO: allow skipping the update
             results = self.calculator.get_coords(self.atoms, self.cart_coords)
             self.set_coords(results["coords"], cartesian=True)
-            reparametrized = True
-        except AttributeError:
-            reparametrized = False
-        return reparametrized
+            return True
+        except Exception:
+            return False
 
     @property
     def energy(self):
@@ -1087,11 +1085,12 @@ class Geometry:
             hessian *= inv_sqrt_m[None, :]
             return hessian
 
+        inv_sqrt_m = 1.0 / (self.masses_rep ** 0.5)
         if isinstance(hessian, torch.Tensor):
-            mm_sqrt_inv = torch.tensor(self.mm_sqrt_inv, dtype=hessian.dtype, device=hessian.device)
-            return mm_sqrt_inv @ hessian @ mm_sqrt_inv
+            s = torch.tensor(inv_sqrt_m, dtype=hessian.dtype, device=hessian.device)
+            return hessian * s[:, None] * s[None, :]
         else:
-            return self.mm_sqrt_inv.dot(hessian).dot(self.mm_sqrt_inv)
+            return hessian * inv_sqrt_m[:, None] * inv_sqrt_m[None, :]
 
     @property
     def mw_hessian(self):
@@ -1122,12 +1121,12 @@ class Geometry:
         hessian : np.array
             2d array containing the hessian.
         """
-        mm_sqrt = np.diag(self.masses_rep**0.5)
+        sqrt_m = self.masses_rep ** 0.5
         if isinstance(mw_hessian, torch.Tensor):
-            mm_sqrt = torch.tensor(mm_sqrt, dtype=mw_hessian.dtype, device=mw_hessian.device)
-            return mm_sqrt @ mw_hessian @ mm_sqrt
+            s = torch.tensor(sqrt_m, dtype=mw_hessian.dtype, device=mw_hessian.device)
+            return mw_hessian * s[:, None] * s[None, :]
         else:
-            return mm_sqrt.dot(mw_hessian).dot(mm_sqrt)
+            return mw_hessian * sqrt_m[:, None] * sqrt_m[None, :]
 
     # indices (0 … N‑1) of atoms that are *not* frozen
     @property
@@ -1242,8 +1241,8 @@ class Geometry:
                 idx = torch.as_tensor(self.hess_active_dof_indices, dtype=torch.long, device=cart_displs.device)
                 cart_displs.index_copy_(0, idx, cart_displs_act)
             else:
-                mm_sqrt_inv = torch.tensor(self.mm_sqrt_inv, dtype=proj_hessian.dtype, device=proj_hessian.device)
-                cart_displs = mm_sqrt_inv @ mw_cart_displs
+                inv_sqrt_m = torch.tensor(1.0 / (self.masses_rep ** 0.5), dtype=proj_hessian.dtype, device=proj_hessian.device)
+                cart_displs = mw_cart_displs * inv_sqrt_m[:, None]
                 cart_displs /= torch.linalg.norm(cart_displs, dim=0)
             eigvals = eigvals.cpu().numpy()
         else:
@@ -1257,7 +1256,8 @@ class Geometry:
                 cart_displs = np.zeros((self.cart_coords.size, cart_displs_act.shape[1]))
                 cart_displs[self.hess_active_dof_indices, :] = cart_displs_act
             else:
-                cart_displs = self.mm_sqrt_inv.dot(mw_cart_displs)
+                inv_sqrt_m = 1.0 / (self.masses_rep ** 0.5)
+                cart_displs = mw_cart_displs * inv_sqrt_m[:, None]
                 cart_displs /= np.linalg.norm(cart_displs, axis=0)
 
         nus = eigval_to_wavenumber(eigvals)
@@ -1406,6 +1406,7 @@ class Geometry:
         self.true_forces = None
         self.true_hessian = None
         self._all_energies = None
+        self.results = {}
 
     def set_results(self, results):
         """Save the results from a dictionary.

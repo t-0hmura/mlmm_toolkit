@@ -34,7 +34,6 @@ class GonzalezSchlegel(IRC):
             print("!Line search seems faulty right now!")
 
         self.pivot_coords = list()
-        self.micro_coords = list()
         self.eye = np.eye(self.geometry.coords.size)
         self.micro_counter = 0
 
@@ -183,7 +182,6 @@ class GonzalezSchlegel(IRC):
         else:
             self.logger.warning("Max micro cycles exceeded!")
 
-        self.micro_coords.append(np.array(micro_coords_))
 
     def postprocess(self):
         self.pivot_coords = np.array(self.pivot_coords)

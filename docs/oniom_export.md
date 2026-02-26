@@ -2,10 +2,13 @@
 
 ## Overview
 
-Use these subcommands to export an Amber-topology ML/MM system into external QM/MM input formats.
+> **Summary:** Export an Amber-topology ML/MM system into external QM/MM input formats (Gaussian ONIOM or ORCA QM/MM).
 
-- `mlmm oniom-gaussian` -> Gaussian ONIOM (`.com` / `.gjf`)
-- `mlmm oniom-orca` -> ORCA QM/MM (`.inp`)
+### At a glance
+- **Use when:** You want to run external QM/MM calculations on a system prepared with mlmm_toolkit.
+- **Method:** Reads Amber parm7 topology; maps ML region from model PDB; writes Gaussian `.com`/`.gjf` or ORCA `.inp`.
+- **Outputs:** Gaussian ONIOM input or ORCA QM/MM input with appropriate layer/connectivity annotations.
+- **Next step:** Run the exported input in Gaussian or ORCA.
 
 ## Command Guides
 
@@ -19,11 +22,17 @@ Use these subcommands to export an Amber-topology ML/MM system into external QM/
 | Gaussian ONIOM input with link-atom annotations | [`oniom-gaussian`](oniom_gaussian.md) |
 | ORCA QM/MM input with ORCAFF handling | [`oniom-orca`](oniom_orca.md) |
 
+## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
 ---
 
 ## See Also
 
-- [reference/commands/oniom_gaussian](reference/commands/oniom_gaussian.md)
-- [reference/commands/oniom_orca](reference/commands/oniom_orca.md)
-- [mm_parm](mm_parm.md)
-- [define_layer](define_layer.md)
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+
+- [oniom-gaussian](oniom_gaussian.md) -- Gaussian ONIOM exporter
+- [oniom-orca](oniom_orca.md) -- ORCA QM/MM exporter
+- [mm_parm](mm_parm.md) -- Build Amber topology
+- [define_layer](define_layer.md) -- Build/check layer annotations

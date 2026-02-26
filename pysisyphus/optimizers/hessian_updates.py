@@ -48,8 +48,9 @@ def bfgs_update(H, dx, dg):
         dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)
         dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)
 
+    Hdx = H @ dx
     first_term = _outer(dg, dg) / _dot(dg, dx)
-    second_term = (H @ _outer(dx, dx) @ H) / _dot(dx, H @ dx)
+    second_term = _outer(Hdx, Hdx) / _dot(dx, Hdx)
     update = first_term - second_term
     if isinstance(H, torch.Tensor):
         return update.to(dtype=H.dtype, device=H.device), "BFGS"

@@ -4,20 +4,21 @@
 
 > **要約:** Amber parm7 を用いて Gaussian ONIOM（`.com`/`.gjf`）入力を生成します。
 
-### クイックリファレンス
+### 概要
 - **用途:** ML/MM で準備した系を Gaussian ONIOM に渡したい場合。
-- **入力:** 必須 `--parm7`、任意 `-i/--input`（PDB/XYZ）、任意 `--model-pdb`。
-- **出力:** レイヤー情報と結合情報を含む Gaussian 入力。
-- **検証:** `--element-check`（デフォルト）で座標ファイルと parm7 の元素順を照合。
+- **手法:** ParmEd で Amber parm7 トポロジを読み込み、モデル PDB で QM 層を定義、QM/MM 境界を検出しリンク原子を注釈。
+- **出力:** メソッド、座標、レイヤーフラグ、結合情報を含む Gaussian `.com` または `.gjf`。
+- **デフォルト:** `--method "B3LYP/6-31G(d,p)"`、`--nproc 8`、`--mem 16GB`、`--near 6.0`。
+- **次のステップ:** Gaussian でエクスポートした入力を実行。
 
-## 最小例
+## 最小の例
 
 ```bash
 mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1
 ```
 
-## 出力の見方
+## 出力チェックリスト
 
 - `system.com` または `system.gjf`
 - コンソールに QM 原子数や境界処理の要約
@@ -45,20 +46,9 @@ mlmm oniom-gaussian --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
 
-## 使用法
+## ワークフロー
 
-```bash
-mlmm oniom-gaussian --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
- -o output.com [-q CHARGE] [-m MULT] [--method "B3LYP/6-31G(d,p)"] \
- [--near FLOAT] [--nproc INT] [--mem TEXT] \
- [--element-check|--no-element-check]
-```
-
-## 説明
-
-`oniom-gaussian` は `--parm7` からトポロジ情報を読み、必要に応じて `-i/--input` の座標を使って Gaussian ONIOM 入力を書き出します。
-
-主な処理:
+`oniom-gaussian` は `--parm7` からトポロジ情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使って Gaussian ONIOM 入力を書き出します。
 
 1. parm7 から原子・結合・電荷情報を取得。
 2. `-i/--input` がある場合は読み込み、`--element-check` で元素順を検証。
@@ -82,13 +72,8 @@ mlmm oniom-gaussian --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pd
 | `--nproc INT` | 使用コア数。 | `8` |
 | `--mem TEXT` | メモリ指定。 | `16GB` |
 
-## 出力
-
-```text
-<output>.com / <output>.gjf
-```
-
 ## 注意事項
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - `parmed` が必要です。
 - 元素検証はベストエフォートです（原子順不変を仮定）。
@@ -97,6 +82,9 @@ mlmm oniom-gaussian --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pd
 ---
 
 ## 関連項目
+
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [oniom-orca](oniom_orca.md) -- ORCA QM/MM エクスポータ
 - [oniom_export](oniom_export.md) -- エクスポート全体ガイド

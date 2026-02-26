@@ -64,6 +64,9 @@ from .utils import (
     append_xyz_trajectory as _append_xyz_trajectory,
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
+    set_convert_file_enabled,
+    is_convert_file_enabled,
+    convert_xyz_like_outputs,
     deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
@@ -80,7 +83,10 @@ from .utils import (
     build_model_pdb_from_indices,
     update_pdb_bfactors_from_layers,
     normalize_choice,
+    yaml_section_has_key,
+    resolve_freeze_atoms,
 )
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli
 from .freq import (
     _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
     _torch_device,
@@ -110,13 +116,16 @@ def _calc_full_hessian_torch(geom, calc_kwargs: Dict[str, Any], device: torch.de
     return H
 
 
-def _calc_energy(geom, calc_kwargs: Dict[str, Any]) -> float:
-    kw = dict(calc_kwargs or {})
-    kw["out_hess_torch"] = False
-    calc = mlmm(**kw)
+def _calc_energy(geom, calc_kwargs: Dict[str, Any], calc=None) -> float:
+    if calc is None:
+        kw = dict(calc_kwargs or {})
+        kw["out_hess_torch"] = False
+        calc = mlmm(**kw)
     result = calc.get_energy(geom.atoms, geom.coords)
     energy = float(result.get("energy", 0.0))
-    del result, calc
+    del result
+    if calc is not None:
+        del calc
     _clear_cuda_cache()
     return energy
 
@@ -136,66 +145,6 @@ def _clear_cuda_cache(tensor: Optional[torch.Tensor] = None) -> None:
             torch.cuda.empty_cache()
 
 
-def _first_existing_artifact(out_dir: Path, patterns: Sequence[str]) -> Optional[Path]:
-    """Resolve the first existing artifact for a list of relative patterns."""
-    for pattern in patterns:
-        if any(ch in pattern for ch in "*?[]"):
-            for candidate in sorted(out_dir.glob(pattern)):
-                if candidate.is_file():
-                    return candidate.resolve()
-            continue
-        candidate = out_dir / pattern
-        if candidate.is_file():
-            return candidate.resolve()
-    return None
-
-
-def _link_or_copy_file(src: Path, dst: Path) -> bool:
-    """Create a symlink when possible; fall back to copy."""
-    try:
-        if dst.exists() or dst.is_symlink():
-            if dst.is_dir():
-                return False
-            dst.unlink()
-        rel = os.path.relpath(src, start=dst.parent)
-        dst.symlink_to(rel)
-        return True
-    except Exception:
-        try:
-            shutil.copy2(src, dst)
-            return True
-        except Exception:
-            return False
-
-
-def _write_output_summary_md(out_dir: Path) -> None:
-    """summary.md and key_* outputs are disabled."""
-    return None
-
-def _resolve_yaml_sources(
-    config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
-) -> Tuple[Optional[Path], Optional[Path], bool]:
-    if override_yaml is not None and args_yaml_legacy is not None:
-        raise click.BadParameter(
-            "Use a single YAML source option."
-        )
-    if args_yaml_legacy is not None:
-        return config_yaml, args_yaml_legacy, True
-    return config_yaml, override_yaml, False
-
-
-def _load_merged_yaml_cfg(
-    config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-) -> Dict[str, Any]:
-    merged: Dict[str, Any] = {}
-    deep_update(merged, load_yaml_dict(config_yaml))
-    deep_update(merged, load_yaml_dict(override_yaml))
-    return merged
-
-
 
 
 def _mw_projected_hessian_inplace(H_t: torch.Tensor,
@@ -204,7 +153,7 @@ def _mw_projected_hessian_inplace(H_t: torch.Tensor,
                                   freeze_idx: Optional[List[int]] = None) -> torch.Tensor:
     """
     Mass-weight H in-place, optionally restrict to active DOF subspace (PHVA) and
-    project out TR motions (in that subspace), also in-place. No explicit symmetrization.
+    project out TR motions (in that subspace), also in-place.
     Returns the (possibly reduced) Hessian to be diagonalized.
     """
     dtype, device = H_t.dtype, H_t.device
@@ -287,6 +236,11 @@ def _mode_direction_by_root(H_t: torch.Tensor,
     with torch.no_grad():
         # In-place: mass weight + (active-subspace) TR projection
         Hmw_proj = _mw_projected_hessian_inplace(H_t, coords_bohr_t, masses_au_t, freeze_idx=freeze_idx)
+
+        # Explicit symmetrization before eigendecomposition
+        _t = Hmw_proj.T.clone()
+        Hmw_proj.add_(_t).mul_(0.5)
+        del _t
 
         # Solve eigenproblem in the (possibly reduced) space
         if int(root) == 0:
@@ -373,7 +327,10 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         # in-place mass-weight + (active-subspace) TR projection
         Hmw = _mw_projected_hessian_inplace(H_t, coords_bohr_t, masses_au_t, freeze_idx=freeze_idx)
 
-        # eigensolve (upper triangle)
+        # Explicit symmetrization before eigendecomposition
+        _t = Hmw.T.clone()
+        Hmw.add_(_t).mul_(0.5)
+        del _t
         omega2, Vsub = torch.linalg.eigh(Hmw, UPLO="U")
 
         sel = torch.abs(omega2) > tol
@@ -416,6 +373,10 @@ def _frequencies_cm_only(H_t: torch.Tensor,
         coords_bohr_t = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_t.dtype, device=device)
 
         Hmw = _mw_projected_hessian_inplace(H_t, coords_bohr_t, masses_au_t, freeze_idx=freeze_idx)
+        # Explicit symmetrization before eigendecomposition
+        _t = Hmw.T.clone()
+        Hmw.add_(_t).mul_(0.5)
+        del _t
         omega2 = torch.linalg.eigvalsh(Hmw, UPLO="U")
 
         sel = torch.abs(omega2) > tol
@@ -583,7 +544,7 @@ def _mw_tr_project_active_inplace(H_act: torch.Tensor,
                                   coords_act_t: torch.Tensor,
                                   masses_act_au_t: torch.Tensor) -> torch.Tensor:
     """
-    Mass-weight & project TR in the *active* subspace (in-place; no explicit symmetrization).
+    Mass-weight & project TR in the *active* subspace (in-place).
     """
     with torch.no_grad():
         # mass-weight
@@ -621,6 +582,10 @@ def _frequencies_from_Hact(H_act: torch.Tensor,
                                         dtype=H_act.dtype, device=device)
         Hmw = H_act.clone()
         _mw_tr_project_active_inplace(Hmw, coords_act, masses_act_au)
+        # Explicit symmetrization before eigendecomposition
+        _t = Hmw.T.clone()
+        Hmw.add_(_t).mul_(0.5)
+        del _t
         omega2 = torch.linalg.eigvalsh(Hmw, UPLO="U")
         sel = torch.abs(omega2) > tol
         omega2 = omega2[sel]
@@ -649,6 +614,10 @@ def _modes_from_Hact_embedded(H_act: torch.Tensor,
                                         dtype=H_act.dtype, device=device)
         Hmw = H_act.clone()
         _mw_tr_project_active_inplace(Hmw, coords_act, masses_act_au)
+        # Explicit symmetrization before eigendecomposition
+        _t = Hmw.T.clone()
+        Hmw.add_(_t).mul_(0.5)
+        del _t
         omega2, Vsub = torch.linalg.eigh(Hmw, UPLO="U")
         sel = torch.abs(omega2) > tol
         omega2 = omega2[sel]
@@ -685,6 +654,10 @@ def _mode_direction_by_root_from_Hact(H_act: torch.Tensor,
         # mass-weight + TR in active space
         Hmw = H_act.clone()
         _mw_tr_project_active_inplace(Hmw, coords_act, masses_act_au)
+        # Explicit symmetrization before eigendecomposition
+        _t = Hmw.T.clone()
+        Hmw.add_(_t).mul_(0.5)
+        del _t
 
         # eigenvector for requested root
         if int(root) == 0:
@@ -878,7 +851,7 @@ def _bofill_update_active(H_act: torch.Tensor,
     Memory-efficient Bofill update on the *active* Cartesian Hessian block.
     Apply symmetric rank-1/2 updates directly **in place** using only the **upper triangle**
     index set (and mirror to the lower) to avoid allocating large NxN temporaries.
-    No explicit (H+H^T)/2 symmetrization step is performed.
+    Explicit symmetrization is applied at eigendecomposition sites.
     """
     device = H_act.device
     dtype = H_act.dtype
@@ -1670,7 +1643,7 @@ hessian_dimer_KW = {
 # ===================================================================
 
 @click.command(
-    help="TS optimization: light (Dimer) or heavy (RS-I-RFO) for the ML/MM calculator.",
+    help="TS optimization: light (Dimer), heavy (RS-I-RFO), or hybrid (Dimer then RS-I-RFO flatten) for the ML/MM calculator.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -1753,6 +1726,12 @@ hessian_dimer_KW = {
     help="Comma-separated 1-based indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
+    "--freeze-links/--no-freeze-links",
+    default=True,
+    show_default=True,
+    help="Freeze parent atoms of link hydrogens (PDB only).",
+)
+@click.option(
     "--radius-hessian",
     "--hess-cutoff",
     "hess_cutoff",
@@ -1795,10 +1774,10 @@ hessian_dimer_KW = {
 )
 @click.option(
     "--opt-mode",
-    type=click.Choice(["light", "heavy"], case_sensitive=False),
+    type=click.Choice(["light", "heavy", "hybrid"], case_sensitive=False),
     default="heavy",
     show_default=True,
-    help="TS optimizer mode: light (Dimer) or heavy (RS-I-RFO with full Hessian).",
+    help="TS optimizer mode: light (Dimer), heavy (RS-I-RFO with full Hessian), or hybrid (Dimer then RS-I-RFO flatten).",
 )
 @click.option(
     "--partial-hessian-flatten/--full-hessian-flatten",
@@ -1837,6 +1816,13 @@ hessian_dimer_KW = {
     show_default=True,
     help="Validate options and print the execution plan without running TS optimization.",
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1850,6 +1836,7 @@ def cli(
     charge: Optional[int],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
+    freeze_links: bool,
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     hessian_calc_mode: Optional[str],
@@ -1863,7 +1850,9 @@ def cli(
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
+    convert_files: bool,
 ) -> None:
+    set_convert_file_enabled(convert_files)
     def _is_param_explicit(name: str) -> bool:
         try:
             source = ctx.get_parameter_source(name)
@@ -1871,12 +1860,12 @@ def cli(
         except Exception:
             return False
 
-    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
         override_yaml=None,
         args_yaml_legacy=None,
     )
-    merged_yaml_cfg = _load_merged_yaml_cfg(
+    merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
     )
@@ -1925,9 +1914,10 @@ def cli(
         opt_mode,
         param="--opt-mode",
         alias_groups=TSOPT_MODE_ALIASES,
-        allowed_hint="light, heavy",
+        allowed_hint="light, heavy, hybrid",
     )
     use_heavy = (mode_resolved == "heavy")
+    use_hybrid = (mode_resolved == "hybrid")
 
     config_layer_cfg = load_yaml_dict(config_yaml)
     override_layer_cfg = load_yaml_dict(override_yaml)
@@ -1997,6 +1987,13 @@ def cli(
             (rsirfo_cfg, (("rsirfo",),)),
         ],
     )
+    calc_paths = (("calc",), ("mlmm",))
+    partial_explicit = (
+        yaml_section_has_key(config_layer_cfg, calc_paths, "return_partial_hessian")
+        or yaml_section_has_key(override_layer_cfg, calc_paths, "return_partial_hessian")
+    )
+    if not partial_explicit:
+        calc_cfg["return_partial_hessian"] = True
 
     try:
         geom_freeze = _normalize_geom_freeze_opt(geom_cfg.get("freeze_atoms"))
@@ -2007,6 +2004,11 @@ def cli(
     geom_cfg["freeze_atoms"] = geom_freeze
     if freeze_atoms_cli:
         merge_freeze_atom_indices(geom_cfg, freeze_atoms_cli)
+    freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
+    calc_cfg["freeze_atoms"] = freeze_atoms_final
+
+    # Auto-detect and freeze parent atoms of link hydrogens (PDB only)
+    resolve_freeze_atoms(geom_cfg, source_path, freeze_links)
     freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
     calc_cfg["freeze_atoms"] = freeze_atoms_final
 
@@ -2080,7 +2082,11 @@ def cli(
                 {
                     "input_geometry": str(geom_input_path),
                     "output_dir": str(out_dir_path),
-                    "optimizer_mode": "heavy-rsirfo" if use_heavy else "light-dimer",
+                    "optimizer_mode": (
+                        "hybrid-dimer-rsirfo"
+                        if use_hybrid
+                        else ("heavy-rsirfo" if use_heavy else "light-dimer")
+                    ),
                     "detect_layer": bool(detect_layer_enabled),
                     "model_region_source": model_region_source,
                     "model_indices_count": 0 if not model_indices else len(model_indices),
@@ -2156,7 +2162,12 @@ def cli(
             calc_cfg[key] = str(Path(val).expanduser().resolve())
 
     # Pretty-print config summary (only non-default values for concise logging)
-    click.echo(f"\n[mode] TS Optimizer: {'RS-I-RFO (heavy)' if use_heavy else 'Dimer (light)'}\n")
+    mode_desc = (
+        "Hybrid (Dimer + RS-I-RFO flatten)"
+        if use_hybrid
+        else ("RS-I-RFO (heavy)" if use_heavy else "Dimer (light)")
+    )
+    click.echo(f"\n[mode] TS Optimizer: {mode_desc}\n")
     click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
     echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
     echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
@@ -2164,7 +2175,17 @@ def cli(
     echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
     click.echo(pretty_block("opt", echo_opt))
     # Show only optimizer-specific settings, not inherited from opt_cfg
-    if use_heavy:
+    if use_hybrid:
+        sd_cfg_for_echo: Dict[str, Any] = dict(simple_cfg)
+        sd_cfg_for_echo["flatten_max_iter"] = 0
+        sd_cfg_for_echo["dimer"] = dict(simple_cfg.get("dimer", {}))
+        sd_cfg_for_echo["lbfgs"] = strip_inherited_keys(
+            dict(simple_cfg.get("lbfgs", {})), opt_cfg
+        )
+        click.echo(pretty_block("hessian_dimer_hybrid_stage", sd_cfg_for_echo))
+        echo_rsirfo = strip_inherited_keys(rsirfo_cfg, opt_cfg)
+        click.echo(pretty_block("rsirfo_hybrid_flatten_stage", echo_rsirfo))
+    elif use_heavy:
         echo_rsirfo = strip_inherited_keys(rsirfo_cfg, opt_cfg)
         click.echo(pretty_block("rsirfo", echo_rsirfo))
     else:
@@ -2184,21 +2205,53 @@ def cli(
     # 3) Run
     # --------------------------
     try:
-        if use_heavy:
+        if use_heavy or use_hybrid:
             # Heavy mode: RS-I-RFO with full Hessian
-            click.echo("\n=== TS optimization (RS-I-RFO heavy mode) started ===\n")
+            rsirfo_label = "Hybrid stage-2: RS-I-RFO refinement" if use_hybrid else "RS-I-RFO heavy mode"
             optim_all_path = out_dir_path / "optimization_all_trj.xyz"
-            if bool(opt_cfg["dump"]) and optim_all_path.exists():
+            if bool(opt_cfg["dump"]) and optim_all_path.exists() and not use_hybrid:
                 optim_all_path.unlink()
 
-            coord_type = geom_cfg.get("coord_type", "cart")
-            coord_kwargs = dict(geom_cfg)
-            coord_kwargs.pop("coord_type", None)
-            geometry = geom_loader(
-                geom_input_path,
-                coord_type=coord_type,
-                **coord_kwargs,
-            )
+            geometry = None
+            if use_hybrid:
+                runner = HessianDimer(
+                    fn=str(geom_input_path),
+                    out_dir=str(out_dir_path),
+                    thresh_loose=simple_cfg.get("thresh_loose", "gau_loose"),
+                    thresh=simple_cfg.get("thresh", "gau"),
+                    update_interval_hessian=int(simple_cfg.get("update_interval_hessian", 200)),
+                    neg_freq_thresh_cm=float(simple_cfg.get("neg_freq_thresh_cm", 5.0)),
+                    flatten_amp_ang=float(simple_cfg.get("flatten_amp_ang", 0.10)),
+                    flatten_max_iter=0,
+                    mem=int(simple_cfg.get("mem", 100000)),
+                    use_lobpcg=bool(simple_cfg.get("use_lobpcg", True)),
+                    calc_kwargs=dict(calc_cfg),
+                    device=str(simple_cfg.get("device", calc_cfg.get("ml_device", "auto"))),
+                    dump=bool(opt_cfg["dump"]),
+                    root=int(simple_cfg.get("root", 0)),
+                    dimer_kwargs=dict(simple_cfg.get("dimer", {})),
+                    lbfgs_kwargs=dict(simple_cfg.get("lbfgs", {})),
+                    max_total_cycles=int(opt_cfg["max_cycles"]),
+                    geom_kwargs=dict(geom_cfg),
+                    partial_hessian_flatten=partial_hessian_flatten,
+                    flatten_sep_cutoff=float(simple_cfg.get("flatten_sep_cutoff", 0.0)),
+                    flatten_k=int(simple_cfg.get("flatten_k", 10)),
+                    flatten_loop_bofill=bool(simple_cfg.get("flatten_loop_bofill", False)),
+                )
+                click.echo("\n=== TS optimization (Hybrid stage-1: Partial Hessian Dimer) started ===\n")
+                runner.run()
+                click.echo("\n=== TS optimization (Hybrid stage-1: Partial Hessian Dimer) finished ===\n")
+                geometry = runner.geom
+            if geometry is None:
+                coord_type = geom_cfg.get("coord_type", "cart")
+                coord_kwargs = dict(geom_cfg)
+                coord_kwargs.pop("coord_type", None)
+                geometry = geom_loader(
+                    geom_input_path,
+                    coord_type=coord_type,
+                    **coord_kwargs,
+                )
+            click.echo(f"\n=== TS optimization ({rsirfo_label}) started ===\n")
 
             base_calc = mlmm(**calc_cfg)
             geometry.set_calculator(base_calc)
@@ -2226,7 +2279,7 @@ def cli(
             if bool(opt_cfg["dump"]):
                 _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
-            click.echo("\n=== TS optimization (RS-I-RFO heavy mode) finished ===\n")
+            click.echo(f"\n=== TS optimization ({rsirfo_label}) finished ===\n")
 
             # --- Post-RSIRFO: count imaginary modes and optional flatten loop ---
             # Save cycle count before deleting optimizer for budget check.
@@ -2447,7 +2500,7 @@ def cli(
             runner.run()
             click.echo("\n=== TS optimization (Partial Hessian Dimer) finished ===\n")
 
-        if source_path.suffix.lower() == ".pdb":
+        if is_convert_file_enabled() and source_path.suffix.lower() == ".pdb":
             ref_pdb = source_path.resolve()
             final_xyz = out_dir_path / "final_geometry.xyz"
             final_pdb = out_dir_path / "final_geometry.pdb"
@@ -2455,7 +2508,7 @@ def cli(
             # Get layer indices for B-factor annotation
             # For heavy mode, base_calc is available; for light mode, create temporary calc
             layer_indices = None
-            if use_heavy and 'base_calc' in dir():
+            if (use_heavy or use_hybrid) and 'base_calc' in dir():
                 calc_core = base_calc.core if hasattr(base_calc, 'core') else base_calc
                 layer_indices = {
                     "ml": getattr(calc_core, 'ml_indices', None),

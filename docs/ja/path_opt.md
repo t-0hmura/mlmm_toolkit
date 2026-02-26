@@ -5,7 +5,7 @@
 > **要約:** ML/MM 計算機を使用した Growing String Method（GSM）により、**正確に 2 つ**の酵素構造間の MEP を探索します。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。
 
 ### 概要
-- **用途:** 反応物と生成物の端点 (R -> P) があり、初回パスの MEP が必要な場合に使用します。
+- **用途:** 反応物と生成物の端点 (R -> P) があり、初回パスの MEP が必要な場合に使用。
 - **手法:** ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による PySisyphus `GrowingString`。
 - **出力:** `final_geometries_trj.xyz`（経路）および `hei.xyz`（HEI）、任意で `.pdb` コンパニオン。
 - **デフォルト:** `--climb`、`--max-nodes 10`、`--max-cycles 300`。
@@ -13,6 +13,7 @@
 
 `mlmm path-opt` は、ML/MM 計算機による PySisyphus `GrowingString` を使用して 2 つの酵素状態間の最小エネルギー経路を最適化します。ML/MM 計算機はリンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義され、Amber トポロジーは `--real-parm7` から取得され、両端点は全系座標を含む PDB として提供されます。
 
+**2 つ以上**の構造から開始し、反応領域のみを自動精密化するワークフローには、[path-search](path_search.md) を使用してください。
 
 ## 最小例
 
@@ -21,7 +22,7 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
  -q 0 --out-dir ./result_path_opt
 ```
 
-## 出力の見方
+## 出力チェックリスト
 
 - `result_path_opt/final_geometries_trj.xyz`
 - `result_path_opt/hei.xyz`
@@ -65,7 +66,7 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 # 凍結原子、ノード数増加、YAML 多層設定
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
- --freeze-atoms "1,3,5,7" --max-nodes 10 --max-cycles 200 --dump --out-dir ./result_path_opt/ \
+ --freeze-atoms "1,3,5,7" --max-nodes 10 --max-cycles 200 --dump --out-dir ./result_path_opt/
 
 # 端点の事前最適化付き
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
@@ -73,7 +74,6 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 ```
 
 ## ワークフロー
-
 1. **端点の読み込み** -- 両方の PDB 構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--real-parm7`、`--model-pdb`、電荷/スピンで ML/MM 計算機を構築します。
 2. **事前アライメント** -- 最初の構造以降のすべての端点が最初の構造に Kabsch アライメントされます。`freeze_atoms` が定義されている場合、それらの原子のみが RMSD フィットに参加し、結果の変換がすべての原子に適用されます。
 3. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に LBFGS（同じ ML/MM 計算機を使用）で事前最適化されます。LBFGS サイクル数は `--preopt-max-cycles`（デフォルト: 10000）で制御されます。
@@ -82,7 +82,6 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 6. **出力** -- 最終経路軌跡と HEI が XYZ および PDB ファイルとして書き出されます。入力が PDB の場合に PDB 変換が実行されます。
 
 ## CLI オプション
-
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH PATH` | 反応物と生成物の PDB 構造。 | 必須 |
@@ -116,25 +115,21 @@ out_dir/ (デフォルト:./result_path_opt/)
 └─ <optimizer dumps> # --dump または opt.dump_restart > 0 の場合
 ```
 
+## YAML 設定
 
 マージ順は **defaults < config < 明示指定 CLI < override** です。
 
-
 ### セクション `geom`
-
 - `coord_type`: 座標タイプ（デカルト vs dlc 内部座標）。
 - `freeze_atoms`: CLI `--freeze-atoms` とマージされる 0 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`
-
 - ML/MM 計算機の設定: `charge`、`spin`、UMA `model`、`task_name`、`device`、近傍半径、ヘシアンオプション等。
 
 ### セクション `gs`
-
 - Growing String 制御: `max_nodes`、`perp_thresh`、再パラメータ化間隔、`max_micro_cycles`、DLC リセット、クライミングトグル/閾値。
 
 ### セクション `opt`
-
 - StringOptimizer 設定: `stop_in_when_full`、`scale_step`、`max_cycles`、ダンプフラグ、`reparam_thresh`、`coord_diff_thresh`、`out_dir`、`print_every`。
 
 ## 終了コード
@@ -147,6 +142,16 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `5` | HEI ダンプエラー |
 | `130` | キーボード割り込み |
 | `1` | 未処理例外 |
+
+## 注意事項
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+
+- 正確に 2 つの構造が必要です。フォーマットは `geom_loader` に従います。
+- 電荷/スピン: CLI がデフォルトを上書きします。正しい状態のために常に明示的に設定してください。
+- `--max-nodes` は GSM ストリングの*内部*ノード/イメージ数を制御します（GSM の総イメージ = `max_nodes + 2`）。
+- `--climb` は標準のクライミングステップと Lanczos ベースの接線精密化の両方を切り替えます。
+- `--dump` は StringOptimizer の `opt.dump=True` に相当し、`out_dir` 内に軌跡ダンプを生成します。リスタート YAML は YAML で有効化された場合のみ書き出されます。
+- 終了コード: `0` 成功、`3` オプティマイザー失敗、`4` 軌跡書き出しエラー、`5` HEI エクスポートエラー、`130` 割り込み、`1` 予期しないエラー。
 
 ---
 

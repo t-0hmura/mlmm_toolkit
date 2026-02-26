@@ -81,7 +81,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "mm_fd_delta": 1e-3,         # Legacy parameter (retained)
     "symmetrize_hessian": True,  # Symmetrize final Hessian as 0.5*(H+H^T)
     "print_timing": True,        # Print ML/MM Hessian timing breakdown
-    "print_vram": False,         # Print CUDA VRAM usage (peak) during Hessian
+    "print_vram": True,          # Print CUDA VRAM usage (peak) during Hessian
     "return_partial_hessian": False,
     "freeze_atoms": [],
     # 3-layer B-factor configuration:
@@ -194,11 +194,13 @@ BOND_KW: Dict[str, Any] = {
 OPT_MODE_ALIASES = (
     (("light", "lbfgs"), "lbfgs"),
     (("heavy", "rfo"), "rfo"),
+    (("hybrid",), "hybrid"),
 )
 
 TSOPT_MODE_ALIASES = (
     (("light", "lbfgs"), "light"),
     (("heavy", "rfo"), "heavy"),
+    (("hybrid",), "hybrid"),
 )
 
 # -----------------------------------------------

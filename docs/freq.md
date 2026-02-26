@@ -2,13 +2,14 @@
 
 ## Overview
 
-> **Summary:** Compute ML/MM vibrational frequencies and thermochemistry (ZPE, Gibbs energy, etc.) with PHVA support. Imaginary frequencies appear as negative values; a properly converged TS should have exactly one.
+> **Summary:** Compute ML/MM vibrational frequencies and thermochemistry (ZPE, Gibbs energy, etc.) with PHVA support. When VRAM permits, `--hessian-calc-mode Analytical` speeds Hessian evaluation. Imaginary frequencies appear as negative values.
 
-### Quick reference
+### At a glance
 - **Use when:** You want to validate a minimum/TS candidate and/or compute thermo corrections from ML/MM.
-- **Frozen atoms:** Supported via PHVA (partial Hessian vibrational analysis).
+- **Method:** Full or partial Hessian vibrational analysis (PHVA) with the ML/MM calculator (FAIR-Chem UMA + hessian_ff).
 - **Outputs:** `frequencies_cm-1.txt`, per-mode `_trj.xyz` and `.pdb` animations, plus `thermoanalysis.yaml` when enabled.
-- **TS check:** A properly converged TS is expected to have **exactly one** imaginary frequency (negative cm^-1).
+- **Defaults:** `--max-write 20`, `--amplitude-ang 0.8`, `--n-frames 20`, `--freeze-links` enabled.
+- **Next step:** Use results to confirm a minimum (no imaginary frequencies) or a TS (exactly one imaginary frequency).
 
 `mlmm freq` performs vibrational analysis with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
 
@@ -49,57 +50,27 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
-## Usage
-```bash
-mlmm freq -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
- -q CHARGE [-m MULT] [--freeze-atoms "1,3,5"] \
- [--max-write N] [--amplitude-ang FLOAT] [--n-frames N] [--sort {value|abs}] \
- [--temperature K] [--pressure atm] [--dump/--no-dump] \
- [--hessian-calc-mode {Analytical|FiniteDifference}] \
- [--active-dof-mode {all|ml-only|partial|unfrozen}] \
- [--show-config] [--dry-run]
-```
+4. Run PHVA with link freezing enabled.
 
-### Examples
 ```bash
-# Minimal run
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
-
-# PHVA with custom options
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
- --freeze-atoms "1,3,5,7" --max-write 10 --sort abs --dump --config ./freq.yaml
+mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -m 1 --freeze-links --dump --out-dir ./result_freq_links
 ```
 
 ## Workflow
-- **Geometry loading & freeze handling**: structures are read via
- `pysisyphus.helpers.geom_loader`. `--freeze-atoms "1,3,5"` accepts 1-based indices and
- merges them with YAML `geom.freeze_atoms`; the merged list is passed to both the
- geometry echo and the ML/MM calculator, enabling PHVA.
-- **ML/MM calculator**: the ML region is supplied via `--model-pdb`; Amber parameters are
- read from `--real-parm7`. `--hessian-calc-mode` selects analytical or finite-difference
- Hessians. The calculator may return either the full 3N x 3N Hessian or an active-DOF
- sub-block.
-- **PHVA & TR projection**: with frozen atoms, eigenanalysis occurs inside the active
- subspace with translation/rotation modes projected there. Both 3N x 3N and active-block
- Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
-- **Active DOF mode**: `--active-dof-mode` controls which atoms are included in the
- frequency analysis: `all` (all atoms), `ml-only` (ML layer, B=0),
- `partial` (ML + Hessian-target MM; default), `unfrozen` (non-frozen layers, typically B=0/10).
-- **Mode export**: `--max-write` limits how many modes are animated. Modes are sorted by
- value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` (XYZ-like
- trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering).
- The sinusoidal animation amplitude (`--amplitude-ang`) and frame count (`--n-frames`)
- match the YAML defaults.
-- **Thermochemistry**: if `thermoanalysis` is installed, a QRRHO-like summary (EE, ZPE,
- E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies.
- CLI pressure in atm is converted internally to Pa. When `--dump`, a
- `thermoanalysis.yaml` snapshot is also written.
-- **Device selection**: `ml_device="auto"` triggers CUDA when available, otherwise CPU.
- The internal TR projection/mode assembly runs on the same device to minimise transfers.
-- **Exit behavior**: keyboard interrupts exit with code 130; other failures print a
- traceback and exit with code 1.
+
+1. **Geometry loading & freeze handling** -- Structures are read via `pysisyphus.helpers.geom_loader`. `--freeze-atoms "1,3,5"` accepts 1-based indices and merges them with YAML `geom.freeze_atoms`; the merged list is passed to both the geometry echo and the ML/MM calculator, enabling PHVA. With `--freeze-links` (default), parent atoms of link hydrogens are detected and frozen, then merged with `geom.freeze_atoms`.
+2. **ML/MM calculator setup** -- The ML region is supplied via `--model-pdb`; Amber parameters are read from `--real-parm7`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active-DOF sub-block.
+   - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
+3. **PHVA & TR projection** -- With frozen atoms, eigenanalysis occurs inside the active subspace with translation/rotation modes projected there. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
+4. **Active DOF mode** -- `--active-dof-mode` controls which atoms are included in the frequency analysis: `all` (all atoms), `ml-only` (ML layer, B=0), `partial` (ML + Hessian-target MM; default), `unfrozen` (non-frozen layers, typically B=0/10).
+5. **Mode export** -- `--max-write` limits how many modes are animated. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` (XYZ-like trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering). The sinusoidal animation amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
+6. **Thermochemistry** -- If `thermoanalysis` is installed, a QRRHO-like summary (EE, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. CLI pressure in atm is converted internally to Pa. When `--dump`, a `thermoanalysis.yaml` snapshot is also written.
+7. **Device selection** -- `ml_device="auto"` triggers CUDA when available, otherwise CPU. The internal TR projection/mode assembly runs on the same device to minimise transfers.
+8. **Exit behavior** -- Keyboard interrupts exit with code 130; other failures print a traceback and exit with code 1.
 
 ## CLI options
+
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Full enzyme PDB (no link atoms). | Required |
@@ -111,6 +82,7 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 | `-q, --charge INT` | ML region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
+| `--freeze-links/--no-freeze-links` | PDB-only. Freeze parents of link hydrogens and merge with `geom.freeze_atoms`. | `True` |
 | `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | _None_ |
@@ -121,40 +93,80 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -
 | `--temperature FLOAT` | Thermochemistry temperature (K). | `298.15` |
 | `--pressure FLOAT` | Thermochemistry pressure (atm). | `1.0` |
 | `--dump/--no-dump` | Write `thermoanalysis.yaml`. | `False` |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 | `--out-dir TEXT` | Output directory. | `./result_freq/` |
 | `--active-dof-mode CHOICE` | Active DOF selection: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
+| `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate and print execution plan without running frequency analysis. | `False` |
-| `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
 
 ## Outputs
+
 ```
-out_dir/ (default:./result_freq/)
- mode_XXXX_{+/-freq}cm-1_trj.xyz # XYZ-like trajectory, sinusoidal animation per mode
- mode_XXXX_{+/-freq}cm-1.pdb # PDB animation mapped back onto the enzyme ordering
- frequencies_cm-1.txt # All computed frequencies (cm^-1) sorted by the chosen key
- thermoanalysis.yaml # Optional thermochemistry payload when --dump
+out_dir/ (default: ./result_freq/)
+├─ mode_XXXX_±freqcm-1_trj.xyz   # Per-mode animations (XYZ-like trajectory)
+├─ mode_XXXX_±freqcm-1.pdb       # PDB animation mapped back onto the enzyme ordering
+├─ frequencies_cm-1.txt           # Full frequency list using the selected sort order
+└─ thermoanalysis.yaml            # Present when thermoanalysis is importable and --dump is True
 ```
 - Console blocks summarizing resolved `geom`, `calc`, `freq`, and thermochemistry settings.
 
+## YAML configuration
+
+Provide mappings with merge order **defaults < config < explicit CLI < override**.
+Shared sections reuse [YAML Reference](yaml_reference.md).
+An additional `thermo` section is supported for thermochemistry controls.
+
+```yaml
+geom:
+ coord_type: cart                  # coordinate type: cartesian vs dlc internals
+ freeze_atoms: []                  # 0-based frozen atoms merged with CLI/link detection
+calc:
+ charge: 0                         # total charge (CLI override)
+ spin: 1                           # spin multiplicity 2S+1
+mlmm:
+ real_parm7: real.parm7            # Amber parm7 topology
+ model_pdb: ml_region.pdb          # ML-region definition
+ uma_model: uma-s-1p1              # UMA model tag
+ uma_task_name: omol                # UMA task name
+ ml_device: auto                   # UMA device selection
+ ml_hessian_mode: FiniteDifference  # Hessian mode selection
+ out_hess_torch: true              # request torch-form Hessian
+ mm_fd: false                      # MM finite-difference toggle
+ return_partial_hessian: true      # allow partial Hessians (PHVA default)
+freq:
+ amplitude_ang: 0.8                # displacement amplitude for modes (A)
+ n_frames: 20                      # number of frames per mode
+ max_write: 20                     # maximum number of modes to write
+ sort: value                       # sort order: value vs abs
+thermo:
+ temperature: 298.15               # thermochemistry temperature (K)
+ pressure_atm: 1.0                 # thermochemistry pressure (atm)
+ dump: false                       # write thermoanalysis.yaml when true
+```
+
 ## Notes
+
 - For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
-- The ML/MM calculator returns Hessians in Hartree/Bohr^2. Conversions to cm^-1 follow the
- PySisyphus/ASE conventions used elsewhere in the toolkit.
-- Thermochemistry relies on the optional `thermoanalysis` package; when absent, only a
- warning is printed and execution continues.
+- The ML/MM calculator returns Hessians in Hartree/Bohr^2. Conversions to cm^-1 follow the PySisyphus/ASE conventions used elsewhere in the toolkit.
+- Thermochemistry relies on the optional `thermoanalysis` package; when absent, only a warning is printed and execution continues.
 - `--hessian-calc-mode` follows the standard precedence (defaults < config < explicit CLI < override).
+- `freq` is partial-first: unless YAML explicitly sets `calc.return_partial_hessian`, the calculation uses partial Hessian (PHVA-oriented path) by default.
+- Imaginary modes are reported as negative frequencies. `freq` prints how many were detected and dumps details when `--dump`.
+- **PHVA details:** With frozen atoms, the active subspace is formed by excluding frozen DOF. Translation/rotation modes are projected within this subspace, ensuring correct mode shapes. Both full 3N x 3N and active-block Hessians are accepted. The mass-weighted eigendecomposition uses `UPLO="U"` to minimize GPU memory.
 
 ---
 
 ## See Also
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [tsopt](tsopt.md) -- Optimize TS candidates (validate with freq/IRC; expected: one imaginary frequency)
 - [opt](opt.md) -- Geometry optimization (often precedes freq)
 - [dft](dft.md) -- Single-point DFT for higher-level energy refinement
 - [all](all.md) -- End-to-end workflow with `--thermo`
 - [YAML Reference](yaml_reference.md) -- Full `freq` and `thermo` configuration options
+- [Glossary](glossary.md) -- Definitions of ZPE, Gibbs Energy, Enthalpy, Entropy

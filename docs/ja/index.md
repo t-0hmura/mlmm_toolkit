@@ -41,6 +41,7 @@ freq
 irc
 dft
 trj2fig
+oniom_export
 oniom_gaussian
 oniom_orca
 fix_altloc
@@ -79,6 +80,8 @@ glossary
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Gaussian ONIOM 入力を生成 | `mlmm oniom-gaussian` | [oniom_gaussian.md](oniom_gaussian.md) |
 | ORCA QM/MM 入力を生成 | `mlmm oniom-orca` | [oniom_orca.md](oniom_orca.md) |
+| 数値から状態エネルギーダイアグラムを描画 | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
+| チュートリアルに従う | -- | [はじめに](getting_started.md) |
 | 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes_common_errors.md) |
 | 全体像（概念・用語）の把握 | -- | [概念とワークフロー](concepts.md) |
 | よくあるエラーの解決 | -- | [トラブルシューティング](troubleshooting.md) |
@@ -86,25 +89,27 @@ glossary
 
 ---
 
-## クイックナビゲーション
+## ドキュメントガイド
 
-### はじめに
+| トピック | ページ |
+|---------|--------|
+| **インストールと初回実行** | [はじめに](getting_started.md) |
+| **主要概念とワークフロー概要** | [概念とワークフロー](concepts.md) |
+| **症状起点の切り分け** | [典型エラー別レシピ](recipes_common_errors.md) |
+| **よくあるエラーと対処** | [トラブルシューティング](troubleshooting.md) |
+| **CLI 規約と入力要件** | [CLI 規約](cli_conventions.md) |
 
-- [**はじめに**](getting_started.md) - インストール、クイックスタート、概要
-- [**概念とワークフロー**](concepts.md) - ML/MM 3層システム、ONIOM 分解、各ステージの全体像
-- [**典型エラー別レシピ**](recipes_common_errors.md) - 症状別の最短対処ルート
-- [**CLI 規約**](cli_conventions.md) - ブール値オプション、セレクタ、B-factor 層エンコーディング、電荷指定などの共通規約
-- [**トラブルシューティング**](troubleshooting.md) - よくあるエラーと対処法
-- [**システム要件**](#システム要件) - ハードウェアとソフトウェアの前提条件
+---
+
+## CLI サブコマンド
 
 ### メインワークフロー
+| サブコマンド | 説明 |
+|---------|------|
+| [`all`](all.md) | エンドツーエンドワークフロー: 抽出 -> MM parm -> MEP -> TS 最適化 -> IRC -> freq -> DFT |
+| [`init`](init.md) | `mlmm all` 用 YAML テンプレートを生成 |
 
-- [`all`](all.md) - **エンドツーエンドワークフロー**: 抽出 → MM パラメータ化 → スキャン → MEP 探索 → TS 最適化 → IRC → 熱化学 → DFT
-- [`init`](init.md) - `mlmm all` 用 YAML テンプレートを生成
-
-### CLI サブコマンド
-
-#### 構造準備
+### 構造準備
 | サブコマンド | 説明 |
 |---------|------|
 | [`extract`](extract.md) | タンパク質-リガンド複合体から活性部位ポケット（クラスターモデル）を抽出 |
@@ -112,61 +117,64 @@ glossary
 | [`mm-parm`](mm_parm.md) | AmberTools (tleap + GAFF2) を使用して Amber トポロジ（parm7/rst7）を構築 |
 | [`define-layer`](define_layer.md) | ML 領域からの距離に基づき 3 層 ML/MM 領域を定義し、B-factor でエンコード |
 
-#### 構造最適化
+### 構造最適化
 | サブコマンド | 説明 |
 |---------|------|
 | [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS / RFO） |
 | [`tsopt`](tsopt.md) | 遷移状態最適化（Dimer / RS-I-RFO） |
 
-#### 経路探索・最適化
+### 経路探索・最適化
 | サブコマンド | 説明 |
 |---------|------|
 | [`path-opt`](path_opt.md) | GSM または DMF による MEP 最適化 |
 | [`path-search`](path_search.md) | 自動精密化を伴う再帰的 MEP 探索 |
 
-#### スキャン
+### スキャン
 | サブコマンド | 説明 |
 |---------|------|
 | [`scan`](scan.md) | 拘束条件付き 1D 結合長スキャン |
-| [`scan2d`](scan2d.md) | 2D距離グリッドスキャン |
-| [`scan3d`](scan3d.md) | 3D距離グリッドスキャン |
+| [`scan2d`](scan2d.md) | 2D 距離グリッドスキャン |
+| [`scan3d`](scan3d.md) | 3D 距離グリッドスキャン |
 
-#### 解析・後処理
+### 解析・後処理
 | サブコマンド | 説明 |
 |---------|------|
 | [`irc`](irc.md) | 固有反応座標（IRC）計算 |
 | [`freq`](freq.md) | 振動数解析と熱化学 |
 | [`dft`](dft.md) | DFT 一点計算（GPU4PySCF / PySCF） |
-| [`trj2fig`](trj2fig.md) | XYZ軌跡からエネルギープロファイルをプロット |
+| [`trj2fig`](trj2fig.md) | XYZ 軌跡からエネルギープロファイルをプロット |
+| [`energy-diagram`](energy_diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
 
-#### エクスポート
+### エクスポート
 | サブコマンド | 説明 |
 |---------|------|
 | [`oniom-gaussian`](oniom_gaussian.md) | Amber parm7 から Gaussian ONIOM 入力を生成 |
 | [`oniom-orca`](oniom_orca.md) | Amber parm7 から ORCA QM/MM 入力を生成 |
 
-### 設定・リファレンス
+---
 
-- [**CLI コマンドリファレンス（自動生成）**](../reference/commands/index.md)
-- [**YAML スキーマ（自動生成）**](../reference/yaml.md)
-- [**YAML リファレンス**](yaml_reference.md) - 全サブコマンドの YAML 設定オプション
-- [**ML/MM 計算機**](mlmm_calc.md) - UMA + hessian_ff ONIOM エンジンの詳細
-- [**用語集**](glossary.md) - 略語と技術用語の定義
+## 設定・リファレンス
+
+| トピック | ページ |
+|---------|--------|
+| **YAML 設定オプション** | [YAML リファレンス](yaml_reference.md) |
+| **ML/MM 計算機アーキテクチャ** | [ML/MM 計算機](mlmm_calc.md) |
+| **用語集** | [用語集](glossary.md) |
 
 ---
 
 ## システム要件
 
 ### ハードウェア
-- **OS**: Linux（Ubuntu 20.04+、CentOS 8+で動作確認）
+- **OS**: Linux（Ubuntu 20.04+、CentOS 8+ で動作確認）
 - **GPU**: CUDA 12.x 互換
-- **VRAM**: 最小8 GB（1000原子以上には16 GB以上推奨）
-- **RAM**: 16 GB以上推奨
+- **VRAM**: 最小 8 GB（1000 原子以上には 16 GB 以上推奨）
+- **RAM**: 16 GB 以上推奨
 
 ### ソフトウェア
 - Python 3.11
 - CUDA サポート付き PyTorch
-- CUDA 12.xツールキット
+- CUDA 12.x ツールキット
 - AmberTools（`mm-parm` サブコマンドに必要）
 
 ---
@@ -200,7 +208,7 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 ## 重要な概念
 
-### ML/MM 3層システム
+### ML/MM 3 層システム
 mlmm_toolkit は PDB の B-factor を用いた 3 層分割スキームを使用します:
 - **ML 領域**（B=0.0）: UMA 機械学習ポテンシャルで計算
 - **Movable-MM**（B=10.0）: 最適化時に移動可能な MM 原子
@@ -214,16 +222,13 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 - スピン多重度は `-m/--multiplicity`（デフォルト: 1）で設定
 
 ### ブール値オプション
-ブール値 CLI オプションは `--flag` / `--no-flag` と `--flag True/False` の両方を受理します（新規スクリプトでは toggle 形式を推奨）:
+ブール値 CLI オプションはトグル形式（`--flag` / `--no-flag`）を使用します:
 ```bash
 --tsopt --thermo --no-dft
---tsopt True --thermo yes --dft 0
 ```
 
 ### YAML 設定
 
-```bash
-```
 すべてのオプションについては [YAML リファレンス](yaml_reference.md) を参照してください。
 
 ---
@@ -239,16 +244,16 @@ result_all/
 ├── pockets/ # 抽出されたクラスターモデル
 ├── mm_parm/ # AMBER トポロジファイル
 ├── scan/ # （オプション）スキャン結果
-├── path_search/ # MEP軌跡とダイアグラム
-│ ├── mep_trj.xyz # MEP軌跡
-│ ├── mep.pdb # PDB形式のMEP
-│ ├── mep_w_ref.pdb # 全系とマージされたMEP
+├── path_search/ # MEP 軌跡とダイアグラム
+│ ├── mep_trj.xyz # MEP 軌跡
+│ ├── mep.pdb # PDB 形式の MEP
+│ ├── mep_w_ref.pdb # 全系とマージされた MEP
 │ └── seg_*/ # セグメントごとの詳細
 └── path_search/post_seg_*/ # 後処理出力
- ├── tsopt/ # TS最適化結果
- ├── irc/ # IRC軌跡
+ ├── tsopt/ # TS 最適化結果
+ ├── irc/ # IRC 軌跡
  ├── freq/ # 振動モード
- └── dft/ # DFT結果
+ └── dft/ # DFT 結果
 ```
 
 ---

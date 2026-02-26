@@ -106,7 +106,7 @@ ja/index
 
 ## Quick Start by Goal
 
-| Use Case | Command | Guide |
+| Objectives | Command | Guide |
 |-------------------------|---------|-------|
 | First run (end-to-end) | `mlmm all` | [Quickstart: all](quickstart_all.md) |
 | Single-structure staged scan (`--spec`) | `mlmm scan` | [Quickstart: scan with spec](quickstart_scan_spec.md) |
@@ -123,6 +123,7 @@ ja/index
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Export to Gaussian ONIOM | `mlmm oniom-gaussian` | [oniom_gaussian.md](oniom_gaussian.md) |
 | Export to ORCA QM/MM | `mlmm oniom-orca` | [oniom_orca.md](oniom_orca.md) |
+| Draw state energy diagram from numeric values | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
 | Follow worked tutorials | -- | [Tutorial](getting_started.md) |
 | Diagnose failures by symptom | -- | [Common Error Recipes](recipes_common_errors.md) |
 | Understand the big picture (concepts & terms) | -- | [Concepts & Workflow](concepts.md) |
@@ -185,6 +186,7 @@ ja/index
 | [`freq`](freq.md) | Vibrational frequency analysis & thermochemistry |
 | [`dft`](dft.md) | Single-point DFT calculations (GPU4PySCF / PySCF) |
 | [`trj2fig`](trj2fig.md) | Plot energy profiles from XYZ trajectories |
+| [`energy-diagram`](energy_diagram.md) | Build an energy diagram from numeric input values |
 
 ### Export
 | Subcommand | Description |
@@ -271,9 +273,6 @@ Boolean CLI options use toggle form (`--flag` / `--no-flag`):
 ```
 
 ### YAML configuration
-()
-```bash
-```
 See the [YAML Reference](yaml_reference.md) for all options.
 
 ---

@@ -4,30 +4,37 @@
 
 > **要約:** 数値エネルギーだけを入力として状態エネルギーダイアグラムを描画します（構造ファイル不要、ML/MM 計算なし）。
 
-### クイックリファレンス
-- **入力:** `-i/--input` で与える数値列（複数トークンまたはリスト形式文字列）。
-- **出力:** 画像ファイル 1 つ（`.png` / `.jpg` / `.jpeg` / `.svg` / `.pdf`）。
-- **デフォルト出力:** `energy_diagram.png`。
-- **状態ラベル:** `--label-x` で任意指定。省略時は `S1`, `S2`,...。
+### 概要
 - **用途:** 既にエネルギー値があり、図だけ作成したいとき。
+- **手法:** Matplotlib による数値プロット。構造の解析やエネルギー計算は行いません。
+- **出力:** 画像ファイル 1 つ（`.png`、`.jpg`、`.jpeg`、`.svg`、または `.pdf`）。
+- **デフォルト:** 出力 `energy_diagram.png`、ラベルは `S1`, `S2`,... を自動生成、Y 軸ラベル `DE (kcal/mol)`。
+- **次のステップ:** ダイアグラムをレポートやプレゼンテーションに含める。
 
 `mlmm energy-diagram` は与えた数値を可視化するだけで、PDB/XYZ を読み込まず、`--thermo` / `--dft` のような計算も実行しません。
 
-## 使用法
+## 最小の例
+
 ```bash
-mlmm energy-diagram -i VALUES... [-o OUTPUT] [--label-x...] [--label-y...]
+mlmm energy-diagram -i 0 12.5 4.3 -o energy.png
 ```
 
-## 例
+## 出力チェックリスト
+
+- `OUTPUT.(png|jpg|jpeg|svg|pdf)` -- 描画されたエネルギーダイアグラム画像
+
+## よくある例
+
+1. リスト文字列で入力。
+
 ```bash
-# 数値を複数引数で指定
-mlmm energy-diagram -i 0 12.5 4.3 -o energy.png
-
-# リスト文字列で指定
 mlmm energy-diagram -i "[-205.1, -190.4, -198.7]" -o energy.png
+```
 
-# X/Yラベルを指定
-mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o energy.png
+2. X/Y ラベルを指定。
+
+```bash
+mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "DE (kcal/mol)" -o energy.png
 ```
 
 ## ワークフロー
@@ -42,21 +49,18 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o
 | --- | --- | --- |
 | `-i, --input TEXT...` | 数値入力（複数引数またはリスト形式文字列） | 必須 |
 | `-o, --output PATH` | 出力画像パス（`.png/.jpg/.jpeg/.svg/.pdf`） | `energy_diagram.png` |
-| `--label-x TEXT...` | X軸状態ラベル（入力値と同じ個数が必要） | `S1, S2,...` |
-| `--label-y TEXT` | Y軸ラベル | `ΔE (kcal/mol)` |
+| `--label-x TEXT...` | X 軸状態ラベル（入力値と同じ個数が必要） | `S1, S2,...` |
+| `--label-y TEXT` | Y 軸ラベル | `DE (kcal/mol)` |
 
-## 出力
-```
-OUTPUT.(png|jpg|jpeg|svg|pdf)
-```
+## 注意事項
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
+
+- 入力順がそのまま描画順になります。
+- 入力値は最低 2 点必要です。
+- 構造ファイルの読み込みやエネルギー計算は行いません。
 - `-o/--output` を省略した場合、カレントディレクトリに `energy_diagram.png` を出力します。
 - 出力拡張子がない場合は `.png` が自動で補完されます。
 - 必要なら親ディレクトリを自動作成します。
-
-## 注意事項
-- 入力順がそのまま描画順になります。
-- 入力値は最低2点必要です。
-- 構造ファイルの読み込みやエネルギー計算は行いません。
 
 ---
 

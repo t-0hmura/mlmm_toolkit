@@ -153,20 +153,14 @@ class RFOptimizer(HessianOptimizer):
         # Use the interpolated gradient for the RFO step if interpolation succeeded
         if (ip_gradient is not None) and (ip_step is not None):
             gradient = ip_gradient
-        # Keep the original gradient when the interpolation failed, but recreate
-        # ip_step, as it will be returned as None from poly_line_search().
+            step = step_func(big_eigvals, big_eigvecs, gradient) # heavy-compute
+            # Form full step with interpolation offset.
+            if isinstance(ip_step, torch.Tensor):
+                ip_step = ip_step.detach().cpu().numpy()
+            step = step + ip_step
+        # Keep the original gradient when the interpolation failed; reuse ref_step.
         else:
-            if isinstance(gradient, torch.Tensor):
-                ip_step = torch.zeros_like(gradient, dtype=gradient.dtype, device=gradient.device)
-            else:
-                ip_step = np.zeros_like(gradient)
-
-        step = step_func(big_eigvals, big_eigvecs, gradient) # heavy-compute
-        # Form full step. If we did not interpolate or interpolation failed,
-        # ip_step will be zero.
-        if isinstance(ip_step, torch.Tensor):
-            ip_step = ip_step.detach().cpu().numpy()
-        step = step + ip_step
+            step = ref_step
 
         # Use the original, actually calculated, gradient
         prediction = pred_func(ref_gradient, H, step)

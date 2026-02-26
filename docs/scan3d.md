@@ -4,7 +4,7 @@
 
 > **Summary:** Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations. Use `--spec` (YAML/JSON, recommended) or `--scan-lists`.
 
-### Quick reference
+### At a glance
 - **Input:** One full enzyme PDB + `--spec scan3d.yaml` (recommended), or one `--scan-lists` literal (three quadruples).
 - **Grid ordering:** d1 is scanned first, then d2 for each d1 value (both restraints active), then d3 for each (d1, d2) with all three restraints active.
 - **Energies:** Recorded energies are evaluated **without bias**, so grid points are directly comparable.
@@ -29,6 +29,8 @@ mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 1. Validate parsed `pairs` from a YAML spec before running a full grid.
 2. Run with `--scan-lists`.
 3. Enable `--dump` to keep inner d3 trajectories for each `(d1,d2)` slice.
+
+> **Note:** Add `--print-parsed` when you want to verify parsed pair targets from `--spec` / `--scan-lists`.
 
 ## Usage
 ```bash
@@ -78,6 +80,54 @@ pairs:
 - `pairs` is required and must contain exactly 3 quadruples.
 - Each quadruple is `(i, j, low_A, high_A)`.
 - Indices may be integers or PDB selectors (same as `--scan-lists`).
+
+## `--scan-lists` format
+
+`--scan-lists` is the advanced input mode. It accepts a **single Python literal** string. Shell quoting matters.
+
+### Basic structure
+
+The literal is a Python list of exactly **three** quadruples `(atom1, atom2, low_A, high_A)`:
+
+```
+--scan-lists '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A), (atom5, atom6, low_A, high_A)]'
+```
+
+- Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
+- Each quadruple defines one scan axis: the distance between `atom1`--`atom2` is scanned from `low_A` to `high_A`.
+- Unlike `scan`, only **one literal** is accepted (no multi-stage support).
+
+### Specifying atoms
+
+Atoms can be given as **integer indices** or **PDB selector strings**:
+
+| Method | Example | Notes |
+| --- | --- | --- |
+| Integer index | `(1, 5, 1.30, 3.10)` | 1-based by default (`--one-based`) |
+| PDB selector | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | Residue name, residue number, atom name |
+
+PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
+
+```bash
+# All of these specify the same atom:
+"TYR,285,CA"
+"TYR 285 CA"
+"TYR/285/CA"
+"285,TYR,CA" # order is flexible
+```
+
+### Quoting rules
+
+```bash
+# Correct: single-quote the list, double-quote selector strings inside
+--scan-lists '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20),("TYR,285,CG","MMT,309,C12",1.10,3.00)]'
+
+# Correct: integer indices need no inner quotes
+--scan-lists '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20), (3, 12, 1.10, 3.00)]'
+
+# Avoid: double-quoting the outer literal requires escaping inner quotes
+--scan-lists "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+```
 
 ## Workflow
 1. Load the structure through `geom_loader`, resolve charge/spin from CLI, and
@@ -136,6 +186,30 @@ out_dir/ (default:./result_scan3d/)
  grid/point_i###_j###_k###.xyz # Relaxed geometry for each grid point
  grid/point_i###_j###_k###.pdb # PDB companions (B-factors: ML=100, frozen=50, both=150)
  grid/inner_path_d1_###_d2_###_trj.xyz # Present only when --dump is True
+```
+
+## YAML configuration
+
+```yaml
+geom:
+ coord_type: cart
+ freeze_atoms: []
+calc:
+ charge: 0
+ spin: 1
+mlmm:
+ real_parm7: real.parm7
+ model_pdb: ml_region.pdb
+opt:
+ thresh: baker
+ max_cycles: 10000
+ dump: false
+ out_dir:./result_scan3d/
+lbfgs:
+ max_step: 0.3
+ out_dir:./result_scan3d/
+bias:
+ k: 100.0
 ```
 
 ## Notes

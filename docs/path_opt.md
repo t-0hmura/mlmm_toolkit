@@ -4,7 +4,7 @@
 
 > **Summary:** Find an MEP between **exactly two** enzyme structures using the Growing String Method (GSM) with the ML/MM calculator. Writes the path trajectory and exports the highest-energy image (HEI) as a TS candidate.
 
-### Quick reference
+### At a glance
 - **Use when:** You have reactant and product endpoints (R -> P) and want a first-pass MEP.
 - **Method:** PySisyphus `GrowingString` with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`).
 - **Outputs:** `final_geometries_trj.xyz` (path) and `hei.xyz` (HEI), plus optional `.pdb` companions.
@@ -13,6 +13,7 @@
 
 `mlmm path-opt` optimizes a minimum-energy path between two enzyme states using PySisyphus `GrowingString` with the ML/MM calculator. The ML/MM calculator keeps the full enzyme complex without link atoms: the ML region is defined by `--model-pdb`, the Amber topology comes from `--real-parm7`, and both endpoints are supplied as PDBs containing the full system coordinates.
 
+For workflows that start from **two or more** structures and automatically refine only the reactive region, use [path-search](path_search.md).
 
 ## Minimal example
 
@@ -63,7 +64,7 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 
 # With frozen atoms, more nodes, and layered YAML overrides
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
- --freeze-atoms "1,3,5,7" --max-nodes 10 --max-cycles 200 --dump --out-dir ./result_path_opt/ \
+ --freeze-atoms "1,3,5,7" --max-nodes 10 --max-cycles 200 --dump --out-dir ./result_path_opt/
 
 # With endpoint pre-optimization
 mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
@@ -119,7 +120,10 @@ out_dir/ (default:./result_path_opt/)
 └─ <optimizer dumps> # Present when --dump or opt.dump_restart > 0
 ```
 
+## YAML configuration
+
 Merge order is **defaults < config < explicit CLI < override**.
+
 ### Section `geom`
 - `coord_type`: Coordinate type (cartesian vs dlc internals).
 - `freeze_atoms`: 0-based frozen atoms merged with CLI `--freeze-atoms`.
@@ -143,6 +147,16 @@ Merge order is **defaults < config < explicit CLI < override**.
 | `5` | HEI dump error |
 | `130` | Keyboard interrupt |
 | `1` | Unhandled exception |
+
+## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
+- Exactly two structures are required. Formats follow `geom_loader`.
+- Charge/spin: CLI overrides defaults. Always set them explicitly for correct states.
+- `--max-nodes` controls the number of *internal* nodes/images for the GSM string (total images = `max_nodes + 2` for GSM).
+- `--climb` toggles both the standard climbing step and the Lanczos-based tangent refinement.
+- `--dump` mirrors `opt.dump=True` for the StringOptimizer, producing trajectory dumps inside `out_dir`. Restart YAML is written only when enabled in YAML.
+- Exit codes: `0` success, `3` optimizer failure, `4` trajectory write error, `5` HEI export error, `130` interrupt, `1` unexpected error.
 
 ---
 

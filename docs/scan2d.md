@@ -4,6 +4,13 @@
 
 > **Summary:** Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations. Use `--spec` (YAML/JSON, recommended) or `--scan-lists`.
 
+### At a glance
+- **Input:** One structure + `--spec scan2d.yaml` (recommended), or one `--scan-lists` literal containing exactly two quadruples.
+- **Grid ordering:** Each axis is reordered so the point closest to the (pre)optimized structure is visited first.
+- **Energies:** Values written to `surface.csv` are always evaluated **without bias**, so grid points are directly comparable.
+- **Outputs:** `surface.csv` plus `scan2d_map.png` and `scan2d_landscape.html`, and per-point structures under `grid/`.
+- **Caution:** Grid size grows quickly as `(high - low) / --max-step-size` increases.
+
 `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. The scan iterates d1 first, relaxing the structure with only the d1 restraint active, then iterates d2 for each d1 value with both restraints applied.
 
 Energies at each grid point are re-evaluated without the bias to populate a PES grid and contour plot. Outputs include per-point XYZ snapshots, `surface.csv` summarizing the PES, a 2D contour map (`scan2d_map.png`), and a 3D landscape with bottom projection (`scan2d_landscape.html`).
@@ -24,6 +31,8 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 1. Validate parsed scan targets from a YAML spec.
 2. Run with the `--scan-lists` literal.
 3. Enable `--dump` to store inner trajectories per outer d1 step.
+
+> **Note:** Add `--print-parsed` when you want to verify parsed pair targets from `--spec` / `--scan-lists`.
 
 ## Usage
 ```bash
@@ -71,6 +80,54 @@ pairs:
 - `pairs` is required and must contain exactly 2 quadruples.
 - Each quadruple is `(i, j, low_A, high_A)`.
 - Indices may be integers or PDB selectors (same as `--scan-lists`).
+
+## `--scan-lists` format
+
+`--scan-lists` is the advanced input mode. It accepts a **single Python literal** string. Shell quoting matters.
+
+### Basic structure
+
+The literal is a Python list of exactly **two** quadruples `(atom1, atom2, low_A, high_A)`:
+
+```
+--scan-lists '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
+```
+
+- Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
+- Each quadruple defines one scan axis: the distance between `atom1`--`atom2` is scanned from `low_A` to `high_A`.
+- Unlike `scan`, only **one literal** is accepted (no multi-stage support).
+
+### Specifying atoms
+
+Atoms can be given as **integer indices** or **PDB selector strings**:
+
+| Method | Example | Notes |
+| --- | --- | --- |
+| Integer index | `(1, 5, 1.30, 3.10)` | 1-based by default (`--one-based`) |
+| PDB selector | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | Residue name, residue number, atom name |
+
+PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
+
+```bash
+# All of these specify the same atom:
+"TYR,285,CA"
+"TYR 285 CA"
+"TYR/285/CA"
+"285,TYR,CA" # order is flexible
+```
+
+### Quoting rules
+
+```bash
+# Correct: single-quote the list, double-quote selector strings inside
+--scan-lists '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20)]'
+
+# Correct: integer indices need no inner quotes
+--scan-lists '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
+
+# Avoid: double-quoting the outer literal requires escaping inner quotes
+--scan-lists "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+```
 
 ## Workflow
 1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (FAIR-Chem UMA + hessian_ff), and optionally run an unbiased pre-optimization when `--preopt`.
@@ -125,7 +182,7 @@ out_dir/ (default:./result_scan2d/)
 └── (stdout) # Progress and energy summaries
 ```
 
-
+## YAML configuration
 
 ```yaml
 geom:

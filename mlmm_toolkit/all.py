@@ -38,6 +38,7 @@ from pysisyphus.constants import BOHR2ANG, AU2KCALPERMOL
 # Local imports from the package
 from .extract import extract_api, compute_charge_summary, log_charge_summary
 from . import path_search as _path_search
+from . import opt as _opt_cli
 from . import tsopt as _ts_opt
 from . import freq as _freq_cli
 from . import dft as _dft_cli
@@ -56,6 +57,7 @@ from .utils import (
     parse_scan_list_triples,
     read_xyz_as_blocks,
 )
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file
 from .preflight import validate_existing_files, ensure_commands_available
 from . import scan as _scan_cli
 from .add_elem_info import assign_elements as _assign_elem_info
@@ -88,42 +90,6 @@ def _echo_section(message: str, **kwargs) -> None:
     click.echo(message, **kwargs)
     _log_started = True
 
-
-def _first_existing_artifact(out_dir: Path, patterns: Sequence[str]) -> Optional[Path]:
-    """Resolve the first existing file for a list of relative patterns."""
-    for pattern in patterns:
-        if any(ch in pattern for ch in "*?[]"):
-            for candidate in sorted(out_dir.glob(pattern)):
-                if candidate.is_file():
-                    return candidate.resolve()
-            continue
-        candidate = out_dir / pattern
-        if candidate.is_file():
-            return candidate.resolve()
-    return None
-
-
-def _link_or_copy_file(src: Path, dst: Path) -> bool:
-    """Create a symlink when possible; fall back to copy."""
-    try:
-        if dst.exists() or dst.is_symlink():
-            if dst.is_dir():
-                return False
-            dst.unlink()
-        rel = os.path.relpath(src, start=dst.parent)
-        dst.symlink_to(rel)
-        return True
-    except Exception:
-        try:
-            shutil.copy2(src, dst)
-            return True
-        except Exception:
-            return False
-
-
-def _write_output_summary_md(out_dir: Path) -> None:
-    """summary.md and key_* outputs are disabled."""
-    return None
 
 def _run_cli_main(
     cmd_name: str,
@@ -190,13 +156,6 @@ def _resolve_override_dir(default: Path, override: Path | None) -> Path:
     return default.parent / override
 
 
-def _resolve_yaml_sources(
-    config_yaml: Optional[Path],
-) -> Tuple[Optional[Path], Optional[Path], bool]:
-    """Resolve YAML inputs for the all pipeline."""
-    return config_yaml, None, False
-
-
 def _build_effective_args_yaml(
     config_yaml: Optional[Path],
     override_yaml: Optional[Path],
@@ -209,8 +168,7 @@ def _build_effective_args_yaml(
     Precedence for file layering:
       config_yaml < override_yaml
     """
-    base_cfg = load_yaml_dict(config_yaml)
-    override_cfg = load_yaml_dict(override_yaml)
+    merged, base_cfg, override_cfg = load_merged_yaml_cfg(config_yaml, override_yaml)
 
     if config_yaml is None and override_yaml is None:
         return None, {}
@@ -218,10 +176,6 @@ def _build_effective_args_yaml(
         return override_yaml, override_cfg
     if override_yaml is None:
         return config_yaml, base_cfg
-
-    merged: Dict[str, Any] = {}
-    deep_update(merged, base_cfg)
-    deep_update(merged, override_cfg)
 
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -1112,6 +1066,70 @@ def _run_freq_for_state(pdb_path: Path,
     return {}
 
 
+def _run_opt_for_state(
+    pdb_path: Path,
+    q_int: int,
+    spin: int,
+    real_parm7: Path,
+    model_pdb: Path,
+    detect_layer: bool,
+    out_dir: Path,
+    args_yaml: Optional[Path],
+    opt_mode_default: str,
+) -> Tuple[Any, Path]:
+    """
+    Run opt CLI for a single endpoint and return (optimized Geometry, final geometry path).
+    """
+    opt_dir = out_dir
+    ensure_dir(opt_dir)
+
+    prepared_input = prepare_input_structure(pdb_path)
+    opt_mode = str(opt_mode_default or "heavy").lower()
+    args = [
+        "-i", str(prepared_input.source_path),
+        "--real-parm7", str(real_parm7),
+        "--model-pdb", str(model_pdb),
+        "-q", str(int(q_int)),
+        "-m", str(int(spin)),
+        "--out-dir", str(opt_dir),
+        "--opt-mode", opt_mode,
+    ]
+    args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+
+    if args_yaml is not None:
+        args.extend(["--config", str(args_yaml)])
+
+    _echo(f"[endpoint-opt] Running opt on {pdb_path.name} (mode={opt_mode}) → out={opt_dir}")
+    _run_cli_main("opt", _opt_cli.cli, args, on_nonzero="raise", on_exception="raise", prefix="endpoint-opt")
+
+    final_pdb = opt_dir / "final_geometry.pdb"
+    final_xyz = opt_dir / "final_geometry.xyz"
+    final_geom_path: Optional[Path] = None
+    if final_pdb.exists():
+        final_geom_path = final_pdb
+    elif final_xyz.exists():
+        final_geom_path = final_xyz
+    if final_geom_path is None:
+        prepared_input.cleanup()
+        raise click.ClickException(f"[endpoint-opt] opt outputs not found under {opt_dir}")
+
+    g_opt = geom_loader(final_geom_path, coord_type="cart")
+    calc_input_pdb = final_pdb if final_pdb.exists() else pdb_path
+    calc = _mlmm_calc(
+        model_charge=int(q_int),
+        model_mult=int(spin),
+        input_pdb=str(calc_input_pdb),
+        real_parm7=str(real_parm7),
+        model_pdb=str(model_pdb),
+        use_bfactor_layers=detect_layer,
+    )
+    g_opt.set_calculator(calc)
+    _ = float(g_opt.energy)
+
+    prepared_input.cleanup()
+    return g_opt, final_geom_path
+
+
 def _run_dft_for_state(pdb_path: Path,
                        q_int: int,
                        spin: int,
@@ -1330,7 +1348,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option(
     "--opt-mode-post",
-    type=click.Choice(["light", "heavy"], case_sensitive=False),
+    type=click.Choice(["light", "heavy", "hybrid"], case_sensitive=False),
     default=None,
     show_default=False,
     help=(
@@ -1509,7 +1527,7 @@ def cli(
         opt_mode_set = False
         opt_mode_post_set = False
 
-    config_yaml, override_yaml, _ = _resolve_yaml_sources(config_yaml=config_yaml)
+    config_yaml, override_yaml, _ = resolve_yaml_sources(config_yaml, None, None)
     args_yaml, merged_yaml_cfg = _build_effective_args_yaml(
         config_yaml=config_yaml,
         override_yaml=None,
@@ -1546,10 +1564,17 @@ def cli(
             "or use a single PDB with --scan-lists, or a single PDB with --tsopt True."
         )
 
-    if opt_mode_post_set and opt_mode_post is not None:
-        tsopt_opt_mode_default = opt_mode_post.lower()
+    opt_mode_norm = str(opt_mode).lower()
+    path_search_opt_mode = opt_mode_norm
+    opt_mode_post_norm = opt_mode_post.lower() if opt_mode_post is not None else None
+    endpoint_opt_mode_default = (
+        opt_mode_post_norm if (opt_mode_post_set and opt_mode_post_norm is not None)
+        else (opt_mode_norm if opt_mode_set else "heavy")
+    )
+    if opt_mode_post_norm in {"light", "heavy", "hybrid"}:
+        tsopt_opt_mode_default = opt_mode_post_norm
     elif opt_mode_set:
-        tsopt_opt_mode_default = opt_mode.lower()
+        tsopt_opt_mode_default = opt_mode_norm
     else:
         tsopt_opt_mode_default = "heavy"
     tsopt_overrides: Dict[str, Any] = {}
@@ -1561,8 +1586,8 @@ def cli(
         tsopt_overrides["out_dir"] = tsopt_out_dir
     if hessian_calc_mode is not None:
         tsopt_overrides["hessian_calc_mode"] = hessian_calc_mode
-    if opt_mode_post_set and opt_mode_post is not None:
-        tsopt_overrides["opt_mode"] = opt_mode_post.lower()
+    if opt_mode_post_norm in {"light", "heavy", "hybrid"}:
+        tsopt_overrides["opt_mode"] = opt_mode_post_norm
     elif opt_mode_set:
         tsopt_overrides["opt_mode"] = tsopt_opt_mode_default
 
@@ -1614,6 +1639,8 @@ def cli(
                 "climb": bool(climb),
                 "opt_mode": str(opt_mode),
                 "opt_mode_post": (None if opt_mode_post is None else str(opt_mode_post)),
+                "path_search_opt_mode": str(path_search_opt_mode),
+                "endpoint_opt_mode": str(endpoint_opt_mode_default),
                 "dump": bool(dump),
                 "pre_opt": bool(pre_opt),
                 "detect_layer": bool(detect_layer),
@@ -1866,13 +1893,43 @@ def cli(
             g_react, e_react = gR, eR
             g_prod,  e_prod  = gL, eL
 
-        # Save standardized PDBs
+        # Save standardized PDBs and run endpoint-opt (opt CLI; supports hybrid)
         struct_dir = tsroot / "structures"
         ensure_dir(struct_dir)
         pocket_ref = first_pocket
-        pR = _save_single_geom_as_pdb_for_tools(g_react, pocket_ref, struct_dir, "reactant")
+        pR_irc = _save_single_geom_as_pdb_for_tools(g_react, pocket_ref, struct_dir, "reactant_irc")
         pT = _save_single_geom_as_pdb_for_tools(gT,       pocket_ref, struct_dir, "ts")
+        pP_irc = _save_single_geom_as_pdb_for_tools(g_prod,   pocket_ref, struct_dir, "product_irc")
+
+        endpoint_opt_dir = tsroot / "endpoint_opt"
+        ensure_dir(endpoint_opt_dir)
+        try:
+            g_react, _ = _run_opt_for_state(
+                pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
+                endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
+            )
+        except Exception as e:
+            _echo(
+                f"[post] WARNING: Reactant endpoint optimization failed in TSOPT-only mode: {e}",
+                err=True,
+            )
+        try:
+            g_prod, _ = _run_opt_for_state(
+                pP_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
+                endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
+            )
+        except Exception as e:
+            _echo(
+                f"[post] WARNING: Product endpoint optimization failed in TSOPT-only mode: {e}",
+                err=True,
+            )
+        shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
+        _echo("[endpoint-opt] Clean endpoint-opt working dir.")
+
+        pR = _save_single_geom_as_pdb_for_tools(g_react, pocket_ref, struct_dir, "reactant")
         pP = _save_single_geom_as_pdb_for_tools(g_prod,   pocket_ref, struct_dir, "product")
+        e_react = float(g_react.energy)
+        e_prod = float(g_prod.energy)
 
         # UMA energy diagram (R, TS, P)
         uma_prefix = tsroot / "energy_diagram_UMA"
@@ -2157,7 +2214,7 @@ def cli(
         _echo("[all] Remapped --scan-lists indices from the full PDB to the pocket ordering.")
         scan_preopt_use = pre_opt if scan_preopt_override is None else bool(scan_preopt_override)
         scan_endopt_use = True if scan_endopt_override is None else bool(scan_endopt_override)
-        scan_opt_mode_use = opt_mode.lower()
+        scan_opt_mode_use = path_search_opt_mode
 
         scan_args: List[str] = [
             "-i", str(layered_pdb),
@@ -2234,7 +2291,7 @@ def cli(
     ps_args.extend(["--max-nodes", str(int(max_nodes))])
     ps_args.extend(["--max-cycles", str(int(max_cycles))])
     ps_args.append("--climb" if climb else "--no-climb")
-    ps_args.extend(["--opt-mode", str(opt_mode.lower())])
+    ps_args.extend(["--opt-mode", str(path_search_opt_mode)])
     ps_args.append("--dump" if dump else "--no-dump")
     ps_args.extend(["--out-dir", str(path_dir)])
     ps_args.append("--preopt" if pre_opt else "--no-preopt")
@@ -2326,7 +2383,7 @@ def cli(
                 "tsopt": do_tsopt,
                 "thermo": do_thermo,
                 "dft": do_dft,
-                "opt_mode": opt_mode.lower(),
+                "opt_mode": opt_mode_norm,
                 "opt_mode_post": opt_mode_post.lower() if opt_mode_post else None,
                 "mep_mode": "path-search",
                 "uma_model": None,
@@ -2448,11 +2505,39 @@ def cli(
         gL = irc_res["left_min_geom"]
         gR = irc_res["right_min_geom"]
         gT = irc_res["ts_geom"]
-        # Save standardized PDBs for tools
+        # Save IRC endpoints, run endpoint-opt, then save standardized optimized PDBs
         struct_dir = seg_dir / "structures"
         ensure_dir(struct_dir)
-        pL = _save_single_geom_as_pdb_for_tools(gL, hei_pocket_pdb, struct_dir, "reactant")
+        pL_irc = _save_single_geom_as_pdb_for_tools(gL, hei_pocket_pdb, struct_dir, "reactant_irc")
         pT = _save_single_geom_as_pdb_for_tools(gT, hei_pocket_pdb, struct_dir, "ts")
+        pR_irc = _save_single_geom_as_pdb_for_tools(gR, hei_pocket_pdb, struct_dir, "product_irc")
+
+        endpoint_opt_dir = seg_dir / "endpoint_opt"
+        ensure_dir(endpoint_opt_dir)
+        try:
+            gL, _ = _run_opt_for_state(
+                pL_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
+                endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
+            )
+        except Exception as e:
+            _echo(
+                f"[post] WARNING: Reactant endpoint optimization failed for segment {seg_idx:02d}: {e}",
+                err=True,
+            )
+        try:
+            gR, _ = _run_opt_for_state(
+                pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
+                endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
+            )
+        except Exception as e:
+            _echo(
+                f"[post] WARNING: Product endpoint optimization failed for segment {seg_idx:02d}: {e}",
+                err=True,
+            )
+        shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
+        _echo("[endpoint-opt] Clean endpoint-opt working dir.")
+
+        pL = _save_single_geom_as_pdb_for_tools(gL, hei_pocket_pdb, struct_dir, "reactant")
         pR = _save_single_geom_as_pdb_for_tools(gR, hei_pocket_pdb, struct_dir, "product")
 
         # 4.3 Segment-level energy diagram from UMA (R,TS,P)

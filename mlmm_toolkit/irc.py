@@ -38,6 +38,9 @@ from .utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
+    set_convert_file_enabled,
+    is_convert_file_enabled,
+    convert_xyz_like_outputs,
     load_yaml_dict,
     deep_update,
     apply_yaml_overrides,
@@ -51,7 +54,10 @@ from .utils import (
     parse_indices_string,
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
+    yaml_section_has_key,
+    resolve_freeze_atoms,
 )
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file
 
 
 # --------------------------
@@ -92,31 +98,9 @@ IRC_KW_DEFAULT: Dict[str, Any] = {
 }
 
 
-def _resolve_yaml_sources(
-    config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
-) -> Tuple[Optional[Path], Optional[Path], bool]:
-    if override_yaml is not None and args_yaml_legacy is not None:
-        raise click.BadParameter(
-            "Use a single YAML source option."
-        )
-    if args_yaml_legacy is not None:
-        return config_yaml, args_yaml_legacy, True
-    return config_yaml, override_yaml, False
-
-
-def _load_merged_yaml_cfg(
-    config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-) -> Dict[str, Any]:
-    merged: Dict[str, Any] = {}
-    deep_update(merged, load_yaml_dict(config_yaml))
-    deep_update(merged, load_yaml_dict(override_yaml))
-    return merged
-
-
 def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: Path) -> None:
+    if not is_convert_file_enabled():
+        return
     if trj_path.exists():
         try:
             convert_xyz_to_pdb(trj_path, ref_pdb, out_path)
@@ -124,42 +108,6 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
         except Exception as e:
             click.echo(f"[convert] WARNING: Failed to convert '{trj_path.name}' to PDB: {e}", err=True)
 
-
-def _first_existing_artifact(out_dir: Path, patterns: Sequence[str]) -> Optional[Path]:
-    """Resolve the first existing artifact for a list of relative patterns."""
-    for pattern in patterns:
-        if any(ch in pattern for ch in "*?[]"):
-            for candidate in sorted(out_dir.glob(pattern)):
-                if candidate.is_file():
-                    return candidate.resolve()
-            continue
-        candidate = out_dir / pattern
-        if candidate.is_file():
-            return candidate.resolve()
-    return None
-
-
-def _link_or_copy_file(src: Path, dst: Path) -> bool:
-    """Create a symlink when possible; fall back to copy."""
-    try:
-        if dst.exists() or dst.is_symlink():
-            if dst.is_dir():
-                return False
-            dst.unlink()
-        rel = os.path.relpath(src, start=dst.parent)
-        dst.symlink_to(rel)
-        return True
-    except Exception:
-        try:
-            shutil.copy2(src, dst)
-            return True
-        except Exception:
-            return False
-
-
-def _write_output_summary_md(out_dir: Path) -> None:
-    """summary.md and key_* outputs are disabled."""
-    return None
 
 # --------------------------
 # CLI
@@ -225,6 +173,12 @@ def _write_output_summary_md(out_dir: Path) -> None:
     show_default=False,
     help="Spin multiplicity (2S+1); overrides calc.spin from YAML.",
 )
+@click.option(
+    "--freeze-links/--no-freeze-links",
+    default=True,
+    show_default=True,
+    help="Freeze parent atoms of link hydrogens (PDB only).",
+)
 @click.option("--max-cycles", type=int, default=None, help="Maximum number of IRC steps; overrides irc.max_cycles from YAML.")
 @click.option("--step-size", type=float, default=None, help="Step length in mass-weighted coordinates; overrides irc.step_length from YAML.")
 @click.option("--root", type=int, default=None, help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
@@ -274,6 +228,13 @@ def _write_output_summary_md(out_dir: Path) -> None:
     default=None,
     help="Reference PDB topology to use when --input is XYZ (keeps XYZ coordinates).",
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -285,6 +246,7 @@ def cli(
     detect_layer: bool,
     charge: Optional[int],
     spin: Optional[int],
+    freeze_links: bool,
     max_cycles: Optional[int],
     step_size: Optional[float],
     root: Optional[int],
@@ -296,7 +258,9 @@ def cli(
     show_config: bool,
     dry_run: bool,
     ref_pdb: Optional[Path],
+    convert_files: bool,
 ) -> None:
+    set_convert_file_enabled(convert_files)
     def _is_param_explicit(name: str) -> bool:
         try:
             source = ctx.get_parameter_source(name)
@@ -304,12 +268,12 @@ def cli(
         except Exception:
             return False
 
-    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
         override_yaml=None,
         args_yaml_legacy=None,
     )
-    merged_yaml_cfg = _load_merged_yaml_cfg(
+    merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
     )
@@ -402,9 +366,18 @@ def cli(
                 (irc_cfg, (("irc",),)),
             ],
         )
+        calc_paths = (("calc",), ("mlmm",))
+        partial_explicit = (
+            yaml_section_has_key(config_layer_cfg, calc_paths, "return_partial_hessian")
+            or yaml_section_has_key(override_layer_cfg, calc_paths, "return_partial_hessian")
+        )
+        if not partial_explicit:
+            calc_cfg["return_partial_hessian"] = True
 
         # Normalize any existing freeze list from YAML before wiring it to UMA
         merge_freeze_atom_indices(geom_cfg)
+        # Auto-detect and freeze parent atoms of link hydrogens (PDB only)
+        resolve_freeze_atoms(geom_cfg, source_path, freeze_links)
         calc_cfg["freeze_atoms"] = list(geom_cfg.get("freeze_atoms", []))
         if not calc_cfg.get("real_parm7"):
             raise click.BadParameter("Missing --real-parm7 (or calc.real_parm7 in YAML).")
@@ -530,21 +503,6 @@ def cli(
         # Create mlmm calculator
         calc = mlmm(**calc_cfg)
         geometry.set_calculator(calc)
-        # If using partial Hessian, freeze non-Hessian atoms so IRC evolves in the same subspace.
-        if calc_cfg.get("return_partial_hessian"):
-            calc_core = calc.core if hasattr(calc, "core") else calc
-            hess_freeze = list(getattr(calc_core, "hess_freeze_atoms", []) or [])
-            if hess_freeze:
-                existing_freeze = list(getattr(geometry, "freeze_atoms", []))
-                freeze_union = sorted(set(existing_freeze) | set(hess_freeze))
-                geometry.freeze_atoms = np.array(freeze_union, dtype=int)
-                for attr in ("_active_atom_indices", "_active_dof_indices"):
-                    if hasattr(geometry, attr):
-                        delattr(geometry, attr)
-                try:
-                    calc.freeze_atoms = freeze_union
-                except Exception:
-                    pass
 
         # Seed the initial Hessian via the shared freq backend so IRC reuses
         # the same Hessian path as frequency analysis.

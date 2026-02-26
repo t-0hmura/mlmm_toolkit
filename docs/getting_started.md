@@ -236,6 +236,24 @@ If you prefer to build the environment piece by piece:
 
 ---
 
+## Typical workflow
+
+The `mlmm all` command orchestrates a multi-step pipeline. When run individually, the typical workflow is:
+
+```text
+1. extract - Extract active-site pocket from full protein-ligand PDB
+2. mm-parm - Generate Amber parm7/rst7 topology (requires AmberTools)
+3. define-layer - Assign 3-layer ML/MM partitioning (B-factor encoding)
+4. path-search - Recursive MEP search (Growing String Method)
+5. tsopt - Transition state optimization
+6. freq - Vibrational analysis and thermochemistry
+7. dft - Single-point DFT energy refinement
+```
+
+The `all` command runs steps 1-7 automatically. You can also run each step individually for debugging or custom workflows.
+
+---
+
 ## Command line basics
 
 The main entry point is the `mlmm` command, installed via `pip`. Internally it uses the **Click** library, and the default subcommand is `all`.
@@ -256,24 +274,6 @@ All high-level workflows share two important options when you use cluster extrac
 - `-c/--center`: how to define the **substrate / extraction center** (e.g., residue names or residue IDs).
 
 If you omit `--center/-c`, cluster extraction is skipped and the **full input structure** is used directly.
-
----
-
-## Typical workflow
-
-The `mlmm all` command orchestrates a multi-step pipeline. When run individually, the typical workflow is:
-
-```text
-1. extract - Extract active-site pocket from full protein-ligand PDB
-2. mm-parm - Generate Amber parm7/rst7 topology (requires AmberTools)
-3. define-layer - Assign 3-layer ML/MM partitioning (B-factor encoding)
-4. path-search - Recursive MEP search (Growing String Method)
-5. tsopt - Transition state optimization
-6. freq - Vibrational analysis and thermochemistry
-7. dft - Single-point DFT energy refinement
-```
-
-The `all` command runs steps 1-7 automatically. You can also run each step individually for debugging or custom workflows.
 
 ---
 

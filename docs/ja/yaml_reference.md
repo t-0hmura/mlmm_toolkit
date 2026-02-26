@@ -74,8 +74,8 @@ calc:
  mm_fd_delta: 0.001 # 有限差分ステップ（保持）
  symmetrize_hessian: true # 最終ヘシアンを 0.5*(H+H^T) で対称化
  print_timing: true # ML/MM ヘシアンのタイミング内訳を表示
- print_vram: false # CUDA VRAM 使用量を表示
- return_partial_hessian: false # アクティブ DOF のみの部分ヘシアンを返す
+ print_vram: true # CUDA VRAM 使用量を表示
+ return_partial_hessian: false # 計算機の基底既定値（CLI ラッパー側で true 既定を適用する場合あり）
  freeze_atoms: [] # geom.freeze_atoms から継承
  # 層設定:
  hess_cutoff: null # Å: Hessian 対象 MM の距離カットオフ
@@ -91,6 +91,8 @@ calc:
 - `hess_cutoff`/`movable_cutoff` を指定しない場合、ML 以外の全原子が Hessian 対象 MM に分類されます。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
+- `opt`/`tsopt`/`irc`/`freq` は、YAML で `mlmm.return_partial_hessian` を明示しない場合に部分ヘシアンを既定で使用します。
+- これらのコマンドで完全ヘシアンを強制するには `mlmm.return_partial_hessian: false` を明示してください。
 
 ---
 

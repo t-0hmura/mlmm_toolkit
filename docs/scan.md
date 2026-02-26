@@ -4,7 +4,7 @@
 
 > **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `--spec` (YAML/JSON, recommended) to define targets; `--scan-lists` remains as a Python-literal input.
 
-### Quick reference
+### At a glance
 - **Use when:** You have a single structure and need to drive specific inter-atomic distances toward target values to explore a plausible path (often before `path-search`/`path-opt`).
 - **Input:** One structure + `--spec scan.yaml` (recommended), or one/more `--scan-lists` literals (each literal = one stage).
 - **Defaults:** LBFGS optimizer, `--preopt`, `--endopt`, `--max-step-size 0.20` A.
@@ -50,6 +50,8 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --dump --out-dir ./result_scan_dump
 ```
 
+> **Note:** Add `--print-parsed` when you want to verify parsed stage targets from `--spec` / `--scan-lists`.
+
 ## Usage
 ```bash
 mlmm scan -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
@@ -93,6 +95,68 @@ stages:
 - `stages` is required.
 - Each stage is a list of `(i, j, target_A)` triples.
 - Indices may be integers or PDB selectors (for PDB input), same as `--scan-lists`.
+
+## `--scan-lists` format
+
+`--scan-lists` is the advanced input mode. It accepts **Python literal** strings evaluated by the CLI. Shell quoting matters.
+
+### Basic structure
+
+Each literal is a Python list of triples `(atom1, atom2, target_A)`:
+
+```
+--scan-lists '[(atom1, atom2, target_A),...]'
+```
+
+- Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
+- Each triple drives the distance between `atom1`--`atom2` toward `target_A`.
+- One literal = one **stage**. For multiple stages, pass multiple literals after a **single** `--scan-lists` flag (do not repeat the flag).
+
+### Specifying atoms
+
+Atoms can be given as **integer indices** or **PDB selector strings**:
+
+| Method | Example | Notes |
+| --- | --- | --- |
+| Integer index | `(1, 5, 2.0)` | 1-based by default (`--one-based`) |
+| PDB selector | `("TYR,285,CA", "MMT,309,C10", 2.0)` | Residue name, residue number, atom name |
+
+PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
+
+```bash
+# All of these specify the same atom:
+"TYR,285,CA"
+"TYR 285 CA"
+"TYR/285/CA"
+"285,TYR,CA" # order is flexible
+```
+
+### Quoting rules
+
+```bash
+# Correct: single-quote the list, double-quote selector strings inside
+--scan-lists '[("TYR,285,CA","MMT,309,C10",1.35)]'
+
+# Correct: integer indices need no inner quotes
+--scan-lists '[(1, 5, 2.0)]'
+
+# Avoid: double-quoting the outer literal requires escaping inner quotes
+--scan-lists "[(\"TYR,285,CA\",\"MMT,309,C10\",1.35)]"
+```
+
+### Multiple stages
+
+Pass multiple literals after a single `--scan-lists` flag. Each literal becomes one stage:
+
+```bash
+# Stage 1: drive one bond to 1.35 A
+# Stage 2: drive two bonds simultaneously
+--scan-lists \
+ '[("TYR,285,CA","MMT,309,C10",1.35)]' \
+ '[("TYR,285,CA","MMT,309,C10",2.20),("TYR,285,CB","MMT,309,C11",1.80)]'
+```
+
+Stages run sequentially; each starts from the previous stage's relaxed result. **Do not repeat the `--scan-lists` flag** -- supply all stage literals after a single flag.
 
 ## Workflow
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
@@ -163,6 +227,8 @@ out_dir/ (default:./result_scan/)
  └─ scan.pdb # PDB version of scan_trj.xyz (PDB inputs only)
 ```
 
+## YAML configuration
+
 - `coord_type`: Coordinate type (cartesian vs dlc internals).
 - `freeze_atoms`: 0-based frozen atoms merged with CLI `--freeze-atoms`.
 
@@ -181,6 +247,17 @@ out_dir/ (default:./result_scan/)
  - `bond_factor` (`1.20`): Covalent-radius scaling for cutoff.
  - `margin_fraction` (`0.05`): Fractional tolerance for comparisons.
  - `delta_fraction` (`0.05`): Minimum relative change to flag formation/breaking.
+
+## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
+- Provide multiple literals after a single `--scan-lists` flag; repeated flags are not accepted.
+ Tuples must have positive targets. Atom indices are normalized to 0-based internally. For
+ PDB inputs, `i`/`j` can be selector strings with flexible delimiters
+ (space/comma/slash/backtick/backslash) and unordered tokens.
+- Stage results (`result.xyz` plus optional PDB companions) are written
+ regardless of `--dump`; trajectories are written only when `--dump` is `True`
+ and converted to `scan.pdb` (PDB inputs only) when conversion is enabled.
 
 ---
 

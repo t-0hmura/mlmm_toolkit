@@ -514,40 +514,39 @@ class Calculator:
                     shell=shell,
                 )
                 result.communicate()
-                try:
+                if hasattr(self, 'check_termination'):
                     normal_termination = False
-                    # Calling check_termination may result in an exception and
-                    # normal_termination will stay at False
-                    normal_termination = self.check_termination(tmp_out_fn)
-                # Method check_termination may not be implemented, so we will always
-                # do only one try.
-                except AttributeError:
+                    try:
+                        # Calling check_termination may result in an exception and
+                        # normal_termination will stay at False
+                        normal_termination = self.check_termination(tmp_out_fn)
+                    # The out file may not be present
+                    except FileNotFoundError:
+                        self.log(
+                            f"Could not find out-file {str(tmp_out_fn)} for termination status check!"
+                        )
+                else:
                     normal_termination = True
-                # The out file may not be present
-                except FileNotFoundError:
-                    self.log(
-                        f"Could not find out-file {str(tmp_out_fn)} for termination status check!"
-                    )
 
                 if normal_termination:
                     break
                 else:
                     print("Abnormal termination! Retrying calculation.")
                     shutil.copy(tmp_out_fn, str(tmp_out_fn) + f".fail_{retry:02d}")
-                    try:
+                    if hasattr(self, 'clean_tmp'):
                         self.clean_tmp(path)
-                    except AttributeError:
-                        self.log("'self.clean_path()' not implemented!")
+                    else:
+                        self.log("'self.clean_tmp()' not implemented!")
                     # Clear tmp_out_fn
                     handle.seek(0)
                     handle.truncate()
                     self.log("Detected abnormal termination! Retrying calculation.")
 
                     if not added_retry_args:
-                        try:
+                        if hasattr(self, 'get_retry_args'):
                             args += self.get_retry_args()
                             added_retry_args = True
-                        except AttributeError:
+                        else:
                             self.log("'self.get_retry_args()' not implemented!")
 
         # Parse results for desired quantities

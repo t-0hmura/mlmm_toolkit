@@ -1,11 +1,17 @@
 # `fix-altloc`
 
 ## Overview
-`fix-altloc` removes alternate location (altLoc) indicators from PDB files by
-selecting the best conformer for each atom based on occupancy and dropping
-duplicates.
 
-### Behavior
+> **Summary:** Remove alternate location (altLoc) indicators from PDB files by selecting the best conformer for each atom based on occupancy and dropping duplicates.
+
+### At a glance
+- **Use when:** Your PDB contains alternate conformers (altLoc A/B/...) that need to be resolved to a single conformer before downstream processing.
+- **Method:** Selects highest-occupancy conformer per atom identity key; blanks altLoc column (17).
+- **Outputs:** A cleaned PDB file with altLoc column blanked and duplicates removed.
+- **Defaults:** Skips files with no altLoc characters; output `<input>_clean.pdb`.
+- **Next step:** [extract](extract.md) or [mm-parm](mm_parm.md).
+
+### What it does
 1. Blank the PDB altLoc column (column 17, 1-based) with a single space.
  - This is a 1-character replacement (no shifting / no reformatting).
 2. If the same atom appears multiple times due to alternate locations
@@ -22,26 +28,40 @@ By default, if a file contains **no altLoc characters** (all column 17 positions
 are blank), the file is **skipped** and no output is written. Use `--force` to
 process files regardless of altLoc presence.
 
-## Usage
+## Minimal example
+
 ```bash
-mlmm fix-altloc -i INPUT.pdb [-o OUTPUT.pdb] [OPTIONS]
+mlmm fix-altloc -i 1abc.pdb
 ```
 
-## Examples
+## Output checklist
+
+- `<input>_clean.pdb` -- PDB with altLoc column blanked and duplicates removed
+- Original file unchanged (unless `--inplace` is set)
+
+## Common examples
+
+1. Specify output file.
+
 ```bash
-# Process a single file (output: INPUT_clean.pdb)
-mlmm fix-altloc -i 1abc.pdb
-
-# Specify output file
 mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb
+```
 
-# Process a directory recursively
+2. Process a directory recursively.
+
+```bash
 mlmm fix-altloc -i ./structures -o ./cleaned --recursive
+```
 
-# Overwrite input files in-place (creates.bak backups)
+3. Overwrite input files in-place (creates .bak backups).
+
+```bash
 mlmm fix-altloc -i ./structures --inplace --recursive
+```
 
-# Force processing even if no altLoc is detected
+4. Force processing even if no altLoc is detected.
+
+```bash
 mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb --force
 ```
 
@@ -135,3 +155,14 @@ if has_altloc(Path("input.pdb")):
  # Fix altLoc
  was_processed = fix_altloc_file("input.pdb", "output.pdb", overwrite=True)
 ```
+
+---
+
+## See Also
+
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+
+- [add-elem-info](add_elem_info.md) -- Repair PDB element columns before altLoc fixing
+- [extract](extract.md) -- Extract active-site pocket after altLoc resolution
+- [all](all.md) -- End-to-end workflow that includes automatic altLoc fixing

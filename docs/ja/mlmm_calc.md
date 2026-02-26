@@ -4,6 +4,13 @@
 
 > **要約:** PySisyphus 用の ONIOM 型 ML/MM 計算機。FAIR-Chem UMA（高レベル ML）と hessian_ff（低レベル MM）を結合し、酵素活性部位モデルのエネルギー、力、ヘシアンを計算します。
 
+### 概要
+- **用途:** すべての ML/MM 最適化、経路探索、スキャン、振動解析、IRC ワークフローを駆動する内部計算機を理解したい場合。
+- **手法:** 減算型 ONIOM: E = E(REAL-low) - E(MODEL-low) + E(MODEL-high)。
+- **入力:** `input.pdb`、`real.parm7`、`model.pdb`。
+- **デフォルト:** `mm_backend: hessian_ff`、UMA ヘシアンモード `Analytical`。
+- **次のステップ:** [opt](opt.md) または [tsopt](tsopt.md) でこの計算機を使用して計算を実行。
+
 `mlmm_calc.mlmm` は、機械学習原子間ポテンシャル（FAIR-Chem UMA）と分子力学力場（Amber prmtop ベースの `hessian_ff`）を組み合わせた減算型 ONIOM スタイルの ML/MM 計算機を実装しています。`mlmm_toolkit` のすべての ML/MM 最適化、経路探索、スキャン、振動解析、IRC ワークフローのコア計算機として機能します。
 
 この計算機はリンク原子なしで動作します。ML 領域はモデル PDB（`model.pdb`）で定義され、MM トポロジーは Amber prmtop（`real.parm7`）から取得され、座標は入力 PDB（`input.pdb`）から読み取られます。内部 `real.rst7` は ParmEd により `real.parm7` と `input.pdb` の座標を組み合わせて生成されます -- 外部の `real.rst7` や `real.pdb` は不要です。
@@ -82,7 +89,8 @@ mlmm:
 
 PySisyphus インターフェースは原子単位（Hartree/Bohr）に変換された値を返します。
 
-## 実装ノート
+## 注意事項
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - メモリ使用量を削減するため、ヘシアン組み立てはインプレースの `add_`/`sub_`/`mul_` を使用します。
 - REAL/MODEL 間の原子 ID マッピングは `input.pdb` のみに基づきます。

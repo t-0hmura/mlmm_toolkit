@@ -2,7 +2,14 @@
 
 ## Overview
 
-> **Summary:** Run a single-point DFT calculation on the ML region using PySCF/GPU4PySCF, then recombine with MM energies to obtain the ML(dft)/MM total energy.
+> **Summary:** Run a single-point DFT calculation on the ML region using PySCF/GPU4PySCF, then recombine with MM energies to obtain the ML(dft)/MM total energy. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
+
+### At a glance
+- **Use when:** You want a higher-level single-point energy for your ML/MM system using DFT on the ML region with ONIOM-style recombination.
+- **Method:** PySCF (CPU) or GPU4PySCF (GPU) single-point DFT on the ML region + link hydrogens, combined with MM evaluations for the ONIOM total energy.
+- **Outputs:** `ml_region_with_linkH.xyz`, `result.yaml` with ML(dft)/MM combined energy.
+- **Defaults:** `--func-basis wb97m-v/6-31g**`, `--max-cycle 100`, `--conv-tol 1e-9`.
+- **Next step:** Compare DFT//UMA energies across R/TS/P states, or use within [all](all.md) `--dft` for automated diagrams.
 
 `mlmm dft` extracts the ML region from the full enzyme PDB, appends link hydrogens, and runs a single-point PySCF (or GPU4PySCF) calculation. After the DFT evaluation, the script recomputes the **ML(dft)/MM total energy** by combining the PySCF high-level energy with MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low):
 
@@ -48,29 +55,15 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
 ```
 
-## Usage
-```bash
-mlmm dft -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
- -q CHARGE [-m SPIN] [--freeze-atoms "1,3,5"] [--func-basis "FUNC/BASIS"] \
- [--max-cycle N] [--conv-tol Eh] [--grid-level L] [--out-dir DIR] \
-```
-
-### Examples
-```bash
-# Basic single-point DFT
-mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
-
-# Custom functional/basis, frozen atoms, tighter SCF
-mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q -1 -m 2 \
- --func-basis "wb97m-v/def2-tzvpd" --freeze-atoms "1,3,5" --max-cycle 150 --conv-tol 1e-9
-```
-
 ## Workflow
+
 1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--real-parm7`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Link hydrogens are appended automatically (C/N parents within 1.7 A) unless explicit `link_mlmm` pairs are provided via YAML.
-4. **ML(dft)/MM recombination** -- After the DFT converges, MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low) are computed. The combined energy is reported in Hartree and kcal/mol.
-5. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block.
+2. **SCF build** -- `--func-basis` is parsed into functional and basis. Density fitting is enabled automatically with PySCF defaults. The GPU4PySCF backend is used when available; otherwise CPU PySCF is used.
+3. **ML(dft)/MM recombination** -- After the DFT converges, MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low) are computed. The combined energy is reported in Hartree and kcal/mol.
+4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
 
 ## CLI options
+
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Full enzyme PDB file (must be `.pdb`). | Required |
@@ -92,13 +85,21 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q -1 -
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. | `False` |
 
 ## Outputs
+
 ```
-out_dir/ (default:./result_dft/)
-├── ml_region_with_linkH.xyz # ML-region coordinates (with link-H) used for DFT
-├── result.yaml # DFT + ML(dft)/MM energy summary, charges, spin densities
-└── (stdout) # Pretty-printed configuration blocks and energies
+out_dir/ (default: ./result_dft/)
+├── ml_region_with_linkH.xyz    # ML-region coordinates (with link-H) used for DFT
+├── result.yaml                 # DFT + ML(dft)/MM energy summary, charges, spin densities
+└── (stdout)                    # Pretty-printed configuration blocks and energies
 ```
 
+- `result.yaml` expands to:
+  - `energy`: Hartree/kcal/mol values, convergence flag, wall time, backend info (gpu4pyscf vs pyscf(cpu)).
+  - `charges`: Mulliken, meta-Lowdin, and IAO atomic charges (`null` when a method fails).
+  - `spin_densities`: Mulliken, meta-Lowdin, and IAO spin densities (UKS-only for spins).
+- It also summarizes charge, multiplicity, spin (2S), functional, basis, convergence knobs, and resolved output directory.
+
+## YAML configuration
 
 Accepts a mapping root; the `dft` section (and optional `geom`, `calc`/`mlmm`) is applied when present. Merge order is:
 - defaults
@@ -115,27 +116,31 @@ Accepts a mapping root; the `dft` section (and optional `geom`, `calc`/`mlmm`) i
 
 ```yaml
 geom:
- coord_type: cart
+ coord_type: cart                  # optional geom_loader settings
 calc:
- charge: 0
- spin: 1
+ charge: 0                         # ML region charge
+ spin: 1                           # spin multiplicity 2S+1
 mlmm:
- real_parm7: real.parm7
- model_pdb: ml_region.pdb
+ real_parm7: real.parm7            # Amber parm7 topology
+ model_pdb: ml_region.pdb          # ML-region definition
 dft:
- func_basis: wb97m-v/6-31g**
- conv_tol: 1.0e-09
- max_cycle: 100
- grid_level: 3
- verbose: 4
- out_dir:./result_dft/
+ func_basis: wb97m-v/6-31g**      # exchange-correlation functional / basis set
+ conv_tol: 1.0e-09                # SCF convergence tolerance (Hartree)
+ max_cycle: 100                    # maximum SCF iterations
+ grid_level: 3                     # PySCF grid level
+ verbose: 4                        # PySCF verbosity (0-9)
+ out_dir: ./result_dft/            # output directory root
 ```
 
 ## Notes
+
 - For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
 - Link hydrogens are detected automatically (C/N parents within 1.7 A) unless explicit `link_mlmm` pairs are provided via YAML. Unsupported parent elements raise an error.
+- The GPU4PySCF backend is activated automatically when available; otherwise PySCF CPU is used. If **Blackwell architecture** GPUs are detected, a warning is emitted because current GPU4PySCF may be unsupported.
+- Density fitting is always attempted with PySCF defaults (no auxiliary basis guessing is implemented).
 - DFT options (functional/basis, SCF controls) remain YAML-overridable under the `dft` key.
+- IAO spin/charge analysis may fail for challenging systems; corresponding columns in `result.yaml` become `null` and a warning is printed.
 - Exit codes: `0` when the SCF converges, `3` when it does not, `130` for keyboard interrupt, `1` on other errors.
 
 ---
@@ -143,7 +148,10 @@ dft:
 ## See Also
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [freq](freq.md) -- Vibrational frequency analysis (often precedes DFT refinement)
 - [opt](opt.md) -- Single-structure geometry optimization
 - [all](all.md) -- End-to-end workflow with `--dft`
+- [YAML Reference](yaml_reference.md) -- Full `dft` configuration options
+- [Glossary](glossary.md) -- Definitions of DFT, SP (Single Point)

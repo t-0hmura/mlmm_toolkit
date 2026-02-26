@@ -77,6 +77,7 @@ from .utils import (
     snapshot_geometry,
     convert_and_annotate_xyz_to_pdb,
 )
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg
 
 # Shared defaults (copied from opt.py to keep ML/MM behaviour consistent)
 GEOM_KW: Dict[str, Any] = deepcopy(_OPT_GEOM_KW)
@@ -97,30 +98,6 @@ HARTREE_TO_KCAL_MOL = 627.50961
 _VOLUME_GRID_N = 50  # 50×50×50 RBF interpolation grid
 
 _snapshot_geometry = functools.partial(snapshot_geometry, coord_type_default="cart")
-
-
-def _resolve_yaml_sources(
-    config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
-) -> tuple[Optional[Path], Optional[Path], bool]:
-    if override_yaml is not None and args_yaml_legacy is not None:
-        raise click.BadParameter(
-            "Use a single YAML source option."
-        )
-    if args_yaml_legacy is not None:
-        return config_yaml, args_yaml_legacy, True
-    return config_yaml, override_yaml, False
-
-
-def _load_merged_yaml_cfg(
-    config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-) -> Dict[str, Any]:
-    merged: Dict[str, Any] = {}
-    deep_update(merged, load_yaml_dict(config_yaml))
-    deep_update(merged, load_yaml_dict(override_yaml))
-    return merged
 
 
 def _make_lbfgs(
@@ -362,7 +339,7 @@ def cli(
     zmax: Optional[float],
 ) -> None:
     time_start = time.perf_counter()
-    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
         override_yaml=None,
         args_yaml_legacy=None,
@@ -402,7 +379,7 @@ def cli(
                     click.echo(f"ERROR: {exc}", err=True)
                     sys.exit(1)
 
-            yaml_cfg = _load_merged_yaml_cfg(
+            yaml_cfg, _, _ = load_merged_yaml_cfg(
                 config_yaml=config_yaml,
                 override_yaml=None,
             )

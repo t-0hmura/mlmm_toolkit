@@ -141,3 +141,4 @@ This page provides definitions for abbreviations and technical terms used throug
 - [Common Error Recipes](recipes_common_errors.md) -- symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- common errors and fixes
 - [YAML Reference](yaml_reference.md) -- configuration file format
+- [ML/MM Calculator](mlmm_calc.md) -- machine learning potential details

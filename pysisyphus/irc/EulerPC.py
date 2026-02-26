@@ -16,6 +16,7 @@
 # 	Further improvements for DWI; not implemented
 
 import time
+from collections import deque
 
 import numpy as np
 
@@ -283,7 +284,8 @@ class EulerPC(IRC):
             points = 20 * (2**k)
             corr_step_length = step_length / (points - 1)
             cur_coords = init_mw_coords.copy()
-            k_coords = list()
+            # Only keep the last 2 coords (needed for oscillation check)
+            k_coords = deque(maxlen=2)
             cur_length = 0
 
             # Integrate until the desired spacing is reached
@@ -302,7 +304,7 @@ class EulerPC(IRC):
                 cur_length = get_integration_length(cur_coords)
 
                 # Check for oscillation
-                try:
+                if len(k_coords) >= 2:
                     prev_coords = k_coords[-2]
                     osc_norm = np.linalg.norm(cur_coords - prev_coords)
                     # TODO: Handle this by restarting everything with a smaller stepsize?
@@ -314,8 +316,6 @@ class EulerPC(IRC):
                             "\tAborting corrector integration!"
                         )
                         return prev_coords
-                except IndexError:
-                    pass
             richardson[(k, 0)] = cur_coords
 
             # Refine using Richardson extrapolation

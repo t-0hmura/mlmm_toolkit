@@ -4,7 +4,7 @@ This page explains the key terms in mlmm_toolkit -- pockets, templates, segments
 
 ---
 
-## Workflow overview
+## Workflow at a glance
 
 Most workflows follow this flow:
 
@@ -201,7 +201,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 
 ---
 
-## Important CLI conventions
+## A few CLI conventions worth knowing
 
 ```{important}
 - Boolean options accept both `--flag` / `--no-flag` and value style `--flag True/False` (`yes/no`, `1/0` are also accepted). Prefer toggle style.

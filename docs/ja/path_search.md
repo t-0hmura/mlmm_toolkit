@@ -4,6 +4,16 @@
 
 > **要約:** 再帰的 GSM セグメンテーションにより 2 つ以上の構造から連続した MEP を構築します。結合変化のある領域のみを自動的に精密化し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。
 
+### 概要
+- **用途:** R -> ... -> P の構造（2 つ以上の入力）があり、自動精密化付きの単一の連結 MEP が必要な場合に使用。
+- **手法:** GSM セグメントを連鎖し、共有結合変化を含むサブ区間のみを再帰的に精密化。
+- **出力:** `mep_trj.xyz`（メイン軌跡）、`summary.yaml`（セグメントごとの結果）、有効時にプロット/マージ PDB。
+- **デフォルト:** `--opt-mode light`（LBFGS）、`--preopt`、`--align`、`--thresh gau`。
+- **次のステップ:** HEI 出力だけでは TS を検証できません。[tsopt](tsopt.md)、[freq](freq.md)、[irc](irc.md) で続行してください。
+
+`mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、解決されたサブパスを 1 つの軌跡に統合します。
+
+端点が **2 つ**だけで再帰的精密化が不要な場合は、[path-opt](path_opt.md) がより簡単な選択です。
 
 ## 最小例
 
@@ -12,7 +22,7 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
-## 出力の見方
+## 出力チェックリスト
 
 - `result_path_search/mep_trj.xyz`
 - `result_path_search/summary.yaml`
@@ -70,12 +80,16 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 
 ## ワークフロー
 
-1. **初期セグメント（隣接ペア A->B ごと）** -- ML/MM で GSM を実行して予備 MEP を取得。
-2. **障壁の局所化** -- 最高エネルギーイメージ（HEI）を検出し、選択した単一構造オプティマイザー（`--opt-mode`）で HEI+/-1 を最適化して End1 と End2 を取得。
-3. **精密化** -- End1-End2 に共有結合変化がない場合（キンク）、`search.kink_max_nodes` 個の線形イメージを挿入して各イメージを最適化。それ以外の場合、End1 と End2 間で精密化 GSM を実行。
-4. **選択的再帰** -- (A->End1) と (End2->B) の共有結合変化を評価し、変化のある側のみ再帰。
-5. **サブパスの統合** -- RMSD による重複除去でサブ MEP を連結。端点が `search.bridge_rmsd_thresh` を超えて不一致の場合はブリッジ GSM を挿入。共有結合変化のあるインターフェースはブリッジではなく再帰セグメントを生成。
+1. **初期セグメント（隣接ペア A->B ごと; GSM）** -- ML/MM で `GrowingString` を実行して粗い MEP を取得し、最高エネルギーイメージ（HEI）を特定。
+2. **HEI 周辺の局所緩和** -- 選択した単一構造オプティマイザー（`opt-mode`）で HEI +/- 1 を精密化し、近傍の極小（`End1`、`End2`）を回復。
+3. **キンク vs 精密化の判定**:
+ - `End1` と `End2` の間に共有結合変化が検出されない場合、その領域を*キンク*として扱い、`search.kink_max_nodes` 個の線形ノードを挿入して各ノードを個別に最適化。
+ - それ以外の場合、`End1` と `End2` の間で**精密化セグメント（GSM）**を起動して障壁を鮮明化。
+4. **選択的再帰** -- `(A->End1)` と `(End2->B)` の結合変化を `bond` 閾値で比較。共有結合の更新を含むサブ区間のみに再帰。再帰深度は `search.max_depth` で制限。
+5. **統合とブリッジ** -- 解決されたサブパスを連結し、RMSD <= `search.stitch_rmsd_thresh` の重複端点を削除。2 つの統合部分の間の RMSD ギャップが `search.bridge_rmsd_thresh` を超える場合、ブリッジ MEP セグメント（GSM）を挿入。インターフェース自体に結合変化がある場合、ブリッジの代わりに新たな再帰セグメントを生成。
 6. **任意のアライメントとマージ** -- 事前最適化後、`--align` で入力を剛体アラインし凍結を精密化。`--ref-pdb` がある場合、ポケット軌跡を完全テンプレートにマージし、セグメントをプロット/分析用にアノテーション。
+
+結合変化検出は `bond` YAML セクションの閾値を使用する `bond_changes.compare_structures` に依存します。
 
 ## CLI オプション
 
@@ -119,6 +133,7 @@ out_dir/ (デフォルト:./result_path_search/)
  seg_000_*/ # セグメントレベルの GSM と精密化成果物
 ```
 
+## YAML 設定
 
 マージ順は **defaults < config < 明示指定 CLI < override** です。
 
@@ -133,7 +148,6 @@ YAML ルートはマッピングでなければなりません。受け付ける
 - **`search`** -- 再帰ロジック: `max_depth`、`stitch_rmsd_thresh`、`bridge_rmsd_thresh`、`max_nodes_segment`、`max_nodes_bridge`、`kink_max_nodes`、`max_seq_kink`。
 
 ## 注意事項
-
 - 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - 入力: `-i/--input` に反応順の完全酵素 PDB を少なくとも 2 つ提供してください。
@@ -150,6 +164,8 @@ YAML ルートはマッピングでなければなりません。受け付ける
 ---
 
 ## 関連項目
+
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 
 - [path-opt](path_opt.md) -- シングルパス MEP 最適化（再帰的精密化なし）
 - [opt](opt.md) -- 単一構造の構造最適化

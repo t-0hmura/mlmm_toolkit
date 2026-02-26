@@ -4,6 +4,13 @@
 
 > **Summary:** ONIOM-like ML/MM calculator for PySisyphus, coupling FAIR-Chem UMA (high-level ML) and hessian_ff (low-level MM) to compute energies, forces, and Hessians for enzyme active-site models.
 
+### At a glance
+- **Use when:** You need to understand the internal calculator that powers all ML/MM optimization, path search, scan, frequency, and IRC workflows.
+- **Method:** Subtractive ONIOM: E = E(REAL-low) - E(MODEL-low) + E(MODEL-high).
+- **Inputs:** `input.pdb`, `real.parm7`, `model.pdb`.
+- **Defaults:** `mm_backend: hessian_ff`; UMA Hessian mode `Analytical`.
+- **Next step:** [opt](opt.md) or [tsopt](tsopt.md) to run calculations using this calculator.
+
 `mlmm_calc.mlmm` implements a subtractive ONIOM-style ML/MM calculator that combines a machine-learning interatomic potential (FAIR-Chem UMA) with a molecular-mechanics force field (Amber prmtop-based `hessian_ff`). It serves as the core calculator for all ML/MM optimization, path search, scan, frequency, and IRC workflows in `mlmm_toolkit`.
 
 The calculator operates without link atoms. The ML region is defined by a model PDB (`model.pdb`), the MM topology comes from an Amber prmtop (`real.parm7`), and coordinates are taken from the input PDB (`input.pdb`). An internal `real.rst7` is generated via ParmEd by combining `real.parm7` with coordinates from `input.pdb` -- no external `real.rst7` or `real.pdb` is required.
@@ -80,7 +87,9 @@ mlmm:
 
 The PySisyphus interface returns values converted to atomic units (Hartree/Bohr).
 
-## Implementation notes
+## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
 - To reduce memory usage, Hessian assembly uses in-place `add_`/`sub_`/`mul_`.
 - Atom ID mapping between REAL/MODEL is based solely on `input.pdb`.
 - `real.rst7` is created internally from `input.pdb` coordinates using ParmEd.

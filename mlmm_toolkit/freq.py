@@ -43,6 +43,9 @@ from .utils import (
     apply_layer_freeze_constraints,
     apply_yaml_overrides,
     convert_xyz_to_pdb,
+    set_convert_file_enabled,
+    is_convert_file_enabled,
+    convert_xyz_like_outputs,
     deep_update,
     format_elapsed,
     format_freeze_atoms_for_echo,
@@ -55,68 +58,11 @@ from .utils import (
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
     strip_inherited_keys,
+    yaml_section_has_key,
+    resolve_freeze_atoms,
 )
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli
 
-
-def _resolve_yaml_sources(
-    config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
-) -> Tuple[Optional[Path], Optional[Path], bool]:
-    if override_yaml is not None and args_yaml_legacy is not None:
-        raise click.BadParameter(
-            "Use a single YAML source option."
-        )
-    if args_yaml_legacy is not None:
-        return config_yaml, args_yaml_legacy, True
-    return config_yaml, override_yaml, False
-
-
-def _load_merged_yaml_cfg(
-    config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-) -> Dict[str, Any]:
-    merged: Dict[str, Any] = {}
-    deep_update(merged, load_yaml_dict(config_yaml))
-    deep_update(merged, load_yaml_dict(override_yaml))
-    return merged
-
-
-def _first_existing_artifact(out_dir: Path, patterns: Sequence[str]) -> Optional[Path]:
-    """Resolve the first existing artifact for a list of relative patterns."""
-    for pattern in patterns:
-        if any(ch in pattern for ch in "*?[]"):
-            for candidate in sorted(out_dir.glob(pattern)):
-                if candidate.is_file():
-                    return candidate.resolve()
-            continue
-        candidate = out_dir / pattern
-        if candidate.is_file():
-            return candidate.resolve()
-    return None
-
-
-def _link_or_copy_file(src: Path, dst: Path) -> bool:
-    """Create a symlink when possible; fall back to copy."""
-    try:
-        if dst.exists() or dst.is_symlink():
-            if dst.is_dir():
-                return False
-            dst.unlink()
-        rel = os.path.relpath(src, start=dst.parent)
-        dst.symlink_to(rel)
-        return True
-    except Exception:
-        try:
-            shutil.copy2(src, dst)
-            return True
-        except Exception:
-            return False
-
-
-def _write_output_summary_md(out_dir: Path) -> None:
-    """summary.md and key_* outputs are disabled."""
-    return None
 
 def _torch_device(auto: str = "auto") -> torch.device:
     if auto == "auto":
@@ -173,7 +119,7 @@ def _mw_projected_hessian(H_t: torch.Tensor,
     Hmw = M^{-1/2} H M^{-1/2};  P = I - QQ^T;  Hmw_proj = P Hmw P
 
     To save memory, update **H_t in-place** (no clone) and return it.
-    No explicit symmetrization. The eigen-decomposition uses only the upper triangle (UPLO="U").
+    Explicit symmetrization is applied before eigendecomposition.
     """
     dtype, device = H_t.dtype, H_t.device
     with torch.no_grad():
@@ -303,7 +249,10 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                 QtHQ = QtH @ Q
                 Hmw_act.addmm_(Q @ QtHQ, Qt, beta=1.0, alpha=1.0)
 
-                # Diagonalize (upper triangle only; no symmetrization)
+                # Explicit symmetrization before eigendecomposition
+                _t = Hmw_act.T.clone()
+                Hmw_act.add_(_t).mul_(0.5)
+                del _t
                 omega2, Vsub = torch.linalg.eigh(Hmw_act, UPLO="U")
 
                 # Free the (only) Hessian ASAP
@@ -355,7 +304,10 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                 QtH = QtH @ Q
                 H_t.addmm_(Q @ QtH, Qt, beta=1.0, alpha=1.0)
 
-                # No symmetrization; diagonalize using upper triangle only
+                # Explicit symmetrization before eigendecomposition
+                _t = H_t.T.clone()
+                H_t.add_(_t).mul_(0.5)
+                del _t
                 omega2, Vsub = torch.linalg.eigh(H_t, UPLO="U")
 
                 # Free the (only) Hessian ASAP
@@ -372,8 +324,12 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                 del Vsub, mask_dof, Q, Qt, QtH
 
         else:
-            # Legacy behavior: TR-projection in full DOF → diagonalization (both in-place; no symmetrization)
+            # Legacy behavior: TR-projection in full DOF → diagonalization (both in-place)
             H_t = _mw_projected_hessian(H_t, coords_bohr_t, masses_au_t)
+            # Explicit symmetrization before eigendecomposition
+            _t = H_t.T.clone()
+            H_t.add_(_t).mul_(0.5)
+            del _t
             omega2, V = torch.linalg.eigh(H_t, UPLO="U")
 
             # Free the (only) Hessian ASAP
@@ -578,17 +534,18 @@ def _write_mode_trj_and_pdb(geom,
                 f.write(f"{len(geom.atoms)}\n{comment} frame={i+1}/{n_frames}\n")
                 for sym, (x, y, z) in zip(geom.atoms, coords):
                     f.write(f"{sym:2s} {x: .8f} {y: .8f} {z: .8f}\n")
-        # Generate PDB using the input PDB as template
-        try:
-            convert_xyz_to_pdb(out_trj, ref_pdb, out_pdb)
-        except Exception:
-            # Fallback: generate MODEL/ENDMDL using ASE
-            atoms0 = Atoms(geom.atoms, positions=ref_ang, pbc=False)
-            for i in range(n_frames):
-                phase = np.sin(2.0 * np.pi * i / n_frames)
-                ai = atoms0.copy()
-                ai.set_positions(ref_ang + phase * amplitude_ang * mode)
-                write(out_pdb, ai, append=(i != 0))
+        # Generate PDB using the input PDB as template (respects convert-files toggle)
+        if is_convert_file_enabled():
+            try:
+                convert_xyz_to_pdb(out_trj, ref_pdb, out_pdb)
+            except Exception:
+                # Fallback: generate MODEL/ENDMDL using ASE
+                atoms0 = Atoms(geom.atoms, positions=ref_ang, pbc=False)
+                for i in range(n_frames):
+                    phase = np.sin(2.0 * np.pi * i / n_frames)
+                    ai = atoms0.copy()
+                    ai.set_positions(ref_ang + phase * amplitude_ang * mode)
+                    write(out_pdb, ai, append=(i != 0))
         return
 
     # If no ref_pdb is given, use the legacy behavior (use pysisyphus.make_trj_str if available)
@@ -718,6 +675,12 @@ THERMO_KW: Dict[str, Any] = {
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
+    "--freeze-links/--no-freeze-links",
+    default=True,
+    show_default=True,
+    help="Freeze parent atoms of link hydrogens (PDB only).",
+)
+@click.option(
     "--hess-cutoff",
     "hess_cutoff",
     type=float,
@@ -803,6 +766,13 @@ THERMO_KW: Dict[str, Any] = {
     default=None,
     help="Reference PDB topology to use when --input is XYZ (keeps XYZ coordinates).",
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -815,6 +785,7 @@ def cli(
     charge: Optional[int],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
+    freeze_links: bool,
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     hessian_calc_mode: Optional[str],
@@ -831,7 +802,9 @@ def cli(
     show_config: bool,
     dry_run: bool,
     ref_pdb: Optional[Path],
+    convert_files: bool,
 ) -> None:
+    set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
 
     def _is_param_explicit(name: str) -> bool:
@@ -841,12 +814,12 @@ def cli(
         except Exception:
             return False
 
-    config_yaml, override_yaml, used_legacy_yaml = _resolve_yaml_sources(
+    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
         override_yaml=None,
         args_yaml_legacy=None,
     )
-    merged_yaml_cfg = _load_merged_yaml_cfg(
+    merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
     )
@@ -961,7 +934,6 @@ def cli(
     calc_cfg["real_parm7"] = str(real_parm7)
     if model_pdb is not None:
         calc_cfg["model_pdb"] = str(model_pdb)
-    calc_cfg.setdefault("return_partial_hessian", True)
 
     apply_yaml_overrides(
         override_layer_cfg,
@@ -972,6 +944,13 @@ def cli(
             (thermo_cfg, (("thermo",), ("freq", "thermo"))),
         ],
     )
+    calc_paths = (("calc",), ("mlmm",))
+    partial_explicit = (
+        yaml_section_has_key(config_layer_cfg, calc_paths, "return_partial_hessian")
+        or yaml_section_has_key(override_layer_cfg, calc_paths, "return_partial_hessian")
+    )
+    if not partial_explicit:
+        calc_cfg["return_partial_hessian"] = True
 
     try:
         geom_freeze = _normalize_geom_freeze_opt(geom_cfg.get("freeze_atoms"))
@@ -982,6 +961,11 @@ def cli(
     geom_cfg["freeze_atoms"] = geom_freeze
     if freeze_atoms_cli:
         merge_freeze_atom_indices(geom_cfg, freeze_atoms_cli)
+    freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
+    calc_cfg["freeze_atoms"] = freeze_atoms_final
+
+    # Auto-detect and freeze parent atoms of link hydrogens (PDB only)
+    resolve_freeze_atoms(geom_cfg, source_path, freeze_links)
     freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
     calc_cfg["freeze_atoms"] = freeze_atoms_final
 

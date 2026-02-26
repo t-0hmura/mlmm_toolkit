@@ -2,35 +2,42 @@
 
 ## 概要
 
-> **要約:** ML/MM 計算機（FAIR-Chem UMA + OpenMM）を使用した、部分ヘシアンガイド付き Dimer（`--opt-mode light`）または RS-I-RFO（`--opt-mode heavy`、デフォルト）による遷移状態最適化。
+> **概要:** Dimer（`--opt-mode light`）、RS-I-RFO（`--opt-mode heavy`、デフォルト）、またはハイブリッド（`--opt-mode hybrid`: Dimer 後に RS-I-RFO フラットンステージ）を使用して遷移状態*候補*を最適化します。検証済み TS は**正確に 1 つ**の虚数振動数を示すべきです。必ず freq/IRC でモード/結合性を確認してください。
 
-`mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。オプティマイザーは TS 推測構造（例: `path-opt`/`path-search` からの最高エネルギーイメージ、またはユーザー独自の構造）から開始し、一次鞍点へ精密化します。
-
-### 主な特徴
-
-- **部分ヘシアンガイド付き Dimer:** ゆるい/最終 Dimer ループ中、OpenMM 有限差分ヘシアンは無効化（`mm_fd=False`）されます。UMA ヘシアンは MM 原子をゼロパディングして完全な 3N x 3N 空間に埋め込まれ、Dimer の方向更新をガイドする部分ヘシアンを提供します。
-- **完全ヘシアンによるフラットンループ:** 探索がフラットンループに入ると、完全な ML/MM ヘシアン（MM 有限差分ブロックを含む）が正確に 1 回計算され、その後 Dimer セグメント間で Bofill ステップによりアクティブ部分空間で更新されます。
-- **PHVA + TR 射影:** アクティブ自由度射影と質量加重並進/回転除去は `freq.py` をミラーリングし、一貫した虚数モード解析とモード書き出しを保証します。
+### 概要
+- **用途:** TS 推測構造（`path-opt`/`path-search` からの HEI、またはユーザー独自の構造）を ML/MM で一次鞍点に精密化する場合。
+- **手法:** `heavy` = RS-I-RFO（デフォルト、一般的により堅牢）。`light` = ヘシアンガイド付き Dimer（ステップあたりのコストが低い場合が多い）。`hybrid` = Dimer で収束後、RS-I-RFO フラットンループのみ実行。
+- **出力:** `final_geometry.xyz`/`.pdb`、`vib/` 内の虚数モードアニメーション。
+- **デフォルト:** `--opt-mode heavy`、`--thresh baker`、`--max-cycles 10000`、`--freeze-links` 有効、`--flatten` 無効。
+- **次のステップ:** [freq](freq.md) で正確に 1 つの虚数振動数を確認し、[irc](irc.md) で結合性を検証。
 
 ### `--opt-mode` の選択
+- **`--opt-mode heavy`（RS-I-RFO）** を使用: デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合。
+- **`--opt-mode light`（Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。
+- **`--opt-mode hybrid`** を使用: Dimer 探索の動作で heavy 式の RS-I-RFO フラットニングを行いたい場合。
 
-- **`heavy`（RS-I-RFO、デフォルト）:** 完全ヘシアンを使用する保守的なオプティマイザー。一般的により堅牢。
-- **`light`（Dimer）:** 部分ヘシアンガイド付き Dimer を使用する軽量探索。ステップあたりのコストが低い場合が多い。
+`mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。オプティマイザーは TS 推測構造から開始し、一次鞍点へ精密化します。
 
-## 最小例
+### 主な特徴
+- **部分ヘシアンガイド付き Dimer:** ゆるい/最終 Dimer ループ中、hessian_ff 有限差分ヘシアンは無効化（`mm_fd=False`）されます。UMA ヘシアンは MM 原子をゼロパディングして完全な 3N x 3N 空間に埋め込まれ、Dimer の方向更新をガイドする部分ヘシアンを提供します。
+- **完全ヘシアンによるフラットンループ:** 探索がフラットンループに入ると、完全な ML/MM ヘシアン（MM 有限差分ブロックを含む）が正確に 1 回計算され、その後 Dimer セグメント間で Bofill ステップによりアクティブ部分空間で更新されます。
+- **PHVA + TR 射影:** アクティブ自由度射影と質量加重並進/回転除去は `freq.py` をミラーリングし、一貫した虚数モード解析とモード書き出しを保証します。
+- **出力変換:** `--convert-files`（デフォルト）により、PDB 入力は `.pdb` にミラーリングされ（`--dump` 時）、虚数モードは `_trj.xyz` とともに `.pdb` としてもエクスポートされます。
+
+## 最小の例
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
-## 出力の見方
+## 出力チェックリスト
 
 - `result_tsopt/final_geometry.pdb`（または `final_geometry.xyz`）
 - `result_tsopt/vib/final_imag_mode_*_trj.xyz`
 - `result_tsopt/vib/final_imag_mode_*.pdb`
 
-## よくある例
+## 使用例
 
 1. VRAM に余裕がある場合に light モード + 解析的ヘシアンで実行する。
 
@@ -53,39 +60,28 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
 ```
 
-## 使用法
+4. hybrid モード（Dimer + RS-I-RFO フラットンステージ）で実行する。
 
 ```bash
-mlmm tsopt -i INPUT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
- -q CHARGE [-m SPIN] [--freeze-atoms "1,3,5"] [--max-cycles N] \
- [--dump/--no-dump] [--out-dir DIR] [--thresh PRESET] \
- [--opt-mode light|heavy] [--hessian-calc-mode Analytical|FiniteDifference] \
-```
-
-### 例
-
-```bash
-# デフォルト heavy モード（RS-I-RFO）
 mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --max-cycles 8000 --dump --out-dir ./result_tsopt/
-
-# light モード（Dimer）、解析的ヘシアン
-mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt/
+ -q 0 -m 1 --opt-mode hybrid --flatten --out-dir ./result_tsopt_hybrid
 ```
 
 ## ワークフロー
 
 1. **入力処理** -- 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
-2. **ML/MM 計算機の構築** -- ML/MM 計算機（FAIR-Chem UMA + OpenMM）を構築します。`--hessian-calc-mode` は UMA がヘシアンを解析的に評価するか有限差分で評価するかを制御します。
-3. **Light モード（Dimer）:**
- - ヘシアン Dimer ステージは、正確なヘシアン（アクティブ部分空間、TR 射影済み）を評価して Dimer 方向を定期的に更新します。
- - フラットンループが有効な場合、保存されたアクティブヘシアンは変位と勾配差分を使用した Bofill で更新されます。各ループで虚数モードを推定し、一度フラットンし、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
-4. **Heavy モード（RS-I-RFO）:**
- - RS-I-RFO オプティマイザーを、`rsirfo` YAML セクションで定義されたオプションのヘシアン参照ファイルとマイクロサイクル制御とともに実行します。
-5. **モードエクスポート** -- 収束した虚数モードが `vib/` に `_trj.xyz`/`.pdb` ペアとして書き出されます。最終ジオメトリとオプションの軌跡も保存されます。
+2. **ML/MM 計算機の構築** -- ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を構築します。`--hessian-calc-mode` は UMA がヘシアンを解析的に評価するか有限差分で評価するかを制御します。
+3. **リンク凍結検出** -- `--freeze-links`（デフォルト）により、リンク水素の親原子が検出され凍結されます。マージされたセットは `geom.freeze_atoms` に格納され、ML/MM 計算機に転送されます。
+4. **Light モード（Dimer）:**
+   - ヘシアン Dimer ステージは、正確なヘシアン（アクティブ部分空間、TR 射影済み）を評価して Dimer 方向を定期的に更新します。
+   - フラットンループが有効な場合（`--flatten`）、保存されたアクティブヘシアンは変位と勾配差分を使用した Bofill で更新されます。各ループで虚数モードを推定し、一度フラットンし、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
+5. **Heavy モード（RS-I-RFO）:**
+   - RS-I-RFO オプティマイザーを、`rsirfo` YAML セクションで定義されたオプションのヘシアン参照ファイルとマイクロサイクル制御とともに実行します。
+   - `--no-micro-step` は heavy モードで `rsirfo.max_micro_cycles=1` を強制します。`--flatten` が有効で収束後に 2 つ以上の虚数モードが残る場合、余分なモードをフラットンし、1 つだけ残るかフラットン反復上限に達するまで RS-I-RFO を再実行します。
+6. **Hybrid モード** -- Dimer を最初に実行し（light モードと同様）、その後 heavy 式の RS-I-RFO フラットンステージのみを実行します。
+7. **モードエクスポートと変換** -- 収束した虚数モードは常に `vib/final_imag_mode_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
 
-## CLI オプション
+## CLIオプション
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
@@ -99,14 +95,18 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
+| `--freeze-links/--no-freeze-links` | PDB 専用。リンク水素の親原子を凍結（`geom.freeze_atoms` にマージ）。 | `True` |
 | `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定時は `--detect-layer` が無効化。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
 | `--hessian-calc-mode CHOICE` | UMA ヘシアンモード: `Analytical` または `FiniteDifference`。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザーサイクル。 | `10000` |
+| `--opt-mode CHOICE` | TS オプティマイザーモード: `light`（Dimer）、`heavy`（RS-I-RFO）、または `hybrid`（Dimer 後に RS-I-RFO フラットン）。 | `heavy` |
+| `--flatten/--no-flatten` | 余分な虚数モードのフラットンループを有効化。light、heavy、hybrid モードに適用。 | `False` |
+| `--micro-step/--no-micro-step` | `--opt-mode heavy` で `--no-micro-step` は `rsirfo.max_micro_cycles=1` を強制。 | `True` |
 | `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
+| `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_tsopt/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
-| `--opt-mode CHOICE` | TS オプティマイザーモード: `light`（Dimer）または `heavy`（RS-I-RFO）。 | `heavy` |
 | `--partial-hessian-flatten / --full-hessian-flatten` | フラットンループでの虚数モード検出に部分ヘシアン（ML のみ）を使用。 | `True`（部分） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
@@ -116,56 +116,115 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ## 出力
 
 ```
-out_dir/ (デフォルト:./result_tsopt/)
-├── final_geometry.xyz # 常に書き出し
-├── final_geometry.pdb # 入力が PDB の場合
-├── optimization_all_trj.xyz # 連結 Dimer セグメント（--dump 時）
-├── optimization_all.pdb # PDB コンパニオン（--dump かつ入力が PDB の場合）
+out_dir/ (デフォルト: ./result_tsopt/)
+├── final_geometry.xyz             # 常に書き出し
+├── final_geometry.pdb             # 入力が PDB の場合
+├── optimization_all_trj.xyz       # 連結 Dimer セグメント（--dump 時）
+├── optimization_all.pdb           # PDB コンパニオン（--dump かつ入力が PDB の場合）
 ├── vib/
-│ ├── final_imag_mode_±XXXX.Xcm-1_trj.xyz # 虚数モード軌跡
-│ └── final_imag_mode_±XXXX.Xcm-1.pdb # 虚数モード PDB コンパニオン
-└──.dimer_mode.dat # Dimer 方向シード（light モード）
+│   ├── final_imag_mode_±XXXX.Xcm-1_trj.xyz  # 虚数モード軌跡
+│   └── final_imag_mode_±XXXX.Xcm-1.pdb      # 虚数モード PDB コンパニオン
+└── .dimer_mode.dat                # Dimer 方向シード（light モード）
 ```
 
+## YAML設定
 
-
-`defaults < config < 明示 CLI < override`。
+設定は **デフォルト < config < 明示CLI < override** の順で適用されます。
+共有セクションは [YAML リファレンス](yaml_reference.md) を再利用します。ワークフローに合致している場合は以下のブロック全体をそのまま保持し、変更が必要な値のみ調整してください。
 
 ```yaml
 geom:
- coord_type: cart
- freeze_atoms: []
+ coord_type: cart                  # 座標タイプ: デカルト vs dlc 内部座標
+ freeze_atoms: []                  # 0 始まり凍結原子（CLI/リンク検出とマージ）
 calc:
- charge: 0
- spin: 1
+ charge: 0                         # 総電荷（CLI 上書き）
+ spin: 1                           # スピン多重度 2S+1
 mlmm:
- real_parm7: real.parm7
- model_pdb: ml_region.pdb
+ real_parm7: real.parm7            # Amber parm7 トポロジー
+ model_pdb: ml_region.pdb          # ML 領域定義
+ uma_model: uma-s-1p1              # UMA モデルタグ
+ uma_task_name: omol                # UMA タスク名
+ ml_device: auto                   # UMA デバイス選択
+ ml_hessian_mode: FiniteDifference  # ヘシアンモード選択
 opt:
- thresh: baker
- max_cycles: 10000
- dump: false
- out_dir:./result_tsopt/
+ thresh: baker                     # 収束プリセット（Gaussian/Baker 式）
+ max_cycles: 10000                 # オプティマイザーサイクル上限
+ print_every: 100                  # ログ出力間隔
+ min_step_norm: 1.0e-08            # ステップ受け入れの最小ノルム
+ assert_min_step: true             # ステップが閾値以下で停止
+ rms_force: null                   # 明示的 RMS 力目標
+ rms_force_only: false             # RMS 力収束のみに依存
+ max_force_only: false             # 最大力収束のみに依存
+ force_only: false                 # 変位チェックをスキップ
+ converge_to_geom_rms_thresh: 0.05  # 参照への収束時の geom RMS 閾値
+ overachieve_factor: 0.0           # 閾値を厳しくする係数
+ check_eigval_structure: false     # ヘシアン固有値構造の検証
+ line_search: true                 # ラインサーチを有効化
+ dump: false                       # 軌跡/リスタートデータのダンプ
+ dump_restart: false               # リスタートチェックポイントのダンプ
+ prefix: ""                        # ファイル名プレフィックス
+ out_dir: ./result_tsopt/          # 出力ディレクトリ
 hessian_dimer:
- thresh_loose: gau_loose
- thresh: baker
- update_interval_hessian: 500
- neg_freq_thresh_cm: 5.0
- flatten_amp_ang: 0.1
- flatten_max_iter: 50
- root: 0
+ thresh_loose: gau_loose           # ゆるい収束プリセット
+ thresh: baker                     # メイン収束プリセット
+ update_interval_hessian: 500      # ヘシアン再構築間隔
+ neg_freq_thresh_cm: 5.0           # 負の振動数閾値 (cm^-1)
+ flatten_amp_ang: 0.1              # フラットニング振幅 (A)
+ flatten_max_iter: 50              # フラットニング反復上限（--no-flatten 時は無効）
+ flatten_sep_cutoff: 0.0           # 代表原子間の最小距離 (A)
+ flatten_k: 10                     # モードごとにサンプルされる代表原子数
+ flatten_loop_bofill: false        # フラットン変位に対する Bofill 更新
+ mem: 100000                       # ソルバーのメモリ上限
+ device: auto                      # 固有値ソルバーのデバイス選択
+ root: 0                           # 対象 TS ルートインデックス
  dimer:
- length: 0.0189
- rotation_max_cycles: 15
+  length: 0.0189                   # Dimer 間隔 (Bohr)
+  rotation_max_cycles: 15          # 最大回転反復数
+  rotation_method: fourier         # 回転オプティマイザー手法
+  rotation_thresh: 0.0001          # 回転収束閾値
+  rotation_tol: 1                  # 回転許容係数
+  rotation_max_element: 0.001      # 回転行列の最大要素
+  rotation_interpolate: true       # 回転ステップの補間
+  rotation_disable: false          # 回転を完全に無効化
+  rotation_disable_pos_curv: true  # 正の曲率検出時に無効化
+  rotation_remove_trans: true      # 並進成分を除去
+  trans_force_f_perp: true         # 並進に垂直な力を射影
+  bonds: null                      # 拘束用の結合リスト
+  N_hessian: null                  # ヘシアンサイズの上書き
+  bias_rotation: false             # 回転探索にバイアス
+  bias_translation: false          # 並進探索にバイアス
+  bias_gaussian_dot: 0.1           # ガウスバイアスの内積
+  seed: null                       # 回転用の RNG シード
+  write_orientations: true         # 回転方向を書き出し
+  forward_hessian: true            # ヘシアンを前方伝播
  lbfgs:
- thresh: baker
- max_cycles: 10000
- max_step: 0.3
+  thresh: baker                    # LBFGS 収束プリセット
+  max_cycles: 10000                # 反復上限
+  print_every: 100                 # ログ出力間隔
+  min_step_norm: 1.0e-08           # 受け入れ最小ステップノルム
+  assert_min_step: true            # ステップ停滞時にアサート
+  max_step: 0.3                    # 最大ステップ長
+  control_step: true               # 適応的ステップ長制御
+  double_damp: true                # ダブルダンピングセーフガード
+  keep_last: 7                     # LBFGS バッファの履歴サイズ
+  beta: 1.0                        # 初期ダンピングベータ
+  mu_reg: null                     # 正則化強度
+  max_mu_reg_adaptions: 10         # mu 適応の上限
 rsirfo:
- thresh: baker
- max_cycles: 10000
- roots: [0]
- hessian_update: bofill
+ thresh: baker                     # RS-IRFO 収束プリセット
+ max_cycles: 10000                 # 反復上限
+ print_every: 100                  # ログ出力間隔
+ min_step_norm: 1.0e-08            # 受け入れ最小ステップノルム
+ assert_min_step: true             # ステップ停滞時にアサート
+ roots: [0]                        # 対象ルートインデックス
+ hessian_ref: null                 # 参照ヘシアン
+ hessian_update: bofill            # ヘシアン更新方式の上書き
+ hessian_recalc_reset: true        # 正確なヘシアン後にリカルクカウンターをリセット
+ max_micro_cycles: 50              # マクロサイクルごとのマイクロイテレーション
+ augment_bonds: false              # 結合解析に基づく反応経路の拡張
+ min_line_search: true             # 最小ラインサーチステップを強制
+ max_line_search: true             # 最大ラインサーチステップを強制
+ assert_neg_eigval: false          # 収束時に負の固有値を要求
 ```
 
 ## 注意事項
@@ -176,12 +235,19 @@ rsirfo:
 - `--freeze-atoms` は 1 始まりインデックスを受け付け、YAML `geom.freeze_atoms` とマージされます。
 - 収束プリセットは外側の管理（`opt`）と内側の LBFGS セグメント（`hessian_dimer.lbfgs`）の両方に伝播されます。
 - PHVA 並進/回転射影は `freq` の実装をミラーリングし、アクティブ空間で正しい固有ベクトルを保持しながら GPU メモリ消費を削減します。
+- `return_partial_hessian` は `tsopt` で partial-first です。YAML で `calc.return_partial_hessian` を明示しない場合は部分ヘシアンを使用し、`false` 明示時のみ完全ヘシアンにします。
+- 設定マージの優先順位は `デフォルト < config < 明示CLI < override` です。
 
 ---
 
 ## 関連項目
 
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
+
 - [opt](opt.md) -- 単一構造の構造最適化
 - [freq](freq.md) -- 検証済み TS の単一虚数振動数を確認
 - [irc](irc.md) -- 最適化された TS からの反応経路追跡
 - [all](all.md) -- 抽出 -> MEP -> tsopt -> IRC -> freq を連鎖させるエンドツーエンドワークフロー
+- [YAML リファレンス](yaml_reference.md) -- `hessian_dimer`（ヘシアンガイド付き Dimer）と `rsirfo` の完全な設定オプション
+- [用語集](glossary.md) -- TS、Dimer、RS-I-RFO、ヘシアンの定義

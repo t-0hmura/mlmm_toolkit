@@ -442,7 +442,7 @@ class MLMMCore:
         mm_fd_delta: float = 1e-3,
         symmetrize_hessian: bool = True,
         print_timing: bool = True,
-        print_vram: bool = False,
+        print_vram: bool = True,
         H_double: bool = False,
         ml_device: str = "auto",
         ml_cuda_idx: int = 0,
@@ -1094,7 +1094,7 @@ class MLMMCore:
         timing: Dict[str, float | str] = {}
         hess_total_start: Optional[float] = time.perf_counter() if return_hessian else None
         if return_hessian and self.print_vram and self.ml_device.type == "cuda":
-            torch.cuda.reset_peak_memory_stats()
+            torch.cuda.reset_peak_memory_stats(device=self.ml_device)
 
         atoms_real, atoms_model, atoms_model_LH, added_link_atoms, freeze_model = self._prep_3_layer_atoms(coord_ang)
         atoms_real.set_pbc(False)
@@ -1164,23 +1164,29 @@ class MLMMCore:
                 H_model = torch.zeros((n_ml, 3, n_ml, 3), dtype=self.H_dtype, device=self.ml_device)
 
             H_high = ml_out.H
+            ml_pairs = [
+                (i, self.full_to_hess_active[gi_real])
+                for i, gi_real in enumerate(self.selection_indices)
+                if gi_real in self.full_to_hess_active
+            ]
+            if ml_pairs:
+                ml_sel_idx = torch.as_tensor([p[0] for p in ml_pairs], dtype=torch.long, device=self.ml_device)
+                ml_active_idx = torch.as_tensor([p[1] for p in ml_pairs], dtype=torch.long, device=self.ml_device)
+            else:
+                ml_sel_idx = torch.empty((0,), dtype=torch.long, device=self.ml_device)
+                ml_active_idx = torch.empty((0,), dtype=torch.long, device=self.ml_device)
 
-            if H_high is not None:
-                for i in range(n_ml):
-                    gi_real = self.selection_indices[i]
-                    if gi_real not in self.full_to_hess_active:
-                        continue
-                    gi_active = self.full_to_hess_active[gi_real]
-                    for j in range(n_ml):
-                        gj_real = self.selection_indices[j]
-                        if gj_real not in self.full_to_hess_active:
-                            continue
-                        gj_active = self.full_to_hess_active[gj_real]
-                        H[gi_active, :, gj_active, :].add_(H_high[i, :, j, :]).sub_(H_model[i, :, j, :])
+            if H_high is not None and ml_sel_idx.numel() > 0:
+                t_asm = time.perf_counter()
+                H_high_mm = H_high.index_select(0, ml_sel_idx).index_select(2, ml_sel_idx)
+                H_model_mm = H_model.index_select(0, ml_sel_idx).index_select(2, ml_sel_idx)
+                delta_mm = H_high_mm - H_model_mm
+                H[ml_active_idx[:, None], :, ml_active_idx[None, :], :] += delta_mm.permute(0, 2, 1, 3)
+                timing["hess_asm_mlml_s"] = time.perf_counter() - t_asm
             del H_model
 
             real_to_model = self._idx_map_real_to_model
-            link_data: List[Tuple[int, int, int, float, torch.Tensor]] = []
+            link_data: List[Tuple[int, int, int, int, int, float, torch.Tensor]] = []
             for link_idx, ml_idx, mm_idx, dist in added_link_atoms:
                 ml_model_idx = real_to_model[ml_idx]
                 r_ml_t = torch.tensor(atoms_model_LH[ml_model_idx].position, dtype=self.H_dtype, device=self.ml_device)
@@ -1188,15 +1194,18 @@ class MLMMCore:
                 K = self._jacobian_blocks_torch(r_ml_t, r_mm_t, dist, dtype=self.H_dtype, device=self.ml_device)
                 if K is None:
                     continue
-                link_data.append((link_idx, ml_idx, mm_idx, dist, K))
+                ml_active = self.full_to_hess_active.get(ml_idx)
+                mm_active = self.full_to_hess_active.get(mm_idx)
+                if ml_active is None or mm_active is None:
+                    continue
+                link_data.append((link_idx, ml_idx, mm_idx, ml_active, mm_active, dist, K))
 
             F_high_t = torch.as_tensor(ml_out.F, dtype=self.H_dtype, device=self.ml_device)
-            if H_high is not None or (F_high_t.abs().max().item() > 1e-12):
-                for link_idx, ml_idx, mm_idx, dist, K in link_data:
-                    if ml_idx not in self.full_to_hess_active or mm_idx not in self.full_to_hess_active:
-                        continue
-                    ml_active = self.full_to_hess_active[ml_idx]
-                    mm_active = self.full_to_hess_active[mm_idx]
+            has_link_force = bool((F_high_t.abs() > 1e-12).any().item())
+            if link_data and (H_high is not None or has_link_force):
+                t_asm = time.perf_counter()
+                I3 = torch.eye(3, dtype=self.H_dtype, device=self.ml_device)
+                for link_idx, ml_idx, mm_idx, ml_active, mm_active, dist, K in link_data:
 
                     if H_high is not None:
                         H_l = H_high[link_idx, :, link_idx, :]
@@ -1207,25 +1216,22 @@ class MLMMCore:
                         H[mm_active, :, mm_active, :].add_(H_self[3:6, 3:6])
 
                     f_L = -F_high_t[link_idx]
-                    if torch.all(torch.abs(f_L) < 1e-12):
-                        continue
 
                     r_ml_t = torch.as_tensor(atoms_model_LH[real_to_model[ml_idx]].position,
                                              dtype=self.H_dtype, device=self.ml_device)
                     r_mm_t = torch.as_tensor(atoms_real[mm_idx].position,
                                              dtype=self.H_dtype, device=self.ml_device)
                     v = r_mm_t - r_ml_t
-                    R = torch.norm(v)
-                    if float(R) < 1e-12:
-                        continue
-                    u = v / R
-                    I3 = torch.eye(3, dtype=self.H_dtype, device=self.ml_device)
+                    R_sq = torch.dot(v, v)
+                    inv_R = torch.rsqrt(torch.clamp(R_sq, min=1.0e-24))
+                    inv_R2 = inv_R * inv_R
+                    u = v * inv_R
 
                     alpha = torch.dot(u, f_L)
                     uuT = torch.outer(u, u)
                     ufT = torch.outer(u, f_L)
                     fTu = torch.outer(f_L, u)
-                    B = (alpha * (3.0 * uuT - I3) - (ufT + fTu)) / (R * R)
+                    B = (alpha * (3.0 * uuT - I3) - (ufT + fTu)) * inv_R2
 
                     H_corr6 = torch.zeros((6, 6), dtype=self.H_dtype, device=self.ml_device)
                     H_corr6[0:3, 0:3] = B
@@ -1238,42 +1244,31 @@ class MLMMCore:
                     H[ml_active, :, mm_active, :].add_(H_corr6[0:3, 3:6])
                     H[mm_active, :, ml_active, :].add_(H_corr6[3:6, 0:3])
                     H[mm_active, :, mm_active, :].add_(H_corr6[3:6, 3:6])
+                timing["hess_asm_link_self_s"] = time.perf_counter() - t_asm
 
-            if H_high is not None:
-                for link_idx, ml_idx, mm_idx, dist, K in link_data:
-                    if ml_idx not in self.full_to_hess_active or mm_idx not in self.full_to_hess_active:
-                        continue
-                    ml_active = self.full_to_hess_active[ml_idx]
-                    mm_active = self.full_to_hess_active[mm_idx]
+            if H_high is not None and link_data and ml_sel_idx.numel() > 0:
+                t_asm = time.perf_counter()
+                for link_idx, _ml_idx, _mm_idx, ml_active, mm_active, _dist, K in link_data:
+                    H_coup = H_high[link_idx].index_select(1, ml_sel_idx).permute(1, 0, 2).contiguous()  # (K,3,3)
+                    H_row = torch.einsum("ac,bcd->bad", K.T, H_coup)  # (K,6,3)
+                    H_col = torch.einsum("bca,cd->bad", H_coup, K)    # (K,3,6)
 
-                    for j_ml, gj_real in enumerate(self.selection_indices):
-                        if gj_real not in self.full_to_hess_active:
-                            continue
-                        gj_active = self.full_to_hess_active[gj_real]
+                    # Mixed scalar/tensor indexing in PyTorch returns (3, K, 3) for
+                    # H[scalar, :, tensor, :], so align H_row blocks explicitly.
+                    H[ml_active, :, ml_active_idx, :].add_(H_row[:, 0:3, :].permute(1, 0, 2))
+                    H[mm_active, :, ml_active_idx, :].add_(H_row[:, 3:6, :].permute(1, 0, 2))
+                    H[ml_active_idx, :, ml_active, :].add_(H_col[:, :, 0:3])
+                    H[ml_active_idx, :, mm_active, :].add_(H_col[:, :, 3:6])
+                timing["hess_asm_link_ml_s"] = time.perf_counter() - t_asm
 
-                        H_coup = H_high[link_idx, :, j_ml, :]
-                        H_row = K.T @ H_coup
-                        H_col = H_coup.T @ K
-                        H[ml_active, :, gj_active, :].add_(H_row[0:3, :])
-                        H[mm_active, :, gj_active, :].add_(H_row[3:6, :])
-                        H[gj_active, :, ml_active, :].add_(H_col[:, 0:3])
-                        H[gj_active, :, mm_active, :].add_(H_col[:, 3:6])
-
-            if H_high is not None:
+            if H_high is not None and link_data:
+                t_asm = time.perf_counter()
                 n_links = len(link_data)
                 for a in range(n_links):
-                    link_idx_a, ml_a, mm_a, dist_a, K_a = link_data[a]
-                    if ml_a not in self.full_to_hess_active or mm_a not in self.full_to_hess_active:
-                        continue
-                    ml_a_active = self.full_to_hess_active[ml_a]
-                    mm_a_active = self.full_to_hess_active[mm_a]
+                    link_idx_a, _ml_a, _mm_a, ml_a_active, mm_a_active, _dist_a, K_a = link_data[a]
 
                     for b in range(a + 1, n_links):
-                        link_idx_b, ml_b, mm_b, dist_b, K_b = link_data[b]
-                        if ml_b not in self.full_to_hess_active or mm_b not in self.full_to_hess_active:
-                            continue
-                        ml_b_active = self.full_to_hess_active[ml_b]
-                        mm_b_active = self.full_to_hess_active[mm_b]
+                        link_idx_b, _ml_b, _mm_b, ml_b_active, mm_b_active, _dist_b, K_b = link_data[b]
 
                         H_ab = H_high[link_idx_a, :, link_idx_b, :]
                         HAB = K_a.T @ H_ab @ K_b
@@ -1288,21 +1283,26 @@ class MLMMCore:
                         H[ml_b_active, :, mm_a_active, :].add_(HBA[0:3, 3:6])
                         H[mm_b_active, :, ml_a_active, :].add_(HBA[3:6, 0:3])
                         H[mm_b_active, :, mm_a_active, :].add_(HBA[3:6, 3:6])
+                timing["hess_asm_link_link_s"] = time.perf_counter() - t_asm
 
             if self.symmetrize_hessian:
+                t_asm = time.perf_counter()
                 H_flat = H.view(3 * n_hess_active, 3 * n_hess_active)
                 H_flat = (H_flat + H_flat.t()).mul_(0.5)
                 H = H_flat.view(n_hess_active, 3, n_hess_active, 3)
+                timing["hess_asm_sym_s"] = time.perf_counter() - t_asm
 
             if self.return_partial_hessian:
                 results["hessian"] = H.detach()
                 results["within_partial_hessian"] = self._build_within_partial_hessian()
             else:
+                t_asm = time.perf_counter()
                 H_full = torch.zeros((n_real, 3, n_real, 3), dtype=self.H_dtype, device=self.ml_device)
-                for i_active, i_real in enumerate(self.hess_active_atoms):
-                    for j_active, j_real in enumerate(self.hess_active_atoms):
-                        H_full[i_real, :, j_real, :] = H[i_active, :, j_active, :]
+                active_idx = torch.as_tensor(self.hess_active_atoms, dtype=torch.long, device=self.ml_device)
+                if active_idx.numel() > 0:
+                    H_full[active_idx[:, None], :, active_idx[None, :], :] = H.permute(0, 2, 1, 3).contiguous()
                 results["hessian"] = H_full.detach()
+                timing["hess_asm_full_expand_s"] = time.perf_counter() - t_asm
                 del H_full
 
             if hess_total_start is not None:
@@ -1319,14 +1319,30 @@ class MLMMCore:
                             f"MODEL {timing['mm_fd_model_s']:.2f} s | "
                             f"total {timing['mm_fd_total_s']:.2f} s"
                         )
-                    click.echo(f"[HessianTiming] Hessian total (incl. assembly): {timing['hessian_total_s']:.2f} s")
+                    asm_parts = []
+                    for key, label in (
+                        ("hess_asm_mlml_s", "ML-ML"),
+                        ("hess_asm_link_self_s", "link-self"),
+                        ("hess_asm_link_ml_s", "link-ML"),
+                        ("hess_asm_link_link_s", "link-link"),
+                        ("hess_asm_sym_s", "sym"),
+                        ("hess_asm_full_expand_s", "full-expand"),
+                    ):
+                        if key in timing:
+                            asm_parts.append(f"{label} {float(timing[key]):.2f} s")
+                    if asm_parts:
+                        click.echo(f"[HessianTiming] Assembly: {' | '.join(asm_parts)}")
+                    click.echo(f"[HessianTiming] Hessian total: {timing['hessian_total_s']:.2f} s")
                 if self.print_vram and self.ml_device.type == "cuda":
-                    alloc = torch.cuda.memory_allocated() / 1e9
-                    max_alloc = torch.cuda.max_memory_allocated() / 1e9
-                    reserved = torch.cuda.memory_reserved() / 1e9
+                    alloc = torch.cuda.memory_allocated(device=self.ml_device) / 1e9
+                    max_alloc = torch.cuda.max_memory_allocated(device=self.ml_device) / 1e9
+                    reserved = torch.cuda.memory_reserved(device=self.ml_device) / 1e9
+                    max_reserved = torch.cuda.max_memory_reserved(device=self.ml_device) / 1e9
                     click.echo(
-                        f"[VRAM] allocated={alloc:.3f} GB | "
-                        f"max_allocated={max_alloc:.3f} GB | reserved={reserved:.3f} GB"
+                        f"[HessianVRAM] allocated={alloc:.3f} GB | "
+                        f"max_allocated={max_alloc:.3f} GB | "
+                        f"reserved={reserved:.3f} GB | "
+                        f"max_reserved={max_reserved:.3f} GB"
                     )
 
             del H, H_high
@@ -1403,7 +1419,7 @@ class mlmm(PySiCalc):
         freeze_atoms: List[int] | None = None,
         return_partial_hessian: bool = True,
         print_timing: bool = True,
-        print_vram: bool = False,
+        print_vram: bool = True,
         hess_cutoff: Optional[float] = None,
         movable_cutoff: Optional[float] = None,
         use_bfactor_layers: bool = False,

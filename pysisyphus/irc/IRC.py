@@ -663,6 +663,13 @@ class IRC:
         self.all_mw_coords.extend(getattr(self, mw_coords_name))
         self.all_mw_gradients.extend(getattr(self, mw_grad_name))
 
+        # Free per-direction lists to reduce memory usage
+        del self.irc_coords
+        del self.irc_gradients
+        del self.irc_mw_coords
+        del self.irc_mw_gradients
+        del self.irc_energies
+
         setattr(self, f"{prefix}_is_converged", self.converged)
         setattr(self, f"{prefix}_energy_increased", self.energy_increased)
         setattr(self, f"{prefix}_energy_converged", self.energy_converged)
@@ -772,12 +779,9 @@ class IRC:
         #     dump_fn = self.get_path_for_fn("finished_" + self.dump_fn)
         #     self.dump_data(dump_fn, full=True)
 
-        # Convert to arrays
-        [
+        # Convert to arrays and free original Python lists
+        for name in "all_energies all_coords all_gradients all_mw_coords all_mw_gradients".split():
             setattr(self, name, np.array(getattr(self, name)))
-            for name in "all_energies all_coords all_gradients "
-            "all_mw_coords all_mw_gradients".split()
-        ]
 
         # Right now self.all_mw_coords is still in mass-weighted coordinates.
         # Convert them to un-mass-weighted coordinates.

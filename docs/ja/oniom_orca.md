@@ -4,20 +4,21 @@
 
 > **要約:** Amber parm7 を用いて ORCA QM/MM（`.inp`）入力を生成します。
 
-### クイックリファレンス
+### 概要
 - **用途:** Amber 系のパラメータを保ったまま ORCA QM/MM を実行したい場合。
-- **入力:** 必須 `--parm7`、任意 `-i/--input`（PDB/XYZ）、任意 `--model-pdb`。
-- **出力:** QM 原子集合と ORCAFF 参照を含む ORCA 入力。
-- **ORCAFF:** 未指定時は自動探索/生成。`--convert-orcaff`（デフォルト有効）。
+- **手法:** ParmEd で Amber parm7 トポロジを読み込み、モデル PDB で QM 原子を定義、ORCAFF パラメータを解決。
+- **出力:** QM 原子集合と ORCAFF 参照を含む ORCA `.inp`、`ORCAFF.prms`（既存利用、提供、または自動生成）。
+- **デフォルト:** `--method "B3LYP D3BJ def2-SVP"`、`--nproc 8`、`--near 6.0`、`--convert-orcaff` 有効。
+- **次のステップ:** ORCA でエクスポートした入力を実行。
 
-## 最小例
+## 最小の例
 
 ```bash
 mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
-## 出力の見方
+## 出力チェックリスト
 
 - `system.inp`
 - `ORCAFF.prms`（既存利用または自動生成）
@@ -45,21 +46,9 @@ mlmm oniom-orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
-## 使用法
-
-```bash
-mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
- -o output.inp [-q CHARGE] [-m MULT] [--method "B3LYP D3BJ def2-SVP"] \
- [--total-charge INT] [--total-mult INT] [--nproc INT] [--near FLOAT] \
- [--orcaff PATH] [--convert-orcaff|--no-convert-orcaff] \
- [--element-check|--no-element-check]
-```
-
-## 説明
+## ワークフロー
 
 `oniom-orca` は `--parm7` からトポロジ情報を取得し、ORCA QM/MM 入力を書き出します。
-
-主な処理:
 
 1. parm7 から原子・結合・電荷情報を取得。
 2. `-i/--input` がある場合は読み込み、`--element-check` で元素順を検証。
@@ -86,13 +75,8 @@ mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
 | `--orcaff PATH` | ORCAFF.prms のパス。 | 自動 |
 | `--convert-orcaff/--no-convert-orcaff` | ORCAFF 未検出時の `orca_mm -convff -AMBER` 実行可否。 | `True` |
 
-## 出力
-
-```text
-<output>.inp
-```
-
 ## 注意事項
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - `parmed` が必要です。
 - 元素検証はベストエフォートです（原子順不変を仮定）。
@@ -101,6 +85,9 @@ mlmm oniom-orca --parm7 real.parm7 [-i coords.pdb] [--model-pdb ml_region.pdb] \
 ---
 
 ## 関連項目
+
+- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [oniom-gaussian](oniom_gaussian.md) -- Gaussian ONIOM エクスポータ
 - [oniom_export](oniom_export.md) -- エクスポート全体ガイド

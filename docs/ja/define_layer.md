@@ -4,6 +4,13 @@
 
 > **要約:** ML 領域からの距離に基づいて 3 層 ML/MM システムを定義し、レイヤー割り当てを出力 PDB の B 因子としてエンコードします。
 
+### 概要
+- **用途:** 最適化や経路探索の前に、酵素系を ML / Movable-MM / Frozen の 3 層に分割する必要がある場合に使用します。
+- **手法:** ML 領域からの距離ベースの割り当て。残基単位または原子単位の粒度で指定可能。
+- **出力:** B 因子が 0 / 10 / 20 に設定された `<output>.pdb`、コンソールへのレイヤー割り当てサマリー。
+- **デフォルト:** `--radius-freeze 8.0`、1 始まりインデックス。
+- **次のステップ:** [opt](opt.md) または [all](all.md) でレイヤー化された PDB を使用。
+
 `mlmm define-layer` は、酵素系を ML 領域の周囲に 3 つのレイヤーに分割し、割り当てを PDB の B 因子として書き出します。ML 領域はモデル PDB、明示的な原子インデックス、またはその組み合わせで指定できます。
 
 ### 3 層システム
@@ -19,29 +26,33 @@
 - **ML 原子を含まない残基:** 残基全体が、任意の ML 原子から残基内の任意の原子までの最小距離に基づいて単一のレイヤーに割り当てられます。
 - **ML 原子を含む残基:** 同じ残基内の非 ML 原子は距離に基づいて個別に分類されます。
 
-## 使用法
+## 最小の例
 
 ```bash
-mlmm define-layer -i INPUT.pdb --model-pdb MODEL.pdb [--model-indices "0,1,2,..."] \
- [--radius-partial-hessian FLOAT] [--radius-freeze FLOAT] \
- [-o OUTPUT.pdb] [--one-based|--zero-based]
+mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
 ```
 
-### 例
+## 出力チェックリスト
+
+- `<output>.pdb` -- B 因子が 0 / 10 / 20 に設定された PDB
+- コンソールにレイヤー割り当てと原子数のサマリーテーブル
+
+## よくある例
+
+1. 明示的な原子インデックスを使用（0 始まり）。
 
 ```bash
-# モデル PDB を使用して ML 領域を定義
-mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
-
-# 明示的な原子インデックスを使用（0 始まり）
 mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labeled.pdb
+```
 
-# カスタム半径
+2. カスタム半径でカットオフを変更。
+
+```bash
 mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
  --radius-freeze 10.0 -o labeled.pdb
 ```
 
-## 説明
+## ワークフロー
 
 1. **ML 領域の同定** -- ML 領域は `--model-pdb`（入力 PDB との原子マッチング）または `--model-indices`（明示的な原子インデックス）で定義されます。`--model-indices` が指定された場合、`--model-pdb` より優先されます。
 2. **距離計算** -- 各非 ML 原子（または残基）について、任意の ML 原子からの最小距離を計算します。
@@ -60,14 +71,8 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 | `-o, --output PATH` | B 因子がレイヤー値に設定された出力 PDB ファイル。 | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 
-## 出力
-
-```
-<output>.pdb # B 因子が 0 / 10 / 20 に設定された PDB
-(stdout) # レイヤー割り当てと原子数のサマリーテーブル
-```
-
 ## 注意事項
+- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - 距離は任意の ML 原子から残基内の任意の原子までの最小距離として計算されます。
 - `--radius-partial-hessian` は受け付けますが、3 層モードでは無視されます。

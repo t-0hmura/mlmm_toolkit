@@ -888,7 +888,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 continue
 
             if self.is_cos:
-                self.tangents.append(self.geometry.get_tangents().flatten())
+                self.tangents = [self.geometry.get_tangents().flatten()]
 
             self.steps.append(step)
 
