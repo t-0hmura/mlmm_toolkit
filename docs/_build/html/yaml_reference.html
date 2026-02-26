@@ -1,0 +1,1142 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="ML/MM Calculator" href="mlmm_calc.html"><link rel="prev" title="YAML Schema (Generated)" href="reference/yaml.html">
+
+    <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
+        <title>YAML Reference - mlmm_toolkit</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=867b138e" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #2980B9;
+  --color-brand-content: #2980B9;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #56B4E9;
+  --color-brand-content: #56B4E9;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #56B4E9;
+  --color-brand-content: #56B4E9;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">mlmm_toolkit</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <span class="sidebar-brand-text">mlmm_toolkit</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_all.html">Quickstart: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_scan_spec.html">Quickstart: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> with <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_tsopt_freq.html">Quickstart: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="recipes_common_errors.html">Common Error Recipes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli_conventions.html">CLI Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/getting_started.html">はじめに</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/quickstart_all.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/quickstart_scan_spec.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> + <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/quickstart_tsopt_freq.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/concepts.html">概念とワークフロー</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/recipes_common_errors.html">典型エラー別レシピ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/troubleshooting.html">トラブルシューティング</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/cli_conventions.html">CLI 規約</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Commands</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="extract.html">extract</a></li>
+<li class="toctree-l1"><a class="reference internal" href="add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="opt.html"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="tsopt.html"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="path_opt.html"><code class="docutils literal notranslate"><span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="path_search.html"><code class="docutils literal notranslate"><span class="pre">path-search</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="scan.html"><code class="docutils literal notranslate"><span class="pre">scan</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="scan2d.html"><code class="docutils literal notranslate"><span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="scan3d.html"><code class="docutils literal notranslate"><span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="freq.html"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/opt.html"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/tsopt.html"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/path_opt.html"><code class="docutils literal notranslate"><span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/path_search.html"><code class="docutils literal notranslate"><span class="pre">path-search</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/scan.html"><code class="docutils literal notranslate"><span class="pre">scan</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/scan2d.html"><code class="docutils literal notranslate"><span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/scan3d.html"><code class="docutils literal notranslate"><span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/freq.html"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 has-children"><a class="reference internal" href="reference/commands/index.html">CLI Command Reference</a><input aria-label="Toggle navigation of CLI Command Reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/all.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/define_layer.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/dft.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">dft</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">energy-diagram</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/extract.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">extract</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/freq.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/init.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">init</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/irc.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">irc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/path_opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/path_search.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-search</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/scan.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/scan2d.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/scan3d.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/tsopt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference/yaml.html">YAML Schema (Generated)</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">YAML Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mlmm_calc.html">ML/MM Calculator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/yaml_reference.html">YAML 設定リファレンス</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/mlmm_calc.html">ML/MM 計算機</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/glossary.html">用語集</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Language</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="ja/index.html">mlmm_toolkit ドキュメント</a><input aria-label="Toggle navigation of mlmm_toolkit ドキュメント" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="ja/getting_started.html">はじめに</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/quickstart_all.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/quickstart_scan_spec.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> + <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/quickstart_tsopt_freq.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">tsopt</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">freq</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/concepts.html">概念とワークフロー</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/recipes_common_errors.html">典型エラー別レシピ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/troubleshooting.html">トラブルシューティング</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/cli_conventions.html">CLI 規約</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/opt.html"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/tsopt.html"><code class="docutils literal notranslate"><span class="pre">tsopt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/path_opt.html"><code class="docutils literal notranslate"><span class="pre">path-opt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/path_search.html"><code class="docutils literal notranslate"><span class="pre">path-search</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/scan.html"><code class="docutils literal notranslate"><span class="pre">scan</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/scan2d.html"><code class="docutils literal notranslate"><span class="pre">scan2d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/scan3d.html"><code class="docutils literal notranslate"><span class="pre">scan3d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/freq.html"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/yaml_reference.html">YAML 設定リファレンス</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/mlmm_calc.html">ML/MM 計算機</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/glossary.html">用語集</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/yaml_reference.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="yaml-reference">
+<h1>YAML Reference<a class="headerlink" href="#yaml-reference" title="Link to this heading">¶</a></h1>
+<hr class="docutils" />
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Section</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Used by</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#geom"><code class="docutils literal notranslate"><span class="pre">geom</span></code></a></p></td>
+<td><p>Geometry and coordinate settings</p></td>
+<td><p>all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#opt"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></p></td>
+<td><p>Shared optimizer settings</p></td>
+<td><p>opt, scan, scan2d, scan3d, tsopt, path-opt, path-search</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#lbfgs"><code class="docutils literal notranslate"><span class="pre">lbfgs</span></code></a></p></td>
+<td><p>L-BFGS optimizer settings</p></td>
+<td><p>opt, scan, scan2d, scan3d, path-search</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#rfo"><code class="docutils literal notranslate"><span class="pre">rfo</span></code></a></p></td>
+<td><p>RFO optimizer settings</p></td>
+<td><p>opt, scan, scan2d, scan3d, path-search</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#gs"><code class="docutils literal notranslate"><span class="pre">gs</span></code></a></p></td>
+<td><p>Growing String Method settings</p></td>
+<td><p>path-opt, path-search</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dmf"><code class="docutils literal notranslate"><span class="pre">dmf</span></code></a></p></td>
+<td><p>Direct Max Flux settings</p></td>
+<td><p>path-opt, path-search</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></p></td>
+<td><p>IRC integration settings</p></td>
+<td><p>irc</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#freq-section"><code class="docutils literal notranslate"><span class="pre">freq</span></code></a></p></td>
+<td><p>Vibrational analysis settings</p></td>
+<td><p>freq</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#thermo"><code class="docutils literal notranslate"><span class="pre">thermo</span></code></a></p></td>
+<td><p>Thermochemistry settings</p></td>
+<td><p>freq</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#id4"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></p></td>
+<td><p>DFT calculation settings</p></td>
+<td><p>dft</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bias"><code class="docutils literal notranslate"><span class="pre">bias</span></code></a></p></td>
+<td><p>Harmonic bias settings</p></td>
+<td><p>scan, scan2d, scan3d</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bond"><code class="docutils literal notranslate"><span class="pre">bond</span></code></a></p></td>
+<td><p>Bond-change detection settings</p></td>
+<td><p>scan, path-search</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#search"><code class="docutils literal notranslate"><span class="pre">search</span></code></a></p></td>
+<td><p>Recursive path search settings</p></td>
+<td><p>path-search</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#hessian-dimer"><code class="docutils literal notranslate"><span class="pre">hessian_dimer</span></code></a></p></td>
+<td><p>Hessian Dimer TS optimization</p></td>
+<td><p>tsopt</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#rsirfo"><code class="docutils literal notranslate"><span class="pre">rsirfo</span></code></a></p></td>
+<td><p>RS-I-RFO TS optimization</p></td>
+<td><p>tsopt</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#sopt"><code class="docutils literal notranslate"><span class="pre">sopt</span></code></a></p></td>
+<td><p>Single-structure optimizer for path-search</p></td>
+<td><p>path-search</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#layeropt"><code class="docutils literal notranslate"><span class="pre">layeropt</span></code></a></p></td>
+<td><p>Layer-wise optimization settings</p></td>
+<td><p>tsopt (heavy mode)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="shared-sections">
+<h2>Shared Sections<a class="headerlink" href="#shared-sections" title="Link to this heading">¶</a></h2>
+<section id="geom">
+<h3><code class="docutils literal notranslate"><span class="pre">geom</span></code><a class="headerlink" href="#geom" title="Link to this heading">¶</a></h3>
+<p>Geometry loading and coordinate handling.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">geom</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">coord_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cart</span><span class="w"> </span><span class="c1"># Coordinate type: &quot;cart&quot; (Cartesian) or &quot;dlc&quot; (delocalized internals)</span>
+<span class="w"> </span><span class="nt">freeze_atoms</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span><span class="w"> </span><span class="c1"># 0-based indices of atoms to freeze; merged with CLI --freeze-links detection</span>
+</pre></div>
+</div>
+<p><strong>Notes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">freeze_atoms</span></code> from YAML is merged with atoms detected via <code class="docutils literal notranslate"><span class="pre">--freeze-links</span></code> for PDB inputs</p></li>
+<li><p>Frozen atoms have zeroed forces; their Hessian columns are also zeroed</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">irc</span></code>, <code class="docutils literal notranslate"><span class="pre">geom.coord_type</span></code> is forced to <code class="docutils literal notranslate"><span class="pre">cart</span></code> after YAML/CLI merging</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="mlmm-section">
+<h3><code class="docutils literal notranslate"><span class="pre">mlmm</span></code> (section)<a class="headerlink" href="#mlmm-section" title="Link to this heading">¶</a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">mlmm</span><span class="p">:</span>
+<span class="w"> </span><span class="c1"># --- Input files ---</span>
+<span class="w"> </span><span class="nt">input_pdb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Input PDB file path (usually set by CLI)</span>
+<span class="w"> </span><span class="nt">real_parm7</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Amber parm7 topology for the full (real) system</span>
+<span class="w"> </span><span class="nt">model_pdb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># PDB defining the ML (model) region atoms</span>
+<span class="w"> </span><span class="nt">model_charge</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w"> </span><span class="c1"># Charge of the ML (model) region</span>
+<span class="w"> </span><span class="nt">model_mult</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"> </span><span class="c1"># Spin multiplicity of the ML (model) region</span>
+<span class="w"> </span><span class="nt">link_mlmm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Link atom specification for ML/MM boundary</span>
+
+<span class="w"> </span><span class="c1"># --- UMA (ML) settings ---</span>
+<span class="w"> </span><span class="nt">uma_model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uma-s-1p1</span><span class="w"> </span><span class="c1"># UMA pretrained model name</span>
+<span class="w"> </span><span class="nt">uma_task_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">omol</span><span class="w"> </span><span class="c1"># Task tag recorded in UMA batches</span>
+<span class="w"> </span><span class="nt">ml_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w"> </span><span class="c1"># Device for ML inference: &quot;cuda&quot;, &quot;cpu&quot;, or &quot;auto&quot;</span>
+<span class="w"> </span><span class="nt">ml_cuda_idx</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w"> </span><span class="c1"># CUDA device index for ML inference</span>
+<span class="w"> </span><span class="nt">ml_hessian_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analytical</span><span class="w"> </span><span class="c1"># ML Hessian mode: &quot;Analytical&quot; or &quot;FiniteDifference&quot;</span>
+
+<span class="w"> </span><span class="c1"># --- MM backend settings ---</span>
+<span class="w"> </span><span class="nt">mm_backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">hessian_ff</span><span class="w"> </span><span class="c1"># MM backend: &quot;hessian_ff&quot; (analytical) | &quot;openmm&quot; (FD Hessian)</span>
+<span class="w"> </span><span class="nt">mm_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpu</span><span class="w"> </span><span class="c1"># Device for MM calculation: &quot;cuda&quot; or &quot;cpu&quot; (hessian_ff is CPU-only)</span>
+<span class="w"> </span><span class="nt">mm_cuda_idx</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w"> </span><span class="c1"># CUDA device index for MM calculation (OpenMM only)</span>
+<span class="w"> </span><span class="nt">mm_threads</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span><span class="w"> </span><span class="c1"># Number of threads for MM calculation</span>
+<span class="w"> </span><span class="nt">mm_fd</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Use finite-difference for MM Hessian</span>
+<span class="w"> </span><span class="nt">mm_fd_dir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Directory for MM finite-difference scratch files</span>
+<span class="w"> </span><span class="nt">mm_fd_delta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span><span class="w"> </span><span class="c1"># Finite-difference step size for MM Hessian</span>
+
+<span class="w"> </span><span class="c1"># --- Hessian output settings ---</span>
+<span class="w"> </span><span class="nt">out_hess_torch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Return Hessian as torch.Tensor</span>
+<span class="w"> </span><span class="nt">H_double</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Assemble/return Hessian in float64</span>
+<span class="w"> </span><span class="nt">symmetrize_hessian</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Symmetrize final Hessian as 0.5*(H+H^T)</span>
+<span class="w"> </span><span class="nt">return_partial_hessian</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Return only active-DOF Hessian block</span>
+
+<span class="w"> </span><span class="c1"># --- Layer configuration ---</span>
+<span class="w"> </span><span class="nt">freeze_atoms</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span><span class="w"> </span><span class="c1"># 0-based indices of atoms to freeze (Frozen layer)</span>
+<span class="w"> </span><span class="nt">hess_cutoff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Angstrom; MM atoms within this distance of ML get Hessian (null = all movable)</span>
+<span class="w"> </span><span class="nt">movable_cutoff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Angstrom; MM atoms within this distance of ML are movable (null = use freeze_atoms)</span>
+<span class="w"> </span><span class="nt">use_bfactor_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># If true, read layer assignments from input PDB B-factors</span>
+<span class="w"> </span><span class="nt">hess_mm_atoms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Explicit Hessian-target MM atom indices (0-based; overrides cutoffs)</span>
+<span class="w"> </span><span class="nt">movable_mm_atoms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Explicit movable MM atom indices (0-based; overrides cutoffs)</span>
+<span class="w"> </span><span class="nt">frozen_mm_atoms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Explicit frozen MM atom indices (0-based; overrides cutoffs)</span>
+
+<span class="w"> </span><span class="c1"># --- Diagnostics ---</span>
+<span class="w"> </span><span class="nt">print_timing</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Print ML/MM Hessian timing breakdown</span>
+<span class="w"> </span><span class="nt">print_vram</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Print CUDA VRAM usage during Hessian</span>
+</pre></div>
+</div>
+<p><strong>Notes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ml_hessian_mode:</span> <span class="pre">Analytical</span></code> is recommended when sufficient VRAM is available for the ML region</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mm_fd:</span> <span class="pre">true</span></code> uses finite-difference for MM Hessian; set to <code class="docutils literal notranslate"><span class="pre">false</span></code> to use analytical MM Hessian from hessian_ff</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">real_parm7</span></code> and <code class="docutils literal notranslate"><span class="pre">model_pdb</span></code> are required for ML/MM calculations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_charge</span></code> and <code class="docutils literal notranslate"><span class="pre">model_mult</span></code> override <code class="docutils literal notranslate"><span class="pre">-q</span></code> and <code class="docutils literal notranslate"><span class="pre">-m</span></code> for the ML region specifically</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">freq</span></code> sets <code class="docutils literal notranslate"><span class="pre">mlmm.return_partial_hessian</span> <span class="pre">=</span> <span class="pre">true</span></code> by default (PHVA); YAML can override</p></li>
+<li><p>IRC forces <code class="docutils literal notranslate"><span class="pre">geom.coord_type</span> <span class="pre">=</span> <span class="pre">cart</span></code> and <code class="docutils literal notranslate"><span class="pre">mlmm.return_partial_hessian</span> <span class="pre">=</span> <span class="pre">false</span></code> regardless of YAML</p></li>
+</ul>
+</section>
+<section id="opt">
+<h3><code class="docutils literal notranslate"><span class="pre">opt</span></code><a class="headerlink" href="#opt" title="Link to this heading">¶</a></h3>
+<p>Shared optimizer controls used by both L-BFGS and RFO.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">opt</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span><span class="w"> </span><span class="c1"># StringOptimizer-only (path-opt/path-search): optimizer type label</span>
+<span class="w"> </span><span class="nt">thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gau</span><span class="w"> </span><span class="c1"># Convergence preset: gau_loose, gau, gau_tight, gau_vtight, baker, never</span>
+<span class="w"> </span><span class="nt">stop_in_when_full</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span><span class="w"> </span><span class="c1"># StringOptimizer-only: early stop threshold when string is full</span>
+<span class="w"> </span><span class="nt">align</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># StringOptimizer-only: alignment toggle</span>
+<span class="w"> </span><span class="nt">scale_step</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">global</span><span class="w"> </span><span class="c1"># StringOptimizer-only: step scaling mode</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span><span class="w"> </span><span class="c1"># Maximum optimizer iterations</span>
+<span class="w"> </span><span class="nt">print_every</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w"> </span><span class="c1"># Logging stride</span>
+<span class="w"> </span><span class="nt">min_step_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-08</span><span class="w"> </span><span class="c1"># Minimum step norm for acceptance</span>
+<span class="w"> </span><span class="nt">assert_min_step</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Stop if steps fall below threshold</span>
+<span class="w"> </span><span class="nt">rms_force</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Explicit RMS force target</span>
+<span class="w"> </span><span class="nt">rms_force_only</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Rely only on RMS force convergence</span>
+<span class="w"> </span><span class="nt">max_force_only</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Rely only on max force convergence</span>
+<span class="w"> </span><span class="nt">force_only</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Skip displacement checks</span>
+<span class="w"> </span><span class="nt">converge_to_geom_rms_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span><span class="w"> </span><span class="c1"># RMS threshold when converging to reference geometry</span>
+<span class="w"> </span><span class="nt">overachieve_factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span><span class="w"> </span><span class="c1"># Factor to tighten thresholds</span>
+<span class="w"> </span><span class="nt">check_eigval_structure</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Validate Hessian eigenstructure</span>
+<span class="w"> </span><span class="nt">line_search</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Enable line search</span>
+<span class="w"> </span><span class="nt">dump</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Dump trajectory/restart data</span>
+<span class="w"> </span><span class="nt">dump_restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Dump restart checkpoints</span>
+<span class="w"> </span><span class="nt">reparam_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span><span class="w"> </span><span class="c1"># StringOptimizer-only: reparameterization threshold</span>
+<span class="w"> </span><span class="nt">coord_diff_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span><span class="w"> </span><span class="c1"># StringOptimizer-only: coordinate difference threshold</span>
+<span class="w"> </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="c1"># Filename prefix</span>
+<span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">out_dir:./result_opt/</span><span class="w"> </span><span class="c1"># Output directory</span>
+</pre></div>
+</div>
+<p><strong>Convergence Presets:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Preset</p></th>
+<th class="head"><p>Max Force</p></th>
+<th class="head"><p>RMS Force</p></th>
+<th class="head"><p>Max Step</p></th>
+<th class="head"><p>RMS Step</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gau_loose</span></code></p></td>
+<td><p>2.5e-3</p></td>
+<td><p>1.7e-3</p></td>
+<td><p>1.0e-2</p></td>
+<td><p>6.7e-3</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gau</span></code></p></td>
+<td><p>4.5e-4</p></td>
+<td><p>3.0e-4</p></td>
+<td><p>1.8e-3</p></td>
+<td><p>1.2e-3</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gau_tight</span></code></p></td>
+<td><p>1.5e-5</p></td>
+<td><p>1.0e-5</p></td>
+<td><p>6.0e-5</p></td>
+<td><p>4.0e-5</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gau_vtight</span></code></p></td>
+<td><p>2.0e-6</p></td>
+<td><p>1.0e-6</p></td>
+<td><p>6.0e-6</p></td>
+<td><p>4.0e-6</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">baker</span></code></p></td>
+<td><p>3.0e-4</p></td>
+<td><p>2.0e-4</p></td>
+<td><p>3.0e-4</p></td>
+<td><p>2.0e-4</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="lbfgs">
+<h3><code class="docutils literal notranslate"><span class="pre">lbfgs</span></code><a class="headerlink" href="#lbfgs" title="Link to this heading">¶</a></h3>
+<p>L-BFGS optimizer settings (extends <code class="docutils literal notranslate"><span class="pre">opt</span></code>).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">lbfgs</span><span class="p">:</span>
+<span class="w"> </span><span class="c1"># Inherits all opt settings, plus:</span>
+<span class="w"> </span><span class="nt">keep_last</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7</span><span class="w"> </span><span class="c1"># History size for L-BFGS buffers</span>
+<span class="w"> </span><span class="nt">beta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span><span class="w"> </span><span class="c1"># Initial damping beta</span>
+<span class="w"> </span><span class="nt">gamma_mult</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Multiplicative gamma update toggle</span>
+<span class="w"> </span><span class="nt">max_step</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span><span class="w"> </span><span class="c1"># Maximum step length</span>
+<span class="w"> </span><span class="nt">control_step</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Control step length adaptively</span>
+<span class="w"> </span><span class="nt">double_damp</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Double damping safeguard</span>
+<span class="w"> </span><span class="nt">mu_reg</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Regularization strength</span>
+<span class="w"> </span><span class="nt">max_mu_reg_adaptions</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w"> </span><span class="c1"># Cap on mu adaptations</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="rfo">
+<h3><code class="docutils literal notranslate"><span class="pre">rfo</span></code><a class="headerlink" href="#rfo" title="Link to this heading">¶</a></h3>
+<p>Rational Function Optimizer settings (extends <code class="docutils literal notranslate"><span class="pre">opt</span></code>).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">rfo</span><span class="p">:</span>
+<span class="w"> </span><span class="c1"># Inherits all opt settings, plus:</span>
+<span class="w"> </span><span class="nt">trust_radius</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w"> </span><span class="c1"># Trust-region radius</span>
+<span class="w"> </span><span class="nt">trust_update</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Enable trust-region updates</span>
+<span class="w"> </span><span class="nt">trust_min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span><span class="w"> </span><span class="c1"># Minimum trust radius</span>
+<span class="w"> </span><span class="nt">trust_max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w"> </span><span class="c1"># Maximum trust radius</span>
+<span class="w"> </span><span class="nt">max_energy_incr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Allowed energy increase per step</span>
+<span class="w"> </span><span class="nt">hessian_update</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bfgs</span><span class="w"> </span><span class="c1"># Hessian update scheme: bfgs, bofill, etc.</span>
+<span class="w"> </span><span class="nt">hessian_init</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">calc</span><span class="w"> </span><span class="c1"># Hessian initialization: calc, unit, etc.</span>
+<span class="w"> </span><span class="nt">hessian_recalc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span><span class="w"> </span><span class="c1"># Rebuild Hessian every N steps</span>
+<span class="w"> </span><span class="nt">hessian_recalc_adapt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Adaptive Hessian rebuild factor</span>
+<span class="w"> </span><span class="nt">small_eigval_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-08</span><span class="w"> </span><span class="c1"># Eigenvalue threshold for stability</span>
+<span class="w"> </span><span class="nt">alpha0</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span><span class="w"> </span><span class="c1"># Initial micro step</span>
+<span class="w"> </span><span class="nt">max_micro_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span><span class="w"> </span><span class="c1"># Micro-iteration limit</span>
+<span class="w"> </span><span class="nt">rfo_overlaps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Enable RFO overlaps</span>
+<span class="w"> </span><span class="nt">gediis</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Enable GEDIIS</span>
+<span class="w"> </span><span class="nt">gdiis</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Enable GDIIS</span>
+<span class="w"> </span><span class="nt">gdiis_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0025</span><span class="w"> </span><span class="c1"># GDIIS acceptance threshold</span>
+<span class="w"> </span><span class="nt">gediis_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.01</span><span class="w"> </span><span class="c1"># GEDIIS acceptance threshold</span>
+<span class="w"> </span><span class="nt">gdiis_test_direction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Test descent direction before DIIS</span>
+<span class="w"> </span><span class="nt">adapt_step_func</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Adaptive step scaling</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="path-optimization-sections">
+<h2>Path Optimization Sections<a class="headerlink" href="#path-optimization-sections" title="Link to this heading">¶</a></h2>
+<section id="gs">
+<h3><code class="docutils literal notranslate"><span class="pre">gs</span></code><a class="headerlink" href="#gs" title="Link to this heading">¶</a></h3>
+<p>Growing String Method settings.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">gs</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">fix_first</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Keep first endpoint fixed</span>
+<span class="w"> </span><span class="nt">fix_last</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Keep last endpoint fixed</span>
+<span class="w"> </span><span class="nt">max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w"> </span><span class="c1"># Maximum string nodes (internal images)</span>
+<span class="w"> </span><span class="nt">perp_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.005</span><span class="w"> </span><span class="c1"># Perpendicular displacement threshold</span>
+<span class="w"> </span><span class="nt">reparam_check</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rms</span><span class="w"> </span><span class="c1"># Reparametrization check metric</span>
+<span class="w"> </span><span class="nt">reparam_every</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"> </span><span class="c1"># Reparametrization stride</span>
+<span class="w"> </span><span class="nt">reparam_every_full</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"> </span><span class="c1"># Full reparametrization stride</span>
+<span class="w"> </span><span class="nt">param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">equi</span><span class="w"> </span><span class="c1"># Parametrization scheme</span>
+<span class="w"> </span><span class="nt">max_micro_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w"> </span><span class="c1"># Micro-iteration limit</span>
+<span class="w"> </span><span class="nt">reset_dlc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Rebuild delocalized coordinates each step</span>
+<span class="w"> </span><span class="nt">climb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Enable climbing image</span>
+<span class="w"> </span><span class="nt">climb_rms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0005</span><span class="w"> </span><span class="c1"># Climbing RMS threshold</span>
+<span class="w"> </span><span class="nt">climb_lanczos</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Lanczos refinement for climbing</span>
+<span class="w"> </span><span class="nt">climb_lanczos_rms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0005</span><span class="w"> </span><span class="c1"># Lanczos RMS threshold</span>
+<span class="w"> </span><span class="nt">climb_fixed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Keep climbing image fixed</span>
+<span class="w"> </span><span class="nt">scheduler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Optional scheduler backend</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="dmf">
+<h3><code class="docutils literal notranslate"><span class="pre">dmf</span></code><a class="headerlink" href="#dmf" title="Link to this heading">¶</a></h3>
+<p>Direct Max Flux settings for MEP optimization.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">dmf</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span><span class="w"> </span><span class="c1"># Maximum DMF/IPOPT iterations (overridden by --max-cycles)</span>
+<span class="w"> </span><span class="nt">correlated</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Correlated DMF propagation</span>
+<span class="w"> </span><span class="nt">sequential</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Sequential DMF execution</span>
+<span class="w"> </span><span class="nt">fbenm_only_endpoints</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Run FB-ENM beyond endpoints</span>
+<span class="w"> </span><span class="nt">fbenm_options</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">delta_scale</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.2</span><span class="w"> </span><span class="c1"># FB-ENM displacement scaling</span>
+<span class="w"> </span><span class="nt">bond_scale</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.25</span><span class="w"> </span><span class="c1"># Bond cutoff scaling</span>
+<span class="w"> </span><span class="nt">fix_planes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Enforce planar constraints</span>
+<span class="w"> </span><span class="nt">two_hop_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sparse</span><span class="w"> </span><span class="c1"># Neighbor traversal strategy</span>
+<span class="w"> </span><span class="nt">cfbenm_options</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">bond_scale</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.25</span><span class="w"> </span><span class="c1"># CFB-ENM bond cutoff scaling</span>
+<span class="w"> </span><span class="nt">corr0_scale</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.1</span><span class="w"> </span><span class="c1"># Correlation scale for corr0</span>
+<span class="w"> </span><span class="nt">corr1_scale</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.5</span><span class="w"> </span><span class="c1"># Correlation scale for corr1</span>
+<span class="w"> </span><span class="nt">corr2_scale</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.6</span><span class="w"> </span><span class="c1"># Correlation scale for corr2</span>
+<span class="w"> </span><span class="nt">eps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span><span class="w"> </span><span class="c1"># Correlation epsilon</span>
+<span class="w"> </span><span class="nt">pivotal</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Pivotal residue handling</span>
+<span class="w"> </span><span class="nt">single</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Single-atom pivots</span>
+<span class="w"> </span><span class="nt">remove_fourmembered</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Prune four-membered rings</span>
+<span class="w"> </span><span class="nt">two_hop_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sparse</span><span class="w"> </span><span class="c1"># Neighbor traversal strategy</span>
+<span class="w"> </span><span class="nt">dmf_options</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">remove_rotation_and_translation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Keep rigid-body motions</span>
+<span class="w"> </span><span class="nt">mass_weighted</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Toggle mass weighting</span>
+<span class="w"> </span><span class="nt">parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Enable parallel DMF</span>
+<span class="w"> </span><span class="nt">eps_vel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.01</span><span class="w"> </span><span class="c1"># Velocity tolerance</span>
+<span class="w"> </span><span class="nt">eps_rot</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.01</span><span class="w"> </span><span class="c1"># Rotational tolerance</span>
+<span class="w"> </span><span class="nt">beta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span><span class="w"> </span><span class="c1"># Beta parameter for DMF</span>
+<span class="w"> </span><span class="nt">update_teval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Update transition evaluation</span>
+<span class="w"> </span><span class="nt">k_fix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300.0</span><span class="w"> </span><span class="c1"># Harmonic constant for restraints</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="search">
+<h3><code class="docutils literal notranslate"><span class="pre">search</span></code><a class="headerlink" href="#search" title="Link to this heading">¶</a></h3>
+<p>Recursive path search settings (path-search only).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">search</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">max_depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w"> </span><span class="c1"># Recursion depth limit</span>
+<span class="w"> </span><span class="nt">stitch_rmsd_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span><span class="w"> </span><span class="c1"># RMSD threshold for stitching segments</span>
+<span class="w"> </span><span class="nt">bridge_rmsd_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span><span class="w"> </span><span class="c1"># RMSD threshold for bridging nodes</span>
+<span class="w"> </span><span class="nt">max_nodes_segment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w"> </span><span class="c1"># Max nodes per segment</span>
+<span class="w"> </span><span class="nt">max_nodes_bridge</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w"> </span><span class="c1"># Max nodes per bridge</span>
+<span class="w"> </span><span class="nt">kink_max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w"> </span><span class="c1"># Max nodes for kink optimizations</span>
+<span class="w"> </span><span class="nt">max_seq_kink</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w"> </span><span class="c1"># Max sequential kinks</span>
+<span class="w"> </span><span class="nt">refine_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Refinement strategy: peak, minima, or null (auto)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="sopt">
+<h3><code class="docutils literal notranslate"><span class="pre">sopt</span></code><a class="headerlink" href="#sopt" title="Link to this heading">¶</a></h3>
+<p>Single-structure optimizers for path-search (HEI+/-1 and kink nodes).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sopt</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">lbfgs</span><span class="p">:</span>
+<span class="w"> </span><span class="c1"># Same keys as lbfgs section above</span>
+<span class="w"> </span><span class="nt">thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gau</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span>
+<span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">out_dir:./result_path_search/</span>
+<span class="w"> </span><span class="nt">dump</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w"> </span><span class="c1">#... (see lbfgs section)</span>
+<span class="w"> </span><span class="nt">rfo</span><span class="p">:</span>
+<span class="w"> </span><span class="c1"># Same keys as rfo section above</span>
+<span class="w"> </span><span class="nt">thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gau</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span>
+<span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">out_dir:./result_path_search/</span>
+<span class="w"> </span><span class="nt">dump</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w"> </span><span class="c1">#... (see rfo section)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="ts-optimization-sections">
+<h2>TS Optimization Sections<a class="headerlink" href="#ts-optimization-sections" title="Link to this heading">¶</a></h2>
+<section id="hessian-dimer">
+<h3><code class="docutils literal notranslate"><span class="pre">hessian_dimer</span></code><a class="headerlink" href="#hessian-dimer" title="Link to this heading">¶</a></h3>
+<p>Hessian Dimer TS optimization settings (tsopt –opt-mode light).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">hessian_dimer</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">thresh_loose</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gau_loose</span><span class="w"> </span><span class="c1"># Loose convergence preset</span>
+<span class="w"> </span><span class="nt">thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">baker</span><span class="w"> </span><span class="c1"># Main convergence preset</span>
+<span class="w"> </span><span class="nt">update_interval_hessian</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span><span class="w"> </span><span class="c1"># Hessian rebuild cadence</span>
+<span class="w"> </span><span class="nt">neg_freq_thresh_cm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5.0</span><span class="w"> </span><span class="c1"># Negative frequency threshold (cm-1)</span>
+<span class="w"> </span><span class="nt">flatten_amp_ang</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w"> </span><span class="c1"># Flattening amplitude (Angstrom)</span>
+<span class="w"> </span><span class="nt">flatten_max_iter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span><span class="w"> </span><span class="c1"># Flattening iteration cap</span>
+<span class="w"> </span><span class="nt">flatten_sep_cutoff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span><span class="w"> </span><span class="c1"># Minimum distance between representative atoms</span>
+<span class="w"> </span><span class="nt">flatten_k</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w"> </span><span class="c1"># Representative atoms sampled per mode</span>
+<span class="w"> </span><span class="nt">flatten_loop_bofill</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Bofill update for flatten displacements</span>
+<span class="w"> </span><span class="nt">partial_hessian_flatten</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Use partial Hessian for imaginary mode detection</span>
+<span class="w"> </span><span class="nt">mem</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100000</span><span class="w"> </span><span class="c1"># Memory limit for solver</span>
+<span class="w"> </span><span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w"> </span><span class="c1"># Device selection for eigensolver</span>
+<span class="w"> </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w"> </span><span class="c1"># Targeted TS root index</span>
+<span class="w"> </span><span class="nt">dimer</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0189</span><span class="w"> </span><span class="c1"># Dimer separation (Bohr)</span>
+<span class="w"> </span><span class="nt">rotation_max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span><span class="w"> </span><span class="c1"># Max rotation iterations</span>
+<span class="w"> </span><span class="nt">rotation_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fourier</span><span class="w"> </span><span class="c1"># Rotation optimizer method</span>
+<span class="w"> </span><span class="nt">rotation_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span><span class="w"> </span><span class="c1"># Rotation convergence threshold</span>
+<span class="w"> </span><span class="nt">rotation_tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w"> </span><span class="c1"># Rotation tolerance factor</span>
+<span class="w"> </span><span class="nt">rotation_max_element</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span><span class="w"> </span><span class="c1"># Max rotation matrix element</span>
+<span class="w"> </span><span class="nt">rotation_interpolate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Interpolate rotation steps</span>
+<span class="w"> </span><span class="nt">rotation_disable</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Disable rotations entirely</span>
+<span class="w"> </span><span class="nt">rotation_disable_pos_curv</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Disable when positive curvature detected</span>
+<span class="w"> </span><span class="nt">rotation_remove_trans</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Remove translational components</span>
+<span class="w"> </span><span class="nt">trans_force_f_perp</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Project forces perpendicular to translation</span>
+<span class="w"> </span><span class="nt">bonds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Bond list for constraints</span>
+<span class="w"> </span><span class="nt">N_hessian</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Hessian size override</span>
+<span class="w"> </span><span class="nt">bias_rotation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Bias rotational search</span>
+<span class="w"> </span><span class="nt">bias_translation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Bias translational search</span>
+<span class="w"> </span><span class="nt">bias_gaussian_dot</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w"> </span><span class="c1"># Gaussian bias dot product</span>
+<span class="w"> </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># RNG seed for rotations</span>
+<span class="w"> </span><span class="nt">write_orientations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Write rotation orientations</span>
+<span class="w"> </span><span class="nt">forward_hessian</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Propagate Hessian forward</span>
+<span class="w"> </span><span class="nt">lbfgs</span><span class="p">:</span>
+<span class="w"> </span><span class="c1"># Same keys as lbfgs section</span>
+<span class="w"> </span><span class="nt">thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">baker</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="rsirfo">
+<h3><code class="docutils literal notranslate"><span class="pre">rsirfo</span></code><a class="headerlink" href="#rsirfo" title="Link to this heading">¶</a></h3>
+<p>RS-I-RFO TS optimization settings (tsopt –opt-mode heavy).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">rsirfo</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">baker</span><span class="w"> </span><span class="c1"># RS-IRFO convergence preset</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span><span class="w"> </span><span class="c1"># Iteration cap</span>
+<span class="w"> </span><span class="nt">print_every</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w"> </span><span class="c1"># Logging stride</span>
+<span class="w"> </span><span class="nt">min_step_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-08</span><span class="w"> </span><span class="c1"># Minimum accepted step norm</span>
+<span class="w"> </span><span class="nt">assert_min_step</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Assert when steps stagnate</span>
+<span class="w"> </span><span class="nt">roots</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">]</span><span class="w"> </span><span class="c1"># Target root indices</span>
+<span class="w"> </span><span class="nt">hessian_ref</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Reference Hessian</span>
+<span class="w"> </span><span class="nt">rx_modes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Reaction-mode definitions</span>
+<span class="w"> </span><span class="nt">prim_coord</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Primary coordinates to monitor</span>
+<span class="w"> </span><span class="nt">rx_coords</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Reaction coordinates to monitor</span>
+<span class="w"> </span><span class="nt">hessian_update</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bofill</span><span class="w"> </span><span class="c1"># Hessian update scheme</span>
+<span class="w"> </span><span class="nt">hessian_recalc_reset</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Reset recalc counter after exact Hessian</span>
+<span class="w"> </span><span class="nt">max_micro_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span><span class="w"> </span><span class="c1"># Micro-iterations per macro cycle</span>
+<span class="w"> </span><span class="nt">augment_bonds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Augment reaction path based on bond analysis</span>
+<span class="w"> </span><span class="nt">min_line_search</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Enforce minimum line-search step</span>
+<span class="w"> </span><span class="nt">max_line_search</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Enforce maximum line-search step</span>
+<span class="w"> </span><span class="nt">assert_neg_eigval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Require negative eigenvalue at convergence</span>
+<span class="w"> </span><span class="c1"># Also inherits rfo-like settings: trust_radius, trust_update, etc.</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="layeropt">
+<h3><code class="docutils literal notranslate"><span class="pre">layeropt</span></code><a class="headerlink" href="#layeropt" title="Link to this heading">¶</a></h3>
+<p>Layer-wise optimization settings for heavy mode TSOPT. Controls outer-loop optimization (full system) and inner-loop optimization (model/ML region).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">layeropt</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">outer_opt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lbfgs</span><span class="w"> </span><span class="c1"># Outer optimizer: &quot;lbfgs&quot; or &quot;rfo&quot;</span>
+<span class="w"> </span><span class="nt">outer_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gau_loose</span><span class="w"> </span><span class="c1"># Convergence threshold for outer loop</span>
+<span class="w"> </span><span class="nt">outer_max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1500</span><span class="w"> </span><span class="c1"># Max cycles for outer optimization</span>
+<span class="w"> </span><span class="nt">model_opt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rfo</span><span class="w"> </span><span class="c1"># Model region optimizer: &quot;lbfgs&quot; or &quot;rfo&quot;</span>
+<span class="w"> </span><span class="nt">model_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">never</span><span class="w"> </span><span class="c1"># Convergence threshold for model optimization</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="irc-section">
+<h2>IRC Section<a class="headerlink" href="#irc-section" title="Link to this heading">¶</a></h2>
+<section id="id1">
+<span id="id2"></span><h3><code class="docutils literal notranslate"><span class="pre">irc</span></code> (section)<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<p>IRC integration settings.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">irc</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">step_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w"> </span><span class="c1"># Integration step length</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">125</span><span class="w"> </span><span class="c1"># Maximum steps along IRC</span>
+<span class="w"> </span><span class="nt">downhill</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Follow downhill direction only</span>
+<span class="w"> </span><span class="nt">forward</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Propagate in forward direction</span>
+<span class="w"> </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w"> </span><span class="c1"># Normal-mode root index</span>
+<span class="w"> </span><span class="nt">hessian_init</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">calc</span><span class="w"> </span><span class="c1"># Hessian initialization source</span>
+<span class="w"> </span><span class="nt">hessian_update</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bofill</span><span class="w"> </span><span class="c1"># Hessian update scheme</span>
+<span class="w"> </span><span class="nt">hessian_recalc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Hessian rebuild cadence</span>
+<span class="w"> </span><span class="nt">displ</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">energy</span><span class="w"> </span><span class="c1"># Displacement construction method</span>
+<span class="w"> </span><span class="nt">displ_energy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span><span class="w"> </span><span class="c1"># Energy-based displacement scaling</span>
+<span class="w"> </span><span class="nt">displ_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w"> </span><span class="c1"># Length-based displacement fallback</span>
+<span class="w"> </span><span class="nt">rms_grad_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span><span class="w"> </span><span class="c1"># RMS gradient convergence threshold</span>
+<span class="w"> </span><span class="nt">hard_rms_grad_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w"> </span><span class="c1"># Hard RMS gradient stop</span>
+<span class="w"> </span><span class="nt">energy_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.000001</span><span class="w"> </span><span class="c1"># Energy change threshold</span>
+<span class="w"> </span><span class="nt">imag_below</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span><span class="w"> </span><span class="c1"># Imaginary frequency cutoff</span>
+<span class="w"> </span><span class="nt">force_inflection</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Enforce inflection detection</span>
+<span class="w"> </span><span class="nt">check_bonds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Check bonds during propagation</span>
+<span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">out_dir:./result_irc/</span><span class="w"> </span><span class="c1"># Output directory</span>
+<span class="w"> </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="c1"># Filename prefix</span>
+<span class="w"> </span><span class="nt">dump_fn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">irc_data.h5</span><span class="w"> </span><span class="c1"># IRC data filename</span>
+<span class="w"> </span><span class="nt">dump_every</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w"> </span><span class="c1"># Dump stride</span>
+<span class="w"> </span><span class="nt">max_pred_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span><span class="w"> </span><span class="c1"># Predictor-corrector max steps</span>
+<span class="w"> </span><span class="nt">loose_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w"> </span><span class="c1"># Loose cycles before tightening</span>
+<span class="w"> </span><span class="nt">corr_func</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mbs</span><span class="w"> </span><span class="c1"># Correlation function choice</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="vibrational-analysis-sections">
+<h2>Vibrational Analysis Sections<a class="headerlink" href="#vibrational-analysis-sections" title="Link to this heading">¶</a></h2>
+<section id="freq-section">
+<span id="id3"></span><h3><code class="docutils literal notranslate"><span class="pre">freq</span></code> (section)<a class="headerlink" href="#freq-section" title="Link to this heading">¶</a></h3>
+<p>Vibrational frequency analysis settings.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">freq</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">amplitude_ang</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span><span class="w"> </span><span class="c1"># Displacement amplitude for modes (Angstrom)</span>
+<span class="w"> </span><span class="nt">n_frames</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span><span class="w"> </span><span class="c1"># Number of frames per mode animation</span>
+<span class="w"> </span><span class="nt">max_write</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w"> </span><span class="c1"># Maximum number of modes to write</span>
+<span class="w"> </span><span class="nt">sort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">value</span><span class="w"> </span><span class="c1"># Sort order: &quot;value&quot; or &quot;abs&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="thermo">
+<h3><code class="docutils literal notranslate"><span class="pre">thermo</span></code><a class="headerlink" href="#thermo" title="Link to this heading">¶</a></h3>
+<p>Thermochemistry settings.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">thermo</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">298.15</span><span class="w"> </span><span class="c1"># Thermochemistry temperature (K)</span>
+<span class="w"> </span><span class="nt">pressure_atm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span><span class="w"> </span><span class="c1"># Thermochemistry pressure (atm)</span>
+<span class="w"> </span><span class="nt">dump</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Write thermoanalysis.yaml</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="dft-section">
+<h2>DFT Section<a class="headerlink" href="#dft-section" title="Link to this heading">¶</a></h2>
+<section id="id4">
+<span id="id5"></span><h3><code class="docutils literal notranslate"><span class="pre">dft</span></code> (section)<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p>DFT calculation settings.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">dft</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">func_basis</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">B3LYP/6-31G*</span><span class="w"> </span><span class="c1"># Combined &quot;FUNC/BASIS&quot; string</span>
+<span class="w"> </span><span class="nt">conv_tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-09</span><span class="w"> </span><span class="c1"># SCF convergence tolerance (Hartree)</span>
+<span class="w"> </span><span class="nt">max_cycle</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w"> </span><span class="c1"># Maximum SCF iterations</span>
+<span class="w"> </span><span class="nt">grid_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w"> </span><span class="c1"># PySCF grid level</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="scan-sections">
+<h2>Scan Sections<a class="headerlink" href="#scan-sections" title="Link to this heading">¶</a></h2>
+<section id="bias">
+<h3><code class="docutils literal notranslate"><span class="pre">bias</span></code><a class="headerlink" href="#bias" title="Link to this heading">¶</a></h3>
+<p>Harmonic bias settings for scans.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">bias</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">k</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100.0</span><span class="w"> </span><span class="c1"># Harmonic bias strength (eV/Angstrom^2)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="bond">
+<h3><code class="docutils literal notranslate"><span class="pre">bond</span></code><a class="headerlink" href="#bond" title="Link to this heading">¶</a></h3>
+<p>UMA-based bond-change detection.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">bond</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cuda</span><span class="w"> </span><span class="c1"># UMA device for bond analysis</span>
+<span class="w"> </span><span class="nt">bond_factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.2</span><span class="w"> </span><span class="c1"># Covalent-radius scaling for cutoff</span>
+<span class="w"> </span><span class="nt">margin_fraction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span><span class="w"> </span><span class="c1"># Fractional tolerance for comparisons</span>
+<span class="w"> </span><span class="nt">delta_fraction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span><span class="w"> </span><span class="c1"># Minimum relative change to flag bond formation/breaking</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="example-complete-configuration-file">
+<h2>Example: Complete Configuration File<a class="headerlink" href="#example-complete-configuration-file" title="Link to this heading">¶</a></h2>
+<p>Below is a comprehensive example combining multiple sections:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># mlmm configuration example</span>
+
+<span class="nt">geom</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">coord_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cart</span>
+<span class="w"> </span><span class="nt">freeze_atoms</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+
+<span class="nt">mlmm</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">model_charge</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w"> </span><span class="nt">model_mult</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w"> </span><span class="nt">uma_model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uma-s-1p1</span>
+<span class="w"> </span><span class="nt">ml_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+<span class="w"> </span><span class="nt">ml_hessian_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analytical</span><span class="w"> </span><span class="c1"># Recommended when VRAM permits</span>
+<span class="w"> </span><span class="nt">mm_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpu</span>
+<span class="w"> </span><span class="nt">mm_fd</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w"> </span><span class="nt">use_bfactor_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Read layers from PDB B-factors</span>
+
+<span class="nt">gs</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
+<span class="w"> </span><span class="nt">climb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w"> </span><span class="nt">climb_lanczos</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="nt">opt</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gau</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<span class="w"> </span><span class="nt">dump</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">out_dir:./result_all/</span>
+
+<span class="nt">sopt</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">lbfgs</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gau</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span>
+<span class="w"> </span><span class="nt">rfo</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gau</span>
+<span class="w"> </span><span class="nt">max_cycles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span>
+
+<span class="nt">bond</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">bond_factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.2</span>
+<span class="w"> </span><span class="nt">delta_fraction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span>
+
+<span class="nt">search</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">max_depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w"> </span><span class="nt">max_nodes_segment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+
+<span class="nt">layeropt</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">outer_opt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lbfgs</span>
+<span class="w"> </span><span class="nt">outer_thresh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gau_loose</span>
+<span class="w"> </span><span class="nt">model_opt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rfo</span>
+
+<span class="nt">freq</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">max_write</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w"> </span><span class="nt">amplitude_ang</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span>
+
+<span class="nt">thermo</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">298.15</span>
+<span class="w"> </span><span class="nt">pressure_atm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+
+<span class="nt">dft</span><span class="p">:</span>
+<span class="w"> </span><span class="nt">func_basis</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">B3LYP/6-31G*</span>
+<span class="w"> </span><span class="nt">grid_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="all.html"><span class="std std-doc">all</span></a> - End-to-end workflow</p></li>
+<li><p><a class="reference internal" href="opt.html"><span class="std std-doc">opt</span></a> - Single-structure optimization</p></li>
+<li><p><a class="reference internal" href="tsopt.html"><span class="std std-doc">tsopt</span></a> - Transition state optimization</p></li>
+<li><p><a class="reference internal" href="path_search.html"><span class="std std-doc">path-search</span></a> - Recursive MEP search</p></li>
+<li><p><a class="reference internal" href="freq.html"><span class="std std-doc">freq</span></a> - Vibrational analysis</p></li>
+<li><p><a class="reference internal" href="dft.html"><span class="std std-doc">dft</span></a> - DFT calculations</p></li>
+<li><p><a class="reference internal" href="concepts.html"><span class="std std-doc">Concepts</span></a> - ML/MM 3-layer system and ONIOM energy decomposition</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="mlmm_calc.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">ML/MM Calculator</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="reference/yaml.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">YAML Schema (Generated)</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Takuto Ohmura
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">YAML Reference</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#shared-sections">Shared Sections</a><ul>
+<li><a class="reference internal" href="#geom"><code class="docutils literal notranslate"><span class="pre">geom</span></code></a></li>
+<li><a class="reference internal" href="#mlmm-section"><code class="docutils literal notranslate"><span class="pre">mlmm</span></code> (section)</a></li>
+<li><a class="reference internal" href="#opt"><code class="docutils literal notranslate"><span class="pre">opt</span></code></a></li>
+<li><a class="reference internal" href="#lbfgs"><code class="docutils literal notranslate"><span class="pre">lbfgs</span></code></a></li>
+<li><a class="reference internal" href="#rfo"><code class="docutils literal notranslate"><span class="pre">rfo</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#path-optimization-sections">Path Optimization Sections</a><ul>
+<li><a class="reference internal" href="#gs"><code class="docutils literal notranslate"><span class="pre">gs</span></code></a></li>
+<li><a class="reference internal" href="#dmf"><code class="docutils literal notranslate"><span class="pre">dmf</span></code></a></li>
+<li><a class="reference internal" href="#search"><code class="docutils literal notranslate"><span class="pre">search</span></code></a></li>
+<li><a class="reference internal" href="#sopt"><code class="docutils literal notranslate"><span class="pre">sopt</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#ts-optimization-sections">TS Optimization Sections</a><ul>
+<li><a class="reference internal" href="#hessian-dimer"><code class="docutils literal notranslate"><span class="pre">hessian_dimer</span></code></a></li>
+<li><a class="reference internal" href="#rsirfo"><code class="docutils literal notranslate"><span class="pre">rsirfo</span></code></a></li>
+<li><a class="reference internal" href="#layeropt"><code class="docutils literal notranslate"><span class="pre">layeropt</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#irc-section">IRC Section</a><ul>
+<li><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">irc</span></code> (section)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#vibrational-analysis-sections">Vibrational Analysis Sections</a><ul>
+<li><a class="reference internal" href="#freq-section"><code class="docutils literal notranslate"><span class="pre">freq</span></code> (section)</a></li>
+<li><a class="reference internal" href="#thermo"><code class="docutils literal notranslate"><span class="pre">thermo</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#dft-section">DFT Section</a><ul>
+<li><a class="reference internal" href="#id4"><code class="docutils literal notranslate"><span class="pre">dft</span></code> (section)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#scan-sections">Scan Sections</a><ul>
+<li><a class="reference internal" href="#bias"><code class="docutils literal notranslate"><span class="pre">bias</span></code></a></li>
+<li><a class="reference internal" href="#bond"><code class="docutils literal notranslate"><span class="pre">bond</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example-complete-configuration-file">Example: Complete Configuration File</a></li>
+<li><a class="reference internal" href="#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=58440f0e"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=cb5fb026"></script>
+    </body>
+</html>

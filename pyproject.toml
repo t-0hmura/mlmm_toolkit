@@ -1,50 +1,91 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools", "wheel", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlmm"
-description = "ML/MM toolkit"
+description = "mlmm - ML/MM toolkit for enzyme reaction analysis"
 readme = "README.md"
-authors = [{name = "Takuto Ohmura"}]
+authors = [{name = "Takuto Ohmura", email = "ohmura.takuto@gmail.com"}]
 license = {file = "LICENSE"}
 dynamic = ["version"]
 requires-python = ">=3.11"
+keywords = [
+    "computational-chemistry",
+    "enzyme",
+    "QM/MM",
+    "ML/MM",
+    "UMA",
+    "transition-state",
+    "reaction-mechanism",
+]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
 dependencies = [
-    "fairchem-core @ git+https://github.com/t-0hmura/fairchem.git#subdirectory=packages/fairchem-core",
-    "aimnet @ git+https://github.com/t-0hmura/aimnetcentral.git",
-    "numpy<2.0",
-    "matplotlib",
-    "plotly",
-    "kaleido",
-    "pyyaml",
-    "ase>=3.25.0",
-    "biopython",
-    "rdkit",
-    "OpenMM",
-    "OpenMM-CUDA-12",
-    "ParmEd",
+    # mlmm core dependencies
+    "fairchem-core",
     "torch>=2.6.0",
-    "pysisyphus @ git+https://github.com/t-0hmura/pysisyphus_for_mlmm.git",
+    "torch_geometric",
+    "torch_scatter",
+    "numpy>=1.24,<2.1",
+    "biopython>=1.80,<2.0",
+    "ase>=3.25.0",
+    "ParmEd",
+    "pyyaml>=6.0,<7.0",
+    "click>=8.1,<9.0",
+    "plotly>=6.1.1",
+    "kaleido",
+    "gpu4pyscf-cuda12x",
+    "pyscf",
+
+    # pysisyphus dependencies (bundled)
+    "autograd",
+    "dask",
+    "distributed",
+    "h5py",
+    "fabric",
+    "jinja2",
+    "joblib",
+    "matplotlib",
+    "natsort",
+    "psutil",
+    "rmsd",
+    "scipy",
+    "sympy",
+    "scikit-learn",
+
+    # thermoanalysis dependencies (bundled)
+    "cclib",
+    "pandas",
+    "tabulate",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.0",
+    "myst-parser>=2.0",
+    "furo>=2024.0",
+    "sphinx-copybutton>=0.5",
 ]
 
 [project.scripts]
-mlmm = "mlmm.mlmm_pysis:run_pysis"
-def_ml_region = "mlmm.def_ml_region:def_ml_region"
-add_elem_info = "mlmm.utils:add_elem_info_console"
-get_freeze_indices = "mlmm.utils:get_freeze_indices_console"
-xyz_geom2pdb = "mlmm.utils:xyz_geom2pdb_console"
-ts_search = "mlmm.partial_hessian_dimer_cli:main"
-bond_scan = "mlmm.cartesian_bond_scan_cli:main"
-energy_summary = "mlmm.energy_summary:main"
-trj2fig = "mlmm.trj2fig:main"
+mlmm = "mlmm_toolkit.cli:cli"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "hessian_ff/tests"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mlmm*"]
+include = ["mlmm_toolkit*", "pysisyphus*", "thermoanalysis*", "hessian_ff*"]
 
-[tool.setuptools]
-package-data = { "mlmm" = ["py.typed"] }
+[tool.setuptools.package-data]
+mlmm_toolkit = ["py.typed"]
+hessian_ff = ["native/*.cpp", "native/*.md"]
 
-[tool.setuptools.dynamic]
-version = {attr = "mlmm.__version__"}
+[tool.setuptools_scm]
+version_file = "mlmm_toolkit/_version.py"
+version_scheme = "guess-next-dev"
+local_scheme = "node-and-date"

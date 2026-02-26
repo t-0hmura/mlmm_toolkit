@@ -1,0 +1,37 @@
+name: Docs Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  reference-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install click pyyaml
+
+      - name: Run docs quality suite
+        timeout-minutes: 30
+        env:
+          DOCS_DUMP_CASE_TIMEOUT_SEC: "300"
+        run: |
+          set -o pipefail
+          python scripts/run_docs_quality.py | tee docs_quality_timing.log
+
+      - name: Upload docs quality timing log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs_quality_timing_log
+          path: docs_quality_timing.log

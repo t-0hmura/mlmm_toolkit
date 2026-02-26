@@ -1,323 +1,324 @@
-# **ML/MM toolkit** — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions
+# mlmm_toolkit: ML/MM (ONIOM) enzyme reaction mechanism analysis
 
 ## Overview
 
-<img src="./docs/MLMM_overview.jpg" alt="Overview of ML/MM toolkit" width="100%">  
+<img src="./docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="100%"> 
 
-Quantum mechanics/molecular mechanics (QM/MM) methods have long been used to analyze enzymatic reaction mechanisms *in silico*. While treating the active site with QM and the remainder with MM reduces the computational cost, the inherently high computational cost of the QM calculation is still a major limitation for their application to a wide variety of enzymes. Replacing QM with Machine Learning (ML) interatomic potentials yields ML/MM approaches that can further reduce computational cost while retaining accuracy.
+`mlmm_toolkit` is a Python CLI toolkit for **enzymatic reaction mechanism analysis** using the **ML/MM (ONIOM) hybrid method**. It combines a machine-learning interatomic potential (UMA) for the active site with a classical force field (hessian_ff) for the surrounding protein environment.
 
-Here, we present **ML/MM toolkit**, an open-source command-line toolkit for ML/MM calculations that employs AIMNet2 or UMA potentials. This toolkit streamlines the workflow necessary for the enzymatic reaction mechanism analyses such as energy minimization, transition-state (TS) search, and vibrational analysis to calculate the reaction free energy ($\Delta G$) and activation free energy ($\Delta G^{\ddagger}$) for a given enzyme–substrate complex structure. A link atom boundary treatment is implemented to include amino‑acid residues in the ML region and full-system Hessians are available for TS searches and vibrational analyses. To accelerate TS searches in systems comprising around 10,000 atoms, we developed a *Partial Hessian Guided Dimer (PHG-Dimer)* method that uses the active-site Hessian to determine initial dimer orientation. We also integrated a mass‑scaled flattening loop to suppress spurious imaginary modes. Collectively, the ML/MM toolkit makes enzymatic mechanistic investigations more accessible.
+A **single command** can generate a first-pass enzymatic reaction path with ML/MM accuracy:
 
-> **UMA‑only workflow**   
-> If you wish to perform chemical‑reaction‑mechanism analysis using **UMA alone** (without the ML/MM hybrid layer), a dedicated **UMA – Pysisyphus Interface** is available at **https://github.com/t-0hmura/uma_pysis**.
----
-
-This package provides a **Machine‑Learning / Molecular‑Mechanics (ML/MM) hybrid calculator** and surrounding **CLI toolsets** that enable you to get **$\Delta G$ and $\Delta G^{\ddagger}$ of Enzymatic Reaction** from Protein-Substrate complex structure easily.  
-By combining a *Machine Learning Interatomic Potential* (MLIP) with classical force fields, it enables efficient calculation of very large systems such as proteins and enzyme‑substrate complexes.
-
-This calculator provides:
-
-* **Energy**  
-* **Forces**  
-* **Hessians** – ***Analytical*** in the ML region, ***Numerical*** or ***0-padded*** in the MM region  
-
-Covalent bonds cut at the QM/MM boundary are capped with hydrogen *link atoms*.  
-The ML region can therefore include entire amino‑acid side chains when necessary.
-
-### Supported ML potentials
-
-| Potential | Repository |
-|-----------|------------|
-| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> |
-| **UMA** | <https://github.com/facebookresearch/fairchem> |
-
-The MM layer uses **OpenMM**. Any force field capable of generating parameters (e.g., AMBER ff14SB + TIP3P + GAFF2) can be used.
-
-Interfaces are available for **ASE** and **Pysisyphus**.  
-
-> You can select UMA models from `uma_model` parameter.
-
-***This software is still under development. Please use it at your own risk.***
-
-## 1. Installation Guide
-
-### Quick install (including `fairchem-core` and `pysisyphus` installation)
-
-For CUDA 12.6:
 ```bash
-pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu126
-pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
-huggingface-cli login
-```
-
-For CUDA 12.8 (recommended for RTX 50 series):
-```bash
-pip install torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
-pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
-huggingface-cli login
+mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2"
 ```
 
 ---
 
-### 1.1. Prerequisites
-
-| Requirement | Notes |
-|-------------|-------|
-| **Python 3.11** | – |
-| **CUDA runtime ≥ 12.6** | CUDA 12.8 is recommended for RTX 50 series. |
-| Linux / WSL 2 | – |
-
-### 1.2. Install PyTorch
-
-Choose the wheel that matches your CUDA driver:
+The full workflow — **MEP search → TS optimization → IRC → thermochemistry → single-point DFT** — can be run in one command:
 
 ```bash
-# --- CUDA 12.6 ---
-pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu126
-
-# --- CUDA 12.8 (recommended for RTX 50 series) ---
-pip install torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" \
+    --tsopt --thermo --dft
 ```
 
-If you are on an HPC cluster that uses *environment modules*, load CUDA **before** installing PyTorch, like this:
+---
+
+Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm_toolkit` automatically:
+
+- extracts an **active-site pocket** around user-defined substrates,
+- assigns **3-layer ONIOM regions** (ML / Movable MM / Frozen) via B-factor encoding,
+- generates **MM parameters** (parm7/rst7) using AmberTools,
+- explores **minimum-energy paths (MEPs)** with GSM or DMF,
+- *optionally* optimizes **transition states**, runs **vibrational analysis**, **IRC**, and **single-point DFT**,
+
+using Meta's **UMA** machine-learning interatomic potential for the ML region and **hessian_ff** for the MM region.
+
+> **Expectation setting for TS search**
+> - Treat single-command outputs as a strong initial guess, not guaranteed final TS validation.
+> - Always validate TS candidates with frequency analysis and IRC before mechanistic interpretation.
+
+> **Important (prerequisites):**
+> - Input PDB files must already contain **hydrogen atoms**.
+> - When providing multiple PDBs, they must contain **the same atoms in the same order** (only coordinates may differ).
+> - Boolean CLI options accept both `--flag` / `--no-flag` and value style `--flag True/False` (`yes/no`, `1/0` are also accepted). Prefer toggle style in new scripts.
+> - A **parm7 topology** file (AmberTools) is required for MM calculations; use `mlmm mm-parm` to generate one.
+
+## Key difference from pdb2reaction
+
+`mlmm_toolkit` is based on [`pdb2reaction`](https://github.com/t-0hmura/pdb2reaction), which uses only a machine-learning potential (UMA). `mlmm_toolkit` extends this to the **ONIOM (ML/MM) scheme**:
+
+| | pdb2reaction | mlmm_toolkit |
+|---|---|---|
+| Calculator | UMA only | ONIOM: UMA + hessian_ff |
+| Energy | E_ML(full) | E_MM(real) + E_ML(model) - E_MM(model) |
+| Boundary | None | Link atom (H cap) + Jacobian chain rule |
+| Atom layers | freeze/active (2 layers) | ML / Movable MM / Frozen (3 layers) |
+| Layer encoding | None | B-factor (0/10/20) |
+| Additional CLI | None | `--parm`, `--model-pdb`, `--detect-layer` |
+
+## Documentation
+
+- [**Getting Started**](docs/getting_started.md) — Installation and first steps
+- [**Concepts**](docs/concepts.md) — 3-layer system, ONIOM, link atoms
+- [**CLI Command Reference (generated)**](docs/reference/commands/index.md)
+- [**YAML Schema (generated)**](docs/reference/yaml.md)
+- [**Troubleshooting**](docs/troubleshooting.md) — Common errors and fixes
+- **Full command index**: [docs/index.md](docs/index.md)
+
+---
+
+## Installation
+
+`mlmm_toolkit` requires Linux with a CUDA-capable GPU.
+
+### Prerequisites
+
+- Python >= 3.11
+- CUDA 12.x
+- AmberTools (for MM parameter generation)
+
+### Minimal setup (CUDA 12.9, torch 2.8.0)
 
 ```bash
-module load cuda/12.6
-```
-
-### 1.3. Install ML/MM toolkit
-```
+conda create -n mlmm python=3.11 -y
+conda activate mlmm
+conda install -c conda-forge ambertools pdbfixer -y
+pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
-```
-> In order to resolve its dependencies, `mlmm_toolkit` internally installs `fairchem-core` and `aimnet` from forked repositories.
-
-### 1.4. Authenticate for UMA (Hugging Face)
-
-UMA model is on Hugging Face Hub. You need to log in once (See https://github.com/facebookresearch/fairchem):
-
-```bash
+plotly_get_chrome -y
 huggingface-cli login
 ```
 
-### 1.5. Avoid AmberTools conflicts (optional)
-
-If `AmberTools` is loaded, unload it before installing to prevent conflict for **ParmEd**, as in:
+### For DMF method
 
 ```bash
-module unload amber
+conda install -c conda-forge cyipopt -y
 ```
 
-## 2. Preparing an Enzyme–Substrate System
+---
 
-1. **Build a structural model of the complex.**  
-   Download the coordinates of the experimental structure of the complex from Protein Data Bank. If experimental structure is not available, you can predict its structure using complex structure prediction programs such as **AlphaFold3** or docking simulation programs, or manually model it with GUI software such as **PyMOL**. 
+## Quick Examples
 
-2. **Generate parameter/topology and coordinate files**  
-   Create `.pdb`, `.parm7`, and `.rst7` files of the complex (see the OpenMM tutorial at https://openmm.github.io/openmm-cookbook/latest/tutorials).
-   To mimic aqueous conditions, the complex should be solvated, and water molecules located beyond about 6 Å from the complex should be removed to reduce computational cost.  
-   > Note that elemental information (column 77-78) is omitted in the pdb file when you use tleap. Use `add_elem_info` after tleap.  
-
-3. **Define the ML region.**  
-   Use the bundled CLI tool **`def_ml_region`** (installed automatically and appears in `$PATH`) or any molecular viewer.  
-   Example: select residues within 6 Å of the substrate and write the result to `output_ml_region.pdb`:
-
-   ```bash
-   def_ml_region -r input_complex.pdb -c input_substrate.pdb -o output_ml_region.pdb\
-    --radius_ml 6.0 --include_H2O false --exclude_backbone true
-   ```
-
-   **Options**  
-   - `--include_H2O true` → include nearby water molecules.  
-   - `--exclude_backbone true` → extract side‑chains only (omit backbone).
-
-   **Important:** atom order, residue names, and residue numbers must match between the *full* PDB and the *ML‑region* PDB. (If you use PyMOL, tick **“Original atom order”** when exporting the molecule.)
-
-
-## 3. Using the Calculator
-
-The ML/MM calculator implemented in ML/MM toolkit offers interfaces for **ASE** and **Pysisyphus**. When using Pysisyphus, we recommend the partially GPU-enabled version that is installed automatically alongside `mlmm_toolkit`.
-
-> If you need the calculation to be deterministic and your VRAM is ample, set both `ml_device` and `mm_device` to `cuda`, and, in the Pysisyphus interface, set `H_double` to `true`.
-
-### Quick‑start examples.
-Fully working scripts are provided in the `examples/` directory so you can try the calculator straight away. Start with the minimal `toy_system` example, then explore realistic enzyme cases in `chorismate_mutase` and `methyltransferase`. Inside `examples/toy_system/`, running `bash run.sh` executes a short calculator test. For a step‑by‑step walkthrough of an entire reaction‑energy profile—from structure preparation to $\Delta G^{\ddagger}$ evaluation—see [examples/tutorial.md](examples/tutorial.md).
-
-### Units at a glance
-
-| Interface       | Energy | Distance | Force        | Hessian        |
-|-----------------|--------|----------|--------------|----------------|
-| **Core & ASE**  | eV     | Å        | eV Å<sup>-1</sup>       | eV Å<sup>-2</sup>         |
-| **Pysisyphus**  | Hartree| Bohr     | Ha Bohr<sup>-1</sup>    | Ha Bohr<sup>-2</sup>      |
-
-
-### 3.1 Example for ASE Interface: <https://wiki.fysik.dtu.dk/ase>
-
-```python
-from ase.io import read, write
-from ase.optimize import LBFGS
-from mlmm import mlmm_ase          # ASE wrapper
-
-mlmm_kwargs = dict(
-    real_pdb     = "complex.pdb",
-    real_parm7   = "complex.parm7",
-    real_rst7    = "complex.rst7",
-    model_pdb    = "ml_region.pdb",
-    model_charge = -1,             # Charge of ML region including link atoms
-    model_mult   = 1,              # Multiplicity of ML region
-    backend      = "uma",          # "uma" or "aimnet2"
-    uma_model    = "uma-s-1p1",
-    ml_device    = "auto",         # "auto" | "cuda" | "cpu"
-    ml_cuda_idx  = 0,
-    mm_device    = "cpu",
-    mm_cuda_idx  = 0,
-    mm_threads   = 16,
-)
-
-atoms = read("structure.pdb")
-atoms.calc = mlmm_ase(**mlmm_kwargs)
-
-opt = LBFGS(atoms, logfile="opt.log")
-opt.run(fmax=0.02, steps=10000)
-
-write("final.pdb", atoms)
+### Full workflow (multi-structure)
+```bash
+mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" \
+    --tsopt --thermo --dft
 ```
 
-> **Notes**  
-> • `complex.pdb` is the reference pdb used when the Amber parameters were generated, whereas `structure.pdb` can contain any starting geometry.  
-> • If `model_charge` or `model_mult` is omitted, the charge is estimated with **RDKit**, and the multiplicity defaults to 1 — set them explicitly for safety.  
-> • `model_mult` is available with `uma` backend.  
-> • `ml_device="auto"` selects a CUDA-capable GPU automatically (the first available one).
+### Scan mode (single structure)
+```bash
+mlmm all -i R.pdb -c PRE --ligand-charge "PRE:-2" \
+    --scan-lists "[('PRE 353 O1\'','PRE 353 C3',1.2)]"
+```
 
-### 3.2 Example for Pysisyphus Interface: <https://pysisyphus.readthedocs.io>
+### TS optimization only
+```bash
+mlmm tsopt -i TS_candidate_layered.pdb --parm complex.parm7 \
+    -q 1 --opt-mode light
+```
 
-#### (a) Direct API
+### Generate a starter config template
+```bash
+mlmm init --out mlmm_all.config.yaml
+mlmm all --config mlmm_all.config.yaml --dry-run
+```
+
+### Step-by-step workflow
+```bash
+# 1. Generate MM parameters
+mlmm mm-parm -i complex.pdb --ligand-charge "PRE:-2"
+
+# 2. Extract active-site pocket
+mlmm extract -i complex.pdb -c '353' --ligand-charge "PRE:-2" -r 6.0
+
+# 3. Assign 3-layer ONIOM regions
+mlmm define-layer -i complex.pdb --model-pdb pocket.pdb
+
+# 4. Optimize geometry
+mlmm opt -i complex_layered.pdb --parm complex.parm7 -q 1 --opt-mode heavy
+
+# 5. MEP search
+mlmm path-search -i R_layered.pdb P_layered.pdb --parm complex.parm7 -q 1
+
+# 6. TS optimization
+mlmm tsopt -i hei.pdb --parm complex.parm7 -q 1 --opt-mode light
+
+# 7. Frequency analysis
+mlmm freq -i ts_optimized.pdb --parm complex.parm7 -q 1
+
+# 8. IRC
+mlmm irc -i ts_optimized.pdb --parm complex.parm7 -q 1
+
+# 9. DFT single-point
+mlmm dft -i optimized.pdb --parm complex.parm7 -q 1
+```
+
+---
+
+## CLI Subcommands
+
+### Workflow
+
+| Subcommand | Role | Documentation |
+|---|---|---|
+| `all` | End-to-end: extraction → MEP → TS → IRC → freq → DFT | [docs/all.md](docs/all.md) |
+| `init` | Generate a starter YAML template for `mlmm all` | [docs/init.md](docs/init.md) |
+
+### Structure Preparation
+
+| Subcommand | Role | Documentation |
+|---|---|---|
+| `mm-parm` | Generate parm7/rst7 topology via AmberTools | [docs/mm_parm.md](docs/mm_parm.md) |
+| `extract` | Extract active-site pocket (cluster model) | [docs/extract.md](docs/extract.md) |
+| `define-layer` | Assign 3-layer B-factor encoding | [docs/define_layer.md](docs/define_layer.md) |
+| `add-elem-info` | Add/repair PDB element columns (77-78) | [docs/add_elem_info.md](docs/add_elem_info.md) |
+| `fix-altloc` | Resolve alternate conformations | [docs/fix_altloc.md](docs/fix_altloc.md) |
+
+### Optimization & Path Search
+
+| Subcommand | Role | Documentation |
+|---|---|---|
+| `opt` | Geometry optimization (L-BFGS or RFO) | [docs/opt.md](docs/opt.md) |
+| `tsopt` | TS optimization (Dimer or RS-I-RFO) | [docs/tsopt.md](docs/tsopt.md) |
+| `path-opt` | MEP optimization via GSM or DMF | [docs/path_opt.md](docs/path_opt.md) |
+| `path-search` | Recursive MEP search with refinement | [docs/path_search.md](docs/path_search.md) |
+| `scan` | 1D bond-length driven scan | [docs/scan.md](docs/scan.md) |
+| `scan2d` | 2D distance grid scan | [docs/scan2d.md](docs/scan2d.md) |
+| `scan3d` | 3D distance grid scan | [docs/scan3d.md](docs/scan3d.md) |
+
+### Analysis
+
+| Subcommand | Role | Documentation |
+|---|---|---|
+| `freq` | Vibrational frequency analysis + thermochemistry | [docs/freq.md](docs/freq.md) |
+| `irc` | IRC calculation (EulerPC) | [docs/irc.md](docs/irc.md) |
+| `dft` | Single-point DFT (GPU4PySCF / PySCF) | [docs/dft.md](docs/dft.md) |
+
+### Visualization & Export
+
+| Subcommand | Role | Documentation |
+|---|---|---|
+| `trj2fig` | Energy plot from XYZ trajectory | [docs/trj2fig.md](docs/trj2fig.md) |
+| `energy-diagram` | Energy diagram from numeric values | [docs/energy_diagram.md](docs/energy_diagram.md) |
+| `oniom-export` | Generate Gaussian ONIOM / ORCA QM/MM input | [docs/oniom_export.md](docs/oniom_export.md) |
+| `oniom-import` | Import ONIOM input and reconstruct XYZ/layered PDB | [docs/oniom_import.md](docs/oniom_import.md) |
+
+---
+
+## 3-Layer ONIOM System
+
+`mlmm_toolkit` uses a 3-layer system encoded in PDB B-factor columns:
+
+| Layer | B-factor | Description | Hessian |
+|---|---|---|---|
+| ML | 0.0 | Active site (UMA energy/force/Hessian) | Yes |
+| Movable MM | 10.0 | MM atoms allowed to move | No (by B-factor alone) |
+| Frozen | 20.0 | Distant protein (coordinates fixed) | No |
+
+Hessian-target MM atoms are selected by calculator settings (`hess_cutoff`, explicit `hess_mm_atoms`, or equivalent YAML), not by a dedicated B-factor layer.
+
+Use `mlmm define-layer` to assign layers automatically based on a model PDB (the ML region).
+
+---
+
+## Getting Help
+
+```bash
+mlmm --help
+mlmm <subcommand> --help
+mlmm <subcommand> --help-advanced
+mlmm all --help-advanced
+# Equivalent module invocation
+python -m mlmm_toolkit --help
+```
+
+`mlmm all --help` shows core options. Use `mlmm all --help-advanced` for the full option list.
+`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`, `oniom-import`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
+
+---
+
+## Docs / Smoke Checks
+
+To keep docs and CLI behavior in sync:
+
+```bash
+python scripts/check_intro_template.py
+python scripts/check_markdown_links.py
+python scripts/smoke_docs_commands.py
+python scripts/check_all_scan_contract.py
+```
+
+To verify trajectory dump behavior across `opt` / `tsopt` routes:
+
+```bash
+# Optional: override per-case timeout in seconds (default: 300)
+export MLMM_DUMP_CASE_TIMEOUT_SEC=300
+python scripts/smoke_dump_trajectories.py
+```
+
+
+---
+
+## Units
+
+| Interface | Energy | Distance | Force | Hessian |
+|---|---|---|---|---|
+| **Core & ASE** | eV | A | eV/A | eV/A^2 |
+| **PySisyphus (CLI)** | Hartree | Bohr | Ha/Bohr | Ha/Bohr^2 |
+
+Unit conversions are handled automatically inside the ML/MM calculator.
+
+---
+
+## Python API
+
+### MLMMCore (Base-Level)
 
 ```python
-from pysisyphus.io.pdb import geom_from_pdb
-from pysisyphus.optimizers.LBFGS import LBFGS
-from mlmm import mlmm            # Pysisyphus calculator
+from mlmm import MLMMCore
 
-mlmm_kwargs = dict(
+core = MLMMCore(
     real_pdb     = "complex.pdb",
     real_parm7   = "complex.parm7",
     real_rst7    = "complex.rst7",
     model_pdb    = "ml_region.pdb",
     model_charge = -1,
     model_mult   = 1,
-    backend      = "aimnet2",
     ml_device    = "auto",
-    ml_cuda_idx  = 0,
-    mm_device    = "cpu",
-    mm_cuda_idx  = 0,
-    mm_threads   = 16,
-    mem          = 10000, # MB – Pysisyphus scratch memory (If it is large, it is automatically reduced.)
 )
 
-geom = geom_from_pdb("structure.pdb")
-geom.set_calculator(mlmm(**mlmm_kwargs))
+from ase.io import read
+atoms = read("structure.pdb")
+results = core.compute(atoms.get_positions(), return_forces=True, return_hessian=True)
 
-opt = LBFGS(geom, max_cycles=10000, thresh='gau')
-opt.run()
-
-with open("final.xyz", "w") as fp:
-    fp.write(geom.as_xyz() + "\n")
+energy  = results["energy"]    # float, eV
+forces  = results["forces"]    # ndarray (N, 3), eV/A
+hessian = results["hessian"]   # torch.Tensor (3N, 3N), eV/A^2
 ```
 
-#### (b) Command‑Line via YAML input
-
-```yaml
-geom:
-  type: cart
-  fn: structure.pdb
-opt:
-  type: lbfgs
-  thresh: gau
-  max_cycles: 10000
-  do_hess: false           # do not request a Hessian at the end
-  dump: false              # do not output trajectory
-calc:
-  type: mlmm
-  real_pdb: complex.pdb
-  real_parm7: complex.parm7
-  real_rst7: complex.rst7
-  model_pdb: ml_region.pdb
-  model_charge: -1
-  model_mult: 1
-  backend: uma
-  uma_model: uma-s-1p1
-  vib_run: false           # whether to do a frequency analysis
-  out_hess_torch: false    # return Hessian as torch.Tensor on device when true
-  H_double: false          # calculate and return Hessian as float64 when true, else float32
-  ml_device: auto
-  ml_cuda_idx: 0
-  mm_device: cpu
-  mm_cuda_idx: 0
-  mm_threads: 16
-  mem: 10000 # MB – Pysisyphus scratch memory (If it is large, it is automatically reduced.)
-```
-
-Run with:
-
-```bash
-mlmm input.yaml
-```
-
-### 3.3 Base‑Level API
+### ASE Interface
 
 ```python
-from mlmm import MLMMCore
+from mlmm import mlmm_ase
 
-core = MLMMCore(
-    real_pdb       = "complex.pdb",    # Full system PDB (protein + substrate + solvent)
-    real_parm7     = "complex.parm7",  # Amber topology for the full system
-    real_rst7      = "complex.rst7",   # Amber coordinates for the full system
-    model_pdb      = "ml_region.pdb",  # ML region only (trimmed PDB)
-    model_charge   = -1,               # Formal charge of the ML region including link H atoms
-    model_mult     = 1,                # Spin multiplicity of the ML region (used by UMA only)
-    link_mlmm      = None,             # default: None, link atom pairs are auto determined.
-    backend        = "uma",            # ML backend: "uma" or "aimnet2"
-    uma_model      = "uma-s-1p1",      # Model name for uma backend.
-    uma_task_name  = "omol",           # See document of fairchem. Default is 'omol', and it is generally best to leave it unchanged.
-    vib_run        = True,             # Whether to compute numerical Hessian (True = finite difference)
-    ml_device      = "auto",           # ML backend device: "auto", "cuda", or "cpu"
-    ml_cuda_idx    = 0,                # GPU index for ML backend (if using CUDA)
-    mm_device      = "cpu",            # MM backend device: "auto", "cuda", or "cpu"
-    mm_cuda_idx    = 0,                # GPU index for MM backend (if using CUDA)
-    mm_threads     = 16,               # Number of CPU threads for MM force evaluation
+calc = mlmm_ase(
+    real_pdb="complex.pdb", real_parm7="complex.parm7",
+    model_pdb="ml_region.pdb", model_charge=-1,
 )
-
-from ase.io import read; atoms = read("structure.pdb")
-coord_ang = atoms.get_positions()
-
-# Coordinates in Å, shape (N, 3) NumPy array
-results = core.compute(coord_ang, return_forces=True, return_hessian=True)
-
-energy   = results["energy"]       # float, eV
-forces   = results["forces"]       # ndarray (N, 3), eV Å-1
-hessian  = results["hessian"]      # torch.Tensor (3N, 3N), eV Å-2
+atoms.calc = calc
+energy = atoms.get_potential_energy()  # eV
 ```
 
-### 3.4 Command‑Line Utilities
+---
 
-ML/MM toolkit ships with a small set of single‑purpose command‑line helpers. All tools are installed automatically when you install this package and therefore become available on your `$PATH`.
+## References
 
-| Tool | Purpose | Typical use‑case |
-|------|---------|------------------|
-| `def_ml_region` | Build an ML region with residues around one or more substrate in a protein–substrate complex. | Preparing the subsystem for ML/MM calculation |
-| `xyz_geom2pdb`  | Convert an XYZ geometry or trajectory to a multi‑model PDB while borrowing atom / residue metadata from a reference PDB. | Exporting Pysisyphus‑ or ASE‑optimized coordinates so that they can be visualized in PyMOL, VMD, Chimera X, etc. |
-| `add_elem_info` | Append element symbols (PDB columns 77–78) | Fixing element fields after running external tools omit them, e.g. Amber’s `tleap`. |
-| `get_freeze_indices` | List atom indices (0-based) to *freeze*  based on their distance from the ML region. | Constraining outer‑shell atoms to speed up local relaxations. |
-| `bond_scan` | Scan a bond length with ML/MM optimization at each step. | Generating pre‑aligned structures along a reaction coordinate. |
-| `ts_search` | Dimer‑based TS search with partial Hessian updates. | Locating transition states in large systems. |
-| `energy_summary` | Compute ΔE/ΔG tables and plots from reactant, TS and product structures. | Summarizing reaction energetics. |
-| `trj2fig` | Plot ΔE from an XYZ trajectory and export the highest peak frame. | Visualizing optimization or scan profiles. |
+[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit -- Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. https://doi.org/10.26434/chemrxiv-2025-jft1k
+[2] Wood, B. M. et al. (2025). UMA: A Family of Universal Models for Atoms. http://arxiv.org/abs/2506.23971
+[3] Steinmetzer, J. et al. (2021). pysisyphus: Exploring potential energy surfaces in ground and excited states. *Int. J. Quantum Chem.*, 121(3). https://doi.org/10.1002/qua.26390
 
-Detailed option tables and usage examples for each utility are provided in [docs/cli_doc.md](docs/cli_doc.md).
+---
 
 ## License
 
-**ML/MM toolkit** is distributed under the **GNU General Public License version 3 (GPL-3.0)** derived from Pysisyphus.
-
-## Citation
-If you find this work helpful for your research, please cite:  
-[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. [doi:10.26434/chemrxiv-2025-jft1k](https://doi.org/10.26434/chemrxiv-2025-jft1k)
+`mlmm_toolkit` is distributed under the **GNU General Public License version 3 (GPL-3.0)**.
