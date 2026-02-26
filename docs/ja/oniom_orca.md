@@ -11,14 +11,14 @@
 - **デフォルト:** `--method "B3LYP D3BJ def2-SVP"`、`--nproc 8`、`--near 6.0`、`--convert-orcaff` 有効。
 - **次のステップ:** ORCA でエクスポートした入力を実行。
 
-## 最小の例
+## 最小例
 
 ```bash
-mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `system.inp`
 - `ORCAFF.prms`（既存利用または自動生成）
@@ -28,27 +28,27 @@ mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_re
 1. 基本出力。
 
 ```bash
-mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
 2. 全 QM+MM 系の総電荷/総多重度を明示。
 
 ```bash
-mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
 3. ORCAFF を明示指定し自動変換を無効化。
 
 ```bash
-mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
 ## ワークフロー
 
-ORCA モード（`mlmm oniom-export --mode orca`）は `--parm7` からトポロジ情報を取得し、ORCA QM/MM 入力を書き出します。
+ORCA モード（`mlmm oniom-export --mode orca`）は `--parm` からトポロジ情報を取得し、ORCA QM/MM 入力を書き出します。
 
 1. parm7 から原子・結合・電荷情報を取得。
 2. `-i/--input` がある場合は読み込み、`--element-check` で元素順を検証。
@@ -60,7 +60,7 @@ ORCA モード（`mlmm oniom-export --mode orca`）は `--parm7` からトポロ
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--parm7 PATH` | Amber parm7 トポロジ。 | 必須 |
+| `--parm PATH` | Amber parm7 トポロジ。 | 必須 |
 | `-i, --input PATH` | 座標ファイル（PDB/XYZ）。原子順は parm7 と一致必須。 | _None_ |
 | `--element-check / --no-element-check` | 入力と parm7 の元素順を検証。 | `True` |
 | `--model-pdb PATH` | QM 領域原子を定義する PDB。 | _None_ |

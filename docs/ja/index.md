@@ -42,8 +42,7 @@ irc
 dft
 trj2fig
 oniom_export
-oniom_gaussian
-oniom_orca
+oniom_import
 fix_altloc
 energy_diagram
 ```
@@ -79,6 +78,7 @@ glossary
 | 遷移状態からIRCを実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Gaussian ONIOM / ORCA QM/MM 入力を生成 | `mlmm oniom-export --mode <g16|orca>` | [oniom_export.md](oniom_export.md) |
+| ONIOM 入力から XYZ/層付き PDB を再構築 | `mlmm oniom-import` | [oniom_import.md](oniom_import.md) |
 | 数値から状態エネルギーダイアグラムを描画 | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
 | チュートリアルに従う | -- | [はじめに](getting_started.md) |
 | 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes_common_errors.md) |
@@ -148,6 +148,7 @@ glossary
 | サブコマンド | 説明 |
 |---------|------|
 | [`oniom-export`](oniom_export.md) | Amber parm7 から Gaussian ONIOM / ORCA QM/MM 入力を生成（`--mode g16|orca`） |
+| [`oniom-import`](oniom_import.md) | Gaussian/ORCA ONIOM 入力を読み込み、XYZ と層付き PDB を再構築 |
 
 ---
 
@@ -192,7 +193,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 ### 単一構造スキャンモード
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed
 ```
 

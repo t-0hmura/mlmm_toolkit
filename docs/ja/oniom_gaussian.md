@@ -11,14 +11,14 @@
 - **デフォルト:** `--method "B3LYP/6-31G(d,p)"`、`--nproc 8`、`--mem 16GB`、`--near 6.0`。
 - **次のステップ:** Gaussian でエクスポートした入力を実行。
 
-## 最小の例
+## 最小例
 
 ```bash
-mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `system.com` または `system.gjf`
 - コンソールに QM 原子数や境界処理の要約
@@ -28,27 +28,27 @@ mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_reg
 1. メソッドを明示して出力。
 
 ```bash
-mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --method "B3LYP/6-31G(d,p)"
 ```
 
 2. 元素順チェックを無効化。
 
 ```bash
-mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
  -o system.gjf --no-element-check
 ```
 
 3. 実行環境パラメータを調整。
 
 ```bash
-mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
 
 ## ワークフロー
 
-Gaussian モード（`mlmm oniom-export --mode g16`）は `--parm7` からトポロジ情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使って Gaussian ONIOM 入力を書き出します。
+Gaussian モード（`mlmm oniom-export --mode g16`）は `--parm` からトポロジ情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使って Gaussian ONIOM 入力を書き出します。
 
 1. parm7 から原子・結合・電荷情報を取得。
 2. `-i/--input` がある場合は読み込み、`--element-check` で元素順を検証。
@@ -60,7 +60,7 @@ Gaussian モード（`mlmm oniom-export --mode g16`）は `--parm7` からトポ
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--parm7 PATH` | Amber parm7 トポロジ。 | 必須 |
+| `--parm PATH` | Amber parm7 トポロジ。 | 必須 |
 | `-i, --input PATH` | 座標ファイル（PDB/XYZ）。原子順は parm7 と一致必須。 | _None_ |
 | `--element-check / --no-element-check` | 入力と parm7 の元素順を検証。 | `True` |
 | `--model-pdb PATH` | QM 領域原子を定義する PDB。 | _None_ |

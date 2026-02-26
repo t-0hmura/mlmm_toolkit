@@ -74,7 +74,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
  comments raise an error.
 - When recomputation is triggered, omitted charge/multiplicity values default to `0` and `1`.
 - Unsupported file extensions in `-o` cause an error.
-- `--reverse-x` flips both the axis direction and the behavior of `-r init` so
+- `--reverse-x` flips both the axis direction and the behavior of `-r init` so the plotted pathway is read in reverse direction.
 - The `--output-peak` option has been removed.
 
 ---

@@ -13,13 +13,13 @@
 
 `mlmm energy-diagram` は与えた数値を可視化するだけで、PDB/XYZ を読み込まず、`--thermo` / `--dft` のような計算も実行しません。
 
-## 最小の例
+## 最小例
 
 ```bash
 mlmm energy-diagram -i 0 12.5 4.3 -o energy.png
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `OUTPUT.(png|jpg|jpeg|svg|pdf)` -- 描画されたエネルギーダイアグラム画像
 

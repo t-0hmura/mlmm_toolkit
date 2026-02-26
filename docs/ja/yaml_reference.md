@@ -50,7 +50,7 @@ ML/MM 計算機（UMA + hessian_ff）の設定。
 ```yaml
 calc:
  input_pdb: null # 入力 PDB ファイルパス (CLI --input から設定)
- real_parm7: null # 全系の Amber parm7 トポロジ (CLI --real-parm7)
+ real_parm7: null # 全系の Amber parm7 トポロジ (CLI --parm)
  model_pdb: null # ML 領域を定義する PDB (CLI --model-pdb)
  model_charge: 0 # ML 領域の電荷 (CLI -q で上書き)
  model_mult: 1 # ML 領域のスピン多重度 (CLI -m で上書き)

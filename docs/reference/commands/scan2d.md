@@ -13,7 +13,7 @@ Options:
                                   and exit.
   -i, --input FILE                Input enzyme complex PDB (required).
                                   [required]
-  --real-parm7 FILE               Amber parm7 topology for the enzyme
+  --parm FILE                     Amber parm7 topology for the enzyme
                                   (required).  [required]
   --model-pdb FILE                PDB defining the ML region. Optional when
                                   --detect-layer is enabled.

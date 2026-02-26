@@ -16,7 +16,7 @@ Options:
                                   use a single '-i' followed by multiple space-
                                   separated paths (e.g., '-i A B C').
                                   [required]
-  --real-parm7 FILE               Amber parm7 topology covering the full enzyme
+  --parm FILE                     Amber parm7 topology covering the full enzyme
                                   complex.  [required]
   --model-pdb FILE                PDB describing atoms that belong to the ML
                                   (high-level) region. Optional when --detect-

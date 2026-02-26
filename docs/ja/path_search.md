@@ -18,11 +18,11 @@
 ## 最小例
 
 ```bash
-mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `result_path_search/mep_trj.xyz`
 - `result_path_search/summary.yaml`
@@ -34,14 +34,14 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 1. 中間体を含む多段経路を構築する。
 
 ```bash
-mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --real-parm7 real.parm7 \
+mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
 2. ポケット軌跡をフルテンプレートへマージする。
 
 ```bash
-mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
+mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --ref-pdb holo_template.pdb \
  --out-dir ./result_path_search_merge
 ```
@@ -49,7 +49,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 3. 事前最適化とアライメントを無効にして軽く試す。
 
 ```bash
-mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --no-preopt --no-align --max-nodes 8 \
  --out-dir ./result_path_search_fast
 ```
@@ -58,7 +58,7 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
- --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
+ --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
  [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
  [--opt-mode light|heavy]
@@ -70,11 +70,11 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 
 ```bash
 # ミニマルなポケットのみの 2 状態間 MEP
-mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0
 
 # YAML 上書き、凍結原子、全系マージ出力付きマルチステップ経路
-mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
+mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
  --ref-pdb holo_template.pdb --out-dir ./run_ps
 ```
@@ -97,7 +97,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH...` | 反応順の 2 つ以上の完全酵素 PDB。`-i` を繰り返すか、1 つのフラグの後に複数パスを渡す。 | 必須 |
-| `--real-parm7 PATH` | 完全酵素複合体の Amber parm7 トポロジー。 | 必須 |
+| `--parm PATH` | 完全酵素複合体の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML/MM の ML（高レベル）領域原子を定義する PDB。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
 | `-q, --charge INT` | ML 領域の電荷（整数）。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |

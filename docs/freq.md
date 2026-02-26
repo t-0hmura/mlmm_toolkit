@@ -16,7 +16,7 @@
 ## Minimal example
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
 
@@ -31,33 +31,33 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 1. Limit the number of exported modes for quick inspection.
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
 ```
 
 2. Run PHVA with explicit frozen atoms and dump thermo payload.
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
 3. Use analytical Hessian mode on VRAM-rich nodes.
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
 4. Run PHVA with link freezing enabled.
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ```
 
 ## Workflow
 
-2. **ML/MM calculator setup** -- The ML region is supplied via `--model-pdb`; Amber parameters are read from `--real-parm7`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active-DOF sub-block.
+2. **ML/MM calculator setup** -- The ML region is supplied via `--model-pdb`; Amber parameters are read from `--parm`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active-DOF sub-block.
    - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
 3. **PHVA & TR projection** -- With frozen atoms, eigenanalysis occurs inside the active subspace with translation/rotation modes projected there. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
 4. **Active DOF mode** -- `--active-dof-mode` controls which atoms are included in the frequency analysis: `all` (all atoms), `ml-only` (ML layer, B=0), `partial` (ML + Hessian-target MM; default), `unfrozen` (non-frozen layers, typically B=0/10).
@@ -71,7 +71,7 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Full enzyme PDB (no link atoms). | Required |
-| `--real-parm7 PATH` | Amber parm7 topology for the full enzyme. | Required |
+| `--parm PATH` | Amber parm7 topology for the full enzyme. | Required |
 | `--model-pdb PATH` | PDB defining the ML region. | Required |
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |

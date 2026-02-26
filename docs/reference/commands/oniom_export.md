@@ -11,7 +11,7 @@ Usage: mlmm oniom-export [OPTIONS]
 Options:
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  --parm7 FILE                    Amber parm7 topology file.  [required]
+  --parm FILE                     Amber parm7 topology file.  [required]
   -i, --input FILE                Coordinate file (.pdb or .xyz) for the current
                                   structure (atom order must match parm7).
   --element-check / --no-element-check

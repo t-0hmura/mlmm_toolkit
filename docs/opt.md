@@ -19,7 +19,7 @@ When the starting structure is a PDB, the command also writes `.pdb` companions,
 ## Minimal example
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_opt
 ```
 
@@ -34,35 +34,35 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 1. Tighten convergence and keep an optimization trajectory.
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
 ```
 
 2. Apply one harmonic distance restraint during optimization.
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --dist-freeze "[(12,45,2.20)]" --bias-k 20.0 --out-dir ./result_opt_rest
 ```
 
 3. Switch to heavy mode (RFO).
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
 4. Run hybrid mode and flatten imaginary modes after the initial minimization.
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode hybrid --flatten --out-dir ./result_opt_hybrid_flat
 ```
 
 ## Workflow
 
 1. **Input handling** -- The tool requires `-i/--input` to be a PDB file (the enzyme complex). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Hessian-target MM, B=20 frozen MM).
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (FAIR-Chem UMA + hessian_ff). `--real-parm7` provides Amber MM topology; `--model-pdb` defines the ML region.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator (FAIR-Chem UMA + hessian_ff). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region.
 4. **Optimization** -- `--opt-mode light` runs L-BFGS; `--opt-mode heavy` runs RFOptimizer (RFO); `--opt-mode hybrid` runs L-BFGS first, then flatten-loop restarts with RFO.
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
 5. **Restraints** -- `--dist-freeze` consumes Python-literal tuples `(i, j, target_A)` where `target_A` is the target distance in angstrom; omitting the third element restrains the starting distance. `--bias-k` sets a global harmonic strength (eV/A^2). Indices default to 1-based but can be flipped to 0-based with `--zero-based`.
@@ -77,7 +77,7 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | --- | --- | --- |
 | `-i, --input PATH` | Input structure accepted by `geom_loader`. | Required |
 | `--ref-pdb PATH` | Reference PDB topology when input is XYZ. | _None_ |
-| `--real-parm7 PATH` | Amber parm7 topology for the full enzyme. | Required |
+| `--parm PATH` | Amber parm7 topology for the full enzyme. | Required |
 | `--model-pdb PATH` | PDB defining the ML region atoms. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Alternative to `--model-pdb`. | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Index convention for `--model-indices`. | 1-based |

@@ -13,7 +13,7 @@
 ## 統合コマンド
 
 ```bash
-mlmm oniom-export --parm7 real.parm7 -i pocket.pdb --model-pdb ml.pdb \
+mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
  -o out.<gjf|com|inp> --mode <g16|orca> -q 0 -m 1
 ```
 
@@ -42,5 +42,6 @@ mlmm oniom-export --parm7 real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 
 - [oniom_gaussian](oniom_gaussian.md) -- Gaussian モード詳細（`--mode g16`）
 - [oniom_orca](oniom_orca.md) -- ORCA モード詳細（`--mode orca`）
+- [oniom_import](oniom_import.md) -- ONIOM 入力から XYZ/層付き PDB を再構築
 - [mm_parm](mm_parm.md) -- Amber トポロジ構築
 - [define_layer](define_layer.md) -- レイヤー定義/確認

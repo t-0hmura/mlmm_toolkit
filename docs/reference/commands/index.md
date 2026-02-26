@@ -18,6 +18,7 @@ init
 irc
 mm_parm
 oniom_export
+oniom_import
 opt
 path_opt
 path_search
@@ -42,6 +43,7 @@ tsopt
 | `mlmm irc` | [irc](irc.md) |
 | `mlmm mm-parm` | [mm-parm](mm_parm.md) |
 | `mlmm oniom-export` | [oniom-export](oniom_export.md) |
+| `mlmm oniom-import` | [oniom-import](oniom_import.md) |
 | `mlmm opt` | [opt](opt.md) |
 | `mlmm path-opt` | [path-opt](path_opt.md) |
 | `mlmm path-search` | [path-search](path_search.md) |

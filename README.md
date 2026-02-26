@@ -54,7 +54,7 @@ using Meta's **UMA** machine-learning interatomic potential for the ML region an
 | Boundary | None | Link atom (H cap) + Jacobian chain rule |
 | Atom layers | freeze/active (2 layers) | ML / Movable MM / Frozen (3 layers) |
 | Layer encoding | None | B-factor (0/10/20) |
-| Additional CLI | None | `--real-parm7`, `--model-pdb`, `--detect-layer` |
+| Additional CLI | None | `--parm`, `--model-pdb`, `--detect-layer` |
 
 ## Documentation
 
@@ -113,7 +113,7 @@ mlmm all -i R.pdb -c PRE --ligand-charge "PRE:-2" \
 
 ### TS optimization only
 ```bash
-mlmm tsopt -i TS_candidate_layered.pdb --real-parm7 complex.parm7 \
+mlmm tsopt -i TS_candidate_layered.pdb --parm complex.parm7 \
     -q 1 --opt-mode light
 ```
 
@@ -135,22 +135,22 @@ mlmm extract -i complex.pdb -c '353' --ligand-charge "PRE:-2" -r 6.0
 mlmm define-layer -i complex.pdb --model-pdb pocket.pdb
 
 # 4. Optimize geometry
-mlmm opt -i complex_layered.pdb --real-parm7 complex.parm7 -q 1 --opt-mode heavy
+mlmm opt -i complex_layered.pdb --parm complex.parm7 -q 1 --opt-mode heavy
 
 # 5. MEP search
-mlmm path-search -i R_layered.pdb P_layered.pdb --real-parm7 complex.parm7 -q 1
+mlmm path-search -i R_layered.pdb P_layered.pdb --parm complex.parm7 -q 1
 
 # 6. TS optimization
-mlmm tsopt -i hei.pdb --real-parm7 complex.parm7 -q 1 --opt-mode light
+mlmm tsopt -i hei.pdb --parm complex.parm7 -q 1 --opt-mode light
 
 # 7. Frequency analysis
-mlmm freq -i ts_optimized.pdb --real-parm7 complex.parm7 -q 1
+mlmm freq -i ts_optimized.pdb --parm complex.parm7 -q 1
 
 # 8. IRC
-mlmm irc -i ts_optimized.pdb --real-parm7 complex.parm7 -q 1
+mlmm irc -i ts_optimized.pdb --parm complex.parm7 -q 1
 
 # 9. DFT single-point
-mlmm dft -i optimized.pdb --real-parm7 complex.parm7 -q 1
+mlmm dft -i optimized.pdb --parm complex.parm7 -q 1
 ```
 
 ---
@@ -200,8 +200,8 @@ mlmm dft -i optimized.pdb --real-parm7 complex.parm7 -q 1
 |---|---|---|
 | `trj2fig` | Energy plot from XYZ trajectory | [docs/trj2fig.md](docs/trj2fig.md) |
 | `energy-diagram` | Energy diagram from numeric values | [docs/energy_diagram.md](docs/energy_diagram.md) |
-| `oniom-gaussian` | Generate Gaussian ONIOM input | [docs/oniom_export.md](docs/oniom_export.md) |
-| `oniom-orca` | Generate ORCA ONIOM input | [docs/oniom_export.md](docs/oniom_export.md) |
+| `oniom-export` | Generate Gaussian ONIOM / ORCA QM/MM input | [docs/oniom_export.md](docs/oniom_export.md) |
+| `oniom-import` | Import ONIOM input and reconstruct XYZ/layered PDB | [docs/oniom_import.md](docs/oniom_import.md) |
 
 ---
 
@@ -233,7 +233,7 @@ python -m mlmm_toolkit --help
 ```
 
 `mlmm all --help` shows core options. Use `mlmm all --help-advanced` for the full option list.
-`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-gaussian`, `oniom-orca`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
+`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`, `oniom-import`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
 
 ---
 

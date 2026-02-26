@@ -35,7 +35,7 @@ ML 領域の計算には Meta の UMA（MLIP）を、MM 領域の計算には he
 ```{important}
 - 入力 PDB ファイルには**水素原子**が含まれている必要があります。
 - 複数の PDB を提供する場合、**同じ原子が同じ順序**で含まれている必要があります（座標のみ異なる可能性があります）。そうでない場合はエラーが発生します。
-- ML/MM 計算には **`--real-parm7`**（全系の Amber トポロジ）と **`--model-pdb`**（ML 領域を定義する PDB）が必要です。`all` ワークフローではこれらが自動生成されます。
+- ML/MM 計算には **`--parm`**（全系の Amber トポロジ）と **`--model-pdb`**（ML 領域を定義する PDB）が必要です。`all` ワークフローではこれらが自動生成されます。
 ```
 
 ```{tip}
@@ -121,7 +121,7 @@ huggingface-cli login
 conda install -c conda-forge ambertools -y
 ```
 
-AmberTools がインストールされていなくても、`--real-parm7` を手動で用意すれば他のサブコマンドは動作します。
+AmberTools がインストールされていなくても、`--parm` を手動で用意すれば他のサブコマンドは動作します。
 
 ### ステップバイステップインストール
 
@@ -292,7 +292,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 | `-c, --center TEXT` | 基質/抽出中心を定義。残基名（`'SAM,GPP'`）、残基ID（`A:123,B:456`）、または PDB パスをサポート |
 | `--ligand-charge TEXT` | 電荷情報: マッピング（`'SAM:1,GPP:-3'`）または単一整数 |
 | `-q, --charge INT` | ML 領域の総電荷の強制上書き |
-| `--real-parm7 PATH` | 全系の Amber parm7 トポロジ（`all` では自動生成） |
+| `--parm PATH` | 全系の Amber parm7 トポロジ（`all` では自動生成） |
 | `--model-pdb PATH` | ML 領域を定義する PDB ファイル（`all` では自動生成） |
 | `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |
 | `--thermo/--no-thermo` | 振動解析と熱化学を実行 |
@@ -369,7 +369,7 @@ mlmm -i TS.pdb -c 'LIG' --tsopt --thermo
 | `-i` | 入力構造（単数または複数） |
 | `-c` | 抽出中心（基質）指定 |
 | `--ligand-charge` | 基質電荷指定（例: `'SAM:1,GPP:-3'`） |
-| `--real-parm7` | Amber parm7（個別サブコマンドで必要） |
+| `--parm` | Amber parm7（個別サブコマンドで必要） |
 | `--model-pdb` | ML 領域定義 PDB（個別サブコマンドで必要） |
 | `--tsopt` | TS 最適化 + IRC |
 | `--thermo` | 振動解析/熱化学 |

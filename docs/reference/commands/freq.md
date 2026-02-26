@@ -13,7 +13,7 @@ Options:
                                   and exit.
   -i, --input FILE                Enzyme complex PDB used by both geom_loader
                                   and the ML/MM calculator.  [required]
-  --real-parm7 FILE               Amber parm7 topology for the full enzyme
+  --parm FILE                     Amber parm7 topology for the full enzyme
                                   complex.  [required]
   --model-pdb FILE                PDB defining atoms belonging to the ML region.
                                   Optional when --detect-layer is enabled.

@@ -23,7 +23,7 @@
 mlmm extract -i complex.pdb -c A:123 -o pocket.pdb --ligand-charge -3
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `pocket.pdb`（または `-o` によるカスタムパス）
 - INFO で記録される電荷サマリー（アミノ酸、イオン、基質、合計）

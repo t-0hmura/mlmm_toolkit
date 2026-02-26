@@ -17,7 +17,7 @@ A typical workflow is `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc
 ## Minimal example
 
 ```bash
-mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 ```
 
@@ -31,14 +31,14 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 1. Run only the forward branch.
 
 ```bash
-mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-forward --out-dir ./result_irc_forward
 ```
 
 2. Increase step size and use analytical Hessians.
 
 ```bash
-mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-detect-layer -q 0 -m 1 --step-size 0.20 \
  --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
 ```
@@ -46,7 +46,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 3. Keep both branches and raise the step limit.
 
 ```bash
-mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-detect-layer -q 0 -m 1 --max-cycles 150 \
  --out-dir ./result_irc_long
 ```
@@ -54,7 +54,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input preparation** -- Any format supported by `geom_loader` is accepted. When a reference PDB is available (input is `.pdb` or `--ref-pdb` is supplied), EulerPC trajectories are converted to PDB using that topology.
-2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--real-parm7` and `--model-pdb`. The `--hessian-calc-mode` controls UMA Hessian evaluation.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `--hessian-calc-mode` controls UMA Hessian evaluation.
 4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` disables forward). Step size and cycle count control integration length.
 5. **Output & conversion** -- Trajectories are written as XYZ; PDB companions are generated when a PDB template is available and `--convert-files` is enabled.
 
@@ -63,7 +63,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Structure file (`.pdb`/`.xyz`/`_trj.xyz`/...). | Required |
-| `--real-parm7 PATH` | Amber topology for the full enzyme/MM region. Required unless `calc.real_parm7` is set in YAML. | _None_ |
+| `--parm PATH` | Amber topology for the full enzyme/MM region. Required unless `calc.real_parm7` is set in YAML. | _None_ |
 | `--model-pdb PATH` | PDB defining the ML region. Required when `--no-detect-layer` and no `--model-indices` are given. | _None_ |
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed, e.g. `1-10,15`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |

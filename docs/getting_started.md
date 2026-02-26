@@ -41,7 +41,7 @@ The CLI is designed to generate **multi-step enzymatic reaction mechanisms** wit
 ```{important}
 - Input PDB files must already contain **hydrogen atoms**.
 - When you provide multiple PDBs, they must contain **the same atoms in the same order** (only coordinates may differ); otherwise an error is raised.
-- Most subcommands require `--real-parm7` (Amber topology) and `--model-pdb` (ML region definition). The `all` command generates these automatically.
+- Most subcommands require `--parm` (Amber topology) and `--model-pdb` (ML region definition). The `all` command generates these automatically.
 ```
 
 ```{tip}
@@ -477,8 +477,8 @@ mlmm -i SINGLE.pdb -c 'LIG' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
 mlmm -i TS.pdb -c 'LIG' --tsopt --thermo
 
 # Individual subcommands (after running extract + mm-parm + define-layer)
-mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
-mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
+mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
+mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 ```
 
 **Essential options:**
@@ -488,7 +488,7 @@ mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m
 | `-i` | Input structure(s) |
 | `-c` | Substrate definition for pocket extraction |
 | `--ligand-charge` | Substrate charges (e.g., `'SAM:1,GPP:-3'`) |
-| `--real-parm7` | Amber parm7 topology file (required for subcommands) |
+| `--parm` | Amber parm7 topology file (required for subcommands) |
 | `--model-pdb` | ML region PDB file (required for subcommands) |
 | `--tsopt` | Enable TS optimization + IRC |
 | `--thermo` | Run vibrational analysis |

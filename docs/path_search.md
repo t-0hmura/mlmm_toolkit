@@ -18,7 +18,7 @@ If you only have **two** endpoints and do not need recursive refinement, [path-o
 ## Minimal example
 
 ```bash
-mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
@@ -34,14 +34,14 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 1. Build a multistep path with explicit intermediates.
 
 ```bash
-mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --real-parm7 real.parm7 \
+mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
 2. Merge pocket trajectories back into a full template.
 
 ```bash
-mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
+mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --ref-pdb holo_template.pdb \
  --out-dir ./result_path_search_merge
 ```
@@ -49,7 +49,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
 3. Run a lighter pass without pre-optimization or alignment.
 
 ```bash
-mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --no-preopt --no-align --max-nodes 8 \
  --out-dir ./result_path_search_fast
 ```
@@ -58,7 +58,7 @@ mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
- --real-parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
+ --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
  [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
  [--opt-mode light|heavy]
@@ -70,11 +70,11 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 
 ```bash
 # Minimal pocket-only MEP between two states
-mlmm path-search -i reactant.pdb product.pdb --real-parm7 real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0
 
 # Multistep path with YAML overrides, frozen atoms, and merged full-system output
-mlmm path-search -i R.pdb IM1.pdb P.pdb --real-parm7 real.parm7 \
+mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
  --ref-pdb holo_template.pdb --out-dir ./run_ps
 ```
@@ -97,7 +97,7 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH...` | Two or more full-enzyme PDBs in reaction order. Repeat `-i` or pass multiple paths after one flag. | Required |
-| `--real-parm7 PATH` | Amber parm7 topology for the full enzyme complex. | Required |
+| `--parm PATH` | Amber parm7 topology for the full enzyme complex. | Required |
 | `--model-pdb PATH` | PDB defining the ML (high-level) region atoms for ML/MM. Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `-q, --charge INT` | Charge of the ML region (integer). | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |

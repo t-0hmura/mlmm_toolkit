@@ -13,14 +13,14 @@ Optimize a TS candidate and validate it by frequency analysis.
 ## 1. TS optimization
 
 ```bash
-mlmm tsopt -i ts_guess.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
 ## 2. Frequency check on optimized TS
 
 ```bash
-mlmm freq -i ./result_tsopt/final_geometry.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i ./result_tsopt/final_geometry.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
 

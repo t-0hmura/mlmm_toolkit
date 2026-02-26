@@ -47,7 +47,7 @@ Options:
   --dry-run / --no-dry-run        Validate options and print the execution plan
                                   without running path optimization.  [default:
                                   no-dry-run]
-  --real-parm7 FILE               Amber parm7 topology for the enzyme complex
+  --parm FILE                     Amber parm7 topology for the enzyme complex
                                   (MM layers).  [required]
   --model-pdb FILE                PDB defining the ML region (atom IDs used by
                                   the ML/MM calculator). Optional when --detect-

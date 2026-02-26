@@ -11,17 +11,17 @@
 - **出力:** `surface.csv`、`grid/` 下のグリッド点ごとのジオメトリ、HTML アイソサーフェスプロット（`scan3d_density.html`）。
 - **注意:** 3D グリッドは急速に大きくなります。まず粗い `--max-step-size` または小さい範囲を検討してください。
 
-`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--real-parm7` から読み取られ、オプティマイザーは PySisyphus LBFGS です。
+`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、オプティマイザーは PySisyphus LBFGS です。
 
 
 ## 最小例
 
 ```bash
-mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan3d.yaml --print-parsed --out-dir ./result_scan3d/
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `result_scan3d/surface.csv`
 - `result_scan3d/grid/point_i000_j000_k000.xyz`
@@ -38,7 +38,7 @@ mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ## 使用法
 
 ```bash
-mlmm scan3d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  [--csv precomputed_surface.csv] \
  [--spec scan3d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
@@ -59,15 +59,15 @@ pairs:
  - [10, 55, 1.20, 3.20]
  - [15, 60, 1.10, 3.00]
 YAML
-mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan3d.yaml --print-parsed
 
 # 代替: Python リテラル
-mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]"
 
 # 事前最適化とカスタム出力ディレクトリ付き
-mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
  --max-step-size 0.20 --dump --out-dir ./result_scan3d/ \
  --preopt --baseline min
@@ -148,7 +148,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | `--csv` 指定時を除き必須 |
-| `--real-parm7 PATH` | 完全酵素の Amber parm7 トポロジー。 | `--csv` 指定時を除き必須 |
+| `--parm PATH` | 完全酵素の Amber parm7 トポロジー。 | `--csv` 指定時を除き必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。 | _None_ |
 | `--model-indices TEXT` | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | `True`（1 始まり） |

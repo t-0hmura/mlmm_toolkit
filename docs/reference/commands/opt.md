@@ -20,7 +20,7 @@ Options:
                                   coordinates are used (higher precision) while
                                   PDB provides atom ordering and residue
                                   information for output conversion.
-  --real-parm7 FILE               Amber parm7 topology covering the whole enzyme
+  --parm FILE                     Amber parm7 topology covering the whole enzyme
                                   complex.  [required]
   --model-pdb FILE                PDB defining atoms that belong to the ML
                                   (high-level) region. Optional when --detect-

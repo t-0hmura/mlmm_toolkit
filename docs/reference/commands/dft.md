@@ -13,7 +13,7 @@ Options:
                                   and exit.
   -i, --input FILE                Full enzyme PDB used for ML/MM (must be .pdb).
                                   [required]
-  --real-parm7 FILE               Amber parm7 topology for the full system.
+  --parm FILE                     Amber parm7 topology for the full system.
                                   [required]
   --model-pdb FILE                PDB defining the ML region (atom IDs must
                                   match the enzyme PDB). Optional when --detect-

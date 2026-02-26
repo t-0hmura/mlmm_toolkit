@@ -22,7 +22,7 @@ The GPU4PySCF backend is activated automatically when available; otherwise PySCF
 ## Minimal example
 
 ```bash
-mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_dft
 ```
 
@@ -37,27 +37,27 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 1. Change functional/basis for a higher-level single point.
 
 ```bash
-mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --func-basis "wb97m-v/def2-tzvpd" --out-dir ./result_dft_tz
 ```
 
 2. Freeze selected atoms in the ML/MM setup before DFT.
 
 ```bash
-mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q -1 -m 2 --freeze-atoms "1,3,5" --out-dir ./result_dft_freeze
 ```
 
 3. Tighten SCF convergence and allow more cycles.
 
 ```bash
-mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
 ```
 
 ## Workflow
 
-1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--real-parm7`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Link hydrogens are appended automatically (C/N parents within 1.7 A) unless explicit `link_mlmm` pairs are provided via YAML.
+1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Link hydrogens are appended automatically (C/N parents within 1.7 A) unless explicit `link_mlmm` pairs are provided via YAML.
 2. **SCF build** -- `--func-basis` is parsed into functional and basis. Density fitting is enabled automatically with PySCF defaults. The GPU4PySCF backend is used when available; otherwise CPU PySCF is used.
 3. **ML(dft)/MM recombination** -- After the DFT converges, MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low) are computed. The combined energy is reported in Hartree and kcal/mol.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
@@ -67,7 +67,7 @@ mlmm dft -i enzyme.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Full enzyme PDB file (must be `.pdb`). | Required |
-| `--real-parm7 PATH` | Amber parm7 topology for the full system. | Required |
+| `--parm PATH` | Amber parm7 topology for the full system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs must match the enzyme PDB). Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |

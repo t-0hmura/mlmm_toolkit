@@ -11,14 +11,14 @@
 - **Defaults:** `--climb`, `--max-nodes 10`, `--max-cycles 300`.
 - **Next step:** Validate the HEI with `tsopt` -> `freq` (expect one imaginary mode) -> `irc`.
 
-`mlmm path-opt` optimizes a minimum-energy path between two enzyme states using PySisyphus `GrowingString` with the ML/MM calculator. The ML/MM calculator keeps the full enzyme complex without link atoms: the ML region is defined by `--model-pdb`, the Amber topology comes from `--real-parm7`, and both endpoints are supplied as PDBs containing the full system coordinates.
+`mlmm path-opt` optimizes a minimum-energy path between two enzyme states using PySisyphus `GrowingString` with the ML/MM calculator. The ML/MM calculator keeps the full enzyme complex without link atoms: the ML region is defined by `--model-pdb`, the Amber topology comes from `--parm`, and both endpoints are supplied as PDBs containing the full system coordinates.
 
 For workflows that start from **two or more** structures and automatically refine only the reactive region, use [path-search](path_search.md).
 
 ## Minimal example
 
 ```bash
-mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_path_opt
 ```
 
@@ -33,47 +33,47 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 1. Pre-optimize both endpoints before path growth.
 
 ```bash
-mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --preopt --preopt-max-cycles 20000 --out-dir ./result_path_opt_preopt
 ```
 
 2. Disable climbing-image refinement for a quick first pass.
 
 ```bash
-mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --no-climb --max-nodes 8 --out-dir ./result_path_opt_fast
 ```
 
 3. Freeze selected atoms and keep optimizer dumps.
 
 ```bash
-mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_path_opt_dump
 ```
 
 ## Usage
 ```bash
-mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --real-parm7 real.parm7 --model-pdb model.pdb \
+mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pdb \
  -q CHARGE [-m MULT] [--mep-mode gsm|dmf] [--fix-ends/--no-fix-ends] [options]
 ```
 
 ### Examples
 ```bash
 # Minimal invocation
-mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
+mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 
 # With frozen atoms, more nodes, and layered YAML overrides
-mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
+mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
  --freeze-atoms "1,3,5,7" --max-nodes 10 --max-cycles 200 --dump --out-dir ./result_path_opt/
 
 # With endpoint pre-optimization
-mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
  --preopt --preopt-max-cycles 20000
 ```
 
 ## Workflow
 1. **Load endpoints** -- Read both PDB structures and resolve charge/spin from CLI or defaults.
- Set up the ML/MM calculator with `--real-parm7`, `--model-pdb`, and charge/spin.
+ Set up the ML/MM calculator with `--parm`, `--model-pdb`, and charge/spin.
 2. **Pre-alignment** -- All endpoints after the first are Kabsch-aligned to the first
  structure. If `freeze_atoms` is defined, only those atoms participate in the RMSD
  fit; the resulting transform is applied to all atoms.
@@ -89,7 +89,7 @@ mlmm path-opt -i reac.pdb prod.pdb --real-parm7 real.parm7 --model-pdb ml_region
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH PATH` | Reactant and product PDB structures. | Required |
-| `--real-parm7 PATH` | Amber prmtop for the full REAL system. | Required |
+| `--parm PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `-q, --charge INT` | Total ML-region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |

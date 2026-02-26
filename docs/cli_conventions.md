@@ -58,7 +58,7 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 Most subcommands (except `all`, `extract`, `mm-parm`, and `define-layer`) require two additional options for ML/MM calculations:
 
 ```bash
---real-parm7 real.parm7 # Amber parm7 topology file for the full (real) system
+--parm real.parm7 # Amber parm7 topology file for the full (real) system
 --model-pdb model.pdb # PDB file defining the ML (model) region atoms
 ```
 
@@ -66,7 +66,7 @@ The `all` command generates these files automatically during the workflow (via `
 
 ```bash
 # Example: running path-search individually
-mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
+mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 ```
 
 ---
@@ -216,7 +216,7 @@ The three tokens (residue name, residue number, atom name) can appear in any ord
 - `.gjf` files can provide charge/spin defaults from embedded metadata
 
 ### Amber topology files
-- `--real-parm7`: Amber parm7 file containing force field parameters for the full system
+- `--parm`: Amber parm7 file containing force field parameters for the full system
 - The parm7 must match the atom ordering of the input PDB exactly
 
 ---

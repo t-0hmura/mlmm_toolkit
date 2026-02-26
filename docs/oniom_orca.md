@@ -14,7 +14,7 @@
 ## Minimal example
 
 ```bash
-mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
@@ -28,27 +28,27 @@ mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_re
 1. Basic export.
 
 ```bash
-mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
 2. Set explicit total charge/multiplicity for full QM+MM system.
 
 ```bash
-mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
 3. Use an explicit ORCAFF path and disable auto conversion.
 
 ```bash
-mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
 ## Workflow
 
-ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--parm7` and writes ORCA QM/MM input.
+ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--parm` and writes ORCA QM/MM input.
 
 1. Load atom/bond/charge data from parm7.
 2. Optionally load coordinates and validate element ordering (`--element-check`).
@@ -60,7 +60,7 @@ ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--p
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--parm7 PATH` | Amber parm7 topology file. | Required |
+| `--parm PATH` | Amber parm7 topology file. | Required |
 | `-i, --input PATH` | Coordinate file (PDB/XYZ); atom order must match parm7. | _None_ |
 | `--element-check / --no-element-check` | Validate element sequence between input and parm7. | `True` |
 | `--model-pdb PATH` | PDB file defining QM region atoms. | _None_ |

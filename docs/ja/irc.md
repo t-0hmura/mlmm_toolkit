@@ -14,31 +14,31 @@
 
 典型的なワークフローは `tsopt` -> `freq`（**1 つ**の虚数モードを確認）-> `irc` です。
 
-## 最小の例
+## 最小例
 
 ```bash
-mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `result_irc/finished_irc_trj.xyz`
 - `result_irc/forward_irc_trj.xyz`
 
-## 使用例
+## よくある例
 
 1. 正方向のみを実行する。
 
 ```bash
-mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-forward --out-dir ./result_irc_forward
 ```
 
 2. ステップサイズを増やして解析的ヘシアンを使う。
 
 ```bash
-mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-detect-layer -q 0 -m 1 --step-size 0.20 \
  --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
 ```
@@ -46,7 +46,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 3. 両ブランチを保持してステップ上限を引き上げる。
 
 ```bash
-mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-detect-layer -q 0 -m 1 --max-cycles 150 \
  --out-dir ./result_irc_long
 ```
@@ -54,7 +54,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ## ワークフロー
 
 1. **入力準備** -- `geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
-2. **ML/MM 計算機の構築** -- `--real-parm7` と `--model-pdb` から ML/MM 計算機を構築します。`--hessian-calc-mode` は UMA ヘシアン評価を制御します。
+2. **ML/MM 計算機の構築** -- `--parm` と `--model-pdb` から ML/MM 計算機を構築します。`--hessian-calc-mode` は UMA ヘシアン評価を制御します。
 4. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` で正方向を無効化可能）。ステップサイズとサイクル数で積分長を制御します。
 5. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、PDB コンパニオンが生成されます。
 
@@ -63,7 +63,7 @@ mlmm irc -i ts.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。 | 必須 |
-| `--real-parm7 PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
+| `--parm PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 | _None_ |
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | `--model-indices` を 1 始まり/0 始まりとして解釈。 | `True`（1 始まり） |

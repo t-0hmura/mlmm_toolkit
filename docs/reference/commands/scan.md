@@ -14,7 +14,7 @@ Options:
                                   and exit.
   -i, --input FILE                Full-enzyme PDB used by the ML/MM calculator
                                   and as reference for conversions.  [required]
-  --real-parm7 FILE               Amber parm7 topology covering the entire
+  --parm FILE                     Amber parm7 topology covering the entire
                                   enzyme complex.  [required]
   --model-pdb FILE                PDB defining the ML-region atoms for ML/MM.
                                   Optional when --detect-layer is enabled.

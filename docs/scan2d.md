@@ -18,7 +18,7 @@ Energies at each grid point are re-evaluated without the bias to populate a PES 
 
 ## Minimal example
 ```bash
-mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
 ```
 
@@ -36,7 +36,7 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## Usage
 ```bash
-mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m SPIN] \
  [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
  [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
@@ -54,15 +54,15 @@ pairs:
  - [12, 45, 1.30, 3.10]
  - [10, 55, 1.20, 3.20]
 YAML
-mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan2d.yaml --print-parsed
 
 # Alternative: Python literal
-mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 
 # LBFGS scan with TRJ dumps and fixed color scale for the contour plot
-mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
  --max-step-size 0.20 --dump --out-dir ./result_scan2d/ --preopt --baseline min \
  --zmin 0.0 --zmax 40.0
@@ -141,7 +141,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Input enzyme complex PDB (required). | Required |
-| `--real-parm7 PATH` | Amber parm7 topology for the enzyme (required). | Required |
+| `--parm PATH` | Amber parm7 topology for the enzyme (required). | Required |
 | `--model-pdb PATH` | PDB defining the ML region. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
@@ -209,7 +209,7 @@ bias:
 ## Notes
 - For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
-- The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) keeps the entire enzyme complex. The ML region comes from `--model-pdb`; Amber parameters are read from `--real-parm7`.
+- The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) keeps the entire enzyme complex. The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`.
 - The bias is always removed before final energies are recorded, so `surface.csv` is directly comparable across grid points.
 - When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also converted to PDB files with B-factor annotations: ML-region atoms = 100.00, frozen atoms = 50.00, both = 150.00.
 - `i`/`j` entries in `--scan-lists` may be integer indices (1-based by default) or PDB atom selectors like `"TYR,285,CA"`.

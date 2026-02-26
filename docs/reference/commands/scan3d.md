@@ -13,7 +13,7 @@ Options:
                                   and exit.
   -i, --input FILE                Input structure file (.pdb/.xyz). Required
                                   unless --csv is provided.
-  --real-parm7 FILE               Amber parm7 topology for the enzyme. Required
+  --parm FILE                     Amber parm7 topology for the enzyme. Required
                                   unless --csv is provided.
   --model-pdb FILE                PDB defining the ML region. Optional when
                                   --detect-layer is enabled.

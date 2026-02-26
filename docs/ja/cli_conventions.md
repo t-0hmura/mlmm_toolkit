@@ -168,20 +168,20 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 
 ---
 
-## --real-parm7 と --model-pdb
+## --parm と --model-pdb
 
 ML/MM 計算を行う大半のサブコマンド（`opt`, `tsopt`, `path-opt`, `path-search`, `scan`, `freq`, `irc` など）では、以下の 2 つのオプションが必要です:
 
 | オプション | 説明 |
 |----------|------|
-| `--real-parm7` | 全系（real system）の Amber parm7 トポロジファイル |
+| `--parm` | 全系（real system）の Amber parm7 トポロジファイル |
 | `--model-pdb` | ML 領域（model system）を定義する PDB ファイル |
 
 `all` ワークフローでは、`extract` と `mm-parm` により自動生成されます。個別サブコマンドを使う場合は、手動で指定してください。
 
 ```bash
 # 個別サブコマンドの例
-mlmm opt -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb -q 0
+mlmm opt -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 ```
 
 ---

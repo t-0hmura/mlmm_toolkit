@@ -11,7 +11,7 @@
 - **デフォルト:** 出力先 `mlmm_all.config.yaml`、`--force` なしでは上書きしない。
 - **次のステップ:** 生成した YAML を編集し、`mlmm all --config mlmm_all.config.yaml` を実行。
 
-## 最小の例
+## 最小例
 
 ```bash
 mlmm init --out mlmm_all.config.yaml

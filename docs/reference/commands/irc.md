@@ -14,7 +14,7 @@ Options:
                                   and exit.
   -i, --input FILE                Input structure file (.pdb, .xyz, _trj.xyz,
                                   etc.).  [required]
-  --real-parm7 FILE               Amber parm7 topology for the whole enzyme (MM
+  --parm FILE                     Amber parm7 topology for the whole enzyme (MM
                                   region). If omitted, must be provided in YAML
                                   as calc.real_parm7.
   --model-pdb FILE                PDB defining atoms belonging to the ML region.

@@ -24,7 +24,7 @@ stages:
 ## 2. Run scan
 
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
 ```
 

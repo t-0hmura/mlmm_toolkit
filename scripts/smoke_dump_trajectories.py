@@ -161,7 +161,7 @@ def main() -> int:
     common = [
         "-i",
         str(fixture.input_pdb),
-        "--real-parm7",
+        "--parm",
         str(fixture.real_parm7),
         "-q",
         str(fixture.charge),

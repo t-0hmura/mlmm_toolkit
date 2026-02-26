@@ -17,11 +17,11 @@
 ## 最小例
 
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `result_scan/stage_01/result.pdb`（または `result.xyz`）
 - `result_scan/stage_02/result.pdb`（または `result.xyz`）
@@ -32,21 +32,21 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 1. YAML の解釈結果を表示して入力を確認する。
 
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed
 ```
 
 2. リテラル入力を使う。
 
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,2.20)]"
 ```
 
 3. ステージごとの軌跡を保存して確認する。
 
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --dump --out-dir ./result_scan_dump
 ```
 
@@ -54,7 +54,7 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 使用法
 ```bash
-mlmm scan -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  [--spec scan.yaml | --scan-lists "[(I,J,TARGET_ANG)]"] [options]
 ```
@@ -68,15 +68,15 @@ stages:
  - [[12, 45, 2.20]]
  - [[10, 55, 1.35], [23, 34, 1.80]]
 YAML
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed
 
 # 代替: Python リテラル
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,2.20)]"
 
 # ダンプ付き 2 ステージ、凍結原子、YAML 上書き
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q -1 -m 1 --freeze-atoms "1,3,5" --scan-lists "[(12,45,2.20)]" \
  "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
 ```
@@ -159,7 +159,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 ステージは順次実行され、各ステージは前のステージの緩和結果から開始します。**`--scan-lists` フラグを繰り返さないでください** -- 単一のフラグの後にすべてのステージリテラルを供給してください。
 
 ## ワークフロー
-1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM 計算機に `--real-parm7`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
+1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM 計算機に `--parm`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
 2. 任意でバイアスなし事前最適化（`--preopt`）を実行し、開始点を緩和します。
 3. `--spec`（推奨）または `--scan-lists` からステージターゲットを解析し、`(i, j)` インデックスを正規化します（デフォルトは 1 始まり）。入力が PDB の場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
 4. 結合ごとの変位を計算してステップに分割します:
@@ -174,7 +174,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 入力 PDB（またはトポロジー用に `--ref-pdb` 付きの XYZ）。 | 必須 |
-| `--real-parm7 PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
+| `--parm PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` 有効時または `--model-indices` 指定時は省略可能。 | _None_ |
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |

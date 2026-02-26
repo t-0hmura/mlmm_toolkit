@@ -12,51 +12,51 @@
 
 `mlmm freq` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
 
-## 最小の例
+## 最小例
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `result_freq/frequencies_cm-1.txt`
 - `result_freq/mode_*_trj.xyz`
 - `result_freq/mode_*.pdb`（PDB 入力の場合）
 
-## 使用例
+## よくある例
 
 1. まずは出力モード数を絞って確認する。
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
 ```
 
 2. 凍結原子を指定した PHVA と熱化学ダンプを実行する。
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
 3. VRAM に余裕があるノードで解析的ヘシアンを使う。
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
 4. リンク凍結を有効にして PHVA を実行する。
 
 ```bash
-mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ```
 
 ## ワークフロー
 
-2. **ML/MM 計算機の構築** -- ML 領域は `--model-pdb` で提供され、Amber パラメータは `--real-parm7` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のヘシアンを選択します。計算機は完全な 3N x 3N ヘシアンまたはアクティブ自由度のサブブロックを返す場合があります。
+2. **ML/MM 計算機の構築** -- ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のヘシアンを選択します。計算機は完全な 3N x 3N ヘシアンまたはアクティブ自由度のサブブロックを返す場合があります。
    - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
 3. **PHVA と TR 射影** -- 凍結原子がある場合、固有解析はアクティブ部分空間内で行われ、並進/回転モードがそこに射影されます。3N x 3N とアクティブブロックの両方のヘシアンが受け付けられ、振動数は cm^-1 で報告されます（負の値 = 虚数）。
 4. **アクティブ自由度モード** -- `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層, B=0）、`partial`（ML + Hessian 対象 MM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
@@ -70,7 +70,7 @@ mlmm freq -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | 必須 |
-| `--real-parm7 PATH` | 完全酵素の Amber parm7 トポロジー。 | 必須 |
+| `--parm PATH` | 完全酵素の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。 | 必須 |
 | `--model-indices TEXT` | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | `True`（1 始まり） |

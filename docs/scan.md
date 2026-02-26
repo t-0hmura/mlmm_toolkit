@@ -17,7 +17,7 @@
 ## Minimal example
 
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
 ```
 
@@ -32,21 +32,21 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 1. First validate parsed scan targets from YAML spec.
 
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed
 ```
 
 2. Use literal input.
 
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,2.20)]"
 ```
 
 3. Dump trajectories for stage-by-stage inspection.
 
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --dump --out-dir ./result_scan_dump
 ```
 
@@ -54,7 +54,7 @@ mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## Usage
 ```bash
-mlmm scan -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  [--spec scan.yaml | --scan-lists "[(I,J,TARGET_ANG)]"] [options]
 ```
@@ -68,15 +68,15 @@ stages:
  - [[12, 45, 2.20]]
  - [[10, 55, 1.35], [23, 34, 1.80]]
 YAML
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed
 
 # Alternative: Python literal
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,2.20)]"
 
 # Two stages with dumps, frozen atoms, and YAML overrides
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q -1 -m 1 --freeze-atoms "1,3,5" --scan-lists "[(12,45,2.20)]" \
  "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
 ```
@@ -160,7 +160,7 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 
 ## Workflow
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
- or defaults. Provide `--real-parm7`, `--model-pdb`, `-q/--charge`, and optionally
+ or defaults. Provide `--parm`, `--model-pdb`, `-q/--charge`, and optionally
  `-m/--multiplicity` for the ML/MM calculator.
 2. Optionally run an unbiased preoptimization (`--preopt`) before any
  biasing so the starting point is relaxed.
@@ -188,7 +188,7 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB (or XYZ with `--ref-pdb` for topology). | Required |
-| `--real-parm7 PATH` | Amber prmtop for the full REAL system. | Required |
+| `--parm PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` is enabled or `--model-indices` is provided. | _None_ |
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |

@@ -16,53 +16,53 @@
 - **出力:** `final_geometry.xyz`、`final_geometry.pdb`（PDB 入力時）、任意の軌跡。
 - **次のステップ:** [freq](freq.md) を実行して構造が真の極小（虚数振動数なし）であることを確認。
 
-## 最小の例
+## 最小例
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_opt
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `result_opt/final_geometry.xyz`
 - `result_opt/final_geometry.pdb`（入力が PDB で変換が有効な場合）
 - `result_opt/optimization_trj.xyz`（`--dump` 有効時）
 
-## 使用例
+## よくある例
 
 1. 収束を厳しくして軌跡を保存する。
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
 ```
 
 2. 最適化中に 1 本の距離拘束をかける。
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --dist-freeze "[(12,45,2.20)]" --bias-k 20.0 --out-dir ./result_opt_rest
 ```
 
 3. heavy モード（RFO）で最適化する。
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
 4. hybrid モードで虚数モードフラットニングを有効にする。
 
 ```bash
-mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode hybrid --flatten --out-dir ./result_opt_hybrid_flat
 ```
 
 ## ワークフロー
 
 1. **入力処理** -- `-i/--input` には PDB ファイル（酵素複合体）が必要です。オプティマイザーは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Hessian 対象 MM、B=20 凍結 MM）から取得されます。
-2. **ML/MM 計算機の構築** -- ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を構築します。`--real-parm7` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。
+2. **ML/MM 計算機の構築** -- ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。
 4. **最適化** -- `--opt-mode light` は L-BFGS、`--opt-mode heavy` は RFOptimizer（RFO）、`--opt-mode hybrid` は L-BFGS 後にフラットンループ付き RFO リスタートを実行します。
    - `--flatten` は最適化後の虚数モードフラットニングを有効にします。検出されたすべての虚数モードが各反復でフラットニングされ、なくなるか内部ループ上限に達するまで続きます。
 5. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を消費します。`target_A` は目標距離（オングストローム）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/A^2）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
@@ -77,7 +77,7 @@ mlmm opt -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 | --- | --- | --- |
 | `-i, --input PATH` | `geom_loader` が受け付ける入力構造。 | 必須 |
 | `--ref-pdb PATH` | 入力が XYZ の場合の参照 PDB トポロジー。 | _None_ |
-| `--real-parm7 PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
+| `--parm PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域原子を定義する PDB。`--detect-layer` 有効時は省略可。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` の代替。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | 1 始まり |

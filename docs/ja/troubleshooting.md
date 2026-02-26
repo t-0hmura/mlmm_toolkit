@@ -39,7 +39,7 @@
  module load ambertools
  ```
 
-- AmberTools なしでも、`--real-parm7` を手動で用意すれば `opt`、`tsopt`、`path-search` 等は動作します。
+- AmberTools なしでも、`--parm` を手動で用意すれば `opt`、`tsopt`、`path-search` 等は動作します。
 
 ---
 
@@ -251,7 +251,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 - 計算系サブコマンドでは `-q/--charge` を必ず明示する:
 
  ```bash
- mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0
+ mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0
  ```
 
 - あるいは、抽出経由で自動導出させるため `all` を使い、残基名ごとの電荷マッピングを与える:

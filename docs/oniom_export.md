@@ -13,7 +13,7 @@
 ## Unified Command
 
 ```bash
-mlmm oniom-export --parm7 real.parm7 -i pocket.pdb --model-pdb ml.pdb \
+mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
  -o out.<gjf|com|inp> --mode <g16|orca> -q 0 -m 1
 ```
 
@@ -42,5 +42,6 @@ mlmm oniom-export --parm7 real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 
 - [oniom_gaussian](oniom_gaussian.md) -- Gaussian-mode details (`--mode g16`)
 - [oniom_orca](oniom_orca.md) -- ORCA-mode details (`--mode orca`)
+- [oniom_import](oniom_import.md) -- Reconstruct XYZ/layered PDB from ONIOM inputs
 - [mm_parm](mm_parm.md) -- Build Amber topology
 - [define_layer](define_layer.md) -- Build/check layer annotations

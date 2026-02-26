@@ -18,11 +18,11 @@
 
 ## 最小例
 ```bash
-mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
 ```
 
-## 出力チェックリスト
+## 出力の見方
 - `result_scan2d/surface.csv`
 - `result_scan2d/grid/point_i000_j000.xyz`
 - `result_scan2d/scan2d_map.png` と `result_scan2d/scan2d_landscape.html`
@@ -37,7 +37,7 @@ mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 ## 使用法
 
 ```bash
-mlmm scan2d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m SPIN] \
  [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
  [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
@@ -56,15 +56,15 @@ pairs:
  - [12, 45, 1.30, 3.10]
  - [10, 55, 1.20, 3.20]
 YAML
-mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan2d.yaml --print-parsed
 
 # 代替: Python リテラル
-mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 
 # TRJ ダンプ付き LBFGS スキャン、コンタープロットの固定カラースケール
-mlmm scan2d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
  --max-step-size 0.20 --dump --out-dir ./result_scan2d/ --preopt --baseline min \
  --zmin 0.0 --zmax 40.0
@@ -144,7 +144,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 入力酵素複合体 PDB（必須）。 | 必須 |
-| `--real-parm7 PATH` | 酵素の Amber parm7 トポロジー（必須）。 | 必須 |
+| `--parm PATH` | 酵素の Amber parm7 トポロジー（必須）。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
@@ -213,7 +213,7 @@ bias:
 ## 注意事項
 - 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
-- ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は酵素複合体全体を保持します。ML 領域は `--model-pdb` から、Amber パラメータは `--real-parm7` から読み取られます。
+- ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は酵素複合体全体を保持します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られます。
 - バイアスは最終エネルギー記録前に常に除去されるため、`surface.csv` はグリッド点間で直接比較可能です。
 - 入力が PDB の場合、各グリッド点 XYZ と（存在する場合）内部パス TRJ は B 因子アノテーション付きで PDB ファイルにも変換されます: ML 領域原子 = 100.00、凍結原子 = 50.00、両方 = 150.00。
 - `--scan-lists` の `i`/`j` エントリは整数インデックス（デフォルト 1 始まり）または `"TYR,285,CA"` のような PDB 原子セレクターが使用可能です。

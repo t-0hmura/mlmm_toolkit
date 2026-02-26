@@ -11,12 +11,12 @@
 - **Outputs:** `surface.csv`, per-point geometries under `grid/`, and an HTML isosurface plot (`scan3d_density.html`).
 - **Caution:** 3D grids grow very quickly; consider coarser `--max-step-size` or smaller ranges first.
 
-`mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--real-parm7`; the optimizer is PySisyphus LBFGS.
+`mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the optimizer is PySisyphus LBFGS.
 
 
 ## Minimal example
 ```bash
-mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan3d.yaml --print-parsed --out-dir ./result_scan3d/
 ```
 
@@ -34,7 +34,7 @@ mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## Usage
 ```bash
-mlmm scan3d -i INPUT.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  [--csv precomputed_surface.csv] \
  [--spec scan3d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
@@ -54,15 +54,15 @@ pairs:
  - [10, 55, 1.20, 3.20]
  - [15, 60, 1.10, 3.00]
 YAML
-mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan3d.yaml --print-parsed
 
 # Alternative: Python literal
-mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]"
 
 # With pre-optimization and custom output directory
-mlmm scan3d -i input.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
  --max-step-size 0.20 --dump --out-dir ./result_scan3d/ \
  --preopt --baseline min
@@ -152,7 +152,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Full enzyme PDB (no link atoms). | Required unless `--csv` |
-| `--real-parm7 PATH` | Amber parm7 topology for the full enzyme. | Required unless `--csv` |
+| `--parm PATH` | Amber parm7 topology for the full enzyme. | Required unless `--csv` |
 | `--model-pdb PATH` | PDB defining the ML region. | _None_ |
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |

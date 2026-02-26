@@ -50,8 +50,7 @@ irc
 dft
 trj2fig
 oniom_export
-oniom_gaussian
-oniom_orca
+oniom_import
 fix_altloc
 energy_diagram
 ja/all
@@ -72,8 +71,7 @@ ja/irc
 ja/dft
 ja/trj2fig
 ja/oniom_export
-ja/oniom_gaussian
-ja/oniom_orca
+ja/oniom_import
 ja/fix_altloc
 ja/energy_diagram
 ```
@@ -122,6 +120,7 @@ ja/index
 | Run IRC from a transition state | `mlmm irc` | [irc.md](irc.md) |
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export --mode <g16|orca>` | [oniom_export.md](oniom_export.md) |
+| Rebuild XYZ/layered PDB from ONIOM input | `mlmm oniom-import` | [oniom_import.md](oniom_import.md) |
 | Draw state energy diagram from numeric values | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
 | Follow worked tutorials | -- | [Tutorial](getting_started.md) |
 | Diagnose failures by symptom | -- | [Common Error Recipes](recipes_common_errors.md) |
@@ -191,6 +190,7 @@ ja/index
 | Subcommand | Description |
 |------------|-------------|
 | [`oniom-export`](oniom_export.md) | Export to Gaussian ONIOM / ORCA QM/MM (`--mode g16|orca`) |
+| [`oniom-import`](oniom_import.md) | Import Gaussian/ORCA ONIOM input and reconstruct XYZ + layered PDB |
 
 ---
 
@@ -237,7 +237,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 ### Single-structure scan mode
 ```bash
-mlmm scan -i pocket.pdb --real-parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --spec scan.yaml --print-parsed
 ```
 

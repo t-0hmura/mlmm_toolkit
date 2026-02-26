@@ -81,7 +81,7 @@ Fix:
 - Provide charge and multiplicity explicitly:
 
  ```bash
- mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
+ mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
  ```
 
 - Or (when using extraction) provide a residue-name mapping:

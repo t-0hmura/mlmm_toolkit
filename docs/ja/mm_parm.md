@@ -15,14 +15,14 @@
 
 `--add-h` の場合、指定された `--ph` で PDBFixer を使用して tleap 処理前に水素が付加されます。他の構造修正は行われません。`--ff-set ff14SB` を使用すると、力場は ff14SB（タンパク質）+ TIP3P（水）（+ phosaa14SB）に切り替わります。
 
-## 最小の例
+## 最小例
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
  --ligand-charge "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1"
 ```
 
-## 出力チェックリスト
+## 出力の見方
 
 - `<prefix>.parm7` -- Amber prmtop トポロジー
 - `<prefix>.rst7` -- Amber ASCII inpcrd 座標

@@ -14,7 +14,7 @@
 ## Minimal example
 
 ```bash
-mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1
 ```
 
@@ -28,27 +28,27 @@ mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_reg
 1. Basic export with explicit method.
 
 ```bash
-mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --method "B3LYP/6-31G(d,p)"
 ```
 
 2. Disable element-sequence validation when atom order is already trusted.
 
 ```bash
-mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
  -o system.gjf --no-element-check
 ```
 
 3. Tune optimization environment metadata.
 
 ```bash
-mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
 
 ## Workflow
 
-Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm7` (via ParmEd), optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file.
+Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm` (via ParmEd), optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file.
 
 1. Load atom/bond/charge data from parm7.
 2. Optionally load coordinates and run element-order validation (`--element-check`).
@@ -60,7 +60,7 @@ Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm7
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--parm7 PATH` | Amber parm7 topology file. | Required |
+| `--parm PATH` | Amber parm7 topology file. | Required |
 | `-i, --input PATH` | Coordinate file (PDB/XYZ); atom order must match parm7. | _None_ |
 | `--element-check / --no-element-check` | Validate element sequence between input and parm7. | `True` |
 | `--model-pdb PATH` | PDB file defining QM region atoms. | _None_ |
