@@ -1642,7 +1642,7 @@ hessian_dimer_KW = {
 # ===================================================================
 
 @click.command(
-    help="TS optimization: light (Dimer), heavy (RS-I-RFO), or hybrid (Dimer then RS-I-RFO flatten) for the ML/MM calculator.",
+    help="TS optimization: light (Dimer) or heavy (RS-I-RFO) for the ML/MM calculator.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -1767,17 +1767,10 @@ hessian_dimer_KW = {
 )
 @click.option(
     "--opt-mode",
-    type=click.Choice(["light", "heavy", "hybrid"], case_sensitive=False),
+    type=click.Choice(["light", "heavy"], case_sensitive=False),
     default="heavy",
     show_default=True,
-    help="TS optimizer mode: light (Dimer), heavy (RS-I-RFO with full Hessian), or hybrid (Dimer then RS-I-RFO flatten).",
-)
-@click.option(
-    "--micro-step/--no-micro-step",
-    "micro_step",
-    default=True,
-    show_default=True,
-    help="When --opt-mode heavy, --no-micro-step forces RS-I-RFO max_micro_cycles=1.",
+    help="TS optimizer mode: light (Dimer) or heavy (RS-I-RFO with full Hessian).",
 )
 @click.option(
     "--partial-hessian-flatten/--full-hessian-flatten",
@@ -1844,7 +1837,6 @@ def cli(
     out_dir: str,
     thresh: Optional[str],
     opt_mode: str,
-    micro_step: bool,
     partial_hessian_flatten: bool,
     active_dof_mode: str,
     config_yaml: Optional[Path],
@@ -1914,10 +1906,9 @@ def cli(
         opt_mode,
         param="--opt-mode",
         alias_groups=TSOPT_MODE_ALIASES,
-        allowed_hint="light, heavy, hybrid",
+        allowed_hint="light, heavy",
     )
     use_heavy = (mode_resolved == "heavy")
-    use_hybrid = (mode_resolved == "hybrid")
 
     config_layer_cfg = load_yaml_dict(config_yaml)
     override_layer_cfg = load_yaml_dict(override_yaml)
@@ -1987,8 +1978,6 @@ def cli(
             (rsirfo_cfg, (("rsirfo",),)),
         ],
     )
-    if (not bool(micro_step)) and mode_resolved == "heavy":
-        rsirfo_cfg["max_micro_cycles"] = 1
     calc_paths = (("calc",), ("mlmm",))
     partial_explicit = (
         yaml_section_has_key(config_layer_cfg, calc_paths, "return_partial_hessian")
@@ -2079,11 +2068,7 @@ def cli(
                 {
                     "input_geometry": str(geom_input_path),
                     "output_dir": str(out_dir_path),
-                    "optimizer_mode": (
-                        "hybrid-dimer-rsirfo"
-                        if use_hybrid
-                        else ("heavy-rsirfo" if use_heavy else "light-dimer")
-                    ),
+                    "optimizer_mode": ("heavy-rsirfo" if use_heavy else "light-dimer"),
                     "detect_layer": bool(detect_layer_enabled),
                     "model_region_source": model_region_source,
                     "model_indices_count": 0 if not model_indices else len(model_indices),
@@ -2159,11 +2144,7 @@ def cli(
             calc_cfg[key] = str(Path(val).expanduser().resolve())
 
     # Pretty-print config summary (only non-default values for concise logging)
-    mode_desc = (
-        "Hybrid (Dimer + RS-I-RFO flatten)"
-        if use_hybrid
-        else ("RS-I-RFO (heavy)" if use_heavy else "Dimer (light)")
-    )
+    mode_desc = "RS-I-RFO (heavy)" if use_heavy else "Dimer (light)"
     click.echo(f"\n[mode] TS Optimizer: {mode_desc}\n")
     click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
     echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
@@ -2172,17 +2153,7 @@ def cli(
     echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
     click.echo(pretty_block("opt", echo_opt))
     # Show only optimizer-specific settings, not inherited from opt_cfg
-    if use_hybrid:
-        sd_cfg_for_echo: Dict[str, Any] = dict(simple_cfg)
-        sd_cfg_for_echo["flatten_max_iter"] = 0
-        sd_cfg_for_echo["dimer"] = dict(simple_cfg.get("dimer", {}))
-        sd_cfg_for_echo["lbfgs"] = strip_inherited_keys(
-            dict(simple_cfg.get("lbfgs", {})), opt_cfg
-        )
-        click.echo(pretty_block("hessian_dimer_hybrid_stage", sd_cfg_for_echo))
-        echo_rsirfo = strip_inherited_keys(rsirfo_cfg, opt_cfg)
-        click.echo(pretty_block("rsirfo_hybrid_flatten_stage", echo_rsirfo))
-    elif use_heavy:
+    if use_heavy:
         echo_rsirfo = strip_inherited_keys(rsirfo_cfg, opt_cfg)
         click.echo(pretty_block("rsirfo", echo_rsirfo))
     else:
@@ -2202,52 +2173,21 @@ def cli(
     # 3) Run
     # --------------------------
     try:
-        if use_heavy or use_hybrid:
+        if use_heavy:
             # Heavy mode: RS-I-RFO with full Hessian
-            rsirfo_label = "Hybrid stage-2: RS-I-RFO refinement" if use_hybrid else "RS-I-RFO heavy mode"
+            rsirfo_label = "RS-I-RFO heavy mode"
             optim_all_path = out_dir_path / "optimization_all_trj.xyz"
-            if bool(opt_cfg["dump"]) and optim_all_path.exists() and not use_hybrid:
+            if bool(opt_cfg["dump"]) and optim_all_path.exists():
                 optim_all_path.unlink()
 
-            geometry = None
-            if use_hybrid:
-                runner = HessianDimer(
-                    fn=str(geom_input_path),
-                    out_dir=str(out_dir_path),
-                    thresh_loose=simple_cfg.get("thresh_loose", "gau_loose"),
-                    thresh=simple_cfg.get("thresh", "gau"),
-                    update_interval_hessian=int(simple_cfg.get("update_interval_hessian", 200)),
-                    neg_freq_thresh_cm=float(simple_cfg.get("neg_freq_thresh_cm", 5.0)),
-                    flatten_amp_ang=float(simple_cfg.get("flatten_amp_ang", 0.10)),
-                    flatten_max_iter=0,
-                    mem=int(simple_cfg.get("mem", 100000)),
-                    use_lobpcg=bool(simple_cfg.get("use_lobpcg", True)),
-                    calc_kwargs=dict(calc_cfg),
-                    device=str(simple_cfg.get("device", calc_cfg.get("ml_device", "auto"))),
-                    dump=bool(opt_cfg["dump"]),
-                    root=int(simple_cfg.get("root", 0)),
-                    dimer_kwargs=dict(simple_cfg.get("dimer", {})),
-                    lbfgs_kwargs=dict(simple_cfg.get("lbfgs", {})),
-                    max_total_cycles=int(opt_cfg["max_cycles"]),
-                    geom_kwargs=dict(geom_cfg),
-                    partial_hessian_flatten=partial_hessian_flatten,
-                    flatten_sep_cutoff=float(simple_cfg.get("flatten_sep_cutoff", 0.0)),
-                    flatten_k=int(simple_cfg.get("flatten_k", 10)),
-                    flatten_loop_bofill=bool(simple_cfg.get("flatten_loop_bofill", False)),
-                )
-                click.echo("\n=== TS optimization (Hybrid stage-1: Partial Hessian Dimer) started ===\n")
-                runner.run()
-                click.echo("\n=== TS optimization (Hybrid stage-1: Partial Hessian Dimer) finished ===\n")
-                geometry = runner.geom
-            if geometry is None:
-                coord_type = geom_cfg.get("coord_type", "cart")
-                coord_kwargs = dict(geom_cfg)
-                coord_kwargs.pop("coord_type", None)
-                geometry = geom_loader(
-                    geom_input_path,
-                    coord_type=coord_type,
-                    **coord_kwargs,
-                )
+            coord_type = geom_cfg.get("coord_type", "cart")
+            coord_kwargs = dict(geom_cfg)
+            coord_kwargs.pop("coord_type", None)
+            geometry = geom_loader(
+                geom_input_path,
+                coord_type=coord_type,
+                **coord_kwargs,
+            )
             click.echo(f"\n=== TS optimization ({rsirfo_label}) started ===\n")
 
             base_calc = mlmm(**calc_cfg)
@@ -2505,7 +2445,7 @@ def cli(
             # Get layer indices for B-factor annotation
             # For heavy mode, base_calc is available; for light mode, create temporary calc
             layer_indices = None
-            if (use_heavy or use_hybrid) and 'base_calc' in dir():
+            if use_heavy and 'base_calc' in dir():
                 calc_core = base_calc.core if hasattr(base_calc, 'core') else base_calc
                 layer_indices = {
                     "ml": getattr(calc_core, 'ml_indices', None),

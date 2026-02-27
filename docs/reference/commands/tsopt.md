@@ -6,8 +6,7 @@
 mlmm ver. 0.1.dev21+g638e6d606.d20260225
 Usage: mlmm tsopt [OPTIONS]
 
-  TS optimization: light (Dimer), heavy (RS-I-RFO), or hybrid (Dimer then RS-I-
-  RFO flatten) for the ML/MM calculator.
+  TS optimization: light (Dimer) or heavy (RS-I-RFO) for the ML/MM calculator.
 
 Options:
   --help-advanced                 Show all options (including advanced settings)
@@ -60,13 +59,8 @@ Options:
   --out-dir TEXT                  Output directory.  [default: ./result_tsopt/]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never).
-  --opt-mode [light|heavy|hybrid]
-                                  TS optimizer mode: light (Dimer), heavy (RS-I-
-                                  RFO with full Hessian), or hybrid (Dimer then
-                                  RS-I-RFO flatten).  [default: heavy]
-  --micro-step / --no-micro-step  When --opt-mode heavy, --no-micro-step forces
-                                  RS-I-RFO max_micro_cycles=1.  [default: micro-
-                                  step]
+  --opt-mode [light|heavy]        TS optimizer mode: light (Dimer) or heavy (RS-
+                                  I-RFO with full Hessian).  [default: heavy]
   --partial-hessian-flatten / --full-hessian-flatten
                                   Use partial Hessian (ML region only) for
                                   imaginary mode detection in flatten loop.

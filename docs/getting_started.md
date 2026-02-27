@@ -395,7 +395,7 @@ Below are the most commonly used options across workflows.
 | `--thermo/--no-thermo` | Run vibrational analysis and thermochemistry. |
 | `--dft/--no-dft` | Perform single-point DFT calculations. |
 | `--refine-path/--no-refine-path` | Recursive MEP refinement (default) vs single-pass. |
-| `--opt-mode light\|heavy` | Optimization method: Light (LBFGS/Dimer) or Heavy (RFO/RS-I-RFO). |
+| `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer) or `hess` (RFO/RS-I-RFO, default). |
 | `--mep-mode gsm\|dmf` | MEP method: Growing String Method or Direct Max Flux. |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. **Analytical recommended when VRAM available.** |
 

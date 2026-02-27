@@ -1093,7 +1093,14 @@ class MLMMCore:
     ) -> Dict:
         timing: Dict[str, float | str] = {}
         hess_total_start: Optional[float] = time.perf_counter() if return_hessian else None
+        hess_vram_base_alloc: Optional[float] = None
+        hess_vram_base_reserved: Optional[float] = None
+        hess_vram_total: Optional[float] = None
         if return_hessian and self.print_vram and self.ml_device.type == "cuda":
+            torch.cuda.synchronize(device=self.ml_device)
+            hess_vram_base_alloc = float(torch.cuda.memory_allocated(device=self.ml_device))
+            hess_vram_base_reserved = float(torch.cuda.memory_reserved(device=self.ml_device))
+            hess_vram_total = float(torch.cuda.get_device_properties(self.ml_device).total_memory)
             torch.cuda.reset_peak_memory_stats(device=self.ml_device)
 
         atoms_real, atoms_model, atoms_model_LH, added_link_atoms, freeze_model = self._prep_3_layer_atoms(coord_ang)
@@ -1334,15 +1341,25 @@ class MLMMCore:
                         click.echo(f"[HessianTiming] Assembly: {' | '.join(asm_parts)}")
                     click.echo(f"[HessianTiming] Hessian total: {timing['hessian_total_s']:.2f} s")
                 if self.print_vram and self.ml_device.type == "cuda":
-                    alloc = torch.cuda.memory_allocated(device=self.ml_device) / 1e9
-                    max_alloc = torch.cuda.max_memory_allocated(device=self.ml_device) / 1e9
-                    reserved = torch.cuda.memory_reserved(device=self.ml_device) / 1e9
-                    max_reserved = torch.cuda.max_memory_reserved(device=self.ml_device) / 1e9
+                    torch.cuda.synchronize(device=self.ml_device)
+                    base_alloc = float(hess_vram_base_alloc or 0.0)
+                    base_reserved = float(hess_vram_base_reserved or 0.0)
+                    peak_alloc = max(
+                        float(torch.cuda.max_memory_allocated(device=self.ml_device)) - base_alloc,
+                        0.0,
+                    ) / 1e9
+                    peak_reserved_abs = float(torch.cuda.max_memory_reserved(device=self.ml_device))
+                    peak_reserved = max(
+                        peak_reserved_abs - base_reserved,
+                        0.0,
+                    ) / 1e9
+                    total_vram = float(hess_vram_total or torch.cuda.get_device_properties(self.ml_device).total_memory) / 1e9
+                    remaining_vram = max((total_vram * 1e9) - peak_reserved_abs, 0.0) / 1e9
                     click.echo(
-                        f"[HessianVRAM] allocated={alloc:.3f} GB | "
-                        f"max_allocated={max_alloc:.3f} GB | "
-                        f"reserved={reserved:.3f} GB | "
-                        f"max_reserved={max_reserved:.3f} GB"
+                        f"[HessianVRAM] total={total_vram:.3f} GB | "
+                        f"peak_allocated={peak_alloc:.3f} GB | "
+                        f"peak_reserved={peak_reserved:.3f} GB | "
+                        f"remaining={remaining_vram:.3f} GB"
                     )
 
             del H, H_high

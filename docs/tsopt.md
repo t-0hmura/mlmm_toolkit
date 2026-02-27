@@ -2,18 +2,17 @@
 
 ## Overview
 
-> **Summary:** Optimize a transition-state *candidate* using Dimer (`--opt-mode light`), RS-I-RFO (`--opt-mode heavy`, default), or hybrid (`--opt-mode hybrid`: Dimer then RS-I-RFO flatten stage). A validated TS should show **exactly one** imaginary frequency; always confirm the mode/connectivity with freq/IRC.
+> **Summary:** Optimize a transition-state *candidate* using Dimer (`--opt-mode light`) or RS-I-RFO (`--opt-mode heavy`, default). A validated TS should show **exactly one** imaginary frequency; always confirm the mode/connectivity with freq/IRC.
 
 ### At a glance
 - **Use when:** You have a TS guess (HEI from `path-opt`/`path-search`, or your own structure) and want to refine it to a first-order saddle point with ML/MM.
-- **Method:** `heavy` = RS-I-RFO (default, generally more robust). `light` = Hessian Guided Dimer (often cheaper per step). `hybrid` = Dimer to convergence, then RS-I-RFO flatten loop only.
+- **Method:** `heavy` = RS-I-RFO (default, generally more robust). `light` = Hessian Guided Dimer (often cheaper per step).
 - **Outputs:** `final_geometry.xyz`/`.pdb`, imaginary-mode animations in `vib/`.
 - **Next step:** Run [freq](freq.md) to confirm exactly one imaginary frequency, then [irc](irc.md) to verify connectivity.
 
 ### Choosing `--opt-mode`
 - Use **`--opt-mode heavy` (RS-I-RFO)** when you want the default, conservative optimizer and you can afford Hessian work.
 - Use **`--opt-mode light` (Dimer)** when you want a lighter-weight search, or when you plan to iterate quickly from several TS guesses.
-- Use **`--opt-mode hybrid`** when you want Dimer search behavior but heavy-style RS-I-RFO flattening.
 
 `mlmm tsopt` carries out transition-state optimization tailored to the ML/MM calculator. The optimizer starts from a TS guess and refines it to a first-order saddle point.
 
@@ -59,13 +58,6 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
 ```
 
-4. Run hybrid mode (Dimer + RS-I-RFO flatten stage).
-
-```bash
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --opt-mode hybrid --flatten --out-dir ./result_tsopt_hybrid
-```
-
 ## Workflow
 
 1. **Input handling** -- Load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge/spin. Freeze atoms from CLI and YAML are merged.
@@ -75,9 +67,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
    - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
 5. **Heavy mode (RS-I-RFO):**
    - Runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section.
-   - `--no-micro-step` forces `rsirfo.max_micro_cycles=1` in heavy mode. When `--flatten` is enabled and more than one imaginary mode remains after convergence, the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten iteration cap is reached.
-6. **Hybrid mode** -- Runs Dimer first (like light mode) and then runs only the heavy-style RS-I-RFO flatten stage.
-7. **Mode export & conversion** -- The converged imaginary mode is always written to `vib/final_imag_mode_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
+   - When `--flatten` is enabled and more than one imaginary mode remains after convergence, the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten iteration cap is reached.
+6. **Mode export & conversion** -- The converged imaginary mode is always written to `vib/final_imag_mode_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
 
 ## CLI options
 
@@ -97,9 +88,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | UMA Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
-| `--opt-mode CHOICE` | TS optimizer mode: `light` (Dimer), `heavy` (RS-I-RFO), or `hybrid` (Dimer then RS-I-RFO flatten). | `heavy` |
-| `--flatten/--no-flatten` | Enable the extra-imaginary-mode flattening loop. Applies to light, heavy, and hybrid modes. | `False` |
-| `--micro-step/--no-micro-step` | In `--opt-mode heavy`, `--no-micro-step` forces `rsirfo.max_micro_cycles=1`. | `True` |
+| `--opt-mode CHOICE` | TS optimizer mode: `light` (Dimer) or `heavy` (RS-I-RFO). | `heavy` |
+| `--flatten/--no-flatten` | Enable the extra-imaginary-mode flattening loop. Applies to both light and heavy modes. | `False` |
 | `--dump/--no-dump` | Write concatenated trajectory `optimization_all_trj.xyz`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions for PDB inputs. | `True` |
 | `--out-dir TEXT` | Output directory. | `./result_tsopt/` |

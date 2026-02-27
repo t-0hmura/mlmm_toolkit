@@ -2,18 +2,17 @@
 
 ## 概要
 
-> **概要:** Dimer（`--opt-mode light`）、RS-I-RFO（`--opt-mode heavy`、デフォルト）、またはハイブリッド（`--opt-mode hybrid`: Dimer 後に RS-I-RFO フラットンステージ）を使用して遷移状態*候補*を最適化します。検証済み TS は**正確に 1 つ**の虚数振動数を示すべきです。必ず freq/IRC でモード/結合性を確認してください。
+> **概要:** Dimer（`--opt-mode light`）または RS-I-RFO（`--opt-mode heavy`、デフォルト）を使用して遷移状態*候補*を最適化します。検証済み TS は**正確に 1 つ**の虚数振動数を示すべきです。必ず freq/IRC でモード/結合性を確認してください。
 
 ### 概要
 - **用途:** TS 推測構造（`path-opt`/`path-search` からの HEI、またはユーザー独自の構造）を ML/MM で一次鞍点に精密化する場合。
-- **手法:** `heavy` = RS-I-RFO（デフォルト、一般的により堅牢）。`light` = ヘシアンガイド付き Dimer（ステップあたりのコストが低い場合が多い）。`hybrid` = Dimer で収束後、RS-I-RFO フラットンループのみ実行。
+- **手法:** `heavy` = RS-I-RFO（デフォルト、一般的により堅牢）。`light` = ヘシアンガイド付き Dimer（ステップあたりのコストが低い場合が多い）。
 - **出力:** `final_geometry.xyz`/`.pdb`、`vib/` 内の虚数モードアニメーション。
 - **次のステップ:** [freq](freq.md) で正確に 1 つの虚数振動数を確認し、[irc](irc.md) で結合性を検証。
 
 ### `--opt-mode` の選択
 - **`--opt-mode heavy`（RS-I-RFO）** を使用: デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合。
 - **`--opt-mode light`（Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。
-- **`--opt-mode hybrid`** を使用: Dimer 探索の動作で heavy 式の RS-I-RFO フラットニングを行いたい場合。
 
 `mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。オプティマイザーは TS 推測構造から開始し、一次鞍点へ精密化します。
 
@@ -59,13 +58,6 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
 ```
 
-4. hybrid モード（Dimer + RS-I-RFO フラットンステージ）で実行する。
-
-```bash
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --opt-mode hybrid --flatten --out-dir ./result_tsopt_hybrid
-```
-
 ## ワークフロー
 
 1. **入力処理** -- 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
@@ -75,9 +67,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
    - フラットンループが有効な場合（`--flatten`）、保存されたアクティブヘシアンは変位と勾配差分を使用した Bofill で更新されます。各ループで虚数モードを推定し、一度フラットンし、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
 5. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザーを、`rsirfo` YAML セクションで定義されたオプションのヘシアン参照ファイルとマイクロサイクル制御とともに実行します。
-   - `--no-micro-step` は heavy モードで `rsirfo.max_micro_cycles=1` を強制します。`--flatten` が有効で収束後に 2 つ以上の虚数モードが残る場合、余分なモードをフラットンし、1 つだけ残るかフラットン反復上限に達するまで RS-I-RFO を再実行します。
-6. **Hybrid モード** -- Dimer を最初に実行し（light モードと同様）、その後 heavy 式の RS-I-RFO フラットンステージのみを実行します。
-7. **モードエクスポートと変換** -- 収束した虚数モードは常に `vib/final_imag_mode_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
+   - `--flatten` が有効で収束後に 2 つ以上の虚数モードが残る場合、余分なモードをフラットンし、1 つだけ残るかフラットン反復上限に達するまで RS-I-RFO を再実行します。
+6. **モードエクスポートと変換** -- 収束した虚数モードは常に `vib/final_imag_mode_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
 
 ## CLIオプション
 
@@ -97,9 +88,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
 | `--hessian-calc-mode CHOICE` | UMA ヘシアンモード: `Analytical` または `FiniteDifference`。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザーサイクル。 | `10000` |
-| `--opt-mode CHOICE` | TS オプティマイザーモード: `light`（Dimer）、`heavy`（RS-I-RFO）、または `hybrid`（Dimer 後に RS-I-RFO フラットン）。 | `heavy` |
-| `--flatten/--no-flatten` | 余分な虚数モードのフラットンループを有効化。light、heavy、hybrid モードに適用。 | `False` |
-| `--micro-step/--no-micro-step` | `--opt-mode heavy` で `--no-micro-step` は `rsirfo.max_micro_cycles=1` を強制。 | `True` |
+| `--opt-mode CHOICE` | TS オプティマイザーモード: `light`（Dimer）または `heavy`（RS-I-RFO）。 | `heavy` |
+| `--flatten/--no-flatten` | 余分な虚数モードのフラットンループを有効化。light と heavy の両モードに適用。 | `False` |
 | `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_tsopt/` |

@@ -2,9 +2,9 @@
 
 ## Overview
 
-> **Summary:** Optimizes a single structure to a local minimum using L-BFGS (`--opt-mode light`, default), RFO (`--opt-mode heavy`), or a hybrid workflow (`--opt-mode hybrid`). Optional imaginary-mode flattening can be enabled with `--flatten`.
+> **Summary:** Optimizes a single structure to a local minimum using L-BFGS (`--opt-mode light`, default) or RFO (`--opt-mode heavy`). Optional imaginary-mode flattening can be enabled with `--flatten`.
 
-`mlmm opt` optimizes a single structure to a local minimum using L-BFGS (`--opt-mode light`, default), RFO (`--opt-mode heavy`), or a hybrid workflow (`--opt-mode hybrid`: LBFGS first, then flatten-loop restarts with RFO). The ML/MM calculator (FAIR-Chem UMA + hessian_ff) provides energies, gradients, and Hessians. Input structures can be `.pdb`, `.xyz`, `_trj.xyz`, or any format supported by `geom_loader`. Settings follow precedence: **defaults < config < explicit CLI < override**.
+`mlmm opt` optimizes a single structure to a local minimum using L-BFGS (`--opt-mode light`, default) or RFO (`--opt-mode heavy`). The ML/MM calculator (FAIR-Chem UMA + hessian_ff) provides energies, gradients, and Hessians. Input structures can be `.pdb`, `.xyz`, `_trj.xyz`, or any format supported by `geom_loader`. Settings follow precedence: **defaults < config < explicit CLI < override**.
 
 When the starting structure is a PDB, the command also writes `.pdb` companions, controlled by `--convert-files/--no-convert-files` (enabled by default). PDB-specific conveniences include:
 - Output conversion produces `final_geometry.pdb` (and `optimization.pdb` when dumping trajectories) using the input PDB as the topology reference.
@@ -12,7 +12,7 @@ When the starting structure is a PDB, the command also writes `.pdb` companions,
 
 ### At a glance
 - **Use when:** You want to minimize a single enzyme structure to a local energy minimum with ML/MM.
-- **Method:** L-BFGS (light, default), RFO (heavy), or hybrid (LBFGS then RFO flatten-loop). The ML/MM calculator combines FAIR-Chem UMA for the ML region with hessian_ff for MM.
+- **Method:** L-BFGS (light, default) or RFO (heavy). Compatibility aliases `lbfgs`/`rfo` are also accepted. The ML/MM calculator combines FAIR-Chem UMA for the ML region with hessian_ff for MM.
 - **Outputs:** `final_geometry.xyz`, `final_geometry.pdb` (PDB inputs), optional trajectory.
 - **Next step:** Run [freq](freq.md) to confirm the structure is a true minimum (no imaginary frequencies).
 
@@ -52,18 +52,11 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
-4. Run hybrid mode and flatten imaginary modes after the initial minimization.
-
-```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --opt-mode hybrid --flatten --out-dir ./result_opt_hybrid_flat
-```
-
 ## Workflow
 
 1. **Input handling** -- The tool requires `-i/--input` to be a PDB file (the enzyme complex). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Hessian-target MM, B=20 frozen MM).
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (FAIR-Chem UMA + hessian_ff). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region.
-4. **Optimization** -- `--opt-mode light` runs L-BFGS; `--opt-mode heavy` runs RFOptimizer (RFO); `--opt-mode hybrid` runs L-BFGS first, then flatten-loop restarts with RFO.
+4. **Optimization** -- `--opt-mode light` runs L-BFGS and `--opt-mode heavy` runs RFOptimizer (RFO).
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
 5. **Restraints** -- `--dist-freeze` consumes Python-literal tuples `(i, j, target_A)` where `target_A` is the target distance in angstrom; omitting the third element restrains the starting distance. `--bias-k` sets a global harmonic strength (eV/A^2). Indices default to 1-based but can be flipped to 0-based with `--zero-based`.
 6. **Dumping & conversion** -- `--dump` writes `optimization_trj.xyz`; when conversion is enabled, trajectories are mirrored to `.pdb` for PDB inputs (with B-factor annotations). `opt.dump_restart` can emit restart YAML snapshots.
@@ -91,9 +84,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--one-based / --zero-based` | Index convention for `--dist-freeze`. | 1-based |
 | `--bias-k FLOAT` | Harmonic bias strength (eV/A^2). | `10.0` |
 | `--max-cycles INT` | Hard limit on optimization iterations. | `10000` |
-| `--opt-mode {light\|heavy\|hybrid}` | Optimizer mode: `light` (LBFGS), `heavy` (RFO), or `hybrid` (LBFGS then flatten-loop RFO restarts). | `light` |
+| `--opt-mode [light\|heavy\|lbfgs\|rfo]` | Optimizer mode: `light`/`lbfgs` (LBFGS) or `heavy`/`rfo` (RFO). | `light` |
 | `--flatten/--no-flatten` | Enable/disable the post-optimization imaginary-mode flatten loop. | `False` |
-| `--micro-step/--no-micro-step` | In `--opt-mode heavy`, `--no-micro-step` forces `rfo.max_micro_cycles=1`. | `True` |
 | `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`). | `False` |
 | `--convert-files/--no-convert-files` | Enable or disable XYZ/TRJ to PDB companions for PDB inputs. | `True` |
 | `--out-dir TEXT` | Output directory for all files. | `./result_opt/` |

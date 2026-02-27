@@ -6,8 +6,7 @@
 mlmm ver. 0.1.dev21+g638e6d606.d20260225
 Usage: mlmm opt [OPTIONS]
 
-  ML/MM geometry optimization with LBFGS (light), RFO (heavy), or hybrid
-  LBFGS+RFO(flatten).
+  ML/MM geometry optimization with LBFGS (light) or RFO (heavy).
 
 Options:
   --help-advanced                 Show all options (including advanced settings)
@@ -70,12 +69,9 @@ Options:
   --out-dir TEXT                  Output directory.  [default: ./result_opt/]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never).
-  --opt-mode [light|heavy|hybrid|lbfgs|rfo]
-                                  Optimizer mode: 'light' (=LBFGS), 'heavy'
-                                  (=RFO), or 'hybrid' (=LBFGS then RFO flatten
-                                  loop).  [default: light]
-  --micro-step / --no-micro-step  When --opt-mode heavy, --no-micro-step forces
-                                  RFO max_micro_cycles=1.  [default: micro-step]
+  --opt-mode [light|heavy|lbfgs|rfo]
+                                  Optimizer mode: 'light' (=LBFGS) or 'heavy'
+                                  (=RFO).  [default: light]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config

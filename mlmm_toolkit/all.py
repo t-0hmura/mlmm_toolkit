@@ -701,7 +701,6 @@ def _run_tsopt_on_hei(hei_pdb: Path,
 
     _append_cli_arg(ts_args, "--max-cycles", overrides.get("max_cycles"))
     _append_toggle_arg(ts_args, "--dump", overrides.get("dump"))
-    _append_toggle_arg(ts_args, "--micro-step", overrides.get("micro_step"))
 
     hess_mode = overrides.get("hessian_calc_mode")
     if hess_mode:
@@ -1339,19 +1338,19 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Enable transition-state climbing after growth for the **first** segment in each pair.")
 @click.option(
     "--opt-mode",
-    type=click.Choice(["light", "heavy"], case_sensitive=False),
-    default="light",
+    type=click.Choice(["grad", "hess"], case_sensitive=False),
+    default="hess",
     show_default=True,
     help=(
         "Optimizer mode forwarded to scan/path-search and used for single optimizations: "
-        "light (=LBFGS/Dimer) or heavy (=RFO/RSIRFO)."
+        "grad (=LBFGS/Dimer) or hess (=RFO/RSIRFO)."
     ),
 )
 @click.option(
     "--opt-mode-post",
-    type=click.Choice(["light", "heavy", "hybrid"], case_sensitive=False),
-    default=None,
-    show_default=False,
+    type=click.Choice(["grad", "hess"], case_sensitive=False),
+    default="hess",
+    show_default=True,
     help=(
         "Optimizer mode override for TSOPT/post-IRC endpoint optimizations. "
         "If unset, uses --opt-mode when explicitly provided; otherwise falls back to tsopt defaults."
@@ -1390,13 +1389,6 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Override tsopt --max-cycles value.")
 @click.option("--tsopt-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override tsopt output subdirectory (relative paths are resolved against the default).")
-@click.option(
-    "--micro-step/--no-micro-step",
-    "micro_step",
-    default=True,
-    show_default=True,
-    help="Forward to tsopt: in heavy mode, --no-micro-step forces RS-I-RFO max_micro_cycles=1.",
-)
 @click.option("--freq-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override freq output base directory (relative paths resolved against the default).")
 @click.option("--freq-max-write", type=int, default=None,
@@ -1492,7 +1484,6 @@ def cli(
     scan_endopt_override: Optional[bool],
     tsopt_max_cycles: Optional[int],
     tsopt_out_dir: Optional[Path],
-    micro_step: bool,
     freq_out_dir: Optional[Path],
     freq_max_write: Optional[int],
     freq_amplitude_ang: Optional[float],
@@ -1519,15 +1510,11 @@ def cli(
     command_str = "mlmm all " + " ".join(sys.argv[1:])
 
     dump_override_requested = False
-    micro_step_override_requested = False
     try:
         dump_source = ctx.get_parameter_source("dump")
         dump_override_requested = dump_source not in (None, ParameterSource.DEFAULT)
-        micro_step_source = ctx.get_parameter_source("micro_step")
-        micro_step_override_requested = micro_step_source not in (None, ParameterSource.DEFAULT)
     except Exception:
         dump_override_requested = False
-        micro_step_override_requested = False
 
     opt_mode_set = False
     opt_mode_post_set = False
@@ -1577,14 +1564,24 @@ def cli(
             "or use a single PDB with --scan-lists, or a single PDB with --tsopt True."
         )
 
-    opt_mode_norm = str(opt_mode).lower()
+    _mode_alias = {
+        "grad": "light",
+        "hess": "heavy",
+        "light": "light",
+        "heavy": "heavy",
+    }
+    opt_mode_norm = _mode_alias.get(str(opt_mode).strip().lower(), "heavy")
     path_search_opt_mode = opt_mode_norm
-    opt_mode_post_norm = opt_mode_post.lower() if opt_mode_post is not None else None
+    opt_mode_post_norm = (
+        None
+        if opt_mode_post is None
+        else _mode_alias.get(str(opt_mode_post).strip().lower(), "heavy")
+    )
     endpoint_opt_mode_default = (
         opt_mode_post_norm if (opt_mode_post_set and opt_mode_post_norm is not None)
         else (opt_mode_norm if opt_mode_set else "heavy")
     )
-    if opt_mode_post_norm in {"light", "heavy", "hybrid"}:
+    if opt_mode_post_norm in {"light", "heavy"}:
         tsopt_opt_mode_default = opt_mode_post_norm
     elif opt_mode_set:
         tsopt_opt_mode_default = opt_mode_norm
@@ -1599,9 +1596,7 @@ def cli(
         tsopt_overrides["out_dir"] = tsopt_out_dir
     if hessian_calc_mode is not None:
         tsopt_overrides["hessian_calc_mode"] = hessian_calc_mode
-    if micro_step_override_requested:
-        tsopt_overrides["micro_step"] = bool(micro_step)
-    if opt_mode_post_norm in {"light", "heavy", "hybrid"}:
+    if opt_mode_post_norm in {"light", "heavy"}:
         tsopt_overrides["opt_mode"] = opt_mode_post_norm
     elif opt_mode_set:
         tsopt_overrides["opt_mode"] = tsopt_opt_mode_default
@@ -1908,7 +1903,7 @@ def cli(
             g_react, e_react = gR, eR
             g_prod,  e_prod  = gL, eL
 
-        # Save standardized PDBs and run endpoint-opt (opt CLI; supports hybrid)
+        # Save standardized PDBs and run endpoint-opt (opt CLI)
         struct_dir = tsroot / "structures"
         ensure_dir(struct_dir)
         pocket_ref = first_pocket

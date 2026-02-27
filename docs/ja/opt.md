@@ -2,9 +2,9 @@
 
 ## 概要
 
-> **概要:** L-BFGS（`--opt-mode light`、デフォルト）、RFO（`--opt-mode heavy`）、またはハイブリッド（`--opt-mode hybrid`: LBFGS 後にフラットンループ付き RFO リスタート）を使用して単一構造を局所極小に最適化します。`--flatten` で虚数モードのフラットニングを有効化できます。
+> **概要:** L-BFGS（`--opt-mode light`、デフォルト）または RFO（`--opt-mode heavy`）を使用して単一構造を局所極小に最適化します。`--flatten` で虚数モードのフラットニングを有効化できます。
 
-`mlmm opt` は、ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を使用して単一構造を局所極小に最適化します。L-BFGS（`--opt-mode light`、デフォルト）、RFO（`--opt-mode heavy`）、またはハイブリッド（`--opt-mode hybrid`: LBFGS 後にフラットンループ付き RFO リスタート）が選択できます。入力は `.pdb`、`.xyz`、`_trj.xyz`、または `geom_loader` がサポートする任意の形式が使用可能です。設定の優先順位は **デフォルト < config < 明示CLI < override** です。
+`mlmm opt` は、ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を使用して単一構造を局所極小に最適化します。L-BFGS（`--opt-mode light`、デフォルト）または RFO（`--opt-mode heavy`）が選択できます。入力は `.pdb`、`.xyz`、`_trj.xyz`、または `geom_loader` がサポートする任意の形式が使用可能です。設定の優先順位は **デフォルト < config < 明示CLI < override** です。
 
 入力が PDB の場合、`--convert-files/--no-convert-files`（デフォルト有効）で制御される `.pdb` コンパニオンファイルも書き出されます。PDB 固有の機能:
 - 出力変換で `final_geometry.pdb`（軌跡ダンプ時は `optimization.pdb`）が入力 PDB をトポロジー参照として生成されます。
@@ -12,7 +12,7 @@
 
 ### 概要
 - **用途:** ML/MM で単一酵素構造を局所エネルギー極小に最小化する場合。
-- **手法:** L-BFGS（light、デフォルト）、RFO（heavy）、またはハイブリッド（LBFGS 後に RFO フラットンループ）。ML/MM 計算機は ML 領域に FAIR-Chem UMA、MM に hessian_ff を組み合わせます。
+- **手法:** L-BFGS（light、デフォルト）または RFO（heavy）。互換エイリアス `lbfgs`/`rfo` も利用可能です。ML/MM 計算機は ML 領域に FAIR-Chem UMA、MM に hessian_ff を組み合わせます。
 - **出力:** `final_geometry.xyz`、`final_geometry.pdb`（PDB 入力時）、任意の軌跡。
 - **次のステップ:** [freq](freq.md) を実行して構造が真の極小（虚数振動数なし）であることを確認。
 
@@ -52,18 +52,11 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
-4. hybrid モードで虚数モードフラットニングを有効にする。
-
-```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --opt-mode hybrid --flatten --out-dir ./result_opt_hybrid_flat
-```
-
 ## ワークフロー
 
 1. **入力処理** -- `-i/--input` には PDB ファイル（酵素複合体）が必要です。オプティマイザーは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Hessian 対象 MM、B=20 凍結 MM）から取得されます。
 2. **ML/MM 計算機の構築** -- ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。
-4. **最適化** -- `--opt-mode light` は L-BFGS、`--opt-mode heavy` は RFOptimizer（RFO）、`--opt-mode hybrid` は L-BFGS 後にフラットンループ付き RFO リスタートを実行します。
+4. **最適化** -- `--opt-mode light` は L-BFGS、`--opt-mode heavy` は RFOptimizer（RFO）を実行します。
    - `--flatten` は最適化後の虚数モードフラットニングを有効にします。検出されたすべての虚数モードが各反復でフラットニングされ、なくなるか内部ループ上限に達するまで続きます。
 5. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を消費します。`target_A` は目標距離（オングストローム）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/A^2）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
 6. **ダンプと変換** -- `--dump` は `optimization_trj.xyz` を書き出します。変換が有効な場合、PDB 入力では軌跡も `.pdb` にミラーリングされます（B 因子アノテーション付き）。`opt.dump_restart` はリスタート YAML スナップショットを出力できます。
@@ -91,9 +84,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--one-based / --zero-based` | `--dist-freeze` のインデックス規約。 | 1 始まり |
 | `--bias-k FLOAT` | 調和バイアス強度 (eV/A^2)。 | `10.0` |
 | `--max-cycles INT` | 最適化反復のハードリミット。 | `10000` |
-| `--opt-mode {light\|heavy\|hybrid}` | オプティマイザーモード: `light`（LBFGS）、`heavy`（RFO）、または `hybrid`（LBFGS 後にフラットンループ付き RFO リスタート）。 | `light` |
+| `--opt-mode [light\|heavy\|lbfgs\|rfo]` | オプティマイザーモード: `light`/`lbfgs`（LBFGS）または `heavy`/`rfo`（RFO）。 | `light` |
 | `--flatten/--no-flatten` | 最適化後の虚数モードフラットンループの有効化/無効化。 | `False` |
-| `--micro-step/--no-micro-step` | `--opt-mode heavy` で `--no-micro-step` は `rfo.max_micro_cycles=1` を強制。 | `True` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`）を出力。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの有効化/無効化。 | `True` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |

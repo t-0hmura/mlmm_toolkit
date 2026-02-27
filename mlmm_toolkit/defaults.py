@@ -194,13 +194,11 @@ BOND_KW: Dict[str, Any] = {
 OPT_MODE_ALIASES = (
     (("light", "lbfgs"), "lbfgs"),
     (("heavy", "rfo"), "rfo"),
-    (("hybrid",), "hybrid"),
 )
 
 TSOPT_MODE_ALIASES = (
     (("light", "lbfgs"), "light"),
     (("heavy", "rfo"), "heavy"),
-    (("hybrid",), "hybrid"),
 )
 
 # -----------------------------------------------

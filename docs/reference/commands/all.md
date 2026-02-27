@@ -73,15 +73,14 @@ Options:
   --climb BOOLEAN                 Enable transition-state climbing after growth
                                   for the **first** segment in each pair.
                                   [default: True]
-  --opt-mode [light|heavy]        Optimizer mode forwarded to scan/path-search
-                                  and used for single optimizations: light
-                                  (=LBFGS/Dimer) or heavy (=RFO/RSIRFO).
-                                  [default: light]
-  --opt-mode-post [light|heavy|hybrid]
-                                  Optimizer mode override for TSOPT/post-IRC
+  --opt-mode [grad|hess]          Optimizer mode forwarded to scan/path-search
+                                  and used for single optimizations: grad
+                                  (=LBFGS/Dimer) or hess (=RFO/RSIRFO).
+                                  [default: hess]
+  --opt-mode-post [grad|hess]     Optimizer mode override for TSOPT/post-IRC
                                   endpoint optimizations. If unset, uses --opt-
                                   mode when explicitly provided; otherwise falls
-                                  back to tsopt defaults.
+                                  back to tsopt defaults.  [default: hess]
   --dump BOOLEAN                  Dump GSM / single-structure trajectories
                                   during the run, forwarding the same flag to
                                   scan/tsopt/freq.  [default: False]
@@ -118,9 +117,6 @@ Options:
   --tsopt-max-cycles INTEGER      Override tsopt --max-cycles value.
   --tsopt-out-dir DIRECTORY       Override tsopt output subdirectory (relative
                                   paths are resolved against the default).
-  --micro-step / --no-micro-step  Forward to tsopt: in heavy mode, --no-micro-
-                                  step forces RS-I-RFO max_micro_cycles=1.
-                                  [default: micro-step]
   --freq-out-dir DIRECTORY        Override freq output base directory (relative
                                   paths resolved against the default).
   --freq-max-write INTEGER        Override freq --max-write value.
