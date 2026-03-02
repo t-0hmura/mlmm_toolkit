@@ -291,6 +291,19 @@ IRC_KW: Dict[str, Any] = {
 # Frequency analysis defaults
 # -----------------------------------------------
 
+# -----------------------------------------------
+# Microiteration defaults (opt heavy / tsopt heavy)
+# -----------------------------------------------
+
+MICROITER_KW: Dict[str, Any] = {
+    "micro_thresh": "gau_loose",    # Convergence threshold for MM relaxation
+    "micro_max_cycles": 500,        # Max LBFGS cycles per micro iteration
+}
+
+# -----------------------------------------------
+# Frequency analysis defaults
+# -----------------------------------------------
+
 FREQ_KW: Dict[str, Any] = {
     "amplitude_ang": 0.8,
     "n_frames": 20,
@@ -352,6 +365,7 @@ HESSIAN_DIMER_KW: Dict[str, Any] = {
     "device": "auto",
     "root": 0,
     "partial_hessian_flatten": True,  # New: use partial Hessian for imaginary mode detection
+    "ml_only_hessian_dimer": False,  # Use ML-region-only Hessian (no MM Hessian) for dimer orientation
 }
 
 # -----------------------------------------------

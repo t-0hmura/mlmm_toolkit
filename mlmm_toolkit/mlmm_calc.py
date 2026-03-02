@@ -1526,6 +1526,53 @@ class mlmm(PySiCalc):
 
 
 # ======================================================================
+#                     PySisyphus Calculator (MM-only)
+# ======================================================================
+
+
+class mlmm_mm_only(PySiCalc):
+    """PySisyphus calculator that returns MM-only energy and forces (F_real_mm).
+
+    Used for microiteration: relaxes the MM region without ML computation.
+    Shares the MLMMCore from an existing ``mlmm`` calculator to avoid
+    re-initializing topology and force field objects.
+    """
+
+    implemented_properties = ["energy", "forces"]
+
+    def __init__(self, core: "MLMMCore", *, freeze_atoms: list[int] | None = None, **kwargs):
+        super().__init__(charge=core.model_charge, mult=core.model_mult, **kwargs)
+        self.core = core
+        self._freeze_atoms = list(freeze_atoms) if freeze_atoms else []
+
+    def _run_core(self, coords, *, want_forces: bool):
+        coord_ang = np.asarray(coords).reshape(-1, 3) * BOHR2ANG
+        atoms_real = self.core._atoms_real_tpl.copy()
+        atoms_real.set_positions(coord_ang)
+        atoms_real.set_pbc(False)
+        atoms_real.calc = self.core.calc_real_low
+        E_real = float(atoms_real.get_potential_energy())
+        out = {"energy": E_real * EV2AU}
+        if want_forces:
+            F_real = np.double(atoms_real.get_forces())
+            # Zero forces on frozen atoms
+            for i in self._freeze_atoms:
+                if 0 <= i < F_real.shape[0]:
+                    F_real[i, :] = 0.0
+            out["forces"] = (F_real * (EV2AU / ANG2BOHR)).flatten()
+        return out
+
+    def get_energy(self, elem, coords):
+        return self._run_core(coords, want_forces=False)
+
+    def get_forces(self, elem, coords):
+        return self._run_core(coords, want_forces=True)
+
+    def get_hessian(self, elem, coords):
+        raise NotImplementedError("MM-only calculator does not support Hessian computation.")
+
+
+# ======================================================================
 #                           CLI registration
 # ======================================================================
 

@@ -766,6 +766,16 @@ THERMO_KW: Dict[str, Any] = {
     show_default=True,
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
+@click.option(
+    "--hess-device",
+    "hess_device",
+    type=click.Choice(["auto", "cuda", "cpu"], case_sensitive=False),
+    default="auto",
+    show_default=True,
+    help="Device for Hessian assembly and diagonalization (auto/cuda/cpu). "
+         "Use 'cpu' to avoid VRAM issues with large unfrozen systems. "
+         "ML model inference always uses ml_device (typically GPU).",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -795,6 +805,7 @@ def cli(
     dry_run: bool,
     ref_pdb: Optional[Path],
     convert_files: bool,
+    hess_device: str,
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -1102,7 +1113,14 @@ def cli(
     geometry = geom_loader(geom_input_path, coord_type=coord_type, **coord_kwargs)
 
     masses_amu = np.array([atomic_masses[z] for z in geometry.atomic_numbers])
-    device = _torch_device(calc_cfg.get("ml_device", "auto"))
+    # Resolve Hessian assembly/diagonalization device separately from ML inference device.
+    # --hess-device=cpu allows large Hessians to be assembled on CPU while ML model stays on GPU.
+    if hess_device.lower() == "auto":
+        device = _torch_device(calc_cfg.get("ml_device", "auto"))
+    else:
+        device = _torch_device(hess_device.lower())
+    if device.type == "cpu":
+        click.echo("[device] Hessian assembly and diagonalization will run on CPU.")
     masses_au_t = torch.as_tensor(masses_amu * AMU2AU, dtype=torch.float32, device=device)
 
     n_atoms = len(geometry.atoms)

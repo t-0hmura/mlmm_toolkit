@@ -26,7 +26,6 @@ _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
     "trj2fig": (".trj2fig", "cli", "Plot energy profile from trajectory."),
     "add-elem-info": (".add_elem_info", "cli", "Repair/add PDB element columns."),
     "dft": (".dft", "cli", "Run single-point DFT."),
-    "init": (".init", "cli", "Generate starter YAML templates."),
     "scan2d": (".scan2d", "cli", "Run 2D distance scan."),
     "scan3d": (".scan3d", "cli", "Run 3D distance scan."),
     "oniom-export": (".oniom_export", "cli", "Export ONIOM input (Gaussian g16 or ORCA)."),
@@ -68,6 +67,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--detect-layer",
             "--one-based",
             "--dump",
+            "--microiter",
             "--show-config",
             "--dry-run",
         }
@@ -85,9 +85,12 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--model-indices-one-based",
             "--detect-layer",
             "--dump",
+            "--microiter",
             "--partial-hessian-flatten",
+            "--ml-only-hessian-dimer",
             "--show-config",
             "--dry-run",
+            "--convert-files",
         }
     ),
     "path-opt": frozenset(
@@ -149,6 +152,7 @@ _COMMAND_BOOL_TOGGLE_NEGATIVE_ALIASES: dict[str, dict[str, str]] = {
     "opt": {
         "--model-indices-one-based": "--model-indices-zero-based",
         "--one-based": "--zero-based",
+        "--microiter": "--no-microiter",
     },
     "dft": {
         "--model-indices-one-based": "--model-indices-zero-based",
@@ -156,6 +160,9 @@ _COMMAND_BOOL_TOGGLE_NEGATIVE_ALIASES: dict[str, dict[str, str]] = {
     "tsopt": {
         "--model-indices-one-based": "--model-indices-zero-based",
         "--partial-hessian-flatten": "--full-hessian-flatten",
+        "--ml-only-hessian-dimer": "--no-ml-only-hessian-dimer",
+        "--microiter": "--no-microiter",
+        "--convert-files": "--no-convert-files",
     },
     "path-opt": {
         "--model-indices-one-based": "--model-indices-zero-based",

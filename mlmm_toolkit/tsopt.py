@@ -41,7 +41,7 @@ from pysisyphus.calculators.Dimer import Dimer  # Dimer calculator (orientation-
 from pysisyphus.tsoptimizers.RSIRFOptimizer import RSIRFOptimizer
 
 # local helpers from mlmm
-from .mlmm_calc import mlmm
+from .mlmm_calc import mlmm, mlmm_mm_only
 from .defaults import OUT_DIR_TSOPT
 from .defaults import (
     GEOM_KW_DEFAULT,
@@ -51,6 +51,7 @@ from .defaults import (
     DIMER_KW,
     HESSIAN_DIMER_KW,
     RSIRFO_KW,
+    MICROITER_KW,
     TSOPT_MODE_ALIASES,
     BFACTOR_ML,
     BFACTOR_MOVABLE_MM,
@@ -958,6 +959,7 @@ class HessianDimer:
                  flatten_sep_cutoff: float = 0.0,
                  flatten_k: int = 10,
                  flatten_loop_bofill: bool = False,
+                 ml_only_hessian_dimer: bool = False,
                  ) -> None:
 
         self.fn = fn
@@ -981,6 +983,7 @@ class HessianDimer:
         self.flatten_sep_cutoff = float(flatten_sep_cutoff)
         self.flatten_k = int(flatten_k)
         self.flatten_loop_bofill = bool(flatten_loop_bofill)
+        self.ml_only_hessian_dimer = bool(ml_only_hessian_dimer)
 
         # Track total cycles globally across ALL loops/segments (fix #2)
         self._cycles_spent = 0
@@ -1019,6 +1022,12 @@ class HessianDimer:
         self.calc_kwargs_full.setdefault("mm_fd", True)
         self.calc_kwargs_full["return_partial_hessian"] = False
         self.calc_kwargs_full["out_hess_torch"] = True
+        # ML-only Hessian kwargs: skip MM Hessian entirely, use ML partial Hessian only
+        self.calc_kwargs_ml_only = dict(self.calc_kwargs)
+        self.calc_kwargs_ml_only["mm_fd"] = False
+        self.calc_kwargs_ml_only["return_partial_hessian"] = True
+        self.calc_kwargs_ml_only["out_hess_torch"] = True
+        self.calc_kwargs_ml_only["hess_cutoff"] = 0.0  # ML atoms only in Hessian
         self.geom = geom_loader(fn, coord_type=coord_type, **gkw)
         # If partial Hessian is requested (explicitly or via B-factor layers),
         # avoid full 3N Hessian allocations in light TS dimer runs.
@@ -1250,7 +1259,9 @@ class HessianDimer:
             # Ensure VRAM is fully released after dimer segment before heavy Hessian computation
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            H_t = _calc_full_hessian_torch(self.geom, self.calc_kwargs_partial, self.device)
+            # Choose ML-only or full active-DOF Hessian for mode direction
+            hess_kw = self.calc_kwargs_ml_only if self.ml_only_hessian_dimer else self.calc_kwargs_partial
+            H_t = _calc_full_hessian_torch(self.geom, hess_kw, self.device)
             N = len(self.geom.atomic_numbers)
             coords_bohr_t = torch.as_tensor(self.geom.coords.reshape(-1, 3),
                                             dtype=H_t.dtype, device=H_t.device)
@@ -1414,7 +1425,10 @@ class HessianDimer:
         H_final_reuse_coords: Optional[np.ndarray] = None
 
         # (1) Initial Hessian → pick direction by `root`
-        H_t = _calc_full_hessian_torch(self.geom, self.calc_kwargs_partial, self.device)
+        hess_kw_init = self.calc_kwargs_ml_only if self.ml_only_hessian_dimer else self.calc_kwargs_partial
+        if self.ml_only_hessian_dimer:
+            click.echo("[tsopt] Using ML-only Hessian for dimer orientation.")
+        H_t = _calc_full_hessian_torch(self.geom, hess_kw_init, self.device)
         coords_bohr_t = torch.as_tensor(self.geom.coords.reshape(-1, 3),
                                         dtype=H_t.dtype, device=H_t.device)
         active_idx, mask_dof = self._resolve_hessian_active_subspace(H_t, N)
@@ -1623,6 +1637,148 @@ class HessianDimer:
 
 
 # ===================================================================
+#             Microiteration loop for RS-I-RFO heavy mode
+# ===================================================================
+
+
+def _run_microiter_tsopt(
+    geometry,
+    calc_cfg: Dict[str, Any],
+    rsirfo_cfg: Dict[str, Any],
+    lbfgs_cfg: Dict[str, Any],
+    opt_cfg: Dict[str, Any],
+    microiter_cfg: Dict[str, Any],
+    out_dir_path: Path,
+    *,
+    dump: bool = False,
+    thresh: Optional[str] = None,
+) -> None:
+    """Run macro/micro alternating TS optimization (Gaussian 16-style microiteration).
+
+    Macro step: 1 RS-I-RFO step moving only ML region (full ONIOM force).
+    Micro step: LBFGS relaxing MM region with MM-only forces until convergence.
+    """
+    from .freq import _collect_layer_atom_sets
+
+    # Resolve layer atom sets
+    layer_sets = _collect_layer_atom_sets(calc_cfg)
+    ml_indices = sorted(layer_sets["ml"])
+    movable_mm = sorted(layer_sets["movable_mm"] | layer_sets["hess_mm"])
+    frozen_mm = sorted(layer_sets["frozen_mm"])
+
+    if not ml_indices:
+        click.echo("[microiter] WARNING: No ML atoms found. Falling back to standard RS-I-RFO.")
+        return None
+
+    n_atoms = len(geometry.atoms)
+    all_indices = list(range(n_atoms))
+    mm_indices = sorted(set(all_indices) - set(ml_indices))
+
+    # Freeze lists: for macro step, freeze all MM; for micro step, freeze ML
+    macro_freeze = sorted(set(mm_indices) | set(frozen_mm))
+    micro_freeze = sorted(set(ml_indices) | set(frozen_mm))
+
+    max_cycles = int(opt_cfg.get("max_cycles", 10000))
+    macro_thresh = thresh if thresh is not None else opt_cfg.get("thresh", "baker")
+    micro_thresh = microiter_cfg.get("micro_thresh", "gau_loose")
+    micro_max_cycles = int(microiter_cfg.get("micro_max_cycles", 500))
+
+    click.echo(
+        f"[microiter] ML atoms: {len(ml_indices)}, "
+        f"Movable MM atoms: {len(movable_mm)}, "
+        f"Frozen MM atoms: {len(frozen_mm)}"
+    )
+    click.echo(f"[microiter] Macro thresh: {macro_thresh}, Micro thresh: {micro_thresh}")
+
+    # Create ONIOM calculator (shared core for MM-only calc)
+    macro_calc_cfg = dict(calc_cfg)
+    macro_calc_cfg["freeze_atoms"] = macro_freeze
+    macro_calc = mlmm(**macro_calc_cfg)
+    mm_calc = mlmm_mm_only(macro_calc.core, freeze_atoms=micro_freeze)
+
+    # Seed initial Hessian for RS-I-RFO (with macro freeze)
+    click.echo("[microiter] Seeding initial Hessian for RS-I-RFO macro step.")
+    hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
+
+    geometry.freeze_atoms = macro_freeze
+    geometry.set_calculator(macro_calc)
+
+    h_init = _calc_full_hessian_torch(geometry, macro_calc_cfg, hess_device)
+    geometry.cart_hessian = h_init
+    click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+    del h_init
+
+    optim_all_path = out_dir_path / "optimization_all_trj.xyz"
+    total_macro_steps = 0
+
+    for macro_iter in range(max_cycles):
+        # ---- Macro step: 1 RS-I-RFO step with ONIOM forces, MM frozen ----
+        click.echo(f"\n[microiter] === Macro iteration {macro_iter + 1} ===")
+
+        geometry.freeze_atoms = macro_freeze
+        geometry.set_calculator(macro_calc)
+
+        rsirfo_args = dict(rsirfo_cfg)
+        rsirfo_args["max_cycles"] = 1
+        rsirfo_args["out_dir"] = str(out_dir_path)
+        rsirfo_args["dump"] = dump
+        if macro_thresh is not None:
+            rsirfo_args["thresh"] = str(macro_thresh)
+
+        optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
+        optimizer.run()
+        macro_converged = optimizer.is_converged
+        total_macro_steps += 1
+
+        if dump:
+            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+
+        del optimizer
+        _clear_cuda_cache()
+
+        if macro_converged:
+            click.echo(f"[microiter] Macro convergence reached at iteration {macro_iter + 1}.")
+            break
+
+        # ---- Micro step: LBFGS with MM-only forces, ML frozen ----
+        click.echo(f"[microiter] --- Micro relaxation (MM-only, max {micro_max_cycles} steps) ---")
+        geometry.freeze_atoms = micro_freeze
+        geometry.set_calculator(mm_calc)
+
+        micro_lbfgs_args = dict(lbfgs_cfg)
+        micro_lbfgs_args["max_cycles"] = micro_max_cycles
+        micro_lbfgs_args["thresh"] = micro_thresh
+        micro_lbfgs_args["out_dir"] = str(out_dir_path)
+        micro_lbfgs_args["dump"] = dump
+
+        micro_opt = LBFGS(geometry, **micro_lbfgs_args)
+        micro_opt.run()
+        micro_converged = micro_opt.is_converged
+        micro_steps = max(int(micro_opt.cur_cycle) + 1, 1)
+        click.echo(
+            f"[microiter] Micro done: {micro_steps} steps, "
+            f"converged={micro_converged}"
+        )
+
+        if dump:
+            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+
+        del micro_opt
+        _clear_cuda_cache()
+
+    else:
+        click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).")
+
+    click.echo(f"[microiter] Total macro steps: {total_macro_steps}")
+    # Restore full calculator with only frozen MM frozen
+    geometry.freeze_atoms = list(set(frozen_mm))
+    base_calc = mlmm(**calc_cfg)
+    geometry.set_calculator(base_calc)
+
+    return geometry
+
+
+# ===================================================================
 #                         Defaults for CLI
 # ===================================================================
 
@@ -1773,11 +1929,27 @@ hessian_dimer_KW = {
     help="TS optimizer mode: light (Dimer) or heavy (RS-I-RFO with full Hessian).",
 )
 @click.option(
+    "--microiter/--no-microiter",
+    "microiter",
+    default=True,
+    show_default=True,
+    help="Enable microiteration: alternate ML 1-step (RS-I-RFO) and MM relaxation (LBFGS with MM-only forces). "
+         "Only effective in --opt-mode heavy. Ignored in light mode.",
+)
+@click.option(
     "--partial-hessian-flatten/--full-hessian-flatten",
     "partial_hessian_flatten",
     default=True,
     show_default=True,
     help="Use partial Hessian (ML region only) for imaginary mode detection in flatten loop.",
+)
+@click.option(
+    "--ml-only-hessian-dimer/--no-ml-only-hessian-dimer",
+    "ml_only_hessian_dimer",
+    default=False,
+    show_default=True,
+    help="Use ML-region-only Hessian (no MM Hessian contribution) for dimer orientation "
+         "in light mode. Faster but less accurate for mode direction.",
 )
 @click.option(
     "--active-dof-mode",
@@ -1837,7 +2009,9 @@ def cli(
     out_dir: str,
     thresh: Optional[str],
     opt_mode: str,
+    microiter: bool,
     partial_hessian_flatten: bool,
+    ml_only_hessian_dimer: bool,
     active_dof_mode: str,
     config_yaml: Optional[Path],
     show_config: bool,
@@ -1985,6 +2159,21 @@ def cli(
     )
     if not partial_explicit:
         calc_cfg["return_partial_hessian"] = True
+
+    # Resolve microiteration config from YAML
+    microiter_cfg = dict(MICROITER_KW)
+    apply_yaml_overrides(
+        config_layer_cfg,
+        [(microiter_cfg, (("microiter",),))],
+    )
+    apply_yaml_overrides(
+        override_layer_cfg,
+        [(microiter_cfg, (("microiter",),))],
+    )
+
+    use_microiter = bool(microiter) and use_heavy
+    if bool(microiter) and not use_heavy:
+        click.echo("[microiter] --microiter is only effective with --opt-mode heavy (RS-I-RFO). Ignoring.")
 
     try:
         geom_freeze = _normalize_geom_freeze_opt(geom_cfg.get("freeze_atoms"))
@@ -2145,6 +2334,8 @@ def cli(
 
     # Pretty-print config summary (only non-default values for concise logging)
     mode_desc = "RS-I-RFO (heavy)" if use_heavy else "Dimer (light)"
+    if use_microiter:
+        mode_desc += " + Microiteration"
     click.echo(f"\n[mode] TS Optimizer: {mode_desc}\n")
     click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
     echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
@@ -2176,6 +2367,8 @@ def cli(
         if use_heavy:
             # Heavy mode: RS-I-RFO with full Hessian
             rsirfo_label = "RS-I-RFO heavy mode"
+            if use_microiter:
+                rsirfo_label += " + Microiteration"
             optim_all_path = out_dir_path / "optimization_all_trj.xyz"
             if bool(opt_cfg["dump"]) and optim_all_path.exists():
                 optim_all_path.unlink()
@@ -2188,44 +2381,74 @@ def cli(
                 coord_type=coord_type,
                 **coord_kwargs,
             )
-            click.echo(f"\n=== TS optimization ({rsirfo_label}) started ===\n")
 
-            base_calc = mlmm(**calc_cfg)
-            geometry.set_calculator(base_calc)
+            if use_microiter:
+                # --- Microiteration path ---
+                click.echo(f"\n=== TS optimization ({rsirfo_label}) started ===\n")
+                _run_microiter_tsopt(
+                    geometry,
+                    calc_cfg,
+                    rsirfo_cfg,
+                    lbfgs_cfg,
+                    opt_cfg,
+                    microiter_cfg,
+                    out_dir_path,
+                    dump=bool(opt_cfg["dump"]),
+                    thresh=thresh,
+                )
+                click.echo(f"\n=== TS optimization ({rsirfo_label}) finished ===\n")
 
-            click.echo("[tsopt] Seeding initial Hessian via shared freq backend.")
-            hess_device = _torch_device(simple_cfg.get("device", calc_cfg.get("ml_device", "auto")))
-            h_init = _calc_full_hessian_torch(geometry, calc_cfg, hess_device)
-            geometry.cart_hessian = h_init
-            click.echo(
-                f"[tsopt] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]})."
-            )
-            del h_init
+                # Write final geometry
+                final_xyz = out_dir_path / "final_geometry.xyz"
+                final_xyz.write_text(geometry.as_xyz(), encoding="utf-8")
 
-            rsirfo_args = {**rsirfo_cfg}
-            rsirfo_args["out_dir"] = str(out_dir_path)
-            rsirfo_args["max_cycles"] = int(opt_cfg["max_cycles"])
-            rsirfo_args["dump"] = bool(opt_cfg["dump"])
-            if thresh is not None:
-                rsirfo_args["thresh"] = str(thresh)
+                # For post-analysis, get hess_active_atoms from a fresh calc
+                _temp_calc = mlmm(**calc_cfg)
+                _temp_core = _temp_calc.core if hasattr(_temp_calc, "core") else _temp_calc
+                hess_active_atoms = list(getattr(_temp_core, "hess_active_atoms", []))
+                del _temp_calc, _temp_core
+                _clear_cuda_cache()
+                _rsirfo_cycles_spent = int(opt_cfg.get("max_cycles", 10000))  # budget consumed
+            else:
+                # --- Standard RS-I-RFO path ---
+                click.echo(f"\n=== TS optimization ({rsirfo_label}) started ===\n")
 
-            calc_core = base_calc.core if hasattr(base_calc, "core") else base_calc
-            hess_active_atoms = list(getattr(calc_core, "hess_active_atoms", []))
-            optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
-            optimizer.run()
-            if bool(opt_cfg["dump"]):
-                _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+                base_calc = mlmm(**calc_cfg)
+                geometry.set_calculator(base_calc)
 
-            click.echo(f"\n=== TS optimization ({rsirfo_label}) finished ===\n")
+                click.echo("[tsopt] Seeding initial Hessian via shared freq backend.")
+                hess_device = _torch_device(simple_cfg.get("device", calc_cfg.get("ml_device", "auto")))
+                h_init = _calc_full_hessian_torch(geometry, calc_cfg, hess_device)
+                geometry.cart_hessian = h_init
+                click.echo(
+                    f"[tsopt] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]})."
+                )
+                del h_init
 
-            # --- Post-RSIRFO: count imaginary modes and optional flatten loop ---
-            # Save cycle count before deleting optimizer for budget check.
-            _rsirfo_cycles_spent = getattr(optimizer, "cur_cycle", 0) + 1
-            geometry.set_calculator(None)
-            del optimizer
-            del calc_core
-            del base_calc
-            _clear_cuda_cache()
+                rsirfo_args = {**rsirfo_cfg}
+                rsirfo_args["out_dir"] = str(out_dir_path)
+                rsirfo_args["max_cycles"] = int(opt_cfg["max_cycles"])
+                rsirfo_args["dump"] = bool(opt_cfg["dump"])
+                if thresh is not None:
+                    rsirfo_args["thresh"] = str(thresh)
+
+                calc_core = base_calc.core if hasattr(base_calc, "core") else base_calc
+                hess_active_atoms = list(getattr(calc_core, "hess_active_atoms", []))
+                optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
+                optimizer.run()
+                if bool(opt_cfg["dump"]):
+                    _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+
+                click.echo(f"\n=== TS optimization ({rsirfo_label}) finished ===\n")
+
+                # --- Post-RSIRFO: count imaginary modes and optional flatten loop ---
+                # Save cycle count before deleting optimizer for budget check.
+                _rsirfo_cycles_spent = getattr(optimizer, "cur_cycle", 0) + 1
+                geometry.set_calculator(None)
+                del optimizer
+                del calc_core
+                del base_calc
+                _clear_cuda_cache()
             mlmm_kwargs_for_heavy = dict(calc_cfg)
             mlmm_kwargs_for_heavy["out_hess_torch"] = True
             device = _torch_device(simple_cfg.get("device", calc_cfg.get("ml_device", "auto")))
@@ -2431,6 +2654,7 @@ def cli(
                 flatten_sep_cutoff=float(simple_cfg.get("flatten_sep_cutoff", 0.0)),
                 flatten_k=int(simple_cfg.get("flatten_k", 10)),
                 flatten_loop_bofill=bool(simple_cfg.get("flatten_loop_bofill", False)),
+                ml_only_hessian_dimer=bool(simple_cfg.get("ml_only_hessian_dimer", ml_only_hessian_dimer)),
             )
 
             click.echo("\n=== TS optimization (Partial Hessian Dimer) started ===\n")

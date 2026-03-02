@@ -33,7 +33,7 @@ from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import ANG2BOHR, BOHR2ANG, AU2EV
 
-from .mlmm_calc import mlmm
+from .mlmm_calc import mlmm, mlmm_mm_only
 from .defaults import (
     GEOM_KW_DEFAULT,
     MLMM_CALC_KW,
@@ -41,6 +41,7 @@ from .defaults import (
     LBFGS_KW,
     RFO_KW,
     OPT_MODE_ALIASES,
+    MICROITER_KW,
     BFACTOR_ML,
     BFACTOR_MOVABLE_MM,
     BFACTOR_FROZEN,
@@ -584,6 +585,159 @@ def _flatten_all_imag_modes_for_geom(
 
 
 # -----------------------------------------------
+# Microiteration optimizer
+# -----------------------------------------------
+
+
+def _run_microiter_opt(
+    geometry,
+    calc_cfg: Dict[str, Any],
+    rfo_cfg: Dict[str, Any],
+    lbfgs_cfg: Dict[str, Any],
+    opt_cfg: Dict[str, Any],
+    microiter_cfg: Dict[str, Any],
+    out_dir_path: Path,
+    *,
+    dump: bool = False,
+) -> None:
+    """Run macro/micro alternating optimization (Gaussian 16-style microiteration).
+
+    Macro step: 1 RFO step moving only ML region (full ONIOM force).
+    Micro step: LBFGS relaxing MM region with MM-only forces until convergence.
+    """
+    from .freq import _collect_layer_atom_sets
+
+    # Resolve layer atom sets
+    layer_sets = _collect_layer_atom_sets(calc_cfg)
+    ml_indices = sorted(layer_sets["ml"])
+    movable_mm = sorted(layer_sets["movable_mm"] | layer_sets["hess_mm"])
+    frozen_mm = sorted(layer_sets["frozen_mm"])
+
+    if not ml_indices:
+        click.echo("[microiter] WARNING: No ML atoms found. Falling back to standard optimization.")
+        return None
+
+    n_atoms = len(geometry.atoms)
+    all_indices = list(range(n_atoms))
+    mm_indices = sorted(set(all_indices) - set(ml_indices))
+
+    # Freeze lists: for macro step, freeze all MM; for micro step, freeze ML
+    macro_freeze = sorted(set(mm_indices) | set(frozen_mm))
+    micro_freeze = sorted(set(ml_indices) | set(frozen_mm))
+
+    max_cycles = int(opt_cfg.get("max_cycles", 10000))
+    thresh = opt_cfg.get("thresh", "gau")
+    micro_thresh = microiter_cfg.get("micro_thresh", "gau_loose")
+    micro_max_cycles = int(microiter_cfg.get("micro_max_cycles", 500))
+
+    click.echo(
+        f"[microiter] ML atoms: {len(ml_indices)}, "
+        f"Movable MM atoms: {len(movable_mm)}, "
+        f"Frozen MM atoms: {len(frozen_mm)}"
+    )
+    click.echo(f"[microiter] Macro thresh: {thresh}, Micro thresh: {micro_thresh}")
+
+    # Create ONIOM calculator (shared core for MM-only calc)
+    base_calc = mlmm(**calc_cfg)
+    mm_calc = mlmm_mm_only(base_calc.core, freeze_atoms=micro_freeze)
+
+    # Seed initial Hessian for RFO (with macro freeze)
+    click.echo("[microiter] Seeding initial Hessian for RFO macro step.")
+    from .freq import (
+        _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
+        _torch_device as _freq_torch_device,
+    )
+    hess_device = _freq_torch_device(calc_cfg.get("ml_device", "auto"))
+
+    # Set macro freeze on geometry for initial Hessian
+    macro_geom_cfg = {"freeze_atoms": macro_freeze}
+    macro_calc_cfg = dict(calc_cfg)
+    macro_calc_cfg["freeze_atoms"] = macro_freeze
+    macro_calc = mlmm(**macro_calc_cfg)
+    geometry.set_calculator(macro_calc)
+
+    h_init, _ = _freq_calc_full_hessian_torch(
+        geometry, macro_calc_cfg, hess_device, refresh_geom_meta=True,
+    )
+    geometry.cart_hessian = h_init
+    click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+    del h_init
+
+    optim_all_path = out_dir_path / "optimization_all_trj.xyz"
+    total_macro_steps = 0
+
+    for macro_iter in range(max_cycles):
+        # ---- Macro step: 1 RFO step with ONIOM forces, MM frozen ----
+        click.echo(f"\n[microiter] === Macro iteration {macro_iter + 1} ===")
+
+        # Re-create geometry with macro freeze for each macro step
+        # (pysisyphus freeze_atoms is set via geometry kwargs)
+        from pysisyphus.helpers import geom_loader as _geom_loader
+        # Instead of reloading, update freeze_atoms on the fly
+        geometry.freeze_atoms = macro_freeze
+        geometry.set_calculator(macro_calc)
+
+        rfo_args = dict(rfo_cfg)
+        rfo_args["max_cycles"] = 1
+        rfo_args["out_dir"] = str(out_dir_path)
+        rfo_args["dump"] = dump
+        rfo_args["thresh"] = thresh
+
+        optimizer = RFOptimizer(geometry, **rfo_args)
+        optimizer.run()
+        macro_converged = optimizer.is_converged
+        total_macro_steps += 1
+
+        if dump:
+            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+
+        del optimizer
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        if macro_converged:
+            click.echo(f"[microiter] Macro convergence reached at iteration {macro_iter + 1}.")
+            break
+
+        # ---- Micro step: LBFGS with MM-only forces, ML frozen ----
+        click.echo(f"[microiter] --- Micro relaxation (MM-only, max {micro_max_cycles} steps) ---")
+        geometry.freeze_atoms = micro_freeze
+        geometry.set_calculator(mm_calc)
+
+        micro_lbfgs_args = dict(lbfgs_cfg)
+        micro_lbfgs_args["max_cycles"] = micro_max_cycles
+        micro_lbfgs_args["thresh"] = micro_thresh
+        micro_lbfgs_args["out_dir"] = str(out_dir_path)
+        micro_lbfgs_args["dump"] = dump
+
+        micro_opt = LBFGS(geometry, **micro_lbfgs_args)
+        micro_opt.run()
+        micro_converged = micro_opt.is_converged
+        micro_steps = max(int(micro_opt.cur_cycle) + 1, 1)
+        click.echo(
+            f"[microiter] Micro done: {micro_steps} steps, "
+            f"converged={micro_converged}"
+        )
+
+        if dump:
+            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+
+        del micro_opt
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    else:
+        click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).")
+
+    click.echo(f"[microiter] Total macro steps: {total_macro_steps}")
+    # Restore full calculator
+    geometry.freeze_atoms = list(set(frozen_mm))
+    geometry.set_calculator(base_calc)
+
+    return geometry
+
+
+# -----------------------------------------------
 # CLI
 # -----------------------------------------------
 
@@ -733,6 +887,14 @@ def _flatten_all_imag_modes_for_geom(
     help="Optimizer mode: 'light' (=LBFGS) or 'heavy' (=RFO).",
 )
 @click.option(
+    "--microiter/--no-microiter",
+    "microiter",
+    default=True,
+    show_default=True,
+    help="Enable microiteration: alternate ML 1-step (RFO) and MM relaxation (LBFGS with MM-only forces). "
+         "Only effective in --opt-mode heavy (RFO). Ignored in light mode.",
+)
+@click.option(
     "--config",
     "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -783,6 +945,7 @@ def cli(
     out_dir: str,
     thresh: Optional[str],
     opt_mode: str,
+    microiter: bool,
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
@@ -1195,25 +1358,64 @@ def cli(
             click.echo(f"[opt] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
             del h_init
 
-        main_kind = "rfo" if use_rfo else "lbfgs"
-        if use_rfo:
-            _seed_rfo_hessian()
+        # Resolve microiteration config from YAML
+        microiter_cfg = dict(MICROITER_KW)
+        apply_yaml_overrides(
+            config_layer_cfg,
+            [(microiter_cfg, (("microiter",),))],
+        )
+        apply_yaml_overrides(
+            override_layer_cfg,
+            [(microiter_cfg, (("microiter",),))],
+        )
 
-        main_label = "RFO" if use_rfo else "LBFGS"
-        optimizer = _build_optimizer(main_kind)
-        click.echo(f"\n====== Optimization ({main_label}) started ======\n")
-        optimizer.run()
-        click.echo(f"\n====== Optimization ({main_label}) finished ======\n")
-        last_optimizer = optimizer
+        use_microiter = bool(microiter) and use_rfo and not dist_freeze
+        if bool(microiter) and not use_rfo:
+            click.echo("[microiter] --microiter is only effective with --opt-mode heavy (RFO). Ignoring.")
+        if bool(microiter) and use_rfo and dist_freeze:
+            click.echo("[microiter] --microiter is not compatible with --dist-freeze. Falling back to standard RFO.")
 
-        # Get final geometry path
-        final_xyz_path = last_optimizer.final_fn if isinstance(last_optimizer.final_fn, Path) else Path(last_optimizer.final_fn)
+        if use_microiter:
+            click.echo("\n====== Optimization (RFO + Microiteration) started ======\n")
+            _run_microiter_opt(
+                geometry,
+                calc_cfg,
+                rfo_cfg,
+                lbfgs_cfg,
+                opt_cfg,
+                microiter_cfg,
+                out_dir_path,
+                dump=bool(opt_cfg["dump"]),
+            )
+            click.echo("\n====== Optimization (RFO + Microiteration) finished ======\n")
 
-        if bool(opt_cfg["dump"]):
-            optim_all_path = out_dir_path / "optimization_all_trj.xyz"
-            if not optim_all_path.exists():
-                trj_path = last_optimizer.get_path_for_fn("optimization_trj.xyz")
-                _append_xyz_trajectory(optim_all_path, trj_path, reset=True)
+            # Write final geometry
+            from ase import Atoms as _Atoms
+            from ase.io import write as _write
+            final_xyz_path = out_dir_path / "final_geometry.xyz"
+            final_coords_ang = geometry.coords.reshape(-1, 3) * BOHR2ANG
+            atoms_final = _Atoms(geometry.atoms, positions=final_coords_ang, pbc=False)
+            _write(final_xyz_path, atoms_final)
+
+        else:
+            main_kind = "rfo" if use_rfo else "lbfgs"
+            if use_rfo:
+                _seed_rfo_hessian()
+
+            main_label = "RFO" if use_rfo else "LBFGS"
+            optimizer = _build_optimizer(main_kind)
+            click.echo(f"\n====== Optimization ({main_label}) started ======\n")
+            optimizer.run()
+            click.echo(f"\n====== Optimization ({main_label}) finished ======\n")
+
+            # Get final geometry path
+            final_xyz_path = optimizer.final_fn if isinstance(optimizer.final_fn, Path) else Path(optimizer.final_fn)
+
+            if bool(opt_cfg["dump"]):
+                optim_all_path = out_dir_path / "optimization_all_trj.xyz"
+                if not optim_all_path.exists():
+                    trj_path = optimizer.get_path_for_fn("optimization_trj.xyz")
+                    _append_xyz_trajectory(optim_all_path, trj_path, reset=True)
 
         # Extract layer indices from calculator for layer-based B-factor encoding
         calc_core = base_calc.core if hasattr(base_calc, 'core') else base_calc
@@ -1226,7 +1428,7 @@ def cli(
             input_path=prepared_input.source_path,  # Use PDB topology for conversion
             out_dir=out_dir_path,
             dump=bool(opt_cfg["dump"]),
-            get_trj_fn=last_optimizer.get_path_for_fn,
+            get_trj_fn=(lambda fn: out_dir_path / fn) if use_microiter else optimizer.get_path_for_fn,
             final_xyz_path=final_xyz_path,
             model_pdb=Path(calc_cfg["model_pdb"]),
             freeze_indices_0based=freeze_atoms_final,
