@@ -164,7 +164,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (A)。グリッド密度を制御。 | `0.20` |
-| `--bias-k FLOAT` | 調和ウェル強度 k (eV/A^2)。 | `100.0` |
+| `--bias-k FLOAT` | 調和ウェル強度 k (eV/A^2)。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの最大オプティマイザーサイクル。 | `10000` |
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `--out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |

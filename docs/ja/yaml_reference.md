@@ -22,7 +22,8 @@
 | [`search`](#search) | 再帰的経路探索設定 | path-search |
 | [`hessian_dimer`](#hessian_dimer) | ヘシアン・ダイマーTS 最適化 | tsopt |
 | [`rsirfo`](#rsirfo) | RS-I-RFO TS 最適化 | tsopt |
-| [`sopt`](#sopt) | path-search用単一構造最適化 | path-search |
+| [`stopt`](#stopt) | 文字列最適化（StringOptimizer）設定 | path-opt, path-search |
+| [`microiter`](#microiter) | マイクロイテレーション（MM緩和）設定 | opt, tsopt |
 
 ---
 
@@ -278,27 +279,36 @@ out_dir:./result_tsopt/ # 出力ディレクトリ
 
 ---
 
-### `sopt`
+### `stopt`
 
-path-search で使用する単一構造最適化設定（HEI±1 ノードおよび kink ノード）。
+文字列最適化（GS/DMF）の設定。path-opt と path-search で使用。
 
 ```yaml
-sopt:
+stopt:
+ type: string           # 最適化タイプラベル（StringOptimizer用）
+ thresh: gau_loose      # 文字列最適化の収束プリセット
+ stop_in_when_full: 300 # 文字列が満杯時の早期停止閾値
+ align: false           # アライメントトグル
+ scale_step: global     # ステップスケーリングモード
+ max_cycles: 300        # 文字列最適化の最大反復数
+ dump: false            # 軌道/リスタートデータ出力
+ out_dir: ./result_path_opt/  # 出力ディレクトリ
+ print_every: 10        # ログ出力間隔
  lbfgs:
- # 上記 lbfgs セクションと同じキー
- thresh: gau
- max_cycles: 10000
- out_dir:./result_path_search/
- dump: false
- # ...（詳細は lbfgs セクション参照）
+   # 単一構造最適化用（HEI±1、kinkノード）
+   thresh: gau
+   max_cycles: 10000
+   # ...（詳細は lbfgs セクション参照）
  rfo:
- # 上記 rfo セクションと同じキー
- thresh: gau
- max_cycles: 10000
- out_dir:./result_path_search/
- dump: false
- # ...（詳細は rfo セクション参照）
+   # 単一構造最適化用
+   thresh: gau
+   max_cycles: 10000
+   # ...（詳細は rfo セクション参照）
 ```
+
+**注意:**
+- `stopt.lbfgs` / `stopt.rfo` は HEI±1 端点最適化および kink ノード最適化に使用される単一構造最適化の設定
+- 外側の `stopt` キーは文字列最適化（GS または DMF ラッパー）を制御
 
 ---
 
@@ -356,6 +366,24 @@ thermo:
 
 ---
 
+### `microiter`
+
+ML/MM最適化用のマイクロイテレーション設定。`--microiter` 有効時、MLリージョンの
+マクロステップ間でMMリージョンをL-BFGSで緩和（ML原子は凍結）します。
+
+```yaml
+microiter:
+ micro_thresh: gau_loose # MM緩和の収束プリセット（L-BFGS）
+ micro_max_cycles: 500   # マイクロイテレーションあたりの最大L-BFGS反復数
+```
+
+**注意:**
+- CLIフラグ `--microiter` / `--no-microiter` で有効化（デフォルト: 無効）
+- `opt`（`--opt-mode hess`）および `tsopt`（`--opt-mode hess`）で使用可能
+- `micro_thresh` は `opt.thresh` と同じプリセット（gau_loose, gau, gau_tight等）を受け付けます
+
+---
+
 ## DFT セクション
 
 (ja-dft-section)=
@@ -365,7 +393,7 @@ DFT 計算設定。
 
 ```yaml
 dft:
- func_basis: B3LYP/6-31G* # 汎関数/基底関数の組み合わせ文字列
+ func_basis: wb97m-v/def2-tzvpd # 汎関数/基底関数の組み合わせ文字列
  max_cycle: 100 # 最大 SCF 反復数
  conv_tol: 1.0e-09 # SCF 収束許容値 (Hartree)
  grid_level: 3 # PySCF グリッドレベル
@@ -381,7 +409,7 @@ dft:
 
 ```yaml
 bias:
- k: 100.0 # 調和バイアス強度 (eV/Å^2)
+ k: 300.0 # 調和バイアス強度 (eV/Å^2)
 ```
 
 ---
@@ -446,7 +474,7 @@ thermo:
  pressure_atm: 1.0
 
 dft:
- func_basis: B3LYP/6-31G*
+ func_basis: wb97m-v/def2-tzvpd
  grid_level: 3
 ```
 

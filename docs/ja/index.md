@@ -68,7 +68,7 @@ glossary
 | 単一構造スキャン（`--spec`） | `mlmm scan` | [クイックスタート: scan + spec](quickstart_scan_spec.md) |
 | TS 検証（`tsopt` -> `freq`） | `mlmm tsopt`, `mlmm freq` | [クイックスタート: tsopt -> freq](quickstart_tsopt_freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
-| `all` 用 YAML テンプレートを生成 | `mlmm init` | [init.md](init.md) |
+| 現在の設定を確認 | `mlmm opt --show-config` | [YAML リファレンス](yaml_reference.md) |
 | タンパク質-リガンド複合体からQM領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
 | MM トポロジ（parm7/rst7）を構築 | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
 | ML/MM 3層領域を定義 | `mlmm define-layer` | [define_layer.md](define_layer.md) |

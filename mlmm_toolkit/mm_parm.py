@@ -892,16 +892,20 @@ def run_pipeline(args: Args) -> None:
     ),
 )
 @click.option(
-    "--allow-nonstandard-aa",
-    is_flag=True,
+    "--allow-nonstandard-aa/--no-allow-nonstandard-aa",
+    "allow_nonstandard_aa",
+    default=False,
+    show_default=True,
     help=(
         "Allow antechamber parameterization of residues that look amino-acid-like "
         "(contain N/CA/C). Use with care for modified amino acids."
     ),
 )
 @click.option(
-    "--keep-temp",
-    is_flag=True,
+    "--keep-temp/--no-keep-temp",
+    "keep_temp",
+    default=False,
+    show_default=True,
     help="Keep temporary working directory (in current dir) for debugging.",
 )
 @click.option(

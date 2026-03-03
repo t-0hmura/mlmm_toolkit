@@ -36,7 +36,7 @@ Options:
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
                                   (e.g., '1,3,5').
   --func-basis TEXT               Exchange-correlation functional and basis set
-                                  as "FUNC/BASIS".  [default: wb97m-v/6-31g**]
+                                  as "FUNC/BASIS".  [default: wb97m-v/def2-tzvpd]
   --max-cycle INTEGER             [default: 100]
   --conv-tol FLOAT                [default: 1e-09]
   --grid-level INTEGER            [default: 3]

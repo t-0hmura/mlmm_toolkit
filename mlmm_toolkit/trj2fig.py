@@ -420,8 +420,10 @@ def main() -> None:
     help="Spin multiplicity (2S+1). Recompute energies when supplied.",
 )
 @click.option(
-    "--reverse-x",
-    is_flag=True,
+    "--reverse-x/--no-reverse-x",
+    "reverse_x",
+    default=False,
+    show_default=True,
     help="Reverse the x-axis (last frame on the left).",
 )
 def cli(

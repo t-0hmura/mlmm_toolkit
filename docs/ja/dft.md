@@ -8,7 +8,7 @@
 - **用途:** ONIOM 式の再結合により、ML 領域に DFT を使用した ML/MM 系のより高レベルな一点エネルギーが必要な場合。
 - **手法:** ML 領域 + リンク水素に対する PySCF（CPU）または GPU4PySCF（GPU）による DFT 一点計算と、ONIOM 総エネルギーのための MM 評価の組み合わせ。
 - **出力:** `ml_region_with_linkH.xyz`、ML(dft)/MM 合成エネルギーを含む `result.yaml`。
-- **デフォルト:** `--func-basis wb97m-v/6-31g**`、`--max-cycle 100`、`--conv-tol 1e-9`。
+- **デフォルト:** `--func-basis wb97m-v/def2-tzvpd`、`--max-cycle 100`、`--conv-tol 1e-9`。
 - **次のステップ:** R/TS/P 状態間で DFT//UMA エネルギーを比較するか、[all](all.md) の `--dft` で自動ダイアグラムを生成。
 
 `mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加して PySCF（または GPU4PySCF）による一点計算を実行します。DFT 評価後、PySCF 高レベルエネルギーと全系の MM 評価（REAL-low）および ML サブセットの MM 評価（MODEL-low）を組み合わせて **ML(dft)/MM 総エネルギー** を再計算します:
@@ -17,7 +17,7 @@
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-GPU4PySCF バックエンドは利用可能な場合に自動的に有効化されます。それ以外は PySCF CPU が使用されます。デフォルトの汎関数/基底関数は `wb97m-v/6-31g**` です。
+GPU4PySCF バックエンドは利用可能な場合に自動的に有効化されます。それ以外は PySCF CPU が使用されます。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。
 
 ## 最小例
 
@@ -75,7 +75,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | ML 領域の電荷。 | 必須 |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（例: `"1,3,5"`）。YAML `geom.freeze_atoms` とマージ。 | _None_ |
-| `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/6-31g**` |
+| `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | 最大 SCF 反復数。 | `100` |
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
 | `--grid-level INT` | PySCF 数値積分グリッドレベル。 | `3` |
@@ -107,7 +107,7 @@ out_dir/ (デフォルト: ./result_dft/)
 - 明示的に指定した CLI オプション
 
 `dft` キー（括弧内はデフォルト）:
-- `func_basis`（`"wb97m-v/6-31g**"`）: 結合 `FUNC/BASIS` 文字列。
+- `func_basis`（`"wb97m-v/def2-tzvpd"`）: 結合 `FUNC/BASIS` 文字列。
 - `conv_tol`（`1e-9`）: SCF 収束閾値 (Hartree)。
 - `max_cycle`（`100`）: 最大 SCF 反復数。
 - `grid_level`（`3`）: PySCF `grids.level`。
@@ -124,7 +124,7 @@ mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
 dft:
- func_basis: wb97m-v/6-31g**      # 交換相関汎関数 / 基底関数セット
+ func_basis: wb97m-v/def2-tzvpd      # 交換相関汎関数 / 基底関数セット
  conv_tol: 1.0e-09                # SCF 収束閾値 (Hartree)
  max_cycle: 100                    # 最大 SCF 反復数
  grid_level: 3                     # PySCF グリッドレベル

@@ -44,6 +44,7 @@ from .opt import (
 from .utils import (
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
+    set_convert_file_enabled,
     deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
@@ -709,6 +710,13 @@ def _run_dmf_mep(
     help="Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. "
          "Providing --movable-cutoff disables --detect-layer.",
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -736,7 +744,10 @@ def cli(
     freeze_atoms_cli: Optional[str],
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
+    convert_files: bool,
 ) -> None:
+    set_convert_file_enabled(convert_files)
+
     def _is_param_explicit(name: str) -> bool:
         try:
             source = ctx.get_parameter_source(name)
@@ -782,7 +793,7 @@ def cli(
         geom_cfg = dict(GEOM_KW)
         calc_cfg = dict(CALC_KW)
         gs_cfg = dict(GS_KW)
-        opt_cfg = dict(STOPT_KW)
+        stopt_cfg = dict(STOPT_KW)
         lbfgs_cfg = dict(LBFGS_KW)
         dmf_cfg = dict(DMF_KW)
 
@@ -792,8 +803,8 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (opt_cfg, (("opt",),)),
-                (lbfgs_cfg, (("opt", "lbfgs"), ("lbfgs",), ("sopt", "lbfgs"))),
+                (stopt_cfg, (("stopt",), ("opt",))),
+                (lbfgs_cfg, (("opt", "lbfgs"), ("lbfgs",), ("stopt", "lbfgs"))),
                 (dmf_cfg, (("dmf",),)),
             ],
         )
@@ -801,8 +812,8 @@ def cli(
         if _is_param_explicit("max_nodes"):
             gs_cfg["max_nodes"] = int(max_nodes)
         if _is_param_explicit("max_cycles"):
-            opt_cfg["max_cycles"] = int(max_cycles)
-            opt_cfg["stop_in_when_full"] = int(max_cycles)
+            stopt_cfg["max_cycles"] = int(max_cycles)
+            stopt_cfg["stop_in_when_full"] = int(max_cycles)
             dmf_cfg["max_cycles"] = int(max_cycles)
         if _is_param_explicit("climb"):
             gs_cfg["climb"] = bool(climb)
@@ -811,13 +822,13 @@ def cli(
             gs_cfg["fix_first"] = bool(fix_ends)
             gs_cfg["fix_last"] = bool(fix_ends)
         if _is_param_explicit("dump"):
-            opt_cfg["dump"] = bool(dump)
+            stopt_cfg["dump"] = bool(dump)
             lbfgs_cfg["dump"] = bool(dump)
         if _is_param_explicit("out_dir"):
-            opt_cfg["out_dir"] = out_dir
+            stopt_cfg["out_dir"] = out_dir
             lbfgs_cfg["out_dir"] = out_dir
         if _is_param_explicit("thresh") and thresh is not None:
-            opt_cfg["thresh"] = str(thresh)
+            stopt_cfg["thresh"] = str(thresh)
             lbfgs_cfg["thresh"] = str(thresh)
         if _is_param_explicit("detect_layer"):
             calc_cfg["use_bfactor_layers"] = bool(detect_layer)
@@ -862,8 +873,8 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (opt_cfg, (("opt",),)),
-                (lbfgs_cfg, (("opt", "lbfgs"), ("lbfgs",), ("sopt", "lbfgs"))),
+                (stopt_cfg, (("stopt",), ("opt",))),
+                (lbfgs_cfg, (("opt", "lbfgs"), ("lbfgs",), ("stopt", "lbfgs"))),
                 (dmf_cfg, (("dmf",),)),
             ],
         )
@@ -895,10 +906,10 @@ def cli(
         calc_cfg["freeze_atoms"] = freeze_atoms_final
 
         # Keep optimizer alignment policy deterministic.
-        opt_cfg["align"] = False
-        opt_cfg["stop_in_when_full"] = int(opt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
+        stopt_cfg["align"] = False
+        stopt_cfg["stop_in_when_full"] = int(stopt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
 
-        out_dir_path = Path(opt_cfg["out_dir"]).resolve()
+        out_dir_path = Path(stopt_cfg["out_dir"]).resolve()
         preopt_max_cycles_effective = int(lbfgs_cfg.get("max_cycles", preopt_max_cycles))
 
         # movable_cutoff implies full distance-based layer assignment.
@@ -1025,14 +1036,14 @@ def cli(
         echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
         echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
         echo_gs = strip_inherited_keys(gs_cfg, GS_KW, mode="same")
-        echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
-        echo_lbfgs = strip_inherited_keys({**lbfgs_cfg, "out_dir": opt_cfg.get("out_dir")}, LBFGS_KW, mode="same")
+        echo_stopt = strip_inherited_keys({**stopt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
+        echo_lbfgs = strip_inherited_keys({**lbfgs_cfg, "out_dir": stopt_cfg.get("out_dir")}, LBFGS_KW, mode="same")
 
         click.echo(pretty_block("geom", echo_geom))
         click.echo(pretty_block("calc", echo_calc))
         if mep_mode_kind == "gsm":
             click.echo(pretty_block("gs", echo_gs))
-            click.echo(pretty_block("opt", echo_opt))
+            click.echo(pretty_block("stopt", echo_stopt))
             click.echo(pretty_block("lbfgs", echo_lbfgs))
         elif mep_mode_kind == "dmf":
             click.echo(pretty_block("dmf", dmf_cfg))
@@ -1048,7 +1059,7 @@ def cli(
             )
         )
 
-        if int(opt_cfg.get("max_cycles", 0)) <= 0:
+        if int(stopt_cfg.get("max_cycles", 0)) <= 0:
             click.echo("[INFO] max_cycles <= 0: skipping path optimization.")
             return
 
@@ -1116,7 +1127,7 @@ def cli(
                 click.echo(f"[preopt] WARNING: Pre-optimization skipped due to error: {e}", err=True)
 
         # By default, apply external Kabsch alignment (if freeze_atoms exist, use only them)
-        align_thresh = str(opt_cfg.get("thresh", "gau"))
+        align_thresh = str(stopt_cfg.get("thresh", "gau"))
         try:
             click.echo("\n=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
             _ = align_and_refine_sequence_inplace(
@@ -1179,7 +1190,7 @@ def cli(
         )
 
         # StringOptimizer expects 'out_dir' under the key "out_dir"
-        opt_args = dict(opt_cfg)
+        opt_args = dict(stopt_cfg)
         opt_args["out_dir"] = str(out_dir_path)
 
         optimizer = StringOptimizer(

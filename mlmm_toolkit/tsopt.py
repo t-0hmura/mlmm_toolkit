@@ -1798,7 +1798,7 @@ hessian_dimer_KW = {
 # ===================================================================
 
 @click.command(
-    help="TS optimization: light (Dimer) or heavy (RS-I-RFO) for the ML/MM calculator.",
+    help="TS optimization: grad (Dimer) or hess (RS-I-RFO) for the ML/MM calculator.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -1923,10 +1923,10 @@ hessian_dimer_KW = {
 )
 @click.option(
     "--opt-mode",
-    type=click.Choice(["light", "heavy"], case_sensitive=False),
-    default="heavy",
+    type=click.Choice(["grad", "hess", "light", "heavy", "dimer", "rsirfo"], case_sensitive=False),
+    default="hess",
     show_default=True,
-    help="TS optimizer mode: light (Dimer) or heavy (RS-I-RFO with full Hessian).",
+    help="grad (dimer) or hess (rsirfo). Aliases light/heavy and dimer/rsirfo are accepted.",
 )
 @click.option(
     "--microiter/--no-microiter",
@@ -1934,7 +1934,7 @@ hessian_dimer_KW = {
     default=True,
     show_default=True,
     help="Enable microiteration: alternate ML 1-step (RS-I-RFO) and MM relaxation (LBFGS with MM-only forces). "
-         "Only effective in --opt-mode heavy. Ignored in light mode.",
+         "Only effective in --opt-mode hess. Ignored in grad mode.",
 )
 @click.option(
     "--partial-hessian-flatten/--full-hessian-flatten",
@@ -1949,7 +1949,7 @@ hessian_dimer_KW = {
     default=False,
     show_default=True,
     help="Use ML-region-only Hessian (no MM Hessian contribution) for dimer orientation "
-         "in light mode. Faster but less accurate for mode direction.",
+         "in grad mode. Faster but less accurate for mode direction.",
 )
 @click.option(
     "--active-dof-mode",
@@ -2075,14 +2075,14 @@ def cli(
 
     time_start = time.perf_counter()
 
-    # Resolve optimizer mode (default is now heavy/RS-I-RFO)
+    # Resolve optimizer mode (default is now hess/RS-I-RFO)
     mode_resolved = normalize_choice(
         opt_mode,
         param="--opt-mode",
         alias_groups=TSOPT_MODE_ALIASES,
-        allowed_hint="light, heavy",
+        allowed_hint="grad|hess|dimer|rsirfo",
     )
-    use_heavy = (mode_resolved == "heavy")
+    use_heavy = (mode_resolved == "rsirfo")
 
     config_layer_cfg = load_yaml_dict(config_yaml)
     override_layer_cfg = load_yaml_dict(override_yaml)
@@ -2173,7 +2173,7 @@ def cli(
 
     use_microiter = bool(microiter) and use_heavy
     if bool(microiter) and not use_heavy:
-        click.echo("[microiter] --microiter is only effective with --opt-mode heavy (RS-I-RFO). Ignoring.")
+        click.echo("[microiter] --microiter is only effective with --opt-mode hess (RS-I-RFO). Ignoring.")
 
     try:
         geom_freeze = _normalize_geom_freeze_opt(geom_cfg.get("freeze_atoms"))
@@ -2257,7 +2257,7 @@ def cli(
                 {
                     "input_geometry": str(geom_input_path),
                     "output_dir": str(out_dir_path),
-                    "optimizer_mode": ("heavy-rsirfo" if use_heavy else "light-dimer"),
+                    "optimizer_mode": ("hess-rsirfo" if use_heavy else "grad-dimer"),
                     "detect_layer": bool(detect_layer_enabled),
                     "model_region_source": model_region_source,
                     "model_indices_count": 0 if not model_indices else len(model_indices),
@@ -2333,7 +2333,7 @@ def cli(
             calc_cfg[key] = str(Path(val).expanduser().resolve())
 
     # Pretty-print config summary (only non-default values for concise logging)
-    mode_desc = "RS-I-RFO (heavy)" if use_heavy else "Dimer (light)"
+    mode_desc = "RS-I-RFO (hess)" if use_heavy else "Dimer (grad)"
     if use_microiter:
         mode_desc += " + Microiteration"
     click.echo(f"\n[mode] TS Optimizer: {mode_desc}\n")

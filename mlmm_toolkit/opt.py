@@ -881,10 +881,10 @@ def _run_microiter_opt(
 )
 @click.option(
     "--opt-mode",
-    type=click.Choice(["light", "heavy", "lbfgs", "rfo"], case_sensitive=False),
-    default="light",
+    type=click.Choice(["grad", "hess", "light", "heavy", "lbfgs", "rfo"], case_sensitive=False),
+    default="grad",
     show_default=True,
-    help="Optimizer mode: 'light' (=LBFGS) or 'heavy' (=RFO).",
+    help="Optimization mode: grad (lbfgs) or hess (rfo). Aliases light/heavy and lbfgs/rfo are accepted.",
 )
 @click.option(
     "--microiter/--no-microiter",
@@ -892,7 +892,14 @@ def _run_microiter_opt(
     default=True,
     show_default=True,
     help="Enable microiteration: alternate ML 1-step (RFO) and MM relaxation (LBFGS with MM-only forces). "
-         "Only effective in --opt-mode heavy (RFO). Ignored in light mode.",
+         "Only effective in --opt-mode hess (RFO). Ignored in grad mode.",
+)
+@click.option(
+    "--flatten/--no-flatten",
+    "flatten",
+    default=False,
+    show_default=True,
+    help="Enable/disable imaginary-mode flatten loop after optimization.",
 )
 @click.option(
     "--config",
@@ -946,6 +953,7 @@ def cli(
     thresh: Optional[str],
     opt_mode: str,
     microiter: bool,
+    flatten: bool,
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
@@ -1020,7 +1028,7 @@ def cli(
         opt_mode,
         param="--opt-mode",
         alias_groups=OPT_MODE_ALIASES,
-        allowed_hint="light, heavy",
+        allowed_hint="grad|hess|lbfgs|rfo",
     )
     use_rfo = (mode_resolved == "rfo")
 
@@ -1257,7 +1265,7 @@ def cli(
             if val:
                 calc_cfg[key] = str(Path(val).expanduser().resolve())
 
-        mode_str = "RFO (heavy)" if use_rfo else "LBFGS (light)"
+        mode_str = "RFO (hess)" if use_rfo else "LBFGS (grad)"
         click.echo(f"\n[mode] Optimizer: {mode_str}\n")
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
         # Show only non-default calc settings for concise logging
@@ -1371,7 +1379,7 @@ def cli(
 
         use_microiter = bool(microiter) and use_rfo and not dist_freeze
         if bool(microiter) and not use_rfo:
-            click.echo("[microiter] --microiter is only effective with --opt-mode heavy (RFO). Ignoring.")
+            click.echo("[microiter] --microiter is only effective with --opt-mode hess (RFO). Ignoring.")
         if bool(microiter) and use_rfo and dist_freeze:
             click.echo("[microiter] --microiter is not compatible with --dist-freeze. Falling back to standard RFO.")
 
@@ -1416,6 +1424,97 @@ def cli(
                 if not optim_all_path.exists():
                     trj_path = optimizer.get_path_for_fn("optimization_trj.xyz")
                     _append_xyz_trajectory(optim_all_path, trj_path, reset=True)
+
+        # --------------------------
+        # Flatten loop (all imaginary modes)
+        # --------------------------
+        if flatten:
+            from .freq import (
+                _torch_device,
+                _calc_full_hessian_torch,
+                _frequencies_cm_and_modes,
+            )
+
+            click.echo("\n====== Optimization (Flatten loop) started ======\n")
+
+            geometry.set_calculator(None)
+            uma_kwargs_for_flatten = dict(calc_cfg)
+            uma_kwargs_for_flatten["out_hess_torch"] = True
+            device = _torch_device(calc_cfg.get("ml_device", "auto"))
+            freeze_idx = list(geom_cfg.get("freeze_atoms", [])) if len(geom_cfg.get("freeze_atoms", [])) > 0 else None
+            masses_amu = _safe_masses_amu(geometry.atomic_numbers)
+
+            def _attach_opt_calc() -> None:
+                geometry.set_calculator(
+                    bias_calc if resolved_dist_freeze else base_calc
+                )
+
+            def _calc_freqs_and_modes() -> Tuple[np.ndarray, torch.Tensor]:
+                H, _e = _calc_full_hessian_torch(geometry, uma_kwargs_for_flatten, device)
+                freqs_local, modes_local = _frequencies_cm_and_modes(
+                    H,
+                    geometry.atomic_numbers,
+                    geometry.cart_coords.reshape(-1, 3),
+                    device,
+                    freeze_idx=freeze_idx,
+                )
+                del H
+                return freqs_local, modes_local
+
+            freqs_cm, modes = _calc_freqs_and_modes()
+            neg_mask = freqs_cm < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)
+            n_imag = int(np.sum(neg_mask))
+            ims = [float(x) for x in freqs_cm if x < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)]
+            click.echo(f"[Imaginary modes] n={n_imag}  ({ims})")
+
+            flatten_kind = mode_resolved  # reuse same optimizer type
+            for it in range(OPT_FLATTEN_MAX_ITER):
+                if n_imag == 0:
+                    break
+                click.echo(f"[flatten] iteration {it + 1}/{OPT_FLATTEN_MAX_ITER}")
+                did_flatten = _flatten_all_imag_modes_for_geom(
+                    geometry,
+                    masses_amu,
+                    uma_kwargs_for_flatten,
+                    freqs_cm,
+                    modes,
+                    OPT_FLATTEN_NEG_FREQ_THRESH_CM,
+                    OPT_FLATTEN_AMP_ANG,
+                )
+                if not did_flatten:
+                    click.echo("[flatten] No eligible imaginary modes to flatten; stopping.")
+                    break
+
+                _attach_opt_calc()
+                opt_restart = _build_optimizer(flatten_kind)
+                restart_label = "LBFGS" if flatten_kind == "lbfgs" else "RFO"
+                click.echo(f"\n====== Optimization ({restart_label}) restarted ======\n")
+                opt_restart.run()
+                click.echo(f"\n====== Optimization ({restart_label}) finished ======\n")
+
+                geometry.set_calculator(None)
+                freqs_cm, modes = _calc_freqs_and_modes()
+                neg_mask = freqs_cm < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)
+                n_imag = int(np.sum(neg_mask))
+                ims = [float(x) for x in freqs_cm if x < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)]
+                click.echo(f"[Imaginary modes] n={n_imag}  ({ims})")
+
+            if n_imag > 0:
+                click.echo(
+                    f"[flatten] WARNING: Remaining imaginary modes after {OPT_FLATTEN_MAX_ITER} iterations: {n_imag}",
+                    err=True,
+                )
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            click.echo("\n====== Optimization (Flatten loop) finished ======\n")
+
+            # Update final geometry after flatten
+            final_xyz_path = out_dir_path / "final_geometry.xyz"
+            from ase import Atoms as _Atoms
+            from ase.io import write as _write
+            final_coords_ang = geometry.coords.reshape(-1, 3) * BOHR2ANG
+            atoms_final = _Atoms(geometry.atoms, positions=final_coords_ang, pbc=False)
+            _write(final_xyz_path, atoms_final)
 
         # Extract layer indices from calculator for layer-based B-factor encoding
         calc_core = base_calc.core if hasattr(base_calc, 'core') else base_calc

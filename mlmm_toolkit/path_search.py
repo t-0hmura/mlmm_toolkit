@@ -53,6 +53,7 @@ from .opt import (
 from .utils import (
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
+    set_convert_file_enabled,
     load_yaml_dict,
     deep_update,
     apply_yaml_overrides,
@@ -355,7 +356,7 @@ def _run_gsm_between(
     gB,
     shared_calc,
     gs_cfg: Dict[str, Any],
-    opt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     out_dir: Path,
     tag: str,
     ref_pdb_path: Optional[Path],  # reference PDB for conversion
@@ -373,7 +374,7 @@ def _run_gsm_between(
         **gs_cfg,
     )
 
-    _opt_args = dict(opt_cfg)
+    _opt_args = dict(stopt_cfg)
     seg_dir = out_dir / f"{tag}_mep"
     seg_dir.mkdir(parents=True, exist_ok=True)
     _opt_args["out_dir"] = str(seg_dir)
@@ -624,7 +625,7 @@ def _run_mep_between(
     gB,
     shared_calc,
     gs_cfg: Dict[str, Any],
-    opt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     out_dir: Path,
     tag: str,
     ref_pdb_path: Optional[Path],
@@ -643,7 +644,7 @@ def _run_mep_between(
             max_nodes=max_nodes,
             dmf_cfg=dmf_cfg or dict(DMF_KW),
         )
-    return _run_gsm_between(gA, gB, shared_calc, gs_cfg, opt_cfg, out_dir, tag=tag, ref_pdb_path=ref_pdb_path)
+    return _run_gsm_between(gA, gB, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=tag, ref_pdb_path=ref_pdb_path)
 
 
 def _optimize_single(
@@ -689,7 +690,7 @@ def _refine_between(
     gR,
     shared_calc,
     gs_cfg: Dict[str, Any],
-    opt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     out_dir: Path,
     tag: str,
     ref_pdb_path: Optional[Path],  # for PDB conversion
@@ -703,7 +704,7 @@ def _refine_between(
     """
     gs_refine_cfg = {**gs_cfg, "climb": True, "climb_lanczos": True}
     return _run_mep_between(
-        gL, gR, shared_calc, gs_refine_cfg, opt_cfg, out_dir, tag=f"{tag}_refine",
+        gL, gR, shared_calc, gs_refine_cfg, stopt_cfg, out_dir, tag=f"{tag}_refine",
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
         calc_cfg=calc_cfg, max_nodes=max_nodes, dmf_cfg=dmf_cfg,
     )
@@ -714,7 +715,7 @@ def _maybe_bridge_segments(
     head_g,
     shared_calc,
     gs_cfg: Dict[str, Any],  # bridge-specific GS config
-    opt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     out_dir: Path,
     tag: str,
     rmsd_thresh: float,
@@ -732,7 +733,7 @@ def _maybe_bridge_segments(
         return None
     click.echo(f"[{tag}] Gap detected between segments (RMSD={rmsd:.4e} Å) — bridging via {mep_mode_kind.upper()}.")
     return _run_mep_between(
-        tail_g, head_g, shared_calc, gs_cfg, opt_cfg, out_dir, tag=f"{tag}_bridge",
+        tail_g, head_g, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=f"{tag}_bridge",
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
         calc_cfg=calc_cfg, max_nodes=max_nodes, dmf_cfg=dmf_cfg,
     )
@@ -744,7 +745,7 @@ def _stitch_paths(
     bridge_rmsd_thresh: float,
     shared_calc,
     gs_cfg,   # GS config for bridges (climb=False, max_nodes=search.max_nodes_bridge)
-    opt_cfg,
+    stopt_cfg,
     out_dir: Path,
     tag: str,
     ref_pdb_path: Optional[Path],  # for PDB conversion
@@ -829,7 +830,7 @@ def _stitch_paths(
             bridge_name_base = f"{left_base}_{right_base}"
 
             br = _maybe_bridge_segments(
-                tail, head, shared_calc, gs_cfg, opt_cfg, out_dir, tag=bridge_name_base,
+                tail, head, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=bridge_name_base,
                 rmsd_thresh=bridge_rmsd_thresh, ref_pdb_path=ref_pdb_path,
                 mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
             )
@@ -903,7 +904,7 @@ def _build_multistep_path(
     shared_calc,
     geom_cfg: Dict[str, Any],
     gs_cfg: Dict[str, Any],
-    opt_cfg: Dict[str, Any],
+    ststopt_cfg: Dict[str, Any],
     single_opt_cfg: Dict[str, Any],
     bond_cfg: Dict[str, Any],
     search_cfg: Dict[str, Any],
@@ -927,7 +928,7 @@ def _build_multistep_path(
     if depth > int(search_cfg.get("max_depth", 10)):
         click.echo(f"[{branch_tag}] Reached maximum recursion depth. Returning current endpoints only.")
         gsm = _run_mep_between(
-            gA, gB, shared_calc, gs_seg_cfg, opt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_maxdepth",
+            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_maxdepth",
             ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
             calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
         )
@@ -941,7 +942,7 @@ def _build_multistep_path(
 
     gs_seg_cfg_first = {**gs_seg_cfg, "climb": True, "climb_lanczos": True}
     gsm0 = _run_mep_between(
-        gA, gB, shared_calc, gs_seg_cfg_first, opt_cfg, out_dir, tag=tag0,
+        gA, gB, shared_calc, gs_seg_cfg_first, stopt_cfg, out_dir, tag=tag0,
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
         calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
     )
@@ -995,7 +996,7 @@ def _build_multistep_path(
         click.echo(f"[{tag0}] Kink not detected (covalent changes present between End1 and End2).")
         if lr_summary:
             click.echo(textwrap.indent(lr_summary, prefix="  "))
-        ref1 = _refine_between(left_end, right_end, shared_calc, gs_seg_cfg, opt_cfg, out_dir, tag=tag0,
+        ref1 = _refine_between(left_end, right_end, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=tag0,
                                ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
                                calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg)
         step_tag_for_report = f"{tag0}_refine"
@@ -1036,7 +1037,7 @@ def _build_multistep_path(
 
     if left_changed:
         subL = _build_multistep_path(
-            gA, left_end, shared_calc, geom_cfg, gs_cfg, opt_cfg,
+            gA, left_end, shared_calc, geom_cfg, gs_cfg, stopt_cfg,
             single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}L",
             pair_index=pair_index,
@@ -1051,7 +1052,7 @@ def _build_multistep_path(
 
     if right_changed:
         subR = _build_multistep_path(
-            right_end, gB, shared_calc, geom_cfg, gs_cfg, opt_cfg,
+            right_end, gB, shared_calc, geom_cfg, gs_cfg, stopt_cfg,
             single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}R",
             pair_index=pair_index,
@@ -1068,7 +1069,7 @@ def _build_multistep_path(
         sub = _build_multistep_path(
             tail_g, head_g,
             shared_calc,
-            geom_cfg, gs_cfg, opt_cfg,
+            geom_cfg, gs_cfg, stopt_cfg,
             single_opt_cfg,
             bond_cfg, search_cfg, refine_mode_kind,
             out_dir=out_dir,
@@ -1088,7 +1089,7 @@ def _build_multistep_path(
         bridge_rmsd_thresh=float(search_cfg["bridge_rmsd_thresh"]),
         shared_calc=shared_calc,
         gs_cfg=gs_bridge_cfg,
-        opt_cfg=opt_cfg,
+        stopt_cfg=stopt_cfg,
         out_dir=out_dir,
         tag=tag0,
         ref_pdb_path=ref_pdb_path,
@@ -1641,10 +1642,10 @@ def _merge_final_and_write(final_images: List[Any],
 @click.option(
     "--opt-mode",
     "opt_mode",
-    type=click.Choice(["light", "heavy"], case_sensitive=False),
-    default="light",
+    type=click.Choice(["grad", "hess"], case_sensitive=False),
+    default="grad",
     show_default=True,
-    help="Single-structure optimizer: light (=LBFGS) or heavy (=RFO).",
+    help="Single-structure optimizer: grad (=LBFGS) or hess (=RFO).",
 )
 @click.option("--out-dir", "out_dir", type=str, default="./result_path_search/", show_default=True, help="Output directory.")
 @click.option(
@@ -1702,6 +1703,13 @@ def _merge_final_and_write(final_images: List[Any],
           "With --align True, only the *first* provided reference PDB is used for all pairs "
           "in the final merge (you may pass just one).")
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1731,7 +1739,9 @@ def cli(
     pre_opt: bool,
     align: bool,
     ref_pdb_paths: Optional[Sequence[Path]],
+    convert_files: bool,
 ) -> None:
+    set_convert_file_enabled(convert_files)
     prepared_inputs: List[PreparedInputStructure] = []
     # --- Robustly accept both styles for -i/--input and --ref-pdb ---
     argv_all = sys.argv[1:]  # drop program name
@@ -1809,7 +1819,7 @@ def cli(
         geom_cfg = dict(GEOM_KW)
         calc_cfg = dict(CALC_KW)
         gs_cfg = dict(GS_KW)
-        opt_cfg = dict(STOPT_KW)
+        stopt_cfg = dict(STOPT_KW)
         lbfgs_cfg = dict(LBFGS_KW)
         bond_cfg = dict(BOND_KW)
         search_cfg = dict(SEARCH_KW)
@@ -1821,8 +1831,8 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (opt_cfg, (("opt",),)),
-                (lbfgs_cfg, (("sopt", "lbfgs"), ("lbfgs",))),
+                (stopt_cfg, (("stopt",), ("opt",))),
+                (lbfgs_cfg, (("stopt", "lbfgs"), ("lbfgs",))),
                 (bond_cfg, (("bond",),)),
                 (search_cfg, (("search",),)),
                 (dmf_cfg, (("dmf",),)),
@@ -1889,20 +1899,20 @@ def cli(
             gs_cfg["max_nodes"] = int(max_nodes)
             search_cfg["max_nodes_segment"] = int(max_nodes)
         if _is_param_explicit("max_cycles"):
-            opt_cfg["max_cycles"] = int(max_cycles)
-            opt_cfg["stop_in_when_full"] = int(max_cycles)
+            stopt_cfg["max_cycles"] = int(max_cycles)
+            stopt_cfg["stop_in_when_full"] = int(max_cycles)
             dmf_cfg["max_cycles"] = int(max_cycles)
         if _is_param_explicit("climb"):
             gs_cfg["climb"] = bool(climb)
             gs_cfg["climb_lanczos"] = bool(climb)
         if _is_param_explicit("dump"):
-            opt_cfg["dump"] = bool(dump)
+            stopt_cfg["dump"] = bool(dump)
             lbfgs_cfg["dump"] = bool(dump)
         if _is_param_explicit("out_dir"):
-            opt_cfg["out_dir"] = out_dir
+            stopt_cfg["out_dir"] = out_dir
             lbfgs_cfg["out_dir"] = out_dir
         if _is_param_explicit("thresh") and thresh is not None:
-            opt_cfg["thresh"] = str(thresh)
+            stopt_cfg["thresh"] = str(thresh)
             lbfgs_cfg["thresh"] = str(thresh)
         if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
             calc_cfg["hess_cutoff"] = float(hess_cutoff)
@@ -1918,8 +1928,8 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (opt_cfg, (("opt",),)),
-                (lbfgs_cfg, (("sopt", "lbfgs"), ("lbfgs",))),
+                (stopt_cfg, (("stopt",), ("opt",))),
+                (lbfgs_cfg, (("stopt", "lbfgs"), ("lbfgs",))),
                 (bond_cfg, (("bond",),)),
                 (search_cfg, (("search",),)),
                 (dmf_cfg, (("dmf",),)),
@@ -1935,7 +1945,7 @@ def cli(
                 raise click.BadParameter(f"Unknown --refine-mode '{refine_mode_kind}'.")
         search_cfg["refine_mode"] = refine_mode_kind
 
-        out_dir_path = Path(opt_cfg.get("out_dir", out_dir)).resolve()
+        out_dir_path = Path(stopt_cfg.get("out_dir", out_dir)).resolve()
         detect_layer_effective = bool(calc_cfg.get("use_bfactor_layers", detect_layer_effective))
 
         model_pdb_effective: Optional[Path] = None
@@ -2108,13 +2118,13 @@ def cli(
             if isinstance(val, (str, Path)):
                 calc_cfg[key] = str(Path(val).expanduser().resolve())
 
-        opt_cfg["stop_in_when_full"] = int(opt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
-        out_dir_path = Path(opt_cfg.get("out_dir", out_dir)).resolve()
+        stopt_cfg["stop_in_when_full"] = int(stopt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
+        out_dir_path = Path(stopt_cfg.get("out_dir", out_dir)).resolve()
         echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
         echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
         echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
         echo_gs   = strip_inherited_keys(gs_cfg, GS_KW, mode="same")
-        echo_opt  = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
+        echo_stopt = strip_inherited_keys({**stopt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
         echo_lbfgs = strip_inherited_keys(lbfgs_cfg, LBFGS_KW, mode="same")
         echo_bond = strip_inherited_keys(bond_cfg, BOND_KW, mode="same")
         echo_search = strip_inherited_keys(search_cfg, SEARCH_KW, mode="same")
@@ -2122,7 +2132,7 @@ def cli(
         click.echo(pretty_block("geom", echo_geom))
         click.echo(pretty_block("calc", echo_calc))
         click.echo(pretty_block("gs",   echo_gs))
-        click.echo(pretty_block("opt",  echo_opt))
+        click.echo(pretty_block("stopt", echo_stopt))
         click.echo(pretty_block("lbfgs", echo_lbfgs))
         click.echo(pretty_block("bond", echo_bond))
         click.echo(pretty_block("search", echo_search))
@@ -2152,7 +2162,7 @@ def cli(
                 )
             )
 
-        if int(opt_cfg.get("max_cycles", 0)) <= 0:
+        if int(stopt_cfg.get("max_cycles", 0)) <= 0:
             click.echo("[INFO] max_cycles <= 0: skipping path search.")
             return
 
@@ -2189,7 +2199,7 @@ def cli(
             click.echo("[init] Skipping endpoint pre-optimization as requested by --no-preopt.")
 
         # Align all inputs to the first structure, guided by freeze constraints, when requested
-        align_thresh = str(opt_cfg.get("thresh", "gau"))
+        align_thresh = str(stopt_cfg.get("thresh", "gau"))
         if align:
             try:
                 click.echo("\n=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
@@ -2223,7 +2233,7 @@ def cli(
             sub = _build_multistep_path(
                 tail_g, head_g,
                 shared_calc,
-                geom_cfg, gs_cfg, opt_cfg,
+                geom_cfg, gs_cfg, stopt_cfg,
                 lbfgs_cfg,
                 bond_cfg, search_cfg, refine_mode_kind,
                 out_dir=out_dir_path,
@@ -2243,7 +2253,7 @@ def cli(
             pair_path = _build_multistep_path(
                 gA, gB,
                 shared_calc,
-                geom_cfg, gs_cfg, opt_cfg,
+                geom_cfg, gs_cfg, stopt_cfg,
                 lbfgs_cfg,
                 bond_cfg, search_cfg, refine_mode_kind,
                 out_dir=out_dir_path,
@@ -2267,7 +2277,7 @@ def cli(
                     bridge_rmsd_thresh=float(search_cfg["bridge_rmsd_thresh"]),
                     shared_calc=shared_calc,
                     gs_cfg=gs_bridge_cfg,
-                    opt_cfg=opt_cfg,
+                    stopt_cfg=stopt_cfg,
                     out_dir=out_dir_path,
                     tag=pair_tag,
                     ref_pdb_path=ref_pdb_for_segments,

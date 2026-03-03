@@ -48,6 +48,7 @@ from .opt import (
 from .utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
+    set_convert_file_enabled,
     deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
@@ -497,7 +498,7 @@ def _finalize_surface_and_plot(
     show_default=True,
     help="Maximum spacing between successive distance targets [Å].",
 )
-@click.option("--bias-k", type=float, default=100.0, show_default=True, help="Harmonic well strength k [eV/Å^2].")
+@click.option("--bias-k", type=float, default=300.0, show_default=True, help="Harmonic well strength k [eV/Å^2].")
 @click.option(
     "--relax-max-cycles",
     type=int,
@@ -568,6 +569,13 @@ def _finalize_surface_and_plot(
     show_default=False,
     help="Upper bound of the color scale (kcal/mol).",
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
 def cli(
     input_path: Optional[Path],
     real_parm7: Optional[Path],
@@ -597,7 +605,9 @@ def cli(
     baseline: str,
     zmin: Optional[float],
     zmax: Optional[float],
+    convert_files: bool,
 ) -> None:
+    set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,

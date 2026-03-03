@@ -42,13 +42,12 @@ mlmm all --help-advanced # full option list
 
 ---
 
-## Init Template
+## Show Config
 
-Generate a starter YAML and run a parse-only check:
+View the current configuration (useful for verifying YAML overrides):
 
 ```bash
-mlmm init --out mlmm_all.config.yaml
-mlmm all --config mlmm_all.config.yaml --dry-run
+mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 ```
 
 ---

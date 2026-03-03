@@ -203,7 +203,7 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `--spec`/`--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (A). Controls the number of integration steps. | `0.20` |
-| `--bias-k FLOAT` | Harmonic bias strength `k` in eV/A^2. | `100` |
+| `--bias-k FLOAT` | Harmonic bias strength `k` in eV/A^2. | `300` |
 | `--opt-mode {lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
 | `--max-cycles INT` | Maximum LBFGS cycles per biased step and per pre/end optimization stage. | `10000` |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
@@ -213,6 +213,7 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 ```

@@ -17,9 +17,9 @@ def add_scan_common_options(
     max_step_help: str = "Maximum step size in either distance [Å].",
     thresh_default: str | None = "baker",
     max_step_size_default: float = 0.20,
-    bias_k_default: float = 100.0,
+    bias_k_default: float = 300.0,
     relax_max_cycles_default: int = 10000,
-    opt_mode_default: str = "light",
+    opt_mode_default: str = "grad",
     dump_default: bool = False,
     preopt_default: bool = True,
     one_based_default: bool = True,
@@ -50,7 +50,7 @@ def add_scan_common_options(
     relax_max_cycles_default : int
         Default maximum relaxation cycles.
     opt_mode_default : str
-        Default optimization mode ("light" or "heavy").
+        Default optimization mode ("grad" or "hess").
     dump_default : bool
         Default value for --dump.
     preopt_default : bool
@@ -103,10 +103,10 @@ def add_scan_common_options(
         ),
         click.option(
             "--opt-mode",
-            type=click.Choice(["light", "heavy"], case_sensitive=False),
+            type=click.Choice(["grad", "hess"], case_sensitive=False),
             default=opt_mode_default,
             show_default=True,
-            help="Relaxation mode: light (=LBFGS) or heavy (=RFO).",
+            help="Relaxation mode: grad (=LBFGS) or hess (=RFO).",
         ),
         click.option(
             "--dump",

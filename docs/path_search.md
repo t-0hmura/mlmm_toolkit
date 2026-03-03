@@ -61,7 +61,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
  --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
  [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
- [--opt-mode light|heavy]
+ [--opt-mode grad|hess]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
@@ -107,7 +107,7 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--opt-mode [light\|heavy]` | Single-structure optimizer preset (`light` = LBFGS, `heavy` = RFO). | `light` |
+| `--opt-mode [grad\|hess]` | Single-structure optimizer preset (`grad` = LBFGS, `hess` = RFO). Aliases `light`/`heavy` accepted. | `grad` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints with LBFGS before segmentation. | `True` |
 | `--align / --no-align` | Rigidly align inputs after pre-opt. | Enabled |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`). | _Default_ |
@@ -117,6 +117,7 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layer metadata) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running path search. | `False` |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 

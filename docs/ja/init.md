@@ -1,19 +1,12 @@
-# `init`
+# `init`（削除済み）
 
-## 概要
+> **注意:** `init` サブコマンドは削除されました。各サブコマンドで `--show-config` を使用して現在の設定を確認するか、[YAML リファレンス](yaml_reference.md)を参照して手動で YAML ファイルを作成してください。
 
-> **要約:** `mlmm all` 用のスターター YAML 設定ファイルを生成します。
+## 以前の動作
 
-### 概要
-- **用途:** `mlmm all` の再現性の高い設定ファイル中心のワークフローを始めたい場合。
-- **手法:** すべての設定キーのデフォルト値を含む YAML テンプレートを生成。
-- **出力:** `mlmm_all.config.yaml`（または `--out` で指定したパス）。
-- **デフォルト:** 出力先 `mlmm_all.config.yaml`、`--force` なしでは上書きしない。
-- **次のステップ:** 生成した YAML を編集し、`mlmm all --config mlmm_all.config.yaml` を実行。
+`init` コマンドはスターター YAML テンプレートを生成していました：
 
-## 最小例
-
-```bash
+```text
 mlmm init --out mlmm_all.config.yaml
 mlmm all --config mlmm_all.config.yaml --dry-run
 ```

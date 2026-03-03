@@ -701,6 +701,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
 
     _append_cli_arg(ts_args, "--max-cycles", overrides.get("max_cycles"))
     _append_toggle_arg(ts_args, "--dump", overrides.get("dump"))
+    _append_toggle_arg(ts_args, "--convert-files", overrides.get("convert_files"))
 
     hess_mode = overrides.get("hessian_calc_mode")
     if hess_mode:
@@ -1048,6 +1049,7 @@ def _run_freq_for_state(pdb_path: Path,
     _append_cli_arg(args, "--temperature", overrides.get("temperature"))
     _append_cli_arg(args, "--pressure", overrides.get("pressure"))
     _append_toggle_arg(args, "--dump", dump_use)
+    _append_toggle_arg(args, "--convert-files", overrides.get("convert_files"))
 
     hess_mode = overrides.get("hessian_calc_mode")
     if hess_mode:
@@ -1076,6 +1078,7 @@ def _run_opt_for_state(
     out_dir: Path,
     args_yaml: Optional[Path],
     opt_mode_default: str,
+    convert_files: Optional[bool] = None,
 ) -> Tuple[Any, Path]:
     """
     Run opt CLI for a single endpoint and return (optimized Geometry, final geometry path).
@@ -1095,6 +1098,7 @@ def _run_opt_for_state(
         "--opt-mode", opt_mode,
     ]
     args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+    _append_toggle_arg(args, "--convert-files", convert_files)
 
     if args_yaml is not None:
         args.extend(["--config", str(args_yaml)])
@@ -1163,6 +1167,7 @@ def _run_dft_for_state(pdb_path: Path,
     _append_cli_arg(args, "--max-cycle", overrides.get("max_cycle"))
     _append_cli_arg(args, "--conv-tol", overrides.get("conv_tol"))
     _append_cli_arg(args, "--grid-level", overrides.get("grid_level"))
+    _append_toggle_arg(args, "--convert-files", overrides.get("convert_files"))
 
     if args_yaml is not None:
         args.extend(["--config", str(args_yaml)])
@@ -1438,6 +1443,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Override scan --preopt flag.")
 @click.option("--scan-endopt", "scan_endopt_override", type=click.BOOL, default=None,
               help="Override scan --endopt flag.")
+@click.option("--convert-files/--no-convert-files", "convert_files", default=True, show_default=True,
+              help="Convert XYZ/TRJ outputs to PDB format using reference topology; forwarded to all subcommands.")
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1482,6 +1489,7 @@ def cli(
     scan_relax_max_cycles: Optional[int],
     scan_preopt_override: Optional[bool],
     scan_endopt_override: Optional[bool],
+    convert_files: bool,
     tsopt_max_cycles: Optional[int],
     tsopt_out_dir: Optional[Path],
     freq_out_dir: Optional[Path],
@@ -1565,28 +1573,28 @@ def cli(
         )
 
     _mode_alias = {
-        "grad": "light",
-        "hess": "heavy",
-        "light": "light",
-        "heavy": "heavy",
+        "grad": "grad",
+        "hess": "hess",
+        "light": "grad",
+        "heavy": "hess",
     }
-    opt_mode_norm = _mode_alias.get(str(opt_mode).strip().lower(), "heavy")
+    opt_mode_norm = _mode_alias.get(str(opt_mode).strip().lower(), "hess")
     path_search_opt_mode = opt_mode_norm
     opt_mode_post_norm = (
         None
         if opt_mode_post is None
-        else _mode_alias.get(str(opt_mode_post).strip().lower(), "heavy")
+        else _mode_alias.get(str(opt_mode_post).strip().lower(), "hess")
     )
     endpoint_opt_mode_default = (
         opt_mode_post_norm if (opt_mode_post_set and opt_mode_post_norm is not None)
-        else (opt_mode_norm if opt_mode_set else "heavy")
+        else (opt_mode_norm if opt_mode_set else "hess")
     )
-    if opt_mode_post_norm in {"light", "heavy"}:
+    if opt_mode_post_norm in {"grad", "hess"}:
         tsopt_opt_mode_default = opt_mode_post_norm
     elif opt_mode_set:
         tsopt_opt_mode_default = opt_mode_norm
     else:
-        tsopt_opt_mode_default = "heavy"
+        tsopt_opt_mode_default = "hess"
     tsopt_overrides: Dict[str, Any] = {}
     if tsopt_max_cycles is not None:
         tsopt_overrides["max_cycles"] = int(tsopt_max_cycles)
@@ -1596,10 +1604,11 @@ def cli(
         tsopt_overrides["out_dir"] = tsopt_out_dir
     if hessian_calc_mode is not None:
         tsopt_overrides["hessian_calc_mode"] = hessian_calc_mode
-    if opt_mode_post_norm in {"light", "heavy"}:
+    if opt_mode_post_norm in {"grad", "hess"}:
         tsopt_overrides["opt_mode"] = opt_mode_post_norm
     elif opt_mode_set:
         tsopt_overrides["opt_mode"] = tsopt_opt_mode_default
+    tsopt_overrides["convert_files"] = bool(convert_files)
 
     freq_overrides: Dict[str, Any] = {}
     if freq_max_write is not None:
@@ -1618,6 +1627,7 @@ def cli(
         freq_overrides["dump"] = bool(dump)
     if hessian_calc_mode is not None:
         freq_overrides["hessian_calc_mode"] = hessian_calc_mode
+    freq_overrides["convert_files"] = bool(convert_files)
 
     dft_overrides: Dict[str, Any] = {}
     if dft_max_cycle is not None:
@@ -1626,6 +1636,7 @@ def cli(
         dft_overrides["conv_tol"] = float(dft_conv_tol)
     if dft_grid_level is not None:
         dft_overrides["grid_level"] = int(dft_grid_level)
+    dft_overrides["convert_files"] = bool(convert_files)
 
     dft_func_basis_use = dft_func_basis or "wb97m-v/6-31g**"
     dft_method_fallback = str(dft_overrides.get("func_basis", dft_func_basis_use))
@@ -1917,6 +1928,7 @@ def cli(
             g_react, _ = _run_opt_for_state(
                 pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
+                convert_files=convert_files,
             )
         except Exception as e:
             _echo(
@@ -1927,6 +1939,7 @@ def cli(
             g_prod, _ = _run_opt_for_state(
                 pP_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
+                convert_files=convert_files,
             )
         except Exception as e:
             _echo(
@@ -2247,6 +2260,7 @@ def cli(
         _append_cli_arg(scan_args, "--max-step-size", scan_max_step_size)
         _append_cli_arg(scan_args, "--bias-k", scan_bias_k)
         _append_cli_arg(scan_args, "--relax-max-cycles", scan_relax_max_cycles)
+        scan_args.append("--convert-files" if convert_files else "--no-convert-files")
         if args_yaml is not None:
             scan_args.extend(["--config", str(args_yaml)])
         # Forward all converted --scan-lists (aligned to the pocket atom order)
@@ -2305,6 +2319,7 @@ def cli(
     ps_args.append("--dump" if dump else "--no-dump")
     ps_args.extend(["--out-dir", str(path_dir)])
     ps_args.append("--preopt" if pre_opt else "--no-preopt")
+    ps_args.append("--convert-files" if convert_files else "--no-convert-files")
     if args_yaml is not None:
         ps_args.extend(["--config", str(args_yaml)])
 
@@ -2528,6 +2543,7 @@ def cli(
             gL, _ = _run_opt_for_state(
                 pL_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
+                convert_files=convert_files,
             )
         except Exception as e:
             _echo(
@@ -2538,6 +2554,7 @@ def cli(
             gR, _ = _run_opt_for_state(
                 pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
+                convert_files=convert_files,
             )
         except Exception as e:
             _echo(

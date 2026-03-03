@@ -44,6 +44,7 @@ from .utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
+    set_convert_file_enabled,
     deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
@@ -331,7 +332,7 @@ def _snapshot_geometry(g) -> Any:
 )
 @click.option("--max-step-size", type=float, default=0.20, show_default=True,
               help="Maximum change in any scanned bond length per step [Å].")
-@click.option("--bias-k", type=float, default=100, show_default=True,
+@click.option("--bias-k", type=float, default=300, show_default=True,
               help="Harmonic well strength k [eV/Å^2].")
 @click.option(
     "--opt-mode",
@@ -397,6 +398,13 @@ def _snapshot_geometry(g) -> Any:
     show_default=True,
     help="After each stage, run an additional unbiased optimization of the stage result.",
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
 def cli(
     input_path: Path,
     real_parm7: Path,
@@ -425,7 +433,9 @@ def cli(
     ref_pdb: Optional[Path],
     preopt: bool,
     endopt: bool,
+    convert_files: bool,
 ) -> None:
+    set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -437,7 +447,7 @@ def cli(
         max_cycles = int(relax_max_cycles)
     if max_cycles <= 0:
         raise click.BadParameter("--max-cycles must be > 0.")
-    if opt_mode is not None and str(opt_mode).lower() not in {"lbfgs", "light"}:
+    if opt_mode is not None and str(opt_mode).lower() not in {"lbfgs", "light", "grad"}:
         click.echo(
             f"[scan] NOTE: --opt-mode={opt_mode} is accepted for compatibility, "
             "but scan relaxations use LBFGS.",

@@ -42,13 +42,12 @@ mlmm all --help-advanced # 全オプション
 
 ---
 
-## init テンプレート
+## 設定の確認
 
-`all` 用の YAML テンプレートを生成して検証できます:
+現在の設定を確認できます（YAML オーバーライドの検証に便利）：
 
 ```bash
-mlmm init --out mlmm_all.config.yaml
-mlmm all --config mlmm_all.config.yaml --dry-run
+mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 ```
 
 ---

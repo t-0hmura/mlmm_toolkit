@@ -8,7 +8,7 @@
 - **Use when:** You want a higher-level single-point energy for your ML/MM system using DFT on the ML region with ONIOM-style recombination.
 - **Method:** PySCF (CPU) or GPU4PySCF (GPU) single-point DFT on the ML region + link hydrogens, combined with MM evaluations for the ONIOM total energy.
 - **Outputs:** `ml_region_with_linkH.xyz`, `result.yaml` with ML(dft)/MM combined energy.
-- **Defaults:** `--func-basis wb97m-v/6-31g**`, `--max-cycle 100`, `--conv-tol 1e-9`.
+- **Defaults:** `--func-basis wb97m-v/def2-tzvpd`, `--max-cycle 100`, `--conv-tol 1e-9`.
 - **Next step:** Compare DFT//UMA energies across R/TS/P states, or use within [all](all.md) `--dft` for automated diagrams.
 
 `mlmm dft` extracts the ML region from the full enzyme PDB, appends link hydrogens, and runs a single-point PySCF (or GPU4PySCF) calculation. After the DFT evaluation, the script recomputes the **ML(dft)/MM total energy** by combining the PySCF high-level energy with MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low):
@@ -17,7 +17,7 @@
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-The GPU4PySCF backend is activated automatically when available; otherwise PySCF CPU is used. The default functional/basis is `wb97m-v/6-31g**`.
+The GPU4PySCF backend is activated automatically when available; otherwise PySCF CPU is used. The default functional/basis is `wb97m-v/def2-tzvpd`.
 
 ## Minimal example
 
@@ -75,7 +75,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | Charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (e.g. `"1,3,5"`). Merged with YAML `geom.freeze_atoms`. | _None_ |
-| `--func-basis TEXT` | Functional/basis pair as `"FUNC/BASIS"`. | `wb97m-v/6-31g**` |
+| `--func-basis TEXT` | Functional/basis pair as `"FUNC/BASIS"`. | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | Maximum SCF iterations. | `100` |
 | `--conv-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
 | `--grid-level INT` | PySCF numerical integration grid level. | `3` |
@@ -83,6 +83,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. | `False` |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 
@@ -107,7 +108,7 @@ Accepts a mapping root; the `dft` section (and optional `geom`, `calc`/`mlmm`) i
 - explicit CLI options
 
 `dft` keys (defaults in parentheses):
-- `func_basis` (`"wb97m-v/6-31g**"`): Combined `FUNC/BASIS` string.
+- `func_basis` (`"wb97m-v/def2-tzvpd"`): Combined `FUNC/BASIS` string.
 - `conv_tol` (`1e-9`): SCF convergence threshold (Hartree).
 - `max_cycle` (`100`): Maximum SCF iterations.
 - `grid_level` (`3`): PySCF `grids.level`.
@@ -124,7 +125,7 @@ mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
 dft:
- func_basis: wb97m-v/6-31g**      # exchange-correlation functional / basis set
+ func_basis: wb97m-v/def2-tzvpd      # exchange-correlation functional / basis set
  conv_tol: 1.0e-09                # SCF convergence tolerance (Hartree)
  max_cycle: 100                    # maximum SCF iterations
  grid_level: 3                     # PySCF grid level

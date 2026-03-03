@@ -33,8 +33,15 @@ _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
     "define-layer": (".define_layer", "cli", "Assign ML/MM layers to a structure."),
     "fix-altloc": (".fix_altloc", "cli", "Resolve PDB alternate locations."),
     "energy-diagram": (".energy_diagram", "cli", "Draw energy diagrams from values."),
+    "extract": (".extract", "cli", "Extract a binding pocket."),
 }
 
+# Only the ``all`` subcommand is listed here because it uses Click's
+# ``type=click.BOOL`` (value-style) booleans that cannot be auto-detected
+# from ``is_bool_flag``.  For all other subcommands the ``DefaultGroup``
+# in ``default_group.py`` inspects the Click command's parameters at
+# runtime and auto-discovers ``is_bool_flag`` / ``BoolParamType`` options,
+# so they do not need to be repeated in these manual registries.
 _COMMAND_BOOL_VALUE_OPTIONS: dict[str, frozenset[str]] = {
     "all": frozenset(
         {
@@ -56,11 +63,24 @@ _COMMAND_BOOL_VALUE_OPTIONS: dict[str, frozenset[str]] = {
     ),
 }
 
+# Manual toggle-option hints.  ``DefaultGroup._resolve_bool_options()``
+# auto-detects toggle options from Click's ``is_bool_flag`` attribute,
+# but entries here ensure correct normalization *before* the lazy
+# subcommand is imported (needed for early argv rewriting).
 _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
-    "mm-parm": frozenset({"--add-ter", "--add-h"}),
-    "scan": frozenset({"--one-based", "--dump", "--preopt", "--endopt"}),
-    "scan2d": frozenset({"--one-based", "--dump", "--preopt"}),
-    "scan3d": frozenset({"--one-based", "--dump", "--preopt"}),
+    "all": frozenset(
+        {
+            "--show-config",
+            "--dry-run",
+            "--detect-layer",
+            "--auto-mm-add-ter",
+            "--convert-files",
+        }
+    ),
+    "mm-parm": frozenset({"--add-ter", "--add-h", "--allow-nonstandard-aa", "--keep-temp"}),
+    "scan": frozenset({"--one-based", "--dump", "--preopt", "--endopt", "--convert-files"}),
+    "scan2d": frozenset({"--one-based", "--dump", "--preopt", "--convert-files"}),
+    "scan3d": frozenset({"--one-based", "--dump", "--preopt", "--convert-files"}),
     "opt": frozenset(
         {
             "--model-indices-one-based",
@@ -68,6 +88,8 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--one-based",
             "--dump",
             "--microiter",
+            "--flatten",
+            "--convert-files",
             "--show-config",
             "--dry-run",
         }
@@ -76,6 +98,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--model-indices-one-based",
             "--detect-layer",
+            "--convert-files",
             "--show-config",
             "--dry-run",
         }
@@ -101,6 +124,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--fix-ends",
             "--preopt",
             "--dump",
+            "--convert-files",
             "--show-config",
             "--dry-run",
         }
@@ -113,6 +137,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--dump",
             "--preopt",
             "--align",
+            "--convert-files",
             "--show-config",
             "--dry-run",
         }
@@ -122,6 +147,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--model-indices-one-based",
             "--detect-layer",
             "--dump",
+            "--convert-files",
             "--show-config",
             "--dry-run",
         }
@@ -132,11 +158,16 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--detect-layer",
             "--forward",
             "--backward",
+            "--convert-files",
             "--show-config",
             "--dry-run",
         }
     ),
     "oniom-export": frozenset({"--element-check", "--convert-orcaff"}),
+    "trj2fig": frozenset({"--reverse-x"}),
+    "add-elem-info": frozenset({"--overwrite"}),
+    "extract": frozenset({"--include-H2O", "--exclude-backbone", "--add-linkH", "--verbose"}),
+    "fix-altloc": frozenset({"--recursive", "--inplace", "--overwrite", "--force"}),
 }
 
 _COMMAND_BOOL_TOGGLE_NEGATIVE_ALIASES: dict[str, dict[str, str]] = {
@@ -444,27 +475,26 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--help-advanced",
         }
     ),
+    "extract": frozenset(
+        {
+            "-i",
+            "--input",
+            "-c",
+            "--center",
+            "-o",
+            "--output",
+            "-r",
+            "--radius",
+            "--ligand-charge",
+            "--help-advanced",
+        }
+    ),
 }
 
-_PARSER_WRAPPER_SUBCOMMANDS = frozenset({"extract", "fix-altloc"})
+_PARSER_WRAPPER_SUBCOMMANDS = frozenset()
 
 
-def _extract_parser_wrapper_bool_options() -> frozenset[str]:
-    from . import extract as _extract_mod
-
-    return _extract_mod.parser_wrapper_bool_options()
-
-
-def _fix_altloc_parser_wrapper_bool_options() -> frozenset[str]:
-    from . import fix_altloc as _fix_altloc_mod
-
-    return _fix_altloc_mod.parser_wrapper_bool_options()
-
-
-_PARSER_WRAPPER_BOOL_OPTION_PROVIDERS = {
-    "extract": _extract_parser_wrapper_bool_options,
-    "fix-altloc": _fix_altloc_parser_wrapper_bool_options,
-}
+_PARSER_WRAPPER_BOOL_OPTION_PROVIDERS: dict[str, object] = {}
 
 _DEFAULT_GROUP_KWARGS = {
     "command_bool_value_options": _COMMAND_BOOL_VALUE_OPTIONS,
@@ -489,26 +519,8 @@ _DEFAULT_GROUP_KWARGS = {
 )
 @click.version_option(version=__version__, prog_name="mlmm")
 def cli() -> None:
-    click.echo(f"mlmm ver. {__version__}")
+    click.echo(f"mlmm ver. {__version__}\n")
 
-
-@click.command(
-    name="extract",
-    help="Extract a binding pocket.",
-    context_settings={
-        "ignore_unknown_options": True,
-        "allow_extra_args": True,
-        "help_option_names": [],
-    },
-)
-@click.pass_context
-def extract_cmd(ctx: click.Context) -> None:
-    from . import extract as _extract_mod
-    args = _extract_mod.parse_args(list(ctx.args))
-    _extract_mod.extract(args)
-
-
-cli.add_command(extract_cmd, name="extract")
 
 # Silence pysisyphus logger without muting application/global logging.
 logging.disable(logging.CRITICAL)

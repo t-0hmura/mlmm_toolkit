@@ -156,7 +156,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--one-based / --zero-based` | Interpret `(i,j)` indices in `--scan-lists` as 1-based or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (A). Determines grid density. | `0.20` |
-| `--bias-k FLOAT` | Harmonic well strength k (eV/A^2). | `100.0` |
+| `--bias-k FLOAT` | Harmonic well strength k (eV/A^2). | `300.0` |
 | `--relax-max-cycles INT` | Maximum LBFGS cycles per biased relaxation. | `10000` |
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `--out-dir TEXT` | Base output directory. | `./result_scan2d/` |
@@ -167,6 +167,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--baseline {min,first}` | Reference for relative energy (kcal/mol). | `min` |
 | `--zmin FLOAT` | Lower bound of the contour color scale (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Upper bound of the contour color scale (kcal/mol). | Autoscaled |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 ```

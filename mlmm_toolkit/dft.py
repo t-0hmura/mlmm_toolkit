@@ -54,6 +54,7 @@ from .utils import (
     parse_indices_string,
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
+    set_convert_file_enabled,
 )
 from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file
 
@@ -527,7 +528,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "--func-basis",
     "func_basis",
     type=str,
-    default="wb97m-v/6-31g**",
+    default="wb97m-v/def2-tzvpd",
     show_default=True,
     help='Exchange-correlation functional and basis set as "FUNC/BASIS".',
 )
@@ -561,6 +562,13 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=True,
     help="Validate options and print the execution plan without running DFT.",
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Toggle XYZ/TRJ to PDB companions when a PDB template is available.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -581,7 +589,10 @@ def cli(
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
+    convert_files: bool,
 ) -> None:
+    set_convert_file_enabled(convert_files)
+
     if input_path.suffix.lower() != ".pdb":
         raise click.BadParameter("Input structure must be a PDB file for ML/MM DFT.")
 

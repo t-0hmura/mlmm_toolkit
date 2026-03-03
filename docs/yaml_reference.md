@@ -23,7 +23,8 @@
 | [`search`](#search) | Recursive path search settings | path-search |
 | [`hessian_dimer`](#hessian_dimer) | Hessian Dimer TS optimization | tsopt |
 | [`rsirfo`](#rsirfo) | RS-I-RFO TS optimization | tsopt |
-| [`sopt`](#sopt) | Single-structure optimizer for path-search | path-search |
+| [`stopt`](#stopt) | String optimizer settings | path-opt, path-search |
+| [`microiter`](#microiter) | Micro-iteration (MM relaxation) settings | opt, tsopt |
 
 ---
 
@@ -278,27 +279,41 @@ search:
 
 ---
 
-### `sopt`
+### `stopt`
 
-Single-structure optimizers for path-search (HEI+/-1 and kink nodes).
+String optimizer settings for path-opt and path-search. Controls the GS/DMF string
+optimization (not individual node optimization).
 
 ```yaml
-sopt:
+stopt:
+ type: string           # Optimizer type label (used by StringOptimizer)
+ thresh: gau_loose      # Convergence preset for string optimization
+ stop_in_when_full: 300 # Early stop threshold when string is full
+ align: false           # Alignment toggle
+ scale_step: global     # Step scaling mode
+ max_cycles: 300        # Maximum string optimizer iterations
+ dump: false            # Dump trajectory/restart data
+ dump_restart: false    # Dump restart checkpoints
+ reparam_thresh: 0.0    # Reparametrization threshold
+ coord_diff_thresh: 0.0 # Coordinate difference threshold
+ out_dir: ./result_path_opt/  # Output directory
+ print_every: 10        # Logging stride
  lbfgs:
- # Same keys as lbfgs section above
- thresh: gau
- max_cycles: 10000
- out_dir:./result_path_search/
- dump: false
- #... (see lbfgs section)
+   # Same keys as lbfgs section (for single-structure optimizer)
+   thresh: gau
+   max_cycles: 10000
+   #... (see lbfgs section)
  rfo:
- # Same keys as rfo section above
- thresh: gau
- max_cycles: 10000
- out_dir:./result_path_search/
- dump: false
- #... (see rfo section)
+   # Same keys as rfo section (for single-structure optimizer)
+   thresh: gau
+   max_cycles: 10000
+   #... (see rfo section)
 ```
+
+**Notes:**
+- `stopt.lbfgs` and `stopt.rfo` configure the single-structure optimizer used for
+  HEI+/-1 endpoint optimization and kink node optimization within path-search
+- The outer `stopt` keys control the string optimizer (GS or DMF wrapper)
 
 ---
 
@@ -446,6 +461,27 @@ thermo:
 
 ---
 
+### `microiter`
+
+Micro-iteration settings for ML/MM optimization. When `--microiter` is enabled,
+the MM region is relaxed (with frozen ML atoms) between each macro-step of the
+ML-region optimizer. This can dramatically reduce the number of expensive
+ML Hessian evaluations needed.
+
+```yaml
+microiter:
+ micro_thresh: gau_loose # Convergence preset for MM relaxation (L-BFGS)
+ micro_max_cycles: 500   # Maximum L-BFGS iterations per micro-iteration
+```
+
+**Notes:**
+- Enabled via `--microiter` / `--no-microiter` CLI flag (default: off)
+- Available in `opt` (with `--opt-mode hess`) and `tsopt` (with `--opt-mode hess`)
+- Uses L-BFGS to minimize MM-region forces while ML atoms are frozen
+- `micro_thresh` accepts the same presets as `opt.thresh` (gau_loose, gau, gau_tight, etc.)
+
+---
+
 ## DFT Section
 
 (dft-section)=
@@ -455,7 +491,7 @@ DFT calculation settings.
 
 ```yaml
 dft:
- func_basis: B3LYP/6-31G* # Combined "FUNC/BASIS" string
+ func_basis: wb97m-v/def2-tzvpd # Combined "FUNC/BASIS" string
  conv_tol: 1.0e-09 # SCF convergence tolerance (Hartree)
  max_cycle: 100 # Maximum SCF iterations
  grid_level: 3 # PySCF grid level
@@ -471,7 +507,7 @@ Harmonic bias settings for scans.
 
 ```yaml
 bias:
- k: 100.0 # Harmonic bias strength (eV/Angstrom^2)
+ k: 300.0 # Harmonic bias strength (eV/Angstrom^2)
 ```
 
 ---
@@ -522,13 +558,15 @@ opt:
  dump: false
  out_dir:./result_all/
 
-sopt:
+stopt:
+ thresh: gau_loose
+ max_cycles: 300
  lbfgs:
- thresh: gau
- max_cycles: 10000
+   thresh: gau
+   max_cycles: 10000
  rfo:
- thresh: gau
- max_cycles: 10000
+   thresh: gau
+   max_cycles: 10000
 
 bond:
  bond_factor: 1.2
@@ -547,7 +585,7 @@ thermo:
  pressure_atm: 1.0
 
 dft:
- func_basis: B3LYP/6-31G*
+ func_basis: wb97m-v/def2-tzvpd
  grid_level: 3
 ```
 

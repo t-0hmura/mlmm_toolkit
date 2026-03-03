@@ -430,7 +430,6 @@ Most users will primarily call `mlmm all`. The CLI also exposes individual subco
 | Subcommand | Role | Documentation |
 |------------|------|---------------|
 | `all` | End-to-end workflow | [all](all.md) |
-| `init` | Generate a starter YAML template for `mlmm all` | [init](init.md) |
 | `extract` | Extract active-site pocket (cluster model) | [extract](extract.md) |
 | `mm-parm` | Generate Amber parm7/rst7 topology | [mm_parm](mm_parm.md) |
 | `define-layer` | Assign 3-layer ML/MM partitioning | [define_layer](define_layer.md) |

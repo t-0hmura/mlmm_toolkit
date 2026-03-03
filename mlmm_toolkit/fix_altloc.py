@@ -30,7 +30,6 @@ Usage
   mlmm fix-altloc -i ./dir --inplace --recursive
 """
 
-import argparse
 import shutil
 from pathlib import Path
 from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple
@@ -322,108 +321,25 @@ def fix_altloc_file(
 # CLI
 # =============================================================================
 
-def _fix_altloc_short_help() -> str:
-    return "\n".join(
-        [
-            "Usage: mlmm fix-altloc [OPTIONS]",
-            "",
-            "Drop alternate locations from PDB files.",
-            "",
-            "Core options:",
-            "  -i, --input PATH                 Input PDB file or directory.",
-            "  -o, --out PATH                   Output file/directory.",
-            "  --recursive/--no-recursive       Recurse when input is a directory.",
-            "  --inplace/--no-inplace           Rewrite input file(s) in place.",
-            "  --overwrite/--no-overwrite       Allow overwriting existing outputs.",
-            "  --force/--no-force               Process files even if no altLoc is detected.",
-            "  --help-advanced                  Show full fix-altloc options and exit.",
-            "",
-            "Use '--help-advanced' to see all fix-altloc options.",
-        ]
-    )
-
-
-def _build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Blank PDB altLoc column (col 17) without shifting, and keep one altLoc per atom "
-            "by default rule: highest occupancy, then earliest appearance."
-        )
-    )
-    parser.add_argument(
-        "-i", "--input", dest="input", type=Path, required=True,
-        help="Input PDB file or directory"
-    )
-    parser.add_argument(
-        "-o", "--out", type=Path, default=None,
-        help="Output file (if input is a file) or output directory (if input is a directory)."
-    )
-    parser.add_argument(
-        "--recursive",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="When input is a directory, process *.pdb recursively (including subdirectories).",
-    )
-    parser.add_argument(
-        "--inplace",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Overwrite input file(s) in place (creates .bak next to each file).",
-    )
-    parser.add_argument(
-        "--overwrite",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Allow overwriting existing output files.",
-    )
-    parser.add_argument(
-        "--force",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Process files even if no altLoc is detected (default: skip files without altLoc).",
-    )
-    return parser
-
-
-def parser_wrapper_bool_options() -> frozenset[str]:
-    """Return argparse-backed boolean long options for root-level bool normalization."""
-    parser = _build_arg_parser()
-    options: set[str] = set()
-    for action in parser._actions:
-        if isinstance(action, argparse.BooleanOptionalAction):
-            options.update(
-                opt for opt in action.option_strings
-                if opt.startswith("--") and not opt.startswith("--no-")
-            )
-    return frozenset(options)
-
-
-def main(argv: Optional[List[str]] = None) -> int:
-    argv_list = list(argv) if argv is not None else None
-    if argv_list is not None:
-        wants_adv = "--help-advanced" in argv_list
-        wants_help = ("--help" in argv_list) or ("-h" in argv_list)
-        if wants_help and not wants_adv:
-            click.echo(_fix_altloc_short_help())
-            return 0
-        if wants_adv:
-            argv_list = [a for a in argv_list if a != "--help-advanced"]
-            if ("--help" not in argv_list) and ("-h" not in argv_list):
-                argv_list.append("--help")
-
-    parser = _build_arg_parser()
-    args = parser.parse_args(argv_list)
-
-    pdb_files = collect_pdb_files(args.input, args.recursive)
+def _run_fix_altloc(
+    input_path: Path,
+    out: Optional[Path],
+    recursive: bool,
+    inplace: bool,
+    overwrite: bool,
+    force: bool,
+) -> None:
+    """Core business logic for fix-altloc (called from Click CLI)."""
+    pdb_files = collect_pdb_files(input_path, recursive)
     if not pdb_files:
-        parser.error(f"No .pdb files found in: {args.input}")
+        raise click.ClickException(f"No .pdb files found in: {input_path}")
 
-    skip_if_no_altloc = not args.force
+    skip_if_no_altloc = not force
     processed_count = 0
     skipped_count = 0
 
     # In-place mode
-    if args.inplace:
+    if inplace:
         for in_path in pdb_files:
             if skip_if_no_altloc and not has_altloc(in_path):
                 skipped_count += 1
@@ -442,36 +358,35 @@ def main(argv: Optional[List[str]] = None) -> int:
             click.echo(f"[fix-altloc] Processed {processed_count} file(s) in-place.")
         if skipped_count > 0:
             click.echo(f"[fix-altloc] Skipped {skipped_count} file(s) (no altLoc detected).")
-        return 0
+        return
 
     # File input
-    if args.input.is_file():
-        in_path = args.input
+    if input_path.is_file():
+        in_path = input_path
 
         if skip_if_no_altloc and not has_altloc(in_path):
             click.echo(f"[fix-altloc] Skipped {in_path} (no altLoc detected).")
-            return 0
+            return
 
-        if args.out is None:
+        if out is None:
             out_path = in_path.with_name(in_path.stem + "_clean.pdb")
         else:
-            # If --out ends with .pdb, treat it as a file; otherwise treat it as a directory.
-            if args.out.suffix.lower() == ".pdb":
-                out_path = args.out
+            if out.suffix.lower() == ".pdb":
+                out_path = out
             else:
-                args.out.mkdir(parents=True, exist_ok=True)
-                out_path = args.out / in_path.name
+                out.mkdir(parents=True, exist_ok=True)
+                out_path = out / in_path.name
 
-        if out_path.exists() and not args.overwrite:
-            parser.error(f"Output exists: {out_path} (use --overwrite to overwrite)")
+        if out_path.exists() and not overwrite:
+            raise click.ClickException(f"Output exists: {out_path} (use --overwrite to overwrite)")
 
         clean_pdb_file(in_path, out_path)
         click.echo(f"[fix-altloc] Fixed altLoc → {out_path}")
-        return 0
+        return
 
     # Directory input
-    in_dir = args.input
-    out_dir = args.out if args.out is not None else in_dir.with_name(in_dir.name + "_clean")
+    in_dir = input_path
+    out_dir = out if out is not None else in_dir.with_name(in_dir.name + "_clean")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for in_path in pdb_files:
@@ -482,8 +397,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         rel = in_path.relative_to(in_dir)
         out_path = out_dir / rel
 
-        if out_path.exists() and not args.overwrite:
-            parser.error(f"Output exists: {out_path} (use --overwrite to overwrite)")
+        if out_path.exists() and not overwrite:
+            raise click.ClickException(f"Output exists: {out_path} (use --overwrite to overwrite)")
 
         clean_pdb_file(in_path, out_path)
         processed_count += 1
@@ -493,22 +408,57 @@ def main(argv: Optional[List[str]] = None) -> int:
     if skipped_count > 0:
         click.echo(f"[fix-altloc] Skipped {skipped_count} file(s) (no altLoc detected).")
 
-    return 0
-
 
 @click.command(
     name="fix-altloc",
-    help="Drop alternate locations from PDB, keeping best by occupancy.",
-    context_settings={
-        "ignore_unknown_options": True,
-        "allow_extra_args": True,
-        "help_option_names": [],
-    },
+    help=(
+        "Blank PDB altLoc column (col 17) without shifting, and keep one altLoc "
+        "per atom by default rule: highest occupancy, then earliest appearance."
+    ),
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
-@click.pass_context
-def cli(ctx: click.Context) -> None:
-    main(list(ctx.args))
+@click.option(
+    "-i", "--input", "input_path",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="Input PDB file or directory.",
+)
+@click.option(
+    "-o", "--out",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output file (if input is a file) or output directory (if input is a directory).",
+)
+@click.option(
+    "--recursive/--no-recursive",
+    default=False, show_default=True,
+    help="When input is a directory, process *.pdb recursively (including subdirectories).",
+)
+@click.option(
+    "--inplace/--no-inplace",
+    default=False, show_default=True,
+    help="Overwrite input file(s) in place (creates .bak next to each file).",
+)
+@click.option(
+    "--overwrite/--no-overwrite",
+    default=False, show_default=True,
+    help="Allow overwriting existing output files.",
+)
+@click.option(
+    "--force/--no-force",
+    default=False, show_default=True,
+    help="Process files even if no altLoc is detected (default: skip files without altLoc).",
+)
+def cli(
+    input_path: Path,
+    out: Optional[Path],
+    recursive: bool,
+    inplace: bool,
+    overwrite: bool,
+    force: bool,
+) -> None:
+    _run_fix_altloc(input_path, out, recursive, inplace, overwrite, force)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    cli()

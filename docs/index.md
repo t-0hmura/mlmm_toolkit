@@ -110,7 +110,7 @@ ja/index
 | Single-structure staged scan (`--spec`) | `mlmm scan` | [Quickstart: scan with spec](quickstart_scan_spec.md) |
 | TS validation (`tsopt` -> `freq`) | `mlmm tsopt`, `mlmm freq` | [Quickstart: tsopt -> freq](quickstart_tsopt_freq.md) |
 | Run complete reaction path search from PDB | `mlmm all` | [all.md](all.md) |
-| Generate a starter YAML config for `all` | `mlmm init` | [init.md](init.md) |
+| View current configuration | `mlmm opt --show-config` | [YAML Reference](yaml_reference.md) |
 | Extract QM region from protein-ligand complex | `mlmm extract` | [extract.md](extract.md) |
 | Build MM topology (parm7/rst7) | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
 | Define ML/MM layers | `mlmm define-layer` | [define_layer.md](define_layer.md) |

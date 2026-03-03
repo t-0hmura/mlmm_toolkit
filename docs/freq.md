@@ -82,7 +82,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | _None_ |
-| `--max-write INT` | Number of modes to export. | `20` |
+| `--max-write INT` | Number of modes to export. | `10` |
 | `--amplitude-ang FLOAT` | Mode animation amplitude (angstrom). | `0.8` |
 | `--n-frames INT` | Frames per mode animation. | `20` |
 | `--sort CHOICE` | Mode ordering: `value` (cm^-1) or `abs`. | `value` |
@@ -92,6 +92,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 | `--out-dir TEXT` | Output directory. | `./result_freq/` |
 | `--active-dof-mode CHOICE` | Active DOF selection: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
+| `--hess-device CHOICE` | Device for Hessian assembly/diagonalization: `auto`, `cuda`, `cpu`. Use `cpu` to avoid VRAM issues with large systems. | `auto` |
 | `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |

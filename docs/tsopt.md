@@ -2,17 +2,17 @@
 
 ## Overview
 
-> **Summary:** Optimize a transition-state *candidate* using Dimer (`--opt-mode light`) or RS-I-RFO (`--opt-mode heavy`, default). A validated TS should show **exactly one** imaginary frequency; always confirm the mode/connectivity with freq/IRC.
+> **Summary:** Optimize a transition-state *candidate* using Dimer (`--opt-mode grad`) or RS-I-RFO (`--opt-mode hess`, default). Microiteration (`--microiter`, default on) alternates ML 1-step RS-I-RFO and MM relaxation in `hess` mode. A validated TS should show **exactly one** imaginary frequency; always confirm the mode/connectivity with freq/IRC.
 
 ### At a glance
 - **Use when:** You have a TS guess (HEI from `path-opt`/`path-search`, or your own structure) and want to refine it to a first-order saddle point with ML/MM.
-- **Method:** `heavy` = RS-I-RFO (default, generally more robust). `light` = Hessian Guided Dimer (often cheaper per step).
+- **Method:** `hess` = RS-I-RFO (default, generally more robust). `grad` = Hessian Guided Dimer (often cheaper per step). Aliases `heavy`/`light` and `rsirfo`/`dimer` are also accepted.
 - **Outputs:** `final_geometry.xyz`/`.pdb`, imaginary-mode animations in `vib/`.
 - **Next step:** Run [freq](freq.md) to confirm exactly one imaginary frequency, then [irc](irc.md) to verify connectivity.
 
 ### Choosing `--opt-mode`
-- Use **`--opt-mode heavy` (RS-I-RFO)** when you want the default, conservative optimizer and you can afford Hessian work.
-- Use **`--opt-mode light` (Dimer)** when you want a lighter-weight search, or when you plan to iterate quickly from several TS guesses.
+- Use **`--opt-mode hess` (RS-I-RFO)** when you want the default, conservative optimizer and you can afford Hessian work. With `--microiter` (default on), ML and MM regions are optimized alternately.
+- Use **`--opt-mode grad` (Dimer)** when you want a lighter-weight search, or when you plan to iterate quickly from several TS guesses. `--ml-only-hessian-dimer` uses only the ML-region Hessian for dimer orientation (faster but less accurate).
 
 `mlmm tsopt` carries out transition-state optimization tailored to the ML/MM calculator. The optimizer starts from a TS guess and refines it to a first-order saddle point.
 
@@ -88,7 +88,9 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | UMA Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
-| `--opt-mode CHOICE` | TS optimizer mode: `light` (Dimer) or `heavy` (RS-I-RFO). | `heavy` |
+| `--opt-mode CHOICE` | TS optimizer mode: `grad` (Dimer) or `hess` (RS-I-RFO). Aliases `light`/`heavy` and `dimer`/`rsirfo` accepted. | `hess` |
+| `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RS-I-RFO) + MM relaxation (LBFGS). Only effective in `hess` mode. | `True` |
+| `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | Use ML-region-only Hessian for dimer orientation in `grad` mode. Faster but less accurate. | `False` |
 | `--flatten/--no-flatten` | Enable the extra-imaginary-mode flattening loop. Applies to both light and heavy modes. | `False` |
 | `--dump/--no-dump` | Write concatenated trajectory `optimization_all_trj.xyz`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions for PDB inputs. | `True` |

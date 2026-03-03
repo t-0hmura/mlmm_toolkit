@@ -2,9 +2,9 @@
 
 ## Overview
 
-> **Summary:** Optimizes a single structure to a local minimum using L-BFGS (`--opt-mode light`, default) or RFO (`--opt-mode heavy`). Optional imaginary-mode flattening can be enabled with `--flatten`.
+> **Summary:** Optimizes a single structure to a local minimum using L-BFGS (`--opt-mode grad`, default) or RFO (`--opt-mode hess`). Optional imaginary-mode flattening can be enabled with `--flatten`. Microiteration (`--microiter`, default on) alternates ML 1-step and MM relaxation in `hess` mode.
 
-`mlmm opt` optimizes a single structure to a local minimum using L-BFGS (`--opt-mode light`, default) or RFO (`--opt-mode heavy`). The ML/MM calculator (FAIR-Chem UMA + hessian_ff) provides energies, gradients, and Hessians. Input structures can be `.pdb`, `.xyz`, `_trj.xyz`, or any format supported by `geom_loader`. Settings follow precedence: **defaults < config < explicit CLI < override**.
+`mlmm opt` optimizes a single structure to a local minimum using L-BFGS (`--opt-mode grad`, default) or RFO (`--opt-mode hess`). Aliases `light`/`heavy` and `lbfgs`/`rfo` are also accepted. The ML/MM calculator (FAIR-Chem UMA + hessian_ff) provides energies, gradients, and Hessians. Input structures can be `.pdb`, `.xyz`, `_trj.xyz`, or any format supported by `geom_loader`. Settings follow precedence: **defaults < config < explicit CLI < override**.
 
 When the starting structure is a PDB, the command also writes `.pdb` companions, controlled by `--convert-files/--no-convert-files` (enabled by default). PDB-specific conveniences include:
 - Output conversion produces `final_geometry.pdb` (and `optimization.pdb` when dumping trajectories) using the input PDB as the topology reference.
@@ -12,7 +12,7 @@ When the starting structure is a PDB, the command also writes `.pdb` companions,
 
 ### At a glance
 - **Use when:** You want to minimize a single enzyme structure to a local energy minimum with ML/MM.
-- **Method:** L-BFGS (light, default) or RFO (heavy). Compatibility aliases `lbfgs`/`rfo` are also accepted. The ML/MM calculator combines FAIR-Chem UMA for the ML region with hessian_ff for MM.
+- **Method:** L-BFGS (grad, default) or RFO (hess). Aliases `light`/`heavy` and `lbfgs`/`rfo` are also accepted. In `hess` mode, microiteration (default on) alternates ML 1-step RFO with MM LBFGS relaxation.
 - **Outputs:** `final_geometry.xyz`, `final_geometry.pdb` (PDB inputs), optional trajectory.
 - **Next step:** Run [freq](freq.md) to confirm the structure is a true minimum (no imaginary frequencies).
 
@@ -84,7 +84,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--one-based / --zero-based` | Index convention for `--dist-freeze`. | 1-based |
 | `--bias-k FLOAT` | Harmonic bias strength (eV/A^2). | `10.0` |
 | `--max-cycles INT` | Hard limit on optimization iterations. | `10000` |
-| `--opt-mode [light\|heavy\|lbfgs\|rfo]` | Optimizer mode: `light`/`lbfgs` (LBFGS) or `heavy`/`rfo` (RFO). | `light` |
+| `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | Optimizer mode: `grad` (LBFGS) or `hess` (RFO). Aliases `light`/`heavy` and `lbfgs`/`rfo` accepted. | `grad` |
+| `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RFO) + MM relaxation (LBFGS). Only effective in `hess` mode. | `True` |
 | `--flatten/--no-flatten` | Enable/disable the post-optimization imaginary-mode flatten loop. | `False` |
 | `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`). | `False` |
 | `--convert-files/--no-convert-files` | Enable or disable XYZ/TRJ to PDB companions for PDB inputs. | `True` |

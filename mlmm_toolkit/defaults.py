@@ -154,7 +154,7 @@ RFO_KW: Dict[str, Any] = {
     "max_energy_incr": None,
     "hessian_update": "bfgs",
     "hessian_init": "calc",
-    "hessian_recalc": 200,
+    "hessian_recalc": 500,
     "hessian_recalc_adapt": None,
     "small_eigval_thresh": 1e-8,
     "alpha0": 1.0,
@@ -173,7 +173,7 @@ RFO_KW: Dict[str, Any] = {
 # -----------------------------------------------
 
 BIAS_KW: Dict[str, Any] = {
-    "k": 100,  # eV/Å²
+    "k": 300,  # eV/Å²
 }
 
 # -----------------------------------------------
@@ -192,13 +192,13 @@ BOND_KW: Dict[str, Any] = {
 # -----------------------------------------------
 
 OPT_MODE_ALIASES = (
-    (("light", "lbfgs"), "lbfgs"),
-    (("heavy", "rfo"), "rfo"),
+    (("grad", "light", "lbfgs"), "lbfgs"),
+    (("hess", "heavy", "rfo"), "rfo"),
 )
 
 TSOPT_MODE_ALIASES = (
-    (("light", "lbfgs"), "light"),
-    (("heavy", "rfo"), "heavy"),
+    (("grad", "light", "dimer"), "dimer"),
+    (("hess", "heavy", "rsirfo"), "rsirfo"),
 )
 
 # -----------------------------------------------
@@ -230,6 +230,7 @@ GS_KW: Dict[str, Any] = {
 
 STOPT_KW: Dict[str, Any] = {
     "type": "string",
+    "thresh": "gau_loose",
     "stop_in_when_full": 300,
     "align": False,
     "scale_step": "global",
@@ -307,7 +308,7 @@ MICROITER_KW: Dict[str, Any] = {
 FREQ_KW: Dict[str, Any] = {
     "amplitude_ang": 0.8,
     "n_frames": 20,
-    "max_write": 20,
+    "max_write": 10,
     "sort": "value",
 }
 
@@ -356,7 +357,7 @@ HESSIAN_DIMER_KW: Dict[str, Any] = {
     "thresh": "baker",
     "update_interval_hessian": 500,
     "neg_freq_thresh_cm": 5.0,
-    "flatten_amp_ang": 0.20,
+    "flatten_amp_ang": 0.10,
     "flatten_max_iter": 50,
     "flatten_sep_cutoff": 0.0,
     "flatten_k": 10,

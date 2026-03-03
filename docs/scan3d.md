@@ -168,7 +168,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--one-based / --zero-based` | Interpret `(i, j)` indices as 1- or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (angstrom). Controls grid density. | `0.20` |
-| `--bias-k FLOAT` | Harmonic well strength k (eV/angstrom^2). | `100.0` |
+| `--bias-k FLOAT` | Harmonic well strength k (eV/angstrom^2). | `300.0` |
 | `--relax-max-cycles INT` | Maximum optimizer cycles during each biased relaxation. | `10000` |
 | `--dump/--no-dump` | Write inner d3 scan TRJs per (d1, d2) slice. | `False` |
 | `--out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
@@ -179,6 +179,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--baseline {min,first}` | Shift kcal/mol energies so the global min or `(i,j,k)=(0,0,0)` is zero. | `min` |
 | `--zmin FLOAT` | Manual lower limit for the isosurface color bands (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Manual upper limit for the isosurface color bands (kcal/mol). | Autoscaled |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 ```

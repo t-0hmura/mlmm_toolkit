@@ -189,7 +189,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--one-based/--zero-based` | 原子インデックスを 1 始まり（既定）または 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のステージ情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (A)。積分ステップ数を制御。 | `0.20` |
-| `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/A^2）。 | `100` |
+| `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/A^2）。 | `300` |
 | `--opt-mode {lbfgs,rfo,light,heavy}` | `mlmm all` からの転送互換オプション。現状の `scan` 緩和は mode に関わらず LBFGS を使用。 | _None_ |
 | `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 LBFGS サイクル。 | `10000` |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `True` |
