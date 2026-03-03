@@ -904,7 +904,7 @@ def _build_multistep_path(
     shared_calc,
     geom_cfg: Dict[str, Any],
     gs_cfg: Dict[str, Any],
-    ststopt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     single_opt_cfg: Dict[str, Any],
     bond_cfg: Dict[str, Any],
     search_cfg: Dict[str, Any],
