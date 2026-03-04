@@ -82,6 +82,8 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--out-dir DIR` | Output directory. | `./result_dft/` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
+| `--backend CHOICE` | MLIP backend used for the low-level ONIOM recombination: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 

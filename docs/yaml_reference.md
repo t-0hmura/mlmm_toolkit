@@ -9,6 +9,7 @@
 | Section | Description | Used by |
 |---------|-------------|---------|
 | [`geom`](#geom) | Geometry and coordinate settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`calc`](#calc) | ML/MM calculator settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`opt`](#opt) | Shared optimizer settings | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
 | [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, path-search |
 | [`rfo`](#rfo) | RFO optimizer settings | opt, scan, scan2d, scan3d, path-search |
@@ -45,11 +46,11 @@ geom:
 
 ---
 
-### `mlmm` (section)
+### `calc` (section)
 
 
 ```yaml
-mlmm:
+calc:
  # --- Input files ---
  input_pdb: null # Input PDB file path (usually set by CLI)
  real_parm7: null # Amber parm7 topology for the full (real) system
@@ -58,12 +59,36 @@ mlmm:
  model_mult: 1 # Spin multiplicity of the ML (model) region
  link_mlmm: null # Link atom specification for ML/MM boundary
 
- # --- UMA (ML) settings ---
- uma_model: uma-s-1p1 # UMA pretrained model name
- uma_task_name: omol # Task tag recorded in UMA batches
+ # --- MLIP backend selection ---
+ backend: uma # MLIP backend: "uma" (default), "orb", "mace", "aimnet2"
+
+ # --- UMA backend settings ---
+ uma_model: uma-s-1p1 # UMA pretrained model name (UMA backend only)
+ uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
+
+ # --- ORB backend settings ---
+ orb_model: orb_v3_conservative_omol  # ORB model name (ORB backend only)
+
+ # --- MACE backend settings ---
+ mace_model: MACE-OMOL-0 # MACE model name (MACE backend only)
+ mace_dtype: float64      # MACE floating-point precision (MACE backend only)
+
+ # --- AIMNet2 backend settings ---
+ aimnet2_model: aimnet2   # AIMNet2 model name (AIMNet2 backend only)
+
+ # --- ML device & Hessian ---
  ml_device: auto # Device for ML inference: "cuda", "cpu", or "auto"
  ml_cuda_idx: 0 # CUDA device index for ML inference
  ml_hessian_mode: Analytical # ML Hessian mode: "Analytical" or "FiniteDifference"
+
+ # --- xTB point-charge embedding ---
+ embedcharge: false # Enable xTB point-charge embedding correction for MM->ML effects
+ embedcharge_step: 0.001 # Numerical Hessian step for embedding correction (Angstrom)
+ xtb_cmd: xtb # xTB executable command
+ xtb_acc: 0.2 # xTB accuracy parameter
+ xtb_workdir: tmp # xTB working directory
+ xtb_keep_files: false # Keep xTB temporary files
+ xtb_ncores: 4 # Number of cores for xTB
 
  # --- MM backend settings ---
  mm_backend: hessian_ff # MM backend: "hessian_ff" (analytical) | "openmm" (FD Hessian)
@@ -95,12 +120,20 @@ mlmm:
 ```
 
 **Notes:**
-- `ml_hessian_mode: Analytical` is recommended when sufficient VRAM is available for the ML region
+- `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install mlmm[orb]`, etc.)
+- Backend-specific model keys are only relevant when the corresponding backend is selected:
+  - `uma_model`, `uma_task_name` — UMA backend only
+  - `orb_model` — ORB backend only
+  - `mace_model`, `mace_dtype` — MACE backend only
+  - `aimnet2_model` — AIMNet2 backend only
+- `embedcharge: true` enables xTB point-charge embedding, which models MM-to-ML electrostatic polarization effects. Default is `false`. Requires an `xtb` executable on `$PATH`.
+- `xtb_cmd`, `xtb_acc`, `xtb_ncores`, `xtb_workdir`, `xtb_keep_files` configure the xTB subprocess when `embedcharge` is enabled.
+- `ml_hessian_mode: Analytical` is recommended when sufficient VRAM is available for the ML region. Only available for the UMA backend; other backends use `FiniteDifference` automatically.
 - `mm_fd: true` uses finite-difference for MM Hessian; set to `false` to use analytical MM Hessian from hessian_ff
 - `real_parm7` and `model_pdb` are required for ML/MM calculations
 - `model_charge` and `model_mult` override `-q` and `-m` for the ML region specifically
-- `opt`, `tsopt`, `irc`, and `freq` use partial Hessian by default when `mlmm.return_partial_hessian` is not explicitly set in YAML.
-- To force full Hessian output in those commands, set `mlmm.return_partial_hessian: false` explicitly.
+- `opt`, `tsopt`, `irc`, and `freq` use partial Hessian by default when `calc.return_partial_hessian` is not explicitly set in YAML.
+- To force full Hessian output in those commands, set `calc.return_partial_hessian: false` explicitly.
 - `irc` forces `geom.coord_type = cart` regardless of YAML.
 
 ### `opt`
@@ -514,11 +547,11 @@ bias:
 
 ### `bond`
 
-UMA-based bond-change detection.
+MLIP-based bond-change detection.
 
 ```yaml
 bond:
- device: cuda # UMA device for bond analysis
+ device: cuda # MLIP device for bond analysis
  bond_factor: 1.2 # Covalent-radius scaling for cutoff
  margin_fraction: 0.05 # Fractional tolerance for comparisons
  delta_fraction: 0.05 # Minimum relative change to flag bond formation/breaking
@@ -537,12 +570,14 @@ geom:
  coord_type: cart
  freeze_atoms: []
 
-mlmm:
+calc:
  model_charge: 0
  model_mult: 1
- uma_model: uma-s-1p1
+ backend: uma                  # MLIP backend: uma | orb | mace | aimnet2
+ embedcharge: false            # xTB point-charge embedding correction
+ uma_model: uma-s-1p1          # UMA backend only
  ml_device: auto
- ml_hessian_mode: Analytical # Recommended when VRAM permits
+ ml_hessian_mode: Analytical   # Recommended when VRAM permits
  mm_device: cpu
  mm_fd: true
  use_bfactor_layers: true # Read layers from PDB B-factors

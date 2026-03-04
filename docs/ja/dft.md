@@ -9,7 +9,7 @@
 - **手法:** ML 領域 + リンク水素に対する PySCF（CPU）または GPU4PySCF（GPU）による DFT 一点計算と、ONIOM 総エネルギーのための MM 評価の組み合わせ。
 - **出力:** `ml_region_with_linkH.xyz`、ML(dft)/MM 合成エネルギーを含む `result.yaml`。
 - **デフォルト:** `--func-basis wb97m-v/def2-tzvpd`、`--max-cycle 100`、`--conv-tol 1e-9`。
-- **次のステップ:** R/TS/P 状態間で DFT//UMA エネルギーを比較するか、[all](all.md) の `--dft` で自動ダイアグラムを生成。
+- **次のステップ:** R/TS/P 状態間で DFT//MLIP エネルギーを比較するか、[all](all.md) の `--dft` で自動ダイアグラムを生成。
 
 `mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加して PySCF（または GPU4PySCF）による一点計算を実行します。DFT 評価後、PySCF 高レベルエネルギーと全系の MM 評価（REAL-low）および ML サブセットの MM 評価（MODEL-low）を組み合わせて **ML(dft)/MM 総エネルギー** を再計算します:
 
@@ -66,6 +66,8 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
+| `--backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。ML/MM 評価に使用。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `-i, --input PATH` | 完全酵素 PDB ファイル（`.pdb` 必須）。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |
@@ -83,6 +85,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレートがあれば XYZ/TRJ → PDB コンパニオンファイルを生成。 | `True` |
 
 ## 出力
 

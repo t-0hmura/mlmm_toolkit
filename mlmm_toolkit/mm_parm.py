@@ -11,6 +11,7 @@ For detailed documentation, see: docs/mm_parm.md
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
@@ -22,6 +23,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 import click
+
+logger = logging.getLogger(__name__)
 
 # ===================== User dictionaries & constants =====================
 
@@ -849,7 +852,7 @@ def run_pipeline(args: Args) -> None:
             try:
                 tmp_mgr.cleanup()
             except Exception:
-                pass
+                logger.debug("Failed to clean up temporary directory", exc_info=True)
 
 
 # ===================== Click CLI entry point =====================

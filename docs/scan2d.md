@@ -130,7 +130,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 ```
 
 ## Workflow
-1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (FAIR-Chem UMA + hessian_ff), and optionally run an unbiased pre-optimization when `--preopt`.
+1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
 2. **Grid construction** -- Parse targets from `--spec` (recommended) or `--scan-lists` into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
@@ -167,6 +167,8 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--baseline {min,first}` | Reference for relative energy (kcal/mol). | `min` |
 | `--zmin FLOAT` | Lower bound of the contour color scale (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Upper bound of the contour color scale (kcal/mol). | Autoscaled |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
@@ -204,7 +206,7 @@ lbfgs:
  max_step: 0.3
  out_dir:./result_scan2d/
 bias:
- k: 100.0
+ k: 300.0
 ```
 
 ## Notes

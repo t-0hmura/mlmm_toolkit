@@ -37,6 +37,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Notes
 
 - `--spec` is the recommended format; `--scan-lists` remains available for advanced/compatibility use.
+- To use a different MLIP backend, add `--backend orb` (or `mace`, `aimnet2`). Default is `uma`.
 - Use `mlmm scan --help-advanced` to inspect all scan controls.
 
 ## Next step

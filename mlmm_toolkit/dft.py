@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import logging
 import shutil
 import sys
 import tempfile
@@ -23,8 +24,9 @@ import textwrap
 import time
 import traceback
 
+logger = logging.getLogger(__name__)
+
 import click
-from click.core import ParameterSource
 import numpy as np
 import yaml
 
@@ -56,7 +58,7 @@ from .utils import (
     build_model_pdb_from_indices,
     set_convert_file_enabled,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, make_is_param_explicit
 
 from functools import reduce
 
@@ -532,14 +534,15 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=True,
     help='Exchange-correlation functional and basis set as "FUNC/BASIS".',
 )
-@click.option("--max-cycle", type=int, default=DFT_KW["max_cycle"], show_default=True)
-@click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True)
-@click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True)
+@click.option("--max-cycle", type=int, default=DFT_KW["max_cycle"], show_default=True, help="Maximum SCF iterations.")
+@click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF convergence tolerance (Hartree).")
+@click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 9=ultrafine).")
 @click.option(
     "--out-dir",
     type=click.Path(path_type=Path, dir_okay=True, file_okay=False),
     default=Path(DFT_KW["out_dir"]),
     show_default=True,
+    help="Output directory.",
 )
 @click.option(
     "--config",
@@ -569,6 +572,20 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=True,
     help="Toggle XYZ/TRJ to PDB companions when a PDB template is available.",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -590,18 +607,15 @@ def cli(
     show_config: bool,
     dry_run: bool,
     convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
 
     if input_path.suffix.lower() != ".pdb":
         raise click.BadParameter("Input structure must be a PDB file for ML/MM DFT.")
 
-    def _is_param_explicit(name: str) -> bool:
-        try:
-            source = ctx.get_parameter_source(name)
-            return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
-            return False
+    _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -636,6 +650,12 @@ def cli(
                 (dft_kw, (("dft",),)),
             ],
         )
+
+        # CLI explicit overrides (after config YAML)
+        if backend is not None:
+            calc_kw["backend"] = str(backend).lower()
+        if _is_param_explicit("embedcharge"):
+            calc_kw["embedcharge"] = bool(embedcharge)
 
         if _is_param_explicit("conv_tol"):
             dft_kw["conv_tol"] = float(conv_tol)
@@ -718,6 +738,8 @@ def cli(
                         ),
                         "model_indices_count": 0 if not model_indices else len(model_indices),
                         "output_dir": str(Path(dft_kw["out_dir"]).resolve()),
+                        "backend": calc_kw.get("backend", "uma"),
+                        "embedcharge": bool(calc_kw.get("embedcharge", False)),
                     },
                 )
             )
@@ -824,7 +846,7 @@ def cli(
         try:
             mf.chkfile = None
         except Exception:
-            pass
+            logger.debug("Failed to disable chkfile", exc_info=True)
         if xc.lower().endswith("-v") or "vv10" in xc.lower():
             mf.nlc = "vv10"
 

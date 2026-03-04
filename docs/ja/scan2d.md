@@ -132,7 +132,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 ```
 
 ## ワークフロー
-1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
+1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。`--backend` で ML バックエンドを選択（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化可能。
 2. **グリッド構築** -- `--spec`（推奨）または `--scan-lists` からターゲットを 2 つの四つ組に解析し、インデックスを正規化（デフォルト 1 始まりまたは `"TYR,285,CA"` のような PDB 原子セレクター）。`ceil(|high - low| / h) + 1` 点の線形グリッドを構築（`h = --max-step-size`）。
 3. **外側ループ（d1）** -- 各 d1 値について、**d1 拘束のみ**で系を緩和。
 4. **内側ループ（d2）** -- 現在の d1 での各 d2 値について、最も近い収束済み構造から開始し**両方の拘束**で緩和。
@@ -170,6 +170,9 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--baseline {min,first}` | 相対エネルギーの基準（kcal/mol）。 | `min` |
 | `--zmin FLOAT` | コンターカラースケールの下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | コンターカラースケールの上限（kcal/mol）。 | 自動スケール |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力
 
@@ -207,7 +210,7 @@ lbfgs:
  max_step: 0.3
  out_dir:./result_scan2d/
 bias:
- k: 100.0
+ k: 300.0
 ```
 
 ## 注意事項

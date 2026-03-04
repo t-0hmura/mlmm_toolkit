@@ -369,6 +369,43 @@ Fixes to try:
 
 ---
 
+## Backend-specific issues
+
+### ImportError when using --backend orb/mace/aimnet2
+
+**Symptom:** `ImportError: orb-models is required for the ORB backend`
+
+**Fix:** Install the optional dependency for the chosen backend:
+```bash
+pip install mlmm[orb]      # ORB backend
+pip install mlmm[mace]     # MACE backend
+pip install mlmm[aimnet2]  # AIMNet2 backend
+```
+
+---
+
+### CUDA out of memory with non-UMA backends
+
+**Symptom:** `RuntimeError: CUDA out of memory` when using ORB, MACE, or AIMNet2.
+
+**Fix:** Non-UMA backends use finite-difference Hessians, which require more VRAM. Options:
+- Reduce `--radius-partial-hessian` to limit Hessian-target atoms
+- Use `--hessian-calc-mode FiniteDifference` explicitly with a smaller `hess_cutoff`
+- Use `ml_device: cpu` in YAML (slower but avoids VRAM limits)
+
+---
+
+### xTB not found when using --embedcharge
+
+**Symptom:** `FileNotFoundError: xtb command not found`
+
+**Fix:** Install xTB and ensure it's on `$PATH`:
+```bash
+conda install -c conda-forge xtb
+```
+
+---
+
 ## How to report an issue
 
 When asking for help, include:

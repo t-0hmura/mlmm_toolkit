@@ -6,7 +6,7 @@
 
 ### At a glance
 - **Use when:** You have reactant and product endpoints (R -> P) and want a first-pass MEP.
-- **Method:** PySisyphus `GrowingString` with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`).
+- **Method:** PySisyphus `GrowingString` with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). MLIP backend selected via `--backend` (default: `uma`).
 - **Outputs:** `final_geometries_trj.xyz` (path) and `hei.xyz` (HEI), plus optional `.pdb` companions.
 - **Defaults:** `--climb`, `--max-nodes 10`, `--max-cycles 300`.
 - **Next step:** Validate the HEI with `tsopt` -> `freq` (expect one imaginary mode) -> `irc`.
@@ -107,6 +107,8 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layers) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running optimization. | `False` |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
@@ -130,7 +132,7 @@ Merge order is **defaults < config < explicit CLI < override**.
 - `freeze_atoms`: 0-based frozen atoms merged with CLI `--freeze-atoms`.
 
 ### Section `calc` / `mlmm`
-- ML/MM calculator setup: `charge`, `spin`, UMA `model`, `task_name`, `device`, neighbor radii, Hessian options, etc.
+- ML/MM calculator setup: `charge`, `spin`, `backend`, `embedcharge`, UMA-specific `model`/`task_name`, `device`, neighbor radii, Hessian options, etc.
 
 ### Section `gs`
 - Growing String controls: `max_nodes`, `perp_thresh`, reparameterization cadence, `max_micro_cycles`, DLC resets, climb toggles/thresholds.

@@ -17,7 +17,7 @@
 `mlmm tsopt` carries out transition-state optimization tailored to the ML/MM calculator. The optimizer starts from a TS guess and refines it to a first-order saddle point.
 
 ### Key characteristics
-- **Partial Hessian guided Dimer:** During the loose/final Dimer loops, the hessian_ff finite-difference Hessian is disabled (`mm_fd=False`). The UMA Hessian is embedded into the full 3N x 3N space with MM atoms zero-padded, providing a partial Hessian that still guides the Dimer direction updates.
+- **Partial Hessian guided Dimer:** During the loose/final Dimer loops, the hessian_ff finite-difference Hessian is disabled (`mm_fd=False`). The ML backend Hessian is embedded into the full 3N x 3N space with MM atoms zero-padded, providing a partial Hessian that still guides the Dimer direction updates.
 - **Flatten loop with full Hessian:** Once the search enters the flatten loop, a full ML/MM Hessian (including the MM finite-difference block) is computed exactly once and then updated by Bofill steps in the active subspace between Dimer segments.
 - **PHVA + TR projection:** Active-DOF projection and mass-weighted translation/rotation removal mirror `freq.py`, ensuring consistent imaginary-mode analysis and mode writing.
 - **Output conversion:** With `--convert-files` (default), PDB inputs can be mirrored to `.pdb` (when `--dump`), and the imaginary mode is exported as `.pdb` alongside `_trj.xyz`.
@@ -58,10 +58,17 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
 ```
 
+4. Use the MACE backend for TS optimization.
+
+```bash
+mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -m 1 --backend mace --out-dir ./result_tsopt_mace
+```
+
 ## Workflow
 
 1. **Input handling** -- Load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge/spin. Freeze atoms from CLI and YAML are merged.
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (FAIR-Chem UMA + hessian_ff). The `--hessian-calc-mode` controls whether UMA evaluates Hessians analytically or via finite difference.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or via finite difference. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
 4. **Light mode (Dimer):**
    - The Hessian Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected).
    - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
@@ -86,7 +93,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
-| `--hessian-calc-mode CHOICE` | UMA Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |
+| `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
 | `--opt-mode CHOICE` | TS optimizer mode: `grad` (Dimer) or `hess` (RS-I-RFO). Aliases `light`/`heavy` and `dimer`/`rsirfo` accepted. | `hess` |
 | `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RS-I-RFO) + MM relaxation (LBFGS). Only effective in `hess` mode. | `True` |
@@ -100,6 +107,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--active-dof-mode CHOICE` | Active DOF for final frequency analysis: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved config layers and continue execution. | `False` |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--dry-run/--no-dry-run` | Validate inputs/config and print the execution plan without running TS optimization. | `False` |
 
 ## Outputs
@@ -131,9 +140,11 @@ calc:
 mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
- uma_model: uma-s-1p1              # UMA model tag
- uma_task_name: omol                # UMA task name
- ml_device: auto                   # UMA device selection
+ backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
+ embedcharge: false                # xTB point-charge embedding correction
+ uma_model: uma-s-1p1              # UMA model tag (UMA backend only)
+ uma_task_name: omol                # UMA task name (UMA backend only)
+ ml_device: auto                   # ML backend device selection
  ml_hessian_mode: FiniteDifference  # Hessian mode selection
 opt:
  thresh: baker                     # convergence preset (Gaussian/Baker-style)

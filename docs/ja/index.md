@@ -1,6 +1,5 @@
 # mlmm_toolkit ドキュメント
 
-**バージョン: {{ version }}**
 
 **mlmm_toolkit** は、機械学習原子間ポテンシャル（UMA）と分子力学（hessian_ff）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
 

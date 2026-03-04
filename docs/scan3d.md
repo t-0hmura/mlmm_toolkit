@@ -11,7 +11,7 @@
 - **Outputs:** `surface.csv`, per-point geometries under `grid/`, and an HTML isosurface plot (`scan3d_density.html`).
 - **Caution:** 3D grids grow very quickly; consider coarser `--max-step-size` or smaller ranges first.
 
-`mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the optimizer is PySisyphus LBFGS.
+`mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the MLIP backend is selected via `--backend` (default: `uma`); the optimizer is PySisyphus LBFGS.
 
 
 ## Minimal example
@@ -179,6 +179,8 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--baseline {min,first}` | Shift kcal/mol energies so the global min or `(i,j,k)=(0,0,0)` is zero. | `min` |
 | `--zmin FLOAT` | Manual lower limit for the isosurface color bands (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Manual upper limit for the isosurface color bands (kcal/mol). | Autoscaled |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
@@ -212,7 +214,7 @@ lbfgs:
  max_step: 0.3
  out_dir:./result_scan3d/
 bias:
- k: 100.0
+ k: 300.0
 ```
 
 ## Notes

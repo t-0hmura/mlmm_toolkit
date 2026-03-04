@@ -6,7 +6,7 @@
 
 ### 概要
 - **用途:** 最適化された TS があり、ML/MM で反応物・生成物方向への最小エネルギー経路を追跡したい場合。
-- **手法:** 完全 ML/MM ヘシアン（FAIR-Chem UMA + hessian_ff）による EulerPC 予測子-補正子積分器。
+- **手法:** 完全 ML/MM ヘシアン（MLIP バックエンド（デフォルト: UMA）+ hessian_ff）による EulerPC 予測子-補正子積分器。
 - **出力:** `finished_irc_trj.xyz`、`forward_irc_trj.xyz`、PDB 入力時は `.pdb` コンパニオン。
 - **次のステップ:** IRC 端点で [freq](freq.md) を実行し、[opt](opt.md) で真の極小に精密化。
 
@@ -54,7 +54,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## ワークフロー
 
 1. **入力準備** -- `geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
-2. **ML/MM 計算機の構築** -- `--parm` と `--model-pdb` から ML/MM 計算機を構築します。`--hessian-calc-mode` は UMA ヘシアン評価を制御します。
+2. **ML/MM 計算機の構築** -- `--parm` と `--model-pdb` から ML/MM 計算機を構築します。`--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP ヘシアン評価を制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 4. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` で正方向を無効化可能）。ステップサイズとサイクル数で積分長を制御します。
 5. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、PDB コンパニオンが生成されます。
 
@@ -62,6 +62,8 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
+| `--backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。 | 必須 |
 | `--parm PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 | _None_ |
@@ -76,7 +78,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--forward/--no-forward` | 正方向 IRC を実行。`irc.forward` を上書き。 | `True` |
 | `--out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |
 | `--convert-files/--no-convert-files` | 参照 PDB 利用可能時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
-| `--hessian-calc-mode CHOICE` | UMA がヘシアンを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | _デフォルト_ |
+| `--hessian-calc-mode CHOICE` | MLIP がヘシアンを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | _デフォルト_ |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。 | `False` |
@@ -122,9 +124,11 @@ calc:
 mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
- uma_model: uma-s-1p1              # UMA モデルタグ
- uma_task_name: omol                # UMA タスク名
- ml_device: auto                   # UMA デバイス選択
+ backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
+ embedcharge: false                # xTB 点電荷埋め込み補正
+ uma_model: uma-s-1p1              # UMA モデルタグ (backend=uma 時)
+ uma_task_name: omol                # UMA タスク名 (backend=uma 時)
+ ml_device: auto                   # ML デバイス選択
  ml_hessian_mode: FiniteDifference  # ヘシアンモード選択
  return_partial_hessian: false     # irc では false に強制（完全ヘシアン）
 irc:
@@ -157,7 +161,7 @@ irc:
 - 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
 - 電荷/多重度の運用ルールは [CLI Conventions](cli_conventions.md) に集約しています。
-- UMA オプションは mlmm 計算機に直接渡されます。`device: "auto"` の場合、計算機は GPU/CPU を自動選択します。
+- ML バックエンドのオプションは mlmm 計算機に直接渡されます。`device: "auto"` の場合、計算機は GPU/CPU を自動選択します。
 - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
 - `irc` は partial-first です。YAML で `calc.return_partial_hessian` を明示しない場合、初期ヘシアンは既定で部分ヘシアンになります。完全ヘシアンを使う場合は `calc.return_partial_hessian: false` を明示してください。
 - `hessian_calc_mode: "FiniteDifference"` の場合、`geom.freeze_atoms` を使用して FD ヘシアン構築で凍結自由度をスキップできます。

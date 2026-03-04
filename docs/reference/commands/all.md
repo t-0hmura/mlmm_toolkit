@@ -103,6 +103,13 @@ Options:
                                   (B=0/10/20) in downstream tools. If disabled,
                                   downstream tools require --model-pdb or
                                   --model-indices.  [default: detect-layer]
+  --backend [uma|orb|mace|aimnet2]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: uma]
+  --embedcharge / --no-embedcharge
+                                  Enable xTB point-charge embedding correction
+                                  for MM→ML environmental effects.  [default:
+                                  no-embedcharge]
   --tsopt BOOLEAN                 TS optimization + pseudo-IRC per reactive
                                   segment (or TSOPT-only mode for single-
                                   structure), and build energy diagrams.

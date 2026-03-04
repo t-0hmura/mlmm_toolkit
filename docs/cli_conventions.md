@@ -76,7 +76,7 @@ mlmm_toolkit uses the PDB B-factor column to encode the 3-layer ML/MM partitioni
 
 | Layer | B-factor | Meaning |
 |-------|----------|---------|
-| ML | 0.0 | UMA energy/force/Hessian |
+| ML | 0.0 | MLIP energy/force/Hessian (default backend: UMA) |
 | Movable-MM | 10.0 | MM atoms allowed to move |
 | Frozen | 20.0 | Coordinates fixed |
 
@@ -217,6 +217,25 @@ The three tokens (residue name, residue number, atom name) can appear in any ord
 ### Amber topology files
 - `--parm`: Amber parm7 file containing force field parameters for the full system
 - The parm7 must match the atom ordering of the input PDB exactly
+
+---
+
+## Backend Selection
+
+All computation subcommands (`opt`, `tsopt`, `freq`, `irc`, `dft`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`, `all`) accept:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--backend` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2` | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction | `--no-embedcharge` |
+
+Alternative backends are installed via optional dependency groups:
+
+```bash
+pip install mlmm[orb]       # ORB backend
+pip install mlmm[mace]      # MACE backend
+pip install mlmm[aimnet2]   # AIMNet2 backend
+```
 
 ---
 

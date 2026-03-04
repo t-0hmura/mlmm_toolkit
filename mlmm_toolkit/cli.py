@@ -75,12 +75,13 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--detect-layer",
             "--auto-mm-add-ter",
             "--convert-files",
+            "--embedcharge",
         }
     ),
     "mm-parm": frozenset({"--add-ter", "--add-h", "--allow-nonstandard-aa", "--keep-temp"}),
-    "scan": frozenset({"--one-based", "--dump", "--preopt", "--endopt", "--convert-files"}),
-    "scan2d": frozenset({"--one-based", "--dump", "--preopt", "--convert-files"}),
-    "scan3d": frozenset({"--one-based", "--dump", "--preopt", "--convert-files"}),
+    "scan": frozenset({"--one-based", "--dump", "--preopt", "--endopt", "--convert-files", "--embedcharge", "--detect-layer", "--model-indices-one-based", "--print-parsed"}),
+    "scan2d": frozenset({"--one-based", "--dump", "--preopt", "--convert-files", "--embedcharge", "--detect-layer", "--model-indices-one-based", "--print-parsed"}),
+    "scan3d": frozenset({"--one-based", "--dump", "--preopt", "--convert-files", "--embedcharge", "--detect-layer", "--model-indices-one-based", "--print-parsed"}),
     "opt": frozenset(
         {
             "--model-indices-one-based",
@@ -92,6 +93,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--convert-files",
             "--show-config",
             "--dry-run",
+            "--embedcharge",
         }
     ),
     "dft": frozenset(
@@ -101,6 +103,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--convert-files",
             "--show-config",
             "--dry-run",
+            "--embedcharge",
         }
     ),
     "tsopt": frozenset(
@@ -114,6 +117,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--show-config",
             "--dry-run",
             "--convert-files",
+            "--embedcharge",
         }
     ),
     "path-opt": frozenset(
@@ -127,6 +131,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--convert-files",
             "--show-config",
             "--dry-run",
+            "--embedcharge",
         }
     ),
     "path-search": frozenset(
@@ -140,6 +145,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--convert-files",
             "--show-config",
             "--dry-run",
+            "--embedcharge",
         }
     ),
     "freq": frozenset(
@@ -150,6 +156,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--convert-files",
             "--show-config",
             "--dry-run",
+            "--embedcharge",
         }
     ),
     "irc": frozenset(
@@ -161,6 +168,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--convert-files",
             "--show-config",
             "--dry-run",
+            "--embedcharge",
         }
     ),
     "oniom-export": frozenset({"--element-check", "--convert-orcaff"}),
@@ -221,6 +229,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--spec",
             "--out-dir",
             "--help-advanced",
@@ -237,6 +246,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--spec",
             "--out-dir",
             "--help-advanced",
@@ -253,6 +263,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--csv",
             "--spec",
             "--out-dir",
@@ -270,6 +281,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--config",
             "--dry-run",
             "--out-dir",
@@ -288,6 +300,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--mep-mode",
             "--fix-ends",
             "--config",
@@ -308,6 +321,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--mep-mode",
             "--refine-mode",
             "--config",
@@ -328,6 +342,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--config",
             "--dry-run",
             "--max-cycles",
@@ -347,6 +362,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--temperature",
             "--pressure",
             "--out-dir",
@@ -364,6 +380,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--max-cycles",
             "--step-size",
             "--forward",
@@ -383,6 +400,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--backend",
             "--func-basis",
             "--config",
             "--dry-run",
@@ -523,10 +541,8 @@ def cli() -> None:
 
 
 # Silence pysisyphus logger without muting application/global logging.
-logging.disable(logging.CRITICAL)
-# _pysisyphus_logger = logging.getLogger("pysisyphus")
-# _pysisyphus_logger.setLevel(logging.CRITICAL)
-# _pysisyphus_logger.propagate = False
+logging.getLogger("pysisyphus").setLevel(logging.CRITICAL)
+logging.getLogger("pysisyphus").propagate = False
 
 # Filter noisy UMA/pydmf warnings that clutter CLI output
 warnings.filterwarnings(

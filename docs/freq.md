@@ -6,7 +6,7 @@
 
 ### At a glance
 - **Use when:** You want to validate a minimum/TS candidate and/or compute thermo corrections from ML/MM.
-- **Method:** Full or partial Hessian vibrational analysis (PHVA) with the ML/MM calculator (FAIR-Chem UMA + hessian_ff).
+- **Method:** Full or partial Hessian vibrational analysis (PHVA) with the ML/MM calculator (MLIP backend + hessian_ff). Backend selected via `--backend` (default: `uma`).
 - **Outputs:** `frequencies_cm-1.txt`, per-mode `_trj.xyz` and `.pdb` animations, plus `thermoanalysis.yaml` when enabled.
 - **Next step:** Use results to confirm a minimum (no imaginary frequencies) or a TS (exactly one imaginary frequency).
 
@@ -96,6 +96,8 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--dry-run/--no-dry-run` | Validate and print execution plan without running frequency analysis. | `False` |
 
 ## Outputs
@@ -125,9 +127,11 @@ calc:
 mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
- uma_model: uma-s-1p1              # UMA model tag
- uma_task_name: omol                # UMA task name
- ml_device: auto                   # UMA device selection
+ backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
+ embedcharge: false                # xTB point-charge embedding correction
+ uma_model: uma-s-1p1              # UMA model tag (UMA backend only)
+ uma_task_name: omol                # UMA task name (UMA backend only)
+ ml_device: auto                   # ML backend device selection
  ml_hessian_mode: FiniteDifference  # Hessian mode selection
  out_hess_torch: true              # request torch-form Hessian
  mm_fd: false                      # MM finite-difference toggle

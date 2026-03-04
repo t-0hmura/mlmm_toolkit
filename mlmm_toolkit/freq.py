@@ -9,17 +9,17 @@ For detailed documentation, see: docs/freq.md
 
 from __future__ import annotations
 
+import logging
 import sys
 import textwrap
 import time
-import os
-import shutil
+
+logger = logging.getLogger(__name__)
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Sequence
 
 import click
-from click.core import ParameterSource
 import numpy as np
 import torch
 import ase.units as units
@@ -60,7 +60,7 @@ from .utils import (
     strip_inherited_keys,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli, make_is_param_explicit
 
 
 def _torch_device(auto: str = "auto") -> torch.device:
@@ -118,8 +118,10 @@ def _mw_projected_hessian(H_t: torch.Tensor,
     Hmw = M^{-1/2} H M^{-1/2};  P = I - QQ^T;  Hmw_proj = P Hmw P
 
     To save memory, update **H_t in-place** (no clone) and return it.
-    Explicit symmetrization is applied before eigendecomposition.
+    The output is explicitly symmetrized after TR projection.
     """
+    if H_t.dtype != torch.float64:
+        H_t = H_t.to(dtype=torch.float64)
     dtype, device = H_t.dtype, H_t.device
     with torch.no_grad():
         masses_amu_t = (masses_au_t / AMU2AU).to(dtype=dtype, device=device)
@@ -146,12 +148,16 @@ def _mw_projected_hessian(H_t: torch.Tensor,
         tmp = Q @ QtHQ                   # (3N,r)
         H_t.addmm_(tmp, Qt, beta=1.0, alpha=1.0)
 
+        # Explicit symmetrization: H = (H + H^T) / 2
+        H_sym = H_t.T.clone()
+        H_t.add_(H_sym).mul_(0.5)
+        del H_sym
+
         del masses_amu_t, m3, inv_sqrt_m, inv_sqrt_m_col, inv_sqrt_m_row
         del Q, Qt, QtH, HQ, QtHQ, tmp
 
         if torch.cuda.is_available() and device.type == "cuda":
             torch.cuda.empty_cache()
-        # Return the in-place updated mass-weighted & TR-projected Hessian
         return H_t
 
 
@@ -410,7 +416,7 @@ def _calc_full_hessian_torch(
                     active_dofs = np.zeros(0, dtype=int)
                 geom._hess_active_dofs_last = active_dofs
         except Exception:
-            pass
+            logger.debug("Failed to extract active DOF info from calculator", exc_info=True)
 
     H = result["hessian"]
     if not isinstance(H, torch.Tensor):
@@ -776,6 +782,20 @@ THERMO_KW: Dict[str, Any] = {
          "Use 'cpu' to avoid VRAM issues with large unfrozen systems. "
          "ML model inference always uses ml_device (typically GPU).",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -806,16 +826,12 @@ def cli(
     ref_pdb: Optional[Path],
     convert_files: bool,
     hess_device: str,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
-
-    def _is_param_explicit(name: str) -> bool:
-        try:
-            source = ctx.get_parameter_source(name)
-            return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
-            return False
+    _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -888,6 +904,12 @@ def cli(
             (thermo_cfg, (("thermo",), ("freq", "thermo"))),
         ],
     )
+
+    # CLI explicit overrides (after config YAML, before override YAML)
+    if backend is not None:
+        calc_cfg["backend"] = str(backend).lower()
+    if _is_param_explicit("embedcharge"):
+        calc_cfg["embedcharge"] = bool(embedcharge)
 
     if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
         calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
@@ -1027,6 +1049,8 @@ def cli(
                     "will_run_frequency_analysis": True,
                     "will_write_modes": True,
                     "will_dump_thermo_yaml": bool(thermo_cfg.get("dump", False)),
+                    "backend": calc_cfg.get("backend", "uma"),
+                    "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                 },
             )
         )

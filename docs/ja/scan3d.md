@@ -11,7 +11,7 @@
 - **出力:** `surface.csv`、`grid/` 下のグリッド点ごとのジオメトリ、HTML アイソサーフェスプロット（`scan3d_density.html`）。
 - **注意:** 3D グリッドは急速に大きくなります。まず粗い `--max-step-size` または小さい範囲を検討してください。
 
-`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、オプティマイザーは PySisyphus LBFGS です。
+`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、MLIP バックエンドは `--backend` で選択（デフォルト: `uma`）、オプティマイザーは PySisyphus LBFGS です。
 
 
 ## 最小例
@@ -175,6 +175,9 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--baseline {min,first}` | kcal/mol エネルギーをグローバル最小値または `(i,j,k)=(0,0,0)` がゼロになるようシフト。 | `min` |
 | `--zmin FLOAT` | アイソサーフェスカラーバンドの手動下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | アイソサーフェスカラーバンドの手動上限（kcal/mol）。 | 自動スケール |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力
 
@@ -208,7 +211,7 @@ lbfgs:
  max_step: 0.3
  out_dir:./result_scan3d/
 bias:
- k: 100.0
+ k: 300.0
 ```
 
 ## 注意事項

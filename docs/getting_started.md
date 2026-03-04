@@ -2,7 +2,7 @@
 
 ## Overview
 
-`mlmm_toolkit` is a Python CLI toolkit for computing **enzymatic reaction pathways** using an **ML/MM** (Machine Learning / Molecular Mechanics) approach. It couples Meta's UMA machine-learning interatomic potential for the reactive (ML) region with a classical force field (`hessian_ff`) for the surrounding protein environment, using an ONIOM-like energy decomposition.
+`mlmm_toolkit` is a Python CLI toolkit for computing **enzymatic reaction pathways** using an **ML/MM** (Machine Learning / Molecular Mechanics) approach. It couples an MLIP (Machine-Learned Interatomic Potential) backend for the reactive (ML) region with a classical force field (`hessian_ff`) for the surrounding protein environment, using an ONIOM-like energy decomposition. The default backend is **UMA** (Meta's FAIR-Chem); alternative backends (`orb`, `mace`, `aimnet2`) can be selected via `--backend`.
 
 In many workflows, a **single command** is enough to generate a useful **first-pass** reaction path:
 ```bash
@@ -28,13 +28,13 @@ Given **(i) two or more full protein-ligand PDB files** (R,..., P), **or (ii) on
 Treat single-command TS outputs as initial candidates. For enzyme reactions, iterative refinement is common (endpoint quality, pocket definition, constraints, scan targets), and TS validation with both `freq` and `irc` is required before interpretation.
 ```
 
-At the ML stage, the reactive region uses Meta's UMA machine-learning interatomic potential (MLIP). The MM region uses `hessian_ff`, a C++ native extension that computes Amber force field energies, forces, and Hessians. The total energy follows an ONIOM-like decomposition:
+At the ML stage, the reactive region uses a machine-learned interatomic potential (MLIP). The default backend is UMA (Meta's FAIR-Chem); alternative backends include ORB, MACE, and AIMNet2 (selected via `--backend`). The MM region uses `hessian_ff`, a C++ native extension that computes Amber force field energies, forces, and Hessians. The total energy follows an ONIOM-like decomposition:
 
 ```
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 ```
 
-where REAL is the full system, MODEL is the ML region, "high" is UMA, and "low" is `hessian_ff`.
+where REAL is the full system, MODEL is the ML region, "high" is the selected MLIP backend (default: UMA), and "low" is `hessian_ff`.
 
 The CLI is designed to generate **multi-step enzymatic reaction mechanisms** with minimal manual intervention. The same workflow also works for small-molecule systems. When you skip pocket extraction (omit `--center/-c` and `--ligand-charge`), you can also use `.xyz` or `.gjf` inputs.
 
@@ -83,7 +83,7 @@ This software is still under development. Please use it at your own risk.
 
 ## Installation
 
-`mlmm_toolkit` is intended for Linux environments (local workstations or HPC clusters) with a CUDA-capable GPU. Several dependencies -- notably **PyTorch**, **fairchem-core (UMA)**, **gpu4pyscf-cuda12x**, and **hessian_ff** -- expect a working CUDA installation.
+`mlmm_toolkit` is intended for Linux environments (local workstations or HPC clusters) with a CUDA-capable GPU. Several dependencies -- notably **PyTorch**, **fairchem-core (UMA)**, **gpu4pyscf-cuda12x**, and **hessian_ff** -- expect a working CUDA installation. Alternative MLIP backends (ORB, MACE, AIMNet2) have their own optional dependencies; see the install extras below.
 
 Refer to the upstream projects for additional details:
 
@@ -102,12 +102,18 @@ Below is a minimal setup example that works on many CUDA 12.9 clusters. Adjust m
 
 pip install torch --index-url https://download.pytorch.org/whl/cu129
 cd /path/to/mlmm_toolkit
-pip install -e.
-cd hessian_ff/native && make && cd../..
+pip install -e .
+
+# Optional: install alternative MLIP backends
+pip install -e ".[orb]"       # ORB backend
+pip install -e ".[mace]"      # MACE backend
+pip install -e ".[aimnet2]"   # AIMNet2 backend
+
+cd hessian_ff/native && make && cd ../..
 plotly_get_chrome -y
 ```
 
-Next, log in to **Hugging Face Hub** so that UMA models can be downloaded. Either:
+Next, log in to **Hugging Face Hub** so that UMA models can be downloaded (only required when using the default `uma` backend). Either:
 
 ```bash
 # Hugging Face CLI
@@ -189,7 +195,15 @@ If you prefer to build the environment piece by piece:
 
  ```bash
  cd /path/to/mlmm_toolkit
- pip install -e.
+ pip install -e .
+ ```
+
+ To install with optional MLIP backends:
+
+ ```bash
+ pip install -e ".[orb]"       # ORB backend
+ pip install -e ".[mace]"      # MACE backend
+ pip install -e ".[aimnet2]"   # AIMNet2 backend
  ```
 
 7. **Build the `hessian_ff` C++ native extension**
@@ -206,7 +220,7 @@ If you prefer to build the environment piece by piece:
  plotly_get_chrome -y
  ```
 
-9. **Log in to Hugging Face Hub (UMA model)**
+9. **Log in to Hugging Face Hub (required for UMA backend only)**
 
  ```bash
  huggingface-cli login
@@ -224,7 +238,24 @@ If you prefer to build the environment piece by piece:
  mlmm --version
  ```
 
- This should display the installed version (e.g., `{{ version }}`).
+ This should display the installed version (e.g., `0.x.y`; the exact output depends on the git tag).
+
+---
+
+## Multi-backend examples
+
+The default MLIP backend is UMA. Use `--backend` to switch to an alternative backend, and `--embedcharge` to enable xTB point-charge embedding:
+
+```bash
+# Use ORB backend
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --backend orb
+
+# Use MACE backend
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --backend mace
+
+# Enable xTB point-charge embedding
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
+```
 
 ---
 
@@ -370,7 +401,7 @@ Behavior:
 - optimizes the **cluster-model TS** with TS optimization,
 - runs an **IRC** in both directions and optimizes both ends to relax down to R and P minima,
 - can then perform `freq` and `dft` on the R/TS/P,
-- produces UMA, Gibbs, and DFT//UMA energy diagrams.
+- produces MLIP, Gibbs, and DFT//MLIP energy diagrams.
 
 ```{important}
 Single-input runs require **either** `--scan-lists` (staged scan -> GSM) **or** `--tsopt` (TSOPT-only). Supplying only a single `-i` without one of these will not trigger a full workflow.
@@ -397,7 +428,9 @@ Below are the most commonly used options across workflows.
 | `--refine-path/--no-refine-path` | Recursive MEP refinement (default) vs single-pass. |
 | `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer) or `hess` (RFO/RS-I-RFO, default). |
 | `--mep-mode gsm\|dmf` | MEP method: Growing String Method or Direct Max Flux. |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. **Analytical recommended when VRAM available.** |
+| `--backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction (default: off). |
+| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. `Analytical` is available for the UMA backend (recommended when VRAM is available); other backends use `FiniteDifference`. |
 
 For a full matrix of options and YAML schemas, see [YAML Reference](yaml_reference.md).
 
@@ -415,7 +448,7 @@ They typically contain:
 - the exact CLI command invoked,
 - global MEP statistics (e.g. maximum barrier, path length),
 - per-segment barrier heights and key bond changes,
-- energies from UMA, thermochemistry, and DFT post-processing (where enabled).
+- energies from the MLIP backend, thermochemistry, and DFT post-processing (where enabled).
 
 Each segment directory under `path_search/` also gets its own `summary.log` and `summary.yaml`, so you can inspect local refinements independently.
 
@@ -444,15 +477,14 @@ Most users will primarily call `mlmm all`. The CLI also exposes individual subco
 | `freq` | Vibrational analysis | [freq](freq.md) |
 | `dft` | Single-point DFT | [dft](dft.md) |
 | `oniom-export` | Export to Gaussian ONIOM / ORCA QM/MM (`--mode g16|orca`) | [oniom_export](oniom_export.md) |
+| `oniom-import` | Import Gaussian/ORCA ONIOM input and reconstruct XYZ + layered PDB | [oniom_import](oniom_import.md) |
 | `trj2fig` | Plot energy profiles | [trj2fig](trj2fig.md) |
 | `energy-diagram` | Draw state energy diagram from numeric values | [energy-diagram](energy_diagram.md) |
 | `add-elem-info` | Repair PDB element columns | [add_elem_info](add_elem_info.md) |
-
-```{important}
-```
+| `fix-altloc` | Remove alternate location (altLoc) indicators from PDB files | [fix_altloc](fix_altloc.md) |
 
 ```{tip}
-In `all`, `tsopt`, `freq` and `irc`, setting **`--hessian-calc-mode Analytical`** (for the ML region) is strongly recommended when you have enough VRAM.
+In `all`, `tsopt`, `freq` and `irc`, setting **`--hessian-calc-mode Analytical`** (for the ML region) is strongly recommended when you have enough VRAM. Note: `Analytical` mode is only available with the UMA backend; other backends automatically use `FiniteDifference`.
 ```
 
 ---
@@ -492,6 +524,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 | `--tsopt` | Enable TS optimization + IRC |
 | `--thermo` | Run vibrational analysis |
 | `--dft` | Run single-point DFT |
+| `--backend` | MLIP backend (`uma`, `orb`, `mace`, `aimnet2`) |
+| `--embedcharge` | Enable xTB point-charge embedding correction |
 | `--out-dir` | Output directory |
 
 ---

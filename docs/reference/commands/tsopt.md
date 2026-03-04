@@ -6,7 +6,7 @@
 mlmm ver. 0.1.dev21+g638e6d606.d20260225
 Usage: mlmm tsopt [OPTIONS]
 
-  TS optimization: light (Dimer) or heavy (RS-I-RFO) for the ML/MM calculator.
+  TS optimization: grad (Dimer) or hess (RS-I-RFO) for the ML/MM calculator.
 
 Options:
   --help-advanced                 Show all options (including advanced settings)
@@ -35,6 +35,13 @@ Options:
                                   (B=0/10/20). If disabled, you must provide
                                   --model-pdb or --model-indices.  [default:
                                   detect-layer]
+  --backend [uma|orb|mace|aimnet2]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: uma]
+  --embedcharge / --no-embedcharge
+                                  Enable xTB point-charge embedding correction
+                                  for MM→ML environmental effects.  [default:
+                                  no-embedcharge]
   -q, --charge INTEGER            Total charge of the ML region.  [required]
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
@@ -59,8 +66,10 @@ Options:
   --out-dir TEXT                  Output directory.  [default: ./result_tsopt/]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never).
-  --opt-mode [light|heavy]        TS optimizer mode: light (Dimer) or heavy (RS-
-                                  I-RFO with full Hessian).  [default: heavy]
+  --opt-mode [grad|hess|light|heavy|dimer|rsirfo]
+                                  grad (dimer) or hess (rsirfo). Aliases
+                                  light/heavy and dimer/rsirfo are accepted.
+                                  [default: hess]
   --partial-hessian-flatten / --full-hessian-flatten
                                   Use partial Hessian (ML region only) for
                                   imaginary mode detection in flatten loop.

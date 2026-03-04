@@ -27,8 +27,8 @@ ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート
  │ │ 順序付けられた中間体
  │ │
  │ └─ MEP 探索 [path-search] または [path-opt]
- │ ↓ ← ML/MM (UMA + hessian_ff) 計算
- │ MEP 軌跡 (mep_trj.xyz) + エネルギーダイアグラム
+ │ ↓
+ │ MEP 軌跡 (mep_trj.xyz) + エネルギーダイアグラム  ← ML/MM (MLIP + hessian_ff) 計算
  │
  └─ (任意) TS 最適化 + IRC [tsopt] → [irc]
  └─ (任意) 熱化学 [freq]
@@ -49,7 +49,7 @@ ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート
 
 | 層 | B-factor | 計算レベル | 説明 |
 |----|----------|-----------|------|
-| **Layer 1: ML 領域** | 0.0 | UMA（MLIP） | 活性部位。エネルギー・力・ヘシアンすべてを UMA で計算 |
+| **Layer 1: ML 領域** | 0.0 | MLIP（UMA, ORB, MACE, AIMNet2） | 活性部位。エネルギー・力・ヘシアンすべてを MLIP バックエンドで計算 |
 | **Layer 2: Movable-MM** | 10.0 | hessian_ff（MM） | 最適化時に移動可能な MM 原子 |
 | **Layer 3: Frozen** | 20.0 | なし | 座標固定。計算不参加 |
 
@@ -65,17 +65,27 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 
 ここで:
 - **E_MM(real)**: 全系（real system）の MM エネルギー（hessian_ff）
-- **E_ML(model)**: ML 領域（model system）の UMA エネルギー
+- **E_ML(model)**: ML 領域（model system）の MLIP エネルギー（デフォルトは UMA、ORB/MACE/AIMNet2 も利用可能）
 - **E_MM(model)**: ML 領域の MM エネルギー（重複分を差し引くため）
 
 力とヘシアンも同様の ONIOM 分解で結合されます。リンク水素の寄与はヤコビアンを用いて ML 原子と MM 原子に再分配されます。
+
+### 従来の QM/MM との比較
+
+| 側面 | 従来の QM/MM | mlmm_toolkit ML/MM |
+|------|-------------|---------------------|
+| 高レベル手法 | DFT、HF、post-HF | MLIP（UMA, ORB, MACE, AIMNet2） |
+| 低レベル手法 | OpenMM / Amber | hessian_ff（C++ ネイティブ拡張） |
+| リンク原子 | 通常必要 | デフォルトでは不要 |
+| 静電埋め込み | 一般的 | デフォルトでは不使用（ONIOM 減算による機械的埋め込み）。`--embedcharge` で xTB ポイントチャージ埋め込みを有効化可能 |
+| 速度 | 低速（QM がボトルネック） | 高速（GPU 上の ML 推論） |
 
 ## hessian_ff: MM エンジン
 
 `hessian_ff` は Amber 力場パラメータ（parm7）をベースとした C++ ネイティブ拡張の力場計算エンジンです。主な特徴:
 
 - **解析ヘシアン**: 正確な二階微分
-- **CPU 実行**: GPU メモリを UMA 推論に専有させるため、MM 計算は CPU で実行
+- **CPU 実行**: GPU メモリを MLIP 推論に専有させるため、MM 計算は CPU で実行
 - **Amber 互換**: ff19SB/ff14SB、GAFF2 などの Amber 力場に対応
 
 ## Amber parm7/rst7 トポロジ

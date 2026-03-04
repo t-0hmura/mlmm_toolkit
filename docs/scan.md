@@ -11,7 +11,7 @@
 - **Outputs:** Per-stage `result.xyz` (+ optional `.pdb`), and optional concatenated trajectories when `--dump`.
 - **Note:** Prefer `--spec` to avoid shell-quoting issues. `--scan-lists` is still supported.
 
-`mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples FAIR-Chem UMA and hessian_ff.
+`mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `--backend`; default: UMA) and hessian_ff.
 
 
 ## Minimal example
@@ -213,6 +213,8 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
@@ -234,7 +236,7 @@ out_dir/ (default:./result_scan/)
 - `freeze_atoms`: 0-based frozen atoms merged with CLI `--freeze-atoms`.
 
 ### Section `calc` / `mlmm`
-- ML/MM calculator setup: `charge`, `spin`, UMA `model`, `task_name`, `device`, neighbor radii, Hessian options, etc.
+- ML/MM calculator setup: `charge`, `spin`, `backend`, `embedcharge`, UMA-specific `model`/`task_name`, `device`, neighbor radii, Hessian options, etc.
 
 ### Section `opt` / `lbfgs`
 - Optimizer settings: `thresh`, `max_cycles`, `print_every`, step controls, line search, dumping flags.
@@ -243,8 +245,8 @@ out_dir/ (default:./result_scan/)
 - `k` (`100`): Harmonic strength in eV/A^2.
 
 ### Section `bond`
-- UMA-based bond-change detection:
- - `device` (`"cuda"`): UMA device for graph analysis.
+- MLIP-based bond-change detection:
+ - `device` (`"cuda"`): MLIP device for graph analysis.
  - `bond_factor` (`1.20`): Covalent-radius scaling for cutoff.
  - `margin_fraction` (`0.05`): Fractional tolerance for comparisons.
  - `delta_fraction` (`0.05`): Minimum relative change to flag formation/breaking.

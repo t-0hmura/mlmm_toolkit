@@ -16,6 +16,22 @@ import click
 from .utils import deep_update, load_yaml_dict
 
 
+# ---------------------------------------------------------------------------
+# Click parameter source helper
+# ---------------------------------------------------------------------------
+
+def make_is_param_explicit(ctx: "click.Context"):
+    """Return a helper that checks whether a Click parameter was set explicitly."""
+    from click.core import ParameterSource
+    def _is_param_explicit(name: str) -> bool:
+        try:
+            source = ctx.get_parameter_source(name)
+            return source not in (None, ParameterSource.DEFAULT)
+        except Exception:
+            return False
+    return _is_param_explicit
+
+
 _TRUE_VALUES = {"true", "1", "yes", "y", "t"}
 _FALSE_VALUES = {"false", "0", "no", "n", "f"}
 

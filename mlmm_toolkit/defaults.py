@@ -54,7 +54,7 @@ GEOM_KW_DEFAULT: Dict[str, Any] = {
 }
 
 # -----------------------------------------------
-# Calculator defaults (ML/MM with UMA + hessian_ff MM)
+# Calculator defaults (ML/MM with MLIP backend + hessian_ff MM)
 # -----------------------------------------------
 
 MLMM_CALC_KW: Dict[str, Any] = {
@@ -64,8 +64,16 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "model_charge": 0,
     "model_mult": 1,
     "link_mlmm": None,
+    # ML backend selection: "uma" | "orb" | "mace" | "aimnet2"
+    "backend": "uma",
     "uma_model": "uma-s-1p1",
     "uma_task_name": "omol",
+    "orb_model": "orb_v3_conservative_omol",
+    "orb_precision": "float32",
+    "mace_model": "MACE-OMOL-0",
+    "mace_dtype": "float64",
+    "aimnet2_model": "aimnet2",
+    # ML Hessian mode
     "ml_hessian_mode": "Analytical",
     "hessian_calc_mode": None,  # Alias for ml_hessian_mode
     "out_hess_torch": True,
@@ -99,6 +107,14 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "hess_mm_atoms": None,    # Explicit Hessian-target MM atom indices
     "movable_mm_atoms": None, # Explicit movable MM atom indices
     "frozen_mm_atoms": None,  # Explicit frozen MM atom indices
+    # xTB point-charge embedding correction
+    "embedcharge": False,           # Enable xTB-based point-charge embedding
+    "embedcharge_step": 1.0e-3,     # Numerical Hessian step for embedding correction (Å)
+    "xtb_cmd": "xtb",              # xTB executable command
+    "xtb_acc": 0.2,                # xTB accuracy parameter
+    "xtb_workdir": "tmp",          # xTB working directory
+    "xtb_keep_files": False,       # Keep xTB temporary files
+    "xtb_ncores": 4,               # Number of cores for xTB
 }
 
 # -----------------------------------------------

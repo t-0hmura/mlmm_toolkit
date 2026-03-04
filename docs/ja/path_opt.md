@@ -6,7 +6,7 @@
 
 ### 概要
 - **用途:** 反応物と生成物の端点 (R -> P) があり、初回パスの MEP が必要な場合に使用。
-- **手法:** ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による PySisyphus `GrowingString`。
+- **手法:** ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による PySisyphus `GrowingString`。MLIP バックエンドは `--backend` で選択（デフォルト: UMA）。
 - **出力:** `final_geometries_trj.xyz`（経路）および `hei.xyz`（HEI）、任意で `.pdb` コンパニオン。
 - **デフォルト:** `--climb`、`--max-nodes 10`、`--max-cycles 300`。
 - **次のステップ:** HEI を `tsopt` -> `freq`（虚数モード 1 つを期待）-> `irc` で検証。
@@ -103,6 +103,9 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。 | `False` |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力
 
@@ -126,7 +129,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 - `freeze_atoms`: CLI `--freeze-atoms` とマージされる 0 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`
-- ML/MM 計算機の設定: `charge`、`spin`、UMA `model`、`task_name`、`device`、近傍半径、ヘシアンオプション等。
+- ML/MM 計算機の設定: `charge`、`spin`、`backend`、`embedcharge`、MLIP モデル設定、`device`、近傍半径、ヘシアンオプション等。
 
 ### セクション `gs`
 - Growing String 制御: `max_nodes`、`perp_thresh`、再パラメータ化間隔、`max_micro_cycles`、DLC リセット、クライミングトグル/閾値。

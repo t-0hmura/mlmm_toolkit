@@ -6,7 +6,7 @@
 
 ### 概要
 - **用途:** ML/MM による極小/TS 候補の検証および熱力学補正の計算。
-- **手法:** ML/MM 計算機（FAIR-Chem UMA + hessian_ff）による完全または部分ヘシアン振動解析（PHVA）。
+- **手法:** ML/MM 計算機（MLIP バックエンド（デフォルト: UMA）+ hessian_ff）による完全または部分ヘシアン振動解析（PHVA）。
 - **出力:** `frequencies_cm-1.txt`、モードごとの `_trj.xyz` と `.pdb` アニメーション、有効時は `thermoanalysis.yaml`。
 - **次のステップ:** 結果を使用して極小（虚数振動数なし）または TS（正確に 1 つの虚数振動数）を確認。
 
@@ -69,6 +69,8 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
+| `--backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | 必須 |
 | `--parm PATH` | 完全酵素の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。 | 必須 |
@@ -124,9 +126,11 @@ calc:
 mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
- uma_model: uma-s-1p1              # UMA モデルタグ
- uma_task_name: omol                # UMA タスク名
- ml_device: auto                   # UMA デバイス選択
+ backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
+ embedcharge: false                # xTB 点電荷埋め込み補正
+ uma_model: uma-s-1p1              # UMA モデルタグ (backend=uma 時)
+ uma_task_name: omol                # UMA タスク名 (backend=uma 時)
+ ml_device: auto                   # ML デバイス選択
  ml_hessian_mode: FiniteDifference  # ヘシアンモード選択
  out_hess_torch: true              # torch 形式ヘシアンを要求
  mm_fd: false                      # MM 有限差分トグル

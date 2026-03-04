@@ -16,19 +16,21 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+import logging
 import sys
 import traceback
 import textwrap
 import tempfile
 import os
 import shutil
+
+logger = logging.getLogger(__name__)
 import time  # timing
 import re    # used in _segment_base_id
 
 import click
 import numpy as np
 import yaml
-from click.core import ParameterSource
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.cos.GrowingString import GrowingString
@@ -74,7 +76,7 @@ from .utils import (
     parse_layer_indices_from_bfactors,
     collect_single_option_values,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, make_is_param_explicit
 from .preflight import validate_existing_files
 from .trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
 from .summary_log import write_summary_log
@@ -264,7 +266,7 @@ def _new_geom_from_coords(atoms: Sequence[str], coords: np.ndarray, coord_type: 
         try:
             os.unlink(tmp.name)
         except Exception:
-            pass
+            logger.debug("Failed to unlink temp file %s", tmp.name, exc_info=True)
 
 
 def _make_linear_interpolations(gL, gR, n_internal: int) -> List[Any]:
@@ -299,7 +301,7 @@ def _tag_images(images: Sequence[Any], **attrs: Any) -> None:
             try:
                 setattr(im, k, v)
             except Exception:
-                pass
+                logger.debug("Failed to set attribute %s on image", k, exc_info=True)
 
 
 def _segment_base_id(tag: str) -> str:
@@ -474,7 +476,7 @@ def _run_dmf_between(
             {int(i) for g in [gA, gB] for i in getattr(g, "freeze_atoms", [])}
         )
     except Exception:
-        pass
+        logger.debug("Failed to extract freeze_atoms from endpoints", exc_info=True)
 
     # Convert pysisyphus geometries to ASE Atoms for DMF
     def _geom_to_ase(g):
@@ -554,7 +556,7 @@ def _run_dmf_between(
             if max_iter > 0:
                 mxflx.add_ipopt_options({"max_iter": max_iter})
         except Exception:
-            pass
+            logger.debug("Failed to set ipopt max_iter option", exc_info=True)
 
     click.echo(f"\n=== [{tag}] DMF started ===\n")
     mxflx.solve(tol="tight")
@@ -595,7 +597,7 @@ def _run_dmf_between(
         try:
             g.freeze_atoms = np.array(getattr(gA, "freeze_atoms", []), dtype=int)
         except Exception:
-            pass
+            logger.debug("Failed to set freeze_atoms on interpolated image", exc_info=True)
         g.set_calculator(shared_calc)
         imgs.append(g)
         tmp_xyz.unlink(missing_ok=True)
@@ -678,7 +680,7 @@ def _optimize_single(
         try:
             g_final.freeze_atoms = np.array(getattr(g, "freeze_atoms", []), dtype=int)
         except Exception:
-            pass
+            logger.debug("Failed to set freeze_atoms on final geometry", exc_info=True)
         g_final.set_calculator(shared_calc)
         return g_final
     except Exception:
@@ -1650,9 +1652,9 @@ def _merge_final_and_write(final_images: List[Any],
 @click.option("--out-dir", "out_dir", type=str, default="./result_path_search/", show_default=True, help="Output directory.")
 @click.option(
     "--thresh",
-    type=str,
+    type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
     default=None,
-    help="Convergence preset for GSM/StringOptimizer and single LBFGS runs (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
+    help="Convergence preset for GSM/StringOptimizer and single LBFGS runs.",
 )
 @click.option(
     "--config",
@@ -1710,6 +1712,20 @@ def _merge_final_and_write(final_images: List[Any],
     show_default=True,
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1740,6 +1756,8 @@ def cli(
     align: bool,
     ref_pdb_paths: Optional[Sequence[Path]],
     convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     prepared_inputs: List[PreparedInputStructure] = []
@@ -1764,12 +1782,7 @@ def cli(
         ref_pdb_paths = tuple(ref_parsed)
     # --- end of robust parsing fix ---
 
-    def _is_param_explicit(name: str) -> bool:
-        try:
-            source = ctx.get_parameter_source(name)
-            return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
-            return False
+    _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -1838,6 +1851,12 @@ def cli(
                 (dmf_cfg, (("dmf",),)),
             ],
         )
+
+        # CLI explicit overrides (after config YAML, before override YAML)
+        if backend is not None:
+            calc_cfg["backend"] = str(backend).lower()
+        if _is_param_explicit("embedcharge"):
+            calc_cfg["embedcharge"] = bool(embedcharge)
 
         try:
             geom_freeze = _normalize_geom_freeze(geom_cfg.get("freeze_atoms"))
@@ -2045,6 +2064,8 @@ def cli(
                 "max_nodes_segment": int(search_cfg.get("max_nodes_segment", gs_cfg.get("max_nodes", 0))),
                 "will_run_path_search": True,
                 "will_write_summary": True,
+                "backend": calc_cfg.get("backend", "uma"),
+                "embedcharge": bool(calc_cfg.get("embedcharge", False)),
             }
             if layer_info_preview is not None:
                 dry_payload["layer_counts"] = {
@@ -2305,7 +2326,7 @@ def cli(
                 try:
                     setattr(im, "mep_seg_index", int(tag_to_index[tag]))
                 except Exception:
-                    pass
+                    logger.debug("Failed to set mep_seg_index on image", exc_info=True)
 
         # Always write mep_trj.xyz for downstream compatibility; convert to PDB when possible.
         pdb_input = ref_pdb_for_segments is not None

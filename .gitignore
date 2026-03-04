@@ -49,3 +49,6 @@ docs/.ipynb_checkpoints/
 *~
 
 PLAN.md
+
+# setuptools-scm generated version file
+mlmm_toolkit/_version.py

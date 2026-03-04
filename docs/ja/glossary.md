@@ -12,7 +12,7 @@
 | **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | 異なる計算レベルを多層的に組み合わせる手法。mlmm_toolkit は ONIOM 的な 2 体系（real/model）エネルギー分解を使用。 |
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | 量子化学と分子力学の結合手法。ML/MM は QM 部分を機械学習ポテンシャルで置き換えた変種。 |
 | **real system** | -- | ONIOM 分解における全系。parm7 トポロジで記述され、hessian_ff で MM エネルギーを計算。 |
-| **model system** | -- | ONIOM 分解における ML 領域（活性部位）。UMA で ML エネルギーを計算。 |
+| **model system** | -- | ONIOM 分解における ML 領域（活性部位）。MLIP バックエンド（デフォルト: UMA）で ML エネルギーを計算。 |
 | **リンク水素** | Link Hydrogen | ML 領域と MM 領域の境界で切断された結合をキャップする水素原子。ヤコビアンで力を再分配。 |
 
 ---
@@ -21,7 +21,7 @@
 
 | 用語 | B-factor | 説明 |
 |------|----------|------|
-| **ML 領域（Layer 1）** | 0.0 | UMA で完全計算（エネルギー・力・ヘシアン）される活性部位原子。 |
+| **ML 領域（Layer 1）** | 0.0 | MLIP バックエンド（デフォルト: UMA）で完全計算（エネルギー・力・ヘシアン）される活性部位原子。 |
 | **Movable-MM（Layer 2）** | 10.0 | 最適化時に移動可能な MM 原子。 |
 | **Frozen（Layer 3）** | 20.0 | 座標固定の MM 原子。計算不参加。 |
 
@@ -76,7 +76,11 @@
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
 | **MLIP** | Machine Learning Interatomic Potential | 量子化学データから学習し、構造からエネルギー・力を予測する原子間ポテンシャル。 |
-| **UMA** | Universal Machine-learning potential for Atoms | Meta が公開している事前学習 MLIP 群。mlmm_toolkit の ML 領域計算バックエンドです。 |
+| **UMA** | Universal Machine-learning potential for Atoms | Meta が公開している事前学習 MLIP 群。mlmm_toolkit のデフォルト MLIP バックエンド。`--backend uma` で選択（デフォルト）。 |
+| **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。`pip install mlmm[orb]` で追加インストール。 |
+| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。`pip install mlmm[mace]` で追加インストール。 |
+| **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install mlmm[aimnet2]` で追加インストール。 |
+| **xTB** | Extended Tight-Binding | 半経験的量子化学手法。mlmm_toolkit では `--embedcharge` 有効時にポイントチャージ埋め込み補正に使用。 |
 | **解析ヘシアン** | Analytical Hessian | エネルギーの正確な二階微分を計算。高速だが VRAM を多く消費。 |
 | **有限差分** | Finite Difference | 微小変位による微分近似。低速だがメモリ効率が良い。 |
 

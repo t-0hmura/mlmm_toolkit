@@ -333,6 +333,51 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 
 ---
 
+## バックエンド固有の問題
+
+### --backend orb/mace/aimnet2 で ImportError が出る
+
+症状:
+- `ImportError: orb-models is required for the ORB backend` のようなエラーが表示される
+
+対処:
+- 使用するバックエンドに対応するオプション依存パッケージをインストールします:
+
+ ```bash
+ pip install mlmm[orb]      # ORB バックエンド
+ pip install mlmm[mace]     # MACE バックエンド
+ pip install mlmm[aimnet2]  # AIMNet2 バックエンド
+ ```
+
+---
+
+### 非 UMA バックエンドで CUDA メモリ不足になる
+
+症状:
+- ORB、MACE、AIMNet2 の使用時に `RuntimeError: CUDA out of memory` が発生する
+
+対処:
+- 非 UMA バックエンドは有限差分ヘシアンを使用するため、より多くの VRAM を消費します。以下の方法を試してください:
+- `--radius-partial-hessian` を小さくし、ヘシアン対象の原子数を制限する
+- `--hessian-calc-mode FiniteDifference` を明示的に指定し、`hess_cutoff` を小さめに設定する
+- YAML で `ml_device: cpu` を指定する（遅くなるが VRAM 制限を回避できる）
+
+---
+
+### --embedcharge 使用時に xTB が見つからない
+
+症状:
+- `FileNotFoundError: xtb command not found` が表示される
+
+対処:
+- xTB をインストールし、`$PATH` 上にあることを確認します:
+
+ ```bash
+ conda install -c conda-forge xtb
+ ```
+
+---
+
 ## 不具合報告のときに添えると助かる情報
 
 - 実行したコマンド（コピペ可能な形）

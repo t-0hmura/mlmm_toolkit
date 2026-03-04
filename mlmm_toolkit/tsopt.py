@@ -11,19 +11,18 @@ For detailed documentation, see: docs/tsopt.md
 
 from __future__ import annotations
 
+import logging
 import sys
 import textwrap
-import os
-import shutil
 from copy import deepcopy
-from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List, Sequence
 
 import click
 import numpy as np
 import torch
-from click.core import ParameterSource
 from ase import Atoms
 from ase.io import write
 from ase.data import atomic_masses
@@ -86,7 +85,7 @@ from .utils import (
     normalize_choice,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli, make_is_param_explicit
 from .freq import (
     _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
     _torch_device,
@@ -1173,7 +1172,7 @@ class HessianDimer:
                 _norm_dofs(self.geom.hess_active_dof_indices),
             ))
         except Exception:
-            pass
+            logger.debug("Failed to read hess_active_* indices", exc_info=True)
 
         within = getattr(self.geom, "within_partial_hessian", None)
         if isinstance(within, dict):
@@ -1917,9 +1916,9 @@ hessian_dimer_KW = {
 @click.option("--out-dir", type=str, default=OUT_DIR_TSOPT, show_default=True, help="Output directory.")
 @click.option(
     "--thresh",
-    type=str,
+    type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
     default=None,
-    help="Convergence preset (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
+    help="Convergence preset.",
 )
 @click.option(
     "--opt-mode",
@@ -1988,6 +1987,20 @@ hessian_dimer_KW = {
     show_default=True,
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -2017,14 +2030,11 @@ def cli(
     show_config: bool,
     dry_run: bool,
     convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
-    def _is_param_explicit(name: str) -> bool:
-        try:
-            source = ctx.get_parameter_source(name)
-            return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
-            return False
+    _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -2142,6 +2152,11 @@ def cli(
     calc_cfg["input_pdb"] = str(source_path)
     calc_cfg["real_parm7"] = str(real_parm7)
 
+    if backend is not None:
+        calc_cfg["backend"] = str(backend).lower()
+    if _is_param_explicit("embedcharge"):
+        calc_cfg["embedcharge"] = bool(embedcharge)
+
     apply_yaml_overrides(
         override_layer_cfg,
         [
@@ -2199,7 +2214,7 @@ def cli(
             simple_cfg["lbfgs"]["print_every"] = pe_opt
             rsirfo_cfg["print_every"] = pe_opt
     except Exception:
-        pass
+        logger.debug("Failed to configure print_every", exc_info=True)
 
     out_dir_path = Path(opt_cfg["out_dir"]).resolve()
 
@@ -2266,6 +2281,8 @@ def cli(
                     "active_dof_mode": str(active_dof_mode),
                     "will_run_tsopt": True,
                     "will_write_summary": True,
+                    "backend": calc_cfg.get("backend", "uma"),
+                    "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                 },
             )
         )

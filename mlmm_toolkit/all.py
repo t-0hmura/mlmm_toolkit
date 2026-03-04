@@ -17,16 +17,18 @@ from pathlib import Path
 from typing import List, Sequence, Optional, Tuple, Dict, Any
 import shutil
 import tempfile
-import os
 
+import logging
 import sys
 import math
 import click
-from click.core import ParameterSource
+from .cli_utils import make_is_param_explicit
 import time  # timing
 import yaml
 import numpy as np
 import torch
+
+logger = logging.getLogger(__name__)
 
 # Biopython for PDB parsing (post-processing helpers)
 from Bio import PDB
@@ -675,7 +677,9 @@ def _run_tsopt_on_hei(hei_pdb: Path,
                       args_yaml: Optional[Path],
                       out_dir: Path,
                       opt_mode_default: str,
-                      overrides: Optional[Dict[str, Any]] = None) -> Tuple[Path, Any]:
+                      overrides: Optional[Dict[str, Any]] = None,
+                      backend: Optional[str] = None,
+                      embedcharge: bool = False) -> Tuple[Path, Any]:
     """
     Run tsopt CLI on a HEI pocket PDB; return (final_ts_pdb_path, ts_geom)
     """
@@ -710,6 +714,13 @@ def _run_tsopt_on_hei(hei_pdb: Path,
     if args_yaml is not None:
         ts_args.extend(["--config", str(args_yaml)])
 
+    if backend is not None:
+        ts_args.extend(["--backend", str(backend)])
+    if embedcharge:
+        ts_args.append("--embedcharge")
+    else:
+        ts_args.append("--no-embedcharge")
+
     _echo(f"[tsopt] Running tsopt on HEI → out={ts_dir}")
     _run_cli_main("tsopt", _ts_opt.cli, ts_args, on_nonzero="raise", prefix="tsopt")
 
@@ -733,6 +744,8 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         real_parm7=str(real_parm7),
         model_pdb=str(model_pdb),
         use_bfactor_layers=detect_layer,
+        backend=backend,
+        embedcharge=embedcharge,
     )
     g_ts.set_calculator(calc)
     _ = float(g_ts.energy)
@@ -750,7 +763,9 @@ def _pseudo_irc_and_match(seg_idx: int,
                           spin: int,
                           real_parm7: Optional[Path] = None,
                           model_pdb: Optional[Path] = None,
-                          detect_layer: bool = False) -> Dict[str, Any]:
+                          detect_layer: bool = False,
+                          backend: Optional[str] = None,
+                          embedcharge: bool = False) -> Dict[str, Any]:
     """
     From a TS pocket geometry, perform pseudo-IRC:
       - compute imag. mode
@@ -768,6 +783,9 @@ def _pseudo_irc_and_match(seg_idx: int,
         model_pdb=str(model_pdb) if model_pdb else None,
         use_bfactor_layers=detect_layer,
     )
+    if backend is not None:
+        calc_kwargs["backend"] = backend
+    calc_kwargs["embedcharge"] = embedcharge
     mode_xyz = _compute_imag_mode_direction(g_ts, calc_kwargs=calc_kwargs, freeze_atoms=[])
 
     # Displace ± and optimize
@@ -867,7 +885,7 @@ def _pseudo_irc_and_match(seg_idx: int,
             _path_search._write_xyz_trj_with_energy([g_ts, gmin], [float(g_ts.energy), float(gmin.energy)], trj)
             run_trj2fig(trj, [irc_dir / f"irc_{side}_plot.png"], unit="kcal", reference="init", reverse_x=False)
     except Exception:
-        pass
+        logger.debug("Failed to write IRC mini-trajectory plot", exc_info=True)
 
     irc_trj = None
     irc_plot = None
@@ -1008,7 +1026,7 @@ def _merge_irc_trajectories_to_single_plot(
         try:
             tmp_trj.unlink()
         except Exception:
-            pass
+            logger.debug("Failed to unlink temp trajectory file", exc_info=True)
 
 
 def _run_freq_for_state(pdb_path: Path,
@@ -1019,7 +1037,9 @@ def _run_freq_for_state(pdb_path: Path,
                         detect_layer: bool,
                         out_dir: Path,
                         args_yaml: Optional[Path],
-                        overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                        overrides: Optional[Dict[str, Any]] = None,
+                        backend: Optional[str] = None,
+                        embedcharge: bool = False) -> Dict[str, Any]:
     """
     Run freq CLI; return parsed thermo dict (may be empty).
     """
@@ -1057,6 +1077,12 @@ def _run_freq_for_state(pdb_path: Path,
 
     if args_yaml is not None:
         args.extend(["--config", str(args_yaml)])
+    if backend is not None:
+        args.extend(["--backend", str(backend)])
+    if embedcharge:
+        args.append("--embedcharge")
+    else:
+        args.append("--no-embedcharge")
     _run_cli_main("freq", _freq_cli.cli, args, on_nonzero="warn", on_exception="raise", prefix="freq")
     # parse thermoanalysis.yaml if any
     y = fdir / "thermoanalysis.yaml"
@@ -1079,6 +1105,8 @@ def _run_opt_for_state(
     args_yaml: Optional[Path],
     opt_mode_default: str,
     convert_files: Optional[bool] = None,
+    backend: Optional[str] = None,
+    embedcharge: bool = False,
 ) -> Tuple[Any, Path]:
     """
     Run opt CLI for a single endpoint and return (optimized Geometry, final geometry path).
@@ -1103,6 +1131,13 @@ def _run_opt_for_state(
     if args_yaml is not None:
         args.extend(["--config", str(args_yaml)])
 
+    if backend is not None:
+        args.extend(["--backend", str(backend)])
+    if embedcharge:
+        args.append("--embedcharge")
+    else:
+        args.append("--no-embedcharge")
+
     _echo(f"[endpoint-opt] Running opt on {pdb_path.name} (mode={opt_mode}) → out={opt_dir}")
     _run_cli_main("opt", _opt_cli.cli, args, on_nonzero="raise", on_exception="raise", prefix="endpoint-opt")
 
@@ -1126,6 +1161,8 @@ def _run_opt_for_state(
         real_parm7=str(real_parm7),
         model_pdb=str(model_pdb),
         use_bfactor_layers=detect_layer,
+        backend=backend,
+        embedcharge=embedcharge,
     )
     g_opt.set_calculator(calc)
     _ = float(g_opt.energy)
@@ -1143,7 +1180,9 @@ def _run_dft_for_state(pdb_path: Path,
                        out_dir: Path,
                        args_yaml: Optional[Path],
                        func_basis: str = "wb97x-v/def2-tzvp",
-                       overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                       overrides: Optional[Dict[str, Any]] = None,
+                       backend: Optional[str] = None,
+                       embedcharge: bool = False) -> Dict[str, Any]:
     """
     Run dft CLI; return parsed result.yaml dict (may be empty).
     """
@@ -1171,6 +1210,12 @@ def _run_dft_for_state(pdb_path: Path,
 
     if args_yaml is not None:
         args.extend(["--config", str(args_yaml)])
+    if backend is not None:
+        args.extend(["--backend", str(backend)])
+    if embedcharge:
+        args.append("--embedcharge")
+    else:
+        args.append("--no-embedcharge")
     _run_cli_main("dft", _dft_cli.cli, args, on_nonzero="warn", on_exception="raise", prefix="dft")
     y = out_dir / "result.yaml"
     if y.exists():
@@ -1445,6 +1490,20 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Override scan --endopt flag.")
 @click.option("--convert-files/--no-convert-files", "convert_files", default=True, show_default=True,
               help="Convert XYZ/TRJ outputs to PDB format using reference topology; forwarded to all subcommands.")
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1490,6 +1549,8 @@ def cli(
     scan_preopt_override: Optional[bool],
     scan_endopt_override: Optional[bool],
     convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
     tsopt_max_cycles: Optional[int],
     tsopt_out_dir: Optional[Path],
     freq_out_dir: Optional[Path],
@@ -1517,23 +1578,10 @@ def cli(
     time_start = time.perf_counter()
     command_str = "mlmm all " + " ".join(sys.argv[1:])
 
-    dump_override_requested = False
-    try:
-        dump_source = ctx.get_parameter_source("dump")
-        dump_override_requested = dump_source not in (None, ParameterSource.DEFAULT)
-    except Exception:
-        dump_override_requested = False
-
-    opt_mode_set = False
-    opt_mode_post_set = False
-    try:
-        opt_mode_source = ctx.get_parameter_source("opt_mode")
-        opt_mode_set = opt_mode_source not in (None, ParameterSource.DEFAULT)
-        opt_mode_post_source = ctx.get_parameter_source("opt_mode_post")
-        opt_mode_post_set = opt_mode_post_source not in (None, ParameterSource.DEFAULT)
-    except Exception:
-        opt_mode_set = False
-        opt_mode_post_set = False
+    _is_param_explicit = make_is_param_explicit(ctx)
+    dump_override_requested = _is_param_explicit("dump")
+    opt_mode_set = _is_param_explicit("opt_mode")
+    opt_mode_post_set = _is_param_explicit("opt_mode_post")
 
     config_yaml, override_yaml, _ = resolve_yaml_sources(config_yaml, None, None)
     args_yaml, merged_yaml_cfg = _build_effective_args_yaml(
@@ -1639,7 +1687,7 @@ def cli(
     dft_overrides["convert_files"] = bool(convert_files)
 
     dft_func_basis_use = dft_func_basis or "wb97m-v/6-31g**"
-    dft_method_fallback = str(dft_overrides.get("func_basis", dft_func_basis_use))
+    dft_method_fallback = dft_func_basis_use
 
     if show_config or dry_run:
         config_payload: Dict[str, Any] = {
@@ -1858,6 +1906,8 @@ def cli(
     # --------------------------
     # Other path: single-structure + --tsopt True (and NO scan-lists) → TSOPT-only mode
     # --------------------------
+    irc_trj_for_all: List[Tuple[Path, bool]] = []
+
     if single_tsopt_mode:
         _echo_section("=== [all] TSOPT-only single-structure mode ===")
         tsroot = out_dir / "tsopt_single"
@@ -1877,6 +1927,8 @@ def cli(
             tsroot,
             tsopt_opt_mode_default,
             overrides=tsopt_overrides,
+            backend=backend,
+            embedcharge=embedcharge,
         )
 
         # Pseudo-IRC & minimize both ends (no segment endpoints exist → fallback mapping in helper)
@@ -1889,7 +1941,9 @@ def cli(
                                         spin=spin,
                                         real_parm7=real_parm7_path,
                                         model_pdb=ml_region_pdb,
-                                        detect_layer=detect_layer)
+                                        detect_layer=detect_layer,
+                                        backend=backend,
+                                        embedcharge=embedcharge)
         gL = irc_res["left_min_geom"]
         gR = irc_res["right_min_geom"]
         gT = irc_res["ts_geom"]
@@ -1899,7 +1953,7 @@ def cli(
             try:
                 irc_trj_for_all.append((Path(irc_trj_path), False))
             except Exception:
-                pass
+                logger.debug("Failed to append IRC trajectory path", exc_info=True)
 
         # Ensure UMA energies
         eL = float(gL.energy)
@@ -1929,6 +1983,8 @@ def cli(
                 pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
                 convert_files=convert_files,
+                backend=backend,
+                embedcharge=embedcharge,
             )
         except Exception as e:
             _echo(
@@ -1940,6 +1996,8 @@ def cli(
                 pP_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
                 convert_files=convert_files,
+                backend=backend,
+                embedcharge=embedcharge,
             )
         except Exception as e:
             _echo(
@@ -1977,11 +2035,14 @@ def cli(
         if do_thermo:
             _echo(f"[thermo] Single TSOPT: freq on R/TS/P")
             tR = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     freq_root / "R", args_yaml, overrides=freq_overrides)
+                                     freq_root / "R", args_yaml, overrides=freq_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             tT = _run_freq_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     freq_root / "TS", args_yaml, overrides=freq_overrides)
+                                     freq_root / "TS", args_yaml, overrides=freq_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             tP = _run_freq_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     freq_root / "P", args_yaml, overrides=freq_overrides)
+                                     freq_root / "P", args_yaml, overrides=freq_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
             try:
                 GR = float(tR.get("sum_EE_and_thermal_free_energy_ha", e_react))
@@ -2001,11 +2062,14 @@ def cli(
         if do_dft:
             _echo(f"[dft] Single TSOPT: DFT on R/TS/P")
             dR = _run_dft_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     dft_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides)
+                                     dft_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             dT = _run_dft_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     dft_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides)
+                                     dft_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             dP = _run_dft_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     dft_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides)
+                                     dft_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             try:
                 eR_dft = float(dR.get("energy", {}).get("hartree", e_react) if dR else e_react)
                 eT_dft = float(dT.get("energy", {}).get("hartree", eT) if dT else eT)
@@ -2267,6 +2331,13 @@ def cli(
         for literal in scan_stage_literals:
             scan_args.extend(["--scan-lists", literal])
 
+        if backend is not None:
+            scan_args.extend(["--backend", str(backend)])
+        if embedcharge:
+            scan_args.append("--embedcharge")
+        else:
+            scan_args.append("--no-embedcharge")
+
         _echo("[all] Invoking scan with arguments:")
         _echo("  " + " ".join(scan_args))
 
@@ -2332,6 +2403,13 @@ def cli(
     else:
         for p in input_paths:
             ps_args.append(str(p))
+
+    if backend is not None:
+        ps_args.extend(["--backend", str(backend)])
+    if embedcharge:
+        ps_args.append("--embedcharge")
+    else:
+        ps_args.append("--no-embedcharge")
 
     _echo("[all] Invoking path_search with arguments:")
     _echo("  " + " ".join(ps_args))
@@ -2491,6 +2569,8 @@ def cli(
                 seg_dir,
                 tsopt_opt_mode_default,
                 overrides=tsopt_overrides,
+                backend=backend,
+                embedcharge=embedcharge,
             )
         else:
             # If TSOPT off: use the GSM HEI (pocket) as TS geometry
@@ -2503,6 +2583,8 @@ def cli(
                 real_parm7=str(real_parm7_path),
                 model_pdb=str(ml_region_pdb),
                 use_bfactor_layers=detect_layer,
+                backend=backend,
+                embedcharge=embedcharge,
             )
             g_ts.set_calculator(calc); _ = float(g_ts.energy)
 
@@ -2518,14 +2600,16 @@ def cli(
                                         spin=spin,
                                         real_parm7=real_parm7_path,
                                         model_pdb=ml_region_pdb,
-                                        detect_layer=detect_layer)
+                                        detect_layer=detect_layer,
+                                        backend=backend,
+                                        embedcharge=embedcharge)
         irc_plot_path = irc_res.get("irc_plot")
         irc_trj_path = irc_res.get("irc_trj")
         if irc_trj_path:
             try:
                 irc_trj_for_all.append((Path(irc_trj_path), False))
             except Exception:
-                pass
+                logger.debug("Failed to append IRC trajectory path", exc_info=True)
 
         gL = irc_res["left_min_geom"]
         gR = irc_res["right_min_geom"]
@@ -2544,6 +2628,8 @@ def cli(
                 pL_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
                 convert_files=convert_files,
+                backend=backend,
+                embedcharge=embedcharge,
             )
         except Exception as e:
             _echo(
@@ -2555,6 +2641,8 @@ def cli(
                 pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
                 convert_files=convert_files,
+                backend=backend,
+                embedcharge=embedcharge,
             )
         except Exception as e:
             _echo(
@@ -2589,11 +2677,14 @@ def cli(
         if do_thermo:
             _echo(f"[thermo] Segment {seg_idx:02d}: freq on R/TS/P")
             tR = _run_freq_for_state(pL, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     freq_seg_root / "R", args_yaml, overrides=freq_overrides)
+                                     freq_seg_root / "R", args_yaml, overrides=freq_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             tT = _run_freq_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     freq_seg_root / "TS", args_yaml, overrides=freq_overrides)
+                                     freq_seg_root / "TS", args_yaml, overrides=freq_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             tP = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     freq_seg_root / "P", args_yaml, overrides=freq_overrides)
+                                     freq_seg_root / "P", args_yaml, overrides=freq_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
             try:
                 GR = float(tR.get("sum_EE_and_thermal_free_energy_ha", eR))
@@ -2616,11 +2707,14 @@ def cli(
         if do_dft:
             _echo(f"[dft] Segment {seg_idx:02d}: DFT on R/TS/P")
             dR = _run_dft_for_state(pL, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     dft_seg_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides)
+                                     dft_seg_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             dT = _run_dft_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     dft_seg_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides)
+                                     dft_seg_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             dP = _run_dft_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     dft_seg_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides)
+                                     dft_seg_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
+                                     backend=backend, embedcharge=embedcharge)
             try:
                 eR_dft = float(dR.get("energy", {}).get("hartree", np.nan) if dR else np.nan)
                 eT_dft = float(dT.get("energy", {}).get("hartree", np.nan) if dT else np.nan)

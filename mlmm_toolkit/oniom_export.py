@@ -18,8 +18,12 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import logging
+
 import click
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 try:
     import parmed as pmd
@@ -349,7 +353,7 @@ def _apply_coordinates_to_parm(parm, coords: np.ndarray) -> None:
     try:
         parm.coordinates = coords
     except Exception:
-        pass
+        logger.debug("Failed to set structure-level coordinates on parm", exc_info=True)
 
     # Ensure per-atom cached coordinates are also available
     for i, atom in enumerate(parm.atoms):
@@ -359,8 +363,7 @@ def _apply_coordinates_to_parm(parm, coords: np.ndarray) -> None:
             atom.xy = float(y)
             atom.xz = float(z)
         except Exception:
-            # Some ParmEd objects expose coords via structure only; ignore if not settable.
-            pass
+            logger.debug("Failed to set per-atom coords on atom %d", i, exc_info=True)
 
 
 def _infer_element_from_mass(mass: float, tol: float = 1.5) -> str:
@@ -412,7 +415,7 @@ def _get_parm_element(atom) -> str:
             if 0 < zi < len(_PERIODIC_TABLE):
                 return _PERIODIC_TABLE[zi]
         except Exception:
-            pass
+            logger.debug("Failed to infer element from atomic_number=%s", z, exc_info=True)
 
     # 3) mass
     mass = getattr(atom, "mass", None)
@@ -1119,7 +1122,7 @@ def _write_gaussian_ff_params(parm) -> str:
             try:
                 return list(terms)
             except Exception:
-                pass
+                logger.debug("Failed to convert terms to list", exc_info=True)
         if isinstance(dtype_obj, (list, tuple)):
             return list(dtype_obj)
         # Try iteration (DihedralTypeList behaves like a list)
@@ -1127,7 +1130,7 @@ def _write_gaussian_ff_params(parm) -> str:
             if hasattr(dtype_obj, "__iter__") and not isinstance(dtype_obj, (str, bytes)):
                 return list(dtype_obj)
         except Exception:
-            pass
+            logger.debug("Failed to iterate dtype_obj", exc_info=True)
         return [dtype_obj]
 
     def _get_attr(obj: Any, names: List[str], default: Any = None) -> Any:

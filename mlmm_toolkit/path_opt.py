@@ -16,16 +16,18 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
+import logging
 import sys
 import traceback
 import textwrap
 import os
 import shutil
 
+logger = logging.getLogger(__name__)
+
 import click
 import numpy as np
 import time
-from click.core import ParameterSource
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.cos.GrowingString import GrowingString
@@ -60,7 +62,7 @@ from .utils import (
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, make_is_param_explicit
 from .align_freeze_atoms import align_and_refine_sequence_inplace
 from .defaults import DMF_KW as _DMF_KW_DEFAULT
 
@@ -475,7 +477,7 @@ def _run_dmf_mep(
             if max_iter > 0:
                 mxflx.add_ipopt_options({"max_iter": max_iter})
         except Exception:
-            pass
+            logger.debug("Failed to set ipopt max_iter option", exc_info=True)
     mxflx.solve(tol="tight")
     click.echo("\n=== DMF: optimization finished ===\n")
 
@@ -622,9 +624,9 @@ def _run_dmf_mep(
               help="Output directory.")
 @click.option(
     "--thresh",
-    type=str,
+    type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
     default=None,
-    help="Convergence preset for the string optimizer (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
+    help="Convergence preset for the string optimizer.",
 )
 @click.option(
     "--config",
@@ -717,6 +719,20 @@ def _run_dmf_mep(
     show_default=True,
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -745,15 +761,11 @@ def cli(
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
-
-    def _is_param_explicit(name: str) -> bool:
-        try:
-            source = ctx.get_parameter_source(name)
-            return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
-            return False
+    _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -808,6 +820,12 @@ def cli(
                 (dmf_cfg, (("dmf",),)),
             ],
         )
+
+        # CLI explicit overrides (after config YAML, before override YAML)
+        if backend is not None:
+            calc_cfg["backend"] = str(backend).lower()
+        if _is_param_explicit("embedcharge"):
+            calc_cfg["embedcharge"] = bool(embedcharge)
 
         if _is_param_explicit("max_nodes"):
             gs_cfg["max_nodes"] = int(max_nodes)
@@ -972,6 +990,8 @@ def cli(
                         "preopt_max_cycles": int(preopt_max_cycles_effective),
                         "will_run_path_opt": True,
                         "will_write_summary": True,
+                        "backend": calc_cfg.get("backend", "uma"),
+                        "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                     },
                 )
             )
@@ -1102,7 +1122,7 @@ def cli(
                     try:
                         g.set_calculator(shared_calc)
                     except Exception:
-                        pass
+                        logger.debug("Failed to set calculator on geometry", exc_info=True)
                     subdir = pre_dir_base / f"end{i:02d}"
                     subdir.mkdir(parents=True, exist_ok=True)
                     lbfgs_args = dict(lbfgs_cfg)
@@ -1118,7 +1138,7 @@ def cli(
                         try:
                             g_new.freeze_atoms = np.array(getattr(g, "freeze_atoms", []), dtype=int)
                         except Exception:
-                            pass
+                            logger.debug("Failed to set freeze_atoms on new geometry", exc_info=True)
                         geoms[i] = g_new
                     except Exception as e:
                         click.echo(f"[preopt] WARNING: Failed to reload optimized endpoint #{i}: {e}", err=True)
@@ -1148,7 +1168,7 @@ def cli(
                 {int(i) for g in geoms for i in getattr(g, "freeze_atoms", [])}
             )
         except Exception:
-            pass
+            logger.debug("Failed to extract freeze_atoms from geometries", exc_info=True)
 
         # --------------------------
         # 3) DMF or GSM routing

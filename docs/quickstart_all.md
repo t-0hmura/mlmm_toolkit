@@ -27,6 +27,8 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 - Use `--dry-run` first to validate parsing and execution plan without running heavy stages.
 - `mlmm all --help` shows core options; `mlmm all --help-advanced` shows the full list.
+- To use a different MLIP backend, add `--backend orb` (or `mace`, `aimnet2`). Default is `uma`.
+- Add `--embedcharge` to enable xTB point-charge embedding for MM-to-ML environmental corrections.
 
 ## Next step
 

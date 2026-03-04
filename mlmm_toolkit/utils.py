@@ -58,6 +58,7 @@ Notes:
 
 import ast
 import functools
+import logging
 import math
 import os
 import re
@@ -79,6 +80,8 @@ from pysisyphus.helpers import geom_loader
 from pysisyphus.constants import ANG2BOHR
 
 from .add_elem_info import guess_element
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Generic helpers
@@ -171,7 +174,7 @@ def geom_from_xyz_string(
         try:
             os.unlink(tmp.name)
         except Exception:
-            pass
+            logger.debug("Failed to unlink temp file %s", tmp.name, exc_info=True)
 
 
 def append_xyz_trajectory(dst_path: Path, src_path: Path, *, reset: bool = False) -> bool:

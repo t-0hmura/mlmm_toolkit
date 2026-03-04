@@ -2,16 +2,39 @@
 
 ## Overview
 
-> **Summary:** ONIOM-like ML/MM calculator for PySisyphus, coupling FAIR-Chem UMA (high-level ML) and hessian_ff (low-level MM) to compute energies, forces, and Hessians for enzyme active-site models.
+> **Summary:** ONIOM-like ML/MM calculator for PySisyphus, coupling an MLIP backend (high-level ML) and hessian_ff (low-level MM) to compute energies, forces, and Hessians for enzyme active-site models. Multiple MLIP backends are supported via `--backend`.
 
 ### At a glance
 - **Use when:** You need to understand the internal calculator that powers all ML/MM optimization, path search, scan, frequency, and IRC workflows.
 - **Method:** Subtractive ONIOM: E = E(REAL-low) - E(MODEL-low) + E(MODEL-high).
 - **Inputs:** `input.pdb`, `real.parm7`, `model.pdb`.
-- **Defaults:** `mm_backend: hessian_ff`; UMA Hessian mode `Analytical`.
+- **Defaults:** `mm_backend: hessian_ff`; `backend: uma`; Hessian mode `Analytical`.
 - **Next step:** [opt](opt.md) or [tsopt](tsopt.md) to run calculations using this calculator.
 
-`mlmm_calc.mlmm` implements a subtractive ONIOM-style ML/MM calculator that combines a machine-learning interatomic potential (FAIR-Chem UMA) with a molecular-mechanics force field (Amber prmtop-based `hessian_ff`). It serves as the core calculator for all ML/MM optimization, path search, scan, frequency, and IRC workflows in `mlmm_toolkit`.
+`mlmm_calc.mlmm` implements a subtractive ONIOM-style ML/MM calculator that combines a machine-learning interatomic potential (MLIP) with a molecular-mechanics force field (Amber prmtop-based `hessian_ff`). It serves as the core calculator for all ML/MM optimization, path search, scan, frequency, and IRC workflows in `mlmm_toolkit`.
+
+### Multi-backend architecture
+
+The ML (high-level) component is provided by one of several MLIP backends, selected via the `--backend` CLI option or the `mlmm.backend` YAML key:
+
+| Backend | Value | Package | Install |
+| --- | --- | --- | --- |
+| FAIR-Chem UMA | `uma` (default) | `fairchem-core` | `pip install mlmm` |
+| ORB | `orb` | `orb-models` | `pip install mlmm[orb]` |
+| MACE | `mace` | `mace-torch` | `pip install mlmm[mace]` |
+| AIMNet2 | `aimnet2` | `aimnet2` | `pip install mlmm[aimnet2]` |
+
+Internally, all backends conform to the `_MLBackend` abstraction, which provides a uniform interface for energy, force, and Hessian evaluation. A factory function selects and instantiates the appropriate backend based on the `backend` parameter.
+
+### Embed-charge correction
+
+When `--embedcharge` is enabled (or `mlmm.embedcharge: true` in YAML), an xTB point-charge embedding correction is applied:
+
+```
+dE = E_xTB(ML + MM_charges) - E_xTB(ML_only)
+```
+
+This correction models the electrostatic influence of the MM environment on the ML region via point charges, improving the description of polarization effects at the ML/MM boundary. The corresponding force and Hessian corrections are also applied. The default is `--no-embedcharge` (disabled). Requires an xTB executable on `$PATH`.
 
 The calculator operates without link atoms. The ML region is defined by a model PDB (`model.pdb`), the MM topology comes from an Amber prmtop (`real.parm7`), and coordinates are taken from the input PDB (`input.pdb`). An internal `real.rst7` is generated via ParmEd by combining `real.parm7` with coordinates from `input.pdb` -- no external `real.rst7` or `real.pdb` is required.
 
@@ -23,7 +46,7 @@ The calculator combines three evaluations using the ONIOM subtraction:
 | --- | --- | --- | --- |
 | **REAL-low** | Full system | MM (hessian_ff) | Full system evaluated with Amber prmtop-based MM |
 | **MODEL-low** | ML subset | MM (hessian_ff) | ML region evaluated with MM |
-| **MODEL-high** | ML subset + link-H | ML (UMA) | ML region evaluated with FAIR-Chem UMA |
+| **MODEL-high** | ML subset + link-H | ML (MLIP) | ML region evaluated with the selected MLIP backend (default: UMA) |
 
 The combined energy is:
 
@@ -37,7 +60,7 @@ Forces and Hessians follow the same subtraction pattern.
 
 The implementation uses 3-layer B-factor encoding and optional Hessian-target MM selection:
 
-- **ML region** (B-factor = 0.0): Treated with UMA machine-learning potential
+- **ML region** (B-factor = 0.0): Treated with the selected MLIP backend (default: UMA)
 - **Movable-MM** (B-factor = 10.0): MM atoms that move during optimization
 - **Frozen** (B-factor = 20.0): Fixed MM atoms
 - **Hessian-target MM** (not a dedicated B-factor): selected by `hess_cutoff` and/or explicit `hess_mm_atoms`
@@ -65,9 +88,9 @@ mlmm:
  mm_device: cuda # Use CUDA (or "cpu")
 ```
 
-### UMA Hessian modes
-- `"Analytical"`: Second-order autograd on the selected device.
-- `"FiniteDifference"`: Central differences of forces.
+### ML Hessian modes
+- `"Analytical"`: Second-order autograd on the selected device. Available for the **UMA backend only**.
+- `"FiniteDifference"`: Central differences of forces. Used by **ORB, MACE, and AIMNet2** backends (and optionally by UMA when VRAM is limited).
 
 ## Inputs
 

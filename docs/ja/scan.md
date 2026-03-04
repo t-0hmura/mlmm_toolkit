@@ -11,7 +11,7 @@
 - **出力:** ステージごとの `result.xyz`（+ 任意で `.pdb`）、`--dump` 時は連結軌跡。
 - **注記:** シェルクォート問題を避けるため `--spec` を推奨します。`--scan-lists` も引き続きサポートされています。
 
-`mlmm scan` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して調和拘束による段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットが更新され、拘束ウェルが適用され、LBFGS で構造が緩和されます。ML/MM 計算機は FAIR-Chem UMA と hessian_ff を結合します。
+`mlmm scan` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して調和拘束による段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットが更新され、拘束ウェルが適用され、LBFGS で構造が緩和されます。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`--backend` で選択）と hessian_ff を結合します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 
 
 ## 最小例
@@ -199,6 +199,9 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力
 ```
@@ -219,7 +222,7 @@ out_dir/ (デフォルト:./result_scan/)
 - `freeze_atoms`: CLI `--freeze-atoms` とマージされる 0 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`
-- ML/MM 計算機の設定: `charge`、`spin`、UMA `model`、`task_name`、`device`、近傍半径、ヘシアンオプション等。
+- ML/MM 計算機の設定: `charge`、`spin`、`backend`、`embedcharge`、MLIP モデル設定、`device`、近傍半径、ヘシアンオプション等。
 
 ### セクション `opt` / `lbfgs`
 - オプティマイザー設定: `thresh`、`max_cycles`、`print_every`、ステップ制御、ラインサーチ、ダンプフラグ。
@@ -228,8 +231,8 @@ out_dir/ (デフォルト:./result_scan/)
 - `k`（`100`）: 調和強度（eV/A^2）。
 
 ### セクション `bond`
-- UMA ベースの結合変化検出:
- - `device`（`"cuda"`）: グラフ分析用の UMA デバイス。
+- MLIP ベースの結合変化検出:
+ - `device`（`"cuda"`）: グラフ分析用の MLIP デバイス。
  - `bond_factor`（`1.20`）: カットオフ用の共有結合半径スケーリング。
  - `margin_fraction`（`0.05`）: 比較用の許容分数。
  - `delta_fraction`（`0.05`）: 結合形成/切断をフラグする最小相対変化。

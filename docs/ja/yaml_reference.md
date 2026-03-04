@@ -46,7 +46,7 @@ geom:
 
 ### `calc`
 
-ML/MM 計算機（UMA + hessian_ff）の設定。
+ML/MM 計算機（MLIP バックエンド + hessian_ff）の設定。
 
 ```yaml
 calc:
@@ -56,8 +56,20 @@ calc:
  model_charge: 0 # ML 領域の電荷 (CLI -q で上書き)
  model_mult: 1 # ML 領域のスピン多重度 (CLI -m で上書き)
  link_mlmm: null # リンク原子ペアの明示指定 (null で自動検出)
- uma_model: uma-s-1p1 # UMA 事前学習モデル名
- uma_task_name: omol # UMA バッチに記録されるタスクタグ
+ backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
+ embedcharge: false # xTB 点電荷埋め込み補正 (CLI --embedcharge で有効化)
+ embedcharge_step: 0.001 # 埋め込み補正の数値ヘシアンステップ (Å)
+ xtb_cmd: xtb # xTB 実行コマンド
+ xtb_acc: 0.2 # xTB 精度パラメータ
+ xtb_workdir: tmp # xTB 作業ディレクトリ
+ xtb_keep_files: false # xTB 一時ファイルを保持
+ xtb_ncores: 4 # xTB のコア数
+ uma_model: uma-s-1p1 # UMA 事前学習モデル名 (backend=uma 時)
+ uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
+ orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
+ mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
+ mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
+ aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
  ml_hessian_mode: Analytical # ML ヘシアンモード: "Analytical" または "FiniteDifference"
  hessian_calc_mode: null # ml_hessian_mode のエイリアス
  out_hess_torch: true # ヘシアンを torch.Tensor で返す
@@ -86,7 +98,15 @@ calc:
 ```
 
 **注記:**
-- `ml_hessian_mode: Analytical` が推奨です（VRAM に余裕がある場合）。
+- `backend`: ML バックエンドを選択します。`uma`（デフォルト）、`orb`、`mace`、`aimnet2` から選択可能です。UMA 以外のバックエンドを使用するには、対応するオプション依存パッケージのインストールが必要です（例: `pip install mlmm[orb]`）。
+- バックエンド固有のモデルキーは、対応するバックエンドが選択されている場合にのみ有効です:
+  - `uma_model`、`uma_task_name` — UMA バックエンドのみ
+  - `orb_model` — ORB バックエンドのみ
+  - `mace_model`、`mace_dtype` — MACE バックエンドのみ
+  - `aimnet2_model` — AIMNet2 バックエンドのみ
+- `embedcharge`: `true` に設定すると、xTB 点電荷埋め込み補正が有効化されます。MM 領域の部分電荷を点電荷として ML 計算に埋め込み、MM 環境から ML 領域への静電的影響（分極効果）を考慮します。デフォルトは `false` です。`$PATH` 上に `xtb` 実行ファイルが必要です。
+- `xtb_cmd`、`xtb_acc`、`xtb_ncores`、`xtb_workdir`、`xtb_keep_files` は `embedcharge` が有効な場合に xTB サブプロセスを設定します。
+- `ml_hessian_mode: Analytical` が推奨です（VRAM に余裕がある場合）。UMA バックエンドでのみ利用可能で、他のバックエンドでは自動的に `FiniteDifference` が使用されます。
 - `hess_cutoff`/`movable_cutoff` を指定しない場合、ML 以外の全原子が Hessian 対象 MM に分類されます。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
@@ -416,11 +436,11 @@ bias:
 
 ### `bond`
 
-UMA ベースの結合変化検出。
+MLIP ベースの結合変化検出。
 
 ```yaml
 bond:
- device: cuda # UMA デバイス
+ device: cuda # MLIP デバイス
  bond_factor: 1.2 # 共有結合半径スケーリング
  margin_fraction: 0.05 # 比較の分率許容値
  delta_fraction: 0.05 # 結合形成/切断を検出する最小相対変化
@@ -440,9 +460,11 @@ geom:
 calc:
  model_charge: 0
  model_mult: 1
- uma_model: uma-s-1p1
+ backend: uma                  # ML バックエンド (uma/orb/mace/aimnet2)
+ embedcharge: false            # xTB 点電荷埋め込み補正
+ uma_model: uma-s-1p1          # UMA モデルタグ (backend=uma 時)
  ml_device: auto
- ml_hessian_mode: Analytical # VRAM に余裕がある場合に推奨
+ ml_hessian_mode: Analytical   # VRAM に余裕がある場合に推奨
  hess_cutoff: 3.6 # Layer 2 の距離カットオフ (Å)
  movable_cutoff: 8.0 # Layer 3 の距離カットオフ (Å)
 

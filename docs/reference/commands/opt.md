@@ -6,7 +6,7 @@
 mlmm ver. 0.1.dev21+g638e6d606.d20260225
 Usage: mlmm opt [OPTIONS]
 
-  ML/MM geometry optimization with LBFGS (light) or RFO (heavy).
+  ML/MM geometry optimization with LBFGS (grad) or RFO (hess).
 
 Options:
   --help-advanced                 Show all options (including advanced settings)
@@ -36,6 +36,13 @@ Options:
                                   (B=0/10/20). If disabled, you must provide
                                   --model-pdb or --model-indices.  [default:
                                   detect-layer]
+  --backend [uma|orb|mace|aimnet2]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: uma]
+  --embedcharge / --no-embedcharge
+                                  Enable xTB point-charge embedding correction
+                                  for MM→ML environmental effects.  [default:
+                                  no-embedcharge]
   -q, --charge INTEGER            ML region charge.  [required]
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
                                   Defaults to 1 when omitted.
@@ -69,9 +76,10 @@ Options:
   --out-dir TEXT                  Output directory.  [default: ./result_opt/]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never).
-  --opt-mode [light|heavy|lbfgs|rfo]
-                                  Optimizer mode: 'light' (=LBFGS) or 'heavy'
-                                  (=RFO).  [default: light]
+  --opt-mode [grad|hess|light|heavy|lbfgs|rfo]
+                                  Optimization mode: grad (lbfgs) or hess (rfo).
+                                  Aliases light/heavy and lbfgs/rfo are accepted.
+                                  [default: grad]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config

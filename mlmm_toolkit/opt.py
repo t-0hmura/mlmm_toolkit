@@ -13,19 +13,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
 
 import ast
-import os
-import shutil
+import logging
 import sys
 import textwrap
 import traceback
 
+logger = logging.getLogger(__name__)
+
 import click
 import numpy as np
 import torch
-import yaml
 import time
-from click.core import ParameterSource
-from ase.data import atomic_masses
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.optimizers.LBFGS import LBFGS
@@ -70,7 +68,7 @@ from .utils import (
     normalize_choice,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 
 EV2AU = 1.0 / AU2EV                 # eV → Hartree
 H_EVAA_2_AU = EV2AU / (ANG2BOHR * ANG2BOHR)  # (eV/Å^2) → (Hartree/Bohr^2)
@@ -299,8 +297,7 @@ def _collect_ml_atom_keys(model_pdb: Path) -> Tuple[Set[Tuple], Set[Tuple]]:
                     keys_full.add(kf)
                     keys_simple.add(ks)
     except Exception:
-        # If anything goes wrong, leave sets empty; caller will handle gracefully.
-        pass
+        logger.debug("Failed to collect ML atom keys from %s", model_pdb, exc_info=True)
     return keys_full, keys_simple
 
 
@@ -337,6 +334,7 @@ def _annotate_b_factors_inplace(
     try:
         lines = pdb_path.read_text().splitlines(keepends=True)
     except Exception:
+        logger.debug("Failed to read PDB file for B-factor annotation: %s", pdb_path, exc_info=True)
         return
 
     out_lines: List[str] = []
@@ -368,8 +366,7 @@ def _annotate_b_factors_inplace(
     try:
         pdb_path.write_text("".join(out_lines))
     except Exception:
-        # Silently ignore if we cannot write; conversion outputs are still present.
-        pass
+        logger.debug("Failed to write B-factor annotated PDB: %s", pdb_path, exc_info=True)
 
 
 def _maybe_convert_outputs_to_pdb(
@@ -875,9 +872,9 @@ def _run_microiter_opt(
 @click.option("--out-dir", type=str, default="./result_opt/", show_default=True, help="Output directory.")
 @click.option(
     "--thresh",
-    type=str,
+    type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
     default=None,
-    help="Convergence preset (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
+    help="Convergence preset.",
 )
 @click.option(
     "--opt-mode",
@@ -929,6 +926,20 @@ def _run_microiter_opt(
     show_default=True,
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -958,17 +969,14 @@ def cli(
     show_config: bool,
     dry_run: bool,
     convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
     prepared_input = None
 
-    def _is_param_explicit(name: str) -> bool:
-        try:
-            source = ctx.get_parameter_source(name)
-            return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
-            return False
+    _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -1085,6 +1093,10 @@ def cli(
             calc_cfg["model_pdb"] = str(model_pdb)
         calc_cfg["input_pdb"] = str(prepared_input.source_path)
         calc_cfg["real_parm7"] = str(real_parm7)
+        if backend is not None:
+            calc_cfg["backend"] = str(backend).lower()
+        if _is_param_explicit("embedcharge"):
+            calc_cfg["embedcharge"] = bool(embedcharge)
 
         apply_yaml_overrides(
             override_layer_cfg,
@@ -1178,6 +1190,8 @@ def cli(
                         "model_indices_count": 0 if not model_indices else len(model_indices),
                         "will_run_optimization": True,
                         "will_convert_outputs": True,
+                        "backend": calc_cfg.get("backend", "uma"),
+                        "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                     },
                 )
             )

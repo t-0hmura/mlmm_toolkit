@@ -9,6 +9,7 @@
 
 | Key |
 |---|
+| `calc` |
 | `extract` |
 | `path_search` |
 | `scan` |
@@ -20,6 +21,21 @@
 
 ```yaml
 # Starter config for `mlmm all`
+
+calc:
+  backend: uma              # ML backend: uma, orb, mace, aimnet2
+  orb_model: null           # ORB model name (when backend=orb)
+  orb_precision: null       # ORB precision setting (when backend=orb)
+  mace_model: null          # MACE model path or name (when backend=mace)
+  mace_dtype: null          # MACE dtype, e.g. float64 (when backend=mace)
+  aimnet2_model: null       # AIMNet2 model name (when backend=aimnet2)
+  embedcharge: false        # Enable xTB point-charge embedding correction
+  embedcharge_step: 1       # Frequency of embedding recalculation (every N steps)
+  xtb_cmd: xtb              # Path or command for the xTB executable
+  xtb_acc: 0.1              # xTB SCF accuracy parameter
+  xtb_workdir: null         # Working directory for xTB scratch files
+  xtb_keep_files: false     # Keep xTB intermediate files after completion
+  xtb_ncores: 1             # Number of CPU cores for xTB
 
 extract:
   radius: 2.6
@@ -56,6 +72,19 @@ dft:
 
 | Key | Type | Default |
 |---|---|---|
+| `calc.backend` | `str` | `'uma'` |
+| `calc.orb_model` | `str` | `null` |
+| `calc.orb_precision` | `str` | `null` |
+| `calc.mace_model` | `str` | `null` |
+| `calc.mace_dtype` | `str` | `null` |
+| `calc.aimnet2_model` | `str` | `null` |
+| `calc.embedcharge` | `bool` | `false` |
+| `calc.embedcharge_step` | `int` | `1` |
+| `calc.xtb_cmd` | `str` | `'xtb'` |
+| `calc.xtb_acc` | `float` | `0.1` |
+| `calc.xtb_workdir` | `str` | `null` |
+| `calc.xtb_keep_files` | `bool` | `false` |
+| `calc.xtb_ncores` | `int` | `1` |
 | `extract.radius` | `float` | `2.6` |
 | `extract.radius_het2het` | `float` | `0.0` |
 | `path_search.max_nodes` | `int` | `10` |

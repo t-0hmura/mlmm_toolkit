@@ -64,6 +64,13 @@ Options:
                                   (B=0/10/20). If disabled, you must provide
                                   --model-pdb or --model-indices.  [default:
                                   detect-layer]
+  --backend [uma|orb|mace|aimnet2]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: uma]
+  --embedcharge / --no-embedcharge
+                                  Enable xTB point-charge embedding correction
+                                  for MM→ML environmental effects.  [default:
+                                  no-embedcharge]
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
                                   (applied to every image).
   --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM

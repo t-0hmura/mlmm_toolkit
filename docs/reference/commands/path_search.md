@@ -33,6 +33,13 @@ Options:
                                   (B=0/10/20). If disabled, you must provide
                                   --model-pdb or --model-indices.  [default:
                                   detect-layer]
+  --backend [uma|orb|mace|aimnet2]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: uma]
+  --embedcharge / --no-embedcharge
+                                  Enable xTB point-charge embedding correction
+                                  for MM→ML environmental effects.  [default:
+                                  no-embedcharge]
   -q, --charge INTEGER            Total system charge.  [required]
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1). Defaults to 1 when
                                   omitted.
@@ -62,8 +69,8 @@ Options:
                                   growth.  [default: climb]
   --dump / --no-dump              Dump GSM/single-optimization trajectories
                                   during the run.  [default: no-dump]
-  --opt-mode [light|heavy]        Single-structure optimizer: light (=LBFGS) or
-                                  heavy (=RFO).  [default: light]
+  --opt-mode [grad|hess]          Single-structure optimizer: grad (=LBFGS) or
+                                  hess (=RFO).  [default: grad]
   --out-dir TEXT                  Output directory.  [default:
                                   ./result_path_search/]
   --thresh TEXT                   Convergence preset for GSM/StringOptimizer and

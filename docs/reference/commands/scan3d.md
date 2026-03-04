@@ -29,6 +29,13 @@ Options:
                                   (B=0/10/20). If disabled, you must provide
                                   --model-pdb or --model-indices.  [default:
                                   detect-layer]
+  --backend [uma|orb|mace|aimnet2]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: uma]
+  --embedcharge / --no-embedcharge
+                                  Enable xTB point-charge embedding correction
+                                  for MM→ML environmental effects.  [default:
+                                  no-embedcharge]
   -q, --charge INTEGER            ML-region total charge.
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
                                   Defaults to 1 when omitted.

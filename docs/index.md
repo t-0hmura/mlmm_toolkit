@@ -1,6 +1,5 @@
 # mlmm_toolkit Documentation
 
-**Version: {{ version }}**
 
 **mlmm_toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using ML/MM (machine-learning / molecular mechanics) methods.
 

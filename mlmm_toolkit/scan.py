@@ -16,10 +16,13 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import ast
+import logging
 import math
 import sys
 import textwrap
 import traceback
+
+logger = logging.getLogger(__name__)
 
 import click
 import numpy as np
@@ -67,7 +70,7 @@ from .utils import (
     snapshot_geometry,
 )
 from .bond_changes import compare_structures, summarize_changes
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 
 
 # --------------------------------------------------------------------------------------
@@ -336,7 +339,7 @@ def _snapshot_geometry(g) -> Any:
               help="Harmonic well strength k [eV/Å^2].")
 @click.option(
     "--opt-mode",
-    type=click.Choice(["lbfgs", "rfo", "light", "heavy"], case_sensitive=False),
+    type=click.Choice(["grad", "hess", "lbfgs", "rfo", "light", "heavy"], case_sensitive=False),
     default=None,
     show_default=False,
     help="Compatibility option for mlmm all forwarding. "
@@ -367,9 +370,9 @@ def _snapshot_geometry(g) -> Any:
               help="Base output directory.")
 @click.option(
     "--thresh",
-    type=str,
+    type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
     default=None,
-    help="Convergence preset for relaxations (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
+    help="Convergence preset for relaxations.",
 )
 @click.option(
     "--config",
@@ -405,7 +408,23 @@ def _snapshot_geometry(g) -> Any:
     show_default=True,
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
+@click.pass_context
 def cli(
+    ctx: click.Context,
     input_path: Path,
     real_parm7: Path,
     model_pdb: Optional[Path],
@@ -434,7 +453,11 @@ def cli(
     preopt: bool,
     endopt: bool,
     convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
+    _is_param_explicit = make_is_param_explicit(ctx)
+
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
@@ -539,6 +562,10 @@ def cli(
             calc_cfg["model_mult"] = int(spin)
             calc_cfg["input_pdb"] = str(source_path)
             calc_cfg["real_parm7"] = str(real_parm7)
+            if backend is not None:
+                calc_cfg["backend"] = str(backend).lower()
+            if _is_param_explicit("embedcharge"):
+                calc_cfg["embedcharge"] = bool(embedcharge)
 
             # movable_cutoff implies full distance-based layer assignment.
             # hess_cutoff alone can be combined with --detect-layer.
@@ -702,7 +729,7 @@ def cli(
                 try:
                     geom.freeze_atoms = np.array(freeze, dtype=int)
                 except Exception:
-                    pass
+                    logger.debug("Failed to set freeze_atoms on geometry", exc_info=True)
 
             base_calc = mlmm(**calc_cfg)
 
@@ -796,7 +823,7 @@ def cli(
                             srec["bond_change"]["changed"] = bool(changed)
                             srec["bond_change"]["summary"] = (summary.strip() if (summary and summary.strip()) else "")
                         except Exception:
-                            pass
+                            logger.debug("Failed to store bond_change record", exc_info=True)
                     except Exception as e:
                         click.echo(f"[stage {k}] WARNING: Failed to evaluate bond changes: {e}", err=True)
 
@@ -853,7 +880,7 @@ def cli(
                         srec["bond_change"]["changed"] = bool(changed)
                         srec["bond_change"]["summary"] = (summary.strip() if (summary and summary.strip()) else "")
                     except Exception:
-                        pass
+                        logger.debug("Failed to store bond_change record", exc_info=True)
                 except Exception as e:
                     click.echo(f"[stage {k}] WARNING: Failed to evaluate bond changes: {e}", err=True)
 

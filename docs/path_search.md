@@ -8,7 +8,7 @@
 - **Use when:** You have R -> ... -> P structures (2+ inputs) and want a single stitched MEP with automatic refinement.
 - **Method:** Chains GSM segments and recursively refines only sub-intervals that still contain covalent changes.
 - **Outputs:** `mep_trj.xyz` (main trajectory), `summary.yaml` (segment-by-segment results), and optional plots/merged PDBs when enabled.
-- **Defaults:** `--opt-mode light` (LBFGS), `--preopt`, `--align`, `--thresh gau`.
+- **Defaults:** `--opt-mode grad` (LBFGS), `--preopt`, `--align`, `--thresh gau`.
 - **Next step:** HEI output alone does **not** validate a TS. Follow with [tsopt](tsopt.md), [freq](freq.md), and [irc](irc.md).
 
 `mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory.
@@ -117,6 +117,8 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layer metadata) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running path search. | `False` |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
@@ -143,7 +145,7 @@ Merge order is **defaults < config < explicit CLI < override**.
 The YAML root must be a mapping. Accepted sections:
 
 - **`geom`** -- `coord_type` (`"cart"` default), `freeze_atoms` (0-based indices).
-- **`calc` / `mlmm`** -- ML/MM calculator settings: `input_pdb`, `real_parm7`, `model_pdb`, `model_charge`, `model_mult`, UMA controls (`uma_model`, `uma_task_name`, `ml_hessian_mode`), device selection, freeze atoms.
+- **`calc` / `mlmm`** -- ML/MM calculator settings: `input_pdb`, `real_parm7`, `model_pdb`, `model_charge`, `model_mult`, backend selection (`backend`, `embedcharge`), UMA controls (`uma_model`, `uma_task_name`, `ml_hessian_mode`), device selection, freeze atoms.
 - **`gs`** -- Growing String settings: `max_nodes`, `climb`, `climb_rms`, `climb_fixed`, `reparam_every_full`, `reparam_check`.
 - **`opt`** -- StringOptimizer controls: `max_cycles`, `print_every`, `dump`, `dump_restart`, `out_dir`.
 - **`lbfgs`** -- Single-structure optimizer controls for HEI+/-1 refinement: `keep_last`, `beta`, `gamma_mult`, `max_step`, `control_step`, `double_damp`, `mu_reg`, `max_mu_reg_adaptions`.

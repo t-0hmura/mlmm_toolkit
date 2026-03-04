@@ -57,6 +57,13 @@ mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
 mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --dry-run
 ```
 
+4. Use the ORB backend with xTB point-charge embedding.
+
+```bash
+mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" \
+ --backend orb --embedcharge --out-dir ./result_all_orb
+```
+
 PDB companions are generated when templates are available, controlled by `--convert-files/--no-convert-files` (enabled by default).
 
 ## Usage
@@ -199,6 +206,8 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments without recursive refinement. | `True` |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | _Default_ |
 
 TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (only when explicitly provided) -> TSOPT default (`hess` -> `heavy`).
@@ -349,7 +358,9 @@ calc:
 mlmm:
  real_parm7: real.parm7
  model_pdb: ml_region.pdb
- uma_model: uma-s-1p1
+ backend: uma                    # MLIP backend: uma | orb | mace | aimnet2
+ embedcharge: false              # xTB point-charge embedding correction
+ uma_model: uma-s-1p1            # UMA backend only
  ml_hessian_mode: Analytical     # recommended when VRAM permits
 gs:
  max_nodes: 12

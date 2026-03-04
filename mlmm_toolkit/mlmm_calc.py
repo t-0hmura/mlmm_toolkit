@@ -1,5 +1,6 @@
 """
-ONIOM-like ML/MM calculator coupling FAIR-Chem UMA (ML) and hessian_ff (MM).
+ONIOM-like ML/MM calculator coupling MLIP backends (UMA, ORB, MACE, AIMNet2)
+with hessian_ff (MM).
 
 Example:
     calc = mlmm(input_pdb="input.pdb", real_parm7="real.parm7", model_pdb="model.pdb", charge=0)
@@ -9,13 +10,18 @@ For detailed documentation, see: docs/mlmm_calc.md
 
 from __future__ import annotations
 
+import abc
+import logging
 import os
+import warnings
 import shutil
 import tempfile
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
 
 import click
 import numpy as np
@@ -40,20 +46,530 @@ try:
 except ImportError:
     HAS_OPENMM = False
 
+# Optional fairchem import (UMA backend)
 try:
     from fairchem.core import pretrained_mlip
     from fairchem.core.datasets.atomic_data import AtomicData
     from fairchem.core.datasets import data_list_collater
-except ImportError as e:
-    raise ImportError(
-        "fairchem-core is required. Install with `pip install fairchem-core` "
-        "and ensure Hugging Face authentication is configured."
-    ) from e
+    HAS_FAIRCHEM = True
+except ImportError:
+    HAS_FAIRCHEM = False
+
+# Optional ORB backend
+try:
+    import orb_models  # noqa: F401
+    HAS_ORB = True
+except ImportError:
+    HAS_ORB = False
+
+# Optional MACE backend
+try:
+    import mace  # noqa: F401
+    HAS_MACE = True
+except ImportError:
+    HAS_MACE = False
+
+# Optional AIMNet2 backend
+try:
+    import aimnet  # noqa: F401
+    HAS_AIMNET2 = True
+except ImportError:
+    HAS_AIMNET2 = False
 
 # ---------- PySisyphus unit constants ----------
 from pysisyphus.constants import BOHR2ANG, ANG2BOHR, AU2EV, AU2KCALPERMOL
 EV2AU = 1.0 / AU2EV  # eV → Hartree
 KCALMOL2EV = AU2EV / AU2KCALPERMOL  # kcal/mol -> eV
+
+
+# ======================================================================
+#                    ML Backend Abstraction
+# ======================================================================
+
+
+class _MLBackend(abc.ABC):
+    """Internal abstraction for the ML part of the ONIOM ML/MM coupling.
+
+    Each backend must provide energy/force evaluation and Hessian computation.
+    All quantities are in eV and Angstrom.
+    """
+
+    @abc.abstractmethod
+    def eval(
+        self, atoms: Atoms, need_grad: bool = True
+    ) -> Tuple[float, np.ndarray, Any]:
+        """Evaluate energy and forces.
+
+        Returns
+        -------
+        E : float
+            Energy in eV.
+        F : ndarray (N, 3)
+            Forces in eV/Å.
+        opaque : Any
+            Backend-specific data needed for analytical Hessian (e.g., batch).
+        """
+
+    @abc.abstractmethod
+    def hessian_analytical(self, opaque: Any, n_atoms: int, *, dtype: torch.dtype) -> torch.Tensor:
+        """Compute analytical Hessian from the opaque batch returned by eval().
+
+        Returns Hessian as a (N, 3, N, 3) torch Tensor in eV/Å².
+        """
+
+    def hessian_fd(
+        self,
+        atoms: Atoms,
+        freeze_model: Sequence[int],
+        *,
+        eps_ang: float = 1.0e-3,
+        dtype: torch.dtype = torch.float32,
+        device: torch.device = torch.device("cpu"),
+    ) -> torch.Tensor:
+        """Compute Hessian via finite differences (central difference).
+
+        Generic implementation that works for all backends.
+        """
+        n_atoms = len(atoms)
+        dof = n_atoms * 3
+
+        frozen_set = set(int(i) for i in freeze_model)
+        active_atoms = [i for i in range(n_atoms) if i not in frozen_set]
+        active_dof_idx = [3 * i + j for i in active_atoms for j in range(3)]
+
+        H = torch.zeros((dof, dof), device=device, dtype=dtype)
+        coord0 = atoms.get_positions().copy()
+        for k in active_dof_idx:
+            a = k // 3
+            c = k % 3
+
+            atoms.positions = coord0.copy()
+            atoms.positions[a, c] = coord0[a, c] + eps_ang
+            _, Fp, _ = self.eval(atoms, need_grad=False)
+
+            atoms.positions = coord0.copy()
+            atoms.positions[a, c] = coord0[a, c] - eps_ang
+            _, Fm, _ = self.eval(atoms, need_grad=False)
+
+            col = -(torch.from_numpy(Fp.reshape(-1)) - torch.from_numpy(Fm.reshape(-1))) / (2.0 * eps_ang)
+            H[:, k] = col.to(device, dtype=dtype)
+
+        atoms.positions = coord0
+        return H.view(n_atoms, 3, n_atoms, 3)
+
+    @property
+    @abc.abstractmethod
+    def supports_analytical_hessian(self) -> bool:
+        """Whether this backend supports analytical Hessian."""
+
+    @property
+    @abc.abstractmethod
+    def device(self) -> torch.device:
+        """The torch device this backend uses."""
+
+
+class _UMABackend(_MLBackend):
+    """UMA (FAIR-Chem) ML backend."""
+
+    def __init__(
+        self,
+        *,
+        uma_model: str = "uma-s-1p1",
+        uma_task_name: str = "omol",
+        model_charge: int = 0,
+        model_mult: int = 1,
+        ml_device: torch.device,
+    ):
+        if not HAS_FAIRCHEM:
+            raise ImportError(
+                "fairchem-core is required for the UMA backend. "
+                "Install with `pip install fairchem-core` "
+                "and ensure Hugging Face authentication is configured."
+            )
+        self._device = ml_device
+        device_str = "cuda" if ml_device.type == "cuda" else "cpu"
+        self._AtomicData = AtomicData
+        self._data_list_collater = data_list_collater
+        self.predictor = pretrained_mlip.get_predict_unit(uma_model, device=device_str)
+        self.predictor.model.eval()
+        for m in self.predictor.model.modules():
+            if isinstance(m, nn.Dropout):
+                m.p = 0.0
+        self.uma_task_name = uma_task_name
+        self.model_charge = model_charge
+        self.model_mult = model_mult
+        backbone = getattr(self.predictor.model, "module", self.predictor.model).backbone
+        self._uma_max_neigh = getattr(backbone, "max_neighbors", None)
+        self._uma_radius = getattr(backbone, "cutoff", None)
+
+    @property
+    def supports_analytical_hessian(self) -> bool:
+        return True
+
+    @property
+    def device(self) -> torch.device:
+        return self._device
+
+    def eval(self, atoms: Atoms, need_grad: bool = True) -> Tuple[float, np.ndarray, Any]:
+        atoms.info.update({"charge": self.model_charge, "spin": self.model_mult - 1})
+        data = self._AtomicData.from_ase(
+            atoms,
+            max_neigh=self._uma_max_neigh,
+            radius=self._uma_radius,
+            r_edges=False,
+        ).to(self._device)
+        data.dataset = self.uma_task_name
+        batch = self._data_list_collater([data], otf_graph=True).to(self._device)
+        pos = batch.pos.detach().clone().to(self._device)
+        pos.requires_grad_(need_grad)
+        batch.pos = pos
+        if need_grad:
+            res = self.predictor.predict(batch)
+        else:
+            with torch.no_grad():
+                res = self.predictor.predict(batch)
+        E = float(res["energy"].squeeze().detach().item())
+        F = res["forces"].detach().cpu().numpy()
+        return E, F, batch
+
+    def hessian_analytical(self, opaque: Any, n_atoms: int, *, dtype: torch.dtype) -> torch.Tensor:
+        batch = opaque
+        p_flags = [p.requires_grad for p in self.predictor.model.parameters()]
+        for p in self.predictor.model.parameters():
+            p.requires_grad_(False)
+
+        self.predictor.model.train()
+        try:
+            pos = batch.pos
+
+            def energy_fn(flat_pos: torch.Tensor):
+                batch.pos = flat_pos.view(-1, 3)
+                return self.predictor.predict(batch)["energy"].squeeze()
+
+            H_flat = torch.autograd.functional.hessian(energy_fn, pos.view(-1), vectorize=False)
+            H = H_flat.view(n_atoms, 3, n_atoms, 3).to(dtype).detach()
+        finally:
+            self.predictor.model.eval()
+            for p, flag in zip(self.predictor.model.parameters(), p_flags):
+                p.requires_grad_(flag)
+            if self._device.type == "cuda":
+                torch.cuda.empty_cache()
+        return H
+
+
+class _ASEMLBackend(_MLBackend):
+    """Base class for ASE-calculator-based ML backends (ORB, MACE, AIMNet2).
+
+    Subclasses must set ``self._ase_calc`` (an ASE Calculator) and
+    ``self._device``.
+    """
+
+    _ase_calc: Calculator
+    _device: torch.device
+    _model_charge: int = 0
+    _model_mult: int = 1
+
+    @property
+    def supports_analytical_hessian(self) -> bool:
+        return False
+
+    @property
+    def device(self) -> torch.device:
+        return self._device
+
+    def eval(self, atoms: Atoms, need_grad: bool = True) -> Tuple[float, np.ndarray, Any]:
+        atoms_copy = atoms.copy()
+        atoms_copy.calc = self._ase_calc
+        # Propagate charge/spin to ASE Atoms info for backends that use them
+        # (e.g. AIMNet2 reads atoms.info['charge'] and atoms.info['mult'])
+        atoms_copy.info["charge"] = self._model_charge
+        atoms_copy.info["mult"] = self._model_mult
+        E = float(atoms_copy.get_potential_energy())
+        F = np.array(atoms_copy.get_forces(), dtype=np.float64)
+        return E, F, None
+
+    def hessian_analytical(self, opaque: Any, n_atoms: int, *, dtype: torch.dtype) -> torch.Tensor:
+        raise NotImplementedError(
+            f"Analytical Hessian is not supported by {self.__class__.__name__}. "
+            "Use hessian_calc_mode='FiniteDifference'."
+        )
+
+
+class _OrbBackend(_ASEMLBackend):
+    """ORB (Orbital Materials) ML backend."""
+
+    def __init__(
+        self,
+        *,
+        orb_model: str = "orb_v3_conservative_omol",
+        model_charge: int = 0,
+        model_mult: int = 1,
+        ml_device: torch.device,
+        **_kwargs,  # absorb unused keys (e.g. orb_precision)
+    ):
+        if not HAS_ORB:
+            raise ImportError(
+                "orb-models is required for the ORB backend. "
+                "Install with `pip install orb-models`."
+            )
+        from orb_models.forcefield import pretrained
+        from orb_models.forcefield.calculator import ORBCalculator
+
+        device_str = "cuda" if ml_device.type == "cuda" else "cpu"
+        orbff = getattr(pretrained, orb_model)(device=device_str)
+        self._ase_calc = ORBCalculator(orbff, device=device_str)
+        self._device = ml_device
+        self._model_charge = model_charge
+        self._model_mult = model_mult
+
+
+class _MACEBackend(_ASEMLBackend):
+    """MACE ML backend."""
+
+    def __init__(
+        self,
+        *,
+        mace_model: str = "MACE-OMOL-0",
+        mace_dtype: str = "float64",
+        model_charge: int = 0,
+        model_mult: int = 1,
+        ml_device: torch.device,
+    ):
+        if not HAS_MACE:
+            raise ImportError(
+                "mace-torch is required for the MACE backend. "
+                "Install with `pip install mace-torch`."
+            )
+        from mace.calculators import mace_off, mace_mp, mace_anicc
+
+        device_str = "cuda" if ml_device.type == "cuda" else "cpu"
+        model_lower = mace_model.lower()
+
+        # Resolve model name to the appropriate factory
+        if model_lower.startswith("mp:") or model_lower.startswith("mace-mp"):
+            model_name = mace_model.split(":", 1)[-1] if ":" in mace_model else mace_model
+            self._ase_calc = mace_mp(
+                model=model_name, device=device_str, default_dtype=mace_dtype
+            )
+        elif model_lower.startswith("off:") or model_lower.startswith("mace-off"):
+            model_name = mace_model.split(":", 1)[-1] if ":" in mace_model else mace_model
+            self._ase_calc = mace_off(
+                model=model_name, device=device_str, default_dtype=mace_dtype
+            )
+        elif model_lower.startswith("anicc") or model_lower.startswith("mace-anicc"):
+            self._ase_calc = mace_anicc(device=device_str, default_dtype=mace_dtype)
+        elif model_lower.startswith("omol") or model_lower.startswith("mace-omol"):
+            # MACE-OMOL uses mace_off with the omol model
+            self._ase_calc = mace_off(
+                model=mace_model, device=device_str, default_dtype=mace_dtype
+            )
+        else:
+            # Treat as a local model file or direct mace_off model
+            self._ase_calc = mace_off(
+                model=mace_model, device=device_str, default_dtype=mace_dtype
+            )
+
+        self._device = ml_device
+        self._model_charge = model_charge
+        self._model_mult = model_mult
+
+
+class _AIMNet2Backend(_ASEMLBackend):
+    """AIMNet2 ML backend."""
+
+    def __init__(
+        self,
+        *,
+        aimnet2_model: str = "aimnet2",
+        model_charge: int = 0,
+        model_mult: int = 1,
+        ml_device: torch.device,
+    ):
+        if not HAS_AIMNET2:
+            raise ImportError(
+                "aimnet is required for the AIMNet2 backend. "
+                "Install with `pip install aimnet`."
+            )
+        from aimnet.calculators import AIMNet2Calculator
+
+        device_str = "cuda" if ml_device.type == "cuda" else "cpu"
+        self._ase_calc = AIMNet2Calculator(model=aimnet2_model, device=device_str)
+        self._device = ml_device
+        self._model_charge = model_charge
+        self._model_mult = model_mult
+
+
+def _create_ml_backend(
+    backend: str,
+    *,
+    uma_model: str = "uma-s-1p1",
+    uma_task_name: str = "omol",
+    orb_model: str = "orb_v3_conservative_omol",
+    mace_model: str = "MACE-OMOL-0",
+    mace_dtype: str = "float64",
+    aimnet2_model: str = "aimnet2",
+    model_charge: int = 0,
+    model_mult: int = 1,
+    ml_device: torch.device,
+) -> _MLBackend:
+    """Factory function to create the appropriate ML backend."""
+    backend = backend.strip().lower()
+    if backend == "uma":
+        return _UMABackend(
+            uma_model=uma_model,
+            uma_task_name=uma_task_name,
+            model_charge=model_charge,
+            model_mult=model_mult,
+            ml_device=ml_device,
+        )
+    elif backend == "orb":
+        return _OrbBackend(
+            orb_model=orb_model,
+            model_charge=model_charge,
+            model_mult=model_mult,
+            ml_device=ml_device,
+        )
+    elif backend == "mace":
+        return _MACEBackend(
+            mace_model=mace_model,
+            mace_dtype=mace_dtype,
+            model_charge=model_charge,
+            model_mult=model_mult,
+            ml_device=ml_device,
+        )
+    elif backend == "aimnet2":
+        return _AIMNet2Backend(
+            aimnet2_model=aimnet2_model,
+            model_charge=model_charge,
+            model_mult=model_mult,
+            ml_device=ml_device,
+        )
+    else:
+        raise ValueError(
+            f"Unknown ML backend '{backend}'. Choose from: uma, orb, mace, aimnet2."
+        )
+
+
+# ======================================================================
+#             xTB Point-Charge Embedding Correction
+# ======================================================================
+
+
+class _EmbedChargeCorrection:
+    """xTB-based point-charge embedding correction for ONIOM ML/MM.
+
+    Computes the electrostatic interaction between the ML region and
+    the MM point charges via xTB:
+
+        dE = E_xTB(ML + MM_charges) - E_xTB(ML_only)
+        dF = F_xTB(ML + MM_charges) - F_xTB(ML_only)
+
+    This accounts for the environmental electrostatic effect of MM
+    atoms on the ML region, which is not captured by the subtractive
+    ONIOM scheme alone.
+    """
+
+    def __init__(
+        self,
+        *,
+        xtb_cmd: str = "xtb",
+        xtb_acc: float = 0.2,
+        xtb_workdir: str = "tmp",
+        xtb_keep_files: bool = False,
+        xtb_ncores: int = 4,
+        hessian_step: float = 1.0e-3,
+    ):
+        self.xtb_cmd = xtb_cmd
+        self.xtb_acc = xtb_acc
+        self.xtb_workdir = xtb_workdir
+        self.xtb_keep_files = xtb_keep_files
+        self.xtb_ncores = xtb_ncores
+        self.hessian_step = hessian_step
+
+    def compute_correction(
+        self,
+        symbols: List[str],
+        coords_ml_ang: np.ndarray,
+        mm_coords_ang: np.ndarray,
+        mm_charges: np.ndarray,
+        charge: int,
+        multiplicity: int,
+        *,
+        need_forces: bool = False,
+        need_hessian: bool = False,
+    ) -> Tuple[float, Optional[np.ndarray], Optional[np.ndarray]]:
+        """Compute point-charge embedding correction.
+
+        Parameters
+        ----------
+        symbols : list of str
+            Element symbols for ML atoms.
+        coords_ml_ang : ndarray (N_ML, 3)
+            Coordinates of ML atoms in Angstrom.
+        mm_coords_ang : ndarray (N_MM, 3)
+            Coordinates of MM point charges in Angstrom.
+        mm_charges : ndarray (N_MM,)
+            Charges of MM point charges in atomic units.
+        charge : int
+            Total charge of the ML region.
+        multiplicity : int
+            Spin multiplicity of the ML region.
+        need_forces : bool
+            Whether to compute force corrections.
+        need_hessian : bool
+            Whether to compute Hessian corrections.
+
+        Returns
+        -------
+        dE : float
+            Energy correction in eV.
+        dF_ml : ndarray (N_ML, 3) or None
+            Force corrections for ML atoms in eV/Å.
+        dH_ml : ndarray (3*N_ML, 3*N_ML) or None
+            Hessian correction for ML atoms in eV/Å².
+        """
+        from .xtb_embedcharge_correction import delta_embedcharge_minus_noembed
+
+        n_ml = len(symbols)
+        mm_coords = np.asarray(mm_coords_ang, dtype=np.float64).reshape(-1, 3)
+        mm_q = np.asarray(mm_charges, dtype=np.float64).reshape(-1)
+        n_mm = mm_q.shape[0]
+
+        if n_mm == 0:
+            dF = np.zeros((n_ml, 3), dtype=np.float64) if need_forces else None
+            dH = np.zeros((3 * n_ml, 3 * n_ml), dtype=np.float64) if need_hessian else None
+            return 0.0, dF, dH
+
+        dE_ev, dF_full_ev, dH_full_ev = delta_embedcharge_minus_noembed(
+            symbols=symbols,
+            coords_q_ang=np.asarray(coords_ml_ang, dtype=np.float64).reshape(-1, 3),
+            mm_coords_ang=mm_coords,
+            mm_charges=mm_q,
+            charge=charge,
+            multiplicity=multiplicity,
+            need_forces=need_forces or need_hessian,
+            need_hessian=need_hessian,
+            xtb_cmd=self.xtb_cmd,
+            xtb_acc=self.xtb_acc,
+            xtb_workdir=self.xtb_workdir,
+            xtb_keep_files=self.xtb_keep_files,
+            ncores=self.xtb_ncores,
+            hessian_step=self.hessian_step,
+        )
+
+        dF_ml = None
+        if dF_full_ev is not None:
+            # Extract only the ML-atom forces (first n_ml rows)
+            dF_ml = np.asarray(dF_full_ev, dtype=np.float64).reshape(-1, 3)[:n_ml]
+
+        dH_ml = None
+        if dH_full_ev is not None:
+            # Extract only the ML-atom Hessian block
+            dof_ml = 3 * n_ml
+            dH_full = np.asarray(dH_full_ev, dtype=np.float64)
+            dH_ml = dH_full[:dof_ml, :dof_ml]
+
+        return float(dE_ev), dF_ml, dH_ml
 
 
 # ======================================================================
@@ -400,7 +916,7 @@ class OpenMMCalculator(Calculator):
 
 
 # ======================================================================
-#                               ML/MM Core (UMA)
+#                          ML/MM Core (Multi-Backend)
 # ======================================================================
 
 @dataclass(frozen=True)
@@ -424,7 +940,12 @@ class _MMLowOut:
 
 
 class MLMMCore:
-    """UMA‑only ONIOM-like ML/MM engine."""
+    """ONIOM-like ML/MM engine supporting multiple MLIP backends.
+
+    Supported ML backends: UMA (default), ORB, MACE, AIMNet2.
+    Supported MM backends: hessian_ff (analytical), OpenMM (FD).
+    Optional xTB point-charge embedding correction for environmental effects.
+    """
 
     def __init__(
         self,
@@ -435,8 +956,16 @@ class MLMMCore:
         model_charge: Optional[int] = 0,
         model_mult: int = 1,
         link_mlmm: List[Tuple[str, str]] | None = None,
+        # ML backend selection
+        backend: str = "uma",
         uma_model: str = "uma-s-1p1",
         uma_task_name: str = "omol",
+        orb_model: str = "orb_v3_conservative_omol",
+        orb_precision: str = "float32",
+        mace_model: str = "MACE-OMOL-0",
+        mace_dtype: str = "float64",
+        aimnet2_model: str = "aimnet2",
+        # MM settings
         mm_fd: bool = True,
         mm_fd_dir: Optional[str] = None,
         mm_fd_delta: float = 1e-3,
@@ -460,6 +989,14 @@ class MLMMCore:
         hess_mm_atoms: Optional[List[int]] = None,
         movable_mm_atoms: Optional[List[int]] = None,
         frozen_mm_atoms: Optional[List[int]] = None,
+        # Point-charge embedding correction
+        embedcharge: bool = False,
+        embedcharge_step: float = 1.0e-3,
+        xtb_cmd: str = "xtb",
+        xtb_acc: float = 0.2,
+        xtb_workdir: str = "tmp",
+        xtb_keep_files: bool = False,
+        xtb_ncores: int = 4,
     ):
         self._tmpdir_obj = tempfile.TemporaryDirectory()
         self.tmpdir: str = self._tmpdir_obj.name
@@ -534,21 +1071,36 @@ class MLMMCore:
         self.device_str = ml_device
         self.ml_device = torch.device(f"cuda:{ml_cuda_idx}" if ml_device == "cuda" else "cpu")
 
-        self._AtomicData = AtomicData
-        self._data_list_collater = data_list_collater
-        self.predictor = pretrained_mlip.get_predict_unit(uma_model, device=self.device_str)
-        self.predictor.model.eval()
-        for m in self.predictor.model.modules():
-            if isinstance(m, nn.Dropout):
-                m.p = 0.0
-
-        self.uma_task_name = uma_task_name
         self.model_charge = int(0 if model_charge is None else model_charge)
         self.model_mult = int(model_mult)
+        self.backend_name = str(backend).strip().lower()
 
-        backbone = getattr(self.predictor.model, "module", self.predictor.model).backbone
-        self._uma_max_neigh = getattr(backbone, "max_neighbors", None)
-        self._uma_radius = getattr(backbone, "cutoff", None)
+        # Create ML backend via factory
+        self._ml_backend = _create_ml_backend(
+            self.backend_name,
+            uma_model=uma_model,
+            uma_task_name=uma_task_name,
+            orb_model=orb_model,
+            mace_model=mace_model,
+            mace_dtype=mace_dtype,
+            aimnet2_model=aimnet2_model,
+            model_charge=self.model_charge,
+            model_mult=self.model_mult,
+            ml_device=self.ml_device,
+        )
+
+        # Point-charge embedding correction
+        self.embedcharge = bool(embedcharge)
+        self._embed_correction: Optional[_EmbedChargeCorrection] = None
+        if self.embedcharge:
+            self._embed_correction = _EmbedChargeCorrection(
+                xtb_cmd=xtb_cmd,
+                xtb_acc=xtb_acc,
+                xtb_workdir=xtb_workdir,
+                xtb_keep_files=xtb_keep_files,
+                xtb_ncores=xtb_ncores,
+                hessian_step=embedcharge_step,
+            )
 
         # MM backend selection: hessian_ff or openmm
         self.mm_backend = str(mm_backend).strip().lower()
@@ -585,6 +1137,17 @@ class MLMMCore:
         for _ in self.mlmm_links:
             tmp += Atoms("H", positions=[[0.0, 0.0, 0.0]])
         self._atoms_model_LH_tpl = tmp
+
+    def cleanup(self):
+        """Clean up temporary directory."""
+        if hasattr(self, '_tmpdir_obj') and self._tmpdir_obj is not None:
+            try:
+                self._tmpdir_obj.cleanup()
+            except Exception:
+                logger.debug("Failed to clean up tmpdir", exc_info=True)
+
+    def __del__(self):
+        self.cleanup()
 
     @staticmethod
     def _pdb_atom_key(line: str) -> str:
@@ -896,6 +1459,7 @@ class MLMMCore:
 
     @staticmethod
     def _jacobian_blocks_numpy(r_ml: np.ndarray, r_mm: np.ndarray, dist: float) -> Optional[np.ndarray]:
+        """Returns J shape (6, 3): rows=[Q_xyz, M_xyz], cols=L_xyz."""
         vec = r_mm - r_ml
         R = np.linalg.norm(vec)
         if R < 1e-12:
@@ -916,6 +1480,7 @@ class MLMMCore:
         dtype: torch.dtype,
         device: torch.device,
     ) -> Optional[torch.Tensor]:
+        """Returns K shape (3, 6): rows=L_xyz, cols=[Q_xyz, M_xyz]."""
         vec = r_mm - r_ml
         Rlen = torch.norm(vec)
         if float(Rlen) < 1e-12:
@@ -927,101 +1492,58 @@ class MLMMCore:
         dR_dM = dist * du_dQ
         return torch.hstack([dR_dQ, dR_dM])
 
-    def _uma_eval(self, atoms: Atoms, need_grad: bool = True):
-        atoms.info.update({"charge": self.model_charge, "spin": self.model_mult})
-        data = self._AtomicData.from_ase(
-            atoms,
-            max_neigh=self._uma_max_neigh,
-            radius=self._uma_radius,
-            r_edges=False,
-        ).to(self.ml_device)
-        data.dataset = self.uma_task_name
-        batch = self._data_list_collater([data], otf_graph=True).to(self.ml_device)
-        pos = batch.pos.detach().clone().to(self.ml_device)
-        pos.requires_grad_(need_grad)
-        batch.pos = pos
-        if need_grad:
-            res = self.predictor.predict(batch)
-        else:
-            with torch.no_grad():
-                res = self.predictor.predict(batch)
-        E = float(res["energy"].squeeze().detach().item())
-        F = res["forces"].detach().cpu().numpy()
-        return E, F, batch
+    def _get_mm_charges(self, atom_indices: Sequence[int]) -> np.ndarray:
+        """Retrieve MM partial charges for the given atom indices.
 
-    def _uma_hessian_analytical(self, batch, n_atoms: int) -> torch.Tensor:
-        p_flags = [p.requires_grad for p in self.predictor.model.parameters()]
-        for p in self.predictor.model.parameters():
-            p.requires_grad_(False)
-
-        self.predictor.model.train()
-        try:
-            pos = batch.pos
-
-            def energy_fn(flat_pos: torch.Tensor):
-                batch.pos = flat_pos.view(-1, 3)
-                return self.predictor.predict(batch)["energy"].squeeze()
-
-            H_flat = torch.autograd.functional.hessian(energy_fn, pos.view(-1), vectorize=False)
-            H = H_flat.view(n_atoms, 3, n_atoms, 3).to(self.H_dtype).detach()
-        finally:
-            self.predictor.model.eval()
-            for p, flag in zip(self.predictor.model.parameters(), p_flags):
-                p.requires_grad_(flag)
-            if self.ml_device.type == "cuda":
-                torch.cuda.empty_cache()
-        return H
-
-    def _uma_hessian_fd(
-        self,
-        atoms: Atoms,
-        freeze_model: Sequence[int],
-        *,
-        eps_ang: float = 1.0e-3,
-    ) -> torch.Tensor:
-        n_atoms = len(atoms)
-        dof = n_atoms * 3
-        dev = self.ml_device
-        dtype = self.H_dtype
-
-        frozen_set = set(int(i) for i in freeze_model)
-        active_atoms = [i for i in range(n_atoms) if i not in frozen_set]
-        active_dof_idx = [3 * i + j for i in active_atoms for j in range(3)]
-
-        H = torch.zeros((dof, dof), device=dev, dtype=dtype)
-        coord0 = atoms.get_positions().copy()
-        for k in active_dof_idx:
-            a = k // 3
-            c = k % 3
-
-            atoms.positions = coord0.copy()
-            atoms.positions[a, c] = coord0[a, c] + eps_ang
-            _, Fp, _ = self._uma_eval(atoms, need_grad=False)
-
-            atoms.positions = coord0.copy()
-            atoms.positions[a, c] = coord0[a, c] - eps_ang
-            _, Fm, _ = self._uma_eval(atoms, need_grad=False)
-
-            col = - (torch.from_numpy(Fp.reshape(-1)) - torch.from_numpy(Fm.reshape(-1))) / (2.0 * eps_ang)
-            H[:, k] = col.to(dev, dtype=dtype)
-
-        return H.view(n_atoms, 3, n_atoms, 3)
+        Works with both hessian_ff (ParmEd system) and OpenMM backends.
+        """
+        calc = self.calc_real_low
+        # hessian_ff: ParmEd-loaded system with .atoms[i].charge
+        if hasattr(calc, "system") and hasattr(getattr(calc, "system", None), "atoms"):
+            return np.array(
+                [calc.system.atoms[i].charge for i in atom_indices],
+                dtype=np.float64,
+            )
+        # OpenMM: extract charges from NonbondedForce
+        if hasattr(calc, "system") and HAS_OPENMM:
+            sys_omm = calc.system
+            for fi in range(sys_omm.getNumForces()):
+                force = sys_omm.getForce(fi)
+                if force.__class__.__name__ == "NonbondedForce":
+                    charges = np.array(
+                        [force.getParticleParameters(i)[0].value_in_unit(
+                            unit.elementary_charge)
+                         for i in atom_indices],
+                        dtype=np.float64,
+                    )
+                    return charges
+        # Fallback: zero charges
+        warnings.warn(
+            "Could not extract MM charges from the calculator; returning zeros. "
+            "Embedcharge correction will have no effect.",
+            RuntimeWarning,
+        )
+        return np.zeros(len(atom_indices), dtype=np.float64)
 
     def _eval_ml_high(self, atoms_model_LH: Atoms, freeze_model: Sequence[int], *, return_hessian: bool) -> _MLHighOut:
         local_timing: Dict[str, float | str] = {}
-        E_model_high, F_model_high, batch_h = self._uma_eval(atoms_model_LH, need_grad=True)
+        E_model_high, F_model_high, opaque = self._ml_backend.eval(atoms_model_LH, need_grad=True)
+        local_timing["ml_backend"] = self.backend_name
 
         H_high = None
         if return_hessian:
             n_mlLH = len(atoms_model_LH)
-            if self._ml_hessian_mode == "analytical":
+            if self._ml_hessian_mode == "analytical" and self._ml_backend.supports_analytical_hessian:
                 t0 = time.perf_counter()
-                H_high = self._uma_hessian_analytical(batch_h, n_mlLH)
+                H_high = self._ml_backend.hessian_analytical(opaque, n_mlLH, dtype=self.H_dtype)
                 local_timing["ml_hessian_mode"] = "Analytical"
                 local_timing["ml_hessian_s"] = time.perf_counter() - t0
             else:
                 t0 = time.perf_counter()
-                H_high = self._uma_hessian_fd(atoms_model_LH, freeze_model, eps_ang=1.0e-3)
+                H_high = self._ml_backend.hessian_fd(
+                    atoms_model_LH, freeze_model,
+                    eps_ang=1.0e-3, dtype=self.H_dtype, device=self.ml_device,
+                )
                 local_timing["ml_hessian_mode"] = "FiniteDifference"
                 local_timing["ml_hessian_s"] = time.perf_counter() - t0
 
@@ -1048,6 +1570,8 @@ class MLMMCore:
             info_model = os.path.join(self.mm_fd_dir, "model.log") if self.mm_fd_dir else None
 
             atoms_real_for_hess = atoms_real.copy()
+            # Clear any inherited constraints before applying hess-specific ones
+            atoms_real_for_hess.set_constraint()
             atoms_real_for_hess.calc = self.calc_real_low
             if self.hess_freeze_atoms:
                 atoms_real_for_hess.set_constraint(FixAtoms(indices=self.hess_freeze_atoms))
@@ -1143,6 +1667,47 @@ class MLMMCore:
                 F_combined[ml_idx] += redistributed[:3]
                 F_combined[mm_idx] += redistributed[3:]
             results["forces"] = F_combined
+
+        # Point-charge embedding correction (optional)
+        embed_dH = None
+        if self.embedcharge and self._embed_correction is not None:
+            t0_embed = time.perf_counter()
+            # ML atom symbols and coordinates
+            ml_symbols = [atoms_model_LH[i].symbol for i in range(len(self._atoms_model_tpl))]
+            ml_coords = np.array([atoms_model_LH[i].position for i in range(len(self._atoms_model_tpl))])
+            # MM atom coordinates and charges from the real topology
+            ml_set = set(self.selection_indices)
+            mm_atom_indices = [i for i in range(len(atoms_real)) if i not in ml_set]
+            if mm_atom_indices:
+                mm_coords = atoms_real.get_positions()[mm_atom_indices]
+                # Get MM partial charges from the topology
+                mm_charges = self._get_mm_charges(mm_atom_indices)
+
+                dE_embed, dF_embed, dH_embed = self._embed_correction.compute_correction(
+                    symbols=ml_symbols,
+                    coords_ml_ang=ml_coords,
+                    mm_coords_ang=mm_coords,
+                    mm_charges=mm_charges,
+                    charge=self.model_charge,
+                    multiplicity=self.model_mult,
+                    need_forces=return_forces or return_hessian,
+                    need_hessian=return_hessian,
+                )
+
+                # Add energy correction
+                results["energy"] += dE_embed
+
+                # Add force corrections on ML atoms
+                if dF_embed is not None and (return_forces or return_hessian):
+                    for i, ridx in enumerate(self.selection_indices):
+                        if i < len(dF_embed):
+                            results["forces"][ridx] += dF_embed[i]
+
+                # Store Hessian correction for later assembly
+                if dH_embed is not None:
+                    embed_dH = dH_embed
+
+                timing["embedcharge_s"] = time.perf_counter() - t0_embed
 
         if return_hessian:
             n_real = len(atoms_real)
@@ -1292,6 +1857,17 @@ class MLMMCore:
                         H[mm_b_active, :, mm_a_active, :].add_(HBA[3:6, 3:6])
                 timing["hess_asm_link_link_s"] = time.perf_counter() - t_asm
 
+            # Add point-charge embedding Hessian correction
+            if embed_dH is not None:
+                t_asm = time.perf_counter()
+                n_model_atoms = len(self.selection_indices)
+                dH_t = torch.from_numpy(embed_dH).to(self.ml_device, self.H_dtype)
+                dH_t = dH_t.view(n_model_atoms, 3, n_model_atoms, 3)
+                if ml_sel_idx.numel() > 0:
+                    dH_sub = dH_t.index_select(0, ml_sel_idx).index_select(2, ml_sel_idx)
+                    H[ml_active_idx[:, None], :, ml_active_idx[None, :], :] += dH_sub.permute(0, 2, 1, 3)
+                timing["hess_asm_embed_s"] = time.perf_counter() - t_asm
+
             if self.symmetrize_hessian:
                 t_asm = time.perf_counter()
                 H_flat = H.view(3 * n_hess_active, 3 * n_hess_active)
@@ -1417,8 +1993,16 @@ class mlmm(PySiCalc):
         model_charge: int = 0,
         model_mult: int = 1,
         link_mlmm: List[Tuple[str, str]] | None = None,
+        # ML backend selection
+        backend: str = "uma",
         uma_model: str = "uma-s-1p1",
         uma_task_name: str = "omol",
+        orb_model: str = "orb_v3_conservative_omol",
+        orb_precision: str = "float32",
+        mace_model: str = "MACE-OMOL-0",
+        mace_dtype: str = "float64",
+        aimnet2_model: str = "aimnet2",
+        # MM settings
         mm_fd: bool = True,
         mm_fd_dir: Optional[str] = None,
         mm_fd_delta: float = 1e-3,
@@ -1443,6 +2027,14 @@ class mlmm(PySiCalc):
         hess_mm_atoms: Optional[List[int]] = None,
         movable_mm_atoms: Optional[List[int]] = None,
         frozen_mm_atoms: Optional[List[int]] = None,
+        # Point-charge embedding correction
+        embedcharge: bool = False,
+        embedcharge_step: float = 1.0e-3,
+        xtb_cmd: str = "xtb",
+        xtb_acc: float = 0.2,
+        xtb_workdir: str = "tmp",
+        xtb_keep_files: bool = False,
+        xtb_ncores: int = 4,
         **kwargs,
     ):
         self._freeze_atoms = [] if freeze_atoms is None else list(freeze_atoms)
@@ -1455,8 +2047,13 @@ class mlmm(PySiCalc):
             model_charge=model_charge,
             model_mult=model_mult,
             link_mlmm=link_mlmm,
+            backend=backend,
             uma_model=uma_model,
             uma_task_name=uma_task_name,
+            orb_model=orb_model,
+            mace_model=mace_model,
+            mace_dtype=mace_dtype,
+            aimnet2_model=aimnet2_model,
             mm_fd=mm_fd,
             mm_fd_dir=mm_fd_dir,
             mm_fd_delta=mm_fd_delta,
@@ -1480,6 +2077,13 @@ class mlmm(PySiCalc):
             hess_mm_atoms=hess_mm_atoms,
             movable_mm_atoms=movable_mm_atoms,
             frozen_mm_atoms=frozen_mm_atoms,
+            embedcharge=embedcharge,
+            embedcharge_step=embedcharge_step,
+            xtb_cmd=xtb_cmd,
+            xtb_acc=xtb_acc,
+            xtb_workdir=xtb_workdir,
+            xtb_keep_files=xtb_keep_files,
+            xtb_ncores=xtb_ncores,
         )
 
         self.out_hess_torch = bool(out_hess_torch)

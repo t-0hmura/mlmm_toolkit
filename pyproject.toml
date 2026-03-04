@@ -20,9 +20,13 @@ keywords = [
     "reaction-mechanism",
 ]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
 ]
 dependencies = [
     # mlmm core dependencies
@@ -38,7 +42,6 @@ dependencies = [
     "click>=8.1,<9.0",
     "plotly>=6.1.1",
     "kaleido",
-    "gpu4pyscf-cuda12x",
     "pyscf",
 
     # pysisyphus dependencies (bundled)
@@ -64,6 +67,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+orb = ["orb-models"]
+mace = ["mace-torch"]
+aimnet2 = ["aimnet"]
+cuda12 = ["gpu4pyscf-cuda12x"]
+dev = ["pytest", "pytest-cov", "pytest-timeout"]
 docs = [
     "sphinx>=7.0",
     "myst-parser>=2.0",
@@ -71,11 +79,21 @@ docs = [
     "sphinx-copybutton>=0.5",
 ]
 
+[project.urls]
+Homepage = "https://github.com/t-0hmura/mlmm_toolkit"
+Repository = "https://github.com/t-0hmura/mlmm_toolkit"
+Documentation = "https://github.com/t-0hmura/mlmm_toolkit/tree/main/docs"
+"Bug Tracker" = "https://github.com/t-0hmura/mlmm_toolkit/issues"
+
 [project.scripts]
 mlmm = "mlmm_toolkit.cli:cli"
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "hessian_ff/tests"]
+addopts = "-v --tb=short --timeout=120"
+markers = [
+    "slow: marks tests as slow",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -88,4 +106,4 @@ hessian_ff = ["native/*.cpp", "native/*.md"]
 [tool.setuptools_scm]
 version_file = "mlmm_toolkit/_version.py"
 version_scheme = "guess-next-dev"
-local_scheme = "node-and-date"
+local_scheme = "no-local-version"

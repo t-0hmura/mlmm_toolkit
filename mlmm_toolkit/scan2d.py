@@ -15,13 +15,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
 
 import ast
+import logging
 import math
+import shutil
 import sys
 import textwrap
 import traceback
 import tempfile
 import os
 import time
+
+logger = logging.getLogger(__name__)
 
 import click
 import numpy as np
@@ -77,7 +81,7 @@ from .utils import (
     snapshot_geometry,
     convert_and_annotate_xyz_to_pdb,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 
 # Shared defaults (copied from opt.py to keep ML/MM behaviour consistent)
 GEOM_KW: Dict[str, Any] = deepcopy(_OPT_GEOM_KW)
@@ -299,10 +303,10 @@ def _make_lbfgs(
 )
 @click.option(
     "--thresh",
-    type=str,
+    type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="Convergence preset (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
+    help="Convergence preset.",
 )
 @click.option(
     "--config",
@@ -353,7 +357,23 @@ def _make_lbfgs(
     show_default=True,
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
+@click.pass_context
 def cli(
+    ctx: click.Context,
     input_path: Path,
     real_parm7: Path,
     model_pdb: Optional[Path],
@@ -382,7 +402,11 @@ def cli(
     zmin: Optional[float],
     zmax: Optional[float],
     convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
+    _is_param_explicit = make_is_param_explicit(ctx)
+
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
@@ -400,6 +424,7 @@ def cli(
         click.echo("ERROR: --ref-pdb is required when --input is an XYZ file.", err=True)
         sys.exit(1)
 
+    tmp_root = None
     try:
         with prepare_input_structure(input_path) as prepared_input:
             try:
@@ -473,6 +498,10 @@ def cli(
             calc_cfg["model_mult"] = int(spin)
             calc_cfg["input_pdb"] = str(source_path)
             calc_cfg["real_parm7"] = str(real_parm7)
+            if backend is not None:
+                calc_cfg["backend"] = str(backend).lower()
+            if _is_param_explicit("embedcharge"):
+                calc_cfg["embedcharge"] = bool(embedcharge)
 
             # movable_cutoff implies full distance-based layer assignment.
             # hess_cutoff alone can be combined with --detect-layer.
@@ -633,7 +662,7 @@ def cli(
                 try:
                     geom_outer.freeze_atoms = np.array(freeze, dtype=int)
                 except Exception:
-                    pass
+                    logger.debug("Failed to set freeze_atoms on geometry", exc_info=True)
 
             base_calc = mlmm(**calc_cfg)
             biased = HarmonicBiasCalculator(base_calc, k=float(bias_cfg["k"]))
@@ -1171,3 +1200,6 @@ def cli(
         tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         click.echo("Unhandled exception during 2D scan:\n" + textwrap.indent(tb, "  "), err=True)
         sys.exit(1)
+    finally:
+        if tmp_root is not None:
+            shutil.rmtree(tmp_root, ignore_errors=True)

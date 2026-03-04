@@ -14,10 +14,10 @@
 - **`--opt-mode heavy`（RS-I-RFO）** を使用: デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合。
 - **`--opt-mode light`（Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。
 
-`mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。オプティマイザーは TS 推測構造から開始し、一次鞍点へ精密化します。
+`mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。`--backend` で ML バックエンドを選択可能です（`uma`、`orb`、`mace`、`aimnet2`）。`--embedcharge` で xTB 点電荷埋め込み補正を有効化し、MM 環境から ML 領域への静電的影響を考慮できます。オプティマイザーは TS 推測構造から開始し、一次鞍点へ精密化します。
 
 ### 主な特徴
-- **部分ヘシアンガイド付き Dimer:** ゆるい/最終 Dimer ループ中、hessian_ff 有限差分ヘシアンは無効化（`mm_fd=False`）されます。UMA ヘシアンは MM 原子をゼロパディングして完全な 3N x 3N 空間に埋め込まれ、Dimer の方向更新をガイドする部分ヘシアンを提供します。
+- **部分ヘシアンガイド付き Dimer:** ゆるい/最終 Dimer ループ中、hessian_ff 有限差分ヘシアンは無効化（`mm_fd=False`）されます。MLIP ヘシアンは MM 原子をゼロパディングして完全な 3N x 3N 空間に埋め込まれ、Dimer の方向更新をガイドする部分ヘシアンを提供します。
 - **完全ヘシアンによるフラットンループ:** 探索がフラットンループに入ると、完全な ML/MM ヘシアン（MM 有限差分ブロックを含む）が正確に 1 回計算され、その後 Dimer セグメント間で Bofill ステップによりアクティブ部分空間で更新されます。
 - **PHVA + TR 射影:** アクティブ自由度射影と質量加重並進/回転除去は `freq.py` をミラーリングし、一貫した虚数モード解析とモード書き出しを保証します。
 - **出力変換:** `--convert-files`（デフォルト）により、PDB 入力は `.pdb` にミラーリングされ（`--dump` 時）、虚数モードは `_trj.xyz` とともに `.pdb` としてもエクスポートされます。
@@ -58,10 +58,17 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
 ```
 
+4. MACE バックエンドで TS 最適化を実行する。
+
+```bash
+mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -m 1 --backend mace --out-dir ./result_tsopt_mace
+```
+
 ## ワークフロー
 
 1. **入力処理** -- 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
-2. **ML/MM 計算機の構築** -- ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を構築します。`--hessian-calc-mode` は UMA がヘシアンを解析的に評価するか有限差分で評価するかを制御します。
+2. **ML/MM 計算機の構築** -- ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築します。`--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がヘシアンを解析的に評価するか有限差分で評価するかを制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 4. **Light モード（Dimer）:**
    - ヘシアン Dimer ステージは、正確なヘシアン（アクティブ部分空間、TR 射影済み）を評価して Dimer 方向を定期的に更新します。
    - フラットンループが有効な場合（`--flatten`）、保存されたアクティブヘシアンは変位と勾配差分を使用した Bofill で更新されます。各ループで虚数モードを推定し、一度フラットンし、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
@@ -74,6 +81,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
+| `--backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `-i, --input PATH` | 開始ジオメトリ（PDB または XYZ）。XYZ の場合はトポロジーに `--ref-pdb` を使用。 | 必須 |
 | `--ref-pdb FILE` | 入力が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `--parm PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
@@ -86,9 +95,9 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定時は `--detect-layer` が無効化。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
-| `--hessian-calc-mode CHOICE` | UMA ヘシアンモード: `Analytical` または `FiniteDifference`。 | _None_ |
+| `--hessian-calc-mode CHOICE` | MLIP ヘシアンモード: `Analytical` または `FiniteDifference`。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザーサイクル。 | `10000` |
-| `--opt-mode CHOICE` | TS オプティマイザーモード: `light`（Dimer）または `heavy`（RS-I-RFO）。 | `heavy` |
+| `--opt-mode CHOICE` | TS オプティマイザーモード: `grad`（Dimer）または `hess`（RS-I-RFO）。エイリアス `light`/`heavy` も使用可。 | `hess` |
 | `--flatten/--no-flatten` | 余分な虚数モードのフラットンループを有効化。light と heavy の両モードに適用。 | `False` |
 | `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
@@ -129,9 +138,11 @@ calc:
 mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
- uma_model: uma-s-1p1              # UMA モデルタグ
- uma_task_name: omol                # UMA タスク名
- ml_device: auto                   # UMA デバイス選択
+ backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
+ embedcharge: false                # xTB 点電荷埋め込み補正
+ uma_model: uma-s-1p1              # UMA モデルタグ (backend=uma 時)
+ uma_task_name: omol                # UMA タスク名 (backend=uma 時)
+ ml_device: auto                   # ML デバイス選択
  ml_hessian_mode: FiniteDifference  # ヘシアンモード選択
 opt:
  thresh: baker                     # 収束プリセット（Gaussian/Baker 式）

@@ -4,7 +4,7 @@
 
 > **Summary:** Optimizes a single structure to a local minimum using L-BFGS (`--opt-mode grad`, default) or RFO (`--opt-mode hess`). Optional imaginary-mode flattening can be enabled with `--flatten`. Microiteration (`--microiter`, default on) alternates ML 1-step and MM relaxation in `hess` mode.
 
-`mlmm opt` optimizes a single structure to a local minimum using L-BFGS (`--opt-mode grad`, default) or RFO (`--opt-mode hess`). Aliases `light`/`heavy` and `lbfgs`/`rfo` are also accepted. The ML/MM calculator (FAIR-Chem UMA + hessian_ff) provides energies, gradients, and Hessians. Input structures can be `.pdb`, `.xyz`, `_trj.xyz`, or any format supported by `geom_loader`. Settings follow precedence: **defaults < config < explicit CLI < override**.
+`mlmm opt` optimizes a single structure to a local minimum using L-BFGS (`--opt-mode grad`, default) or RFO (`--opt-mode hess`). Aliases `light`/`heavy` and `lbfgs`/`rfo` are also accepted. The ML/MM calculator (MLIP backend + hessian_ff) provides energies, gradients, and Hessians. The MLIP backend is selected via `--backend` (default: `uma`; choices: `uma`, `orb`, `mace`, `aimnet2`). Input structures can be `.pdb`, `.xyz`, `_trj.xyz`, or any format supported by `geom_loader`. Settings follow precedence: **defaults < config < explicit CLI < override**.
 
 When the starting structure is a PDB, the command also writes `.pdb` companions, controlled by `--convert-files/--no-convert-files` (enabled by default). PDB-specific conveniences include:
 - Output conversion produces `final_geometry.pdb` (and `optimization.pdb` when dumping trajectories) using the input PDB as the topology reference.
@@ -52,10 +52,17 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
+4. Use the ORB backend instead of the default UMA.
+
+```bash
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 --backend orb --out-dir ./result_opt_orb
+```
+
 ## Workflow
 
 1. **Input handling** -- The tool requires `-i/--input` to be a PDB file (the enzyme complex). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Hessian-target MM, B=20 frozen MM).
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (FAIR-Chem UMA + hessian_ff). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region. When `--embedcharge` is enabled, xTB point-charge embedding is applied to correct for MM-to-ML environmental electrostatic effects.
 4. **Optimization** -- `--opt-mode light` runs L-BFGS and `--opt-mode heavy` runs RFOptimizer (RFO).
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
 5. **Restraints** -- `--dist-freeze` consumes Python-literal tuples `(i, j, target_A)` where `target_A` is the target distance in angstrom; omitting the third element restrains the starting distance. `--bias-k` sets a global harmonic strength (eV/A^2). Indices default to 1-based but can be flipped to 0-based with `--zero-based`.
@@ -93,6 +100,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--thresh TEXT` | Override convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--config FILE` | Base YAML configuration file. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layer information before execution. | `False` |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running optimization. | `False` |
 
 ### Convergence threshold presets
@@ -134,7 +143,7 @@ Settings are applied with **defaults < config < explicit CLI < override**. Accep
 - `input_pdb`, `real_parm7`, `model_pdb`: required file paths (strings).
 - `model_charge` (`-q/--charge`, required) and `model_mult` (`-m/--multiplicity`, default 1).
 - `link_mlmm`: optional list of `(ML_atom_id, MM_atom_id)` strings to pin ML/MM link pairs (no link atoms created).
-- UMA controls: `uma_model` (default `"uma-s-1p1"`), `uma_task_name` (default `"omol"`), `ml_hessian_mode` (`"Analytical"` or `"FiniteDifference"`), `out_hess_torch` (bool), `H_double` (bool).
+- ML backend controls: `backend` (default `"uma"`; choices `uma`, `orb`, `mace`, `aimnet2`), `embedcharge` (default `false`). UMA-specific: `uma_model` (default `"uma-s-1p1"`), `uma_task_name` (default `"omol"`). Shared: `ml_hessian_mode` (`"Analytical"` or `"FiniteDifference"`), `out_hess_torch` (bool), `H_double` (bool).
 - Device selection: `ml_device` (`"auto"`/`"cuda"`/`"cpu"`), `ml_cuda_idx`, `mm_device`, `mm_cuda_idx`, `mm_threads`.
 - MM finite difference: `mm_fd` (bool), `mm_fd_dir` (output dir for FD info), and whether to `return_partial_hessian`.
 - `return_partial_hessian`: for `opt`, partial Hessian is used by default when this key is not explicitly set in YAML. Set `calc.return_partial_hessian: false` to force full Hessian output.
@@ -169,9 +178,11 @@ calc:
 mlmm:
  real_parm7: real.parm7         # Amber parm7 topology for the full enzyme
  model_pdb: ml_region.pdb       # PDB defining the ML region
- uma_model: uma-s-1p1           # UMA model tag
- uma_task_name: omol             # UMA task name
- ml_device: auto                # UMA device selection
+ backend: uma                   # MLIP backend: uma | orb | mace | aimnet2
+ embedcharge: false             # xTB point-charge embedding correction
+ uma_model: uma-s-1p1           # UMA model tag (UMA backend only)
+ uma_task_name: omol             # UMA task name (UMA backend only)
+ ml_device: auto                # ML backend device selection
  ml_hessian_mode: FiniteDifference  # Hessian mode selection
  out_hess_torch: true           # request torch-form Hessian
  mm_fd: false                   # MM finite-difference toggle

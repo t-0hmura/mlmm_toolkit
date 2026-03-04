@@ -107,7 +107,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `10` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--opt-mode [light\|heavy]` | 単一構造オプティマイザープリセット（`light` = LBFGS、`heavy` = RFO）。 | `light` |
+| `--opt-mode [grad\|hess]` | 単一構造オプティマイザープリセット（`grad` = LBFGS、`hess` = RFO）。 | `grad` |
 | `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に入力を剛体アライメント。 | 有効 |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`）。 | _デフォルト_ |
@@ -117,6 +117,9 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。 | `False` |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力
 
@@ -143,7 +146,7 @@ out_dir/ (デフォルト:./result_path_search/)
 YAML ルートはマッピングでなければなりません。受け付けるセクション:
 
 - **`geom`** -- `coord_type`（デフォルト `"cart"`）、`freeze_atoms`（0 始まりインデックス）。
-- **`calc` / `mlmm`** -- ML/MM 計算機設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、UMA 制御（`uma_model`、`uma_task_name`、`ml_hessian_mode`）、デバイス選択、凍結原子。
+- **`calc` / `mlmm`** -- ML/MM 計算機設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、バックエンド選択（`backend`、`embedcharge`）、UMA 制御（`uma_model`、`uma_task_name`、`ml_hessian_mode`）、デバイス選択、凍結原子。
 - **`gs`** -- Growing String 設定: `max_nodes`、`climb`、`climb_rms`、`climb_fixed`、`reparam_every_full`、`reparam_check`。
 - **`opt`** -- StringOptimizer 制御: `max_cycles`、`print_every`、`dump`、`dump_restart`、`out_dir`。
 - **`lbfgs`** -- HEI+/-1 精密化用の単一構造オプティマイザー制御: `keep_last`、`beta`、`gamma_mult`、`max_step`、`control_step`、`double_damp`、`mu_reg`、`max_mu_reg_adaptions`。

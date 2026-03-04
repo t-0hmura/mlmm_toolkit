@@ -11,7 +11,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | **ML/MM** | Machine Learning / Molecular Mechanics | A multi-scale method that couples a machine-learning interatomic potential (for the reactive region) with a classical force field (for the surrounding environment). Analogous to QM/MM but with ML replacing QM. |
 | **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | A multi-layer energy decomposition scheme. mlmm_toolkit uses an ONIOM-like subtraction: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low. |
 | **Real system** | — | The full set of atoms (all 3 layers). Evaluated at the MM (low) level in the ONIOM decomposition. |
-| **Model system** | — | The ML region (Layer 1). Evaluated at both the UMA (high) and MM (low) levels in the ONIOM decomposition. |
+| **Model system** | — | The ML region (Layer 1). Evaluated at both the MLIP (high) and MM (low) levels in the ONIOM decomposition. |
 | **hessian_ff** | — | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm_toolkit. |
 | **3-layer system** | — | mlmm_toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen (B=20.0). |
 | **B-factor encoding** | — | Convention of storing layer membership in the PDB B-factor (temperature factor) column: 0.0 = ML, 10.0 = Movable-MM, 20.0 = Frozen. Hessian-target MM is controlled by cutoffs/explicit indices. |
@@ -67,9 +67,13 @@ This page provides definitions for abbreviations and technical terms used throug
 | Term | Full Name | Description |
 |------|-----------|-------------|
 | **MLIP** | Machine Learning Interatomic Potential | A model (often neural-network-based) that predicts energies and forces from atomic structures, trained on quantum-mechanical data. |
-| **UMA** | Universal Machine-learning potential for Atoms | Meta's family of pretrained MLIPs used as the ML calculator backend in mlmm_toolkit. |
-| **Analytical Hessian** | — | Computing the exact second derivatives of energy; faster but requires more VRAM. |
-| **Finite Difference** | — | Approximating derivatives by small displacements; slower but more memory-efficient. |
+| **UMA** | Universal Machine-learning potential for Atoms | Meta's family of pretrained MLIPs. The default ML backend in mlmm_toolkit (`--backend uma`). One of several supported backends. |
+| **ORB** | ORB Models | A family of pretrained MLIPs from Orbital Materials. Supported as an alternative ML backend (`--backend orb`). |
+| **MACE** | MACE | A message-passing equivariant neural network MLIP. Supported as an alternative ML backend (`--backend mace`). |
+| **AIMNet2** | AIMNet2 | A neural network potential for organic molecules. Supported as an alternative ML backend (`--backend aimnet2`). |
+| **xTB** | Extended Tight-Binding | A semi-empirical quantum chemistry method. Used for point-charge embedding correction when `--embedcharge` is enabled. |
+| **Analytical Hessian** | — | Computing the exact second derivatives of energy; faster but requires more VRAM. Currently available for the UMA backend only. |
+| **Finite Difference** | — | Approximating derivatives by small displacements; slower but more memory-efficient. Used by ORB, MACE, and AIMNet2 backends. |
 
 ---
 
@@ -78,7 +82,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | Term | Full Name | Description |
 |------|-----------|-------------|
 | **QM** | Quantum Mechanics | First-principles electronic structure calculations (DFT, HF, post-HF, etc.). |
-| **QM/MM** | Quantum Mechanics / Molecular Mechanics | A multi-scale method coupling QM for the reactive region with MM for the environment. mlmm_toolkit replaces the QM layer with ML (UMA). |
+| **QM/MM** | Quantum Mechanics / Molecular Mechanics | A multi-scale method coupling QM for the reactive region with MM for the environment. mlmm_toolkit replaces the QM layer with an MLIP backend. |
 | **DFT** | Density Functional Theory | A quantum-mechanical method that models electronic structure via electron density functionals. |
 | **Hessian** | — | The matrix of second derivatives of energy with respect to atomic coordinates; used for vibrational analysis and TS optimization. |
 | **SP** | Single Point | A calculation at a fixed geometry (no optimization); often used for higher-level energy refinement. |
