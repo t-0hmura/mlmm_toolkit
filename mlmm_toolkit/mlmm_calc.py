@@ -1073,7 +1073,7 @@ class MLMMCore:
 
         self.model_charge = int(0 if model_charge is None else model_charge)
         self.model_mult = int(model_mult)
-        self.backend_name = str(backend).strip().lower()
+        self.backend_name = str(backend).strip().lower() if backend is not None else "uma"
 
         # Create ML backend via factory
         self._ml_backend = _create_ml_backend(

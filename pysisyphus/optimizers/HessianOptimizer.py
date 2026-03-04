@@ -639,6 +639,10 @@ class HessianOptimizer(Optimizer):
 
         g2_nz, lam_nz = g2[nz], lam[nz]
 
+        # Guard against alpha ≈ 0 (can arise from trust-radius adaptation)
+        if abs(alpha) < 1e-14:
+            return None
+
         def f_df(mu):
             d = alpha * mu - lam_nz
             return float(np.sum(g2_nz / d) - mu), float(-alpha * np.sum(g2_nz / d**2) - 1.0)

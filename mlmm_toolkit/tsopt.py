@@ -1708,7 +1708,24 @@ def _run_microiter_tsopt(
     del h_init
 
     optim_all_path = out_dir_path / "optimization_all_trj.xyz"
+    macro_trj_path = out_dir_path / "optimization_trj.xyz"
     total_macro_steps = 0
+
+    # Create persistent RSIRFOptimizer once (LayerOpt pattern).
+    # This preserves the BFGS Hessian update chain across macro iterations.
+    # NOTE: geometry already has macro_calc set (line above); do NOT call
+    # set_calculator() again as it clears the pre-computed cart_hessian.
+    geometry.freeze_atoms = macro_freeze
+
+    rsirfo_args = dict(rsirfo_cfg)
+    rsirfo_args["max_cycles"] = max_cycles
+    rsirfo_args["out_dir"] = str(out_dir_path)
+    rsirfo_args["dump"] = False  # trajectory dumping handled externally
+    if macro_thresh is not None:
+        rsirfo_args["thresh"] = str(macro_thresh)
+
+    macro_optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
+    macro_optimizer.prepare_opt()  # initialise Hessian from geometry.cart_hessian
 
     for macro_iter in range(max_cycles):
         # ---- Macro step: 1 RS-I-RFO step with ONIOM forces, MM frozen ----
@@ -1717,27 +1734,33 @@ def _run_microiter_tsopt(
         geometry.freeze_atoms = macro_freeze
         geometry.set_calculator(macro_calc)
 
-        rsirfo_args = dict(rsirfo_cfg)
-        rsirfo_args["max_cycles"] = 1
-        rsirfo_args["out_dir"] = str(out_dir_path)
-        rsirfo_args["dump"] = dump
-        if macro_thresh is not None:
-            rsirfo_args["thresh"] = str(macro_thresh)
+        # Manually feed state to the persistent optimizer (cf. LayerOpt lines 358-364)
+        macro_optimizer.coords.append(geometry.coords.copy())
+        macro_optimizer.cart_coords.append(geometry.cart_coords.copy())
+        macro_optimizer.cur_cycle = macro_iter
 
-        optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
-        optimizer.run()
-        macro_converged = optimizer.is_converged
+        step = macro_optimizer.optimize()  # housekeeping() triggers BFGS update
+        macro_optimizer.steps.append(step)
+
+        # Convergence check
+        macro_converged, conv_info = macro_optimizer.check_convergence()
+        macro_optimizer.print_opt_progress(conv_info)
         total_macro_steps += 1
 
         if dump:
-            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
-
-        del optimizer
-        _clear_cuda_cache()
+            with open(macro_trj_path, "a") as f:
+                f.write(geometry.as_xyz() + "\n")
+            _append_xyz_trajectory(optim_all_path, macro_trj_path)
 
         if macro_converged:
             click.echo(f"[microiter] Macro convergence reached at iteration {macro_iter + 1}.")
             break
+
+        # Apply step to geometry
+        new_coords = geometry.coords.copy() + step
+        geometry.coords = new_coords
+        # Record actual step (may differ due to coordinate back-transformation)
+        macro_optimizer.steps[-1] = geometry.coords - macro_optimizer.coords[-1]
 
         # ---- Micro step: LBFGS with MM-only forces, ML frozen ----
         click.echo(f"[microiter] --- Micro relaxation (MM-only, max {micro_max_cycles} steps) ---")
@@ -1767,6 +1790,9 @@ def _run_microiter_tsopt(
 
     else:
         click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).")
+
+    del macro_optimizer
+    _clear_cuda_cache()
 
     click.echo(f"[microiter] Total macro steps: {total_macro_steps}")
     # Restore full calculator with only frozen MM frozen

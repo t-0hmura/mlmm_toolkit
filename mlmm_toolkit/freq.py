@@ -136,6 +136,7 @@ def _mw_projected_hessian(H_t: torch.Tensor,
         H_t.mul_(inv_sqrt_m_col)
 
         Q, _ = _tr_orthonormal_basis(coords_bohr_t, masses_au_t)  # (3N, r)
+        Q = Q.to(dtype=dtype, device=device)
         Qt = Q.T
 
         QtH = Qt @ H_t                   # (r,3N)

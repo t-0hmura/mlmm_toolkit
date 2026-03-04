@@ -540,9 +540,8 @@ def cli() -> None:
     click.echo(f"mlmm ver. {__version__}\n")
 
 
-# Silence pysisyphus logger without muting application/global logging.
-logging.getLogger("pysisyphus").setLevel(logging.CRITICAL)
-logging.getLogger("pysisyphus").propagate = False
+# Pysisyphus log suppression is handled by DefaultGroup._silence_pysisyphus_loggers()
+# which runs after lazy subcommand import (when pysisyphus __init__ handlers are created).
 
 # Filter noisy UMA/pydmf warnings that clutter CLI output
 warnings.filterwarnings(
