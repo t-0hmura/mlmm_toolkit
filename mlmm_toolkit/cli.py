@@ -79,7 +79,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         }
     ),
     "mm-parm": frozenset({"--add-ter", "--add-h", "--allow-nonstandard-aa", "--keep-temp"}),
-    "scan": frozenset({"--one-based", "--dump", "--preopt", "--endopt", "--convert-files", "--embedcharge", "--detect-layer", "--model-indices-one-based", "--print-parsed"}),
+    "scan": frozenset({"--one-based", "--dump", "--preopt", "--endopt", "--convert-files", "--embedcharge", "--detect-layer", "--model-indices-one-based", "--print-parsed", "--dry-run"}),
     "scan2d": frozenset({"--one-based", "--dump", "--preopt", "--convert-files", "--embedcharge", "--detect-layer", "--model-indices-one-based", "--print-parsed"}),
     "scan3d": frozenset({"--one-based", "--dump", "--preopt", "--convert-files", "--embedcharge", "--detect-layer", "--model-indices-one-based", "--print-parsed"}),
     "opt": frozenset(
@@ -231,6 +231,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "--backend",
             "--spec",
+            "--dry-run",
             "--out-dir",
             "--help-advanced",
         }

@@ -402,6 +402,13 @@ def _snapshot_geometry(g) -> Any:
     help="After each stage, run an additional unbiased optimization of the stage result.",
 )
 @click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    default=False,
+    show_default=True,
+    help="Validate options and print the execution plan without running the scan.",
+)
+@click.option(
     "--convert-files/--no-convert-files",
     "convert_files",
     default=True,
@@ -452,6 +459,7 @@ def cli(
     ref_pdb: Optional[Path],
     preopt: bool,
     endopt: bool,
+    dry_run: bool,
     convert_files: bool,
     backend: Optional[str],
     embedcharge: bool,
@@ -704,6 +712,36 @@ def cli(
                         },
                     )
                 )
+
+            if dry_run:
+                model_region_source = "bfactor"
+                if not detect_layer:
+                    if model_pdb is not None:
+                        model_region_source = "model_pdb"
+                    elif model_indices:
+                        model_region_source = "model_indices"
+                click.echo(
+                    pretty_block(
+                        "dry_run_plan",
+                        {
+                            "input_geometry": str(geom_input_path),
+                            "output_dir": str(out_dir_path),
+                            "detect_layer": bool(detect_layer),
+                            "model_region_source": model_region_source,
+                            "num_stages": len(stages),
+                            "stages_0based": stages,
+                            "preopt": bool(preopt),
+                            "endopt": bool(endopt),
+                            "bias_k": float(bias_cfg["k"]),
+                            "max_step_size": float(max_step_size),
+                            "max_cycles": int(max_cycles),
+                            "backend": calc_cfg.get("backend", "uma"),
+                            "embedcharge": bool(calc_cfg.get("embedcharge", False)),
+                        },
+                    )
+                )
+                click.echo("[dry-run] Validation complete. Scan execution was skipped.")
+                return
 
             if pdb_atom_meta:
                 click.echo("[scan] PDB atom details for scanned pairs:")

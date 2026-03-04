@@ -40,12 +40,14 @@ Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `-
 
 ### Supported ML potentials
 
-| Potential | Repository |
-|-----------|------------|
-| **UMA** | <https://github.com/facebookresearch/fairchem> |
-| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> |
+| Potential | Repository | Install extra |
+|-----------|------------|---------------|
+| **UMA** (default) | <https://github.com/facebookresearch/fairchem> | *(included)* |
+| **ORB** | <https://github.com/orbital-materials/orb-models> | `pip install mlmm_toolkit[orb]` |
+| **MACE** | <https://github.com/ACEsuit/mace> | `pip install mlmm_toolkit[mace]` |
+| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> | `pip install mlmm_toolkit[aimnet2]` |
 
-The MM layer uses **OpenMM**. Any force field capable of generating parameters (e.g., AMBER ff14SB + TIP3P + GAFF2) can be used.
+The MM layer uses an analytical Hessian force field (`hessian_ff`) by default. Any force field capable of generating Amber parameters (e.g., ff14SB + TIP3P + GAFF2) can be used.
 
 > **UMA-only workflow**
 > If you wish to perform chemical-reaction-mechanism analysis using **UMA alone** (without the ML/MM hybrid layer), a dedicated **UMA – Pysisyphus Interface** is available at **<https://github.com/t-0hmura/uma_pysis>**.
@@ -87,7 +89,7 @@ huggingface-cli login
 
 | Requirement | Notes |
 |-------------|-------|
-| **Python 3.11** | — |
+| **Python >= 3.11** | 3.12 also supported |
 | **CUDA runtime >= 12.6** | CUDA 12.8 recommended for RTX 50 series |
 | Linux / WSL 2 | — |
 
@@ -109,7 +111,7 @@ If you are on an HPC cluster that uses *environment modules*, load CUDA **before
 module load cuda/12.6
 ```
 
-> `mlmm_toolkit` internally installs `fairchem-core` and `aimnet` from forked repositories.
+> `fairchem-core` is a core dependency. `aimnet` and other ML backends (`orb-models`, `mace-torch`) are optional extras (e.g. `pip install mlmm_toolkit[aimnet2]`).
 
 ### Avoid AmberTools conflicts (optional)
 
@@ -176,12 +178,6 @@ mlmm tsopt -i TS_candidate_layered.pdb --parm complex.parm7 \
     -q 1 --opt-mode light
 ```
 
-### Generate a starter config template
-```bash
-mlmm init --out mlmm_all.config.yaml
-mlmm all --config mlmm_all.config.yaml --dry-run
-```
-
 ### Step-by-step workflow
 ```bash
 # 1. Generate MM parameters
@@ -225,7 +221,6 @@ For a step-by-step walkthrough, see [`examples/tutorial.md`](examples/tutorial.m
 | Subcommand | Role | Documentation |
 |---|---|---|
 | `all` | End-to-end: extraction → MEP → TS → IRC → freq → DFT | [docs/all.md](docs/all.md) |
-| `init` | Generate a starter YAML template for `mlmm all` | [docs/init.md](docs/init.md) |
 
 ### Structure Preparation
 
@@ -353,7 +348,7 @@ opt.run()
 
 > **Notes**
 > - `complex.pdb` is the reference PDB used when the Amber parameters were generated, whereas `structure.pdb` can contain any starting geometry.
-> - If `model_charge` is omitted, the charge is estimated with **RDKit**; set it explicitly for safety.
+> - If `model_charge` is omitted, it defaults to **0**. Always set it explicitly for charged systems.
 
 ---
 
