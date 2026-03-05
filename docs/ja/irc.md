@@ -55,8 +55,8 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 1. **入力準備** -- `geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
 2. **ML/MM 計算機の構築** -- `--parm` と `--model-pdb` から ML/MM 計算機を構築します。`--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP ヘシアン評価を制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
-4. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` で正方向を無効化可能）。ステップサイズとサイクル数で積分長を制御します。
-5. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、PDB コンパニオンが生成されます。
+3. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` で正方向を無効化可能）。ステップサイズとサイクル数で積分長を制御します。
+4. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、PDB コンパニオンが生成されます。
 
 ## CLIオプション
 
@@ -100,7 +100,7 @@ out_dir/ (デフォルト: ./result_irc/)
 ## YAML設定
 
 マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
-共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml_reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は YAML で明示しない場合 `true`（partial-first）がデフォルトです。
+共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml_reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は `true` に強制されます（partial Hessian、active-DOF 処理）。
 
 ### CLI から YAML へのマッピング
 
@@ -133,8 +133,8 @@ mlmm:
  uma_model: uma-s-1p1              # UMA モデルタグ (backend=uma 時)
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
- ml_hessian_mode: FiniteDifference  # ヘシアンモード選択
- return_partial_hessian: false     # irc では false に強制（完全ヘシアン）
+ ml_hessian_mode: Analytical         # ヘシアンモード選択
+ return_partial_hessian: true      # irc では true に強制（partial Hessian、active-DOF 処理）
 irc:
  step_length: 0.1                  # 積分ステップ長
  max_cycles: 125                   # IRC に沿った最大ステップ数
@@ -168,7 +168,7 @@ irc:
 - 電荷/多重度の運用ルールは [CLI Conventions](cli_conventions.md) に集約しています。
 - ML バックエンドのオプションは mlmm 計算機に直接渡されます。`device: "auto"` の場合、計算機は GPU/CPU を自動選択します。
 - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
-- `irc` は partial-first です。YAML で `calc.return_partial_hessian` を明示しない場合、初期ヘシアンは既定で部分ヘシアンになります。完全ヘシアンを使う場合は `calc.return_partial_hessian: false` を明示してください。
+- `irc` は `calc.return_partial_hessian: true` を強制します。初期ヘシアンおよび更新は pysisyphus の active-DOF 処理による partial Hessian を使用します。
 - `hessian_calc_mode: "FiniteDifference"` の場合、`geom.freeze_atoms` を使用して FD ヘシアン構築で凍結自由度をスキップできます。
 - `--step-size` は質量加重座標です。`--root` は初期変位に使用する虚数振動数インデックスを選択します。
 - 標準出力には進捗とタイミングが含まれます。終了コード: 成功時 `0`、`KeyboardInterrupt` 時 `130`、未処理例外時 `1`。

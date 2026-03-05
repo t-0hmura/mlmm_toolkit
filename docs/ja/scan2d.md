@@ -205,10 +205,10 @@ opt:
  thresh: baker
  max_cycles: 10000
  dump: false
- out_dir:./result_scan2d/
+ out_dir: ./result_scan2d/
 lbfgs:
  max_step: 0.3
- out_dir:./result_scan2d/
+ out_dir: ./result_scan2d/
 bias:
  k: 300.0
 ```

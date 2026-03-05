@@ -166,7 +166,7 @@ opt:
  reparam_thresh: 0.0 # StringOptimizer-only: reparameterization threshold
  coord_diff_thresh: 0.0 # StringOptimizer-only: coordinate difference threshold
  prefix: "" # Filename prefix
- out_dir:./result_opt/ # Output directory
+ out_dir: ./result_opt/ # Output directory
 ```
 
 **Convergence Presets:**
@@ -421,13 +421,17 @@ rsirfo:
  prim_coord: null # Primary coordinates to monitor
  rx_coords: null # Reaction coordinates to monitor
  hessian_update: bofill # Hessian update scheme
+ hessian_init: calc # Hessian initialization
  hessian_recalc_reset: true # Reset recalc counter after exact Hessian
  max_micro_cycles: 50 # Micro-iterations per macro cycle
  augment_bonds: false # Augment reaction path based on bond analysis
  min_line_search: false # Line search along imaginary mode (pysisyphus default)
  max_line_search: false # Line search in minimized subspace (pysisyphus default)
  assert_neg_eigval: false # Require negative eigenvalue at convergence
- # Also inherits rfo-like settings: trust_radius, trust_update, etc.
+ trust_radius: 0.30 # Trust region radius (pysisyphus TSHessianOptimizer default)
+ trust_update: true # Trust region update
+ trust_min: 0.10 # Minimum trust radius
+ trust_max: 0.50 # Maximum trust radius
 ```
 
 ---
@@ -459,7 +463,7 @@ irc:
  imag_below: 0.0 # Imaginary frequency cutoff
  force_inflection: true # Enforce inflection detection
  check_bonds: false # Check bonds during propagation
- out_dir:./result_irc/ # Output directory
+ out_dir: ./result_irc/ # Output directory
  prefix: "" # Filename prefix
  dump_fn: irc_data.h5 # IRC data filename
  dump_every: 5 # Dump stride
@@ -597,7 +601,7 @@ opt:
  thresh: gau
  max_cycles: 300
  dump: false
- out_dir:./result_all/
+ out_dir: ./result_all/
 
 stopt:
  thresh: gau_loose

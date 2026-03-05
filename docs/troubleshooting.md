@@ -337,8 +337,8 @@ Symptoms:
 
 Fixes to try:
 - Switch optimizer modes: `--opt-mode light` (Dimer) or `--opt-mode heavy` (RS-I-RFO).
-- Enable flattening of extra imaginary modes: `--flatten-imag-mode`.
-- Increase max cycles: `--tsopt-max-cycles 20000`.
+- Enable flattening of extra imaginary modes: `--flatten`.
+- Increase max cycles: `--max-cycles 20000`.
 - Use tighter convergence: `--thresh baker` or `--thresh gau_tight`.
 
 ---

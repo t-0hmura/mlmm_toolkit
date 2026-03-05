@@ -48,12 +48,6 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
-4. リンク凍結を有効にして PHVA を実行する。
-
-```bash
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
-```
-
 ## ワークフロー
 
 2. **ML/MM 計算機の構築** -- ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のヘシアンを選択します。計算機は完全な 3N x 3N ヘシアンまたはアクティブ自由度のサブブロックを返す場合があります。
@@ -73,7 +67,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | 必須 |
 | `--parm PATH` | 完全酵素の Amber parm7 トポロジー。 | 必須 |
-| `--model-pdb PATH` | ML 領域を定義する PDB。 | 必須 |
+| `--model-pdb PATH` | ML 領域を定義する PDB。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを自動検出。 | `True` |
@@ -132,9 +126,9 @@ mlmm:
  uma_model: uma-s-1p1              # UMA モデルタグ (backend=uma 時)
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
- ml_hessian_mode: FiniteDifference  # ヘシアンモード選択
+ ml_hessian_mode: Analytical         # ヘシアンモード選択
  out_hess_torch: true              # torch 形式ヘシアンを要求
- mm_fd: false                      # MM 有限差分トグル
+ mm_fd: true                       # MM 有限差分トグル
  return_partial_hessian: true      # 部分ヘシアンを許可（PHVA デフォルト）
 freq:
  amplitude_ang: 0.8                # モードの変位振幅 (A)

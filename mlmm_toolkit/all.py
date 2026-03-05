@@ -1129,7 +1129,7 @@ def _run_dft_for_state(pdb_path: Path,
                        detect_layer: bool,
                        out_dir: Path,
                        args_yaml: Optional[Path],
-                       func_basis: str = "wb97x-v/def2-tzvp",
+                       func_basis: str = "wb97m-v/def2-tzvpd",
                        overrides: Optional[Dict[str, Any]] = None,
                        backend: Optional[str] = None,
                        embedcharge: bool = False) -> Dict[str, Any]:

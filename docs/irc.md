@@ -55,8 +55,8 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 1. **Input preparation** -- Any format supported by `geom_loader` is accepted. When a reference PDB is available (input is `.pdb` or `--ref-pdb` is supplied), EulerPC trajectories are converted to PDB using that topology.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
-4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` disables forward). Step size and cycle count control integration length.
-5. **Output & conversion** -- Trajectories are written as XYZ; PDB companions are generated when a PDB template is available and `--convert-files` is enabled.
+3. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` disables forward). Step size and cycle count control integration length.
+4. **Output & conversion** -- Trajectories are written as XYZ; PDB companions are generated when a PDB template is available and `--convert-files` is enabled.
 
 ## CLI options
 
@@ -100,7 +100,7 @@ out_dir/ (default: ./result_irc/)
 ## YAML configuration
 
 Provide mappings with merge order **defaults < config < explicit CLI < override**.
-Shared sections reuse [YAML Reference](yaml_reference.md) for geometry/calculator keys. For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging. `calc.return_partial_hessian` defaults to `true` (partial-first) when not explicitly set in YAML.
+Shared sections reuse [YAML Reference](yaml_reference.md) for geometry/calculator keys. For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging. `calc.return_partial_hessian` is forced to `true` (partial Hessian with active-DOF processing).
 
 ### CLI-to-YAML mapping
 
@@ -133,8 +133,8 @@ mlmm:
  uma_model: uma-s-1p1              # UMA model tag (UMA backend only)
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
- ml_hessian_mode: FiniteDifference  # Hessian mode selection
- return_partial_hessian: false     # forced false for irc (full Hessian)
+ ml_hessian_mode: Analytical         # Hessian mode selection
+ return_partial_hessian: true      # forced true for irc (partial Hessian with active-DOF processing)
 irc:
  step_length: 0.1                  # integration step length
  max_cycles: 125                   # maximum steps along IRC
@@ -168,7 +168,7 @@ irc:
 - Charge/multiplicity policy is documented centrally in [CLI Conventions](cli_conventions.md).
 - ML backend options are passed directly to the mlmm calculator. With `device: "auto"`, the calculator selects GPU/CPU automatically.
 - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
-- `irc` is partial-first: when YAML does not explicitly set `calc.return_partial_hessian`, IRC seeds/uses a partial Hessian by default. Set `calc.return_partial_hessian: false` to force full Hessian.
+- `irc` forces `calc.return_partial_hessian: true`. The initial Hessian and subsequent updates use partial Hessian with active-DOF processing in pysisyphus.
 - If `hessian_calc_mode: "FiniteDifference"`, `geom.freeze_atoms` can still be used to skip frozen DOF in FD Hessian construction.
 - `--step-size` is in mass-weighted coordinates; `--root` selects the imaginary-frequency index used for the initial displacement.
 - Standard output includes progress and timing. Exit codes: `0` on success, `130` on `KeyboardInterrupt`, `1` on unhandled exceptions.

@@ -93,7 +93,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定時は `--detect-layer` が無効化。 | _None_ |
+| `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定時は `--detect-layer` が無効化。 | `0.0` |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
 | `--hessian-calc-mode CHOICE` | MLIP ヘシアンモード: `Analytical` または `FiniteDifference`。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザーサイクル。 | `10000` |
@@ -145,7 +145,7 @@ mlmm:
  uma_model: uma-s-1p1              # UMA モデルタグ (backend=uma 時)
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
- ml_hessian_mode: FiniteDifference  # ヘシアンモード選択
+ ml_hessian_mode: Analytical        # ヘシアンモード選択
 opt:
  thresh: baker                     # 収束プリセット（Gaussian/Baker 式）
  max_cycles: 10000                 # オプティマイザーサイクル上限
@@ -222,8 +222,8 @@ rsirfo:
  hessian_recalc_reset: true        # 正確なヘシアン後にリカルクカウンターをリセット
  max_micro_cycles: 50              # マクロサイクルごとのマイクロイテレーション
  augment_bonds: false              # 結合解析に基づく反応経路の拡張
- min_line_search: true             # 最小ラインサーチステップを強制
- max_line_search: true             # 最大ラインサーチステップを強制
+ min_line_search: false            # 最小ラインサーチステップを強制
+ max_line_search: false            # 最大ラインサーチステップを強制
  assert_neg_eigval: false          # 収束時に負の固有値を要求
 ```
 

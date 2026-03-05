@@ -413,6 +413,8 @@ DFT_KW: Dict[str, Any] = {
     "max_cycle": 100,
     "conv_tol": 1e-9,
     "grid_level": 3,
+    "verbose": 4,
+    "out_dir": "./result_dft/",
 }
 
 # -----------------------------------------------

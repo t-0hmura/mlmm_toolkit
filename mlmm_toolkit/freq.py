@@ -63,6 +63,18 @@ from .utils import (
 from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 
 
+def _safe_masses_amu(atomic_numbers) -> np.ndarray:
+    """Look up atomic masses with a clear error for unknown atomic numbers."""
+    max_z = len(atomic_masses) - 1
+    bad = [z for z in atomic_numbers if z < 0 or z > max_z or atomic_masses[z] == 0.0]
+    if bad:
+        raise ValueError(
+            f"Unknown or unsupported atomic number(s): {sorted(set(bad))}. "
+            "Check that all elements in the input structure are valid."
+        )
+    return np.array([atomic_masses[z] for z in atomic_numbers])
+
+
 def _torch_device(auto: str = "auto") -> torch.device:
     if auto == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -424,6 +436,11 @@ def _calc_full_hessian_torch(
         H = torch.as_tensor(H)
     H = H.to(device=device)
     energy = float(result.get("energy", 0.0))
+
+    del calc, result
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     return H, energy
 
 

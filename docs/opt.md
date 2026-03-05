@@ -183,9 +183,9 @@ mlmm:
  uma_model: uma-s-1p1           # UMA model tag (UMA backend only)
  uma_task_name: omol             # UMA task name (UMA backend only)
  ml_device: auto                # ML backend device selection
- ml_hessian_mode: FiniteDifference  # Hessian mode selection
+ ml_hessian_mode: Analytical         # Hessian mode selection
  out_hess_torch: true           # request torch-form Hessian
- mm_fd: false                   # MM finite-difference toggle
+ mm_fd: true                    # MM finite-difference toggle
  return_partial_hessian: true   # allow partial Hessians (default for opt)
 opt:
  thresh: gau                    # convergence preset (Gaussian/Baker-style)

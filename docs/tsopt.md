@@ -91,7 +91,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | Total charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
+| `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | `0.0` |
 | `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
@@ -145,7 +145,7 @@ mlmm:
  uma_model: uma-s-1p1              # UMA model tag (UMA backend only)
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
- ml_hessian_mode: FiniteDifference  # Hessian mode selection
+ ml_hessian_mode: Analytical        # Hessian mode selection
 opt:
  thresh: baker                     # convergence preset (Gaussian/Baker-style)
  max_cycles: 10000                 # optimizer cycle cap
@@ -222,8 +222,8 @@ rsirfo:
  hessian_recalc_reset: true        # reset recalc counter after exact Hessian
  max_micro_cycles: 50              # micro-iterations per macro cycle
  augment_bonds: false              # augment reaction path based on bond analysis
- min_line_search: true             # enforce minimum line-search step
- max_line_search: true             # enforce maximum line-search step
+ min_line_search: false            # enforce minimum line-search step
+ max_line_search: false            # enforce maximum line-search step
  assert_neg_eigval: false          # require a negative eigenvalue at convergence
 ```
 

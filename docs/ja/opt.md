@@ -184,9 +184,9 @@ mlmm:
  uma_model: uma-s-1p1           # UMA モデルタグ (backend=uma 時)
  uma_task_name: omol             # UMA タスク名 (backend=uma 時)
  ml_device: auto                # ML デバイス選択
- ml_hessian_mode: FiniteDifference  # ヘシアンモード選択
+ ml_hessian_mode: Analytical         # ヘシアンモード選択
  out_hess_torch: true           # torch 形式ヘシアンを要求
- mm_fd: false                   # MM 有限差分トグル
+ mm_fd: true                    # MM 有限差分トグル
  return_partial_hessian: true   # 部分ヘシアンを許可（opt のデフォルト）
 opt:
  thresh: gau                    # 収束プリセット（Gaussian/Baker 式）

@@ -58,21 +58,14 @@ from .utils import (
     set_convert_file_enabled,
 )
 from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+from .defaults import DFT_KW as _DFT_KW_DEFAULT
 
 from functools import reduce
 
 EV2AU = 1.0 / AU2EV
 
-# -----------------------------------------------
-# Defaults (override via CLI / YAML)
-# -----------------------------------------------
-DFT_KW: Dict[str, Any] = {
-    "conv_tol": 1e-9,
-    "max_cycle": 100,
-    "grid_level": 3,
-    "verbose": 4,
-    "out_dir": "./result_dft/",
-}
+# Module-level alias (deepcopy at use-site for mutable safety)
+DFT_KW = _DFT_KW_DEFAULT
 
 
 # -----------------------------------------------

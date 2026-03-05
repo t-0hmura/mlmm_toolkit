@@ -943,7 +943,11 @@ def cli(
 
             if baseline == "first":
                 mask = (df["i"] == 0) & (df["j"] == 0)
-                ref = float(df.loc[mask, "energy_hartree"].iloc[0])
+                if mask.sum() == 0:
+                    click.echo("WARNING: baseline='first' but grid point (0,0) not found; falling back to min.", err=True)
+                    ref = float(df["energy_hartree"].min())
+                else:
+                    ref = float(df.loc[mask, "energy_hartree"].iloc[0])
             else:
                 ref = float(df["energy_hartree"].min())
             df["energy_kcal"] = (df["energy_hartree"] - ref) * AU2KCALPERMOL

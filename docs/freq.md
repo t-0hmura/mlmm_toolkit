@@ -49,12 +49,6 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
-4. Run PHVA with link freezing enabled.
-
-```bash
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
-```
-
 ## Workflow
 
 2. **ML/MM calculator setup** -- The ML region is supplied via `--model-pdb`; Amber parameters are read from `--parm`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active-DOF sub-block.
@@ -72,7 +66,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | --- | --- | --- |
 | `-i, --input PATH` | Full enzyme PDB (no link atoms). | Required |
 | `--parm PATH` | Amber parm7 topology for the full enzyme. | Required |
-| `--model-pdb PATH` | PDB defining the ML region. | Required |
+| `--model-pdb PATH` | PDB defining the ML region. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors. | `True` |
@@ -132,9 +126,9 @@ mlmm:
  uma_model: uma-s-1p1              # UMA model tag (UMA backend only)
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
- ml_hessian_mode: FiniteDifference  # Hessian mode selection
+ ml_hessian_mode: Analytical         # Hessian mode selection
  out_hess_torch: true              # request torch-form Hessian
- mm_fd: false                      # MM finite-difference toggle
+ mm_fd: true                       # MM finite-difference toggle
  return_partial_hessian: true      # allow partial Hessians (PHVA default)
 freq:
  amplitude_ang: 0.8                # displacement amplitude for modes (A)

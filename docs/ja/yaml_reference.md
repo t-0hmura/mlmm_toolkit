@@ -81,7 +81,7 @@ calc:
  mm_device: cpu # MM デバイス (hessian_ff は CPU のみ、OpenMM は CUDA/CPU 対応)
  mm_cuda_idx: 0 # MM CUDA インデックス (OpenMM のみ)
  mm_threads: 16 # MM 計算のスレッド数
- mm_fd: true # MM ヘシアンを計算するか
+ mm_fd: true # MM ヘシアンに有限差分を使用
  mm_fd_dir: null # MM ヘシアンログの出力ディレクトリ
  mm_fd_delta: 0.001 # 有限差分ステップ（保持）
  symmetrize_hessian: true # 最終ヘシアンを 0.5*(H+H^T) で対称化
@@ -111,8 +111,8 @@ calc:
 - `hess_cutoff`/`movable_cutoff` を指定しない場合、ML 以外の全原子が Hessian 対象 MM に分類されます。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
-- `opt`/`tsopt`/`irc`/`freq` は、YAML で `mlmm.return_partial_hessian` を明示しない場合に部分ヘシアンを既定で使用します。
-- これらのコマンドで完全ヘシアンを強制するには `mlmm.return_partial_hessian: false` を明示してください。
+- `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分ヘシアンを既定で使用します。
+- これらのコマンドで完全ヘシアンを強制するには `calc.return_partial_hessian: false` を明示してください。
 
 ---
 
@@ -144,7 +144,7 @@ opt:
  reparam_thresh: 0.0 # StringOptimizer 専用: 再パラメータ化閾値
  coord_diff_thresh: 0.0 # StringOptimizer 専用: 座標差分閾値
  prefix: "" # ファイル名プレフィックス
- out_dir:./result_opt/ # 出力ディレクトリ
+ out_dir: ./result_opt/ # 出力ディレクトリ
 ```
 
 **収束プリセット:**
@@ -361,17 +361,17 @@ rsirfo:
  hessian_update: bofill # ヘシアン更新スキーム
  hessian_recalc_reset: true # 正確なヘシアン後に再計算カウンタをリセット
  hessian_init: calc # ヘシアン初期化
- hessian_recalc: 200 # ヘシアン再構築間隔
+ hessian_recalc: null # ヘシアン再構築間隔
  max_micro_cycles: 50 # マクロサイクルあたりのマイクロイテレーション数
  augment_bonds: false # 結合解析に基づく反応経路の拡張
  min_line_search: false # 虚モードに沿ったラインサーチ（pysisyphus デフォルト）
  max_line_search: false # 最小化部分空間でのラインサーチ（pysisyphus デフォルト）
  assert_neg_eigval: false # 収束時に負の固有値を要求
- trust_radius: 0.10 # 信頼領域半径
+ trust_radius: 0.30 # 信頼領域半径（pysisyphus TSHessianOptimizer デフォルト）
  trust_update: true # 信頼領域更新
- trust_min: 0.00 # 最小信頼半径
- trust_max: 0.30 # 最大信頼半径
- out_dir:./result_tsopt/ # 出力ディレクトリ
+ trust_min: 0.10 # 最小信頼半径
+ trust_max: 0.50 # 最大信頼半径
+ out_dir: ./result_tsopt/ # 出力ディレクトリ
 ```
 
 ---
@@ -439,7 +439,7 @@ irc:
  imag_below: 0.0 # 虚振動数カットオフ
  force_inflection: true # 変曲点検出の強制
  check_bonds: false # 伝搬中の結合チェック
- out_dir:./result_irc/ # 出力ディレクトリ
+ out_dir: ./result_irc/ # 出力ディレクトリ
  prefix: "" # ファイル名プレフィックス
  dump_fn: irc_data.h5 # IRC データファイル名
  dump_every: 5 # ダンプ間隔
@@ -492,7 +492,7 @@ microiter:
 ```
 
 **注意:**
-- CLIフラグ `--microiter` / `--no-microiter` で有効化（デフォルト: 無効）
+- CLIフラグ `--microiter` / `--no-microiter` で有効化（デフォルト: 有効）
 - `opt`（`--opt-mode hess`）および `tsopt`（`--opt-mode hess`）で使用可能
 - `micro_thresh` は `opt.thresh` と同じプリセット（gau_loose, gau, gau_tight等）を受け付けます
 
@@ -571,7 +571,7 @@ opt:
  thresh: gau
  max_cycles: 300
  dump: false
- out_dir:./result_all/
+ out_dir: ./result_all/
 
 bond:
  bond_factor: 1.2
