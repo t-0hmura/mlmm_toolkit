@@ -48,6 +48,7 @@
 症状:
 - `import hessian_ff` で ImportError が出る
 - `make` が失敗する（コンパイラが見つからない、ヘッダが見つからない等）
+- `RuntimeError: hessian_ff build attempts failed: ...` が出る
 
 対処:
 - C++ コンパイラ（gcc 8+ または clang）がインストールされていることを確認:
@@ -65,6 +66,7 @@
 - ビルドを再実行:
 
  ```bash
+ conda install -c conda-forge ninja -y
  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
  ```
 

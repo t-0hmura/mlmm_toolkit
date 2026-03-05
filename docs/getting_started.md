@@ -113,13 +113,13 @@ cd hessian_ff/native && make && cd ../..
 plotly_get_chrome -y
 ```
 
-If you run on a different environment (different node/container/Python/PyTorch), rebuild `hessian_ff` there.  
-On many clusters, install Ninja first, then rebuild:
-
-```bash
-conda install -c conda-forge ninja -y
-cd hessian_ff/native && make clean && make
-```
+> **Note:** If you switch to a different runtime environment (node/container/Python/PyTorch), rebuild `hessian_ff` in that environment.  
+> On many clusters, install Ninja first:
+>
+> ```bash
+> conda install -c conda-forge ninja -y
+> cd hessian_ff/native && make clean && make
+> ```
 
 Next, log in to **Hugging Face Hub** so that UMA models can be downloaded (only required when using the default `uma` backend). Either:
 
@@ -221,12 +221,13 @@ If you prefer to build the environment piece by piece:
  ```
 
  This compiles the C++ code that provides fast Amber force field energy, force, and Hessian calculations.
- If you move to a different runtime environment, install Ninja and rebuild in that environment:
 
- ```bash
- conda install -c conda-forge ninja -y
- cd hessian_ff/native && make clean && make
- ```
+ > **Note:** If you move to a different runtime environment, install Ninja and rebuild in that environment:
+ >
+ > ```bash
+ > conda install -c conda-forge ninja -y
+ > cd hessian_ff/native && make clean && make
+ > ```
 
 8. **Install Chrome for visualization**
 

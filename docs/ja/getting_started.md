@@ -111,13 +111,13 @@ cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && mak
 plotly_get_chrome -y
 ```
 
-環境が変わる場合（別ノード/別コンテナ/別 Python・PyTorch）には、その環境で `hessian_ff` を再ビルドしてください。  
-多くのクラスターでは、先に Ninja を入れてから再ビルドすると確実です:
-
-```bash
-conda install -c conda-forge ninja -y
-cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
-```
+> **Note:** 環境が変わる場合（別ノード/別コンテナ/別 Python・PyTorch）は、その環境で `hessian_ff` を再ビルドしてください。  
+> 多くのクラスターでは、先に Ninja を入れてから再ビルドすると確実です:
+>
+> ```bash
+> conda install -c conda-forge ninja -y
+> cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
+> ```
 
 最後に、UMA バックエンドを使用する場合は、モデルをダウンロードできるように **Hugging Face Hub** にログインします:
 
@@ -184,12 +184,12 @@ AmberTools がインストールされていなくても、`--parm` を手動で
  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
  ```
 
- 環境が変わった場合は、その環境で Ninja を入れて再ビルドしてください:
-
- ```bash
- conda install -c conda-forge ninja -y
- cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
- ```
+ > **Note:** 環境が変わった場合は、その環境で Ninja を入れて再ビルドしてください:
+ >
+ > ```bash
+ > conda install -c conda-forge ninja -y
+ > cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
+ > ```
 
 8. **Plotly 可視化用 Chrome をインストール**
 

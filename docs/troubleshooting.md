@@ -173,6 +173,7 @@ Fix:
 Typical symptoms:
 - `make` in `hessian_ff/native/` produces compilation errors.
 - `ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'`.
+- `RuntimeError: hessian_ff build attempts failed: ...`
 
 Fixes to try:
 - Ensure you have a C++ compiler (g++ >= 9) installed:
@@ -190,6 +191,7 @@ Fixes to try:
 - Clean and rebuild:
 
  ```bash
+ conda install -c conda-forge ninja -y
  cd hessian_ff/native && make clean && make
  ```
 
@@ -200,6 +202,15 @@ Typical message:
 
 ```text
 ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'
+```
+
+or:
+
+```text
+RuntimeError: hessian_ff build attempts failed: ...
+To rebuild hessian_ff native extensions in this environment:
+  conda install -c conda-forge ninja -y
+  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
 ```
 
 Fix:

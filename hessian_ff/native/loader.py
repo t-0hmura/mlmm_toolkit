@@ -20,6 +20,21 @@ _EXT_ERROR: Dict[str, Optional[str]] = {
 }
 
 
+def _rebuild_hint() -> str:
+    return (
+        "To rebuild hessian_ff native extensions in this environment:\n"
+        "  conda install -c conda-forge ninja -y\n"
+        "  cd $(python -c \"import hessian_ff; print(hessian_ff.__path__[0])\")/native && make clean && make"
+    )
+
+
+def _with_rebuild_hint(msg: str) -> str:
+    txt = str(msg).strip()
+    if not txt:
+        txt = "native extension unavailable"
+    return f"{txt}\n{_rebuild_hint()}"
+
+
 def _ensure_max_jobs() -> None:
     """Set Ninja parallel compile jobs if not provided by user.
 
@@ -105,7 +120,9 @@ def _build_in_tree_extension(
             _EXT_ERROR[key] = None
             return mod
         except Exception as e:
-            _EXT_ERROR[key] = f"failed to load prebuilt extension {path}: {e}"
+            _EXT_ERROR[key] = _with_rebuild_hint(
+                f"failed to load prebuilt extension {path}: {e}"
+            )
             return None
 
     # Prefer prebuilt artifact when available (useful on nodes without a compiler toolchain).
@@ -119,7 +136,9 @@ def _build_in_tree_extension(
     try:
         from torch.utils.cpp_extension import load
     except Exception as e:
-        _EXT_ERROR[key] = f"torch cpp_extension import failed: {e}"
+        _EXT_ERROR[key] = _with_rebuild_hint(
+            f"torch cpp_extension import failed: {e}"
+        )
         return None
 
     _ensure_max_jobs()
@@ -169,10 +188,10 @@ def _build_in_tree_extension(
             except Exception as e:
                 last_err = e
                 continue
-        raise RuntimeError(f"all extension build attempts failed: {last_err}")
+        raise RuntimeError(f"hessian_ff build attempts failed: {last_err}")
     except Exception as e:
         _EXT_CACHE[key] = None
-        _EXT_ERROR[key] = str(e)
+        _EXT_ERROR[key] = _with_rebuild_hint(str(e))
         return None
 
 
@@ -199,10 +218,11 @@ def get_nonbonded_extension(
 def nonbonded_extension_status() -> Dict[str, str]:
     ext = get_nonbonded_extension(verbose=False, force_rebuild=False)
     if ext is None:
+        note = _EXT_ERROR["nonbonded"] or _with_rebuild_hint("extension unavailable")
         return {
             "available": "false",
             "backend": "native_required",
-            "note": _EXT_ERROR["nonbonded"] or "extension unavailable",
+            "note": note,
         }
     return {
         "available": "true",
@@ -230,10 +250,11 @@ def get_analytical_hessian_extension(
 def analytical_hessian_extension_status() -> Dict[str, str]:
     ext = get_analytical_hessian_extension(verbose=False, force_rebuild=False)
     if ext is None:
+        note = _EXT_ERROR["analytical_hessian"] or _with_rebuild_hint("extension unavailable")
         return {
             "available": "false",
             "backend": "native_analytical_hessian_optional",
-            "note": _EXT_ERROR["analytical_hessian"] or "extension unavailable",
+            "note": note,
         }
     return {
         "available": "true",
@@ -261,10 +282,11 @@ def get_bonded_extension(
 def bonded_extension_status() -> Dict[str, str]:
     ext = get_bonded_extension(verbose=False, force_rebuild=False)
     if ext is None:
+        note = _EXT_ERROR["bonded"] or _with_rebuild_hint("extension unavailable")
         return {
             "available": "false",
             "backend": "native_bonded_optional",
-            "note": _EXT_ERROR["bonded"] or "extension unavailable",
+            "note": note,
         }
     return {
         "available": "true",
