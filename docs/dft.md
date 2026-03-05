@@ -10,6 +10,8 @@
 - **Outputs:** `ml_region_with_linkH.xyz`, `result.yaml` with ML(dft)/MM combined energy.
 - **Defaults:** `--func-basis wb97m-v/def2-tzvpd`, `--max-cycle 100`, `--conv-tol 1e-9`.
 - **Next step:** Compare DFT//UMA energies across R/TS/P states, or use within [all](all.md) `--dft` for automated diagrams.
+- **Prerequisites:** DFT dependencies (PySCF, GPU4PySCF) are **not** included in the default install. Install them with `pip install mlmm_toolkit[dft]`.
+- **System size limit:** DFT single-point calculations are practical only for ML regions up to **~500 atoms**. Larger ML regions will require prohibitive compute time and memory.
 
 `mlmm dft` extracts the ML region from the full enzyme PDB, appends link hydrogens, and runs a single-point PySCF (or GPU4PySCF) calculation. After the DFT evaluation, the script recomputes the **ML(dft)/MM total energy** by combining the PySCF high-level energy with MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low):
 

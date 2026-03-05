@@ -44,8 +44,15 @@ Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `-
 |-----------|------------|---------------|
 | **UMA** (default) | <https://github.com/facebookresearch/fairchem> | *(included)* |
 | **ORB** | <https://github.com/orbital-materials/orb-models> | `pip install mlmm_toolkit[orb]` |
-| **MACE** | <https://github.com/ACEsuit/mace> | `pip install mlmm_toolkit[mace]` |
+| **MACE** | <https://github.com/ACEsuit/mace> | see note below |
 | **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> | `pip install mlmm_toolkit[aimnet2]` |
+
+> **Note:** MACE and UMA cannot coexist due to conflicting `e3nn` versions (`fairchem-core` requires `e3nn>=0.5`, `mace-torch` requires `e3nn==0.4.4`). To use MACE, uninstall `fairchem-core` first:
+> ```bash
+> pip uninstall fairchem-core
+> pip install mace-torch
+> ```
+> This means UMA will no longer be available in that environment. We recommend using a **separate conda environment** for MACE.
 
 The MM layer uses an analytical Hessian force field (`hessian_ff`) by default. Any force field capable of generating Amber parameters (e.g., ff14SB + TIP3P + GAFF2) can be used.
 
@@ -112,6 +119,16 @@ module load cuda/12.6
 ```
 
 > `fairchem-core` is a core dependency. `aimnet` and other ML backends (`orb-models`, `mace-torch`) are optional extras (e.g. `pip install mlmm_toolkit[aimnet2]`).
+
+### DFT single-point (`mlmm dft`)
+
+DFT dependencies are **not** installed by default. To use `mlmm dft`, install the `[dft]` extra:
+
+```bash
+pip install "mlmm_toolkit[dft]"
+```
+
+This installs PySCF, GPU4PySCF (x86_64 only), and related CUDA libraries. Note that DFT single-point calculations are practical only for systems up to **~500 atoms** in the ML region; larger systems will require prohibitive compute time and memory.
 
 ### Avoid AmberTools conflicts (optional)
 

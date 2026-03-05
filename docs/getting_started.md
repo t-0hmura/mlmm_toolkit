@@ -106,8 +106,8 @@ pip install -e .
 
 # Optional: install alternative MLIP backends
 pip install -e ".[orb]"       # ORB backend
-pip install -e ".[mace]"      # MACE backend
 pip install -e ".[aimnet2]"   # AIMNet2 backend
+# MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
 
 cd hessian_ff/native && make && cd ../..
 plotly_get_chrome -y
@@ -202,8 +202,8 @@ If you prefer to build the environment piece by piece:
 
  ```bash
  pip install -e ".[orb]"       # ORB backend
- pip install -e ".[mace]"      # MACE backend
  pip install -e ".[aimnet2]"   # AIMNet2 backend
+ # MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
  ```
 
 7. **Build the `hessian_ff` C++ native extension**

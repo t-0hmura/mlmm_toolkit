@@ -78,7 +78,7 @@
 | **MLIP** | Machine Learning Interatomic Potential | 量子化学データから学習し、構造からエネルギー・力を予測する原子間ポテンシャル。 |
 | **UMA** | Universal Machine-learning potential for Atoms | Meta が公開している事前学習 MLIP 群。mlmm_toolkit のデフォルト MLIP バックエンド。`--backend uma` で選択（デフォルト）。 |
 | **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。`pip install mlmm[orb]` で追加インストール。 |
-| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。`pip install mlmm[mace]` で追加インストール。 |
+| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。e3nn 競合のため別環境が必要（README 参照）。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install mlmm[aimnet2]` で追加インストール。 |
 | **xTB** | Extended Tight-Binding | 半経験的量子化学手法。mlmm_toolkit では `--embedcharge` 有効時にポイントチャージ埋め込み補正に使用。 |
 | **解析ヘシアン** | Analytical Hessian | エネルギーの正確な二階微分を計算。高速だが VRAM を多く消費。 |

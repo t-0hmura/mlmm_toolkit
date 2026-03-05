@@ -233,8 +233,8 @@ Alternative backends are installed via optional dependency groups:
 
 ```bash
 pip install mlmm[orb]       # ORB backend
-pip install mlmm[mace]      # MACE backend
 pip install mlmm[aimnet2]   # AIMNet2 backend
+# MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
 ```
 
 ---

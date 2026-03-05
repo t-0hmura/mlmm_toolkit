@@ -10,6 +10,8 @@
 - **出力:** `ml_region_with_linkH.xyz`、ML(dft)/MM 合成エネルギーを含む `result.yaml`。
 - **デフォルト:** `--func-basis wb97m-v/def2-tzvpd`、`--max-cycle 100`、`--conv-tol 1e-9`。
 - **次のステップ:** R/TS/P 状態間で DFT//MLIP エネルギーを比較するか、[all](all.md) の `--dft` で自動ダイアグラムを生成。
+- **前提条件:** DFT 依存パッケージ（PySCF、GPU4PySCF）はデフォルトではインストールされません。`pip install mlmm_toolkit[dft]` でインストールしてください。
+- **システムサイズの制限:** DFT 一点計算は ML 領域が **約500原子** までのシステムで実用的です。それ以上の ML 領域では計算時間とメモリが非現実的になります。
 
 `mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加して PySCF（または GPU4PySCF）による一点計算を実行します。DFT 評価後、PySCF 高レベルエネルギーと全系の MM 評価（REAL-low）および ML サブセットの MM 評価（MODEL-low）を組み合わせて **ML(dft)/MM 総エネルギー** を再計算します:
 

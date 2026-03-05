@@ -345,8 +345,8 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 
  ```bash
  pip install mlmm[orb]      # ORB バックエンド
- pip install mlmm[mace]     # MACE バックエンド
  pip install mlmm[aimnet2]  # AIMNet2 バックエンド
+ # MACE: pip uninstall fairchem-core && pip install mace-torch（別環境が必要）
  ```
 
 ---

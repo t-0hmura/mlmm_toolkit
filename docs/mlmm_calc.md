@@ -21,7 +21,7 @@ The ML (high-level) component is provided by one of several MLIP backends, selec
 | --- | --- | --- | --- |
 | FAIR-Chem UMA | `uma` (default) | `fairchem-core` | `pip install mlmm` |
 | ORB | `orb` | `orb-models` | `pip install mlmm[orb]` |
-| MACE | `mace` | `mace-torch` | `pip install mlmm[mace]` |
+| MACE | `mace` | `mace-torch` | separate env (see README) |
 | AIMNet2 | `aimnet2` | `aimnet2` | `pip install mlmm[aimnet2]` |
 
 Internally, all backends conform to the `_MLBackend` abstraction, which provides a uniform interface for energy, force, and Hessian evaluation. A factory function selects and instantiates the appropriate backend based on the `backend` parameter.
