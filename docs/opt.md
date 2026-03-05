@@ -8,7 +8,7 @@
 
 When the starting structure is a PDB, the command also writes `.pdb` companions, controlled by `--convert-files/--no-convert-files` (enabled by default). PDB-specific conveniences include:
 - Output conversion produces `final_geometry.pdb` (and `optimization.pdb` when dumping trajectories) using the input PDB as the topology reference.
-- B-factors are annotated as: ML-region atoms = 100.00, frozen atoms = 50.00, atoms that are both ML and frozen = 150.00.
+- B-factors are annotated using the 3-layer encoding: ML-region atoms = 0.00, movable MM atoms = 10.00, frozen MM atoms = 20.00.
 
 ### At a glance
 - **Use when:** You want to minimize a single enzyme structure to a local energy minimum with ML/MM.

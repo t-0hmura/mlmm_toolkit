@@ -463,6 +463,7 @@ freq:
  n_frames: 20 # モードアニメーションのフレーム数
  max_write: 10 # 書き出すモードの最大数
  sort: value # ソート順: "value" または "abs"
+ out_dir: ./result_freq/ # 出力ディレクトリ
 ```
 
 ---

@@ -490,6 +490,7 @@ freq:
  n_frames: 20 # Number of frames per mode animation
  max_write: 10 # Maximum number of modes to write
  sort: value # Sort order: "value" or "abs"
+ out_dir: ./result_freq/ # Output directory
 ```
 
 ---
