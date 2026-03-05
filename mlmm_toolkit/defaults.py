@@ -409,7 +409,7 @@ RSIRFO_KW: Dict[str, Any] = {
 # -----------------------------------------------
 
 DFT_KW: Dict[str, Any] = {
-    "func_basis": "wb97m-v/6-31g**",
+    "func_basis": "wb97m-v/def2-tzvpd",
     "max_cycle": 100,
     "conv_tol": 1e-9,
     "grid_level": 3,

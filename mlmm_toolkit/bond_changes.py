@@ -74,7 +74,7 @@ Notes:
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Iterable, Tuple, Set, List, Optional, Dict, Any
+from typing import Iterable, Tuple, Set, List, Optional
 
 import warnings
 import torch
@@ -229,47 +229,3 @@ def summarize_changes(geom, result: BondChangeResult, one_based: bool = True) ->
     return "\n".join(lines)
 
 
-def has_bond_change(
-    geom_start,
-    geom_end,
-    bond_cfg: Dict[str, Any],
-    *,
-    one_based: bool = True,
-) -> Tuple[bool, str]:
-    """
-    Convenience wrapper to check if bond changes occur between two geometries.
-
-    Parameters
-    ----------
-    geom_start : Geometry
-        Starting geometry.
-    geom_end : Geometry
-        Ending geometry.
-    bond_cfg : Dict[str, Any]
-        Configuration dict with keys: 'device', 'bond_factor', 'margin_fraction', 'delta_fraction'.
-    one_based : bool
-        Use 1-based atom indices in summary (default True).
-
-    Returns
-    -------
-    Tuple[bool, str]
-        (has_changes, summary) where has_changes is True if any bonds formed or broken.
-    """
-    device = bond_cfg.get("device", "cuda")
-    bond_factor = bond_cfg.get("bond_factor", 1.20)
-    margin_fraction = bond_cfg.get("margin_fraction", 0.05)
-    delta_fraction = bond_cfg.get("delta_fraction", 0.05)
-
-    result = compare_structures(
-        geom_start,
-        geom_end,
-        device=device,
-        bond_factor=bond_factor,
-        margin_fraction=margin_fraction,
-        delta_fraction=delta_fraction,
-    )
-
-    has_changes = bool(result.formed_covalent) or bool(result.broken_covalent)
-    summary = summarize_changes(geom_start, result, one_based=one_based)
-
-    return has_changes, summary

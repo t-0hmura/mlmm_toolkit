@@ -10,7 +10,7 @@
 - **Outputs:** `ml_region_with_linkH.xyz`, `result.yaml` with ML(dft)/MM combined energy.
 - **Defaults:** `--func-basis wb97m-v/def2-tzvpd`, `--max-cycle 100`, `--conv-tol 1e-9`.
 - **Next step:** Compare DFT//UMA energies across R/TS/P states, or use within [all](all.md) `--dft` for automated diagrams.
-- **Prerequisites:** DFT dependencies (PySCF, GPU4PySCF) are **not** included in the default install. Install them with `pip install mlmm_toolkit[dft]`.
+- **Prerequisites:** DFT dependencies (PySCF, GPU4PySCF) are **not** included in the default install. Install them with `pip install mlmm[dft]`.
 - **System size limit:** DFT single-point calculations are practical only for ML regions up to **~500 atoms**. Larger ML regions will require prohibitive compute time and memory.
 
 `mlmm dft` extracts the ML region from the full enzyme PDB, appends link hydrogens, and runs a single-point PySCF (or GPU4PySCF) calculation. After the DFT evaluation, the script recomputes the **ML(dft)/MM total energy** by combining the PySCF high-level energy with MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low):
@@ -60,7 +60,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Link hydrogens are appended automatically (C/N parents within 1.7 A) unless explicit `link_mlmm` pairs are provided via YAML.
-2. **SCF build** -- `--func-basis` is parsed into functional and basis. Density fitting is enabled automatically with PySCF defaults. The GPU4PySCF backend is used when available; otherwise CPU PySCF is used.
+2. **SCF build** -- `--func-basis` is parsed into functional and basis. Density fitting is enabled automatically with PySCF defaults. The GPU4PySCF backend is used when available; otherwise CPU PySCF is used. When `--embedcharge` is enabled, MM point charges from the Amber topology are embedded into the QM Hamiltonian via `pyscf.qmmm.mm_charge()`, so the DFT wavefunction is self-consistently polarized by the MM environment.
 3. **ML(dft)/MM recombination** -- After the DFT converges, MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low) are computed. The combined energy is reported in Hartree and kcal/mol.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
 
@@ -85,7 +85,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
 | `--backend CHOICE` | MLIP backend used for the low-level ONIOM recombination: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--embedcharge/--no-embedcharge` | Enable electrostatic embedding: MM point charges from the Amber topology are added to the PySCF QM Hamiltonian so the DFT wavefunction is polarized by the MM environment. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 

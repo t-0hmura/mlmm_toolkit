@@ -68,6 +68,7 @@ calc:
 
  # --- ORB backend settings ---
  orb_model: orb_v3_conservative_omol  # ORB model name (ORB backend only)
+ orb_precision: float32  # ORB floating-point precision (ORB backend only)
 
  # --- MACE backend settings ---
  mace_model: MACE-OMOL-0 # MACE model name (MACE backend only)
@@ -80,6 +81,7 @@ calc:
  ml_device: auto # Device for ML inference: "cuda", "cpu", or "auto"
  ml_cuda_idx: 0 # CUDA device index for ML inference
  ml_hessian_mode: Analytical # ML Hessian mode: "Analytical" or "FiniteDifference"
+ hessian_calc_mode: null # Alias for ml_hessian_mode (if set, overrides ml_hessian_mode)
 
  # --- xTB point-charge embedding ---
  embedcharge: false # Enable xTB point-charge embedding correction for MM->ML effects
@@ -109,7 +111,7 @@ calc:
  freeze_atoms: [] # 0-based indices of atoms to freeze (Frozen layer)
  hess_cutoff: null # Angstrom; MM atoms within this distance of ML get Hessian (null = all movable)
  movable_cutoff: null # Angstrom; MM atoms within this distance of ML are movable (null = use freeze_atoms)
- use_bfactor_layers: false # If true, read layer assignments from input PDB B-factors
+ use_bfactor_layers: true # If true, read layer assignments from input PDB B-factors
  hess_mm_atoms: null # Explicit Hessian-target MM atom indices (0-based; overrides cutoffs)
  movable_mm_atoms: null # Explicit movable MM atom indices (0-based; overrides cutoffs)
  frozen_mm_atoms: null # Explicit frozen MM atom indices (0-based; overrides cutoffs)
@@ -123,7 +125,7 @@ calc:
 - `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install mlmm[orb]`, etc.)
 - Backend-specific model keys are only relevant when the corresponding backend is selected:
   - `uma_model`, `uma_task_name` — UMA backend only
-  - `orb_model` — ORB backend only
+  - `orb_model`, `orb_precision` — ORB backend only
   - `mace_model`, `mace_dtype` — MACE backend only
   - `aimnet2_model` — AIMNet2 backend only
 - `embedcharge: true` enables xTB point-charge embedding, which models MM-to-ML electrostatic polarization effects. Default is `false`. Requires an `xtb` executable on `$PATH`.
@@ -212,7 +214,7 @@ rfo:
  max_energy_incr: null # Allowed energy increase per step
  hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
  hessian_init: calc # Hessian initialization: calc, unit, etc.
- hessian_recalc: 200 # Rebuild Hessian every N steps
+ hessian_recalc: 500 # Rebuild Hessian every N steps
  hessian_recalc_adapt: null # Adaptive Hessian rebuild factor
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
  alpha0: 1.0 # Initial micro step
@@ -270,7 +272,6 @@ dmf:
  delta_scale: 0.2 # FB-ENM displacement scaling
  bond_scale: 1.25 # Bond cutoff scaling
  fix_planes: true # Enforce planar constraints
- two_hop_mode: sparse # Neighbor traversal strategy
  cfbenm_options:
  bond_scale: 1.25 # CFB-ENM bond cutoff scaling
  corr0_scale: 1.1 # Correlation scale for corr0
@@ -280,7 +281,6 @@ dmf:
  pivotal: true # Pivotal residue handling
  single: true # Single-atom pivots
  remove_fourmembered: true # Prune four-membered rings
- two_hop_mode: sparse # Neighbor traversal strategy
  dmf_options:
  remove_rotation_and_translation: false # Keep rigid-body motions
  mass_weighted: false # Toggle mass weighting
@@ -363,11 +363,12 @@ hessian_dimer:
  update_interval_hessian: 500 # Hessian rebuild cadence
  neg_freq_thresh_cm: 5.0 # Negative frequency threshold (cm-1)
  flatten_amp_ang: 0.1 # Flattening amplitude (Angstrom)
- flatten_max_iter: 50 # Flattening iteration cap
+ flatten_max_iter: 50 # Flattening iteration cap (default 50; --no-flatten sets to 0)
  flatten_sep_cutoff: 0.0 # Minimum distance between representative atoms
  flatten_k: 10 # Representative atoms sampled per mode
  flatten_loop_bofill: false # Bofill update for flatten displacements
  partial_hessian_flatten: true # Use partial Hessian for imaginary mode detection
+ ml_only_hessian_dimer: false # Use only ML-region atoms for Dimer rotation
  mem: 100000 # Memory limit for solver
  device: auto # Device selection for eigensolver
  root: 0 # Targeted TS root index
@@ -397,6 +398,10 @@ hessian_dimer:
  max_cycles: 10000
 ```
 
+**Notes:**
+- `flatten_max_iter` controls the maximum number of imaginary-mode flattening iterations. The default value is 50.
+- The CLI flags `--flatten` / `--no-flatten` (in `tsopt` and `all`) interact with this setting: `--flatten` enables the flattening loop with the default `flatten_max_iter` (50); `--no-flatten` forces `flatten_max_iter` to 0, effectively disabling the loop. An explicit YAML value for `flatten_max_iter` takes precedence when provided alongside `--flatten`.
+
 ---
 
 ### `rsirfo`
@@ -410,7 +415,7 @@ rsirfo:
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum accepted step norm
  assert_min_step: true # Assert when steps stagnate
- roots: [0] # Target root indices
+ roots: [0] # Target root indices (pysisyphus default; not set by mlmm)
  hessian_ref: null # Reference Hessian
  rx_modes: null # Reaction-mode definitions
  prim_coord: null # Primary coordinates to monitor
@@ -419,8 +424,8 @@ rsirfo:
  hessian_recalc_reset: true # Reset recalc counter after exact Hessian
  max_micro_cycles: 50 # Micro-iterations per macro cycle
  augment_bonds: false # Augment reaction path based on bond analysis
- min_line_search: true # Enforce minimum line-search step
- max_line_search: true # Enforce maximum line-search step
+ min_line_search: false # Line search along imaginary mode (pysisyphus default)
+ max_line_search: false # Line search in minimized subspace (pysisyphus default)
  assert_neg_eigval: false # Require negative eigenvalue at convergence
  # Also inherits rfo-like settings: trust_radius, trust_update, etc.
 ```
@@ -440,6 +445,7 @@ irc:
  max_cycles: 125 # Maximum steps along IRC
  downhill: false # Follow downhill direction only
  forward: true # Propagate in forward direction
+ backward: true # Propagate in backward direction
  root: 0 # Normal-mode root index
  hessian_init: calc # Hessian initialization source
  hessian_update: bofill # Hessian update scheme
@@ -508,7 +514,7 @@ microiter:
 ```
 
 **Notes:**
-- Enabled via `--microiter` / `--no-microiter` CLI flag (default: off)
+- Enabled via `--microiter` / `--no-microiter` CLI flag (default: on)
 - Available in `opt` (with `--opt-mode hess`) and `tsopt` (with `--opt-mode hess`)
 - Uses L-BFGS to minimize MM-region forces while ML atoms are frozen
 - `micro_thresh` accepts the same presets as `opt.thresh` (gau_loose, gau, gau_tight, etc.)

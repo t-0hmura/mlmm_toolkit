@@ -15,7 +15,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-import ast
 import logging
 import math
 import sys
@@ -34,6 +33,10 @@ from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import BOHR2ANG, ANG2BOHR
 
 from .mlmm_calc import mlmm
+from .defaults import (
+    BIAS_KW as _BIAS_KW_DEFAULT,
+    BOND_KW as _BOND_KW_DEFAULT,
+)
 from .opt import (
     GEOM_KW as _OPT_GEOM_KW,
     CALC_KW as _OPT_CALC_KW,
@@ -86,7 +89,6 @@ CALC_KW: Dict[str, Any] = deepcopy(_OPT_CALC_KW)
 # Optimizer base (convergence, dumping, etc.)
 OPT_BASE_KW: Dict[str, Any] = deepcopy(_OPT_BASE_KW)
 OPT_BASE_KW.update({
-    "max_cycles": 100,
     "out_dir": "./result_scan/",
 })
 
@@ -97,17 +99,10 @@ LBFGS_KW.update({
 })
 
 # Bias (harmonic well) defaults; can be overridden via YAML: section "bias"
-BIAS_KW: Dict[str, Any] = {
-    "k": 100,  # float, harmonic bias strength in eV/Å^2
-}
+BIAS_KW: Dict[str, Any] = deepcopy(_BIAS_KW_DEFAULT)
 
 # Bond-change detection (as in path_search)
-BOND_KW: Dict[str, Any] = {
-    "device": "cuda",            # str, device used during UMA graph analysis in bond detection
-    "bond_factor": 1.20,         # float, scaling of covalent radii for bond cutoff
-    "margin_fraction": 0.05,     # float, fractional margin to tolerate small deviations
-    "delta_fraction": 0.05,      # float, change threshold to flag bond formation/breaking
-}
+BOND_KW: Dict[str, Any] = deepcopy(_BOND_KW_DEFAULT)
 
 
 def _coords3d_to_xyz_string(geom, energy: Optional[float] = None) -> str:
@@ -119,45 +114,6 @@ def _coords3d_to_xyz_string(geom, energy: Optional[float] = None) -> str:
     if not s.endswith("\n"):
         s += "\n"
     return s
-
-
-def _parse_scan_lists(args: Sequence[str], one_based: bool) -> List[List[Tuple[int, int, float]]]:
-    """
-    Parse multiple Python-like list strings:
-      ["[(0,1,1.5), (2,3,2.0)]", "[(5,7,1.2)]", ...]
-    Returns: [[(i,j,t), ...], [(i,j,t), ...], ...] with 0-based indices.
-    """
-    if not args:
-        raise click.BadParameter("--scan-lists must be provided at least once.")
-    stages: List[List[Tuple[int, int, float]]] = []
-    for idx, s in enumerate(args, start=1):
-        try:
-            obj = ast.literal_eval(s)
-        except Exception as e:
-            raise click.BadParameter(f"Invalid literal for --scan-lists #{idx}: {e}")
-        if not isinstance(obj, (list, tuple)):
-            raise click.BadParameter(f"--scan-lists #{idx} must be a list/tuple of (i,j,target).")
-        tuples: List[Tuple[int, int, float]] = []
-        for t in obj:
-            if (
-                isinstance(t, (list, tuple)) and len(t) == 3
-                and isinstance(t[0], (int, np.integer))
-                and isinstance(t[1], (int, np.integer))
-                and isinstance(t[2], (int, float, np.floating))
-            ):
-                i, j, r = int(t[0]), int(t[1]), float(t[2])
-                if one_based:
-                    i -= 1
-                    j -= 1
-                if i < 0 or j < 0:
-                    raise click.BadParameter(f"Negative atom index in --scan-lists #{idx}: {(i,j,r)} (0-based expected).")
-                if r <= 0.0:
-                    raise click.BadParameter(f"Non-positive target length in --scan-lists #{idx}: {(i,j,r)}.")
-                tuples.append((i, j, r))
-            else:
-                raise click.BadParameter(f"--scan-lists #{idx} contains an invalid triple: {t}")
-        stages.append(tuples)
-    return stages
 
 
 def _pair_distances(coords_ang: np.ndarray, pairs: Iterable[Tuple[int, int]]) -> List[float]:

@@ -39,7 +39,7 @@
  module load ambertools
  ```
 
-- AmberTools なしでも、`--real-parm7` を手動で用意すれば `opt`、`tsopt`、`path-search` 等は動作します。
+- AmberTools なしでも、`--parm` を手動で用意すれば `opt`、`tsopt`、`path-search` 等は動作します。
 
 ---
 
@@ -217,7 +217,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 ### parm7 の元素順序が PDB と一致しない
 
 症状:
-- `oniom-gaussian` / `oniom-orca` で「Element sequence mismatch at atom index...」
+- `oniom-export` で「Element sequence mismatch at atom index...」
 
 対処:
 - `--no-element-check` で元素チェックを無効化（結果を手動で検証すること）
@@ -251,7 +251,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 - 計算系サブコマンドでは `-q/--charge` を必ず明示する:
 
  ```bash
- mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0
+ mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0
  ```
 
 - あるいは、抽出経由で自動導出させるため `all` を使い、残基名ごとの電荷マッピングを与える:
@@ -330,6 +330,51 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 - **MM ヘシアン計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
 - **大規模系（1000 原子以上）**: `define-layer` で 3 層を適切に定義し、Frozen 層で計算コストを削減
 - **ML と MM の並列実行**: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。`mm_threads` で CPU スレッド数を調整可能
+
+---
+
+## バックエンド固有の問題
+
+### --backend orb/mace/aimnet2 で ImportError が出る
+
+症状:
+- `ImportError: orb-models is required for the ORB backend` のようなエラーが表示される
+
+対処:
+- 使用するバックエンドに対応するオプション依存パッケージをインストールします:
+
+ ```bash
+ pip install mlmm[orb]      # ORB バックエンド
+ pip install mlmm[aimnet2]  # AIMNet2 バックエンド
+ # MACE: pip uninstall fairchem-core && pip install mace-torch（別環境が必要）
+ ```
+
+---
+
+### 非 UMA バックエンドで CUDA メモリ不足になる
+
+症状:
+- ORB、MACE、AIMNet2 の使用時に `RuntimeError: CUDA out of memory` が発生する
+
+対処:
+- 非 UMA バックエンドは有限差分ヘシアンを使用するため、より多くの VRAM を消費します。以下の方法を試してください:
+- `--radius-partial-hessian` を小さくし、ヘシアン対象の原子数を制限する
+- `--hessian-calc-mode FiniteDifference` を明示的に指定し、`hess_cutoff` を小さめに設定する
+- YAML で `ml_device: cpu` を指定する（遅くなるが VRAM 制限を回避できる）
+
+---
+
+### --embedcharge 使用時に xTB が見つからない
+
+症状:
+- `FileNotFoundError: xtb command not found` が表示される
+
+対処:
+- xTB をインストールし、`$PATH` 上にあることを確認します:
+
+ ```bash
+ conda install -c conda-forge xtb
+ ```
 
 ---
 

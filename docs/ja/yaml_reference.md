@@ -67,6 +67,7 @@ calc:
  uma_model: uma-s-1p1 # UMA 事前学習モデル名 (backend=uma 時)
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
+ orb_precision: float32  # ORB 浮動小数点精度 (backend=orb 時)
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
@@ -91,7 +92,7 @@ calc:
  # 層設定:
  hess_cutoff: null # Å: Hessian 対象 MM の距離カットオフ
  movable_cutoff: null # Å: movable MM の距離カットオフ
- use_bfactor_layers: false # 入力 PDB の B-factor から層を読み取り
+ use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り
  hess_mm_atoms: null # 明示的 Hessian 対象 MM 原子インデックス (0始まり)
  movable_mm_atoms: null # 明示的 movable MM 原子インデックス (0始まり)
  frozen_mm_atoms: null # 明示的 frozen MM 原子インデックス (0始まり)
@@ -101,7 +102,7 @@ calc:
 - `backend`: ML バックエンドを選択します。`uma`（デフォルト）、`orb`、`mace`、`aimnet2` から選択可能です。UMA 以外のバックエンドを使用するには、対応するオプション依存パッケージのインストールが必要です（例: `pip install mlmm[orb]`）。
 - バックエンド固有のモデルキーは、対応するバックエンドが選択されている場合にのみ有効です:
   - `uma_model`、`uma_task_name` — UMA バックエンドのみ
-  - `orb_model` — ORB バックエンドのみ
+  - `orb_model`、`orb_precision` — ORB バックエンドのみ
   - `mace_model`、`mace_dtype` — MACE バックエンドのみ
   - `aimnet2_model` — AIMNet2 バックエンドのみ
 - `embedcharge`: `true` に設定すると、xTB 点電荷埋め込み補正が有効化されます。MM 領域の部分電荷を点電荷として ML 計算に埋め込み、MM 環境から ML 領域への静電的影響（分極効果）を考慮します。デフォルトは `false` です。`$PATH` 上に `xtb` 実行ファイルが必要です。
@@ -140,6 +141,8 @@ opt:
  line_search: true # ラインサーチを有効化
  dump: false # 軌跡/リスタートデータの出力
  dump_restart: false # リスタートチェックポイントの出力
+ reparam_thresh: 0.0 # StringOptimizer 専用: 再パラメータ化閾値
+ coord_diff_thresh: 0.0 # StringOptimizer 専用: 座標差分閾値
  prefix: "" # ファイル名プレフィックス
  out_dir:./result_opt/ # 出力ディレクトリ
 ```
@@ -187,9 +190,18 @@ rfo:
  max_energy_incr: null # ステップあたりの許容エネルギー増加
  hessian_update: bfgs # ヘシアン更新スキーム: bfgs, bofill 等
  hessian_init: calc # ヘシアン初期化: calc, unit 等
- hessian_recalc: 200 # N ステップごとにヘシアンを再構築
+ hessian_recalc: 500 # N ステップごとにヘシアンを再構築
  hessian_recalc_adapt: null # 適応的ヘシアン再構築係数
  small_eigval_thresh: 1.0e-08 # 安定性のための固有値閾値
+ alpha0: 1.0 # 初期マイクロステップ
+ max_micro_cycles: 50 # マイクロイテレーションの上限
+ rfo_overlaps: false # RFO オーバーラップを有効化
+ gediis: false # GEDIIS を有効化
+ gdiis: true # GDIIS を有効化
+ gdiis_thresh: 0.0025 # GDIIS 受容閾値
+ gediis_thresh: 0.01 # GEDIIS 受容閾値
+ gdiis_test_direction: true # DIIS 前に降下方向をテスト
+ adapt_step_func: true # 適応的ステップスケーリング
 ```
 
 ---
@@ -228,9 +240,31 @@ Direct Max Flux（DMF）による MEP 最適化。
 
 ```yaml
 dmf:
- max_cycles: 300 # DMF/IPOPT の最大反復数
+ max_cycles: 300 # DMF/IPOPT の最大反復数（--max-cycles で上書き）
  correlated: true # 相関 DMF 伝搬
  sequential: true # 逐次 DMF 実行
+ fbenm_only_endpoints: false # 端点を超えて FB-ENM を実行
+ fbenm_options:
+ delta_scale: 0.2 # FB-ENM 変位スケーリング
+ bond_scale: 1.25 # 結合カットオフスケーリング
+ fix_planes: true # 平面拘束の強制
+ cfbenm_options:
+ bond_scale: 1.25 # CFB-ENM 結合カットオフスケーリング
+ corr0_scale: 1.1 # corr0 の相関スケール
+ corr1_scale: 1.5 # corr1 の相関スケール
+ corr2_scale: 1.6 # corr2 の相関スケール
+ eps: 0.05 # 相関イプシロン
+ pivotal: true # ピボット残基の処理
+ single: true # 単一原子ピボット
+ remove_fourmembered: true # 四員環の除去
+ dmf_options:
+ remove_rotation_and_translation: false # 剛体運動を保持
+ mass_weighted: false # 質量重み付けの切替
+ parallel: false # 並列 DMF を有効化
+ eps_vel: 0.01 # 速度許容値
+ eps_rot: 0.01 # 回転許容値
+ beta: 10.0 # DMF の beta パラメータ
+ update_teval: false # 遷移評価の更新
  k_fix: 300.0 # 拘束の調和定数
 ```
 
@@ -267,7 +301,7 @@ hessian_dimer:
  update_interval_hessian: 500 # ヘシアン再構築間隔
  neg_freq_thresh_cm: 5.0 # 負振動数閾値 (cm^-1)
  flatten_amp_ang: 0.1 # フラット化振幅 (Å)
- flatten_max_iter: 50 # フラット化反復上限
+ flatten_max_iter: 50 # フラット化反復上限（デフォルト 50、--no-flatten で 0 に設定）
  flatten_sep_cutoff: 0.0 # 代表原子間の最小距離
  flatten_k: 10 # モードあたりのサンプル代表原子数
  flatten_loop_bofill: false # フラット化変位に Bofill 更新
@@ -275,7 +309,36 @@ hessian_dimer:
  device: auto # 固有値ソルバーのデバイス選択
  root: 0 # ターゲット TS ルートインデックス
  partial_hessian_flatten: true # 部分ヘシアンを虚モード検出に使用
+ ml_only_hessian_dimer: false # ダイマー方向決定に ML 領域のみのヘシアンを使用
+ dimer:
+ length: 0.0189 # ダイマー間隔 (Bohr)
+ rotation_max_cycles: 15 # 最大回転反復数
+ rotation_method: fourier # 回転最適化手法
+ rotation_thresh: 0.0001 # 回転収束閾値
+ rotation_tol: 1 # 回転許容係数
+ rotation_max_element: 0.001 # 回転行列の最大要素
+ rotation_interpolate: true # 回転ステップの補間
+ rotation_disable: false # 回転を完全に無効化
+ rotation_disable_pos_curv: true # 正曲率検出時に回転を無効化
+ rotation_remove_trans: true # 並進成分の除去
+ trans_force_f_perp: true # 並進に垂直な力の投影
+ bonds: null # 拘束用の結合リスト
+ N_hessian: null # ヘシアンサイズの上書き
+ bias_rotation: false # 回転探索のバイアス
+ bias_translation: false # 並進探索のバイアス
+ bias_gaussian_dot: 0.1 # ガウスバイアスの内積
+ seed: null # 回転の乱数シード
+ write_orientations: true # 回転方向の書き出し
+ forward_hessian: true # ヘシアンの前方伝搬
+ lbfgs:
+ # lbfgs セクションと同じキー
+ thresh: baker
+ max_cycles: 10000
 ```
+
+**注記:**
+- `flatten_max_iter` は虚数モードフラットニングの最大反復回数を制御します。デフォルト値は 50 です。
+- CLI フラグ `--flatten` / `--no-flatten`（`tsopt` および `all`）はこの設定と連動します。`--flatten` はデフォルトの `flatten_max_iter`（50）でフラットニングループを有効化し、`--no-flatten` は `flatten_max_iter` を 0 に強制してループを無効化します。`--flatten` と同時に YAML で `flatten_max_iter` を明示指定した場合は、YAML の値が優先されます。
 
 ---
 
@@ -287,14 +350,28 @@ RS-I-RFO TS 最適化（tsopt --opt-mode heavy）。
 rsirfo:
  thresh: baker # RS-IRFO 収束プリセット
  max_cycles: 10000 # 反復上限
+ print_every: 100 # ログ出力間隔
+ min_step_norm: 1.0e-08 # 最小ステップノルム
+ assert_min_step: true # ステップ停滞時にアサート
+ roots: [0] # ターゲットルートインデックス（pysisyphus デフォルト; mlmm では未設定）
+ hessian_ref: null # 参照ヘシアン
+ rx_modes: null # 反応モード定義
+ prim_coord: null # 監視する主座標
+ rx_coords: null # 監視する反応座標
  hessian_update: bofill # ヘシアン更新スキーム
+ hessian_recalc_reset: true # 正確なヘシアン後に再計算カウンタをリセット
  hessian_init: calc # ヘシアン初期化
  hessian_recalc: 200 # ヘシアン再構築間隔
+ max_micro_cycles: 50 # マクロサイクルあたりのマイクロイテレーション数
+ augment_bonds: false # 結合解析に基づく反応経路の拡張
+ min_line_search: false # 虚モードに沿ったラインサーチ（pysisyphus デフォルト）
+ max_line_search: false # 最小化部分空間でのラインサーチ（pysisyphus デフォルト）
+ assert_neg_eigval: false # 収束時に負の固有値を要求
  trust_radius: 0.10 # 信頼領域半径
  trust_update: true # 信頼領域更新
  trust_min: 0.00 # 最小信頼半径
  trust_max: 0.30 # 最大信頼半径
-out_dir:./result_tsopt/ # 出力ディレクトリ
+ out_dir:./result_tsopt/ # 出力ディレクトリ
 ```
 
 ---
@@ -312,6 +389,9 @@ stopt:
  scale_step: global     # ステップスケーリングモード
  max_cycles: 300        # 文字列最適化の最大反復数
  dump: false            # 軌道/リスタートデータ出力
+ dump_restart: false    # リスタートチェックポイントの出力
+ reparam_thresh: 0.0    # 再パラメータ化閾値
+ coord_diff_thresh: 0.0 # 座標差分閾値
  out_dir: ./result_path_opt/  # 出力ディレクトリ
  print_every: 10        # ログ出力間隔
  lbfgs:
@@ -345,13 +425,27 @@ irc:
  max_cycles: 125 # IRC の最大ステップ数
  downhill: false # 下り方向のみ追跡
  forward: true # 順方向に伝搬
+ backward: true # 逆方向に伝搬
  root: 0 # 基準振動モードのルートインデックス
  hessian_init: calc # ヘシアン初期化ソース
  hessian_update: bofill # ヘシアン更新スキーム
  hessian_recalc: null # ヘシアン再構築間隔
+ displ: energy # 変位構築方法
+ displ_energy: 0.001 # エネルギーベースの変位スケーリング
+ displ_length: 0.1 # 長さベースの変位フォールバック
  rms_grad_thresh: 0.001 # RMS 勾配の収束閾値
+ hard_rms_grad_thresh: null # ハード RMS 勾配停止閾値
  energy_thresh: 0.000001 # エネルギー変化閾値
+ imag_below: 0.0 # 虚振動数カットオフ
+ force_inflection: true # 変曲点検出の強制
+ check_bonds: false # 伝搬中の結合チェック
  out_dir:./result_irc/ # 出力ディレクトリ
+ prefix: "" # ファイル名プレフィックス
+ dump_fn: irc_data.h5 # IRC データファイル名
+ dump_every: 5 # ダンプ間隔
+ max_pred_steps: 500 # 予測子-修正子の最大ステップ数
+ loose_cycles: 3 # 引き締め前の緩いサイクル数
+ corr_func: mbs # 相関関数の選択
 ```
 
 ---

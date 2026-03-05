@@ -50,5 +50,8 @@ docs/.ipynb_checkpoints/
 
 PLAN.md
 
+# hessian_ff build artifacts
+hessian_ff/native/.build_*/
+
 # setuptools-scm generated version file
 mlmm_toolkit/_version.py

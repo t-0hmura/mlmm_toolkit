@@ -20,8 +20,6 @@ import logging
 import sys
 import traceback
 import textwrap
-import os
-import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +33,7 @@ from pysisyphus.optimizers.StringOptimizer import StringOptimizer
 from pysisyphus.optimizers.exceptions import OptimizationError
 from pysisyphus.optimizers.LBFGS import LBFGS  # <-- added for --preopt
 
-from .mlmm_calc import mlmm, MLMMCore, MLMMASECalculator
+from .mlmm_calc import mlmm, MLMMASECalculator
 from .opt import (
     GEOM_KW as OPT_GEOM_KW,
     CALC_KW as OPT_CALC_KW,
@@ -62,9 +60,13 @@ from .utils import (
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 from .align_freeze_atoms import align_and_refine_sequence_inplace
-from .defaults import DMF_KW as _DMF_KW_DEFAULT
+from .defaults import (
+    DMF_KW as _DMF_KW_DEFAULT,
+    GS_KW as _GS_KW_DEFAULT,
+    STOPT_KW as _STOPT_KW_DEFAULT,
+)
 
 
 # -----------------------------------------------
@@ -84,39 +86,10 @@ LBFGS_KW: Dict[str, Any] = deepcopy(OPT_LBFGS_KW)
 DMF_KW: Dict[str, Any] = deepcopy(_DMF_KW_DEFAULT)
 
 # GrowingString (path representation)
-GS_KW: Dict[str, Any] = {
-    "fix_first": True,
-    "fix_last": True,
-    "max_nodes": 10,            # int, internal nodes; total images = max_nodes + 2 including endpoints
-    "perp_thresh": 5e-3,        # float, frontier growth criterion (RMS/NORM of perpendicular force)
-    "reparam_check": "rms",     # str, "rms" | "norm"; convergence check metric after reparam
-    "reparam_every": 1,         # int, reparametrize every N steps while growing
-    "reparam_every_full": 1,    # int, reparametrize every N steps after fully grown
-    "param": "equi",            # str, "equi" (even spacing) | "energy" (weight by energy)
-    "max_micro_cycles": 10,     # int, micro-optimization cycles per macro iteration
-    "reset_dlc": True,          # bool, reset DLC coordinates when appropriate
-    "climb": True,              # bool, enable climbing image
-    "climb_rms": 5e-4,          # float, RMS force threshold to start climbing image
-    "climb_lanczos": True,      # bool, use Lanczos to estimate the HEI tangent
-    "climb_lanczos_rms": 5e-4,  # float, RMS force threshold for Lanczos tangent
-    "climb_fixed": False,       # bool, fix the HEI image index instead of adapting it
-    "scheduler": None,          # Optional[str], execution scheduler; None = serial (shared calculator)
-}
+GS_KW: Dict[str, Any] = deepcopy(_GS_KW_DEFAULT)
 
 # StringOptimizer (optimization control)
-STOPT_KW: Dict[str, Any] = {
-    "type": "string",           # str, tag for bookkeeping / output labelling
-    "stop_in_when_full": 300,   # int, allow N extra cycles after the string is fully grown
-    "align": False,             # bool, keep internal align disabled; use external Kabsch alignment instead
-    "scale_step": "global",     # str, "global" | "per_image" scaling policy
-    "max_cycles": 300,          # int, maximum macro cycles for the optimizer
-    "dump": False,              # bool, write optimizer trajectory to disk
-    "dump_restart": False,      # bool | int, write restart YAML every N cycles (False disables)
-    "reparam_thresh": 0.0,      # float, convergence threshold for reparametrization
-    "coord_diff_thresh": 0.0,   # float, tolerance for coordinate difference before pruning
-    "out_dir": "./result_path_opt/",  # str, output directory for optimizer artifacts
-    "print_every": 10,          # int, status print frequency (cycles)
-}
+STOPT_KW: Dict[str, Any] = deepcopy(_STOPT_KW_DEFAULT)
 
 def _load_two_endpoints(
     inputs: Sequence[PreparedInputStructure],

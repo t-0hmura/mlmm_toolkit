@@ -12,7 +12,7 @@ For detailed documentation, see: docs/irc.md
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, List, Sequence, Tuple
+from typing import Any, Dict, Optional, List
 
 import logging
 import sys
@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 import click
 import time
-import numpy as np
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.irc.EulerPC import EulerPC
@@ -358,7 +357,7 @@ def cli(
             or yaml_section_has_key(override_layer_cfg, calc_paths, "return_partial_hessian")
         )
         if not partial_explicit:
-            calc_cfg["return_partial_hessian"] = False
+            calc_cfg["return_partial_hessian"] = True
 
         # Normalize any existing freeze list from YAML before wiring it to UMA
         merge_freeze_atom_indices(geom_cfg)

@@ -44,6 +44,9 @@ oniom_export
 oniom_import
 fix_altloc
 energy_diagram
+device_hpc
+oniom_gaussian
+oniom_orca
 ```
 
 ```{toctree}

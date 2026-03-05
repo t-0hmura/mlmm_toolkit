@@ -589,19 +589,6 @@ def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
     return p
 
 
-def parser_wrapper_bool_options() -> frozenset[str]:
-    """Return argparse-backed boolean long options for root-level bool normalization."""
-    parser = _build_arg_parser(prog="mlmm extract")
-    options: set[str] = set()
-    for action in parser._actions:
-        if isinstance(action, argparse.BooleanOptionalAction):
-            options.update(
-                opt for opt in action.option_strings
-                if opt.startswith("--") and not opt.startswith("--no-")
-            )
-    return frozenset(options)
-
-
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     """
     Parse CLI arguments.

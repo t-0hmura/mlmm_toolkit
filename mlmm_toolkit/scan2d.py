@@ -12,9 +12,8 @@ from __future__ import annotations
 import functools
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
+from typing import Any, Dict, List, Optional, Sequence
 
-import ast
 import logging
 import math
 import shutil
@@ -22,7 +21,6 @@ import sys
 import textwrap
 import traceback
 import tempfile
-import os
 import time
 
 logger = logging.getLogger(__name__)
@@ -36,9 +34,10 @@ import plotly.graph_objects as go
 from pysisyphus.helpers import geom_loader
 from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
-from pysisyphus.constants import ANG2BOHR
+from pysisyphus.constants import ANG2BOHR, AU2KCALPERMOL
 
 from .mlmm_calc import mlmm
+from .defaults import BIAS_KW as _BIAS_KW_DEFAULT
 from .opt import (
     GEOM_KW as _OPT_GEOM_KW,
     CALC_KW as _OPT_CALC_KW,
@@ -96,9 +95,8 @@ OPT_BASE_KW.update(
 )
 LBFGS_KW: Dict[str, Any] = deepcopy(_OPT_LBFGS_KW)
 LBFGS_KW.update({"out_dir": "./result_scan2d/"})
-BIAS_KW: Dict[str, Any] = {"k": 100.0}  # eV/Å^2
+BIAS_KW: Dict[str, Any] = deepcopy(_BIAS_KW_DEFAULT)
 
-HARTREE_TO_KCAL_MOL = 627.50961
 
 _snapshot_geometry = functools.partial(snapshot_geometry, coord_type_default="cart")
 
@@ -948,7 +946,7 @@ def cli(
                 ref = float(df.loc[mask, "energy_hartree"].iloc[0])
             else:
                 ref = float(df["energy_hartree"].min())
-            df["energy_kcal"] = (df["energy_hartree"] - ref) * HARTREE_TO_KCAL_MOL
+            df["energy_kcal"] = (df["energy_hartree"] - ref) * AU2KCALPERMOL
             df["d1_label"] = d1_label_csv
             df["d2_label"] = d2_label_csv
 

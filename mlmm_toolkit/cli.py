@@ -1,6 +1,5 @@
 # mlmm_toolkit/cli.py
 
-import logging
 import warnings
 
 import click

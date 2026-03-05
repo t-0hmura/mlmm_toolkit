@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -33,7 +32,7 @@ import yaml
 from ase import Atoms
 from ase.io import read
 
-from pysisyphus.constants import AU2EV
+from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 
 from .mlmm_calc import hessianffCalculator
 from .opt import (
@@ -58,11 +57,10 @@ from .utils import (
     build_model_pdb_from_indices,
     set_convert_file_enabled,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 
 from functools import reduce
 
-HARTREE_TO_KCALMOL = 627.5094740631
 EV2AU = 1.0 / AU2EV
 
 # -----------------------------------------------
@@ -308,7 +306,7 @@ def _prepare_ml_region_workspace(
 
 
 def _hartree_to_kcalmol(Eh: float) -> float:
-    return float(Eh * HARTREE_TO_KCALMOL)
+    return float(Eh * AU2KCALPERMOL)
 
 
 class FlowList(list):
@@ -850,6 +848,25 @@ def cli(
         if xc.lower().endswith("-v") or "vv10" in xc.lower():
             mf.nlc = "vv10"
 
+        # --- Electrostatic embedding (--embedcharge) ---
+        n_mm_charges = 0
+        if calc_kw.get("embedcharge", False):
+            import parmed as pmd
+            from pyscf import qmmm as pyscf_qmmm
+
+            real_top = pmd.load_file(str(workspace.real_parm7))
+            ml_set = set(workspace.selection_indices)
+            mm_indices = [i for i in range(len(workspace.atoms_real)) if i not in ml_set]
+
+            if mm_indices:
+                mm_coords = workspace.atoms_real.get_positions()[mm_indices]
+                mm_charges = np.array([real_top.atoms[i].charge for i in mm_indices])
+                mf = pyscf_qmmm.mm_charge(mf, mm_coords, mm_charges, unit="Angstrom")
+                n_mm_charges = len(mm_indices)
+                click.echo(f"[embedcharge] {n_mm_charges} MM point charges embedded into QM Hamiltonian.")
+            else:
+                click.echo("[embedcharge] No MM atoms found; skipping embedding.")
+
         click.echo("\n=== ML-region DFT single-point started ===\n")
         tic_scf = time.time()
         e_tot = mf.kernel()
@@ -942,6 +959,8 @@ def cli(
                 "max_cycle": dft_kw["max_cycle"],
                 "grid_level": dft_kw["grid_level"],
                 "out_dir": str(out_dir_path),
+                "embedcharge": bool(calc_kw.get("embedcharge", False)),
+                "n_mm_charges": n_mm_charges,
             },
             "energy": {
                 "hartree": e_h,

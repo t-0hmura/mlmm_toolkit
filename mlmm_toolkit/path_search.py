@@ -22,7 +22,6 @@ import traceback
 import textwrap
 import tempfile
 import os
-import shutil
 
 logger = logging.getLogger(__name__)
 import time  # timing
@@ -43,8 +42,12 @@ from pysisyphus.constants import AU2KCALPERMOL, BOHR2ANG
 from Bio import PDB
 from Bio.PDB import PDBParser, PDBIO
 
-from .mlmm_calc import mlmm, MLMMCore, MLMMASECalculator
-from .path_opt import GS_KW as _PATH_GS_KW, STOPT_KW as _PATH_STOPT_KW, DMF_KW as _PATH_DMF_KW, _run_dmf_mep, _select_hei_index
+from .mlmm_calc import mlmm, MLMMASECalculator
+from .defaults import (
+    BOND_KW as _BOND_KW_DEFAULT,
+    SEARCH_KW as _SEARCH_KW_DEFAULT,
+)
+from .path_opt import GS_KW as _PATH_GS_KW, STOPT_KW as _PATH_STOPT_KW, DMF_KW as _PATH_DMF_KW, _select_hei_index
 from .opt import (
     GEOM_KW as _OPT_GEOM_KW,
     CALC_KW as _OPT_CALC_KW,
@@ -76,7 +79,7 @@ from .utils import (
     parse_layer_indices_from_bfactors,
     collect_single_option_values,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 from .preflight import validate_existing_files
 from .trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
 from .summary_log import write_summary_log
@@ -109,27 +112,13 @@ LBFGS_KW.update({
 })
 
 # Covalent-bond change detection
-BOND_KW: Dict[str, Any] = {
-    "device": "cuda",            # str, device for UMA graph analysis during bond detection
-    "bond_factor": 1.20,         # float, scaling of covalent radii for bond cutoff
-    "margin_fraction": 0.05,     # float, fractional margin to tolerate small deviations
-    "delta_fraction": 0.05,      # float, change threshold to flag bond formation/breaking
-}
+BOND_KW: Dict[str, Any] = deepcopy(_BOND_KW_DEFAULT)
 
 # DMF (Direct Max Flux) defaults
 DMF_KW: Dict[str, Any] = deepcopy(_PATH_DMF_KW)
 
 # Global search control
-SEARCH_KW: Dict[str, Any] = {
-    "max_depth": 10,               # int, recursion depth cap for segment refinement
-    "stitch_rmsd_thresh": 1.0e-4,  # float, ≤ this → treat endpoints as duplicates on stitching
-    "bridge_rmsd_thresh": 1.0e-4,  # float, > this → insert a bridge GSM
-    "rmsd_align": True,            # bool, retained for compatibility (ignored internally)
-    "max_nodes_segment": 10,       # int, max_nodes override for recursive segments
-    "max_nodes_bridge": 5,         # int, max_nodes override for bridge GSMs
-    "kink_max_nodes": 3,           # int, nodes for linear interpolation when skipping GSM at a kink
-    "refine_mode": None,           # Optional[str], HEI seed policy (peak|minima)
-}
+SEARCH_KW: Dict[str, Any] = deepcopy(_SEARCH_KW_DEFAULT)
 
 # Multi-structure loader
 def _load_structures(
@@ -232,18 +221,6 @@ def _has_bond_change(x, y, bond_cfg: Dict[str, Any]) -> Tuple[bool, str]:
 # -----------------------------------------------
 # Kink detection & interpolation helpers
 # -----------------------------------------------
-
-def _max_displacement_between(ga, gb, align: bool = True, indices: Optional[Sequence[int]] = None) -> float:
-    """
-    Maximum per-atom displacement (Å) between two structures (no alignment).
-    """
-    A = np.asarray(ga.coords3d, dtype=float)
-    B = np.asarray(gb.coords3d, dtype=float)
-    if A.shape != B.shape or A.shape[1] != 3:
-        raise ValueError("Geometries must have the same number of atoms for displacement.")
-    disp = np.linalg.norm(A - B, axis=1)
-    return float(np.max(disp))
-
 
 def _new_geom_from_coords(atoms: Sequence[str], coords: np.ndarray, coord_type: str, freeze_atoms: Sequence[int]) -> Any:
     """
@@ -900,6 +877,17 @@ class CombinedPath:
     segments: List[SegmentReport]  # segment summaries in final output order
 
 
+def _trailing_kink_count(segments: Sequence[SegmentReport]) -> int:
+    """Return the number of consecutive kink segments at the end of *segments*."""
+    count = 0
+    for seg in reversed(segments):
+        if seg.tag and "kink" in seg.tag:
+            count += 1
+        else:
+            break
+    return count
+
+
 def _build_multistep_path(
     gA,
     gB,
@@ -920,12 +908,14 @@ def _build_multistep_path(
     mep_mode_kind: str = "gsm",
     calc_cfg: Optional[Dict[str, Any]] = None,
     dmf_cfg: Optional[Dict[str, Any]] = None,
+    kink_seq_count: int = 0,
 ) -> CombinedPath:
     """
     Recursively construct a multistep MEP from A–B and return it (A→B order).
     """
     seg_max_nodes = int(search_cfg.get("max_nodes_segment", gs_cfg.get("max_nodes", 10)))
     gs_seg_cfg = {**gs_cfg, "max_nodes": seg_max_nodes}
+    max_seq_kink = int(search_cfg.get("max_seq_kink", 2))
 
     if depth > int(search_cfg.get("max_depth", 10)):
         click.echo(f"[{branch_tag}] Reached maximum recursion depth. Returning current endpoints only.")
@@ -1037,6 +1027,7 @@ def _build_multistep_path(
     parts: List[Tuple[List[Any], List[float]]] = []
     seg_reports: List[SegmentReport] = []
 
+    trailing_kink_run = kink_seq_count
     if left_changed:
         subL = _build_multistep_path(
             gA, left_end, shared_calc, geom_cfg, gs_cfg, stopt_cfg,
@@ -1044,10 +1035,29 @@ def _build_multistep_path(
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}L",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
+            kink_seq_count=kink_seq_count,
         )
         _tag_images(subL.images, pair_index=pair_index)
         parts.append((subL.images, subL.energies))
         seg_reports.extend(subL.segments)
+        trailing_kink_run = _trailing_kink_count(seg_reports)
+
+    current_kink_run = trailing_kink_run + 1 if use_kink else 0
+    if use_kink and current_kink_run >= max_seq_kink:
+        warning_msg = (
+            f"[{tag0}] Consecutive kink segments were detected. Something seems wrong. "
+            "Please check the initial structure and the generated intermediate structures. "
+            "Alternatively, try switching the mep-mode. If that still fails, try including intermediate structures in the inputs."
+        )
+        click.echo(warning_msg)
+        gsm = _run_mep_between(
+            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_maxdepth",
+            ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
+            calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
+        )
+        seg_counter[0] += 1
+        _tag_images(gsm.images, pair_index=pair_index)
+        return CombinedPath(images=gsm.images, energies=gsm.energies, segments=[])
 
     parts.append((step_imgs, step_E))
     seg_reports.append(seg_report)
@@ -1059,6 +1069,7 @@ def _build_multistep_path(
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}R",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
+            kink_seq_count=current_kink_run,
         )
         _tag_images(subR.images, pair_index=pair_index)
         parts.append((subR.images, subR.energies))
@@ -1081,6 +1092,7 @@ def _build_multistep_path(
             branch_tag=f"{branch_tag}B",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
+            kink_seq_count=_trailing_kink_count(seg_reports),
         )
         _tag_images(sub.images, pair_index=pair_index)
         return sub
@@ -2264,6 +2276,7 @@ def cli(
                 branch_tag="B",
                 pair_index=None,
                 mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
+                kink_seq_count=_trailing_kink_count(seg_reports_all),
             )
             return sub
 

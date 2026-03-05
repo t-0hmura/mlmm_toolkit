@@ -113,6 +113,14 @@ cd hessian_ff/native && make && cd ../..
 plotly_get_chrome -y
 ```
 
+If you run on a different environment (different node/container/Python/PyTorch), rebuild `hessian_ff` there.  
+On many clusters, install Ninja first, then rebuild:
+
+```bash
+conda install -c conda-forge ninja -y
+cd hessian_ff/native && make clean && make
+```
+
 Next, log in to **Hugging Face Hub** so that UMA models can be downloaded (only required when using the default `uma` backend). Either:
 
 ```bash
@@ -213,6 +221,12 @@ If you prefer to build the environment piece by piece:
  ```
 
  This compiles the C++ code that provides fast Amber force field energy, force, and Hessian calculations.
+ If you move to a different runtime environment, install Ninja and rebuild in that environment:
+
+ ```bash
+ conda install -c conda-forge ninja -y
+ cd hessian_ff/native && make clean && make
+ ```
 
 8. **Install Chrome for visualization**
 
@@ -426,8 +440,8 @@ Below are the most commonly used options across workflows.
 | `--thermo/--no-thermo` | Run vibrational analysis and thermochemistry. |
 | `--dft/--no-dft` | Perform single-point DFT calculations. |
 | `--refine-path/--no-refine-path` | Recursive MEP refinement (default) vs single-pass. |
-| `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer) or `hess` (RFO/RS-I-RFO, default). |
-| `--mep-mode gsm\|dmf` | MEP method: Growing String Method or Direct Max Flux. |
+| `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer, default) or `hess` (RFO/RS-I-RFO). |
+| `--refine-path/--no-refine-path` | Recursive MEP refinement (default) vs single-pass `path-opt`. |
 | `--backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction (default: off). |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. `Analytical` is available for the UMA backend (recommended when VRAM is available); other backends use `FiniteDifference`. |

@@ -18,7 +18,7 @@ from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List, Sequence
+from typing import Dict, Any, Optional, Tuple, List
 
 import click
 import numpy as np
@@ -85,7 +85,7 @@ from .utils import (
     normalize_choice,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 from .freq import (
     _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
     _torch_device,
@@ -194,31 +194,6 @@ def _mw_projected_hessian_inplace(H_t: torch.Tensor,
             del Q, Qt, QtH, QtHQ
         _clear_cuda_cache()
         return H_t
-
-
-def _self_check_tr_projection(H_t: torch.Tensor,
-                              coords_bohr_t: torch.Tensor,
-                              masses_au_t: torch.Tensor,
-                              freeze_idx: Optional[List[int]] = None) -> Tuple[float, float, int]:
-    """
-    (Low-VRAM) Skipped heavy clone-based check. Keep signature for compatibility.
-    """
-    # To conserve VRAM, do not allocate a full clone for checks.
-    # Return zeros and rank estimate based on current TR basis only.
-    with torch.no_grad():
-        N = coords_bohr_t.shape[0]
-        if freeze_idx:
-            frozen = set(int(i) for i in freeze_idx if 0 <= int(i) < N)
-            active_idx = [i for i in range(N) if i not in frozen]
-            if len(active_idx) == 0:
-                return 0.0, 0.0, 0
-            coords_act = coords_bohr_t[active_idx, :]
-            masses_act = masses_au_t[active_idx]
-            _, r = _tr_orthonormal_basis(coords_act, masses_act)
-            return 0.0, 0.0, r
-        else:
-            _, r = _tr_orthonormal_basis(coords_bohr_t, masses_au_t)
-            return 0.0, 0.0, r
 
 
 def _mode_direction_by_root(H_t: torch.Tensor,
@@ -356,38 +331,6 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         return freqs_cm, modes
 
 
-def _frequencies_cm_only(H_t: torch.Tensor,
-                         atomic_numbers: List[int],
-                         coords_bohr: np.ndarray,
-                         device: torch.device,
-                         tol: float = 1e-6,
-                         freeze_idx: Optional[List[int]] = None) -> np.ndarray:
-    """
-    Frequencies only (PHVA/TR in-place; no eigenvectors) for quick checks.
-    """
-    with torch.no_grad():
-        Z = np.array(atomic_numbers, dtype=int)
-        masses_amu = np.array([atomic_masses[z] for z in Z])  # amu
-        masses_au_t = torch.as_tensor(masses_amu * AMU2AU, dtype=H_t.dtype, device=device)
-        coords_bohr_t = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_t.dtype, device=device)
-
-        Hmw = _mw_projected_hessian_inplace(H_t, coords_bohr_t, masses_au_t, freeze_idx=freeze_idx)
-        # Explicit symmetrization before eigendecomposition
-        _t = Hmw.T.clone()
-        Hmw.add_(_t).mul_(0.5)
-        del _t
-        omega2 = torch.linalg.eigvalsh(Hmw, UPLO="U")
-
-        sel = torch.abs(omega2) > tol
-        omega2 = omega2[sel]
-
-        freqs_cm = _omega2_to_freqs_cm(omega2)
-
-        del omega2, sel
-        _clear_cuda_cache(H_t)
-        return freqs_cm
-
-
 def _write_mode_trj_and_pdb(geom,
                             mode_vec_3N: np.ndarray,
                             out_trj: Path,
@@ -523,20 +466,6 @@ def _extract_active_block(H_full: torch.Tensor, mask_dof: np.ndarray) -> torch.T
     device = H_full.device
     m = torch.as_tensor(mask_dof, device=device, dtype=torch.bool)
     return H_full[m][:, m].clone()
-
-
-def _embed_active_vector(vec_act: torch.Tensor,
-                         mask_dof: np.ndarray,
-                         total_3N: int) -> torch.Tensor:
-    """
-    Embed a (3N_act,) vector back to full (3N,) with zeros on frozen DOFs.
-    """
-    device = vec_act.device
-    dtype = vec_act.dtype
-    full = torch.zeros(total_3N, device=device, dtype=dtype)
-    m = torch.as_tensor(mask_dof, device=device, dtype=torch.bool)
-    full[m] = vec_act
-    return full
 
 
 def _mw_tr_project_active_inplace(H_act: torch.Tensor,
@@ -1969,6 +1898,15 @@ hessian_dimer_KW = {
     help="Use partial Hessian (ML region only) for imaginary mode detection in flatten loop.",
 )
 @click.option(
+    "--flatten/--no-flatten",
+    "flatten",
+    default=None,
+    show_default=False,
+    help="Enable/disable extra imaginary-mode flattening loop. "
+         "--flatten uses the default flatten_max_iter (50); --no-flatten forces it to 0. "
+         "When not provided, the value is determined by the YAML config or defaults.",
+)
+@click.option(
     "--ml-only-hessian-dimer/--no-ml-only-hessian-dimer",
     "ml_only_hessian_dimer",
     default=False,
@@ -2050,6 +1988,7 @@ def cli(
     opt_mode: str,
     microiter: bool,
     partial_hessian_flatten: bool,
+    flatten: Optional[bool],
     ml_only_hessian_dimer: bool,
     active_dof_mode: str,
     config_yaml: Optional[Path],
@@ -2151,6 +2090,13 @@ def cli(
         opt_cfg["thresh"] = str(thresh)
         simple_cfg["thresh"] = str(thresh)
         rsirfo_cfg["thresh"] = str(thresh)
+    # Handle --flatten/--no-flatten CLI toggle
+    if flatten is not None:
+        if flatten:
+            # Use default from HESSIAN_DIMER_KW if not already set
+            simple_cfg.setdefault("flatten_max_iter", HESSIAN_DIMER_KW["flatten_max_iter"])
+        else:
+            simple_cfg["flatten_max_iter"] = 0
     if _is_param_explicit("detect_layer"):
         calc_cfg["use_bfactor_layers"] = bool(detect_layer)
     if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:

@@ -83,7 +83,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM レイヤーのカットオフ距離。 | _None_ |
 | `--hessian-calc-mode CHOICE` | ヘシアンモード（`Analytical` または `FiniteDifference`）。 | _None_ |
-| `--max-write INT` | エクスポートするモード数。 | `20` |
+| `--max-write INT` | エクスポートするモード数。 | `10` |
 | `--amplitude-ang FLOAT` | モードアニメーション振幅 (A)。 | `0.8` |
 | `--n-frames INT` | モードアニメーションのフレーム数。 | `20` |
 | `--sort CHOICE` | モードのソート方法: `value`（cm^-1）または `abs`。 | `value` |
@@ -93,6 +93,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--convert-files/--no-convert-files` | PDB テンプレートが利用可能な場合の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_freq/` |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
+| `--hess-device CHOICE` | ヘシアン組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
 | `--ref-pdb FILE` | 非 PDB 入力用の参照 PDB トポロジー。 | _None_ |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
@@ -138,7 +139,7 @@ mlmm:
 freq:
  amplitude_ang: 0.8                # モードの変位振幅 (A)
  n_frames: 20                      # モードごとのフレーム数
- max_write: 20                     # 書き出す最大モード数
+ max_write: 10                     # 書き出す最大モード数
  sort: value                       # ソート順: value vs abs
 thermo:
  temperature: 298.15               # 熱化学温度 (K)

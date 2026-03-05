@@ -14,7 +14,6 @@ energy_diagram
 extract
 fix_altloc
 freq
-init
 irc
 mm_parm
 oniom_export
@@ -39,7 +38,6 @@ tsopt
 | `mlmm extract` | [extract](extract.md) |
 | `mlmm fix-altloc` | [fix-altloc](fix_altloc.md) |
 | `mlmm freq` | [freq](freq.md) |
-| ~~`mlmm init`~~ | ~~[init](init.md)~~ (removed) |
 | `mlmm irc` | [irc](irc.md) |
 | `mlmm mm-parm` | [mm-parm](mm_parm.md) |
 | `mlmm oniom-export` | [oniom-export](oniom_export.md) |

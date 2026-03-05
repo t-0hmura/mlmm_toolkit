@@ -139,7 +139,7 @@ mlmm:
 freq:
  amplitude_ang: 0.8                # displacement amplitude for modes (A)
  n_frames: 20                      # number of frames per mode
- max_write: 20                     # maximum number of modes to write
+ max_write: 10                     # maximum number of modes to write
  sort: value                       # sort order: value vs abs
 thermo:
  temperature: 298.15               # thermochemistry temperature (K)

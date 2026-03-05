@@ -81,7 +81,7 @@ Fix:
 - Provide charge and multiplicity explicitly:
 
  ```bash
- mlmm path-search -i R.pdb P.pdb --real-parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
+ mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
  ```
 
 - Or (when using extraction) provide a residue-name mapping:
@@ -366,6 +366,43 @@ Fixes to try:
 - **MM Hessian**: `mm_fd: true` (default) uses finite-difference for MM Hessian. Analytical MM Hessian (`mm_fd: false`) is faster for small systems but may require more memory.
 - **Large systems (2000+ atoms)**: ensure frozen atoms are properly set (Frozen layer, B=20) to reduce the movable DOF count. Use `define-layer` with appropriate cutoffs.
 - **Multi-GPU**: place ML on one GPU (`ml_cuda_idx: 0`) and MM on another (`mm_device: cuda`, `mm_cuda_idx: 1`) if available.
+
+---
+
+## Backend-specific issues
+
+### ImportError when using --backend orb/mace/aimnet2
+
+**Symptom:** `ImportError: orb-models is required for the ORB backend`
+
+**Fix:** Install the optional dependency for the chosen backend:
+```bash
+pip install mlmm[orb]      # ORB backend
+pip install mlmm[aimnet2]  # AIMNet2 backend
+# MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
+```
+
+---
+
+### CUDA out of memory with non-UMA backends
+
+**Symptom:** `RuntimeError: CUDA out of memory` when using ORB, MACE, or AIMNet2.
+
+**Fix:** Non-UMA backends use finite-difference Hessians, which require more VRAM. Options:
+- Reduce `--radius-partial-hessian` to limit Hessian-target atoms
+- Use `--hessian-calc-mode FiniteDifference` explicitly with a smaller `hess_cutoff`
+- Use `ml_device: cpu` in YAML (slower but avoids VRAM limits)
+
+---
+
+### xTB not found when using --embedcharge
+
+**Symptom:** `FileNotFoundError: xtb command not found`
+
+**Fix:** Install xTB and ensure it's on `$PATH`:
+```bash
+conda install -c conda-forge xtb
+```
 
 ---
 

@@ -242,7 +242,7 @@ out_dir/ (default:./result_scan/)
 - Optimizer settings: `thresh`, `max_cycles`, `print_every`, step controls, line search, dumping flags.
 
 ### Section `bias`
-- `k` (`100`): Harmonic strength in eV/A^2.
+- `k` (`300`): Harmonic strength in eV/A^2.
 
 ### Section `bond`
 - MLIP-based bond-change detection:

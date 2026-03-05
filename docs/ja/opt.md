@@ -94,6 +94,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--bias-k FLOAT` | 調和バイアス強度 (eV/A^2)。 | `10.0` |
 | `--max-cycles INT` | 最適化反復のハードリミット。 | `10000` |
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザーモード: `grad`/`lbfgs`（LBFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
+| `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（LBFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
 | `--flatten/--no-flatten` | 最適化後の虚数モードフラットンループの有効化/無効化。 | `False` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`）を出力。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの有効化/無効化。 | `True` |
@@ -256,7 +257,7 @@ rfo:
  max_energy_incr: null          # ステップごとの許容エネルギー増加
  hessian_update: bfgs           # ヘシアン更新方式
  hessian_init: calc             # ヘシアン初期化ソース
- hessian_recalc: 200            # N ステップごとにヘシアンを再構築
+ hessian_recalc: 500            # N ステップごとにヘシアンを再構築
  hessian_recalc_adapt: null     # 適応的ヘシアン再構築上限
  small_eigval_thresh: 1.0e-08   # 安定性のための固有値閾値
  alpha0: 1.0                    # 初期マイクロステップ

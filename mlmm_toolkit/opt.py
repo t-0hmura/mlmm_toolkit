@@ -1469,6 +1469,7 @@ def cli(
                 _torch_device,
                 _calc_full_hessian_torch,
                 _frequencies_cm_and_modes,
+                _safe_masses_amu,
             )
 
             click.echo("\n====== Optimization (Flatten loop) started ======\n")

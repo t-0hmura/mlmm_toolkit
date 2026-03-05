@@ -4,28 +4,37 @@
 
 > **Summary:** Add or repair PDB element symbols (columns 77-78) using Biopython. Infers elements from atom names plus residue context (proteins, nucleic acids, water, ions, ligands).
 
-### Quick reference
-- **Input:** A PDB file with missing or incorrect element columns.
-- **Output:** A PDB file with element columns (77-78) populated or corrected.
-- **Behavior:** Preserves existing element fields unless `--overwrite` is given.
+### At a glance
 - **Use when:** Your PDB has empty element columns that downstream tools (e.g., `mm-parm`, ONIOM export) require.
+- **Method:** Biopython `PDBParser` + residue-context heuristics for element assignment.
+- **Outputs:** A PDB file with element columns (77-78) populated or corrected.
+- **Defaults:** Preserves existing element fields unless `--overwrite` is given. Without `-o`, overwrites the input file.
+- **Next step:** [mm-parm](mm_parm.md) or [extract](extract.md).
 
 `mlmm add-elem-info` parses the input PDB with Biopython (`PDBParser`), assigns `atom.element` using residue context and atom-name heuristics, and writes via `PDBIO` to populate columns 77-78. It supports ATOM and HETATM records across all models/chains/residues without altering coordinates.
 
-## Usage
+## Minimal example
+
 ```bash
-mlmm add-elem-info -i INPUT.pdb [-o OUTPUT.pdb] [--overwrite]
+mlmm add-elem-info -i 1abc.pdb
 ```
 
-### Examples
+## Output checklist
+
+- PDB file with element columns (77-78) populated or corrected
+- Console report with totals for processed/assigned atoms, per-element counts, and up to 50 unresolved atoms
+
+## Common examples
+
+1. Write to a specific output file.
+
 ```bash
-# Populate element fields (overwrites the input file)
-mlmm add-elem-info -i 1abc.pdb
-
-# Write to a specific output file
 mlmm add-elem-info -i 1abc.pdb -o 1abc_fixed.pdb
+```
 
-# Re-infer and overwrite existing element fields
+2. Re-infer and overwrite existing element fields.
+
+```bash
 mlmm add-elem-info -i 1abc.pdb --overwrite
 ```
 
@@ -55,14 +64,9 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 | `-o, --out PATH` | Output PDB path. When omitted, the input file is overwritten. | _None_ (overwrites input) |
 | `--overwrite` | Re-infer and overwrite element fields even if already present (by default, existing values are preserved). | `False` |
 
-## Outputs
-- A PDB file with element columns (77-78) populated or corrected:
- - `-o/--out` given: writes to that path.
- - No output path: overwrites the input file.
-- Console report with totals for processed/assigned atoms, per-element
- counts, and up to 50 unresolved atoms.
-
 ## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
 - Only columns 77-78 are modified; coordinates, occupancies, B-factors, charges, altlocs,
  insertion codes, and record ordering stay untouched.
 - Existing element fields are detected by scanning the original file's ATOM/HETATM lines

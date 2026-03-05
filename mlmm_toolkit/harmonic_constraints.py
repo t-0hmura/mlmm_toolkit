@@ -138,11 +138,3 @@ def build_harmonic_constraint_calculators(atoms, k_fix=300.0, k_bond=300.0):
     return calculators
 
 
-def add_harmonic_constraints(atoms, calculators, k_fix=300.0, k_bond=300.0):
-    """
-    Append harmonic constraint calculators to a calculator list.
-    """
-
-    calcs = list(calculators) if calculators is not None else []
-    calcs.extend(build_harmonic_constraint_calculators(atoms, k_fix=k_fix, k_bond=k_bond))
-    return calcs

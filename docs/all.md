@@ -2,25 +2,25 @@
 
 ## Overview
 
-> **Summary:** End-to-end enzymatic reaction workflow -- pocket extraction, MM topology preparation, optional staged scan, recursive MEP search (GSM), merge to full systems, with optional TS optimization, pseudo-IRC, thermochemistry, DFT, and DFT//UMA diagrams.
+> **Summary:** End-to-end enzymatic reaction workflow -- active-site extraction, ML/MM layer assignment, MM topology preparation, optional staged scan, MEP search (GSM) on full-system layered PDBs, with optional TS optimization, pseudo-IRC, thermochemistry, DFT, and DFT//UMA diagrams.
 
-`mlmm all` runs a one-shot pipeline centered on pocket models. It supports three modes:
+`mlmm all` runs a one-shot pipeline that operates on full-system layered PDBs with ML/MM. It supports three modes:
 
-- **Multi-structure ensemble** -- Provide two or more full PDBs in reaction order. The tool extracts pockets, builds MM topology, runs recursive GSM MEP search, merges back into the full system, and optionally runs per-segment post-processing (TSOPT/freq/DFT).
+- **Multi-structure ensemble** -- Provide two or more full PDBs in reaction order. The tool extracts the active-site region (for ML-region definition), builds MM topology, assigns ML/MM layers, runs GSM MEP search on the layered full-system PDBs, and optionally runs per-segment post-processing (TSOPT/freq/DFT).
 - **Single-structure + staged scan** -- Provide one PDB plus `--scan-lists`. The scan generates intermediate/product candidates that become MEP endpoints.
   - One `--scan-lists` literal runs a single scan stage.
   - Multiple stages are passed as multiple values after a single `--scan-lists` flag (the flag itself cannot be repeated).
-- **TSOPT-only** -- Provide a single PDB, omit `--scan-lists`, and set `--tsopt`. The tool runs TS optimization on the pocket, performs pseudo-IRC, minimizes both ends, and builds energy diagrams.
+- **TSOPT-only** -- Provide a single PDB, omit `--scan-lists`, and set `--tsopt`. The tool runs TS optimization on the layered full-system PDB, performs pseudo-IRC, minimizes both ends, and builds energy diagrams.
 
 ```{important}
 `--tsopt` produces **TS candidates**. `all` automatically runs IRC and freq for validation, but always inspect the results (imaginary mode + endpoint connectivity) before mechanistic interpretation.
 ```
 
 ### At a glance
-- **Use when:** You want a complete end-to-end enzymatic reaction study with ML/MM, from pocket extraction through MEP search to optional TS/freq/DFT post-processing.
-- **Method:** Pocket extraction + MM topology (AmberTools) + GSM MEP search + optional TSOPT/IRC/freq/DFT.
+- **Use when:** You want a complete end-to-end enzymatic reaction study with ML/MM, from active-site extraction through MEP search to optional TS/freq/DFT post-processing.
+- **Method:** Active-site extraction + ML/MM layer assignment + MM topology (AmberTools) + GSM MEP search on full-system layered PDBs + optional TSOPT/IRC/freq/DFT.
 - **Outputs:** `summary.log`, `summary.yaml`, MEP trajectories, energy diagrams, per-segment post-processing.
-- **Defaults:** `--opt-mode hess`, `--thresh gau`, `--max-cycles 300`, `--preopt` enabled, `--climb` enabled.
+- **Defaults:** `--opt-mode grad`, `--thresh gau`, `--max-cycles 300`, `--preopt` enabled, `--climb` enabled.
 - **Next step:** Inspect `summary.log` and energy diagrams; run standalone [tsopt](tsopt.md)/[freq](freq.md)/[dft](dft.md) for refinement.
 
 ## Minimal example
@@ -97,40 +97,40 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 
 ## Workflow
 
-1. **Active-site pocket extraction** (multi-structure union when multiple inputs)
+1. **Active-site extraction and ML-region definition** (multi-structure union when multiple inputs)
    - Define the substrate (`-c/--center`, by PDB, residue IDs, or residue names).
    - Optionally provide `--ligand-charge` as a total number (distributed) or a mapping (e.g., `GPP:-3,MMT:-1`).
-   - The extractor writes per-input pocket PDBs under `<out-dir>/pockets/`.
+   - The extractor writes per-input pocket PDBs under `<out-dir>/pockets/`. The first pocket is copied as `<out-dir>/ml_region.pdb` to define the ML region for all subsequent ML/MM calculations.
    - The extractor's **first-model total pocket charge** is used as the total charge in later steps, cast to the nearest integer with a console note if rounding occurs.
    - Additional extractor toggles: `--radius`, `--radius-het2het`, `--include-H2O/--no-include-H2O`, `--exclude-backbone/--no-exclude-backbone`, `--add-linkH/--no-add-linkH`, `--selected-resn`, `--verbose/--no-verbose`.
    - If `-c/--center` is omitted, extraction is skipped and full input structures are used directly.
 
-2. **ML/MM preparation**
-   - Use the first pocket as `<out-dir>/ml_region.pdb` for `--model-pdb`. Keep `--no-add-linkH` (the default) during extraction if you prefer to omit link hydrogens from this definition.
+2. **ML/MM preparation (parm7 + layer assignment)**
    - Run `mm_parm` once on the first full input PDB to build `<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7`, automatically passed as `--parm`.
+   - Run `define-layer` on each full-system PDB to assign 3-layer B-factors (ML=0.0, MovableMM=10.0, FrozenMM=20.0) based on the ML-region definition. The layered full-system PDBs are written under `<out-dir>/layered/`.
    - Tune this stage with `--auto-mm-ff-set`, `--auto-mm-add-ter`, and `--auto-mm-keep-temp`.
 
 3. **Optional staged scan (single-structure only)**
-   - If exactly one full input PDB is provided and `--scan-lists` is given, the tool performs a staged, bond-length-driven scan on the extracted pocket PDB using the ML/MM calculator.
+   - If exactly one full input PDB is provided and `--scan-lists` is given, the tool performs a staged, bond-length-driven scan on the layered full-system PDB using the ML/MM calculator.
    - For each stage, the final relaxed structure (`stage_XX/result.pdb`) is collected as an intermediate/product candidate.
-   - The ordered input series for the path search becomes: `[initial pocket, stage_01/result.pdb, stage_02/result.pdb,...]`.
+   - The ordered input series for the path search becomes: `[initial layered PDB, stage_01/result.pdb, stage_02/result.pdb,...]`.
 
-4. **MEP search (recursive GSM) on pocket inputs**
-   - Runs `path_search` with options forwarded from this command.
-   - Use `--no-refine-path` to switch to a single-pass `path-opt` GSM chain without recursive refinement.
-   - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused (repeated) as the reference template for all pocket inputs.
+4. **MEP search on full-system layered PDBs**
+   - All MEP calculations run on full-system layered PDBs (with `--parm` and `--detect-layer`), not on pockets.
+   - **`--refine-path` (default):** Runs recursive `path_search` with kink-detection and refinement.
+   - **`--no-refine-path`:** Runs single-pass `path-opt` GSM per adjacent pair, then concatenates trajectories, extracts HEI per segment, detects bond changes, and writes `summary.yaml` — enabling Stage 4 post-processing (TSOPT, thermo, DFT) on both modes.
+   - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused (repeated) as the reference template.
 
-5. **Merge to full systems and optional post-processing**
-   - The pocket MEP is merged back into the original full-system template(s) within `<out-dir>/path_search/`.
-   - Pocket-only and full-system trajectories, per-segment merged PDBs, and a summary are written.
-   - `--tsopt`: run TS optimization on each HEI pocket, follow with EulerPC IRC, and emit segment energy diagrams.
+5. **Summary and optional post-processing**
+   - Per-segment trajectories, full MEP trajectory, and a `summary.yaml` are written under `<out-dir>/path_search/`.
+   - `--tsopt`: run TS optimization on each HEI, follow with EulerPC IRC, and emit segment energy diagrams.
    - `--thermo`: Compute ML/MM thermochemistry on (R, TS, P) and add a Gibbs diagram.
    - `--dft`: Do DFT single-point on (R, TS, P) and add a DFT diagram. With `--thermo`, also generate a DFT//UMA Gibbs diagram.
    - Shared overrides include `--opt-mode`, `--opt-mode-post` (overrides TSOPT and post-IRC endpoint optimization modes), `--flatten/--no-flatten`, `--hessian-calc-mode`, `--tsopt-max-cycles`, `--tsopt-out-dir`, `--freq-*`, `--dft-*`.
    - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
 
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
-   - Skips steps (4)-(5) and runs `tsopt` on the pocket, does a pseudo-IRC and minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//UMA diagrams.
+   - Skips steps (4)-(5) and runs `tsopt` on the layered full-system PDB, does a pseudo-IRC and minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//UMA diagrams.
    - In this mode only, the IRC endpoint with **higher energy** is adopted as the reactant (R).
 
 ### Charge and spin precedence
@@ -200,12 +200,12 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--opt-mode [grad\|hess]` | Optimizer preset for scan/path-search and single optimizations (`grad` -> LBFGS/Dimer, `hess` -> RFO/RSIRFO). | `hess` |
+| `--opt-mode [grad\|hess]` | Optimizer preset for scan/path-search and single optimizations (`grad` -> LBFGS/Dimer, `hess` -> RFO/RSIRFO). | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT/post-IRC endpoint optimizations (`grad` -> Dimer/LBFGS, `hess` -> RS-I-RFO/RFO). | `hess` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
-| `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments without recursive refinement. | `True` |
+| `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.yaml). Both modes support Stage 4 (TSOPT/thermo/DFT). | `True` |
 | `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | _Default_ |

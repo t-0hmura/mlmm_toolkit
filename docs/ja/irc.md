@@ -32,7 +32,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- --no-forward --out-dir ./result_irc_forward
+ --no-backward --out-dir ./result_irc_forward
 ```
 
 2. ステップサイズを増やして解析的ヘシアンを使う。
@@ -76,6 +76,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--step-size FLOAT` | 質量加重座標でのステップ長。`irc.step_length` を上書き。 | `0.10` |
 | `--root INT` | 初期変位の虚数モードインデックス。`irc.root` を上書き。 | `0` |
 | `--forward/--no-forward` | 正方向 IRC を実行。`irc.forward` を上書き。 | `True` |
+| `--backward/--no-backward` | 逆方向 IRC を実行。`irc.backward` を上書き。 | `True` |
 | `--out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |
 | `--convert-files/--no-convert-files` | 参照 PDB 利用可能時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
 | `--hessian-calc-mode CHOICE` | MLIP がヘシアンを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | _デフォルト_ |
@@ -90,14 +91,16 @@ out_dir/ (デフォルト: ./result_irc/)
 ├─ <prefix>irc_data.h5              # irc.dump_every ステップごとに書き出される HDF5 ダンプ
 ├─ <prefix>finished_irc_trj.xyz     # 完全 IRC 軌跡（XYZ/TRJ）
 ├─ <prefix>forward_irc_trj.xyz      # 正方向パスセグメント
+├─ <prefix>backward_irc_trj.xyz     # 逆方向パスセグメント
 ├─ <prefix>finished_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
-└─ <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb の場合のみ）
+├─ <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb の場合のみ）
+└─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
 ```
 
 ## YAML設定
 
 マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
-共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml_reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に、`calc.return_partial_hessian` が `false` に強制されます。
+共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml_reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は YAML で明示しない場合 `true`（partial-first）がデフォルトです。
 
 ### CLI から YAML へのマッピング
 
@@ -109,6 +112,7 @@ out_dir/ (デフォルト: ./result_irc/)
 | `--max-cycles` | `irc.max_cycles` |
 | `--root` | `irc.root` |
 | `--forward` | `irc.forward` |
+| `--backward` | `irc.backward` |
 | `--out-dir` | `irc.out_dir` |
 | `--hessian-calc-mode` | `calc.hessian_calc_mode` |
 
@@ -136,6 +140,7 @@ irc:
  max_cycles: 125                   # IRC に沿った最大ステップ数
  downhill: false                   # 下り方向のみに追従
  forward: true                     # 正方向に伝播
+ backward: true                    # 逆方向に伝播
  root: 0                           # 基準振動ルートインデックス
  hessian_init: calc                # ヘシアン初期化ソース
  displ: energy                     # 変位構築方法

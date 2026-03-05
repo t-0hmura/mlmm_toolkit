@@ -17,7 +17,7 @@ import time
 logger = logging.getLogger(__name__)
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Sequence
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 import numpy as np
@@ -60,7 +60,7 @@ from .utils import (
     strip_inherited_keys,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 
 
 def _torch_device(auto: str = "auto") -> torch.device:
@@ -594,7 +594,7 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
 
 # Frequency writer defaults
 FREQ_KW: Dict[str, Any] = {
-    "max_write": 20,          # Number of modes to export (after sorting)
+    "max_write": 10,          # Number of modes to export (after sorting)
     "amplitude_ang": 0.8,     # Mode animation amplitude in Å
     "n_frames": 20,           # Frames per sinusoidal animation
     "sort": "value",          # Sort modes by value (cm^-1) or absolute value

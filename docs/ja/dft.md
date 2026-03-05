@@ -10,7 +10,7 @@
 - **出力:** `ml_region_with_linkH.xyz`、ML(dft)/MM 合成エネルギーを含む `result.yaml`。
 - **デフォルト:** `--func-basis wb97m-v/def2-tzvpd`、`--max-cycle 100`、`--conv-tol 1e-9`。
 - **次のステップ:** R/TS/P 状態間で DFT//MLIP エネルギーを比較するか、[all](all.md) の `--dft` で自動ダイアグラムを生成。
-- **前提条件:** DFT 依存パッケージ（PySCF、GPU4PySCF）はデフォルトではインストールされません。`pip install mlmm_toolkit[dft]` でインストールしてください。
+- **前提条件:** DFT 依存パッケージ（PySCF、GPU4PySCF）はデフォルトではインストールされません。`pip install mlmm[dft]` でインストールしてください。
 - **システムサイズの制限:** DFT 一点計算は ML 領域が **約500原子** までのシステムで実用的です。それ以上の ML 領域では計算時間とメモリが非現実的になります。
 
 `mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加して PySCF（または GPU4PySCF）による一点計算を実行します。DFT 評価後、PySCF 高レベルエネルギーと全系の MM 評価（REAL-low）および ML サブセットの MM 評価（MODEL-low）を組み合わせて **ML(dft)/MM 総エネルギー** を再計算します:
@@ -60,7 +60,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## ワークフロー
 
 1. **入力処理** -- 完全酵素 PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。リンク水素は自動付加されます（C/N 親原子が 1.7 A 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。
-2. **SCF 構築** -- `--func-basis` が汎関数と基底関数に解析されます。密度適合は PySCF デフォルトで自動有効化されます。GPU4PySCF バックエンドは利用可能な場合に使用され、それ以外は CPU PySCF が使用されます。
+2. **SCF 構築** -- `--func-basis` が汎関数と基底関数に解析されます。密度適合は PySCF デフォルトで自動有効化されます。GPU4PySCF バックエンドは利用可能な場合に使用され、それ以外は CPU PySCF が使用されます。`--embedcharge` が有効な場合、Amber トポロジーの MM 点電荷が `pyscf.qmmm.mm_charge()` を介して QM ハミルトニアンに埋め込まれ、DFT 波動関数が MM 環境で自己無撞着に分極します。
 3. **ML(dft)/MM 再結合** -- DFT が収束した後、全系（REAL-low）と ML サブセット（MODEL-low）の MM 評価が計算されます。結合エネルギーは Hartree と kcal/mol で報告されます。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
 
@@ -69,7 +69,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `--backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。ML/MM 評価に使用。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge/--no-embedcharge` | 静電埋め込みの有効化: Amber トポロジーの MM 点電荷を PySCF QM ハミルトニアンに追加し、DFT 波動関数が MM 環境により分極。 | `False` |
 | `-i, --input PATH` | 完全酵素 PDB ファイル（`.pdb` 必須）。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |

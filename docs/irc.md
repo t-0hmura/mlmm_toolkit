@@ -32,7 +32,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- --no-forward --out-dir ./result_irc_forward
+ --no-backward --out-dir ./result_irc_forward
 ```
 
 2. Increase step size and use analytical Hessians.
@@ -74,6 +74,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--step-size FLOAT` | Step length in mass-weighted coordinates; overrides `irc.step_length`. | `0.10` |
 | `--root INT` | Imaginary mode index for the initial displacement; overrides `irc.root`. | `0` |
 | `--forward/--no-forward` | Run the forward IRC; overrides `irc.forward`. | `True` |
+| `--backward/--no-backward` | Run the backward IRC; overrides `irc.backward`. | `True` |
 | `--out-dir PATH` | Output directory; overrides `irc.out_dir`. | `./result_irc/` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a reference PDB is available. | `True` |
 | `--hessian-calc-mode CHOICE` | How the ML backend builds the Hessian (`Analytical` or `FiniteDifference`); overrides `calc.hessian_calc_mode`. | _Default_ |
@@ -90,14 +91,16 @@ out_dir/ (default: ./result_irc/)
 ├─ <prefix>irc_data.h5              # HDF5 dump written every irc.dump_every steps
 ├─ <prefix>finished_irc_trj.xyz     # Full IRC trajectory (XYZ/TRJ)
 ├─ <prefix>forward_irc_trj.xyz      # Forward path segment
+├─ <prefix>backward_irc_trj.xyz     # Backward path segment
 ├─ <prefix>finished_irc.pdb         # PDB conversion (only if input was .pdb)
-└─ <prefix>forward_irc.pdb          # PDB conversion (only if input was .pdb)
+├─ <prefix>forward_irc.pdb          # PDB conversion (only if input was .pdb)
+└─ <prefix>backward_irc.pdb         # PDB conversion (only if input was .pdb)
 ```
 
 ## YAML configuration
 
 Provide mappings with merge order **defaults < config < explicit CLI < override**.
-Shared sections reuse [YAML Reference](yaml_reference.md) for geometry/calculator keys. For `irc`, `geom.coord_type` is forced to `cart` and `calc.return_partial_hessian` is forced to `false` after YAML/CLI merging.
+Shared sections reuse [YAML Reference](yaml_reference.md) for geometry/calculator keys. For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging. `calc.return_partial_hessian` defaults to `true` (partial-first) when not explicitly set in YAML.
 
 ### CLI-to-YAML mapping
 
@@ -109,6 +112,7 @@ Shared sections reuse [YAML Reference](yaml_reference.md) for geometry/calculato
 | `--max-cycles` | `irc.max_cycles` |
 | `--root` | `irc.root` |
 | `--forward` | `irc.forward` |
+| `--backward` | `irc.backward` |
 | `--out-dir` | `irc.out_dir` |
 | `--hessian-calc-mode` | `calc.hessian_calc_mode` |
 
@@ -136,6 +140,7 @@ irc:
  max_cycles: 125                   # maximum steps along IRC
  downhill: false                   # follow downhill direction only
  forward: true                     # propagate in forward direction
+ backward: true                    # propagate in backward direction
  root: 0                           # normal-mode root index
  hessian_init: calc                # Hessian initialization source
  displ: energy                     # displacement construction method

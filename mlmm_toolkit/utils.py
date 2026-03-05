@@ -57,7 +57,6 @@ Notes:
 """
 
 import ast
-import functools
 import logging
 import math
 import os
@@ -93,8 +92,11 @@ def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def read_xyz_as_blocks(path: Path) -> List[List[str]]:
-    """Read an XYZ-style trajectory into blocks of lines."""
+def read_xyz_as_blocks(path: Path, *, strict: bool = False) -> List[List[str]]:
+    """Read an XYZ-style trajectory into blocks of lines.
+
+    When *strict* is True, malformed headers or truncated frames raise a ClickException.
+    """
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except Exception as e:
@@ -110,13 +112,85 @@ def read_xyz_as_blocks(path: Path) -> List[List[str]]:
         try:
             n_atoms = int(lines[i].strip().split()[0])
         except Exception:
+            if strict:
+                import click
+                raise click.ClickException(f"[xyz] Malformed XYZ/TRJ header at line {i+1} of {path}")
             break
         end = i + n_atoms + 2
         if end > len(lines):
+            if strict:
+                import click
+                raise click.ClickException(f"[xyz] Incomplete XYZ frame at line {i+1} of {path}")
             break
         blocks.append(lines[i:end])
         i = end
     return blocks
+
+
+def parse_xyz_block(
+    block: Sequence[str],
+    *,
+    path: Path,
+    frame_idx: int,
+) -> Tuple[List[str], "np.ndarray"]:
+    """Parse a single XYZ frame block into (elements, coords_angstrom)."""
+    import click
+
+    if not block:
+        raise click.ClickException(f"[xyz] Empty XYZ frame in {path}")
+    try:
+        nat = int(block[0].strip().split()[0])
+    except Exception:
+        raise click.ClickException(
+            f"[xyz] Malformed XYZ/TRJ header in frame {frame_idx} of {path}"
+        )
+    if len(block) < 2 + nat:
+        raise click.ClickException(
+            f"[xyz] Incomplete XYZ frame {frame_idx} in {path} (expected {nat} atoms)."
+        )
+    elems: List[str] = []
+    coords: List[List[float]] = []
+    for k in range(nat):
+        parts = block[2 + k].split()
+        if len(parts) < 4:
+            raise click.ClickException(
+                f"[xyz] Malformed atom line in frame {frame_idx} of {path}"
+            )
+        elems.append(parts[0])
+        coords.append([float(parts[1]), float(parts[2]), float(parts[3])])
+    return elems, np.array(coords, dtype=float)
+
+
+def xyz_blocks_first_last(
+    blocks: Sequence[Sequence[str]],
+    *,
+    path: Path,
+) -> Tuple[List[str], "np.ndarray", "np.ndarray"]:
+    """Return (elements, first_coords_ang, last_coords_ang) from pre-parsed XYZ blocks."""
+    import click
+
+    if not blocks:
+        raise click.ClickException(f"[xyz] No frames found in {path}")
+    first_elems, first_coords = parse_xyz_block(blocks[0], path=path, frame_idx=1)
+    last_elems, last_coords = parse_xyz_block(blocks[-1], path=path, frame_idx=len(blocks))
+    if first_elems != last_elems:
+        raise click.ClickException(f"[xyz] Element list changed across frames in {path}")
+    return first_elems, first_coords, last_coords
+
+
+def read_xyz_first_last(trj_path: Path) -> Tuple[List[str], "np.ndarray", "np.ndarray"]:
+    """Lightweight XYZ trajectory reader: return (elements, first_coords[Å], last_coords[Å])."""
+    blocks = read_xyz_as_blocks(trj_path, strict=True)
+    return xyz_blocks_first_last(blocks, path=trj_path)
+
+
+def close_matplotlib_figures() -> None:
+    """Best-effort cleanup for matplotlib figures to avoid open-figure warnings."""
+    try:
+        import matplotlib.pyplot as plt
+        plt.close("all")
+    except Exception:
+        pass
 
 
 def distance_A_from_coords(coords_bohr: "np.ndarray", i: int, j: int) -> float:
@@ -383,14 +457,6 @@ def merge_freeze_atom_indices(
     return result
 
 
-def merge_freeze_atom_groups(*groups: Sequence[int]) -> List[int]:
-    """Merge multiple freeze_atoms groups into a sorted list of ints."""
-    merged: set[int] = set()
-    for group in groups:
-        merged.update(normalize_freeze_atoms(group))
-    return sorted(merged)
-
-
 # =============================================================================
 # Link-freezing helpers
 # =============================================================================
@@ -532,27 +598,6 @@ def merge_detected_freeze_links(
     if merged:
         click.echo(f"{prefix} Freeze atoms (0-based): {','.join(map(str, merged))}")
     return merged
-
-
-def resolve_freeze_atoms(
-    geom_cfg: Dict[str, Any],
-    source_path: Optional[Path],
-    freeze_links: bool,
-    *,
-    prefix: str = "[freeze-links]",
-    on_error: str = "raise",
-) -> List[int]:
-    """Normalize freeze_atoms and optionally merge detected link-parent atoms."""
-    merge_freeze_atom_indices(geom_cfg)
-    if not freeze_links or source_path is None or source_path.suffix.lower() != ".pdb":
-        return list(geom_cfg.get("freeze_atoms", []))
-    try:
-        return merge_detected_freeze_links(geom_cfg, source_path, prefix=prefix)
-    except Exception as e:
-        if on_error == "warn":
-            click.echo(f"{prefix} WARNING: Could not detect link parents: {e}", err=True)
-            return list(geom_cfg.get("freeze_atoms", []))
-        raise
 
 
 def apply_layer_freeze_constraints(

@@ -25,7 +25,55 @@ PACKAGE_NAME = "mlmm_toolkit"
 sys.path.insert(0, str(REPO_ROOT))
 
 from mlmm_toolkit.cli import cli as root_cli  # noqa: E402
-from mlmm_toolkit.init import _ALL_TEMPLATE  # noqa: E402
+
+
+_ALL_TEMPLATE = """# Starter config for `mlmm all`
+
+calc:
+  backend: uma              # ML backend: uma, orb, mace, aimnet2
+  orb_model: null           # ORB model name (when backend=orb)
+  orb_precision: null       # ORB precision setting (when backend=orb)
+  mace_model: null          # MACE model path or name (when backend=mace)
+  mace_dtype: null          # MACE dtype, e.g. float64 (when backend=mace)
+  aimnet2_model: null       # AIMNet2 model name (when backend=aimnet2)
+  embedcharge: false        # Enable xTB point-charge embedding correction
+  embedcharge_step: 1.0e-3   # Numerical Hessian step for embedding correction (Å)
+  xtb_cmd: xtb              # Path or command for the xTB executable
+  xtb_acc: 0.2              # xTB SCF accuracy parameter
+  xtb_workdir: tmp          # Working directory for xTB scratch files
+  xtb_keep_files: false     # Keep xTB intermediate files after completion
+  xtb_ncores: 4             # Number of CPU cores for xTB
+
+extract:
+  radius: 2.6
+  radius_het2het: 0.0
+
+path_search:
+  max_nodes: 10
+  max_cycles: 300
+
+scan:
+  max_step_size: 0.2
+  bias_k: 300.0
+  relax_max_cycles: 10000
+
+tsopt:
+  max_cycles: 10000
+
+freq:
+  max_write: 10
+  amplitude_ang: 0.8
+  n_frames: 20
+  sort: value
+  temperature: 298.15
+  pressure: 1.0
+
+dft:
+  func_basis: wb97m-v/def2-tzvpd
+  max_cycle: 100
+  conv_tol: 1.0e-9
+  grid_level: 3
+"""
 
 
 AUTO_NOTICE = (
@@ -155,7 +203,7 @@ pairs:
     return (
         "# YAML Schema (Generated)\n\n"
         f"{AUTO_NOTICE}\n\n"
-        f"- Source template: `{PACKAGE_NAME}.init._ALL_TEMPLATE`\n"
+        f"- Source template: `scripts/generate_reference.py::_ALL_TEMPLATE`\n"
         f"- Template digest: `{digest}`\n\n"
         "## Top-level Keys\n\n"
         "| Key |\n"

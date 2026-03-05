@@ -98,7 +98,9 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--hessian-calc-mode CHOICE` | MLIP ヘシアンモード: `Analytical` または `FiniteDifference`。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザーサイクル。 | `10000` |
 | `--opt-mode CHOICE` | TS オプティマイザーモード: `grad`（Dimer）または `hess`（RS-I-RFO）。エイリアス `light`/`heavy` も使用可。 | `hess` |
-| `--flatten/--no-flatten` | 余分な虚数モードのフラットンループを有効化。light と heavy の両モードに適用。 | `False` |
+| `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RS-I-RFO）+ MM 緩和（LBFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
+| `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | `grad` モードで Dimer 方向決定に ML 領域のみのヘシアンを使用。高速だが精度は低下。 | `False` |
+| `--flatten/--no-flatten` | 余分な虚数モードフラットンループの有効化/無効化。`--flatten` はデフォルト反復回数（50）を使用、`--no-flatten` は 0 に強制。light と heavy の両モードに適用。 | `False` |
 | `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_tsopt/` |

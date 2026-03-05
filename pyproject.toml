@@ -21,6 +21,8 @@ keywords = [
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
@@ -34,7 +36,7 @@ dependencies = [
     "torch>=2.6.0",
     "torch_geometric",
     "torch_scatter",
-    "numpy>=1.24,<2.1",
+    "numpy>=1.24",
     "biopython>=1.80,<2.0",
     "ase>=3.25.0",
     "ParmEd",
@@ -58,15 +60,16 @@ dependencies = [
     "scipy",
     "sympy",
     "scikit-learn",
+    "pyparsing",
 
     # thermoanalysis dependencies (bundled)
-    "cclib",
     "pandas",
     "tabulate",
 ]
 
 [project.optional-dependencies]
 orb = ["orb-models"]
+mace = ["mace-torch"]
 aimnet2 = ["aimnet"]
 dft = [    
     "pyscf>=2.8.0",
@@ -105,7 +108,8 @@ include = ["mlmm_toolkit*", "pysisyphus*", "thermoanalysis*", "hessian_ff*"]
 
 [tool.setuptools.package-data]
 mlmm_toolkit = ["py.typed"]
-hessian_ff = ["native/*.cpp", "native/*.md"]
+pysisyphus = ["wavefunction/ints/*.npy"]
+hessian_ff = ["native/*.cpp"]
 
 [tool.setuptools_scm]
 version_file = "mlmm_toolkit/_version.py"

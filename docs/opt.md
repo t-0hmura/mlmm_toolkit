@@ -256,7 +256,7 @@ rfo:
  max_energy_incr: null          # allowed energy increase per step
  hessian_update: bfgs           # Hessian update scheme
  hessian_init: calc             # Hessian initialization source
- hessian_recalc: 200            # rebuild Hessian every N steps
+ hessian_recalc: 500            # rebuild Hessian every N steps
  hessian_recalc_adapt: null     # adaptive Hessian rebuild limit
  small_eigval_thresh: 1.0e-08   # eigenvalue threshold for stability
  alpha0: 1.0                    # initial micro step
