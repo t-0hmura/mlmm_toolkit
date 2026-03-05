@@ -428,10 +428,13 @@ rsirfo:
  min_line_search: false # Line search along imaginary mode (pysisyphus default)
  max_line_search: false # Line search in minimized subspace (pysisyphus default)
  assert_neg_eigval: false # Require negative eigenvalue at convergence
- trust_radius: 0.30 # Trust region radius (pysisyphus TSHessianOptimizer default)
+ trust_radius: 0.10 # Trust region radius
  trust_update: true # Trust region update
- trust_min: 0.10 # Minimum trust radius
- trust_max: 0.50 # Maximum trust radius
+ trust_min: 0.00 # Minimum trust radius
+ trust_max: 0.30 # Maximum trust radius
+ hessian_recalc: 200 # Hessian rebuild cadence
+ small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
+ out_dir: ./result_tsopt/ # Output directory
 ```
 
 ---

@@ -361,16 +361,16 @@ rsirfo:
  hessian_update: bofill # ヘシアン更新スキーム
  hessian_recalc_reset: true # 正確なヘシアン後に再計算カウンタをリセット
  hessian_init: calc # ヘシアン初期化
- hessian_recalc: null # ヘシアン再構築間隔
+ hessian_recalc: 200 # ヘシアン再構築間隔
  max_micro_cycles: 50 # マクロサイクルあたりのマイクロイテレーション数
  augment_bonds: false # 結合解析に基づく反応経路の拡張
  min_line_search: false # 虚モードに沿ったラインサーチ（pysisyphus デフォルト）
  max_line_search: false # 最小化部分空間でのラインサーチ（pysisyphus デフォルト）
  assert_neg_eigval: false # 収束時に負の固有値を要求
- trust_radius: 0.30 # 信頼領域半径（pysisyphus TSHessianOptimizer デフォルト）
+ trust_radius: 0.10 # 信頼領域半径
  trust_update: true # 信頼領域更新
- trust_min: 0.10 # 最小信頼半径
- trust_max: 0.50 # 最大信頼半径
+ trust_min: 0.00 # 最小信頼半径
+ trust_max: 0.30 # 最大信頼半径
  out_dir: ./result_tsopt/ # 出力ディレクトリ
 ```
 
