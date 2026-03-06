@@ -513,14 +513,15 @@ def _maybe_convert_outputs_to_pdb(
 
 def _calc_energy(geom, calc_kwargs: dict, calc=None) -> float:
     """Compute energy (Hartree) from ML/MM calculator."""
-    if calc is None:
+    owns_calc = calc is None
+    if owns_calc:
         kw = dict(calc_kwargs or {})
         kw["out_hess_torch"] = False
         calc = mlmm(**kw)
     result = calc.get_energy(geom.atoms, geom.coords)
     energy = float(result.get("energy", 0.0))
     del result
-    if calc is not None:
+    if owns_calc:
         del calc
     if torch.cuda.is_available():
         torch.cuda.empty_cache()

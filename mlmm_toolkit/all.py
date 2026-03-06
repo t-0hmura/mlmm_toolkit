@@ -78,23 +78,37 @@ from .mm_parm import (
 
 AtomKey = Tuple[str, str, str, str, str, str]
 
-_log_started = False
+class _EchoState:
+    """Encapsulate CLI output state for section-spacing logic."""
+
+    def __init__(self) -> None:
+        self._started = False
+
+    def reset(self) -> None:
+        self._started = False
+
+    def echo(self, *args, **kwargs) -> None:
+        click.echo(*args, **kwargs)
+        self._started = True
+
+    def section(self, message: str, **kwargs) -> None:
+        if self._started:
+            click.echo()
+        click.echo(message, **kwargs)
+        self._started = True
+
+
+_echo_state = _EchoState()
 
 
 def _echo(*args, **kwargs) -> None:
     """Echo with local output tracking for section spacing."""
-    global _log_started
-    click.echo(*args, **kwargs)
-    _log_started = True
+    _echo_state.echo(*args, **kwargs)
 
 
 def _echo_section(message: str, **kwargs) -> None:
     """Echo a section header with a leading blank line unless it's the first log."""
-    global _log_started
-    if _log_started:
-        click.echo()
-    click.echo(message, **kwargs)
-    _log_started = True
+    _echo_state.section(message, **kwargs)
 
 
 def _run_cli_main(
@@ -1563,8 +1577,7 @@ def cli(
       - with --scan-lists: run staged scan on the pocket and use stage results as inputs for path_search,
       - with --tsopt True and no --scan-lists: run TSOPT-only mode (no path_search).
     """
-    global _log_started
-    _log_started = False
+    _echo_state.reset()
 
     time_start = time.perf_counter()
     command_str = "mlmm all " + " ".join(sys.argv[1:])

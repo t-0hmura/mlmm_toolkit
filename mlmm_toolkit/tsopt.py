@@ -116,14 +116,15 @@ def _calc_full_hessian_torch(geom, calc_kwargs: Dict[str, Any], device: torch.de
 
 
 def _calc_energy(geom, calc_kwargs: Dict[str, Any], calc=None) -> float:
-    if calc is None:
+    owns_calc = calc is None
+    if owns_calc:
         kw = dict(calc_kwargs or {})
         kw["out_hess_torch"] = False
         calc = mlmm(**kw)
     result = calc.get_energy(geom.atoms, geom.coords)
     energy = float(result.get("energy", 0.0))
     del result
-    if calc is not None:
+    if owns_calc:
         del calc
     _clear_cuda_cache()
     return energy
@@ -799,7 +800,7 @@ def _bofill_update_active(H_act: torch.Tensor,
     xi_norm2 = torch.dot(xi, xi)
 
     # guards
-    denom_ms = d_dot_xi if torch.abs(d_dot_xi) > eps else torch.sign(d_dot_xi + 0.0) * eps
+    denom_ms = d_dot_xi if torch.abs(d_dot_xi) > eps else (torch.sign(d_dot_xi) if d_dot_xi != 0 else torch.tensor(1.0, device=device)) * eps
     denom_psb_d4 = d_norm2 * d_norm2 if d_norm2 > eps else eps
     denom_psb_d2 = d_norm2 if d_norm2 > eps else eps
     denom_phi = d_norm2 * xi_norm2 if (d_norm2 > eps and xi_norm2 > eps) else (1.0)
@@ -865,7 +866,7 @@ class HessianDimer:
                  thresh: str = "baker",
                  update_interval_hessian: int = 50,
                  neg_freq_thresh_cm: float = 5.0,
-                 flatten_amp_ang: float = 0.20,
+                 flatten_amp_ang: float = 0.10,
                  flatten_max_iter: int = 20,
                  mem: int = 100000,
                  use_lobpcg: bool = True,  # kept for backward compat (not used when root!=0)

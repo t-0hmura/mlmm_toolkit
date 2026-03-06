@@ -1522,7 +1522,6 @@ def _merge_final_and_write(final_images: List[Any],
     help="Multistep MEP search via recursive GSM segmentation.",
     context_settings={
         "help_option_names": ["-h", "--help"],
-        # Allow a single '-i' followed by multiple paths (as extra args)
         "ignore_unknown_options": True,
         "allow_extra_args": True,
     },

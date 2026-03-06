@@ -182,7 +182,11 @@ def _snapshot_geometry(g) -> Any:
 
 @click.command(
     help="Bond-length driven scan with staged harmonic restraints and relaxation (ML/MM).",
-    context_settings={"help_option_names": ["-h", "--help"], "allow_extra_args": True},
+    context_settings={
+        "help_option_names": ["-h", "--help"],
+        "ignore_unknown_options": True,
+        "allow_extra_args": True,
+    },
 )
 @click.option(
     "-i", "--input",

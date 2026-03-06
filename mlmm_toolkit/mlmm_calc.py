@@ -680,7 +680,7 @@ class hessianffCalculator(Calculator):
         self.device = "cpu"
         self.cuda_idx = int(cuda_idx)
         self.threads = int(threads)
-        if self.threads > 0:
+        if self.threads > 0 and torch.get_num_threads() != self.threads:
             torch.set_num_threads(self.threads)
 
         self.system = load_system(parm7, device="cpu").to(dtype=torch.float64)
@@ -910,7 +910,11 @@ class OpenMMCalculator(Calculator):
         if return_partial_hessian:
             fixed = _fixed_indices_from_constraints(atoms)
             active_atoms = np.asarray([i for i in range(len(atoms)) if i not in fixed])
-            return H_full, active_atoms
+            # Extract active sub-Hessian to match hessian_ff convention
+            idx3 = np.concatenate([3 * active_atoms + d for d in range(3)])
+            idx3.sort()
+            H_sub = H_full[np.ix_(idx3, idx3)]
+            return H_sub, active_atoms
 
         return H_full, None
 
@@ -1495,17 +1499,17 @@ class MLMMCore:
     def _get_mm_charges(self, atom_indices: Sequence[int]) -> np.ndarray:
         """Retrieve MM partial charges for the given atom indices.
 
-        Works with both hessian_ff (ParmEd system) and OpenMM backends.
+        Works with both hessian_ff (AmberSystem) and OpenMM backends.
         """
         calc = self.calc_real_low
-        # hessian_ff: ParmEd-loaded system with .atoms[i].charge
-        if hasattr(calc, "system") and hasattr(getattr(calc, "system", None), "atoms"):
+        # hessian_ff: AmberSystem with .charge tensor
+        if isinstance(calc, hessianffCalculator) and hasattr(calc, "system"):
             return np.array(
-                [calc.system.atoms[i].charge for i in atom_indices],
+                [calc.system.charge[i].item() for i in atom_indices],
                 dtype=np.float64,
             )
         # OpenMM: extract charges from NonbondedForce
-        if hasattr(calc, "system") and HAS_OPENMM:
+        if isinstance(calc, OpenMMCalculator) and HAS_OPENMM:
             sys_omm = calc.system
             for fi in range(sys_omm.getNumForces()):
                 force = sys_omm.getForce(fi)
@@ -1986,9 +1990,9 @@ class mlmm(PySiCalc):
 
     def __init__(
         self,
-        input_pdb: str = None,
-        real_parm7: str = None,
-        model_pdb: str = None,
+        input_pdb: Optional[str] = None,
+        real_parm7: Optional[str] = None,
+        model_pdb: Optional[str] = None,
         *,
         model_charge: int = 0,
         model_mult: int = 1,
