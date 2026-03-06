@@ -818,7 +818,7 @@ def _pseudo_irc_and_match(seg_idx: int,
         # Second pass: fill missing by RMSD
         for side, g_end in (("left", gL_end), ("right", gR_end)):
             if mapping[side] is None:
-                remain = [(t, gg) for (t, gg) in candidates if mapping.get("left", (None, None))[0] != t and mapping.get("right", (None, None))[0] != t]
+                remain = [(t, gg) for (t, gg) in candidates if (mapping["left"] is None or mapping["left"][0] != t) and (mapping["right"] is None or mapping["right"][0] != t)]
                 if not remain:
                     remain = candidates
                 best = min(remain, key=lambda p: _rmsd_cart(p[1], g_end))
