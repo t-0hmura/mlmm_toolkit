@@ -109,7 +109,7 @@ include = ["mlmm_toolkit*", "pysisyphus*", "thermoanalysis*", "hessian_ff*"]
 [tool.setuptools.package-data]
 mlmm_toolkit = ["py.typed"]
 pysisyphus = ["wavefunction/ints/*.npy"]
-hessian_ff = ["native/*.cpp"]
+hessian_ff = ["native/*.cpp", "native/Makefile"]
 
 [tool.setuptools_scm]
 version_file = "mlmm_toolkit/_version.py"
