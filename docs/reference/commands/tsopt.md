@@ -53,7 +53,7 @@ Options:
                                   How UMA builds the ML Hessian (Analytical or
                                   FiniteDifference); overrides
                                   calc.hessian_calc_mode from YAML.
-  --max-cycles INTEGER            Maximum total LBFGS cycles.  [default: 10000]
+  --max-cycles INTEGER            Maximum total optimization cycles.  [default: 10000]
   --dump / --no-dump              Write concatenated trajectory
                                   'optimization_all_trj.xyz'.  [default: no-
                                   dump]
