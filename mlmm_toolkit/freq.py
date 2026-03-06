@@ -224,6 +224,8 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
       modes    : (nmode, 3N) torch (mass-weighted eigenvectors)
     """
     with torch.no_grad():
+        if H_t.dtype != torch.float64:
+            H_t = H_t.to(dtype=torch.float64)
         Z = np.array(atomic_numbers, dtype=int)
         N = int(len(Z))
         masses_amu = np.array([atomic_masses[z] for z in Z])  # amu
