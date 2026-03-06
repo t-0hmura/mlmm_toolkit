@@ -11,6 +11,8 @@ For detailed documentation, see: docs/tsopt.md
 
 from __future__ import annotations
 
+import contextlib
+import io
 import logging
 import sys
 import textwrap
@@ -1708,7 +1710,8 @@ def _run_microiter_tsopt(
         micro_lbfgs_args["dump"] = dump
 
         micro_opt = LBFGS(geometry, **micro_lbfgs_args)
-        micro_opt.run()
+        with contextlib.redirect_stdout(io.StringIO()):
+            micro_opt.run()
         micro_converged = micro_opt.is_converged
         micro_steps = max(int(micro_opt.cur_cycle) + 1, 1)
         click.echo(

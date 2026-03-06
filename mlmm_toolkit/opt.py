@@ -13,7 +13,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
 
 import ast
+import contextlib
+import io
 import logging
+import os
 import sys
 import textwrap
 import traceback
@@ -727,7 +730,8 @@ def _run_microiter_opt(
         micro_lbfgs_args["dump"] = dump
 
         micro_opt = LBFGS(geometry, **micro_lbfgs_args)
-        micro_opt.run()
+        with contextlib.redirect_stdout(io.StringIO()):
+            micro_opt.run()
         micro_converged = micro_opt.is_converged
         micro_steps = max(int(micro_opt.cur_cycle) + 1, 1)
         click.echo(
