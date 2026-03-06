@@ -639,6 +639,10 @@ class HessianOptimizer(Optimizer):
 
         g2_nz, lam_nz = g2[nz], lam[nz]
 
+        # Guard against alpha ≈ 0 (can arise from trust-radius adaptation)
+        if abs(alpha) < 1e-14:
+            return None
+
         def f_df(mu):
             d = alpha * mu - lam_nz
             return float(np.sum(g2_nz / d) - mu), float(-alpha * np.sum(g2_nz / d**2) - 1.0)
@@ -778,8 +782,13 @@ class HessianOptimizer(Optimizer):
 
         if getattr(self.geometry, "within_partial_hessian", None) is not None:
             use_active = True
-        elif H.shape[0] != self.geometry.cart_coords.size:
+        elif (
+            H.shape[0] != self.geometry.cart_coords.size
+            and self.geometry.coord_type in ("cart", "cartesian", "mwcartesian")
+        ):
             # Partial Hessian without explicit metadata: still use active slicing.
+            # Only applies to Cartesian coordinate types; for internal coordinates
+            # (e.g. DLC), the Hessian is naturally smaller than cart_coords.size.
             use_active = True
         else:
             use_active = (
@@ -1096,16 +1105,25 @@ class HessianOptimizer(Optimizer):
         mask[min_ind] = 0
         mask = mask.astype(bool)
         without_min = gradient_trans[mask] / (eigvals[mask] - min_eigval)
-        try:
-            tau = sqrt(self.trust_radius**2 - (without_min**2).sum())
+        tau_sq = self.trust_radius**2 - (without_min**2).sum()
+        if tau_sq >= 0.0:
+            tau = sqrt(tau_sq)
             step_trans = [tau] + (-without_min).tolist()
-        # Hard case. Search in open interval (endpoints not included)
-        # (-min_eigval, inf).
-        except ValueError:
+        else:
+            # Hard case. Search in open interval (endpoints not included)
+            # (-min_eigval, inf).
             bracket = (-min_eigval + 1e-6, BRACKET_END)
-            res = root_search(bracket)
-            if res.converged:
-                return finalize_step(res.root)
+            try:
+                res = root_search(bracket)
+                if res.converged:
+                    return finalize_step(res.root)
+            except ValueError:
+                pass
+            # Fallback: clamp tau to 0 so the step excludes the
+            # minimum-eigenvalue component but remains valid.
+            self.log("Hard case fallback: tau clamped to 0.")
+            tau = 0.0
+            step_trans = [tau] + (-without_min).tolist()
 
         if not transform:
             return step_trans

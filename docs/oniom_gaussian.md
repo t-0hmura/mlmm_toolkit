@@ -68,7 +68,7 @@ Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm`
 | `--method TEXT` | QM method and basis set. | `B3LYP/6-31G(d,p)` |
 | `-q, --charge INT` | Charge of QM region. | Required |
 | `-m, --multiplicity INT` | Multiplicity of QM region. | `1` |
-| `--near FLOAT` | Distance cutoff for movable atoms (angstrom). | `6.0` |
+| `--near FLOAT` | Distance cutoff for movable atoms (Å). | `6.0` |
 | `--nproc INT` | Number of processors. | `8` |
 | `--mem TEXT` | Memory allocation. | `16GB` |
 

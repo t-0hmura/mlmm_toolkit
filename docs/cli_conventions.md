@@ -42,13 +42,12 @@ mlmm all --help-advanced # full option list
 
 ---
 
-## Init Template
+## Show Config
 
-Generate a starter YAML and run a parse-only check:
+View the current configuration (useful for verifying YAML overrides):
 
 ```bash
-mlmm init --out mlmm_all.config.yaml
-mlmm all --config mlmm_all.config.yaml --dry-run
+mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 ```
 
 ---
@@ -77,13 +76,41 @@ mlmm_toolkit uses the PDB B-factor column to encode the 3-layer ML/MM partitioni
 
 | Layer | B-factor | Meaning |
 |-------|----------|---------|
-| ML | 0.0 | UMA energy/force/Hessian |
+| ML | 0.0 | MLIP energy/force/Hessian (default backend: UMA) |
 | Movable-MM | 10.0 | MM atoms allowed to move |
 | Frozen | 20.0 | Coordinates fixed |
 
 The `define-layer` subcommand writes these B-factors into the PDB. You can inspect layer assignments in any molecular viewer that supports B-factor coloring.
 
 A tolerance of 1.0 is used when reading B-factors, so values near 0/10/20 are mapped to ML/Movable/Frozen.
+
+### Layer definition methods
+
+1. **`define-layer` subcommand** (recommended):
+   ```bash
+   mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
+   ```
+
+2. **Distance cutoffs** (YAML/CLI):
+   ```yaml
+   calc:
+     hess_cutoff: 3.6       # Distance cutoff for Hessian-target MM atoms
+     movable_cutoff: 8.0    # Distance cutoff for Movable-MM (beyond = Frozen)
+   ```
+
+3. **Read from B-factors**:
+   ```yaml
+   calc:
+     use_bfactor_layers: true   # Read layers from input PDB B-factors
+   ```
+
+4. **Explicit index specification** (YAML):
+   ```yaml
+   calc:
+     hess_mm_atoms: [100, 101, 102, ...]
+     movable_mm_atoms: [200, 201, 202, ...]
+     frozen_mm_atoms: [300, 301, 302, ...]
+   ```
 
 ---
 
@@ -153,8 +180,11 @@ The `--ligand-charge` option supports two formats:
 ### Mapping format (recommended)
 ```bash
 --ligand-charge 'SAM:1,GPP:-3' # Per-residue name mapping
+--ligand-charge 'SAM=1,GPP=-3' # Same meaning (= separator)
 --ligand-charge 'LIG:-2' # Single residue mapping
 ```
+
+Both colon (`:`) and equals (`=`) separators are accepted.
 
 ### Integer format
 ```bash
@@ -185,7 +215,7 @@ Atom selectors identify specific atoms for scans and restraints. They can be:
 
 ### Integer index (1-based by default)
 ```bash
---scan-lists '[(1, 5, 2.0)]' # Atoms 1 and 5, target distance 2.0 A
+--scan-lists '[(1, 5, 2.0)]' # Atoms 1 and 5, target distance 2.0 Å
 ```
 
 ### PDB-style selector string
@@ -221,12 +251,28 @@ The three tokens (residue name, residue number, atom name) can appear in any ord
 
 ---
 
-## YAML Configuration
+## Backend Selection
 
-Advanced settings can be passed via layered YAML inputs:
+All computation subcommands (`opt`, `tsopt`, `freq`, `irc`, `dft`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`, `all`) accept:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--backend` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2` | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction | `--no-embedcharge` |
+
+Alternative backends are installed via optional dependency groups:
 
 ```bash
+pip install "mlmm-toolkit[orb]"       # ORB backend
+pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 backend
+# MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
 ```
+
+---
+
+## YAML Configuration
+
+Advanced settings can be passed via layered YAML inputs.
 
 Precedence:
 ```
@@ -264,6 +310,7 @@ Default output directories:
 ## See Also
 
 - [Getting Started](getting_started.md) -- Installation and first run
+- [Concepts & Workflow](concepts.md) -- ML/MM 3-layer system, ONIOM decomposition overview
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Common errors and fixes
 - [YAML Reference](yaml_reference.md) -- Complete configuration options

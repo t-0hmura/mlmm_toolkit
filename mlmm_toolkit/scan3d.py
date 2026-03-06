@@ -13,16 +13,18 @@ from __future__ import annotations
 import functools
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
+from typing import Any, Dict, List, Optional, Tuple
 
-import ast
+import logging
 import math
+import shutil
 import sys
 import textwrap
 import traceback
 import tempfile
-import os
 import time
+
+logger = logging.getLogger(__name__)
 
 import click
 import numpy as np
@@ -36,6 +38,7 @@ from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import ANG2BOHR, AU2KCALPERMOL
 
 from .mlmm_calc import mlmm
+from .defaults import BIAS_KW as _BIAS_KW_DEFAULT
 from .opt import (
     GEOM_KW as _OPT_GEOM_KW,
     CALC_KW as _OPT_CALC_KW,
@@ -48,6 +51,7 @@ from .opt import (
 from .utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
+    set_convert_file_enabled,
     deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
@@ -77,7 +81,7 @@ from .utils import (
     snapshot_geometry,
     convert_and_annotate_xyz_to_pdb,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 
 # Shared defaults (copied from opt.py to keep ML/MM behaviour consistent)
 GEOM_KW: Dict[str, Any] = deepcopy(_OPT_GEOM_KW)
@@ -92,9 +96,8 @@ OPT_BASE_KW.update(
 )
 LBFGS_KW: Dict[str, Any] = deepcopy(_OPT_LBFGS_KW)
 LBFGS_KW.update({"out_dir": "./result_scan3d/"})
-BIAS_KW: Dict[str, Any] = {"k": 100.0}  # eV/Å^2
+BIAS_KW: Dict[str, Any] = deepcopy(_BIAS_KW_DEFAULT)
 
-HARTREE_TO_KCAL_MOL = 627.50961
 _VOLUME_GRID_N = 50  # 50×50×50 RBF interpolation grid
 
 _snapshot_geometry = functools.partial(snapshot_geometry, coord_type_default="cart")
@@ -178,7 +181,7 @@ def _finalize_surface_and_plot(
                 ref_energy = float(df.loc[ref_mask, "energy_hartree"].iloc[0])
         else:
             ref_energy = float(df["energy_hartree"].min())
-        df["energy_kcal"] = (df["energy_hartree"] - ref_energy) * HARTREE_TO_KCAL_MOL
+        df["energy_kcal"] = (df["energy_hartree"] - ref_energy) * AU2KCALPERMOL
 
     if write_surface_csv:
         surface_csv = final_dir / "surface.csv"
@@ -419,7 +422,7 @@ def _finalize_surface_and_plot(
     help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
-@click.option("-q", "--charge", type=int, required=False, help="ML-region total charge.")
+@click.option("-q", "--charge", type=int, required=True, help="ML-region total charge.")
 @click.option(
     "-m",
     "--multiplicity",
@@ -497,7 +500,7 @@ def _finalize_surface_and_plot(
     show_default=True,
     help="Maximum spacing between successive distance targets [Å].",
 )
-@click.option("--bias-k", type=float, default=100.0, show_default=True, help="Harmonic well strength k [eV/Å^2].")
+@click.option("--bias-k", type=float, default=300.0, show_default=True, help="Harmonic well strength k [eV/Å^2].")
 @click.option(
     "--relax-max-cycles",
     type=int,
@@ -521,10 +524,10 @@ def _finalize_surface_and_plot(
 )
 @click.option(
     "--thresh",
-    type=str,
+    type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="Convergence preset (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
+    help="Convergence preset.",
 )
 @click.option(
     "--config",
@@ -568,7 +571,30 @@ def _finalize_surface_and_plot(
     show_default=False,
     help="Upper bound of the color scale (kcal/mol).",
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
+@click.pass_context
 def cli(
+    ctx: click.Context,
     input_path: Optional[Path],
     real_parm7: Optional[Path],
     model_pdb: Optional[Path],
@@ -597,7 +623,13 @@ def cli(
     baseline: str,
     zmin: Optional[float],
     zmax: Optional[float],
+    convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
+    _is_param_explicit = make_is_param_explicit(ctx)
+
+    set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -644,6 +676,7 @@ def cli(
         click.echo("ERROR: --ref-pdb is required when --input is an XYZ file.", err=True)
         sys.exit(1)
 
+    tmp_root = None
     try:
         with prepare_input_structure(input_path) as prepared_input:
             try:
@@ -717,6 +750,10 @@ def cli(
             calc_cfg["model_mult"] = int(spin)
             calc_cfg["input_pdb"] = str(source_path)
             calc_cfg["real_parm7"] = str(real_parm7)
+            if backend is not None:
+                calc_cfg["backend"] = str(backend).lower()
+            if _is_param_explicit("embedcharge"):
+                calc_cfg["embedcharge"] = bool(embedcharge)
 
             # movable_cutoff implies full distance-based layer assignment.
             # hess_cutoff alone can be combined with --detect-layer.
@@ -881,7 +918,7 @@ def cli(
                 try:
                     geom_outer.freeze_atoms = np.array(freeze, dtype=int)
                 except Exception:
-                    pass
+                    logger.debug("Failed to set freeze_atoms on geometry", exc_info=True)
 
             base_calc = mlmm(**calc_cfg)
             biased = HarmonicBiasCalculator(base_calc, k=float(bias_cfg["k"]))
@@ -1204,3 +1241,6 @@ def cli(
         tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         click.echo("Unhandled exception during 3D scan:\n" + textwrap.indent(tb, "  "), err=True)
         sys.exit(1)
+    finally:
+        if tmp_root is not None:
+            shutil.rmtree(tmp_root, ignore_errors=True)

@@ -17,7 +17,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-See LICENSES/LICENSE-pysisyphus for the full license text.
+See pysisyphus/LICENSE for the full license text.
 
 --------------------------------------------------------------------------------
 thermoanalysis (bundled as thermoanalysis/)
@@ -33,7 +33,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-See LICENSES/LICENSE-thermoanalysis for the full license text.
+See thermoanalysis/LICENSE for the full license text.
 
 --------------------------------------------------------------------------------
 

@@ -62,7 +62,7 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB file. | Required |
 | `-o, --out PATH` | Output PDB path. When omitted, the input file is overwritten. | _None_ (overwrites input) |
-| `--overwrite` | Re-infer and overwrite element fields even if already present (by default, existing values are preserved). | `False` |
+| `--overwrite/--no-overwrite` | Re-infer and overwrite element fields even if already present (by default, existing values are preserved). | `False` |
 
 ## Notes
 - For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.

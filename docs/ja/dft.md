@@ -8,8 +8,10 @@
 - **用途:** ONIOM 式の再結合により、ML 領域に DFT を使用した ML/MM 系のより高レベルな一点エネルギーが必要な場合。
 - **手法:** ML 領域 + リンク水素に対する PySCF（CPU）または GPU4PySCF（GPU）による DFT 一点計算と、ONIOM 総エネルギーのための MM 評価の組み合わせ。
 - **出力:** `ml_region_with_linkH.xyz`、ML(dft)/MM 合成エネルギーを含む `result.yaml`。
-- **デフォルト:** `--func-basis wb97m-v/6-31g**`、`--max-cycle 100`、`--conv-tol 1e-9`。
-- **次のステップ:** R/TS/P 状態間で DFT//UMA エネルギーを比較するか、[all](all.md) の `--dft` で自動ダイアグラムを生成。
+- **デフォルト:** `--func-basis wb97m-v/def2-tzvpd`、`--max-cycle 100`、`--conv-tol 1e-9`。
+- **次のステップ:** R/TS/P 状態間で DFT//MLIP エネルギーを比較するか、[all](all.md) の `--dft` で自動ダイアグラムを生成。
+- **前提条件:** DFT 依存パッケージ（PySCF、GPU4PySCF）はデフォルトではインストールされません。`pip install "mlmm-toolkit[dft]"` でインストールしてください。
+- **システムサイズの制限:** DFT 一点計算は ML 領域が **約500原子** までのシステムで実用的です。それ以上の ML 領域では計算時間とメモリが非現実的になります。
 
 `mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加して PySCF（または GPU4PySCF）による一点計算を実行します。DFT 評価後、PySCF 高レベルエネルギーと全系の MM 評価（REAL-low）および ML サブセットの MM 評価（MODEL-low）を組み合わせて **ML(dft)/MM 総エネルギー** を再計算します:
 
@@ -17,7 +19,7 @@
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-GPU4PySCF バックエンドは利用可能な場合に自動的に有効化されます。それ以外は PySCF CPU が使用されます。デフォルトの汎関数/基底関数は `wb97m-v/6-31g**` です。
+GPU4PySCF バックエンドは利用可能な場合に自動的に有効化されます。それ以外は PySCF CPU が使用されます。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。
 
 ## 最小例
 
@@ -57,8 +59,8 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## ワークフロー
 
-1. **入力処理** -- 完全酵素 PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。リンク水素は自動付加されます（C/N 親原子が 1.7 A 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。
-2. **SCF 構築** -- `--func-basis` が汎関数と基底関数に解析されます。密度適合は PySCF デフォルトで自動有効化されます。GPU4PySCF バックエンドは利用可能な場合に使用され、それ以外は CPU PySCF が使用されます。
+1. **入力処理** -- 完全酵素 PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。リンク水素は自動付加されます（C/N 親原子が 1.7 Å 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。
+2. **SCF 構築** -- `--func-basis` が汎関数と基底関数に解析されます。密度適合は PySCF デフォルトで自動有効化されます。GPU4PySCF バックエンドは利用可能な場合に使用され、それ以外は CPU PySCF が使用されます。`--embedcharge` が有効な場合、Amber トポロジーの MM 点電荷が `pyscf.qmmm.mm_charge()` を介して QM ハミルトニアンに埋め込まれ、DFT 波動関数が MM 環境で自己無撞着に分極します。
 3. **ML(dft)/MM 再結合** -- DFT が収束した後、全系（REAL-low）と ML サブセット（MODEL-low）の MM 評価が計算されます。結合エネルギーは Hartree と kcal/mol で報告されます。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
 
@@ -66,6 +68,8 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
+| `--backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。ML/MM 評価に使用。 | `uma` |
+| `--embedcharge/--no-embedcharge` | 静電埋め込みの有効化: Amber トポロジーの MM 点電荷を PySCF QM ハミルトニアンに追加し、DFT 波動関数が MM 環境により分極。 | `False` |
 | `-i, --input PATH` | 完全酵素 PDB ファイル（`.pdb` 必須）。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |
@@ -75,7 +79,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | ML 領域の電荷。 | 必須 |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（例: `"1,3,5"`）。YAML `geom.freeze_atoms` とマージ。 | _None_ |
-| `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/6-31g**` |
+| `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | 最大 SCF 反復数。 | `100` |
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
 | `--grid-level INT` | PySCF 数値積分グリッドレベル。 | `3` |
@@ -83,6 +87,8 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。 | `False` |
+| `--ref-pdb FILE` | XYZ/GJF 入力時の参照 PDB（原子順序と残基マッピングのテンプレート）。 | _None_ |
+| `--convert-files/--no-convert-files` | PDB テンプレートがあれば XYZ/TRJ → PDB コンパニオンファイルを生成。 | `True` |
 
 ## 出力
 
@@ -107,7 +113,7 @@ out_dir/ (デフォルト: ./result_dft/)
 - 明示的に指定した CLI オプション
 
 `dft` キー（括弧内はデフォルト）:
-- `func_basis`（`"wb97m-v/6-31g**"`）: 結合 `FUNC/BASIS` 文字列。
+- `func_basis`（`"wb97m-v/def2-tzvpd"`）: 結合 `FUNC/BASIS` 文字列。
 - `conv_tol`（`1e-9`）: SCF 収束閾値 (Hartree)。
 - `max_cycle`（`100`）: 最大 SCF 反復数。
 - `grid_level`（`3`）: PySCF `grids.level`。
@@ -124,7 +130,7 @@ mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
 dft:
- func_basis: wb97m-v/6-31g**      # 交換相関汎関数 / 基底関数セット
+ func_basis: wb97m-v/def2-tzvpd      # 交換相関汎関数 / 基底関数セット
  conv_tol: 1.0e-09                # SCF 収束閾値 (Hartree)
  max_cycle: 100                    # 最大 SCF 反復数
  grid_level: 3                     # PySCF グリッドレベル
@@ -136,7 +142,7 @@ dft:
 
 - 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
-- リンク水素は自動検出されます（C/N 親原子が 1.7 A 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。サポートされていない親元素ではエラーが発生します。
+- リンク水素は自動検出されます（C/N 親原子が 1.7 Å 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。サポートされていない親元素ではエラーが発生します。
 - GPU4PySCF バックエンドは利用可能な場合に自動的に有効化されます。それ以外は PySCF CPU が使用されます。**Blackwell アーキテクチャ** GPU が検出された場合、現行の GPU4PySCF が未サポートの可能性があるため警告が出力されます。
 - 密度適合は常に PySCF デフォルトで試行されます（補助基底関数の推測は未実装）。
 - DFT オプション（汎関数/基底関数、SCF 制御）は `dft` キーの下で YAML 上書き可能です。

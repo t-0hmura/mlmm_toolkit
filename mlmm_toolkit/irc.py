@@ -12,18 +12,16 @@ For detailed documentation, see: docs/irc.md
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, List, Sequence, Tuple
+from typing import Any, Dict, Optional, List
 
-import os
-import shutil
+import logging
 import sys
 import textwrap
 
+logger = logging.getLogger(__name__)
+
 import click
-from click.core import ParameterSource
-import yaml
 import time
-import numpy as np
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.irc.EulerPC import EulerPC
@@ -56,7 +54,7 @@ from .utils import (
     build_model_pdb_from_indices,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 
 
 # --------------------------
@@ -66,34 +64,9 @@ from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_
 CALC_KW_DEFAULT: Dict[str, Any] = dict(_UMA_CALC_KW)
 
 IRC_KW_DEFAULT: Dict[str, Any] = {
-    # Arguments for IRC.__init__ (forwarded to EulerPC via **kwargs)
-    "step_length": 0.10,         # float, default step length in mass-weighted coordinates (overridden by CLI)
-    "max_cycles": 125,           # int, maximum IRC steps (overridden by CLI)
-    "downhill": False,           # bool, follow downhill potential (debug option)
-    "forward": True,             # bool, integrate forward branch (CLI override --forward)
-    "backward": True,            # bool, integrate backward branch (CLI override --backward)
-    "root": 0,                   # int, imaginary mode index for initial displacement (CLI override --root)
-    "hessian_init": "calc",      # str, initial Hessian source ("calc" = calculator-provided TS Hessian)
-    "displ": "energy",          # str, displacement metric (energy|length)
-    "displ_energy": 1.0e-3,      # float, energy step (Hartree) when displ == "energy"
-    "displ_length": 0.10,        # float, length step in mass-weighted coordinates when displ == "length"
-    "rms_grad_thresh": 1.0e-3,   # float, RMS gradient threshold for convergence (Hartree/bohr)
-    "hard_rms_grad_thresh": None,# Optional[float], stricter RMS gradient cutoff
-    "energy_thresh": 1.0e-6,     # float, energy-change threshold for convergence (Hartree)
-    "imag_below": 0.0,           # float, treat imaginary frequency below this as zero
-    "force_inflection": True,    # bool, stop when force inflection detected
-    "check_bonds": False,        # bool, enable bond-change detection during IRC
-    "out_dir": "./result_irc/",  # str, output directory
-    "prefix": "",                # str, file name prefix
-    "dump_fn": "irc_data.h5",    # str, HDF5 dump filename
-    "dump_every": 5,             # int, write dump every N steps
-
-    # EulerPC-specific options
-    "hessian_update": "bofill",  # str, Hessian update algorithm
-    "hessian_recalc": None,      # Optional[int], force Hessian recalculation every N steps
-    "max_pred_steps": 500,       # int, predictor steps per segment
-    "loose_cycles": 3,           # int, cycles using looser thresholds
-    "corr_func": "mbs",          # str, correction function selection
+    **IRC_KW,
+    "dump_fn": "irc_data.h5",
+    "dump_every": 5,
 }
 
 
@@ -105,6 +78,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
             convert_xyz_to_pdb(trj_path, ref_pdb, out_path)
             click.echo(f"[convert] Wrote '{out_path}'.")
         except Exception as e:
+            logger.debug("Failed to convert %s to PDB", trj_path.name, exc_info=True)
             click.echo(f"[convert] WARNING: Failed to convert '{trj_path.name}' to PDB: {e}", err=True)
 
 
@@ -230,6 +204,20 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     show_default=True,
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -253,14 +241,11 @@ def cli(
     dry_run: bool,
     ref_pdb: Optional[Path],
     convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
-    def _is_param_explicit(name: str) -> bool:
-        try:
-            source = ctx.get_parameter_source(name)
-            return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
-            return False
+    _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -314,6 +299,12 @@ def cli(
                 (irc_cfg, (("irc",),)),
             ],
         )
+
+        # CLI explicit overrides (after config YAML, before override YAML)
+        if backend is not None:
+            calc_cfg["backend"] = str(backend).lower()
+        if _is_param_explicit("embedcharge"):
+            calc_cfg["embedcharge"] = bool(embedcharge)
 
         if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
             calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
@@ -420,6 +411,8 @@ def cli(
                         "model_indices_count": 0 if not model_indices else len(model_indices),
                         "will_run_irc": True,
                         "will_write_trajectories": True,
+                        "backend": calc_cfg.get("backend", "uma"),
+                        "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                     },
                 )
             )

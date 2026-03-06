@@ -72,7 +72,7 @@ def ensure_python_modules_available(
     for module_name, _ in items:
         try:
             importlib.import_module(module_name)
-        except Exception:
+        except (ImportError, ModuleNotFoundError):
             missing.append(module_name)
 
     if not missing:

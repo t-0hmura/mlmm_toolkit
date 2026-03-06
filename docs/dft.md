@@ -8,8 +8,10 @@
 - **Use when:** You want a higher-level single-point energy for your ML/MM system using DFT on the ML region with ONIOM-style recombination.
 - **Method:** PySCF (CPU) or GPU4PySCF (GPU) single-point DFT on the ML region + link hydrogens, combined with MM evaluations for the ONIOM total energy.
 - **Outputs:** `ml_region_with_linkH.xyz`, `result.yaml` with ML(dft)/MM combined energy.
-- **Defaults:** `--func-basis wb97m-v/6-31g**`, `--max-cycle 100`, `--conv-tol 1e-9`.
+- **Defaults:** `--func-basis wb97m-v/def2-tzvpd`, `--max-cycle 100`, `--conv-tol 1e-9`.
 - **Next step:** Compare DFT//UMA energies across R/TS/P states, or use within [all](all.md) `--dft` for automated diagrams.
+- **Prerequisites:** DFT dependencies (PySCF, GPU4PySCF) are **not** included in the default install. Install them with `pip install "mlmm-toolkit[dft]"`.
+- **System size limit:** DFT single-point calculations are practical only for ML regions up to **~500 atoms**. Larger ML regions will require prohibitive compute time and memory.
 
 `mlmm dft` extracts the ML region from the full enzyme PDB, appends link hydrogens, and runs a single-point PySCF (or GPU4PySCF) calculation. After the DFT evaluation, the script recomputes the **ML(dft)/MM total energy** by combining the PySCF high-level energy with MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low):
 
@@ -17,7 +19,7 @@
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-The GPU4PySCF backend is activated automatically when available; otherwise PySCF CPU is used. The default functional/basis is `wb97m-v/6-31g**`.
+The GPU4PySCF backend is activated automatically when available; otherwise PySCF CPU is used. The default functional/basis is `wb97m-v/def2-tzvpd`.
 
 ## Minimal example
 
@@ -57,8 +59,8 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Workflow
 
-1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Link hydrogens are appended automatically (C/N parents within 1.7 A) unless explicit `link_mlmm` pairs are provided via YAML.
-2. **SCF build** -- `--func-basis` is parsed into functional and basis. Density fitting is enabled automatically with PySCF defaults. The GPU4PySCF backend is used when available; otherwise CPU PySCF is used.
+1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Link hydrogens are appended automatically (C/N parents within 1.7 Å) unless explicit `link_mlmm` pairs are provided via YAML.
+2. **SCF build** -- `--func-basis` is parsed into functional and basis. Density fitting is enabled automatically with PySCF defaults. The GPU4PySCF backend is used when available; otherwise CPU PySCF is used. When `--embedcharge` is enabled, MM point charges from the Amber topology are embedded into the QM Hamiltonian via `pyscf.qmmm.mm_charge()`, so the DFT wavefunction is self-consistently polarized by the MM environment.
 3. **ML(dft)/MM recombination** -- After the DFT converges, MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low) are computed. The combined energy is reported in Hartree and kcal/mol.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
 
@@ -75,14 +77,17 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | Charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (e.g. `"1,3,5"`). Merged with YAML `geom.freeze_atoms`. | _None_ |
-| `--func-basis TEXT` | Functional/basis pair as `"FUNC/BASIS"`. | `wb97m-v/6-31g**` |
+| `--func-basis TEXT` | Functional/basis pair as `"FUNC/BASIS"`. | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | Maximum SCF iterations. | `100` |
 | `--conv-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
 | `--grid-level INT` | PySCF numerical integration grid level. | `3` |
 | `--out-dir DIR` | Output directory. | `./result_dft/` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
+| `--backend CHOICE` | MLIP backend used for the low-level ONIOM recombination: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable electrostatic embedding: MM point charges from the Amber topology are added to the PySCF QM Hamiltonian so the DFT wavefunction is polarized by the MM environment. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. | `False` |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 
@@ -107,7 +112,7 @@ Accepts a mapping root; the `dft` section (and optional `geom`, `calc`/`mlmm`) i
 - explicit CLI options
 
 `dft` keys (defaults in parentheses):
-- `func_basis` (`"wb97m-v/6-31g**"`): Combined `FUNC/BASIS` string.
+- `func_basis` (`"wb97m-v/def2-tzvpd"`): Combined `FUNC/BASIS` string.
 - `conv_tol` (`1e-9`): SCF convergence threshold (Hartree).
 - `max_cycle` (`100`): Maximum SCF iterations.
 - `grid_level` (`3`): PySCF `grids.level`.
@@ -124,7 +129,7 @@ mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
 dft:
- func_basis: wb97m-v/6-31g**      # exchange-correlation functional / basis set
+ func_basis: wb97m-v/def2-tzvpd      # exchange-correlation functional / basis set
  conv_tol: 1.0e-09                # SCF convergence tolerance (Hartree)
  max_cycle: 100                    # maximum SCF iterations
  grid_level: 3                     # PySCF grid level
@@ -136,7 +141,7 @@ dft:
 
 - For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
-- Link hydrogens are detected automatically (C/N parents within 1.7 A) unless explicit `link_mlmm` pairs are provided via YAML. Unsupported parent elements raise an error.
+- Link hydrogens are detected automatically (C/N parents within 1.7 Å) unless explicit `link_mlmm` pairs are provided via YAML. Unsupported parent elements raise an error.
 - The GPU4PySCF backend is activated automatically when available; otherwise PySCF CPU is used. If **Blackwell architecture** GPUs are detected, a warning is emitted because current GPU4PySCF may be unsupported.
 - Density fitting is always attempted with PySCF defaults (no auxiliary basis guessing is implemented).
 - DFT options (functional/basis, SCF controls) remain YAML-overridable under the `dft` key.

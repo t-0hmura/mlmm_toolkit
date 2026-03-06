@@ -20,6 +20,21 @@ _EXT_ERROR: Dict[str, Optional[str]] = {
 }
 
 
+def _rebuild_hint() -> str:
+    return (
+        "To rebuild hessian_ff native extensions in this environment:\n"
+        "  conda install -c conda-forge ninja -y\n"
+        "  cd $(python -c \"import hessian_ff; print(hessian_ff.__path__[0])\")/native && make clean && make"
+    )
+
+
+def _with_rebuild_hint(msg: str) -> str:
+    txt = str(msg).strip()
+    if not txt:
+        txt = "native extension unavailable"
+    return f"{txt}\n{_rebuild_hint()}"
+
+
 def _ensure_max_jobs() -> None:
     """Set Ninja parallel compile jobs if not provided by user.
 
@@ -62,6 +77,18 @@ def native_backend_status(module_name: str = "hessian_ff_native") -> Dict[str, s
     }
 
 
+def _cache_build_dir(build_subdir: str) -> Path:
+    """Return the user-cache fallback build directory.
+
+    Used when the package-internal directory (site-packages) is read-only.
+    Location: $XDG_CACHE_HOME/mlmm-toolkit/hessian_ff/<build_subdir>
+    """
+    cache_root = Path(
+        os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
+    )
+    return cache_root / "mlmm-toolkit" / "hessian_ff" / build_subdir
+
+
 def _build_in_tree_extension(
     *,
     key: str,
@@ -77,16 +104,24 @@ def _build_in_tree_extension(
         return None
 
     here = Path(__file__).resolve().parent
-    build_dir = here / build_subdir
-    os.makedirs(build_dir, exist_ok=True)
+    # Candidate build directories: package-internal first, then user cache.
+    pkg_build_dir = here / build_subdir
+    cache_build_dir = _cache_build_dir(build_subdir)
+    build_dirs = [pkg_build_dir, cache_build_dir]
 
     def _find_prebuilt_so() -> Optional[Path]:
-        cands = sorted(
-            build_dir.glob(f"{ext_name}*.so"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
-        return cands[0] if cands else None
+        """Search all candidate directories for a prebuilt .so."""
+        for bd in build_dirs:
+            if not bd.is_dir():
+                continue
+            cands = sorted(
+                bd.glob(f"{ext_name}*.so"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if cands:
+                return cands[0]
+        return None
 
     def _load_prebuilt_so(path: Path) -> Optional[Any]:
         try:
@@ -105,7 +140,9 @@ def _build_in_tree_extension(
             _EXT_ERROR[key] = None
             return mod
         except Exception as e:
-            _EXT_ERROR[key] = f"failed to load prebuilt extension {path}: {e}"
+            _EXT_ERROR[key] = _with_rebuild_hint(
+                f"failed to load prebuilt extension {path}: {e}"
+            )
             return None
 
     # Prefer prebuilt artifact when available (useful on nodes without a compiler toolchain).
@@ -119,17 +156,21 @@ def _build_in_tree_extension(
     try:
         from torch.utils.cpp_extension import load
     except Exception as e:
-        _EXT_ERROR[key] = f"torch cpp_extension import failed: {e}"
+        _EXT_ERROR[key] = _with_rebuild_hint(
+            f"torch cpp_extension import failed: {e}"
+        )
         return None
 
     _ensure_max_jobs()
 
     srcs = [here / s for s in source_files]
 
-    def _try_build(
+    def _try_build_in_dir(
+        build_dir: Path,
         extra_cflags: list[str],
         extra_ldflags: Optional[list[str]] = None,
     ):
+        os.makedirs(build_dir, exist_ok=True)
         kwargs = dict(
             name=ext_name,
             sources=[str(s) for s in srcs],
@@ -148,19 +189,26 @@ def _build_in_tree_extension(
             kwargs.pop("use_ninja", None)
             return load(**kwargs)
 
-    try:
-        # Try aggressive CPU flags first, then fall back progressively.
-        build_attempts = [
-            (["-Ofast", "-ffast-math", "-funroll-loops", "-march=native", "-mtune=native", "-fopenmp"], ["-fopenmp"]),
-            (["-O3", "-ffast-math", "-funroll-loops", "-march=native", "-mtune=native", "-fopenmp"], ["-fopenmp"]),
-            (["-O3", "-ffast-math", "-funroll-loops", "-fopenmp"], ["-fopenmp"]),
-            (["-O3", "-fopenmp"], ["-fopenmp"]),
-            (["-O3"], []),
-        ]
-        last_err: Optional[Exception] = None
+    # Try aggressive CPU flags first, then fall back progressively.
+    build_attempts = [
+        (["-Ofast", "-ffast-math", "-funroll-loops", "-march=native", "-mtune=native", "-fopenmp"], ["-fopenmp"]),
+        (["-O3", "-ffast-math", "-funroll-loops", "-march=native", "-mtune=native", "-fopenmp"], ["-fopenmp"]),
+        (["-O3", "-ffast-math", "-funroll-loops", "-fopenmp"], ["-fopenmp"]),
+        (["-O3", "-fopenmp"], ["-fopenmp"]),
+        (["-O3"], []),
+    ]
+
+    # Try each build directory: package-internal first, then user cache.
+    last_err: Optional[Exception] = None
+    for build_dir in build_dirs:
+        try:
+            os.makedirs(build_dir, exist_ok=True)
+        except OSError:
+            continue
         for cflags, ldflags in build_attempts:
             try:
-                _EXT_CACHE[key] = _try_build(
+                _EXT_CACHE[key] = _try_build_in_dir(
+                    build_dir,
                     extra_cflags=cflags,
                     extra_ldflags=ldflags,
                 )
@@ -169,11 +217,13 @@ def _build_in_tree_extension(
             except Exception as e:
                 last_err = e
                 continue
-        raise RuntimeError(f"all extension build attempts failed: {last_err}")
-    except Exception as e:
-        _EXT_CACHE[key] = None
-        _EXT_ERROR[key] = str(e)
-        return None
+        # All flag combinations failed in this directory; try next.
+
+    _EXT_CACHE[key] = None
+    _EXT_ERROR[key] = _with_rebuild_hint(
+        f"hessian_ff build attempts failed: {last_err}"
+    )
+    return None
 
 
 def get_nonbonded_extension(
@@ -199,10 +249,11 @@ def get_nonbonded_extension(
 def nonbonded_extension_status() -> Dict[str, str]:
     ext = get_nonbonded_extension(verbose=False, force_rebuild=False)
     if ext is None:
+        note = _EXT_ERROR["nonbonded"] or _with_rebuild_hint("extension unavailable")
         return {
             "available": "false",
             "backend": "native_required",
-            "note": _EXT_ERROR["nonbonded"] or "extension unavailable",
+            "note": note,
         }
     return {
         "available": "true",
@@ -230,10 +281,11 @@ def get_analytical_hessian_extension(
 def analytical_hessian_extension_status() -> Dict[str, str]:
     ext = get_analytical_hessian_extension(verbose=False, force_rebuild=False)
     if ext is None:
+        note = _EXT_ERROR["analytical_hessian"] or _with_rebuild_hint("extension unavailable")
         return {
             "available": "false",
             "backend": "native_analytical_hessian_optional",
-            "note": _EXT_ERROR["analytical_hessian"] or "extension unavailable",
+            "note": note,
         }
     return {
         "available": "true",
@@ -261,10 +313,11 @@ def get_bonded_extension(
 def bonded_extension_status() -> Dict[str, str]:
     ext = get_bonded_extension(verbose=False, force_rebuild=False)
     if ext is None:
+        note = _EXT_ERROR["bonded"] or _with_rebuild_hint("extension unavailable")
         return {
             "available": "false",
             "backend": "native_bonded_optional",
-            "note": _EXT_ERROR["bonded"] or "extension unavailable",
+            "note": note,
         }
     return {
         "available": "true",

@@ -6,7 +6,7 @@
 
 ### At a glance
 - **Use when:** You have reactant and product endpoints (R -> P) and want a first-pass MEP.
-- **Method:** PySisyphus `GrowingString` with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`).
+- **Method:** PySisyphus `GrowingString` with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). MLIP backend selected via `--backend` (default: `uma`).
 - **Outputs:** `final_geometries_trj.xyz` (path) and `hei.xyz` (HEI), plus optional `.pdb` companions.
 - **Defaults:** `--climb`, `--max-nodes 10`, `--max-cycles 300`.
 - **Next step:** Validate the HEI with `tsopt` -> `freq` (expect one imaginary mode) -> `irc`.
@@ -91,28 +91,36 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -
 | `-i, --input PATH PATH` | Reactant and product PDB structures. | Required |
 | `--parm PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
+| `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |
+| `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
+| `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors (B=0/10/20). If disabled, you must provide `--model-pdb` or `--model-indices`. | `True` |
 | `-q, --charge INT` | Total ML-region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--mep-mode [gsm\|dmf]` | MEP backend. | `gsm` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (converted to 0-based; merged with YAML `geom.freeze_atoms`). | _None_ |
+| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. | _None_ |
+| `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--fix-ends/--no-fix-ends` | Fix endpoint structures during GSM growth (`gs.fix_first/fix_last`). | `False` |
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `10` |
 | `--max-cycles INT` | Optimizer macro-iteration cap (growth + refinement). Also sets `opt.stop_in_when_full`. | `300` |
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize each endpoint with LBFGS before alignment/string growth. | `False` |
 | `--preopt-max-cycles INT` | Cap for endpoint pre-optimization cycles. | `10000` |
-| `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
+| `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau_loose`) |
 | `--dump/--no-dump` | Dump optimizer trajectories and restarts inside `out_dir`. | `False` |
 | `--out-dir TEXT` | Output directory. | `./result_path_opt/` |
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layers) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running optimization. | `False` |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 ```
-out_dir/ (default:./result_path_opt/)
+out_dir/ (default: ./result_path_opt/)
 ├─ final_geometries_trj.xyz # XYZ trajectory with per-image energies in the comment line
-├─ final_geometries.pdb # Same as_trj.xyz but mapped back to the reference PDB ordering
+├─ final_geometries.pdb # Same path as final_geometries_trj.xyz, mapped back to the reference PDB ordering
 ├─ hei.xyz # Highest-energy image (XYZ, always written)
 ├─ hei.pdb # HEI in PDB format (when reference PDB is available)
 ├─ align_refine/ # External alignment/refinement artifacts
@@ -129,7 +137,7 @@ Merge order is **defaults < config < explicit CLI < override**.
 - `freeze_atoms`: 0-based frozen atoms merged with CLI `--freeze-atoms`.
 
 ### Section `calc` / `mlmm`
-- ML/MM calculator setup: `charge`, `spin`, UMA `model`, `task_name`, `device`, neighbor radii, Hessian options, etc.
+- ML/MM calculator setup: `charge`, `spin`, `backend`, `embedcharge`, UMA-specific `model`/`task_name`, `device`, neighbor radii, Hessian options, etc.
 
 ### Section `gs`
 - Growing String controls: `max_nodes`, `perp_thresh`, reparameterization cadence, `max_micro_cycles`, DLC resets, climb toggles/thresholds.

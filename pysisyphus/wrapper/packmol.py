@@ -57,14 +57,14 @@ def call_packmol(inp):
     with tempfile.NamedTemporaryFile(mode="w", dir=".") as tmp:
         tmp.write(inp)
         tmp.flush()
-        cmd = f"{packmol_cmd} < {tmp.name}"
-        proc = subprocess.run(
-            cmd,
-            shell=True,
-            stdout=subprocess.PIPE,
-            # stderr=subprocess.PIPE,
-            text=True,
-        )
+        tmp.seek(0)
+        with open(tmp.name) as stdin_f:
+            proc = subprocess.run(
+                [packmol_cmd],
+                stdin=stdin_f,
+                stdout=subprocess.PIPE,
+                text=True,
+            )
     # out = proc.stdout
     # err = proc.stderr
 

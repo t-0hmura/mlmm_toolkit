@@ -65,7 +65,7 @@ Symptoms:
 - Key catalytic residues are missing.
 
 Fixes to try:
-- Increase `--radius` (e.g., 2.6 -> 3.5 A).
+- Increase `--radius` (e.g., 2.6 -> 3.5 Angstrom).
 - Use `--selected-resn` to force-include residues (e.g., `--selected-resn 'A:123,B:456'`).
 - If backbone trimming is too aggressive, set `--no-exclude-backbone`.
 
@@ -84,8 +84,7 @@ Fix:
  mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
  ```
 
-- Or (when using extraction) provide a residue-name mapping:
-  then run through `all`:
+- Or, when using extraction, provide a residue-name mapping and run through `all`:
 
  ```bash
  mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
@@ -129,6 +128,8 @@ Fix:
  which parmchk2
  ```
 
+- Note: without AmberTools, you can still run `opt`, `tsopt`, `path-search`, etc. if you supply `--parm` manually.
+
 ---
 
 ### antechamber fails for a ligand
@@ -139,6 +140,13 @@ Symptoms:
 Fixes to try:
 - Check that the ligand has correct element symbols and bond connectivity in the PDB.
 - Ensure `--ligand-charge` is specified correctly: `--ligand-charge 'GPP:-3,SAM:1'`.
+- Use `--keep-temp` to preserve intermediate files and inspect `<resname>.antechamber.log`:
+
+ ```bash
+ mlmm mm-parm -i input.pdb --ligand-charge 'LIG:-1' --keep-temp
+ ```
+
+- Check that hydrogen atoms are correctly added and TER records are appropriate.
 - Try running antechamber manually on the extracted ligand PDB to diagnose the issue:
 
  ```bash
@@ -160,10 +168,28 @@ or
 RuntimeError: parm7 topology does not match the input structure
 ```
 
+or
+
+```text
+Coordinate shape mismatch for... got (N, 3), expected (M, 3)
+```
+
 Fix:
 - The parm7 file must correspond to exactly the same atoms (in the same order) as the input PDB.
 - Re-run `mm-parm` to regenerate the parm7 from the current PDB.
 - Do **not** edit or reorder PDB atoms after running `mm-parm`.
+- When re-running `mm-parm`, use the output PDB (`<prefix>.pdb`) as the input for subsequent calculations, since tleap may add or remove hydrogens.
+
+---
+
+### parm7 element order does not match PDB
+
+Symptoms:
+- `oniom-export` reports "Element sequence mismatch at atom index..."
+
+Fix:
+- Use `--no-element-check` to disable the element check (verify results manually).
+- The correct fix is to use the same PDB for `-i` that was used when generating the parm7.
 
 ---
 
@@ -173,12 +199,19 @@ Fix:
 Typical symptoms:
 - `make` in `hessian_ff/native/` produces compilation errors.
 - `ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'`.
+- `RuntimeError: hessian_ff build attempts failed: ...`
 
 Fixes to try:
 - Ensure you have a C++ compiler (g++ >= 9) installed:
 
  ```bash
  g++ --version
+ ```
+
+- Ensure PyTorch headers are available:
+
+ ```bash
+ python -c "import torch; print(torch.utils.cmake_prefix_path)"
  ```
 
 - On HPC, load a compiler module:
@@ -190,6 +223,7 @@ Fixes to try:
 - Clean and rebuild:
 
  ```bash
+ conda install -c conda-forge ninja -y
  cd hessian_ff/native && make clean && make
  ```
 
@@ -202,6 +236,15 @@ Typical message:
 ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'
 ```
 
+or:
+
+```text
+RuntimeError: hessian_ff build attempts failed: ...
+To rebuild hessian_ff native extensions in this environment:
+  conda install -c conda-forge ninja -y
+  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
+```
+
 Fix:
 - The C++ native extension needs to be built first:
 
@@ -209,7 +252,7 @@ Fix:
  cd hessian_ff/native && make
  ```
 
-- Ensure the `hessian_ff` package is in your Python path (it should be if you installed mlmm_toolkit with `pip install -e.`).
+- Ensure the `hessian_ff` package is in your Python path (it should be if you installed mlmm_toolkit with `pip install -e .`).
 
 ---
 
@@ -224,7 +267,7 @@ Fixes to try:
 - Inspect the layer-assigned PDB visually (color by B-factor in your molecular viewer).
 - Check that `--model-pdb` correctly defines the ML region atoms.
 - Adjust the distance cutoffs in `define-layer`:
- - `--radius-freeze` (default 8.0 A): controls Movable-MM/Frozen boundary.
+ - `--radius-freeze` (default 8.0 Angstrom): controls Movable-MM/Frozen boundary.
 - If needed, control Hessian-target MM separately in calc options (`hess_cutoff`, `hess_mm_atoms`).
 - If using `use_bfactor_layers: true` in YAML, verify that B-factor values match the expected encoding (0.0, 10.0, 20.0 with tolerance 1.0).
 
@@ -239,6 +282,20 @@ Fix:
 - Re-run `define-layer` to ensure correct B-factor encoding.
 - A tolerance of 1.0 is applied: B-factors near 0/10/20 map to ML/Movable/Frozen.
 - Do not manually edit B-factors to arbitrary values.
+
+---
+
+### --detect-layer does not work as expected
+
+Symptoms:
+- Automatic layer detection from B-factors produces unexpected ML/Movable/Frozen splits.
+- Running with `--detect-layer` without `--model-pdb` fails.
+
+Fixes to try:
+- Ensure the input is a PDB (or an XYZ with `--ref-pdb`).
+- Re-run `define-layer` to explicitly assign B-factors, then use the generated PDB.
+- For distance-based control, specify `hess_cutoff` / `movable_cutoff` and switch to `--no-detect-layer` if needed.
+- Note that supplying `--movable-cutoff` disables `--detect-layer`.
 
 ---
 
@@ -313,6 +370,13 @@ Fixes to try:
 - **Use FiniteDifference ML Hessian**: set `--hessian-calc-mode FiniteDifference` (uses less VRAM but is slower).
 - **Move MM to CPU**: set `mm_device: cpu` in YAML (default).
 - **Reduce Hessian-target MM region**: decrease `hess_cutoff` (YAML/CLI where available).
+- **Use 3-layer + Hessian-target control**: set `hess_cutoff` and `movable_cutoff` in YAML to limit the number of atoms included in the Hessian:
+ ```yaml
+ calc:
+   hess_cutoff: 3.6
+   movable_cutoff: 8.0
+ ```
+- **Pre-define layers with `define-layer`** and use `use_bfactor_layers: true`.
 - **Use a GPU with more VRAM**: 24 GB+ recommended for systems with 500+ ML atoms; 48 GB+ for 1000+ ML atoms.
 - **Reduce pocket size**: use a smaller `--radius` during extraction.
 
@@ -325,10 +389,11 @@ Symptoms:
 - Multiple imaginary frequencies remain after optimization.
 
 Fixes to try:
-- Switch optimizer modes: `--opt-mode light` (Dimer) or `--opt-mode heavy` (RS-I-RFO).
-- Enable flattening of extra imaginary modes: `--flatten-imag-mode`.
-- Increase max cycles: `--tsopt-max-cycles 20000`.
+- Switch optimizer modes: `--opt-mode grad` (Dimer) or `--opt-mode hess` (RS-I-RFO).
+- Enable flattening of extra imaginary modes: `--flatten`.
+- Increase max cycles: `--max-cycles 20000`.
 - Use tighter convergence: `--thresh baker` or `--thresh gau_tight`.
+- Adjust `hess_cutoff` to expand the range of atoms included in the Hessian calculation.
 
 ---
 
@@ -361,11 +426,50 @@ Fixes to try:
 
 ## Performance / stability tips
 
-- **Out of memory (VRAM)**: reduce ML region size, reduce Hessian-target MM region, reduce nodes (`--max-nodes`), or use lighter optimizer settings (`--opt-mode light`).
+- **Out of memory (VRAM)**: reduce ML region size, reduce Hessian-target MM region, reduce nodes (`--max-nodes`), or use lighter optimizer settings (`--opt-mode grad`). If the error mentions "reserved but unallocated" memory, set `export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` before running to reduce VRAM fragmentation.
 - **Analytical ML Hessian is slow or OOM**: use `--hessian-calc-mode FiniteDifference` for the ML region. Only use `Analytical` if you have ample VRAM (24 GB+ recommended for 300+ ML atoms).
 - **MM Hessian**: `mm_fd: true` (default) uses finite-difference for MM Hessian. Analytical MM Hessian (`mm_fd: false`) is faster for small systems but may require more memory.
+- **MM Hessian is slow**: set `hess_cutoff` to limit the number of Hessian-target MM atoms.
 - **Large systems (2000+ atoms)**: ensure frozen atoms are properly set (Frozen layer, B=20) to reduce the movable DOF count. Use `define-layer` with appropriate cutoffs.
 - **Multi-GPU**: place ML on one GPU (`ml_cuda_idx: 0`) and MM on another (`mm_device: cuda`, `mm_cuda_idx: 1`) if available.
+- **ML and MM parallel execution**: by default, ML (GPU) and MM (CPU) run in parallel. Tune CPU thread count with `mm_threads`.
+
+---
+
+## Backend-specific issues
+
+### ImportError when using --backend orb/mace/aimnet2
+
+**Symptom:** `ImportError: orb-models is required for the ORB backend`
+
+**Fix:** Install the optional dependency for the chosen backend:
+```bash
+pip install "mlmm-toolkit[orb]"      # ORB backend
+pip install "mlmm-toolkit[aimnet2]"  # AIMNet2 backend
+# MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
+```
+
+---
+
+### CUDA out of memory with non-UMA backends
+
+**Symptom:** `RuntimeError: CUDA out of memory` when using ORB, MACE, or AIMNet2.
+
+**Fix:** Non-UMA backends use finite-difference Hessians, which require more VRAM. Options:
+- Reduce `--radius-partial-hessian` to limit Hessian-target atoms
+- Use `--hessian-calc-mode FiniteDifference` explicitly with a smaller `hess_cutoff`
+- Use `ml_device: cpu` in YAML (slower but avoids VRAM limits)
+
+---
+
+### xTB not found when using --embedcharge
+
+**Symptom:** `FileNotFoundError: xtb command not found`
+
+**Fix:** Install xTB and ensure it's on `$PATH`:
+```bash
+conda install -c conda-forge xtb
+```
 
 ---
 

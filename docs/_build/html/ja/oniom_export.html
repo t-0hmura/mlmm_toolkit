@@ -3,10 +3,10 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="ONIOM インポート（oniom-import）" href="oniom_import.html"><link rel="prev" title="trj2fig" href="trj2fig.html">
 
     <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
-        <title>ONIOM エクスポート（oniom-gaussian / oniom-orca） - mlmm_toolkit</title>
+        <title>ONIOM エクスポート（oniom-export） - mlmm_toolkit</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -218,10 +218,10 @@
 <li class="toctree-l1"><a class="reference internal" href="cli_conventions.html">CLI 規約</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Commands</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../extract.html">extract</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code> (removed)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
@@ -236,12 +236,12 @@
 <li class="toctree-l1"><a class="reference internal" href="../irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-export</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../oniom_import.html">ONIOM Import (<code class="docutils literal notranslate"><span class="pre">oniom-import</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code>（削除済み）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
@@ -257,8 +257,8 @@
 <li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-export</span></code>）</a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_import.html">ONIOM インポート（<code class="docutils literal notranslate"><span class="pre">oniom-import</span></code>）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
 </ul>
@@ -276,8 +276,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../reference/commands/init.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">init</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../reference/commands/irc.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">irc</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../reference/commands/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">mm-parm</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="../reference/commands/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-gaussian</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="../reference/commands/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/oniom_export.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-export</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/commands/oniom_import.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-import</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../reference/commands/opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">opt</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../reference/commands/path_opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-opt</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../reference/commands/path_search.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-search</span></code></a></li>
@@ -297,8 +297,8 @@
 <li class="toctree-l1"><a class="reference internal" href="glossary.html">用語集</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Language</span></p>
-<ul>
-<li class="toctree-l1 has-children"><a class="reference internal" href="index.html">mlmm_toolkit ドキュメント</a><input aria-label="Toggle navigation of mlmm_toolkit ドキュメント" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="index.html">mlmm_toolkit ドキュメント</a><input aria-label="Toggle navigation of mlmm_toolkit ドキュメント" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="getting_started.html">はじめに</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart_all.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">all</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart_scan_spec.html">クイックスタート: <code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">scan</span></code> + <code class="docutils literal notranslate"><span class="pre">--spec</span></code></a></li>
@@ -308,7 +308,7 @@
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html">トラブルシューティング</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cli_conventions.html">CLI 規約</a></li>
 <li class="toctree-l2"><a class="reference internal" href="all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code>（削除済み）</a></li>
 <li class="toctree-l2"><a class="reference internal" href="extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
@@ -324,8 +324,8 @@
 <li class="toctree-l2"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-export</span></code>）</a></li>
+<li class="toctree-l2"><a class="reference internal" href="oniom_import.html">ONIOM インポート（<code class="docutils literal notranslate"><span class="pre">oniom-import</span></code>）</a></li>
 <li class="toctree-l2"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="yaml_reference.html">YAML 設定リファレンス</a></li>
@@ -371,25 +371,42 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="oniom-oniom-gaussian-oniom-orca">
-<h1>ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）<a class="headerlink" href="#oniom-oniom-gaussian-oniom-orca" title="Link to this heading">¶</a></h1>
+          <section id="oniom-oniom-export">
+<h1>ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-export</span></code>）<a class="headerlink" href="#oniom-oniom-export" title="Link to this heading">¶</a></h1>
 <section id="id1">
 <h2>概要<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
-<p>Amber トポロジを持つ ML/MM 系を、外部 QM/MM 入力形式へ変換するためのサブコマンドです。</p>
+<blockquote>
+<div><p><strong>要約:</strong> Amber トポロジを持つ ML/MM 系を、外部 QM/MM 入力形式（Gaussian ONIOM または ORCA QM/MM）へエクスポートします。</p>
+</div></blockquote>
+<section id="id2">
+<h3>概要<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-gaussian</span></code> -&gt; Gaussian ONIOM（<code class="docutils literal notranslate"><span class="pre">.com</span></code> / <code class="docutils literal notranslate"><span class="pre">.gjf</span></code>）</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-orca</span></code> -&gt; ORCA QM/MM（<code class="docutils literal notranslate"><span class="pre">.inp</span></code>）</p></li>
+<li><p><strong>用途:</strong> mlmm_toolkit で準備した系に対して外部 QM/MM 計算を実行したい場合。</p></li>
+<li><p><strong>手法:</strong> Amber parm7 トポロジを読み込み、モデル PDB から ML 領域をマッピングし、<code class="docutils literal notranslate"><span class="pre">--mode</span></code>（未指定時は <code class="docutils literal notranslate"><span class="pre">-o</span></code> 拡張子推定）に応じて Gaussian <code class="docutils literal notranslate"><span class="pre">.com</span></code>/<code class="docutils literal notranslate"><span class="pre">.gjf</span></code> または ORCA <code class="docutils literal notranslate"><span class="pre">.inp</span></code> を出力。</p></li>
+<li><p><strong>出力:</strong> 適切なレイヤー/結合情報を含む Gaussian ONIOM 入力または ORCA QM/MM 入力。</p></li>
+<li><p><strong>次のステップ:</strong> Gaussian または ORCA でエクスポートした入力を実行。</p></li>
 </ul>
 </section>
-<section id="id2">
-<h2>コマンド別ガイド<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
-<ul class="simple">
-<li><p><a class="reference internal" href="oniom_gaussian.html"><span class="std std-doc">oniom-gaussian</span></a> – Gaussian 向けの詳細説明・オプション・例</p></li>
-<li><p><a class="reference internal" href="oniom_orca.html"><span class="std std-doc">oniom-orca</span></a> – ORCA 向けの詳細説明・オプション・例</p></li>
-</ul>
 </section>
 <section id="id3">
-<h2>使い分け<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<h2>統合コマンド<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-export<span class="w"> </span>--parm<span class="w"> </span>real.parm7<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--model-pdb<span class="w"> </span>ml.pdb<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>-o<span class="w"> </span>out.&lt;gjf<span class="p">|</span>com<span class="p">|</span>inp&gt;<span class="w"> </span>--mode<span class="w"> </span>&lt;g16<span class="p">|</span>orca&gt;<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span><span class="w"> </span>-m<span class="w"> </span><span class="m">1</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--mode</span></code> が最優先です。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--mode</span></code> 未指定時は <code class="docutils literal notranslate"><span class="pre">-o</span></code> から推定します。</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">.gjf</span></code> / <code class="docutils literal notranslate"><span class="pre">.com</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">g16</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.inp</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">orca</span></code></p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--mode</span></code> 未指定かつ <code class="docutils literal notranslate"><span class="pre">-o</span></code> が未知拡張子の場合はエラーになります。</p></li>
+</ul>
+</section>
+<section id="id4">
+<h2>使い分け<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
 <div class="table-wrapper colwidths-auto docutils container">
 <table class="docutils align-default">
 <thead>
@@ -399,23 +416,32 @@
 </thead>
 <tbody>
 <tr class="row-even"><td><p>リンク原子注釈付き Gaussian ONIOM 入力</p></td>
-<td><p><a class="reference internal" href="oniom_gaussian.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-export</span> <span class="pre">--mode</span> <span class="pre">g16</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>ORCAFF 連携込みの ORCA QM/MM 入力</p></td>
-<td><p><a class="reference internal" href="oniom_orca.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-export</span> <span class="pre">--mode</span> <span class="pre">orca</span></code></p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </section>
-<hr class="docutils" />
-<section id="id4">
-<h2>関連項目<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<section id="id5">
+<h2>注意事項<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="../reference/commands/oniom_gaussian.html"><span class="std std-doc">reference/commands/oniom_gaussian</span></a></p></li>
-<li><p><a class="reference internal" href="../reference/commands/oniom_orca.html"><span class="std std-doc">reference/commands/oniom_orca</span></a></p></li>
-<li><p><a class="reference internal" href="mm_parm.html"><span class="std std-doc">mm_parm</span></a></p></li>
-<li><p><a class="reference internal" href="define_layer.html"><span class="std std-doc">define_layer</span></a></p></li>
+<li><p>症状起点で切り分ける場合は <a class="reference internal" href="recipes_common_errors.html"><span class="std std-doc">典型エラー別レシピ</span></a> を先に参照し、詳細は <a class="reference internal" href="troubleshooting.html"><span class="std std-doc">トラブルシューティング</span></a> を確認してください。</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="id6">
+<h2>関連項目<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="recipes_common_errors.html"><span class="std std-doc">典型エラー別レシピ</span></a> – 症状起点の切り分け</p></li>
+<li><p><a class="reference internal" href="troubleshooting.html"><span class="std std-doc">トラブルシューティング</span></a> – 詳細な対処ガイド</p></li>
+<li><p><a class="reference internal" href="oniom_gaussian.html"><span class="std std-doc">oniom_gaussian</span></a> – Gaussian モード詳細（<code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">g16</span></code>）</p></li>
+<li><p><a class="reference internal" href="oniom_orca.html"><span class="std std-doc">oniom_orca</span></a> – ORCA モード詳細（<code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">orca</span></code>）</p></li>
+<li><p><a class="reference internal" href="oniom_import.html"><span class="std std-doc">oniom_import</span></a> – ONIOM 入力から XYZ/層付き PDB を再構築</p></li>
+<li><p><a class="reference internal" href="mm_parm.html"><span class="std std-doc">mm_parm</span></a> – Amber トポロジ構築</p></li>
+<li><p><a class="reference internal" href="define_layer.html"><span class="std std-doc">define_layer</span></a> – レイヤー定義/確認</p></li>
 </ul>
 </section>
 </section>
@@ -425,8 +451,26 @@
       <footer>
         
         <div class="related-pages">
-          
-          
+          <a class="next-page" href="oniom_import.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">ONIOM インポート（<code class="docutils literal notranslate"><span class="pre">oniom-import</span></code>）</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="trj2fig.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></div>
+                
+              </div>
+            </a>
         </div>
         <div class="bottom-of-page">
           <div class="left-details">
@@ -457,11 +501,15 @@
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）</a><ul>
-<li><a class="reference internal" href="#id1">概要</a></li>
-<li><a class="reference internal" href="#id2">コマンド別ガイド</a></li>
-<li><a class="reference internal" href="#id3">使い分け</a></li>
-<li><a class="reference internal" href="#id4">関連項目</a></li>
+<li><a class="reference internal" href="#">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-export</span></code>）</a><ul>
+<li><a class="reference internal" href="#id1">概要</a><ul>
+<li><a class="reference internal" href="#id2">概要</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id3">統合コマンド</a></li>
+<li><a class="reference internal" href="#id4">使い分け</a></li>
+<li><a class="reference internal" href="#id5">注意事項</a></li>
+<li><a class="reference internal" href="#id6">関連項目</a></li>
 </ul>
 </li>
 </ul>
@@ -473,7 +521,7 @@
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=58440f0e"></script>
+</div><script src="../_static/documentation_options.js?v=ae1a7467"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

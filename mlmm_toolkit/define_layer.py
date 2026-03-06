@@ -9,7 +9,7 @@ For detailed documentation, see: docs/define_layer.md
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import sys
 
 import click

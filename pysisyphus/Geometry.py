@@ -2,6 +2,7 @@ from collections import Counter, namedtuple
 import copy
 import itertools as it
 import re
+import shlex
 import subprocess
 import tempfile
 import sys
@@ -1553,7 +1554,10 @@ class Geometry:
             bonds_str = ""
 
         tmp_xyz = self.tmp_xyz_handle()
-        subprocess.run(f"modes3d.py {tmp_xyz.name}{bonds_str}", shell=True)
+        cmd = ["modes3d.py", tmp_xyz.name]
+        if bonds_str:
+            cmd.extend(shlex.split(bonds_str))
+        subprocess.run(cmd)
         tmp_xyz.close()
 
     def as_ase_atoms(self):

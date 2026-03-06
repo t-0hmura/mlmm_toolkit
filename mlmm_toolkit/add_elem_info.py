@@ -351,8 +351,10 @@ def main():
     help="Output PDB filepath (omit to overwrite input)",
 )
 @click.option(
-    "--overwrite",
-    is_flag=True,
+    "--overwrite/--no-overwrite",
+    "overwrite",
+    default=False,
+    show_default=True,
     help="Re-infer and overwrite element fields even if present (by default, existing values are preserved).",
 )
 def cli(in_pdb: Path, out_pdb: Optional[Path], overwrite: bool) -> None:

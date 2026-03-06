@@ -433,7 +433,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     lines.append(f"DFT single-point   : {_fmt_bool(payload.get('dft'))}")
     opt_mode_disp = payload.get("opt_mode") or "-"
     lines.append(
-        f"Opt mode           : {opt_mode_disp}  (light: LBFGS/Dimer; heavy: RFO/RSIRFO)"
+        f"Opt mode           : {opt_mode_disp}  (grad: lbfgs/dimer; hess: rfo/rsirfo)"
     )
     lines.append(f"MEP mode           : {payload.get('mep_mode') or '-'}")
 

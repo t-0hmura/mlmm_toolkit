@@ -30,11 +30,13 @@ mlmm freq -i ./result_tsopt/final_geometry.pdb --parm real.parm7 --model-pdb ml_
 - `result_freq/frequencies_cm-1.txt`
 - `result_freq/mode_*_trj.xyz` and `result_freq/mode_*.pdb`
 
-For a valid first-order saddle, frequencies should contain exactly one imaginary mode (negative cm^-1).
+For a valid first-order saddle point, the frequencies should show exactly one imaginary mode (negative cm⁻¹ value).
 
 ## Tips
 
 - Use `--hessian-calc-mode Analytical` when VRAM is sufficient.
+- To use a different MLIP backend, add `--backend orb` (or `mace`, `aimnet2`). Default is `uma`.
+- Add `--embedcharge` to enable xTB point-charge embedding for MM-to-ML environmental corrections.
 - Check full options with `mlmm tsopt --help-advanced` and `mlmm freq --help-advanced`.
 
 ## Next step

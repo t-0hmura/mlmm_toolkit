@@ -4,30 +4,37 @@
 
 > **Summary:** Draw a state energy diagram directly from numeric values (no structure file, no ML/MM calculation).
 
-### Quick reference
-- **Input:** Numeric energies passed via `-i/--input` (multiple tokens or list-like string).
-- **Output:** One image file (`.png`, `.jpg`, `.jpeg`, `.svg`, or `.pdf`).
-- **Default output:** `energy_diagram.png`.
-- **State labels:** Optional `--label-x`; defaults to `S1`, `S2`,...
+### At a glance
 - **Use when:** You already have energies and only need a formatted diagram.
+- **Method:** Direct numeric plotting via Matplotlib; no structure parsing or energy computation.
+- **Outputs:** One image file (`.png`, `.jpg`, `.jpeg`, `.svg`, or `.pdf`).
+- **Defaults:** Output `energy_diagram.png`; labels auto-generated as `S1`, `S2`,...; Y-axis label `DE (kcal/mol)`.
+- **Next step:** Include the diagram in a report or presentation.
 
 `mlmm energy-diagram` only visualizes numbers you provide. It does not read PDB/XYZ structures and does not run thermochemistry (`--thermo`) or DFT (`--dft`) steps.
 
-## Usage
+## Minimal example
+
 ```bash
-mlmm energy-diagram -i VALUES... [-o OUTPUT] [--label-x...] [--label-y...]
+mlmm energy-diagram -i 0 12.5 4.3 -o energy.png
 ```
 
-## Examples
+## Output checklist
+
+- `OUTPUT.(png|jpg|jpeg|svg|pdf)` -- the rendered energy diagram image
+
+## Common examples
+
+1. List string input.
+
 ```bash
-# Multiple numeric arguments
-mlmm energy-diagram -i 0 12.5 4.3 -o energy.png
-
-# List string
 mlmm energy-diagram -i "[-205.1, -190.4, -198.7]" -o energy.png
+```
 
-# X/Y labels
-mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o energy.png
+2. X/Y labels.
+
+```bash
+mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "DE (kcal/mol)" -o energy.png
 ```
 
 ## Workflow
@@ -43,20 +50,17 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o
 | `-i, --input TEXT...` | Numeric values (multiple args or list-like string). | Required |
 | `-o, --output PATH` | Output image path (`.png/.jpg/.jpeg/.svg/.pdf`). | `energy_diagram.png` |
 | `--label-x TEXT...` | X-axis state labels. Count must match input value count. | `S1, S2,...` |
-| `--label-y TEXT` | Y-axis label. | `ΔE (kcal/mol)` |
-
-## Outputs
-```
-OUTPUT.(png|jpg|jpeg|svg|pdf)
-```
-- If `-o/--output` is omitted, `energy_diagram.png` is written to the current directory.
-- When output has no extension, `.png` is appended automatically.
-- Parent directories are created automatically when needed.
+| `--label-y TEXT` | Y-axis label. | `DE (kcal/mol)` |
 
 ## Notes
+- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
+
 - Input order is used directly as plotting order.
 - At least two numeric values are required.
 - This command does not read structure files and does not compute energies.
+- If `-o/--output` is omitted, `energy_diagram.png` is written to the current directory.
+- When output has no extension, `.png` is appended automatically.
+- Parent directories are created automatically when needed.
 
 ---
 

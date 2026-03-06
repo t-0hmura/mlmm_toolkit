@@ -11,7 +11,7 @@
 - **Outputs:** `surface.csv`, per-point geometries under `grid/`, and an HTML isosurface plot (`scan3d_density.html`).
 - **Caution:** 3D grids grow very quickly; consider coarser `--max-step-size` or smaller ranges first.
 
-`mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the optimizer is PySisyphus LBFGS.
+`mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the MLIP backend is selected via `--backend` (default: `uma`); the optimizer is PySisyphus LBFGS.
 
 
 ## Minimal example
@@ -160,15 +160,15 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `-q, --charge INT` | ML-region total charge. | Required unless `--csv` |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
-| `--hess-cutoff FLOAT` | Cutoff distance for Hessian-MM layer. | _None_ |
-| `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
+| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
+| `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
 | `--spec FILE` | YAML/JSON spec with `pairs` (3 quadruples) and optional `one_based`. | Recommended |
 | `--csv FILE` | Load precomputed `surface.csv` and generate plot without running a scan. | _None_ |
 | `--scan-lists TEXT` | single Python literal with three quadruples `(i,j,low,high)`. `i`/`j` can be integer indices or PDB atom selectors. | Alternative to `--spec` |
 | `--one-based / --zero-based` | Interpret `(i, j)` indices as 1- or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
-| `--max-step-size FLOAT` | Maximum distance increment per step (angstrom). Controls grid density. | `0.20` |
-| `--bias-k FLOAT` | Harmonic well strength k (eV/angstrom^2). | `100.0` |
+| `--max-step-size FLOAT` | Maximum distance increment per step (Å). Controls grid density. | `0.20` |
+| `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
 | `--relax-max-cycles INT` | Maximum optimizer cycles during each biased relaxation. | `10000` |
 | `--dump/--no-dump` | Write inner d3 scan TRJs per (d1, d2) slice. | `False` |
 | `--out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
@@ -179,14 +179,17 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--baseline {min,first}` | Shift kcal/mol energies so the global min or `(i,j,k)=(0,0,0)` is zero. | `min` |
 | `--zmin FLOAT` | Manual lower limit for the isosurface color bands (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Manual upper limit for the isosurface color bands (kcal/mol). | Autoscaled |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 ```
-out_dir/ (default:./result_scan3d/)
+out_dir/ (default: ./result_scan3d/)
  surface.csv # Grid metadata (d1, d2, d3, energy, convergence)
  scan3d_density.html # 3D energy isosurface visualization
  grid/point_i###_j###_k###.xyz # Relaxed geometry for each grid point
- grid/point_i###_j###_k###.pdb # PDB companions (B-factors: ML=100, frozen=50, both=150)
+ grid/point_i###_j###_k###.pdb # PDB companions (B-factors: ML=0, Movable-MM=10, Frozen=20)
  grid/inner_path_d1_###_d2_###_trj.xyz # Present only when --dump is True
 ```
 
@@ -206,12 +209,12 @@ opt:
  thresh: baker
  max_cycles: 10000
  dump: false
- out_dir:./result_scan3d/
+ out_dir: ./result_scan3d/
 lbfgs:
  max_step: 0.3
- out_dir:./result_scan3d/
+ out_dir: ./result_scan3d/
 bias:
- k: 100.0
+ k: 300.0
 ```
 
 ## Notes
@@ -225,8 +228,7 @@ bias:
  semi-transparent step-colored isosurfaces.
 - When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also
  converted to PDB files, using the input PDB as a template. B-factors are annotated
- consistently with the `opt` tool: ML-region atoms = 100.00, frozen atoms = 50.00,
- both = 150.00.
+ as: ML=0, MovableMM=10, FrozenMM=20.
 - Plot color scales can be clamped with `--zmin/--zmax` to compare scans consistently.
 
 ---

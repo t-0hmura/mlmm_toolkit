@@ -50,13 +50,15 @@ A central concept in mlmm_toolkit is the **3-layer ML/MM partitioning** of the s
 
 | Layer | B-factor | Description |
 |-------|----------|-------------|
-| **ML** (Layer 1) | 0.0 | The reactive region. Full UMA energy, forces, and Hessian. |
+| **ML** (Layer 1) | 0.0 | The reactive region. Full MLIP energy, forces, and Hessian (default backend: UMA). |
 | **Movable-MM** (Layer 2) | 10.0 | MM atoms allowed to move during optimization. |
 | **Frozen** (Layer 3) | 20.0 | Coordinates are fixed; no optimization. |
 
+B-factor values are encoded in PDB columns 61-66 (the temperature factor column).
+
 The `define-layer` subcommand assigns these B-factors based on distance from the ML region:
 
-- Atoms/residues within `--radius-freeze` (default 8.0 A) are assigned to Movable-MM.
+- Atoms/residues within `--radius-freeze` (default 8.0 Å) are assigned to Movable-MM.
 - Atoms/residues beyond `--radius-freeze` are Frozen.
 
 Hessian-target MM atoms are controlled by calculator options (`hess_cutoff`, explicit `hess_mm_atoms`, etc.), not by a dedicated B-factor layer.
@@ -78,24 +80,28 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 where:
 - **REAL** = the full system (all atoms)
 - **MODEL** = the ML region (subset of atoms)
-- **high** = UMA (machine-learning interatomic potential)
+- **high** = MLIP backend (UMA by default; ORB, MACE, AIMNet2 also supported)
 - **low** = hessian_ff (Amber-based classical force field)
 
 This means:
 1. The **full system** is evaluated at the MM level (hessian_ff).
-2. The **ML region** is evaluated at both the UMA level and the MM level.
+2. The **ML region** is evaluated at both the MLIP level and the MM level.
 3. The MM contribution of the ML region is subtracted to avoid double-counting.
 
-The same decomposition applies to forces and (where applicable) Hessians.
+The same decomposition applies to forces and (where applicable) Hessians. Link-hydrogen contributions are redistributed to the ML and MM host atoms via a Jacobian.
+
+The MLIP backend is selected via `--backend` (default: `uma`). Alternative backends (`orb`, `mace`, `aimnet2`) are installed as optional dependencies (e.g., `pip install "mlmm-toolkit[orb]"`).
+
+When `--embedcharge` is enabled, an xTB point-charge embedding correction is applied to account for the electrostatic influence of the MM environment on the ML region.
 
 ### Difference from traditional QM/MM
 
 | Aspect | Traditional QM/MM | mlmm_toolkit ML/MM |
 |--------|-------------------|---------------------|
-| High-level method | DFT, HF, or post-HF | UMA (MLIP) |
+| High-level method | DFT, HF, or post-HF | MLIP (UMA, ORB, MACE, or AIMNet2) |
 | Low-level method | OpenMM / Amber | hessian_ff (C++ native) |
-| Link atoms | Typically required | Not required by default |
-| Electrostatic embedding | Common | Not used (mechanical embedding via ONIOM subtraction) |
+| Link atoms | Typically required | Auto-generated at covalent boundaries |
+| Electrostatic embedding | Common | Mechanical embedding by default; optional xTB point-charge correction via `--embedcharge` |
 | Speed | Slow (QM bottleneck) | Fast (ML inference on GPU) |
 
 ---
@@ -108,6 +114,7 @@ The same decomposition applies to forces and (where applicable) Hessians.
 - Van der Waals (Lennard-Jones) interactions
 - Electrostatic interactions
 - Analytical second derivatives (Hessian)
+- CPU execution (GPU memory is reserved for MLIP inference)
 
 Unlike OpenMM, `hessian_ff` is designed specifically for providing the **MM Hessian** needed by the ONIOM-like coupling and vibrational analysis.
 
@@ -141,7 +148,7 @@ Pocket extraction is controlled by:
 
 ### Real system vs. Model system (ONIOM terminology)
 - **Real system**: the entire set of atoms (all 3 layers). Evaluated at the MM (low) level.
-- **Model system**: the ML region (Layer 1 only). Evaluated at both the UMA (high) and MM (low) levels.
+- **Model system**: the ML region (Layer 1 only). Evaluated at both the MLIP (high) and MM (low) levels.
 
 ### Images and segments
 - **Image**: a single geometry (one "node") along a chain-of-states path.
@@ -198,6 +205,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 - You want to **debug** a specific stage (e.g., only `extract`, only `mm-parm`, only `path-search`).
 - You want to mix-and-match a custom workflow (e.g., your own endpoint preparation).
 - You already have parm7/rst7 and layer-assigned PDB files from a previous run.
+- You want to generate Gaussian/ORCA ONIOM input files via `oniom-export --mode g16|orca`.
 
 ---
 
@@ -230,6 +238,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 | `tsopt` | TS optimization | [tsopt.md](tsopt.md) |
 | `freq` | Vibrational analysis | [freq.md](freq.md) |
 | `dft` | Single-point DFT | [dft.md](dft.md) |
+| `oniom-export` | Gaussian ONIOM / ORCA QM/MM input generation (`--mode g16\|orca`) | [oniom_export.md](oniom_export.md) |
 
 ### Reference
 - [YAML Reference](yaml_reference.md) -- complete YAML configuration options

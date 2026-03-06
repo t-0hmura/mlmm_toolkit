@@ -7,7 +7,7 @@ TS 候補を最適化し、振動解析で妥当性を確認します。
 ## 事前に必要なファイル
 
 - TS 候補構造: `ts_guess.pdb`
-- MM トポロジ: `real.parm7`
+- MM トポロジー: `real.parm7`
 - ML 領域定義: `ml_region.pdb`
 
 ## 1. TS 最適化

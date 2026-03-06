@@ -184,9 +184,6 @@ class Turbomole(OverlapCalculator):
 
         # Handle simple input
         if simple_input:
-            control_path = Path(
-                "/home/johannes/Code/pysisyphus/tests/test_turbomole/sic"
-            )
             control_path = (self.out_dir / get_random_path("control_path")).absolute()
             self.log(
                 "Set 'control_path' to '{control_path}'. Creating 'control' from simple input in it."

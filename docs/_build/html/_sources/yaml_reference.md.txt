@@ -9,6 +9,7 @@
 | Section | Description | Used by |
 |---------|-------------|---------|
 | [`geom`](#geom) | Geometry and coordinate settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`calc`](#calc) | ML/MM calculator settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`opt`](#opt) | Shared optimizer settings | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
 | [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, path-search |
 | [`rfo`](#rfo) | RFO optimizer settings | opt, scan, scan2d, scan3d, path-search |
@@ -23,8 +24,8 @@
 | [`search`](#search) | Recursive path search settings | path-search |
 | [`hessian_dimer`](#hessian_dimer) | Hessian Dimer TS optimization | tsopt |
 | [`rsirfo`](#rsirfo) | RS-I-RFO TS optimization | tsopt |
-| [`sopt`](#sopt) | Single-structure optimizer for path-search | path-search |
-| [`layeropt`](#layeropt) | Layer-wise optimization settings | tsopt (heavy mode) |
+| [`stopt`](#stopt) | String optimizer settings | path-opt, path-search |
+| [`microiter`](#microiter) | Micro-iteration (MM relaxation) settings | opt, tsopt |
 
 ---
 
@@ -37,21 +38,19 @@ Geometry loading and coordinate handling.
 ```yaml
 geom:
  coord_type: cart # Coordinate type: "cart" (Cartesian) or "dlc" (delocalized internals)
- freeze_atoms: [] # 0-based indices of atoms to freeze; merged with CLI --freeze-links detection
 ```
 
 **Notes:**
-- `freeze_atoms` from YAML is merged with atoms detected via `--freeze-links` for PDB inputs
 - Frozen atoms have zeroed forces; their Hessian columns are also zeroed
 - For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging
 
 ---
 
-### `mlmm` (section)
+### `calc` (section)
 
 
 ```yaml
-mlmm:
+calc:
  # --- Input files ---
  input_pdb: null # Input PDB file path (usually set by CLI)
  real_parm7: null # Amber parm7 topology for the full (real) system
@@ -60,12 +59,36 @@ mlmm:
  model_mult: 1 # Spin multiplicity of the ML (model) region
  link_mlmm: null # Link atom specification for ML/MM boundary
 
- # --- UMA (ML) settings ---
- uma_model: uma-s-1p1 # UMA pretrained model name
- uma_task_name: omol # Task tag recorded in UMA batches
+ # --- MLIP backend selection ---
+ backend: uma # MLIP backend: "uma" (default), "orb", "mace", "aimnet2"
+
+ # --- UMA backend settings ---
+ uma_model: uma-s-1p1 # UMA pretrained model name (UMA backend only)
+ uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
+
+ # --- ORB backend settings ---
+ orb_model: orb_v3_conservative_omol  # ORB model name (ORB backend only)
+
+ # --- MACE backend settings ---
+ mace_model: MACE-OMOL-0 # MACE model name (MACE backend only)
+ mace_dtype: float64      # MACE floating-point precision (MACE backend only)
+
+ # --- AIMNet2 backend settings ---
+ aimnet2_model: aimnet2   # AIMNet2 model name (AIMNet2 backend only)
+
+ # --- ML device & Hessian ---
  ml_device: auto # Device for ML inference: "cuda", "cpu", or "auto"
  ml_cuda_idx: 0 # CUDA device index for ML inference
  ml_hessian_mode: Analytical # ML Hessian mode: "Analytical" or "FiniteDifference"
+
+ # --- xTB point-charge embedding ---
+ embedcharge: false # Enable xTB point-charge embedding correction for MM->ML effects
+ embedcharge_step: 0.001 # Numerical Hessian step for embedding correction (Angstrom)
+ xtb_cmd: xtb # xTB executable command
+ xtb_acc: 0.2 # xTB accuracy parameter
+ xtb_workdir: tmp # xTB working directory
+ xtb_keep_files: false # Keep xTB temporary files
+ xtb_ncores: 4 # Number of cores for xTB
 
  # --- MM backend settings ---
  mm_backend: hessian_ff # MM backend: "hessian_ff" (analytical) | "openmm" (FD Hessian)
@@ -80,7 +103,7 @@ mlmm:
  out_hess_torch: true # Return Hessian as torch.Tensor
  H_double: false # Assemble/return Hessian in float64
  symmetrize_hessian: true # Symmetrize final Hessian as 0.5*(H+H^T)
- return_partial_hessian: false # Return only active-DOF Hessian block
+ return_partial_hessian: false # Base calculator default (CLI wrappers may default to true)
 
  # --- Layer configuration ---
  freeze_atoms: [] # 0-based indices of atoms to freeze (Frozen layer)
@@ -93,16 +116,25 @@ mlmm:
 
  # --- Diagnostics ---
  print_timing: true # Print ML/MM Hessian timing breakdown
- print_vram: false # Print CUDA VRAM usage during Hessian
+ print_vram: true # Print CUDA VRAM usage during Hessian
 ```
 
 **Notes:**
-- `ml_hessian_mode: Analytical` is recommended when sufficient VRAM is available for the ML region
+- `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install mlmm[orb]`, etc.)
+- Backend-specific model keys are only relevant when the corresponding backend is selected:
+  - `uma_model`, `uma_task_name` — UMA backend only
+  - `orb_model` — ORB backend only
+  - `mace_model`, `mace_dtype` — MACE backend only
+  - `aimnet2_model` — AIMNet2 backend only
+- `embedcharge: true` enables xTB point-charge embedding, which models MM-to-ML electrostatic polarization effects. Default is `false`. Requires an `xtb` executable on `$PATH`.
+- `xtb_cmd`, `xtb_acc`, `xtb_ncores`, `xtb_workdir`, `xtb_keep_files` configure the xTB subprocess when `embedcharge` is enabled.
+- `ml_hessian_mode: Analytical` is recommended when sufficient VRAM is available for the ML region. Only available for the UMA backend; other backends use `FiniteDifference` automatically.
 - `mm_fd: true` uses finite-difference for MM Hessian; set to `false` to use analytical MM Hessian from hessian_ff
 - `real_parm7` and `model_pdb` are required for ML/MM calculations
 - `model_charge` and `model_mult` override `-q` and `-m` for the ML region specifically
-- `freq` sets `mlmm.return_partial_hessian = true` by default (PHVA); YAML can override
-- IRC forces `geom.coord_type = cart` and `mlmm.return_partial_hessian = false` regardless of YAML
+- `opt`, `tsopt`, `irc`, and `freq` use partial Hessian by default when `calc.return_partial_hessian` is not explicitly set in YAML.
+- To force full Hessian output in those commands, set `calc.return_partial_hessian: false` explicitly.
+- `irc` forces `geom.coord_type = cart` regardless of YAML.
 
 ### `opt`
 
@@ -280,27 +312,41 @@ search:
 
 ---
 
-### `sopt`
+### `stopt`
 
-Single-structure optimizers for path-search (HEI+/-1 and kink nodes).
+String optimizer settings for path-opt and path-search. Controls the GS/DMF string
+optimization (not individual node optimization).
 
 ```yaml
-sopt:
+stopt:
+ type: string           # Optimizer type label (used by StringOptimizer)
+ thresh: gau_loose      # Convergence preset for string optimization
+ stop_in_when_full: 300 # Early stop threshold when string is full
+ align: false           # Alignment toggle
+ scale_step: global     # Step scaling mode
+ max_cycles: 300        # Maximum string optimizer iterations
+ dump: false            # Dump trajectory/restart data
+ dump_restart: false    # Dump restart checkpoints
+ reparam_thresh: 0.0    # Reparametrization threshold
+ coord_diff_thresh: 0.0 # Coordinate difference threshold
+ out_dir: ./result_path_opt/  # Output directory
+ print_every: 10        # Logging stride
  lbfgs:
- # Same keys as lbfgs section above
- thresh: gau
- max_cycles: 10000
- out_dir:./result_path_search/
- dump: false
- #... (see lbfgs section)
+   # Same keys as lbfgs section (for single-structure optimizer)
+   thresh: gau
+   max_cycles: 10000
+   #... (see lbfgs section)
  rfo:
- # Same keys as rfo section above
- thresh: gau
- max_cycles: 10000
- out_dir:./result_path_search/
- dump: false
- #... (see rfo section)
+   # Same keys as rfo section (for single-structure optimizer)
+   thresh: gau
+   max_cycles: 10000
+   #... (see rfo section)
 ```
+
+**Notes:**
+- `stopt.lbfgs` and `stopt.rfo` configure the single-structure optimizer used for
+  HEI+/-1 endpoint optimization and kink node optimization within path-search
+- The outer `stopt` keys control the string optimizer (GS or DMF wrapper)
 
 ---
 
@@ -381,21 +427,6 @@ rsirfo:
 
 ---
 
-### `layeropt`
-
-Layer-wise optimization settings for heavy mode TSOPT. Controls outer-loop optimization (full system) and inner-loop optimization (model/ML region).
-
-```yaml
-layeropt:
- outer_opt: lbfgs # Outer optimizer: "lbfgs" or "rfo"
- outer_thresh: gau_loose # Convergence threshold for outer loop
- outer_max_cycles: 1500 # Max cycles for outer optimization
- model_opt: rfo # Model region optimizer: "lbfgs" or "rfo"
- model_thresh: never # Convergence threshold for model optimization
-```
-
----
-
 ## IRC Section
 
 (irc-section)=
@@ -463,6 +494,27 @@ thermo:
 
 ---
 
+### `microiter`
+
+Micro-iteration settings for ML/MM optimization. When `--microiter` is enabled,
+the MM region is relaxed (with frozen ML atoms) between each macro-step of the
+ML-region optimizer. This can dramatically reduce the number of expensive
+ML Hessian evaluations needed.
+
+```yaml
+microiter:
+ micro_thresh: gau_loose # Convergence preset for MM relaxation (L-BFGS)
+ micro_max_cycles: 500   # Maximum L-BFGS iterations per micro-iteration
+```
+
+**Notes:**
+- Enabled via `--microiter` / `--no-microiter` CLI flag (default: off)
+- Available in `opt` (with `--opt-mode hess`) and `tsopt` (with `--opt-mode hess`)
+- Uses L-BFGS to minimize MM-region forces while ML atoms are frozen
+- `micro_thresh` accepts the same presets as `opt.thresh` (gau_loose, gau, gau_tight, etc.)
+
+---
+
 ## DFT Section
 
 (dft-section)=
@@ -472,7 +524,7 @@ DFT calculation settings.
 
 ```yaml
 dft:
- func_basis: B3LYP/6-31G* # Combined "FUNC/BASIS" string
+ func_basis: wb97m-v/def2-tzvpd # Combined "FUNC/BASIS" string
  conv_tol: 1.0e-09 # SCF convergence tolerance (Hartree)
  max_cycle: 100 # Maximum SCF iterations
  grid_level: 3 # PySCF grid level
@@ -488,18 +540,18 @@ Harmonic bias settings for scans.
 
 ```yaml
 bias:
- k: 100.0 # Harmonic bias strength (eV/Angstrom^2)
+ k: 300.0 # Harmonic bias strength (eV/Angstrom^2)
 ```
 
 ---
 
 ### `bond`
 
-UMA-based bond-change detection.
+MLIP-based bond-change detection.
 
 ```yaml
 bond:
- device: cuda # UMA device for bond analysis
+ device: cuda # MLIP device for bond analysis
  bond_factor: 1.2 # Covalent-radius scaling for cutoff
  margin_fraction: 0.05 # Fractional tolerance for comparisons
  delta_fraction: 0.05 # Minimum relative change to flag bond formation/breaking
@@ -518,12 +570,14 @@ geom:
  coord_type: cart
  freeze_atoms: []
 
-mlmm:
+calc:
  model_charge: 0
  model_mult: 1
- uma_model: uma-s-1p1
+ backend: uma                  # MLIP backend: uma | orb | mace | aimnet2
+ embedcharge: false            # xTB point-charge embedding correction
+ uma_model: uma-s-1p1          # UMA backend only
  ml_device: auto
- ml_hessian_mode: Analytical # Recommended when VRAM permits
+ ml_hessian_mode: Analytical   # Recommended when VRAM permits
  mm_device: cpu
  mm_fd: true
  use_bfactor_layers: true # Read layers from PDB B-factors
@@ -539,13 +593,15 @@ opt:
  dump: false
  out_dir:./result_all/
 
-sopt:
+stopt:
+ thresh: gau_loose
+ max_cycles: 300
  lbfgs:
- thresh: gau
- max_cycles: 10000
+   thresh: gau
+   max_cycles: 10000
  rfo:
- thresh: gau
- max_cycles: 10000
+   thresh: gau
+   max_cycles: 10000
 
 bond:
  bond_factor: 1.2
@@ -554,11 +610,6 @@ bond:
 search:
  max_depth: 10
  max_nodes_segment: 10
-
-layeropt:
- outer_opt: lbfgs
- outer_thresh: gau_loose
- model_opt: rfo
 
 freq:
  max_write: 10
@@ -569,7 +620,7 @@ thermo:
  pressure_atm: 1.0
 
 dft:
- func_basis: B3LYP/6-31G*
+ func_basis: wb97m-v/def2-tzvpd
  grid_level: 3
 ```
 

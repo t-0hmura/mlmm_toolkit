@@ -11,6 +11,7 @@ For detailed documentation, see: docs/mm_parm.md
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
@@ -19,9 +20,11 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import click
+
+logger = logging.getLogger(__name__)
 
 # ===================== User dictionaries & constants =====================
 
@@ -849,7 +852,7 @@ def run_pipeline(args: Args) -> None:
             try:
                 tmp_mgr.cleanup()
             except Exception:
-                pass
+                logger.debug("Failed to clean up temporary directory", exc_info=True)
 
 
 # ===================== Click CLI entry point =====================
@@ -892,16 +895,20 @@ def run_pipeline(args: Args) -> None:
     ),
 )
 @click.option(
-    "--allow-nonstandard-aa",
-    is_flag=True,
+    "--allow-nonstandard-aa/--no-allow-nonstandard-aa",
+    "allow_nonstandard_aa",
+    default=False,
+    show_default=True,
     help=(
         "Allow antechamber parameterization of residues that look amino-acid-like "
         "(contain N/CA/C). Use with care for modified amino acids."
     ),
 )
 @click.option(
-    "--keep-temp",
-    is_flag=True,
+    "--keep-temp/--no-keep-temp",
+    "keep_temp",
+    default=False,
+    show_default=True,
     help="Keep temporary working directory (in current dir) for debugging.",
 )
 @click.option(

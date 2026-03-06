@@ -1,6 +1,5 @@
 # mlmm_toolkit Documentation
 
-**Version: {{ version }}**
 
 **mlmm_toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using ML/MM (machine-learning / molecular mechanics) methods.
 
@@ -53,6 +52,9 @@ oniom_export
 oniom_import
 fix_altloc
 energy_diagram
+device_hpc
+oniom_gaussian
+oniom_orca
 ja/all
 ja/init
 ja/extract
@@ -74,6 +76,9 @@ ja/oniom_export
 ja/oniom_import
 ja/fix_altloc
 ja/energy_diagram
+ja/device_hpc
+ja/oniom_gaussian
+ja/oniom_orca
 ```
 
 ```{toctree}
@@ -110,7 +115,7 @@ ja/index
 | Single-structure staged scan (`--spec`) | `mlmm scan` | [Quickstart: scan with spec](quickstart_scan_spec.md) |
 | TS validation (`tsopt` -> `freq`) | `mlmm tsopt`, `mlmm freq` | [Quickstart: tsopt -> freq](quickstart_tsopt_freq.md) |
 | Run complete reaction path search from PDB | `mlmm all` | [all.md](all.md) |
-| Generate a starter YAML config for `all` | `mlmm init` | [init.md](init.md) |
+| View current configuration | `mlmm opt --show-config` | [YAML Reference](yaml_reference.md) |
 | Extract QM region from protein-ligand complex | `mlmm extract` | [extract.md](extract.md) |
 | Build MM topology (parm7/rst7) | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
 | Define ML/MM layers | `mlmm define-layer` | [define_layer.md](define_layer.md) |
@@ -148,7 +153,7 @@ ja/index
 | Subcommand | Description |
 |------------|-------------|
 | [`all`](all.md) | End-to-end workflow: extraction -> MM parm -> MEP -> TS optimization -> IRC -> freq -> DFT |
-| [`init`](init.md) | Generate a starter YAML template for `mlmm all` |
+| [`init`](init.md) | *(Removed)* Previously generated a starter YAML template |
 
 ### Structure Preparation
 | Subcommand | Description |
@@ -253,7 +258,7 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 ### ML/MM 3-Layer System
 mlmm_toolkit uses a 3-layer partitioning scheme encoded via PDB B-factors:
-- **ML region** (B=0.0): Treated with UMA machine-learning potential
+- **ML region** (B=0.0): Treated with MLIP backend (default: UMA)
 - **Movable-MM** (B=10.0): MM atoms that move during optimization
 - **Frozen** (B=20.0): Fixed MM atoms
 
@@ -299,6 +304,12 @@ result_all/
 ```
 
 ---
+
+## Citation
+
+If you use this software in your research, please cite:
+
+[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit -- Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. https://doi.org/10.26434/chemrxiv-2025-jft1k
 
 ## License
 

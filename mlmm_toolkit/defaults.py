@@ -54,7 +54,7 @@ GEOM_KW_DEFAULT: Dict[str, Any] = {
 }
 
 # -----------------------------------------------
-# Calculator defaults (ML/MM with UMA + hessian_ff MM)
+# Calculator defaults (ML/MM with MLIP backend + hessian_ff MM)
 # -----------------------------------------------
 
 MLMM_CALC_KW: Dict[str, Any] = {
@@ -64,8 +64,16 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "model_charge": 0,
     "model_mult": 1,
     "link_mlmm": None,
-    "uma_model": "uma-s-1p1",
+    # ML backend selection: "uma" | "orb" | "mace" | "aimnet2"
+    "backend": "uma",
+    "uma_model": "uma-s-1p2",
     "uma_task_name": "omol",
+    "orb_model": "orb_v3_conservative_omol",
+    "orb_precision": "float32",
+    "mace_model": "MACE-OMOL-0",
+    "mace_dtype": "float64",
+    "aimnet2_model": "aimnet2",
+    # ML Hessian mode
     "ml_hessian_mode": "Analytical",
     "hessian_calc_mode": None,  # Alias for ml_hessian_mode
     "out_hess_torch": True,
@@ -99,6 +107,14 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "hess_mm_atoms": None,    # Explicit Hessian-target MM atom indices
     "movable_mm_atoms": None, # Explicit movable MM atom indices
     "frozen_mm_atoms": None,  # Explicit frozen MM atom indices
+    # xTB point-charge embedding correction
+    "embedcharge": False,           # Enable xTB-based point-charge embedding
+    "embedcharge_step": 1.0e-3,     # Numerical Hessian step for embedding correction (Å)
+    "xtb_cmd": "xtb",              # xTB executable command
+    "xtb_acc": 0.2,                # xTB accuracy parameter
+    "xtb_workdir": "tmp",          # xTB working directory
+    "xtb_keep_files": False,       # Keep xTB temporary files
+    "xtb_ncores": 4,               # Number of cores for xTB
 }
 
 # -----------------------------------------------
@@ -154,7 +170,7 @@ RFO_KW: Dict[str, Any] = {
     "max_energy_incr": None,
     "hessian_update": "bfgs",
     "hessian_init": "calc",
-    "hessian_recalc": 200,
+    "hessian_recalc": 500,
     "hessian_recalc_adapt": None,
     "small_eigval_thresh": 1e-8,
     "alpha0": 1.0,
@@ -173,7 +189,7 @@ RFO_KW: Dict[str, Any] = {
 # -----------------------------------------------
 
 BIAS_KW: Dict[str, Any] = {
-    "k": 100,  # eV/Å²
+    "k": 300,  # eV/Å²
 }
 
 # -----------------------------------------------
@@ -192,15 +208,13 @@ BOND_KW: Dict[str, Any] = {
 # -----------------------------------------------
 
 OPT_MODE_ALIASES = (
-    (("light", "lbfgs"), "lbfgs"),
-    (("heavy", "rfo"), "rfo"),
-    (("hybrid",), "hybrid"),
+    (("grad", "light", "lbfgs"), "lbfgs"),
+    (("hess", "heavy", "rfo"), "rfo"),
 )
 
 TSOPT_MODE_ALIASES = (
-    (("light", "lbfgs"), "light"),
-    (("heavy", "rfo"), "heavy"),
-    (("hybrid",), "hybrid"),
+    (("grad", "light", "dimer"), "dimer"),
+    (("hess", "heavy", "rsirfo"), "rsirfo"),
 )
 
 # -----------------------------------------------
@@ -232,6 +246,7 @@ GS_KW: Dict[str, Any] = {
 
 STOPT_KW: Dict[str, Any] = {
     "type": "string",
+    "thresh": "gau_loose",
     "stop_in_when_full": 300,
     "align": False,
     "scale_step": "global",
@@ -290,14 +305,24 @@ IRC_KW: Dict[str, Any] = {
 }
 
 # -----------------------------------------------
+# Microiteration defaults (opt heavy / tsopt heavy)
+# -----------------------------------------------
+
+MICROITER_KW: Dict[str, Any] = {
+    "micro_thresh": "gau_loose",    # Convergence threshold for MM relaxation
+    "micro_max_cycles": 500,        # Max LBFGS cycles per micro iteration
+}
+
+# -----------------------------------------------
 # Frequency analysis defaults
 # -----------------------------------------------
 
 FREQ_KW: Dict[str, Any] = {
     "amplitude_ang": 0.8,
     "n_frames": 20,
-    "max_write": 20,
+    "max_write": 10,
     "sort": "value",
+    "out_dir": OUT_DIR_FREQ,
 }
 
 # -----------------------------------------------
@@ -345,7 +370,7 @@ HESSIAN_DIMER_KW: Dict[str, Any] = {
     "thresh": "baker",
     "update_interval_hessian": 500,
     "neg_freq_thresh_cm": 5.0,
-    "flatten_amp_ang": 0.20,
+    "flatten_amp_ang": 0.10,
     "flatten_max_iter": 50,
     "flatten_sep_cutoff": 0.0,
     "flatten_k": 10,
@@ -354,6 +379,7 @@ HESSIAN_DIMER_KW: Dict[str, Any] = {
     "device": "auto",
     "root": 0,
     "partial_hessian_flatten": True,  # New: use partial Hessian for imaginary mode detection
+    "ml_only_hessian_dimer": False,  # Use ML-region-only Hessian (no MM Hessian) for dimer orientation
 }
 
 # -----------------------------------------------
@@ -380,10 +406,12 @@ RSIRFO_KW: Dict[str, Any] = {
 # -----------------------------------------------
 
 DFT_KW: Dict[str, Any] = {
-    "func_basis": "wb97m-v/6-31g**",
+    "func_basis": "wb97m-v/def2-tzvpd",
     "max_cycle": 100,
     "conv_tol": 1e-9,
     "grid_level": 3,
+    "verbose": 4,
+    "out_dir": "./result_dft/",
 }
 
 # -----------------------------------------------

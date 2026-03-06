@@ -77,7 +77,7 @@ def recompute_energies(
         raise RuntimeError(f"No frames found in {traj_path}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device=str(device))
+    predictor = pretrained_mlip.get_predict_unit("uma-s-1p2", device=str(device))
     predictor.model.eval()
     backbone = getattr(getattr(predictor.model, "module", predictor.model), "backbone", None)
     uma_max_neigh = getattr(backbone, "max_neighbors", None)
@@ -420,8 +420,10 @@ def main() -> None:
     help="Spin multiplicity (2S+1). Recompute energies when supplied.",
 )
 @click.option(
-    "--reverse-x",
-    is_flag=True,
+    "--reverse-x/--no-reverse-x",
+    "reverse_x",
+    default=False,
+    show_default=True,
     help="Reverse the x-axis (last frame on the left).",
 )
 def cli(

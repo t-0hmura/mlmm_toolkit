@@ -132,7 +132,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 ```
 
 ## ワークフロー
-1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM 計算機（FAIR-Chem UMA + hessian_ff）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
+1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。`--backend` で ML バックエンドを選択（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化可能。
 2. **グリッド構築** -- `--spec`（推奨）または `--scan-lists` からターゲットを 2 つの四つ組に解析し、インデックスを正規化（デフォルト 1 始まりまたは `"TYR,285,CA"` のような PDB 原子セレクター）。`ceil(|high - low| / h) + 1` 点の線形グリッドを構築（`h = --max-step-size`）。
 3. **外側ループ（d1）** -- 各 d1 値について、**d1 拘束のみ**で系を緩和。
 4. **内側ループ（d2）** -- 現在の d1 での各 d2 値について、最も近い収束済み構造から開始し**両方の拘束**で緩和。
@@ -152,14 +152,14 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
-| `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定で `--detect-layer` が無効化。 | _None_ |
-| `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
+| `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å) — ヘシアン計算に含める MM 原子を指定。`--detect-layer` と併用可能。 | _None_ |
+| `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
 | `--spec FILE` | `pairs`（2 四つ組）を持つ YAML/JSON 仕様。`one_based` を任意指定可能。 | 推奨 |
 | `--scan-lists TEXT` | 2 つの四つ組を含む Python リテラル: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | `--spec` の代替 |
 | `--one-based / --zero-based` | `--scan-lists` の `(i,j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |
-| `--max-step-size FLOAT` | ステップごとの最大距離増分 (A)。グリッド密度を決定。 | `0.20` |
-| `--bias-k FLOAT` | 調和ウェル強度 k (eV/A^2)。 | `100.0` |
+| `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を決定。 | `0.20` |
+| `--bias-k FLOAT` | 調和ウェル強度 k (eV/Å²)。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの最大 LBFGS サイクル。 | `10000` |
 | `--dump/--no-dump` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
 | `--out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |
@@ -170,6 +170,9 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--baseline {min,first}` | 相対エネルギーの基準（kcal/mol）。 | `min` |
 | `--zmin FLOAT` | コンターカラースケールの下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | コンターカラースケールの上限（kcal/mol）。 | 自動スケール |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部で `uma` を適用） |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力
 
@@ -202,12 +205,12 @@ opt:
  thresh: baker
  max_cycles: 10000
  dump: false
- out_dir:./result_scan2d/
+ out_dir: ./result_scan2d/
 lbfgs:
  max_step: 0.3
- out_dir:./result_scan2d/
+ out_dir: ./result_scan2d/
 bias:
- k: 100.0
+ k: 300.0
 ```
 
 ## 注意事項
@@ -215,7 +218,7 @@ bias:
 
 - ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は酵素複合体全体を保持します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られます。
 - バイアスは最終エネルギー記録前に常に除去されるため、`surface.csv` はグリッド点間で直接比較可能です。
-- 入力が PDB の場合、各グリッド点 XYZ と（存在する場合）内部パス TRJ は B 因子アノテーション付きで PDB ファイルにも変換されます: ML 領域原子 = 100.00、凍結原子 = 50.00、両方 = 150.00。
+- 入力が PDB の場合、各グリッド点 XYZ と（存在する場合）内部パス TRJ は参照 PDB の B 因子エンコーディングを保持した PDB ファイルにも変換されます（`define-layer` で準備した場合は ML=0、Movable-MM=10、Frozen=20）。
 - `--scan-lists` の `i`/`j` エントリは整数インデックス（デフォルト 1 始まり）または `"TYR,285,CA"` のような PDB 原子セレクターが使用可能です。
 
 ---
@@ -223,6 +226,7 @@ bias:
 ## 関連項目
 
 - [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [scan](scan.md) -- 1D 結合距離駆動スキャン
 - [scan3d](scan3d.md) -- 3D 距離グリッドスキャン

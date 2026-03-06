@@ -1,6 +1,5 @@
 # mlmm_toolkit ドキュメント
 
-**バージョン: {{ version }}**
 
 **mlmm_toolkit** は、機械学習原子間ポテンシャル（UMA）と分子力学（hessian_ff）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
 
@@ -45,6 +44,9 @@ oniom_export
 oniom_import
 fix_altloc
 energy_diagram
+device_hpc
+oniom_gaussian
+oniom_orca
 ```
 
 ```{toctree}
@@ -68,9 +70,9 @@ glossary
 | 単一構造スキャン（`--spec`） | `mlmm scan` | [クイックスタート: scan + spec](quickstart_scan_spec.md) |
 | TS 検証（`tsopt` -> `freq`） | `mlmm tsopt`, `mlmm freq` | [クイックスタート: tsopt -> freq](quickstart_tsopt_freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
-| `all` 用 YAML テンプレートを生成 | `mlmm init` | [init.md](init.md) |
+| 現在の設定を確認 | `mlmm opt --show-config` | [YAML リファレンス](yaml_reference.md) |
 | タンパク質-リガンド複合体からQM領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
-| MM トポロジ（parm7/rst7）を構築 | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
+| MM トポロジー（parm7/rst7）を構築 | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
 | ML/MM 3層領域を定義 | `mlmm define-layer` | [define_layer.md](define_layer.md) |
 | 単一構造を最適化 | `mlmm opt` | [opt.md](opt.md) |
 | 遷移状態を探索・最適化 | `mlmm tsopt` | [tsopt.md](tsopt.md) |
@@ -106,14 +108,14 @@ glossary
 | サブコマンド | 説明 |
 |---------|------|
 | [`all`](all.md) | エンドツーエンドワークフロー: 抽出 -> MM parm -> MEP -> TS 最適化 -> IRC -> freq -> DFT |
-| [`init`](init.md) | `mlmm all` 用 YAML テンプレートを生成 |
+| [`init`](init.md) | *（削除済）* 以前は YAML テンプレートを生成 |
 
 ### 構造準備
 | サブコマンド | 説明 |
 |---------|------|
 | [`extract`](extract.md) | タンパク質-リガンド複合体から活性部位ポケット（クラスターモデル）を抽出 |
 | [`add-elem-info`](add_elem_info.md) | PDB の元素カラム（77-78）を修復 |
-| [`mm-parm`](mm_parm.md) | AmberTools (tleap + GAFF2) を使用して Amber トポロジ（parm7/rst7）を構築 |
+| [`mm-parm`](mm_parm.md) | AmberTools (tleap + GAFF2) を使用して Amber トポロジー（parm7/rst7）を構築 |
 | [`define-layer`](define_layer.md) | ML 領域からの距離に基づき 3 層 ML/MM 領域を定義し、B-factor でエンコード |
 
 ### 構造最適化
@@ -139,7 +141,7 @@ glossary
 | サブコマンド | 説明 |
 |---------|------|
 | [`irc`](irc.md) | 固有反応座標（IRC）計算 |
-| [`freq`](freq.md) | 振動数解析と熱化学 |
+| [`freq`](freq.md) | 振動解析と熱化学 |
 | [`dft`](dft.md) | DFT 一点計算（GPU4PySCF / PySCF） |
 | [`trj2fig`](trj2fig.md) | XYZ 軌跡からエネルギープロファイルをプロット |
 | [`energy-diagram`](energy_diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
@@ -159,6 +161,8 @@ glossary
 | **YAML 設定オプション** | [YAML リファレンス](yaml_reference.md) |
 | **ML/MM 計算機アーキテクチャ** | [ML/MM 計算機](mlmm_calc.md) |
 | **用語集** | [用語集](glossary.md) |
+
+EN版には自動生成の [CLI コマンドリファレンス](../reference/commands/index.md) と [YAML スキーマ（自動生成）](../reference/yaml.md) も掲載されています。
 
 ---
 
@@ -241,7 +245,7 @@ result_all/
 ├── summary.log # 人間が読めるサマリー
 ├── summary.yaml # 機械可読サマリー
 ├── pockets/ # 抽出されたクラスターモデル
-├── mm_parm/ # AMBER トポロジファイル
+├── mm_parm/ # AMBER トポロジーファイル
 ├── scan/ # （オプション）スキャン結果
 ├── path_search/ # MEP 軌跡とダイアグラム
 │ ├── mep_trj.xyz # MEP 軌跡

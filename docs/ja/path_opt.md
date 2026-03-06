@@ -6,10 +6,10 @@
 
 ### 概要
 - **用途:** 反応物と生成物の端点 (R -> P) があり、初回パスの MEP が必要な場合に使用。
-- **手法:** ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による PySisyphus `GrowingString`。
+- **手法:** ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による PySisyphus `GrowingString`。MLIP バックエンドは `--backend` で選択（デフォルト: UMA）。
 - **出力:** `final_geometries_trj.xyz`（経路）および `hei.xyz`（HEI）、任意で `.pdb` コンパニオン。
 - **デフォルト:** `--climb`、`--max-nodes 10`、`--max-cycles 300`。
-- **次のステップ:** HEI を `tsopt` -> `freq`（虚数モード 1 つを期待）-> `irc` で検証。
+- **次のステップ:** HEI を `tsopt` -> `freq`（虚振動数モード 1 つを期待）-> `irc` で検証。
 
 `mlmm path-opt` は、ML/MM 計算機による PySisyphus `GrowingString` を使用して 2 つの酵素状態間の最小エネルギー経路を最適化します。ML/MM 計算機はリンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義され、Amber トポロジーは `--parm` から取得され、両端点は全系座標を含む PDB として提供されます。
 
@@ -87,22 +87,29 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -
 | `-i, --input PATH PATH` | 反応物と生成物の PDB 構造。 | 必須 |
 | `--parm PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
+| `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
+| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--mep-mode [gsm\|dmf]` | MEP バックエンド。 | `gsm` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（0 始まりに変換; YAML `geom.freeze_atoms` とマージ）。 | _None_ |
+| `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å)。この範囲内の MM 原子をヘシアン計算に含めます。可動 MM 原子に適用。 | _None_ |
+| `--movable-cutoff FLOAT` | ML 領域からの距離カットオフ (Å)。この範囲外の MM 原子を凍結します。`--movable-cutoff` 指定時は `--detect-layer` が無効化されます。 | _None_ |
 | `--fix-ends/--no-fix-ends` | GSM 成長中に端点構造を固定（`gs.fix_first/fix_last`）。 | `False` |
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `10` |
 | `--max-cycles INT` | オプティマイザーマクロ反復上限（成長 + 精密化）。`opt.stop_in_when_full` も設定。 | `300` |
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |
 | `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を LBFGS で事前最適化。 | `False` |
 | `--preopt-max-cycles INT` | 端点事前最適化サイクルの上限。 | `10000` |
-| `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
+| `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実効: `gau_loose`） |
 | `--dump/--no-dump` | `out_dir` 内にオプティマイザー軌跡とリスタートをダンプ。 | `False` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_path_opt/` |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。 | `False` |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力
 
@@ -126,7 +133,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 - `freeze_atoms`: CLI `--freeze-atoms` とマージされる 0 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`
-- ML/MM 計算機の設定: `charge`、`spin`、UMA `model`、`task_name`、`device`、近傍半径、ヘシアンオプション等。
+- ML/MM 計算機の設定: `charge`、`spin`、`backend`、`embedcharge`、MLIP モデル設定、`device`、近傍半径、ヘシアンオプション等。
 
 ### セクション `gs`
 - Growing String 制御: `max_nodes`、`perp_thresh`、再パラメータ化間隔、`max_micro_cycles`、DLC リセット、クライミングトグル/閾値。

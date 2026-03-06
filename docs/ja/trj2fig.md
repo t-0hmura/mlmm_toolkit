@@ -4,7 +4,7 @@
 
 > **要約:** XYZ 軌跡のコメント行からエネルギーを抽出（または UMA で再計算）し、相対または絶対エネルギープロファイルを計算して Plotly 図と CSV テーブルとしてエクスポートします。
 
-### 概要
+### 早見表
 - **入力:** 2 行目（コメント）に Hartree エネルギーが格納された XYZ 軌跡。`-q/--charge` と `-m/--multiplicity` による再計算も可能。
 - **基準モード:** 最初のフレーム（`init`）、基準なし（`None`）、または明示的な 0 始まりフレームインデックス。
 - **出力形式:** PNG（デフォルト）、JPEG、HTML、SVG、PDF、CSV。
@@ -35,7 +35,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## ワークフロー
 
-1. XYZ 軌跡を解析します。デフォルトでは各フレームのコメント行から Hartree エネルギーを抽出します。`-q/--charge` または `-m/--multiplicity` が指定された場合は UMA（`uma-s-1p1`）で再計算します。
+1. XYZ 軌跡を解析します。デフォルトでは各フレームのコメント行から Hartree エネルギーを抽出します。`-q/--charge` または `-m/--multiplicity` が指定された場合は UMA（`uma-s-1p2`）で再計算します。
 2. 基準仕様を正規化します:
  - `init` -- フレーム `0`（`--reverse-x` が有効な場合は最後のフレーム）。
  - `None`/`none`/`null` -- 絶対エネルギー（基準なし）。

@@ -9,17 +9,17 @@ For detailed documentation, see: docs/freq.md
 
 from __future__ import annotations
 
+import logging
 import sys
 import textwrap
 import time
-import os
-import shutil
+
+logger = logging.getLogger(__name__)
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Sequence
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
-from click.core import ParameterSource
 import numpy as np
 import torch
 import ase.units as units
@@ -60,7 +60,19 @@ from .utils import (
     strip_inherited_keys,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file, run_cli
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+
+
+def _safe_masses_amu(atomic_numbers) -> np.ndarray:
+    """Look up atomic masses with a clear error for unknown atomic numbers."""
+    max_z = len(atomic_masses) - 1
+    bad = [z for z in atomic_numbers if z < 0 or z > max_z or atomic_masses[z] == 0.0]
+    if bad:
+        raise ValueError(
+            f"Unknown or unsupported atomic number(s): {sorted(set(bad))}. "
+            "Check that all elements in the input structure are valid."
+        )
+    return np.array([atomic_masses[z] for z in atomic_numbers])
 
 
 def _torch_device(auto: str = "auto") -> torch.device:
@@ -118,8 +130,10 @@ def _mw_projected_hessian(H_t: torch.Tensor,
     Hmw = M^{-1/2} H M^{-1/2};  P = I - QQ^T;  Hmw_proj = P Hmw P
 
     To save memory, update **H_t in-place** (no clone) and return it.
-    Explicit symmetrization is applied before eigendecomposition.
+    The output is explicitly symmetrized after TR projection.
     """
+    if H_t.dtype != torch.float64:
+        H_t = H_t.to(dtype=torch.float64)
     dtype, device = H_t.dtype, H_t.device
     with torch.no_grad():
         masses_amu_t = (masses_au_t / AMU2AU).to(dtype=dtype, device=device)
@@ -134,6 +148,7 @@ def _mw_projected_hessian(H_t: torch.Tensor,
         H_t.mul_(inv_sqrt_m_col)
 
         Q, _ = _tr_orthonormal_basis(coords_bohr_t, masses_au_t)  # (3N, r)
+        Q = Q.to(dtype=dtype, device=device)
         Qt = Q.T
 
         QtH = Qt @ H_t                   # (r,3N)
@@ -146,12 +161,16 @@ def _mw_projected_hessian(H_t: torch.Tensor,
         tmp = Q @ QtHQ                   # (3N,r)
         H_t.addmm_(tmp, Qt, beta=1.0, alpha=1.0)
 
+        # Explicit symmetrization: H = (H + H^T) / 2
+        H_sym = H_t.T.clone()
+        H_t.add_(H_sym).mul_(0.5)
+        del H_sym
+
         del masses_amu_t, m3, inv_sqrt_m, inv_sqrt_m_col, inv_sqrt_m_row
         del Q, Qt, QtH, HQ, QtHQ, tmp
 
         if torch.cuda.is_available() and device.type == "cuda":
             torch.cuda.empty_cache()
-        # Return the in-place updated mass-weighted & TR-projected Hessian
         return H_t
 
 
@@ -205,6 +224,8 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
       modes    : (nmode, 3N) torch (mass-weighted eigenvectors)
     """
     with torch.no_grad():
+        if H_t.dtype != torch.float64:
+            H_t = H_t.to(dtype=torch.float64)
         Z = np.array(atomic_numbers, dtype=int)
         N = int(len(Z))
         masses_amu = np.array([atomic_masses[z] for z in Z])  # amu
@@ -410,13 +431,18 @@ def _calc_full_hessian_torch(
                     active_dofs = np.zeros(0, dtype=int)
                 geom._hess_active_dofs_last = active_dofs
         except Exception:
-            pass
+            logger.debug("Failed to extract active DOF info from calculator", exc_info=True)
 
     H = result["hessian"]
     if not isinstance(H, torch.Tensor):
         H = torch.as_tensor(H)
     H = H.to(device=device)
     energy = float(result.get("energy", 0.0))
+
+    del calc, result
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     return H, energy
 
 
@@ -587,7 +613,7 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
 
 # Frequency writer defaults
 FREQ_KW: Dict[str, Any] = {
-    "max_write": 20,          # Number of modes to export (after sorting)
+    "max_write": 10,          # Number of modes to export (after sorting)
     "amplitude_ang": 0.8,     # Mode animation amplitude in Å
     "n_frames": 20,           # Frames per sinusoidal animation
     "sort": "value",          # Sort modes by value (cm^-1) or absolute value
@@ -766,6 +792,30 @@ THERMO_KW: Dict[str, Any] = {
     show_default=True,
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
+@click.option(
+    "--hess-device",
+    "hess_device",
+    type=click.Choice(["auto", "cuda", "cpu"], case_sensitive=False),
+    default="auto",
+    show_default=True,
+    help="Device for Hessian assembly and diagonalization (auto/cuda/cpu). "
+         "Use 'cpu' to avoid VRAM issues with large unfrozen systems. "
+         "ML model inference always uses ml_device (typically GPU).",
+)
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -795,16 +845,13 @@ def cli(
     dry_run: bool,
     ref_pdb: Optional[Path],
     convert_files: bool,
+    hess_device: str,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
-
-    def _is_param_explicit(name: str) -> bool:
-        try:
-            source = ctx.get_parameter_source(name)
-            return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
-            return False
+    _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -877,6 +924,12 @@ def cli(
             (thermo_cfg, (("thermo",), ("freq", "thermo"))),
         ],
     )
+
+    # CLI explicit overrides (after config YAML, before override YAML)
+    if backend is not None:
+        calc_cfg["backend"] = str(backend).lower()
+    if _is_param_explicit("embedcharge"):
+        calc_cfg["embedcharge"] = bool(embedcharge)
 
     if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
         calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
@@ -1016,6 +1069,8 @@ def cli(
                     "will_run_frequency_analysis": True,
                     "will_write_modes": True,
                     "will_dump_thermo_yaml": bool(thermo_cfg.get("dump", False)),
+                    "backend": calc_cfg.get("backend", "uma"),
+                    "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                 },
             )
         )
@@ -1102,7 +1157,14 @@ def cli(
     geometry = geom_loader(geom_input_path, coord_type=coord_type, **coord_kwargs)
 
     masses_amu = np.array([atomic_masses[z] for z in geometry.atomic_numbers])
-    device = _torch_device(calc_cfg.get("ml_device", "auto"))
+    # Resolve Hessian assembly/diagonalization device separately from ML inference device.
+    # --hess-device=cpu allows large Hessians to be assembled on CPU while ML model stays on GPU.
+    if hess_device.lower() == "auto":
+        device = _torch_device(calc_cfg.get("ml_device", "auto"))
+    else:
+        device = _torch_device(hess_device.lower())
+    if device.type == "cpu":
+        click.echo("[device] Hessian assembly and diagonalization will run on CPU.")
     masses_au_t = torch.as_tensor(masses_amu * AMU2AU, dtype=torch.float32, device=device)
 
     n_atoms = len(geometry.atoms)

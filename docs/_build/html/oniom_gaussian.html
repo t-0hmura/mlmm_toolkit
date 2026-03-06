@@ -3,10 +3,10 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="oniom-orca" href="oniom_orca.html"><link rel="prev" title="ONIOM Export (oniom-gaussian / oniom-orca)" href="oniom_export.html">
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html">
 
     <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
-        <title>oniom-gaussian - mlmm_toolkit</title>
+        <title>Gaussian ONIOM Mode (oniom-export --mode g16) - mlmm_toolkit</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
@@ -218,10 +218,10 @@
 <li class="toctree-l1"><a class="reference internal" href="ja/cli_conventions.html">CLI 規約</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Commands</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="extract.html">extract</a></li>
+<li class="toctree-l1"><a class="reference internal" href="init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code> (removed)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="define_layer.html"><code class="docutils literal notranslate"><span class="pre">define-layer</span></code></a></li>
@@ -236,13 +236,12 @@
 <li class="toctree-l1"><a class="reference internal" href="irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>)</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_export.html">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-export</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="oniom_import.html">ONIOM Import (<code class="docutils literal notranslate"><span class="pre">oniom-import</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="ja/init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code>（削除済み）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
@@ -258,9 +257,8 @@
 <li class="toctree-l1"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="ja/oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>）</a></li>
-<li class="toctree-l1"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-export</span></code>）</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ja/oniom_import.html">ONIOM インポート（<code class="docutils literal notranslate"><span class="pre">oniom-import</span></code>）</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ja/energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
 </ul>
@@ -278,8 +276,8 @@
 <li class="toctree-l2"><a class="reference internal" href="reference/commands/init.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">init</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="reference/commands/irc.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">irc</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="reference/commands/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">mm-parm</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="reference/commands/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-gaussian</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="reference/commands/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/oniom_export.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-export</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/commands/oniom_import.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-import</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="reference/commands/opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">opt</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="reference/commands/path_opt.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-opt</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="reference/commands/path_search.html"><code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">path-search</span></code></a></li>
@@ -310,7 +308,7 @@
 <li class="toctree-l2"><a class="reference internal" href="ja/troubleshooting.html">トラブルシューティング</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/cli_conventions.html">CLI 規約</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/all.html"><code class="docutils literal notranslate"><span class="pre">all</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="ja/init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/init.html"><code class="docutils literal notranslate"><span class="pre">init</span></code>（削除済み）</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/extract.html"><code class="docutils literal notranslate"><span class="pre">extract</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/add_elem_info.html"><code class="docutils literal notranslate"><span class="pre">add-elem-info</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/mm_parm.html"><code class="docutils literal notranslate"><span class="pre">mm-parm</span></code></a></li>
@@ -326,8 +324,8 @@
 <li class="toctree-l2"><a class="reference internal" href="ja/irc.html"><code class="docutils literal notranslate"><span class="pre">irc</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/dft.html"><code class="docutils literal notranslate"><span class="pre">dft</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/trj2fig.html"><code class="docutils literal notranslate"><span class="pre">trj2fig</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="ja/oniom_gaussian.html"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="ja/oniom_orca.html"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/oniom_export.html">ONIOM エクスポート（<code class="docutils literal notranslate"><span class="pre">oniom-export</span></code>）</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ja/oniom_import.html">ONIOM インポート（<code class="docutils literal notranslate"><span class="pre">oniom-import</span></code>）</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/fix_altloc.html"><code class="docutils literal notranslate"><span class="pre">fix-altloc</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/energy_diagram.html"><code class="docutils literal notranslate"><span class="pre">energy-diagram</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="ja/yaml_reference.html">YAML 設定リファレンス</a></li>
@@ -373,26 +371,27 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="oniom-gaussian">
-<h1><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code><a class="headerlink" href="#oniom-gaussian" title="Link to this heading">¶</a></h1>
+          <section id="gaussian-oniom-mode-oniom-export-mode-g16">
+<h1>Gaussian ONIOM Mode (<code class="docutils literal notranslate"><span class="pre">oniom-export</span> <span class="pre">--mode</span> <span class="pre">g16</span></code>)<a class="headerlink" href="#gaussian-oniom-mode-oniom-export-mode-g16" title="Link to this heading">¶</a></h1>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
 <blockquote>
 <div><p><strong>Summary:</strong> Export an ML/MM system to Gaussian ONIOM (<code class="docutils literal notranslate"><span class="pre">.com</span></code>/<code class="docutils literal notranslate"><span class="pre">.gjf</span></code>) using an Amber parm7 topology.</p>
 </div></blockquote>
-<section id="quick-reference">
-<h3>Quick reference<a class="headerlink" href="#quick-reference" title="Link to this heading">¶</a></h3>
+<section id="at-a-glance">
+<h3>At a glance<a class="headerlink" href="#at-a-glance" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p><strong>Use when:</strong> You want to run Gaussian ONIOM on the same system prepared for ML/MM.</p></li>
-<li><p><strong>Inputs:</strong> <code class="docutils literal notranslate"><span class="pre">--parm7</span></code> (required), optional <code class="docutils literal notranslate"><span class="pre">-i/--input</span></code> (PDB/XYZ), optional <code class="docutils literal notranslate"><span class="pre">--model-pdb</span></code>.</p></li>
-<li><p><strong>Output:</strong> Gaussian ONIOM input with layer assignments and connectivity.</p></li>
-<li><p><strong>Validation:</strong> <code class="docutils literal notranslate"><span class="pre">--element-check</span></code> (default) compares coordinate-file element order against parm7.</p></li>
+<li><p><strong>Method:</strong> Reads Amber parm7 topology via ParmEd; maps model PDB to define QM layer; detects QM/MM boundaries and annotates link atoms.</p></li>
+<li><p><strong>Outputs:</strong> Gaussian <code class="docutils literal notranslate"><span class="pre">.com</span></code> or <code class="docutils literal notranslate"><span class="pre">.gjf</span></code> with method, coordinates, layer flags, and connectivity.</p></li>
+<li><p><strong>Defaults:</strong> <code class="docutils literal notranslate"><span class="pre">--method</span> <span class="pre">&quot;B3LYP/6-31G(d,p)&quot;</span></code>; <code class="docutils literal notranslate"><span class="pre">--nproc</span> <span class="pre">8</span></code>; <code class="docutils literal notranslate"><span class="pre">--mem</span> <span class="pre">16GB</span></code>; <code class="docutils literal notranslate"><span class="pre">--near</span> <span class="pre">6.0</span></code>.</p></li>
+<li><p><strong>Next step:</strong> Run the exported input in Gaussian.</p></li>
 </ul>
 </section>
 </section>
 <section id="minimal-example">
 <h2>Minimal example<a class="headerlink" href="#minimal-example" title="Link to this heading">¶</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-gaussian<span class="w"> </span>--parm7<span class="w"> </span>real.parm7<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-export<span class="w"> </span>--mode<span class="w"> </span>g16<span class="w"> </span>--parm<span class="w"> </span>real.parm7<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>-o<span class="w"> </span>system.com<span class="w"> </span>-q<span class="w"> </span><span class="m">0</span><span class="w"> </span>-m<span class="w"> </span><span class="m">1</span>
 </pre></div>
 </div>
@@ -409,38 +408,28 @@
 <ol class="arabic simple">
 <li><p>Basic export with explicit method.</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-gaussian<span class="w"> </span>--parm7<span class="w"> </span>real.parm7<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-export<span class="w"> </span>--mode<span class="w"> </span>g16<span class="w"> </span>--parm<span class="w"> </span>real.parm7<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>-o<span class="w"> </span>system.com<span class="w"> </span>--method<span class="w"> </span><span class="s2">&quot;B3LYP/6-31G(d,p)&quot;</span>
 </pre></div>
 </div>
 <ol class="arabic simple" start="2">
 <li><p>Disable element-sequence validation when atom order is already trusted.</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-gaussian<span class="w"> </span>--parm7<span class="w"> </span>real.parm7<span class="w"> </span>-i<span class="w"> </span>pocket.xyz<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-export<span class="w"> </span>--mode<span class="w"> </span>g16<span class="w"> </span>--parm<span class="w"> </span>real.parm7<span class="w"> </span>-i<span class="w"> </span>pocket.xyz<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>-o<span class="w"> </span>system.gjf<span class="w"> </span>--no-element-check
 </pre></div>
 </div>
 <ol class="arabic simple" start="3">
 <li><p>Tune optimization environment metadata.</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-gaussian<span class="w"> </span>--parm7<span class="w"> </span>real.parm7<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-export<span class="w"> </span>--mode<span class="w"> </span>g16<span class="w"> </span>--parm<span class="w"> </span>real.parm7<span class="w"> </span>-i<span class="w"> </span>pocket.pdb<span class="w"> </span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="w"> </span><span class="se">\</span>
 <span class="w"> </span>-o<span class="w"> </span>system.com<span class="w"> </span>--nproc<span class="w"> </span><span class="m">16</span><span class="w"> </span>--mem<span class="w"> </span>32GB<span class="w"> </span>--near<span class="w"> </span><span class="m">5</span>.0
 </pre></div>
 </div>
 </section>
-<section id="usage">
-<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading">¶</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlmm<span class="w"> </span>oniom-gaussian<span class="w"> </span>--parm7<span class="w"> </span>real.parm7<span class="w"> </span><span class="o">[</span>-i<span class="w"> </span>coords.pdb<span class="o">]</span><span class="w"> </span><span class="o">[</span>--model-pdb<span class="w"> </span>ml_region.pdb<span class="o">]</span><span class="w"> </span><span class="se">\</span>
-<span class="w"> </span>-o<span class="w"> </span>output.com<span class="w"> </span><span class="o">[</span>-q<span class="w"> </span>CHARGE<span class="o">]</span><span class="w"> </span><span class="o">[</span>-m<span class="w"> </span>MULT<span class="o">]</span><span class="w"> </span><span class="o">[</span>--method<span class="w"> </span><span class="s2">&quot;B3LYP/6-31G(d,p)&quot;</span><span class="o">]</span><span class="w"> </span><span class="se">\</span>
-<span class="w"> </span><span class="o">[</span>--near<span class="w"> </span>FLOAT<span class="o">]</span><span class="w"> </span><span class="o">[</span>--nproc<span class="w"> </span>INT<span class="o">]</span><span class="w"> </span><span class="o">[</span>--mem<span class="w"> </span>TEXT<span class="o">]</span><span class="w"> </span><span class="se">\</span>
-<span class="w"> </span><span class="o">[</span>--element-check<span class="p">|</span>--no-element-check<span class="o">]</span>
-</pre></div>
-</div>
-</section>
-<section id="description">
-<h2>Description<a class="headerlink" href="#description" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> reads topology data from <code class="docutils literal notranslate"><span class="pre">--parm7</span></code> (via ParmEd), optional coordinates from <code class="docutils literal notranslate"><span class="pre">-i/--input</span></code>, then writes a Gaussian ONIOM input file.</p>
-<p>Workflow:</p>
+<section id="workflow">
+<h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading">¶</a></h2>
+<p>Gaussian mode (<code class="docutils literal notranslate"><span class="pre">mlmm</span> <span class="pre">oniom-export</span> <span class="pre">--mode</span> <span class="pre">g16</span></code>) reads topology data from <code class="docutils literal notranslate"><span class="pre">--parm</span></code> (via ParmEd), optional coordinates from <code class="docutils literal notranslate"><span class="pre">-i/--input</span></code>, then writes a Gaussian ONIOM input file.</p>
 <ol class="arabic simple">
 <li><p>Load atom/bond/charge data from parm7.</p></li>
 <li><p>Optionally load coordinates and run element-order validation (<code class="docutils literal notranslate"><span class="pre">--element-check</span></code>).</p></li>
@@ -460,7 +449,7 @@
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--parm7</span> <span class="pre">PATH</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--parm</span> <span class="pre">PATH</span></code></p></td>
 <td><p>Amber parm7 topology file.</p></td>
 <td><p>Required</p></td>
 </tr>
@@ -508,15 +497,10 @@
 </table>
 </div>
 </section>
-<section id="outputs">
-<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading">¶</a></h2>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;output&gt;.com / &lt;output&gt;.gjf
-</pre></div>
-</div>
-</section>
 <section id="notes">
 <h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">¶</a></h2>
 <ul class="simple">
+<li><p>For symptom-first diagnosis, start with <a class="reference internal" href="recipes_common_errors.html"><span class="std std-doc">Common Error Recipes</span></a>, then use <a class="reference internal" href="troubleshooting.html"><span class="std std-doc">Troubleshooting</span></a> for detailed fixes.</p></li>
 <li><p>Requires <code class="docutils literal notranslate"><span class="pre">parmed</span></code>.</p></li>
 <li><p>Element validation is best-effort and assumes invariant atom ordering.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--near</span></code> controls which MM atoms are marked movable around the QM region.</p></li>
@@ -526,7 +510,7 @@
 <section id="see-also">
 <h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="oniom_orca.html"><span class="std std-doc">oniom-orca</span></a> – ORCA QM/MM exporter</p></li>
+<li><p><a class="reference internal" href="oniom_orca.html"><span class="std std-doc">oniom_orca</span></a> – ORCA mode guide (<code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">orca</span></code>)</p></li>
 <li><p><a class="reference internal" href="oniom_export.html"><span class="std std-doc">oniom_export</span></a> – Export overview and chooser</p></li>
 <li><p><a class="reference internal" href="mm_parm.html"><span class="std std-doc">mm_parm</span></a> – Build Amber topology (<code class="docutils literal notranslate"><span class="pre">parm7</span></code>/<code class="docutils literal notranslate"><span class="pre">rst7</span></code>)</p></li>
 <li><p><a class="reference internal" href="define_layer.html"><span class="std std-doc">define_layer</span></a> – Build/check layer annotations</p></li>
@@ -539,26 +523,8 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="oniom_orca.html">
-              <div class="page-info">
-                <div class="context">
-                  <span>Next</span>
-                </div>
-                <div class="title"><code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code></div>
-              </div>
-              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
-            </a>
-          <a class="prev-page" href="oniom_export.html">
-              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
-              <div class="page-info">
-                <div class="context">
-                  <span>Previous</span>
-                </div>
-                
-                <div class="title">ONIOM Export (<code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code> / <code class="docutils literal notranslate"><span class="pre">oniom-orca</span></code>)</div>
-                
-              </div>
-            </a>
+          
+          
         </div>
         <div class="bottom-of-page">
           <div class="left-details">
@@ -589,18 +555,16 @@
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">oniom-gaussian</span></code></a><ul>
+<li><a class="reference internal" href="#">Gaussian ONIOM Mode (<code class="docutils literal notranslate"><span class="pre">oniom-export</span> <span class="pre">--mode</span> <span class="pre">g16</span></code>)</a><ul>
 <li><a class="reference internal" href="#overview">Overview</a><ul>
-<li><a class="reference internal" href="#quick-reference">Quick reference</a></li>
+<li><a class="reference internal" href="#at-a-glance">At a glance</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#minimal-example">Minimal example</a></li>
 <li><a class="reference internal" href="#output-checklist">Output checklist</a></li>
 <li><a class="reference internal" href="#common-examples">Common examples</a></li>
-<li><a class="reference internal" href="#usage">Usage</a></li>
-<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#workflow">Workflow</a></li>
 <li><a class="reference internal" href="#cli-options">CLI options</a></li>
-<li><a class="reference internal" href="#outputs">Outputs</a></li>
 <li><a class="reference internal" href="#notes">Notes</a></li>
 <li><a class="reference internal" href="#see-also">See Also</a></li>
 </ul>
@@ -614,7 +578,7 @@
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=58440f0e"></script>
+</div><script src="_static/documentation_options.js?v=ae1a7467"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>

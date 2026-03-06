@@ -11,7 +11,7 @@
 - **出力:** `surface.csv`、`grid/` 下のグリッド点ごとのジオメトリ、HTML アイソサーフェスプロット（`scan3d_density.html`）。
 - **注意:** 3D グリッドは急速に大きくなります。まず粗い `--max-step-size` または小さい範囲を検討してください。
 
-`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、オプティマイザーは PySisyphus LBFGS です。
+`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、MLIP バックエンドは `--backend` で選択（デフォルト: `uma`）、オプティマイザーは PySisyphus LBFGS です。
 
 
 ## 最小例
@@ -156,15 +156,15 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `-q, --charge INT` | ML 領域の総電荷。 | `--csv` 指定時を除き必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
-| `--hess-cutoff FLOAT` | Hessian-MM レイヤーのカットオフ距離。 | _None_ |
-| `--movable-cutoff FLOAT` | Movable-MM レイヤーのカットオフ距離。 | _None_ |
+| `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å) — ヘシアン計算に含める MM 原子を指定。`--detect-layer` と併用可能。 | _None_ |
+| `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
 | `--spec FILE` | `pairs`（3 四つ組）を持つ YAML/JSON 仕様。`one_based` を任意指定可能。 | 推奨 |
 | `--csv FILE` | 既存の `surface.csv` を読み込み、計算せずにプロットのみ生成。 | _None_ |
 | `--scan-lists TEXT` | 3 つの四つ組 `(i,j,low,high)` を含む単一 Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | `--spec` の代替 |
 | `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |
-| `--max-step-size FLOAT` | ステップごとの最大距離増分 (A)。グリッド密度を制御。 | `0.20` |
-| `--bias-k FLOAT` | 調和ウェル強度 k (eV/A^2)。 | `100.0` |
+| `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を制御。 | `0.20` |
+| `--bias-k FLOAT` | 調和ウェル強度 k (eV/Å²)。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの最大オプティマイザーサイクル。 | `10000` |
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `--out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
@@ -175,6 +175,9 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--baseline {min,first}` | kcal/mol エネルギーをグローバル最小値または `(i,j,k)=(0,0,0)` がゼロになるようシフト。 | `min` |
 | `--zmin FLOAT` | アイソサーフェスカラーバンドの手動下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | アイソサーフェスカラーバンドの手動上限（kcal/mol）。 | 自動スケール |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部で `uma` を適用） |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力
 
@@ -183,7 +186,7 @@ out_dir/ (デフォルト:./result_scan3d/)
  surface.csv # グリッドメタデータ（d1, d2, d3, energy, convergence）
  scan3d_density.html # 3D エネルギーアイソサーフェス可視化
  grid/point_i###_j###_k###.xyz # 各グリッド点の緩和ジオメトリ
- grid/point_i###_j###_k###.pdb # PDB コンパニオン（B 因子: ML=100, frozen=50, both=150）
+ grid/point_i###_j###_k###.pdb # PDB コンパニオン（B 因子: ML=0, Movable-MM=10, Frozen=20）
  grid/inner_path_d1_###_d2_###_trj.xyz # --dump が True の場合のみ
 ```
 
@@ -203,12 +206,12 @@ opt:
  thresh: baker
  max_cycles: 10000
  dump: false
- out_dir:./result_scan3d/
+ out_dir: ./result_scan3d/
 lbfgs:
  max_step: 0.3
- out_dir:./result_scan3d/
+ out_dir: ./result_scan3d/
 bias:
- k: 100.0
+ k: 300.0
 ```
 
 ## 注意事項
@@ -217,7 +220,7 @@ bias:
 - ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は 1D/2D スキャンと同じ `HarmonicBiasCalculator` を再利用します。
 - `--baseline` のデフォルトはグローバル最小値です。`--baseline first` は `(i,j,k)=(0,0,0)` グリッド点が存在する場合にそれを基準にします。
 - 3D 可視化は 50x50x50 グリッドの RBF 補間を使用し、半透明のステップカラーアイソサーフェスを表示します。
-- 入力が PDB の場合、各グリッド点 XYZ と（存在する場合）内部パス TRJ は入力 PDB をテンプレートとして PDB ファイルにも変換されます。B 因子は `opt` ツールと一貫してアノテーションされます: ML 領域原子 = 100.00、凍結原子 = 50.00、両方 = 150.00。
+- 入力が PDB の場合、各グリッド点 XYZ と（存在する場合）内部パス TRJ は入力 PDB をテンプレートとして PDB ファイルにも変換されます。B 因子のアノテーション: ML=0、MovableMM=10、FrozenMM=20。
 - プロットのカラースケールは `--zmin/--zmax` でクランプして、スキャン間で一貫した比較が可能です。
 
 ---
@@ -225,6 +228,7 @@ bias:
 ## 関連項目
 
 - [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [scan](scan.md) -- 1D 結合距離駆動スキャン
 - [scan2d](scan2d.md) -- 2D 距離グリッドスキャン

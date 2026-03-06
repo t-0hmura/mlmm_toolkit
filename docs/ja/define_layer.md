@@ -67,7 +67,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 | `--model-pdb PATH` | ML 領域の原子を定義する PDB ファイル。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（例: `"0,1,2,3"` または `"1-10,15,20-25"`）。`--model-pdb` より優先。 | _None_ |
 | `--radius-partial-hessian FLOAT` | 3 層モードでは非推奨（残存）。 | `0.0` |
-| `--radius-freeze FLOAT` | ML 領域からの Movable-MM の距離カットオフ (A)。これを超える原子は Frozen。 | `8.0` |
+| `--radius-freeze FLOAT` | ML 領域からの Movable-MM の距離カットオフ (Å)。これを超える原子は Frozen。 | `8.0` |
 | `-o, --output PATH` | B 因子がレイヤー値に設定された出力 PDB ファイル。 | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 

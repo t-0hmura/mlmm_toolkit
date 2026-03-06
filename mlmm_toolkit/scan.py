@@ -15,11 +15,13 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-import ast
+import logging
 import math
 import sys
 import textwrap
 import traceback
+
+logger = logging.getLogger(__name__)
 
 import click
 import numpy as np
@@ -31,6 +33,10 @@ from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import BOHR2ANG, ANG2BOHR
 
 from .mlmm_calc import mlmm
+from .defaults import (
+    BIAS_KW as _BIAS_KW_DEFAULT,
+    BOND_KW as _BOND_KW_DEFAULT,
+)
 from .opt import (
     GEOM_KW as _OPT_GEOM_KW,
     CALC_KW as _OPT_CALC_KW,
@@ -44,6 +50,7 @@ from .utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
+    set_convert_file_enabled,
     deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
@@ -66,7 +73,7 @@ from .utils import (
     snapshot_geometry,
 )
 from .bond_changes import compare_structures, summarize_changes
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 
 
 # --------------------------------------------------------------------------------------
@@ -82,7 +89,6 @@ CALC_KW: Dict[str, Any] = deepcopy(_OPT_CALC_KW)
 # Optimizer base (convergence, dumping, etc.)
 OPT_BASE_KW: Dict[str, Any] = deepcopy(_OPT_BASE_KW)
 OPT_BASE_KW.update({
-    "max_cycles": 100,
     "out_dir": "./result_scan/",
 })
 
@@ -93,17 +99,10 @@ LBFGS_KW.update({
 })
 
 # Bias (harmonic well) defaults; can be overridden via YAML: section "bias"
-BIAS_KW: Dict[str, Any] = {
-    "k": 100,  # float, harmonic bias strength in eV/Å^2
-}
+BIAS_KW: Dict[str, Any] = deepcopy(_BIAS_KW_DEFAULT)
 
 # Bond-change detection (as in path_search)
-BOND_KW: Dict[str, Any] = {
-    "device": "cuda",            # str, device used during UMA graph analysis in bond detection
-    "bond_factor": 1.20,         # float, scaling of covalent radii for bond cutoff
-    "margin_fraction": 0.05,     # float, fractional margin to tolerate small deviations
-    "delta_fraction": 0.05,      # float, change threshold to flag bond formation/breaking
-}
+BOND_KW: Dict[str, Any] = deepcopy(_BOND_KW_DEFAULT)
 
 
 def _coords3d_to_xyz_string(geom, energy: Optional[float] = None) -> str:
@@ -115,45 +114,6 @@ def _coords3d_to_xyz_string(geom, energy: Optional[float] = None) -> str:
     if not s.endswith("\n"):
         s += "\n"
     return s
-
-
-def _parse_scan_lists(args: Sequence[str], one_based: bool) -> List[List[Tuple[int, int, float]]]:
-    """
-    Parse multiple Python-like list strings:
-      ["[(0,1,1.5), (2,3,2.0)]", "[(5,7,1.2)]", ...]
-    Returns: [[(i,j,t), ...], [(i,j,t), ...], ...] with 0-based indices.
-    """
-    if not args:
-        raise click.BadParameter("--scan-lists must be provided at least once.")
-    stages: List[List[Tuple[int, int, float]]] = []
-    for idx, s in enumerate(args, start=1):
-        try:
-            obj = ast.literal_eval(s)
-        except Exception as e:
-            raise click.BadParameter(f"Invalid literal for --scan-lists #{idx}: {e}")
-        if not isinstance(obj, (list, tuple)):
-            raise click.BadParameter(f"--scan-lists #{idx} must be a list/tuple of (i,j,target).")
-        tuples: List[Tuple[int, int, float]] = []
-        for t in obj:
-            if (
-                isinstance(t, (list, tuple)) and len(t) == 3
-                and isinstance(t[0], (int, np.integer))
-                and isinstance(t[1], (int, np.integer))
-                and isinstance(t[2], (int, float, np.floating))
-            ):
-                i, j, r = int(t[0]), int(t[1]), float(t[2])
-                if one_based:
-                    i -= 1
-                    j -= 1
-                if i < 0 or j < 0:
-                    raise click.BadParameter(f"Negative atom index in --scan-lists #{idx}: {(i,j,r)} (0-based expected).")
-                if r <= 0.0:
-                    raise click.BadParameter(f"Non-positive target length in --scan-lists #{idx}: {(i,j,r)}.")
-                tuples.append((i, j, r))
-            else:
-                raise click.BadParameter(f"--scan-lists #{idx} contains an invalid triple: {t}")
-        stages.append(tuples)
-    return stages
 
 
 def _pair_distances(coords_ang: np.ndarray, pairs: Iterable[Tuple[int, int]]) -> List[float]:
@@ -222,7 +182,11 @@ def _snapshot_geometry(g) -> Any:
 
 @click.command(
     help="Bond-length driven scan with staged harmonic restraints and relaxation (ML/MM).",
-    context_settings={"help_option_names": ["-h", "--help"], "allow_extra_args": True},
+    context_settings={
+        "help_option_names": ["-h", "--help"],
+        "ignore_unknown_options": True,
+        "allow_extra_args": True,
+    },
 )
 @click.option(
     "-i", "--input",
@@ -331,11 +295,11 @@ def _snapshot_geometry(g) -> Any:
 )
 @click.option("--max-step-size", type=float, default=0.20, show_default=True,
               help="Maximum change in any scanned bond length per step [Å].")
-@click.option("--bias-k", type=float, default=100, show_default=True,
+@click.option("--bias-k", type=float, default=300, show_default=True,
               help="Harmonic well strength k [eV/Å^2].")
 @click.option(
     "--opt-mode",
-    type=click.Choice(["lbfgs", "rfo", "light", "heavy"], case_sensitive=False),
+    type=click.Choice(["grad", "hess", "lbfgs", "rfo", "light", "heavy"], case_sensitive=False),
     default=None,
     show_default=False,
     help="Compatibility option for mlmm all forwarding. "
@@ -366,9 +330,9 @@ def _snapshot_geometry(g) -> Any:
               help="Base output directory.")
 @click.option(
     "--thresh",
-    type=str,
+    type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
     default=None,
-    help="Convergence preset for relaxations (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
+    help="Convergence preset for relaxations.",
 )
 @click.option(
     "--config",
@@ -397,7 +361,37 @@ def _snapshot_geometry(g) -> Any:
     show_default=True,
     help="After each stage, run an additional unbiased optimization of the stage result.",
 )
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    default=False,
+    show_default=True,
+    help="Validate options and print the execution plan without running the scan.",
+)
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
+@click.pass_context
 def cli(
+    ctx: click.Context,
     input_path: Path,
     real_parm7: Path,
     model_pdb: Optional[Path],
@@ -425,7 +419,14 @@ def cli(
     ref_pdb: Optional[Path],
     preopt: bool,
     endopt: bool,
+    dry_run: bool,
+    convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
+    _is_param_explicit = make_is_param_explicit(ctx)
+
+    set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -437,7 +438,7 @@ def cli(
         max_cycles = int(relax_max_cycles)
     if max_cycles <= 0:
         raise click.BadParameter("--max-cycles must be > 0.")
-    if opt_mode is not None and str(opt_mode).lower() not in {"lbfgs", "light"}:
+    if opt_mode is not None and str(opt_mode).lower() not in {"lbfgs", "light", "grad"}:
         click.echo(
             f"[scan] NOTE: --opt-mode={opt_mode} is accepted for compatibility, "
             "but scan relaxations use LBFGS.",
@@ -529,6 +530,10 @@ def cli(
             calc_cfg["model_mult"] = int(spin)
             calc_cfg["input_pdb"] = str(source_path)
             calc_cfg["real_parm7"] = str(real_parm7)
+            if backend is not None:
+                calc_cfg["backend"] = str(backend).lower()
+            if _is_param_explicit("embedcharge"):
+                calc_cfg["embedcharge"] = bool(embedcharge)
 
             # movable_cutoff implies full distance-based layer assignment.
             # hess_cutoff alone can be combined with --detect-layer.
@@ -668,6 +673,36 @@ def cli(
                     )
                 )
 
+            if dry_run:
+                model_region_source = "bfactor"
+                if not detect_layer:
+                    if model_pdb is not None:
+                        model_region_source = "model_pdb"
+                    elif model_indices:
+                        model_region_source = "model_indices"
+                click.echo(
+                    pretty_block(
+                        "dry_run_plan",
+                        {
+                            "input_geometry": str(geom_input_path),
+                            "output_dir": str(out_dir_path),
+                            "detect_layer": bool(detect_layer),
+                            "model_region_source": model_region_source,
+                            "num_stages": len(stages),
+                            "stages_0based": stages,
+                            "preopt": bool(preopt),
+                            "endopt": bool(endopt),
+                            "bias_k": float(bias_cfg["k"]),
+                            "max_step_size": float(max_step_size),
+                            "max_cycles": int(max_cycles),
+                            "backend": calc_cfg.get("backend", "uma"),
+                            "embedcharge": bool(calc_cfg.get("embedcharge", False)),
+                        },
+                    )
+                )
+                click.echo("[dry-run] Validation complete. Scan execution was skipped.")
+                return
+
             if pdb_atom_meta:
                 click.echo("[scan] PDB atom details for scanned pairs:")
                 legend = PDB_ATOM_META_HEADER
@@ -692,7 +727,7 @@ def cli(
                 try:
                     geom.freeze_atoms = np.array(freeze, dtype=int)
                 except Exception:
-                    pass
+                    logger.debug("Failed to set freeze_atoms on geometry", exc_info=True)
 
             base_calc = mlmm(**calc_cfg)
 
@@ -786,7 +821,7 @@ def cli(
                             srec["bond_change"]["changed"] = bool(changed)
                             srec["bond_change"]["summary"] = (summary.strip() if (summary and summary.strip()) else "")
                         except Exception:
-                            pass
+                            logger.debug("Failed to store bond_change record", exc_info=True)
                     except Exception as e:
                         click.echo(f"[stage {k}] WARNING: Failed to evaluate bond changes: {e}", err=True)
 
@@ -843,7 +878,7 @@ def cli(
                         srec["bond_change"]["changed"] = bool(changed)
                         srec["bond_change"]["summary"] = (summary.strip() if (summary and summary.strip()) else "")
                     except Exception:
-                        pass
+                        logger.debug("Failed to store bond_change record", exc_info=True)
                 except Exception as e:
                     click.echo(f"[stage {k}] WARNING: Failed to evaluate bond changes: {e}", err=True)
 

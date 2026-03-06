@@ -130,7 +130,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 ```
 
 ## Workflow
-1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (FAIR-Chem UMA + hessian_ff), and optionally run an unbiased pre-optimization when `--preopt`.
+1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
 2. **Grid construction** -- Parse targets from `--spec` (recommended) or `--scan-lists` into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
@@ -149,14 +149,14 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `-q, --charge INT` | ML-region total charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
-| `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
+| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
+| `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
 | `--spec FILE` | YAML/JSON spec with `pairs` (2 quadruples) and optional `one_based`. | Recommended |
 | `--scan-lists TEXT` | Python literal with two quadruples: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Alternative to `--spec` |
 | `--one-based / --zero-based` | Interpret `(i,j)` indices in `--scan-lists` as 1-based or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
-| `--max-step-size FLOAT` | Maximum distance increment per step (A). Determines grid density. | `0.20` |
-| `--bias-k FLOAT` | Harmonic well strength k (eV/A^2). | `100.0` |
+| `--max-step-size FLOAT` | Maximum distance increment per step (Å). Determines grid density. | `0.20` |
+| `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
 | `--relax-max-cycles INT` | Maximum LBFGS cycles per biased relaxation. | `10000` |
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `--out-dir TEXT` | Base output directory. | `./result_scan2d/` |
@@ -167,10 +167,13 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--baseline {min,first}` | Reference for relative energy (kcal/mol). | `min` |
 | `--zmin FLOAT` | Lower bound of the contour color scale (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Upper bound of the contour color scale (kcal/mol). | Autoscaled |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 ```
-out_dir/ (default:./result_scan2d/)
+out_dir/ (default: ./result_scan2d/)
 ├── surface.csv # PES grid: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged
 ├── scan2d_map.png # 2D contour map
 ├── scan2d_landscape.html # 3D surface visualization (Plotly)
@@ -198,12 +201,12 @@ opt:
  thresh: baker
  max_cycles: 10000
  dump: false
- out_dir:./result_scan2d/
+ out_dir: ./result_scan2d/
 lbfgs:
  max_step: 0.3
- out_dir:./result_scan2d/
+ out_dir: ./result_scan2d/
 bias:
- k: 100.0
+ k: 300.0
 ```
 
 ## Notes
@@ -211,7 +214,7 @@ bias:
 
 - The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) keeps the entire enzyme complex. The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`.
 - The bias is always removed before final energies are recorded, so `surface.csv` is directly comparable across grid points.
-- When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also converted to PDB files with B-factor annotations: ML-region atoms = 100.00, frozen atoms = 50.00, both = 150.00.
+- When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also converted to PDB files that preserve the B-factor encoding from the reference PDB (typically ML=0, Movable-MM=10, Frozen=20 when prepared with `define-layer`).
 - `i`/`j` entries in `--scan-lists` may be integer indices (1-based by default) or PDB atom selectors like `"TYR,285,CA"`.
 
 ---
@@ -219,6 +222,7 @@ bias:
 ## See Also
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [scan](scan.md) -- 1D bond-length driven scan
 - [scan3d](scan3d.md) -- 3D distance grid scan

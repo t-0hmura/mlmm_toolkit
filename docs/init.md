@@ -1,19 +1,12 @@
-# `init`
+# `init` (removed)
 
-## Overview
+> **Note:** The `init` subcommand has been removed. Use `--show-config` on any subcommand to see the current configuration, or write a YAML file manually following the [YAML Reference](yaml_reference.md).
 
-> **Summary:** Write a starter YAML configuration file for `mlmm all`.
+## Previous behavior
 
-### At a glance
-- **Use when:** You want a reproducible config-first workflow for `mlmm all`.
-- **Method:** Generates a YAML template with default values for all configurable keys.
-- **Outputs:** `mlmm_all.config.yaml` (or custom path via `--out`).
-- **Defaults:** Output path `mlmm_all.config.yaml`; does not overwrite unless `--force`.
-- **Next step:** Edit the generated YAML, then run `mlmm all --config mlmm_all.config.yaml`.
+The `init` command used to generate a starter YAML template:
 
-## Minimal example
-
-```bash
+```text
 mlmm init --out mlmm_all.config.yaml
 mlmm all --config mlmm_all.config.yaml --dry-run
 ```

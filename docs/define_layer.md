@@ -62,8 +62,8 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 | `-i, --input PATH` | Input PDB file containing the full system. | Required |
 | `--model-pdb PATH` | PDB file defining atoms in the ML region. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (e.g. `"0,1,2,3"` or `"1-10,15,20-25"`). Takes precedence over `--model-pdb`. | _None_ |
-| `--radius-partial-hessian FLOAT` | Deprecated in 3-layer mode (kept ). | `0.0` |
-| `--radius-freeze FLOAT` | Distance cutoff (A) from ML region for Movable-MM. Atoms beyond this are Frozen. | `8.0` |
+| `--radius-partial-hessian FLOAT` | Deprecated in 3-layer mode (kept for compatibility). | `0.0` |
+| `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for Movable-MM. Atoms beyond this are Frozen. | `8.0` |
 | `-o, --output PATH` | Output PDB file with B-factors set to layer values. | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 

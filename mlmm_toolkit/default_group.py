@@ -241,10 +241,40 @@ class DefaultGroup(click.Group):
         )
         return super().parse_args(ctx, args)
 
+    @staticmethod
+    def _silence_pysisyphus_loggers():
+        """Remove pysisyphus file handlers and suppress log output.
+
+        pysisyphus creates FileHandler + StreamHandler in its various
+        ``__init__.py`` files at import time, overriding any prior
+        level settings.  This method must run *after* the lazy import
+        has loaded the subcommand module (and thus pysisyphus).
+        """
+        import logging as _logging
+
+        _PYSIS_LOGGERS = (
+            "pysisyphus", "calculator", "cos", "dimer", "dynamics",
+            "gdiis", "internal_coords", "irc", "optimizer",
+            "tsoptimizer", "mwfn", "stocastic", "wfoverlap",
+        )
+        for name in _PYSIS_LOGGERS:
+            lg = _logging.getLogger(name)
+            lg.setLevel(_logging.CRITICAL + 1)
+            lg.propagate = False
+            for h in lg.handlers[:]:
+                lg.removeHandler(h)
+                try:
+                    h.close()
+                except Exception:
+                    pass
+
     def invoke(self, ctx):
         # Add a leading blank line for subcommands (except "all") to separate CLI tool logs.
         if ctx.invoked_subcommand and ctx.invoked_subcommand != "all":
             click.echo()
+        # Suppress pysisyphus loggers AFTER lazy import has loaded the
+        # subcommand module (which triggers pysisyphus __init__ file handlers).
+        self._silence_pysisyphus_loggers()
         return super().invoke(ctx)
 
     def list_commands(self, ctx):

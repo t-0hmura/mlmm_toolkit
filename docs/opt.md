@@ -2,17 +2,17 @@
 
 ## Overview
 
-> **Summary:** Optimizes a single structure to a local minimum using L-BFGS (`--opt-mode light`, default), RFO (`--opt-mode heavy`), or a hybrid workflow (`--opt-mode hybrid`). Optional imaginary-mode flattening can be enabled with `--flatten`.
+> **Summary:** Optimizes a single structure to a local minimum using L-BFGS (`--opt-mode grad`, default) or RFO (`--opt-mode hess`). Optional imaginary-mode flattening can be enabled with `--flatten`. Microiteration (`--microiter`, default on) alternates ML 1-step and MM relaxation in `hess` mode.
 
-`mlmm opt` optimizes a single structure to a local minimum using L-BFGS (`--opt-mode light`, default), RFO (`--opt-mode heavy`), or a hybrid workflow (`--opt-mode hybrid`: LBFGS first, then flatten-loop restarts with RFO). The ML/MM calculator (FAIR-Chem UMA + hessian_ff) provides energies, gradients, and Hessians. Input structures can be `.pdb`, `.xyz`, `_trj.xyz`, or any format supported by `geom_loader`. Settings follow precedence: **defaults < config < explicit CLI < override**.
+`mlmm opt` optimizes a single structure to a local minimum using L-BFGS (`--opt-mode grad`, default) or RFO (`--opt-mode hess`). Aliases `light`/`heavy` and `lbfgs`/`rfo` are also accepted. The ML/MM calculator (MLIP backend + hessian_ff) provides energies, gradients, and Hessians. The MLIP backend is selected via `--backend` (default: `uma`; choices: `uma`, `orb`, `mace`, `aimnet2`). Input structures can be `.pdb`, `.xyz`, `_trj.xyz`, or any format supported by `geom_loader`. Settings follow precedence: **defaults < config < explicit CLI < override**.
 
 When the starting structure is a PDB, the command also writes `.pdb` companions, controlled by `--convert-files/--no-convert-files` (enabled by default). PDB-specific conveniences include:
 - Output conversion produces `final_geometry.pdb` (and `optimization.pdb` when dumping trajectories) using the input PDB as the topology reference.
-- B-factors are annotated as: ML-region atoms = 100.00, frozen atoms = 50.00, atoms that are both ML and frozen = 150.00.
+- B-factors are annotated using the 3-layer encoding: ML-region atoms = 0.00, movable MM atoms = 10.00, frozen MM atoms = 20.00.
 
 ### At a glance
 - **Use when:** You want to minimize a single enzyme structure to a local energy minimum with ML/MM.
-- **Method:** L-BFGS (light, default), RFO (heavy), or hybrid (LBFGS then RFO flatten-loop). The ML/MM calculator combines FAIR-Chem UMA for the ML region with hessian_ff for MM.
+- **Method:** L-BFGS (grad, default) or RFO (hess). Aliases `light`/`heavy` and `lbfgs`/`rfo` are also accepted. In `hess` mode, microiteration (default on) alternates ML 1-step RFO with MM LBFGS relaxation.
 - **Outputs:** `final_geometry.xyz`, `final_geometry.pdb` (PDB inputs), optional trajectory.
 - **Next step:** Run [freq](freq.md) to confirm the structure is a true minimum (no imaginary frequencies).
 
@@ -52,22 +52,22 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
-4. Run hybrid mode and flatten imaginary modes after the initial minimization.
+4. Use the ORB backend instead of the default UMA.
 
 ```bash
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --opt-mode hybrid --flatten --out-dir ./result_opt_hybrid_flat
+ -q 0 --backend orb --out-dir ./result_opt_orb
 ```
 
 ## Workflow
 
-1. **Input handling** -- The tool requires `-i/--input` to be a PDB file (the enzyme complex). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Hessian-target MM, B=20 frozen MM).
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (FAIR-Chem UMA + hessian_ff). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region.
-4. **Optimization** -- `--opt-mode light` runs L-BFGS; `--opt-mode heavy` runs RFOptimizer (RFO); `--opt-mode hybrid` runs L-BFGS first, then flatten-loop restarts with RFO.
+1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
+2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region. When `--embedcharge` is enabled, xTB point-charge embedding is applied to correct for MM-to-ML environmental electrostatic effects.
+3. **Optimization** -- `--opt-mode light` runs L-BFGS and `--opt-mode heavy` runs RFOptimizer (RFO).
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
-5. **Restraints** -- `--dist-freeze` consumes Python-literal tuples `(i, j, target_A)` where `target_A` is the target distance in angstrom; omitting the third element restrains the starting distance. `--bias-k` sets a global harmonic strength (eV/A^2). Indices default to 1-based but can be flipped to 0-based with `--zero-based`.
-6. **Dumping & conversion** -- `--dump` writes `optimization_trj.xyz`; when conversion is enabled, trajectories are mirrored to `.pdb` for PDB inputs (with B-factor annotations). `opt.dump_restart` can emit restart YAML snapshots.
-7. **Exit codes** -- `0` success, `2` zero step (step norm < `min_step_norm`), `3` optimizer failure, `130` keyboard interrupt, `1` unexpected error.
+4. **Restraints** -- `--dist-freeze` accepts Python-literal tuples `(i, j, target_A)` where `target_A` is the target distance in Å; omitting the third element restrains the starting distance. `--bias-k` sets a global harmonic strength (eV/Å²). Indices default to 1-based but can be flipped to 0-based with `--zero-based`.
+5. **Dumping & conversion** -- `--dump` writes `optimization_trj.xyz`; when conversion is enabled, trajectories are mirrored to `.pdb` for PDB inputs (with B-factor annotations). `opt.dump_restart` can emit restart YAML snapshots.
+6. **Exit codes** -- `0` success, `2` zero step (step norm < `min_step_norm`), `3` optimizer failure, `130` keyboard interrupt, `1` unexpected error.
 
 ## CLI options
 
@@ -85,21 +85,23 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | Charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--radius-partial-hessian FLOAT` | Distance cutoff (A) from ML region for Hessian-MM atoms. Can be combined with `--detect-layer`. | _None_ |
-| `--radius-freeze FLOAT` | Distance cutoff (A) from ML region for movable MM atoms. Atoms beyond this are frozen. | _None_ |
+| `--radius-partial-hessian FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. Alias: `--hess-cutoff`. | _None_ |
+| `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. Alias: `--movable-cutoff`. | _None_ |
 | `--dist-freeze TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints. | _None_ |
 | `--one-based / --zero-based` | Index convention for `--dist-freeze`. | 1-based |
-| `--bias-k FLOAT` | Harmonic bias strength (eV/A^2). | `10.0` |
+| `--bias-k FLOAT` | Harmonic bias strength (eV/Å²). | `300.0` |
 | `--max-cycles INT` | Hard limit on optimization iterations. | `10000` |
-| `--opt-mode {light\|heavy\|hybrid}` | Optimizer mode: `light` (LBFGS), `heavy` (RFO), or `hybrid` (LBFGS then flatten-loop RFO restarts). | `light` |
+| `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | Optimizer mode: `grad` (LBFGS) or `hess` (RFO). Aliases `light`/`heavy` and `lbfgs`/`rfo` accepted. | `grad` |
+| `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RFO) + MM relaxation (LBFGS). Only effective in `hess` mode. | `True` |
 | `--flatten/--no-flatten` | Enable/disable the post-optimization imaginary-mode flatten loop. | `False` |
-| `--micro-step/--no-micro-step` | In `--opt-mode heavy`, `--no-micro-step` forces `rfo.max_micro_cycles=1`. | `True` |
 | `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`). | `False` |
 | `--convert-files/--no-convert-files` | Enable or disable XYZ/TRJ to PDB companions for PDB inputs. | `True` |
 | `--out-dir TEXT` | Output directory for all files. | `./result_opt/` |
-| `--thresh TEXT` | Override convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
+| `--thresh TEXT` | Override convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (`gau` applied internally) |
 | `--config FILE` | Base YAML configuration file. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layer information before execution. | `False` |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running optimization. | `False` |
 
 ### Convergence threshold presets
@@ -141,7 +143,7 @@ Settings are applied with **defaults < config < explicit CLI < override**. Accep
 - `input_pdb`, `real_parm7`, `model_pdb`: required file paths (strings).
 - `model_charge` (`-q/--charge`, required) and `model_mult` (`-m/--multiplicity`, default 1).
 - `link_mlmm`: optional list of `(ML_atom_id, MM_atom_id)` strings to pin ML/MM link pairs (no link atoms created).
-- UMA controls: `uma_model` (default `"uma-s-1p1"`), `uma_task_name` (default `"omol"`), `ml_hessian_mode` (`"Analytical"` or `"FiniteDifference"`), `out_hess_torch` (bool), `H_double` (bool).
+- ML backend controls: `backend` (default `"uma"`; choices `uma`, `orb`, `mace`, `aimnet2`), `embedcharge` (default `false`). UMA-specific: `uma_model` (default `"uma-s-1p2"`), `uma_task_name` (default `"omol"`). Shared: `ml_hessian_mode` (`"Analytical"` or `"FiniteDifference"`), `out_hess_torch` (bool), `H_double` (bool).
 - Device selection: `ml_device` (`"auto"`/`"cuda"`/`"cpu"`), `ml_cuda_idx`, `mm_device`, `mm_cuda_idx`, `mm_threads`.
 - MM finite difference: `mm_fd` (bool), `mm_fd_dir` (output dir for FD info), and whether to `return_partial_hessian`.
 - `return_partial_hessian`: for `opt`, partial Hessian is used by default when this key is not explicitly set in YAML. Set `calc.return_partial_hessian: false` to force full Hessian output.
@@ -176,12 +178,14 @@ calc:
 mlmm:
  real_parm7: real.parm7         # Amber parm7 topology for the full enzyme
  model_pdb: ml_region.pdb       # PDB defining the ML region
- uma_model: uma-s-1p1           # UMA model tag
- uma_task_name: omol             # UMA task name
- ml_device: auto                # UMA device selection
- ml_hessian_mode: FiniteDifference  # Hessian mode selection
+ backend: uma                   # MLIP backend: uma | orb | mace | aimnet2
+ embedcharge: false             # xTB point-charge embedding correction
+ uma_model: uma-s-1p2           # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
+ uma_task_name: omol             # UMA task name (UMA backend only)
+ ml_device: auto                # ML backend device selection
+ ml_hessian_mode: Analytical         # Hessian mode selection
  out_hess_torch: true           # request torch-form Hessian
- mm_fd: false                   # MM finite-difference toggle
+ mm_fd: true                    # MM finite-difference toggle
  return_partial_hessian: true   # allow partial Hessians (default for opt)
 opt:
  thresh: gau                    # convergence preset (Gaussian/Baker-style)
@@ -252,7 +256,7 @@ rfo:
  max_energy_incr: null          # allowed energy increase per step
  hessian_update: bfgs           # Hessian update scheme
  hessian_init: calc             # Hessian initialization source
- hessian_recalc: 200            # rebuild Hessian every N steps
+ hessian_recalc: 500            # rebuild Hessian every N steps
  hessian_recalc_adapt: null     # adaptive Hessian rebuild limit
  small_eigval_thresh: 1.0e-08   # eigenvalue threshold for stability
  alpha0: 1.0                    # initial micro step

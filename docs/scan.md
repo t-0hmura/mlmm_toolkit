@@ -7,12 +7,11 @@
 ### At a glance
 - **Use when:** You have a single structure and need to drive specific inter-atomic distances toward target values to explore a plausible path (often before `path-search`/`path-opt`).
 - **Input:** One structure + `--spec scan.yaml` (recommended), or one/more `--scan-lists` literals (each literal = one stage).
-- **Defaults:** LBFGS optimizer, `--preopt`, `--endopt`, `--max-step-size 0.20` A.
+- **Defaults:** LBFGS optimizer, `--preopt`, `--endopt`, `--max-step-size 0.20` Å.
 - **Outputs:** Per-stage `result.xyz` (+ optional `.pdb`), and optional concatenated trajectories when `--dump`.
 - **Note:** Prefer `--spec` to avoid shell-quoting issues. `--scan-lists` is still supported.
 
-`mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples FAIR-Chem UMA and hessian_ff.
-
+`mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `--backend`; default: UMA) and hessian_ff.
 
 ## Minimal example
 
@@ -149,7 +148,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 Pass multiple literals after a single `--scan-lists` flag. Each literal becomes one stage:
 
 ```bash
-# Stage 1: drive one bond to 1.35 A
+# Stage 1: drive one bond to 1.35 Å
 # Stage 2: drive two bonds simultaneously
 --scan-lists \
  '[("TYR,285,CA","MMT,309,C10",1.35)]' \
@@ -172,11 +171,11 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 4. Compute the per-bond displacement and split into steps:
  - For scan tuples `[(i, j, target_A)]`, compute `delta = target - current_distance_A`.
  - With `--max-step-size = h`, the stage takes `N = ceil(max(|delta|) / h)` biased relaxations.
- - Each pair's incremental change is `delta_k = delta_k / N` (A). At step `s`, the temporary
+ - Each pair's incremental change is `delta_k = delta_k / N` (Å). At step `s`, the temporary
  target is `r_k(s) = r_k(0) + s * delta_k`.
 5. March through all steps, applying the harmonic wells
  `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with LBFGS.
- `k` comes from `--bias-k` (eV/A^2) and is converted once to Hartree/Bohr^2.
+ `k` comes from `--bias-k` (eV/Å²) and is converted once to Hartree/Bohr^2.
  Coordinates are stored in Bohr for PySisyphus and converted internally for reporting.
 6. After the last step of each stage, optionally run an unbiased relaxation
  (`--endopt`) before reporting covalent bond changes and writing the
@@ -196,16 +195,17 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `-q, --charge INT` | Total ML-region charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--hess-cutoff FLOAT` | MM-Hessian distance cutoff (A) from ML atoms. | _None_ |
-| `--movable-cutoff FLOAT` | Movable-MM distance cutoff (A); providing this disables `--detect-layer`. | _None_ |
+| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
+| `--movable-cutoff FLOAT` | Movable-MM distance cutoff (Å); providing this disables `--detect-layer`. | _None_ |
 | `--spec FILE` | YAML/JSON scan spec. Mapping root with `stages`; optional `one_based`. | Recommended |
 | `--scan-lists TEXT` | Python literal(s) with `(i, j, target_A)` tuples. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Alternative to `--spec` |
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `--spec`/`--scan-lists` resolution. | `False` |
-| `--max-step-size FLOAT` | Maximum change in any scanned bond per step (A). Controls the number of integration steps. | `0.20` |
-| `--bias-k FLOAT` | Harmonic bias strength `k` in eV/A^2. | `100` |
-| `--opt-mode {lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
+| `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of integration steps. | `0.20` |
+| `--bias-k FLOAT` | Harmonic bias strength `k` in eV/Å². | `300` |
+| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
 | `--max-cycles INT` | Maximum LBFGS cycles per biased step and per pre/end optimization stage. | `10000` |
+| `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `True` |
 | `--dump/--no-dump` | Dump concatenated biased trajectories (`scan_trj.xyz`/`scan.pdb`). | `False` |
@@ -213,10 +213,14 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
+| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--dry-run/--no-dry-run` | Validate options and print the execution plan without running the scan. | `False` |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
 ```
-out_dir/ (default:./result_scan/)
+out_dir/ (default: ./result_scan/)
 ├─ preopt/ # Present when --preopt is True
 │ ├─ result.xyz
 │ └─ result.pdb # Only for PDB inputs
@@ -233,17 +237,17 @@ out_dir/ (default:./result_scan/)
 - `freeze_atoms`: 0-based frozen atoms merged with CLI `--freeze-atoms`.
 
 ### Section `calc` / `mlmm`
-- ML/MM calculator setup: `charge`, `spin`, UMA `model`, `task_name`, `device`, neighbor radii, Hessian options, etc.
+- ML/MM calculator setup: `charge`, `spin`, `backend`, `embedcharge`, UMA-specific `model`/`task_name`, `device`, neighbor radii, Hessian options, etc.
 
 ### Section `opt` / `lbfgs`
 - Optimizer settings: `thresh`, `max_cycles`, `print_every`, step controls, line search, dumping flags.
 
 ### Section `bias`
-- `k` (`100`): Harmonic strength in eV/A^2.
+- `k` (`300`): Harmonic strength in eV/Å².
 
 ### Section `bond`
-- UMA-based bond-change detection:
- - `device` (`"cuda"`): UMA device for graph analysis.
+- MLIP-based bond-change detection:
+ - `device` (`"cuda"`): MLIP device for graph analysis.
  - `bond_factor` (`1.20`): Covalent-radius scaling for cutoff.
  - `margin_fraction` (`0.05`): Fractional tolerance for comparisons.
  - `delta_fraction` (`0.05`): Minimum relative change to flag formation/breaking.

@@ -24,6 +24,15 @@ dist/
 
 test-reports/
 .coverage
+.pytest_cache/
+
+# Smoke test outputs
+tests/smoke/test[0-9]*/
+tests/smoke/test*.out
+tests/smoke/test_*/
+tests/smoke/*_smoke.pdb
+tests/smoke/*_smoke_refactor.pdb
+tests/smoke/test_*.png
 
 # Sphinx documentation
 docs/_build/
@@ -40,3 +49,9 @@ docs/.ipynb_checkpoints/
 *~
 
 PLAN.md
+
+# hessian_ff build artifacts
+hessian_ff/native/.build_*/
+
+# setuptools-scm generated version file
+mlmm_toolkit/_version.py

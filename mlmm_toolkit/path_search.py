@@ -16,19 +16,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+import logging
 import sys
 import traceback
 import textwrap
 import tempfile
 import os
-import shutil
+
+logger = logging.getLogger(__name__)
 import time  # timing
 import re    # used in _segment_base_id
 
 import click
 import numpy as np
 import yaml
-from click.core import ParameterSource
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.cos.GrowingString import GrowingString
@@ -41,8 +42,12 @@ from pysisyphus.constants import AU2KCALPERMOL, BOHR2ANG
 from Bio import PDB
 from Bio.PDB import PDBParser, PDBIO
 
-from .mlmm_calc import mlmm, MLMMCore, MLMMASECalculator
-from .path_opt import GS_KW as _PATH_GS_KW, STOPT_KW as _PATH_STOPT_KW, DMF_KW as _PATH_DMF_KW, _run_dmf_mep, _select_hei_index
+from .mlmm_calc import mlmm, MLMMASECalculator
+from .defaults import (
+    BOND_KW as _BOND_KW_DEFAULT,
+    SEARCH_KW as _SEARCH_KW_DEFAULT,
+)
+from .path_opt import GS_KW as _PATH_GS_KW, STOPT_KW as _PATH_STOPT_KW, DMF_KW as _PATH_DMF_KW, _select_hei_index
 from .opt import (
     GEOM_KW as _OPT_GEOM_KW,
     CALC_KW as _OPT_CALC_KW,
@@ -53,6 +58,7 @@ from .opt import (
 from .utils import (
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
+    set_convert_file_enabled,
     load_yaml_dict,
     deep_update,
     apply_yaml_overrides,
@@ -73,7 +79,7 @@ from .utils import (
     parse_layer_indices_from_bfactors,
     collect_single_option_values,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, link_or_copy_file
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 from .preflight import validate_existing_files
 from .trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
 from .summary_log import write_summary_log
@@ -106,27 +112,13 @@ LBFGS_KW.update({
 })
 
 # Covalent-bond change detection
-BOND_KW: Dict[str, Any] = {
-    "device": "cuda",            # str, device for UMA graph analysis during bond detection
-    "bond_factor": 1.20,         # float, scaling of covalent radii for bond cutoff
-    "margin_fraction": 0.05,     # float, fractional margin to tolerate small deviations
-    "delta_fraction": 0.05,      # float, change threshold to flag bond formation/breaking
-}
+BOND_KW: Dict[str, Any] = deepcopy(_BOND_KW_DEFAULT)
 
 # DMF (Direct Max Flux) defaults
 DMF_KW: Dict[str, Any] = deepcopy(_PATH_DMF_KW)
 
 # Global search control
-SEARCH_KW: Dict[str, Any] = {
-    "max_depth": 10,               # int, recursion depth cap for segment refinement
-    "stitch_rmsd_thresh": 1.0e-4,  # float, ≤ this → treat endpoints as duplicates on stitching
-    "bridge_rmsd_thresh": 1.0e-4,  # float, > this → insert a bridge GSM
-    "rmsd_align": True,            # bool, retained for compatibility (ignored internally)
-    "max_nodes_segment": 10,       # int, max_nodes override for recursive segments
-    "max_nodes_bridge": 5,         # int, max_nodes override for bridge GSMs
-    "kink_max_nodes": 3,           # int, nodes for linear interpolation when skipping GSM at a kink
-    "refine_mode": None,           # Optional[str], HEI seed policy (peak|minima)
-}
+SEARCH_KW: Dict[str, Any] = deepcopy(_SEARCH_KW_DEFAULT)
 
 # Multi-structure loader
 def _load_structures(
@@ -230,18 +222,6 @@ def _has_bond_change(x, y, bond_cfg: Dict[str, Any]) -> Tuple[bool, str]:
 # Kink detection & interpolation helpers
 # -----------------------------------------------
 
-def _max_displacement_between(ga, gb, align: bool = True, indices: Optional[Sequence[int]] = None) -> float:
-    """
-    Maximum per-atom displacement (Å) between two structures (no alignment).
-    """
-    A = np.asarray(ga.coords3d, dtype=float)
-    B = np.asarray(gb.coords3d, dtype=float)
-    if A.shape != B.shape or A.shape[1] != 3:
-        raise ValueError("Geometries must have the same number of atoms for displacement.")
-    disp = np.linalg.norm(A - B, axis=1)
-    return float(np.max(disp))
-
-
 def _new_geom_from_coords(atoms: Sequence[str], coords: np.ndarray, coord_type: str, freeze_atoms: Sequence[int]) -> Any:
     """
     Create a pysisyphus Geometry from Bohr coords via temporary XYZ; attach `freeze_atoms`.
@@ -263,7 +243,7 @@ def _new_geom_from_coords(atoms: Sequence[str], coords: np.ndarray, coord_type: 
         try:
             os.unlink(tmp.name)
         except Exception:
-            pass
+            logger.debug("Failed to unlink temp file %s", tmp.name, exc_info=True)
 
 
 def _make_linear_interpolations(gL, gR, n_internal: int) -> List[Any]:
@@ -298,7 +278,7 @@ def _tag_images(images: Sequence[Any], **attrs: Any) -> None:
             try:
                 setattr(im, k, v)
             except Exception:
-                pass
+                logger.debug("Failed to set attribute %s on image", k, exc_info=True)
 
 
 def _segment_base_id(tag: str) -> str:
@@ -355,7 +335,7 @@ def _run_gsm_between(
     gB,
     shared_calc,
     gs_cfg: Dict[str, Any],
-    opt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     out_dir: Path,
     tag: str,
     ref_pdb_path: Optional[Path],  # reference PDB for conversion
@@ -373,7 +353,7 @@ def _run_gsm_between(
         **gs_cfg,
     )
 
-    _opt_args = dict(opt_cfg)
+    _opt_args = dict(stopt_cfg)
     seg_dir = out_dir / f"{tag}_mep"
     seg_dir.mkdir(parents=True, exist_ok=True)
     _opt_args["out_dir"] = str(seg_dir)
@@ -473,7 +453,7 @@ def _run_dmf_between(
             {int(i) for g in [gA, gB] for i in getattr(g, "freeze_atoms", [])}
         )
     except Exception:
-        pass
+        logger.debug("Failed to extract freeze_atoms from endpoints", exc_info=True)
 
     # Convert pysisyphus geometries to ASE Atoms for DMF
     def _geom_to_ase(g):
@@ -553,7 +533,7 @@ def _run_dmf_between(
             if max_iter > 0:
                 mxflx.add_ipopt_options({"max_iter": max_iter})
         except Exception:
-            pass
+            logger.debug("Failed to set ipopt max_iter option", exc_info=True)
 
     click.echo(f"\n=== [{tag}] DMF started ===\n")
     mxflx.solve(tol="tight")
@@ -594,7 +574,7 @@ def _run_dmf_between(
         try:
             g.freeze_atoms = np.array(getattr(gA, "freeze_atoms", []), dtype=int)
         except Exception:
-            pass
+            logger.debug("Failed to set freeze_atoms on interpolated image", exc_info=True)
         g.set_calculator(shared_calc)
         imgs.append(g)
         tmp_xyz.unlink(missing_ok=True)
@@ -624,7 +604,7 @@ def _run_mep_between(
     gB,
     shared_calc,
     gs_cfg: Dict[str, Any],
-    opt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     out_dir: Path,
     tag: str,
     ref_pdb_path: Optional[Path],
@@ -643,7 +623,7 @@ def _run_mep_between(
             max_nodes=max_nodes,
             dmf_cfg=dmf_cfg or dict(DMF_KW),
         )
-    return _run_gsm_between(gA, gB, shared_calc, gs_cfg, opt_cfg, out_dir, tag=tag, ref_pdb_path=ref_pdb_path)
+    return _run_gsm_between(gA, gB, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=tag, ref_pdb_path=ref_pdb_path)
 
 
 def _optimize_single(
@@ -677,7 +657,7 @@ def _optimize_single(
         try:
             g_final.freeze_atoms = np.array(getattr(g, "freeze_atoms", []), dtype=int)
         except Exception:
-            pass
+            logger.debug("Failed to set freeze_atoms on final geometry", exc_info=True)
         g_final.set_calculator(shared_calc)
         return g_final
     except Exception:
@@ -689,7 +669,7 @@ def _refine_between(
     gR,
     shared_calc,
     gs_cfg: Dict[str, Any],
-    opt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     out_dir: Path,
     tag: str,
     ref_pdb_path: Optional[Path],  # for PDB conversion
@@ -703,7 +683,7 @@ def _refine_between(
     """
     gs_refine_cfg = {**gs_cfg, "climb": True, "climb_lanczos": True}
     return _run_mep_between(
-        gL, gR, shared_calc, gs_refine_cfg, opt_cfg, out_dir, tag=f"{tag}_refine",
+        gL, gR, shared_calc, gs_refine_cfg, stopt_cfg, out_dir, tag=f"{tag}_refine",
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
         calc_cfg=calc_cfg, max_nodes=max_nodes, dmf_cfg=dmf_cfg,
     )
@@ -714,7 +694,7 @@ def _maybe_bridge_segments(
     head_g,
     shared_calc,
     gs_cfg: Dict[str, Any],  # bridge-specific GS config
-    opt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     out_dir: Path,
     tag: str,
     rmsd_thresh: float,
@@ -732,7 +712,7 @@ def _maybe_bridge_segments(
         return None
     click.echo(f"[{tag}] Gap detected between segments (RMSD={rmsd:.4e} Å) — bridging via {mep_mode_kind.upper()}.")
     return _run_mep_between(
-        tail_g, head_g, shared_calc, gs_cfg, opt_cfg, out_dir, tag=f"{tag}_bridge",
+        tail_g, head_g, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=f"{tag}_bridge",
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
         calc_cfg=calc_cfg, max_nodes=max_nodes, dmf_cfg=dmf_cfg,
     )
@@ -744,7 +724,7 @@ def _stitch_paths(
     bridge_rmsd_thresh: float,
     shared_calc,
     gs_cfg,   # GS config for bridges (climb=False, max_nodes=search.max_nodes_bridge)
-    opt_cfg,
+    stopt_cfg,
     out_dir: Path,
     tag: str,
     ref_pdb_path: Optional[Path],  # for PDB conversion
@@ -829,7 +809,7 @@ def _stitch_paths(
             bridge_name_base = f"{left_base}_{right_base}"
 
             br = _maybe_bridge_segments(
-                tail, head, shared_calc, gs_cfg, opt_cfg, out_dir, tag=bridge_name_base,
+                tail, head, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=bridge_name_base,
                 rmsd_thresh=bridge_rmsd_thresh, ref_pdb_path=ref_pdb_path,
                 mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
             )
@@ -897,13 +877,24 @@ class CombinedPath:
     segments: List[SegmentReport]  # segment summaries in final output order
 
 
+def _trailing_kink_count(segments: Sequence[SegmentReport]) -> int:
+    """Return the number of consecutive kink segments at the end of *segments*."""
+    count = 0
+    for seg in reversed(segments):
+        if seg.tag and "kink" in seg.tag:
+            count += 1
+        else:
+            break
+    return count
+
+
 def _build_multistep_path(
     gA,
     gB,
     shared_calc,
     geom_cfg: Dict[str, Any],
     gs_cfg: Dict[str, Any],
-    opt_cfg: Dict[str, Any],
+    stopt_cfg: Dict[str, Any],
     single_opt_cfg: Dict[str, Any],
     bond_cfg: Dict[str, Any],
     search_cfg: Dict[str, Any],
@@ -917,17 +908,19 @@ def _build_multistep_path(
     mep_mode_kind: str = "gsm",
     calc_cfg: Optional[Dict[str, Any]] = None,
     dmf_cfg: Optional[Dict[str, Any]] = None,
+    kink_seq_count: int = 0,
 ) -> CombinedPath:
     """
     Recursively construct a multistep MEP from A–B and return it (A→B order).
     """
     seg_max_nodes = int(search_cfg.get("max_nodes_segment", gs_cfg.get("max_nodes", 10)))
     gs_seg_cfg = {**gs_cfg, "max_nodes": seg_max_nodes}
+    max_seq_kink = int(search_cfg.get("max_seq_kink", 2))
 
     if depth > int(search_cfg.get("max_depth", 10)):
         click.echo(f"[{branch_tag}] Reached maximum recursion depth. Returning current endpoints only.")
         gsm = _run_mep_between(
-            gA, gB, shared_calc, gs_seg_cfg, opt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_maxdepth",
+            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_maxdepth",
             ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
             calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
         )
@@ -941,7 +934,7 @@ def _build_multistep_path(
 
     gs_seg_cfg_first = {**gs_seg_cfg, "climb": True, "climb_lanczos": True}
     gsm0 = _run_mep_between(
-        gA, gB, shared_calc, gs_seg_cfg_first, opt_cfg, out_dir, tag=tag0,
+        gA, gB, shared_calc, gs_seg_cfg_first, stopt_cfg, out_dir, tag=tag0,
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
         calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
     )
@@ -995,7 +988,7 @@ def _build_multistep_path(
         click.echo(f"[{tag0}] Kink not detected (covalent changes present between End1 and End2).")
         if lr_summary:
             click.echo(textwrap.indent(lr_summary, prefix="  "))
-        ref1 = _refine_between(left_end, right_end, shared_calc, gs_seg_cfg, opt_cfg, out_dir, tag=tag0,
+        ref1 = _refine_between(left_end, right_end, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=tag0,
                                ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
                                calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg)
         step_tag_for_report = f"{tag0}_refine"
@@ -1034,28 +1027,49 @@ def _build_multistep_path(
     parts: List[Tuple[List[Any], List[float]]] = []
     seg_reports: List[SegmentReport] = []
 
+    trailing_kink_run = kink_seq_count
     if left_changed:
         subL = _build_multistep_path(
-            gA, left_end, shared_calc, geom_cfg, gs_cfg, opt_cfg,
+            gA, left_end, shared_calc, geom_cfg, gs_cfg, stopt_cfg,
             single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}L",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
+            kink_seq_count=kink_seq_count,
         )
         _tag_images(subL.images, pair_index=pair_index)
         parts.append((subL.images, subL.energies))
         seg_reports.extend(subL.segments)
+        trailing_kink_run = _trailing_kink_count(seg_reports)
+
+    current_kink_run = trailing_kink_run + 1 if use_kink else 0
+    if use_kink and current_kink_run >= max_seq_kink:
+        warning_msg = (
+            f"[{tag0}] Consecutive kink segments were detected. Something seems wrong. "
+            "Please check the initial structure and the generated intermediate structures. "
+            "Alternatively, try switching the mep-mode. If that still fails, try including intermediate structures in the inputs."
+        )
+        click.echo(warning_msg)
+        gsm = _run_mep_between(
+            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_maxdepth",
+            ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
+            calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
+        )
+        seg_counter[0] += 1
+        _tag_images(gsm.images, pair_index=pair_index)
+        return CombinedPath(images=gsm.images, energies=gsm.energies, segments=[])
 
     parts.append((step_imgs, step_E))
     seg_reports.append(seg_report)
 
     if right_changed:
         subR = _build_multistep_path(
-            right_end, gB, shared_calc, geom_cfg, gs_cfg, opt_cfg,
+            right_end, gB, shared_calc, geom_cfg, gs_cfg, stopt_cfg,
             single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}R",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
+            kink_seq_count=current_kink_run,
         )
         _tag_images(subR.images, pair_index=pair_index)
         parts.append((subR.images, subR.energies))
@@ -1068,7 +1082,7 @@ def _build_multistep_path(
         sub = _build_multistep_path(
             tail_g, head_g,
             shared_calc,
-            geom_cfg, gs_cfg, opt_cfg,
+            geom_cfg, gs_cfg, stopt_cfg,
             single_opt_cfg,
             bond_cfg, search_cfg, refine_mode_kind,
             out_dir=out_dir,
@@ -1078,6 +1092,7 @@ def _build_multistep_path(
             branch_tag=f"{branch_tag}B",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
+            kink_seq_count=_trailing_kink_count(seg_reports),
         )
         _tag_images(sub.images, pair_index=pair_index)
         return sub
@@ -1088,7 +1103,7 @@ def _build_multistep_path(
         bridge_rmsd_thresh=float(search_cfg["bridge_rmsd_thresh"]),
         shared_calc=shared_calc,
         gs_cfg=gs_bridge_cfg,
-        opt_cfg=opt_cfg,
+        stopt_cfg=stopt_cfg,
         out_dir=out_dir,
         tag=tag0,
         ref_pdb_path=ref_pdb_path,
@@ -1507,7 +1522,6 @@ def _merge_final_and_write(final_images: List[Any],
     help="Multistep MEP search via recursive GSM segmentation.",
     context_settings={
         "help_option_names": ["-h", "--help"],
-        # Allow a single '-i' followed by multiple paths (as extra args)
         "ignore_unknown_options": True,
         "allow_extra_args": True,
     },
@@ -1641,17 +1655,17 @@ def _merge_final_and_write(final_images: List[Any],
 @click.option(
     "--opt-mode",
     "opt_mode",
-    type=click.Choice(["light", "heavy"], case_sensitive=False),
-    default="light",
+    type=click.Choice(["grad", "hess"], case_sensitive=False),
+    default="grad",
     show_default=True,
-    help="Single-structure optimizer: light (=LBFGS) or heavy (=RFO).",
+    help="Single-structure optimizer: grad (=LBFGS) or hess (=RFO).",
 )
 @click.option("--out-dir", "out_dir", type=str, default="./result_path_search/", show_default=True, help="Output directory.")
 @click.option(
     "--thresh",
-    type=str,
+    type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
     default=None,
-    help="Convergence preset for GSM/StringOptimizer and single LBFGS runs (gau_loose|gau|gau_tight|gau_vtight|baker|never).",
+    help="Convergence preset for GSM/StringOptimizer and single LBFGS runs.",
 )
 @click.option(
     "--config",
@@ -1702,6 +1716,27 @@ def _merge_final_and_write(final_images: List[Any],
           "With --align True, only the *first* provided reference PDB is used for all pairs "
           "in the final merge (you may pass just one).")
 )
+@click.option(
+    "--convert-files/--no-convert-files",
+    "convert_files",
+    default=True,
+    show_default=True,
+    help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
+)
+@click.option(
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="ML backend for the ONIOM high-level region (default: uma).",
+)
+@click.option(
+    "--embedcharge/--no-embedcharge",
+    "embedcharge",
+    default=False,
+    show_default=True,
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1731,7 +1766,11 @@ def cli(
     pre_opt: bool,
     align: bool,
     ref_pdb_paths: Optional[Sequence[Path]],
+    convert_files: bool,
+    backend: Optional[str],
+    embedcharge: bool,
 ) -> None:
+    set_convert_file_enabled(convert_files)
     prepared_inputs: List[PreparedInputStructure] = []
     # --- Robustly accept both styles for -i/--input and --ref-pdb ---
     argv_all = sys.argv[1:]  # drop program name
@@ -1754,12 +1793,7 @@ def cli(
         ref_pdb_paths = tuple(ref_parsed)
     # --- end of robust parsing fix ---
 
-    def _is_param_explicit(name: str) -> bool:
-        try:
-            source = ctx.get_parameter_source(name)
-            return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
-            return False
+    _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -1809,7 +1843,7 @@ def cli(
         geom_cfg = dict(GEOM_KW)
         calc_cfg = dict(CALC_KW)
         gs_cfg = dict(GS_KW)
-        opt_cfg = dict(STOPT_KW)
+        stopt_cfg = dict(STOPT_KW)
         lbfgs_cfg = dict(LBFGS_KW)
         bond_cfg = dict(BOND_KW)
         search_cfg = dict(SEARCH_KW)
@@ -1821,13 +1855,19 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (opt_cfg, (("opt",),)),
-                (lbfgs_cfg, (("sopt", "lbfgs"), ("lbfgs",))),
+                (stopt_cfg, (("stopt",), ("opt",))),
+                (lbfgs_cfg, (("stopt", "lbfgs"), ("lbfgs",))),
                 (bond_cfg, (("bond",),)),
                 (search_cfg, (("search",),)),
                 (dmf_cfg, (("dmf",),)),
             ],
         )
+
+        # CLI explicit overrides (after config YAML, before override YAML)
+        if backend is not None:
+            calc_cfg["backend"] = str(backend).lower()
+        if _is_param_explicit("embedcharge"):
+            calc_cfg["embedcharge"] = bool(embedcharge)
 
         try:
             geom_freeze = _normalize_geom_freeze(geom_cfg.get("freeze_atoms"))
@@ -1889,20 +1929,20 @@ def cli(
             gs_cfg["max_nodes"] = int(max_nodes)
             search_cfg["max_nodes_segment"] = int(max_nodes)
         if _is_param_explicit("max_cycles"):
-            opt_cfg["max_cycles"] = int(max_cycles)
-            opt_cfg["stop_in_when_full"] = int(max_cycles)
+            stopt_cfg["max_cycles"] = int(max_cycles)
+            stopt_cfg["stop_in_when_full"] = int(max_cycles)
             dmf_cfg["max_cycles"] = int(max_cycles)
         if _is_param_explicit("climb"):
             gs_cfg["climb"] = bool(climb)
             gs_cfg["climb_lanczos"] = bool(climb)
         if _is_param_explicit("dump"):
-            opt_cfg["dump"] = bool(dump)
+            stopt_cfg["dump"] = bool(dump)
             lbfgs_cfg["dump"] = bool(dump)
         if _is_param_explicit("out_dir"):
-            opt_cfg["out_dir"] = out_dir
+            stopt_cfg["out_dir"] = out_dir
             lbfgs_cfg["out_dir"] = out_dir
         if _is_param_explicit("thresh") and thresh is not None:
-            opt_cfg["thresh"] = str(thresh)
+            stopt_cfg["thresh"] = str(thresh)
             lbfgs_cfg["thresh"] = str(thresh)
         if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
             calc_cfg["hess_cutoff"] = float(hess_cutoff)
@@ -1918,8 +1958,8 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (opt_cfg, (("opt",),)),
-                (lbfgs_cfg, (("sopt", "lbfgs"), ("lbfgs",))),
+                (stopt_cfg, (("stopt",), ("opt",))),
+                (lbfgs_cfg, (("stopt", "lbfgs"), ("lbfgs",))),
                 (bond_cfg, (("bond",),)),
                 (search_cfg, (("search",),)),
                 (dmf_cfg, (("dmf",),)),
@@ -1935,7 +1975,7 @@ def cli(
                 raise click.BadParameter(f"Unknown --refine-mode '{refine_mode_kind}'.")
         search_cfg["refine_mode"] = refine_mode_kind
 
-        out_dir_path = Path(opt_cfg.get("out_dir", out_dir)).resolve()
+        out_dir_path = Path(stopt_cfg.get("out_dir", out_dir)).resolve()
         detect_layer_effective = bool(calc_cfg.get("use_bfactor_layers", detect_layer_effective))
 
         model_pdb_effective: Optional[Path] = None
@@ -2035,6 +2075,8 @@ def cli(
                 "max_nodes_segment": int(search_cfg.get("max_nodes_segment", gs_cfg.get("max_nodes", 0))),
                 "will_run_path_search": True,
                 "will_write_summary": True,
+                "backend": calc_cfg.get("backend", "uma"),
+                "embedcharge": bool(calc_cfg.get("embedcharge", False)),
             }
             if layer_info_preview is not None:
                 dry_payload["layer_counts"] = {
@@ -2108,13 +2150,13 @@ def cli(
             if isinstance(val, (str, Path)):
                 calc_cfg[key] = str(Path(val).expanduser().resolve())
 
-        opt_cfg["stop_in_when_full"] = int(opt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
-        out_dir_path = Path(opt_cfg.get("out_dir", out_dir)).resolve()
+        stopt_cfg["stop_in_when_full"] = int(stopt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
+        out_dir_path = Path(stopt_cfg.get("out_dir", out_dir)).resolve()
         echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
         echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
         echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
         echo_gs   = strip_inherited_keys(gs_cfg, GS_KW, mode="same")
-        echo_opt  = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
+        echo_stopt = strip_inherited_keys({**stopt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
         echo_lbfgs = strip_inherited_keys(lbfgs_cfg, LBFGS_KW, mode="same")
         echo_bond = strip_inherited_keys(bond_cfg, BOND_KW, mode="same")
         echo_search = strip_inherited_keys(search_cfg, SEARCH_KW, mode="same")
@@ -2122,7 +2164,7 @@ def cli(
         click.echo(pretty_block("geom", echo_geom))
         click.echo(pretty_block("calc", echo_calc))
         click.echo(pretty_block("gs",   echo_gs))
-        click.echo(pretty_block("opt",  echo_opt))
+        click.echo(pretty_block("stopt", echo_stopt))
         click.echo(pretty_block("lbfgs", echo_lbfgs))
         click.echo(pretty_block("bond", echo_bond))
         click.echo(pretty_block("search", echo_search))
@@ -2152,7 +2194,7 @@ def cli(
                 )
             )
 
-        if int(opt_cfg.get("max_cycles", 0)) <= 0:
+        if int(stopt_cfg.get("max_cycles", 0)) <= 0:
             click.echo("[INFO] max_cycles <= 0: skipping path search.")
             return
 
@@ -2189,7 +2231,7 @@ def cli(
             click.echo("[init] Skipping endpoint pre-optimization as requested by --no-preopt.")
 
         # Align all inputs to the first structure, guided by freeze constraints, when requested
-        align_thresh = str(opt_cfg.get("thresh", "gau"))
+        align_thresh = str(stopt_cfg.get("thresh", "gau"))
         if align:
             try:
                 click.echo("\n=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
@@ -2223,7 +2265,7 @@ def cli(
             sub = _build_multistep_path(
                 tail_g, head_g,
                 shared_calc,
-                geom_cfg, gs_cfg, opt_cfg,
+                geom_cfg, gs_cfg, stopt_cfg,
                 lbfgs_cfg,
                 bond_cfg, search_cfg, refine_mode_kind,
                 out_dir=out_dir_path,
@@ -2233,6 +2275,7 @@ def cli(
                 branch_tag="B",
                 pair_index=None,
                 mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
+                kink_seq_count=_trailing_kink_count(seg_reports_all),
             )
             return sub
 
@@ -2243,7 +2286,7 @@ def cli(
             pair_path = _build_multistep_path(
                 gA, gB,
                 shared_calc,
-                geom_cfg, gs_cfg, opt_cfg,
+                geom_cfg, gs_cfg, stopt_cfg,
                 lbfgs_cfg,
                 bond_cfg, search_cfg, refine_mode_kind,
                 out_dir=out_dir_path,
@@ -2267,7 +2310,7 @@ def cli(
                     bridge_rmsd_thresh=float(search_cfg["bridge_rmsd_thresh"]),
                     shared_calc=shared_calc,
                     gs_cfg=gs_bridge_cfg,
-                    opt_cfg=opt_cfg,
+                    stopt_cfg=stopt_cfg,
                     out_dir=out_dir_path,
                     tag=pair_tag,
                     ref_pdb_path=ref_pdb_for_segments,
@@ -2295,7 +2338,7 @@ def cli(
                 try:
                     setattr(im, "mep_seg_index", int(tag_to_index[tag]))
                 except Exception:
-                    pass
+                    logger.debug("Failed to set mep_seg_index on image", exc_info=True)
 
         # Always write mep_trj.xyz for downstream compatibility; convert to PDB when possible.
         pdb_input = ref_pdb_for_segments is not None

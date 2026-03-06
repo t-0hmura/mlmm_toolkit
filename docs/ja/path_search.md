@@ -8,7 +8,7 @@
 - **用途:** R -> ... -> P の構造（2 つ以上の入力）があり、自動精密化付きの単一の連結 MEP が必要な場合に使用。
 - **手法:** GSM セグメントを連鎖し、共有結合変化を含むサブ区間のみを再帰的に精密化。
 - **出力:** `mep_trj.xyz`（メイン軌跡）、`summary.yaml`（セグメントごとの結果）、有効時にプロット/マージ PDB。
-- **デフォルト:** `--opt-mode light`（LBFGS）、`--preopt`、`--align`、`--thresh gau`。
+- **デフォルト:** `--opt-mode grad`（LBFGS）、`--preopt`、`--align`、`--thresh gau_loose`（GSM）/ `gau`（単一構造）。
 - **次のステップ:** HEI 出力だけでは TS を検証できません。[tsopt](tsopt.md)、[freq](freq.md)、[irc](irc.md) で続行してください。
 
 `mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、解決されたサブパスを 1 つの軌跡に統合します。
@@ -61,7 +61,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
  --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
  [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
- [--opt-mode light|heavy]
+ [--opt-mode grad|hess]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
@@ -99,24 +99,32 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 | `-i, --input PATH...` | 反応順の 2 つ以上の完全酵素 PDB。`-i` を繰り返すか、1 つのフラグの後に複数パスを渡す。 | 必須 |
 | `--parm PATH` | 完全酵素複合体の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML/MM の ML（高レベル）領域原子を定義する PDB。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
+| `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
+| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
+| `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。無効時は `--model-pdb` または `--model-indices` が必要。 | `True` |
 | `-q, --charge INT` | ML 領域の電荷（整数）。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--mep-mode [gsm\|dmf]` | セグメント/ブリッジ探索に使う MEP バックエンド。 | `gsm` |
 | `--refine-mode [peak\|minima]` | HEI 精密化の種点ルール。 | `gsm` は `peak`、`dmf` は `minima` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
+| `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。 | _None_ |
+| `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える MM 原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `10` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--opt-mode [light\|heavy]` | 単一構造オプティマイザープリセット（`light` = LBFGS、`heavy` = RFO）。 | `light` |
+| `--opt-mode [grad\|hess]` | 単一構造オプティマイザープリセット（`grad` = LBFGS、`hess` = RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
 | `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に入力を剛体アライメント。 | 有効 |
-| `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`）。 | _デフォルト_ |
+| `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau_loose`） |
 | `--dump/--no-dump` | オプティマイザーダンプを保存。 | `False` |
 | `--out-dir PATH` | 出力ディレクトリ。 | `./result_path_search/` |
 | `--ref-pdb PATH...` | 最終マージ用の完全テンプレート PDB。 | _None_ |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。 | `False` |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力
 
@@ -143,7 +151,7 @@ out_dir/ (デフォルト:./result_path_search/)
 YAML ルートはマッピングでなければなりません。受け付けるセクション:
 
 - **`geom`** -- `coord_type`（デフォルト `"cart"`）、`freeze_atoms`（0 始まりインデックス）。
-- **`calc` / `mlmm`** -- ML/MM 計算機設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、UMA 制御（`uma_model`、`uma_task_name`、`ml_hessian_mode`）、デバイス選択、凍結原子。
+- **`calc` / `mlmm`** -- ML/MM 計算機設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、バックエンド選択（`backend`、`embedcharge`）、UMA 制御（`uma_model`、`uma_task_name`、`ml_hessian_mode`）、デバイス選択、凍結原子。
 - **`gs`** -- Growing String 設定: `max_nodes`、`climb`、`climb_rms`、`climb_fixed`、`reparam_every_full`、`reparam_check`。
 - **`opt`** -- StringOptimizer 制御: `max_cycles`、`print_every`、`dump`、`dump_restart`、`out_dir`。
 - **`lbfgs`** -- HEI+/-1 精密化用の単一構造オプティマイザー制御: `keep_last`、`beta`、`gamma_mult`、`max_step`、`control_step`、`double_damp`、`mu_reg`、`max_mu_reg_adaptions`。
@@ -169,6 +177,7 @@ YAML ルートはマッピングでなければなりません。受け付ける
 ## 関連項目
 
 - [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [path-opt](path_opt.md) -- シングルパス MEP 最適化（再帰的精密化なし）
 - [opt](opt.md) -- 単一構造の構造最適化

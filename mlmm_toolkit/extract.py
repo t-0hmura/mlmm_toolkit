@@ -343,6 +343,166 @@ def _extract_short_help() -> str:
     )
 
 
+# ── Native Click command ─────────────────────────────────────────────
+
+_EXTRACT_ALL_FLAGS = (
+    "-i", "--input",
+    "-c", "--center",
+    "-o", "--output",
+    "-r", "--radius",
+    "--radius-het2het",
+    "--include-H2O", "--include-h2o", "--no-include-H2O", "--no-include-h2o",
+    "--exclude-backbone", "--no-exclude-backbone",
+    "--add-linkH", "--no-add-linkH",
+    "--selected-resn",
+    "--ligand-charge",
+    "-v", "--verbose", "--no-verbose",
+    "-h", "--help", "--help-advanced",
+)
+
+
+def _gather_extract_variadic(
+    ctx_args: List[str],
+    flag_names: Sequence[str],
+) -> List[str]:
+    """Collect variadic positional values after *flag_names* from Click extra args."""
+    names_set = set(flag_names)
+    stop_set = set(_EXTRACT_ALL_FLAGS)
+    vals: List[str] = []
+    i = 0
+    while i < len(ctx_args):
+        tok = ctx_args[i]
+        if tok in names_set:
+            j = i + 1
+            while j < len(ctx_args) and ctx_args[j] not in stop_set:
+                vals.append(ctx_args[j])
+                j += 1
+            i = j
+        else:
+            i += 1
+    return vals
+
+
+@click.command(
+    name="extract",
+    help=(
+        "Extract a binding pocket around substrate residues (from a PDB or "
+        "residue IDs/names), with biochemically aware truncation and optional "
+        "link-H; supports multi-structure input and multi-MODEL output."
+    ),
+    context_settings={
+        "help_option_names": ["-h", "--help"],
+        "ignore_unknown_options": True,
+        "allow_extra_args": True,
+    },
+)
+@click.option(
+    "-i", "--input", "complex_pdb",
+    type=str, multiple=True, required=True,
+    help="Protein-substrate complex PDB(s). If multiple, they must have identical atom counts and ordering.",
+)
+@click.option(
+    "-c", "--center", "substrate_pdb",
+    type=str, required=True,
+    help=(
+        "Substrate specification: a PDB path, a comma/space-separated residue-ID list "
+        "like '123,124' or 'A:123,B:456' (insertion codes supported), "
+        "or a residue-name list like 'GPP,SAM'."
+    ),
+)
+@click.option(
+    "-o", "--output", "output_pdb",
+    type=str, multiple=True, default=(),
+    help=(
+        "Output PDB path(s). One path for multi-MODEL PDB, or N paths for per-file output. "
+        "If omitted: single input -> pocket.pdb; multiple inputs -> pocket_{filename}.pdb."
+    ),
+)
+@click.option(
+    "-r", "--radius",
+    type=float, default=2.6, show_default=True,
+    help="Cutoff (angstrom) around substrate atoms for pocket inclusion.",
+)
+@click.option(
+    "--radius-het2het",
+    type=float, default=0, show_default=True,
+    help="Cutoff (angstrom) for substrate-protein hetero-atom proximity (non-C/H). 0 disables.",
+)
+@click.option(
+    "--include-H2O/--no-include-H2O",
+    "include_H2O",
+    default=True, show_default=True,
+    help="Include waters (HOH/WAT/TIP3/SOL).",
+)
+@click.option(
+    "--exclude-backbone/--no-exclude-backbone",
+    default=True, show_default=True,
+    help="Delete main-chain atoms from non-substrate amino acids.",
+)
+@click.option(
+    "--add-linkH/--no-add-linkH",
+    "add_linkH",
+    default=False, show_default=True,
+    help="Add carbon-only link-H at 1.09 angstrom along cut-bond directions.",
+)
+@click.option(
+    "--selected-resn",
+    type=str, default="",
+    help="Comma/space-separated residue IDs to force-include.",
+)
+@click.option(
+    "--ligand-charge",
+    type=str, default=None,
+    help="Total charge number or per-resname mapping like 'GPP:-3,SAM:1'.",
+)
+@click.option(
+    "-v", "--verbose/--no-verbose",
+    default=True, show_default=True,
+    help="Enable INFO-level logging.",
+)
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    complex_pdb: Sequence[str],
+    substrate_pdb: str,
+    output_pdb: Sequence[str],
+    radius: float,
+    radius_het2het: float,
+    include_H2O: bool,
+    exclude_backbone: bool,
+    add_linkH: bool,
+    selected_resn: str,
+    ligand_charge: Optional[str],
+    verbose: bool,
+) -> None:
+    # Recover variadic values after -i / -o from extra args (supports
+    # space-separated syntax: ``-i a.pdb b.pdb`` in addition to ``-i a.pdb -i b.pdb``).
+    extra_inputs = _gather_extract_variadic(ctx.args, ("-i", "--input"))
+    input_list = list(complex_pdb) + extra_inputs if extra_inputs else list(complex_pdb)
+
+    extra_outputs = _gather_extract_variadic(ctx.args, ("-o", "--output"))
+    output_list: Optional[List[str]]
+    if output_pdb or extra_outputs:
+        output_list = list(output_pdb) + extra_outputs if extra_outputs else list(output_pdb)
+    else:
+        output_list = None
+
+    ns = argparse.Namespace(
+        complex_pdb=input_list,
+        substrate_pdb=substrate_pdb,
+        output_pdb=output_list,
+        radius=radius,
+        radius_het2het=radius_het2het,
+        include_H2O=include_H2O,
+        exclude_backbone=exclude_backbone,
+        add_linkH=add_linkH,
+        selected_resn=selected_resn,
+        ligand_charge=ligand_charge,
+        verbose=verbose,
+    )
+    extract(ns)
+
+
 def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog=prog,
@@ -427,19 +587,6 @@ def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
               " default: True.")
     )
     return p
-
-
-def parser_wrapper_bool_options() -> frozenset[str]:
-    """Return argparse-backed boolean long options for root-level bool normalization."""
-    parser = _build_arg_parser(prog="mlmm extract")
-    options: set[str] = set()
-    for action in parser._actions:
-        if isinstance(action, argparse.BooleanOptionalAction):
-            options.update(
-                opt for opt in action.option_strings
-                if opt.startswith("--") and not opt.startswith("--no-")
-            )
-    return frozenset(options)
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
