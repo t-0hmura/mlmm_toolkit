@@ -1,6 +1,3 @@
-# NOTE: --help / --help-advanced tests are in tests/test_cli_help.py (pytest, CPU-only).
-# This script covers GPU smoke tests only.
-
 # test1: extract
 mlmm extract -i r_complex.pdb -c PRE -r 5.0 --exclude-backbone False --ligand-charge 'PRE:0' -o pocket_r_smoke.pdb > test1.out 2>&1
 
