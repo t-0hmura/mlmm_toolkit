@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mlmm"
+name = "mlmm-toolkit"
 description = "mlmm - ML/MM toolkit for enzyme reaction analysis"
 readme = "README.md"
 authors = [{name = "Takuto Ohmura", email = "ohmura.takuto@gmail.com"}]
