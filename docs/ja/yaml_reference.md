@@ -292,7 +292,7 @@ search:
 
 ### `hessian_dimer`
 
-ヘシアン・ダイマー TS 最適化（tsopt --opt-mode light）。
+ヘシアン・ダイマー TS 最適化（`tsopt --opt-mode grad`）。
 
 ```yaml
 hessian_dimer:
@@ -344,7 +344,7 @@ hessian_dimer:
 
 ### `rsirfo`
 
-RS-I-RFO TS 最適化（tsopt --opt-mode heavy）。
+RS-I-RFO TS 最適化（`tsopt --opt-mode hess`）。
 
 ```yaml
 rsirfo:
