@@ -800,7 +800,11 @@ def _bofill_update_active(H_act: torch.Tensor,
     xi_norm2 = torch.dot(xi, xi)
 
     # guards
-    denom_ms = d_dot_xi if torch.abs(d_dot_xi) > eps else (torch.sign(d_dot_xi) if d_dot_xi != 0 else torch.tensor(1.0, device=device)) * eps
+    if torch.abs(d_dot_xi) > eps:
+        denom_ms = d_dot_xi
+    else:
+        sign = torch.sign(d_dot_xi)
+        denom_ms = (sign if sign != 0 else torch.tensor(1.0, device=device)) * eps
     denom_psb_d4 = d_norm2 * d_norm2 if d_norm2 > eps else eps
     denom_psb_d2 = d_norm2 if d_norm2 > eps else eps
     denom_phi = d_norm2 * xi_norm2 if (d_norm2 > eps and xi_norm2 > eps) else (1.0)
