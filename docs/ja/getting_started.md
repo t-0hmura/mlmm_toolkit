@@ -346,7 +346,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 | `--out-dir PATH` | トップレベル出力ディレクトリ |
 | `--backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
 | `--embedcharge/--no-embedcharge` | xTB ポイントチャージ埋め込み補正（デフォルト: 無効） |
-| `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（LBFGS/Dimer）または `hess`（RFO/RS-I-RFO、デフォルト） |
+| `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（LBFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
 | `--mep-mode gsm\|dmf` | MEP 手法: Growing String Method または Direct Max Flux |
 
 すべてのオプションと YAML スキーマについては [all](all.md) および [YAML リファレンス](yaml_reference.md) を参照してください。

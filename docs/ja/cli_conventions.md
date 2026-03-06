@@ -223,12 +223,7 @@ mlmm opt -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 
 ## YAML 設定
 
-詳細設定は多層 YAML で渡せます:
-
-```bash
-```
-
-適用順序:
+詳細設定は多層 YAML で渡せます。適用順序:
 ```
 デフォルト < config < CLI オプション < override-yaml
 ```
