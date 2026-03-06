@@ -1862,7 +1862,7 @@ hessian_dimer_KW = {
     help="How UMA builds the ML Hessian (Analytical or FiniteDifference); "
          "overrides calc.hessian_calc_mode from YAML.",
 )
-@click.option("--max-cycles", type=int, default=10000, show_default=True, help="Maximum total LBFGS cycles.")
+@click.option("--max-cycles", type=int, default=10000, show_default=True, help="Maximum total optimization cycles.")
 @click.option(
     "--dump/--no-dump",
     default=False,

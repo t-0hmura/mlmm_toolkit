@@ -63,6 +63,9 @@ from .utils import (
 from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
 from .align_freeze_atoms import align_and_refine_sequence_inplace
 from .defaults import (
+    BFACTOR_FROZEN,
+    BFACTOR_ML,
+    BFACTOR_MOVABLE_MM,
     DMF_KW as _DMF_KW_DEFAULT,
     GS_KW as _GS_KW_DEFAULT,
     STOPT_KW as _STOPT_KW_DEFAULT,
@@ -224,18 +227,18 @@ def _apply_bfactor_annotations_inplace(
     pdb_path: Path,
     ml_indices: Set[int],
     freeze_indices: Sequence[int],
-    beta_ml: float = 100.0,
-    beta_freeze: float = 50.0,
-    beta_both: float = 150.0,
+    beta_ml: float = BFACTOR_ML,
+    beta_freeze: float = BFACTOR_FROZEN,
+    beta_both: float = BFACTOR_ML,
 ) -> None:
     """
     In-place update of B-factors for PDB ATOM/HETATM records.
 
-    Rules:
-      - ML only:       100
-      - Freeze only:    50
-      - ML ∩ Freeze:   150
-      - Others: keep as-is
+    Rules (new 3-layer encoding):
+      - ML only:       0  (BFACTOR_ML)
+      - Freeze only:  20  (BFACTOR_FROZEN)
+      - ML ∩ Freeze:   0  (ML takes precedence)
+      - Others:       10  (BFACTOR_MOVABLE_MM)
 
     The index for lookups is the 0-based position among ATOM/HETATM
     records and resets at each MODEL record for multi-model PDBs.
@@ -275,16 +278,12 @@ def _apply_bfactor_annotations_inplace(
             elif atom_idx in freeze_set:
                 b = beta_freeze
             else:
-                b = None
+                b = BFACTOR_MOVABLE_MM
 
-            if b is not None:
-                s = s[:60] + _format_b(b) + s[66:]
-                # Ensure trailing newline
-                s = s if s.endswith("\n") else s + "\n"
-                lines_out.append(s)
-            else:
-                # Keep line as-is (ensure newline)
-                lines_out.append(line if line.endswith("\n") else (line + "\n"))
+            s = s[:60] + _format_b(b) + s[66:]
+            # Ensure trailing newline
+            s = s if s.endswith("\n") else s + "\n"
+            lines_out.append(s)
 
             atom_idx += 1
         else:
@@ -293,7 +292,11 @@ def _apply_bfactor_annotations_inplace(
     with open(pdb_path, "w") as f:
         f.writelines(lines_out)
 
-    click.echo(f"[annotate] Updated B-factors in '{pdb_path}' (ML={len(ml_set)}; freeze={len(freeze_set)}).")
+    click.echo(
+        f"[annotate] Updated B-factors in '{pdb_path}' "
+        f"(ML={BFACTOR_ML:.0f}, MovableMM={BFACTOR_MOVABLE_MM:.0f}, "
+        f"FrozenMM={BFACTOR_FROZEN:.0f}; {len(ml_set)} ML, {len(freeze_set)} frozen)."
+    )
 
 
 # -----------------------------------------------
