@@ -88,7 +88,7 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 - **CPU 実行**: GPU メモリを MLIP 推論に専有させるため、MM 計算は CPU で実行
 - **Amber 互換**: ff19SB/ff14SB、GAFF2 などの Amber 力場に対応
 
-## Amber parm7/rst7 トポロジ
+## Amber parm7/rst7 トポロジー
 
 - **parm7（prmtop）**: Amber のトポロジーファイル。原子タイプ、結合、角度、二面角、VDW パラメータ、部分電荷などを含む
 - **rst7（inpcrd）**: Amber の座標/速度ファイル。原子座標を含む

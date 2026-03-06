@@ -9,7 +9,7 @@
 - **Multi-structure ensemble** -- Provide two or more full PDBs in reaction order. The tool extracts the active-site region (for ML-region definition), builds MM topology, assigns ML/MM layers, runs GSM MEP search on the layered full-system PDBs, and optionally runs per-segment post-processing (TSOPT/freq/DFT).
 - **Single-structure + staged scan** -- Provide one PDB plus `--scan-lists`. The scan generates intermediate/product candidates that become MEP endpoints.
   - One `--scan-lists` literal runs a single scan stage.
-  - Multiple stages are passed as multiple values after a single `--scan-lists` flag (the flag itself cannot be repeated).
+  - Multiple stages are passed as multiple values after a single `--scan-lists` flag, or by repeating the flag.
 - **TSOPT-only** -- Provide a single PDB, omit `--scan-lists`, and set `--tsopt`. The tool runs TS optimization on the layered full-system PDB, performs pseudo-IRC, minimizes both ends, and builds energy diagrams.
 
 ```{important}
@@ -167,7 +167,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `-q, --charge INT` | Force total system charge (highest priority override). | _None_ |
 | `--out-dir PATH` | Top-level output directory. | `./result_all/` |
 | `--convert-files/--no-convert-files` | Global toggle for XYZ/TRJ to PDB companions when templates are available. | `True` |
-| `--dump/--no-dump` | Save optimizer dumps. Always forwarded to `path-search`/`path-opt`; forwarded to `scan`/`tsopt` only when explicitly set here. `freq` defaults to dump=True unless you pass `--no-dump`. | `False` |
+| `--dump BOOL` | Save optimizer dumps. Always forwarded to `path-search`/`path-opt`; forwarded to `scan`/`tsopt` only when explicitly set here. `freq` defaults to dump=True unless you pass `--dump False`. | `False` |
 | `--config FILE` | Base YAML applied first. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration before execution. | `False` |
 | `--dry-run/--no-dry-run` | Validate and print plan without running stages. | `False` |
@@ -176,21 +176,23 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--radius FLOAT` | Pocket inclusion cutoff (Å). | Extractor default |
-| `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å). | Extractor default |
-| `--include-H2O/--no-include-H2O` | Include water molecules. | Extractor default |
-| `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | Extractor default |
-| `--add-linkH/--no-add-linkH` | Add link hydrogens for severed bonds. | Extractor default |
+| `--radius FLOAT` | Pocket inclusion cutoff (Å). | `2.6` |
+| `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å). | `0.0` |
+| `--include-H2O BOOL` | Include water molecules (HOH/WAT/TIP3/SOL). | `True` |
+| `--exclude-backbone BOOL` | Remove backbone atoms on non-substrate amino acids. | `True` |
+| `--add-linkH BOOL` | Add link hydrogens for severed bonds. | `False` |
 | `--selected-resn TEXT` | Residues to force include. | `""` |
-| `--verbose/--no-verbose` | Enable INFO-level extractor logging. | Extractor default |
+| `--verbose BOOL` | Enable INFO-level extractor logging. | `True` |
 
 ### MM Preparation Options
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--auto-mm-ff-set TEXT` | Force field set for `mm_parm`. | `mm_parm` default |
-| `--auto-mm-add-ter {True\|False}` | Add TER records. | `mm_parm` default |
-| `--auto-mm-keep-temp {True\|False}` | Keep temporary files. | `mm_parm` default |
+| `--auto-mm-ff-set {ff19SB\|ff14SB}` | Force field set for `mm_parm` (ff19SB uses OPC3; ff14SB uses TIP3P). | `ff19SB` |
+| `--auto-mm-add-ter/--auto-mm-no-add-ter` | Control TER insertion around ligand/water/ion blocks. | `True` |
+| `--auto-mm-keep-temp` | Keep the `mm_parm` temporary working directory (for debugging). | `False` |
+| `--auto-mm-ligand-mult TEXT` | Spin multiplicity mapping forwarded to `mm_parm` (e.g., `GPP:2,SAM:1`). If omitted, `mm_parm` defaults to 1 for all ligands. | _None_ |
+| `--auto-mm-allow-nonstandard-aa` | Allow `mm_parm` to parameterize amino-acid-like residues via antechamber. | `False` |
 
 ### MEP Search Options
 
@@ -199,16 +201,17 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
-| `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
+| `--climb BOOL` | Enable TS refinement for segment GSM. | `True` |
 | `--opt-mode [grad\|hess]` | Optimizer preset for scan/path-search and single optimizations (`grad` -> LBFGS/Dimer, `hess` -> RFO/RSIRFO). | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT/post-IRC endpoint optimizations (`grad` -> Dimer/LBFGS, `hess` -> RS-I-RFO/RFO). | `hess` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
-| `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
+| `--preopt BOOL` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.yaml). Both modes support Stage 4 (TSOPT/thermo/DFT). | `True` |
 | `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | _Default_ |
+| `--detect-layer/--no-detect-layer` | Detect ML/MM layers from input PDB B-factors (B=0/10/20) in downstream tools. If disabled, downstream tools require `--model-pdb` or `--model-indices`. | `True` |
 
 TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (only when explicitly provided) -> TSOPT default (`hess` -> `heavy`).
 
@@ -218,20 +221,20 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 | --- | --- | --- |
 | `--scan-lists TEXT...` | Staged scans: `(i, j, target_Å)` tuples. | _None_ |
 | `--scan-out-dir PATH` | Override the scan output directory. | _None_ |
-| `--scan-one-based/--no-scan-one-based` | Force 1-based indexing for atom selectors. | `True` |
+| `--scan-one-based BOOL` | Override scan indexing interpretation (True = 1-based, False = 0-based). | _None_ |
 | `--scan-max-step-size FLOAT` | Maximum step size (Å). | _Default_ |
 | `--scan-bias-k FLOAT` | Harmonic bias strength (eV/Å²). | _Default_ |
 | `--scan-relax-max-cycles INT` | Relaxation max cycles per step. | _Default_ |
-| `--scan-preopt/--no-scan-preopt` | Override scan pre-optimization toggle. | _Default_ |
-| `--scan-endopt/--no-scan-endopt` | Override scan end-of-stage optimization. | _Default_ |
+| `--scan-preopt BOOL` | Override scan pre-optimization toggle. | _None_ |
+| `--scan-endopt BOOL` | Override scan end-of-stage optimization. | _None_ |
 
 ### Post-Processing Options
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--tsopt/--no-tsopt` | Run TS optimization + pseudo-IRC per reactive segment. | `False` |
-| `--thermo/--no-thermo` | Run vibrational analysis (`freq`) on R/TS/P. | `False` |
-| `--dft/--no-dft` | Run single-point DFT on R/TS/P. | `False` |
+| `--tsopt BOOL` | Run TS optimization + pseudo-IRC per reactive segment. | `False` |
+| `--thermo BOOL` | Run vibrational analysis (`freq`) on R/TS/P. | `False` |
+| `--dft BOOL` | Run single-point DFT on R/TS/P. | `False` |
 | `--flatten/--no-flatten` | Enable extra-imaginary-mode flattening in `tsopt`. | `False` |
 | `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |
 | `--tsopt-out-dir PATH` | Custom tsopt subdirectory. | _None_ |

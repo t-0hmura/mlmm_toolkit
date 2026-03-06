@@ -542,6 +542,8 @@ dft:
  conv_tol: 1.0e-09 # SCF convergence tolerance (Hartree)
  max_cycle: 100 # Maximum SCF iterations
  grid_level: 3 # PySCF grid level
+ verbose: 4 # PySCF verbosity level
+ out_dir: ./result_dft/ # Output directory
 ```
 
 ---

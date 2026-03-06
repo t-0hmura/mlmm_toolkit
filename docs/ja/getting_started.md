@@ -58,6 +58,8 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 | **電荷マッピング** | `--ligand-charge 'SAM:1,GPP:-3'` | コロン（`:`）またはイコール（`=`）で名前と電荷を区切り、カンマでエントリを区切る |
 | **原子セレクタ** | `'TYR,285,CA'` または `'TYR 285 CA'` | 区切り文字: 空白、カンマ、スラッシュ、バッククォート、バックスラッシュ |
 
+詳細は [CLI 規約](cli_conventions.md) を参照してください。
+
 ### 水素原子付与の推奨ツール
 
 PDB に水素原子がない場合は、mlmm を実行する前に次のいずれかを使ってください。
@@ -372,7 +374,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 | サブコマンド | 役割 | ドキュメント |
 |------------|------|------------|
 | `all` | エンドツーエンドワークフロー | [all](all.md) |
-| `init` | `mlmm all` 用 YAML テンプレート生成 | [init](init.md) |
+| `init` | *（削除済）* 以前は YAML テンプレートを生成 | [init](init.md) |
 | `extract` | 活性部位ポケット抽出 | [extract](extract.md) |
 | `mm-parm` | Amber parm7/rst7 構築 | [mm_parm](mm_parm.md) |
 | `define-layer` | 3 層 ML/MM 領域定義 | [define_layer](define_layer.md) |
@@ -389,6 +391,9 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 | `trj2fig` | エネルギープロファイルプロット | [trj2fig](trj2fig.md) |
 | `energy-diagram` | 数値系列から状態エネルギー図を描画 | [energy-diagram](energy_diagram.md) |
 | `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16|orca`） | [oniom_export](oniom_export.md) |
+| `oniom-import` | Gaussian/ORCA ONIOM 入力から XYZ + 層付き PDB を再構築 | [oniom_import](oniom_import.md) |
+| `add-elem-info` | PDB の元素カラム（77-78）を修復 | [add_elem_info](add_elem_info.md) |
+| `fix-altloc` | PDB の代替位置標識（altLoc）を除去 | [fix_altloc](fix_altloc.md) |
 
 ---
 

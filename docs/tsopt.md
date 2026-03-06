@@ -6,13 +6,14 @@
 
 ### At a glance
 - **Use when:** You have a TS guess (HEI from `path-opt`/`path-search`, or your own structure) and want to refine it to a first-order saddle point with ML/MM.
-- **Method:** `hess` = RS-I-RFO (default, generally more robust). `grad` = Hessian Guided Dimer (often cheaper per step). Aliases `heavy`/`light` and `rsirfo`/`dimer` are also accepted.
+- **Default:** `--opt-mode hess` (RS-I-RFO) with `--microiter` enabled. Microiteration alternates a single RS-I-RFO macro-step on the ML region with full MM relaxation, making Hessian-based TS search practical for large enzyme systems (~10,000 atoms).
+- **Alternative:** `--opt-mode grad` (Hessian Guided Dimer) — gradient-only, often cheaper per step. Aliases `heavy`/`light` and `rsirfo`/`dimer` are also accepted.
 - **Outputs:** `final_geometry.xyz`/`.pdb`, imaginary-mode animations in `vib/`.
 - **Next step:** Run [freq](freq.md) to confirm exactly one imaginary frequency, then [irc](irc.md) to verify connectivity.
 
 ### Choosing `--opt-mode`
 - Use **`--opt-mode hess` (RS-I-RFO)** when you want the default, conservative optimizer and you can afford Hessian work. With `--microiter` (default on), ML and MM regions are optimized alternately.
-- Use **`--opt-mode grad` (Dimer)** when you want a lighter-weight search, or when you plan to iterate quickly from several TS guesses. `--ml-only-hessian-dimer` uses only the ML-region Hessian for dimer orientation (faster but less accurate).
+- Use **`--opt-mode grad` (Dimer)** when you want a lighter-weight search, or when you plan to iterate quickly from several TS guesses. `--ml-only-hessian-dimer` uses only the ML-region Hessian for dimer orientation (faster).
 
 `mlmm tsopt` carries out transition-state optimization tailored to the ML/MM calculator. The optimizer starts from a TS guess and refines it to a first-order saddle point.
 
@@ -91,7 +92,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | Total charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (Å) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | `0.0` |
+| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. `0.0` means ML-only partial Hessian. Alias: `--radius-hessian`. | `0.0` |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |

@@ -15,7 +15,7 @@ to make sure the calculator works.
    parameters.**
    * Minimize, equilibrate and run 40 ns of MD.
    * From the trajectory, extract a snapshot and trim it to retain the
-     protein, the substrate and every water molecule within 6 A.
+     protein, the substrate and every water molecule within 6 Å.
    * Regenerate topology/parameter files for this trimmed *real* system.
 
    > With PyMOL: `select byres (resn WAT within 6 of sele) or sele`
@@ -106,7 +106,7 @@ mlmm freq          -i coord/6_tsopt_... ...    # (viii)
 ### 4.1  Initial optimization — `mlmm opt`
 
 Optimizes the MD snapshot using the LBFGS method while freezing atoms
-in the outer layer (> 10 A from the ML region).
+in the outer layer (> 10 Å from the ML region).
 
 ### 4.2  Bond scan — `mlmm scan`
 

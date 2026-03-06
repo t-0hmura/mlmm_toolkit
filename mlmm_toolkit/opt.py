@@ -881,7 +881,7 @@ def _run_microiter_opt(
 @click.option(
     "--bias-k",
     type=float,
-    default=10.0,
+    default=300.0,
     show_default=True,
     help="Harmonic restraint strength k [eV/Å^2] for --dist-freeze.",
 )

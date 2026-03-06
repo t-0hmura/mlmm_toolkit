@@ -258,7 +258,7 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
 
 ### ML/MM 3-Layer System
 mlmm_toolkit uses a 3-layer partitioning scheme encoded via PDB B-factors:
-- **ML region** (B=0.0): Treated with UMA machine-learning potential
+- **ML region** (B=0.0): Treated with MLIP backend (default: UMA)
 - **Movable-MM** (B=10.0): MM atoms that move during optimization
 - **Frozen** (B=20.0): Fixed MM atoms
 

@@ -291,7 +291,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 - 最適化後も複数の虚振動数が残る
 
 対処の例:
-- オプティマイザモードを切り替える: `--opt-mode light` (Dimer) または `--opt-mode heavy` (RS-I-RFO)
+- オプティマイザモードを切り替える: `--opt-mode grad` (Dimer) または `--opt-mode hess` (RS-I-RFO)
 - 余分な虚モードのフラット化を有効にする: `--flatten`
 - 最大サイクル数を増やす: `--max-cycles 20000`
 - `hess_cutoff` を調整して、ヘシアン計算に含む原子の範囲を広げる

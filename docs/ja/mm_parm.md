@@ -60,7 +60,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 | `-i, --input PATH` | 入力 PDB（`--add-h` でない限りそのまま使用）。 | 必須 |
 | `--out-prefix TEXT` | parm7/rst7/pdb ファイルの出力接頭辞。 | 入力 PDB のファイル名幹 |
 | `--ligand-charge TEXT` | 残基名と形式電荷のマッピング（例: `"GPP=-3,MMT=-1"`）。 | _None_ |
-| `--ligand-mult TEXT` | 残基名とスピン多重度（`-m`）のマッピング（例: `"HEM=1,NO:2"`）。 | `1` |
+| `--ligand-mult TEXT` | 残基名とスピン多重度（`-m`）のマッピング（例: `"HEM=1,NO=2"`）。 | `1` |
 | `--allow-nonstandard-aa` | 非標準アミノ酸様残基（N/CA/C を含む）の antechamber パラメータ化を許可。 | `False` |
 | `--keep-temp` | 作業ディレクトリの中間ファイル/ログを保持（デバッグ用）。 | `False` |
 | `--add-ter/--no-add-ter` | リガンド/水/イオンブロックの前後に TER を挿入。 | `True` |

@@ -219,11 +219,11 @@ N, C, O, CA, OXT, H, H1, H2, H3, HN, HA, HA2, HA3
 
 | 電荷 | 残基名 |
 |------|--------|
-| +1 | `LI`, `NA`, `K`, `RB`, `CS`, `TL`, `AG`, `CU1`, `Ag`, `K+`, `NA+`, `NH4`, `H3O+` |
-| +2 | `MG`, `CA`, `SR`, `BA`, `MN`, `FE2`, `CO`, `NI`, `CU`, `ZN`, `CD`, `HG`, `PB`, `BE`, `PD`, `PT`, `SN`, `RA`, `YB2`, `V2+` |
-| +3 | `FE`, `AU3`, `AL`, `GA`, `IN`, `CE`, `CR`, `DY`, `EU`, `EU3`, `ER`, `GD3`, `LA`, `LU`, `ND`, `PR`, `SM`, `TB`, `TM`, `Y`, `PU` |
-| +4 | `U4+`, `TH`, `HF`, `ZR` |
-| -1 | `F`, `CL`, `BR`, `I`, `CL-`, `IOD` |
+| +1 | `LI`, `NA`, `K`, `RB`, `CS`, `TL`, `AG`, `CU1`, `Ag`, `K+`, `Na+`, `NH4`, `H3O+`, `HE+`, `HZ+`, `Tl` |
+| +2 | `MG`, `CA`, `SR`, `BA`, `MN`, `FE2`, `CO`, `NI`, `CU`, `ZN`, `CD`, `HG`, `PB`, `Be`, `PD`, `PT`, `Sn`, `Ra`, `YB2`, `V2+` |
+| +3 | `FE`, `AU3`, `AL`, `GA`, `IN`, `CE`, `Ce`, `CR`, `Cr`, `Dy`, `EU`, `EU3`, `Er`, `GD3`, `LA`, `LU`, `Nd`, `PR`, `SM`, `Sm`, `TB`, `Tm`, `Y`, `Pu` |
+| +4 | `U4+`, `Th`, `Hf`, `Zr` |
+| -1 | `F`, `CL`, `BR`, `I`, `Cl-`, `IOD` |
 
 ### `WATER_RES`
 

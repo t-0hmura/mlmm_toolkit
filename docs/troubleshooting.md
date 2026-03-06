@@ -335,7 +335,7 @@ Symptoms:
 - Multiple imaginary frequencies remain after optimization.
 
 Fixes to try:
-- Switch optimizer modes: `--opt-mode light` (Dimer) or `--opt-mode heavy` (RS-I-RFO).
+- Switch optimizer modes: `--opt-mode grad` (Dimer) or `--opt-mode hess` (RS-I-RFO).
 - Enable flattening of extra imaginary modes: `--flatten`.
 - Increase max cycles: `--max-cycles 20000`.
 - Use tighter convergence: `--thresh baker` or `--thresh gau_tight`.
@@ -371,7 +371,7 @@ Fixes to try:
 
 ## Performance / stability tips
 
-- **Out of memory (VRAM)**: reduce ML region size, reduce Hessian-target MM region, reduce nodes (`--max-nodes`), or use lighter optimizer settings (`--opt-mode light`). If the error mentions "reserved but unallocated" memory, set `export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` before running to reduce VRAM fragmentation.
+- **Out of memory (VRAM)**: reduce ML region size, reduce Hessian-target MM region, reduce nodes (`--max-nodes`), or use lighter optimizer settings (`--opt-mode grad`). If the error mentions "reserved but unallocated" memory, set `export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` before running to reduce VRAM fragmentation.
 - **Analytical ML Hessian is slow or OOM**: use `--hessian-calc-mode FiniteDifference` for the ML region. Only use `Analytical` if you have ample VRAM (24 GB+ recommended for 300+ ML atoms).
 - **MM Hessian**: `mm_fd: true` (default) uses finite-difference for MM Hessian. Analytical MM Hessian (`mm_fd: false`) is faster for small systems but may require more memory.
 - **Large systems (2000+ atoms)**: ensure frozen atoms are properly set (Frozen layer, B=20) to reduce the movable DOF count. Use `define-layer` with appropriate cutoffs.

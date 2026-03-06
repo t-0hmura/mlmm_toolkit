@@ -2,17 +2,18 @@
 
 ## 概要
 
-> **概要:** Dimer（`--opt-mode light`）または RS-I-RFO（`--opt-mode heavy`、デフォルト）を使用して遷移状態*候補*を最適化します。検証済み TS は**正確に 1 つ**の虚数振動数を示すべきです。必ず freq/IRC でモード/結合性を確認してください。
+> **概要:** Dimer（`--opt-mode grad`）または RS-I-RFO（`--opt-mode hess`、デフォルト）を使用して遷移状態*候補*を最適化します。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで ML 1 ステップ RS-I-RFO と MM 緩和を交互に実行します。検証済み TS は**正確に 1 つ**の虚数振動数を示すべきです。必ず freq/IRC でモード/結合性を確認してください。
 
-### 概要
+### 早見表
 - **用途:** TS 推測構造（`path-opt`/`path-search` からの HEI、またはユーザー独自の構造）を ML/MM で一次鞍点に精密化する場合。
-- **手法:** `heavy` = RS-I-RFO（デフォルト、一般的により堅牢）。`light` = ヘシアンガイド付き Dimer（ステップあたりのコストが低い場合が多い）。
+- **デフォルト:** `--opt-mode hess`（RS-I-RFO）+ `--microiter` 有効。マイクロイテレーションは ML 領域の RS-I-RFO マクロステップ 1 回と MM 全体の緩和を交互に実行し、大規模酵素系（~10,000 原子）でもヘシアンベースの TS 探索を実用的にします。
+- **代替:** `--opt-mode grad`（ヘシアンガイド付き Dimer）— 勾配のみ、ステップあたりのコストが低い場合が多い。エイリアス `heavy`/`light` および `rsirfo`/`dimer` も使用可能。
 - **出力:** `final_geometry.xyz`/`.pdb`、`vib/` 内の虚振動数モードアニメーション。
 - **次のステップ:** [freq](freq.md) で正確に 1 つの虚数振動数を確認し、[irc](irc.md) で結合性を検証。
 
 ### `--opt-mode` の選択
-- **`--opt-mode heavy`（RS-I-RFO）** を使用: デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合。
-- **`--opt-mode light`（Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。
+- **`--opt-mode hess`（RS-I-RFO）** を使用: デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合。`--microiter`（デフォルト有効）により ML と MM 領域を交互に最適化。
+- **`--opt-mode grad`（Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。`--ml-only-hessian-dimer` で ML 領域のみのヘシアンを Dimer 方向決定に使用（高速だが精度は低下）。
 
 `mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。`--backend` で ML バックエンドを選択可能です（`uma`、`orb`、`mace`、`aimnet2`）。`--embedcharge` で xTB 点電荷埋め込み補正を有効化し、MM 環境から ML 領域への静電的影響を考慮できます。オプティマイザーは TS 推測構造から開始し、一次鞍点へ精密化します。
 
@@ -81,8 +82,6 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `-i, --input PATH` | 開始ジオメトリ（PDB または XYZ）。XYZ の場合はトポロジーに `--ref-pdb` を使用。 | 必須 |
 | `--ref-pdb FILE` | 入力が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `--parm PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
@@ -93,7 +92,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (Å)。カットオフ指定時は `--detect-layer` が無効化。 | `0.0` |
+| `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。`0.0` は ML のみの部分ヘシアン。エイリアス: `--radius-hessian`。 | `0.0` |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | `--hessian-calc-mode CHOICE` | MLIP ヘシアンモード: `Analytical` または `FiniteDifference`。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザーサイクル。 | `10000` |
@@ -109,6 +108,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |
+| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに入力/設定を検証し、実行計画を表示。 | `False` |
 
 ## 出力

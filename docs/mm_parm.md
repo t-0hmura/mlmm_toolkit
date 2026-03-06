@@ -59,9 +59,9 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 | `-i, --input PATH` | Input PDB (used as-is unless `--add-h`). | Required |
 | `--out-prefix TEXT` | Output prefix for parm7/rst7/pdb files. | Stem of input PDB |
 | `--ligand-charge TEXT` | Map residue name to formal charge, e.g. `"GPP=-3,MMT=-1"`. | _None_ |
-| `--ligand-mult TEXT` | Map residue name to spin multiplicity (`-m`), e.g. `"HEM=1,NO=2"`. | `1` |
-| `--allow-nonstandard-aa` | Allow antechamber parameterization for amino-acid-like modified residues (N/CA/C present). | `False` |
-| `--keep-temp` | Keep intermediate files/logs in a working directory (for debugging). | `False` |
+| `--ligand-mult TEXT` | Map residue name to spin multiplicity, e.g. `"HEM=1,NO=2"`. Unspecified residues default to singlet (1). | _None_ |
+| `--allow-nonstandard-aa/--no-allow-nonstandard-aa` | Allow antechamber parameterization for amino-acid-like modified residues (N/CA/C present). | `False` |
+| `--keep-temp/--no-keep-temp` | Keep intermediate files/logs in a working directory (for debugging). | `False` |
 | `--add-ter/--no-add-ter` | Insert TER before/after ligand/water/ion blocks. | `True` |
 | `--add-h/--no-add-h` | Add hydrogens at `--ph` using PDBFixer. | `False` |
 | `--ph FLOAT` | pH for PDBFixer hydrogen addition (used only with `--add-h`). | `7.0` |

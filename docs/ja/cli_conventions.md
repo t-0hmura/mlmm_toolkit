@@ -215,7 +215,7 @@ mlmm opt -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 - 列 77-78 に**元素記号**が必要（欠けている場合は `mlmm add-elem-info` を使用）
 - 複数の PDB は**同じ原子を同じ順序**で持つ必要があります（座標のみ異なる）
 
-### Amber トポロジ
+### Amber トポロジー
 - **parm7**: 全系の力場トポロジー（`mm-parm` で自動生成可能）
 - **rst7**: 対応する座標ファイル
 

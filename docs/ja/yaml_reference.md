@@ -22,7 +22,7 @@
 | [`search`](#search) | 再帰的経路探索設定 | path-search |
 | [`hessian_dimer`](#hessian_dimer) | ヘシアン・ダイマーTS 最適化 | tsopt |
 | [`rsirfo`](#rsirfo) | RS-I-RFO TS 最適化 | tsopt |
-| [`stopt`](#stopt) | 文字列最適化（StringOptimizer）設定 | path-opt, path-search |
+| [`stopt`](#stopt) | ストリング最適化（StringOptimizer）設定 | path-opt, path-search |
 | [`microiter`](#microiter) | マイクロイテレーション（MM緩和）設定 | opt, tsopt |
 
 ---
@@ -371,6 +371,7 @@ rsirfo:
  trust_update: true # 信頼領域更新
  trust_min: 0.00 # 最小信頼半径
  trust_max: 0.30 # 最大信頼半径
+ small_eigval_thresh: 1.0e-08 # 安定性のための固有値閾値
  out_dir: ./result_tsopt/ # 出力ディレクトリ
 ```
 
@@ -378,17 +379,17 @@ rsirfo:
 
 ### `stopt`
 
-文字列最適化（GS/DMF）の設定。path-opt と path-search で使用。
+ストリング最適化（GS/DMF）の設定。path-opt と path-search で使用。
 
 ```yaml
 stopt:
  type: string           # 最適化タイプラベル（StringOptimizer用）
- thresh: gau_loose      # 文字列最適化の収束プリセット
- stop_in_when_full: 300 # 文字列が満杯時の早期停止閾値
+ thresh: gau_loose      # ストリング最適化の収束プリセット
+ stop_in_when_full: 300 # ストリングが満杯時の早期停止閾値
  align: false           # アライメントトグル
  scale_step: global     # ステップスケーリングモード
- max_cycles: 300        # 文字列最適化の最大反復数
- dump: false            # 軌道/リスタートデータ出力
+ max_cycles: 300        # ストリング最適化の最大反復数
+ dump: false            # 軌跡/リスタートデータ出力
  dump_restart: false    # リスタートチェックポイントの出力
  reparam_thresh: 0.0    # 再パラメータ化閾値
  coord_diff_thresh: 0.0 # 座標差分閾値
@@ -408,7 +409,7 @@ stopt:
 
 **注意:**
 - `stopt.lbfgs` / `stopt.rfo` は HEI±1 端点最適化および kink ノード最適化に使用される単一構造最適化の設定
-- 外側の `stopt` キーは文字列最適化（GS または DMF ラッパー）を制御
+- 外側の `stopt` キーはストリング最適化（GS または DMF ラッパー）を制御
 
 ---
 
@@ -555,13 +556,14 @@ geom:
 calc:
  model_charge: 0
  model_mult: 1
- backend: uma                  # ML バックエンド (uma/orb/mace/aimnet2)
+ backend: uma                  # ML バックエンド: uma | orb | mace | aimnet2
  embedcharge: false            # xTB 点電荷埋め込み補正
  uma_model: uma-s-1p2          # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
  ml_device: auto
  ml_hessian_mode: Analytical   # VRAM に余裕がある場合に推奨
- hess_cutoff: 3.6 # Layer 2 の距離カットオフ (Å)
- movable_cutoff: 8.0 # Layer 3 の距離カットオフ (Å)
+ mm_device: cpu
+ mm_fd: true
+ use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り
 
 gs:
  max_nodes: 12
@@ -573,6 +575,16 @@ opt:
  max_cycles: 300
  dump: false
  out_dir: ./result_all/
+
+stopt:
+ thresh: gau_loose
+ max_cycles: 300
+ lbfgs:
+   thresh: gau
+   max_cycles: 10000
+ rfo:
+   thresh: gau
+   max_cycles: 10000
 
 bond:
  bond_factor: 1.2
@@ -605,4 +617,5 @@ dft:
 - [path-search](path_search.md) - 再帰的 MEP 探索
 - [freq](freq.md) - 振動解析
 - [dft](dft.md) - DFT 計算
-- [mlmm_calc](mlmm_calc.md) - ML/MM 計算機の詳細
+- [概念とワークフロー](concepts.md) - ML/MM 3層システムと ONIOM エネルギー分解
+- [ML/MM 計算機](mlmm_calc.md) - ML/MM 計算機の詳細
