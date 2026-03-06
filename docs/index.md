@@ -305,6 +305,12 @@ result_all/
 
 ---
 
+## Citation
+
+If you use this software in your research, please cite:
+
+[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit -- Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. https://doi.org/10.26434/chemrxiv-2025-jft1k
+
 ## License
 
 `mlmm_toolkit` is distributed under the **GNU General Public License version 3 (GPL-3.0)** and is derived from Pysisyphus.

@@ -72,6 +72,7 @@ If your PDB lacks hydrogen atoms, use one of the following tools before running 
 | **reduce** (Richardson Lab) | `reduce input.pdb > output.pdb` | Fast, widely used for crystallographic structures |
 | **pdb2pqr** | `pdb2pqr --ff=AMBER input.pdb output.pqr` | Adds hydrogens and assigns partial charges |
 | **Open Babel** | `obabel input.pdb -O output.pdb -h` | General-purpose cheminformatics toolkit |
+| **mm-parm --add-h** | `mlmm mm-parm -i input.pdb --add-h` | Hydrogen addition via PDBFixer (through AmberTools) |
 
 To ensure identical atom ordering across multiple PDB inputs, apply the same hydrogen-addition tool with consistent settings to all structures.
 
@@ -85,6 +86,14 @@ This software is still under development. Please use it at your own risk.
 
 `mlmm_toolkit` is intended for Linux environments (local workstations or HPC clusters) with a CUDA-capable GPU. Several dependencies -- notably **PyTorch**, **fairchem-core (UMA)**, **gpu4pyscf-cuda12x**, and **hessian_ff** -- expect a working CUDA installation. Alternative MLIP backends (ORB, MACE, AIMNet2) have their own optional dependencies; see the install extras below.
 
+### Prerequisites
+
+mlmm_toolkit uses the following components:
+
+- **MLIP backends**: Energy, force, and Hessian calculations for the ML region. The default is UMA (fairchem-core). ORB (`pip install "mlmm-toolkit[orb]"`) and AIMNet2 (`pip install "mlmm-toolkit[aimnet2]"`) are also available. MACE requires a separate environment due to e3nn conflicts.
+- **hessian_ff**: Amber force field calculations for the MM region (requires building the C++ extension).
+- **AmberTools**: Automatic parm7/rst7 generation via the `mm-parm` subcommand (tleap, antechamber, parmchk2).
+
 Refer to the upstream projects for additional details:
 
 - fairchem / UMA: <https://github.com/facebookresearch/fairchem>, <https://huggingface.co/facebook/UMA>
@@ -96,20 +105,19 @@ Below is a minimal setup example that works on many CUDA 12.9 clusters. Adjust m
 
 ```bash
 # 1) Install a CUDA-enabled PyTorch build
-# 2) Install mlmm_toolkit from the source directory
+# 2) Install mlmm_toolkit
 # 3) Build the hessian_ff C++ native extension
 # 4) Install a headless Chrome for Plotly figure export
 
 pip install torch --index-url https://download.pytorch.org/whl/cu129
-cd /path/to/mlmm_toolkit
-pip install -e .
+pip install mlmm-toolkit
 
 # Optional: install alternative MLIP backends
-pip install -e ".[orb]"       # ORB backend
-pip install -e ".[aimnet2]"   # AIMNet2 backend
+pip install "mlmm-toolkit[orb]"       # ORB backend
+pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 backend
 # MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
 
-cd hessian_ff/native && make && cd ../..
+cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
 plotly_get_chrome -y
 ```
 
@@ -156,7 +164,17 @@ You only need to do this once per machine / environment.
  ```bash
  conda install -c conda-forge ambertools -y
  ```
+ Even without AmberTools, other subcommands work if you provide `--parm` manually.
 
+### AmberTools installation
+
+The `mm-parm` subcommand (automatic parm7/rst7 generation) requires AmberTools. The easiest way to install it is via conda:
+
+```bash
+conda install -c conda-forge ambertools -y
+```
+
+Even without AmberTools, other subcommands work if you provide `--parm` manually.
 
 ### Step-by-step installation
 
@@ -199,25 +217,24 @@ If you prefer to build the environment piece by piece:
 
  (You may use another compatible version if your cluster recommends it.)
 
-6. **Install `mlmm_toolkit` itself**
+6. **Install `mlmm_toolkit`**
 
  ```bash
- cd /path/to/mlmm_toolkit
- pip install -e .
+ pip install mlmm-toolkit
  ```
 
  To install with optional MLIP backends:
 
  ```bash
- pip install -e ".[orb]"       # ORB backend
- pip install -e ".[aimnet2]"   # AIMNet2 backend
+ pip install "mlmm-toolkit[orb]"       # ORB backend
+ pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 backend
  # MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
  ```
 
 7. **Build the `hessian_ff` C++ native extension**
 
  ```bash
- cd hessian_ff/native && make
+ cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
  ```
 
  This compiles the C++ code that provides fast Amber force field energy, force, and Hessian calculations.
@@ -226,7 +243,7 @@ If you prefer to build the environment piece by piece:
  >
  > ```bash
  > conda install -c conda-forge ninja -y
- > cd hessian_ff/native && make clean && make
+ > cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
  > ```
 
 8. **Install Chrome for visualization**
@@ -444,6 +461,7 @@ Below are the most commonly used options across workflows.
 | `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer, default) or `hess` (RFO/RS-I-RFO). |
 | `--backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction (default: off). |
+| `--mep-mode gsm\|dmf` | MEP method: Growing String Method or Direct Max Flux. |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. `Analytical` is available for the UMA backend (recommended when VRAM is available); other backends use `FiniteDifference`. |
 
 For a full matrix of options and YAML schemas, see [YAML Reference](yaml_reference.md).

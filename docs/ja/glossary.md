@@ -9,21 +9,14 @@
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
 | **ML/MM** | Machine Learning / Molecular Mechanics | 機械学習ポテンシャルと分子力学を組み合わせたマルチスケール手法。mlmm_toolkit の中核概念。 |
-| **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | 異なる計算レベルを多層的に組み合わせる手法。mlmm_toolkit は ONIOM 的な 2 体系（real/model）エネルギー分解を使用。 |
+| **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | 異なる計算レベルを多層的に組み合わせる手法。mlmm_toolkit は ONIOM 的な引き算方式を使用: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low。 |
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | 量子化学と分子力学の結合手法。ML/MM は QM 部分を機械学習ポテンシャルで置き換えた変種。 |
-| **real system** | -- | ONIOM 分解における全系。parm7 トポロジーで記述され、hessian_ff で MM エネルギーを計算。 |
-| **model system** | -- | ONIOM 分解における ML 領域（活性部位）。MLIP バックエンド（デフォルト: UMA）で ML エネルギーを計算。 |
+| **real system** | -- | ONIOM 分解における全系（3 層すべて）。parm7 トポロジーで記述され、hessian_ff で MM エネルギーを計算。 |
+| **model system** | -- | ONIOM 分解における ML 領域（Layer 1）。MLIP バックエンド（デフォルト: UMA）と MM の両方で評価。 |
 | **リンク水素** | Link Hydrogen | ML 領域と MM 領域の境界で切断された結合をキャップする水素原子。ヤコビアンで力を再分配。 |
-
----
-
-## 3層システム
-
-| 用語 | B-factor | 説明 |
-|------|----------|------|
-| **ML 領域（Layer 1）** | 0.0 | MLIP バックエンド（デフォルト: UMA）で完全計算（エネルギー・力・ヘシアン）される活性部位原子。 |
-| **Movable-MM（Layer 2）** | 10.0 | 最適化時に移動可能な MM 原子。 |
-| **Frozen（Layer 3）** | 20.0 | 座標固定の MM 原子。計算不参加。 |
+| **hessian_ff** | -- | mlmm_toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析ヘシアンをサポート。 |
+| **3 層システム** | 3-layer system | mlmm_toolkit の B-factor による層分割方式: ML（B=0.0）、Movable-MM（B=10.0）、Frozen（B=20.0）。 |
+| **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）カラムに層の所属を格納する方式: 0.0 = ML、10.0 = Movable-MM、20.0 = Frozen。Hessian 対象 MM 原子はカットオフ/明示的インデックスで制御。 |
 
 ---
 
@@ -33,13 +26,14 @@
 |------|----------|------|
 | **parm7（prmtop）** | Amber Parameter/Topology file | Amber のトポロジーファイル。原子タイプ、結合、角度、二面角、VDW パラメータ、部分電荷を含む。 |
 | **rst7（inpcrd）** | Amber Restart / Initial Coordinates | Amber の座標ファイル。原子の 3D 座標を格納。 |
-| **hessian_ff** | -- | mlmm_toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析ヘシアンをサポート。 |
-| **GAFF2** | General Amber Force Field 2 | 有機小分子向けの汎用 Amber 力場。リガンドのパラメータ化に使用。 |
-| **AM1-BCC** | AM1 Bond Charge Corrections | 半経験的 AM1 法に基づく部分電荷割り当て方法。antechamber で使用。 |
-| **AmberTools** | -- | Amber のオープンソースツール群。tleap（トポロジー構築）、antechamber（リガンドパラメータ化）、parmchk2（不足パラメータ補完）を含む。 |
+| **AmberTools** | -- | Amber のオープンソースツール群。tleap（トポロジー構築）、antechamber（リガンドパラメータ化）、parmchk2（不足パラメータ補完）を含む。`mlmm mm-parm` に必要。 |
 | **tleap** | -- | AmberTools のトポロジー構築プログラム。PDB から parm7/rst7 を生成。 |
+| **antechamber** | -- | AmberTools のプログラム。小分子に GAFF2 原子型と AM1-BCC 部分電荷を割り当てる。 |
+| **parmchk2** | -- | AmberTools のプログラム。GAFF2 型付けで不足する力場パラメータをチェック・補完する。 |
+| **GAFF2** | General Amber Force Field 2 | 有機小分子向けの汎用 Amber 力場。リガンド（基質、補因子）のパラメータ化に使用。 |
 | **ff19SB** | -- | タンパク質向け Amber 力場（2019 年版）。mlmm_toolkit のデフォルト。 |
 | **ff14SB** | -- | タンパク質向け Amber 力場（2014 年版）。`--ff-set ff14SB` で選択可能。 |
+| **AM1-BCC** | AM1 Bond Charge Corrections | 半経験的 AM1 法に基づく部分電荷割り当て方法。antechamber で使用。HF/6-31G* RESP 電荷を近似。 |
 
 ---
 
@@ -51,7 +45,7 @@
 | **TS** | Transition State | 反応座標に沿ったエネルギー極大に対応する一次の鞍点。 |
 | **IRC** | Intrinsic Reaction Coordinate | TS から反応物側・生成物側へ向かう、質量重み付き最急降下経路。TS の接続検証によく使われます。 |
 | **GSM** | Growing String Method | 端点からストリング（画像列）を伸長・最適化して MEP を近似する手法。 |
-| **DMF** | Direct Max Flux | 反応座標方向のフラックスを最大化することで MEP を最適化する chain-of-states 手法。 |
+| **DMF** | Direct Max Flux | 反応座標方向のフラックスを最大化することで MEP を最適化する chain-of-states 手法。`--mep-mode dmf` で選択。 |
 | **NEB** | Nudged Elastic Band | 画像間にばね力を導入し、画像間隔を保ちながら経路を最適化する chain-of-states 手法。 |
 | **HEI** | Highest-Energy Image | MEP 上でエネルギーが最大の画像。TS の初期推定としてよく使われます。 |
 | **画像（Image）** | -- | 経路上の 1 つの構造（1 ノード）。 |
@@ -77,12 +71,12 @@
 |------|----------|------|
 | **MLIP** | Machine Learning Interatomic Potential | 量子化学データから学習し、構造からエネルギー・力を予測する原子間ポテンシャル。 |
 | **UMA** | Universal Machine-learning potential for Atoms | Meta が公開している事前学習 MLIP 群。mlmm_toolkit のデフォルト MLIP バックエンド。`--backend uma` で選択（デフォルト）。 |
-| **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。`pip install mlmm[orb]` で追加インストール。 |
+| **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。`pip install "mlmm-toolkit[orb]"` で追加インストール。 |
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。e3nn 競合のため別環境が必要（README 参照）。 |
-| **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install mlmm[aimnet2]` で追加インストール。 |
+| **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install "mlmm-toolkit[aimnet2]"` で追加インストール。 |
 | **xTB** | Extended Tight-Binding | 半経験的量子化学手法。mlmm_toolkit では `--embedcharge` 有効時に点電荷埋め込み補正に使用。 |
-| **解析ヘシアン** | Analytical Hessian | エネルギーの正確な二階微分を計算。高速だが VRAM を多く消費。 |
-| **有限差分** | Finite Difference | 微小変位による微分近似。低速だがメモリ効率が良い。 |
+| **解析ヘシアン** | Analytical Hessian | エネルギーの正確な二階微分を計算。高速だが VRAM を多く消費。現在 UMA バックエンドでのみ利用可能。 |
+| **有限差分** | Finite Difference | 微小変位による微分近似。低速だがメモリ効率が良い。ORB、MACE、AIMNet2 バックエンドで使用。 |
 
 ---
 
@@ -109,7 +103,7 @@
 | **クラスターモデル** | Cluster Model | ポケットの別名。酵素-基質複合体から計算可能なサイズに切り出した部分系。 |
 | **リンク水素** | Link Hydrogen | ポケット抽出時に切断された結合をキャップするために付加する水素原子。 |
 | **主鎖** | Backbone | タンパク質の主骨格（N-Ca-C-O 原子）。`--exclude-backbone` で除外可能。 |
-| **B-factor** | Temperature Factor | PDB の温度因子カラム。mlmm_toolkit では 3 層の層割り当てをエンコードするために使用。 |
+| **B-factor** | Temperature Factor | PDB の温度因子カラム。mlmm_toolkit では 3 層の層割り当てをエンコードするために使用（0.0, 10.0, 20.0）。 |
 
 ---
 
@@ -128,12 +122,12 @@
 
 | 用語 | 説明 |
 |------|------|
-| **Hartree** | 原子単位系のエネルギー。1 Hartree = 627.5 kcal/mol = 27.21 eV。 |
+| **Hartree** | 原子単位系のエネルギー。1 Hartree ≈ 627.5 kcal/mol ≈ 27.21 eV。 |
 | **kcal/mol** | 反応エネルギー表現でよく使われる単位。 |
-| **kJ/mol** | キロジュール/モル。1 kcal/mol = 4.184 kJ/mol。 |
-| **eV** | 電子ボルト。1 eV = 23.06 kcal/mol。 |
-| **Bohr** | 原子単位系の長さ。1 Bohr = 0.529 Å。 |
-| **Å（オングストローム）** | 10^-10 m。原子間距離の表現でよく使われる長さ単位。 |
+| **kJ/mol** | キロジュール/モル。1 kcal/mol ≈ 4.184 kJ/mol。 |
+| **eV** | 電子ボルト。1 eV ≈ 23.06 kcal/mol。 |
+| **Bohr** | 原子単位系の長さ。1 Bohr ≈ 0.529 Angstrom。 |
+| **Angstrom** | 10^-10 m。原子間距離の表現でよく使われる長さ単位。 |
 
 ---
 

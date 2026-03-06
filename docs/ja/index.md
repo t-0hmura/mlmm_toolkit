@@ -162,6 +162,8 @@ glossary
 | **ML/MM 計算機アーキテクチャ** | [ML/MM 計算機](mlmm_calc.md) |
 | **用語集** | [用語集](glossary.md) |
 
+EN版には自動生成の [CLI コマンドリファレンス](../reference/commands/index.md) と [YAML スキーマ（自動生成）](../reference/yaml.md) も掲載されています。
+
 ---
 
 ## システム要件

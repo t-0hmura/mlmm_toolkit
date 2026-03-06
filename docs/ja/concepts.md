@@ -10,7 +10,7 @@ ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート
 一般的なワークフローは以下の通りです。
 
 ```text
-全系入力 (PDB)
+全系入力 (PDB/XYZ/GJF)
  │
  ├─ (任意) ポケット抽出 [extract] ← --center/-c を使う場合は PDB が必要
  │ ↓
@@ -55,6 +55,12 @@ ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート
 
 B-factor 値は PDB ファイルの温度因子カラム（列 61-66）にエンコードされます。`define-layer` サブコマンドで自動設定できます。Hessian 対象 MM 原子は `hess_cutoff` や `hess_mm_atoms` で別途制御します。
 
+```{tip}
+B-factor エンコーディングにより、B-factor カラーリングに対応した分子ビューアで層割り当てを視覚的に確認できます。
+```
+
+---
+
 ## ONIOM 的エネルギー分解
 
 全系の ML/MM エネルギーは次のように計算されます:
@@ -70,6 +76,10 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 
 力とヘシアンも同様の ONIOM 分解で結合されます。リンク水素の寄与はヤコビアンを用いて ML 原子と MM 原子に再分配されます。
 
+MLIP バックエンドは `--backend`（デフォルト: `uma`）で選択します。代替バックエンド（`orb`、`mace`、`aimnet2`）はオプション依存としてインストールします（例: `pip install "mlmm-toolkit[orb]"`）。
+
+`--embedcharge` を有効にすると、MM 環境が ML 領域に及ぼす静電影響を考慮するための xTB ポイントチャージ埋め込み補正が適用されます。
+
 ### 従来の QM/MM との比較
 
 | 側面 | 従来の QM/MM | mlmm_toolkit ML/MM |
@@ -80,6 +90,8 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 | 静電埋め込み | 一般的 | デフォルトでは不使用（ONIOM 減算による機械的埋め込み）。`--embedcharge` で xTB ポイントチャージ埋め込みを有効化可能 |
 | 速度 | 低速（QM がボトルネック） | 高速（GPU 上の ML 推論） |
 
+---
+
 ## hessian_ff: MM エンジン
 
 `hessian_ff` は Amber 力場パラメータ（parm7）をベースとした C++ ネイティブ拡張の力場計算エンジンです。主な特徴:
@@ -88,12 +100,23 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 - **CPU 実行**: GPU メモリを MLIP 推論に専有させるため、MM 計算は CPU で実行
 - **Amber 互換**: ff19SB/ff14SB、GAFF2 などの Amber 力場に対応
 
+OpenMM とは異なり、`hessian_ff` は ONIOM 結合と振動解析に必要な **MM ヘシアン** を提供するために特化しています。
+
+---
+
 ## Amber parm7/rst7 トポロジー
 
 - **parm7（prmtop）**: Amber のトポロジーファイル。原子タイプ、結合、角度、二面角、VDW パラメータ、部分電荷などを含む
 - **rst7（inpcrd）**: Amber の座標/速度ファイル。原子座標を含む
 
-`mm-parm` サブコマンドが PDB から parm7/rst7 を自動生成します。非標準リガンドには GAFF2 + AM1-BCC で自動パラメータ化します。
+`mm-parm` サブコマンドが **AmberTools**（tleap、antechamber、parmchk2）を使用して PDB から parm7/rst7 を自動生成します。具体的には:
+
+- 非標準残基（基質、補因子）の自動識別
+- **GAFF2**（General Amber Force Field 2）によるパラメータ化
+- AM1-BCC 部分電荷の割り当て
+- タンパク質残基には ff19SB で完全なトポロジーを構築
+
+---
 
 ## 主要オブジェクトと用語
 
@@ -106,6 +129,11 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 - `-c/--center`: 基質の指定（残基ID、残基名、または基質のみのPDB）
 - `-r/--radius`, `--radius-het2het`, `--include-H2O`, `--exclude-backbone`, `--add-linkH`, `--selected-resn`
 
+### Real system と Model system（ONIOM 用語）
+
+- **Real system（実系）**: すべての原子（3 層すべて）。MM（低レベル）で評価されます。
+- **Model system（モデル系）**: ML 領域（Layer 1 のみ）。MLIP（高レベル）と MM（低レベル）の両方で評価されます。
+
 ### 画像（image）とセグメント
 
 - **画像（image）**: 経路上の 1 つの構造（1 ノード）。
@@ -113,8 +141,11 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 
 ### テンプレートとファイル変換（`--convert-files`）
 
-`mlmm` は軌跡（例: `mep_trj.xyz`, `irc_trj.xyz`）を出力します。
-PDB テンプレートがある場合、必要に応じて コンパニオンファイルも出力できます。
+`mlmm` は軌跡（例: `mep_trj.xyz`, `irc_trj.xyz`）を出力します。トポロジー対応の入力（PDB テンプレートまたは Gaussian 入力）がある場合、コンパニオンファイルも出力できます:
+- PDB テンプレートがあれば `.pdb` コンパニオン
+- Gaussian テンプレートがあれば `.gjf` コンパニオン
+
+この動作は `--convert-files {True|False}`（デフォルト: `True`）でグローバルに制御します。
 
 ---
 
@@ -193,7 +224,9 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 | `define-layer` | 3 層 ML/MM 領域定義 | [define_layer.md](define_layer.md) |
 | `path-search` | 再帰的 MEP 探索 | [path_search.md](path_search.md) |
 | `tsopt` | TS 最適化 | [tsopt.md](tsopt.md) |
-| `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16|orca`） | [oniom_export.md](oniom_export.md) |
+| `freq` | 振動解析 | [freq.md](freq.md) |
+| `dft` | DFT 一点計算 | [dft.md](dft.md) |
+| `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16\|orca`） | [oniom_export.md](oniom_export.md) |
 
 ### リファレンス
 - [YAML リファレンス](yaml_reference.md) -- 全オプションの YAML 設定

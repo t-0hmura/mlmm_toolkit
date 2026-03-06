@@ -122,7 +122,7 @@ calc:
 ```
 
 **Notes:**
-- `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install mlmm[orb]`, etc.)
+- `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install "mlmm-toolkit[orb]"`, etc.)
 - Backend-specific model keys are only relevant when the corresponding backend is selected:
   - `uma_model`, `uma_task_name` — UMA backend only
   - `orb_model`, `orb_precision` — ORB backend only

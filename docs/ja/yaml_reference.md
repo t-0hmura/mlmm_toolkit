@@ -99,7 +99,7 @@ calc:
 ```
 
 **注記:**
-- `backend`: ML バックエンドを選択します。`uma`（デフォルト）、`orb`、`mace`、`aimnet2` から選択可能です。UMA 以外のバックエンドを使用するには、対応するオプション依存パッケージのインストールが必要です（例: `pip install mlmm[orb]`）。
+- `backend`: ML バックエンドを選択します。`uma`（デフォルト）、`orb`、`mace`、`aimnet2` から選択可能です。UMA 以外のバックエンドを使用するには、対応するオプション依存パッケージのインストールが必要です（例: `pip install "mlmm-toolkit[orb]"`）。
 - バックエンド固有のモデルキーは、対応するバックエンドが選択されている場合にのみ有効です:
   - `uma_model`、`uma_task_name` — UMA バックエンドのみ
   - `orb_model`、`orb_precision` — ORB バックエンドのみ

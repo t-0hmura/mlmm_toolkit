@@ -54,6 +54,8 @@ A central concept in mlmm_toolkit is the **3-layer ML/MM partitioning** of the s
 | **Movable-MM** (Layer 2) | 10.0 | MM atoms allowed to move during optimization. |
 | **Frozen** (Layer 3) | 20.0 | Coordinates are fixed; no optimization. |
 
+B-factor values are encoded in PDB columns 61-66 (the temperature factor column).
+
 The `define-layer` subcommand assigns these B-factors based on distance from the ML region:
 
 - Atoms/residues within `--radius-freeze` (default 8.0 Å) are assigned to Movable-MM.
@@ -86,9 +88,9 @@ This means:
 2. The **ML region** is evaluated at both the MLIP level and the MM level.
 3. The MM contribution of the ML region is subtracted to avoid double-counting.
 
-The same decomposition applies to forces and (where applicable) Hessians.
+The same decomposition applies to forces and (where applicable) Hessians. Link-hydrogen contributions are redistributed to the ML and MM host atoms via a Jacobian.
 
-The MLIP backend is selected via `--backend` (default: `uma`). Alternative backends (`orb`, `mace`, `aimnet2`) are installed as optional dependencies (e.g., `pip install mlmm[orb]`).
+The MLIP backend is selected via `--backend` (default: `uma`). Alternative backends (`orb`, `mace`, `aimnet2`) are installed as optional dependencies (e.g., `pip install "mlmm-toolkit[orb]"`).
 
 When `--embedcharge` is enabled, an xTB point-charge embedding correction is applied to account for the electrostatic influence of the MM environment on the ML region.
 
@@ -112,6 +114,7 @@ When `--embedcharge` is enabled, an xTB point-charge embedding correction is app
 - Van der Waals (Lennard-Jones) interactions
 - Electrostatic interactions
 - Analytical second derivatives (Hessian)
+- CPU execution (GPU memory is reserved for MLIP inference)
 
 Unlike OpenMM, `hessian_ff` is designed specifically for providing the **MM Hessian** needed by the ONIOM-like coupling and vibrational analysis.
 
@@ -202,6 +205,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 - You want to **debug** a specific stage (e.g., only `extract`, only `mm-parm`, only `path-search`).
 - You want to mix-and-match a custom workflow (e.g., your own endpoint preparation).
 - You already have parm7/rst7 and layer-assigned PDB files from a previous run.
+- You want to generate Gaussian/ORCA ONIOM input files via `oniom-export --mode g16|orca`.
 
 ---
 
@@ -234,6 +238,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 | `tsopt` | TS optimization | [tsopt.md](tsopt.md) |
 | `freq` | Vibrational analysis | [freq.md](freq.md) |
 | `dft` | Single-point DFT | [dft.md](dft.md) |
+| `oniom-export` | Gaussian ONIOM / ORCA QM/MM input generation (`--mode g16\|orca`) | [oniom_export.md](oniom_export.md) |
 
 ### Reference
 - [YAML Reference](yaml_reference.md) -- complete YAML configuration options

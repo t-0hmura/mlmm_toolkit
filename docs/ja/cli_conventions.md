@@ -34,8 +34,8 @@
 `mlmm all` は 2 段階ヘルプです:
 
 ```bash
-mlmm all --help # 主要オプションのみ
-mlmm all --help-advanced # 全オプション
+mlmm all --help           # 主要オプションのみ
+mlmm all --help-advanced  # 全オプション
 ```
 
 `scan` / `scan2d` / `scan3d` と計算系サブコマンド（`opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft`）に加え、ユーティリティ系（`mm-parm` / `define-layer` / `add-elem-info` / `trj2fig` / `energy-diagram` / `oniom-export`）も同様に `--help` は主要オプションのみ、`--help-advanced` で全オプションを表示します。`extract` と `fix-altloc` も段階的 help に対応し、`--help-advanced` で parser の全オプションを表示します。
@@ -52,27 +52,89 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 
 ---
 
+## ML/MM 必須オプション
+
+ML/MM 計算を行う大半のサブコマンド（`all`、`extract`、`mm-parm`、`define-layer` を除く）では、以下の 2 つのオプションが必要です:
+
+```bash
+--parm real.parm7      # 全系（real system）の Amber parm7 トポロジーファイル
+--model-pdb model.pdb  # ML 領域（model system）を定義する PDB ファイル
+```
+
+`all` ワークフローでは、`mm-parm` と `define-layer` により自動生成されます。個別サブコマンドを使う場合は、手動で指定してください。
+
+```bash
+# 個別サブコマンドの例
+mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
+```
+
+---
+
+## B-factor 層エンコーディング
+
+`mlmm_toolkit` は PDB の B-factor カラム（列 61-66）を使用して、3 層 ML/MM 分割をエンコードします:
+
+| 層 | B-factor | 説明 |
+|-----|----------|------|
+| ML | 0.0 | MLIP によるエネルギー・力・ヘシアン計算（デフォルトバックエンド: UMA） |
+| Movable-MM | 10.0 | 最適化時に移動可能な MM 原子 |
+| Frozen | 20.0 | 座標固定 |
+
+`define-layer` サブコマンドがこれらの B-factor を PDB に書き込みます。B-factor カラーリングに対応した分子ビューアで層割り当てを確認できます。
+
+B-factor の読み取り時には許容差 1.0 が使用され、0/10/20 に近い値はそれぞれ ML/Movable/Frozen にマッピングされます。
+
+### 層の定義方法
+
+1. **`define-layer` サブコマンド**（推奨）:
+   ```bash
+   mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
+   ```
+
+2. **距離カットオフ**（YAML/CLI）:
+   ```yaml
+   calc:
+     hess_cutoff: 3.6       # Hessian 対象 MM の距離カットオフ
+     movable_cutoff: 8.0    # Movable-MM の距離カットオフ（それ以外は Frozen）
+   ```
+
+3. **B-factor からの読み取り**:
+   ```yaml
+   calc:
+     use_bfactor_layers: true   # 入力 PDB の B-factor から層を読み取り
+   ```
+
+4. **明示的インデックス指定**（YAML）:
+   ```yaml
+   calc:
+     hess_mm_atoms: [100, 101, 102, ...]
+     movable_mm_atoms: [200, 201, 202, ...]
+     frozen_mm_atoms: [300, 301, 302, ...]
+   ```
+
+---
+
 ## 残基セレクタ
 
 残基セレクタは、基質や抽出中心として使用する残基を指定します。
 
 ### 残基名による指定
 ```bash
--c 'SAM,GPP' # SAM または GPP という名前の残基をすべて選択
--c 'LIG' # LIG という名前の残基をすべて選択
+-c 'SAM,GPP'   # SAM または GPP という名前の残基をすべて選択
+-c 'LIG'       # LIG という名前の残基をすべて選択
 ```
 
 ### 残基IDによる指定
 ```bash
--c '123,456' # 残基 123 と 456
--c 'A:123,B:456' # チェーン A の残基 123、チェーン B の残基 456
--c '123A' # 挿入コード A を持つ残基 123
--c 'A:123A' # チェーン A、残基 123、挿入コード A
+-c '123,456'       # 残基 123 と 456
+-c 'A:123,B:456'   # チェーン A の残基 123、チェーン B の残基 456
+-c '123A'          # 挿入コード A を持つ残基 123
+-c 'A:123A'        # チェーン A、残基 123、挿入コード A
 ```
 
 ### PDB ファイルによる指定
 ```bash
--c substrate.pdb # 別の PDB から座標を使用して基質を特定
+-c substrate.pdb   # 別の PDB から座標を使用して基質を特定
 ```
 
 ```{note}
@@ -83,24 +145,26 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 
 ## 電荷の指定
 
+PDB 入力の場合、`--ligand-charge` で非標準残基（基質、補因子、金属イオン）の電荷のみを指定します。総系電荷は、標準アミノ酸の電荷、イオン電荷、指定したリガンド電荷を合計して**自動算出**されるため、複合体全体の原子を手動で数える必要がありません。これは、総電荷が一目でわからない大規模な酵素-基質系で特に有用です。
+
 ### 残基別マッピング（推奨）
 
 `--ligand-charge` はコロン（`:`）またはイコール（`=`）の両方をサポートします:
 
 ```bash
---ligand-charge 'SAM:1,GPP:-3' # SAM は +1、GPP は -3
---ligand-charge 'SAM=1,GPP=-3' # 同じ意味（= 区切り）
---ligand-charge 'LIG:-2' # LIG は -2
+--ligand-charge 'SAM:1,GPP:-3'   # SAM は +1、GPP は -3
+--ligand-charge 'SAM=1,GPP=-3'   # 同じ意味（= 区切り）
+--ligand-charge 'LIG:-2'         # LIG は -2
 ```
 
 ### 総電荷の明示的上書き
 ```bash
--q 0 # ML 領域の総電荷を 0 に強制
--q -1 # ML 領域の総電荷を -1 に強制
+-q 0    # 総系電荷を 0 に強制
+-q -1   # 総系電荷を -1 に強制
 ```
 
 ### 電荷の解決順序
-1. `-q/--charge`（明示的な CLI 上書き）— 最優先。
+1. `-q/--charge`（明示的な CLI 上書き）-- 最優先。
 2. ポケット抽出の電荷サマリー（アミノ酸、イオン、`--ligand-charge` の合計）。
 3. 抽出をスキップした場合の `--ligand-charge` フォールバック。
 4. デフォルト: なし（未解決なら中断）。
@@ -113,74 +177,38 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 
 ---
 
+## リガンド電荷フォーマット
+
+`--ligand-charge` オプションは 2 つのフォーマットをサポートします:
+
+### マッピング形式（推奨）
+```bash
+--ligand-charge 'SAM:1,GPP:-3'   # 残基名ごとのマッピング
+--ligand-charge 'SAM=1,GPP=-3'   # 同じ意味（= 区切り）
+--ligand-charge 'LIG:-2'         # 単一残基のマッピング
+```
+
+コロン（`:`）とイコール（`=`）の両方をセパレータとして使用できます。
+
+### 整数形式
+```bash
+--ligand-charge -3   # 全未知残基の合計電荷
+```
+
+マッピング形式では、残基名の大文字小文字は区別しません。マッピングされていない非標準残基はデフォルトで電荷 0 となります。
+
+---
+
 ## スピン多重度
 
 ```bash
--m 1 # 一重項（デフォルト）
--m 2 # 二重項
--m 3 # 三重項
+-m 1   # 一重項（デフォルト）
+-m 2   # 二重項
+-m 3   # 三重項
 ```
 
 ```{note}
 `all` と計算系サブコマンドでは `-m/--multiplicity` を使います。`mm-parm` の `--ligand-mult` は残基メタデータ用の別オプションです。
-```
-
----
-
-## B-factor 層エンコーディング
-
-`mlmm_toolkit` は PDB の B-factor カラム（列 61-66）を使用して、原子の層割り当てをエンコードします:
-
-| B-factor | 層 | 説明 |
-|----------|-----|------|
-| **0.0** | Layer 1: ML | UMA による完全計算（エネルギー・力・ヘシアン） |
-| **10.0** | Layer 2: Movable-MM | 最適化時に移動可能な MM 原子 |
-| **20.0** | Layer 3: Frozen | 座標固定 |
-
-### 層の定義方法
-
-1. **`define-layer` サブコマンド**（推奨）:
- ```bash
- mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
- ```
-
-2. **距離カットオフ**（YAML/CLI）:
- ```yaml
- calc:
- hess_cutoff: 3.6 # Hessian 対象 MM の距離カットオフ
- movable_cutoff: 8.0 # Movable-MM の距離カットオフ（それ以外は Frozen）
- ```
-
-3. **B-factor からの読み取り**:
- ```yaml
- calc:
- use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り
- ```
-
-4. **明示的インデックス指定**（YAML）:
- ```yaml
- calc:
- hess_mm_atoms: [100, 101, 102, ...]
- movable_mm_atoms: [200, 201, 202, ...]
- frozen_mm_atoms: [300, 301, 302, ...]
- ```
-
----
-
-## --parm と --model-pdb
-
-ML/MM 計算を行う大半のサブコマンド（`opt`, `tsopt`, `path-opt`, `path-search`, `scan`, `freq`, `irc` など）では、以下の 2 つのオプションが必要です:
-
-| オプション | 説明 |
-|----------|------|
-| `--parm` | 全系（real system）の Amber parm7 トポロジーファイル |
-| `--model-pdb` | ML 領域（model system）を定義する PDB ファイル |
-
-`all` ワークフローでは、`extract` と `mm-parm` により自動生成されます。個別サブコマンドを使う場合は、手動で指定してください。
-
-```bash
-# 個別サブコマンドの例
-mlmm opt -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 ```
 
 ---
@@ -191,7 +219,7 @@ mlmm opt -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 
 ### 整数インデックス（デフォルトは1始まり）
 ```bash
---scan-lists '[(1, 5, 2.0)]' # 原子 1 と 5、ターゲット距離 2.0 Å
+--scan-lists '[(1, 5, 2.0)]'   # 原子 1 と 5、ターゲット距離 2.0 Å
 ```
 
 ### PDB形式のセレクタ文字列
@@ -206,6 +234,8 @@ mlmm opt -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 - バッククォート: `` 'TYR`285`CA' ``
 - バックスラッシュ: `'TYR\285\CA'`
 
+3 つのトークン（残基名、残基番号、原子名）は任意の順序で指定できます。パーサーは非標準の順序でもフォールバックヒューリスティックで解釈します。
+
 ---
 
 ## 入力ファイル要件
@@ -215,9 +245,32 @@ mlmm opt -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 - 列 77-78 に**元素記号**が必要（欠けている場合は `mlmm add-elem-info` を使用）
 - 複数の PDB は**同じ原子を同じ順序**で持つ必要があります（座標のみ異なる）
 
+### XYZ および GJF ファイル
+- ポケット抽出をスキップする場合（`-c/--center` を省略）に使用可能
+- `.gjf` ファイルは埋め込みメタデータから電荷/スピンのデフォルト値を提供可能
+
 ### Amber トポロジー
-- **parm7**: 全系の力場トポロジー（`mm-parm` で自動生成可能）
-- **rst7**: 対応する座標ファイル
+- `--parm`: 全系の力場トポロジー（`mm-parm` で自動生成可能）
+- parm7 は入力 PDB の原子順序と正確に一致する必要があります
+
+---
+
+## バックエンド選択
+
+すべての計算系サブコマンド（`opt`、`tsopt`、`freq`、`irc`、`dft`、`scan`、`scan2d`、`scan3d`、`path-opt`、`path-search`、`all`）で以下を指定できます:
+
+| オプション | 説明 | デフォルト |
+|----------|------|----------|
+| `--backend` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2` | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB ポイントチャージ埋め込み補正の有効化 | `--no-embedcharge` |
+
+代替バックエンドはオプション依存グループでインストールします:
+
+```bash
+pip install "mlmm-toolkit[orb]"       # ORB バックエンド
+pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 バックエンド
+# MACE: pip uninstall fairchem-core && pip install mace-torch (別環境が必要)
+```
 
 ---
 
@@ -237,11 +290,14 @@ mlmm opt -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 `--out-dir` で結果の保存先を指定します:
 
 ```bash
---out-dir ./my_results/ # カスタム出力ディレクトリ
+--out-dir ./my_results/   # カスタム出力ディレクトリ
 ```
 
 デフォルトの出力ディレクトリ:
 - `all`: `./result_all/`
+- `extract`: カレントディレクトリまたは `-o` で指定
+- `mm-parm`: カレントディレクトリまたは `--out-prefix` で指定
+- `define-layer`: カレントディレクトリまたは `-o` で指定
 - `opt`: `./result_opt/`
 - `tsopt`: `./result_tsopt/`
 - `path-opt`: `./result_path_opt/`

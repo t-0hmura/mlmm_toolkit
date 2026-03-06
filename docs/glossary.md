@@ -10,11 +10,13 @@ This page provides definitions for abbreviations and technical terms used throug
 |------|-----------|-------------|
 | **ML/MM** | Machine Learning / Molecular Mechanics | A multi-scale method that couples a machine-learning interatomic potential (for the reactive region) with a classical force field (for the surrounding environment). Analogous to QM/MM but with ML replacing QM. |
 | **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | A multi-layer energy decomposition scheme. mlmm_toolkit uses an ONIOM-like subtraction: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low. |
-| **Real system** | — | The full set of atoms (all 3 layers). Evaluated at the MM (low) level in the ONIOM decomposition. |
-| **Model system** | — | The ML region (Layer 1). Evaluated at both the MLIP (high) and MM (low) levels in the ONIOM decomposition. |
-| **hessian_ff** | — | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm_toolkit. |
-| **3-layer system** | — | mlmm_toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen (B=20.0). |
-| **B-factor encoding** | — | Convention of storing layer membership in the PDB B-factor (temperature factor) column: 0.0 = ML, 10.0 = Movable-MM, 20.0 = Frozen. Hessian-target MM is controlled by cutoffs/explicit indices. |
+| **QM/MM** | Quantum Mechanics / Molecular Mechanics | A multi-scale method coupling QM for the reactive region with MM for the environment. ML/MM replaces the QM layer with an MLIP backend. |
+| **Real system** | -- | The full set of atoms (all 3 layers). Evaluated at the MM (low) level in the ONIOM decomposition. Described by the parm7 topology; MM energy computed by hessian_ff. |
+| **Model system** | -- | The ML region (Layer 1). Evaluated at both the MLIP (high) and MM (low) levels in the ONIOM decomposition. |
+| **Link Hydrogen** | -- | A hydrogen atom added to cap severed bonds at the ML/MM boundary during pocket extraction. Forces are redistributed via a Jacobian. |
+| **hessian_ff** | -- | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm_toolkit. |
+| **3-layer system** | -- | mlmm_toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen (B=20.0). |
+| **B-factor encoding** | -- | Convention of storing layer membership in the PDB B-factor (temperature factor) column: 0.0 = ML, 10.0 = Movable-MM, 20.0 = Frozen. Hessian-target MM is controlled by cutoffs/explicit indices. |
 
 ---
 
@@ -24,13 +26,14 @@ This page provides definitions for abbreviations and technical terms used throug
 |------|-----------|-------------|
 | **parm7** | Amber Parameter/Topology File | A file containing atom types, partial charges, bonding connectivity, and force field parameters for an Amber system. Also called .prmtop. |
 | **rst7** | Amber Restart File | A file containing atomic coordinates (and optionally velocities and box dimensions) for an Amber system. Also called .inpcrd. |
-| **AmberTools** | — | A free suite of tools for molecular dynamics preparation, including tleap, antechamber, and parmchk2. Required by `mlmm mm-parm`. |
-| **tleap** | — | An AmberTools program that builds Amber topology/coordinate files from PDB structures and force field libraries. |
-| **antechamber** | — | An AmberTools program that assigns GAFF2 atom types and AM1-BCC partial charges to small molecules. |
-| **parmchk2** | — | An AmberTools program that checks and supplies missing force field parameters for GAFF2 typing. |
+| **AmberTools** | -- | A free suite of tools for molecular dynamics preparation, including tleap, antechamber, and parmchk2. Required by `mlmm mm-parm`. |
+| **tleap** | -- | An AmberTools program that builds Amber topology/coordinate files from PDB structures and force field libraries. |
+| **antechamber** | -- | An AmberTools program that assigns GAFF2 atom types and AM1-BCC partial charges to small molecules. |
+| **parmchk2** | -- | An AmberTools program that checks and supplies missing force field parameters for GAFF2 typing. |
 | **GAFF2** | General Amber Force Field 2 | A general-purpose force field for small organic molecules, used to parameterize non-standard residues (substrates, cofactors). |
-| **ff19SB** | — | An Amber protein force field used for standard amino acid residues. |
-| **AM1-BCC** | — | A charge model that combines AM1 (semi-empirical) Mulliken charges with bond charge corrections (BCC) to approximate HF/6-31G* RESP charges. |
+| **ff19SB** | -- | An Amber protein force field used for standard amino acid residues. The default in mlmm_toolkit. |
+| **ff14SB** | -- | An Amber protein force field (2014 version). Selectable with `--ff-set ff14SB`. |
+| **AM1-BCC** | -- | A charge model that combines AM1 (semi-empirical) Mulliken charges with bond charge corrections (BCC) to approximate HF/6-31G* RESP charges. |
 
 ---
 
@@ -45,8 +48,8 @@ This page provides definitions for abbreviations and technical terms used throug
 | **DMF** | Direct Max Flux | A chain-of-states method for optimizing an MEP by maximizing flux along the pathway. In mlmm it is selected with `--mep-mode dmf`. |
 | **NEB** | Nudged Elastic Band | A chain-of-states method that uses spring forces to maintain image spacing along a reaction path. |
 | **HEI** | Highest-Energy Image | The image along an MEP with maximum energy; often used as a TS guess. |
-| **Image** | — | A single geometry (one "node") along a chain-of-states path. |
-| **Segment** | — | An MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2,...). |
+| **Image** | -- | A single geometry (one "node") along a chain-of-states path. |
+| **Segment** | -- | An MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2,...). |
 
 ---
 
@@ -68,12 +71,12 @@ This page provides definitions for abbreviations and technical terms used throug
 |------|-----------|-------------|
 | **MLIP** | Machine Learning Interatomic Potential | A model (often neural-network-based) that predicts energies and forces from atomic structures, trained on quantum-mechanical data. |
 | **UMA** | Universal Machine-learning potential for Atoms | Meta's family of pretrained MLIPs. The default ML backend in mlmm_toolkit (`--backend uma`). One of several supported backends. |
-| **ORB** | ORB Models | A family of pretrained MLIPs from Orbital Materials. Supported as an alternative ML backend (`--backend orb`). |
-| **MACE** | MACE | A message-passing equivariant neural network MLIP. Supported as an alternative ML backend (`--backend mace`). |
-| **AIMNet2** | AIMNet2 | A neural network potential for organic molecules. Supported as an alternative ML backend (`--backend aimnet2`). |
+| **ORB** | ORB Models | A family of pretrained MLIPs from Orbital Materials. Supported as an alternative ML backend (`--backend orb`). Install with `pip install "mlmm-toolkit[orb]"`. |
+| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | A message-passing equivariant neural network MLIP. Supported as an alternative ML backend (`--backend mace`). Requires a separate environment due to e3nn conflicts (see README). |
+| **AIMNet2** | Atoms In Molecules Network 2 | A neural network potential for organic molecules. Supported as an alternative ML backend (`--backend aimnet2`). Install with `pip install "mlmm-toolkit[aimnet2]"`. |
 | **xTB** | Extended Tight-Binding | A semi-empirical quantum chemistry method. Used for point-charge embedding correction when `--embedcharge` is enabled. |
-| **Analytical Hessian** | — | Computing the exact second derivatives of energy; faster but requires more VRAM. Currently available for the UMA backend only. |
-| **Finite Difference** | — | Approximating derivatives by small displacements; slower but more memory-efficient. Used by ORB, MACE, and AIMNet2 backends. |
+| **Analytical Hessian** | -- | Computing the exact second derivatives of energy; faster but requires more VRAM. Currently available for the UMA backend only. |
+| **Finite Difference** | -- | Approximating derivatives by small displacements; slower but more memory-efficient. Used by ORB, MACE, and AIMNet2 backends. |
 
 ---
 
@@ -82,11 +85,10 @@ This page provides definitions for abbreviations and technical terms used throug
 | Term | Full Name | Description |
 |------|-----------|-------------|
 | **QM** | Quantum Mechanics | First-principles electronic structure calculations (DFT, HF, post-HF, etc.). |
-| **QM/MM** | Quantum Mechanics / Molecular Mechanics | A multi-scale method coupling QM for the reactive region with MM for the environment. mlmm_toolkit replaces the QM layer with an MLIP backend. |
 | **DFT** | Density Functional Theory | A quantum-mechanical method that models electronic structure via electron density functionals. |
-| **Hessian** | — | The matrix of second derivatives of energy with respect to atomic coordinates; used for vibrational analysis and TS optimization. |
+| **Hessian** | -- | The matrix of second derivatives of energy with respect to atomic coordinates; used for vibrational analysis and TS optimization. |
 | **SP** | Single Point | A calculation at a fixed geometry (no optimization); often used for higher-level energy refinement. |
-| **Spin Multiplicity** | — | 2S+1, where S is total spin. Singlet = 1, doublet = 2, triplet = 3, etc. |
+| **Spin Multiplicity** | -- | 2S+1, where S is total spin. Singlet = 1, doublet = 2, triplet = 3, etc. |
 
 ---
 
@@ -95,12 +97,13 @@ This page provides definitions for abbreviations and technical terms used throug
 | Term | Full Name | Description |
 |------|-----------|-------------|
 | **PDB** | Protein Data Bank | A file format and database for macromolecular 3D structures. |
-| **XYZ** | — | A simple text format listing atomic symbols and Cartesian coordinates. |
+| **XYZ** | -- | A simple text format listing atomic symbols and Cartesian coordinates. |
 | **GJF** | Gaussian Job File | An input format for Gaussian; mlmm reads charge/multiplicity and coordinates from these files. |
 | **Pocket** | Active-site Pocket | A truncated structure around the substrate(s) used to reduce system size for MEP/TS search. Also called "cluster model". |
-| **Cluster Model** | — | Synonym for pocket; a computationally tractable subset of the full enzyme-substrate complex. |
-| **Link Hydrogen** | — | A hydrogen atom added to cap severed bonds when extracting a pocket from a larger structure. |
-| **Backbone** | — | The main chain of a protein (N-C_alpha-C-O atoms). Can be excluded during pocket extraction with `--exclude-backbone`. |
+| **Cluster Model** | -- | Synonym for pocket; a computationally tractable subset of the full enzyme-substrate complex. |
+| **Link Hydrogen** | -- | A hydrogen atom added to cap severed bonds when extracting a pocket from a larger structure. |
+| **Backbone** | -- | The main chain of a protein (N-C_alpha-C-O atoms). Can be excluded during pocket extraction with `--exclude-backbone`. |
+| **B-factor** | Temperature Factor | The PDB temperature factor column. In mlmm_toolkit, used to encode 3-layer membership (0.0, 10.0, 20.0). |
 
 ---
 
@@ -123,8 +126,8 @@ This page provides definitions for abbreviations and technical terms used throug
 | **kcal/mol** | Kilocalories per mole; a common unit for reaction energetics. |
 | **kJ/mol** | Kilojoules per mole; 1 kcal/mol ≈ 4.184 kJ/mol. |
 | **eV** | Electron volt; 1 eV ≈ 23.06 kcal/mol. |
-| **Bohr** | Atomic unit of length; 1 Bohr ≈ 0.529 Å. |
-| **Å (Angstrom)** | 10⁻¹⁰ m; standard unit for atomic distances. |
+| **Bohr** | Atomic unit of length; 1 Bohr ≈ 0.529 Angstrom. |
+| **Angstrom** | 10^-10 m; standard unit for atomic distances. |
 
 ---
 
@@ -135,6 +138,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | **Boolean option** | CLI flags that take `True` or `False` (capitalized). Example: `--tsopt`. |
 | **Residue selector** | A specification like `'SAM,GPP'` (names) or `'A:123,B:456'` (chain:ID). |
 | **Atom selector** | A specification like `'TYR,285,CA'` identifying a specific atom by residue name, number, and atom name. |
+| **B-factor layer encoding** | The convention of using the PDB B-factor column to encode 3-layer assignments (0.0, 10.0, 20.0). Hessian-target MM atoms are controlled separately. |
 
 ---
 

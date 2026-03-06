@@ -84,6 +84,34 @@ The `define-layer` subcommand writes these B-factors into the PDB. You can inspe
 
 A tolerance of 1.0 is used when reading B-factors, so values near 0/10/20 are mapped to ML/Movable/Frozen.
 
+### Layer definition methods
+
+1. **`define-layer` subcommand** (recommended):
+   ```bash
+   mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
+   ```
+
+2. **Distance cutoffs** (YAML/CLI):
+   ```yaml
+   calc:
+     hess_cutoff: 3.6       # Distance cutoff for Hessian-target MM atoms
+     movable_cutoff: 8.0    # Distance cutoff for Movable-MM (beyond = Frozen)
+   ```
+
+3. **Read from B-factors**:
+   ```yaml
+   calc:
+     use_bfactor_layers: true   # Read layers from input PDB B-factors
+   ```
+
+4. **Explicit index specification** (YAML):
+   ```yaml
+   calc:
+     hess_mm_atoms: [100, 101, 102, ...]
+     movable_mm_atoms: [200, 201, 202, ...]
+     frozen_mm_atoms: [300, 301, 302, ...]
+   ```
+
 ---
 
 ## Residue Selectors
@@ -152,8 +180,11 @@ The `--ligand-charge` option supports two formats:
 ### Mapping format (recommended)
 ```bash
 --ligand-charge 'SAM:1,GPP:-3' # Per-residue name mapping
+--ligand-charge 'SAM=1,GPP=-3' # Same meaning (= separator)
 --ligand-charge 'LIG:-2' # Single residue mapping
 ```
+
+Both colon (`:`) and equals (`=`) separators are accepted.
 
 ### Integer format
 ```bash
@@ -232,8 +263,8 @@ All computation subcommands (`opt`, `tsopt`, `freq`, `irc`, `dft`, `scan`, `scan
 Alternative backends are installed via optional dependency groups:
 
 ```bash
-pip install mlmm[orb]       # ORB backend
-pip install mlmm[aimnet2]   # AIMNet2 backend
+pip install "mlmm-toolkit[orb]"       # ORB backend
+pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 backend
 # MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
 ```
 
@@ -279,6 +310,7 @@ Default output directories:
 ## See Also
 
 - [Getting Started](getting_started.md) -- Installation and first run
+- [Concepts & Workflow](concepts.md) -- ML/MM 3-layer system, ONIOM decomposition overview
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Common errors and fixes
 - [YAML Reference](yaml_reference.md) -- Complete configuration options
