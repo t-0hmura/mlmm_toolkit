@@ -7,7 +7,7 @@
 ## 事前に必要なファイル
 
 - 入力構造: `pocket.pdb`
-- MM トポロジ: `real.parm7`
+- MM トポロジー: `real.parm7`
 - ML 領域定義: `ml_region.pdb`
 
 これらは通常、`mlmm all` / `mlmm extract` / `mlmm mm-parm` で生成します。

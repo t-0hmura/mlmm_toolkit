@@ -153,7 +153,7 @@ ja/index
 | Subcommand | Description |
 |------------|-------------|
 | [`all`](all.md) | End-to-end workflow: extraction -> MM parm -> MEP -> TS optimization -> IRC -> freq -> DFT |
-| [`init`](init.md) | Generate a starter YAML template for `mlmm all` |
+| [`init`](init.md) | *(Removed)* Previously generated a starter YAML template |
 
 ### Structure Preparation
 | Subcommand | Description |

@@ -149,14 +149,14 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `-q, --charge INT` | ML-region total charge. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
-| `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
+| `--hess-cutoff FLOAT` | Distance cutoff (Å) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | _None_ |
+| `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | `--spec FILE` | YAML/JSON spec with `pairs` (2 quadruples) and optional `one_based`. | Recommended |
 | `--scan-lists TEXT` | Python literal with two quadruples: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Alternative to `--spec` |
 | `--one-based / --zero-based` | Interpret `(i,j)` indices in `--scan-lists` as 1-based or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
-| `--max-step-size FLOAT` | Maximum distance increment per step (A). Determines grid density. | `0.20` |
-| `--bias-k FLOAT` | Harmonic well strength k (eV/A^2). | `300.0` |
+| `--max-step-size FLOAT` | Maximum distance increment per step (Å). Determines grid density. | `0.20` |
+| `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
 | `--relax-max-cycles INT` | Maximum LBFGS cycles per biased relaxation. | `10000` |
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `--out-dir TEXT` | Base output directory. | `./result_scan2d/` |
@@ -214,7 +214,7 @@ bias:
 
 - The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) keeps the entire enzyme complex. The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`.
 - The bias is always removed before final energies are recorded, so `surface.csv` is directly comparable across grid points.
-- When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also converted to PDB files with B-factor annotations: ML-region atoms = 100.00, frozen atoms = 50.00, both = 150.00.
+- When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also converted to PDB files that preserve the B-factor encoding from the reference PDB (typically ML=0, Movable-MM=10, Frozen=20 when prepared with `define-layer`).
 - `i`/`j` entries in `--scan-lists` may be integer indices (1-based by default) or PDB atom selectors like `"TYR,285,CA"`.
 
 ---

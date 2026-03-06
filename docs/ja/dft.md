@@ -59,7 +59,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## ワークフロー
 
-1. **入力処理** -- 完全酵素 PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。リンク水素は自動付加されます（C/N 親原子が 1.7 A 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。
+1. **入力処理** -- 完全酵素 PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。リンク水素は自動付加されます（C/N 親原子が 1.7 Å 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。
 2. **SCF 構築** -- `--func-basis` が汎関数と基底関数に解析されます。密度適合は PySCF デフォルトで自動有効化されます。GPU4PySCF バックエンドは利用可能な場合に使用され、それ以外は CPU PySCF が使用されます。`--embedcharge` が有効な場合、Amber トポロジーの MM 点電荷が `pyscf.qmmm.mm_charge()` を介して QM ハミルトニアンに埋め込まれ、DFT 波動関数が MM 環境で自己無撞着に分極します。
 3. **ML(dft)/MM 再結合** -- DFT が収束した後、全系（REAL-low）と ML サブセット（MODEL-low）の MM 評価が計算されます。結合エネルギーは Hartree と kcal/mol で報告されます。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
@@ -141,7 +141,7 @@ dft:
 
 - 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
 
-- リンク水素は自動検出されます（C/N 親原子が 1.7 A 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。サポートされていない親元素ではエラーが発生します。
+- リンク水素は自動検出されます（C/N 親原子が 1.7 Å 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。サポートされていない親元素ではエラーが発生します。
 - GPU4PySCF バックエンドは利用可能な場合に自動的に有効化されます。それ以外は PySCF CPU が使用されます。**Blackwell アーキテクチャ** GPU が検出された場合、現行の GPU4PySCF が未サポートの可能性があるため警告が出力されます。
 - 密度適合は常に PySCF デフォルトで試行されます（補助基底関数の推測は未実装）。
 - DFT オプション（汎関数/基底関数、SCF 制御）は `dft` キーの下で YAML 上書き可能です。

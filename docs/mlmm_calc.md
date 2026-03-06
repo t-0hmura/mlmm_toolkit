@@ -36,7 +36,7 @@ dE = E_xTB(ML + MM_charges) - E_xTB(ML_only)
 
 This correction models the electrostatic influence of the MM environment on the ML region via point charges, improving the description of polarization effects at the ML/MM boundary. The corresponding force and Hessian corrections are also applied. The default is `--no-embedcharge` (disabled). Requires an xTB executable on `$PATH`.
 
-The calculator operates without link atoms. The ML region is defined by a model PDB (`model.pdb`), the MM topology comes from an Amber prmtop (`real.parm7`), and coordinates are taken from the input PDB (`input.pdb`). An internal `real.rst7` is generated via ParmEd by combining `real.parm7` with coordinates from `input.pdb` -- no external `real.rst7` or `real.pdb` is required.
+The calculator automatically generates link hydrogen atoms at covalent ML/MM boundaries. The ML region is defined by a model PDB (`model.pdb`), the MM topology comes from an Amber prmtop (`real.parm7`), and coordinates are taken from the input PDB (`input.pdb`). An internal `real.rst7` is generated via ParmEd by combining `real.parm7` with coordinates from `input.pdb` -- no external `real.rst7` or `real.pdb` is required.
 
 ## Three-layer scheme (energy / force / Hessian)
 
@@ -105,8 +105,8 @@ mlmm:
 | Quantity | Internal unit | PySisyphus interface |
 | --- | --- | --- |
 | Energy | eV | Hartree |
-| Forces | eV/A | Hartree/Bohr |
-| Hessian | eV/A^2 | Hartree/Bohr^2 |
+| Forces | eV/Å | Hartree/Bohr |
+| Hessian | eV/Å² | Hartree/Bohr^2 |
 
 The PySisyphus interface returns values converted to atomic units (Hartree/Bohr).
 

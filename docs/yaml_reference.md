@@ -85,7 +85,7 @@ calc:
 
  # --- xTB point-charge embedding ---
  embedcharge: false # Enable xTB point-charge embedding correction for MM->ML effects
- embedcharge_step: 0.001 # Numerical Hessian step for embedding correction (Angstrom)
+ embedcharge_step: 0.001 # Numerical Hessian step for embedding correction (Å)
  xtb_cmd: xtb # xTB executable command
  xtb_acc: 0.2 # xTB accuracy parameter
  xtb_workdir: tmp # xTB working directory
@@ -109,8 +109,8 @@ calc:
 
  # --- Layer configuration ---
  freeze_atoms: [] # 0-based indices of atoms to freeze (Frozen layer)
- hess_cutoff: null # Angstrom; MM atoms within this distance of ML get Hessian (null = all movable)
- movable_cutoff: null # Angstrom; MM atoms within this distance of ML are movable (null = use freeze_atoms)
+ hess_cutoff: null # Å; MM atoms within this distance of ML get Hessian (null = all movable)
+ movable_cutoff: null # Å; MM atoms within this distance of ML are movable (null = use freeze_atoms)
  use_bfactor_layers: true # If true, read layer assignments from input PDB B-factors
  hess_mm_atoms: null # Explicit Hessian-target MM atom indices (0-based; overrides cutoffs)
  movable_mm_atoms: null # Explicit movable MM atom indices (0-based; overrides cutoffs)
@@ -362,7 +362,7 @@ hessian_dimer:
  thresh: baker # Main convergence preset
  update_interval_hessian: 500 # Hessian rebuild cadence
  neg_freq_thresh_cm: 5.0 # Negative frequency threshold (cm-1)
- flatten_amp_ang: 0.1 # Flattening amplitude (Angstrom)
+ flatten_amp_ang: 0.1 # Flattening amplitude (Å)
  flatten_max_iter: 50 # Flattening iteration cap (default 50; --no-flatten sets to 0)
  flatten_sep_cutoff: 0.0 # Minimum distance between representative atoms
  flatten_k: 10 # Representative atoms sampled per mode
@@ -486,7 +486,7 @@ Vibrational frequency analysis settings.
 
 ```yaml
 freq:
- amplitude_ang: 0.8 # Displacement amplitude for modes (Angstrom)
+ amplitude_ang: 0.8 # Displacement amplitude for modes (Å)
  n_frames: 20 # Number of frames per mode animation
  max_write: 10 # Maximum number of modes to write
  sort: value # Sort order: "value" or "abs"
@@ -554,7 +554,7 @@ Harmonic bias settings for scans.
 
 ```yaml
 bias:
- k: 300.0 # Harmonic bias strength (eV/Angstrom^2)
+ k: 300.0 # Harmonic bias strength (eV/Å²)
 ```
 
 ---

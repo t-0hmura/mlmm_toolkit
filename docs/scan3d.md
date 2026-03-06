@@ -167,8 +167,8 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--scan-lists TEXT` | single Python literal with three quadruples `(i,j,low,high)`. `i`/`j` can be integer indices or PDB atom selectors. | Alternative to `--spec` |
 | `--one-based / --zero-based` | Interpret `(i, j)` indices as 1- or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
-| `--max-step-size FLOAT` | Maximum distance increment per step (angstrom). Controls grid density. | `0.20` |
-| `--bias-k FLOAT` | Harmonic well strength k (eV/angstrom^2). | `300.0` |
+| `--max-step-size FLOAT` | Maximum distance increment per step (Å). Controls grid density. | `0.20` |
+| `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
 | `--relax-max-cycles INT` | Maximum optimizer cycles during each biased relaxation. | `10000` |
 | `--dump/--no-dump` | Write inner d3 scan TRJs per (d1, d2) slice. | `False` |
 | `--out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
@@ -189,7 +189,7 @@ out_dir/ (default:./result_scan3d/)
  surface.csv # Grid metadata (d1, d2, d3, energy, convergence)
  scan3d_density.html # 3D energy isosurface visualization
  grid/point_i###_j###_k###.xyz # Relaxed geometry for each grid point
- grid/point_i###_j###_k###.pdb # PDB companions (B-factors: ML=100, frozen=50, both=150)
+ grid/point_i###_j###_k###.pdb # PDB companions (B-factors: ML=0, Movable-MM=10, Frozen=20)
  grid/inner_path_d1_###_d2_###_trj.xyz # Present only when --dump is True
 ```
 
@@ -228,8 +228,7 @@ bias:
  semi-transparent step-colored isosurfaces.
 - When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also
  converted to PDB files, using the input PDB as a template. B-factors are annotated
- consistently with the `opt` tool: ML-region atoms = 100.00, frozen atoms = 50.00,
- both = 150.00.
+ as: ML=0, MovableMM=10, FrozenMM=20.
 - Plot color scales can be clamped with `--zmin/--zmax` to compare scans consistently.
 
 ---

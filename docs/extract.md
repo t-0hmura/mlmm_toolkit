@@ -55,7 +55,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
 mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
  -c SUBSTRATE_SPEC
  [-o POCKET.pdb [POCKET2.pdb...]]
- [--radius A] [--radius-het2het A]
+ [--radius Å] [--radius-het2het Å]
  [--include-H2O/--no-include-H2O]
  [--exclude-backbone/--no-exclude-backbone]
  [--add-linkH/--no-add-linkH]
@@ -86,15 +86,15 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 
 ### Residue inclusion
 - Always include the substrate residues from `-c/--center`.
-- **Standard cutoff (`--radius`, default 2.6 A):**
+- **Standard cutoff (`--radius`, default 2.6 Å):**
  - When `--no-exclude-backbone`, any atom within the cutoff qualifies a residue.
  - When `--exclude-backbone`, amino-acid residues must contact the substrate with a **non-backbone** atom (not N/H*/CA/HA*/C/O). Non-amino acids use any atom.
-- **Independent hetero-hetero cutoff (`--radius-het2het`):** adds residues when a substrate hetero atom (non C/H) lies within the specified A of a protein hetero atom. With backbone exclusion enabled the protein atom must be non-backbone.
+- **Independent hetero-hetero cutoff (`--radius-het2het`):** adds residues when a substrate hetero atom (non C/H) lies within the specified Å of a protein hetero atom. With backbone exclusion enabled the protein atom must be non-backbone.
 - **Water handling:** HOH/WAT/H2O/DOD/TIP/TIP3/SOL are included by default (`--include-H2O`).
 - **Forced inclusion:** `--selected-resn` accepts IDs with chains/insertion codes (e.g., `A:123A`).
 - **Neighbor safeguards:**
- - When backbone exclusion is off and a residue contacts the substrate with a backbone atom, auto-include the peptide-adjacent N/C neighbors (C-N <= 1.9 A). Termini keep caps (N/H* or C/O/OXT).
- - Disulfide bonds (SG-SG <= 2.5 A) bring both cysteines.
+ - When backbone exclusion is off and a residue contacts the substrate with a backbone atom, auto-include the peptide-adjacent N/C neighbors (C-N <= 1.9 Å). Termini keep caps (N/H* or C/O/OXT).
+ - Disulfide bonds (SG-SG <= 2.5 Å) bring both cysteines.
  - Non-terminal PRO residues always pull in the N-side amino acid; CA is preserved even if backbone atoms are removed, and when `--exclude-backbone`, the neighbor's C/O/OXT remain to maintain the peptide bond.
 
 ### Truncation/capping
@@ -104,7 +104,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 - Non-amino-acid residues never lose atoms named like backbone (N/CA/HA/H/H1/H2/H3).
 
 ### Link hydrogens (`--add-linkH`)
-- Adds carbon-only link hydrogens at 1.09 A along severed bond vectors (CB-CA, CA-N, CA-C; PRO/HYP use CA-C only).
+- Adds carbon-only link hydrogens at 1.09 Å along severed bond vectors (CB-CA, CA-N, CA-C; PRO/HYP use CA-C only).
 - Inserted after a `TER` as contiguous `HETATM` records named `HL` in residue `LKH` (chain `L`). Serial numbers continue from the main block.
 - In multi-structure mode the same bonds are capped across all models; coordinates remain model-specific.
 
@@ -114,7 +114,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 - Summaries (protein/ligand/ion/total) are logged for the first input when verbose mode is enabled.
 
 ### Substrate specification (`-c/--center`)
-- PDB path: the coordinates must match the first input exactly (tolerance 1e-3 A); residue IDs propagate to other structures.
+- PDB path: the coordinates must match the first input exactly (tolerance 1e-3 Å); residue IDs propagate to other structures.
 - Residue IDs: `'123,124'`, `'A:123,B:456'`, `'123A'`, `'A:123A'` (insertion codes supported).
 - Residue names: comma-separated list (case insensitive). If multiple residues share a name, **all** matches are included and a warning is logged.
 
@@ -135,11 +135,11 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `-i, --input PATH...` | One or more protein-ligand PDB files (identical atom ordering required). | Required |
 | `-c, --center SPEC` | Substrate specification (PDB path, residue IDs, or residue names). | Required |
 | `-o, --output PATH...` | Pocket PDB output(s). One path => multi-MODEL, N paths => per input. | Auto (`pocket.pdb` or `pocket_<input>.pdb`) |
-| `-r, --radius FLOAT` | Atom-atom distance cutoff (A) for inclusion. | `2.6` |
-| `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (A, non C/H). | `0.0` (internally 0.001 A when zero) |
+| `-r, --radius FLOAT` | Atom-atom distance cutoff (Å) for inclusion. | `2.6` |
+| `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å, non C/H). | `0.0` (internally 0.001 Å when zero) |
 | `--include-H2O/--no-include-H2O` | Include HOH/WAT/H2O/DOD/TIP/TIP3/SOL waters. | `True` |
 | `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids (PRO/HYP safeguards). | `True` |
-| `--add-linkH/--no-add-linkH` | Add carbon-only link hydrogens at 1.09 A along severed bonds. | `False` |
+| `--add-linkH/--no-add-linkH` | Add carbon-only link hydrogens at 1.09 Å along severed bonds. | `False` |
 | `--selected-resn TEXT` | Force-include residues (IDs with optional chains/insertion codes). | `""` |
 | `--ligand-charge TEXT` | Total charge or per-resname mapping (e.g., `GPP:-3,SAM:1`). | _None_ |
 | `-v, --verbose/--no-verbose` | Emit INFO-level logging (`True`) or keep warnings only (`False`). | `True` |
@@ -236,7 +236,7 @@ HOH, WAT, H2O, DOD, TIP, TIP3, SOL
 ## Notes
 - For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
-- `--radius` defaults to 2.6 A; `0` is nudged to 0.001 A to avoid empty selections. `--radius-het2het` is off by default (also nudged to 0.001 A when zero is provided).
+- `--radius` defaults to 2.6 Å; `0` is nudged to 0.001 Å to avoid empty selections. `--radius-het2het` is off by default (also nudged to 0.001 Å when zero is provided).
 - Waters can be excluded with `--no-include-H2O`.
 - Backbone trimming plus capping respect chain breaks and PRO/HYP safeguards as outlined above; non-amino residues never lose backbone-like atom names.
 - Link hydrogens are inserted only on carbon cuts and reuse identical bonding patterns across models in ensemble mode.

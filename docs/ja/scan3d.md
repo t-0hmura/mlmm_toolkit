@@ -163,8 +163,8 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--scan-lists TEXT` | 3 つの四つ組 `(i,j,low,high)` を含む単一 Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | `--spec` の代替 |
 | `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |
-| `--max-step-size FLOAT` | ステップごとの最大距離増分 (A)。グリッド密度を制御。 | `0.20` |
-| `--bias-k FLOAT` | 調和ウェル強度 k (eV/A^2)。 | `300.0` |
+| `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を制御。 | `0.20` |
+| `--bias-k FLOAT` | 調和ウェル強度 k (eV/Å²)。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの最大オプティマイザーサイクル。 | `10000` |
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `--out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
@@ -186,7 +186,7 @@ out_dir/ (デフォルト:./result_scan3d/)
  surface.csv # グリッドメタデータ（d1, d2, d3, energy, convergence）
  scan3d_density.html # 3D エネルギーアイソサーフェス可視化
  grid/point_i###_j###_k###.xyz # 各グリッド点の緩和ジオメトリ
- grid/point_i###_j###_k###.pdb # PDB コンパニオン（B 因子: ML=100, frozen=50, both=150）
+ grid/point_i###_j###_k###.pdb # PDB コンパニオン（B 因子: ML=0, Movable-MM=10, Frozen=20）
  grid/inner_path_d1_###_d2_###_trj.xyz # --dump が True の場合のみ
 ```
 
@@ -220,7 +220,7 @@ bias:
 - ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は 1D/2D スキャンと同じ `HarmonicBiasCalculator` を再利用します。
 - `--baseline` のデフォルトはグローバル最小値です。`--baseline first` は `(i,j,k)=(0,0,0)` グリッド点が存在する場合にそれを基準にします。
 - 3D 可視化は 50x50x50 グリッドの RBF 補間を使用し、半透明のステップカラーアイソサーフェスを表示します。
-- 入力が PDB の場合、各グリッド点 XYZ と（存在する場合）内部パス TRJ は入力 PDB をテンプレートとして PDB ファイルにも変換されます。B 因子は `opt` ツールと一貫してアノテーションされます: ML 領域原子 = 100.00、凍結原子 = 50.00、両方 = 150.00。
+- 入力が PDB の場合、各グリッド点 XYZ と（存在する場合）内部パス TRJ は入力 PDB をテンプレートとして PDB ファイルにも変換されます。B 因子のアノテーション: ML=0、MovableMM=10、FrozenMM=20。
 - プロットのカラースケールは `--zmin/--zmax` でクランプして、スキャン間で一貫した比較が可能です。
 
 ---

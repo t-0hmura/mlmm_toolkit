@@ -56,7 +56,7 @@ A central concept in mlmm_toolkit is the **3-layer ML/MM partitioning** of the s
 
 The `define-layer` subcommand assigns these B-factors based on distance from the ML region:
 
-- Atoms/residues within `--radius-freeze` (default 8.0 A) are assigned to Movable-MM.
+- Atoms/residues within `--radius-freeze` (default 8.0 Å) are assigned to Movable-MM.
 - Atoms/residues beyond `--radius-freeze` are Frozen.
 
 Hessian-target MM atoms are controlled by calculator options (`hess_cutoff`, explicit `hess_mm_atoms`, etc.), not by a dedicated B-factor layer.
@@ -98,7 +98,7 @@ When `--embedcharge` is enabled, an xTB point-charge embedding correction is app
 |--------|-------------------|---------------------|
 | High-level method | DFT, HF, or post-HF | MLIP (UMA, ORB, MACE, or AIMNet2) |
 | Low-level method | OpenMM / Amber | hessian_ff (C++ native) |
-| Link atoms | Typically required | Not required by default |
+| Link atoms | Typically required | Auto-generated at covalent boundaries |
 | Electrostatic embedding | Common | Mechanical embedding by default; optional xTB point-charge correction via `--embedcharge` |
 | Speed | Slow (QM bottleneck) | Fast (ML inference on GPU) |
 

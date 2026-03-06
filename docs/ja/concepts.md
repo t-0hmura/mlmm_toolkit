@@ -16,7 +16,7 @@ ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート
  │ ↓
  │ ポケット/クラスターモデル (PDB)
  │ │
- │ ├─ MM トポロジ構築 [mm-parm] ← parm7/rst7 の自動生成
+ │ ├─ MM トポロジー構築 [mm-parm] ← parm7/rst7 の自動生成
  │ │ ↓
  │ │ real.parm7 + real.rst7
  │ │
@@ -38,7 +38,7 @@ ML/MM 3 層システム、ONIOM 分解、「ポケット」「テンプレート
 各ステージはサブコマンドとして単独実行できます。また `mlmm all` を使うと、複数ステージをまとめて実行できます。
 
 ```{important}
-遷移状態: HEI や `tsopt` の出力は **TS 候補** として扱い、`freq`（虚数モードが 1 本）と `irc`（両端が意図した極小へ落ちる）で検証してから解釈してください。
+遷移状態: HEI や `tsopt` の出力は **TS 候補** として扱い、`freq`（虚振動数モードが 1 本）と `irc`（両端が意図した極小へ落ちる）で検証してから解釈してください。
 ```
 
 ---
@@ -76,7 +76,7 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 |------|-------------|---------------------|
 | 高レベル手法 | DFT、HF、post-HF | MLIP（UMA, ORB, MACE, AIMNet2） |
 | 低レベル手法 | OpenMM / Amber | hessian_ff（C++ ネイティブ拡張） |
-| リンク原子 | 通常必要 | デフォルトでは不要 |
+| リンク原子 | 通常必要 | 共有結合境界で自動生成 |
 | 静電埋め込み | 一般的 | デフォルトでは不使用（ONIOM 減算による機械的埋め込み）。`--embedcharge` で xTB ポイントチャージ埋め込みを有効化可能 |
 | 速度 | 低速（QM がボトルネック） | 高速（GPU 上の ML 推論） |
 
@@ -90,7 +90,7 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 
 ## Amber parm7/rst7 トポロジ
 
-- **parm7（prmtop）**: Amber のトポロジファイル。原子タイプ、結合、角度、二面角、VDW パラメータ、部分電荷などを含む
+- **parm7（prmtop）**: Amber のトポロジーファイル。原子タイプ、結合、角度、二面角、VDW パラメータ、部分電荷などを含む
 - **rst7（inpcrd）**: Amber の座標/速度ファイル。原子座標を含む
 
 `mm-parm` サブコマンドが PDB から parm7/rst7 を自動生成します。非標準リガンドには GAFF2 + AM1-BCC で自動パラメータ化します。
@@ -108,13 +108,13 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 
 ### 画像（image）とセグメント
 
-- **画像（image）**: 経路上の1つの幾何（1ノード）。
+- **画像（image）**: 経路上の 1 つの構造（1 ノード）。
 - **セグメント**: 2つの端点を結ぶ MEP。多構造入力は、隣接する端点ペアごとのセグメントに分解されます。
 
 ### テンプレートとファイル変換（`--convert-files`）
 
 `mlmm` は軌跡（例: `mep_trj.xyz`, `irc_trj.xyz`）を出力します。
-PDB テンプレートがある場合、必要に応じて companion ファイルも出力できます。
+PDB テンプレートがある場合、必要に応じて コンパニオンファイルも出力できます。
 
 ---
 
@@ -172,7 +172,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 - ブール値オプションは `--flag` / `--no-flag` と `--flag True/False`（`yes/no`, `1/0` 含む）の両方を受理します。新規スクリプトでは toggle 形式を推奨します。
 - 複数 PDB を与える場合、各ファイルは **同じ原子が同じ順序** で並んでいることが重要です（座標だけが異なる）。
 - 酵素の反応機構解析では、水素を含んだ入力 PDB を用意することを強く推奨します。
-- ML/MM 計算には parm7 トポロジが必須です。`all` ワークフローでは自動生成されますが、個別サブコマンドでは `--parm` を明示的に指定する必要があります。
+- ML/MM 計算には parm7 トポロジーが必須です。`all` ワークフローでは自動生成されますが、個別サブコマンドでは `--parm` を明示的に指定する必要があります。
 ```
 
 ---
@@ -189,7 +189,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 |------------|------|-------------|
 | `all` | エンドツーエンドワークフロー | [all.md](all.md) |
 | `extract` | ポケット抽出 | [extract.md](extract.md) |
-| `mm-parm` | Amber トポロジ構築 | [mm_parm.md](mm_parm.md) |
+| `mm-parm` | Amber トポロジー構築 | [mm_parm.md](mm_parm.md) |
 | `define-layer` | 3 層 ML/MM 領域定義 | [define_layer.md](define_layer.md) |
 | `path-search` | 再帰的 MEP 探索 | [path_search.md](path_search.md) |
 | `tsopt` | TS 最適化 | [tsopt.md](tsopt.md) |

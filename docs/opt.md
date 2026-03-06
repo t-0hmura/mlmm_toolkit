@@ -61,13 +61,13 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Workflow
 
-1. **Input handling** -- The tool requires `-i/--input` to be a PDB file (the enzyme complex). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Hessian-target MM, B=20 frozen MM).
+1. **Input handling** -- The tool requires `-i/--input` to be a PDB file (the enzyme complex). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region. When `--embedcharge` is enabled, xTB point-charge embedding is applied to correct for MM-to-ML environmental electrostatic effects.
-4. **Optimization** -- `--opt-mode light` runs L-BFGS and `--opt-mode heavy` runs RFOptimizer (RFO).
+3. **Optimization** -- `--opt-mode light` runs L-BFGS and `--opt-mode heavy` runs RFOptimizer (RFO).
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
-5. **Restraints** -- `--dist-freeze` consumes Python-literal tuples `(i, j, target_A)` where `target_A` is the target distance in angstrom; omitting the third element restrains the starting distance. `--bias-k` sets a global harmonic strength (eV/A^2). Indices default to 1-based but can be flipped to 0-based with `--zero-based`.
-6. **Dumping & conversion** -- `--dump` writes `optimization_trj.xyz`; when conversion is enabled, trajectories are mirrored to `.pdb` for PDB inputs (with B-factor annotations). `opt.dump_restart` can emit restart YAML snapshots.
-7. **Exit codes** -- `0` success, `2` zero step (step norm < `min_step_norm`), `3` optimizer failure, `130` keyboard interrupt, `1` unexpected error.
+4. **Restraints** -- `--dist-freeze` accepts Python-literal tuples `(i, j, target_A)` where `target_A` is the target distance in Å; omitting the third element restrains the starting distance. `--bias-k` sets a global harmonic strength (eV/Å²). Indices default to 1-based but can be flipped to 0-based with `--zero-based`.
+5. **Dumping & conversion** -- `--dump` writes `optimization_trj.xyz`; when conversion is enabled, trajectories are mirrored to `.pdb` for PDB inputs (with B-factor annotations). `opt.dump_restart` can emit restart YAML snapshots.
+6. **Exit codes** -- `0` success, `2` zero step (step norm < `min_step_norm`), `3` optimizer failure, `130` keyboard interrupt, `1` unexpected error.
 
 ## CLI options
 
@@ -85,11 +85,11 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | Charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--radius-partial-hessian FLOAT` | Distance cutoff (A) from ML region for Hessian-MM atoms. Can be combined with `--detect-layer`. | _None_ |
-| `--radius-freeze FLOAT` | Distance cutoff (A) from ML region for movable MM atoms. Atoms beyond this are frozen. | _None_ |
+| `--radius-partial-hessian FLOAT` | Distance cutoff (Å) from ML region for Hessian-MM atoms. Can be combined with `--detect-layer`. | _None_ |
+| `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. | _None_ |
 | `--dist-freeze TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints. | _None_ |
 | `--one-based / --zero-based` | Index convention for `--dist-freeze`. | 1-based |
-| `--bias-k FLOAT` | Harmonic bias strength (eV/A^2). | `10.0` |
+| `--bias-k FLOAT` | Harmonic bias strength (eV/Å²). | `10.0` |
 | `--max-cycles INT` | Hard limit on optimization iterations. | `10000` |
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | Optimizer mode: `grad` (LBFGS) or `hess` (RFO). Aliases `light`/`heavy` and `lbfgs`/`rfo` accepted. | `grad` |
 | `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RFO) + MM relaxation (LBFGS). Only effective in `hess` mode. | `True` |

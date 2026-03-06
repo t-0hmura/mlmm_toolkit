@@ -19,7 +19,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo
 入力として、(i) 反応順に並べたタンパク質-リガンド複合体の PDB を 2 つ以上（R →... → P）、(ii) `--scan-lists` を指定した 1 つの PDB、または (iii) TS 候補 1 構造 + `--tsopt` を与えると、`mlmm` が次を自動化します。
 
 - ユーザーが指定した基質の周辺から **活性部位ポケット** を抽出し、計算用の **クラスターモデル** を構築
-- AmberTools を用いて **Amber トポロジ（parm7/rst7）** を自動生成し、**hessian_ff** の MM エンジンに渡す
+- AmberTools を用いて **Amber トポロジー（parm7/rst7）** を自動生成し、**hessian_ff** の MM エンジンに渡す
 - ML 領域を MLIP バックエンド（デフォルト: UMA）で、MM 領域を hessian_ff で計算する **ONIOM 的 ML/MM** エネルギー・力・ヘシアンを構築
 - Growing String Method (GSM) や Direct Max Flux (DMF) などの経路最適化手法で **最小エネルギー経路 (MEP)** を探索
 - 必要に応じて **遷移状態** を最適化し、**振動解析**・**IRC 計算**・**DFT 一点計算** を実行
@@ -41,7 +41,7 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 ```{important}
 - 入力 PDB ファイルには**水素原子**が含まれている必要があります。
 - 複数の PDB を提供する場合、**同じ原子が同じ順序**で含まれている必要があります（座標のみ異なる可能性があります）。そうでない場合はエラーが発生します。
-- ML/MM 計算には **`--parm`**（全系の Amber トポロジ）と **`--model-pdb`**（ML 領域を定義する PDB）が必要です。`all` ワークフローではこれらが自動生成されます。
+- ML/MM 計算には **`--parm`**（全系の Amber トポロジー）と **`--model-pdb`**（ML 領域を定義する PDB）が必要です。`all` ワークフローではこれらが自動生成されます。
 ```
 
 ```{tip}
@@ -338,7 +338,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
 | `-c, --center TEXT` | 基質/抽出中心を定義。残基名（`'SAM,GPP'`）、残基ID（`A:123,B:456`）、または PDB パスをサポート |
 | `--ligand-charge TEXT` | 電荷情報: マッピング（`'SAM:1,GPP:-3'`）または単一整数 |
 | `-q, --charge INT` | ML 領域の総電荷の強制上書き |
-| `--parm PATH` | 全系の Amber parm7 トポロジ（`all` では自動生成） |
+| `--parm PATH` | 全系の Amber parm7 トポロジー（`all` では自動生成） |
 | `--model-pdb PATH` | ML 領域を定義する PDB ファイル（`all` では自動生成） |
 | `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |
 | `--thermo/--no-thermo` | 振動解析と熱化学を実行 |

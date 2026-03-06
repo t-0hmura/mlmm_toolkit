@@ -14,7 +14,7 @@
 | [`gs`](#gs) | GSM（Growing String Method）設定 | path-opt, path-search |
 | [`dmf`](#dmf) | DMF（Direct Max Flux）設定 | path-opt, path-search |
 | [`irc`](#ja-irc-section) | IRC積分設定 | irc |
-| [`freq`](#ja-freq-section) | 振動数解析設定 | freq |
+| [`freq`](#ja-freq-section) | 振動解析設定 | freq |
 | [`thermo`](#thermo) | 熱化学設定 | freq |
 | [`dft`](#ja-dft-section) | DFT計算設定 | dft |
 | [`bias`](#bias) | 調和バイアス設定 | scan, scan2d, scan3d |
@@ -51,7 +51,7 @@ ML/MM 計算機（MLIP バックエンド + hessian_ff）の設定。
 ```yaml
 calc:
  input_pdb: null # 入力 PDB ファイルパス (CLI --input から設定)
- real_parm7: null # 全系の Amber parm7 トポロジ (CLI --parm)
+ real_parm7: null # 全系の Amber parm7 トポロジー (CLI --parm)
  model_pdb: null # ML 領域を定義する PDB (CLI --model-pdb)
  model_charge: 0 # ML 領域の電荷 (CLI -q で上書き)
  model_mult: 1 # ML 領域のスピン多重度 (CLI -m で上書き)
@@ -337,7 +337,7 @@ hessian_dimer:
 ```
 
 **注記:**
-- `flatten_max_iter` は虚数モードフラットニングの最大反復回数を制御します。デフォルト値は 50 です。
+- `flatten_max_iter` は虚振動数モードフラットニングの最大反復回数を制御します。デフォルト値は 50 です。
 - CLI フラグ `--flatten` / `--no-flatten`（`tsopt` および `all`）はこの設定と連動します。`--flatten` はデフォルトの `flatten_max_iter`（50）でフラットニングループを有効化し、`--no-flatten` は `flatten_max_iter` を 0 に強制してループを無効化します。`--flatten` と同時に YAML で `flatten_max_iter` を明示指定した場合は、YAML の値が優先されます。
 
 ---
@@ -455,7 +455,7 @@ irc:
 (ja-freq-section)=
 ### `freq` (section)
 
-振動数解析設定。
+振動解析設定。
 
 ```yaml
 freq:

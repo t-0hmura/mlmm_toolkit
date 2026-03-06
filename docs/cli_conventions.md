@@ -184,7 +184,7 @@ Atom selectors identify specific atoms for scans and restraints. They can be:
 
 ### Integer index (1-based by default)
 ```bash
---scan-lists '[(1, 5, 2.0)]' # Atoms 1 and 5, target distance 2.0 A
+--scan-lists '[(1, 5, 2.0)]' # Atoms 1 and 5, target distance 2.0 Å
 ```
 
 ### PDB-style selector string
@@ -241,10 +241,7 @@ pip install mlmm[aimnet2]   # AIMNet2 backend
 
 ## YAML Configuration
 
-Advanced settings can be passed via layered YAML inputs:
-
-```bash
-```
+Advanced settings can be passed via layered YAML inputs.
 
 Precedence:
 ```

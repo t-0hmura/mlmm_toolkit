@@ -12,7 +12,7 @@
 
 `mlmm irc` は EulerPC 積分器を使用して IRC 計算を実行します。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
 
-典型的なワークフローは `tsopt` -> `freq`（**1 つ**の虚数モードを確認）-> `irc` です。
+典型的なワークフローは `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` です。
 
 ## 最小例
 
@@ -74,7 +74,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.spin` を上書き。 | `1` |
 | `--max-cycles INT` | IRC ステップの最大数。`irc.max_cycles` を上書き。 | `125` |
 | `--step-size FLOAT` | 質量加重座標でのステップ長。`irc.step_length` を上書き。 | `0.10` |
-| `--root INT` | 初期変位の虚数モードインデックス。`irc.root` を上書き。 | `0` |
+| `--root INT` | 初期変位の虚振動数モードインデックス。`irc.root` を上書き。 | `0` |
 | `--forward/--no-forward` | 正方向 IRC を実行。`irc.forward` を上書き。 | `True` |
 | `--backward/--no-backward` | 逆方向 IRC を実行。`irc.backward` を上書き。 | `True` |
 | `--out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |

@@ -184,7 +184,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 
 対処:
 - **すべて** の構造を同じ前処理ワークフロー（同じプロトン化ツール、同じ設定）で作り直します。
-- MD 由来なら、同一のトポロジ/軌跡からフレーム抽出する方が安全です。
+- MD 由来なら、同一のトポロジー/軌跡からフレーム抽出する方が安全です。
 
 ---
 
@@ -327,7 +327,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 
 ## パフォーマンス / 安定性のヒント
 
-- **VRAM 不足**: `--radius` を減らす、`hess_cutoff`/`movable_cutoff` を設定する
+- **VRAM 不足**: `--radius` を減らす、`hess_cutoff`/`movable_cutoff` を設定する。エラーメッセージに "reserved but unallocated" が含まれる場合は `export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` を設定して VRAM フラグメンテーションを軽減する
 - **解析ヘシアンが遅いまたは OOM**: `--hessian-calc-mode FiniteDifference` を使用。`Analytical` は十分な VRAM がある場合のみ推奨
 - **MM ヘシアン計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
 - **大規模系（1000 原子以上）**: `define-layer` で 3 層を適切に定義し、Frozen 層で計算コストを削減

@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **要約:** ML/MM カルキュレータの GPU/CPU デバイス設定と HPC クラスタでのジョブ投入方法。
+> **要約:** ML/MM 計算機の GPU/CPU デバイス設定と HPC クラスタでのジョブ投入方法。
 
 ### 要点
 - **ML バックエンド (UMA):** デフォルトで CUDA を使用（`ml_device: auto` → CUDA が利用可能なら CUDA）。
@@ -14,7 +14,7 @@
 
 ## デバイスパラメータ
 
-ML/MM カルキュレータ（`mlmm_calc.mlmm`）は ML と MM で別々のデバイス設定を使用します：
+ML/MM 計算機（`mlmm_calc.mlmm`）は ML と MM で別々のデバイス設定を使用します:
 
 | パラメータ | デフォルト | 説明 |
 | --- | --- | --- |
@@ -175,8 +175,8 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 
 ## 関連項目
 
-- [Getting Started](getting_started.md) -- インストールと CUDA セットアップ
-- [ML/MM Calculator](mlmm_calc.md) -- カルキュレータのアーキテクチャとパラメータ
-- [YAML Reference](yaml_reference.md) -- 設定リファレンス
+- [はじめに](getting_started.md) -- インストールと CUDA セットアップ
+- [ML/MM 計算機](mlmm_calc.md) -- 計算機のアーキテクチャとパラメータ
+- [YAML リファレンス](yaml_reference.md) -- 設定リファレンス
 - [freq](freq.md) -- `--hess-device` オプションの詳細
-- [Troubleshooting](troubleshooting.md) -- よくあるエラーの修正
+- [トラブルシューティング](troubleshooting.md) -- よくあるエラーの修正

@@ -69,13 +69,13 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 1. **Input handling** -- Load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge/spin. Freeze atoms from CLI and YAML are merged.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or via finite difference. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
-4. **Light mode (Dimer):**
+3. **Light mode (Dimer):**
    - The Hessian Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected).
    - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
-5. **Heavy mode (RS-I-RFO):**
+4. **Heavy mode (RS-I-RFO):**
    - Runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section.
    - When `--flatten` is enabled and more than one imaginary mode remains after convergence, the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten iteration cap is reached.
-6. **Mode export & conversion** -- The converged imaginary mode is always written to `vib/final_imag_mode_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
+5. **Mode export & conversion** -- The converged imaginary mode is always written to `vib/final_imag_mode_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
 
 ## CLI options
 
@@ -91,8 +91,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | Total charge of the ML region. | Required |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (A) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | `0.0` |
-| `--movable-cutoff FLOAT` | Distance cutoff (A) for movable MM atoms. | _None_ |
+| `--hess-cutoff FLOAT` | Distance cutoff (Å) for MM Hessian atoms. Providing cutoffs disables `--detect-layer`. | `0.0` |
+| `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
 | `--opt-mode CHOICE` | TS optimizer mode: `grad` (Dimer) or `hess` (RS-I-RFO). Aliases `light`/`heavy` and `dimer`/`rsirfo` accepted. | `hess` |
@@ -169,9 +169,9 @@ hessian_dimer:
  thresh: baker                     # main convergence preset
  update_interval_hessian: 500      # Hessian rebuild cadence
  neg_freq_thresh_cm: 5.0           # negative frequency threshold (cm^-1)
- flatten_amp_ang: 0.1              # flattening amplitude (A)
+ flatten_amp_ang: 0.1              # flattening amplitude (Å)
  flatten_max_iter: 50              # flattening iteration cap (disabled when --no-flatten)
- flatten_sep_cutoff: 0.0           # minimum distance between representative atoms (A)
+ flatten_sep_cutoff: 0.0           # minimum distance between representative atoms (Å)
  flatten_k: 10                     # representative atoms sampled per mode
  flatten_loop_bofill: false        # Bofill update for flatten displacements
  mem: 100000                       # memory limit for solver

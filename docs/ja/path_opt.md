@@ -9,7 +9,7 @@
 - **手法:** ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による PySisyphus `GrowingString`。MLIP バックエンドは `--backend` で選択（デフォルト: UMA）。
 - **出力:** `final_geometries_trj.xyz`（経路）および `hei.xyz`（HEI）、任意で `.pdb` コンパニオン。
 - **デフォルト:** `--climb`、`--max-nodes 10`、`--max-cycles 300`。
-- **次のステップ:** HEI を `tsopt` -> `freq`（虚数モード 1 つを期待）-> `irc` で検証。
+- **次のステップ:** HEI を `tsopt` -> `freq`（虚振動数モード 1 つを期待）-> `irc` で検証。
 
 `mlmm path-opt` は、ML/MM 計算機による PySisyphus `GrowingString` を使用して 2 つの酵素状態間の最小エネルギー経路を最適化します。ML/MM 計算機はリンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義され、Amber トポロジーは `--parm` から取得され、両端点は全系座標を含む PDB として提供されます。
 

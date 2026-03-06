@@ -4,7 +4,7 @@
 
 > **要約:** Gaussian/ORCA の ONIOM 入力ファイルを読み込み、XYZ と B-factor 層付き PDB を再構築します。
 
-### 概要
+### 早見表
 - **用途:** 外部 ONIOM/QM/MM 入力を mlmm_toolkit の後続処理へ戻したい場合。
 - **手法:** Gaussian（`.gjf`/`.com`）または ORCA（`.inp`）入力を解析し、座標と層情報を復元して標準出力を生成。
 - **出力:** `<out_prefix>.xyz` と `<out_prefix>_layered.pdb`。

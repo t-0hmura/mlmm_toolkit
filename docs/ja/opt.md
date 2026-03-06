@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **概要:** L-BFGS（`--opt-mode light`、デフォルト）または RFO（`--opt-mode heavy`）を使用して単一構造を局所極小に最適化します。`--flatten` で虚数モードのフラットニングを有効化できます。
+> **概要:** L-BFGS（`--opt-mode light`、デフォルト）または RFO（`--opt-mode heavy`）を使用して単一構造を局所極小に最適化します。`--flatten` で虚振動数モードのフラットニングを有効化できます。
 
 `mlmm opt` は、ML/MM 計算機（MLIP バックエンド（デフォルト: UMA）+ hessian_ff）を使用して単一構造を局所極小に最適化します。`--backend` で ML バックエンドを切り替え可能です（`uma`、`orb`、`mace`、`aimnet2`）。L-BFGS（`--opt-mode light`、デフォルト）または RFO（`--opt-mode heavy`）が選択できます。入力は `.pdb`、`.xyz`、`_trj.xyz`、または `geom_loader` がサポートする任意の形式が使用可能です。設定の優先順位は **デフォルト < config < 明示CLI < override** です。
 
@@ -11,7 +11,7 @@
 - B 因子のアノテーション（3 層エンコーディング）: ML 領域原子 = 0.00、可動 MM 原子 = 10.00、凍結 MM 原子 = 20.00。
 
 ### 概要
-- **用途:** ML/MM で単一酵素構造を局所エネルギー極小に最小化する場合。
+- **用途:** ML/MM で単一の酵素構造を局所エネルギー極小に最適化する場合。
 - **手法:** L-BFGS（light、デフォルト）または RFO（heavy）。互換エイリアス `lbfgs`/`rfo` も利用可能です。ML/MM 計算機は ML 領域に MLIP バックエンド（デフォルト: UMA、`--backend` で選択）、MM に hessian_ff を組み合わせます。
 - **出力:** `final_geometry.xyz`、`final_geometry.pdb`（PDB 入力時）、任意の軌跡。
 - **次のステップ:** [freq](freq.md) を実行して構造が真の極小（虚数振動数なし）であることを確認。
@@ -61,13 +61,13 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## ワークフロー
 
-1. **入力処理** -- `-i/--input` には PDB ファイル（酵素複合体）が必要です。オプティマイザーは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Hessian 対象 MM、B=20 凍結 MM）から取得されます。
+1. **入力処理** -- `-i/--input` には PDB ファイル（酵素複合体）が必要です。オプティマイザーは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Movable-MM、B=20 Frozen）から取得されます。
 2. **ML/MM 計算機の構築** -- ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
-4. **最適化** -- `--opt-mode light` は L-BFGS、`--opt-mode heavy` は RFOptimizer（RFO）を実行します。
-   - `--flatten` は最適化後の虚数モードフラットニングを有効にします。検出されたすべての虚数モードが各反復でフラットニングされ、なくなるか内部ループ上限に達するまで続きます。
-5. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を消費します。`target_A` は目標距離（オングストローム）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/A^2）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
-6. **ダンプと変換** -- `--dump` は `optimization_trj.xyz` を書き出します。変換が有効な場合、PDB 入力では軌跡も `.pdb` にミラーリングされます（B 因子アノテーション付き）。`opt.dump_restart` はリスタート YAML スナップショットを出力できます。
-7. **終了コード** -- `0` 成功、`2` ゼロステップ（ステップノルム < `min_step_norm`）、`3` オプティマイザーエラー、`130` キーボード割り込み、`1` 予期しないエラー。
+3. **最適化** -- `--opt-mode light` は L-BFGS、`--opt-mode heavy` は RFOptimizer（RFO）を実行します。
+   - `--flatten` は最適化後の虚振動数モードのフラットニングを有効にします。検出されたすべての虚振動数モードが各反復でフラットニングされ、虚振動数モードがなくなるか内部ループ上限に達するまで続きます。
+4. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を受け付けます。`target_A` は目標距離（Å）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/Å²）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
+5. **ダンプと変換** -- `--dump` は `optimization_trj.xyz` を書き出します。変換が有効な場合、PDB 入力では軌跡も `.pdb` に変換されます（B 因子アノテーション付き）。`opt.dump_restart` はリスタート YAML スナップショットを出力できます。
+6. **終了コード** -- `0` 成功、`2` ゼロステップ（ステップノルム < `min_step_norm`）、`3` オプティマイザーエラー、`130` キーボード割り込み、`1` 予期しないエラー。
 
 ## CLIオプション
 
@@ -87,15 +87,15 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-q, --charge INT` | ML 領域の電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
-| `--radius-partial-hessian FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (A)。`--detect-layer` と併用可。 | _None_ |
-| `--radius-freeze FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (A)。これを超える原子は凍結。 | _None_ |
+| `--radius-partial-hessian FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。`--detect-layer` と併用可。 | _None_ |
+| `--radius-freeze FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える原子は凍結。 | _None_ |
 | `--dist-freeze TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
 | `--one-based / --zero-based` | `--dist-freeze` のインデックス規約。 | 1 始まり |
-| `--bias-k FLOAT` | 調和バイアス強度 (eV/A^2)。 | `10.0` |
+| `--bias-k FLOAT` | 調和バイアス強度 (eV/Å²)。 | `10.0` |
 | `--max-cycles INT` | 最適化反復のハードリミット。 | `10000` |
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザーモード: `grad`/`lbfgs`（LBFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
 | `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（LBFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
-| `--flatten/--no-flatten` | 最適化後の虚数モードフラットンループの有効化/無効化。 | `False` |
+| `--flatten/--no-flatten` | 最適化後の虚振動数モードフラットンループの有効化/無効化。 | `False` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`）を出力。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの有効化/無効化。 | `True` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |

@@ -22,8 +22,8 @@ This page provides definitions for abbreviations and technical terms used throug
 
 | Term | Full Name | Description |
 |------|-----------|-------------|
-| **parm7** | Amber Parameter/Topology File | A file containing atom types, partial charges, bonding connectivity, and force field parameters for an Amber system. Also called.prmtop. |
-| **rst7** | Amber Restart File | A file containing atomic coordinates (and optionally velocities and box dimensions) for an Amber system. Also called.inpcrd. |
+| **parm7** | Amber Parameter/Topology File | A file containing atom types, partial charges, bonding connectivity, and force field parameters for an Amber system. Also called .prmtop. |
+| **rst7** | Amber Restart File | A file containing atomic coordinates (and optionally velocities and box dimensions) for an Amber system. Also called .inpcrd. |
 | **AmberTools** | — | A free suite of tools for molecular dynamics preparation, including tleap, antechamber, and parmchk2. Required by `mlmm mm-parm`. |
 | **tleap** | — | An AmberTools program that builds Amber topology/coordinate files from PDB structures and force field libraries. |
 | **antechamber** | — | An AmberTools program that assigns GAFF2 atom types and AM1-BCC partial charges to small molecules. |
@@ -54,10 +54,10 @@ This page provides definitions for abbreviations and technical terms used throug
 
 | Term | Full Name | Description |
 |------|-----------|-------------|
-| **L-BFGS** | Limited-memory BFGS | A quasi-Newton optimization algorithm that approximates the Hessian using a limited history of gradients. Used in `--opt-mode light`. |
-| **RFO** | Rational Function Optimization | A trust-region optimization method that uses explicit Hessian information. Used in `--opt-mode heavy`. |
+| **L-BFGS** | Limited-memory BFGS | A quasi-Newton optimization algorithm that approximates the Hessian using a limited history of gradients. Used in `--opt-mode grad`. |
+| **RFO** | Rational Function Optimization | A trust-region optimization method that uses explicit Hessian information. Used in `--opt-mode hess`. |
 | **RS-I-RFO** | Restricted-Step Image-RFO | A variant of RFO for saddle point (TS) optimization that follows one negative eigenvalue. |
-| **Dimer** | Dimer Method | A TS optimization method that estimates the lowest curvature mode without computing the full Hessian. Used in `--opt-mode light` for TSOPT. |
+| **Dimer** | Dimer Method | A TS optimization method that estimates the lowest curvature mode without computing the full Hessian. Used in `--opt-mode grad` for TSOPT. |
 | **PHVA** | Partial Hessian Vibrational Analysis | Computing vibrational frequencies using only the Hessian block for active (non-frozen) atoms. Default in `freq`. |
 
 ---
@@ -119,12 +119,12 @@ This page provides definitions for abbreviations and technical terms used throug
 
 | Term | Description |
 |------|-------------|
-| **Hartree** | Atomic unit of energy; 1 Hartree ~ 627.5 kcal/mol ~ 27.21 eV. |
+| **Hartree** | Atomic unit of energy; 1 Hartree ≈ 627.5 kcal/mol ≈ 27.21 eV. |
 | **kcal/mol** | Kilocalories per mole; a common unit for reaction energetics. |
-| **kJ/mol** | Kilojoules per mole; 1 kcal/mol ~ 4.184 kJ/mol. |
-| **eV** | Electron volt; 1 eV ~ 23.06 kcal/mol. |
-| **Bohr** | Atomic unit of length; 1 Bohr ~ 0.529 Angstrom. |
-| **Angstrom** | 10^-10 meters; standard unit for atomic distances. |
+| **kJ/mol** | Kilojoules per mole; 1 kcal/mol ≈ 4.184 kJ/mol. |
+| **eV** | Electron volt; 1 eV ≈ 23.06 kcal/mol. |
+| **Bohr** | Atomic unit of length; 1 Bohr ≈ 0.529 Å. |
+| **Å (Angstrom)** | 10⁻¹⁰ m; standard unit for atomic distances. |
 
 ---
 

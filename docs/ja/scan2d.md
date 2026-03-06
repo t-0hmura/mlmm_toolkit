@@ -152,14 +152,14 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
-| `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (A)。カットオフ指定で `--detect-layer` が無効化。 | _None_ |
-| `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (A)。 | _None_ |
+| `--hess-cutoff FLOAT` | MM ヘシアン原子の距離カットオフ (Å)。カットオフ指定で `--detect-layer` が無効化。 | _None_ |
+| `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | `--spec FILE` | `pairs`（2 四つ組）を持つ YAML/JSON 仕様。`one_based` を任意指定可能。 | 推奨 |
 | `--scan-lists TEXT` | 2 つの四つ組を含む Python リテラル: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | `--spec` の代替 |
 | `--one-based / --zero-based` | `--scan-lists` の `(i,j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のペア情報を表示。 | `False` |
-| `--max-step-size FLOAT` | ステップごとの最大距離増分 (A)。グリッド密度を決定。 | `0.20` |
-| `--bias-k FLOAT` | 調和ウェル強度 k (eV/A^2)。 | `300.0` |
+| `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を決定。 | `0.20` |
+| `--bias-k FLOAT` | 調和ウェル強度 k (eV/Å²)。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの最大 LBFGS サイクル。 | `10000` |
 | `--dump/--no-dump` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
 | `--out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |
@@ -218,7 +218,7 @@ bias:
 
 - ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）は酵素複合体全体を保持します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られます。
 - バイアスは最終エネルギー記録前に常に除去されるため、`surface.csv` はグリッド点間で直接比較可能です。
-- 入力が PDB の場合、各グリッド点 XYZ と（存在する場合）内部パス TRJ は B 因子アノテーション付きで PDB ファイルにも変換されます: ML 領域原子 = 100.00、凍結原子 = 50.00、両方 = 150.00。
+- 入力が PDB の場合、各グリッド点 XYZ と（存在する場合）内部パス TRJ は参照 PDB の B 因子エンコーディングを保持した PDB ファイルにも変換されます（`define-layer` で準備した場合は ML=0、Movable-MM=10、Frozen=20）。
 - `--scan-lists` の `i`/`j` エントリは整数インデックス（デフォルト 1 始まり）または `"TYR,285,CA"` のような PDB 原子セレクターが使用可能です。
 
 ---

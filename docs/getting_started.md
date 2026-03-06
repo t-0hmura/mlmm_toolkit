@@ -442,7 +442,6 @@ Below are the most commonly used options across workflows.
 | `--dft/--no-dft` | Perform single-point DFT calculations. |
 | `--refine-path/--no-refine-path` | Recursive MEP refinement (default) vs single-pass. |
 | `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer, default) or `hess` (RFO/RS-I-RFO). |
-| `--refine-path/--no-refine-path` | Recursive MEP refinement (default) vs single-pass `path-opt`. |
 | `--backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction (default: off). |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. `Analytical` is available for the UMA backend (recommended when VRAM is available); other backends use `FiniteDifference`. |

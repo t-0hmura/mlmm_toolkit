@@ -72,7 +72,7 @@ PDB companions are generated when templates are available, controlled by `--conv
 mlmm all -i INPUT1 [INPUT2...] -c SUBSTRATE [options]
 ```
 
-For help output, `mlmm all --help` shows core options and `mlmm all --help-advanced` shows the full option list.
+Run `mlmm all --help` for core options or `mlmm all --help-advanced` for the full option list.
 
 ### Examples
 
@@ -176,8 +176,8 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--radius FLOAT` | Pocket inclusion cutoff (Angstrom). | Extractor default |
-| `--radius-het2het FLOAT` | Independent hetero-hetero cutoff. | Extractor default |
+| `--radius FLOAT` | Pocket inclusion cutoff (Å). | Extractor default |
+| `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å). | Extractor default |
 | `--include-H2O/--no-include-H2O` | Include water molecules. | Extractor default |
 | `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | Extractor default |
 | `--add-linkH/--no-add-linkH` | Add link hydrogens for severed bonds. | Extractor default |
@@ -216,11 +216,11 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--scan-lists TEXT...` | Staged scans: `(i,j,target_A)` tuples. | _None_ |
+| `--scan-lists TEXT...` | Staged scans: `(i, j, target_Å)` tuples. | _None_ |
 | `--scan-out-dir PATH` | Override the scan output directory. | _None_ |
 | `--scan-one-based/--no-scan-one-based` | Force 1-based indexing for atom selectors. | `True` |
-| `--scan-max-step-size FLOAT` | Maximum step size (Angstrom). | _Default_ |
-| `--scan-bias-k FLOAT` | Harmonic bias strength (eV/Angstrom^2). | _Default_ |
+| `--scan-max-step-size FLOAT` | Maximum step size (Å). | _Default_ |
+| `--scan-bias-k FLOAT` | Harmonic bias strength (eV/Å²). | _Default_ |
 | `--scan-relax-max-cycles INT` | Relaxation max cycles per step. | _Default_ |
 | `--scan-preopt/--no-scan-preopt` | Override scan pre-optimization toggle. | _Default_ |
 | `--scan-endopt/--no-scan-endopt` | Override scan end-of-stage optimization. | _Default_ |
@@ -242,7 +242,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 | --- | --- | --- |
 | `--freq-out-dir PATH` | Base directory override for freq outputs. | _None_ |
 | `--freq-max-write INT` | Maximum modes to write. | _Default_ |
-| `--freq-amplitude-ang FLOAT` | Mode animation amplitude (Angstrom). | _Default_ |
+| `--freq-amplitude-ang FLOAT` | Mode animation amplitude (Å). | _Default_ |
 | `--freq-n-frames INT` | Frames per mode animation. | _Default_ |
 | `--freq-sort TEXT` | Mode sorting behavior. | _Default_ |
 | `--freq-temperature FLOAT` | Thermochemistry temperature (K). | _Default_ |
@@ -382,7 +382,7 @@ For a complete reference of all YAML options, see **[YAML Configuration Referenc
 - Preflight checks validate repeated `-i/--input` values as files and verify AmberTools commands (`tleap`, `antechamber`, `parmchk2`) before auto `mm_parm`.
 - Reference PDB templates for merging are derived automatically from the original inputs.
 - Convergence presets: `--thresh` defaults to `gau`; `--thresh-post` defaults to `baker`.
-- Extraction radii: passing `0` to `--radius` or `--radius-het2het` is internally clamped to `0.001 A` by the extractor.
+- Extraction radii: passing `0` to `--radius` or `--radius-het2het` is internally clamped to `0.001 Å` by the extractor.
 - Energies in diagrams are plotted relative to the first state (reactant) in kcal/mol (converted from Hartree).
 - Charge handling: the extractor's first-model total pocket charge is used as the path/scan/TSOPT total charge (rounded to int).
 - Omitting `-c/--center` skips extraction and feeds the entire input structures directly to the MEP/tsopt/freq/DFT stages; single-structure runs still require either `--scan-lists` or `--tsopt`.

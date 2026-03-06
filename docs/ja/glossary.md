@@ -11,7 +11,7 @@
 | **ML/MM** | Machine Learning / Molecular Mechanics | 機械学習ポテンシャルと分子力学を組み合わせたマルチスケール手法。mlmm_toolkit の中核概念。 |
 | **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | 異なる計算レベルを多層的に組み合わせる手法。mlmm_toolkit は ONIOM 的な 2 体系（real/model）エネルギー分解を使用。 |
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | 量子化学と分子力学の結合手法。ML/MM は QM 部分を機械学習ポテンシャルで置き換えた変種。 |
-| **real system** | -- | ONIOM 分解における全系。parm7 トポロジで記述され、hessian_ff で MM エネルギーを計算。 |
+| **real system** | -- | ONIOM 分解における全系。parm7 トポロジーで記述され、hessian_ff で MM エネルギーを計算。 |
 | **model system** | -- | ONIOM 分解における ML 領域（活性部位）。MLIP バックエンド（デフォルト: UMA）で ML エネルギーを計算。 |
 | **リンク水素** | Link Hydrogen | ML 領域と MM 領域の境界で切断された結合をキャップする水素原子。ヤコビアンで力を再分配。 |
 
@@ -31,13 +31,13 @@
 
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
-| **parm7（prmtop）** | Amber Parameter/Topology file | Amber のトポロジファイル。原子タイプ、結合、角度、二面角、VDW パラメータ、部分電荷を含む。 |
+| **parm7（prmtop）** | Amber Parameter/Topology file | Amber のトポロジーファイル。原子タイプ、結合、角度、二面角、VDW パラメータ、部分電荷を含む。 |
 | **rst7（inpcrd）** | Amber Restart / Initial Coordinates | Amber の座標ファイル。原子の 3D 座標を格納。 |
 | **hessian_ff** | -- | mlmm_toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析ヘシアンをサポート。 |
 | **GAFF2** | General Amber Force Field 2 | 有機小分子向けの汎用 Amber 力場。リガンドのパラメータ化に使用。 |
 | **AM1-BCC** | AM1 Bond Charge Corrections | 半経験的 AM1 法に基づく部分電荷割り当て方法。antechamber で使用。 |
-| **AmberTools** | -- | Amber のオープンソースツール群。tleap（トポロジ構築）、antechamber（リガンドパラメータ化）、parmchk2（不足パラメータ補完）を含む。 |
-| **tleap** | -- | AmberTools のトポロジ構築プログラム。PDB からparm7/rst7 を生成。 |
+| **AmberTools** | -- | Amber のオープンソースツール群。tleap（トポロジー構築）、antechamber（リガンドパラメータ化）、parmchk2（不足パラメータ補完）を含む。 |
+| **tleap** | -- | AmberTools のトポロジー構築プログラム。PDB から parm7/rst7 を生成。 |
 | **ff19SB** | -- | タンパク質向け Amber 力場（2019 年版）。mlmm_toolkit のデフォルト。 |
 | **ff14SB** | -- | タンパク質向け Amber 力場（2014 年版）。`--ff-set ff14SB` で選択可能。 |
 
@@ -54,8 +54,8 @@
 | **DMF** | Direct Max Flux | 反応座標方向のフラックスを最大化することで MEP を最適化する chain-of-states 手法。 |
 | **NEB** | Nudged Elastic Band | 画像間にばね力を導入し、画像間隔を保ちながら経路を最適化する chain-of-states 手法。 |
 | **HEI** | Highest-Energy Image | MEP 上でエネルギーが最大の画像。TS の初期推定としてよく使われます。 |
-| **画像（Image）** | -- | 経路上の1つの幾何（1ノード）。 |
-| **セグメント** | -- | 2つの隣接する端点を結ぶ MEP（例: R → I1, I1 → I2,...）。 |
+| **画像（Image）** | -- | 経路上の 1 つの構造（1 ノード）。 |
+| **セグメント** | -- | 2 つの隣接する端点を結ぶ MEP（例: R → I1, I1 → I2,...）。 |
 
 ---
 
@@ -63,10 +63,10 @@
 
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
-| **L-BFGS** | Limited-memory BFGS | 勾配履歴からヘシアンを近似する準ニュートン法。`--opt-mode light` で使用。 |
-| **RFO** | Rational Function Optimization | 明示的なヘシアン情報を使用する信頼領域最適化法。`--opt-mode heavy` で使用。 |
-| **RS-I-RFO** | Restricted-Step Image-RFO | 1つの負固有値方向に沿う、鞍点（TS）最適化用の RFO 変種。 |
-| **Dimer** | Dimer Method | 完全なヘシアンを計算せずに最低曲率モードを推定する TS 最適化法。`--opt-mode light` の TSOPT で使用。 |
+| **L-BFGS** | Limited-memory BFGS | 勾配履歴からヘシアンを近似する準ニュートン法。`--opt-mode grad` で使用。 |
+| **RFO** | Rational Function Optimization | 明示的なヘシアン情報を使用する信頼領域最適化法。`--opt-mode hess` で使用。 |
+| **RS-I-RFO** | Restricted-Step Image-RFO | 1 つの負固有値方向に沿う、鞍点（TS）最適化用の RFO 変種。 |
+| **Dimer** | Dimer Method | 完全なヘシアンを計算せずに最低曲率モードを推定する TS 最適化法。`--opt-mode grad` の TSOPT で使用。 |
 | **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非凍結）原子のヘシアンブロックのみを使用した振動数計算。`freq` のデフォルト。 |
 
 ---
@@ -80,7 +80,7 @@
 | **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。`pip install mlmm[orb]` で追加インストール。 |
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。e3nn 競合のため別環境が必要（README 参照）。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install mlmm[aimnet2]` で追加インストール。 |
-| **xTB** | Extended Tight-Binding | 半経験的量子化学手法。mlmm_toolkit では `--embedcharge` 有効時にポイントチャージ埋め込み補正に使用。 |
+| **xTB** | Extended Tight-Binding | 半経験的量子化学手法。mlmm_toolkit では `--embedcharge` 有効時に点電荷埋め込み補正に使用。 |
 | **解析ヘシアン** | Analytical Hessian | エネルギーの正確な二階微分を計算。高速だが VRAM を多く消費。 |
 | **有限差分** | Finite Difference | 微小変位による微分近似。低速だがメモリ効率が良い。 |
 
@@ -94,7 +94,7 @@
 | **DFT** | Density Functional Theory | 電子密度汎関数に基づく電子状態計算法。 |
 | **Hessian** | -- | エネルギーの二階微分行列。振動解析や TS 最適化に使用します。 |
 | **SP** | Single Point | 固定構造での計算（最適化なし）。高精度エネルギー補正によく使用。 |
-| **スピン多重度** | Spin Multiplicity | 2S+1（S は全スピン）。シングレット = 1、ダブレット = 2、トリプレット = 3 など。 |
+| **スピン多重度** | Spin Multiplicity | 2S+1（S は全スピン）。一重項 = 1、二重項 = 2、三重項 = 3 など。 |
 
 ---
 
@@ -141,7 +141,7 @@
 
 | 用語 | 説明 |
 |------|------|
-| **真偽値オプション** | `True` または `False`（大文字始まり）を取る CLI フラグ。例: `--tsopt`。 |
+| **ブール値オプション** | `True` または `False`（大文字始まり）を取る CLI フラグ。例: `--tsopt`。 |
 | **残基セレクタ** | `'SAM,GPP'`（名前）や `'A:123,B:456'`（チェーン:ID）のような指定方法。 |
 | **原子セレクタ** | `'TYR,285,CA'` のように残基名・番号・原子名で特定の原子を指定する方法。 |
 | **B-factor 層エンコーディング** | PDB の B-factor カラムを使用して 3 層の層割り当て（0.0, 10.0, 20.0）をエンコードする方式。Hessian 対象 MM 原子は別設定で制御。 |

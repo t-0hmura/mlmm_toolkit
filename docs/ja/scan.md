@@ -7,7 +7,7 @@
 ### 概要
 - **用途:** 単一構造があり、特定の原子間距離をターゲット値に向けて駆動し、妥当な経路を探索したい場合に使用（多くの場合 `path-search`/`path-opt` の前段階）。
 - **入力:** 1 つの構造 + `--spec scan.yaml`（推奨）または 1 つ以上の `--scan-lists` リテラル（各リテラル = 1 ステージ）。
-- **デフォルト:** LBFGS オプティマイザー、`--preopt`、`--endopt`、`--max-step-size 0.20` A。
+- **デフォルト:** LBFGS オプティマイザー、`--preopt`、`--endopt`、`--max-step-size 0.20` Å。
 - **出力:** ステージごとの `result.xyz`（+ 任意で `.pdb`）、`--dump` 時は連結軌跡。
 - **注記:** シェルクォート問題を避けるため `--spec` を推奨します。`--scan-lists` も引き続きサポートされています。
 
@@ -149,7 +149,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 単一の `--scan-lists` フラグの後に複数リテラルを渡します。各リテラルが 1 ステージになります:
 
 ```bash
-# ステージ 1: 1 つの結合を 1.35 A に駆動
+# ステージ 1: 1 つの結合を 1.35 Å に駆動
 # ステージ 2: 2 つの結合を同時に駆動
 --scan-lists \
  '[("TYR,285,CA","MMT,309,C10",1.35)]' \
@@ -165,8 +165,8 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 4. 結合ごとの変位を計算してステップに分割します:
  - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
  - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
- - 各ペアの増分変化は `delta_k = delta_k / N` (A)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * delta_k`。
-5. すべてのステップを進み、調和ウェル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/A^2）から取得され、Hartree/Bohr^2 に一度変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
+ - 各ペアの増分変化は `delta_k = delta_k / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * delta_k`。
+5. すべてのステップを進み、調和ウェル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
 6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
 7. すべてのステージで繰り返します。任意の軌跡は `--dump` が `True` の場合のみダンプされます。
 
@@ -182,14 +182,14 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--hess-cutoff FLOAT` | ML 原子からの MM Hessian 距離カットオフ (A)。 | _None_ |
-| `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (A)。指定すると `--detect-layer` を無効化。 | _None_ |
+| `--hess-cutoff FLOAT` | ML 原子からの MM Hessian 距離カットオフ (Å)。 | _None_ |
+| `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
 | `--spec FILE` | `stages` を持つ YAML/JSON スキャン仕様。`one_based` を任意指定可能。 | 推奨 |
 | `--scan-lists TEXT` | `(i, j, target_A)` タプルを含む Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | `--spec` の代替 |
 | `--one-based/--zero-based` | 原子インデックスを 1 始まり（既定）または 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のステージ情報を表示。 | `False` |
-| `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (A)。積分ステップ数を制御。 | `0.20` |
-| `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/A^2）。 | `300` |
+| `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
+| `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
 | `--opt-mode {lbfgs,rfo,light,heavy}` | `mlmm all` からの転送互換オプション。現状の `scan` 緩和は mode に関わらず LBFGS を使用。 | _None_ |
 | `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 LBFGS サイクル。 | `10000` |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `True` |
@@ -228,7 +228,7 @@ out_dir/ (デフォルト:./result_scan/)
 - オプティマイザー設定: `thresh`、`max_cycles`、`print_every`、ステップ制御、ラインサーチ、ダンプフラグ。
 
 ### セクション `bias`
-- `k`（`300`）: 調和強度（eV/A^2）。
+- `k`（`300`）: 調和強度（eV/Å²）。
 
 ### セクション `bond`
 - MLIP ベースの結合変化検出:

@@ -65,7 +65,7 @@ Symptoms:
 - Key catalytic residues are missing.
 
 Fixes to try:
-- Increase `--radius` (e.g., 2.6 -> 3.5 A).
+- Increase `--radius` (e.g., 2.6 -> 3.5 Å).
 - Use `--selected-resn` to force-include residues (e.g., `--selected-resn 'A:123,B:456'`).
 - If backbone trimming is too aggressive, set `--no-exclude-backbone`.
 
@@ -84,8 +84,7 @@ Fix:
  mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
  ```
 
-- Or (when using extraction) provide a residue-name mapping:
-  then run through `all`:
+- Or, when using extraction, provide a residue-name mapping and run through `all`:
 
  ```bash
  mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
@@ -220,7 +219,7 @@ Fix:
  cd hessian_ff/native && make
  ```
 
-- Ensure the `hessian_ff` package is in your Python path (it should be if you installed mlmm_toolkit with `pip install -e.`).
+- Ensure the `hessian_ff` package is in your Python path (it should be if you installed mlmm_toolkit with `pip install -e .`).
 
 ---
 
@@ -235,7 +234,7 @@ Fixes to try:
 - Inspect the layer-assigned PDB visually (color by B-factor in your molecular viewer).
 - Check that `--model-pdb` correctly defines the ML region atoms.
 - Adjust the distance cutoffs in `define-layer`:
- - `--radius-freeze` (default 8.0 A): controls Movable-MM/Frozen boundary.
+ - `--radius-freeze` (default 8.0 Å): controls Movable-MM/Frozen boundary.
 - If needed, control Hessian-target MM separately in calc options (`hess_cutoff`, `hess_mm_atoms`).
 - If using `use_bfactor_layers: true` in YAML, verify that B-factor values match the expected encoding (0.0, 10.0, 20.0 with tolerance 1.0).
 
@@ -372,7 +371,7 @@ Fixes to try:
 
 ## Performance / stability tips
 
-- **Out of memory (VRAM)**: reduce ML region size, reduce Hessian-target MM region, reduce nodes (`--max-nodes`), or use lighter optimizer settings (`--opt-mode light`).
+- **Out of memory (VRAM)**: reduce ML region size, reduce Hessian-target MM region, reduce nodes (`--max-nodes`), or use lighter optimizer settings (`--opt-mode light`). If the error mentions "reserved but unallocated" memory, set `export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` before running to reduce VRAM fragmentation.
 - **Analytical ML Hessian is slow or OOM**: use `--hessian-calc-mode FiniteDifference` for the ML region. Only use `Analytical` if you have ample VRAM (24 GB+ recommended for 300+ ML atoms).
 - **MM Hessian**: `mm_fd: true` (default) uses finite-difference for MM Hessian. Analytical MM Hessian (`mm_fd: false`) is faster for small systems but may require more memory.
 - **Large systems (2000+ atoms)**: ensure frozen atoms are properly set (Frozen layer, B=20) to reduce the movable DOF count. Use `define-layer` with appropriate cutoffs.

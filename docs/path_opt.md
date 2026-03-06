@@ -113,9 +113,9 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -
 
 ## Outputs
 ```
-out_dir/ (default:./result_path_opt/)
+out_dir/ (default: ./result_path_opt/)
 ├─ final_geometries_trj.xyz # XYZ trajectory with per-image energies in the comment line
-├─ final_geometries.pdb # Same as_trj.xyz but mapped back to the reference PDB ordering
+├─ final_geometries.pdb # Same path as final_geometries_trj.xyz, mapped back to the reference PDB ordering
 ├─ hei.xyz # Highest-energy image (XYZ, always written)
 ├─ hei.pdb # HEI in PDB format (when reference PDB is available)
 ├─ align_refine/ # External alignment/refinement artifacts

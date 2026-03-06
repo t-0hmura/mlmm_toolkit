@@ -173,7 +173,7 @@ ML/MM 計算を行う大半のサブコマンド（`opt`, `tsopt`, `path-opt`, `
 
 | オプション | 説明 |
 |----------|------|
-| `--parm` | 全系（real system）の Amber parm7 トポロジファイル |
+| `--parm` | 全系（real system）の Amber parm7 トポロジーファイル |
 | `--model-pdb` | ML 領域（model system）を定義する PDB ファイル |
 
 `all` ワークフローでは、`extract` と `mm-parm` により自動生成されます。個別サブコマンドを使う場合は、手動で指定してください。
@@ -216,7 +216,7 @@ mlmm opt -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
 - 複数の PDB は**同じ原子を同じ順序**で持つ必要があります（座標のみ異なる）
 
 ### Amber トポロジ
-- **parm7**: 全系の力場トポロジ（`mm-parm` で自動生成可能）
+- **parm7**: 全系の力場トポロジー（`mm-parm` で自動生成可能）
 - **rst7**: 対応する座標ファイル
 
 ---

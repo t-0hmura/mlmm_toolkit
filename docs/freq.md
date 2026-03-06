@@ -12,7 +12,6 @@
 
 `mlmm freq` performs vibrational analysis with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
 
-
 ## Minimal example
 
 ```bash
@@ -51,14 +50,14 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Workflow
 
-2. **ML/MM calculator setup** -- The ML region is supplied via `--model-pdb`; Amber parameters are read from `--parm`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active-DOF sub-block.
+1. **ML/MM calculator setup** -- The ML region is supplied via `--model-pdb`; Amber parameters are read from `--parm`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active-DOF sub-block.
    - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
-3. **PHVA & TR projection** -- With frozen atoms, eigenanalysis occurs inside the active subspace with translation/rotation modes projected there. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
-4. **Active DOF mode** -- `--active-dof-mode` controls which atoms are included in the frequency analysis: `all` (all atoms), `ml-only` (ML layer, B=0), `partial` (ML + Hessian-target MM; default), `unfrozen` (non-frozen layers, typically B=0/10).
-5. **Mode export** -- `--max-write` limits how many modes are animated. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` (XYZ-like trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering). The sinusoidal animation amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
-6. **Thermochemistry** -- If `thermoanalysis` is installed, a QRRHO-like summary (EE, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. CLI pressure in atm is converted internally to Pa. When `--dump`, a `thermoanalysis.yaml` snapshot is also written.
-7. **Device selection** -- `ml_device="auto"` triggers CUDA when available, otherwise CPU. The internal TR projection/mode assembly runs on the same device to minimise transfers.
-8. **Exit behavior** -- Keyboard interrupts exit with code 130; other failures print a traceback and exit with code 1.
+2. **PHVA & TR projection** -- With frozen atoms, eigenanalysis occurs inside the active subspace with translation/rotation modes projected there. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
+3. **Active DOF mode** -- `--active-dof-mode` controls which atoms are included in the frequency analysis: `all` (all atoms), `ml-only` (ML layer, B=0), `partial` (ML + Hessian-target MM; default), `unfrozen` (non-frozen layers, typically B=0/10).
+4. **Mode export** -- `--max-write` limits how many modes are animated. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` (XYZ-like trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering). The sinusoidal animation amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
+5. **Thermochemistry** -- If `thermoanalysis` is installed, a QRRHO-like summary (EE, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. CLI pressure in atm is converted internally to Pa. When `--dump`, a `thermoanalysis.yaml` snapshot is also written.
+6. **Device selection** -- `ml_device="auto"` triggers CUDA when available, otherwise CPU. The internal TR projection/mode assembly runs on the same device to minimize transfers.
+7. **Exit behavior** -- Keyboard interrupts exit with code 130; other failures print a traceback and exit with code 1.
 
 ## CLI options
 
@@ -131,7 +130,7 @@ mlmm:
  mm_fd: true                       # MM finite-difference toggle
  return_partial_hessian: true      # allow partial Hessians (PHVA default)
 freq:
- amplitude_ang: 0.8                # displacement amplitude for modes (A)
+ amplitude_ang: 0.8                # displacement amplitude for modes (Å)
  n_frames: 20                      # number of frames per mode
  max_write: 10                     # maximum number of modes to write
  sort: value                       # sort order: value vs abs

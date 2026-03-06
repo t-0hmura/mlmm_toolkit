@@ -124,7 +124,7 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 ## Outputs
 
 ```text
-out_dir/ (default:./result_path_search/)
+out_dir/ (default: ./result_path_search/)
  summary.yaml # MEP-level run summary (no full settings dump)
  summary.log # Human-readable summary
  mep_trj.xyz # Final MEP (always written)
@@ -172,6 +172,7 @@ The YAML root must be a mapping. Accepted sections:
 ## See Also
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [path-opt](path_opt.md) -- Single-pass MEP optimization (no recursive refinement)
 - [opt](opt.md) -- Single-structure geometry optimization
