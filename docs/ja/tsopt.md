@@ -142,7 +142,7 @@ mlmm:
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
  embedcharge: false                # xTB 点電荷埋め込み補正
- uma_model: uma-s-1p1              # UMA モデルタグ (backend=uma 時)
+ uma_model: uma-s-1p2              # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
  ml_hessian_mode: Analytical        # ヘシアンモード選択

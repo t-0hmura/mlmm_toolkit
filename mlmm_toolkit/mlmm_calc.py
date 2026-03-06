@@ -174,7 +174,7 @@ class _UMABackend(_MLBackend):
     def __init__(
         self,
         *,
-        uma_model: str = "uma-s-1p1",
+        uma_model: str = "uma-s-1p2",
         uma_task_name: str = "omol",
         model_charge: int = 0,
         model_mult: int = 1,
@@ -402,7 +402,7 @@ class _AIMNet2Backend(_ASEMLBackend):
 def _create_ml_backend(
     backend: str,
     *,
-    uma_model: str = "uma-s-1p1",
+    uma_model: str = "uma-s-1p2",
     uma_task_name: str = "omol",
     orb_model: str = "orb_v3_conservative_omol",
     mace_model: str = "MACE-OMOL-0",
@@ -962,7 +962,7 @@ class MLMMCore:
         link_mlmm: List[Tuple[str, str]] | None = None,
         # ML backend selection
         backend: str = "uma",
-        uma_model: str = "uma-s-1p1",
+        uma_model: str = "uma-s-1p2",
         uma_task_name: str = "omol",
         orb_model: str = "orb_v3_conservative_omol",
         orb_precision: str = "float32",
@@ -1999,7 +1999,7 @@ class mlmm(PySiCalc):
         link_mlmm: List[Tuple[str, str]] | None = None,
         # ML backend selection
         backend: str = "uma",
-        uma_model: str = "uma-s-1p1",
+        uma_model: str = "uma-s-1p2",
         uma_task_name: str = "omol",
         orb_model: str = "orb_v3_conservative_omol",
         orb_precision: str = "float32",

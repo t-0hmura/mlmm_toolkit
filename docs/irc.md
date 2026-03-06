@@ -130,7 +130,7 @@ mlmm:
  model_pdb: ml_region.pdb          # ML-region definition
  backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
  embedcharge: false                # xTB point-charge embedding correction
- uma_model: uma-s-1p1              # UMA model tag (UMA backend only)
+ uma_model: uma-s-1p2              # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
  ml_hessian_mode: Analytical         # Hessian mode selection

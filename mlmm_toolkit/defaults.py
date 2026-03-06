@@ -66,7 +66,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "link_mlmm": None,
     # ML backend selection: "uma" | "orb" | "mace" | "aimnet2"
     "backend": "uma",
-    "uma_model": "uma-s-1p1",
+    "uma_model": "uma-s-1p2",
     "uma_task_name": "omol",
     "orb_model": "orb_v3_conservative_omol",
     "orb_precision": "float32",

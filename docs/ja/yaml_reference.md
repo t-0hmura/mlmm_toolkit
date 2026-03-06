@@ -64,7 +64,7 @@ calc:
  xtb_workdir: tmp # xTB 作業ディレクトリ
  xtb_keep_files: false # xTB 一時ファイルを保持
  xtb_ncores: 4 # xTB のコア数
- uma_model: uma-s-1p1 # UMA 事前学習モデル名 (backend=uma 時)
+ uma_model: uma-s-1p2 # UMA モデル名: uma-s-1p1, uma-s-1p2, uma-m-1p1
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
  orb_precision: float32  # ORB 浮動小数点精度 (backend=orb 時)
@@ -557,7 +557,7 @@ calc:
  model_mult: 1
  backend: uma                  # ML バックエンド (uma/orb/mace/aimnet2)
  embedcharge: false            # xTB 点電荷埋め込み補正
- uma_model: uma-s-1p1          # UMA モデルタグ (backend=uma 時)
+ uma_model: uma-s-1p2          # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
  ml_device: auto
  ml_hessian_mode: Analytical   # VRAM に余裕がある場合に推奨
  hess_cutoff: 3.6 # Layer 2 の距離カットオフ (Å)

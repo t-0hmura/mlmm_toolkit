@@ -63,7 +63,7 @@ calc:
  backend: uma # MLIP backend: "uma" (default), "orb", "mace", "aimnet2"
 
  # --- UMA backend settings ---
- uma_model: uma-s-1p1 # UMA pretrained model name (UMA backend only)
+ uma_model: uma-s-1p2 # UMA pretrained model name: uma-s-1p1, uma-s-1p2, uma-m-1p1
  uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
 
  # --- ORB backend settings ---
@@ -589,7 +589,7 @@ calc:
  model_mult: 1
  backend: uma                  # MLIP backend: uma | orb | mace | aimnet2
  embedcharge: false            # xTB point-charge embedding correction
- uma_model: uma-s-1p1          # UMA backend only
+ uma_model: uma-s-1p2          # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
  ml_device: auto
  ml_hessian_mode: Analytical   # Recommended when VRAM permits
  mm_device: cpu

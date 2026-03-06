@@ -331,7 +331,7 @@ mlmm:
  model_pdb: ml_region.pdb
  backend: uma                    # ML バックエンド (uma/orb/mace/aimnet2)
  embedcharge: false              # xTB 点電荷埋め込み補正
- uma_model: uma-s-1p1            # UMA モデルタグ (backend=uma 時)
+ uma_model: uma-s-1p2            # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
  ml_hessian_mode: Analytical     # VRAM に余裕がある場合に推奨
 gs:
  max_nodes: 12
