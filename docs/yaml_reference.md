@@ -642,10 +642,10 @@ dft:
 
 ## See Also
 
-- [all](all.md) - End-to-end workflow
-- [opt](opt.md) - Single-structure optimization
-- [tsopt](tsopt.md) - Transition state optimization
-- [path-search](path_search.md) - Recursive MEP search
-- [freq](freq.md) - Vibrational analysis
-- [dft](dft.md) - DFT calculations
-- [Concepts](concepts.md) - ML/MM 3-layer system and ONIOM energy decomposition
+- [all](all.md) -- End-to-end workflow
+- [opt](opt.md) -- Single-structure optimization
+- [tsopt](tsopt.md) -- Transition state optimization
+- [path-search](path_search.md) -- Recursive MEP search
+- [freq](freq.md) -- Vibrational analysis
+- [dft](dft.md) -- DFT calculations
+- [Concepts](concepts.md) -- ML/MM 3-layer system and ONIOM energy decomposition

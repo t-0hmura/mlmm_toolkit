@@ -173,7 +173,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 
 ## Outputs
 ```
-out_dir/ (default:./result_scan2d/)
+out_dir/ (default: ./result_scan2d/)
 ├── surface.csv # PES grid: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged
 ├── scan2d_map.png # 2D contour map
 ├── scan2d_landscape.html # 3D surface visualization (Plotly)
@@ -222,6 +222,7 @@ bias:
 ## See Also
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [scan](scan.md) -- 1D bond-length driven scan
 - [scan3d](scan3d.md) -- 3D distance grid scan

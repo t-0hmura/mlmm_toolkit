@@ -185,7 +185,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 
 ## Outputs
 ```
-out_dir/ (default:./result_scan3d/)
+out_dir/ (default: ./result_scan3d/)
  surface.csv # Grid metadata (d1, d2, d3, energy, convergence)
  scan3d_density.html # 3D energy isosurface visualization
  grid/point_i###_j###_k###.xyz # Relaxed geometry for each grid point
