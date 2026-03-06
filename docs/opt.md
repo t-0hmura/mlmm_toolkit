@@ -61,7 +61,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Workflow
 
-1. **Input handling** -- The tool requires `-i/--input` to be a PDB file (the enzyme complex). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
+1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region. When `--embedcharge` is enabled, xTB point-charge embedding is applied to correct for MM-to-ML environmental electrostatic effects.
 3. **Optimization** -- `--opt-mode light` runs L-BFGS and `--opt-mode heavy` runs RFOptimizer (RFO).
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.

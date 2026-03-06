@@ -97,7 +97,7 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |
 | `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を LBFGS で事前最適化。 | `False` |
 | `--preopt-max-cycles INT` | 端点事前最適化サイクルの上限。 | `10000` |
-| `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
+| `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau_loose` |
 | `--dump/--no-dump` | `out_dir` 内にオプティマイザー軌跡とリスタートをダンプ。 | `False` |
 | `--out-dir TEXT` | 出力ディレクトリ。 | `./result_path_opt/` |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |

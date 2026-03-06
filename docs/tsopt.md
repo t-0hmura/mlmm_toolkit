@@ -98,7 +98,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--opt-mode CHOICE` | TS optimizer mode: `grad` (Dimer) or `hess` (RS-I-RFO). Aliases `light`/`heavy` and `dimer`/`rsirfo` accepted. | `hess` |
 | `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RS-I-RFO) + MM relaxation (LBFGS). Only effective in `hess` mode. | `True` |
 | `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | Use ML-region-only Hessian for dimer orientation in `grad` mode. Faster but less accurate. | `False` |
-| `--flatten/--no-flatten` | Enable/disable extra imaginary-mode flattening loop. `--flatten` uses default iter (50); `--no-flatten` forces it to 0. Applies to both light and heavy modes. | `False` |
+| `--flatten/--no-flatten` | Enable/disable extra imaginary-mode flattening loop. `--flatten` uses default iter (50); `--no-flatten` forces it to 0. Applies to both light and heavy modes. | _None_ (YAML/defaults; effectively enabled with 50 iterations) |
 | `--dump/--no-dump` | Write concatenated trajectory `optimization_all_trj.xyz`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions for PDB inputs. | `True` |
 | `--out-dir TEXT` | Output directory. | `./result_tsopt/` |

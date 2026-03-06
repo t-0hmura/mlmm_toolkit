@@ -203,7 +203,7 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `--spec`/`--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of integration steps. | `0.20` |
 | `--bias-k FLOAT` | Harmonic bias strength `k` in eV/Å². | `300` |
-| `--opt-mode {lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
+| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
 | `--max-cycles INT` | Maximum LBFGS cycles per biased step and per pre/end optimization stage. | `10000` |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `True` |

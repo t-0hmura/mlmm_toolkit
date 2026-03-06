@@ -101,7 +101,7 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize each endpoint with LBFGS before alignment/string growth. | `False` |
 | `--preopt-max-cycles INT` | Cap for endpoint pre-optimization cycles. | `10000` |
-| `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
+| `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau_loose` |
 | `--dump/--no-dump` | Dump optimizer trajectories and restarts inside `out_dir`. | `False` |
 | `--out-dir TEXT` | Output directory. | `./result_path_opt/` |
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
