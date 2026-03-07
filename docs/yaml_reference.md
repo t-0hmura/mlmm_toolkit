@@ -209,7 +209,7 @@ rfo:
  # Inherits all opt settings, plus:
  trust_radius: 0.1 # Trust-region radius
  trust_update: true # Enable trust-region updates
- trust_min: 0.0 # Minimum trust radius
+ trust_min: 0.01 # Minimum trust radius
  trust_max: 0.1 # Maximum trust radius
  max_energy_incr: null # Allowed energy increase per step
  hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
@@ -430,7 +430,7 @@ rsirfo:
  assert_neg_eigval: false # Require negative eigenvalue at convergence
  trust_radius: 0.10 # Trust region radius
  trust_update: true # Trust region update
- trust_min: 0.00 # Minimum trust radius
+ trust_min: 0.01 # Minimum trust radius
  trust_max: 0.30 # Maximum trust radius
  hessian_recalc: 200 # Hessian rebuild cadence
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability

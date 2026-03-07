@@ -33,6 +33,7 @@ from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import ANG2BOHR, BOHR2ANG, AU2EV
+from pysisyphus.TablePrinter import TablePrinter
 
 from .mlmm_calc import mlmm, mlmm_mm_only
 from .defaults import (
@@ -683,10 +684,14 @@ def _run_microiter_opt(
     macro_optimizer = RFOptimizer(geometry, **rfo_args)
     macro_optimizer.prepare_opt()  # initialise Hessian from geometry.cart_hessian
 
+    # Microiteration progress table (pysisyphus-style with micro_steps column)
+    micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
+    micro_col_fmts = "int float float float float float int float_short".split()
+    micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
+    micro_table.print_header()
+
     for macro_iter in range(max_cycles):
         # ---- Macro step: 1 RFO step with ONIOM forces, MM frozen ----
-        click.echo(f"\n[microiter] === Macro iteration {macro_iter + 1} ===")
-
         geometry.freeze_atoms = macro_freeze
         geometry.set_calculator(macro_calc)
 
@@ -695,12 +700,12 @@ def _run_microiter_opt(
         macro_optimizer.cart_coords.append(geometry.cart_coords.copy())
         macro_optimizer.cur_cycle = macro_iter
 
+        t_start = time.time()
         step = macro_optimizer.optimize()  # housekeeping() triggers BFGS update
         macro_optimizer.steps.append(step)
 
         # Convergence check
         macro_converged, conv_info = macro_optimizer.check_convergence()
-        macro_optimizer.print_opt_progress(conv_info)
         total_macro_steps += 1
 
         if dump:
@@ -709,6 +714,15 @@ def _run_microiter_opt(
             _append_xyz_trajectory(optim_all_path, macro_trj_path)
 
         if macro_converged:
+            # Print final converged row (no micro steps)
+            energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
+            marks = [False, *conv_info.get_convergence()[:-1], False, False]
+            cycle_time = time.time() - t_start
+            micro_table.print_row(
+                (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
+                 macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], 0, cycle_time),
+                marks=marks,
+            )
             click.echo(f"[microiter] Macro convergence reached at iteration {macro_iter + 1}.")
             break
 
@@ -719,7 +733,6 @@ def _run_microiter_opt(
         macro_optimizer.steps[-1] = geometry.coords - macro_optimizer.coords[-1]
 
         # ---- Micro step: LBFGS with MM-only forces, ML frozen ----
-        click.echo(f"[microiter] --- Micro relaxation (MM-only, max {micro_max_cycles} steps) ---")
         geometry.freeze_atoms = micro_freeze
         geometry.set_calculator(mm_calc)
 
@@ -732,12 +745,7 @@ def _run_microiter_opt(
         micro_opt = LBFGS(geometry, **micro_lbfgs_args)
         with contextlib.redirect_stdout(io.StringIO()):
             micro_opt.run()
-        micro_converged = micro_opt.is_converged
         micro_steps = max(int(micro_opt.cur_cycle) + 1, 1)
-        click.echo(
-            f"[microiter] Micro done: {micro_steps} steps, "
-            f"converged={micro_converged}"
-        )
 
         if dump:
             _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
@@ -745,6 +753,18 @@ def _run_microiter_opt(
         del micro_opt
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+        # Print progress row with micro_steps
+        cycle_time = time.time() - t_start
+        energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
+        marks = [False, *conv_info.get_convergence()[:-1], False, False]
+        if (macro_iter > 1) and (macro_iter % 10 == 0):
+            micro_table.print_sep()
+        micro_table.print_row(
+            (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
+             macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], micro_steps, cycle_time),
+            marks=marks,
+        )
 
     else:
         click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).")

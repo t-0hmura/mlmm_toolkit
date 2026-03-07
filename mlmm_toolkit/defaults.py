@@ -163,10 +163,10 @@ LBFGS_KW: Dict[str, Any] = {
 
 RFO_KW: Dict[str, Any] = {
     **OPT_BASE_KW,
-    "trust_radius": 0.10,
+    "trust_radius": 0.30,
     "trust_update": True,
-    "trust_min": 0.00,
-    "trust_max": 0.10,
+    "trust_min": 0.01,
+    "trust_max": 0.30,
     "max_energy_incr": None,
     "hessian_update": "bfgs",
     "hessian_init": "calc",
@@ -391,7 +391,7 @@ RSIRFO_KW: Dict[str, Any] = {
     "thresh": "baker",
     "trust_radius": 0.10,
     "trust_update": True,
-    "trust_min": 0.00,
+    "trust_min": 0.01,
     "trust_max": 0.30,
     "max_energy_incr": None,
     "hessian_update": "bofill",
