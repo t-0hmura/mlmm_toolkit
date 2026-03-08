@@ -559,9 +559,10 @@ warnings.filterwarnings(
 )
 # Suppress fairchem dataset_list deprecation warning (baked into UMA checkpoint config;
 # cannot be fixed caller-side until fairchem removes dataset_list from checkpoints).
-logging.getLogger("fairchem.core.models.uma.escn_md").addFilter(
-    lambda record: "dataset_list" not in record.getMessage()
-)
+for _logger_name in (None, "fairchem.core.models.uma.escn_md"):
+    logging.getLogger(_logger_name).addFilter(
+        lambda record: "dataset_list" not in record.getMessage()
+    )
 
 if __name__ == "__main__":
     cli()
