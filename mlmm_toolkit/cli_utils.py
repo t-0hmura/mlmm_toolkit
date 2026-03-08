@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import os
 import shutil
 import sys
@@ -152,3 +153,14 @@ def run_cli(
             err=True,
         )
         sys.exit(1)
+    finally:
+        # Release GPU memory (model + Hessian) after CLI command finishes
+        # so that subsequent pipeline stages (e.g. tsopt → irc) don't OOM.
+        # gc.collect() breaks cyclic refs inside torch.nn.Module.
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:
+            pass

@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
 
 import ast
 import contextlib
+import gc
 import io
 import logging
 import os
@@ -59,6 +60,7 @@ from .utils import (
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
+    filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     format_elapsed,
     merge_freeze_atom_indices,
@@ -1329,9 +1331,7 @@ def cli(
         mode_str = "RFO (hess)" if use_rfo else "LBFGS (grad)"
         click.echo(f"\n[mode] Optimizer: {mode_str}\n")
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
-        # Show only non-default calc settings for concise logging
-        echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
-        echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
+        echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
         click.echo(pretty_block("calc", echo_calc))
         # Show only non-default opt settings
         echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
@@ -1618,6 +1618,11 @@ def cli(
     finally:
         if prepared_input is not None:
             prepared_input.cleanup()
+        # Release GPU memory so subsequent pipeline stages don't OOM
+        base_calc = bias_calc = geometry = optimizer = mm_calc = macro_calc = macro_optimizer = None
+        gc.collect()  # break cyclic refs inside torch.nn.Module
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 # Allow `python -m mlmm_toolkit.opt` direct execution

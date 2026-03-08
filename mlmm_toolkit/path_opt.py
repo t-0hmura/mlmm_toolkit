@@ -16,6 +16,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
+import gc
 import logging
 import sys
 import traceback
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 import click
 import numpy as np
 import time
+import torch
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.cos.GrowingString import GrowingString
@@ -50,6 +52,7 @@ from .utils import (
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
+    filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     format_elapsed,
     merge_freeze_atom_indices,
@@ -1029,8 +1032,7 @@ def cli(
 
         # For display: resolved configuration (show only non-default values)
         echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
-        echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
-        echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
+        echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
         echo_gs = strip_inherited_keys(gs_cfg, GS_KW, mode="same")
         echo_stopt = strip_inherited_keys({**stopt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
         echo_lbfgs = strip_inherited_keys({**lbfgs_cfg, "out_dir": stopt_cfg.get("out_dir")}, LBFGS_KW, mode="same")
@@ -1328,6 +1330,11 @@ def cli(
     finally:
         for prepared in prepared_inputs:
             prepared.cleanup()
+        # Release GPU memory so subsequent pipeline stages don't OOM
+        shared_calc = gs = geoms = None
+        gc.collect()  # break cyclic refs inside torch.nn.Module
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":

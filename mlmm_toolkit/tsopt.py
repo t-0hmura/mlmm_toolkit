@@ -12,6 +12,7 @@ For detailed documentation, see: docs/tsopt.md
 from __future__ import annotations
 
 import contextlib
+import gc
 import io
 import logging
 import sys
@@ -75,6 +76,7 @@ from .utils import (
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
+    filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     format_elapsed,
     merge_freeze_atom_indices,
@@ -1660,6 +1662,9 @@ def _run_microiter_tsopt(
     rsirfo_args["dump"] = False  # trajectory dumping handled externally
     if macro_thresh is not None:
         rsirfo_args["thresh"] = str(macro_thresh)
+    # RSIRFOptimizer does not accept RFOptimizer-specific DIIS knobs; strip them.
+    for _diis_kw in ("gediis", "gdiis", "gdiis_thresh", "gediis_thresh", "gdiis_test_direction", "adapt_step_func"):
+        rsirfo_args.pop(_diis_kw, None)
 
     macro_optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
     macro_optimizer.prepare_opt()  # initialise Hessian from geometry.cart_hessian
@@ -2355,8 +2360,7 @@ def cli(
         mode_desc += " + Microiteration"
     click.echo(f"\n[mode] TS Optimizer: {mode_desc}\n")
     click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
-    echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
-    echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
+    echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
     click.echo(pretty_block("calc", echo_calc))
     echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
     click.echo(pretty_block("opt", echo_opt))
@@ -2448,6 +2452,9 @@ def cli(
                 rsirfo_args["dump"] = bool(opt_cfg["dump"])
                 if thresh is not None:
                     rsirfo_args["thresh"] = str(thresh)
+                # RSIRFOptimizer does not accept RFOptimizer-specific DIIS knobs; strip them.
+                for _diis_kw in ("gediis", "gdiis", "gdiis_thresh", "gediis_thresh", "gdiis_test_direction", "adapt_step_func"):
+                    rsirfo_args.pop(_diis_kw, None)
 
                 calc_core = base_calc.core if hasattr(base_calc, "core") else base_calc
                 hess_active_atoms = list(getattr(calc_core, "hess_active_atoms", []))
@@ -2775,6 +2782,12 @@ def cli(
         sys.exit(1)
     finally:
         prepared_input.cleanup()
+        # Release GPU memory (model + Hessian) so subsequent stages don't OOM
+        base_calc = geometry = optimizer = last_optimizer = None
+        macro_calc = macro_optimizer = mm_calc = None
+        gc.collect()  # break cyclic refs inside torch.nn.Module
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 # Allow `python -m mlmm.tsopt` direct execution

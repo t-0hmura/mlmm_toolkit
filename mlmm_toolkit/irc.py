@@ -14,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional, List
 
+import gc
 import logging
 import sys
 import textwrap
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 import click
 import time
+import torch
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.irc.EulerPC import EulerPC
@@ -44,6 +46,7 @@ from .utils import (
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
+    filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     format_elapsed,
     merge_freeze_atom_indices,
@@ -470,8 +473,7 @@ def cli(
 
         # Pretty-print configuration (expand freeze_atoms for readability)
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
-        echo_calc = strip_inherited_keys(calc_cfg, CALC_KW_DEFAULT, mode="same")
-        echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
+        echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
         click.echo(pretty_block("calc", echo_calc))
         echo_irc = strip_inherited_keys({**irc_cfg, "out_dir": str(out_dir_path)}, IRC_KW_DEFAULT, mode="same")
         click.echo(pretty_block("irc", echo_irc))
@@ -552,6 +554,11 @@ def cli(
         sys.exit(1)
     finally:
         prepared_input.cleanup()
+        # Release GPU memory (model + Hessian) so subsequent stages don't OOM
+        calc = eulerpc = geometry = None
+        gc.collect()  # break cyclic refs inside torch.nn.Module
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 # Script entry point

@@ -9,6 +9,7 @@ For detailed documentation, see: docs/freq.md
 
 from __future__ import annotations
 
+import gc
 import logging
 import sys
 import textwrap
@@ -32,6 +33,7 @@ from pysisyphus.constants import AMU2AU, ANG2BOHR, AU2EV, BOHR2ANG
 from pysisyphus.helpers import geom_loader
 
 from .mlmm_calc import mlmm
+from .defaults import FREQ_KW, THERMO_KW
 from .opt import (
     CALC_KW as OPT_CALC_KW,
     GEOM_KW as OPT_GEOM_KW,
@@ -47,6 +49,7 @@ from .utils import (
     is_convert_file_enabled,
     convert_xyz_like_outputs,
     deep_update,
+    filter_calc_for_echo,
     format_elapsed,
     format_freeze_atoms_for_echo,
     load_yaml_dict,
@@ -611,21 +614,7 @@ GEOM_KW: Dict[str, Any] = deepcopy(OPT_GEOM_KW)
 # ML/MM calculator defaults — shared with opt.py
 CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
 
-# Frequency writer defaults
-FREQ_KW: Dict[str, Any] = {
-    "max_write": 10,          # Number of modes to export (after sorting)
-    "amplitude_ang": 0.8,     # Mode animation amplitude in Å
-    "n_frames": 20,           # Frames per sinusoidal animation
-    "sort": "value",          # Sort modes by value (cm^-1) or absolute value
-    "out_dir": "./result_freq/",  # Default output directory
-}
-
-# Thermochemistry defaults
-THERMO_KW: Dict[str, Any] = {
-    "temperature": 298.15,    # Kelvin
-    "pressure_atm": 1.0,      # Atmospheric pressure (converted to Pa internally)
-    "dump": False,            # Write thermoanalysis.yaml when True
-}
+# FREQ_KW and THERMO_KW are imported from .defaults
 
 
 # ===================================================================
@@ -1143,8 +1132,7 @@ def cli(
             calc_cfg[key] = str(Path(val).expanduser().resolve())
 
     click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
-    echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
-    echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
+    echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
     click.echo(pretty_block("calc", echo_calc))
     echo_freq = strip_inherited_keys({**freq_cfg, "out_dir": str(out_dir_path)}, FREQ_KW, mode="same")
     click.echo(pretty_block("freq", echo_freq))
@@ -1372,6 +1360,11 @@ def cli(
         sys.exit(1)
     finally:
         prepared_input.cleanup()
+        # Release GPU memory so subsequent pipeline stages don't OOM
+        geometry = H_t = modes = None
+        gc.collect()  # break cyclic refs inside torch.nn.Module
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 # Allow `python -m mlmm_toolkit.freq` direct execution

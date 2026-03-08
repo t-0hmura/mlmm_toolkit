@@ -496,6 +496,16 @@ class HessianOptimizer(Optimizer):
         recalc = self.hessian_recalc_in == 0
 
         if recalc or recalc_adapt:
+            # Free old Hessian from GPU before recalculating
+            H_old = self.H
+            self.H = None
+            del H_old
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except ImportError:
+                pass
             # Use xtb hessian
             self.log("Requested Hessian recalculation.")
             if self.hessian_xtb:

@@ -14,6 +14,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+import gc
 import logging
 import math
 import shutil
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 import click
 import numpy as np
+import torch
 import pandas as pd
 from scipy.interpolate import Rbf
 import plotly.graph_objects as go
@@ -56,6 +58,7 @@ from .utils import (
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
+    filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     format_elapsed,
     merge_freeze_atom_indices,
@@ -577,8 +580,7 @@ def cli(
             ref_pdb_resolve = source_path.resolve()
 
             click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
-            echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
-            echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
+            echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
             click.echo(pretty_block("calc", echo_calc))
             echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
             click.echo(pretty_block("opt", echo_opt))
@@ -1205,3 +1207,8 @@ def cli(
     finally:
         if tmp_root is not None:
             shutil.rmtree(tmp_root, ignore_errors=True)
+        # Release GPU memory so subsequent pipeline stages don't OOM
+        base_calc = geom_outer = geom_inner = optimizer0 = None
+        gc.collect()  # break cyclic refs inside torch.nn.Module
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

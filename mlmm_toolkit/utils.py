@@ -318,6 +318,40 @@ def _to_yaml_safe(value: Any) -> Any:
     return value
 
 
+# Backend-specific key prefixes in MLMM_CALC_KW.
+# Keys with these prefixes are only relevant when the corresponding backend is active.
+_BACKEND_KEY_PREFIXES: Dict[str, tuple] = {
+    "uma": ("uma_model", "uma_task_name"),
+    "orb": ("orb_model", "orb_precision"),
+    "mace": ("mace_model", "mace_dtype"),
+    "aimnet2": ("aimnet2_model",),
+}
+
+
+def filter_calc_for_echo(calc_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove backend-specific keys that are irrelevant for the active backend.
+
+    Also hides xTB/embedcharge keys when embedcharge is disabled.
+    """
+    cfg = dict(calc_cfg)
+    active = cfg.get("backend", "uma")
+
+    # Remove keys belonging to inactive ML backends
+    for backend, keys in _BACKEND_KEY_PREFIXES.items():
+        if backend != active:
+            for k in keys:
+                cfg.pop(k, None)
+
+    # Hide xTB-specific keys when embedcharge is disabled
+    if not cfg.get("embedcharge"):
+        for k in list(cfg):
+            if k.startswith("xtb_"):
+                cfg.pop(k)
+        cfg.pop("embedcharge_step", None)
+
+    return cfg
+
+
 def strip_inherited_keys(
     child_cfg: Dict[str, Any],
     base_cfg: Dict[str, Any],

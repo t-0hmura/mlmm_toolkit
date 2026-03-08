@@ -17,6 +17,7 @@ from typing import List, Sequence, Optional, Tuple, Dict, Any
 import shutil
 import tempfile
 
+import gc
 import logging
 import sys
 import math
@@ -139,6 +140,13 @@ def _run_cli_main(
         _echo(f"[{label}] WARNING: {cmd_name} failed: {e}")
     finally:
         sys.argv = saved
+        # Release GPU memory between pipeline stages to prevent OOM.
+        # Subcommand finally blocks unbind their heavy locals (= None).
+        # gc.collect() is needed to break cyclic refs inside torch.nn.Module,
+        # then empty_cache() reclaims the CUDA allocator cache.
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         _echo("\n")
 
 
@@ -2038,6 +2046,14 @@ def cli(
         dft_diag = None
         g_dft_diag = None
 
+        # ── Release GPU memory before freq/thermo/DFT ──
+        for _g in (gL, gR, gT, g_react, g_prod):
+            if _g is not None and hasattr(_g, "calculator"):
+                _g.calculator = None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         # Thermochemistry (UMA) Gibbs
         thermo_payloads: Dict[str, Dict[str, Any]] = {}
         GR = GT = GP = None
@@ -2955,6 +2971,14 @@ def cli(
             energies_eh=[eR, eT, eP],
             title_note="(UMA, TSOPT/IRC)",
         )
+
+        # ── Release GPU memory before freq/thermo/DFT ──
+        for _g in (gL, gR, gT):
+            if _g is not None and hasattr(_g, "calculator"):
+                _g.calculator = None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # 4.4 Thermochemistry (UMA freq) and Gibbs diagram
         thermo_payloads: Dict[str, Dict[str, Any]] = {}

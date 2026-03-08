@@ -5,23 +5,12 @@ Central configuration defaults for mlmm workflows.
 
 All default dictionaries are defined here to avoid redundant definitions across modules.
 Modules should import defaults from here instead of defining local copies.
+
+Shared optimizer/IRC/path defaults — keep aligned with pdb2reaction/defaults.py.
+Project-specific overrides are commented with rationale.
 """
 
 from typing import Any, Dict
-
-# -----------------------------------------------
-# Output directory defaults
-# -----------------------------------------------
-
-OUT_DIR_OPT = "./result_opt/"
-OUT_DIR_SCAN = "./result_scan/"
-OUT_DIR_SCAN2D = "./result_scan2d/"
-OUT_DIR_SCAN3D = "./result_scan3d/"
-OUT_DIR_FREQ = "./result_freq/"
-OUT_DIR_IRC = "./result_irc/"
-OUT_DIR_TSOPT = "./result_tsopt/"
-OUT_DIR_PATH_OPT = "./result_path_opt/"
-OUT_DIR_PATH_SEARCH = "./result_path_search/"
 
 # -----------------------------------------------
 # B-factor values for 3-layer ML/MM system
@@ -45,6 +34,20 @@ BFACTOR_FROZEN = 20.0
 BFACTOR_TOLERANCE = 1.0
 
 # -----------------------------------------------
+# Output directory defaults
+# -----------------------------------------------
+
+OUT_DIR_OPT = "./result_opt/"
+OUT_DIR_SCAN = "./result_scan/"
+OUT_DIR_SCAN2D = "./result_scan2d/"
+OUT_DIR_SCAN3D = "./result_scan3d/"
+OUT_DIR_FREQ = "./result_freq/"
+OUT_DIR_IRC = "./result_irc/"
+OUT_DIR_TSOPT = "./result_tsopt/"
+OUT_DIR_PATH_OPT = "./result_path_opt/"
+OUT_DIR_PATH_SEARCH = "./result_path_search/"
+
+# -----------------------------------------------
 # Geometry defaults
 # -----------------------------------------------
 
@@ -66,7 +69,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "link_mlmm": None,
     # ML backend selection: "uma" | "orb" | "mace" | "aimnet2"
     "backend": "uma",
-    "uma_model": "uma-s-1p2",
+    "uma_model": "uma-s-1p1",
     "uma_task_name": "omol",
     "orb_model": "orb_v3_conservative_omol",
     "orb_precision": "float32",
@@ -165,7 +168,7 @@ RFO_KW: Dict[str, Any] = {
     **OPT_BASE_KW,
     "trust_radius": 0.30,
     "trust_update": True,
-    "trust_min": 0.01,
+    "trust_min": 1e-4,
     "trust_max": 0.30,
     "max_energy_incr": None,
     "hessian_update": "bfgs",
@@ -189,7 +192,7 @@ RFO_KW: Dict[str, Any] = {
 # -----------------------------------------------
 
 BIAS_KW: Dict[str, Any] = {
-    "k": 300,  # eV/Å²
+    "k": 300,
 }
 
 # -----------------------------------------------
@@ -212,10 +215,41 @@ OPT_MODE_ALIASES = (
     (("hess", "heavy", "rfo"), "rfo"),
 )
 
-TSOPT_MODE_ALIASES = (
-    (("grad", "light", "dimer"), "dimer"),
-    (("hess", "heavy", "rsirfo"), "rsirfo"),
-)
+# -----------------------------------------------
+# DMF (Direct Max Flux) defaults for path optimization
+# -----------------------------------------------
+
+DMF_KW: Dict[str, Any] = {
+    "max_cycles": 300,
+    "correlated": True,
+    "sequential": True,
+    "fbenm_only_endpoints": False,
+    "fbenm_options": {
+        "delta_scale": 0.2,
+        "bond_scale": 1.25,
+        "fix_planes": True,
+    },
+    "cfbenm_options": {
+        "bond_scale": 1.25,
+        "corr0_scale": 1.10,
+        "corr1_scale": 1.50,
+        "corr2_scale": 1.60,
+        "eps": 0.05,
+        "pivotal": True,
+        "single": True,
+        "remove_fourmembered": True,
+    },
+    "dmf_options": {
+        "remove_rotation_and_translation": False,
+        "mass_weighted": False,
+        "parallel": False,
+        "eps_vel": 0.01,
+        "eps_rot": 0.01,
+        "beta": 10.0,
+        "update_teval": False,
+    },
+    "k_fix": 300.0,
+}
 
 # -----------------------------------------------
 # GrowingString (path representation) defaults
@@ -224,7 +258,7 @@ TSOPT_MODE_ALIASES = (
 GS_KW: Dict[str, Any] = {
     "fix_first": True,
     "fix_last": True,
-    "max_nodes": 10,
+    "max_nodes": 20,
     "perp_thresh": 5e-3,
     "reparam_check": "rms",
     "reparam_every": 1,
@@ -336,6 +370,15 @@ THERMO_KW: Dict[str, Any] = {
 }
 
 # -----------------------------------------------
+# TS optimization mode aliases
+# -----------------------------------------------
+
+TSOPT_MODE_ALIASES = (
+    (("grad", "light", "dimer"), "dimer"),
+    (("hess", "heavy", "rsirfo"), "rsirfo"),
+)
+
+# -----------------------------------------------
 # Dimer defaults for TS optimization
 # -----------------------------------------------
 
@@ -378,25 +421,31 @@ HESSIAN_DIMER_KW: Dict[str, Any] = {
     "mem": 100000,
     "device": "auto",
     "root": 0,
-    "partial_hessian_flatten": True,  # New: use partial Hessian for imaginary mode detection
-    "ml_only_hessian_dimer": False,  # Use ML-region-only Hessian (no MM Hessian) for dimer orientation
+    # --- ONIOM-specific keys (not present in pdb2reaction) ---
+    "partial_hessian_flatten": True,
+    "ml_only_hessian_dimer": False,
 }
 
 # -----------------------------------------------
 # RS-I-RFO defaults for TS optimization (heavy mode)
 # -----------------------------------------------
 
+# Inherit shared keys from RFO_KW, but exclude RFOptimizer-only params
+# that RSIRFOptimizer (via TSHessianOptimizer → Optimizer) does not accept.
+_RFO_ONLY_KEYS = {
+    "gediis", "gdiis", "gdiis_thresh", "gediis_thresh",
+    "gdiis_test_direction", "adapt_step_func", "rfo_overlaps",
+}
+
 RSIRFO_KW: Dict[str, Any] = {
-    **OPT_BASE_KW,
+    **{k: v for k, v in RFO_KW.items() if k not in _RFO_ONLY_KEYS},
     "thresh": "baker",
-    "trust_radius": 0.10,
-    "trust_update": True,
-    "trust_min": 0.01,
+    "trust_radius": 0.10,     # ONIOM: smaller initial step (RFO default: 0.30)
     "trust_max": 0.30,
     "max_energy_incr": None,
     "hessian_update": "bofill",
     "hessian_init": "calc",
-    "hessian_recalc": 200,
+    "hessian_recalc": 200,    # ONIOM: more frequent recalc (RFO default: 500)
     "small_eigval_thresh": 1e-8,
     "out_dir": OUT_DIR_TSOPT,
 }
@@ -412,42 +461,6 @@ DFT_KW: Dict[str, Any] = {
     "grid_level": 3,
     "verbose": 4,
     "out_dir": "./result_dft/",
-}
-
-# -----------------------------------------------
-# DMF (Direct Max Flux) defaults for path optimization
-# -----------------------------------------------
-
-DMF_KW: Dict[str, Any] = {
-    "max_cycles": 300,
-    "correlated": True,
-    "sequential": True,
-    "fbenm_only_endpoints": False,
-    "fbenm_options": {
-        "delta_scale": 0.2,
-        "bond_scale": 1.25,
-        "fix_planes": True,
-    },
-    "cfbenm_options": {
-        "bond_scale": 1.25,
-        "corr0_scale": 1.10,
-        "corr1_scale": 1.50,
-        "corr2_scale": 1.60,
-        "eps": 0.05,
-        "pivotal": True,
-        "single": True,
-        "remove_fourmembered": True,
-    },
-    "dmf_options": {
-        "remove_rotation_and_translation": False,
-        "mass_weighted": False,
-        "parallel": False,
-        "eps_vel": 0.01,
-        "eps_rot": 0.01,
-        "beta": 10.0,
-        "update_teval": False,
-    },
-    "k_fix": 300.0,
 }
 
 # Note: normalize_choice and deep_update are now in utils.py to avoid duplication

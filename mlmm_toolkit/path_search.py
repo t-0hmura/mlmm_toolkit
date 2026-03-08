@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+import gc
 import logging
 import sys
 import traceback
@@ -29,6 +30,7 @@ import re    # used in _segment_base_id
 
 import click
 import numpy as np
+import torch
 import yaml
 
 from pysisyphus.helpers import geom_loader
@@ -64,6 +66,7 @@ from .utils import (
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
+    filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     format_elapsed,
     merge_freeze_atom_indices,
@@ -2153,8 +2156,7 @@ def cli(
         stopt_cfg["stop_in_when_full"] = int(stopt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
         out_dir_path = Path(stopt_cfg.get("out_dir", out_dir)).resolve()
         echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
-        echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
-        echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
+        echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
         echo_gs   = strip_inherited_keys(gs_cfg, GS_KW, mode="same")
         echo_stopt = strip_inherited_keys({**stopt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
         echo_lbfgs = strip_inherited_keys(lbfgs_cfg, LBFGS_KW, mode="same")
@@ -2679,3 +2681,8 @@ def cli(
     finally:
         for prepared in prepared_inputs:
             prepared.cleanup()
+        # Release GPU memory so subsequent pipeline stages don't OOM
+        shared_calc = geoms = None
+        gc.collect()  # break cyclic refs inside torch.nn.Module
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

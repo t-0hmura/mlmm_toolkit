@@ -15,6 +15,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+import gc
 import logging
 import math
 import sys
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 import click
 import numpy as np
 import time
+import torch
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.optimizers.LBFGS import LBFGS
@@ -56,6 +58,7 @@ from .utils import (
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
+    filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     format_elapsed,
     merge_freeze_atom_indices,
@@ -607,8 +610,7 @@ def cli(
                 if val:
                     calc_cfg[key] = str(Path(val).expanduser().resolve())
             echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
-            echo_calc = strip_inherited_keys(calc_cfg, CALC_KW, mode="same")
-            echo_calc = format_freeze_atoms_for_echo(echo_calc, key="freeze_atoms")
+            echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
             echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
             # Show only lbfgs-specific settings, not inherited from opt_cfg
             echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
@@ -961,6 +963,12 @@ def cli(
         tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         click.echo("Unhandled error during scan:\n" + textwrap.indent(tb, "  "), err=True)
         sys.exit(1)
+    finally:
+        # Release GPU memory so subsequent pipeline stages don't OOM
+        base_calc = biased = geom = optimizer = optimizer0 = end_optimizer = None
+        gc.collect()  # break cyclic refs inside torch.nn.Module
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":

@@ -60,10 +60,10 @@ calc:
  link_mlmm: null # Link atom specification for ML/MM boundary
 
  # --- MLIP backend selection ---
- backend: uma # MLIP backend: "uma" (default), "orb", "mace", "aimnet2"
+ backend: uma # MLIP backend: "uma", "orb", "mace", or "aimnet2"
 
  # --- UMA backend settings ---
- uma_model: uma-s-1p2 # UMA pretrained model name: uma-s-1p1, uma-s-1p2, uma-m-1p1
+ uma_model: uma-s-1p1 # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
  uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
 
  # --- ORB backend settings ---
@@ -589,9 +589,9 @@ geom:
 calc:
  model_charge: 0
  model_mult: 1
- backend: uma                  # MLIP backend: uma | orb | mace | aimnet2
+ backend: uma                  # MLIP backend: "uma", "orb", "mace", or "aimnet2"
  embedcharge: false            # xTB point-charge embedding correction
- uma_model: uma-s-1p2          # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p1          # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
  ml_device: auto
  ml_hessian_mode: Analytical   # Recommended when VRAM permits
  mm_device: cpu
