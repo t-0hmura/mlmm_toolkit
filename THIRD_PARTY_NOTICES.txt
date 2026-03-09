@@ -39,3 +39,19 @@ See thermoanalysis/LICENSE for the full license text.
 
 All bundled packages are licensed under GPL-3.0, which is compatible with
 this package's GPL-3.0 license.
+
+--------------------------------------------------------------------------------
+Additional notices within bundled pysisyphus sources
+--------------------------------------------------------------------------------
+
+The bundled `pysisyphus/` subtree retains original third-party notices for some
+embedded files:
+
+- `pysisyphus/peakdetect.py`
+  - Copyright (C) 2016 Sixten Bergman
+  - License: WTFPL
+
+- `pysisyphus/cos/stiffness.py`
+  - Adapted from the original implementation by Yuki Mitsuta
+  - Original: https://github.com/YukiMitsuta/Fstiffness
+  - License: MIT
