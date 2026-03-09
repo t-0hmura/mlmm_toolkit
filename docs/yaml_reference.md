@@ -1,8 +1,5 @@
 # YAML Reference
 
-
----
-
 ## Overview
 
 
@@ -46,6 +43,7 @@ geom:
 
 ---
 
+(calc)=
 ### `calc` (section)
 
 
