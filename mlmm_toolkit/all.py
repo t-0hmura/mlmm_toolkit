@@ -438,7 +438,10 @@ def _derive_charge_from_ligand_charge_when_extract_skipped(
     pdb_path: Path,
     ligand_charge: Optional[str],
 ) -> Optional[int]:
-    """Derive total charge from a full-complex PDB using extract-style charge summary."""
+    """Derive total charge from a PDB using extract-style charge summary.
+
+    *pdb_path* may be a full-complex PDB or a --model-pdb pocket.
+    """
     if ligand_charge is None:
         return None
     try:
@@ -448,7 +451,7 @@ def _derive_charge_from_ligand_charge_when_extract_skipped(
         summary = compute_charge_summary(complex_struct, selected_ids, set(), ligand_charge)
         log_charge_summary("[all]", summary)
         q_total = float(summary.get("total_charge", 0.0))
-        click.echo("[all] Charge summary from full complex (--ligand-charge without extraction):")
+        click.echo(f"[all] Charge summary from {pdb_path.name} (--ligand-charge without extraction):")
         click.echo(
             f"  Protein: {summary.get('protein_charge', 0.0):+g},  "
             f"Ligand: {summary.get('ligand_total_charge', 0.0):+g},  "
@@ -1978,8 +1981,11 @@ def cli(
         _echo("[all] Pocket inputs (full structures):")
         for op in pocket_outputs:
             _echo(f"  - {op}")
+        # Use --model-pdb for charge derivation when provided (pocket charge),
+        # otherwise fall back to full input PDB.
+        charge_source_pdb = model_pdb_override if model_pdb_override is not None else extract_inputs[0]
         resolved_charge = _derive_charge_from_ligand_charge_when_extract_skipped(
-            extract_inputs[0], ligand_charge
+            charge_source_pdb, ligand_charge
         )
     else:
         _echo_section(
