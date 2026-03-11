@@ -55,3 +55,5 @@ hessian_ff/native/.build_*/
 
 # setuptools-scm generated version file
 mlmm_toolkit/_version.py
+
+examples
