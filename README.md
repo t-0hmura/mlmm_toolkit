@@ -84,9 +84,9 @@ pip install mlmm-toolkit
 huggingface-cli login
 ```
 
-For CUDA 12.8 (recommended for RTX 50 series):
+For CUDA 12.9 (recommended for RTX 50 series):
 ```bash
-pip install torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 pip install mlmm-toolkit
 huggingface-cli login
 ```
@@ -96,7 +96,7 @@ huggingface-cli login
 | Requirement | Notes |
 |-------------|-------|
 | **Python >= 3.11** | 3.12 also supported |
-| **CUDA runtime >= 12.6** | CUDA 12.8 recommended for RTX 50 series |
+| **CUDA runtime >= 12.6** | CUDA 12.9 recommended for RTX 50 series |
 | Linux / WSL 2 | — |
 
 ### Full setup (conda)
@@ -224,9 +224,11 @@ mlmm irc -i ts_optimized.pdb --parm complex.parm7 -q 1
 mlmm dft -i optimized.pdb --parm complex.parm7 -q 1
 ```
 
+<!-- TODO: uncomment when examples/ is restored
 Fully working example scripts are provided in the [`examples/`](examples/) directory.
 Start with the minimal [`examples/toy_system/`](examples/toy_system/) example, then explore realistic enzyme cases in [`examples/chorismate_mutase/`](examples/chorismate_mutase/) and [`examples/methyltransferase/`](examples/methyltransferase/).
 For a step-by-step walkthrough, see [`examples/tutorial.md`](examples/tutorial.md).
+-->
 
 ---
 

@@ -20,7 +20,6 @@ Key test files:
 | `test_cli_help.py` | `--help` / `--help-advanced` for all subcommands |
 | `test_default_group.py` | DefaultGroup behavior (default subcmd, lazy import, bool compat) |
 | `test_bool_compat_cli.py` | Bool toggle/value syntax across all subcommands |
-| `test_cli_smoke_low_coverage.py` | Utility subcommands (add-elem-info, fix-altloc, trj2fig, energy-diagram) |
 
 CI runs these via `.github/workflows/pytest.yml` on every push/PR.
 
@@ -41,7 +40,7 @@ All iterative tests use `--thresh gau_loose` and reduced `--max-cycles` (3-5)
 to keep runtime short. Scan tests use `--preopt False --endopt False`, and
 path commands use `--preopt False --climb False --max-nodes 5`.
 
-### Test coverage (33 tests)
+### Test coverage (34 tests)
 
 | # | Category | Command | Notes |
 |---|----------|---------|-------|
@@ -72,6 +71,7 @@ path commands use `--preopt False --climb False --max-nodes 5`.
 | 31 | Utility | `trj2fig` | conditional on test4 output |
 | 32 | Utility | `energy-diagram` | |
 | 33 | Utility | `oniom-export` (g16) | |
+| 34 | xTB | `opt` (`--embedcharge`) | requires xTB binary |
 
 ## `oniom-export` Tips (Gaussian ONIOM)
 

@@ -106,7 +106,7 @@ dft:
 
 ## Scan Spec Shapes
 
-Accepted by `scan`, `scan2d`, and `scan3d` with `--spec`.
+Accepted by `scan`, `scan2d`, and `scan3d` with `-s/--scan-lists`.
 
 ```yaml
 # scan (1D staged)

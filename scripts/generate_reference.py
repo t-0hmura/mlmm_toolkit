@@ -218,7 +218,7 @@ pairs:
         "|---|---|---|\n"
         f"{scalar_rows}\n\n"
         "## Scan Spec Shapes\n\n"
-        "Accepted by `scan`, `scan2d`, and `scan3d` with `--spec`.\n\n"
+        "Accepted by `scan`, `scan2d`, and `scan3d` with `-s/--scan-lists`.\n\n"
         f"{scan_schema}\n"
     )
 

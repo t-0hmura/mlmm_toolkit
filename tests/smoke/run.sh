@@ -90,8 +90,8 @@ mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex
 mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --dry-run --out-dir test29 > test29.out 2>&1
 
 # test30: add-elem-info
-cp r_complex.pdb /tmp/test_mlmm_add_elem.pdb
-mlmm add-elem-info -i /tmp/test_mlmm_add_elem.pdb -o /tmp/test_mlmm_add_elem_out.pdb > test30.out 2>&1
+cp r_complex.pdb test30_input.pdb
+mlmm add-elem-info -i test30_input.pdb -o test30_output.pdb > test30.out 2>&1
 
 # test31: trj2fig
 mlmm trj2fig -i test4/optimization_trj.xyz -o test31.png > test31.out 2>&1

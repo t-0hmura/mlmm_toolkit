@@ -442,6 +442,16 @@ class IRC:
                 "the TS using 2rd derivatives."
             )
             step_length = np.sqrt(self.displ_energy * 2 / np.abs(min_eigval))
+            # Guard against near-zero eigenvalue producing an excessively
+            # large initial displacement.
+            max_displ = 0.5  # au in mass-weighted coordinates
+            if step_length > max_displ:
+                print(
+                    f"Warning: energy-based initial displacement {step_length:.4f} au "
+                    f"exceeds {max_displ} au (|eigval|={np.abs(min_eigval):.6e}). "
+                    f"Clamping to {max_displ} au."
+                )
+                step_length = max_displ
             # This calculation is derived from the mass-weighted hessian, so we
             # have to multiply this step length with the mass-weighted
             # mode and un-weigh it.
