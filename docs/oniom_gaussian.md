@@ -8,7 +8,7 @@
 - **Use when:** You want to run Gaussian ONIOM on the same system prepared for ML/MM.
 - **Method:** Reads Amber parm7 topology via ParmEd; maps model PDB to define QM layer; detects QM/MM boundaries and annotates link atoms.
 - **Outputs:** Gaussian `.com` or `.gjf` with method, coordinates, layer flags, and connectivity.
-- **Defaults:** `--method "B3LYP/6-31G(d,p)"`; `--nproc 8`; `--mem 16GB`; `--near 6.0`.
+- **Defaults:** `--method "wB97XD/def2-TZVPD"`; `--nproc 8`; `--mem 16GB`; `--near 6.0`.
 - **Next step:** Run the exported input in Gaussian.
 
 ## Minimal example
@@ -29,7 +29,7 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_regi
 
 ```bash
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
- -o system.com --method "B3LYP/6-31G(d,p)"
+ -o system.com --method "wB97XD/def2-TZVPD"
 ```
 
 2. Disable element-sequence validation when atom order is already trusted.
@@ -65,7 +65,7 @@ Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm`
 | `--element-check / --no-element-check` | Validate element sequence between input and parm7. | `True` |
 | `--model-pdb PATH` | PDB file defining QM region atoms. | _None_ |
 | `-o, --output PATH` | Output Gaussian input file (`.com` or `.gjf`). | Required |
-| `--method TEXT` | QM method and basis set. | `B3LYP/6-31G(d,p)` |
+| `--method TEXT` | QM method and basis set. | `wB97XD/def2-TZVPD` |
 | `-q, --charge INT` | Charge of QM region. | Required |
 | `-m, --multiplicity INT` | Multiplicity of QM region. | `1` |
 | `--near FLOAT` | Distance cutoff for movable atoms (Å). | `6.0` |

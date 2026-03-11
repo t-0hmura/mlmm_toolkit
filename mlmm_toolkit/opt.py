@@ -631,8 +631,8 @@ def _run_microiter_opt(
 
     max_cycles = int(opt_cfg.get("max_cycles", 10000))
     thresh = opt_cfg.get("thresh", "gau")
-    micro_thresh = microiter_cfg.get("micro_thresh", "gau_loose")
-    micro_max_cycles = int(microiter_cfg.get("micro_max_cycles", 500))
+    micro_thresh = microiter_cfg.get("micro_thresh") or thresh
+    micro_max_cycles = int(microiter_cfg.get("micro_max_cycles", 10000))
 
     click.echo(
         f"[microiter] ML atoms: {len(ml_indices)}, "
@@ -657,6 +657,7 @@ def _run_microiter_opt(
     macro_geom_cfg = {"freeze_atoms": macro_freeze}
     macro_calc_cfg = dict(calc_cfg)
     macro_calc_cfg["freeze_atoms"] = macro_freeze
+    macro_calc_cfg["hess_mm_atoms"] = []   # macro step は ML-only Hessian
     macro_calc = mlmm(**macro_calc_cfg)
     geometry.set_calculator(macro_calc)
 
@@ -847,7 +848,11 @@ def _run_microiter_opt(
     help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
-@click.option("-q", "--charge", type=int, required=True, help="ML region charge.")
+@click.option("-q", "--charge", type=int, required=False,
+              help="ML region charge. Required unless --ligand-charge is provided.")
+@click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
+              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
+                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -918,7 +923,7 @@ def _run_microiter_opt(
     show_default=True,
     help="Write optimization trajectories ('optimization_trj.xyz' and 'optimization_all_trj.xyz').",
 )
-@click.option("--out-dir", type=str, default="./result_opt/", show_default=True, help="Output directory.")
+@click.option("-o", "--out-dir", type=str, default="./result_opt/", show_default=True, help="Output directory.")
 @click.option(
     "--thresh",
     type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
@@ -976,7 +981,7 @@ def _run_microiter_opt(
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
 @click.option(
-    "--backend",
+    "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
@@ -1000,6 +1005,7 @@ def cli(
     model_indices_one_based: bool,
     detect_layer: bool,
     charge: Optional[int],
+    ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
     radius_partial_hessian: Optional[float],
@@ -1055,7 +1061,10 @@ def cli(
         sys.exit(1)
 
     geom_input_path = prepared_input.geom_path
-    charge, spin = resolve_charge_spin_or_raise(prepared_input, charge, spin)
+    charge, spin = resolve_charge_spin_or_raise(
+        prepared_input, charge, spin,
+        ligand_charge=ligand_charge, prefix="[opt]",
+    )
 
     try:
         freeze_atoms_cli = _parse_freeze_atoms(freeze_atoms_text)

@@ -11,7 +11,7 @@
 - **Defaults:** ff19SB (proteins) + OPC3 (water) + GAFF2 (organics) + Lipid21 + GLYCAM_06j-1 + OL3/OL21.
 - **Next step:** [define-layer](define_layer.md) to assign ML/MM layers.
 
-`mlmm mm-parm` generates Amber topology/coordinate files from a PDB. The input PDB is used without structural fixing by default. Unknown residues are automatically parameterized with antechamber (GAFF2, AM1-BCC charges) and parmchk2. Disulfide bonds are inferred geometrically from SG-SG (or S-S) distances within 2.3 Å. Nonstandard amino acids (residues containing N/CA/C that are not recognized by the selected force field) are **not** handled automatically -- the build aborts with a message asking you to parameterize them manually.
+`mlmm mm-parm` generates Amber topology/coordinate files from a PDB. The input PDB is used without structural fixing by default. Unknown residues are automatically parameterized with antechamber (GAFF2, AM1-BCC charges) and parmchk2. Residues explicitly listed in `--ligand-charge` are treated as ligand/cofactor definitions and are prioritized for GAFF2 parameterization. Disulfide bonds are inferred geometrically from SG-SG (or S-S) distances within 2.3 Å. Amino-acid residues listed in `AMINO_ACIDS` but still unrecognized by the selected force field are **not** handled automatically -- the build aborts with a message asking you to parameterize them manually.
 
 When `--add-h`, hydrogens are added at the specified `--ph` using PDBFixer before tleap processing. No other structural fixing is performed. With `--ff-set ff14SB`, the force field switches to ff14SB (proteins) + TIP3P (water) (+ phosaa14SB).
 
@@ -19,7 +19,7 @@ When `--add-h`, hydrogens are added at the specified `--ph` using PDBFixer befor
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- --ligand-charge "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1"
+ -l "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1"
 ```
 
 ## Output checklist
@@ -34,7 +34,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- --ligand-charge "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
+ -l "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
  --add-ter --ff-set ff19SB --add-h --ph 7.0
 ```
 
@@ -42,14 +42,14 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- --ligand-charge "GPP=-3" --no-add-h
+ -l "GPP=-3" --no-add-h
 ```
 
 ## Workflow
 
 1. **Input preparation** -- The input PDB is read as-is (no structural fixing). If `--add-h` is set, hydrogens are added via PDBFixer at the specified `--ph`.
 2. **TER insertion** -- When `--add-ter` (default), TER records are inserted before and after contiguous blocks of ligand/water/ion residues.
-3. **Unknown residue parameterization** -- Residues not recognized by the force field are parameterized with antechamber (GAFF2, AM1-BCC) and parmchk2. Formal charge and spin multiplicity are controlled via `--ligand-charge` and `--ligand-mult`.
+3. **Unknown residue parameterization** -- Residues not recognized by the force field are parameterized with antechamber (GAFF2, AM1-BCC) and parmchk2. Residues named in `--ligand-charge` are prioritized for this route. Formal charge and spin multiplicity are controlled via `--ligand-charge` and `--ligand-mult`.
 4. **Disulfide detection** -- CYS/CYM/CYX pairs with SG-SG (or S-S) distance <= 2.3 Å are bonded automatically.
 5. **Topology build** -- tleap generates parm7/rst7/pdb files using the selected force field set.
 
@@ -58,9 +58,8 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB (used as-is unless `--add-h`). | Required |
 | `--out-prefix TEXT` | Output prefix for parm7/rst7/pdb files. | Stem of input PDB |
-| `--ligand-charge TEXT` | Map residue name to formal charge, e.g. `"GPP=-3,MMT=-1"`. | _None_ |
+| `-l, --ligand-charge TEXT` | Map residue name to formal charge, e.g. `"GPP=-3,MMT=-1"`. | _None_ |
 | `--ligand-mult TEXT` | Map residue name to spin multiplicity, e.g. `"HEM=1,NO=2"`. Unspecified residues default to singlet (1). | _None_ |
-| `--allow-nonstandard-aa/--no-allow-nonstandard-aa` | Allow antechamber parameterization for amino-acid-like modified residues (N/CA/C present). | `False` |
 | `--keep-temp/--no-keep-temp` | Keep intermediate files/logs in a working directory (for debugging). | `False` |
 | `--add-ter/--no-add-ter` | Insert TER before/after ligand/water/ion blocks. | `True` |
 | `--add-h/--no-add-h` | Add hydrogens at `--ph` using PDBFixer. | `False` |

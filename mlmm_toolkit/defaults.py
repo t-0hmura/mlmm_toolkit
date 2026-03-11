@@ -343,8 +343,8 @@ IRC_KW: Dict[str, Any] = {
 # -----------------------------------------------
 
 MICROITER_KW: Dict[str, Any] = {
-    "micro_thresh": "gau_loose",    # Convergence threshold for MM relaxation
-    "micro_max_cycles": 500,        # Max LBFGS cycles per micro iteration
+    "micro_thresh": None,           # Convergence threshold for MM relaxation (None → same as macro thresh)
+    "micro_max_cycles": 10000,      # Max LBFGS cycles per micro iteration
 }
 
 # -----------------------------------------------

@@ -1,4 +1,4 @@
-# Quickstart: `mlmm scan` with `--spec`
+# Quickstart: `mlmm scan` with `-s` (YAML spec)
 
 ## Goal
 
@@ -25,7 +25,7 @@ stages:
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
+ -q 0 -s scan.yaml --print-parsed -o ./result_scan
 ```
 
 ## What to check
@@ -36,8 +36,8 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Notes
 
-- `--spec` is the recommended format; `--scan-lists` remains available for advanced/compatibility use.
-- To use a different MLIP backend, add `--backend orb` (or `mace`, `aimnet2`). Default is `uma`.
+- `-s/--scan-lists` auto-detects YAML/JSON spec files; inline Python literals are also accepted.
+- To use a different MLIP backend, add `-b orb` (or `mace`, `aimnet2`). Default is `uma`.
 - Use `mlmm scan --help-advanced` to inspect all scan controls.
 
 ## Next step

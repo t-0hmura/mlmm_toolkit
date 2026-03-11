@@ -59,6 +59,7 @@ from .opt import (
 )
 from .utils import (
     apply_layer_freeze_constraints,
+    apply_ref_pdb_override,
     convert_xyz_to_pdb,
     set_convert_file_enabled,
     load_yaml_dict,
@@ -1582,9 +1583,12 @@ def _merge_final_and_write(final_images: List[Any],
     "-q",
     "--charge",
     type=int,
-    required=True,
-    help="Total system charge.",
+    required=False,
+    help="Total system charge. Required unless --ligand-charge is provided.",
 )
+@click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
+              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
+                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -1663,7 +1667,7 @@ def _merge_final_and_write(final_images: List[Any],
     show_default=True,
     help="Single-structure optimizer: grad (=LBFGS) or hess (=RFO).",
 )
-@click.option("--out-dir", "out_dir", type=str, default="./result_path_search/", show_default=True, help="Output directory.")
+@click.option("-o", "--out-dir", "out_dir", type=str, default="./result_path_search/", show_default=True, help="Output directory.")
 @click.option(
     "--thresh",
     type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
@@ -1727,7 +1731,7 @@ def _merge_final_and_write(final_images: List[Any],
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
 @click.option(
-    "--backend",
+    "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
@@ -1750,6 +1754,7 @@ def cli(
     model_indices_one_based: bool,
     detect_layer: bool,
     charge: Optional[int],
+    ligand_charge: Optional[str],
     spin: Optional[int],
     mep_mode: str,
     refine_mode: Optional[str],
@@ -1828,12 +1833,22 @@ def cli(
                                              "Alternatively, use --align to allow using only the first reference PDB for all pairs.")
 
         p_list = [Path(p) for p in input_paths]
-        for p in p_list:
-            if p.suffix.lower() != ".pdb":
+        ref_list = list(ref_pdb_paths) if ref_pdb_paths else []
+        prepared_inputs = []
+        for i, p in enumerate(p_list):
+            pi = prepare_input_structure(p)
+            if p.suffix.lower() == ".xyz":
+                if i < len(ref_list):
+                    apply_ref_pdb_override(pi, ref_list[i])
+                else:
+                    raise click.BadParameter(
+                        f"XYZ input '{p}' requires a corresponding --ref-pdb for topology/B-factor info."
+                    )
+            elif p.suffix.lower() != ".pdb":
                 raise click.BadParameter(
-                    f"'{p}' is not a PDB file. ML/MM path-search currently requires PDB inputs for all states."
+                    f"'{p}': unsupported format. Use .pdb or .xyz (with --ref-pdb)."
                 )
-        prepared_inputs = [prepare_input_structure(p) for p in p_list]
+            prepared_inputs.append(pi)
         # --------------------------
         # 1) Resolve settings (defaults < config < CLI(explicit) < override)
         # --------------------------
@@ -1905,6 +1920,8 @@ def cli(
                 prepared,
                 resolved_charge,
                 resolved_spin,
+                ligand_charge=ligand_charge,
+                prefix="[path-search]",
             )
         charge_value = calc_cfg.get("model_charge", resolved_charge)
         if charge_value is None:
@@ -2215,12 +2232,15 @@ def cli(
         for g in geoms:
             g.set_calculator(shared_calc)
 
-        # If any input is PDB, treat as "PDB input" for final output handling.
+        # Reference PDB for output conversion: prefer --ref-pdb, fall back to input PDBs
         ref_pdb_for_segments: Optional[Path] = None
-        for p in p_list:
-            if p.suffix.lower() == ".pdb":
-                ref_pdb_for_segments = p.resolve()
-                break
+        if ref_list:
+            ref_pdb_for_segments = Path(ref_list[0]).resolve()
+        else:
+            for p in p_list:
+                if p.suffix.lower() == ".pdb":
+                    ref_pdb_for_segments = p.resolve()
+                    break
 
         if pre_opt:
             new_geoms: List[Any] = []

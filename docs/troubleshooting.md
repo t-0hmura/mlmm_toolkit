@@ -87,7 +87,7 @@ Fix:
 - Or, when using extraction, provide a residue-name mapping and run through `all`:
 
  ```bash
- mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
  ```
 
 ---
@@ -139,11 +139,11 @@ Symptoms:
 
 Fixes to try:
 - Check that the ligand has correct element symbols and bond connectivity in the PDB.
-- Ensure `--ligand-charge` is specified correctly: `--ligand-charge 'GPP:-3,SAM:1'`.
+- Ensure `--ligand-charge` is specified correctly: `-l 'GPP:-3,SAM:1'`.
 - Use `--keep-temp` to preserve intermediate files and inspect `<resname>.antechamber.log`:
 
  ```bash
- mlmm mm-parm -i input.pdb --ligand-charge 'LIG:-1' --keep-temp
+ mlmm mm-parm -i input.pdb -l 'LIG:-1' --keep-temp
  ```
 
 - Check that hydrogen atoms are correctly added and TER records are appropriate.

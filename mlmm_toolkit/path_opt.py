@@ -551,9 +551,12 @@ def _run_dmf_mep(
     "-q",
     "--charge",
     type=int,
-    required=True,
-    help="Total charge.",
+    required=False,
+    help="Total charge. Required unless --ligand-charge is provided.",
 )
+@click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
+              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
+                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -699,7 +702,7 @@ def _run_dmf_mep(
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
 @click.option(
-    "--backend",
+    "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
@@ -717,6 +720,7 @@ def cli(
     ctx: click.Context,
     input_paths: Sequence[Path],
     charge: Optional[int],
+    ligand_charge: Optional[str],
     spin: Optional[int],
     mep_mode: str,
     max_nodes: int,
@@ -844,6 +848,8 @@ def cli(
                 prepared,
                 resolved_charge,
                 resolved_spin,
+                ligand_charge=ligand_charge,
+                prefix="[path-opt]",
             )
         model_charge_value = calc_cfg.get("model_charge", resolved_charge)
         if model_charge_value is None:

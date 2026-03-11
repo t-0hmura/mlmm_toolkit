@@ -68,6 +68,7 @@ from .utils import (
     load_pdb_atom_metadata,
     parse_scan_list_triples,
     parse_scan_spec_stages,
+    is_scan_spec_file,
     PDB_ATOM_META_HEADER,
     format_pdb_atom_metadata,
     parse_indices_string,
@@ -235,7 +236,11 @@ def _snapshot_geometry(g) -> Any:
     help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
-@click.option("-q", "--charge", type=int, required=True, help="ML region charge.")
+@click.option("-q", "--charge", type=int, required=False,
+              help="ML region charge. Required unless --ligand-charge is provided.")
+@click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
+              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
+                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -272,20 +277,13 @@ def _snapshot_geometry(g) -> Any:
          "Providing --movable-cutoff disables --detect-layer.",
 )
 @click.option(
-    "--scan-lists",
+    "-s", "--scan-lists",
     "scan_lists_raw",
     type=str,
     multiple=True,
     required=False,
-    help="Python-like list of (i,j,target) per stage. Pass a single --scan-lists followed by "
-         "multiple literals to run sequential stages, e.g. --scan-lists '[(0,1,1.50)]' '[(5,7,1.20)]'.",
-)
-@click.option(
-    "--spec",
-    "spec_path",
-    type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    required=False,
-    help="YAML/JSON scan spec file (recommended). Use this instead of --scan-lists.",
+    help="Scan targets: inline Python literal (e.g. '[(1,5,1.4)]') or a YAML/JSON spec file path. "
+         "Multiple inline literals define sequential stages.",
 )
 @click.option("--one-based/--zero-based", "one_based", default=True, show_default=True,
               help="Interpret (i,j) indices in --scan-lists as 1-based (default) or 0-based.")
@@ -294,7 +292,7 @@ def _snapshot_geometry(g) -> Any:
     "print_parsed",
     default=False,
     show_default=True,
-    help="Print parsed scan targets after resolving --spec/--scan-lists.",
+    help="Print parsed scan targets after resolving -s/--scan-lists.",
 )
 @click.option("--max-step-size", type=float, default=0.20, show_default=True,
               help="Maximum change in any scanned bond length per step [Å].")
@@ -379,7 +377,7 @@ def _snapshot_geometry(g) -> Any:
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
 @click.option(
-    "--backend",
+    "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
@@ -402,12 +400,12 @@ def cli(
     model_indices_one_based: bool,
     detect_layer: bool,
     charge: Optional[int],
+    ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_cli: Optional[str],
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     scan_lists_raw: Sequence[str],
-    spec_path: Optional[Path],
     one_based: bool,
     print_parsed: bool,
     max_step_size: float,
@@ -466,7 +464,10 @@ def cli(
                 sys.exit(1)
             geom_input_path = prepared_input.geom_path
             source_path = prepared_input.source_path
-            charge, spin = resolve_charge_spin_or_raise(prepared_input, charge, spin)
+            charge, spin = resolve_charge_spin_or_raise(
+                prepared_input, charge, spin,
+                ligand_charge=ligand_charge, prefix="[scan]",
+            )
 
             try:
                 freeze_atoms_list = _parse_freeze_atoms(freeze_atoms_cli)
@@ -628,25 +629,25 @@ def cli(
                 pdb_atom_meta = load_pdb_atom_metadata(source_path)
 
             cli_scan_values = collect_single_option_values(
-                sys.argv[1:], ("--scan-lists",), "--scan-lists"
+                sys.argv[1:], ("-s", "--scan-lists"), "--scan-lists"
             )
-            if spec_path is not None and cli_scan_values:
-                raise click.BadParameter("Use either --spec or --scan-lists, not both.")
+            if not cli_scan_values:
+                raise click.BadParameter("--scan-lists is required.")
 
             stages: List[List[Tuple[int, int, float]]]
             scan_one_based = bool(one_based)
             scan_source = "--scan-lists"
-            if spec_path is not None:
+            # Auto-detect: single value that is a YAML/JSON file → spec mode
+            if len(cli_scan_values) == 1 and is_scan_spec_file(cli_scan_values[0]):
+                spec_path = Path(cli_scan_values[0])
                 stages, scan_one_based = parse_scan_spec_stages(
                     spec_path,
                     one_based_default=one_based,
                     atom_meta=pdb_atom_meta,
-                    option_name="--spec",
+                    option_name="--scan-lists",
                 )
-                scan_source = f"--spec ({spec_path})"
+                scan_source = f"--scan-lists ({spec_path})"
             else:
-                if not cli_scan_values:
-                    raise click.BadParameter("Provide either --spec or --scan-lists.")
                 stages = []
                 for idx, raw in enumerate(cli_scan_values, start=1):
                     parsed, _ = parse_scan_list_triples(

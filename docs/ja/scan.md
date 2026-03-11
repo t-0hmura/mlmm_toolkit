@@ -2,23 +2,23 @@
 
 ## 概要
 
-> **要約:** ML/MM 計算機を使用して、調和拘束による結合距離スキャンで反応座標を駆動します。`--spec`（YAML/JSON、推奨）でターゲット距離を定義し、`--scan-lists` は Python リテラル入力として利用できます。
+> **要約:** ML/MM 計算機を使用して、調和拘束による結合距離スキャンで反応座標を駆動します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
 
 ### 概要
 - **用途:** 単一構造があり、特定の原子間距離をターゲット値に向けて駆動し、妥当な経路を探索したい場合に使用（多くの場合 `path-search`/`path-opt` の前段階）。
-- **入力:** 1 つの構造 + `--spec scan.yaml`（推奨）または 1 つ以上の `--scan-lists` リテラル（各リテラル = 1 ステージ）。
-- **デフォルト:** LBFGS オプティマイザー、`--preopt`、`--endopt`、`--max-step-size 0.20` Å。
+- **入力:** 1 つの構造 + `-s scan.yaml`（YAML/JSON スペック、推奨）または `-s "[(I,J,TARGET)]"` インラインリテラル（各リテラル = 1 ステージ）。
+- **デフォルト:** LBFGS オプティマイザー、`--preopt`、`--endopt`、`--max-step-size 0.20` Å、`--thresh baker`。
 - **出力:** ステージごとの `result.xyz`（+ 任意で `.pdb`）、`--dump` 時は連結軌跡。
-- **注記:** シェルクォート問題を避けるため `--spec` を推奨します。`--scan-lists` も引き続きサポートされています。
+- **注記:** `-s/--scan-lists` は引数が YAML/JSON ファイルかインライン Python リテラルかを自動検出します。
 
-`mlmm scan` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して調和拘束による段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットが更新され、拘束ウェルが適用され、LBFGS で構造が緩和されます。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`--backend` で選択）と hessian_ff を結合します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
+`mlmm scan` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して調和拘束による段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットが更新され、拘束ウェルが適用され、LBFGS で構造が緩和されます。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 
 
 ## 最小例
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
+ -q 0 -s scan.yaml --print-parsed -o ./result_scan
 ```
 
 ## 出力の見方
@@ -33,30 +33,30 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed
+ -q 0 -s scan.yaml --print-parsed
 ```
 
-2. リテラル入力を使う。
+2. インラインリテラル入力を使う。
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --scan-lists "[(12,45,2.20)]"
+ -q 0 -s "[(12,45,2.20)]"
 ```
 
 3. ステージごとの軌跡を保存して確認する。
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --dump --out-dir ./result_scan_dump
+ -q 0 -s scan.yaml --dump -o ./result_scan_dump
 ```
 
-> **注記:** `--spec` / `--scan-lists` の解釈結果を確認したい場合は `--print-parsed` を追加してください。
+> **注記:** `-s/--scan-lists` の解釈結果を確認したい場合は `--print-parsed` を追加してください。
 
 ## 使用法
 ```bash
 mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
- [--spec scan.yaml | --scan-lists "[(I,J,TARGET_ANG)]"] [options]
+ [-s scan.yaml | -s "[(I,J,TARGET_ANG)]"] [options]
 ```
 
 ### 例
@@ -69,21 +69,21 @@ stages:
  - [[10, 55, 1.35], [23, 34, 1.80]]
 YAML
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed
+ -q 0 -s scan.yaml --print-parsed
 
-# 代替: Python リテラル
+# 代替: インライン Python リテラル
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --scan-lists "[(12,45,2.20)]"
+ -q 0 -s "[(12,45,2.20)]"
 
 # ダンプ付き 2 ステージ、凍結原子、YAML 上書き
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q -1 -m 1 --freeze-atoms "1,3,5" --scan-lists "[(12,45,2.20)]" \
+ -q -1 -m 1 --freeze-atoms "1,3,5" -s "[(12,45,2.20)]" \
  "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
 ```
 
-## `--spec` フォーマット（推奨）
+## YAML/JSON スペックフォーマット（推奨）
 
-`--spec` はマッピングルートの YAML/JSON を受け付けます:
+`-s/--scan-lists` は YAML/JSON ファイルを自動検出します。ファイルパスを渡すとスペックモードになります:
 
 ```yaml
 one_based: true # 任意; デフォルトは CLI の --one-based/--zero-based
@@ -94,23 +94,23 @@ stages:
 
 - `stages` は必須です。
 - 各ステージは `(i, j, target_A)` の三つ組のリストです。
-- インデックスは整数または PDB セレクター（PDB 入力時）が使用可能で、`--scan-lists` と同じです。
+- インデックスは整数または PDB セレクター（PDB 入力時）が使用可能で、インラインリテラルと同じです。
 
-## `--scan-lists` フォーマット
+## インラインリテラルフォーマット
 
-`--scan-lists` は上級者向けの入力モードです。CLI で評価される **Python リテラル**文字列を受け付けます。シェルクォートに注意してください。
+`-s/--scan-lists` がファイルパスでない値を受け取ると、**Python リテラル**文字列として評価されます。シェルクォートに注意してください。
 
 ### 基本構造
 
 各リテラルは三つ組 `(atom1, atom2, target_A)` の Python リストです:
 
 ```
---scan-lists '[(atom1, atom2, target_A),...]'
+-s '[(atom1, atom2, target_A),...]'
 ```
 
 - シェルが括弧やスペースを解釈しないよう、リテラル全体を**シングルクォート**で囲んでください。
 - 各三つ組は `atom1`--`atom2` 間の距離を `target_A` に向けて駆動します。
-- 1 つのリテラル = 1 つの**ステージ**です。複数ステージの場合、**単一の** `--scan-lists` フラグの後に複数リテラルを渡します（フラグを繰り返さないでください）。
+- 1 つのリテラル = 1 つの**ステージ**です。複数ステージの場合、**単一の** `-s/--scan-lists` フラグの後に複数リテラルを渡します（フラグを繰り返さないでください）。
 
 ### 原子の指定
 
@@ -135,33 +135,33 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 
 ```bash
 # 正しい: リスト全体をシングルクォート、内側のセレクター文字列をダブルクォート
---scan-lists '[("TYR,285,CA","MMT,309,C10",1.35)]'
+-s '[("TYR,285,CA","MMT,309,C10",1.35)]'
 
 # 正しい: 整数インデックスは内側のクォート不要
---scan-lists '[(1, 5, 2.0)]'
+-s '[(1, 5, 2.0)]'
 
 # 非推奨: 外側をダブルクォートにすると内側のクォートをエスケープする必要あり
---scan-lists "[(\"TYR,285,CA\",\"MMT,309,C10\",1.35)]"
+-s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.35)]"
 ```
 
 ### 複数ステージ
 
-単一の `--scan-lists` フラグの後に複数リテラルを渡します。各リテラルが 1 ステージになります:
+単一の `-s/--scan-lists` フラグの後に複数リテラルを渡します。各リテラルが 1 ステージになります:
 
 ```bash
 # ステージ 1: 1 つの結合を 1.35 Å に駆動
 # ステージ 2: 2 つの結合を同時に駆動
---scan-lists \
+-s \
  '[("TYR,285,CA","MMT,309,C10",1.35)]' \
  '[("TYR,285,CA","MMT,309,C10",2.20),("TYR,285,CB","MMT,309,C11",1.80)]'
 ```
 
-ステージは順次実行され、各ステージは前のステージの緩和結果から開始します。**`--scan-lists` フラグを繰り返さないでください** -- 単一のフラグの後にすべてのステージリテラルを供給してください。
+ステージは順次実行され、各ステージは前のステージの緩和結果から開始します。**`-s/--scan-lists` フラグを繰り返さないでください** -- 単一のフラグの後にすべてのステージリテラルを供給してください。
 
 ## ワークフロー
 1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM 計算機に `--parm`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
 2. 任意でバイアスなし事前最適化（`--preopt`）を実行し、開始点を緩和します。
-3. `--spec`（推奨）または `--scan-lists` からステージターゲットを解析し、`(i, j)` インデックスを正規化します（デフォルトは 1 始まり）。入力が PDB の場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
+3. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からステージターゲットを解析し、`(i, j)` インデックスを正規化します（デフォルトは 1 始まり）。入力が PDB の場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
 4. 結合ごとの変位を計算してステップに分割します:
  - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
  - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
@@ -184,10 +184,9 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 原子からの MM Hessian 距離カットオフ (Å)。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
-| `--spec FILE` | `stages` を持つ YAML/JSON スキャン仕様。`one_based` を任意指定可能。 | 推奨 |
-| `--scan-lists TEXT` | `(i, j, target_A)` タプルを含む Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | `--spec` の代替 |
+| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` タプルを含むインライン Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
 | `--one-based/--zero-based` | 原子インデックスを 1 始まり（既定）または 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--print-parsed/--no-print-parsed` | `--spec`/`--scan-lists` 解釈後のステージ情報を表示。 | `False` |
+| `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のステージ情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
 | `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | `mlmm all` からの転送互換オプション。現状の `scan` 緩和は mode に関わらず LBFGS を使用。 | _None_ |
@@ -196,13 +195,13 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `True` |
 | `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `True` |
 | `--dump/--no-dump` | 連結バイアス軌跡（`scan_trj.xyz`/`scan.pdb`）をダンプ。 | `False` |
-| `--out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
-| `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
+| `-o, --out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
+| `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | `baker` |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
-| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部で `uma` を適用） |
+| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部で `uma` を適用） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--dry-run/--no-dry-run` | オプションの検証と実行計画の表示のみ行い、スキャンは実行しない。 | `False` |
+| `--dry-run/--no-dry-run` | オプションの検証と実行計画の表示のみ行い、スキャンは実行しない。`--help-advanced` に表示。 | `False` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力

@@ -152,11 +152,11 @@ mlmm all \
   -i r_complex.pdb p_complex.pdb \
   -c PRE \
   -r 6.0 \
-  --ligand-charge "PRE:0" \
+  -l "PRE:0" \
   -q 0 -m 1 \
-  --tsopt True \
-  --thermo True \
-  --dft True \
+  --tsopt \
+  --thermo \
+  --dft \
   --out-dir results
 ```
 

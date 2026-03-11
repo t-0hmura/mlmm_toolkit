@@ -20,7 +20,7 @@
 ## 最小例
 
 ```bash
-mlmm extract -i complex.pdb -c A:123 -o pocket.pdb --ligand-charge -3
+mlmm extract -i complex.pdb -c A:123 -o pocket.pdb -l -3
 ```
 
 ## 出力の見方
@@ -33,21 +33,21 @@ mlmm extract -i complex.pdb -c A:123 -o pocket.pdb --ligand-charge -3
 1. ID ベースの基質と明示的リガンド電荷によるミニマル実行。
 
 ```bash
-mlmm extract -i complex.pdb -c A:123 -o pocket.pdb --ligand-charge -3
+mlmm extract -i complex.pdb -c A:123 -o pocket.pdb -l -3
 ```
 
 2. PDB で基質を指定; 残基名ごとの電荷マッピング。
 
 ```bash
 mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb \
- --ligand-charge "GPP:-3,MMT:-1"
+ -l "GPP:-3,MMT:-1"
 ```
 
 3. マルチ構造から単一マルチモデル出力、ヘテロ-ヘテロ近接有効。
 
 ```bash
 mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
- -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose
+ -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose
 ```
 
 ## 使用法
@@ -60,26 +60,26 @@ mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
  [--exclude-backbone/--no-exclude-backbone]
  [--add-linkH/--no-add-linkH]
  [--selected-resn LIST]
- [--ligand-charge MAP_OR_NUMBER]
+ [-l, --ligand-charge MAP_OR_NUMBER]
  [--verbose/--no-verbose]
 ```
 
 ### 例
 ```bash
 # ID ベースの基質と明示的リガンド電荷によるミニマル実行
-mlmm extract -i complex.pdb -c '123' -o pocket.pdb --ligand-charge -3
+mlmm extract -i complex.pdb -c '123' -o pocket.pdb -l -3
 
 # PDB で基質を指定; 残基名ごとの電荷マッピング（その他は 0）
-mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb --ligand-charge 'GPP:-3,SAM:1'
+mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb -l 'GPP:-3,SAM:1'
 
 # 名前ベースの基質選択（すべてのマッチを含む; WARNING がログに出力）
-mlmm extract -i complex.pdb -c 'GPP,SAM' -o pocket.pdb --ligand-charge 'GPP:-3,SAM:1'
+mlmm extract -i complex.pdb -c 'GPP,SAM' -o pocket.pdb -l 'GPP:-3,SAM:1'
 
 # マルチ構造から単一マルチモデル出力、ヘテロ-ヘテロ近接有効
-mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge 'GPP:-3,SAM:1'
+mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket_multi.pdb --radius-het2het 2.6 -l 'GPP:-3,SAM:1'
 
 # マルチ構造から複数出力、ヘテロ-ヘテロ近接有効
-mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pdb --radius-het2het 2.6 --ligand-charge 'GPP:-3,SAM:1'
+mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pdb --radius-het2het 2.6 -l 'GPP:-3,SAM:1'
 ```
 
 ## ワークフロー
@@ -141,7 +141,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去（PRO/HYP セーフガード）。 | `True` |
 | `--add-linkH/--no-add-linkH` | 切断結合に 1.09 Å のカーボンオンリーリンク水素を付加。 | `False` |
 | `--selected-resn TEXT` | 強制包含する残基（鎖/インサーションコード付き ID）。 | `""` |
-| `--ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |
+| `-l, --ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |
 | `-v, --verbose/--no-verbose` | INFO レベルのログ出力（`True`）または WARNING のみ（`False`）。 | `True` |
 
 ## 出力

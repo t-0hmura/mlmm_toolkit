@@ -69,6 +69,7 @@ from .utils import (
     load_pdb_atom_metadata,
     parse_scan_list_quads,
     parse_scan_spec_quads,
+    is_scan_spec_file,
     axis_label_csv,
     axis_label_html,
     PDB_ATOM_META_HEADER,
@@ -425,7 +426,11 @@ def _finalize_surface_and_plot(
     help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
-@click.option("-q", "--charge", type=int, required=True, help="ML-region total charge.")
+@click.option("-q", "--charge", type=int, required=False,
+              help="ML-region total charge. Required unless --ligand-charge is provided.")
+@click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
+              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
+                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -462,18 +467,11 @@ def _finalize_surface_and_plot(
          "Providing --movable-cutoff disables --detect-layer.",
 )
 @click.option(
-    "--scan-lists",
+    "-s", "--scan-lists",
     "scan_list_raw",
     type=str,
     required=False,
-    help='Python-like list with three quadruples: "[(i1,j1,low1,high1),(i2,j2,low2,high2),(i3,j3,low3,high3)]".',
-)
-@click.option(
-    "--spec",
-    "spec_path",
-    type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    required=False,
-    help="YAML/JSON scan spec file (recommended). Use this instead of --scan-lists.",
+    help="Scan targets: inline Python literal or a YAML/JSON spec file path.",
 )
 @click.option(
     "--csv",
@@ -494,7 +492,7 @@ def _finalize_surface_and_plot(
     "print_parsed",
     default=False,
     show_default=True,
-    help="Print parsed scan targets after resolving --spec/--scan-lists.",
+    help="Print parsed scan targets after resolving --scan-lists.",
 )
 @click.option(
     "--max-step-size",
@@ -519,7 +517,7 @@ def _finalize_surface_and_plot(
     help="Write inner d3 scan TRJs per (d1,d2) slice.",
 )
 @click.option(
-    "--out-dir",
+    "-o", "--out-dir",
     type=str,
     default="./result_scan3d/",
     show_default=True,
@@ -528,8 +526,8 @@ def _finalize_surface_and_plot(
 @click.option(
     "--thresh",
     type=click.Choice(["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"], case_sensitive=False),
-    default=None,
-    show_default=False,
+    default="baker",
+    show_default=True,
     help="Convergence preset.",
 )
 @click.option(
@@ -582,7 +580,7 @@ def _finalize_surface_and_plot(
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
 @click.option(
-    "--backend",
+    "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
@@ -605,12 +603,12 @@ def cli(
     model_indices_one_based: bool,
     detect_layer: bool,
     charge: Optional[int],
+    ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_cli: Optional[str],
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     scan_list_raw: Optional[str],
-    spec_path: Optional[Path],
     csv_path: Optional[Path],
     one_based: bool,
     print_parsed: bool,
@@ -689,7 +687,10 @@ def cli(
                 sys.exit(1)
             geom_input_path = prepared_input.geom_path
             source_path = prepared_input.source_path
-            charge, spin = resolve_charge_spin_or_raise(prepared_input, charge, spin)
+            charge, spin = resolve_charge_spin_or_raise(
+                prepared_input, charge, spin,
+                ligand_charge=ligand_charge, prefix="[scan3d]",
+            )
 
             try:
                 freeze_atoms_list = _parse_freeze_atoms(freeze_atoms_cli)
@@ -846,22 +847,21 @@ def cli(
             if source_path.suffix.lower() == ".pdb":
                 pdb_atom_meta = load_pdb_atom_metadata(source_path)
 
-            if spec_path is not None and scan_list_raw is not None:
-                raise click.BadParameter("Use either --spec or --scan-lists, not both.")
+            if scan_list_raw is None:
+                raise click.BadParameter("--scan-lists is required.")
             scan_one_based = bool(one_based)
             scan_source = "--scan-lists"
-            if spec_path is not None:
+            if is_scan_spec_file(scan_list_raw):
+                spec_path = Path(scan_list_raw)
                 parsed, raw_pairs, scan_one_based = parse_scan_spec_quads(
                     spec_path,
                     expected_len=3,
                     one_based_default=one_based,
                     atom_meta=pdb_atom_meta,
-                    option_name="--spec",
+                    option_name="--scan-lists",
                 )
-                scan_source = f"--spec ({spec_path})"
+                scan_source = f"--scan-lists ({spec_path})"
             else:
-                if scan_list_raw is None:
-                    raise click.BadParameter("Provide either --spec or --scan-lists.")
                 parsed, raw_pairs = parse_scan_list_quads(
                     scan_list_raw,
                     expected_len=3,

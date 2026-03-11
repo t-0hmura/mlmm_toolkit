@@ -35,7 +35,7 @@ For a valid first-order saddle point, the frequencies should show exactly one im
 ## Tips
 
 - Use `--hessian-calc-mode Analytical` when VRAM is sufficient.
-- To use a different MLIP backend, add `--backend orb` (or `mace`, `aimnet2`). Default is `uma`.
+- To use a different MLIP backend, add `-b orb` (or `mace`, `aimnet2`). Default is `uma`.
 - Add `--embedcharge` to enable xTB point-charge embedding for MM-to-ML environmental corrections.
 - Check full options with `mlmm tsopt --help-advanced` and `mlmm freq --help-advanced`.
 

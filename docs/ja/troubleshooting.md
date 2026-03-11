@@ -92,7 +92,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 - あるいは、抽出経由で自動導出させるため `all` を使い、残基名ごとの電荷マッピングを与えます:
 
  ```bash
- mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
  ```
 
 ---
@@ -146,11 +146,11 @@ mm-parm requires AmberTools (tleap, antechamber, parmchk2).
 
 対処の例:
 - リガンドの PDB で元素記号と結合構造が正しいか確認する
-- `--ligand-charge` が正しく指定されていることを確認: `--ligand-charge 'GPP:-3,SAM:1'`
+- `--ligand-charge` が正しく指定されていることを確認: `-l 'GPP:-3,SAM:1'`
 - `--keep-temp` を付けて再実行し、`<resname>.antechamber.log` を確認する:
 
  ```bash
- mlmm mm-parm -i input.pdb --ligand-charge 'LIG:-1' --keep-temp
+ mlmm mm-parm -i input.pdb -l 'LIG:-1' --keep-temp
  ```
 
 - 水素が正しく付加されているか、TER レコードが適切か確認する

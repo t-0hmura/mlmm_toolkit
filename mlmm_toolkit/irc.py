@@ -139,7 +139,11 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
-@click.option("-q", "--charge", type=int, required=True, help="Total charge; overrides calc.charge from YAML.")
+@click.option("-q", "--charge", type=int, required=False,
+              help="Total charge; overrides calc.charge from YAML. Required unless --ligand-charge is provided.")
+@click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
+              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
+                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -166,7 +170,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     default=None,
     help="Run the backward IRC; overrides irc.backward from YAML.",
 )
-@click.option("--out-dir", type=str, default="./result_irc/", show_default=True, help="Output directory; overrides irc.out_dir from YAML.")
+@click.option("-o", "--out-dir", type=str, default="./result_irc/", show_default=True, help="Output directory; overrides irc.out_dir from YAML.")
 @click.option(
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
@@ -208,7 +212,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
 @click.option(
-    "--backend",
+    "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
@@ -231,6 +235,7 @@ def cli(
     model_indices_one_based: bool,
     detect_layer: bool,
     charge: Optional[int],
+    ligand_charge: Optional[str],
     spin: Optional[int],
     max_cycles: Optional[int],
     step_size: Optional[float],
@@ -269,7 +274,10 @@ def cli(
         sys.exit(1)
     geom_input_path = prepared_input.geom_path
     source_path = prepared_input.source_path
-    charge, spin = resolve_charge_spin_or_raise(prepared_input, charge, spin)
+    charge, spin = resolve_charge_spin_or_raise(
+        prepared_input, charge, spin,
+        ligand_charge=ligand_charge, prefix="[irc]",
+    )
 
     model_indices: Optional[List[int]] = None
     if model_indices_str:

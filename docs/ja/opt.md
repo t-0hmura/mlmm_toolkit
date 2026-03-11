@@ -62,7 +62,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## ワークフロー
 
 1. **入力処理** -- `-i/--input` は PDB または XYZ ファイルを受け付けます（XYZ 入力時は `--ref-pdb` を使用）。オプティマイザーは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Movable-MM、B=20 Frozen）から取得されます。
-2. **ML/MM 計算機の構築** -- ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
+2. **ML/MM 計算機の構築** -- ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **最適化** -- `--opt-mode grad`（`light`）は L-BFGS、`--opt-mode hess`（`heavy`）は RFOptimizer（RFO）を実行します。
    - `--flatten` は最適化後の虚振動数モードのフラットニングを有効にします。検出されたすべての虚振動数モードが各反復でフラットニングされ、虚振動数モードがなくなるか内部ループ上限に達するまで続きます。
 4. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を受け付けます。`target_A` は目標距離（Å）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/Å²）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
@@ -96,13 +96,13 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--flatten/--no-flatten` | 最適化後の虚振動数モードフラットンループの有効化/無効化。 | `False` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`）を出力。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの有効化/無効化。 | `True` |
-| `--out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |
+| `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |
 | `--thresh TEXT` | 収束プリセットの上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（内部的に `gau` を適用） |
 | `--config FILE` | ベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済み YAML レイヤー情報を表示。 | `False` |
-| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部的に `uma` を適用） |
+| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部的に `uma` を適用） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。 | `False` |
+| `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。`--help-advanced` に表示。 | `False` |
 
 ### 収束閾値プリセット
 

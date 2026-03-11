@@ -68,7 +68,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。ML/MM 評価に使用。 | `uma` |
+| `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。ML/MM 評価に使用。 | `uma` |
 | `--embedcharge/--no-embedcharge` | 静電埋め込みの有効化: Amber トポロジーの MM 点電荷を PySCF QM ハミルトニアンに追加し、DFT 波動関数が MM 環境により分極。 | `False` |
 | `-i, --input PATH` | 完全酵素 PDB ファイル（`.pdb` 必須）。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
@@ -83,10 +83,10 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--max-cycle INT` | 最大 SCF 反復数。 | `100` |
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
 | `--grid-level INT` | PySCF 数値積分グリッドレベル。 | `3` |
-| `--out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
+| `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。 | `False` |
+| `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。`--help-advanced` に表示。 | `False` |
 | `--ref-pdb FILE` | XYZ/GJF 入力時の参照 PDB（原子順序と残基マッピングのテンプレート）。 | _None_ |
 | `--convert-files/--no-convert-files` | PDB テンプレートがあれば XYZ/TRJ → PDB コンパニオンファイルを生成。 | `True` |
 

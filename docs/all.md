@@ -9,7 +9,7 @@
 - **Multi-structure ensemble** -- Provide two or more full PDBs in reaction order. The tool extracts the active-site region (for ML-region definition), builds MM topology, assigns ML/MM layers, runs GSM MEP search on the layered full-system PDBs, and optionally runs per-segment post-processing (TSOPT/freq/DFT).
 - **Single-structure + staged scan** -- Provide one PDB plus `--scan-lists`. The scan generates intermediate/product candidates that become MEP endpoints.
   - One `--scan-lists` literal runs a single scan stage.
-  - Multiple stages are passed as multiple values after a single `--scan-lists` flag, or by repeating the flag.
+  - Multiple stages are passed as multiple values after a single `--scan-lists` flag.
 - **TSOPT-only** -- Provide a single PDB, omit `--scan-lists`, and set `--tsopt`. The tool runs TS optimization on the layered full-system PDB, performs pseudo-IRC, minimizes both ends, and builds energy diagrams.
 
 ```{important}
@@ -26,7 +26,7 @@
 ## Minimal example
 
 ```bash
-mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --out-dir ./result_all
+mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" --out-dir ./result_all
 ```
 
 ## Output checklist
@@ -40,7 +40,7 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --out-dir ./
 1. Run full post-processing in one command.
 
 ```bash
-mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" \
+mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
  --tsopt --thermo --dft --out-dir ./result_all
 ```
 
@@ -54,13 +54,13 @@ mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
 3. Validate parsing and plan only.
 
 ```bash
-mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" --dry-run
+mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" --dry-run
 ```
 
 4. Use the ORB backend with xTB point-charge embedding.
 
 ```bash
-mlmm all -i R.pdb P.pdb -c "SAM,GPP" --ligand-charge "SAM:1,GPP:-3" \
+mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
  --backend orb --embedcharge --out-dir ./result_all_orb
 ```
 
@@ -78,10 +78,10 @@ Run `mlmm all --help` for core options or `mlmm all --help-advanced` for the ful
 
 ```bash
 # Minimal end-to-end run with explicit substrate and ligand charges (multi-structure)
-mlmm all -i reactant.pdb product.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1"
+mlmm all -i reactant.pdb product.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1"
 
 # Full ensemble with an intermediate, residue-ID substrate spec, and full post-processing
-mlmm all -i A.pdb B.pdb C.pdb -c "308,309" --ligand-charge "-1" \
+mlmm all -i A.pdb B.pdb C.pdb -c "308,309" -l "-1" \
  --multiplicity 1 --max-nodes 10 --max-cycles 100 --climb \
  --opt-mode grad --no-dump --config params.yaml --preopt \
  --out-dir result_all --tsopt --thermo --dft
@@ -91,7 +91,7 @@ mlmm all -i A.pdb -c "308,309" --scan-lists "[(10,55,2.20),(23,34,1.80)]" \
  --multiplicity 1 --out-dir result_scan_all --tsopt --thermo --dft
 
 # Single-structure TSOPT-only mode (no path_search)
-mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
+mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
  --tsopt --thermo --dft --out-dir result_tsopt_only
 ```
 
@@ -141,7 +141,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 |----------|--------|-----------|
 | 1 | `-q/--charge` | Explicit CLI override |
 | 2 | Pocket extraction | When `-c` is provided (sums amino acids, ions, `--ligand-charge`) |
-| 3 | `--ligand-charge` | Fallback when extraction is skipped |
+| 3 | `-l, --ligand-charge` | Fallback when extraction is skipped |
 | 4 | Default | None (unresolved charge is an error) |
 
 **Spin resolution:** `--multiplicity` (CLI) -> default (1)
@@ -163,14 +163,14 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | --- | --- | --- |
 | `-i, --input PATH...` | Two or more full PDBs in reaction order (single input allowed with `--scan-lists` or `--tsopt`). | Required |
 | `-c, --center TEXT` | Substrate specification (PDB path, residue IDs, or residue names). Omit to skip extraction. | _None_ |
-| `--ligand-charge TEXT` | Total charge or residue-specific mapping (e.g., `GPP:-3,MMT:-1`). | _None_ |
+| `-l, --ligand-charge TEXT` | Total charge or residue-specific mapping (e.g., `GPP:-3,MMT:-1`). | _None_ |
 | `-q, --charge INT` | Force total system charge (highest priority override). | _None_ |
-| `--out-dir PATH` | Top-level output directory. | `./result_all/` |
+| `-o, --out-dir PATH` | Top-level output directory. | `./result_all/` |
 | `--convert-files/--no-convert-files` | Global toggle for XYZ/TRJ to PDB companions when templates are available. | `True` |
 | `--dump BOOL` | Save optimizer dumps. Always forwarded to `path-search`/`path-opt`; forwarded to `scan`/`tsopt` only when explicitly set here. `freq` defaults to dump=True unless you pass `--dump False`. | `False` |
 | `--config FILE` | Base YAML applied first. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration before execution. | `False` |
-| `--dry-run/--no-dry-run` | Validate and print plan without running stages. | `False` |
+| `--dry-run/--no-dry-run` | Validate and print plan without running stages. Shown in `--help-advanced`. | `False` |
 
 ### Extraction Options
 
@@ -192,8 +192,6 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--auto-mm-add-ter/--auto-mm-no-add-ter` | Control TER insertion around ligand/water/ion blocks. | `True` |
 | `--auto-mm-keep-temp` | Keep the `mm_parm` temporary working directory (for debugging). | `False` |
 | `--auto-mm-ligand-mult TEXT` | Spin multiplicity mapping forwarded to `mm_parm` (e.g., `GPP:2,SAM:1`). If omitted, `mm_parm` defaults to 1 for all ligands. | _None_ |
-| `--auto-mm-allow-nonstandard-aa` | Allow `mm_parm` to parameterize amino-acid-like residues via antechamber. | `False` |
-
 ### MEP Search Options
 
 | Option | Description | Default |
@@ -208,7 +206,7 @@ mlmm all -i A.pdb -c "GPP,MMT" --ligand-charge "GPP:-3,MMT:-1" \
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt BOOL` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.yaml). Both modes support Stage 4 (TSOPT/thermo/DFT). | `True` |
-| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | _Default_ |
 | `--detect-layer/--no-detect-layer` | Detect ML/MM layers from input PDB B-factors (B=0/10/20) in downstream tools. If disabled, downstream tools require `--model-pdb` or `--model-indices`. | `True` |

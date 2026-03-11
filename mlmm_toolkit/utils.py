@@ -961,7 +961,7 @@ def parse_scan_list_quads(
 def _load_scan_spec_root(
     spec_path: Path,
     *,
-    option_name: str = "--spec",
+    option_name: str = "--scan-lists",
 ) -> Mapping[str, Any]:
     """Load a scan spec (YAML/JSON) and ensure mapping root."""
     try:
@@ -985,7 +985,7 @@ def _spec_one_based(
     value: Any,
     *,
     default: bool,
-    option_name: str = "--spec",
+    option_name: str = "--scan-lists",
 ) -> bool:
     """Resolve one_based value from spec with CLI fallback."""
     if value is None:
@@ -1013,12 +1013,18 @@ def _first_spec_field(
     return None, None
 
 
+def is_scan_spec_file(value: str) -> bool:
+    """Return True if *value* looks like an existing YAML/JSON scan spec file."""
+    p = Path(value)
+    return p.is_file() and p.suffix.lower() in {".yaml", ".yml", ".json"}
+
+
 def parse_scan_spec_stages(
     spec_path: Path,
     *,
     one_based_default: bool,
     atom_meta: Optional[_Sequence[Dict[str, Any]]],
-    option_name: str = "--spec",
+    option_name: str = "--scan-lists",
 ) -> Tuple[List[List[Tuple[int, int, float]]], bool]:
     """Parse staged 1D scan spec into 0-based stage triples."""
     spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
@@ -1062,7 +1068,7 @@ def parse_scan_spec_quads(
     expected_len: int,
     one_based_default: bool,
     atom_meta: Optional[_Sequence[Dict[str, Any]]],
-    option_name: str = "--spec",
+    option_name: str = "--scan-lists",
 ) -> Tuple[List[Tuple[int, int, float, float]], List[Tuple[Any, Any, float, float]], bool]:
     """Parse 2D/3D scan spec into 0-based quad tuples."""
     spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
@@ -1713,6 +1719,60 @@ def apply_ref_pdb_override(
     return ref_pdb
 
 
+def _round_charge_with_note(q: float, prefix: str = "") -> int:
+    """Round a float charge to the nearest integer, with a note if not exact."""
+    if not math.isfinite(q):
+        raise click.BadParameter(f"Computed total charge is non-finite: {q!r}")
+    q_int = int(round(q))
+    if abs(float(q) - q_int) > 1e-6:
+        click.echo(
+            f"{prefix} NOTE: total charge = {q:+g} → rounded to integer {q_int:+d}."
+        )
+    return q_int
+
+
+def _derive_charge_from_ligand_charge(
+    pdb_path: Path,
+    ligand_charge: Optional[str],
+    *,
+    prefix: str = "",
+) -> Optional[int]:
+    """Derive total system charge from a PDB file using ``--ligand-charge`` metadata.
+
+    Returns ``None`` when *ligand_charge* is ``None`` or derivation fails.
+    """
+    if ligand_charge is None:
+        return None
+    try:
+        from Bio import PDB as BioPDB
+        from .extract import compute_charge_summary, log_charge_summary
+
+        parser = BioPDB.PDBParser(QUIET=True)
+        complex_struct = parser.get_structure("complex", str(pdb_path))
+        selected_ids = {res.get_full_id() for res in complex_struct.get_residues()}
+        summary = compute_charge_summary(
+            complex_struct, selected_ids, set(), ligand_charge
+        )
+        log_charge_summary(prefix, summary)
+        q_total = float(summary.get("total_charge", 0.0))
+        click.echo(
+            f"{prefix} Charge summary (--ligand-charge):"
+        )
+        click.echo(
+            f"  Protein: {summary.get('protein_charge', 0.0):+g},  "
+            f"Ligand: {summary.get('ligand_total_charge', 0.0):+g},  "
+            f"Ions: {summary.get('ion_total_charge', 0.0):+g},  "
+            f"Total: {q_total:+g}"
+        )
+        return _round_charge_with_note(q_total, prefix)
+    except Exception as e:
+        click.echo(
+            f"{prefix} NOTE: failed to derive charge from --ligand-charge: {e}",
+            err=True,
+        )
+        return None
+
+
 def resolve_charge_spin_or_raise(
     prepared: PreparedInputStructure,
     charge: Optional[int],
@@ -1720,17 +1780,23 @@ def resolve_charge_spin_or_raise(
     *,
     spin_default: int = 1,
     charge_default: Optional[int] = None,
+    ligand_charge: Optional[str] = None,
+    prefix: str = "",
 ) -> Tuple[int, int]:
     """Resolve charge/spin from inputs.
 
-    The ``prepared`` argument is accepted for API stability and is not used.
-    Charge defaults to unresolved; callers must provide an explicit value or
-    pass ``charge_default`` intentionally.
+    Priority: explicit ``-q/--charge`` > ``--ligand-charge`` derivation >
+    ``charge_default``.  Raises :class:`click.ClickException` when charge
+    cannot be resolved.
     """
+    if charge is None and ligand_charge is not None:
+        charge = _derive_charge_from_ligand_charge(
+            prepared.source_path, ligand_charge, prefix=prefix,
+        )
     if charge is None:
         if charge_default is None:
             raise click.ClickException(
-                "Total charge is unresolved. Provide -q/--charge."
+                "Total charge is unresolved. Provide -q/--charge or --ligand-charge."
             )
         charge = charge_default
     if spin is None:

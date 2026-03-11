@@ -112,7 +112,7 @@ ja/index
 | Objectives | Command | Guide |
 |-------------------------|---------|-------|
 | First run (end-to-end) | `mlmm all` | [Quickstart: all](quickstart_all.md) |
-| Single-structure staged scan (`--spec`) | `mlmm scan` | [Quickstart: scan with spec](quickstart_scan_spec.md) |
+| Single-structure staged scan (`-s`) | `mlmm scan` | [Quickstart: scan with spec](quickstart_scan_spec.md) |
 | TS validation (`tsopt` -> `freq`) | `mlmm tsopt`, `mlmm freq` | [Quickstart: tsopt -> freq](quickstart_tsopt_freq.md) |
 | Run complete reaction path search from PDB | `mlmm all` | [all.md](all.md) |
 | View current configuration | `mlmm opt --show-config` | [YAML Reference](yaml_reference.md) |
@@ -231,24 +231,24 @@ ja/index
 
 ### Basic ML/MM MEP search
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 ### Full workflow with TS optimization
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
  --tsopt --thermo --dft
 ```
 
 ### Single-structure scan mode
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed
+ -q 0 -s scan.yaml --print-parsed
 ```
 
 ### TS-only optimization
 ```bash
-mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
+mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
  --tsopt
 ```
 

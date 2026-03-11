@@ -515,15 +515,15 @@ ML Hessian evaluations needed.
 
 ```yaml
 microiter:
- micro_thresh: gau_loose # Convergence preset for MM relaxation (L-BFGS)
- micro_max_cycles: 500   # Maximum L-BFGS iterations per micro-iteration
+ micro_thresh: null       # Convergence preset for MM relaxation (L-BFGS); null → same as macro thresh
+ micro_max_cycles: 10000  # Maximum L-BFGS iterations per micro-iteration
 ```
 
 **Notes:**
 - Enabled via `--microiter` / `--no-microiter` CLI flag (default: on)
 - Available in `opt` (with `--opt-mode hess`) and `tsopt` (with `--opt-mode hess`)
 - Uses L-BFGS to minimize MM-region forces while ML atoms are frozen
-- `micro_thresh` accepts the same presets as `opt.thresh` (gau_loose, gau, gau_tight, etc.)
+- `micro_thresh` accepts the same presets as `opt.thresh` (gau_loose, gau, gau_tight, etc.); when `null` or omitted, defaults to the same threshold as the macro step
 
 ---
 

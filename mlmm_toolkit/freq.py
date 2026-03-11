@@ -670,7 +670,11 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
-@click.option("-q", "--charge", type=int, required=True, help="ML region charge.")
+@click.option("-q", "--charge", type=int, required=False,
+              help="ML region charge. Required unless --ligand-charge is provided.")
+@click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
+              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
+                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -737,7 +741,7 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     show_default=True,
     help="Write 'thermoanalysis.yaml' alongside the console summary.",
 )
-@click.option("--out-dir", type=str, default=FREQ_KW["out_dir"], show_default=True, help="Output directory.")
+@click.option("-o", "--out-dir", type=str, default=FREQ_KW["out_dir"], show_default=True, help="Output directory.")
 @click.option(
     "--active-dof-mode",
     type=click.Choice(["all", "ml-only", "partial", "unfrozen"], case_sensitive=False),
@@ -792,7 +796,7 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
          "ML model inference always uses ml_device (typically GPU).",
 )
 @click.option(
-    "--backend",
+    "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
@@ -815,6 +819,7 @@ def cli(
     model_indices_one_based: bool,
     detect_layer: bool,
     charge: Optional[int],
+    ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
     hess_cutoff: Optional[float],
@@ -871,7 +876,10 @@ def cli(
 
     geom_input_path = prepared_input.geom_path
     source_path = prepared_input.source_path  # PDB topology for output conversion
-    charge, spin = resolve_charge_spin_or_raise(prepared_input, charge, spin)
+    charge, spin = resolve_charge_spin_or_raise(
+        prepared_input, charge, spin,
+        ligand_charge=ligand_charge, prefix="[freq]",
+    )
 
     try:
         freeze_atoms_cli = _parse_freeze_atoms_opt(freeze_atoms_text)

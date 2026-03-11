@@ -4,7 +4,7 @@
 AmberTools prmtop/rst7 builder with automatic GAFF2 ligand parameterization.
 
 Example:
-    mlmm mm-parm -i input.pdb --out-prefix complex --ligand-charge "GPP=-3"
+    mlmm mm-parm -i input.pdb --out-prefix complex -l "GPP=-3"
 
 For detailed documentation, see: docs/mm_parm.md
 """
@@ -452,23 +452,6 @@ def insert_ter_around_special_residues(pdb_in: Path, pdb_out: Path, special_resn
 # -------- helper for amino-acid–like residue detection --------
 
 
-def is_protein_like_residue_in_pdb(residue_pdb: Path) -> bool:
-    """Return True if the PDB contains N, CA, and C atom names (amino-acid–like residue)."""
-    need = {"N", "CA", "C"}
-    present: Set[str] = set()
-    with open(residue_pdb, "r") as f:
-        for line in f:
-            if not (line.startswith("ATOM") or line.startswith("HETATM")):
-                continue
-            name = line[12:16].strip()
-            if name in need:
-                present.add(name)
-    return need.issubset(present)
-
-
-# ===================== AmberTools route =====================
-
-
 def extract_first_residue_pdb(src_pdb: Path, resname: str, dst_pdb: Path) -> bool:
     """
     Extract only the *first occurrence* of the specified residue name from src_pdb,
@@ -603,7 +586,6 @@ def ambertools_route(
     out_prefix: str,
     ligand_charge: Dict[str, int],
     ligand_mult: Dict[str, int],
-    allow_nonstandard_aa: bool,
     keep_temp: bool,
     tmpdir: Path,
     ff_set: str,
@@ -616,7 +598,7 @@ def ambertools_route(
       - Detect candidate S–S bonds by SG–SG geometry.
       - First, run LEaP without extra parameters. If unknown residues are reported,
         parameterize them with antechamber+parmchk2 (GAFF2/AM1‑BCC).
-      - Nonstandard amino-acid–like residues (containing N/CA/C) are not treated
+      - Residues listed in ``AMINO_ACIDS`` that remain unknown to LEaP are not treated
         automatically; the build aborts with an explanatory message.
       - Load parameters and re-run LEaP. LEaP writes complex.parm7/complex.inpcrd/
         complex.pdb; this function copies complex.parm7 and complex.inpcrd to
@@ -663,14 +645,20 @@ def ambertools_route(
         if not ok:
             raise RuntimeError(f"Failed to extract PDB for unknown residue {rn}")
 
-        # Detect nonstandard amino-acid–like residues and abort with a message.
-        if is_protein_like_residue_in_pdb(lig_pdb) and not allow_nonstandard_aa:
+        # Explicit ligand-charge mappings take highest priority and force GAFF2 parameterization.
+        if rn in ligand_charge:
+            mol2, frcmod = antechamber_parametrize(rn, charge, mult, tmpdir)
+            lig_defs.append((rn, mol2, frcmod))
+            continue
+
+        # Amino-acid residues must be handled by the selected Amber protein force field.
+        if rn in AMINO_ACIDS:
             raise RuntimeError(
-                f"Nonstandard amino acid residue '{rn}' detected. "
-                "mm_parm does not support nonstandard amino acids by default. "
-                "Please parameterize this residue manually with AmberTools, "
-                "edit the residue to a standard amino acid, or rerun with "
-                "--allow-nonstandard-aa to force antechamber parameterization."
+                f"Nonstandard amino acid residue '{rn}' is not supported by mm_parm. "
+                "This workflow does not auto-parameterize amino-acid residues. "
+                "Please prepare the parameters manually with AmberTools, edit the "
+                "input structure to use a supported residue, or explicitly list the "
+                "residue in --ligand-charge to force GAFF2 parameterization."
             )
 
         mol2, frcmod = antechamber_parametrize(rn, charge, mult, tmpdir)
@@ -719,7 +707,6 @@ class Args:
     out_prefix: str
     ligand_charge: Dict[str, int]
     ligand_mult: Dict[str, int]
-    allow_nonstandard_aa: bool
     keep_temp: bool
     add_ter: bool
     add_h: bool
@@ -806,7 +793,6 @@ def run_pipeline(args: Args) -> None:
                 args.out_prefix,
                 args.ligand_charge,
                 args.ligand_mult,
-                args.allow_nonstandard_aa,
                 args.keep_temp,
                 tmpdir_path,
                 ff_set=args.ff_set,
@@ -879,6 +865,7 @@ def run_pipeline(args: Args) -> None:
     ),
 )
 @click.option(
+    "-l",
     "--ligand-charge",
     default=None,
     help=(
@@ -892,16 +879,6 @@ def run_pipeline(args: Args) -> None:
     help=(
         'Comma-separated mapping of residue=multiplicity or residue:multiplicity '
         '(e.g., "HEM=1,NO:2")'
-    ),
-)
-@click.option(
-    "--allow-nonstandard-aa/--no-allow-nonstandard-aa",
-    "allow_nonstandard_aa",
-    default=False,
-    show_default=True,
-    help=(
-        "Allow antechamber parameterization of residues that look amino-acid-like "
-        "(contain N/CA/C). Use with care for modified amino acids."
     ),
 )
 @click.option(
@@ -946,7 +923,6 @@ def cli(
     out_prefix: Optional[str],
     ligand_charge: Optional[str],
     ligand_mult: Optional[str],
-    allow_nonstandard_aa: bool,
     keep_temp: bool,
     add_ter: bool,
     add_h: bool,
@@ -959,7 +935,6 @@ def cli(
         out_prefix=out_prefix if out_prefix is not None else Path(pdb).stem,
         ligand_charge=parse_ligand_charge(ligand_charge),
         ligand_mult=parse_ligand_mult(ligand_mult),
-        allow_nonstandard_aa=allow_nonstandard_aa,
         keep_temp=keep_temp,
         add_ter=bool(add_ter),
         add_h=bool(add_h),

@@ -63,7 +63,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | 必須 |
 | `--parm PATH` | 完全酵素の Amber parm7 トポロジー。 | 必須 |
@@ -85,13 +85,13 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--pressure FLOAT` | 熱化学圧力 (atm)。 | `1.0` |
 | `--dump/--no-dump` | `thermoanalysis.yaml` を書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB テンプレートが利用可能な場合の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
-| `--out-dir TEXT` | 出力ディレクトリ。 | `./result_freq/` |
+| `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_freq/` |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--hess-device CHOICE` | ヘシアン組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
 | `--ref-pdb FILE` | 非 PDB 入力用の参照 PDB トポロジー。 | _None_ |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。 | `False` |
+| `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
 
 ## 出力
 

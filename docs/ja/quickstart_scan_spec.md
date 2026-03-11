@@ -1,4 +1,4 @@
-# クイックスタート: `mlmm scan` + `--spec`
+# クイックスタート: `mlmm scan` + `-s`（YAML スペック）
 
 ## 目的
 
@@ -25,7 +25,7 @@ stages:
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
+ -q 0 -s scan.yaml --print-parsed -o ./result_scan
 ```
 
 ## まず確認する出力

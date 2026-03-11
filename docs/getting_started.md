@@ -6,13 +6,13 @@
 
 In many workflows, a **single command** is enough to generate a useful **first-pass** reaction path:
 ```bash
-mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 ---
 You can also run **MEP search, TS optimization, IRC, thermochemistry, and single-point DFT** in a single run by adding `--tsopt --thermo --dft`:
 ```bash
-mlmm all -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo --dft
+mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 ```
 ---
 
@@ -28,7 +28,7 @@ Given **(i) two or more full protein-ligand PDB files** (R,..., P), **or (ii) on
 Treat single-command TS outputs as initial candidates. For enzyme reactions, iterative refinement is common (endpoint quality, pocket definition, constraints, scan targets), and TS validation with both `freq` and `irc` is required before interpretation.
 ```
 
-At the ML stage, the reactive region uses a machine-learned interatomic potential (MLIP). The default backend is UMA (Meta's FAIR-Chem); alternative backends include ORB, MACE, and AIMNet2 (selected via `--backend`). The MM region uses `hessian_ff`, a C++ native extension that computes Amber force field energies, forces, and Hessians. The total energy follows an ONIOM-like decomposition:
+At the ML stage, the reactive region uses a machine-learned interatomic potential (MLIP). The default backend is UMA (Meta's FAIR-Chem); alternative backends include ORB, MACE, and AIMNet2 (selected via `-b/--backend`). The MM region uses `hessian_ff`, a C++ native extension that computes Amber force field energies, forces, and Hessians. The total energy follows an ONIOM-like decomposition:
 
 ```
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
@@ -55,7 +55,7 @@ If you encounter an error during setup or runtime, refer to [Troubleshooting](tr
 | Convention | Example |
 |------------|---------|
 | **Residue selectors** | `'SAM,GPP'` or `'A:123,B:456'` |
-| **Charge mapping** | `--ligand-charge 'SAM:1,GPP:-3'` |
+| **Charge mapping** | `-l 'SAM:1,GPP:-3'` |
 | **Atom selectors** | `'TYR,285,CA'` or `'TYR 285 CA'` |
 
 For full details, see [CLI Conventions](cli_conventions.md).
@@ -276,14 +276,14 @@ If you prefer to build the environment piece by piece:
 
 ## Multi-backend examples
 
-The default MLIP backend is UMA. Use `--backend` to switch to an alternative backend, and `--embedcharge` to enable xTB point-charge embedding:
+The default MLIP backend is UMA. Use `-b/--backend` to switch to an alternative backend, and `--embedcharge` to enable xTB point-charge embedding:
 
 ```bash
 # Use ORB backend
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --backend orb
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
 
 # Use MACE backend
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --backend mace
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
 
 # Enable xTB point-charge embedding
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
@@ -294,7 +294,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
 ## Quickstart routes (recommended)
 
 - [Quickstart: run `mlmm all`](quickstart_all.md)
-- [Quickstart: run `mlmm scan` with `--spec`](quickstart_scan_spec.md)
+- [Quickstart: run `mlmm scan` with `-s` (YAML spec)](quickstart_scan_spec.md)
 - [Quickstart: validate TS with `mlmm tsopt` -> `mlmm freq`](quickstart_tsopt_freq.md)
 
 ---
@@ -349,13 +349,13 @@ Use this when you already have several full PDB structures along a putative reac
 **Minimal example**
 
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 **Richer example**
 
 ```bash
-mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --out-dir ./result_all --tsopt --thermo --dft
+mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./result_all --tsopt --thermo --dft
 ```
 
 Behavior:
@@ -385,7 +385,7 @@ Provide a single `-i` together with `--scan-lists`:
 **Minimal example**
 
 ```bash
-mlmm -i R.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]'
+mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]'
 ```
 
 **Richer example**
@@ -418,13 +418,13 @@ Provide exactly one PDB and enable `--tsopt`:
 **Minimal example**
 
 ```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
+mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 ```
 
 **Richer example**
 
 ```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo --dft --out-dir ./result_tsopt_only
+mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft --out-dir ./result_tsopt_only
 ```
 
 Behavior:
@@ -449,17 +449,17 @@ Below are the most commonly used options across workflows.
 |--------|-------------|
 | `-i, --input PATH...` | Input structures. **>= 2 PDBs** -> MEP search; **1 PDB + `--scan-lists`** -> staged scan -> GSM; **1 PDB + `--tsopt`** -> TSOPT-only mode. |
 | `-c, --center TEXT` | Defines the substrate / extraction center. Supports residue names (`'SAM,GPP'`), residue IDs (`A:123,B:456`), or PDB paths. |
-| `--ligand-charge TEXT` | Charge info: mapping (`'SAM:1,GPP:-3'`) or single integer. |
+| `-l, --ligand-charge TEXT` | Charge info: mapping (`'SAM:1,GPP:-3'`) or single integer. |
 | `-q, --charge INT` | Hard override of total system charge. |
 | `-m, --multiplicity INT` | Spin multiplicity (e.g., `1` for singlet). |
-| `--scan-lists TEXT...` | Staged distance scans for single-input runs. |
-| `--out-dir PATH` | Top-level output directory. |
+| `-s, --scan-lists TEXT...` | Staged distance scans for single-input runs (YAML/JSON file or inline literals). |
+| `-o, --out-dir PATH` | Top-level output directory. |
 | `--tsopt/--no-tsopt` | Enable TS optimization and IRC. |
 | `--thermo/--no-thermo` | Run vibrational analysis and thermochemistry. |
 | `--dft/--no-dft` | Perform single-point DFT calculations. |
 | `--refine-path/--no-refine-path` | Recursive MEP refinement (default) vs single-pass. |
 | `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer, default) or `hess` (RFO/RS-I-RFO). |
-| `--backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
+| `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction (default: off). |
 | `--mep-mode gsm\|dmf` | MEP method: Growing String Method or Direct Max Flux. |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. `Analytical` is available for the UMA backend (recommended when VRAM is available); other backends use `FiniteDifference`. |
@@ -527,10 +527,10 @@ In `all`, `tsopt`, `freq` and `irc`, setting **`--hessian-calc-mode Analytical`*
 
 ```bash
 # Basic MEP search (2+ structures)
-mlmm -i R.pdb P.pdb -c 'SUBSTRATE' --ligand-charge 'SUB:-1'
+mlmm -i R.pdb P.pdb -c 'SUBSTRATE' -l 'SUB:-1'
 
 # Full workflow with post-processing
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
  --tsopt --thermo --dft
 
 # Single structure with staged scan
@@ -550,15 +550,15 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 |--------|---------|
 | `-i` | Input structure(s) |
 | `-c` | Substrate definition for pocket extraction |
-| `--ligand-charge` | Substrate charges (e.g., `'SAM:1,GPP:-3'`) |
+| `-l, --ligand-charge` | Substrate charges (e.g., `'SAM:1,GPP:-3'`) |
 | `--parm` | Amber parm7 topology file (required for subcommands) |
 | `--model-pdb` | ML region PDB file (required for subcommands) |
 | `--tsopt` | Enable TS optimization + IRC |
 | `--thermo` | Run vibrational analysis |
 | `--dft` | Run single-point DFT |
-| `--backend` | MLIP backend (`uma`, `orb`, `mace`, `aimnet2`) |
+| `-b, --backend` | MLIP backend (`uma`, `orb`, `mace`, `aimnet2`) |
 | `--embedcharge` | Enable xTB point-charge embedding correction |
-| `--out-dir` | Output directory |
+| `-o, --out-dir` | Output directory |
 
 ---
 

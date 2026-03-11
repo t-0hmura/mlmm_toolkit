@@ -15,7 +15,7 @@
 - **`--opt-mode hess`（RS-I-RFO）** を使用: デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合。`--microiter`（デフォルト有効）により ML と MM 領域を交互に最適化。
 - **`--opt-mode grad`（Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。`--ml-only-hessian-dimer` で ML 領域のみのヘシアンを Dimer 方向決定に使用（高速だが精度は低下）。
 
-`mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。`--backend` で ML バックエンドを選択可能です（`uma`、`orb`、`mace`、`aimnet2`）。`--embedcharge` で xTB 点電荷埋め込み補正を有効化し、MM 環境から ML 領域への静電的影響を考慮できます。オプティマイザーは TS 推測構造から開始し、一次鞍点へ精密化します。
+`mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。`-b/--backend` で ML バックエンドを選択可能です（`uma`、`orb`、`mace`、`aimnet2`）。`--embedcharge` で xTB 点電荷埋め込み補正を有効化し、MM 環境から ML 領域への静電的影響を考慮できます。オプティマイザーは TS 推測構造から開始し、一次鞍点へ精密化します。
 
 ### 主な特徴
 - **部分ヘシアンガイド付き Dimer:** ゆるい/最終 Dimer ループ中、hessian_ff 有限差分ヘシアンは無効化（`mm_fd=False`）されます。MLIP ヘシアンは MM 原子をゼロパディングして完全な 3N x 3N 空間に埋め込まれ、Dimer の方向更新をガイドする部分ヘシアンを提供します。
@@ -69,7 +69,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## ワークフロー
 
 1. **入力処理** -- 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
-2. **ML/MM 計算機の構築** -- ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築します。`--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がヘシアンを解析的に評価するか有限差分で評価するかを制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
+2. **ML/MM 計算機の構築** -- ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がヘシアンを解析的に評価するか有限差分で評価するかを制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **Light モード（Dimer）:**
    - ヘシアン Dimer ステージは、部分ヘシアン（アクティブ部分空間、TR 射影済み）を評価して Dimer 方向を定期的に更新します。
    - フラットニングループが有効な場合（`--flatten`）、保存されたアクティブヘシアンは変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回フラットニングし、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
@@ -102,15 +102,15 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--flatten/--no-flatten` | 余分な虚振動数モードフラットニングループの有効化/無効化。`--flatten` はデフォルト反復回数（50）を使用、`--no-flatten` は 0 に強制。light と heavy の両モードに適用。 | _None_（YAML/デフォルト依存; 実質的に 50 回で有効） |
 | `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
-| `--out-dir TEXT` | 出力ディレクトリ。 | `./result_tsopt/` |
+| `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_tsopt/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--partial-hessian-flatten / --full-hessian-flatten` | フラットニングループでの虚振動数モード検出に部分ヘシアン（ML のみ）を使用。 | `True`（部分） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |
-| `--backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずに入力/設定を検証し、実行計画を表示。 | `False` |
+| `--dry-run/--no-dry-run` | 実行せずに入力/設定を検証し、実行計画を表示。`--help-advanced` に表示。 | `False` |
 
 ## 出力
 

@@ -2,10 +2,10 @@
 
 ## Overview
 
-> **Summary:** Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations. Use `--spec` (YAML/JSON, recommended) or `--scan-lists`.
+> **Summary:** Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal.
 
 ### At a glance
-- **Input:** One structure + `--spec scan2d.yaml` (recommended), or one `--scan-lists` literal containing exactly two quadruples.
+- **Input:** One structure + `-s scan2d.yaml` (YAML/JSON spec, recommended), or `-s "[(i1,j1,low1,high1),(i2,j2,low2,high2)]"` inline literal.
 - **Grid ordering:** Each axis is reordered so the point closest to the (pre)optimized structure is visited first.
 - **Energies:** Values written to `surface.csv` are always evaluated **without bias**, so grid points are directly comparable.
 - **Outputs:** `surface.csv` plus `scan2d_map.png` and `scan2d_landscape.html`, and per-point structures under `grid/`.
@@ -19,7 +19,7 @@ Energies at each grid point are re-evaluated without the bias to populate a PES 
 ## Minimal example
 ```bash
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan2d.yaml --print-parsed --out-dir ./result_scan2d/
+ -q 0 -s scan2d.yaml --print-parsed -o ./result_scan2d/
 ```
 
 ## Output checklist
@@ -29,16 +29,16 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Common examples
 1. Validate parsed scan targets from a YAML spec.
-2. Run with the `--scan-lists` literal.
+2. Run with an inline `-s` literal.
 3. Enable `--dump` to store inner trajectories per outer d1 step.
 
-> **Note:** Add `--print-parsed` when you want to verify parsed pair targets from `--spec` / `--scan-lists`.
+> **Note:** Add `--print-parsed` when you want to verify parsed pair targets from `-s/--scan-lists`.
 
 ## Usage
 ```bash
 mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m SPIN] \
- [--spec scan2d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
+ [-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
  [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
  [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
  [--dump/--no-dump] [--out-dir DIR] \
@@ -55,20 +55,22 @@ pairs:
  - [10, 55, 1.20, 3.20]
 YAML
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan2d.yaml --print-parsed
+ -q 0 -s scan2d.yaml --print-parsed
 
-# Alternative: Python literal
+# Alternative: inline Python literal
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
+ -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 
 # LBFGS scan with TRJ dumps and fixed color scale for the contour plot
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
- --max-step-size 0.20 --dump --out-dir ./result_scan2d/ --preopt --baseline min \
+ -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
+ --max-step-size 0.20 --dump -o ./result_scan2d/ --preopt --baseline min \
  --zmin 0.0 --zmax 40.0
 ```
 
-## `--spec` format (recommended)
+## YAML/JSON spec format (recommended)
+
+`-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
 
 ```yaml
 one_based: true # optional; defaults to CLI --one-based/--zero-based
@@ -79,18 +81,18 @@ pairs:
 
 - `pairs` is required and must contain exactly 2 quadruples.
 - Each quadruple is `(i, j, low_A, high_A)`.
-- Indices may be integers or PDB selectors (same as `--scan-lists`).
+- Indices may be integers or PDB selectors (same as inline literals).
 
-## `--scan-lists` format
+## Inline literal format
 
-`--scan-lists` is the advanced input mode. It accepts a **single Python literal** string. Shell quoting matters.
+When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
 
 ### Basic structure
 
 The literal is a Python list of exactly **two** quadruples `(atom1, atom2, low_A, high_A)`:
 
 ```
---scan-lists '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
+-s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
 ```
 
 - Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
@@ -120,18 +122,18 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 
 ```bash
 # Correct: single-quote the list, double-quote selector strings inside
---scan-lists '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20)]'
+-s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20)]'
 
 # Correct: integer indices need no inner quotes
---scan-lists '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
+-s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
 
 # Avoid: double-quoting the outer literal requires escaping inner quotes
---scan-lists "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+-s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
 ```
 
 ## Workflow
-1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
-2. **Grid construction** -- Parse targets from `--spec` (recommended) or `--scan-lists` into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
+1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `-b/--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
+2. **Grid construction** -- Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal) into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
 5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`.
@@ -151,23 +153,22 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
-| `--spec FILE` | YAML/JSON spec with `pairs` (2 quadruples) and optional `one_based`. | Recommended |
-| `--scan-lists TEXT` | Python literal with two quadruples: `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Alternative to `--spec` |
-| `--one-based / --zero-based` | Interpret `(i,j)` indices in `--scan-lists` as 1-based or 0-based. | `True` (1-based) |
-| `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
+| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected, with `pairs` containing 2 quadruples) or an inline Python literal `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Required |
+| `--one-based / --zero-based` | Interpret `(i,j)` indices in `-s/--scan-lists` as 1-based or 0-based. | `True` (1-based) |
+| `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Determines grid density. | `0.20` |
 | `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
 | `--relax-max-cycles INT` | Maximum LBFGS cycles per biased relaxation. | `10000` |
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
-| `--out-dir TEXT` | Base output directory. | `./result_scan2d/` |
-| `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
+| `-o, --out-dir TEXT` | Base output directory. | `./result_scan2d/` |
+| `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | `baker` |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased pre-optimization before scanning. | `True` |
 | `--baseline {min,first}` | Reference for relative energy (kcal/mol). | `min` |
 | `--zmin FLOAT` | Lower bound of the contour color scale (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Upper bound of the contour color scale (kcal/mol). | Autoscaled |
-| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
+| `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
@@ -215,7 +216,7 @@ bias:
 - The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) keeps the entire enzyme complex. The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`.
 - The bias is always removed before final energies are recorded, so `surface.csv` is directly comparable across grid points.
 - When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also converted to PDB files that preserve the B-factor encoding from the reference PDB (typically ML=0, Movable-MM=10, Frozen=20 when prepared with `define-layer`).
-- `i`/`j` entries in `--scan-lists` may be integer indices (1-based by default) or PDB atom selectors like `"TYR,285,CA"`.
+- `i`/`j` entries in `-s/--scan-lists` may be integer indices (1-based by default) or PDB atom selectors like `"TYR,285,CA"`.
 
 ---
 

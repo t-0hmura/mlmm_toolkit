@@ -459,7 +459,16 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Full enzyme PDB used for ML/MM (must be .pdb).",
+    help="Full enzyme structure (PDB or XYZ). If XYZ, use --ref-pdb for topology.",
+)
+@click.option(
+    "--ref-pdb",
+    "ref_pdb",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    show_default=False,
+    help="Reference PDB topology when input is XYZ. XYZ coordinates are used (higher precision) "
+         "while PDB provides atom ordering and residue information.",
 )
 @click.option(
     "--parm",
@@ -529,7 +538,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
 @click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF convergence tolerance (Hartree).")
 @click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 9=ultrafine).")
 @click.option(
-    "--out-dir",
+    "-o", "--out-dir",
     type=click.Path(path_type=Path, dir_okay=True, file_okay=False),
     default=Path(DFT_KW["out_dir"]),
     show_default=True,
@@ -564,7 +573,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     help="Toggle XYZ/TRJ to PDB companions when a PDB template is available.",
 )
 @click.option(
-    "--backend",
+    "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
@@ -581,6 +590,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
 def cli(
     ctx: click.Context,
     input_path: Path,
+    ref_pdb: Optional[Path],
     real_parm7: Path,
     model_pdb: Optional[Path],
     model_indices_str: Optional[str],
@@ -603,8 +613,17 @@ def cli(
 ) -> None:
     set_convert_file_enabled(convert_files)
 
+    # Resolve XYZ + --ref-pdb → use ref-pdb as topology source
     if input_path.suffix.lower() != ".pdb":
-        raise click.BadParameter("Input structure must be a PDB file for ML/MM DFT.")
+        if ref_pdb is None:
+            raise click.BadParameter(
+                "Input is not a PDB file. Provide --ref-pdb for topology when using XYZ input."
+            )
+        if ref_pdb.suffix.lower() != ".pdb":
+            raise click.BadParameter("--ref-pdb must be a .pdb file.")
+        source_pdb = ref_pdb
+    else:
+        source_pdb = input_path
 
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -671,7 +690,7 @@ def cli(
         if _is_param_explicit("detect_layer"):
             detect_layer_enabled = bool(detect_layer)
 
-        layer_source_pdb = input_path.resolve()
+        layer_source_pdb = source_pdb.resolve()
         model_pdb_cfg = calc_kw.get("model_pdb")
         if model_pdb is not None:
             model_pdb_cfg = model_pdb
@@ -771,7 +790,7 @@ def cli(
         if model_pdb_path is None:
             raise click.ClickException("Failed to resolve model PDB for the ML region.")
 
-        calc_kw["input_pdb"] = str(input_path.resolve())
+        calc_kw["input_pdb"] = str(source_pdb.resolve())
         calc_kw["real_parm7"] = str(real_parm7.resolve())
         calc_kw["model_pdb"] = str(model_pdb_path.resolve())
         apply_layer_freeze_constraints(

@@ -149,8 +149,8 @@ For PDB inputs, `--ligand-charge` lets you specify charges only for non-standard
 
 ### Per-residue mapping (recommended)
 ```bash
---ligand-charge 'SAM:1,GPP:-3' # SAM has charge +1, GPP has charge -3
---ligand-charge 'LIG:-2' # LIG has charge -2
+-l 'SAM:1,GPP:-3' # SAM has charge +1, GPP has charge -3
+-l 'LIG:-2' # LIG has charge -2
 ```
 
 ### Total charge override
@@ -179,16 +179,16 @@ The `--ligand-charge` option supports two formats:
 
 ### Mapping format (recommended)
 ```bash
---ligand-charge 'SAM:1,GPP:-3' # Per-residue name mapping
---ligand-charge 'SAM=1,GPP=-3' # Same meaning (= separator)
---ligand-charge 'LIG:-2' # Single residue mapping
+-l 'SAM:1,GPP:-3' # Per-residue name mapping
+-l 'SAM=1,GPP=-3' # Same meaning (= separator)
+-l 'LIG:-2' # Single residue mapping
 ```
 
 Both colon (`:`) and equals (`=`) separators are accepted.
 
 ### Integer format
 ```bash
---ligand-charge -3 # Total charge for all unknown residues
+-l -3 # Total charge for all unknown residues
 ```
 
 In the mapping format, residue names are matched case-insensitively. Unmapped non-standard residues default to charge 0.
@@ -257,7 +257,7 @@ All computation subcommands (`opt`, `tsopt`, `freq`, `irc`, `dft`, `scan`, `scan
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--backend` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2` | `uma` |
+| `-b, --backend` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2` | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction | `--no-embedcharge` |
 
 Alternative backends are installed via optional dependency groups:

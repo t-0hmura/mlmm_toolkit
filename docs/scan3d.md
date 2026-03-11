@@ -2,22 +2,22 @@
 
 ## Overview
 
-> **Summary:** Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations. Use `--spec` (YAML/JSON, recommended) or `--scan-lists`.
+> **Summary:** Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal.
 
 ### At a glance
-- **Input:** One full enzyme PDB + `--spec scan3d.yaml` (recommended), or one `--scan-lists` literal (three quadruples). Use `--csv` for plot-only mode.
+- **Input:** One full enzyme PDB + `-s scan3d.yaml` (YAML/JSON spec, recommended), or `-s "[(i1,j1,low1,high1),...]"` inline literal (three quadruples). Use `--csv` for plot-only mode.
 - **Grid ordering:** d1 is scanned first, then d2 for each d1 value (both restraints active), then d3 for each (d1, d2) with all three restraints active.
 - **Energies:** Recorded energies are evaluated **without bias**, so grid points are directly comparable.
 - **Outputs:** `surface.csv`, per-point geometries under `grid/`, and an HTML isosurface plot (`scan3d_density.html`).
 - **Caution:** 3D grids grow very quickly; consider coarser `--max-step-size` or smaller ranges first.
 
-`mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the MLIP backend is selected via `--backend` (default: `uma`); the optimizer is PySisyphus LBFGS.
+`mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the MLIP backend is selected via `-b/--backend` (default: `uma`); the optimizer is PySisyphus LBFGS.
 
 
 ## Minimal example
 ```bash
 mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan3d.yaml --print-parsed --out-dir ./result_scan3d/
+ -q 0 -s scan3d.yaml --print-parsed -o ./result_scan3d/
 ```
 
 ## Output checklist
@@ -27,17 +27,17 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Common examples
 1. Validate parsed `pairs` from a YAML spec before running a full grid.
-2. Run with `--scan-lists`.
+2. Run with an inline `-s` literal.
 3. Enable `--dump` to keep inner d3 trajectories for each `(d1,d2)` slice.
 
-> **Note:** Add `--print-parsed` when you want to verify parsed pair targets from `--spec` / `--scan-lists`.
+> **Note:** Add `--print-parsed` when you want to verify parsed pair targets from `-s/--scan-lists`.
 
 ## Usage
 ```bash
 mlmm scan3d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  [--csv precomputed_surface.csv] \
- [--spec scan3d.yaml | --scan-lists "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
+ [-s scan3d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
  [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
  [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
  [--dump/--no-dump] [--out-dir DIR] \
@@ -55,20 +55,22 @@ pairs:
  - [15, 60, 1.10, 3.00]
 YAML
 mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan3d.yaml --print-parsed
+ -q 0 -s scan3d.yaml --print-parsed
 
-# Alternative: Python literal
+# Alternative: inline Python literal
 mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]"
+ -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]"
 
 # With pre-optimization and custom output directory
 mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --scan-lists "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
- --max-step-size 0.20 --dump --out-dir ./result_scan3d/ \
+ -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
+ --max-step-size 0.20 --dump -o ./result_scan3d/ \
  --preopt --baseline min
 ```
 
-## `--spec` format (recommended)
+## YAML/JSON spec format (recommended)
+
+`-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
 
 ```yaml
 one_based: true # optional; defaults to CLI --one-based/--zero-based
@@ -80,18 +82,18 @@ pairs:
 
 - `pairs` is required and must contain exactly 3 quadruples.
 - Each quadruple is `(i, j, low_A, high_A)`.
-- Indices may be integers or PDB selectors (same as `--scan-lists`).
+- Indices may be integers or PDB selectors (same as inline literals).
 
-## `--scan-lists` format
+## Inline literal format
 
-`--scan-lists` is the advanced input mode. It accepts a **single Python literal** string. Shell quoting matters.
+When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
 
 ### Basic structure
 
 The literal is a Python list of exactly **three** quadruples `(atom1, atom2, low_A, high_A)`:
 
 ```
---scan-lists '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A), (atom5, atom6, low_A, high_A)]'
+-s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A), (atom5, atom6, low_A, high_A)]'
 ```
 
 - Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
@@ -121,19 +123,19 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 
 ```bash
 # Correct: single-quote the list, double-quote selector strings inside
---scan-lists '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20),("TYR,285,CG","MMT,309,C12",1.10,3.00)]'
+-s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20),("TYR,285,CG","MMT,309,C12",1.10,3.00)]'
 
 # Correct: integer indices need no inner quotes
---scan-lists '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20), (3, 12, 1.10, 3.00)]'
+-s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20), (3, 12, 1.10, 3.00)]'
 
 # Avoid: double-quoting the outer literal requires escaping inner quotes
---scan-lists "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+-s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
 ```
 
 ## Workflow
 1. Load the structure through `geom_loader`, resolve charge/spin from CLI, and
  optionally run an unbiased preoptimization when `--preopt`.
-2. Parse targets from `--spec` (recommended) or `--scan-lists` (default 1-based indices unless
+2. Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal; default 1-based indices unless
  `--zero-based` is passed) into three quadruples. For PDB inputs, each atom
  entry can be an integer index or a selector string like `"TYR,285,CA"`;
  delimiters may be spaces, commas, slashes, backticks, or backslashes.
@@ -162,24 +164,23 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
-| `--spec FILE` | YAML/JSON spec with `pairs` (3 quadruples) and optional `one_based`. | Recommended |
+| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected, with `pairs` containing 3 quadruples) or an inline Python literal with three quadruples `(i,j,low,high)`. `i`/`j` can be integer indices or PDB atom selectors. | Required |
 | `--csv FILE` | Load precomputed `surface.csv` and generate plot without running a scan. | _None_ |
-| `--scan-lists TEXT` | single Python literal with three quadruples `(i,j,low,high)`. `i`/`j` can be integer indices or PDB atom selectors. | Alternative to `--spec` |
 | `--one-based / --zero-based` | Interpret `(i, j)` indices as 1- or 0-based. | `True` (1-based) |
-| `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `--spec`/`--scan-lists` resolution. | `False` |
+| `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Controls grid density. | `0.20` |
 | `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
 | `--relax-max-cycles INT` | Maximum optimizer cycles during each biased relaxation. | `10000` |
 | `--dump/--no-dump` | Write inner d3 scan TRJs per (d1, d2) slice. | `False` |
-| `--out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
-| `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ |
+| `-o, --out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
+| `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `baker` |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
 | `--baseline {min,first}` | Shift kcal/mol energies so the global min or `(i,j,k)=(0,0,0)` is zero. | `min` |
 | `--zmin FLOAT` | Manual lower limit for the isosurface color bands (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Manual upper limit for the isosurface color bands (kcal/mol). | Autoscaled |
-| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
+| `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 

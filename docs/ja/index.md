@@ -67,7 +67,7 @@ glossary
 | ユースケース | 推奨コマンド | ガイド |
 |--------------|--------------|--------|
 | 最初の 1 回を実行（エンドツーエンド） | `mlmm all` | [クイックスタート: all](quickstart_all.md) |
-| 単一構造スキャン（`--spec`） | `mlmm scan` | [クイックスタート: scan + spec](quickstart_scan_spec.md) |
+| 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan + spec](quickstart_scan_spec.md) |
 | TS 検証（`tsopt` -> `freq`） | `mlmm tsopt`, `mlmm freq` | [クイックスタート: tsopt -> freq](quickstart_tsopt_freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
 | 現在の設定を確認 | `mlmm opt --show-config` | [YAML リファレンス](yaml_reference.md) |
@@ -186,24 +186,24 @@ EN版には自動生成の [CLI コマンドリファレンス](../reference/com
 
 ### 基本的な ML/MM MEP 探索
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 ### TS 最適化を含む完全ワークフロー
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
  --tsopt --thermo --dft
 ```
 
 ### 単一構造スキャンモード
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed
+ -q 0 -s scan.yaml --print-parsed
 ```
 
 ### TS 最適化のみ
 ```bash
-mlmm -i TS_candidate.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' \
+mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
  --tsopt
 ```
 

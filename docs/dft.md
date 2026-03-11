@@ -81,12 +81,12 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--max-cycle INT` | Maximum SCF iterations. | `100` |
 | `--conv-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
 | `--grid-level INT` | PySCF numerical integration grid level. | `3` |
-| `--out-dir DIR` | Output directory. | `./result_dft/` |
+| `-o, --out-dir DIR` | Output directory. | `./result_dft/` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
-| `--backend CHOICE` | MLIP backend used for the low-level ONIOM recombination: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `-b, --backend CHOICE` | MLIP backend used for the low-level ONIOM recombination: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable electrostatic embedding: MM point charges from the Amber topology are added to the PySCF QM Hamiltonian so the DFT wavefunction is polarized by the MM environment. | `False` |
-| `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. | `False` |
+| `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs

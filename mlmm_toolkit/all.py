@@ -4,7 +4,7 @@
 End-to-end enzymatic reaction workflow: extract, scan, MEP, TS, IRC, freq, DFT.
 
 Example:
-    mlmm all -i R.pdb P.pdb -c 'GPP,MMT' --ligand-charge 'GPP:-3,MMT:-1'
+    mlmm all -i R.pdb P.pdb -c 'GPP,MMT' -l 'GPP:-3,MMT:-1'
 
 For detailed documentation, see: docs/all.md
 """
@@ -45,10 +45,12 @@ from . import opt as _opt_cli
 from . import tsopt as _ts_opt
 from . import freq as _freq_cli
 from . import dft as _dft_cli
+from . import irc as _irc_cli
 
 from .trj2fig import run_trj2fig
 from .summary_log import write_summary_log
 from .utils import (
+    apply_ref_pdb_override,
     build_energy_diagram,
     close_matplotlib_figures,
     deep_update,
@@ -267,7 +269,6 @@ def _build_mm_parm7(
     ff_set: str,
     add_ter: bool,
     keep_temp: bool,
-    allow_nonstandard_aa: bool,
 ) -> Tuple[Path, Path]:
     """Run mm_parm on ``pdb`` and return (parm7, rst7)."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -278,7 +279,6 @@ def _build_mm_parm7(
         out_prefix=str(out_prefix),
         ligand_charge=_mm_charge_mapping(ligand_charge_expr),
         ligand_mult=_mm_mult_mapping(ligand_mult_expr),
-        allow_nonstandard_aa=bool(allow_nonstandard_aa),
         keep_temp=bool(keep_temp),
         add_ter=bool(add_ter),
         add_h=False,
@@ -551,86 +551,174 @@ def _load_segment_end_geoms(seg_pdb: Path, freeze_atoms: Sequence[int]) -> Tuple
     return gL, gR
 
 
-def _compute_imag_mode_direction(ts_geom: Any,
-                                 calc_kwargs: Dict[str, Any],
-                                 freeze_atoms: Sequence[int],
-                                 uma_kwargs: Optional[Dict[str, Any]] = None) -> np.ndarray:
+def _irc_and_match(seg_idx: int,
+                   seg_dir: Path,
+                   ref_pdb_for_seg: Path,
+                   seg_pocket_pdb: Path,
+                   g_ts: Any,
+                   q_int: int,
+                   spin: int,
+                   real_parm7: Optional[Path] = None,
+                   model_pdb: Optional[Path] = None,
+                   detect_layer: bool = False,
+                   backend: Optional[str] = None,
+                   embedcharge: bool = False,
+                   args_yaml: Optional[Path] = None) -> Dict[str, Any]:
     """
-    Compute imaginary mode direction (N×3, unit vector in Cartesian space) at TS geometry.
-    Uses tsopt internal helpers to minimize new code.
+    Run EulerPC IRC from a TS geometry, then map the IRC endpoints to (left, right)
+    by comparing bond states with the GSM segment endpoints (when available).
+    Falls back to raw IRC orientation in TSOPT-only mode.
     """
-    kw = calc_kwargs if calc_kwargs else uma_kwargs or {}
-    device_str = kw.get("ml_device", kw.get("device", "auto"))
-    if device_str == "auto":
-        device_str = "cuda" if torch.cuda.is_available() else "cpu"
-    # full analytic Hessian (torch tensor) — may be partial if B-factor layers are used
-    H_t = _ts_opt._calc_full_hessian_torch(ts_geom, calc_kwargs=kw,
-                                           device=torch.device(device_str))
+    irc_dir = seg_dir / "irc"
+    ensure_dir(irc_dir)
 
-    n_atoms_total = len(ts_geom.atoms)
-    n_hess_atoms = H_t.shape[0] // 3  # partial Hessian: fewer than total atoms
+    # Build irc CLI arguments
+    irc_args: List[str] = [
+        "-i", str(ref_pdb_for_seg),
+        "--parm", str(real_parm7),
+        "--model-pdb", str(model_pdb),
+        "-q", str(int(q_int)),
+        "-m", str(int(spin)),
+        "--out-dir", str(irc_dir),
+    ]
+    irc_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+    if backend is not None:
+        irc_args.extend(["--backend", str(backend)])
+    irc_args.append("--embedcharge" if embedcharge else "--no-embedcharge")
+    if args_yaml is not None:
+        irc_args.extend(["--config", str(args_yaml)])
 
-    from ase.data import atomic_masses
-    masses_amu = np.array([atomic_masses[z] for z in ts_geom.atomic_numbers])
+    _echo(f"[irc] Running EulerPC IRC → out={irc_dir}")
+    _run_cli_main("irc", _irc_cli.cli, irc_args, on_nonzero="raise", prefix="irc")
 
-    if n_hess_atoms < n_atoms_total:
-        # Partial Hessian: restrict coords/masses to hess_active_atoms
-        active_atoms = getattr(ts_geom, "_hess_active_atoms_last", None)
-        if active_atoms is None or len(active_atoms) != n_hess_atoms:
-            # Fallback: assume first n_hess_atoms (ML + Hessian-target MM) are active.
-            active_atoms = np.arange(n_hess_atoms)
-        coords_bohr_sub = ts_geom.coords.reshape(-1, 3)[active_atoms]
-        masses_amu_sub = masses_amu[active_atoms]
-        coords_bohr_t = torch.as_tensor(coords_bohr_sub, dtype=H_t.dtype, device=H_t.device)
-        masses_au_t = torch.as_tensor(masses_amu_sub * _ts_opt.AMU2AU, dtype=H_t.dtype, device=H_t.device)
-    else:
-        coords_bohr_t = torch.as_tensor(ts_geom.coords.reshape(-1, 3), dtype=H_t.dtype, device=H_t.device)
-        masses_au_t = torch.as_tensor(masses_amu * _ts_opt.AMU2AU, dtype=H_t.dtype, device=H_t.device)
+    # Read IRC endpoints
+    finished_trj = irc_dir / "finished_irc_trj.xyz"
+    finished_pdb = irc_dir / "finished_irc.pdb"
+    irc_plot = irc_dir / "irc_plot.png"
 
-    mode_sub = _ts_opt._mode_direction_by_root(H_t, coords_bohr_t, masses_au_t,
-                                               root=0,
-                                               freeze_idx=list(freeze_atoms) if len(freeze_atoms) > 0 else None)
+    if not finished_trj.exists():
+        raise click.ClickException(f"[irc] IRC trajectory not found: {finished_trj}")
 
-    # If partial, embed mode back into full-atom space (non-active atoms get zero displacement)
-    if n_hess_atoms < n_atoms_total:
-        mode_full = np.zeros((n_atoms_total, 3), dtype=float)
-        active_atoms_np = np.asarray(active_atoms)
-        mode_full[active_atoms_np] = mode_sub.reshape(-1, 3)
-        mode = mode_full
-    else:
-        mode = mode_sub
+    # Convert to PDB if not already done
+    if not finished_pdb.exists():
+        _path_search._maybe_convert_to_pdb(finished_trj, ref_pdb_path=seg_pocket_pdb, out_path=finished_pdb)
 
-    # ensure unit length
-    norm = float(np.linalg.norm(mode.reshape(-1)))
-    if norm <= 0:
-        raise click.ClickException("[post] Imaginary mode direction has zero norm.")
-    return (mode / norm)
+    elems, c_first, c_last = read_xyz_first_last(finished_trj)
+
+    # Create geometries from IRC endpoints
+    calc = _mlmm_calc(
+        model_charge=int(q_int),
+        model_mult=int(spin),
+        input_pdb=str(ref_pdb_for_seg),
+        real_parm7=str(real_parm7) if real_parm7 else None,
+        model_pdb=str(model_pdb) if model_pdb else None,
+        use_bfactor_layers=detect_layer,
+        backend=backend,
+        embedcharge=embedcharge,
+    )
+
+    g_left = _path_search._new_geom_from_coords(
+        elems, c_first / BOHR2ANG, coord_type="cart", freeze_atoms=[])
+    g_right = _path_search._new_geom_from_coords(
+        elems, c_last / BOHR2ANG, coord_type="cart", freeze_atoms=[])
+    g_left.set_calculator(calc)
+    g_right.set_calculator(calc)
+    _ = float(g_left.energy)
+    _ = float(g_right.energy)
+
+    # Reload TS geometry with energy
+    if g_ts.calculator is None:
+        g_ts.set_calculator(calc)
+    _ = float(g_ts.energy)
+
+    left_tag = "backward"
+    right_tag = "forward"
+    reverse_irc = False
+
+    # Try to load segment endpoints for mapping
+    gL_end = None
+    gR_end = None
+    seg_pocket_path = seg_dir.parent / f"mep_seg_{seg_idx:02d}.pdb"
+    if seg_pocket_path.exists():
+        try:
+            gL_end, gR_end = _load_segment_end_geoms(seg_pocket_path, [])
+        except Exception as e:
+            click.echo(f"[post] WARNING: failed to load segment endpoints: {e}", err=True)
+
+    # Map IRC endpoints to left/right using bond-change analysis
+    if gL_end is not None and gR_end is not None:
+        bond_cfg = dict(_path_search.BOND_KW)
+
+        def _matches(x, y) -> bool:
+            try:
+                chg, _ = _path_search._has_bond_change(x, y, bond_cfg)
+                return not chg
+            except Exception:
+                return False
+
+        def _rmsd_cart(g1, g2) -> float:
+            c1 = np.asarray(g1.coords).reshape(-1, 3)
+            c2 = np.asarray(g2.coords).reshape(-1, 3)
+            n = min(len(c1), len(c2))
+            return float(np.sqrt(np.mean((c1[:n] - c2[:n]) ** 2)))
+
+        # Check if IRC endpoints need swapping
+        match_LL = _matches(g_left, gL_end)
+        match_LR = _matches(g_left, gR_end)
+        match_RL = _matches(g_right, gL_end)
+        match_RR = _matches(g_right, gR_end)
+
+        if match_LR and match_RL and not (match_LL and match_RR):
+            # Swap: IRC backward→right, forward→left
+            g_left, g_right = g_right, g_left
+            left_tag, right_tag = right_tag, left_tag
+            reverse_irc = True
+        elif not (match_LL and match_RR):
+            # RMSD-based fallback
+            d_LL = _rmsd_cart(g_left, gL_end)
+            d_LR = _rmsd_cart(g_left, gR_end)
+            d_RL = _rmsd_cart(g_right, gL_end)
+            d_RR = _rmsd_cart(g_right, gR_end)
+            if (d_LR + d_RL) < (d_LL + d_RR):
+                g_left, g_right = g_right, g_left
+                left_tag, right_tag = right_tag, left_tag
+                reverse_irc = True
+
+    return {
+        "left_min_geom": g_left,
+        "right_min_geom": g_right,
+        "ts_geom": g_ts,
+        "left_tag": left_tag,
+        "right_tag": right_tag,
+        "irc_trj": str(finished_trj) if finished_trj.exists() else None,
+        "irc_plot": str(irc_plot) if irc_plot.exists() else None,
+        "reverse_irc": reverse_irc,
+    }
 
 
-def _displaced_geometry_along_mode(geom: Any,
-                                   mode_xyz: np.ndarray,
-                                   amplitude_ang: float,
-                                   freeze_atoms: Sequence[int]) -> Any:
+def _save_single_geom_for_tools(g: Any, ref_pdb: Path, out_dir: Path, name: str) -> Tuple[Path, Path]:
     """
-    Displace geometry along mode by ± amplitude (Å). Returns new Geometry.
+    Write XYZ (primary, full precision) + PDB (companion) for a single geometry.
+    Returns (xyz_path, pdb_path).
     """
-    coords_bohr = np.asarray(geom.coords3d, dtype=float)  # Bohr
-    disp_bohr = (amplitude_ang / BOHR2ANG) * np.asarray(mode_xyz, dtype=float)  # (N,3)
-    new_coords_bohr = coords_bohr + disp_bohr
-    return _path_search._new_geom_from_coords(geom.atoms, new_coords_bohr, coord_type=geom.coord_type, freeze_atoms=freeze_atoms)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # XYZ — full precision
+    xyz_out = out_dir / f"{name}.xyz"
+    with open(xyz_out, "w") as f:
+        f.write(g.as_xyz() + "\n")
+    # TRJ with energy (for PDB conversion and trajectory viewers)
+    xyz_trj = out_dir / f"{name}_trj.xyz"
+    _path_search._write_xyz_trj_with_energy([g], [float(g.energy)], xyz_trj)
+    # PDB companion
+    pdb_out = out_dir / f"{name}.pdb"
+    _path_search._maybe_convert_to_pdb(xyz_trj, ref_pdb_path=ref_pdb, out_path=pdb_out)
+    return xyz_out, pdb_out
 
 
 def _save_single_geom_as_pdb_for_tools(g: Any, ref_pdb: Path, out_dir: Path, name: str) -> Path:
-    """
-    Write a single-geometry XYZ/TRJ with energy and convert to PDB using the pocket ref (for downstream CLI tools).
-    Returns PDB path.
-    """
-    out_dir.mkdir(parents=True, exist_ok=True)
-    xyz_trj = out_dir / f"{name}_trj.xyz"
-    _path_search._write_xyz_trj_with_energy([g], [float(g.energy)], xyz_trj)
-    pdb_out = out_dir / f"{name}.pdb"
-    _path_search._maybe_convert_to_pdb(xyz_trj, ref_pdb_path=ref_pdb, out_path=pdb_out)
-    return pdb_out
+    """Backward-compatible wrapper: returns PDB path only."""
+    _, pdb = _save_single_geom_for_tools(g, ref_pdb, out_dir, name)
+    return pdb
 
 
 def _run_tsopt_on_hei(hei_pdb: Path,
@@ -644,12 +732,27 @@ def _run_tsopt_on_hei(hei_pdb: Path,
                       opt_mode_default: str,
                       overrides: Optional[Dict[str, Any]] = None,
                       backend: Optional[str] = None,
-                      embedcharge: bool = False) -> Tuple[Path, Any]:
+                      embedcharge: bool = False,
+                      ref_pdb: Optional[Path] = None) -> Tuple[Path, Any]:
     """
-    Run tsopt CLI on a HEI pocket PDB; return (final_ts_pdb_path, ts_geom)
+    Run tsopt CLI on a HEI structure; return (final_ts_pdb_path, ts_geom).
+
+    When *ref_pdb* (layered PDB with B-factor layer info) is given, the HEI XYZ
+    is used as input and *ref_pdb* is passed via ``--ref-pdb`` so that the
+    calculator correctly detects ML/MM layers from B-factors.
     """
     overrides = overrides or {}
-    prepared_input = prepare_input_structure(hei_pdb)
+    # Prefer HEI XYZ (full precision) + layered ref-pdb (B-factor layer info)
+    hei_xyz = hei_pdb.with_suffix(".xyz")
+    if ref_pdb is not None and hei_xyz.exists():
+        input_file = hei_xyz
+        topology_pdb = ref_pdb
+    else:
+        input_file = hei_pdb
+        topology_pdb = hei_pdb
+    prepared_input = prepare_input_structure(input_file)
+    if input_file.suffix.lower() == ".xyz" and ref_pdb is not None:
+        apply_ref_pdb_override(prepared_input, ref_pdb)
     try:
         ts_dir = _resolve_override_dir(out_dir / "ts", overrides.get("out_dir"))
         ensure_dir(ts_dir)
@@ -657,13 +760,17 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         opt_mode = overrides.get("opt_mode", opt_mode_default)
 
         ts_args: List[str] = [
-            "-i", str(prepared_input.source_path),
+            "-i", str(prepared_input.geom_path),
+        ]
+        if input_file.suffix.lower() == ".xyz" and ref_pdb is not None:
+            ts_args.extend(["--ref-pdb", str(ref_pdb)])
+        ts_args.extend([
             "--parm", str(real_parm7),
             "--model-pdb", str(model_pdb),
             "-q", str(int(charge)),
             "-m", str(int(spin)),
             "--out-dir", str(ts_dir),
-        ]
+        ])
         ts_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
         if opt_mode is not None:
@@ -692,22 +799,21 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         _echo(f"[tsopt] Running tsopt on HEI → out={ts_dir}")
         _run_cli_main("tsopt", _ts_opt.cli, ts_args, on_nonzero="raise", prefix="tsopt")
 
-        # Prefer PDB (tsopt converts when input is PDB)
-        ts_pdb = ts_dir / "final_geometry.pdb"
+        # Prefer XYZ (full precision) for geometry loading; PDB for topology
         final_xyz = ts_dir / "final_geometry.xyz"
-        if not ts_pdb.exists():
-            # fallback: use final .xyz and convert
-            if not final_xyz.exists():
-                raise click.ClickException("[tsopt] TS outputs not found.")
-            _path_search._maybe_convert_to_pdb(final_xyz, hei_pdb, ts_dir / "final_geometry.pdb")
         ts_pdb = ts_dir / "final_geometry.pdb"
-        g_ts = geom_loader(ts_pdb, coord_type="cart")
+        if not ts_pdb.exists() and final_xyz.exists():
+            _path_search._maybe_convert_to_pdb(final_xyz, topology_pdb, ts_pdb)
+        if not final_xyz.exists() and not ts_pdb.exists():
+            raise click.ClickException("[tsopt] TS outputs not found.")
+        geom_src = final_xyz if final_xyz.exists() else ts_pdb
+        g_ts = geom_loader(geom_src, coord_type="cart")
 
         # Ensure calculator to have energy on g_ts
         calc = _mlmm_calc(
             model_charge=int(charge),
             model_mult=int(spin),
-            input_pdb=str(ts_pdb),
+            input_pdb=str(topology_pdb),
             real_parm7=str(real_parm7),
             model_pdb=str(model_pdb),
             use_bfactor_layers=detect_layer,
@@ -1008,9 +1114,12 @@ def _run_freq_for_state(pdb_path: Path,
                         args_yaml: Optional[Path],
                         overrides: Optional[Dict[str, Any]] = None,
                         backend: Optional[str] = None,
-                        embedcharge: bool = False) -> Dict[str, Any]:
+                        embedcharge: bool = False,
+                        xyz_path: Optional[Path] = None) -> Dict[str, Any]:
     """
     Run freq CLI; return parsed thermo dict (may be empty).
+    When *xyz_path* is given, use it for full-precision coordinates with
+    *pdb_path* as topology reference (--ref-pdb).
     """
     fdir = out_dir
     ensure_dir(fdir)
@@ -1020,14 +1129,18 @@ def _run_freq_for_state(pdb_path: Path,
     if dump_use is None:
         dump_use = True
 
-    args = [
-        "-i", str(pdb_path),
+    # Prefer XYZ (full precision) with --ref-pdb for topology
+    if xyz_path is not None and xyz_path.exists():
+        args = ["-i", str(xyz_path), "--ref-pdb", str(pdb_path)]
+    else:
+        args = ["-i", str(pdb_path)]
+    args.extend([
         "--parm", str(real_parm7),
         "--model-pdb", str(model_pdb),
         "-q", str(int(q_int)),
         "-m", str(int(spin)),
         "--out-dir", str(fdir),
-    ]
+    ])
     args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
     _append_cli_arg(args, "--max-write", overrides.get("max_write"))
@@ -1077,25 +1190,40 @@ def _run_opt_for_state(
     backend: Optional[str] = None,
     embedcharge: bool = False,
     thresh: Optional[str] = None,
+    xyz_path: Optional[Path] = None,
 ) -> Tuple[Any, Path]:
     """
     Run opt CLI for a single endpoint and return (optimized Geometry, final geometry path).
+    When *xyz_path* is given, pass it as ``-i`` with ``--ref-pdb pdb_path`` to
+    preserve full coordinate precision.
     """
     opt_dir = out_dir
     ensure_dir(opt_dir)
 
-    prepared_input = prepare_input_structure(pdb_path)
+    # Use XYZ (full precision) when available; fall back to PDB
+    if xyz_path is not None and xyz_path.exists():
+        prepared_input = prepare_input_structure(xyz_path)
+        apply_ref_pdb_override(prepared_input, pdb_path)
+        input_label = xyz_path.name
+    else:
+        prepared_input = prepare_input_structure(pdb_path)
+        input_label = pdb_path.name
     try:
         opt_mode = str(opt_mode_default or "heavy").lower()
         args = [
-            "-i", str(prepared_input.source_path),
+            "-i", str(prepared_input.geom_path),
+        ]
+        # Add --ref-pdb when input is XYZ
+        if prepared_input.geom_path.suffix.lower() == ".xyz":
+            args.extend(["--ref-pdb", str(prepared_input.source_path)])
+        args.extend([
             "--parm", str(real_parm7),
             "--model-pdb", str(model_pdb),
             "-q", str(int(q_int)),
             "-m", str(int(spin)),
             "--out-dir", str(opt_dir),
             "--opt-mode", opt_mode,
-        ]
+        ])
         args.append("--detect-layer" if detect_layer else "--no-detect-layer")
         _append_toggle_arg(args, "--convert-files", convert_files)
         _append_cli_arg(args, "--thresh", thresh)
@@ -1110,17 +1238,17 @@ def _run_opt_for_state(
         else:
             args.append("--no-embedcharge")
 
-        _echo(f"[endpoint-opt] Running opt on {pdb_path.name} (mode={opt_mode}) → out={opt_dir}")
+        _echo(f"[endpoint-opt] Running opt on {input_label} (mode={opt_mode}) → out={opt_dir}")
         _run_cli_main("opt", _opt_cli.cli, args, on_nonzero="raise", on_exception="raise", prefix="endpoint-opt")
 
         final_pdb = opt_dir / "final_geometry.pdb"
         final_xyz = opt_dir / "final_geometry.xyz"
-        final_geom_path: Optional[Path] = None
-        if final_pdb.exists():
-            final_geom_path = final_pdb
-        elif final_xyz.exists():
+        # Prefer XYZ (full precision) for geometry loading
+        if final_xyz.exists():
             final_geom_path = final_xyz
-        if final_geom_path is None:
+        elif final_pdb.exists():
+            final_geom_path = final_pdb
+        else:
             raise click.ClickException(f"[endpoint-opt] opt outputs not found under {opt_dir}")
 
         g_opt = geom_loader(final_geom_path, coord_type="cart")
@@ -1154,9 +1282,12 @@ def _run_dft_for_state(pdb_path: Path,
                        func_basis: str = "wb97m-v/def2-tzvpd",
                        overrides: Optional[Dict[str, Any]] = None,
                        backend: Optional[str] = None,
-                       embedcharge: bool = False) -> Dict[str, Any]:
+                       embedcharge: bool = False,
+                       xyz_path: Optional[Path] = None) -> Dict[str, Any]:
     """
     Run dft CLI; return parsed result.yaml dict (may be empty).
+    When *xyz_path* is given, use it for full-precision coordinates with
+    *pdb_path* as topology reference (--ref-pdb).
     """
     ddir = out_dir
     ensure_dir(ddir)
@@ -1164,15 +1295,19 @@ def _run_dft_for_state(pdb_path: Path,
 
     func_basis_use = overrides.get("func_basis", func_basis)
 
-    args = [
-        "-i", str(pdb_path),
+    # Prefer XYZ (full precision) with --ref-pdb for topology
+    if xyz_path is not None and xyz_path.exists():
+        args = ["-i", str(xyz_path), "--ref-pdb", str(pdb_path)]
+    else:
+        args = ["-i", str(pdb_path)]
+    args.extend([
         "--parm", str(real_parm7),
         "--model-pdb", str(model_pdb),
         "-q", str(int(q_int)),
         "-m", str(int(spin)),
         "--func-basis", str(func_basis_use),
         "--out-dir", str(ddir),
-    ]
+    ])
     args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
     _append_cli_arg(args, "--max-cycle", overrides.get("max_cycle"))
@@ -1208,6 +1343,7 @@ _ALL_PRIMARY_HELP_OPTIONS = frozenset(
         "--input",
         "-c",
         "--center",
+        "-l",
         "--ligand-charge",
         "-q",
         "--charge",
@@ -1217,6 +1353,12 @@ _ALL_PRIMARY_HELP_OPTIONS = frozenset(
         "--dft",
         "--config",
         "--dry-run",
+        "--embedcharge",
+        "-s",
+        "--scan-lists",
+        "-b",
+        "--backend",
+        "-o",
         "--help-advanced",
     }
 )
@@ -1296,7 +1438,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
           "When omitted, extraction is skipped and full structures are used directly.")
 )
 @click.option(
-    "--out-dir", "out_dir",
+    "-o", "--out-dir", "out_dir",
     type=click.Path(path_type=Path, file_okay=False),
     default=Path("./result_all/"), show_default=True,
     help="Top-level output directory for the pipeline."
@@ -1314,7 +1456,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Add link hydrogens for severed bonds (carbon-only) in pockets.")
 @click.option("--selected-resn", type=str, default="", show_default=True,
               help="Force-include residues (comma/space separated; chain/insertion codes allowed).")
-@click.option("--ligand-charge", type=str, default=None,
+@click.option("-l", "--ligand-charge", type=str, default=None,
               help=("Either a total charge (number) to distribute across unknown residues "
                     "or a mapping like 'GPP:-3,MMT:-1'."))
 @click.option(
@@ -1324,6 +1466,20 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=int,
     default=None,
     help="Force total system charge. Highest priority over derived charges.",
+)
+@click.option(
+    "--parm",
+    "parm7_override",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Pre-built AMBER parm7 topology file. When provided, mm_parm generation is skipped.",
+)
+@click.option(
+    "--model-pdb",
+    "model_pdb_override",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Pre-built ML-region PDB (with B-factor layer info). When provided, ml_region generation is skipped.",
 )
 @click.option("--auto-mm-ff-set", "mm_ff_set",
               type=click.Choice(["ff19SB", "ff14SB"], case_sensitive=False),
@@ -1341,14 +1497,6 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=None,
     help=("Spin multiplicity mapping forwarded to mm_parm (e.g., 'GPP:2,SAM:1'). "
           "If omitted, mm_parm defaults to 1 for all ligands.")
-)
-@click.option(
-    "--auto-mm-allow-nonstandard-aa",
-    "mm_allow_nonstandard_aa",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help="Allow mm_parm to parameterize amino-acid-like residues via antechamber.",
 )
 @click.option("--verbose", type=click.BOOL, default=True, show_default=True, help="Enable INFO-level logging inside extractor.")
 # ===== Path search knobs (subset of path_search.cli) =====
@@ -1474,14 +1622,14 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Override dft --grid-level value.")
 # ===== NEW: staged scan specification for single-structure route =====
 @click.option(
-    "--scan-lists",
+    "-s", "--scan-lists",
     "scan_lists_raw",
     type=str, multiple=True, required=False,
-    help='Python-like list of (i,j,target_Å) per stage for **single-structure** scan. '
-         'Pass a single --scan-lists followed by multiple literals, e.g. '
+    help='Scan targets: inline Python literal or a YAML/JSON spec file path. '
+         'Multiple inline literals define sequential stages, e.g. '
          '"[(12,45,1.35)]" "[(10,55,2.20),(23,34,1.80)]". '
          'Indices refer to the original full PDB (1-based) or PDB atom selectors like "TYR,285,CA"; '
-         'they are auto-mapped to the pocket after extraction. Stage results feed into path_search.',
+         'they are auto-mapped to the pocket after extraction.',
 )
 @click.option("--scan-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override the scan output directory (default: <out-dir>/scan/). Relative paths are resolved against the default parent.")
@@ -1500,7 +1648,18 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--convert-files/--no-convert-files", "convert_files", default=True, show_default=True,
               help="Convert XYZ/TRJ outputs to PDB format using reference topology; forwarded to all subcommands.")
 @click.option(
-    "--backend",
+    "--ref-pdb",
+    "ref_pdb_cli",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help=(
+        "Reference PDB for topology/B-factor layer information when -i provides XYZ inputs. "
+        "Used for define-layer, mm_parm, ml_region, and forwarded to downstream tools "
+        "(tsopt, irc, freq, path_search) as --ref-pdb."
+    ),
+)
+@click.option(
+    "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
@@ -1527,11 +1686,12 @@ def cli(
     selected_resn: str,
     ligand_charge: Optional[str],
     charge_override: Optional[int],
+    parm7_override: Optional[Path],
+    model_pdb_override: Optional[Path],
     mm_ff_set: str,
     mm_add_ter: bool,
     mm_keep_temp: bool,
     mm_ligand_mult: Optional[str],
-    mm_allow_nonstandard_aa: bool,
     verbose: bool,
     spin: int,
     max_nodes: int,
@@ -1561,6 +1721,7 @@ def cli(
     scan_preopt_override: Optional[bool],
     scan_endopt_override: Optional[bool],
     convert_files: bool,
+    ref_pdb_cli: Optional[Path],
     backend: Optional[str],
     embedcharge: bool,
     tsopt_max_cycles: Optional[int],
@@ -1615,7 +1776,7 @@ def cli(
         )
         input_paths = tuple(i_parsed)
 
-    scan_vals = collect_single_option_values(argv_all, ("--scan-lists",), "--scan-lists")
+    scan_vals = collect_single_option_values(argv_all, ("-s", "--scan-lists"), "--scan-lists")
     if scan_vals:
         scan_lists_raw = tuple(scan_vals)
 
@@ -1800,6 +1961,12 @@ def cli(
     extract_inputs = tuple(inputs_for_extract)
     skip_extract = center_spec is None or str(center_spec).strip() == ""
 
+    # When inputs are XYZ and --ref-pdb is provided, use it for topology-requiring steps
+    ref_pdb_for_topology: Optional[Path] = None
+    if ref_pdb_cli is not None:
+        ref_pdb_for_topology = ref_pdb_cli.resolve()
+        _echo(f"[all] --ref-pdb provided: {ref_pdb_for_topology}")
+
     resolved_charge: Optional[int] = None
     pocket_outputs: List[Path] = []
 
@@ -1874,29 +2041,42 @@ def cli(
     # --------------------------
     # Stage 1b: ML-region definition (copy first pocket) and mm_parm on the first full input
     # --------------------------
-    _echo_section("=== [all] ML/MM preparation — ML region + parm7 via mm_parm ===")
+    _echo_section("=== [all] ML/MM preparation — ML region + parm7 ===")
     first_pocket = pocket_outputs[0]
     first_full_input = extract_inputs[0]
-    ml_region_pdb = _write_ml_region_definition(first_pocket, out_dir / "ml_region.pdb")
-    _echo(f"[all] ML region definition → {ml_region_pdb}")
-    _echo(f"[all] mm_parm source PDB → {first_full_input}")
+    # When --ref-pdb is provided, use it for PDB-requiring topology operations
+    pocket_for_ml_region = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_pocket
+    pdb_for_mm_parm = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_full_input
 
-    mm_dir = out_dir / "mm_parm"
-    ensure_commands_available(
-        ("tleap", "antechamber", "parmchk2"),
-        context="mm_parm (AmberTools)",
-    )
-    real_parm7_path, real_rst7_path = _build_mm_parm7(
-        pdb=first_full_input,
-        ligand_charge_expr=ligand_charge,
-        ligand_mult_expr=mm_ligand_mult,
-        out_dir=mm_dir,
-        ff_set=mm_ff_set,
-        add_ter=mm_add_ter,
-        keep_temp=mm_keep_temp,
-        allow_nonstandard_aa=mm_allow_nonstandard_aa,
-    )
-    _echo(f"[all] mm_parm outputs → parm7: {real_parm7_path.name}, rst7: {real_rst7_path.name}")
+    # ML region definition: use --model-pdb if provided, otherwise generate from pocket
+    if model_pdb_override is not None:
+        ml_region_pdb = model_pdb_override.resolve()
+        _echo(f"[all] ML region definition (--model-pdb override) → {ml_region_pdb}")
+    else:
+        ml_region_pdb = _write_ml_region_definition(pocket_for_ml_region, out_dir / "ml_region.pdb")
+        _echo(f"[all] ML region definition → {ml_region_pdb}")
+
+    # mm_parm: use --parm if provided, otherwise run tleap
+    if parm7_override is not None:
+        real_parm7_path = parm7_override.resolve()
+        _echo(f"[all] parm7 (--parm override) → {real_parm7_path}")
+    else:
+        _echo(f"[all] mm_parm source PDB → {pdb_for_mm_parm}")
+        mm_dir = out_dir / "mm_parm"
+        ensure_commands_available(
+            ("tleap", "antechamber", "parmchk2"),
+            context="mm_parm (AmberTools)",
+        )
+        real_parm7_path, real_rst7_path = _build_mm_parm7(
+            pdb=pdb_for_mm_parm,
+            ligand_charge_expr=ligand_charge,
+            ligand_mult_expr=mm_ligand_mult,
+            out_dir=mm_dir,
+            ff_set=mm_ff_set,
+            add_ter=mm_add_ter,
+            keep_temp=mm_keep_temp,
+        )
+        _echo(f"[all] mm_parm outputs → parm7: {real_parm7_path.name}, rst7: {real_rst7_path.name}")
 
     # --------------------------
     # define-layer: assign 3-layer B-factors to each full-system PDB
@@ -1906,10 +2086,14 @@ def cli(
     ensure_dir(layered_dir)
     layered_inputs: List[Path] = []
     for idx, full_pdb in enumerate(extract_inputs):
-        out_layered = layered_dir / f"{full_pdb.stem}_layered.pdb"
+        # When --ref-pdb is given and input is not PDB, use ref_pdb for define-layer
+        pdb_for_layer = full_pdb
+        if ref_pdb_for_topology is not None and full_pdb.suffix.lower() != ".pdb":
+            pdb_for_layer = ref_pdb_for_topology
+        out_layered = layered_dir / f"{pdb_for_layer.stem}_layered.pdb"
         try:
             layer_info = _define_layers(
-                input_pdb=full_pdb,
+                input_pdb=pdb_for_layer,
                 output_pdb=out_layered,
                 model_pdb=ml_region_pdb,
             )
@@ -1935,6 +2119,13 @@ def cli(
 
         # Use the layered full-system PDB as TS initial guess
         layered_pdb = layered_inputs[0]
+        # When --ref-pdb is given and input is XYZ, copy the XYZ next to the layered PDB
+        # so that _run_tsopt_on_hei can use XYZ (full precision) + layered PDB (topology)
+        if ref_pdb_for_topology is not None and extract_inputs[0].suffix.lower() != ".pdb":
+            xyz_companion = layered_pdb.with_suffix(".xyz")
+            if not xyz_companion.exists():
+                shutil.copy2(extract_inputs[0], xyz_companion)
+                _echo(f"[all] Copied XYZ input → {xyz_companion} (full precision for tsopt)")
         # TS optimization
         ts_pdb, g_ts = _run_tsopt_on_hei(
             layered_pdb,
@@ -1949,21 +2140,24 @@ def cli(
             overrides=tsopt_overrides,
             backend=backend,
             embedcharge=embedcharge,
+            ref_pdb=layered_pdb,
         )
 
-        # Pseudo-IRC & minimize both ends (no segment endpoints exist → fallback mapping in helper)
-        irc_res = _pseudo_irc_and_match(seg_idx=1,
-                                        seg_dir=tsroot,
-                                        ref_pdb_for_seg=ts_pdb,
-                                        seg_pocket_pdb=first_pocket,
-                                        g_ts=g_ts,
-                                        q_int=q_int,
-                                        spin=spin,
-                                        real_parm7=real_parm7_path,
-                                        model_pdb=ml_region_pdb,
-                                        detect_layer=detect_layer,
-                                        backend=backend,
-                                        embedcharge=embedcharge)
+        # EulerPC IRC & map endpoints (no segment endpoints exist → fallback mapping)
+        irc_pocket_ref = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_pocket
+        irc_res = _irc_and_match(seg_idx=1,
+                                 seg_dir=tsroot,
+                                 ref_pdb_for_seg=ts_pdb,
+                                 seg_pocket_pdb=irc_pocket_ref,
+                                 g_ts=g_ts,
+                                 q_int=q_int,
+                                 spin=spin,
+                                 real_parm7=real_parm7_path,
+                                 model_pdb=ml_region_pdb,
+                                 detect_layer=detect_layer,
+                                 backend=backend,
+                                 embedcharge=embedcharge,
+                                 args_yaml=args_yaml)
         gL = irc_res["left_min_geom"]
         gR = irc_res["right_min_geom"]
         gT = irc_res["ts_geom"]
@@ -1988,13 +2182,13 @@ def cli(
             g_react, e_react = gR, eR
             g_prod,  e_prod  = gL, eL
 
-        # Save standardized PDBs and run endpoint-opt (opt CLI)
+        # Save XYZ (full precision) + PDB (companion) and run endpoint-opt
         struct_dir = tsroot / "structures"
         ensure_dir(struct_dir)
-        pocket_ref = first_pocket
-        pR_irc = _save_single_geom_as_pdb_for_tools(g_react, pocket_ref, struct_dir, "reactant_irc")
-        pT = _save_single_geom_as_pdb_for_tools(gT,       pocket_ref, struct_dir, "ts")
-        pP_irc = _save_single_geom_as_pdb_for_tools(g_prod,   pocket_ref, struct_dir, "product_irc")
+        pocket_ref = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_pocket
+        xR_irc, pR_irc = _save_single_geom_for_tools(g_react, pocket_ref, struct_dir, "reactant_irc")
+        xT, pT         = _save_single_geom_for_tools(gT,       pocket_ref, struct_dir, "ts")
+        xP_irc, pP_irc = _save_single_geom_for_tools(g_prod,   pocket_ref, struct_dir, "product_irc")
 
         endpoint_opt_dir = tsroot / "endpoint_opt"
         ensure_dir(endpoint_opt_dir)
@@ -2006,6 +2200,7 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
                 thresh=thresh_post,
+                xyz_path=xR_irc,
             )
         except Exception as e:
             _echo(
@@ -2020,6 +2215,7 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
                 thresh=thresh_post,
+                xyz_path=xP_irc,
             )
         except Exception as e:
             _echo(
@@ -2029,8 +2225,8 @@ def cli(
         shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
         _echo("[endpoint-opt] Clean endpoint-opt working dir.")
 
-        pR = _save_single_geom_as_pdb_for_tools(g_react, pocket_ref, struct_dir, "reactant")
-        pP = _save_single_geom_as_pdb_for_tools(g_prod,   pocket_ref, struct_dir, "product")
+        xR, pR = _save_single_geom_for_tools(g_react, pocket_ref, struct_dir, "reactant")
+        xP, pP = _save_single_geom_for_tools(g_prod,   pocket_ref, struct_dir, "product")
         e_react = float(g_react.energy)
         e_prod = float(g_prod.energy)
 
@@ -2066,13 +2262,13 @@ def cli(
             _echo(f"[thermo] Single TSOPT: freq on R/TS/P")
             tR = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "R", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xR)
             tT = _run_freq_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "TS", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xT)
             tP = _run_freq_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "P", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xP)
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
             try:
                 GR = float(tR.get("sum_EE_and_thermal_free_energy_ha", e_react))
@@ -2093,13 +2289,13 @@ def cli(
             _echo(f"[dft] Single TSOPT: DFT on R/TS/P")
             dR = _run_dft_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xR)
             dT = _run_dft_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xT)
             dP = _run_dft_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xP)
             try:
                 eR_dft = float(dR.get("energy", {}).get("hartree", e_react) if dR else e_react)
                 eT_dft = float(dT.get("energy", {}).get("hartree", eT) if dT else eT)
@@ -2378,21 +2574,29 @@ def cli(
 
         _run_cli_main("scan", _scan_cli.cli, scan_args, on_nonzero="raise", on_exception="raise", prefix="all")
 
-        # Collect stage results as pocket inputs
-        stage_pdbs = sorted((scan_dir).glob("stage_*/*"))
+        # Collect stage results — prefer XYZ (full precision), keep PDB as ref for topology
         stage_results: List[Path] = []
-        for p in stage_pdbs:
-            if p.name == "result.pdb":
-                stage_results.append(p.resolve())
+        stage_refs: List[Path] = []
+        for st in sorted(scan_dir.glob("stage_*")):
+            if not st.is_dir():
+                continue
+            xyz = st / "result.xyz"
+            pdb = st / "result.pdb"
+            if xyz.exists():
+                stage_results.append(xyz.resolve())
+                stage_refs.append(pdb.resolve() if pdb.exists() else layered_pdb)
+            elif pdb.exists():
+                stage_results.append(pdb.resolve())
+                stage_refs.append(pdb.resolve())
         if not stage_results:
-            raise click.ClickException("[all] No stage result PDBs found under scan/.")
-        _echo("[all] Collected scan stage pocket files:")
+            raise click.ClickException("[all] No stage result files found under scan/.")
+        _echo("[all] Collected scan stage files:")
         for p in stage_results:
             _echo(f"  - {p}")
 
-        # Input series to path_search: [initial layered PDB, scan stage results ...]
-        # Note: scan stage results are also full-system layered PDBs since scan ran on layered_pdb
+        # Input series to path_search: [initial layered PDB/XYZ, scan stage results ...]
         pockets_for_path = [layered_pdb] + stage_results
+        refs_for_path = [layered_pdb] + stage_refs
     else:
         # Multi-structure standard route: use layered full-system PDBs
         pockets_for_path = list(layered_inputs)
@@ -2432,15 +2636,17 @@ def cli(
         if args_yaml is not None:
             ps_args.extend(["--config", str(args_yaml)])
 
-        # Auto-provide ref templates (original full PDBs) for full-system merge.
-        # Multi-structure: one ref per original input; single+scan: reuse the single template for all pockets.
+        # Provide --ref-pdb for topology/B-factor info (one per input)
+        # MUST use layered PDBs (with B-factor layer info) so that downstream
+        # PDB conversion preserves ML/MovableMM/FrozenMM layer encoding.
         ps_args.append("--ref-pdb")
         if is_single and has_scan:
-            for _ in pockets_for_path:
-                ps_args.append(str(input_paths[0]))
+            # single+scan: use refs_for_path which maps to each pocket (XYZ→PDB ref)
+            for ref in refs_for_path:
+                ps_args.append(str(ref))
         else:
-            for p in input_paths:
-                ps_args.append(str(p))
+            for lp in layered_inputs:
+                ps_args.append(str(lp))
 
         if backend is not None:
             ps_args.extend(["--backend", str(backend)])
@@ -2873,6 +3079,7 @@ def cli(
                 overrides=tsopt_overrides,
                 backend=backend,
                 embedcharge=embedcharge,
+                ref_pdb=layered_inputs[0] if layered_inputs else None,
             )
         else:
             # If TSOPT off: use the GSM HEI (pocket) as TS geometry
@@ -2890,21 +3097,22 @@ def cli(
             )
             g_ts.set_calculator(calc); _ = float(g_ts.energy)
 
-        # 4.2 Pseudo-IRC & mapping to (left,right)
+        # 4.2 EulerPC IRC & mapping to (left,right)
         irc_plot_path = None
         irc_trj_path = None
-        irc_res = _pseudo_irc_and_match(seg_idx=seg_idx,
-                                        seg_dir=seg_dir,
-                                        ref_pdb_for_seg=ts_pdb,
-                                        seg_pocket_pdb=hei_pocket_pdb,
-                                        g_ts=g_ts,
-                                        q_int=q_int,
-                                        spin=spin,
-                                        real_parm7=real_parm7_path,
-                                        model_pdb=ml_region_pdb,
-                                        detect_layer=detect_layer,
-                                        backend=backend,
-                                        embedcharge=embedcharge)
+        irc_res = _irc_and_match(seg_idx=seg_idx,
+                                 seg_dir=seg_dir,
+                                 ref_pdb_for_seg=ts_pdb,
+                                 seg_pocket_pdb=hei_pocket_pdb,
+                                 g_ts=g_ts,
+                                 q_int=q_int,
+                                 spin=spin,
+                                 real_parm7=real_parm7_path,
+                                 model_pdb=ml_region_pdb,
+                                 detect_layer=detect_layer,
+                                 backend=backend,
+                                 embedcharge=embedcharge,
+                                 args_yaml=args_yaml)
         irc_plot_path = irc_res.get("irc_plot")
         irc_trj_path = irc_res.get("irc_trj")
         if irc_trj_path:
@@ -2916,12 +3124,12 @@ def cli(
         gL = irc_res["left_min_geom"]
         gR = irc_res["right_min_geom"]
         gT = irc_res["ts_geom"]
-        # Save IRC endpoints, run endpoint-opt, then save standardized optimized PDBs
+        # Save IRC endpoints (XYZ primary), run endpoint-opt, then save optimized structures
         struct_dir = seg_dir / "structures"
         ensure_dir(struct_dir)
-        pL_irc = _save_single_geom_as_pdb_for_tools(gL, hei_pocket_pdb, struct_dir, "reactant_irc")
-        pT = _save_single_geom_as_pdb_for_tools(gT, hei_pocket_pdb, struct_dir, "ts")
-        pR_irc = _save_single_geom_as_pdb_for_tools(gR, hei_pocket_pdb, struct_dir, "product_irc")
+        xL_irc, pL_irc = _save_single_geom_for_tools(gL, hei_pocket_pdb, struct_dir, "reactant_irc")
+        xT, pT         = _save_single_geom_for_tools(gT, hei_pocket_pdb, struct_dir, "ts")
+        xR_irc, pR_irc = _save_single_geom_for_tools(gR, hei_pocket_pdb, struct_dir, "product_irc")
 
         endpoint_opt_dir = seg_dir / "endpoint_opt"
         ensure_dir(endpoint_opt_dir)
@@ -2933,6 +3141,7 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
                 thresh=thresh_post,
+                xyz_path=xL_irc,
             )
         except Exception as e:
             _echo(
@@ -2947,6 +3156,7 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
                 thresh=thresh_post,
+                xyz_path=xR_irc,
             )
         except Exception as e:
             _echo(
@@ -2956,8 +3166,8 @@ def cli(
         shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
         _echo("[endpoint-opt] Clean endpoint-opt working dir.")
 
-        pL = _save_single_geom_as_pdb_for_tools(gL, hei_pocket_pdb, struct_dir, "reactant")
-        pR = _save_single_geom_as_pdb_for_tools(gR, hei_pocket_pdb, struct_dir, "product")
+        xL, pL = _save_single_geom_for_tools(gL, hei_pocket_pdb, struct_dir, "reactant")
+        xR, pR = _save_single_geom_for_tools(gR, hei_pocket_pdb, struct_dir, "product")
 
         # 4.3 Segment-level energy diagram from UMA (R,TS,P)
         eR = float(gL.energy)
@@ -2990,13 +3200,13 @@ def cli(
             _echo(f"[thermo] Segment {seg_idx:02d}: freq on R/TS/P")
             tR = _run_freq_for_state(pL, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_seg_root / "R", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xL)
             tT = _run_freq_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_seg_root / "TS", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xT)
             tP = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_seg_root / "P", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xR)
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
             try:
                 GR = float(tR.get("sum_EE_and_thermal_free_energy_ha", eR))
@@ -3020,13 +3230,13 @@ def cli(
             _echo(f"[dft] Segment {seg_idx:02d}: DFT on R/TS/P")
             dR = _run_dft_for_state(pL, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_seg_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xL)
             dT = _run_dft_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_seg_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xT)
             dP = _run_dft_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_seg_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge)
+                                     backend=backend, embedcharge=embedcharge, xyz_path=xR)
             try:
                 eR_dft = float(dR.get("energy", {}).get("hartree", np.nan) if dR else np.nan)
                 eT_dft = float(dT.get("energy", {}).get("hartree", np.nan) if dT else np.nan)

@@ -2,22 +2,22 @@
 
 ## Overview
 
-> **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `--spec` (YAML/JSON, recommended) to define targets; `--scan-lists` remains as a Python-literal input.
+> **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
 
 ### At a glance
 - **Use when:** You have a single structure and need to drive specific inter-atomic distances toward target values to explore a plausible path (often before `path-search`/`path-opt`).
-- **Input:** One structure + `--spec scan.yaml` (recommended), or one/more `--scan-lists` literals (each literal = one stage).
-- **Defaults:** LBFGS optimizer, `--preopt`, `--endopt`, `--max-step-size 0.20` Å.
+- **Input:** One structure + `-s scan.yaml` (YAML/JSON spec, recommended), or `-s "[(I,J,TARGET)]"` inline literals (each literal = one stage).
+- **Defaults:** LBFGS optimizer, `--preopt`, `--endopt`, `--max-step-size 0.20` Å, `--thresh baker`.
 - **Outputs:** Per-stage `result.xyz` (+ optional `.pdb`), and optional concatenated trajectories when `--dump`.
-- **Note:** Prefer `--spec` to avoid shell-quoting issues. `--scan-lists` is still supported.
+- **Note:** `-s/--scan-lists` auto-detects whether the argument is a YAML/JSON file or an inline Python literal.
 
-`mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `--backend`; default: UMA) and hessian_ff.
+`mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and hessian_ff.
 
 ## Minimal example
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed --out-dir ./result_scan
+ -q 0 -s scan.yaml --print-parsed -o ./result_scan
 ```
 
 ## Output checklist
@@ -32,30 +32,30 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed
+ -q 0 -s scan.yaml --print-parsed
 ```
 
-2. Use literal input.
+2. Use inline literal input.
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --scan-lists "[(12,45,2.20)]"
+ -q 0 -s "[(12,45,2.20)]"
 ```
 
 3. Dump trajectories for stage-by-stage inspection.
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --dump --out-dir ./result_scan_dump
+ -q 0 -s scan.yaml --dump -o ./result_scan_dump
 ```
 
-> **Note:** Add `--print-parsed` when you want to verify parsed stage targets from `--spec` / `--scan-lists`.
+> **Note:** Add `--print-parsed` when you want to verify parsed stage targets from `-s/--scan-lists`.
 
 ## Usage
 ```bash
 mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
- [--spec scan.yaml | --scan-lists "[(I,J,TARGET_ANG)]"] [options]
+ [-s scan.yaml | -s "[(I,J,TARGET_ANG)]"] [options]
 ```
 
 ### Examples
@@ -68,21 +68,21 @@ stages:
  - [[10, 55, 1.35], [23, 34, 1.80]]
 YAML
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --spec scan.yaml --print-parsed
+ -q 0 -s scan.yaml --print-parsed
 
-# Alternative: Python literal
+# Alternative: inline Python literal
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --scan-lists "[(12,45,2.20)]"
+ -q 0 -s "[(12,45,2.20)]"
 
 # Two stages with dumps, frozen atoms, and YAML overrides
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q -1 -m 1 --freeze-atoms "1,3,5" --scan-lists "[(12,45,2.20)]" \
+ -q -1 -m 1 --freeze-atoms "1,3,5" -s "[(12,45,2.20)]" \
  "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
 ```
 
-## `--spec` format (recommended)
+## YAML/JSON spec format (recommended)
 
-`--spec` accepts YAML/JSON with a mapping root:
+`-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
 
 ```yaml
 one_based: true # optional; defaults to CLI --one-based/--zero-based
@@ -93,23 +93,23 @@ stages:
 
 - `stages` is required.
 - Each stage is a list of `(i, j, target_A)` triples.
-- Indices may be integers or PDB selectors (for PDB input), same as `--scan-lists`.
+- Indices may be integers or PDB selectors (for PDB input), same as inline literals.
 
-## `--scan-lists` format
+## Inline literal format
 
-`--scan-lists` is the advanced input mode. It accepts **Python literal** strings evaluated by the CLI. Shell quoting matters.
+When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **Python literal** string evaluated by the CLI. Shell quoting matters.
 
 ### Basic structure
 
 Each literal is a Python list of triples `(atom1, atom2, target_A)`:
 
 ```
---scan-lists '[(atom1, atom2, target_A),...]'
+-s '[(atom1, atom2, target_A),...]'
 ```
 
 - Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
 - Each triple drives the distance between `atom1`--`atom2` toward `target_A`.
-- One literal = one **stage**. For multiple stages, pass multiple literals after a **single** `--scan-lists` flag (do not repeat the flag).
+- One literal = one **stage**. For multiple stages, pass multiple literals after a **single** `-s/--scan-lists` flag (do not repeat the flag).
 
 ### Specifying atoms
 
@@ -134,28 +134,28 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 
 ```bash
 # Correct: single-quote the list, double-quote selector strings inside
---scan-lists '[("TYR,285,CA","MMT,309,C10",1.35)]'
+-s '[("TYR,285,CA","MMT,309,C10",1.35)]'
 
 # Correct: integer indices need no inner quotes
---scan-lists '[(1, 5, 2.0)]'
+-s '[(1, 5, 2.0)]'
 
 # Avoid: double-quoting the outer literal requires escaping inner quotes
---scan-lists "[(\"TYR,285,CA\",\"MMT,309,C10\",1.35)]"
+-s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.35)]"
 ```
 
 ### Multiple stages
 
-Pass multiple literals after a single `--scan-lists` flag. Each literal becomes one stage:
+Pass multiple literals after a single `-s/--scan-lists` flag. Each literal becomes one stage:
 
 ```bash
 # Stage 1: drive one bond to 1.35 Å
 # Stage 2: drive two bonds simultaneously
---scan-lists \
+-s \
  '[("TYR,285,CA","MMT,309,C10",1.35)]' \
  '[("TYR,285,CA","MMT,309,C10",2.20),("TYR,285,CB","MMT,309,C11",1.80)]'
 ```
 
-Stages run sequentially; each starts from the previous stage's relaxed result. **Do not repeat the `--scan-lists` flag** -- supply all stage literals after a single flag.
+Stages run sequentially; each starts from the previous stage's relaxed result. **Do not repeat the `-s/--scan-lists` flag** -- supply all stage literals after a single flag.
 
 ## Workflow
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
@@ -163,7 +163,7 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
  `-m/--multiplicity` for the ML/MM calculator.
 2. Optionally run an unbiased preoptimization (`--preopt`) before any
  biasing so the starting point is relaxed.
-3. Parse stage targets from `--spec` (recommended) or `--scan-lists`, then normalize the
+3. Parse stage targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal), then normalize the
  `(i, j)` indices (1-based by default). When the input is a PDB, each entry
  may be either an integer index or an atom selector string like `'TYR,285,CA'`;
  selector fields can be separated by spaces, commas, slashes, backticks, or
@@ -197,10 +197,9 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM distance cutoff (Å); providing this disables `--detect-layer`. | _None_ |
-| `--spec FILE` | YAML/JSON scan spec. Mapping root with `stages`; optional `one_based`. | Recommended |
-| `--scan-lists TEXT` | Python literal(s) with `(i, j, target_A)` tuples. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Alternative to `--spec` |
+| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s) with `(i, j, target_A)` tuples. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Required |
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
-| `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `--spec`/`--scan-lists` resolution. | `False` |
+| `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of integration steps. | `0.20` |
 | `--bias-k FLOAT` | Harmonic bias strength `k` in eV/Å². | `300` |
 | `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
@@ -209,13 +208,13 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `True` |
 | `--dump/--no-dump` | Dump concatenated biased trajectories (`scan_trj.xyz`/`scan.pdb`). | `False` |
-| `--out-dir TEXT` | Output directory root. | `./result_scan/` |
-| `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
+| `-o, --out-dir TEXT` | Output directory root. | `./result_scan/` |
+| `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | `baker` |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
-| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
+| `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
-| `--dry-run/--no-dry-run` | Validate options and print the execution plan without running the scan. | `False` |
+| `--dry-run/--no-dry-run` | Validate options and print the execution plan without running the scan. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Outputs
@@ -255,7 +254,7 @@ out_dir/ (default: ./result_scan/)
 ## Notes
 - For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
 
-- Provide multiple literals after a single `--scan-lists` flag; repeated flags are not accepted.
+- Provide multiple literals after a single `-s/--scan-lists` flag; repeated flags are not accepted.
  Tuples must have positive targets. Atom indices are normalized to 0-based internally. For
  PDB inputs, `i`/`j` can be selector strings with flexible delimiters
  (space/comma/slash/backtick/backslash) and unordered tokens.

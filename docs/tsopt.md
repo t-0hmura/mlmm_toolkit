@@ -69,7 +69,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** -- Load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge/spin. Freeze atoms from CLI and YAML are merged.
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or via finite difference. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or via finite difference. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
 3. **Light mode (Dimer):**
    - The Hessian Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected).
    - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
@@ -102,15 +102,15 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--flatten/--no-flatten` | Enable/disable extra imaginary-mode flattening loop. `--flatten` uses default iter (50); `--no-flatten` forces it to 0. Applies to both light and heavy modes. | _None_ (YAML/defaults; effectively enabled with 50 iterations) |
 | `--dump/--no-dump` | Write concatenated trajectory `optimization_all_trj.xyz`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions for PDB inputs. | `True` |
-| `--out-dir TEXT` | Output directory. | `./result_tsopt/` |
+| `-o, --out-dir TEXT` | Output directory. | `./result_tsopt/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
 | `--partial-hessian-flatten / --full-hessian-flatten` | Use partial Hessian (ML only) for imaginary mode detection in flatten loop. | `True` (partial) |
 | `--active-dof-mode CHOICE` | Active DOF for final frequency analysis: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved config layers and continue execution. | `False` |
-| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
-| `--dry-run/--no-dry-run` | Validate inputs/config and print the execution plan without running TS optimization. | `False` |
+| `--dry-run/--no-dry-run` | Validate inputs/config and print the execution plan without running TS optimization. Shown in `--help-advanced`. | `False` |
 
 ## Outputs
 

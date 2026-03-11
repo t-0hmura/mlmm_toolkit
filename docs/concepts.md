@@ -90,7 +90,7 @@ This means:
 
 The same decomposition applies to forces and (where applicable) Hessians. Link-hydrogen contributions are redistributed to the ML and MM host atoms via a Jacobian.
 
-The MLIP backend is selected via `--backend` (default: `uma`). Alternative backends (`orb`, `mace`, `aimnet2`) are installed as optional dependencies (e.g., `pip install "mlmm-toolkit[orb]"`).
+The MLIP backend is selected via `-b/--backend` (default: `uma`). Alternative backends (`orb`, `mace`, `aimnet2`) are installed as optional dependencies (e.g., `pip install "mlmm-toolkit[orb]"`).
 
 When `--embedcharge` is enabled, an xTB point-charge embedding correction is applied to account for the electrostatic influence of the MM environment on the ML region.
 
@@ -159,7 +159,7 @@ Pocket extraction is controlled by:
 - `.pdb` companions when a PDB template exists
 - `.gjf` companions when a Gaussian template exists
 
-This behavior is controlled globally by `--convert-files {True|False}` (default: `True`).
+This behavior is controlled globally by `--convert-files/--no-convert-files` (default: `True`).
 
 ---
 
@@ -171,7 +171,7 @@ Use this when you already have **two or more** full structures along a reaction 
 Typical command:
 
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 ### 2) Single-structure staged scan -> MEP

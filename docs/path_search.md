@@ -117,12 +117,12 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--align / --no-align` | Rigidly align inputs after pre-opt. | `True` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau_loose`) |
 | `--dump/--no-dump` | Save optimizer dumps. | `False` |
-| `--out-dir PATH` | Output directory. | `./result_path_search/` |
+| `-o, --out-dir PATH` | Output directory. | `./result_path_search/` |
 | `--ref-pdb PATH...` | Full template PDB(s) for final merge. | _None_ |
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layer metadata) and continue. | `False` |
-| `--dry-run/--no-dry-run` | Validate options and print the execution plan without running path search. | `False` |
-| `--backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--dry-run/--no-dry-run` | Validate options and print the execution plan without running path search. Shown in `--help-advanced`. | `False` |
+| `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 

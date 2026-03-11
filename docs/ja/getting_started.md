@@ -6,13 +6,13 @@
 
 多くのワークフローにおいて、**1 コマンド** で反応経路の**初期推定（first-pass）**を得ることができます。
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 ---
 さらに `--tsopt --thermo --dft` を追加すると、**MEP 探索 → TS 最適化 → IRC → 熱化学解析 → DFT 一点計算** までまとめて実行できます。
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo --dft
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 ```
 ---
 
@@ -55,7 +55,7 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 | 慣習 | 例 | 備考 |
 |-----|-----|------|
 | **残基セレクタ** | `'SAM,GPP'`, `'A:123,B:456'` | 複数値はシェル展開防止のためクォート |
-| **電荷マッピング** | `--ligand-charge 'SAM:1,GPP:-3'` | コロン（`:`）またはイコール（`=`）で名前と電荷を区切り、カンマでエントリを区切る |
+| **電荷マッピング** | `-l 'SAM:1,GPP:-3'` | コロン（`:`）またはイコール（`=`）で名前と電荷を区切り、カンマでエントリを区切る |
 | **原子セレクタ** | `'TYR,285,CA'` または `'TYR 285 CA'` | 区切り文字: 空白、カンマ、スラッシュ、バッククォート、バックスラッシュ |
 
 詳細は [CLI 規約](cli_conventions.md) を参照してください。
@@ -254,14 +254,14 @@ AmberTools がインストールされていなくても、`--parm` を手動で
 
 ## マルチバックエンドの使用例
 
-デフォルトの MLIP バックエンドは UMA です。`--backend` で代替バックエンドに切り替え、`--embedcharge` で xTB ポイントチャージ埋め込みを有効化できます:
+デフォルトの MLIP バックエンドは UMA です。`-b/--backend` で代替バックエンドに切り替え、`--embedcharge` で xTB ポイントチャージ埋め込みを有効化できます:
 
 ```bash
 # ORB バックエンドを使用
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --backend orb
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
 
 # MACE バックエンドを使用
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --backend mace
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
 
 # xTB ポイントチャージ埋め込みを有効化
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
@@ -272,7 +272,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
 ## 推奨クイックスタート導線
 
 - [クイックスタート: `mlmm all`](quickstart_all.md)
-- [クイックスタート: `mlmm scan` + `--spec`](quickstart_scan_spec.md)
+- [クイックスタート: `mlmm scan` + `-s`（YAML スペック）](quickstart_scan_spec.md)
 - [クイックスタート: `mlmm tsopt` -> `mlmm freq`](quickstart_tsopt_freq.md)
 
 ---
@@ -327,13 +327,13 @@ mlmm all [OPTIONS]...
 **最小例**
 
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3'
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 **詳細例**
 
 ```bash
-mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --out-dir ./result_all --tsopt --thermo --dft
+mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./result_all --tsopt --thermo --dft
 ```
 
 動作:
@@ -363,7 +363,7 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --
 **最小例**
 
 ```bash
-mlmm -i R.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]'
+mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]'
 ```
 
 **詳細例**
@@ -396,13 +396,13 @@ PDB を 1 つだけ指定し、`--tsopt` を有効にします:
 **最小例**
 
 ```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt
+mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 ```
 
 **詳細例**
 
 ```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo --dft --out-dir ./result_tsopt_only
+mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft --out-dir ./result_tsopt_only
 ```
 
 動作:
@@ -425,7 +425,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --t
 |----------|------|
 | `-i, --input PATH...` | 入力構造。**2 つ以上の PDB** → MEP 探索; **1 つの PDB + `--scan-lists`** → 段階的スキャン; **1 つの PDB + `--tsopt`** → TSOPT のみ |
 | `-c, --center TEXT` | 基質/抽出中心を定義。残基名（`'SAM,GPP'`）、残基ID（`A:123,B:456`）、または PDB パスをサポート |
-| `--ligand-charge TEXT` | 電荷情報: マッピング（`'SAM:1,GPP:-3'`）または単一整数 |
+| `-l, --ligand-charge TEXT` | 電荷情報: マッピング（`'SAM:1,GPP:-3'`）または単一整数 |
 | `-q, --charge INT` | ML 領域の総電荷の強制上書き |
 | `-m, --multiplicity INT` | スピン多重度（例: 一重項は `1`） |
 | `--scan-lists TEXT...` | 単一入力実行時の段階的距離スキャン |
@@ -435,8 +435,8 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --t
 | `--thermo/--no-thermo` | 振動解析と熱化学を実行 |
 | `--dft/--no-dft` | DFT 一点計算を実行 |
 | `--refine-path/--no-refine-path` | 再帰的 MEP 精密化（デフォルト）vs 単一パス |
-| `--out-dir PATH` | トップレベル出力ディレクトリ |
-| `--backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
+| `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
+| `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
 | `--embedcharge/--no-embedcharge` | xTB ポイントチャージ埋め込み補正（デフォルト: 無効） |
 | `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（LBFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
 | `--mep-mode gsm\|dmf` | MEP 手法: Growing String Method または Direct Max Flux |
@@ -498,10 +498,10 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --t
 
 ```bash
 # 2 構造以上で基本 MEP 探索
-mlmm -i R.pdb P.pdb -c 'SUBSTRATE' --ligand-charge 'SUB:-1'
+mlmm -i R.pdb P.pdb -c 'SUBSTRATE' -l 'SUB:-1'
 
 # TS/熱化学/DFT まで実行
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' --ligand-charge 'SAM:1,GPP:-3' --tsopt --thermo --dft
+mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 # 1 構造 + staged scan
 mlmm -i SINGLE.pdb -c 'LIG' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
@@ -520,15 +520,15 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 |----------|------|
 | `-i` | 入力構造（単数または複数） |
 | `-c` | 抽出中心（基質）指定 |
-| `--ligand-charge` | 基質電荷指定（例: `'SAM:1,GPP:-3'`） |
+| `-l, --ligand-charge` | 基質電荷指定（例: `'SAM:1,GPP:-3'`） |
 | `--parm` | Amber parm7（個別サブコマンドで必要） |
 | `--model-pdb` | ML 領域定義 PDB（個別サブコマンドで必要） |
-| `--backend` | MLIP バックエンド選択（`uma`, `orb`, `mace`, `aimnet2`） |
+| `-b, --backend` | MLIP バックエンド選択（`uma`, `orb`, `mace`, `aimnet2`） |
 | `--embedcharge` | xTB ポイントチャージ埋め込み補正を有効化 |
 | `--tsopt` | TS 最適化 + IRC |
 | `--thermo` | 振動解析/熱化学 |
 | `--dft` | DFT 一点計算 |
-| `--out-dir` | 出力ディレクトリ |
+| `-o, --out-dir` | 出力ディレクトリ |
 
 ---
 

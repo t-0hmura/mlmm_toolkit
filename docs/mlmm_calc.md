@@ -2,7 +2,7 @@
 
 ## Overview
 
-> **Summary:** ONIOM-like ML/MM calculator for PySisyphus, coupling an MLIP backend (high-level ML) and hessian_ff (low-level MM) to compute energies, forces, and Hessians for enzyme active-site models. Multiple MLIP backends are supported via `--backend`.
+> **Summary:** ONIOM-like ML/MM calculator for PySisyphus, coupling an MLIP backend (high-level ML) and hessian_ff (low-level MM) to compute energies, forces, and Hessians for enzyme active-site models. Multiple MLIP backends are supported via `-b/--backend`.
 
 ### At a glance
 - **Use when:** You need to understand the internal calculator that powers all ML/MM optimization, path search, scan, frequency, and IRC workflows.
@@ -15,7 +15,7 @@
 
 ### Multi-backend architecture
 
-The ML (high-level) component is provided by one of several MLIP backends, selected via the `--backend` CLI option or the `mlmm.backend` YAML key:
+The ML (high-level) component is provided by one of several MLIP backends, selected via the `-b/--backend` CLI option or the `mlmm.backend` YAML key:
 
 | Backend | Value | Package | Install |
 | --- | --- | --- | --- |

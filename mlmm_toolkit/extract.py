@@ -10,23 +10,23 @@ Usage (CLI)
         [-o OUTPUT.pdb ...] [-r <Å>] [--radius-het2het <Å>] \
         [--include-H2O/--no-include-H2O] [--exclude-backbone/--no-exclude-backbone] \
         [--add-linkH/--no-add-linkH] [--selected-resn "CHAIN:RES" ...] \
-        [--ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
+        [-l, --ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
 
 Examples
 --------
     # Minimal (ID-based substrate) with explicit total ligand charge
-    mlmm extract -i complex.pdb -c A:123 -o pocket.pdb --ligand-charge -3
+    mlmm extract -i complex.pdb -c A:123 -o pocket.pdb -l -3
 
     # Substrate provided as a PDB; per-resname charge mapping (others remain 0)
     mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb \
-        --ligand-charge "GPP:-3,MMT:-1"
+        -l "GPP:-3,MMT:-1"
 
     # Name-based substrate selection including all matches (WARNING is logged)
-    mlmm extract -i complex.pdb -c "GPP,MMT" -o pocket.pdb --ligand-charge -4
+    mlmm extract -i complex.pdb -c "GPP,MMT" -o pocket.pdb -l -4
 
     # Multi-structure to single multi-MODEL output with hetero-hetero proximity enabled
     mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
-        -o pocket_multi.pdb --radius-het2het 2.6 --ligand-charge -3 --verbose
+        -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose
 
 Description
 -----------
@@ -335,7 +335,7 @@ def _extract_short_help() -> str:
             "  -c, --center SPEC                Substrate selector (PDB / residue IDs / residue names).",
             "  -o, --output PATH [PATH ...]     Output pocket PDB path(s).",
             "  -r, --radius FLOAT               Pocket inclusion radius in angstrom.",
-            "  --ligand-charge VALUE            Total or mapped ligand charge.",
+            "  -l, --ligand-charge VALUE        Total or mapped ligand charge.",
             "  --help-advanced                  Show full extract options and exit.",
             "",
             "Use '--help-advanced' to see all extractor options.",
@@ -355,6 +355,7 @@ _EXTRACT_ALL_FLAGS = (
     "--exclude-backbone", "--no-exclude-backbone",
     "--add-linkH", "--no-add-linkH",
     "--selected-resn",
+    "-l",
     "--ligand-charge",
     "-v", "--verbose", "--no-verbose",
     "-h", "--help", "--help-advanced",
@@ -451,6 +452,7 @@ def _gather_extract_variadic(
     help="Comma/space-separated residue IDs to force-include.",
 )
 @click.option(
+    "-l",
     "--ligand-charge",
     type=str, default=None,
     help="Total charge number or per-resname mapping like 'GPP:-3,SAM:1'.",
@@ -573,7 +575,7 @@ def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
               "insertion codes allowed: '123A' / 'A:123A').")
     )
     p.add_argument(
-        "--ligand-charge", type=str, default=None,
+        "-l", "--ligand-charge", type=str, default=None,
         help=("Either a single **number** giving the **total** charge to distribute across unknown residues "
               "(preferring unknown substrate), or a comma/space‑separated **per‑resname** list like "
               "'GPP:-3,MMT:-1'. In mapping mode, any other unknown residues remain 0.")

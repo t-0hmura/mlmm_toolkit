@@ -11,14 +11,13 @@ Quantum mechanics/molecular mechanics (QM/MM) methods have long been used to ana
 A **single command** can generate a first-pass enzymatic reaction path with ML/MM accuracy:
 
 ```bash
-mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2"
+mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2"
 ```
 
 The full workflow — **MEP search → TS optimization → IRC → thermochemistry → single-point DFT** — can be run in one command:
 
 ```bash
-mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" \
-    --tsopt --thermo --dft
+mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2" --tsopt --thermo --dft
 ```
 
 Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm_toolkit` automatically:
@@ -168,7 +167,7 @@ huggingface-cli login
    Use `mlmm extract` or any molecular viewer to select residues around the substrate:
 
    ```bash
-   mlmm extract -i complex.pdb -c PRE -r 6.0 --ligand-charge "PRE:-2" -o ml_region.pdb
+   mlmm extract -i complex.pdb -c PRE -r 6.0 -l "PRE:-2" -o ml_region.pdb
    ```
 
    **Important:** atom order, residue names, and residue numbers must match between the *full* PDB and the *ML-region* PDB. (In PyMOL, tick **"Original atom order"** when exporting.)
@@ -179,13 +178,13 @@ huggingface-cli login
 
 ### Full workflow (multi-structure)
 ```bash
-mlmm all -i R.pdb P.pdb -c PRE --ligand-charge "PRE:-2" \
+mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2" \
     --tsopt --thermo --dft
 ```
 
 ### Scan mode (single structure)
 ```bash
-mlmm all -i R.pdb -c PRE --ligand-charge "PRE:-2" \
+mlmm all -i R.pdb -c PRE -l "PRE:-2" \
     --scan-lists "[('PRE 353 O1\'','PRE 353 C3',1.2)]"
 ```
 
@@ -198,10 +197,10 @@ mlmm tsopt -i TS_candidate_layered.pdb --parm complex.parm7 \
 ### Step-by-step workflow
 ```bash
 # 1. Generate MM parameters
-mlmm mm-parm -i complex.pdb --ligand-charge "PRE:-2"
+mlmm mm-parm -i complex.pdb -l "PRE:-2"
 
 # 2. Extract active-site pocket
-mlmm extract -i complex.pdb -c '353' --ligand-charge "PRE:-2" -r 6.0
+mlmm extract -i complex.pdb -c '353' -l "PRE:-2" -r 6.0
 
 # 3. Assign 3-layer ONIOM regions
 mlmm define-layer -i complex.pdb --model-pdb pocket.pdb --radius-freeze 10.0
