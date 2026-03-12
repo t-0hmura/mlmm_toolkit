@@ -24,6 +24,7 @@ def opt_module():
         raise RuntimeError("stub mlmm should not be called in helper tests")
 
     stub.mlmm = _stub_mlmm
+    stub.mlmm_mm_only = _stub_mlmm
     sys.modules["mlmm_toolkit.mlmm_calc"] = stub
     sys.modules.pop("mlmm_toolkit.opt", None)
     mod = importlib.import_module("mlmm_toolkit.opt")
