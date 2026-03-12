@@ -90,7 +90,7 @@ This software is still under development. Please use it at your own risk.
 
 mlmm_toolkit uses the following components:
 
-- **MLIP backends**: Energy, force, and Hessian calculations for the ML region. The default is UMA (fairchem-core). ORB (`pip install "mlmm-toolkit[orb]"`) and AIMNet2 (`pip install "mlmm-toolkit[aimnet2]"`) are also available. MACE requires a separate environment due to e3nn conflicts.
+- **MLIP backends**: Energy, force, and Hessian calculations for the ML region. The default is UMA (fairchem-core). ORB (`pip install "mlmm_toolkit[orb] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"`) and AIMNet2 (`pip install "mlmm_toolkit[aimnet2] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"`) are also available. MACE requires a separate environment due to e3nn conflicts.
 - **hessian_ff**: Amber force field calculations for the MM region (requires building the C++ extension).
 - **AmberTools**: Automatic parm7/rst7 generation via the `mm-parm` subcommand (tleap, antechamber, parmchk2).
 
@@ -110,11 +110,11 @@ Below is a minimal setup example that works on many CUDA 12.9 clusters. Adjust m
 # 4) Install a headless Chrome for Plotly figure export
 
 pip install torch --index-url https://download.pytorch.org/whl/cu129
-pip install mlmm-toolkit
+pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
 
 # Optional: install alternative MLIP backends
-pip install "mlmm-toolkit[orb]"       # ORB backend
-pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 backend
+pip install "mlmm_toolkit[orb] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"       # ORB backend
+pip install "mlmm_toolkit[aimnet2] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"   # AIMNet2 backend
 # MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
 
 cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
@@ -220,14 +220,14 @@ If you prefer to build the environment piece by piece:
 6. **Install `mlmm_toolkit`**
 
  ```bash
- pip install mlmm-toolkit
+ pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
  ```
 
  To install with optional MLIP backends:
 
  ```bash
- pip install "mlmm-toolkit[orb]"       # ORB backend
- pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 backend
+ pip install "mlmm_toolkit[orb] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"       # ORB backend
+ pip install "mlmm_toolkit[aimnet2] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"   # AIMNet2 backend
  # MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
  ```
 
