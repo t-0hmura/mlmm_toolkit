@@ -71,6 +71,7 @@ dependencies = [
 orb = ["orb-models"]
 mace = ["mace-torch"]
 aimnet2 = ["aimnet"]
+pdbfixer = ["pdbfixer"]
 dft = [    
     "pyscf>=2.8.0",
     "gpu4pyscf-cuda12x>=1.5.2; platform_machine == 'x86_64'",

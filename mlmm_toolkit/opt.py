@@ -17,7 +17,7 @@ import contextlib
 import gc
 import io
 import logging
-import os
+
 import sys
 import textwrap
 import traceback
@@ -39,6 +39,7 @@ from pysisyphus.TablePrinter import TablePrinter
 from .mlmm_calc import mlmm, mlmm_mm_only
 from .defaults import (
     GEOM_KW_DEFAULT,
+    HESSIAN_DIMER_KW,
     MLMM_CALC_KW,
     OPT_BASE_KW,
     LBFGS_KW,
@@ -79,10 +80,10 @@ from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param
 EV2AU = 1.0 / AU2EV                 # eV → Hartree
 H_EVAA_2_AU = EV2AU / (ANG2BOHR * ANG2BOHR)  # (eV/Å^2) → (Hartree/Bohr^2)
 
-# Flatten-loop constants
-OPT_FLATTEN_NEG_FREQ_THRESH_CM = 5.0
-OPT_FLATTEN_AMP_ANG = 0.10
-OPT_FLATTEN_MAX_ITER = 50
+# Flatten-loop constants (sourced from defaults.py)
+OPT_FLATTEN_NEG_FREQ_THRESH_CM = HESSIAN_DIMER_KW["neg_freq_thresh_cm"]
+OPT_FLATTEN_AMP_ANG = HESSIAN_DIMER_KW["flatten_amp_ang"]
+OPT_FLATTEN_MAX_ITER = HESSIAN_DIMER_KW["flatten_max_iter"]
 
 
 # -----------------------------------------------
@@ -654,7 +655,6 @@ def _run_microiter_opt(
     hess_device = _freq_torch_device(calc_cfg.get("ml_device", "auto"))
 
     # Set macro freeze on geometry for initial Hessian
-    macro_geom_cfg = {"freeze_atoms": macro_freeze}
     macro_calc_cfg = dict(calc_cfg)
     macro_calc_cfg["freeze_atoms"] = macro_freeze
     macro_calc_cfg["hess_mm_atoms"] = []   # macro step は ML-only Hessian

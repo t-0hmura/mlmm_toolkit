@@ -33,7 +33,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## Workflow
 1. Parse the XYZ trajectory. By default, Hartree energies are extracted from each frame's comment line.
- If `-q/--charge` or `-m/--multiplicity` is provided, energies are recomputed with UMA (`uma-s-1p2`) instead.
+ If `-q/--charge` or `-m/--multiplicity` is provided, energies are recomputed with UMA (`uma-s-1p1`) instead.
 2. Normalize the reference specification:
  - `init` -- frame `0` (or the last frame when `--reverse-x` is active).
  - `None`/`none`/`null` -- absolute energies (no referencing).

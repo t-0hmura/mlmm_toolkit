@@ -425,9 +425,9 @@ def _run_dmf_mep(
         ),
         mass_weighted=bool(dmf_opts.get("mass_weighted", False)),
         parallel=bool(dmf_opts.get("parallel", False)),
-        eps_vel=float(dmf_opts.get("eps_vel", 0.01)),
-        eps_rot=float(dmf_opts.get("eps_rot", 0.01)),
-        beta=float(dmf_opts.get("beta", 10.0)),
+        eps_vel=float(dmf_opts.get("eps_vel", DMF_KW["dmf_options"]["eps_vel"])),
+        eps_rot=float(dmf_opts.get("eps_rot", DMF_KW["dmf_options"]["eps_rot"])),
+        beta=float(dmf_opts.get("beta", DMF_KW["dmf_options"]["beta"])),
     )
 
     # Assign calculators to images
@@ -573,7 +573,7 @@ def _run_dmf_mep(
     show_default=True,
     help="MEP optimizer: Growing String Method (gsm) or Direct Max Flux (dmf).",
 )
-@click.option("--max-nodes", type=int, default=10, show_default=True,
+@click.option("--max-nodes", type=int, default=GS_KW["max_nodes"], show_default=True,
               help="Number of internal nodes (string has max_nodes+2 images including endpoints).")
 @click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum optimization cycles.")
 @click.option(

@@ -35,7 +35,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## ワークフロー
 
-1. XYZ 軌跡を解析します。デフォルトでは各フレームのコメント行から Hartree エネルギーを抽出します。`-q/--charge` または `-m/--multiplicity` が指定された場合は UMA（`uma-s-1p2`）で再計算します。
+1. XYZ 軌跡を解析します。デフォルトでは各フレームのコメント行から Hartree エネルギーを抽出します。`-q/--charge` または `-m/--multiplicity` が指定された場合は UMA（`uma-s-1p1`）で再計算します。
 2. 基準仕様を正規化します:
  - `init` -- フレーム `0`（`--reverse-x` が有効な場合は最後のフレーム）。
  - `None`/`none`/`null` -- 絶対エネルギー（基準なし）。

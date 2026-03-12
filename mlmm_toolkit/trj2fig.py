@@ -77,7 +77,7 @@ def recompute_energies(
         raise RuntimeError(f"No frames found in {traj_path}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    predictor = pretrained_mlip.get_predict_unit("uma-s-1p2", device=str(device))
+    predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device=str(device))
     predictor.model.eval()
     backbone = getattr(getattr(predictor.model, "module", predictor.model), "backbone", None)
     uma_max_neigh = getattr(backbone, "max_neighbors", None)

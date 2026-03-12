@@ -1504,7 +1504,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--verbose", type=click.BOOL, default=True, show_default=True, help="Enable INFO-level logging inside extractor.")
 # ===== Path search knobs (subset of path_search.cli) =====
 @click.option("-m", "--multiplicity", "spin", type=int, default=1, show_default=True, help="Multiplicity (2S+1).")
-@click.option("--max-nodes", type=int, default=10, show_default=True,
+@click.option("--max-nodes", type=int, default=_path_opt.GS_KW["max_nodes"], show_default=True,
               help="Max internal nodes for **segment** GSM (String has max_nodes+2 images including endpoints).")
 @click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum GSM optimization cycles.")
 @click.option("--climb", type=click.BOOL, default=True, show_default=True,

@@ -143,7 +143,7 @@ Settings are applied with **defaults < config < explicit CLI < override**. Accep
 - `input_pdb`, `real_parm7`, `model_pdb`: required file paths (strings).
 - `model_charge` (`-q/--charge`, required) and `model_mult` (`-m/--multiplicity`, default 1).
 - `link_mlmm`: optional list of `(ML_atom_id, MM_atom_id)` strings to pin ML/MM link pairs (no link atoms created).
-- ML backend controls: `backend` (default `"uma"`; choices `uma`, `orb`, `mace`, `aimnet2`), `embedcharge` (default `false`). UMA-specific: `uma_model` (default `"uma-s-1p2"`), `uma_task_name` (default `"omol"`). Shared: `ml_hessian_mode` (`"Analytical"` or `"FiniteDifference"`), `out_hess_torch` (bool), `H_double` (bool).
+- ML backend controls: `backend` (default `"uma"`; choices `uma`, `orb`, `mace`, `aimnet2`), `embedcharge` (default `false`). UMA-specific: `uma_model` (default `"uma-s-1p1"`), `uma_task_name` (default `"omol"`). Shared: `ml_hessian_mode` (`"Analytical"` or `"FiniteDifference"`), `out_hess_torch` (bool), `H_double` (bool).
 - Device selection: `ml_device` (`"auto"`/`"cuda"`/`"cpu"`), `ml_cuda_idx`, `mm_device`, `mm_cuda_idx`, `mm_threads`.
 - MM finite difference: `mm_fd` (bool), `mm_fd_dir` (output dir for FD info), and whether to `return_partial_hessian`.
 - `return_partial_hessian`: for `opt`, partial Hessian is used by default when this key is not explicitly set in YAML. Set `calc.return_partial_hessian: false` to force full Hessian output.
@@ -180,7 +180,7 @@ mlmm:
  model_pdb: ml_region.pdb       # PDB defining the ML region
  backend: uma                   # MLIP backend: uma | orb | mace | aimnet2
  embedcharge: false             # xTB point-charge embedding correction
- uma_model: uma-s-1p2           # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p1           # uma-s-1p1 | uma-s-1p1 | uma-m-1p1
  uma_task_name: omol             # UMA task name (UMA backend only)
  ml_device: auto                # ML backend device selection
  ml_hessian_mode: Analytical         # Hessian mode selection
@@ -249,10 +249,10 @@ rfo:
  dump_restart: false            # dump restart checkpoints
  prefix: ""                     # filename prefix
  out_dir: ./result_opt/         # output directory
- trust_radius: 0.1              # trust-region radius
+ trust_radius: 0.30             # trust-region radius
  trust_update: true             # enable trust-region updates
- trust_min: 0.0                 # minimum trust radius
- trust_max: 0.1                 # maximum trust radius
+ trust_min: 0.0001              # minimum trust radius
+ trust_max: 0.30                # maximum trust radius
  max_energy_incr: null          # allowed energy increase per step
  hessian_update: bfgs           # Hessian update scheme
  hessian_init: calc             # Hessian initialization source

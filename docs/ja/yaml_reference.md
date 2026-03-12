@@ -64,7 +64,7 @@ calc:
  xtb_workdir: tmp # xTB 作業ディレクトリ
  xtb_keep_files: false # xTB 一時ファイルを保持
  xtb_ncores: 4 # xTB のコア数
- uma_model: uma-s-1p2 # UMA モデル名: uma-s-1p1, uma-s-1p2, uma-m-1p1
+ uma_model: uma-s-1p1 # UMA モデル名: uma-s-1p1, uma-s-1p1, uma-m-1p1
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
  orb_precision: float32  # ORB 浮動小数点精度 (backend=orb 時)
@@ -183,10 +183,10 @@ RFO（Rational Function Optimizer）の設定（`opt` を拡張）。
 
 ```yaml
 rfo:
- trust_radius: 0.1 # 信頼領域半径
+ trust_radius: 0.30 # 信頼領域半径
  trust_update: true # 信頼領域更新を有効化
- trust_min: 0.01 # 最小信頼半径
- trust_max: 0.1 # 最大信頼半径
+ trust_min: 0.0001 # 最小信頼半径
+ trust_max: 0.30 # 最大信頼半径
  max_energy_incr: null # ステップあたりの許容エネルギー増加
  hessian_update: bfgs # ヘシアン更新スキーム: bfgs, bofill 等
  hessian_init: calc # ヘシアン初期化: calc, unit 等
@@ -369,7 +369,7 @@ rsirfo:
  assert_neg_eigval: false # 収束時に負の固有値を要求
  trust_radius: 0.10 # 信頼領域半径
  trust_update: true # 信頼領域更新
- trust_min: 0.01 # 最小信頼半径
+ trust_min: 0.0001 # 最小信頼半径
  trust_max: 0.30 # 最大信頼半径
  small_eigval_thresh: 1.0e-08 # 安定性のための固有値閾値
  out_dir: ./result_tsopt/ # 出力ディレクトリ
@@ -558,7 +558,7 @@ calc:
  model_mult: 1
  backend: uma                  # ML バックエンド: uma | orb | mace | aimnet2
  embedcharge: false            # xTB 点電荷埋め込み補正
- uma_model: uma-s-1p2          # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p1          # uma-s-1p1 | uma-m-1p1
  ml_device: auto
  ml_hessian_mode: Analytical   # VRAM に余裕がある場合に推奨
  mm_device: cpu

@@ -386,8 +386,8 @@ mlmm <subcommand> --help-advanced
 
 - [**Getting Started**](docs/getting_started.md) — Installation and first steps
 - [**Concepts**](docs/concepts.md) — 3-layer system, ONIOM, link atoms
-- [**CLI Command Reference (generated)**](docs/reference/commands/index.md)
-- [**YAML Schema (generated)**](docs/reference/yaml.md)
+- [**CLI Command Reference**](docs/reference/commands/index.md)
+- [**YAML Schema**](docs/reference/yaml.md)
 - [**Troubleshooting**](docs/troubleshooting.md) — Common errors and fixes
 - **Full command index**: [docs/index.md](docs/index.md)
 

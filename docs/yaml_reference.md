@@ -61,7 +61,7 @@ calc:
  backend: uma # MLIP backend: "uma", "orb", "mace", or "aimnet2"
 
  # --- UMA backend settings ---
- uma_model: uma-s-1p1 # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p1 # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
 
  # --- ORB backend settings ---
@@ -205,10 +205,10 @@ Rational Function Optimizer settings (extends `opt`).
 ```yaml
 rfo:
  # Inherits all opt settings, plus:
- trust_radius: 0.1 # Trust-region radius
+ trust_radius: 0.30 # Trust-region radius
  trust_update: true # Enable trust-region updates
- trust_min: 0.01 # Minimum trust radius
- trust_max: 0.1 # Maximum trust radius
+ trust_min: 0.0001 # Minimum trust radius
+ trust_max: 0.30 # Maximum trust radius
  max_energy_incr: null # Allowed energy increase per step
  hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
  hessian_init: calc # Hessian initialization: calc, unit, etc.
@@ -428,7 +428,7 @@ rsirfo:
  assert_neg_eigval: false # Require negative eigenvalue at convergence
  trust_radius: 0.10 # Trust region radius
  trust_update: true # Trust region update
- trust_min: 0.01 # Minimum trust radius
+ trust_min: 0.0001 # Minimum trust radius
  trust_max: 0.30 # Maximum trust radius
  hessian_recalc: 200 # Hessian rebuild cadence
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
@@ -589,7 +589,7 @@ calc:
  model_mult: 1
  backend: uma                  # MLIP backend: "uma", "orb", "mace", or "aimnet2"
  embedcharge: false            # xTB point-charge embedding correction
- uma_model: uma-s-1p1          # uma-s-1p1 | uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p1          # uma-s-1p1 | uma-m-1p1
  ml_device: auto
  ml_hessian_mode: Analytical   # Recommended when VRAM permits
  mm_device: cpu
