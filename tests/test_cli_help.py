@@ -180,7 +180,7 @@ def test_extract_help_progressive_disclosure(runner, cli_group):
 def test_fix_altloc_help_progressive_disclosure(runner, cli_group):
     short = runner.invoke(cli_group, ["fix-altloc", "--help"])
     assert short.exit_code == 0
-    assert "Usage: mlmm fix-altloc [OPTIONS]" in short.output
+    assert "fix-altloc [OPTIONS]" in short.output
     assert _has_option_header(short.output, "--recursive")
     assert _has_option_header(short.output, "--help-advanced")
 

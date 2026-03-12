@@ -122,10 +122,13 @@ def _collect_command_docs() -> list[CommandDoc]:
 import re
 
 _VERSION_LINE_RE = re.compile(r"^mlmm ver\. \S+\n", re.MULTILINE)
+_PYSISRC_LINE_RE = re.compile(
+    r"^Couldn't find configuration file\. Expected it at .*\n", re.MULTILINE
+)
 
 
 def _capture_help(command_name: str, *, advanced: bool) -> str:
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     args = [command_name, "--help-advanced"] if advanced else [command_name, "--help"]
     result = runner.invoke(
         root_cli,
@@ -138,8 +141,9 @@ def _capture_help(command_name: str, *, advanced: bool) -> str:
             f"Failed to collect help for '{TOOL_NAME} {command_name}' "
             f"(advanced={advanced}):\n{result.output}"
         )
-    # Strip version line so generated references are version-independent
+    # Strip version line and pysisyphus config warning for reproducibility
     text = _VERSION_LINE_RE.sub("", result.output)
+    text = _PYSISRC_LINE_RE.sub("", text)
     return text.rstrip() + "\n"
 
 
