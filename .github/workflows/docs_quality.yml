@@ -19,12 +19,17 @@ jobs:
       - name: Install minimal dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install click pyyaml
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e . --no-deps
+          pip install click pyyaml numpy biopython scipy ase \
+            autograd dask distributed h5py fabric jinja2 joblib \
+            matplotlib natsort psutil rmsd sympy scikit-learn \
+            pandas tabulate plotly kaleido ParmEd
 
       - name: Run docs quality suite
-        timeout-minutes: 30
+        timeout-minutes: 20
         env:
-          DOCS_DUMP_CASE_TIMEOUT_SEC: "300"
+          DOCS_DUMP_CASE_TIMEOUT_SEC: "180"
         run: |
           set -o pipefail
           python scripts/run_docs_quality.py | tee docs_quality_timing.log

@@ -24,9 +24,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install torch_scatter torch_geometric -f https://data.pyg.org/whl/torch-$(python -c "import torch; print(torch.__version__)")+cpu.html
-          pip install -e ".[dev]" || pip install -e .
-          pip install pytest pytest-cov pytest-timeout
+          pip install -e . --no-deps
+          pip install click pyyaml numpy biopython scipy ase \
+            autograd dask distributed h5py fabric jinja2 joblib \
+            matplotlib natsort psutil rmsd sympy scikit-learn \
+            pandas tabulate plotly kaleido ParmEd \
+            pytest pytest-cov pytest-timeout
         timeout-minutes: 15
 
       - name: Run pytest
