@@ -1908,7 +1908,8 @@ hessian_dimer_KW = {
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None,
     help="How UMA builds the ML Hessian (Analytical or FiniteDifference); "
-         "overrides calc.hessian_calc_mode from YAML.",
+         "overrides calc.hessian_calc_mode from YAML. "
+         "Defaults to 'FiniteDifference'. Use 'Analytical' when VRAM permits.",
 )
 @click.option("--max-cycles", type=int, default=10000, show_default=True, help="Maximum total optimization cycles.")
 @click.option(

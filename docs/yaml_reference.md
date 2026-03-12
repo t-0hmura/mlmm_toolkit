@@ -79,7 +79,7 @@ calc:
  ml_device: auto # Device for ML inference: "cuda", "cpu", or "auto"
  ml_cuda_idx: 0 # CUDA device index for ML inference
  ml_hessian_mode: Analytical # ML Hessian mode: "Analytical" or "FiniteDifference"
- hessian_calc_mode: null # Alias for ml_hessian_mode (if set, overrides ml_hessian_mode)
+ hessian_calc_mode: FiniteDifference # Alias for ml_hessian_mode (if set, overrides ml_hessian_mode)
 
  # --- xTB point-charge embedding ---
  embedcharge: false # Enable xTB point-charge embedding correction for MM->ML effects
@@ -128,7 +128,7 @@ calc:
   - `aimnet2_model` — AIMNet2 backend only
 - `embedcharge: true` enables xTB point-charge embedding, which models MM-to-ML electrostatic polarization effects. Default is `false`. Requires an `xtb` executable on `$PATH`.
 - `xtb_cmd`, `xtb_acc`, `xtb_ncores`, `xtb_workdir`, `xtb_keep_files` configure the xTB subprocess when `embedcharge` is enabled.
-- `ml_hessian_mode: Analytical` is recommended when sufficient VRAM is available for the ML region. Only available for the UMA backend; other backends use `FiniteDifference` automatically.
+- `hessian_calc_mode: Analytical` is recommended when sufficient VRAM is available for the ML region (24 GB+ for 300+ ML atoms). Only available for the UMA backend; other backends use `FiniteDifference` automatically. `hessian_calc_mode` overrides `ml_hessian_mode` when both are set.
 - `mm_fd: true` uses finite-difference for MM Hessian; set to `false` to use analytical MM Hessian from hessian_ff
 - `real_parm7` and `model_pdb` are required for ML/MM calculations
 - `model_charge` and `model_mult` override `-q` and `-m` for the ML region specifically

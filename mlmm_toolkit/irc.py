@@ -175,7 +175,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None,
-    help="How UMA builds the Hessian (Analytical or FiniteDifference); overrides calc.hessian_calc_mode from YAML.",
+    help="How UMA builds the Hessian (Analytical or FiniteDifference); overrides calc.hessian_calc_mode from YAML. Defaults to 'FiniteDifference'. Use 'Analytical' when VRAM permits.",
 )
 @click.option(
     "--config",

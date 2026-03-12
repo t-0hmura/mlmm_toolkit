@@ -1572,7 +1572,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--hessian-calc-mode",
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
               default=None,
-              help="Common UMA Hessian calculation mode forwarded to tsopt and freq.")
+              help="Common UMA Hessian calculation mode forwarded to tsopt and freq. Defaults to 'FiniteDifference'. Use 'Analytical' when VRAM permits.")
 @click.option(
     "--detect-layer/--no-detect-layer",
     "detect_layer",

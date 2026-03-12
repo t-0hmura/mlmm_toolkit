@@ -78,7 +78,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "aimnet2_model": "aimnet2",
     # ML Hessian mode
     "ml_hessian_mode": "Analytical",
-    "hessian_calc_mode": None,  # Alias for ml_hessian_mode
+    "hessian_calc_mode": "FiniteDifference",  # Alias for ml_hessian_mode
     "out_hess_torch": True,
     "H_double": False,
     "ml_device": "auto",

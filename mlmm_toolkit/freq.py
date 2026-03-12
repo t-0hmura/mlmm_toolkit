@@ -715,7 +715,8 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None,
     help="How UMA builds the ML Hessian (Analytical or FiniteDifference); "
-         "overrides calc.hessian_calc_mode from YAML.",
+         "overrides calc.hessian_calc_mode from YAML. "
+         "Defaults to 'FiniteDifference'. Use 'Analytical' when VRAM permits.",
 )
 @click.option("--max-write", type=int, default=FREQ_KW["max_write"], show_default=True,
               help="Maximum number of modes to export.")

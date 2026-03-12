@@ -74,7 +74,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
 | `--hess-cutoff FLOAT` | Cutoff distance for MovableMM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
-| `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | _None_ |
+| `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
 | `--max-write INT` | Number of modes to export. | `10` |
 | `--amplitude-ang FLOAT` | Mode animation amplitude (angstrom). | `0.8` |
 | `--n-frames INT` | Frames per mode animation. | `20` |

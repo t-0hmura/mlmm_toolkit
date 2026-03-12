@@ -76,7 +76,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
 | `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM レイヤーのカットオフ距離。 | _None_ |
-| `--hessian-calc-mode CHOICE` | ヘシアンモード（`Analytical` または `FiniteDifference`）。 | _None_ |
+| `--hessian-calc-mode CHOICE` | ヘシアンモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--max-write INT` | エクスポートするモード数。 | `10` |
 | `--amplitude-ang FLOAT` | モードアニメーション振幅 (Å)。 | `0.8` |
 | `--n-frames INT` | モードアニメーションのフレーム数。 | `20` |
