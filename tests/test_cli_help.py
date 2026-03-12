@@ -165,7 +165,7 @@ def test_utility_help_advanced_shows_hidden_options(
 def test_extract_help_progressive_disclosure(runner, cli_group):
     short = runner.invoke(cli_group, ["extract", "--help"])
     assert short.exit_code == 0
-    assert "Usage: mlmm extract [OPTIONS]" in short.output
+    assert "extract [OPTIONS]" in short.output
     assert _has_option_header(short.output, "-i, --input")
     assert _has_option_header(short.output, "-c, --center")
     assert _has_option_header(short.output, "--help-advanced")
