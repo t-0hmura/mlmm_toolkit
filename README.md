@@ -42,9 +42,9 @@ Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `-
 | Potential | Repository | Install extra |
 |-----------|------------|---------------|
 | **UMA** (default) | <https://github.com/facebookresearch/fairchem> | *(included)* |
-| **ORB** | <https://github.com/orbital-materials/orb-models> | `pip install "mlmm_toolkit[orb] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"` |
+| **ORB** | <https://github.com/orbital-materials/orb-models> | `pip install "mlmm-toolkit[orb]"` |
 | **MACE** | <https://github.com/ACEsuit/mace> | see note below |
-| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> | `pip install "mlmm_toolkit[aimnet2] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"` |
+| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> | `pip install "mlmm-toolkit[aimnet2]"` |
 
 > **Note:** MACE and UMA cannot coexist due to conflicting `e3nn` versions (`fairchem-core` requires `e3nn>=0.5`, `mace-torch` requires `e3nn==0.4.4`). To use MACE, uninstall `fairchem-core` first:
 > ```bash
@@ -75,30 +75,21 @@ The MM layer uses an analytical Hessian force field (`hessian_ff`) by default. A
 
 ## Installation
 
-### Quick install (latest, from GitHub)
+### Quick install
 
 For CUDA 12.6:
 ```bash
 pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu126
-pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
+pip install mlmm-toolkit
 huggingface-cli login
 ```
 
 For CUDA 12.9 (recommended for RTX 50 series):
 ```bash
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
-pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
+pip install mlmm-toolkit
 huggingface-cli login
 ```
-
-<!-- ### Quick install (v0.1.1, from PyPI)
-
-```bash
-pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
-pip install mlmm-toolkit==0.1.1
-huggingface-cli login
-```
--->
 
 ### Prerequisites
 
@@ -115,7 +106,7 @@ conda create -n mlmm python=3.11 -y
 conda activate mlmm
 conda install -c conda-forge ambertools pdbfixer -y
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
-pip install git+https://github.com/t-0hmura/mlmm_toolkit.git
+pip install mlmm-toolkit
 plotly_get_chrome -y
 huggingface-cli login
 ```
@@ -126,14 +117,14 @@ If you are on an HPC cluster that uses *environment modules*, load CUDA **before
 module load cuda/12.6
 ```
 
-> `fairchem-core` is a core dependency. `aimnet2` and other ML backends (`orb-models`, `mace-torch`) are optional extras (e.g. `pip install "mlmm_toolkit[aimnet2] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"`).
+> `fairchem-core` is a core dependency. `aimnet2` and other ML backends (`orb-models`, `mace-torch`) are optional extras (e.g. `pip install "mlmm-toolkit[aimnet2]"`).
 
 ### DFT single-point (`mlmm dft`)
 
 DFT dependencies are **not** installed by default. To use `mlmm dft`, install the `[dft]` extra:
 
 ```bash
-pip install "mlmm_toolkit[dft] @ git+https://github.com/t-0hmura/mlmm_toolkit.git"
+pip install "mlmm-toolkit[dft]"
 ```
 
 This installs PySCF, GPU4PySCF (x86_64 only), and related CUDA libraries. Note that DFT single-point calculations are practical only for systems up to **~500 atoms** in the ML region; larger systems will require prohibitive compute time and memory.
