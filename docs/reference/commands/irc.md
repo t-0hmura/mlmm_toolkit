@@ -54,7 +54,9 @@ Options:
   --hessian-calc-mode [analytical|finitedifference]
                                   How UMA builds the Hessian (Analytical or
                                   FiniteDifference); overrides
-                                  calc.hessian_calc_mode from YAML.
+                                  calc.hessian_calc_mode from YAML. Defaults to
+                                  'FiniteDifference'. Use 'Analytical' when VRAM
+                                  permits.
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config

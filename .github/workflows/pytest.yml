@@ -23,6 +23,8 @@ jobs:
       - name: Install mlmm with dev extras
         run: |
           python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install torch_scatter torch_geometric -f https://data.pyg.org/whl/torch-$(python -c "import torch; print(torch.__version__)")+cpu.html
           pip install -e ".[dev]" || pip install -e .
           pip install pytest pytest-cov pytest-timeout
         timeout-minutes: 15

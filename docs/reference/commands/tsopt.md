@@ -56,7 +56,9 @@ Options:
   --hessian-calc-mode [analytical|finitedifference]
                                   How UMA builds the ML Hessian (Analytical or
                                   FiniteDifference); overrides
-                                  calc.hessian_calc_mode from YAML.
+                                  calc.hessian_calc_mode from YAML. Defaults to
+                                  'FiniteDifference'. Use 'Analytical' when VRAM
+                                  permits.
   --max-cycles INTEGER            Maximum total optimization cycles.  [default:
                                   10000]
   --dump / --no-dump              Write concatenated trajectory

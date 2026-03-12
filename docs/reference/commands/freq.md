@@ -50,7 +50,9 @@ Options:
   --hessian-calc-mode [analytical|finitedifference]
                                   How UMA builds the ML Hessian (Analytical or
                                   FiniteDifference); overrides
-                                  calc.hessian_calc_mode from YAML.
+                                  calc.hessian_calc_mode from YAML. Defaults to
+                                  'FiniteDifference'. Use 'Analytical' when VRAM
+                                  permits.
   --max-write INTEGER             Maximum number of modes to export.  [default:
                                   10]
   --amplitude-ang FLOAT           Mode animation amplitude (Å).  [default: 0.8]

@@ -113,7 +113,9 @@ Options:
                                   True]
   --hessian-calc-mode [analytical|finitedifference]
                                   Common UMA Hessian calculation mode forwarded
-                                  to tsopt and freq.
+                                  to tsopt and freq. Defaults to
+                                  'FiniteDifference'. Use 'Analytical' when VRAM
+                                  permits.
   --detect-layer / --no-detect-layer
                                   Detect ML/MM layers from input PDB B-factors
                                   (B=0/10/20) in downstream tools. If disabled,
