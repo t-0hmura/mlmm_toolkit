@@ -128,7 +128,7 @@ _PYSISRC_LINE_RE = re.compile(
 
 
 def _capture_help(command_name: str, *, advanced: bool) -> str:
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
     args = [command_name, "--help-advanced"] if advanced else [command_name, "--help"]
     result = runner.invoke(
         root_cli,

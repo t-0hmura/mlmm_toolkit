@@ -23,7 +23,7 @@ SUBCOMMANDS = [
     "extract",
     "fix-altloc",
     "freq",
-    "init",
+    "oniom-import",
     "irc",
     "mm-parm",
     "oniom-export",
