@@ -16,13 +16,6 @@
 `--tsopt` は **TS 候補**を生成します。`all` は検証のために IRC と freq を自動実行しますが、機構解釈の前に必ず結果（虚振動数モード + 端点の結合性）を確認してください。
 ```
 
-### 概要
-- **用途:** 活性部位抽出から MEP 探索、任意の TS/freq/DFT 後処理まで、ML/MM による完全なエンドツーエンドの酵素反応研究を行いたい場合。
-- **手法:** 活性部位抽出 + ML/MM レイヤー割り当て + MM トポロジー（AmberTools）+ 全系レイヤード PDB 上の GSM MEP 探索（MLIP バックエンド + hessian_ff）+ 任意の TSOPT/IRC/freq/DFT。`-b/--backend` で ML バックエンドを選択可能。
-- **出力:** `summary.log`、`summary.yaml`、MEP 軌跡、エネルギーダイアグラム、セグメントごとの後処理。
-- **デフォルト:** `--opt-mode grad`、`--thresh gau`、`--max-cycles 300`、`--preopt` 有効、`--climb` 有効。
-- **次のステップ:** `summary.log` とエネルギーダイアグラムを確認し、精密化が必要な場合は [tsopt](tsopt.md)/[freq](freq.md)/[dft](dft.md) を単独実行。
-
 ## 最小例
 
 ```bash
@@ -342,22 +335,6 @@ dft:
 ```
 
 すべての YAML オプションの完全なリファレンスは **[YAML 設定リファレンス](yaml_reference.md)** を参照してください。
-
-## 注意事項
-
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- **Python >= 3.11** が必要です。
-- **基質 (`-c/--center`) と（必要な場合は）`--ligand-charge` は実質的に必須です。**
-- 形式電荷を推測できない場合は常に `--ligand-charge`（数値または残基別マッピング）を指定し、正しい総電荷がスキャン/MEP/TSOPT/DFT に伝播するようにしてください。
-- 単一構造モードでは `--scan-lists` または `--tsopt` が必要です。それ以外の場合は少なくとも 2 つの構造が必要です。
-- preflight チェックで、繰り返し指定した `-i/--input` が実ファイルであること、および AmberTools コマンド（`tleap`, `antechamber`, `parmchk2`）の存在を実行前に検証します。
-- マージ用の参照 PDB テンプレートは元の入力から自動的に導出されます。
-- 収束プリセット: `--thresh` のデフォルトは `gau`、`--thresh-post` のデフォルトは `baker`。
-- 抽出半径: `--radius` または `--radius-het2het` に `0` を渡すと、抽出器により内部的に `0.001 Å` にクランプされます。
-- ダイアグラムのエネルギーは最初の状態（反応物）を基準とした kcal/mol（Hartree から変換）でプロットされます。
-- 電荷処理: 抽出器の最初のモデルのポケット総電荷が、経路/スキャン/TSOPT の総電荷として使用されます（整数に丸め）。
-- `-c/--center` を省略すると抽出をスキップし、入力構造全体を MEP/tsopt/freq/DFT ステージに直接渡します。単一構造実行では `--scan-lists` または `--tsopt` が依然として必要です。
 
 ---
 

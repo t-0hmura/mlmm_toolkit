@@ -4,12 +4,6 @@
 
 > **概要:** PHVA 対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でヘシアン評価を高速化できます。虚数振動数は負の値で表示されます。
 
-### 概要
-- **用途:** ML/MM による極小/TS 候補の検証および熱力学補正の計算。
-- **手法:** ML/MM 計算機（MLIP バックエンド（デフォルト: UMA）+ hessian_ff）による完全または部分ヘシアン振動解析（PHVA）。
-- **出力:** `frequencies_cm-1.txt`、モードごとの `_trj.xyz` と `.pdb` アニメーション、有効時は `thermoanalysis.yaml`。
-- **次のステップ:** 結果を使用して極小（虚数振動数なし）または TS（正確に 1 つの虚数振動数）を確認。
-
 `mlmm freq` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
 
 ## 最小例
@@ -140,17 +134,6 @@ thermo:
  pressure_atm: 1.0                 # 熱化学圧力 (atm)
  dump: false                       # true の場合 thermoanalysis.yaml を書き出し
 ```
-
-## 注意事項
-
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- ML/MM 計算機は Hartree/Bohr^2 でヘシアンを返します。cm^-1 への変換はツールキットの他の箇所で使用される PySisyphus/ASE 規約に従います。
-- 熱化学はオプションの `thermoanalysis` パッケージに依存します。未インストール時は警告のみ出力され、実行は継続します。
-- `--hessian-calc-mode` は標準的な優先順位（デフォルト < config < 明示CLI < override）に従います。
-- `freq` は partial-first です。YAML で `calc.return_partial_hessian` を明示しない場合、既定で部分ヘシアン（PHVA 経路）を使用します。
-- 虚振動数モードは負の振動数として報告されます。`freq` は検出された数を出力し、`--dump` 時に詳細をダンプします。
-- **PHVA の詳細:** 凍結原子がある場合、アクティブ部分空間は凍結自由度を除外して形成されます。並進/回転モードはこの部分空間内で射影され、正しいモード形状が保証されます。3N x 3N とアクティブブロックの両方のヘシアンが受け付けられます。質量加重固有値分解は GPU メモリ使用量を抑えるため `UPLO="U"` を使用します。
 
 ---
 

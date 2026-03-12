@@ -61,11 +61,6 @@ mlmm oniom-import -i INPUT.[gjf|com|inp] [--mode g16|orca] \
 <out_prefix>_layered.pdb
 ```
 
-## 注意事項
-- 本コマンドは `mlmm oniom-export` 由来の ONIOM 入力形式を前提とします。
-- 拡張子からモード推定できない場合は `--mode g16|orca` を指定してください。
-- `--ref-pdb` 使用時は原子数が完全一致している必要があります。
-
 ---
 
 ## 関連項目

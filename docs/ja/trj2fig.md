@@ -59,14 +59,6 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 - CSV エクスポートには `frame`、`energy_hartree`、および delta-E カラム（`delta_kcal`/`delta_hartree`）または絶対カラム（基準適用なし時の `energy_kcal`/`energy_hartree`）が含まれます。
 - PNG は高解像度のため `scale=2` で Plotly の PNG エクスポートを使用します。
 
-## 注意事項
-
-- エネルギーは各コメントの最初の十進数から取得されます。不正なコメントではエラーが発生します。
-- 再計算時に電荷/多重度の片方のみを指定した場合、未指定側は `0` / `1` が使われます。
-- `-o` でサポートされていないファイル拡張子はエラーの原因となります。
-- `--reverse-x` は軸方向と `-r init` の動作の両方を反転し、可視化された経路が逆方向に読まれるようにします。
-- レガシーの `--output-peak` オプションは削除されました。
-
 ---
 
 ## 関連項目

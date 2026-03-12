@@ -24,9 +24,6 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 | リンク原子注釈付き Gaussian ONIOM 入力 | `mlmm oniom-export --mode g16` |
 | ORCAFF 連携込みの ORCA QM/MM 入力 | `mlmm oniom-export --mode orca` |
 
-## 注意事項
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
 ---
 
 ## 関連項目

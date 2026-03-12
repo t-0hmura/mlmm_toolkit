@@ -221,17 +221,6 @@ rsirfo:
  assert_neg_eigval: false          # 収束時に負の固有値を要求
 ```
 
-## 注意事項
-
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- 虚振動数モード検出はデフォルト閾値 ~5 cm^-1 を使用します（`hessian_dimer.neg_freq_thresh_cm` で設定可能）。選択された `root` がどの虚振動数モードをエクスポートするかを決定します。
-- `--freeze-atoms` は 1 始まりインデックスを受け付け、YAML `geom.freeze_atoms` とマージされます。
-- 収束プリセットは外側の管理（`opt`）と内側の LBFGS セグメント（`hessian_dimer.lbfgs`）の両方に伝播されます。
-- PHVA 並進/回転射影は `freq` の実装をミラーリングし、アクティブ空間で正しい固有ベクトルを保持しながら GPU メモリ消費を削減します。
-- `return_partial_hessian` は `tsopt` で partial-first です。YAML で `calc.return_partial_hessian` を明示しない場合は部分ヘシアンを使用し、`false` 明示時のみ完全ヘシアンにします。
-- 設定マージの優先順位は `デフォルト < config < 明示CLI < override` です。
-
 ---
 
 ## 関連項目

@@ -4,13 +4,6 @@
 
 > **要約:** PDB から Amber prmtop/rst7 トポロジーファイルを構築します。GAFF2 リガンドの自動パラメータ化、ジスルフィド結合検出、PDBFixer による任意の水素付加に対応。
 
-### 概要
-- **用途:** ML/MM 計算に必要な AMBER トポロジーおよび座標ファイルが必要な場合に使用します。
-- **手法:** tleap + antechamber (GAFF2, AM1-BCC) + parmchk2、任意で PDBFixer による水素付加。
-- **出力:** `<prefix>.parm7`、`<prefix>.rst7`、および任意で `<prefix>.pdb`（LEaP 出力）。
-- **デフォルト:** ff19SB（タンパク質）+ OPC3（水）+ GAFF2（有機分子）+ Lipid21 + GLYCAM_06j-1 + OL3/OL21。
-- **次のステップ:** [define-layer](define_layer.md) で ML/MM レイヤーを割り当て。
-
 `mlmm mm-parm` は PDB から Amber トポロジー/座標ファイルを生成します。入力 PDB はデフォルトでは構造修正なしにそのまま使用されます。不明な残基は antechamber（GAFF2、AM1-BCC 電荷）と parmchk2 で自動的にパラメータ化されます。`--ligand-charge` に明示した残基は ligand/cofactor 定義として扱われ、GAFF2 パラメータ化が最優先されます。ジスルフィド結合は SG-SG（または S-S）距離が 2.3 Å 以内であることから幾何学的に推定されます。`AMINO_ACIDS` に載っているアミノ酸系残基で、選択された力場に認識されないものは自動処理**されません**。手動でパラメータ化するようメッセージを表示してビルドを中断します。
 
 `--add-h` の場合、指定された `--ph` で PDBFixer を使用して tleap 処理前に水素が付加されます。他の構造修正は行われません。`--ff-set ff14SB` を使用すると、力場は ff14SB（タンパク質）+ TIP3P（水）（+ phosaa14SB）に切り替わります。
@@ -66,50 +59,6 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 | `--add-h/--no-add-h` | PDBFixer で `--ph` に基づいて水素を付加。 | `False` |
 | `--ph FLOAT` | PDBFixer の水素付加用 pH（`--add-h` の場合のみ使用）。 | `7.0` |
 | `--ff-set {ff19SB\|ff14SB}` | 力場セット: ff19SB（デフォルト）または ff14SB。 | `ff19SB` |
-
-## 注意事項
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- **AmberTools**（`tleap`、`antechamber`、`parmchk2`）が PATH 上に利用可能であること。
-- **PDBFixer** + **OpenMM** は `--add-h` の場合**のみ**必要。
-- ビルドが失敗した場合でも、`--add-h` で水素付加が成功していれば、水素付加済み PDB はディスクに書き出されます。
-
-### 力場
-
-- **ff19SB**（デフォルト）: ff19SB（タンパク質）+ OPC3（水）+ GAFF2（一般有機分子）+ Lipid21 + GLYCAM_06j-1 + OL3/OL21（+ phosaa19SB）。
-- **ff14SB**: ff14SB（タンパク質）+ TIP3P（水）（+ phosaa14SB）。
-
-### 出力の命名規則
-
-- `<prefix>.parm7` -- prmtop トポロジー
-- `<prefix>.rst7` -- ASCII inpcrd（LEaP が生成した `complex.inpcrd` のコピー）
-- `<prefix>.pdb` -- LEaP `savepdb` 出力:
- - `--out-prefix` 指定時: `<out_prefix>.pdb`
- - `--out-prefix` 省略かつ `--add-h`: `<input_stem>_parm.pdb`
- - `--out-prefix` 省略かつ `--no-add-h`: PDB は書き出されません
-
-### 失敗時の最短復旧レシピ
-
-1. AmberTools コマンドが見つからない。
-
-```bash
-which tleap antechamber parmchk2
-mlmm mm-parm -i input.pdb --keep-temp
-```
-
-2. 非標準残基でビルドが停止する。
-
-```bash
-mlmm mm-parm -i input.pdb --keep-temp
-# keep-temp で残した tleap ログを確認し、残基パラメータを追加して再実行
-```
-
-3. `--add-h` が環境依存で失敗する。
-
-```bash
-python -c "import pdbfixer, openmm; print('ok')"
-mlmm mm-parm -i input.pdb --no-add-h
-```
 
 ---
 

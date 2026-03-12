@@ -4,13 +4,6 @@
 
 > **要約:** 再帰的 GSM セグメンテーションにより 2 つ以上の構造から連続した MEP を構築します。結合変化のある領域のみを自動的に精密化し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。
 
-### 概要
-- **用途:** R -> ... -> P の構造（2 つ以上の入力）があり、自動精密化付きの単一の連結 MEP が必要な場合に使用。
-- **手法:** GSM セグメントを連鎖し、共有結合変化を含むサブ区間のみを再帰的に精密化。
-- **出力:** `mep_trj.xyz`（メイン軌跡）、`summary.yaml`（セグメントごとの結果）、有効時にプロット/マージ PDB。
-- **デフォルト:** `--opt-mode grad`（LBFGS）、`--preopt`、`--align`、`--thresh gau_loose`（GSM）/ `gau`（単一構造）。
-- **次のステップ:** HEI 出力だけでは TS を検証できません。[tsopt](tsopt.md)、[freq](freq.md)、[irc](irc.md) で続行してください。
-
 `mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、解決されたサブパスを 1 つの軌跡に統合します。
 
 端点が **2 つ**だけで再帰的精密化が不要な場合は、[path-opt](path_opt.md) がより簡単な選択です。
@@ -157,20 +150,6 @@ YAML ルートはマッピングでなければなりません。受け付ける
 - **`lbfgs`** -- HEI+/-1 精密化用の単一構造オプティマイザー制御: `keep_last`、`beta`、`gamma_mult`、`max_step`、`control_step`、`double_damp`、`mu_reg`、`max_mu_reg_adaptions`。
 - **`bond`** -- 結合変化検出: `bond_factor`、`margin_fraction`、`delta_fraction`。
 - **`search`** -- 再帰ロジック: `max_depth`、`stitch_rmsd_thresh`、`bridge_rmsd_thresh`、`max_nodes_segment`、`max_nodes_bridge`、`kink_max_nodes`、`max_seq_kink`、`refine_mode`。
-
-## 注意事項
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- 入力: `-i/--input` に反応順の完全酵素 PDB を少なくとも 2 つ提供してください。
-- preflight チェックで `-i/--input` と `--ref-pdb` のファイル存在を実行前に検証します。
-- 電荷/多重度の運用ルールは [CLI Conventions](cli_conventions.md) に集約しています。
-- 凍結原子: `--freeze-atoms "1,3,5"` は 0 始まりインデックスとして保存され、YAML `geom.freeze_atoms` とマージされます。
-- ノードと再帰: セグメント vs ブリッジのノードは `search.max_nodes_segment` と `search.max_nodes_bridge` で異なります。キンクは `search.kink_max_nodes`（デフォルト 3）の線形ノードを使用します。再帰深度は `search.max_depth`（デフォルト 10）で制限されます。
-- オプティマイザー: `--mep-mode gsm` は pysisyphus `GrowingString` + `StringOptimizer`、`--mep-mode dmf` は Direct Max Flux を使用します。単一構造精密化は常に LBFGS です。
-- `--align` での最終マージ規則: `--ref-pdb` が提供された場合、最初の参照 PDB がすべてのペアに使用されます。
-- コンソールには状態シーケンス（例: `R --> TS1 --> IM1 -->... --> P`）とエネルギーダイアグラム構築に使用されるラベル/エネルギーが出力されます。
-- `summary.log` は一部のフィールド欠落時でも生成可能です。内部で次のキーに既定値を補います:
- `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`。
 
 ---
 

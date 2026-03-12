@@ -4,13 +4,6 @@
 
 > **要約:** ML/MM 計算機で GSM または DMF を使い、**正確に 2 つ**の酵素構造間の MEP を探索します。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。
 
-### 概要
-- **用途:** 反応物と生成物の端点 (R -> P) があり、初回パスの MEP が必要な場合に使用。
-- **手法:** ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）による PySisyphus `GrowingString`。MLIP バックエンドは `--backend` で選択（デフォルト: UMA）。
-- **出力:** `final_geometries_trj.xyz`（経路）および `hei.xyz`（HEI）、任意で `.pdb` コンパニオン。
-- **デフォルト:** `--climb`、`--max-nodes 10`、`--max-cycles 300`。
-- **次のステップ:** HEI を `tsopt` -> `freq`（虚振動数モード 1 つを期待）-> `irc` で検証。
-
 `mlmm path-opt` は、ML/MM 計算機による PySisyphus `GrowingString` を使用して 2 つの酵素状態間の最小エネルギー経路を最適化します。ML/MM 計算機はリンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義され、Amber トポロジーは `--parm` から取得され、両端点は全系座標を含む PDB として提供されます。
 
 **2 つ以上**の構造から開始し、反応領域のみを自動精密化するワークフローには、[path-search](path_search.md) を使用してください。
@@ -151,17 +144,6 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `5` | HEI ダンプエラー |
 | `130` | キーボード割り込み |
 | `1` | 未処理例外 |
-
-## 注意事項
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- 正確に 2 つの構造が必要です。フォーマットは `geom_loader` に従います。
-- 電荷/スピン: CLI がデフォルトを上書きします。正しい状態のために常に明示的に設定してください。
-- `--max-nodes` は GSM ストリングの*内部*ノード/イメージ数を制御します（GSM の総イメージ = `max_nodes + 2`）。
-- `--fix-ends` は `gs.fix_first=True` と `gs.fix_last=True` に対応します（GSM モードに適用）。
-- `--climb` は標準のクライミングステップと Lanczos ベースの接線精密化の両方を切り替えます。
-- `--dump` は StringOptimizer の `opt.dump=True` に相当し、`out_dir` 内に軌跡ダンプを生成します。リスタート YAML は YAML で有効化された場合のみ書き出されます。
-- 終了コード: `0` 成功、`3` オプティマイザー失敗、`4` 軌跡書き出しエラー、`5` HEI エクスポートエラー、`130` 割り込み、`1` 予期しないエラー。
 
 ---
 

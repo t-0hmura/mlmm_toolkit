@@ -18,11 +18,6 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 | `-o, --out PATH` | 生成先 YAML パス。 | `mlmm_all.config.yaml` |
 | `--force/--no-force` | 既存ファイルを上書き。 | `False` |
 
-## 注意事項
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- 生成される YAML は最小テンプレートです（完全スキーマではありません）。
-
 ---
 
 ## 関連項目

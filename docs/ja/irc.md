@@ -161,18 +161,6 @@ irc:
  corr_func: mbs                    # 相関関数の選択
 ```
 
-## 注意事項
-
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- 電荷/多重度の運用ルールは [CLI Conventions](cli_conventions.md) に集約しています。
-- ML バックエンドのオプションは mlmm 計算機に直接渡されます。`device: "auto"` の場合、計算機は GPU/CPU を自動選択します。
-- VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
-- `irc` は `calc.return_partial_hessian: true` を強制します。初期ヘシアンおよび更新は pysisyphus の active-DOF 処理による partial Hessian を使用します。
-- `hessian_calc_mode: "FiniteDifference"` の場合、`geom.freeze_atoms` を使用して FD ヘシアン構築で凍結自由度をスキップできます。
-- `--step-size` は質量加重座標です。`--root` は初期変位に使用する虚数振動数インデックスを選択します。
-- 標準出力には進捗とタイミングが含まれます。終了コード: 成功時 `0`、`KeyboardInterrupt` 時 `130`、未処理例外時 `1`。
-
 ---
 
 ## 関連項目

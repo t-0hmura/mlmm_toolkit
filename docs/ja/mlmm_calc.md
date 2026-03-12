@@ -4,13 +4,6 @@
 
 > **要約:** PySisyphus 用の ONIOM 型 ML/MM 計算機。MLIP バックエンド（デフォルト: FAIR-Chem UMA、選択肢: `orb`、`mace`、`aimnet2`）と hessian_ff（低レベル MM）を結合し、酵素活性部位モデルのエネルギー、力、ヘシアンを計算します。
 
-### 概要
-- **用途:** すべての ML/MM 最適化、経路探索、スキャン、振動解析、IRC ワークフローを駆動する内部計算機を理解したい場合。
-- **手法:** 減算型 ONIOM: E = E(REAL-low) - E(MODEL-low) + E(MODEL-high)。
-- **入力:** `input.pdb`、`real.parm7`、`model.pdb`。
-- **デフォルト:** `mm_backend: hessian_ff`、`backend: uma`、ヘシアンモード `Analytical`。
-- **次のステップ:** [opt](opt.md) または [tsopt](tsopt.md) でこの計算機を使用して計算を実行。
-
 `mlmm_calc.mlmm` は、機械学習原子間ポテンシャル（MLIP）と分子力学力場（Amber prmtop ベースの `hessian_ff`）を組み合わせた減算型 ONIOM スタイルの ML/MM 計算機を実装しています。`mlmm_toolkit` のすべての ML/MM 最適化、経路探索、スキャン、振動解析、IRC ワークフローのコア計算機として機能します。
 
 ### マルチバックエンドアーキテクチャ
@@ -107,13 +100,6 @@ mlmm:
 | ヘシアン | eV/Å² | Hartree/Bohr^2 |
 
 PySisyphus インターフェースは原子単位（Hartree/Bohr）に変換された値を返します。
-
-## 注意事項
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- メモリ使用量を削減するため、ヘシアン組み立てはインプレースの `add_`/`sub_`/`mul_` を使用します。
-- REAL/MODEL 間の原子 ID マッピングは `input.pdb` のみに基づきます。
-- `real.rst7` は ParmEd を使用して `input.pdb` の座標から内部的に作成されます。
 
 ---
 

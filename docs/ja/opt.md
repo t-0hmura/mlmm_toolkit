@@ -10,12 +10,6 @@
 - 出力変換で `final_geometry.pdb`（軌跡ダンプ時は `optimization.pdb`）が入力 PDB をトポロジー参照として生成されます。
 - B 因子のアノテーション（3 層エンコーディング）: ML 領域原子 = 0.00、可動 MM 原子 = 10.00、凍結 MM 原子 = 20.00。
 
-### 概要
-- **用途:** ML/MM で単一の酵素構造を局所エネルギー極小に最適化する場合。
-- **手法:** L-BFGS（grad、デフォルト）または RFO（hess）。エイリアス `light`/`heavy` および `lbfgs`/`rfo` も利用可能です。`hess` モードではマイクロイテレーション（デフォルト有効）が ML 1 ステップ RFO と MM LBFGS 緩和を交互に実行します。ML/MM 計算機は ML 領域に MLIP バックエンド（デフォルト: UMA、`--backend` で選択）、MM に hessian_ff を組み合わせます。
-- **出力:** `final_geometry.xyz`、`final_geometry.pdb`（PDB 入力時）、任意の軌跡。
-- **次のステップ:** [freq](freq.md) を実行して構造が真の極小（虚数振動数なし）であることを確認。
-
 ## 最小例
 
 ```bash
@@ -270,17 +264,6 @@ rfo:
  gdiis_test_direction: true     # DIIS 前に降下方向をテスト
  adapt_step_func: true          # 適応的ステップスケーリング
 ```
-
-## 注意事項
-
-- 症状起点で切り分ける場合は [典型エラー別レシピ](recipes_common_errors.md) を先に参照し、詳細は [トラブルシューティング](troubleshooting.md) を確認してください。
-
-- 電荷/多重度の運用ルールは [CLI Conventions](cli_conventions.md) に集約しています。
-- **デバイス:** `ml_device="auto"` は CUDA が利用可能な場合に選択します。`mm_device` は MM バックエンドのデバイス配置を制御します。
-- **ヘシアン:** `calc.out_hess_torch=True` は PyTorch テンソルを返します（`calc.H_double` で任意に倍精度）。
-- **凍結原子:** CLI のリンク凍結ロジックは YAML `geom.freeze_atoms` とマージされ、ML/MM 計算機（`calc.freeze_atoms`）に伝播されます。
-- **終了コード:** `ZeroStepLength` -> 終了コード **2**、`OptimizationError` -> **3**、`KeyboardInterrupt` -> **130**、その他の未処理例外 -> **1**。
-- **優先順位:** 設定は **デフォルト < config < 明示CLI < override** の順序で適用されます。
 
 ---
 
