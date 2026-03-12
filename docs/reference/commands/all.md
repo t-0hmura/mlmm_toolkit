@@ -70,7 +70,7 @@ Options:
   -m, --multiplicity INTEGER      Multiplicity (2S+1).  [default: 1]
   --max-nodes INTEGER             Max internal nodes for **segment** GSM (String
                                   has max_nodes+2 images including endpoints).
-                                  [default: 10]
+                                  [default: 20]
   --max-cycles INTEGER            Maximum GSM optimization cycles.  [default:
                                   300]
   --climb BOOLEAN                 Enable transition-state climbing after growth

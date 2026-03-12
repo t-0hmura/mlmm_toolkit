@@ -24,7 +24,7 @@ Options:
                                   Direct Max Flux (dmf).  [default: gsm]
   --max-nodes INTEGER             Number of internal nodes (string has
                                   max_nodes+2 images including endpoints).
-                                  [default: 10]
+                                  [default: 20]
   --max-cycles INTEGER            Maximum optimization cycles.  [default: 300]
   --climb / --no-climb            Search for a transition state (climbing image)
                                   after path growth.  [default: climb]
