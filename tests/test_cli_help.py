@@ -89,7 +89,7 @@ def test_main_help(runner, cli_group):
     result = runner.invoke(cli_group, ["--help"])
     assert result.exit_code == 0
     assert "all" in result.output
-    assert "init" in result.output
+    assert "opt" in result.output
 
 
 def test_all_help_progressive_disclosure(runner, cli_group):

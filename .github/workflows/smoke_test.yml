@@ -119,7 +119,7 @@ jobs:
           print('Core imports: OK')
 
           # CLI entry point should be loadable
-          from mlmm_toolkit.cli import main
+          from mlmm_toolkit.cli import cli
           print('CLI entry point: OK')
 
           # Embedcharge module should import cleanly

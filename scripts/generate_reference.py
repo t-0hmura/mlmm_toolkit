@@ -119,6 +119,11 @@ def _collect_command_docs() -> list[CommandDoc]:
     return docs
 
 
+import re
+
+_VERSION_LINE_RE = re.compile(r"^mlmm ver\. \S+\n", re.MULTILINE)
+
+
 def _capture_help(command_name: str, *, advanced: bool) -> str:
     runner = CliRunner()
     args = [command_name, "--help-advanced"] if advanced else [command_name, "--help"]
@@ -133,7 +138,9 @@ def _capture_help(command_name: str, *, advanced: bool) -> str:
             f"Failed to collect help for '{TOOL_NAME} {command_name}' "
             f"(advanced={advanced}):\n{result.output}"
         )
-    return result.output.rstrip() + "\n"
+    # Strip version line so generated references are version-independent
+    text = _VERSION_LINE_RE.sub("", result.output)
+    return text.rstrip() + "\n"
 
 
 def _render_command_page(command_name: str, help_text: str) -> str:
