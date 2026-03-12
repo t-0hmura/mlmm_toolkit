@@ -4,13 +4,6 @@
 
 > **Summary:** Optimize a transition-state *candidate* using Dimer (`--opt-mode grad`) or RS-I-RFO (`--opt-mode hess`, default). Microiteration (`--microiter`, default on) alternates ML 1-step RS-I-RFO and MM relaxation in `hess` mode. A validated TS should show **exactly one** imaginary frequency; always confirm the mode/connectivity with freq/IRC.
 
-### At a glance
-- **Use when:** You have a TS guess (HEI from `path-opt`/`path-search`, or your own structure) and want to refine it to a first-order saddle point with ML/MM.
-- **Default:** `--opt-mode hess` (RS-I-RFO) with `--microiter` enabled. Microiteration alternates a single RS-I-RFO macro-step on the ML region with full MM relaxation, making Hessian-based TS search practical for large enzyme systems (~10,000 atoms).
-- **Alternative:** `--opt-mode grad` (Hessian Guided Dimer) — gradient-only, often cheaper per step. Aliases `heavy`/`light` and `rsirfo`/`dimer` are also accepted.
-- **Outputs:** `final_geometry.xyz`/`.pdb`, imaginary-mode animations in `vib/`.
-- **Next step:** Run [freq](freq.md) to confirm exactly one imaginary frequency, then [irc](irc.md) to verify connectivity.
-
 ### Choosing `--opt-mode`
 - Use **`--opt-mode hess` (RS-I-RFO)** when you want the default, conservative optimizer and you can afford Hessian work. With `--microiter` (default on), ML and MM regions are optimized alternately.
 - Use **`--opt-mode grad` (Dimer)** when you want a lighter-weight search, or when you plan to iterate quickly from several TS guesses. `--ml-only-hessian-dimer` uses only the ML-region Hessian for dimer orientation (faster).
@@ -227,19 +220,6 @@ rsirfo:
  max_line_search: false            # enforce maximum line-search step
  assert_neg_eigval: false          # require a negative eigenvalue at convergence
 ```
-
-## Notes
-
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Imaginary-mode detection uses a default threshold of ~5 cm^-1 (configurable via `hessian_dimer.neg_freq_thresh_cm`). The selected `root` determines which imaginary mode is exported.
-- `--freeze-atoms` accepts 1-based indices and is merged with YAML `geom.freeze_atoms`.
-- Convergence presets propagate to both the outer bookkeeping (`opt`) and the inner LBFGS segments (`hessian_dimer.lbfgs`).
-- PHVA translation/rotation projection mirrors the implementation in `freq`, reducing GPU memory consumption while preserving correct eigenvectors in the active space.
-- `return_partial_hessian` is partial-first in `tsopt`: when YAML does not explicitly set `calc.return_partial_hessian`, partial Hessian is used. Set it to `false` explicitly to force full Hessian.
-- Config merge precedence is `defaults < config < explicit CLI < override`.
-
----
 
 ## See Also
 

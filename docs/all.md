@@ -16,13 +16,6 @@
 `--tsopt` produces **TS candidates**. `all` automatically runs IRC and freq for validation, but always inspect the results (imaginary mode + endpoint connectivity) before mechanistic interpretation.
 ```
 
-### At a glance
-- **Use when:** You want a complete end-to-end enzymatic reaction study with ML/MM, from active-site extraction through MEP search to optional TS/freq/DFT post-processing.
-- **Method:** Active-site extraction + ML/MM layer assignment + MM topology (AmberTools) + GSM MEP search on full-system layered PDBs + optional TSOPT/IRC/freq/DFT.
-- **Outputs:** `summary.log`, `summary.yaml`, MEP trajectories, energy diagrams, per-segment post-processing.
-- **Defaults:** `--opt-mode grad`, `--thresh gau`, `--max-cycles 300`, `--preopt` enabled, `--climb` enabled.
-- **Next step:** Inspect `summary.log` and energy diagrams; run standalone [tsopt](tsopt.md)/[freq](freq.md)/[dft](dft.md) for refinement.
-
 ## Minimal example
 
 ```bash
@@ -371,24 +364,6 @@ dft:
 ```
 
 For a complete reference of all YAML options, see **[YAML Configuration Reference](yaml_reference.md)**.
-
-## Notes
-
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- **Python >= 3.11** is required.
-- **Substrate (`-c/--center`) and (when needed) `--ligand-charge` are practically required.**
-- Always provide `--ligand-charge` (numeric or per-residue mapping) when formal charges cannot be inferred so the correct total charge propagates to scan/MEP/TSOPT/DFT.
-- Single-structure mode requires either `--scan-lists` or `--tsopt`; otherwise at least two structures are needed.
-- Preflight checks validate repeated `-i/--input` values as files and verify AmberTools commands (`tleap`, `antechamber`, `parmchk2`) before auto `mm_parm`.
-- Reference PDB templates for merging are derived automatically from the original inputs.
-- Convergence presets: `--thresh` defaults to `gau`; `--thresh-post` defaults to `baker`.
-- Extraction radii: passing `0` to `--radius` or `--radius-het2het` is internally clamped to `0.001 Å` by the extractor.
-- Energies in diagrams are plotted relative to the first state (reactant) in kcal/mol (converted from Hartree).
-- Charge handling: the extractor's first-model total pocket charge is used as the path/scan/TSOPT total charge (rounded to int).
-- Omitting `-c/--center` skips extraction and feeds the entire input structures directly to the MEP/tsopt/freq/DFT stages; single-structure runs still require either `--scan-lists` or `--tsopt`.
-
----
 
 ## See Also
 

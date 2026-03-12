@@ -4,12 +4,6 @@
 
 > **Summary:** How to configure GPU/CPU devices for the ML/MM calculator and submit jobs on HPC clusters.
 
-### At a glance
-- **ML backend (UMA):** Runs on CUDA by default (`ml_device: auto` → CUDA if available).
-- **MM backend (hessian_ff):** CPU-only. OpenMM backend can use CUDA.
-- **Hessian assembly:** Can be offloaded to CPU with `--hess-device cpu` to save VRAM.
-- **Multi-GPU:** Not supported (single GPU per job).
-
 ---
 
 ## Device Parameters

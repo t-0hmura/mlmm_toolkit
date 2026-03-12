@@ -4,13 +4,6 @@
 
 > **Summary:** Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal.
 
-### At a glance
-- **Input:** One structure + `-s scan2d.yaml` (YAML/JSON spec, recommended), or `-s "[(i1,j1,low1,high1),(i2,j2,low2,high2)]"` inline literal.
-- **Grid ordering:** Each axis is reordered so the point closest to the (pre)optimized structure is visited first.
-- **Energies:** Values written to `surface.csv` are always evaluated **without bias**, so grid points are directly comparable.
-- **Outputs:** `surface.csv` plus `scan2d_map.png` and `scan2d_landscape.html`, and per-point structures under `grid/`.
-- **Caution:** Grid size grows quickly as `(high - low) / --max-step-size` increases.
-
 `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. The scan iterates d1 first, relaxing the structure with only the d1 restraint active, then iterates d2 for each d1 value with both restraints applied.
 
 Energies at each grid point are re-evaluated without the bias to populate a PES grid and contour plot. Outputs include per-point XYZ snapshots, `surface.csv` summarizing the PES, a 2D contour map (`scan2d_map.png`), and a 3D landscape with bottom projection (`scan2d_landscape.html`).
@@ -209,16 +202,6 @@ lbfgs:
 bias:
  k: 300.0
 ```
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) keeps the entire enzyme complex. The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`.
-- The bias is always removed before final energies are recorded, so `surface.csv` is directly comparable across grid points.
-- When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also converted to PDB files that preserve the B-factor encoding from the reference PDB (typically ML=0, Movable-MM=10, Frozen=20 when prepared with `define-layer`).
-- `i`/`j` entries in `-s/--scan-lists` may be integer indices (1-based by default) or PDB atom selectors like `"TYR,285,CA"`.
-
----
 
 ## See Also
 

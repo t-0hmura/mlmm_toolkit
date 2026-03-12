@@ -4,13 +4,6 @@
 
 > **Summary:** Extract a cluster model (active-site pocket) from a protein-ligand PDB. Specify substrates with `-c` by residue name, residue ID, or a PDB path. Link hydrogens are added to cap cut bonds when `--add-linkH` is enabled. Use `--ligand-charge` for non-standard residue charges.
 
-### At a glance
-- **Input:** One or more complex PDBs with consistent atom ordering (ensemble mode supported).
-- **Substrate selection (`-c`):** residue IDs (`A:123A`), residue names (`GPP,SAM`), or a substrate PDB that matches the complex coordinates.
-- **Selection logic:** distance cutoff (`--radius`) plus optional hetero-hetero proximity (`--radius-het2het`) and peptide/disulfide/PRO safeguards.
-- **Truncation & capping:** trims residues/segments and optionally adds link hydrogens (`--add-linkH`).
-- **Charges:** unknown residues default to 0 unless `--ligand-charge` supplies a total charge or per-resname mapping.
-
 `mlmm extract` creates an active-site pocket (cluster model) from a protein-ligand PDB. It selects residues near the substrate, truncates the model according to backbone/side-chain rules, optionally caps severed bonds with link hydrogens, and can process single structures or ensembles.
 
 This is typically the **first step** in an mlmm_toolkit workflow, producing a smaller, computationally tractable model from a full protein-ligand complex.
@@ -232,17 +225,6 @@ A set of residue names recognized as water molecules. Waters are included by def
 ```
 HOH, WAT, H2O, DOD, TIP, TIP3, SOL
 ```
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- `--radius` defaults to 2.6 Å; `0` is nudged to 0.001 Å to avoid empty selections. `--radius-het2het` is off by default (also nudged to 0.001 Å when zero is provided).
-- Waters can be excluded with `--no-include-H2O`.
-- Backbone trimming plus capping respect chain breaks and PRO/HYP safeguards as outlined above; non-amino residues never lose backbone-like atom names.
-- Link hydrogens are inserted only on carbon cuts and reuse identical bonding patterns across models in ensemble mode.
-- INFO logs summarize residue selection, truncation counts, and charge breakdowns.
-
----
 
 ## See Also
 

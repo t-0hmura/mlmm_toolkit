@@ -69,16 +69,6 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
  when no reference is applied).
 - PNG uses Plotly's PNG export with `scale=2` for higher resolution.
 
-## Notes
-- Energies are taken from the first decimal number in each comment; malformed
- comments raise an error.
-- When recomputation is triggered, omitted charge/multiplicity values default to `0` and `1`.
-- Unsupported file extensions in `-o` cause an error.
-- `--reverse-x` flips both the axis direction and the behavior of `-r init` so the plotted pathway is read in reverse direction.
-- The `--output-peak` option has been removed.
-
----
-
 ## See Also
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing

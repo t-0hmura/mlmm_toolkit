@@ -4,13 +4,6 @@
 
 > **Summary:** Remove alternate location (altLoc) indicators from PDB files by selecting the best conformer for each atom based on occupancy and dropping duplicates.
 
-### At a glance
-- **Use when:** Your PDB contains alternate conformers (altLoc A/B/...) that need to be resolved to a single conformer before downstream processing.
-- **Method:** Selects highest-occupancy conformer per atom identity key; blanks altLoc column (17).
-- **Outputs:** A cleaned PDB file with altLoc column blanked and duplicates removed.
-- **Defaults:** Skips files with no altLoc characters; output `<input>_clean.pdb`.
-- **Next step:** [extract](extract.md) or [mm-parm](mm_parm.md).
-
 ### What it does
 1. Blank the PDB altLoc column (column 17, 1-based) with a single space.
  - This is a 1-character replacement (no shifting / no reformatting).
@@ -135,15 +128,6 @@ Output:
  ATOM 3 CG ALA A 1... 0.50 # kept (A only)
  ATOM 6 CD ALA A 1... 0.40 # kept (B only)
 ```
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Atom serial numbers are **NOT renumbered** (gaps may remain after duplicate removal).
-- `CONECT` and other connectivity/annotation records are **NOT updated**.
-- Only column 17 (altLoc) is modified; coordinates, occupancies, B-factors, charges,
- insertion codes, and record ordering stay untouched (except for duplicate removal).
-- MODEL/ENDMDL blocks are processed independently.
 
 ## API usage
 For programmatic use, the module exports:

@@ -4,13 +4,6 @@
 
 > **要約:** Amber parm7 を用いて Gaussian ONIOM（`.com`/`.gjf`）入力を生成します。
 
-### 早見表
-- **用途:** ML/MM で準備した系を Gaussian ONIOM に渡したい場合。
-- **手法:** ParmEd で Amber parm7 トポロジーを読み込み、モデル PDB で QM 層を定義、QM/MM 境界を検出しリンク原子を注釈。
-- **出力:** メソッド、座標、レイヤーフラグ、結合情報を含む Gaussian `.com` または `.gjf`。
-- **デフォルト:** `--method "wB97XD/def2-TZVPD"`、`--nproc 8`、`--mem 16GB`、`--near 6.0`。
-- **次のステップ:** Gaussian でエクスポートした入力を実行。
-
 ## 最小例
 
 ```bash

@@ -4,13 +4,6 @@
 
 > **Summary:** Add or repair PDB element symbols (columns 77-78) using Biopython. Infers elements from atom names plus residue context (proteins, nucleic acids, water, ions, ligands).
 
-### At a glance
-- **Use when:** Your PDB has empty element columns that downstream tools (e.g., `mm-parm`, ONIOM export) require.
-- **Method:** Biopython `PDBParser` + residue-context heuristics for element assignment.
-- **Outputs:** A PDB file with element columns (77-78) populated or corrected.
-- **Defaults:** Preserves existing element fields unless `--overwrite` is given. Without `-o`, overwrites the input file.
-- **Next step:** [mm-parm](mm_parm.md) or [extract](extract.md).
-
 `mlmm add-elem-info` parses the input PDB with Biopython (`PDBParser`), assigns `atom.element` using residue context and atom-name heuristics, and writes via `PDBIO` to populate columns 77-78. It supports ATOM and HETATM records across all models/chains/residues without altering coordinates.
 
 ## Minimal example
@@ -63,18 +56,6 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 | `-i, --input PATH` | Input PDB file. | Required |
 | `-o, --out PATH` | Output PDB path. When omitted, the input file is overwritten. | _None_ (overwrites input) |
 | `--overwrite/--no-overwrite` | Re-infer and overwrite element fields even if already present (by default, existing values are preserved). | `False` |
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Only columns 77-78 are modified; coordinates, occupancies, B-factors, charges, altlocs,
- insertion codes, and record ordering stay untouched.
-- Existing element fields are detected by scanning the original file's ATOM/HETATM lines
- (serials 7-11, elements 77-78) to reflect the true presence and avoid parser side effects.
-- Recognizes standard water/nucleic/protein residue names; treats deuterium "D" as hydrogen "H".
-- Depends on Biopython (`Bio.PDB`) and Click.
-
----
 
 ## See Also
 

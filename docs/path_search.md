@@ -4,13 +4,6 @@
 
 > **Summary:** Build a continuous MEP from two or more structures with recursive GSM segmentation. Automatically refines only regions with bond changes and exports the highest-energy image (HEI) as a TS candidate.
 
-### At a glance
-- **Use when:** You have R -> ... -> P structures (2+ inputs) and want a single stitched MEP with automatic refinement.
-- **Method:** Chains GSM segments and recursively refines only sub-intervals that still contain covalent changes.
-- **Outputs:** `mep_trj.xyz` (main trajectory), `summary.yaml` (segment-by-segment results), and optional plots/merged PDBs when enabled.
-- **Defaults:** `--opt-mode grad` (LBFGS), `--preopt`, `--align`, `--thresh gau_loose` (GSM) / `gau` (single-structure).
-- **Next step:** HEI output alone does **not** validate a TS. Follow with [tsopt](tsopt.md), [freq](freq.md), and [irc](irc.md).
-
 `mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory.
 
 If you only have **two** endpoints and do not need recursive refinement, [path-opt](path_opt.md) is the simpler option.
@@ -156,23 +149,6 @@ The YAML root must be a mapping. Accepted sections:
 - **`lbfgs`** -- Single-structure optimizer controls for HEI+/-1 refinement: `keep_last`, `beta`, `gamma_mult`, `max_step`, `control_step`, `double_damp`, `mu_reg`, `max_mu_reg_adaptions`.
 - **`bond`** -- Bond-change detection: `bond_factor`, `margin_fraction`, `delta_fraction`.
 - **`search`** -- Recursion logic: `max_depth`, `stitch_rmsd_thresh`, `bridge_rmsd_thresh`, `max_nodes_segment`, `max_nodes_bridge`, `kink_max_nodes`, `max_seq_kink`, `refine_mode`.
-
-## Notes
-
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Inputs: provide at least two full-enzyme PDBs to `-i/--input` in reaction order.
-- Preflight checks validate `-i/--input` and `--ref-pdb` paths before starting GSM.
-- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli_conventions.md).
-- Freeze atoms: `--freeze-atoms "1,3,5"` stores zero-based indices and merges with YAML `geom.freeze_atoms`.
-- Nodes and recursion: segment vs bridge nodes differ via `search.max_nodes_segment` and `search.max_nodes_bridge`. Kinks use `search.kink_max_nodes` (default 3) linear nodes. Recursion depth is capped by `search.max_depth` (default 10).
-- Optimizers: `--mep-mode gsm` uses pysisyphus `GrowingString` + `StringOptimizer`; `--mep-mode dmf` uses Direct Max Flux. Single-structure refinements always use LBFGS.
-- Final merge rule with `--align`: when `--ref-pdb` is provided, the first reference PDB is used for all pairs.
-- Console output prints the state sequence (e.g., `R --> TS1 --> IM1 -->... --> P`) plus the labels/energies used to build the energy diagram.
-- `summary.log` rendering is resilient to missing payload fields. Internally, defaults are applied for:
- `root_out_dir`, `path_module_dir`, `pipeline_mode`, `segments`, `energy_diagrams`.
-
----
 
 ## See Also
 

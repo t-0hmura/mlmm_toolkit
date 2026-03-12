@@ -10,12 +10,6 @@ When the starting structure is a PDB, the command also writes `.pdb` companions,
 - Output conversion produces `final_geometry.pdb` (and `optimization.pdb` when dumping trajectories) using the input PDB as the topology reference.
 - B-factors are annotated using the 3-layer encoding: ML-region atoms = 0.00, movable MM atoms = 10.00, frozen MM atoms = 20.00.
 
-### At a glance
-- **Use when:** You want to minimize a single enzyme structure to a local energy minimum with ML/MM.
-- **Method:** L-BFGS (grad, default) or RFO (hess). Aliases `light`/`heavy` and `lbfgs`/`rfo` are also accepted. In `hess` mode, microiteration (default on) alternates ML 1-step RFO with MM LBFGS relaxation.
-- **Outputs:** `final_geometry.xyz`, `final_geometry.pdb` (PDB inputs), optional trajectory.
-- **Next step:** Run [freq](freq.md) to confirm the structure is a true minimum (no imaginary frequencies).
-
 ## Minimal example
 
 ```bash
@@ -269,19 +263,6 @@ rfo:
  gdiis_test_direction: true     # test descent direction before DIIS
  adapt_step_func: true          # adaptive step scaling
 ```
-
-## Notes
-
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli_conventions.md).
-- **Devices:** `ml_device="auto"` selects CUDA when available; `mm_device` controls MM backend device placement.
-- **Hessians:** `calc.out_hess_torch=True` returns PyTorch tensors (optionally double precision via `calc.H_double`).
-- **Freeze atoms:** CLI freeze-link logic is merged with YAML `geom.freeze_atoms`, then propagated to the ML/MM calculator (`calc.freeze_atoms`).
-- **Exit codes:** `ZeroStepLength` -> exit code **2**; `OptimizationError` -> **3**; `KeyboardInterrupt` -> **130**; any other unhandled exception -> **1**.
-- **Precedence:** settings are applied with **defaults < config < explicit CLI < override**.
-
----
 
 ## See Also
 

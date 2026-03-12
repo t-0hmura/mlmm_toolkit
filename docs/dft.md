@@ -4,15 +4,6 @@
 
 > **Summary:** Run a single-point DFT calculation on the ML region using PySCF/GPU4PySCF, then recombine with MM energies to obtain the ML(dft)/MM total energy. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
 
-### At a glance
-- **Use when:** You want a higher-level single-point energy for your ML/MM system using DFT on the ML region with ONIOM-style recombination.
-- **Method:** PySCF (CPU) or GPU4PySCF (GPU) single-point DFT on the ML region + link hydrogens, combined with MM evaluations for the ONIOM total energy.
-- **Outputs:** `ml_region_with_linkH.xyz`, `result.yaml` with ML(dft)/MM combined energy.
-- **Defaults:** `--func-basis wb97m-v/def2-tzvpd`, `--max-cycle 100`, `--conv-tol 1e-9`.
-- **Next step:** Compare DFT//UMA energies across R/TS/P states, or use within [all](all.md) `--dft` for automated diagrams.
-- **Prerequisites:** DFT dependencies (PySCF, GPU4PySCF) are **not** included in the default install. Install them with `pip install "mlmm-toolkit[dft]"`.
-- **System size limit:** DFT single-point calculations are practical only for ML regions up to **~500 atoms**. Larger ML regions will require prohibitive compute time and memory.
-
 `mlmm dft` extracts the ML region from the full enzyme PDB, appends link hydrogens, and runs a single-point PySCF (or GPU4PySCF) calculation. After the DFT evaluation, the script recomputes the **ML(dft)/MM total energy** by combining the PySCF high-level energy with MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low):
 
 ```
@@ -136,19 +127,6 @@ dft:
  verbose: 4                        # PySCF verbosity (0-9)
  out_dir: ./result_dft/            # output directory root
 ```
-
-## Notes
-
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Link hydrogens are detected automatically (C/N parents within 1.7 Å) unless explicit `link_mlmm` pairs are provided via YAML. Unsupported parent elements raise an error.
-- The GPU4PySCF backend is activated automatically when available; otherwise PySCF CPU is used. If **Blackwell architecture** GPUs are detected, a warning is emitted because current GPU4PySCF may be unsupported.
-- Density fitting is always attempted with PySCF defaults (no auxiliary basis guessing is implemented).
-- DFT options (functional/basis, SCF controls) remain YAML-overridable under the `dft` key.
-- IAO spin/charge analysis may fail for challenging systems; corresponding columns in `result.yaml` become `null` and a warning is printed.
-- Exit codes: `0` when the SCF converges, `3` when it does not, `130` for keyboard interrupt, `1` on other errors.
-
----
 
 ## See Also
 

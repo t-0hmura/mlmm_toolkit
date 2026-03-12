@@ -4,13 +4,6 @@
 
 > **Summary:** Define a 3-layer ML/MM system based on distance from the ML region and encode the layer assignments as B-factors in the output PDB.
 
-### At a glance
-- **Use when:** You need to partition an enzyme system into ML / Movable-MM / Frozen layers before running optimization or path search.
-- **Method:** Distance-based assignment from the ML region, with residue-level or atom-level granularity.
-- **Outputs:** `<output>.pdb` with B-factors set to 0 / 10 / 20; console summary of layer assignments.
-- **Defaults:** `--radius-freeze 8.0`; 1-based indices.
-- **Next step:** [opt](opt.md) or [all](all.md) using the layered PDB.
-
 `mlmm define-layer` partitions an enzyme system into three layers around the ML region and writes the assignments as PDB B-factors. The ML region can be specified via a model PDB, explicit atom indices, or a combination of both.
 
 ### 3-Layer System
@@ -66,15 +59,6 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 | `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for Movable-MM. Atoms beyond this are Frozen. | `8.0` |
 | `-o, --output PATH` | Output PDB file with B-factors set to layer values. | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Distance is calculated as the minimum distance from any ML atom to any atom in the residue.
-- `--radius-partial-hessian` is accepted but ignored in 3-layer mode.
-- The output PDB preserves all original atom records; only the B-factor column is modified.
-
----
 
 ## See Also
 

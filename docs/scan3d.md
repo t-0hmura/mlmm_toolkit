@@ -4,13 +4,6 @@
 
 > **Summary:** Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal.
 
-### At a glance
-- **Input:** One full enzyme PDB + `-s scan3d.yaml` (YAML/JSON spec, recommended), or `-s "[(i1,j1,low1,high1),...]"` inline literal (three quadruples). Use `--csv` for plot-only mode.
-- **Grid ordering:** d1 is scanned first, then d2 for each d1 value (both restraints active), then d3 for each (d1, d2) with all three restraints active.
-- **Energies:** Recorded energies are evaluated **without bias**, so grid points are directly comparable.
-- **Outputs:** `surface.csv`, per-point geometries under `grid/`, and an HTML isosurface plot (`scan3d_density.html`).
-- **Caution:** 3D grids grow very quickly; consider coarser `--max-step-size` or smaller ranges first.
-
 `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the MLIP backend is selected via `-b/--backend` (default: `uma`); the optimizer is PySisyphus LBFGS.
 
 
@@ -217,22 +210,6 @@ lbfgs:
 bias:
  k: 300.0
 ```
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- The ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) reuses the same
- `HarmonicBiasCalculator` as the 1D/2D scans.
-- `--baseline` defaults to the global minimum; `--baseline first` anchors the
- `(i,j,k)=(0,0,0)` grid point when present.
-- 3D visualization uses RBF interpolation on a 50x50x50 grid with
- semi-transparent step-colored isosurfaces.
-- When the input is a PDB, each grid-point XYZ and (if present) inner-path TRJ are also
- converted to PDB files, using the input PDB as a template. B-factors are annotated
- as: ML=0, MovableMM=10, FrozenMM=20.
-- Plot color scales can be clamped with `--zmin/--zmax` to compare scans consistently.
-
----
 
 ## See Also
 

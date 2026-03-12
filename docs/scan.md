@@ -4,13 +4,6 @@
 
 > **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
 
-### At a glance
-- **Use when:** You have a single structure and need to drive specific inter-atomic distances toward target values to explore a plausible path (often before `path-search`/`path-opt`).
-- **Input:** One structure + `-s scan.yaml` (YAML/JSON spec, recommended), or `-s "[(I,J,TARGET)]"` inline literals (each literal = one stage).
-- **Defaults:** LBFGS optimizer, `--preopt`, `--endopt`, `--max-step-size 0.20` Å, `--thresh baker`.
-- **Outputs:** Per-stage `result.xyz` (+ optional `.pdb`), and optional concatenated trajectories when `--dump`.
-- **Note:** `-s/--scan-lists` auto-detects whether the argument is a YAML/JSON file or an inline Python literal.
-
 `mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and hessian_ff.
 
 ## Minimal example
@@ -250,19 +243,6 @@ out_dir/ (default: ./result_scan/)
  - `bond_factor` (`1.20`): Covalent-radius scaling for cutoff.
  - `margin_fraction` (`0.05`): Fractional tolerance for comparisons.
  - `delta_fraction` (`0.05`): Minimum relative change to flag formation/breaking.
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Provide multiple literals after a single `-s/--scan-lists` flag; repeated flags are not accepted.
- Tuples must have positive targets. Atom indices are normalized to 0-based internally. For
- PDB inputs, `i`/`j` can be selector strings with flexible delimiters
- (space/comma/slash/backtick/backslash) and unordered tokens.
-- Stage results (`result.xyz` plus optional PDB companions) are written
- regardless of `--dump`; trajectories are written only when `--dump` is `True`
- and converted to `scan.pdb` (PDB inputs only) when conversion is enabled.
-
----
 
 ## See Also
 

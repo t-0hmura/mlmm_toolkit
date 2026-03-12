@@ -34,12 +34,6 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 - `result_scan/stage_02/result.pdb`
 - Optional trajectories when `--dump` is enabled (`scan_trj.xyz`, `scan.pdb`)
 
-## Notes
-
-- `-s/--scan-lists` auto-detects YAML/JSON spec files; inline Python literals are also accepted.
-- To use a different MLIP backend, add `-b orb` (or `mace`, `aimnet2`). Default is `uma`.
-- Use `mlmm scan --help-advanced` to inspect all scan controls.
-
 ## Next step
 
 - Feed scan results to path refinement with [all](all.md) or [path-search](path_search.md).

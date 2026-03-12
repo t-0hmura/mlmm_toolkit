@@ -4,13 +4,6 @@
 
 > **Summary:** Find an MEP between **exactly two** enzyme structures using GSM or DMF with the ML/MM calculator. Writes the path trajectory and exports the highest-energy image (HEI) as a TS candidate.
 
-### At a glance
-- **Use when:** You have reactant and product endpoints (R -> P) and want a first-pass MEP.
-- **Method:** PySisyphus `GrowingString` with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`). MLIP backend selected via `--backend` (default: `uma`).
-- **Outputs:** `final_geometries_trj.xyz` (path) and `hei.xyz` (HEI), plus optional `.pdb` companions.
-- **Defaults:** `--climb`, `--max-nodes 10`, `--max-cycles 300`.
-- **Next step:** Validate the HEI with `tsopt` -> `freq` (expect one imaginary mode) -> `irc`.
-
 `mlmm path-opt` optimizes a minimum-energy path between two enzyme states using PySisyphus `GrowingString` with the ML/MM calculator. The ML/MM calculator keeps the full enzyme complex without link atoms: the ML region is defined by `--model-pdb`, the Amber topology comes from `--parm`, and both endpoints are supplied as PDBs containing the full system coordinates.
 
 For workflows that start from **two or more** structures and automatically refine only the reactive region, use [path-search](path_search.md).
@@ -155,19 +148,6 @@ Merge order is **defaults < config < explicit CLI < override**.
 | `5` | HEI dump error |
 | `130` | Keyboard interrupt |
 | `1` | Unhandled exception |
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Exactly two structures are required. Formats follow `geom_loader`.
-- Charge/spin: CLI overrides defaults. Always set them explicitly for correct states.
-- `--max-nodes` controls the number of *internal* nodes/images for the GSM string (total images = `max_nodes + 2` for GSM).
-- `--fix-ends` maps to `gs.fix_first=True` and `gs.fix_last=True` (applies to GSM mode).
-- `--climb` toggles both the standard climbing step and the Lanczos-based tangent refinement.
-- `--dump` mirrors `opt.dump=True` for the StringOptimizer, producing trajectory dumps inside `out_dir`. Restart YAML is written only when enabled in YAML.
-- Exit codes: `0` success, `3` optimizer failure, `4` trajectory write error, `5` HEI export error, `130` interrupt, `1` unexpected error.
-
----
 
 ## See Also
 

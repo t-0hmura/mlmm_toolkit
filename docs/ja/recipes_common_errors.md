@@ -3,20 +3,6 @@
 症状は分かるが、どのコマンドページから見ればよいか迷うときの入口です。
 詳細は [トラブルシューティング](troubleshooting.md) を並行して参照してください。
 
-## 早見表
-
-| 症状 | 最初にやること | 詳細 |
-| --- | --- | --- |
-| 元素カラム欠落で抽出が止まる | 元の PDB に `add-elem-info` を適用 | [トラブルシューティング](troubleshooting.md) |
-| 「電荷が必須」系エラー | `-q/--charge` と `-m/--multiplicity` を明示指定 | [トラブルシューティング](troubleshooting.md) |
-| 計算は通るが状態/エネルギーが不自然 | CLI 規約の電荷/多重度ルールを再確認 | [トラブルシューティング](troubleshooting.md) |
-| `mm-parm` が動かない（`tleap`/`antechamber`/`parmchk2`） | AmberTools の導入状態を先に修正 | [トラブルシューティング](troubleshooting.md) |
-| `hessian_ff` の import/build エラー | `hessian_ff/native` を再ビルド | [トラブルシューティング](troubleshooting.md) |
-| DMF モードの import エラー（`cyipopt`） | 実行環境に `cyipopt` を導入 | [トラブルシューティング](troubleshooting.md) |
-| TSOPT/IRC が収束しない | ステップを緩め、サイクル上限を増やす | [トラブルシューティング](troubleshooting.md) |
-| CUDA/GPU 実行時エラー | `torch.cuda.is_available()` と CUDA 組み合わせを確認 | [トラブルシューティング](troubleshooting.md) |
-| 図の出力失敗 | Plotly 用 Chrome ランタイムを導入 | [トラブルシューティング](troubleshooting.md) |
-
 ## レシピ 1: MEP 前に抽出で止まる
 
 - 兆候:

@@ -4,13 +4,6 @@
 
 > **Summary:** Export an ML/MM system to ORCA QM/MM (`.inp`) using an Amber parm7 topology.
 
-### At a glance
-- **Use when:** You want ORCA QM/MM input compatible with Amber-derived parameters.
-- **Method:** Reads Amber parm7 topology via ParmEd; maps model PDB to define QM atoms; resolves ORCAFF parameters.
-- **Outputs:** ORCA `.inp` with QM atom set and ORCAFF linkage; `ORCAFF.prms` (reused, provided, or auto-generated).
-- **Defaults:** `--method "B3LYP D3BJ def2-SVP"`; `--nproc 8`; `--near 6.0`; `--convert-orcaff` on.
-- **Next step:** Run the exported input in ORCA.
-
 ## Minimal example
 
 ```bash
@@ -74,15 +67,6 @@ ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--p
 | `--near FLOAT` | Distance cutoff used to define ActiveAtoms when layer tags are absent. | `6.0` |
 | `--orcaff PATH` | Path to ORCAFF.prms. | auto |
 | `--convert-orcaff/--no-convert-orcaff` | Attempt `orca_mm -convff -AMBER` when ORCAFF is missing. | `True` |
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Requires `parmed`.
-- Element validation is best-effort and assumes invariant atom ordering.
-- ORCA link-atom handling is inferred from QM/MM boundary connectivity.
-
----
 
 ## See Also
 

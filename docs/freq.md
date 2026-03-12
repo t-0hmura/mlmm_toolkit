@@ -4,12 +4,6 @@
 
 > **Summary:** Compute ML/MM vibrational frequencies and thermochemistry (ZPE, Gibbs energy, etc.) with PHVA support. When VRAM permits, `--hessian-calc-mode Analytical` speeds Hessian evaluation. Imaginary frequencies appear as negative values.
 
-### At a glance
-- **Use when:** You want to validate a minimum/TS candidate and/or compute thermo corrections from ML/MM.
-- **Method:** Full or partial Hessian vibrational analysis (PHVA) with the ML/MM calculator (MLIP backend + hessian_ff). Backend selected via `--backend` (default: `uma`).
-- **Outputs:** `frequencies_cm-1.txt`, per-mode `_trj.xyz` and `.pdb` animations, plus `thermoanalysis.yaml` when enabled.
-- **Next step:** Use results to confirm a minimum (no imaginary frequencies) or a TS (exactly one imaginary frequency).
-
 `mlmm freq` performs vibrational analysis with the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`), honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
 
 ## Minimal example
@@ -139,19 +133,6 @@ thermo:
  pressure_atm: 1.0                 # thermochemistry pressure (atm)
  dump: false                       # write thermoanalysis.yaml when true
 ```
-
-## Notes
-
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- The ML/MM calculator returns Hessians in Hartree/Bohr^2. Conversions to cm^-1 follow the PySisyphus/ASE conventions used elsewhere in the toolkit.
-- Thermochemistry relies on the optional `thermoanalysis` package; when absent, only a warning is printed and execution continues.
-- `--hessian-calc-mode` follows the standard precedence (defaults < config < explicit CLI < override).
-- `freq` is partial-first: unless YAML explicitly sets `calc.return_partial_hessian`, the calculation uses partial Hessian (PHVA-oriented path) by default.
-- Imaginary modes are reported as negative frequencies. `freq` prints how many were detected and dumps details when `--dump`.
-- **PHVA details:** With frozen atoms, the active subspace is formed by excluding frozen DOF. Translation/rotation modes are projected within this subspace, ensuring correct mode shapes. Both full 3N x 3N and active-block Hessians are accepted. The mass-weighted eigendecomposition uses `UPLO="U"` to minimize GPU memory.
-
----
 
 ## See Also
 

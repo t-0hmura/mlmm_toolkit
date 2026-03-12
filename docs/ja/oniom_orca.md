@@ -4,13 +4,6 @@
 
 > **要約:** Amber parm7 を用いて ORCA QM/MM（`.inp`）入力を生成します。
 
-### 早見表
-- **用途:** Amber 系のパラメータを保ったまま ORCA QM/MM を実行したい場合。
-- **手法:** ParmEd で Amber parm7 トポロジーを読み込み、モデル PDB で QM 原子を定義、ORCAFF パラメータを解決。
-- **出力:** QM 原子集合と ORCAFF 参照を含む ORCA `.inp`、`ORCAFF.prms`（既存利用、提供、または自動生成）。
-- **デフォルト:** `--method "B3LYP D3BJ def2-SVP"`、`--nproc 8`、`--near 6.0`、`--convert-orcaff` 有効。
-- **次のステップ:** ORCA でエクスポートした入力を実行。
-
 ## 最小例
 
 ```bash

@@ -203,8 +203,8 @@ ja/index
 
 | Topic | Page |
 |-------|------|
-| **CLI command reference (generated)** | [Command Reference](reference/commands/index.md) |
-| **YAML schema (generated)** | [YAML Schema (Generated)](reference/yaml.md) |
+| **CLI command reference** | [Command Reference](reference/commands/index.md) |
+| **YAML schema** | [YAML Schema](reference/yaml.md) |
 | **YAML configuration options** | [YAML Reference](yaml_reference.md) |
 | **ML/MM calculator architecture** | [ML/MM Calculator](mlmm_calc.md) |
 | **Terminology** | [Glossary](glossary.md) |

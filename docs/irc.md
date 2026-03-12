@@ -4,12 +4,6 @@
 
 > **Summary:** Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transition state toward reactants and products using the ML/MM calculator. By default both forward and backward branches are computed.
 
-### At a glance
-- **Use when:** You have an optimized TS and want to trace the minimum-energy path toward reactant and product basins with ML/MM.
-- **Method:** EulerPC predictor-corrector integrator with full ML/MM Hessians (MLIP backend + hessian_ff). Backend selected via `--backend` (default: `uma`).
-- **Outputs:** `finished_irc_trj.xyz`, `forward_irc_trj.xyz`, and `.pdb` companions for PDB inputs.
-- **Next step:** Run [freq](freq.md) on IRC endpoints, then [opt](opt.md) to refine them to true minima.
-
 `mlmm irc` runs IRC calculations using the EulerPC integrator with the ML/MM calculator. The CLI is intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. Inputs can be any structure readable by `pysisyphus.helpers.geom_loader` (`.pdb`, `.xyz`, `_trj.xyz`,...). If the input is `.pdb`, the generated trajectories are additionally converted to PDB.
 
 A typical workflow is `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc`.
@@ -161,20 +155,6 @@ irc:
  loose_cycles: 3                   # loose cycles before tightening
  corr_func: mbs                    # correlation function choice
 ```
-
-## Notes
-
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Charge/multiplicity policy is documented centrally in [CLI Conventions](cli_conventions.md).
-- ML backend options are passed directly to the mlmm calculator. With `device: "auto"`, the calculator selects GPU/CPU automatically.
-- When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
-- `irc` forces `calc.return_partial_hessian: true`. The initial Hessian and subsequent updates use partial Hessian with active-DOF processing in pysisyphus.
-- If `hessian_calc_mode: "FiniteDifference"`, `geom.freeze_atoms` can still be used to skip frozen DOF in FD Hessian construction.
-- `--step-size` is in mass-weighted coordinates; `--root` selects the imaginary-frequency index used for the initial displacement.
-- Standard output includes progress and timing. Exit codes: `0` on success, `130` on `KeyboardInterrupt`, `1` on unhandled exceptions.
-
----
 
 ## See Also
 

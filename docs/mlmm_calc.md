@@ -4,13 +4,6 @@
 
 > **Summary:** ONIOM-like ML/MM calculator for PySisyphus, coupling an MLIP backend (high-level ML) and hessian_ff (low-level MM) to compute energies, forces, and Hessians for enzyme active-site models. Multiple MLIP backends are supported via `-b/--backend`.
 
-### At a glance
-- **Use when:** You need to understand the internal calculator that powers all ML/MM optimization, path search, scan, frequency, and IRC workflows.
-- **Method:** Subtractive ONIOM: E = E(REAL-low) - E(MODEL-low) + E(MODEL-high).
-- **Inputs:** `input.pdb`, `real.parm7`, `model.pdb`.
-- **Defaults:** `mm_backend: hessian_ff`; `backend: uma`; Hessian mode `Analytical`.
-- **Next step:** [opt](opt.md) or [tsopt](tsopt.md) to run calculations using this calculator.
-
 `mlmm_calc.mlmm` implements a subtractive ONIOM-style ML/MM calculator that combines a machine-learning interatomic potential (MLIP) with a molecular-mechanics force field (Amber prmtop-based `hessian_ff`). It serves as the core calculator for all ML/MM optimization, path search, scan, frequency, and IRC workflows in `mlmm_toolkit`.
 
 ### Multi-backend architecture
@@ -109,15 +102,6 @@ mlmm:
 | Hessian | eV/Å² | Hartree/Bohr^2 |
 
 The PySisyphus interface returns values converted to atomic units (Hartree/Bohr).
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- To reduce memory usage, Hessian assembly uses in-place `add_`/`sub_`/`mul_`.
-- Atom ID mapping between REAL/MODEL is based solely on `input.pdb`.
-- `real.rst7` is created internally from `input.pdb` coordinates using ParmEd.
-
----
 
 ## See Also
 

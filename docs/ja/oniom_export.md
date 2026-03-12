@@ -4,12 +4,6 @@
 
 > **要約:** Amber トポロジーを持つ ML/MM 系を、外部 QM/MM 入力形式（Gaussian ONIOM または ORCA QM/MM）へエクスポートします。
 
-### 早見表
-- **用途:** mlmm_toolkit で準備した系に対して外部 QM/MM 計算を実行したい場合。
-- **手法:** Amber parm7 トポロジーを読み込み、モデル PDB から ML 領域をマッピングし、`--mode`（未指定時は `-o` 拡張子推定）に応じて Gaussian `.com`/`.gjf` または ORCA `.inp` を出力。
-- **出力:** 適切なレイヤー/結合情報を含む Gaussian ONIOM 入力または ORCA QM/MM 入力。
-- **次のステップ:** Gaussian または ORCA でエクスポートした入力を実行。
-
 ## 統合コマンド
 
 ```bash

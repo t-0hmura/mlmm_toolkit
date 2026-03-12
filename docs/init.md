@@ -18,13 +18,6 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 | `-o, --out PATH` | Destination YAML path. | `mlmm_all.config.yaml` |
 | `--force/--no-force` | Overwrite existing file. | `False` |
 
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- The generated file is a starting point, not an exhaustive schema.
-
----
-
 ## See Also
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing

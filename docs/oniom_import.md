@@ -4,12 +4,6 @@
 
 > **Summary:** Import a Gaussian/ORCA ONIOM input file and reconstruct an XYZ plus a B-factor layered PDB.
 
-### At a glance
-- **Use when:** You want to bring an external ONIOM/QM/MM input back into the mlmm_toolkit workflow.
-- **Method:** Parses Gaussian (`.gjf`/`.com`) or ORCA (`.inp`) ONIOM input, restores coordinates/layer membership, and writes standardized outputs.
-- **Outputs:** `<out_prefix>.xyz` and `<out_prefix>_layered.pdb`.
-- **Layer encoding:** ML(QM)=0.00, Movable MM=10.00, Frozen MM=20.00 in PDB B-factor.
-
 ## Minimal example
 
 ```bash
@@ -66,13 +60,6 @@ mlmm oniom-import -i INPUT.[gjf|com|inp] [--mode g16|orca] \
 <out_prefix>.xyz
 <out_prefix>_layered.pdb
 ```
-
-## Notes
-- This command expects ONIOM inputs following `mlmm oniom-export` conventions.
-- If mode inference fails (unknown suffix), provide `--mode g16|orca`.
-- `--ref-pdb` requires atom counts to match exactly.
-
----
 
 ## See Also
 

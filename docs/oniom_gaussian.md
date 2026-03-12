@@ -4,13 +4,6 @@
 
 > **Summary:** Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology.
 
-### At a glance
-- **Use when:** You want to run Gaussian ONIOM on the same system prepared for ML/MM.
-- **Method:** Reads Amber parm7 topology via ParmEd; maps model PDB to define QM layer; detects QM/MM boundaries and annotates link atoms.
-- **Outputs:** Gaussian `.com` or `.gjf` with method, coordinates, layer flags, and connectivity.
-- **Defaults:** `--method "wB97XD/def2-TZVPD"`; `--nproc 8`; `--mem 16GB`; `--near 6.0`.
-- **Next step:** Run the exported input in Gaussian.
-
 ## Minimal example
 
 ```bash
@@ -71,15 +64,6 @@ Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm`
 | `--near FLOAT` | Distance cutoff for movable atoms (Å). | `6.0` |
 | `--nproc INT` | Number of processors. | `8` |
 | `--mem TEXT` | Memory allocation. | `16GB` |
-
-## Notes
-- For symptom-first diagnosis, start with [Common Error Recipes](recipes_common_errors.md), then use [Troubleshooting](troubleshooting.md) for detailed fixes.
-
-- Requires `parmed`.
-- Element validation is best-effort and assumes invariant atom ordering.
-- `--near` controls which MM atoms are marked movable around the QM region.
-
----
 
 ## See Also
 
