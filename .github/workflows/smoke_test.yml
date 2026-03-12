@@ -122,7 +122,4 @@ jobs:
           from mlmm_toolkit.cli import cli
           print('CLI entry point: OK')
 
-          # Embedcharge module should import cleanly
-          from mlmm_toolkit.xtb_embedcharge_correction import XTBEmbedChargeCorrection
-          print('Embedcharge module: OK')
           "

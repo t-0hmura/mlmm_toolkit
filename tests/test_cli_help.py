@@ -38,9 +38,9 @@ SUBCOMMANDS = [
 ]
 
 SCAN_SUBCOMMANDS = [
-    ("scan", "--scan-lists TEXT"),
-    ("scan2d", "--scan-lists TEXT"),
-    ("scan3d", "--scan-lists TEXT"),
+    ("scan", "--preopt"),
+    ("scan2d", "--preopt"),
+    ("scan3d", "--preopt"),
 ]
 
 CALC_SUBCOMMANDS = [
