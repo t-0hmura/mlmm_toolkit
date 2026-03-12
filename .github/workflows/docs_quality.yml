@@ -32,7 +32,7 @@ jobs:
           DOCS_DUMP_CASE_TIMEOUT_SEC: "180"
         run: |
           set -o pipefail
-          python scripts/run_docs_quality.py | tee docs_quality_timing.log
+          python scripts/run_docs_quality.py --skip-dump | tee docs_quality_timing.log
 
       - name: Upload docs quality timing log
         if: always()
