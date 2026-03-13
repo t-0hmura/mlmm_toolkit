@@ -152,7 +152,8 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors. | `True` |
-| `-q, --charge INT` | ML-region total charge. | Required unless `--csv` |
+| `-q, --charge INT` | ML-region total charge. | _None_ (required unless `-l` or `--csv` is given) |
+| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
@@ -214,6 +215,7 @@ bias:
 ## See Also
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [scan](scan.md) -- 1D bond-length driven scan
 - [scan2d](scan2d.md) -- 2D distance grid scan

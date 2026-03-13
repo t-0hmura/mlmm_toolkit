@@ -714,9 +714,9 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None,
-    help="How UMA builds the ML Hessian (Analytical or FiniteDifference); "
+    help="How the ML backend builds the Hessian (Analytical or FiniteDifference); "
          "overrides calc.hessian_calc_mode from YAML. "
-         "Defaults to 'FiniteDifference'. Use 'Analytical' when VRAM permits.",
+         "Default: 'FiniteDifference'. Use 'Analytical' when VRAM is sufficient.",
 )
 @click.option("--max-write", type=int, default=FREQ_KW["max_write"], show_default=True,
               help="Maximum number of modes to export.")
@@ -810,6 +810,15 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     show_default=True,
     help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
 )
+@click.option(
+    "--embedcharge-cutoff",
+    "embedcharge_cutoff",
+    type=float,
+    default=None,
+    show_default=False,
+    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
+         "Default: 12.0 Å when --embedcharge is enabled.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -843,6 +852,7 @@ def cli(
     hess_device: str,
     backend: Optional[str],
     embedcharge: bool,
+    embedcharge_cutoff: Optional[float],
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -928,6 +938,8 @@ def cli(
         calc_cfg["backend"] = str(backend).lower()
     if _is_param_explicit("embedcharge"):
         calc_cfg["embedcharge"] = bool(embedcharge)
+    if _is_param_explicit("embedcharge_cutoff"):
+        calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
 
     if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
         calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
@@ -1201,7 +1213,20 @@ def cli(
     freeze_list = sorted(set(freeze_for_freq) | explicit_freeze)
 
     try:
-        H_t, energy_ha = _calc_full_hessian_torch(geometry, calc_cfg, device)
+        from .hessian_cache import load as _hess_load
+        _cached_ts = _hess_load("ts")
+        if _cached_ts is not None:
+            click.echo("[freq] Reusing cached TS Hessian.")
+            H_t = _cached_ts["hessian"]
+            if isinstance(H_t, torch.Tensor):
+                H_t = H_t.to(device=device)
+            else:
+                H_t = torch.as_tensor(H_t, device=device)
+            energy_ha = _cached_ts.get("meta", {}).get("energy_ha")
+            if energy_ha is None:
+                energy_ha = float(geometry.energy)
+        else:
+            H_t, energy_ha = _calc_full_hessian_torch(geometry, calc_cfg, device)
         coords_bohr = geometry.coords.reshape(-1, 3)
         freqs_cm, modes_mw = _frequencies_cm_and_modes(
             H_t,

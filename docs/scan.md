@@ -17,7 +17,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 - `result_scan/stage_01/result.pdb` (or `result.xyz`)
 - `result_scan/stage_02/result.pdb` (or `result.xyz`)
-- `result_scan/stage_*/scan_trj.xyz` and `scan.pdb` when `--dump` is enabled
+- `result_scan/stage_*/scan_trj.xyz` and `scan.pdb` (always generated)
 
 ## Common examples
 
@@ -185,7 +185,8 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors. | `True` |
-| `-q, --charge INT` | Total ML-region charge. | Required |
+| `-q, --charge INT` | Total ML-region charge. | _None_ (required unless `-l` is given) |
+| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
@@ -200,9 +201,9 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `True` |
-| `--dump/--no-dump` | Dump concatenated biased trajectories (`scan_trj.xyz`/`scan.pdb`). | `False` |
-| `-o, --out-dir TEXT` | Output directory root. | `./result_scan/` |
-| `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | `baker` |
+| `--dump/--no-dump` | Dump per-step optimizer trajectory files. Note: `scan_trj.xyz`/`scan.pdb` are always written regardless of this flag. | `False` |
+| `--out-dir TEXT` | Output directory root. | `./result_scan/` |
+| `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ (inherits `gau`) |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | _None_ (`uma` applied internally) |
@@ -213,14 +214,16 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 ## Outputs
 ```
 out_dir/ (default: ./result_scan/)
-├─ preopt/ # Present when --preopt is True
-│ ├─ result.xyz
-│ └─ result.pdb # Only for PDB inputs
-└─ stage_XX/ # One folder per stage (k = 01..K)
- ├─ result.xyz # Final (possibly endopt) geometry
- ├─ result.pdb # If input was PDB
- ├─ scan_trj.xyz # Concatenated biased step frames when --dump
- └─ scan.pdb # PDB version of scan_trj.xyz (PDB inputs only)
+├─ scan_trj.xyz              # Combined trajectory across all stages (always written)
+├─ scan.pdb                  # Combined PDB companion (PDB inputs only; always written)
+├─ preopt/                   # Present when --preopt is True
+│  ├─ result.xyz
+│  └─ result.pdb             # Only for PDB inputs
+└─ stage_XX/                 # One folder per stage (k = 01..K)
+   ├─ result.xyz             # Final (possibly endopt) geometry
+   ├─ result.pdb             # If input was PDB
+   ├─ scan_trj.xyz           # Per-stage biased step frames (always written)
+   └─ scan.pdb               # PDB version of scan_trj.xyz (PDB inputs only; always written)
 ```
 
 ## YAML configuration

@@ -19,13 +19,13 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 Given **(i) two or more full protein-ligand PDB files** (R,..., P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm` automatically:
 
 - extracts an **active-site pocket** around user-defined substrates to build a **cluster model**,
-- generates **Amber parm7/rst7** topology files for the MM region (`mm-parm`),
-- assigns a **3-layer ML/MM partitioning** (`define-layer`),
+- generates **Amber parm7/rst7** topology files for the MM region ([`mm-parm`](mm_parm.md)),
+- assigns a **3-layer ML/MM partitioning** ([`define-layer`](define_layer.md)),
 - explores **minimum-energy paths (MEPs)** with path optimization methods such as the Growing String Method (GSM) and Direct Max Flux (DMF),
 - _optionally_ optimizes **transition states**, runs **vibrational analysis**, **IRC calculations**, and **single-point DFT calculations**.
 
 ```{important}
-Treat single-command TS outputs as initial candidates. For enzyme reactions, iterative refinement is common (endpoint quality, pocket definition, constraints, scan targets), and TS validation with both `freq` and `irc` is required before interpretation.
+Treat single-command TS outputs as initial candidates. For enzyme reactions, iterative refinement is common (endpoint quality, pocket definition, constraints, scan targets), and TS validation with both [`freq`](freq.md) and [`irc`](irc.md) is required before interpretation.
 ```
 
 At the ML stage, the reactive region uses a machine-learned interatomic potential (MLIP). The default backend is UMA (Meta's FAIR-Chem); alternative backends include ORB, MACE, and AIMNet2 (selected via `-b/--backend`). The MM region uses `hessian_ff`, a C++ native extension that computes Amber force field energies, forces, and Hessians. The total energy follows an ONIOM-like decomposition:
@@ -41,7 +41,7 @@ The CLI is designed to generate **multi-step enzymatic reaction mechanisms** wit
 ```{important}
 - Input PDB files must already contain **hydrogen atoms**.
 - When you provide multiple PDBs, they must contain **the same atoms in the same order** (only coordinates may differ); otherwise an error is raised.
-- Most subcommands require `--parm` (Amber topology) and `--model-pdb` (ML region definition). The `all` command generates these automatically.
+- Most subcommands require `--parm` (Amber topology) and `--model-pdb` (ML region definition). The [`all`](all.md) command generates these automatically.
 ```
 
 ```{tip}
@@ -111,6 +111,9 @@ Below is a minimal setup example that works on many CUDA 12.9 clusters. Adjust m
 
 pip install torch --index-url https://download.pytorch.org/whl/cu129
 pip install mlmm-toolkit
+
+# Previous stable release (v0.1.1):
+# pip install git+https://github.com/t-0hmura/mlmm_toolkit.git@v0.1.1
 
 # Optional: install alternative MLIP backends
 pip install "mlmm-toolkit[orb]"       # ORB backend

@@ -1,10 +1,10 @@
 Third-Party Notices
 ===================
 
-This package includes bundled copies of the following third-party software:
+This package includes modified copies of the following third-party software:
 
 --------------------------------------------------------------------------------
-pysisyphus (bundled as pysisyphus/)
+pysisyphus (modified, bundled as pysisyphus/)
 --------------------------------------------------------------------------------
 
 Original: https://github.com/eljost/pysisyphus
@@ -20,7 +20,7 @@ the Free Software Foundation, either version 3 of the License, or
 See pysisyphus/LICENSE for the full license text.
 
 --------------------------------------------------------------------------------
-thermoanalysis (bundled as thermoanalysis/)
+thermoanalysis (modified, bundled as thermoanalysis/)
 --------------------------------------------------------------------------------
 
 Original: https://github.com/eljost/thermoanalysis

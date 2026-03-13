@@ -110,6 +110,9 @@ mlmm_toolkit は以下のコンポーネントを使用します:
 pip install torch --index-url https://download.pytorch.org/whl/cu129
 pip install mlmm-toolkit
 
+# 以前の安定版 (v0.1.1):
+# pip install git+https://github.com/t-0hmura/mlmm_toolkit.git@v0.1.1
+
 # オプション: 代替 MLIP バックエンドのインストール
 pip install "mlmm-toolkit[orb]"       # ORB バックエンド
 pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 バックエンド

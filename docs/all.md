@@ -159,8 +159,11 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `-l, --ligand-charge TEXT` | Total charge or residue-specific mapping (e.g., `GPP:-3,MMT:-1`). | _None_ |
 | `-q, --charge INT` | Force total system charge (highest priority override). | _None_ |
 | `-o, --out-dir PATH` | Top-level output directory. | `./result_all/` |
+| `--parm FILE` | AMBER parm7 topology file for the full (real) system. When omitted, `all` auto-generates one via `mm_parm`. | _None_ |
+| `--model-pdb FILE` | Pre-built ML-region PDB. When provided, pocket extraction is skipped and this file defines the ML region directly. | _None_ |
+| `--ref-pdb FILE` | Reference PDB for XYZ input. Required when the input is XYZ so that PDB metadata (residues, chains, B-factors) can be recovered. | _None_ |
 | `--convert-files/--no-convert-files` | Global toggle for XYZ/TRJ to PDB companions when templates are available. | `True` |
-| `--dump BOOL` | Save optimizer dumps. Always forwarded to `path-search`/`path-opt`; forwarded to `scan`/`tsopt` only when explicitly set here. `freq` defaults to dump=True unless you pass `--dump False`. | `False` |
+| `--dump/--no-dump` | Save optimizer dumps. Always forwarded to `path-search`/`path-opt`; forwarded to `scan`/`tsopt` only when explicitly set here. `freq` defaults to dump=True unless you pass `--no-dump`. | `False` |
 | `--config FILE` | Base YAML applied first. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration before execution. | `False` |
 | `--dry-run/--no-dry-run` | Validate and print plan without running stages. Shown in `--help-advanced`. | `False` |
@@ -169,13 +172,13 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--radius FLOAT` | Pocket inclusion cutoff (Å). | `2.6` |
+| `-r, --radius FLOAT` | Pocket inclusion cutoff (Å). | `2.6` |
 | `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å). | `0.0` |
-| `--include-H2O BOOL` | Include water molecules (HOH/WAT/TIP3/SOL). | `True` |
-| `--exclude-backbone BOOL` | Remove backbone atoms on non-substrate amino acids. | `True` |
-| `--add-linkH BOOL` | Add link hydrogens for severed bonds. | `False` |
+| `--include-H2O/--no-include-H2O` | Include water molecules (HOH/WAT/TIP3/SOL). | `True` |
+| `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | `True` |
+| `--add-linkH/--no-add-linkH` | Add link hydrogens for severed bonds. | `False` |
 | `--selected-resn TEXT` | Residues to force include. | `""` |
-| `--verbose BOOL` | Enable INFO-level extractor logging. | `True` |
+| `--verbose/--no-verbose` | Enable INFO-level extractor logging. | `True` |
 
 ### MM Preparation Options
 
@@ -190,14 +193,14 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | Option | Description | Default |
 | --- | --- | --- |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
-| `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
+| `--max-nodes INT` | Internal nodes for segment GSM. | `20` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
-| `--climb BOOL` | Enable TS refinement for segment GSM. | `True` |
+| `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
 | `--opt-mode [grad\|hess]` | Optimizer preset for scan/path-search and single optimizations (`grad` -> LBFGS/Dimer, `hess` -> RFO/RSIRFO). | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT/post-IRC endpoint optimizations (`grad` -> Dimer/LBFGS, `hess` -> RS-I-RFO/RFO). | `hess` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
-| `--preopt BOOL` | Pre-optimize endpoints before segmentation. | `True` |
+| `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.yaml). Both modes support Stage 4 (TSOPT/thermo/DFT). | `True` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
@@ -210,22 +213,22 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--scan-lists TEXT...` | Staged scans: `(i, j, target_Å)` tuples. | _None_ |
+| `-s, --scan-lists TEXT...` | Staged scans: `(i, j, target_Å)` tuples. | _None_ |
 | `--scan-out-dir PATH` | Override the scan output directory. | _None_ |
-| `--scan-one-based BOOL` | Override scan indexing interpretation (True = 1-based, False = 0-based). | _None_ |
+| `--scan-one-based/--no-scan-one-based` | Override scan indexing interpretation (True = 1-based, False = 0-based). | _None_ |
 | `--scan-max-step-size FLOAT` | Maximum step size (Å). | _Default_ |
 | `--scan-bias-k FLOAT` | Harmonic bias strength (eV/Å²). | _Default_ |
 | `--scan-relax-max-cycles INT` | Relaxation max cycles per step. | _Default_ |
-| `--scan-preopt BOOL` | Override scan pre-optimization toggle. | _None_ |
-| `--scan-endopt BOOL` | Override scan end-of-stage optimization. | _None_ |
+| `--scan-preopt/--no-scan-preopt` | Override scan pre-optimization toggle. | _None_ |
+| `--scan-endopt/--no-scan-endopt` | Override scan end-of-stage optimization. | _None_ |
 
 ### Post-Processing Options
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--tsopt BOOL` | Run TS optimization + pseudo-IRC per reactive segment. | `False` |
-| `--thermo BOOL` | Run vibrational analysis (`freq`) on R/TS/P. | `False` |
-| `--dft BOOL` | Run single-point DFT on R/TS/P. | `False` |
+| `--tsopt/--no-tsopt` | Run TS optimization + pseudo-IRC per reactive segment. | `False` |
+| `--thermo/--no-thermo` | Run vibrational analysis (`freq`) on R/TS/P. | `False` |
+| `--dft/--no-dft` | Run single-point DFT on R/TS/P. | `False` |
 | `--flatten/--no-flatten` | Enable extra-imaginary-mode flattening in `tsopt`. | `False` |
 | `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |
 | `--tsopt-out-dir PATH` | Custom tsopt subdirectory. | _None_ |
@@ -354,7 +357,7 @@ mlmm:
  model_pdb: ml_region.pdb
  backend: uma                    # MLIP backend: uma | orb | mace | aimnet2
  embedcharge: false              # xTB point-charge embedding correction
- uma_model: uma-s-1p1            # uma-s-1p1 | uma-s-1p1 | uma-m-1p1
+ uma_model: uma-s-1p1            # uma-s-1p1 | uma-m-1p1
  ml_hessian_mode: Analytical     # recommended when VRAM permits
 gs:
  max_nodes: 12

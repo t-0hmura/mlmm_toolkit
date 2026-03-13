@@ -593,6 +593,15 @@ def _finalize_surface_and_plot(
     show_default=True,
     help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
 )
+@click.option(
+    "--embedcharge-cutoff",
+    "embedcharge_cutoff",
+    type=float,
+    default=None,
+    show_default=False,
+    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
+         "Default: 12.0 Å when --embedcharge is enabled.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -627,6 +636,7 @@ def cli(
     convert_files: bool,
     backend: Optional[str],
     embedcharge: bool,
+    embedcharge_cutoff: Optional[float],
 ) -> None:
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -758,6 +768,8 @@ def cli(
                 calc_cfg["backend"] = str(backend).lower()
             if _is_param_explicit("embedcharge"):
                 calc_cfg["embedcharge"] = bool(embedcharge)
+            if _is_param_explicit("embedcharge_cutoff"):
+                calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
 
             # movable_cutoff implies full distance-based layer assignment.
             # hess_cutoff alone can be combined with --detect-layer.
@@ -935,7 +947,7 @@ def cli(
                     max_step_bohr=float(max_step_size) * ANG2BOHR,
                     relax_max_cycles=relax_max_cycles,
                     out_dir=tmp_opt_dir,
-                    prefix="preopt_",
+                    prefix="preopt",
                 )
                 try:
                     optimizer0.run()
@@ -1052,7 +1064,7 @@ def cli(
                     max_step_bohr=max_step_bohr,
                     relax_max_cycles=relax_max_cycles,
                     out_dir=tmp_opt_dir,
-                    prefix=f"d1_{d1_tag}_",
+                    prefix=f"d1_{d1_tag}",
                 )
                 try:
                     opt1.run()
@@ -1095,7 +1107,7 @@ def cli(
                         max_step_bohr=max_step_bohr,
                         relax_max_cycles=relax_max_cycles,
                         out_dir=tmp_opt_dir,
-                        prefix=f"d1_{d1_tag}_d2_{d2_tag}_",
+                        prefix=f"d1_{d1_tag}_d2_{d2_tag}",
                     )
                     try:
                         opt2.run()
@@ -1138,7 +1150,7 @@ def cli(
                             max_step_bohr=max_step_bohr,
                             relax_max_cycles=relax_max_cycles,
                             out_dir=tmp_opt_dir,
-                            prefix=f"d1_{d1_tag}_d2_{d2_tag}_d3_{d3_tag}_",
+                            prefix=f"d1_{d1_tag}_d2_{d2_tag}_d3_{d3_tag}",
                         )
                         try:
                             opt3.run()

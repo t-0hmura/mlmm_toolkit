@@ -22,6 +22,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 - `result_opt/final_geometry.xyz`
 - `result_opt/final_geometry.pdb`（入力が PDB で変換が有効な場合）
 - `result_opt/optimization_trj.xyz`（`--dump` 有効時）
+- `result_opt/optimization_all_trj.xyz`（`--dump` 有効時）
+- `result_opt/optimization_all.pdb`（`--dump` 有効時、入力が PDB の場合）
 
 ## よくある例
 
@@ -76,7 +78,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` の代替。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | 1 始まり |
 | `--detect-layer / --no-detect-layer` | B 因子（0/10/20）から ML/MM レイヤーを自動検出。 | 有効 |
-| `-q, --charge INT` | ML 領域の電荷。 | 必須 |
+| `-q, --charge INT` | ML 領域の電荷。 | _None_（`-l` 未指定時は必須） |
+| `-l, --ligand-charge` | TEXT | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
 | `--radius-partial-hessian FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。`--detect-layer` と併用可。エイリアス: `--hess-cutoff`。 | _None_ |
@@ -87,8 +90,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--max-cycles INT` | 最適化反復のハードリミット。 | `10000` |
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザーモード: `grad`/`lbfgs`（LBFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
 | `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（LBFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
-| `--flatten/--no-flatten` | 最適化後の虚振動数モードフラットンループの有効化/無効化。 | `False` |
-| `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`）を出力。 | `False` |
+| `--flatten/--no-flatten` | 最適化後の虚振動数モードフラットニングループの有効化/無効化。 | `False` |
+| `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`、`optimization_all_trj.xyz`）を出力。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの有効化/無効化。 | `True` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |
 | `--thresh TEXT` | 収束プリセットの上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（内部的に `gau` を適用） |
@@ -118,6 +121,8 @@ out_dir/ (デフォルト: ./result_opt/)
 ├─ final_geometry.pdb          # 入力が PDB で変換有効時のみ（B 因子アノテーション付き）
 ├─ optimization_trj.xyz        # ダンプ有効時のみ
 ├─ optimization.pdb            # PDB 入力で変換有効時の軌跡 PDB 変換
+├─ optimization_all_trj.xyz    # 連結フル軌跡（--dump 時）
+├─ optimization_all.pdb        # フル軌跡の PDB コンパニオン（PDB 入力、--dump 時）
 └─ restart*.yml                # opt.dump_restart 設定時のオプションリスタート
 ```
 
@@ -175,7 +180,7 @@ mlmm:
  model_pdb: ml_region.pdb       # ML 領域を定義する PDB
  backend: uma                   # ML バックエンド (uma/orb/mace/aimnet2)
  embedcharge: false             # xTB 点電荷埋め込み補正
- uma_model: uma-s-1p1           # uma-s-1p1 | uma-s-1p1 | uma-m-1p1
+ uma_model: uma-s-1p1           # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol             # UMA タスク名 (backend=uma 時)
  ml_device: auto                # ML デバイス選択
  ml_hessian_mode: Analytical         # ヘシアンモード選択

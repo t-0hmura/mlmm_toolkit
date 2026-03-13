@@ -325,7 +325,8 @@ def _snapshot_geometry(g) -> Any:
     "dump",
     default=False,
     show_default=True,
-    help="Write stage trajectory as scan_trj.xyz (and scan.pdb for PDB input).",
+    help="Write per-step optimizer trajectory files. "
+         "scan_trj.xyz and scan.pdb are always written to out-dir regardless of this flag.",
 )
 @click.option("--out-dir", type=str, default="./result_scan/", show_default=True,
               help="Base output directory.")
@@ -390,6 +391,15 @@ def _snapshot_geometry(g) -> Any:
     show_default=True,
     help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
 )
+@click.option(
+    "--embedcharge-cutoff",
+    "embedcharge_cutoff",
+    type=float,
+    default=None,
+    show_default=False,
+    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
+         "Default: 12.0 Å when --embedcharge is enabled.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -424,6 +434,7 @@ def cli(
     convert_files: bool,
     backend: Optional[str],
     embedcharge: bool,
+    embedcharge_cutoff: Optional[float],
 ) -> None:
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -538,6 +549,8 @@ def cli(
                 calc_cfg["backend"] = str(backend).lower()
             if _is_param_explicit("embedcharge"):
                 calc_cfg["embedcharge"] = bool(embedcharge)
+            if _is_param_explicit("embedcharge_cutoff"):
+                calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
 
             # movable_cutoff implies full distance-based layer assignment.
             # hess_cutoff alone can be combined with --detect-layer.
@@ -749,7 +762,7 @@ def cli(
                 pre_dir.mkdir(parents=True, exist_ok=True)
                 geom.set_calculator(base_calc)
                 click.echo("[preopt] Unbiased relaxation (LBFGS) ...")
-                optimizer0 = _make_lbfgs(pre_dir, "preopt_")
+                optimizer0 = _make_lbfgs(pre_dir, "preopt")
                 try:
                     optimizer0.run()
                 except ZeroStepLength:
@@ -769,6 +782,8 @@ def cli(
 
             biased = HarmonicBiasCalculator(base_calc, k=float(bias_cfg["k"]))
             geom.set_calculator(biased)
+
+            all_trj_blocks: List[str] = []
 
             for k, tuples in enumerate(stages, start=1):
                 stage_dir = out_dir_path / f"stage_{k:02d}"
@@ -796,7 +811,7 @@ def cli(
                 }
                 stages_summary.append(srec)
 
-                trj_blocks: List[str] = [] if dump else None
+                trj_blocks: List[str] = []
                 pairs = [(i, j) for (i, j, _) in tuples]
 
                 if Nsteps == 0:
@@ -804,7 +819,7 @@ def cli(
                         geom.set_calculator(base_calc)
                         click.echo(f"[stage {k}] endopt (unbiased) ...")
                         try:
-                            end_optimizer = _make_lbfgs(stage_dir, "endopt_")
+                            end_optimizer = _make_lbfgs(stage_dir, "endopt")
                             end_optimizer.run()
                         except ZeroStepLength:
                             click.echo(f"[stage {k}] endopt ZeroStepLength — continuing.", err=True)
@@ -844,7 +859,7 @@ def cli(
                     biased.set_pairs([(i, j, t) for ((i, j), t) in zip(pairs, step_targets)])
                     geom.set_calculator(biased)
 
-                    prefix = f"scan_s{s:04d}_"
+                    prefix = f"scan_s{s:04d}"
                     optimizer = _make_lbfgs(stage_dir, prefix)
                     click.echo(f"[stage {k}] step {s}/{Nsteps}: relaxation (LBFGS) ...")
                     try:
@@ -854,14 +869,13 @@ def cli(
                     except OptimizationError as e:
                         click.echo(f"[stage {k}] step {s}: OptimizationError — {e}", err=True)
 
-                    if dump and trj_blocks is not None:
-                        trj_blocks.append(_coords3d_to_xyz_string(geom))
+                    trj_blocks.append(_coords3d_to_xyz_string(geom))
 
                 if endopt:
                     geom.set_calculator(base_calc)
                     click.echo(f"[stage {k}] endopt (unbiased) ...")
                     try:
-                        end_optimizer = _make_lbfgs(stage_dir, "endopt_")
+                        end_optimizer = _make_lbfgs(stage_dir, "endopt")
                         end_optimizer.run()
                     except ZeroStepLength:
                         click.echo(f"[stage {k}] endopt ZeroStepLength — continuing.", err=True)
@@ -885,11 +899,12 @@ def cli(
                 except Exception as e:
                     click.echo(f"[stage {k}] WARNING: Failed to evaluate bond changes: {e}", err=True)
 
-                if dump and trj_blocks:
+                if trj_blocks:
                     trj_path = stage_dir / "scan_trj.xyz"
                     with open(trj_path, "w") as f:
                         f.write("".join(trj_blocks))
                     click.echo(f"[write] Wrote '{trj_path}'.")
+                    all_trj_blocks.extend(trj_blocks)
                     try:
                         convert_xyz_to_pdb(trj_path, source_path.resolve(), stage_dir / "scan.pdb")
                         click.echo(f"[convert] Wrote '{stage_dir / 'scan.pdb'}'.")
@@ -905,6 +920,20 @@ def cli(
                     click.echo(f"[convert] Wrote '{stage_dir / 'result.pdb'}'.")
                 except Exception as e:
                     click.echo(f"[convert] WARNING: Failed to convert stage result to PDB: {e}", err=True)
+
+        # ------------------------------------------------------------------
+        # 4b) Write combined scan_trj.xyz + scan.pdb to out_dir
+        # ------------------------------------------------------------------
+        if all_trj_blocks:
+            combined_trj = out_dir_path / "scan_trj.xyz"
+            with open(combined_trj, "w") as f:
+                f.write("".join(all_trj_blocks))
+            click.echo(f"[write] Wrote '{combined_trj}'.")
+            try:
+                convert_xyz_to_pdb(combined_trj, source_path.resolve(), out_dir_path / "scan.pdb")
+                click.echo(f"[convert] Wrote '{out_dir_path / 'scan.pdb'}'.")
+            except Exception as e:
+                click.echo(f"[convert] WARNING: Failed to convert combined trajectory to PDB: {e}", err=True)
 
         # ------------------------------------------------------------------
         # 5) Final summary echo (human‑friendly)

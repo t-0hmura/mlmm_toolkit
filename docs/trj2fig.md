@@ -55,7 +55,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 | `-r, --reference TEXT` | Reference specification (`init`, `None`, or 0-based integer). | `init` |
 | `-q, --charge INT` | Total charge used for UMA recomputation. Triggers recomputation when supplied. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) used for UMA recomputation. Triggers recomputation when supplied. | _None_ |
-| `--reverse-x` | Reverse the x-axis so the last frame appears on the left (and `init` becomes the last frame). | `False` |
+| `--reverse-x/--no-reverse-x` | Reverse the x-axis so the last frame appears on the left (and `init` becomes the last frame). | `False` |
 
 ## Outputs
 ```

@@ -22,6 +22,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 - `result_opt/final_geometry.xyz`
 - `result_opt/final_geometry.pdb` (when the input is PDB and conversion is enabled)
 - `result_opt/optimization_trj.xyz` (when `--dump` is enabled)
+- `result_opt/optimization_all_trj.xyz` (when `--dump` is enabled)
+- `result_opt/optimization_all.pdb` (when `--dump` is enabled and input is PDB)
 
 ## Common examples
 
@@ -76,7 +78,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Alternative to `--model-pdb`. | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Index convention for `--model-indices`. | 1-based |
 | `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors (0/10/20). | Enabled |
-| `-q, --charge INT` | Charge of the ML region. | Required |
+| `-q, --charge INT` | Charge of the ML region. | _None_ (required unless `-l` is given) |
+| `-l, --ligand-charge` | TEXT | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
 | `--radius-partial-hessian FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. Alias: `--hess-cutoff`. | _None_ |
@@ -88,7 +91,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | Optimizer mode: `grad` (LBFGS) or `hess` (RFO). Aliases `light`/`heavy` and `lbfgs`/`rfo` accepted. | `grad` |
 | `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RFO) + MM relaxation (LBFGS). Only effective in `hess` mode. | `True` |
 | `--flatten/--no-flatten` | Enable/disable the post-optimization imaginary-mode flatten loop. | `False` |
-| `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`). | `False` |
+| `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`, `optimization_all_trj.xyz`). | `False` |
 | `--convert-files/--no-convert-files` | Enable or disable XYZ/TRJ to PDB companions for PDB inputs. | `True` |
 | `-o, --out-dir TEXT` | Output directory for all files. | `./result_opt/` |
 | `--thresh TEXT` | Override convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (`gau` applied internally) |
@@ -118,6 +121,8 @@ out_dir/ (default: ./result_opt/)
 ├─ final_geometry.pdb          # Only when the input was a PDB and conversion is enabled (B-factors annotated)
 ├─ optimization_trj.xyz        # Only if dumping is enabled
 ├─ optimization.pdb            # PDB conversion of the trajectory (PDB inputs, conversion enabled)
+├─ optimization_all_trj.xyz    # Concatenated full trajectory (when --dump)
+├─ optimization_all.pdb        # PDB companion of the full trajectory (PDB inputs, when --dump)
 └─ restart*.yml                # Optional restarts when opt.dump_restart is set
 ```
 
@@ -174,7 +179,7 @@ mlmm:
  model_pdb: ml_region.pdb       # PDB defining the ML region
  backend: uma                   # MLIP backend: uma | orb | mace | aimnet2
  embedcharge: false             # xTB point-charge embedding correction
- uma_model: uma-s-1p1           # uma-s-1p1 | uma-s-1p1 | uma-m-1p1
+ uma_model: uma-s-1p1           # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol             # UMA task name (UMA backend only)
  ml_device: auto                # ML backend device selection
  ml_hessian_mode: Analytical         # Hessian mode selection

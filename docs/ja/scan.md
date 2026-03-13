@@ -17,7 +17,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 - `result_scan/stage_01/result.pdb`（または `result.xyz`）
 - `result_scan/stage_02/result.pdb`（または `result.xyz`）
-- `--dump` 指定時は `result_scan/stage_*/scan_trj.xyz` と `scan.pdb`
+- `result_scan/stage_*/scan_trj.xyz` と `scan.pdb`（常に生成）
 
 ## よくある例
 
@@ -171,7 +171,8 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを検出。 | `True` |
-| `-q, --charge INT` | ML 領域の総電荷。 | 必須 |
+| `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
+| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 原子からの MM Hessian 距離カットオフ (Å)。 | _None_ |
@@ -186,9 +187,9 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | _None_ |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `True` |
 | `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `True` |
-| `--dump/--no-dump` | 連結バイアス軌跡（`scan_trj.xyz`/`scan.pdb`）をダンプ。 | `False` |
+| `--dump/--no-dump` | ステップごとのオプティマイザー軌跡ファイルをダンプ。注: `scan_trj.xyz`/`scan.pdb` はこのフラグに関係なく常に書き出されます。 | `False` |
 | `-o, --out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
-| `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | `baker` |
+| `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_（`gau` を継承） |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部で `uma` を適用） |
@@ -199,14 +200,16 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 ## 出力
 ```
 out_dir/ (デフォルト:./result_scan/)
-├─ preopt/ # --preopt が True の場合
-│ ├─ result.xyz
-│ └─ result.pdb # PDB 入力のみ
-└─ stage_XX/ # ステージごとに 1 フォルダ（k = 01..K）
- ├─ result.xyz # 最終（endopt 済みの可能性あり）ジオメトリ
- ├─ result.pdb # 入力が PDB の場合
- ├─ scan_trj.xyz # --dump 時のバイアスステップフレーム連結
- └─ scan.pdb # scan_trj.xyz の PDB 版（PDB 入力のみ）
+├─ scan_trj.xyz              # 全ステージ結合軌跡（常に書き出し）
+├─ scan.pdb                  # 結合 PDB コンパニオン（PDB 入力のみ、常に書き出し）
+├─ preopt/                   # --preopt が True の場合
+│  ├─ result.xyz
+│  └─ result.pdb             # PDB 入力のみ
+└─ stage_XX/                 # ステージごとに 1 フォルダ（k = 01..K）
+   ├─ result.xyz             # 最終（endopt 済みの可能性あり）ジオメトリ
+   ├─ result.pdb             # 入力が PDB の場合
+   ├─ scan_trj.xyz           # ステージ別バイアスステップフレーム（常に書き出し）
+   └─ scan.pdb               # scan_trj.xyz の PDB 版（PDB 入力のみ、常に書き出し）
 ```
 
 ## YAML 設定

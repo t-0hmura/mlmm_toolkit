@@ -1907,9 +1907,9 @@ hessian_dimer_KW = {
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None,
-    help="How UMA builds the ML Hessian (Analytical or FiniteDifference); "
+    help="How the ML backend builds the Hessian (Analytical or FiniteDifference); "
          "overrides calc.hessian_calc_mode from YAML. "
-         "Defaults to 'FiniteDifference'. Use 'Analytical' when VRAM permits.",
+         "Default: 'FiniteDifference'. Use 'Analytical' when VRAM is sufficient.",
 )
 @click.option("--max-cycles", type=int, default=10000, show_default=True, help="Maximum total optimization cycles.")
 @click.option(
@@ -2015,6 +2015,15 @@ hessian_dimer_KW = {
     show_default=True,
     help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
 )
+@click.option(
+    "--embedcharge-cutoff",
+    "embedcharge_cutoff",
+    type=float,
+    default=None,
+    show_default=False,
+    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
+         "Default: 12.0 Å when --embedcharge is enabled.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -2048,6 +2057,7 @@ def cli(
     convert_files: bool,
     backend: Optional[str],
     embedcharge: bool,
+    embedcharge_cutoff: Optional[float],
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -2182,6 +2192,8 @@ def cli(
         calc_cfg["backend"] = str(backend).lower()
     if _is_param_explicit("embedcharge"):
         calc_cfg["embedcharge"] = bool(embedcharge)
+    if _is_param_explicit("embedcharge_cutoff"):
+        calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
 
     apply_yaml_overrides(
         override_layer_cfg,
@@ -2510,7 +2522,22 @@ def cli(
                 freeze_atoms_freq = freeze_atoms_final if freeze_atoms_final else None
 
             def _calc_freqs_and_modes() -> Tuple[np.ndarray, torch.Tensor]:
-                H = _calc_full_hessian_torch(geometry, mlmm_kwargs_for_heavy, device)
+                H, _energy_ha = _freq_calc_full_hessian_torch(
+                    geometry, mlmm_kwargs_for_heavy, device, refresh_geom_meta=True,
+                )
+                from .hessian_cache import store as _hess_store
+                # Determine active_dofs for partial Hessian
+                _n_full_dofs = 3 * len(geometry.atomic_numbers)
+                if H.shape[0] < _n_full_dofs:
+                    _freeze_atoms = list(calc_cfg.get("freeze_atoms", []))
+                    _all_dofs = set(range(_n_full_dofs))
+                    _frozen_dofs = set()
+                    for _idx in _freeze_atoms:
+                        _frozen_dofs.update([3 * _idx, 3 * _idx + 1, 3 * _idx + 2])
+                    _active_dofs = sorted(_all_dofs - _frozen_dofs)
+                else:
+                    _active_dofs = None
+                _hess_store("ts", H, active_dofs=_active_dofs, meta={"energy_ha": _energy_ha})
                 n_full = len(geometry.atomic_numbers)
                 if H.shape[0] != 3 * n_full:
                     # Partial Hessian: use Hessian-target atoms only and embed modes back.

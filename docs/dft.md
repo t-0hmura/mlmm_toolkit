@@ -59,7 +59,8 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Full enzyme PDB file (must be `.pdb`). | Required |
+| `-i, --input PATH` | Full enzyme structure (PDB or XYZ). If XYZ, use `--ref-pdb` for topology. | Required |
+| `--ref-pdb FILE` | Reference PDB topology when input is XYZ. | _None_ |
 | `--parm PATH` | Amber parm7 topology for the full system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs must match the enzyme PDB). Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Used when `--model-pdb` is omitted. | _None_ |
@@ -71,7 +72,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--func-basis TEXT` | Functional/basis pair as `"FUNC/BASIS"`. | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | Maximum SCF iterations. | `100` |
 | `--conv-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
-| `--grid-level INT` | PySCF numerical integration grid level. | `3` |
+| `--grid-level INT` | DFT integration grid level (0=coarse, 3=default, 9=ultrafine). | `3` |
 | `-o, --out-dir DIR` | Output directory. | `./result_dft/` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |

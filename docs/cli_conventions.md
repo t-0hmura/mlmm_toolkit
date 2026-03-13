@@ -18,8 +18,7 @@ Both notations are accepted:
 ```
 
 For options that are defined only as `--flag`, the root CLI also accepts `--no-flag` and `--flag False` as compatibility aliases.
-`extract` and `fix-altloc` are parser-wrapper subcommands (argparse backend), but the same bool normalization still applies at the root CLI.
-For these parser wrappers, root normalization discovers bool options from the argparse definitions, so `--flag/--no-flag` and `--flag True/False` stay in sync without a separate hand-maintained map.
+All subcommands (including `extract` and `fix-altloc`) use Click as their CLI backend.
 
 Common boolean options:
 - `--tsopt`, `--thermo`, `--dft` -- enable post-processing stages
@@ -301,6 +300,8 @@ Default output directories:
 - `path-opt`: `./result_path_opt/`
 - `path-search`: `./result_path_search/`
 - `scan`: `./result_scan/`
+- `scan2d`: `./result_scan2d/`
+- `scan3d`: `./result_scan3d/`
 - `freq`: `./result_freq/`
 - `irc`: `./result_irc/`
 - `dft`: `./result_dft/`

@@ -4,6 +4,13 @@
 
 > **要約:** XYZ 軌跡のコメント行からエネルギーを抽出（または UMA で再計算）し、相対または絶対エネルギープロファイルを計算して Plotly 図と CSV テーブルとしてエクスポートします。
 
+### クイックリファレンス
+- **入力:** 2 行目に Hartree エネルギーが格納された XYZ 軌跡、または `-q/--charge` や `-m/--multiplicity` でエネルギーを再計算。
+- **基準モード:** 最初のフレーム（`init`）、基準なし（`None`）、または明示的な 0 始まりフレームインデックス。
+- **出力形式:** PNG（デフォルト）、JPEG、HTML、SVG、PDF、CSV。
+- **単位:** kcal/mol（デフォルト）または Hartree。
+- **X 軸反転:** `--reverse-x` で軸を反転し、最後のフレームが左側に表示されます。
+
 ## 使用法
 
 ```bash
@@ -46,7 +53,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 | `-r, --reference TEXT` | 基準仕様（`init`、`None`、または 0 始まり整数）。 | `init` |
 | `-q, --charge INT` | UMA 再計算に使う総電荷。指定時に再計算を実行。 | _None_ |
 | `-m, --multiplicity INT` | UMA 再計算に使うスピン多重度 (2S+1)。指定時に再計算を実行。 | _None_ |
-| `--reverse-x` | X 軸を反転し、最後のフレームが左側に表示されます（`init` は最後のフレームになります）。 | `False` |
+| `--reverse-x/--no-reverse-x` | X 軸を反転し、最後のフレームが左側に表示されます（`init` は最後のフレームになります）。 | `False` |
 
 ## 出力
 

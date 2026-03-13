@@ -760,6 +760,10 @@ class IRC:
             print("\n" + highlight_text("IRC - Forward") + "\n")
             self.irc("forward")
             self.set_data("forward")
+            if isinstance(self.mw_hessian, torch.Tensor):
+                self.forward_mw_hessian = self.mw_hessian.detach().clone()
+            else:
+                self.forward_mw_hessian = self.mw_hessian.copy()
 
         # Add TS/starting data
         self.all_energies.append(self.ts_energy)

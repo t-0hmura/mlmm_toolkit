@@ -82,8 +82,9 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors. | `True` |
-| `-q, --charge INT` | Total charge of the ML region. | Required |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
+| `-q, --charge INT` | Total charge of the ML region. | _None_ (required unless `-l` is given) |
+| `-l, --ligand-charge` | TEXT | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
+| `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | _None_ (defaults to 1) |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. `0.0` means ML-only partial Hessian. Alias: `--radius-hessian`. | `0.0` |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
@@ -136,7 +137,7 @@ mlmm:
  model_pdb: ml_region.pdb          # ML-region definition
  backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
  embedcharge: false                # xTB point-charge embedding correction
- uma_model: uma-s-1p1              # uma-s-1p1 | uma-s-1p1 | uma-m-1p1
+ uma_model: uma-s-1p1              # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
  ml_hessian_mode: Analytical        # Hessian mode selection

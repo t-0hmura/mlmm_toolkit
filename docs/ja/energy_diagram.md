@@ -4,6 +4,8 @@
 
 > **要約:** 数値エネルギーだけを入力として状態エネルギーダイアグラムを描画します（構造ファイル不要、ML/MM 計算なし）。
 
+`mlmm energy-diagram` は指定された数値のみを可視化します。PDB/XYZ 構造ファイルの読み込みは行わず、熱化学計算（`--thermo`）や DFT 計算（`--dft`）のステップも実行しません。
+
 ## 最小例
 
 ```bash
@@ -25,7 +27,7 @@ mlmm energy-diagram -i "[-205.1, -190.4, -198.7]" -o energy.png
 2. X/Y ラベルを指定。
 
 ```bash
-mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "DE (kcal/mol)" -o energy.png
+mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o energy.png
 ```
 
 ## ワークフロー
@@ -41,7 +43,7 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "DE (kcal/mol)" -o 
 | `-i, --input TEXT...` | 数値入力（複数引数またはリスト形式文字列） | 必須 |
 | `-o, --output PATH` | 出力画像パス（`.png/.jpg/.jpeg/.svg/.pdf`） | `energy_diagram.png` |
 | `--label-x TEXT...` | X 軸状態ラベル（入力値と同じ個数が必要） | `S1, S2,...` |
-| `--label-y TEXT` | Y 軸ラベル | `DE (kcal/mol)` |
+| `--label-y TEXT` | Y 軸ラベル | `ΔE (kcal/mol)` |
 
 ---
 

@@ -77,7 +77,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "mace_dtype": "float64",
     "aimnet2_model": "aimnet2",
     # ML Hessian mode
-    "ml_hessian_mode": "Analytical",
+    "ml_hessian_mode": "FiniteDifference",
     "hessian_calc_mode": "FiniteDifference",  # Alias for ml_hessian_mode
     "out_hess_torch": True,
     "H_double": False,
@@ -113,6 +113,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     # xTB point-charge embedding correction
     "embedcharge": False,           # Enable xTB-based point-charge embedding
     "embedcharge_step": 1.0e-3,     # Numerical Hessian step for embedding correction (Å)
+    "embedcharge_cutoff": 12.0,     # Distance cutoff (Å) for MM point charges in xTB embedding
     "xtb_cmd": "xtb",              # xTB executable command
     "xtb_acc": 0.2,                # xTB accuracy parameter
     "xtb_workdir": "tmp",          # xTB working directory

@@ -996,6 +996,7 @@ class MLMMCore:
         # Point-charge embedding correction
         embedcharge: bool = False,
         embedcharge_step: float = 1.0e-3,
+        embedcharge_cutoff: Optional[float] = None,
         xtb_cmd: str = "xtb",
         xtb_acc: float = 0.2,
         xtb_workdir: str = "tmp",
@@ -1095,6 +1096,7 @@ class MLMMCore:
 
         # Point-charge embedding correction
         self.embedcharge = bool(embedcharge)
+        self.embedcharge_cutoff = embedcharge_cutoff
         self._embed_correction: Optional[_EmbedChargeCorrection] = None
         if self.embedcharge:
             self._embed_correction = _EmbedChargeCorrection(
@@ -1682,6 +1684,16 @@ class MLMMCore:
             # MM atom coordinates and charges from the real topology
             ml_set = set(self.selection_indices)
             mm_atom_indices = [i for i in range(len(atoms_real)) if i not in ml_set]
+            if mm_atom_indices and self.embedcharge_cutoff is not None:
+                from scipy.spatial.distance import cdist
+                ml_coords = atoms_real.get_positions()[sorted(ml_set)]
+                mm_coords_all = atoms_real.get_positions()[mm_atom_indices]
+                dists = cdist(mm_coords_all, ml_coords).min(axis=1)
+                n_before = len(mm_atom_indices)
+                mask = dists <= self.embedcharge_cutoff
+                mm_atom_indices = [mm_atom_indices[j] for j in range(n_before) if mask[j]]
+                if self.print_timing:
+                    print(f"[embedcharge] {len(mm_atom_indices)}/{n_before} MM atoms within {self.embedcharge_cutoff:.1f} Å cutoff.")
             if mm_atom_indices:
                 mm_coords = atoms_real.get_positions()[mm_atom_indices]
                 # Get MM partial charges from the topology
@@ -2034,6 +2046,7 @@ class mlmm(PySiCalc):
         # Point-charge embedding correction
         embedcharge: bool = False,
         embedcharge_step: float = 1.0e-3,
+        embedcharge_cutoff: Optional[float] = None,
         xtb_cmd: str = "xtb",
         xtb_acc: float = 0.2,
         xtb_workdir: str = "tmp",
@@ -2083,6 +2096,7 @@ class mlmm(PySiCalc):
             frozen_mm_atoms=frozen_mm_atoms,
             embedcharge=embedcharge,
             embedcharge_step=embedcharge_step,
+            embedcharge_cutoff=embedcharge_cutoff,
             xtb_cmd=xtb_cmd,
             xtb_acc=xtb_acc,
             xtb_workdir=xtb_workdir,

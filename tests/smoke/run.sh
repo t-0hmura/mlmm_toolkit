@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # mlmm smoke tests — GPU required
-# Speed: --thresh gau_loose, --max-cycles 3-5 everywhere.
 
 # test1: extract
-mlmm extract -i r_complex.pdb -c PRE -r 5.0 --exclude-backbone False --ligand-charge 'PRE:0' -o pocket_r_smoke.pdb > test1.out 2>&1
+mlmm extract -i r_complex.pdb -c PRE -r 5.0 --exclude-backbone False --ligand-charge 'PRE:0' -o pocket_r.pdb > test1.out 2>&1
 
 # test2: define-layer
-mlmm define-layer -i r_complex.pdb --model-pdb pocket_r_smoke.pdb --radius-freeze 8.0 -o r_complex_layered_smoke.pdb > test2.out 2>&1
+mlmm define-layer -i r_complex.pdb --model-pdb pocket_r.pdb --radius-freeze 8.0 -o r_complex_layered.pdb > test2.out 2>&1
 
 # test3: mm-parm
 mlmm mm-parm -i r_complex.pdb --ligand-charge 'PRE:0' > test3.out 2>&1
@@ -91,8 +90,7 @@ mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex
 mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --dry-run --out-dir test29 > test29.out 2>&1
 
 # test30: add-elem-info
-cp r_complex.pdb test30_input.pdb
-mlmm add-elem-info -i test30_input.pdb -o test30_output.pdb > test30.out 2>&1
+mlmm add-elem-info -i r_complex.pdb -o r_complex_elem.pdb > test30.out 2>&1
 
 # test31: trj2fig
 mlmm trj2fig -i test4/optimization_trj.xyz -o test31.png > test31.out 2>&1
@@ -106,4 +104,4 @@ mlmm oniom-export --parm p_complex.parm7 -i r_complex_layered.pdb --model-pdb po
 # --- xTB-dependent tests (requires xtb binary) ---
 
 # test34: opt (embedcharge)
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --out-dir test34 > test34.out 2>&1
+mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --out-dir test34 > test34.out 2>&1

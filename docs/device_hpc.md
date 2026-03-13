@@ -22,7 +22,7 @@ The ML/MM calculator (`mlmm_calc.mlmm`) uses separate device settings for the ML
 ### YAML configuration example
 
 ```yaml
-mlmm:
+calc:
   ml_device: cuda
   ml_cuda_idx: 0
   mm_backend: hessian_ff
@@ -33,7 +33,7 @@ mlmm:
 ### Using the OpenMM backend with CUDA
 
 ```yaml
-mlmm:
+calc:
   ml_device: cuda
   ml_cuda_idx: 0
   mm_backend: openmm
@@ -152,7 +152,7 @@ export CUDA_VISIBLE_DEVICES=0
 
 # Option B: YAML configuration (mlmm-specific)
 # In config.yaml:
-# mlmm:
+# calc:
 #   ml_cuda_idx: 0
 mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 ```

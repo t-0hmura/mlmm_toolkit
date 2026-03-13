@@ -147,13 +147,13 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--model-indices TEXT` | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | B 因子から ML/MM レイヤーを自動検出。 | `True` |
-| `-q, --charge INT` | ML 領域の総電荷。 | `--csv` 指定時を除き必須 |
+| `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` または `--csv` 未指定時は必須） |
+| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å) — ヘシアン計算に含める MM 原子を指定。`--detect-layer` と併用可能。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
 | `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出、`pairs` に 3 四つ組）またはインライン Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | 必須 |
-| `--csv FILE` | 既存の `surface.csv` を読み込み、計算せずにプロットのみ生成。 | _None_ |
 | `--csv FILE` | 事前計算済み `surface.csv` を読み込みスキャンなしでプロット生成。 | _None_ |
 | `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |

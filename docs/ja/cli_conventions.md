@@ -18,8 +18,7 @@
 ```
 
 `--flag` 単独で定義されているオプションでも、互換のため `--no-flag` と `--flag False` を受理します。
-`extract` と `fix-altloc` は parser wrapper（argparse バックエンド）ですが、root CLI で同じ bool 正規化が適用されます。
-これらの parser wrapper では、root 側が argparse 定義から bool オプションを自動取得して正規化するため、`--flag/--no-flag` と `--flag True/False` を手書きマップなしで同期できます。
+`extract` と `fix-altloc` を含むすべてのサブコマンドが Click を CLI バックエンドとして使用します。
 
 よく使うブール値オプション:
 - `--tsopt`, `--thermo`, `--dft` -- 後処理ステージの有効化
@@ -303,6 +302,8 @@ pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 バックエンド
 - `path-opt`: `./result_path_opt/`
 - `path-search`: `./result_path_search/`
 - `scan`: `./result_scan/`
+- `scan2d`: `./result_scan2d/`
+- `scan3d`: `./result_scan3d/`
 - `freq`: `./result_freq/`
 - `irc`: `./result_irc/`
 - `dft`: `./result_dft/`

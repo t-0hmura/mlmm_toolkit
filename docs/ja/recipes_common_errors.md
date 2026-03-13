@@ -3,6 +3,20 @@
 症状は分かるが、どのコマンドページから見ればよいか迷うときの入口です。
 詳細は [トラブルシューティング](troubleshooting.md) を並行して参照してください。
 
+## クイックルーティング
+
+| 症状 | まず確認 | 次に読む |
+| --- | --- | --- |
+| 元素カラム欠損 / 抽出が中断 | 元の PDB に対して `add-elem-info` を実行 | [トラブルシューティング](troubleshooting.md) |
+| "Charge is required" エラー | `-q/--charge` と `-m/--multiplicity` を明示的に指定 | [トラブルシューティング](troubleshooting.md) |
+| 実行後にエネルギー/状態がおかしい | CLI 規約の電荷/多重度ポリシーを再確認 | [トラブルシューティング](troubleshooting.md) |
+| `mm-parm` が実行できない（`tleap`/`antechamber`/`parmchk2` が見つからない） | AmberTools の利用可能性を先に修正 | [トラブルシューティング](troubleshooting.md) |
+| `hessian_ff` の import/ビルドエラー | ネイティブ拡張（`hessian_ff/native`）を再ビルド | [トラブルシューティング](troubleshooting.md) |
+| DMF モードの import エラー（`cyipopt`） | アクティブ環境に `cyipopt` をインストール | [トラブルシューティング](troubleshooting.md) |
+| TSOPT/IRC が収束しない | ステップを控えめに、サイクル数を増やし、まず TS の品質を検証 | [トラブルシューティング](troubleshooting.md) |
+| CUDA/GPU ランタイム不整合 | `torch.cuda.is_available()` と CUDA ビルドの組み合わせを確認 | [トラブルシューティング](troubleshooting.md) |
+| プロット出力の失敗 | Plotly エクスポート用の Chrome ランタイムをインストール | [トラブルシューティング](troubleshooting.md) |
+
 ## レシピ 1: MEP 前に抽出で止まる
 
 - 兆候:

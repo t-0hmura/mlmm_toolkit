@@ -144,6 +144,12 @@ glossary
 | [`trj2fig`](trj2fig.md) | XYZ 軌跡からエネルギープロファイルをプロット |
 | [`energy-diagram`](energy_diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
 
+### ユーティリティ
+| サブコマンド | 説明 |
+|---------|------|
+| [`fix-altloc`](fix_altloc.md) | PDB の代替コンフォメーション（altloc）を解決 |
+| [`device-hpc`](device_hpc.md) | HPC 環境での GPU デバイス情報の確認 |
+
 ### エクスポート
 | サブコマンド | 説明 |
 |---------|------|
@@ -156,11 +162,11 @@ glossary
 
 | トピック | ページ |
 |---------|--------|
+| **CLI コマンドリファレンス** | [コマンドリファレンス](../reference/commands/index.md) |
+| **YAML スキーマ** | [YAML スキーマ](../reference/yaml.md) |
 | **YAML 設定オプション** | [YAML リファレンス](yaml_reference.md) |
 | **ML/MM 計算機アーキテクチャ** | [ML/MM 計算機](mlmm_calc.md) |
 | **用語集** | [用語集](glossary.md) |
-
-EN版には自動生成の [CLI コマンドリファレンス](../reference/commands/index.md) と [YAML スキーマ（自動生成）](../reference/yaml.md) も掲載されています。
 
 ---
 
@@ -287,3 +293,7 @@ mlmm --help
 # コマンドのヘルプ
 mlmm <command> --help
 ```
+
+---
+
+*Note: 本ドキュメントは現在整備中のため、一部未完成の箇所や今後変更される箇所がある可能性があります。*

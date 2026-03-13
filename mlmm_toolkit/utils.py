@@ -348,6 +348,7 @@ def filter_calc_for_echo(calc_cfg: Dict[str, Any]) -> Dict[str, Any]:
             if k.startswith("xtb_"):
                 cfg.pop(k)
         cfg.pop("embedcharge_step", None)
+        cfg.pop("embedcharge_cutoff", None)
 
     return cfg
 
@@ -905,6 +906,98 @@ def parse_scan_list_triples(
         parsed.append((i, j, float(t[2])))
 
     return parsed, list(obj)
+
+
+def parse_dist_freeze_list(
+    raw: str,
+    *,
+    one_based: bool,
+    atom_meta: Optional[_Sequence[Dict[str, Any]]],
+    option_name: str = "--dist-freeze",
+) -> List[Tuple[int, int, Optional[float]]]:
+    """Parse ``--dist-freeze`` entries: ``(i,j)`` or ``(i,j,target_A)``.
+
+    Uses the same :func:`resolve_scan_index` as ``--scan-lists``, so string
+    atom specs (e.g. ``'A:SER123:OG'``) are supported when PDB metadata is
+    available.
+    """
+    try:
+        obj = ast.literal_eval(raw)
+    except Exception as e:
+        raise click.BadParameter(f"Invalid literal for {option_name}: {e}")
+
+    if not isinstance(obj, (list, tuple)):
+        raise click.BadParameter(f"{option_name} must be a list/tuple of (i,j) or (i,j,target).")
+
+    # Single tuple → wrap in list
+    if obj and not isinstance(obj[0], (list, tuple)):
+        obj = [obj]
+
+    parsed: List[Tuple[int, int, Optional[float]]] = []
+    for entry_idx, t in enumerate(obj, start=1):
+        if not (isinstance(t, (list, tuple)) and len(t) in (2, 3)):
+            raise click.BadParameter(
+                f"{option_name} entry {entry_idx} must be (i,j) or (i,j,target): got {t}"
+            )
+        i = resolve_scan_index(
+            t[0], one_based=one_based, atom_meta=atom_meta,
+            context=f"{option_name} entry {entry_idx} (i)",
+        )
+        j = resolve_scan_index(
+            t[1], one_based=one_based, atom_meta=atom_meta,
+            context=f"{option_name} entry {entry_idx} (j)",
+        )
+        target: Optional[float] = None
+        if len(t) == 3:
+            if not isinstance(t[2], Real):
+                raise click.BadParameter(
+                    f"Target distance must be numeric in {option_name} entry {entry_idx}: {t}"
+                )
+            target = float(t[2])
+            if target <= 0.0:
+                raise click.BadParameter(
+                    f"Target distance must be > 0 in {option_name} entry {entry_idx}: {t}"
+                )
+        parsed.append((i, j, target))
+    return parsed
+
+
+def parse_dist_freeze_spec(
+    spec_path: Path,
+    *,
+    one_based_default: bool,
+    atom_meta: Optional[_Sequence[Dict[str, Any]]],
+    option_name: str = "--dist-freeze",
+) -> List[Tuple[int, int, Optional[float]]]:
+    """Parse a YAML/JSON dist-freeze spec file.
+
+    Expected format::
+
+        constraints:       # or "pairs" / "stages"
+          - [1, 5, 1.4]   # (i, j, target_A) — target optional
+          - [2, 6]         # freeze at current distance
+        one_based: true    # optional, defaults to CLI value
+    """
+    spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
+    key, raw_list = _first_spec_field(spec_cfg, ("constraints", "pairs", "stages"))
+    if key is None:
+        raise click.BadParameter(
+            f"{option_name} spec must define 'constraints', 'pairs', or 'stages'."
+        )
+    if not isinstance(raw_list, (list, tuple)) or len(raw_list) == 0:
+        raise click.BadParameter(
+            f"{option_name} field '{key}' must be a non-empty list."
+        )
+
+    one_based = _spec_one_based(
+        spec_cfg.get("one_based"), default=one_based_default, option_name=option_name,
+    )
+    return parse_dist_freeze_list(
+        repr(list(raw_list)),
+        one_based=one_based,
+        atom_meta=atom_meta,
+        option_name=f"{option_name} {key}",
+    )
 
 
 def parse_scan_list_quads(

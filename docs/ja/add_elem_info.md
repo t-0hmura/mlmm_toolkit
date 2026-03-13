@@ -47,7 +47,7 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 | --- | --- | --- |
 | `-i, --input PATH` | 入力 PDB ファイル。 | 必須 |
 | `-o, --out PATH` | 出力 PDB パス。省略時は入力ファイルを上書き。 | _None_（入力を上書き） |
-| `--overwrite` | 既存の元素フィールドがあっても再推定して上書き（デフォルトでは既存値を保持）。 | `False` |
+| `--overwrite/--no-overwrite` | 既存の元素フィールドがあっても再推定して上書き（デフォルトでは既存値を保持）。 | `False` |
 
 ---
 

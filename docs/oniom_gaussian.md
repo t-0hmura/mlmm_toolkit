@@ -61,7 +61,7 @@ Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm`
 | `--method TEXT` | QM method and basis set. | `wB97XD/def2-TZVPD` |
 | `-q, --charge INT` | Charge of QM region. | Required |
 | `-m, --multiplicity INT` | Multiplicity of QM region. | `1` |
-| `--near FLOAT` | Distance cutoff for movable atoms (Å). | `6.0` |
+| `--near FLOAT` | Distance cutoff (Å) for movable atoms. | `6.0` |
 | `--nproc INT` | Number of processors. | `8` |
 | `--mem TEXT` | Memory allocation. | `16GB` |
 
@@ -71,3 +71,5 @@ Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm`
 - [oniom_export](oniom_export.md) -- Export overview and chooser
 - [mm_parm](mm_parm.md) -- Build Amber topology (`parm7`/`rst7`)
 - [define_layer](define_layer.md) -- Build/check layer annotations
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide

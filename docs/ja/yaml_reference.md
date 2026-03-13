@@ -62,7 +62,7 @@ calc:
  xtb_workdir: tmp # xTB 作業ディレクトリ
  xtb_keep_files: false # xTB 一時ファイルを保持
  xtb_ncores: 4 # xTB のコア数
- uma_model: uma-s-1p1 # UMA モデル名: uma-s-1p1, uma-s-1p1, uma-m-1p1
+ uma_model: uma-s-1p1 # UMA モデル名: uma-s-1p1, uma-m-1p1
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
  orb_precision: float32  # ORB 浮動小数点精度 (backend=orb 時)
@@ -111,6 +111,9 @@ calc:
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
 - `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分ヘシアンを既定で使用します。
 - これらのコマンドで完全ヘシアンを強制するには `calc.return_partial_hessian: false` を明示してください。
+- `mm_fd: true` は MM ヘシアンに有限差分を使用します。解析的 MM ヘシアン（hessian_ff）を使用するには `false` に設定してください。
+- `real_parm7` と `model_pdb` は ML/MM 計算に必須です。
+- `irc` は YAML の設定にかかわらず `geom.coord_type = cart` を強制します。
 
 ---
 
@@ -214,7 +217,7 @@ Growing String Method（GSM）の設定。
 gs:
  fix_first: true # 最初の端点を固定
  fix_last: true # 最後の端点を固定
- max_nodes: 10 # 最大ストリングノード数
+ max_nodes: 20 # 最大ストリングノード数
  perp_thresh: 0.005 # 垂直変位閾値
  reparam_check: rms # 再パラメータ化チェック指標
  reparam_every: 1 # 再パラメータ化間隔
@@ -508,9 +511,11 @@ DFT 計算設定。
 ```yaml
 dft:
  func_basis: wb97m-v/def2-tzvpd # 汎関数/基底関数の組み合わせ文字列
- max_cycle: 100 # 最大 SCF 反復数
  conv_tol: 1.0e-09 # SCF 収束許容値 (Hartree)
+ max_cycle: 100 # 最大 SCF 反復数
  grid_level: 3 # PySCF グリッドレベル
+ verbose: 4 # PySCF 出力詳細レベル
+ out_dir: ./result_dft/ # 出力ディレクトリ
 ```
 
 ---

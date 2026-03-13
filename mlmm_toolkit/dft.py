@@ -584,7 +584,16 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+    help="Enable electrostatic embedding: MM point charges are added to the PySCF QM Hamiltonian via pyscf.qmmm.mm_charge().",
+)
+@click.option(
+    "--embedcharge-cutoff",
+    "embedcharge_cutoff",
+    type=float,
+    default=None,
+    show_default=False,
+    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
+         "Default: 12.0 Å when --embedcharge is enabled.",
 )
 @click.pass_context
 def cli(
@@ -610,6 +619,7 @@ def cli(
     convert_files: bool,
     backend: Optional[str],
     embedcharge: bool,
+    embedcharge_cutoff: Optional[float],
 ) -> None:
     set_convert_file_enabled(convert_files)
 
@@ -666,6 +676,8 @@ def cli(
             calc_kw["backend"] = str(backend).lower()
         if _is_param_explicit("embedcharge"):
             calc_kw["embedcharge"] = bool(embedcharge)
+        if _is_param_explicit("embedcharge_cutoff"):
+            calc_kw["embedcharge_cutoff"] = embedcharge_cutoff
 
         if _is_param_explicit("conv_tol"):
             dft_kw["conv_tol"] = float(conv_tol)

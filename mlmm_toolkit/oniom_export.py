@@ -1409,7 +1409,7 @@ def export_gaussian(
     else:
         raise ValueError(
             "No QM region specified. Provide --model-pdb, or supply a layered input PDB "
-            "(B-factor=10 marks the ML/QM region), or use qm_residues in the Python API."
+            "(B-factor=0 marks the ML/QM region), or use qm_residues in the Python API."
         )
 
     if not qm_indices:
@@ -1653,7 +1653,7 @@ def export_orca(
     else:
         raise ValueError(
             "No QM region specified. Provide --model-pdb, or supply a layered input PDB "
-            "(B-factor=10 marks the ML/QM region), or use qm_residues in the Python API."
+            "(B-factor=0 marks the ML/QM region), or use qm_residues in the Python API."
         )
 
     if not qm_indices:

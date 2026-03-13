@@ -27,7 +27,7 @@ mlmm energy-diagram -i "[-205.1, -190.4, -198.7]" -o energy.png
 2. X/Y labels.
 
 ```bash
-mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "DE (kcal/mol)" -o energy.png
+mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o energy.png
 ```
 
 ## Workflow
@@ -43,7 +43,7 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "DE (kcal/mol)" -o 
 | `-i, --input TEXT...` | Numeric values (multiple args or list-like string). | Required |
 | `-o, --output PATH` | Output image path (`.png/.jpg/.jpeg/.svg/.pdf`). | `energy_diagram.png` |
 | `--label-x TEXT...` | X-axis state labels. Count must match input value count. | `S1, S2,...` |
-| `--label-y TEXT` | Y-axis label. | `DE (kcal/mol)` |
+| `--label-y TEXT` | Y-axis label. | `ΔE (kcal/mol)` |
 
 ## See Also
 

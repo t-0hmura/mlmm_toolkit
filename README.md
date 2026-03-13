@@ -8,7 +8,7 @@ Quantum mechanics/molecular mechanics (QM/MM) methods have long been used to ana
 
 **ML/MM toolkit** is an open-source command-line toolkit for ML/MM calculations. It streamlines the workflow necessary for enzymatic reaction mechanism analyses — energy minimization, transition-state (TS) search, and vibrational analysis — to calculate the reaction free energy (&Delta;G) and activation free energy (&Delta;G<sup>&ddagger;</sup>) for a given enzyme–substrate complex structure. A link atom boundary treatment is implemented to include amino-acid residues in the ML region, and full-system Hessians are available for TS searches and vibrational analyses. A microiteration scheme separates ML and MM degrees of freedom, enabling efficient TS optimization and Hessian-based methods for systems comprising around 10,000 atoms.
 
-A **single command** can generate a first-pass enzymatic reaction path with ML/MM accuracy:
+Each workflow step is also available as an [individual subcommand](#cli-subcommands) ([`opt`](docs/opt.md), [`scan`](docs/scan.md), [`scan2d`](docs/scan2d.md), [`path-search`](docs/path_search.md), [`tsopt`](docs/tsopt.md), [`freq`](docs/freq.md), [`irc`](docs/irc.md), [`dft`](docs/dft.md), [`energy-diagram`](docs/energy_diagram.md), [etc.](#cli-subcommands)), allowing fine-grained control over each stage. A **single command** can generate a first-pass enzymatic reaction path with ML/MM accuracy:
 
 ```bash
 mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2"
@@ -37,39 +37,16 @@ Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `-
 > - When providing multiple PDBs, they must contain **the same atoms in the same order** (only coordinates may differ).
 > - A **parm7 topology** file (AmberTools) is required for MM calculations; use `mlmm mm-parm` to generate one.
 
-### Supported ML potentials
+### Related tools
 
-| Potential | Repository | Install extra |
-|-----------|------------|---------------|
-| **UMA** (default) | <https://github.com/facebookresearch/fairchem> | *(included)* |
-| **ORB** | <https://github.com/orbital-materials/orb-models> | `pip install "mlmm-toolkit[orb]"` |
-| **MACE** | <https://github.com/ACEsuit/mace> | see note below |
-| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> | `pip install "mlmm-toolkit[aimnet2]"` |
+| Tool | Use case | Repository |
+|------|----------|------------|
+| **pdb2reaction** | CLI-based reaction mechanism analysis for cluster models and small molecules | <https://github.com/t-0hmura/pdb2reaction> |
+| **UMA–Pysisyphus Interface** | YAML-input-based reaction mechanism analysis for small molecules | <https://github.com/t-0hmura/uma_pysis> |
 
-> **Note:** MACE and UMA cannot coexist due to conflicting `e3nn` versions (`fairchem-core` requires `e3nn>=0.5`, `mace-torch` requires `e3nn==0.4.4`). To use MACE, uninstall `fairchem-core` first:
-> ```bash
-> pip uninstall fairchem-core
-> pip install mace-torch
-> ```
-> This means UMA will no longer be available in that environment. We recommend using a **separate conda environment** for MACE.
+`mlmm-toolkit` additionally automates MM force field generation and ML region assignment from a single PDB input — the `all` workflow requires only PDB files to run the full pipeline.
 
-The MM layer uses an analytical Hessian force field (`hessian_ff`) by default. Any force field capable of generating Amber parameters (e.g., ff19SB + OPC3 + GAFF2) can be used.
-
-> **UMA-only workflow**
-> If you wish to perform chemical-reaction-mechanism analysis using **UMA alone** (without the ML/MM hybrid layer), a dedicated **UMA – Pysisyphus Interface** is available at **<https://github.com/t-0hmura/uma_pysis>**.
-
-### Key difference from pdb2reaction
-
-`mlmm_toolkit` is based on [`pdb2reaction`](https://github.com/t-0hmura/pdb2reaction), which uses only a machine-learning potential (UMA). `mlmm_toolkit` extends this to the **ONIOM (ML/MM) scheme**:
-
-| | pdb2reaction | mlmm_toolkit |
-|---|---|---|
-| Calculator | UMA only | ONIOM: UMA + hessian_ff |
-| Energy | E_ML(full) | E_MM(real) + E_ML(model) - E_MM(model) |
-| Boundary | None | Link atom (H cap) + Jacobian chain rule |
-| Atom layers | freeze/active (2 layers) | ML / Movable MM / Frozen (3 layers) |
-| Layer encoding | None | B-factor (0/10/20) |
-| Additional CLI | None | `--parm`, `--model-pdb`, `--detect-layer` |
+Both `mlmm-toolkit` and `pdb2reaction` include a custom GPU-optimized pysisyphus fork for geometry optimization, TS search, and IRC. This bundled fork is **not compatible** with the upstream pysisyphus package; do not install them side by side.
 
 ---
 
@@ -90,6 +67,13 @@ pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 pip install mlmm-toolkit
 huggingface-cli login
 ```
+
+> **Previous version:** v0.2.0 introduced breaking changes to the CLI interface and Hessian handling.
+> To install the previous stable release (v0.1.1) from GitHub:
+>
+> ```bash
+> pip install git+https://github.com/t-0hmura/mlmm_toolkit.git@v0.1.1
+> ```
 
 ### Prerequisites
 
@@ -118,6 +102,7 @@ module load cuda/12.6
 ```
 
 > `fairchem-core` is a core dependency. `aimnet2` and other ML backends (`orb-models`, `mace-torch`) are optional extras (e.g. `pip install "mlmm-toolkit[aimnet2]"`).
+
 
 ### DFT single-point (`mlmm dft`)
 
@@ -151,6 +136,22 @@ UMA model weights are on Hugging Face Hub. You need to log in once (see <https:/
 huggingface-cli login
 ```
 
+### Supported ML potentials
+
+| Potential | Repository | Install extra |
+|-----------|------------|---------------|
+| **UMA** (default) | <https://github.com/facebookresearch/fairchem> | *(included)* |
+| **ORB** | <https://github.com/orbital-materials/orb-models> | `pip install "mlmm-toolkit[orb]"` |
+| **MACE** | <https://github.com/ACEsuit/mace> | see note below |
+| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> | `pip install "mlmm-toolkit[aimnet2]"` |
+
+> **Note:** MACE and UMA cannot coexist due to conflicting `e3nn` versions (`fairchem-core` requires `e3nn>=0.5`, `mace-torch` requires `e3nn==0.4.4`). To use MACE, uninstall `fairchem-core` first:
+> ```bash
+> pip uninstall fairchem-core
+> pip install mace-torch
+> ```
+> This means UMA will no longer be available in that environment. We recommend using a **separate conda environment** for MACE.
+
 ---
 
 ## Preparing an Enzyme–Substrate System
@@ -161,10 +162,10 @@ huggingface-cli login
 2. **Generate parameter/topology and coordinate files.**
    Create `.pdb`, `.parm7`, and `.rst7` files of the complex (see the [OpenMM tutorial](https://openmm.github.io/openmm-cookbook/latest/tutorials)).
    To mimic aqueous conditions, solvate the complex, then remove water molecules beyond ~6 Å.
-   > Note: elemental information (columns 77–78) is omitted in PDB files generated by tleap. Use `mlmm add-elem-info` to fix this.
+   > Note: elemental information (columns 77–78) is omitted in PDB files generated by tleap. Use [`mlmm add-elem-info`](docs/add_elem_info.md) to fix this.
 
 3. **Define the ML region.**
-   Use `mlmm extract` or any molecular viewer to select residues around the substrate:
+   Use [`mlmm extract`](docs/extract.md) or any molecular viewer to select residues around the substrate:
 
    ```bash
    mlmm extract -i complex.pdb -c PRE -r 6.0 -l "PRE:-2" -o ml_region.pdb
@@ -294,7 +295,9 @@ For a step-by-step walkthrough, see [`examples/tutorial.md`](examples/tutorial.m
 Covalent bonds cut at the ML/MM boundary are capped with hydrogen *link atoms*.
 The ML region can therefore include entire amino-acid side chains when necessary.
 
-Use `mlmm define-layer` to assign layers automatically based on a model PDB (the ML region).
+Use [`mlmm define-layer`](docs/define_layer.md) to assign layers automatically based on a model PDB (the ML region).
+
+The MM layer uses an analytical Hessian force field (`hessian_ff`) by default. Any force field capable of generating Amber parameters (e.g., ff19SB + OPC3 + GAFF2) can be used.
 
 ---
 
@@ -311,7 +314,9 @@ Unit conversions are handled automatically inside the ML/MM calculator.
 
 ## Python API
 
-Interfaces are available for **ASE** and **PySisyphus**.
+See [Python API Reference](docs/mlmm_calc.md) for full documentation.
+
+An **ASE** interface is available for Python scripting.
 
 ### MLMMCore (Base-Level)
 
@@ -347,26 +352,10 @@ atoms.calc = MLMMASECalculator(
 energy = atoms.get_potential_energy()  # eV
 ```
 
-### PySisyphus Interface
-
-```python
-from pysisyphus.io.pdb import geom_from_pdb
-from pysisyphus.optimizers.LBFGS import LBFGS
-from mlmm_toolkit.mlmm_calc import mlmm
-
-geom = geom_from_pdb("structure.pdb")
-geom.set_calculator(mlmm(
-    input_pdb="complex.pdb", real_parm7="complex.parm7",
-    model_pdb="ml_region.pdb", model_charge=-1, model_mult=1,
-))
-
-opt = LBFGS(geom, max_cycles=10000, thresh="gau")
-opt.run()
-```
-
 > **Notes**
 > - `complex.pdb` is the reference PDB used when the Amber parameters were generated, whereas `structure.pdb` can contain any starting geometry.
 > - If `model_charge` is omitted, it defaults to **0**. Always set it explicitly for charged systems.
+> - The bundled pysisyphus fork is used internally by the CLI. It is **not compatible** with the upstream `pysisyphus` package and should not be imported directly by user scripts.
 
 ---
 

@@ -64,8 +64,8 @@ ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--p
 | `--total-charge INT` | Total charge of full QM+MM system (`Charge_Total`). | topology-derived |
 | `--total-mult INT` | Total multiplicity of full QM+MM system (`Mult_Total`). | same as `--multiplicity` |
 | `--nproc INT` | Number of processors. | `8` |
-| `--near FLOAT` | Distance cutoff used to define ActiveAtoms when layer tags are absent. | `6.0` |
-| `--orcaff PATH` | Path to ORCAFF.prms. | auto |
+| `--near FLOAT` | Distance cutoff (Å) used to define ActiveAtoms when layer tags are absent. | `6.0` |
+| `--orcaff PATH` | Path to ORCAFF.prms. | _None_ (auto-resolved to `<parm7_stem>.ORCAFF.prms`) |
 | `--convert-orcaff/--no-convert-orcaff` | Attempt `orca_mm -convff -AMBER` when ORCAFF is missing. | `True` |
 
 ## See Also
@@ -74,4 +74,6 @@ ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--p
 - [oniom_export](oniom_export.md) -- Export overview and chooser
 - [mm_parm](mm_parm.md) -- Build Amber topology (`parm7`/`rst7`)
 - [define_layer](define_layer.md) -- Build/check layer annotations
+- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 - ORCA 6.0 Manual (QM/MM): <https://www.faccts.de/docs/orca/6.0/manual/contents/typical/qmmm.html>
