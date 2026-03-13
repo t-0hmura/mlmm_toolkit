@@ -2008,6 +2008,15 @@ def extract(args: argparse.Namespace | None = None, api=False) -> Dict[str, Any]
     if args.radius_het2het == 0.0:
         args.radius_het2het = 0.001
 
+    # Log extract options
+    LOGGER.info("[extract] Options: radius=%.2f, radius_het2het=%.2f, "
+                "include_H2O=%s, exclude_backbone=%s, add_linkH=%s, "
+                "selected_resn='%s'",
+                args.radius, args.radius_het2het,
+                args.include_H2O, args.exclude_backbone,
+                getattr(args, 'add_linkh', False),
+                getattr(args, 'selected_resn', ''))
+
     # default output names
     if args.output_pdb is None:
         if len(args.complex_pdb) > 1:
