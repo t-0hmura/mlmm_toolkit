@@ -31,15 +31,7 @@ mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
-2. ポケット軌跡をフルテンプレートへマージする。
-
-```bash
-mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
- --model-pdb ml_region.pdb -q 0 --ref-pdb holo_template.pdb \
- --out-dir ./result_path_search_merge
-```
-
-3. 事前最適化とアライメントを無効にして軽く試す。
+2. 事前最適化とアライメントを無効にして軽く試す。
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
@@ -66,7 +58,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0
 
-# YAML 上書き、凍結原子、全系マージ出力付きマルチステップ経路
+# YAML 上書き、凍結原子付きマルチステップ経路
 mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
  --ref-pdb holo_template.pdb --out-dir ./run_ps
@@ -81,7 +73,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  - それ以外の場合、`End1` と `End2` の間で**精密化セグメント（GSM）**を起動して障壁を鮮明化。
 4. **選択的再帰** -- `(A->End1)` と `(End2->B)` の結合変化を `bond` 閾値で比較。共有結合の更新を含むサブ区間のみに再帰。再帰深度は `search.max_depth` で制限。
 5. **統合とブリッジ** -- 解決されたサブパスを連結し、RMSD <= `search.stitch_rmsd_thresh` の重複端点を削除。2 つの統合部分の間の RMSD ギャップが `search.bridge_rmsd_thresh` を超える場合、選択中の `--mep-mode` でブリッジ MEP セグメントを挿入。インターフェース自体に結合変化がある場合、ブリッジの代わりに新たな再帰セグメントを生成。
-6. **任意のアライメントとマージ** -- 事前最適化後、`--align` で入力を剛体アラインし凍結を精密化。`--ref-pdb` がある場合、ポケット軌跡を完全テンプレートにマージし、セグメントをプロット/分析用にアノテーション。
+6. **任意のアライメント** -- 事前最適化後、`--align` で入力を剛体アラインし凍結を精密化。セグメントをプロット/分析用にアノテーション。
 
 結合変化検出は `bond` YAML セクションの閾値を使用する `bond_changes.compare_structures` に依存します。
 
@@ -111,7 +103,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau_loose`） |
 | `--dump/--no-dump` | オプティマイザーダンプを保存。 | `False` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。 | `./result_path_search/` |
-| `--ref-pdb PATH...` | 最終マージ用の完全テンプレート PDB。 | _None_ |
+| `--ref-pdb PATH...` | XYZ→PDB 変換・トポロジー参照用の完全テンプレート PDB。 | _None_ |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。`--help-advanced` に表示。 | `False` |
@@ -127,11 +119,8 @@ out_dir/ (デフォルト:./result_path_search/)
  summary.log # 人間が読めるサマリー
  mep_trj.xyz # 最終 MEP（常に書き出し）
  mep.pdb # 最終 MEP（参照テンプレート利用可能時は PDB）
- mep_w_ref.pdb # 全系マージ MEP（--ref-pdb 必要）
- mep_w_ref_seg_XX.pdb # セグメントごとのマージ MEP（結合変化セグメント; --ref-pdb 必要）
- mep_seg_XX_trj.xyz / mep_seg_XX.pdb # ポケットのみのセグメント別経路
- hei_seg_XX.xyz / hei_seg_XX.pdb # ポケット HEI と結合変化セグメントごとのオプション PDB
- hei_w_ref_seg_XX.pdb # 結合変化セグメントごとのマージ HEI（--ref-pdb 必要）
+ mep_seg_XX_trj.xyz / mep_seg_XX.pdb # セグメント別経路
+ hei_seg_XX.xyz / hei_seg_XX.pdb # 結合変化セグメントごとの HEI
  mep_plot.png # イメージインデックスに対する Delta-E プロファイル（trj2fig より）
  energy_diagram_MEP.png # 反応物基準の状態レベルエネルギーダイアグラム（kcal/mol）
  seg_000_*/ # セグメントレベルの GSM と精密化成果物

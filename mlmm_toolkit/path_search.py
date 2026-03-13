@@ -40,9 +40,6 @@ from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import AU2KCALPERMOL, BOHR2ANG
 
-# Biopython for PDB I/O and parsing
-from Bio import PDB
-from Bio.PDB import PDBParser, PDBIO
 
 from .mlmm_calc import mlmm, MLMMASECalculator
 from .defaults import (
@@ -88,7 +85,7 @@ from .preflight import validate_existing_files
 from .trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
 from .summary_log import write_summary_log
 from .bond_changes import compare_structures, summarize_changes
-from .align_freeze_atoms import align_and_refine_sequence_inplace, kabsch_R_t
+from .align_freeze_atoms import align_and_refine_sequence_inplace
 
 # -----------------------------------------------
 # Configuration defaults
@@ -1124,401 +1121,6 @@ def _build_multistep_path(
 
 
 # -----------------------------------------------
-# Full-system merge helpers (Biopython)
-# -----------------------------------------------
-
-def _atom_key_from_res_atom(res: PDB.Residue.Residue, atom: PDB.Atom.Atom) -> Tuple[str, str, str, str, str]:
-    """
-    Build a key for atom identity:
-    (RESNAME, RESSEQ, ICODE, CHAIN, ATOMNAME) — uppercase where applicable.
-    - RESSEQ is numeric (without insertion code).
-    - ICODE is '' when blank (or ' ' in PDB).
-    """
-    resname = (res.get_resname() or "").strip().upper()
-    het, resseq, icode = res.id
-    icode_txt = "" if (icode == " " or icode is None) else str(icode).strip().upper()
-    resseq_txt = str(int(resseq))
-    chain_id = (res.get_parent().id or "").strip().upper()
-    atname = atom.get_name().strip().upper()
-    return (resname, resseq_txt, icode_txt, chain_id, atname)
-
-
-def _structure_to_arrays(struct: PDB.Structure.Structure) -> Tuple[np.ndarray, List[PDB.Atom.Atom], List[Tuple[str, str, str, str, str]], Dict[Tuple[str,str,str,str,str], int]]:
-    """
-    Extract: coordinates (Å), atom list, key list, and key→index map from a Biopython Structure.
-    Keys are (RESNAME, RESSEQ, ICODE, CHAIN, ATOMNAME).
-    """
-    atoms: List[PDB.Atom.Atom] = [a for a in struct.get_atoms()]
-    coords = np.array([a.get_coord() for a in atoms], dtype=float)
-    keys: List[Tuple[str, str, str, str, str]] = []
-    key2idx: Dict[Tuple[str,str,str,str,str], int] = {}
-    for idx, a in enumerate(atoms):
-        res = a.get_parent()
-        k = _atom_key_from_res_atom(res, a)
-        keys.append(k)
-        if k not in key2idx:
-            key2idx[k] = idx
-    return coords, atoms, keys, key2idx
-
-
-def _load_structures_and_chain_align(ref_paths: Sequence[Path]) -> Tuple[List[PDB.Structure.Structure], List[np.ndarray], List[List[PDB.Atom.Atom]], List[Dict[Tuple[str,str,str,str,str], int]]]:
-    """
-    Load all full templates and rigidly chain-align them into the coordinate frame of the first template.
-    """
-    parser = PDBParser(QUIET=True)
-    structs: List[PDB.Structure.Structure] = [parser.get_structure(f"ref{i:02d}", str(p)) for i, p in enumerate(ref_paths)]
-    N_expected = None
-    coords_list: List[np.ndarray] = []
-    atoms_list: List[List[PDB.Atom.Atom]] = []
-    keymaps: List[Dict[Tuple[str,str,str,str,str], int]] = []
-
-    for s in structs:
-        coords, atoms, _keys, key2idx = _structure_to_arrays(s)
-        if N_expected is None:
-            N_expected = coords.shape[0]
-        else:
-            if coords.shape[0] != N_expected:
-                raise click.BadParameter(f"[merge] Atom count mismatch among --ref-pdb templates: {N_expected} vs {coords.shape[0]}")
-        coords_list.append(coords)
-        atoms_list.append(atoms)
-        keymaps.append(key2idx)
-
-    aligned_coords: List[np.ndarray] = []
-    aligned_coords.append(coords_list[0].copy())
-    for j in range(1, len(coords_list)):
-        P = aligned_coords[j-1]
-        Q = coords_list[j]
-        R, t = kabsch_R_t(P, Q)
-        Qa = (Q @ R) + t
-        aligned_coords.append(Qa)
-
-    return structs, aligned_coords, atoms_list, keymaps
-
-
-def _pocket_keys_from_pdb(pocket_pdb: Path) -> List[Tuple[str, str, str, str, str]]:
-    """
-    Return atom identity keys for a pocket PDB file.
-    """
-    parser = PDBParser(QUIET=True)
-    st = parser.get_structure("pocket", str(pocket_pdb))
-    keys: List[Tuple[str, str, str, str, str]] = []
-    for a in st.get_atoms():
-        res = a.get_parent()
-        k = _atom_key_from_res_atom(res, a)
-        keys.append(k)
-    return keys
-
-
-def _write_model_block(structure: PDB.Structure.Structure,
-                       remark_lines: List[str]) -> str:
-    """
-    Render a single MODEL block (without 'MODEL/ENDMDL') with provided REMARK lines.
-    """
-    io = PDBIO()
-    io.set_structure(structure)
-    from io import StringIO
-    buf = StringIO()
-    io.save(buf)
-    body = "\n".join([ln for ln in buf.getvalue().splitlines() if ln.strip() != "END"])
-    rem = ""
-    for line in remark_lines:
-        rem += f"REMARK   1 {line}\n"
-    return rem + body + ("\n" if not body.endswith("\n") else "")
-
-
-def _chunk_remark_indices(indices: List[int], width: int = 60) -> List[str]:
-    """
-    Wrap pocket atom indices into REMARK lines with limited width.
-    """
-    s = ",".join(map(str, indices))
-    out: List[str] = []
-    cur = ""
-    for tok in s.split(","):
-        add = (tok if not cur else "," + tok)
-        if len(cur) + len(add) > width:
-            out.append(f"POCKET_ATOM_INDICES {cur}")
-            cur = tok
-        else:
-            cur += tok if not cur else "," + tok
-    if cur:
-        out.append(f"POCKET_ATOM_INDICES {cur}")
-    return out
-
-
-def _merge_pair_to_full(pair_images: List[Any],
-                        pocket_ref_pdb: Path,
-                        structA: PDB.Structure.Structure,
-                        structB: PDB.Structure.Structure,
-                        coordsA_aligned: np.ndarray,
-                        coordsB_aligned: np.ndarray,
-                        keymapA: Dict[Tuple[str,str,str,str,str], int],
-                        keymapB: Dict[Tuple[str,str,str,str,str], int],
-                        out_path: Optional[Path],
-                        drop_first: bool = False,
-                        seg_indices_for_frames: Optional[List[int]] = None,
-                        seg_report_lookup: Optional[Dict[int, SegmentReport]] = None,
-                        include_pocket_indices_for_first_model: bool = False) -> Tuple[List[str], List[int]]:
-    """
-    Merge a pocket-only trajectory for a *pair* into the corresponding full templates (A,B),
-    generating MODEL blocks and (optionally) writing a PDB. Returns (blocks, 1-based active indices).
-    """
-    pocket_keys = _pocket_keys_from_pdb(pocket_ref_pdb)
-
-    match_tpl_idx: List[int] = []
-    for k in pocket_keys:
-        ia = keymapA.get(k, None)
-        ib = keymapB.get(k, None)
-        if ia is None or ib is None:
-            match_tpl_idx.append(-1)
-        else:
-            match_tpl_idx.append(int(ia))
-
-    active_full_idx = sorted({i for i in match_tpl_idx if i >= 0})
-    active_one_based = [i+1 for i in active_full_idx]
-
-    Nfull = coordsA_aligned.shape[0]
-    if Nfull != coordsB_aligned.shape[0]:
-        raise click.BadParameter("[merge] Template A/B atom count mismatch.")
-
-    atomsA: List[PDB.Atom.Atom] = [a for a in structA.get_atoms()]
-
-    start_k = 1 if drop_first and len(pair_images) > 0 else 0
-
-    model_blocks: List[str] = []
-
-    M = len(pair_images)
-    if M == 0:
-        return model_blocks, active_one_based
-
-    seg_idx_seq: List[int] = []
-    if seg_indices_for_frames is not None and len(seg_indices_for_frames) == M:
-        seg_idx_seq = seg_indices_for_frames[start_k:]
-    else:
-        seg_idx_seq = [0] * (M - start_k)
-
-    for kk, k in enumerate(range(M)):
-        if k < start_k:
-            continue
-        tfrac = 0.0 if M == 1 else (k / (M - 1.0))
-
-        C = (1.0 - tfrac) * coordsA_aligned + tfrac * coordsB_aligned
-
-        idx_sel = [j for j in range(len(match_tpl_idx)) if match_tpl_idx[j] >= 0]
-        if len(idx_sel) >= 3:
-            Y = np.array([C[match_tpl_idx[j]] for j in idx_sel], dtype=float)
-            P_bohr = np.array(pair_images[k].coords3d, dtype=float)
-            P = P_bohr * BOHR2ANG
-            P_sel = np.array([P[j] for j in idx_sel], dtype=float)
-            R, t = kabsch_R_t(Y, P_sel)
-            Paligned = (P @ R) + t
-            for jj, pidx in enumerate(idx_sel):
-                full_i = match_tpl_idx[pidx]
-                if 0 <= full_i < Nfull:
-                    C[full_i] = Paligned[pidx]
-        else:
-            P = np.array(pair_images[k].coords3d, dtype=float) * BOHR2ANG
-            for j, full_i in enumerate(match_tpl_idx):
-                if full_i >= 0 and 0 <= full_i < Nfull and j < P.shape[0]:
-                    C[full_i] = P[j]
-
-        for i, a in enumerate(atomsA):
-            a.set_coord(C[i])
-            a.set_bfactor(100.0 if i in active_full_idx else 0.0)
-
-        remark_lines: List[str] = []
-        remark_lines.append(f"PAIR_MERGE FRAC {tfrac:.6f}")
-
-        if include_pocket_indices_for_first_model and kk == 0:
-            remark_lines.extend(_chunk_remark_indices([i for i in active_one_based], width=60))
-
-        seg_idx = seg_idx_seq[kk] if kk < len(seg_idx_seq) else 0
-        if seg_idx and seg_report_lookup is not None:
-            rep = seg_report_lookup.get(seg_idx, None)
-            if rep is not None:
-                remark_lines.append(
-                    f"MEP_SEG_INDEX {int(seg_idx):02d} TAG {rep.tag} KIND {rep.kind} "
-                    f"DELTAE_BARRIER_KCAL {rep.barrier_kcal:.6f} DELTAE_KCAL {rep.delta_kcal:.6f}"
-                )
-                if rep.kind != "bridge" and rep.summary and rep.summary.strip() and rep.summary.strip() != "(no covalent changes detected)":
-                    for ln in rep.summary.strip().splitlines():
-                        remark_lines.append(f"SEG_BONDS {ln.strip()}")
-            else:
-                remark_lines.append(f"MEP_SEG_INDEX {int(seg_idx):02d}")
-
-        model_blocks.append(_write_model_block(structA, remark_lines))
-
-    if out_path is not None:
-        with open(out_path, "w") as f:
-            for m, blk in enumerate(model_blocks, start=1):
-                f.write(f"MODEL     {m}\n")
-                f.write(blk)
-                f.write("ENDMDL\n")
-            f.write("END\n")
-        click.echo(f"[merge] Wrote pair-merged PDB → '{out_path}'")
-
-    return model_blocks, active_one_based
-
-
-def _merge_final_and_write(final_images: List[Any],
-                           pocket_inputs: Sequence[Path],
-                           ref_pdbs: Sequence[Path],
-                           segments: List[SegmentReport],
-                           out_dir: Path) -> None:
-    """
-    Merge the entire pocket MEP into full templates (for all pairs) and write outputs.
-    """
-    # NOTE: In --align True mode, caller may pass a single ref PDB replicated per pair.
-    if len(ref_pdbs) != len(pocket_inputs):
-        raise click.BadParameter("--ref-pdb must match the number of --input after preprocessing (caller should replicate the first ref for all pairs when --align True).")
-
-    structs, aligned_coords, atoms_list, keymaps = _load_structures_and_chain_align(ref_pdbs)
-
-    seg_lookup: Dict[int, SegmentReport] = {int(s.seg_index): s for s in segments if int(s.seg_index) > 0}
-
-    n_pairs = len(pocket_inputs) - 1
-    groups: List[Tuple[int, List[Any]]] = []
-    cur_idx = None
-    cur_list: List[Any] = []
-    for im in final_images:
-        pi = getattr(im, "pair_index", None)
-        if pi is None:
-            pi = 0
-        if cur_idx is None:
-            cur_idx = int(pi)
-            cur_list = [im]
-        elif int(pi) == int(cur_idx):
-            cur_list.append(im)
-        else:
-            groups.append((int(cur_idx), cur_list))
-            cur_idx = int(pi)
-            cur_list = [im]
-    if cur_list:
-        groups.append((int(cur_idx), cur_list))
-
-    for (pi, _) in groups:
-        if not (0 <= pi < n_pairs):
-            raise click.BadParameter(f"[merge] Illegal pair_index {pi} (n_pairs={n_pairs}).")
-
-    final_blocks: List[str] = []
-    wrote_indices = False
-
-    for gi, (pi, imgs) in enumerate(groups):
-        pocket_ref = Path(pocket_inputs[pi])
-        structA = structs[pi]
-        structB = structs[pi+1]
-        coordsA = aligned_coords[pi]
-        coordsB = aligned_coords[pi+1]
-        keymapA = keymaps[pi]
-        keymapB = keymaps[pi+1]
-        seg_indices_for_frames = [int(getattr(im, "mep_seg_index", 0) or 0) for im in imgs]
-
-        blocks, active_one_based = _merge_pair_to_full(
-            pair_images=imgs,
-            pocket_ref_pdb=pocket_ref,
-            structA=structA,
-            structB=structB,
-            coordsA_aligned=coordsA,
-            coordsB_aligned=coordsB,
-            keymapA=keymapA,
-            keymapB=keymapB,
-            out_path=None,
-            drop_first=(gi > 0),
-            seg_indices_for_frames=seg_indices_for_frames,
-            seg_report_lookup=seg_lookup,
-            include_pocket_indices_for_first_model=(not wrote_indices)
-        )
-        if blocks:
-            wrote_indices = True
-            final_blocks.extend(blocks)
-
-    final_path = out_dir / "mep_w_ref.pdb"
-    with open(final_path, "w") as f:
-        for m, blk in enumerate(final_blocks, start=1):
-            f.write(f"MODEL     {m}\n")
-            f.write(blk)
-            f.write("ENDMDL\n")
-        f.write("END\n")
-    click.echo(f"[merge] Wrote concatenated full-system trajectory → '{final_path}'")
-
-    # Per-segment merged MEPs (bond-change segments only) + HEI merged only for bond-change segments
-    for s in segments:
-        seg_idx = int(s.seg_index)
-        seg_frames: List[Any] = [im for im in final_images if int(getattr(im, "mep_seg_index", 0) or 0) == seg_idx]
-        if not seg_frames:
-            continue
-
-        # Determine pair index for this segment (assume consistent within the segment)
-        pi_vals = sorted({int(getattr(im, "pair_index", 0)) for im in seg_frames})
-        pi = pi_vals[0]
-        pocket_ref = Path(pocket_inputs[pi])
-        structA = structs[pi]
-        structB = structs[pi+1]
-        coordsA = aligned_coords[pi]
-        coordsB = aligned_coords[pi+1]
-        keymapA = keymaps[pi]
-        keymapB = keymaps[pi+1]
-
-        # Per-segment merged MEP only when covalent changes are present
-        if s.kind != "bridge" and s.summary and s.summary.strip() != "(no covalent changes detected)":
-            seg_indices_for_frames = [seg_idx] * len(seg_frames)
-            blocks, _ = _merge_pair_to_full(
-                pair_images=seg_frames,
-                pocket_ref_pdb=pocket_ref,
-                structA=structA,
-                structB=structB,
-                coordsA_aligned=coordsA,
-                coordsB_aligned=coordsB,
-                keymapA=keymapA,
-                keymapB=keymapB,
-                out_path=None,
-                drop_first=False,
-                seg_indices_for_frames=seg_indices_for_frames,
-                seg_report_lookup=seg_lookup,
-                include_pocket_indices_for_first_model=True,
-            )
-            out_seg = out_dir / f"mep_w_ref_seg_{seg_idx:02d}.pdb"
-            with open(out_seg, "w") as f:
-                for m, blk in enumerate(blocks, start=1):
-                    f.write(f"MODEL     {m}\n")
-                    f.write(blk)
-                    f.write("ENDMDL\n")
-                f.write("END\n")
-            click.echo(f"[merge] Wrote per-segment merged trajectory → '{out_seg}'")
-
-        # Per-segment HEI merged to reference (only for bond-change segments)
-        if s.kind != "bridge" and s.summary and s.summary.strip() != "(no covalent changes detected)":
-            try:
-                energies_eh = [float(getattr(im, "energy")) for im in seg_frames]
-                imax = int(np.argmax(np.array(energies_eh, dtype=float)))
-                hei_frame = seg_frames[imax]
-                blocks_hei, _ = _merge_pair_to_full(
-                    pair_images=[hei_frame],
-                    pocket_ref_pdb=pocket_ref,
-                    structA=structA,
-                    structB=structB,
-                    coordsA_aligned=coordsA,
-                    coordsB_aligned=coordsB,
-                    keymapA=keymapA,
-                    keymapB=keymapB,
-                    out_path=None,
-                    drop_first=False,
-                    seg_indices_for_frames=[seg_idx],
-                    seg_report_lookup=seg_lookup,
-                    include_pocket_indices_for_first_model=True,
-                )
-                out_hei = out_dir / f"hei_w_ref_seg_{seg_idx:02d}.pdb"
-                with open(out_hei, "w") as f:
-                    for m, blk in enumerate(blocks_hei, start=1):
-                        f.write(f"MODEL     {m}\n")
-                        f.write(blk)
-                        f.write("ENDMDL\n")
-                    f.write("END\n")
-                click.echo(f"[merge] Wrote merged HEI for segment → '{out_hei}'")
-            except Exception as e:
-                click.echo(f"[merge] WARNING: Failed to write merged HEI for segment {seg_idx:02d}: {e}", err=True)
-
-
-# -----------------------------------------------
 # CLI
 # -----------------------------------------------
 
@@ -1709,10 +1311,9 @@ def _merge_final_and_write(final_images: List[Any],
     default=True,
     show_default=True,
     help=("After pre-optimization, align all inputs to the *first* input and match freeze_atoms "
-          "using the align_freeze_atoms API. When --align is True and --ref-pdb is provided, "
-          "the first reference PDB will be used for all pairs in the final merge.")
+          "using the align_freeze_atoms API.")
 )
-# Full template PDBs for merge
+# Full template PDBs for XYZ→PDB conversion and topology reference
 @click.option(
     "--ref-pdb",
     "ref_pdb_paths",
@@ -1720,8 +1321,7 @@ def _merge_final_and_write(final_images: List[Any],
     multiple=True,
     default=None,
     help=("Full-size template PDBs in the same reaction order as --input. "
-          "With --align True, only the *first* provided reference PDB is used for all pairs "
-          "in the final merge (you may pass just one).")
+          "Required when using XYZ inputs to provide topology and B-factor information.")
 )
 @click.option(
     "--convert-files/--no-convert-files",
@@ -1831,16 +1431,6 @@ def cli(
         # --------------------------
         if len(input_paths) < 2:
             raise click.BadParameter("Provide at least two structures for --input in reaction order (reactant [intermediates ...] product).")
-
-        do_merge = bool(ref_pdb_paths) and len(ref_pdb_paths) > 0
-        if do_merge:
-            if align:
-                # With --align True we will use only the *first* ref PDB for all pairs (replicated later).
-                pass
-            else:
-                if len(ref_pdb_paths) != len(input_paths):
-                    raise click.BadParameter("--ref-pdb must be given for each --input (same count and order). "
-                                             "Alternatively, use --align to allow using only the first reference PDB for all pairs.")
 
         p_list = [Path(p) for p in input_paths]
         ref_list = list(ref_pdb_paths) if ref_pdb_paths else []
@@ -2434,26 +2024,6 @@ def cli(
         except Exception as e:
             click.echo(f"[write] WARNING: Failed to emit per-segment pocket outputs: {e}", err=True)
         # ---- END ----
-
-        if do_merge:
-            click.echo("\n=== Full-system merge (pocket → templates) started ===\n")
-            # With --align True, use only the first reference PDB for all pairs (replicate it).
-            if align:
-                if not ref_pdb_paths or len(ref_pdb_paths) < 1:
-                    raise click.BadParameter("--ref-pdb must provide at least one file when performing final merge with --align True.")
-                first_ref = Path(ref_pdb_paths[0])
-                ref_list_for_merge = [first_ref for _ in input_paths]  # replicate for all (length == n_inputs)
-            else:
-                ref_list_for_merge = [Path(p) for p in ref_pdb_paths]
-
-            _merge_final_and_write(
-                final_images=list(combined_all.images),
-                pocket_inputs=[Path(p) for p in input_paths],
-                ref_pdbs=ref_list_for_merge,
-                segments=combined_all.segments,
-                out_dir=out_dir_path
-            )
-            click.echo("\n=== Full-system merge finished ===\n")
 
         summary = {
             "out_dir": str(out_dir_path),

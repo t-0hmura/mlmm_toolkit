@@ -254,7 +254,6 @@ result_all/
 ├── path_search/ # MEP 軌跡とダイアグラム
 │ ├── mep_trj.xyz # MEP 軌跡
 │ ├── mep.pdb # PDB 形式の MEP
-│ ├── mep_w_ref.pdb # 全系とマージされた MEP
 │ └── seg_*/ # セグメントごとの詳細
 └── path_search/post_seg_*/ # 後処理出力
  ├── tsopt/ # TS 最適化結果

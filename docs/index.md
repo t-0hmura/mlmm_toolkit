@@ -294,7 +294,6 @@ result_all/
 ├── path_search/ # MEP trajectories and diagrams
 │ ├── mep_trj.xyz # MEP trajectory
 │ ├── mep.pdb # MEP in PDB format
-│ ├── mep_w_ref.pdb # MEP merged with full system
 │ └── seg_*/ # Per-segment details
 └── path_search/post_seg_*/ # Post-processing outputs
  ├── tsopt/ # TS optimization results

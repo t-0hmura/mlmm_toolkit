@@ -1424,7 +1424,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 
 
 @click.command(
-    help="Run pocket extraction → (optional single-structure staged scan) → MEP search → merge to full PDBs in one shot.\n"
+    help="Run pocket extraction → (optional single-structure staged scan) → MEP search in one shot.\n"
          "If exactly one input is provided: (a) with --scan-lists, stage results feed into path_search; "
          "(b) with --tsopt True and no --scan-lists, run TSOPT-only mode.",
     context_settings={
@@ -2973,23 +2973,14 @@ def cli(
     # --------------------------
     # Stage 3: Merge (performed by path_search when --ref-pdb was supplied)
     # --------------------------
-    _echo_section("=== [all] Stage 3/3 — Merge into full-system templates ===")
-    if refine_path:
-        _echo("[all] Merging was carried out by path_search using the original inputs as templates.")
-        _echo(f"[all] Final products can be found under: {path_dir}")
-        _echo("  - mep_w_ref.pdb            (full-system merged trajectory)")
-        _echo("  - mep_w_ref_seg_XX.pdb     (per-segment merged trajectories for covalent-change segments)")
-        _echo("  - summary.yaml             (segment barriers, ΔE, labels)")
-        _echo("  - mep_plot.png / energy_diagram_MEP.png / summary.log")
-    else:
-        _echo("[all] Post-processing was carried out by path_opt (single-pass GSM per pair).")
-        _echo(f"[all] Final products can be found under: {path_dir}")
-        _echo("  - mep_trj.xyz              (concatenated MEP trajectory)")
-        _echo("  - mep.pdb                  (PDB conversion, if input was .pdb)")
-        _echo("  - mep_seg_XX_trj.xyz       (per-segment trajectories)")
-        _echo("  - hei_seg_XX.xyz/.pdb      (HEI per segment)")
-        _echo("  - summary.yaml             (segment barriers, ΔE, bond changes)")
-        _echo("  - mep_plot.png / energy_diagram_mep.png")
+    _echo_section("=== [all] Stage 3/3 — Final outputs ===")
+    _echo(f"[all] Final products can be found under: {path_dir}")
+    _echo("  - mep_trj.xyz              (concatenated MEP trajectory)")
+    _echo("  - mep.pdb                  (PDB conversion, if input was .pdb)")
+    _echo("  - mep_seg_XX_trj.xyz       (per-segment trajectories)")
+    _echo("  - hei_seg_XX.xyz/.pdb      (HEI per segment)")
+    _echo("  - summary.yaml             (segment barriers, ΔE, bond changes)")
+    _echo("  - mep_plot.png / energy_diagram_MEP.png / summary.log")
     _echo_section("=== [all] Pipeline finished successfully (core path) ===")
 
     summary_yaml = path_dir / "summary.yaml"
@@ -3012,14 +3003,13 @@ def cli(
                 "mep_plot.png",
                 "energy_diagram_MEP.png",
                 "mep.pdb",
-                "mep_w_ref.pdb",
                 "summary.yaml",
                 "summary.log",
             ):
                 src = path_dir / name
                 if src.exists():
                     shutil.copy2(src, out_dir / name)
-            for stem in ("mep", "mep_w_ref"):
+            for stem in ("mep",):
                 for ext in ("_trj.xyz", ".xyz"):
                     src = path_dir / f"{stem}{ext}"
                     if src.exists():

@@ -31,15 +31,7 @@ mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
-2. Merge pocket trajectories back into a full template.
-
-```bash
-mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
- --model-pdb ml_region.pdb -q 0 --ref-pdb holo_template.pdb \
- --out-dir ./result_path_search_merge
-```
-
-3. Run a lighter pass without pre-optimization or alignment.
+2. Run a lighter pass without pre-optimization or alignment.
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
@@ -66,7 +58,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0
 
-# Multistep path with YAML overrides, frozen atoms, and merged full-system output
+# Multistep path with YAML overrides and frozen atoms
 mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
  --ref-pdb holo_template.pdb --out-dir ./run_ps
@@ -81,7 +73,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  - Otherwise, launch a **refinement segment (GSM)** between `End1` and `End2` to sharpen the barrier.
 4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent updates. Recursion depth is capped by `search.max_depth`.
 5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment using the selected `--mep-mode`. When the interface itself shows a bond change, a brand-new recursive segment replaces the bridge.
-6. **Optional alignment and merge** -- After pre-opt, `--align` rigidly co-aligns inputs and refines freezes. With `--ref-pdb`, pocket trajectories merge into full templates and segments are annotated for plotting/analysis.
+6. **Optional alignment** -- After pre-opt, `--align` rigidly co-aligns inputs and refines freezes. Segments are annotated for plotting/analysis.
 
 Bond-change detection relies on `bond_changes.compare_structures` with thresholds surfaced under the `bond` YAML section.
 
@@ -111,7 +103,7 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau_loose`) |
 | `--dump/--no-dump` | Save optimizer dumps. | `False` |
 | `-o, --out-dir PATH` | Output directory. | `./result_path_search/` |
-| `--ref-pdb PATH...` | Full template PDB(s) for final merge. | _None_ |
+| `--ref-pdb PATH...` | Full template PDB(s) for XYZ→PDB conversion and topology reference. | _None_ |
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layer metadata) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running path search. Shown in `--help-advanced`. | `False` |
@@ -127,11 +119,8 @@ out_dir/ (default: ./result_path_search/)
  summary.log # Human-readable summary
  mep_trj.xyz # Final MEP (always written)
  mep.pdb # Final MEP (PDB when ref template available)
- mep_w_ref.pdb # Full-system merged MEP (requires --ref-pdb)
- mep_w_ref_seg_XX.pdb # Per-segment merged MEPs (bond-change segments; requires --ref-pdb)
- mep_seg_XX_trj.xyz / mep_seg_XX.pdb # Pocket-only per-segment paths
- hei_seg_XX.xyz / hei_seg_XX.pdb # Pocket HEI and optional PDB per bond-change segment
- hei_w_ref_seg_XX.pdb # Merged HEI per bond-change segment (requires --ref-pdb)
+ mep_seg_XX_trj.xyz / mep_seg_XX.pdb # Per-segment paths
+ hei_seg_XX.xyz / hei_seg_XX.pdb # HEI per bond-change segment
  mep_plot.png # Delta-E profile vs image index (from trj2fig)
  energy_diagram_MEP.png # State-level energy diagram relative to the reactant (kcal/mol)
  seg_000_*/ # Segment-level GSM and refinement artifacts

@@ -254,8 +254,6 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
  path_search/                          # path_search 実行時
   mep_trj.xyz
   mep.pdb
-  mep_w_ref.pdb
-  mep_w_ref_seg_XX.pdb
   summary.yaml
   summary.log
   mep_plot.png

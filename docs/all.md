@@ -283,8 +283,6 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
  path_search/                          # present when path_search is executed
   mep_trj.xyz
   mep.pdb
-  mep_w_ref.pdb
-  mep_w_ref_seg_XX.pdb
   summary.yaml
   summary.log
   mep_plot.png
