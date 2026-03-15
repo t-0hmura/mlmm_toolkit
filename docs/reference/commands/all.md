@@ -124,10 +124,10 @@ Options:
                                   [default: False]
   --thermo BOOLEAN                Run freq on (R,TS,P) per reactive segment (or
                                   TSOPT-only mode) and build Gibbs free-energy
-                                  diagram (UMA).  [default: False]
+                                  diagram (MLIP).  [default: False]
   --dft BOOLEAN                   Run DFT single-point on (R,TS,P) and build DFT
                                   energy diagram. With --thermo True, also
-                                  generate a DFT//UMA Gibbs diagram.  [default:
+                                  generate a DFT//MLIP Gibbs diagram.  [default:
                                   False]
   --tsopt-max-cycles INTEGER      Override tsopt --max-cycles value.
   --flatten / --no-flatten        Enable the extra-imaginary-mode flattening

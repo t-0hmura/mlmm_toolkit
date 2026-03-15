@@ -220,7 +220,7 @@ ja/index
 - **RAM**: 16 GB+ recommended
 
 ### Software
-- Python 3.11
+- Python >= 3.11
 - PyTorch with CUDA support
 - CUDA 12.x toolkit
 - AmberTools (for `mm-parm`)

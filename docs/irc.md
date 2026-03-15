@@ -78,6 +78,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--dry-run/--no-dry-run` | Validate and print execution plan without running IRC. Shown in `--help-advanced`. | `False` |
 
 ## Outputs
@@ -90,7 +91,11 @@ out_dir/ (default: ./result_irc/)
 ├─ <prefix>backward_irc_trj.xyz     # Backward path segment
 ├─ <prefix>finished_irc.pdb         # PDB conversion (only if input was .pdb)
 ├─ <prefix>forward_irc.pdb          # PDB conversion (only if input was .pdb)
-└─ <prefix>backward_irc.pdb         # PDB conversion (only if input was .pdb)
+├─ <prefix>backward_irc.pdb         # PDB conversion (only if input was .pdb)
+├─ <prefix>forward_last.xyz         # Single-frame forward IRC endpoint (XYZ)
+├─ <prefix>forward_last.pdb         # Single-frame forward IRC endpoint (PDB, when available)
+├─ <prefix>backward_last.xyz        # Single-frame backward IRC endpoint (XYZ)
+└─ <prefix>backward_last.pdb        # Single-frame backward IRC endpoint (PDB, when available)
 ```
 
 ## YAML configuration

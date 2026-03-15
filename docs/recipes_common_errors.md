@@ -46,7 +46,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
  - Confirm required executables and Python extension modules exist in the active env.
  - Validate GPU visibility and PyTorch CUDA compatibility.
 - Typical fix path:
- - Repair toolchain/build first, then rerun with `--dry-run` before full execution.
+ - Repair toolchain/build first, then rerun with `--help-advanced` to verify available options before full execution.
 
 ## Recipe 4: Convergence and post-processing failures
 

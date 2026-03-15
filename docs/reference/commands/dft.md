@@ -61,8 +61,8 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).
   --embedcharge / --no-embedcharge
-                                  Enable xTB point-charge embedding correction
-                                  for MM→ML environmental effects.  [default:
-                                  no-embedcharge]
+                                  Enable PySCF qmmm.mm_charge() point-charge
+                                  embedding of MM partial charges into the DFT
+                                  Hamiltonian.  [default: no-embedcharge]
   -h, --help                      Show this message and exit.
 ```

@@ -1692,8 +1692,9 @@ class MLMMCore:
                 n_before = len(mm_atom_indices)
                 mask = dists <= self.embedcharge_cutoff
                 mm_atom_indices = [mm_atom_indices[j] for j in range(n_before) if mask[j]]
-                if self.print_timing:
+                if self.print_timing and not getattr(self, '_embedcharge_logged', False):
                     print(f"[embedcharge] {len(mm_atom_indices)}/{n_before} MM atoms within {self.embedcharge_cutoff:.1f} Å cutoff.")
+                    self._embedcharge_logged = True
             if mm_atom_indices:
                 mm_coords = atoms_real.get_positions()[mm_atom_indices]
                 # Get MM partial charges from the topology

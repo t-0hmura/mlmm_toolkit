@@ -129,7 +129,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `-c, --center SPEC` | Substrate specification (PDB path, residue IDs, or residue names). | Required |
 | `-o, --output PATH...` | Pocket PDB output(s). One path => multi-MODEL, N paths => per input. | Auto (`pocket.pdb` or `pocket_<input>.pdb`) |
 | `-r, --radius FLOAT` | Atom-atom distance cutoff (Å) for inclusion. | `2.6` |
-| `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å, non C/H). | `0.0` (internally 0.001 Å when zero) |
+| `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å, non C/H). | `0.0` |
 | `--include-H2O/--no-include-H2O` | Include HOH/WAT/H2O/DOD/TIP/TIP3/SOL waters. | `True` |
 | `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids (PRO/HYP safeguards). | `True` |
 | `--add-linkH/--no-add-linkH` | Add carbon-only link hydrogens at 1.09 Å along severed bonds. | `False` |
@@ -185,7 +185,7 @@ A dictionary mapping residue names to their nominal integer charges. Membership 
 - `OCS` (-1, cysteic acid), `CYM` (-1, deprotonated Cys)
 
 **Lysine variants / carboxylation:**
-- `MLY` (+1), `LLP` (+1), `KCX` (-1, Nz-carboxylic acid)
+- `MLY` (+1), `LLP` (+1), `DLY` (+1), `KCX` (-1, Nz-carboxylic acid)
 
 **D-amino acids** (19 residues):
 - `DAL`, `DAR`, `DSG`, `DAS`, `DCY`, `DGN`, `DGL`, `DHI`, `DIL`, `DLE`, `DLY`, `MED`, `DPN`, `DPR`, `DSN`, `DTH`, `DTR`, `DTY`, `DVA`

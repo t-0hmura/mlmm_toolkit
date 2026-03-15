@@ -598,6 +598,18 @@ def cli(
                 ref_pdb_path,
                 out_dir_path / f"{irc_cfg.get('prefix','')}{'backward_irc.pdb'}",
             )
+            # Single-frame endpoint PDBs (forward_last, backward_last)
+            prefix = irc_cfg.get("prefix", "")
+            for tag in ("forward_last", "backward_last"):
+                endpoint_xyz = out_dir_path / f"{prefix}{tag}.xyz"
+                endpoint_pdb = out_dir_path / f"{prefix}{tag}.pdb"
+                if endpoint_xyz.exists() and not endpoint_pdb.exists():
+                    try:
+                        convert_xyz_to_pdb(endpoint_xyz, ref_pdb_path, endpoint_pdb)
+                        click.echo(f"[convert] Wrote '{endpoint_pdb}'.")
+                    except Exception as e:
+                        logger.debug("Failed to convert %s to PDB", endpoint_xyz.name, exc_info=True)
+                        click.echo(f"[convert] WARNING: Failed to convert '{tag}.xyz' to PDB: {e}", err=True)
 
         # summary.md and key_* outputs are disabled.
         click.echo(format_elapsed("[time] Elapsed Time for IRC", time_start))

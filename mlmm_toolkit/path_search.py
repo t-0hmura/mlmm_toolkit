@@ -1540,7 +1540,11 @@ def cli(
             calc_cfg["model_mult"] = int(resolved_spin)
 
         first_input = p_list[0]
-        calc_cfg["input_pdb"] = str(first_input)
+        # input_pdb must be a PDB (parmed requirement); use --ref-pdb when input is XYZ
+        if first_input.suffix.lower() != ".pdb" and ref_list:
+            calc_cfg["input_pdb"] = str(Path(ref_list[0]).resolve())
+        else:
+            calc_cfg["input_pdb"] = str(first_input)
         calc_cfg["real_parm7"] = str(real_parm7)
 
         detect_layer_effective = bool(calc_cfg.get("use_bfactor_layers", detect_layer))
@@ -1615,9 +1619,14 @@ def cli(
                 click.echo("[layer] movable_cutoff is set; disabling detect-layer.", err=True)
             detect_layer_effective = False
 
-        layer_source_pdb = first_input
+        # For layer detection, prefer --ref-pdb (which carries B-factor layers)
+        # over the first input (which may be XYZ).
+        if ref_list and ref_list[0]:
+            layer_source_pdb = Path(ref_list[0]).resolve()
+        else:
+            layer_source_pdb = first_input
         if detect_layer_effective and layer_source_pdb.suffix.lower() != ".pdb":
-            click.echo("ERROR: --detect-layer requires a PDB input.", err=True)
+            click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
             sys.exit(1)
 
         if dry_run:

@@ -433,7 +433,7 @@ def _gather_extract_variadic(
     "--include-H2O/--no-include-H2O",
     "include_H2O",
     default=True, show_default=True,
-    help="Include waters (HOH/WAT/TIP3/SOL).",
+    help="Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL).",
 )
 @click.option(
     "--exclude-backbone/--no-exclude-backbone",

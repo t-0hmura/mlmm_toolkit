@@ -2649,9 +2649,24 @@ def cli(
         for p in stage_results:
             _echo(f"  - {p}")
 
-        # Input series to path_search: [initial layered PDB/XYZ, scan stage results ...]
-        pockets_for_path = [layered_pdb] + stage_results
-        refs_for_path = [layered_pdb] + stage_refs
+        # Input series to path_search: [preopt result (if available), scan stage results ...]
+        # When scan ran with --preopt, its optimised reactant geometry lives in
+        # scan/preopt/result.xyz (full precision) or result.pdb.  Using this
+        # avoids a redundant ~2000-cycle re-optimisation inside path_search.
+        preopt_xyz = scan_dir / "preopt" / "result.xyz"
+        preopt_pdb = scan_dir / "preopt" / "result.pdb"
+        if preopt_xyz.exists():
+            init0_geom = preopt_xyz.resolve()
+            init0_ref = layered_pdb          # layered PDB has authoritative B-factor layers
+        elif preopt_pdb.exists():
+            init0_geom = preopt_pdb.resolve()
+            init0_ref = layered_pdb
+        else:
+            # No preopt output — fall back to original layered PDB
+            init0_geom = layered_pdb
+            init0_ref = layered_pdb
+        pockets_for_path = [init0_geom] + stage_results
+        refs_for_path = [init0_ref] + stage_refs
     else:
         # Multi-structure standard route: use layered full-system PDBs
         pockets_for_path = list(layered_inputs)

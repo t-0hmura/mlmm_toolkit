@@ -636,26 +636,100 @@ def _run_microiter_opt(
     mm_calc = mlmm_mm_only(base_calc.core, freeze_atoms=micro_freeze)
 
     # Seed initial Hessian for RFO (with macro freeze)
-    click.echo("[microiter] Seeding initial Hessian for RFO macro step.")
+    # Try IRC endpoint cache first; fall back to full Hessian calculation.
+    from .hessian_cache import load as _hess_load
     from .freq import (
         _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
         _torch_device as _freq_torch_device,
     )
     hess_device = _freq_torch_device(calc_cfg.get("ml_device", "auto"))
 
-    # Set macro freeze on geometry for initial Hessian
+    # Always create macro calculator (needed for optimization loop below)
     macro_calc_cfg = dict(calc_cfg)
     macro_calc_cfg["freeze_atoms"] = macro_freeze
     macro_calc_cfg["hess_mm_atoms"] = []   # macro step は ML-only Hessian
     macro_calc = mlmm(**macro_calc_cfg)
-    geometry.set_calculator(macro_calc)
 
-    h_init, _ = _freq_calc_full_hessian_torch(
-        geometry, macro_calc_cfg, hess_device, refresh_geom_meta=True,
-    )
-    geometry.cart_hessian = h_init
-    click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
-    del h_init
+    cached = _hess_load("irc_endpoint")
+    _cache_used = False
+    if cached is not None:
+        import torch
+        active_dofs = cached.get("active_dofs")
+        h_raw = cached["hessian"]
+        if isinstance(h_raw, torch.Tensor):
+            h_init = h_raw.clone()
+        else:
+            h_init = torch.as_tensor(h_raw, dtype=torch.float64)
+
+        # Macro step freezes MM atoms → only ML DOFs are free.
+        # The cached IRC Hessian covers ML+MovableMM DOFs and is generally
+        # larger.  Extract the ML-only sub-block when active_dofs are known;
+        # otherwise fall back to a fresh Hessian calculation.
+        n_free = geometry.cart_coords.size - 3 * len(macro_freeze)
+        if h_init.shape[0] == n_free:
+            # Size already matches (e.g. non-microiter or same freeze set)
+            geometry.set_calculator(macro_calc)
+            if active_dofs is not None:
+                geometry.within_partial_hessian = {
+                    "active_n_dof": len(active_dofs),
+                    "full_n_dof": geometry.cart_coords.size,
+                    "active_dofs": active_dofs,
+                    "active_atoms": sorted(set(d // 3 for d in active_dofs)),
+                }
+            geometry.cart_hessian = h_init
+            click.echo(f"[microiter] Reusing IRC endpoint Hessian for RFO macro step (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+            _cache_used = True
+        elif active_dofs is not None:
+            # Extract ML-only sub-block from the larger cached Hessian.
+            macro_free_atoms = sorted(set(range(geometry.cart_coords.size // 3)) - set(macro_freeze))
+            macro_free_dofs = []
+            for a in macro_free_atoms:
+                macro_free_dofs.extend([3 * a, 3 * a + 1, 3 * a + 2])
+            # Map macro free DOFs to indices within the cached active_dofs
+            cached_dof_set = set(active_dofs)
+            sub_indices = []
+            for d in macro_free_dofs:
+                if d in cached_dof_set:
+                    sub_indices.append(active_dofs.index(d))
+            if len(sub_indices) == n_free:
+                idx = torch.tensor(sub_indices, dtype=torch.long)
+                h_sub = h_init[idx][:, idx]
+                macro_active_dofs = macro_free_dofs
+                geometry.set_calculator(macro_calc)
+                geometry.within_partial_hessian = {
+                    "active_n_dof": len(macro_active_dofs),
+                    "full_n_dof": geometry.cart_coords.size,
+                    "active_dofs": macro_active_dofs,
+                    "active_atoms": macro_free_atoms,
+                }
+                geometry.cart_hessian = h_sub
+                click.echo(
+                    f"[microiter] Reusing IRC endpoint Hessian (sub-block) for RFO macro step "
+                    f"(cached {h_init.shape[0]}x{h_init.shape[1]} → extracted {h_sub.shape[0]}x{h_sub.shape[1]})."
+                )
+                _cache_used = True
+                del h_sub
+            else:
+                click.echo(
+                    f"[microiter] IRC endpoint Hessian sub-block extraction failed "
+                    f"(expected {n_free}, got {len(sub_indices)}). Falling back to fresh Hessian."
+                )
+        else:
+            click.echo(
+                f"[microiter] IRC endpoint Hessian size mismatch "
+                f"(cached={h_init.shape[0]}, needed={n_free}). Falling back to fresh Hessian."
+            )
+        del h_init
+    if not _cache_used:
+        click.echo("[microiter] Seeding initial Hessian for RFO macro step.")
+        geometry.set_calculator(macro_calc)
+
+        h_init, _ = _freq_calc_full_hessian_torch(
+            geometry, macro_calc_cfg, hess_device, refresh_geom_meta=True,
+        )
+        geometry.cart_hessian = h_init
+        click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+        del h_init
 
     optim_all_path = out_dir_path / "optimization_all_trj.xyz"
     macro_trj_path = out_dir_path / "optimization_trj.xyz"

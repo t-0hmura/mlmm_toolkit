@@ -83,10 +83,10 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors. | `True` |
 | `-q, --charge INT` | Total charge of the ML region. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge` | TEXT | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
+| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | _None_ (defaults to 1) |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. `0.0` means ML-only partial Hessian. Alias: `--radius-hessian`. | `0.0` |
+| `--radius-hessian, --hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. `0.0` means ML-only partial Hessian. | `0.0` |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | `FiniteDifference` |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
@@ -104,6 +104,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--show-config/--no-show-config` | Print resolved config layers and continue execution. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--dry-run/--no-dry-run` | Validate inputs/config and print the execution plan without running TS optimization. Shown in `--help-advanced`. | `False` |
 
 ## Outputs
@@ -207,19 +208,18 @@ hessian_dimer:
   max_mu_reg_adaptions: 10         # cap on mu adaptations
 rsirfo:
  thresh: baker                     # RS-IRFO convergence preset
- max_cycles: 10000                 # iteration cap
- print_every: 100                  # logging stride
- min_step_norm: 1.0e-08            # minimum accepted step norm
- assert_min_step: true             # assert when steps stagnate
- roots: [0]                        # target root indices
- hessian_ref: null                 # reference Hessian
+ trust_radius: 0.10                # initial trust radius (smaller for ONIOM)
+ trust_update: true                # adaptive trust radius update
+ trust_min: 1.0e-04                # minimum trust radius
+ trust_max: 0.30                   # maximum trust radius
+ max_energy_incr: null             # max allowed energy increase per step
  hessian_update: bofill            # Hessian update scheme override
- hessian_recalc_reset: true        # reset recalc counter after exact Hessian
+ hessian_init: calc                # initial Hessian source
+ hessian_recalc: 200               # recalculate Hessian every N steps
+ hessian_recalc_adapt: null        # adaptive Hessian recalculation
+ small_eigval_thresh: 1.0e-08      # threshold for small eigenvalues
+ alpha0: 1.0                       # initial shift parameter
  max_micro_cycles: 50              # micro-iterations per macro cycle
- augment_bonds: false              # augment reaction path based on bond analysis
- min_line_search: false            # enforce minimum line-search step
- max_line_search: false            # enforce maximum line-search step
- assert_neg_eigval: false          # require a negative eigenvalue at convergence
 ```
 
 ## See Also

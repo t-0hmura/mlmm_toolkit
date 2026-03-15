@@ -763,10 +763,6 @@ class HessianOptimizer(Optimizer):
             f" rms(grad): {np.sqrt(np.mean(gradient_full**2)): >12.6f} au / bohr (rad)"
         )
         self.forces.append(-gradient_full)
-        if isinstance(self.H, torch.Tensor):
-            gradient_full = torch.from_numpy(gradient_full).to(
-                self.H.device, self.H.dtype
-            )
 
         can_update = (
             # Allows gradient differences
@@ -781,6 +777,14 @@ class HessianOptimizer(Optimizer):
             if self.trust_update:
                 self.update_trust_radius()
             self.update_hessian()
+
+        # Convert gradient to match H device/dtype AFTER update_hessian(),
+        # so that hessian_recalc (which may replace self.H with a new tensor
+        # on a different device) is accounted for.
+        if isinstance(self.H, torch.Tensor):
+            gradient_full = torch.from_numpy(gradient_full).to(
+                self.H.device, self.H.dtype
+            )
 
         H = self.H
         if self.geometry.internal:
@@ -886,6 +890,8 @@ class HessianOptimizer(Optimizer):
                 gradient = torch.as_tensor(
                     gradient, device=eigvecs.device, dtype=eigvecs.dtype
                 )
+            elif gradient.device != eigvecs.device:
+                gradient = gradient.to(device=eigvecs.device)
             gradient_ = eigvecs.T @ gradient
         else:
             gradient_ = eigvecs.T.dot(gradient)

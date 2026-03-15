@@ -431,7 +431,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `-l, --ligand-charge TEXT` | 電荷情報: マッピング（`'SAM:1,GPP:-3'`）または単一整数 |
 | `-q, --charge INT` | ML 領域の総電荷の強制上書き |
 | `-m, --multiplicity INT` | スピン多重度（例: 一重項は `1`） |
-| `--scan-lists TEXT...` | 単一入力実行時の段階的距離スキャン |
+| `-s, --scan-lists TEXT...` | 単一入力実行時の段階的距離スキャン（YAML/JSON ファイルまたはインラインリテラル） |
 | `--parm PATH` | 全系の Amber parm7 トポロジー（`all` では自動生成） |
 | `--model-pdb PATH` | ML 領域を定義する PDB ファイル（`all` では自動生成） |
 | `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |

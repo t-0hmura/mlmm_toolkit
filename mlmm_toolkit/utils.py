@@ -1657,15 +1657,15 @@ def annotate_pdb_bfactors_inplace(
     pdb_path: Path,
     model_pdb: Path,
     freeze_indices_0based: Sequence[int],
-    beta_ml: float = 100.0,
-    beta_frz: float = 50.0,
-    beta_both: float = 150.0,
+    beta_ml: float = 0.0,
+    beta_frz: float = 20.0,
+    beta_both: float = 0.0,
 ) -> None:
-    """Overwrite B-factors in-place for ML/frozen atoms visualization.
+    """Overwrite B-factors in-place using 3-layer encoding (ML=0, MovableMM=10, FrozenMM=20).
 
-    - ML-region atoms: beta_ml (default 100.00)
-    - frozen atoms: beta_frz (default 50.00)
-    - ML ∩ frozen: beta_both (default 150.00)
+    - ML-region atoms: beta_ml (default 0.00)
+    - frozen atoms: beta_frz (default 20.00)
+    - ML ∩ frozen: beta_both (default 0.00, ML takes precedence)
 
     Indexing for 'frozen' is 0-based and resets at each MODEL.
     """
@@ -1698,7 +1698,7 @@ def annotate_pdb_bfactors_inplace(
             elif is_frz:
                 out_lines.append(format_pdb_with_bfactor(line, beta_frz))
             else:
-                out_lines.append(line)
+                out_lines.append(format_pdb_with_bfactor(line, 10.0))
             atom_idx += 1
         else:
             out_lines.append(line)
@@ -1842,7 +1842,21 @@ def _derive_charge_from_ligand_charge(
 
         parser = BioPDB.PDBParser(QUIET=True)
         complex_struct = parser.get_structure("complex", str(pdb_path))
-        selected_ids = {res.get_full_id() for res in complex_struct.get_residues()}
+
+        # Use only ML-region residues (B-factor ≈ 0) when layered PDB is available.
+        # A residue is included if ANY of its atoms has B-factor < 1.0 (ML layer).
+        ml_residue_ids = set()
+        all_residue_ids = set()
+        for res in complex_struct.get_residues():
+            fid = res.get_full_id()
+            all_residue_ids.add(fid)
+            for atom in res.get_atoms():
+                if atom.get_bfactor() < 1.0:
+                    ml_residue_ids.add(fid)
+                    break
+        # Fall back to all residues if no B-factor layering is present
+        # (i.e. every residue has B=0 means unlayered PDB).
+        selected_ids = ml_residue_ids if ml_residue_ids != all_residue_ids else all_residue_ids
         summary = compute_charge_summary(
             complex_struct, selected_ids, set(), ligand_charge
         )

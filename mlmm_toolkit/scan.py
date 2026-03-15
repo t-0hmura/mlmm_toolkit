@@ -328,7 +328,7 @@ def _snapshot_geometry(g) -> Any:
     help="Write per-step optimizer trajectory files. "
          "scan_trj.xyz and scan.pdb are always written to out-dir regardless of this flag.",
 )
-@click.option("--out-dir", type=str, default="./result_scan/", show_default=True,
+@click.option("-o", "--out-dir", type=str, default="./result_scan/", show_default=True,
               help="Base output directory.")
 @click.option(
     "--thresh",

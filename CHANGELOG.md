@@ -7,6 +7,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- `-b/--backend` option added to all subcommands for consistent backend selection.
+- `-o/--out-dir` option added to all subcommands for output directory control.
+- `--embedcharge-cutoff` option for embed-charge distance threshold.
+
+### Changed
+- `--dry-run` moved to `--help-advanced` across all subcommands.
+- `-s/--scan-lists` unified with `--spec` alias for scan specification.
+- `--embedcharge` promoted to `--help` primary display.
+- Bool options now documented as `--flag/--no-flag` alongside `--flag True/False`.
+
+---
+
+## [Previous]
+
+### Added
 - Multi-backend MLIP support: UMA, ORB, MACE, AIMNet2 via `--backend` option.
 - `define-layer` subcommand for ML/MM layer assignment.
 - `oniom-export` / `oniom-import` subcommands for Gaussian/ORCA ONIOM interoperability.

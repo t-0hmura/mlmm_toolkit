@@ -67,8 +67,9 @@ Options:
                                   (pre|end)opt stage.  [default: 10000]
   --relax-max-cycles INTEGER      Compatibility alias of --max-cycles (overrides
                                   it when provided).
-  --dump / --no-dump              Write stage trajectory as scan_trj.xyz (and
-                                  scan.pdb for PDB input).  [default: no-dump]
+  --dump / --no-dump              Write per-step optimizer trajectory files.
+                                  scan_trj.xyz is always written regardless.
+                                  [default: no-dump]
   --out-dir TEXT                  Base output directory.  [default:
                                   ./result_scan/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]

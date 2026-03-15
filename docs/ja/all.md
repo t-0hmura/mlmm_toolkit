@@ -59,6 +59,35 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
 
 PDB コンパニオンはテンプレートが利用可能な場合に生成され、`--convert-files/--no-convert-files`（デフォルト有効）で制御されます。
 
+## 使用法
+
+```bash
+mlmm all -i INPUT1 [INPUT2...] -c SUBSTRATE [options]
+```
+
+コアオプションは `mlmm all --help`、全オプション一覧は `mlmm all --help-advanced` で確認できます。
+
+### 例
+
+```bash
+# 基質と電荷を明示したエンドツーエンド実行（マルチ構造）
+mlmm all -i reactant.pdb product.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1"
+
+# 中間体を含むアンサンブル、残基 ID による基質指定、全後処理
+mlmm all -i A.pdb B.pdb C.pdb -c "308,309" -l "-1" \
+ --multiplicity 1 --max-nodes 10 --max-cycles 100 --climb \
+ --opt-mode grad --no-dump --config params.yaml --preopt \
+ --out-dir result_all --tsopt --thermo --dft
+
+# 単一構造 + スキャンで順序付き系列を構築
+mlmm all -i A.pdb -c "308,309" --scan-lists "[(10,55,2.20),(23,34,1.80)]" \
+ --multiplicity 1 --out-dir result_scan_all --tsopt --thermo --dft
+
+# 単一構造 TSOPT のみモード（path_search なし）
+mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
+ --tsopt --thermo --dft --out-dir result_tsopt_only
+```
+
 ## ワークフロー
 
 1. **活性部位抽出と ML 領域定義**（複数入力時はマルチ構造の和集合）

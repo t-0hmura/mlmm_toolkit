@@ -78,11 +78,12 @@ calc:
  # --- ML device & Hessian ---
  ml_device: auto # Device for ML inference: "cuda", "cpu", or "auto"
  ml_cuda_idx: 0 # CUDA device index for ML inference
- ml_hessian_mode: Analytical # ML Hessian mode: "Analytical" or "FiniteDifference"
+ ml_hessian_mode: FiniteDifference # ML Hessian mode: "Analytical" or "FiniteDifference"
  hessian_calc_mode: FiniteDifference # Alias for ml_hessian_mode (if set, overrides ml_hessian_mode)
 
  # --- xTB point-charge embedding ---
  embedcharge: false # Enable xTB point-charge embedding correction for MM->ML effects
+ embedcharge_cutoff: 12.0 # Distance cutoff (Å) for MM point charges in xTB embedding
  embedcharge_step: 0.001 # Numerical Hessian step for embedding correction (Å)
  xtb_cmd: xtb # xTB executable command
  xtb_acc: 0.2 # xTB accuracy parameter

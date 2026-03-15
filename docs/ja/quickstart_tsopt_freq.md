@@ -35,6 +35,8 @@ mlmm freq -i ./result_tsopt/final_geometry.pdb --parm real.parm7 --model-pdb ml_
 ## 補足
 
 - VRAM に余裕がある場合は `--hessian-calc-mode Analytical` を推奨します。
+- 別の MLIP バックエンドを使用するには `-b orb`（または `mace`、`aimnet2`）を追加します。デフォルトは `uma` です。
+- `--embedcharge` を追加すると、MM から ML への環境補正として xTB 点電荷埋め込みが有効になります。
 - 全オプションは `mlmm tsopt --help-advanced` と `mlmm freq --help-advanced` を参照してください。
 
 ## 次の導線

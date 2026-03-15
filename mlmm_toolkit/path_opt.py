@@ -1259,9 +1259,6 @@ def cli(
                         out_pdb,
                         ml_indices=ml_indices_set,
                         freeze_indices=freeze_atoms_final,
-                        beta_ml=100.0,
-                        beta_freeze=50.0,
-                        beta_both=150.0,
                     )
                 except Exception as e:
                     click.echo(f"[convert] WARNING: Failed to convert MEP path trajectory to PDB: {e}", err=True)
@@ -1321,9 +1318,6 @@ def cli(
                     hei_pdb,
                     ml_indices=ml_indices_set,
                     freeze_indices=freeze_atoms_final,
-                    beta_ml=100.0,
-                    beta_freeze=50.0,
-                    beta_both=150.0,
                 )
             else:
                 click.echo("[convert] Skipped 'hei.pdb' (no PDB reference among inputs).")

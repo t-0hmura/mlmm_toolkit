@@ -78,6 +78,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
 | `-b, --backend CHOICE` | MLIP backend used for the low-level ONIOM recombination: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable electrostatic embedding: MM point charges from the Amber topology are added to the PySCF QM Hamiltonian so the DFT wavefunction is polarized by the MM environment. | `False` |
+| `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
@@ -115,8 +116,8 @@ Accepts a mapping root; the `dft` section (and optional `geom`, `calc`/`mlmm`) i
 geom:
  coord_type: cart                  # optional geom_loader settings
 calc:
- charge: 0                         # ML region charge
- spin: 1                           # spin multiplicity 2S+1
+ model_charge: 0                   # ML region charge
+ model_mult: 1                     # spin multiplicity 2S+1
 mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition

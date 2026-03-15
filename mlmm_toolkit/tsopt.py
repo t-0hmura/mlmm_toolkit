@@ -1629,7 +1629,7 @@ def _run_microiter_tsopt(
     micro_freeze = sorted(set(ml_indices) | set(frozen_mm))
 
     max_cycles = int(opt_cfg.get("max_cycles", 10000))
-    macro_thresh = thresh if thresh is not None else opt_cfg.get("thresh", "baker")
+    macro_thresh = thresh if thresh is not None else rsirfo_cfg.get("thresh", "baker")
     micro_thresh = microiter_cfg.get("micro_thresh") or macro_thresh
     micro_max_cycles = int(microiter_cfg.get("micro_max_cycles", 10000))
 
@@ -1648,16 +1648,41 @@ def _run_microiter_tsopt(
     mm_calc = mlmm_mm_only(macro_calc.core, freeze_atoms=micro_freeze)
 
     # Seed initial Hessian for RS-I-RFO (with macro freeze)
-    click.echo("[microiter] Seeding initial Hessian for RS-I-RFO macro step.")
+    # Try TS Hessian cache first; fall back to full Hessian calculation.
+    from .hessian_cache import load as _hess_load_ts
     hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
 
-    geometry.freeze_atoms = macro_freeze
-    geometry.set_calculator(macro_calc)
+    cached_ts = _hess_load_ts("ts")
+    if cached_ts is not None:
+        click.echo("[microiter] Reusing cached TS Hessian for RS-I-RFO macro step.")
+        active_dofs = cached_ts.get("active_dofs")
+        h_raw = cached_ts["hessian"]
+        if isinstance(h_raw, torch.Tensor):
+            h_init = h_raw.clone()
+        else:
+            h_init = torch.as_tensor(h_raw, dtype=torch.float64)
+        geometry.freeze_atoms = macro_freeze
+        geometry.set_calculator(macro_calc)
+        if active_dofs is not None:
+            geometry.within_partial_hessian = {
+                "active_n_dof": len(active_dofs),
+                "full_n_dof": geometry.cart_coords.size,
+                "active_dofs": active_dofs,
+                "active_atoms": sorted(set(d // 3 for d in active_dofs)),
+            }
+        geometry.cart_hessian = h_init
+        click.echo(f"[microiter] Initial Hessian seeded from cache (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+        del h_init
+    else:
+        click.echo("[microiter] Seeding initial Hessian for RS-I-RFO macro step.")
 
-    h_init = _calc_full_hessian_torch(geometry, macro_calc_cfg, hess_device)
-    geometry.cart_hessian = h_init
-    click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
-    del h_init
+        geometry.freeze_atoms = macro_freeze
+        geometry.set_calculator(macro_calc)
+
+        h_init = _calc_full_hessian_torch(geometry, macro_calc_cfg, hess_device)
+        geometry.cart_hessian = h_init
+        click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+        del h_init
 
     optim_all_path = out_dir_path / "optimization_all_trj.xyz"
     macro_trj_path = out_dir_path / "optimization_trj.xyz"

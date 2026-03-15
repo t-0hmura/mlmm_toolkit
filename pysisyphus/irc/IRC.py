@@ -451,6 +451,10 @@ class IRC:
                     f"exceeds {max_displ} au (|eigval|={np.abs(min_eigval):.6e}). "
                     f"Clamping to {max_displ} au."
                 )
+                self.log(
+                    f"Clamped initial displacement from {step_length:.4f} to "
+                    f"{max_displ} au."
+                )
                 step_length = max_displ
             # This calculation is derived from the mass-weighted hessian, so we
             # have to multiply this step length with the mass-weighted
