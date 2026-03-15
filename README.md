@@ -56,6 +56,10 @@ Both `mlmm-toolkit` and `pdb2reaction` include a custom GPU-optimized pysisyphus
 
 For CUDA 12.6:
 ```bash
+conda create -n mlmm python=3.11 -y
+conda activate mlmm
+conda install -c conda-forge ambertools pdbfixer -y
+
 pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu126
 pip install mlmm-toolkit
 huggingface-cli login
@@ -63,6 +67,10 @@ huggingface-cli login
 
 For CUDA 12.9 (recommended for RTX 50 series):
 ```bash
+conda create -n mlmm python=3.11 -y
+conda activate mlmm
+conda install -c conda-forge ambertools pdbfixer -y
+
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 pip install mlmm-toolkit
 huggingface-cli login
@@ -89,6 +97,7 @@ huggingface-cli login
 conda create -n mlmm python=3.11 -y
 conda activate mlmm
 conda install -c conda-forge ambertools pdbfixer -y
+
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 pip install mlmm-toolkit
 plotly_get_chrome -y

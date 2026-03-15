@@ -53,13 +53,13 @@ def test_normalize_geom_freeze(opt_module):
 
 
 def test_parse_dist_freeze_valid_and_index_conversion(opt_module):
-    parsed = opt_module._parse_dist_freeze(["[(1,2,1.5),(2,3)]"], one_based=True)
+    parsed = opt_module._parse_dist_freeze_args(["[(1,2,1.5),(2,3)]"], one_based=True, atom_meta=None)
     assert parsed == [(0, 1, 1.5), (1, 2, None)]
 
 
 def test_parse_dist_freeze_rejects_invalid_target(opt_module):
     with pytest.raises(Exception, match="Target distance must be > 0"):
-        opt_module._parse_dist_freeze(["(1,2,0.0)"], one_based=True)
+        opt_module._parse_dist_freeze_args(["(1,2,0.0)"], one_based=True, atom_meta=None)
 
 
 def test_resolve_dist_freeze_targets_uses_current_distance_when_none(opt_module):
