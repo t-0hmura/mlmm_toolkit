@@ -23,14 +23,10 @@ mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2" --tsopt --thermo --dft
 Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm_toolkit` automatically:
 
 - extracts an **active-site pocket** around user-defined substrates,
-- assigns **3-layer ONIOM regions** (ML / Movable MM / Frozen) via B-factor encoding,
+- assigns **ONIOM regions** (ML / Movable MM / Frozen MM) via B-factor encoding,
 - generates **MM parameters** (parm7/rst7) using AmberTools,
-- explores **minimum-energy paths (MEPs)** with GSM or DMF,
+- explores **minimum-energy paths (MEPs)** with GSM,
 - *optionally* optimizes **transition states**, runs **vibrational analysis**, **IRC**, and **single-point DFT**.
-
-> **Expectation setting for TS search**
-> - Treat single-command outputs as a strong initial guess, not guaranteed final TS validation.
-> - Always validate TS candidates with frequency analysis and IRC before mechanistic interpretation.
 
 > **Important (prerequisites):**
 > - Input PDB files must already contain **hydrogen atoms**.
