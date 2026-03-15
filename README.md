@@ -225,11 +225,8 @@ mlmm irc -i ts_optimized.pdb --parm complex.parm7 -q 1
 mlmm dft -i optimized.pdb --parm complex.parm7 -q 1
 ```
 
-<!-- TODO: uncomment when examples/ is restored
 Fully working example scripts are provided in the [`examples/`](examples/) directory.
-Start with the minimal [`examples/toy_system/`](examples/toy_system/) example, then explore realistic enzyme cases in [`examples/chorismate_mutase/`](examples/chorismate_mutase/) and [`examples/methyltransferase/`](examples/methyltransferase/).
-For a step-by-step walkthrough, see [`examples/tutorial.md`](examples/tutorial.md).
--->
+Start with the minimal [`examples/toy_system/`](examples/toy_system/) example, then explore a realistic enzyme case in [`examples/methyltransferase/`](examples/methyltransferase/).
 
 ---
 
