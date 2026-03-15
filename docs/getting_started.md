@@ -24,10 +24,6 @@ Given **(i) two or more full protein-ligand PDB files** (R,..., P), **or (ii) on
 - explores **minimum-energy paths (MEPs)** with path optimization methods such as the Growing String Method (GSM) and Direct Max Flux (DMF),
 - _optionally_ optimizes **transition states**, runs **vibrational analysis**, **IRC calculations**, and **single-point DFT calculations**.
 
-```{important}
-Treat single-command TS outputs as initial candidates. For enzyme reactions, iterative refinement is common (endpoint quality, pocket definition, constraints, scan targets), and TS validation with both [`freq`](freq.md) and [`irc`](irc.md) is required before interpretation.
-```
-
 At the ML stage, the reactive region uses a machine-learned interatomic potential (MLIP). The default backend is UMA (Meta's FAIR-Chem); alternative backends include ORB, MACE, and AIMNet2 (selected via `-b/--backend`). The MM region uses `hessian_ff`, a C++ native extension that computes Amber force field energies, forces, and Hessians. The total energy follows an ONIOM-like decomposition:
 
 ```

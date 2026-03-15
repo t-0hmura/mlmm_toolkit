@@ -284,7 +284,7 @@ Start with the minimal [`examples/toy_system/`](examples/toy_system/) example, t
 
 ---
 
-## 3-Layer ONIOM System
+## 3-Layer System
 
 `mlmm_toolkit` uses a 3-layer system encoded in PDB B-factor columns:
 
@@ -384,11 +384,9 @@ mlmm <subcommand> --help-advanced
 
 ---
 
-## References
-
-[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit -- Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. https://doi.org/10.26434/chemrxiv-2025-jft1k
-[2] Wood, B. M. et al. (2025). UMA: A Family of Universal Models for Atoms. http://arxiv.org/abs/2506.23971
-[3] Steinmetzer, J. et al. (2021). pysisyphus: Exploring potential energy surfaces in ground and excited states. *Int. J. Quantum Chem.*, 121(3). https://doi.org/10.1002/qua.26390
+## Citation
+If you find this work helpful for your research, please cite:  
+[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. [doi:10.26434/chemrxiv-2025-jft1k](https://doi.org/10.26434/chemrxiv-2025-jft1k)
 
 ---
 
