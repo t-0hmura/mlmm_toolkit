@@ -2202,7 +2202,7 @@ def cli(
         irc_trj_path = irc_res.get("irc_trj")
         if irc_trj_path:
             try:
-                irc_trj_for_all.append((Path(irc_trj_path), False))
+                irc_trj_for_all.append((Path(irc_trj_path), bool(irc_res.get("reverse_irc", False))))
             except Exception:
                 logger.debug("Failed to append IRC trajectory path", exc_info=True)
 
@@ -2612,8 +2612,9 @@ def cli(
         if args_yaml is not None:
             scan_args.extend(["--config", str(args_yaml)])
         # Forward all converted --scan-lists (aligned to the pocket atom order)
-        for literal in scan_stage_literals:
-            scan_args.extend(["--scan-lists", literal])
+        if scan_stage_literals:
+            scan_args.append("--scan-lists")
+            scan_args.extend(scan_stage_literals)
 
         if backend is not None:
             scan_args.extend(["--backend", str(backend)])
@@ -3183,7 +3184,7 @@ def cli(
         irc_trj_path = irc_res.get("irc_trj")
         if irc_trj_path:
             try:
-                irc_trj_for_all.append((Path(irc_trj_path), False))
+                irc_trj_for_all.append((Path(irc_trj_path), bool(irc_res.get("reverse_irc", False))))
             except Exception:
                 logger.debug("Failed to append IRC trajectory path", exc_info=True)
 

@@ -653,7 +653,6 @@ def _run_microiter_opt(
     cached = _hess_load("irc_endpoint")
     _cache_used = False
     if cached is not None:
-        import torch
         active_dofs = cached.get("active_dofs")
         h_raw = cached["hessian"]
         if isinstance(h_raw, torch.Tensor):
