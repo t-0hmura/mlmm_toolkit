@@ -1,4 +1,4 @@
-"""Boundary and utility tests for mlmm_toolkit.extract."""
+"""Boundary and utility tests for mlmm.extract."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="mlmm_toolkit requires Python >= 3.11",
+    reason="mlmm requires Python >= 3.11",
 )
 
 
@@ -54,7 +54,7 @@ def _parse_structure(pdb_text: str, name: str):
 
 
 def test_parse_res_tokens_accepts_supported_formats():
-    from mlmm_toolkit.extract import _parse_res_tokens
+    from mlmm.extract import _parse_res_tokens
 
     parsed = _parse_res_tokens("123,123A,A:45,B:67C")
     assert parsed == [
@@ -67,14 +67,14 @@ def test_parse_res_tokens_accepts_supported_formats():
 
 @pytest.mark.parametrize("spec", ["", " ", "A:", "A-10", "A:1:2", "foo"])
 def test_parse_res_tokens_rejects_invalid(spec):
-    from mlmm_toolkit.extract import _parse_res_tokens
+    from mlmm.extract import _parse_res_tokens
 
     with pytest.raises(ValueError):
         _parse_res_tokens(spec)
 
 
 def test_parse_ligand_charge_option_numeric_and_mapping():
-    from mlmm_toolkit.extract import _parse_ligand_charge_option
+    from mlmm.extract import _parse_ligand_charge_option
 
     total, mapping = _parse_ligand_charge_option("-3")
     assert total == -3.0
@@ -86,14 +86,14 @@ def test_parse_ligand_charge_option_numeric_and_mapping():
 
 
 def test_parse_ligand_charge_option_rejects_invalid_mapping():
-    from mlmm_toolkit.extract import _parse_ligand_charge_option
+    from mlmm.extract import _parse_ligand_charge_option
 
     with pytest.raises(ValueError, match="Invalid --ligand-charge token"):
         _parse_ligand_charge_option("GPP")
 
 
 def test_strip_trailing_end_normalizes_newline():
-    from mlmm_toolkit.extract import _strip_trailing_END
+    from mlmm.extract import _strip_trailing_END
 
     text = "ATOM\nEND\nEND\n"
     out = _strip_trailing_END(text)
@@ -101,7 +101,7 @@ def test_strip_trailing_end_normalizes_newline():
 
 
 def test_assert_atom_ordering_identical_passes_for_identical_structures():
-    from mlmm_toolkit.extract import _assert_atom_ordering_identical
+    from mlmm.extract import _assert_atom_ordering_identical
 
     s1 = _parse_structure(_sample_pdb(), "s1")
     s2 = _parse_structure(_sample_pdb(), "s2")
@@ -109,7 +109,7 @@ def test_assert_atom_ordering_identical_passes_for_identical_structures():
 
 
 def test_assert_atom_ordering_identical_raises_for_mismatch():
-    from mlmm_toolkit.extract import _assert_atom_ordering_identical
+    from mlmm.extract import _assert_atom_ordering_identical
 
     s1 = _parse_structure(_sample_pdb(), "s1")
     s2 = _parse_structure(_sample_pdb(swap_first_two_atoms=True), "s2")
@@ -119,7 +119,7 @@ def test_assert_atom_ordering_identical_raises_for_mismatch():
 
 
 def test_assert_atom_ordering_identical_raises_for_atom_count_mismatch():
-    from mlmm_toolkit.extract import _assert_atom_ordering_identical
+    from mlmm.extract import _assert_atom_ordering_identical
 
     s1 = _parse_structure(_sample_pdb(), "s1")
     s2 = _parse_structure(_sample_pdb(drop_last_atom=True), "s2")
@@ -129,7 +129,7 @@ def test_assert_atom_ordering_identical_raises_for_atom_count_mismatch():
 
 
 def test_compute_charge_summary_total_charge_distribution():
-    from mlmm_toolkit.extract import compute_charge_summary
+    from mlmm.extract import compute_charge_summary
 
     structure = _parse_structure(_sample_pdb(), "s")
     all_res = list(structure.get_residues())
@@ -151,7 +151,7 @@ def test_compute_charge_summary_total_charge_distribution():
 
 
 def test_compute_charge_summary_mapping_mode():
-    from mlmm_toolkit.extract import compute_charge_summary
+    from mlmm.extract import compute_charge_summary
 
     structure = _parse_structure(_sample_pdb(), "s")
     all_res = list(structure.get_residues())

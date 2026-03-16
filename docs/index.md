@@ -1,7 +1,7 @@
-# mlmm_toolkit Documentation
+# mlmm-toolkit Documentation
 
 
-**mlmm_toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using ML/MM (machine-learning / molecular mechanics) methods.
+**mlmm-toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using ML/MM (machine-learning / molecular mechanics) methods.
 
 ```{toctree}
 :maxdepth: 2
@@ -90,9 +90,13 @@ reference/commands/index
 reference/yaml
 yaml_reference
 mlmm_calc
+python_api
+pysis
 glossary
 ja/yaml_reference
 ja/mlmm_calc
+ja/python_api
+ja/pysis
 ja/glossary
 ```
 
@@ -257,7 +261,7 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 ## Key Concepts
 
 ### ML/MM 3-Layer System
-mlmm_toolkit uses a 3-layer partitioning scheme encoded via PDB B-factors:
+mlmm uses a 3-layer partitioning scheme encoded via PDB B-factors:
 - **ML region** (B=0.0): Treated with MLIP backend (default: UMA)
 - **Movable-MM** (B=10.0): MM atoms that move during optimization
 - **Frozen** (B=20.0): Fixed MM atoms
@@ -312,7 +316,7 @@ If you use this software in your research, please cite:
 
 ## License
 
-`mlmm_toolkit` is distributed under the **GNU General Public License version 3 (GPL-3.0)** and is derived from Pysisyphus.
+`mlmm-toolkit` is distributed under the **GNU General Public License version 3 (GPL-3.0)** and is derived from Pysisyphus.
 
 ---
 

@@ -1,4 +1,4 @@
-"""Unit tests for lightweight helper functions in mlmm_toolkit.opt."""
+"""Unit tests for lightweight helper functions in mlmm.opt."""
 
 from __future__ import annotations
 
@@ -11,23 +11,23 @@ import pytest
 
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="mlmm_toolkit requires Python >= 3.11",
+    reason="mlmm requires Python >= 3.11",
 )
 
 
 @pytest.fixture(scope="module")
 def opt_module():
-    """Import mlmm_toolkit.opt with mlmm_calc stubbed out."""
-    stub = types.ModuleType("mlmm_toolkit.mlmm_calc")
+    """Import mlmm.opt with mlmm_calc stubbed out."""
+    stub = types.ModuleType("mlmm.mlmm_calc")
 
     def _stub_mlmm(*_args, **_kwargs):
         raise RuntimeError("stub mlmm should not be called in helper tests")
 
     stub.mlmm = _stub_mlmm
     stub.mlmm_mm_only = _stub_mlmm
-    sys.modules["mlmm_toolkit.mlmm_calc"] = stub
-    sys.modules.pop("mlmm_toolkit.opt", None)
-    mod = importlib.import_module("mlmm_toolkit.opt")
+    sys.modules["mlmm.mlmm_calc"] = stub
+    sys.modules.pop("mlmm.opt", None)
+    mod = importlib.import_module("mlmm.opt")
     return mod
 
 

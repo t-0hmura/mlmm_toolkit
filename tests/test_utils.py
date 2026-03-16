@@ -1,4 +1,4 @@
-"""Unit tests for mlmm_toolkit.utils module."""
+"""Unit tests for mlmm.utils module."""
 
 import sys
 from pathlib import Path
@@ -9,13 +9,13 @@ import numpy as np
 # Skip on Python < 3.11
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="mlmm_toolkit requires Python >= 3.11",
+    reason="mlmm requires Python >= 3.11",
 )
 
 
 def test_parse_indices_string():
     """Test parse_indices_string utility."""
-    from mlmm_toolkit.utils import parse_indices_string
+    from mlmm.utils import parse_indices_string
 
     # Simple comma-separated list (1-based → 0-based by default)
     assert parse_indices_string("1,2,3") == [0, 1, 2]
@@ -40,7 +40,7 @@ def test_parse_indices_string():
 
 def test_distance_A_from_coords():
     """Test distance calculation utility (input in Bohr, output in Å)."""
-    from mlmm_toolkit.utils import distance_A_from_coords
+    from mlmm.utils import distance_A_from_coords
     from pysisyphus.constants import ANG2BOHR
 
     # Simple 3-atom system in Bohr units
@@ -65,7 +65,7 @@ def test_distance_A_from_coords():
 
 def test_distance_tag():
     """Test distance_tag formatting utility (integer tag with default digits=2)."""
-    from mlmm_toolkit.utils import distance_tag
+    from mlmm.utils import distance_tag
 
     # Default: digits=2, pad=3
     # 1.234 Å → 123 (1.234 × 100 = 123.4 → 123)
@@ -86,7 +86,7 @@ def test_distance_tag():
 
 def test_values_from_bounds():
     """Test values_from_bounds grid generation."""
-    from mlmm_toolkit.utils import values_from_bounds
+    from mlmm.utils import values_from_bounds
 
     # Simple case
     values = values_from_bounds(0.0, 1.0, 0.25)
@@ -105,7 +105,7 @@ def test_values_from_bounds():
 
 def test_load_yaml_dict():
     """Test YAML loading utility."""
-    from mlmm_toolkit.utils import load_yaml_dict
+    from mlmm.utils import load_yaml_dict
 
     # None input
     assert load_yaml_dict(None) == {}
@@ -127,7 +127,7 @@ def test_load_yaml_dict():
 
 def test_apply_yaml_overrides():
     """Test YAML override application (first matching path is used)."""
-    from mlmm_toolkit.utils import apply_yaml_overrides
+    from mlmm.utils import apply_yaml_overrides
 
     # Base config
     base_cfg = {"a": 1, "b": 2, "c": 3}
@@ -162,7 +162,7 @@ def test_apply_yaml_overrides():
 
 def test_ensure_dir():
     """Test directory creation utility."""
-    from mlmm_toolkit.utils import ensure_dir
+    from mlmm.utils import ensure_dir
 
     with tempfile.TemporaryDirectory() as tmpdir:
         test_dir = Path(tmpdir) / "subdir" / "nested"
@@ -184,7 +184,7 @@ def test_ensure_dir():
 
 def test_pretty_block():
     """Test pretty_block formatting utility."""
-    from mlmm_toolkit.utils import pretty_block
+    from mlmm.utils import pretty_block
 
     data = {"key1": "value1", "key2": 123, "key3": True}
     output = pretty_block("test_section", data)
@@ -200,7 +200,7 @@ def test_pretty_block():
 
 def test_pretty_block_with_numpy_scalars():
     """pretty_block should accept NumPy scalar/list inputs without YAML errors."""
-    from mlmm_toolkit.utils import pretty_block
+    from mlmm.utils import pretty_block
 
     data = {"freeze_atoms": [np.int64(0), np.int64(2)], "ratio": np.float64(1.5)}
     output = pretty_block("freeze_atoms (effective)", data)
@@ -213,7 +213,7 @@ def test_pretty_block_with_numpy_scalars():
 
 def test_resolve_charge_spin_or_raise_requires_charge():
     """Charge remains unresolved by default and should raise."""
-    from mlmm_toolkit.utils import PreparedInputStructure, resolve_charge_spin_or_raise
+    from mlmm.utils import PreparedInputStructure, resolve_charge_spin_or_raise
 
     prepared = PreparedInputStructure(
         source_path=Path("dummy.pdb"),
@@ -225,7 +225,7 @@ def test_resolve_charge_spin_or_raise_requires_charge():
 
 def test_resolve_charge_spin_or_raise_accepts_explicit_charge():
     """Explicit charge with omitted spin should resolve using spin default."""
-    from mlmm_toolkit.utils import PreparedInputStructure, resolve_charge_spin_or_raise
+    from mlmm.utils import PreparedInputStructure, resolve_charge_spin_or_raise
 
     prepared = PreparedInputStructure(
         source_path=Path("dummy.pdb"),
@@ -238,7 +238,7 @@ def test_resolve_charge_spin_or_raise_accepts_explicit_charge():
 
 def test_merge_freeze_atom_indices():
     """Test freeze atom index merging (requires geom_cfg dict)."""
-    from mlmm_toolkit.utils import merge_freeze_atom_indices
+    from mlmm.utils import merge_freeze_atom_indices
 
     # Empty geom_cfg
     geom_cfg = {}

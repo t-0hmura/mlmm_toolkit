@@ -9,8 +9,8 @@ from typing import Set
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-ALL_PY = REPO_ROOT / "mlmm_toolkit" / "all.py"
-SCAN_PY = REPO_ROOT / "mlmm_toolkit" / "scan.py"
+ALL_PY = REPO_ROOT / "mlmm" / "all.py"
+SCAN_PY = REPO_ROOT / "mlmm" / "scan.py"
 
 
 def _is_click_option_call(node: ast.Call) -> bool:

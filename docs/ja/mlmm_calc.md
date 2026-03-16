@@ -4,7 +4,7 @@
 
 > **要約:** PySisyphus 用の ONIOM 型 ML/MM 計算機。MLIP バックエンド（デフォルト: FAIR-Chem UMA、選択肢: `orb`、`mace`、`aimnet2`）と hessian_ff（低レベル MM）を結合し、酵素活性部位モデルのエネルギー、力、ヘシアンを計算します。
 
-`mlmm_calc.mlmm` は、機械学習原子間ポテンシャル（MLIP）と分子力学力場（Amber prmtop ベースの `hessian_ff`）を組み合わせた減算型 ONIOM スタイルの ML/MM 計算機を実装しています。`mlmm_toolkit` のすべての ML/MM 最適化、経路探索、スキャン、振動解析、IRC ワークフローのコア計算機として機能します。
+`mlmm_calc.mlmm` は、機械学習原子間ポテンシャル（MLIP）と分子力学力場（Amber prmtop ベースの `hessian_ff`）を組み合わせた減算型 ONIOM スタイルの ML/MM 計算機を実装しています。`mlmm` のすべての ML/MM 最適化、経路探索、スキャン、振動解析、IRC ワークフローのコア計算機として機能します。
 
 ### マルチバックエンドアーキテクチャ
 

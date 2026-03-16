@@ -6,7 +6,7 @@
 
 `mlmm extract` creates an active-site pocket (cluster model) from a protein-ligand PDB. It selects residues near the substrate, truncates the model according to backbone/side-chain rules, optionally caps severed bonds with link hydrogens, and can process single structures or ensembles.
 
-This is typically the **first step** in an mlmm_toolkit workflow, producing a smaller, computationally tractable model from a full protein-ligand complex.
+This is typically the **first step** in an mlmm-toolkit workflow, producing a smaller, computationally tractable model from a full protein-ligand complex.
 
 If you run into misclassification (e.g., unusual residue/atom naming), see the appendix below on naming requirements and the internal reference lists.
 

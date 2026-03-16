@@ -34,7 +34,7 @@ jobs:
 
       - name: Run pytest
         run: |
-          pytest tests/ -v --tb=short -x --timeout=120 --cov=mlmm_toolkit --cov-report=term-missing --cov-fail-under=20
+          pytest tests/ -v --tb=short -x --timeout=120 --cov=mlmm --cov-report=term-missing --cov-fail-under=20
         timeout-minutes: 10
 
       - name: Run hessian_ff tests

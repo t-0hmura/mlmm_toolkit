@@ -1,4 +1,4 @@
-# mlmm_toolkit/all.py
+# mlmm/all.py
 
 """
 End-to-end enzymatic reaction workflow: extract, scan, MEP, TS, IRC, freq, DFT.

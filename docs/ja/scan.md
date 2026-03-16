@@ -4,7 +4,7 @@
 
 > **要約:** ML/MM 計算機を使用して、調和拘束による結合距離スキャンで反応座標を駆動します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
 
-`mlmm scan` は ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して調和拘束による段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットが更新され、拘束ウェルが適用され、LBFGS で構造が緩和されます。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
+`mlmm scan` は ML/MM 計算機（`mlmm.mlmm_calc.mlmm`）を使用して調和拘束による段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットが更新され、拘束ウェルが適用され、LBFGS で構造が緩和されます。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 
 ## 最小例
 
@@ -70,7 +70,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 # ダンプ付き 2 ステージ、凍結原子、YAML 上書き
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q -1 -m 1 --freeze-atoms "1,3,5" -s "[(12,45,2.20)]" \
- "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
+ "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump
 ```
 
 ## YAML/JSON スペックフォーマット（推奨）
@@ -194,6 +194,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部で `uma` を適用） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--dry-run/--no-dry-run` | オプションの検証と実行計画の表示のみ行い、スキャンは実行しない。`--help-advanced` に表示。 | `False` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 

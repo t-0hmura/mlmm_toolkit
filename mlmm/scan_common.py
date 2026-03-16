@@ -1,4 +1,4 @@
-# mlmm_toolkit/scan_common.py
+# mlmm/scan_common.py
 """Shared CLI options for scan, scan2d, and scan3d commands."""
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 # Tests Layout
 
-`mlmm_toolkit` uses `tests/` as the single test root.
+`mlmm-toolkit` uses `tests/` as the single test root.
 
 - Unit tests: `tests/*.py`
 - Smoke fixtures/scripts: `tests/smoke/`
@@ -116,7 +116,7 @@ with single-point energy at `wB97XD/def2-TZVPD` afterwards.
 
 ### EmbedCharge
 
-When the mlmm calculation used `--embedcharge` (QM/MM electrostatic embedding),
+When the mlmm-toolkit calculation used `--embedcharge` (QM/MM electrostatic embedding),
 add `=EmbedCharge` to the ONIOM keyword:
 
 ```

@@ -132,7 +132,7 @@ Output:
 ## API usage
 For programmatic use, the module exports:
 ```python
-from mlmm_toolkit.fix_altloc import has_altloc, fix_altloc_file
+from mlmm.fix_altloc import has_altloc, fix_altloc_file
 
 # Check if a file has altLoc
 if has_altloc(Path("input.pdb")):

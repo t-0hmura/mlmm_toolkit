@@ -1,4 +1,4 @@
-# mlmm_toolkit/oniom_export.py
+# mlmm/oniom_export.py
 
 """
 Export ML/MM system to Gaussian/ORCA ONIOM input format from Amber parm7 topology.
@@ -1369,7 +1369,7 @@ def export_gaussian(
             )
         elements_for_output = _get_parm_elements(parm)
 
-    # Detect layer indices from B-factors if the input is a layered PDB produced by mlmm_toolkit.
+    # Detect layer indices from B-factors if the input is a layered PDB produced by mlmm.
     layer_info: Optional[Dict[str, List[int]]] = None
     if input_path is not None and input_path.suffix.lower() in {".pdb", ".ent"}:
         try:
@@ -1613,7 +1613,7 @@ def export_orca(
             )
         elements_for_output = _get_parm_elements(parm)
 
-    # Detect layer indices from B-factors if input is a layered PDB produced by mlmm_toolkit.
+    # Detect layer indices from B-factors if input is a layered PDB produced by mlmm.
     layer_info: Optional[Dict[str, List[int]]] = None
     if input_path is not None and input_path.suffix.lower() in {".pdb", ".ent"}:
         try:

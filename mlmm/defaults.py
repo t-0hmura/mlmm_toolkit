@@ -1,4 +1,4 @@
-# mlmm_toolkit/defaults.py
+# mlmm/defaults.py
 
 """
 Central configuration defaults for mlmm workflows.

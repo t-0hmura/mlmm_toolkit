@@ -1401,6 +1401,6 @@ def cli(
             torch.cuda.empty_cache()
 
 
-# Allow `python -m mlmm_toolkit.freq` direct execution
+# Allow `python -m mlmm.freq` direct execution
 if __name__ == "__main__":
     cli()

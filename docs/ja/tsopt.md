@@ -104,6 +104,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--dry-run/--no-dry-run` | 実行せずに入力/設定を検証し、実行計画を表示。`--help-advanced` に表示。 | `False` |
 
 ## 出力

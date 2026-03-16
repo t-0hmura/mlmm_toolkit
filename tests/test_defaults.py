@@ -1,6 +1,6 @@
 """Tests for defaults.py configuration constants."""
 
-from mlmm_toolkit.defaults import (
+from mlmm.defaults import (
     GEOM_KW_DEFAULT,
     MLMM_CALC_KW,
     OPT_BASE_KW,

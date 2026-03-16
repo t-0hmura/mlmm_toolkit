@@ -114,6 +114,13 @@ try:
 except ImportError:
     pass
 
+try:
+    from mlmm.mlmm_calc import mlmm as MLMMCalc
+
+    CALC_DICT["mlmm"] = MLMMCalc
+except ImportError:
+    pass
+
 COS_DICT = {
     "neb": NEB.NEB,
     "aneb": AdaptiveNEB.AdaptiveNEB,

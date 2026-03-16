@@ -16,12 +16,12 @@ from click.testing import CliRunner
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS_ROOT = REPO_ROOT / "docs"
 TOOL_NAME = "mlmm"
-CLI_MODULE = "mlmm_toolkit"
+CLI_MODULE = "mlmm"
 DOCS_SMOKE_COMMAND_TIMEOUT_SEC = float(os.environ.get("DOCS_SMOKE_COMMAND_TIMEOUT_SEC", "120"))
 
 sys.path.insert(0, str(REPO_ROOT))
 
-from mlmm_toolkit.cli import cli as root_cli  # noqa: E402
+from mlmm.cli import cli as root_cli  # noqa: E402
 
 
 _CODE_LANGS = {"", "bash", "sh", "shell", "console"}

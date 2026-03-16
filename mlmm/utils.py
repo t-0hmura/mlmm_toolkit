@@ -1,4 +1,4 @@
-# mlmm_toolkit/utils.py
+# mlmm/utils.py
 
 """
 utils — concise utilities for configuration, plotting, and coordinates
@@ -6,7 +6,7 @@ utils — concise utilities for configuration, plotting, and coordinates
 
 Usage (API)
 -----
-    from mlmm_toolkit.utils import (
+    from mlmm.utils import (
         build_energy_diagram,
         convert_xyz_to_pdb,
         merge_freeze_atom_indices,
@@ -868,24 +868,40 @@ def parse_scan_list_triples(
     option_name: str,
     return_one_based: bool = False,
 ) -> Tuple[List[Tuple[int, int, float]], List[Tuple[Any, Any, float]]]:
-    """Parse --scan-lists triples into indices (0-based by default)."""
+    """Parse --scan-lists entries into indices (0-based by default).
+
+    Accepts both 3-tuples ``(i, j, target)`` and 4-tuples
+    ``(i, j, start, end)`` for bidirectional scans.  4-tuples are
+    expanded into two 3-tuple stages (initial→start, then initial→end)
+    by the caller in scan.py.
+
+    The returned *parsed* list contains tuples of length 3 **or** 4:
+    ``(i, j, target)`` or ``(i, j, start, end)``.
+    """
     try:
         obj = ast.literal_eval(raw)
     except Exception as e:
         raise click.BadParameter(f"Invalid literal for {option_name}: {e}")
 
     if not isinstance(obj, (list, tuple)):
-        raise click.BadParameter(f"{option_name} must be a list/tuple of (i,j,target).")
+        raise click.BadParameter(f"{option_name} must be a list/tuple of (i,j,target) or (i,j,start,end).")
 
-    parsed: List[Tuple[int, int, float]] = []
+    parsed: list = []
     for entry_idx, t in enumerate(obj, start=1):
-        if not (
+        is_3 = (
             isinstance(t, (list, tuple))
             and len(t) == 3
             and isinstance(t[2], Real)
-        ):
+        )
+        is_4 = (
+            isinstance(t, (list, tuple))
+            and len(t) == 4
+            and isinstance(t[2], Real)
+            and isinstance(t[3], Real)
+        )
+        if not (is_3 or is_4):
             raise click.BadParameter(
-                f"{option_name} entry {entry_idx} must be (i,j,target): got {t}"
+                f"{option_name} entry {entry_idx} must be (i,j,target) or (i,j,start,end): got {t}"
             )
 
         i = resolve_scan_index(
@@ -903,7 +919,10 @@ def parse_scan_list_triples(
         if return_one_based:
             i += 1
             j += 1
-        parsed.append((i, j, float(t[2])))
+        if is_4:
+            parsed.append((i, j, float(t[2]), float(t[3])))
+        else:
+            parsed.append((i, j, float(t[2])))
 
     return parsed, list(obj)
 

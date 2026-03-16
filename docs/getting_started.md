@@ -2,7 +2,7 @@
 
 ## Overview
 
-`mlmm_toolkit` is a Python CLI toolkit for computing **enzymatic reaction pathways** using an **ML/MM** (Machine Learning / Molecular Mechanics) approach. It couples an MLIP (Machine-Learned Interatomic Potential) backend for the reactive (ML) region with a classical force field (`hessian_ff`) for the surrounding protein environment, using an ONIOM-like energy decomposition. The default backend is **UMA** (Meta's FAIR-Chem); alternative backends (`orb`, `mace`, `aimnet2`) can be selected via `--backend`.
+`mlmm-toolkit` is a Python CLI toolkit for computing **enzymatic reaction pathways** using an **ML/MM** (Machine Learning / Molecular Mechanics) approach. It couples an MLIP (Machine-Learned Interatomic Potential) backend for the reactive (ML) region with a classical force field (`hessian_ff`) for the surrounding protein environment, using an ONIOM-like energy decomposition. The default backend is **UMA** (Meta's FAIR-Chem); alternative backends (`orb`, `mace`, `aimnet2`) can be selected via `--backend`.
 
 In many workflows, a **single command** is enough to generate a useful **first-pass** reaction path:
 ```bash
@@ -16,7 +16,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 ```
 ---
 
-Given **(i) two or more full protein-ligand PDB files** (R,..., P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm` automatically:
+Given **(i) two or more full protein-ligand PDB files** (R,..., P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm-toolkit` automatically:
 
 - extracts an **active-site pocket** around user-defined substrates to build a **cluster model**,
 - generates **Amber parm7/rst7** topology files for the MM region ([`mm-parm`](mm_parm.md)),
@@ -61,7 +61,7 @@ For full details, see [CLI Conventions](cli_conventions.md).
 
 ### Recommended tools for hydrogen addition
 
-If your PDB lacks hydrogen atoms, use one of the following tools before running mlmm:
+If your PDB lacks hydrogen atoms, use one of the following tools before running mlmm-toolkit:
 
 | Tool | Example Command | Notes |
 |------|-----------------|-------|
@@ -80,11 +80,11 @@ This software is still under development. Please use it at your own risk.
 
 ## Installation
 
-`mlmm_toolkit` is intended for Linux environments (local workstations or HPC clusters) with a CUDA-capable GPU. Several dependencies -- notably **PyTorch**, **fairchem-core (UMA)**, **gpu4pyscf-cuda12x**, and **hessian_ff** -- expect a working CUDA installation. Alternative MLIP backends (ORB, MACE, AIMNet2) have their own optional dependencies; see the install extras below.
+`mlmm-toolkit` is intended for Linux environments (local workstations or HPC clusters) with a CUDA-capable GPU. Several dependencies -- notably **PyTorch**, **fairchem-core (UMA)**, **gpu4pyscf-cuda12x**, and **hessian_ff** -- expect a working CUDA installation. Alternative MLIP backends (ORB, MACE, AIMNet2) have their own optional dependencies; see the install extras below.
 
 ### Prerequisites
 
-mlmm_toolkit uses the following components:
+mlmm-toolkit uses the following components:
 
 - **MLIP backends**: Energy, force, and Hessian calculations for the ML region. The default is UMA (fairchem-core). ORB (`pip install "mlmm-toolkit[orb]"`) and AIMNet2 (`pip install "mlmm-toolkit[aimnet2]"`) are also available. MACE requires a separate environment due to e3nn conflicts.
 - **hessian_ff**: Amber force field calculations for the MM region (requires building the C++ extension).
@@ -101,7 +101,7 @@ Below is a minimal setup example that works on many CUDA 12.9 clusters. Adjust m
 
 ```bash
 # 1) Install a CUDA-enabled PyTorch build
-# 2) Install mlmm_toolkit
+# 2) Install mlmm-toolkit
 # 3) Build the hessian_ff C++ native extension
 # 4) Install a headless Chrome for Plotly figure export
 
@@ -144,7 +144,7 @@ huggingface-cli login
 
 You only need to do this once per machine / environment.
 
-- If you want to use the Direct Max Flux (DMF) method for MEP search, create a conda environment and install cyipopt before installing mlmm_toolkit.
+- If you want to use the Direct Max Flux (DMF) method for MEP search, create a conda environment and install cyipopt before installing mlmm-toolkit.
  ```bash
  # Create and activate a dedicated conda environment
  conda create -n mlmm python=3.11 -y
@@ -216,7 +216,7 @@ If you prefer to build the environment piece by piece:
 
  (You may use another compatible version if your cluster recommends it.)
 
-6. **Install `mlmm_toolkit`**
+6. **Install `mlmm-toolkit`**
 
  ```bash
  pip install mlmm-toolkit
@@ -370,7 +370,7 @@ Behavior:
 This is the recommended mode when you can generate reasonably spaced intermediates (e.g., from docking, MD, or manual modeling).
 
 ```{important}
-`mlmm` assumes that multiple input PDBs contain **exactly the same atoms in the same order** (only coordinates may differ). If any non-coordinate fields differ across inputs, an error is raised. Input PDB files must also contain **hydrogen atoms**.
+`mlmm-toolkit` assumes that multiple input PDBs contain **exactly the same atoms in the same order** (only coordinates may differ). If any non-coordinate fields differ across inputs, an error is raised. Input PDB files must also contain **hydrogen atoms**.
 ```
 
 ---
@@ -512,6 +512,7 @@ Most users will primarily call `mlmm all`. The CLI also exposes individual subco
 | `energy-diagram` | Draw state energy diagram from numeric values | [energy-diagram](energy_diagram.md) |
 | `add-elem-info` | Repair PDB element columns | [add_elem_info](add_elem_info.md) |
 | `fix-altloc` | Remove alternate location (altLoc) indicators from PDB files | [fix_altloc](fix_altloc.md) |
+| `pysis` | Run pysisyphus YAML workflow (v0.1.x compat) | [pysis](pysis.md) |
 
 ```{tip}
 In `all`, `tsopt`, `freq` and `irc`, setting **`--hessian-calc-mode Analytical`** (for the ML region) is strongly recommended when you have enough VRAM. Note: `Analytical` mode is only available with the UMA backend; other backends automatically use `FiniteDifference`.

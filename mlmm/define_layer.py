@@ -1,4 +1,4 @@
-# mlmm_toolkit/define_layer.py
+# mlmm/define_layer.py
 
 """Define 3-layer ML/MM system based on distance from the ML region.
 

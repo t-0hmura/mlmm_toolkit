@@ -954,9 +954,9 @@ class MLMMCore:
     def __init__(
         self,
         *,
-        input_pdb: str,
-        real_parm7: str,
-        model_pdb: str,
+        input_pdb: str = None,
+        real_parm7: str = None,
+        model_pdb: str = None,
         model_charge: Optional[int] = 0,
         model_mult: int = 1,
         link_mlmm: List[Tuple[str, str]] | None = None,
@@ -984,7 +984,7 @@ class MLMMCore:
         mm_cuda_idx: int = 0,
         mm_threads: int = 16,
         freeze_atoms: List[int] | None = None,
-        ml_hessian_mode: str = "Analytical",
+        ml_hessian_mode: str = "FiniteDifference",
         hessian_calc_mode: Optional[str] = None,
         return_partial_hessian: bool = True,
         hess_cutoff: Optional[float] = None,
@@ -1002,7 +1002,24 @@ class MLMMCore:
         xtb_workdir: str = "tmp",
         xtb_keep_files: bool = False,
         xtb_ncores: int = 4,
+        **kwargs,
     ):
+        # --- v0.1.x backward compatibility aliases ---
+        if "real_pdb" in kwargs:
+            warnings.warn("'real_pdb' is deprecated; use 'input_pdb'.", DeprecationWarning, stacklevel=2)
+            if input_pdb is None:
+                input_pdb = kwargs.pop("real_pdb")
+            else:
+                kwargs.pop("real_pdb")
+        for _old_name in ("real_rst7", "vib_run", "vib_dir"):
+            if _old_name in kwargs:
+                warnings.warn(f"'{_old_name}' is no longer used and will be ignored.", DeprecationWarning, stacklevel=2)
+                kwargs.pop(_old_name)
+        if kwargs:
+            raise TypeError(f"MLMMCore.__init__() got unexpected keyword arguments: {', '.join(kwargs)}")
+        if input_pdb is None:
+            raise TypeError("MLMMCore.__init__() missing required keyword argument: 'input_pdb'")
+
         self._tmpdir_obj = tempfile.TemporaryDirectory()
         self.tmpdir: str = self._tmpdir_obj.name
         for src, dst in [(input_pdb, "input.pdb"), (real_parm7, "real.parm7"), (model_pdb, "model.pdb")]:
@@ -2026,7 +2043,7 @@ class mlmm(PySiCalc):
         symmetrize_hessian: bool = True,
         out_hess_torch: bool = True,
         H_double: bool = False,
-        ml_hessian_mode: str = "Analytical",
+        ml_hessian_mode: str = "FiniteDifference",
         hessian_calc_mode: Optional[str] = None,
         ml_device: str = "auto",
         ml_cuda_idx: int = 0,
@@ -2055,6 +2072,18 @@ class mlmm(PySiCalc):
         xtb_ncores: int = 4,
         **kwargs,
     ):
+        # --- v0.1.x backward compatibility aliases ---
+        if "real_pdb" in kwargs:
+            warnings.warn("'real_pdb' is deprecated; use 'input_pdb'.", DeprecationWarning, stacklevel=2)
+            if input_pdb is None:
+                input_pdb = kwargs.pop("real_pdb")
+            else:
+                kwargs.pop("real_pdb")
+        for _old_name in ("real_rst7", "vib_run", "vib_dir"):
+            if _old_name in kwargs:
+                warnings.warn(f"'{_old_name}' is no longer used and will be ignored.", DeprecationWarning, stacklevel=2)
+                kwargs.pop(_old_name)
+
         self._freeze_atoms = [] if freeze_atoms is None else list(freeze_atoms)
         super().__init__(charge=model_charge, mult=model_mult, **kwargs)
 
@@ -2193,6 +2222,28 @@ class mlmm_mm_only(PySiCalc):
 
     def get_hessian(self, elem, coords):
         raise NotImplementedError("MM-only calculator does not support Hessian computation.")
+
+
+# ======================================================================
+#               v0.1.x compatibility: mlmm_ase() factory
+# ======================================================================
+
+
+def mlmm_ase(**kwargs):
+    """v0.1.x compatibility wrapper.
+
+    Accepts all MLMMCore parameters as keyword arguments and returns
+    an MLMMASECalculator.  Equivalent to::
+
+        MLMMASECalculator(MLMMCore(**kwargs))
+    """
+    warnings.warn(
+        "mlmm_ase() is deprecated; use MLMMASECalculator(MLMMCore(...)) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    core = MLMMCore(**kwargs)
+    return MLMMASECalculator(core)
 
 
 # ======================================================================

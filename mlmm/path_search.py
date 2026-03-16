@@ -1,4 +1,4 @@
-# mlmm_toolkit/path_search.py
+# mlmm/path_search.py
 
 """
 ML/MM recursive GSM segmentation for multistep minimum-energy paths.

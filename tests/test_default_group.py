@@ -5,12 +5,12 @@ from __future__ import annotations
 import click
 from click.testing import CliRunner
 
-from mlmm_toolkit.advanced_help import (
+from mlmm.advanced_help import (
     _configure_subcommand_help_visibility,
     _ensure_help_advanced_option,
 )
-from mlmm_toolkit.bool_compat import normalize_bool_argv as _normalize_bool_argv_impl
-from mlmm_toolkit.default_group import DefaultGroup
+from mlmm.bool_compat import normalize_bool_argv as _normalize_bool_argv_impl
+from mlmm.default_group import DefaultGroup
 
 
 def _normalize_passthrough(args, *_):

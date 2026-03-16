@@ -71,7 +71,7 @@ mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 
 
 ## B-factor Layer Encoding
 
-mlmm_toolkit uses the PDB B-factor column to encode the 3-layer ML/MM partitioning:
+mlmm-toolkit uses the PDB B-factor column to encode the 3-layer ML/MM partitioning:
 
 | Layer | B-factor | Meaning |
 |-------|----------|---------|

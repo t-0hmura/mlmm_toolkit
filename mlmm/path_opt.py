@@ -1,4 +1,4 @@
-# mlmm_toolkit/path_opt.py
+# mlmm/path_opt.py
 
 """
 ML/MM minimum-energy path optimization via Growing String Method or Direct Max Flux.

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from mlmm_toolkit.cli import cli as root_cli
+from mlmm.cli import cli as root_cli
 
 
 def test_all_accepts_multiplicity_option() -> None:

@@ -2,7 +2,7 @@
 
 from ase.io import read, write
 from ase.optimize import LBFGS
-from mlmm_toolkit.mlmm_calc import MLMMCore, MLMMASECalculator
+from mlmm.mlmm_calc import MLMMCore, MLMMASECalculator
 
 core = MLMMCore(
     input_pdb="r_complex.pdb",

@@ -252,7 +252,7 @@ Fix:
  cd hessian_ff/native && make
  ```
 
-- Ensure the `hessian_ff` package is in your Python path (it should be if you installed mlmm_toolkit with `pip install -e .`).
+- Ensure the `hessian_ff` package is in your Python path (it should be if you installed mlmm-toolkit with `pip install -e .`).
 
 ---
 
@@ -336,7 +336,7 @@ Fixes:
 If you use DMF (`--mep-mode dmf`) and see errors importing IPOPT/cyipopt:
 
 Fix:
-- Install `cyipopt` from conda-forge (recommended) before installing `mlmm_toolkit`:
+- Install `cyipopt` from conda-forge (recommended) before installing `mlmm`:
 
  ```bash
  conda install -c conda-forge cyipopt

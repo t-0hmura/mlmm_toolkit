@@ -51,13 +51,13 @@ jobs:
       - name: Backend import checks
         run: |
           python -c "
-          from mlmm_toolkit.mlmm_calc import _MLBackend, _UMABackend
+          from mlmm.mlmm_calc import _MLBackend, _UMABackend
           print('UMA backend class: OK')
-          from mlmm_toolkit.mlmm_calc import _ASEMLBackend
+          from mlmm.mlmm_calc import _ASEMLBackend
           print('ASE backend base: OK')
-          from mlmm_toolkit.mlmm_calc import _create_ml_backend
+          from mlmm.mlmm_calc import _create_ml_backend
           print('Factory function: OK')
-          from mlmm_toolkit.defaults import MLMM_CALC_KW
+          from mlmm.defaults import MLMM_CALC_KW
           assert 'backend' in MLMM_CALC_KW
           assert MLMM_CALC_KW['backend'] == 'uma'
           assert 'embedcharge' in MLMM_CALC_KW
@@ -69,7 +69,7 @@ jobs:
           python -c "
           # Verify non-UMA backends raise ImportError cleanly
           import torch
-          from mlmm_toolkit.mlmm_calc import _OrbBackend, _MACEBackend, _AIMNet2Backend
+          from mlmm.mlmm_calc import _OrbBackend, _MACEBackend, _AIMNet2Backend
           for cls, name in [(_OrbBackend, 'ORB'), (_MACEBackend, 'MACE'), (_AIMNet2Backend, 'AIMNet2')]:
               try:
                   cls(ml_device=torch.device('cpu'))
@@ -113,13 +113,13 @@ jobs:
         run: |
           python -c "
           # Core import should succeed even without optional backends
-          import mlmm_toolkit
-          from mlmm_toolkit import mlmm_calc
-          from mlmm_toolkit import defaults
+          import mlmm
+          from mlmm import mlmm_calc
+          from mlmm import defaults
           print('Core imports: OK')
 
           # CLI entry point should be loadable
-          from mlmm_toolkit.cli import cli
+          from mlmm.cli import cli
           print('CLI entry point: OK')
 
           "

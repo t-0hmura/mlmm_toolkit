@@ -1,4 +1,4 @@
-# mlmm_toolkit/opt.py
+# mlmm/opt.py
 
 """
 ML/MM geometry optimization (LBFGS or RFO) with UMA + hessian_ff calculator.
@@ -1737,6 +1737,6 @@ def cli(
             torch.cuda.empty_cache()
 
 
-# Allow `python -m mlmm_toolkit.opt` direct execution
+# Allow `python -m mlmm.opt` direct execution
 if __name__ == "__main__":
     cli()

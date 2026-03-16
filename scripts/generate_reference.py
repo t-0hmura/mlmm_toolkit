@@ -20,11 +20,11 @@ REF_ROOT = DOCS_ROOT / "reference"
 COMMANDS_ROOT = REF_ROOT / "commands"
 YAML_REF_PATH = REF_ROOT / "yaml.md"
 TOOL_NAME = "mlmm"
-PACKAGE_NAME = "mlmm_toolkit"
+PACKAGE_NAME = "mlmm"
 
 sys.path.insert(0, str(REPO_ROOT))
 
-from mlmm_toolkit.cli import cli as root_cli  # noqa: E402
+from mlmm.cli import cli as root_cli  # noqa: E402
 
 
 _ALL_TEMPLATE = """# Starter config for `mlmm all`

@@ -1,4 +1,4 @@
-# mlmm_toolkit/energy_diagram.py
+# mlmm/energy_diagram.py
 
 """
 Minimal energy-diagram utility from numeric inputs.

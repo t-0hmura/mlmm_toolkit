@@ -4,7 +4,7 @@
 
 > **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
 
-`mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm_toolkit.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and hessian_ff.
+`mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and hessian_ff.
 
 ## Minimal example
 
@@ -70,7 +70,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 # Two stages with dumps, frozen atoms, and YAML overrides
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q -1 -m 1 --freeze-atoms "1,3,5" -s "[(12,45,2.20)]" \
- "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump \
+ "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump
 ```
 
 ## YAML/JSON spec format (recommended)

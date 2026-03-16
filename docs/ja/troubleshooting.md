@@ -351,7 +351,7 @@ To rebuild hessian_ff native extensions in this environment:
 DMF（`--mep-mode dmf`）を使うときに IPOPT/cyipopt の import エラーが出る場合:
 
 対処:
-- `mlmm_toolkit` をインストールする前に、conda-forge から `cyipopt` をインストールしてください:
+- `mlmm` をインストールする前に、conda-forge から `cyipopt` をインストールしてください:
 
  ```bash
  conda install -c conda-forge cyipopt

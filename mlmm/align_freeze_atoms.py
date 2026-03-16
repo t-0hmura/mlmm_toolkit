@@ -1,4 +1,4 @@
-# mlmm_toolkit/align_freeze_atoms.py
+# mlmm/align_freeze_atoms.py
 
 """
 align_freeze_atoms — Rigid alignment and staged “scan + relaxation” utilities for pysisyphus Geometry objects
@@ -6,7 +6,7 @@ align_freeze_atoms — Rigid alignment and staged “scan + relaxation” utilit
 
 Usage (API)
 -----
-    from mlmm_toolkit.align_freeze_atoms import (
+    from mlmm.align_freeze_atoms import (
         align_and_refine_pair_inplace,
         align_and_refine_sequence_inplace,
         align_second_to_first_kabsch_inplace,
@@ -15,7 +15,7 @@ Usage (API)
     )
 
 Examples::
-    >>> from mlmm_toolkit.align_freeze_atoms import align_and_refine_pair_inplace
+    >>> from mlmm.align_freeze_atoms import align_and_refine_pair_inplace
     >>> result = align_and_refine_pair_inplace(g_ref, g_mob, shared_calc=mlmm_calc)
     >>> result["align"]["mode"]
     'kabsch'
@@ -29,7 +29,7 @@ that moves the frozen atoms toward the reference in small steps while relaxing t
 All updates are applied in place on the mobile geometry.
 
 The module now targets **ML/MM-only** workflows: a shared ML/MM calculator instance (created via
-`mlmm_toolkit.mlmm_calc.mlmm`) must already be attached to the geometries or supplied through the
+`mlmm.mlmm_calc.mlmm`) must already be attached to the geometries or supplied through the
 `shared_calc` keyword.
 
 Provided functionality (concise):

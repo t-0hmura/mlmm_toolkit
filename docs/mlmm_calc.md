@@ -4,7 +4,7 @@
 
 > **Summary:** ONIOM-like ML/MM calculator for PySisyphus, coupling an MLIP backend (high-level ML) and hessian_ff (low-level MM) to compute energies, forces, and Hessians for enzyme active-site models. Multiple MLIP backends are supported via `-b/--backend`.
 
-`mlmm_calc.mlmm` implements a subtractive ONIOM-style ML/MM calculator that combines a machine-learning interatomic potential (MLIP) with a molecular-mechanics force field (Amber prmtop-based `hessian_ff`). It serves as the core calculator for all ML/MM optimization, path search, scan, frequency, and IRC workflows in `mlmm_toolkit`.
+`mlmm_calc.mlmm` implements a subtractive ONIOM-style ML/MM calculator that combines a machine-learning interatomic potential (MLIP) with a molecular-mechanics force field (Amber prmtop-based `hessian_ff`). It serves as the core calculator for all ML/MM optimization, path search, scan, frequency, and IRC workflows in `mlmm`.
 
 ### Multi-backend architecture
 

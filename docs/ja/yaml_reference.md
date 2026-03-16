@@ -57,6 +57,7 @@ calc:
  backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
  embedcharge: false # xTB 点電荷埋め込み補正 (CLI --embedcharge で有効化)
  embedcharge_step: 0.001 # 埋め込み補正の数値ヘシアンステップ (Å)
+ embedcharge_cutoff: 12.0 # xTB 埋め込み用 MM 点電荷のカットオフ距離 (Å)
  xtb_cmd: xtb # xTB 実行コマンド
  xtb_acc: 0.2 # xTB 精度パラメータ
  xtb_workdir: tmp # xTB 作業ディレクトリ
@@ -69,7 +70,7 @@ calc:
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
- ml_hessian_mode: Analytical # ML ヘシアンモード: "Analytical" または "FiniteDifference"
+ ml_hessian_mode: FiniteDifference # ML ヘシアンモード: "FiniteDifference" または "Analytical"
  hessian_calc_mode: FiniteDifference # ml_hessian_mode のエイリアス
  out_hess_torch: true # ヘシアンを torch.Tensor で返す
  H_double: false # ヘシアンを float64 で組み立て・返却

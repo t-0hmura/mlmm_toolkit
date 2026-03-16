@@ -9,12 +9,12 @@ import pytest
 
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="mlmm_toolkit requires Python >= 3.11",
+    reason="mlmm requires Python >= 3.11",
 )
 
 
 def test_normalize_summary_payload_sets_defaults():
-    from mlmm_toolkit.summary_log import normalize_summary_payload
+    from mlmm.summary_log import normalize_summary_payload
 
     payload = normalize_summary_payload({"pipeline_mode": "path-search"})
     assert payload["pipeline_mode"] == "path-search"
@@ -25,18 +25,18 @@ def test_normalize_summary_payload_sets_defaults():
 
 
 def test_write_summary_log_accepts_empty_payload(tmp_path: Path):
-    from mlmm_toolkit.summary_log import write_summary_log
+    from mlmm.summary_log import write_summary_log
 
     dest = tmp_path / "summary.log"
     write_summary_log(dest, {})
 
     text = dest.read_text(encoding="utf-8")
-    assert "mlmm_toolkit summary.log" in text
+    assert "mlmm summary.log" in text
     assert "missing payload keys replaced with defaults" in text
 
 
 def test_write_summary_log_renders_segment_section(tmp_path: Path):
-    from mlmm_toolkit.summary_log import write_summary_log
+    from mlmm.summary_log import write_summary_log
 
     out_root = tmp_path / "run"
     out_root.mkdir(parents=True, exist_ok=True)

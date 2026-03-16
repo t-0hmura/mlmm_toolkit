@@ -1,6 +1,6 @@
 # 用語集
 
-このページでは、mlmm_toolkit ドキュメント内で使われる略語・専門用語を簡潔に説明します。
+このページでは、mlmm-toolkit ドキュメント内で使われる略語・専門用語を簡潔に説明します。
 
 ---
 
@@ -8,14 +8,14 @@
 
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
-| **ML/MM** | Machine Learning / Molecular Mechanics | 機械学習ポテンシャルと分子力学を組み合わせたマルチスケール手法。mlmm_toolkit の中核概念。 |
-| **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | 異なる計算レベルを多層的に組み合わせる手法。mlmm_toolkit は ONIOM 的な引き算方式を使用: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low。 |
+| **ML/MM** | Machine Learning / Molecular Mechanics | 機械学習ポテンシャルと分子力学を組み合わせたマルチスケール手法。mlmm-toolkit の中核概念。 |
+| **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | 異なる計算レベルを多層的に組み合わせる手法。mlmm-toolkit は ONIOM 的な引き算方式を使用: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low。 |
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | 量子化学と分子力学の結合手法。ML/MM は QM 部分を機械学習ポテンシャルで置き換えた変種。 |
 | **real system** | -- | ONIOM 分解における全系（3 層すべて）。parm7 トポロジーで記述され、hessian_ff で MM エネルギーを計算。 |
 | **model system** | -- | ONIOM 分解における ML 領域（Layer 1）。MLIP バックエンド（デフォルト: UMA）と MM の両方で評価。 |
 | **リンク水素** | Link Hydrogen | ML 領域と MM 領域の境界で切断された結合をキャップする水素原子。ヤコビアンで力を再分配。 |
-| **hessian_ff** | -- | mlmm_toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析ヘシアンをサポート。 |
-| **3 層システム** | 3-layer system | mlmm_toolkit の B-factor による層分割方式: ML（B=0.0）、Movable-MM（B=10.0）、Frozen（B=20.0）。 |
+| **hessian_ff** | -- | mlmm-toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析ヘシアンをサポート。 |
+| **3 層システム** | 3-layer system | mlmm-toolkit の B-factor による層分割方式: ML（B=0.0）、Movable-MM（B=10.0）、Frozen（B=20.0）。 |
 | **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）カラムに層の所属を格納する方式: 0.0 = ML、10.0 = Movable-MM、20.0 = Frozen。Hessian 対象 MM 原子はカットオフ/明示的インデックスで制御。 |
 
 ---
@@ -31,7 +31,7 @@
 | **antechamber** | -- | AmberTools のプログラム。小分子に GAFF2 原子型と AM1-BCC 部分電荷を割り当てる。 |
 | **parmchk2** | -- | AmberTools のプログラム。GAFF2 型付けで不足する力場パラメータをチェック・補完する。 |
 | **GAFF2** | General Amber Force Field 2 | 有機小分子向けの汎用 Amber 力場。リガンド（基質、補因子）のパラメータ化に使用。 |
-| **ff19SB** | -- | タンパク質向け Amber 力場（2019 年版）。mlmm_toolkit のデフォルト。 |
+| **ff19SB** | -- | タンパク質向け Amber 力場（2019 年版）。mlmm のデフォルト。 |
 | **ff14SB** | -- | タンパク質向け Amber 力場（2014 年版）。`--ff-set ff14SB` で選択可能。 |
 | **AM1-BCC** | AM1 Bond Charge Corrections | 半経験的 AM1 法に基づく部分電荷割り当て方法。antechamber で使用。HF/6-31G* RESP 電荷を近似。 |
 
@@ -70,11 +70,11 @@
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
 | **MLIP** | Machine Learning Interatomic Potential | 量子化学データから学習し、構造からエネルギー・力を予測する原子間ポテンシャル。 |
-| **UMA** | Universal Machine-learning potential for Atoms | Meta が公開している事前学習 MLIP 群。mlmm_toolkit のデフォルト MLIP バックエンド。`--backend uma` で選択（デフォルト）。 |
+| **UMA** | Universal Machine-learning potential for Atoms | Meta が公開している事前学習 MLIP 群。mlmm のデフォルト MLIP バックエンド。`--backend uma` で選択（デフォルト）。 |
 | **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。`pip install "mlmm-toolkit[orb]"` で追加インストール。 |
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。e3nn 競合のため別環境が必要（README 参照）。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install "mlmm-toolkit[aimnet2]"` で追加インストール。 |
-| **xTB** | Extended Tight-Binding | 半経験的量子化学手法。mlmm_toolkit では `--embedcharge` 有効時に点電荷埋め込み補正に使用。 |
+| **xTB** | Extended Tight-Binding | 半経験的量子化学手法。mlmm では `--embedcharge` 有効時に点電荷埋め込み補正に使用。 |
 | **解析ヘシアン** | Analytical Hessian | エネルギーの正確な二階微分を計算。高速だが VRAM を多く消費。現在 UMA バックエンドでのみ利用可能。 |
 | **有限差分** | Finite Difference | 微小変位による微分近似。低速だがメモリ効率が良い。ORB、MACE、AIMNet2 バックエンドで使用。 |
 
@@ -103,7 +103,7 @@
 | **クラスターモデル** | Cluster Model | ポケットの別名。酵素-基質複合体から計算可能なサイズに切り出した部分系。 |
 | **リンク水素** | Link Hydrogen | ポケット抽出時に切断された結合をキャップするために付加する水素原子。 |
 | **主鎖** | Backbone | タンパク質の主骨格（N-Ca-C-O 原子）。`--exclude-backbone` で除外可能。 |
-| **B-factor** | Temperature Factor | PDB の温度因子カラム。mlmm_toolkit では 3 層の層割り当てをエンコードするために使用（0.0, 10.0, 20.0）。 |
+| **B-factor** | Temperature Factor | PDB の温度因子カラム。mlmm では 3 層の層割り当てをエンコードするために使用（0.0, 10.0, 20.0）。 |
 
 ---
 

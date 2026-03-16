@@ -9,11 +9,11 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from mlmm_toolkit.cli import cli as root_cli
+from mlmm.cli import cli as root_cli
 
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="mlmm_toolkit CLI requires Python >= 3.11",
+    reason="mlmm CLI requires Python >= 3.11",
 )
 
 
@@ -90,7 +90,7 @@ def test_trj2fig_recompute_branch_triggers_on_charge_or_multiplicity(
     monkeypatch: pytest.MonkeyPatch,
     extra_args: list[str],
 ) -> None:
-    from mlmm_toolkit import trj2fig as trj2fig_mod
+    from mlmm import trj2fig as trj2fig_mod
 
     xyz_path = tmp_path / "traj.xyz"
     xyz_path.write_text(

@@ -8,19 +8,19 @@ import pytest
 # and other modern features.  Skip the entire module on older interpreters.
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="mlmm_toolkit.cli_utils requires Python >= 3.11",
+    reason="mlmm.cli_utils requires Python >= 3.11",
 )
 
 
 @pytest.fixture
 def _parse_bool():
-    from mlmm_toolkit.cli_utils import parse_bool
+    from mlmm.cli_utils import parse_bool
     return parse_bool
 
 
 @pytest.fixture
 def _argparse_bool():
-    from mlmm_toolkit.cli_utils import argparse_bool
+    from mlmm.cli_utils import argparse_bool
     return argparse_bool
 
 

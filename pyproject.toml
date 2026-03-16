@@ -94,7 +94,7 @@ Documentation = "https://github.com/t-0hmura/mlmm_toolkit/tree/main/docs"
 "Bug Tracker" = "https://github.com/t-0hmura/mlmm_toolkit/issues"
 
 [project.scripts]
-mlmm = "mlmm_toolkit.cli:cli"
+mlmm = "mlmm.cli:cli"
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "hessian_ff/tests"]
@@ -105,14 +105,14 @@ markers = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mlmm_toolkit*", "pysisyphus*", "thermoanalysis*", "hessian_ff*"]
+include = ["mlmm*", "pysisyphus*", "thermoanalysis*", "hessian_ff*"]
 
 [tool.setuptools.package-data]
-mlmm_toolkit = ["py.typed"]
+mlmm = ["py.typed"]
 pysisyphus = ["wavefunction/ints/*.npy"]
 hessian_ff = ["native/*.cpp", "native/Makefile"]
 
 [tool.setuptools_scm]
-version_file = "mlmm_toolkit/_version.py"
+version_file = "mlmm/_version.py"
 version_scheme = "guess-next-dev"
 local_scheme = "no-local-version"

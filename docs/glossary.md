@@ -1,6 +1,6 @@
 # Glossary
 
-This page provides definitions for abbreviations and technical terms used throughout the mlmm_toolkit documentation.
+This page provides definitions for abbreviations and technical terms used throughout the mlmm-toolkit documentation.
 
 ---
 
@@ -9,13 +9,13 @@ This page provides definitions for abbreviations and technical terms used throug
 | Term | Full Name | Description |
 |------|-----------|-------------|
 | **ML/MM** | Machine Learning / Molecular Mechanics | A multi-scale method that couples a machine-learning interatomic potential (for the reactive region) with a classical force field (for the surrounding environment). Analogous to QM/MM but with ML replacing QM. |
-| **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | A multi-layer energy decomposition scheme. mlmm_toolkit uses an ONIOM-like subtraction: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low. |
+| **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | A multi-layer energy decomposition scheme. mlmm-toolkit uses an ONIOM-like subtraction: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low. |
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | A multi-scale method coupling QM for the reactive region with MM for the environment. ML/MM replaces the QM layer with an MLIP backend. |
 | **Real system** | -- | The full set of atoms (all 3 layers). Evaluated at the MM (low) level in the ONIOM decomposition. Described by the parm7 topology; MM energy computed by hessian_ff. |
 | **Model system** | -- | The ML region (Layer 1). Evaluated at both the MLIP (high) and MM (low) levels in the ONIOM decomposition. |
 | **Link Hydrogen** | -- | A hydrogen atom added to cap severed bonds at the ML/MM boundary during pocket extraction. Forces are redistributed via a Jacobian. |
-| **hessian_ff** | -- | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm_toolkit. |
-| **3-layer system** | -- | mlmm_toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen (B=20.0). |
+| **hessian_ff** | -- | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm-toolkit. |
+| **3-layer system** | -- | mlmm-toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen (B=20.0). |
 | **B-factor encoding** | -- | Convention of storing layer membership in the PDB B-factor (temperature factor) column: 0.0 = ML, 10.0 = Movable-MM, 20.0 = Frozen. Hessian-target MM is controlled by cutoffs/explicit indices. |
 
 ---
@@ -31,7 +31,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | **antechamber** | -- | An AmberTools program that assigns GAFF2 atom types and AM1-BCC partial charges to small molecules. |
 | **parmchk2** | -- | An AmberTools program that checks and supplies missing force field parameters for GAFF2 typing. |
 | **GAFF2** | General Amber Force Field 2 | A general-purpose force field for small organic molecules, used to parameterize non-standard residues (substrates, cofactors). |
-| **ff19SB** | -- | An Amber protein force field used for standard amino acid residues. The default in mlmm_toolkit. |
+| **ff19SB** | -- | An Amber protein force field used for standard amino acid residues. The default in mlmm-toolkit. |
 | **ff14SB** | -- | An Amber protein force field (2014 version). Selectable with `--ff-set ff14SB`. |
 | **AM1-BCC** | -- | A charge model that combines AM1 (semi-empirical) Mulliken charges with bond charge corrections (BCC) to approximate HF/6-31G* RESP charges. |
 
@@ -45,7 +45,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | **TS** | Transition State | A first-order saddle point on the potential energy surface, typically the highest-energy point along the reaction coordinate. |
 | **IRC** | Intrinsic Reaction Coordinate | A mass-weighted steepest-descent path from a TS toward reactants and products. Often used to validate TS connectivity. |
 | **GSM** | Growing String Method | A string-based method that grows images from endpoints and optimizes them to approximate an MEP. |
-| **DMF** | Direct Max Flux | A chain-of-states method for optimizing an MEP by maximizing flux along the pathway. In mlmm it is selected with `--mep-mode dmf`. |
+| **DMF** | Direct Max Flux | A chain-of-states method for optimizing an MEP by maximizing flux along the pathway. In mlmm-toolkit it is selected with `--mep-mode dmf`. |
 | **NEB** | Nudged Elastic Band | A chain-of-states method that uses spring forces to maintain image spacing along a reaction path. |
 | **HEI** | Highest-Energy Image | The image along an MEP with maximum energy; often used as a TS guess. |
 | **Image** | -- | A single geometry (one "node") along a chain-of-states path. |
@@ -70,7 +70,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | Term | Full Name | Description |
 |------|-----------|-------------|
 | **MLIP** | Machine Learning Interatomic Potential | A model (often neural-network-based) that predicts energies and forces from atomic structures, trained on quantum-mechanical data. |
-| **UMA** | Universal Machine-learning potential for Atoms | Meta's family of pretrained MLIPs. The default ML backend in mlmm_toolkit (`--backend uma`). One of several supported backends. |
+| **UMA** | Universal Machine-learning potential for Atoms | Meta's family of pretrained MLIPs. The default ML backend in mlmm-toolkit (`--backend uma`). One of several supported backends. |
 | **ORB** | ORB Models | A family of pretrained MLIPs from Orbital Materials. Supported as an alternative ML backend (`--backend orb`). Install with `pip install "mlmm-toolkit[orb]"`. |
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | A message-passing equivariant neural network MLIP. Supported as an alternative ML backend (`--backend mace`). Requires a separate environment due to e3nn conflicts (see README). |
 | **AIMNet2** | Atoms In Molecules Network 2 | A neural network potential for organic molecules. Supported as an alternative ML backend (`--backend aimnet2`). Install with `pip install "mlmm-toolkit[aimnet2]"`. |
@@ -98,12 +98,12 @@ This page provides definitions for abbreviations and technical terms used throug
 |------|-----------|-------------|
 | **PDB** | Protein Data Bank | A file format and database for macromolecular 3D structures. |
 | **XYZ** | -- | A simple text format listing atomic symbols and Cartesian coordinates. |
-| **GJF** | Gaussian Job File | An input format for Gaussian; mlmm reads charge/multiplicity and coordinates from these files. |
+| **GJF** | Gaussian Job File | An input format for Gaussian; mlmm-toolkit reads charge/multiplicity and coordinates from these files. |
 | **Pocket** | Active-site Pocket | A truncated structure around the substrate(s) used to reduce system size for MEP/TS search. Also called "cluster model". |
 | **Cluster Model** | -- | Synonym for pocket; a computationally tractable subset of the full enzyme-substrate complex. |
 | **Link Hydrogen** | -- | A hydrogen atom added to cap severed bonds when extracting a pocket from a larger structure. |
 | **Backbone** | -- | The main chain of a protein (N-C_alpha-C-O atoms). Can be excluded during pocket extraction with `--exclude-backbone`. |
-| **B-factor** | Temperature Factor | The PDB temperature factor column. In mlmm_toolkit, used to encode 3-layer membership (0.0, 10.0, 20.0). |
+| **B-factor** | Temperature Factor | The PDB temperature factor column. In mlmm-toolkit, used to encode 3-layer membership (0.0, 10.0, 20.0). |
 
 ---
 

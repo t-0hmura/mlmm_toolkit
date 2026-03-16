@@ -5,7 +5,7 @@ from __future__ import annotations
 import click
 from click.testing import CliRunner
 
-from mlmm_toolkit.cli import cli as root_cli
+from mlmm.cli import cli as root_cli
 
 
 def _is_unavailable_command(cmd: click.Command | None) -> bool:

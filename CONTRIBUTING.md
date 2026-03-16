@@ -1,6 +1,6 @@
-# Contributing to mlmm_toolkit
+# Contributing to mlmm-toolkit
 
-Thank you for your interest in contributing to **mlmm_toolkit**.
+Thank you for your interest in contributing to **mlmm-toolkit**.
 
 ## Development Setup
 
@@ -24,7 +24,7 @@ pip install -e .
 pytest tests/ -v --tb=short
 
 # Run with coverage
-pytest tests/ -v --tb=short --cov=mlmm_toolkit --cov-report=term-missing
+pytest tests/ -v --tb=short --cov=mlmm --cov-report=term-missing
 ```
 
 ## Code Style

@@ -1,4 +1,4 @@
-# mlmm_toolkit/mm_parm.py
+# mlmm/mm_parm.py
 
 """
 AmberTools prmtop/rst7 builder with automatic GAFF2 ligand parameterization.

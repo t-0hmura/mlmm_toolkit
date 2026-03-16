@@ -1,4 +1,4 @@
-# mlmm_toolkit/summary_log.py
+# mlmm/summary_log.py
 
 """
 User-friendly summary log writer used by ``path_search`` and ``all``.
@@ -410,7 +410,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
 
     lines: List[str] = []
     lines.append("========================================================================")
-    lines.append("mlmm_toolkit summary.log")
+    lines.append("mlmm summary.log")
     lines.append("========================================================================")
     if command:
         lines.append(f"Input              : {command}")
@@ -438,7 +438,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     lines.append(f"MEP mode           : {payload.get('mep_mode') or '-'}")
 
     version_base = payload.get("code_version") or __version__
-    version_txt = f"mlmm_toolkit {version_base}"
+    version_txt = f"mlmm {version_base}"
     lines.append(f"Code version       : {version_txt}")
     uma_model = payload.get("uma_model") or MLMM_CALC_KW.get("uma_model") or "-"
     lines.append(f"UMA model          : {uma_model}")

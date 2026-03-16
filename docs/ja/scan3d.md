@@ -4,7 +4,7 @@
 
 > **要約:** 調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）グリッドスキャンを実行します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。
 
-`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm_toolkit.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、MLIP バックエンドは `-b/--backend` で選択（デフォルト: `uma`）、オプティマイザーは PySisyphus LBFGS です。
+`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、MLIP バックエンドは `-b/--backend` で選択（デフォルト: `uma`）、オプティマイザーは PySisyphus LBFGS です。
 
 ## 最小例
 
@@ -171,6 +171,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--zmax FLOAT` | アイソサーフェスカラーバンドの手動上限（kcal/mol）。 | 自動スケール |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部で `uma` を適用） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## 出力

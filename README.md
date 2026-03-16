@@ -2,7 +2,7 @@
 
 ## Overview
 
-<img src="./docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="100%">
+<img src="./docs/mlmm_overview.png" alt="Overview of ML/MM toolkit" width="100%">
 
 Quantum mechanics/molecular mechanics (QM/MM) methods have long been used to analyze enzymatic reaction mechanisms *in silico*. While treating the active site with QM and the remainder with MM reduces the computational cost, the inherently high cost of the QM calculation remains a major limitation. Replacing QM with Machine Learning (ML) interatomic potentials yields ML/MM approaches that further reduce computational cost while retaining accuracy.
 
@@ -20,7 +20,7 @@ The full workflow — **MEP search → TS optimization → IRC → thermochemist
 mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2" --tsopt --thermo --dft
 ```
 
-Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm_toolkit` automatically:
+Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm-toolkit` automatically:
 
 - extracts an **active-site pocket** around user-defined substrates,
 - assigns **ONIOM regions** (ML / Movable MM / Frozen MM) via B-factor encoding,
@@ -286,7 +286,7 @@ Start with the minimal [`examples/toy_system/`](examples/toy_system/) example, t
 
 ## 3-Layer System
 
-`mlmm_toolkit` uses a 3-layer system encoded in PDB B-factor columns:
+`mlmm-toolkit` uses a 3-layer system encoded in PDB B-factor columns:
 
 | Layer | B-factor | Description | Hessian |
 |---|---|---|---|
@@ -316,14 +316,14 @@ Unit conversions are handled automatically inside the ML/MM calculator.
 
 ## Python API
 
-See [Python API Reference](docs/mlmm_calc.md) for full documentation.
+See [Python API Reference](docs/python_api.md) for full documentation.
 
-An **ASE** interface is available for Python scripting.
+Three API levels are available: `MLMMCore` (base engine), `MLMMASECalculator` (ASE), and `mlmm` (pysisyphus Calculator).
 
 ### MLMMCore (Base-Level)
 
 ```python
-from mlmm_toolkit.mlmm_calc import MLMMCore
+from mlmm import MLMMCore
 
 core = MLMMCore(
     input_pdb    = "complex.pdb",    # Full system PDB (protein + substrate + solvent)
@@ -345,19 +345,30 @@ hessian = results["hessian"]   # torch.Tensor (3N, 3N), eV/Å^2
 ### ASE Interface
 
 ```python
-from mlmm_toolkit.mlmm_calc import MLMMASECalculator
+from mlmm import MLMMCore, MLMMASECalculator
 
-atoms.calc = MLMMASECalculator(
+core = MLMMCore(
     input_pdb="complex.pdb", real_parm7="complex.parm7",
     model_pdb="ml_region.pdb", model_charge=-1, model_mult=1,
 )
+calc = MLMMASECalculator(core)
+
+atoms.calc = calc
 energy = atoms.get_potential_energy()  # eV
 ```
+
+### pysisyphus YAML Workflows
+
+```bash
+mlmm pysis opt.yaml
+```
+
+See [pysis documentation](docs/pysis.md) for YAML format and examples.
 
 > **Notes**
 > - `complex.pdb` is the reference PDB used when the Amber parameters were generated, whereas `structure.pdb` can contain any starting geometry.
 > - If `model_charge` is omitted, it defaults to **0**. Always set it explicitly for charged systems.
-> - The bundled pysisyphus fork is used internally by the CLI. It is **not compatible** with the upstream `pysisyphus` package and should not be imported directly by user scripts.
+> - v0.1.x parameter names (`real_pdb`, etc.) and `mlmm_ase()` are still supported with deprecation warnings.
 
 ---
 

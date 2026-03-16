@@ -143,7 +143,7 @@ mlmm opt \
 
 ### 重要なポイント
 
-- **GPU 1 基:** mlmm_toolkit はジョブあたり GPU 1 基を使用。PBS なら `gpus=1`、Slurm なら `--gres=gpu:1` を指定。
+- **GPU 1 基:** mlmm-toolkit はジョブあたり GPU 1 基を使用。PBS なら `gpus=1`、Slurm なら `--gres=gpu:1` を指定。
 - **CPU スレッド:** MM バックエンド用に十分な CPU を確保（`mm_threads` デフォルト 16）。PBS なら `ppn=32`、Slurm なら `--cpus-per-task=32` を推奨。
 - **メモリ:** 酵素活性部位モデルには通常 120 GB で十分。非常に大きな系では増量。
 - **CUDA モジュール:** PyTorch が正しい CUDA ランタイムを検出するよう、conda 有効化**前に** CUDA をロード。
@@ -167,7 +167,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 
 ## 制限事項
 
-- **マルチ GPU 非対応:** pdb2reaction（Ray 経由のマルチワーカー推論をサポート）とは異なり、mlmm_toolkit は GPU 1 基で動作。hessian_ff バックエンドは並列プレディクタに非対応。
+- **マルチ GPU 非対応:** pdb2reaction（Ray 経由のマルチワーカー推論をサポート）とは異なり、mlmm-toolkit は GPU 1 基で動作。hessian_ff バックエンドは並列プレディクタに非対応。
 - **分散計算非対応:** すべての計算は単一ノードの単一プロセス内で実行。
 - **hessian_ff は CPU のみ:** デフォルトの MM バックエンドは `mm_device` の設定に関係なく常に CPU で実行。
 

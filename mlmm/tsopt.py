@@ -1,4 +1,4 @@
-# mlmm_toolkit/tsopt.py
+# mlmm/tsopt.py
 
 """Partial Hessian guided Dimer / RS-I-RFO transition-state search with ML/MM.
 

@@ -1,4 +1,4 @@
-# mlmm_toolkit/scan.py
+# mlmm/scan.py
 
 """
 ML/MM staged bond-length scan with harmonic restraints.
@@ -628,14 +628,12 @@ def cli(
             echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
             # Show only lbfgs-specific settings, not inherited from opt_cfg
             echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
-            echo_bias = strip_inherited_keys(bias_cfg, BIAS_KW, mode="same")
-            echo_bond = strip_inherited_keys(bond_cfg, BOND_KW, mode="same")
             click.echo(pretty_block("geom", echo_geom))
             click.echo(pretty_block("calc", echo_calc))
             click.echo(pretty_block("opt", echo_opt))
             click.echo(pretty_block("lbfgs", echo_lbfgs))
-            click.echo(pretty_block("bias", echo_bias))
-            click.echo(pretty_block("bond", echo_bond))
+            click.echo(pretty_block("bias", bias_cfg))
+            click.echo(pretty_block("bond", bond_cfg))
 
             pdb_atom_meta: List[Dict[str, Any]] = []
             if source_path.suffix.lower() == ".pdb":
@@ -650,6 +648,10 @@ def cli(
             stages: List[List[Tuple[int, int, float]]]
             scan_one_based = bool(one_based)
             scan_source = "--scan-lists"
+            # Bidirectional scan support (4-tuple): track which stages
+            # need geometry snapshot/reset.
+            _bidir_reset_before: set = set()
+            _bidir_snapshot_before: set = set()
             # Auto-detect: single value that is a YAML/JSON file → spec mode
             if len(cli_scan_values) == 1 and is_scan_spec_file(cli_scan_values[0]):
                 spec_path = Path(cli_scan_values[0])
@@ -669,12 +671,27 @@ def cli(
                         atom_meta=pdb_atom_meta,
                         option_name=f"--scan-lists #{idx}",
                     )
-                    for i, j, r in parsed:
-                        if r <= 0.0:
-                            raise click.BadParameter(
-                                f"Non-positive target length in --scan-lists #{idx}: {(i, j, r)}."
-                            )
-                    stages.append(parsed)
+                    for t in parsed:
+                        for dist in t[2:]:
+                            if dist <= 0.0:
+                                raise click.BadParameter(
+                                    f"Non-positive target length in --scan-lists #{idx}: {t}."
+                                )
+                    # Expand 4-tuples into two stages with reset marker
+                    has_4tuple = any(len(t) == 4 for t in parsed)
+                    if has_4tuple:
+                        for t in parsed:
+                            if len(t) == 4:
+                                i, j, start, end = t
+                                stage_a_idx = len(stages)
+                                stages.append([(i, j, start)])
+                                _bidir_snapshot_before.add(stage_a_idx)
+                                _bidir_reset_before.add(stage_a_idx + 1)
+                                stages.append([(i, j, end)])
+                            else:
+                                stages.append([t])
+                    else:
+                        stages.append(parsed)
             K = len(stages)
             click.echo(f"[scan] Received {K} stage(s).")
             if print_parsed:
@@ -784,8 +801,22 @@ def cli(
             geom.set_calculator(biased)
 
             all_trj_blocks: List[str] = []
+            # For bidirectional 4-tuple scans: save geometry before pass 1,
+            # restore before pass 2, and reverse pass 1 trajectory.
+            _bidir_saved_geom = None
+            _bidir_pass1_trj: List[str] = []
 
             for k, tuples in enumerate(stages, start=1):
+                # Bidirectional support: snapshot before pass 1
+                stage_idx_0 = k - 1  # 0-based
+                if stage_idx_0 in _bidir_snapshot_before:
+                    _bidir_saved_geom = _snapshot_geometry(geom)
+                    _bidir_pass1_trj = []
+                # Bidirectional support: restore geometry before pass 2
+                if stage_idx_0 in _bidir_reset_before and _bidir_saved_geom is not None:
+                    click.echo("[bidir] Restoring initial geometry for reverse-direction pass.")
+                    geom.coords = _bidir_saved_geom.coords.copy()
+
                 stage_dir = out_dir_path / f"stage_{k:02d}"
                 stage_dir.mkdir(parents=True, exist_ok=True)
                 click.echo(f"\n--- Stage {k}/{K} ---")
@@ -812,6 +843,8 @@ def cli(
                 stages_summary.append(srec)
 
                 trj_blocks: List[str] = []
+                stage_trj_path = stage_dir / "scan_trj.xyz"
+                stage_trj_path.write_text("")
                 pairs = [(i, j) for (i, j, _) in tuples]
 
                 if Nsteps == 0:
@@ -870,6 +903,8 @@ def cli(
                         click.echo(f"[stage {k}] step {s}: OptimizationError — {e}", err=True)
 
                     trj_blocks.append(_coords3d_to_xyz_string(geom))
+                    with open(stage_trj_path, "a") as _tf:
+                        _tf.write(trj_blocks[-1])
 
                 if endopt:
                     geom.set_calculator(base_calc)
@@ -900,13 +935,20 @@ def cli(
                     click.echo(f"[stage {k}] WARNING: Failed to evaluate bond changes: {e}", err=True)
 
                 if trj_blocks:
-                    trj_path = stage_dir / "scan_trj.xyz"
-                    with open(trj_path, "w") as f:
-                        f.write("".join(trj_blocks))
-                    click.echo(f"[write] Wrote '{trj_path}'.")
-                    all_trj_blocks.extend(trj_blocks)
+                    click.echo(f"[write] Wrote '{stage_trj_path}'.")
+                    # Bidirectional trajectory assembly:
+                    # pass 1 (initial→start) is saved; pass 2 (initial→end)
+                    # triggers assembly: reversed(pass1) + pass2 → start→initial→end
+                    if stage_idx_0 in _bidir_snapshot_before:
+                        _bidir_pass1_trj = list(trj_blocks)
+                    elif stage_idx_0 in _bidir_reset_before:
+                        all_trj_blocks.extend(reversed(_bidir_pass1_trj))
+                        all_trj_blocks.extend(trj_blocks)
+                        _bidir_pass1_trj = []
+                    else:
+                        all_trj_blocks.extend(trj_blocks)
                     try:
-                        convert_xyz_to_pdb(trj_path, source_path.resolve(), stage_dir / "scan.pdb")
+                        convert_xyz_to_pdb(stage_trj_path, source_path.resolve(), stage_dir / "scan.pdb")
                         click.echo(f"[convert] Wrote '{stage_dir / 'scan.pdb'}'.")
                     except Exception as e:
                         click.echo(f"[convert] WARNING: Failed to convert stage trajectory to PDB: {e}", err=True)

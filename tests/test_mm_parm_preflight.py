@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mlmm_toolkit import mm_parm
+from mlmm import mm_parm
 
 
 def test_missing_ambertools_commands_with_partial_paths() -> None:

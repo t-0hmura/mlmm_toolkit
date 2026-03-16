@@ -61,6 +61,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | --- | --- | --- |
 | `-b, --backend CHOICE` | ONIOM 低レベル再結合用 MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | 静電埋め込みの有効化: Amber トポロジーの MM 点電荷を PySCF QM ハミルトニアンに追加し、DFT 波動関数が MM 環境により分極。 | `False` |
+| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `-i, --input PATH` | 完全酵素構造ファイル（PDB または XYZ）。XYZ の場合は `--ref-pdb` でトポロジーを指定。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |

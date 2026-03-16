@@ -1,4 +1,4 @@
-# mlmm_toolkit/extract.py
+# mlmm/extract.py
 
 """
 extract — Automated binding‑pocket (active‑site) extractor

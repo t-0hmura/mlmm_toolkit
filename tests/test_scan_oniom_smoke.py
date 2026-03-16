@@ -6,7 +6,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from mlmm_toolkit.cli import cli as root_cli
+from mlmm.cli import cli as root_cli
 
 
 _FIXTURE_DIR = (
@@ -303,7 +303,7 @@ def test_oniom_export_default_convert_fallback_without_orca_mm(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    from mlmm_toolkit import oniom_export
+    from mlmm import oniom_export
 
     monkeypatch.setattr(oniom_export.shutil, "which", lambda _name: None)
 
@@ -344,7 +344,7 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    from mlmm_toolkit import oniom_export
+    from mlmm import oniom_export
 
     class _FailedProc:
         returncode = 1

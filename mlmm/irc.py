@@ -1,4 +1,4 @@
-# mlmm_toolkit/irc.py
+# mlmm/irc.py
 
 """
 ML/MM IRC calculation using the EulerPC predictor-corrector integrator.

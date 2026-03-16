@@ -1,4 +1,4 @@
-# mlmm_toolkit/trj2fig.py
+# mlmm/trj2fig.py
 
 """
 Energy-profile utility: extract energies from XYZ trajectories and export Plotly figures / CSV.

@@ -11,18 +11,18 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'mlmm_toolkit'
+project = 'mlmm'
 copyright = '2025, Takuto Ohmura'
 author = 'Takuto Ohmura'
 
 # Get version from package (setuptools_scm)
 try:
-    from mlmm_toolkit import __version__
+    from mlmm import __version__
     release = __version__
 except ImportError:
     # Fallback for docs build without package installed
     try:
-        from mlmm_toolkit._version import __version__
+        from mlmm._version import __version__
         release = __version__
     except ImportError:
         release = '0.0.0.dev0'
@@ -98,8 +98,8 @@ html_theme_options = {
     'navigation_with_keys': True,
 }
 
-html_title = 'mlmm_toolkit'
-html_short_title = 'mlmm_toolkit'
+html_title = 'mlmm'
+html_short_title = 'mlmm'
 
 # Static files path
 html_static_path = ['_static']

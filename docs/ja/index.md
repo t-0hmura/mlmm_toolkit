@@ -1,6 +1,6 @@
-# mlmm_toolkit ドキュメント
+# mlmm-toolkit ドキュメント
 
-**mlmm_toolkit** は、機械学習原子間ポテンシャル（UMA）と分子力学（hessian_ff）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
+**mlmm-toolkit** は、機械学習原子間ポテンシャル（UMA）と分子力学（hessian_ff）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
 
 ```{toctree}
 :maxdepth: 2
@@ -55,6 +55,8 @@ oniom_orca
 
 yaml_reference
 mlmm_calc
+python_api
+pysis
 glossary
 ```
 
@@ -216,7 +218,7 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 ## 重要な概念
 
 ### ML/MM 3 層システム
-mlmm_toolkit は PDB の B-factor を用いた 3 層分割スキームを使用します:
+mlmm は PDB の B-factor を用いた 3 層分割スキームを使用します:
 - **ML 領域**（B=0.0）: UMA 機械学習ポテンシャルで計算
 - **Movable-MM**（B=10.0）: 最適化時に移動可能な MM 原子
 - **Frozen**（B=20.0）: 座標固定の MM 原子
@@ -272,7 +274,7 @@ result_all/
 
 ## ライセンス
 
-`mlmm_toolkit` は Pysisyphus から派生した **GNU General Public License version 3 (GPL-3.0)** の下で配布されています。
+`mlmm-toolkit` は Pysisyphus から派生した **GNU General Public License version 3 (GPL-3.0)** の下で配布されています。
 
 ---
 

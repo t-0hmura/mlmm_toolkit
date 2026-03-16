@@ -9,7 +9,7 @@ import pytest
 
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="mlmm_toolkit requires Python >= 3.11",
+    reason="mlmm requires Python >= 3.11",
 )
 
 
@@ -46,7 +46,7 @@ def _write_pdb(path: Path, *, drop_last_atom: bool = False) -> Path:
 
 
 def test_extract_api_single_structure_smoke(tmp_path: Path):
-    from mlmm_toolkit.extract import extract_api
+    from mlmm.extract import extract_api
 
     inp = _write_pdb(tmp_path / "input.pdb")
     out = tmp_path / "pocket.pdb"
@@ -72,7 +72,7 @@ def test_extract_api_single_structure_smoke(tmp_path: Path):
 
 
 def test_extract_api_multi_structure_rejects_atom_count_mismatch(tmp_path: Path):
-    from mlmm_toolkit.extract import extract_api
+    from mlmm.extract import extract_api
 
     p1 = _write_pdb(tmp_path / "s1.pdb")
     p2 = _write_pdb(tmp_path / "s2.pdb", drop_last_atom=True)
@@ -88,7 +88,7 @@ def test_extract_api_multi_structure_rejects_atom_count_mismatch(tmp_path: Path)
 
 
 def test_extract_api_rejects_unknown_center(tmp_path: Path):
-    from mlmm_toolkit.extract import extract_api
+    from mlmm.extract import extract_api
 
     inp = _write_pdb(tmp_path / "input_unknown_center.pdb")
 

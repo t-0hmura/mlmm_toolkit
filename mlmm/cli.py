@@ -1,4 +1,4 @@
-# mlmm_toolkit/cli.py
+# mlmm/cli.py
 
 import logging
 import warnings
@@ -11,7 +11,7 @@ from .advanced_help import (
 )
 from .bool_compat import normalize_bool_argv
 from .default_group import DefaultGroup
-from mlmm_toolkit import __version__
+from mlmm import __version__
 
 _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
     "all": (".all", "cli", "End-to-end workflow (extract -> MEP -> TS -> IRC -> freq -> DFT)."),
@@ -34,6 +34,7 @@ _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
     "fix-altloc": (".fix_altloc", "cli", "Resolve PDB alternate locations."),
     "energy-diagram": (".energy_diagram", "cli", "Draw energy diagrams from values."),
     "extract": (".extract", "cli", "Extract a binding pocket."),
+    "pysis": (".pysis_runner", "cli", "Run pysisyphus YAML workflow (v0.1.x compat)."),
 }
 
 # Only the ``all`` subcommand is listed here because it uses Click's

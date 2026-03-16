@@ -8,7 +8,7 @@ import pytest
 # causes a TypeError on older interpreters at import time.
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="mlmm_toolkit CLI requires Python >= 3.11",
+    reason="mlmm CLI requires Python >= 3.11",
 )
 
 from click.testing import CliRunner  # noqa: E402
@@ -70,7 +70,7 @@ def runner():
 
 @pytest.fixture
 def cli_group():
-    from mlmm_toolkit.cli import cli
+    from mlmm.cli import cli
     return cli
 
 

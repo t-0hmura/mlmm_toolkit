@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CLI_MODULE = "mlmm_toolkit"
+CLI_MODULE = "mlmm"
 TIMEOUT_ENV = "MLMM_DUMP_CASE_TIMEOUT_SEC"
 GENERIC_TIMEOUT_ENV = "DOCS_DUMP_CASE_TIMEOUT_SEC"
 DEFAULT_CASE_TIMEOUT_SEC = 900.0

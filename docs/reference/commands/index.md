@@ -18,6 +18,7 @@ oniom_export
 oniom_import
 opt
 path_opt
+pysis
 path_search
 scan
 scan2d
@@ -43,6 +44,7 @@ tsopt
 | `mlmm opt` | [opt](opt.md) |
 | `mlmm path-opt` | [path-opt](path_opt.md) |
 | `mlmm path-search` | [path-search](path_search.md) |
+| `mlmm pysis` | [pysis](pysis.md) |
 | `mlmm scan` | [scan](scan.md) |
 | `mlmm scan2d` | [scan2d](scan2d.md) |
 | `mlmm scan3d` | [scan3d](scan3d.md) |

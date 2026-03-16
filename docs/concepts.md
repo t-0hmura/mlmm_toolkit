@@ -1,6 +1,6 @@
 # Concepts & Workflow
 
-This page explains the key terms in mlmm_toolkit -- pockets, templates, segments, images, and the ML/MM 3-layer system -- and how the `all` command ties together the subcommands.
+This page explains the key terms in mlmm-toolkit -- pockets, templates, segments, images, and the ML/MM 3-layer system -- and how the `all` command ties together the subcommands.
 
 ---
 
@@ -46,7 +46,7 @@ Transition states: treat HEI / [`tsopt`](tsopt.md) outputs as **TS candidates** 
 
 ## ML/MM 3-layer system
 
-A central concept in mlmm_toolkit is the **3-layer ML/MM partitioning** of the system. Each atom belongs to one of three layers, encoded in the PDB B-factor column:
+A central concept in mlmm-toolkit is the **3-layer ML/MM partitioning** of the system. Each atom belongs to one of three layers, encoded in the PDB B-factor column:
 
 | Layer | B-factor | Description |
 |-------|----------|-------------|
@@ -71,7 +71,7 @@ The B-factor encoding allows you to visually inspect layer assignments in any mo
 
 ## ONIOM-like energy decomposition
 
-mlmm_toolkit uses an **ONIOM-like** scheme to combine ML and MM energies:
+mlmm-toolkit uses an **ONIOM-like** scheme to combine ML and MM energies:
 
 ```
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
@@ -93,16 +93,6 @@ The same decomposition applies to forces and (where applicable) Hessians. Link-h
 The MLIP backend is selected via `-b/--backend` (default: `uma`). Alternative backends (`orb`, `mace`, `aimnet2`) are installed as optional dependencies (e.g., `pip install "mlmm-toolkit[orb]"`).
 
 When `--embedcharge` is enabled, an xTB point-charge embedding correction is applied to account for the electrostatic influence of the MM environment on the ML region.
-
-### Difference from traditional QM/MM
-
-| Aspect | Traditional QM/MM | mlmm_toolkit ML/MM |
-|--------|-------------------|---------------------|
-| High-level method | DFT, HF, or post-HF | MLIP (UMA, ORB, MACE, or AIMNet2) |
-| Low-level method | OpenMM / Amber | hessian_ff (C++ native) |
-| Link atoms | Typically required | Auto-generated at covalent boundaries |
-| Electrostatic embedding | Common | Mechanical embedding by default; optional xTB point-charge correction via `--embedcharge` |
-| Speed | Slow (QM bottleneck) | Fast (ML inference on GPU) |
 
 ---
 
@@ -155,7 +145,7 @@ Pocket extraction is controlled by:
 - **Segment**: an MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2,...). A multi-structure run is decomposed into segments.
 
 ### Templates and file conversion (`--convert-files`)
-`mlmm` often writes a **trajectory** (e.g., `mep_trj.xyz`, `irc_trj.xyz`). When you supply topology-aware inputs (PDB templates or Gaussian inputs), it can optionally write companion files:
+`mlmm-toolkit` often writes a **trajectory** (e.g., `mep_trj.xyz`, `irc_trj.xyz`). When you supply topology-aware inputs (PDB templates or Gaussian inputs), it can optionally write companion files:
 - `.pdb` companions when a PDB template exists
 - `.gjf` companions when a Gaussian template exists
 

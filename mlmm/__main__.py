@@ -1,4 +1,4 @@
-"""Module entrypoint for `python -m mlmm_toolkit`."""
+"""Module entrypoint for `python -m mlmm`."""
 
 from .cli import cli
 

@@ -1,4 +1,4 @@
-# mlmm_toolkit/dft.py
+# mlmm/dft.py
 
 """ML/MM-aware single-point DFT for the ML region with energy recombination.
 

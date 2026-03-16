@@ -1,4 +1,4 @@
-# mlmm_toolkit/add_elem_info.py
+# mlmm/add_elem_info.py
 
 """
 Add/repair PDB element symbols (columns 77-78) using Biopython inference.
