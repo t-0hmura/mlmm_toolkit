@@ -54,7 +54,12 @@ def _iter_toctree_targets(path: Path) -> list[tuple[int, str]]:
             continue
         if not stripped or stripped.startswith(":"):
             continue
-        targets.append((lineno, stripped.split()[0]))
+        # Handle MyST toctree "Title <target>" syntax
+        angle = re.match(r".*<([^>]+)>\s*$", stripped)
+        if angle:
+            targets.append((lineno, angle.group(1).strip()))
+        else:
+            targets.append((lineno, stripped.split()[0]))
     return targets
 
 
