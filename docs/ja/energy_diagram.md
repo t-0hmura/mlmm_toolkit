@@ -52,4 +52,4 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o
 - [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 - [trj2fig](trj2fig.md) -- 軌跡エネルギーからプロファイルを描画
-- [all](all.md) -- エネルギーダイアグラム出力を含むエンドツーエンド実行
+- [all](all.md) -- エネルギーダイアグラム出力を含むend-to-end実行

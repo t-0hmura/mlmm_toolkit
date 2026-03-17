@@ -262,5 +262,5 @@ out_dir/ (デフォルト:./result_scan/)
 - [scan2d](scan2d.md) -- 2D 距離グリッドスキャン
 - [scan3d](scan3d.md) -- 3D 距離グリッドスキャン
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- 単一構造入力の `--scan-lists` 付きエンドツーエンドワークフロー
+- [all](all.md) -- 単一構造入力の `--scan-lists` 付きend-to-endワークフロー
 - [path-search](path_search.md) -- スキャン端点を中間体として使用する MEP 探索

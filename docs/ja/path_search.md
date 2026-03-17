@@ -150,5 +150,5 @@ YAML ルートはマッピングでなければなりません。受け付ける
 
 - [path-opt](path_opt.md) -- シングルパス MEP 最適化（再帰的精密化なし）
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- 内部で path-search を呼び出すエンドツーエンドワークフロー
+- [all](all.md) -- 内部で path-search を呼び出すend-to-endワークフロー
 - [trj2fig](trj2fig.md) -- MEP 軌跡からエネルギープロファイルをプロット

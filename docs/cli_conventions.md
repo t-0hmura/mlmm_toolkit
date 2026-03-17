@@ -75,7 +75,7 @@ mlmm-toolkit uses the PDB B-factor column to encode the 3-layer ML/MM partitioni
 
 | Layer | B-factor | Meaning |
 |-------|----------|---------|
-| ML | 0.0 | MLIP energy/force/Hessian (default backend: UMA) |
+| ML | 0.0 | MLIP energy/force/Hessian |
 | Movable-MM | 10.0 | MM atoms allowed to move |
 | Frozen | 20.0 | Coordinates fixed |
 

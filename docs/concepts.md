@@ -50,7 +50,7 @@ A central concept in mlmm-toolkit is the **3-layer ML/MM partitioning** of the s
 
 | Layer | B-factor | Description |
 |-------|----------|-------------|
-| **ML** (Layer 1) | 0.0 | The reactive region. Full MLIP energy, forces, and Hessian (default backend: UMA). |
+| **ML** (Layer 1) | 0.0 | The reactive region. Full MLIP energy, forces, and Hessian. |
 | **Movable-MM** (Layer 2) | 10.0 | MM atoms allowed to move during optimization. |
 | **Frozen** (Layer 3) | 20.0 | Coordinates are fixed; no optimization. |
 
@@ -80,7 +80,7 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 where:
 - **REAL** = the full system (all atoms)
 - **MODEL** = the ML region (subset of atoms)
-- **high** = MLIP backend (UMA by default; ORB, MACE, AIMNet2 also supported)
+- **high** = the selected MLIP backend (default: UMA; ORB, MACE, AIMNet2 also supported)
 - **low** = hessian_ff (Amber-based classical force field)
 
 This means:

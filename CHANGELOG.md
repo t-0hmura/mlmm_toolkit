@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **mlmm_toolkit** will be documented in this file.
+All notable changes to **mlmm-toolkit** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/).
 
@@ -12,7 +12,7 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 ### Breaking Changes
 
 - **Package name**: `mlmm-toolkit` on PyPI. Install with `pip install mlmm-toolkit`.
-- **CLI completely redesigned**: The old entry points (`mlmm`, `def_ml_region`, `bond_scan`, `ts_search`, `energy_summary`, `trj2fig`, `add_elem_info`, `get_freeze_indices`, `xyz_geom2pdb`) are replaced by a single `mlmm <subcommand>` interface with 19 subcommands.
+- **CLI completely redesigned**: The old entry points (`mlmm`, `def_ml_region`, `bond_scan`, `ts_search`, `energy_summary`, `trj2fig`, `add_elem_info`, `get_freeze_indices`, `xyz_geom2pdb`) are replaced by a single `mlmm <subcommand>` interface with 21 subcommands.
 - **OpenMM removed**: MM calculations now use `hessian_ff`, a bundled C++ native extension for Amber force fields. OpenMM and OpenMM-CUDA-12 are no longer dependencies.
 - **RDKit removed**: No longer required.
 - **pysisyphus bundled**: No longer installed from a separate git repository; a modified fork is included in the package.
@@ -87,7 +87,7 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 |--------|------------------|--------------------------|
 | Package name | `mlmm` | `mlmm-toolkit` |
 | Codebase size | ~3,700 lines (13 files) | ~35,000 lines (40+ files) |
-| CLI framework | 8 separate entry points (argparse) | 1 entry point, 19 Click subcommands |
+| CLI framework | 8 separate entry points (argparse) | 1 entry point, 21 Click subcommands |
 | MM backend | OpenMM (finite difference) | hessian_ff (analytical C++) |
 | ML backends | UMA, AIMNet2 | UMA, ORB, MACE, AIMNet2 |
 | pysisyphus | Git dependency | Bundled (modified fork) |

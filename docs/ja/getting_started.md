@@ -468,7 +468,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 
 | サブコマンド | 役割 | ドキュメント |
 |------------|------|------------|
-| `all` | エンドツーエンドワークフロー | [all](all.md) |
+| `all` | end-to-endワークフロー | [all](all.md) |
 | `extract` | 活性部位ポケット抽出 | [extract](extract.md) |
 | `mm-parm` | Amber parm7/rst7 構築 | [mm_parm](mm_parm.md) |
 | `define-layer` | 3 層 ML/MM 領域定義 | [define_layer](define_layer.md) |

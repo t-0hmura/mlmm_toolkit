@@ -2,7 +2,7 @@
 
 ## Overview
 
-> **Summary:** End-to-end enzymatic reaction workflow -- active-site extraction, ML/MM layer assignment, MM topology preparation, optional staged scan, MEP search (GSM) on full-system layered PDBs, with optional TS optimization, pseudo-IRC, thermochemistry, DFT, and DFT//UMA diagrams.
+> **Summary:** End-to-end enzymatic reaction workflow -- active-site extraction, ML/MM layer assignment, MM topology preparation, optional staged scan, MEP search (GSM) on full-system layered PDBs, with optional TS optimization, pseudo-IRC, thermochemistry, DFT, and DFT//MLIP diagrams.
 
 `mlmm all` runs a one-shot pipeline that operates on full-system layered PDBs with ML/MM. It supports three modes:
 
@@ -118,12 +118,12 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
    - Per-segment trajectories, full MEP trajectory, and a `summary.yaml` are written under `<out-dir>/path_search/`.
    - `--tsopt`: run TS optimization on each HEI, follow with EulerPC IRC, and emit segment energy diagrams.
    - `--thermo`: Compute ML/MM thermochemistry on (R, TS, P) and add a Gibbs diagram.
-   - `--dft`: Do DFT single-point on (R, TS, P) and add a DFT diagram. With `--thermo`, also generate a DFT//UMA Gibbs diagram.
+   - `--dft`: Do DFT single-point on (R, TS, P) and add a DFT diagram. With `--thermo`, also generate a DFT//MLIP Gibbs diagram.
    - Shared overrides include `--opt-mode`, `--opt-mode-post` (overrides TSOPT and post-IRC endpoint optimization modes), `--flatten/--no-flatten`, `--hessian-calc-mode`, `--tsopt-max-cycles`, `--tsopt-out-dir`, `--freq-*`, `--dft-*`.
    - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
 
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
-   - Skips steps (4)-(5) and runs `tsopt` on the layered full-system PDB, does a pseudo-IRC and minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//UMA diagrams.
+   - Skips steps (4)-(5) and runs `tsopt` on the layered full-system PDB, does a pseudo-IRC and minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//MLIP diagrams.
    - In this mode only, the IRC endpoint with **higher energy** is adopted as the reactant (R).
 
 ### Charge and spin precedence
@@ -316,9 +316,9 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 ### Reading `summary.log`
 The log is organized into numbered sections:
 - **[1] Global MEP overview** -- image/segment counts, MEP trajectory plot paths, and the aggregate MEP energy diagram.
-- **[2] Segment-level MEP summary (UMA path)** -- per-segment barriers, reaction energies, and bond-change summaries.
+- **[2] Segment-level MEP summary (MLIP path)** -- per-segment barriers, reaction energies, and bond-change summaries.
 - **[3] Per-segment post-processing (TSOPT / Thermo / DFT)** -- per-segment TS imaginary frequency checks, IRC outputs, and energy tables.
-- **[4] Energy diagrams (overview)** -- diagram tables for MEP/UMA/Gibbs/DFT series plus an optional cross-method summary table.
+- **[4] Energy diagrams (overview)** -- diagram tables for MEP/MLIP/Gibbs/DFT series plus an optional cross-method summary table.
 - **[5] Output directory structure** -- a compact tree of generated files with inline annotations.
 
 ### Reading `summary.yaml`

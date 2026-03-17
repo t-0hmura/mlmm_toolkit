@@ -49,7 +49,7 @@ Options:
   -o, --out-dir TEXT              Output directory; overrides irc.out_dir from
                                   YAML.  [default: ./result_irc/]
   --hessian-calc-mode [analytical|finitedifference]
-                                  How UMA builds the Hessian (Analytical or
+                                  How the MLIP backend builds the Hessian (Analytical or
                                   FiniteDifference); overrides
                                   calc.hessian_calc_mode from YAML. Defaults to
                                   'FiniteDifference'. Use 'Analytical' when VRAM

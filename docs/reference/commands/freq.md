@@ -45,7 +45,7 @@ Options:
                                   Providing --movable-cutoff disables --detect-
                                   layer.
   --hessian-calc-mode [analytical|finitedifference]
-                                  How UMA builds the ML Hessian (Analytical or
+                                  How the MLIP backend builds the ML Hessian (Analytical or
                                   FiniteDifference); overrides
                                   calc.hessian_calc_mode from YAML. Defaults to
                                   'FiniteDifference'. Use 'Analytical' when VRAM

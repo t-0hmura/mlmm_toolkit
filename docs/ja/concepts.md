@@ -218,7 +218,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 ### 主要サブコマンド
 | サブコマンド | 用途 | ドキュメント |
 |------------|------|-------------|
-| `all` | エンドツーエンドワークフロー | [all.md](all.md) |
+| `all` | end-to-endワークフロー | [all.md](all.md) |
 | `extract` | ポケット抽出 | [extract.md](extract.md) |
 | `mm-parm` | Amber トポロジー構築 | [mm_parm.md](mm_parm.md) |
 | `define-layer` | 3 層 ML/MM 領域定義 | [define_layer.md](define_layer.md) |

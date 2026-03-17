@@ -147,6 +147,6 @@ thermo:
 - [tsopt](tsopt.md) -- TS 候補の最適化（freq/IRC で検証; 期待: 1 つの虚数振動数）
 - [opt](opt.md) -- 構造最適化（多くの場合 freq の前に実行）
 - [dft](dft.md) -- より高レベルのエネルギー精密化のための DFT 一点計算
-- [all](all.md) -- `--thermo` 付きエンドツーエンドワークフロー
+- [all](all.md) -- `--thermo` 付きend-to-endワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `freq` と `thermo` の完全な設定オプション
 - [用語集](glossary.md) -- ZPE、Gibbs エネルギー、エンタルピー、エントロピーの定義

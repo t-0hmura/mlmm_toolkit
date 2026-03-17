@@ -2,7 +2,7 @@
 
 ## Overview
 
-> **Summary:** Extract energies from XYZ trajectory comment lines (or recompute with UMA), compute relative or absolute energy profiles, and export Plotly figures and CSV tables.
+> **Summary:** Extract energies from XYZ trajectory comment lines (or recompute with the MLIP backend), compute relative or absolute energy profiles, and export Plotly figures and CSV tables.
 
 ### Quick reference
 - **Input:** An XYZ trajectory whose second line stores Hartree energies, or recompute energies with `-q/--charge` and/or `-m/--multiplicity`.
@@ -33,7 +33,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## Workflow
 1. Parse the XYZ trajectory. By default, Hartree energies are extracted from each frame's comment line.
- If `-q/--charge` or `-m/--multiplicity` is provided, energies are recomputed with UMA (`uma-s-1p1`) instead.
+ If `-q/--charge` or `-m/--multiplicity` is provided, energies are recomputed with the MLIP backend (default: `uma-s-1p1`) instead.
 2. Normalize the reference specification:
  - `init` -- frame `0` (or the last frame when `--reverse-x` is active).
  - `None`/`none`/`null` -- absolute energies (no referencing).
@@ -53,8 +53,8 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 | _extra arguments_ | Positional filenames listed after options; merged with the `-o` list. | _None_ |
 | `--unit {kcal,hartree}` | Target unit for the plotted/exported values. | `kcal` |
 | `-r, --reference TEXT` | Reference specification (`init`, `None`, or 0-based integer). | `init` |
-| `-q, --charge INT` | Total charge used for UMA recomputation. Triggers recomputation when supplied. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1) used for UMA recomputation. Triggers recomputation when supplied. | _None_ |
+| `-q, --charge INT` | Total charge used for MLIP recomputation. Triggers recomputation when supplied. | _None_ |
+| `-m, --multiplicity INT` | Spin multiplicity (2S+1) used for MLIP recomputation. Triggers recomputation when supplied. | _None_ |
 | `--reverse-x/--no-reverse-x` | Reverse the x-axis so the last frame appears on the left (and `init` becomes the last frame). | `False` |
 
 ## Outputs

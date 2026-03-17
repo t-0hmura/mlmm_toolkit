@@ -139,6 +139,6 @@ dft:
 
 - [freq](freq.md) -- 振動解析（DFT 精密化の前に実行する場合が多い）
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- `--dft` 付きエンドツーエンドワークフロー
+- [all](all.md) -- `--dft` 付きend-to-endワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `dft` の完全な設定オプション
 - [用語集](glossary.md) -- DFT、SP（一点計算）の定義

@@ -460,7 +460,7 @@ Below are the most commonly used options across workflows.
 | `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer, default) or `hess` (RFO/RS-I-RFO). |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction (default: off). |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. `Analytical` is available for the UMA backend (recommended when VRAM is available); other backends use `FiniteDifference`. |
+| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. `Analytical` is available for the UMA backend only (recommended when VRAM is available); other backends use `FiniteDifference`. |
 
 For a full matrix of options and YAML schemas, see [YAML Reference](yaml_reference.md).
 

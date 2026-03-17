@@ -233,6 +233,6 @@ rsirfo:
 - [opt](opt.md) -- 単一構造の構造最適化
 - [freq](freq.md) -- 検証済み TS の単一虚数振動数を確認
 - [irc](irc.md) -- 最適化された TS からの反応経路追跡
-- [all](all.md) -- 抽出 -> MEP -> tsopt -> IRC -> freq を連鎖させるエンドツーエンドワークフロー
+- [all](all.md) -- 抽出 -> MEP -> tsopt -> IRC -> freq を連鎖させるend-to-endワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `hessian_dimer`（ヘシアンガイド付き Dimer）と `rsirfo` の完全な設定オプション
 - [用語集](glossary.md) -- TS、Dimer、RS-I-RFO、ヘシアンの定義

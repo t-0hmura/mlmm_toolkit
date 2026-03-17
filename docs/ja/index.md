@@ -67,7 +67,7 @@ glossary
 
 | ユースケース | 推奨コマンド | ガイド |
 |--------------|--------------|--------|
-| 最初の 1 回を実行（エンドツーエンド） | `mlmm all` | [クイックスタート: all](quickstart_all.md) |
+| 最初の 1 回を実行（end-to-end） | `mlmm all` | [クイックスタート: all](quickstart_all.md) |
 | 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan + spec](quickstart_scan_spec.md) |
 | TS 検証（`tsopt` -> `freq`） | `mlmm tsopt`, `mlmm freq` | [クイックスタート: tsopt -> freq](quickstart_tsopt_freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
@@ -108,7 +108,7 @@ glossary
 ### メインワークフロー
 | サブコマンド | 説明 |
 |---------|------|
-| [`all`](all.md) | エンドツーエンドワークフロー: 抽出 -> MM parm -> MEP -> TS 最適化 -> IRC -> freq -> DFT |
+| [`all`](all.md) | end-to-endワークフロー: 抽出 -> MM parm -> MEP -> TS 最適化 -> IRC -> freq -> DFT |
 | [`init`](init.md) | *（削除済）* 以前は YAML テンプレートを生成 |
 
 ### 構造準備

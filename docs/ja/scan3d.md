@@ -219,5 +219,5 @@ bias:
 - [scan](scan.md) -- 1D 結合距離駆動スキャン
 - [scan2d](scan2d.md) -- 2D 距離グリッドスキャン
 - [opt](opt.md) -- 構造最適化（スキャン前に実行する場合が多い）
-- [all](all.md) -- エンドツーエンドワークフロー
+- [all](all.md) -- end-to-endワークフロー
 - [YAML リファレンス](yaml_reference.md) -- スキャンの完全な設定オプション

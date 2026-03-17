@@ -177,6 +177,6 @@ irc:
 - [tsopt](tsopt.md) -- IRC 実行前に TS を最適化
 - [freq](freq.md) -- TS 候補が 1 つの虚数振動数を持つことを検証; IRC 端点を解析
 - [opt](opt.md) -- IRC 端点を真の極小に最適化
-- [all](all.md) -- tsopt の後に IRC を実行するエンドツーエンドワークフロー
+- [all](all.md) -- tsopt の後に IRC を実行するend-to-endワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `irc` の完全な設定オプション
 - [用語集](glossary.md) -- IRC（固有反応座標）の定義

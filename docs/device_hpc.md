@@ -12,7 +12,7 @@ The ML/MM calculator (`mlmm_calc.mlmm`) uses separate device settings for the ML
 
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `ml_device` | `auto` | Device for UMA inference. `auto` selects CUDA if available, otherwise CPU. |
+| `ml_device` | `auto` | Device for MLIP inference. `auto` selects CUDA if available, otherwise CPU. |
 | `ml_cuda_idx` | `0` | CUDA device index when `ml_device=cuda`. |
 | `mm_backend` | `hessian_ff` | MM force field engine. `hessian_ff` (analytical, CPU-only) or `openmm` (supports CUDA). |
 | `mm_device` | `cpu` | Device for MM backend. `cpu` for hessian_ff (required). `cuda` available for openmm. |
@@ -67,7 +67,7 @@ Use `--hess-device cpu` when:
 ### General VRAM tips
 
 1. **Reduce the ML region size:** Use `mlmm extract` with a smaller `--radius` or `mlmm define-layer` with a tighter `--radius-freeze`.
-2. **Use hessian_ff (default):** The hessian_ff backend is CPU-only, leaving all VRAM for UMA.
+2. **Use hessian_ff (default):** The hessian_ff backend is CPU-only, leaving all VRAM for MLIP inference.
 3. **Avoid OpenMM CUDA for large systems:** If both ML and MM use CUDA, VRAM pressure doubles.
 4. **Monitor VRAM:** Set `print_vram: True` in YAML to print VRAM usage after each ML evaluation.
 

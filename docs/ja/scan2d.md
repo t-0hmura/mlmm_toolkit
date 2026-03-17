@@ -218,4 +218,4 @@ bias:
 - [scan](scan.md) -- 1D 結合距離駆動スキャン
 - [scan3d](scan3d.md) -- 3D 距離グリッドスキャン
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- エンドツーエンドワークフロー
+- [all](all.md) -- end-to-endワークフロー

@@ -48,7 +48,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
-4. Use the ORB backend instead of the default UMA.
+4. Use the ORB backend instead of the default.
 
 ```bash
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \

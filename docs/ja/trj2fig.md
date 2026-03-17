@@ -75,4 +75,4 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 - [path_search](path_search.md) -- 再帰的 MEP 探索（trj2fig に適した XYZ 軌跡を生成）
 - [irc](irc.md) -- TS からの IRC（エネルギープロファイリング用軌跡を生成）
-- [all](all.md) -- エンドツーエンドワークフロー
+- [all](all.md) -- end-to-endワークフロー

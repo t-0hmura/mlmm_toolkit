@@ -280,6 +280,6 @@ rfo:
 
 - [tsopt](tsopt.md) -- 極小ではなく遷移状態（鞍点）を最適化
 - [freq](freq.md) -- 最適化が極小に達したことを確認する振動解析
-- [all](all.md) -- 端点を事前最適化するエンドツーエンドワークフロー
+- [all](all.md) -- 端点を事前最適化するend-to-endワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `opt`、`lbfgs`、`rfo` の完全な設定オプション
 - [用語集](glossary.md) -- L-BFGS、RFO の定義

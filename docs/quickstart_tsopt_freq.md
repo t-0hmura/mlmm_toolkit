@@ -1,8 +1,8 @@
-# Quickstart: `mlmm tsopt` -> `mlmm freq`
+# Quickstart: `mlmm tsopt`
 
 ## Goal
 
-Optimize a TS candidate and validate it by frequency analysis.
+Optimize a TS candidate and verify that it is a first-order saddle point.
 
 ## Prerequisites
 
@@ -17,20 +17,26 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
-## 2. Frequency check on optimized TS
+`tsopt` performs a final Hessian evaluation and imaginary-frequency check automatically at the end of optimization. Check the terminal output for lines like:
+
+```
+[Imaginary modes] n=1  ([-593.1])
+```
+
+## What to check
+
+- `result_tsopt/final_geometry.pdb` — optimized TS structure
+- `result_tsopt/vib/` — animation files for the imaginary-frequency normal mode (`final_imag_mode_*.xyz`, `.pdb`)
+- Terminal output: **n=1** with a sufficiently large imaginary frequency (|ν| ≥ 100 cm⁻¹) indicates a good TS candidate
+
+## 2. (Optional) Separate frequency analysis
+
+A standalone `freq` run is useful when you want full vibrational frequency output or thermochemistry corrections (`--thermo` in the `all` command). If you only need the imaginary-frequency check, the `tsopt` output above is sufficient.
 
 ```bash
 mlmm freq -i ./result_tsopt/final_geometry.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
-
-## What to check
-
-- `result_tsopt/final_geometry.pdb`
-- `result_freq/frequencies_cm-1.txt`
-- `result_freq/mode_*_trj.xyz` and `result_freq/mode_*.pdb`
-
-For a valid first-order saddle point, the frequencies should show exactly one imaginary mode (negative cm⁻¹ value).
 
 ## Tips
 
