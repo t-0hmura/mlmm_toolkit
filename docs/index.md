@@ -1,5 +1,6 @@
 # mlmm-toolkit Documentation
 
+*Version: v0.2.0*
 
 **mlmm-toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using ML/MM (machine-learning / molecular mechanics) methods.
 
@@ -315,13 +316,6 @@ If you use this software in your research, please cite:
 ## License
 
 `mlmm-toolkit` is distributed under the **GNU General Public License version 3 (GPL-3.0)**.
-
----
-
-## References
-
-1. Wood, B. M. et al. (2025). UMA: A Family of Universal Models for Atoms. [arXiv:2506.23971](http://arxiv.org/abs/2506.23971)
-2. Steinmetzer, J., Kupfer, S., & Grafe, S. (2021). pysisyphus: Exploring potential energy surfaces in ground and excited states. *Int. J. Quantum Chem.*, 121(3). [DOI:10.1002/qua.26390](https://doi.org/10.1002/qua.26390)
 
 ---
 

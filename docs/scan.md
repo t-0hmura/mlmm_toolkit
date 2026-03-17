@@ -150,6 +150,24 @@ Pass multiple literals after a single `-s/--scan-lists` flag. Each literal becom
 
 Stages run sequentially; each starts from the previous stage's relaxed result. **Do not repeat the `-s/--scan-lists` flag** -- supply all stage literals after a single flag.
 
+### Bidirectional scan (4-tuple)
+
+Instead of a 3-tuple `(i, j, target)`, you can pass a **4-tuple** `(i, j, start, end)` to scan in both directions from the current geometry. The CLI automatically expands each 4-tuple into two stages:
+
+1. **Pass 1:** Drive `i`--`j` from the current distance toward `start`.
+2. **Pass 2:** Restore the initial geometry and drive `i`--`j` toward `end`.
+
+The concatenated trajectory is assembled as `start → initial → end`, giving a continuous path through the starting structure.
+
+```bash
+# Bidirectional scan: drive bond 12--45 from current geometry
+# toward 1.35 Å (pass 1) and toward 2.50 Å (pass 2)
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -s '[(12, 45, 1.35, 2.50)]'
+```
+
+This is equivalent to two manual stages with a geometry reset between them, but avoids the need to script it yourself. Mixed 3-tuples and 4-tuples are accepted in the same literal.
+
 ## Workflow
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
  or defaults. Provide `--parm`, `--model-pdb`, `-q/--charge`, and optionally
@@ -191,7 +209,7 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM distance cutoff (Å); providing this disables `--detect-layer`. | _None_ |
-| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s) with `(i, j, target_A)` tuples. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Required |
+| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s) with `(i, j, target_A)` triples or `(i, j, start, end)` 4-tuples for bidirectional scans. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Required |
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of integration steps. | `0.20` |
