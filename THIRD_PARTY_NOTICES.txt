@@ -1,0 +1,57 @@
+Third-Party Notices
+===================
+
+This package includes modified copies of the following third-party software:
+
+--------------------------------------------------------------------------------
+pysisyphus (modified, bundled as pysisyphus/)
+--------------------------------------------------------------------------------
+
+Original: https://github.com/eljost/pysisyphus
+License: GNU General Public License v3.0 (GPL-3.0)
+
+Copyright (C) 2018 Johannes Steinmetzer
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+See pysisyphus/LICENSE for the full license text.
+
+--------------------------------------------------------------------------------
+thermoanalysis (modified, bundled as thermoanalysis/)
+--------------------------------------------------------------------------------
+
+Original: https://github.com/eljost/thermoanalysis
+License: GNU General Public License v3.0 (GPL-3.0)
+
+Copyright (C) 2020 Johannes Steinmetzer
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+See thermoanalysis/LICENSE for the full license text.
+
+--------------------------------------------------------------------------------
+
+All bundled packages are licensed under GPL-3.0, which is compatible with
+this package's GPL-3.0 license.
+
+--------------------------------------------------------------------------------
+Additional notices within bundled pysisyphus sources
+--------------------------------------------------------------------------------
+
+The bundled `pysisyphus/` subtree retains original third-party notices for some
+embedded files:
+
+- `pysisyphus/peakdetect.py`
+  - Copyright (C) 2016 Sixten Bergman
+  - License: WTFPL
+
+- `pysisyphus/cos/stiffness.py`
+  - Adapted from the original implementation by Yuki Mitsuta
+  - Original: https://github.com/YukiMitsuta/Fstiffness
+  - License: MIT

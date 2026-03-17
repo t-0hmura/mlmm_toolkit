@@ -1,49 +1,118 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools", "wheel", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mlmm"
-description = "ML/MM toolkit"
+name = "mlmm-toolkit"
+description = "mlmm - ML/MM toolkit for enzyme reaction analysis"
 readme = "README.md"
-authors = [{name = "Takuto Ohmura"}]
+authors = [{name = "Takuto Ohmura", email = "ohmura.takuto@gmail.com"}]
 license = {file = "LICENSE"}
 dynamic = ["version"]
 requires-python = ">=3.11"
+keywords = [
+    "computational-chemistry",
+    "enzyme",
+    "QM/MM",
+    "ML/MM",
+    "UMA",
+    "transition-state",
+    "reaction-mechanism",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
 dependencies = [
-    "fairchem-core @ git+https://github.com/t-0hmura/fairchem.git#subdirectory=packages/fairchem-core",
-    "aimnet @ git+https://github.com/t-0hmura/aimnetcentral.git",
-    "numpy<2.0",
-    "matplotlib",
-    "plotly",
-    "kaleido",
-    "pyyaml",
-    "ase>=3.25.0",
-    "biopython",
-    "rdkit",
-    "openmm[cuda12]",
-    "parmed",
+    # mlmm core dependencies
+    "fairchem-core",
     "torch>=2.6.0",
-    "pysisyphus @ git+https://github.com/t-0hmura/pysisyphus_for_mlmm.git",
+    "torch_geometric",
+    "torch_scatter",
+    "numpy>=1.24",
+    "biopython>=1.80,<2.0",
+    "ase>=3.25.0",
+    "ParmEd",
+    "pyyaml>=6.0,<7.0",
+    "click>=8.1,<9.0",
+    "plotly>=6.1.1",
+    "kaleido",
+
+    # pysisyphus dependencies (bundled)
+    "autograd",
+    "dask",
+    "distributed",
+    "h5py",
+    "fabric",
+    "jinja2",
+    "joblib",
+    "matplotlib",
+    "natsort",
+    "psutil",
+    "rmsd",
+    "scipy",
+    "sympy",
+    "scikit-learn",
+    "pyparsing",
+
+    # thermoanalysis dependencies (bundled)
+    "pandas",
+    "tabulate",
 ]
 
+[project.optional-dependencies]
+orb = ["orb-models"]
+mace = ["mace-torch"]
+aimnet2 = ["aimnet"]
+pdbfixer = ["pdbfixer"]
+dft = [    
+    "pyscf>=2.8.0",
+    "gpu4pyscf-cuda12x>=1.5.2; platform_machine == 'x86_64'",
+    "cupy-cuda12x==13.4.1; platform_machine == 'x86_64'",
+    "cutensor-cu12==2.2.0; platform_machine == 'x86_64'",
+    "basis-set-exchange>=0.11",
+]
+dev = ["pytest", "pytest-cov", "pytest-timeout"]
+docs = [
+    "sphinx>=7.0",
+    "myst-parser>=2.0",
+    "furo>=2024.0",
+    "sphinx-copybutton>=0.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/t-0hmura/mlmm_toolkit"
+Repository = "https://github.com/t-0hmura/mlmm_toolkit"
+Documentation = "https://github.com/t-0hmura/mlmm_toolkit/tree/main/docs"
+"Bug Tracker" = "https://github.com/t-0hmura/mlmm_toolkit/issues"
+
 [project.scripts]
-mlmm = "mlmm.mlmm_pysis:run_pysis"
-def_ml_region = "mlmm.def_ml_region:def_ml_region"
-add_elem_info = "mlmm.utils:add_elem_info_console"
-get_freeze_indices = "mlmm.utils:get_freeze_indices_console"
-xyz_geom2pdb = "mlmm.utils:xyz_geom2pdb_console"
-ts_search = "mlmm.partial_hessian_dimer_cli:main"
-bond_scan = "mlmm.cartesian_bond_scan_cli:main"
-energy_summary = "mlmm.energy_summary:main"
-trj2fig = "mlmm.trj2fig:main"
+mlmm = "mlmm.cli:cli"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "hessian_ff/tests"]
+addopts = "-v --tb=short --timeout=120"
+markers = [
+    "slow: marks tests as slow",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mlmm*"]
+include = ["mlmm*", "pysisyphus*", "thermoanalysis*", "hessian_ff*"]
 
-[tool.setuptools]
-package-data = { "mlmm" = ["py.typed"] }
+[tool.setuptools.package-data]
+mlmm = ["py.typed"]
+pysisyphus = ["wavefunction/ints/*.npy"]
+hessian_ff = ["native/*.cpp", "native/Makefile"]
 
-[tool.setuptools.dynamic]
-version = {attr = "mlmm.__version__"}
+[tool.setuptools_scm]
+version_file = "mlmm/_version.py"
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"

@@ -1,97 +1,178 @@
-#!/usr/bin/env python
-# *- coding: utf-8 -*
-# ---------------------------------------------------------------------
+# mlmm/trj2fig.py
+
 """
-trj2fig  –  Energy-profile utility for XYZ trajectories
-======================================================
+Energy-profile utility: extract energies from XYZ trajectories and export Plotly figures / CSV.
 
-• Extract Hartree energies from the 2-line comment of each XYZ frame  
-• Convert to ΔE relative to a reference frame (kcal mol⁻¹ or hartree)  
-• Generate a aligned Plotly figure 
-  (HTML / PNG / SVG / PDF, thick axes, ticks, fonts, spline curve)  
-• Optionally export the ΔE table as CSV  
-• Optionally write the highest internal-peak structure as .xyz or .pdb  
-  (if no internal peak exists, the global maximum is used)
-• `--reverse-x` flips the x-axis so the last frame appears leftmost
+Example:
+    mlmm trj2fig -i traj.xyz -o energy.png energy.csv --unit kcal
 
-EXAMPLES
---------
-
-Plot & high-res PNG **+** export peak frame (x-axis reversed):
-
-    trj2fig -i traj.xyz -o energy.png --output-peak ts.pdb --reverse-x
-
-Save CSV only:
-
-    trj2fig -i traj.xyz -o energy.csv -r 5 --unit hartree
-
-Default reference frame is 0; change it with “-r IDX”.
+For detailed documentation, see: docs/trj2fig.md
 """
+
 from __future__ import annotations
 
 import argparse
 import csv
 import re
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Sequence, Tuple
 
+import click
 import plotly.graph_objs as go
-from ase.io import read, write
-from pysisyphus.constants import AU2KCALPERMOL
+from ase import Atoms
+from ase.io import read
+from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 
-AXIS_WIDTH      = 3   # axis & tick thickness
-FONT_SIZE       = 18  # tick-label font size
-AXIS_TITLE_SIZE = 20  # axis-label font size
-LINE_WIDTH      = 2   # ΔE curve width
-MARKER_SIZE     = 6   # marker size
+AXIS_WIDTH = 3         # axis and tick thickness
+FONT_SIZE = 18         # tick-label font size
+AXIS_TITLE_SIZE = 20   # axis-title font size
+LINE_WIDTH = 2         # curve width
+MARKER_SIZE = 6        # marker size
 
 
 # ---------------------------------------------------------------------
 #  File helpers
 # ---------------------------------------------------------------------
 def read_energies_xyz(fname: Path | str) -> List[float]:
-    """Return a list of Hartree energies extracted from 2-line comments."""
+    """
+    Extract Hartree energies from the second-line comment of each XYZ frame.
+    """
     energies: List[float] = []
     with open(fname, encoding="utf-8") as fh:
         while (hdr := fh.readline()):
             try:
                 nat = int(hdr.strip())
-            except ValueError:                         # non-XYZ header reached
+            except ValueError:  # reached a non-XYZ header
                 break
             comment = fh.readline().strip()
             m = re.search(r"(-?\d+(?:\.\d+)?)", comment)
             if not m:
-                raise RuntimeError(f"Energy not found: {comment}")
+                raise RuntimeError(f"Energy not found in comment: {comment}")
             energies.append(float(m.group(1)))
-            for _ in range(nat):                       # skip coordinates
+            for _ in range(nat):  # skip coordinates
                 fh.readline()
     if not energies:
         raise RuntimeError(f"No energy data in {fname}")
     return energies
 
 
-def delta_e(e: List[float], ref: int, unit: str) -> Tuple[List[float], str]:
-    """Convert absolute energies to ΔE and return y-axis label."""
-    e0 = e[ref]
-    if unit == "kcal":
-        d = [(x - e0) * AU2KCALPERMOL for x in e]
-        label = "ΔE (kcal/mol)"
-    elif unit == "hartree":
-        d = [(x - e0) for x in e]
-        label = "ΔE (hartree)"
+def recompute_energies(
+    traj_path: Path,
+    charge: Optional[int],
+    multiplicity: Optional[int],
+) -> List[float]:
+    try:
+        import torch
+        from fairchem.core import pretrained_mlip
+        from fairchem.core.datasets import data_list_collater
+        from fairchem.core.datasets.atomic_data import AtomicData
+    except Exception as exc:
+        raise RuntimeError(
+            "Energy recomputation requires fairchem-core and torch."
+        ) from exc
+
+    frames_obj = read(traj_path, index=":", format="xyz")
+    frames = [frames_obj] if isinstance(frames_obj, Atoms) else list(frames_obj)
+    if not frames:
+        raise RuntimeError(f"No frames found in {traj_path}")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device=str(device))
+    predictor.model.eval()
+    backbone = getattr(getattr(predictor.model, "module", predictor.model), "backbone", None)
+    uma_max_neigh = getattr(backbone, "max_neighbors", None)
+    uma_radius = getattr(backbone, "cutoff", None)
+
+    q = int(charge if charge is not None else 0)
+    mult = int(multiplicity if multiplicity is not None else 1)
+    energies_h: List[float] = []
+    for atoms in frames:
+        atoms.info.update({"charge": q, "spin": mult})
+        data = AtomicData.from_ase(
+            atoms,
+            max_neigh=uma_max_neigh,
+            radius=uma_radius,
+            r_edges=False,
+        ).to(device)
+        data.dataset = "omol"
+        batch = data_list_collater([data], otf_graph=True).to(device)
+        with torch.no_grad():
+            res = predictor.predict(batch)
+        energy_ev = float(res["energy"].squeeze().detach().item())
+        energies_h.append(energy_ev / AU2EV)
+    return energies_h
+
+
+# ---------------------------------------------------------------------
+#  Transformation
+# ---------------------------------------------------------------------
+def _parse_reference_spec(spec: str | None) -> str | int | None:
+    """
+    Normalize the reference specification:
+      - "init" (case-insensitive) -> "init"
+      - "none"/"null"             -> None
+      - integer-like string       -> int
+    """
+    if spec is None:
+        return "init"
+    s = str(spec).strip()
+    lower = s.lower()
+    if lower in {"none", "null"}:
+        return None
+    if lower == "init":
+        return "init"
+    try:
+        return int(s)
+    except ValueError:
+        raise ValueError(
+            f'Invalid -r/--reference: {spec!r}. Use "init", "None", or an integer index.'
+        )
+
+
+def _resolve_reference_index(
+    n_frames: int, ref_spec: str | int | None, reverse_x: bool
+) -> Tuple[Optional[int], bool]:
+    """
+    Decide the reference index and whether to compute a ΔE series.
+
+    Returns (reference_index or None, is_delta)
+    """
+    if ref_spec is None:
+        return None, False  # absolute energies
+    if ref_spec == "init":
+        idx = 0 if not reverse_x else n_frames - 1
+        return idx, True
+    # integer index
+    idx = int(ref_spec)
+    if idx < 0 or idx >= n_frames:
+        raise IndexError(f"Reference index {idx} out of range (0..{n_frames-1}).")
+    return idx, True
+
+
+def transform_series(
+    energies_hartree: Sequence[float],
+    ref_spec_raw: str | None,
+    unit: str,
+    reverse_x: bool,
+) -> Tuple[List[float], str, bool]:
+    """
+    Compute the y-series and its axis label.
+
+    Returns (values, ylabel, is_delta)
+    """
+    ref_spec = _parse_reference_spec(ref_spec_raw)
+    ref_idx, is_delta = _resolve_reference_index(len(energies_hartree), ref_spec, reverse_x)
+
+    scale = AU2KCALPERMOL if unit == "kcal" else 1.0
+    if is_delta:
+        base = energies_hartree[ref_idx]  # type: ignore[index]
+        values = [float((e - base) * scale) for e in energies_hartree]
+        ylabel = f"ΔE ({'kcal/mol' if unit == 'kcal' else 'hartree'})"
     else:
-        raise ValueError(unit)
-    return d, label
+        values = [float(e * scale) for e in energies_hartree]
+        ylabel = f"E ({'kcal/mol' if unit == 'kcal' else 'hartree'})"
 
-
-def write_csv(out: Path, e: List[float], d: List[float], unit: str) -> None:
-    """Save energies and ΔE to CSV."""
-    with out.open("w", newline="", encoding="utf-8") as fh:
-        w = csv.writer(fh)
-        w.writerow(["frame", "energy_hartree", f"delta_{unit}"])
-        for i, (ei, di) in enumerate(zip(e, d)):
-            w.writerow([i, f"{ei:.8f}", f"{di:.6f}"])
-    print(f"[trj2fig] CSV → {out}")
+    return values, ylabel, is_delta
 
 
 # ---------------------------------------------------------------------
@@ -113,24 +194,21 @@ def _axis_template() -> dict:
     )
 
 
-def plot_energy(
-    delta: List[float],
-    ylabel: str,
-    out_img: Path | None,
-    reverse_x: bool,
-) -> None:
-    """Generate a title-less Plotly figure and save it."""
+def build_figure(delta_or_abs: Sequence[float], ylabel: str, reverse_x: bool) -> go.Figure:
+    """
+    Build a Plotly figure without a title.
+    """
     fig = go.Figure(
         go.Scatter(
-            x=list(range(len(delta))),
-            y=delta,
-            mode="lines+markers",
-            marker=dict(size=MARKER_SIZE),
-            line=dict(shape="spline", smoothing=1.0, width=LINE_WIDTH),
-        )
+            x=list(range(len(delta_or_abs)))),
+    )
+    fig.data[0].update(
+        y=list(delta_or_abs),
+        mode="lines+markers",
+        marker=dict(size=MARKER_SIZE),
+        line=dict(shape="spline", smoothing=1.0, width=LINE_WIDTH),
     )
 
-    # Build axis layout
     xaxis_conf = _axis_template() | {
         "title": dict(text="Frame", font=dict(size=AXIS_TITLE_SIZE, color="#1C1C1C"))
     }
@@ -146,100 +224,224 @@ def plot_energy(
         paper_bgcolor="white",
         margin=dict(l=80, r=40, t=40, b=80),
     )
+    return fig
 
-    if out_img:
-        ext = out_img.suffix.lower()
-        if ext == ".html":
-            fig.write_html(out_img)
+
+def save_outputs(
+    outs: Sequence[Path],
+    fig: Optional[go.Figure],
+    energies: Sequence[float],
+    values: Sequence[float],
+    unit: str,
+    is_delta: bool,
+) -> None:
+    """
+    Write all requested outputs.
+    """
+    for out in outs:
+        ext = out.suffix.lower()
+        if ext == ".csv":
+            write_csv(out, energies, values, unit, is_delta)
+        elif ext == ".html":
+            assert fig is not None
+            fig.write_html(out)
+            click.echo(f"[trj2fig] Saved figure -> {out}")
         elif ext in {".png", ".jpg", ".jpeg", ".pdf", ".svg"}:
+            assert fig is not None
             kw = {"engine": "kaleido"}
             if ext == ".png":
-                kw["scale"] = 2                 # hi-res PNG
-            fig.write_image(out_img, **kw)
+                kw["scale"] = 2  # high-resolution PNG
+            fig.write_image(out, **kw)
+            click.echo(f"[trj2fig] Saved figure -> {out}")
         else:
             raise ValueError(f"Unsupported format: {ext}")
-        print(f"[trj2fig] Figure → {out_img}")
+
+
+def write_csv(
+    out: Path,
+    energies_hartree: Sequence[float],
+    series: Sequence[float],
+    unit: str,
+    is_delta: bool,
+) -> None:
+    """
+    Save energies (hartree) and ΔE/E series to CSV.
+    """
+    colname = (f"delta_{unit}" if is_delta else f"energy_{unit}")
+    with out.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["frame", "energy_hartree", colname])
+        for i, (eh, y) in enumerate(zip(energies_hartree, series)):
+            w.writerow([i, f"{eh:.8f}", f"{y:.6f}"])
+    click.echo(f"[trj2fig] Saved CSV -> {out}")
 
 
 # ---------------------------------------------------------------------
-#  Peak utilities
-# ---------------------------------------------------------------------
-def _internal_peaks(vals: List[float]) -> List[int]:
-    return [
-        i
-        for i in range(1, len(vals) - 1)
-        if vals[i] > vals[i - 1] and vals[i] > vals[i + 1]
-    ]
-
-
-def find_peak_idx(energies: List[float]) -> int:
-    peaks = _internal_peaks(energies)
-    return (
-        max(peaks, key=energies.__getitem__)
-        if peaks
-        else int(max(range(len(energies)), key=energies.__getitem__))
-    )
-
-
-def write_peak(trj: Path, idx: int, out: Path) -> None:
-    if out.suffix.lower() not in {".xyz", ".pdb"}:
-        raise ValueError("--output-peak must end with .xyz or .pdb")
-    write(out, read(trj, index=idx, format="xyz"))
-    print(f"[trj2fig] Peak frame {idx} → {out}")
-
-
-# ---------------------------------------------------------------------
-#  CLI
+#  CLI (argparse)
 # ---------------------------------------------------------------------
 def parse_cli() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="trj2fig",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Plot ΔE from an XYZ trajectory, write a figure/CSV, and export the peak structure (no title).",
+        description="Plot ΔE or E from an XYZ trajectory and export a figure and/or CSV (no title).",
     )
     p.add_argument("-i", "--input", required=True, help="XYZ trajectory file")
     p.add_argument(
         "-o",
         "--out",
-        default="energy.html",
-        help="Output (.html/.png/.svg/.pdf/.csv)",
+        nargs="+",
+        default=["energy.png"],
+        help="Output file(s) [.png/.html/.svg/.pdf/.csv]. Multiple names allowed.",
     )
-    p.add_argument("--unit", choices=["kcal", "hartree"], default="kcal", help="ΔE unit")
+    p.add_argument("--unit", choices=["kcal", "hartree"], default="kcal", help="Energy unit")
     p.add_argument(
-        "-r", "--reference", type=int, default=0, help="Reference frame index"
+        "-r",
+        "--reference",
+        default="init",
+        help='Reference: "init" (initial frame; last frame if --reverse-x), "None" (absolute E), or an integer index.',
     )
     p.add_argument(
-        "--output-peak",
-        metavar="PEAK.xyz|PEAK.pdb",
-        help="Write the highest peak frame",
+        "-q",
+        "--charge",
+        type=int,
+        required=False,
+        help="Total charge. Recompute energies when supplied.",
+    )
+    p.add_argument(
+        "-m",
+        "--multiplicity",
+        type=int,
+        required=False,
+        help="Spin multiplicity (2S+1). Recompute energies when supplied.",
     )
     p.add_argument(
         "--reverse-x",
         action="store_true",
-        help="Reverse the x-axis (last frame on the left)",
+        help="Reverse the x-axis (last frame on the left).",
     )
     return p.parse_args()
 
 
-def main() -> None:
-    args = parse_cli()
-    traj = Path(args.input).expanduser().resolve()
+def run_trj2fig(
+    input_path: Path,
+    outs: Sequence[Path],
+    unit: str,
+    reference: str,
+    reverse_x: bool,
+    charge: Optional[int] = None,
+    multiplicity: Optional[int] = None,
+) -> None:
+    traj = input_path.expanduser().resolve()
     if not traj.is_file():
         raise FileNotFoundError(traj)
-    out_path = Path(args.out).expanduser().resolve()
 
-    energies = read_energies_xyz(traj)
-    delta, ylabel = delta_e(energies, args.reference, args.unit)
-
-    if out_path.suffix.lower() == ".csv":
-        write_csv(out_path, energies, delta, args.unit)
+    if charge is None and multiplicity is None:
+        energies = read_energies_xyz(traj)
     else:
-        plot_energy(delta, ylabel, out_img=out_path, reverse_x=args.reverse_x)
+        click.echo("[trj2fig] Recomputing energies with UMA model ...")
+        energies = recompute_energies(traj, charge, multiplicity)
+    values, ylabel, is_delta = transform_series(energies, reference, unit, reverse_x)
 
-    if args.output_peak:
-        write_peak(
-            traj, find_peak_idx(energies), Path(args.output_peak).expanduser()
-        )
+    need_plot = any(Path(o).suffix.lower() != ".csv" for o in outs)
+    fig = build_figure(values, ylabel, reverse_x) if need_plot else None
+
+    out_paths = [Path(o).expanduser().resolve() for o in outs]
+    save_outputs(out_paths, fig, energies, values, unit, is_delta)
+
+
+def main() -> None:
+    args = parse_cli()
+    run_trj2fig(
+        Path(args.input),
+        args.out,
+        args.unit,
+        args.reference,
+        args.reverse_x,
+        args.charge,
+        args.multiplicity,
+    )
+
+
+# ---------------------------------------------------------------------
+#  Click wrapper for package CLI integration
+# ---------------------------------------------------------------------
+@click.command(
+    name="trj2fig",
+    help="Plot ΔE or E from an XYZ trajectory and export figure/CSV.",
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+@click.option(
+    "-i",
+    "--input",
+    "input_path",  # explicit internal argument name
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="XYZ trajectory file",
+)
+@click.option(
+    "-o",
+    "--out",
+    "outs",
+    multiple=True,                      # allow repeating -o
+    default=(),                         # default is empty (we inject the fallback later)
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Output file(s). You can repeat -o, and/or list extra filenames after options "
+         "(.png/.html/.svg/.pdf/.csv). If nothing is given, defaults to energy.png.",
+)
+@click.argument(
+    "extra_outs",                        # also accept extra filenames provided positionally after options
+    nargs=-1,
+    type=click.Path(dir_okay=False, path_type=Path),
+)
+@click.option(
+    "--unit",
+    type=click.Choice(["kcal", "hartree"]),
+    default="kcal",
+    help="Energy unit.",
+)
+@click.option(
+    "-r",
+    "--reference",
+    default="init",
+    help='Reference: "init" (initial frame; last frame if --reverse-x), "None" (absolute E), or an integer index.',
+)
+@click.option(
+    "-q",
+    "--charge",
+    type=int,
+    default=None,
+    help="Total charge. Recompute energies when supplied.",
+)
+@click.option(
+    "-m",
+    "--multiplicity",
+    type=int,
+    default=None,
+    help="Spin multiplicity (2S+1). Recompute energies when supplied.",
+)
+@click.option(
+    "--reverse-x/--no-reverse-x",
+    "reverse_x",
+    default=False,
+    show_default=True,
+    help="Reverse the x-axis (last frame on the left).",
+)
+def cli(
+    input_path: Path,
+    outs: Tuple[Path, ...],
+    extra_outs: Tuple[Path, ...],
+    unit: str,
+    reference: str,
+    charge: Optional[int],
+    multiplicity: Optional[int],
+    reverse_x: bool,
+) -> None:
+    # Combine outputs from -o with positional filenames that follow the options
+    all_outs: List[Path] = list(outs) + list(extra_outs)
+    if not all_outs:
+        # Use the default when nothing is specified
+        all_outs = [Path("energy.png")]
+    run_trj2fig(input_path, all_outs, unit, reference, reverse_x, charge, multiplicity)
 
 
 if __name__ == "__main__":

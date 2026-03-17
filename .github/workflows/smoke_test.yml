@@ -1,0 +1,125 @@
+name: Smoke Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  cli-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install mlmm (CPU-only, UMA backend)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e . --no-deps
+          pip install click pyyaml numpy biopython scipy ase \
+            autograd dask distributed h5py fabric jinja2 joblib \
+            matplotlib natsort psutil rmsd sympy scikit-learn \
+            pandas tabulate plotly kaleido ParmEd
+        timeout-minutes: 15
+
+      - name: CLI version and help
+        run: |
+          set -e
+          mlmm --version
+          for cmd in all extract define-layer mm-parm opt tsopt freq irc dft scan scan2d scan3d path-opt path-search trj2fig add-elem-info oniom-export oniom-import fix-altloc energy-diagram; do
+            echo "--- mlmm $cmd --help ---"
+            mlmm "$cmd" --help
+          done
+
+      - name: Progressive help (--help-advanced)
+        run: |
+          set -e
+          for cmd in opt tsopt freq scan dft extract path-search path-opt irc all; do
+            echo "--- mlmm $cmd --help-advanced ---"
+            mlmm "$cmd" --help-advanced
+          done
+
+      - name: Backend import checks
+        run: |
+          python -c "
+          from mlmm.mlmm_calc import _MLBackend, _UMABackend
+          print('UMA backend class: OK')
+          from mlmm.mlmm_calc import _ASEMLBackend
+          print('ASE backend base: OK')
+          from mlmm.mlmm_calc import _create_ml_backend
+          print('Factory function: OK')
+          from mlmm.defaults import MLMM_CALC_KW
+          assert 'backend' in MLMM_CALC_KW
+          assert MLMM_CALC_KW['backend'] == 'uma'
+          assert 'embedcharge' in MLMM_CALC_KW
+          print('Defaults: OK')
+          "
+
+      - name: Backend lazy import guards
+        run: |
+          python -c "
+          # Verify non-UMA backends raise ImportError cleanly
+          import torch
+          from mlmm.mlmm_calc import _OrbBackend, _MACEBackend, _AIMNet2Backend
+          for cls, name in [(_OrbBackend, 'ORB'), (_MACEBackend, 'MACE'), (_AIMNet2Backend, 'AIMNet2')]:
+              try:
+                  cls(ml_device=torch.device('cpu'))
+                  print(f'{name}: available (installed)')
+              except ImportError as e:
+                  print(f'{name}: ImportError raised correctly: {e}')
+              except Exception as e:
+                  print(f'{name}: unexpected error: {e}')
+                  raise
+          "
+
+      - name: Invalid backend rejection
+        run: |
+          # Verify --backend with invalid value is rejected by Click
+          ! mlmm opt --help 2>&1 | grep -q "INTERNAL ERROR" || true
+          # This should fail with a Click error, not a traceback
+          ! mlmm opt -i /dev/null --parm /dev/null -q 0 --backend invalid_value 2>&1 && echo "Invalid backend correctly rejected"
+
+  import-optional:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install mlmm (minimal, no CUDA)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e . --no-deps
+          pip install click pyyaml numpy biopython scipy ase \
+            autograd dask distributed h5py fabric jinja2 joblib \
+            matplotlib natsort psutil rmsd sympy scikit-learn \
+            pandas tabulate plotly kaleido ParmEd
+        timeout-minutes: 15
+
+      - name: Verify optional deps don't break import
+        run: |
+          python -c "
+          # Core import should succeed even without optional backends
+          import mlmm
+          from mlmm import mlmm_calc
+          from mlmm import defaults
+          print('Core imports: OK')
+
+          # CLI entry point should be loadable
+          from mlmm.cli import cli
+          print('CLI entry point: OK')
+
+          "

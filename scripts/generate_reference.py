@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+"""Generate auto-derived CLI/YAML reference pages for docs."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+
+import click
+import yaml
+from click.testing import CliRunner
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DOCS_ROOT = REPO_ROOT / "docs"
+REF_ROOT = DOCS_ROOT / "reference"
+COMMANDS_ROOT = REF_ROOT / "commands"
+YAML_REF_PATH = REF_ROOT / "yaml.md"
+TOOL_NAME = "mlmm"
+PACKAGE_NAME = "mlmm"
+
+sys.path.insert(0, str(REPO_ROOT))
+
+from mlmm.cli import cli as root_cli  # noqa: E402
+
+
+_ALL_TEMPLATE = """# Starter config for `mlmm all`
+
+calc:
+  backend: uma              # ML backend: uma, orb, mace, aimnet2
+  orb_model: null           # ORB model name (when backend=orb)
+  orb_precision: null       # ORB precision setting (when backend=orb)
+  mace_model: null          # MACE model path or name (when backend=mace)
+  mace_dtype: null          # MACE dtype, e.g. float64 (when backend=mace)
+  aimnet2_model: null       # AIMNet2 model name (when backend=aimnet2)
+  embedcharge: false        # Enable xTB point-charge embedding correction
+  embedcharge_step: 1.0e-3   # Numerical Hessian step for embedding correction (Å)
+  xtb_cmd: xtb              # Path or command for the xTB executable
+  xtb_acc: 0.2              # xTB SCF accuracy parameter
+  xtb_workdir: tmp          # Working directory for xTB scratch files
+  xtb_keep_files: false     # Keep xTB intermediate files after completion
+  xtb_ncores: 4             # Number of CPU cores for xTB
+
+extract:
+  radius: 2.6
+  radius_het2het: 0.0
+
+path_search:
+  max_nodes: 10
+  max_cycles: 300
+
+scan:
+  max_step_size: 0.2
+  bias_k: 300.0
+  relax_max_cycles: 10000
+
+tsopt:
+  max_cycles: 10000
+
+freq:
+  max_write: 10
+  amplitude_ang: 0.8
+  n_frames: 20
+  sort: value
+  temperature: 298.15
+  pressure: 1.0
+
+dft:
+  func_basis: wb97m-v/def2-tzvpd
+  max_cycle: 100
+  conv_tol: 1.0e-9
+  grid_level: 3
+"""
+
+
+
+@dataclass(frozen=True)
+class RenderedFile:
+    path: Path
+    content: str
+
+
+@dataclass(frozen=True)
+class CommandDoc:
+    name: str
+    stem: str
+
+
+def _collect_subcommands() -> list[str]:
+    ctx = click.Context(root_cli)
+    return sorted(root_cli.list_commands(ctx))
+
+
+def _doc_stem(command_name: str) -> str:
+    # Keep command spelling in headings/tables, but standardize filenames.
+    return command_name.replace("-", "_")
+
+
+def _collect_command_docs() -> list[CommandDoc]:
+    docs: list[CommandDoc] = []
+    used_stems: dict[str, str] = {}
+    for name in _collect_subcommands():
+        stem = _doc_stem(name)
+        prev = used_stems.get(stem)
+        if prev is not None and prev != name:
+            raise RuntimeError(
+                f"Command doc stem collision: '{prev}' and '{name}' both map to '{stem}'."
+            )
+        used_stems[stem] = name
+        docs.append(CommandDoc(name=name, stem=stem))
+    return docs
+
+
+import re
+
+_VERSION_LINE_RE = re.compile(r"^mlmm ver\. \S+\n", re.MULTILINE)
+_PYSISRC_LINE_RE = re.compile(
+    r"^Couldn't find configuration file\. Expected it at .*\n", re.MULTILINE
+)
+
+
+def _capture_help(command_name: str, *, advanced: bool) -> str:
+    runner = CliRunner()
+    args = [command_name, "--help-advanced"] if advanced else [command_name, "--help"]
+    result = runner.invoke(
+        root_cli,
+        args,
+        catch_exceptions=False,
+        prog_name=TOOL_NAME,
+    )
+    if result.exit_code != 0:
+        raise RuntimeError(
+            f"Failed to collect help for '{TOOL_NAME} {command_name}' "
+            f"(advanced={advanced}):\n{result.output}"
+        )
+    # Strip version line and pysisyphus config warning for reproducibility
+    text = _VERSION_LINE_RE.sub("", result.output)
+    text = _PYSISRC_LINE_RE.sub("", text)
+    return text.rstrip() + "\n"
+
+
+def _render_command_page(command_name: str, help_text: str) -> str:
+    return (
+        f"# `{TOOL_NAME} {command_name}`\n\n"
+        "```text\n"
+        f"{help_text.rstrip()}\n"
+        "```\n"
+    )
+
+
+def _render_commands_index(command_docs: list[CommandDoc]) -> str:
+    toctree_body = "\n".join(doc.stem for doc in command_docs)
+    rows = "\n".join(
+        f"| `{TOOL_NAME} {doc.name}` | [{doc.name}]({doc.stem}.md) |" for doc in command_docs
+    )
+    return (
+        "# CLI Command Reference\n\n"
+        "```{toctree}\n"
+        ":maxdepth: 1\n"
+        ":hidden:\n\n"
+        f"{toctree_body}\n"
+        "```\n\n"
+        "| Command | Page |\n"
+        "|---|---|\n"
+        f"{rows}\n"
+    )
+
+
+def _iter_scalar_rows(data: dict, prefix: str = "") -> Iterable[tuple[str, str, str]]:
+    for key, value in data.items():
+        full_key = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, dict):
+            yield from _iter_scalar_rows(value, prefix=full_key)
+        else:
+            type_name = type(value).__name__
+            value_repr = repr(value)
+            yield full_key, type_name, value_repr
+
+
+def _render_yaml_reference() -> str:
+    template_data = yaml.safe_load(_ALL_TEMPLATE) or {}
+    top_keys = list(template_data.keys()) if isinstance(template_data, dict) else []
+    top_rows = "\n".join(f"| `{k}` |" for k in top_keys)
+    scalar_rows = "\n".join(
+        f"| `{k}` | `{t}` | `{v}` |" for k, t, v in _iter_scalar_rows(template_data)
+    )
+    digest = hashlib.sha256(_ALL_TEMPLATE.encode("utf-8")).hexdigest()[:12]
+
+    scan_schema = """```yaml
+# scan (1D staged)
+one_based: false
+stages:
+  - - [1, 2, 1.65]
+  - - [2, 3, 2.30]
+
+# scan2d / scan3d
+one_based: false
+pairs:
+  - [1, 2, 1.40, 2.20]
+  - [2, 3, 1.20, 2.00]
+  - [3, 4, 1.00, 1.80]  # required only for scan3d
+```"""
+
+    return (
+        "# YAML Schema\n\n"
+        f"- Source template: `scripts/generate_reference.py::_ALL_TEMPLATE`\n"
+        f"- Template digest: `{digest}`\n\n"
+        "## Top-level Keys\n\n"
+        "| Key |\n"
+        "|---|\n"
+        f"{top_rows}\n\n"
+        "## Starter Template\n\n"
+        "```yaml\n"
+        f"{_ALL_TEMPLATE.strip()}\n"
+        "```\n\n"
+        "## Scalar Defaults\n\n"
+        "| Key | Type | Default |\n"
+        "|---|---|---|\n"
+        f"{scalar_rows}\n\n"
+        "## Scan Spec Shapes\n\n"
+        "Accepted by `scan`, `scan2d`, and `scan3d` with `-s/--scan-lists`.\n\n"
+        f"{scan_schema}\n"
+    )
+
+
+def _render() -> list[RenderedFile]:
+    command_docs = _collect_command_docs()
+    rendered: list[RenderedFile] = []
+
+    for doc in command_docs:
+        try:
+            help_text = _capture_help(doc.name, advanced=True)
+        except RuntimeError:
+            help_text = _capture_help(doc.name, advanced=False)
+        rendered.append(
+            RenderedFile(
+                path=COMMANDS_ROOT / f"{doc.stem}.md",
+                content=_render_command_page(doc.name, help_text),
+            )
+        )
+
+    rendered.append(
+        RenderedFile(
+            path=COMMANDS_ROOT / "index.md",
+            content=_render_commands_index(command_docs),
+        )
+    )
+    rendered.append(RenderedFile(path=YAML_REF_PATH, content=_render_yaml_reference()))
+    return rendered
+
+
+def _check_or_write(rendered: list[RenderedFile], *, check: bool) -> int:
+    expected_paths = {item.path.resolve() for item in rendered}
+    existing_paths = set(COMMANDS_ROOT.glob("*.md"))
+    stale_extra = sorted(p.resolve() for p in existing_paths if p.resolve() not in expected_paths)
+
+    stale: list[Path] = []
+    for item in rendered:
+        current = item.path.read_text(encoding="utf-8") if item.path.exists() else None
+        if current != item.content:
+            stale.append(item.path.resolve())
+
+    if check:
+        if stale or stale_extra:
+            print("Reference files are out of date. Run: python scripts/generate_reference.py")
+            for path in sorted(stale):
+                print(f"  MISSING/DIFF: {path.relative_to(REPO_ROOT)}")
+            for path in stale_extra:
+                print(f"  EXTRA: {path.relative_to(REPO_ROOT)}")
+            return 1
+        print("Reference files are up to date.")
+        return 0
+
+    for item in rendered:
+        item.path.parent.mkdir(parents=True, exist_ok=True)
+        item.path.write_text(item.content, encoding="utf-8")
+
+    for path in stale_extra:
+        path.unlink()
+
+    print(f"Generated {len(rendered)} files under {REF_ROOT.relative_to(REPO_ROOT)}")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="Fail when generated files are stale.")
+    args = parser.parse_args()
+    rendered = _render()
+    return _check_or_write(rendered, check=args.check)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

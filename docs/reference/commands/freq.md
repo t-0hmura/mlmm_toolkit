@@ -1,0 +1,102 @@
+# `mlmm freq`
+
+```text
+
+Usage: mlmm freq [OPTIONS]
+
+  ML/MM vibrational frequency analysis (PHVA-compatible).
+
+Options:
+  --help-advanced                 Show all options (including advanced settings)
+                                  and exit.
+  -i, --input FILE                Enzyme complex PDB used by both geom_loader
+                                  and the ML/MM calculator.  [required]
+  --parm FILE                     Amber parm7 topology for the full enzyme
+                                  complex.  [required]
+  --model-pdb FILE                PDB defining atoms belonging to the ML region.
+                                  Optional when --detect-layer is enabled.
+  --model-indices TEXT            Comma-separated atom indices for the ML region
+                                  (ranges allowed like 1-5). Used when --model-
+                                  pdb is omitted.
+  --model-indices-one-based / --model-indices-zero-based
+                                  Interpret --model-indices as 1-based (default)
+                                  or 0-based.  [default: model-indices-one-
+                                  based]
+  --detect-layer / --no-detect-layer
+                                  Detect ML/MM layers from input PDB B-factors
+                                  (B=0/10/20). If disabled, you must provide
+                                  --model-pdb or --model-indices.  [default:
+                                  detect-layer]
+  -q, --charge INTEGER            ML region charge. Required unless --ligand-
+                                  charge is provided.
+  -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
+                                  GPP:-3,SAM:1) used to derive charge when -q is
+                                  omitted (requires PDB input or --ref-pdb).
+  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
+                                  Defaults to 1 when omitted.
+  --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
+                                  (e.g., '1,3,5').
+  --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
+                                  atoms to include in Hessian calculation.
+                                  Applied to movable MM atoms and can be
+                                  combined with --detect-layer.
+  --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
+                                  MM atoms. MM atoms beyond this are frozen.
+                                  Providing --movable-cutoff disables --detect-
+                                  layer.
+  --hessian-calc-mode [analytical|finitedifference]
+                                  How the ML backend builds the Hessian
+                                  (Analytical or FiniteDifference); overrides
+                                  calc.hessian_calc_mode from YAML. Default:
+                                  'FiniteDifference'. Use 'Analytical' when VRAM
+                                  is sufficient.
+  --max-write INTEGER             Maximum number of modes to export.  [default:
+                                  10]
+  --amplitude-ang FLOAT           Mode animation amplitude (Å).  [default: 0.8]
+  --n-frames INTEGER              Frames per vibrational mode animation.
+                                  [default: 20]
+  --sort [value|abs]              Sort modes by signed value or absolute value.
+                                  [default: value]
+  --temperature FLOAT             Temperature (K) for thermochemistry summary.
+                                  [default: 298.15]
+  --pressure FLOAT                Pressure (atm) for thermochemistry summary.
+                                  [default: 1.0]
+  --dump / --no-dump              Write 'thermoanalysis.yaml' alongside the
+                                  console summary.  [default: no-dump]
+  -o, --out-dir TEXT              Output directory.  [default: ./result_freq/]
+  --active-dof-mode [all|ml-only|partial|unfrozen]
+                                  Active DOF selection for frequency analysis:
+                                  all (all atoms), ml-only (ML only), partial
+                                  (ML + MovableMM, default), unfrozen (all non-
+                                  frozen atoms).  [default: partial]
+  --config FILE                   Base YAML configuration file applied before
+                                  explicit CLI options.
+  --show-config / --no-show-config
+                                  Print resolved configuration and continue
+                                  execution.  [default: no-show-config]
+  --dry-run / --no-dry-run        Validate options and print the execution plan
+                                  without running frequency analysis.  [default:
+                                  no-dry-run]
+  --ref-pdb FILE                  Reference PDB topology to use when --input is
+                                  XYZ (keeps XYZ coordinates).
+  --convert-files / --no-convert-files
+                                  Convert XYZ/TRJ outputs into PDB companions
+                                  based on the input format.  [default: convert-
+                                  files]
+  --hess-device [auto|cuda|cpu]   Device for Hessian assembly and
+                                  diagonalization (auto/cuda/cpu). Use 'cpu' to
+                                  avoid VRAM issues with large unfrozen systems.
+                                  ML model inference always uses ml_device
+                                  (typically GPU).  [default: auto]
+  -b, --backend [uma|orb|mace|aimnet2]
+                                  ML backend for the ONIOM high-level region
+                                  (default: uma).
+  --embedcharge / --no-embedcharge
+                                  Enable xTB point-charge embedding correction
+                                  for MM→ML environmental effects.  [default:
+                                  no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
+                                  point charges in xTB embedding. Default: 12.0
+                                  Å when --embedcharge is enabled.
+  -h, --help                      Show this message and exit.
+```
