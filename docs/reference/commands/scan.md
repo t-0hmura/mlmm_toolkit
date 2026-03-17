@@ -68,9 +68,10 @@ Options:
   --relax-max-cycles INTEGER      Compatibility alias of --max-cycles (overrides
                                   it when provided).
   --dump / --no-dump              Write per-step optimizer trajectory files.
-                                  scan_trj.xyz is always written regardless.
-                                  [default: no-dump]
-  --out-dir TEXT                  Base output directory.  [default:
+                                  scan_trj.xyz and scan.pdb are always written
+                                  to out-dir regardless of this flag.  [default:
+                                  no-dump]
+  -o, --out-dir TEXT              Base output directory.  [default:
                                   ./result_scan/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for relaxations.
@@ -97,5 +98,8 @@ Options:
                                   Enable xTB point-charge embedding correction
                                   for MM→ML environmental effects.  [default:
                                   no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
+                                  point charges in xTB embedding. Default: 12.0
+                                  Å when --embedcharge is enabled.
   -h, --help                      Show this message and exit.
 ```

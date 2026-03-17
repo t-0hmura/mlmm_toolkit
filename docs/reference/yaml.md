@@ -22,11 +22,11 @@
 
 calc:
   backend: uma              # ML backend: uma, orb, mace, aimnet2
-  orb_model: orb_v3_conservative_omol  # ORB model name (when backend=orb)
-  orb_precision: float32              # ORB precision setting (when backend=orb)
-  mace_model: MACE-OMOL-0            # MACE model path or name (when backend=mace)
-  mace_dtype: float64                 # MACE dtype, e.g. float64 (when backend=mace)
-  aimnet2_model: aimnet2              # AIMNet2 model name (when backend=aimnet2)
+  orb_model: null           # ORB model name (when backend=orb)
+  orb_precision: null       # ORB precision setting (when backend=orb)
+  mace_model: null          # MACE model path or name (when backend=mace)
+  mace_dtype: null          # MACE dtype, e.g. float64 (when backend=mace)
+  aimnet2_model: null       # AIMNet2 model name (when backend=aimnet2)
   embedcharge: false        # Enable xTB point-charge embedding correction
   embedcharge_step: 1.0e-3   # Numerical Hessian step for embedding correction (Å)
   xtb_cmd: xtb              # Path or command for the xTB executable
@@ -56,10 +56,8 @@ freq:
   amplitude_ang: 0.8
   n_frames: 20
   sort: value
-
-thermo:
   temperature: 298.15
-  pressure_atm: 1.0
+  pressure: 1.0
 
 dft:
   func_basis: wb97m-v/def2-tzvpd
@@ -73,11 +71,11 @@ dft:
 | Key | Type | Default |
 |---|---|---|
 | `calc.backend` | `str` | `'uma'` |
-| `calc.orb_model` | `str` | `'orb_v3_conservative_omol'` |
-| `calc.orb_precision` | `str` | `'float32'` |
-| `calc.mace_model` | `str` | `'MACE-OMOL-0'` |
-| `calc.mace_dtype` | `str` | `'float64'` |
-| `calc.aimnet2_model` | `str` | `'aimnet2'` |
+| `calc.orb_model` | `NoneType` | `None` |
+| `calc.orb_precision` | `NoneType` | `None` |
+| `calc.mace_model` | `NoneType` | `None` |
+| `calc.mace_dtype` | `NoneType` | `None` |
+| `calc.aimnet2_model` | `NoneType` | `None` |
 | `calc.embedcharge` | `bool` | `False` |
 | `calc.embedcharge_step` | `float` | `0.001` |
 | `calc.xtb_cmd` | `str` | `'xtb'` |
@@ -97,8 +95,8 @@ dft:
 | `freq.amplitude_ang` | `float` | `0.8` |
 | `freq.n_frames` | `int` | `20` |
 | `freq.sort` | `str` | `'value'` |
-| `thermo.temperature` | `float` | `298.15` |
-| `thermo.pressure_atm` | `float` | `1.0` |
+| `freq.temperature` | `float` | `298.15` |
+| `freq.pressure` | `float` | `1.0` |
 | `dft.func_basis` | `str` | `'wb97m-v/def2-tzvpd'` |
 | `dft.max_cycle` | `int` | `100` |
 | `dft.conv_tol` | `float` | `1e-09` |

@@ -29,8 +29,8 @@ Options:
                                   hetero-atom proximity (non-C/H). 0 disables.
                                   [default: 0]
   --include-H2O / --no-include-H2O
-                                  Include waters (HOH/WAT/TIP3/SOL).  [default:
-                                  include-H2O]
+                                  Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL).
+                                  [default: include-H2O]
   --exclude-backbone / --no-exclude-backbone
                                   Delete main-chain atoms from non-substrate
                                   amino acids.  [default: exclude-backbone]

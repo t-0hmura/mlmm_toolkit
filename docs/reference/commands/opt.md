@@ -56,10 +56,14 @@ Options:
                                   layer and uses distance-based layer
                                   assignment. `--movable-cutoff` is a
                                   compatibility alias.
-  --dist-freeze TEXT              Python-like list(s) of (i,j,target_A) to
-                                  restrain distances (target optional).
-  --one-based / --zero-based      Interpret --dist-freeze indices as 1-based
-                                  (default) or 0-based.  [default: one-based]
+  --dist-freeze TEXT              Distance restraints: inline Python literal
+                                  (e.g. '[(1,5,1.4)]') or a YAML/JSON spec file
+                                  path. Same format as --scan-lists:
+                                  (i,j,target_A) triples. Target may be omitted
+                                  to freeze at the current distance: (i,j).
+  --one-based / --zero-based      Interpret --dist-freeze / --scan-lists indices
+                                  as 1-based (default) or 0-based.  [default:
+                                  one-based]
   --bias-k FLOAT                  Harmonic restraint strength k [eV/Å^2] for
                                   --dist-freeze.  [default: 300.0]
   --max-cycles INTEGER            Maximum number of optimization cycles.
@@ -101,5 +105,8 @@ Options:
                                   Enable xTB point-charge embedding correction
                                   for MM→ML environmental effects.  [default:
                                   no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
+                                  point charges in xTB embedding. Default: 12.0
+                                  Å when --embedcharge is enabled.
   -h, --help                      Show this message and exit.
 ```

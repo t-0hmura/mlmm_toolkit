@@ -4,10 +4,10 @@
 
 Usage: mlmm all [OPTIONS]
 
-  Run pocket extraction → (optional single-structure staged scan) → MEP search →
-  merge to full PDBs in one shot. If exactly one input is provided: (a) with
-  --scan-lists, stage results feed into path_search; (b) with --tsopt True and
-  no --scan-lists, run TSOPT-only mode.
+  Run pocket extraction → (optional single-structure staged scan) → MEP search
+  in one shot. If exactly one input is provided: (a) with --scan-lists, stage
+  results feed into path_search; (b) with --tsopt True and no --scan-lists, run
+  TSOPT-only mode.
 
 Options:
   --help-advanced                 Show all options (including advanced settings)
@@ -110,9 +110,9 @@ Options:
                                   True]
   --hessian-calc-mode [analytical|finitedifference]
                                   Common MLIP Hessian calculation mode forwarded
-                                  to tsopt and freq. Defaults to
+                                  to tsopt and freq. Default:
                                   'FiniteDifference'. Use 'Analytical' when VRAM
-                                  permits.
+                                  is sufficient.
   --detect-layer / --no-detect-layer
                                   Detect ML/MM layers from input PDB B-factors
                                   (B=0/10/20) in downstream tools. If disabled,
@@ -186,5 +186,8 @@ Options:
                                   Enable xTB point-charge embedding correction
                                   for MM→ML environmental effects.  [default:
                                   no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
+                                  point charges in xTB embedding. Default: 12.0
+                                  Å when --embedcharge is enabled.
   -h, --help                      Show this message and exit.
 ```

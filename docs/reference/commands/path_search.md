@@ -83,15 +83,11 @@ Options:
                                   optimizations of inputs.  [default: preopt]
   --align / --no-align            After pre-optimization, align all inputs to
                                   the *first* input and match freeze_atoms using
-                                  the align_freeze_atoms API. When --align is
-                                  True and --ref-pdb is provided, the first
-                                  reference PDB will be used for all pairs in
-                                  the final merge.  [default: align]
+                                  the align_freeze_atoms API.  [default: align]
   --ref-pdb FILE                  Full-size template PDBs in the same reaction
-                                  order as --input. With --align True, only the
-                                  *first* provided reference PDB is used for all
-                                  pairs in the final merge (you may pass just
-                                  one).
+                                  order as --input. Required when using XYZ
+                                  inputs to provide topology and B-factor
+                                  information.
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-
@@ -103,5 +99,8 @@ Options:
                                   Enable xTB point-charge embedding correction
                                   for MM→ML environmental effects.  [default:
                                   no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
+                                  point charges in xTB embedding. Default: 12.0
+                                  Å when --embedcharge is enabled.
   -h, --help                      Show this message and exit.
 ```

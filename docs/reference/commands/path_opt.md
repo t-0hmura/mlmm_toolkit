@@ -86,5 +86,8 @@ Options:
                                   Enable xTB point-charge embedding correction
                                   for MM→ML environmental effects.  [default:
                                   no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
+                                  point charges in xTB embedding. Default: 12.0
+                                  Å when --embedcharge is enabled.
   -h, --help                      Show this message and exit.
 ```

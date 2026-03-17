@@ -45,11 +45,11 @@ Options:
                                   Providing --movable-cutoff disables --detect-
                                   layer.
   --hessian-calc-mode [analytical|finitedifference]
-                                  How the MLIP backend builds the ML Hessian (Analytical or
-                                  FiniteDifference); overrides
-                                  calc.hessian_calc_mode from YAML. Defaults to
+                                  How the ML backend builds the Hessian
+                                  (Analytical or FiniteDifference); overrides
+                                  calc.hessian_calc_mode from YAML. Default:
                                   'FiniteDifference'. Use 'Analytical' when VRAM
-                                  permits.
+                                  is sufficient.
   --max-write INTEGER             Maximum number of modes to export.  [default:
                                   10]
   --amplitude-ang FLOAT           Mode animation amplitude (Å).  [default: 0.8]
@@ -95,5 +95,8 @@ Options:
                                   Enable xTB point-charge embedding correction
                                   for MM→ML environmental effects.  [default:
                                   no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
+                                  point charges in xTB embedding. Default: 12.0
+                                  Å when --embedcharge is enabled.
   -h, --help                      Show this message and exit.
 ```

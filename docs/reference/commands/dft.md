@@ -61,8 +61,12 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).
   --embedcharge / --no-embedcharge
-                                  Enable PySCF qmmm.mm_charge() point-charge
-                                  embedding of MM partial charges into the DFT
-                                  Hamiltonian.  [default: no-embedcharge]
+                                  Enable electrostatic embedding: MM point
+                                  charges are added to the PySCF QM Hamiltonian
+                                  via pyscf.qmmm.mm_charge().  [default: no-
+                                  embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
+                                  point charges in xTB embedding. Default: 12.0
+                                  Å when --embedcharge is enabled.
   -h, --help                      Show this message and exit.
 ```
