@@ -89,7 +89,7 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（0 始まりに変換; YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å)。この範囲内の MM 原子をヘシアン計算に含めます。可動 MM 原子に適用。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの距離カットオフ (Å)。この範囲外の MM 原子を凍結します。`--movable-cutoff` 指定時は `--detect-layer` が無効化されます。 | _None_ |
-| `--fix-ends/--no-fix-ends` | GSM 成長中に端点構造を固定（`gs.fix_first/fix_last`）。 | `False` |
+| `--fix-ends/--no-fix-ends` | GSM 成長中に端点構造を固定（`gs.fix_first/fix_last`）。`defaults.py` の `gs.fix_first` / `gs.fix_last` は共に `True` であるため、実効デフォルトは `True`。 | `False`（CLI）; `True`（GS_KW 実効） |
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `20` |
 | `--max-cycles INT` | オプティマイザーマクロ反復上限（成長 + 精密化）。`opt.stop_in_when_full` も設定。 | `300` |
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |

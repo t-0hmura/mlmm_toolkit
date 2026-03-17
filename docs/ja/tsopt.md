@@ -208,19 +208,18 @@ hessian_dimer:
   max_mu_reg_adaptions: 10         # mu 適応の上限
 rsirfo:
  thresh: baker                     # RS-IRFO 収束プリセット
- max_cycles: 10000                 # 反復上限
- print_every: 100                  # ログ出力間隔
- min_step_norm: 1.0e-08            # 受け入れ最小ステップノルム
- assert_min_step: true             # ステップ停滞時にアサート
- roots: [0]                        # 対象ルートインデックス
- hessian_ref: null                 # 参照ヘシアン
+ trust_radius: 0.10                # 初期信頼半径（ONIOM 向けに小さめ）
+ trust_update: true                # 適応的信頼半径更新
+ trust_min: 1.0e-04                # 最小信頼半径
+ trust_max: 0.30                   # 最大信頼半径
+ max_energy_incr: null             # ステップごとの最大許容エネルギー増加
  hessian_update: bofill            # ヘシアン更新方式の上書き
- hessian_recalc_reset: true        # 正確なヘシアン後にリカルクカウンターをリセット
+ hessian_init: calc                # 初期ヘシアンソース
+ hessian_recalc: 200               # N ステップごとにヘシアン再計算
+ hessian_recalc_adapt: null        # 適応的ヘシアン再計算
+ small_eigval_thresh: 1.0e-08      # 小固有値の閾値
+ alpha0: 1.0                       # 初期シフトパラメータ
  max_micro_cycles: 50              # マクロサイクルごとのマイクロイテレーション
- augment_bonds: false              # 結合解析に基づく反応経路の拡張
- min_line_search: false            # 最小ラインサーチステップを強制
- max_line_search: false            # 最大ラインサーチステップを強制
- assert_neg_eigval: false          # 収束時に負の固有値を要求
 ```
 
 ---
