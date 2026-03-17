@@ -22,8 +22,9 @@ _EXT_ERROR: Dict[str, Optional[str]] = {
 
 def _rebuild_hint() -> str:
     return (
-        "To rebuild hessian_ff native extensions in this environment:\n"
-        "  conda install -c conda-forge ninja -y\n"
+        "mlmm-toolkit JIT-compiles C++ extensions on first use via torch.utils.cpp_extension.\n"
+        "This requires a C++ compiler (g++). If compilation fails, run:  apt install g++  (or:  yum install gcc-c++)\n"
+        "To manually rebuild:\n"
         "  cd $(python -c \"import hessian_ff; print(hessian_ff.__path__[0])\")/native && make clean && make"
     )
 
