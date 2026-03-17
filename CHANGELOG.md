@@ -4,6 +4,30 @@ All notable changes to **mlmm-toolkit** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.1] — 2026-03-18
+
+### Added
+- GitHub Pages documentation deployment workflow (`docs.yml`).
+- PyPI release workflow (`release.yml`) with Trusted Publishing.
+- `docs/requirements_docs.txt` for CI documentation builds.
+- Bidirectional scan (4-tuple) documentation for `scan` command (EN/JA).
+- Version badge in `docs/index.md` (EN/JA).
+
+### Fixed
+- README image path (`mlmm_overview.png` → `mlmm_toolkit_overview.png`).
+- CHANGELOG: package name `mlmm_toolkit` → `mlmm-toolkit`, subcommand count 19 → 21.
+- `--preopt` / `--endopt` default values in scan docs were already correct; regenerated reference docs to sync with code.
+- `--fix-ends` effective default clarified in `path_opt.md` (CLI `False`, GS_KW effective `True`).
+- JA `tsopt.md` rsirfo YAML section aligned with EN version.
+- Toctree link checker now handles MyST `Title <target>` syntax.
+- Generalized UMA-specific wording to MLIP in documentation where applicable.
+- Replaced カタカナ「エンドツーエンド」with `end-to-end` in JA docs (20 files).
+- `quickstart_tsopt_freq.md` (EN/JA): clarified that `tsopt` performs automatic imaginary-frequency check; `freq` is optional for full vibrational analysis.
+- Improved hessian_ff JIT build error message (clarifies g++ requirement).
+
+### Changed
+- `opt.md` YAML example: added `backend`, `solvent`, `solvent_model` to calc section (EN/JA).
+
 ## [0.2.0] — 2026-03-16
 
 **Complete rewrite from `mlmm` (v0.1.1) to `mlmm-toolkit` (v0.2.0).**
