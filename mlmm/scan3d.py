@@ -547,7 +547,7 @@ def _finalize_surface_and_plot(
 @click.option(
     "--preopt/--no-preopt",
     "preopt",
-    default=True,
+    default=False,
     show_default=True,
     help="Run an unbiased pre-optimization.",
 )

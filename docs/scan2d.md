@@ -158,7 +158,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | `baker` |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
-| `--preopt/--no-preopt` | Run an unbiased pre-optimization before scanning. | `True` |
+| `--preopt/--no-preopt` | Run an unbiased pre-optimization before scanning. | `False` |
 | `--baseline {min,first}` | Reference for relative energy (kcal/mol). | `min` |
 | `--zmin FLOAT` | Lower bound of the contour color scale (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Upper bound of the contour color scale (kcal/mol). | Autoscaled |

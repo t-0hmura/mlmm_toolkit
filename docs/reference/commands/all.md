@@ -109,7 +109,7 @@ Options:
                                   optimizations of the pocket inputs.  [default:
                                   True]
   --hessian-calc-mode [analytical|finitedifference]
-                                  Common UMA Hessian calculation mode forwarded
+                                  Common MLIP Hessian calculation mode forwarded
                                   to tsopt and freq. Defaults to
                                   'FiniteDifference'. Use 'Analytical' when VRAM
                                   permits.

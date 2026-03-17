@@ -324,7 +324,7 @@ def _make_lbfgs(
 @click.option(
     "--preopt/--no-preopt",
     "preopt",
-    default=True,
+    default=False,
     show_default=True,
     help="Run an unbiased pre-optimization.",
 )

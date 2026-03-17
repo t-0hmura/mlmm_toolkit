@@ -170,7 +170,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `baker` |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
-| `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
+| `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
 | `--baseline {min,first}` | Shift kcal/mol energies so the global min or `(i,j,k)=(0,0,0)` is zero. | `min` |
 | `--zmin FLOAT` | Manual lower limit for the isosurface color bands (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Manual upper limit for the isosurface color bands (kcal/mol). | Autoscaled |

@@ -185,8 +185,8 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | `mlmm all` からの転送互換オプション。現状の `scan` 緩和は mode に関わらず LBFGS を使用。 | _None_ |
 | `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 LBFGS サイクル。 | `10000` |
 | `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | _None_ |
-| `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `True` |
-| `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `True` |
+| `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
+| `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `False` |
 | `--dump/--no-dump` | ステップごとのオプティマイザー軌跡ファイルをダンプ。注: `scan_trj.xyz`/`scan.pdb` はこのフラグに関係なく常に書き出されます。 | `False` |
 | `-o, --out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_（`gau` を継承） |

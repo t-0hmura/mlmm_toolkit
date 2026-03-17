@@ -69,7 +69,7 @@ Options:
   --ref-pdb FILE                  Reference PDB topology to use when --input is
                                   XYZ (keeps XYZ coordinates).
   --preopt / --no-preopt          Run an unbiased pre-optimization.  [default:
-                                  preopt]
+                                  no-preopt]
   --baseline [min|first]          Reference for relative energy (kcal/mol):
                                   'min' or 'first' (i=0,j=0).  [default: min]
   --zmin FLOAT                    Lower bound of the contour color scale

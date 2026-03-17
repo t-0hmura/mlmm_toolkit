@@ -96,7 +96,11 @@ out_dir/ (デフォルト: ./result_irc/)
 ├─ <prefix>backward_irc_trj.xyz     # 逆方向パスセグメント
 ├─ <prefix>finished_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
 ├─ <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb の場合のみ）
-└─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
+├─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
+├─ <prefix>forward_last.xyz         # 正方向 IRC 終点（XYZ、単一フレーム）
+├─ <prefix>forward_last.pdb         # 正方向 IRC 終点（PDB、利用可能時）
+├─ <prefix>backward_last.xyz        # 逆方向 IRC 終点（XYZ、単一フレーム）
+└─ <prefix>backward_last.pdb        # 逆方向 IRC 終点（PDB、利用可能時）
 ```
 
 ## YAML設定

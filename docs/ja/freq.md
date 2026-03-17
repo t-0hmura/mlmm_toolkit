@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **概要:** PHVA 対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でヘシアン評価を高速化できます。虚数振動数は負の値で表示されます。
+> **概要:** PHVA 対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でヘシアン評価を高速化できます。虚振動数は負の値で表示されます。
 
 `mlmm freq` は ML/MM 計算機（`mlmm.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
 

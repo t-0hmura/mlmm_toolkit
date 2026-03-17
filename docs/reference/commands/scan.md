@@ -79,10 +79,10 @@ Options:
   --ref-pdb FILE                  Reference PDB topology to use when --input is
                                   XYZ (keeps XYZ coordinates).
   --preopt / --no-preopt          Pre-optimize initial structure without bias
-                                  before the scan.  [default: preopt]
+                                  before the scan.  [default: no-preopt]
   --endopt / --no-endopt          After each stage, run an additional unbiased
                                   optimization of the stage result.  [default:
-                                  endopt]
+                                  no-endopt]
   --dry-run / --no-dry-run        Validate options and print the execution plan
                                   without running the scan.  [default: no-dry-
                                   run]

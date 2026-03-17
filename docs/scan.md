@@ -199,8 +199,8 @@ Stages run sequentially; each starts from the previous stage's relaxed result. *
 | `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
 | `--max-cycles INT` | Maximum LBFGS cycles per biased step and per pre/end optimization stage. | `10000` |
 | `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | _None_ |
-| `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `True` |
-| `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `True` |
+| `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
+| `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `False` |
 | `--dump/--no-dump` | Dump per-step optimizer trajectory files. Note: `scan_trj.xyz`/`scan.pdb` are always written regardless of this flag. | `False` |
 | `--out-dir TEXT` | Output directory root. | `./result_scan/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ (inherits `gau`) |

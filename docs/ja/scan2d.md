@@ -160,7 +160,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | `baker` |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
-| `--preopt/--no-preopt` | スキャン前にバイアスなし事前最適化を実行。 | `True` |
+| `--preopt/--no-preopt` | スキャン前にバイアスなし事前最適化を実行。 | `False` |
 | `--baseline {min,first}` | 相対エネルギーの基準（kcal/mol）。 | `min` |
 | `--zmin FLOAT` | コンターカラースケールの下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | コンターカラースケールの上限（kcal/mol）。 | 自動スケール |

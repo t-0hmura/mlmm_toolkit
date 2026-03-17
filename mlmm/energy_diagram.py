@@ -4,8 +4,8 @@
 Minimal energy-diagram utility from numeric inputs.
 
 Examples:
-    pdb2reaction energy-diagram -i 0 12.5 4.3 -o energy.png
-    pdb2reaction energy-diagram -i "[-205.1, -190.4, -198.7]" --label-x R TS P
+    mlmm energy-diagram -i 0 12.5 4.3 -o energy.png
+    mlmm energy-diagram -i "[-205.1, -190.4, -198.7]" --label-x R TS P
 """
 
 from __future__ import annotations

@@ -21,7 +21,7 @@ def add_scan_common_options(
     relax_max_cycles_default: int = 10000,
     opt_mode_default: str = "grad",
     dump_default: bool = False,
-    preopt_default: bool = True,
+    preopt_default: bool = False,
     one_based_default: bool = True,
     include_baseline: bool = True,
     include_zmin_zmax: bool = True,

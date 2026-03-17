@@ -4,7 +4,7 @@
 Export ML/MM system to Gaussian/ORCA ONIOM input format from Amber parm7 topology.
 
 Example:
-    mlmm oniom-gaussian --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb -o out.com
+    mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb -o out.com
 
 For detailed documentation, see: docs/oniom_export.md
 """
