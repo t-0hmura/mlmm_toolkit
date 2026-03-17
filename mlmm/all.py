@@ -2582,7 +2582,7 @@ def cli(
             scan_stage_literals.append(_format_scan_stage(stage_use))
         _echo("[all] Remapped --scan-lists indices from the full PDB to the pocket ordering.")
         scan_preopt_use = pre_opt if scan_preopt_override is None else bool(scan_preopt_override)
-        scan_endopt_use = True if scan_endopt_override is None else bool(scan_endopt_override)
+        scan_endopt_use = False if scan_endopt_override is None else bool(scan_endopt_override)
         scan_opt_mode_use = path_search_opt_mode
 
         scan_args: List[str] = [

@@ -352,14 +352,14 @@ def _snapshot_geometry(g) -> Any:
 @click.option(
     "--preopt/--no-preopt",
     "preopt",
-    default=True,
+    default=False,
     show_default=True,
     help="Pre-optimize initial structure without bias before the scan.",
 )
 @click.option(
     "--endopt/--no-endopt",
     "endopt",
-    default=True,
+    default=False,
     show_default=True,
     help="After each stage, run an additional unbiased optimization of the stage result.",
 )
