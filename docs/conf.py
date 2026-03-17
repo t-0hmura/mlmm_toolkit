@@ -98,8 +98,8 @@ html_theme_options = {
     'navigation_with_keys': True,
 }
 
-html_title = 'mlmm'
-html_short_title = 'mlmm'
+html_title = 'mlmm-toolkit'
+html_short_title = 'mlmm-toolkit'
 
 # Static files path
 html_static_path = ['_static']

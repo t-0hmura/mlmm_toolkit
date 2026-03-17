@@ -1,4 +1,4 @@
-# ONIOM インポート（`oniom-import`）
+# `oniom-import`
 
 ## 概要
 

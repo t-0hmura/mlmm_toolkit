@@ -32,7 +32,6 @@ ja/cli_conventions
 :hidden:
 
 all
-init
 extract
 add_elem_info
 mm_parm
@@ -56,7 +55,6 @@ device_hpc
 oniom_gaussian
 oniom_orca
 ja/all
-ja/init
 ja/extract
 ja/add_elem_info
 ja/mm_parm
@@ -105,7 +103,7 @@ ja/glossary
 :caption: Language
 :hidden:
 
-ja/index
+日本語 <ja/index>
 ```
 
 
@@ -128,7 +126,7 @@ ja/index
 | Search for minimum energy path | `mlmm path-search` | [path_search.md](path_search.md) |
 | Run IRC from a transition state | `mlmm irc` | [irc.md](irc.md) |
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export --mode <g16|orca>` | [oniom_export.md](oniom_export.md) |
+| Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export --mode g16\|orca` | [oniom_export.md](oniom_export.md) |
 | Rebuild XYZ/layered PDB from ONIOM input | `mlmm oniom-import` | [oniom_import.md](oniom_import.md) |
 | Draw state energy diagram from numeric values | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
 | Follow worked tutorials | -- | [Tutorial](getting_started.md) |
@@ -316,7 +314,7 @@ If you use this software in your research, please cite:
 
 ## License
 
-`mlmm-toolkit` is distributed under the **GNU General Public License version 3 (GPL-3.0)** and is derived from Pysisyphus.
+`mlmm-toolkit` is distributed under the **GNU General Public License version 3 (GPL-3.0)**.
 
 ---
 

@@ -1,4 +1,4 @@
-# ONIOM Import (`oniom-import`)
+# `oniom-import`
 
 ## Overview
 

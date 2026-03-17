@@ -1,4 +1,4 @@
-# ONIOM Export (`oniom-export`)
+# `oniom-export`
 
 ## Overview
 

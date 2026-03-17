@@ -1,6 +1,6 @@
 # mlmm-toolkit ドキュメント
 
-**mlmm-toolkit** は、機械学習原子間ポテンシャル（UMA）と分子力学（hessian_ff）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
+**mlmm-toolkit** は、機械学習原子間ポテンシャル（Machine Learning Interatomic Potential）と分子力学（Molecular Mechanics）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
 
 ```{toctree}
 :maxdepth: 2
@@ -23,7 +23,6 @@ cli_conventions
 :hidden:
 
 all
-init
 extract
 add_elem_info
 mm_parm
@@ -79,7 +78,7 @@ glossary
 | 最小エネルギー経路を探索 | `mlmm path-search` | [path_search.md](path_search.md) |
 | 遷移状態からIRCを実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Gaussian ONIOM / ORCA QM/MM 入力を生成 | `mlmm oniom-export --mode <g16|orca>` | [oniom_export.md](oniom_export.md) |
+| Gaussian ONIOM / ORCA QM/MM 入力を生成 | `mlmm oniom-export --mode g16\|orca` | [oniom_export.md](oniom_export.md) |
 | ONIOM 入力から XYZ/層付き PDB を再構築 | `mlmm oniom-import` | [oniom_import.md](oniom_import.md) |
 | 数値から状態エネルギーダイアグラムを描画 | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
 | チュートリアルに従う | -- | [はじめに](getting_started.md) |
@@ -274,7 +273,7 @@ result_all/
 
 ## ライセンス
 
-`mlmm-toolkit` は Pysisyphus から派生した **GNU General Public License version 3 (GPL-3.0)** の下で配布されています。
+`mlmm-toolkit` は **GNU General Public License version 3 (GPL-3.0)** の下で配布されています。
 
 ---
 

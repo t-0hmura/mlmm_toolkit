@@ -1,4 +1,4 @@
-# ONIOM エクスポート（`oniom-export`）
+# `oniom-export`
 
 ## 概要
 
