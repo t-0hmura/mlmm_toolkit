@@ -67,6 +67,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "model_charge": 0,
     "model_mult": 1,
     "link_mlmm": None,
+    "link_atom_method": "scaled",  # "scaled" (g-factor variable) | "fixed" (legacy 1.09/1.01 Å)
     # ML backend selection: "uma" | "orb" | "mace" | "aimnet2"
     "backend": "uma",
     "uma_model": "uma-s-1p1",
