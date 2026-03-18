@@ -2162,6 +2162,7 @@ class mlmm(PySiCalc):
             uma_model=uma_model,
             uma_task_name=uma_task_name,
             orb_model=orb_model,
+            orb_precision=orb_precision,
             mace_model=mace_model,
             mace_dtype=mace_dtype,
             aimnet2_model=aimnet2_model,
