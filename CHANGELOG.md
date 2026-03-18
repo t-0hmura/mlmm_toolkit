@@ -4,7 +4,7 @@ All notable changes to **mlmm-toolkit** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.2.3] — 2026-03-18
+## [0.2.4] — 2026-03-18
 
 ### Added
 - GitHub Pages deployment and PyPI release workflows.
