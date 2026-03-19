@@ -93,6 +93,7 @@ calc:
 
  # --- MM backend settings ---
  mm_backend: hessian_ff # MM backend: "hessian_ff" (analytical) | "openmm" (FD Hessian)
+ use_cmap: false        # If true, include CMAP terms in model parm7. Default false (Gaussian ONIOM-compatible)
  mm_device: cpu # Device for MM calculation: "cuda" or "cpu" (hessian_ff is CPU-only)
  mm_cuda_idx: 0 # CUDA device index for MM calculation (OpenMM only)
  mm_threads: 16 # Number of threads for MM calculation
@@ -131,6 +132,7 @@ calc:
 - `xtb_cmd`, `xtb_acc`, `xtb_ncores`, `xtb_workdir`, `xtb_keep_files` configure the xTB subprocess when `embedcharge` is enabled.
 - `hessian_calc_mode: Analytical` is recommended when sufficient VRAM is available for the ML region (24 GB+ for 300+ ML atoms). Only available for the UMA backend; other backends use `FiniteDifference` automatically. `hessian_calc_mode` overrides `ml_hessian_mode` when both are set.
 - `mm_fd: true` uses finite-difference for MM Hessian; set to `false` to use analytical MM Hessian from hessian_ff
+- `use_cmap: false` (default) excludes CMAP (backbone cross-map dihedral correction) from the model parm7, consistent with Gaussian ONIOM behavior. Set `true` to include CMAP in the model region (CMAP remains in the real system in both cases).
 - `real_parm7` and `model_pdb` are required for ML/MM calculations
 - `model_charge` and `model_mult` override `-q` and `-m` for the ML region specifically
 - `opt`, `tsopt`, `irc`, and `freq` use partial Hessian by default when `calc.return_partial_hessian` is not explicitly set in YAML.

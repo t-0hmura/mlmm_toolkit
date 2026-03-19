@@ -196,6 +196,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。全計算サブコマンドに転送。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `20` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |

@@ -85,6 +85,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "ml_device": "auto",
     "ml_cuda_idx": 0,
     "mm_backend": "hessian_ff",  # "hessian_ff" (analytical) | "openmm" (FD Hessian)
+    "use_cmap": False,           # If False, disable CMAP terms in model parm7 (Gaussian ONIOM-compatible)
     "mm_device": "cpu",
     "mm_cuda_idx": 0,
     "mm_threads": 16,

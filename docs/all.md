@@ -205,6 +205,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
+| `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
 | `--detect-layer/--no-detect-layer` | Detect ML/MM layers from input PDB B-factors (B=0/10/20) in downstream tools. If disabled, downstream tools require `--model-pdb` or `--model-indices`. | `True` |
 

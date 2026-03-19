@@ -603,6 +603,21 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=False,
     help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
 )
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (FD Hessian, for debugging).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -629,6 +644,8 @@ def cli(
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
     link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
 ) -> None:
     set_convert_file_enabled(convert_files)
 
@@ -689,6 +706,10 @@ def cli(
             calc_kw["embedcharge_cutoff"] = embedcharge_cutoff
         if link_atom_method is not None:
             calc_kw["link_atom_method"] = str(link_atom_method).lower()
+        if mm_backend is not None:
+            calc_kw["mm_backend"] = str(mm_backend).lower()
+        if use_cmap is not None:
+            calc_kw["use_cmap"] = use_cmap
 
         if _is_param_explicit("conv_tol"):
             dft_kw["conv_tol"] = float(conv_tol)

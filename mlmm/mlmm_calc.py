@@ -1018,6 +1018,7 @@ class MLMMCore:
         xtb_workdir: str = "tmp",
         xtb_keep_files: bool = False,
         xtb_ncores: int = 4,
+        use_cmap: bool = False,
         **kwargs,
     ):
         # --- v0.1.x backward compatibility aliases ---
@@ -1066,6 +1067,7 @@ class MLMMCore:
 
         self.link_mlmm = link_mlmm
         self.link_atom_method = link_atom_method
+        self.use_cmap = use_cmap
         self.ml_ID, self.mlmm_links, self._link_elem_pairs = self._ml_prep()
         if self.link_atom_method == "scaled":
             self._link_g_factors = [
@@ -1288,6 +1290,8 @@ class MLMMCore:
 
         model = real[selection]
         model.box = None
+        if not self.use_cmap:
+            model.cmaps[:] = []
         model.save(self.model_parm7, overwrite=True)
         _normalize_prmtop_lj_tables(self.model_parm7)
         model.save(self.model_rst7, overwrite=True)
@@ -2133,6 +2137,7 @@ class mlmm(PySiCalc):
         xtb_workdir: str = "tmp",
         xtb_keep_files: bool = False,
         xtb_ncores: int = 4,
+        use_cmap: bool = False,
         **kwargs,
     ):
         # --- v0.1.x backward compatibility aliases ---
@@ -2197,6 +2202,7 @@ class mlmm(PySiCalc):
             xtb_workdir=xtb_workdir,
             xtb_keep_files=xtb_keep_files,
             xtb_ncores=xtb_ncores,
+            use_cmap=use_cmap,
         )
 
         self.out_hess_torch = bool(out_hess_torch)

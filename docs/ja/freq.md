@@ -60,6 +60,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | 必須 |
 | `--parm PATH` | 完全酵素の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--detect-layer` 有効時はオプション。 | _None_ |

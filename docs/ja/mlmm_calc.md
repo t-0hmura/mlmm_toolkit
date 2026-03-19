@@ -82,6 +82,25 @@ mlmm:
  mm_device: cuda # CUDA を使用 (または "cpu")
 ```
 
+### model 系の CMAP
+
+CMAP（クロスマップ骨格二面角補正）は、タンパク質 AMBER 力場で骨格コンフォメーションサンプリングを改善するために使用される 5 原子のトーション補正項です。ONIOM では、model 系の parm7 は実系トポロジーを ML 領域にスライスして生成されます。
+
+デフォルト（`use_cmap: false`）では、CMAP 項を model parm7 から**除外**します:
+
+| 領域 | E_MM(real) | E_MM(model) | ONIOM への正味の影響 |
+|--------|-----------|------------|--------------------|
+| `use_cmap: false`（デフォルト） | CMAP あり | CMAP **除外** | model 骨格 CMAP が E_total に残留 |
+| `use_cmap: true` | CMAP あり | CMAP あり | model 骨格 CMAP が差し引きでキャンセル |
+
+このデフォルト動作は Gaussian ONIOM と一致しており、Gaussian ONIOM も model MM パラメータから CMAP を除外します。典型的な活性部位モデル（リガンド + 機能的残基、ML 領域に骨格原子を含まない）では、どちらの設定でも CMAP in model はゼロになります。
+
+**YAML 設定例:**
+```yaml
+mlmm:
+ use_cmap: true  # model parm7 に CMAP を含める（Gaussian 非互換の挙動）
+```
+
 ### ML ヘシアンモード
 
 - `"Analytical"`: 選択されたデバイスでの 2 次自動微分。**UMA バックエンドでのみ使用可能**。

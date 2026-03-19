@@ -79,6 +79,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-b, --backend CHOICE` | MLIP backend used for the low-level ONIOM recombination: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable electrostatic embedding: MM point charges from the Amber topology are added to the PySCF QM Hamiltonian so the DFT wavefunction is polarized by the MM environment. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
+| `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 

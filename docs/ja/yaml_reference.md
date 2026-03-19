@@ -77,6 +77,7 @@ calc:
  ml_device: auto # ML デバイス: "cuda", "cpu", "auto"
  ml_cuda_idx: 0 # CUDA デバイスインデックス
  mm_backend: hessian_ff # MM バックエンド: "hessian_ff" (解析的) | "openmm" (FD ヘシアン)
+ use_cmap: false        # true にすると model parm7 に CMAP 項を含める。false (デフォルト) は Gaussian ONIOM と同一
  mm_device: cpu # MM デバイス (hessian_ff は CPU のみ、OpenMM は CUDA/CPU 対応)
  mm_cuda_idx: 0 # MM CUDA インデックス (OpenMM のみ)
  mm_threads: 16 # MM 計算のスレッド数
@@ -113,6 +114,7 @@ calc:
 - `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分ヘシアンを既定で使用します。
 - これらのコマンドで完全ヘシアンを強制するには `calc.return_partial_hessian: false` を明示してください。
 - `mm_fd: true` は MM ヘシアンに有限差分を使用します。解析的 MM ヘシアン（hessian_ff）を使用するには `false` に設定してください。
+- `use_cmap: false`（デフォルト）は model parm7 から CMAP 項（骨格クロスマップ二面角補正）を除外します。これは Gaussian ONIOM の挙動（CMAP を model MM に含めない）と一致します。`true` に設定すると model parm7 に CMAP が含まれ、ONIOM 差し引きで骨格 CMAP がキャンセルされます。ML 領域に骨格原子を含まない典型的な活性部位モデルでは、どちらの設定も実質的に同じ結果になります。
 - `real_parm7` と `model_pdb` は ML/MM 計算に必須です。
 - `irc` は YAML の設定にかかわらず `geom.coord_type = cart` を強制します。
 
