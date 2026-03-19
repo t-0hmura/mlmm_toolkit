@@ -379,6 +379,14 @@ def _make_lbfgs(
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
          "Default: 12.0 Å when --embedcharge is enabled.",
 )
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -413,6 +421,7 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
 ) -> None:
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -516,6 +525,8 @@ def cli(
                 calc_cfg["embedcharge"] = bool(embedcharge)
             if _is_param_explicit("embedcharge_cutoff"):
                 calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
+            if link_atom_method is not None:
+                calc_cfg["link_atom_method"] = str(link_atom_method).lower()
 
             # movable_cutoff implies full distance-based layer assignment.
             # hess_cutoff alone can be combined with --detect-layer.
