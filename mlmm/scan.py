@@ -233,7 +233,7 @@ def _snapshot_geometry(g) -> Any:
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option("-q", "--charge", type=int, required=False,
@@ -304,7 +304,7 @@ def _snapshot_geometry(g) -> Any:
     default=None,
     show_default=False,
     help="Compatibility option for mlmm all forwarding. "
-         "scan relaxations currently use LBFGS regardless of this value.",
+         "Scan relaxations always use LBFGS; values other than grad/lbfgs/light emit a warning.",
 )
 @click.option(
     "--max-cycles",
@@ -326,7 +326,7 @@ def _snapshot_geometry(g) -> Any:
     default=False,
     show_default=True,
     help="Write per-step optimizer trajectory files. "
-         "scan_trj.xyz and scan.pdb are always written to out-dir regardless of this flag.",
+         "scan_trj.xyz and scan.pdb are always written per-stage and as a combined file in out-dir, regardless of this flag.",
 )
 @click.option("-o", "--out-dir", type=str, default="./result_scan/", show_default=True,
               help="Base output directory.")
@@ -398,7 +398,7 @@ def _snapshot_geometry(g) -> Any:
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -414,7 +414,7 @@ def _snapshot_geometry(g) -> Any:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (FD Hessian, for debugging).",
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
 )
 @click.option(
     "--cmap/--no-cmap",

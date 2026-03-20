@@ -14,7 +14,7 @@ from .default_group import DefaultGroup
 from mlmm import __version__
 
 _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
-    "all": (".all", "cli", "End-to-end workflow (extract -> MEP -> TS -> IRC -> freq -> DFT)."),
+    "all": (".all", "cli", "End-to-end workflow (extract -> MEP [-> TS -> IRC -> freq -> DFT])."),
     "mm-parm": (".mm_parm", "cli", "Generate Amber parm7/rst7 topology files."),
     "scan": (".scan", "cli", "Run staged 1D scan with harmonic restraints."),
     "opt": (".opt", "cli", "Optimize one structure."),
@@ -46,10 +46,9 @@ _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
 _COMMAND_BOOL_VALUE_OPTIONS: dict[str, frozenset[str]] = {
     "all": frozenset(
         {
-            "--include-H2O",
             "--include-h2o",
             "--exclude-backbone",
-            "--add-linkH",
+            "--add-linkh",
             "--verbose",
             "--climb",
             "--dump",
@@ -175,7 +174,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
     "oniom-export": frozenset({"--element-check", "--convert-orcaff"}),
     "trj2fig": frozenset({"--reverse-x"}),
     "add-elem-info": frozenset({"--overwrite"}),
-    "extract": frozenset({"--include-H2O", "--exclude-backbone", "--add-linkH", "--verbose"}),
+    "extract": frozenset({"--include-h2o", "--exclude-backbone", "--add-linkh", "--verbose"}),
     "fix-altloc": frozenset({"--recursive", "--inplace", "--overwrite", "--force"}),
 }
 

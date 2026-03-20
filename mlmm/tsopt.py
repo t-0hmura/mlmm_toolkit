@@ -880,7 +880,7 @@ class HessianDimer:
                  update_interval_hessian: int = 500,
                  neg_freq_thresh_cm: float = 5.0,
                  flatten_amp_ang: float = 0.10,
-                 flatten_max_iter: int = 20,
+                 flatten_max_iter: int = 50,
                  mem: int = 100000,
                  use_lobpcg: bool = True,  # kept for backward compat (not used when root!=0)
                  calc_kwargs: Optional[dict] = None,
@@ -1878,7 +1878,7 @@ hessian_dimer_KW = {
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option(
@@ -1970,7 +1970,7 @@ hessian_dimer_KW = {
     "partial_hessian_flatten",
     default=True,
     show_default=True,
-    help="Use partial Hessian (ML region only) for imaginary mode detection in flatten loop.",
+    help="Use partial (active-block) Hessian for imaginary mode detection in flatten loop.",
 )
 @click.option(
     "--flatten/--no-flatten",
@@ -2047,7 +2047,7 @@ hessian_dimer_KW = {
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -2063,7 +2063,7 @@ hessian_dimer_KW = {
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (FD Hessian, for debugging).",
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -2766,11 +2766,11 @@ def cli(
                 fn=str(geom_input_path),
                 out_dir=str(out_dir_path),
                 thresh_loose=simple_cfg.get("thresh_loose", "gau_loose"),
-                thresh=simple_cfg.get("thresh", "gau"),
+                thresh=simple_cfg.get("thresh", "baker"),
                 update_interval_hessian=int(simple_cfg.get("update_interval_hessian", 500)),
                 neg_freq_thresh_cm=float(simple_cfg.get("neg_freq_thresh_cm", 5.0)),
                 flatten_amp_ang=float(simple_cfg.get("flatten_amp_ang", 0.10)),
-                flatten_max_iter=int(simple_cfg.get("flatten_max_iter", 20)),
+                flatten_max_iter=int(simple_cfg.get("flatten_max_iter", 50)),
                 mem=int(simple_cfg.get("mem", 100000)),
                 use_lobpcg=bool(simple_cfg.get("use_lobpcg", True)),
                 calc_kwargs=dict(calc_cfg),

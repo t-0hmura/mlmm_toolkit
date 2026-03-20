@@ -108,7 +108,7 @@ glossary
 ### メインワークフロー
 | サブコマンド | 説明 |
 |---------|------|
-| [`all`](all.md) | end-to-endワークフロー: 抽出 -> MM parm -> MEP -> TS 最適化 -> IRC -> freq -> DFT |
+| [`all`](all.md) | 一気通貫ワークフロー: 抽出 -> MM parm -> MEP -> TS 最適化 -> IRC -> freq -> DFT |
 | [`init`](init.md) | *（削除済）* 以前は YAML テンプレートを生成 |
 
 ### 構造準備

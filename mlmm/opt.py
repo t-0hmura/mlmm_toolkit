@@ -907,7 +907,7 @@ def _run_microiter_opt(
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option("-q", "--charge", type=int, required=False,
@@ -963,7 +963,7 @@ def _run_microiter_opt(
     default=(),
     show_default=False,
     help="Distance restraints: inline Python literal (e.g. '[(1,5,1.4)]') or a YAML/JSON spec file path. "
-         "Same format as --scan-lists: (i,j,target_A) triples. "
+         "Format: (i,j,target_Å) triples. "
          "Target may be omitted to freeze at the current distance: (i,j).",
 )
 @click.option(
@@ -971,7 +971,7 @@ def _run_microiter_opt(
     "one_based",
     default=True,
     show_default=True,
-    help="Interpret --dist-freeze / --scan-lists indices as 1-based (default) or 0-based.",
+    help="Interpret --dist-freeze indices as 1-based (default) or 0-based.",
 )
 @click.option(
     "--bias-k",
@@ -1065,7 +1065,7 @@ def _run_microiter_opt(
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -1081,7 +1081,7 @@ def _run_microiter_opt(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (FD Hessian, for debugging).",
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
 )
 @click.option(
     "--cmap/--no-cmap",

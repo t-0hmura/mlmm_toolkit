@@ -97,7 +97,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--thresh TEXT` | 収束プリセットの上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（内部的に `gau` を適用） |
 | `--config FILE` | ベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済み YAML レイヤー情報を表示。 | `False` |
-| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部的に `uma` を適用） |
+| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
@@ -281,6 +281,6 @@ rfo:
 
 - [tsopt](tsopt.md) -- 極小ではなく遷移状態（鞍点）を最適化
 - [freq](freq.md) -- 最適化が極小に達したことを確認する振動解析
-- [all](all.md) -- 端点を事前最適化するend-to-endワークフロー
+- [all](all.md) -- 端点を事前最適化する一気通貫ワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `opt`、`lbfgs`、`rfo` の完全な設定オプション
 - [用語集](glossary.md) -- L-BFGS、RFO の定義

@@ -257,7 +257,7 @@ AmberTools がインストールされていなくても、`--parm` を手動で
 
 ## マルチバックエンドの使用例
 
-デフォルトの MLIP バックエンドは UMA です。`-b/--backend` で代替バックエンドに切り替え、`--embedcharge` で xTB ポイントチャージ埋め込みを有効化できます:
+デフォルトの MLIP バックエンドは UMA です。`-b/--backend` で代替バックエンドに切り替え、`--embedcharge` で xTB 点電荷埋め込みを有効化できます:
 
 ```bash
 # ORB バックエンドを使用
@@ -266,7 +266,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
 # MACE バックエンドを使用
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
 
-# xTB ポイントチャージ埋め込みを有効化
+# xTB 点電荷埋め込みを有効化
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
 ```
 
@@ -440,7 +440,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `--refine-path/--no-refine-path` | 再帰的 MEP 精密化（デフォルト）vs 単一パス |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
-| `--embedcharge/--no-embedcharge` | xTB ポイントチャージ埋め込み補正（デフォルト: 無効） |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（デフォルト: 無効） |
 | `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（LBFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
 | `--mep-mode gsm\|dmf` | MEP 手法: Growing String Method または Direct Max Flux |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML ヘシアン計算モード。`Analytical` は UMA バックエンドで利用可能（VRAM に余裕がある場合推奨）。他のバックエンドは `FiniteDifference` を使用 |
@@ -468,7 +468,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 
 | サブコマンド | 役割 | ドキュメント |
 |------------|------|------------|
-| `all` | end-to-endワークフロー | [all](all.md) |
+| `all` | 一気通貫ワークフロー | [all](all.md) |
 | `extract` | 活性部位ポケット抽出 | [extract](extract.md) |
 | `mm-parm` | Amber parm7/rst7 構築 | [mm_parm](mm_parm.md) |
 | `define-layer` | 3 層 ML/MM 領域定義 | [define_layer](define_layer.md) |
@@ -528,7 +528,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 | `--parm` | Amber parm7（個別サブコマンドで必要） |
 | `--model-pdb` | ML 領域定義 PDB（個別サブコマンドで必要） |
 | `-b, --backend` | MLIP バックエンド選択（`uma`, `orb`, `mace`, `aimnet2`） |
-| `--embedcharge` | xTB ポイントチャージ埋め込み補正を有効化 |
+| `--embedcharge` | xTB 点電荷埋め込み補正を有効化 |
 | `--tsopt` | TS 最適化 + IRC |
 | `--thermo` | 振動解析/熱化学 |
 | `--dft` | DFT 一点計算 |

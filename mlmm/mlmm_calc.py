@@ -1005,7 +1005,7 @@ class MLMMCore:
         return_partial_hessian: bool = True,
         hess_cutoff: Optional[float] = None,
         movable_cutoff: Optional[float] = None,
-        use_bfactor_layers: bool = False,
+        use_bfactor_layers: bool = True,       # matches MLMM_CALC_KW default
         hess_mm_atoms: Optional[List[int]] = None,
         movable_mm_atoms: Optional[List[int]] = None,
         frozen_mm_atoms: Optional[List[int]] = None,
@@ -1761,9 +1761,9 @@ class MLMMCore:
             mm_atom_indices = [i for i in range(len(atoms_real)) if i not in ml_set]
             if mm_atom_indices and self.embedcharge_cutoff is not None:
                 from scipy.spatial.distance import cdist
-                ml_coords = atoms_real.get_positions()[sorted(ml_set)]
+                _ml_ref_coords = atoms_real.get_positions()[sorted(ml_set)]
                 mm_coords_all = atoms_real.get_positions()[mm_atom_indices]
-                dists = cdist(mm_coords_all, ml_coords).min(axis=1)
+                dists = cdist(mm_coords_all, _ml_ref_coords).min(axis=1)
                 n_before = len(mm_atom_indices)
                 mask = dists <= self.embedcharge_cutoff
                 mm_atom_indices = [mm_atom_indices[j] for j in range(n_before) if mask[j]]
@@ -2124,7 +2124,7 @@ class mlmm(PySiCalc):
         print_vram: bool = True,
         hess_cutoff: Optional[float] = None,
         movable_cutoff: Optional[float] = None,
-        use_bfactor_layers: bool = False,
+        use_bfactor_layers: bool = True,       # matches MLMM_CALC_KW default
         hess_mm_atoms: Optional[List[int]] = None,
         movable_mm_atoms: Optional[List[int]] = None,
         frozen_mm_atoms: Optional[List[int]] = None,

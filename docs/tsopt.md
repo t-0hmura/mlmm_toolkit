@@ -2,11 +2,11 @@
 
 ## Overview
 
-> **Summary:** Optimize a transition-state *candidate* using Dimer (`--opt-mode grad`) or RS-I-RFO (`--opt-mode hess`, default). Microiteration (`--microiter`, default on) alternates ML 1-step RS-I-RFO and MM relaxation in `hess` mode. A validated TS should show **exactly one** imaginary frequency; always confirm the mode/connectivity with freq/IRC.
+> **Summary:** Optimize a transition-state *candidate* using Hessian Guided Dimer (`--opt-mode grad`) or RS-I-RFO (`--opt-mode hess`, default). Microiteration (`--microiter`, default on) alternates ML 1-step RS-I-RFO and MM relaxation in `hess` mode. A validated TS should show **exactly one** imaginary frequency; always confirm the mode/connectivity with freq/IRC.
 
 ### Choosing `--opt-mode`
 - Use **`--opt-mode hess` (RS-I-RFO)** when you want the default, conservative optimizer and you can afford Hessian work. With `--microiter` (default on), ML and MM regions are optimized alternately.
-- Use **`--opt-mode grad` (Dimer)** when you want a lighter-weight search, or when you plan to iterate quickly from several TS guesses. `--ml-only-hessian-dimer` uses only the ML-region Hessian for dimer orientation (faster).
+- Use **`--opt-mode grad` (Hessian Guided Dimer)** when you want a lighter-weight search, or when you plan to iterate quickly from several TS guesses. `--ml-only-hessian-dimer` uses only the ML-region Hessian for dimer orientation (faster).
 
 `mlmm tsopt` carries out transition-state optimization tailored to the ML/MM calculator. The optimizer starts from a TS guess and refines it to a first-order saddle point.
 
@@ -63,7 +63,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 1. **Input handling** -- Load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge/spin. Freeze atoms from CLI and YAML are merged.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or via finite difference. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
-3. **Light mode (Dimer):**
+3. **Light mode (Hessian Guided Dimer):**
    - The Hessian Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected).
    - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
 4. **Heavy mode (RS-I-RFO):**
@@ -90,7 +90,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | `FiniteDifference` |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
-| `--opt-mode CHOICE` | TS optimizer mode: `grad` (Dimer) or `hess` (RS-I-RFO). Aliases `light`/`heavy` and `dimer`/`rsirfo` accepted. | `hess` |
+| `--opt-mode CHOICE` | TS optimizer mode: `grad` (Hessian Guided Dimer) or `hess` (RS-I-RFO). Aliases `light`/`heavy` and `dimer`/`rsirfo` accepted. | `hess` |
 | `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RS-I-RFO) + MM relaxation (LBFGS). Only effective in `hess` mode. | `True` |
 | `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | Use ML-region-only Hessian for dimer orientation in `grad` mode. Faster but less accurate. | `False` |
 | `--flatten/--no-flatten` | Enable/disable extra imaginary-mode flattening loop. `--flatten` uses default iter (50); `--no-flatten` forces it to 0. Applies to both light and heavy modes. | _None_ (YAML/defaults; effectively enabled with 50 iterations) |
@@ -216,7 +216,7 @@ rsirfo:
  max_energy_incr: null             # max allowed energy increase per step
  hessian_update: bofill            # Hessian update scheme override
  hessian_init: calc                # initial Hessian source
- hessian_recalc: 200               # recalculate Hessian every N steps
+ hessian_recalc: 500               # recalculate Hessian every N steps
  hessian_recalc_adapt: null        # adaptive Hessian recalculation
  small_eigval_thresh: 1.0e-08      # threshold for small eigenvalues
  alpha0: 1.0                       # initial shift parameter

@@ -352,7 +352,7 @@ RS-I-RFO TS 最適化（`tsopt --opt-mode hess`）。
 
 ```yaml
 rsirfo:
- thresh: baker # RS-IRFO 収束プリセット
+ thresh: baker # RS-I-RFO 収束プリセット
  max_cycles: 10000 # 反復上限
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
@@ -365,7 +365,7 @@ rsirfo:
  hessian_update: bofill # ヘシアン更新スキーム
  hessian_recalc_reset: true # 正確なヘシアン後に再計算カウンタをリセット
  hessian_init: calc # ヘシアン初期化
- hessian_recalc: 200 # ヘシアン再構築間隔
+ hessian_recalc: 500 # ヘシアン再構築間隔
  max_micro_cycles: 50 # マクロサイクルあたりのマイクロイテレーション数
  augment_bonds: false # 結合解析に基づく反応経路の拡張
  min_line_search: false # 虚モードに沿ったラインサーチ（pysisyphus デフォルト）

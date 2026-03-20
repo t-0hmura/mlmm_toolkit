@@ -99,7 +99,7 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
 | `--opt-mode [grad\|hess]` | Single-structure optimizer preset (`grad` = LBFGS, `hess` = RFO). | `grad` |
-| `--preopt/--no-preopt` | Pre-optimize endpoints with LBFGS before segmentation. | `True` |
+| `--preopt/--no-preopt` | Pre-optimize endpoints with LBFGS before segmentation. | `False` |
 | `--align / --no-align` | Rigidly align inputs after pre-opt. | `True` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau_loose`) |
 | `--dump/--no-dump` | Save optimizer dumps. | `False` |

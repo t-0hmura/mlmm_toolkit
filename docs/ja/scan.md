@@ -210,7 +210,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_（`gau` を継承） |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
-| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部で `uma` を適用） |
+| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
@@ -263,5 +263,5 @@ out_dir/ (デフォルト:./result_scan/)
 - [scan2d](scan2d.md) -- 2D 距離グリッドスキャン
 - [scan3d](scan3d.md) -- 3D 距離グリッドスキャン
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- 単一構造入力の `--scan-lists` 付きend-to-endワークフロー
+- [all](all.md) -- 単一構造入力の `--scan-lists` 付き一気通貫ワークフロー
 - [path-search](path_search.md) -- スキャン端点を中間体として使用する MEP 探索

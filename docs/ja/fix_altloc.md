@@ -149,4 +149,4 @@ if has_altloc(Path("input.pdb")):
 
 - [add-elem-info](add_elem_info.md) -- altLoc 修正前に PDB 元素カラムを修復
 - [extract](extract.md) -- altLoc 解決後に活性部位ポケットを抽出
-- [all](all.md) -- 自動 altLoc 修正を含むend-to-endワークフロー
+- [all](all.md) -- 自動 altLoc 修正を含む一気通貫ワークフロー

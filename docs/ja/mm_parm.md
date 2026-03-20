@@ -67,6 +67,6 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 - [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
-- [all](all.md) -- end-to-endワークフロー（内部で mm-parm を呼び出し）
+- [all](all.md) -- 一気通貫ワークフロー（内部で mm-parm を呼び出し）
 - [extract](extract.md) -- パラメータ化前に活性部位ポケットを抽出
 - [define-layer](define_layer.md) -- トポロジー構築後に ML/MM レイヤーを定義

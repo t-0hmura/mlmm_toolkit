@@ -28,7 +28,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 - `--dry-run`（`--help-advanced` に表示）で引数と実行計画を確認できます。
 - `mlmm all --help` は主要オプション、`mlmm all --help-advanced` は `--dry-run` 等を含む全オプションを表示します。
 - 別の MLIP バックエンドを使用するには、`-b orb`（または `mace`、`aimnet2`）を追加します。デフォルトは `uma` です。
-- `--embedcharge` を追加すると、MM 環境から ML 領域への静電影響を考慮する xTB ポイントチャージ埋め込み補正が有効になります。
+- `--embedcharge` を追加すると、MM 環境から ML 領域への静電影響を考慮する xTB 点電荷埋め込み補正が有効になります。
 
 ## 次の導線
 

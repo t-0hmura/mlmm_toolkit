@@ -136,7 +136,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option("-q", "--charge", type=int, required=False,
@@ -156,7 +156,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 @click.option(
     "--max-cycles", type=int, default=None, help="Maximum number of IRC steps; overrides irc.max_cycles from YAML."
 )
-@click.option("--step-size", type=float, default=None, help="Step length in mass-weighted coordinates; overrides irc.step_length from YAML.")
+@click.option("--step-size", type=float, default=None, help="Step length in Bohr (unweighted Cartesian coordinates). Default: 0.10 Bohr. Overrides irc.step_length from YAML.")
 @click.option("--root", type=int, default=None, help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
 @click.option(
     "--forward/--no-forward",
@@ -232,7 +232,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -248,7 +248,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (FD Hessian, for debugging).",
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -533,7 +533,8 @@ def cli(
         # --------------------------
         # 2) Load geometry and configure UMA calculator
         # --------------------------
-        coord_type = geom_cfg.get("coord_type", "cart")
+        geom_cfg["coord_type"] = "cart"  # IRC requires Cartesian coordinates
+        coord_type = "cart"
         coord_kwargs = dict(geom_cfg)
         coord_kwargs.pop("coord_type", None)
 

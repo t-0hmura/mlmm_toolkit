@@ -1,7 +1,7 @@
 # mlmm/path_opt.py
 
 """
-ML/MM minimum-energy path optimization via Growing String Method or Direct Max Flux.
+ML/MM minimum-energy path optimization via the Growing String Method (GSM) or Direct Max Flux (DMF).
 
 Example:
     mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
@@ -574,7 +574,7 @@ def _run_dmf_mep(
     help="MEP optimizer: Growing String Method (gsm) or Direct Max Flux (dmf).",
 )
 @click.option("--max-nodes", type=int, default=GS_KW["max_nodes"], show_default=True,
-              help="Number of internal nodes (string has max_nodes+2 images including endpoints).")
+              help="Number of internal nodes (for GSM: string has max_nodes+2 images including endpoints; for DMF: number of path waypoints).")
 @click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum optimization cycles.")
 @click.option(
     "--climb/--no-climb",
@@ -589,7 +589,7 @@ def _run_dmf_mep(
     help="Pre-optimize the two endpoint structures with LBFGS before string growth.",
 )
 @click.option("--preopt-max-cycles", "preopt_max_cycles", type=int, default=10000, show_default=True,
-              help="Maximum LBFGS cycles for endpoint pre-optimization when --preopt=True.")
+              help="Maximum LBFGS cycles for endpoint pre-optimization when --preopt is enabled.")
 @click.option(
     "--fix-ends/--no-fix-ends",
     default=False,
@@ -666,7 +666,7 @@ def _run_dmf_mep(
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option(
@@ -722,7 +722,7 @@ def _run_dmf_mep(
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -738,7 +738,7 @@ def _run_dmf_mep(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (FD Hessian, for debugging).",
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
 )
 @click.option(
     "--cmap/--no-cmap",

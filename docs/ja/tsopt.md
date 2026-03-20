@@ -216,7 +216,7 @@ rsirfo:
  max_energy_incr: null             # ステップごとの最大許容エネルギー増加
  hessian_update: bofill            # ヘシアン更新方式の上書き
  hessian_init: calc                # 初期ヘシアンソース
- hessian_recalc: 200               # N ステップごとにヘシアン再計算
+ hessian_recalc: 500               # N ステップごとにヘシアン再計算
  hessian_recalc_adapt: null        # 適応的ヘシアン再計算
  small_eigval_thresh: 1.0e-08      # 小固有値の閾値
  alpha0: 1.0                       # 初期シフトパラメータ
@@ -231,8 +231,8 @@ rsirfo:
 - [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [opt](opt.md) -- 単一構造の構造最適化
-- [freq](freq.md) -- 検証済み TS の単一虚数振動数を確認
+- [freq](freq.md) -- 検証済み TS の単一虚振動数を確認
 - [irc](irc.md) -- 最適化された TS からの反応経路追跡
-- [all](all.md) -- 抽出 -> MEP -> tsopt -> IRC -> freq を連鎖させるend-to-endワークフロー
+- [all](all.md) -- 抽出 -> MEP -> tsopt -> IRC -> freq を連鎖させる一気通貫ワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `hessian_dimer`（ヘシアンガイド付き Dimer）と `rsirfo` の完全な設定オプション
 - [用語集](glossary.md) -- TS、Dimer、RS-I-RFO、ヘシアンの定義

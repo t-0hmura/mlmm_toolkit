@@ -75,7 +75,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | 最大 SCF 反復数。 | `100` |
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
-| `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 9=超精密)。 | `3` |
+| `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=fine, 9=very fine)。 | `3` |
 | `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
@@ -140,6 +140,6 @@ dft:
 
 - [freq](freq.md) -- 振動解析（DFT 精密化の前に実行する場合が多い）
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- `--dft` 付きend-to-endワークフロー
+- [all](all.md) -- `--dft` 付き一気通貫ワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `dft` の完全な設定オプション
 - [用語集](glossary.md) -- DFT、SP（一点計算）の定義

@@ -506,7 +506,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option("-q", "--charge", type=int, required=True, help="Charge of the ML region.")
@@ -535,8 +535,8 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     help='Exchange-correlation functional and basis set as "FUNC/BASIS".',
 )
 @click.option("--max-cycle", type=int, default=DFT_KW["max_cycle"], show_default=True, help="Maximum SCF iterations.")
-@click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF convergence tolerance (Hartree).")
-@click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 9=ultrafine).")
+@click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF energy convergence threshold (ΔE in Hartree between SCF cycles).")
+@click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine).")
 @click.option(
     "-o", "--out-dir",
     type=click.Path(path_type=Path, dir_okay=True, file_okay=False),
@@ -592,8 +592,8 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+    help="Distance cutoff (Å) from ML region for MM point charges embedded in the PySCF QM Hamiltonian. "
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -609,7 +609,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (FD Hessian, for debugging).",
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -913,6 +913,14 @@ def cli(
             real_top = pmd.load_file(str(workspace.real_parm7))
             ml_set = set(workspace.selection_indices)
             mm_indices = [i for i in range(len(workspace.atoms_real)) if i not in ml_set]
+
+            _cutoff = calc_kw.get("embedcharge_cutoff", None)
+            if mm_indices and _cutoff is not None:
+                from scipy.spatial.distance import cdist
+                _ml_ref = workspace.atoms_real.get_positions()[sorted(ml_set)]
+                _mm_all = workspace.atoms_real.get_positions()[mm_indices]
+                _dists = cdist(_mm_all, _ml_ref).min(axis=1)
+                mm_indices = [mm_indices[j] for j in range(len(mm_indices)) if _dists[j] <= _cutoff]
 
             if mm_indices:
                 mm_coords = workspace.atoms_real.get_positions()[mm_indices]

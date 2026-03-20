@@ -75,7 +75,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.spin` を上書き。 | `1` |
 | `--max-cycles INT` | IRC ステップの最大数。`irc.max_cycles` を上書き。 | `125` |
-| `--step-size FLOAT` | 質量加重座標でのステップ長。`irc.step_length` を上書き。 | `0.10` |
+| `--step-size FLOAT` | ステップ長（Bohr、非質量加重デカルト座標）。`irc.step_length` を上書き。 | `0.10` |
 | `--root INT` | 初期変位の虚振動数モードインデックス。`irc.root` を上書き。 | `0` |
 | `--forward/--no-forward` | 正方向 IRC を実行。`irc.forward` を上書き。 | `True` |
 | `--backward/--no-backward` | 逆方向 IRC を実行。`irc.backward` を上書き。 | `True` |
@@ -156,7 +156,7 @@ irc:
  rms_grad_thresh: 0.001            # RMS 勾配収束閾値
  hard_rms_grad_thresh: null        # ハード RMS 勾配停止
  energy_thresh: 0.000001           # エネルギー変化閾値
- imag_below: 0.0                   # 虚数振動数カットオフ
+ imag_below: 0.0                   # 虚振動数カットオフ
  force_inflection: true            # 変曲点検出を強制
  check_bonds: false                # 伝播中の結合チェック
  out_dir: ./result_irc/            # 出力ディレクトリ
@@ -176,8 +176,8 @@ irc:
 - [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [tsopt](tsopt.md) -- IRC 実行前に TS を最適化
-- [freq](freq.md) -- TS 候補が 1 つの虚数振動数を持つことを検証; IRC 端点を解析
+- [freq](freq.md) -- TS 候補が 1 つの虚振動数を持つことを検証; IRC 端点を解析
 - [opt](opt.md) -- IRC 端点を真の極小に最適化
-- [all](all.md) -- tsopt の後に IRC を実行するend-to-endワークフロー
+- [all](all.md) -- tsopt の後に IRC を実行する一気通貫ワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `irc` の完全な設定オプション
 - [用語集](glossary.md) -- IRC（固有反応座標）の定義

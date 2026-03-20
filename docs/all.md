@@ -2,7 +2,7 @@
 
 ## Overview
 
-> **Summary:** End-to-end enzymatic reaction workflow -- active-site extraction, ML/MM layer assignment, MM topology preparation, optional staged scan, MEP search (GSM) on full-system layered PDBs, with optional TS optimization, pseudo-IRC, thermochemistry, DFT, and DFT//MLIP diagrams.
+> **Summary:** End-to-end enzymatic reaction workflow -- active-site extraction, ML/MM layer assignment, MM topology preparation, optional staged scan, MEP search (GSM) on full-system layered PDBs, with optional TS optimization, EulerPC IRC, thermochemistry, DFT, and DFT//MLIP diagrams.
 
 `mlmm all` runs a one-shot pipeline that operates on full-system layered PDBs with ML/MM. It supports three modes:
 
@@ -10,7 +10,7 @@
 - **Single-structure + staged scan** -- Provide one PDB plus `--scan-lists`. The scan generates intermediate/product candidates that become MEP endpoints.
   - One `--scan-lists` literal runs a single scan stage.
   - Multiple stages are passed as multiple values after a single `--scan-lists` flag.
-- **TSOPT-only** -- Provide a single PDB, omit `--scan-lists`, and set `--tsopt`. The tool runs TS optimization on the layered full-system PDB, performs pseudo-IRC, minimizes both ends, and builds energy diagrams.
+- **TSOPT-only** -- Provide a single PDB, omit `--scan-lists`, and set `--tsopt`. The tool runs TS optimization on the layered full-system PDB, performs EulerPC IRC, minimizes both ends, and builds energy diagrams.
 
 ```{important}
 `--tsopt` produces **TS candidates**. `all` automatically runs IRC and freq for validation, but always inspect the results (imaginary mode + endpoint connectivity) before mechanistic interpretation.
@@ -123,7 +123,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
    - When you have ample VRAM available, setting `--hessian-calc-mode` to `Analytical` is strongly recommended.
 
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
-   - Skips steps (4)-(5) and runs `tsopt` on the layered full-system PDB, does a pseudo-IRC and minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//MLIP diagrams.
+   - Skips steps (4)-(5) and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC and minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//MLIP diagrams.
    - In this mode only, the IRC endpoint with **higher energy** is adopted as the reactant (R).
 
 ### Charge and spin precedence
@@ -200,7 +200,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT/post-IRC endpoint optimizations (`grad` -> Dimer/LBFGS, `hess` -> RS-I-RFO/RFO). | `hess` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
-| `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
+| `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `False` |
 | `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.yaml). Both modes support Stage 4 (TSOPT/thermo/DFT). | `True` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
@@ -228,7 +228,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--tsopt/--no-tsopt` | Run TS optimization + pseudo-IRC per reactive segment. | `False` |
+| `--tsopt/--no-tsopt` | Run TS optimization + EulerPC IRC per reactive segment. | `False` |
 | `--thermo/--no-thermo` | Run vibrational analysis (`freq`) on R/TS/P. | `False` |
 | `--dft/--no-dft` | Run single-point DFT on R/TS/P. | `False` |
 | `--flatten/--no-flatten` | Enable extra-imaginary-mode flattening in `tsopt`. | `False` |

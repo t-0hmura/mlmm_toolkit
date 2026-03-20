@@ -411,7 +411,7 @@ RS-I-RFO TS optimization settings (`tsopt --opt-mode hess`).
 
 ```yaml
 rsirfo:
- thresh: baker # RS-IRFO convergence preset
+ thresh: baker # RS-I-RFO convergence preset
  max_cycles: 10000 # Iteration cap
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum accepted step norm
@@ -433,7 +433,7 @@ rsirfo:
  trust_update: true # Trust region update
  trust_min: 0.0001 # Minimum trust radius
  trust_max: 0.30 # Maximum trust radius
- hessian_recalc: 200 # Hessian rebuild cadence
+ hessian_recalc: 500 # Hessian rebuild cadence
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
  out_dir: ./result_tsopt/ # Output directory
 ```

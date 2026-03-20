@@ -98,7 +98,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad\|hess]` | 単一構造オプティマイザープリセット（`grad` = LBFGS、`hess` = RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
-| `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `True` |
+| `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `False` |
 | `--align / --no-align` | 事前最適化後に入力を剛体アライメント。 | 有効 |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau_loose`） |
 | `--dump/--no-dump` | オプティマイザーダンプを保存。 | `False` |
@@ -151,5 +151,5 @@ YAML ルートはマッピングでなければなりません。受け付ける
 
 - [path-opt](path_opt.md) -- シングルパス MEP 最適化（再帰的精密化なし）
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- 内部で path-search を呼び出すend-to-endワークフロー
+- [all](all.md) -- 内部で path-search を呼び出す一気通貫ワークフロー
 - [trj2fig](trj2fig.md) -- MEP 軌跡からエネルギープロファイルをプロット

@@ -79,7 +79,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "aimnet2_model": "aimnet2",
     # ML Hessian mode
     "ml_hessian_mode": "FiniteDifference",
-    "hessian_calc_mode": "FiniteDifference",  # Alias for ml_hessian_mode
+    "hessian_calc_mode": "FiniteDifference",  # Override for ml_hessian_mode (takes precedence when not None)
     "out_hess_torch": True,
     "H_double": False,
     "ml_device": "auto",
@@ -91,11 +91,11 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "mm_threads": 16,
     "mm_fd": True,
     "mm_fd_dir": None,
-    "mm_fd_delta": 1e-3,         # Legacy parameter (retained)
+    "mm_fd_delta": 1e-3,         # Displacement step for OpenMM FD Hessian (Å)
     "symmetrize_hessian": True,  # Symmetrize final Hessian as 0.5*(H+H^T)
     "print_timing": True,        # Print ML/MM Hessian timing breakdown
     "print_vram": True,          # Print CUDA VRAM usage (peak) during Hessian
-    "return_partial_hessian": False,
+    "return_partial_hessian": True,
     "freeze_atoms": [],
     # 3-layer B-factor configuration:
     #   ML region (B=0)
@@ -448,7 +448,7 @@ RSIRFO_KW: Dict[str, Any] = {
     "max_energy_incr": None,
     "hessian_update": "bofill",
     "hessian_init": "calc",
-    "hessian_recalc": 200,    # ONIOM: more frequent recalc (RFO default: 500)
+    "hessian_recalc": 500,
     "small_eigval_thresh": 1e-8,
     "out_dir": OUT_DIR_TSOPT,
 }

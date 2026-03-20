@@ -121,9 +121,13 @@ class EulerPC(IRC):
 
         if self.cur_cycle > 0:
             if self.hessian_recalc and (self.cur_cycle % self.hessian_recalc == 0):
-                self.mw_hessian = self.geometry.mw_hessian
+                H_new = self.geometry.hessian
+                act_n = len(self._act_dofs)
+                if H_new.shape[0] != act_n:
+                    H_new = H_new[self._act_dofs][:, self._act_dofs]
+                self.mw_hessian = self._mw_hessian_active(H_new)
                 self.geometry.clear()
-                self.log("Calculated excact hessian")
+                self.log("Calculated exact hessian")
             else:
                 dx = self._to_active_vec(self.mw_coords - self.irc_mw_coords[-2])
                 dg = mw_grad_act - self._to_active_vec(self.irc_mw_gradients[-2])

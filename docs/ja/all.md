@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **要約:** end-to-endの酵素反応ワークフロー -- 活性部位抽出、ML/MM レイヤー割り当て、MM トポロジー準備、任意の段階的スキャン、全系レイヤード PDB での MEP 探索（GSM）、任意の TS 最適化、擬似 IRC、熱化学、DFT、DFT//UMA ダイアグラム。
+> **要約:** end-to-endの酵素反応ワークフロー -- 活性部位抽出、ML/MM レイヤー割り当て、MM トポロジー準備、任意の段階的スキャン、全系レイヤード PDB での MEP 探索（GSM）、任意の TS 最適化、EulerPC IRC、熱化学、DFT、DFT//MLIP ダイアグラム。
 
 `mlmm all` は全系レイヤード PDB 上で ML/MM を用いるワンショットパイプラインを実行します。以下の 3 つのモードをサポートしています:
 
@@ -10,7 +10,7 @@
 - **単一構造 + 段階的スキャン** -- 1 つの PDB と `--scan-lists` を提供します。スキャンで中間体/生成物候補を生成し、MEP の端点として使用します。
   - 1 つの `--scan-lists` リテラルで単一のスキャンステージを実行します。
   - 複数ステージは 1 つの `--scan-lists` フラグの後に複数の値として渡します（フラグ自体は繰り返せません）。
-- **TSOPT のみ** -- 1 つの PDB を提供し、`--scan-lists` を省略して `--tsopt` を設定します。レイヤード全系 PDB で TS 最適化を実行し、擬似 IRC、両端の極小化、エネルギーダイアグラムの構築を行います。
+- **TSOPT のみ** -- 1 つの PDB を提供し、`--scan-lists` を省略して `--tsopt` を設定します。レイヤード全系 PDB で TS 最適化を実行し、EulerPC IRC、両端の極小化、エネルギーダイアグラムの構築を行います。
 
 ```{important}
 `--tsopt` は **TS 候補**を生成します。`all` は検証のために IRC と freq を自動実行しますが、機構解釈の前に必ず結果（虚振動数モード + 端点の結合性）を確認してください。
@@ -118,12 +118,12 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
    - セグメントごとの軌跡、全 MEP 軌跡、`summary.yaml` が `<out-dir>/path_search/` に書き出されます。
    - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
-   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//UMA Gibbs ダイアグラムも生成されます。
+   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//MLIP Gibbs ダイアグラムも生成されます。
    - 共有の上書き: `--opt-mode`、`--opt-mode-post`（TSOPT と IRC 後 endpoint-opt のモード上書き）、`--flatten/--no-flatten`、`--hessian-calc-mode`、`--tsopt-max-cycles`、`--tsopt-out-dir`、`--freq-*`、`--dft-*`。
    - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
 
 6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
-   - ステップ (4)-(5) をスキップし、レイヤード全系 PDB で `tsopt` を実行し、擬似 IRC と両端の極小化を行い、R-TS-P の ML/MM エネルギーダイアグラムを構築し、任意で Gibbs、DFT、DFT//UMA ダイアグラムを追加します。
+   - ステップ (4)-(5) をスキップし、レイヤード全系 PDB で `tsopt` を実行し、EulerPC IRC と両端の極小化を行い、R-TS-P の ML/MM エネルギーダイアグラムを構築し、任意で Gibbs、DFT、DFT//MLIP ダイアグラムを追加します。
    - このモードでのみ、**より高いエネルギー**の IRC 端点が反応物 (R) として採用されます。
 
 ### 電荷とスピンの優先順位
@@ -204,7 +204,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/LBFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
-| `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
+| `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `False` |
 | `--refine-path/--no-refine-path` | True の場合は再帰的 `path-search`、False の場合は `path-opt` セグメントチェーン（単一パス GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.yaml）。両モードとも Stage 4（TSOPT/thermo/DFT）対応。 | `True` |
 | `--hessian-calc-mode CHOICE` | ML/MM ヘシアンモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。無効時は下流ツールで `--model-pdb` または `--model-indices` が必要。 | `True` |
@@ -228,7 +228,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化 + 擬似 IRC を実行。 | `False` |
+| `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化 + EulerPC IRC を実行。 | `False` |
 | `--thermo/--no-thermo` | R/TS/P で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | R/TS/P で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
@@ -317,7 +317,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 ログは番号付きセクションで構成されています:
 - **[1] グローバル MEP 概要** -- イメージ/セグメント数、MEP 軌跡プロットパス、集約 MEP エネルギーダイアグラム。
 - **[2] セグメントレベル MEP サマリー（UMA 経路）** -- セグメントごとの障壁、反応エネルギー、結合変化サマリー。
-- **[3] セグメントごとの後処理（TSOPT / Thermo / DFT）** -- セグメントごとの TS 虚数振動数チェック、IRC 出力、エネルギーテーブル。
+- **[3] セグメントごとの後処理（TSOPT / Thermo / DFT）** -- セグメントごとの TS 虚振動数チェック、IRC 出力、エネルギーテーブル。
 - **[4] エネルギーダイアグラム（概要）** -- MEP/UMA/Gibbs/DFT シリーズのダイアグラムテーブルと任意のクロスメソッドサマリーテーブル。
 - **[5] 出力ディレクトリ構造** -- インラインアノテーション付きの生成ファイルのコンパクトツリー。
 

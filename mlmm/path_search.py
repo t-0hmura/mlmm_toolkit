@@ -711,7 +711,7 @@ def _maybe_bridge_segments(
     rmsd = _kabsch_rmsd(np.array(tail_g.coords3d), np.array(head_g.coords3d), align=False)
     if rmsd <= rmsd_thresh:
         return None
-    click.echo(f"[{tag}] Gap detected between segments (RMSD={rmsd:.4e} Å) — bridging via {mep_mode_kind.upper()}.")
+    click.echo(f"[{tag}] Gap detected between segments (RMSD={rmsd:.4e} bohr) — bridging via {mep_mode_kind.upper()}.")
     return _run_mep_between(
         tail_g, head_g, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=f"{tag}_bridge",
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
@@ -1178,7 +1178,7 @@ def _build_multistep_path(
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option(
@@ -1300,9 +1300,9 @@ def _build_multistep_path(
 @click.option(
     "--preopt/--no-preopt",
     "pre_opt",
-    default=True,
+    default=False,
     show_default=True,
-    help="If False, skip initial single-structure optimizations of inputs."
+    help="If True, run initial single-structure optimizations of inputs."
 )
 # Input alignment switch (default True)
 @click.option(
@@ -1351,7 +1351,7 @@ def _build_multistep_path(
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -1367,7 +1367,7 @@ def _build_multistep_path(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (FD Hessian, for debugging).",
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
 )
 @click.option(
     "--cmap/--no-cmap",

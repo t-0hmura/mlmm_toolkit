@@ -2,6 +2,10 @@
 
 This module keeps backward compatibility for legacy value-style boolean flags:
 `--flag True/False`.
+
+Also provides option-name case normalization: ``normalize_argv_option_names``
+lowercases long option names (``--Add-LinkH`` → ``--add-linkh``) so that flag
+input is case-insensitive while the canonical form stays lowercase.
 """
 
 from __future__ import annotations
@@ -9,6 +13,23 @@ from __future__ import annotations
 
 _BOOL_TRUE_LITERALS = {"1", "true", "t", "yes", "y", "on"}
 _BOOL_FALSE_LITERALS = {"0", "false", "f", "no", "n", "off"}
+
+
+def normalize_argv_option_names(args: list[str]) -> list[str]:
+    """Lowercase long option names, leaving values unchanged.
+
+    ``--Add-LinkH`` → ``--add-linkh``
+    ``--include-H2O=True`` → ``--include-h2o=True``
+    Short flags (``-v``) and positional arguments are passed through unchanged.
+    """
+    result: list[str] = []
+    for token in args:
+        if token.startswith("--"):
+            name, sep, value = token.partition("=")
+            result.append(name.lower() + sep + value)
+        else:
+            result.append(token)
+    return result
 
 
 def _parse_bool_literal(raw: str) -> bool | None:
@@ -151,6 +172,8 @@ def normalize_bool_argv(
                     legacy_used = True
                     if not parsed:
                         normalized.append(positive_name)
+                    else:
+                        normalized.append(name)
                 i = next_i
                 continue
 

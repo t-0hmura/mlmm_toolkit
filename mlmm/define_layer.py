@@ -400,7 +400,7 @@ def define_layers(
     "model_indices_str",
     type=str,
     default=None,
-    help="Comma-separated atom indices for ML region (e.g., '0,1,2,3' or '1-10,15,20-25'). "
+    help="Comma-separated atom indices for ML region (e.g., '1,2,3,4' or '1-10,15,20-25'). "
          "Takes precedence over --model-pdb.",
 )
 @click.option(

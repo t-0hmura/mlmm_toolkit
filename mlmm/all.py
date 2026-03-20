@@ -228,7 +228,7 @@ def _write_ml_region_definition(pocket_pdb: Path, dest: Path) -> Path:
     """
     Copy ``pocket_pdb`` to ``dest`` for downstream ML/MM commands.
 
-    The copy preserves whatever link-hydrogen policy was used during extraction; set ``--add-linkH False``
+    The copy preserves whatever link-hydrogen policy was used during extraction; set ``--add-linkh False``
     if you need a link-free ML-region definition.
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1545,11 +1545,11 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Inclusion cutoff (Å) around substrate atoms.")
 @click.option("--radius-het2het", type=float, default=0.0, show_default=True,
               help="Independent hetero–hetero cutoff (Å) for non‑C/H pairs.")
-@click.option("--include-H2O", "--include-h2o", "include_h2o", type=click.BOOL, default=True, show_default=True,
+@click.option("--include-h2o", "include_h2o", type=click.BOOL, default=True, show_default=True,
               help="Include waters (HOH/WAT/TIP3/SOL) in the pocket.")
 @click.option("--exclude-backbone", "exclude_backbone", type=click.BOOL, default=True, show_default=True,
               help="Remove backbone atoms on non‑substrate amino acids (with PRO/HYP safeguards).")
-@click.option("--add-linkH", "add_linkh", type=click.BOOL, default=False, show_default=True,
+@click.option("--add-linkh", "add_linkh", type=click.BOOL, default=False, show_default=True,
               help="Add link hydrogens for severed bonds (carbon-only) in pockets.")
 @click.option("--selected-resn", type=str, default="", show_default=True,
               help="Force-include residues (comma/space separated; chain/insertion codes allowed).")
@@ -1619,8 +1619,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default="hess",
     show_default=True,
     help=(
-        "Optimizer mode override for TSOPT/post-IRC endpoint optimizations. "
-        "If unset, uses --opt-mode when explicitly provided; otherwise falls back to tsopt defaults."
+        "Optimizer mode for TSOPT and post-IRC endpoint optimizations. "
+        "Takes precedence over --opt-mode for these stages."
     ),
 )
 @click.option("--dump", type=click.BOOL, default=False, show_default=True,
@@ -1661,8 +1661,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Print resolved configuration and continue execution.")
 @click.option("--dry-run/--no-dry-run", "dry_run", default=False, show_default=True,
               help="Validate options and print the execution plan without running any stage.")
-@click.option("--preopt", "pre_opt", type=click.BOOL, default=True, show_default=True,
-              help="If False, skip initial single-structure optimizations of the pocket inputs.")
+@click.option("--preopt", "pre_opt", type=click.BOOL, default=False, show_default=True,
+              help="If True, run initial single-structure optimizations of the pocket inputs.")
 @click.option("--hessian-calc-mode",
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
               default=None,
@@ -1672,12 +1672,12 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20) in downstream tools. "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20) in downstream tools. "
          "If disabled, downstream tools require --model-pdb or --model-indices.",
 )
 # ===== Post-processing toggles =====
 @click.option("--tsopt", "do_tsopt", type=click.BOOL, default=False, show_default=True,
-              help="TS optimization + pseudo-IRC per reactive segment (or TSOPT-only mode for single-structure), and build energy diagrams.")
+              help="TS optimization + EulerPC IRC per reactive segment (or TSOPT-only mode for single-structure), and build energy diagrams.")
 @click.option("--thermo", "do_thermo", type=click.BOOL, default=False, show_default=True,
               help="Run freq on (R,TS,P) per reactive segment (or TSOPT-only mode) and build Gibbs free-energy diagram (MLIP).")
 @click.option("--dft", "do_dft", type=click.BOOL, default=False, show_default=True,
@@ -1776,7 +1776,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -1792,7 +1792,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (FD Hessian, for debugging).",
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -2132,9 +2132,9 @@ def cli(
                 output=[str(p) for p in pocket_outputs],
                 radius=float(radius),
                 radius_het2het=float(radius_het2het),
-                include_H2O=bool(include_h2o),
+                include_h2o=bool(include_h2o),
                 exclude_backbone=bool(exclude_backbone),
-                add_linkH=bool(add_linkh),
+                add_linkh=bool(add_linkh),
                 selected_resn=selected_resn or "",
                 ligand_charge=ligand_charge,
                 verbose=bool(verbose),
