@@ -1605,8 +1605,10 @@ def _run_microiter_tsopt(
 ) -> None:
     """Run macro/micro alternating TS optimization (Gaussian 16-style microiteration).
 
-    Macro step: 1 RS-I-RFO step moving only ML region (full ONIOM force).
-    Micro step: LBFGS relaxing MM region with MM-only forces until convergence.
+    Macro step: 1 RS-I-RFO step moving ML atoms + link-atom MM parents (full ONIOM force).
+    Micro step: LBFGS relaxing remaining MM atoms with MM-only forces until convergence.
+    Link-atom MM parents are included in the macro step to maintain consistency
+    of the link atom position across macro/micro boundaries.
     """
     from .freq import _collect_layer_atom_sets
 
@@ -1620,13 +1622,26 @@ def _run_microiter_tsopt(
         click.echo("[microiter] WARNING: No ML atoms found. Falling back to standard RS-I-RFO.")
         return None
 
+    # Identify link-atom MM parent atoms (boundary atoms that should move
+    # with ML atoms in the macro step to keep link atom positions consistent).
+    link_mm_parents: set[int] = set()
+    temp_calc = mlmm(**dict(calc_cfg))
+    calc_core = temp_calc.core if hasattr(temp_calc, "core") else temp_calc
+    for _ml_1, mm_1 in getattr(calc_core, "mlmm_links", []):
+        link_mm_parents.add(mm_1 - 1)  # mlmm_links uses 1-based indices
+    del temp_calc
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     n_atoms = len(geometry.atoms)
     all_indices = list(range(n_atoms))
     mm_indices = sorted(set(all_indices) - set(ml_indices))
 
-    # Freeze lists: for macro step, freeze all MM; for micro step, freeze ML
-    macro_freeze = sorted(set(mm_indices) | set(frozen_mm))
-    micro_freeze = sorted(set(ml_indices) | set(frozen_mm))
+    # Macro step: optimize ML atoms + link MM parents; freeze remaining MM.
+    # Micro step: optimize movable MM except link MM parents; freeze ML + link MM parents.
+    macro_active = set(ml_indices) | link_mm_parents
+    macro_freeze = sorted(set(all_indices) - macro_active)
+    micro_freeze = sorted(set(ml_indices) | link_mm_parents | set(frozen_mm))
 
     max_cycles = int(opt_cfg.get("max_cycles", 10000))
     macro_thresh = thresh if thresh is not None else rsirfo_cfg.get("thresh", "baker")
@@ -1635,6 +1650,7 @@ def _run_microiter_tsopt(
 
     click.echo(
         f"[microiter] ML atoms: {len(ml_indices)}, "
+        f"Link MM parents: {len(link_mm_parents)}, "
         f"Movable MM atoms: {len(movable_mm)}, "
         f"Frozen MM atoms: {len(frozen_mm)}"
     )
@@ -1643,7 +1659,7 @@ def _run_microiter_tsopt(
     # Create ONIOM calculator (shared core for MM-only calc)
     macro_calc_cfg = dict(calc_cfg)
     macro_calc_cfg["freeze_atoms"] = macro_freeze
-    macro_calc_cfg["hess_mm_atoms"] = []   # macro step は ML-only Hessian
+    macro_calc_cfg["hess_mm_atoms"] = sorted(link_mm_parents)  # ML + link MM parents in Hessian
     macro_calc = mlmm(**macro_calc_cfg)
     mm_calc = mlmm_mm_only(macro_calc.core, freeze_atoms=micro_freeze)
 
