@@ -631,8 +631,8 @@ def cli(
             click.echo(pretty_block("opt", echo_opt))
             # Show only lbfgs-specific settings, not inherited from opt_cfg
             echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
-            click.echo(pretty_block("lbfgs", echo_lbfgs))
-            click.echo(pretty_block("bias", bias_cfg))
+            click.echo(pretty_block("lbfgs", echo_lbfgs, defaults=LBFGS_KW))
+            click.echo(pretty_block("bias", bias_cfg, defaults=_BIAS_KW_DEFAULT))
 
             pdb_atom_meta: List[Dict[str, Any]] = []
             if source_path.suffix.lower() == ".pdb":

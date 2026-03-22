@@ -1093,9 +1093,9 @@ def cli(
         if mep_mode_kind == "gsm":
             click.echo(pretty_block("gs", echo_gs))
             click.echo(pretty_block("stopt", echo_stopt))
-            click.echo(pretty_block("lbfgs", echo_lbfgs))
+            click.echo(pretty_block("lbfgs", echo_lbfgs, defaults=LBFGS_KW))
         elif mep_mode_kind == "dmf":
-            click.echo(pretty_block("dmf", dmf_cfg))
+            click.echo(pretty_block("dmf", dmf_cfg, defaults=_DMF_KW_DEFAULT))
         click.echo(
             pretty_block(
                 "run_flags",
