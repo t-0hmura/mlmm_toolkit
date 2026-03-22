@@ -704,6 +704,8 @@ def apply_layer_freeze_constraints(
     echo_fn: Optional[Callable[[str], None]] = None,
 ) -> List[int]:
     """Merge frozen-layer atoms into geometry/calculator freeze lists."""
+    if echo_fn is not None:
+        echo_fn("")  # blank line after layer detection summary
     base_freeze = normalize_freeze_atoms(geom_cfg.get("freeze_atoms"))
     frozen_from_layer = normalize_freeze_atoms((layer_info or {}).get("frozen_indices", []))
 
