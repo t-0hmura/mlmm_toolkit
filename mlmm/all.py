@@ -128,7 +128,7 @@ def _run_cli_main(
     label = prefix or cmd_name
     try:
         sys.argv = ["mlmm", cmd_name] + list(args)
-        _echo("\n")
+        _echo("")
         cli_obj.main(args=list(args), standalone_mode=False)
     except SystemExit as e:
         code = getattr(e, "code", 1)
@@ -149,7 +149,7 @@ def _run_cli_main(
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        _echo("\n")
+        _echo("")
 
 
 # -----------------------------
@@ -2750,8 +2750,7 @@ def cli(
         if use_cmap is not None:
             scan_args.extend(["--cmap" if use_cmap else "--no-cmap"])
 
-        _echo("[all] Invoking scan with arguments:")
-        _echo("  " + " ".join(scan_args))
+        _echo("[all] mlmm scan " + " ".join(scan_args))
 
         _run_cli_main("scan", _scan_cli.cli, scan_args, on_nonzero="raise", on_exception="raise", prefix="all")
 
@@ -2859,8 +2858,7 @@ def cli(
         if use_cmap is not None:
             ps_args.extend(["--cmap" if use_cmap else "--no-cmap"])
 
-        _echo("[all] Invoking path_search with arguments:")
-        _echo("  " + " ".join(ps_args))
+        _echo("[all] mlmm path-search " + " ".join(ps_args))
 
         _run_cli_main("path_search", _path_search.cli, ps_args, on_nonzero="raise", on_exception="raise", prefix="all")
     else:
@@ -2914,8 +2912,7 @@ def cli(
             if use_cmap is not None:
                 po_args.extend(["--cmap" if use_cmap else "--no-cmap"])
 
-            _echo(f"[all] Invoking path_opt for pair {pair_idx} with arguments:")
-            _echo("  " + " ".join(po_args))
+            _echo(f"[all] mlmm path-opt " + " ".join(po_args))
             _run_cli_main("path_opt", _path_opt.cli, po_args, on_nonzero="raise", on_exception="raise", prefix="all")
 
             # --- Post-processing per segment ---

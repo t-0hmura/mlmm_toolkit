@@ -661,7 +661,7 @@ def cli(
             # Show only lbfgs-specific settings, not inherited from opt_cfg
             echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
             click.echo(pretty_block("geom", echo_geom))
-            click.echo(pretty_block("calc", echo_calc))
+            click.echo(pretty_block("calc", echo_calc, defaults=MLMM_CALC_KW))
             click.echo(pretty_block("opt", echo_opt))
             click.echo(pretty_block("lbfgs", echo_lbfgs))
             click.echo(pretty_block("bias", bias_cfg))

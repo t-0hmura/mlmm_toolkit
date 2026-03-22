@@ -71,6 +71,7 @@ from .defaults import (
     BFACTOR_MOVABLE_MM,
     DMF_KW as _DMF_KW_DEFAULT,
     GS_KW as _GS_KW_DEFAULT,
+    MLMM_CALC_KW,
     STOPT_KW as _STOPT_KW_DEFAULT,
 )
 
@@ -1088,7 +1089,7 @@ def cli(
         echo_lbfgs = strip_inherited_keys({**lbfgs_cfg, "out_dir": stopt_cfg.get("out_dir")}, LBFGS_KW, mode="same")
 
         click.echo(pretty_block("geom", echo_geom))
-        click.echo(pretty_block("calc", echo_calc))
+        click.echo(pretty_block("calc", echo_calc, defaults=MLMM_CALC_KW))
         if mep_mode_kind == "gsm":
             click.echo(pretty_block("gs", echo_gs))
             click.echo(pretty_block("stopt", echo_stopt))

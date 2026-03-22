@@ -39,7 +39,7 @@ from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import ANG2BOHR, AU2KCALPERMOL
 
 from .mlmm_calc import mlmm
-from .defaults import BIAS_KW as _BIAS_KW_DEFAULT
+from .defaults import BIAS_KW as _BIAS_KW_DEFAULT, MLMM_CALC_KW
 from .opt import (
     GEOM_KW as _OPT_GEOM_KW,
     CALC_KW as _OPT_CALC_KW,
@@ -626,7 +626,7 @@ def cli(
 
             click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
             echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
-            click.echo(pretty_block("calc", echo_calc))
+            click.echo(pretty_block("calc", echo_calc, defaults=MLMM_CALC_KW))
             echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
             click.echo(pretty_block("opt", echo_opt))
             # Show only lbfgs-specific settings, not inherited from opt_cfg

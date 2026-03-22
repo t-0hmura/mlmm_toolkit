@@ -552,8 +552,12 @@ _DEFAULT_GROUP_KWARGS = {
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.version_option(version=__version__, prog_name="mlmm")
-def cli() -> None:
-    click.echo(f"mlmm ver. {__version__}\n")
+@click.option("--verbose/--no-verbose", "verbose_config", default=False,
+              help="Show full config dump (default: only non-default values).")
+def cli(verbose_config: bool) -> None:
+    from .utils import set_verbose_config
+    set_verbose_config(verbose_config)
+    click.echo(f"mlmm-toolkit ver. {__version__}\n")
 
 
 # Pysisyphus log suppression is handled by DefaultGroup._silence_pysisyphus_loggers()

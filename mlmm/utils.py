@@ -287,12 +287,55 @@ def unbiased_energy_hartree(geom, base_calc) -> float:
         return float("nan")
 
 
-def pretty_block(title: str, content: Dict[str, Any]) -> str:
+def pretty_block(
+    title: str,
+    content: Dict[str, Any],
+    *,
+    defaults: Dict[str, Any] | None = None,
+) -> str:
+    """Return a YAML-formatted block with an underlined title.
+
+    Parameters
+    ----------
+    defaults : dict, optional
+        When *verbose mode* is off (the default) and *defaults* is given,
+        only keys whose values differ from *defaults* are shown.
     """
-    Return a YAML-formatted block with an underlined title.
-    """
+    if defaults is not None and not _verbose_config:
+        content = {k: v for k, v in content.items() if k not in defaults or defaults.get(k) != v}
     body = yaml.safe_dump(_to_yaml_safe(content), sort_keys=False, allow_unicode=True).strip()
     return f"{title}\n" + "-" * len(title) + "\n" + (body if body else "(empty)") + "\n"
+
+
+# Module-level verbose flag for config dumps.
+_verbose_config: bool = False
+
+
+def set_verbose_config(verbose: bool) -> None:
+    """Set the module-level verbose flag for config dumps."""
+    global _verbose_config
+    _verbose_config = verbose
+
+
+# Module-level base directory for relative path display.
+_base_dir: Path | None = None
+
+
+def set_base_dir(path: Path | str | None) -> None:
+    """Set the base directory for relative path display."""
+    global _base_dir
+    _base_dir = Path(path).resolve() if path else None
+
+
+def rel_display(path: Path | str) -> str:
+    """Return a display string for *path*, relative to the base dir when possible."""
+    p = Path(path)
+    if _base_dir is not None:
+        try:
+            return str(p.resolve().relative_to(_base_dir))
+        except ValueError:
+            pass
+    return str(p)
 
 
 def _to_yaml_safe(value: Any) -> Any:
@@ -331,9 +374,11 @@ _BACKEND_KEY_PREFIXES: Dict[str, tuple] = {
 def filter_calc_for_echo(calc_cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Remove backend-specific keys that are irrelevant for the active backend.
 
-    Also hides xTB/embedcharge keys when embedcharge is disabled.
+    Also hides xTB/embedcharge keys when embedcharge is disabled,
+    and freeze_atoms (already shown in the geom block).
     """
     cfg = dict(calc_cfg)
+    cfg.pop("freeze_atoms", None)
     active = cfg.get("backend", "uma")
 
     # Remove keys belonging to inactive ML backends
