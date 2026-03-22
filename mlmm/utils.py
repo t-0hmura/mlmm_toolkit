@@ -304,7 +304,7 @@ def pretty_block(
     if defaults is not None and not _verbose_config:
         content = {k: v for k, v in content.items() if k not in defaults or defaults.get(k) != v}
     body = yaml.safe_dump(_to_yaml_safe(content), sort_keys=False, allow_unicode=True).strip()
-    return f"{title}\n" + "-" * len(title) + "\n" + (body if body else "(empty)") + "\n"
+    return f"\n{title}\n" + "-" * len(title) + "\n" + (body if body else "(empty)") + "\n"
 
 
 # Module-level verbose flag for config dumps.
