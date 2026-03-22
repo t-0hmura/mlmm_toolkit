@@ -2,6 +2,7 @@
 
 import logging
 import warnings
+from pathlib import Path
 
 import click
 
@@ -555,8 +556,9 @@ _DEFAULT_GROUP_KWARGS = {
 @click.option("--verbose/--no-verbose", "verbose_config", default=False,
               help="Show full config dump (default: only non-default values).")
 def cli(verbose_config: bool) -> None:
-    from .utils import set_verbose_config
+    from .utils import set_verbose_config, set_base_dir
     set_verbose_config(verbose_config)
+    set_base_dir(Path.cwd())
     click.echo(f"mlmm-toolkit ver. {__version__}\n")
 
 

@@ -303,8 +303,13 @@ def pretty_block(
     """
     if defaults is not None and not _verbose_config:
         content = {k: v for k, v in content.items() if k not in defaults or defaults.get(k) != v}
+    # Shorten absolute paths to relative when a base directory is set
+    if not content:
+        return ""  # suppress empty blocks entirely
+    if _base_dir is not None:
+        content = _shorten_paths(content)
     body = yaml.safe_dump(_to_yaml_safe(content), sort_keys=False, allow_unicode=True).strip()
-    return f"\n{title}\n" + "-" * len(title) + "\n" + (body if body else "(empty)") + "\n"
+    return f"{title}\n" + "-" * len(title) + "\n" + body + "\n"
 
 
 # Module-level verbose flag for config dumps.
@@ -336,6 +341,17 @@ def rel_display(path: Path | str) -> str:
         except ValueError:
             pass
     return str(p)
+
+
+def _shorten_paths(content: Dict[str, Any]) -> Dict[str, Any]:
+    """Replace absolute path strings with relative paths in a config dict."""
+    out: Dict[str, Any] = {}
+    for k, v in content.items():
+        if isinstance(v, str) and v.startswith("/") and ("/" in v[1:]):
+            out[k] = rel_display(v)
+        else:
+            out[k] = v
+    return out
 
 
 def _to_yaml_safe(value: Any) -> Any:
