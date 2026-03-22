@@ -54,6 +54,7 @@ calc:
  model_charge: 0 # ML 領域の電荷 (CLI -q で上書き)
  model_mult: 1 # ML 領域のスピン多重度 (CLI -m で上書き)
  link_mlmm: null # リンク原子ペアの明示指定 (null で自動検出)
+ link_atom_method: scaled    # リンク原子配置: "scaled" (g-factor) または "fixed" (1.09/1.01 Å)
  backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
  embedcharge: false # xTB 点電荷埋め込み補正 (CLI --embedcharge で有効化)
  embedcharge_step: 0.001 # 埋め込み補正の数値ヘシアンステップ (Å)

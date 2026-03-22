@@ -200,7 +200,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT/post-IRC endpoint optimizations (`grad` -> Dimer/LBFGS, `hess` -> RS-I-RFO/RFO). | `hess` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
-| `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `False` |
+| `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.yaml). Both modes support Stage 4 (TSOPT/thermo/DFT). | `True` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |

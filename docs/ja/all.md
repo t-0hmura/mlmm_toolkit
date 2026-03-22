@@ -204,7 +204,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/LBFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
-| `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `False` |
+| `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
 | `--refine-path/--no-refine-path` | True の場合は再帰的 `path-search`、False の場合は `path-opt` セグメントチェーン（単一パス GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.yaml）。両モードとも Stage 4（TSOPT/thermo/DFT）対応。 | `True` |
 | `--hessian-calc-mode CHOICE` | ML/MM ヘシアンモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。無効時は下流ツールで `--model-pdb` または `--model-indices` が必要。 | `True` |

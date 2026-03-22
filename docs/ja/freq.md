@@ -47,7 +47,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. **ML/MM 計算機の構築** -- ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のヘシアンを選択します。計算機は完全な 3N x 3N ヘシアンまたはアクティブ自由度のサブブロックを返す場合があります。
    - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
 2. **PHVA と TR 射影** -- 凍結原子がある場合、固有解析はアクティブ部分空間内で行われ、並進/回転モードがそこに射影されます。3N x 3N とアクティブブロックの両方のヘシアンが受け付けられ、振動数は cm^-1 で報告されます（負の値 = 虚数）。
-3. **アクティブ自由度モード** -- `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層, B=0）、`partial`（ML + Hessian 対象 MM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
+3. **アクティブ自由度モード** -- `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層, B=0）、`partial`（ML + MovableMM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
 4. **モードエクスポート** -- `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `_trj.xyz`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML デフォルトに合致します。
 5. **熱化学** -- `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（EE、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。CLI の圧力（atm）は内部で Pa に変換されます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。
 6. **デバイス選択** -- `ml_device="auto"` は CUDA が利用可能な場合にトリガーし、それ以外は CPU。内部の TR 射影/モード組み立ては転送を抑えるため同じデバイスで実行されます。

@@ -118,8 +118,8 @@ out_dir/ (default: ./result_tsopt/)
 ├── optimization_all_trj.xyz       # Concatenated Dimer segments (when --dump)
 ├── optimization_all.pdb           # PDB companion (when --dump and input was PDB)
 ├── vib/
-│   ├── imag_±XXXX.Xcm-1_trj.xyz  # Imaginary mode trajectory
-│   └── imag_±XXXX.Xcm-1.pdb      # Imaginary mode PDB companion
+│   ├── imag_NN_±XXXX.XXcm-1_trj.xyz  # Imaginary mode trajectory
+│   └── imag_NN_±XXXX.XXcm-1.pdb      # Imaginary mode PDB companion
 └── .dimer_mode.dat                # Dimer orientation seed (light mode)
 ```
 

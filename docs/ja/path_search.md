@@ -97,7 +97,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `10` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--opt-mode [grad\|hess]` | 単一構造オプティマイザープリセット（`grad` = LBFGS、`hess` = RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
+| `--opt-mode [grad\|hess]` | 単一構造オプティマイザープリセット（`grad` = LBFGS、`hess` = RFO）。 | `grad` |
 | `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `False` |
 | `--align / --no-align` | 事前最適化後に入力を剛体アライメント。 | 有効 |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau_loose`） |

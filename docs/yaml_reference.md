@@ -56,6 +56,7 @@ calc:
  model_charge: 0 # Charge of the ML (model) region
  model_mult: 1 # Spin multiplicity of the ML (model) region
  link_mlmm: null # Link atom specification for ML/MM boundary
+ link_atom_method: scaled    # Link atom placement: "scaled" (g-factor) or "fixed" (1.09/1.01 Å)
 
  # --- MLIP backend selection ---
  backend: uma # MLIP backend: "uma", "orb", "mace", or "aimnet2"

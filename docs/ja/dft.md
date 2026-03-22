@@ -117,8 +117,8 @@ out_dir/ (デフォルト: ./result_dft/)
 geom:
  coord_type: cart                  # オプションの geom_loader 設定
 calc:
- charge: 0                         # ML 領域の電荷
- spin: 1                           # スピン多重度 2S+1
+ model_charge: 0                   # ML 領域の電荷
+ model_mult: 1                     # スピン多重度 2S+1
 mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義

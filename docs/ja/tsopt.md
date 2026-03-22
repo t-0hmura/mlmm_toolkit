@@ -83,7 +83,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを検出。 | `True` |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
-| `-l, --ligand-charge` | TEXT | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
+| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | _None_（デフォルト 1） |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。`0.0` は ML のみの部分ヘシアン。エイリアス: `--radius-hessian`。 | `0.0` |
@@ -100,7 +100,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--partial-hessian-flatten / --full-hessian-flatten` | フラットニングループでの虚振動数モード検出に部分ヘシアン（ML のみ）を使用。 | `True`（部分） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
-| `--skip-final-freq/--no-skip-final-freq` | 収束後の振動数解析とイマジナリモードフラットニングをスキップ。大規模非凍結系でHessian対角化が高コストな場合に有用。TSの鞍点次数は未検証となる。 | `False` |
+| `--skip-final-freq/--no-skip-final-freq` | 収束後の振動解析とイマジナリモードフラットニングをスキップ。大規模非凍結系でHessian対角化が高コストな場合に有用。TSの鞍点次数は未検証となる。 | `False` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
@@ -118,8 +118,8 @@ out_dir/ (デフォルト: ./result_tsopt/)
 ├── optimization_all_trj.xyz       # 連結 Dimer セグメント（--dump 時）
 ├── optimization_all.pdb           # PDB コンパニオン（--dump かつ入力が PDB の場合）
 ├── vib/
-│   ├── imag_±XXXX.Xcm-1_trj.xyz  # 虚振動数モード軌跡
-│   └── imag_±XXXX.Xcm-1.pdb      # 虚振動数モード PDB コンパニオン
+│   ├── imag_NN_±XXXX.XXcm-1_trj.xyz  # 虚振動数モード軌跡
+│   └── imag_NN_±XXXX.XXcm-1.pdb      # 虚振動数モード PDB コンパニオン
 └── .dimer_mode.dat                # Dimer 方向シード（light モード）
 ```
 
