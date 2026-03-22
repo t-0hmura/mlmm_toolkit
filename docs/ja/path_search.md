@@ -87,7 +87,8 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。無効時は `--model-pdb` または `--model-indices` が必要。 | `True` |
-| `-q, --charge INT` | ML 領域の電荷（整数）。 | 必須 |
+| `-q, --charge INT` | ML 領域の電荷（整数）。`-l` 未指定時は必須。 | _None_ |
+| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `SAM:1,PHN:-1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--mep-mode [gsm\|dmf]` | セグメント/ブリッジ探索に使う MEP バックエンド。 | `gsm` |
 | `--refine-mode [peak\|minima]` | HEI 精密化の種点ルール。 | `gsm` は `peak`、`dmf` は `minima` |
