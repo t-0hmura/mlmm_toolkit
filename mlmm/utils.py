@@ -294,7 +294,7 @@ def pretty_block(title: str, content: Dict[str, Any]) -> str:
     if _base_dir is not None:
         content = _shorten_paths(content)
     body = yaml.safe_dump(_to_yaml_safe(content), sort_keys=False, allow_unicode=True).strip()
-    return f"{title}\n" + "-" * len(title) + "\n" + body + "\n"
+    return f"{title}\n" + "-" * len(title) + "\n" + body
 
 
 # Module-level base directory for relative path display.
