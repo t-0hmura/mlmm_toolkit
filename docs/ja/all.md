@@ -175,7 +175,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `-r, --radius FLOAT` | ポケット包含カットオフ (Å)。 | `2.6` |
 | `--radius-het2het FLOAT` | 独立したヘテロ-ヘテロカットオフ (Å)。 | `0.0` |
 | `--include-H2O/--no-include-H2O` | 水分子（HOH/WAT/TIP3/SOL）を含める。 | `True` |
-| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去。 | `True` |
+| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去。 | `False` |
 | `--add-linkH/--no-add-linkH` | 切断結合にリンク水素を付加。 | `False` |
 | `--selected-resn TEXT` | 強制包含する残基。 | `""` |
 | `--verbose/--no-verbose` | INFO レベルの抽出器ログを有効化。 | `True` |

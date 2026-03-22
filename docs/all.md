@@ -175,7 +175,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `-r, --radius FLOAT` | Pocket inclusion cutoff (Å). | `2.6` |
 | `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å). | `0.0` |
 | `--include-H2O/--no-include-H2O` | Include water molecules (HOH/WAT/TIP3/SOL). | `True` |
-| `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | `True` |
+| `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | `False` |
 | `--add-linkH/--no-add-linkH` | Add link hydrogens for severed bonds. | `False` |
 | `--selected-resn TEXT` | Residues to force include. | `""` |
 | `--verbose/--no-verbose` | Enable INFO-level extractor logging. | `True` |

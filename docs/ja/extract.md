@@ -131,7 +131,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `-r, --radius FLOAT` | 包含の原子間距離カットオフ (Å)。 | `2.6` |
 | `--radius-het2het FLOAT` | 独立したヘテロ-ヘテロカットオフ (Å, C/H 以外)。 | `0.0`（内部でゼロの場合 0.001 Å） |
 | `--include-h2o/--no-include-h2o` | HOH/WAT/H2O/DOD/TIP/TIP3/SOL 水分子を含める。 | `True` |
-| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去（PRO/HYP セーフガード）。 | `True` |
+| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去（PRO/HYP セーフガード）。 | `False` |
 | `--add-linkh/--no-add-linkh` | 切断結合に 1.09 Å のカーボンオンリーリンク水素を付加。 | `False` |
 | `--selected-resn TEXT` | 強制包含する残基（鎖/インサーションコード付き ID）。 | `""` |
 | `-l, --ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |

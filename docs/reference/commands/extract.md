@@ -33,7 +33,7 @@ Options:
                                   [default: include-H2O]
   --exclude-backbone / --no-exclude-backbone
                                   Delete main-chain atoms from non-substrate
-                                  amino acids.  [default: exclude-backbone]
+                                  amino acids.  [default: no-exclude-backbone]
   --add-linkH / --no-add-linkH    Add carbon-only link-H at 1.09 angstrom along
                                   cut-bond directions.  [default: no-add-linkH]
   --selected-resn TEXT            Comma/space-separated residue IDs to force-

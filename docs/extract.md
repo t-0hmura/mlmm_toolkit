@@ -131,7 +131,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `-r, --radius FLOAT` | Atom-atom distance cutoff (Å) for inclusion. | `2.6` |
 | `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å, non C/H). | `0.0` |
 | `--include-h2o/--no-include-h2o` | Include HOH/WAT/H2O/DOD/TIP/TIP3/SOL waters. | `True` |
-| `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids (PRO/HYP safeguards). | `True` |
+| `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids (PRO/HYP safeguards). | `False` |
 | `--add-linkh/--no-add-linkh` | Add carbon-only link hydrogens at 1.09 Å along severed bonds. | `False` |
 | `--selected-resn TEXT` | Force-include residues (IDs with optional chains/insertion codes). | `""` |
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g., `GPP:-3,SAM:1`). | _None_ |

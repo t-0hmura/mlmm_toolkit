@@ -38,6 +38,7 @@ from .mlmm_calc import mlmm
 from .defaults import (
     BIAS_KW as _BIAS_KW_DEFAULT,
     BOND_KW as _BOND_KW_DEFAULT,
+    MLMM_CALC_KW,
 )
 from .opt import (
     GEOM_KW as _OPT_GEOM_KW,

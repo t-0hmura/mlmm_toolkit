@@ -39,8 +39,8 @@ Residue inclusion
 -----
 - Always include the substrate residues.
 - Standard cutoff (``--radius``, default 2.6 Å):
-  - If ``--no-exclude-backbone``: include any residue if **any atom** is within the cutoff.
-  - If ``--exclude-backbone`` (default): for **amino‑acid residues**, the qualifying atom
+  - If ``--no-exclude-backbone`` (default): include any residue if **any atom** is within the cutoff.
+  - If ``--exclude-backbone``: for **amino‑acid residues**, the qualifying atom
     must be **non‑backbone** (not in {N, H*, CA, HA*, C, O, OXT}); non‑amino‑acid residues qualify by any atom.
 - Independent hetero–hetero proximity (``--radius-het2het``):
   add residues if a **substrate hetero atom (non‑C/H)** is within the cutoff of a **protein hetero atom**.
@@ -61,7 +61,7 @@ Truncation (capping)
   - **PRO/HYP** retain N, CA, HA, H* to keep the ring.
 - **Continuous peptide stretches** keep internal backbone; only **terminal caps** are removed
   (N‑cap: N/H*; C‑cap: C/O/OXT). TER‑aware segmentation prevents crossing chain breaks.
-- With ``--exclude-backbone`` (default), delete main‑chain atoms on all **non‑substrate amino acids**,
+- With ``--exclude-backbone``, delete main‑chain atoms on all **non‑substrate amino acids**,
   except for the specific PRO/HYP retention and PRO‑adjacency preservation above.
 - **Non‑amino‑acid residues**: atoms named like protein backbone ({"N","CA","HA","H","H1","H2","H3"})
   are **never deleted** by capping logic.
@@ -124,7 +124,7 @@ Notes
   - ``--radius`` default: **2.6 Å**. If given **0**, internally nudged to **0.001 Å**.
   - ``--radius-het2het`` default: **0 Å** (off). Internally treated as **0.001 Å** if ``0`` is given.
   - ``--include-h2o`` default: **true**.
-  - ``--exclude-backbone`` default: **true**.
+  - ``--exclude-backbone`` default: **false**.
   - ``--add-linkh`` default: **false**.
   - ``--ligand-charge`` default: **None** (unknown residues counted as 0 unless set).
   - Output default: single input → ``pocket.pdb``; multiple inputs → ``pocket_{original_filename}.pdb``.
@@ -437,7 +437,7 @@ def _gather_extract_variadic(
 )
 @click.option(
     "--exclude-backbone/--no-exclude-backbone",
-    default=True, show_default=True,
+    default=False, show_default=True,
     help="Delete main-chain atoms from non-substrate amino acids.",
 )
 @click.option(
@@ -538,7 +538,7 @@ def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
     )
     p.add_argument(
         "-r", "--radius", type=float, default=2.6,
-        help=("Cutoff (Å) around substrate atoms. With --exclude-backbone true (default), an **amino-acid** "
+        help=("Cutoff (Å) around substrate atoms. With --exclude-backbone, an **amino-acid** "
               "neighbor must have a **non-backbone** atom within this distance; otherwise **any atom** suffices. "
               "(default: 2.6)")
     )
@@ -559,8 +559,8 @@ def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
         "--exclude-backbone",
         dest="exclude_backbone",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Delete main‑chain atoms (N, H*, CA, HA*, C, O, OXT) from non‑substrate amino acids; PRO/HYP keep N, CA, HA, H*. (default: True)"
+        default=False,
+        help="Delete main‑chain atoms (N, H*, CA, HA*, C, O, OXT) from non‑substrate amino acids; PRO/HYP keep N, CA, HA, H*. (default: False)"
     )
     p.add_argument(
         "--add-linkh", "--add-linkH",
@@ -2154,7 +2154,7 @@ def extract_api(complex_pdb: List[str],
                    radius: float = 2.6,
                    radius_het2het: float = 0.0,
                    include_h2o: bool = True,
-                   exclude_backbone: bool = True,
+                   exclude_backbone: bool = False,
                    add_linkh: bool = False,
                    selected_resn: str = "",
                    ligand_charge: Optional[float | str | Dict[str, float]] = None,

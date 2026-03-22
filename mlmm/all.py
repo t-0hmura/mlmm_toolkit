@@ -1547,7 +1547,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Independent hetero–hetero cutoff (Å) for non‑C/H pairs.")
 @click.option("--include-h2o", "include_h2o", type=click.BOOL, default=True, show_default=True,
               help="Include waters (HOH/WAT/TIP3/SOL) in the pocket.")
-@click.option("--exclude-backbone", "exclude_backbone", type=click.BOOL, default=True, show_default=True,
+@click.option("--exclude-backbone", "exclude_backbone", type=click.BOOL, default=False, show_default=True,
               help="Remove backbone atoms on non‑substrate amino acids (with PRO/HYP safeguards).")
 @click.option("--add-linkh", "add_linkh", type=click.BOOL, default=False, show_default=True,
               help="Add link hydrogens for severed bonds (carbon-only) in pockets.")
