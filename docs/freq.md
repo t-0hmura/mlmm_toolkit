@@ -67,7 +67,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
-| `--hess-cutoff FLOAT` | Cutoff distance for MovableMM atoms. | _None_ |
+| `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
 | `--max-write INT` | Number of modes to export. | `10` |
