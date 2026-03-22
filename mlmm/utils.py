@@ -310,11 +310,21 @@ def _patch_click_echo() -> None:
         return  # already patched
     _original_click_echo = _click.echo
 
+    _last_was_blank = [False]
+
     def _patched_echo(message=None, **kwargs):
         if message is not None and _base_dir is not None and isinstance(message, str):
             bd = str(_base_dir)
             if bd in message:
                 message = message.replace(bd + "/", "").replace(bd, ".")
+        # Suppress consecutive blank lines
+        if isinstance(message, str) and _last_was_blank[0] and message.startswith("\n"):
+            message = message.lstrip("\n")
+        is_blank = (message is None or (isinstance(message, str) and message.strip() == ""))
+        if is_blank and _last_was_blank[0]:
+            return
+        ends_with_nl = isinstance(message, str) and message.endswith("\n")
+        _last_was_blank[0] = is_blank or ends_with_nl
         _original_click_echo(message, **kwargs)
 
     _click.echo = _patched_echo
