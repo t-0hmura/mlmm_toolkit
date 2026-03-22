@@ -2164,7 +2164,8 @@ def cli(
             q_prot = float(cs.get("protein_charge", 0.0))
             q_lig = float(cs.get("ligand_total_charge", 0.0))
             q_ion = float(cs.get("ion_total_charge", 0.0))
-            _echo("\n[all] Charge summary from extractor (model #1):")
+            _echo("")
+            _echo("[all] Charge summary from extractor (model #1):")
             _echo(
                 f"  Protein: {q_prot:+g},  Ligand: {q_lig:+g},  Ions: {q_ion:+g},  Total: {q_total:+g}"
             )

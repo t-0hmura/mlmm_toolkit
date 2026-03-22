@@ -344,6 +344,7 @@ def cli(
             click.echo(f"ERROR: {e}", err=True)
             prepared_input.cleanup()
             sys.exit(1)
+    calc = eulerpc = geometry = None
     try:
         time_start = time.perf_counter()
 

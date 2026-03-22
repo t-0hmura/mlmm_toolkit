@@ -1478,10 +1478,10 @@ def cli(
         # Show only optimizer-specific settings, not inherited from opt_cfg
         if use_rfo:
             echo_rfo = strip_inherited_keys(rfo_cfg, opt_cfg)
-            click.echo(pretty_block("rfo", echo_rfo))
+            click.echo(pretty_block("rfo", echo_rfo, defaults=RFO_KW))
         else:
             echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
-            click.echo(pretty_block("lbfgs", echo_lbfgs))
+            click.echo(pretty_block("lbfgs", echo_lbfgs, defaults=LBFGS_KW))
         if dist_freeze:
             display_pairs = []
             for (i, j, target) in dist_freeze:
