@@ -1028,9 +1028,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 self.log(f"Tried to delete '{self.current_fn}'. Couldn't find it.")
         with open(self.final_fn, "w") as handle:
             handle.write(self.geometry.as_xyz())
-        self.table.print(
-            f"Wrote final, hopefully optimized, geometry to '{self.final_fn.name}'"
-        )
+        print(f"Wrote final geometry to '{self.final_fn.name}'\n")
         self.postprocess_opt()
         sys.stdout.flush()
 
