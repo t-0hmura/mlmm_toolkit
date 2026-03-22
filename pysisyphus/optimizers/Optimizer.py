@@ -791,7 +791,7 @@ class Optimizer(metaclass=abc.ABCMeta):
 
     def run(self):
         if not Optimizer._au_header_shown:
-            print("If not specified otherwise, all quantities are given in au.")
+            print("If not specified otherwise, all quantities are given in au.\n")
             Optimizer._au_header_shown = True
 
         if not self.restarted:
