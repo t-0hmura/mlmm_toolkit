@@ -1,6 +1,7 @@
 # `mlmm dft`
 
 ```text
+mlmm-toolkit ver. 0.2.5.dev18
 
 Usage: mlmm dft [OPTIONS]
 
@@ -29,9 +30,9 @@ Options:
                                   based]
   --detect-layer / --no-detect-layer
                                   Detect ML/MM layers from input PDB B-factors
-                                  (B=0/10/20). If disabled, you must provide
-                                  --model-pdb or --model-indices.  [default:
-                                  detect-layer]
+                                  (ML=0, MovableMM=10, FrozenMM=20). If
+                                  disabled, you must provide --model-pdb or
+                                  --model-indices.  [default: detect-layer]
   -q, --charge INTEGER            Charge of the ML region.  [required]
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
                                   [default: 1]
@@ -41,10 +42,10 @@ Options:
                                   as "FUNC/BASIS".  [default:
                                   wb97m-v/def2-tzvpd]
   --max-cycle INTEGER             Maximum SCF iterations.  [default: 100]
-  --conv-tol FLOAT                SCF convergence tolerance (Hartree).
-                                  [default: 1e-09]
+  --conv-tol FLOAT                SCF energy convergence threshold (ΔE in
+                                  Hartree between SCF cycles).  [default: 1e-09]
   --grid-level INTEGER            DFT integration grid level (0=coarse,
-                                  3=default, 9=ultrafine).  [default: 3]
+                                  3=default, 5=fine, 9=very fine).  [default: 3]
   -o, --out-dir DIRECTORY         Output directory.  [default: result_dft]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
@@ -66,7 +67,18 @@ Options:
                                   via pyscf.qmmm.mm_charge().  [default: no-
                                   embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
-                                  point charges in xTB embedding. Default: 12.0
-                                  Å when --embedcharge is enabled.
+                                  point charges embedded in the PySCF QM
+                                  Hamiltonian. Default: 12.0 Å. Only used when
+                                  --embedcharge is enabled.
+  --link-atom-method [scaled|fixed]
+                                  Link-atom position mode: scaled (g-factor,
+                                  default) or fixed (legacy 1.09/1.01 Å).
+  --mm-backend [hessian_ff|openmm]
+                                  MM backend: hessian_ff (analytical Hessian,
+                                  default) or openmm (finite-difference Hessian,
+                                  slower).
+  --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
+                                  model parm7. Default: disabled (Gaussian
+                                  ONIOM-compatible).
   -h, --help                      Show this message and exit.
 ```
