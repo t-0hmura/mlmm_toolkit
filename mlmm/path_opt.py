@@ -386,7 +386,7 @@ def _run_dmf_mep(
     k_fix = float(dmf_cfg.get("k_fix", DMF_KW["k_fix"]))
 
     # Run FB-ENM interpolation
-    click.echo("\n=== DMF: FB-ENM interpolation ===\n")
+    click.echo("=== DMF: FB-ENM interpolation ===\n")
     mxflx_fbenm = interpolate_fbenm(
         ref_images,
         nmove=max(1, int(max_nodes)),
@@ -415,7 +415,7 @@ def _run_dmf_mep(
     coefs = mxflx_fbenm.coefs.copy()
 
     # Create DirectMaxFlux object
-    click.echo("\n=== DMF: Direct Max Flux optimization ===\n")
+    click.echo("=== DMF: Direct Max Flux optimization ===\n")
     mxflx = DirectMaxFlux(
         ref_images,
         coefs=coefs,
@@ -459,7 +459,7 @@ def _run_dmf_mep(
         except Exception:
             logger.debug("Failed to set ipopt max_iter option", exc_info=True)
     mxflx.solve(tol="tight")
-    click.echo("\n=== DMF: optimization finished ===\n")
+    click.echo("=== DMF: optimization finished ===\n")
 
     # Evaluate final energies using the PySisyphus calculator for consistency
     from pysisyphus.constants import ANG2BOHR
@@ -1145,7 +1145,7 @@ def cli(
         # === (NEW) optional endpoint pre-optimization ===
         if preopt:
             try:
-                click.echo("\n=== Pre-optimizing endpoints (LBFGS) ===\n")
+                click.echo("=== Pre-optimizing endpoints (LBFGS) ===\n")
                 pre_dir_base = out_dir_path / "preopt"
                 for i, g in enumerate(geoms):
                     try:
@@ -1178,7 +1178,7 @@ def cli(
         # By default, apply external Kabsch alignment (if freeze_atoms exist, use only them)
         align_thresh = str(stopt_cfg.get("thresh", "gau"))
         try:
-            click.echo("\n=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
+            click.echo("=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
             _ = align_and_refine_sequence_inplace(
                 geoms,
                 thresh=align_thresh,
@@ -1250,9 +1250,9 @@ def cli(
         # --------------------------
         # 4) Run optimization
         # --------------------------
-        click.echo("\n=== Growing String optimization started ===\n")
+        click.echo("=== Growing String optimization started ===\n")
         optimizer.run()
-        click.echo("\n=== Growing String optimization finished ===\n")
+        click.echo("=== Growing String optimization finished ===\n")
 
         # --------------------------
         # 5) Write final path (final_geometries_trj.xyz)

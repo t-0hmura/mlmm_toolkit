@@ -373,7 +373,7 @@ def _finalize_surface_and_plot(
     fig3d.write_html(str(html3d))
     click.echo(f"[plot] Wrote '{html3d}'.")
 
-    click.echo("\n=== 3D Scan finished ===\n")
+    click.echo("=== 3D Scan finished ===\n")
     click.echo(format_elapsed("[time] Elapsed Time for 3D Scan", time_start))
 
 

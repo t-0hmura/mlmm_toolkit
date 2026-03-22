@@ -615,9 +615,9 @@ def cli(
         # EulerPC.__init__ forwards **kwargs directly to IRC.__init__
         eulerpc = EulerPC(geometry, **irc_cfg)
 
-        click.echo("\n=== IRC (EulerPC) started ===\n")
+        click.echo("=== IRC (EulerPC) started ===\n")
         eulerpc.run()
-        click.echo("\n=== IRC (EulerPC) finished ===\n")
+        click.echo("=== IRC (EulerPC) finished ===\n")
 
         # Cache IRC endpoint Hessians (Bofill-updated mw → Cartesian)
         def _unmw_and_store(mw_H, key):

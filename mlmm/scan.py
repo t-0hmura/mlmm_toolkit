@@ -927,7 +927,7 @@ def cli(
 
                     prefix = f"scan_s{s:04d}"
                     optimizer = _make_lbfgs(stage_dir, prefix)
-                    click.echo(f"[stage {k}] step {s}/{Nsteps}: relaxation (LBFGS) ...")
+                    click.echo(f"\n[stage {k}] step {s}/{Nsteps}: relaxation (LBFGS) ...")
                     try:
                         optimizer.run()
                     except ZeroStepLength:
@@ -1057,7 +1057,7 @@ def cli(
         _echo_human_summary(stages_summary, float(max_step_size))
         # ------------------------------------------------------------------
 
-        click.echo("\n=== Scan finished ===\n")
+        click.echo("=== Scan finished ===\n")
 
         click.echo(format_elapsed("[time] Elapsed Time for Scan", time_start))
 

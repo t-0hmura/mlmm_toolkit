@@ -1605,7 +1605,7 @@ def cli(
             click.echo("[microiter] --microiter is not compatible with --dist-freeze. Falling back to standard RFO.")
 
         if use_microiter:
-            click.echo("\n====== Optimization (RFO + Microiteration) started ======\n")
+            click.echo("====== Optimization (RFO + Microiteration) started ======\n")
             _run_microiter_opt(
                 geometry,
                 calc_cfg,
@@ -1616,7 +1616,7 @@ def cli(
                 out_dir_path,
                 dump=bool(opt_cfg["dump"]),
             )
-            click.echo("\n====== Optimization (RFO + Microiteration) finished ======\n")
+            click.echo("====== Optimization (RFO + Microiteration) finished ======\n")
 
             # Write final geometry
             from ase import Atoms as _Atoms
@@ -1633,9 +1633,9 @@ def cli(
 
             main_label = "RFO" if use_rfo else "LBFGS"
             optimizer = _build_optimizer(main_kind)
-            click.echo(f"\n====== Optimization ({main_label}) started ======\n")
+            click.echo(f"====== Optimization ({main_label}) started ======\n")
             optimizer.run()
-            click.echo(f"\n====== Optimization ({main_label}) finished ======\n")
+            click.echo(f"====== Optimization ({main_label}) finished ======\n")
 
             # Get final geometry path
             final_xyz_path = optimizer.final_fn if isinstance(optimizer.final_fn, Path) else Path(optimizer.final_fn)
@@ -1657,7 +1657,7 @@ def cli(
                 _safe_masses_amu,
             )
 
-            click.echo("\n====== Optimization (Flatten loop) started ======\n")
+            click.echo("====== Optimization (Flatten loop) started ======\n")
 
             geometry.set_calculator(None)
             uma_kwargs_for_flatten = dict(calc_cfg)
@@ -1710,9 +1710,9 @@ def cli(
                 _attach_opt_calc()
                 opt_restart = _build_optimizer(flatten_kind)
                 restart_label = "LBFGS" if flatten_kind == "lbfgs" else "RFO"
-                click.echo(f"\n====== Optimization ({restart_label}) restarted ======\n")
+                click.echo(f"====== Optimization ({restart_label}) restarted ======\n")
                 opt_restart.run()
-                click.echo(f"\n====== Optimization ({restart_label}) finished ======\n")
+                click.echo(f"====== Optimization ({restart_label}) finished ======\n")
 
                 geometry.set_calculator(None)
                 freqs_cm, modes = _calc_freqs_and_modes()
@@ -1728,7 +1728,7 @@ def cli(
                 )
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            click.echo("\n====== Optimization (Flatten loop) finished ======\n")
+            click.echo("====== Optimization (Flatten loop) finished ======\n")
 
             # Update final geometry after flatten
             final_xyz_path = out_dir_path / "final_geometry.xyz"

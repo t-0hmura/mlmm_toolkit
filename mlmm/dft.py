@@ -931,11 +931,11 @@ def cli(
             else:
                 click.echo("[embedcharge] No MM atoms found; skipping embedding.")
 
-        click.echo("\n=== ML-region DFT single-point started ===\n")
+        click.echo("=== ML-region DFT single-point started ===\n")
         tic_scf = time.time()
         e_tot = mf.kernel()
         toc_scf = time.time()
-        click.echo("\n=== ML-region DFT single-point finished ===\n")
+        click.echo("=== ML-region DFT single-point finished ===\n")
 
         converged = bool(getattr(mf, "converged", False))
         if e_tot is None:

@@ -365,9 +365,9 @@ def _run_gsm_between(
         **{k: v for k, v in _opt_args.items() if k != "type"}
     )
 
-    click.echo(f"\n=== [{tag}] GSM started ===\n")
+    click.echo(f"=== [{tag}] GSM started ===\n")
     optimizer.run()
-    click.echo(f"\n=== [{tag}] GSM finished ===\n")
+    click.echo(f"=== [{tag}] GSM finished ===\n")
 
     energies = list(map(float, np.array(gs.energy, dtype=float)))
     images = list(gs.images)
@@ -537,9 +537,9 @@ def _run_dmf_between(
         except Exception:
             logger.debug("Failed to set ipopt max_iter option", exc_info=True)
 
-    click.echo(f"\n=== [{tag}] DMF started ===\n")
+    click.echo(f"=== [{tag}] DMF started ===\n")
     mxflx.solve(tol="tight")
-    click.echo(f"\n=== [{tag}] DMF finished ===\n")
+    click.echo(f"=== [{tag}] DMF finished ===\n")
 
     # Evaluate energies using PySisyphus calculator
     energies = []
@@ -648,9 +648,9 @@ def _optimize_single(
 
     opt = LBFGS(g, **args)
 
-    click.echo(f"\n=== [{tag}] Single-structure LBFGS started ===\n")
+    click.echo(f"=== [{tag}] Single-structure LBFGS started ===\n")
     opt.run()
-    click.echo(f"\n=== [{tag}] Single-structure LBFGS finished ===\n")
+    click.echo(f"=== [{tag}] Single-structure LBFGS finished ===\n")
 
     try:
         final_xyz = Path(opt.final_fn) if isinstance(opt.final_fn, (str, Path)) else Path(opt.final_fn)
@@ -1900,7 +1900,7 @@ def cli(
         align_thresh = str(stopt_cfg.get("thresh", "gau"))
         if align:
             try:
-                click.echo("\n=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
+                click.echo("=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
                 _ = align_and_refine_sequence_inplace(
                     geoms,
                     thresh=align_thresh,
@@ -1917,7 +1917,7 @@ def cli(
         # --------------------------
         # 3) Run recursive search for each adjacent pair and stitch
         # --------------------------
-        click.echo("\n=== Multistep MEP search (multi-structure) started ===\n")
+        click.echo("=== Multistep MEP search (multi-structure) started ===\n")
         seg_counter = [0]
 
         bridge_max_nodes = int(search_cfg.get("max_nodes_bridge", 5))
@@ -1988,7 +1988,7 @@ def cli(
                 )
                 seg_reports_all.extend(pair_path.segments)
 
-        click.echo("\n=== Multistep MEP search (multi-structure) finished ===\n")
+        click.echo("=== Multistep MEP search (multi-structure) finished ===\n")
 
         combined_all = CombinedPath(images=combined_imgs, energies=combined_Es, segments=seg_reports_all)
 
@@ -2091,7 +2091,7 @@ def cli(
         except Exception:
             overall_changed, overall_summary = False, ""
 
-        click.echo("\n=== MEP Summary ===\n")
+        click.echo("=== MEP Summary ===\n")
 
         click.echo("\n[overall] Covalent-bond changes between first and last image:")
         if overall_changed and overall_summary.strip():

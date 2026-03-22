@@ -1238,7 +1238,7 @@ def cli(
             fig3d.write_html(str(html3d))
             click.echo(f"[plot] Wrote '{html3d}'.")
 
-            click.echo("\n=== 2D Scan finished ===\n")
+            click.echo("=== 2D Scan finished ===\n")
             click.echo(format_elapsed("[time] Elapsed Time for 2D Scan", time_start))
 
     except KeyboardInterrupt:

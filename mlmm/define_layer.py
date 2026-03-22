@@ -473,7 +473,7 @@ def cli(
         output_pdb = input_pdb.parent / f"{input_pdb.stem}_layered.pdb"
 
     # Echo configuration
-    click.echo("\n=== Define Layer Configuration ===\n")
+    click.echo("=== Define Layer Configuration ===\n")
     click.echo(f"Input PDB: {input_pdb}")
     if model_pdb is not None:
         click.echo(f"Model PDB: {model_pdb}")

@@ -2527,7 +2527,7 @@ def cli(
 
             if use_microiter:
                 # --- Microiteration path ---
-                click.echo(f"\n=== TS optimization ({rsirfo_label}) started ===\n")
+                click.echo(f"=== TS optimization ({rsirfo_label}) started ===\n")
                 _run_microiter_tsopt(
                     geometry,
                     calc_cfg,
@@ -2539,7 +2539,7 @@ def cli(
                     dump=bool(opt_cfg["dump"]),
                     thresh=thresh,
                 )
-                click.echo(f"\n=== TS optimization ({rsirfo_label}) finished ===\n")
+                click.echo(f"=== TS optimization ({rsirfo_label}) finished ===\n")
 
                 # Write final geometry
                 final_xyz = out_dir_path / "final_geometry.xyz"
@@ -2554,7 +2554,7 @@ def cli(
                 _rsirfo_cycles_spent = int(opt_cfg.get("max_cycles", 10000))  # budget consumed
             else:
                 # --- Standard RS-I-RFO path ---
-                click.echo(f"\n=== TS optimization ({rsirfo_label}) started ===\n")
+                click.echo(f"=== TS optimization ({rsirfo_label}) started ===\n")
 
                 base_calc = mlmm(**calc_cfg)
                 geometry.set_calculator(base_calc)
@@ -2585,7 +2585,7 @@ def cli(
                 if bool(opt_cfg["dump"]):
                     _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
-                click.echo(f"\n=== TS optimization ({rsirfo_label}) finished ===\n")
+                click.echo(f"=== TS optimization ({rsirfo_label}) finished ===\n")
 
                 # --- Post-RSIRFO: count imaginary modes and optional flatten loop ---
                 # Save cycle count before deleting optimizer for budget check.
@@ -2736,9 +2736,9 @@ def cli(
                         base_calc = mlmm(**calc_cfg)
                         geometry.set_calculator(base_calc)
                         optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
-                        click.echo("\n=== TS optimization (RS-I-RFO) restarted ===\n")
+                        click.echo("=== TS optimization (RS-I-RFO) restarted ===\n")
                         optimizer.run()
-                        click.echo("\n=== TS optimization (RS-I-RFO) finished ===\n")
+                        click.echo("=== TS optimization (RS-I-RFO) finished ===\n")
                         if bool(opt_cfg["dump"]):
                             _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
                         geometry.set_calculator(None)
@@ -2829,9 +2829,9 @@ def cli(
                 skip_final_freq=skip_final_freq,
             )
 
-            click.echo("\n=== TS optimization (Partial Hessian Dimer) started ===\n")
+            click.echo("=== TS optimization (Partial Hessian Dimer) started ===\n")
             runner.run()
-            click.echo("\n=== TS optimization (Partial Hessian Dimer) finished ===\n")
+            click.echo("=== TS optimization (Partial Hessian Dimer) finished ===\n")
 
         if is_convert_file_enabled() and source_path.suffix.lower() == ".pdb":
             ref_pdb = source_path.resolve()
