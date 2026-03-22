@@ -26,8 +26,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Output checklist
 
 - `result_tsopt/final_geometry.pdb` (or `final_geometry.xyz`)
-- `result_tsopt/vib/final_imag_mode_*_trj.xyz`
-- `result_tsopt/vib/final_imag_mode_*.pdb`
+- `result_tsopt/vib/imag_*_trj.xyz`
+- `result_tsopt/vib/imag_*.pdb`
 
 ## Common examples
 
@@ -69,7 +69,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Heavy mode (RS-I-RFO):**
    - Runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section.
    - When `--flatten` is enabled and more than one imaginary mode remains after convergence, the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten iteration cap is reached.
-5. **Mode export & conversion** -- The converged imaginary mode is always written to `vib/final_imag_mode_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
+5. **Mode export & conversion** -- The converged imaginary mode is always written to `vib/imag_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
 
 ## CLI options
 
@@ -117,8 +117,8 @@ out_dir/ (default: ./result_tsopt/)
 ├── optimization_all_trj.xyz       # Concatenated Dimer segments (when --dump)
 ├── optimization_all.pdb           # PDB companion (when --dump and input was PDB)
 ├── vib/
-│   ├── final_imag_mode_±XXXX.Xcm-1_trj.xyz  # Imaginary mode trajectory
-│   └── final_imag_mode_±XXXX.Xcm-1.pdb      # Imaginary mode PDB companion
+│   ├── imag_±XXXX.Xcm-1_trj.xyz  # Imaginary mode trajectory
+│   └── imag_±XXXX.Xcm-1.pdb      # Imaginary mode PDB companion
 └── .dimer_mode.dat                # Dimer orientation seed (light mode)
 ```
 

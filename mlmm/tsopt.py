@@ -389,7 +389,7 @@ def _write_all_imag_modes(
     vib_dir: Path,
     *,
     ref_pdb: Optional[Path] = None,
-    filename_prefix: str = "final_imag_mode",
+    filename_prefix: str = "imag",
     amplitude_ang: float = 0.8,
     n_frames: int = 20,
 ) -> int:
@@ -419,7 +419,7 @@ def _write_all_imag_modes(
             continue
         v_cart = v_cart / norm
 
-        stem = f"{filename_prefix}_{rank:02d}_mode{mode_idx:04d}_{freq:+.2f}cm-1"
+        stem = f"{filename_prefix}_{rank:02d}_{freq:+.2f}cm-1"
         out_trj = vib_dir / f"{stem}_trj.xyz"
         out_pdb = vib_dir / f"{stem}.pdb"
         _write_mode_trj_and_pdb(

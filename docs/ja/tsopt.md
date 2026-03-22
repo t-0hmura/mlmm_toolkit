@@ -26,8 +26,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 出力の見方
 
 - `result_tsopt/final_geometry.pdb`（または `final_geometry.xyz`）
-- `result_tsopt/vib/final_imag_mode_*_trj.xyz`
-- `result_tsopt/vib/final_imag_mode_*.pdb`
+- `result_tsopt/vib/imag_*_trj.xyz`
+- `result_tsopt/vib/imag_*.pdb`
 
 ## よくある例
 
@@ -69,7 +69,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザーを、`rsirfo` YAML セクションで定義されたオプションのヘシアン参照ファイルとマイクロサイクル制御とともに実行します。
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードをフラットニングし、1 つだけ残るかフラットニング反復上限に達するまで RS-I-RFO を再実行します。
-5. **モードエクスポートと変換** -- 収束した虚振動数モードは常に `vib/final_imag_mode_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
+5. **モードエクスポートと変換** -- 収束した虚振動数モードは常に `vib/imag_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
 
 ## CLIオプション
 
@@ -117,8 +117,8 @@ out_dir/ (デフォルト: ./result_tsopt/)
 ├── optimization_all_trj.xyz       # 連結 Dimer セグメント（--dump 時）
 ├── optimization_all.pdb           # PDB コンパニオン（--dump かつ入力が PDB の場合）
 ├── vib/
-│   ├── final_imag_mode_±XXXX.Xcm-1_trj.xyz  # 虚振動数モード軌跡
-│   └── final_imag_mode_±XXXX.Xcm-1.pdb      # 虚振動数モード PDB コンパニオン
+│   ├── imag_±XXXX.Xcm-1_trj.xyz  # 虚振動数モード軌跡
+│   └── imag_±XXXX.Xcm-1.pdb      # 虚振動数モード PDB コンパニオン
 └── .dimer_mode.dat                # Dimer 方向シード（light モード）
 ```
 

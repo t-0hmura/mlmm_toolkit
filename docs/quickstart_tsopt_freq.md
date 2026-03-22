@@ -26,7 +26,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## What to check
 
 - `result_tsopt/final_geometry.pdb` — optimized TS structure
-- `result_tsopt/vib/` — animation files for the imaginary-frequency normal mode (`final_imag_mode_*.xyz`, `.pdb`)
+- `result_tsopt/vib/` — animation files for the imaginary-frequency normal mode (`imag_*.xyz`, `.pdb`)
 - Terminal output: **n=1** with a sufficiently large imaginary frequency (|ν| ≥ 100 cm⁻¹) indicates a good TS candidate
 
 ## 2. (Optional) Separate frequency analysis
