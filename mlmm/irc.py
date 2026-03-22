@@ -257,6 +257,24 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     show_default=False,
     help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
+@click.option(
+    "--hess-device",
+    "hess_device",
+    type=click.Choice(["auto", "cuda", "cpu"], case_sensitive=False),
+    default="auto",
+    show_default=True,
+    help="Device for initial Hessian storage and IRC operations (auto/cuda/cpu). "
+         "Use 'cpu' for large unfrozen systems to avoid VRAM limits.",
+)
+@click.option(
+    "--read-hess",
+    "read_hess",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    show_default=False,
+    help="Read initial Hessian from a .npz file (produced by 'mlmm freq --dump-hess'). "
+         "Takes priority over the hessian_cache and fresh computation.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -287,6 +305,8 @@ def cli(
     link_atom_method: Optional[str],
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
+    hess_device: str,
+    read_hess: Optional[str],
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -544,18 +564,29 @@ def cli(
         calc = mlmm(**calc_cfg)
         geometry.set_calculator(calc)
 
-        # Seed the initial Hessian — reuse cached TS Hessian when available.
+        # Seed the initial Hessian.
+        # Priority: --read-hess file > hessian_cache > fresh computation.
         from .hessian_cache import load as _hess_load, store as _hess_store
-        hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
-        cached = _hess_load("ts")
-        if cached is not None:
+        if hess_device.lower() == "auto":
+            _hess_dev = _torch_device(calc_cfg.get("ml_device", "auto"))
+        else:
+            _hess_dev = _torch_device(hess_device.lower())
+        if _hess_dev.type == "cpu":
+            click.echo("[device] Hessian operations will run on CPU.")
+
+        if read_hess:
+            click.echo(f"[irc] Loading initial Hessian from {read_hess}")
+            _data = np.load(read_hess)
+            h_init = torch.as_tensor(_data["hessian"], dtype=torch.float64, device=_hess_dev)
+            del _data
+        elif (cached := _hess_load("ts")) is not None:
             click.echo("[irc] Reusing cached TS Hessian from tsopt.")
             active_dofs = cached.get("active_dofs")
             h_raw = cached["hessian"]
             if isinstance(h_raw, torch.Tensor):
-                h_init = h_raw.to(device=hess_device)
+                h_init = h_raw.to(device=_hess_dev)
             else:
-                h_init = torch.as_tensor(h_raw, dtype=torch.float64, device=hess_device)
+                h_init = torch.as_tensor(h_raw, dtype=torch.float64, device=_hess_dev)
             if active_dofs is not None:
                 geometry.within_partial_hessian = {
                     "active_n_dof": len(active_dofs),
@@ -568,7 +599,7 @@ def cli(
             h_init, _ = _calc_full_hessian_torch(
                 geometry,
                 calc_cfg,
-                hess_device,
+                _hess_dev,
                 refresh_geom_meta=True,
             )
 

@@ -832,6 +832,8 @@ def _run_tsopt_on_hei(hei_pdb: Path,
             ts_args.extend(["--mm-backend", str(mm_backend)])
         if use_cmap is not None:
             ts_args.extend(["--cmap" if use_cmap else "--no-cmap"])
+        if overrides.get("skip_final_freq"):
+            ts_args.append("--skip-final-freq")
 
         _echo(f"[tsopt] Running tsopt on HEI → out={ts_dir}")
         _run_cli_main("tsopt", _ts_opt.cli, ts_args, on_nonzero="raise", prefix="tsopt")
@@ -1691,6 +1693,13 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default=True,
     help="Enable the extra-imaginary-mode flattening loop in tsopt (grad: dimer loop, hess: post-RSIRFO); --no-flatten forces flatten_max_iter=0.",
 )
+@click.option(
+    "--skip-final-freq/--no-skip-final-freq",
+    "skip_final_freq",
+    default=False,
+    show_default=True,
+    help="Skip post-convergence frequency analysis in tsopt. Useful for large unfrozen systems.",
+)
 @click.option("--tsopt-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override tsopt output subdirectory (relative paths are resolved against the default).")
 @click.option("--freq-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
@@ -1859,6 +1868,7 @@ def cli(
     use_cmap: Optional[bool],
     tsopt_max_cycles: Optional[int],
     flatten: bool,
+    skip_final_freq: bool,
     tsopt_out_dir: Optional[Path],
     freq_out_dir: Optional[Path],
     freq_max_write: Optional[int],
@@ -1967,6 +1977,8 @@ def cli(
         tsopt_overrides["thresh"] = str(thresh_post)
     if _is_param_explicit("flatten"):
         tsopt_overrides["flatten"] = bool(flatten)
+    if skip_final_freq:
+        tsopt_overrides["skip_final_freq"] = True
 
     freq_overrides: Dict[str, Any] = {}
     if freq_max_write is not None:

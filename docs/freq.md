@@ -81,6 +81,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-o, --out-dir TEXT` | Output directory. | `./result_freq/` |
 | `--active-dof-mode CHOICE` | Active DOF selection: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
 | `--hess-device CHOICE` | Device for Hessian assembly/diagonalization: `auto`, `cuda`, `cpu`. Use `cpu` to avoid VRAM issues with large systems. | `auto` |
+| `--dump-hess PATH` | Save computed Hessian to a compressed `.npz` file. Can be loaded by `mlmm irc --read-hess`. | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |

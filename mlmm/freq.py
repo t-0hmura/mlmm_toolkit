@@ -842,6 +842,15 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     show_default=False,
     help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
+@click.option(
+    "--dump-hess",
+    "dump_hess",
+    type=click.Path(dir_okay=False),
+    default=None,
+    show_default=False,
+    help="Save the computed Hessian to a compressed .npz file. "
+         "Can be loaded by 'mlmm irc --read-hess' to avoid recomputation.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -879,6 +888,7 @@ def cli(
     link_atom_method: Optional[str],
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
+    dump_hess: Optional[str],
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -1259,6 +1269,16 @@ def cli(
                 energy_ha = float(geometry.energy)
         else:
             H_t, energy_ha = _calc_full_hessian_torch(geometry, calc_cfg, device)
+
+        # --dump-hess: save Hessian to compressed .npz
+        if dump_hess:
+            _h_np = H_t.detach().cpu().numpy()
+            _dump_path = Path(dump_hess)
+            np.savez_compressed(str(_dump_path), hessian=_h_np,
+                                energy_ha=np.float64(energy_ha) if energy_ha is not None else np.float64(0.0))
+            click.echo(f"[freq] Hessian saved → {_dump_path} (shape={_h_np.shape})")
+            del _h_np
+
         coords_bohr = geometry.coords.reshape(-1, 3)
         freqs_cm, modes_mw = _frequencies_cm_and_modes(
             H_t,

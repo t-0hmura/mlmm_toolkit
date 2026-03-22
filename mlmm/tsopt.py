@@ -903,6 +903,7 @@ class HessianDimer:
                  flatten_loop_bofill: bool = False,
                  ml_only_hessian_dimer: bool = False,
                  source_path: Optional[Path] = None,
+                 skip_final_freq: bool = False,
                  ) -> None:
 
         self.fn = fn
@@ -928,6 +929,7 @@ class HessianDimer:
         self.flatten_k = int(flatten_k)
         self.flatten_loop_bofill = bool(flatten_loop_bofill)
         self.ml_only_hessian_dimer = bool(ml_only_hessian_dimer)
+        self.skip_final_freq = bool(skip_final_freq)
 
         # Track total cycles globally across ALL loops/segments (fix #2)
         self._cycles_spent = 0
@@ -1535,6 +1537,11 @@ class HessianDimer:
         write(final_xyz, atoms_final)
 
         # Final Hessian → imaginary mode animation
+        if self.skip_final_freq:
+            click.echo("[tsopt] --skip-final-freq: skipping final frequency analysis and imaginary-mode export.")
+            click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
+            return
+
         reuse_final_hessian = (
             H_final_reuse_cpu is not None
             and H_final_reuse_coords is not None
@@ -2088,6 +2095,14 @@ hessian_dimer_KW = {
     show_default=False,
     help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
+@click.option(
+    "--skip-final-freq/--no-skip-final-freq",
+    "skip_final_freq",
+    default=False,
+    show_default=True,
+    help="Skip the post-convergence frequency analysis and imaginary-mode flattening. "
+         "Useful for large unfrozen systems where the final Hessian diagonalization is expensive.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -2125,6 +2140,7 @@ def cli(
     link_atom_method: Optional[str],
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
+    skip_final_freq: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -2579,6 +2595,10 @@ def cli(
                 del calc_core
                 del base_calc
                 _clear_cuda_cache()
+            _do_final_freq = not skip_final_freq
+            if skip_final_freq:
+                click.echo("[tsopt] --skip-final-freq: skipping post-convergence frequency analysis and flatten loop.")
+                click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
             mlmm_kwargs_for_heavy = dict(calc_cfg)
             mlmm_kwargs_for_heavy["out_hess_torch"] = True
             device = _torch_device(simple_cfg.get("device", calc_cfg.get("ml_device", "auto")))
@@ -2657,8 +2677,11 @@ def cli(
                 _clear_cuda_cache()
                 return freqs_local, modes_local
 
+            if not _do_final_freq:
+                freqs_cm, modes = None, None
             try:
-                freqs_cm, modes = _calc_freqs_and_modes()
+                if _do_final_freq:
+                    freqs_cm, modes = _calc_freqs_and_modes()
             except Exception as exc:
                 is_oom = isinstance(exc, torch.OutOfMemoryError) or ("cuda out of memory" in str(exc).lower())
                 if is_oom:
@@ -2803,6 +2826,7 @@ def cli(
                 flatten_loop_bofill=bool(simple_cfg.get("flatten_loop_bofill", False)),
                 ml_only_hessian_dimer=bool(simple_cfg.get("ml_only_hessian_dimer", ml_only_hessian_dimer)),
                 source_path=source_path,
+                skip_final_freq=skip_final_freq,
             )
 
             click.echo("\n=== TS optimization (Partial Hessian Dimer) started ===\n")

@@ -453,7 +453,7 @@ class IRC:
             step_length = np.sqrt(self.displ_energy * 2 / np.abs(min_eigval))
             # Guard against near-zero eigenvalue producing an excessively
             # large initial displacement.
-            max_displ = 0.5  # au in mass-weighted coordinates
+            max_displ = 3.0  # au in mass-weighted coordinates
             if step_length > max_displ:
                 print(
                     f"Warning: energy-based initial displacement {step_length:.4f} au "

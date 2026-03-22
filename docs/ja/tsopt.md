@@ -100,6 +100,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--partial-hessian-flatten / --full-hessian-flatten` | フラットニングループでの虚振動数モード検出に部分ヘシアン（ML のみ）を使用。 | `True`（部分） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
+| `--skip-final-freq/--no-skip-final-freq` | 収束後の振動数解析とイマジナリモードフラットニングをスキップ。大規模非凍結系でHessian対角化が高コストな場合に有用。TSの鞍点次数は未検証となる。 | `False` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |

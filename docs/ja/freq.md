@@ -85,6 +85,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_freq/` |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--hess-device CHOICE` | ヘシアン組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
+| `--dump-hess PATH` | 計算済みヘシアンを圧縮 `.npz` ファイルに保存。`mlmm irc --read-hess` で読み込み可能。 | _None_ |
 | `--ref-pdb FILE` | 非 PDB 入力用の参照 PDB トポロジー。 | _None_ |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
