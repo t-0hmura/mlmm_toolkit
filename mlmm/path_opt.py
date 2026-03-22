@@ -1089,13 +1089,13 @@ def cli(
         echo_lbfgs = strip_inherited_keys({**lbfgs_cfg, "out_dir": stopt_cfg.get("out_dir")}, LBFGS_KW, mode="same")
 
         click.echo(pretty_block("geom", echo_geom))
-        click.echo(pretty_block("calc", echo_calc, defaults=CALC_KW))
+        click.echo(pretty_block("calc", echo_calc))
         if mep_mode_kind == "gsm":
             click.echo(pretty_block("gs", echo_gs))
             click.echo(pretty_block("stopt", echo_stopt))
-            click.echo(pretty_block("lbfgs", echo_lbfgs, defaults=LBFGS_KW))
+            click.echo(pretty_block("lbfgs", echo_lbfgs))
         elif mep_mode_kind == "dmf":
-            click.echo(pretty_block("dmf", dmf_cfg, defaults=DMF_KW))
+            click.echo(pretty_block("dmf", dmf_cfg))
         click.echo(
             pretty_block(
                 "run_flags",

@@ -1196,7 +1196,7 @@ def cli(
 
     click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
     echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
-    click.echo(pretty_block("calc", echo_calc, defaults=MLMM_CALC_KW))
+    click.echo(pretty_block("calc", echo_calc))
     echo_freq = strip_inherited_keys({**freq_cfg, "out_dir": str(out_dir_path)}, FREQ_KW, mode="same")
     click.echo(pretty_block("freq", echo_freq))
     echo_thermo = strip_inherited_keys(thermo_cfg, THERMO_KW, mode="same")

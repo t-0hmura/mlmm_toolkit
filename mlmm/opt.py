@@ -1471,17 +1471,17 @@ def cli(
         click.echo(f"\n[mode] Optimizer: {mode_str}\n")
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
         echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
-        click.echo(pretty_block("calc", echo_calc, defaults=MLMM_CALC_KW))
+        click.echo(pretty_block("calc", echo_calc))
         # Show only non-default opt settings
         echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
         click.echo(pretty_block("opt", echo_opt))
         # Show only optimizer-specific settings, not inherited from opt_cfg
         if use_rfo:
             echo_rfo = strip_inherited_keys(rfo_cfg, opt_cfg)
-            click.echo(pretty_block("rfo", echo_rfo, defaults=RFO_KW))
+            click.echo(pretty_block("rfo", echo_rfo))
         else:
             echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
-            click.echo(pretty_block("lbfgs", echo_lbfgs, defaults=LBFGS_KW))
+            click.echo(pretty_block("lbfgs", echo_lbfgs))
         if dist_freeze:
             display_pairs = []
             for (i, j, target) in dist_freeze:

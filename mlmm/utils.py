@@ -287,39 +287,14 @@ def unbiased_energy_hartree(geom, base_calc) -> float:
         return float("nan")
 
 
-def pretty_block(
-    title: str,
-    content: Dict[str, Any],
-    *,
-    defaults: Dict[str, Any] | None = None,
-) -> str:
-    """Return a YAML-formatted block with an underlined title.
-
-    Parameters
-    ----------
-    defaults : dict, optional
-        When *verbose mode* is off (the default) and *defaults* is given,
-        only keys whose values differ from *defaults* are shown.
-    """
-    if defaults is not None and not _verbose_config:
-        content = {k: v for k, v in content.items() if k not in defaults or defaults.get(k) != v}
-    # Shorten absolute paths to relative when a base directory is set
+def pretty_block(title: str, content: Dict[str, Any]) -> str:
+    """Return a YAML-formatted block with an underlined title."""
     if not content:
         return ""  # suppress empty blocks entirely
     if _base_dir is not None:
         content = _shorten_paths(content)
     body = yaml.safe_dump(_to_yaml_safe(content), sort_keys=False, allow_unicode=True).strip()
     return f"{title}\n" + "-" * len(title) + "\n" + body + "\n"
-
-
-# Module-level verbose flag for config dumps.
-_verbose_config: bool = False
-
-
-def set_verbose_config(verbose: bool) -> None:
-    """Set the module-level verbose flag for config dumps."""
-    global _verbose_config
-    _verbose_config = verbose
 
 
 # Module-level base directory for relative path display.

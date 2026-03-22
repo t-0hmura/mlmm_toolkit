@@ -548,7 +548,7 @@ def cli(
         # Pretty-print configuration (expand freeze_atoms for readability)
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
         echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
-        click.echo(pretty_block("calc", echo_calc, defaults=_UMA_CALC_KW))
+        click.echo(pretty_block("calc", echo_calc))
         echo_irc = strip_inherited_keys({**irc_cfg, "out_dir": str(out_dir_path)}, IRC_KW_DEFAULT, mode="same")
         click.echo(pretty_block("irc", echo_irc))
 

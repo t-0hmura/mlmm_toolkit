@@ -1825,11 +1825,11 @@ def cli(
         echo_search = strip_inherited_keys(search_cfg, SEARCH_KW, mode="same")
 
         click.echo(pretty_block("geom", echo_geom))
-        click.echo(pretty_block("calc", echo_calc, defaults=CALC_KW))
+        click.echo(pretty_block("calc", echo_calc))
         click.echo(pretty_block("gs",   echo_gs))
         click.echo(pretty_block("stopt", echo_stopt))
-        click.echo(pretty_block("lbfgs", echo_lbfgs, defaults=LBFGS_KW))
-        click.echo(pretty_block("bond", echo_bond, defaults=_BOND_KW_DEFAULT))
+        click.echo(pretty_block("lbfgs", echo_lbfgs))
+        click.echo(pretty_block("bond", echo_bond))
         click.echo(pretty_block("search", echo_search))
         # Echo pre-optimization and alignment flags
         click.echo(

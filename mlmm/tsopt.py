@@ -2483,7 +2483,7 @@ def cli(
     click.echo(f"\n[mode] TS Optimizer: {mode_desc}\n")
     click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
     echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
-    click.echo(pretty_block("calc", echo_calc, defaults=MLMM_CALC_KW))
+    click.echo(pretty_block("calc", echo_calc))
     echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
     click.echo(pretty_block("opt", echo_opt))
     # Show only optimizer-specific settings, not inherited from opt_cfg

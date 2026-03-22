@@ -880,12 +880,12 @@ def cli(
 
             click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")))
             echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
-            click.echo(pretty_block("calc", echo_calc, defaults=MLMM_CALC_KW))
+            click.echo(pretty_block("calc", echo_calc))
             echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
             click.echo(pretty_block("opt", echo_opt))
             echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
-            click.echo(pretty_block("lbfgs", echo_lbfgs, defaults=LBFGS_KW))
-            click.echo(pretty_block("bias", bias_cfg, defaults=_BIAS_KW_DEFAULT))
+            click.echo(pretty_block("lbfgs", echo_lbfgs))
+            click.echo(pretty_block("bias", bias_cfg))
 
             pdb_atom_meta: List[Dict[str, Any]] = []
             if source_path.suffix.lower() == ".pdb":

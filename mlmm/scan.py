@@ -662,11 +662,11 @@ def cli(
             # Show only lbfgs-specific settings, not inherited from opt_cfg
             echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
             click.echo(pretty_block("geom", echo_geom))
-            click.echo(pretty_block("calc", echo_calc, defaults=MLMM_CALC_KW))
+            click.echo(pretty_block("calc", echo_calc))
             click.echo(pretty_block("opt", echo_opt))
-            click.echo(pretty_block("lbfgs", echo_lbfgs, defaults=LBFGS_KW))
-            click.echo(pretty_block("bias", bias_cfg, defaults=_BIAS_KW_DEFAULT))
-            click.echo(pretty_block("bond", bond_cfg, defaults=_BOND_KW_DEFAULT))
+            click.echo(pretty_block("lbfgs", echo_lbfgs))
+            click.echo(pretty_block("bias", bias_cfg))
+            click.echo(pretty_block("bond", bond_cfg))
 
             pdb_atom_meta: List[Dict[str, Any]] = []
             if source_path.suffix.lower() == ".pdb":
