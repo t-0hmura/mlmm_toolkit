@@ -328,7 +328,16 @@ class IRC:
                 f"                        Δ: {en_str(diff)}"
             )
             if actual_lowering < 0.0:
-                print("Displaced geometry is higher in energy compared to TS!")
+                print("Displaced geometry is higher in energy. Bisecting step...")
+                for _ in range(5):
+                    initial_step *= 0.5
+                    self.coords = self.ts_coords + initial_step
+                    actual_lowering = self.ts_energy - self.energy
+                    if actual_lowering > 0.0:
+                        print(f"  Resolved: lowering={actual_lowering:.6f} au")
+                        break
+                else:
+                    print("WARNING: Could not find downhill displacement.")
             print("\n")
             sys.stdout.flush()
         initial_step_length = np.linalg.norm(initial_step)

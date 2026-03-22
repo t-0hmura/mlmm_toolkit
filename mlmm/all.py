@@ -1661,7 +1661,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Print resolved configuration and continue execution.")
 @click.option("--dry-run/--no-dry-run", "dry_run", default=False, show_default=True,
               help="Validate options and print the execution plan without running any stage.")
-@click.option("--preopt", "pre_opt", type=click.BOOL, default=False, show_default=True,
+@click.option("--preopt", "pre_opt", type=click.BOOL, default=True, show_default=True,
               help="If True, run initial single-structure optimizations of the pocket inputs.")
 @click.option("--hessian-calc-mode",
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
