@@ -299,6 +299,25 @@ def pretty_block(title: str, content: Dict[str, Any]) -> str:
 
 # Module-level base directory for relative path display.
 _base_dir: Path | None = None
+_original_click_echo = None
+
+
+def _patch_click_echo() -> None:
+    """Monkey-patch click.echo to shorten absolute paths in output."""
+    import click as _click
+    global _original_click_echo
+    if _original_click_echo is not None:
+        return  # already patched
+    _original_click_echo = _click.echo
+
+    def _patched_echo(message=None, **kwargs):
+        if message is not None and _base_dir is not None and isinstance(message, str):
+            bd = str(_base_dir)
+            if bd in message:
+                message = message.replace(bd + "/", "").replace(bd, ".")
+        _original_click_echo(message, **kwargs)
+
+    _click.echo = _patched_echo
 
 
 def set_base_dir(path: Path | str | None) -> None:
@@ -322,27 +341,6 @@ def rel_display(path: Path | str) -> str:
         except ValueError:
             pass
     return str(p)
-
-
-_original_click_echo = None
-
-
-def _patch_click_echo() -> None:
-    """Monkey-patch click.echo to shorten absolute paths in output."""
-    import click as _click
-    global _original_click_echo
-    if _original_click_echo is not None:
-        return  # already patched
-    _original_click_echo = _click.echo
-
-    def _patched_echo(message=None, **kwargs):
-        if message is not None and _base_dir is not None and isinstance(message, str):
-            bd = str(_base_dir)
-            if bd in message:
-                message = message.replace(bd + "/", "").replace(bd, ".")
-        _original_click_echo(message, **kwargs)
-
-    _click.echo = _patched_echo
 
 
 def _shorten_paths(content: Dict[str, Any]) -> Dict[str, Any]:
