@@ -329,9 +329,10 @@ class IRC:
             )
             if actual_lowering < 0.0:
                 print("Displaced geometry is higher in energy. Bisecting step...")
+                step = initial_step.copy()
                 for _ in range(5):
-                    initial_step *= 0.5
-                    self.coords = self.ts_coords + initial_step
+                    step = step * 0.5
+                    self.coords = self.ts_coords + step
                     actual_lowering = self.ts_energy - self.energy
                     if actual_lowering > 0.0:
                         print(f"  Resolved: lowering={actual_lowering:.6f} au")

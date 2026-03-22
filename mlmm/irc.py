@@ -22,6 +22,7 @@ import textwrap
 logger = logging.getLogger(__name__)
 
 import click
+import numpy as np
 import time
 import torch
 
