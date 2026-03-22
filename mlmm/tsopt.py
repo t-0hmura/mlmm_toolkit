@@ -1734,6 +1734,7 @@ def _run_microiter_tsopt(
     micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
     micro_col_fmts = "int float float float float float int float_short".split()
     micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
+    print()
     micro_table.print_header()
 
     for macro_iter in range(max_cycles):
@@ -1769,6 +1770,7 @@ def _run_microiter_tsopt(
                  macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], 0, cycle_time),
                 marks=marks,
             )
+            print()
             click.echo(f"[microiter] Macro convergence reached at iteration {macro_iter + 1}.")
             break
 
@@ -1812,6 +1814,7 @@ def _run_microiter_tsopt(
         )
 
     else:
+        print()
         click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).")
 
     del macro_optimizer
