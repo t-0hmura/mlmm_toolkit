@@ -44,6 +44,7 @@ from pysisyphus.constants import AU2KCALPERMOL, BOHR2ANG
 from .mlmm_calc import mlmm, MLMMASECalculator
 from .defaults import (
     BOND_KW as _BOND_KW_DEFAULT,
+    MLMM_CALC_KW,
     SEARCH_KW as _SEARCH_KW_DEFAULT,
 )
 from .path_opt import GS_KW as _PATH_GS_KW, STOPT_KW as _PATH_STOPT_KW, DMF_KW as _PATH_DMF_KW, _select_hei_index
