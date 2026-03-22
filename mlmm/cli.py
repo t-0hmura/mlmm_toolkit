@@ -556,7 +556,7 @@ _DEFAULT_GROUP_KWARGS = {
 def cli() -> None:
     from .utils import set_base_dir
     set_base_dir(Path.cwd())
-    click.echo(f"mlmm-toolkit ver. {__version__}\n")
+    click.echo(f"mlmm-toolkit ver. {__version__}")
 
 
 # Pysisyphus log suppression is handled by DefaultGroup._silence_pysisyphus_loggers()

@@ -339,7 +339,7 @@ class IRC:
                         break
                 else:
                     print("WARNING: Could not find downhill displacement.")
-            print("\n")
+            print()
             sys.stdout.flush()
         initial_step_length = np.linalg.norm(initial_step)
         self.logger.info(
@@ -771,7 +771,7 @@ class IRC:
         )
 
         if self.forward:
-            print("\n" + highlight_text("IRC - Forward") + "\n")
+            print("\n" + highlight_text("IRC - Forward"))
             self.irc("forward")
             self.set_data("forward")
             if isinstance(self.mw_hessian, torch.Tensor):
@@ -788,12 +788,12 @@ class IRC:
         self.ts_index = len(self.all_energies) - 1
 
         if self.backward:
-            print("\n" + highlight_text("IRC - Backward") + "\n")
+            print("\n" + highlight_text("IRC - Backward"))
             self.irc("backward")
             self.set_data("backward")
 
         if self.downhill:
-            print("\n" + highlight_text("IRC - Downhill") + "\n")
+            print("\n" + highlight_text("IRC - Downhill"))
             self.irc("downhill")
             self.set_data("downhill")
 
