@@ -70,8 +70,7 @@ calc:
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
- ml_hessian_mode: FiniteDifference # ML ヘシアンモード: "FiniteDifference" または "Analytical"
- hessian_calc_mode: FiniteDifference # ml_hessian_mode のエイリアス
+ hessian_calc_mode: FiniteDifference # ML ヘシアンモード: "FiniteDifference" または "Analytical"
  out_hess_torch: true # ヘシアンを torch.Tensor で返す
  H_double: false # ヘシアンを float64 で組み立て・返却
  ml_device: auto # ML デバイス: "cuda", "cpu", "auto"
@@ -107,8 +106,7 @@ calc:
   - `aimnet2_model` — AIMNet2 バックエンドのみ
 - `embedcharge`: `true` に設定すると、xTB 点電荷埋め込み補正が有効化されます。MM 領域の部分電荷を点電荷として ML 計算に埋め込み、MM 環境から ML 領域への静電的影響（分極効果）を考慮します。デフォルトは `false` です。`$PATH` 上に `xtb` 実行ファイルが必要です。
 - `xtb_cmd`、`xtb_acc`、`xtb_ncores`、`xtb_workdir`、`xtb_keep_files` は `embedcharge` が有効な場合に xTB サブプロセスを設定します。
-- `hessian_calc_mode: Analytical` が推奨です（VRAM に余裕がある場合、ML 原子 300 以上では 24 GB 以上推奨）。UMA バックエンドでのみ利用可能で、他のバックエンドでは自動的に `FiniteDifference` が使用されます。`hessian_calc_mode` は `ml_hessian_mode` を上書きします。
-- `hess_cutoff`/`movable_cutoff` を指定しない場合、ML 以外の全原子が Hessian 対象 MM に分類されます。
+- `hessian_calc_mode: Analytical` が推奨です（VRAM に余裕がある場合、ML 原子 300 以上では 24 GB 以上推奨）。UMA バックエンドでのみ利用可能で、他のバックエンドでは自動的に `FiniteDifference` が使用されます。- `hess_cutoff`/`movable_cutoff` を指定しない場合、ML 以外の全原子が Hessian 対象 MM に分類されます。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
 - `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分ヘシアンを既定で使用します。
@@ -566,7 +564,7 @@ calc:
  embedcharge: false            # xTB 点電荷埋め込み補正
  uma_model: uma-s-1p1          # uma-s-1p1 | uma-m-1p1
  ml_device: auto
- ml_hessian_mode: Analytical   # VRAM に余裕がある場合に推奨
+ hessian_calc_mode: Analytical   # VRAM に余裕がある場合に推奨
  mm_device: cpu
  mm_fd: true
  use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り

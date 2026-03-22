@@ -77,9 +77,8 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "mace_model": "MACE-OMOL-0",
     "mace_dtype": "float64",
     "aimnet2_model": "aimnet2",
-    # ML Hessian mode
-    "ml_hessian_mode": "FiniteDifference",
-    "hessian_calc_mode": "FiniteDifference",  # Override for ml_hessian_mode (takes precedence when not None)
+    # ML Hessian mode: "FiniteDifference" or "Analytical"
+    "hessian_calc_mode": "FiniteDifference",
     "out_hess_torch": True,
     "H_double": False,
     "ml_device": "auto",

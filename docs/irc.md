@@ -116,7 +116,7 @@ Shared sections reuse [YAML Reference](yaml_reference.md) for geometry/calculato
 | `--forward` | `irc.forward` |
 | `--backward` | `irc.backward` |
 | `--out-dir` | `irc.out_dir` |
-| `--hessian-calc-mode` | `calc.hessian_calc_mode` (alias: `calc.ml_hessian_mode`) |
+| `--hessian-calc-mode` | `calc.hessian_calc_mode` |
 
 ### Example YAML
 
@@ -135,7 +135,7 @@ mlmm:
  uma_model: uma-s-1p1              # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
- hessian_calc_mode: Analytical        # Hessian mode (alias: ml_hessian_mode)
+ hessian_calc_mode: Analytical        # Hessian mode
  return_partial_hessian: true      # forced true for irc (partial Hessian with active-DOF processing)
 irc:
  step_length: 0.1                  # integration step length

@@ -1000,8 +1000,7 @@ class MLMMCore:
         mm_cuda_idx: int = 0,
         mm_threads: int = 16,
         freeze_atoms: List[int] | None = None,
-        ml_hessian_mode: str = "FiniteDifference",
-        hessian_calc_mode: Optional[str] = None,
+        hessian_calc_mode: str = "FiniteDifference",
         return_partial_hessian: bool = True,
         hess_cutoff: Optional[float] = None,
         movable_cutoff: Optional[float] = None,
@@ -1175,8 +1174,7 @@ class MLMMCore:
                 f"Unknown mm_backend '{mm_backend}'. Choose 'hessian_ff' or 'openmm'."
             )
 
-        mode_in = hessian_calc_mode if hessian_calc_mode is not None else ml_hessian_mode
-        mode = (mode_in or "Analytical").strip().lower()
+        mode = (hessian_calc_mode or "FiniteDifference").strip().lower()
         self._ml_hessian_mode = "analytical" if mode.startswith("analyt") else "fd"
 
         self._atoms_real_tpl = read(self.input_pdb)
@@ -2110,8 +2108,7 @@ class mlmm(PySiCalc):
         symmetrize_hessian: bool = True,
         out_hess_torch: bool = True,
         H_double: bool = False,
-        ml_hessian_mode: str = "FiniteDifference",
-        hessian_calc_mode: Optional[str] = None,
+        hessian_calc_mode: str = "FiniteDifference",
         ml_device: str = "auto",
         ml_cuda_idx: int = 0,
         mm_device: str = "cpu",
@@ -2183,7 +2180,6 @@ class mlmm(PySiCalc):
             mm_threads=mm_threads,
             mm_backend=mm_backend,
             freeze_atoms=self._freeze_atoms,
-            ml_hessian_mode=ml_hessian_mode,
             hessian_calc_mode=hessian_calc_mode,
             return_partial_hessian=return_partial_hessian,
             print_timing=print_timing,

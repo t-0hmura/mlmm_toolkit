@@ -142,7 +142,7 @@ mlmm:
  uma_model: uma-s-1p1              # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
- ml_hessian_mode: Analytical        # Hessian mode selection
+ hessian_calc_mode: Analytical        # Hessian mode selection
 opt:
  thresh: baker                     # convergence preset (Gaussian/Baker-style)
  max_cycles: 10000                 # optimizer cycle cap

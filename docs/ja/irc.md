@@ -140,7 +140,7 @@ mlmm:
  uma_model: uma-s-1p1              # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
- ml_hessian_mode: Analytical         # ヘシアンモード選択
+ hessian_calc_mode: Analytical         # ヘシアンモード選択
  return_partial_hessian: true      # irc では true に強制（partial Hessian、active-DOF 処理）
 irc:
  step_length: 0.1                  # 積分ステップ長

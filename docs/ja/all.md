@@ -358,7 +358,7 @@ mlmm:
  backend: uma                    # ML バックエンド (uma/orb/mace/aimnet2)
  embedcharge: false              # xTB 点電荷埋め込み補正
  uma_model: uma-s-1p1            # uma-s-1p1 | uma-m-1p1
- ml_hessian_mode: Analytical     # VRAM に余裕がある場合に推奨
+ hessian_calc_mode: Analytical     # VRAM に余裕がある場合に推奨
 gs:
  max_nodes: 12
  climb: true

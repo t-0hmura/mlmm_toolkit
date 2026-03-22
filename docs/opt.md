@@ -144,7 +144,7 @@ Settings are applied with **defaults < config < explicit CLI < override**. Accep
 - `input_pdb`, `real_parm7`, `model_pdb`: required file paths (strings).
 - `model_charge` (`-q/--charge`, required) and `model_mult` (`-m/--multiplicity`, default 1).
 - `link_mlmm`: optional list of `(ML_atom_id, MM_atom_id)` strings to pin ML/MM link pairs (no link atoms created).
-- ML backend controls: `backend` (default `"uma"`; choices `uma`, `orb`, `mace`, `aimnet2`), `embedcharge` (default `false`). UMA-specific: `uma_model` (default `"uma-s-1p1"`), `uma_task_name` (default `"omol"`). Shared: `ml_hessian_mode` (`"Analytical"` or `"FiniteDifference"`), `out_hess_torch` (bool), `H_double` (bool).
+- ML backend controls: `backend` (default `"uma"`; choices `uma`, `orb`, `mace`, `aimnet2`), `embedcharge` (default `false`). UMA-specific: `uma_model` (default `"uma-s-1p1"`), `uma_task_name` (default `"omol"`). Shared: `hessian_calc_mode` (`"Analytical"` or `"FiniteDifference"`), `out_hess_torch` (bool), `H_double` (bool).
 - Device selection: `ml_device` (`"auto"`/`"cuda"`/`"cpu"`), `ml_cuda_idx`, `mm_device`, `mm_cuda_idx`, `mm_threads`.
 - MM finite difference: `mm_fd` (bool), `mm_fd_dir` (output dir for FD info), and whether to `return_partial_hessian`.
 - `return_partial_hessian`: for `opt`, partial Hessian is used by default when this key is not explicitly set in YAML. Set `calc.return_partial_hessian: false` to force full Hessian output.
@@ -184,7 +184,7 @@ mlmm:
  uma_model: uma-s-1p1           # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol             # UMA task name (UMA backend only)
  ml_device: auto                # ML backend device selection
- ml_hessian_mode: Analytical         # Hessian mode selection
+ hessian_calc_mode: Analytical         # Hessian mode selection
  out_hess_torch: true           # request torch-form Hessian
  mm_fd: true                    # MM finite-difference toggle
  return_partial_hessian: true   # allow partial Hessians (default for opt)

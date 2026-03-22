@@ -359,7 +359,7 @@ mlmm:
  backend: uma                    # MLIP backend: uma | orb | mace | aimnet2
  embedcharge: false              # xTB point-charge embedding correction
  uma_model: uma-s-1p1            # uma-s-1p1 | uma-m-1p1
- ml_hessian_mode: Analytical     # recommended when VRAM permits
+ hessian_calc_mode: Analytical     # recommended when VRAM permits
 gs:
  max_nodes: 12
  climb: true
