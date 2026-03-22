@@ -245,14 +245,14 @@ def _prepare_ml_region_workspace(
         real_rst7 = tmp / "real.rst7"
         real_top.save(str(real_rst7), overwrite=True)
     except Exception as exc:  # pragma: no cover - requires parmed
-        tmp.cleanup()
+        tmpdir.cleanup()
         raise RuntimeError(f"Failed to prepare sanitized Amber inputs: {exc}") from exc
 
     ml_region_ids = _load_model_region_ids(model_copy)
     leap_atoms = _load_input_atoms(input_copy)
     ml_ids = [atom["idx"] for atom in leap_atoms if atom["id"] in ml_region_ids]
     if not ml_ids:
-        tmp.cleanup()
+        tmpdir.cleanup()
         raise ValueError("No overlap between model_pdb atoms and the input PDB was found.")
 
     link_pairs = _detect_link_pairs(leap_atoms, ml_region_ids, link_mlmm)
@@ -273,7 +273,7 @@ def _prepare_ml_region_workspace(
     atoms_real = read(str(input_copy))
     atoms_model = read(str(model_copy))
     if len(atoms_model) != len(selection_indices):
-        tmp.cleanup()
+        tmpdir.cleanup()
         raise ValueError(
             "model_pdb atom count does not match the detected ML-region selection from the input PDB."
         )
