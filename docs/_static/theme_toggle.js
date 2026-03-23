@@ -1,19 +1,34 @@
-document.addEventListener("DOMContentLoaded", function () {
-  var btn = document.querySelector("button.theme-toggle");
-  if (!btn) return;
-  // Replace Furo's 3-state toggle with 2-state (light ↔ dark)
-  btn.addEventListener("click", function (e) {
-    e.stopImmediatePropagation();
-    var current = document.body.dataset.theme;
-    var next = (current === "dark") ? "light" : "dark";
-    document.body.dataset.theme = next;
-    localStorage.setItem("theme", next);
-  }, true);
-  // Initialize: resolve "auto" to explicit light/dark
-  if (!localStorage.getItem("theme") || localStorage.getItem("theme") === "auto") {
-    var isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    var initial = isDark ? "dark" : "light";
-    document.body.dataset.theme = initial;
-    localStorage.setItem("theme", initial);
+// Override Furo's 3-state theme toggle (light/dark/auto) with 2-state (light ↔ dark).
+(function () {
+  "use strict";
+
+  function resolveAuto() {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
-});
+
+  function applyTheme(theme) {
+    document.body.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }
+
+  function toggle() {
+    var current = document.body.dataset.theme;
+    if (current !== "light" && current !== "dark") current = resolveAuto();
+    applyTheme(current === "dark" ? "light" : "dark");
+  }
+
+  // Intercept all theme-toggle buttons (header + sidebar)
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("button.theme-toggle");
+    if (!btn) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    toggle();
+  }, true);
+
+  // On load: resolve "auto" to explicit light/dark
+  var stored = localStorage.getItem("theme");
+  if (!stored || stored === "auto") {
+    applyTheme(resolveAuto());
+  }
+})();
