@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite it using the information below.
+title: mlmm-toolkit
+type: software
+authors:
+  - family-names: Ohmura
+    given-names: Takuto
+    orcid: "https://orcid.org/0009-0008-1215-0168"
+  - family-names: Terada
+    given-names: Tohru
+license: MIT
+repository-code: "https://github.com/t-0hmura/mlmm_toolkit"
+version: "0.2.5"
+date-released: "2026-03-24"
