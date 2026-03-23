@@ -400,7 +400,7 @@ def define_layers(
     "model_indices_str",
     type=str,
     default=None,
-    help="Comma-separated atom indices for ML region (e.g., '0,1,2,3' or '1-10,15,20-25'). "
+    help="Comma-separated atom indices for ML region (e.g., '1,2,3,4' or '1-10,15,20-25'). "
          "Takes precedence over --model-pdb.",
 )
 @click.option(
@@ -473,7 +473,7 @@ def cli(
         output_pdb = input_pdb.parent / f"{input_pdb.stem}_layered.pdb"
 
     # Echo configuration
-    click.echo("\n=== Define Layer Configuration ===\n")
+    click.echo("=== Define Layer Configuration ===\n")
     click.echo(f"Input PDB: {input_pdb}")
     if model_pdb is not None:
         click.echo(f"Model PDB: {model_pdb}")

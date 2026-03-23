@@ -67,6 +67,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "model_charge": 0,
     "model_mult": 1,
     "link_mlmm": None,
+    "link_atom_method": "scaled",  # "scaled" (g-factor, Gaussian ONIOM standard) | "fixed" (1.09/1.01 Å legacy)
     # ML backend selection: "uma" | "orb" | "mace" | "aimnet2"
     "backend": "uma",
     "uma_model": "uma-s-1p1",
@@ -76,24 +77,24 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "mace_model": "MACE-OMOL-0",
     "mace_dtype": "float64",
     "aimnet2_model": "aimnet2",
-    # ML Hessian mode
-    "ml_hessian_mode": "FiniteDifference",
-    "hessian_calc_mode": "FiniteDifference",  # Alias for ml_hessian_mode
+    # ML Hessian mode: "FiniteDifference" or "Analytical"
+    "hessian_calc_mode": "FiniteDifference",
     "out_hess_torch": True,
     "H_double": False,
     "ml_device": "auto",
     "ml_cuda_idx": 0,
     "mm_backend": "hessian_ff",  # "hessian_ff" (analytical) | "openmm" (FD Hessian)
+    "use_cmap": False,           # If False, disable CMAP terms in model parm7 (Gaussian ONIOM-compatible)
     "mm_device": "cpu",
     "mm_cuda_idx": 0,
     "mm_threads": 16,
     "mm_fd": True,
     "mm_fd_dir": None,
-    "mm_fd_delta": 1e-3,         # Legacy parameter (retained)
+    "mm_fd_delta": 1e-3,         # Displacement step for OpenMM FD Hessian (Å)
     "symmetrize_hessian": True,  # Symmetrize final Hessian as 0.5*(H+H^T)
     "print_timing": True,        # Print ML/MM Hessian timing breakdown
     "print_vram": True,          # Print CUDA VRAM usage (peak) during Hessian
-    "return_partial_hessian": False,
+    "return_partial_hessian": True,
     "freeze_atoms": [],
     # 3-layer B-factor configuration:
     #   ML region (B=0)
@@ -167,10 +168,10 @@ LBFGS_KW: Dict[str, Any] = {
 
 RFO_KW: Dict[str, Any] = {
     **OPT_BASE_KW,
-    "trust_radius": 0.30,
+    "trust_radius": 0.10,
     "trust_update": True,
     "trust_min": 1e-4,
-    "trust_max": 0.30,
+    "trust_max": 0.20,
     "max_energy_incr": None,
     "hessian_update": "bfgs",
     "hessian_init": "calc",
@@ -441,12 +442,12 @@ _RFO_ONLY_KEYS = {
 RSIRFO_KW: Dict[str, Any] = {
     **{k: v for k, v in RFO_KW.items() if k not in _RFO_ONLY_KEYS},
     "thresh": "baker",
-    "trust_radius": 0.10,     # ONIOM: smaller initial step (RFO default: 0.30)
-    "trust_max": 0.30,
+    "trust_radius": 0.10,
+    "trust_max": 0.20,
     "max_energy_incr": None,
     "hessian_update": "bofill",
     "hessian_init": "calc",
-    "hessian_recalc": 200,    # ONIOM: more frequent recalc (RFO default: 500)
+    "hessian_recalc": 500,
     "small_eigval_thresh": 1e-8,
     "out_dir": OUT_DIR_TSOPT,
 }

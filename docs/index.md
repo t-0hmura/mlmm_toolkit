@@ -1,6 +1,6 @@
 # mlmm-toolkit Documentation
 
-*Version: v0.2.4*
+*Version: v0.2.5*
 
 **mlmm-toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using ML/MM (machine-learning / molecular mechanics) methods.
 
@@ -110,6 +110,18 @@ ja/glossary
 
 ---
 
+## Documentation Guide
+
+| Topic | Page |
+|-------|------|
+| **Installation & first run** | [Getting Started](getting_started.md) |
+| **Key terms & workflow overview** | [Concepts & Workflow](concepts.md) |
+| **Symptom-first failure routing** | [Common Error Recipes](recipes_common_errors.md) |
+| **Common errors & fixes** | [Troubleshooting](troubleshooting.md) |
+| **CLI conventions & input requirements** | [CLI Conventions](cli_conventions.md) |
+
+---
+
 ## Quick Start by Goal
 
 | Objectives | Command | Guide |
@@ -127,7 +139,7 @@ ja/glossary
 | Search for minimum energy path | `mlmm path-search` | [path_search.md](path_search.md) |
 | Run IRC from a transition state | `mlmm irc` | [irc.md](irc.md) |
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export --mode g16\|orca` | [oniom_export.md](oniom_export.md) |
+| Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export` | [oniom_export.md](oniom_export.md) |
 | Rebuild XYZ/layered PDB from ONIOM input | `mlmm oniom-import` | [oniom_import.md](oniom_import.md) |
 | Draw state energy diagram from numeric values | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
 | Follow worked tutorials | -- | [Tutorial](getting_started.md) |
@@ -135,18 +147,6 @@ ja/glossary
 | Understand the big picture (concepts & terms) | -- | [Concepts & Workflow](concepts.md) |
 | Resolve common errors | -- | [Troubleshooting](troubleshooting.md) |
 | Look up abbreviations and terms | -- | [Glossary](glossary.md) |
-
----
-
-## Documentation Guide
-
-| Topic | Page |
-|-------|------|
-| **Installation & first run** | [Getting Started](getting_started.md) |
-| **Key terms & workflow overview** | [Concepts & Workflow](concepts.md) |
-| **Symptom-first failure routing** | [Common Error Recipes](recipes_common_errors.md) |
-| **Common errors & fixes** | [Troubleshooting](troubleshooting.md) |
-| **CLI conventions & input requirements** | [CLI Conventions](cli_conventions.md) |
 
 ---
 
@@ -197,7 +197,7 @@ ja/glossary
 ### Export
 | Subcommand | Description |
 |------------|-------------|
-| [`oniom-export`](oniom_export.md) | Export to Gaussian ONIOM / ORCA QM/MM (`--mode g16|orca`) |
+| [`oniom-export`](oniom_export.md) | Export to Gaussian ONIOM / ORCA QM/MM (`--mode g16` or `orca`) |
 | [`oniom-import`](oniom_import.md) | Import Gaussian/ORCA ONIOM input and reconstruct XYZ + layered PDB |
 
 ---

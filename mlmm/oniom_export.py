@@ -587,6 +587,12 @@ def _parse_pdb_atoms_with_meta(pdb_path: Path) -> List[Dict[str, Any]]:
             elem_field = line[76:78].strip() if len(line) >= 78 else ""
             if elem_field:
                 elem = elem_field
+                # Guard: same as _read_pdb_geometry — if elem_field is 1 char but atom name
+                # encodes a 2-char element with a different first letter, trust the atom name.
+                elem_inferred = _infer_element_from_pdb_atom_name(line[12:16])
+                if len(elem_field) == 1 and elem_inferred and len(elem_inferred) == 2:
+                    if elem_field.upper() != elem_inferred[0].upper():
+                        elem = elem_inferred
             else:
                 is_het = line.startswith("HETATM")
                 guessed = _guess_element(atom_name, res_name, is_het)

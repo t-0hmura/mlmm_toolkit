@@ -40,7 +40,7 @@ from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import ANG2BOHR, AU2KCALPERMOL
 
 from .mlmm_calc import mlmm
-from .defaults import BIAS_KW as _BIAS_KW_DEFAULT
+from .defaults import BIAS_KW as _BIAS_KW_DEFAULT, MLMM_CALC_KW
 from .opt import (
     GEOM_KW as _OPT_GEOM_KW,
     CALC_KW as _OPT_CALC_KW,
@@ -373,7 +373,7 @@ def _finalize_surface_and_plot(
     fig3d.write_html(str(html3d))
     click.echo(f"[plot] Wrote '{html3d}'.")
 
-    click.echo("\n=== 3D Scan finished ===\n")
+    click.echo("=== 3D Scan finished ===\n")
     click.echo(format_elapsed("[time] Elapsed Time for 3D Scan", time_start))
 
 
@@ -423,7 +423,7 @@ def _finalize_surface_and_plot(
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option("-q", "--charge", type=int, required=False,
@@ -485,7 +485,7 @@ def _finalize_surface_and_plot(
     "one_based",
     default=True,
     show_default=True,
-    help="Interpret (i,j) indices in --scan-lists as 1-based (default) or 0-based.",
+    help="Interpret (i,j,k) indices in --scan-lists as 1-based (default) or 0-based.",
 )
 @click.option(
     "--print-parsed/--no-print-parsed",
@@ -600,7 +600,30 @@ def _finalize_surface_and_plot(
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+)
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
 @click.pass_context
 def cli(
@@ -637,6 +660,9 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
 ) -> None:
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -770,6 +796,12 @@ def cli(
                 calc_cfg["embedcharge"] = bool(embedcharge)
             if _is_param_explicit("embedcharge_cutoff"):
                 calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
+            if link_atom_method is not None:
+                calc_cfg["link_atom_method"] = str(link_atom_method).lower()
+            if mm_backend is not None:
+                calc_cfg["mm_backend"] = str(mm_backend).lower()
+            if use_cmap is not None:
+                calc_cfg["use_cmap"] = use_cmap
 
             # movable_cutoff implies full distance-based layer assignment.
             # hess_cutoff alone can be combined with --detect-layer.

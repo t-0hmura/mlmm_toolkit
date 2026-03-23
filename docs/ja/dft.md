@@ -62,6 +62,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-b, --backend CHOICE` | ONIOM 低レベル再結合用 MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | 静電埋め込みの有効化: Amber トポロジーの MM 点電荷を PySCF QM ハミルトニアンに追加し、DFT 波動関数が MM 環境により分極。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `-i, --input PATH` | 完全酵素構造ファイル（PDB または XYZ）。XYZ の場合は `--ref-pdb` でトポロジーを指定。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |
@@ -74,7 +75,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | 最大 SCF 反復数。 | `100` |
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
-| `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 9=超精密)。 | `3` |
+| `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=fine, 9=very fine)。 | `3` |
 | `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
@@ -116,8 +117,8 @@ out_dir/ (デフォルト: ./result_dft/)
 geom:
  coord_type: cart                  # オプションの geom_loader 設定
 calc:
- charge: 0                         # ML 領域の電荷
- spin: 1                           # スピン多重度 2S+1
+ model_charge: 0                   # ML 領域の電荷
+ model_mult: 1                     # スピン多重度 2S+1
 mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
@@ -139,6 +140,6 @@ dft:
 
 - [freq](freq.md) -- 振動解析（DFT 精密化の前に実行する場合が多い）
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- `--dft` 付きend-to-endワークフロー
+- [all](all.md) -- `--dft` 付き一気通貫ワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `dft` の完全な設定オプション
 - [用語集](glossary.md) -- DFT、SP（一点計算）の定義

@@ -66,7 +66,7 @@ freq:
   n_frames: 20
   sort: value
   temperature: 298.15
-  pressure: 1.0
+  pressure_atm: 1.0
 
 dft:
   func_basis: wb97m-v/def2-tzvpd

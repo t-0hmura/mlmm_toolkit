@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **要約:** end-to-endの酵素反応ワークフロー -- 活性部位抽出、ML/MM レイヤー割り当て、MM トポロジー準備、任意の段階的スキャン、全系レイヤード PDB での MEP 探索（GSM）、任意の TS 最適化、擬似 IRC、熱化学、DFT、DFT//UMA ダイアグラム。
+> **要約:** end-to-endの酵素反応ワークフロー -- 活性部位抽出、ML/MM レイヤー割り当て、MM トポロジー準備、任意の段階的スキャン、全系レイヤード PDB での MEP 探索（GSM）、任意の TS 最適化、EulerPC IRC、熱化学、DFT、DFT//MLIP ダイアグラム。
 
 `mlmm all` は全系レイヤード PDB 上で ML/MM を用いるワンショットパイプラインを実行します。以下の 3 つのモードをサポートしています:
 
@@ -10,7 +10,7 @@
 - **単一構造 + 段階的スキャン** -- 1 つの PDB と `--scan-lists` を提供します。スキャンで中間体/生成物候補を生成し、MEP の端点として使用します。
   - 1 つの `--scan-lists` リテラルで単一のスキャンステージを実行します。
   - 複数ステージは 1 つの `--scan-lists` フラグの後に複数の値として渡します（フラグ自体は繰り返せません）。
-- **TSOPT のみ** -- 1 つの PDB を提供し、`--scan-lists` を省略して `--tsopt` を設定します。レイヤード全系 PDB で TS 最適化を実行し、擬似 IRC、両端の極小化、エネルギーダイアグラムの構築を行います。
+- **TSOPT のみ** -- 1 つの PDB を提供し、`--scan-lists` を省略して `--tsopt` を設定します。レイヤード全系 PDB で TS 最適化を実行し、EulerPC IRC、両端の極小化、エネルギーダイアグラムの構築を行います。
 
 ```{important}
 `--tsopt` は **TS 候補**を生成します。`all` は検証のために IRC と freq を自動実行しますが、機構解釈の前に必ず結果（虚振動数モード + 端点の結合性）を確認してください。
@@ -118,12 +118,12 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
    - セグメントごとの軌跡、全 MEP 軌跡、`summary.yaml` が `<out-dir>/path_search/` に書き出されます。
    - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
-   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//UMA Gibbs ダイアグラムも生成されます。
+   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//MLIP Gibbs ダイアグラムも生成されます。
    - 共有の上書き: `--opt-mode`、`--opt-mode-post`（TSOPT と IRC 後 endpoint-opt のモード上書き）、`--flatten/--no-flatten`、`--hessian-calc-mode`、`--tsopt-max-cycles`、`--tsopt-out-dir`、`--freq-*`、`--dft-*`。
    - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
 
 6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
-   - ステップ (4)-(5) をスキップし、レイヤード全系 PDB で `tsopt` を実行し、擬似 IRC と両端の極小化を行い、R-TS-P の ML/MM エネルギーダイアグラムを構築し、任意で Gibbs、DFT、DFT//UMA ダイアグラムを追加します。
+   - ステップ (4)-(5) をスキップし、レイヤード全系 PDB で `tsopt` を実行し、EulerPC IRC と両端の極小化を行い、R-TS-P の ML/MM エネルギーダイアグラムを構築し、任意で Gibbs、DFT、DFT//MLIP ダイアグラムを追加します。
    - このモードでのみ、**より高いエネルギー**の IRC 端点が反応物 (R) として採用されます。
 
 ### 電荷とスピンの優先順位
@@ -175,7 +175,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `-r, --radius FLOAT` | ポケット包含カットオフ (Å)。 | `2.6` |
 | `--radius-het2het FLOAT` | 独立したヘテロ-ヘテロカットオフ (Å)。 | `0.0` |
 | `--include-H2O/--no-include-H2O` | 水分子（HOH/WAT/TIP3/SOL）を含める。 | `True` |
-| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去。 | `True` |
+| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去。 | `False` |
 | `--add-linkH/--no-add-linkH` | 切断結合にリンク水素を付加。 | `False` |
 | `--selected-resn TEXT` | 強制包含する残基。 | `""` |
 | `--verbose/--no-verbose` | INFO レベルの抽出器ログを有効化。 | `True` |
@@ -196,6 +196,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。全計算サブコマンドに転送。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `20` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
@@ -227,7 +228,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化 + 擬似 IRC を実行。 | `False` |
+| `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化 + EulerPC IRC を実行。 | `False` |
 | `--thermo/--no-thermo` | R/TS/P で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | R/TS/P で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
@@ -316,7 +317,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 ログは番号付きセクションで構成されています:
 - **[1] グローバル MEP 概要** -- イメージ/セグメント数、MEP 軌跡プロットパス、集約 MEP エネルギーダイアグラム。
 - **[2] セグメントレベル MEP サマリー（UMA 経路）** -- セグメントごとの障壁、反応エネルギー、結合変化サマリー。
-- **[3] セグメントごとの後処理（TSOPT / Thermo / DFT）** -- セグメントごとの TS 虚数振動数チェック、IRC 出力、エネルギーテーブル。
+- **[3] セグメントごとの後処理（TSOPT / Thermo / DFT）** -- セグメントごとの TS 虚振動数チェック、IRC 出力、エネルギーテーブル。
 - **[4] エネルギーダイアグラム（概要）** -- MEP/UMA/Gibbs/DFT シリーズのダイアグラムテーブルと任意のクロスメソッドサマリーテーブル。
 - **[5] 出力ディレクトリ構造** -- インラインアノテーション付きの生成ファイルのコンパクトツリー。
 
@@ -357,7 +358,7 @@ mlmm:
  backend: uma                    # ML バックエンド (uma/orb/mace/aimnet2)
  embedcharge: false              # xTB 点電荷埋め込み補正
  uma_model: uma-s-1p1            # uma-s-1p1 | uma-m-1p1
- ml_hessian_mode: Analytical     # VRAM に余裕がある場合に推奨
+ hessian_calc_mode: Analytical     # VRAM に余裕がある場合に推奨
 gs:
  max_nodes: 12
  climb: true

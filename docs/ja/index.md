@@ -1,6 +1,6 @@
 # mlmm-toolkit ドキュメント
 
-*バージョン: v0.2.4*
+*バージョン: v0.2.5*
 
 **mlmm-toolkit** は、機械学習原子間ポテンシャル（Machine Learning Interatomic Potential）と分子力学（Molecular Mechanics）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
 
@@ -108,7 +108,7 @@ glossary
 ### メインワークフロー
 | サブコマンド | 説明 |
 |---------|------|
-| [`all`](all.md) | end-to-endワークフロー: 抽出 -> MM parm -> MEP -> TS 最適化 -> IRC -> freq -> DFT |
+| [`all`](all.md) | 一気通貫ワークフロー: 抽出 -> MM parm -> MEP -> TS 最適化 -> IRC -> freq -> DFT |
 | [`init`](init.md) | *（削除済）* 以前は YAML テンプレートを生成 |
 
 ### 構造準備

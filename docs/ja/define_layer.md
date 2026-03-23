@@ -73,4 +73,4 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 
 - [mm_parm](mm_parm.md) -- レイヤー定義前に AMBER トポロジー（parm7/rst7）を構築
 - [opt](opt.md) -- レイヤー化されたシステムを使用した単一構造最適化
-- [all](all.md) -- 自動レイヤー定義を含むend-to-endワークフロー
+- [all](all.md) -- 自動レイヤー定義を含む一気通貫ワークフロー

@@ -596,8 +596,10 @@ def _run_microiter_opt(
 ) -> None:
     """Run macro/micro alternating optimization (Gaussian 16-style microiteration).
 
-    Macro step: 1 RFO step moving only ML region (full ONIOM force).
-    Micro step: LBFGS relaxing MM region with MM-only forces until convergence.
+    Macro step: 1 RFO step moving ML atoms + link-atom MM parents (full ONIOM force).
+    Micro step: LBFGS relaxing remaining MM atoms with MM-only forces until convergence.
+    Link-atom MM parents are included in the macro step to maintain consistency
+    of the link atom position across macro/micro boundaries.
     """
     from .freq import _collect_layer_atom_sets
 
@@ -611,13 +613,26 @@ def _run_microiter_opt(
         click.echo("[microiter] WARNING: No ML atoms found. Falling back to standard optimization.")
         return None
 
+    # Identify link-atom MM parent atoms (boundary atoms that should move
+    # with ML atoms in the macro step to keep link atom positions consistent).
+    link_mm_parents: set[int] = set()
+    temp_calc = mlmm(**dict(calc_cfg))
+    calc_core = temp_calc.core if hasattr(temp_calc, "core") else temp_calc
+    for _ml_1, mm_1 in getattr(calc_core, "mlmm_links", []):
+        link_mm_parents.add(mm_1 - 1)  # mlmm_links uses 1-based indices
+    del temp_calc
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     n_atoms = len(geometry.atoms)
     all_indices = list(range(n_atoms))
     mm_indices = sorted(set(all_indices) - set(ml_indices))
 
-    # Freeze lists: for macro step, freeze all MM; for micro step, freeze ML
-    macro_freeze = sorted(set(mm_indices) | set(frozen_mm))
-    micro_freeze = sorted(set(ml_indices) | set(frozen_mm))
+    # Macro step: optimize ML atoms + link MM parents; freeze remaining MM.
+    # Micro step: optimize movable MM except link MM parents; freeze ML + link MM parents.
+    macro_active = set(ml_indices) | link_mm_parents
+    macro_freeze = sorted(set(all_indices) - macro_active)
+    micro_freeze = sorted(set(ml_indices) | link_mm_parents | set(frozen_mm))
 
     max_cycles = int(opt_cfg.get("max_cycles", 10000))
     thresh = opt_cfg.get("thresh", "gau")
@@ -626,6 +641,7 @@ def _run_microiter_opt(
 
     click.echo(
         f"[microiter] ML atoms: {len(ml_indices)}, "
+        f"Link MM parents: {len(link_mm_parents)}, "
         f"Movable MM atoms: {len(movable_mm)}, "
         f"Frozen MM atoms: {len(frozen_mm)}"
     )
@@ -647,7 +663,7 @@ def _run_microiter_opt(
     # Always create macro calculator (needed for optimization loop below)
     macro_calc_cfg = dict(calc_cfg)
     macro_calc_cfg["freeze_atoms"] = macro_freeze
-    macro_calc_cfg["hess_mm_atoms"] = []   # macro step は ML-only Hessian
+    macro_calc_cfg["hess_mm_atoms"] = sorted(link_mm_parents)  # ML + link MM parents in Hessian
     macro_calc = mlmm(**macro_calc_cfg)
 
     cached = _hess_load("irc_endpoint")
@@ -753,6 +769,7 @@ def _run_microiter_opt(
     micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
     micro_col_fmts = "int float float float float float int float_short".split()
     micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
+    print()
     micro_table.print_header()
 
     for macro_iter in range(max_cycles):
@@ -788,6 +805,7 @@ def _run_microiter_opt(
                  macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], 0, cycle_time),
                 marks=marks,
             )
+            print()
             click.echo(f"[microiter] Macro convergence reached at iteration {macro_iter + 1}.")
             break
 
@@ -832,6 +850,7 @@ def _run_microiter_opt(
         )
 
     else:
+        print()
         click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).")
 
     del macro_optimizer
@@ -907,7 +926,7 @@ def _run_microiter_opt(
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option("-q", "--charge", type=int, required=False,
@@ -963,7 +982,7 @@ def _run_microiter_opt(
     default=(),
     show_default=False,
     help="Distance restraints: inline Python literal (e.g. '[(1,5,1.4)]') or a YAML/JSON spec file path. "
-         "Same format as --scan-lists: (i,j,target_A) triples. "
+         "Format: (i,j,target_Å) triples. "
          "Target may be omitted to freeze at the current distance: (i,j).",
 )
 @click.option(
@@ -971,7 +990,7 @@ def _run_microiter_opt(
     "one_based",
     default=True,
     show_default=True,
-    help="Interpret --dist-freeze / --scan-lists indices as 1-based (default) or 0-based.",
+    help="Interpret --dist-freeze indices as 1-based (default) or 0-based.",
 )
 @click.option(
     "--bias-k",
@@ -1065,7 +1084,30 @@ def _run_microiter_opt(
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+)
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
 @click.pass_context
 def cli(
@@ -1100,6 +1142,9 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -1237,6 +1282,12 @@ def cli(
             calc_cfg["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):
             calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
+        if link_atom_method is not None:
+            calc_cfg["link_atom_method"] = str(link_atom_method).lower()
+        if mm_backend is not None:
+            calc_cfg["mm_backend"] = str(mm_backend).lower()
+        if use_cmap is not None:
+            calc_cfg["use_cmap"] = use_cmap
 
         apply_yaml_overrides(
             override_layer_cfg,
@@ -1557,7 +1608,7 @@ def cli(
             click.echo("[microiter] --microiter is not compatible with --dist-freeze. Falling back to standard RFO.")
 
         if use_microiter:
-            click.echo("\n====== Optimization (RFO + Microiteration) started ======\n")
+            click.echo("====== Optimization (RFO + Microiteration) started ======\n")
             _run_microiter_opt(
                 geometry,
                 calc_cfg,
@@ -1568,7 +1619,7 @@ def cli(
                 out_dir_path,
                 dump=bool(opt_cfg["dump"]),
             )
-            click.echo("\n====== Optimization (RFO + Microiteration) finished ======\n")
+            click.echo("====== Optimization (RFO + Microiteration) finished ======\n")
 
             # Write final geometry
             from ase import Atoms as _Atoms
@@ -1585,9 +1636,9 @@ def cli(
 
             main_label = "RFO" if use_rfo else "LBFGS"
             optimizer = _build_optimizer(main_kind)
-            click.echo(f"\n====== Optimization ({main_label}) started ======\n")
+            click.echo(f"====== Optimization ({main_label}) started ======\n")
             optimizer.run()
-            click.echo(f"\n====== Optimization ({main_label}) finished ======\n")
+            click.echo(f"====== Optimization ({main_label}) finished ======\n")
 
             # Get final geometry path
             final_xyz_path = optimizer.final_fn if isinstance(optimizer.final_fn, Path) else Path(optimizer.final_fn)
@@ -1609,7 +1660,7 @@ def cli(
                 _safe_masses_amu,
             )
 
-            click.echo("\n====== Optimization (Flatten loop) started ======\n")
+            click.echo("====== Optimization (Flatten loop) started ======\n")
 
             geometry.set_calculator(None)
             uma_kwargs_for_flatten = dict(calc_cfg)
@@ -1662,9 +1713,9 @@ def cli(
                 _attach_opt_calc()
                 opt_restart = _build_optimizer(flatten_kind)
                 restart_label = "LBFGS" if flatten_kind == "lbfgs" else "RFO"
-                click.echo(f"\n====== Optimization ({restart_label}) restarted ======\n")
+                click.echo(f"====== Optimization ({restart_label}) restarted ======\n")
                 opt_restart.run()
-                click.echo(f"\n====== Optimization ({restart_label}) finished ======\n")
+                click.echo(f"====== Optimization ({restart_label}) finished ======\n")
 
                 geometry.set_calculator(None)
                 freqs_cm, modes = _calc_freqs_and_modes()
@@ -1680,7 +1731,7 @@ def cli(
                 )
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            click.echo("\n====== Optimization (Flatten loop) finished ======\n")
+            click.echo("====== Optimization (Flatten loop) finished ======\n")
 
             # Update final geometry after flatten
             final_xyz_path = out_dir_path / "final_geometry.xyz"

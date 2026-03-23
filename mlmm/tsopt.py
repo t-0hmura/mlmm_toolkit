@@ -389,7 +389,7 @@ def _write_all_imag_modes(
     vib_dir: Path,
     *,
     ref_pdb: Optional[Path] = None,
-    filename_prefix: str = "final_imag_mode",
+    filename_prefix: str = "imag",
     amplitude_ang: float = 0.8,
     n_frames: int = 20,
 ) -> int:
@@ -419,7 +419,7 @@ def _write_all_imag_modes(
             continue
         v_cart = v_cart / norm
 
-        stem = f"{filename_prefix}_{rank:02d}_mode{mode_idx:04d}_{freq:+.2f}cm-1"
+        stem = f"{filename_prefix}_{rank:02d}_{freq:+.2f}cm-1"
         out_trj = vib_dir / f"{stem}_trj.xyz"
         out_pdb = vib_dir / f"{stem}.pdb"
         _write_mode_trj_and_pdb(
@@ -880,7 +880,7 @@ class HessianDimer:
                  update_interval_hessian: int = 500,
                  neg_freq_thresh_cm: float = 5.0,
                  flatten_amp_ang: float = 0.10,
-                 flatten_max_iter: int = 20,
+                 flatten_max_iter: int = 50,
                  mem: int = 100000,
                  use_lobpcg: bool = True,  # kept for backward compat (not used when root!=0)
                  calc_kwargs: Optional[dict] = None,
@@ -903,6 +903,7 @@ class HessianDimer:
                  flatten_loop_bofill: bool = False,
                  ml_only_hessian_dimer: bool = False,
                  source_path: Optional[Path] = None,
+                 skip_final_freq: bool = False,
                  ) -> None:
 
         self.fn = fn
@@ -928,6 +929,7 @@ class HessianDimer:
         self.flatten_k = int(flatten_k)
         self.flatten_loop_bofill = bool(flatten_loop_bofill)
         self.ml_only_hessian_dimer = bool(ml_only_hessian_dimer)
+        self.skip_final_freq = bool(skip_final_freq)
 
         # Track total cycles globally across ALL loops/segments (fix #2)
         self._cycles_spent = 0
@@ -1535,6 +1537,11 @@ class HessianDimer:
         write(final_xyz, atoms_final)
 
         # Final Hessian → imaginary mode animation
+        if self.skip_final_freq:
+            click.echo("[tsopt] --skip-final-freq: skipping final frequency analysis and imaginary-mode export.")
+            click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
+            return
+
         reuse_final_hessian = (
             H_final_reuse_cpu is not None
             and H_final_reuse_coords is not None
@@ -1605,8 +1612,10 @@ def _run_microiter_tsopt(
 ) -> None:
     """Run macro/micro alternating TS optimization (Gaussian 16-style microiteration).
 
-    Macro step: 1 RS-I-RFO step moving only ML region (full ONIOM force).
-    Micro step: LBFGS relaxing MM region with MM-only forces until convergence.
+    Macro step: 1 RS-I-RFO step moving ML atoms + link-atom MM parents (full ONIOM force).
+    Micro step: LBFGS relaxing remaining MM atoms with MM-only forces until convergence.
+    Link-atom MM parents are included in the macro step to maintain consistency
+    of the link atom position across macro/micro boundaries.
     """
     from .freq import _collect_layer_atom_sets
 
@@ -1620,13 +1629,26 @@ def _run_microiter_tsopt(
         click.echo("[microiter] WARNING: No ML atoms found. Falling back to standard RS-I-RFO.")
         return None
 
+    # Identify link-atom MM parent atoms (boundary atoms that should move
+    # with ML atoms in the macro step to keep link atom positions consistent).
+    link_mm_parents: set[int] = set()
+    temp_calc = mlmm(**dict(calc_cfg))
+    calc_core = temp_calc.core if hasattr(temp_calc, "core") else temp_calc
+    for _ml_1, mm_1 in getattr(calc_core, "mlmm_links", []):
+        link_mm_parents.add(mm_1 - 1)  # mlmm_links uses 1-based indices
+    del temp_calc
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     n_atoms = len(geometry.atoms)
     all_indices = list(range(n_atoms))
     mm_indices = sorted(set(all_indices) - set(ml_indices))
 
-    # Freeze lists: for macro step, freeze all MM; for micro step, freeze ML
-    macro_freeze = sorted(set(mm_indices) | set(frozen_mm))
-    micro_freeze = sorted(set(ml_indices) | set(frozen_mm))
+    # Macro step: optimize ML atoms + link MM parents; freeze remaining MM.
+    # Micro step: optimize movable MM except link MM parents; freeze ML + link MM parents.
+    macro_active = set(ml_indices) | link_mm_parents
+    macro_freeze = sorted(set(all_indices) - macro_active)
+    micro_freeze = sorted(set(ml_indices) | link_mm_parents | set(frozen_mm))
 
     max_cycles = int(opt_cfg.get("max_cycles", 10000))
     macro_thresh = thresh if thresh is not None else rsirfo_cfg.get("thresh", "baker")
@@ -1635,6 +1657,7 @@ def _run_microiter_tsopt(
 
     click.echo(
         f"[microiter] ML atoms: {len(ml_indices)}, "
+        f"Link MM parents: {len(link_mm_parents)}, "
         f"Movable MM atoms: {len(movable_mm)}, "
         f"Frozen MM atoms: {len(frozen_mm)}"
     )
@@ -1643,7 +1666,7 @@ def _run_microiter_tsopt(
     # Create ONIOM calculator (shared core for MM-only calc)
     macro_calc_cfg = dict(calc_cfg)
     macro_calc_cfg["freeze_atoms"] = macro_freeze
-    macro_calc_cfg["hess_mm_atoms"] = []   # macro step は ML-only Hessian
+    macro_calc_cfg["hess_mm_atoms"] = sorted(link_mm_parents)  # ML + link MM parents in Hessian
     macro_calc = mlmm(**macro_calc_cfg)
     mm_calc = mlmm_mm_only(macro_calc.core, freeze_atoms=micro_freeze)
 
@@ -1711,6 +1734,7 @@ def _run_microiter_tsopt(
     micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
     micro_col_fmts = "int float float float float float int float_short".split()
     micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
+    print()
     micro_table.print_header()
 
     for macro_iter in range(max_cycles):
@@ -1746,6 +1770,7 @@ def _run_microiter_tsopt(
                  macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], 0, cycle_time),
                 marks=marks,
             )
+            print()
             click.echo(f"[microiter] Macro convergence reached at iteration {macro_iter + 1}.")
             break
 
@@ -1789,6 +1814,7 @@ def _run_microiter_tsopt(
         )
 
     else:
+        print()
         click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).")
 
     del macro_optimizer
@@ -1878,7 +1904,7 @@ hessian_dimer_KW = {
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option(
@@ -1970,7 +1996,7 @@ hessian_dimer_KW = {
     "partial_hessian_flatten",
     default=True,
     show_default=True,
-    help="Use partial Hessian (ML region only) for imaginary mode detection in flatten loop.",
+    help="Use partial (active-block) Hessian for imaginary mode detection in flatten loop.",
 )
 @click.option(
     "--flatten/--no-flatten",
@@ -2047,7 +2073,38 @@ hessian_dimer_KW = {
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+)
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
+)
+@click.option(
+    "--skip-final-freq/--no-skip-final-freq",
+    "skip_final_freq",
+    default=False,
+    show_default=True,
+    help="Skip the post-convergence frequency analysis and imaginary-mode flattening. "
+         "Useful for large unfrozen systems where the final Hessian diagonalization is expensive.",
 )
 @click.pass_context
 def cli(
@@ -2083,6 +2140,10 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
+    skip_final_freq: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -2219,6 +2280,12 @@ def cli(
         calc_cfg["embedcharge"] = bool(embedcharge)
     if _is_param_explicit("embedcharge_cutoff"):
         calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
+    if link_atom_method is not None:
+        calc_cfg["link_atom_method"] = str(link_atom_method).lower()
+    if mm_backend is not None:
+        calc_cfg["mm_backend"] = str(mm_backend).lower()
+    if use_cmap is not None:
+        calc_cfg["use_cmap"] = use_cmap
 
     apply_yaml_overrides(
         override_layer_cfg,
@@ -2463,7 +2530,7 @@ def cli(
 
             if use_microiter:
                 # --- Microiteration path ---
-                click.echo(f"\n=== TS optimization ({rsirfo_label}) started ===\n")
+                click.echo(f"=== TS optimization ({rsirfo_label}) started ===\n")
                 _run_microiter_tsopt(
                     geometry,
                     calc_cfg,
@@ -2475,7 +2542,7 @@ def cli(
                     dump=bool(opt_cfg["dump"]),
                     thresh=thresh,
                 )
-                click.echo(f"\n=== TS optimization ({rsirfo_label}) finished ===\n")
+                click.echo(f"=== TS optimization ({rsirfo_label}) finished ===\n")
 
                 # Write final geometry
                 final_xyz = out_dir_path / "final_geometry.xyz"
@@ -2490,7 +2557,7 @@ def cli(
                 _rsirfo_cycles_spent = int(opt_cfg.get("max_cycles", 10000))  # budget consumed
             else:
                 # --- Standard RS-I-RFO path ---
-                click.echo(f"\n=== TS optimization ({rsirfo_label}) started ===\n")
+                click.echo(f"=== TS optimization ({rsirfo_label}) started ===\n")
 
                 base_calc = mlmm(**calc_cfg)
                 geometry.set_calculator(base_calc)
@@ -2521,7 +2588,7 @@ def cli(
                 if bool(opt_cfg["dump"]):
                     _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
-                click.echo(f"\n=== TS optimization ({rsirfo_label}) finished ===\n")
+                click.echo(f"=== TS optimization ({rsirfo_label}) finished ===\n")
 
                 # --- Post-RSIRFO: count imaginary modes and optional flatten loop ---
                 # Save cycle count before deleting optimizer for budget check.
@@ -2531,6 +2598,10 @@ def cli(
                 del calc_core
                 del base_calc
                 _clear_cuda_cache()
+            _do_final_freq = not skip_final_freq
+            if skip_final_freq:
+                click.echo("[tsopt] --skip-final-freq: skipping post-convergence frequency analysis and flatten loop.")
+                click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
             mlmm_kwargs_for_heavy = dict(calc_cfg)
             mlmm_kwargs_for_heavy["out_hess_torch"] = True
             device = _torch_device(simple_cfg.get("device", calc_cfg.get("ml_device", "auto")))
@@ -2609,8 +2680,11 @@ def cli(
                 _clear_cuda_cache()
                 return freqs_local, modes_local
 
+            if not _do_final_freq:
+                freqs_cm, modes = None, None
             try:
-                freqs_cm, modes = _calc_freqs_and_modes()
+                if _do_final_freq:
+                    freqs_cm, modes = _calc_freqs_and_modes()
             except Exception as exc:
                 is_oom = isinstance(exc, torch.OutOfMemoryError) or ("cuda out of memory" in str(exc).lower())
                 if is_oom:
@@ -2665,9 +2739,9 @@ def cli(
                         base_calc = mlmm(**calc_cfg)
                         geometry.set_calculator(base_calc)
                         optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
-                        click.echo("\n=== TS optimization (RS-I-RFO) restarted ===\n")
+                        click.echo("=== TS optimization (RS-I-RFO) restarted ===\n")
                         optimizer.run()
-                        click.echo("\n=== TS optimization (RS-I-RFO) finished ===\n")
+                        click.echo("=== TS optimization (RS-I-RFO) finished ===\n")
                         if bool(opt_cfg["dump"]):
                             _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
                         geometry.set_calculator(None)
@@ -2734,11 +2808,11 @@ def cli(
                 fn=str(geom_input_path),
                 out_dir=str(out_dir_path),
                 thresh_loose=simple_cfg.get("thresh_loose", "gau_loose"),
-                thresh=simple_cfg.get("thresh", "gau"),
+                thresh=simple_cfg.get("thresh", "baker"),
                 update_interval_hessian=int(simple_cfg.get("update_interval_hessian", 500)),
                 neg_freq_thresh_cm=float(simple_cfg.get("neg_freq_thresh_cm", 5.0)),
                 flatten_amp_ang=float(simple_cfg.get("flatten_amp_ang", 0.10)),
-                flatten_max_iter=int(simple_cfg.get("flatten_max_iter", 20)),
+                flatten_max_iter=int(simple_cfg.get("flatten_max_iter", 50)),
                 mem=int(simple_cfg.get("mem", 100000)),
                 use_lobpcg=bool(simple_cfg.get("use_lobpcg", True)),
                 calc_kwargs=dict(calc_cfg),
@@ -2755,11 +2829,12 @@ def cli(
                 flatten_loop_bofill=bool(simple_cfg.get("flatten_loop_bofill", False)),
                 ml_only_hessian_dimer=bool(simple_cfg.get("ml_only_hessian_dimer", ml_only_hessian_dimer)),
                 source_path=source_path,
+                skip_final_freq=skip_final_freq,
             )
 
-            click.echo("\n=== TS optimization (Partial Hessian Dimer) started ===\n")
+            click.echo("=== TS optimization (Partial Hessian Dimer) started ===\n")
             runner.run()
-            click.echo("\n=== TS optimization (Partial Hessian Dimer) finished ===\n")
+            click.echo("=== TS optimization (Partial Hessian Dimer) finished ===\n")
 
         if is_convert_file_enabled() and source_path.suffix.lower() == ".pdb":
             ref_pdb = source_path.resolve()

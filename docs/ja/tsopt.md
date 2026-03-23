@@ -26,8 +26,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 出力の見方
 
 - `result_tsopt/final_geometry.pdb`（または `final_geometry.xyz`）
-- `result_tsopt/vib/final_imag_mode_*_trj.xyz`
-- `result_tsopt/vib/final_imag_mode_*.pdb`
+- `result_tsopt/vib/imag_*_trj.xyz`
+- `result_tsopt/vib/imag_*.pdb`
 
 ## よくある例
 
@@ -69,7 +69,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザーを、`rsirfo` YAML セクションで定義されたオプションのヘシアン参照ファイルとマイクロサイクル制御とともに実行します。
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードをフラットニングし、1 つだけ残るかフラットニング反復上限に達するまで RS-I-RFO を再実行します。
-5. **モードエクスポートと変換** -- 収束した虚振動数モードは常に `vib/final_imag_mode_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
+5. **モードエクスポートと変換** -- 収束した虚振動数モードは常に `vib/imag_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
 
 ## CLIオプション
 
@@ -83,7 +83,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを検出。 | `True` |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
-| `-l, --ligand-charge` | TEXT | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
+| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | _None_（デフォルト 1） |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。`0.0` は ML のみの部分ヘシアン。エイリアス: `--radius-hessian`。 | `0.0` |
@@ -100,11 +100,13 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--partial-hessian-flatten / --full-hessian-flatten` | フラットニングループでの虚振動数モード検出に部分ヘシアン（ML のみ）を使用。 | `True`（部分） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
+| `--skip-final-freq/--no-skip-final-freq` | 収束後の振動解析とイマジナリモードフラットニングをスキップ。大規模非凍結系でHessian対角化が高コストな場合に有用。TSの鞍点次数は未検証となる。 | `False` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--dry-run/--no-dry-run` | 実行せずに入力/設定を検証し、実行計画を表示。`--help-advanced` に表示。 | `False` |
 
 ## 出力
@@ -116,8 +118,8 @@ out_dir/ (デフォルト: ./result_tsopt/)
 ├── optimization_all_trj.xyz       # 連結 Dimer セグメント（--dump 時）
 ├── optimization_all.pdb           # PDB コンパニオン（--dump かつ入力が PDB の場合）
 ├── vib/
-│   ├── final_imag_mode_±XXXX.Xcm-1_trj.xyz  # 虚振動数モード軌跡
-│   └── final_imag_mode_±XXXX.Xcm-1.pdb      # 虚振動数モード PDB コンパニオン
+│   ├── imag_NN_±XXXX.XXcm-1_trj.xyz  # 虚振動数モード軌跡
+│   └── imag_NN_±XXXX.XXcm-1.pdb      # 虚振動数モード PDB コンパニオン
 └── .dimer_mode.dat                # Dimer 方向シード（light モード）
 ```
 
@@ -141,7 +143,7 @@ mlmm:
  uma_model: uma-s-1p1              # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
- ml_hessian_mode: Analytical        # ヘシアンモード選択
+ hessian_calc_mode: Analytical        # ヘシアンモード選択
 opt:
  thresh: baker                     # 収束プリセット（Gaussian/Baker 式）
  max_cycles: 10000                 # オプティマイザーサイクル上限
@@ -211,11 +213,11 @@ rsirfo:
  trust_radius: 0.10                # 初期信頼半径（ONIOM 向けに小さめ）
  trust_update: true                # 適応的信頼半径更新
  trust_min: 1.0e-04                # 最小信頼半径
- trust_max: 0.30                   # 最大信頼半径
+ trust_max: 0.20                   # 最大信頼半径
  max_energy_incr: null             # ステップごとの最大許容エネルギー増加
  hessian_update: bofill            # ヘシアン更新方式の上書き
  hessian_init: calc                # 初期ヘシアンソース
- hessian_recalc: 200               # N ステップごとにヘシアン再計算
+ hessian_recalc: 500               # N ステップごとにヘシアン再計算
  hessian_recalc_adapt: null        # 適応的ヘシアン再計算
  small_eigval_thresh: 1.0e-08      # 小固有値の閾値
  alpha0: 1.0                       # 初期シフトパラメータ
@@ -230,8 +232,8 @@ rsirfo:
 - [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [opt](opt.md) -- 単一構造の構造最適化
-- [freq](freq.md) -- 検証済み TS の単一虚数振動数を確認
+- [freq](freq.md) -- 検証済み TS の単一虚振動数を確認
 - [irc](irc.md) -- 最適化された TS からの反応経路追跡
-- [all](all.md) -- 抽出 -> MEP -> tsopt -> IRC -> freq を連鎖させるend-to-endワークフロー
+- [all](all.md) -- 抽出 -> MEP -> tsopt -> IRC -> freq を連鎖させる一気通貫ワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `hessian_dimer`（ヘシアンガイド付き Dimer）と `rsirfo` の完全な設定オプション
 - [用語集](glossary.md) -- TS、Dimer、RS-I-RFO、ヘシアンの定義

@@ -1,7 +1,7 @@
 # mlmm/path_opt.py
 
 """
-ML/MM minimum-energy path optimization via Growing String Method or Direct Max Flux.
+ML/MM minimum-energy path optimization via the Growing String Method (GSM) or Direct Max Flux (DMF).
 
 Example:
     mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
@@ -71,6 +71,7 @@ from .defaults import (
     BFACTOR_MOVABLE_MM,
     DMF_KW as _DMF_KW_DEFAULT,
     GS_KW as _GS_KW_DEFAULT,
+    MLMM_CALC_KW,
     STOPT_KW as _STOPT_KW_DEFAULT,
 )
 
@@ -385,7 +386,7 @@ def _run_dmf_mep(
     k_fix = float(dmf_cfg.get("k_fix", DMF_KW["k_fix"]))
 
     # Run FB-ENM interpolation
-    click.echo("\n=== DMF: FB-ENM interpolation ===\n")
+    click.echo("=== DMF: FB-ENM interpolation ===\n")
     mxflx_fbenm = interpolate_fbenm(
         ref_images,
         nmove=max(1, int(max_nodes)),
@@ -414,7 +415,7 @@ def _run_dmf_mep(
     coefs = mxflx_fbenm.coefs.copy()
 
     # Create DirectMaxFlux object
-    click.echo("\n=== DMF: Direct Max Flux optimization ===\n")
+    click.echo("=== DMF: Direct Max Flux optimization ===\n")
     mxflx = DirectMaxFlux(
         ref_images,
         coefs=coefs,
@@ -458,7 +459,7 @@ def _run_dmf_mep(
         except Exception:
             logger.debug("Failed to set ipopt max_iter option", exc_info=True)
     mxflx.solve(tol="tight")
-    click.echo("\n=== DMF: optimization finished ===\n")
+    click.echo("=== DMF: optimization finished ===\n")
 
     # Evaluate final energies using the PySisyphus calculator for consistency
     from pysisyphus.constants import ANG2BOHR
@@ -574,7 +575,7 @@ def _run_dmf_mep(
     help="MEP optimizer: Growing String Method (gsm) or Direct Max Flux (dmf).",
 )
 @click.option("--max-nodes", type=int, default=GS_KW["max_nodes"], show_default=True,
-              help="Number of internal nodes (string has max_nodes+2 images including endpoints).")
+              help="Number of internal nodes (for GSM: string has max_nodes+2 images including endpoints; for DMF: number of path waypoints).")
 @click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum optimization cycles.")
 @click.option(
     "--climb/--no-climb",
@@ -589,7 +590,7 @@ def _run_dmf_mep(
     help="Pre-optimize the two endpoint structures with LBFGS before string growth.",
 )
 @click.option("--preopt-max-cycles", "preopt_max_cycles", type=int, default=10000, show_default=True,
-              help="Maximum LBFGS cycles for endpoint pre-optimization when --preopt=True.")
+              help="Maximum LBFGS cycles for endpoint pre-optimization when --preopt is enabled.")
 @click.option(
     "--fix-ends/--no-fix-ends",
     default=False,
@@ -666,7 +667,7 @@ def _run_dmf_mep(
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option(
@@ -722,7 +723,30 @@ def _run_dmf_mep(
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+)
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
 @click.pass_context
 def cli(
@@ -756,6 +780,9 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -821,6 +848,12 @@ def cli(
             calc_cfg["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):
             calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
+        if link_atom_method is not None:
+            calc_cfg["link_atom_method"] = str(link_atom_method).lower()
+        if mm_backend is not None:
+            calc_cfg["mm_backend"] = str(mm_backend).lower()
+        if use_cmap is not None:
+            calc_cfg["use_cmap"] = use_cmap
 
         if _is_param_explicit("max_nodes"):
             gs_cfg["max_nodes"] = int(max_nodes)
@@ -1112,7 +1145,7 @@ def cli(
         # === (NEW) optional endpoint pre-optimization ===
         if preopt:
             try:
-                click.echo("\n=== Pre-optimizing endpoints (LBFGS) ===\n")
+                click.echo("=== Pre-optimizing endpoints (LBFGS) ===\n")
                 pre_dir_base = out_dir_path / "preopt"
                 for i, g in enumerate(geoms):
                     try:
@@ -1145,7 +1178,7 @@ def cli(
         # By default, apply external Kabsch alignment (if freeze_atoms exist, use only them)
         align_thresh = str(stopt_cfg.get("thresh", "gau"))
         try:
-            click.echo("\n=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
+            click.echo("=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
             _ = align_and_refine_sequence_inplace(
                 geoms,
                 thresh=align_thresh,
@@ -1217,9 +1250,9 @@ def cli(
         # --------------------------
         # 4) Run optimization
         # --------------------------
-        click.echo("\n=== Growing String optimization started ===\n")
+        click.echo("=== Growing String optimization started ===\n")
         optimizer.run()
-        click.echo("\n=== Growing String optimization finished ===\n")
+        click.echo("=== Growing String optimization finished ===\n")
 
         # --------------------------
         # 5) Write final path (final_geometries_trj.xyz)

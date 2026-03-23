@@ -22,6 +22,7 @@ import textwrap
 logger = logging.getLogger(__name__)
 
 import click
+import numpy as np
 import time
 import torch
 
@@ -136,7 +137,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option("-q", "--charge", type=int, required=False,
@@ -156,7 +157,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 @click.option(
     "--max-cycles", type=int, default=None, help="Maximum number of IRC steps; overrides irc.max_cycles from YAML."
 )
-@click.option("--step-size", type=float, default=None, help="Step length in mass-weighted coordinates; overrides irc.step_length from YAML.")
+@click.option("--step-size", type=float, default=None, help="Step length in Bohr (unweighted Cartesian coordinates). Default: 0.10 Bohr. Overrides irc.step_length from YAML.")
 @click.option("--root", type=int, default=None, help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
 @click.option(
     "--forward/--no-forward",
@@ -232,7 +233,48 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+)
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
+)
+@click.option(
+    "--hess-device",
+    "hess_device",
+    type=click.Choice(["auto", "cuda", "cpu"], case_sensitive=False),
+    default="auto",
+    show_default=True,
+    help="Device for initial Hessian storage and IRC operations (auto/cuda/cpu). "
+         "Use 'cpu' for large unfrozen systems to avoid VRAM limits.",
+)
+@click.option(
+    "--read-hess",
+    "read_hess",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    show_default=False,
+    help="Read initial Hessian from a .npz file (produced by 'mlmm freq --dump-hess'). "
+         "Takes priority over the hessian_cache and fresh computation.",
 )
 @click.pass_context
 def cli(
@@ -261,6 +303,11 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
+    hess_device: str,
+    read_hess: Optional[str],
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -297,6 +344,7 @@ def cli(
             click.echo(f"ERROR: {e}", err=True)
             prepared_input.cleanup()
             sys.exit(1)
+    calc = eulerpc = geometry = None
     try:
         time_start = time.perf_counter()
 
@@ -328,6 +376,12 @@ def cli(
             calc_cfg["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):
             calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
+        if link_atom_method is not None:
+            calc_cfg["link_atom_method"] = str(link_atom_method).lower()
+        if mm_backend is not None:
+            calc_cfg["mm_backend"] = str(mm_backend).lower()
+        if use_cmap is not None:
+            calc_cfg["use_cmap"] = use_cmap
 
         if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
             calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
@@ -501,7 +555,8 @@ def cli(
         # --------------------------
         # 2) Load geometry and configure UMA calculator
         # --------------------------
-        coord_type = geom_cfg.get("coord_type", "cart")
+        geom_cfg["coord_type"] = "cart"  # IRC requires Cartesian coordinates
+        coord_type = "cart"
         coord_kwargs = dict(geom_cfg)
         coord_kwargs.pop("coord_type", None)
 
@@ -511,18 +566,29 @@ def cli(
         calc = mlmm(**calc_cfg)
         geometry.set_calculator(calc)
 
-        # Seed the initial Hessian — reuse cached TS Hessian when available.
+        # Seed the initial Hessian.
+        # Priority: --read-hess file > hessian_cache > fresh computation.
         from .hessian_cache import load as _hess_load, store as _hess_store
-        hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
-        cached = _hess_load("ts")
-        if cached is not None:
+        if hess_device.lower() == "auto":
+            _hess_dev = _torch_device(calc_cfg.get("ml_device", "auto"))
+        else:
+            _hess_dev = _torch_device(hess_device.lower())
+        if _hess_dev.type == "cpu":
+            click.echo("[device] Hessian operations will run on CPU.")
+
+        if read_hess:
+            click.echo(f"[irc] Loading initial Hessian from {read_hess}")
+            _data = np.load(read_hess)
+            h_init = torch.as_tensor(_data["hessian"], dtype=torch.float64, device=_hess_dev)
+            del _data
+        elif (cached := _hess_load("ts")) is not None:
             click.echo("[irc] Reusing cached TS Hessian from tsopt.")
             active_dofs = cached.get("active_dofs")
             h_raw = cached["hessian"]
             if isinstance(h_raw, torch.Tensor):
-                h_init = h_raw.to(device=hess_device)
+                h_init = h_raw.to(device=_hess_dev)
             else:
-                h_init = torch.as_tensor(h_raw, dtype=torch.float64, device=hess_device)
+                h_init = torch.as_tensor(h_raw, dtype=torch.float64, device=_hess_dev)
             if active_dofs is not None:
                 geometry.within_partial_hessian = {
                     "active_n_dof": len(active_dofs),
@@ -535,7 +601,7 @@ def cli(
             h_init, _ = _calc_full_hessian_torch(
                 geometry,
                 calc_cfg,
-                hess_device,
+                _hess_dev,
                 refresh_geom_meta=True,
             )
 
@@ -549,9 +615,9 @@ def cli(
         # EulerPC.__init__ forwards **kwargs directly to IRC.__init__
         eulerpc = EulerPC(geometry, **irc_cfg)
 
-        click.echo("\n=== IRC (EulerPC) started ===\n")
+        click.echo("=== IRC (EulerPC) started ===\n")
         eulerpc.run()
-        click.echo("\n=== IRC (EulerPC) finished ===\n")
+        click.echo("=== IRC (EulerPC) finished ===\n")
 
         # Cache IRC endpoint Hessians (Bofill-updated mw → Cartesian)
         def _unmw_and_store(mw_H, key):

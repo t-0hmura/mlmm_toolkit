@@ -328,7 +328,17 @@ class IRC:
                 f"                        Δ: {en_str(diff)}"
             )
             if actual_lowering < 0.0:
-                print("Displaced geometry is higher in energy compared to TS!")
+                print("Displaced geometry is higher in energy. Bisecting step...")
+                step = initial_step.copy()
+                for _ in range(5):
+                    step = step * 0.5
+                    self.coords = self.ts_coords + step
+                    actual_lowering = self.ts_energy - self.energy
+                    if actual_lowering > 0.0:
+                        print(f"  Resolved: lowering={actual_lowering:.6f} au")
+                        break
+                else:
+                    print("WARNING: Could not find downhill displacement.")
             print("\n")
             sys.stdout.flush()
         initial_step_length = np.linalg.norm(initial_step)
@@ -444,7 +454,7 @@ class IRC:
             step_length = np.sqrt(self.displ_energy * 2 / np.abs(min_eigval))
             # Guard against near-zero eigenvalue producing an excessively
             # large initial displacement.
-            max_displ = 0.5  # au in mass-weighted coordinates
+            max_displ = 3.0  # au in mass-weighted coordinates
             if step_length > max_displ:
                 print(
                     f"Warning: energy-based initial displacement {step_length:.4f} au "

@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **要約:** タンパク質-リガンド PDB からクラスターモデル（活性部位ポケット）を抽出します。`-c` で残基名、残基 ID、または PDB パスにより基質を指定します。`--add-linkH` 有効時は切断結合にリンク水素を付加します。非標準残基の電荷には `--ligand-charge` を使用します。
+> **要約:** タンパク質-リガンド PDB からクラスターモデル（活性部位ポケット）を抽出します。`-c` で残基名、残基 ID、または PDB パスにより基質を指定します。`--add-linkh` 有効時は切断結合にリンク水素を付加します。非標準残基の電荷には `--ligand-charge` を使用します。
 
 `mlmm extract` は、タンパク質-リガンド PDB から活性部位ポケット（クラスターモデル）を作成します。基質周辺の残基を選択し、主鎖/側鎖規則に従ってモデルを切断し、任意で切断結合にリンク水素を付加し、単一構造またはアンサンブルを処理できます。
 
@@ -49,9 +49,9 @@ mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
  -c SUBSTRATE_SPEC
  [-o POCKET.pdb [POCKET2.pdb...]]
  [--radius Å] [--radius-het2het Å]
- [--include-H2O/--no-include-H2O]
+ [--include-h2o/--no-include-h2o]
  [--exclude-backbone/--no-exclude-backbone]
- [--add-linkH/--no-add-linkH]
+ [--add-linkh/--no-add-linkh]
  [--selected-resn LIST]
  [-l, --ligand-charge MAP_OR_NUMBER]
  [--verbose/--no-verbose]
@@ -83,7 +83,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
  - `--no-exclude-backbone` の場合、カットオフ内の任意の原子で残基を包含。
  - `--exclude-backbone` の場合、アミノ酸残基は**非主鎖**原子（N/H*/CA/HA*/C/O 以外）で基質に接触する必要あり。非アミノ酸は任意の原子で可。
 - **独立したヘテロ-ヘテロカットオフ（`--radius-het2het`）:** 基質ヘテロ原子（C/H 以外）が指定 Å 以内のタンパク質ヘテロ原子に近接する残基を追加。主鎖除外有効時はタンパク質原子が非主鎖である必要あり。
-- **水分子処理:** HOH/WAT/H2O/DOD/TIP/TIP3/SOL はデフォルトで含まれます（`--include-H2O`）。
+- **水分子処理:** HOH/WAT/H2O/DOD/TIP/TIP3/SOL はデフォルトで含まれます（`--include-h2o`）。
 - **強制包含:** `--selected-resn` は鎖/インサーションコード付き ID を受け付けます（例: `A:123A`）。
 - **隣接セーフガード:**
  - 主鎖除外オフで残基が主鎖原子で基質に接触する場合、ペプチド隣接 N/C 残基を自動包含（C-N <= 1.9 Å）。末端はキャップ（N/H* または C/O/OXT）を保持。
@@ -96,7 +96,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 - `--exclude-backbone` の場合、すべての**非基質**アミノ酸の主鎖原子を削除（PRO/HYP セーフガードと PRO 隣接残基保持に従う）。
 - 非アミノ酸残基は主鎖的名称（N/CA/HA/H/H1/H2/H3）の原子を失わない。
 
-### リンク水素（`--add-linkH`）
+### リンク水素（`--add-linkh`）
 - 切断結合ベクトル（CB-CA, CA-N, CA-C; PRO/HYP は CA-C のみ）に沿って 1.09 Å のカーボンオンリーリンク水素を追加。
 - `TER` 後に連続した `HETATM` レコードとして挿入。残基名 `LKH`（鎖 `L`）の原子名 `HL`。シリアル番号はメインブロックから続行。
 - マルチ構造モードでは、同じ結合がすべてのモデルでキャッピングされます; 座標はモデルごとに異なります。
@@ -130,9 +130,9 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `-o, --output PATH...` | ポケット PDB 出力。1 パス => マルチ MODEL、N パス => 入力ごと。 | 自動（`pocket.pdb` または `pocket_<input>.pdb`） |
 | `-r, --radius FLOAT` | 包含の原子間距離カットオフ (Å)。 | `2.6` |
 | `--radius-het2het FLOAT` | 独立したヘテロ-ヘテロカットオフ (Å, C/H 以外)。 | `0.0`（内部でゼロの場合 0.001 Å） |
-| `--include-H2O/--no-include-H2O` | HOH/WAT/H2O/DOD/TIP/TIP3/SOL 水分子を含める。 | `True` |
-| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去（PRO/HYP セーフガード）。 | `True` |
-| `--add-linkH/--no-add-linkH` | 切断結合に 1.09 Å のカーボンオンリーリンク水素を付加。 | `False` |
+| `--include-h2o/--no-include-h2o` | HOH/WAT/H2O/DOD/TIP/TIP3/SOL 水分子を含める。 | `True` |
+| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去（PRO/HYP セーフガード）。 | `False` |
+| `--add-linkh/--no-add-linkh` | 切断結合に 1.09 Å のカーボンオンリーリンク水素を付加。 | `False` |
 | `--selected-resn TEXT` | 強制包含する残基（鎖/インサーションコード付き ID）。 | `""` |
 | `-l, --ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |
 | `-v, --verbose/--no-verbose` | INFO レベルのログ出力（`True`）または WARNING のみ（`False`）。 | `True` |
@@ -220,7 +220,7 @@ N, C, O, CA, OXT, H, H1, H2, H3, HN, HA, HA2, HA3
 
 ### `WATER_RES`
 
-水分子として認識される残基名のセット。水分子はデフォルトで含まれ（`--include-H2O`）、電荷はゼロが割り当てられます:
+水分子として認識される残基名のセット。水分子はデフォルトで含まれ（`--include-h2o`）、電荷はゼロが割り当てられます:
 
 ```
 HOH, WAT, H2O, DOD, TIP, TIP3, SOL

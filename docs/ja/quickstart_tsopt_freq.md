@@ -26,7 +26,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## まず確認する出力
 
 - `result_tsopt/final_geometry.pdb` — 最適化済み TS 構造
-- `result_tsopt/vib/` — 虚振動モード（変位ベクトル）のアニメーションファイル（`final_imag_mode_*.xyz`, `.pdb`）
+- `result_tsopt/vib/` — 虚振動モード（変位ベクトル）のアニメーションファイル（`imag_*.xyz`, `.pdb`）
 - ターミナル出力: **n=1** かつ十分な大きさの虚振動数（|ν| >= 100 cm⁻¹）であれば良好な TS 候補です。虚振動数が複数残る場合は `--flatten` の適用を検討してください
 
 ## 2.（任意）個別の振動解析

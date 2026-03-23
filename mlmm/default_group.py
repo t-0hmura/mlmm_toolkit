@@ -7,6 +7,8 @@ from collections.abc import Callable, Mapping
 
 import click
 
+from .bool_compat import normalize_argv_option_names as _normalize_argv_option_names
+
 LazySubcommands = Mapping[str, tuple[str, str, str]]
 BoolOptionsByCommand = Mapping[str, frozenset[str]]
 BoolNegativeAliasesByCommand = Mapping[str, Mapping[str, str]]
@@ -207,6 +209,10 @@ class DefaultGroup(click.Group):
         return resolved
 
     def parse_args(self, ctx, args):
+        # Normalize long option names to lowercase before any other processing
+        # so that --add-linkH, --include-H2O etc. are accepted case-insensitively.
+        args = _normalize_argv_option_names(args)
+
         show_help_or_version = any(a in ("-h", "--help", "--version") for a in args)
 
         if self._default_cmd is not None and not show_help_or_version:

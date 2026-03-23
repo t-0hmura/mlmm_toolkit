@@ -288,11 +288,80 @@ def unbiased_energy_hartree(geom, base_calc) -> float:
 
 
 def pretty_block(title: str, content: Dict[str, Any]) -> str:
-    """
-    Return a YAML-formatted block with an underlined title.
-    """
+    """Return a YAML-formatted block with an underlined title."""
+    if not content:
+        return ""  # suppress empty blocks entirely
+    if _base_dir is not None:
+        content = _shorten_paths(content)
     body = yaml.safe_dump(_to_yaml_safe(content), sort_keys=False, allow_unicode=True).strip()
-    return f"{title}\n" + "-" * len(title) + "\n" + (body if body else "(empty)") + "\n"
+    return f"\n{title}\n" + "-" * len(title) + "\n" + body
+
+
+# Module-level base directory for relative path display.
+_base_dir: Path | None = None
+_original_click_echo = None
+
+
+def _patch_click_echo() -> None:
+    """Monkey-patch click.echo to shorten absolute paths in output."""
+    import click as _click
+    global _original_click_echo
+    if _original_click_echo is not None:
+        return  # already patched
+    _original_click_echo = _click.echo
+
+    _last_was_blank = [False]
+
+    def _patched_echo(message=None, **kwargs):
+        if message is not None and _base_dir is not None and isinstance(message, str):
+            bd = str(_base_dir)
+            if bd in message:
+                message = message.replace(bd + "/", "").replace(bd, ".")
+        # Suppress consecutive blank lines
+        if isinstance(message, str) and _last_was_blank[0] and message.startswith("\n"):
+            message = message.lstrip("\n")
+        is_blank = (message is None or (isinstance(message, str) and message.strip() == ""))
+        if is_blank and _last_was_blank[0]:
+            return
+        ends_with_nl = isinstance(message, str) and message.endswith("\n")
+        _last_was_blank[0] = is_blank or ends_with_nl
+        _original_click_echo(message, **kwargs)
+
+    _click.echo = _patched_echo
+
+
+def set_base_dir(path: Path | str | None) -> None:
+    """Set the base directory for relative path display.
+
+    Also monkey-patches ``click.echo`` so that any absolute path under
+    *base_dir* is automatically shortened to a relative path in all
+    CLI output.
+    """
+    global _base_dir
+    _base_dir = Path(path).resolve() if path else None
+    _patch_click_echo()
+
+
+def rel_display(path: Path | str) -> str:
+    """Return a display string for *path*, relative to the base dir when possible."""
+    p = Path(path)
+    if _base_dir is not None:
+        try:
+            return str(p.resolve().relative_to(_base_dir))
+        except ValueError:
+            pass
+    return str(p)
+
+
+def _shorten_paths(content: Dict[str, Any]) -> Dict[str, Any]:
+    """Replace absolute path strings with relative paths in a config dict."""
+    out: Dict[str, Any] = {}
+    for k, v in content.items():
+        if isinstance(v, str) and v.startswith("/") and ("/" in v[1:]):
+            out[k] = rel_display(v)
+        else:
+            out[k] = v
+    return out
 
 
 def _to_yaml_safe(value: Any) -> Any:
@@ -331,9 +400,11 @@ _BACKEND_KEY_PREFIXES: Dict[str, tuple] = {
 def filter_calc_for_echo(calc_cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Remove backend-specific keys that are irrelevant for the active backend.
 
-    Also hides xTB/embedcharge keys when embedcharge is disabled.
+    Also hides xTB/embedcharge keys when embedcharge is disabled,
+    and freeze_atoms (already shown in the geom block).
     """
     cfg = dict(calc_cfg)
+    cfg.pop("freeze_atoms", None)
     active = cfg.get("backend", "uma")
 
     # Remove keys belonging to inactive ML backends
@@ -643,6 +714,8 @@ def apply_layer_freeze_constraints(
     echo_fn: Optional[Callable[[str], None]] = None,
 ) -> List[int]:
     """Merge frozen-layer atoms into geometry/calculator freeze lists."""
+    if echo_fn is not None:
+        echo_fn("")  # blank line after layer detection summary
     base_freeze = normalize_freeze_atoms(geom_cfg.get("freeze_atoms"))
     frozen_from_layer = normalize_freeze_atoms((layer_info or {}).get("frozen_indices", []))
 

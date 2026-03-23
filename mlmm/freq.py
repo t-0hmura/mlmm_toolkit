@@ -33,7 +33,7 @@ from pysisyphus.constants import AMU2AU, ANG2BOHR, AU2EV, BOHR2ANG
 from pysisyphus.helpers import geom_loader
 
 from .mlmm_calc import mlmm
-from .defaults import FREQ_KW, THERMO_KW
+from .defaults import FREQ_KW, MLMM_CALC_KW, THERMO_KW
 from .opt import (
     CALC_KW as OPT_CALC_KW,
     GEOM_KW as OPT_GEOM_KW,
@@ -479,7 +479,7 @@ def _align_three_layer_hessian_targets(
 
     Returns True when a default policy was applied.
     """
-    if not bool(calc_cfg.get("use_bfactor_layers", False)):
+    if not bool(calc_cfg.get("use_bfactor_layers", True)):
         return False
     if calc_cfg.get("movable_cutoff") is not None:
         return False
@@ -667,7 +667,7 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option("-q", "--charge", type=int, required=False,
@@ -817,7 +817,39 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+)
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
+)
+@click.option(
+    "--dump-hess",
+    "dump_hess",
+    type=click.Path(dir_okay=False),
+    default=None,
+    show_default=False,
+    help="Save the computed Hessian to a compressed .npz file. "
+         "Can be loaded by 'mlmm irc --read-hess' to avoid recomputation.",
 )
 @click.pass_context
 def cli(
@@ -853,6 +885,10 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
+    dump_hess: Optional[str],
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -940,6 +976,12 @@ def cli(
         calc_cfg["embedcharge"] = bool(embedcharge)
     if _is_param_explicit("embedcharge_cutoff"):
         calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
+    if link_atom_method is not None:
+        calc_cfg["link_atom_method"] = str(link_atom_method).lower()
+    if mm_backend is not None:
+        calc_cfg["mm_backend"] = str(mm_backend).lower()
+    if use_cmap is not None:
+        calc_cfg["use_cmap"] = use_cmap
 
     if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
         calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
@@ -1227,6 +1269,16 @@ def cli(
                 energy_ha = float(geometry.energy)
         else:
             H_t, energy_ha = _calc_full_hessian_torch(geometry, calc_cfg, device)
+
+        # --dump-hess: save Hessian to compressed .npz
+        if dump_hess:
+            _h_np = H_t.detach().cpu().numpy()
+            _dump_path = Path(dump_hess)
+            np.savez_compressed(str(_dump_path), hessian=_h_np,
+                                energy_ha=np.float64(energy_ha) if energy_ha is not None else np.float64(0.0))
+            click.echo(f"[freq] Hessian saved → {_dump_path} (shape={_h_np.shape})")
+            del _h_np
+
         coords_bohr = geometry.coords.reshape(-1, 3)
         freqs_cm, modes_mw = _frequencies_cm_and_modes(
             H_t,

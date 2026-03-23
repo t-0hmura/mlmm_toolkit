@@ -128,7 +128,7 @@ def _run_cli_main(
     label = prefix or cmd_name
     try:
         sys.argv = ["mlmm", cmd_name] + list(args)
-        _echo("\n")
+        _echo("")
         cli_obj.main(args=list(args), standalone_mode=False)
     except SystemExit as e:
         code = getattr(e, "code", 1)
@@ -149,7 +149,7 @@ def _run_cli_main(
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        _echo("\n")
+        _echo("")
 
 
 # -----------------------------
@@ -228,7 +228,7 @@ def _write_ml_region_definition(pocket_pdb: Path, dest: Path) -> Path:
     """
     Copy ``pocket_pdb`` to ``dest`` for downstream ML/MM commands.
 
-    The copy preserves whatever link-hydrogen policy was used during extraction; set ``--add-linkH False``
+    The copy preserves whatever link-hydrogen policy was used during extraction; set ``--add-linkh False``
     if you need a link-free ML-region definition.
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -567,6 +567,9 @@ def _irc_and_match(seg_idx: int,
                    backend: Optional[str] = None,
                    embedcharge: bool = False,
                    embedcharge_cutoff: Optional[float] = None,
+                   link_atom_method: Optional[str] = None,
+                   mm_backend: Optional[str] = None,
+                   use_cmap: Optional[bool] = None,
                    args_yaml: Optional[Path] = None) -> Dict[str, Any]:
     """
     Run EulerPC IRC from a TS geometry, then map the IRC endpoints to (left, right)
@@ -594,6 +597,12 @@ def _irc_and_match(seg_idx: int,
             irc_args.extend(["--embedcharge-cutoff", str(embedcharge_cutoff)])
     else:
         irc_args.append("--no-embedcharge")
+    if link_atom_method is not None:
+        irc_args.extend(["--link-atom-method", str(link_atom_method)])
+    if mm_backend is not None:
+        irc_args.extend(["--mm-backend", str(mm_backend)])
+    if use_cmap is not None:
+        irc_args.extend(["--cmap" if use_cmap else "--no-cmap"])
     if args_yaml is not None:
         irc_args.extend(["--config", str(args_yaml)])
 
@@ -615,7 +624,7 @@ def _irc_and_match(seg_idx: int,
     elems, c_first, c_last = read_xyz_first_last(finished_trj)
 
     # Create geometries from IRC endpoints
-    calc = _mlmm_calc(
+    _irc_calc_kwargs = dict(
         model_charge=int(q_int),
         model_mult=int(spin),
         input_pdb=str(ref_pdb_for_seg),
@@ -625,6 +634,13 @@ def _irc_and_match(seg_idx: int,
         backend=backend,
         embedcharge=embedcharge,
     )
+    if link_atom_method is not None:
+        _irc_calc_kwargs["link_atom_method"] = link_atom_method
+    if mm_backend is not None:
+        _irc_calc_kwargs["mm_backend"] = mm_backend
+    if use_cmap is not None:
+        _irc_calc_kwargs["use_cmap"] = use_cmap
+    calc = _mlmm_calc(**_irc_calc_kwargs)
 
     g_left = _path_search._new_geom_from_coords(
         elems, c_first / BOHR2ANG, coord_type="cart", freeze_atoms=[])
@@ -743,6 +759,9 @@ def _run_tsopt_on_hei(hei_pdb: Path,
                       backend: Optional[str] = None,
                       embedcharge: bool = False,
                       embedcharge_cutoff: Optional[float] = None,
+                      link_atom_method: Optional[str] = None,
+                      mm_backend: Optional[str] = None,
+                      use_cmap: Optional[bool] = None,
                       ref_pdb: Optional[Path] = None) -> Tuple[Path, Any]:
     """
     Run tsopt CLI on a HEI structure; return (final_ts_pdb_path, ts_geom).
@@ -807,6 +826,14 @@ def _run_tsopt_on_hei(hei_pdb: Path,
                 ts_args.extend(["--embedcharge-cutoff", str(embedcharge_cutoff)])
         else:
             ts_args.append("--no-embedcharge")
+        if link_atom_method is not None:
+            ts_args.extend(["--link-atom-method", str(link_atom_method)])
+        if mm_backend is not None:
+            ts_args.extend(["--mm-backend", str(mm_backend)])
+        if use_cmap is not None:
+            ts_args.extend(["--cmap" if use_cmap else "--no-cmap"])
+        if overrides.get("skip_final_freq"):
+            ts_args.append("--skip-final-freq")
 
         _echo(f"[tsopt] Running tsopt on HEI → out={ts_dir}")
         _run_cli_main("tsopt", _ts_opt.cli, ts_args, on_nonzero="raise", prefix="tsopt")
@@ -822,7 +849,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         g_ts = geom_loader(geom_src, coord_type="cart")
 
         # Ensure calculator to have energy on g_ts
-        calc = _mlmm_calc(
+        _ts_calc_kwargs = dict(
             model_charge=int(charge),
             model_mult=int(spin),
             input_pdb=str(topology_pdb),
@@ -832,6 +859,13 @@ def _run_tsopt_on_hei(hei_pdb: Path,
             backend=backend,
             embedcharge=embedcharge,
         )
+        if link_atom_method is not None:
+            _ts_calc_kwargs["link_atom_method"] = link_atom_method
+        if mm_backend is not None:
+            _ts_calc_kwargs["mm_backend"] = mm_backend
+        if use_cmap is not None:
+            _ts_calc_kwargs["use_cmap"] = use_cmap
+        calc = _mlmm_calc(**_ts_calc_kwargs)
         g_ts.set_calculator(calc)
         _ = float(g_ts.energy)
 
@@ -852,7 +886,10 @@ def _pseudo_irc_and_match(seg_idx: int,
                           detect_layer: bool = False,
                           backend: Optional[str] = None,
                           embedcharge: bool = False,
-                          embedcharge_cutoff: Optional[float] = None) -> Dict[str, Any]:
+                          embedcharge_cutoff: Optional[float] = None,
+                          link_atom_method: Optional[str] = None,
+                          mm_backend: Optional[str] = None,
+                          use_cmap: Optional[bool] = None) -> Dict[str, Any]:
     """
     From a TS pocket geometry, perform pseudo-IRC:
       - compute imag. mode
@@ -873,6 +910,12 @@ def _pseudo_irc_and_match(seg_idx: int,
     if backend is not None:
         calc_kwargs["backend"] = backend
     calc_kwargs["embedcharge"] = embedcharge
+    if link_atom_method is not None:
+        calc_kwargs["link_atom_method"] = link_atom_method
+    if mm_backend is not None:
+        calc_kwargs["mm_backend"] = mm_backend
+    if use_cmap is not None:
+        calc_kwargs["use_cmap"] = use_cmap
     mode_xyz = _compute_imag_mode_direction(g_ts, calc_kwargs=calc_kwargs, freeze_atoms=[])
 
     # Displace ± and optimize
@@ -1129,6 +1172,9 @@ def _run_freq_for_state(pdb_path: Path,
                         backend: Optional[str] = None,
                         embedcharge: bool = False,
                         embedcharge_cutoff: Optional[float] = None,
+                        link_atom_method: Optional[str] = None,
+                        mm_backend: Optional[str] = None,
+                        use_cmap: Optional[bool] = None,
                         xyz_path: Optional[Path] = None) -> Dict[str, Any]:
     """
     Run freq CLI; return parsed thermo dict (may be empty).
@@ -1181,6 +1227,12 @@ def _run_freq_for_state(pdb_path: Path,
             args.extend(["--embedcharge-cutoff", str(embedcharge_cutoff)])
     else:
         args.append("--no-embedcharge")
+    if link_atom_method is not None:
+        args.extend(["--link-atom-method", str(link_atom_method)])
+    if mm_backend is not None:
+        args.extend(["--mm-backend", str(mm_backend)])
+    if use_cmap is not None:
+        args.extend(["--cmap" if use_cmap else "--no-cmap"])
     _run_cli_main("freq", _freq_cli.cli, args, on_nonzero="warn", on_exception="raise", prefix="freq")
     # parse thermoanalysis.yaml if any
     y = fdir / "thermoanalysis.yaml"
@@ -1206,6 +1258,9 @@ def _run_opt_for_state(
     backend: Optional[str] = None,
     embedcharge: bool = False,
     embedcharge_cutoff: Optional[float] = None,
+    link_atom_method: Optional[str] = None,
+    mm_backend: Optional[str] = None,
+    use_cmap: Optional[bool] = None,
     thresh: Optional[str] = None,
     xyz_path: Optional[Path] = None,
 ) -> Tuple[Any, Path]:
@@ -1256,6 +1311,12 @@ def _run_opt_for_state(
                 args.extend(["--embedcharge-cutoff", str(embedcharge_cutoff)])
         else:
             args.append("--no-embedcharge")
+        if link_atom_method is not None:
+            args.extend(["--link-atom-method", str(link_atom_method)])
+        if mm_backend is not None:
+            args.extend(["--mm-backend", str(mm_backend)])
+        if use_cmap is not None:
+            args.extend(["--cmap" if use_cmap else "--no-cmap"])
 
         _echo(f"[endpoint-opt] Running opt on {input_label} (mode={opt_mode}) → out={opt_dir}")
         _run_cli_main("opt", _opt_cli.cli, args, on_nonzero="raise", on_exception="raise", prefix="endpoint-opt")
@@ -1272,7 +1333,7 @@ def _run_opt_for_state(
 
         g_opt = geom_loader(final_geom_path, coord_type="cart")
         calc_input_pdb = final_pdb if final_pdb.exists() else pdb_path
-        calc = _mlmm_calc(
+        _opt_calc_kwargs = dict(
             model_charge=int(q_int),
             model_mult=int(spin),
             input_pdb=str(calc_input_pdb),
@@ -1282,6 +1343,13 @@ def _run_opt_for_state(
             backend=backend,
             embedcharge=embedcharge,
         )
+        if link_atom_method is not None:
+            _opt_calc_kwargs["link_atom_method"] = link_atom_method
+        if mm_backend is not None:
+            _opt_calc_kwargs["mm_backend"] = mm_backend
+        if use_cmap is not None:
+            _opt_calc_kwargs["use_cmap"] = use_cmap
+        calc = _mlmm_calc(**_opt_calc_kwargs)
         g_opt.set_calculator(calc)
         _ = float(g_opt.energy)
 
@@ -1303,6 +1371,9 @@ def _run_dft_for_state(pdb_path: Path,
                        backend: Optional[str] = None,
                        embedcharge: bool = False,
                        embedcharge_cutoff: Optional[float] = None,
+                       link_atom_method: Optional[str] = None,
+                       mm_backend: Optional[str] = None,
+                       use_cmap: Optional[bool] = None,
                        xyz_path: Optional[Path] = None) -> Dict[str, Any]:
     """
     Run dft CLI; return parsed result.yaml dict (may be empty).
@@ -1345,6 +1416,12 @@ def _run_dft_for_state(pdb_path: Path,
             args.extend(["--embedcharge-cutoff", str(embedcharge_cutoff)])
     else:
         args.append("--no-embedcharge")
+    if link_atom_method is not None:
+        args.extend(["--link-atom-method", str(link_atom_method)])
+    if mm_backend is not None:
+        args.extend(["--mm-backend", str(mm_backend)])
+    if use_cmap is not None:
+        args.extend(["--cmap" if use_cmap else "--no-cmap"])
     _run_cli_main("dft", _dft_cli.cli, args, on_nonzero="warn", on_exception="raise", prefix="dft")
     y = out_dir / "result.yaml"
     if y.exists():
@@ -1470,11 +1547,11 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Inclusion cutoff (Å) around substrate atoms.")
 @click.option("--radius-het2het", type=float, default=0.0, show_default=True,
               help="Independent hetero–hetero cutoff (Å) for non‑C/H pairs.")
-@click.option("--include-H2O", "--include-h2o", "include_h2o", type=click.BOOL, default=True, show_default=True,
+@click.option("--include-h2o", "include_h2o", type=click.BOOL, default=True, show_default=True,
               help="Include waters (HOH/WAT/TIP3/SOL) in the pocket.")
-@click.option("--exclude-backbone", "exclude_backbone", type=click.BOOL, default=True, show_default=True,
+@click.option("--exclude-backbone", "exclude_backbone", type=click.BOOL, default=False, show_default=True,
               help="Remove backbone atoms on non‑substrate amino acids (with PRO/HYP safeguards).")
-@click.option("--add-linkH", "add_linkh", type=click.BOOL, default=False, show_default=True,
+@click.option("--add-linkh", "add_linkh", type=click.BOOL, default=False, show_default=True,
               help="Add link hydrogens for severed bonds (carbon-only) in pockets.")
 @click.option("--selected-resn", type=str, default="", show_default=True,
               help="Force-include residues (comma/space separated; chain/insertion codes allowed).")
@@ -1544,8 +1621,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default="hess",
     show_default=True,
     help=(
-        "Optimizer mode override for TSOPT/post-IRC endpoint optimizations. "
-        "If unset, uses --opt-mode when explicitly provided; otherwise falls back to tsopt defaults."
+        "Optimizer mode for TSOPT and post-IRC endpoint optimizations. "
+        "Takes precedence over --opt-mode for these stages."
     ),
 )
 @click.option("--dump", type=click.BOOL, default=False, show_default=True,
@@ -1587,7 +1664,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--dry-run/--no-dry-run", "dry_run", default=False, show_default=True,
               help="Validate options and print the execution plan without running any stage.")
 @click.option("--preopt", "pre_opt", type=click.BOOL, default=True, show_default=True,
-              help="If False, skip initial single-structure optimizations of the pocket inputs.")
+              help="If True, run initial single-structure optimizations of the pocket inputs.")
 @click.option("--hessian-calc-mode",
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
               default=None,
@@ -1597,12 +1674,12 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20) in downstream tools. "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20) in downstream tools. "
          "If disabled, downstream tools require --model-pdb or --model-indices.",
 )
 # ===== Post-processing toggles =====
 @click.option("--tsopt", "do_tsopt", type=click.BOOL, default=False, show_default=True,
-              help="TS optimization + pseudo-IRC per reactive segment (or TSOPT-only mode for single-structure), and build energy diagrams.")
+              help="TS optimization + EulerPC IRC per reactive segment (or TSOPT-only mode for single-structure), and build energy diagrams.")
 @click.option("--thermo", "do_thermo", type=click.BOOL, default=False, show_default=True,
               help="Run freq on (R,TS,P) per reactive segment (or TSOPT-only mode) and build Gibbs free-energy diagram (MLIP).")
 @click.option("--dft", "do_dft", type=click.BOOL, default=False, show_default=True,
@@ -1615,6 +1692,13 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=False,
     show_default=True,
     help="Enable the extra-imaginary-mode flattening loop in tsopt (grad: dimer loop, hess: post-RSIRFO); --no-flatten forces flatten_max_iter=0.",
+)
+@click.option(
+    "--skip-final-freq/--no-skip-final-freq",
+    "skip_final_freq",
+    default=False,
+    show_default=True,
+    help="Skip post-convergence frequency analysis in tsopt. Useful for large unfrozen systems.",
 )
 @click.option("--tsopt-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override tsopt output subdirectory (relative paths are resolved against the default).")
@@ -1701,7 +1785,30 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+)
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
 @click.pass_context
 def cli(
@@ -1756,8 +1863,12 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
     tsopt_max_cycles: Optional[int],
     flatten: bool,
+    skip_final_freq: bool,
     tsopt_out_dir: Optional[Path],
     freq_out_dir: Optional[Path],
     freq_max_write: Optional[int],
@@ -1866,6 +1977,8 @@ def cli(
         tsopt_overrides["thresh"] = str(thresh_post)
     if _is_param_explicit("flatten"):
         tsopt_overrides["flatten"] = bool(flatten)
+    if skip_final_freq:
+        tsopt_overrides["skip_final_freq"] = True
 
     freq_overrides: Dict[str, Any] = {}
     if freq_max_write is not None:
@@ -2031,9 +2144,9 @@ def cli(
                 output=[str(p) for p in pocket_outputs],
                 radius=float(radius),
                 radius_het2het=float(radius_het2het),
-                include_H2O=bool(include_h2o),
+                include_h2o=bool(include_h2o),
                 exclude_backbone=bool(exclude_backbone),
-                add_linkH=bool(add_linkh),
+                add_linkh=bool(add_linkh),
                 selected_resn=selected_resn or "",
                 ligand_charge=ligand_charge,
                 verbose=bool(verbose),
@@ -2051,7 +2164,8 @@ def cli(
             q_prot = float(cs.get("protein_charge", 0.0))
             q_lig = float(cs.get("ligand_total_charge", 0.0))
             q_ion = float(cs.get("ion_total_charge", 0.0))
-            _echo("\n[all] Charge summary from extractor (model #1):")
+            _echo("")
+            _echo("[all] Charge summary from extractor (model #1):")
             _echo(
                 f"  Protein: {q_prot:+g},  Ligand: {q_lig:+g},  Ions: {q_ion:+g},  Total: {q_total:+g}"
             )
@@ -2176,6 +2290,9 @@ def cli(
             backend=backend,
             embedcharge=embedcharge,
             embedcharge_cutoff=embedcharge_cutoff,
+            link_atom_method=link_atom_method,
+            mm_backend=mm_backend,
+            use_cmap=use_cmap,
             ref_pdb=layered_pdb,
         )
 
@@ -2194,6 +2311,9 @@ def cli(
                                  backend=backend,
                                  embedcharge=embedcharge,
                                  embedcharge_cutoff=embedcharge_cutoff,
+                                 link_atom_method=link_atom_method,
+                                 mm_backend=mm_backend,
+                                 use_cmap=use_cmap,
                                  args_yaml=args_yaml)
         gL = irc_res["left_min_geom"]
         gR = irc_res["right_min_geom"]
@@ -2246,6 +2366,9 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
                 embedcharge_cutoff=embedcharge_cutoff,
+                link_atom_method=link_atom_method,
+                mm_backend=mm_backend,
+                use_cmap=use_cmap,
                 thresh=thresh_post,
                 xyz_path=xR_irc,
             )
@@ -2266,6 +2389,9 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
                 embedcharge_cutoff=embedcharge_cutoff,
+                link_atom_method=link_atom_method,
+                mm_backend=mm_backend,
+                use_cmap=use_cmap,
                 thresh=thresh_post,
                 xyz_path=xP_irc,
             )
@@ -2314,14 +2440,17 @@ def cli(
             _echo(f"[thermo] Single TSOPT: freq on TS/R/P")
             tT = _run_freq_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "TS", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xT)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT)
             _clear_hess_cache()  # TS Hessian consumed; R/P need exact computation
             tR = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "R", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xR)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR)
             tP = _run_freq_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "P", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xP)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
             try:
                 GR = float(tR.get("sum_EE_and_thermal_free_energy_ha", e_react))
@@ -2342,13 +2471,16 @@ def cli(
             _echo(f"[dft] Single TSOPT: DFT on R/TS/P")
             dR = _run_dft_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xR)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR)
             dT = _run_dft_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xT)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT)
             dP = _run_dft_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xP)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
             try:
                 eR_dft = float(dR.get("energy", {}).get("hartree", e_react) if dR else e_react)
                 eT_dft = float(dT.get("energy", {}).get("hartree", eT) if dT else eT)
@@ -2624,9 +2756,14 @@ def cli(
                 scan_args.extend(["--embedcharge-cutoff", str(embedcharge_cutoff)])
         else:
             scan_args.append("--no-embedcharge")
+        if link_atom_method is not None:
+            scan_args.extend(["--link-atom-method", str(link_atom_method)])
+        if mm_backend is not None:
+            scan_args.extend(["--mm-backend", str(mm_backend)])
+        if use_cmap is not None:
+            scan_args.extend(["--cmap" if use_cmap else "--no-cmap"])
 
-        _echo("[all] Invoking scan with arguments:")
-        _echo("  " + " ".join(scan_args))
+        _echo("[all] mlmm scan " + " ".join(scan_args))
 
         _run_cli_main("scan", _scan_cli.cli, scan_args, on_nonzero="raise", on_exception="raise", prefix="all")
 
@@ -2727,9 +2864,14 @@ def cli(
                 ps_args.extend(["--embedcharge-cutoff", str(embedcharge_cutoff)])
         else:
             ps_args.append("--no-embedcharge")
+        if link_atom_method is not None:
+            ps_args.extend(["--link-atom-method", str(link_atom_method)])
+        if mm_backend is not None:
+            ps_args.extend(["--mm-backend", str(mm_backend)])
+        if use_cmap is not None:
+            ps_args.extend(["--cmap" if use_cmap else "--no-cmap"])
 
-        _echo("[all] Invoking path_search with arguments:")
-        _echo("  " + " ".join(ps_args))
+        _echo("[all] mlmm path-search " + " ".join(ps_args))
 
         _run_cli_main("path_search", _path_search.cli, ps_args, on_nonzero="raise", on_exception="raise", prefix="all")
     else:
@@ -2776,9 +2918,14 @@ def cli(
                     po_args.extend(["--embedcharge-cutoff", str(embedcharge_cutoff)])
             else:
                 po_args.append("--no-embedcharge")
+            if link_atom_method is not None:
+                po_args.extend(["--link-atom-method", str(link_atom_method)])
+            if mm_backend is not None:
+                po_args.extend(["--mm-backend", str(mm_backend)])
+            if use_cmap is not None:
+                po_args.extend(["--cmap" if use_cmap else "--no-cmap"])
 
-            _echo(f"[all] Invoking path_opt for pair {pair_idx} with arguments:")
-            _echo("  " + " ".join(po_args))
+            _echo(f"[all] mlmm path-opt " + " ".join(po_args))
             _run_cli_main("path_opt", _path_opt.cli, po_args, on_nonzero="raise", on_exception="raise", prefix="all")
 
             # --- Post-processing per segment ---
@@ -3145,13 +3292,16 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
                 embedcharge_cutoff=embedcharge_cutoff,
+                link_atom_method=link_atom_method,
+                mm_backend=mm_backend,
+                use_cmap=use_cmap,
                 ref_pdb=layered_inputs[0] if layered_inputs else None,
             )
         else:
             # If TSOPT off: use the GSM HEI (pocket) as TS geometry
             ts_pdb = hei_pocket_pdb
             g_ts = geom_loader(ts_pdb, coord_type="cart")
-            calc = _mlmm_calc(
+            _hei_calc_kwargs = dict(
                 model_charge=int(q_int),
                 model_mult=int(spin),
                 input_pdb=str(ts_pdb),
@@ -3161,6 +3311,13 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
             )
+            if link_atom_method is not None:
+                _hei_calc_kwargs["link_atom_method"] = link_atom_method
+            if mm_backend is not None:
+                _hei_calc_kwargs["mm_backend"] = mm_backend
+            if use_cmap is not None:
+                _hei_calc_kwargs["use_cmap"] = use_cmap
+            calc = _mlmm_calc(**_hei_calc_kwargs)
             g_ts.set_calculator(calc); _ = float(g_ts.energy)
 
         # 4.2 EulerPC IRC & mapping to (left,right)
@@ -3179,6 +3336,9 @@ def cli(
                                  backend=backend,
                                  embedcharge=embedcharge,
                                  embedcharge_cutoff=embedcharge_cutoff,
+                                 link_atom_method=link_atom_method,
+                                 mm_backend=mm_backend,
+                                 use_cmap=use_cmap,
                                  args_yaml=args_yaml)
         irc_plot_path = irc_res.get("irc_plot")
         irc_trj_path = irc_res.get("irc_trj")
@@ -3220,6 +3380,9 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
                 embedcharge_cutoff=embedcharge_cutoff,
+                link_atom_method=link_atom_method,
+                mm_backend=mm_backend,
+                use_cmap=use_cmap,
                 thresh=thresh_post,
                 xyz_path=xL_irc,
             )
@@ -3240,6 +3403,9 @@ def cli(
                 backend=backend,
                 embedcharge=embedcharge,
                 embedcharge_cutoff=embedcharge_cutoff,
+                link_atom_method=link_atom_method,
+                mm_backend=mm_backend,
+                use_cmap=use_cmap,
                 thresh=thresh_post,
                 xyz_path=xR_irc,
             )
@@ -3285,14 +3451,17 @@ def cli(
             _echo(f"[thermo] Segment {seg_idx:02d}: freq on TS/R/P")
             tT = _run_freq_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_seg_root / "TS", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xT)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT)
             _clear_hess_cache()  # TS Hessian consumed; R/P need exact computation
             tR = _run_freq_for_state(pL, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_seg_root / "R", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xL)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xL)
             tP = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_seg_root / "P", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xR)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR)
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
             try:
                 GR = float(tR.get("sum_EE_and_thermal_free_energy_ha", eR))
@@ -3316,13 +3485,16 @@ def cli(
             _echo(f"[dft] Segment {seg_idx:02d}: DFT on R/TS/P")
             dR = _run_dft_for_state(pL, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_seg_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xL)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xL)
             dT = _run_dft_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_seg_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xT)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT)
             dP = _run_dft_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_seg_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff, xyz_path=xR)
+                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR)
             try:
                 eR_dft = float(dR.get("energy", {}).get("hartree", np.nan) if dR else np.nan)
                 eT_dft = float(dT.get("energy", {}).get("hartree", np.nan) if dT else np.nan)

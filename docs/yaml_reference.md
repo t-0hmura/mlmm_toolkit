@@ -56,6 +56,7 @@ calc:
  model_charge: 0 # Charge of the ML (model) region
  model_mult: 1 # Spin multiplicity of the ML (model) region
  link_mlmm: null # Link atom specification for ML/MM boundary
+ link_atom_method: scaled    # Link atom placement: "scaled" (g-factor) or "fixed" (1.09/1.01 Å)
 
  # --- MLIP backend selection ---
  backend: uma # MLIP backend: "uma", "orb", "mace", or "aimnet2"
@@ -78,8 +79,7 @@ calc:
  # --- ML device & Hessian ---
  ml_device: auto # Device for ML inference: "cuda", "cpu", or "auto"
  ml_cuda_idx: 0 # CUDA device index for ML inference
- ml_hessian_mode: FiniteDifference # ML Hessian mode: "Analytical" or "FiniteDifference"
- hessian_calc_mode: FiniteDifference # Alias for ml_hessian_mode (if set, overrides ml_hessian_mode)
+ hessian_calc_mode: FiniteDifference # ML Hessian mode: "Analytical" or "FiniteDifference"
 
  # --- xTB point-charge embedding ---
  embedcharge: false # Enable xTB point-charge embedding correction for MM->ML effects
@@ -93,6 +93,7 @@ calc:
 
  # --- MM backend settings ---
  mm_backend: hessian_ff # MM backend: "hessian_ff" (analytical) | "openmm" (FD Hessian)
+ use_cmap: false        # If true, include CMAP terms in model parm7. Default false (Gaussian ONIOM-compatible)
  mm_device: cpu # Device for MM calculation: "cuda" or "cpu" (hessian_ff is CPU-only)
  mm_cuda_idx: 0 # CUDA device index for MM calculation (OpenMM only)
  mm_threads: 16 # Number of threads for MM calculation
@@ -129,8 +130,9 @@ calc:
   - `aimnet2_model` — AIMNet2 backend only
 - `embedcharge: true` enables xTB point-charge embedding, which models MM-to-ML electrostatic polarization effects. Default is `false`. Requires an `xtb` executable on `$PATH`.
 - `xtb_cmd`, `xtb_acc`, `xtb_ncores`, `xtb_workdir`, `xtb_keep_files` configure the xTB subprocess when `embedcharge` is enabled.
-- `hessian_calc_mode: Analytical` is recommended when sufficient VRAM is available for the ML region (24 GB+ for 300+ ML atoms). Only available for the UMA backend; other backends use `FiniteDifference` automatically. `hessian_calc_mode` overrides `ml_hessian_mode` when both are set.
+- `hessian_calc_mode: Analytical` is recommended when sufficient VRAM is available for the ML region (24 GB+ for 300+ ML atoms). Only available for the UMA backend; other backends use `FiniteDifference` automatically.
 - `mm_fd: true` uses finite-difference for MM Hessian; set to `false` to use analytical MM Hessian from hessian_ff
+- `use_cmap: false` (default) excludes CMAP (backbone cross-map dihedral correction) from the model parm7, consistent with Gaussian ONIOM behavior. Set `true` to include CMAP in the model region (CMAP remains in the real system in both cases).
 - `real_parm7` and `model_pdb` are required for ML/MM calculations
 - `model_charge` and `model_mult` override `-q` and `-m` for the ML region specifically
 - `opt`, `tsopt`, `irc`, and `freq` use partial Hessian by default when `calc.return_partial_hessian` is not explicitly set in YAML.
@@ -206,10 +208,10 @@ Rational Function Optimizer settings (extends `opt`).
 ```yaml
 rfo:
  # Inherits all opt settings, plus:
- trust_radius: 0.30 # Trust-region radius
+ trust_radius: 0.10 # Trust-region radius
  trust_update: true # Enable trust-region updates
  trust_min: 0.0001 # Minimum trust radius
- trust_max: 0.30 # Maximum trust radius
+ trust_max: 0.20 # Maximum trust radius
  max_energy_incr: null # Allowed energy increase per step
  hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
  hessian_init: calc # Hessian initialization: calc, unit, etc.
@@ -409,7 +411,7 @@ RS-I-RFO TS optimization settings (`tsopt --opt-mode hess`).
 
 ```yaml
 rsirfo:
- thresh: baker # RS-IRFO convergence preset
+ thresh: baker # RS-I-RFO convergence preset
  max_cycles: 10000 # Iteration cap
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum accepted step norm
@@ -430,8 +432,8 @@ rsirfo:
  trust_radius: 0.10 # Trust region radius
  trust_update: true # Trust region update
  trust_min: 0.0001 # Minimum trust radius
- trust_max: 0.30 # Maximum trust radius
- hessian_recalc: 200 # Hessian rebuild cadence
+ trust_max: 0.20 # Maximum trust radius
+ hessian_recalc: 500 # Hessian rebuild cadence
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
  out_dir: ./result_tsopt/ # Output directory
 ```
@@ -592,7 +594,7 @@ calc:
  embedcharge: false            # xTB point-charge embedding correction
  uma_model: uma-s-1p1          # uma-s-1p1 | uma-m-1p1
  ml_device: auto
- ml_hessian_mode: Analytical   # Recommended when VRAM permits
+ hessian_calc_mode: Analytical   # Recommended when VRAM permits
  mm_device: cpu
  mm_fd: true
  use_bfactor_layers: true # Read layers from PDB B-factors

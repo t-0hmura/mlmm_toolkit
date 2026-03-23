@@ -32,6 +32,8 @@ tests/smoke/*_smoke.pdb
 tests/smoke/*_smoke_refactor.pdb
 tests/smoke/test_*.png
 
+mlmm/_version.py
+
 # Sphinx documentation
 docs/_build/
 docs/_static/*.css.map

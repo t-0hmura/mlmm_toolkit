@@ -44,6 +44,7 @@ from pysisyphus.constants import AU2KCALPERMOL, BOHR2ANG
 from .mlmm_calc import mlmm, MLMMASECalculator
 from .defaults import (
     BOND_KW as _BOND_KW_DEFAULT,
+    MLMM_CALC_KW,
     SEARCH_KW as _SEARCH_KW_DEFAULT,
 )
 from .path_opt import GS_KW as _PATH_GS_KW, STOPT_KW as _PATH_STOPT_KW, DMF_KW as _PATH_DMF_KW, _select_hei_index
@@ -364,9 +365,9 @@ def _run_gsm_between(
         **{k: v for k, v in _opt_args.items() if k != "type"}
     )
 
-    click.echo(f"\n=== [{tag}] GSM started ===\n")
+    click.echo(f"=== [{tag}] GSM started ===\n")
     optimizer.run()
-    click.echo(f"\n=== [{tag}] GSM finished ===\n")
+    click.echo(f"=== [{tag}] GSM finished ===\n")
 
     energies = list(map(float, np.array(gs.energy, dtype=float)))
     images = list(gs.images)
@@ -536,9 +537,9 @@ def _run_dmf_between(
         except Exception:
             logger.debug("Failed to set ipopt max_iter option", exc_info=True)
 
-    click.echo(f"\n=== [{tag}] DMF started ===\n")
+    click.echo(f"=== [{tag}] DMF started ===\n")
     mxflx.solve(tol="tight")
-    click.echo(f"\n=== [{tag}] DMF finished ===\n")
+    click.echo(f"=== [{tag}] DMF finished ===\n")
 
     # Evaluate energies using PySisyphus calculator
     energies = []
@@ -647,9 +648,9 @@ def _optimize_single(
 
     opt = LBFGS(g, **args)
 
-    click.echo(f"\n=== [{tag}] Single-structure LBFGS started ===\n")
+    click.echo(f"=== [{tag}] Single-structure LBFGS started ===\n")
     opt.run()
-    click.echo(f"\n=== [{tag}] Single-structure LBFGS finished ===\n")
+    click.echo(f"=== [{tag}] Single-structure LBFGS finished ===\n")
 
     try:
         final_xyz = Path(opt.final_fn) if isinstance(opt.final_fn, (str, Path)) else Path(opt.final_fn)
@@ -711,7 +712,7 @@ def _maybe_bridge_segments(
     rmsd = _kabsch_rmsd(np.array(tail_g.coords3d), np.array(head_g.coords3d), align=False)
     if rmsd <= rmsd_thresh:
         return None
-    click.echo(f"[{tag}] Gap detected between segments (RMSD={rmsd:.4e} Å) — bridging via {mep_mode_kind.upper()}.")
+    click.echo(f"[{tag}] Gap detected between segments (RMSD={rmsd:.4e} bohr) — bridging via {mep_mode_kind.upper()}.")
     return _run_mep_between(
         tail_g, head_g, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=f"{tag}_bridge",
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
@@ -1178,7 +1179,7 @@ def _build_multistep_path(
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option(
@@ -1300,9 +1301,9 @@ def _build_multistep_path(
 @click.option(
     "--preopt/--no-preopt",
     "pre_opt",
-    default=True,
+    default=False,
     show_default=True,
-    help="If False, skip initial single-structure optimizations of inputs."
+    help="If True, run initial single-structure optimizations of inputs."
 )
 # Input alignment switch (default True)
 @click.option(
@@ -1351,7 +1352,30 @@ def _build_multistep_path(
     default=None,
     show_default=False,
     help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+)
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
 @click.pass_context
 def cli(
@@ -1387,6 +1411,9 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
 ) -> None:
     set_convert_file_enabled(convert_files)
     prepared_inputs: List[PreparedInputStructure] = []
@@ -1488,6 +1515,12 @@ def cli(
             calc_cfg["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):
             calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
+        if link_atom_method is not None:
+            calc_cfg["link_atom_method"] = str(link_atom_method).lower()
+        if mm_backend is not None:
+            calc_cfg["mm_backend"] = str(mm_backend).lower()
+        if use_cmap is not None:
+            calc_cfg["use_cmap"] = use_cmap
 
         try:
             geom_freeze = _normalize_geom_freeze(geom_cfg.get("freeze_atoms"))
@@ -1867,7 +1900,7 @@ def cli(
         align_thresh = str(stopt_cfg.get("thresh", "gau"))
         if align:
             try:
-                click.echo("\n=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
+                click.echo("=== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ===\n")
                 _ = align_and_refine_sequence_inplace(
                     geoms,
                     thresh=align_thresh,
@@ -1884,7 +1917,7 @@ def cli(
         # --------------------------
         # 3) Run recursive search for each adjacent pair and stitch
         # --------------------------
-        click.echo("\n=== Multistep MEP search (multi-structure) started ===\n")
+        click.echo("=== Multistep MEP search (multi-structure) started ===\n")
         seg_counter = [0]
 
         bridge_max_nodes = int(search_cfg.get("max_nodes_bridge", 5))
@@ -1955,7 +1988,7 @@ def cli(
                 )
                 seg_reports_all.extend(pair_path.segments)
 
-        click.echo("\n=== Multistep MEP search (multi-structure) finished ===\n")
+        click.echo("=== Multistep MEP search (multi-structure) finished ===\n")
 
         combined_all = CombinedPath(images=combined_imgs, energies=combined_Es, segments=seg_reports_all)
 
@@ -2058,7 +2091,7 @@ def cli(
         except Exception:
             overall_changed, overall_summary = False, ""
 
-        click.echo("\n=== MEP Summary ===\n")
+        click.echo("=== MEP Summary ===\n")
 
         click.echo("\n[overall] Covalent-bond changes between first and last image:")
         if overall_changed and overall_summary.strip():

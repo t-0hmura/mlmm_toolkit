@@ -78,6 +78,21 @@ except ImportError:
 
 # ---------- PySisyphus unit constants ----------
 from pysisyphus.constants import BOHR2ANG, ANG2BOHR, AU2EV, AU2KCALPERMOL
+from pysisyphus.elem_data import COVALENT_RADII as _COVALENT_RADII_BOHR
+
+
+def _get_g_factor(qm1_elem: str, mm_elem: str, link_elem: str = "H") -> float:
+    """Compute Morokuma/Dapprich g-factor for link atom placement.
+
+    g = (CR(QM1) + CR(link)) / (CR(QM1) + CR(MM))
+
+    The link atom is placed at: r_L = r_QM1 + g * (r_MM - r_QM1).
+    Units cancel (covalent radii in Bohr).
+    """
+    cr_qm1 = _COVALENT_RADII_BOHR[qm1_elem.lower()]
+    cr_mm = _COVALENT_RADII_BOHR[mm_elem.lower()]
+    cr_link = _COVALENT_RADII_BOHR[link_elem.lower()]
+    return (cr_qm1 + cr_link) / (cr_qm1 + cr_mm)
 EV2AU = 1.0 / AU2EV  # eV → Hartree
 KCALMOL2EV = AU2EV / AU2KCALPERMOL  # kcal/mol -> eV
 
@@ -960,6 +975,7 @@ class MLMMCore:
         model_charge: Optional[int] = 0,
         model_mult: int = 1,
         link_mlmm: List[Tuple[str, str]] | None = None,
+        link_atom_method: str = "scaled",
         # ML backend selection
         backend: str = "uma",
         uma_model: str = "uma-s-1p1",
@@ -984,12 +1000,11 @@ class MLMMCore:
         mm_cuda_idx: int = 0,
         mm_threads: int = 16,
         freeze_atoms: List[int] | None = None,
-        ml_hessian_mode: str = "FiniteDifference",
-        hessian_calc_mode: Optional[str] = None,
+        hessian_calc_mode: str = "FiniteDifference",
         return_partial_hessian: bool = True,
         hess_cutoff: Optional[float] = None,
         movable_cutoff: Optional[float] = None,
-        use_bfactor_layers: bool = False,
+        use_bfactor_layers: bool = True,       # matches MLMM_CALC_KW default
         hess_mm_atoms: Optional[List[int]] = None,
         movable_mm_atoms: Optional[List[int]] = None,
         frozen_mm_atoms: Optional[List[int]] = None,
@@ -1002,6 +1017,7 @@ class MLMMCore:
         xtb_workdir: str = "tmp",
         xtb_keep_files: bool = False,
         xtb_ncores: int = 4,
+        use_cmap: bool = False,
         **kwargs,
     ):
         # --- v0.1.x backward compatibility aliases ---
@@ -1049,7 +1065,15 @@ class MLMMCore:
         real_top.save(self.real_rst7, overwrite=True)
 
         self.link_mlmm = link_mlmm
-        self.ml_ID, self.mlmm_links = self._ml_prep()
+        self.link_atom_method = link_atom_method
+        self.use_cmap = use_cmap
+        self.ml_ID, self.mlmm_links, self._link_elem_pairs = self._ml_prep()
+        if self.link_atom_method == "scaled":
+            self._link_g_factors = [
+                _get_g_factor(qm_e, mm_e, "H") for qm_e, mm_e in self._link_elem_pairs
+            ]
+        else:
+            self._link_g_factors = []
         self.selection_indices = self._mk_model_parm7()
 
         self.hess_cutoff = hess_cutoff
@@ -1150,8 +1174,7 @@ class MLMMCore:
                 f"Unknown mm_backend '{mm_backend}'. Choose 'hessian_ff' or 'openmm'."
             )
 
-        mode_in = hessian_calc_mode if hessian_calc_mode is not None else ml_hessian_mode
-        mode = (mode_in or "Analytical").strip().lower()
+        mode = (hessian_calc_mode or "FiniteDifference").strip().lower()
         self._ml_hessian_mode = "analytical" if mode.startswith("analyt") else "fd"
 
         self._atoms_real_tpl = read(self.input_pdb)
@@ -1176,7 +1199,8 @@ class MLMMCore:
     def _pdb_atom_key(line: str) -> str:
         return f"{line[12:16].strip()} {line[17:20].strip()} {line[22:26].strip()}"
 
-    def _ml_prep(self) -> Tuple[List[str], List[Tuple[int, int]]]:
+    def _ml_prep(self) -> Tuple[List[str], List[Tuple[int, int]], List[Tuple[str, str]]]:
+        """Return (ml_ID, mlmm_links, link_elem_pairs)."""
         ml_region = set()
         with open(self.model_pdb) as fh:
             for ln in fh:
@@ -1244,7 +1268,12 @@ class MLMMCore:
                 )
             mlmm_links = list(zip(ml_indices, mm_indices))
 
-        return ml_ID, mlmm_links
+        elem_by_idx = {a["idx"]: a["elem"] for a in leap_atoms}
+        link_elem_pairs = [
+            (elem_by_idx.get(ml, "C"), elem_by_idx.get(mm, "C"))
+            for ml, mm in mlmm_links
+        ]
+        return ml_ID, mlmm_links, link_elem_pairs
 
     def _mk_model_parm7(self) -> List[int]:
         real = pmd.load_file(self.real_parm7, self.real_rst7)
@@ -1259,6 +1288,8 @@ class MLMMCore:
 
         model = real[selection]
         model.box = None
+        if not self.use_cmap:
+            model.cmaps[:] = []
         model.save(self.model_parm7, overwrite=True)
         _normalize_prmtop_lj_tables(self.model_parm7)
         model.save(self.model_rst7, overwrite=True)
@@ -1450,24 +1481,32 @@ class MLMMCore:
         for k, (ml_idx, mm_idx) in enumerate(self.mlmm_links):
             ml_i = ml_idx - 1
             mm_i = mm_idx - 1
-            ml_elem = atoms_real[ml_i].symbol
-            if ml_elem == "C":
-                dist = 1.09
-            elif ml_elem == "N":
-                dist = 1.01
-            else:
-                raise ValueError(
-                    f"Unsupported link parent element: {ml_elem}. Only C and N are supported."
-                )
             vec = atoms_real[mm_i].position - atoms_real[ml_i].position
             R = np.linalg.norm(vec)
             if R < 1e-6:
                 continue
-            u = vec / R
-            H_pos = atoms_real[ml_i].position + u * dist
+
+            if self.link_atom_method == "scaled":
+                g = self._link_g_factors[k]
+                H_pos = atoms_real[ml_i].position + g * vec
+                param = g  # g-factor stored as 4th element
+            else:
+                ml_elem = atoms_real[ml_i].symbol
+                if ml_elem == "C":
+                    dist = 1.09
+                elif ml_elem == "N":
+                    dist = 1.01
+                else:
+                    raise ValueError(
+                        f"Unsupported link parent element: {ml_elem}. Only C and N are supported."
+                    )
+                u = vec / R
+                H_pos = atoms_real[ml_i].position + u * dist
+                param = dist  # fixed bond length stored as 4th element
+
             link_idx_in_model_LH = base_model_len + k
             atoms_model_LH[link_idx_in_model_LH].position = H_pos
-            added_link_atoms.append((link_idx_in_model_LH, ml_i, mm_i, dist))
+            added_link_atoms.append((link_idx_in_model_LH, ml_i, mm_i, param))
 
         freeze_model: List[int] = []
         if self.freeze_atoms:
@@ -1514,6 +1553,20 @@ class MLMMCore:
         dR_dQ = I3 - dist * du_dQ
         dR_dM = dist * du_dQ
         return torch.hstack([dR_dQ, dR_dM])
+
+    @staticmethod
+    def _jacobian_blocks_numpy_scaled(g: float) -> np.ndarray:
+        """Jacobian for scaled (g-factor) link atoms. Shape (6, 3)."""
+        I3 = np.eye(3)
+        return np.vstack([(1.0 - g) * I3, g * I3])
+
+    @staticmethod
+    def _jacobian_blocks_torch_scaled(
+        g: float, *, dtype: torch.dtype, device: torch.device,
+    ) -> torch.Tensor:
+        """Jacobian for scaled (g-factor) link atoms. Shape (3, 6)."""
+        I3 = torch.eye(3, dtype=dtype, device=device)
+        return torch.hstack([(1.0 - g) * I3, g * I3])
 
     def _get_mm_charges(self, atom_indices: Sequence[int]) -> np.ndarray:
         """Retrieve MM partial charges for the given atom indices.
@@ -1678,12 +1731,15 @@ class MLMMCore:
                 F_combined[ridx] += ml_out.F[i] - mm_out.F_model[i]
 
             real_to_model = self._idx_map_real_to_model
-            for link_idx, ml_idx, mm_idx, dist in added_link_atoms:
+            for link_idx, ml_idx, mm_idx, param in added_link_atoms:
                 ml_model_idx = real_to_model[ml_idx]
                 r_ml = atoms_model_LH[ml_model_idx].position
                 r_mm = atoms_real[mm_idx].position
                 grad_link = ml_out.F[link_idx]
-                J = self._jacobian_blocks_numpy(r_ml, r_mm, dist)
+                if self.link_atom_method == "scaled":
+                    J = self._jacobian_blocks_numpy_scaled(param)
+                else:
+                    J = self._jacobian_blocks_numpy(r_ml, r_mm, param)
                 if J is None:
                     continue
                 redistributed = J @ grad_link
@@ -1703,9 +1759,9 @@ class MLMMCore:
             mm_atom_indices = [i for i in range(len(atoms_real)) if i not in ml_set]
             if mm_atom_indices and self.embedcharge_cutoff is not None:
                 from scipy.spatial.distance import cdist
-                ml_coords = atoms_real.get_positions()[sorted(ml_set)]
+                _ml_ref_coords = atoms_real.get_positions()[sorted(ml_set)]
                 mm_coords_all = atoms_real.get_positions()[mm_atom_indices]
-                dists = cdist(mm_coords_all, ml_coords).min(axis=1)
+                dists = cdist(mm_coords_all, _ml_ref_coords).min(axis=1)
                 n_before = len(mm_atom_indices)
                 mask = dists <= self.embedcharge_cutoff
                 mm_atom_indices = [mm_atom_indices[j] for j in range(n_before) if mask[j]]
@@ -1793,25 +1849,28 @@ class MLMMCore:
 
             real_to_model = self._idx_map_real_to_model
             link_data: List[Tuple[int, int, int, int, int, float, torch.Tensor]] = []
-            for link_idx, ml_idx, mm_idx, dist in added_link_atoms:
+            for link_idx, ml_idx, mm_idx, param in added_link_atoms:
                 ml_model_idx = real_to_model[ml_idx]
-                r_ml_t = torch.tensor(atoms_model_LH[ml_model_idx].position, dtype=self.H_dtype, device=self.ml_device)
-                r_mm_t = torch.tensor(atoms_real[mm_idx].position, dtype=self.H_dtype, device=self.ml_device)
-                K = self._jacobian_blocks_torch(r_ml_t, r_mm_t, dist, dtype=self.H_dtype, device=self.ml_device)
+                if self.link_atom_method == "scaled":
+                    K = self._jacobian_blocks_torch_scaled(param, dtype=self.H_dtype, device=self.ml_device)
+                else:
+                    r_ml_t = torch.tensor(atoms_model_LH[ml_model_idx].position, dtype=self.H_dtype, device=self.ml_device)
+                    r_mm_t = torch.tensor(atoms_real[mm_idx].position, dtype=self.H_dtype, device=self.ml_device)
+                    K = self._jacobian_blocks_torch(r_ml_t, r_mm_t, param, dtype=self.H_dtype, device=self.ml_device)
                 if K is None:
                     continue
                 ml_active = self.full_to_hess_active.get(ml_idx)
                 mm_active = self.full_to_hess_active.get(mm_idx)
                 if ml_active is None or mm_active is None:
                     continue
-                link_data.append((link_idx, ml_idx, mm_idx, ml_active, mm_active, dist, K))
+                link_data.append((link_idx, ml_idx, mm_idx, ml_active, mm_active, param, K))
 
             F_high_t = torch.as_tensor(ml_out.F, dtype=self.H_dtype, device=self.ml_device)
             has_link_force = bool((F_high_t.abs() > 1e-12).any().item())
             if link_data and (H_high is not None or has_link_force):
                 t_asm = time.perf_counter()
                 I3 = torch.eye(3, dtype=self.H_dtype, device=self.ml_device)
-                for link_idx, ml_idx, mm_idx, ml_active, mm_active, dist, K in link_data:
+                for link_idx, ml_idx, mm_idx, ml_active, mm_active, param, K in link_data:
 
                     if H_high is not None:
                         H_l = H_high[link_idx, :, link_idx, :]
@@ -1821,40 +1880,45 @@ class MLMMCore:
                         H[mm_active, :, ml_active, :].add_(H_self[3:6, 0:3])
                         H[mm_active, :, mm_active, :].add_(H_self[3:6, 3:6])
 
-                    f_L = -F_high_t[link_idx]
+                    # B-matrix constraint correction: only needed for fixed-distance
+                    # link atoms. For scaled (g-factor) link atoms, d²L/dQ² = 0
+                    # (position is linear in QM1 and MM), so no correction needed.
+                    if self.link_atom_method != "scaled":
+                        f_L = -F_high_t[link_idx]
+                        dist = param
 
-                    r_ml_t = torch.as_tensor(atoms_model_LH[real_to_model[ml_idx]].position,
-                                             dtype=self.H_dtype, device=self.ml_device)
-                    r_mm_t = torch.as_tensor(atoms_real[mm_idx].position,
-                                             dtype=self.H_dtype, device=self.ml_device)
-                    v = r_mm_t - r_ml_t
-                    R_sq = torch.dot(v, v)
-                    inv_R = torch.rsqrt(torch.clamp(R_sq, min=1.0e-24))
-                    inv_R2 = inv_R * inv_R
-                    u = v * inv_R
+                        r_ml_t = torch.as_tensor(atoms_model_LH[real_to_model[ml_idx]].position,
+                                                 dtype=self.H_dtype, device=self.ml_device)
+                        r_mm_t = torch.as_tensor(atoms_real[mm_idx].position,
+                                                 dtype=self.H_dtype, device=self.ml_device)
+                        v = r_mm_t - r_ml_t
+                        R_sq = torch.dot(v, v)
+                        inv_R = torch.rsqrt(torch.clamp(R_sq, min=1.0e-24))
+                        inv_R2 = inv_R * inv_R
+                        u = v * inv_R
 
-                    alpha = torch.dot(u, f_L)
-                    uuT = torch.outer(u, u)
-                    ufT = torch.outer(u, f_L)
-                    fTu = torch.outer(f_L, u)
-                    B = (alpha * (3.0 * uuT - I3) - (ufT + fTu)) * inv_R2
+                        alpha = torch.dot(u, f_L)
+                        uuT = torch.outer(u, u)
+                        ufT = torch.outer(u, f_L)
+                        fTu = torch.outer(f_L, u)
+                        B = (alpha * (3.0 * uuT - I3) - (ufT + fTu)) * inv_R2
 
-                    H_corr6 = torch.zeros((6, 6), dtype=self.H_dtype, device=self.ml_device)
-                    H_corr6[0:3, 0:3] = B
-                    H_corr6[3:6, 3:6] = B
-                    H_corr6[0:3, 3:6] = -B
-                    H_corr6[3:6, 0:3] = -B
-                    H_corr6.mul_(dist)
+                        H_corr6 = torch.zeros((6, 6), dtype=self.H_dtype, device=self.ml_device)
+                        H_corr6[0:3, 0:3] = B
+                        H_corr6[3:6, 3:6] = B
+                        H_corr6[0:3, 3:6] = -B
+                        H_corr6[3:6, 0:3] = -B
+                        H_corr6.mul_(dist)
 
-                    H[ml_active, :, ml_active, :].add_(H_corr6[0:3, 0:3])
-                    H[ml_active, :, mm_active, :].add_(H_corr6[0:3, 3:6])
-                    H[mm_active, :, ml_active, :].add_(H_corr6[3:6, 0:3])
-                    H[mm_active, :, mm_active, :].add_(H_corr6[3:6, 3:6])
+                        H[ml_active, :, ml_active, :].add_(H_corr6[0:3, 0:3])
+                        H[ml_active, :, mm_active, :].add_(H_corr6[0:3, 3:6])
+                        H[mm_active, :, ml_active, :].add_(H_corr6[3:6, 0:3])
+                        H[mm_active, :, mm_active, :].add_(H_corr6[3:6, 3:6])
                 timing["hess_asm_link_self_s"] = time.perf_counter() - t_asm
 
             if H_high is not None and link_data and ml_sel_idx.numel() > 0:
                 t_asm = time.perf_counter()
-                for link_idx, _ml_idx, _mm_idx, ml_active, mm_active, _dist, K in link_data:
+                for link_idx, _ml_idx, _mm_idx, ml_active, mm_active, _param, K in link_data:
                     H_coup = H_high[link_idx].index_select(1, ml_sel_idx).permute(1, 0, 2).contiguous()  # (K,3,3)
                     H_row = torch.einsum("ac,bcd->bad", K.T, H_coup)  # (K,6,3)
                     H_col = torch.einsum("bca,cd->bad", H_coup, K)    # (K,3,6)
@@ -1871,10 +1935,10 @@ class MLMMCore:
                 t_asm = time.perf_counter()
                 n_links = len(link_data)
                 for a in range(n_links):
-                    link_idx_a, _ml_a, _mm_a, ml_a_active, mm_a_active, _dist_a, K_a = link_data[a]
+                    link_idx_a, _ml_a, _mm_a, ml_a_active, mm_a_active, _param_a, K_a = link_data[a]
 
                     for b in range(a + 1, n_links):
-                        link_idx_b, _ml_b, _mm_b, ml_b_active, mm_b_active, _dist_b, K_b = link_data[b]
+                        link_idx_b, _ml_b, _mm_b, ml_b_active, mm_b_active, _param_b, K_b = link_data[b]
 
                         H_ab = H_high[link_idx_a, :, link_idx_b, :]
                         HAB = K_a.T @ H_ab @ K_b
@@ -2027,6 +2091,7 @@ class mlmm(PySiCalc):
         model_charge: int = 0,
         model_mult: int = 1,
         link_mlmm: List[Tuple[str, str]] | None = None,
+        link_atom_method: str = "scaled",
         # ML backend selection
         backend: str = "uma",
         uma_model: str = "uma-s-1p1",
@@ -2043,8 +2108,7 @@ class mlmm(PySiCalc):
         symmetrize_hessian: bool = True,
         out_hess_torch: bool = True,
         H_double: bool = False,
-        ml_hessian_mode: str = "FiniteDifference",
-        hessian_calc_mode: Optional[str] = None,
+        hessian_calc_mode: str = "FiniteDifference",
         ml_device: str = "auto",
         ml_cuda_idx: int = 0,
         mm_device: str = "cpu",
@@ -2057,7 +2121,7 @@ class mlmm(PySiCalc):
         print_vram: bool = True,
         hess_cutoff: Optional[float] = None,
         movable_cutoff: Optional[float] = None,
-        use_bfactor_layers: bool = False,
+        use_bfactor_layers: bool = True,       # matches MLMM_CALC_KW default
         hess_mm_atoms: Optional[List[int]] = None,
         movable_mm_atoms: Optional[List[int]] = None,
         frozen_mm_atoms: Optional[List[int]] = None,
@@ -2070,6 +2134,7 @@ class mlmm(PySiCalc):
         xtb_workdir: str = "tmp",
         xtb_keep_files: bool = False,
         xtb_ncores: int = 4,
+        use_cmap: bool = False,
         **kwargs,
     ):
         # --- v0.1.x backward compatibility aliases ---
@@ -2094,10 +2159,12 @@ class mlmm(PySiCalc):
             model_charge=model_charge,
             model_mult=model_mult,
             link_mlmm=link_mlmm,
+            link_atom_method=link_atom_method,
             backend=backend,
             uma_model=uma_model,
             uma_task_name=uma_task_name,
             orb_model=orb_model,
+            orb_precision=orb_precision,
             mace_model=mace_model,
             mace_dtype=mace_dtype,
             aimnet2_model=aimnet2_model,
@@ -2113,7 +2180,6 @@ class mlmm(PySiCalc):
             mm_threads=mm_threads,
             mm_backend=mm_backend,
             freeze_atoms=self._freeze_atoms,
-            ml_hessian_mode=ml_hessian_mode,
             hessian_calc_mode=hessian_calc_mode,
             return_partial_hessian=return_partial_hessian,
             print_timing=print_timing,
@@ -2132,6 +2198,7 @@ class mlmm(PySiCalc):
             xtb_workdir=xtb_workdir,
             xtb_keep_files=xtb_keep_files,
             xtb_ncores=xtb_ncores,
+            use_cmap=use_cmap,
         )
 
         self.out_hess_torch = bool(out_hess_torch)

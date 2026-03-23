@@ -66,7 +66,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1); overrides `calc.spin`. | `1` |
 | `--max-cycles INT` | Max number of IRC steps; overrides `irc.max_cycles`. | `125` |
-| `--step-size FLOAT` | Step length in mass-weighted coordinates; overrides `irc.step_length`. | `0.10` |
+| `--step-size FLOAT` | Step length in Bohr (unweighted Cartesian); overrides `irc.step_length`. | `0.10` |
 | `--root INT` | Imaginary mode index for the initial displacement; overrides `irc.root`. | `0` |
 | `--forward/--no-forward` | Run the forward IRC; overrides `irc.forward`. | `True` |
 | `--backward/--no-backward` | Run the backward IRC; overrides `irc.backward`. | `True` |
@@ -79,6 +79,9 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
+| `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
+| `--hess-device CHOICE` | Device for initial Hessian storage and IRC operations: `auto`, `cuda`, `cpu`. Use `cpu` for large unfrozen systems. | `auto` |
+| `--read-hess PATH` | Read initial Hessian from a `.npz` file (from `mlmm freq --dump-hess`). Takes priority over hessian_cache and fresh computation. | _None_ |
 | `--dry-run/--no-dry-run` | Validate and print execution plan without running IRC. Shown in `--help-advanced`. | `False` |
 
 ## Outputs
@@ -115,7 +118,7 @@ Shared sections reuse [YAML Reference](yaml_reference.md) for geometry/calculato
 | `--forward` | `irc.forward` |
 | `--backward` | `irc.backward` |
 | `--out-dir` | `irc.out_dir` |
-| `--hessian-calc-mode` | `calc.hessian_calc_mode` (alias: `calc.ml_hessian_mode`) |
+| `--hessian-calc-mode` | `calc.hessian_calc_mode` |
 
 ### Example YAML
 
@@ -134,7 +137,7 @@ mlmm:
  uma_model: uma-s-1p1              # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
- hessian_calc_mode: Analytical        # Hessian mode (alias: ml_hessian_mode)
+ hessian_calc_mode: Analytical        # Hessian mode
  return_partial_hessian: true      # forced true for irc (partial Hessian with active-DOF processing)
 irc:
  step_length: 0.1                  # integration step length

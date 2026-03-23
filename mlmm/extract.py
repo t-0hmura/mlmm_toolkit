@@ -8,8 +8,8 @@ Usage (CLI)
 -----------
     mlmm extract -i INPUT.pdb [INPUT2.pdb ...] -c <substrate_spec> \
         [-o OUTPUT.pdb ...] [-r <Å>] [--radius-het2het <Å>] \
-        [--include-H2O/--no-include-H2O] [--exclude-backbone/--no-exclude-backbone] \
-        [--add-linkH/--no-add-linkH] [--selected-resn "CHAIN:RES" ...] \
+        [--include-h2o/--no-include-h2o] [--exclude-backbone/--no-exclude-backbone] \
+        [--add-linkh/--no-add-linkh] [--selected-resn "CHAIN:RES" ...] \
         [-l, --ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
 
 Examples
@@ -39,13 +39,13 @@ Residue inclusion
 -----
 - Always include the substrate residues.
 - Standard cutoff (``--radius``, default 2.6 Å):
-  - If ``--no-exclude-backbone``: include any residue if **any atom** is within the cutoff.
-  - If ``--exclude-backbone`` (default): for **amino‑acid residues**, the qualifying atom
+  - If ``--no-exclude-backbone`` (default): include any residue if **any atom** is within the cutoff.
+  - If ``--exclude-backbone``: for **amino‑acid residues**, the qualifying atom
     must be **non‑backbone** (not in {N, H*, CA, HA*, C, O, OXT}); non‑amino‑acid residues qualify by any atom.
 - Independent hetero–hetero proximity (``--radius-het2het``):
   add residues if a **substrate hetero atom (non‑C/H)** is within the cutoff of a **protein hetero atom**.
   With ``--exclude-backbone``, amino‑acid neighbors must be **non‑backbone** atoms.
-- Waters are included by default (``--include-H2O``; disable with ``--no-include-H2O``).
+- Waters are included by default (``--include-h2o``; disable with ``--no-include-h2o``).
 - ``--selected-resn`` force‑includes residues (chain and insertion codes supported).
 - When ``--no-exclude-backbone`` and a selected residue’s **backbone atom** contacts the substrate
   (within either cutoff), include its peptide‑adjacent N‑side and C‑side neighbors (C–N ≤ 1.9 Å). For true termini,
@@ -61,12 +61,12 @@ Truncation (capping)
   - **PRO/HYP** retain N, CA, HA, H* to keep the ring.
 - **Continuous peptide stretches** keep internal backbone; only **terminal caps** are removed
   (N‑cap: N/H*; C‑cap: C/O/OXT). TER‑aware segmentation prevents crossing chain breaks.
-- With ``--exclude-backbone`` (default), delete main‑chain atoms on all **non‑substrate amino acids**,
+- With ``--exclude-backbone``, delete main‑chain atoms on all **non‑substrate amino acids**,
   except for the specific PRO/HYP retention and PRO‑adjacency preservation above.
 - **Non‑amino‑acid residues**: atoms named like protein backbone ({"N","CA","HA","H","H1","H2","H3"})
   are **never deleted** by capping logic.
 
-Link hydrogens (--add-linkH)
+Link hydrogens (--add-linkh)
 -----
 - Adds **carbon‑only** link H at **1.09 Å** along the cut‑bond vector.
   Normal residues: checks **CB–CA**, **CA–N**, **CA–C**; **PRO/HYP**: **CA–C** only.
@@ -123,9 +123,9 @@ Notes
 - **Defaults / behavior:**
   - ``--radius`` default: **2.6 Å**. If given **0**, internally nudged to **0.001 Å**.
   - ``--radius-het2het`` default: **0 Å** (off). Internally treated as **0.001 Å** if ``0`` is given.
-  - ``--include-H2O`` default: **true**.
-  - ``--exclude-backbone`` default: **true**.
-  - ``--add-linkH`` default: **false**.
+  - ``--include-h2o`` default: **true**.
+  - ``--exclude-backbone`` default: **false**.
+  - ``--add-linkh`` default: **false**.
   - ``--ligand-charge`` default: **None** (unknown residues counted as 0 unless set).
   - Output default: single input → ``pocket.pdb``; multiple inputs → ``pocket_{original_filename}.pdb``.
 - **Geometry thresholds and tolerances:**
@@ -138,7 +138,7 @@ Notes
     when peptide‑adjacent; **CA** on that neighbor is always kept, and with backbone exclusion
     **C** and **O/OXT** are preserved to maintain the peptide bond into PRO–N.
   - **Non‑amino‑acid residues** never lose atoms named like backbone (``N, CA, HA, H, H1, H2, H3``).
-  - **Waters** (HOH/WAT/TIP3/SOL) are always neutral (charge 0) and included by default.
+  - **Waters** (HOH/WAT/H2O/DOD/TIP/TIP3/SOL) are always neutral (charge 0) and included by default.
 - **Dependencies:** Python ≥ **3.10** (PEP 604 unions), Biopython ≥ **1.80**, NumPy.
 - **Python API (for reference):**
   - ``extract(args: argparse.Namespace | None = None, api=False)`` — main entry (CLI or programmatic).
@@ -351,9 +351,9 @@ _EXTRACT_ALL_FLAGS = (
     "-o", "--output",
     "-r", "--radius",
     "--radius-het2het",
-    "--include-H2O", "--include-h2o", "--no-include-H2O", "--no-include-h2o",
+    "--include-h2o", "--no-include-h2o",
     "--exclude-backbone", "--no-exclude-backbone",
-    "--add-linkH", "--no-add-linkH",
+    "--add-linkh", "--no-add-linkh",
     "--selected-resn",
     "-l",
     "--ligand-charge",
@@ -430,19 +430,19 @@ def _gather_extract_variadic(
     help="Cutoff (angstrom) for substrate-protein hetero-atom proximity (non-C/H). 0 disables.",
 )
 @click.option(
-    "--include-H2O/--no-include-H2O",
-    "include_H2O",
+    "--include-h2o/--no-include-h2o",
+    "include_h2o",
     default=True, show_default=True,
     help="Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL).",
 )
 @click.option(
     "--exclude-backbone/--no-exclude-backbone",
-    default=True, show_default=True,
+    default=False, show_default=True,
     help="Delete main-chain atoms from non-substrate amino acids.",
 )
 @click.option(
-    "--add-linkH/--no-add-linkH",
-    "add_linkH",
+    "--add-linkh/--no-add-linkh",
+    "add_linkh",
     default=False, show_default=True,
     help="Add carbon-only link-H at 1.09 angstrom along cut-bond directions.",
 )
@@ -470,9 +470,9 @@ def cli(
     output_pdb: Sequence[str],
     radius: float,
     radius_het2het: float,
-    include_H2O: bool,
+    include_h2o: bool,
     exclude_backbone: bool,
-    add_linkH: bool,
+    add_linkh: bool,
     selected_resn: str,
     ligand_charge: Optional[str],
     verbose: bool,
@@ -495,9 +495,9 @@ def cli(
         output_pdb=output_list,
         radius=radius,
         radius_het2het=radius_het2het,
-        include_H2O=include_H2O,
+        include_h2o=include_h2o,
         exclude_backbone=exclude_backbone,
-        add_linkH=add_linkH,
+        add_linkh=add_linkh,
         selected_resn=selected_resn,
         ligand_charge=ligand_charge,
         verbose=verbose,
@@ -538,7 +538,7 @@ def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
     )
     p.add_argument(
         "-r", "--radius", type=float, default=2.6,
-        help=("Cutoff (Å) around substrate atoms. With --exclude-backbone true (default), an **amino-acid** "
+        help=("Cutoff (Å) around substrate atoms. With --exclude-backbone, an **amino-acid** "
               "neighbor must have a **non-backbone** atom within this distance; otherwise **any atom** suffices. "
               "(default: 2.6)")
     )
@@ -549,22 +549,22 @@ def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
               "but is internally treated as 0.001 Å. (default: 0)")
     )
     p.add_argument(
-        "--include-H2O", "--include-h2o",
-        dest="include_H2O",
+        "--include-h2o", "--include-H2O",
+        dest="include_h2o",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Include waters (HOH/WAT/TIP3/SOL). (default: True)"
+        help="Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL). (default: True)"
     )
     p.add_argument(
         "--exclude-backbone",
         dest="exclude_backbone",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Delete main‑chain atoms (N, H*, CA, HA*, C, O) from non‑substrate amino acids; PRO/HYP keep N, CA, HA, H*. (default: True)"
+        default=False,
+        help="Delete main‑chain atoms (N, H*, CA, HA*, C, O, OXT) from non‑substrate amino acids; PRO/HYP keep N, CA, HA, H*. (default: False)"
     )
     p.add_argument(
-        "--add-linkH",
-        dest="add_linkH",
+        "--add-linkh", "--add-linkH",
+        dest="add_linkh",
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Add carbon‑only link‑H at 1.09 Å along cut‑bond directions; appended after a TER as HL/LKH HETATM records. (default: False)"
@@ -1783,7 +1783,7 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
     union_bb_contact_keys: Set[ResidueKey] = set()
 
     for st, subs in zip(structs, subs_per_struct):
-        selected_ids, bb_contact_ids = select_residues(st, subs, args.radius, args.radius_het2het, args.include_H2O, args.exclude_backbone)
+        selected_ids, bb_contact_ids = select_residues(st, subs, args.radius, args.radius_het2het, args.include_h2o, args.exclude_backbone)
         union_sel_keys |= _fids_to_keys(st, selected_ids)
         union_bb_contact_keys |= _fids_to_keys(st, bb_contact_ids)
 
@@ -1897,9 +1897,9 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
         LOGGER.info("[extract:multi] Atoms after truncation (model %d): %d", m, kept_atoms)
         model_counts.append({"raw_atoms": raw_atoms, "kept_atoms": kept_atoms})
 
-        # Append TER + link‑H block (honor --add-linkH)
+        # Append TER + link‑H block (honor --add-linkh)
         link_coords = [coord for (_, coord) in linkdefs_per_struct[m-1]]
-        if args.add_linkH and link_coords:
+        if args.add_linkh and link_coords:
             if not main_text.endswith("\n"):
                 main_text += "\n"
             parts = [main_text]
@@ -2010,11 +2010,11 @@ def extract(args: argparse.Namespace | None = None, api=False) -> Dict[str, Any]
 
     # Log extract options
     LOGGER.info("[extract] Options: radius=%.2f, radius_het2het=%.2f, "
-                "include_H2O=%s, exclude_backbone=%s, add_linkH=%s, "
+                "include_h2o=%s, exclude_backbone=%s, add_linkh=%s, "
                 "selected_resn='%s'",
                 args.radius, args.radius_het2het,
-                args.include_H2O, args.exclude_backbone,
-                getattr(args, 'add_linkh', False),
+                args.include_h2o, args.exclude_backbone,
+                args.add_linkh,
                 getattr(args, 'selected_resn', ''))
 
     # default output names
@@ -2041,7 +2041,7 @@ def extract(args: argparse.Namespace | None = None, api=False) -> Dict[str, Any]
         selected_ids, backbone_contact_ids = select_residues(
             complex_struct, substrate_residues,
             args.radius, args.radius_het2het,
-            args.include_H2O,
+            args.include_h2o,
             args.exclude_backbone
         )
 
@@ -2101,7 +2101,7 @@ def extract(args: argparse.Namespace | None = None, api=False) -> Dict[str, Any]
         output_path = args.output_pdb[0]
         outputs: List[str] = []
 
-        if args.add_linkH:
+        if args.add_linkh:
             link_coords = compute_linkH_atoms(complex_struct, selected_ids, skip_map)
             LOGGER.info("[extract] Link-H to add: %d", len(link_coords))
 
@@ -2153,9 +2153,9 @@ def extract_api(complex_pdb: List[str],
                    output: Optional[List[str]] = None,
                    radius: float = 2.6,
                    radius_het2het: float = 0.0,
-                   include_H2O: bool = True,
-                   exclude_backbone: bool = True,
-                   add_linkH: bool = True,
+                   include_h2o: bool = True,
+                   exclude_backbone: bool = False,
+                   add_linkh: bool = False,
                    selected_resn: str = "",
                    ligand_charge: Optional[float | str | Dict[str, float]] = None,
                    verbose: bool = False) -> Dict[str, Any]:
@@ -2176,11 +2176,11 @@ def extract_api(complex_pdb: List[str],
         Atom–atom cutoff (Å) for inclusion around substrate atoms.
     radius_het2het : float
         Independent hetero‑hetero cutoff (Å) for non‑C/H pairs.
-    include_H2O : bool
+    include_h2o : bool
         Include waters in the selection.
     exclude_backbone : bool
         Remove backbone atoms on non‑substrate amino acids (with safeguards).
-    add_linkH : bool
+    add_linkh : bool
         Add link‑H atoms for cut bonds (carbon‑only) and append as HL/LKH HETATM records.
     selected_resn : str
         Additional residues to force‑include (comma/space separated).
@@ -2203,9 +2203,9 @@ def extract_api(complex_pdb: List[str],
         output_pdb=output,
         radius=radius,
         radius_het2het=radius_het2het,
-        include_H2O=include_H2O,
+        include_h2o=include_h2o,
         exclude_backbone=exclude_backbone,
-        add_linkH=add_linkH,
+        add_linkh=add_linkh,
         selected_resn=selected_resn,
         ligand_charge=ligand_charge,
         verbose=verbose,

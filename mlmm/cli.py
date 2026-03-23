@@ -2,6 +2,7 @@
 
 import logging
 import warnings
+from pathlib import Path
 
 import click
 
@@ -14,7 +15,7 @@ from .default_group import DefaultGroup
 from mlmm import __version__
 
 _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
-    "all": (".all", "cli", "End-to-end workflow (extract -> MEP -> TS -> IRC -> freq -> DFT)."),
+    "all": (".all", "cli", "End-to-end workflow (extract -> MEP [-> TS -> IRC -> freq -> DFT])."),
     "mm-parm": (".mm_parm", "cli", "Generate Amber parm7/rst7 topology files."),
     "scan": (".scan", "cli", "Run staged 1D scan with harmonic restraints."),
     "opt": (".opt", "cli", "Optimize one structure."),
@@ -46,10 +47,9 @@ _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
 _COMMAND_BOOL_VALUE_OPTIONS: dict[str, frozenset[str]] = {
     "all": frozenset(
         {
-            "--include-H2O",
             "--include-h2o",
             "--exclude-backbone",
-            "--add-linkH",
+            "--add-linkh",
             "--verbose",
             "--climb",
             "--dump",
@@ -175,7 +175,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
     "oniom-export": frozenset({"--element-check", "--convert-orcaff"}),
     "trj2fig": frozenset({"--reverse-x"}),
     "add-elem-info": frozenset({"--overwrite"}),
-    "extract": frozenset({"--include-H2O", "--exclude-backbone", "--add-linkH", "--verbose"}),
+    "extract": frozenset({"--include-h2o", "--exclude-backbone", "--add-linkh", "--verbose"}),
     "fix-altloc": frozenset({"--recursive", "--inplace", "--overwrite", "--force"}),
 }
 
@@ -232,6 +232,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "-s", "--scan-lists",
             "-o", "--out-dir",
             "--help-advanced",
@@ -250,6 +251,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "-s", "--scan-lists",
             "-o", "--out-dir",
             "--help-advanced",
@@ -268,6 +270,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "-s", "--scan-lists",
             "--csv",
             "-o", "--out-dir",
@@ -287,6 +290,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "--config",
             "-o", "--out-dir",
             "--opt-mode",
@@ -306,6 +310,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "--mep-mode",
             "--fix-ends",
             "--config",
@@ -327,6 +332,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "--mep-mode",
             "--refine-mode",
             "--config",
@@ -348,6 +354,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "--config",
             "--max-cycles",
             "--opt-mode",
@@ -368,6 +375,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "--temperature",
             "--pressure",
             "-o", "--out-dir",
@@ -387,6 +395,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "--max-cycles",
             "--step-size",
             "--forward",
@@ -408,6 +417,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--multiplicity",
             "-b", "--backend",
             "--embedcharge",
+            "--link-atom-method",
             "--func-basis",
             "--config",
             "-o", "--out-dir",
@@ -544,7 +554,9 @@ _DEFAULT_GROUP_KWARGS = {
 )
 @click.version_option(version=__version__, prog_name="mlmm")
 def cli() -> None:
-    click.echo(f"mlmm ver. {__version__}\n")
+    from .utils import set_base_dir
+    set_base_dir(Path.cwd())
+    click.echo(f"mlmm-toolkit ver. {__version__}\n")
 
 
 # Pysisyphus log suppression is handled by DefaultGroup._silence_pysisyphus_loggers()

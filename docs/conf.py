@@ -104,6 +104,9 @@ html_short_title = 'mlmm-toolkit'
 # Static files path
 html_static_path = ['_static']
 
+# Custom JS — override Furo 3-state toggle to 2-state (light ↔ dark)
+html_js_files = ['theme_toggle.js']
+
 # Custom CSS
 html_css_files = ['custom.css']
 

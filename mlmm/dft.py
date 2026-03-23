@@ -245,14 +245,14 @@ def _prepare_ml_region_workspace(
         real_rst7 = tmp / "real.rst7"
         real_top.save(str(real_rst7), overwrite=True)
     except Exception as exc:  # pragma: no cover - requires parmed
-        tmp.cleanup()
+        tmpdir.cleanup()
         raise RuntimeError(f"Failed to prepare sanitized Amber inputs: {exc}") from exc
 
     ml_region_ids = _load_model_region_ids(model_copy)
     leap_atoms = _load_input_atoms(input_copy)
     ml_ids = [atom["idx"] for atom in leap_atoms if atom["id"] in ml_region_ids]
     if not ml_ids:
-        tmp.cleanup()
+        tmpdir.cleanup()
         raise ValueError("No overlap between model_pdb atoms and the input PDB was found.")
 
     link_pairs = _detect_link_pairs(leap_atoms, ml_region_ids, link_mlmm)
@@ -273,7 +273,7 @@ def _prepare_ml_region_workspace(
     atoms_real = read(str(input_copy))
     atoms_model = read(str(model_copy))
     if len(atoms_model) != len(selection_indices):
-        tmp.cleanup()
+        tmpdir.cleanup()
         raise ValueError(
             "model_pdb atom count does not match the detected ML-region selection from the input PDB."
         )
@@ -506,7 +506,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "detect_layer",
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (B=0/10/20). "
+    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
          "If disabled, you must provide --model-pdb or --model-indices.",
 )
 @click.option("-q", "--charge", type=int, required=True, help="Charge of the ML region.")
@@ -535,8 +535,8 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     help='Exchange-correlation functional and basis set as "FUNC/BASIS".',
 )
 @click.option("--max-cycle", type=int, default=DFT_KW["max_cycle"], show_default=True, help="Maximum SCF iterations.")
-@click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF convergence tolerance (Hartree).")
-@click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 9=ultrafine).")
+@click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF energy convergence threshold (ΔE in Hartree between SCF cycles).")
+@click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine).")
 @click.option(
     "-o", "--out-dir",
     type=click.Path(path_type=Path, dir_okay=True, file_okay=False),
@@ -592,8 +592,31 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å when --embedcharge is enabled.",
+    help="Distance cutoff (Å) from ML region for MM point charges embedded in the PySCF QM Hamiltonian. "
+         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+)
+@click.option(
+    "--link-atom-method",
+    "link_atom_method",
+    type=click.Choice(["scaled", "fixed"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+)
+@click.option(
+    "--mm-backend",
+    "mm_backend",
+    type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+)
+@click.option(
+    "--cmap/--no-cmap",
+    "use_cmap",
+    default=None,
+    show_default=False,
+    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
 @click.pass_context
 def cli(
@@ -620,6 +643,9 @@ def cli(
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
+    link_atom_method: Optional[str],
+    mm_backend: Optional[str],
+    use_cmap: Optional[bool],
 ) -> None:
     set_convert_file_enabled(convert_files)
 
@@ -678,6 +704,12 @@ def cli(
             calc_kw["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):
             calc_kw["embedcharge_cutoff"] = embedcharge_cutoff
+        if link_atom_method is not None:
+            calc_kw["link_atom_method"] = str(link_atom_method).lower()
+        if mm_backend is not None:
+            calc_kw["mm_backend"] = str(mm_backend).lower()
+        if use_cmap is not None:
+            calc_kw["use_cmap"] = use_cmap
 
         if _is_param_explicit("conv_tol"):
             dft_kw["conv_tol"] = float(conv_tol)
@@ -882,6 +914,14 @@ def cli(
             ml_set = set(workspace.selection_indices)
             mm_indices = [i for i in range(len(workspace.atoms_real)) if i not in ml_set]
 
+            _cutoff = calc_kw.get("embedcharge_cutoff", None)
+            if mm_indices and _cutoff is not None:
+                from scipy.spatial.distance import cdist
+                _ml_ref = workspace.atoms_real.get_positions()[sorted(ml_set)]
+                _mm_all = workspace.atoms_real.get_positions()[mm_indices]
+                _dists = cdist(_mm_all, _ml_ref).min(axis=1)
+                mm_indices = [mm_indices[j] for j in range(len(mm_indices)) if _dists[j] <= _cutoff]
+
             if mm_indices:
                 mm_coords = workspace.atoms_real.get_positions()[mm_indices]
                 mm_charges = np.array([real_top.atoms[i].charge for i in mm_indices])
@@ -891,11 +931,11 @@ def cli(
             else:
                 click.echo("[embedcharge] No MM atoms found; skipping embedding.")
 
-        click.echo("\n=== ML-region DFT single-point started ===\n")
+        click.echo("=== ML-region DFT single-point started ===\n")
         tic_scf = time.time()
         e_tot = mf.kernel()
         toc_scf = time.time()
-        click.echo("\n=== ML-region DFT single-point finished ===\n")
+        click.echo("=== ML-region DFT single-point finished ===\n")
 
         converged = bool(getattr(mf, "converged", False))
         if e_tot is None:

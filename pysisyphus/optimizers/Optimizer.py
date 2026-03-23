@@ -787,8 +787,12 @@ class Optimizer(metaclass=abc.ABCMeta):
         """
         return textwrap.dedent(final_summary.strip())
 
+    _au_header_shown = False
+
     def run(self):
-        print("If not specified otherwise, all quantities are given in au.\n")
+        if not Optimizer._au_header_shown:
+            print("If not specified otherwise, all quantities are given in au.\n")
+            Optimizer._au_header_shown = True
 
         if not self.restarted:
             prep_start_time = time.time()
@@ -1024,9 +1028,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 self.log(f"Tried to delete '{self.current_fn}'. Couldn't find it.")
         with open(self.final_fn, "w") as handle:
             handle.write(self.geometry.as_xyz())
-        self.table.print(
-            f"Wrote final, hopefully optimized, geometry to '{self.final_fn.name}'"
-        )
+        print(f"Wrote final geometry to '{self.final_fn.name}'\n")
         self.postprocess_opt()
         sys.stdout.flush()
 

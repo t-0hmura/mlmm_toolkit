@@ -54,6 +54,7 @@ calc:
  model_charge: 0 # ML 領域の電荷 (CLI -q で上書き)
  model_mult: 1 # ML 領域のスピン多重度 (CLI -m で上書き)
  link_mlmm: null # リンク原子ペアの明示指定 (null で自動検出)
+ link_atom_method: scaled    # リンク原子配置: "scaled" (g-factor) または "fixed" (1.09/1.01 Å)
  backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
  embedcharge: false # xTB 点電荷埋め込み補正 (CLI --embedcharge で有効化)
  embedcharge_step: 0.001 # 埋め込み補正の数値ヘシアンステップ (Å)
@@ -70,13 +71,13 @@ calc:
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
- ml_hessian_mode: FiniteDifference # ML ヘシアンモード: "FiniteDifference" または "Analytical"
- hessian_calc_mode: FiniteDifference # ml_hessian_mode のエイリアス
+ hessian_calc_mode: FiniteDifference # ML ヘシアンモード: "FiniteDifference" または "Analytical"
  out_hess_torch: true # ヘシアンを torch.Tensor で返す
  H_double: false # ヘシアンを float64 で組み立て・返却
  ml_device: auto # ML デバイス: "cuda", "cpu", "auto"
  ml_cuda_idx: 0 # CUDA デバイスインデックス
  mm_backend: hessian_ff # MM バックエンド: "hessian_ff" (解析的) | "openmm" (FD ヘシアン)
+ use_cmap: false        # true にすると model parm7 に CMAP 項を含める。false (デフォルト) は Gaussian ONIOM と同一
  mm_device: cpu # MM デバイス (hessian_ff は CPU のみ、OpenMM は CUDA/CPU 対応)
  mm_cuda_idx: 0 # MM CUDA インデックス (OpenMM のみ)
  mm_threads: 16 # MM 計算のスレッド数
@@ -106,13 +107,13 @@ calc:
   - `aimnet2_model` — AIMNet2 バックエンドのみ
 - `embedcharge`: `true` に設定すると、xTB 点電荷埋め込み補正が有効化されます。MM 領域の部分電荷を点電荷として ML 計算に埋め込み、MM 環境から ML 領域への静電的影響（分極効果）を考慮します。デフォルトは `false` です。`$PATH` 上に `xtb` 実行ファイルが必要です。
 - `xtb_cmd`、`xtb_acc`、`xtb_ncores`、`xtb_workdir`、`xtb_keep_files` は `embedcharge` が有効な場合に xTB サブプロセスを設定します。
-- `hessian_calc_mode: Analytical` が推奨です（VRAM に余裕がある場合、ML 原子 300 以上では 24 GB 以上推奨）。UMA バックエンドでのみ利用可能で、他のバックエンドでは自動的に `FiniteDifference` が使用されます。`hessian_calc_mode` は `ml_hessian_mode` を上書きします。
-- `hess_cutoff`/`movable_cutoff` を指定しない場合、ML 以外の全原子が Hessian 対象 MM に分類されます。
+- `hessian_calc_mode: Analytical` が推奨です（VRAM に余裕がある場合、ML 原子 300 以上では 24 GB 以上推奨）。UMA バックエンドでのみ利用可能で、他のバックエンドでは自動的に `FiniteDifference` が使用されます。- `hess_cutoff`/`movable_cutoff` を指定しない場合、ML 以外の全原子が Hessian 対象 MM に分類されます。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
 - `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分ヘシアンを既定で使用します。
 - これらのコマンドで完全ヘシアンを強制するには `calc.return_partial_hessian: false` を明示してください。
 - `mm_fd: true` は MM ヘシアンに有限差分を使用します。解析的 MM ヘシアン（hessian_ff）を使用するには `false` に設定してください。
+- `use_cmap: false`（デフォルト）は model parm7 から CMAP 項（骨格クロスマップ二面角補正）を除外します。これは Gaussian ONIOM の挙動（CMAP を model MM に含めない）と一致します。`true` に設定すると model parm7 に CMAP が含まれ、ONIOM 差し引きで骨格 CMAP がキャンセルされます。ML 領域に骨格原子を含まない典型的な活性部位モデルでは、どちらの設定も実質的に同じ結果になります。
 - `real_parm7` と `model_pdb` は ML/MM 計算に必須です。
 - `irc` は YAML の設定にかかわらず `geom.coord_type = cart` を強制します。
 
@@ -185,10 +186,10 @@ RFO（Rational Function Optimizer）の設定（`opt` を拡張）。
 
 ```yaml
 rfo:
- trust_radius: 0.30 # 信頼領域半径
+ trust_radius: 0.10 # 信頼領域半径
  trust_update: true # 信頼領域更新を有効化
  trust_min: 0.0001 # 最小信頼半径
- trust_max: 0.30 # 最大信頼半径
+ trust_max: 0.20 # 最大信頼半径
  max_energy_incr: null # ステップあたりの許容エネルギー増加
  hessian_update: bfgs # ヘシアン更新スキーム: bfgs, bofill 等
  hessian_init: calc # ヘシアン初期化: calc, unit 等
@@ -350,7 +351,7 @@ RS-I-RFO TS 最適化（`tsopt --opt-mode hess`）。
 
 ```yaml
 rsirfo:
- thresh: baker # RS-IRFO 収束プリセット
+ thresh: baker # RS-I-RFO 収束プリセット
  max_cycles: 10000 # 反復上限
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
@@ -363,7 +364,7 @@ rsirfo:
  hessian_update: bofill # ヘシアン更新スキーム
  hessian_recalc_reset: true # 正確なヘシアン後に再計算カウンタをリセット
  hessian_init: calc # ヘシアン初期化
- hessian_recalc: 200 # ヘシアン再構築間隔
+ hessian_recalc: 500 # ヘシアン再構築間隔
  max_micro_cycles: 50 # マクロサイクルあたりのマイクロイテレーション数
  augment_bonds: false # 結合解析に基づく反応経路の拡張
  min_line_search: false # 虚モードに沿ったラインサーチ（pysisyphus デフォルト）
@@ -372,7 +373,7 @@ rsirfo:
  trust_radius: 0.10 # 信頼領域半径
  trust_update: true # 信頼領域更新
  trust_min: 0.0001 # 最小信頼半径
- trust_max: 0.30 # 最大信頼半径
+ trust_max: 0.20 # 最大信頼半径
  small_eigval_thresh: 1.0e-08 # 安定性のための固有値閾値
  out_dir: ./result_tsopt/ # 出力ディレクトリ
 ```
@@ -564,7 +565,7 @@ calc:
  embedcharge: false            # xTB 点電荷埋め込み補正
  uma_model: uma-s-1p1          # uma-s-1p1 | uma-m-1p1
  ml_device: auto
- ml_hessian_mode: Analytical   # VRAM に余裕がある場合に推奨
+ hessian_calc_mode: Analytical   # VRAM に余裕がある場合に推奨
  mm_device: cpu
  mm_fd: true
  use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り

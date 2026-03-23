@@ -79,7 +79,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | 1 始まり |
 | `--detect-layer / --no-detect-layer` | B 因子（0/10/20）から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の電荷。 | _None_（`-l` 未指定時は必須） |
-| `-l, --ligand-charge` | TEXT | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
+| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
 | `--radius-partial-hessian FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。`--detect-layer` と併用可。エイリアス: `--hess-cutoff`。 | _None_ |
@@ -97,9 +97,10 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--thresh TEXT` | 収束プリセットの上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（内部的に `gau` を適用） |
 | `--config FILE` | ベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済み YAML レイヤー情報を表示。 | `False` |
-| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | _None_（内部的に `uma` を適用） |
+| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。`--help-advanced` に表示。 | `False` |
 
 ### 収束閾値プリセット
@@ -144,7 +145,7 @@ out_dir/ (デフォルト: ./result_opt/)
 - `model_charge`（`-q/--charge`、必須）と `model_mult`（`-m/--multiplicity`、デフォルト 1）。
 - `link_mlmm`: ML/MM リンクペアを固定する `(ML_atom_id, MM_atom_id)` 文字列のオプションリスト（リンク原子は作成されません）。
 - バックエンド選択: `backend`（デフォルト `"uma"`、選択肢: `uma`/`orb`/`mace`/`aimnet2`）。`embedcharge`（bool、xTB 点電荷埋め込み補正）。
-- UMA 制御: `uma_model`（デフォルト `"uma-s-1p1"`）、`uma_task_name`（デフォルト `"omol"`）、`ml_hessian_mode`（`"Analytical"` または `"FiniteDifference"`）、`out_hess_torch`（bool）、`H_double`（bool）。
+- UMA 制御: `uma_model`（デフォルト `"uma-s-1p1"`）、`uma_task_name`（デフォルト `"omol"`）、`hessian_calc_mode`（`"Analytical"` または `"FiniteDifference"`）、`out_hess_torch`（bool）、`H_double`（bool）。
 - デバイス選択: `ml_device`（`"auto"`/`"cuda"`/`"cpu"`）、`ml_cuda_idx`、`mm_device`、`mm_cuda_idx`、`mm_threads`。
 - MM 有限差分: `mm_fd`（bool）、`mm_fd_dir`（FD 情報の出力ディレクトリ）、`return_partial_hessian`。
 - `return_partial_hessian`: `opt` では YAML で明示指定されない限り部分ヘシアンを既定で使用します。完全ヘシアンを強制する場合は `calc.return_partial_hessian: false` を明示してください。
@@ -184,7 +185,7 @@ mlmm:
  uma_model: uma-s-1p1           # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol             # UMA タスク名 (backend=uma 時)
  ml_device: auto                # ML デバイス選択
- ml_hessian_mode: Analytical         # ヘシアンモード選択
+ hessian_calc_mode: Analytical         # ヘシアンモード選択
  out_hess_torch: true           # torch 形式ヘシアンを要求
  mm_fd: true                    # MM 有限差分トグル
  return_partial_hessian: true   # 部分ヘシアンを許可（opt のデフォルト）
@@ -250,10 +251,10 @@ rfo:
  dump_restart: false            # リスタートチェックポイントのダンプ
  prefix: ""                     # ファイル名プレフィックス
  out_dir: ./result_opt/         # 出力ディレクトリ
- trust_radius: 0.30             # 信頼領域半径
+ trust_radius: 0.10             # 信頼領域半径
  trust_update: true             # 信頼領域更新を有効化
  trust_min: 0.0001              # 最小信頼半径
- trust_max: 0.30                # 最大信頼半径
+ trust_max: 0.20                # 最大信頼半径
  max_energy_incr: null          # ステップごとの許容エネルギー増加
  hessian_update: bfgs           # ヘシアン更新方式
  hessian_init: calc             # ヘシアン初期化ソース
@@ -280,6 +281,6 @@ rfo:
 
 - [tsopt](tsopt.md) -- 極小ではなく遷移状態（鞍点）を最適化
 - [freq](freq.md) -- 最適化が極小に達したことを確認する振動解析
-- [all](all.md) -- 端点を事前最適化するend-to-endワークフロー
+- [all](all.md) -- 端点を事前最適化する一気通貫ワークフロー
 - [YAML リファレンス](yaml_reference.md) -- `opt`、`lbfgs`、`rfo` の完全な設定オプション
 - [用語集](glossary.md) -- L-BFGS、RFO の定義

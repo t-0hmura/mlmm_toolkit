@@ -96,6 +96,73 @@ When `--embedcharge` is enabled, an xTB point-charge embedding correction is app
 
 ---
 
+## Link atoms
+
+When the ML/MM boundary cuts a covalent bond, a **link hydrogen atom** is inserted to cap the dangling bond in the model (ML) system. Two placement methods are available via `--link-atom-method`:
+
+| Method | Placement | Jacobian |
+|--------|-----------|----------|
+| **scaled** (g-factor) | `r_L = r_QM + g·(r_MM − r_QM)` where `g = (CR_QM + CR_H)/(CR_QM + CR_MM)` | Constant: `[(1−g)I₃; gI₃]` |
+| **fixed** | `r_L = r_QM + d·û` where `d` = 1.09 Å (C) / 1.01 Å (N), `û` = unit vector toward MM | Geometry-dependent; B-matrix correction needed |
+
+The default is **scaled** (Morokuma–Dapprich g-factor), the same method used in Gaussian ONIOM. The link atom position scales linearly with the QM–MM distance, producing a smooth PES and a constant Jacobian (no second-derivative correction needed). The **fixed** method places the link hydrogen at a fixed distance along the bond axis regardless of QM–MM distance.
+
+Forces on the link atom are redistributed back to the QM and MM host atoms via the Jacobian:
+
+```
+F_QM += (1−g) · F_link    (scaled)
+F_MM += g · F_link
+```
+
+The same transformation applies to the Hessian: `H_redistributed = Jᵀ H_link J`.
+
+---
+
+## Microiteration
+
+For systems with many movable MM atoms, simultaneous optimization of all coordinates is expensive because the high-level (MLIP) gradient must be evaluated at every step — even when only the MM environment is relaxing.
+
+**Microiteration** (Gaussian 16-style) splits the optimization into alternating macro and micro steps:
+
+```
+repeat until converged:
+    MACRO step  — 1 RFO step on ML atoms + link-atom MM parents (full ONIOM force)
+    MICRO step  — L-BFGS relaxation of remaining MM atoms (MM-only force)
+```
+
+| | Macro step | Micro step |
+|---|---|---|
+| **Calculator** | Full ONIOM (`E_MM_real + E_ML − E_MM_model`) | MM force field only (`E_MM_real`) |
+| **Coordinates optimized** | ML atoms + link-atom MM parents | Movable MM (excluding link-atom MM parents) |
+| **Optimizer** | RFO (explicit Hessian, BFGS-updated) | L-BFGS (Hessian-free, from scratch each cycle) |
+| **Convergence** | `--thresh` (default: `gau`) | `--micro-thresh` (default: same as `--thresh`) |
+
+### Why link-atom MM parents move in the macro step
+
+Link-atom MM parent atoms are included in the macro optimization set to maintain consistency at the ML/MM boundary. When using the scaled (g-factor) link atom method, `r_L = (1−g)·r_QM + g·r_MM` couples the link atom position to **both** the QM and MM parents. If the MM parent moved during the micro step (under MM-only forces with no ML contribution), the link atom position would shift between cycles, creating energy oscillation in the macro step. Freezing the MM parents during the micro step and moving them with the ML atoms in the macro step eliminates this coupling mismatch.
+
+### Convergence thresholds
+
+pysisyphus provides several preset thresholds (units: Hartree/Bohr for forces, Bohr for steps):
+
+| Preset | max(force) | rms(force) | max(step) | rms(step) |
+|--------|-----------|-----------|----------|----------|
+| `gau_loose` | 2.5×10⁻³ | 1.7×10⁻³ | 1.0×10⁻² | 6.7×10⁻³ |
+| `gau` | 4.5×10⁻⁴ | 3.0×10⁻⁴ | 1.8×10⁻³ | 1.2×10⁻³ |
+| `gau_tight` | 1.5×10⁻⁵ | 1.0×10⁻⁵ | 6.0×10⁻⁵ | 4.0×10⁻⁵ |
+| `baker` | 3.0×10⁻⁴ | 2.0×10⁻⁴ | 3.0×10⁻⁴ | 2.0×10⁻⁴ |
+
+When gradient criteria are exceeded by `overachieve_factor` (default 3), convergence is declared regardless of step criteria.
+
+Enable microiteration with `--microiter` (default for `--opt-mode hess`):
+
+```bash
+mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --microiter
+mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter  # disable
+```
+
+---
+
 ## hessian_ff: the MM engine
 
 `hessian_ff` is a C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. It reads Amber parm7/rst7 topology files and supports:
