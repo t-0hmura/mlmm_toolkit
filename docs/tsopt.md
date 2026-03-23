@@ -213,7 +213,7 @@ rsirfo:
  trust_radius: 0.10                # initial trust radius (smaller for ONIOM)
  trust_update: true                # adaptive trust radius update
  trust_min: 1.0e-04                # minimum trust radius
- trust_max: 0.30                   # maximum trust radius
+ trust_max: 0.20                   # maximum trust radius
  max_energy_incr: null             # max allowed energy increase per step
  hessian_update: bofill            # Hessian update scheme override
  hessian_init: calc                # initial Hessian source

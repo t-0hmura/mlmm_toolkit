@@ -250,10 +250,10 @@ rfo:
  dump_restart: false            # dump restart checkpoints
  prefix: ""                     # filename prefix
  out_dir: ./result_opt/         # output directory
- trust_radius: 0.30             # trust-region radius
+ trust_radius: 0.10             # trust-region radius
  trust_update: true             # enable trust-region updates
  trust_min: 0.0001              # minimum trust radius
- trust_max: 0.30                # maximum trust radius
+ trust_max: 0.20                # maximum trust radius
  max_energy_incr: null          # allowed energy increase per step
  hessian_update: bfgs           # Hessian update scheme
  hessian_init: calc             # Hessian initialization source

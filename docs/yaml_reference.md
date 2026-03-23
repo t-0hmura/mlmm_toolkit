@@ -208,10 +208,10 @@ Rational Function Optimizer settings (extends `opt`).
 ```yaml
 rfo:
  # Inherits all opt settings, plus:
- trust_radius: 0.30 # Trust-region radius
+ trust_radius: 0.10 # Trust-region radius
  trust_update: true # Enable trust-region updates
  trust_min: 0.0001 # Minimum trust radius
- trust_max: 0.30 # Maximum trust radius
+ trust_max: 0.20 # Maximum trust radius
  max_energy_incr: null # Allowed energy increase per step
  hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
  hessian_init: calc # Hessian initialization: calc, unit, etc.
@@ -432,7 +432,7 @@ rsirfo:
  trust_radius: 0.10 # Trust region radius
  trust_update: true # Trust region update
  trust_min: 0.0001 # Minimum trust radius
- trust_max: 0.30 # Maximum trust radius
+ trust_max: 0.20 # Maximum trust radius
  hessian_recalc: 500 # Hessian rebuild cadence
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
  out_dir: ./result_tsopt/ # Output directory

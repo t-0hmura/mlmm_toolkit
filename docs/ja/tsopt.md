@@ -213,7 +213,7 @@ rsirfo:
  trust_radius: 0.10                # 初期信頼半径（ONIOM 向けに小さめ）
  trust_update: true                # 適応的信頼半径更新
  trust_min: 1.0e-04                # 最小信頼半径
- trust_max: 0.30                   # 最大信頼半径
+ trust_max: 0.20                   # 最大信頼半径
  max_energy_incr: null             # ステップごとの最大許容エネルギー増加
  hessian_update: bofill            # ヘシアン更新方式の上書き
  hessian_init: calc                # 初期ヘシアンソース

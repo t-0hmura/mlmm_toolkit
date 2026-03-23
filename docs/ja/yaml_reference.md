@@ -186,10 +186,10 @@ RFO（Rational Function Optimizer）の設定（`opt` を拡張）。
 
 ```yaml
 rfo:
- trust_radius: 0.30 # 信頼領域半径
+ trust_radius: 0.10 # 信頼領域半径
  trust_update: true # 信頼領域更新を有効化
  trust_min: 0.0001 # 最小信頼半径
- trust_max: 0.30 # 最大信頼半径
+ trust_max: 0.20 # 最大信頼半径
  max_energy_incr: null # ステップあたりの許容エネルギー増加
  hessian_update: bfgs # ヘシアン更新スキーム: bfgs, bofill 等
  hessian_init: calc # ヘシアン初期化: calc, unit 等
@@ -373,7 +373,7 @@ rsirfo:
  trust_radius: 0.10 # 信頼領域半径
  trust_update: true # 信頼領域更新
  trust_min: 0.0001 # 最小信頼半径
- trust_max: 0.30 # 最大信頼半径
+ trust_max: 0.20 # 最大信頼半径
  small_eigval_thresh: 1.0e-08 # 安定性のための固有値閾値
  out_dir: ./result_tsopt/ # 出力ディレクトリ
 ```
