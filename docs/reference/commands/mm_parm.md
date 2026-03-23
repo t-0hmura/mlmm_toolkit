@@ -1,27 +1,36 @@
-# mlmm mm-parm
+# `mlmm mm-parm`
 
-```
+```text
 mlmm-toolkit ver. 0.2.5.dev18
 
-Usage: cli mm-parm [OPTIONS]
+Usage: mlmm mm-parm [OPTIONS]
 
   Generate Amber parm7/rst7 (and a LEaP-exported PDB) from a PDB using
   AmberTools only.
 
 Options:
-  --help-advanced           Show all options (including advanced settings) and
-                            exit.
-  -i, --input FILE          Input PDB file (used as-is; optional hydrogens via
-                            --add-h/--ph).  [required]
-  --out-prefix TEXT         Output prefix (default: input PDB stem). For LEaP
-                            PDB: if omitted and --add-h True,
-                            <input_stem>_parm.pdb is used.
-  -l, --ligand-charge TEXT  Comma-separated mapping of residue=charge or
-                            residue:charge (e.g., "GPP=-3,MMT=-1" or
-                            "GPP:-3,MMT:-1")
-  --ligand-mult TEXT        Comma-separated mapping of residue=multiplicity or
-                            residue:multiplicity (e.g., "HEM=1,NO:2")
-  --ff-set [ff19SB|ff14SB]  Force-field set for proteins/backbone typing and
-                            water/ion parameters (default: ff19SB).
-  -h, --help                Show this message and exit.
+  --help-advanced               Show all options (including advanced settings)
+                                and exit.
+  -i, --input FILE              Input PDB file (used as-is; optional hydrogens
+                                via --add-h/--ph).  [required]
+  --out-prefix TEXT             Output prefix (default: input PDB stem). For
+                                LEaP PDB: if omitted and --add-h True,
+                                <input_stem>_parm.pdb is used.
+  -l, --ligand-charge TEXT      Comma-separated mapping of residue=charge or
+                                residue:charge (e.g., "GPP=-3,MMT=-1" or
+                                "GPP:-3,MMT:-1")
+  --ligand-mult TEXT            Comma-separated mapping of residue=multiplicity
+                                or residue:multiplicity (e.g., "HEM=1,NO:2")
+  --keep-temp / --no-keep-temp  Keep temporary working directory (in current
+                                dir) for debugging.  [default: no-keep-temp]
+  --add-ter / --no-add-ter      Insert TER before/after target residues. When
+                                contiguous, TER is not inserted between them.
+                                [default: add-ter]
+  --add-h / --no-add-h          Add hydrogens using PDBFixer at the specified
+                                --ph.  [default: no-add-h]
+  --ph FLOAT                    pH used by PDBFixer when adding hydrogens
+                                (--add-h True). Default: 7.0
+  --ff-set [ff19SB|ff14SB]      Force-field set for proteins/backbone typing and
+                                water/ion parameters (default: ff19SB).
+  -h, --help                    Show this message and exit.
 ```

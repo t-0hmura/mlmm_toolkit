@@ -1,9 +1,9 @@
-# mlmm pysis
+# `mlmm pysis`
 
-```
+```text
 mlmm-toolkit ver. 0.2.5.dev18
 
-Usage: cli pysis [OPTIONS] [YAML_FILE]
+Usage: mlmm pysis [OPTIONS] [YAML_FILE]
 
   Run a pysisyphus YAML workflow file.
 

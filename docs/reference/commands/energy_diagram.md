@@ -1,9 +1,9 @@
-# mlmm energy-diagram
+# `mlmm energy-diagram`
 
-```
+```text
 mlmm-toolkit ver. 0.2.5.dev18
 
-Usage: cli energy-diagram [OPTIONS]
+Usage: mlmm energy-diagram [OPTIONS]
 
   Plot an energy diagram from numeric inputs only. Use -i for values (multiple
   numbers or list-like string).
@@ -13,5 +13,8 @@ Options:
   -i, --input TEXT   Numeric sequence. Accepts: -i 0 12.5 4.3  or  -i "[0, 12.5,
                      4.3]"  or repeated -i.  [required]
   -o, --output FILE  Output image path.  [default: energy_diagram.png]
+  --label-x TEXT     State labels on x-axis. Accepts: --label-x R TS P  or
+                     --label-x "['R','TS','P']".
+  --label-y TEXT     Y-axis label.  [default: ΔE (kcal/mol)]
   -h, --help         Show this message and exit.
 ```
