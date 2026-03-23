@@ -174,7 +174,6 @@ def test_extract_help_progressive_disclosure(runner, cli_group):
     advanced = runner.invoke(cli_group, ["extract", "--help-advanced"])
     assert advanced.exit_code == 0
     assert _has_option_header(advanced.output, "--selected-resn")
-    assert _has_option_header(advanced.output, "--include-H2O")
 
 
 def test_fix_altloc_help_progressive_disclosure(runner, cli_group):

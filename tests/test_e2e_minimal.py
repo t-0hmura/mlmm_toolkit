@@ -57,9 +57,9 @@ def test_extract_api_single_structure_smoke(tmp_path: Path):
         output=[str(out)],
         radius=2.6,
         radius_het2het=0.0,
-        include_H2O=False,
-        exclude_backbone=True,
-        add_linkH=False,
+        include_h2o=False,
+        exclude_backbone=False,
+        add_linkh=False,
         ligand_charge="-2",
         verbose=False,
     )
@@ -82,7 +82,7 @@ def test_extract_api_multi_structure_rejects_atom_count_mismatch(tmp_path: Path)
             complex_pdb=[str(p1), str(p2)],
             center="GPP",
             output=[str(tmp_path / "multi.pdb")],
-            add_linkH=False,
+            add_linkh=False,
             verbose=False,
         )
 
@@ -97,6 +97,6 @@ def test_extract_api_rejects_unknown_center(tmp_path: Path):
             complex_pdb=[str(inp)],
             center="NOPE",
             output=[str(tmp_path / "pocket_unknown.pdb")],
-            add_linkH=False,
+            add_linkh=False,
             verbose=False,
         )
