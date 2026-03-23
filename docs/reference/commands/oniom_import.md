@@ -1,9 +1,9 @@
-# `mlmm oniom-import`
+# mlmm oniom-import
 
-```text
+```
 mlmm-toolkit ver. 0.2.5.dev18
 
-Usage: mlmm oniom-import [OPTIONS]
+Usage: cli oniom-import [OPTIONS]
 
   Import ONIOM input (Gaussian g16 or ORCA) and reconstruct XYZ + B-factor
   layered PDB.

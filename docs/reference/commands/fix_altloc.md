@@ -1,9 +1,9 @@
-# `mlmm fix-altloc`
+# mlmm fix-altloc
 
-```text
+```
 mlmm-toolkit ver. 0.2.5.dev18
 
-Usage: mlmm fix-altloc [OPTIONS]
+Usage: cli fix-altloc [OPTIONS]
 
   Blank PDB altLoc column (col 17) without shifting, and keep one altLoc per
   atom by default rule: highest occupancy, then earliest appearance.
