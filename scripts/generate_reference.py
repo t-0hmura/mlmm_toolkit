@@ -116,7 +116,7 @@ def _collect_command_docs() -> list[CommandDoc]:
 
 import re
 
-_VERSION_LINE_RE = re.compile(r"^mlmm ver\. \S+\n", re.MULTILINE)
+_VERSION_LINE_RE = re.compile(r"^mlmm(?:-toolkit)? ver\. \S+\n", re.MULTILINE)
 _PYSISRC_LINE_RE = re.compile(
     r"^Couldn't find configuration file\. Expected it at .*\n", re.MULTILINE
 )
