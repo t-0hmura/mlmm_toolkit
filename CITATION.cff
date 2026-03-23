@@ -9,7 +9,7 @@ authors:
     orcid: "https://orcid.org/0009-0008-1215-0168"
   - family-names: Terada
     given-names: Tohru
-license: GPL-3.0-or-later
+license: GPL-3.0
 repository-code: "https://github.com/t-0hmura/mlmm_toolkit"
 version: "0.2.5"
 date-released: "2026-03-24"
