@@ -14,7 +14,7 @@ Each workflow step is also available as an [individual subcommand](#cli-subcomma
 mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2"
 ```
 
-The full workflow — **MEP search → TS optimization → IRC → thermochemistry → single-point DFT** — can be run in one command:
+The full workflow — **ML/MM model setup → MEP search → TS optimization → IRC → thermochemistry → single-point DFT** — can be run in one command:
 
 ```bash
 mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2" --tsopt --thermo --dft
@@ -400,7 +400,7 @@ If you find this work helpful for your research, please cite:
 
 ```bibtex
 @article{ohmura2025mlmm,
-  author       = {Ohmura, Takuto and Inoue, Shogo and Terada, Tohru},
+  author       = {Ohmura, Takuto and Inoue, Sei and Terada, Tohru},
   title        = {ML/MM Toolkit -- Towards Accelerated Mechanistic Investigation of Enzymatic Reactions},
   year         = {2025},
   journal      = {ChemRxiv},
