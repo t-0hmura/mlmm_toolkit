@@ -396,8 +396,18 @@ mlmm <subcommand> --help-advanced
 ---
 
 ## Citation
-If you find this work helpful for your research, please cite:  
-[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. [doi:10.26434/chemrxiv-2025-jft1k](https://doi.org/10.26434/chemrxiv-2025-jft1k)
+If you find this work helpful for your research, please cite:
+
+```bibtex
+@article{ohmura2025mlmm,
+  author       = {Ohmura, Takuto and Inoue, Shogo and Terada, Tohru},
+  title        = {ML/MM Toolkit -- Towards Accelerated Mechanistic Investigation of Enzymatic Reactions},
+  year         = {2025},
+  journal      = {ChemRxiv},
+  doi          = {10.26434/chemrxiv-2025-jft1k},
+  url          = {https://doi.org/10.26434/chemrxiv-2025-jft1k}
+}
+```
 
 ---
 
