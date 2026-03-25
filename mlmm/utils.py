@@ -702,7 +702,7 @@ def merge_detected_freeze_links(
     detected = detect_freeze_links_logged(pdb_path)
     merged = merge_freeze_atom_indices(geom_cfg, detected)
     if merged:
-        click.echo(f"{prefix} Freeze atoms (0-based): {','.join(map(str, merged))}")
+        click.echo(f"{prefix} Freeze atoms: {','.join(str(i + 1) for i in merged)}")
     return merged
 
 

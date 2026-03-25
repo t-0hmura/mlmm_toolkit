@@ -678,8 +678,8 @@ def cli(
                 )
             click.echo(
                 pretty_block(
-                    "scan-list (0-based)",
-                    {"d1": (i1, j1, low1, high1), "d2": (i2, j2, low2, high2)},
+                    "scan-list",
+                    {"d1": (i1 + 1, j1 + 1, low1, high1), "d2": (i2 + 1, j2 + 1, low2, high2)},
                 )
             )
             if pdb_atom_meta:

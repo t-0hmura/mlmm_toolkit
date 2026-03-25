@@ -478,7 +478,7 @@ def cli(
     if model_pdb is not None:
         click.echo(f"Model PDB: {model_pdb}")
     if model_indices is not None:
-        click.echo(f"Model indices (0-based): {len(model_indices)} atoms")
+        click.echo(f"Model indices: {len(model_indices)} atoms")
     click.echo(f"Radius (partial Hessian): {radius_partial_hessian} Å")
     click.echo(f"Radius (freeze): {radius_freeze} Å")
     if abs(radius_partial_hessian) > 1.0e-12:

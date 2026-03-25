@@ -853,7 +853,7 @@ def cli(
                 stage_dir = out_dir_path / f"stage_{k:02d}"
                 stage_dir.mkdir(parents=True, exist_ok=True)
                 click.echo(f"\n--- Stage {k}/{K} ---")
-                click.echo(f"Targets (i,j,target Å): {tuples}")
+                click.echo(f"Targets (i,j,target Å): {[(i + 1, j + 1, t) for (i, j, t) in tuples]}")
 
                 start_geom_for_stage = _snapshot_geometry(geom)
 

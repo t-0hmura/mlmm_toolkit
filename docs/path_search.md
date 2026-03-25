@@ -134,7 +134,7 @@ out_dir/ (default: ./result_path_search/)
 Merge order is **defaults < config < explicit CLI < override**.
 The YAML root must be a mapping. Accepted sections:
 
-- **`geom`** -- `coord_type` (`"cart"` default), `freeze_atoms` (0-based indices).
+- **`geom`** -- `coord_type` (`"cart"` default), `freeze_atoms` (1-based indices).
 - **`calc` / `mlmm`** -- ML/MM calculator settings: `input_pdb`, `real_parm7`, `model_pdb`, `model_charge`, `model_mult`, backend selection (`backend`, `embedcharge`), UMA controls (`uma_model`, `uma_task_name`, `hessian_calc_mode`), device selection, freeze atoms.
 - **`gs`** -- Growing String settings: `max_nodes`, `climb`, `climb_rms`, `climb_fixed`, `reparam_every_full`, `reparam_check`.
 - **`opt`** -- StringOptimizer controls: `max_cycles`, `print_every`, `dump`, `dump_restart`, `out_dir`.

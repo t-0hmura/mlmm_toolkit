@@ -930,11 +930,11 @@ def cli(
                 )
             click.echo(
                 pretty_block(
-                    "scan-list (0-based)",
+                    "scan-list",
                     {
-                        "d1": (i1, j1, low1, high1),
-                        "d2": (i2, j2, low2, high2),
-                        "d3": (i3, j3, low3, high3),
+                        "d1": (i1 + 1, j1 + 1, low1, high1),
+                        "d2": (i2 + 1, j2 + 1, low2, high2),
+                        "d3": (i3 + 1, j3 + 1, low3, high3),
                     },
                 )
             )

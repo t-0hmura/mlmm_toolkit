@@ -1080,9 +1080,16 @@ class MLMMCore:
         self.movable_cutoff = movable_cutoff
         self.use_bfactor_layers = use_bfactor_layers
         self._original_input_pdb = input_pdb
-        self._explicit_hess_mm_atoms = hess_mm_atoms
-        self._explicit_movable_mm_atoms = movable_mm_atoms
-        self._explicit_frozen_mm_atoms = frozen_mm_atoms
+        # Convert 1-based YAML indices to 0-based
+        self._explicit_hess_mm_atoms = (
+            [idx - 1 for idx in hess_mm_atoms] if hess_mm_atoms is not None else None
+        )
+        self._explicit_movable_mm_atoms = (
+            [idx - 1 for idx in movable_mm_atoms] if movable_mm_atoms is not None else None
+        )
+        self._explicit_frozen_mm_atoms = (
+            [idx - 1 for idx in frozen_mm_atoms] if frozen_mm_atoms is not None else None
+        )
         self._compute_layer_indices(real_top.coordinates)
 
         self.freeze_atoms = [] if freeze_atoms is None else list(freeze_atoms)

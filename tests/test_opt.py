@@ -45,8 +45,8 @@ def test_parse_freeze_atoms_rejects_invalid(opt_module):
 
 
 def test_normalize_geom_freeze(opt_module):
-    assert opt_module._normalize_geom_freeze("3,1,2") == [1, 2, 3]
-    assert opt_module._normalize_geom_freeze([5, 3, 4]) == [3, 4, 5]
+    assert opt_module._normalize_geom_freeze("3,1,2") == [0, 1, 2]
+    assert opt_module._normalize_geom_freeze([5, 3, 4]) == [2, 3, 4]
 
     with pytest.raises(Exception, match="must contain integers"):
         opt_module._normalize_geom_freeze("1,a")

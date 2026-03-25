@@ -249,7 +249,7 @@ out_dir/ (default: ./result_scan/)
 ## YAML configuration
 
 - `coord_type`: Coordinate type (cartesian vs dlc internals).
-- `freeze_atoms`: 0-based frozen atoms merged with CLI `--freeze-atoms`.
+- `freeze_atoms`: 1-based frozen atoms merged with CLI `--freeze-atoms`.
 
 ### Section `calc` / `mlmm`
 - ML/MM calculator setup: `charge`, `spin`, `backend`, `embedcharge`, UMA-specific `model`/`task_name`, `device`, neighbor radii, Hessian options, etc.

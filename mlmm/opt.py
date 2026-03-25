@@ -191,13 +191,13 @@ def _normalize_geom_freeze(value: Any) -> List[int]:
     if isinstance(value, str):
         tokens = [tok.strip() for tok in value.split(",") if tok.strip()]
         try:
-            return sorted({int(tok) for tok in tokens})
+            return sorted({int(tok) - 1 for tok in tokens})
         except ValueError as exc:
             raise click.BadParameter(
                 "geom.freeze_atoms must contain integers (string form)."
             ) from exc
     try:
-        return sorted({int(idx) for idx in value})
+        return sorted({int(idx) - 1 for idx in value})
     except TypeError as exc:
         raise click.BadParameter("geom.freeze_atoms must be iterable of integers.") from exc
 

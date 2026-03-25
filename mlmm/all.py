@@ -2704,14 +2704,9 @@ def cli(
         # Use the layered full-system PDB for scan (no pocket index remapping needed)
         full_atom_meta = load_pdb_atom_metadata(full_input_pdb)
         converted_scan_stages = _parse_scan_lists_literals(scan_lists_raw, atom_meta=full_atom_meta)
-        scan_one_based_effective = True if scan_one_based is None else bool(scan_one_based)
         scan_stage_literals: List[str] = []
         for stage in converted_scan_stages:
-            if scan_one_based_effective:
-                stage_use = stage
-            else:
-                stage_use = [(i - 1, j - 1, target) for (i, j, target) in stage]
-            scan_stage_literals.append(_format_scan_stage(stage_use))
+            scan_stage_literals.append(_format_scan_stage(stage))
         _echo("[all] Remapped --scan-lists indices from the full PDB to the pocket ordering.")
         scan_preopt_use = pre_opt if scan_preopt_override is None else bool(scan_preopt_override)
         scan_endopt_use = False if scan_endopt_override is None else bool(scan_endopt_override)
@@ -2732,8 +2727,8 @@ def cli(
         if dump_override_requested:
             scan_args.append("--dump" if dump else "--no-dump")
 
-        if scan_one_based is not None:
-            scan_args.append("--one-based" if scan_one_based else "--zero-based")
+        # Stages from _parse_scan_lists_literals are always 1-based
+        scan_args.append("--one-based")
 
         _append_cli_arg(scan_args, "--max-step-size", scan_max_step_size)
         _append_cli_arg(scan_args, "--bias-k", scan_bias_k)

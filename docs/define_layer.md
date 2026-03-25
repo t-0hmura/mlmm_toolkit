@@ -30,7 +30,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
 
 ## Common examples
 
-1. Using explicit atom indices (0-based).
+1. Using explicit atom indices (1-based by default).
 
 ```bash
 mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labeled.pdb

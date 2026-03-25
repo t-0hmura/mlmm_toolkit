@@ -107,7 +107,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     # CLI defaults to --detect-layer for layer-aware commands.
     # Keep the base default aligned so config merge semantics stay consistent.
     "use_bfactor_layers": True,  # If True, read layer assignments from input PDB B-factors
-    # Explicit YAML-based layer specification (0-based indices, takes precedence over cutoffs/B-factors)
+    # Explicit YAML-based layer specification (1-based indices, takes precedence over cutoffs/B-factors)
     "hess_mm_atoms": None,    # Explicit Hessian-target MM atom indices
     "movable_mm_atoms": None, # Explicit movable MM atom indices
     "frozen_mm_atoms": None,  # Explicit frozen MM atom indices
