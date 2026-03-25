@@ -439,6 +439,8 @@ def cli(
         # Normalize any existing freeze list from YAML before wiring it to UMA
         merge_freeze_atom_indices(geom_cfg)
         calc_cfg["freeze_atoms"] = list(geom_cfg.get("freeze_atoms", []))
+        from .opt import _convert_yaml_layer_atoms_1to0
+        _convert_yaml_layer_atoms_1to0(calc_cfg)
         if not calc_cfg.get("real_parm7"):
             raise click.BadParameter("Missing --parm (or calc.real_parm7 in YAML).")
 

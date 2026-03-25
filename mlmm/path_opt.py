@@ -43,6 +43,7 @@ from .opt import (
     _parse_freeze_atoms as _parse_freeze_atoms_opt,
     _normalize_geom_freeze as _normalize_geom_freeze_opt,
 )
+from .opt import _convert_yaml_layer_atoms_1to0
 from .utils import (
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
@@ -933,6 +934,7 @@ def cli(
             click.echo(f"ERROR: {e}", err=True)
             sys.exit(1)
         geom_cfg["freeze_atoms"] = geom_freeze
+        _convert_yaml_layer_atoms_1to0(calc_cfg)
 
         try:
             cli_freeze = _parse_freeze_atoms(freeze_atoms_cli)

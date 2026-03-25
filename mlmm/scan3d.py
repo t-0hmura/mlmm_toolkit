@@ -50,6 +50,7 @@ from .opt import (
     _parse_freeze_atoms,
     _normalize_geom_freeze,
 )
+from .opt import _convert_yaml_layer_atoms_1to0
 from .utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
@@ -770,6 +771,7 @@ def cli(
                 click.echo(f"ERROR: {exc}", err=True)
                 sys.exit(1)
             geom_cfg["freeze_atoms"] = geom_freeze
+            _convert_yaml_layer_atoms_1to0(calc_cfg)
             if freeze_atoms_list:
                 merge_freeze_atom_indices(geom_cfg, freeze_atoms_list)
             freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])

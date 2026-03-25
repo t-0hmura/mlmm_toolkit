@@ -202,6 +202,21 @@ def _normalize_geom_freeze(value: Any) -> List[int]:
         raise click.BadParameter("geom.freeze_atoms must be iterable of integers.") from exc
 
 
+def _convert_yaml_layer_atoms_1to0(calc_cfg: dict) -> None:
+    """Convert 1-based YAML layer atom indices to 0-based in-place.
+
+    Applies to calc.hess_mm_atoms, calc.movable_mm_atoms, calc.frozen_mm_atoms.
+    Only converts non-None values (None = not specified in YAML).
+    """
+    for key in ("hess_mm_atoms", "movable_mm_atoms", "frozen_mm_atoms"):
+        val = calc_cfg.get(key)
+        if val is not None and not isinstance(val, str):
+            try:
+                calc_cfg[key] = sorted(int(i) - 1 for i in val)
+            except (TypeError, ValueError):
+                pass  # Leave as-is if not iterable of ints
+
+
 def _parse_dist_freeze_args(
     raw_args: Sequence[str],
     one_based: bool,
@@ -1314,6 +1329,7 @@ def cli(
             prepared_input.cleanup()
             sys.exit(1)
         geom_cfg["freeze_atoms"] = geom_freeze
+        _convert_yaml_layer_atoms_1to0(calc_cfg)
         if freeze_atoms_cli:
             merge_freeze_atom_indices(geom_cfg, freeze_atoms_cli)
         freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])

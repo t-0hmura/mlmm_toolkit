@@ -64,6 +64,7 @@ from .opt import (
     _parse_freeze_atoms as _parse_freeze_atoms_opt,
     _normalize_geom_freeze as _normalize_geom_freeze_opt,
 )
+from .opt import _convert_yaml_layer_atoms_1to0
 from .utils import (
     append_xyz_trajectory as _append_xyz_trajectory,
     apply_layer_freeze_constraints,
@@ -2327,6 +2328,7 @@ def cli(
         prepared_input.cleanup()
         sys.exit(1)
     geom_cfg["freeze_atoms"] = geom_freeze
+    _convert_yaml_layer_atoms_1to0(calc_cfg)
     if freeze_atoms_cli:
         merge_freeze_atom_indices(geom_cfg, freeze_atoms_cli)
     freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
