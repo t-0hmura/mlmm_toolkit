@@ -131,6 +131,7 @@ module unload amber
 
 ```bash
 conda install -c conda-forge cyipopt -y
+pip install pydmf
 ```
 
 ### Authenticate for UMA (Hugging Face)
