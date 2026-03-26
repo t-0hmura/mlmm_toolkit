@@ -855,7 +855,7 @@ def cli(
                 stage_dir = out_dir_path / f"stage_{k:02d}"
                 stage_dir.mkdir(parents=True, exist_ok=True)
                 click.echo(f"\n--- Stage {k}/{K} ---")
-                click.echo(f"Targets (i,j,target Å): {[(i + 1, j + 1, t) for (i, j, t) in tuples]}")
+                click.echo(f"Targets (i,j,target Å, 1-based): {[(i + 1, j + 1, t) for (i, j, t) in tuples]}")
 
                 start_geom_for_stage = _snapshot_geometry(geom)
 
@@ -1044,7 +1044,7 @@ def cli(
                 changed = bool(bchg.get("changed"))
                 summary_txt = (bchg.get("summary") or "").strip()
 
-                click.echo(f"[stage {idx}] Targets (i,j,target Å): { _targets_triplet_str(pairs_1b, rT) }")
+                click.echo(f"[stage {idx}] Targets (i,j,target Å, 1-based): { _targets_triplet_str(pairs_1b, rT) }")
                 click.echo(f"[stage {idx}] initial distances (Å) = { _list_of_str_3f(r0) }")
                 click.echo(f"[stage {idx}] target distances  (Å) = { _list_of_str_3f(rT) }")
                 click.echo(f"[stage {idx}] per_pair_step     (Å) = { _list_of_str_3f(dA) }")
