@@ -457,6 +457,7 @@ Below are the most commonly used options across workflows.
 | `--thermo/--no-thermo` | Run vibrational analysis and thermochemistry. |
 | `--dft/--no-dft` | Perform single-point DFT calculations. |
 | `--refine-path/--no-refine-path` | Recursive MEP refinement (default) vs single-pass. |
+| `--mep-mode gsm\|dmf` | MEP method: Growing String Method or Direct Max Flux. | `gsm` |
 | `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer, default) or `hess` (RFO/RS-I-RFO). |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction (default: off). |
@@ -488,7 +489,7 @@ Each segment directory under `path_search/` also gets its own `summary.log` and 
 
 Most users will primarily call `mlmm all`. The CLI also exposes individual subcommands -- each supports `-h/--help`.
 `mlmm all --help` shows core options and `mlmm all --help-advanced` shows the complete list.
-`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` also supports progressive help (`--help` core, `--help-advanced` full parser options).
+`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
 
 | Subcommand | Role | Documentation |
 |------------|------|---------------|

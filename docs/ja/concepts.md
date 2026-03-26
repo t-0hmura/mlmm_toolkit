@@ -164,10 +164,12 @@ mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter 
 
 `hessian_ff` は Amber 力場パラメータ（parm7）をベースとした C++ ネイティブ拡張の力場計算エンジンです。エネルギー・力、そして特に**解析ヘシアン**を計算します。主な特徴:
 
-- **解析ヘシアン**: 正確な二階微分
-- **CPU 実行**: GPU メモリを MLIP 推論に専有させるため、MM 計算は CPU で実行
-- **Amber 互換**: ff19SB/ff14SB、GAFF2 などの Amber 力場に対応
-- **CMAP トーション補正**（実装済みだがデフォルト無効、Gaussian と同様）
+- 結合、角度、二面角、不正二面角項
+- ファン・デル・ワールス（Lennard-Jones）相互作用
+- 静電相互作用
+- 解析的二次微分（ヘシアン）
+- CPU 実行（GPU メモリを MLIP 推論に専有させるため）
+- CMAP トーション補正（実装済みだがデフォルト無効、Gaussian と同様）
 
 OpenMM とは異なり、`hessian_ff` は ONIOM 結合と振動解析に必要な **MM ヘシアン** を提供するために特化しています。
 
@@ -260,7 +262,8 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 
 ### 個別サブコマンドを推奨するケース
 - 各ステージを 1 つずつ実行し、その都度結果を確認したい。複雑な反応では、一括実行よりもステップごとのアプローチが有効なことが多い
-- `--parm` と `--model-pdb` を手動で用意して、カスタムワークフローを組みたい
+- カスタムワークフローを組みたい場合（例: 独自の端点準備）
+- 前回の実行から parm7/rst7 と層付き PDB ファイルがすでにある場合
 - `oniom-export --mode g16|orca` で Gaussian/ORCA ONIOM 入力を生成したい
 
 ---

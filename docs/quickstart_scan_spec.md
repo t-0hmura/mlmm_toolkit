@@ -52,6 +52,8 @@ mlmm scan -i layered.pdb --parm system.parm7 -q 0 \
 
 Both 1-based atom indices and PDB atom name strings are accepted. See [scan.md](scan.md) for full details.
 
+For detailed options, run `mlmm scan --help-advanced`.
+
 ## Next step
 
 - Feed scan results to path refinement with [all](all.md) or [path-search](path_search.md).

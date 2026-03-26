@@ -32,7 +32,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
 
 ## よくある例
 
-1. 明示的な原子インデックスを使用（0 始まり）。
+1. 明示的な原子インデックスを使用（デフォルトは 1 始まり。この例では `--zero-based` を使用）。
 
 ```bash
 mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labeled.pdb

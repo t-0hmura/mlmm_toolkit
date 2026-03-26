@@ -1,8 +1,8 @@
 # mlmm-toolkit Documentation
 
-*Version: v0.2.5*
+*Version: v0.2.6*
 
-**mlmm-toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using ML/MM (machine learning / molecular mechanics) methods.
+**mlmm-toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using **ML/MM** (machine learning / molecular mechanics) methods.
 
 ```{toctree}
 :maxdepth: 2
@@ -192,6 +192,12 @@ ja/glossary
 | [`dft`](dft.md) | Single-point DFT calculations (GPU4PySCF / PySCF) |
 | [`trj2fig`](trj2fig.md) | Plot energy profiles from XYZ trajectories |
 | [`energy-diagram`](energy_diagram.md) | Build an energy diagram from numeric input values |
+
+### Utilities
+| Subcommand | Description |
+|------------|-------------|
+| [`fix-altloc`](fix_altloc.md) | Resolve PDB alternate conformations (altloc) |
+| [`device-hpc`](device_hpc.md) | Check GPU device information on HPC |
 
 ### Export
 | Subcommand | Description |

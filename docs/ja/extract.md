@@ -185,7 +185,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 - `OCS` (-1, システイン酸), `CYM` (-1, 脱プロトン化 Cys)
 
 **リシンバリアント / カルボキシル化:**
-- `MLY` (+1), `LLP` (+1), `KCX` (-1, Nz カルボキシル酸)
+- `MLY` (+1), `LLP` (+1), `KCX` (-1, Nz カルボキシル酸), `DLY` (+1)
 
 **D-アミノ酸** (19 残基):
 - `DAL`, `DAR`, `DSG`, `DAS`, `DCY`, `DGN`, `DGL`, `DHI`, `DIL`, `DLE`, `DLY`, `MED`, `DPN`, `DPR`, `DSN`, `DTH`, `DTR`, `DTY`, `DVA`

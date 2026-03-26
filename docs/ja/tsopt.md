@@ -2,11 +2,11 @@
 
 ## 概要
 
-> **概要:** Dimer（`--opt-mode grad`）または RS-I-RFO（`--opt-mode hess`、デフォルト）を使用して遷移状態*候補*を最適化します。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで ML 1 ステップ RS-I-RFO と MM 緩和を交互に実行します。検証済み TS は**正確に 1 つ**の虚振動数を示すべきです。必ず freq/IRC でモード/結合性を確認してください。
+> **概要:** Hessian Guided Dimer（`--opt-mode grad`）または RS-I-RFO（`--opt-mode hess`、デフォルト）を使用して遷移状態*候補*を最適化します。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで ML 1 ステップ RS-I-RFO と MM 緩和を交互に実行します。検証済み TS は**正確に 1 つ**の虚振動数を示すべきです。必ず freq/IRC でモード/結合性を確認してください。
 
 ### `--opt-mode` の選択
 - **`--opt-mode hess`（RS-I-RFO）** を使用: デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合。`--microiter`（デフォルト有効）により ML と MM 領域を交互に最適化。
-- **`--opt-mode grad`（Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。`--ml-only-hessian-dimer` で ML 領域のみのヘシアンを Dimer 方向決定に使用（高速だが精度は低下）。
+- **`--opt-mode grad`（Hessian Guided Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。`--ml-only-hessian-dimer` で ML 領域のみのヘシアンを Dimer 方向決定に使用（高速だが精度は低下）。
 
 `mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。`-b/--backend` で ML バックエンドを選択可能です（`uma`、`orb`、`mace`、`aimnet2`）。`--embedcharge` で xTB 点電荷埋め込み補正を有効化し、MM 環境から ML 領域への静電的影響を考慮できます。オプティマイザーは TS 推測構造から開始し、一次鞍点へ精密化します。
 

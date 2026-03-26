@@ -94,6 +94,16 @@ The MLIP backend is selected via `-b/--backend` (default: `uma`). Alternative ba
 
 When `--embedcharge` is enabled, an xTB point-charge embedding correction is applied to account for the electrostatic influence of the MM environment on the ML region.
 
+### Comparison with conventional QM/MM
+
+| Aspect | Conventional QM/MM | mlmm-toolkit ML/MM |
+|--------|-------------------|---------------------|
+| High-level method | DFT, HF, post-HF | MLIP (UMA, ORB, MACE, AIMNet2) |
+| Low-level method | OpenMM / Amber | hessian_ff (C++ native extension) |
+| Link atoms | Usually required | Automatically generated at covalent boundaries |
+| Electrostatic embedding | Common | Not used by default (mechanical embedding via ONIOM subtraction). Enable xTB point-charge embedding with `--embedcharge` |
+| Speed | Slow (QM is bottleneck) | Fast (ML inference on GPU) |
+
 ---
 
 ## Link atoms
