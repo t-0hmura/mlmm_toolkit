@@ -2,9 +2,9 @@
 
 ## Overview
 
-> **Summary:** Extract a cluster model (active-site pocket) from a protein-ligand PDB. Specify substrates with `-c` by residue name, residue ID, or a PDB path. Link hydrogens are added to cap cut bonds when `--add-linkh` is enabled. Use `--ligand-charge` for non-standard residue charges.
+> **Summary:** Extract an active-site pocket from a protein-ligand PDB to define the ML region and surrounding MM environment. Specify substrates with `-c` by residue name, residue ID, or a PDB path. Link hydrogens are added to cap cut bonds when `--add-linkh` is enabled. Use `--ligand-charge` for non-standard residue charges.
 
-`mlmm extract` creates an active-site pocket (cluster model) from a protein-ligand PDB. It selects residues near the substrate, truncates the model according to backbone/side-chain rules, optionally caps severed bonds with link hydrogens, and can process single structures or ensembles.
+`mlmm extract` creates an active-site pocket from a protein-ligand PDB to define the ML region. It selects residues near the substrate, truncates the model according to backbone/side-chain rules, optionally caps severed bonds with link hydrogens, and can process single structures or ensembles.
 
 This is typically the **first step** in an mlmm-toolkit workflow, producing a smaller, computationally tractable model from a full protein-ligand complex.
 
@@ -232,7 +232,7 @@ HOH, WAT, H2O, DOD, TIP, TIP3, SOL
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [Getting Started](getting_started.md) -- Installation and first run
-- [Concepts](concepts.md) -- Full system vs. pocket (cluster model)
+- [Concepts](concepts.md) -- Full system vs. ML region
 - [CLI Conventions](cli_conventions.md) -- Residue selectors and charge specification
 - [mm-parm](mm_parm.md) -- Generate Amber topology from the extracted pocket
 - [define-layer](define_layer.md) -- Assign 3-layer ML/MM partitioning

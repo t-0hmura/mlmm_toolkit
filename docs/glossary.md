@@ -99,8 +99,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | **PDB** | Protein Data Bank | A file format and database for macromolecular 3D structures. |
 | **XYZ** | -- | A simple text format listing atomic symbols and Cartesian coordinates. |
 | **GJF** | Gaussian Job File | An input format for Gaussian; mlmm-toolkit reads charge/multiplicity and coordinates from these files. |
-| **Pocket** | Active-site Pocket | A truncated structure around the substrate(s) used to reduce system size for MEP/TS search. Also called "cluster model". |
-| **Cluster Model** | -- | Synonym for pocket; a computationally tractable subset of the full enzyme-substrate complex. |
+| **Pocket** | Active-site Pocket | A truncated structure around the substrate(s), extracted by the `extract` subcommand. In the ML/MM workflow, this defines the ML region and surrounding MM environment. |
 | **Link Hydrogen** | -- | A hydrogen atom added to cap severed bonds when extracting a pocket from a larger structure. |
 | **Backbone** | -- | The main chain of a protein (N-C_alpha-C-O atoms). Can be excluded during pocket extraction with `--exclude-backbone`. |
 | **B-factor** | Temperature Factor | The PDB temperature factor column. In mlmm-toolkit, used to encode 3-layer membership (0.0, 10.0, 20.0). |

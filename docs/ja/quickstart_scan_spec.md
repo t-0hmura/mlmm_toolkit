@@ -1,4 +1,4 @@
-# クイックスタート: `mlmm scan` + `-s`（YAML スペック）
+# クイックスタート: scan
 
 ## 目的
 
@@ -37,6 +37,24 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 補足
 
 - 詳細オプションは `mlmm scan --help-advanced` で確認できます。
+
+## インラインリテラル入力（YAML ファイルなし）
+
+YAML スペックファイルの代わりに、スキャンターゲットをコマンドラインで直接指定できます:
+
+```bash
+mlmm scan -i layered.pdb --parm system.parm7 -q 0 \
+  --scan-lists "[(1,5,1.4)]" --no-preopt --no-endopt
+```
+
+PDB 原子セレクタも使用可能です:
+
+```bash
+mlmm scan -i layered.pdb --parm system.parm7 -q 0 \
+  --scan-lists "[('TYR 285 CA','MMT 309 C10',2.20)]" --no-preopt --no-endopt
+```
+
+1-based の原子インデックスと PDB 原子名文字列の両方が使用できます。詳細は [scan.md](scan.md) を参照してください。
 
 ## 次の導線
 

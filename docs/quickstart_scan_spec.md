@@ -1,4 +1,4 @@
-# Quickstart: `mlmm scan` with `-s` (YAML spec)
+# Quickstart: scan
 
 ## Goal
 
@@ -33,6 +33,24 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 - `result_scan/stage_01/result.pdb`
 - `result_scan/stage_02/result.pdb`
 - Optional trajectories when `--dump` is enabled (`scan_trj.xyz`, `scan.pdb`)
+
+## Inline literal input (without YAML file)
+
+Instead of a YAML spec file, you can pass scan targets directly on the command line:
+
+```bash
+mlmm scan -i layered.pdb --parm system.parm7 -q 0 \
+  --scan-lists "[(1,5,1.4)]" --no-preopt --no-endopt
+```
+
+Or using PDB atom selectors:
+
+```bash
+mlmm scan -i layered.pdb --parm system.parm7 -q 0 \
+  --scan-lists "[('TYR 285 CA','MMT 309 C10',2.20)]" --no-preopt --no-endopt
+```
+
+Both 1-based atom indices and PDB atom name strings are accepted. See [scan.md](scan.md) for full details.
 
 ## Next step
 

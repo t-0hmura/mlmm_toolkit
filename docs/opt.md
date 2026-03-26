@@ -82,7 +82,6 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--radius-partial-hessian FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. Alias: `--hess-cutoff`. | _None_ |
 | `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. Alias: `--movable-cutoff`. | _None_ |
 | `--dist-freeze TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints (inline Python literal or YAML/JSON file path). | _None_ |
 | `--one-based / --zero-based` | Index convention for `--dist-freeze`. | 1-based |

@@ -15,8 +15,6 @@ Options:
   --model-indices TEXT            Comma-separated atom indices for ML region
                                   (e.g., '1,2,3,4' or '1-10,15,20-25'). Takes
                                   precedence over --model-pdb.
-  --radius-partial-hessian FLOAT  Deprecated in 3-layer mode (ignored).
-                                  [default: 0.0]
   --radius-freeze FLOAT           Distance cutoff (Å) from ML region for movable
                                   MM atoms. Atoms beyond this distance are
                                   frozen.  [default: 8.0]

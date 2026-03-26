@@ -68,16 +68,16 @@ glossary
 | ユースケース | 推奨コマンド | ガイド |
 |--------------|--------------|--------|
 | 最初の 1 回を実行（end-to-end） | `mlmm all` | [クイックスタート: all](quickstart_all.md) |
-| 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan + spec](quickstart_scan_spec.md) |
-| TS 検証（`tsopt` -> `freq`） | `mlmm tsopt`, `mlmm freq` | [クイックスタート: tsopt -> freq](quickstart_tsopt_freq.md) |
+| 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan](quickstart_scan_spec.md) |
+| TS 検証（`tsopt` + 振動解析） | `mlmm tsopt` | [クイックスタート: tsopt](quickstart_tsopt_freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
 | 現在の設定を確認 | `mlmm opt --show-config` | [YAML リファレンス](yaml_reference.md) |
 | タンパク質-リガンド複合体からQM領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
 | MM トポロジー（parm7/rst7）を構築 | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
 | ML/MM 3層領域を定義 | `mlmm define-layer` | [define_layer.md](define_layer.md) |
 | 単一構造を最適化 | `mlmm opt` | [opt.md](opt.md) |
-| 遷移状態を探索・最適化 | `mlmm tsopt` | [tsopt.md](tsopt.md) |
-| 最小エネルギー経路を探索 | `mlmm path-search` | [path_search.md](path_search.md) |
+| MEP探索で遷移状態候補を発見 | `mlmm path-search` | [path_search.md](path_search.md) |
+| 遷移状態候補を最適化 | `mlmm tsopt` | [tsopt.md](tsopt.md) |
 | 遷移状態からIRCを実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Gaussian ONIOM / ORCA QM/MM 入力を生成 | `mlmm oniom-export --mode g16\|orca` | [oniom_export.md](oniom_export.md) |
@@ -108,13 +108,12 @@ glossary
 ### メインワークフロー
 | サブコマンド | 説明 |
 |---------|------|
-| [`all`](all.md) | 一気通貫ワークフロー: 抽出 -> MM parm -> MEP -> TS 最適化 -> IRC -> freq -> DFT |
-| [`init`](init.md) | *（削除済）* 以前は YAML テンプレートを生成 |
+| [`all`](all.md) | 一気通貫ワークフロー: ML/MM モデル構築 -> MEP 探索 -> TS 最適化 -> IRC -> freq -> DFT |
 
 ### 構造準備
 | サブコマンド | 説明 |
 |---------|------|
-| [`extract`](extract.md) | タンパク質-リガンド複合体から活性部位ポケット（クラスターモデル）を抽出 |
+| [`extract`](extract.md) | タンパク質-リガンド複合体から ML 領域（QM 領域）を定義 |
 | [`add-elem-info`](add_elem_info.md) | PDB の元素カラム（77-78）を修復 |
 | [`mm-parm`](mm_parm.md) | AmberTools (tleap + GAFF2) を使用して Amber トポロジー（parm7/rst7）を構築 |
 | [`define-layer`](define_layer.md) | ML 領域からの距離に基づき 3 層 ML/MM 領域を定義し、B-factor でエンコード |
@@ -222,13 +221,13 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 mlmm は PDB の B-factor を用いた 3 層分割スキームを使用します:
 - **ML 領域**（B=0.0）: UMA 機械学習ポテンシャルで計算
 - **Movable-MM**（B=10.0）: 最適化時に移動可能な MM 原子
-- **Frozen**（B=20.0）: 座標固定の MM 原子
+- **Frozen**（B=20.0）: 座標固定の MM 原子。最適化中に座標は変化しないが、Movable-MM および ML 領域との非結合相互作用（静電・van der Waals）は MM エネルギー評価に含まれる
 
 Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_cutoff` や `hess_mm_atoms` で制御します。
 
 ### 電荷とスピン
 - 未知残基の電荷を指定するには `--ligand-charge` を使用: `'SAM:1,GPP:-3'`
-- ML 領域の総電荷を上書きするには `-q/--charge` を使用
+- ML 領域の正味電荷を上書きするには `-q/--charge` を使用
 - スピン多重度は `-m/--multiplicity`（デフォルト: 1）で設定
 
 ### ブール値オプション
@@ -239,7 +238,7 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 
 ### YAML 設定
 
-すべてのオプションについては [YAML リファレンス](yaml_reference.md) を参照してください。
+詳細なオプションについては [YAML リファレンス](yaml_reference.md) を参照してください。
 
 ---
 
@@ -251,7 +250,7 @@ result_all/
 ├── ml_region.pdb # ML 領域定義
 ├── summary.log # 人間が読めるサマリー
 ├── summary.yaml # 機械可読サマリー
-├── pockets/ # 抽出されたクラスターモデル
+├── pockets/ # extract で決定された ML 領域構造
 ├── mm_parm/ # AMBER トポロジーファイル
 ├── scan/ # （オプション）スキャン結果
 ├── path_search/ # MEP 軌跡とダイアグラム

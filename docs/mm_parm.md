@@ -59,6 +59,21 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 | `--ph FLOAT` | pH for PDBFixer hydrogen addition (used only with `--add-h`). | `7.0` |
 | `--ff-set {ff19SB\|ff14SB}` | Force field set: ff19SB (default) or ff14SB. | `ff19SB` |
 
+## Limitations and when to use `--parm` instead
+
+`mm-parm` relies on AmberTools tleap with GAFF2 automatic parameterization and works well when the substrate is a **typical organic molecule**. For the following cases, it is strongly recommended to prepare your own topology externally (e.g. with tleap, MCPB.py, or glycam.org tools) and supply it via the `--parm` flag of each subcommand:
+
+- **Metalloenzymes** -- Metal centers require specialized bonded/non-bonded parameters (e.g. MCPB.py, the bonded model, or ZAFF). Automatic GAFF2 parameterization cannot handle metal-ligand coordination.
+- **Glycans and carbohydrate-containing systems** -- Glycan linkages need GLYCAM force field parameters that are not included in the standard GAFF2/ff19SB setup.
+- **Non-standard amino acids or post-translational modifications** -- Phosphorylated, methylated, or other modified residues may require custom `frcmod`/`lib` files.
+- **MD snapshot initial structures** -- When starting from an MD trajectory snapshot, reusing the same `.parm7` file from the MD simulation is the most appropriate approach. This ensures consistency between the MM energy surface used for ML/MM and the one used in the preceding MD, avoiding artifacts from re-parameterization (e.g. different partial charges or atom-type assignments).
+
+```bash
+# Example: supply a pre-built topology from MD
+mlmm opt -i snapshot_layered.pdb --parm md_system.parm7 -q -1 -m 1 \
+  --opt-mode grad --out-dir result
+```
+
 ## See Also
 
 - [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing

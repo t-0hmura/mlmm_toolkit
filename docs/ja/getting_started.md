@@ -2,7 +2,7 @@
 
 ## 概要
 
-`mlmm-toolkit` は、機械学習原子間ポテンシャル（MLIP）と分子力学（hessian_ff）を ONIOM 的に結合した **ML/MM 法** を用いて、**PDB 構造** から **酵素反応経路** を自動的に構築する Python 製の CLI ツールキットです。デフォルトの MLIP バックエンドは **UMA**（Meta の FAIR-Chem）で、`--backend` オプションにより **ORB**、**MACE**、**AIMNet2** も選択できます。
+`mlmm-toolkit` は、機械学習原子間ポテンシャル（MLIP）と内蔵 MM 力場エンジン（hessian_ff）を ONIOM 的に結合した **ML/MM 法** を用いて、**PDB 構造** から **酵素反応経路** を自動的に構築する Python 製の CLI ツールキットです。デフォルトの MLIP バックエンドは **UMA**（Meta の FAIR-Chem）で、`--backend` オプションにより **ORB**、**MACE**、**AIMNet2** も選択できます。
 
 多くのワークフローにおいて、**1 コマンド** で反応経路の**初期推定（first-pass）**を得ることができます。
 ```bash
@@ -10,7 +10,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 ---
-さらに `--tsopt --thermo --dft` を追加すると、**MEP 探索 → TS 最適化 → IRC → 熱化学解析 → DFT 一点計算** までまとめて実行できます。
+さらに `--tsopt --thermo --dft` を追加すると、**ML/MM モデル構築 → MEP 探索 → TS 最適化 → IRC → 熱化学解析 → DFT 一点計算** までまとめて実行できます。
 ```bash
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 ```
@@ -18,7 +18,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 入力として、(i) 反応順に並べたタンパク質-リガンド複合体の PDB を 2 つ以上（R →... → P）、(ii) `--scan-lists` を指定した 1 つの PDB、または (iii) TS 候補 1 構造 + `--tsopt` を与えると、`mlmm-toolkit` が次を自動化します。
 
-- ユーザーが指定した基質の周辺から **活性部位ポケット** を抽出し、計算用の **クラスターモデル** を構築
+- ユーザーが指定した基質の周辺から **活性部位ポケット** を抽出し、**ML 領域** を定義
 - AmberTools を用いて **Amber トポロジー（parm7/rst7）** を自動生成し、**hessian_ff** の MM エンジンに渡す
 - ML 領域を MLIP バックエンド（デフォルト: UMA）で、MM 領域を hessian_ff で計算する **ONIOM 的 ML/MM** エネルギー・力・ヘシアンを構築
 - Growing String Method (GSM) や Direct Max Flux (DMF) などの経路最適化手法で **最小エネルギー経路 (MEP)** を探索
@@ -28,7 +28,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 単一コマンドの TS 結果は「候補」として扱ってください。酵素反応では、endpoint 品質、ポケット定義、拘束、scan ターゲットの調整を伴う反復が一般的です。最終解釈の前に、`freq` と `irc` の両方で TS を必ず検証してください。
 ```
 
-ML 領域の計算には機械学習原子間ポテンシャル（MLIP）を使用します。デフォルトのバックエンドは UMA（Meta の FAIR-Chem）で、ORB、MACE、AIMNet2 も `--backend` で選択可能です。MM 領域の計算には hessian_ff（Amber 力場ベースの C++ ネイティブ拡張）を用います。全エネルギーは ONIOM 的な減算分解に従います:
+ML 領域の計算には機械学習原子間ポテンシャル（MLIP）を使用します。デフォルトのバックエンドは UMA（Meta の FAIR-Chem）で、ORB、MACE、AIMNet2 も `--backend` で選択可能です。MM 領域の計算には hessian_ff（内蔵の C++ ネイティブ MM 力場エンジン）を用います。全エネルギーは ONIOM 的な減算分解に従います:
 
 ```
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
@@ -36,7 +36,7 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 
 ここで REAL は全系、MODEL は ML 領域、"high" は MLIP バックエンド、"low" は hessian_ff です。
 
-一連の処理は CLI から呼び出せるように統一されており、手作業を最小化して **多段階の酵素反応メカニズム** を組み立てられるように設計しています。同じワークフローは小分子系にも適用可能です。ポケット抽出をスキップ（`--center/-c` と `--ligand-charge` を省略）すれば、`.xyz` や `.gjf` 入力も使用できます。
+一連の処理は CLI から呼び出せるように統一されており、手作業を最小化して **多段階の酵素反応メカニズム** を組み立てられるように設計しています。同じワークフローは小分子系にも適用可能です。ポケット抽出をスキップ（`--center/-c` と `--ligand-charge` を省略）すれば、`.xyz` 入力も使用できます。
 
 ```{important}
 - 入力 PDB ファイルには**水素原子**が含まれている必要があります。
@@ -261,13 +261,13 @@ AmberTools がインストールされていなくても、`--parm` を手動で
 
 ```bash
 # ORB バックエンドを使用
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
+mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
 
 # MACE バックエンドを使用
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
+mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
 
 # xTB 点電荷埋め込みを有効化
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
+mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
 ```
 
 ---
@@ -275,8 +275,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
 ## 推奨クイックスタート導線
 
 - [クイックスタート: `mlmm all`](quickstart_all.md)
-- [クイックスタート: `mlmm scan` + `-s`（YAML スペック）](quickstart_scan_spec.md)
-- [クイックスタート: `mlmm tsopt` -> `mlmm freq`](quickstart_tsopt_freq.md)
+- [クイックスタート: `mlmm scan`](quickstart_scan_spec.md)
+- [クイックスタート: `mlmm tsopt`](quickstart_tsopt_freq.md)
 
 ---
 
@@ -310,14 +310,14 @@ mlmm [OPTIONS]...
 mlmm all [OPTIONS]...
 ```
 
-`all` ワークフローは、クラスター抽出、MM パラメータ化、レイヤー定義、MEP 探索、TS 最適化、振動解析、オプションの DFT 一点計算を 1 つのコマンドで連続実行する**オーケストレーター**です。
+`all` ワークフローは、ML 領域抽出、MM パラメータ化、レイヤー定義、MEP 探索、TS 最適化、振動解析、オプションの DFT 一点計算を 1 つのコマンドで連続実行する**オーケストレーター**です。
 
-クラスター抽出を使用する場合、すべての上位ワークフローで共通する重要なオプションが 2 つあります:
+ML 領域抽出を使用する場合、すべての上位ワークフローで共通する重要なオプションが 2 つあります:
 
 - `-i/--input`: 1 つ以上の**完全系構造**（反応物、中間体、生成物）。
 - `-c/--center`: **基質/抽出中心**の定義方法（例: 残基名や残基 ID）。
 
-`--center/-c` を省略すると、クラスター抽出はスキップされ、**入力構造全体**がそのまま使用されます。
+`--center/-c` を省略すると、ML 領域抽出はスキップされ、**入力構造全体**がそのまま使用されます。
 
 ---
 
@@ -342,11 +342,11 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./res
 動作:
 
 - 反応順序で 2 つ以上の**完全系**を受け取る
-- 各構造の触媒クラスターモデルを抽出
+- 各構造の ML 領域を抽出・定義
 - Amber parm7/rst7 トポロジーを生成し、3 層 ML/MM 分割を付与
 - デフォルトで `path-search` による**再帰的 MEP 探索**を実行（出力は `path_search/` 以下）
 - `--no-refine-path` を指定すると、単一パスの `path-opt` に切り替え（再帰的細分化をスキップ）
-- PDB テンプレートが利用可能な場合、クラスターモデル MEP を**完全系**にマージ
+- PDB テンプレートが利用可能な場合、ML 領域 MEP を**完全系**にマージ
 - オプションで各セグメントに対して TS 最適化、振動解析、DFT 一点計算を実行
 
 このモードは、適度に間隔を空けた中間体（例: ドッキング、MD、手動モデリングから）を生成できる場合に推奨されます。
@@ -372,15 +372,15 @@ mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 3
 **詳細例**
 
 ```bash
-mlmm -i SINGLE.pdb -c 'SAM,GPP' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]' --multiplicity 1 --out-dir ./result_scan_all --tsopt --thermo --dft
+mlmm -i SINGLE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]' --multiplicity 1 --out-dir ./result_scan_all --tsopt --thermo --dft
 ```
 
 要点:
 
-- `--scan-lists` は抽出されたクラスターモデル上での**段階的距離スキャン**を定義します。
+- `--scan-lists` は抽出された ML 領域上での**段階的距離スキャン**を定義します。
 - 各タプル `(i, j, target_A)` は:
  - `'TYR,285,CA'` のような PDB 原子セレクタ文字列（**区切り文字: 空白/カンマ/スラッシュ/バッククォート/バックスラッシュ**）**または** 1-based の原子インデックス
- - クラスターモデルのインデックスに自動的にリマッピングされます。
+ - ML 領域のインデックスに自動的にリマッピングされます。
 - 1 つの `--scan-lists` リテラルで単一スキャンステージ、複数リテラルで逐次ステージを実行。複数リテラルは 1 つのフラグの後に続けて指定します（フラグの繰り返しは不可）。
 - 各ステージは `stage_XX/result.pdb` を出力し、中間体または生成物の候補として扱われます。
 - デフォルトの `all` ワークフローは連結されたステージを再帰的 `path-search` で精密化します。
@@ -411,7 +411,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 動作:
 
 - MEP/経路探索を完全にスキップ
-- クラスターモデルの **TS** を TS 最適化で最適化
+- ML 領域の **TS** を TS 最適化で最適化
 - 両方向に **IRC** を実行し、両端を最適化して R, P の極小に緩和
 - その後 `freq` と `dft` を R/TS/P に対して実行可能
 - MLIP、Gibbs、DFT//MLIP エネルギー図を生成
@@ -508,10 +508,10 @@ mlmm -i R.pdb P.pdb -c 'SUBSTRATE' -l 'SUB:-1'
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 # 1 構造 + staged scan
-mlmm -i SINGLE.pdb -c 'LIG' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
+mlmm -i SINGLE.pdb -c 'LIG' -l 'LIG:-1' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
 
 # TS 候補の単独最適化
-mlmm -i TS.pdb -c 'LIG' --tsopt --thermo
+mlmm -i TS.pdb -c 'LIG' -l 'LIG:-1' --tsopt --thermo
 
 # 個別サブコマンド（extract + mm-parm + define-layer 実行後）
 mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1

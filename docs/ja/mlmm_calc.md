@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **要約:** PySisyphus 用の ONIOM 型 ML/MM 計算機。MLIP バックエンド（デフォルト: FAIR-Chem UMA、選択肢: `orb`、`mace`、`aimnet2`）と hessian_ff（低レベル MM）を結合し、酵素活性部位モデルのエネルギー、力、ヘシアンを計算します。
+> **要約:** PySisyphus 用の ONIOM 型 ML/MM 計算機。MLIP バックエンド（デフォルト: FAIR-Chem UMA、選択肢: `orb`、`mace`、`aimnet2`）と hessian_ff（低レベル MM）を結合し、酵素活性部位モデルのエネルギー、力、特に**解析的ヘシアン**を計算します。
 
 `mlmm_calc.mlmm` は、機械学習原子間ポテンシャル（MLIP）と分子力学力場（Amber prmtop ベースの `hessian_ff`）を組み合わせた減算型 ONIOM スタイルの ML/MM 計算機を実装しています。`mlmm` のすべての ML/MM 最適化、経路探索、スキャン、振動解析、IRC ワークフローのコア計算機として機能します。
 
@@ -73,6 +73,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 MM バックエンドは `mm_backend` パラメータで選択できます：
 
 - **`"hessian_ff"`** (デフォルト): `hessian_ff` による解析的ヘシアン（アクティブ原子のみ。任意で凍結行/列をゼロ埋めした完全デカルト形状に展開）。CPU のみ対応。
+  - CMAP トーション補正（実装済みだが Gaussian と同様にデフォルトでは無効）
 - **`"openmm"`**: OpenMM による有限差分 (FD) ヘシアン。CPU と CUDA の両プラットフォームに対応。`hessian_ff` が対応していない力場や、ワークフローに OpenMM を既に使用している場合に有用。
 
 **YAML 設定例:**

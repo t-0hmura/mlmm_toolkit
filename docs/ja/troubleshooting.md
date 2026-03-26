@@ -11,11 +11,11 @@
 長時間の計算を実行する前に、以下を確認してください。
 
 - `mlmm -h` でヘルプが表示される
-- UMA のモデルがダウンロードできる（Hugging Face のログイン/トークンが利用可能）
+- MLIP モデルの重みがダウンロードできる（デフォルトの UMA バックエンドの場合、Hugging Face のログイン/トークンが必要。他のバックエンドは別のソースからダウンロードする場合がある）
 - 酵素系ワークフローでは、入力 PDB に **水素** と **元素記号（element column）** が入っている
 - 複数の PDB を与える場合、**同じ原子が同じ順序** で並んでいる（座標だけが異なる）
-- **AmberTools**（tleap, antechamber, parmchk2）が PATH 上にある（`mm-parm` を使う場合）
-- hessian_ff の C++ 拡張がビルド済み（`cd hessian_ff/native && make`）
+- **AmberTools** が conda チャンネル（またはソースビルド）で正しくインストールされ、`tleap` が利用可能（`mm-parm` を使う場合）
+- hessian_ff の C++ ネイティブ拡張が正しくビルド済み（自動ビルドが失敗した場合は `cd hessian_ff/native && make` を実行）
 
 ---
 
@@ -40,7 +40,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 - その後、`extract` / `all` を補完後の PDB で再実行します。
 
 なぜ発生するか:
-- 多くの PDB では元素カラムが一貫して埋められていません。`extract` は正確な原子型判定のために元素記号を必要とします。
+- PDB によっては元素カラムが一貫して埋められていないことがあります。`extract` は正確な原子型判定のために元素記号を必要とします。
 
 ---
 
@@ -60,9 +60,12 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 ヒント:
 - MD 由来のアンサンブルでは、異なるツールで作った PDB を混在させるのではなく、**同一のトポロジー/軌跡** からフレーム抽出する方が安全です。
 
+代替手段:
+- 複数構造の入力を揃えることが困難な場合は、**単一構造スキャンワークフロー** を使用してください。1 つの PDB と `--scan-lists` を指定し、距離スキャンで端点を生成します。
+
 ---
 
-### 「ポケットが空っぽ / 必要な残基が落ちる」
+### ML 領域に重要な残基が含まれない
 
 症状:
 - 抽出ポケットが想定より小さい
@@ -71,15 +74,15 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 対処の例:
 - `--radius` を増やす（例: 2.6 → 3.5 Angstrom）
 - `--selected-resn` で残基を強制包含する（例: `--selected-resn 'A:123,B:456'`）
-- 主鎖削除が強すぎる場合は `--no-exclude-backbone` を試す
+- PyMOL 等の分子ビューアで活性部位の原子を選択・エクスポートし、ML 領域の PDB を手動で作成することもできます。`--model-pdb` でこの PDB を指定してください。
 
 ---
 
 ## 電荷 / スピンの問題
 
-### 「電荷が必須」系のエラー
+### 電荷解決の問題
 
-計算系サブコマンドでは `-q/--charge` を必ず明示する必要があります。
+計算系サブコマンドでは `-q/--charge` と `-m/--multiplicity` を明示する必要があります。
 `all` では電荷は `-q/--charge` 上書き -> 抽出サマリー -> （抽出スキップ時）`--ligand-charge` フォールバック の順で解決されます。
 
 対処:
@@ -120,7 +123,7 @@ mm-parm requires AmberTools (tleap, antechamber, parmchk2).
  conda install -c conda-forge ambertools -y
  ```
 
-- HPC クラスターでは環境モジュールでロードする場合もあります:
+- ソースからビルド（<https://ambermd.org/AmberTools.php>）するか、HPC クラスターでは環境モジュールでロードします:
 
  ```bash
  module load ambertools
@@ -154,11 +157,14 @@ mm-parm requires AmberTools (tleap, antechamber, parmchk2).
  ```
 
 - 水素が正しく付加されているか、TER レコードが適切か確認する
+- 非一重項リガンドには `--ligand-mult` を指定する（例: `--ligand-mult 'HEM:1,NO:2'`）。デフォルトのスピン多重度は 1（一重項）
 - 抽出されたリガンド PDB に対して antechamber を手動実行して原因を切り分ける:
 
  ```bash
  antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2
  ```
+
+- より高精度の部分電荷が必要な場合は、HF/6-31G* 計算から RESP 電荷を算出し、カスタム `frcmod`/`lib` ファイルを用意することを検討してください（AM1-BCC に頼らない方法）。
 
 ---
 
@@ -275,6 +281,7 @@ To rebuild hessian_ff native extensions in this environment:
 - ML 領域が小さすぎる、または大きすぎる
 
 対処の例:
+- B-factor エンコーディング: ML = 0.0、Movable-MM = 10.0、Frozen-MM = 20.0。
 - レイヤーが割り当てられた PDB を分子ビューアで可視化（B-factor で色分け）する
 - `--model-pdb` が正しく ML 領域の原子を定義しているか確認する
 - `define-layer` の距離カットオフを調整する:
@@ -297,7 +304,7 @@ To rebuild hessian_ff native extensions in this environment:
 
 ---
 
-### --detect-layer が想定どおりに働かない
+### `--detect-layer` が想定どおりに働かない
 
 症状:
 - B-factor からのレイヤー自動判定で、ML / Movable / Frozen の分割が想定と異なる
@@ -313,10 +320,10 @@ To rebuild hessian_ff native extensions in this environment:
 
 ## インストール / 環境の問題
 
-### UMA のダウンロード/認証エラー（Hugging Face）
+### MLIP モデルのダウンロードエラー
 
 症状:
-- モデルをダウンロードできない、認証が必要、といったエラー。
+- MLIP モデルの重みをダウンロードできない、認証が必要、といったエラー。デフォルトの UMA バックエンドでは、Hugging Face のログイン/トークンが不足していることが原因です。
 
 対処:
 - 環境/マシンごとに一度ログインします:
@@ -381,22 +388,14 @@ Plotly/Chrome 系のエラーで静的画像が出ない場合:
 - 「CUDA out of memory」メッセージ
 - ヘシアン計算中にシステムがハングまたはクラッシュする
 
-ML/MM 系は純粋なクラスターモデルよりも一般的に大きいため、VRAM の負荷が高くなります。
+ML/MM 系は純粋な MLIP 計算よりも一般的に大きいため、VRAM の負荷が高くなります。
 
-対処の例:
-- **ML 領域サイズを縮小**: 抽出半径を小さくするか、`--model-pdb` を手動で絞る
-- **有限差分 ML ヘシアンを使用**: `--hessian-calc-mode FiniteDifference`（VRAM 消費が少ないが低速）
-- **MM を CPU に移動**: YAML で `mm_device: cpu` を指定（デフォルト）
-- **ヘシアン対象 MM 領域を縮小**: `hess_cutoff` を小さくする
-- **3 層 + Hessian 対象制御を活用**: `hess_cutoff` と `movable_cutoff` を設定し、ヘシアン計算対象の原子数を制限:
- ```yaml
- calc:
-   hess_cutoff: 3.6
-   movable_cutoff: 8.0
- ```
-- **`define-layer` で事前に層を定義** し、`use_bfactor_layers: true` で読み取る
-- **GPU メモリが大きいカードに変更**: 500 原子以上の ML 領域には 24 GB 以上推奨、1000 原子以上には 48 GB 以上推奨
-- **ポケットサイズを縮小**: 抽出時の `--radius` を小さくする
+対処の例（優先度順）:
+- **Frozen-MM 層を確認**: `define-layer` で Frozen-MM 原子（B=20.0）が正しく割り当てられているか確認する。Frozen-MM 領域が小さすぎると、Movable-MM 領域（ひいてはヘシアン）が不必要に大きくなる。`--radius-freeze` を小さくして Frozen 領域を拡大する。
+- **ML 領域サイズを縮小**: `extract` の `--radius` を小さくするか、`--model-pdb` で手動定義した小さい ML 領域 PDB を指定する。
+- **有限差分 ML ヘシアンを使用**: `--hessian-calc-mode FiniteDifference`（VRAM 消費が少ないが低速）。
+- **`define-layer` で事前に層を定義** し、`use_bfactor_layers: true` で読み取る。
+- **GPU メモリが大きいカードに変更**: 500 原子以上の ML 領域には 24 GB 以上推奨、1000 原子以上には 48 GB 以上推奨。
 
 ---
 
@@ -474,7 +473,6 @@ pip install "mlmm-toolkit[aimnet2]"  # AIMNet2 バックエンド
 **症状:** ORB、MACE、AIMNet2 の使用時に `RuntimeError: CUDA out of memory` が発生する
 
 **対処:** 非 UMA バックエンドは有限差分ヘシアンを使用するため、より多くの VRAM を消費します。以下の方法を試してください:
-- `--radius-partial-hessian` を小さくし、ヘシアン対象の原子数を制限する
 - `--hessian-calc-mode FiniteDifference` を明示的に指定し、`hess_cutoff` を小さめに設定する
 - YAML で `ml_device: cpu` を指定する（遅くなるが VRAM 制限を回避できる）
 

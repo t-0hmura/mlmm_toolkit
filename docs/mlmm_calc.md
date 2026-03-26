@@ -2,9 +2,9 @@
 
 ## Overview
 
-> **Summary:** ONIOM-like ML/MM calculator for PySisyphus, coupling an MLIP backend (high-level ML) and hessian_ff (low-level MM) to compute energies, forces, and Hessians for enzyme active-site models. Multiple MLIP backends are supported via `-b/--backend`.
+> **Summary:** ONIOM-like ML/MM calculator for PySisyphus, coupling an MLIP backend (high-level ML) and hessian_ff (low-level MM) to compute energies, forces, and especially **analytical Hessians** for enzyme active-site models. Multiple MLIP backends are supported via `-b/--backend`.
 
-`mlmm_calc.mlmm` implements a subtractive ONIOM-style ML/MM calculator that combines a machine-learning interatomic potential (MLIP) with a molecular-mechanics force field (Amber prmtop-based `hessian_ff`). It serves as the core calculator for all ML/MM optimization, path search, scan, frequency, and IRC workflows in `mlmm`.
+`mlmm_calc.mlmm` implements a subtractive ONIOM-style ML/MM calculator that combines a machine learning interatomic potential (MLIP) with a molecular-mechanics force field (Amber prmtop-based `hessian_ff`). It serves as the core calculator for all ML/MM optimization, path search, scan, frequency, and IRC workflows in `mlmm`.
 
 ### Multi-backend architecture
 
@@ -72,6 +72,7 @@ Forces and Hessian contributions from link atoms are redistributed to the ML/MM 
 The MM backend can be selected via the `mm_backend` parameter:
 
 - **`"hessian_ff"`** (default): Analytical Hessian via `hessian_ff` (active atoms only, then optionally expanded to full Cartesian shape with frozen rows/cols zero-filled). CPU-only backend.
+  - CMAP torsion corrections (implemented but disabled by default, as in Gaussian)
 - **`"openmm"`**: Finite-difference (FD) Hessian via OpenMM. Supports both CPU and CUDA platforms. Useful for force fields not supported by `hessian_ff` or when OpenMM is already in your workflow.
 
 **Example YAML configuration:**

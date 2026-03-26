@@ -2,7 +2,7 @@
 
 ## Overview
 
-`mlmm-toolkit` is a Python CLI toolkit for computing **enzymatic reaction pathways** using an **ML/MM** (Machine Learning / Molecular Mechanics) approach. It couples an MLIP (Machine-Learned Interatomic Potential) backend for the reactive (ML) region with a classical force field (`hessian_ff`) for the surrounding protein environment, using an ONIOM-like energy decomposition. The default backend is **UMA** (Meta's FAIR-Chem); alternative backends (`orb`, `mace`, `aimnet2`) can be selected via `--backend`.
+`mlmm-toolkit` is a Python CLI toolkit for computing **enzymatic reaction pathways** using an **ML/MM** (Machine Learning / Molecular Mechanics) approach. It couples an MLIP (Machine Learning Interatomic Potential) backend for the reactive (ML) region with a bundled MM force field engine (`hessian_ff`) for the surrounding protein environment, using an ONIOM-like energy decomposition. The default MLIP backend is **UMA** (Meta's FAIR-Chem); alternative backends (`orb`, `mace`, `aimnet2`) can be selected via `--backend`.
 
 In many workflows, a **single command** is enough to generate a useful **first-pass** reaction path:
 ```bash
@@ -10,7 +10,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 ---
-You can also run **MEP search, TS optimization, IRC, thermochemistry, and single-point DFT** in a single run by adding `--tsopt --thermo --dft`:
+You can also run **ML/MM model setup, MEP search, TS optimization, IRC, thermochemistry, and single-point DFT** in a single run by adding `--tsopt --thermo --dft`:
 ```bash
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 ```
@@ -18,13 +18,13 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 Given **(i) two or more full protein-ligand PDB files** (R,..., P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm-toolkit` automatically:
 
-- extracts an **active-site pocket** around user-defined substrates to build a **cluster model**,
+- defines the **ML region** around user-defined substrates,
 - generates **Amber parm7/rst7** topology files for the MM region ([`mm-parm`](mm_parm.md)),
 - assigns a **3-layer ML/MM partitioning** ([`define-layer`](define_layer.md)),
 - explores **minimum-energy paths (MEPs)** with path optimization methods such as the Growing String Method (GSM) and Direct Max Flux (DMF),
 - _optionally_ optimizes **transition states**, runs **vibrational analysis**, **IRC calculations**, and **single-point DFT calculations**.
 
-At the ML stage, the reactive region uses a machine-learned interatomic potential (MLIP). The default backend is UMA (Meta's FAIR-Chem); alternative backends include ORB, MACE, and AIMNet2 (selected via `-b/--backend`). The MM region uses `hessian_ff`, a C++ native extension that computes Amber force field energies, forces, and Hessians. The total energy follows an ONIOM-like decomposition:
+At the ML stage, the reactive region uses a machine learning interatomic potential (MLIP). The default backend is UMA (Meta's FAIR-Chem); alternative backends include ORB, MACE, and AIMNet2 (selected via `-b/--backend`). The MM region uses `hessian_ff`, a bundled C++ native extension that computes Amber force field energies, forces, and Hessians. The total energy follows an ONIOM-like decomposition:
 
 ```
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
@@ -32,7 +32,7 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 
 where REAL is the full system, MODEL is the ML region, "high" is the selected MLIP backend (default: UMA), and "low" is `hessian_ff`.
 
-The CLI is designed to generate **multi-step enzymatic reaction mechanisms** with minimal manual intervention. The same workflow also works for small-molecule systems. When you skip pocket extraction (omit `--center/-c` and `--ligand-charge`), you can also use `.xyz` or `.gjf` inputs.
+The CLI is designed to generate **multi-step enzymatic reaction mechanisms** with minimal manual intervention. The same workflow also works for small-molecule systems. When you skip pocket extraction (omit `--center/-c` and `--ligand-charge`), you can also use `.xyz` inputs.
 
 ```{important}
 - Input PDB files must already contain **hydrogen atoms**.
@@ -279,13 +279,13 @@ The default MLIP backend is UMA. Use `-b/--backend` to switch to an alternative 
 
 ```bash
 # Use ORB backend
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
+mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
 
 # Use MACE backend
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
+mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
 
 # Enable xTB point-charge embedding
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
+mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
 ```
 
 ---
@@ -293,8 +293,8 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
 ## Quickstart routes (recommended)
 
 - [Quickstart: run `mlmm all`](quickstart_all.md)
-- [Quickstart: run `mlmm scan` with `-s` (YAML spec)](quickstart_scan_spec.md)
-- [Quickstart: validate TS with `mlmm tsopt` -> `mlmm freq`](quickstart_tsopt_freq.md)
+- [Quickstart: run `mlmm scan`](quickstart_scan_spec.md)
+- [Quickstart: validate TS with `mlmm tsopt`](quickstart_tsopt_freq.md)
 
 ---
 
@@ -303,7 +303,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
 The `mlmm all` command orchestrates a multi-step pipeline. When run individually, the typical workflow is:
 
 ```text
-1. extract - Extract active-site pocket from full protein-ligand PDB
+1. extract - Define ML region from full protein-ligand PDB
 2. mm-parm - Generate Amber parm7/rst7 topology (requires AmberTools)
 3. define-layer - Assign 3-layer ML/MM partitioning (B-factor encoding)
 4. path-search - Recursive MEP search (Growing String Method)
@@ -328,14 +328,14 @@ mlmm [OPTIONS]...
 mlmm all [OPTIONS]...
 ```
 
-The `all` command runs the full pipeline -- cluster extraction, MM parameterization, layer definition, MEP search, TS optimization, vibrational analysis, and optional DFT -- in a single invocation.
+The `all` command runs the full pipeline -- ML region extraction, MM parameterization, layer definition, MEP search, TS optimization, vibrational analysis, and optional DFT -- in a single invocation.
 
-All high-level workflows share two important options when you use cluster extraction:
+All high-level workflows share two important options when you use ML region extraction:
 
 - `-i/--input`: one or more **full structures** (reactant, intermediate(s), product).
 - `-c/--center`: how to define the **substrate / extraction center** (e.g., residue names or residue IDs).
 
-If you omit `--center/-c`, cluster extraction is skipped and the **full input structure** is used directly.
+If you omit `--center/-c`, ML region extraction is skipped and the **full input structure** is used directly.
 
 ---
 
@@ -360,11 +360,11 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./res
 Behavior:
 
 - takes two or more **full systems** in reaction order,
-- extracts catalytic cluster models for each structure,
+- defines the ML region for each structure,
 - generates Amber parm7/rst7 topology and assigns 3-layer ML/MM partitioning,
 - performs a **recursive MEP search** via `path-search` by default (outputs under `path_search/`),
 - optionally switches to a **single-pass** `path-opt` run with `--no-refine-path`,
-- when PDB templates are available, merges the cluster-model MEP back into the **full system**,
+- when PDB templates are available, merges the ML-region MEP back into the **full system**,
 - optionally runs TS optimization, vibrational analysis, and single-point DFT calculations for each segment.
 
 This is the recommended mode when you can generate reasonably spaced intermediates (e.g., from docking, MD, or manual modeling).
@@ -377,7 +377,7 @@ This is the recommended mode when you can generate reasonably spaced intermediat
 
 ### Single-structure + staged scan (feeds MEP refinement)
 
-Use this when you only have **one PDB structure**, but you know which inter-atomic distances should change along the reaction.
+Use this when you prefer to define reaction coordinates yourself, rather than providing multiple endpoint structures.
 
 Provide a single `-i` together with `--scan-lists`:
 
@@ -390,15 +390,15 @@ mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 3
 **Richer example**
 
 ```bash
-mlmm -i SINGLE.pdb -c 'SAM,GPP' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]' --multiplicity 1 --out-dir ./result_scan_all --tsopt --thermo --dft
+mlmm -i SINGLE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]' --multiplicity 1 --out-dir ./result_scan_all --tsopt --thermo --dft
 ```
 
 Key points:
 
-- `--scan-lists` describes **staged distance scans** on the extracted cluster model.
+- `--scan-lists` describes **staged distance scans** on the extracted ML region.
 - Each tuple `(i, j, target_A)` is:
  - a PDB atom selector string like `'TYR,285,CA'` (**delimiters can be: space/comma/slash/backtick/backslash ` ` `,` `/` `` ` `` `\`**) **or** a 1-based atom index,
- - automatically remapped to the cluster-model indices.
+ - automatically remapped to the ML region indices.
 - Supplying one `--scan-lists` literal runs a single scan stage; multiple literals run sequential stages. Pass multiple literals after a single flag (repeated flags are not accepted).
 - Each stage writes a `stage_XX/result.pdb`, which is treated as a candidate intermediate or product.
 - The default `all` workflow refines the concatenated stages with recursive `path-search`.
@@ -429,7 +429,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 Behavior:
 
 - skips the MEP/path search entirely,
-- optimizes the **cluster-model TS** with TS optimization,
+- optimizes the **ML/MM TS** with TS optimization,
 - runs an **IRC** in both directions and optimizes both ends to relax down to R and P minima,
 - can then perform `freq` and `dft` on the R/TS/P,
 - produces MLIP, Gibbs, and DFT//MLIP energy diagrams.
@@ -493,7 +493,7 @@ Most users will primarily call `mlmm all`. The CLI also exposes individual subco
 | Subcommand | Role | Documentation |
 |------------|------|---------------|
 | `all` | End-to-end workflow | [all](all.md) |
-| `extract` | Extract active-site pocket (cluster model) | [extract](extract.md) |
+| `extract` | Define ML region (QM region) | [extract](extract.md) |
 | `mm-parm` | Generate Amber parm7/rst7 topology | [mm_parm](mm_parm.md) |
 | `define-layer` | Assign 3-layer ML/MM partitioning | [define_layer](define_layer.md) |
 | `opt` | Geometry optimization | [opt](opt.md) |
@@ -533,10 +533,10 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
  --tsopt --thermo --dft
 
 # Single structure with staged scan
-mlmm -i SINGLE.pdb -c 'LIG' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
+mlmm -i SINGLE.pdb -c 'LIG' -l 'LIG:-1' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
 
 # TS-only optimization
-mlmm -i TS.pdb -c 'LIG' --tsopt --thermo
+mlmm -i TS.pdb -c 'LIG' -l 'LIG:-1' --tsopt --thermo
 
 # Individual subcommands (after running extract + mm-parm + define-layer)
 mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
@@ -548,7 +548,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 | Option | Purpose |
 |--------|---------|
 | `-i` | Input structure(s) |
-| `-c` | Substrate definition for pocket extraction |
+| `-c` | Substrate definition for ML region extraction |
 | `-l, --ligand-charge` | Substrate charges (e.g., `'SAM:1,GPP:-3'`) |
 | `--parm` | Amber parm7 topology file (required for subcommands) |
 | `--model-pdb` | ML region PDB file (required for subcommands) |

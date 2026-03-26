@@ -82,7 +82,6 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
-| `--radius-partial-hessian FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。`--detect-layer` と併用可。エイリアス: `--hess-cutoff`。 | _None_ |
 | `--radius-freeze FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える原子は凍結。指定時は `--detect-layer` が無効化。エイリアス: `--movable-cutoff`。 | _None_ |
 | `--dist-freeze TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
 | `--one-based / --zero-based` | `--dist-freeze` のインデックス規約。 | 1 始まり |

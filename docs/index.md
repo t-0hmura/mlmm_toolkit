@@ -2,7 +2,7 @@
 
 *Version: v0.2.5*
 
-**mlmm-toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using ML/MM (machine-learning / molecular mechanics) methods.
+**mlmm-toolkit** is a Python CLI toolkit for automated enzymatic reaction-path modeling using ML/MM (machine learning / molecular mechanics) methods.
 
 ```{toctree}
 :maxdepth: 2
@@ -127,16 +127,16 @@ ja/glossary
 | Objectives | Command | Guide |
 |-------------------------|---------|-------|
 | First run (end-to-end) | `mlmm all` | [Quickstart: all](quickstart_all.md) |
-| Single-structure staged scan (`-s`) | `mlmm scan` | [Quickstart: scan with spec](quickstart_scan_spec.md) |
-| TS validation (`tsopt` -> `freq`) | `mlmm tsopt`, `mlmm freq` | [Quickstart: tsopt -> freq](quickstart_tsopt_freq.md) |
+| Single-structure staged scan (`-s`) | `mlmm scan` | [Quickstart: scan](quickstart_scan_spec.md) |
+| TS validation (`tsopt` + vibrational analysis) | `mlmm tsopt` | [Quickstart: tsopt](quickstart_tsopt_freq.md) |
 | Run complete reaction path search from PDB | `mlmm all` | [all.md](all.md) |
 | View current configuration | `mlmm opt --show-config` | [YAML Reference](yaml_reference.md) |
 | Extract QM region from protein-ligand complex | `mlmm extract` | [extract.md](extract.md) |
 | Build MM topology (parm7/rst7) | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
 | Define ML/MM layers | `mlmm define-layer` | [define_layer.md](define_layer.md) |
 | Optimize a single structure | `mlmm opt` | [opt.md](opt.md) |
-| Find and optimize a transition state | `mlmm tsopt` | [tsopt.md](tsopt.md) |
-| Search for minimum energy path | `mlmm path-search` | [path_search.md](path_search.md) |
+| Find transition state candidate via MEP search | `mlmm path-search` | [path_search.md](path_search.md) |
+| Optimize a transition state candidate | `mlmm tsopt` | [tsopt.md](tsopt.md) |
 | Run IRC from a transition state | `mlmm irc` | [irc.md](irc.md) |
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export` | [oniom_export.md](oniom_export.md) |
@@ -155,13 +155,12 @@ ja/glossary
 ### Main Workflow
 | Subcommand | Description |
 |------------|-------------|
-| [`all`](all.md) | End-to-end workflow: extraction -> MM parm -> MEP -> TS optimization -> IRC -> freq -> DFT |
-| [`init`](init.md) | *(Removed)* Previously generated a starter YAML template |
+| [`all`](all.md) | End-to-end workflow: ML/MM model setup -> MEP search -> TS optimization -> IRC -> freq -> DFT |
 
 ### Structure Preparation
 | Subcommand | Description |
 |------------|-------------|
-| [`extract`](extract.md) | Extract active-site pocket (cluster model) from protein-ligand complex |
+| [`extract`](extract.md) | Define ML region (QM region) from protein-ligand complex |
 | [`add-elem-info`](add_elem_info.md) | Repair PDB element columns (77-78) |
 | [`mm-parm`](mm_parm.md) | Build AMBER topology (parm7/rst7) with tleap + GAFF2 |
 | [`define-layer`](define_layer.md) | Define 3-layer ML/MM regions via B-factor annotation |
@@ -263,13 +262,13 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 mlmm uses a 3-layer partitioning scheme encoded via PDB B-factors:
 - **ML region** (B=0.0): Treated with the selected MLIP backend (default: UMA)
 - **Movable-MM** (B=10.0): MM atoms that move during optimization
-- **Frozen** (B=20.0): Fixed MM atoms
+- **Frozen** (B=20.0): Fixed MM atoms that provide a static potential field. Their coordinates do not change during optimization, but their non-bonded interactions (electrostatics and van der Waals) with the Movable-MM and ML regions are still included in the MM energy evaluation.
 
 Hessian-target MM atoms are selected by calculator options (`hess_cutoff` / explicit lists), not by a dedicated B-factor layer.
 
 ### Charge and spin
 - Use `--ligand-charge` to specify unknown residue charges: `'SAM:1,GPP:-3'`
-- Use `-q/--charge` to set the ML-region total charge
+- Use `-q/--charge` to set the ML-region net charge
 - Spin multiplicity is set with `-m/--multiplicity` (default `1`)
 
 ### Boolean options
@@ -279,7 +278,7 @@ Boolean CLI options use toggle form (`--flag` / `--no-flag`):
 ```
 
 ### YAML configuration
-See the [YAML Reference](yaml_reference.md) for all options.
+See the [YAML Reference](yaml_reference.md) for detailed options.
 
 ---
 
@@ -291,7 +290,7 @@ result_all/
 ├── ml_region.pdb # ML-region definition
 ├── summary.log # Human-readable summary
 ├── summary.yaml # Machine-readable summary
-├── pockets/ # Extracted cluster models
+├── pockets/ # ML region structures determined by extract
 ├── mm_parm/ # AMBER topology files
 ├── scan/ # (Optional) scan results
 ├── path_search/ # MEP trajectories and diagrams

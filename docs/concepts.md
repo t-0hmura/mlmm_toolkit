@@ -1,6 +1,6 @@
 # Concepts & Workflow
 
-This page explains the key terms in mlmm-toolkit -- pockets, templates, segments, images, and the ML/MM 3-layer system -- and how the `all` command ties together the subcommands.
+This page explains the key terms in mlmm-toolkit -- the ML/MM 3-layer system, ONIOM decomposition, segments, images, and templates -- and how the `all` command ties together the subcommands.
 
 ---
 
@@ -9,18 +9,18 @@ This page explains the key terms in mlmm-toolkit -- pockets, templates, segments
 Most workflows follow this flow:
 
 ```text
-Full system(s) (PDB/XYZ/GJF)
+Full system(s) (PDB/XYZ)
  |
- +- (optional) pocket extraction [extract] <- requires PDB when you use --center/-c
+ +- ML region definition [extract] <- requires PDB when you use --center/-c
  | |
- | Pocket/cluster model(s) (PDB)
+ | ML region structure(s) (PDB)
  | |
  | +- Amber topology [mm-parm] <- generates parm7/rst7 via AmberTools
  | | |
  | +- 3-layer assignment [define-layer] <- B-factor encoding for ML/MM layers
  | | |
  | | v
- | | Layered ML/MM system (PDB with B-factors)
+ | | ML/MM system (PDB with B-factors)
  | | |
  | +- (optional) staged scan [scan] <- single-structure workflows
  | | |
@@ -32,7 +32,7 @@ Full system(s) (PDB/XYZ/GJF)
  | MEP trajectory (mep_trj.xyz) + energy diagrams
  |
  +- (optional) TS optimization + IRC [tsopt] -> [irc]
- +- (optional) thermo [freq]
+ +- (optional) thermochemical analysis [freq] to obtain ΔG
  +- (optional) single-point DFT [dft]
 ```
 
@@ -100,10 +100,10 @@ When `--embedcharge` is enabled, an xTB point-charge embedding correction is app
 
 When the ML/MM boundary cuts a covalent bond, a **link hydrogen atom** is inserted to cap the dangling bond in the model (ML) system. Two placement methods are available via `--link-atom-method`:
 
-| Method | Placement | Jacobian |
-|--------|-----------|----------|
-| **scaled** (g-factor) | `r_L = r_QM + g·(r_MM − r_QM)` where `g = (CR_QM + CR_H)/(CR_QM + CR_MM)` | Constant: `[(1−g)I₃; gI₃]` |
-| **fixed** | `r_L = r_QM + d·û` where `d` = 1.09 Å (C) / 1.01 Å (N), `û` = unit vector toward MM | Geometry-dependent; B-matrix correction needed |
+| Method | Placement | Recommended |
+|--------|-----------|-------------|
+| **scaled** (g-factor, default) | `r_L = r_QM + g·(r_MM − r_QM)` where `g = (CR_QM + CR_H)/(CR_QM + CR_MM)` | Yes (smooth PES, constant Jacobian) |
+| **fixed** | `r_L = r_QM + d·û` where `d` = 1.09 Å (C) / 1.01 Å (N), `û` = unit vector toward MM | No (geometry-dependent Jacobian) |
 
 The default is **scaled** (Morokuma–Dapprich g-factor), the same method used in Gaussian ONIOM. The link atom position scales linearly with the QM–MM distance, producing a smooth PES and a constant Jacobian (no second-derivative correction needed). The **fixed** method places the link hydrogen at a fixed distance along the bond axis regardless of QM–MM distance.
 
@@ -137,9 +137,10 @@ repeat until converged:
 | **Optimizer** | RFO (explicit Hessian, BFGS-updated) | L-BFGS (Hessian-free, from scratch each cycle) |
 | **Convergence** | `--thresh` (default: `gau`) | `--micro-thresh` (default: same as `--thresh`) |
 
-### Why link-atom MM parents move in the macro step
-
+```{note}
+**Why link-atom MM parents move in the macro step:**
 Link-atom MM parent atoms are included in the macro optimization set to maintain consistency at the ML/MM boundary. When using the scaled (g-factor) link atom method, `r_L = (1−g)·r_QM + g·r_MM` couples the link atom position to **both** the QM and MM parents. If the MM parent moved during the micro step (under MM-only forces with no ML contribution), the link atom position would shift between cycles, creating energy oscillation in the macro step. Freezing the MM parents during the micro step and moving them with the ML atoms in the macro step eliminates this coupling mismatch.
+```
 
 ### Convergence thresholds
 
@@ -152,7 +153,7 @@ pysisyphus provides several preset thresholds (units: Hartree/Bohr for forces, B
 | `gau_tight` | 1.5×10⁻⁵ | 1.0×10⁻⁵ | 6.0×10⁻⁵ | 4.0×10⁻⁵ |
 | `baker` | 3.0×10⁻⁴ | 2.0×10⁻⁴ | 3.0×10⁻⁴ | 2.0×10⁻⁴ |
 
-When gradient criteria are exceeded by `overachieve_factor` (default 3), convergence is declared regardless of step criteria.
+`overachieve_factor` is a convergence shortcut: when `max(force)` and `rms(force)` are both below `threshold / overachieve_factor`, convergence is declared even if the step-size criteria have not yet been met. In the default configuration, `overachieve_factor` is set to **0.0** (disabled) for the main optimizer (opt/tsopt macro steps). It is only active inside the **microiteration** MM relaxation loop (`LayerOpt`, where it is set to 3). Users can enable it for the main optimizer via YAML (`overachieve_factor: 3`).
 
 Enable microiteration with `--microiter` (default for `--opt-mode hess`):
 
@@ -165,13 +166,14 @@ mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter 
 
 ## hessian_ff: the MM engine
 
-`hessian_ff` is a C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. It reads Amber parm7/rst7 topology files and supports:
+`hessian_ff` is a C++ native extension that evaluates Amber force field energies, forces, and especially **analytical Hessians**. It reads Amber parm7/rst7 topology files and supports:
 
 - Bond, angle, dihedral, and improper terms
 - Van der Waals (Lennard-Jones) interactions
 - Electrostatic interactions
 - Analytical second derivatives (Hessian)
 - CPU execution (GPU memory is reserved for MLIP inference)
+- CMAP torsion corrections (implemented but disabled by default, as in Gaussian)
 
 Unlike OpenMM, `hessian_ff` is designed specifically for providing the **MM Hessian** needed by the ONIOM-like coupling and vibrational analysis.
 
@@ -179,10 +181,10 @@ Unlike OpenMM, `hessian_ff` is designed specifically for providing the **MM Hess
 
 ## Amber parm7/rst7 topology
 
-The MM calculation requires Amber topology files:
+The internal MM calculation requires Amber topology files:
 
 - **parm7** (parameter/topology file): Contains atom types, charges, bonding connectivity, and force field parameters.
-- **rst7** (restart/coordinate file): Contains atomic coordinates.
+- **rst7** (restart/coordinate file): Contains atomic coordinates. (Not directly specified by users; mlmm reads coordinates from the input PDB.)
 
 These are generated by the [`mm-parm`](mm_parm.md) subcommand using **AmberTools** (tleap, antechamber, parmchk2). The command automatically:
 
@@ -195,11 +197,11 @@ These are generated by the [`mm-parm`](mm_parm.md) subcommand using **AmberTools
 
 ## Key objects and terms
 
-### Full system vs. pocket (cluster model)
+### Full system vs. ML region
 - **Full system**: your original structure(s). In enzyme use-cases this is typically a protein-ligand complex.
-- **Pocket / cluster model**: a truncated structure around the substrate(s) used to reduce system size for MEP/TS search.
+- **ML region**: the reactive region treated with the MLIP backend. Defined by the `extract` subcommand based on distance from specified substrates.
 
-Pocket extraction is controlled by:
+ML region definition is controlled by:
 - `-c/--center`: how to locate the substrate (residue IDs, residue names, or a substrate-only PDB).
 - `-r/--radius`, `--radius-het2het`, `--include-H2O`, `--exclude-backbone`, `--add-linkH`, `--selected-resn`.
 
@@ -208,13 +210,12 @@ Pocket extraction is controlled by:
 - **Model system**: the ML region (Layer 1 only). Evaluated at both the MLIP (high) and MM (low) levels.
 
 ### Images and segments
-- **Image**: a single geometry (one "node") along a chain-of-states path.
+- **Image**: a single geometry (one "node") along a chain-of-states path in Minimum Energy Path (MEP) search methods such as the Growing String Method (GSM).
 - **Segment**: an MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2,...). A multi-structure run is decomposed into segments.
 
 ### Templates and file conversion (`--convert-files`)
-`mlmm-toolkit` often writes a **trajectory** (e.g., `mep_trj.xyz`, `irc_trj.xyz`). When you supply topology-aware inputs (PDB templates or Gaussian inputs), it can optionally write companion files:
+`mlmm-toolkit` often writes a **trajectory** (e.g., `mep_trj.xyz`, `irc_trj.xyz`). When you supply topology-aware inputs (PDB templates), it can optionally write companion files:
 - `.pdb` companions when a PDB template exists
-- `.gjf` companions when a Gaussian template exists
 
 This behavior is controlled globally by `--convert-files/--no-convert-files` (default: `True`).
 
@@ -232,7 +233,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 ### 2) Single-structure staged scan -> MEP
-Use this when you only have **one** structure, but you can define a scan that generates endpoints.
+Use this when you prefer to define reaction coordinates yourself, rather than providing multiple endpoint structures.
 
 Typical command:
 
@@ -241,7 +242,7 @@ mlmm -i holo.pdb -c '308,309' \
  --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]'
 ```
 
-### 3) TSOPT-only mode (pocket TS optimization)
+### 3) TSOPT-only mode (ML/MM TS optimization)
 Use this when you already have a TS candidate (or want a quick TS optimization on one structure).
 
 Typical command:
@@ -255,11 +256,11 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 ## When to use `all` vs individual subcommands
 
 ### Prefer `mlmm all` when...
-- You want an **end-to-end** run (extract -> mm-parm -> define-layer -> MEP -> TSOPT/IRC -> freq/DFT).
+- You want an **end-to-end** run (ML/MM model setup -> MEP search -> TSOPT/IRC -> freq/DFT).
 - You are still exploring the workflow and want a single command to manage outputs.
 
 ### Prefer subcommands when...
-- You want to **debug** a specific stage (e.g., only [`extract`](extract.md), only `mm-parm`, only [`path-search`](path_search.md)).
+- You want to run each stage step by step, verifying results at each point. For complex reactions, this approach often works better than running everything at once.
 - You want to mix-and-match a custom workflow (e.g., your own endpoint preparation).
 - You already have parm7/rst7 and layer-assigned PDB files from a previous run.
 - You want to generate Gaussian/ORCA ONIOM input files via `oniom-export --mode g16|orca`.
@@ -288,7 +289,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
 | Subcommand | Purpose | Documentation |
 |------------|---------|---------------|
 | `all` | End-to-end workflow | [all.md](all.md) |
-| `extract` | Pocket extraction | [extract.md](extract.md) |
+| `extract` | ML region definition | [extract.md](extract.md) |
 | `mm-parm` | Amber topology generation | [mm_parm.md](mm_parm.md) |
 | `define-layer` | 3-layer assignment | [define_layer.md](define_layer.md) |
 | `path-search` | Recursive MEP search | [path_search.md](path_search.md) |
