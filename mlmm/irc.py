@@ -276,6 +276,14 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help="Read initial Hessian from a .npz file (produced by 'mlmm freq --dump-hess'). "
          "Takes priority over the hessian_cache and fresh computation.",
 )
+@click.option(
+    "--freeze-atoms",
+    "freeze_atoms_text",
+    type=str,
+    default=None,
+    show_default=False,
+    help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -285,6 +293,7 @@ def cli(
     model_indices_str: Optional[str],
     model_indices_one_based: bool,
     detect_layer: bool,
+    freeze_atoms_text: Optional[str],
     charge: Optional[int],
     ligand_charge: Optional[str],
     spin: Optional[int],
@@ -437,7 +446,12 @@ def cli(
             calc_cfg["return_partial_hessian"] = True
 
         # Normalize any existing freeze list from YAML before wiring it to UMA
-        merge_freeze_atom_indices(geom_cfg)
+        if freeze_atoms_text:
+            from .opt import _parse_freeze_atoms
+            freeze_cli = _parse_freeze_atoms(freeze_atoms_text)
+            merge_freeze_atom_indices(geom_cfg, freeze_cli)
+        else:
+            merge_freeze_atom_indices(geom_cfg)
         calc_cfg["freeze_atoms"] = list(geom_cfg.get("freeze_atoms", []))
         from .opt import _convert_yaml_layer_atoms_1to0
         _convert_yaml_layer_atoms_1to0(calc_cfg)

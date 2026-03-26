@@ -459,7 +459,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         freeze_atoms_list = []
     if freeze_atoms_list:
         lines.append(
-            "Freeze atoms: " + ",".join(str(i + 1) for i in freeze_atoms_list)
+            "Freeze atoms (1-based): " + ",".join(str(i + 1) for i in freeze_atoms_list)
         )
     lines.append("")
 
