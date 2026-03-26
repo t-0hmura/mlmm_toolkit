@@ -135,7 +135,7 @@ out_dir/ (デフォルト:./result_path_search/)
 
 YAML ルートはマッピングでなければなりません。受け付けるセクション:
 
-- **`geom`** -- `coord_type`（デフォルト `"cart"`）、`freeze_atoms`（0 始まりインデックス）。
+- **`geom`** -- `coord_type`（デフォルト `"cart"`）、`freeze_atoms`（1 始まりインデックス）。
 - **`calc` / `mlmm`** -- ML/MM 計算機設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、バックエンド選択（`backend`、`embedcharge`）、UMA 制御（`uma_model`、`uma_task_name`、`hessian_calc_mode`）、デバイス選択、凍結原子。
 - **`gs`** -- Growing String 設定: `max_nodes`、`climb`、`climb_rms`、`climb_fixed`、`reparam_every_full`、`reparam_check`。
 - **`opt`** -- StringOptimizer 制御: `max_cycles`、`print_every`、`dump`、`dump_restart`、`out_dir`。

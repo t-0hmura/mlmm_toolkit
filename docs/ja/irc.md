@@ -130,7 +130,7 @@ out_dir/ (デフォルト: ./result_irc/)
 ```yaml
 geom:
  coord_type: cart                  # irc では cart に強制（YAML 値は無視）
- freeze_atoms: []                  # 0 始まり凍結原子（CLI/リンク検出とマージ）
+ freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
 calc:
  charge: 0                         # 総電荷（CLI 上書き）
  spin: 1                           # スピン多重度 2S+1

@@ -93,9 +93,9 @@ calc:
  hess_cutoff: null # Å: Hessian 対象 MM の距離カットオフ
  movable_cutoff: null # Å: movable MM の距離カットオフ
  use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り
- hess_mm_atoms: null # 明示的 Hessian 対象 MM 原子インデックス (0始まり)
- movable_mm_atoms: null # 明示的 movable MM 原子インデックス (0始まり)
- frozen_mm_atoms: null # 明示的 frozen MM 原子インデックス (0始まり)
+ hess_mm_atoms: null # 明示的 Hessian 対象 MM 原子インデックス (1始まり)
+ movable_mm_atoms: null # 明示的 movable MM 原子インデックス (1始まり)
+ frozen_mm_atoms: null # 明示的 frozen MM 原子インデックス (1始まり)
 ```
 
 **注記:**

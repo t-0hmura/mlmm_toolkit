@@ -235,7 +235,7 @@ out_dir/ (デフォルト:./result_scan/)
 ## YAML 設定
 
 - `coord_type`: 座標タイプ（デカルト vs dlc 内部座標）。
-- `freeze_atoms`: CLI `--freeze-atoms` とマージされる 0 始まり凍結原子。
+- `freeze_atoms`: CLI `--freeze-atoms` とマージされる 1 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`
 - ML/MM 計算機の設定: `charge`、`spin`、`backend`、`embedcharge`、MLIP モデル設定、`device`、近傍半径、ヘシアンオプション等。
