@@ -495,7 +495,9 @@ def format_freeze_atoms_for_echo(
     except TypeError:
         return g
 
-    g[key] = _summarize_atom_indices(items)
+    # Display as 1-based (internal is 0-based)
+    items_1based = [i + 1 for i in items]
+    g[key] = _summarize_atom_indices(items_1based)
     return g
 
 
