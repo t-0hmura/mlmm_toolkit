@@ -54,7 +54,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 ### Examples
 
 ```bash
-# Minimal pocket-only MEP between two states
+# Minimal ML-region-only MEP between two states
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0
 
@@ -87,7 +87,7 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors (B=0/10/20). If disabled, you must provide `--model-pdb` or `--model-indices`. | `True` |
-| `-q, --charge INT` | Charge of the ML region (integer). | Required |
+| `-q, --charge INT` | Net charge of the ML region (integer). | Required |
 | `-l, --ligand-charge TEXT` | Per-residue charge map, e.g. `SAM:1,PHN:-1`. Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--mep-mode [gsm\|dmf]` | MEP backend for segment/bridge searches. | `gsm` |

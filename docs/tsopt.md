@@ -82,8 +82,8 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors. | `True` |
-| `-q, --charge INT` | Total charge of the ML region. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
+| `-q, --charge INT` | Net charge of the ML region. | _None_ (required unless `-l` is given) |
+| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | _None_ (defaults to 1) |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--radius-hessian, --hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. `0.0` means ML-only partial Hessian. | `0.0` |
@@ -133,7 +133,7 @@ geom:
  coord_type: cart                  # coordinate type: cartesian vs dlc internals
  freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
 calc:
- charge: 0                         # total charge (CLI override)
+ charge: 0                         # net charge (CLI override)
  spin: 1                           # spin multiplicity 2S+1
 mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
@@ -232,6 +232,6 @@ rsirfo:
 - [opt](opt.md) -- Single-structure geometry optimization
 - [freq](freq.md) -- Confirm a single imaginary frequency for the validated TS
 - [irc](irc.md) -- Trace the reaction path from an optimized TS
-- [all](all.md) -- End-to-end workflow that chains extraction -> MEP -> tsopt -> IRC -> freq
+- [all](all.md) -- End-to-end workflow that chains ML/MM model setup -> MEP search -> tsopt -> IRC -> freq
 - [YAML Reference](yaml_reference.md) -- Full `hessian_dimer` (Hessian Guided Dimer) and `rsirfo` configuration options
 - [Glossary](glossary.md) -- Definitions of TS, Dimer, RS-I-RFO, Hessian

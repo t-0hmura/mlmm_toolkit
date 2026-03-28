@@ -152,7 +152,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors. | `True` |
-| `-q, --charge INT` | ML-region total charge. | _None_ (required unless `-l` or `--csv` is given) |
+| `-q, --charge INT` | ML-region net charge. | _None_ (required unless `-l` or `--csv` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |

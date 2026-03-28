@@ -94,7 +94,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
    - Define the substrate (`-c/--center`, by PDB, residue IDs, or residue names).
    - Optionally provide `--ligand-charge` as a total number (distributed) or a mapping (e.g., `GPP:-3,MMT:-1`).
    - The extractor writes per-input pocket PDBs under `<out-dir>/pockets/`. The first pocket is copied as `<out-dir>/ml_region.pdb` to define the ML region for all subsequent ML/MM calculations.
-   - The extractor's **first-model total pocket charge** is used as the total charge in later steps, cast to the nearest integer with a console note if rounding occurs.
+   - The extractor's **first-model net ML-region charge** is used as the net ML-region charge in later steps, cast to the nearest integer with a console note if rounding occurs.
    - Additional extractor toggles: `--radius`, `--radius-het2het`, `--include-H2O/--no-include-H2O`, `--exclude-backbone/--no-exclude-backbone`, `--add-linkH/--no-add-linkH`, `--selected-resn`, `--verbose/--no-verbose`.
    - If `-c/--center` is omitted, extraction is skipped and full input structures are used directly.
 
@@ -157,10 +157,10 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `-i, --input PATH...` | Two or more full PDBs in reaction order (single input allowed with `--scan-lists` or `--tsopt`). | Required |
 | `-c, --center TEXT` | Substrate specification (PDB path, residue IDs, or residue names). Omit to skip extraction. | _None_ |
 | `-l, --ligand-charge TEXT` | Total charge or residue-specific mapping (e.g., `GPP:-3,MMT:-1`). | _None_ |
-| `-q, --charge INT` | Force total system charge (highest priority override). | _None_ |
+| `-q, --charge INT` | Force net system charge (highest priority override). | _None_ |
 | `-o, --out-dir PATH` | Top-level output directory. | `./result_all/` |
 | `--parm FILE` | AMBER parm7 topology file for the full (real) system. When omitted, `all` auto-generates one via `mm_parm`. | _None_ |
-| `--model-pdb FILE` | Pre-built ML-region PDB. When provided, pocket extraction is skipped and this file defines the ML region directly. | _None_ |
+| `--model-pdb FILE` | Pre-built ML-region PDB. When provided, ML-region determination is skipped and this file defines the ML region directly. | _None_ |
 | `--ref-pdb FILE` | Reference PDB for XYZ input. Required when the input is XYZ so that PDB metadata (residues, chains, B-factors) can be recovered. | _None_ |
 | `--convert-files/--no-convert-files` | Global toggle for XYZ/TRJ to PDB companions when templates are available. | `True` |
 | `--dump/--no-dump` | Save optimizer dumps. Always forwarded to `path-search`/`path-opt`; forwarded to `scan`/`tsopt` only when explicitly set here. `freq` defaults to dump=True unless you pass `--no-dump`. | `False` |
@@ -261,7 +261,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 
 ```text
 <out-dir>/
- ml_region.pdb                         # ML-region definition (copy of the first pocket)
+ ml_region.pdb                         # ML-region definition (copy of the first determined ML region)
  pockets/
   pocket_<input1_basename>.pdb
   pocket_<input2_basename>.pdb
@@ -371,7 +371,7 @@ For a complete reference of all YAML options, see **[YAML Configuration Referenc
 
 ## See Also
 
-- [extract](extract.md) -- Standalone pocket extraction (called internally by `all`)
+- [extract](extract.md) -- Standalone ML-region determination (called internally by `all`)
 - [mm_parm](mm_parm.md) -- Build AMBER topology (called internally by `all`)
 - [path-search](path_search.md) -- Standalone recursive MEP search
 - [tsopt](tsopt.md) -- Standalone TS optimization

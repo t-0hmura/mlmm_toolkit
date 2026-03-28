@@ -79,7 +79,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices-one-based / --model-indices-zero-based` | Index convention for `--model-indices`. | 1-based |
 | `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors (0/10/20). | Enabled |
 | `-q, --charge INT` | Charge of the ML region. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
+| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
 | `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. Alias: `--movable-cutoff`. | _None_ |
@@ -173,7 +173,7 @@ geom:
  coord_type: cart               # coordinate type: cartesian vs dlc internals
  freeze_atoms: []               # 1-based frozen atoms merged with CLI/link detection
 calc:
- charge: 0                      # total charge (CLI override)
+ charge: 0                      # net charge (CLI override)
  spin: 1                        # spin multiplicity 2S+1
 mlmm:
  real_parm7: real.parm7         # Amber parm7 topology for the full enzyme

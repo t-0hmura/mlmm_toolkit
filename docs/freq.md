@@ -64,7 +64,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors. | `True` |
 | `-q, --charge INT` | ML region charge. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
+| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
 | `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
@@ -113,7 +113,7 @@ geom:
  coord_type: cart                  # coordinate type: cartesian vs dlc internals
  freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
 calc:
- charge: 0                         # total charge (CLI override)
+ charge: 0                         # net charge (CLI override)
  spin: 1                           # spin multiplicity 2S+1
 mlmm:
  real_parm7: real.parm7            # Amber parm7 topology

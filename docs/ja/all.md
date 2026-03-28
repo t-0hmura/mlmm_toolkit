@@ -94,7 +94,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
    - 基質を定義します（`-c/--center`、PDB、残基 ID、または残基名で指定）。
    - 任意で `--ligand-charge` を総数値（分配）またはマッピング（例: `GPP:-3,MMT:-1`）として提供します。
    - 抽出器は入力ごとのポケット PDB を `<out-dir>/pockets/` に書き出します。最初のポケットが `<out-dir>/ml_region.pdb` としてコピーされ、後続の全 ML/MM 計算の ML 領域を定義します。
-   - 抽出器の**最初のモデルのポケット総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
+   - 抽出器の**最初のモデルの ML 領域の総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
    - 追加の抽出トグル: `--radius`、`--radius-het2het`、`--include-H2O/--no-include-H2O`、`--exclude-backbone/--no-exclude-backbone`、`--add-linkH/--no-add-linkH`、`--selected-resn`、`--verbose/--no-verbose`。
    - `-c/--center` を省略した場合は抽出をスキップし、完全入力構造をそのまま使用します。
 
@@ -133,7 +133,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | 優先度 | ソース | 使用タイミング |
 |--------|--------|----------------|
 | 1 | `-q/--charge` | 明示的な CLI 上書き |
-| 2 | ポケット抽出 | `-c` 指定時（アミノ酸、イオン、`--ligand-charge` の合計） |
+| 2 | ML 領域決定 | `-c` 指定時（アミノ酸、イオン、`--ligand-charge` の合計） |
 | 3 | `-l, --ligand-charge` | 抽出スキップ時のフォールバック |
 | 4 | デフォルト | なし（未解決なら中断） |
 
@@ -160,7 +160,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `-q, --charge INT` | 総電荷を強制指定（最優先の上書き）。 | _None_ |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ。 | `./result_all/` |
 | `--parm FILE` | 全系の AMBER parm7 トポロジーファイル。省略時は `mm_parm` で自動生成。 | _None_ |
-| `--model-pdb FILE` | 構築済み ML 領域 PDB。指定時はポケット抽出をスキップし、このファイルで ML 領域を直接定義。 | _None_ |
+| `--model-pdb FILE` | 構築済み ML 領域 PDB。指定時は ML 領域決定をスキップし、このファイルで ML 領域を直接定義。 | _None_ |
 | `--ref-pdb FILE` | XYZ 入力用の参照 PDB。入力が XYZ の場合に PDB メタデータ（残基、鎖、B 因子）を復元するために必要。 | _None_ |
 | `--convert-files/--no-convert-files` | テンプレート利用可能時の XYZ/TRJ から PDB コンパニオンのグローバルトグル。 | `True` |
 | `--dump/--no-dump` | オプティマイザーダンプを保存。常に `path-search`/`path-opt` に転送。`scan`/`tsopt` にはここで明示設定時のみ転送。`freq` は明示的に `--no-dump` を指定しない限りデフォルトで dump=True。 | `False` |
@@ -372,7 +372,7 @@ dft:
 
 ## 関連項目
 
-- [extract](extract.md) -- 単独のポケット抽出（`all` が内部で呼び出し）
+- [extract](extract.md) -- 単独の ML 領域決定（`all` が内部で呼び出し）
 - [mm_parm](mm_parm.md) -- AMBER トポロジー構築（`all` が内部で呼び出し）
 - [path-search](path_search.md) -- 単独の再帰的 MEP 探索
 - [tsopt](tsopt.md) -- 単独の TS 最適化

@@ -144,7 +144,7 @@ When selecting by residue name, if multiple residues share the same name, **all*
 
 ## Charge Specification
 
-For PDB inputs, `--ligand-charge` lets you specify charges only for non-standard residues (substrates, cofactors, metal ions). The total system charge is then **automatically derived** by summing standard amino-acid charges, ion charges, and your ligand charges -- no need to manually count atoms across the entire complex. This is especially useful for large enzyme-substrate systems where the total charge is not obvious.
+For PDB inputs, `--ligand-charge` lets you specify charges only for non-standard residues (substrates, cofactors, metal ions). The net system charge is then **automatically derived** by summing standard amino-acid charges, ion charges, and your ligand charges -- no need to manually count atoms across the entire complex. This is especially useful for large enzyme-substrate systems where the net system charge is not obvious.
 
 ### Per-residue mapping (recommended)
 ```bash
@@ -154,13 +154,13 @@ For PDB inputs, `--ligand-charge` lets you specify charges only for non-standard
 
 ### Total charge override
 ```bash
--q 0 # Force total system charge to 0
--q -1 # Force total system charge to -1
+-q 0 # Force net system charge to 0
+-q -1 # Force net system charge to -1
 ```
 
 ### Charge resolution order
 1. `-q/--charge` (explicit CLI override) -- highest priority.
-2. Pocket extraction charge summary (sum of amino acids, ions, and `--ligand-charge`).
+2. ML-region determination charge summary (sum of amino acids, ions, and `--ligand-charge`).
 3. `--ligand-charge` fallback when extraction is skipped.
 4. Default: none (abort if unresolved).
 
@@ -240,9 +240,8 @@ The three tokens (residue name, residue number, atom name) can appear in any ord
 - Must have **element symbols** in columns 77-78 (use `mlmm add-elem-info` if missing)
 - Multiple PDBs must have **identical atoms in the same order** (only coordinates may differ)
 
-### XYZ and GJF files
-- Can be used when pocket extraction is skipped (omit `-c/--center`)
-- `.gjf` files can provide charge/spin defaults from embedded metadata
+### XYZ files
+- Can be used when ML-region determination is skipped (omit `-c/--center`)
 
 ### Amber topology files
 - `--parm`: Amber parm7 file containing force field parameters for the full system

@@ -62,8 +62,8 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed, e.g. `1-10,15`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer/--no-detect-layer` | Detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | `True` |
-| `-q, --charge INT` | Total charge; overrides `calc.charge` from YAML. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
+| `-q, --charge INT` | Net charge; overrides `calc.charge` from YAML. | _None_ (required unless `-l` is given) |
+| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1); overrides `calc.spin`. | `1` |
 | `--max-cycles INT` | Max number of IRC steps; overrides `irc.max_cycles`. | `125` |
 | `--step-size FLOAT` | Step length in Bohr (unweighted Cartesian); overrides `irc.step_length`. | `0.10` |
@@ -127,7 +127,7 @@ geom:
  coord_type: cart                  # forced to cart for irc (YAML value ignored)
  freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
 calc:
- charge: 0                         # total charge (CLI override)
+ charge: 0                         # net charge (CLI override)
  spin: 1                           # spin multiplicity 2S+1
 mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
