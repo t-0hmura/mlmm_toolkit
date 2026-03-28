@@ -66,7 +66,7 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 
 ### Added — Dependencies & Extras
 
-- **Optional backends**: `pip install "mlmm-toolkit[orb]"`, `"mlmm-toolkit[mace]"`, `"mlmm-toolkit[aimnet2]"`.
+- **Optional backends**: `pip install "mlmm-toolkit[orb]"`, `"mlmm-toolkit[aimnet2]"`. MACE requires a separate environment: `pip install mace-torch` (conflicts with `fairchem-core`).
 - **Optional DFT**: `pip install "mlmm-toolkit[dft]"` for PySCF + gpu4pyscf-cuda12x + CuPy.
 - **Optional PDBFixer**: `pip install "mlmm-toolkit[pdbfixer]"` for hydrogen addition.
 - **New core dependencies**: `click`, `torch_geometric`, `torch_scatter`, `pyparsing`, `tabulate`.

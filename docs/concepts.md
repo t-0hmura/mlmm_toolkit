@@ -248,7 +248,7 @@ Use this when you prefer to define reaction coordinates yourself, rather than pr
 Typical command:
 
 ```bash
-mlmm -i holo.pdb -c '308,309' \
+mlmm -i holo.pdb -c '308,309' -l 'MMT:-1' \
  --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]'
 ```
 
@@ -258,7 +258,7 @@ Use this when you already have a TS candidate (or want a quick TS optimization o
 Typical command:
 
 ```bash
-mlmm -i ts_guess.pdb -c 'SAM,GPP' --tsopt
+mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 ```
 
 ---
