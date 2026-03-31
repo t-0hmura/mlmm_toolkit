@@ -445,7 +445,7 @@ Fixes to try:
 ```bash
 pip install "mlmm-toolkit[orb]"      # ORB backend
 pip install "mlmm-toolkit[aimnet2]"  # AIMNet2 backend
-# MACE: pip uninstall fairchem-core && pip install mace-torch (separate env required)
+pip install "mlmm-toolkit[mace]"      # MACE backend
 ```
 
 ---

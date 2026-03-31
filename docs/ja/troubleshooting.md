@@ -463,7 +463,7 @@ ML/MM 系は純粋な MLIP 計算よりも一般的に大きいため、VRAM の
 ```bash
 pip install "mlmm-toolkit[orb]"      # ORB バックエンド
 pip install "mlmm-toolkit[aimnet2]"  # AIMNet2 バックエンド
-# MACE: pip uninstall fairchem-core && pip install mace-torch（別環境が必要）
+pip install "mlmm-toolkit[mace]"      # MACE バックエンド
 ```
 
 ---
