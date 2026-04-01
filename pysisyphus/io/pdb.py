@@ -33,32 +33,53 @@ NAME_MAP = {
     "hh": "H",
     "hd": "H",
     "hg": "H",
+    "hl": "H",
     "so": "Na",
 }
 FULL_NAME = {
     " sod",
     " cla",
     " cal",
+    " fe ",
+    " cu ",
+    " mn ",
+    " ni ",
+    " co ",
+    " br ",
+    " se ",
+    " si ",
 }
 
 
 def parse_atom_name(name):
     org_name = name
     assert len(name) == 4
-    name = name.lower()
+    name_lower = name.lower()
     # Cases like " SOD" require special handling. Sticking to the PDB specification (!)
     # and using only the first two characters would result in S (sulphur).
-    use_full_name = name in FULL_NAME
+    use_full_name = name_lower in FULL_NAME
     if not use_full_name:
-        name = name[:2]
-    stripped = STRIP_RE.sub("", name).lower()
+        candidate = name_lower[:2]
+    else:
+        candidate = name_lower
+    stripped = STRIP_RE.sub("", candidate).lower()
     if use_full_name:
         stripped = stripped[:2]
+    # If first 2 chars yield nothing useful, try all alpha chars in the name
+    if not stripped:
+        stripped = STRIP_RE.sub("", name_lower).lower()[:2]
     try:
         mapped = NAME_MAP[stripped]
     except KeyError:
-        assert stripped in KNOWN_ATOMS, f"Could not parse atom name '{org_name}'"
-        mapped = stripped
+        if stripped in KNOWN_ATOMS:
+            mapped = stripped
+        else:
+            # Single first alpha char fallback (e.g., "  HL" -> "H")
+            first_alpha = stripped[:1] if stripped else ""
+            if first_alpha in KNOWN_ATOMS:
+                mapped = first_alpha
+            else:
+                raise AssertionError(f"Could not parse atom name '{org_name}'")
     return mapped.capitalize()
 
 
@@ -130,9 +151,18 @@ def parse_pdb(text):
 
         xyz = np.array(fields[8:11], dtype=float)
         atom = fields[13].strip()
-        if not atom.lower() in KNOWN_ATOMS:
-            name = fields[2]
+        name = fields[2]
+        # Always derive element from atom name to guard against corrupted
+        # element columns (e.g., ASE writing "Nh" for NH1, "N" for ZN).
+        # Fall back to element column only when parse_atom_name fails.
+        try:
             atom = parse_atom_name(name)
+        except (AssertionError, KeyError):
+            if atom.lower() not in KNOWN_ATOMS:
+                raise ValueError(
+                    f"Cannot determine element for PDB atom name '{name.strip()}' "
+                    f"(element column: '{atom}')."
+                )
         atoms.append(atom)
         coords.append(xyz)
         id_ = int(fields[1])

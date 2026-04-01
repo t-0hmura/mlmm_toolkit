@@ -1600,50 +1600,79 @@ def build_energy_diagram(
 def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -> None:
     """Overlay coordinates from *xyz_path* onto the topology of *ref_pdb_path* and write to *out_pdb_path*.
 
+    The reference PDB is used as a text template: only the coordinate columns
+    (31–54) of ATOM/HETATM records are replaced with coordinates from the XYZ
+    frames.  All other PDB metadata (atom names, residue info, element columns,
+    chain IDs, B-factors, etc.) are preserved verbatim, avoiding element
+    misidentification bugs in external PDB parsers (e.g., ASE reading ``ZN``
+    atom names as nitrogen).
+
     Notes:
-        - *xyz_path* may contain one or many frames. For multi‑frame trajectories,
-          a MODEL/ENDMDL block is appended for each subsequent frame in the output PDB.
+        - *xyz_path* may contain one or many frames. For multi-frame trajectories,
+          MODEL/ENDMDL blocks are written for each frame.
         - On the first frame the output file is created/overwritten; subsequent frames are appended.
-        - Validates that atom ordering (element symbols) matches between XYZ and PDB.
-
-    Args:
-        xyz_path: Path to an XYZ file (single or multi-frame).
-        ref_pdb_path: Path to a reference PDB providing atom ordering/topology.
-        out_pdb_path: Destination PDB file to write.
-
-    Raises:
-        ValueError: If no frames found in XYZ file or atom ordering mismatch.
     """
-    ref_atoms = read(ref_pdb_path)  # Reference topology/ordering (single frame)
-    traj = read(xyz_path, index=":", format="xyz")  # Load all frames from the XYZ
+    # --- Read the reference PDB as text lines ---
+    ref_text = ref_pdb_path.read_text(encoding="utf-8")
+    ref_lines: list[str] = ref_text.splitlines(keepends=True)
+    atom_line_indices: list[int] = []
+    for idx, line in enumerate(ref_lines):
+        if line.startswith(("ATOM", "HETATM")):
+            atom_line_indices.append(idx)
+            # Fix element column (77-78) using parse_atom_name when they disagree.
+            # ASE's PDB writer can corrupt elements (e.g., ZN -> N, CA -> Ca, NH1 -> Nh).
+            if len(line) >= 78:
+                raw_name = line[12:16]  # Full 4-char atom name field
+                elem_col = line[76:78].strip()
+                try:
+                    from pysisyphus.io.pdb import parse_atom_name
+                    name_elem = parse_atom_name(raw_name)
+                except (AssertionError, KeyError):
+                    name_elem = elem_col  # Fall back to existing element column
+                if name_elem != elem_col and name_elem:
+                    fixed_elem = f"{name_elem:>2s}"
+                    ref_lines[idx] = line[:76] + fixed_elem + line[78:]
+
+    n_ref = len(atom_line_indices)
+    if n_ref == 0:
+        raise ValueError(f"No ATOM/HETATM records in reference PDB: {ref_pdb_path}")
+
+    # --- Read the XYZ trajectory ---
+    from ase.io import read as ase_read
+    traj = ase_read(str(xyz_path), index=":", format="xyz")
     if not traj:
         raise ValueError(f"No frames found in {xyz_path}.")
 
-    ref_symbols = ref_atoms.get_chemical_symbols()
-
     for step, frame in enumerate(traj):
-        xyz_symbols = frame.get_chemical_symbols()
-        xyz_positions = frame.get_positions()
+        positions = frame.get_positions()  # (N, 3) in Ångström
+        if len(positions) != n_ref:
+            click.echo(
+                f"[convert] WARNING: Atom count mismatch between '{xyz_path.name}' ({len(positions)}) "
+                f"and '{ref_pdb_path.name}' ({n_ref}); skipping frame {step}.",
+            )
+            continue
 
-        if xyz_symbols != ref_symbols:
-            # If atom counts match, the PDB likely has missing/wrong element columns.
-            # Trust XYZ symbols (from pysisyphus which uses proper element detection)
-            # and patch the reference atoms so PDB topology is preserved.
-            if len(xyz_symbols) == len(ref_symbols):
-                ref_atoms.set_chemical_symbols(xyz_symbols)
-                ref_symbols = xyz_symbols
+        # Build frame lines by replacing coordinate columns in ATOM/HETATM records
+        frame_lines: list[str] = []
+        atom_idx = 0
+        atom_line_set = set(atom_line_indices)
+        for line_idx, line in enumerate(ref_lines):
+            if line_idx in atom_line_set:
+                x, y, z = positions[atom_idx]
+                # PDB coordinate columns: 31-38 (x), 39-46 (y), 47-54 (z)
+                new_line = line[:30] + f"{x:8.3f}{y:8.3f}{z:8.3f}" + line[54:]
+                frame_lines.append(new_line)
+                atom_idx += 1
             else:
-                raise ValueError(
-                    "Atom count mismatch between XYZ and PDB; "
-                    f"XYZ has {len(xyz_symbols)} atoms, PDB has {len(ref_symbols)}."
-                )
+                frame_lines.append(line)
 
-        atoms = ref_atoms.copy()
-        atoms.set_positions(xyz_positions)
-        if step == 0:
-            write(out_pdb_path, atoms)  # Create/overwrite on the first frame
-        else:
-            write(out_pdb_path, atoms, append=True)  # Append subsequent frames using MODEL/ENDMDL
+        mode = "w" if step == 0 else "a"
+        with open(out_pdb_path, mode, encoding="utf-8") as fh:
+            if step > 0:
+                fh.write(f"MODEL     {step + 1:>4d}\n")
+            fh.writelines(frame_lines)
+            if step > 0:
+                fh.write("ENDMDL\n")
 
 
 # =============================================================================
