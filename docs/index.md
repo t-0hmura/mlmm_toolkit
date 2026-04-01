@@ -52,6 +52,7 @@ oniom_export
 oniom_import
 fix_altloc
 energy_diagram
+bond_summary
 device_hpc
 oniom_gaussian
 oniom_orca
@@ -75,6 +76,7 @@ ja/oniom_export
 ja/oniom_import
 ja/fix_altloc
 ja/energy_diagram
+ja/bond_summary
 ja/device_hpc
 ja/oniom_gaussian
 ja/oniom_orca

@@ -36,6 +36,7 @@ _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
     "energy-diagram": (".energy_diagram", "cli", "Draw energy diagrams from values."),
     "extract": (".extract", "cli", "Extract a binding pocket."),
     "pysis": (".pysis_runner", "cli", "Run pysisyphus YAML workflow (v0.1.x compat)."),
+    "bond-summary": (".bond_summary", "cli", "Detect bond changes between structures."),
 }
 
 # Only the ``all`` subcommand is listed here because it uses Click's
