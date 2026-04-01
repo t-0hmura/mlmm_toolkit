@@ -1747,6 +1747,7 @@ def _compute_linkH_defs(structure,
             _maybe("CB", "CA", "CB-CA")
             _maybe("CA", "N",  "CA-N")
             _maybe("CA", "C",  "CA-C")
+
     return out
 
 
