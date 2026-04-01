@@ -37,9 +37,10 @@ def _load_geom(path: str):
 
 @click.command("bond-summary", help="Detect bond changes between consecutive structures.")
 @click.option(
-    "-i", "--input", "inputs", multiple=True, required=True,
-    help="Input structure files (XYZ/PDB/GJF). At least 2 required.",
+    "-i", "--input", "inputs", multiple=True,
+    help="Input structure files (XYZ/PDB/GJF). Repeat -i for each file.",
 )
+@click.argument("extra_inputs", nargs=-1, type=click.Path(exists=True))
 @click.option(
     "--device", default="cpu", show_default=True,
     help="Compute device for distance calculations.",
@@ -52,9 +53,16 @@ def _load_geom(path: str):
     "--one-based/--zero-based", default=True, show_default=True,
     help="Use 1-based atom indices in output.",
 )
-def cli(inputs: tuple, device: str, bond_factor: float, one_based: bool) -> None:
-    """Detect and summarize bond changes between consecutive structure pairs."""
-    files: List[str] = list(inputs)
+def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one_based: bool) -> None:
+    """Detect and summarize bond changes between consecutive structure pairs.
+
+    \b
+    Usage:
+      pdb2reaction bond-summary -i A.xyz -i B.xyz -i C.xyz
+      pdb2reaction bond-summary A.xyz B.xyz C.xyz
+      pdb2reaction bond-summary -i A.xyz B.xyz C.xyz
+    """
+    files: List[str] = list(inputs) + list(extra_inputs)
     if len(files) < 2:
         raise click.BadParameter("At least two input files are required.", param_hint="'-i'")
 
