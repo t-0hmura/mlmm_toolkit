@@ -749,6 +749,13 @@ def _run_dmf_mep(
     show_default=False,
     help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
+@click.option(
+    "--out-json/--no-out-json",
+    "out_json",
+    default=False,
+    show_default=True,
+    help="Write machine-readable result.json to out_dir.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -784,6 +791,7 @@ def cli(
     link_atom_method: Optional[str],
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
+    out_json: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -1144,6 +1152,13 @@ def cli(
         # Shared ML/MM calculator (reuse the same instance for all images)
         shared_calc = mlmm(**calc_cfg)
 
+        try:
+            import torch as _torch
+            _resolved_dev = "cuda" if _torch.cuda.is_available() else "cpu"
+            click.echo(f"[calc] Resolved device: {_resolved_dev}")
+        except Exception:
+            pass
+
         # === (NEW) optional endpoint pre-optimization ===
         if preopt:
             try:
@@ -1222,6 +1237,60 @@ def cli(
                 click.echo(f"[dmf] ERROR: DMF optimization failed:\n{textwrap.indent(tb, '  ')}", err=True)
                 sys.exit(3)
             click.echo(format_elapsed("[time] Elapsed Time for Path Opt (DMF)", time_start))
+
+            if out_json:
+                from .utils import write_result_json
+                from pysisyphus.constants import AU2KCALPERMOL as _AU2KCAL
+                # _run_dmf_mep writes hei.xyz; re-read energies from the trajectory
+                _dmf_trj = out_dir_path / "final_geometries_trj.xyz"
+                _dmf_energies: list = []
+                if _dmf_trj.exists():
+                    try:
+                        from ase.io import read as _ase_read
+                        _dmf_frames = _ase_read(str(_dmf_trj), index=":")
+                        for _frm in _dmf_frames:
+                            _info_e = _frm.info.get("energy") or _frm.info.get("E")
+                            if _info_e is not None:
+                                _dmf_energies.append(float(_info_e))
+                    except Exception:
+                        pass
+                _dmf_hei_idx = 0
+                _dmf_barrier = None
+                _dmf_delta = None
+                if _dmf_energies:
+                    _dmf_hei_idx = int(np.argmax(_dmf_energies))
+                    _dmf_e0 = _dmf_energies[0]
+                    _dmf_barrier = (_dmf_energies[_dmf_hei_idx] - _dmf_e0) * _AU2KCAL
+                    _dmf_delta = (_dmf_energies[-1] - _dmf_e0) * _AU2KCAL
+                result_data_dmf: Dict[str, Any] = {
+                    "status": "completed",
+                    "mep_mode": "dmf",
+                    "backend": calc_cfg.get("backend", "uma"),
+                    "charge": calc_cfg.get("model_charge"),
+                    "spin": calc_cfg.get("model_mult"),
+                    "reactant_energy_hartree": float(_dmf_energies[0]) if _dmf_energies else None,
+                    "product_energy_hartree": float(_dmf_energies[-1]) if _dmf_energies else None,
+                    "image_energies_hartree": [float(e) for e in _dmf_energies] if _dmf_energies else [],
+                    "n_images": len(_dmf_energies) if _dmf_energies else None,
+                    "hei_index": _dmf_hei_idx,
+                    "hei_energy_hartree": float(_dmf_energies[_dmf_hei_idx]) if _dmf_energies else None,
+                    "barrier_kcal": round(_dmf_barrier, 6) if _dmf_barrier is not None else None,
+                    "delta_kcal": round(_dmf_delta, 6) if _dmf_delta is not None else None,
+                    "files": {
+                        "final_geometries_trj_xyz": "final_geometries_trj.xyz",
+                        "hei_xyz": "hei.xyz",
+                    },
+                }
+                for ext in (".pdb", ".gjf"):
+                    f = out_dir_path / f"hei{ext}"
+                    if f.exists():
+                        result_data_dmf["files"][f"hei_{ext[1:]}"] = f.name
+                write_result_json(
+                    out_dir_path, result_data_dmf,
+                    command="path-opt",
+                    elapsed_seconds=time.perf_counter() - time_start,
+                )
+
             return
 
         for g in geoms:
@@ -1363,6 +1432,46 @@ def cli(
 
         # summary.md and key_* outputs are disabled.
         click.echo(format_elapsed("[time] Elapsed Time for Path Opt", time_start))
+
+        if out_json:
+            from .utils import write_result_json
+            from pysisyphus.constants import AU2KCALPERMOL as _AU2KCAL
+            _gsm_energies = list(map(float, energies))
+            _gsm_hei = int(hei_idx)
+            _gsm_hei_E = float(_gsm_energies[_gsm_hei])
+            _gsm_e0 = float(_gsm_energies[0])
+            _gsm_eN = float(_gsm_energies[-1])
+            _barrier = (_gsm_hei_E - _gsm_e0) * _AU2KCAL
+            _delta = (_gsm_eN - _gsm_e0) * _AU2KCAL
+            _converged = getattr(optimizer, 'is_converged', None) if 'optimizer' in dir() else None
+            result_data_gsm: Dict[str, Any] = {
+                "status": "converged" if _converged else ("not_converged" if _converged is False else "completed"),
+                "mep_mode": "gsm",
+                "backend": calc_cfg.get("backend", "uma"),
+                "charge": calc_cfg.get("model_charge"),
+                "spin": calc_cfg.get("model_mult"),
+                "reactant_energy_hartree": float(_gsm_e0),
+                "product_energy_hartree": float(_gsm_eN),
+                "image_energies_hartree": [float(e) for e in _gsm_energies],
+                "n_images": len(_gsm_energies),
+                "hei_index": _gsm_hei,
+                "hei_energy_hartree": _gsm_hei_E,
+                "barrier_kcal": round(_barrier, 6),
+                "delta_kcal": round(_delta, 6),
+                "files": {
+                    "final_geometries_trj_xyz": "final_geometries_trj.xyz",
+                    "hei_xyz": "hei.xyz",
+                },
+            }
+            for ext in (".pdb", ".gjf"):
+                f = out_dir_path / f"hei{ext}"
+                if f.exists():
+                    result_data_gsm["files"][f"hei_{ext[1:]}"] = f.name
+            write_result_json(
+                out_dir_path, result_data_gsm,
+                command="path-opt",
+                elapsed_seconds=time.perf_counter() - time_start,
+            )
 
     except OptimizationError as e:
         click.echo(f"ERROR: Path optimization failed — {e}", err=True)

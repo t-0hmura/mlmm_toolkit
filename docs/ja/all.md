@@ -25,7 +25,7 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" --out-dir ./result_all
 ## 出力の見方
 
 - `result_all/summary.log`
-- `result_all/summary.yaml`
+- `result_all/summary.json`
 - `result_all/path_search/mep.pdb`（または `result_all/path_search/seg_*/`）
 
 ## よくある例
@@ -111,11 +111,11 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 4. **全系レイヤード PDB での MEP 探索**
    - すべての MEP 計算は全系レイヤード PDB（`--parm` + `--detect-layer`）上で実行されます（ポケット上ではありません）。
    - **`--refine-path`（デフォルト）:** キンク検出と精密化を含む再帰的 `path_search` を実行。
-   - **`--no-refine-path`:** 隣接ペアごとに単一パス `path-opt` GSM を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.yaml` 書き出しまで行い、Stage 4 後処理（TSOPT、thermo、DFT）も両モードで利用可能。
+   - **`--no-refine-path`:** 隣接ペアごとに単一パス `path-opt` GSM を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 4 後処理（TSOPT、thermo、DFT）も両モードで利用可能。
    - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、単一の元の完全 PDB がすべての入力の参照テンプレートとして再利用（繰り返し）されます。
 
 5. **サマリーと任意の後処理**
-   - セグメントごとの軌跡、全 MEP 軌跡、`summary.yaml` が `<out-dir>/path_search/` に書き出されます。
+   - セグメントごとの軌跡、全 MEP 軌跡、`summary.json` が `<out-dir>/path_search/` に書き出されます。
    - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
    - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//MLIP Gibbs ダイアグラムも生成されます。
@@ -205,7 +205,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
-| `--refine-path/--no-refine-path` | True の場合は再帰的 `path-search`、False の場合は `path-opt` セグメントチェーン（単一パス GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.yaml）。両モードとも Stage 4（TSOPT/thermo/DFT）対応。 | `True` |
+| `--refine-path/--no-refine-path` | True の場合は再帰的 `path-search`、False の場合は `path-opt` セグメントチェーン（単一パス GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.json）。両モードとも Stage 4（TSOPT/thermo/DFT）対応。 | `True` |
 | `--hessian-calc-mode CHOICE` | ML/MM ヘシアンモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。無効時は下流ツールで `--model-pdb` または `--model-indices` が必要。 | `True` |
 
@@ -273,7 +273,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
   stage_01/result.pdb
   stage_02/result.pdb
   ...
- summary.yaml                          # トップレベルサマリーのミラー（path_search 実行時）
+ summary.json                          # トップレベルサマリーのミラー（path_search 実行時）
  summary.log
  mep_plot.png
  energy_diagram_MEP.png
@@ -285,7 +285,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
  path_search/                          # path_search 実行時
   mep_trj.xyz
   mep.pdb
-  summary.yaml
+  summary.json
   summary.log
   mep_plot.png
   energy_diagram_MEP.png
@@ -321,7 +321,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 - **[4] エネルギーダイアグラム（概要）** -- MEP/UMA/Gibbs/DFT シリーズのダイアグラムテーブルと任意のクロスメソッドサマリーテーブル。
 - **[5] 出力ディレクトリ構造** -- インラインアノテーション付きの生成ファイルのコンパクトツリー。
 
-### `summary.yaml` の読み方
+### `summary.json` の読み方
 YAML はコンパクトな機械可読サマリーです。主なトップレベルキー:
 - `out_dir`、`n_images`、`n_segments` -- 実行メタデータと総数。
 - `segments` -- `index`、`tag`、`kind`、`barrier_kcal`、`delta_kcal`、`bond_changes` を持つセグメントごとのエントリリスト。

@@ -618,6 +618,13 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=False,
     help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
+@click.option(
+    "--out-json/--no-out-json",
+    "out_json",
+    default=False,
+    show_default=True,
+    help="Write machine-readable result.json to out_dir.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -646,6 +653,7 @@ def cli(
     link_atom_method: Optional[str],
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
+    out_json: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
 
@@ -1057,9 +1065,33 @@ def cli(
 
         if not converged:
             click.echo("WARNING: SCF did not converge.", err=True)
-            sys.exit(3)
 
         click.echo(format_elapsed("[time] Elapsed Time for DFT", time_start))
+
+        if out_json:
+            from .utils import write_result_json
+            result_data: Dict[str, Any] = {
+                "status": "converged" if converged else "not_converged",
+                "energy_hartree": e_h,
+                "energy_kcal_per_mol": e_kcal,
+                "xc_functional": xc,
+                "basis_set": basis,
+                "engine": engine_label,
+                "used_gpu": bool(using_gpu),
+                "converged": converged,
+                "charges": {k: v for k, v in charges.items()},
+                "files": {
+                    "result_yaml": "result.yaml",
+                },
+            }
+            write_result_json(
+                out_dir_path, result_data,
+                command="dft",
+                elapsed_seconds=time.perf_counter() - time_start,
+            )
+
+        if not converged:
+            sys.exit(3)
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)

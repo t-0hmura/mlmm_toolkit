@@ -25,7 +25,7 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" --out-dir ./result_all
 ## Output checklist
 
 - `result_all/summary.log`
-- `result_all/summary.yaml`
+- `result_all/summary.json`
 - `result_all/path_search/mep.pdb` (or `result_all/path_search/seg_*/`)
 
 ## Common examples
@@ -111,11 +111,11 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 4. **MEP search on full-system layered PDBs**
    - All MEP calculations run on full-system layered PDBs (with `--parm` and `--detect-layer`), not on pockets.
    - **`--refine-path` (default):** Runs recursive `path_search` with kink-detection and refinement.
-   - **`--no-refine-path`:** Runs single-pass `path-opt` GSM per adjacent pair, then concatenates trajectories, extracts HEI per segment, detects bond changes, and writes `summary.yaml` — enabling Stage 4 post-processing (TSOPT, thermo, DFT) on both modes.
+   - **`--no-refine-path`:** Runs single-pass `path-opt` GSM per adjacent pair, then concatenates trajectories, extracts HEI per segment, detects bond changes, and writes `summary.json` — enabling Stage 4 post-processing (TSOPT, thermo, DFT) on both modes.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused (repeated) as the reference template.
 
 5. **Summary and optional post-processing**
-   - Per-segment trajectories, full MEP trajectory, and a `summary.yaml` are written under `<out-dir>/path_search/`.
+   - Per-segment trajectories, full MEP trajectory, and a `summary.json` are written under `<out-dir>/path_search/`.
    - `--tsopt`: run TS optimization on each HEI, follow with EulerPC IRC, and emit segment energy diagrams.
    - `--thermo`: Compute ML/MM thermochemistry on (R, TS, P) and add a Gibbs diagram.
    - `--dft`: Do DFT single-point on (R, TS, P) and add a DFT diagram. With `--thermo`, also generate a DFT//MLIP Gibbs diagram.
@@ -201,7 +201,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
-| `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.yaml). Both modes support Stage 4 (TSOPT/thermo/DFT). | `True` |
+| `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.json). Both modes support Stage 4 (TSOPT/thermo/DFT). | `True` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
@@ -274,7 +274,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
   stage_01/result.pdb
   stage_02/result.pdb
   ...
- summary.yaml                          # mirrored top-level summary (when path_search runs)
+ summary.json                          # mirrored top-level summary (when path_search runs)
  summary.log
  mep_plot.png
  energy_diagram_MEP.png
@@ -286,7 +286,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
  path_search/                          # present when path_search is executed
   mep_trj.xyz
   mep.pdb
-  summary.yaml
+  summary.json
   summary.log
   mep_plot.png
   energy_diagram_MEP.png
@@ -322,8 +322,8 @@ The log is organized into numbered sections:
 - **[4] Energy diagrams (overview)** -- diagram tables for MEP/MLIP/Gibbs/DFT series plus an optional cross-method summary table.
 - **[5] Output directory structure** -- a compact tree of generated files with inline annotations.
 
-### Reading `summary.yaml`
-The YAML is a compact, machine-readable summary. Common top-level keys include:
+### Reading `summary.json`
+The JSON is a compact, machine-readable summary. Common top-level keys include:
 - `out_dir`, `n_images`, `n_segments` -- run metadata and total counts.
 - `segments` -- list of per-segment entries with `index`, `tag`, `kind`, `barrier_kcal`, `delta_kcal`, and `bond_changes`.
 - `energy_diagrams` (optional) -- diagram payloads with `labels`, `energies_kcal`, `energies_au`, `ylabel`, and `image` paths.

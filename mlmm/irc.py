@@ -284,6 +284,13 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     show_default=False,
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
+@click.option(
+    "--out-json/--no-out-json",
+    "out_json",
+    default=False,
+    show_default=True,
+    help="Write machine-readable result.json to out_dir.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -317,6 +324,7 @@ def cli(
     use_cmap: Optional[bool],
     hess_device: str,
     read_hess: Optional[str],
+    out_json: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -582,6 +590,13 @@ def cli(
         calc = mlmm(**calc_cfg)
         geometry.set_calculator(calc)
 
+        try:
+            import torch as _torch
+            _resolved_dev = "cuda" if _torch.cuda.is_available() else "cpu"
+            click.echo(f"[calc] Resolved device: {_resolved_dev}")
+        except Exception:
+            pass
+
         # Seed the initial Hessian.
         # Priority: --read-hess file > hessian_cache > fresh computation.
         from .hessian_cache import load as _hess_load, store as _hess_store
@@ -695,6 +710,67 @@ def cli(
 
         # summary.md and key_* outputs are disabled.
         click.echo(format_elapsed("[time] Elapsed Time for IRC", time_start))
+
+        if out_json:
+            from .utils import write_result_json
+            _all_e = eulerpc.all_energies
+            _n_fwd = len(getattr(eulerpc, "forward_energies", [])) if hasattr(eulerpc, "forward_energies") else 0
+            _n_bwd = len(getattr(eulerpc, "backward_energies", [])) if hasattr(eulerpc, "backward_energies") else 0
+            _ts_e = float(eulerpc.ts_energy) if hasattr(eulerpc, "ts_energy") else None
+            _e_reactant = float(_all_e[0]) if len(_all_e) > 0 else None
+            _e_product = float(_all_e[-1]) if len(_all_e) > 0 else None
+            _irc_files = {}
+            prefix = irc_cfg.get("prefix", "")
+            for _fn in ("finished_irc_trj.xyz", "forward_irc_trj.xyz", "backward_irc_trj.xyz"):
+                _fp = out_dir_path / f"{prefix}{_fn}"
+                if _fp.exists():
+                    _irc_files[_fn.replace("_trj.xyz", "")] = _fp.name
+            for _fn in ("finished_irc.pdb", "forward_irc.pdb", "backward_irc.pdb"):
+                _fp = out_dir_path / f"{prefix}{_fn}"
+                if _fp.exists():
+                    _irc_files[_fn.replace(".pdb", "_pdb")] = _fp.name
+            result_data = {
+                "status": "completed",
+                "n_frames_forward": _n_fwd,
+                "n_frames_backward": _n_bwd,
+                "n_frames_total": len(_all_e),
+                "energy_reactant_hartree": _e_reactant,
+                "energy_ts_hartree": _ts_e,
+                "energy_product_hartree": _e_product,
+                "forward_converged": getattr(eulerpc, 'forward_is_converged', None),
+                "backward_converged": getattr(eulerpc, 'backward_is_converged', None),
+                "backend": calc_cfg.get("backend", "uma"),
+                "charge": calc_cfg.get("model_charge"),
+                "spin": calc_cfg.get("model_mult"),
+                "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
+                "step_length": irc_cfg.get("step_length"),
+                "max_cycles": irc_cfg.get("max_cycles"),
+                "input_file": str(source_path),
+                "files": _irc_files,
+            }
+
+            # Bond changes between IRC endpoints
+            try:
+                from .bond_changes import compare_structures
+                _irc_first_xyz = out_dir_path / f"{prefix}forward_last.xyz"
+                _irc_last_xyz = out_dir_path / f"{prefix}backward_last.xyz"
+                if _irc_first_xyz.exists() and _irc_last_xyz.exists():
+                    _g1 = geom_loader(str(_irc_first_xyz))
+                    _g2 = geom_loader(str(_irc_last_xyz))
+                    _bc = compare_structures(_g1, _g2, device="cpu")
+                    _elems = [a.capitalize() for a in _g1.atoms]
+                    result_data["bond_changes"] = {
+                        "formed": [f"{_elems[i]}{i+1}-{_elems[j]}{j+1}" for i, j in sorted(_bc.formed_covalent)],
+                        "broken": [f"{_elems[i]}{i+1}-{_elems[j]}{j+1}" for i, j in sorted(_bc.broken_covalent)],
+                    }
+            except Exception:
+                pass
+
+            write_result_json(
+                out_dir_path, result_data,
+                command="irc",
+                elapsed_seconds=time.perf_counter() - time_start,
+            )
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)

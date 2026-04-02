@@ -31,7 +31,7 @@ import re    # used in _segment_base_id
 import click
 import numpy as np
 import torch
-import yaml
+import json
 
 from pysisyphus.helpers import geom_loader
 from pysisyphus.cos.GrowingString import GrowingString
@@ -2249,14 +2249,32 @@ def cli(
             click.echo(f"[diagram] WARNING: Failed to build energy diagram: {e}", err=True)
 
         # --------------------------
-        # 7) Summary (YAML + log)
+        # 7) Summary (JSON + log)
         # --------------------------
         if diagram_payload is not None:
             summary["energy_diagrams"] = [diagram_payload]
 
-        with open(out_dir_path / "summary.yaml", "w") as f:
-            yaml.safe_dump(summary, f, sort_keys=False, allow_unicode=True)
-        click.echo(f"[write] Wrote '{out_dir_path / 'summary.yaml'}'.")
+        # Inline enrichment for machine-readable summary.json
+        try:
+            from mlmm._version import __version__
+        except Exception:
+            __version__ = "unknown"
+        summary["mlmm_toolkit_version"] = __version__
+        summary["pipeline_mode"] = "path-search"
+        summary["status"] = "success" if summary.get("energy_diagrams") else "partial"
+        summary["mlip_backend"] = calc_cfg.get("backend", "uma")
+        summary["charge"] = calc_cfg.get("model_charge")
+        summary["spin"] = calc_cfg.get("model_mult")
+        summary["command"] = command_str
+        try:
+            from .utils import _collect_environment_info
+            summary.setdefault("environment", _collect_environment_info())
+        except Exception:
+            pass
+
+        with open(out_dir_path / "summary.json", "w") as f:
+            json.dump(summary, f, indent=2, ensure_ascii=False)
+        click.echo(f"[write] Wrote '{out_dir_path / 'summary.json'}'.")
 
         try:
             freeze_atoms_for_log: List[int] = []

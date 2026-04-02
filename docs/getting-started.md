@@ -86,7 +86,7 @@ This software is still under development. Please use it at your own risk.
 
 mlmm-toolkit uses the following components:
 
-- **MLIP backends**: Energy, force, and Hessian calculations for the ML region. The default is UMA (fairchem-core). ORB (`pip install "mlmm-toolkit[orb]"`) and AIMNet2 (`pip install "mlmm-toolkit[aimnet2]"`) are also available. MACE (`pip install "mlmm-toolkit[mace]"`) is also available.
+- **MLIP backends**: Energy, force, and Hessian calculations for the ML region. The default is UMA (fairchem-core). ORB (`pip install "mlmm-toolkit[orb]"`) and AIMNet2 (`pip install "mlmm-toolkit[aimnet]"`) are also available. MACE (`pip install --no-deps mace-torch`) is also available.
 - **hessian_ff**: Amber force field calculations for the MM region (requires building the C++ extension).
 - **AmberTools**: Automatic parm7/rst7 generation via the `mm-parm` subcommand (tleap, antechamber, parmchk2).
 
@@ -113,8 +113,8 @@ pip install mlmm-toolkit
 
 # Optional: install alternative MLIP backends
 pip install "mlmm-toolkit[orb]"       # ORB backend
-pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 backend
-pip install "mlmm-toolkit[mace]"      # MACE backend
+pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
+pip install --no-deps mace-torch      # MACE backend
 
 cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
 plotly_get_chrome -y
@@ -226,8 +226,8 @@ If you prefer to build the environment piece by piece:
 
  ```bash
  pip install "mlmm-toolkit[orb]"       # ORB backend
- pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 backend
- pip install "mlmm-toolkit[mace]"      # MACE backend
+ pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
+ pip install --no-deps mace-torch      # MACE backend
  ```
 
 7. **Build the `hessian_ff` C++ native extension**
@@ -472,7 +472,7 @@ For a full matrix of options and YAML schemas, see [YAML Reference](yaml-referen
 Every `mlmm all` run writes:
 
 - `summary.log` -- formatted summary for quick inspection, and
-- `summary.yaml` -- YAML version summary.
+- `summary.json` -- JSON results.
 
 They typically contain:
 
@@ -481,7 +481,7 @@ They typically contain:
 - per-segment barrier heights and key bond changes,
 - energies from the MLIP backend, thermochemistry, and DFT post-processing (where enabled).
 
-Each segment directory under `path_search/` also gets its own `summary.log` and `summary.yaml`, so you can inspect local refinements independently.
+Each segment directory under `path_search/` also gets its own `summary.log` and `summary.json`, so you can inspect local refinements independently.
 
 ---
 

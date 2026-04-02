@@ -4,7 +4,7 @@
 User-friendly summary log writer used by ``path_search`` and ``all``.
 
 The goal is to provide a compact, readable ``summary.log`` alongside the
-``summary.yaml``. The log aggregates MEP details, segment barriers,
+``summary.json``. The log aggregates MEP details, segment barriers,
 post-processing energies, 3-layer system info, and key output paths.
 """
 
@@ -698,11 +698,19 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     annotations: Dict[str, str] = {Path(k).as_posix(): v for k, v in key_files.items()}
 
     default_notes = {
+        # Top-level directories
         "pockets": "Extracted pocket PDBs",
         "scan": "Staged scan outputs",
         "path_search": "Recursive GSM outputs",
         "path_opt": "Single-pass GSM outputs",
         "tsopt_single": "Single-structure TSOPT-only outputs",
+        "align_refine": "Pair-wise endpoint alignment before path search",
+        # Top-level files
+        "summary.json": "Machine-readable results (JSON)",
+        "summary.log": "Human-readable results summary",
+        "mep.pdb": "Full MEP as single PDB (all segments)",
+        "mep_trj.xyz": "Full MEP as XYZ trajectory",
+        "mep_w_ref.pdb": "Full MEP with protein reference frame",
         "mep_plot.png": "ML/MM MEP energy plot",
         "energy_diagram_MEP.png": "Compressed MEP diagram",
         "energy_diagram_UMA_all.png": "UMA R-TS-P energies (all segments)",
@@ -724,6 +732,78 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         for rel, desc in default_notes.items():
             if (root_out_path / rel).exists():
                 annotations.setdefault(rel, desc)
+
+        # Dynamic annotations for seg_XX/ directories
+        import re as _re
+        for child in sorted(root_out_path.iterdir()) if root_out_path.exists() else []:
+            if child.is_dir() and _re.match(r"seg_\d+$", child.name):
+                seg_num = child.name.replace("seg_", "")
+                annotations.setdefault(
+                    child.name,
+                    f"Refined TS and optimized IRC endpoints of segment {seg_num}",
+                )
+
+        # Dynamic annotations for path module internal directories
+        if path_dir:
+            try:
+                path_dir_path = Path(path_dir)
+                if path_dir_path.exists():
+                    path_dir_rel = path_dir_path.relative_to(root_out_path).as_posix()
+                    for child in sorted(path_dir_path.iterdir()):
+                        if not child.is_dir():
+                            # Annotate key files inside path module dir
+                            crel = f"{path_dir_rel}/{child.name}"
+                            if _re.match(r"hei_seg_\d+\.", child.name):
+                                annotations.setdefault(crel, "Highest-energy image (approx. TS)")
+                            elif _re.match(r"hei_w_ref_seg_\d+\.", child.name):
+                                annotations.setdefault(crel, "HEI with protein reference frame")
+                            elif _re.match(r"mep_seg_\d+_trj\.", child.name):
+                                annotations.setdefault(crel, "Per-segment MEP trajectory")
+                            elif _re.match(r"mep_w_ref_seg_\d+\.", child.name):
+                                annotations.setdefault(crel, "Per-segment MEP with protein reference")
+                            continue
+
+                        crel = f"{path_dir_rel}/{child.name}"
+
+                        # post_seg_XX/ directories
+                        if child.name.startswith("post_seg_"):
+                            annotations.setdefault(
+                                crel,
+                                f"Post-processing: TSOPT, IRC, freq for {child.name}",
+                            )
+                            _subdir_notes = {
+                                "structures": "Optimized R/TS/P structures (IRC endpoints)",
+                                "irc": "IRC trajectories and plots",
+                                "ts": "TS optimization output",
+                                "ts/vib": "TS vibrational analysis",
+                                "freq": "Frequency and thermochemistry",
+                                "freq/R": "Reactant freq/thermo",
+                                "freq/TS": "TS freq/thermo",
+                                "freq/P": "Product freq/thermo",
+                            }
+                            for subdir_name, desc in _subdir_notes.items():
+                                sub = child / subdir_name
+                                if sub.exists():
+                                    annotations.setdefault(f"{crel}/{subdir_name}", desc)
+                        # init optimization dirs
+                        elif _re.match(r"init\d+_lbfgs_opt$", child.name):
+                            idx = _re.search(r"init(\d+)", child.name).group(1)
+                            annotations.setdefault(crel, f"Initial optimization of endpoint {idx}")
+                        # GSM/NEB path dirs
+                        elif _re.match(r"seg_\d+_mep$", child.name):
+                            annotations.setdefault(crel, "Initial GSM/NEB path")
+                        elif _re.match(r"seg_\d+_refine_mep$", child.name):
+                            annotations.setdefault(crel, "Refined GSM/NEB path")
+                        elif _re.match(r"seg_\d+_left_lbfgs_opt$", child.name):
+                            annotations.setdefault(crel, "Optimized left (R) endpoint")
+                        elif _re.match(r"seg_\d+_right_lbfgs_opt$", child.name):
+                            annotations.setdefault(crel, "Optimized right (P) endpoint")
+                        elif _re.search(r"_bridge_mep$", child.name):
+                            annotations.setdefault(crel, "Bridge MEP (non-reactive conformational change)")
+                        elif child.name == "align_refine":
+                            annotations.setdefault(crel, "Pair-wise endpoint alignment")
+            except (ValueError, OSError):
+                pass
 
         if root_out_path.exists():
             lines.extend(_format_directory_tree(root_out_path, annotations))

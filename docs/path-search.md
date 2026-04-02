@@ -18,7 +18,7 @@ mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
 ## Output checklist
 
 - `result_path_search/mep_trj.xyz`
-- `result_path_search/summary.yaml`
+- `result_path_search/summary.json`
 - `result_path_search/summary.log`
 - `result_path_search/mep_plot.png` (when plotting succeeds)
 
@@ -118,7 +118,7 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 
 ```text
 out_dir/ (default: ./result_path_search/)
- summary.yaml # MEP-level run summary (no full settings dump)
+ summary.json # MEP-level run summary (no full settings dump)
  summary.log # Human-readable summary
  mep_trj.xyz # Final MEP (always written)
  mep.pdb # Final MEP (PDB when ref template available)

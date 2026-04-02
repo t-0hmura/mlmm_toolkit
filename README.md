@@ -106,7 +106,7 @@ If you are on an HPC cluster that uses *environment modules*, load CUDA **before
 module load cuda/12.6
 ```
 
-> `fairchem-core` is a core dependency. `aimnet2` and other ML backends (`orb-models`, `mace-torch`) are optional extras (e.g. `pip install "mlmm-toolkit[aimnet2]"`).
+> `fairchem-core` is a core dependency. `aimnet2` and other ML backends (`orb-models`, `mace-torch`) are optional extras (e.g. `pip install "mlmm-toolkit[aimnet]"`).
 
 
 ### DFT single-point (`mlmm dft`)
@@ -148,8 +148,8 @@ huggingface-cli login
 |-----------|------------|---------------|
 | **UMA** (default) | <https://github.com/facebookresearch/fairchem> | *(included)* |
 | **ORB** | <https://github.com/orbital-materials/orb-models> | `pip install "mlmm-toolkit[orb]"` |
-| **MACE** | <https://github.com/ACEsuit/mace> | `pip install "mlmm-toolkit[mace]"` |
-| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> | `pip install "mlmm-toolkit[aimnet2]"` |
+| **MACE** | <https://github.com/ACEsuit/mace> | `pip install --no-deps mace-torch` |
+| **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> | `pip install "mlmm-toolkit[aimnet]"` |
 
 ---
 

@@ -69,8 +69,7 @@ dependencies = [
 
 [project.optional-dependencies]
 orb = ["orb-models"]
-mace = ["mace-torch"]
-aimnet2 = ["aimnet"]
+aimnet = ["aimnet>=0.1.0"]
 pdbfixer = ["pdbfixer"]
 dft = [    
     "pyscf>=2.8.0",

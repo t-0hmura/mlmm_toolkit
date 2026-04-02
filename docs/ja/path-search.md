@@ -18,7 +18,7 @@ mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
 ## 出力の見方
 
 - `result_path_search/mep_trj.xyz`
-- `result_path_search/summary.yaml`
+- `result_path_search/summary.json`
 - `result_path_search/summary.log`
 - `result_path_search/mep_plot.png`（プロット生成時）
 
@@ -118,7 +118,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 
 ```text
 out_dir/ (デフォルト:./result_path_search/)
- summary.yaml # MEP レベルの実行サマリー（完全設定ダンプなし）
+ summary.json # MEP レベルの実行サマリー（完全設定ダンプなし）
  summary.log # 人間が読めるサマリー
  mep_trj.xyz # 最終 MEP（常に書き出し）
  mep.pdb # 最終 MEP（参照テンプレート利用可能時は PDB）

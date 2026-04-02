@@ -852,6 +852,13 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     help="Save the computed Hessian to a compressed .npz file. "
          "Can be loaded by 'mlmm irc --read-hess' to avoid recomputation.",
 )
+@click.option(
+    "--out-json/--no-out-json",
+    "out_json",
+    default=False,
+    show_default=True,
+    help="Write machine-readable result.json to out_dir.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -890,6 +897,7 @@ def cli(
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
     dump_hess: Optional[str],
+    out_json: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -1272,6 +1280,13 @@ def cli(
         else:
             H_t, energy_ha = _calc_full_hessian_torch(geometry, calc_cfg, device)
 
+        try:
+            import torch as _torch
+            _resolved_dev = "cuda" if _torch.cuda.is_available() else "cpu"
+            click.echo(f"[calc] Resolved device: {_resolved_dev}")
+        except Exception:
+            pass
+
         # --dump-hess: save Hessian to compressed .npz
         if dump_hess:
             _h_np = H_t.detach().cpu().numpy()
@@ -1437,6 +1452,56 @@ def cli(
         click.echo(f"[DONE] Wrote modes and list → {out_dir_path}")
 
         click.echo(format_elapsed("[time] Elapsed Time for Freq", time_start))
+
+        if out_json:
+            from .utils import write_result_json
+            _all_freqs = [float(f) for f in freqs_cm]
+            _imag_freqs = [f for f in _all_freqs if f < 0.0]
+            _thermo_data = None
+            # Capture thermochemistry if it was computed
+            try:
+                _thermo_data = {
+                    "temperature_K": T,
+                    "pressure_atm": p_atm,
+                    "zpe_ha": ZPE,
+                    "thermal_correction_energy_ha": dE_therm,
+                    "thermal_correction_enthalpy_ha": dH_therm,
+                    "thermal_correction_free_energy_ha": dG_therm,
+                    "sum_EE_and_ZPE_ha": sum_EE_ZPE,
+                    "sum_EE_and_thermal_energy_ha": sum_EE_thermal_E,
+                    "sum_EE_and_thermal_free_energy_ha": sum_EE_thermal_G,
+                    "E_thermal_cal_per_mol": E_thermal_cal,
+                    "Cv_cal_per_mol_K": Cv_cal_per_Kmol,
+                    "S_cal_per_mol_K": S_cal_per_Kmol,
+                }
+            except NameError:
+                pass
+            result_data = {
+                "status": "completed",
+                "n_modes": len(_all_freqs),
+                "n_imaginary": len(_imag_freqs),
+                "frequencies_cm": _all_freqs,
+                "imaginary_frequencies_cm": _imag_freqs,
+                "thermochemistry": _thermo_data,
+                "backend": calc_cfg.get("backend", "uma"),
+                "charge": calc_cfg.get("model_charge"),
+                "spin": calc_cfg.get("model_mult"),
+                "n_atoms": len(geometry.atomic_numbers),
+                "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
+                "input_file": str(input_path),
+                "files": {
+                    "frequencies_txt": "frequencies_cm-1.txt",
+                },
+            }
+            if _thermo_data is not None:
+                _thermo_yaml = out_dir_path / "thermoanalysis.yaml"
+                if _thermo_yaml.exists():
+                    result_data["files"]["thermoanalysis_yaml"] = "thermoanalysis.yaml"
+            write_result_json(
+                out_dir_path, result_data,
+                command="freq",
+                elapsed_seconds=time.perf_counter() - time_start,
+            )
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)

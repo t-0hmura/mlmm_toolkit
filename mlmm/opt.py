@@ -1124,6 +1124,13 @@ def _run_microiter_opt(
     show_default=False,
     help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
+@click.option(
+    "--out-json/--no-out-json",
+    "out_json",
+    default=False,
+    show_default=True,
+    help="Write machine-readable result.json to out_dir.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1160,6 +1167,7 @@ def cli(
     link_atom_method: Optional[str],
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
+    out_json: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -1529,6 +1537,13 @@ def cli(
         base_calc = mlmm(**calc_cfg)
         geometry.set_calculator(base_calc)
 
+        try:
+            import torch as _torch
+            _resolved_dev = "cuda" if _torch.cuda.is_available() else "cpu"
+            click.echo(f"[calc] Resolved device: {_resolved_dev}")
+        except Exception:
+            pass
+
         resolved_dist_freeze: List[Tuple[int, int, float]] = []
         if dist_freeze:
             try:
@@ -1780,6 +1795,55 @@ def cli(
 
         # summary.md and key_* outputs are disabled.
         click.echo(format_elapsed("[time] Elapsed Time for Opt", time_start))
+
+        if out_json:
+            from .utils import write_result_json
+            _opt_converged = optimizer.is_converged if 'optimizer' in dir() and hasattr(optimizer, 'is_converged') else None
+            _opt_cycles = optimizer.cur_cycle if 'optimizer' in dir() and hasattr(optimizer, 'cur_cycle') else None
+            result_data = {
+                "status": "converged" if _opt_converged else "not_converged",
+                "energy_hartree": float(geometry.energy) if geometry.energy is not None else None,
+                "n_opt_cycles": _opt_cycles,
+                "opt_mode": opt_cfg.get("opt_mode", opt_mode),
+                "backend": calc_cfg.get("backend", "uma"),
+                "charge": calc_cfg.get("model_charge"),
+                "spin": calc_cfg.get("model_mult"),
+                "n_atoms": len(geometry.atoms),
+                "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
+                "thresh": opt_cfg.get("thresh", "gau"),
+                "max_cycles": opt_cfg.get("max_cycles"),
+                "input_file": str(prepared_input.source_path),
+                "files": {
+                    "final_geometry_xyz": str(final_xyz_path.name),
+                },
+            }
+            # Final force convergence values
+            if 'optimizer' in dir() and hasattr(optimizer, 'max_forces') and optimizer.max_forces:
+                result_data["final_max_force"] = float(optimizer.max_forces[-1])
+                result_data["final_rms_force"] = float(optimizer.rms_forces[-1])
+            # Convergence thresholds (numeric values for the named preset)
+            if 'optimizer' in dir() and hasattr(optimizer, 'convergence') and optimizer.convergence:
+                result_data["convergence_thresholds"] = {k: float(v) for k, v in optimizer.convergence.items()}
+            # Final step convergence values
+            if 'optimizer' in dir() and hasattr(optimizer, 'max_steps') and optimizer.max_steps:
+                result_data["final_max_step"] = float(optimizer.max_steps[-1])
+                result_data["final_rms_step"] = float(optimizer.rms_steps[-1])
+            # Add PDB/GJF if generated
+            for ext in (".pdb", ".gjf"):
+                f = out_dir_path / f"final_geometry{ext}"
+                if f.exists():
+                    result_data["files"][f"final_geometry_{ext[1:]}"] = f.name
+            # Add trajectory files if they exist
+            for name in ("optimization_trj.xyz", "optimization.pdb"):
+                _tf = out_dir_path / name
+                if _tf.exists():
+                    key = name.replace(".", "_").replace("-", "_")
+                    result_data["files"][key] = name
+            write_result_json(
+                out_dir_path, result_data,
+                command="opt",
+                elapsed_seconds=time.perf_counter() - time_start,
+            )
 
     except ZeroStepLength:
         click.echo("ERROR: Step length fell below the minimum allowed (ZeroStepLength).", err=True)

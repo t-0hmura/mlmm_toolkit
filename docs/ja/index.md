@@ -249,7 +249,7 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 result_all/
 ├── ml_region.pdb # ML 領域定義
 ├── summary.log # 人間が読めるサマリー
-├── summary.yaml # 機械可読サマリー
+├── summary.json # 機械可読サマリー
 ├── pockets/ # extract で決定された ML 領域構造
 ├── mm_parm/ # AMBER トポロジーファイル
 ├── scan/ # （オプション）スキャン結果

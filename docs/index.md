@@ -297,7 +297,7 @@ Typical `mlmm all` output:
 result_all/
 ├── ml_region.pdb # ML-region definition
 ├── summary.log # Human-readable summary
-├── summary.yaml # Machine-readable summary
+├── summary.json # Machine-readable summary
 ├── pockets/ # ML region structures determined by extract
 ├── mm_parm/ # AMBER topology files
 ├── scan/ # (Optional) scan results

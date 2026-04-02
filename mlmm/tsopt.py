@@ -2107,6 +2107,13 @@ hessian_dimer_KW = {
     help="Skip the post-convergence frequency analysis and imaginary-mode flattening. "
          "Useful for large unfrozen systems where the final Hessian diagonalization is expensive.",
 )
+@click.option(
+    "--out-json/--no-out-json",
+    "out_json",
+    default=False,
+    show_default=True,
+    help="Write machine-readable result.json to out_dir.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -2145,6 +2152,7 @@ def cli(
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
     skip_final_freq: bool,
+    out_json: bool,
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -2530,6 +2538,13 @@ def cli(
                 **coord_kwargs,
             )
 
+            try:
+                import torch as _torch
+                _resolved_dev = "cuda" if _torch.cuda.is_available() else "cpu"
+                click.echo(f"[calc] Resolved device: {_resolved_dev}")
+            except Exception:
+                pass
+
             if use_microiter:
                 # --- Microiteration path ---
                 click.echo(f"=== TS optimization ({rsirfo_label}) started ===\n")
@@ -2793,6 +2808,28 @@ def cli(
             else:
                 click.echo("[INFO] Skipped final imaginary-mode export due to frequency-analysis fallback.")
 
+            # Capture freq/energy data for result.json BEFORE deleting
+            _heavy_imag_freqs: list = []
+            _heavy_n_imag = 0
+            _heavy_energy = None
+            if freqs_cm is not None:
+                _heavy_imag_freqs = [float(f) for f in freqs_cm if f < -abs(neg_freq_thresh_cm)]
+                _heavy_n_imag = len(_heavy_imag_freqs)
+            # Get energy from hessian cache meta
+            try:
+                from .hessian_cache import load as _hess_load_energy
+                _hess_data = _hess_load_energy("ts")
+                if _hess_data is not None and "meta" in _hess_data:
+                    _heavy_energy = _hess_data["meta"].get("energy_ha")
+            except Exception:
+                pass
+            if _heavy_energy is None:
+                # fallback: compute energy explicitly
+                try:
+                    _heavy_energy = _calc_energy(geometry, calc_cfg)
+                except Exception:
+                    pass
+
             if modes is not None:
                 del modes
             if freqs_cm is not None:
@@ -2833,6 +2870,13 @@ def cli(
                 source_path=source_path,
                 skip_final_freq=skip_final_freq,
             )
+
+            try:
+                import torch as _torch
+                _resolved_dev = "cuda" if _torch.cuda.is_available() else "cpu"
+                click.echo(f"[calc] Resolved device: {_resolved_dev}")
+            except Exception:
+                pass
 
             click.echo("=== TS optimization (Partial Hessian Dimer) started ===\n")
             runner.run()
@@ -2918,6 +2962,87 @@ def cli(
 
         # summary.md and key_* outputs are disabled.
         click.echo(format_elapsed("[time] Elapsed Time for TS Opt", time_start))
+
+        if out_json:
+            from .utils import write_result_json
+            _tsopt_imag_freqs: list = []
+            _tsopt_n_imag = 0
+            _tsopt_energy = None
+
+            if use_heavy:
+                # Heavy mode: use captured data from before del
+                _tsopt_imag_freqs = _heavy_imag_freqs
+                _tsopt_n_imag = _heavy_n_imag
+                _tsopt_energy = _heavy_energy
+                _tsopt_n_atoms = len(geometry.atomic_numbers) if 'geometry' in dir() and geometry is not None else None
+                _tsopt_n_opt_cycles = _rsirfo_cycles_spent if '_rsirfo_cycles_spent' in dir() else None
+            else:
+                # Light mode: compute freq/energy from runner
+                _tsopt_n_atoms = len(runner.geom.atomic_numbers) if 'runner' in dir() and hasattr(runner, 'geom') else None
+                _tsopt_n_opt_cycles = runner._cycles_spent if 'runner' in dir() and hasattr(runner, '_cycles_spent') else None
+                if 'runner' in dir() and hasattr(runner, 'geom'):
+                    try:
+                        from .freq import _frequencies_cm_and_modes as _json_freq_fn
+                        _tsopt_device = _torch_device(calc_cfg.get("ml_device", "auto"))
+                        # Use tsopt-local _calc_full_hessian_torch (returns Tensor, not tuple)
+                        _tsopt_H = _calc_full_hessian_torch(runner.geom, dict(calc_cfg), _tsopt_device)
+                        _tsopt_freqs, _ = _json_freq_fn(
+                            _tsopt_H,
+                            runner.geom.atomic_numbers,
+                            runner.geom.cart_coords.reshape(-1, 3),
+                            _tsopt_device,
+                            freeze_idx=list(geom_cfg.get("freeze_atoms", [])) or None,
+                        )
+                        del _tsopt_H
+                        _neg_thresh = float(simple_cfg.get("neg_freq_thresh_cm", 5.0))
+                        _tsopt_imag_freqs = [float(f) for f in _tsopt_freqs if f < -abs(_neg_thresh)]
+                        _tsopt_n_imag = len(_tsopt_imag_freqs)
+                        del _tsopt_freqs
+                    except Exception:
+                        pass
+                    try:
+                        _tsopt_energy = _calc_energy(runner.geom, calc_cfg)
+                    except Exception:
+                        pass
+
+            result_data = {
+                "status": "completed",
+                "energy_hartree": _tsopt_energy,
+                "n_imaginary_modes": _tsopt_n_imag,
+                "imaginary_frequencies_cm": _tsopt_imag_freqs,
+                "opt_mode": opt_mode,
+                "n_atoms": _tsopt_n_atoms,
+                "n_opt_cycles": _tsopt_n_opt_cycles,
+                "backend": calc_cfg.get("backend", "uma"),
+                "charge": calc_cfg.get("model_charge"),
+                "spin": calc_cfg.get("model_mult"),
+                "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
+                "thresh": simple_cfg.get("thresh") if 'simple_cfg' in dir() else None,
+                "max_cycles": simple_cfg.get("max_cycles") if 'simple_cfg' in dir() else None,
+                "input_file": str(input_path),
+                "files": {"final_geometry_xyz": "final_geometry.xyz"},
+            }
+            for ext in (".pdb", ".gjf"):
+                f = out_dir_path / f"final_geometry{ext}"
+                if f.exists():
+                    result_data["files"][f"final_geometry_{ext[1:]}"] = f.name
+            # Add trajectory files if they exist
+            for _trj_name in ("optimization_all_trj.xyz", "optimization_all.pdb", "optimization_trj.xyz", "optimization.pdb"):
+                _tf = out_dir_path / _trj_name
+                if _tf.exists():
+                    _key = _trj_name.replace(".", "_").replace("-", "_")
+                    result_data["files"][_key] = _trj_name
+            # List imaginary mode vib files
+            _vib_dir = out_dir_path / "vib"
+            if _vib_dir.exists():
+                result_data["files"]["imaginary_mode_files"] = sorted([
+                    f"vib/{f.name}" for f in _vib_dir.iterdir() if f.suffix in ('.xyz', '.pdb')
+                ])
+            write_result_json(
+                out_dir_path, result_data,
+                command="tsopt",
+                elapsed_seconds=time.perf_counter() - time_start,
+            )
 
     except ZeroStepLength:
         click.echo("ERROR: Proposed step length dropped below the minimum allowed (ZeroStepLength).", err=True)

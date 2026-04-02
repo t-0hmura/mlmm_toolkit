@@ -462,8 +462,8 @@ ML/MM 系は純粋な MLIP 計算よりも一般的に大きいため、VRAM の
 **対処:** 使用するバックエンドに対応するオプション依存パッケージをインストールします:
 ```bash
 pip install "mlmm-toolkit[orb]"      # ORB バックエンド
-pip install "mlmm-toolkit[aimnet2]"  # AIMNet2 バックエンド
-pip install "mlmm-toolkit[mace]"      # MACE バックエンド
+pip install "mlmm-toolkit[aimnet]"  # AIMNet2 バックエンド
+pip install --no-deps mace-torch      # MACE バックエンド
 ```
 
 ---

@@ -626,6 +626,13 @@ def _finalize_surface_and_plot(
     show_default=False,
     help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
 )
+@click.option(
+    "--out-json/--no-out-json",
+    "out_json",
+    default=False,
+    show_default=True,
+    help="Write machine-readable result.json to out_dir.",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -664,6 +671,7 @@ def cli(
     link_atom_method: Optional[str],
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
+    out_json: bool,
 ) -> None:
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -697,6 +705,22 @@ def cli(
             write_surface_csv=False,
             time_start=time_start,
         )
+        if out_json:
+            from .utils import write_result_json
+            min_energy = float(df["energy_hartree"].min()) if (not df.empty and "energy_hartree" in df.columns) else None
+            result_data: Dict[str, Any] = {
+                "status": "completed",
+                "n_grid_points": len(df),
+                "min_energy_hartree": min_energy,
+                "files": {
+                    "scan3d_density_html": "scan3d_density.html",
+                },
+            }
+            write_result_json(
+                final_dir, result_data,
+                command="scan3d",
+                elapsed_seconds=time.perf_counter() - time_start,
+            )
         return
 
     if input_path is None:
@@ -970,6 +994,13 @@ def cli(
 
             base_calc = mlmm(**calc_cfg)
             biased = HarmonicBiasCalculator(base_calc, k=float(bias_cfg["k"]))
+
+            try:
+                import torch as _torch
+                _resolved_dev = "cuda" if _torch.cuda.is_available() else "cpu"
+                click.echo(f"[calc] Resolved device: {_resolved_dev}")
+            except Exception:
+                pass
 
             if preopt:
                 click.echo("[preopt] Unbiased relaxation of the initial structure ...")
@@ -1281,6 +1312,27 @@ def cli(
                 write_surface_csv=True,
                 time_start=time_start,
             )
+
+            if out_json:
+                from .utils import write_result_json
+                min_energy = float(df["energy_hartree"].min()) if (not df.empty and "energy_hartree" in df.columns) else None
+                result_data_main: Dict[str, Any] = {
+                    "status": "completed",
+                    "n_grid_points": len(df),
+                    "pair1": {"i": int(i1 + 1), "j": int(j1 + 1), "low": float(low1), "high": float(high1)},
+                    "pair2": {"i": int(i2 + 1), "j": int(j2 + 1), "low": float(low2), "high": float(high2)},
+                    "pair3": {"i": int(i3 + 1), "j": int(j3 + 1), "low": float(low3), "high": float(high3)},
+                    "min_energy_hartree": min_energy,
+                    "files": {
+                        "surface_csv": "surface.csv",
+                        "scan3d_density_html": "scan3d_density.html",
+                    },
+                }
+                write_result_json(
+                    final_dir, result_data_main,
+                    command="scan3d",
+                    elapsed_seconds=time.perf_counter() - time_start,
+                )
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)

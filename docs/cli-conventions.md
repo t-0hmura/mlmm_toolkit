@@ -262,8 +262,8 @@ Alternative backends are installed via optional dependency groups:
 
 ```bash
 pip install "mlmm-toolkit[orb]"       # ORB backend
-pip install "mlmm-toolkit[aimnet2]"   # AIMNet2 backend
-pip install "mlmm-toolkit[mace]"      # MACE backend
+pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
+pip install --no-deps mace-torch      # MACE backend
 ```
 
 ---
