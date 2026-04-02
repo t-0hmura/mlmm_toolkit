@@ -90,11 +90,13 @@ ja/oniom-orca
 reference/commands/index
 reference/yaml
 yaml-reference
+json-output
 mlmm-calc
 python-api
 pysis
 glossary
 ja/yaml-reference
+ja/json-output
 ja/mlmm-calc
 ja/python-api
 ja/pysis

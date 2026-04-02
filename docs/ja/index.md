@@ -55,6 +55,7 @@ oniom-orca
 :hidden:
 
 yaml-reference
+json-output
 mlmm-calc
 python-api
 pysis
