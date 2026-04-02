@@ -86,7 +86,7 @@ This software is still under development. Please use it at your own risk.
 
 mlmm-toolkit uses the following components:
 
-- **MLIP backends**: Energy, force, and Hessian calculations for the ML region. The default is UMA (fairchem-core). ORB (`pip install "mlmm-toolkit[orb]"`) and AIMNet2 (`pip install "mlmm-toolkit[aimnet]"`) are also available. MACE (`pip install --no-deps mace-torch`) is also available.
+- **MLIP backends**: Energy, force, and Hessian calculations for the ML region. The default is UMA (fairchem-core). ORB (`pip install "mlmm-toolkit[orb]"`) and AIMNet2 (`pip install "mlmm-toolkit[aimnet]"`) are also available. MACE is also available but requires uninstalling `fairchem-core` first due to an `e3nn` version conflict (`pip uninstall fairchem-core && pip install mace-torch`).
 - **hessian_ff**: Amber force field calculations for the MM region (requires building the C++ extension).
 - **AmberTools**: Automatic parm7/rst7 generation via the `mm-parm` subcommand (tleap, antechamber, parmchk2).
 
@@ -114,7 +114,8 @@ pip install mlmm-toolkit
 # Optional: install alternative MLIP backends
 pip install "mlmm-toolkit[orb]"       # ORB backend
 pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
-pip install --no-deps mace-torch      # MACE backend
+# MACE backend (conflicts with UMA — uninstall fairchem-core first)
+# pip uninstall fairchem-core && pip install mace-torch
 
 cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
 plotly_get_chrome -y
@@ -227,7 +228,8 @@ If you prefer to build the environment piece by piece:
  ```bash
  pip install "mlmm-toolkit[orb]"       # ORB backend
  pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
- pip install --no-deps mace-torch      # MACE backend
+ # MACE backend (conflicts with UMA — uninstall fairchem-core first)
+# pip uninstall fairchem-core && pip install mace-torch
  ```
 
 7. **Build the `hessian_ff` C++ native extension**

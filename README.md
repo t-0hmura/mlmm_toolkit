@@ -106,7 +106,7 @@ If you are on an HPC cluster that uses *environment modules*, load CUDA **before
 module load cuda/12.6
 ```
 
-> `fairchem-core` is a core dependency. `aimnet2` and other ML backends (`orb-models`, `mace-torch`) are optional extras (e.g. `pip install "mlmm-toolkit[aimnet]"`).
+> `fairchem-core` (UMA) is a core dependency. ORB and AIMNet2 are optional extras (e.g. `pip install "mlmm-toolkit[aimnet]"`). MACE requires uninstalling `fairchem-core` first due to an `e3nn` version conflict.
 
 
 ### DFT single-point (`mlmm dft`)
@@ -148,8 +148,16 @@ huggingface-cli login
 |-----------|------------|---------------|
 | **UMA** (default) | <https://github.com/facebookresearch/fairchem> | *(included)* |
 | **ORB** | <https://github.com/orbital-materials/orb-models> | `pip install "mlmm-toolkit[orb]"` |
-| **MACE** | <https://github.com/ACEsuit/mace> | `pip install --no-deps mace-torch` |
+| **MACE** | <https://github.com/ACEsuit/mace> | See below |
 | **AIMNet2** | <https://github.com/isayevlab/aimnetcentral> | `pip install "mlmm-toolkit[aimnet]"` |
+
+> **MACE installation:** MACE requires `e3nn==0.4.4`, which conflicts with `fairchem-core` (UMA).
+> To use MACE, first uninstall UMA's dependency, then install MACE:
+> ```bash
+> pip uninstall fairchem-core
+> pip install mace-torch
+> ```
+> UMA and MACE cannot coexist in the same environment. Use separate conda environments if you need both.
 
 ---
 
