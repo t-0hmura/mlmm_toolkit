@@ -1,6 +1,6 @@
 # `init`（削除済み）
 
-> **注意:** `init` サブコマンドは削除されました。各サブコマンドで `--show-config` を使用して現在の設定を確認するか、[YAML リファレンス](yaml_reference.md)を参照して手動で YAML ファイルを作成してください。ML バックエンドの選択（`--backend`）や xTB 点電荷埋め込み補正（`--embedcharge`）などの新しいオプションについては、各サブコマンドのドキュメントを参照してください。
+> **注意:** `init` サブコマンドは削除されました。各サブコマンドで `--show-config` を使用して現在の設定を確認するか、[YAML リファレンス](yaml-reference.md)を参照して手動で YAML ファイルを作成してください。ML バックエンドの選択（`--backend`）や xTB 点電荷埋め込み補正（`--embedcharge`）などの新しいオプションについては、各サブコマンドのドキュメントを参照してください。
 
 ## 以前の動作
 
@@ -22,6 +22,6 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
-- [YAML リファレンス](yaml_reference.md) -- 設定キーの全体像
+- [YAML リファレンス](yaml-reference.md) -- 設定キーの全体像

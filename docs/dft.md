@@ -133,11 +133,11 @@ dft:
 
 ## See Also
 
-- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [freq](freq.md) -- Vibrational frequency analysis (often precedes DFT refinement)
 - [opt](opt.md) -- Single-structure geometry optimization
 - [all](all.md) -- End-to-end workflow with `--dft`
-- [YAML Reference](yaml_reference.md) -- Full `dft` configuration options
+- [YAML Reference](yaml-reference.md) -- Full `dft` configuration options
 - [Glossary](glossary.md) -- Definitions of DFT, SP (Single Point)

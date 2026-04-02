@@ -9,22 +9,22 @@
 :caption: Guides
 :hidden:
 
-getting_started
-quickstart_all
-quickstart_scan_spec
-quickstart_tsopt_freq
+getting-started
+quickstart-all
+quickstart-scan-spec
+quickstart-tsopt-freq
 concepts
-recipes_common_errors
+recipes-common-errors
 troubleshooting
-cli_conventions
-ja/getting_started
-ja/quickstart_all
-ja/quickstart_scan_spec
-ja/quickstart_tsopt_freq
+cli-conventions
+ja/getting-started
+ja/quickstart-all
+ja/quickstart-scan-spec
+ja/quickstart-tsopt-freq
 ja/concepts
-ja/recipes_common_errors
+ja/recipes-common-errors
 ja/troubleshooting
-ja/cli_conventions
+ja/cli-conventions
 ```
 
 ```{toctree}
@@ -34,13 +34,13 @@ ja/cli_conventions
 
 all
 extract
-add_elem_info
-mm_parm
-define_layer
+add-elem-info
+mm-parm
+define-layer
 opt
 tsopt
-path_opt
-path_search
+path-opt
+path-search
 scan
 scan2d
 scan3d
@@ -48,23 +48,23 @@ freq
 irc
 dft
 trj2fig
-oniom_export
-oniom_import
-fix_altloc
-energy_diagram
-bond_summary
-device_hpc
-oniom_gaussian
-oniom_orca
+oniom-export
+oniom-import
+fix-altloc
+energy-diagram
+bond-summary
+device-hpc
+oniom-gaussian
+oniom-orca
 ja/all
 ja/extract
-ja/add_elem_info
-ja/mm_parm
-ja/define_layer
+ja/add-elem-info
+ja/mm-parm
+ja/define-layer
 ja/opt
 ja/tsopt
-ja/path_opt
-ja/path_search
+ja/path-opt
+ja/path-search
 ja/scan
 ja/scan2d
 ja/scan3d
@@ -72,14 +72,14 @@ ja/freq
 ja/irc
 ja/dft
 ja/trj2fig
-ja/oniom_export
-ja/oniom_import
-ja/fix_altloc
-ja/energy_diagram
-ja/bond_summary
-ja/device_hpc
-ja/oniom_gaussian
-ja/oniom_orca
+ja/oniom-export
+ja/oniom-import
+ja/fix-altloc
+ja/energy-diagram
+ja/bond-summary
+ja/device-hpc
+ja/oniom-gaussian
+ja/oniom-orca
 ```
 
 ```{toctree}
@@ -89,14 +89,14 @@ ja/oniom_orca
 
 reference/commands/index
 reference/yaml
-yaml_reference
-mlmm_calc
-python_api
+yaml-reference
+mlmm-calc
+python-api
 pysis
 glossary
-ja/yaml_reference
-ja/mlmm_calc
-ja/python_api
+ja/yaml-reference
+ja/mlmm-calc
+ja/python-api
 ja/pysis
 ja/glossary
 ```
@@ -116,11 +116,11 @@ ja/glossary
 
 | Topic | Page |
 |-------|------|
-| **Installation & first run** | [Getting Started](getting_started.md) |
+| **Installation & first run** | [Getting Started](getting-started.md) |
 | **Key terms & workflow overview** | [Concepts & Workflow](concepts.md) |
-| **Symptom-first failure routing** | [Common Error Recipes](recipes_common_errors.md) |
+| **Symptom-first failure routing** | [Common Error Recipes](recipes-common-errors.md) |
 | **Common errors & fixes** | [Troubleshooting](troubleshooting.md) |
-| **CLI conventions & input requirements** | [CLI Conventions](cli_conventions.md) |
+| **CLI conventions & input requirements** | [CLI Conventions](cli-conventions.md) |
 
 ---
 
@@ -128,24 +128,24 @@ ja/glossary
 
 | Objectives | Command | Guide |
 |-------------------------|---------|-------|
-| First run (end-to-end) | `mlmm all` | [Quickstart: all](quickstart_all.md) |
-| Single-structure staged scan (`-s`) | `mlmm scan` | [Quickstart: scan](quickstart_scan_spec.md) |
-| TS validation (`tsopt` + vibrational analysis) | `mlmm tsopt` | [Quickstart: tsopt](quickstart_tsopt_freq.md) |
+| First run (end-to-end) | `mlmm all` | [Quickstart: all](quickstart-all.md) |
+| Single-structure staged scan (`-s`) | `mlmm scan` | [Quickstart: scan](quickstart-scan-spec.md) |
+| TS validation (`tsopt` + vibrational analysis) | `mlmm tsopt` | [Quickstart: tsopt](quickstart-tsopt-freq.md) |
 | Run complete reaction path search from PDB | `mlmm all` | [all.md](all.md) |
-| View current configuration | `mlmm opt --show-config` | [YAML Reference](yaml_reference.md) |
+| View current configuration | `mlmm opt --show-config` | [YAML Reference](yaml-reference.md) |
 | Extract QM region from protein-ligand complex | `mlmm extract` | [extract.md](extract.md) |
-| Build MM topology (parm7/rst7) | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
-| Define ML/MM layers | `mlmm define-layer` | [define_layer.md](define_layer.md) |
+| Build MM topology (parm7/rst7) | `mlmm mm-parm` | [mm-parm.md](mm-parm.md) |
+| Define ML/MM layers | `mlmm define-layer` | [define-layer.md](define-layer.md) |
 | Optimize a single structure | `mlmm opt` | [opt.md](opt.md) |
-| Find transition state candidate via MEP search | `mlmm path-search` | [path_search.md](path_search.md) |
+| Find transition state candidate via MEP search | `mlmm path-search` | [path-search.md](path-search.md) |
 | Optimize a transition state candidate | `mlmm tsopt` | [tsopt.md](tsopt.md) |
 | Run IRC from a transition state | `mlmm irc` | [irc.md](irc.md) |
 | Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export` | [oniom_export.md](oniom_export.md) |
-| Rebuild XYZ/layered PDB from ONIOM input | `mlmm oniom-import` | [oniom_import.md](oniom_import.md) |
-| Draw state energy diagram from numeric values | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
-| Follow worked tutorials | -- | [Tutorial](getting_started.md) |
-| Diagnose failures by symptom | -- | [Common Error Recipes](recipes_common_errors.md) |
+| Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export` | [oniom-export.md](oniom-export.md) |
+| Rebuild XYZ/layered PDB from ONIOM input | `mlmm oniom-import` | [oniom-import.md](oniom-import.md) |
+| Draw state energy diagram from numeric values | `mlmm energy-diagram` | [energy-diagram.md](energy-diagram.md) |
+| Follow worked tutorials | -- | [Tutorial](getting-started.md) |
+| Diagnose failures by symptom | -- | [Common Error Recipes](recipes-common-errors.md) |
 | Understand the big picture (concepts & terms) | -- | [Concepts & Workflow](concepts.md) |
 | Resolve common errors | -- | [Troubleshooting](troubleshooting.md) |
 | Look up abbreviations and terms | -- | [Glossary](glossary.md) |
@@ -163,9 +163,9 @@ ja/glossary
 | Subcommand | Description |
 |------------|-------------|
 | [`extract`](extract.md) | Define ML region (QM region) from protein-ligand complex |
-| [`add-elem-info`](add_elem_info.md) | Repair PDB element columns (77-78) |
-| [`mm-parm`](mm_parm.md) | Build AMBER topology (parm7/rst7) with tleap + GAFF2 |
-| [`define-layer`](define_layer.md) | Define 3-layer ML/MM regions via B-factor annotation |
+| [`add-elem-info`](add-elem-info.md) | Repair PDB element columns (77-78) |
+| [`mm-parm`](mm-parm.md) | Build AMBER topology (parm7/rst7) with tleap + GAFF2 |
+| [`define-layer`](define-layer.md) | Define 3-layer ML/MM regions via B-factor annotation |
 
 ### Geometry Optimization
 | Subcommand | Description |
@@ -176,8 +176,8 @@ ja/glossary
 ### Path Search & Optimization
 | Subcommand | Description |
 |------------|-------------|
-| [`path-opt`](path_opt.md) | MEP optimization via GSM or DMF (two structures) |
-| [`path-search`](path_search.md) | Recursive MEP search with automatic refinement (2+ structures) |
+| [`path-opt`](path-opt.md) | MEP optimization via GSM or DMF (two structures) |
+| [`path-search`](path-search.md) | Recursive MEP search with automatic refinement (2+ structures) |
 
 ### Scans
 | Subcommand | Description |
@@ -193,19 +193,19 @@ ja/glossary
 | [`freq`](freq.md) | Vibrational frequency analysis & thermochemistry |
 | [`dft`](dft.md) | Single-point DFT calculations (GPU4PySCF / PySCF) |
 | [`trj2fig`](trj2fig.md) | Plot energy profiles from XYZ trajectories |
-| [`energy-diagram`](energy_diagram.md) | Build an energy diagram from numeric input values |
+| [`energy-diagram`](energy-diagram.md) | Build an energy diagram from numeric input values |
 
 ### Utilities
 | Subcommand | Description |
 |------------|-------------|
-| [`fix-altloc`](fix_altloc.md) | Resolve PDB alternate conformations (altloc) |
-| [`device-hpc`](device_hpc.md) | Check GPU device information on HPC |
+| [`fix-altloc`](fix-altloc.md) | Resolve PDB alternate conformations (altloc) |
+| [`device-hpc`](device-hpc.md) | Check GPU device information on HPC |
 
 ### Export
 | Subcommand | Description |
 |------------|-------------|
-| [`oniom-export`](oniom_export.md) | Export to Gaussian ONIOM / ORCA QM/MM (`--mode g16` or `orca`) |
-| [`oniom-import`](oniom_import.md) | Import Gaussian/ORCA ONIOM input and reconstruct XYZ + layered PDB |
+| [`oniom-export`](oniom-export.md) | Export to Gaussian ONIOM / ORCA QM/MM (`--mode g16` or `orca`) |
+| [`oniom-import`](oniom-import.md) | Import Gaussian/ORCA ONIOM input and reconstruct XYZ + layered PDB |
 
 ---
 
@@ -215,8 +215,8 @@ ja/glossary
 |-------|------|
 | **CLI command reference** | [Command Reference](reference/commands/index.md) |
 | **YAML schema** | [YAML Schema](reference/yaml.md) |
-| **YAML configuration options** | [YAML Reference](yaml_reference.md) |
-| **ML/MM calculator architecture** | [ML/MM Calculator](mlmm_calc.md) |
+| **YAML configuration options** | [YAML Reference](yaml-reference.md) |
+| **ML/MM calculator architecture** | [ML/MM Calculator](mlmm-calc.md) |
 | **Terminology** | [Glossary](glossary.md) |
 
 ---
@@ -286,7 +286,7 @@ Boolean CLI options use toggle form (`--flag` / `--no-flag`):
 ```
 
 ### YAML configuration
-See the [YAML Reference](yaml_reference.md) for detailed options.
+See the [YAML Reference](yaml-reference.md) for detailed options.
 
 ---
 

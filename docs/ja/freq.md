@@ -106,7 +106,7 @@ out_dir/ (デフォルト: ./result_freq/)
 ## YAML設定
 
 マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
-共有セクションは [YAML リファレンス](yaml_reference.md) を再利用します。
+共有セクションは [YAML リファレンス](yaml-reference.md) を再利用します。
 熱化学制御用の追加 `thermo` セクションがサポートされます。
 
 ```yaml
@@ -143,12 +143,12 @@ thermo:
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [tsopt](tsopt.md) -- TS 候補の最適化（freq/IRC で検証; 期待: 1 つの虚振動数）
 - [opt](opt.md) -- 構造最適化（多くの場合 freq の前に実行）
 - [dft](dft.md) -- より高レベルのエネルギー精密化のための DFT 一点計算
 - [all](all.md) -- `--thermo` 付き一気通貫ワークフロー
-- [YAML リファレンス](yaml_reference.md) -- `freq` と `thermo` の完全な設定オプション
+- [YAML リファレンス](yaml-reference.md) -- `freq` と `thermo` の完全な設定オプション
 - [用語集](glossary.md) -- ZPE、Gibbs エネルギー、エンタルピー、エントロピーの定義

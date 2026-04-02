@@ -126,7 +126,7 @@ out_dir/ (default: ./result_tsopt/)
 ## YAML configuration
 
 Settings are applied with **defaults < config < explicit CLI < override**.
-Shared sections reuse [YAML Reference](yaml_reference.md). Keep the full block below intact if it already matches your workflow -- adjust only the values you need to change.
+Shared sections reuse [YAML Reference](yaml-reference.md). Keep the full block below intact if it already matches your workflow -- adjust only the values you need to change.
 
 ```yaml
 geom:
@@ -226,12 +226,12 @@ rsirfo:
 
 ## See Also
 
-- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [opt](opt.md) -- Single-structure geometry optimization
 - [freq](freq.md) -- Confirm a single imaginary frequency for the validated TS
 - [irc](irc.md) -- Trace the reaction path from an optimized TS
 - [all](all.md) -- End-to-end workflow that chains ML/MM model setup -> MEP search -> tsopt -> IRC -> freq
-- [YAML Reference](yaml_reference.md) -- Full `hessian_dimer` (Hessian Guided Dimer) and `rsirfo` configuration options
+- [YAML Reference](yaml-reference.md) -- Full `hessian_dimer` (Hessian Guided Dimer) and `rsirfo` configuration options
 - [Glossary](glossary.md) -- Definitions of TS, Dimer, RS-I-RFO, Hessian

@@ -253,11 +253,11 @@ HOH, WAT, H2O, DOD, TIP, TIP3, SOL
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
-- [はじめに](getting_started.md) -- インストールと初回実行
+- [はじめに](getting-started.md) -- インストールと初回実行
 - [概念とワークフロー](concepts.md) -- 全系 vs. ML 領域
-- [CLI 規約](cli_conventions.md) -- 残基セレクタと電荷指定
-- [mm-parm](mm_parm.md) -- 抽出したポケットから Amber トポロジーを生成
-- [define-layer](define_layer.md) -- 3 層 ML/MM 分割の付与
+- [CLI 規約](cli-conventions.md) -- 残基セレクタと電荷指定
+- [mm-parm](mm-parm.md) -- 抽出したポケットから Amber トポロジーを生成
+- [define-layer](define-layer.md) -- 3 層 ML/MM 分割の付与

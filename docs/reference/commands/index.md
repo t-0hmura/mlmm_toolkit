@@ -4,21 +4,21 @@
 :maxdepth: 1
 :hidden:
 
-add_elem_info
+add-elem-info
 all
-define_layer
+define-layer
 dft
-energy_diagram
+energy-diagram
 extract
-fix_altloc
+fix-altloc
 freq
 irc
-mm_parm
-oniom_export
-oniom_import
+mm-parm
+oniom-export
+oniom-import
 opt
-path_opt
-path_search
+path-opt
+path-search
 pysis
 scan
 scan2d
@@ -29,21 +29,21 @@ tsopt
 
 | Command | Page |
 |---|---|
-| `mlmm add-elem-info` | [add-elem-info](add_elem_info.md) |
+| `mlmm add-elem-info` | [add-elem-info](add-elem-info.md) |
 | `mlmm all` | [all](all.md) |
-| `mlmm define-layer` | [define-layer](define_layer.md) |
+| `mlmm define-layer` | [define-layer](define-layer.md) |
 | `mlmm dft` | [dft](dft.md) |
-| `mlmm energy-diagram` | [energy-diagram](energy_diagram.md) |
+| `mlmm energy-diagram` | [energy-diagram](energy-diagram.md) |
 | `mlmm extract` | [extract](extract.md) |
-| `mlmm fix-altloc` | [fix-altloc](fix_altloc.md) |
+| `mlmm fix-altloc` | [fix-altloc](fix-altloc.md) |
 | `mlmm freq` | [freq](freq.md) |
 | `mlmm irc` | [irc](irc.md) |
-| `mlmm mm-parm` | [mm-parm](mm_parm.md) |
-| `mlmm oniom-export` | [oniom-export](oniom_export.md) |
-| `mlmm oniom-import` | [oniom-import](oniom_import.md) |
+| `mlmm mm-parm` | [mm-parm](mm-parm.md) |
+| `mlmm oniom-export` | [oniom-export](oniom-export.md) |
+| `mlmm oniom-import` | [oniom-import](oniom-import.md) |
 | `mlmm opt` | [opt](opt.md) |
-| `mlmm path-opt` | [path-opt](path_opt.md) |
-| `mlmm path-search` | [path-search](path_search.md) |
+| `mlmm path-opt` | [path-opt](path-opt.md) |
+| `mlmm path-search` | [path-search](path-search.md) |
 | `mlmm pysis` | [pysis](pysis.md) |
 | `mlmm scan` | [scan](scan.md) |
 | `mlmm scan2d` | [scan2d](scan2d.md) |

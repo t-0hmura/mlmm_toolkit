@@ -167,6 +167,6 @@ Existing v0.1.x YAML files work without modification — deprecated parameter na
 
 ## See Also
 
-- [Python API](python_api.md) — Using mlmm-toolkit as a Python library
-- [ML/MM Calculator](mlmm_calc.md) — Calculator architecture
-- [YAML Reference](yaml_reference.md) — Full YAML configuration reference
+- [Python API](python-api.md) — Using mlmm-toolkit as a Python library
+- [ML/MM Calculator](mlmm-calc.md) — Calculator architecture
+- [YAML Reference](yaml-reference.md) — Full YAML configuration reference

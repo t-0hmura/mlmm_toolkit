@@ -167,6 +167,6 @@ irc:
 
 ## 関連ドキュメント
 
-- [Python API](python_api.md) — mlmm-toolkitをPythonライブラリとして使用
-- [ML/MM Calculator](mlmm_calc.md) — Calculatorアーキテクチャ
-- [YAML Reference](yaml_reference.md) — YAML設定リファレンス
+- [Python API](python-api.md) — mlmm-toolkitをPythonライブラリとして使用
+- [ML/MM Calculator](mlmm-calc.md) — Calculatorアーキテクチャ
+- [YAML Reference](yaml-reference.md) — YAML設定リファレンス

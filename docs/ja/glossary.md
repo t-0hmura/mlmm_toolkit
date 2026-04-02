@@ -143,9 +143,9 @@
 
 ## 関連項目
 
-- [はじめに](getting_started.md) -- インストールと初回実行
+- [はじめに](getting-started.md) -- インストールと初回実行
 - [概念とワークフロー](concepts.md) -- ポケット抽出、ML/MM レイヤー、MEP 探索、後処理の全体像
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- よくあるエラーと対処法
-- [YAML リファレンス](yaml_reference.md) -- 設定ファイルの仕様
-- [ML/MM 計算機](mlmm_calc.md) -- 機械学習ポテンシャルの詳細
+- [YAML リファレンス](yaml-reference.md) -- 設定ファイルの仕様
+- [ML/MM 計算機](mlmm-calc.md) -- 機械学習ポテンシャルの詳細

@@ -257,11 +257,11 @@ out_dir/ (デフォルト:./result_scan/)
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [scan2d](scan2d.md) -- 2D 距離グリッドスキャン
 - [scan3d](scan3d.md) -- 3D 距離グリッドスキャン
 - [opt](opt.md) -- 単一構造の構造最適化
 - [all](all.md) -- 単一構造入力の `--scan-lists` 付き一気通貫ワークフロー
-- [path-search](path_search.md) -- スキャン端点を中間体として使用する MEP 探索
+- [path-search](path-search.md) -- スキャン端点を中間体として使用する MEP 探索

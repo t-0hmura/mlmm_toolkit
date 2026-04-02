@@ -251,11 +251,11 @@ HOH, WAT, H2O, DOD, TIP, TIP3, SOL
 
 ## See Also
 
-- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
-- [Getting Started](getting_started.md) -- Installation and first run
+- [Getting Started](getting-started.md) -- Installation and first run
 - [Concepts](concepts.md) -- Full system vs. ML region
-- [CLI Conventions](cli_conventions.md) -- Residue selectors and charge specification
-- [mm-parm](mm_parm.md) -- Generate Amber topology from the extracted pocket
-- [define-layer](define_layer.md) -- Assign 3-layer ML/MM partitioning
+- [CLI Conventions](cli-conventions.md) -- Residue selectors and charge specification
+- [mm-parm](mm-parm.md) -- Generate Amber topology from the extracted pocket
+- [define-layer](define-layer.md) -- Assign 3-layer ML/MM partitioning

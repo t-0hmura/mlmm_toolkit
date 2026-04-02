@@ -284,8 +284,8 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 ## 次に読むページ
 
 ### 入門
-- [はじめに](getting_started.md) -- インストールと初回実行
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [はじめに](getting-started.md) -- インストールと初回実行
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- よくあるエラーと対処法
 
 ### 主要サブコマンド
@@ -293,14 +293,14 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 |------------|------|-------------|
 | `all` | 一気通貫ワークフロー | [all.md](all.md) |
 | `extract` | ML 領域定義 | [extract.md](extract.md) |
-| `mm-parm` | Amber トポロジー構築 | [mm_parm.md](mm_parm.md) |
-| `define-layer` | 3 層 ML/MM 領域定義 | [define_layer.md](define_layer.md) |
-| `path-search` | 再帰的 MEP 探索 | [path_search.md](path_search.md) |
+| `mm-parm` | Amber トポロジー構築 | [mm-parm.md](mm-parm.md) |
+| `define-layer` | 3 層 ML/MM 領域定義 | [define-layer.md](define-layer.md) |
+| `path-search` | 再帰的 MEP 探索 | [path-search.md](path-search.md) |
 | `tsopt` | TS 最適化 | [tsopt.md](tsopt.md) |
 | `freq` | 振動解析 | [freq.md](freq.md) |
 | `dft` | DFT 一点計算 | [dft.md](dft.md) |
-| `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16\|orca`） | [oniom_export.md](oniom_export.md) |
+| `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16\|orca`） | [oniom-export.md](oniom-export.md) |
 
 ### リファレンス
-- [YAML リファレンス](yaml_reference.md) -- 全オプションの YAML 設定
+- [YAML リファレンス](yaml-reference.md) -- 全オプションの YAML 設定
 - [用語集](glossary.md) -- 用語リファレンス

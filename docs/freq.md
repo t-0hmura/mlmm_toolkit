@@ -105,7 +105,7 @@ out_dir/ (default: ./result_freq/)
 ## YAML configuration
 
 Provide mappings with merge order **defaults < config < explicit CLI < override**.
-Shared sections reuse [YAML Reference](yaml_reference.md).
+Shared sections reuse [YAML Reference](yaml-reference.md).
 An additional `thermo` section is supported for thermochemistry controls.
 
 ```yaml
@@ -140,12 +140,12 @@ thermo:
 
 ## See Also
 
-- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [tsopt](tsopt.md) -- Optimize TS candidates (validate with freq/IRC; expected: one imaginary frequency)
 - [opt](opt.md) -- Geometry optimization (often precedes freq)
 - [dft](dft.md) -- Single-point DFT for higher-level energy refinement
 - [all](all.md) -- End-to-end workflow with `--thermo`
-- [YAML Reference](yaml_reference.md) -- Full `freq` and `thermo` configuration options
+- [YAML Reference](yaml-reference.md) -- Full `freq` and `thermo` configuration options
 - [Glossary](glossary.md) -- Definitions of ZPE, Gibbs Energy, Enthalpy, Entropy

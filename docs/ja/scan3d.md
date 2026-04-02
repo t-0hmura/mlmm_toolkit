@@ -214,11 +214,11 @@ bias:
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
 - [scan](scan.md) -- 1D 結合距離駆動スキャン
 - [scan2d](scan2d.md) -- 2D 距離グリッドスキャン
 - [opt](opt.md) -- 構造最適化（スキャン前に実行する場合が多い）
 - [all](all.md) -- 一気通貫ワークフロー
-- [YAML リファレンス](yaml_reference.md) -- スキャンの完全な設定オプション
+- [YAML リファレンス](yaml-reference.md) -- スキャンの完全な設定オプション

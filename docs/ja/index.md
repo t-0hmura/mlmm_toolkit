@@ -9,14 +9,14 @@
 :caption: ガイド
 :hidden:
 
-getting_started
-quickstart_all
-quickstart_scan_spec
-quickstart_tsopt_freq
+getting-started
+quickstart-all
+quickstart-scan-spec
+quickstart-tsopt-freq
 concepts
-recipes_common_errors
+recipes-common-errors
 troubleshooting
-cli_conventions
+cli-conventions
 ```
 
 ```{toctree}
@@ -26,13 +26,13 @@ cli_conventions
 
 all
 extract
-add_elem_info
-mm_parm
-define_layer
+add-elem-info
+mm-parm
+define-layer
 opt
 tsopt
-path_opt
-path_search
+path-opt
+path-search
 scan
 scan2d
 scan3d
@@ -40,13 +40,13 @@ freq
 irc
 dft
 trj2fig
-oniom_export
-oniom_import
-fix_altloc
-energy_diagram
-device_hpc
-oniom_gaussian
-oniom_orca
+oniom-export
+oniom-import
+fix-altloc
+energy-diagram
+device-hpc
+oniom-gaussian
+oniom-orca
 ```
 
 ```{toctree}
@@ -54,9 +54,9 @@ oniom_orca
 :caption: リファレンス
 :hidden:
 
-yaml_reference
-mlmm_calc
-python_api
+yaml-reference
+mlmm-calc
+python-api
 pysis
 glossary
 ```
@@ -67,24 +67,24 @@ glossary
 
 | ユースケース | 推奨コマンド | ガイド |
 |--------------|--------------|--------|
-| 最初の 1 回を実行（end-to-end） | `mlmm all` | [クイックスタート: all](quickstart_all.md) |
-| 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan](quickstart_scan_spec.md) |
-| TS 検証（`tsopt` + 振動解析） | `mlmm tsopt` | [クイックスタート: tsopt](quickstart_tsopt_freq.md) |
+| 最初の 1 回を実行（end-to-end） | `mlmm all` | [クイックスタート: all](quickstart-all.md) |
+| 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan](quickstart-scan-spec.md) |
+| TS 検証（`tsopt` + 振動解析） | `mlmm tsopt` | [クイックスタート: tsopt](quickstart-tsopt-freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
-| 現在の設定を確認 | `mlmm opt --show-config` | [YAML リファレンス](yaml_reference.md) |
+| 現在の設定を確認 | `mlmm opt --show-config` | [YAML リファレンス](yaml-reference.md) |
 | タンパク質-リガンド複合体からQM領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
-| MM トポロジー（parm7/rst7）を構築 | `mlmm mm-parm` | [mm_parm.md](mm_parm.md) |
-| ML/MM 3層領域を定義 | `mlmm define-layer` | [define_layer.md](define_layer.md) |
+| MM トポロジー（parm7/rst7）を構築 | `mlmm mm-parm` | [mm-parm.md](mm-parm.md) |
+| ML/MM 3層領域を定義 | `mlmm define-layer` | [define-layer.md](define-layer.md) |
 | 単一構造を最適化 | `mlmm opt` | [opt.md](opt.md) |
-| MEP探索で遷移状態候補を発見 | `mlmm path-search` | [path_search.md](path_search.md) |
+| MEP探索で遷移状態候補を発見 | `mlmm path-search` | [path-search.md](path-search.md) |
 | 遷移状態候補を最適化 | `mlmm tsopt` | [tsopt.md](tsopt.md) |
 | 遷移状態からIRCを実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Gaussian ONIOM / ORCA QM/MM 入力を生成 | `mlmm oniom-export --mode g16\|orca` | [oniom_export.md](oniom_export.md) |
-| ONIOM 入力から XYZ/層付き PDB を再構築 | `mlmm oniom-import` | [oniom_import.md](oniom_import.md) |
-| 数値から状態エネルギーダイアグラムを描画 | `mlmm energy-diagram` | [energy_diagram.md](energy_diagram.md) |
-| チュートリアルに従う | -- | [はじめに](getting_started.md) |
-| 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes_common_errors.md) |
+| Gaussian ONIOM / ORCA QM/MM 入力を生成 | `mlmm oniom-export --mode g16\|orca` | [oniom-export.md](oniom-export.md) |
+| ONIOM 入力から XYZ/層付き PDB を再構築 | `mlmm oniom-import` | [oniom-import.md](oniom-import.md) |
+| 数値から状態エネルギーダイアグラムを描画 | `mlmm energy-diagram` | [energy-diagram.md](energy-diagram.md) |
+| チュートリアルに従う | -- | [はじめに](getting-started.md) |
+| 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes-common-errors.md) |
 | 全体像（概念・用語）の把握 | -- | [概念とワークフロー](concepts.md) |
 | よくあるエラーの解決 | -- | [トラブルシューティング](troubleshooting.md) |
 | 略語や用語を調べる | -- | [用語集](glossary.md) |
@@ -95,11 +95,11 @@ glossary
 
 | トピック | ページ |
 |---------|--------|
-| **インストールと初回実行** | [はじめに](getting_started.md) |
+| **インストールと初回実行** | [はじめに](getting-started.md) |
 | **主要概念とワークフロー概要** | [概念とワークフロー](concepts.md) |
-| **症状起点の切り分け** | [典型エラー別レシピ](recipes_common_errors.md) |
+| **症状起点の切り分け** | [典型エラー別レシピ](recipes-common-errors.md) |
 | **よくあるエラーと対処** | [トラブルシューティング](troubleshooting.md) |
-| **CLI 規約と入力要件** | [CLI 規約](cli_conventions.md) |
+| **CLI 規約と入力要件** | [CLI 規約](cli-conventions.md) |
 
 ---
 
@@ -114,9 +114,9 @@ glossary
 | サブコマンド | 説明 |
 |---------|------|
 | [`extract`](extract.md) | タンパク質-リガンド複合体から ML 領域（QM 領域）を定義 |
-| [`add-elem-info`](add_elem_info.md) | PDB の元素カラム（77-78）を修復 |
-| [`mm-parm`](mm_parm.md) | AmberTools (tleap + GAFF2) を使用して Amber トポロジー（parm7/rst7）を構築 |
-| [`define-layer`](define_layer.md) | ML 領域からの距離に基づき 3 層 ML/MM 領域を定義し、B-factor でエンコード |
+| [`add-elem-info`](add-elem-info.md) | PDB の元素カラム（77-78）を修復 |
+| [`mm-parm`](mm-parm.md) | AmberTools (tleap + GAFF2) を使用して Amber トポロジー（parm7/rst7）を構築 |
+| [`define-layer`](define-layer.md) | ML 領域からの距離に基づき 3 層 ML/MM 領域を定義し、B-factor でエンコード |
 
 ### 構造最適化
 | サブコマンド | 説明 |
@@ -127,8 +127,8 @@ glossary
 ### 経路探索・最適化
 | サブコマンド | 説明 |
 |---------|------|
-| [`path-opt`](path_opt.md) | GSM または DMF による MEP 最適化 |
-| [`path-search`](path_search.md) | 自動精密化を伴う再帰的 MEP 探索 |
+| [`path-opt`](path-opt.md) | GSM または DMF による MEP 最適化 |
+| [`path-search`](path-search.md) | 自動精密化を伴う再帰的 MEP 探索 |
 
 ### スキャン
 | サブコマンド | 説明 |
@@ -144,19 +144,19 @@ glossary
 | [`freq`](freq.md) | 振動解析と熱化学 |
 | [`dft`](dft.md) | DFT 一点計算（GPU4PySCF / PySCF） |
 | [`trj2fig`](trj2fig.md) | XYZ 軌跡からエネルギープロファイルをプロット |
-| [`energy-diagram`](energy_diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
+| [`energy-diagram`](energy-diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
 
 ### ユーティリティ
 | サブコマンド | 説明 |
 |---------|------|
-| [`fix-altloc`](fix_altloc.md) | PDB の代替コンフォメーション（altloc）を解決 |
-| [`device-hpc`](device_hpc.md) | HPC 環境での GPU デバイス情報の確認 |
+| [`fix-altloc`](fix-altloc.md) | PDB の代替コンフォメーション（altloc）を解決 |
+| [`device-hpc`](device-hpc.md) | HPC 環境での GPU デバイス情報の確認 |
 
 ### エクスポート
 | サブコマンド | 説明 |
 |---------|------|
-| [`oniom-export`](oniom_export.md) | Amber parm7 から Gaussian ONIOM / ORCA QM/MM 入力を生成（`--mode g16|orca`） |
-| [`oniom-import`](oniom_import.md) | Gaussian/ORCA ONIOM 入力を読み込み、XYZ と層付き PDB を再構築 |
+| [`oniom-export`](oniom-export.md) | Amber parm7 から Gaussian ONIOM / ORCA QM/MM 入力を生成（`--mode g16|orca`） |
+| [`oniom-import`](oniom-import.md) | Gaussian/ORCA ONIOM 入力を読み込み、XYZ と層付き PDB を再構築 |
 
 ---
 
@@ -166,8 +166,8 @@ glossary
 |---------|--------|
 | **CLI コマンドリファレンス** | [コマンドリファレンス](../reference/commands/index.md) |
 | **YAML スキーマ** | [YAML スキーマ](../reference/yaml.md) |
-| **YAML 設定オプション** | [YAML リファレンス](yaml_reference.md) |
-| **ML/MM 計算機アーキテクチャ** | [ML/MM 計算機](mlmm_calc.md) |
+| **YAML 設定オプション** | [YAML リファレンス](yaml-reference.md) |
+| **ML/MM 計算機アーキテクチャ** | [ML/MM 計算機](mlmm-calc.md) |
 | **用語集** | [用語集](glossary.md) |
 
 ---
@@ -238,7 +238,7 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 
 ### YAML 設定
 
-詳細なオプションについては [YAML リファレンス](yaml_reference.md) を参照してください。
+詳細なオプションについては [YAML リファレンス](yaml-reference.md) を参照してください。
 
 ---
 

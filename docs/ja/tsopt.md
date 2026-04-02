@@ -126,7 +126,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 ## YAML設定
 
 設定は **デフォルト < config < 明示CLI < override** の順で適用されます。
-共有セクションは [YAML リファレンス](yaml_reference.md) を再利用します。ワークフローに合致している場合は以下のブロック全体をそのまま保持し、変更が必要な値のみ調整してください。
+共有セクションは [YAML リファレンス](yaml-reference.md) を再利用します。ワークフローに合致している場合は以下のブロック全体をそのまま保持し、変更が必要な値のみ調整してください。
 
 ```yaml
 geom:
@@ -228,12 +228,12 @@ rsirfo:
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [opt](opt.md) -- 単一構造の構造最適化
 - [freq](freq.md) -- 検証済み TS の単一虚振動数を確認
 - [irc](irc.md) -- 最適化された TS からの反応経路追跡
 - [all](all.md) -- ML/MM モデル構築 -> MEP 探索 -> tsopt -> IRC -> freq を連鎖させる一気通貫ワークフロー
-- [YAML リファレンス](yaml_reference.md) -- `hessian_dimer`（ヘシアンガイド付き Dimer）と `rsirfo` の完全な設定オプション
+- [YAML リファレンス](yaml-reference.md) -- `hessian_dimer`（ヘシアンガイド付き Dimer）と `rsirfo` の完全な設定オプション
 - [用語集](glossary.md) -- TS、Dimer、RS-I-RFO、ヘシアンの定義

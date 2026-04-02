@@ -216,11 +216,11 @@ bias:
 
 ## See Also
 
-- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [scan](scan.md) -- 1D bond-length driven scan
 - [scan2d](scan2d.md) -- 2D distance grid scan
 - [opt](opt.md) -- Geometry optimization (often precedes scan)
 - [all](all.md) -- End-to-end workflow
-- [YAML Reference](yaml_reference.md) -- Full scan configuration options
+- [YAML Reference](yaml-reference.md) -- Full scan configuration options

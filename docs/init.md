@@ -1,6 +1,6 @@
 # `init` (removed)
 
-> **Note:** The `init` subcommand has been removed. Use `--show-config` on any subcommand to see the current configuration, or write a YAML file manually following the [YAML Reference](yaml_reference.md).
+> **Note:** The `init` subcommand has been removed. Use `--show-config` on any subcommand to see the current configuration, or write a YAML file manually following the [YAML Reference](yaml-reference.md).
 
 ## Previous behavior
 
@@ -20,6 +20,6 @@ mlmm all --config mlmm_all.config.yaml --dry-run
 
 ## See Also
 
-- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
-- [YAML Reference](yaml_reference.md) -- Full configurable keys
+- [YAML Reference](yaml-reference.md) -- Full configurable keys

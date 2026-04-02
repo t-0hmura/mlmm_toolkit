@@ -269,11 +269,11 @@ out_dir/ (default: ./result_scan/)
 
 ## See Also
 
-- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [scan2d](scan2d.md) -- 2D distance grid scan
 - [scan3d](scan3d.md) -- 3D distance grid scan
 - [opt](opt.md) -- Single-structure geometry optimization
 - [all](all.md) -- End-to-end workflow with `--scan-lists` for single-structure inputs
-- [path-search](path_search.md) -- MEP search using scan endpoints as intermediates
+- [path-search](path-search.md) -- MEP search using scan endpoints as intermediates

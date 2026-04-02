@@ -143,9 +143,9 @@ This page provides definitions for abbreviations and technical terms used throug
 
 ## See Also
 
-- [Getting Started](getting_started.md) -- installation and a first run
+- [Getting Started](getting-started.md) -- installation and a first run
 - [Concepts & Workflow](concepts.md) -- how pocket extraction, ML/MM layers, MEP search, and post-processing fit together
-- [Common Error Recipes](recipes_common_errors.md) -- symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- common errors and fixes
-- [YAML Reference](yaml_reference.md) -- configuration file format
-- [ML/MM Calculator](mlmm_calc.md) -- machine learning potential details
+- [YAML Reference](yaml-reference.md) -- configuration file format
+- [ML/MM Calculator](mlmm-calc.md) -- machine learning potential details

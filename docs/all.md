@@ -340,7 +340,7 @@ The resulting effective YAML is forwarded to downstream subcommands. Each tool r
 
 | Subcommand | YAML Sections |
 |------------|---------------|
-| [`path-search`](path_search.md) | `geom`, `calc`/`mlmm`, `gs`, `opt`, `lbfgs`, `bond`, `search` |
+| [`path-search`](path-search.md) | `geom`, `calc`/`mlmm`, `gs`, `opt`, `lbfgs`, `bond`, `search` |
 | [`scan`](scan.md) | `geom`, `calc`/`mlmm`, `opt`, `lbfgs` |
 | [`tsopt`](tsopt.md) | `geom`, `calc`/`mlmm`, `opt`, `hessian_dimer`, `rsirfo` |
 | [`freq`](freq.md) | `geom`, `calc`/`mlmm`, `freq`, `thermo` |
@@ -367,18 +367,18 @@ dft:
  grid_level: 6
 ```
 
-For a complete reference of all YAML options, see **[YAML Configuration Reference](yaml_reference.md)**.
+For a complete reference of all YAML options, see **[YAML Configuration Reference](yaml-reference.md)**.
 
 ## See Also
 
 - [extract](extract.md) -- Standalone ML-region determination (called internally by `all`)
-- [mm_parm](mm_parm.md) -- Build AMBER topology (called internally by `all`)
-- [path-search](path_search.md) -- Standalone recursive MEP search
+- [mm_parm](mm-parm.md) -- Build AMBER topology (called internally by `all`)
+- [path-search](path-search.md) -- Standalone recursive MEP search
 - [tsopt](tsopt.md) -- Standalone TS optimization
 - [freq](freq.md) -- Vibrational analysis and thermochemistry
 - [dft](dft.md) -- Single-point DFT calculations
 - [trj2fig](trj2fig.md) -- Plot energy profiles from trajectories
-- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Common errors and fixes
-- [YAML Reference](yaml_reference.md) -- Complete YAML configuration options
+- [YAML Reference](yaml-reference.md) -- Complete YAML configuration options
 - [Glossary](glossary.md) -- Definitions of MEP, TS, IRC, GSM

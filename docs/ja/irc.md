@@ -109,7 +109,7 @@ out_dir/ (デフォルト: ./result_irc/)
 ## YAML設定
 
 マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
-共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml_reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は `true` に強制されます（partial Hessian、active-DOF 処理）。
+共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml-reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は `true` に強制されます（partial Hessian、active-DOF 処理）。
 
 ### CLI から YAML へのマッピング
 
@@ -174,12 +174,12 @@ irc:
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [tsopt](tsopt.md) -- IRC 実行前に TS を最適化
 - [freq](freq.md) -- TS 候補が 1 つの虚振動数を持つことを検証; IRC 端点を解析
 - [opt](opt.md) -- IRC 端点を真の極小に最適化
 - [all](all.md) -- tsopt の後に IRC を実行する一気通貫ワークフロー
-- [YAML リファレンス](yaml_reference.md) -- `irc` の完全な設定オプション
+- [YAML リファレンス](yaml-reference.md) -- `irc` の完全な設定オプション
 - [用語集](glossary.md) -- IRC（固有反応座標）の定義

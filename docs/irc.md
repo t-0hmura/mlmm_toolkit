@@ -104,7 +104,7 @@ out_dir/ (default: ./result_irc/)
 ## YAML configuration
 
 Provide mappings with merge order **defaults < config < explicit CLI < override**.
-Shared sections reuse [YAML Reference](yaml_reference.md) for geometry/calculator keys. For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging. `calc.return_partial_hessian` is forced to `true` (partial Hessian with active-DOF processing).
+Shared sections reuse [YAML Reference](yaml-reference.md) for geometry/calculator keys. For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging. `calc.return_partial_hessian` is forced to `true` (partial Hessian with active-DOF processing).
 
 ### CLI-to-YAML mapping
 
@@ -167,12 +167,12 @@ irc:
 
 ## See Also
 
-- [Common Error Recipes](recipes_common_errors.md) -- Symptom-first failure routing
+- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
 
 - [tsopt](tsopt.md) -- Optimize the TS before running IRC
 - [freq](freq.md) -- Verify the TS candidate has one imaginary frequency; analyze IRC endpoints
 - [opt](opt.md) -- Optimize IRC endpoints to true minima
 - [all](all.md) -- End-to-end workflow that runs IRC after tsopt
-- [YAML Reference](yaml_reference.md) -- Full `irc` configuration options
+- [YAML Reference](yaml-reference.md) -- Full `irc` configuration options
 - [Glossary](glossary.md) -- Definition of IRC (Intrinsic Reaction Coordinate)

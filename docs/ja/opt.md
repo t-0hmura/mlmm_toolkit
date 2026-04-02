@@ -276,11 +276,11 @@ rfo:
 
 ## 関連項目
 
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [tsopt](tsopt.md) -- 極小ではなく遷移状態（鞍点）を最適化
 - [freq](freq.md) -- 最適化が極小に達したことを確認する振動解析
 - [all](all.md) -- 端点を事前最適化する一気通貫ワークフロー
-- [YAML リファレンス](yaml_reference.md) -- `opt`、`lbfgs`、`rfo` の完全な設定オプション
+- [YAML リファレンス](yaml-reference.md) -- `opt`、`lbfgs`、`rfo` の完全な設定オプション
 - [用語集](glossary.md) -- L-BFGS、RFO の定義

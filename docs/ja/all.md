@@ -339,7 +339,7 @@ YAML はコンパクトな機械可読サマリーです。主なトップレベ
 
 | サブコマンド | YAML セクション |
 |------------|---------------|
-| [`path-search`](path_search.md) | `geom`, `calc`/`mlmm`, `gs`, `opt`, `lbfgs`, `bond`, `search` |
+| [`path-search`](path-search.md) | `geom`, `calc`/`mlmm`, `gs`, `opt`, `lbfgs`, `bond`, `search` |
 | [`scan`](scan.md) | `geom`, `calc`/`mlmm`, `opt`, `lbfgs` |
 | [`tsopt`](tsopt.md) | `geom`, `calc`/`mlmm`, `opt`, `hessian_dimer`, `rsirfo` |
 | [`freq`](freq.md) | `geom`, `calc`/`mlmm`, `freq`, `thermo` |
@@ -366,20 +366,20 @@ dft:
  grid_level: 6
 ```
 
-すべての YAML オプションの完全なリファレンスは **[YAML 設定リファレンス](yaml_reference.md)** を参照してください。
+すべての YAML オプションの完全なリファレンスは **[YAML 設定リファレンス](yaml-reference.md)** を参照してください。
 
 ---
 
 ## 関連項目
 
 - [extract](extract.md) -- 単独の ML 領域決定（`all` が内部で呼び出し）
-- [mm_parm](mm_parm.md) -- AMBER トポロジー構築（`all` が内部で呼び出し）
-- [path-search](path_search.md) -- 単独の再帰的 MEP 探索
+- [mm_parm](mm-parm.md) -- AMBER トポロジー構築（`all` が内部で呼び出し）
+- [path-search](path-search.md) -- 単独の再帰的 MEP 探索
 - [tsopt](tsopt.md) -- 単独の TS 最適化
 - [freq](freq.md) -- 振動解析と熱化学
 - [dft](dft.md) -- DFT 一点計算
 - [trj2fig](trj2fig.md) -- 軌跡からエネルギープロファイルをプロット
-- [典型エラー別レシピ](recipes_common_errors.md) -- 症状起点の切り分け
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- よくあるエラーと対処法
-- [YAML リファレンス](yaml_reference.md) -- 完全な YAML 設定オプション
+- [YAML リファレンス](yaml-reference.md) -- 完全な YAML 設定オプション
 - [用語集](glossary.md) -- MEP、TS、IRC、GSM の定義
