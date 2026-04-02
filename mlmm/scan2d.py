@@ -1266,6 +1266,9 @@ def cli(
                     "n_grid_points": len(df),
                     "pair1": {"i": int(i1 + 1), "j": int(j1 + 1), "low": float(low1), "high": float(high1)},
                     "pair2": {"i": int(i2 + 1), "j": int(j2 + 1), "low": float(low2), "high": float(high2)},
+                    "backend": calc_cfg.get("backend", "uma"),
+                    "charge": calc_cfg.get("model_charge"),
+                    "spin": calc_cfg.get("model_mult"),
                     "min_energy_hartree": min_energy,
                     "files": {
                         "surface_csv": "surface.csv",

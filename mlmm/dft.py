@@ -1071,15 +1071,22 @@ def cli(
         if out_json:
             from .utils import write_result_json
             result_data: Dict[str, Any] = {
-                "status": "converged" if converged else "not_converged",
+                "converged": converged,
                 "energy_hartree": e_h,
                 "energy_kcal_per_mol": e_kcal,
                 "xc_functional": xc,
                 "basis_set": basis,
                 "engine": engine_label,
                 "used_gpu": bool(using_gpu),
-                "converged": converged,
+                "backend": calc_kw.get("backend", "uma"),
+                "charge": calc_kw.get("model_charge"),
+                "spin": calc_kw.get("model_mult"),
+                "n_atoms": mol.natm if 'mol' in dir() else None,
+                "grid_level": grid_level,
+                "conv_tol": conv_tol,
+                "input_file": str(input_path),
                 "charges": {k: v for k, v in charges.items()},
+                "spin_densities": {k: v for k, v in spins.items()},
                 "files": {
                     "result_yaml": "result.yaml",
                 },

@@ -2473,7 +2473,7 @@ def write_result_json(
 
     The ``data`` dict is augmented with common envelope fields
     (``command``, ``mlmm_version``, ``status``, ``elapsed_seconds``,
-    ``out_dir``, ``files``, ``environment``) and serialized as indented JSON.
+    ``files``, ``environment``) and serialized as indented JSON.
 
     Returns the path to the written file, or None on failure.
     """
@@ -2485,7 +2485,6 @@ def write_result_json(
 
     data.setdefault("command", command)
     data.setdefault("mlmm_version", __version__)
-    data.setdefault("out_dir", str(out_dir))
     if elapsed_seconds is not None:
         data["elapsed_seconds"] = round(elapsed_seconds, 3)
     data.setdefault("environment", _collect_environment_info())

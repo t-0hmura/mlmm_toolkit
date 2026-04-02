@@ -1246,12 +1246,21 @@ def cli(
                 _dmf_energies: list = []
                 if _dmf_trj.exists():
                     try:
-                        from ase.io import read as _ase_read
-                        _dmf_frames = _ase_read(str(_dmf_trj), index=":")
-                        for _frm in _dmf_frames:
-                            _info_e = _frm.info.get("energy") or _frm.info.get("E")
-                            if _info_e is not None:
-                                _dmf_energies.append(float(_info_e))
+                        # Comment line is a bare float; parse it directly
+                        with open(_dmf_trj) as _f:
+                            _lines = _f.readlines()
+                        _i = 0
+                        while _i < len(_lines):
+                            _natoms_line = _lines[_i].strip()
+                            if _natoms_line.isdigit():
+                                _comment = _lines[_i + 1].strip()
+                                try:
+                                    _dmf_energies.append(float(_comment))
+                                except ValueError:
+                                    pass
+                                _i += int(_natoms_line) + 2
+                            else:
+                                _i += 1
                     except Exception:
                         pass
                 _dmf_hei_idx = 0
@@ -1262,8 +1271,10 @@ def cli(
                     _dmf_e0 = _dmf_energies[0]
                     _dmf_barrier = (_dmf_energies[_dmf_hei_idx] - _dmf_e0) * _AU2KCAL
                     _dmf_delta = (_dmf_energies[-1] - _dmf_e0) * _AU2KCAL
+                _dmf_converged = getattr(dmf_res, 'is_converged', None) if 'dmf_res' in dir() else None
                 result_data_dmf: Dict[str, Any] = {
-                    "status": "completed",
+                    "status": "converged" if _dmf_converged else ("not_converged" if _dmf_converged is False else "completed"),
+                    "converged": _dmf_converged,
                     "mep_mode": "dmf",
                     "backend": calc_cfg.get("backend", "uma"),
                     "charge": calc_cfg.get("model_charge"),
@@ -1446,6 +1457,7 @@ def cli(
             _converged = getattr(optimizer, 'is_converged', None) if 'optimizer' in dir() else None
             result_data_gsm: Dict[str, Any] = {
                 "status": "converged" if _converged else ("not_converged" if _converged is False else "completed"),
+                "converged": _converged,
                 "mep_mode": "gsm",
                 "backend": calc_cfg.get("backend", "uma"),
                 "charge": calc_cfg.get("model_charge"),

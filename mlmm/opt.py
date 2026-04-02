@@ -1800,6 +1800,9 @@ def cli(
             from .utils import write_result_json
             _opt_converged = optimizer.is_converged if 'optimizer' in dir() and hasattr(optimizer, 'is_converged') else None
             _opt_cycles = optimizer.cur_cycle if 'optimizer' in dir() and hasattr(optimizer, 'cur_cycle') else None
+            # Microiteration path: optimizer not in scope, use max_cycles as budget
+            if _opt_cycles is None and use_microiter:
+                _opt_cycles = int(opt_cfg.get("max_cycles", 0))
             result_data = {
                 "status": "converged" if _opt_converged else "not_converged",
                 "energy_hartree": float(geometry.energy) if geometry.energy is not None else None,

@@ -711,6 +711,7 @@ def cli(
             result_data: Dict[str, Any] = {
                 "status": "completed",
                 "n_grid_points": len(df),
+                "backend": calc_cfg.get("backend", "uma") if 'calc_cfg' in dir() else None,
                 "min_energy_hartree": min_energy,
                 "files": {
                     "scan3d_density_html": "scan3d_density.html",
@@ -1322,6 +1323,9 @@ def cli(
                     "pair1": {"i": int(i1 + 1), "j": int(j1 + 1), "low": float(low1), "high": float(high1)},
                     "pair2": {"i": int(i2 + 1), "j": int(j2 + 1), "low": float(low2), "high": float(high2)},
                     "pair3": {"i": int(i3 + 1), "j": int(j3 + 1), "low": float(low3), "high": float(high3)},
+                    "backend": calc_cfg.get("backend", "uma"),
+                    "charge": calc_cfg.get("model_charge"),
+                    "spin": calc_cfg.get("model_mult"),
                     "min_energy_hartree": min_energy,
                     "files": {
                         "surface_csv": "surface.csv",
