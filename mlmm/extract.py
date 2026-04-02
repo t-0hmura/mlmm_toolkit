@@ -2091,6 +2091,26 @@ def extract(args: argparse.Namespace | None = None, api=False) -> Dict[str, Any]
         )
         LOGGER.info("[extract] Atoms after truncation: %d", kept_atoms)
 
+        # Warn about non-standard residues that may be amino acids
+        _bb_full = {"N", "CA", "C", "O"}
+        for fid in selected_ids:
+            res = complex_struct[fid[1]][fid[2]].child_dict[fid[3]]
+            resname = res.get_resname()
+            if resname in AMINO_ACIDS or resname in WATER_RES:
+                continue
+            if fid in substrate_ids:
+                continue
+            res_atoms = {a.get_name() for a in res}
+            if _bb_full.issubset(res_atoms):
+                _resseq = res.get_id()[1]
+                LOGGER.warning(
+                    "[extract] WARNING: Residue %s %d may be an amino acid "
+                    "(has N, CA, C, O) but is not recognized as a standard residue name. "
+                    "Backbone truncation was not applied. "
+                    "Consider preparing the pocket model manually.",
+                    resname, _resseq,
+                )
+
         # Save structure (and optionally append link‑H block)
         io = PDB.PDBIO()
         io.set_structure(complex_struct)
