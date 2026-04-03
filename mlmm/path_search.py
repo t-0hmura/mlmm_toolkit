@@ -985,7 +985,8 @@ def _build_multistep_path(
             opt_inters.append(g_opt)
         step_imgs = [left_end] + opt_inters + [right_end]
         step_E = [float(img.energy) for img in step_imgs]
-        ref1 = GSMResult(images=step_imgs, energies=step_E, hei_idx=int(np.argmax(step_E)))
+        _kink_hei = int(np.argmax(step_E[1:-1])) + 1 if len(step_E) > 2 else int(np.argmax(step_E))
+        ref1 = GSMResult(images=step_imgs, energies=step_E, hei_idx=_kink_hei)
         step_tag_for_report = f"{tag0}_kink"
     else:
         click.echo(f"[{tag0}] Kink not detected (covalent changes present between End1 and End2).")

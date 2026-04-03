@@ -260,7 +260,7 @@ def _mode_direction_by_root(H_t: torch.Tensor,
 
         # Convert mass-weighted → Cartesian & normalize
         masses_amu_t = (masses_au_t / AMU2AU).to(dtype=Hmw_proj.dtype, device=Hmw_proj.device)
-        m3 = torch.repeat_interleave(masses_amu_t, 3)
+        m3 = torch.repeat_interleave(masses_amu_t, 3).clamp(min=1e-10)
         inv_sqrt_m = torch.sqrt(1.0 / m3)
         v = inv_sqrt_m * u_mw
         v = v / torch.linalg.norm(v)
@@ -488,7 +488,7 @@ def _mw_tr_project_active_inplace(H_act: torch.Tensor,
     with torch.no_grad():
         # mass-weight
         masses_amu_t = (masses_act_au_t / AMU2AU).to(dtype=H_act.dtype, device=H_act.device)
-        m3 = torch.repeat_interleave(masses_amu_t, 3)
+        m3 = torch.repeat_interleave(masses_amu_t, 3).clamp(min=1e-10)
         inv_sqrt_m_col = torch.sqrt(1.0 / m3).view(1, -1)
         inv_sqrt_m_row = inv_sqrt_m_col.view(-1, 1)
         H_act.mul_(inv_sqrt_m_row)
@@ -3017,8 +3017,8 @@ def cli(
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
                 "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
-                "thresh": simple_cfg.get("thresh") if 'simple_cfg' in dir() else None,
-                "max_cycles": simple_cfg.get("max_cycles") if 'simple_cfg' in dir() else None,
+                "thresh": simple_cfg.get("thresh"),
+                "max_cycles": simple_cfg.get("max_cycles"),
                 "input_file": str(input_path),
                 "files": {"final_geometry_xyz": "final_geometry.xyz"},
             }

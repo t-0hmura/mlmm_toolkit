@@ -902,6 +902,7 @@ def cli(
                     if endopt:
                         geom.set_calculator(base_calc)
                         click.echo(f"[stage {k}] endopt (unbiased) ...")
+                        end_optimizer = None
                         try:
                             end_optimizer = _make_lbfgs(stage_dir, "endopt")
                             end_optimizer.run()
@@ -911,7 +912,7 @@ def cli(
                             click.echo(f"[stage {k}] endopt OptimizationError — {e}", err=True)
                         finally:
                             geom.set_calculator(biased)
-                        srec["converged"] = getattr(end_optimizer, 'is_converged', None) if 'end_optimizer' in dir() else None
+                        srec["converged"] = getattr(end_optimizer, 'is_converged', None) if end_optimizer is not None else None
 
                     # No scan steps: empty energy trajectory
                     srec["energies_hartree"] = []
