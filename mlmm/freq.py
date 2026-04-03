@@ -1469,6 +1469,7 @@ def cli(
                     "thermal_correction_free_energy_ha": dG_therm,
                     "sum_EE_and_ZPE_ha": sum_EE_ZPE,
                     "sum_EE_and_thermal_energy_ha": sum_EE_thermal_E,
+                    "sum_EE_and_thermal_enthalpy_ha": sum_EE_thermal_H,
                     "sum_EE_and_thermal_free_energy_ha": sum_EE_thermal_G,
                     "E_thermal_cal_per_mol": E_thermal_cal,
                     "Cv_cal_per_mol_K": Cv_cal_per_Kmol,

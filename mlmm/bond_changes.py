@@ -146,7 +146,8 @@ def compare_structures(
     delta_fraction: float = 0.05,
 ) -> BondChangeResult:
 
-    assert geom1.atoms == geom2.atoms, "Atom types and ordering must be identical."
+    if geom1.atoms != geom2.atoms:
+        raise ValueError("Atom types and ordering must be identical.")
     N = len(geom1.atoms)
 
     elems, cov_np = _element_arrays(geom1.atoms)

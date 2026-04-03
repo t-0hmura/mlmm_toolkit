@@ -202,7 +202,7 @@ BIAS_KW: Dict[str, Any] = {
 # -----------------------------------------------
 
 BOND_KW: Dict[str, Any] = {
-    "device": "cuda",
+    "device": "auto",
     "bond_factor": 1.20,
     "margin_fraction": 0.05,
     "delta_fraction": 0.05,

@@ -1081,7 +1081,7 @@ def cli(
                 "backend": calc_kw.get("backend", "uma"),
                 "charge": calc_kw.get("model_charge"),
                 "spin": calc_kw.get("model_mult"),
-                "n_atoms": mol.natm if 'mol' in dir() else None,
+                "n_atoms": mol.natm,
                 "grid_level": grid_level,
                 "conv_tol": conv_tol,
                 "input_file": str(input_path),
