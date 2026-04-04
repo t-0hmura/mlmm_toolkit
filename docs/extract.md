@@ -134,7 +134,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids (PRO/HYP safeguards). | `False` |
 | `--add-linkh/--no-add-linkh` | Add carbon-only link hydrogens at 1.09 Å along severed bonds. | `False` |
 | `--selected-resn TEXT` | Force-include residues (IDs with optional chains/insertion codes). | `""` |
-| `--modified-residue TEXT` | Comma-separated residue names (with optional charge) to treat as amino acids for backbone truncation and charge assignment. Examples: `HD1,HD2,HD3` or `HD1:0,SEP:-2`. Useful for modified amino acid residues with non-standard names. | _None_ |
+| `--modified-residue TEXT` | Comma-separated residue names (with optional charge) to treat as amino acids for backbone truncation and charge assignment. Examples: `HD1,HD2,HD3` or `HD1:0,SEP:-2`. Useful for modified amino acid residues with non-standard names. | `""` |
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g., `GPP:-3,SAM:1`). | _None_ |
 | `-v, --verbose/--no-verbose` | Emit INFO-level logging (`True`) or keep warnings only (`False`). | `True` |
 

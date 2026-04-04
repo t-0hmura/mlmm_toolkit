@@ -178,7 +178,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--exclude-backbone/--no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | `False` |
 | `--add-linkH/--no-add-linkH` | Add link hydrogens for severed bonds. | `False` |
 | `--selected-resn TEXT` | Residues to force include. | `""` |
-| `--modified-residue TEXT` | Comma-separated residue names (with optional charge) to treat as amino acids for backbone truncation and charge assignment. Examples: `HD1,HD2,HD3` or `HD1:0,SEP:-2`. | _None_ |
+| `--modified-residue TEXT` | Comma-separated residue names (with optional charge) to treat as amino acids for backbone truncation and charge assignment. Examples: `HD1,HD2,HD3` or `HD1:0,SEP:-2`. | `""` |
 | `--verbose/--no-verbose` | Enable INFO-level extractor logging. | `True` |
 
 ### MM Preparation Options
