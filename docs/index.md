@@ -303,11 +303,11 @@ result_all/
 ├── pockets/ # ML region structures determined by extract
 ├── mm_parm/ # AMBER topology files
 ├── scan/ # (Optional) scan results
-├── path_search/ # MEP trajectories and diagrams
+├── path_opt/ # MEP trajectories and diagrams (--refine-path uses path_search/ instead)
 │ ├── mep_trj.xyz # MEP trajectory
 │ ├── mep.pdb # MEP in PDB format
 │ └── seg_*/ # Per-segment details
-└── path_search/post_seg_*/ # Post-processing outputs
+└── path_opt/post_seg_*/ # Post-processing outputs (--refine-path uses path_search/post_seg_*/)
  ├── tsopt/ # TS optimization results
  ├── irc/ # IRC trajectories
  ├── freq/ # Vibrational modes

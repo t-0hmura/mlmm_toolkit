@@ -151,5 +151,5 @@ The YAML root must be a mapping. Accepted sections:
 
 - [path-opt](path-opt.md) -- Single-pass MEP optimization (no recursive refinement)
 - [opt](opt.md) -- Single-structure geometry optimization
-- [all](all.md) -- End-to-end workflow that calls path-search internally
+- [all](all.md) -- End-to-end workflow (uses path-opt by default; `--refine-path` for recursive path-search)
 - [trj2fig](trj2fig.md) -- Plot energy profiles from MEP trajectories

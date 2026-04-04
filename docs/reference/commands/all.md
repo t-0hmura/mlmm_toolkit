@@ -88,7 +88,7 @@ Options:
                                   ordered series; if False, run a single-pass
                                   path-opt GSM between each adjacent pair and
                                   concatenate the segments (no path_search).
-                                  [default: refine-path]
+                                  [default: no-refine-path]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never). Defaults to 'gau' when
                                   not provided.

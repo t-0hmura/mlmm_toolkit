@@ -290,7 +290,7 @@ mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharg
 1. extract - 完全系 PDB から活性部位ポケットを抽出
 2. mm-parm - Amber parm7/rst7 を生成
 3. define-layer - 3 層 ML/MM 分割を付与（B-factor エンコード）
-4. path-search - 再帰的 MEP 探索（GSM/DMF）
+4. path-opt - MEP 探索（GSM）; `--refine-path` で再帰的 path-search に切替
 5. tsopt - 遷移状態最適化
 6. freq - 振動解析と熱化学
 7. dft - DFT 一点計算
