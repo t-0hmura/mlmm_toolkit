@@ -24,9 +24,8 @@ def _load_geom(path: str):
     p = Path(path)
     suffix = p.suffix.lower()
     if suffix == ".pdb":
-        from pysisyphus.io.pdb import geom_from_pdb_str
-        text = p.read_text(encoding="utf-8")
-        return geom_from_pdb_str(text)
+        from pysisyphus.io.pdb import geom_from_pdb
+        return geom_from_pdb(str(p))
     elif suffix == ".gjf":
         from pysisyphus.io.gaussian import geom_from_gaussian_input
         return geom_from_gaussian_input(str(p))
