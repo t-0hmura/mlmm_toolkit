@@ -109,6 +109,8 @@ def _element_arrays(atoms: Iterable[str]) -> Tuple[List[str], np.ndarray]:
 
 def _resolve_device(device: str) -> torch.device:
     dev_str = (device or "cpu").lower()
+    if dev_str == "auto":
+        dev_str = "cuda" if torch.cuda.is_available() else "cpu"
     if dev_str.startswith("cuda"):
         if torch.cuda.is_available():
             try:
