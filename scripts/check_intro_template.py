@@ -17,8 +17,8 @@ TARGETS = (
     "tsopt",
     "freq",
     "opt",
-    "path_opt",
-    "path_search",
+    "path-opt",
+    "path-search",
     "irc",
     "dft",
 )
