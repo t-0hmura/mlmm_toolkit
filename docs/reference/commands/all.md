@@ -6,8 +6,8 @@ Usage: mlmm all [OPTIONS]
 
   Run pocket extraction → (optional single-structure staged scan) → MEP search
   in one shot. If exactly one input is provided: (a) with --scan-lists, stage
-  results feed into path_search; (b) with --tsopt True and no --scan-lists, run
-  TSOPT-only mode.
+  results feed into path-opt (or path_search with --refine-path); (b) with
+  --tsopt True and no --scan-lists, run TSOPT-only mode.
 
 Options:
   --help-advanced                 Show all options (including advanced settings)
@@ -39,6 +39,11 @@ Options:
                                   only) in pockets.  [default: False]
   --selected-resn TEXT            Force-include residues (comma/space separated;
                                   chain/insertion codes allowed).  [default: ""]
+  --modified-residue TEXT         Comma-separated residue names (with optional
+                                  charge) to treat as amino acids for backbone
+                                  truncation and charge assignment. Examples:
+                                  'HD1,HD2,HD3' or 'HD1:0,SEP:-2'.  [default:
+                                  ""]
   -l, --ligand-charge TEXT        Either a total charge (number) to distribute
                                   across unknown residues or a mapping like
                                   'GPP:-3,MMT:-1'.
@@ -85,10 +90,10 @@ Options:
                                   scan/tsopt/freq.  [default: False]
   --refine-path / --no-refine-path
                                   If True, run recursive path_search on the full
-                                  ordered series; if False, run a single-pass
-                                  path-opt GSM between each adjacent pair and
-                                  concatenate the segments (no path_search).
-                                  [default: no-refine-path]
+                                  ordered series; if False (default), run a
+                                  single-pass path-opt GSM between each adjacent
+                                  pair and concatenate the segments (no
+                                  path_search).  [default: no-refine-path]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never). Defaults to 'gau' when
                                   not provided.

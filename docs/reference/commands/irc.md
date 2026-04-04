@@ -96,5 +96,9 @@ Options:
                                   (produced by 'mlmm freq --dump-hess'). Takes
                                   priority over the hessian_cache and fresh
                                   computation.
+  --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
+                                  (e.g., '1,3,5').
+  --out-json / --no-out-json      Write machine-readable result.json to out_dir.
+                                  [default: no-out-json]
   -h, --help                      Show this message and exit.
 ```

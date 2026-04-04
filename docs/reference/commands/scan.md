@@ -111,5 +111,7 @@ Options:
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).
+  --out-json / --no-out-json      Write machine-readable result.json to out_dir.
+                                  [default: no-out-json]
   -h, --help                      Show this message and exit.
 ```

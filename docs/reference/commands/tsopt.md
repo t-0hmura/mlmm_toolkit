@@ -131,5 +131,7 @@ Options:
                                   large unfrozen systems where the final Hessian
                                   diagonalization is expensive.  [default: no-
                                   skip-final-freq]
+  --out-json / --no-out-json      Write machine-readable result.json to out_dir.
+                                  [default: no-out-json]
   -h, --help                      Show this message and exit.
 ```

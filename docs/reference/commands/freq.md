@@ -111,5 +111,7 @@ Options:
   --dump-hess FILE                Save the computed Hessian to a compressed .npz
                                   file. Can be loaded by 'mlmm irc --read-hess'
                                   to avoid recomputation.
+  --out-json / --no-out-json      Write machine-readable result.json to out_dir.
+                                  [default: no-out-json]
   -h, --help                      Show this message and exit.
 ```

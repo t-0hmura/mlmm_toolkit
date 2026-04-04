@@ -38,8 +38,15 @@ Options:
                                   cut-bond directions.  [default: no-add-linkh]
   --selected-resn TEXT            Comma/space-separated residue IDs to force-
                                   include.
+  --modified-residue TEXT         Comma-separated residue names (with optional
+                                  charge) to treat as amino acids for backbone
+                                  truncation and charge assignment. Examples:
+                                  'HD1,HD2,HD3' (charge defaults to 0) or
+                                  'HD1:0,SEP:-2'.
   -l, --ligand-charge TEXT        Total charge number or per-resname mapping
                                   like 'GPP:-3,SAM:1'.
   -v, --verbose / --no-verbose    Enable INFO-level logging.  [default: v]
+  --out-json / --no-out-json      Write machine-readable result.json next to the
+                                  output PDB.  [default: no-out-json]
   -h, --help                      Show this message and exit.
 ```

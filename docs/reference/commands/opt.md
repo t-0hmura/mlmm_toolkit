@@ -43,6 +43,12 @@ Options:
                                   Defaults to 1 when omitted.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
+  --radius-partial-hessian, --hess-cutoff FLOAT
+                                  Distance cutoff (Å) from ML region for MM
+                                  atoms to include in Hessian calculation.
+                                  Applied to movable MM atoms and can be
+                                  combined with --detect-layer. `--hess-cutoff`
+                                  is a compatibility alias.
   --radius-freeze, --movable-cutoff FLOAT
                                   Distance cutoff (Å) from ML region for movable
                                   MM atoms. MM atoms beyond this are frozen.
@@ -111,5 +117,7 @@ Options:
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).
+  --out-json / --no-out-json      Write machine-readable result.json to out_dir.
+                                  [default: no-out-json]
   -h, --help                      Show this message and exit.
 ```
