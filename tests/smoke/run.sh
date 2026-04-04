@@ -101,7 +101,27 @@ mlmm energy-diagram -i "[0, 12.5, 4.3, 18.7, -1.2]" -o test32.png > test32.out 2
 # test33: oniom-export
 mlmm oniom-export --parm p_complex.parm7 -i r_complex_layered.pdb --model-pdb pocket_r.pdb -q -1 -m 1 -o test33.gjf > test33.out 2>&1
 
+# --- Bond-summary, fix-altloc, oniom-import ---
+
+# test34: bond-summary (two layered PDBs)
+mlmm bond-summary -i r_complex_layered.pdb p_complex_layered.pdb > test34.out 2>&1
+
+# test35: fix-altloc
+mlmm fix-altloc -i r_complex.pdb -o r_complex_fixalt.pdb > test35.out 2>&1
+
+# test36: oniom-import (Gaussian input → layered PDB)
+mlmm oniom-import -i test33.gjf -o test36.pdb > test36.out 2>&1
+
+# --- refine-path ---
+
+# test37: all (--refine-path)
+mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --refine-path --max-cycles 5 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test37 > test37.out 2>&1
+
 # --- xTB-dependent tests (requires xtb binary) ---
 
-# test34: opt (embedcharge)
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --out-dir test34 > test34.out 2>&1
+# test38: opt (embedcharge) — skip if xtb is not available
+if command -v xtb &>/dev/null; then
+  mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --out-dir test38 > test38.out 2>&1
+else
+  echo "SKIP test38: xtb not found" > test38.out
+fi

@@ -50,10 +50,12 @@ from . import irc as _irc_cli
 
 from .trj2fig import run_trj2fig
 from .summary_log import write_summary_log
+from .align_freeze_atoms import align_and_refine_sequence_inplace
 from .utils import (
     apply_ref_pdb_override,
     build_energy_diagram,
     close_matplotlib_figures,
+    convert_xyz_to_pdb,
     deep_update,
     ensure_dir,
     format_elapsed,
@@ -63,6 +65,7 @@ from .utils import (
     load_yaml_dict,
     load_pdb_atom_metadata,
     parse_scan_list_triples,
+    read_bfactors_from_pdb,
     read_xyz_as_blocks,
     read_xyz_first_last,
     xyz_blocks_first_last,
@@ -3026,6 +3029,55 @@ def cli(
     else:
         # Multi-structure standard route: use layered full-system PDBs
         pockets_for_path = list(layered_inputs)
+
+    # --- Global pre-alignment for coordinate continuity across segments ---
+    if not refine_path and len(pockets_for_path) >= 2:
+        try:
+            _echo("[all] Pre-aligning all input structures to first frame...")
+            _align_dir = path_dir / "pre_align"
+            ensure_dir(_align_dir)
+            _bfs = read_bfactors_from_pdb(pockets_for_path[0])
+            _fa = [i for i, bf in enumerate(_bfs) if bf >= 15.0]
+            if _fa:
+                _geoms = [geom_loader(str(p), coord_type="cart") for p in pockets_for_path]
+                for _g in _geoms:
+                    _g.freeze_atoms = np.array(_fa, dtype=int)
+                _calc_kw: Dict[str, Any] = dict(
+                    model_charge=q_int, model_mult=int(spin),
+                    input_pdb=str(pockets_for_path[0]),
+                    real_parm7=str(real_parm7_path),
+                    use_bfactor_layers=True,
+                    embedcharge=embedcharge,
+                )
+                if backend is not None:
+                    _calc_kw["backend"] = backend
+                if link_atom_method is not None:
+                    _calc_kw["link_atom_method"] = link_atom_method
+                if mm_backend is not None:
+                    _calc_kw["mm_backend"] = mm_backend
+                if use_cmap is not None:
+                    _calc_kw["use_cmap"] = use_cmap
+                _align_calc = _mlmm_calc(**_calc_kw)
+                align_and_refine_sequence_inplace(
+                    _geoms, shared_calc=_align_calc,
+                    out_dir=_align_dir / "refine", verbose=True,
+                )
+                del _align_calc
+                _new_pockets: List[Path] = []
+                for _i, (_g, _orig) in enumerate(zip(_geoms, pockets_for_path)):
+                    _xyz = _align_dir / f"{_i:03d}.xyz"
+                    _xyz.write_text(_g.as_xyz() + "\n")
+                    _pdb = _align_dir / f"{_i:03d}.pdb"
+                    convert_xyz_to_pdb(_xyz, _orig, _pdb)
+                    _new_pockets.append(_pdb)
+                pockets_for_path = _new_pockets
+                _echo("[all] Pre-alignment completed.")
+        except Exception as e:
+            _echo(
+                f"[all] WARNING: Pre-alignment failed: {e}. "
+                "Continuing with original files.",
+                err=True,
+            )
 
     # --------------------------
     # Stage 2: Path search on full-system layered PDBs
