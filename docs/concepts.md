@@ -27,7 +27,7 @@ Full system(s) (PDB/XYZ)
  | | v
  | | Ordered intermediates
  | |
- | +- MEP search [path-search] or [path-opt]
+ | +- MEP search [path-opt] or [path-search]
  | |
  | MEP trajectory (mep_trj.xyz) + energy diagrams
  |

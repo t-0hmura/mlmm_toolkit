@@ -21,7 +21,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 
 - `result_all/summary.log`
 - `result_all/summary.json`
-- `result_all/path_search/mep.pdb`（または `result_all/path_search/seg_*/`）
+- `result_all/path_opt/mep.pdb`（または `result_all/path_opt/seg_*/`）
 
 ## 補足
 

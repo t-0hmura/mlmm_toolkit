@@ -159,5 +159,5 @@ Merge order is **defaults < config < explicit CLI < override**.
 
 - [path-search](path-search.md) -- Recursive MEP search with automatic refinement (for 2+ structures)
 - [opt](opt.md) -- Single-structure geometry optimization
-- [all](all.md) -- End-to-end workflow (uses path-search by default)
+- [all](all.md) -- End-to-end workflow (uses path-opt by default; add `--refine-path` for recursive search)
 - [YAML Reference](yaml-reference.md) -- Full `gs`, `opt` configuration options

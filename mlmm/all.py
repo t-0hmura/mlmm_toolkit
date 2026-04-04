@@ -1669,7 +1669,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 
 @click.command(
     help="Run pocket extraction → (optional single-structure staged scan) → MEP search in one shot.\n"
-         "If exactly one input is provided: (a) with --scan-lists, stage results feed into path_search; "
+         "If exactly one input is provided: (a) with --scan-lists, stage results feed into path-opt (or path_search with --refine-path); "
          "(b) with --tsopt True and no --scan-lists, run TSOPT-only mode.",
     context_settings={
         "help_option_names": ["-h", "--help"],
@@ -1797,10 +1797,10 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option(
     "--refine-path/--no-refine-path",
     "refine_path",
-    default=True,
+    default=False,
     show_default=True,
     help=(
-        "If True, run recursive path_search on the full ordered series; if False, run a single-pass "
+        "If True, run recursive path_search on the full ordered series; if False (default), run a single-pass "
         "path-opt GSM between each adjacent pair and concatenate the segments (no path_search)."
     ),
 )
@@ -2051,10 +2051,11 @@ def cli(
     dft_grid_level: Optional[int],
 ) -> None:
     """
-    The **all** command composes `extract` → (optional `scan` on pocket) → `path_search` and hides ref-template bookkeeping.
+    The **all** command composes `extract` → (optional `scan` on pocket) → MEP search (`path-opt` by default,
+    or recursive `path_search` with ``--refine-path``) and hides ref-template bookkeeping.
     It also accepts the sloppy `-i A B C` style like `path_search` does. With single input:
-      - with --scan-lists: run staged scan on the pocket and use stage results as inputs for path_search,
-      - with --tsopt True and no --scan-lists: run TSOPT-only mode (no path_search).
+      - with --scan-lists: run staged scan on the pocket and use stage results as inputs for path-opt (or path_search),
+      - with --tsopt True and no --scan-lists: run TSOPT-only mode (no MEP search).
     """
     _echo_state.reset()
 
@@ -2226,7 +2227,7 @@ def cli(
     if dry_run:
         _echo("[all] Dry-run mode: no extraction/search/post-processing was executed.")
         _echo(
-            "[all] Planned stages: extract -> mm_parm -> optional scan -> path_search -> optional tsopt/freq/dft."
+            "[all] Planned stages: extract -> mm_parm -> optional scan -> path_opt/path_search -> optional tsopt/freq/dft."
         )
         _echo(format_elapsed("[all] Elapsed for Whole Pipeline", time_start))
         return

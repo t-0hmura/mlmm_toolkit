@@ -346,8 +346,8 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./res
 - 反応順序で 2 つ以上の**完全系**を受け取る
 - 各構造の ML 領域を抽出・定義
 - Amber parm7/rst7 トポロジーを生成し、3 層 ML/MM 分割を付与
-- デフォルトで `path-search` による**再帰的 MEP 探索**を実行（出力は `path_search/` 以下）
-- `--no-refine-path` を指定すると、単一パスの `path-opt` に切り替え（再帰的細分化をスキップ）
+- デフォルトで `path-opt` による**単一パス MEP 探索**を実行（出力は `path_opt/` 以下）
+- `--refine-path` を指定すると、再帰的 `path-search` に切り替え（自動精密化を実行）
 - PDB テンプレートが利用可能な場合、ML 領域 MEP を**完全系**にマージ
 - オプションで各セグメントに対して TS 最適化、振動解析、DFT 一点計算を実行
 
@@ -385,8 +385,8 @@ mlmm -i SINGLE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","
  - ML 領域のインデックスに自動的にリマッピングされます。
 - 1 つの `--scan-lists` リテラルで単一スキャンステージ、複数リテラルで逐次ステージを実行。複数リテラルは 1 つのフラグの後に続けて指定します（フラグの繰り返しは不可）。
 - 各ステージは `stage_XX/result.pdb` を出力し、中間体または生成物の候補として扱われます。
-- デフォルトの `all` ワークフローは連結されたステージを再帰的 `path-search` で精密化します。
-- `--no-refine-path` を使用すると、単一パスの `path-opt` チェーンを実行し、再帰的精密化をスキップします。
+- デフォルトの `all` ワークフローは連結されたステージに対して単一パスの `path-opt` チェーンを実行します。
+- `--refine-path` を使用すると、再帰的 `path-search`（自動精密化）に切り替わります。
 
 このモードは、単一構造から反応経路を構築する場合に有用です。
 
@@ -439,7 +439,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |
 | `--thermo/--no-thermo` | 振動解析と熱化学を実行 |
 | `--dft/--no-dft` | DFT 一点計算を実行 |
-| `--refine-path/--no-refine-path` | 再帰的 MEP 精密化（デフォルト）vs 単一パス |
+| `--refine-path/--no-refine-path` | 単一パス `path-opt`（デフォルト）vs `--refine-path` で再帰的 `path-search` |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（デフォルト: 無効） |
@@ -458,7 +458,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 - `summary.log` -- 人が読むための実行要約
 - `summary.json` -- 機械処理向けの要約
 
-代表的には、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。`path_search/` 以下の各セグメントにも個別 summary が出力されます。
+代表的には、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。`path_opt/`（`--refine-path` 使用時は `path_search/`）以下の各セグメントにも個別 summary が出力されます。
 
 ---
 

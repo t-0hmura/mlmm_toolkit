@@ -26,7 +26,7 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" --out-dir ./result_all
 
 - `result_all/summary.log`
 - `result_all/summary.json`
-- `result_all/path_search/mep.pdb` (or `result_all/path_search/seg_*/`)
+- `result_all/path_opt/mep.pdb` (or `result_all/path_opt/seg_*/`; `path_search/` when `--refine-path` is used)
 
 ## Common examples
 
@@ -83,7 +83,7 @@ mlmm all -i A.pdb B.pdb C.pdb -c "308,309" -l "-1" \
 mlmm all -i A.pdb -c "308,309" --scan-lists "[(10,55,2.20),(23,34,1.80)]" \
  --multiplicity 1 --out-dir result_scan_all --tsopt --thermo --dft
 
-# Single-structure TSOPT-only mode (no path_search)
+# Single-structure TSOPT-only mode (no MEP search)
 mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
  --tsopt --thermo --dft --out-dir result_tsopt_only
 ```
@@ -110,12 +110,12 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 
 4. **MEP search on full-system layered PDBs**
    - All MEP calculations run on full-system layered PDBs (with `--parm` and `--detect-layer`), not on pockets.
-   - **`--refine-path` (default):** Runs recursive `path_search` with kink-detection and refinement.
-   - **`--no-refine-path`:** Runs single-pass `path-opt` GSM per adjacent pair, then concatenates trajectories, extracts HEI per segment, detects bond changes, and writes `summary.json` — enabling Stage 4 post-processing (TSOPT, thermo, DFT) on both modes.
+   - **`path-opt` (default):** Runs `path-opt` GSM per adjacent pair, then concatenates trajectories, extracts HEI per segment, detects bond changes, and writes `summary.json` — enabling Stage 4 post-processing (TSOPT, thermo, DFT).
+   - **`--refine-path`:** Runs recursive `path_search` with automatic refinement, detecting multistep reactions and building a detailed MEP for each elementary step.  Complex multistep mechanisms may require manual trial-and-error. Both modes support Stage 4 post-processing.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused (repeated) as the reference template.
 
 5. **Summary and optional post-processing**
-   - Per-segment trajectories, full MEP trajectory, and a `summary.json` are written under `<out-dir>/path_search/`.
+   - Per-segment trajectories, full MEP trajectory, and a `summary.json` are written under `<out-dir>/path_opt/` (or `<out-dir>/path_search/` when `--refine-path` is used).
    - `--tsopt`: run TS optimization on each HEI, follow with EulerPC IRC, and emit segment energy diagrams.
    - `--thermo`: Compute ML/MM thermochemistry on (R, TS, P) and add a Gibbs diagram.
    - `--dft`: Do DFT single-point on (R, TS, P) and add a DFT diagram. With `--thermo`, also generate a DFT//MLIP Gibbs diagram.
@@ -201,7 +201,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
-| `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.json). Both modes support Stage 4 (TSOPT/thermo/DFT). | `True` |
+| `--refine-path/--no-refine-path` | If True, run recursive `path-search`; if False, chain `path-opt` segments (single-pass GSM per pair, with trajectory concatenation, HEI extraction, bond-change detection, and summary.json). Both modes support Stage 4 (TSOPT/thermo/DFT). | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
@@ -283,7 +283,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
  energy_diagram_DFT_all.png
  energy_diagram_G_DFT_plus_UMA_all.png
  irc_plot_all.png
- path_search/                          # present when path_search is executed
+ path_opt/                             # default; path_search/ when --refine-path is used
   mep_trj.xyz
   mep.pdb
   summary.json

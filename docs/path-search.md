@@ -6,6 +6,8 @@
 
 `mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory.
 
+The recursive decomposition automatically detects multistep reactions and builds a detailed MEP for each elementary step.  However, complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, scan specifications, or convergence thresholds—to obtain a satisfactory pathway.
+
 If you only have **two** endpoints and do not need recursive refinement, [path-opt](path-opt.md) is the simpler option.
 
 ## Minimal example

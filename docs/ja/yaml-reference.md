@@ -284,8 +284,8 @@ search:
  bridge_rmsd_thresh: 0.0001 # ブリッジノードの RMSD 閾値
  max_nodes_segment: 10 # セグメントあたりの最大ノード数
  max_nodes_bridge: 5 # ブリッジあたりの最大ノード数
- kink_max_nodes: 3 # キンク最適化の最大ノード数
- max_seq_kink: 2 # 連続キンクの上限
+ kink_max_nodes: 3 # ねじれ最適化の最大ノード数
+ max_seq_kink: 2 # 連続ねじれの上限
  refine_mode: null # 精密化戦略: peak, minima, null (自動)
 ```
 
@@ -399,7 +399,7 @@ stopt:
  out_dir: ./result_path_opt/  # 出力ディレクトリ
  print_every: 10        # ログ出力間隔
  lbfgs:
-   # 単一構造最適化用（HEI±1、kinkノード）
+   # 単一構造最適化用（HEI±1、ねじれノード）
    thresh: gau
    max_cycles: 10000
    # ...（詳細は lbfgs セクション参照）
@@ -411,7 +411,7 @@ stopt:
 ```
 
 **注意:**
-- `stopt.lbfgs` / `stopt.rfo` は HEI±1 端点最適化および kink ノード最適化に使用される単一構造最適化の設定
+- `stopt.lbfgs` / `stopt.rfo` は HEI±1 端点最適化およびねじれノード最適化に使用される単一構造最適化の設定
 - 外側の `stopt` キーはストリング最適化（GS または DMF ラッパー）を制御
 
 ---
