@@ -74,6 +74,21 @@ Fixes to try:
 
 ---
 
+### Unreliable energies / barriers
+
+Symptoms:
+- Calculated energies or reaction barriers seem unreasonable.
+- Results change significantly when the model size is increased.
+
+Fix:
+- If the extracted pocket is too small, calculated energies and barriers may be unreliable. Increase the extraction radius (e.g., `-r 4.0` or higher) to include more of the protein environment:
+
+ ```bash
+ mlmm extract -i complex.pdb -c 'SUB' -o pocket.pdb -r 4.0
+ ```
+
+---
+
 ### Non-standard residues not truncated correctly
 
 If the extracted pocket contains modified amino acid residues (e.g., phosphoserine, methylated lysine, D-amino acids) with non-standard three-letter codes, backbone truncation and link-hydrogen placement will not be applied to them by default. Use `--modified-residue` to register them:

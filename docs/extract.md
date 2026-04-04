@@ -138,6 +138,10 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g., `GPP:-3,SAM:1`). | _None_ |
 | `-v, --verbose/--no-verbose` | Emit INFO-level logging (`True`) or keep warnings only (`False`). | `True` |
 
+```{tip}
+If the extracted pocket is too small, calculated energies and barriers may be unreliable. In such cases, increasing the extraction radius (e.g., `-r 4.0` or higher) can improve accuracy by including more of the protein environment.
+```
+
 ## Outputs
 ```text
 <output>.pdb # Pocket PDB(s) with optional link hydrogens after a TER record

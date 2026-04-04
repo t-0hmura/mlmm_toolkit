@@ -138,6 +138,10 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `-l, --ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |
 | `-v, --verbose/--no-verbose` | INFO レベルのログ出力（`True`）または WARNING のみ（`False`）。 | `True` |
 
+```{tip}
+抽出されたポケットが小さすぎると、エネルギーや障壁の計算値が不正確になることがあります。そのような場合は、抽出半径を大きくする（例: `-r 4.0` 以上）ことで、タンパク質環境をより多く含めて精度を改善できます。
+```
+
 ## 出力
 ```text
 <output>.pdb # TER レコード後にリンク水素を含む可能性のあるポケット PDB
