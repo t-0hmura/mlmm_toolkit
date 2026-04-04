@@ -74,6 +74,20 @@ Fixes to try:
 
 ---
 
+### Non-standard residues not truncated correctly
+
+If the extracted pocket contains modified amino acid residues (e.g., phosphoserine, methylated lysine, D-amino acids) with non-standard three-letter codes, backbone truncation and link-hydrogen placement will not be applied to them by default. Use `--modified-residue` to register them:
+
+```bash
+mlmm extract -i complex.pdb -c PRE --modified-residue "SEP,TPO,MLY" -o pocket.pdb
+```
+
+The same flag is available on the `all` command and is forwarded to the extraction stage.
+
+If `--modified-residue` is insufficient (e.g., the residue has an unusual backbone topology), construct the pocket model manually with appropriate link hydrogens, and pass the pocket PDB and parm7 files directly to downstream commands (`opt`, `tsopt`, `path-opt`, etc.) via `--parm` and `--model-pdb`.
+
+---
+
 ## Charge / spin problems
 
 ### Charge resolution issues

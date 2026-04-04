@@ -78,6 +78,20 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 
 ---
 
+### 非標準残基が正しく切断されない
+
+抽出されたポケットに非標準の3文字コードを持つ修飾アミノ酸残基（リン酸化セリン、メチル化リシンなど）が含まれている場合、デフォルトでは主鎖切断やリンク水素付加が適用されません。`--modified-residue` で登録してください:
+
+```bash
+mlmm extract -i complex.pdb -c PRE --modified-residue "SEP,TPO,MLY" -o pocket.pdb
+```
+
+同じフラグは `all` コマンドでも使用可能で、抽出ステージに転送されます。
+
+`--modified-residue` で対応できない場合は、リンク水素を含むポケットモデルを手動で構築し、`--parm` と `--model-pdb` を使って下流コマンドに直接渡してください。
+
+---
+
 ## 電荷 / スピンの問題
 
 ### 電荷解決の問題
