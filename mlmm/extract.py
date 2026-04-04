@@ -452,6 +452,15 @@ def _gather_extract_variadic(
     help="Comma/space-separated residue IDs to force-include.",
 )
 @click.option(
+    "--modified-residue",
+    type=str, default="",
+    help=(
+        "Comma-separated residue names (with optional charge) to treat as amino acids "
+        "for backbone truncation and charge assignment. "
+        "Examples: 'HD1,HD2,HD3' (charge defaults to 0) or 'HD1:0,SEP:-2'."
+    ),
+)
+@click.option(
     "-l",
     "--ligand-charge",
     type=str, default=None,
@@ -481,6 +490,7 @@ def cli(
     exclude_backbone: bool,
     add_linkh: bool,
     selected_resn: str,
+    modified_residue: str,
     ligand_charge: Optional[str],
     verbose: bool,
     out_json: bool,
@@ -507,6 +517,7 @@ def cli(
         exclude_backbone=exclude_backbone,
         add_linkh=add_linkh,
         selected_resn=selected_resn,
+        modified_residue=modified_residue,
         ligand_charge=ligand_charge,
         verbose=verbose,
     )
@@ -2044,6 +2055,20 @@ def extract(args: argparse.Namespace | None = None, api=False) -> Dict[str, Any]
 
     _configure_extract_logger(bool(args.verbose))
 
+    # Augment AMINO_ACIDS with user-specified modified residues
+    _mod_res = getattr(args, 'modified_residue', '') or ''
+    if _mod_res:
+        for token in _mod_res.replace(' ', ',').split(','):
+            token = token.strip()
+            if not token:
+                continue
+            if ':' in token:
+                name, charge_str = token.split(':', 1)
+                AMINO_ACIDS[name.strip().upper()] = int(float(charge_str.strip()))
+            else:
+                AMINO_ACIDS[token.upper()] = 0
+        LOGGER.info("[extract] Modified residues added to amino acid list: %s", _mod_res)
+
     if args.radius == 0.0:
         args.radius = 0.001
     if args.radius_het2het == 0.0:
@@ -2218,6 +2243,7 @@ def extract_api(complex_pdb: List[str],
                    exclude_backbone: bool = False,
                    add_linkh: bool = False,
                    selected_resn: str = "",
+                   modified_residue: str = "",
                    ligand_charge: Optional[float | str | Dict[str, float]] = None,
                    verbose: bool = False) -> Dict[str, Any]:
     """
@@ -2245,6 +2271,9 @@ def extract_api(complex_pdb: List[str],
         Add link‑H atoms for cut bonds (carbon‑only) and append as HL/LKH HETATM records.
     selected_resn : str
         Additional residues to force‑include (comma/space separated).
+    modified_residue : str
+        Comma‑separated residue names (with optional charge) to treat as amino acids
+        for backbone truncation and charge assignment. E.g. 'HD1,HD2' or 'HD1:0,SEP:-2'.
     ligand_charge : float | str | dict[str,float] | None
         Either a total charge (float/str) for unknown residues (prefer unknown substrate),
         or a mapping like {'GPP': -3, 'MMT': -1}. In mapping mode, other unknown residues remain 0.
@@ -2268,6 +2297,7 @@ def extract_api(complex_pdb: List[str],
         exclude_backbone=exclude_backbone,
         add_linkh=add_linkh,
         selected_resn=selected_resn,
+        modified_residue=modified_residue,
         ligand_charge=ligand_charge,
         verbose=verbose,
     )
