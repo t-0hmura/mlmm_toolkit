@@ -11,13 +11,15 @@ Quantum mechanics/molecular mechanics (QM/MM) methods have long been used to ana
 Each workflow step is also available as an [individual subcommand](#cli-subcommands) ([`opt`](docs/opt.md), [`scan`](docs/scan.md), [`scan2d`](docs/scan2d.md), [`path-search`](docs/path_search.md), [`tsopt`](docs/tsopt.md), [`freq`](docs/freq.md), [`irc`](docs/irc.md), [`dft`](docs/dft.md), [`energy-diagram`](docs/energy_diagram.md), [etc.](#cli-subcommands)), allowing fine-grained control over each stage. A **single command** can generate a first-pass enzymatic reaction path with ML/MM accuracy:
 
 ```bash
-mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2"
+# Methyltransferase: scan mode (SAM + PHN substrates)
+mlmm all -i complex.pdb -c "SAM,PHN" -l "SAM:1,PHN:-1" \
+    -s "[('SAM 359 CS1','PHN 360 C8',1.3)]" --tsopt --thermo
 ```
 
 The full workflow — **ML/MM model setup → MEP search → TS optimization → IRC → thermochemistry → single-point DFT** — can be run in one command:
 
 ```bash
-mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2" --tsopt --thermo --dft
+mlmm all -i R.pdb P.pdb -c "SAM,PHN" -l "SAM:1,PHN:-1" --tsopt --thermo --dft
 ```
 
 Given **(i) two or more PDB files** (R → ... → P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm-toolkit` automatically:
@@ -175,7 +177,7 @@ huggingface-cli login
    Use [`mlmm extract`](docs/extract.md) or any molecular viewer to select residues around the substrate:
 
    ```bash
-   mlmm extract -i complex.pdb -c PRE -r 6.0 -l "PRE:-2" -o ml_region.pdb
+   mlmm extract -i complex.pdb -c "SAM,PHN" -r 6.0 -l "SAM:1,PHN:-1" -o ml_region.pdb
    ```
 
    **Important:** atom order, residue names, and residue numbers must match between the *full* PDB and the *ML-region* PDB. (In PyMOL, tick **"Original atom order"** when exporting.)
@@ -186,54 +188,59 @@ huggingface-cli login
 
 ### Full workflow (multi-structure)
 ```bash
-mlmm all -i R.pdb P.pdb -c PRE -l "PRE:-2" \
+mlmm all -i R.pdb P.pdb -c "SAM,PHN" -l "SAM:1,PHN:-1" \
     --tsopt --thermo --dft
 ```
 
 ### Scan mode (single structure)
 ```bash
-mlmm all -i R.pdb -c PRE -l "PRE:-2" \
-    --scan-lists "[('PRE 353 O1\'','PRE 353 C3',1.2)]"
+mlmm all -i complex.pdb -c "SAM,PHN" -l "SAM:1,PHN:-1" \
+    -s "[('SAM 359 CS1','PHN 360 C8',1.3)]" --tsopt --thermo
 ```
 
 ### TS optimization only
 ```bash
 mlmm tsopt -i TS_candidate_layered.pdb --parm complex.parm7 \
-    -q 1 --opt-mode light
+    -l "SAM:1,PHN:-1" --opt-mode light
 ```
 
 ### Step-by-step workflow
+
+See [`examples/methyltransferase/run_stepwise.sh`](examples/methyltransferase/run_stepwise.sh) for the complete working script. The key steps are:
+
 ```bash
-# 1. Generate MM parameters
-mlmm mm-parm -i complex.pdb -l "PRE:-2"
+# 1. Extract active-site pocket
+mlmm extract -i complex.pdb -c "SAM,PHN" -l "SAM:1,PHN:-1" -o pocket.pdb
 
-# 2. Extract active-site pocket
-mlmm extract -i complex.pdb -c '353' -l "PRE:-2" -r 6.0
+# 2. Define ML/MM layers
+mlmm define-layer -i complex.pdb --model-pdb pocket.pdb -o r_layered.pdb
 
-# 3. Assign 3-layer ONIOM regions
-mlmm define-layer -i complex.pdb --model-pdb pocket.pdb --radius-freeze 10.0
+# 3. Generate MM parameters
+mlmm mm-parm -i complex.pdb -l "SAM:1,PHN:-1"
 
 # 4. Optimize geometry
-mlmm opt -i complex_layered.pdb --parm complex.parm7 -q 1 --opt-mode heavy
+mlmm opt -i r_layered.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 01_opt_init
 
-# 5. MEP search
-mlmm path-search -i R_layered.pdb P_layered.pdb --parm complex.parm7 -q 1
+# 5. 1D bond scan (methyl transfer: CS1 of SAM → C8 of PHN)
+mlmm scan -i 01_opt_init/final_geometry.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 \
+    -s "[('SAM 359 CS1','PHN 360 C8',1.3)]" --out-dir 02_scan
 
-# 6. TS optimization
-mlmm tsopt -i hei.pdb --parm complex.parm7 -q 1 --opt-mode light
+# 6. Path optimization (GSM)
+mlmm path-opt -i 01_opt_init/final_geometry.pdb 02_scan/stage_01/result.pdb \
+    -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 03_path_opt
 
-# 7. Frequency analysis
-mlmm freq -i ts_optimized.pdb --parm complex.parm7 -q 1
+# 7. TS optimization
+mlmm tsopt -i 03_path_opt/hei.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 04_tsopt
 
 # 8. IRC
-mlmm irc -i ts_optimized.pdb --parm complex.parm7 -q 1
+mlmm irc -i 04_tsopt/final_geometry.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 05_irc
 
-# 9. DFT single-point
-mlmm dft -i optimized.pdb --parm complex.parm7 -q 1
+# 9. Frequency analysis (R, TS, P)
+mlmm freq -i 04_tsopt/final_geometry.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 06_freq_ts
 ```
 
-Fully working example scripts are provided in the [`examples/`](examples/) directory.
-Start with the minimal [`examples/toy_system/`](examples/toy_system/) example, then explore a realistic enzyme case in [`examples/methyltransferase/`](examples/methyltransferase/).
+> **Working examples** are provided in the [`examples/`](examples/) directory.
+> Start with [`examples/methyltransferase/run_all.sh`](examples/methyltransferase/run_all.sh) for the one-command `all` workflow, or [`examples/methyltransferase/run_stepwise.sh`](examples/methyltransferase/run_stepwise.sh) for the step-by-step approach.
 
 ---
 
