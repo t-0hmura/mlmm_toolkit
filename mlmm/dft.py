@@ -874,26 +874,42 @@ def cli(
 
         mol = gto.Mole()
         mol.verbose = int(dft_kw.get("verbose", 4))
-        mol.build(
+        # def2 family includes Stuttgart ECPs for heavy elements (Z>=21);
+        # must set mol.ecp explicitly or PySCF uses all-electron treatment.
+        _ecp = dft_kw.get("ecp", None)
+        if _ecp is None and basis.lower().startswith("def2"):
+            _ecp = basis
+        _build_kw: Dict[str, Any] = dict(
             atom=_atoms_to_pyscf_atoms(workspace.atoms_model_lh),
             unit="Angstrom",
             charge=model_charge,
             spin=model_spin2s,
             basis=basis,
         )
+        if _ecp:
+            _build_kw["ecp"] = _ecp
+            click.echo(f"[dft] Using ECP: {_ecp}")
+        mol.build(**_build_kw)
 
         using_gpu = False
         engine_label = "pyscf(cpu)"
-        try:
-            import gpu4pyscf
+        _engine = str(dft_kw.get("engine", "gpu")).lower()
+        if _engine != "cpu":
+            try:
+                import gpu4pyscf
 
-            gpu4pyscf.activate()
-            from gpu4pyscf import dft as gdf
+                gpu4pyscf.activate()
+                from gpu4pyscf import dft as gdf
 
-            mf = gdf.RKS(mol) if model_spin2s == 0 else gdf.UKS(mol)
-            using_gpu = True
-            engine_label = "gpu4pyscf"
-        except Exception:
+                mf = gdf.RKS(mol) if model_spin2s == 0 else gdf.UKS(mol)
+                using_gpu = True
+                engine_label = "gpu4pyscf"
+            except Exception as e:
+                raise click.ClickException(
+                    f"[gpu] GPU backend failed: {e}. "
+                    "Set dft.engine: cpu in YAML config to explicitly run on CPU."
+                )
+        if _engine == "cpu":
             from pyscf import dft as pdft
 
             mf = pdft.RKS(mol) if model_spin2s == 0 else pdft.UKS(mol)
