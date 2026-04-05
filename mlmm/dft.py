@@ -538,6 +538,13 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
 @click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF energy convergence threshold (ΔE in Hartree between SCF cycles).")
 @click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine).")
 @click.option(
+    "--engine",
+    type=click.Choice(["gpu", "cpu"], case_sensitive=False),
+    default="gpu",
+    show_default=True,
+    help="SCF backend: gpu (GPU4PySCF, raises error if unavailable) or cpu (PySCF).",
+)
+@click.option(
     "-o", "--out-dir",
     type=click.Path(path_type=Path, dir_okay=True, file_okay=False),
     default=Path(DFT_KW["out_dir"]),
@@ -642,6 +649,7 @@ def cli(
     max_cycle: int,
     conv_tol: float,
     grid_level: int,
+    engine: str,
     out_dir: Path,
     config_yaml: Optional[Path],
     show_config: bool,
@@ -893,7 +901,7 @@ def cli(
 
         using_gpu = False
         engine_label = "pyscf(cpu)"
-        _engine = str(dft_kw.get("engine", "gpu")).lower()
+        _engine = str(engine).lower() if _is_param_explicit("engine") else str(dft_kw.get("engine", "gpu")).lower()
         if _engine != "cpu":
             try:
                 import gpu4pyscf
