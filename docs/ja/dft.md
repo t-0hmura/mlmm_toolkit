@@ -133,6 +133,11 @@ dft:
 
 ---
 
+## 注意事項
+
+- **Blackwell アーキテクチャ GPU**（RTX 50xx）: GPU4PySCF は小規模な系（~100原子）でもメモリ不足エラーが発生する場合があります。これらの GPU では `--engine cpu` または外部 DFT プログラム（ORCA, Gaussian）を使用してください。
+- GPU4PySCF のコンパイル済みホイールは非 x86 環境では動作しない場合があります。ソースからビルドしてください（参照: https://github.com/pyscf/gpu4pyscf）。
+
 ## 関連項目
 
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け

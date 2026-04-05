@@ -131,6 +131,11 @@ dft:
  out_dir: ./result_dft/            # output directory root
 ```
 
+## Notes
+
+- **Blackwell-architecture GPUs** (RTX 50xx): GPU4PySCF may fail with out-of-memory errors even for small systems (~100 atoms). Use `--engine cpu` or an external DFT program (ORCA, Gaussian) for production calculations on these GPUs.
+- Compiled GPU4PySCF wheels may not support non-x86 systems; build from source in that case (see https://github.com/pyscf/gpu4pyscf).
+
 ## See Also
 
 - [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
