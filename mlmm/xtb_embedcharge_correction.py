@@ -139,7 +139,12 @@ def _run_xtb(run_dir, xyz_filename, charge, multiplicity, xtb_cmd, xtb_acc, mode
             text=True, check=False,
         )
     except FileNotFoundError as exc:
-        raise XTBEmbedError(f"xTB command not found: '{xtb_cmd}'.") from exc
+        raise XTBEmbedError(
+            f"xTB command not found: '{xtb_cmd}'. "
+            "Install xTB via 'conda install -c conda-forge xtb' "
+            "or build from source (https://github.com/grimme-lab/xtb). "
+            "Alternatively, set xtb_cmd in YAML config to the path of your xTB binary."
+        ) from exc
     except Exception as exc:
         raise XTBEmbedError(f"Failed to run xTB: {exc}")
 

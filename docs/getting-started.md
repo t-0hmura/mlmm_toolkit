@@ -232,7 +232,28 @@ If you prefer to build the environment piece by piece:
 # pip uninstall fairchem-core && pip install mace-torch
  ```
 
+ To enable xTB point-charge embedding (`--embedcharge`), install [xTB](https://github.com/grimme-lab/xtb) and ensure the `xtb` command is available on your `PATH`.
+
+ #### Installing xTB
+
+ ```bash
+ conda install -c conda-forge xtb
+ ```
+
+ Or build from source (requires GCC >= 10):
+
+ ```bash
+ git clone --depth 1 https://github.com/grimme-lab/xtb.git
+ cd xtb
+ cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+ make -C build -j8
+ ```
+
+ To use a custom xTB binary, set the `xtb_cmd` key in your YAML config.
+
 7. **Build the `hessian_ff` C++ native extension**
+
+ In most environments the native extension is built automatically during `pip install`. If you see a warning about the native extension not being available, build it manually:
 
  ```bash
  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make

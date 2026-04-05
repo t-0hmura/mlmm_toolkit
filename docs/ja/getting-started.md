@@ -215,6 +215,8 @@ AmberTools がインストールされていなくても、`--parm` を手動で
 
 7. **hessian_ff の C++ 拡張をビルド**
 
+ 多くの環境では `pip install` 時に自動でビルドされます。ネイティブ拡張が利用できない旨の警告が表示された場合は、手動でビルドしてください:
+
  ```bash
  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
  ```
@@ -246,6 +248,25 @@ AmberTools がインストールされていなくても、`--parm` を手動で
  # MACE バックエンド (UMA と競合 — 先に fairchem-core をアンインストール)
  # pip uninstall fairchem-core && pip install mace-torch
  ```
+
+ xTB 点電荷埋め込み補正（`--embedcharge`）を使用するには、[xTB](https://github.com/grimme-lab/xtb) をインストールし、`xtb` コマンドが `PATH` 上で利用可能であることを確認してください。
+
+ #### xTB のインストール
+
+ ```bash
+ conda install -c conda-forge xtb
+ ```
+
+ またはソースからビルド（GCC >= 10 が必要）:
+
+ ```bash
+ git clone --depth 1 https://github.com/grimme-lab/xtb.git
+ cd xtb
+ cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+ make -C build -j8
+ ```
+
+ カスタム xTB バイナリを使用するには、YAML 設定ファイルで `xtb_cmd` キーを設定してください。
 
 11. **インストールの確認**
 
