@@ -105,7 +105,7 @@ calc:
  out_hess_torch: true # Return Hessian as torch.Tensor
  H_double: false # Assemble/return Hessian in float64
  symmetrize_hessian: true # Symmetrize final Hessian as 0.5*(H+H^T)
- return_partial_hessian: false # Base calculator default (CLI wrappers may default to true)
+ return_partial_hessian: true # Active-block partial Hessian (CLI wrappers default to true)
 
  # --- Layer configuration ---
  freeze_atoms: [] # 1-based indices of atoms to freeze (Frozen layer)
@@ -568,7 +568,7 @@ MLIP-based bond-change detection.
 
 ```yaml
 bond:
- device: cuda # MLIP device for bond analysis
+ device: auto # MLIP device for bond analysis
  bond_factor: 1.2 # Covalent-radius scaling for cutoff
  margin_fraction: 0.05 # Fractional tolerance for comparisons
  delta_fraction: 0.05 # Minimum relative change to flag bond formation/breaking

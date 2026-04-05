@@ -45,6 +45,8 @@ Options:
                                   Hartree between SCF cycles).  [default: 1e-09]
   --grid-level INTEGER            DFT integration grid level (0=coarse,
                                   3=default, 5=fine, 9=very fine).  [default: 3]
+  --engine [gpu|cpu]              SCF backend: gpu (GPU4PySCF, raises error if
+                                  unavailable) or cpu (PySCF).  [default: gpu]
   -o, --out-dir DIRECTORY         Output directory.  [default: result_dft]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.

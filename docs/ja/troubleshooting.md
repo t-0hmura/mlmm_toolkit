@@ -509,7 +509,7 @@ pip install --no-deps mace-torch      # MACE バックエンド
 
 ### --embedcharge 使用時に xTB が見つからない
 
-**症状:** `FileNotFoundError: xtb command not found` が表示される
+**症状:** `XTBEmbedError: xTB command not found` が表示される
 
 **対処:** xTB をインストールし、`$PATH` 上にあることを確認します:
 ```bash

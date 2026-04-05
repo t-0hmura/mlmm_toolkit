@@ -196,6 +196,7 @@ ja/glossary
 | [`dft`](dft.md) | Single-point DFT calculations (GPU4PySCF / PySCF) |
 | [`trj2fig`](trj2fig.md) | Plot energy profiles from XYZ trajectories |
 | [`energy-diagram`](energy-diagram.md) | Build an energy diagram from numeric input values |
+| [`bond-summary`](bond-summary.md) | Compare structures and report bond changes |
 
 ### Utilities
 | Subcommand | Description |

@@ -87,7 +87,7 @@ calc:
  symmetrize_hessian: true # 最終ヘシアンを 0.5*(H+H^T) で対称化
  print_timing: true # ML/MM ヘシアンのタイミング内訳を表示
  print_vram: true # CUDA VRAM 使用量を表示
- return_partial_hessian: false # 計算機の基底既定値（CLI ラッパー側で true 既定を適用する場合あり）
+ return_partial_hessian: true # アクティブブロック部分ヘシアン（CLI ラッパー側で true 既定を適用）
  freeze_atoms: [] # geom.freeze_atoms から継承
  # 層設定:
  hess_cutoff: null # Å: Hessian 対象 MM の距離カットオフ
@@ -541,7 +541,7 @@ MLIP ベースの結合変化検出。
 
 ```yaml
 bond:
- device: cuda # MLIP デバイス
+ device: auto # MLIP デバイス
  bond_factor: 1.2 # 共有結合半径スケーリング
  margin_fraction: 0.05 # 比較の分率許容値
  delta_fraction: 0.05 # 結合形成/切断を検出する最小相対変化

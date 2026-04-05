@@ -110,7 +110,7 @@ mlmm bond-summary -i r_complex_layered.pdb p_complex_layered.pdb > test34.out 2>
 mlmm fix-altloc -i r_complex.pdb -o r_complex_fixalt.pdb > test35.out 2>&1
 
 # test36: oniom-import (Gaussian input → layered PDB)
-mlmm oniom-import -i test33.gjf -o test36.pdb > test36.out 2>&1
+mlmm oniom-import -i test33.gjf -o test36 > test36.out 2>&1
 
 # --- refine-path ---
 

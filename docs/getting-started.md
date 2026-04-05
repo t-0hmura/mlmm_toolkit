@@ -253,7 +253,7 @@ If you prefer to build the environment piece by piece:
 
 7. **Build the `hessian_ff` C++ native extension**
 
- In most environments the native extension is built automatically during `pip install`. If you see a warning about the native extension not being available, build it manually:
+ In most environments the native extension is JIT compiled on first use. If you see a warning about the native extension not being available, build it manually:
 
  ```bash
  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make

@@ -215,7 +215,7 @@ AmberTools がインストールされていなくても、`--parm` を手動で
 
 7. **hessian_ff の C++ 拡張をビルド**
 
- 多くの環境では `pip install` 時に自動でビルドされます。ネイティブ拡張が利用できない旨の警告が表示された場合は、手動でビルドしてください:
+ 多くの環境では初回使用時に JIT コンパイルされます。ネイティブ拡張が利用できない旨の警告が表示された場合は、手動でビルドしてください:
 
  ```bash
  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make

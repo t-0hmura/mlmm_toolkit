@@ -220,7 +220,7 @@ This is equivalent to two manual stages with a geometry reset between them, but 
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `False` |
 | `--dump/--no-dump` | Dump per-step optimizer trajectory files. Note: `scan_trj.xyz`/`scan.pdb` are always written regardless of this flag. | `False` |
-| `--out-dir TEXT` | Output directory root. | `./result_scan/` |
+| `-o, --out-dir TEXT` | Output directory root. | `./result_scan/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ (inherits `gau`) |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
@@ -262,7 +262,7 @@ out_dir/ (default: ./result_scan/)
 
 ### Section `bond`
 - MLIP-based bond-change detection:
- - `device` (`"cuda"`): MLIP device for graph analysis.
+ - `device` (`"auto"`): MLIP device for graph analysis.
  - `bond_factor` (`1.20`): Covalent-radius scaling for cutoff.
  - `margin_fraction` (`0.05`): Fractional tolerance for comparisons.
  - `delta_fraction` (`0.05`): Minimum relative change to flag formation/breaking.

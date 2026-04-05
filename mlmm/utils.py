@@ -1643,6 +1643,7 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
     if not traj:
         raise ValueError(f"No frames found in {xyz_path}.")
 
+    first_write = True  # Track whether we've written the first frame
     for step, frame in enumerate(traj):
         positions = frame.get_positions()  # (N, 3) in Ångström
         if len(positions) != n_ref:
@@ -1666,13 +1667,16 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
             else:
                 frame_lines.append(line)
 
-        mode = "w" if step == 0 else "a"
+        # Use "w" for the first written frame to avoid stale data from previous runs;
+        # subsequent frames append.
+        mode = "w" if first_write else "a"
         with open(out_pdb_path, mode, encoding="utf-8") as fh:
-            if step > 0:
+            if not first_write:
                 fh.write(f"MODEL     {step + 1:>4d}\n")
             fh.writelines(frame_lines)
-            if step > 0:
+            if not first_write:
                 fh.write("ENDMDL\n")
+        first_write = False
 
 
 # =============================================================================

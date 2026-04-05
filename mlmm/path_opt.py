@@ -1271,7 +1271,9 @@ def cli(
                     _dmf_e0 = _dmf_energies[0]
                     _dmf_barrier = (_dmf_energies[_dmf_hei_idx] - _dmf_e0) * _AU2KCAL
                     _dmf_delta = (_dmf_energies[-1] - _dmf_e0) * _AU2KCAL
-                _dmf_converged = getattr(dmf_res, 'is_converged', None) if 'dmf_res' in dir() else None
+                # DMF convergence is not directly returned by _run_dmf_mep;
+                # infer from trajectory: if energies were parsed, mark as completed.
+                _dmf_converged = None
                 result_data_dmf: Dict[str, Any] = {
                     "status": "converged" if _dmf_converged else ("not_converged" if _dmf_converged is False else "completed"),
                     "converged": _dmf_converged,

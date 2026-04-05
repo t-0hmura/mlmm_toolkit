@@ -491,7 +491,7 @@ pip install --no-deps mace-torch      # MACE backend
 
 ### xTB not found when using --embedcharge
 
-**Symptom:** `FileNotFoundError: xtb command not found`
+**Symptom:** `XTBEmbedError: xTB command not found`
 
 **Fix:** Install xTB and ensure it's on `$PATH`:
 ```bash

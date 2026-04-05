@@ -248,7 +248,7 @@ out_dir/ (デフォルト:./result_scan/)
 
 ### セクション `bond`
 - MLIP ベースの結合変化検出:
- - `device`（`"cuda"`）: グラフ分析用の MLIP デバイス。
+ - `device`（`"auto"`）: グラフ分析用の MLIP デバイス。
  - `bond_factor`（`1.20`）: カットオフ用の共有結合半径スケーリング。
  - `margin_fraction`（`0.05`）: 比較用の許容分数。
  - `delta_fraction`（`0.05`）: 結合形成/切断をフラグする最小相対変化。

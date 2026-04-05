@@ -35,7 +35,7 @@ jobs:
         run: |
           set -e
           mlmm --version
-          for cmd in all extract define-layer mm-parm opt tsopt freq irc dft scan scan2d scan3d path-opt path-search trj2fig add-elem-info oniom-export oniom-import fix-altloc energy-diagram; do
+          for cmd in all extract define-layer mm-parm opt tsopt freq irc dft scan scan2d scan3d path-opt path-search trj2fig add-elem-info oniom-export oniom-import fix-altloc energy-diagram bond-summary pysis; do
             echo "--- mlmm $cmd --help ---"
             mlmm "$cmd" --help
           done

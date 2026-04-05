@@ -274,6 +274,7 @@ Start with the minimal [`examples/toy_system/`](examples/toy_system/) example, t
 | `freq` | Vibrational frequency analysis + thermochemistry | [docs/freq.md](docs/freq.md) |
 | `irc` | IRC calculation (EulerPC) | [docs/irc.md](docs/irc.md) |
 | `dft` | Single-point DFT (GPU4PySCF / PySCF) | [docs/dft.md](docs/dft.md) |
+| `bond-summary` | Compare structures and report bond changes | [docs/bond-summary.md](docs/bond-summary.md) |
 
 ### Visualization & Export
 
@@ -283,6 +284,7 @@ Start with the minimal [`examples/toy_system/`](examples/toy_system/) example, t
 | `energy-diagram` | Energy diagram from numeric values | [docs/energy_diagram.md](docs/energy_diagram.md) |
 | `oniom-export` | Generate Gaussian ONIOM / ORCA QM/MM input | [docs/oniom_export.md](docs/oniom_export.md) |
 | `oniom-import` | Import ONIOM input and reconstruct XYZ/layered PDB | [docs/oniom_import.md](docs/oniom_import.md) |
+| `pysis` | Run pysisyphus YAML workflow | [docs/pysis.md](docs/pysis.md) |
 
 ---
 
