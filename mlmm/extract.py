@@ -2059,13 +2059,13 @@ def extract(args: argparse.Namespace | None = None, api=False) -> Dict[str, Any]
     # Save original state so repeated API calls don't accumulate mutations.
     _amino_acids_snapshot = dict(AMINO_ACIDS)
     try:
-        return _extract_body(args, api, _amino_acids_snapshot)
+        return _extract_body(args, api)
     finally:
         AMINO_ACIDS.clear()
         AMINO_ACIDS.update(_amino_acids_snapshot)
 
 
-def _extract_body(args, api, _amino_acids_snapshot):
+def _extract_body(args, api):
     """Inner body of extract(), separated for try/finally AMINO_ACIDS restoration."""
     _mod_res = getattr(args, 'modified_residue', '') or ''
     if _mod_res:
