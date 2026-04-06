@@ -203,7 +203,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad\|hess]` | スキャン/path-opt/path-search と単一構造最適化のプリセット（`grad` → LBFGS/Dimer、`hess` → RFO/RSIRFO）。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/LBFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |
-| `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
+| `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。実効デフォルト: path-opt は `gau_loose`、scan は `gau`。 | _None_ |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
 | `--refine-path/--no-refine-path` | True の場合は再帰的 `path-search`、False の場合は `path-opt` セグメントチェーン（単一パス GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.json）。両モードとも Stage 4（TSOPT/thermo/DFT）対応。 | `False` |
@@ -270,6 +270,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
  mm_parm/
   <input1_basename>.parm7              # 最初の完全酵素入力 PDB から生成
   <input1_basename>.rst7
+ layered/                              # レイヤード全系 PDB（B 因子アノテーション付き）
  scan/                                 # 単一構造+スキャンモードの場合のみ
   stage_01/result.pdb
   stage_02/result.pdb

@@ -1818,7 +1818,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default=False,
     help=(
         "Convergence preset (gau_loose|gau|gau_tight|gau_vtight|baker|never). "
-        "Defaults to 'gau' when not provided."
+        "Defaults to 'gau_loose' for path-opt, 'gau' for scan."
     ),
 )
 @click.option(
