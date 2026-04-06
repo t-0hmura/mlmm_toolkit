@@ -1671,11 +1671,9 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
         # subsequent frames append.
         mode = "w" if first_write else "a"
         with open(out_pdb_path, mode, encoding="utf-8") as fh:
-            if not first_write:
-                fh.write(f"MODEL     {step + 1:>4d}\n")
+            fh.write(f"MODEL     {step + 1:>4d}\n")
             fh.writelines(frame_lines)
-            if not first_write:
-                fh.write("ENDMDL\n")
+            fh.write("ENDMDL\n")
         first_write = False
 
 
