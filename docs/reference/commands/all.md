@@ -95,8 +95,8 @@ Options:
                                   pair and concatenate the segments (no
                                   path_search).  [default: no-refine-path]
   --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
-                                  u_vtight|baker|never). Defaults to 'gau' when
-                                  not provided.
+                                  u_vtight|baker|never). Defaults to 'gau_loose'
+                                  for path-opt, 'gau' for scan.
   --thresh-post TEXT              Convergence preset for post-IRC endpoint
                                   optimizations (gau_loose|gau|gau_tight|gau_vti
                                   ght|baker|never).  [default: baker]
