@@ -904,9 +904,6 @@ def cli(
         _engine = str(engine).lower() if _is_param_explicit("engine") else str(dft_kw.get("engine", "gpu")).lower()
         if _engine != "cpu":
             try:
-                import gpu4pyscf
-
-                gpu4pyscf.activate()
                 from gpu4pyscf import dft as gdf
 
                 mf = gdf.RKS(mol) if model_spin2s == 0 else gdf.UKS(mol)
