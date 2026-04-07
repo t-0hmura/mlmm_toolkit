@@ -32,8 +32,8 @@ mlmm freq -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --out-dir t
 # test10: irc
 mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --max-cycles 3 --out-dir test10 > test10.out 2>&1
 
-# test11: dft (hf/sto-3g)
-mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --conv-tol 1e-5 --max-cycle 40 --out-dir test11 > test11.out 2>&1
+# test11: dft (hf/sto-3g, cpu — gpu4pyscf may not be available in all envs)
+mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --conv-tol 1e-5 --max-cycle 40 --engine cpu --out-dir test11 > test11.out 2>&1
 
 # test12: scan (1D)
 mlmm scan -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',2.0)]" --max-step-size 2.0 --max-cycles 3 --no-preopt --no-endopt --out-dir test12 > test12.out 2>&1
