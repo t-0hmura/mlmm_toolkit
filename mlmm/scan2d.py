@@ -85,7 +85,7 @@ from .utils import (
     snapshot_geometry,
     convert_and_annotate_xyz_to_pdb,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json
 
 # Shared defaults (copied from opt.py to keep ML/MM behaviour consistent)
 GEOM_KW: Dict[str, Any] = deepcopy(_OPT_GEOM_KW)
@@ -1286,6 +1286,7 @@ def cli(
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except Exception as exc:
+        _write_error_json(Path(out_dir).resolve(), "scan2d", exc, "UnhandledError", time_start)
         tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         click.echo("Unhandled exception during 2D scan:\n" + textwrap.indent(tb, "  "), err=True)
         sys.exit(1)

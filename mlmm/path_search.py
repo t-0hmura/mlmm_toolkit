@@ -82,7 +82,7 @@ from .utils import (
     parse_layer_indices_from_bfactors,
     collect_single_option_values,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json
 from .preflight import validate_existing_files
 from .trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
 from .summary_log import write_summary_log
@@ -2330,16 +2330,19 @@ def cli(
         # --------------------------
         click.echo(format_elapsed("[time] Elapsed for Path Search", time_start))
 
-    except ZeroStepLength:
+    except ZeroStepLength as e:
+        _write_error_json(Path(out_dir).resolve(), "path_search", e, "ZeroStepLength", time_start)
         click.echo("ERROR: Proposed step length dropped below the minimum allowed (ZeroStepLength).", err=True)
         sys.exit(2)
     except OptimizationError as e:
+        _write_error_json(Path(out_dir).resolve(), "path_search", e, "OptimizationError", time_start)
         click.echo(f"ERROR: Path search failed — {e}", err=True)
         sys.exit(3)
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except Exception as e:
+        _write_error_json(Path(out_dir).resolve(), "path_search", e, "UnhandledError", time_start)
         tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         click.echo("Unhandled error during path search:\n" + textwrap.indent(tb, "  "), err=True)
         sys.exit(1)

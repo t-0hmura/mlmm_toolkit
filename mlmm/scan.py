@@ -79,7 +79,7 @@ from .utils import (
     snapshot_geometry,
 )
 from .bond_changes import compare_structures, summarize_changes
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json
 
 
 # --------------------------------------------------------------------------------------
@@ -1148,6 +1148,7 @@ def cli(
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except Exception as e:
+        _write_error_json(Path(out_dir).resolve(), "scan", e, "UnhandledError", time_start)
         tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         click.echo("Unhandled error during scan:\n" + textwrap.indent(tb, "  "), err=True)
         sys.exit(1)

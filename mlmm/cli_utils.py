@@ -8,6 +8,7 @@ import os
 import shutil
 import sys
 import textwrap
+import time
 import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Type
@@ -116,6 +117,24 @@ def link_or_copy_file(src: Path, dst: Path) -> bool:
             return False
 
 
+def _write_error_json(
+    out_dir: Path, command: str, exc: Exception, label: str,
+    time_start: Optional[float] = None,
+) -> None:
+    """Write a result.json with error status when a subcommand fails."""
+    try:
+        from .utils import write_result_json
+        elapsed = time.perf_counter() - time_start if time_start else None
+        write_result_json(
+            out_dir,
+            {"status": "error", "error": str(exc), "error_type": type(exc).__name__},
+            command=command,
+            elapsed_seconds=elapsed,
+        )
+    except Exception:
+        pass  # Best-effort; don't mask the original error
+
+
 # ---------------------------------------------------------------------------
 # CLI exception wrapper
 # ---------------------------------------------------------------------------
@@ -128,6 +147,9 @@ def run_cli(
     zero_step_msg: Optional[str] = None,
     opt_exc: Optional[Type[BaseException]] = None,
     opt_msg: Optional[str] = None,
+    out_dir: Optional[Path] = None,
+    command: Optional[str] = None,
+    time_start: Optional[float] = None,
 ) -> None:
     """Standard CLI exception handling with consistent messaging."""
     try:
@@ -136,6 +158,8 @@ def run_cli(
         click.echo("Interrupted by user.", err=True)
         sys.exit(130)
     except Exception as e:
+        if out_dir and command:
+            _write_error_json(out_dir, command, e, label, time_start)
         if zero_step_exc is not None and isinstance(e, zero_step_exc):
             click.echo(
                 zero_step_msg

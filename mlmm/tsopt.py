@@ -91,7 +91,7 @@ from .utils import (
     normalize_choice,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json
 from .freq import (
     _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
     _torch_device,
@@ -3044,16 +3044,19 @@ def cli(
                 elapsed_seconds=time.perf_counter() - time_start,
             )
 
-    except ZeroStepLength:
+    except ZeroStepLength as e:
+        _write_error_json(Path(out_dir).resolve(), "tsopt", e, "ZeroStepLength", time_start)
         click.echo("ERROR: Proposed step length dropped below the minimum allowed (ZeroStepLength).", err=True)
         sys.exit(2)
     except OptimizationError as e:
+        _write_error_json(Path(out_dir).resolve(), "tsopt", e, "OptimizationError", time_start)
         click.echo(f"ERROR: Optimization failed — {e}", err=True)
         sys.exit(3)
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except Exception as e:
+        _write_error_json(Path(out_dir).resolve(), "tsopt", e, "UnhandledError", time_start)
         import traceback
         tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         click.echo("Unhandled error during optimization:\n" + textwrap.indent(tb, "  "), err=True)

@@ -79,7 +79,7 @@ from .utils import (
     parse_dist_freeze_spec,
     load_pdb_atom_metadata,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json
 
 EV2AU = 1.0 / AU2EV                 # eV → Hartree
 H_EVAA_2_AU = EV2AU / (ANG2BOHR * ANG2BOHR)  # (eV/Å^2) → (Hartree/Bohr^2)
@@ -1848,16 +1848,19 @@ def cli(
                 elapsed_seconds=time.perf_counter() - time_start,
             )
 
-    except ZeroStepLength:
+    except ZeroStepLength as e:
+        _write_error_json(Path(out_dir).resolve(), "opt", e, "ZeroStepLength", time_start)
         click.echo("ERROR: Step length fell below the minimum allowed (ZeroStepLength).", err=True)
         sys.exit(2)
     except OptimizationError as e:
+        _write_error_json(Path(out_dir).resolve(), "opt", e, "OptimizationError", time_start)
         click.echo(f"ERROR: Optimization failed - {e}", err=True)
         sys.exit(3)
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except Exception as e:
+        _write_error_json(Path(out_dir).resolve(), "opt", e, "UnhandledError", time_start)
         tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         click.echo("Unhandled exception during optimization:\n" + textwrap.indent(tb, "  "), err=True)
         sys.exit(1)

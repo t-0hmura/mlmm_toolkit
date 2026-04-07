@@ -64,7 +64,7 @@ from .utils import (
     strip_inherited_keys,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json
 
 
 def _safe_masses_amu(atomic_numbers) -> np.ndarray:
@@ -1508,6 +1508,7 @@ def cli(
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except Exception as e:
+        _write_error_json(Path(out_dir).resolve(), "freq", e, "UnhandledError", time_start)
         import traceback
         tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         click.echo("Unhandled error during frequency analysis:\n" + textwrap.indent(tb, "  "), err=True)

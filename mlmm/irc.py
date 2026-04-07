@@ -58,7 +58,7 @@ from .utils import (
     build_model_pdb_from_indices,
     yaml_section_has_key,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json
 
 
 # --------------------------
@@ -776,9 +776,11 @@ def cli(
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except click.BadParameter as e:
+        _write_error_json(Path(out_dir).resolve(), "irc", e, "BadParameter", time_start)
         click.echo(f"ERROR: {e}", err=True)
         sys.exit(1)
     except Exception as e:
+        _write_error_json(Path(out_dir).resolve(), "irc", e, "UnhandledError", time_start)
         tb = textwrap.indent("".join(__import__("traceback").format_exception(type(e), e, e.__traceback__)), "  ")
         click.echo("Unhandled exception during IRC:\n" + tb, err=True)
         sys.exit(1)

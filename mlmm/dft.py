@@ -57,7 +57,7 @@ from .utils import (
     build_model_pdb_from_indices,
     set_convert_file_enabled,
 )
-from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit
+from .cli_utils import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json
 from .defaults import DFT_KW as _DFT_KW_DEFAULT
 
 from functools import reduce
@@ -1130,6 +1130,7 @@ def cli(
     except click.ClickException:
         raise
     except Exception as exc:
+        _write_error_json(Path(out_dir).resolve(), "dft", exc, "UnhandledError", time_start)
         tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         click.echo("Unhandled error during ML/MM DFT:\n" + textwrap.indent(tb, "  "), err=True)
         sys.exit(1)
