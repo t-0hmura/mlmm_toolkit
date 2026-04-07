@@ -430,7 +430,18 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     lines.append(f"refine-path        : {_fmt_bool(payload.get('refine_path'))}")
     lines.append(f"TSOPT/IRC          : {_fmt_bool(payload.get('tsopt'))}")
     lines.append(f"Thermochemistry    : {_fmt_bool(payload.get('thermo'))}")
-    lines.append(f"DFT single-point   : {_fmt_bool(payload.get('dft'))}")
+    dft_enabled = payload.get("dft")
+    dft_status_str = _fmt_bool(dft_enabled)
+    if dft_enabled:
+        dft_result = payload.get("dft_status")
+        if dft_result == "failed":
+            dft_status_str = "True (Failed)"
+        elif dft_result == "converged":
+            dft_status_str = "True (Converged)"
+    lines.append(f"DFT single-point   : {dft_status_str}")
+    dft_func_basis = payload.get("dft_func_basis")
+    if dft_func_basis:
+        lines.append(f"DFT functional/basis: {dft_func_basis}")
     opt_mode_disp = payload.get("opt_mode") or "-"
     lines.append(
         f"Opt mode           : {opt_mode_disp}  (grad: lbfgs/dimer; hess: rfo/rsirfo)"

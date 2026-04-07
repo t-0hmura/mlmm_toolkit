@@ -1528,6 +1528,21 @@ def _run_opt_for_state(
         prepared_input.cleanup()
 
 
+def _dft_succeeded(result: Dict[str, Any]) -> bool:
+    """Return True only if DFT converged and produced a valid energy."""
+    return bool(result) and not result.get("_dft_failed", True)
+
+
+def _dft_energy_ha(result: Dict[str, Any]) -> Optional[float]:
+    """Extract DFT energy in hartree, or None if DFT failed."""
+    if not _dft_succeeded(result):
+        return None
+    try:
+        return float((result.get("energy") or {}).get("hartree"))
+    except (TypeError, ValueError):
+        return None
+
+
 def _run_dft_for_state(pdb_path: Path,
                        q_int: int,
                        spin: int,
@@ -1596,10 +1611,15 @@ def _run_dft_for_state(pdb_path: Path,
     y = out_dir / "result.yaml"
     if y.exists():
         try:
-            return yaml.safe_load(y.read_text(encoding="utf-8")) or {}
+            data = yaml.safe_load(y.read_text(encoding="utf-8")) or {}
         except Exception:
-            return {}
-    return {}
+            data = {}
+    else:
+        data = {}
+    converged = (data.get("energy") or {}).get("converged", False)
+    data["_dft_converged"] = bool(converged)
+    data["_dft_failed"] = not bool(converged)
+    return data
 
 
 # -----------------------------
@@ -2658,20 +2678,25 @@ def cli(
                                      dft_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
                                      backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
-            try:
-                eR_dft = float(dR.get("energy", {}).get("hartree", e_react) if dR else e_react)
-                eT_dft = float(dT.get("energy", {}).get("hartree", eT) if dT else eT)
-                eP_dft = float(dP.get("energy", {}).get("hartree", e_prod) if dP else e_prod)
-                dft_diag = _write_segment_energy_diagram(
-                    tsroot / "energy_diagram_DFT",
-                    labels=["R", "TS", "P"],
-                    energies_eh=[eR_dft, eT_dft, eP_dft],
-                    title_note=f"({dft_method_fallback})",
-                )
-            except Exception as e:
-                _echo(f"[dft] WARNING: failed to build DFT diagram: {e}", err=True)
+            eR_dft = _dft_energy_ha(dR)
+            eT_dft = _dft_energy_ha(dT)
+            eP_dft = _dft_energy_ha(dP)
+            _dft_all_ok = all(e is not None for e in (eR_dft, eT_dft, eP_dft))
+            if not _dft_all_ok:
+                _failed_states = [s for s, e in zip(["R", "TS", "P"], [eR_dft, eT_dft, eP_dft]) if e is None]
+                _echo(f"[dft] WARNING: DFT failed for state(s): {', '.join(_failed_states)}. Skipping DFT diagrams.", err=True)
+            if _dft_all_ok:
+                try:
+                    dft_diag = _write_segment_energy_diagram(
+                        tsroot / "energy_diagram_DFT",
+                        labels=["R", "TS", "P"],
+                        energies_eh=[eR_dft, eT_dft, eP_dft],
+                        title_note=f"({dft_method_fallback})",
+                    )
+                except Exception as e:
+                    _echo(f"[dft] WARNING: failed to build DFT diagram: {e}", err=True)
 
-            if do_thermo:
+            if do_thermo and _dft_all_ok:
                 try:
                     dG_R = float(thermo_payloads.get("R", {}).get("thermal_correction_free_energy_ha", 0.0))
                     dG_T = float(thermo_payloads.get("TS", {}).get("thermal_correction_free_energy_ha", 0.0))
