@@ -89,8 +89,8 @@ Options:
                                   during the run, forwarding the same flag to
                                   scan/tsopt/freq.  [default: False]
   --refine-path / --no-refine-path
-                                  If True (default), run recursive path_search on
-                                  the full ordered series; if False, run a
+                                  If True (default), run recursive path_search
+                                  on the full ordered series; if False, run a
                                   single-pass path-opt GSM between each adjacent
                                   pair and concatenate the segments (no
                                   path_search).  [default: refine-path]
