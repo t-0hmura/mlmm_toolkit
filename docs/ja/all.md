@@ -26,7 +26,7 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" --out-dir ./result_all
 
 - `result_all/summary.log`
 - `result_all/summary.json`
-- `result_all/path_opt/mep.pdb`（または `result_all/path_opt/seg_*/`、`--refine-path` 使用時は `path_search/`）
+- `result_all/path_search/mep.pdb`（または `result_all/path_search/seg_*/`、`--no-refine-path` 使用時は `path_opt/`）
 
 ## よくある例
 
@@ -110,12 +110,12 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 
 4. **全系レイヤード PDB での MEP 探索**
    - すべての MEP 計算は全系レイヤード PDB（`--parm` + `--detect-layer`）上で実行されます（ポケット上ではありません）。
-   - **`path-opt`（デフォルト）:** 隣接ペアごとに単一パス `path-opt` GSM を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 4 後処理（TSOPT、thermo、DFT）が利用可能。
-   - **`--refine-path`:** 自動精密化を含む再帰的 `path_search` を実行し、多段階反応を自動検出して各素反応の詳細な MEP を構築します。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 4 後処理に対応。
+   - **`path-search`（デフォルト）:** 自動精密化を含む再帰的 `path_search` を実行し、多段階反応を自動検出して各素反応の詳細な MEP を構築します。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 4 後処理に対応。
+   - **`--no-refine-path`:** 隣接ペアごとに単一パス `path-opt` GSM を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 4 後処理（TSOPT、thermo、DFT）が利用可能。
    - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、単一の元の完全 PDB がすべての入力の参照テンプレートとして再利用（繰り返し）されます。
 
 5. **サマリーと任意の後処理**
-   - セグメントごとの軌跡、全 MEP 軌跡、`summary.json` が `<out-dir>/path_opt/`（`--refine-path` 使用時は `<out-dir>/path_search/`）に書き出されます。
+   - セグメントごとの軌跡、全 MEP 軌跡、`summary.json` が `<out-dir>/path_search/`（`--no-refine-path` 使用時は `<out-dir>/path_opt/`）に書き出されます。
    - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
    - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//MLIP Gibbs ダイアグラムも生成されます。
@@ -206,7 +206,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。実効デフォルト: path-opt は `gau_loose`、scan は `gau`。 | _None_ |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
-| `--refine-path/--no-refine-path` | True の場合は再帰的 `path-search`、False の場合は `path-opt` セグメントチェーン（単一パス GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.json）。両モードとも Stage 4（TSOPT/thermo/DFT）対応。 | `False` |
+| `--refine-path/--no-refine-path` | True（デフォルト）の場合は再帰的 `path-search`、False の場合は `path-opt` セグメントチェーン（単一パス GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.json）。両モードとも Stage 4（TSOPT/thermo/DFT）対応。 | `True` |
 | `--hessian-calc-mode CHOICE` | ML/MM ヘシアンモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。無効時は下流ツールで `--model-pdb` または `--model-indices` が必要。 | `True` |
 
@@ -284,7 +284,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
  energy_diagram_DFT_all.png
  energy_diagram_G_DFT_plus_UMA_all.png
  irc_plot_all.png
- path_opt/                             # デフォルト; --refine-path 使用時は path_search/
+ path_search/                          # デフォルト; --no-refine-path 使用時は path_opt/
   mep_trj.xyz
   mep.pdb
   summary.json

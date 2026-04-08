@@ -329,7 +329,7 @@ The `mlmm all` command orchestrates a multi-step pipeline. When run individually
 1. extract - Define ML region from full protein-ligand PDB
 2. mm-parm - Generate Amber parm7/rst7 topology (requires AmberTools)
 3. define-layer - Assign 3-layer ML/MM partitioning (B-factor encoding)
-4. path-opt - MEP search (Growing String Method); add --refine-path for recursive path-search
+4. path-search - MEP search (recursive path-search by default); add --no-refine-path for single-pass path-opt
 5. tsopt - Transition state optimization
 6. freq - Vibrational analysis and thermochemistry
 7. dft - Single-point DFT energy refinement
@@ -385,8 +385,8 @@ Behavior:
 - takes two or more **full systems** in reaction order,
 - defines the ML region for each structure,
 - generates Amber parm7/rst7 topology and assigns 3-layer ML/MM partitioning,
-- performs **MEP search** via `path-opt` by default (outputs under `path_opt/`),
-- optionally switches to a **recursive** `path-search` run with `--refine-path`,
+- performs **MEP search** via recursive `path-search` by default (outputs under `path_search/`),
+- optionally switches to a **single-pass** `path-opt` run with `--no-refine-path`,
 - when PDB templates are available, merges the ML-region MEP back into the **full system**,
 - optionally runs TS optimization, vibrational analysis, and single-point DFT calculations for each segment.
 
@@ -424,8 +424,8 @@ Key points:
  - automatically remapped to the ML region indices.
 - Supplying one `--scan-lists` literal runs a single scan stage; multiple literals run sequential stages. Pass multiple literals after a single flag (repeated flags are not accepted).
 - Each stage writes a `stage_XX/result.pdb`, which is treated as a candidate intermediate or product.
-- The default `all` workflow runs `path-opt` on the concatenated stages.
-- With `--refine-path`, it instead runs recursive `path-search` with automatic refinement.
+- The default `all` workflow runs recursive `path-search` with automatic refinement on the concatenated stages.
+- With `--no-refine-path`, it instead runs single-pass `path-opt` GSM per adjacent pair.
 
 This mode is useful for building reaction paths starting from a single structure.
 
@@ -479,7 +479,7 @@ Below are the most commonly used options across workflows.
 | `--tsopt/--no-tsopt` | Enable TS optimization and IRC. |
 | `--thermo/--no-thermo` | Run vibrational analysis and thermochemistry. |
 | `--dft/--no-dft` | Perform single-point DFT calculations. |
-| `--refine-path/--no-refine-path` | Single-pass `path-opt` (default) vs recursive `path-search` with `--refine-path`. |
+| `--refine-path/--no-refine-path` | Recursive `path-search` (default) vs single-pass `path-opt` with `--no-refine-path`. |
 | `--mep-mode gsm\|dmf` | MEP method: Growing String Method or Direct Max Flux. | `gsm` |
 | `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer, default) or `hess` (RFO/RS-I-RFO). |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
@@ -504,7 +504,7 @@ They typically contain:
 - per-segment barrier heights and key bond changes,
 - energies from the MLIP backend, thermochemistry, and DFT post-processing (where enabled).
 
-Each segment directory under `path_opt/` (or `path_search/` when `--refine-path` is used) also gets its own `summary.log` and `summary.json`, so you can inspect local refinements independently.
+Each segment directory under `path_search/` (or `path_opt/` when `--no-refine-path` is used) also gets its own `summary.log` and `summary.json`, so you can inspect local refinements independently.
 
 ---
 

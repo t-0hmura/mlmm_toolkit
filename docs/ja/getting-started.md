@@ -311,7 +311,7 @@ mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharg
 1. extract - 完全系 PDB から活性部位ポケットを抽出
 2. mm-parm - Amber parm7/rst7 を生成
 3. define-layer - 3 層 ML/MM 分割を付与（B-factor エンコード）
-4. path-opt - MEP 探索（GSM）; `--refine-path` で再帰的 path-search に切替
+4. path-search - MEP 探索（再帰的 path-search がデフォルト）; `--no-refine-path` で単一パス path-opt に切替
 5. tsopt - 遷移状態最適化
 6. freq - 振動解析と熱化学
 7. dft - DFT 一点計算
@@ -367,8 +367,8 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./res
 - 反応順序で 2 つ以上の**完全系**を受け取る
 - 各構造の ML 領域を抽出・定義
 - Amber parm7/rst7 トポロジーを生成し、3 層 ML/MM 分割を付与
-- デフォルトで `path-opt` による**単一パス MEP 探索**を実行（出力は `path_opt/` 以下）
-- `--refine-path` を指定すると、再帰的 `path-search` に切り替え（自動精密化を実行）
+- デフォルトで再帰的 `path-search` による **MEP 探索**を実行（出力は `path_search/` 以下）
+- `--no-refine-path` を指定すると、単一パス `path-opt` に切り替え（GSM per adjacent pair）
 - PDB テンプレートが利用可能な場合、ML 領域 MEP を**完全系**にマージ
 - オプションで各セグメントに対して TS 最適化、振動解析、DFT 一点計算を実行
 
@@ -406,8 +406,8 @@ mlmm -i SINGLE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","
  - ML 領域のインデックスに自動的にリマッピングされます。
 - 1 つの `--scan-lists` リテラルで単一スキャンステージ、複数リテラルで逐次ステージを実行。複数リテラルは 1 つのフラグの後に続けて指定します（フラグの繰り返しは不可）。
 - 各ステージは `stage_XX/result.pdb` を出力し、中間体または生成物の候補として扱われます。
-- デフォルトの `all` ワークフローは連結されたステージに対して単一パスの `path-opt` チェーンを実行します。
-- `--refine-path` を使用すると、再帰的 `path-search`（自動精密化）に切り替わります。
+- デフォルトの `all` ワークフローは連結されたステージに対して再帰的 `path-search`（自動精密化）を実行します。
+- `--no-refine-path` を使用すると、単一パス `path-opt` GSM チェーンに切り替わります。
 
 このモードは、単一構造から反応経路を構築する場合に有用です。
 
@@ -460,7 +460,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |
 | `--thermo/--no-thermo` | 振動解析と熱化学を実行 |
 | `--dft/--no-dft` | DFT 一点計算を実行 |
-| `--refine-path/--no-refine-path` | 単一パス `path-opt`（デフォルト）vs `--refine-path` で再帰的 `path-search` |
+| `--refine-path/--no-refine-path` | 再帰的 `path-search`（デフォルト）vs `--no-refine-path` で単一パス `path-opt` |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（デフォルト: 無効） |
@@ -479,7 +479,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 - `summary.log` -- 人が読むための実行要約
 - `summary.json` -- 機械処理向けの要約
 
-代表的には、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。`path_opt/`（`--refine-path` 使用時は `path_search/`）以下の各セグメントにも個別 summary が出力されます。
+代表的には、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。`path_search/`（`--no-refine-path` 使用時は `path_opt/`）以下の各セグメントにも個別 summary が出力されます。
 
 ---
 

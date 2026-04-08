@@ -1614,24 +1614,14 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
     """
     # --- Read the reference PDB as text lines ---
     ref_text = ref_pdb_path.read_text(encoding="utf-8")
-    ref_lines: list[str] = ref_text.splitlines(keepends=True)
+    ref_lines: list[str] = [
+        ln for ln in ref_text.splitlines(keepends=True)
+        if not ln.startswith(("MODEL", "ENDMDL", "END\n", "END\r"))
+    ]
     atom_line_indices: list[int] = []
     for idx, line in enumerate(ref_lines):
         if line.startswith(("ATOM", "HETATM")):
             atom_line_indices.append(idx)
-            # Fix element column (77-78) using parse_atom_name when they disagree.
-            # ASE's PDB writer can corrupt elements (e.g., ZN -> N, CA -> Ca, NH1 -> Nh).
-            if len(line) >= 78:
-                raw_name = line[12:16]  # Full 4-char atom name field
-                elem_col = line[76:78].strip()
-                try:
-                    from pysisyphus.io.pdb import parse_atom_name
-                    name_elem = parse_atom_name(raw_name)
-                except (AssertionError, KeyError):
-                    name_elem = elem_col  # Fall back to existing element column
-                if name_elem != elem_col and name_elem:
-                    fixed_elem = f"{name_elem:>2s}"
-                    ref_lines[idx] = line[:76] + fixed_elem + line[78:]
 
     n_ref = len(atom_line_indices)
     if n_ref == 0:
@@ -1643,7 +1633,9 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
     if not traj:
         raise ValueError(f"No frames found in {xyz_path}.")
 
+    multi_frame = len(traj) > 1
     first_write = True  # Track whether we've written the first frame
+    atom_line_set = set(atom_line_indices)
     for step, frame in enumerate(traj):
         positions = frame.get_positions()  # (N, 3) in Ångström
         if len(positions) != n_ref:
@@ -1656,7 +1648,6 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
         # Build frame lines by replacing coordinate columns in ATOM/HETATM records
         frame_lines: list[str] = []
         atom_idx = 0
-        atom_line_set = set(atom_line_indices)
         for line_idx, line in enumerate(ref_lines):
             if line_idx in atom_line_set:
                 x, y, z = positions[atom_idx]
@@ -1671,9 +1662,14 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
         # subsequent frames append.
         mode = "w" if first_write else "a"
         with open(out_pdb_path, mode, encoding="utf-8") as fh:
-            fh.write(f"MODEL     {step + 1:>4d}\n")
+            if multi_frame:
+                fh.write(f"MODEL     {step + 1:>4d}\n")
             fh.writelines(frame_lines)
-            fh.write("ENDMDL\n")
+            # Ensure trailing newline before ENDMDL (or EOF for single-frame)
+            if frame_lines and not frame_lines[-1].endswith("\n"):
+                fh.write("\n")
+            if multi_frame:
+                fh.write("ENDMDL\n")
         first_write = False
 
 

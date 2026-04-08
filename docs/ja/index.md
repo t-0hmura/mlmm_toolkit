@@ -254,12 +254,12 @@ result_all/
 ├── pockets/ # extract で決定された ML 領域構造
 ├── mm_parm/ # AMBER トポロジーファイル
 ├── scan/ # （オプション）スキャン結果
-├── path_opt/ # MEP 軌跡とダイアグラム（デフォルト）
+├── path_search/ # MEP 軌跡とダイアグラム（デフォルト）
 │ ├── mep_trj.xyz # MEP 軌跡
 │ ├── mep.pdb # PDB 形式の MEP
 │ └── seg_*/ # セグメントごとの詳細
-│ # （--refine-path 指定時: path_search/ に変更）
-└── path_opt/post_seg_*/ # 後処理出力
+│ # （--no-refine-path 指定時: path_opt/ に変更）
+└── path_search/post_seg_*/ # 後処理出力
  ├── tsopt/ # TS 最適化結果
  ├── irc/ # IRC 軌跡
  ├── freq/ # 振動モード
