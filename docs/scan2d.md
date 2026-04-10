@@ -30,7 +30,7 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Usage
 ```bash
 mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q CHARGE [-m SPIN] \
+ -q CHARGE [-m MULT] \
  [-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
  [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
  [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \

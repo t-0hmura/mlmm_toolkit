@@ -10,7 +10,7 @@
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-GPU4PySCF バックエンドは利用可能な場合に自動的に有効化されます。CPU モードを強制するには `--engine cpu` を使用してください。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。
+デフォルトの `--engine` は `gpu`（GPU4PySCF）です。CPU のみで実行するには `--engine cpu` を指定してください。`gpu` エンジンは GPU4PySCF が利用できない場合にエラーを返します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。
 
 ## 最小例
 

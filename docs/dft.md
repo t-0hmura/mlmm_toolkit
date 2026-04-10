@@ -10,7 +10,7 @@
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-The GPU4PySCF backend is activated automatically when available. Use `--engine cpu` to force CPU mode. The default functional/basis is `wb97m-v/def2-tzvpd`.
+The default `--engine` is `gpu` (GPU4PySCF); use `--engine cpu` for CPU-only PySCF. The `gpu` engine raises an error if GPU4PySCF is unavailable. The default functional/basis is `wb97m-v/def2-tzvpd`.
 
 ## Minimal example
 
