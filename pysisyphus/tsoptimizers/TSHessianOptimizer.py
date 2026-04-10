@@ -39,6 +39,7 @@ class TSHessianOptimizer(HessianOptimizer):
         min_line_search: bool = False,
         max_line_search: bool = False,
         assert_neg_eigval: bool = False,
+        track_mode_by_overlap: bool = False,
         **kwargs,
     ) -> None:
         """Baseclass for transition state optimizers utilizing Hessian information.
@@ -119,7 +120,9 @@ class TSHessianOptimizer(HessianOptimizer):
         elif roots is None:
             roots = list()
         self.roots = roots
+        self.track_mode_by_overlap = track_mode_by_overlap
         self.log(f"{self.roots=}")
+        self.log(f"{self.track_mode_by_overlap=}")
         self.hessian_ref = hessian_ref
         try:
             with h5py.File(self.hessian_ref, "r") as handle:
@@ -257,7 +260,7 @@ class TSHessianOptimizer(HessianOptimizer):
             self.roots = [
                 root,
             ]
-            print(
+            self.log(
                 "Highest overlap between reference TS mode and "
                 f"eigenvector {self.root:02d}."
             )
@@ -323,22 +326,25 @@ class TSHessianOptimizer(HessianOptimizer):
         neg_num = neg_eigval_inds.sum()
         self.log_negative_eigenvalues(eigvals)
 
-        # When we left the convex region of the PES we only compare to other
-        # imaginary modes ... is this a bad idea? Maybe we should use all modes
-        # for the overlaps?!
+        if not self.track_mode_by_overlap:
+            # Fixed-root mode: always follow root=0 (most negative eigenvalue).
+            # Robust for Cartesian-coordinate TS optimization with MLIPs.
+            self.roots = np.array([0] * len(self.roots), dtype=int)
+            self.ts_modes = eigvecs[:, self.roots].T
+            self.ts_mode_eigvals = eigvals[self.roots]
+            # _cm1 = self._lowest_mw_freq_cm()
+            # print(f"[ts-mode] root=  0  eigval={float(eigvals[0]):+.6e}  {_cm1:+.1f} cm⁻¹  neg_count={neg_num}")
+            return
+
+        # --- Overlap-based mode tracking (track_mode_by_overlap=True) ---
         if (self.ts_mode_eigvals < 0).all() and neg_num > 0:
             infix = "imaginary "
             ovlp_eigvecs = eigvecs[:, :neg_num]
             eigvals = eigvals[:neg_num]
-        # When the eigenvalue corresponding to the TS mode has been negative once,
-        # we should not lose all negative eigenvalues. If this happens something went
-        # wrong and we crash :)
         elif self.assert_neg_eigval and neg_num == 0:
             raise AssertionError(
                 "Need at least 1 negative eigenvalue for TS optimization."
             )
-        # Use all eigenvectors for overlaps when the eigenvalue corresponding to the TS
-        # mode is still positive.
         else:
             infix = ""
             ovlp_eigvecs = eigvecs
@@ -358,7 +364,6 @@ class TSHessianOptimizer(HessianOptimizer):
                     [self.active_from_full(mode) for mode in self.ts_modes]
                 )
 
-        # Select new TS mode according to biggest overlap with previous TS mode.
         self.log(f"Overlaps of previous TS mode with current {infix}mode(s):")
         if isinstance(eigvecs, torch.Tensor):
             ovlps = torch.abs(torch.einsum("ij,ki->kj", ovlp_eigvecs, self.ts_modes))
@@ -368,8 +373,8 @@ class TSHessianOptimizer(HessianOptimizer):
         for i, ovlp in enumerate(ovlps):
             self.log(f"\tTS mode {i:02d}: {array2string(ovlp, precision=3)}")
         max_ovlp_inds = np.argmax(ovlps, axis=1)
-        for i, _ in enumerate(self.ts_modes):
-            max_ovlp_ind = max_ovlp_inds[i].argmax()
+        for i in range(len(self.ts_modes)):
+            max_ovlp_ind = int(max_ovlp_inds[i])
             self.log(
                 f"Mode {i}: highest overlap: {ovlps[i, max_ovlp_ind]:.6f} with mode "
                 f"{max_ovlp_ind}"
@@ -377,6 +382,37 @@ class TSHessianOptimizer(HessianOptimizer):
         self.roots = max_ovlp_inds
         self.ts_modes = ovlp_eigvecs.T[self.roots]
         self.ts_mode_eigvals = eigvals[self.roots]
+        # ev0_f = float(eigvals[0])
+        # cm_lowest = self._lowest_mw_freq_cm()
+        # for i, ev in enumerate(self.ts_mode_eigvals):
+        #     print(
+        #         f"[ts-mode] root={int(self.roots[i]):3d}  eigval={float(ev):+.6e}  "
+        #         f"overlap={float(ovlps[i, int(max_ovlp_inds[i])]):.4f}  neg_count={neg_num}  "
+        #         f"lowest_mw={cm_lowest:+.1f} cm⁻¹"
+        #     )
+
+    def _lowest_mw_freq_cm(self):
+        """Compute the lowest frequency (cm⁻¹) from current Hessian using
+        the same _frequencies_cm_and_modes as the freq command."""
+        try:
+            from mlmm.freq import _frequencies_cm_and_modes
+            from ase.data import atomic_numbers as _AN
+            H = self.cur_H
+            if isinstance(H, torch.Tensor):
+                H_in = H.detach().clone().double().cpu()
+            else:
+                H_in = torch.from_numpy(np.array(H, dtype=np.float64))
+            Z = [_AN[s] for s in self.geometry.atoms]
+            coords_bohr = self.geometry.cart_coords.reshape(-1, 3).copy()
+            freeze = list(self.geometry.freeze_atoms) or None
+            freqs_cm, _ = _frequencies_cm_and_modes(
+                H_in, Z, coords_bohr, torch.device("cpu"), freeze_idx=freeze,
+            )
+            del H_in
+            return float(freqs_cm[0]) if len(freqs_cm) > 0 else 0.0
+        except Exception:
+            import traceback; traceback.print_exc()
+            return float('nan')
 
     @staticmethod
     def do_line_search(e0, e1, g0, g1, prev_step, maximize, logger=None):

@@ -1589,6 +1589,7 @@ def _run_dft_for_state(pdb_path: Path,
     _append_cli_arg(args, "--max-cycle", overrides.get("max_cycle"))
     _append_cli_arg(args, "--conv-tol", overrides.get("conv_tol"))
     _append_cli_arg(args, "--grid-level", overrides.get("grid_level"))
+    _append_cli_arg(args, "--engine", overrides.get("engine"))
     _append_toggle_arg(args, "--convert-files", overrides.get("convert_files"))
 
     if args_yaml is not None:
@@ -1920,6 +1921,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Override dft --conv-tol value.")
 @click.option("--dft-grid-level", type=int, default=None,
               help="Override dft --grid-level value.")
+@click.option("--dft-engine", type=click.Choice(["gpu", "cpu"]), default=None,
+              help="Override dft --engine value.")
 # ===== NEW: staged scan specification for single-structure route =====
 @click.option(
     "-s", "--scan-lists",
@@ -2077,6 +2080,7 @@ def cli(
     dft_max_cycle: Optional[int],
     dft_conv_tol: Optional[float],
     dft_grid_level: Optional[int],
+    dft_engine: Optional[str],
 ) -> None:
     """
     The **all** command composes `extract` → (optional `scan` on pocket) → MEP search (recursive `path_search` by default,
@@ -2202,6 +2206,8 @@ def cli(
         dft_overrides["conv_tol"] = float(dft_conv_tol)
     if dft_grid_level is not None:
         dft_overrides["grid_level"] = int(dft_grid_level)
+    if dft_engine is not None:
+        dft_overrides["engine"] = str(dft_engine)
     dft_overrides["convert_files"] = bool(convert_files)
 
     dft_func_basis_use = dft_func_basis or "wb97m-v/def2-tzvpd"

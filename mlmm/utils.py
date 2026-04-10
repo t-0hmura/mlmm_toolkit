@@ -1616,7 +1616,7 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
     ref_text = ref_pdb_path.read_text(encoding="utf-8")
     ref_lines: list[str] = [
         ln for ln in ref_text.splitlines(keepends=True)
-        if not ln.startswith(("MODEL", "ENDMDL", "END\n", "END\r"))
+        if not (ln.startswith(("MODEL", "ENDMDL")) or ln.strip() == "END")
     ]
     atom_line_indices: list[int] = []
     for idx, line in enumerate(ref_lines):

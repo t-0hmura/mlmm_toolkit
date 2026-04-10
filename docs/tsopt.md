@@ -224,6 +224,10 @@ rsirfo:
  max_micro_cycles: 50              # micro-iterations per macro cycle
 ```
 
+```{tip}
+If TS convergence is slow or the TS mode is lost during optimization, try lowering `hessian_recalc` (e.g., to 50--200) in the `rsirfo` section. More frequent exact Hessian recalculations improve convergence reliability at the cost of additional Hessian evaluations.
+```
+
 ## See Also
 
 - [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing

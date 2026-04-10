@@ -64,7 +64,7 @@ The [`define-layer`](define-layer.md) subcommand assigns these B-factors based o
 Hessian-target MM atoms are controlled by calculator options (`hess_cutoff`, explicit `hess_mm_atoms`, etc.), not by a dedicated B-factor layer.
 
 ```{tip}
-The B-factor encoding allows you to visually inspect layer assignments in any molecular viewer that can color by B-factor.
+The B-factor encoding lets you visually inspect layer assignments in any molecular viewer that can color by B-factor.
 ```
 
 ---

@@ -8,9 +8,10 @@ cd "${PBS_O_WORKDIR:-.}"
 if [ -n "${PBS_O_WORKDIR:-}" ]; then
   . /home/apps/Modules/init/profile.sh
   module load cuda/12.9
-  source /home/tohmura/miniconda3/etc/profile.d/conda.sh
+  source /data2/tohmura/miniconda3/etc/profile.d/conda.sh
   conda activate mlmm
   export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+  export PYTHONPATH=/data2/tohmura/mlmm_workspace/MLIP_Plugin/amber-pyscf-test/gpu4pyscf:${PYTHONPATH:-}
 fi
 set -euo pipefail
 # mlmm smoke tests — GPU required
@@ -19,7 +20,7 @@ set -euo pipefail
 rm -rf test* pocket_r.pdb r_complex_layered.pdb r_complex_elem.pdb r_complex_fixalt.pdb
 
 # test1: extract
-mlmm extract -i r_complex.pdb -c PRE -r 5.0 --exclude-backbone False --ligand-charge 'PRE:0' -o pocket_r.pdb > test1.out 2>&1
+mlmm extract -i r_complex.pdb -c PRE -r 5.0 --no-exclude-backbone --ligand-charge 'PRE:0' -o pocket_r.pdb > test1.out 2>&1
 
 # test2: define-layer
 mlmm define-layer -i r_complex.pdb --model-pdb pocket_r.pdb --radius-freeze 8.0 -o r_complex_layered.pdb > test2.out 2>&1

@@ -2,9 +2,9 @@
 
 ## 概要
 
-> **要約:** end-to-endの酵素反応ワークフロー -- 活性部位抽出、ML/MM レイヤー割り当て、MM トポロジー準備、任意の段階的スキャン、全系レイヤード PDB での MEP 探索（GSM）、任意の TS 最適化、EulerPC IRC、熱化学、DFT、DFT//MLIP ダイアグラム。
+> **要約:** 一気通貫の酵素反応ワークフロー -- 活性部位抽出、ML/MM レイヤー割り当て、MM トポロジー準備、任意の段階的スキャン、全系レイヤード PDB での MEP 探索（GSM）、任意の TS 最適化、EulerPC IRC、熱化学、DFT、DFT//MLIP ダイアグラム。
 
-`mlmm all` は全系レイヤード PDB 上で ML/MM を用いるワンショットパイプラインを実行します。以下の 3 つのモードをサポートしています:
+`mlmm all` は全系レイヤード PDB 上で ML/MM を用いる一括実行パイプラインを実行します。以下の 3 つのモードをサポートしています:
 
 - **マルチ構造アンサンブル** -- 反応順に 2 つ以上の完全 PDB を提供します。活性部位領域を抽出（ML 領域定義用）、MM トポロジー構築、ML/MM レイヤー割り当て後、レイヤード全系 PDB で GSM MEP 探索を実行し、任意でセグメントごとの後処理（TSOPT/freq/DFT）を実行します。
 - **単一構造 + 段階的スキャン** -- 1 つの PDB と `--scan-lists` を提供します。スキャンで中間体/生成物候補を生成し、MEP の端点として使用します。
@@ -70,7 +70,7 @@ mlmm all -i INPUT1 [INPUT2...] -c SUBSTRATE [options]
 ### 例
 
 ```bash
-# 基質と電荷を明示したend-to-end実行（マルチ構造）
+# 基質と電荷を明示した一気通貫実行（複数構造）
 mlmm all -i reactant.pdb product.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1"
 
 # 中間体を含むアンサンブル、残基 ID による基質指定、全後処理
@@ -257,6 +257,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--dft-max-cycle INT` | 最大 SCF 反復数。 | _デフォルト_ |
 | `--dft-conv-tol FLOAT` | SCF 収束閾値。 | _デフォルト_ |
 | `--dft-grid-level INT` | PySCF グリッドレベル。 | _デフォルト_ |
+| `--dft-engine [gpu\|cpu]` | DFTエンジン（GPU or CPU PySCF）。 | _None_ |
 
 ## 出力
 

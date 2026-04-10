@@ -476,7 +476,7 @@ ML/MM 系は純粋な MLIP 計算よりも一般的に大きいため、VRAM の
 - **解析ヘシアンが遅いまたは OOM**: `--hessian-calc-mode FiniteDifference` を使用。`Analytical` は十分な VRAM がある場合のみ推奨（ML 原子 300 以上には 24 GB 以上推奨）
 - **MM ヘシアン**: `mm_fd: true`（デフォルト）は MM ヘシアンに有限差分を使用。解析 MM ヘシアン（`mm_fd: false`）は小規模系では高速だがメモリ消費が増える場合がある
 - **MM ヘシアン計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
-- **大規模系（2000 原子以上）**: `define-layer` で Frozen 層（B=20）を適切に設定し、可動自由度数を削減する
+- **大規模系（2000 原子以上）**: `define-layer` で `--radius-freeze` を小さくして Frozen 層（B=20）を拡大し、可動自由度数を削減する
 - **マルチ GPU**: ML を 1 つの GPU（`ml_cuda_idx: 0`）、MM を別の GPU（`mm_device: cuda`, `mm_cuda_idx: 1`）に配置可能
 - **ML と MM の並列実行**: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。`mm_threads` で CPU スレッド数を調整可能
 

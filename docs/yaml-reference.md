@@ -103,7 +103,7 @@ calc:
 
  # --- Hessian output settings ---
  out_hess_torch: true # Return Hessian as torch.Tensor
- H_double: false # Assemble/return Hessian in float64
+ H_double: true # Assemble/return Hessian in float64
  symmetrize_hessian: true # Symmetrize final Hessian as 0.5*(H+H^T)
  return_partial_hessian: true # Active-block partial Hessian (CLI wrappers default to true)
 
@@ -578,7 +578,7 @@ bond:
 
 ## Example: Complete Configuration File
 
-Below is a comprehensive example combining multiple sections:
+Below is a full example combining multiple sections:
 
 ```yaml
 # mlmm configuration example

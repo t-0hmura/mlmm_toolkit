@@ -73,7 +73,7 @@ calc:
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
  hessian_calc_mode: FiniteDifference # ML ヘシアンモード: "FiniteDifference" または "Analytical"
  out_hess_torch: true # ヘシアンを torch.Tensor で返す
- H_double: false # ヘシアンを float64 で組み立て・返却
+ H_double: true # ヘシアンを float64 で組み立て・返却
  ml_device: auto # ML デバイス: "cuda", "cpu", "auto"
  ml_cuda_idx: 0 # CUDA デバイスインデックス
  mm_backend: hessian_ff # MM バックエンド: "hessian_ff" (解析的) | "openmm" (FD ヘシアン)

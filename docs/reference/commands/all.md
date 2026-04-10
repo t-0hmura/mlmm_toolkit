@@ -158,6 +158,7 @@ Options:
   --dft-max-cycle INTEGER         Override dft --max-cycle value.
   --dft-conv-tol FLOAT            Override dft --conv-tol value.
   --dft-grid-level INTEGER        Override dft --grid-level value.
+  --dft-engine [gpu|cpu]          Override dft --engine value.
   -s, --scan-lists TEXT           Scan targets: inline Python literal or a
                                   YAML/JSON spec file path. Multiple inline
                                   literals define sequential stages, e.g.

@@ -80,7 +80,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     # ML Hessian mode: "FiniteDifference" or "Analytical"
     "hessian_calc_mode": "FiniteDifference",
     "out_hess_torch": True,
-    "H_double": False,
+    "H_double": True,
     "ml_device": "auto",
     "ml_cuda_idx": 0,
     "mm_backend": "hessian_ff",  # "hessian_ff" (analytical) | "openmm" (FD Hessian)
@@ -449,6 +449,8 @@ RSIRFO_KW: Dict[str, Any] = {
     "hessian_init": "calc",
     "hessian_recalc": 500,
     "small_eigval_thresh": 1e-8,
+    "assert_neg_eigval": False,
+    "track_mode_by_overlap": False,
     "out_dir": OUT_DIR_TSOPT,
 }
 

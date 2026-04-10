@@ -68,7 +68,7 @@ glossary
 
 | ユースケース | 推奨コマンド | ガイド |
 |--------------|--------------|--------|
-| 最初の 1 回を実行（end-to-end） | `mlmm all` | [クイックスタート: all](quickstart-all.md) |
+| 最初の 1 回を実行（一気通貫） | `mlmm all` | [クイックスタート: all](quickstart-all.md) |
 | 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan](quickstart-scan-spec.md) |
 | TS 検証（`tsopt` + 振動解析） | `mlmm tsopt` | [クイックスタート: tsopt](quickstart-tsopt-freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |

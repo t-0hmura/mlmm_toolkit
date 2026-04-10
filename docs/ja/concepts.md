@@ -171,7 +171,7 @@ mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter 
 - CPU 実行（GPU メモリを MLIP 推論に専有させるため）
 - CMAP トーション補正（実装済みだがデフォルト無効、Gaussian と同様）
 
-OpenMM とは異なり、`hessian_ff` は ONIOM 結合と振動解析に必要な **MM ヘシアン** を提供するために特化しています。
+OpenMM とは異なり、`hessian_ff` は ONIOM 結合と振動解析に必要な **MM ヘシアン** を提供します。
 
 ---
 
@@ -263,7 +263,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 - 出力ディレクトリやログ管理を 1 コマンドに寄せたい
 
 ### 個別サブコマンドを推奨するケース
-- 各ステージを 1 つずつ実行し、その都度結果を確認したい。複雑な反応では、一括実行よりもステップごとのアプローチが有効なことが多い
+- 各ステージを 1 つずつ実行し、その都度結果を確認したい。複雑な反応では、一括実行よりもステップごとの実行が有効なことが多い
 - カスタムワークフローを組みたい場合（例: 独自の端点準備）
 - 前回の実行から parm7/rst7 と層付き PDB ファイルがすでにある場合
 - `oniom-export --mode g16|orca` で Gaussian/ORCA ONIOM 入力を生成したい

@@ -257,6 +257,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) -> `--opt-mode` (onl
 | `--dft-max-cycle INT` | Maximum SCF iterations. | _Default_ |
 | `--dft-conv-tol FLOAT` | SCF convergence tolerance. | _Default_ |
 | `--dft-grid-level INT` | PySCF grid level. | _Default_ |
+| `--dft-engine [gpu\|cpu]` | DFT engine (GPU or CPU PySCF). | _None_ |
 
 ## Outputs
 
