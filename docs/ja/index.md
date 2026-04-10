@@ -10,10 +10,10 @@
 :hidden:
 
 getting-started
+concepts
 quickstart-all
 quickstart-scan-spec
 quickstart-tsopt-freq
-concepts
 recipes-common-errors
 troubleshooting
 cli-conventions
@@ -44,6 +44,7 @@ oniom-export
 oniom-import
 fix-altloc
 energy-diagram
+bond-summary
 device-hpc
 oniom-gaussian
 oniom-orca
@@ -146,6 +147,7 @@ glossary
 | [`dft`](dft.md) | DFT 一点計算（GPU4PySCF / PySCF） |
 | [`trj2fig`](trj2fig.md) | XYZ 軌跡からエネルギープロファイルをプロット |
 | [`energy-diagram`](energy-diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
+| [`bond-summary`](bond-summary.md) | 連続構造間の共有結合変化を検出・レポート |
 
 ### ユーティリティ
 | サブコマンド | 説明 |

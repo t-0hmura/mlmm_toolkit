@@ -10,18 +10,18 @@
 :hidden:
 
 getting-started
+concepts
 quickstart-all
 quickstart-scan-spec
 quickstart-tsopt-freq
-concepts
 recipes-common-errors
 troubleshooting
 cli-conventions
 ja/getting-started
+ja/concepts
 ja/quickstart-all
 ja/quickstart-scan-spec
 ja/quickstart-tsopt-freq
-ja/concepts
 ja/recipes-common-errors
 ja/troubleshooting
 ja/cli-conventions
