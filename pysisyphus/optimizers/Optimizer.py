@@ -143,6 +143,9 @@ class Optimizer(metaclass=abc.ABCMeta):
         restart_info=None,
         check_coord_diffs: bool = True,
         coord_diff_thresh: float = 0.01,
+        energy_plateau: bool = True,
+        energy_plateau_thresh: float = 1e-5,
+        energy_plateau_window: int = 50,
         fragments: Optional[Tuple] = None,
         monitor_frag_dists: int = 0,
         out_dir: str = ".",
@@ -268,6 +271,9 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.check_eigval_structure = check_eigval_structure
         self.check_coord_diffs = check_coord_diffs
         self.coord_diff_thresh = float(coord_diff_thresh)
+        self.energy_plateau = energy_plateau
+        self.energy_plateau_thresh = float(energy_plateau_thresh)
+        self.energy_plateau_window = int(energy_plateau_window)
 
         self.logger = logging.getLogger("optimizer")
         self.is_cos = issubclass(type(self.geometry), ChainOfStates)
@@ -604,8 +610,24 @@ class Optimizer(metaclass=abc.ABCMeta):
             converged = (self.cur_cycle > self.last_cycle) and all(convergence.values())
             # Keep Baker strict: don't bypass the energy criterion via overachievement.
             overachieved = False
+        # Energy plateau fallback: declare converged if mean energy
+        # stops changing over a window of steps.
+        energy_plateau_converged = False
+        W = self.energy_plateau_window
+        if self.energy_plateau and len(self.energies) >= 2 * W:
+            mean_recent = np.mean(self.energies[-W:])
+            mean_prev = np.mean(self.energies[-2 * W:-W])
+            plateau_delta = abs(mean_recent - mean_prev)
+            if plateau_delta < self.energy_plateau_thresh:
+                energy_plateau_converged = True
+                self.table.print(
+                    f"Energy plateau detected (|dE_mean|={plateau_delta:.2e} au "
+                    f"over {W} steps); treating as converged."
+                )
+
         return (
-            any((converged_to_geom, converged, overachieved, geom_converged))
+            any((converged_to_geom, converged, overachieved, geom_converged,
+                 energy_plateau_converged))
             and not_never,
             conv_info,
         )
