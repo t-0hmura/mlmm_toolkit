@@ -222,6 +222,11 @@ rsirfo:
  small_eigval_thresh: 1.0e-08      # 小固有値の閾値
  alpha0: 1.0                       # 初期シフトパラメータ
  max_micro_cycles: 50              # マクロサイクルごとのマイクロイテレーション
+ track_mode_by_overlap: false      # ステップ間の固有ベクトル重なりで TS モードを追跡
+```
+
+```{tip}
+最適化中に TS モードが別のルートに切り替わる場合（例: 複数の虚振動数が存在する場合）は `rsirfo.track_mode_by_overlap: true` を設定してください。
 ```
 
 ```{tip}

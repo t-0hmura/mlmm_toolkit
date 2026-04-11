@@ -166,16 +166,6 @@ You only need to do this once per machine / environment.
  ```
  Even without AmberTools, other subcommands work if you provide `--parm` manually.
 
-### AmberTools installation
-
-The `mm-parm` subcommand (automatic parm7/rst7 generation) requires AmberTools. The easiest way to install it is via conda:
-
-```bash
-conda install -c conda-forge ambertools -y
-```
-
-Even without AmberTools, other subcommands work if you provide `--parm` manually.
-
 ### Step-by-step installation
 
 If you prefer to build the environment piece by piece:

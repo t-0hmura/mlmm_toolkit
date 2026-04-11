@@ -162,16 +162,6 @@ huggingface-cli login
  module load cuda/12.9
  ```
 
-### AmberTools のインストール
-
-`mm-parm` サブコマンド（parm7/rst7 の自動生成）には AmberTools が必要です。conda での導入が最も簡単です:
-
-```bash
-conda install -c conda-forge ambertools -y
-```
-
-AmberTools がインストールされていなくても、`--parm` を手動で用意すれば他のサブコマンドは動作します。
-
 ### ステップバイステップインストール
 
 環境を段階的に構築する場合:

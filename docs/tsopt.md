@@ -222,6 +222,11 @@ rsirfo:
  small_eigval_thresh: 1.0e-08      # threshold for small eigenvalues
  alpha0: 1.0                       # initial shift parameter
  max_micro_cycles: 50              # micro-iterations per macro cycle
+ track_mode_by_overlap: false      # track TS mode via eigenvector overlap between steps
+```
+
+```{tip}
+Set `rsirfo.track_mode_by_overlap: true` if the TS mode switches root during optimization (e.g., when multiple imaginary frequencies are present).
 ```
 
 ```{tip}
