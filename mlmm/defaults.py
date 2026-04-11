@@ -140,7 +140,7 @@ OPT_BASE_KW: Dict[str, Any] = {
     "overachieve_factor": 0.0,
     "check_eigval_structure": False,
     "energy_plateau": True,
-    "energy_plateau_thresh": 1e-5,
+    "energy_plateau_thresh": 2e-4,
     "energy_plateau_window": 50,
     "line_search": True,
     "dump": False,

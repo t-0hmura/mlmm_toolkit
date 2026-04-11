@@ -610,18 +610,17 @@ class Optimizer(metaclass=abc.ABCMeta):
             converged = (self.cur_cycle > self.last_cycle) and all(convergence.values())
             # Keep Baker strict: don't bypass the energy criterion via overachievement.
             overachieved = False
-        # Energy plateau fallback: declare converged if mean energy
-        # stops changing over a window of steps.
+        # Energy plateau fallback: declare converged if the energy range
+        # over a window of steps is below threshold (truly not moving).
         energy_plateau_converged = False
         W = self.energy_plateau_window
-        if self.energy_plateau and len(self.energies) >= 2 * W:
-            mean_recent = np.mean(self.energies[-W:])
-            mean_prev = np.mean(self.energies[-2 * W:-W])
-            plateau_delta = abs(mean_recent - mean_prev)
-            if plateau_delta < self.energy_plateau_thresh:
+        if self.energy_plateau and len(self.energies) >= W:
+            e_window = self.energies[-W:]
+            e_range = float(np.max(e_window) - np.min(e_window))
+            if e_range < self.energy_plateau_thresh:
                 energy_plateau_converged = True
                 self.table.print(
-                    f"Energy plateau detected (|dE_mean|={plateau_delta:.2e} au "
+                    f"Energy plateau detected (range={e_range:.2e} au "
                     f"over {W} steps); treating as converged."
                 )
 
