@@ -135,6 +135,7 @@ dft:
 ## Notes
 
 - **Blackwell-architecture GPUs** (RTX 50xx): GPU4PySCF may fail with out-of-memory errors even for small systems (~100 atoms). Use `--engine cpu` or an external DFT program (ORCA, Gaussian) for production calculations on these GPUs.
+- **Out-of-memory with def2-TZVPD**: The default basis set `def2-tzvpd` is large and may cause OOM for systems with >150 atoms on 16–24 GB GPUs. Use `--func-basis 'wb97m-v/def2-svp'` as a practical alternative; barrier height errors between def2-SVP and def2-TZVPD are typically 1–3 kcal/mol.
 - Compiled GPU4PySCF wheels may not support non-x86 systems; build from source in that case (see https://github.com/pyscf/gpu4pyscf).
 
 ## See Also
