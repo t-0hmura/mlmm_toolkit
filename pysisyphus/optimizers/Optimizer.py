@@ -612,9 +612,10 @@ class Optimizer(metaclass=abc.ABCMeta):
             overachieved = False
         # Energy plateau fallback: declare converged if the energy range
         # over a window of steps is below threshold (truly not moving).
+        # Skip for chain-of-states (energies are arrays, not scalars).
         energy_plateau_converged = False
         W = self.energy_plateau_window
-        if self.energy_plateau and len(self.energies) >= W:
+        if self.energy_plateau and not self.is_cos and len(self.energies) >= W:
             e_window = self.energies[-W:]
             e_range = float(np.max(e_window) - np.min(e_window))
             if e_range < self.energy_plateau_thresh:
