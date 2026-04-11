@@ -293,7 +293,8 @@ class EulerPC(IRC):
             cur_length = 0
 
             # Integrate until the desired spacing is reached
-            while True:
+            max_euler_steps = max(points * 3, 100)
+            for _euler_step in range(max_euler_steps):
                 k_coords.append(cur_coords.copy())
                 if abs(step_length - cur_length) < 0.5 * corr_step_length:
                     self.log(
@@ -303,7 +304,14 @@ class EulerPC(IRC):
                     break
 
                 energy, gradient = dwi.interpolate(cur_coords, gradient=True)
-                cur_coords += corr_step_length * -gradient / np.linalg.norm(gradient)
+                grad_norm = np.linalg.norm(gradient)
+                if grad_norm < 1e-10:
+                    self.log(
+                        f"\tGradient near zero (norm={grad_norm:.2e}) "
+                        f"at k={k:02d}; stopping Euler integration."
+                    )
+                    break
+                cur_coords += corr_step_length * -gradient / grad_norm
                 # cur_length += corr_step_length
                 cur_length = get_integration_length(cur_coords)
 
