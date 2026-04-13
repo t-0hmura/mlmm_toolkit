@@ -33,17 +33,17 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 
 ## Workflow
 1. Parse the XYZ trajectory. By default, Hartree energies are extracted from each frame's comment line.
- If `-q/--charge` or `-m/--multiplicity` is provided, energies are recomputed with the MLIP backend (default: `uma-s-1p1`) instead.
+    If `-q/--charge` or `-m/--multiplicity` is provided, energies are recomputed with the MLIP backend (default: `uma-s-1p1`) instead.
 2. Normalize the reference specification:
  - `init` -- frame `0` (or the last frame when `--reverse-x` is active).
  - `None`/`none`/`null` -- absolute energies (no referencing).
  - Integer literal -- the corresponding 0-based frame index.
 3. Convert energies to either kcal/mol (default) or Hartree and, when a
- reference is active, subtract the reference value to produce delta-E.
+    reference is active, subtract the reference value to produce delta-E.
 4. Build the Plotly figure (strong ticks, spline interpolation, markers, no
- title) and export it to every requested extension.
+    title) and export it to every requested extension.
 5. Optionally emit a CSV table with columns `frame`, `energy_hartree`, and the
- appropriate delta-E or absolute-E column in the requested unit.
+    appropriate delta-E or absolute-E column in the requested unit.
 
 ## CLI options
 | Option | Description | Default |
@@ -63,10 +63,10 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 <output>.csv # Optional energy table when CSV is requested
 ```
 - When no `-o` or positional outputs are provided, a single `energy.png` is written
- to the current directory.
+  to the current directory.
 - CSV exports include `frame`, `energy_hartree`, and either a delta-E column
- (`delta_kcal`/`delta_hartree`) or absolute column (`energy_kcal`/`energy_hartree`
- when no reference is applied).
+  (`delta_kcal`/`delta_hartree`) or absolute column (`energy_kcal`/`energy_hartree`
+  when no reference is applied).
 - PNG uses Plotly's PNG export with `scale=2` for higher resolution.
 
 ## See Also

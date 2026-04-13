@@ -161,6 +161,9 @@ opt:
  converge_to_geom_rms_thresh: 0.05 # RMS threshold when converging to reference geometry
  overachieve_factor: 0.0 # Factor to tighten thresholds
  check_eigval_structure: false # Validate Hessian eigenstructure
+ energy_plateau: true # Fallback: declare convergence when the energy stops evolving
+ energy_plateau_thresh: 1.0e-4 # Energy range tolerance in au (~0.06 kcal/mol)
+ energy_plateau_window: 50 # Number of trailing steps used for plateau detection
  line_search: true # Enable line search
  dump: false # Dump trajectory/restart data
  dump_restart: false # Dump restart checkpoints
@@ -179,6 +182,22 @@ opt:
 | `gau_tight` | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
 | `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+
+**Energy plateau fallback:**
+
+When `energy_plateau: true` (default), the optimizer declares convergence if the
+energy range `max(E) - min(E)` over the last `energy_plateau_window` steps (default
+50) falls below `energy_plateau_thresh` (default `1.0e-4` au, ~0.06 kcal/mol).
+
+This is a safety net for ML/MM optimizations where the MLIP force noise floor
+can exceed the standard gradient-based convergence thresholds, causing the
+optimizer to wander indefinitely. Once the energy itself has plateaued within
+the MLIP's numerical precision, further cycles cannot reduce the residual force
+below the noise floor, so the plateau trigger stops the run cleanly.
+
+Set `energy_plateau: false` to disable the fallback (the optimizer will then
+rely solely on the `thresh` preset). The plateau check is automatically skipped
+for chain-of-states (COS) optimizers (e.g., GS, DMF string optimizers).
 
 ---
 
@@ -211,7 +230,7 @@ rfo:
  trust_radius: 0.10 # Trust-region radius
  trust_update: true # Enable trust-region updates
  trust_min: 0.0001 # Minimum trust radius
- trust_max: 0.20 # Maximum trust radius
+ trust_max: 0.10 # Maximum trust radius (tightened in v0.2.8 for ML/MM stability)
  max_energy_incr: null # Allowed energy increase per step
  hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
  hessian_init: calc # Hessian initialization: calc, unit, etc.
@@ -432,7 +451,7 @@ rsirfo:
  trust_radius: 0.10 # Trust region radius
  trust_update: true # Trust region update
  trust_min: 0.0001 # Minimum trust radius
- trust_max: 0.20 # Maximum trust radius
+ trust_max: 0.10 # Maximum trust radius (tightened in v0.2.8 for ML/MM stability)
  hessian_recalc: 500 # Hessian rebuild cadence
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
  out_dir: ./result_tsopt/ # Output directory

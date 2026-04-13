@@ -158,6 +158,7 @@ out_dir/ (デフォルト: ./result_opt/)
 - 共通制御: `max_cycles`（デフォルト 10000）、`print_every`（100）、`min_step_norm`（1e-8）、`assert_min_step` True。
 - 収束トグル: `rms_force`、`rms_force_only`、`max_force_only`、`force_only`。
 - その他: `converge_to_geom_rms_thresh`、`overachieve_factor`、`check_eigval_structure`。
+- エネルギープラトー・フォールバック（デフォルト有効）: `energy_plateau`（bool、デフォルト True）、`energy_plateau_thresh`（1e-4 au、約 0.06 kcal/mol）、`energy_plateau_window`（50 ステップ）。直近ウィンドウのエネルギー範囲が閾値を下回ったら収束と判定します。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットを上回る場合の安全網です。Chain-of-states オプティマイザでは自動的にスキップされます。
 - ラインサーチ: `line_search`（bool、デフォルト True）。
 - 管理項目: `dump`、`dump_restart`、`prefix`、`out_dir`（デフォルト `./result_opt/`）。
 
@@ -202,6 +203,9 @@ opt:
  converge_to_geom_rms_thresh: 0.05  # 参照への収束時の geom RMS 閾値
  overachieve_factor: 0.0        # 閾値を厳しくする係数
  check_eigval_structure: false  # ヘシアン固有値構造の検証
+ energy_plateau: true           # フォールバック: エネルギー停滞で収束判定（COS では自動スキップ）
+ energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
+ energy_plateau_window: 50      # プラトー判定に用いる直近ステップ数
  line_search: true              # ラインサーチを有効化
  dump: false                    # 軌跡/リスタートデータのダンプ
  dump_restart: false            # リスタートチェックポイントのダンプ
@@ -220,6 +224,9 @@ lbfgs:
  converge_to_geom_rms_thresh: 0.05  # ジオメトリ収束時の RMS 閾値
  overachieve_factor: 0.0        # 閾値を厳しくする
  check_eigval_structure: false  # ヘシアン固有値構造の検証
+ energy_plateau: true           # フォールバック: エネルギー停滞で収束判定
+ energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
+ energy_plateau_window: 50      # プラトー判定に用いる直近ステップ数
  line_search: true              # ラインサーチを有効化
  dump: false                    # 軌跡/リスタートデータのダンプ
  dump_restart: false            # リスタートチェックポイントのダンプ
@@ -246,6 +253,9 @@ rfo:
  converge_to_geom_rms_thresh: 0.05  # ジオメトリ収束時の RMS 閾値
  overachieve_factor: 0.0        # 閾値を厳しくする
  check_eigval_structure: false  # ヘシアン固有値構造の検証
+ energy_plateau: true           # フォールバック: エネルギー停滞で収束判定
+ energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
+ energy_plateau_window: 50      # プラトー判定に用いる直近ステップ数
  line_search: true              # ラインサーチを有効化
  dump: false                    # 軌跡/リスタートデータのダンプ
  dump_restart: false            # リスタートチェックポイントのダンプ
@@ -254,7 +264,7 @@ rfo:
  trust_radius: 0.10             # 信頼領域半径
  trust_update: true             # 信頼領域更新を有効化
  trust_min: 0.0001              # 最小信頼半径
- trust_max: 0.20                # 最大信頼半径
+ trust_max: 0.10                # 最大信頼半径（v0.2.8 で ML/MM 安定性のため厳格化）
  max_energy_incr: null          # ステップごとの許容エネルギー増加
  hessian_update: bfgs           # ヘシアン更新方式
  hessian_init: calc             # ヘシアン初期化ソース

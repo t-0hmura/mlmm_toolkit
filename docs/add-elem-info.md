@@ -33,22 +33,22 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 
 ## Workflow
 1. Parse the input PDB with `Bio.PDB.PDBParser`, mirroring the residue
- definitions used in `extract.py` (`AMINO_ACIDS`, `WATER_RES`, `ION`).
+    definitions used in `extract.py` (`AMINO_ACIDS`, `WATER_RES`, `ION`).
 2. For each atom, guess the element by combining the atom name, residue name,
- and whether the record is HETATM:
+    and whether the record is HETATM:
  - **Ion residues:** Prefers residue-derived elements; polyatomic ions
- (e.g., NH4, H3O+) are assigned per atom (H/N/O).
+  (e.g., NH4, H3O+) are assigned per atom (H/N/O).
  - **Proteins, nucleic acids, water:** Maps H/D to H; water atoms to O/H;
- first-letter mapping for P/N/O/S; recognizes Se; carbon labels
- (CA/CB/CG/...) to C.
+  first-letter mapping for P/N/O/S; recognizes Se; carbon labels
+  (CA/CB/CG/...) to C.
  - **Ligands/cofactors:** Uses atom-name prefixes (C*/P*, excluding CL) and
- two-letter/one-letter normalization; recognizes halogens (Cl/Br/I/F).
+  two-letter/one-letter normalization; recognizes halogens (Cl/Br/I/F).
 3. Write the structure through `PDBIO`:
  - No `-o/--out` given: overwrites the input file.
  - `-o/--out` given: writes to the specified path.
 4. Print a summary reporting total atoms, newly assigned, kept existing,
- overwritten (when `--overwrite`), per-element counts, and up to 50
- unresolved atoms (model/chain/residue/atom/serial).
+    overwritten (when `--overwrite`), per-element counts, and up to 50
+    unresolved atoms (model/chain/residue/atom/serial).
 
 ## CLI options
 | Option | Description | Default |

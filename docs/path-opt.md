@@ -66,17 +66,17 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb -
 
 ## Workflow
 1. **Load endpoints** -- Read both PDB structures and resolve charge/spin from CLI or defaults.
- Set up the ML/MM calculator with `--parm`, `--model-pdb`, and charge/spin.
+    Set up the ML/MM calculator with `--parm`, `--model-pdb`, and charge/spin.
 2. **Pre-alignment** -- All endpoints after the first are Kabsch-aligned to the first
- structure. If `freeze_atoms` is defined, only those atoms participate in the RMSD
- fit; the resulting transform is applied to all atoms.
+    structure. If `freeze_atoms` is defined, only those atoms participate in the RMSD
+    fit; the resulting transform is applied to all atoms.
 3. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
- by LBFGS (using the same ML/MM calculator) before alignment and string growth.
- The number of LBFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
+    by LBFGS (using the same ML/MM calculator) before alignment and string growth.
+    The number of LBFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
 4. **Path optimization** -- `--mep-mode gsm` uses PySisyphus `GrowingString` with `(max_nodes + 2)` images including endpoints; `--mep-mode dmf` uses Direct Max Flux.
 5. **Climbing image (GSM only)** -- With `--climb`, a climbing-image refinement is applied after string growth, and the highest-energy image (HEI) is reported.
 6. **Output** -- Final path trajectory and HEI are written as XYZ and PDB files.
- PDB conversion is performed when the inputs are PDBs.
+    PDB conversion is performed when the inputs are PDBs.
 
 ## CLI options
 | Option | Description | Default |

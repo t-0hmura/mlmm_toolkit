@@ -8,7 +8,7 @@
 1. Blank the PDB altLoc column (column 17, 1-based) with a single space.
  - This is a 1-character replacement (no shifting / no reformatting).
 2. If the same atom appears multiple times due to alternate locations
- (altLoc like A/B/... or custom labels like H/L), keep the "best" one:
+    (altLoc like A/B/... or custom labels like H/L), keep the "best" one:
  - Highest occupancy first
  - If tied (or occupancy missing), keep the earliest one in the file
 
@@ -105,9 +105,9 @@ When different altLoc states contain different atoms (e.g., altLoc A has atoms
 N, CA, CB, CG while altLoc B has N, CA, CB, CD), `fix-altloc` handles this correctly:
 
 - **Duplicate atoms** (same residue + atom name in multiple altLocs, e.g., N, CA, CB):
- The best one is selected based on occupancy (highest first, then earliest in file).
+  The best one is selected based on occupancy (highest first, then earliest in file).
 - **Unique atoms** (only present in one altLoc, e.g., CG in A, CD in B):
- ALL unique atoms are preserved in the output.
+  ALL unique atoms are preserved in the output.
 
 This ensures the output structure contains all atoms from all altLoc states,
 with only true duplicates resolved to a single conformer.

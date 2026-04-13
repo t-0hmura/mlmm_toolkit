@@ -146,25 +146,25 @@ huggingface-cli login
 You only need to do this once per machine / environment.
 
 - If you want to use the Direct Max Flux (DMF) method for MEP search, create a conda environment and install cyipopt before installing mlmm-toolkit.
- ```bash
- # Create and activate a dedicated conda environment
- conda create -n mlmm python=3.11 -y
- conda activate mlmm
+  ```bash
+  # Create and activate a dedicated conda environment
+  conda create -n mlmm python=3.11 -y
+  conda activate mlmm
 
- # Install cyipopt (required for the DMF method in MEP search)
- conda install -c conda-forge cyipopt -y
- ```
+  # Install cyipopt (required for the DMF method in MEP search)
+  conda install -c conda-forge cyipopt -y
+  ```
 
 - If you are on an HPC cluster that uses *environment modules*, load CUDA **before** installing PyTorch, like this:
- ```bash
- module load cuda/12.9
- ```
+  ```bash
+  module load cuda/12.9
+  ```
 
 - **AmberTools** is required for the `mlmm mm-parm` subcommand (Amber topology generation). Install it separately:
- ```bash
- conda install -c conda-forge ambertools -y
- ```
- Even without AmberTools, other subcommands work if you provide `--parm` manually.
+  ```bash
+  conda install -c conda-forge ambertools -y
+  ```
+  Even without AmberTools, other subcommands work if you provide `--parm` manually.
 
 ### Step-by-step installation
 
@@ -172,105 +172,105 @@ If you prefer to build the environment piece by piece:
 
 1. **Load CUDA (if you use environment modules on an HPC cluster)**
 
- ```bash
- module load cuda/12.9
- ```
+    ```bash
+    module load cuda/12.9
+    ```
 
 2. **Create and activate a conda environment**
 
- ```bash
- conda create -n mlmm python=3.11 -y
- conda activate mlmm
- ```
+    ```bash
+    conda create -n mlmm python=3.11 -y
+    conda activate mlmm
+    ```
 
 3. **Install cyipopt**
- Required if you want to use the DMF method in MEP search.
+    Required if you want to use the DMF method in MEP search.
 
- ```bash
- conda install -c conda-forge cyipopt -y
- ```
+    ```bash
+    conda install -c conda-forge cyipopt -y
+    ```
 
 4. **Install AmberTools**
- Required for the `mlmm mm-parm` subcommand (Amber topology generation with tleap/antechamber).
+    Required for the `mlmm mm-parm` subcommand (Amber topology generation with tleap/antechamber).
 
- ```bash
- conda install -c conda-forge ambertools -y
- ```
+    ```bash
+    conda install -c conda-forge ambertools -y
+    ```
 
 5. **Install PyTorch with the right CUDA build**
 
- For CUDA 12.9:
+    For CUDA 12.9:
 
- ```bash
- pip install torch --index-url https://download.pytorch.org/whl/cu129
- ```
+    ```bash
+    pip install torch --index-url https://download.pytorch.org/whl/cu129
+    ```
 
- (You may use another compatible version if your cluster recommends it.)
+    (You may use another compatible version if your cluster recommends it.)
 
 6. **Install `mlmm-toolkit`**
 
- ```bash
- pip install mlmm-toolkit
- ```
+    ```bash
+    pip install mlmm-toolkit
+    ```
 
- To install with optional MLIP backends:
+    To install with optional MLIP backends:
 
- ```bash
- pip install "mlmm-toolkit[orb]"       # ORB backend
- pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
- # MACE backend (conflicts with UMA — uninstall fairchem-core first)
+    ```bash
+    pip install "mlmm-toolkit[orb]"       # ORB backend
+    pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
+    # MACE backend (conflicts with UMA — uninstall fairchem-core first)
 # pip uninstall fairchem-core && pip install mace-torch
- ```
+    ```
 
- To enable xTB point-charge embedding (`--embedcharge`), install [xTB](https://github.com/grimme-lab/xtb) and ensure the `xtb` command is available on your `PATH`.
+    To enable xTB point-charge embedding (`--embedcharge`), install [xTB](https://github.com/grimme-lab/xtb) and ensure the `xtb` command is available on your `PATH`.
 
- #### Installing xTB
+    #### Installing xTB
 
- ```bash
- conda install -c conda-forge xtb
- ```
+    ```bash
+    conda install -c conda-forge xtb
+    ```
 
- Or build from source (requires GCC >= 10):
+    Or build from source (requires GCC >= 10):
 
- ```bash
- git clone --depth 1 https://github.com/grimme-lab/xtb.git
- cd xtb
- cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
- make -C build -j8
- ```
+    ```bash
+    git clone --depth 1 https://github.com/grimme-lab/xtb.git
+    cd xtb
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+    make -C build -j8
+    ```
 
- To use a custom xTB binary, set the `xtb_cmd` key in your YAML config.
+    To use a custom xTB binary, set the `xtb_cmd` key in your YAML config.
 
 7. **Build the `hessian_ff` C++ native extension**
 
- In most environments the native extension is JIT compiled on first use. If you see a warning about the native extension not being available, build it manually:
+    In most environments the native extension is JIT compiled on first use. If you see a warning about the native extension not being available, build it manually:
 
- ```bash
- cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
- ```
+    ```bash
+    cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
+    ```
 
- This compiles the C++ code that provides fast Amber force field energy, force, and Hessian calculations.
+    This compiles the C++ code that provides fast Amber force field energy, force, and Hessian calculations.
 
- > **Note:** If you move to a different runtime environment, install Ninja and rebuild in that environment:
- >
- > ```bash
- > conda install -c conda-forge ninja -y
- > cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
- > ```
+    > **Note:** If you move to a different runtime environment, install Ninja and rebuild in that environment:
+    >
+    > ```bash
+    > conda install -c conda-forge ninja -y
+    > cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
+    > ```
 
 8. **Install Chrome for visualization**
 
- ```bash
- plotly_get_chrome -y
- ```
+    ```bash
+    plotly_get_chrome -y
+    ```
 
 9. **Log in to Hugging Face Hub (required for UMA backend only)**
 
- ```bash
- huggingface-cli login
- ```
+    ```bash
+    huggingface-cli login
+    ```
 
- See also:
+    See also:
 
  - <https://github.com/facebookresearch/fairchem>
  - <https://huggingface.co/facebook/UMA>
@@ -278,11 +278,11 @@ If you prefer to build the environment piece by piece:
 
 10. **Verify installation**
 
- ```bash
- mlmm --version
- ```
+    ```bash
+    mlmm --version
+    ```
 
- This should display the installed version (e.g., `0.x.y`; the exact output depends on the git tag).
+    This should display the installed version (e.g., `0.x.y`; the exact output depends on the git tag).
 
 ---
 

@@ -31,9 +31,9 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 Fix:
 - Run:
 
- ```bash
- mlmm add-elem-info -i input.pdb -o input_with_elem.pdb
- ```
+  ```bash
+  mlmm add-elem-info -i input.pdb -o input_with_elem.pdb
+  ```
 
 - Then re-run `extract` / `all` using the updated PDB.
 
@@ -83,9 +83,9 @@ Symptoms:
 Fix:
 - If the extracted pocket is too small, calculated energies and barriers may be unreliable. Increase the extraction radius (e.g., `-r 4.0` or higher) to include more of the protein environment:
 
- ```bash
- mlmm extract -i complex.pdb -c 'SUB' -o pocket.pdb -r 4.0
- ```
+  ```bash
+  mlmm extract -i complex.pdb -c 'SUB' -o pocket.pdb -r 4.0
+  ```
 
 ---
 
@@ -112,15 +112,15 @@ In `all`, charge is resolved in order: `-q/--charge` override -> extraction summ
 Fix:
 - Provide charge and multiplicity explicitly:
 
- ```bash
- mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
- ```
+  ```bash
+  mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
+  ```
 
 - Or, when using extraction, provide a residue-name mapping and run through `all`:
 
- ```bash
- mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
- ```
+  ```bash
+  mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
+  ```
 
 ---
 
@@ -142,23 +142,23 @@ mm-parm requires AmberTools (tleap, antechamber, parmchk2).
 Fix:
 - Install AmberTools via conda:
 
- ```bash
- conda install -c conda-forge ambertools -y
- ```
+  ```bash
+  conda install -c conda-forge ambertools -y
+  ```
 
 - Or build from source (<https://ambermd.org/AmberTools.php>), or load the appropriate module on HPC:
 
- ```bash
- module load ambertools
- ```
+  ```bash
+  module load ambertools
+  ```
 
 - Verify availability:
 
- ```bash
- which tleap
- which antechamber
- which parmchk2
- ```
+  ```bash
+  which tleap
+  which antechamber
+  which parmchk2
+  ```
 
 - Note: without AmberTools, you can still run `opt`, `tsopt`, `path-search`, etc. if you supply `--parm` manually.
 
@@ -174,17 +174,17 @@ Fixes to try:
 - Ensure `--ligand-charge` is specified correctly: `-l 'GPP:-3,SAM:1'`.
 - Use `--keep-temp` to preserve intermediate files and inspect `<resname>.antechamber.log`:
 
- ```bash
- mlmm mm-parm -i input.pdb -l 'LIG:-1' --keep-temp
- ```
+  ```bash
+  mlmm mm-parm -i input.pdb -l 'LIG:-1' --keep-temp
+  ```
 
 - Check that hydrogen atoms are correctly added and TER records are appropriate.
 - Ensure `--ligand-mult` is specified for non-singlet ligands (e.g., `--ligand-mult 'HEM:1,NO:2'`). The default spin multiplicity is 1 (singlet).
 - Try running antechamber manually on the extracted ligand PDB to diagnose the issue:
 
- ```bash
- antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2
- ```
+  ```bash
+  antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2
+  ```
 
 - For higher-accuracy partial charges, consider computing RESP charges from an HF/6-31G* calculation and providing custom `frcmod`/`lib` files instead of relying on AM1-BCC.
 
@@ -239,28 +239,28 @@ Typical symptoms:
 Fixes to try:
 - Ensure you have a C++ compiler (g++ >= 9) installed:
 
- ```bash
- g++ --version
- ```
+  ```bash
+  g++ --version
+  ```
 
 - Ensure PyTorch headers are available:
 
- ```bash
- python -c "import torch; print(torch.utils.cmake_prefix_path)"
- ```
+  ```bash
+  python -c "import torch; print(torch.utils.cmake_prefix_path)"
+  ```
 
 - On HPC, load a compiler module:
 
- ```bash
- module load gcc/11
- ```
+  ```bash
+  module load gcc/11
+  ```
 
 - Clean and rebuild:
 
- ```bash
- conda install -c conda-forge ninja -y
- cd hessian_ff/native && make clean && make
- ```
+  ```bash
+  conda install -c conda-forge ninja -y
+  cd hessian_ff/native && make clean && make
+  ```
 
 ---
 
@@ -283,9 +283,9 @@ To rebuild hessian_ff native extensions in this environment:
 Fix:
 - The C++ native extension needs to be built first:
 
- ```bash
- cd hessian_ff/native && make
- ```
+  ```bash
+  cd hessian_ff/native && make
+  ```
 
 - Ensure the `hessian_ff` package is in your Python path (it should be if you installed mlmm-toolkit with `pip install -e .`).
 
@@ -344,9 +344,9 @@ Symptoms:
 Fix:
 - Log in once per environment/machine:
 
- ```bash
- huggingface-cli login
- ```
+  ```bash
+  huggingface-cli login
+  ```
 
 - On HPC, ensure your home directory (or HF cache directory) is writable from compute nodes.
 
@@ -361,10 +361,10 @@ Fixes:
 - Install a PyTorch build matching your cluster CUDA runtime.
 - Confirm GPU visibility:
 
- ```bash
- nvidia-smi
- python -c "import torch; print(torch.version.cuda, torch.cuda.is_available())"
- ```
+  ```bash
+  nvidia-smi
+  python -c "import torch; print(torch.version.cuda, torch.cuda.is_available())"
+  ```
 
 ---
 
@@ -374,9 +374,9 @@ If you use DMF (`--mep-mode dmf`) and see errors importing IPOPT/cyipopt:
 Fix:
 - Install `cyipopt` from conda-forge (recommended) before installing `mlmm`:
 
- ```bash
- conda install -c conda-forge cyipopt
- ```
+  ```bash
+  conda install -c conda-forge cyipopt
+  ```
 
 ---
 
@@ -386,9 +386,9 @@ If figure export fails and you see Plotly/Chrome-related errors:
 Fix:
 - Install a headless Chrome once:
 
- ```bash
- plotly_get_chrome -y
- ```
+  ```bash
+  plotly_get_chrome -y
+  ```
 
 ---
 
@@ -422,6 +422,43 @@ Fixes to try:
 - Increase max cycles: `--max-cycles 20000`.
 - Use tighter convergence: `--thresh baker` or `--thresh gau_tight`.
 - Adjust `hess_cutoff` to expand the range of atoms included in the Hessian calculation.
+
+---
+
+### Optimizer stalls but the energy is no longer changing (MLIP force noise floor)
+
+Symptoms:
+- `opt`/`tsopt` keeps running but the reported energy has been flat for many
+  cycles (every few dozen steps shows `|dE| < 1e-4` au).
+- Max/RMS forces sit just above the `gau`/`baker` thresholds and never drop
+  further, even after thousands of cycles.
+- Summary log eventually reports convergence via the **energy plateau** fallback
+  rather than the gradient preset.
+
+Why it happens:
+- MLIPs have a finite numerical precision (force "noise floor"). For large
+  ML/MM systems, that noise floor can exceed the standard gradient-based
+  convergence thresholds (`gau`, `baker`, …), so the forces never drop below
+  the preset even though the geometry is effectively stationary.
+
+What to do:
+- Since v0.2.8, this is handled automatically: the shared `opt` block enables
+  `energy_plateau: true` by default. When the energy range over the last 50
+  steps falls below `1.0e-4` au (~0.06 kcal/mol), the optimizer declares
+  convergence and exits cleanly. No action is needed in the common case.
+- If you see the plateau fallback triggering too early on a system that is
+  still clearly moving, tighten the thresholds in YAML:
+  ```yaml
+  opt:
+   energy_plateau_thresh: 1.0e-05  # stricter plateau tolerance (au)
+   energy_plateau_window: 100      # require a longer flat stretch
+  ```
+- To disable the fallback entirely (e.g., for benchmarking convergence
+  behavior), set `opt.energy_plateau: false` — the optimizer will then rely
+  solely on the `thresh` preset.
+- The plateau check is automatically skipped for chain-of-states (COS)
+  optimizers (GS/DMF string optimizers), so `path-opt` / `path-search` are
+  unaffected.
 
 ---
 

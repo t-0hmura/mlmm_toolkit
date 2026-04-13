@@ -141,6 +141,9 @@ opt:
  converge_to_geom_rms_thresh: 0.05 # 参照ジオメトリへの収束 RMS 閾値
  overachieve_factor: 0.0 # 閾値の引き締め係数
  check_eigval_structure: false # ヘシアン固有値構造の検証
+ energy_plateau: true # フォールバック: エネルギーが停滞したら収束と判定
+ energy_plateau_thresh: 1.0e-4 # エネルギー変動許容幅 au（約 0.06 kcal/mol）
+ energy_plateau_window: 50 # プラトー判定に用いる直近ステップ数
  line_search: true # ラインサーチを有効化
  dump: false # 軌跡/リスタートデータの出力
  dump_restart: false # リスタートチェックポイントの出力
@@ -159,6 +162,26 @@ opt:
 | `gau_tight` | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
 | `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+
+**エネルギープラトー・フォールバック:**
+
+`energy_plateau: true`（デフォルト）の場合、直近 `energy_plateau_window` ステップ
+（デフォルト 50）のエネルギー範囲 `max(E) - min(E)` が `energy_plateau_thresh`
+（デフォルト `1.0e-4` au、約 0.06 kcal/mol）を下回ると、オプティマイザは収束したと
+判定します。
+
+これは ML/MM 最適化特有の安全網です。MLIP の力には数値精度に起因する
+ノイズフロアがあり、これが `gau`/`baker` などの勾配ベース収束閾値を
+上回ると、ジオメトリが実質的に停止していても力が閾値を下回らず、
+最適化が延々と回り続けることがあります。エネルギー自体が MLIP の
+数値精度内で平坦化した段階では、追加ステップを回しても残差力は
+ノイズフロア以下にならないため、プラトー判定によってクリーンに
+終了させます。
+
+フォールバックを無効化するには `energy_plateau: false` を設定します
+（この場合は `thresh` プリセットのみで収束判定されます）。
+Chain-of-states（COS）最適化（GS/DMF ストリング最適化等）では、
+プラトー判定は自動的にスキップされます。
 
 ---
 
@@ -189,7 +212,7 @@ rfo:
  trust_radius: 0.10 # 信頼領域半径
  trust_update: true # 信頼領域更新を有効化
  trust_min: 0.0001 # 最小信頼半径
- trust_max: 0.20 # 最大信頼半径
+ trust_max: 0.10 # 最大信頼半径（v0.2.8 で ML/MM 安定性のため厳格化）
  max_energy_incr: null # ステップあたりの許容エネルギー増加
  hessian_update: bfgs # ヘシアン更新スキーム: bfgs, bofill 等
  hessian_init: calc # ヘシアン初期化: calc, unit 等
@@ -373,7 +396,7 @@ rsirfo:
  trust_radius: 0.10 # 信頼領域半径
  trust_update: true # 信頼領域更新
  trust_min: 0.0001 # 最小信頼半径
- trust_max: 0.20 # 最大信頼半径
+ trust_max: 0.10 # 最大信頼半径（v0.2.8 で ML/MM 安定性のため厳格化）
  small_eigval_thresh: 1.0e-08 # 安定性のための固有値閾値
  out_dir: ./result_tsopt/ # 出力ディレクトリ
 ```

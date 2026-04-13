@@ -127,21 +127,21 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 
 ## Workflow
 1. Load the structure through `geom_loader`, resolve charge/spin from CLI, and
- optionally run an unbiased preoptimization when `--preopt`.
+    optionally run an unbiased preoptimization when `--preopt`.
 2. Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal; default 1-based indices unless
- `--zero-based` is passed) into three quadruples. For PDB inputs, each atom
- entry can be an integer index or a selector string like `"TYR,285,CA"`;
- delimiters may be spaces, commas, slashes, backticks, or backslashes.
+    `--zero-based` is passed) into three quadruples. For PDB inputs, each atom
+    entry can be an integer index or a selector string like `"TYR,285,CA"`;
+    delimiters may be spaces, commas, slashes, backticks, or backslashes.
 3. Outer loop over `d1[i]`: relax with only the d1 restraint active, starting
- from the previously scanned geometry whose d1 value is closest.
+    from the previously scanned geometry whose d1 value is closest.
 4. Middle loop over `d2[j]`: relax with d1 and d2 restraints, starting from the
- closest (d1, d2) geometry.
+    closest (d1, d2) geometry.
 5. Inner loop over `d3[k]`: relax with all three restraints, measure the
- unbiased energy (bias removed for evaluation), and write the constrained
- geometry and convergence flag.
+    unbiased energy (bias removed for evaluation), and write the constrained
+    geometry and convergence flag.
 6. After the scan completes, assemble `surface.csv`, apply the kcal/mol
- baseline shift (`--baseline {min|first}`), and generate a 3D RBF-interpolated
- isosurface plot (`scan3d_density.html`) honoring `--zmin/--zmax`.
+    baseline shift (`--baseline {min|first}`), and generate a 3D RBF-interpolated
+    isosurface plot (`scan3d_density.html`) honoring `--zmin/--zmax`.
 
 ## CLI options
 | Option | Description | Default |

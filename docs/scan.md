@@ -170,29 +170,29 @@ This is equivalent to two manual stages with a geometry reset between them, but 
 
 ## Workflow
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
- or defaults. Provide `--parm`, `--model-pdb`, `-q/--charge`, and optionally
- `-m/--multiplicity` for the ML/MM calculator.
+    or defaults. Provide `--parm`, `--model-pdb`, `-q/--charge`, and optionally
+    `-m/--multiplicity` for the ML/MM calculator.
 2. Optionally run an unbiased preoptimization (`--preopt`) before any
- biasing so the starting point is relaxed.
+    biasing so the starting point is relaxed.
 3. Parse stage targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal), then normalize the
- `(i, j)` indices (1-based by default). When the input is a PDB, each entry
- may be either an integer index or an atom selector string like `'TYR,285,CA'`;
- selector fields can be separated by spaces, commas, slashes, backticks, or
- backslashes and may be in any order.
+    `(i, j)` indices (1-based by default). When the input is a PDB, each entry
+    may be either an integer index or an atom selector string like `'TYR,285,CA'`;
+    selector fields can be separated by spaces, commas, slashes, backticks, or
+    backslashes and may be in any order.
 4. Compute the per-bond displacement and split into steps:
  - For scan tuples `[(i, j, target_A)]`, compute `delta = target - current_distance_A`.
  - With `--max-step-size = h`, the stage takes `N = ceil(max(|delta|) / h)` biased relaxations.
  - Each pair's incremental change is `delta_k = delta_k / N` (Å). At step `s`, the temporary
- target is `r_k(s) = r_k(0) + s * delta_k`.
+  target is `r_k(s) = r_k(0) + s * delta_k`.
 5. March through all steps, applying the harmonic wells
- `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with LBFGS.
- `k` comes from `--bias-k` (eV/Å²) and is converted once to Hartree/Bohr^2.
- Coordinates are stored in Bohr for PySisyphus and converted internally for reporting.
+    `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with LBFGS.
+    `k` comes from `--bias-k` (eV/Å²) and is converted once to Hartree/Bohr^2.
+    Coordinates are stored in Bohr for PySisyphus and converted internally for reporting.
 6. After the last step of each stage, optionally run an unbiased relaxation
- (`--endopt`) before reporting covalent bond changes and writing the
- `result.*` files.
+    (`--endopt`) before reporting covalent bond changes and writing the
+    `result.*` files.
 7. Repeat for every stage; optional trajectories are dumped only when `--dump`
- is `True`.
+    is `True`.
 
 ## CLI options
 | Option | Description | Default |

@@ -156,6 +156,7 @@ Shared optimizer controls:
 - Common controls: `max_cycles` (default 10000), `print_every` (100), `min_step_norm` (1e-8) with `assert_min_step` True.
 - Convergence toggles: `rms_force`, `rms_force_only`, `max_force_only`, `force_only`.
 - Extras: `converge_to_geom_rms_thresh`, `overachieve_factor`, `check_eigval_structure`.
+- Energy plateau fallback (default on): `energy_plateau` (bool, default True), `energy_plateau_thresh` (1e-4 au, ~0.06 kcal/mol), `energy_plateau_window` (50 steps). Declares convergence when the energy range over the last window of steps falls below the threshold — a safety net against the MLIP force noise floor exceeding the gradient-based `thresh` preset. Automatically skipped for chain-of-states optimizers.
 - Line search: `line_search` (bool, default True).
 - Bookkeeping: `dump`, `dump_restart`, `prefix`, `out_dir` (default `./result_opt/`).
 
@@ -200,6 +201,9 @@ opt:
  converge_to_geom_rms_thresh: 0.05  # geom RMS threshold when converging to ref
  overachieve_factor: 0.0        # factor to tighten thresholds
  check_eigval_structure: false  # validate Hessian eigenstructure
+ energy_plateau: true           # fallback: converge when energy plateaus (skipped for COS)
+ energy_plateau_thresh: 1.0e-04 # plateau tolerance in au (~0.06 kcal/mol)
+ energy_plateau_window: 50      # number of trailing steps used for plateau detection
  line_search: true              # enable line search
  dump: false                    # dump trajectory/restart data
  dump_restart: false            # dump restart checkpoints
@@ -218,6 +222,9 @@ lbfgs:
  converge_to_geom_rms_thresh: 0.05  # RMS threshold when targeting geometry
  overachieve_factor: 0.0        # tighten thresholds
  check_eigval_structure: false  # validate Hessian eigenstructure
+ energy_plateau: true           # fallback: converge when energy plateaus
+ energy_plateau_thresh: 1.0e-04 # plateau tolerance in au (~0.06 kcal/mol)
+ energy_plateau_window: 50      # number of trailing steps used for plateau detection
  line_search: true              # enable line search
  dump: false                    # dump trajectory/restart data
  dump_restart: false            # dump restart checkpoints
@@ -244,6 +251,9 @@ rfo:
  converge_to_geom_rms_thresh: 0.05  # RMS threshold when targeting geometry
  overachieve_factor: 0.0        # tighten thresholds
  check_eigval_structure: false  # validate Hessian eigenstructure
+ energy_plateau: true           # fallback: converge when energy plateaus
+ energy_plateau_thresh: 1.0e-04 # plateau tolerance in au (~0.06 kcal/mol)
+ energy_plateau_window: 50      # number of trailing steps used for plateau detection
  line_search: true              # enable line search
  dump: false                    # dump trajectory/restart data
  dump_restart: false            # dump restart checkpoints
@@ -252,7 +262,7 @@ rfo:
  trust_radius: 0.10             # trust-region radius
  trust_update: true             # enable trust-region updates
  trust_min: 0.0001              # minimum trust radius
- trust_max: 0.20                # maximum trust radius
+ trust_max: 0.10                # maximum trust radius (tightened in v0.2.8 for ML/MM stability)
  max_energy_incr: null          # allowed energy increase per step
  hessian_update: bfgs           # Hessian update scheme
  hessian_init: calc             # Hessian initialization source

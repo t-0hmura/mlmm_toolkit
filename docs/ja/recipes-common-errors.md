@@ -14,6 +14,7 @@
 | `hessian_ff` の import/ビルドエラー | ネイティブ拡張（`hessian_ff/native`）を再ビルド | [hessian_ff ビルド](troubleshooting.md#hessian_ff-ビルドの問題) |
 | DMF モードの import エラー（`cyipopt`） | アクティブ環境に `cyipopt` をインストール | [DMF モード](troubleshooting.md#dmf-モードが動かないcyipopt-がない) |
 | TSOPT/IRC が収束しない | ステップ長を縮小（RFO/RS-I-RFO では trust_radius、L-BFGS では max_step）、サイクル数を増やし、まず TS の品質を検証 | [計算 / 収束](troubleshooting.md#計算--収束の問題) |
+| エネルギーが平坦なのに最適化が停滞（MLIP のノイズフロア） | v0.2.8 以降はデフォルトの `energy_plateau` フォールバックに任せる。判定が早すぎ/遅すぎる場合のみ `energy_plateau_thresh` / `energy_plateau_window` を調整 | [プラトー・フォールバック](troubleshooting.md#最適化が停滞するがエネルギーはもう変わっていないmlip-の力ノイズフロア) |
 | CUDA/GPU ランタイム不整合 | `torch.cuda.is_available()` と CUDA ビルドの組み合わせを確認 | [CUDA / PyTorch](troubleshooting.md#cuda--pytorch-の不整合) |
 | プロット出力の失敗 | Plotly エクスポート用の Chrome ランタイムをインストール | [プロット出力](troubleshooting.md#図のエクスポートが失敗するchrome-がない) |
 
@@ -54,6 +55,7 @@
  - TSOPT が停滞、IRC が不安定、MEP 精密化が途中停止。
 最初の確認:
  - TS 候補が支配的な虚振動数モード 1 本を持つか。
- - ステップ長（trust_radius / max_step）を縮小し、サイクル上限を増やす。
+ - ステップ長（trust_radius / max_step）を縮小し、サイクル上限を増やす。v0.2.8 から RFO/RS-I-RFO の `trust_max` デフォルトは 0.10 bohr（旧 0.20）です。
+ - エネルギーが既に平坦化していないか確認する: 直近 50 サイクル程度で `|dE| < 1e-4` au かつ力も平坦なら、原因は最適化のバグではなく MLIP の力ノイズフロアです。デフォルトの `energy_plateau` フォールバックが自動的に収束宣言します（[トラブルシューティング](troubleshooting.md#最適化が停滞するがエネルギーはもう変わっていないmlip-の力ノイズフロア) を参照）。
 典型的な修正手順:
  - 小規模ケースで条件を詰め、安定化後に本番条件へ戻す。

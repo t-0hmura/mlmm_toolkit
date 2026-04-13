@@ -213,7 +213,7 @@ rsirfo:
  trust_radius: 0.10                # 初期信頼半径（ONIOM 向けに小さめ）
  trust_update: true                # 適応的信頼半径更新
  trust_min: 1.0e-04                # 最小信頼半径
- trust_max: 0.20                   # 最大信頼半径
+ trust_max: 0.10                   # 最大信頼半径（v0.2.8 で ML/MM 安定性のため厳格化）
  max_energy_incr: null             # ステップごとの最大許容エネルギー増加
  hessian_update: bofill            # ヘシアン更新方式の上書き
  hessian_init: calc                # 初期ヘシアンソース
@@ -231,6 +231,12 @@ rsirfo:
 
 ```{tip}
 TS 収束が遅い場合や最適化中に TS モードが失われる場合は、`rsirfo` セクションの `hessian_recalc` を小さくしてみてください（例: 50--200）。正確なヘシアン再計算の頻度を上げることで、追加のヘシアン評価コストと引き換えに堅牢性が向上します。
+```
+
+```{note}
+v0.2.8 から `rsirfo.trust_max` のデフォルトが 0.10 bohr に変更されました（旧値 0.20）。TS 近傍での ML/MM 安定性が改善します。
+
+共有 `opt` ブロックには **エネルギープラトー・フォールバック**（`energy_plateau: true`、`energy_plateau_thresh: 1.0e-4` au を `energy_plateau_window: 50` ステップにわたって適用、いずれもデフォルト）も備わっています。MLIP の力ノイズフロアが `thresh` プリセットを下回れない場合でも、エネルギー自体が停滞した時点でクリーンに収束終了します。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
 ```
 
 ---

@@ -86,30 +86,30 @@ A tolerance of 1.0 is used when reading B-factors, so values near 0/10/20 are ma
 ### Layer definition methods
 
 1. **`define-layer` subcommand** (recommended):
-   ```bash
-   mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
-   ```
+    ```bash
+    mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
+    ```
 
 2. **Distance cutoffs** (YAML/CLI):
-   ```yaml
-   calc:
+    ```yaml
+    calc:
      hess_cutoff: 3.6       # Distance cutoff for Hessian-target MM atoms
      movable_cutoff: 8.0    # Distance cutoff for Movable-MM (beyond = Frozen)
-   ```
+    ```
 
 3. **Read from B-factors**:
-   ```yaml
-   calc:
+    ```yaml
+    calc:
      use_bfactor_layers: true   # Read layers from input PDB B-factors
-   ```
+    ```
 
 4. **Explicit index specification** (YAML):
-   ```yaml
-   calc:
+    ```yaml
+    calc:
      hess_mm_atoms: [100, 101, 102, ...]
      movable_mm_atoms: [200, 201, 202, ...]
      frozen_mm_atoms: [300, 301, 302, ...]
-   ```
+    ```
 
 ---
 

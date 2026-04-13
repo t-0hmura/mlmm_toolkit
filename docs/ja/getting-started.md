@@ -148,19 +148,19 @@ huggingface-cli login
 これはマシン/環境ごとに 1 回だけ行う必要があります。
 
 - MEP 探索で Direct Max Flux (DMF) 法を使用する場合は、mlmm のインストール前に conda 環境を作成して cyipopt をインストールしてください。
- ```bash
- # 専用の conda 環境を作成してアクティブ化
- conda create -n mlmm python=3.11 -y
- conda activate mlmm
+  ```bash
+  # 専用の conda 環境を作成してアクティブ化
+  conda create -n mlmm python=3.11 -y
+  conda activate mlmm
 
- # cyipopt をインストール（MEP 探索の DMF 法に必要）
- conda install -c conda-forge cyipopt -y
- ```
+  # cyipopt をインストール（MEP 探索の DMF 法に必要）
+  conda install -c conda-forge cyipopt -y
+  ```
 
 - HPC クラスターで*環境モジュール*を使用している場合は、PyTorch をインストールする前に CUDA をロードしてください:
- ```bash
- module load cuda/12.9
- ```
+  ```bash
+  module load cuda/12.9
+  ```
 
 ### ステップバイステップインストール
 
@@ -168,103 +168,103 @@ huggingface-cli login
 
 1. **CUDA をロード（HPC で環境モジュールを使用する場合）**
 
- ```bash
- module load cuda/12.9
- ```
+    ```bash
+    module load cuda/12.9
+    ```
 
 2. **conda 環境を作成してアクティブ化**
 
- ```bash
- conda create -n mlmm python=3.11 -y
- conda activate mlmm
- ```
+    ```bash
+    conda create -n mlmm python=3.11 -y
+    conda activate mlmm
+    ```
 
 3. **AmberTools をインストール**
 
- ```bash
- conda install -c conda-forge ambertools -y
- ```
+    ```bash
+    conda install -c conda-forge ambertools -y
+    ```
 
 4. **cyipopt をインストール（オプション: DMF 法に必要）**
 
- ```bash
- conda install -c conda-forge cyipopt -y
- ```
+    ```bash
+    conda install -c conda-forge cyipopt -y
+    ```
 
 5. **適切な CUDA ビルドの PyTorch をインストール**
 
- ```bash
- pip install torch --index-url https://download.pytorch.org/whl/cu129
- ```
+    ```bash
+    pip install torch --index-url https://download.pytorch.org/whl/cu129
+    ```
 
 6. **mlmm 本体をインストール**
 
- ```bash
- pip install mlmm-toolkit
- ```
+    ```bash
+    pip install mlmm-toolkit
+    ```
 
 7. **hessian_ff の C++ 拡張をビルド**
 
- 多くの環境では初回使用時に JIT コンパイルされます。ネイティブ拡張が利用できない旨の警告が表示された場合は、手動でビルドしてください:
+    多くの環境では初回使用時に JIT コンパイルされます。ネイティブ拡張が利用できない旨の警告が表示された場合は、手動でビルドしてください:
 
- ```bash
- cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
- ```
+    ```bash
+    cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
+    ```
 
- > **Note:** 環境が変わった場合は、その環境で Ninja を入れて再ビルドしてください:
- >
- > ```bash
- > conda install -c conda-forge ninja -y
- > cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
- > ```
+    > **Note:** 環境が変わった場合は、その環境で Ninja を入れて再ビルドしてください:
+    >
+    > ```bash
+    > conda install -c conda-forge ninja -y
+    > cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
+    > ```
 
 8. **Plotly 可視化用 Chrome をインストール**
 
- ```bash
- plotly_get_chrome -y
- ```
+    ```bash
+    plotly_get_chrome -y
+    ```
 
 9. **Hugging Face Hub にログイン（UMA バックエンド使用時のみ必要）**
 
- ```bash
- huggingface-cli login
- ```
+    ```bash
+    huggingface-cli login
+    ```
 
 10. **（任意）代替 MLIP バックエンドのインストール**
 
- ```bash
- pip install "mlmm-toolkit[orb]"      # ORB バックエンド
- pip install "mlmm-toolkit[aimnet]"  # AIMNet2 バックエンド
- # MACE バックエンド (UMA と競合 — 先に fairchem-core をアンインストール)
- # pip uninstall fairchem-core && pip install mace-torch
- ```
+    ```bash
+    pip install "mlmm-toolkit[orb]"      # ORB バックエンド
+    pip install "mlmm-toolkit[aimnet]"  # AIMNet2 バックエンド
+    # MACE バックエンド (UMA と競合 — 先に fairchem-core をアンインストール)
+    # pip uninstall fairchem-core && pip install mace-torch
+    ```
 
- xTB 点電荷埋め込み補正（`--embedcharge`）を使用するには、[xTB](https://github.com/grimme-lab/xtb) をインストールし、`xtb` コマンドが `PATH` 上で利用可能であることを確認してください。
+    xTB 点電荷埋め込み補正（`--embedcharge`）を使用するには、[xTB](https://github.com/grimme-lab/xtb) をインストールし、`xtb` コマンドが `PATH` 上で利用可能であることを確認してください。
 
- #### xTB のインストール
+    #### xTB のインストール
 
- ```bash
- conda install -c conda-forge xtb
- ```
+    ```bash
+    conda install -c conda-forge xtb
+    ```
 
- またはソースからビルド（GCC >= 10 が必要）:
+    またはソースからビルド（GCC >= 10 が必要）:
 
- ```bash
- git clone --depth 1 https://github.com/grimme-lab/xtb.git
- cd xtb
- cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
- make -C build -j8
- ```
+    ```bash
+    git clone --depth 1 https://github.com/grimme-lab/xtb.git
+    cd xtb
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+    make -C build -j8
+    ```
 
- カスタム xTB バイナリを使用するには、YAML 設定ファイルで `xtb_cmd` キーを設定してください。
+    カスタム xTB バイナリを使用するには、YAML 設定ファイルで `xtb_cmd` キーを設定してください。
 
 11. **インストールの確認**
 
- ```bash
- mlmm --version
- ```
+    ```bash
+    mlmm --version
+    ```
 
- インストールされたバージョンが表示されます（例: `0.x.y`; 正確な出力は git タグによって異なります）。
+    インストールされたバージョンが表示されます（例: `0.x.y`; 正確な出力は git タグによって異なります）。
 
 ---
 

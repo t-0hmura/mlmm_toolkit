@@ -213,7 +213,7 @@ rsirfo:
  trust_radius: 0.10                # initial trust radius (smaller for ONIOM)
  trust_update: true                # adaptive trust radius update
  trust_min: 1.0e-04                # minimum trust radius
- trust_max: 0.20                   # maximum trust radius
+ trust_max: 0.10                   # maximum trust radius (tightened in v0.2.8 for ML/MM stability)
  max_energy_incr: null             # max allowed energy increase per step
  hessian_update: bofill            # Hessian update scheme override
  hessian_init: calc                # initial Hessian source
@@ -231,6 +231,12 @@ Set `rsirfo.track_mode_by_overlap: true` if the TS mode switches root during opt
 
 ```{tip}
 If TS convergence is slow or the TS mode is lost during optimization, try lowering `hessian_recalc` (e.g., to 50--200) in the `rsirfo` section. More frequent exact Hessian recalculations improve convergence reliability at the cost of additional Hessian evaluations.
+```
+
+```{note}
+Since v0.2.8, `rsirfo.trust_max` defaults to 0.10 bohr (previously 0.20) for improved ML/MM stability near the TS.
+
+The shared `opt` block also provides an **energy plateau fallback** (`energy_plateau: true` by default, `energy_plateau_thresh: 1.0e-4` au over `energy_plateau_window: 50` steps). If the MLIP force noise floor prevents the gradient-based `thresh` preset from being reached, the optimizer still exits cleanly once the energy itself has plateaued. See [yaml-reference](yaml-reference.md#opt) for full details.
 ```
 
 ## See Also
