@@ -7,7 +7,7 @@ from pysisyphus.intcoords.exceptions import (
     DifferentPrimitivesException,
     RebuiltInternalsException,
 )
-from pysisyphus.cos.ChainOfStates import ChainOfStates
+from pysisyphus.cos.ChainOfStates import ChainOfStates, _safe_normalize
 from pysisyphus.cos.GrowingChainOfStates import GrowingChainOfStates
 
 
@@ -374,7 +374,7 @@ class GrowingString(GrowingChainOfStates):
         if not self.fully_grown and i in (self.lf_ind, self.rf_ind):
             next_ind = i + 1 if (i <= self.lf_ind) else i - 1
             tangent = self.images[next_ind] - self.images[i]
-            tangent /= np.linalg.norm(tangent)
+            tangent = _safe_normalize(tangent)
         else:
             tangent = super().get_tangent(i, kind="upwinding")
 

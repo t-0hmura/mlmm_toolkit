@@ -11,6 +11,13 @@ from pysisyphus.helpers_pure import hash_arr
 from pysisyphus.modefollow import geom_lanczos
 
 
+def _safe_normalize(v, eps=1e-12):
+    n = np.linalg.norm(v)
+    if not np.isfinite(n) or n < eps:
+        return np.zeros_like(v)
+    return v / n
+
+
 # [1] http://dx.doi.org/10.1063/1.1323224
 
 
@@ -437,17 +444,17 @@ class ChainOfStates:
 
         # Handle first and last image
         if i == 0:
-            return tangent_plus / np.linalg.norm(tangent_plus)
+            return _safe_normalize(tangent_plus)
         elif i == (len(self.images) - 1):
-            return tangent_minus / np.linalg.norm(tangent_minus)
+            return _safe_normalize(tangent_minus)
 
         # [1], Eq. (1)
         if kind == "simple":
             tangent = next_image - prev_image
         # [1], Eq. (2)
         elif kind == "bisect":
-            first_term = tangent_minus / np.linalg.norm(tangent_minus)
-            sec_term = tangent_plus / np.linalg.norm(tangent_plus)
+            first_term = _safe_normalize(tangent_minus)
+            sec_term = _safe_normalize(tangent_plus)
             tangent = first_term + sec_term
         # Upwinding tangent from [1] Eq. (8) and so on
         elif kind == "upwinding":
@@ -507,7 +514,7 @@ class ChainOfStates:
                 # Update hash
                 self.prev_lanczos_hash = cur_hash
 
-        tangent /= np.linalg.norm(tangent)
+        tangent = _safe_normalize(tangent)
         return tangent
 
     def get_tangents(self):

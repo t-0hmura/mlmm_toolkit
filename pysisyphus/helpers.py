@@ -137,6 +137,11 @@ def _svd_align_core(coords_to_align, reference_coords):
     ``coords_to_align.dot(rot_mat)``.
     """
     # http://nghiaho.com/?page_id=671#comment-559906
+    if not (np.all(np.isfinite(coords_to_align)) and np.all(np.isfinite(reference_coords))):
+        # NaN/Inf in input (e.g. from a degenerate NEB tangent upstream).
+        # Skip alignment for this frame instead of crashing the SVD.
+        # Return a copy so callers can mutate the result without aliasing the input.
+        return np.eye(3), coords_to_align.copy()
     tmp_mat = coords_to_align.T.dot(reference_coords)
     U, W, Vt = np.linalg.svd(tmp_mat)
     rot_mat = U.dot(Vt)
