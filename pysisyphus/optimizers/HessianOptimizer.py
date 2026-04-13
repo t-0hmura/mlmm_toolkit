@@ -722,62 +722,6 @@ class HessianOptimizer(Optimizer):
 
         return step_np, mu_cur, 1.0, eigvec_np
 
-    def _tr_project_hessian(self, H):
-        """Project out translation/rotation from Cartesian Hessian: P H P.
-        Operates on the same device as H (GPU or CPU)."""
-        is_torch = isinstance(H, torch.Tensor)
-
-        coords_np = self.geometry.cart_coords.reshape(-1, 3)
-        m_np = np.asarray(self.geometry.masses_rep, dtype=np.float64)
-        n_dof = H.shape[0]
-
-        act = self._active_dof_indices
-        if n_dof < len(m_np) and act is not None:
-            m_np = m_np[act]
-            coords_np = coords_np[sorted(set(i // 3 for i in act))]
-        elif n_dof < len(m_np):
-            coords_np = coords_np[:n_dof // 3]
-            m_np = m_np[:n_dof]
-
-        n_atoms = len(coords_np)
-        m_atoms = m_np.reshape(n_atoms, 3)[:, 0]
-
-        com = (m_atoms[:, None] * coords_np).sum(0) / m_atoms.sum()
-        x = coords_np - com
-        eye3 = np.eye(3)
-        cols = []
-        for i in range(3):
-            cols.append(np.tile(eye3[i], n_atoms))
-        for i in range(3):
-            cols.append(np.cross(x, eye3[i]).ravel())
-        B = np.column_stack(cols)
-        U, S, _ = np.linalg.svd(B, full_matrices=False)
-        r = int((S > 1e-12 * S.max()).sum())
-        Q_np = U[:, :r]
-        del B, U, S, cols, x, eye3, m_atoms, com
-
-        if is_torch:
-            dev, dtype = H.device, H.dtype
-            Q = torch.from_numpy(Q_np).to(device=dev, dtype=dtype); del Q_np
-            Hp = H.clone()
-            QtH = Q.T @ Hp
-            Hp.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
-            Hp.addmm_(QtH.T, Q.T, beta=1.0, alpha=-1.0)
-            QtHQ = QtH @ Q; del QtH
-            Hp.addmm_(Q @ QtHQ, Q.T, beta=1.0, alpha=1.0); del Q, QtHQ
-            _t = Hp.T.clone(); Hp.add_(_t).mul_(0.5); del _t
-            return Hp
-        else:
-            Hp = np.array(H, dtype=np.float64)
-            Q = Q_np; del Q_np
-            QtH = Q.T @ Hp
-            Hp -= Q @ QtH
-            Hp -= QtH.T @ Q.T
-            QtHQ = QtH @ Q; del QtH
-            Hp += Q @ QtHQ @ Q.T; del Q, QtHQ
-            Hp = 0.5 * (Hp + Hp.T)
-            return Hp
-
     def filter_small_eigvals(self, eigvals, eigvecs, mask=False):
         if isinstance(eigvals, torch.Tensor):
             small_inds = torch.abs(eigvals) < self.small_eigval_thresh
@@ -874,22 +818,15 @@ class HessianOptimizer(Optimizer):
         else:
             gradient = self.active_from_full(gradient_full)
 
-        resetted = not can_update
-        self.cur_H = H  # active-DOF Hessian (pre-TR-projection); used for energy prediction
-
-        # TR projection for Cartesian coordinates before diagonalization.
-        H_diag = H
-        if self.geometry.coord_type in ("cart", "cartesian"):
-            H_diag = self._tr_project_hessian(H)
-
-        if isinstance(H_diag, torch.Tensor):
-            eigvals, eigvecs = torch.linalg.eigh(H_diag)
+        if isinstance(H, torch.Tensor):
+            eigvals, eigvecs = torch.linalg.eigh(H)
         else:
-            eigvals, eigvecs = np.linalg.eigh(H_diag)
+            eigvals, eigvecs = np.linalg.eigh(H)
         # Neglect small eigenvalues
         eigvals, eigvecs = self.filter_small_eigvals(eigvals, eigvecs)
 
-        self.cur_H_diag = H_diag  # TR-projected Hessian for image potential
+        resetted = not can_update
+        self.cur_H = H
         return energy, gradient, H, eigvals, eigvecs, resetted
 
     def get_augmented_hessian(self, eigvals, gradient, alpha=1.0):
