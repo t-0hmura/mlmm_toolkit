@@ -67,13 +67,16 @@ If you need to update layer labels, edit the PDB's B-factor column
 
 ## Force-field choices
 
-`mlmm mm-parm` accepts:
+`mlmm mm-parm --ff-set` accepts exactly two values:
 
-| `--force-field` | Use case |
-|---|---|
-| `amber14sb` | Default for protein backbone + side chains |
-| `amber99sb-ildn` | Older but widely cited |
-| `amber19sb` | Newer; check parameter availability |
+| `--ff-set` | Protein FF | Water | Use case |
+|---|---|---|---|
+| `ff19SB` (default) | ff19SB | OPC (4-point) | Recommended modern default |
+| `ff14SB` | ff14SB | TIP3P (3-point) | Legacy / when matching prior literature setups |
+
+There is **no `--force-field` flag** and **no `--water` flag**; the
+water model is bound to the chosen `--ff-set`. Other Amber protein
+force fields (amber99SB-ildn, etc.) are not exposed via `mm-parm`.
 
 For non-standard residues / ligands, `mm-parm` invokes `antechamber`
 to derive GAFF2 parameters automatically. Inspect the produced
