@@ -44,7 +44,7 @@ elements (Eastman et al. 2025 benchmark, arXiv:2601.16331).
 Inspect the default kwarg dict:
 
 ```bash
-python -c "import mlmm.defaults as d; print(d.ORB_BACKEND_DEFAULTS)"
+python -c "import mlmm.defaults as d; print(d.MLMM_CALC_KW)"
 ```
 
 ## Backend-specific flags

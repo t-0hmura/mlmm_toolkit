@@ -27,7 +27,7 @@ Available extras (canonical list lives in `pyproject.toml`):
 | `[orb]` | `orb-models` | Using `-b orb` |
 | `[aimnet]` | `aimnet>=0.1.0` | Using `-b aimnet2` |
 | `[dft]` | `pyscf`, `gpu4pyscf-cuda12x` (x86_64), `cupy-cuda12x`, `cutensor-cu12`, `basis-set-exchange` | `mlmm dft` subcommand |
-| `[ci]` | CPU-only test deps (no GPU libs) | Running unit tests / docs builds |
+| (no `[ci]` extra in mlmm; use `[dev]`) | CPU-only test deps (no GPU libs) | Running unit tests / docs builds |
 | `[dev]` | `pytest` family | Contributing |
 
 `[mace]` does **not** exist as an extra because MACE conflicts with

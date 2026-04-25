@@ -14,7 +14,7 @@ or QM/MM study.
 ## Synopsis
 
 ```bash
-mlmm all -i 1.R.pdb 3.P.pdb \
+mlmm all --parm enzyme.parm7 -i 1.R.pdb 3.P.pdb \
     -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --tsopt --thermo \
     [--dft --func-basis 'wb97m-v/def2-svp'] \
@@ -24,7 +24,7 @@ mlmm all -i 1.R.pdb 3.P.pdb \
 For a known multistep mechanism, supply each intermediate explicitly:
 
 ```bash
-mlmm all -i 1.R.pdb 2.IM.pdb 3.P.pdb \
+mlmm all --parm enzyme.parm7 -i 1.R.pdb 2.IM.pdb 3.P.pdb \
     -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --tsopt --thermo \
     -o result_mep_3pt

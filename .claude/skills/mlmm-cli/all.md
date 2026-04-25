@@ -14,7 +14,7 @@ more elementary steps.
 ## Synopsis
 
 ```bash
-mlmm all -i <input(s)> [-c <substrate>] [-l 'RES:Q,...'] \
+mlmm all --parm enzyme.parm7 -i <input(s)> [-c <substrate>] [-l 'RES:Q,...'] \
     [--scan-lists '...'] [--tsopt] [--thermo] [--dft] \
     [-b uma|orb|mace|aimnet2] [-o result_all/]
 ```

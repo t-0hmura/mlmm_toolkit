@@ -14,7 +14,7 @@ This is how the bezA case study in the published benchmark was driven.
 ## Synopsis
 
 ```bash
-mlmm all -i 1.R.pdb \
+mlmm all --parm enzyme.parm7 -i 1.R.pdb \
     -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --scan-lists \
         '[("CS1 SAM 320","GPP 321 C7",1.60)]' \

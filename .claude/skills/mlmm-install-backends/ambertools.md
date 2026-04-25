@@ -15,7 +15,7 @@ conda install -c conda-forge ambertools
 ```
 
 This pulls `tleap`, `antechamber`, `parmchk2`, `cpptraj`, and the
-standard force-field parameter sets (Amber14SB, GAFF2, etc.).
+standard force-field parameter sets (ff14SB, ff19SB, GAFF2, OPC, TIP3P, …).
 
 Verify:
 
@@ -42,14 +42,18 @@ calls `mlmm mm-parm`, or build it into your env-init shell hook.
 
 ```bash
 mlmm mm-parm -i complex.pdb \
-    --ligand 'SAM:1,GPP:-3' \
-    --force-field amber14sb \
-    --water tip3p \
-    -o complex.parm7
+    --ligand-charge 'SAM:1,GPP:-3' \
+    --ff-set ff14SB \
+    --out-prefix complex
 ```
 
-`mm-parm` writes both `<basename>.parm7` and `<basename>.rst7`. Pass
-both to downstream subcommands via the toolkit's standard flags.
+`mm-parm` writes `complex.parm7` and `complex.rst7` directly to the
+current working directory. Pass them to downstream subcommands via
+`--parm` (and the layer-encoded PDB via `--ref-pdb` or
+`--detect-layer`). The water model is **fixed by `--ff-set`**:
+`ff19SB` ships with OPC water, `ff14SB` with TIP3P. There is **no
+separate `--water` flag**, and there is **no `--force-field` flag**
+(use `--ff-set` instead).
 
 ## Common gotchas
 
@@ -58,7 +62,7 @@ both to downstream subcommands via the toolkit's standard flags.
 | `tleap: command not found` | AmberTools not installed; or `<amber_install>/amber.sh` not sourced. |
 | `Unknown residue name 'GPP'` | The ligand has no parameters; run `antechamber` to derive GAFF parameters first, then point `mm-parm` at the resulting `.frcmod`. |
 | `parm7` written but `mm-parm` reports charge mismatch | Check `mlmm-structure-io/charge-multiplicity.md` — the `-l` mapping must agree with the protonation states in the PDB. |
-| Aarch64 wheels not available | AmberTools provides aarch64 conda packages on conda-forge — `conda install -c conda-forge ambertools` works on ARM machines. |
+| Linux aarch64 not supported | conda-forge ships `linux-64`, `osx-64`, and `osx-arm64` only — `linux-aarch64` is not a published platform for `ambertools`. On ARM HPC, build from the official tarball or skip MM and use `pdb2reaction`. |
 
 ## What AmberTools is **not** used for
 

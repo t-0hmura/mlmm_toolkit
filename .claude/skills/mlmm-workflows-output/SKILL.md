@@ -3,7 +3,7 @@ name: mlmm-workflows-output
 description: Canonical mlmm workflows (cluster + 1-step / multistep / scan-list / endpoint-MEP / TS-only / DFT//MLIP), plus the summary.json schema, R/TS/P/IM canonical paths, bond-change interpretation, and energy-diagram conventions used to extract numerical results.
 ---
 
-# mlmm Workflows and Output Parsing
+# mlmm-toolkit Workflows and Output Parsing
 
 ## Overview
 
@@ -12,6 +12,20 @@ into **end-to-end recipes** and explains how to read the resulting
 output trees, JSON, and figures. Use this when you have a goal
 ("compute the barrier of step 1 of this enzyme") and want the path
 through the toolkit.
+
+> **mlmm-specific notes** (different from `pdb2reaction`):
+>
+> - Every ML/MM-evaluating subcommand requires an Amber `--parm` plus
+>   a layer-encoded PDB (`--detect-layer` from B-factor 0.0/10.0/20.0,
+>   or explicit `--model-pdb`/`--model-indices`).
+> - **Microiteration** alternates ML-region geometry steps with MM
+>   relaxation (controlled by `MICROITER_KW` defaults; toggled via
+>   `--microiter / --no-microiter` and `--opt-mode hess` driving the
+>   outer RFO step). The MM block uses analytical-Hessian `hessian_ff`,
+>   so it scales with CPU cores, not GPU.
+> - The `mlmm dft` step (when `--dft` is set in `all`) computes a
+>   single-point DFT energy on the **ML region only**, not the whole
+>   enzyme. The MM contribution is taken from the parm7 force field.
 
 ## Six canonical workflows
 

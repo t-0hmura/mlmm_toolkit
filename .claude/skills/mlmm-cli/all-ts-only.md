@@ -12,7 +12,7 @@ This is the "I trust this geometry, just check it for me" mode.
 ## Synopsis
 
 ```bash
-mlmm all -i ts_candidate.xyz \
+mlmm all --parm enzyme.parm7 -i ts_candidate.xyz \
     -q -1 -m 1 -b uma \
     --tsopt --thermo \
     [--dft --func-basis 'wb97m-v/def2-svp'] \
@@ -22,7 +22,7 @@ mlmm all -i ts_candidate.xyz \
 Or with a PDB that carries residue / charge info:
 
 ```bash
-mlmm all -i ts_candidate.pdb \
+mlmm all --parm enzyme.parm7 -i ts_candidate.pdb \
     -l 'SAM:1,GPP:-3' \
     --tsopt --thermo \
     -o result_ts_only

@@ -51,7 +51,7 @@ mlmm all -i 1.R.pdb 3.P.pdb \
     -b uma                       # explicit, identical to default
 ```
 
-Available models (set via `--model` or via `mlmm.defaults.UMA_CALC_KW`).
+Available models (set via `--model` or via `mlmm.defaults.MLMM_CALC_KW`).
 Two equivalent notations are common:
 
 | config string (`--model`) | paper notation | HuggingFace repo | Notes |
@@ -65,7 +65,7 @@ Two equivalent notations are common:
 Inspect the full default kwarg dict:
 
 ```bash
-python -c "import mlmm.defaults as d; print(d.UMA_CALC_KW)"
+python -c "import mlmm.defaults as d; print(d.MLMM_CALC_KW)"
 ```
 
 ## Backend-specific flags

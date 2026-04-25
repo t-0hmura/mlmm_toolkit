@@ -55,7 +55,7 @@ mlmm all -i 1.R.pdb 3.P.pdb \
 Default model: `MACE-OMOL-0`. Inspect:
 
 ```bash
-python -c "import mlmm.defaults as d; print(d.MACE_BACKEND_DEFAULTS)"
+python -c "import mlmm.defaults as d; print(d.MLMM_CALC_KW)"
 ```
 
 ## Backend-specific flags

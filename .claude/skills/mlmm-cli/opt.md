@@ -11,7 +11,7 @@ endpoint refinement.
 
 ```bash
 mlmm opt -i input.pdb [-q 0 -m 1] \
-    [--opt-mode grad|hess|lbfgs|rfo] \
+    [--opt-mode grad|hess|light|heavy|lbfgs|rfo] \
     [-b uma|orb|mace|aimnet2] [-o ./result_opt/]
 ```
 
@@ -42,7 +42,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 |---|---|---|---|
 | `-i, --input` | path | required | `.pdb` / `.xyz` / `.gjf` |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `--opt-mode` | str | `grad` | `grad` (LBFGS) or `hess` (RFO); aliases `lbfgs` / `rfo` |
+| `--opt-mode` | str | `grad` | `grad` (LBFGS) or `hess` (RFO); aliases `lbfgs` / `rfo` and the mlmm-only `light` / `heavy` shortcuts (light = LBFGS, heavy = RFO with full Hessian) are accepted |
 | `--max-cycles` | int | (live default) | Stop after N cycles; check `OPT_BASE_KW` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `--solvent` | str | none | xTB-ALPB solvent |

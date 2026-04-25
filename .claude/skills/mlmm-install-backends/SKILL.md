@@ -140,7 +140,7 @@ go back to `env-cuda.md`.
 | `gpu4pyscf` import fails on aarch64 | `gpu4pyscf-cuda12x` is x86_64 only | `dft.md` — fall back to CPU PySCF |
 | `huggingface_hub.errors.GatedRepoError` on UMA load | UMA model is gated, not authenticated | `uma.md` — `huggingface-cli login` |
 | `OSError: libcusolver.so.11 not found` | torch's bundled CUDA libs missing or shadowed | `env-cuda.md` — `LD_LIBRARY_PATH` order |
-| `RuntimeError: CUDA out of memory` during freq | Hessian batch too large | reduce `hessian_calc_mode` batch in `mlmm.defaults.UMA_CALC_KW` |
+| `RuntimeError: CUDA out of memory` during freq | Hessian batch too large | reduce `hessian_calc_mode` batch in `mlmm.defaults.MLMM_CALC_KW` |
 
 ## Live source
 

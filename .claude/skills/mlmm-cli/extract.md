@@ -2,86 +2,102 @@
 
 ## Purpose
 
-Cuts an active-site cluster from a PDB around a substrate selection.
-Severed covalent bonds are capped with hydrogens (link-H), residue
-charges are summed (`-l 'RES:Q'` for non-standard residues), and the
-extracted cluster is written as a PDB ready for any other subcommand.
+Extracts a **binding pocket** from a protein-substrate complex PDB
+around the specified substrate residues, with biochemically aware
+truncation and optional carbon-only link-H. Default output is
+`pocket.pdb`. Multi-input mode produces one PDB per file (or one
+multi-MODEL PDB) for use with `path-search`-style workflows.
+
+This is mlmm-toolkit's pocket extractor; for layer assignment use
+`define-layer.md` (extract does not write B-factor labels).
 
 ## Synopsis
 
 ```bash
 mlmm extract -i complex.pdb -c <substrate-spec> [-l 'RES:Q,...'] \
-    [-r <radius_A>] [-o cluster.pdb] [--multi-model]
+    [-r 2.6] [-o pocket.pdb] [--add-linkh] [--include-h2o] \
+    [--exclude-backbone] [--out-json]
 ```
 
 ## Key flags
 
 | flag | type | default | description |
 |---|---|---|---|
-| `-i, --input` | path(s) | required | Protein–substrate complex PDB(s); multi-input requires identical atom counts |
-| `-c, --center` | str | required | Substrate selector: PDB path, `'RES1,RES2'`, `'A:44,B:SAM'`, or residue-name list |
-| `-r, --radius` | float | 2.6 | Pocket radius (Å) around `-c` atoms |
-| `-l, --ligand-charge` | str | none | Per-residue charges (amino acids derived from internal table) |
-| `-q, --charge` | int | derived | Override total cluster charge |
-| `-m, --multiplicity` | int | 1 | Spin multiplicity |
-| `-o, --output` | path | `model.pdb` | Output PDB path; multiple inputs → per-file or multi-MODEL |
-| `--multi-model` | flag | off | Write all inputs into one multi-MODEL PDB |
-| `--freeze-links / --no-freeze-links` | flag | `--freeze-links` | Mark link-H parents as frozen (B-factor) |
-| `--convert-files` | str | none | Also write `.xyz` / `.gjf` alongside `.pdb` |
-| `--show-config` / `--dry-run` | flag | off | Print resolved config, no extraction |
-| `--help-advanced` | flag | — | Hidden flags (residue rename, custom AA table, …) |
+| `-i, --input` | path(s) | required | Protein-substrate complex PDB(s); multi-input requires identical atom count + ordering |
+| `-c, --center` | str | required | Substrate selector: PDB path, residue-ID list (`'123,124'`, `'A:123,B:456'`), or residue-name list (`'GPP,SAM'`) |
+| `-r, --radius` | float | `2.6` | Cutoff (Å) around substrate atoms for pocket inclusion |
+| `--radius-het2het` | float | `0` | Cutoff (Å) for substrate-protein hetero-atom proximity (non-C/H); 0 disables |
+| `-l, --ligand-charge` | str | none | Per-residue charges, e.g. `'GPP:-3,SAM:1'` |
+| `-o, --output` | path(s) | `pocket.pdb` (single) / `pocket_<filename>.pdb` (multi) | Output PDB(s) |
+| `--include-h2o / --no-include-h2o` | flag | `--include-h2o` | Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL) |
+| `--exclude-backbone / --no-exclude-backbone` | flag | `--no-exclude-backbone` | Delete main-chain atoms from non-substrate amino acids |
+| `--add-linkh / --no-add-linkh` | flag | `--no-add-linkh` | Add carbon-only link-H at 1.09 Å along cut-bond directions |
+| `--selected-resn` | str | none | Comma/space-separated residue IDs to force-include |
+| `--modified-residue` | str | none | Residue names (+ optional charge) to treat as amino acids, e.g. `'HD1:0,SEP:-2'` |
+| `-v, --verbose / --no-verbose` | flag | `--verbose` | INFO-level logging |
+| `--out-json / --no-out-json` | flag | `--no-out-json` | Write `result.json` next to the output PDB |
+| `--help-advanced` | flag | — | Reveal advanced flags |
+
+There is **no `-q/--charge`, `--multi-model`, `--freeze-links`,
+`--convert-files`, `--show-config`, or `--dry-run` flag** in mlmm
+extract (these belong to `pdb2reaction extract`). For mlmm, total
+charge is derived from `-l` only.
 
 ## Examples
 
 ### Minimal — extract around two residues
 
 ```bash
-mlmm extract -i 1abc.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' -r 4.0 -o cluster.pdb
+mlmm extract -i 1abc.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' -r 4.0 -o pocket.pdb
 ```
 
-### Multiple structures, identical ordering
+### With link-H and JSON metadata
+
+```bash
+mlmm extract -i complex.pdb -c 'A:123,A:124' -l 'GPP:-3' -r 3.5 \
+    --add-linkh --out-json -o pocket.pdb
+# → pocket.pdb + pocket.json (when --out-json)
+```
+
+### Multi-input (atom-ordering must match)
 
 ```bash
 mlmm extract -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    -o "1.R_clu.pdb" "3.P_clu.pdb"
-```
-
-### Substrate-only PDB driving extraction
-
-```bash
-mlmm extract -i complex.pdb -c substrate.pdb -r 3.5 -o cluster.pdb
+    -o "1.R_pocket.pdb" "3.P_pocket.pdb"
 ```
 
 ## Output
 
 ```
-cluster.pdb                # extracted cluster, link-H caps applied
-result.json (if --out-json) # extraction stats: total charge, n_atoms, n_residues, freeze list
+pocket.pdb                  # extracted pocket (default name)
+pocket.json (if --out-json) # extraction stats: charge, n_atoms, n_residues
 ```
 
-The PDB B-factor field marks **frozen atoms** (link-H parents) — read
-this back with any subsequent subcommand via `freeze_atoms`.
+The PDB does **not** contain B-factor layer encoding by default — run
+`define-layer` afterwards to assign ML / movable-MM / frozen labels.
 
 ```python
 import json
-d = json.load(open("result.json"))
+d = json.load(open("pocket.json"))
 print(d["charge"], d["n_atoms"], d["residues"])
-print(d["freeze_atoms"])         # indices kept fixed in optimization
 ```
 
 ## Caveats
 
-- Atom names must match exactly (case-sensitive) when using `'A:44:CA'`-style
-  selectors. `add-elem-info` and `fix-altloc` should run before extract
-  if the PDB came out of PyMOL / Maestro.
-- `-r` < 2 Å usually leaves the cluster missing essential coordinating
-  atoms; 3.0–4.5 Å is typical.
-- Ligand charges come **only** from `-l`; the internal table covers
-  standard amino acids and a small list of common cofactors. For
-  uncommon ligands, see `mlmm-structure-io/charge-multiplicity.md`.
+- `--add-linkh` is **off by default** in mlmm (in contrast to pdb2reaction).
+- `--include-h2o` is **on by default**; turn off with `--no-include-h2o`
+  for dry pockets.
+- `--exclude-backbone` is **off by default**; turn on for cluster-style
+  truncated backbones.
+- For the standard ML/MM workflow, follow `extract → mm-parm →
+  define-layer → opt/tsopt/...`.
+- Atom names must match exactly (case-sensitive). Run
+  `mlmm add-elem-info` / `fix-altloc` first if the PDB came out of
+  PyMOL or Maestro.
 
 ## See also
 
-- `mlmm-structure-io/pdb.md` — PDB column layout, residue selectors.
+- `../mlmm-structure-io/pdb.md` — PDB column layout, residue selectors.
+- `mm-parm.md` — parm7 generation (typically run after extract).
+- `define-layer.md` — assign ML / movable-MM / frozen labels (B-factor).
 - `add-elem-info.md`, `fix-altloc.md` — pre-clean a raw PDB.
-- Defaults: `import mlmm.defaults as d; print(d.GEOM_KW_DEFAULT)`

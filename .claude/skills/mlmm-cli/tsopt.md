@@ -13,7 +13,7 @@ externally-generated TS guess.
 ```bash
 mlmm tsopt -i ts_guess.{pdb,xyz,gjf} \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
-    [--opt-mode grad|hess|dimer|rsirfo] \
+    [--opt-mode grad|hess|light|heavy|dimer|rsirfo] \
     [--max-cycles 10000] \
     [-b uma|orb|mace|aimnet2] [-o ./result_tsopt/]
 ```
@@ -45,7 +45,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 |---|---|---|---|
 | `-i, --input` | path | required | TS candidate; `.pdb` / `.xyz` / `.gjf` |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `--opt-mode` | str | `hess` | `grad`/`dimer` (Hessian-Guided Dimer) or `hess`/`rsirfo` (RS-I-RFO) |
+| `--opt-mode` | str | `hess` | `grad`/`dimer` (Hessian-Guided Dimer) or `hess`/`rsirfo` (RS-I-RFO); the mlmm-only `light` / `heavy` shortcuts are also accepted (light = Dimer, heavy = full-Hessian RS-I-RFO) |
 | `--max-cycles` | int | 10000 | Optimization step cap |
 | `--hessian-init` | str | (live default) | `'analytical'` / `'finite-diff'` / `'guess'`; check `RSIRFO_KW` |
 | `-b, --backend` | str | `uma` | MLIP backend |

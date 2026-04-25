@@ -42,7 +42,7 @@ mlmm all -i 1.R.pdb 3.P.pdb \
 Default model: `aimnet2`. Inspect:
 
 ```bash
-python -c "import mlmm.defaults as d; print(d.AIMNET2_BACKEND_DEFAULTS)"
+python -c "import mlmm.defaults as d; print(d.MLMM_CALC_KW)"
 ```
 
 ## Backend-specific flags
