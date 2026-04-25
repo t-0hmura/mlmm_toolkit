@@ -415,6 +415,25 @@ If you find this work helpful for your research, please cite:
 
 ---
 
+## Agent Skills
+
+`mlmm-toolkit` treats AI coding agents as first-class users. The
+`.claude/skills/` directory bundles agent-readable instructions
+covering the CLI subcommands, structure I/O (PDB / XYZ / GJF / parm7),
+backend installation (UMA / Orb / MACE / AIMNet2 / AmberTools / DFT /
+xtb), common workflows, output parsing, and HPC operation.
+
+To use these skills with your agent platform (Claude Code, Cursor,
+OpenCode, etc.), copy the `.claude/skills/` directory into your
+project repository or home directory (whichever your platform expects).
+
+The skill format is inspired by [nvalchemi-toolkit][nvalchemi]'s
+agent skill pattern.
+
+[nvalchemi]: https://github.com/NVIDIA/nvalchemi-toolkit
+
+---
+
 ## License
 
 **ML/MM toolkit** is distributed under the **GNU General Public License version 3 (GPL-3.0)**.

@@ -342,3 +342,11 @@ mlmm <subcommand> --help
 ---
 
 *Note: This documentation is under active development. Some sections may be incomplete or subject to change.*
+
+## Agent skills
+
+A self-contained set of skills under `.claude/skills/` makes
+`mlmm-toolkit` easy to drive from AI coding agents (Claude Code,
+Cursor, OpenCode, …). Copy `.claude/skills/` into your project or
+home directory to use them. See the project README for details.
+

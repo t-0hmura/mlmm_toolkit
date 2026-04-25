@@ -586,3 +586,14 @@ mlmm all --help-advanced
 ```
 
 For `all`, `--help` is intentionally short. Use `--help-advanced` to see every option.
+
+## Driving `mlmm-toolkit` from an AI coding agent
+
+`mlmm-toolkit` ships a `.claude/skills/` directory with agent-readable
+instructions covering CLI usage, structure I/O, backend installation,
+typical workflows, and HPC operation. To use them with Claude Code,
+Cursor, OpenCode, or other agent platforms, copy `.claude/skills/`
+into your project or home directory and the agent will pick them up
+automatically. See the project README "Agent Skills" section for the
+full list.
+
