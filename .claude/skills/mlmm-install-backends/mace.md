@@ -1,7 +1,12 @@
 # MACE backend (mace.md)
 
-MACE-OMOL-0 (MACE-Foundation team) is a high-accuracy MLIP that competes
-with UMA on TS-region work and often does better on metalloenzymes.
+MACE-OMOL-0 is a high-accuracy MLIP trained on the OMol25 dataset
+(83 elements, organic + biomolecules + transition-metal complexes;
+Levine et al. 2025, arXiv:2505.08762). It competes with UMA on
+TS-region work and is one of the four "chemical accuracy"
+(MAE ≲ 1 kcal/mol) backends in the Eastman et al. 2025 15-MLIP
+benchmark (arXiv:2601.16331), alongside UMA-s-1.1, UMA-m-1.1, and
+Orb-v3-omol.
 
 ## Critical: separate environment required
 
@@ -84,6 +89,6 @@ MACE accepts (from `backends/__init__.py:_BACKEND_ACCEPTED_KEYS['mace']`):
 ## See also
 
 - `env-cuda.md` — torch + CUDA prereq.
-- `core.md` — `mlmm` install (do this **inside** `<your_mace_mlmm_env>`).
+- `core.md` — `mlmm-toolkit` install (do this **inside** `<your_mace_mlmm_env>`).
 - `uma.md` — primary backend; keep it in a separate env.
 - `mlmm-cli/tsopt.md` — TS solver choice (Dimer vs RS-I-RFO) interacts with backend.

@@ -49,7 +49,7 @@ the CLI overrides whatever's in the gjf).
 | Element + x/y/z | Geometry, fed to the calculator |
 | Charge | `-q` (only if you don't override on CLI) |
 | Multiplicity | `-m` (only if you don't override on CLI) |
-| Frozen flag (`-1` in column 2) | `freeze_atoms` |
+| Frozen flag (`-1` in column 2) | **Silently ignored** by the gjf coordinate parser. Use `--freeze-links` (CLI) or YAML `freeze_atoms` to declare frozen atoms; the gjf header's `-1` does not propagate. |
 
 ## CLI usage
 
@@ -79,9 +79,18 @@ frozen during optimization. Gaussian convention:
   C  -1   1.234   5.678   9.012
 ```
 
-`mlmm-toolkit` reads this as: this atom is not allowed to move during
-geometry optimization. The `freeze_atoms` set is otherwise populated
-by `extract` (link-atom parents) or by the `--freeze-links` CLI flag.
+**`mlmm-toolkit` does not parse this flag.** Its gjf coordinate regex
+captures element + x/y/z only; the `-1` is dropped silently on read
+and never written on output.
+
+To declare frozen atoms, use either:
+
+- `--freeze-links` (CLI; default-on for `extract`-produced clusters
+  with link-H caps), or
+- a YAML `--config` with `freeze_atoms: [<index>, ...]`.
+
+If you have a Gaussian gjf with frozen markers you care about, extract
+those indices in a preprocessing step and feed them via `--config`.
 
 ## Generating gjf from `mlmm-toolkit` output
 

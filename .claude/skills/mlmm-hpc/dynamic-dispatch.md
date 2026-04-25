@@ -106,15 +106,20 @@ if [[ -n "${PBS_NODEFILE:-}" ]]; then
                 "${WORKER}" "${ROOT_DIR}" "${TOTAL_TASKS}" "${STATE_FILE}" "${LOCK_FILE}" "${TASK_LIST}" &
         pids+=("$!")
     done
-    for pid in "${pids[@]}"; do wait "${pid}"; done
+    set +e
+    status=0
+    for pid in "${pids[@]}"; do wait "${pid}" || status=1; done
+    set -e
 else
     # Fallback for non-PBS environments
     "${WORKER}" "${ROOT_DIR}" "${TOTAL_TASKS}" "${STATE_FILE}" "${LOCK_FILE}" "${TASK_LIST}"
+    status=$?
 fi
 
 # Cleanup
-rm -f "${WORKER}" "${STATE_FILE}" "${LOCK_FILE}"
-echo "All ${TOTAL_TASKS} tasks attempted."
+rm -f "${WORKER}" "${STATE_FILE}" "${LOCK_FILE}" "${TASK_LIST}"
+echo "All ${TOTAL_TASKS} tasks attempted (worker exit status=${status})."
+exit ${status}
 ```
 
 ## Task list format

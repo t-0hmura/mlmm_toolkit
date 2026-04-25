@@ -10,7 +10,7 @@ than UMA / MACE.
 pip install 'mlmm[orb]'         # pulls orb-models
 ```
 
-Or, if `mlmm` is already installed:
+Or, if `mlmm-toolkit` is already installed:
 
 ```bash
 pip install orb-models
@@ -34,7 +34,12 @@ mlmm all -i 1.R.pdb 3.P.pdb \
     -b orb
 ```
 
-Default model: `orb_v3_conservative_omol`.
+Default model: `orb_v3_conservative_omol`. The `_conservative_` part
+distinguishes this checkpoint (forces = ∇E, energy-conservative) from
+the Orb paper's headline non-conservative variant (Neumann et al. 2024,
+arXiv:2410.22570). The `_omol` suffix indicates training on the OMol25
+dataset (Levine et al. 2025); element coverage matches OMol25's 83
+elements (Eastman et al. 2025 benchmark, arXiv:2601.16331).
 
 Inspect the default kwarg dict:
 

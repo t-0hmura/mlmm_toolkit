@@ -1,6 +1,6 @@
 # xTB / ALPB solvent layer (xtb.md)
 
-`mlmm` can apply an xTB-ALPB **implicit solvent correction** to
+`mlmm-toolkit` can apply an xTB-ALPB **implicit solvent correction** to
 any backend-computed energy. The correction is a separate semi-empirical
 SCF call that adds a continuum-solvation term; it is optional and
 turned off by default.
@@ -17,16 +17,19 @@ turned off by default.
 
 Two routes; pick whichever your env can use.
 
-**Route A — `xtb-python` (recommended, pip-installable):**
+**Route A — `xtb` Python bindings (recommended, pip-installable):**
 
 ```bash
-pip install xtb-python
+pip install xtb
 ```
+
+The PyPI package name is `xtb` (not `xtb-python`); the import name is
+also `xtb`.
 
 Verify:
 
 ```bash
-python -c "import xtb; print('xtb-python:', xtb.__version__)"
+python -c "import xtb; print('xtb:', xtb.__version__)"
 ```
 
 **Route B — system `xtb` binary (xtb 6.7+):**
@@ -38,7 +41,7 @@ xtb --version
 which xtb
 ```
 
-`mlmm` calls the binary via subprocess when it can't find the
+`mlmm-toolkit` calls the binary via subprocess when it can't find the
 Python bindings. Make sure `xtb` is on `$PATH` for any PBS / SLURM job
 that needs it.
 
@@ -83,7 +86,7 @@ default — adds noise on small clusters).
 
 ## See also
 
-- `core.md` — `mlmm` install (xTB layer is plumbed via the
+- `core.md` — `mlmm-toolkit` install (xTB layer is plumbed via the
   bundled `backends/xtb_alpb_correction.py` and `backends/solvent.py`).
 - `dft.md` — note that xTB-ALPB does **not** stack with PySCF's own
   PCM/COSMO; pick one.

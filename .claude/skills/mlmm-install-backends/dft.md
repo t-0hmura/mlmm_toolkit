@@ -40,8 +40,8 @@ python -c "import cupy; print('cupy        :', cupy.__version__)"
 
 | `--engine` | When to pick | Approximate cost |
 |---|---|---|
-| `gpu` (default if available) | x86_64 + CUDA, > 100 atoms, ωB97M-V or hybrid functional | 1–10 h on RTX-class GPU per single point |
-| `cpu` | aarch64, no GPU, or small (< 100 atom) molecule | 10–100× slower than GPU |
+| `gpu` (default) | x86_64 + CUDA, > 100 atoms, ωB97M-V or hybrid functional. **Raises `ClickException` if GPU unavailable** — does **not** auto-fallback to CPU | 1–10 h on consumer GPU per single point |
+| `cpu` | aarch64, no GPU, small molecule, or when you want to force CPU | 10–100× slower than GPU |
 
 ## CLI usage
 

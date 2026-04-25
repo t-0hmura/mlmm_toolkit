@@ -2,48 +2,54 @@
 
 ## Purpose
 
-Build an ad-hoc energy diagram from a list of state names + energy
-values. Use this when you've collected energies from multiple
-`mlmm-toolkit` runs (e.g. R from one run, TS / IM from another) and
-want a single composite figure.
+Plot an energy diagram from numeric inputs. Use this when you have
+energy values from one or more `mlmm-toolkit` runs (e.g. R from one
+run, TS / IM from another) and want a single composite figure.
 
 ## Synopsis
 
 ```bash
-mlmm energy-diagram \
-    --states 'R:0.0' 'TS1:21.5' 'IM:-0.7' 'TS2:2.2' 'P:-18.2' \
-    [-o diagram.png] [--html]
+mlmm energy-diagram -i 0 12.5 4.3 [-i 18.2 -2.0] \
+    [-o energy_diagram.png]
 ```
 
 ## Key flags
 
 | flag | type | default | description |
 |---|---|---|---|
-| `--states` | repeated `'NAME:VALUE'` | required | Each state name + energy value (kcal/mol relative to first) |
-| `-o, --output` | path | `diagram.png` | Output figure |
-| `--html` | flag | off | Plotly HTML instead of static PNG |
-| `--units` | str | `kcal/mol` | y-axis units label |
+| `-i, --input` | numeric sequence | required | Energy values. Accepts space-separated numbers (`-i 0 12.5 4.3`), a Python-list literal (`-i "[0,12.5,4.3]"`), or repeated `-i` calls |
+| `-o, --output` | path | `energy_diagram.png` | Output image path |
+| `--help-advanced` | flag | — | Reveal labels / unit / format options |
+
+State labels and y-axis units are exposed via `--help-advanced`. Without
+labels, points are plotted in input order.
 
 ## Examples
 
-### Two-step energy diagram
+### Five points (two-step mechanism)
 
 ```bash
-mlmm energy-diagram \
-    --states 'R:0.0' 'TS1:21.5' 'IM:-0.7' 'TS2:2.2' 'P:-18.2' \
-    -o diagram.png
+mlmm energy-diagram -i 0.0 21.5 -0.7 2.2 -18.2 -o diagram.png
+```
+
+### Bracketed list literal
+
+```bash
+mlmm energy-diagram -i "[0.0, 21.5, -0.7, 2.2, -18.2]" -o diagram.png
 ```
 
 ## Caveats
 
-- Energies are taken **as-is**; the command does no conversion. Make
-  sure your values are in consistent units (kcal/mol typical) before
+- Energies are taken **as-is**; the command does no unit conversion.
+  Make sure all values share a unit (kcal/mol is typical) before
   calling.
-- For a profile *along* a trajectory (continuous coordinate), use
-  `trj2fig.md` instead.
+- For a profile along a continuous trajectory (XYZ frames with energies
+  in the comment line), use `trj2fig.md`.
+- Per-state labels and y-axis legend customization live behind
+  `--help-advanced`; refer to that for production figures.
 
 ## See also
 
-- `trj2fig.md` — plot continuous trajectories.
-- `mlmm-workflows-output/SKILL.md` — extracting per-segment
-  energies from `summary.json`.
+- `trj2fig.md` — plot from a trajectory file.
+- `../mlmm-workflows-output/SKILL.md` — extracting per-segment
+  energies from `summary.json` to feed this command.

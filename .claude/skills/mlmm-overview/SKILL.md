@@ -64,7 +64,7 @@ If `mlmm` is not on PATH or imports fail, see
 ## Pipeline at a glance
 
 ```
-PDB(s)          (with B-factor: 0.0=ML, 10.0=movable-MM, 20.0=frozen)
+PDB(s)          (B-factor: 0.0=ML, 10.0=movable-MM, 20.0=frozen)
   │
   ▼
 [mm-parm]       AmberTools tleap → parm7 / rst7
@@ -73,7 +73,7 @@ PDB(s)          (with B-factor: 0.0=ML, 10.0=movable-MM, 20.0=frozen)
 [define-layer]  expand / refine / verify the ML/MM/Frozen labels
   │
   ▼
-[path-search]   recursive MEP, ONIOM gradients (ML + MM coupling)
+[path-search]   recursive MEP with ONIOM gradients (ML + MM coupling)
   │
   ▼
 [tsopt]         TS refinement per segment
@@ -97,13 +97,33 @@ Same MLIP family as `pdb2reaction`:
 
 | `-b` | Model | Notes |
 |---|---|---|
-| `uma` (default) | UMA-s-1.1, UMA-m-1.1 | Default for ML region |
+| `uma` (default) | UMA-s-1.1 / UMA-m-1.1 (config strings: `uma-s-1p1` / `uma-m-1p1`) | Default for ML region |
 | `mace` | MACE-OMOL-0 | Separate env (e3nn conflict) |
-| `orb` | Orb-v3-omol | Fast screening |
+| `orb` | `orb_v3_conservative_omol` (Orb-v3-omol in papers) | Fast screening |
 | `aimnet2` | AIMNet2 | Limited element coverage |
 
 MM backend is fixed: `hessian_ff` (CPU only, with analytical Hessian).
 DFT (optional) uses PySCF / GPU4PySCF.
+
+## ML/MM-aware CLI conventions
+
+Every ML/MM-evaluating subcommand (`opt`, `tsopt`, `path-search`,
+`scan`, `freq`, `irc`, `dft`, `all`, …) takes:
+
+| flag | purpose |
+|---|---|
+| `-i, --input` | Full-enzyme PDB (or XYZ + `--ref-pdb`) |
+| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--model-pdb FILE` | PDB defining the ML region atoms (optional with `--detect-layer`) |
+| `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (default on) |
+| `--model-indices` | Alternative to `--model-pdb`: comma-separated atom indices (e.g. `1-50,75,100-110`) |
+| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
+| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `-q, --charge` / `-l, --ligand-charge` / `-m, --multiplicity` | ML region charge / spin |
+| `-b, --backend` | ML backend (uma / orb / mace / aimnet2) |
+
+These supersede the cluster-only conventions used by `pdb2reaction`.
+See `mlmm-cli/SKILL.md` for per-subcommand specifics.
 
 ## Sibling project: pdb2reaction
 
@@ -125,7 +145,7 @@ The two toolkits **cannot share a Python environment** (incompatible
 | File | What's there |
 |---|---|
 | `mlmm/cli.py` | Click entry point, subcommand registry |
-| `mlmm/defaults.py` | All default kwarg dicts (MLMM_CALC_KW, B-factor constants, IRC_KW, …) |
+| `mlmm/defaults.py` | All default kwarg dicts (MLMM_CALC_KW, MICROITER_KW, BFACTOR_*, IRC_KW, …) |
 | `mlmm/mlmm_calc.py` | The ONIOM ASE calculator (ML + MM gradient assembly, link-atom math) |
 | `mlmm/extract.py` | Active-site extraction with layer assignment |
 | `mlmm/define_layer.py` | B-factor → layer mapping helpers |
@@ -143,7 +163,7 @@ The two toolkits **cannot share a Python environment** (incompatible
 | Pick a subcommand and run it | `mlmm-cli/SKILL.md` then the per-subcommand md |
 | Read or edit a `.pdb` / `.xyz` / `.gjf` / `.parm7` | `mlmm-structure-io/{SKILL,pdb,xyz,gjf,parm7}.md` |
 | Decide charge / multiplicity for a substrate | `mlmm-structure-io/charge-multiplicity.md` |
-| Install the toolkit, an MLIP backend, AmberTools, or the DFT layer | `mlmm-install-backends/` |
+| Install the toolkit, an MLIP backend, AmberTools, or DFT | `mlmm-install-backends/` |
 | Build an analytical recipe (full ONIOM / scan-list / ts-only) | `mlmm-workflows-output/SKILL.md` |
 | Submit on PBS / SLURM | `mlmm-hpc/SKILL.md` |
 | Detect the cluster / GPU / scheduler you're on | `mlmm-env-detect/SKILL.md` |

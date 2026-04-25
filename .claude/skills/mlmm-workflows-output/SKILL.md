@@ -138,7 +138,7 @@ Per-segment keys (`summary.json["segments"][i]`):
 | `index` | Segment index (`01`, `03`, …) |
 | `barrier_kcal` | TS – R energy (kcal/mol) — the rate constant input |
 | `delta_kcal` | P – R energy (kcal/mol) |
-| `bond_changes` | `{formed: [...], broken: [...]}` (1.3× covalent-radius cutoff) |
+| `bond_changes` | List of dicts (one per consecutive frame pair): `[{"Bond formed (k)": ["A — B : 3.17 Å -> 1.68 Å", ...], "Bond broken (k)": [...]}]`. Default cutoff is 1.20× covalent radii (with internal margin 0.05) — see `mlmm-cli/bond-summary.md`. |
 | `structures` | Map: `reactant`, `ts`, `product` → file paths |
 | `tsopt` | `{status, energy_hartree, n_imaginary_modes, imaginary_frequencies_cm}` |
 | `irc` | `{n_frames_forward, n_frames_backward, energies_*, bond_changes}` |

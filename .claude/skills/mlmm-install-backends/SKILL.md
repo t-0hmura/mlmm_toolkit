@@ -11,13 +11,12 @@ description: How to install mlmm itself and each of its MLIP / DFT / xTB backend
 
 - a recent **PyTorch** wheel matching your CUDA driver,
 - one or more **MLIP backends** (UMA / Orb / MACE / AIMNet2),
-- **AmberTools** for MM parameterization (`mlmm mm-parm`),
 - optional **PySCF / GPU4PySCF** for DFT single points,
-- optional **xtb** for ALPB solvent corrections.
+- optional **xtb** for ALPB solvent corrections,
+- **AmberTools** for MM parameterization (`mlmm mm-parm`).
 
-Bundled and installed automatically with the package: `hessian_ff`
-(analytical-Hessian MM force field), `pysisyphus` (GPU-tensor fork),
-`thermoanalysis`. They must not be installed separately.
+Bundled and installed automatically with the package: `pysisyphus` (a
+GPU-tensor fork), `thermoanalysis`. They must not be installed separately.
 
 This skill directory contains ten files; read them in this order:
 
@@ -26,7 +25,7 @@ This skill directory contains ten files; read them in this order:
 | `SKILL.md` (this file) | Orientation, decision tree, install order |
 | `env-cuda.md` | After confirming you have GPU + driver, before installing torch |
 | `core.md` | Installing `mlmm-toolkit` itself |
-| `uma.md` | Installing UMA (default ML backend; HuggingFace auth required) |
+| `uma.md` | Installing UMA (default backend; HuggingFace auth required) |
 | `orb.md` | Installing Orb-v3 |
 | `mace.md` | Installing MACE — **separate environment** required |
 | `aimnet2.md` | Installing AIMNet2 |
@@ -79,7 +78,7 @@ need both toolkits available on the same host.
 ## Conda env templates
 
 Replace `<...>` with the values you discovered in `env-detect`. The
-templates assume `python=3.11`; `mlmm-toolkit` requires Python ≥ 3.10.
+templates assume `python=3.11`; `mlmm-toolkit` requires Python ≥ 3.11.
 
 `env_mlmm.yml` (UMA / Orb / AIMNet2 / DFT / xTB):
 

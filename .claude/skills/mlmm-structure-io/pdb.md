@@ -58,11 +58,18 @@ mlmm extract -i complex.pdb -c 'SAM,GPP,MG' -o cluster.pdb
 # Form 2 — a separate PDB containing only the substrate residues.
 mlmm extract -i complex.pdb -c substrate.pdb -o cluster.pdb
 
-# Form 3 — chain-specific: `chainID:resSeq` or `chainID:resName`
-mlmm extract -i complex.pdb -c 'A:44,A:SAM,A:GPP' -o cluster.pdb
+# Form 3 — chain-aware: `chainID:resSeq` (numeric resSeq is honored)
+mlmm extract -i complex.pdb -c 'A:44' -o cluster.pdb
 ```
 
-The pocket radius around the centers is set by `-r <Å>` (default 3.0 Å).
+> **Caveat**: only `chainID:resSeq` (numeric) is parsed as chain-aware
+> in `extract.py`. Tokens like `'A:SAM'` (chain:resName) silently fall
+> back to a plain resName match across all chains. To restrict by chain
+> you must supply numeric resSeq. To select all SAM in chain A, run
+> `extract` with `-c 'SAM'` first then trim chains by hand, or use the
+> Form-2 substrate-PDB workflow.
+
+The pocket radius around the centers is set by `-r <Å>` (default 2.6 Å).
 All residues with at least one heavy atom inside the radius are kept.
 
 ## Per-residue charge mapping (`-l / --ligand-charge`)
@@ -98,46 +105,23 @@ parent of each cap) are added to a `freeze_atoms` list so they do not
 move during optimization. `mlmm-toolkit` writes the indices to the
 extracted PDB's B-factor field for downstream consumption.
 
-## B-factor layer encoding (mlmm-specific)
-
-In `mlmm-toolkit`, the PDB B-factor field (cols 61-66) is overloaded
-to carry the **ML / movable-MM / frozen layer label**:
-
-| B-factor value | Layer | Meaning |
-|---|---|---|
-| **0.0** | ML | Region treated by the MLIP (UMA / Orb / MACE / AIMNet2) |
-| **10.0** | Movable MM | MM atoms whose positions are updated during microiteration |
-| **20.0** | Frozen | MM atoms held fixed; gradient zero |
-
-A small tolerance (default 1.0) is applied so 0.5 still counts as ML
-and 9.5 still counts as movable. The exact constants are exported:
-
-```bash
-python -c "import mlmm.defaults as d; print(d.BFACTOR_ML, d.BFACTOR_MOVABLE_MM, d.BFACTOR_FROZEN, d.BFACTOR_TOLERANCE)"
-```
-
-To assign / reassign labels:
-
-- `mlmm define-layer` — bulk assignment (by residue, distance, or
-  selector).
-- Manual edit — change column 61-66 to `  0.00`, ` 10.00`, or
-  ` 20.00` for the residues you want to relabel.
-- `mlmm extract` — automatic: anything in the substrate selector
-  becomes ML; surroundings within `--mm-radius` become movable-MM;
-  the rest becomes frozen.
-
-When a subcommand reads the PDB without `--ref-pdb`, the layer
-assignment in the PDB is taken at face value.
-
 ## Common edits
 
-### Rename residue 44 from CYS to CSS
+### Rename residue 44 in chain A from CYS to CSS
+
+PDB columns: resName 18-20, chainID 22, resSeq 23-26. Match all three
+explicitly via `awk substr` (the natural column-aware tool — sed regex
+on PDB lines is error-prone because of the dot-counts):
 
 ```bash
-sed -i '/^ATOM.\{17\}.\{4\}CYS.\{1\}A.\{3\}44/{ s/CYS/CSS/ }' my.pdb
+awk 'BEGIN{OFS=""} \
+  ($1=="ATOM" || $1=="HETATM") && substr($0,18,3)=="CYS" \
+    && substr($0,22,1)=="A" && substr($0,23,4)+0==44 \
+    { $0 = substr($0,1,17) "CSS" substr($0,21) } \
+  { print }' my.pdb > my_renamed.pdb
 ```
 
-(The `.\{N\}` placeholders avoid touching atoms in other residues.)
+For non-trivial edits use Biopython (handles altloc, ANISOU, …).
 
 ### Add element column with `add-elem-info`
 
@@ -148,7 +132,7 @@ mlmm add-elem-info -i my.pdb -o my_with_elem.pdb
 ### Resolve alt-loc
 
 ```bash
-mlmm fix-altloc -i my.pdb -o my_clean.pdb --keep A
+mlmm fix-altloc -i my.pdb -o my_clean.pdb
 ```
 
 ### Programmatic edits via Biopython
@@ -159,8 +143,9 @@ p = PDBParser(QUIET=True).get_structure("x", "my.pdb")
 for atom in p.get_atoms():
     if atom.get_name() == "OD1" and atom.get_parent().get_resname() == "ASP":
         atom.set_bfactor(20.0)        # mark frozen, for example
-PDBIO().set_structure(p)
-PDBIO().save("my_edited.pdb")
+io = PDBIO()
+io.set_structure(p)
+io.save("my_edited.pdb")
 ```
 
 ## Validation hooks

@@ -1,7 +1,7 @@
 # UMA backend (uma.md)
 
 UMA (**U**niversal **M**odel for **A**toms, Meta FAIR) is the default
-backend for `mlmm`. It covers the broadest element / chemistry
+backend for `mlmm-toolkit`. It covers the broadest element / chemistry
 range of the four backends and is the reference for the published
 benchmark numbers.
 
@@ -51,12 +51,16 @@ mlmm all -i 1.R.pdb 3.P.pdb \
     -b uma                       # explicit, identical to default
 ```
 
-Available models (set via `--model` or via `mlmm.defaults.UMA_CALC_KW`):
+Available models (set via `--model` or via `mlmm.defaults.UMA_CALC_KW`).
+Two equivalent notations are common:
 
-| `--model` value | Notes |
-|---|---|
-| `uma-s-1.1` (default) | Smaller / faster, sufficient for most workflows |
-| `uma-m-1.1` | Larger, slightly more accurate, ~3× slower |
+| config string (`--model`) | paper notation | HuggingFace repo | Notes |
+|---|---|---|---|
+| `uma-s-1p1` (default) | UMA-S-1.1 / UMA-s-1.1 | `facebook/UMA-S-1.1` | Smaller / faster, sufficient for most workflows |
+| `uma-m-1p1` | UMA-M-1.1 / UMA-m-1.1 | `facebook/UMA-M-1.1` | Larger, slightly more accurate, ~3× slower |
+
+`p` is the dot replacement used by fairchem-core's config parser
+(`1p1` ↔ `1.1`). Pass the config string (`uma-s-1p1`) on the CLI.
 
 Inspect the full default kwarg dict:
 
@@ -86,19 +90,29 @@ subcommand; see `mlmm-cli/SKILL.md`.
 
 ## Multi-GPU inference (advanced)
 
-Under heavy MEP search load you can shard inference across multiple GPUs:
+Under heavy MEP search load you can shard inference across multiple GPUs.
+Configure via a YAML config (`--config`) — there is no `--calc-kwargs`
+CLI flag:
+
+```yaml
+# multi_worker.yaml
+calc:
+  workers: 4
+  workers_per_node: 4
+```
 
 ```bash
-mlmm all -i ... -b uma \
-    --calc-kwargs '{"workers": 4, "workers_per_node": 4}'
+mlmm all -i ... -b uma --config multi_worker.yaml
 ```
 
 This spawns a Ray worker pool. Limitations:
 
-- One node only (no cross-node sharding via `mlmm`).
+- **Single node only** (no cross-node sharding via `mlmm-toolkit`).
 - All workers must see the same GPUs (e.g. `CUDA_VISIBLE_DEVICES=0,1,2,3`).
-- Adds overhead for small graphs — turn off when you're optimizing
-  systems below ~100 atoms.
+- Adds overhead for small graphs — disable for systems below ~100 atoms.
+- **Silent Hessian downgrade**: when `workers > 1`, analytical Hessian
+  is silently disabled in favor of finite-difference. See
+  `mlmm/docs/uma-pysis.md` for the full caveat.
 
 ## Known gotchas
 

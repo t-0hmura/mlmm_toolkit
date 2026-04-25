@@ -3,11 +3,11 @@ name: mlmm-env-detect
 description: Fallback skill for detecting the current compute environment (local / PBS / SLURM, CPU architecture, GPU, CUDA, conda env). Use only when the env is unknown — other skills assume placeholders are filled by the user or context.
 ---
 
-# pdb2reaction Environment Detection
+# mlmm Environment Detection
 
 ## When to use this skill
 
-Most `mlmm` skills assume you already know your environment and
+Most `mlmm-toolkit` skills assume you already know your environment and
 fill in placeholders like `<YOUR_QUEUE>`, `<NCPU>`, `<NGPU>`, `<CUDA_MODULE>`,
 `<YOUR_ENV>` directly. **Use this skill only when those are unknown** — for
 example, the first time you run on a new host, or when an automated agent
@@ -97,13 +97,13 @@ squeue -u "$USER"
 
 ```bash
 conda env list                    # all envs
-# is pdb2reaction installed somewhere?
+# is mlmm installed somewhere?
 for env in $(conda env list | awk '/^[a-zA-Z]/{print $1}'); do
   conda run -n "$env" python -c 'import mlmm; print("'"$env"': ", mlmm.__version__)' 2>/dev/null
 done
 ```
 
-The env that successfully imports `mlmm` is your `<YOUR_ENV>`.
+The env that successfully imports `mlmm-toolkit` is your `<YOUR_ENV>`.
 If none does, see `mlmm-install-backends/SKILL.md`.
 
 ### 8. Loaded modules
@@ -116,12 +116,13 @@ command -v module >/dev/null && module list 2>&1
 
 | Placeholder | How to fill it from the output above |
 |---|---|
-| `<YOUR_QUEUE>` | A queue from `qstat -Q` (PBS) or partition from `sinfo` (SLURM) whose `max_walltime` covers your job |
+| `<YOUR_QUEUE>` | A queue from `qstat -Q` (PBS) whose `max_walltime` covers your job |
+| `<YOUR_PARTITION>` | A partition from `sinfo -o "%P %l %N %G"` (SLURM) whose `TIMELIMIT` covers your job |
 | `<NCPU>` | `np` from `pbsnodes -a` (PBS) or `--cpus-per-task` budget (SLURM) |
 | `<NGPU>` | `gpus = N` from `pbsnodes -a` (PBS) or `--gres=gpu:N` (SLURM) |
-| `<MEM>` | A safe fraction of the per-node memory shown by `pbsnodes` / `sinfo` |
-| `<CUDA_MODULE>` | The line returned by `module avail cuda` (e.g. `cuda/12.x` — exact value depends on the cluster) |
-| `<YOUR_ENV>` | The conda env that imported `mlmm` in step 7 |
+| `<MEM>` | A safe fraction of the per-node memory: `pbsnodes -a \| grep totalmem` (PBS) or `sinfo -o "%m"` (SLURM) |
+| `<CUDA_MODULE>` | A line from `module avail 2>&1 \| grep -i cuda` (naming varies: `cuda`, `cudatoolkit`, `nvhpc`, …) |
+| `<YOUR_ENV>` | The conda env that imported `mlmm-toolkit` in step 7 |
 | `<HH:MM:SS>` | Your estimated walltime, capped by the queue's `resources_max.walltime` |
 
 ## Recipe: full one-shot probe
@@ -134,7 +135,7 @@ placeholder used by other `mlmm-*` skills.
   echo "=== Scheduler ==="
   command -v qsub   >/dev/null && echo "PBS"
   command -v sbatch >/dev/null && echo "SLURM"
-  command -v qsub sbatch >/dev/null || echo "local only"
+  command -v qsub >/dev/null || command -v sbatch >/dev/null || echo "local only"
 
   echo
   echo "=== Architecture ==="
@@ -157,7 +158,7 @@ placeholder used by other `mlmm-*` skills.
   command -v sinfo >/dev/null && sinfo -o "%P %l %N %G" 2>/dev/null
 
   echo
-  echo "=== Conda envs with pdb2reaction ==="
+  echo "=== Conda envs with mlmm ==="
   for env in $(conda env list 2>/dev/null | awk '/^[a-zA-Z]/{print $1}'); do
     conda run -n "$env" python -c \
       'import mlmm; print("'"$env"':", mlmm.__version__)' 2>/dev/null

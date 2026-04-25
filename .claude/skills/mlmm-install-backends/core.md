@@ -1,12 +1,12 @@
 # Installing mlmm itself (core.md)
 
-`mlmm` is a pure-Python package; no native C/C++ build is needed.
+`mlmm-toolkit` is a pure-Python package; no native C/C++ build is needed.
 The bundled `pysisyphus` (GPU-tensor fork) and `thermoanalysis` install
 automatically with `pip install mlmm`.
 
 ## Prerequisites
 
-- Python ≥ 3.10
+- Python ≥ 3.11
 - A working PyTorch install matching your CUDA driver — see `env-cuda.md`
 - (For DFT) PySCF / GPU4PySCF — see `dft.md`
 - (For ALPB) xtb — see `xtb.md`

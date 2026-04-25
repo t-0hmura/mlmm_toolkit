@@ -18,6 +18,27 @@ mlmm tsopt -i ts_guess.{pdb,xyz,gjf} \
     [-b uma|orb|mace|aimnet2] [-o ./result_tsopt/]
 ```
 
+
+## ML/MM-aware flags (mlmm-toolkit specific)
+
+Beyond the cluster-style flags below (inherited from `pdb2reaction`),
+**`mlmm-toolkit` requires an Amber topology** and supports layer-aware
+selection. Most subcommands accept:
+
+| flag | purpose |
+|---|---|
+| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
+| `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
+| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); overrides `--model-pdb` |
+| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
+| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
+| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `-q, --charge` | **ML-region** charge (not whole-system) |
+| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
+
+Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
+
 ## Key flags
 
 | flag | type | default | description |

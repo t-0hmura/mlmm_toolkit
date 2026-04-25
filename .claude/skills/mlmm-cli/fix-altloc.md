@@ -2,49 +2,62 @@
 
 ## Purpose
 
-Resolve PDB alternate locations (`altloc` field, col 17). When a
-crystal structure has multiple conformations for the same residue, the
-PDB stores them with `altloc='A'`, `altloc='B'`, etc. Most downstream
-tools (including `mlmm extract`) expect a single conformation
-per atom — `fix-altloc` keeps one and discards the rest.
-
-Run on raw RCSB PDBs before `extract`.
+Blank the PDB altLoc column (col 17) without shifting any other field,
+and keep **one** altLoc per atom. The default rule is **highest
+occupancy first, then earliest appearance** — there is no letter-based
+selection. Run on raw RCSB PDBs before `extract`; most downstream tools
+(including `mlmm extract`) expect one conformation per atom.
 
 ## Synopsis
 
 ```bash
-mlmm fix-altloc -i in.pdb -o out.pdb [--keep A]
+mlmm fix-altloc -i in.pdb [-o out.pdb] [--help-advanced]
 ```
+
+`-i` can be a single PDB or a directory; `-o` matches accordingly
+(file → file, directory → directory).
 
 ## Key flags
 
 | flag | type | default | description |
 |---|---|---|---|
-| `-i, --input` | path | required | Input PDB (with altloc field populated) |
-| `-o, --output` | path | required | Output PDB (altloc cleared) |
-| `--keep` | str | `A` | Which alt-loc letter to retain (`A`, `B`, …) |
-| `--by-occupancy` | flag | off | Keep the conformation with highest occupancy instead of letter-based |
+| `-i, --input` | path | required | Input PDB file or directory |
+| `-o, --out` | path | derived | Output file (if input is file) or directory (if directory). Omit to overwrite in place via `--inplace`. |
+| `--help-advanced` | flag | — | Reveal advanced flags (`--inplace`, `--overwrite`, `--force`, `--recursive`) |
+
+The selection rule is **fixed**: highest occupancy, then earliest
+appearance. There is no `--keep <letter>` flag.
 
 ## Examples
 
 ```bash
-# Keep alt-loc A (most common PDB convention)
-mlmm fix-altloc -i raw.pdb -o cleaned.pdb --keep A
+# Single PDB
+mlmm fix-altloc -i raw.pdb -o cleaned.pdb
 
-# Keep highest-occupancy alt-loc per residue
-mlmm fix-altloc -i raw.pdb -o cleaned.pdb --by-occupancy
+# Whole directory
+mlmm fix-altloc -i raw_pdbs/ -o cleaned_pdbs/
+
+# In place (advanced)
+mlmm fix-altloc -i raw.pdb --help-advanced     # see --inplace
+mlmm fix-altloc -i raw.pdb --inplace --force
 ```
+
+## Output
+
+- Single-file mode: one PDB at `-o` (or in place).
+- Directory mode: one PDB per input file, mirrored under `-o/`.
+- altLoc column (col 17) is blanked for all surviving atoms.
 
 ## Caveats
 
-- Choosing the wrong alt-loc can place a side chain in the wrong
-  conformation for the chemistry you care about. **Inspect the
-  active-site residues** of both alt-loc copies before picking.
-- After fix-altloc, col 17 is blanked out. If a downstream tool needs
-  it, this won't help.
+- The selection rule (highest occupancy, then earliest) is the only
+  rule. If the active site has a high-occupancy alt-loc that is **not**
+  the chemistry you want, edit the PDB by hand or run a different tool.
+- `add-elem-info` and `fix-altloc` are typically run together on raw
+  RCSB downloads; order does not matter.
 
 ## See also
 
-- `add-elem-info.md` — usually run together with fix-altloc.
-- `extract.md` — depends on cleaned PDB input.
-- `mlmm-structure-io/pdb.md` — col 17 (altloc) reference.
+- `add-elem-info.md` — usually run together.
+- `extract.md` — expects altloc-resolved PDB input.
+- `../mlmm-structure-io/pdb.md` — col 17 (altLoc) reference.

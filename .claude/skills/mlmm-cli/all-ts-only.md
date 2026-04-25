@@ -33,18 +33,21 @@ mlmm all -i ts_candidate.pdb \
 `mlmm all` falls into TS-only mode when:
 
 - exactly **one** `-i` input is given,
-- **no** `--scan-lists` is provided,
-- the input does not look like a reactant (heuristic: it has at least
-  one bond near a typical TS geometry, e.g. a stretched bond between
-  ~1.5 and ~2.5× equilibrium length).
+- **no** `--scan-lists` is provided.
 
-If you want to **force** TS-only behavior, set:
+The orchestrator skips path-search automatically and starts the
+pipeline at `tsopt`. There is **no explicit "force TS-only" flag** — the
+mode is selected purely from the input shape. If you also pass
+`--no-tsopt`, `all` becomes a thin wrapper around `freq + irc + dft`
+(rarely useful).
+
+For finer control, run the underlying subcommands directly:
 
 ```bash
-mlmm all -i ts.xyz --no-path-search --tsopt --thermo -o result_ts_only
+mlmm tsopt -i ts.xyz -q ... -m 1 -o result_tsopt -b uma
+mlmm irc   -i result_tsopt/final_geometry.xyz -o result_irc -b uma
+mlmm freq  -i result_tsopt/final_geometry.xyz -o result_freq -b uma
 ```
-
-(The `--no-path-search` flag is in `--help-advanced`.)
 
 ## Pipeline collapses to
 
@@ -133,3 +136,22 @@ saddle**; see "Distinctive failure modes" below.
   fine-grained control).
 - `mlmm-workflows-output/SKILL.md` — IRC interpretation
   and bond-change conventions.
+## ML/MM-aware flags (mlmm-toolkit specific)
+
+Beyond the cluster-style flags below (inherited from `pdb2reaction`),
+**`mlmm-toolkit` requires an Amber topology** and supports layer-aware
+selection. Most subcommands accept:
+
+| flag | purpose |
+|---|---|
+| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
+| `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
+| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); overrides `--model-pdb` |
+| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
+| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
+| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `-q, --charge` | **ML-region** charge (not whole-system) |
+| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
+
+Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.

@@ -105,7 +105,7 @@ Symptoms that you have this problem:
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 ```
 
-`mlmm` runs MLIP backends on CPU but is **much slower**
+`mlmm-toolkit` runs MLIP backends on CPU but is **much slower**
 (50–200×). DFT subcommand falls back to PySCF CPU automatically — see
 `dft.md`.
 
