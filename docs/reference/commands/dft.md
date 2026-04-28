@@ -47,6 +47,10 @@ Options:
                                   3=default, 5=fine, 9=very fine).  [default: 3]
   --engine [gpu|cpu]              SCF backend: gpu (GPU4PySCF, raises error if
                                   unavailable) or cpu (PySCF).  [default: gpu]
+  --lowmem / --no-lowmem          Use gpu4pyscf rks_lowmem.RKS for closed-shell
+                                  GPU runs (skips density_fit). Open-shell or
+                                  CPU engines fall back to standard RKS/UKS
+                                  automatically.  [default: lowmem]
   -o, --out-dir DIRECTORY         Output directory.  [default: result_dft]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
