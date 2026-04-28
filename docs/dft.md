@@ -10,7 +10,7 @@
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-The default `--engine` is `gpu` (GPU4PySCF); use `--engine cpu` for CPU-only PySCF. The `gpu` engine raises an error if GPU4PySCF is unavailable. The default functional/basis is `wb97m-v/def2-tzvpd`.
+The default `--engine` is `gpu` (GPU4PySCF); use `--engine cpu` for CPU-only PySCF. The `gpu` engine raises an error if GPU4PySCF is unavailable. The default functional/basis is `wb97m-v/def2-tzvpd`. Closed-shell GPU runs use GPU4PySCF's low-memory `rks_lowmem.RKS` by default (`--lowmem/--no-lowmem`); open-shell or CPU paths fall back to standard RKS/UKS automatically.
 
 ## Minimal example
 
@@ -74,6 +74,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--conv-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
 | `--grid-level INT` | DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine). | `3` |
 | `--engine {gpu,cpu}` | Force GPU4PySCF (`gpu`) or CPU PySCF (`cpu`). | `gpu` |
+| `--lowmem/--no-lowmem` | Use `gpu4pyscf.dft.rks_lowmem.RKS` for closed-shell GPU runs (skips density fitting). Open-shell, CPU, or pre-`rks_lowmem` GPU4PySCF auto-fall back to standard RKS/UKS. | `True` |
 | `-o, --out-dir DIR` | Output directory. | `./result_dft/` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |

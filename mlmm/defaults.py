@@ -468,6 +468,7 @@ DFT_KW: Dict[str, Any] = {
     "grid_level": 3,
     "verbose": 4,
     "out_dir": "./result_dft/",
+    "lowmem": True,  # Use gpu4pyscf rks_lowmem for closed-shell GPU runs (auto-fallback otherwise)
 }
 
 # Note: normalize_choice and deep_update are now in utils.py to avoid duplication

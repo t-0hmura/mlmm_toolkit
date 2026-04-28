@@ -10,7 +10,7 @@
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-デフォルトの `--engine` は `gpu`（GPU4PySCF）です。CPU のみで実行するには `--engine cpu` を指定してください。`gpu` エンジンは GPU4PySCF が利用できない場合にエラーを返します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。
+デフォルトの `--engine` は `gpu`（GPU4PySCF）です。CPU のみで実行するには `--engine cpu` を指定してください。`gpu` エンジンは GPU4PySCF が利用できない場合にエラーを返します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。closed-shell の GPU 経路では GPU4PySCF の低メモリ実装 `rks_lowmem.RKS` をデフォルトで使用し（`--lowmem/--no-lowmem`）、open-shell や CPU では標準 RKS/UKS に自動フォールバックします。
 
 ## 最小例
 
@@ -77,6 +77,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
 | `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=fine, 9=very fine)。 | `3` |
 | `--engine {gpu,cpu}` | GPU4PySCF（`gpu`）または CPU PySCF（`cpu`）を強制。 | `gpu` |
+| `--lowmem/--no-lowmem` | closed-shell の GPU 経路で `gpu4pyscf.dft.rks_lowmem.RKS` を使用（密度フィッティング省略）。open-shell、CPU、`rks_lowmem` 非搭載の旧 `gpu4pyscf` では標準 RKS/UKS に自動フォールバック。 | `True` |
 | `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |

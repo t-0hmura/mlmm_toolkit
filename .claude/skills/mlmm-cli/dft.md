@@ -47,6 +47,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--ref-pdb` | path | none | Reference PDB so `-l` works on `.xyz` input |
 | `--func-basis` | str | `wb97m-v/def2-tzvpd` | `'FUNC/BASIS'` |
 | `--engine` | str | `gpu` | `gpu` (GPU4PySCF) or `cpu` (PySCF) |
+| `--lowmem/--no-lowmem` | bool | `True` | `gpu4pyscf.dft.rks_lowmem.RKS` on closed-shell GPU (skips DF); open-shell / CPU / pre-`rks_lowmem` GPU4PySCF auto-fall back |
 | `--config` | path | none | YAML config file |
 | `-o, --out-dir` | path | `./result_dft/` | Output directory |
 | `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
