@@ -36,16 +36,20 @@ reported:
 ```bash
 module load <CUDA_MODULE>           # exact name from `module avail cuda`
 module load gcc                     # required when system /usr/bin/gcc is too old for the CUDA toolkit, or when pip will build any C/CUDA extension from source (e.g. gpu4pyscf source build, sm_120 / Blackwell, niche wheels)
-module load <OPENMPI_MODULE>        # only when running multi-node Ray (`--workers > 1`); single-node runs do not need it
 nvcc --version                      # confirm
 echo "$CUDA_HOME"                   # often set by the module
 ```
 
-Add `module load <CUDA_MODULE>` (and `gcc`, plus `<OPENMPI_MODULE>` if
-relevant) to **every** PBS / SLURM script that uses the GPU (see
-`mlmm-hpc/SKILL.md`). On clusters whose system default gcc already
-matches the CUDA toolkit, the explicit `module load gcc` line may be
-unnecessary — leave it in the template anyway and let the modulefile
+Add `module load <CUDA_MODULE>` (and `gcc` if relevant) to **every** PBS
+/ SLURM script that uses the GPU (see `mlmm-hpc/SKILL.md`). `mlmm-toolkit`
+parallelises the MM side over CPU threads (default `mm_threads=16`,
+backed by PyTorch / OpenMP — `gcc` ships the matching `libgomp`), so
+the PBS preamble should request `ppn`/`--cpus-per-task` ≥ `mm_threads`.
+It does not use Ray or `--workers`, and no MPI launcher is involved, so
+OpenMPI is not part of the standard preamble. On clusters whose system
+default gcc already matches the CUDA toolkit, the explicit `module load
+gcc` line may be unnecessary — leave it in the template anyway and let
+the modulefile
 no-op if the version is already current.
 
 **Setup B — system install** (e.g. `/usr/local/cuda` on a workstation):
@@ -112,8 +116,11 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 ```
 
 `mlmm-toolkit` runs MLIP backends on CPU but is **much slower**
-(50–200×). DFT subcommand falls back to PySCF CPU automatically — see
-`dft.md`.
+(50–200×). For DFT (`mlmm dft`), CPU PySCF is **not** an automatic
+fallback — pass `--engine cpu` (or set `dft.engine: cpu` in YAML)
+explicitly when the GPU backend is unavailable; with the default
+`--engine gpu` the command raises a `ClickException` rather than
+silently falling back. See `dft.md`.
 
 ## Architecture quirk: aarch64
 

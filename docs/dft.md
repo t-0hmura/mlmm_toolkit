@@ -51,7 +51,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Link hydrogens are appended automatically (C/N parents within 1.7 Å) unless explicit `link_mlmm` pairs are provided via YAML.
-2. **SCF build** -- `--func-basis` is parsed into functional and basis. Density fitting is enabled automatically with PySCF defaults. The GPU4PySCF backend is used when available. Use `--engine cpu` to force CPU mode. When `--embedcharge` is enabled, MM point charges from the Amber topology are embedded into the QM Hamiltonian via `pyscf.qmmm.mm_charge()`, so the DFT wavefunction is self-consistently polarized by the MM environment.
+2. **SCF build** -- `--func-basis` is parsed into functional and basis. The GPU4PySCF backend is used when available; closed-shell GPU runs additionally use the low-memory `gpu4pyscf.dft.rks_lowmem.RKS` SCF when `--lowmem` is on (default). Use `--engine cpu` to force CPU mode. `mlmm dft` does not call `density_fit()` on the SCF object; on the standard GPU/CPU paths the SCF inherits whatever default JK pipeline the backend ships with, and on the lowmem path the SCF uses the memory-efficient direct-JK pipeline of `rks_lowmem.RKS`. When `--embedcharge` is enabled, MM point charges from the Amber topology are embedded into the QM Hamiltonian via `pyscf.qmmm.mm_charge()`, so the DFT wavefunction is self-consistently polarized by the MM environment.
 3. **ML(dft)/MM recombination** -- After the DFT converges, MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low) are computed. The combined energy is reported in Hartree and kcal/mol.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
 
@@ -74,14 +74,17 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--conv-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
 | `--grid-level INT` | DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine). | `3` |
 | `--engine {gpu,cpu}` | Force GPU4PySCF (`gpu`) or CPU PySCF (`cpu`). | `gpu` |
-| `--lowmem/--no-lowmem` | Use `gpu4pyscf.dft.rks_lowmem.RKS` for closed-shell GPU runs (skips density fitting). Open-shell, CPU, or pre-`rks_lowmem` GPU4PySCF auto-fall back to standard RKS/UKS. | `True` |
+| `--lowmem/--no-lowmem` | Use `gpu4pyscf.dft.rks_lowmem.RKS` for closed-shell GPU runs (memory-efficient direct JK; `mlmm dft` does not call `density_fit()` on either path). Open-shell, CPU, or pre-`rks_lowmem` GPU4PySCF auto-fall back to standard RKS/UKS. | `True` |
 | `-o, --out-dir DIR` | Output directory. | `./result_dft/` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
 | `-b, --backend CHOICE` | MLIP backend used for the low-level ONIOM recombination: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Enable electrostatic embedding: MM point charges from the Amber topology are added to the PySCF QM Hamiltonian so the DFT wavefunction is polarized by the MM environment. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
+| `--link-atom-method {scaled,fixed}` | Link-atom position mode: `scaled` (g-factor, Gaussian ONIOM standard) or `fixed` (legacy 1.09/1.01 Å). | `scaled` |
+| `--mm-backend {hessian_ff,openmm}` | MM backend used by the ONIOM low-level evaluation: `hessian_ff` (analytical) or `openmm` (finite-difference Hessian). | `hessian_ff` |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
+| `--out-json/--no-out-json` | Write a machine-readable `result.json` to `out_dir`. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
@@ -91,11 +94,13 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 out_dir/ (default: ./result_dft/)
 ├── ml_region_with_linkH.xyz    # ML-region coordinates (with link-H) used for DFT
 ├── result.yaml                 # DFT + ML(dft)/MM energy summary, charges, spin densities
+├── result.json                 # only when --out-json is passed
 └── (stdout)                    # Pretty-printed configuration blocks and energies
 ```
 
 - `result.yaml` expands to:
-  - `energy`: Hartree/kcal/mol values, convergence flag, wall time, backend info (gpu4pyscf vs pyscf(cpu)).
+  - `energy`: Hartree/kcal/mol values, convergence flag, wall time, backend info (`engine`: `gpu4pyscf(rks_lowmem)` / `gpu4pyscf` / `pyscf(cpu)`; `used_gpu`; `used_lowmem`).
+  - `mlmm_energy`: REAL-low / MODEL-low MM evaluations and the recombined `E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low` in Hartree and kcal/mol.
   - `charges`: Mulliken, meta-Lowdin, and IAO atomic charges (`null` when a method fails).
   - `spin_densities`: Mulliken, meta-Lowdin, and IAO spin densities (UKS-only for spins).
 - It also summarizes charge, multiplicity, spin (2S), functional, basis, convergence knobs, and resolved output directory.

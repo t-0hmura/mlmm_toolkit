@@ -589,7 +589,8 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "lowmem",
     default=DFT_KW["lowmem"],
     show_default=True,
-    help="Use gpu4pyscf rks_lowmem.RKS for closed-shell GPU runs (skips density_fit). "
+    help="Use gpu4pyscf rks_lowmem.RKS for closed-shell GPU runs "
+         "(memory-efficient direct JK; mlmm dft does not call density_fit() on either path). "
          "Open-shell or CPU engines fall back to standard RKS/UKS automatically.",
 )
 @click.option(

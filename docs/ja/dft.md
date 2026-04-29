@@ -51,7 +51,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## ワークフロー
 
 1. **入力処理** -- 完全酵素 PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。リンク水素は自動付加されます（C/N 親原子が 1.7 Å 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。
-2. **SCF 構築** -- `--func-basis` が汎関数と基底関数に解析されます。密度適合は PySCF デフォルトで自動有効化されます。GPU4PySCF バックエンドは利用可能な場合に使用されます。CPU モードを強制するには `--engine cpu` を使用してください。`--embedcharge` が有効な場合、Amber トポロジーの MM 点電荷が `pyscf.qmmm.mm_charge()` を介して QM ハミルトニアンに埋め込まれ、DFT 波動関数が MM 環境で自己無撞着に分極します。
+2. **SCF 構築** -- `--func-basis` が汎関数と基底関数に解析されます。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。`--embedcharge` が有効な場合、Amber トポロジーの MM 点電荷が `pyscf.qmmm.mm_charge()` を介して QM ハミルトニアンに埋め込まれ、DFT 波動関数が MM 環境で自己無撞着に分極します。
 3. **ML(dft)/MM 再結合** -- DFT が収束した後、全系（REAL-low）と ML サブセット（MODEL-low）の MM 評価が計算されます。結合エネルギーは Hartree と kcal/mol で報告されます。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
 
@@ -61,7 +61,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | --- | --- | --- |
 | `-b, --backend CHOICE` | ONIOM 低レベル再結合用 MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | 静電埋め込みの有効化: Amber トポロジーの MM 点電荷を PySCF QM ハミルトニアンに追加し、DFT 波動関数が MM 環境により分極。 | `False` |
-| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--embedcharge-cutoff FLOAT` | `--embedcharge` 有効時に PySCF QM ハミルトニアンに埋め込む MM 点電荷の ML 領域からのカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `-i, --input PATH` | 完全酵素構造ファイル（PDB または XYZ）。XYZ の場合は `--ref-pdb` でトポロジーを指定。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
@@ -77,8 +77,11 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
 | `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=fine, 9=very fine)。 | `3` |
 | `--engine {gpu,cpu}` | GPU4PySCF（`gpu`）または CPU PySCF（`cpu`）を強制。 | `gpu` |
-| `--lowmem/--no-lowmem` | closed-shell の GPU 経路で `gpu4pyscf.dft.rks_lowmem.RKS` を使用（密度フィッティング省略）。open-shell、CPU、`rks_lowmem` 非搭載の旧 `gpu4pyscf` では標準 RKS/UKS に自動フォールバック。 | `True` |
+| `--lowmem/--no-lowmem` | closed-shell の GPU 経路で `gpu4pyscf.dft.rks_lowmem.RKS` を使用（メモリ効率の良い直接 JK；`mlmm dft` はどちらの経路でも `density_fit()` を呼ばない）。open-shell、CPU、`rks_lowmem` 非搭載の旧 `gpu4pyscf` では標準 RKS/UKS に自動フォールバック。 | `True` |
 | `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
+| `--link-atom-method {scaled,fixed}` | リンク原子位置モード: `scaled`（g-factor、Gaussian ONIOM 標準）または `fixed`（旧式 1.09/1.01 Å 固定）。 | `scaled` |
+| `--mm-backend {hessian_ff,openmm}` | ONIOM 低レベル評価用 MM バックエンド: `hessian_ff`（解析ヘシアン）または `openmm`（有限差分ヘシアン）。 | `hessian_ff` |
+| `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に出力。 | `False` |
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。`--help-advanced` に表示。 | `False` |
@@ -91,11 +94,13 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 out_dir/ (デフォルト: ./result_dft/)
 ├── ml_region_with_linkH.xyz    # DFT に使用された ML 領域座標（リンク水素付き）
 ├── result.yaml                 # DFT + ML(dft)/MM エネルギーサマリー、電荷、スピン密度
+├── result.json                 # --out-json 指定時のみ
 └── (stdout)                    # 整形された設定ブロックとエネルギーの出力
 ```
 
 - `result.yaml` の内容:
-  - `energy`: Hartree/kcal/mol 値、収束フラグ、実行時間、バックエンド情報（gpu4pyscf vs pyscf(cpu)）。
+  - `energy`: Hartree/kcal/mol 値、収束フラグ、実行時間、バックエンド情報（`engine`: `gpu4pyscf(rks_lowmem)` / `gpu4pyscf` / `pyscf(cpu)`、`used_gpu`、`used_lowmem`）。
+  - `mlmm_energy`: REAL-low / MODEL-low の MM 評価値と再結合エネルギー `E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low`（Hartree と kcal/mol）。
   - `charges`: Mulliken、meta-Lowdin、IAO 原子電荷（手法失敗時は `null`）。
   - `spin_densities`: Mulliken、meta-Lowdin、IAO スピン密度（UKS のみ）。
 - 電荷、多重度、スピン (2S)、汎関数、基底関数、収束パラメータ、解決済み出力ディレクトリも要約されます。

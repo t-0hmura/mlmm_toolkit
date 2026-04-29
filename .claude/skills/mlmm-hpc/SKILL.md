@@ -34,9 +34,10 @@ cd "${PBS_O_WORKDIR}"
 # CUDA + toolchain: HPC modulefiles (env-detect outputs <CUDA_MODULE>)
 # - gcc: load when the system default is too old for the CUDA toolkit or
 #   when pip will compile a C/CUDA extension from source.
-# - <OPENMPI_MODULE>: only for multi-node Ray (`workers > 1`); omit on
-#   single-node jobs.
-command -v module >/dev/null && module load <CUDA_MODULE> gcc <OPENMPI_MODULE>
+# (OpenMPI is not needed: mlmm-toolkit is single-GPU only and has no Ray /
+#  `--workers` path; pdb2reaction is the project that needs OpenMPI for
+#  multi-node Ray.)
+command -v module >/dev/null && module load <CUDA_MODULE> gcc
 
 # Conda env (env-detect outputs <YOUR_ENV>)
 source "$(conda info --base)/etc/profile.d/conda.sh"
@@ -70,8 +71,8 @@ Both are accepted by most modern Torque + PBSPro installations; check
 #SBATCH --output=%x.%j.out
 
 cd "${SLURM_SUBMIT_DIR}"
-# CUDA + toolchain (see PBS template above for when gcc / OpenMPI are needed)
-command -v module >/dev/null && module load <CUDA_MODULE> gcc <OPENMPI_MODULE>
+# CUDA + toolchain (see PBS template above for when gcc is needed)
+command -v module >/dev/null && module load <CUDA_MODULE> gcc
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True

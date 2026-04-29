@@ -539,6 +539,7 @@ dft:
  conv_tol: 1.0e-09 # SCF 収束許容値 (Hartree)
  max_cycle: 100 # 最大 SCF 反復数
  grid_level: 3 # PySCF グリッドレベル
+ lowmem: true # closed-shell GPU で gpu4pyscf rks_lowmem.RKS を使用
  verbose: 4 # PySCF 出力詳細レベル
  out_dir: ./result_dft/ # 出力ディレクトリ
 ```

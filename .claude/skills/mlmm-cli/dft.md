@@ -32,7 +32,7 @@ selection. Most subcommands accept:
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); overrides `--model-pdb` |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `--embedcharge / --no-embedcharge` | PySCF QM/MM point-charge embedding (Amber MM charges added to the QM Hamiltonian via `pyscf.qmmm.mm_charge`; default off) |
 | `-q, --charge` | **ML-region** charge (not whole-system) |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
@@ -47,7 +47,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--ref-pdb` | path | none | Reference PDB so `-l` works on `.xyz` input |
 | `--func-basis` | str | `wb97m-v/def2-tzvpd` | `'FUNC/BASIS'` |
 | `--engine` | str | `gpu` | `gpu` (GPU4PySCF) or `cpu` (PySCF) |
-| `--lowmem/--no-lowmem` | bool | `True` | `gpu4pyscf.dft.rks_lowmem.RKS` on closed-shell GPU (skips DF); open-shell / CPU / pre-`rks_lowmem` GPU4PySCF auto-fall back |
+| `--lowmem/--no-lowmem` | bool | `True` | `gpu4pyscf.dft.rks_lowmem.RKS` (memory-efficient direct JK) on closed-shell GPU; open-shell / CPU / pre-`rks_lowmem` GPU4PySCF auto-fall back to standard RKS/UKS |
 | `--config` | path | none | YAML config file |
 | `-o, --out-dir` | path | `./result_dft/` | Output directory |
 | `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
@@ -85,21 +85,22 @@ mlmm dft -i ts.xyz -q 0 -m 1 \
 
 ```
 result_dft/
-├── result.json
-├── result.yaml             # PySCF-style detail dump
-├── input_geometry.xyz       # echoed input
-└── dft.log
+├── result.yaml                 # ML(dft)/MM energies + per-atom charges/spin densities
+├── result.json                 # only when --out-json
+└── ml_region_with_linkH.xyz    # ML region + auto-appended link-H (PySCF input snapshot)
 ```
 
-`result.json` keys:
+`result.json` keys (when `--out-json`):
 
 ```python
 import json
 d = json.load(open("result_dft/result.json"))
-print(d["energy_hartree"])
-print(d["method"])           # e.g. "wb97m-v/def2-tzvpd"
-print(d["engine"])           # "gpu" / "cpu"
-print(d["status"])
+print(d["energy_hartree"])     # ML-region DFT energy
+print(d["xc_functional"])      # e.g. "wb97m-v"
+print(d["basis_set"])          # e.g. "def2-tzvpd"
+print(d["engine"])             # "gpu4pyscf(rks_lowmem)" / "gpu4pyscf" / "pyscf(cpu)"
+print(d["used_lowmem"])        # True when rks_lowmem.RKS was used
+print(d["converged"])
 ```
 
 `result.yaml` carries the full PySCF / GPU4PySCF runtime info: basis
@@ -113,8 +114,10 @@ spin densities. Useful for debugging convergence problems.
 | `gpu` | x86_64 + CUDA + > 100 atoms | ~1–10 h on RTX-class GPU per single point |
 | `cpu` | aarch64, no GPU, or < 100 atoms | ~10–100× slower than GPU |
 
-aarch64 (`uname -m`) **forces CPU** because `gpu4pyscf-cuda12x` ships
-x86_64 wheels only.
+aarch64 (`uname -m`) **requires `--engine cpu` explicitly**:
+`gpu4pyscf-cuda12x` ships x86_64 wheels only, so `--engine gpu` (the
+default) raises `ClickException` on aarch64 rather than silently
+falling back.
 
 ## Common errors
 
@@ -123,16 +126,21 @@ x86_64 wheels only.
 | `OSError: libcusolver.so.11 not found` | `mlmm-install-backends/env-cuda.md` (LD_LIBRARY_PATH order) |
 | `cupy ... invalid device ordinal` | `unset CUDA_VISIBLE_DEVICES` |
 | `RuntimeError: CUDA out of memory` | Lower `grid_level`, switch to `def2-svp`, or `--engine cpu` |
-| aarch64 `--engine gpu` falls back silently | Expected; check log says `engine: cpu` |
+| aarch64 `--engine gpu` raises `ClickException` ("GPU backend failed...") | `gpu4pyscf-cuda12x` is x86_64 only; re-submit with `--engine cpu` |
 
 ## Caveats
 
-- `mlmm dft` runs only **single points**, not optimization.
-  For DFT-level geometry refinement, run `mlmm tsopt -b dft`
-  (DFT calculator selectable via `-b`) or use a separate code.
+- `mlmm dft` runs only **single points**, not optimization. `mlmm tsopt`
+  / `mlmm opt` accept only MLIP backends (`-b uma|orb|mace|aimnet2`),
+  so DFT-level geometry refinement requires a separate QM code (e.g.
+  Gaussian, ORCA, PySCF) — there is no `-b dft` option.
 - `--func-basis` follows PySCF naming; cross-check with
   `python -c "from pyscf import gto; print(gto.basis._BASIS_DEFAULT)"`.
-- xTB-ALPB (`--solvent`) **does not stack** with PySCF's PCM; pick one.
+- The standalone `dft` subcommand does not accept `--solvent`. xTB-ALPB
+  solvent corrections live on the MLIP-stage subcommands (`opt`,
+  `freq`, `tsopt`, `irc`, `path-search`, `path-opt`, `scan`, `all`); to
+  combine implicit solvent with DFT, run them at the MLIP stage and
+  then a `dft` single point on the MLIP-optimized geometry.
 
 ## See also
 
