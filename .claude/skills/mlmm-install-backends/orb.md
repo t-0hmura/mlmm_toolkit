@@ -7,7 +7,7 @@ than UMA / MACE.
 ## Install
 
 ```bash
-pip install 'mlmm[orb]'         # pulls orb-models
+pip install 'mlmm-toolkit[orb]'         # pulls orb-models
 ```
 
 Or, if `mlmm-toolkit` is already installed:
@@ -20,7 +20,7 @@ Confirm:
 
 ```bash
 python -c "import orb_models; print('orb_models:', orb_models.__version__)"
-python -c "from mlmm.backends import create_calculator; create_calculator(backend='orb', charge=0, spin=1)"
+mlmm tsopt --help >/dev/null && echo "mlmm + orb backend OK"
 ```
 
 Orb model weights are downloaded on first use; no separate auth required.
@@ -57,8 +57,8 @@ Orb accepts (canonical list in
 | `charge`, `spin` | Total charge and spin multiplicity |
 | `device` | `'cuda'`, `'cpu'`, `'auto'` |
 | `model` | Override the default Orb checkpoint |
-| `precision` | `'float32'` (default) or `'float64'` for tighter convergence |
-| `compile_model` | `True` to torch-compile (faster after first call, slower start) |
+| `orb_precision` | `'float32'` (default) or `'float64'` for tighter convergence (key in `MLMM_CALC_KW`) |
+| `orb_compile_model` | `True` to torch-compile (faster after first call, slower start) |
 | `freeze_atoms`, `hessian_calc_mode`, `return_partial_hessian`, `hessian_double` | Same as UMA |
 
 ## Strengths and weaknesses
@@ -76,8 +76,8 @@ re-run survivors with UMA or MACE for the final TS / IRC.
 
 | Symptom | Cause / fix |
 |---|---|
-| `RuntimeError: ... mat1 and mat2 shapes ... ` during Hessian | `precision='float32'` precision insufficient on near-degenerate modes; try `precision='float64'`. |
-| `compile_model=True` makes the first call 60+ s slow | Expected; subsequent calls are faster. Disable for short jobs. |
+| `RuntimeError: ... mat1 and mat2 shapes ... ` during Hessian | `orb_precision='float32'` insufficient on near-degenerate modes; try `orb_precision='float64'`. |
+| `orb_compile_model=True` makes the first call 60+ s slow | Expected; subsequent calls are faster. Disable for short jobs. |
 | TS converges with > 1 imaginary mode | Common with Orb on aromatic or metalloenzyme systems. Re-run that step with UMA/MACE. |
 
 ## See also

@@ -119,7 +119,7 @@ Fix:
 - Or, when using extraction, provide a residue-name mapping and run through `all`:
 
   ```bash
-  mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
+  mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
   ```
 
 ---

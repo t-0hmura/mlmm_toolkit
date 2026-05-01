@@ -11,7 +11,7 @@ not pulled by the default install.
 ## Install
 
 ```bash
-pip install 'mlmm[dft]'
+pip install 'mlmm-toolkit[dft]'
 ```
 
 This pulls (canonical pin in `pyproject.toml`):

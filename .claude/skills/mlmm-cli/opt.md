@@ -45,7 +45,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--opt-mode` | str | `grad` | `grad` (LBFGS) or `hess` (RFO); aliases `lbfgs` / `rfo` and the mlmm-only `light` / `heavy` shortcuts (light = LBFGS, heavy = RFO with full Hessian) are accepted |
 | `--max-cycles` | int | (live default) | Stop after N cycles; check `OPT_BASE_KW` |
 | `-b, --backend` | str | `uma` | MLIP backend |
-| `--solvent` | str | none | xTB-ALPB solvent |
 | `-o, --out-dir` | path | `./result_opt/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
 

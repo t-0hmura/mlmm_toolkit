@@ -47,7 +47,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--max-nodes` | int | 20 | Max internal nodes (final string ≤ `max-nodes + 2`) |
 | `-q, --charge` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `-b, --backend` | str | `uma` | MLIP backend |
-| `--solvent` | str | none | xTB-ALPB solvent name |
 | `-o, --out-dir` | path | `./result_path_opt/` | Output directory |
 
 ## Examples

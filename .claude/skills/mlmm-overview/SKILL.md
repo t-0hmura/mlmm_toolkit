@@ -1,6 +1,6 @@
 ---
 name: mlmm-overview
-description: What mlmm-toolkit is, when to use it, and the design choices that distinguish it from cluster-only or generic QM/MM workflows (3-layer ML/movable-MM/frozen ONIOM, analytical hessian_ff, microiteration, AmberTools-driven MM parameterization).
+description: Orientation for mlmm-toolkit — what it is, when to use it, and how it differs from generic ML/MM MD packages and from the cluster-only sister toolkit (three-layer ML/movable-MM/frozen ONIOM via PDB B-factor encoding, analytical hessian_ff full-system Hessian, microiteration with link-atom Jacobian coupling, AmberTools-driven MM parameterization). TRIGGER on first-touch / "what is mlmm-toolkit" / "should I use it" / "how does it compare to OpenMM / GROMACS / Sire / pdb2reaction" questions. SKIP when the user has already named a subcommand, an install issue, an output file, a structure format, or a cluster — sibling skills cover those.
 ---
 
 # mlmm-toolkit Overview

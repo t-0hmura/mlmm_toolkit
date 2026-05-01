@@ -1,6 +1,6 @@
 ---
 name: mlmm-structure-io
-description: How to read, edit, and write the structure formats mlmm-toolkit handles — PDB (with B-factor layer encoding), XYZ, GJF, and Amber parm7/rst7 — plus the charge / multiplicity decision workflow.
+description: PDB / XYZ / GJF / Amber parm7+rst7 input-file reference for mlmm-toolkit, plus the charge / multiplicity decision workflow and the B-factor layer encoding (ML=0 / movable-MM=10 / frozen-MM=20) that defines a three-layer ONIOM system from a single prepared PDB. TRIGGER on editing or inspecting a structure file, deciding `-q` / `-l` / `-m`, interpreting residue / charge / spin in an input, or assigning B-factor layers. SKIP for subcommand syntax, output parsing, install, or HPC questions.
 ---
 
 # mlmm-toolkit Structure I/O

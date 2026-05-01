@@ -46,7 +46,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-s, --scan-lists` | str | required | Inline Python literal `'[(a,b,target),...]'`, or YAML/JSON spec path. Repeat to add stages. |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `-b, --backend` | str | `uma` | MLIP backend |
-| `--solvent` | str | `none` | xTB-ALPB solvent |
 | `-o, --out-dir` | path | `./result_scan/` | Output directory |
 | `--ref-pdb` | path | none | Residue context for XYZ/GJF inputs |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |

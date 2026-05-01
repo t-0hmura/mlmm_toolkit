@@ -56,7 +56,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--dft / --no-dft` | flag | `--no-dft` | Run DFT single point on R / TS / P |
 | `--func-basis` | str | `wb97m-v/def2-tzvpd` | DFT functional/basis (when `--dft`) |
 | `-b, --backend` | str | `uma` | MLIP backend |
-| `--solvent` | str | none | xTB-ALPB solvent name (`water`, `methanol`, …) |
 | `-o, --out-dir` | path | `./result_all/` | Top-level output directory |
 | `--config` | path | none | YAML config applied before CLI flags |
 | `--show-config` / `--dry-run` | flag | off | Print resolved config and exit |

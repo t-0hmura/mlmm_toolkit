@@ -72,7 +72,7 @@ This page provides definitions for abbreviations and technical terms used throug
 | **MLIP** | Machine Learning Interatomic Potential | A model (often neural-network-based) that predicts energies and forces from atomic structures, trained on quantum-mechanical data. |
 | **UMA** | Universal Models for Atoms | Meta's family of pretrained MLIPs. The default ML backend in mlmm-toolkit (`--backend uma`). One of several supported backends. |
 | **ORB** | ORB Models | A family of pretrained MLIPs from Orbital Materials. Supported as an alternative ML backend (`--backend orb`). Install with `pip install "mlmm-toolkit[orb]"`. |
-| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | A message-passing equivariant neural network MLIP. Supported as an alternative ML backend (`--backend mace`). Install with `pip install --no-deps mace-torch`. |
+| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | A message-passing equivariant neural network MLIP. Supported as an alternative ML backend (`-b mace`). Install in a **separate** conda env: `pip uninstall fairchem-core` (UMA pin clashes on `e3nn`), then `pip install mace-torch`. |
 | **AIMNet2** | Atoms In Molecules Network 2 | A neural network potential for organic molecules. Supported as an alternative ML backend (`--backend aimnet2`). Install with `pip install "mlmm-toolkit[aimnet]"`. |
 | **xTB** | Extended Tight-Binding | A semi-empirical quantum chemistry method. Used for point-charge embedding correction when `--embedcharge` is enabled. |
 | **Analytical Hessian** | -- | Computing the exact second derivatives of energy; faster but requires more VRAM. Currently available for the UMA backend only. |

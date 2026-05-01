@@ -1,94 +1,81 @@
-# xTB / ALPB solvent layer (xtb.md)
+# xTB point-charge embedding correction (xtb.md)
 
-`mlmm-toolkit` can apply an xTB-ALPB **implicit solvent correction** to
-any backend-computed energy. The correction is a separate semi-empirical
-SCF call that adds a continuum-solvation term; it is optional and
-turned off by default.
+`mlmm-toolkit` can apply an **xTB point-charge embedding correction** on
+top of the MLIP energy and forces, replacing the bare ML/MM coupling at
+the boundary by an electrostatic embedding obtained from an xTB
+single-point with the surrounding MM-region atoms inserted as point
+charges. This is exposed through the `--embedcharge` /
+`--embedcharge-cutoff` flags on every ML/MM-evaluating subcommand
+(`opt`, `tsopt`, `freq`, `irc`, `scan`, `path-opt`, `path-search`,
+`all`, …).
 
-## When to use
+## When to use it
 
-| Use it when | Skip it when |
+| Use it for | Don't use it for |
 |---|---|
-| You need a quick, approximate solvent correction for a bare cluster | Fully embedded QM/MM or explicit waters (use `mlmm_toolkit`) |
-| Comparing barrier heights between gas-phase and solvated approximation | Reporting absolute solvent free energies (xTB-ALPB is empirical) |
-| Substrate is in a public-friendly solvent (water, DMSO, methanol, …) | Solvent isn't in the ALPB parameter set (unusual organics) |
+| Polar active sites where the bare ML/MM electrostatics underestimate the ligand–environment coupling | Reproducing absolute solvation free energies (the correction is geared toward TS / barrier shifts, not bulk thermodynamics) |
+| Sanity-checking that an MLIP barrier doesn't change drastically when the surrounding charges are felt with a different embedding | Cluster models without an explicit MM region (use `pdb2reaction` instead) |
+| Systems where the MLIP backend was trained on isolated organics and may miss long-range polarization | Systems already well-described by the ML/MM ONIOM coupling alone — `--embedcharge` adds wall-clock cost per energy/force call |
 
 ## Install
 
-Two routes; pick whichever your env can use.
-
-**Route A — `xtb` Python bindings (recommended, pip-installable):**
+xTB is shipped as a stand-alone binary (Fortran), not as a PyPI wheel.
+Install via conda-forge:
 
 ```bash
-pip install xtb
+conda install -c conda-forge xtb
 ```
-
-The PyPI package name is `xtb` (not `xtb-python`); the import name is
-also `xtb`.
 
 Verify:
 
 ```bash
-python -c "import xtb; print('xtb:', xtb.__version__)"
-```
-
-**Route B — system `xtb` binary (xtb 6.7+):**
-
-If your site already has `xtb` as a module or in `$PATH`:
-
-```bash
-xtb --version
 which xtb
+xtb --version
 ```
 
-`mlmm-toolkit` calls the binary via subprocess when it can't find the
-Python bindings. Make sure `xtb` is on `$PATH` for any PBS / SLURM job
-that needs it.
+`mlmm-toolkit` calls the `xtb` binary through `subprocess` from
+`mlmm/xtb_embedcharge_correction.py`, so the binary must be on `$PATH`
+inside the conda env that runs `mlmm`. There is no Python `xtb`
+package on PyPI — `pip install xtb` does **not** provide the binary
+used by mlmm.
 
 ## CLI usage
 
-The solvent correction wraps any other calculator transparently:
+The flag is a Boolean toggle plus a cutoff radius:
 
 ```bash
-mlmm all -i 1.R.pdb 3.P.pdb \
-    -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    --tsopt --thermo \
-    --solvent water        # ALPB water on top of MLIP
+mlmm tsopt -i ts_guess.pdb -q 0 -m 1 \
+    --embedcharge \
+    --embedcharge-cutoff 12.0
 ```
 
-Available solvents (pass to `--solvent`): `water`, `methanol`, `ethanol`,
-`acetone`, `acetonitrile`, `dmso`, `dmf`, `chloroform`, `dichloromethane`,
-`hexane`, `benzene`, `toluene`, `thf`. The exact list comes from xTB's
-ALPB parameter set; check `xtb --help` for the most current options.
+`--embedcharge-cutoff` (default 12.0 Å) controls how far around each
+ML-region atom point charges are gathered from the MM region. Atoms
+outside the cutoff contribute nothing to the embedding correction;
+charges inside are passed through to xTB as the point-charge field.
 
-To turn off: simply omit `--solvent` or pass `--solvent none`.
+## Configuration
 
-## How it composes with MLIP / DFT
+The corresponding YAML key in the `calc` block is `embedcharge: true`
+plus `embedcharge_cutoff: 12.0`. See `mlmm-cli/SKILL.md` and
+`mlmm.defaults.MLMM_CALC_KW` for the full set of related keys (e.g.,
+`embedcharge_step` for the finite-difference step used inside the
+correction).
 
-The corrected energy at each step is:
+## Verify the install
 
+```bash
+mlmm tsopt --help | grep embedcharge   # should list --embedcharge / --no-embedcharge
+xtb --version                          # binary on PATH
 ```
-E_total = E_MLIP_or_DFT (in vacuo) + ΔE_ALPB (xTB)
+
+If the second command fails, install xtb via conda-forge (above). If
+the first command does not list the flag, your `mlmm-toolkit` install
+is older than the one that introduced `--embedcharge`; upgrade with
+`pip install --upgrade mlmm-toolkit`.
+
+## Live source
+
+```bash
+python -c "from mlmm import xtb_embedcharge_correction as x; print([n for n in dir(x) if not n.startswith('_')])"
 ```
-
-The ALPB term is computed from the same atomic positions as the
-backbone calculator, so it's geometry-consistent but does not feed back
-into the gradient unless you also enable `--solvent-gradient` (off by
-default — adds noise on small clusters).
-
-## Known gotchas
-
-| Symptom | Cause / fix |
-|---|---|
-| `xtb-python` import fails on aarch64 | Wheel not yet published for ARM. Use Route B (system binary). |
-| `xtb` binary version too old (< 6.7) | ALPB introduced in 6.4 but parameter set updated repeatedly; upgrade if results disagree with documentation. |
-| Different barrier vs literature | Could be `--solvent` mismatch or the literature used a different solvation model (CPCM / SMD). State the model in any comparison. |
-
-## See also
-
-- `core.md` — `mlmm-toolkit` install (xTB layer is plumbed via the
-  bundled `backends/xtb_alpb_correction.py` and `backends/solvent.py`).
-- `dft.md` — note that xTB-ALPB does **not** stack with PySCF's own
-  PCM/COSMO; pick one.
-- `mlmm-cli/SKILL.md` — `--solvent` is accepted by `all`,
-  `tsopt`, `freq`, `irc`, and `dft`.

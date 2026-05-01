@@ -1,6 +1,6 @@
 ---
 name: mlmm-cli
-description: Index and recipes for the 22 mlmm-toolkit subcommands. Each subcommand has its own md (extract.md / mm-parm.md / tsopt.md / …); this SKILL.md is the orientation, the cross-cutting flag conventions, and a small library of canonical recipes.
+description: Per-subcommand reference for mlmm-toolkit's 22 CLI subcommands (extract / mm-parm / define-layer / opt / tsopt / freq / irc / dft / scan / path-search / all / …). SKILL.md is the orientation + cross-cutting flag conventions + canonical recipes; each subcommand has its own md (extract.md / mm-parm.md / tsopt.md / …) for flags, validation, and caveats. TRIGGER on questions about a specific subcommand, flag, or shell invocation. SKIP for install / HPC / output-parsing / structure-format-editing / overview questions.
 ---
 
 # mlmm CLI
@@ -62,14 +62,12 @@ These flags appear on most subcommands (canonical list:
 | `-q, --charge` | Total charge (integer) |
 | `-l, --ligand-charge` | `'RES1:Q1,RES2:Q2'` per-residue mapping (PDB inputs) |
 | `-m, --multiplicity` | Spin multiplicity (2S+1), default 1 |
-| `-b, --backend` | MLIP backend: `uma` / `orb` / `mace` / `aimnet2` / `auto` |
+| `-b, --backend` | MLIP backend: `uma` / `orb` / `mace` / `aimnet2` |
 | `-o, --out-dir` | Output directory, subcommand-specific default |
 | `--config` | YAML configuration file applied before CLI flags |
 | `--show-config` / `--dry-run` | Print resolved config without running |
 | `--help-advanced` | Reveal hidden / advanced flags |
 | `--ref-pdb` | Reference PDB used to derive residue context for XYZ inputs |
-| `--solvent` | xTB-ALPB solvent name (e.g. `water`); `none` to disable |
-
 Charge precedence: explicit `-q` > `-l 'RES:Q'` derivation > `--config` YAML > `defaults.py`.
 
 ## Canonical recipes
@@ -123,10 +121,10 @@ mlmm bond-summary -i reactant.pdb product.pdb
 |---|---|
 | `--scan-lists` syntax error | The list is a Python literal-eval expression. Quote with single-quotes outside, double-quotes inside, and watch ` ` vs ``\``. |
 | Wrong charge silently | Always run `--show-config` once before a long job; it prints the resolved charge. |
-| Backend `auto` silently picks the wrong one | Spell `-b uma` / `-b orb` / `-b mace` / `-b aimnet2` explicitly for production runs. |
+| Forgetting `-b` falls back to the default (`uma`) | Spell `-b uma` / `-b orb` / `-b mace` / `-b aimnet2` explicitly for production runs. |
 | `--config` YAML ignored | YAML is read **after** built-in defaults but **before** explicit CLI flags. Anything also given on CLI overrides YAML. |
 | `--help-advanced` flags differ between versions | They are subject to change; if a flag isn't in `--help`, check `--help-advanced` and version-pin if the workflow is shared. |
-| OOM on the Hessian step | Reduce `hessian_calc_mode` to `'FiniteDifference'`, set `return_partial_hessian=True`, or downgrade backend (UMA-m → UMA-s). |
+| OOM on the Hessian step | If `hessian_calc_mode='Analytical'` was enabled, switch back to the default `'FiniteDifference'` (FD is bounded by a single energy/force evaluation; autograd retains $O(N \cdot D)$ activations across $3N$ backward passes). Also try `return_partial_hessian=True` or downgrade backend (UMA-m → UMA-s). |
 
 ## Defaults
 

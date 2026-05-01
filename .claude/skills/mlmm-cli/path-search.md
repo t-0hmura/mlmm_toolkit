@@ -50,7 +50,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--max-nodes` | int | 20 | Max internal nodes per segment string |
 | `-q, --charge` / `-l` / `-m` | — | — | Charge / multiplicity (see common conventions) |
 | `-b, --backend` | str | `uma` | MLIP backend |
-| `--solvent` | str | none | xTB-ALPB solvent name |
 | `-o, --out-dir` | path | `./result_path_search/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` | — | — | YAML config + preview |
 

@@ -49,7 +49,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--max-cycles` | int | 10000 | Optimization step cap |
 | `--hessian-init` | str | (live default) | `'analytical'` / `'finite-diff'` / `'guess'`; check `RSIRFO_KW` |
 | `-b, --backend` | str | `uma` | MLIP backend |
-| `--solvent` | str | none | xTB-ALPB solvent |
 | `-o, --out-dir` | path | `./result_tsopt/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
 

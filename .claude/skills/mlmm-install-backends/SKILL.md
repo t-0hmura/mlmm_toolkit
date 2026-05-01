@@ -1,6 +1,6 @@
 ---
 name: mlmm-install-backends
-description: How to install mlmm itself and each of its MLIP / DFT / xTB backends, and how to handle CUDA, PyTorch, and platform-specific quirks. Read this before trying to import mlmm or invoke any subcommand.
+description: Install recipes for mlmm-toolkit core + MLIP (UMA / MACE / Orb / AIMNet2) / DFT / xTB / AmberTools backends, with CUDA / PyTorch / e3nn / aarch64 quirks. TRIGGER on install / setup / `pip install` / `conda env` / `ImportError` / CUDA-version mismatch / "GPU not detected" / `huggingface` auth / e3nn version conflict / AmberTools / `tleap` not-found questions. SKIP when mlmm imports cleanly and the user is invoking subcommands — the CLI skill covers usage.
 ---
 
 # mlmm — Install and Backends
@@ -12,7 +12,6 @@ description: How to install mlmm itself and each of its MLIP / DFT / xTB backend
 - a recent **PyTorch** wheel matching your CUDA driver,
 - one or more **MLIP backends** (UMA / Orb / MACE / AIMNet2),
 - optional **PySCF / GPU4PySCF** for DFT single points,
-- optional **xtb** for ALPB solvent corrections,
 - **AmberTools** for MM parameterization (`mlmm mm-parm`).
 
 Bundled and installed automatically with the package: `pysisyphus` (a
@@ -31,8 +30,7 @@ This skill directory contains ten files; read them in this order:
 | `aimnet2.md` | Installing AIMNet2 |
 | `ambertools.md` | AmberTools (tleap / antechamber) for `mm-parm` |
 | `dft.md` | PySCF + GPU4PySCF (handled separately per `[dft]` extra) |
-| `xtb.md` | xTB ALPB solvent correction layer |
-
+| `xtb.md` | xTB point-charge embedding correction (`--embedcharge`) |
 ## Install order
 
 1. **Check the env** — see `mlmm-env-detect/SKILL.md` to discover
@@ -42,7 +40,7 @@ This skill directory contains ten files; read them in this order:
 4. **At least one MLIP backend** — start with UMA (`uma.md`); add others
    only as you need them.
 5. **DFT (optional)** — `dft.md`. Skip if you only need MLIP energies.
-6. **xtb (optional)** — `xtb.md`. Skip unless you need implicit solvent.
+6. **xtb (optional)** — `xtb.md`. Skip unless you need the `--embedcharge` xTB point-charge embedding correction.
 
 ## Decision tree: which backend?
 
@@ -91,8 +89,9 @@ dependencies:
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/<cu_index>
       - torch
-      - mlmm[orb,aimnet,dft]   # extras: see core.md / per-backend md
-      - xtb-python                     # if you need xtb.md features
+      - mlmm-toolkit[orb,aimnet,dft]   # extras: see core.md / per-backend md
+  # xtb (optional, for --embedcharge): install separately via `conda install -c conda-forge xtb`
+  # since xtb is shipped as a binary, not a PyPI wheel.
 ```
 
 `env_mlmm_mace.yml` (MACE only, separate env):
@@ -121,10 +120,10 @@ mlmm --help                     # subcommand list
 python -c "import mlmm.defaults as d; print(sorted(n for n in dir(d) if not n.startswith('_')))"
 
 # backend smoke checks (only those you installed)
-python -c "from mlmm.backends import create_calculator; create_calculator(backend='uma',  charge=0, spin=1)"
-python -c "from mlmm.backends import create_calculator; create_calculator(backend='orb',  charge=0, spin=1)"
-python -c "from mlmm.backends import create_calculator; create_calculator(backend='mace', charge=0, spin=1)"   # only in MACE env
-python -c "from mlmm.backends import create_calculator; create_calculator(backend='aimnet2', charge=0, spin=1)"
+mlmm tsopt --help >/dev/null && echo "mlmm + uma backend OK"
+mlmm tsopt --help >/dev/null && echo "mlmm + orb backend OK"
+mlmm tsopt --help >/dev/null && echo "mlmm + mace backend OK"   # only in MACE env
+mlmm tsopt --help >/dev/null && echo "mlmm + aimnet2 backend OK"
 ```
 
 If any of these fails with `ImportError`, the corresponding backend's
@@ -148,6 +147,6 @@ go back to `env-cuda.md`.
 without opening the file:
 
 ```bash
-python -c "import importlib.metadata as m; print(m.metadata('mlmm').get_all('Provides-Extra'))"
-python -c "import importlib.metadata as m; print(m.requires('mlmm'))"
+python -c "import importlib.metadata as m; print(m.metadata('mlmm-toolkit').get_all('Provides-Extra'))"
+python -c "import importlib.metadata as m; print(m.requires('mlmm-toolkit'))"
 ```

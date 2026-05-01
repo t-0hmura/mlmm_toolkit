@@ -1,6 +1,6 @@
 ---
 name: mlmm-hpc
-description: How to run mlmm on PBS (Torque/PBSPro) and SLURM clusters — generic preamble templates with placeholders, walltime guidance, CPU vs GPU choice, monitoring, and the dynamic-dispatch (flock + pbsdsh) recipe in dynamic-dispatch.md.
+description: PBS (Torque / PBSPro) and SLURM submission for mlmm-toolkit — generic preamble templates with placeholders, walltime budgeting, CPU vs GPU choice, job monitoring, and the dynamic-dispatch (`flock` + `pbsdsh`) recipe in `dynamic-dispatch.md`. TRIGGER on cluster submission / `qsub` / `sbatch` / walltime / preamble / multi-job dispatch / `pbsdsh` / `flock` / many-system batch questions. SKIP for local single-machine runs, install setup, or output parsing. Note: mlmm-toolkit is single-GPU per job and has no `--resume` / `--workers` interface — those flags are pdb2reaction-only.
 ---
 
 # mlmm HPC
@@ -27,9 +27,14 @@ placeholders this skill uses.
 #PBS -N <jobname>
 #PBS -q <YOUR_QUEUE>
 #PBS -l nodes=1:ppn=<NCPU>:gpus=<NGPU>,mem=<MEM>GB,walltime=<HH:MM:SS>
-#PBS -o /dev/null
-#PBS -e /dev/null
+#PBS -o <jobname>.out
+#PBS -e <jobname>.err
+set -euo pipefail
 cd "${PBS_O_WORKDIR}"
+
+# Preflight: fail fast if the env or the CUDA driver is missing.
+command -v conda >/dev/null || { echo "conda not on PATH"; exit 1; }
+nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 
 # CUDA + toolchain: HPC modulefiles (env-detect outputs <CUDA_MODULE>)
 # - gcc: load when the system default is too old for the CUDA toolkit or

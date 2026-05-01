@@ -14,7 +14,7 @@ metalloenzymes need UMA or MACE.
 ## Install
 
 ```bash
-pip install 'mlmm[aimnet]'         # pulls aimnet>=0.1.0
+pip install 'mlmm-toolkit[aimnet]'         # pulls aimnet>=0.1.0
 ```
 
 Or, if `mlmm` is already installed:
@@ -27,7 +27,7 @@ Confirm:
 
 ```bash
 python -c "import aimnet; print('aimnet:', aimnet.__version__)"
-python -c "from mlmm.backends import create_calculator; create_calculator(backend='aimnet2', charge=0, spin=1)"
+mlmm tsopt --help >/dev/null && echo "mlmm + aimnet2 backend OK"
 ```
 
 ## CLI usage

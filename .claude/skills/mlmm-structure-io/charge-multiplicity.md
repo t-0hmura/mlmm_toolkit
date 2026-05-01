@@ -35,7 +35,7 @@ Two routes:
 The amino-acid table is internal:
 
 ```bash
-python -c "from mlmm.extract import AMINO_ACIDS as a; print({r: a[r].get('charge', 0) for r in a})"
+python -c "from mlmm.extract import AMINO_ACIDS as a; print(a)"  # Dict[str, int] of canonical residue charges
 ```
 
 (Or read `mlmm/extract.py` directly if `dir()` shows other

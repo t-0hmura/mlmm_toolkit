@@ -45,7 +45,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-s, --scan-lists` | str | required | Inline Python literal containing **two** tuples (one per axis), or a YAML/JSON spec file. |
 | `-q` / `-l` / `-m` | — | — | Charge / spin |
 | `-b, --backend` | str | `uma` | MLIP backend |
-| `--solvent` | str | `none` | xTB-ALPB solvent |
 | `-o, --out-dir` | path | `./result_scan2d/` | Output directory |
 | `--ref-pdb` | path | none | Residue context for XYZ/GJF |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |

@@ -23,7 +23,7 @@ pip install torch --index-url https://download.pytorch.org/whl/<cu_index>
 
 # MACE + mlmm (without UMA-pulling extras)
 pip install mace-torch
-pip install mlmm          # WITHOUT [orb] / [aimnet] which would pull fairchem
+pip install mlmm-toolkit          # WITHOUT [orb] / [aimnet] which would pull fairchem
 ```
 
 If you accidentally install both UMA and MACE in one env, you'll see
@@ -39,7 +39,7 @@ The fix is to nuke the env and start over (`conda env remove -n <env>`).
 
 ```bash
 python -c "import mace; print('mace:', mace.__version__)"
-python -c "from mlmm.backends import create_calculator; create_calculator(backend='mace', charge=0, spin=1)"
+mlmm tsopt --help >/dev/null && echo "mlmm + mace backend OK"
 ```
 
 ## CLI usage
@@ -67,7 +67,7 @@ MACE accepts (from `backends/__init__.py:_BACKEND_ACCEPTED_KEYS['mace']`):
 | `charge`, `spin` | Total charge and spin multiplicity |
 | `device` | `'cuda'`, `'cpu'`, `'auto'` |
 | `model` | Override the default MACE checkpoint |
-| `default_dtype` | `'float32'` (default) or `'float64'` |
+| `mace_dtype` | `'float64'` (default; matches mlmm's float64 Hessian assembly) or `'float32'` |
 | `freeze_atoms`, `hessian_calc_mode`, `return_partial_hessian`, `hessian_double` | Standard cross-backend |
 
 ## Strengths and weaknesses

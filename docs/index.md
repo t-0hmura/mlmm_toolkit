@@ -114,43 +114,19 @@ ja/glossary
 
 ---
 
-## Documentation Guide
+## Where to start
 
-| Topic | Page |
-|-------|------|
-| **Installation & first run** | [Getting Started](getting-started.md) |
-| **Key terms & workflow overview** | [Concepts & Workflow](concepts.md) |
-| **Symptom-first failure routing** | [Common Error Recipes](recipes-common-errors.md) |
-| **Common errors & fixes** | [Troubleshooting](troubleshooting.md) |
-| **CLI conventions & input requirements** | [CLI Conventions](cli-conventions.md) |
-
----
-
-## Quick Start by Goal
-
-| Objectives | Command | Guide |
-|-------------------------|---------|-------|
-| First run (end-to-end) | `mlmm all` | [Quickstart: all](quickstart-all.md) |
-| Single-structure staged scan (`-s`) | `mlmm scan` | [Quickstart: scan](quickstart-scan-spec.md) |
-| TS validation (`tsopt` + vibrational analysis) | `mlmm tsopt` | [Quickstart: tsopt](quickstart-tsopt-freq.md) |
-| Run complete reaction path search from PDB | `mlmm all` | [all.md](all.md) |
-| View current configuration | `mlmm opt --show-config` | [YAML Reference](yaml-reference.md) |
-| Extract QM region from protein-ligand complex | `mlmm extract` | [extract.md](extract.md) |
-| Build MM topology (parm7/rst7) | `mlmm mm-parm` | [mm-parm.md](mm-parm.md) |
-| Define ML/MM layers | `mlmm define-layer` | [define-layer.md](define-layer.md) |
-| Optimize a single structure | `mlmm opt` | [opt.md](opt.md) |
-| Find transition state candidate via MEP search | `mlmm path-search` | [path-search.md](path-search.md) |
-| Optimize a transition state candidate | `mlmm tsopt` | [tsopt.md](tsopt.md) |
-| Run IRC from a transition state | `mlmm irc` | [irc.md](irc.md) |
-| Visualize energy profile | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Export to Gaussian ONIOM / ORCA QM/MM | `mlmm oniom-export` | [oniom-export.md](oniom-export.md) |
-| Rebuild XYZ/layered PDB from ONIOM input | `mlmm oniom-import` | [oniom-import.md](oniom-import.md) |
-| Draw state energy diagram from numeric values | `mlmm energy-diagram` | [energy-diagram.md](energy-diagram.md) |
-| Follow worked tutorials | -- | [Tutorial](getting-started.md) |
-| Diagnose failures by symptom | -- | [Common Error Recipes](recipes-common-errors.md) |
-| Understand the big picture (concepts & terms) | -- | [Concepts & Workflow](concepts.md) |
-| Resolve common errors | -- | [Troubleshooting](troubleshooting.md) |
-| Look up abbreviations and terms | -- | [Glossary](glossary.md) |
+| Goal | Page |
+|---|---|
+| Install and run a first end-to-end pipeline | [Getting Started](getting-started.md) |
+| Concepts (3-layer ONIOM, microiteration, link atoms) | [Concepts & Workflow](concepts.md) |
+| End-to-end pipeline from a PDB (`mlmm all`) | [Quickstart: all](quickstart-all.md) |
+| Single-structure staged scan (`mlmm scan`) | [Quickstart: scan](quickstart-scan-spec.md) |
+| TS validation (`tsopt` + frequencies) | [Quickstart: tsopt](quickstart-tsopt-freq.md) |
+| CLI conventions and input requirements | [CLI Conventions](cli-conventions.md) |
+| Symptom-first failure routing | [Common Error Recipes](recipes-common-errors.md) |
+| Common errors and fixes | [Troubleshooting](troubleshooting.md) |
+| Abbreviations and terminology | [Glossary](glossary.md) |
 
 ---
 
@@ -341,12 +317,7 @@ mlmm <subcommand> --help
 
 ---
 
-*Note: This documentation is under active development. Some sections may be incomplete or subject to change.*
+## Agent Skills
 
-## Agent skills
-
-A self-contained set of skills under `.claude/skills/` makes
-`mlmm-toolkit` easy to drive from AI coding agents (Claude Code,
-Cursor, OpenCode, …). Copy `.claude/skills/` into your project or
-home directory to use them. See the project README for details.
+`mlmm-toolkit` ships AI-agent instructions under [`.claude/skills/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/.claude/skills) so your agent can drive ML/MM ONIOM mechanism studies via Claude Code, Cursor, etc. The bundle covers design overview, the 22 CLI subcommands with canonical recipes, structure I/O (PDB B-factor encoding, XYZ / GJF / Amber parm7+rst7), backend installation (UMA / Orb / MACE / AIMNet2 / AmberTools / DFT / xTB), workflows and `summary.json` parsing, and HPC operation (PBS / SLURM, dynamic dispatch). Copy `.claude/skills/` into your project repository or home directory.
 
