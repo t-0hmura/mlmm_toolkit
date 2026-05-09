@@ -95,6 +95,35 @@ parmed -p complex.parm7 -i <(echo "summary"; echo "go")
   carried into `parm7`; downstream subcommands pair `parm7` + `rst7`
   with the layer-encoded PDB via `--ref-pdb` or `--detect-layer`.
 
+## Antechamber pitfalls (sulfonium / phosphate / odd-electron residues)
+
+`antechamber -c bcc` calls `sqm` for AM1-BCC charge fitting. `sqm` requires
+**closed-shell** electron count for `--ligand-mult 1`. If your `-l` value
+disagrees with the actual protonation H-count, `sqm` aborts with:
+
+```
+Info: Total number of electrons: <N>; net charge: <q>
+Info: The number of electrons is odd (<N>).
+... Fatal Error! Cannot properly run "sqm".
+```
+
+Pre-flight (≤ 30 s, login node):
+
+```bash
+awk '$4=="<RES>" && substr($0,77,2)~/H/' input.pdb | wc -l   # H count
+# Σ(Z_atoms) - q must be even for closed-shell sqm
+```
+
+Common collisions:
+
+| Residue | H count → likely net charge |
+|---|---|
+| SAM (sulfonium S+) | 22 H → 0 (NH2/COO⁻/S⁺ zwitterion); 23 H → +1 (NH3⁺/COO⁻/S⁺ canonical biological) |
+| DMAPP (diphosphate −3) | 9 H → −3 closed-shell; otherwise odd |
+| ATP / ADP | 12-13 H → −4 / −3 canonical; verify per dataset |
+
+Do not auto-protonate to "fix" parity — respect the dataset's protonation choice and adjust `-l`.
+
 ## See also
 
 - `../mlmm-structure-io/parm7.md` — what `parm7` / `rst7` actually contain.
