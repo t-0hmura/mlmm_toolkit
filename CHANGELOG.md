@@ -4,6 +4,34 @@ All notable changes to **mlmm-toolkit** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.9] — 2026-05-09 (in progress)
+
+### Fixed
+- `mlmm/mlmm_calc.py`: use 1-based ATOM/HETATM file position as
+  `idx`, not raw PDB serial. Input PDBs with serial gaps (e.g.
+  3411→3418) no longer trigger `IndexError: list index out of
+  range` in `_mk_model_parm7`. Added regression test
+  `tests/test_mlmm_calc_serial_gap.py`.
+- `mlmm/bond_summary.py`: replace `pdb2reaction bond-summary`
+  cross-leak in module header and CLI docstring.
+- `.claude/skills/mlmm-install-backends/SKILL.md`: remove
+  paragraph "mlmm_toolkit shares this constraint and cannot
+  coexist with mlmm" (self-reference bug from copy-paste).
+
+### Documentation
+- `docs/yaml-reference.md` (EN+JA): document `mlmm:` block as
+  alias for `calc:` (10 callsites verified), add `dft.engine`,
+  `dft.ecp`, `freq.active_dof_mode`; correct lbfgs/rfo
+  Used-by columns; drop dead `stopt.rfo` example.
+- `docs/cli-conventions.md` (EN+JA): drop `< override-yaml`
+  from precedence chain — slot kept in `cli_utils.py` for
+  legacy compat but no CLI subcommand exposes the flag.
+- `docs/json-output.md` (EN+JA): replace "every MLIP-based
+  subcommand" `--out-json` claim with explicit list (excludes
+  `path-search`, `all`, `bond-summary`, `define-layer`,
+  `mm-parm`); enumerate the 6-alias `opt_mode` Choice; add
+  `n_segments_reactive` to all-command additions.
+
 ## [0.2.4] — 2026-03-18
 
 ### Added
