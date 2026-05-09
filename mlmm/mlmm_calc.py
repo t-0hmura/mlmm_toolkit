@@ -1208,18 +1208,23 @@ class MLMMCore:
                     ml_region.add(self._pdb_atom_key(ln))
 
         leap_atoms: List[Dict] = []
-        with open(self.input_pdb) as fh:
-            for ln in fh:
-                if not ln.startswith(("ATOM", "HETATM")):
-                    continue
-                leap_atoms.append(
-                    {
-                        "idx": int(ln[6:11]),
-                        "id": self._pdb_atom_key(ln),
-                        "elem": ln[76:78].strip(),
-                        "coord": np.array([float(ln[30:38]), float(ln[38:46]), float(ln[46:54])]),
-                    }
-                )
+        # Use 1-based ATOM/HETATM file position as `idx`. parm7 atoms (parmed)
+        # are renumbered 1..N sequentially after tleap, so PDB serial fields
+        # cannot be used as parm7 indices — gaps in input PDB serials break
+        # `real.atoms[idx-1]` lookups (e.g. COMT model has a 3411→3418 gap).
+        atom_pos = 0
+        for ln in open(self.input_pdb):
+            if not ln.startswith(("ATOM", "HETATM")):
+                continue
+            atom_pos += 1
+            leap_atoms.append(
+                {
+                    "idx": atom_pos,
+                    "id": self._pdb_atom_key(ln),
+                    "elem": ln[76:78].strip(),
+                    "coord": np.array([float(ln[30:38]), float(ln[38:46]), float(ln[46:54])]),
+                }
+            )
 
         ml_ID = [str(a["idx"]) for a in leap_atoms if a["id"] in ml_region]
 
