@@ -274,7 +274,7 @@ Advanced settings can be passed via layered YAML inputs.
 
 Precedence:
 ```
-defaults < config < CLI options < override-yaml
+defaults < config < CLI options
 ```
 
 See [YAML Reference](yaml-reference.md) for all available options.

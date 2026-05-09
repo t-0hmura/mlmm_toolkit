@@ -276,7 +276,7 @@ pip install --no-deps mace-torch      # MACE バックエンド
 
 詳細設定は多層 YAML で渡せます。適用順序:
 ```
-デフォルト < config < CLI オプション < override-yaml
+デフォルト < config < CLI オプション
 ```
 
 利用可能なすべてのオプションは [YAML リファレンス](yaml-reference.md) を参照してください。

@@ -4,7 +4,7 @@ mlmm provides machine-readable JSON output for programmatic consumption by AI ag
 
 ## `--out-json` flag
 
-Every MLIP-based subcommand supports `--out-json / --no-out-json` (default: off).
+Most MLIP-based subcommands (`opt`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`) support `--out-json / --no-out-json` (default: off).
 When enabled, a `result.json` file is written to the output directory alongside the normal outputs.
 
 ```bash
@@ -46,7 +46,7 @@ Every `result.json` automatically includes:
 | `status` | string | `"converged"` or `"not_converged"` |
 | `energy_hartree` | float | Final ONIOM energy (Hartree) |
 | `n_opt_cycles` | int | Optimization cycles completed |
-| `opt_mode` | string | `"grad"` (LBFGS) or `"hess"` (RFO) |
+| `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"lbfgs"`, `"rfo"` (aliases: `light`/`lbfgs` → `grad`; `heavy`/`rfo` → `hess`) |
 | `backend` | string | ML backend (`"uma"`, `"orb"`, `"mace"`, `"aimnet2"`) |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
@@ -70,7 +70,7 @@ Every `result.json` automatically includes:
 | `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int | Number of imaginary frequencies |
 | `imaginary_frequencies_cm` | float[] | Imaginary frequencies (cm$^{-1}$, negative) |
-| `opt_mode` | string | `"grad"` (PHG-Dimer) or `"hess"` (RS-I-RFO) |
+| `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"` (aliases: `light`/`dimer` → `grad` (PHG-Dimer); `heavy`/`rsirfo` → `hess` (RS-I-RFO)) |
 | `n_atoms` | int | Total atoms |
 | `n_opt_cycles` | int | Optimization cycles |
 | `backend` | string | ML backend |
@@ -217,6 +217,7 @@ The `all` command additionally includes:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `n_segments_reactive` | int | Number of non-bridge (reactive) segments |
 | `rate_limiting_step` | object | RLS segment index and barrier |
 | `overall_reaction_energy_kcal` | float | Overall reaction energy |
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
