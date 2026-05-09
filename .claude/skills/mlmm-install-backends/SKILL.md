@@ -69,10 +69,6 @@ DFT, xTB) can sit in either.
 `mlmm-toolkit` itself is the same code in both envs; only the calculator
 plugin set differs.
 
-`mlmm_toolkit` shares this `e3nn`/`pysisyphus` constraint and **cannot
-coexist with mlmm in one env either**. Use `<mlmm_env>` if you
-need both toolkits available on the same host.
-
 ## Conda env templates
 
 Replace `<...>` with the values you discovered in `env-detect`. The

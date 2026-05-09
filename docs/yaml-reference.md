@@ -6,10 +6,10 @@
 | Section | Description | Used by |
 |---------|-------------|---------|
 | [`geom`](#geom) | Geometry and coordinate settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
-| [`calc`](#calc) | ML/MM calculator settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`calc`](#calc) | ML/MM calculator settings (alias: `mlmm:`) | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`opt`](#opt) | Shared optimizer settings | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
-| [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, path-search |
-| [`rfo`](#rfo) | RFO optimizer settings | opt, scan, scan2d, scan3d, path-search |
+| [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, path-opt, path-search |
+| [`rfo`](#rfo) | RFO optimizer settings | opt |
 | [`gs`](#gs) | Growing String Method settings | path-opt, path-search |
 | [`dmf`](#dmf) | Direct Max Flux settings | path-opt, path-search |
 | [`irc`](#irc-section) | IRC integration settings | irc |
@@ -122,6 +122,7 @@ calc:
 ```
 
 **Notes:**
+- The section name `calc:` is the canonical form; `mlmm:` is accepted as a legacy alias (recognised by `opt`, `tsopt`, `freq`, `irc`, `dft`, `path-opt`, `path-search`, `scan`, `scan2d`, `scan3d`). When both are present, `calc:` takes precedence.
 - `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install "mlmm-toolkit[orb]"`, etc.)
 - Backend-specific model keys are only relevant when the corresponding backend is selected:
   - `uma_model`, `uma_task_name` — UMA backend only
@@ -356,16 +357,12 @@ stopt:
    thresh: gau
    max_cycles: 10000
    #... (see lbfgs section)
- rfo:
-   # Same keys as rfo section (for single-structure optimizer)
-   thresh: gau
-   max_cycles: 10000
-   #... (see rfo section)
 ```
 
 **Notes:**
-- `stopt.lbfgs` and `stopt.rfo` configure the single-structure optimizer used for
-  HEI+/-1 endpoint optimization and kink node optimization within path-search
+- `stopt.lbfgs` configures the single-structure L-BFGS optimizer used for
+  HEI+/-1 endpoint optimization and kink node optimization within path-search.
+  Only L-BFGS is consumed at this nested level; an `stopt.rfo:` block is not honored.
 - The outer `stopt` keys control the string optimizer (GS or DMF wrapper)
 
 ---
@@ -506,12 +503,16 @@ Vibrational frequency analysis settings.
 
 ```yaml
 freq:
+ active_dof_mode: partial # Active-atom selection: "all" | "ml-only" | "partial" | "unfrozen"
  amplitude_ang: 0.8 # Displacement amplitude for modes (Å)
  n_frames: 20 # Number of frames per mode animation
  max_write: 10 # Maximum number of modes to write
  sort: value # Sort order: "value" or "abs"
  out_dir: ./result_freq/ # Output directory
 ```
+
+**Notes:**
+- `active_dof_mode` selects which atoms participate in the vibrational analysis. `all` uses every atom; `ml-only` restricts to ML-region atoms; `partial` (default) uses ML + Movable-MM atoms; `unfrozen` uses every non-frozen atom. The CLI flag `--active-dof-mode` overrides the YAML value when explicitly passed.
 
 ---
 
@@ -562,10 +563,16 @@ dft:
  conv_tol: 1.0e-09 # SCF convergence tolerance (Hartree)
  max_cycle: 100 # Maximum SCF iterations
  grid_level: 3 # PySCF grid level
+ engine: gpu # Compute engine: "gpu" (gpu4pyscf) or "cpu" (pyscf); CLI --engine takes precedence
+ ecp: null # ECP basis name; null auto-derives from def2-* basis sets
  lowmem: true # Use gpu4pyscf rks_lowmem.RKS for closed-shell GPU runs
  verbose: 4 # PySCF verbosity level
  out_dir: ./result_dft/ # Output directory
 ```
+
+**Notes:**
+- `engine`: `gpu` runs through gpu4pyscf (closed-shell uses `rks_lowmem.RKS` when `lowmem: true`); `cpu` falls back to standard PySCF RKS/UKS. The CLI flag `--engine` overrides the YAML value when explicitly passed.
+- `ecp`: when the basis name starts with `def2-` and `ecp` is `null`, the same basis name is used as the ECP automatically. Set explicitly to override.
 
 ---
 
@@ -634,9 +641,6 @@ stopt:
  thresh: gau_loose
  max_cycles: 300
  lbfgs:
-   thresh: gau
-   max_cycles: 10000
- rfo:
    thresh: gau
    max_cycles: 10000
 

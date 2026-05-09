@@ -1,9 +1,9 @@
-# pdb2reaction/bond_summary.py
+# mlmm/bond_summary.py
 """
 bond-summary — Detect and summarize bond changes between molecular structures.
 
 Usage:
-    pdb2reaction bond-summary -i A.xyz B.xyz [C.xyz ...]
+    mlmm bond-summary -i A.xyz B.xyz [C.xyz ...]
 
 Compares consecutive pairs of structures (A→B, B→C, …) and reports
 covalent bonds formed and broken. Supports XYZ, PDB, and GJF formats.
@@ -57,9 +57,9 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
 
     \b
     Usage:
-      pdb2reaction bond-summary -i A.xyz -i B.xyz -i C.xyz
-      pdb2reaction bond-summary A.xyz B.xyz C.xyz
-      pdb2reaction bond-summary -i A.xyz B.xyz C.xyz
+      mlmm bond-summary -i A.xyz -i B.xyz -i C.xyz
+      mlmm bond-summary A.xyz B.xyz C.xyz
+      mlmm bond-summary -i A.xyz B.xyz C.xyz
     """
     files: List[str] = list(inputs) + list(extra_inputs)
     if len(files) < 2:

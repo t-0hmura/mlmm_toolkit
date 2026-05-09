@@ -5,10 +5,10 @@
 | セクション | 説明 | 使用されるコマンド |
 |---------|-------------|---------|
 | [`geom`](#geom) | ジオメトリと座標設定 | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
-| [`calc`](#calc) | ML/MM 計算機の設定 | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`calc`](#calc) | ML/MM 計算機の設定（別名: `mlmm:`） | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`opt`](#opt) | 最適化の共通設定 | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
-| [`lbfgs`](#lbfgs) | L-BFGSの設定 | opt, scan, scan2d, scan3d, path-search |
-| [`rfo`](#rfo) | RFOの設定 | opt, scan, scan2d, scan3d, path-search |
+| [`lbfgs`](#lbfgs) | L-BFGSの設定 | opt, scan, scan2d, scan3d, path-opt, path-search |
+| [`rfo`](#rfo) | RFOの設定 | opt |
 | [`gs`](#gs) | GSM（Growing String Method）設定 | path-opt, path-search |
 | [`dmf`](#dmf) | DMF（Direct Max Flux）設定 | path-opt, path-search |
 | [`irc`](#ja-irc-section) | IRC積分設定 | irc |
@@ -99,6 +99,7 @@ calc:
 ```
 
 **注記:**
+- セクション名は `calc:` が正式名で、`mlmm:` は互換用の別名として受け付けます（`opt`、`tsopt`、`freq`、`irc`、`dft`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` で認識）。両方が存在する場合は `calc:` が優先されます。
 - `backend`: ML バックエンドを選択します。`uma`（デフォルト）、`orb`、`mace`、`aimnet2` から選択可能です。UMA 以外のバックエンドを使用するには、対応するオプション依存パッケージのインストールが必要です（例: `pip install "mlmm-toolkit[orb]"`）。
 - バックエンド固有のモデルキーは、対応するバックエンドが選択されている場合にのみ有効です:
   - `uma_model`、`uma_task_name` — UMA バックエンドのみ
@@ -426,15 +427,10 @@ stopt:
    thresh: gau
    max_cycles: 10000
    # ...（詳細は lbfgs セクション参照）
- rfo:
-   # 単一構造最適化用
-   thresh: gau
-   max_cycles: 10000
-   # ...（詳細は rfo セクション参照）
 ```
 
 **注意:**
-- `stopt.lbfgs` / `stopt.rfo` は HEI±1 端点最適化およびねじれノード最適化に使用される単一構造最適化の設定
+- `stopt.lbfgs` は HEI±1 端点最適化およびねじれノード最適化に使用される単一構造最適化（L-BFGS）の設定です。この入れ子レベルでは L-BFGS のみが参照されるため、`stopt.rfo:` ブロックは無視されます。
 - 外側の `stopt` キーはストリング最適化（GS または DMF ラッパー）を制御
 
 ---
@@ -486,12 +482,16 @@ irc:
 
 ```yaml
 freq:
+ active_dof_mode: partial # アクティブ原子の選択: "all" | "ml-only" | "partial" | "unfrozen"
  amplitude_ang: 0.8 # モード変位振幅 (Å)
  n_frames: 20 # モードアニメーションのフレーム数
  max_write: 10 # 書き出すモードの最大数
  sort: value # ソート順: "value" または "abs"
  out_dir: ./result_freq/ # 出力ディレクトリ
 ```
+
+**注記:**
+- `active_dof_mode`: 振動解析に参加させる原子集合を選択します。`all` は全原子、`ml-only` は ML 領域のみ、`partial`（デフォルト）は ML + Movable-MM、`unfrozen` は凍結されていない全原子を使用します。CLI フラグ `--active-dof-mode` が明示された場合は YAML 値より優先されます。
 
 ---
 
@@ -539,10 +539,16 @@ dft:
  conv_tol: 1.0e-09 # SCF 収束許容値 (Hartree)
  max_cycle: 100 # 最大 SCF 反復数
  grid_level: 3 # PySCF グリッドレベル
+ engine: gpu # 計算エンジン: "gpu"（gpu4pyscf）または "cpu"（pyscf）。CLI --engine が優先
+ ecp: null # ECP 基底名。null の場合は def2-* 基底から自動導出
  lowmem: true # closed-shell GPU で gpu4pyscf rks_lowmem.RKS を使用
  verbose: 4 # PySCF 出力詳細レベル
  out_dir: ./result_dft/ # 出力ディレクトリ
 ```
+
+**注記:**
+- `engine`: `gpu` は gpu4pyscf 経由で実行（closed-shell かつ `lowmem: true` のとき `rks_lowmem.RKS` を使用）。`cpu` は標準 PySCF の RKS/UKS にフォールバックします。CLI フラグ `--engine` が明示された場合は YAML 値より優先されます。
+- `ecp`: 基底名が `def2-` で始まり `ecp` が `null` の場合、ECP として同名の基底が自動的に使用されます。明示的に上書きするには値を設定してください。
 
 ---
 
@@ -609,9 +615,6 @@ stopt:
  thresh: gau_loose
  max_cycles: 300
  lbfgs:
-   thresh: gau
-   max_cycles: 10000
- rfo:
    thresh: gau
    max_cycles: 10000
 
