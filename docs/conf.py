@@ -15,17 +15,8 @@ project = 'mlmm'
 copyright = '2025, Takuto Ohmura'
 author = 'Takuto Ohmura'
 
-# Get version from package (setuptools_scm)
-try:
-    from mlmm import __version__
-    release = __version__
-except ImportError:
-    # Fallback for docs build without package installed
-    try:
-        from mlmm._version import __version__
-        release = __version__
-    except ImportError:
-        release = '0.0.0.dev0'
+# Hardcoded release version (setuptools_scm is unavailable in the docs build env)
+release = '0.3.0'
 
 version = release
 

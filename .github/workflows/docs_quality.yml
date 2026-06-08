@@ -21,7 +21,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -e . --no-deps
-          pip install click pyyaml numpy biopython scipy ase \
+          pip install click==8.3.2 pyyaml numpy biopython scipy ase \
             autograd dask distributed h5py fabric jinja2 joblib \
             matplotlib natsort psutil rmsd sympy scikit-learn \
             pandas tabulate plotly kaleido ParmEd

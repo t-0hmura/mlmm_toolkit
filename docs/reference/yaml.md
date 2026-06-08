@@ -1,6 +1,6 @@
 # YAML Schema
 
-- Source template: `scripts/generate_reference.py::_ALL_TEMPLATE`
+- Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`
 - Template digest: `3a9783043149`
 
 ## Top-level Keys

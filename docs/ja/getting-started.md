@@ -2,6 +2,8 @@
 
 ## 概要
 
+<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
+
 `mlmm-toolkit` は、機械学習原子間ポテンシャル（MLIP）と内蔵 MM 力場エンジン（hessian_ff）を ONIOM 的に結合した **ML/MM 法** を用いて、**PDB 構造** から **酵素反応経路** を自動的に構築する Python 製の CLI ツールキットです。デフォルトの MLIP バックエンドは **UMA**（Meta の FAIR-Chem）で、`--backend` オプションにより **ORB**、**MACE**、**AIMNet2** も選択できます。
 
 多くのワークフローで、**1 コマンド**で反応経路の**初期推定**を得られます。

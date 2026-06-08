@@ -80,8 +80,9 @@ Options:
   --max-step-size FLOAT           Maximum spacing between successive distance
                                   targets [Å].  [default: 0.2]
   --bias-k FLOAT                  Harmonic well strength k [eV/Å^2]. Defaults to
-                                  the YAML bias.k value (300) when omitted;
-                                  explicit CLI value overrides YAML.
+                                  YAML bias.k (BIAS_KW['k']=300 in defaults.py)
+                                  when omitted; explicit CLI value overrides
+                                  YAML.
   --relax-max-cycles INTEGER      Maximum LBFGS cycles per biased relaxation
                                   (also used for preopt).  [default: 10000]
   --dump / --no-dump              Write inner d3 scan TRJs per (d1,d2) slice.

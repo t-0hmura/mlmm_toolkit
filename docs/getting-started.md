@@ -2,6 +2,8 @@
 
 ## Overview
 
+<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
+
 `mlmm-toolkit` is a Python CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default UMA; `orb` / `mace` / `aimnet2` via `-b`), with the surrounding protein under the bundled Amber force field `hessian_ff`. The ONIOM decomposition is:
 
 ```

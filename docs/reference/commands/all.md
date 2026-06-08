@@ -34,8 +34,8 @@ Options:
                                   [default: 2.6]
   --radius-het2het FLOAT          Independent hetero–hetero cutoff (Å) for
                                   non‑C/H pairs.  [default: 0.0]
-  --include-h2o BOOLEAN           Include waters (HOH/WAT/TIP3/SOL) in the
-                                  pocket.  [default: True]
+  --include-h2o BOOLEAN           Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL)
+                                  in the pocket.  [default: True]
   --exclude-backbone BOOLEAN      Remove backbone atoms on non‑substrate amino
                                   acids (with PRO/HYP safeguards).  [default:
                                   False]
