@@ -1,11 +1,6 @@
 # MLIP Backends
 
-> **Summary:** mlmm-toolkit は、あらゆる ML/MM ワークフローステージ（`opt`、`scan`、
-> `tsopt`、`freq`、`irc`、`path-search`,...）を単一の `MLMMCore`
-> ONIOM 結合オブジェクトを通じて駆動します。`MLMMCore` は ML 領域を、private な
-> `_create_ml_backend` ファクトリ経由でバックエンドごとのアダプタ
-> （`_UMABackend` / `_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`）にディスパッチします。
-> このページでは、バックエンドの選択方法、バックエンドごとの kwargs、新しいバックエンドの追加方法を説明します。
+mlmm-toolkit は、あらゆる ML/MM ワークフローステージ（`opt`、`scan`、`tsopt`、`freq`、`irc`、`path-search`,...）を単一の `MLMMCore` ONIOM 結合オブジェクトを通じて駆動します。`MLMMCore` は ML 領域を、private な `_create_ml_backend` ファクトリ経由でバックエンドごとのアダプタ（`_UMABackend` / `_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`）にディスパッチします。このページでは、バックエンドの選択方法、バックエンドごとの kwargs、新しいバックエンドの追加方法を説明します。
 
 ## Public surface
 

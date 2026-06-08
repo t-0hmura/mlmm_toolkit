@@ -1,6 +1,6 @@
 # Python API
 
-> **Summary:** Use mlmm-toolkit as a Python library — `MLMMCore` (base engine), `MLMMASECalculator` (ASE interface), `mlmm` (pysisyphus Calculator), and the `mlmm_ase()` compatibility wrapper.
+Use mlmm-toolkit as a Python library — `MLMMCore` (base engine), `MLMMASECalculator` (ASE interface), `mlmm` (pysisyphus Calculator), and the `mlmm_ase()` compatibility wrapper.
 
 ## Quick Start
 

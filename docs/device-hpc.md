@@ -1,10 +1,6 @@
 # Device Configuration & HPC Setup
 
-## Overview
-
-> **Summary:** How to configure GPU/CPU devices for the ML/MM calculator and submit jobs on HPC clusters.
-
----
+How to configure GPU/CPU devices for the ML/MM calculator and submit jobs on HPC clusters.
 
 ## Device Parameters
 

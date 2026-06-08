@@ -1,11 +1,11 @@
 # MLIP Backends
 
-> **Summary:** mlmm-toolkit drives every ML/MM workflow stage (`opt`, `scan`,
-> `tsopt`, `freq`, `irc`, `path-search`,...) through a single `MLMMCore`
-> ONIOM-coupling object. `MLMMCore` dispatches the ML region to a per-backend
-> adapter (`_UMABackend` / `_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`)
-> via the private `_create_ml_backend` factory. This page documents how to
-> select a backend, the per-backend kwargs, and how to add a new backend.
+mlmm-toolkit drives every ML/MM workflow stage (`opt`, `scan`, `tsopt`, `freq`,
+`irc`, `path-search`,...) through a single `MLMMCore` ONIOM-coupling object.
+`MLMMCore` dispatches the ML region to a per-backend adapter (`_UMABackend` /
+`_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`) via the private
+`_create_ml_backend` factory. This page documents how to select a backend, the
+per-backend kwargs, and how to add a new backend.
 
 ## Public surface
 

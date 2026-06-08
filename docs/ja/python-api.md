@@ -1,6 +1,6 @@
 # Python API
 
-> **概要:** mlmm-toolkitをPythonライブラリとして使用 — `MLMMCore`（基盤エンジン）、`MLMMASECalculator`（ASEインターフェース）、`mlmm`（pysisyphus Calculator）。
+mlmm-toolkit を Python ライブラリとして使用します — `MLMMCore`（基盤エンジン）、`MLMMASECalculator`（ASE インターフェース）、`mlmm`（pysisyphus Calculator）。
 
 ## クイックスタート
 
