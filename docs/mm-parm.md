@@ -2,17 +2,16 @@
 
 `mlmm mm-parm` generates Amber topology/coordinate files (parm7/rst7/pdb) from a PDB using AmberTools tleap. Unknown residues are auto-parameterized with GAFF2 (AM1-BCC charges); see Workflow for the full pipeline and CLI options for force-field and hydrogen-addition flags.
 
-## When to use
+## Examples
 
-- Build Amber prmtop/rst7 topology files from a PDB with automatic GAFF2 ligand parameterization, disulfide detection, and optional hydrogen addition via PDBFixer.
-- Not suited to metalloenzymes, glycans, non-standard amino acids / PTMs, or MD snapshot inputs — supply an externally prepared topology via `--parm` instead (see [Notes](#notes)).
-
-## Quick examples
+Basic build (ligand charges + multiplicities):
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
  -l "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1"
 ```
+
+Add TER records, ff19SB, and hydrogens at pH 7:
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
@@ -20,22 +19,12 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
  --add-ter --ff-set ff19SB --add-h --ph 7.0
 ```
 
+Skip hydrogen addition (input already protonated):
+
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
  -l "GPP=-3" --no-add-h
 ```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm mm-parm -i INPUT.pdb [options]
-```
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input PATH` | yes | Input PDB (used as-is unless `--add-h`). |
 
 ## Workflow
 
@@ -67,7 +56,7 @@ mlmm mm-parm -i INPUT.pdb [options]
 
 The full flag list is in the generated [command reference](reference/commands/index.md).
 
-## Notes
+## Limitations and when to use `--parm` instead
 
 `mm-parm` relies on AmberTools tleap with GAFF2 automatic parameterization and works well when the substrate is a **typical organic molecule**. For the following cases, it is strongly recommended to prepare your own topology externally (e.g. with tleap, MCPB.py, or glycam.org tools) and supply it via the `--parm` flag of each subcommand:
 

@@ -4,43 +4,28 @@
 
 This is the ORCA detail mode of `oniom-export` (`mlmm oniom-export --mode orca`). It reads topology information from an Amber parm7 file, maps a model-region PDB to the QM atoms, resolves ORCAFF parameters, and writes a single ORCA QM/MM input file ready for an ORCA 6.0 run.
 
-## When to use
+## Examples
 
-- Use this mode when you need an ORCA QM/MM (`.inp`) input for an ML/MM system whose topology is described by an Amber parm7 file.
-- For the general export overview and a chooser between the Gaussian and ORCA modes, see [oniom-export](oniom-export.md).
-
-## Quick examples
+Basic export:
 
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
+Set explicit total charge/multiplicity for the full QM+MM system:
+
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
+Use an explicit ORCAFF path and disable auto-conversion:
+
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm oniom-export --mode orca --parm PARM7 --model-pdb MODEL.pdb -o OUTPUT.inp -q CHARGE [options]
-```
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `--parm` | yes | Amber parm7 topology file. |
-| `-i, --input` | no | Coordinate file (PDB/XYZ); atom order must match parm7. |
-| `--model-pdb` | yes | PDB file defining QM region atoms. |
-| `-o, --output` | yes | Output ORCA input file (`.inp`). |
-| `-q, --charge` | yes | Charge of QM region. |
 
 ## Workflow
 

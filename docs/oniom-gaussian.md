@@ -2,11 +2,6 @@
 
 Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology. This is the Gaussian-specific detail page for `oniom-export`; it reads topology data from `--parm` (via ParmEd), optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file with method, layer flags, and connectivity.
 
-## When to use
-
-- Use this mode to bridge an ML/MM system into a Gaussian ONIOM calculation, generating a ready-to-run `.com`/`.gjf` input from an Amber parm7 topology.
-- For the export overview and the chooser between Gaussian and ORCA modes, see [`oniom-export`](oniom-export.md).
-
 ## Quick examples
 
 ```bash
@@ -31,21 +26,6 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.xyz --model-pdb ml_regi
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm oniom-export --mode g16 --parm PARM7 -i INPUT --model-pdb MODEL -o OUTPUT [options]
-```
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `--parm` | yes | Amber parm7 topology file. |
-| `-i, --input` | no | Coordinate file (PDB/XYZ); atom order must match parm7. |
-| `--model-pdb` | no | PDB file defining QM region atoms. |
-| `-o, --output` | yes | Output Gaussian input file (`.com` or `.gjf`). |
 
 ## Workflow
 
