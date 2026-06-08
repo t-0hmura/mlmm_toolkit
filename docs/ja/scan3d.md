@@ -1,46 +1,20 @@
 # `scan3d`
 
-## 概要
+調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）グリッドスキャンを実行します。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、MLIP バックエンドは `-b/--backend` で選択（デフォルト: `uma`）、オプティマイザーは PySisyphus LBFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。
 
-> **要約:** 調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）グリッドスキャンを実行します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。
+## 使いどころ
 
-`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、MLIP バックエンドは `-b/--backend` で選択（デフォルト: `uma`）、オプティマイザーは PySisyphus LBFGS です。
+- 3 つの結合距離を跨ぐ 3D PES のマッピング。
+- `--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ可能。
 
-## 最小例
+## 実行例
 
 ```bash
+# 最小: YAML spec から 3D スキャンを実行
 mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan3d.yaml --print-parsed -o ./result_scan3d/
+ -q 0 -s scan3d.yaml -o ./result_scan3d/
 ```
-
-## 出力の見方
-
-- `result_scan3d/surface.csv`
-- `result_scan3d/grid/point_i000_j000_k000.xyz`
-- `result_scan3d/scan3d_density.html`
-
-## よくある例
-
-1. YAML spec の `pairs` を先に検証する。
-2. `--scan-lists` を使う。
-3. `--dump` を有効にして `(d1,d2)` スライスごとの d3 軌跡を保存する。
-
-> **注記:** `-s/--scan-lists` の解釈結果を確認したい場合は `--print-parsed` を追加してください。
-
-## 使用法
-
-```bash
-mlmm scan3d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q CHARGE [-m MULT] \
- [--csv precomputed_surface.csv] \
- [-s scan3d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
- [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
- [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
- [--dump/--no-dump] [--out-dir DIR] \
- [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
-```
-
-### 例
+（`--print-parsed` を追加すると、解釈されたスキャンスペックを検証し、GPU 計算を実行せずに終了します。）
 
 ```bash
 # 推奨: YAML/JSON spec
@@ -53,19 +27,41 @@ pairs:
 YAML
 mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan3d.yaml --print-parsed
+```
 
-# 代替: インライン Python リテラル
-mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]"
-
-# 事前最適化とカスタム出力ディレクトリ付き
+```bash
+# インライン Python リテラル、事前最適化・--dump・カスタム出力ディレクトリ付き
 mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
  --max-step-size 0.20 --dump -o ./result_scan3d/ \
  --preopt --baseline min
 ```
 
-## YAML/JSON スペックフォーマット（推奨）
+## 入力
+
+コマンド形式:
+
+```bash
+mlmm scan3d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q CHARGE [-m MULT] \
+ [--csv precomputed_surface.csv] \
+ [-s scan3d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
+ [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
+ [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
+ [--dump/--no-dump] [--out-dir DIR] \
+ [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
+```
+
+| 入力 | 必須 | 備考 |
+| --- | --- | --- |
+| `-i, --input` | はい（`--csv` 指定時を除く） | 完全酵素 PDB（リンク原子なし）。 |
+| `--parm` | はい（`--csv` 指定時を除く） | 完全酵素の Amber parm7 トポロジー。 |
+| `--model-pdb` | 推奨 | ML 領域を定義する PDB（または `--model-indices` を使用）。 |
+| `-s, --scan-lists` | はい | YAML/JSON スペックファイルパス（`pairs` に 3 四つ組）またはインライン Python リテラル（3 つの四つ組 `(i,j,low,high)`）。 |
+| `-q, --charge` | はい（`-l` または `--csv` 指定時を除く） | ML 領域の総電荷。 |
+| `--csv` | 任意 | 事前計算済み `surface.csv` を読み込み、スキャンを実行せずにプロットを生成。 |
+
+### 入力構文 — YAML/JSON スペックフォーマット（推奨）
 
 `-s/--scan-lists` は YAML/JSON ファイルを自動検出します。ファイルパスを渡すとスペックモードになります:
 
@@ -81,11 +77,9 @@ pairs:
 - 各四つ組は `(i, j, low_A, high_A)` です。
 - インデックスは整数または PDB セレクター（`--scan-lists` と同じ）が使用可能です。
 
-## インラインリテラルフォーマット
+### 入力構文 — インラインリテラルフォーマット
 
 `-s/--scan-lists` がファイルパスでない値を受け取ると、**単一の Python リテラル**文字列として評価されます。シェルクォートに注意してください。
-
-### 基本構造
 
 リテラルは正確に **3 つ**の四つ組 `(atom1, atom2, low_A, high_A)` の Python リストです:
 
@@ -96,8 +90,6 @@ pairs:
 - シェルが括弧やスペースを解釈しないよう、リテラル全体を**シングルクォート**で囲んでください。
 - 各四つ組は 1 つのスキャン軸を定義します: `atom1`--`atom2` 間の距離を `low_A` から `high_A` までスキャンします。
 - `scan` と異なり、**1 つのリテラル**のみ受け付けます（マルチステージ非対応）。
-
-### 原子の指定
 
 原子は**整数インデックス**または **PDB セレクター文字列**で指定できます:
 
@@ -116,7 +108,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 "285,TYR,CA" # 順序は自由
 ```
 
-### クォート規則
+クォート規則:
 
 ```bash
 # 正しい: リスト全体をシングルクォート、内側のセレクター文字列をダブルクォート
@@ -129,13 +121,26 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 -s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
 ```
 
-## ワークフロー
+## 処理の流れ
 1. `geom_loader` で構造を読み込み、CLI から電荷/スピンを解決し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
 2. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からターゲットを解析して 3 つの四つ組にします（デフォルト 1 始まりインデックス、`--zero-based` 指定時は 0 始まり）。PDB 入力の場合、各原子エントリは整数インデックスまたは `"TYR,285,CA"` のようなセレクター文字列が使用可能。区切り文字はスペース、カンマ、スラッシュ、バッククォート、バックスラッシュ。
 3. 外側ループ `d1[i]`: d1 拘束のみで緩和。d1 値が最も近い以前のスキャン済みジオメトリから開始。
 4. 中間ループ `d2[j]`: d1 と d2 の拘束で緩和。最も近い (d1, d2) ジオメトリから開始。
 5. 内側ループ `d3[k]`: 3 つの拘束すべてで緩和。バイアスなしエネルギーを測定（評価時にバイアス除去）し、拘束ジオメトリと収束フラグを書き出し。
 6. スキャン完了後、`surface.csv` を組み立て、kcal/mol ベースラインシフト（`--baseline {min|first}`）を適用し、3D RBF 補間アイソサーフェスプロット（`scan3d_density.html`）を生成（`--zmin/--zmax` を尊重）。
+
+## 出力
+
+```text
+out_dir/ (デフォルト:./result_scan3d/)
+ surface.csv # グリッドメタデータ（d1, d2, d3, energy, convergence）
+ scan3d_density.html # 3D エネルギーアイソサーフェス可視化
+ grid/point_i###_j###_k###.xyz # 各グリッド点の緩和ジオメトリ
+ grid/point_i###_j###_k###.pdb # PDB コンパニオン（B 因子: ML=0, Movable-MM=10, Frozen=20）
+ grid/inner_path_d1_###_d2_###_trj.xyz # --dump が True の場合のみ
+```
+
+ファイル名タグ `i###_j###_k###` は Å の 100 分の 1 の整数（d1×100, d2×100, d3×100）であり、ステップ番号ではありません。
 
 ## CLI オプション
 
@@ -175,17 +180,6 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
-## 出力
-
-```
-out_dir/ (デフォルト:./result_scan3d/)
- surface.csv # グリッドメタデータ（d1, d2, d3, energy, convergence）
- scan3d_density.html # 3D エネルギーアイソサーフェス可視化
- grid/point_i###_j###_k###.xyz # 各グリッド点の緩和ジオメトリ
- grid/point_i###_j###_k###.pdb # PDB コンパニオン（B 因子: ML=0, Movable-MM=10, Frozen=20）
- grid/inner_path_d1_###_d2_###_trj.xyz # --dump が True の場合のみ
-```
-
 ## YAML 設定
 
 ```yaml
@@ -209,8 +203,6 @@ lbfgs:
 bias:
  k: 300.0
 ```
-
----
 
 ## 関連項目
 

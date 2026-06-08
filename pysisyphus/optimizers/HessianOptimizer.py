@@ -29,6 +29,14 @@ from pysisyphus.optimizers.exceptions import OptimizationError
 from pysisyphus.helpers import array2string
 import torch
 
+# M4 (refinement_plan §M1+M4): one-place torch-vs-numpy dispatch. Only used at
+# sites where the torch and numpy APIs share both the name and the semantics
+# (`xp.linalg.eigh`, `xp.isfinite`, `xp.nan_to_num`, ...). Sites that use
+# torch-specific ops (`index_select`, `matmul`, `.clone()`) keep their inline
+# isinstance branches because the corresponding numpy code is structurally
+# different, not just a different module.
+from pysisyphus._array import get_xp
+
 def dummy_hessian_update(H, dx, dg):
     return np.zeros_like(H), "no"
 
@@ -84,6 +92,20 @@ class HessianOptimizer(Optimizer):
         alpha0: float = 1.0,
         max_micro_cycles: int = 25,
         rfo_overlaps: bool = False,
+        trust_band: bool = False,
+        trust_band_sigma_inc: float = 1.15,
+        trust_band_sigma_dec: float = 0.65,
+        trust_band_rho_inc: float = 1.035,
+        trust_band_rho_dec: float = 5.0,
+        hessian_update_window: int = 1,
+        # Opt-in: per-coord-type weighted L_inf trust check in lieu of
+        # `np.linalg.norm(step)` (L2) when geometry has internals.
+        weighted_trust: bool = False,
+        weighted_trust_wb: float = 1.0,
+        weighted_trust_wa: float = 0.5,
+        weighted_trust_wd: float = 0.25,
+        weighted_trust_wo: float = 0.5,
+        weighted_trust_wx: float = 1.0,
         **kwargs,
     ) -> None:
         """Baseclass for optimizers utilizing Hessian information.
@@ -148,6 +170,34 @@ class HessianOptimizer(Optimizer):
         # Constrain initial trust radius if trust_max > trust_radius
         self.trust_radius = min(trust_radius, trust_max)
         self.log(f"Initial trust radius: {self.trust_radius:.6f}")
+        # Sella backport (opt-in): rho-band trust update parameters.
+        # If trust_band=True, set_new_trust_radius uses gentler sigma_inc/sigma_dec
+        # multipliers (1.15 / 0.65) inside an rho-band gate (1/rho_inc < rho < rho_inc
+        # = "no update"; rho outside [1/rho_dec, rho_dec] = "shrink"). Default OFF
+        # preserves Nocedal 4.1 binary x2/÷4 behaviour for reproducibility.
+        self.trust_band = bool(trust_band)
+        self.trust_band_sigma_inc = float(trust_band_sigma_inc)
+        self.trust_band_sigma_dec = float(trust_band_sigma_dec)
+        self.trust_band_rho_inc = float(trust_band_rho_inc)
+        self.trust_band_rho_dec = float(trust_band_rho_dec)
+        # window>=2 enables multistep_ts_bfgs_update from a sliding buffer of
+        # recent (dx, dg) pairs; window=1 keeps single-step Bofill / BFGS / ts_bfgs.
+        self.hessian_update_window = max(int(hessian_update_window), 1)
+        # When weighted_trust is True AND geometry has internals, update_trust_radius
+        # uses weighted_max_internal_step(step, typed_prims, **weights) instead of
+        # plain L2 norm so that dihedrals don't burn the trust budget on small
+        # cartesian moves (they get wd=0.25 by default vs. wb=1.0 for bonds).
+        self.weighted_trust = bool(weighted_trust)
+        self.weighted_trust_weights = dict(
+            wb=float(weighted_trust_wb),
+            wa=float(weighted_trust_wa),
+            wd=float(weighted_trust_wd),
+            wo=float(weighted_trust_wo),
+            wx=float(weighted_trust_wx),
+        )
+        # Buffers populated lazily in update_hessian() when window>=2.
+        self._sy_buffer_S: list = []
+        self._sy_buffer_Y: list = []
         self.hessian_update = hessian_update
         self.hessian_update_func = HESS_UPDATE_FUNCS[hessian_update]
         self.hessian_init = hessian_init
@@ -251,12 +301,11 @@ class HessianOptimizer(Optimizer):
         except (ValueError, IndexError, TypeError):
             pass
         if isinstance(vec, torch.Tensor):
-            if vec.device.type == "cuda":
-                try:
-                    vec_cpu = vec.detach().cpu().numpy()
-                    return torch.as_tensor(vec_cpu[inds], dtype=vec.dtype, device=vec.device)
-                except (ValueError, IndexError, TypeError):
-                    return vec
+            # GPU-native: index_select avoids the CPU round-trip the legacy
+            # CUDA branch used. Partial-DOF-correct: returns vec[inds] semantics.
+            # Upstream sanitization at L226-251 already clamps inds, so the
+            # deleted silent fallback (`except: return vec`) is unreachable in
+            # practice and previously masked shape-mismatch bugs downstream.
             idx = torch.as_tensor(inds, dtype=torch.long, device=vec.device)
             return vec.index_select(0, idx)
         return vec[inds]
@@ -302,12 +351,12 @@ class HessianOptimizer(Optimizer):
         except (ValueError, IndexError, TypeError):
             pass
         if isinstance(hessian, torch.Tensor):
-            if hessian.device.type == "cuda":
-                try:
-                    hess_cpu = hessian.detach().cpu().numpy()
-                    return torch.as_tensor(hess_cpu[np.ix_(inds, inds)], dtype=hessian.dtype, device=hessian.device)
-                except (ValueError, IndexError, TypeError):
-                    return hessian
+            # GPU-native: index_select avoids the CPU round-trip the legacy
+            # CUDA branch used. Partial-Hessian-correct: returns (len(inds),)^2
+            # identical to H[np.ix_(inds, inds)]. Upstream sanitization at
+            # L289-302 already clamps inds to [0, n-1], so the deleted silent
+            # fallback (`except: return hessian`) is unreachable in practice
+            # and previously masked shape-mismatch bugs downstream.
             idx = torch.as_tensor(inds, device=hessian.device, dtype=torch.int64)
             return hessian.index_select(0, idx).index_select(1, idx)
         return hessian[np.ix_(inds, inds)]
@@ -436,7 +485,21 @@ class HessianOptimizer(Optimizer):
         self.log(f"\tActual change: {actual_change:.4e} au")
         self.log(f"\tCoefficient: {coeff:.2%}")
         step = self.steps[-1]
-        last_step_norm = np.linalg.norm(step)
+        # Weighted L_inf norm replaces L2 when weighted_trust is enabled AND
+        # geometry has internals with matching typed_prims length.
+        internal = getattr(self.geometry, "internal", None)
+        typed_prims = getattr(internal, "typed_prims", None) if internal is not None else None
+        if (
+            self.weighted_trust
+            and typed_prims is not None
+            and len(typed_prims) == len(np.asarray(step).ravel())
+        ):
+            from pysisyphus.optimizers.restrict_step import weighted_max_internal_step
+            last_step_norm = weighted_max_internal_step(
+                step, typed_prims, **self.weighted_trust_weights
+            )
+        else:
+            last_step_norm = np.linalg.norm(step)
         self.set_new_trust_radius(coeff, last_step_norm)
         if unexpected_increase:
             self.table.print(
@@ -445,6 +508,25 @@ class HessianOptimizer(Optimizer):
             )
 
     def set_new_trust_radius(self, coeff, last_step_norm):
+        if self.trust_band:
+            # Sella backport (opt-in): rho-band trust update (sella/optimize/optimize.py:280-289).
+            # `coeff` here is ΔE_actual / ΔE_predicted -- same definition as Sella's `rho`.
+            # rho outside [1/rho_dec, rho_dec]      -> shrink with sigma_dec (default 0.65)
+            # rho inside [1/rho_inc, rho_inc] band  -> grow with sigma_inc  (default 1.15)
+            # otherwise                              -> keep current trust
+            rho = float(coeff)
+            if (rho < 1.0 / self.trust_band_rho_dec) or (rho > self.trust_band_rho_dec):
+                new_tr = max(last_step_norm * self.trust_band_sigma_dec, self.trust_min)
+                self.trust_radius = min(new_tr, self.trust_max)
+                self.log(f"\tTrust band shrink (rho={rho:.3f}): {self.trust_radius:.6f}")
+            elif (1.0 / self.trust_band_rho_inc) < rho < self.trust_band_rho_inc:
+                new_tr = max(last_step_norm * self.trust_band_sigma_inc, self.trust_radius)
+                self.trust_radius = min(new_tr, self.trust_max)
+                self.log(f"\tTrust band grow (rho={rho:.3f}): {self.trust_radius:.6f}")
+            else:
+                self.log(f"\tTrust band keep (rho={rho:.3f}): {self.trust_radius:.6f}")
+            return
+
         # Nocedal, Numerical optimization Chapter 4, Algorithm 4.1
 
         # If actual and predicted energy change have different signs
@@ -500,12 +582,8 @@ class HessianOptimizer(Optimizer):
             H_old = self.H
             self.H = None
             del H_old
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-            except ImportError:
-                pass
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             # Use xtb hessian
             self.log("Requested Hessian recalculation.")
             if self.hessian_xtb:
@@ -539,50 +617,74 @@ class HessianOptimizer(Optimizer):
                 self.log(
                     f"Curvature condition (s·y = {curv_cond:.4f} < 0) not satisfied!"
                 )
-            dH, key = self.hessian_update_func(H_work, dx, dg)
+            if self.hessian_update_window >= 2:
+                # Multi-step TS-BFGS update from a sliding (dx, dg) buffer.
+                # Multistep helper is numpy-only, so detach torch tensors to CPU
+                # for the update and move the result back to H's device. Same
+                # pattern as bofill_update's torch handling.
+                from pysisyphus.optimizers.hessian_updates import multistep_ts_bfgs_update
+                if isinstance(H_work, torch.Tensor):
+                    H_np = H_work.detach().cpu().numpy()
+                    dx_np = (
+                        dx.detach().cpu().numpy()
+                        if isinstance(dx, torch.Tensor) else np.asarray(dx)
+                    )
+                    dg_np = (
+                        dg.detach().cpu().numpy()
+                        if isinstance(dg, torch.Tensor) else np.asarray(dg)
+                    )
+                else:
+                    H_np = np.asarray(H_work)
+                    dx_np = np.asarray(dx)
+                    dg_np = np.asarray(dg)
+                self._sy_buffer_S.append(dx_np.copy())
+                self._sy_buffer_Y.append(dg_np.copy())
+                self._sy_buffer_S = self._sy_buffer_S[-self.hessian_update_window:]
+                self._sy_buffer_Y = self._sy_buffer_Y[-self.hessian_update_window:]
+                S = np.column_stack(self._sy_buffer_S)
+                Y = np.column_stack(self._sy_buffer_Y)
+                dH_np, key = multistep_ts_bfgs_update(H_np, S, Y)
+                if isinstance(H_work, torch.Tensor):
+                    dH = torch.as_tensor(dH_np, dtype=H_work.dtype, device=H_work.device)
+                else:
+                    dH = dH_np
+                self.log(f"Did {key} Hessian update (window={len(self._sy_buffer_S)}).")
+            else:
+                dH, key = self.hessian_update_func(H_work, dx, dg)
+                self.log(f"Did {key} Hessian update.")
             self.H = H_work + dH
-            self.log(f"Did {key} Hessian update.")
 
     def solve_rfo(self, rfo_mat, kind="min", prev_eigvec=None):
         # When using the restricted step variant of RFO the RFO matrix
         # may not be symmetric. Thats why we can't use eigh here.
-        is_torch = isinstance(rfo_mat, torch.Tensor)
+        # M4: torch/numpy dispatch via _array.get_xp — both backends share
+        # isfinite / nan_to_num / allclose / linalg.{eigh,eig} / argsort by
+        # name, so xp.foo(...) is equivalent to the prior if-is_torch branch.
+        xp = get_xp(rfo_mat)
+        is_torch = xp is torch  # still needed for the typed-exception in eigh fallback
 
-        if is_torch:
-            if not torch.isfinite(rfo_mat).all():
-                self.log("RFO matrix contains NaN/inf; sanitizing entries.")
-                rfo_mat = torch.nan_to_num(
-                    rfo_mat, nan=0.0, posinf=1e8, neginf=-1e8
-                )
-        else:
-            if not np.isfinite(rfo_mat).all():
-                self.log("RFO matrix contains NaN/inf; sanitizing entries.")
-                rfo_mat = np.nan_to_num(rfo_mat, nan=0.0, posinf=1e8, neginf=-1e8)
+        if not xp.isfinite(rfo_mat).all():
+            self.log("RFO matrix contains NaN/inf; sanitizing entries.")
+            rfo_mat = xp.nan_to_num(rfo_mat, nan=0.0, posinf=1e8, neginf=-1e8)
 
-        if is_torch:
-            is_sym = torch.allclose(rfo_mat, rfo_mat.T)
-        else:
-            is_sym = np.allclose(rfo_mat, rfo_mat.T)
+        is_sym = xp.allclose(rfo_mat, rfo_mat.T)
 
         if is_sym:
             try:
-                eigenvalues, eigenvectors = (torch.linalg.eigh(rfo_mat) if is_torch else np.linalg.eigh(rfo_mat))
+                eigenvalues, eigenvectors = xp.linalg.eigh(rfo_mat)
             except (torch._C._LinAlgError, np.linalg.LinAlgError):
                 self.log("eigh failed; falling back to eig.")
-                eigenvalues, eigenvectors = (torch.linalg.eig(rfo_mat) if is_torch else np.linalg.eig(rfo_mat))
+                eigenvalues, eigenvectors = xp.linalg.eig(rfo_mat)
                 eigenvalues = eigenvalues.real
                 eigenvectors = eigenvectors.real
         else:
-            eigenvalues, eigenvectors = (torch.linalg.eig(rfo_mat) if is_torch else np.linalg.eig(rfo_mat))
+            eigenvalues, eigenvectors = xp.linalg.eig(rfo_mat)
             eigenvalues = eigenvalues.real
             eigenvectors = eigenvectors.real
 
         self.log("\tdiagonalized augmented Hessian")
 
-        if isinstance(eigenvectors, torch.Tensor):
-            sorted_inds = torch.argsort(eigenvalues)
-        else:
-            sorted_inds = np.argsort(eigenvalues)
+        sorted_inds = get_xp(eigenvectors).argsort(eigenvalues)
 
         # Depending on wether we want to minimize (maximize) along
         # the mode(s) in the rfo mat we have to select the smallest
@@ -723,10 +825,8 @@ class HessianOptimizer(Optimizer):
         return step_np, mu_cur, 1.0, eigvec_np
 
     def filter_small_eigvals(self, eigvals, eigvecs, mask=False):
-        if isinstance(eigvals, torch.Tensor):
-            small_inds = torch.abs(eigvals) < self.small_eigval_thresh
-        else:
-            small_inds = np.abs(eigvals) < self.small_eigval_thresh
+        # M4: xp.abs handles both backends (torch.abs / np.abs share name + semantics).
+        small_inds = get_xp(eigvals).abs(eigvals) < self.small_eigval_thresh
         eigvals = eigvals[~small_inds]
         eigvecs = eigvecs[:, ~small_inds]
         small_num = sum(small_inds)
@@ -818,10 +918,8 @@ class HessianOptimizer(Optimizer):
         else:
             gradient = self.active_from_full(gradient_full)
 
-        if isinstance(H, torch.Tensor):
-            eigvals, eigvecs = torch.linalg.eigh(H)
-        else:
-            eigvals, eigvecs = np.linalg.eigh(H)
+        # M4: xp.linalg.eigh handles both backends.
+        eigvals, eigvecs = get_xp(H).linalg.eigh(H)
         # Neglect small eigenvalues
         eigvals, eigvecs = self.filter_small_eigvals(eigvals, eigvecs)
 
@@ -849,19 +947,15 @@ class HessianOptimizer(Optimizer):
         # Derivative of the squared step w.r.t. alpha
         numer = gradient**2
         denom = (eigvals - rfo_eigval * cur_alpha) ** 3
-        if isinstance(gradient, torch.Tensor):
-            quot = torch.sum(numer / denom)
-        else:
-            quot = np.sum(numer / denom)
+        # M4: xp.sum / xp.isfinite / xp.abs all share name + semantics across torch+np.
+        xp = get_xp(gradient)
+        quot = xp.sum(numer / denom)
         self.log(f"quot={quot:.6f}")
         dstep2_dalpha = 2 * rfo_eigval / (1 + step_norm**2 * cur_alpha) * quot
-        if isinstance(gradient, torch.Tensor):
-            dstep2_valid = bool(
-                torch.isfinite(dstep2_dalpha)
-                & (torch.abs(dstep2_dalpha) > 1e-12)
-            )
-        else:
-            dstep2_valid = np.isfinite(dstep2_dalpha) and abs(dstep2_dalpha) > 1e-12
+        # bool(...) coerces both numpy scalar and torch 0-d tensor to Python bool.
+        dstep2_valid = bool(
+            xp.isfinite(dstep2_dalpha) & (xp.abs(dstep2_dalpha) > 1e-12)
+        )
         if not dstep2_valid:
             self.log(
                 "alpha update skipped due to invalid derivative "

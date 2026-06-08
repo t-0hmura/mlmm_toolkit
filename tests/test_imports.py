@@ -18,7 +18,7 @@ def test_import_mlmm():
 
 
 def test_import_defaults():
-    from mlmm.defaults import MLMM_CALC_KW, GEOM_KW_DEFAULT, OPT_BASE_KW
+    from mlmm.core.defaults import MLMM_CALC_KW, GEOM_KW_DEFAULT, OPT_BASE_KW
 
 
 @_need_py311
@@ -29,6 +29,6 @@ def test_import_cli():
 
 @_need_py311
 def test_import_cli_utils():
-    from mlmm.cli_utils import parse_bool, run_cli
+    from mlmm.cli.decorators import parse_bool, render_cli_exception
     assert callable(parse_bool)
-    assert callable(run_cli)
+    assert callable(render_cli_exception)

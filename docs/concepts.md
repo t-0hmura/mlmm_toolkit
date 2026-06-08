@@ -145,7 +145,7 @@ repeat until converged:
 | **Calculator** | Full ONIOM (`E_MM_real + E_ML − E_MM_model`) | MM force field only (`E_MM_real`) |
 | **Coordinates optimized** | ML atoms + link-atom MM parents | Movable MM (excluding link-atom MM parents) |
 | **Optimizer** | RFO (explicit Hessian, BFGS-updated) | L-BFGS (Hessian-free, from scratch each cycle) |
-| **Convergence** | `--thresh` (default: `gau`) | `--micro-thresh` (default: same as `--thresh`) |
+| **Convergence** | `--thresh` (default: `gau`) | `micro_thresh` YAML key (default: same as `--thresh`) |
 
 ```{note}
 **Why link-atom MM parents move in the macro step:**
@@ -163,7 +163,7 @@ pysisyphus provides several preset thresholds (units: Hartree/Bohr for forces, B
 | `gau_tight` | 1.5×10⁻⁵ | 1.0×10⁻⁵ | 6.0×10⁻⁵ | 4.0×10⁻⁵ |
 | `baker` | 3.0×10⁻⁴ | 2.0×10⁻⁴ | 3.0×10⁻⁴ | 2.0×10⁻⁴ |
 
-`overachieve_factor` is a convergence shortcut: when `max(force)` and `rms(force)` are both below `threshold / overachieve_factor`, convergence is declared even if the step-size criteria have not yet been met. In the default configuration, `overachieve_factor` is set to **0.0** (disabled) for the main optimizer (opt/tsopt macro steps). It is only active inside the **microiteration** MM relaxation loop (`LayerOpt`, where it is set to 3). Users can enable it for the main optimizer via YAML (`overachieve_factor: 3`).
+`overachieve_factor` is a convergence shortcut: when `max(force)` and `rms(force)` are both below `threshold / overachieve_factor`, convergence is declared even if the step-size criteria have not yet been met. In the default configuration, `overachieve_factor` is **0.0** (disabled) for every optimizer, including the microiteration MM relaxation loop. Users can enable it via YAML (e.g. `overachieve_factor: 3`).
 
 Enable microiteration with `--microiter` (default for `--opt-mode hess`):
 
@@ -270,7 +270,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 - You are still exploring the workflow and want a single command to manage outputs.
 
 ### Prefer subcommands when...
-- You want to run each stage step by step, verifying results at each point. For complex reactions, this approach often works better than running everything at once.
+- You want to run each stage step by step, verifying results at each point.
 - You want to mix-and-match a custom workflow (e.g., your own endpoint preparation).
 - You already have parm7/rst7 and layer-assigned PDB files from a previous run.
 - You want to generate Gaussian/ORCA ONIOM input files via `oniom-export --mode g16|orca`.

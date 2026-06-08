@@ -1,79 +1,52 @@
 # `scan`
 
-## Overview
+Drive a reaction coordinate on a layered enzyme PDB by scanning bond distances with harmonic restraints using the ML/MM calculator. `mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) with harmonic restraints: at each step the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and hessian_ff. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
 
-> **Summary:** Drive a reaction coordinate by scanning bond distances with harmonic restraints using the ML/MM calculator. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
+## When to use
 
-`mlmm scan` performs a staged, bond-length-driven scan using the ML/MM calculator (`mlmm.mlmm_calc.mlmm`) with harmonic restraints. At each step, the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and hessian_ff.
+- Use when generating a coarse reaction trajectory from a single starting structure by driving one or more interatomic distances toward target values; provides intermediate/product candidates for downstream MEP refinement.
 
-## Minimal example
-
-```bash
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan.yaml --print-parsed -o ./result_scan
-```
-
-## Output checklist
-
-- `result_scan/stage_01/result.pdb` (or `result.xyz`)
-- `result_scan/stage_02/result.pdb` (or `result.xyz`)
-- `result_scan/stage_*/scan_trj.xyz` and `scan.pdb` (always generated)
-
-## Common examples
-
-1. First validate parsed scan targets from YAML spec.
+## Quick examples
 
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan.yaml --print-parsed
+ -q 0 -s scan.yaml -o ./result_scan
 ```
-
-2. Use inline literal input.
+(Add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation.)
 
 ```bash
+# Inline Python literal
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,2.20)]"
 ```
 
-3. Dump trajectories for stage-by-stage inspection.
-
 ```bash
+# Dump trajectories for stage-by-stage inspection
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan.yaml --dump -o ./result_scan_dump
 ```
 
-> **Note:** Add `--print-parsed` when you want to verify parsed stage targets from `-s/--scan-lists`.
+## Inputs
 
-## Usage
+Command form:
+
 ```bash
 mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  [-s scan.yaml | -s "[(I,J,TARGET_ANG)]"] [options]
 ```
 
-### Examples
-```bash
-# Recommended: YAML/JSON spec
-cat > scan.yaml << 'YAML'
-one_based: true
-stages:
- - [[12, 45, 2.20]]
- - [[10, 55, 1.35], [23, 34, 1.80]]
-YAML
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan.yaml --print-parsed
+| Input | Required | Notes |
+| --- | --- | --- |
+| `-i, --input` | yes | Input PDB (or XYZ with `--ref-pdb` for topology). |
+| `--parm` | yes | Amber prmtop for the full REAL system. |
+| `--model-pdb` | optional | PDB defining the ML region; optional when `--detect-layer` is enabled or `--model-indices` is provided. |
+| `-q, --charge` | yes (unless `-l`) | Net ML-region charge. |
+| `-s, --scan-lists` | yes | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s). |
 
-# Alternative: inline Python literal
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s "[(12,45,2.20)]"
+### Input syntax
 
-# Two stages with dumps, frozen atoms, and YAML overrides
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q -1 -m 1 --freeze-atoms "1,3,5" -s "[(12,45,2.20)]" \
- "[(10,55,1.35),(23,34,1.80)]" --max-step-size 0.20 --dump
-```
-
-## YAML/JSON spec format (recommended)
+**YAML/JSON spec format (recommended)**
 
 `-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
 
@@ -88,11 +61,9 @@ stages:
 - Each stage is a list of `(i, j, target_A)` triples.
 - Indices may be integers or PDB selectors (for PDB input), same as inline literals.
 
-## Inline literal format
+**Inline literal format**
 
 When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **Python literal** string evaluated by the CLI. Shell quoting matters.
-
-### Basic structure
 
 Each literal is a Python list of triples `(atom1, atom2, target_A)`:
 
@@ -103,8 +74,6 @@ Each literal is a Python list of triples `(atom1, atom2, target_A)`:
 - Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
 - Each triple drives the distance between `atom1`--`atom2` toward `target_A`.
 - One literal = one **stage**. For multiple stages, pass multiple literals after a **single** `-s/--scan-lists` flag (do not repeat the flag).
-
-### Specifying atoms
 
 Atoms can be given as **integer indices** or **PDB selector strings**:
 
@@ -123,7 +92,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 "285,TYR,CA" # order is flexible
 ```
 
-### Quoting rules
+Quoting rules:
 
 ```bash
 # Correct: single-quote the list, double-quote selector strings inside
@@ -135,8 +104,6 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 # Avoid: double-quoting the outer literal requires escaping inner quotes
 -s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.35)]"
 ```
-
-### Multiple stages
 
 Pass multiple literals after a single `-s/--scan-lists` flag. Each literal becomes one stage:
 
@@ -150,7 +117,7 @@ Pass multiple literals after a single `-s/--scan-lists` flag. Each literal becom
 
 Stages run sequentially; each starts from the previous stage's relaxed result. **Do not repeat the `-s/--scan-lists` flag** -- supply all stage literals after a single flag.
 
-### Bidirectional scan (4-tuple)
+**Bidirectional scan (4-tuple)**
 
 Instead of a 3-tuple `(i, j, target)`, you can pass a **4-tuple** `(i, j, start, end)` to scan in both directions from the current geometry. The CLI automatically expands each 4-tuple into two stages:
 
@@ -169,6 +136,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 This is equivalent to two manual stages with a geometry reset between them, but avoids the need to script it yourself. Mixed 3-tuples and 4-tuples are accepted in the same literal.
 
 ## Workflow
+
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
     or defaults. Provide `--parm`, `--model-pdb`, `-q/--charge`, and optionally
     `-m/--multiplicity` for the ML/MM calculator.
@@ -194,7 +162,28 @@ This is equivalent to two manual stages with a geometry reset between them, but 
 7. Repeat for every stage; optional trajectories are dumped only when `--dump`
     is `True`.
 
+## Outputs
+
+Each stage writes its final geometry and biased-step trajectory under `stage_XX/`, with a combined trajectory at the root. The files you check first are the per-stage `result.pdb` (or `result.xyz`) and the always-generated `scan_trj.xyz` / `scan.pdb`.
+
+```
+out_dir/ (default: ./result_scan/)
+├─ scan_trj.xyz              # Combined trajectory across all stages (always written)
+├─ scan.pdb                  # Combined PDB companion (PDB inputs only; always written)
+├─ preopt/                   # Present when --preopt is True
+│  ├─ result.xyz
+│  └─ result.pdb             # Only for PDB inputs
+└─ stage_XX/                 # One folder per stage (k = 01..K)
+   ├─ result.xyz             # Final (possibly endopt) geometry
+   ├─ result.pdb             # If input was PDB
+   ├─ scan_trj.xyz           # Per-stage biased step frames (always written)
+   └─ scan.pdb               # PDB version of scan_trj.xyz (PDB inputs only; always written)
+```
+
 ## CLI options
+
+The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB (or XYZ with `--ref-pdb` for topology). | Required |
@@ -228,52 +217,24 @@ This is equivalent to two manual stages with a geometry reset between them, but 
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
+| `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
+| `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running the scan. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
-## Outputs
-```
-out_dir/ (default: ./result_scan/)
-├─ scan_trj.xyz              # Combined trajectory across all stages (always written)
-├─ scan.pdb                  # Combined PDB companion (PDB inputs only; always written)
-├─ preopt/                   # Present when --preopt is True
-│  ├─ result.xyz
-│  └─ result.pdb             # Only for PDB inputs
-└─ stage_XX/                 # One folder per stage (k = 01..K)
-   ├─ result.xyz             # Final (possibly endopt) geometry
-   ├─ result.pdb             # If input was PDB
-   ├─ scan_trj.xyz           # Per-stage biased step frames (always written)
-   └─ scan.pdb               # PDB version of scan_trj.xyz (PDB inputs only; always written)
-```
-
 ## YAML configuration
 
-- `coord_type`: Coordinate type (cartesian vs dlc internals).
-- `freeze_atoms`: 1-based frozen atoms merged with CLI `--freeze-atoms`.
+The scan reads the shared `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), and `opt` / `lbfgs` (optimizer) sections, plus `bias` (`k`, harmonic strength in eV/Å²) and a `bond` section for MLIP-based bond-change detection.
 
-### Section `calc` / `mlmm`
-- ML/MM calculator setup: `charge`, `spin`, `backend`, `embedcharge`, UMA-specific `model`/`task_name`, `device`, neighbor radii, Hessian options, etc.
-
-### Section `opt` / `lbfgs`
-- Optimizer settings: `thresh`, `max_cycles`, `print_every`, step controls, line search, dumping flags.
-
-### Section `bias`
-- `k` (`300`): Harmonic strength in eV/Å².
-
-### Section `bond`
-- MLIP-based bond-change detection:
- - `device` (`"auto"`): MLIP device for graph analysis.
- - `bond_factor` (`1.20`): Covalent-radius scaling for cutoff.
- - `margin_fraction` (`0.05`): Fractional tolerance for comparisons.
- - `delta_fraction` (`0.05`): Minimum relative change to flag formation/breaking.
+Full schema (every key and default): [YAML Reference](yaml-reference.md).
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
-
-- [scan2d](scan2d.md) -- 2D distance grid scan
-- [scan3d](scan3d.md) -- 3D distance grid scan
-- [opt](opt.md) -- Single-structure geometry optimization
-- [all](all.md) -- End-to-end workflow with `--scan-lists` for single-structure inputs
-- [path-search](path-search.md) -- MEP search using scan endpoints as intermediates
+- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
+- [scan2d](scan2d.md) — 2D distance grid scan
+- [scan3d](scan3d.md) — 3D distance grid scan
+- [opt](opt.md) — Single-structure geometry optimization
+- [all](all.md) — End-to-end workflow with `--scan-lists` for single-structure inputs
+- [path-search](path-search.md) — MEP search using scan endpoints as intermediates

@@ -1,13 +1,17 @@
 # `mlmm oniom-import`
 
 ```text
-
 Usage: mlmm oniom-import [OPTIONS]
 
   Import ONIOM input (Gaussian g16 or ORCA) and reconstruct XYZ + B-factor
   layered PDB.
 
 Options:
+  -v, --verbose LEVEL    Console verbosity 0-3 (default 2). 0=silent;
+                         1=milestones only; 2=+optimizer cycle tables, per-stage
+                         timing, VRAM, deliverable paths; 3=everything (full
+                         config blocks, per-file paths, DEBUG logging).
+                         [0<=x<=3]
   --help-advanced        Show all options (including advanced settings) and
                          exit.
   -i, --input FILE       Input ONIOM file (.gjf/.com for g16, .inp for ORCA).

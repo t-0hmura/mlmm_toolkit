@@ -26,20 +26,11 @@ from pysisyphus.optimizers.closures import bfgs_multiply
 
 import torch
 
-
-def _outer(a, b):
-    """Torch based outer product preserving dtype and device."""
-    if isinstance(a, torch.Tensor):
-        b = torch.as_tensor(b, dtype=a.dtype, device=a.device)
-        return torch.outer(a, b)
-    return np.outer(a, b)
-
-def _dot(a, b):
-    """Torch based dot product preserving dtype and device."""
-    if isinstance(a, torch.Tensor):
-        b = torch.as_tensor(b, dtype=a.dtype, device=a.device)
-        return torch.dot(a, b)
-    return np.dot(a, b)
+# M2 (refinement_plan.md): the local _outer / _dot helpers have moved to
+# pysisyphus._array as part of the M1 torch-vs-numpy shim. Re-export them
+# under the same names here so external code that imported them from this
+# module (older _research scripts) keeps working unchanged.
+from pysisyphus._array import _outer, _dot  # noqa: F401  (re-export)
 
 
 def bfgs_update(H, dx, dg):
@@ -58,21 +49,6 @@ def bfgs_update(H, dx, dg):
 
 
 def damped_bfgs_update(H, dx, dg):
-    # if isinstance(H, torch.Tensor):
-    #     dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)
-    #     dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)
-
-    #     dxdg  = _dot(dx, dg)
-    #     dxHdx = _dot(dx, H @ dx)
-    #     theta = 1.0
-    #     if dxdg < 0.2 * dxHdx:
-    #         theta = 0.8 * dxHdx / (dxHdx - dxdg)
-    #     r = theta * dg + (1 - theta) * (H @ dx)
-
-    #     first_term  = _outer(r, r) / _dot(r, dx)
-    #     second_term = (H @ _outer(dx, dx) @ H) / dxHdx
-    #     return first_term - second_term, "damped BFGS"
-
     """See [5]"""
     dxdg = dx.dot(dg)
     dxHdx = dx.dot(H).dot(dx)
@@ -123,29 +99,6 @@ def double_damp(
     y : np.array, shape (N, ), floats
         Damped gradient differences
     """
-    # if isinstance(H, torch.Tensor):
-    #     s = torch.as_tensor(s, dtype=H.dtype, device=H.device)
-    #     y = torch.as_tensor(y, dtype=H.dtype, device=H.device)
-
-    #     sy  = _dot(s, y)
-    #     Hy  = H @ y
-    #     yHy = _dot(y, Hy)
-
-    #     theta_1 = 1.0
-    #     if sy < mu_1 * yHy:
-    #         theta_1 = (1 - mu_1) * yHy / (yHy - sy)
-    #         s = theta_1 * s + (1 - theta_1) * Hy
-
-    #     # --- 二重 damping ---
-    #     sy   = _dot(s, y)
-    #     ss   = _dot(s, s)
-    #     theta_2 = 1.0
-    #     if mu_2 is not None and sy < mu_2 * ss:
-    #         theta_2 = (1 - mu_2) * ss / (ss - sy)
-    #         y = theta_2 * y + (1 - theta_2) * s
-
-    #     return s, y
-
     sy = s.dot(y)
     # Calculate Hy directly
     if H is not None:
@@ -206,22 +159,6 @@ def psb_update(z, dx):
 
 
 def flowchart_update(H, dx, dg):
-    # if isinstance(H, torch.Tensor):
-    #     dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)
-    #     dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)
-
-    #     z          = dg - H @ dx
-    #     sr1_quot   = _dot(z, dx) / (z.norm() * dx.norm())
-    #     bfgs_quot  = _dot(dg, dx) / (dg.norm() * dx.norm())
-
-    #     if sr1_quot < -0.1:
-    #         update, key = sr1_update(z, dx)
-    #     elif bfgs_quot > 0.1:
-    #         update, key = bfgs_update(H, dx, dg)
-    #     else:
-    #         update, key = psb_update(z, dx)
-    #     return update, key
-
     # See [1], Sec. 2, equations 1 to 3
     z = dg - H.dot(dx)
     sr1_quot = z.dot(dx) / (np.linalg.norm(z) * np.linalg.norm(dx))
@@ -250,37 +187,38 @@ def mod_flowchart_update(H, dx, dg):
 
 
 def bofill_update(H, dx, dg):
-    """Bofill's combination of SR1 and PSB updates."""
+    """Bofill's combination of SR1 and PSB updates.
+
+    For torch.Tensor input, perform the update on CPU to avoid a ~5 GB
+    GPU peak (sr1, psb, mix*sr1, (1-mix)*psb temporaries each ~1.35 GB
+    for n=4338 atoms). The update is pure linear algebra over a single
+    Hessian; CPU is plenty fast at this granularity, and the result is
+    moved back to H's device at the end. This prevents IRC OOMs on
+    16 GB GPUs.
+    """
     if isinstance(H, torch.Tensor):
-        dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)
-        dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)
+        target_device = H.device
+        target_dtype = H.dtype
+        H_cpu = H.detach().cpu()
+        dx_cpu = torch.as_tensor(dx, dtype=H_cpu.dtype).cpu()
+        dg_cpu = torch.as_tensor(dg, dtype=H_cpu.dtype).cpu()
+        z = dg_cpu - H_cpu @ dx_cpu
+        sr1 = sr1_update(z, dx_cpu)[0]
+        psb = psb_update(z, dx_cpu)[0]
+        mix = (_dot(z, dx_cpu) ** 2) / (_dot(z, z) * _dot(dx_cpu, dx_cpu))
+        update = mix * sr1 + (1 - mix) * psb
+        del sr1, psb, H_cpu, dx_cpu, dg_cpu, z
+        return update.to(dtype=target_dtype, device=target_device), "Bofill"
 
     z = dg - H @ dx
     sr1 = sr1_update(z, dx)[0]
     psb = psb_update(z, dx)[0]
     mix = (_dot(z, dx) ** 2) / (_dot(z, z) * _dot(dx, dx))
     update = mix * sr1 + (1 - mix) * psb
-    if isinstance(H, torch.Tensor):
-        return update.to(dtype=H.dtype, device=H.device), "Bofill"
     return update, "Bofill"
 
 
 def ts_bfgs_update(H, dx, dg):
-    # if isinstance(H, torch.Tensor):
-    #     dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)[:, None]
-    #     dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)[:, None]
-    #     j   = dg - H @ dx
-    #     jdx = (j.T @ dx)
-
-    #     w, v = torch.linalg.eigh(H)
-    #     Hdx  = torch.abs(w) * (v @ (v.T @ dx))
-    #     M     = dg @ dg.T + Hdx @ Hdx.T
-    #     dxTM  = dx.T @ M
-    #     u     = torch.linalg.solve(dxTM @ dx, dxTM).T
-    #     juT   = j @ u.T
-    #     update = juT + juT.T - jdx * (u @ u.T)
-    #     return update, "TS-BFGS"
-
     """As described in [7]"""
     dx = dx[:, None]
     dg = dg[:, None]
@@ -353,3 +291,127 @@ def ts_bfgs_update_revised(H, dx, dg):
     juT = j @ u.T
     ts_bfgs_update = juT + juT.T - jTdx * u @ u.T
     return ts_bfgs_update, "TS-BFGS"
+
+
+# ---------------------------------------------------------------------------
+# Multi-step symmetrization + multi-step TS-BFGS update helpers
+#
+# Source: sella/hessian_update.py:10-23 (symmetrize_Y2) +
+#         sella/hessian_update.py:102-110 (_MS_TS_BFGS).
+#
+# These accept *blocks* of past (s, y) pairs (columns of S and Y) rather than
+# a single step. Used together they produce a Hessian update that exploits
+# the history of the last `window` cycles. Gain vs the single-step Bofill
+# is largest on the first few IRC cycles before exact Hessian recalc kicks
+# back in, because each single-step Bofill discards information from the
+# previous step.
+#
+# These are pure-math helpers — they do NOT change any existing call site.
+# The HessianOptimizer dispatch in `update_hessian()` still uses the single-
+# step path by default; wiring a "multistep" code path (with buffer
+# management for S, Y over the last `window` cycles) is a follow-up.
+# ---------------------------------------------------------------------------
+
+
+def symmetrize_Y2(S, Y):
+    """Compute the dY correction such that (Y + dY).T @ S is symmetric.
+
+    Sella backport (sella/hessian_update.py:10-23). Iteratively builds the
+    correction column-by-column via lstsq on the leading principal blocks
+    of S.T @ S. Used inside `symmetrize_Y(symm=2)` and consumed by the
+    multi-step Hessian update flavors.
+
+    Parameters
+    ----------
+    S : ndarray, shape (n, k)
+        k recent step vectors stacked as columns.
+    Y : ndarray, shape (n, k)
+        Corresponding gradient differences.
+
+    Returns
+    -------
+    dY : ndarray, shape (n, k)
+        Correction such that Y + dY satisfies (Y+dY).T @ S = ((Y+dY).T @ S).T
+        (i.e., the resulting Y is "compatible with a symmetric Hessian").
+    """
+    _, nvecs = S.shape
+    dY = np.zeros_like(Y)
+    YTS = Y.T @ S
+    dYTS = np.zeros_like(YTS)
+    STS = S.T @ S
+    for i in range(1, nvecs):
+        rhs = YTS[i, :i].T - YTS[:i, i] - dYTS[:i, i]
+        sol = np.linalg.lstsq(STS[:i, :i], rhs, rcond=None)[0]
+        dY[:, i] = -S[:, :i] @ sol
+        dYTS[i, :] = -STS[:, :i] @ sol
+    return dY
+
+
+def symmetrize_Y_multistep(S, Y, symm: int = 2):
+    """Return the symmetrised Y for a block of recent steps.
+
+    Sella backport (sella/hessian_update.py:25-35). `symm` selects:
+      - 0: lower-triangular projection via (S.T @ S) lstsq
+      - 1: lower-triangular projection via (S.T @ Y) lstsq
+      - 2: recursive `symmetrize_Y2` correction (Sella default; most accurate)
+
+    Single-step inputs (k=1) are returned unchanged.
+    """
+    if S.shape[1] == 1 or symm is None:
+        return Y
+    if symm == 0:
+        from numpy.linalg import lstsq
+        return Y + S @ lstsq(S.T @ S, np.tril(S.T @ Y - Y.T @ S, -1).T, rcond=None)[0]
+    if symm == 1:
+        from numpy.linalg import lstsq
+        return Y + Y @ lstsq(S.T @ Y, np.tril(S.T @ Y - Y.T @ S, -1).T, rcond=None)[0]
+    if symm == 2:
+        return Y + symmetrize_Y2(S, Y)
+    raise ValueError(f"Unknown symmetrization method {symm}")
+
+
+def multistep_ts_bfgs_update(H, S, Y, lams=None, vecs=None, symm: int = 2):
+    """Multi-step TS-BFGS Hessian update (block-wise Hermes-Zádor formula).
+
+    Sella backport (sella/hessian_update.py:96-110 `_MS_TS_BFGS`). Generalises
+    the single-step `ts_bfgs_update` to a window of recent (s, y) pairs;
+    `Y` is first symmetrised via `symmetrize_Y_multistep` (symm=2 by default,
+    matches Sella). Returns the *additive* update to be applied to H.
+
+    Parameters
+    ----------
+    H : ndarray, shape (n, n)
+        Current Hessian (symmetric).
+    S : ndarray, shape (n, k)
+        Recent step vectors as columns (k >= 1).
+    Y : ndarray, shape (n, k)
+        Recent gradient differences as columns.
+    lams, vecs : optional
+        Precomputed eigh(H). Computed on demand if omitted.
+    symm : int, default 2
+        Symmetrization mode passed to `symmetrize_Y_multistep`.
+
+    Returns
+    -------
+    (update, label) : (ndarray, str)
+        Additive update (= Bplus - B) and the string "MS-TS-BFGS".
+    """
+    # Normalise shape for 1D single-step input.
+    if S.ndim == 1:
+        S = S[:, np.newaxis]
+    if Y.ndim == 1:
+        Y = Y[:, np.newaxis]
+    Y_sym = symmetrize_Y_multistep(S, Y, symm=symm)
+    if lams is None or vecs is None:
+        lams, vecs = np.linalg.eigh(H)
+    J = Y_sym - H @ S
+    X1 = S.T @ Y_sym @ Y_sym.T
+    absBS = vecs @ (np.abs(lams[:, np.newaxis]) * (vecs.T @ S))
+    X2 = S.T @ absBS @ absBS.T
+    U = np.linalg.lstsq((X1 + X2) @ S, X1 + X2, rcond=None)[0].T
+    UJT = U @ J.T
+    update = (UJT + UJT.T) - U @ (J.T @ S) @ U.T
+    # Re-symmetrise to mop up floating-point noise (Sella does the same:
+    # update_H end of function does `Bplus -= np.tril(Bplus.T - Bplus, -1).T`).
+    update -= np.tril(update.T - update, -1).T
+    return update, "MS-TS-BFGS"

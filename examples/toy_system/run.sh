@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-set -euo pipefail
 # mlmm toy system examples — GPU required
 
 # test1: extract

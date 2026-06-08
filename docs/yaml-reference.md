@@ -6,10 +6,10 @@
 | Section | Description | Used by |
 |---------|-------------|---------|
 | [`geom`](#geom) | Geometry and coordinate settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
-| [`calc`](#calc) | ML/MM calculator settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`calc`](#calc) | ML/MM calculator settings (alias: `mlmm:`) | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`opt`](#opt) | Shared optimizer settings | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
-| [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, path-search |
-| [`rfo`](#rfo) | RFO optimizer settings | opt, scan, scan2d, scan3d, path-search |
+| [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, path-opt, path-search |
+| [`rfo`](#rfo) | RFO optimizer settings | opt |
 | [`gs`](#gs) | Growing String Method settings | path-opt, path-search |
 | [`dmf`](#dmf) | Direct Max Flux settings | path-opt, path-search |
 | [`irc`](#irc-section) | IRC integration settings | irc |
@@ -64,10 +64,11 @@ calc:
  # --- UMA backend settings ---
  uma_model: uma-s-1p1 # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
+ uma_precision: fp32 # fp32 | fp64 (UMA backend numerical precision)
 
  # --- ORB backend settings ---
  orb_model: orb_v3_conservative_omol  # ORB model name (ORB backend only)
- orb_precision: float32  # ORB floating-point precision (ORB backend only)
+ orb_precision: float32-high  # ORB floating-point precision (ORB backend only; "float32" accepted as a legacy alias)
 
  # --- MACE backend settings ---
  mace_model: MACE-OMOL-0 # MACE model name (MACE backend only)
@@ -109,7 +110,7 @@ calc:
 
  # --- Layer configuration ---
  freeze_atoms: [] # 1-based indices of atoms to freeze (Frozen layer)
- hess_cutoff: null # Å; MM atoms within this distance of ML get Hessian (null = all movable)
+ hess_cutoff: null # Å; null = all movable MM included in Hessian (default); >0.0 = only MM within this distance of ML
  movable_cutoff: null # Å; MM atoms within this distance of ML are movable (null = use freeze_atoms)
  use_bfactor_layers: true # If true, read layer assignments from input PDB B-factors
  hess_mm_atoms: null # Explicit Hessian-target MM atom indices (1-based; overrides cutoffs)
@@ -122,6 +123,7 @@ calc:
 ```
 
 **Notes:**
+- The section name `calc:` is the canonical form; `mlmm:` is accepted as a legacy alias (recognised by `opt`, `tsopt`, `freq`, `irc`, `dft`, `path-opt`, `path-search`, `scan`, `scan2d`, `scan3d`). When both are present, `calc:` takes precedence.
 - `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install "mlmm-toolkit[orb]"`, etc.)
 - Backend-specific model keys are only relevant when the corresponding backend is selected:
   - `uma_model`, `uma_task_name` — UMA backend only
@@ -230,7 +232,7 @@ rfo:
  trust_radius: 0.10 # Trust-region radius
  trust_update: true # Enable trust-region updates
  trust_min: 0.0001 # Minimum trust radius
- trust_max: 0.10 # Maximum trust radius (tightened in v0.2.8 for ML/MM stability)
+ trust_max: 0.10 # Maximum trust radius (tuned for ML/MM stability)
  max_energy_incr: null # Allowed energy increase per step
  hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
  hessian_init: calc # Hessian initialization: calc, unit, etc.
@@ -356,16 +358,12 @@ stopt:
    thresh: gau
    max_cycles: 10000
    #... (see lbfgs section)
- rfo:
-   # Same keys as rfo section (for single-structure optimizer)
-   thresh: gau
-   max_cycles: 10000
-   #... (see rfo section)
 ```
 
 **Notes:**
-- `stopt.lbfgs` and `stopt.rfo` configure the single-structure optimizer used for
-  HEI+/-1 endpoint optimization and kink node optimization within path-search
+- `stopt.lbfgs` configures the single-structure L-BFGS optimizer used for
+  HEI+/-1 endpoint optimization and kink node optimization within path-search.
+  Only L-BFGS is consumed at this nested level; an `stopt.rfo:` block is not honored.
 - The outer `stopt` keys control the string optimizer (GS or DMF wrapper)
 
 ---
@@ -448,10 +446,11 @@ rsirfo:
  min_line_search: false # Line search along imaginary mode (pysisyphus default)
  max_line_search: false # Line search in minimized subspace (pysisyphus default)
  assert_neg_eigval: false # Require negative eigenvalue at convergence
+ track_mode_by_overlap: false # mlmm-specific: track the target mode by overlap
  trust_radius: 0.10 # Trust region radius
  trust_update: true # Trust region update
  trust_min: 0.0001 # Minimum trust radius
- trust_max: 0.10 # Maximum trust radius (tightened in v0.2.8 for ML/MM stability)
+ trust_max: 0.10 # Maximum trust radius (tuned for ML/MM stability)
  hessian_recalc: 500 # Hessian rebuild cadence
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
  out_dir: ./result_tsopt/ # Output directory
@@ -506,12 +505,16 @@ Vibrational frequency analysis settings.
 
 ```yaml
 freq:
+ active_dof_mode: partial # Active-atom selection: "all" | "ml-only" | "partial" | "unfrozen"
  amplitude_ang: 0.8 # Displacement amplitude for modes (Å)
  n_frames: 20 # Number of frames per mode animation
  max_write: 10 # Maximum number of modes to write
  sort: value # Sort order: "value" or "abs"
  out_dir: ./result_freq/ # Output directory
 ```
+
+**Notes:**
+- `active_dof_mode` selects which atoms participate in the vibrational analysis. `all` uses every atom; `ml-only` restricts to ML-region atoms; `partial` (default) uses ML + Movable-MM atoms; `unfrozen` uses every non-frozen atom. The CLI flag `--active-dof-mode` overrides the YAML value when explicitly passed.
 
 ---
 
@@ -562,10 +565,16 @@ dft:
  conv_tol: 1.0e-09 # SCF convergence tolerance (Hartree)
  max_cycle: 100 # Maximum SCF iterations
  grid_level: 3 # PySCF grid level
+ engine: gpu # Compute engine: "gpu" (gpu4pyscf) or "cpu" (pyscf); CLI --engine takes precedence
+ ecp: null # ECP basis name; null auto-derives from def2-* basis sets
  lowmem: true # Use gpu4pyscf rks_lowmem.RKS for closed-shell GPU runs
- verbose: 4 # PySCF verbosity level
+ verbose: 0 # PySCF verbosity level; CLI -v 2/3 raises runtime PySCF verbosity to >=4
  out_dir: ./result_dft/ # Output directory
 ```
+
+**Notes:**
+- `engine`: `gpu` runs through gpu4pyscf (closed-shell uses `rks_lowmem.RKS` when `lowmem: true`); `cpu` falls back to standard PySCF RKS/UKS. The CLI flag `--engine` overrides the YAML value when explicitly passed.
+- `ecp`: when the basis name starts with `def2-` and `ecp` is `null`, the same basis name is used as the ECP automatically. Set explicitly to override.
 
 ---
 
@@ -636,9 +645,6 @@ stopt:
  lbfgs:
    thresh: gau
    max_cycles: 10000
- rfo:
-   thresh: gau
-   max_cycles: 10000
 
 bond:
  bond_factor: 1.2
@@ -665,10 +671,10 @@ dft:
 
 ## See Also
 
-- [all](all.md) -- End-to-end workflow
-- [opt](opt.md) -- Single-structure optimization
-- [tsopt](tsopt.md) -- Transition state optimization
-- [path-search](path-search.md) -- Recursive MEP search
-- [freq](freq.md) -- Vibrational analysis
-- [dft](dft.md) -- DFT calculations
-- [Concepts](concepts.md) -- ML/MM 3-layer system and ONIOM energy decomposition
+- [all](all.md) — End-to-end workflow
+- [opt](opt.md) — Single-structure optimization
+- [tsopt](tsopt.md) — Transition state optimization
+- [path-search](path-search.md) — Recursive MEP search
+- [freq](freq.md) — Vibrational analysis
+- [dft](dft.md) — DFT calculations
+- [Concepts](concepts.md) — ML/MM 3-layer system and ONIOM energy decomposition

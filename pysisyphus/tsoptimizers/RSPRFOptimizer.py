@@ -10,6 +10,7 @@
 
 import numpy as np
 
+from pysisyphus._array import as_numpy
 from pysisyphus.tsoptimizers.TSHessianOptimizer import TSHessianOptimizer
 
 
@@ -17,6 +18,13 @@ class RSPRFOptimizer(TSHessianOptimizer):
     def optimize(self):
         energy, gradient, H, eigvals, eigvecs, resetted = self.housekeeping()
         self.update_ts_mode(eigvals, eigvecs)
+
+        # RS-PRFO uses np.linalg.norm + scalar Python loops and is not
+        # microiter-capable; coerce torch tensors from the MLIP Hessian path to
+        # numpy so the legacy .dot / fancy-indexing below stay valid.
+        eigvals = as_numpy(eigvals)
+        eigvecs = as_numpy(eigvecs)
+        gradient = as_numpy(gradient)
 
         # Transform gradient to eigensystem of hessian
         gradient_trans = eigvecs.T.dot(gradient)
@@ -175,7 +183,7 @@ class RSPRFOptimizer(TSHessianOptimizer):
         # predicted_energy_change = 1/2 * (eigval_max / nu_max**2 + eigval_min / nu_min**2)
         # self.predicted_energy_changes.append(predicted_energy_change)
 
-        self.predicted_energy_changes.append(self.rfo_model(gradient, self.cur_H, step))
+        self.predicted_energy_changes.append(self.rfo_model(gradient, as_numpy(self.cur_H), step))
 
         self.log("")
         step = self.full_from_active(step)

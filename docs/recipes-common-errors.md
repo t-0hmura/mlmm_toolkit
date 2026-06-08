@@ -7,14 +7,18 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 
 | Symptom | Start here | Then read |
 | --- | --- | --- |
-| Missing element columns / extraction aborts | `add-elem-info` on the original PDB | [Input / extraction](troubleshooting.md#input--extraction-problems) |
-| "Charge is required" errors | Set `-q/--charge` and `-m/--multiplicity` explicitly | [Charge / spin](troubleshooting.md#charge--spin-problems) |
-| Energies/states look wrong after a run | Re-check charge/multiplicity policy in CLI conventions | [Charge / spin](troubleshooting.md#charge--spin-problems) |
-| `mm-parm` cannot run (`tleap`/`antechamber`/`parmchk2` missing) | Fix AmberTools availability first | [AmberTools / mm-parm](troubleshooting.md#ambertools--mm-parm-problems) |
-| `hessian_ff` import/build errors | Rebuild native extension (`hessian_ff/native`) | [hessian_ff build](troubleshooting.md#hessian_ff-build-problems) |
-| DMF mode import errors (`cyipopt`) | Install `cyipopt` in the active environment | [DMF mode](troubleshooting.md#dmf-mode-fails-cyipopt-missing) |
-| TSOPT/IRC does not converge | Reduce step length (trust_radius for RFO/RS-I-RFO, max_step for L-BFGS), increase cycles, validate TS quality first | [Convergence](troubleshooting.md#calculation--convergence-problems) |
-| Optimizer stalls at flat energy (MLIP noise floor) | Rely on the default `energy_plateau` fallback (v0.2.8+); tune `energy_plateau_thresh` / `energy_plateau_window` if the trigger fires too early or too late | [Plateau fallback](troubleshooting.md#optimizer-stalls-but-the-energy-is-no-longer-changing-mlip-force-noise-floor) |
+| Missing element columns / extraction aborts | `add-elem-info` on the original PDB | [Input / extraction](troubleshooting.md#input--extraction) |
+| `[multi] Atom count mismatch` / `Coordinate shape mismatch` / `Element sequence mismatch` | Regenerate all PDBs with the same prep tool + settings; re-run `mm-parm` from the current PDB; never reorder atoms after `mm-parm` | [Input / extraction](troubleshooting.md#input--extraction) |
+| UMA model 401/403 / gated-repo error (`huggingface_hub.errors.GatedRepoError`) | `hf auth login` and accept the model licence | [Installation / environment](troubleshooting.md#installation--environment) |
+| `ImportError: orb-models is required` (or similar for AIMNet2 / MACE) | `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"`; MACE installs into a separate env | [Installation / environment](troubleshooting.md#installation--environment) |
+| CUDA out-of-memory at runtime (`torch.cuda.OutOfMemoryError`) | Shrink ML region (`--radius`), use `--hessian-calc-mode FiniteDifference`, or move to a larger GPU | [CUDA OOM](troubleshooting.md#cuda-oom-torchcudaoutofmemoryerror) |
+| "Charge is required" errors | Set `-q/--charge` and `-m/--multiplicity` explicitly | [Charge / spin](troubleshooting.md#charge--spin) |
+| Energies/states look wrong after a run | Re-check charge/multiplicity policy in CLI conventions | [Charge / spin](troubleshooting.md#charge--spin) |
+| `mm-parm` cannot run (`tleap`/`antechamber`/`parmchk2` missing) | Fix AmberTools availability first | [AmberTools / mm-parm](troubleshooting.md#ambertools--mm-parm) |
+| `hessian_ff` import/build errors | Rebuild native extension (`hessian_ff/native`) | [hessian_ff build](troubleshooting.md#hessian_ff-build--import) |
+| DMF mode import errors (`ase` / `cyipopt` / `pydmf`) | Install `ase` + `cyipopt` (conda-forge) and `pydmf` (PyPI) | [DMF mode](troubleshooting.md#dmf-mode-fails-cyipopt--pydmf--ase-missing) |
+| TSOPT/IRC does not converge | Reduce step length (trust_radius for RFO/RS-I-RFO, max_step for L-BFGS), increase cycles, validate TS quality first | [Convergence](troubleshooting.md#calculation--convergence) |
+| Optimizer stalls at flat energy (MLIP noise floor) | Rely on the default `energy_plateau` fallback; tune `energy_plateau_thresh` / `energy_plateau_window` if the trigger fires too early or too late | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
 | CUDA/GPU runtime mismatch | Verify `torch.cuda.is_available()` and CUDA build pairing | [CUDA / PyTorch](troubleshooting.md#cuda--pytorch-mismatch) |
 | Plot export failures | Install Chrome runtime for Plotly export | [Plot export](troubleshooting.md#plot-export-fails-chrome-missing) |
 
@@ -55,7 +59,7 @@ Signal:
  - TSOPT stalls, IRC branches look unstable, or MEP refinement stops unexpectedly.
 First checks:
  - Confirm TS candidate quality with one dominant imaginary mode.
- - Reduce step length (trust_radius / max_step) and increase cycle limits. Note that `trust_max` defaults to 0.10 bohr since v0.2.8 (was 0.20) for both RFO and RS-I-RFO.
- - Check whether the energy has already plateaued: if the last ~50 cycles show `|dE| < 1e-4` au while forces are flat, the MLIP force noise floor is the culprit rather than an optimization bug. The default `energy_plateau` fallback will declare convergence automatically (see [Troubleshooting](troubleshooting.md#optimizer-stalls-but-the-energy-is-no-longer-changing-mlip-force-noise-floor)).
+ - Reduce step length (trust_radius / max_step) and increase cycle limits. Note that `trust_max` defaults to 0.10 bohr for both RFO and RS-I-RFO.
+ - Check whether the energy has already plateaued: if the last ~50 cycles show `|dE| < 1e-4` au while forces are flat, the MLIP force noise floor is the culprit rather than an optimization bug. The default `energy_plateau` fallback will declare convergence automatically (see [Troubleshooting](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)).
 Typical fix path:
  - Run a smaller diagnostic case, tune thresholds/step sizes, then scale back up.

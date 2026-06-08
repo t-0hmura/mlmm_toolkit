@@ -145,7 +145,7 @@ class GrowingString(GrowingChainOfStates):
         try:
             image.coords = coords
         except RebuiltInternalsException:
-            print("Rebuilt internal coordinates!")
+            self.log("Rebuilt internal coordinates.")
             self.reset_geometries(image)
 
     def get_new_image(self, ref_index):

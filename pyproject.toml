@@ -33,12 +33,17 @@ classifiers = [
 dependencies = [
     # mlmm core dependencies
     "fairchem-core",
-    "torch>=2.6.0",
+    "torch~=2.8.0",
+    # No direct mlmm/* import of torch_geometric or torch_scatter; both are
+    # listed here to guarantee they install alongside fairchem-core's
+    # historical pull-them-in behaviour. fairchem-core 2.19.0 no longer
+    # requires them transitively, but older versions did, and dropping the
+    # pin would silently break a clean-env install on those.
     "torch_geometric",
     "torch_scatter",
-    "numpy>=1.24",
+    "numpy>=2.0,<2.5",
     "biopython>=1.80,<2.0",
-    "ase>=3.25.0",
+    "ase>=3.26.0",
     "ParmEd",
     "pyyaml>=6.0,<7.0",
     "click>=8.1,<9.0",
@@ -50,10 +55,7 @@ dependencies = [
     "dask",
     "distributed",
     "h5py",
-    "fabric",
     "jinja2",
-    "joblib",
-    "matplotlib",
     "natsort",
     "psutil",
     "rmsd",
@@ -64,18 +66,21 @@ dependencies = [
 
     # thermoanalysis dependencies (bundled)
     "pandas",
-    "tabulate",
 ]
 
 [project.optional-dependencies]
 orb = ["orb-models"]
-aimnet = ["aimnet>=0.1.0"]
+aimnet = ["aimnet>=0.2.0"]
 pdbfixer = ["pdbfixer"]
-dft = [    
-    "pyscf>=2.8.0",
-    "gpu4pyscf-cuda12x>=1.5.2; platform_machine == 'x86_64'",
-    "cupy-cuda12x==13.4.1; platform_machine == 'x86_64'",
-    "cutensor-cu12==2.2.0; platform_machine == 'x86_64'",
+# NOTE: there is deliberately no `[mace]` extra. `mace-torch` hard-pins
+# `e3nn==0.4.4` whereas `fairchem-core` (UMA) needs `e3nn>=0.5`, so the two
+# cannot share an env; declaring the extra here would break the default UMA
+# install. Put MACE in its own conda env instead: `pip uninstall -y
+# fairchem-core && pip install mace-torch` (e.g. in `mlmm-toolkit-mace`).
+dft = [
+    "pyscf>=2.13.0",
+    "gpu4pyscf-cuda12x>=1.7.0; platform_machine == 'x86_64'",
+    "cupy-cuda12x>=13.0,!=13.4.0; platform_machine == 'x86_64'",
     "basis-set-exchange>=0.11",
 ]
 dev = ["pytest", "pytest-cov", "pytest-timeout"]
@@ -85,21 +90,26 @@ docs = [
     "furo>=2024.0",
     "sphinx-copybutton>=0.5",
 ]
+mcp = [
+    "mcp[cli]>=1.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/t-0hmura/mlmm_toolkit"
 Repository = "https://github.com/t-0hmura/mlmm_toolkit"
-Documentation = "https://github.com/t-0hmura/mlmm_toolkit/tree/main/docs"
+Documentation = "https://t-0hmura.github.io/mlmm_toolkit/"
 "Bug Tracker" = "https://github.com/t-0hmura/mlmm_toolkit/issues"
 
 [project.scripts]
 mlmm = "mlmm.cli:cli"
+mlmm-mcp = "mlmm.mcp.server:serve"
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "hessian_ff/tests"]
 addopts = "-v --tb=short --timeout=120"
 markers = [
     "slow: marks tests as slow",
+    "gpu: marks tests that require CUDA GPU (deselect with '-m \"not gpu\"')",
 ]
 
 [tool.setuptools.packages.find]
@@ -108,7 +118,6 @@ include = ["mlmm*", "pysisyphus*", "thermoanalysis*", "hessian_ff*"]
 
 [tool.setuptools.package-data]
 mlmm = ["py.typed"]
-pysisyphus = ["wavefunction/ints/*.npy"]
 hessian_ff = ["native/*.cpp", "native/Makefile"]
 
 [tool.setuptools_scm]

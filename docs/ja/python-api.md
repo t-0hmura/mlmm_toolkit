@@ -1,6 +1,6 @@
 # Python API
 
-> **概要:** mlmm-toolkitをPythonライブラリとして使用 — `MLMMCore`（基盤エンジン）、`MLMMASECalculator`（ASEインターフェース）、`mlmm`（pysisyphus Calculator）、`mlmm_ase()`互換ラッパー。
+> **概要:** mlmm-toolkitをPythonライブラリとして使用 — `MLMMCore`（基盤エンジン）、`MLMMASECalculator`（ASEインターフェース）、`mlmm`（pysisyphus Calculator）。
 
 ## クイックスタート
 
@@ -119,61 +119,7 @@ energy = geom.energy            # Hartree
 forces = geom.forces            # Hartree/Bohr (flat)
 ```
 
-`mlmm` Calculatorはpysisyphusの`CALC_DICT`にも登録されているため、YAMLワークフローで使用可能です:
-
-```yaml
-calc:
-  type: mlmm
-  input_pdb: complex_layered.pdb
-  real_parm7: real.parm7
-  model_pdb: ml_region.pdb
-  model_charge: 0
-```
-
-YAMLワークフローの実行方法は[mlmm pysis](pysis.md)を参照してください。
-
-## v0.1.x互換性
-
-### パラメータエイリアス
-
-以下のv0.1.xパラメータ名は`DeprecationWarning`付きで受け付けます:
-
-| v0.1.x名 | v0.2.x名 | 備考 |
-|-----------|-----------|------|
-| `real_pdb` | `input_pdb` | エイリアス — `input_pdb`にマッピング |
-| `real_rst7` | *(削除)* | 警告付きで無視（内部で自動生成） |
-| `vib_run` | *(削除)* | 警告付きで無視 |
-| `vib_dir` | *(削除)* | 警告付きで無視 |
-
-```python
-# v0.1.xスタイル — 動作しますがDeprecationWarningが出ます
-from mlmm import MLMMCore
-core = MLMMCore(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.pdb")
-```
-
-### mlmm_ase()ファクトリ
-
-v0.1.xの`mlmm_ase(real_pdb=..., ...)`便利関数も保持しています:
-
-```python
-from mlmm import mlmm_ase
-
-# v0.1.xスタイル — DeprecationWarningが出ます
-calc = mlmm_ase(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.pdb")
-# 等価: MLMMASECalculator(MLMMCore(input_pdb="complex.pdb", ...))
-```
-
-### importパス
-
-v0.2.xはv0.1.xと同じimportパスを使用します:
-
-```python
-import mlmm
-from mlmm import MLMMCore
-```
-
 ## 関連ドキュメント
 
 - [ML/MM Calculator](mlmm-calc.md) — アーキテクチャと内部詳細
-- [mlmm pysis](pysis.md) — pysisyphus YAMLワークフローの実行
-- [YAML Reference](yaml-reference.md) — YAMLモードの設定キー
+- [YAML Reference](yaml-reference.md) — `--config` YAML の設定キー

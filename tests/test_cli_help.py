@@ -54,7 +54,7 @@ CALC_SUBCOMMANDS = [
 ]
 
 UTILITY_SUBCOMMANDS = [
-    ("mm-parm", "--out-prefix", "--keep-temp"),
+    ("mm-parm", "-o, --out-prefix", "--keep-temp"),
     ("define-layer", "--model-pdb", "--radius-partial-hessian"),
     ("add-elem-info", "-o, --out", "--overwrite"),
     ("trj2fig", "--unit", "--reverse-x"),

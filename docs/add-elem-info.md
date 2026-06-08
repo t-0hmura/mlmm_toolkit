@@ -1,37 +1,41 @@
 # `add-elem-info`
 
-## Overview
+`mlmm add-elem-info` adds or repairs PDB element symbols (columns 77-78) using Biopython. It parses the input PDB with Biopython (`PDBParser`), assigns `atom.element` using residue context and atom-name heuristics, and writes via `PDBIO` to populate columns 77-78. It supports ATOM and HETATM records across all models/chains/residues without altering coordinates.
 
-> **Summary:** Add or repair PDB element symbols (columns 77-78) using Biopython. Infers elements from atom names plus residue context (proteins, nucleic acids, water, ions, ligands).
+## When to use
 
-`mlmm add-elem-info` parses the input PDB with Biopython (`PDBParser`), assigns `atom.element` using residue context and atom-name heuristics, and writes via `PDBIO` to populate columns 77-78. It supports ATOM and HETATM records across all models/chains/residues without altering coordinates.
+- Add element columns to a PDB that lacks them, or correct existing ones, before downstream tools that require them.
+- Re-infer and overwrite existing element fields when they are unreliable (`--overwrite`).
 
-## Minimal example
+## Quick examples
 
 ```bash
 mlmm add-elem-info -i 1abc.pdb
 ```
 
-## Output checklist
-
-- PDB file with element columns (77-78) populated or corrected
-- Console report with totals for processed/assigned atoms, per-element counts, and up to 50 unresolved atoms
-
-## Common examples
-
-1. Write to a specific output file.
-
 ```bash
 mlmm add-elem-info -i 1abc.pdb -o 1abc_fixed.pdb
 ```
-
-2. Re-infer and overwrite existing element fields.
 
 ```bash
 mlmm add-elem-info -i 1abc.pdb --overwrite
 ```
 
+## Inputs
+
+Command form:
+
+```bash
+mlmm add-elem-info -i INPUT [-o OUTPUT] [--overwrite]
+```
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `-i, --input` | yes | Input PDB file. |
+| `-o, --out` | no | Output PDB path. When omitted, the input file is overwritten. |
+
 ## Workflow
+
 1. Parse the input PDB with `Bio.PDB.PDBParser`, mirroring the residue
     definitions used in `extract.py` (`AMINO_ACIDS`, `WATER_RES`, `ION`).
 2. For each atom, guess the element by combining the atom name, residue name,
@@ -50,17 +54,25 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
     overwritten (when `--overwrite`), per-element counts, and up to 50
     unresolved atoms (model/chain/residue/atom/serial).
 
+## Outputs
+
+- PDB file with element columns (77-78) populated or corrected
+- Console report with totals for processed/assigned atoms, per-element counts, and up to 50 unresolved atoms
+
 ## CLI options
+
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB file. | Required |
 | `-o, --out PATH` | Output PDB path. When omitted, the input file is overwritten. | _None_ (overwrites input) |
 | `--overwrite/--no-overwrite` | Re-infer and overwrite element fields even if already present (by default, existing values are preserved). | `False` |
 
+The full flag list is in the generated [command reference](reference/commands/index.md).
+
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
 
-- [mm_parm](mm-parm.md) -- Build AMBER topology (requires correct element columns)
-- [extract](extract.md) -- Extract active-site pocket from protein-ligand complex
+- [mm_parm](mm-parm.md) — Build AMBER topology (requires correct element columns)
+- [extract](extract.md) — Extract active-site pocket from protein-ligand complex

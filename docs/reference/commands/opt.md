@@ -1,12 +1,16 @@
 # `mlmm opt`
 
 ```text
-
 Usage: mlmm opt [OPTIONS]
 
   ML/MM geometry optimization with LBFGS (light) or RFO (heavy).
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                Input structure file (PDB, XYZ). XYZ provides
@@ -25,22 +29,6 @@ Options:
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
-  --detect-layer / --no-detect-layer
-                                  Detect ML/MM layers from input PDB B-factors
-                                  (ML=0, MovableMM=10, FrozenMM=20). If
-                                  disabled, you must provide --model-pdb or
-                                  --model-indices.  [default: detect-layer]
-  -q, --charge INTEGER            ML region charge. Required unless --ligand-
-                                  charge is provided.
-  -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
-                                  GPP:-3,SAM:1) used to derive charge when -q is
-                                  omitted (requires PDB input or --ref-pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
-                                  Defaults to 1 when omitted.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
   --radius-partial-hessian, --hess-cutoff FLOAT
@@ -64,7 +52,8 @@ Options:
   --one-based / --zero-based      Interpret --dist-freeze indices as 1-based
                                   (default) or 0-based.  [default: one-based]
   --bias-k FLOAT                  Harmonic restraint strength k [eV/Å^2] for
-                                  --dist-freeze.  [default: 300.0]
+                                  --dist-freeze. Defaults to BIAS_KW['k']=300
+                                  (in defaults.py) when omitted.
   --max-cycles INTEGER            Maximum number of optimization cycles.
                                   [default: 10000]
   --dump / --no-dump              Write optimization trajectories
@@ -114,10 +103,52 @@ Options:
                                   MM backend: hessian_ff (analytical Hessian,
                                   default) or openmm (finite-difference Hessian,
                                   slower).
+  --mm-only / --no-mm-only        Skip the MLIP component entirely and minimize
+                                  using only the MM force field on the full
+                                  system. Layers (movable/frozen) are still
+                                  honored via B-factor encoding or --radius-
+                                  freeze. Only --opt-mode grad (L-BFGS) is
+                                  supported in this mode; microiteration is
+                                  automatically disabled.  [default: no-mm-only]
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
+  --detect-layer / --no-detect-layer
+                                  Detect ML/MM layers from input PDB B-factors
+                                  (ML=0, MovableMM=10, FrozenMM=20). If
+                                  disabled, you must provide --model-pdb or
+                                  --model-indices.  [default: detect-layer]
+  --model-indices-one-based / --model-indices-zero-based
+                                  Interpret --model-indices as 1-based (default)
+                                  or 0-based.  [default: model-indices-one-
+                                  based]
+  -q, --charge INTEGER            ML region charge. Required unless --ligand-
+                                  charge is provided.
+  -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
+                                  GPP:-3,SAM:1) used to derive charge when -q is
+                                  omitted (requires PDB input or --ref-pdb).
+  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
+                                  Defaults to 1 when omitted.
+  --coord-type [cart|redund|dlc|tric]
+                                  Optimisation coordinate system
+                                  (cart|redund|dlc|tric). cart is the robust
+                                  default used in published numbers; dlc speeds
+                                  up torsion-rich opts. mlmm-specific caveats:
+                                  DLC + link atom and DLC + 3-layer frozen MM
+                                  are numerically unverified.
+  --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
+                                  knob).  [x>=1]
+  --precision [fp32|fp64]         MLIP backend precision: fp32 (default) or
+                                  fp64. Routed to backend-specific kwargs (UMA
+                                  precision / ORB precision / MACE
+                                  default_dtype). aimnet2: fp32 no-op; fp64
+                                  rejected.
+  --deterministic / --no-deterministic
+                                  Strict bit-reproducible GPU runs
+                                  (deterministic algorithms + index_reduce_
+                                  shim). Slower; raises if unsupported. Default
+                                  off.
   -h, --help                      Show this message and exit.
 ```

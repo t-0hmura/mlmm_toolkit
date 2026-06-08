@@ -1,77 +1,79 @@
 # `tsopt`
 
-## Overview
+`mlmm tsopt` refines a transition-state candidate on a layered enzyme PDB into a first-order saddle point. The default optimiser is **RS-I-RFO** (`--opt-mode hess`) with microiteration (`--microiter`, default on) that alternates ML 1-step RS-I-RFO and MM L-BFGS relaxation; the lighter alternative is the **Hessian-Guided Dimer** (`--opt-mode grad`). A surplus-imaginary-mode flatten loop (`--flatten`) sanitises extra negative modes via mass-scaled displacements after convergence. A validated TS should show **exactly one** imaginary frequency — always confirm the mode and connectivity with [`freq`](freq.md) / [`irc`](irc.md). The TS guess is typically a standalone candidate or the highest-energy image (HEI) extracted by [`path-search`](path-search.md).
 
-> **Summary:** Optimize a transition-state *candidate* using Hessian Guided Dimer (`--opt-mode grad`) or RS-I-RFO (`--opt-mode hess`, default). Microiteration (`--microiter`, default on) alternates ML 1-step RS-I-RFO and MM relaxation in `hess` mode. A validated TS should show **exactly one** imaginary frequency; always confirm the mode/connectivity with freq/IRC.
+## When to use
 
-### Choosing `--opt-mode`
-- Use **`--opt-mode hess` (RS-I-RFO)** when you want the default, conservative optimizer and you can afford Hessian work. With `--microiter` (default on), ML and MM regions are optimized alternately.
-- Use **`--opt-mode grad` (Hessian Guided Dimer)** when you want a lighter-weight search, or when you plan to iterate quickly from several TS guesses. `--ml-only-hessian-dimer` uses only the ML-region Hessian for dimer orientation (faster).
+- Refine a TS guess on a layered enzyme PDB to a first-order saddle point, either as a standalone step or after `path-search` HEI extraction.
+- Use **`--opt-mode hess` (RS-I-RFO)** when you want the default, conservative optimiser and can afford the Hessian work. With `--microiter` (default on), the ML and MM regions are optimised alternately.
+- Use **`--opt-mode grad` (Hessian-Guided Dimer)** when you want a lighter-weight search, or when iterating quickly from several TS guesses. `--ml-only-hessian-dimer` uses only the ML-region Hessian for dimer orientation (faster).
 
-`mlmm tsopt` carries out transition-state optimization tailored to the ML/MM calculator. The optimizer starts from a TS guess and refines it to a first-order saddle point.
-
-### Key characteristics
-- **Partial Hessian guided Dimer:** During the loose/final Dimer loops, the hessian_ff finite-difference Hessian is disabled (`mm_fd=False`). The ML backend Hessian is embedded into the full 3N x 3N space with MM atoms zero-padded, providing a partial Hessian that still guides the Dimer direction updates.
-- **Flatten loop with full Hessian:** Once the search enters the flatten loop, a full ML/MM Hessian (including the MM finite-difference block) is computed exactly once and then updated by Bofill steps in the active subspace between Dimer segments.
-- **PHVA + TR projection:** Active-DOF projection and mass-weighted translation/rotation removal mirror `freq.py`, ensuring consistent imaginary-mode analysis and mode writing.
-- **Output conversion:** With `--convert-files` (default), PDB inputs can be mirrored to `.pdb` (when `--dump`), and the imaginary mode is exported as `.pdb` alongside `_trj.xyz`.
-
-## Minimal example
+## Quick examples
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --out-dir ./result_tsopt
+    -q 0 -m 1 --out-dir ./result_tsopt
 ```
-
-## Output checklist
-
-- `result_tsopt/final_geometry.pdb` (or `final_geometry.xyz`)
-- `result_tsopt/vib/imag_*_trj.xyz`
-- `result_tsopt/vib/imag_*.pdb`
-
-## Common examples
-
-1. Use light mode with analytical Hessian when VRAM is sufficient.
 
 ```bash
+# Light mode (Dimer) with analytical Hessian when VRAM allows
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt_light
+    -q 0 -m 1 --opt-mode grad --hessian-calc-mode Analytical --out-dir ./result_tsopt_grad
 ```
-
-2. Keep a full optimization trajectory for inspection.
 
 ```bash
+# Heavy mode (RS-I-RFO) with YAML overrides
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --dump --out-dir ./result_tsopt_dump
+    -q 0 -m 1 --opt-mode hess --config tsopt.yaml --out-dir ./result_tsopt_hess
+# --dump keeps the full optimisation trajectory; --backend mace uses the MACE backend
 ```
 
-3. Run heavy mode with YAML overrides.
+## Inputs
+
+Command form:
 
 ```bash
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
+mlmm tsopt -i TS_GUESS --parm PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]
 ```
 
-4. Use the MACE backend for TS optimization.
+`mlmm tsopt --help` shows core options; `mlmm tsopt --help-advanced` shows the full option list.
 
-```bash
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --backend mace --out-dir ./result_tsopt_mace
-```
+| Input | Required | Notes |
+| --- | --- | --- |
+| `-i, --input` | yes | Starting geometry (PDB or XYZ). If XYZ, use `--ref-pdb` for topology. |
+| `--parm` | yes | Amber parm7 topology for the whole enzyme. |
+| `--model-pdb` | optional | PDB containing the ML-region atoms. Optional when `--detect-layer` is enabled. |
+| `-q, --charge` | yes (unless `-l`) | Net charge of the ML region. |
+| `-m, --multiplicity` | optional | Spin multiplicity (2S+1) for the ML region (defaults to 1). |
+| `--ref-pdb` | for XYZ inputs | Reference PDB topology when input is XYZ. |
 
 ## Workflow
 
-1. **Input handling** -- Load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge/spin. Freeze atoms from CLI and YAML are merged.
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or via finite difference. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
-3. **Light mode (Hessian Guided Dimer):**
-   - The Hessian Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected).
-   - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a dimer + LBFGS micro-segment.
-4. **Heavy mode (RS-I-RFO):**
-   - Runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section.
-   - When `--flatten` is enabled and more than one imaginary mode remains after convergence, the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten iteration cap is reached.
-5. **Mode export & conversion** -- The converged imaginary mode is always written to `vib/imag_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
+1. **Input handling** — load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge / spin. Frozen atoms from CLI and YAML are merged.
+2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference. With `--embedcharge`, xTB point-charge embedding provides MM-to-ML environmental corrections.
+3. **Light mode (Hessian-Guided Dimer)** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected). During the loose / final Dimer loops the `hessian_ff` finite-difference Hessian is disabled (`mm_fd=False`); the ML backend Hessian is embedded into the full 3N × 3N space with MM atoms zero-padded, providing a partial Hessian that still guides the Dimer direction updates. When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences. Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a Dimer + L-BFGS micro-segment.
+4. **Heavy mode (RS-I-RFO)** — runs the RS-I-RFO optimiser with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section. With `--flatten`, when more than one imaginary mode remains after convergence the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten-iteration cap is reached. Once the search enters the flatten loop, a full ML/MM Hessian (including the MM finite-difference block) is computed exactly once and then updated by Bofill steps in the active subspace between Dimer segments.
+5. **Mode export + conversion** — the converged imaginary mode is always written to `vib/imag_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimisation trajectory and final geometry are also converted to PDB via the input template when `--dump`.
+
+## Outputs
+
+Three artefacts land in `result_tsopt/`: `final_geometry.pdb` (and `.xyz`) — the optimised first-order saddle point (3-layer B-factor encoding preserved for PDB); `vib/imag_*_trj.xyz` — animation of every detected imaginary mode (expect exactly one for a valid TS); and `vib/imag_*.pdb` — PDB companions of the imaginary modes (PDB inputs only).
+
+```text
+out_dir/   (default: ./result_tsopt/)
+├── final_geometry.xyz                  # Always written
+├── final_geometry.pdb                  # When the input was PDB
+├── optimization_all_trj.xyz            # Concatenated Dimer segments (--dump)
+├── optimization_all.pdb                # PDB companion (--dump, PDB input)
+├── vib/
+│   ├── imag_NN_±XXXX.XXcm-1_trj.xyz    # Imaginary-mode trajectory
+│   └── imag_NN_±XXXX.XXcm-1.pdb        # PDB companion
+└── .dimer_mode.dat                     # Dimer orientation seed (grad mode)
+```
 
 ## CLI options
+
+The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation — do not hand-duplicate the exhaustive list.
 
 | Option | Description | Default |
 | --- | --- | --- |
@@ -83,170 +85,86 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors. | `True` |
 | `-q, --charge INT` | Net charge of the ML region. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | _None_ (defaults to 1) |
+| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g. `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
+| `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--radius-hessian, --hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. `0.0` means ML-only partial Hessian. | `0.0` |
+| `--radius-hessian` / `--hess-cutoff FLOAT` | Distance cutoff (Å) from the ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. `0.0` means ML-only partial Hessian. | `0.0` |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | `FiniteDifference` |
-| `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
-| `--opt-mode CHOICE` | TS optimizer mode: `grad` (Hessian Guided Dimer) or `hess` (RS-I-RFO). Aliases `light`/`heavy` and `dimer`/`rsirfo` accepted. | `hess` |
-| `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RS-I-RFO) + MM relaxation (LBFGS). Only effective in `hess` mode. | `True` |
-| `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | Use ML-region-only Hessian for dimer orientation in `grad` mode. Faster but less accurate. | `False` |
-| `--flatten/--no-flatten` | Enable/disable extra imaginary-mode flattening loop. `--flatten` uses default iter (50); `--no-flatten` forces it to 0. Applies to both light and heavy modes. | _None_ (YAML/defaults; effectively enabled with 50 iterations) |
-| `--dump/--no-dump` | Write concatenated trajectory `optimization_all_trj.xyz`. | `False` |
-| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions for PDB inputs. | `True` |
+| `--max-cycles INT` | Maximum total optimiser cycles. | `10000` |
+| `--opt-mode CHOICE` | TS optimiser mode (Choice: `grad` / `hess` / `light` / `heavy` / `dimer` / `rsirfo` / `trim` / `rsprfo`). `grad` / `light` / `dimer` → Hessian-Guided Dimer; `hess` / `heavy` / `rsirfo` → RS-I-RFO (default, microiter-capable); `trim` → TRIM (Helgaker, non-microiter); `rsprfo` → RS-P-RFO (Banerjee, non-microiter). `trim` / `rsprfo` ignore `--microiter`. | `hess` |
+| `--microiter / --no-microiter` | Microiteration: alternate ML 1-step (RS-I-RFO) + MM relaxation (L-BFGS). Only effective in `hess` mode (no-op in `--opt-mode grad`). | `True` |
+| `--ml-only-hessian-dimer / --no-ml-only-hessian-dimer` | Use ML-region-only Hessian for dimer orientation in `grad` mode (faster but less accurate). | `False` |
+| `--flatten / --no-flatten` | Extra-imaginary-mode flattening loop. `--flatten` uses the default iteration count (50); `--no-flatten` forces it to 0. Applies to both `--opt-mode grad` (Dimer) and `--opt-mode hess` (RS-I-RFO). | _None_ (YAML / defaults; effectively enabled with 50 iterations) |
+| `--dump / --no-dump` | Write the concatenated trajectory `optimization_all_trj.xyz`. | `False` |
+| `--convert-files / --no-convert-files` | Toggle XYZ / TRJ → PDB companions for PDB inputs. | `True` |
 | `-o, --out-dir TEXT` | Output directory. | `./result_tsopt/` |
-| `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ |
-| `--partial-hessian-flatten / --full-hessian-flatten` | Use partial Hessian (ML only) for imaginary mode detection in flatten loop. | `True` (partial) |
+| `--thresh TEXT` | Convergence preset (`gau_loose` / `gau` / `gau_tight` / `gau_vtight` / `baker` / `never`). | _None_ |
+| `--partial-hessian-flatten` / `--full-hessian-flatten` | Use partial Hessian (ML only) for imaginary-mode detection in the flatten loop. | `True` (partial) |
 | `--active-dof-mode CHOICE` | Active DOF for final frequency analysis: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
-| `--skip-final-freq/--no-skip-final-freq` | Skip post-convergence frequency analysis and imaginary-mode flattening. Useful for large unfrozen systems where Hessian diagonalization is expensive. TS saddle-point order will NOT be verified. | `False` |
-| `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
-| `--show-config/--no-show-config` | Print resolved config layers and continue execution. | `False` |
+| `--skip-final-freq / --no-skip-final-freq` | Skip post-convergence frequency analysis and imaginary-mode flattening. Useful for large unfrozen systems where Hessian diagonalisation is expensive. TS saddle-point order will NOT be verified. | `False` |
+| `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
+| `--show-config / --no-show-config` | Print resolved config layers and continue execution. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--precision [fp32\|fp64]` | MLIP backend precision; routed to backend-native kwarg (UMA `precision`, ORB `precision`, MACE `default_dtype`; aimnet2: fp32 no-op, fp64 rejected). | `fp32` |
+| `--embedcharge / --no-embedcharge` | xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
-| `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
-| `--dry-run/--no-dry-run` | Validate inputs/config and print the execution plan without running TS optimization. Shown in `--help-advanced`. | `False` |
-
-## Outputs
-
-```
-out_dir/ (default: ./result_tsopt/)
-├── final_geometry.xyz             # Always written
-├── final_geometry.pdb             # When the input was PDB
-├── optimization_all_trj.xyz       # Concatenated Dimer segments (when --dump)
-├── optimization_all.pdb           # PDB companion (when --dump and input was PDB)
-├── vib/
-│   ├── imag_NN_±XXXX.XXcm-1_trj.xyz  # Imaginary mode trajectory
-│   └── imag_NN_±XXXX.XXcm-1.pdb      # Imaginary mode PDB companion
-└── .dimer_mode.dat                # Dimer orientation seed (light mode)
-```
+| `--cmap / --no-cmap` | CMAP (backbone cross-map dihedral correction) in the model parm7. Disabled by default, consistent with Gaussian ONIOM. | `--no-cmap` |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
+| `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled (g-factor) or fixed 1.09 / 1.01 Å. | `scaled` |
+| `--out-json / --no-out-json` | Write a machine-readable `result.json` to `out_dir`. | `False` |
+| `--dry-run / --no-dry-run` | Validate inputs / config and print the execution plan without running TS optimisation (shown in `--help-advanced`). | `False` |
 
 ## YAML configuration
 
-Settings are applied with **defaults < config < explicit CLI < override**.
-Shared sections reuse [YAML Reference](yaml-reference.md). Keep the full block below intact if it already matches your workflow -- adjust only the values you need to change.
-
+Settings are applied with `defaults < config < explicit CLI < override`. Shared sections reuse [YAML Reference](yaml-reference.md).
 ```yaml
 geom:
- coord_type: cart                  # coordinate type: cartesian vs dlc internals
- freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
+  coord_type: cart
+  freeze_atoms: []
 calc:
- charge: 0                         # net charge (CLI override)
- spin: 1                           # spin multiplicity 2S+1
+  charge: 0
+  spin: 1
 mlmm:
- real_parm7: real.parm7            # Amber parm7 topology
- model_pdb: ml_region.pdb          # ML-region definition
- backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
- embedcharge: false                # xTB point-charge embedding correction
- uma_model: uma-s-1p1              # uma-s-1p1 | uma-m-1p1
- uma_task_name: omol                # UMA task name (UMA backend only)
- ml_device: auto                   # ML backend device selection
- hessian_calc_mode: Analytical        # Hessian mode selection
+  real_parm7: real.parm7
+  model_pdb: ml_region.pdb
+  backend: uma                  # uma | orb | mace | aimnet2
+  hessian_calc_mode: Analytical # or FiniteDifference
 opt:
- thresh: baker                     # convergence preset (Gaussian/Baker-style)
- max_cycles: 10000                 # optimizer cycle cap
- print_every: 100                  # logging stride
- min_step_norm: 1.0e-08            # minimum norm for step acceptance
- assert_min_step: true             # stop if steps fall below threshold
- rms_force: null                   # explicit RMS force target
- rms_force_only: false             # rely only on RMS force convergence
- max_force_only: false             # rely only on max force convergence
- force_only: false                 # skip displacement checks
- converge_to_geom_rms_thresh: 0.05  # geom RMS threshold when converging to ref
- overachieve_factor: 0.0           # factor to tighten thresholds
- check_eigval_structure: false     # validate Hessian eigenstructure
- line_search: true                 # enable line search
- dump: false                       # dump trajectory/restart data
- dump_restart: false               # dump restart checkpoints
- prefix: ""                        # filename prefix
- out_dir: ./result_tsopt/          # output directory
-hessian_dimer:
- thresh_loose: gau_loose           # loose convergence preset
- thresh: baker                     # main convergence preset
- update_interval_hessian: 500      # Hessian rebuild cadence
- neg_freq_thresh_cm: 5.0           # negative frequency threshold (cm^-1)
- flatten_amp_ang: 0.1              # flattening amplitude (Å)
- flatten_max_iter: 50              # flattening iteration cap (disabled when --no-flatten)
- flatten_sep_cutoff: 0.0           # minimum distance between representative atoms (Å)
- flatten_k: 10                     # representative atoms sampled per mode
- flatten_loop_bofill: false        # Bofill update for flatten displacements
- mem: 100000                       # memory limit for solver
- device: auto                      # device selection for eigensolver
- root: 0                           # targeted TS root index
- dimer:
-  length: 0.0189                   # dimer separation (Bohr)
-  rotation_max_cycles: 15          # max rotation iterations
-  rotation_method: fourier         # rotation optimizer method
-  rotation_thresh: 0.0001          # rotation convergence threshold
-  rotation_tol: 1                  # rotation tolerance factor
-  rotation_max_element: 0.001      # max rotation matrix element
-  rotation_interpolate: true       # interpolate rotation steps
-  rotation_disable: false          # disable rotations entirely
-  rotation_disable_pos_curv: true  # disable when positive curvature detected
-  rotation_remove_trans: true      # remove translational components
-  trans_force_f_perp: true         # project forces perpendicular to translation
-  bonds: null                      # bond list for constraints
-  N_hessian: null                  # Hessian size override
-  bias_rotation: false             # bias rotational search
-  bias_translation: false          # bias translational search
-  bias_gaussian_dot: 0.1           # Gaussian bias dot product
-  seed: null                       # RNG seed for rotations
-  write_orientations: true         # write rotation orientations
-  forward_hessian: true            # propagate Hessian forward
- lbfgs:
-  thresh: baker                    # LBFGS convergence preset
-  max_cycles: 10000                # iteration limit
-  print_every: 100                 # logging stride
-  min_step_norm: 1.0e-08           # minimum accepted step norm
-  assert_min_step: true            # assert when steps stagnate
-  max_step: 0.3                    # maximum step length
-  control_step: true               # control step length adaptively
-  double_damp: true                # double damping safeguard
-  keep_last: 7                     # history size for LBFGS buffers
-  beta: 1.0                        # initial damping beta
-  mu_reg: null                     # regularization strength
-  max_mu_reg_adaptions: 10         # cap on mu adaptations
-rsirfo:
- thresh: baker                     # RS-IRFO convergence preset
- trust_radius: 0.10                # initial trust radius (smaller for ONIOM)
- trust_update: true                # adaptive trust radius update
- trust_min: 1.0e-04                # minimum trust radius
- trust_max: 0.10                   # maximum trust radius (tightened in v0.2.8 for ML/MM stability)
- max_energy_incr: null             # max allowed energy increase per step
- hessian_update: bofill            # Hessian update scheme override
- hessian_init: calc                # initial Hessian source
- hessian_recalc: 500               # recalculate Hessian every N steps
- hessian_recalc_adapt: null        # adaptive Hessian recalculation
- small_eigval_thresh: 1.0e-08      # threshold for small eigenvalues
- alpha0: 1.0                       # initial shift parameter
- max_micro_cycles: 50              # micro-iterations per macro cycle
- track_mode_by_overlap: false      # track TS mode via eigenvector overlap between steps
+  thresh: baker
+  max_cycles: 10000
+  out_dir: ./result_tsopt/
+rsirfo:                         # --opt-mode hess
+  trust_max: 0.10               # bohr; tuned for ML/MM stability near the TS
+  hessian_recalc: 500           # lower (50-200) if the TS mode is lost
+  track_mode_by_overlap: false  # set true if the TS mode switches root
+hessian_dimer:                  # --opt-mode grad
+  flatten_max_iter: 50          # 0 with --no-flatten
+microiter:
+  micro_thresh: null            # MM relaxation preset; null -> same as macro
 ```
 
-```{tip}
-Set `rsirfo.track_mode_by_overlap: true` if the TS mode switches root during optimization (e.g., when multiple imaginary frequencies are present).
-```
+Full schema (every section, key, and default): [YAML Reference](yaml-reference.md).
 
 ```{tip}
-If TS convergence is slow or the TS mode is lost during optimization, try lowering `hessian_recalc` (e.g., to 50--200) in the `rsirfo` section. More frequent exact Hessian recalculations improve convergence reliability at the cost of additional Hessian evaluations.
+Set `rsirfo.track_mode_by_overlap: true` if the TS mode switches root during optimisation (e.g. when multiple imaginary frequencies are present). If TS convergence is slow or the TS mode is lost, lowering `hessian_recalc` (e.g. to 50–200) helps — more frequent exact Hessian recalculations improve robustness at the cost of additional Hessian evaluations.
 ```
+
+## Notes
+
+Active-DOF projection and mass-weighted translation / rotation removal (PHVA + TR projection) mirror `freq.py`, ensuring consistent imaginary-mode analysis and mode writing.
 
 ```{note}
-Since v0.2.8, `rsirfo.trust_max` defaults to 0.10 bohr (previously 0.20) for improved ML/MM stability near the TS.
+`rsirfo.trust_max` defaults to 0.10 bohr for improved ML/MM stability near the TS.
 
-The shared `opt` block also provides an **energy plateau fallback** (`energy_plateau: true` by default, `energy_plateau_thresh: 1.0e-4` au over `energy_plateau_window: 50` steps). If the MLIP force noise floor prevents the gradient-based `thresh` preset from being reached, the optimizer still exits cleanly once the energy itself has plateaued. See [yaml-reference](yaml-reference.md#opt) for full details.
+The shared `opt` block also provides an **energy-plateau fallback** (`energy_plateau: true` by default, `energy_plateau_thresh: 1.0e-4` au over `energy_plateau_window: 50` steps). If the MLIP force noise floor prevents the gradient-based `thresh` preset from being reached, the optimiser still exits cleanly once the energy itself has plateaued. See [yaml-reference](yaml-reference.md#opt) for full details.
+
+For `--microiter`, `rsirfo.thresh` controls the macro RS-I-RFO step. The MM
+relaxation threshold is set with `microiter.micro_thresh`; when it is `null` or
+omitted, the micro step uses the same preset as the macro step. There is no
+`--micro-thresh` CLI flag.
 ```
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
-
-- [opt](opt.md) -- Single-structure geometry optimization
-- [freq](freq.md) -- Confirm a single imaginary frequency for the validated TS
-- [irc](irc.md) -- Trace the reaction path from an optimized TS
-- [all](all.md) -- End-to-end workflow that chains ML/MM model setup -> MEP search -> tsopt -> IRC -> freq
-- [YAML Reference](yaml-reference.md) -- Full `hessian_dimer` (Hessian Guided Dimer) and `rsirfo` configuration options
-- [Glossary](glossary.md) -- Definitions of TS, Dimer, RS-I-RFO, Hessian
+[Common Error Recipes](recipes-common-errors.md) · [Troubleshooting](troubleshooting.md) · [path-search](path-search.md) · [opt](opt.md) · [freq](freq.md) · [irc](irc.md) · [all](all.md) · [YAML Reference](yaml-reference.md) · [Glossary](glossary.md).

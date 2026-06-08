@@ -1,70 +1,55 @@
 # `path-search`
 
-## Overview
+`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, scan specifications, or convergence thresholds—to obtain a satisfactory pathway.
 
-> **Summary:** Build a continuous MEP from two or more structures with recursive GSM segmentation. Automatically refines only regions with bond changes and exports the highest-energy image (HEI) as a TS candidate.
+## When to use
 
-`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory.
+- Use when driving a multi-step mechanism from R + (optional intermediates) + P; the recursive segmentation auto-detects elementary steps and refines only those regions where covalent bond changes are detected.
+- If you only have **two** endpoints and do not need recursive refinement, prefer [path-opt](path-opt.md).
 
-The recursive decomposition automatically detects multistep reactions and builds a detailed MEP for each elementary step.  However, complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, scan specifications, or convergence thresholds—to obtain a satisfactory pathway.
-
-If you only have **two** endpoints and do not need recursive refinement, [path-opt](path-opt.md) is the simpler option.
-
-## Minimal example
+## Quick examples
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
-## Output checklist
-
-- `result_path_search/mep_trj.xyz`
-- `result_path_search/summary.json`
-- `result_path_search/summary.log`
-- `result_path_search/mep_plot.png` (when plotting succeeds)
-
-## Common examples
-
-1. Build a multistep path with explicit intermediates.
-
 ```bash
+# Build a multistep path with explicit intermediates
 mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
-2. Run a lighter pass without pre-optimization or alignment.
-
 ```bash
+# Lighter pass without pre-optimization or alignment
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --no-preopt --no-align --max-nodes 8 \
  --out-dir ./result_path_search_fast
 ```
 
-## Usage
+## Inputs
+
+Command form:
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
  --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
  [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
- [--opt-mode grad|hess]
+ [--opt-mode grad]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
 
-### Examples
+`mlmm path-search --help` shows core options; `mlmm path-search --help-advanced` shows the full option list.
 
-```bash
-# Minimal ML-region-only MEP between two states
-mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
- --model-pdb ml_region.pdb -q 0
-
-# Multistep path with YAML overrides and frozen atoms
-mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
- --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
- --ref-pdb holo_template.pdb --out-dir ./run_ps
-```
+| Input | Required | Notes |
+| --- | --- | --- |
+| `-i, --input` | yes | Two or more full-enzyme PDBs in reaction order. Repeat `-i` or pass multiple paths after one flag. |
+| `--parm` | yes | Amber parm7 topology for the full enzyme complex. |
+| `--model-pdb` | optional | PDB defining the ML (high-level) region atoms. Optional when `--detect-layer` or `--model-indices` is used. |
+| `-q, --charge` | yes | Net charge of the ML region. Required unless `--ligand-charge` is provided. |
+| `--ref-pdb` | optional | Full template PDB(s) for XYZ→PDB conversion and topology reference. |
 
 ## Workflow
 
@@ -75,11 +60,28 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  - Otherwise, launch a **refinement segment (GSM)** between `End1` and `End2` to sharpen the barrier.
 4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent updates. Recursion depth is capped by `search.max_depth`.
 5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment using the selected `--mep-mode`. When the interface itself shows a bond change, a brand-new recursive segment replaces the bridge.
-6. **Optional alignment** -- After pre-opt, `--align` rigidly co-aligns inputs and refines freezes. Segments are annotated for plotting/analysis.
+6. **Optional alignment** -- When enabled, `--align` rigidly co-aligns inputs to the first input (after optional pre-opt) and refines freezes. Segments are annotated for plotting/analysis.
 
 Bond-change detection relies on `bond_changes.compare_structures` with thresholds surfaced under the `bond` YAML section.
 
+## Outputs
+
+```text
+out_dir/ (default: ./result_path_search/)
+ summary.json # MEP-level run summary (no full settings dump)
+ summary.log # Human-readable summary
+ mep_trj.xyz # Final MEP (always written)
+ mep.pdb # Final MEP (PDB when ref template available)
+ mep_seg_XX_trj.xyz / mep_seg_XX.pdb # Per-segment paths
+ hei_seg_XX.xyz / hei_seg_XX.pdb # HEI per bond-change segment
+ mep_plot.png # Delta-E profile vs image index (from trj2fig)
+ energy_diagram_MEP.png # State-level energy diagram relative to the reactant (kcal/mol)
+ seg_000_*/ # Segment-level GSM and refinement artifacts
+```
+
 ## CLI options
+
+The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 
 | Option | Description | Default |
 | --- | --- | --- |
@@ -97,13 +99,14 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
-| `--max-nodes INT` | Internal nodes for segment GSM. | `10` |
+| `--max-nodes INT` | Internal nodes for segment GSM. | `20` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--opt-mode [grad\|hess]` | Single-structure optimizer preset (`grad` = LBFGS, `hess` = RFO). | `grad` |
-| `--preopt/--no-preopt` | Pre-optimize endpoints with LBFGS before segmentation. | `False` |
-| `--align / --no-align` | Rigidly align inputs after pre-opt. | `True` |
+| `--opt-mode [grad]` | Single-structure optimizer preset (currently `grad` = LBFGS only; `hess` not yet wired). | `grad` |
+| `--preopt/--no-preopt` | Pre-optimize endpoints with LBFGS before segmentation. | `True` |
+| `--align/--no-align` | After pre-optimization, rigidly align all inputs to the first input and re-match freeze atoms. | `True` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau_loose`) |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
 | `--dump/--no-dump` | Save optimizer dumps. | `False` |
 | `-o, --out-dir PATH` | Output directory. | `./result_path_search/` |
 | `--ref-pdb PATH...` | Full template PDB(s) for XYZ→PDB conversion and topology reference. | _None_ |
@@ -116,40 +119,29 @@ Bond-change detection relies on `bond_changes.compare_structures` with threshold
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
-## Outputs
-
-```text
-out_dir/ (default: ./result_path_search/)
- summary.json # MEP-level run summary (no full settings dump)
- summary.log # Human-readable summary
- mep_trj.xyz # Final MEP (always written)
- mep.pdb # Final MEP (PDB when ref template available)
- mep_seg_XX_trj.xyz / mep_seg_XX.pdb # Per-segment paths
- hei_seg_XX.xyz / hei_seg_XX.pdb # HEI per bond-change segment
- mep_plot.png # Delta-E profile vs image index (from trj2fig)
- energy_diagram_MEP.png # State-level energy diagram relative to the reactant (kcal/mol)
- seg_000_*/ # Segment-level GSM and refinement artifacts
-```
-
 ## YAML configuration
 
-Merge order is **defaults < config < explicit CLI < override**.
-The YAML root must be a mapping. Accepted sections:
+Merge order is **defaults < config < explicit CLI < override**. The YAML root must be a mapping. The relevant sections are `geom`/`calc`(alias `mlmm`)/`gs`/`opt` (shared with `path-opt`) plus `lbfgs` (HEI+/-1 single-structure refinement), `bond` (bond-change detection), and `search` (recursive segmentation logic, path-search only).
 
-- **`geom`** -- `coord_type` (`"cart"` default), `freeze_atoms` (1-based indices).
-- **`calc` / `mlmm`** -- ML/MM calculator settings: `input_pdb`, `real_parm7`, `model_pdb`, `model_charge`, `model_mult`, backend selection (`backend`, `embedcharge`), UMA controls (`uma_model`, `uma_task_name`, `hessian_calc_mode`), device selection, freeze atoms.
-- **`gs`** -- Growing String settings: `max_nodes`, `climb`, `climb_rms`, `climb_fixed`, `reparam_every_full`, `reparam_check`.
-- **`opt`** -- StringOptimizer controls: `max_cycles`, `print_every`, `dump`, `dump_restart`, `out_dir`.
-- **`lbfgs`** -- Single-structure optimizer controls for HEI+/-1 refinement: `keep_last`, `beta`, `gamma_mult`, `max_step`, `control_step`, `double_damp`, `mu_reg`, `max_mu_reg_adaptions`.
-- **`bond`** -- Bond-change detection: `bond_factor`, `margin_fraction`, `delta_fraction`.
-- **`search`** -- Recursion logic: `max_depth`, `stitch_rmsd_thresh`, `bridge_rmsd_thresh`, `max_nodes_segment`, `max_nodes_bridge`, `kink_max_nodes`, `max_seq_kink`, `refine_mode`.
+```yaml
+# Minimal path-search YAML (every key and default: see YAML Reference)
+calc:
+  backend: uma
+search:
+  max_depth: 10            # recursion depth cap
+  refine_mode: null        # peak | minima | null (auto)
+bond:
+  bond_factor: 1.2         # covalent-radius scaling for bond-change cutoff
+```
+
+Full schema (every key and default): [YAML Reference](yaml-reference.md).
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
-
-- [path-opt](path-opt.md) -- Single-pass MEP optimization (no recursive refinement)
-- [opt](opt.md) -- Single-structure geometry optimization
-- [all](all.md) -- End-to-end workflow (uses recursive path-search by default; `--no-refine-path` for single-pass path-opt)
-- [trj2fig](trj2fig.md) -- Plot energy profiles from MEP trajectories
+- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
+- [path-opt](path-opt.md) — Single-pass MEP optimization (no recursive refinement)
+- [opt](opt.md) — Single-structure geometry optimization
+- [all](all.md) — End-to-end workflow (uses recursive path-search by default; `--no-refine-path` for single-pass path-opt)
+- [trj2fig](trj2fig.md) — Plot energy profiles from MEP trajectories
+- [YAML Reference](yaml-reference.md) — Full `gs`, `bond`, `search` configuration options

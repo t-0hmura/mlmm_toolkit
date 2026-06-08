@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite the accompanying preprint shown
+  under preferred-citation. The metadata below describes the software
+  package itself.
+title: mlmm-toolkit
+type: software
+authors:
+  - family-names: Ohmura
+    given-names: Takuto
+    orcid: "https://orcid.org/0009-0008-1215-0168"
+license: GPL-3.0
+repository-code: "https://github.com/t-0hmura/mlmm_toolkit"
+url: "https://t-0hmura.github.io/mlmm_toolkit/"
+version: "0.2.9"
+preferred-citation:
+  type: article
+  title: "ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions"
+  authors:
+    - family-names: Ohmura
+      given-names: Takuto
+      orcid: "https://orcid.org/0009-0008-1215-0168"
+    - family-names: Inoue
+      given-names: Sei
+    - family-names: Terada
+      given-names: Tohru
+  year: 2025
+  month: 7
+  journal: "ChemRxiv"
+  doi: "10.26434/chemrxiv-2025-jft1k"
+  url: "https://chemrxiv.org/doi/full/10.26434/chemrxiv-2025-jft1k"
+  notes: "Preprint"

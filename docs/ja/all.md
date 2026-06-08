@@ -1,56 +1,35 @@
 # `all`
 
-## 概要
-
-> **要約:** 一気通貫の酵素反応ワークフロー -- 活性部位抽出、ML/MM レイヤー割り当て、MM トポロジー準備、任意の段階的スキャン、全系レイヤード PDB での MEP 探索（GSM）、任意の TS 最適化、EulerPC IRC、熱化学、DFT、DFT//MLIP ダイアグラム。
-
-`mlmm all` は全系レイヤード PDB 上で ML/MM を用いる一括実行パイプラインを実行します。以下の 3 つのモードをサポートしています:
-
-- **マルチ構造アンサンブル** -- 反応順に 2 つ以上の完全 PDB を提供します。活性部位領域を抽出（ML 領域定義用）、MM トポロジー構築、ML/MM レイヤー割り当て後、レイヤード全系 PDB で GSM MEP 探索を実行し、任意でセグメントごとの後処理（TSOPT/freq/DFT）を実行します。
-- **単一構造 + 段階的スキャン** -- 1 つの PDB と `--scan-lists` を提供します。スキャンで中間体/生成物候補を生成し、MEP の端点として使用します。
-  - 1 つの `--scan-lists` リテラルで単一のスキャンステージを実行します。
-  - 複数ステージは単一の `--scan-lists` フラグの後に複数の値を指定します（例: `-s '[(12,45,1.35)]' '[(10,55,2.20)]'`）。
-- **TSOPT のみ** -- 1 つの PDB を提供し、`--scan-lists` を省略して `--tsopt` を設定します。レイヤード全系 PDB で TS 最適化を実行し、EulerPC IRC、両端の極小化、エネルギーダイアグラムの構築を行います。
+`mlmm all` は全系レイヤード PDB 上で ML/MM を用いる一括実行パイプラインを実行します。活性部位抽出、MM トポロジー準備、ML/MM レイヤー割り当て、任意の段階的スキャン、MEP 探索（デフォルトは再帰的 `path-search`）、任意の後処理（TS 最適化、EulerPC IRC、熱化学、DFT 一点計算、DFT//MLIP ダイアグラム）を連結します。ML 領域のデフォルト MLIP バックエンドは UMA で、`-b/--backend` で他のバックエンドを選択できます。
 
 ```{important}
 `--tsopt` は **TS 候補**を生成します。`all` は検証のために IRC と freq を自動実行しますが、機構解釈の前に必ず結果（虚振動数モード + 端点の結合性）を確認してください。
 ```
 
-## 最小例
+## 使いどころ
 
-```bash
-mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" --out-dir ./result_all
-```
+- 手作業で `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` を連結する代わりに、`all` で ML/MM 機構パイプライン全体を 1 コマンドで実行する。
+- **マルチ構造アンサンブル** -- 反応順に 2 つ以上の完全 PDB を提供し、複数構造にまたがる GSM MEP 探索を駆動する。
+- **単一構造 + 段階的スキャン** -- 1 つの PDB と `--scan-lists` を提供し、各リテラルをスキャンステージとして緩和済み端点を MEP の端点にする。
+- **TSOPT のみ** -- 1 つの PDB を提供し `--tsopt` を設定（`--scan-lists` なし）して、MEP 探索なしで TS 最適化を直接実行する。
 
-## 出力の見方
-
-- `result_all/summary.log`
-- `result_all/summary.json`
-- `result_all/path_search/mep.pdb`（または `result_all/path_search/seg_*/`、`--no-refine-path` 使用時は `path_opt/`）
-
-## よくある例
-
-1. TS 最適化・熱化学・DFT まで一括実行する。
+## 実行例
 
 ```bash
 mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
  --tsopt --thermo --dft --out-dir ./result_all
 ```
 
-2. 単一構造 + 段階的スキャンを実行する。
-
 ```bash
 mlmm all -i A.pdb -c "308,309" --scan-lists "[(12,45,1.35)]" "[(10,55,2.20)]" \
  --multiplicity 1 --out-dir ./result_scan_all
+# 1 つのリテラルで複数の結合を同時に駆動可能: '[(10,55,2.20),(23,34,1.80)]'
 ```
-
-3. 重い処理を流す前に計画だけ確認する。
 
 ```bash
-mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" --dry-run
+mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
+ --tsopt --thermo --dft --out-dir result_tsopt_only
 ```
-
-4. ORB バックエンドと xTB 点電荷埋め込みを使用する。
 
 ```bash
 mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
@@ -59,7 +38,7 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
 
 PDB コンパニオンはテンプレートが利用可能な場合に生成され、`--convert-files/--no-convert-files`（デフォルト有効）で制御されます。
 
-## 使用法
+## 入力
 
 ```bash
 mlmm all -i INPUT1 [INPUT2...] -c SUBSTRATE [options]
@@ -67,64 +46,20 @@ mlmm all -i INPUT1 [INPUT2...] -c SUBSTRATE [options]
 
 コアオプションは `mlmm all --help`、全オプション一覧は `mlmm all --help-advanced` で確認できます。
 
-### 例
+| 入力 | 必須 | 注記 |
+| --- | --- | --- |
+| `-i, --input` | はい | 反応順の完全 PDB。マルチ構造アンサンブルには 2 つ以上。単一入力は `--scan-lists`（段階的スキャン）または `--tsopt`（TSOPT のみ）の場合のみ許可。 |
+| `-c, --center` | 抽出時 | 基質指定: PDB パス、残基 ID（`308,309`）、または残基名（`SAM,GPP`）。省略時は抽出をスキップし完全構造をそのまま使用。 |
+| `-l, --ligand-charge` | 推奨 | 非標準残基の総電荷または残基別マッピング（例: `GPP:-3,MMT:-1`）。 |
+| `--parm` | 任意 | 全系の構築済み AMBER parm7。省略時は `mm_parm` で自動生成。 |
+| `--model-pdb` | 任意 | 構築済み ML 領域 PDB。指定時は ML 領域決定をスキップ。 |
+| `--ref-pdb` | XYZ 入力時 | XYZ 入力から PDB メタデータを復元するための参照 PDB。 |
 
-```bash
-# 基質と電荷を明示した一気通貫実行（複数構造）
-mlmm all -i reactant.pdb product.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1"
+入力の前提条件:
 
-# 中間体を含むアンサンブル、残基 ID による基質指定、全後処理
-mlmm all -i A.pdb B.pdb C.pdb -c "308,309" -l "-1" \
- --multiplicity 1 --max-nodes 10 --max-cycles 100 --climb \
- --opt-mode grad --no-dump --config params.yaml --preopt \
- --out-dir result_all --tsopt --thermo --dft
-
-# 単一構造 + スキャンで順序付き系列を構築
-mlmm all -i A.pdb -c "308,309" --scan-lists "[(10,55,2.20),(23,34,1.80)]" \
- --multiplicity 1 --out-dir result_scan_all --tsopt --thermo --dft
-
-# 単一構造 TSOPT のみモード（path_search なし）
-mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
- --tsopt --thermo --dft --out-dir result_tsopt_only
-```
-
-## ワークフロー
-
-1. **活性部位抽出と ML 領域定義**（複数入力時はマルチ構造の和集合）
-   - 基質を定義します（`-c/--center`、PDB、残基 ID、または残基名で指定）。
-   - 任意で `--ligand-charge` を総数値（分配）またはマッピング（例: `GPP:-3,MMT:-1`）として提供します。
-   - 抽出器は入力ごとのポケット PDB を `<out-dir>/pockets/` に書き出します。最初のポケットが `<out-dir>/ml_region.pdb` としてコピーされ、後続の全 ML/MM 計算の ML 領域を定義します。
-   - 抽出器の**最初のモデルの ML 領域の総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
-   - 追加の抽出トグル: `--radius`、`--radius-het2het`、`--include-H2O/--no-include-H2O`、`--exclude-backbone/--no-exclude-backbone`、`--add-linkH/--no-add-linkH`、`--selected-resn`、`--verbose/--no-verbose`。
-   - `-c/--center` を省略した場合は抽出をスキップし、完全入力構造をそのまま使用します。
-
-2. **ML/MM 準備（parm7 + レイヤー割り当て）**
-   - 最初の完全入力 PDB に対して `mm_parm` を一度実行し、`<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7` を構築します。これは自動的に `--parm` として渡されます。
-   - 各完全系 PDB に対して `define-layer` を実行し、ML 領域定義に基づく 3 層 B 因子（ML=0.0、MovableMM=10.0、FrozenMM=20.0）を付与します。レイヤード全系 PDB は `<out-dir>/layered/` に書き出されます。
-   - このステージは `--auto-mm-ff-set`、`--auto-mm-add-ter`、`--auto-mm-keep-temp` で調整できます。
-
-3. **任意の段階的スキャン（単一入力のみ）**
-   - 完全入力 PDB が 1 つのみで `--scan-lists` が指定された場合、レイヤード全系 PDB に対して ML/MM 計算機を使用した段階的な結合距離駆動スキャンを実行します。
-   - 各ステージの最終緩和構造（`stage_XX/result.pdb`）が中間体/生成物候補として収集されます。
-   - 経路探索の入力系列は `[初期レイヤード PDB, stage_01/result.pdb, stage_02/result.pdb,...]` となります。
-
-4. **全系レイヤード PDB での MEP 探索**
-   - すべての MEP 計算は全系レイヤード PDB（`--parm` + `--detect-layer`）上で実行されます（ポケット上ではありません）。
-   - **`path-search`（デフォルト）:** 自動精密化を含む再帰的 `path_search` を実行し、多段階反応を自動検出して各素反応の詳細な MEP を構築します。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 4 後処理に対応。
-   - **`--no-refine-path`:** 隣接ペアごとに単一パス `path-opt` GSM を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 4 後処理（TSOPT、thermo、DFT）が利用可能。
-   - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、単一の元の完全 PDB がすべての入力の参照テンプレートとして再利用（繰り返し）されます。
-
-5. **サマリーと任意の後処理**
-   - セグメントごとの軌跡、全 MEP 軌跡、`summary.json` が `<out-dir>/path_search/`（`--no-refine-path` 使用時は `<out-dir>/path_opt/`）に書き出されます。
-   - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
-   - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
-   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//MLIP Gibbs ダイアグラムも生成されます。
-   - 共有の上書き: `--opt-mode`、`--opt-mode-post`（TSOPT と IRC 後 endpoint-opt のモード上書き）、`--flatten/--no-flatten`、`--hessian-calc-mode`、`--tsopt-max-cycles`、`--tsopt-out-dir`、`--freq-*`、`--dft-*`。
-   - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
-
-6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
-   - ステップ (4)-(5) をスキップし、レイヤード全系 PDB で `tsopt` を実行し、EulerPC IRC と両端の極小化を行い、R-TS-P の ML/MM エネルギーダイアグラムを構築し、任意で Gibbs、DFT、DFT//MLIP ダイアグラムを追加します。
-   - このモードでのみ、**より高いエネルギー**の IRC 端点が反応物 (R) として採用されます。
+- 抽出有効時（`-c/--center`）: 入力は残基を特定するため **PDB** ファイルが必要。
+- 抽出スキップ時: 入力は **PDB/XYZ** が使用可能。
+- マルチ構造実行には 2 つ以上の構造が必要。
 
 ### 電荷とスピンの優先順位
 
@@ -139,16 +74,100 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 
 **スピンの解決:** `--multiplicity`（CLI）-> デフォルト（1）
 
-> **ヒント:** 正しい電荷伝播のため、非標準基質には常に `--ligand-charge` を指定してください。
+> **ヒント:** 正しい電荷伝播のため、非標準基質には常に `--ligand-charge` を指定してください。最初のモデルの ML 領域の総電荷は最も近い整数に丸められ、丸め処理が発生した場合はコンソールに通知されます。
 
-### 入力の前提条件
-- 抽出有効時（`-c/--center`）: 入力は残基を特定するため **PDB** ファイルが必要。
-- 抽出スキップ時: 入力は **PDB/XYZ** が使用可能。
-- マルチ構造実行には 2 つ以上の構造が必要。
+## 処理の流れ
+
+1. **活性部位抽出と ML 領域定義**（複数入力時はマルチ構造の和集合）
+   - 基質を定義します（`-c/--center`、PDB、残基 ID、または残基名で指定）。
+   - 任意で `--ligand-charge` を総数値（分配）またはマッピング（例: `GPP:-3,MMT:-1`）として提供します。
+   - 抽出器は入力ごとのポケット PDB を `<out-dir>/_work/pockets/` に書き出します。最初のポケットが `<out-dir>/ml_region.pdb`（`--model-pdb` として再利用可能な成果物）としてコピーされ、後続の全 ML/MM 計算の ML 領域を定義します。
+   - 抽出器の**最初のモデルの ML 領域の総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
+   - `-c/--center` を省略した場合は抽出をスキップし、完全入力構造をそのまま使用します。
+
+2. **ML/MM 準備（parm7 + レイヤー割り当て）**
+   - 最初の完全入力 PDB に対して `mm_parm` を一度実行し、`<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7`（`--parm` として再利用可能な成果物）を構築します。これは自動的に `--parm` として渡されます。
+   - 各完全系 PDB に対して `define-layer` を実行し、ML 領域定義に基づく 3 層 B 因子（ML=0.0、MovableMM=10.0、FrozenMM=20.0）を付与します。レイヤード全系 PDB は `<out-dir>/layered/` に書き出されます。
+
+3. **任意の段階的スキャン（単一入力のみ）**
+   - 完全入力 PDB が 1 つのみで `--scan-lists` が指定された場合、レイヤード全系 PDB に対して ML/MM 計算機を使用した段階的な結合距離駆動スキャンを実行します。
+   - 各ステージの最終緩和構造（`stage_XX/result.pdb`）が中間体/生成物候補として収集されます。
+   - 経路探索の入力系列は `[初期レイヤード PDB, stage_01/result.pdb, stage_02/result.pdb,...]` となります。
+
+4. **全系レイヤード PDB での MEP 探索**
+   - すべての MEP 計算は全系レイヤード PDB（`--parm` + `--detect-layer`）上で実行されます（ポケット上ではありません）。
+   - **`path-search`（デフォルト）:** 自動精密化を含む再帰的 `path_search` を実行し、多段階反応を自動検出して各素反応の詳細な MEP を構築します。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 5 後処理に対応。
+   - **`--no-refine-path`:** 隣接ペアごとに単一パス `path-opt` GSM を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 5 後処理（TSOPT、thermo、DFT）が利用可能。
+   - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、単一の元の完全 PDB がすべての入力の参照テンプレートとして再利用（繰り返し）されます。
+
+5. **サマリーと任意の後処理**
+   - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_search/`（`--no-refine-path` 使用時は `<out-dir>/_work/path_opt/`）に書き出され、マージ済み成果物（`mep.pdb`・`mep_trj.xyz`・`mep_plot.png`・`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
+   - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
+   - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
+   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//MLIP Gibbs ダイアグラムも生成されます。
+   - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します（FiniteDifference デフォルトより推奨）。
+
+6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
+   - ステップ (4)-(5) をスキップし、レイヤード全系 PDB で `tsopt` を実行し、EulerPC IRC と両端の極小化を行い、R-TS-P の ML/MM エネルギーダイアグラムを構築し、任意で Gibbs、DFT、DFT//MLIP ダイアグラムを追加します。
+   - このモードでのみ、**より高いエネルギー**の IRC 端点が反応物 (R) として採用されます。
+
+## 出力
+
+ツリーは 3 つのゾーンで構成されます: **ルート直下の成果物**、**`segments/seg_NN/` 配下のセグメント別成果物**、**`_work/` 配下のパイプライン作業領域**（結果を取り出したあとは削除して構いません）。最初に確認する 3 つは `summary.log`、`summary.json`、`mep.pdb`（連結した反応経路。ルートへ移動。MEP エンジン生出力は `_work/path_search/` に残る）です。
+
+```text
+<out-dir>/
+ summary.json                          # トップレベルサマリーのミラー（path_search 実行時）
+ summary.log
+ mep.pdb                               # 連結 MEP 経路（ルートにコピー）
+ mep_trj.xyz
+ mep_plot.png                          # MEP 生エネルギープロファイル
+ energy_diagram_MEP.png                # 全セグメント MEP 障壁
+ energy_diagram_UMA_all.png            # 集約後処理ダイアグラム（有効時）
+ energy_diagram_G_UMA_all.png
+ energy_diagram_DFT_all.png
+ energy_diagram_G_DFT_plus_UMA_all.png
+ irc_plot_all.png
+ ml_region.pdb                         # ML 領域定義（--model-pdb として再利用可能）
+ mm_parm/<input1>.parm7,.rst7          # 最初の完全酵素入力 PDB から生成した MM トポロジー（--parm として再利用可能）
+ layered/                              # レイヤード全系 PDB（B 因子アノテーション付き、再利用可能な入力）
+ segments/                             # 反応セグメント別の成果物
+  seg_NN/                              # 2 桁インデックス (1 始まり)、例: seg_01, seg_02
+   reactant.pdb · ts.pdb · product.pdb  # 正規 R/TS/P
+   ts/...                              # TS 最適化 + EulerPC IRC（--tsopt）
+   irc/...
+   freq/...                            # --thermo の場合
+   dft/...                             # --dft の場合
+   structures/{reactant,ts,product}.pdb  # 入れ子コピー + 生 IRC 端点
+   energy_diagram_{UMA,G_UMA,DFT,G_DFT_plus_UMA}.png
+ _work/                               # パイプライン作業領域（削除可）
+  pockets/                             # 入力ごとのポケット PDB（複数構造は統合）
+  scan/                                # 単一構造+スキャンモードの場合のみ（stage_01/result.pdb …）
+  path_search/                         # MEP エンジン生出力（--no-refine-path 時は path_opt/）
+   summary.{json,log} · seg_NN_mep/    # 生の per-segment GSM 軌跡（マージ済み MEP 成果物は root へ移動）
+```
+
+**TSOPT のみモード**（単一入力 + `--tsopt`、`--scan-lists` なし）では MEP ステージが無く、最適化済み R/TS/P と `ts/`・`irc/`・`freq/`・`dft/` は `segments/seg_01/` 配下に生成され、`_work/path_search/` は存在しません。
+
+`-v 2` ではコンソールに抽出、MM 準備、スキャンステージ、MEP の進捗（GSM）、ステージごとのタイミングが要約されます。{ref}`ja-verbosity-levels` を参照してください。
+
+### `summary.log` の読み方
+ログは番号付きセクションで構成されています:
+- **[1] グローバル MEP 概要** -- イメージ/セグメント数、MEP 軌跡プロットパス、集約 MEP エネルギーダイアグラム。
+- **[2] セグメントレベル MEP サマリー（MLIP 経路）** -- セグメントごとの障壁、反応エネルギー、結合変化サマリー。
+- **[3] セグメントごとの後処理（TSOPT / Thermo / DFT）** -- セグメントごとの TS 虚振動数チェック、IRC 出力、エネルギーテーブル。
+- **[4] エネルギーダイアグラム（概要）** -- MEP/UMA/Gibbs/DFT シリーズのダイアグラムテーブルと任意のクロスメソッドサマリーテーブル。
+- **[5] 出力ディレクトリ構造** -- インラインアノテーション付きの生成ファイルのコンパクトツリー。
+
+### `summary.json` の読み方
+summary.json はコンパクトな機械可読サマリーです。主なトップレベルキー:
+- `out_dir`、`n_images`、`n_segments` -- 実行メタデータと総数。
+- `segments` -- `index`、`tag`、`kind`、`barrier_kcal`、`delta_kcal`、`bond_changes` を持つセグメントごとのエントリリスト。
+- `energy_diagrams`（任意）-- `labels`、`energies_kcal`、`energies_au`、`ylabel`、`image` パスを持つダイアグラムペイロード。
 
 ## CLI オプション
 
-> **注意:** 表示されるデフォルト値はオプション未指定時に使用されます。
+> **注意:** 表示されるデフォルト値はオプション未指定時に使用されます。完全なフラグ一覧は生成された command reference（`reference/commands/`）にあり、以下の表は説明が必要なオプションを扱います。
 
 ### 入出力オプション
 
@@ -179,7 +198,6 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--add-linkH/--no-add-linkH` | 切断結合にリンク水素を付加。 | `False` |
 | `--selected-resn TEXT` | 強制包含する残基。 | `""` |
 | `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定（任意で電荷付き）。主鎖切断と電荷計算にアミノ酸として扱う。例: `HD1,HD2,HD3` または `HD1:0,SEP:-2`。 | `""` |
-| `--verbose/--no-verbose` | INFO レベルの抽出器ログを有効化。 | `True` |
 
 ### MM 準備オプション
 
@@ -206,7 +224,7 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。実効デフォルト: path-opt は `gau_loose`、scan は `gau`。 | _None_ |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
-| `--refine-path/--no-refine-path` | True（デフォルト）の場合は再帰的 `path-search`、False の場合は `path-opt` セグメントチェーン（単一パス GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.json）。両モードとも Stage 4（TSOPT/thermo/DFT）対応。 | `True` |
+| `--refine-path/--no-refine-path` | True（デフォルト）の場合は再帰的 `path-search`、False の場合は `path-opt` セグメントチェーン（単一パス GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.json）。両モードとも Stage 5（TSOPT/thermo/DFT）対応。 | `True` |
 | `--hessian-calc-mode CHOICE` | ML/MM ヘシアンモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。無効時は下流ツールで `--model-pdb` または `--model-indices` が必要。 | `True` |
 
@@ -258,77 +276,6 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--dft-conv-tol FLOAT` | SCF 収束閾値。 | _デフォルト_ |
 | `--dft-grid-level INT` | PySCF グリッドレベル。 | _デフォルト_ |
 | `--dft-engine [gpu\|cpu]` | DFTエンジン（GPU or CPU PySCF）。 | _None_ |
-
-## 出力
-
-```text
-<out-dir>/
- ml_region.pdb                         # ML 領域定義（最初のポケットのコピー）
- pockets/
-  pocket_<input1_basename>.pdb
-  pocket_<input2_basename>.pdb
-  ...
- mm_parm/
-  <input1_basename>.parm7              # 最初の完全酵素入力 PDB から生成
-  <input1_basename>.rst7
- layered/                              # レイヤード全系 PDB（B 因子アノテーション付き）
- scan/                                 # 単一構造+スキャンモードの場合のみ
-  stage_01/result.pdb
-  stage_02/result.pdb
-  ...
- summary.json                          # トップレベルサマリーのミラー（path_opt / path_search 実行時）
- summary.log
- mep_plot.png
- energy_diagram_MEP.png
- energy_diagram_UMA_all.png            # 集約後処理ダイアグラム（有効時）
- energy_diagram_G_UMA_all.png
- energy_diagram_DFT_all.png
- energy_diagram_G_DFT_plus_UMA_all.png
- irc_plot_all.png
- path_search/                          # デフォルト; --no-refine-path 使用時は path_opt/
-  mep_trj.xyz
-  mep.pdb
-  summary.json
-  summary.log
-  mep_plot.png
-  energy_diagram_MEP.png
-  post_seg_XX/                         # 後処理有効時
-   ts/...
-   irc/...
-   freq/...                            # --thermo の場合
-   dft/...                             # --dft の場合
-   energy_diagram_UMA.png
-   energy_diagram_G_UMA.png
-   energy_diagram_DFT.png
-   energy_diagram_G_DFT_plus_UMA.png
- tsopt_single/                         # 単一構造 TSOPT のみモードの場合
-  ts/...
-  irc/...
-  structures/
-   reactant.pdb
-   ts.pdb
-   product.pdb
-  freq/...                             # --thermo の場合
-  dft/...                              # --dft の場合
-  energy_diagram_UMA.png
-  energy_diagram_G_UMA.png
-  energy_diagram_DFT.png
-  energy_diagram_G_DFT_plus_UMA.png
-```
-
-### `summary.log` の読み方
-ログは番号付きセクションで構成されています:
-- **[1] グローバル MEP 概要** -- イメージ/セグメント数、MEP 軌跡プロットパス、集約 MEP エネルギーダイアグラム。
-- **[2] セグメントレベル MEP サマリー（UMA 経路）** -- セグメントごとの障壁、反応エネルギー、結合変化サマリー。
-- **[3] セグメントごとの後処理（TSOPT / Thermo / DFT）** -- セグメントごとの TS 虚振動数チェック、IRC 出力、エネルギーテーブル。
-- **[4] エネルギーダイアグラム（概要）** -- MEP/UMA/Gibbs/DFT シリーズのダイアグラムテーブルと任意のクロスメソッドサマリーテーブル。
-- **[5] 出力ディレクトリ構造** -- インラインアノテーション付きの生成ファイルのコンパクトツリー。
-
-### `summary.json` の読み方
-YAML はコンパクトな機械可読サマリーです。主なトップレベルキー:
-- `out_dir`、`n_images`、`n_segments` -- 実行メタデータと総数。
-- `segments` -- `index`、`tag`、`kind`、`barrier_kcal`、`delta_kcal`、`bond_changes` を持つセグメントごとのエントリリスト。
-- `energy_diagrams`（任意）-- `labels`、`energies_kcal`、`energies_au`、`ylabel`、`image` パスを持つダイアグラムペイロード。
 
 ## YAML 設定
 

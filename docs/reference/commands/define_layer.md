@@ -1,12 +1,16 @@
 # `mlmm define-layer`
 
 ```text
-
 Usage: mlmm define-layer [OPTIONS]
 
   Define 3-layer ML/MM system based on distance from ML region.
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                Input PDB file containing the full system.

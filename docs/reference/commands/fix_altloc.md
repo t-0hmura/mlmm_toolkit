@@ -1,13 +1,17 @@
 # `mlmm fix-altloc`
 
 ```text
-
 Usage: mlmm fix-altloc [OPTIONS]
 
   Blank PDB altLoc column (col 17) without shifting, and keep one altLoc per
   atom by default rule: highest occupancy, then earliest appearance.
 
 Options:
+  -v, --verbose LEVEL           Console verbosity 0-3 (default 2). 0=silent;
+                                1=milestones only; 2=+optimizer cycle tables,
+                                per-stage timing, VRAM, deliverable paths;
+                                3=everything (full config blocks, per-file
+                                paths, DEBUG logging).  [0<=x<=3]
   --help-advanced               Show all options (including advanced settings)
                                 and exit.
   -i, --input PATH              Input PDB file or directory.  [required]

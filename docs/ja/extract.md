@@ -1,49 +1,38 @@
 # `extract`
 
-## 概要
-
-> **要約:** タンパク質-リガンド PDB から活性部位ポケットを抽出し、ML 領域と周辺 MM 環境を定義します。`-c` で残基名、残基 ID、または PDB パスにより基質を指定します。`--add-linkh` 有効時は切断結合にリンク水素を付加します。非標準残基の電荷には `--ligand-charge` を使用します。
-
-`mlmm extract` は、タンパク質-リガンド PDB から活性部位ポケットを抽出し、ML 領域を定義します。基質周辺の残基を選択し、主鎖/側鎖規則に従ってモデルを切断し、任意で切断結合にリンク水素を付加し、単一構造またはアンサンブルを処理できます。
-
-これは通常、mlmm-toolkit ワークフローの**最初のステップ**であり、完全なタンパク質-リガンド複合体からより小さな計算可能なモデルを生成します。
+タンパク質-リガンド PDB から活性部位ポケットを抽出し、ML 領域（および下流ステージ向けの周辺 MM 環境）を定義します。基質周辺の残基を選択し、主鎖/側鎖規則に従ってモデルを切断し、任意で切断結合にリンク水素を付加し、単一構造またはアンサンブルを処理できます。これは通常、mlmm-toolkit ワークフローの**最初のステップ**であり、完全なタンパク質-リガンド複合体からより小さな計算可能なモデルを生成します。
 
 誤分類が発生した場合（例: 非標準的な残基/原子命名）、以下の付録の命名要件と内部参照リストを参照してください。
 
-## 最小例
+## 使いどころ
+
+- 完全なタンパク質-リガンド複合体から計算可能な活性部位ポケットを切り出す最初のステップとして使います。
+- 手元にあるものに応じて基質指定モード（残基 ID、基質 PDB、残基名）を選びます（正確な文法は入力 > 基質指定を参照）。
+- 単一構造でもマルチ構造アンサンブルでも処理できます（詳細はマルチ構造アンサンブルを参照）。
+
+## 実行例
 
 ```bash
+# ID ベースの基質と明示的リガンド電荷によるミニマル実行
 mlmm extract -i complex.pdb -c A:123 -o pocket.pdb -l -3
 ```
 
-## 出力の見方
-
-- `pocket.pdb`（または `-o` によるカスタムパス）
-- INFO で記録される電荷サマリー（アミノ酸、イオン、基質、合計）
-
-## よくある例
-
-1. ID ベースの基質と明示的リガンド電荷によるミニマル実行。
-
 ```bash
-mlmm extract -i complex.pdb -c A:123 -o pocket.pdb -l -3
+# PDB で基質を指定; 残基名ごとの電荷マッピング（その他は 0）
+mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb -l "GPP:-3,MMT:-1"
+# 名前ベースの基質選択はすべてのマッチを含む（WARNING がログに出力）: -c 'GPP,SAM'
 ```
 
-2. PDB で基質を指定; 残基名ごとの電荷マッピング。
-
 ```bash
-mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb \
- -l "GPP:-3,MMT:-1"
-```
-
-3. マルチ構造から単一マルチモデル出力、ヘテロ-ヘテロ近接有効。
-
-```bash
+# マルチ構造から単一マルチモデル出力、ヘテロ-ヘテロ近接有効
 mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
- -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose
+    -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose
 ```
 
-## 使用法
+## 入力
+
+コマンド形式:
+
 ```bash
 mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
  -c SUBSTRATE_SPEC
@@ -54,28 +43,23 @@ mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
  [--add-linkh/--no-add-linkh]
  [--selected-resn LIST]
  [-l, --ligand-charge MAP_OR_NUMBER]
- [--verbose/--no-verbose]
+ [-v LEVEL]
 ```
 
-### 例
-```bash
-# ID ベースの基質と明示的リガンド電荷によるミニマル実行
-mlmm extract -i complex.pdb -c '123' -o pocket.pdb -l -3
+| 入力 | 必須 | 注記 |
+| --- | --- | --- |
+| `-i, --input` | はい | 1 つ以上のタンパク質-リガンド PDB ファイル（同一原子順序が必要）。 |
+| `-c, --center` | はい | 基質指定: PDB パス、残基 ID、または残基名。 |
+| `-o, --output` | いいえ | ポケット PDB 出力。1 パス => マルチ MODEL、N パス => 入力ごと。デフォルトは `pocket.pdb` / `pocket_<input>.pdb`。 |
+| `-l, --ligand-charge` | いいえ | 非標準残基向けの総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 |
 
-# PDB で基質を指定; 残基名ごとの電荷マッピング（その他は 0）
-mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb -l 'GPP:-3,SAM:1'
+### 基質指定（`-c/--center`）
 
-# 名前ベースの基質選択（すべてのマッチを含む; WARNING がログに出力）
-mlmm extract -i complex.pdb -c 'GPP,SAM' -o pocket.pdb -l 'GPP:-3,SAM:1'
+- PDB パス: 座標が先頭入力と正確に一致する必要あり（許容 1e-3 Å）; 残基 ID を他の構造に伝播。
+- 残基 ID: `'123,456'`、`'A:123,B:456'`、`'123A'`、`'A:123A'`（インサーションコード対応）。
+- 残基名: カンマ区切りリスト（大文字小文字を区別しない）。同名残基が複数ある場合、**すべて**含まれ WARNING がログに出力。
 
-# マルチ構造から単一マルチモデル出力、ヘテロ-ヘテロ近接有効
-mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket_multi.pdb --radius-het2het 2.6 -l 'GPP:-3,SAM:1'
-
-# マルチ構造から複数出力、ヘテロ-ヘテロ近接有効
-mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pdb --radius-het2het 2.6 -l 'GPP:-3,SAM:1'
-```
-
-## ワークフロー
+## 処理の流れ
 
 ### 残基包含
 - `-c/--center` で指定された基質残基は常に含まれます。
@@ -106,11 +90,6 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 - 未知残基は `--ligand-charge` が総電荷（未知基質残基に分配、または未知基質がなければ全未知に分配）または残基名別マッピング（`GPP:-3,SAM:1`）を指定しない限りデフォルト 0。
 - verbose モード有効時、最初の入力について（タンパク質/リガンド/イオン/合計の）サマリーがログに出力されます。
 
-### 基質指定（`-c/--center`）
-- PDB パス: 座標が先頭入力と正確に一致する必要あり（許容 1e-3 Å）; 残基 ID を他の構造に伝播。
-- 残基 ID: `'123,456'`、`'A:123,B:456'`、`'123A'`、`'A:123A'`（インサーションコード対応）。
-- 残基名: カンマ区切りリスト（大文字小文字を区別しない）。同名残基が複数ある場合、**すべて**含まれ WARNING がログに出力。
-
 ### マルチ構造アンサンブル
 - 複数入力 PDB を受け付けます（同一原子順序を各ファイルの先頭/末尾で検証）。各構造は独立に処理され、選択残基の**和集合**がすべてのモデルに適用されるため、出力は一貫性を保ちます。
 - 出力規則:
@@ -118,6 +97,18 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
  - `-o` 1 つ -> 単一マルチ MODEL PDB。
  - N 個の出力（N == 入力数）-> N 個の個別 PDB。
 - 診断では、モデルごとの元/保持原子数と残基 ID をエコー。
+
+## 出力
+```text
+<output>.pdb # TER レコード後にリンク水素を含む可能性のあるポケット PDB
+ # 単一入力 -> デフォルトで pocket.pdb
+ # 複数入力で -o なし -> 構造ごとの pocket_<original_basename>.pdb
+ # 複数入力で -o 1 つ -> 単一マルチ MODEL PDB
+ # 出力ディレクトリは自動作成されません; 事前に存在を確認してください
+```
+- `pocket.pdb`（または `-o` によるカスタムパス）
+- verbose モード有効時、モデル #1 の電荷サマリー（タンパク質/リガンド/イオン/合計）がログに出力されます。
+- プログラム利用（`extract_api`）では `{"outputs": [...], "counts": [...], "charge_summary": {...}}` を返します。
 
 ## CLI オプション
 
@@ -136,24 +127,14 @@ mlmm extract -i complex1.pdb complex2.pdb -c 'GPP,SAM' -o pocket1.pdb pocket2.pd
 | `--selected-resn TEXT` | 強制包含する残基（鎖/インサーションコード付き ID）。 | `""` |
 | `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定（任意で電荷付き）。主鎖切断と電荷計算にアミノ酸として扱う。例: `HD1,HD2,HD3` または `HD1:0,SEP:-2`。 | `""` |
 | `-l, --ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |
-| `-v, --verbose/--no-verbose` | INFO レベルのログ出力（`True`）または WARNING のみ（`False`）。 | `True` |
 
 ```{tip}
 抽出されたポケットが小さすぎると、エネルギーや障壁の計算値が不正確になることがあります。そのような場合は、抽出半径を大きくする（例: `-r 4.0` 以上）ことで、タンパク質環境をより多く含めて精度を改善できます。
 ```
 
-## 出力
-```text
-<output>.pdb # TER レコード後にリンク水素を含む可能性のあるポケット PDB
- # 単一入力 -> デフォルトで pocket.pdb
- # 複数入力で -o なし -> 構造ごとの pocket_<original_basename>.pdb
- # 複数入力で -o 1 つ -> 単一マルチ MODEL PDB
- # 出力ディレクトリは自動作成されません; 事前に存在を確認してください
-```
-- verbose モード有効時、モデル #1 の電荷サマリー（タンパク質/リガンド/イオン/合計）がログに出力されます。
-- プログラム利用（`extract_api`）では `{"outputs": [...], "counts": [...], "charge_summary": {...}}` を返します。
+## 注意事項
 
-## MCPB 等で生成された非標準残基を含む系
+### MCPB 等で生成された非標準残基を含む系
 
 Amber の `MCPB.py`（Metal Center Parameter Builder）等で金属配位残基のパラメータを生成した場合、金属配位アミノ酸に非標準の残基名（`HD1`, `HE1`, `CM1`, `AP1` 等）が割り当てられます。これらは `extract` の内部辞書 `AMINO_ACIDS` に含まれないため、**主鎖原子の切断・リンク水素の付加が正しく行われません**。
 
@@ -166,8 +147,12 @@ Backbone truncation was not applied.
 Consider preparing the pocket model manually.
 ```
 
+```{tip}
+これらの残基名を `--modified-residue` で登録すると（例: `--modified-residue HD1,HE1,CM1,AP1`）、`extract` はそれらをアミノ酸として扱い、主鎖切断、リンク水素のキャッピング、電荷割り当てを自動的に適用し、上記の警告も抑制されます。`:charge` を付けると整数電荷を設定できます（例: `--modified-residue HD1:0,SEP:-2`、電荷のデフォルトは `0`）。
+```
+
 ```{important}
-非標準残基を含む系では、**ポケットモデルを手動で構築する**ことを推奨します。
+`--modified-residue` で対応できない場合（例: 非標準的な主鎖トポロジー）は、**ポケットモデルを手動で構築する**ことを推奨します。
 手順:
 
 1. 活性部位周辺の残基を選定し、切断箇所を決定する
@@ -176,7 +161,7 @@ Consider preparing the pocket model manually.
 4. 結合方向に沿って **1.09 Å** の位置に配置する
 ```
 
-## 付録: PDB 命名要件と参照リスト
+### 付録: PDB 命名要件と参照リスト
 
 この付録は主に、**非標準的な残基/原子命名**により `extract` が残基を誤分類する場合のデバッグ用です。標準 PDB 規約に従った入力であれば通常スキップ可能です。
 
@@ -186,7 +171,7 @@ Consider preparing the pocket model manually.
 
 以下の内部定数が認識される名前を定義します:
 
-### `AMINO_ACIDS`
+#### `AMINO_ACIDS`
 
 残基名を公称整数電荷にマッピングする辞書。この辞書への所属が、主鎖処理、切断、電荷計算においてアミノ酸として扱われるかを決定します。
 
@@ -226,7 +211,7 @@ Consider preparing the pocket model manually.
 
 **C 末端バリアント**（接頭辞 `C`）: `CALA` (-1), `CARG` (0), `CASP` (-2), `CGLU` (-2), `CLYS` (0) 等、及び `NHE` (0), `NME` (0), `CTER` (-1, 汎用)
 
-### `BACKBONE_ATOMS`
+#### `BACKBONE_ATOMS`
 
 アミノ酸の主鎖原子とみなされる原子名のセット。`--exclude-backbone` 時に非基質残基からどの原子を除去するかの判定に使用されます:
 
@@ -234,7 +219,7 @@ Consider preparing the pocket model manually.
 N, C, O, CA, OXT, H, H1, H2, H3, HN, HA, HA2, HA3
 ```
 
-### `ION`
+#### `ION`
 
 イオン残基名を形式電荷にマッピングする辞書。認識されたイオンは電荷サマリーで正しい電荷が自動的に割り当てられます。
 
@@ -246,15 +231,13 @@ N, C, O, CA, OXT, H, H1, H2, H3, HN, HA, HA2, HA3
 | +4 | `U4+`, `Th`, `Hf`, `Zr` |
 | -1 | `F`, `CL`, `BR`, `I`, `Cl-`, `IOD` |
 
-### `WATER_RES`
+#### `WATER_RES`
 
 水分子として認識される残基名のセット。水分子はデフォルトで含まれ（`--include-h2o`）、電荷はゼロが割り当てられます:
 
 ```
 HOH, WAT, H2O, DOD, TIP, TIP3, SOL
 ```
-
----
 
 ## 関連項目
 

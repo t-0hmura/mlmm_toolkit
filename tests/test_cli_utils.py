@@ -14,13 +14,13 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def _parse_bool():
-    from mlmm.cli_utils import parse_bool
+    from mlmm.cli.decorators import parse_bool
     return parse_bool
 
 
 @pytest.fixture
 def _argparse_bool():
-    from mlmm.cli_utils import argparse_bool
+    from mlmm.cli.decorators import argparse_bool
     return argparse_bool
 
 

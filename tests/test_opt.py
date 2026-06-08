@@ -18,16 +18,16 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture(scope="module")
 def opt_module():
     """Import mlmm.opt with mlmm_calc stubbed out."""
-    stub = types.ModuleType("mlmm.mlmm_calc")
+    stub = types.ModuleType("mlmm.backends.mlmm_calc")
 
     def _stub_mlmm(*_args, **_kwargs):
         raise RuntimeError("stub mlmm should not be called in helper tests")
 
     stub.mlmm = _stub_mlmm
     stub.mlmm_mm_only = _stub_mlmm
-    sys.modules["mlmm.mlmm_calc"] = stub
-    sys.modules.pop("mlmm.opt", None)
-    mod = importlib.import_module("mlmm.opt")
+    sys.modules["mlmm.backends.mlmm_calc"] = stub
+    sys.modules.pop("mlmm.workflows.opt", None)
+    mod = importlib.import_module("mlmm.workflows.opt")
     return mod
 
 

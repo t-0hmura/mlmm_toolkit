@@ -16,12 +16,13 @@ __all__ = [
     "mlmm_mm_only",
 ]
 
+# DO NOT INLINE: mlmm_calc.py imports torch + AmberTools wrappers (~3 s); PEP 562 __getattr__ lazy resolution lets `import mlmm` cost <100 ms for downstream tools that only read __version__.
 _LAZY_IMPORTS = {
-    "MLMMCore": "mlmm.mlmm_calc",
-    "MLMMASECalculator": "mlmm.mlmm_calc",
-    "mlmm": "mlmm.mlmm_calc",
-    "mlmm_ase": "mlmm.mlmm_calc",
-    "mlmm_mm_only": "mlmm.mlmm_calc",
+    "MLMMCore": "mlmm.backends.mlmm_calc",
+    "MLMMASECalculator": "mlmm.backends.mlmm_calc",
+    "mlmm": "mlmm.backends.mlmm_calc",
+    "mlmm_ase": "mlmm.backends.mlmm_calc",
+    "mlmm_mm_only": "mlmm.backends.mlmm_calc",
 }
 
 

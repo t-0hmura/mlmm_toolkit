@@ -1,12 +1,16 @@
 # `mlmm path-search`
 
 ```text
-
 Usage: mlmm path-search [OPTIONS]
 
   Multistep MEP search via recursive GSM segmentation.
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                Two or more structures in reaction order.
@@ -22,16 +26,7 @@ Options:
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
-  --detect-layer / --no-detect-layer
-                                  Detect ML/MM layers from input PDB B-factors
-                                  (ML=0, MovableMM=10, FrozenMM=20). If
-                                  disabled, you must provide --model-pdb or
-                                  --model-indices.  [default: detect-layer]
-  -q, --charge INTEGER            Total system charge. Required unless --ligand-
+  -q, --charge INTEGER            ML region charge. Required unless --ligand-
                                   charge is provided.
   -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
                                   GPP:-3,SAM:1) used to derive charge when -q is
@@ -57,15 +52,15 @@ Options:
   --max-nodes INTEGER             Number of internal nodes (string has
                                   max_nodes+2 images including endpoints). Used
                                   for *segment* GSM unless overridden by YAML
-                                  search.max_nodes_segment.  [default: 10]
+                                  search.max_nodes_segment.  [default: 20]
   --max-cycles INTEGER            Maximum GSM optimization cycles.  [default:
                                   300]
   --climb / --no-climb            Enable transition-state search after path
                                   growth.  [default: climb]
   --dump / --no-dump              Dump GSM/single-optimization trajectories
                                   during the run.  [default: no-dump]
-  --opt-mode [grad|hess]          Single-structure optimizer: grad (=LBFGS) or
-                                  hess (=RFO).  [default: grad]
+  --opt-mode [grad]               Single-structure optimizer: grad (=LBFGS). RFO
+                                  (hess) not yet wired.  [default: grad]
   -o, --out-dir TEXT              Output directory.  [default:
                                   ./result_path_search/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
@@ -80,7 +75,7 @@ Options:
                                   without running path search.  [default: no-
                                   dry-run]
   --preopt / --no-preopt          If True, run initial single-structure
-                                  optimizations of inputs.  [default: no-preopt]
+                                  optimizations of inputs.  [default: preopt]
   --align / --no-align            After pre-optimization, align all inputs to
                                   the *first* input and match freeze_atoms using
                                   the align_freeze_atoms API.  [default: align]
@@ -112,5 +107,24 @@ Options:
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).
+  --detect-layer / --no-detect-layer
+                                  Detect ML/MM layers from input PDB B-factors
+                                  (ML=0, MovableMM=10, FrozenMM=20). If
+                                  disabled, you must provide --model-pdb or
+                                  --model-indices.  [default: detect-layer]
+  --model-indices-one-based / --model-indices-zero-based
+                                  Interpret --model-indices as 1-based (default)
+                                  or 0-based.  [default: model-indices-one-
+                                  based]
+  --precision [fp32|fp64]         MLIP backend precision: fp32 (default) or
+                                  fp64. Routed to backend-specific kwargs (UMA
+                                  precision / ORB precision / MACE
+                                  default_dtype). aimnet2: fp32 no-op; fp64
+                                  rejected.
+  --deterministic / --no-deterministic
+                                  Strict bit-reproducible GPU runs
+                                  (deterministic algorithms + index_reduce_
+                                  shim). Slower; raises if unsupported. Default
+                                  off.
   -h, --help                      Show this message and exit.
 ```

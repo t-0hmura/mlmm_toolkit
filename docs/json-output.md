@@ -4,7 +4,7 @@ mlmm provides machine-readable JSON output for programmatic consumption by AI ag
 
 ## `--out-json` flag
 
-Every MLIP-based subcommand supports `--out-json / --no-out-json` (default: off).
+Most MLIP-based subcommands (`opt`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`) support `--out-json / --no-out-json` (default: off).
 When enabled, a `result.json` file is written to the output directory alongside the normal outputs.
 
 ```bash
@@ -14,16 +14,32 @@ cat result_opt/result.json | python -m json.tool
 
 The `all` and `path-search` commands always write `summary.json` (no `--out-json` flag needed).
 
+### `summary.json` mirror
+
+`write_result_json` mirrors every per-stage `result.json` payload to `summary.json` alongside it. MCP clients and agent scripts can read a single filename (`summary.json`) across every subcommand; the `result.json` written next to it carries the identical payload.
+
 ## Common envelope
 
-Every `result.json` automatically includes:
+Every `result.json` (and the mirrored `summary.json`) automatically includes:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `schema_version` | string | Envelope schema version; current value comes from `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` — pin against that constant rather than the literal in this doc. Bumps signal a structural change. |
 | `command` | string | Subcommand name (e.g. `"opt"`) |
 | `mlmm_version` | string | Package version |
+| `status` | string | One of `success`, `partial`, `error`, `unknown` |
 | `elapsed_seconds` | float | Wall-clock time (seconds) |
 | `environment` | object | Hardware info (see below) |
+
+### Error envelope (when `status == "error"`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `error` | string | `str(exc)` of the original exception |
+| `error_type` | string | Exception class name (e.g. `"OptimizationError"`) |
+| `error_class_chain` | list[string] | Full MRO class names (e.g. `["OptimizationError", "RuntimeError", "Exception", "BaseException"]`) so agents can match the hierarchy without parsing text |
+| `error_module` | string | Module the exception class was defined in |
+| `error_label` | string | High-level CLI stage label (e.g. `"opt"`, `"tsopt-stage"`) |
 
 **`environment`**:
 
@@ -46,7 +62,7 @@ Every `result.json` automatically includes:
 | `status` | string | `"converged"` or `"not_converged"` |
 | `energy_hartree` | float | Final ONIOM energy (Hartree) |
 | `n_opt_cycles` | int | Optimization cycles completed |
-| `opt_mode` | string | `"grad"` (LBFGS) or `"hess"` (RFO) |
+| `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"lbfgs"`, `"rfo"` (aliases: `light`/`lbfgs` → `grad`; `heavy`/`rfo` → `hess`) |
 | `backend` | string | ML backend (`"uma"`, `"orb"`, `"mace"`, `"aimnet2"`) |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
@@ -70,7 +86,7 @@ Every `result.json` automatically includes:
 | `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int | Number of imaginary frequencies |
 | `imaginary_frequencies_cm` | float[] | Imaginary frequencies (cm$^{-1}$, negative) |
-| `opt_mode` | string | `"grad"` (PHG-Dimer) or `"hess"` (RS-I-RFO) |
+| `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"` (aliases: `light`/`dimer` → `grad` (PHG-Dimer); `heavy`/`rsirfo` → `hess` (RS-I-RFO)) |
 | `n_atoms` | int | Total atoms |
 | `n_opt_cycles` | int | Optimization cycles |
 | `backend` | string | ML backend |
@@ -194,9 +210,16 @@ Every `result.json` automatically includes:
 | `ligand_total_charge` | float | Ligand charge sum |
 | `ion_total_charge` | float | Ion charge sum |
 | `unknown_residue_charges` | object | `{resname: charge}` |
-| `center` | string | Center residue |
+| `center` | string | Substrate specification (raw `-c` value): PDB path, residue-ID list (e.g. `'A:123,B:456'`), or residue-name list (e.g. `'GPP,MMT'`) |
 | `radius` | float | Extraction radius (angstrom) |
 | `input_files` | string[] | Input PDB paths |
+| `n_atoms_raw` | int | Atom count in the raw input before extraction |
+| `n_link_hydrogens` | int | Count of link H atoms added at severed bonds |
+| `files` | object | Map of emitted file names (per-input pocket PDB, etc.) |
+| `exclude_backbone` | bool | Value of `--exclude-backbone` at run time |
+| `include_h2o` | bool | Value of `--include-H2O` at run time |
+| `ligand_charge_input` | string | Raw `-l/--ligand-charge` argument |
+| `ion_charges` | object | Map `{resname: charge}` for ion residues encountered |
 
 ## `summary.json` (`path-search` / `all`)
 
@@ -208,7 +231,7 @@ The `all` and `path-search` commands write `summary.json`:
 | `n_segments` | int | Segment count |
 | `segments` | object[] | Per-segment barrier, delta, bond changes |
 | `energy_diagrams` | object[] | Energy profiles with labels and kcal/mol values |
-| `mlip_backend` | string | Model identifier |
+| `mlip_backend` | string | Backend name (`uma`, `orb`, `mace`, or `aimnet2`) |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
 | `environment` | object | Hardware info |
@@ -217,6 +240,7 @@ The `all` command additionally includes:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `n_segments_reactive` | int | Number of non-bridge (reactive) segments |
 | `rate_limiting_step` | object | RLS segment index and barrier |
 | `overall_reaction_energy_kcal` | float | Overall reaction energy |
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |

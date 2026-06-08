@@ -1,7 +1,7 @@
 """Example: direct MLMMCore API usage (energy, forces, Hessian)."""
 
 from ase.io import read
-from mlmm.mlmm_calc import MLMMCore
+from mlmm.backends.mlmm_calc import MLMMCore
 
 core = MLMMCore(
     input_pdb="r_complex.pdb",

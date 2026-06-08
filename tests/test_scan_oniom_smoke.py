@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from mlmm.cli import cli as root_cli
@@ -303,7 +305,7 @@ def test_oniom_export_default_convert_fallback_without_orca_mm(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    from mlmm import oniom_export
+    from mlmm.workflows import oniom_export
 
     monkeypatch.setattr(oniom_export.shutil, "which", lambda _name: None)
 
@@ -344,7 +346,7 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    from mlmm import oniom_export
+    from mlmm.workflows import oniom_export
 
     class _FailedProc:
         returncode = 1
@@ -384,3 +386,31 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
     assert "orca_mm failed" in result.output
     assert "Run manually: cd " in result.output
     assert "orca_mm -convff -AMBER" in result.output
+
+
+def test_scan_forces_cartesian_even_with_coord_type_dlc(tmp_path, monkeypatch) -> None:
+    """Staged scans run restrained L-BFGS with no microiteration, so DLC over the
+    ML/MM system is meaningless (it crashes poly_line_search with a
+    Cartesian/internal dimension mismatch). Scan must force Cartesian even when
+    ``--coord-type dlc`` is requested, mirroring path-opt / path-search."""
+    repo = Path(__file__).resolve().parents[1]
+    pdb = repo / "examples" / "toy_system" / "r_complex_layered.pdb"
+    parm = repo / "examples" / "toy_system" / "p_complex.parm7"
+    if not (pdb.exists() and parm.exists()):
+        pytest.skip("toy_system example inputs not present")
+
+    # `scan` gathers --scan-lists from sys.argv (to support multiple lists), so
+    # the real argv must be set for the invocation, not just the CliRunner args.
+    argv = [
+        "mlmm", "scan", "-i", str(pdb), "--parm", str(parm), "-q", "-1", "-m", "1",
+        "--scan-lists", "[('PRE 8 C1','PRE 8 C3',2.0)]",
+        "--coord-type", "dlc", "--dry-run", "-v", "3",
+        "--out-dir", str(tmp_path / "scan_out"),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    result = CliRunner().invoke(root_cli, argv[1:])
+
+    assert result.exit_code == 0, result.output
+    # The resolved geometry config in the dry-run plan must be Cartesian, not DLC.
+    assert "coord_type: cart" in result.output
+    assert "coord_type: dlc" not in result.output

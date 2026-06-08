@@ -1,7 +1,6 @@
 # `mlmm all`
 
 ```text
-
 Usage: mlmm all [OPTIONS]
 
   Run pocket extraction → (optional single-structure staged scan) → MEP search
@@ -10,6 +9,11 @@ Usage: mlmm all [OPTIONS]
   --tsopt True and no --scan-lists, run TSOPT-only mode.
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                Two or more **full** PDBs in reaction order
@@ -60,15 +64,13 @@ Options:
                                   ff19SB]
   --auto-mm-add-ter / --auto-mm-no-add-ter
                                   Control mm_parm TER insertion around
-                                  ligand/water/ion blocks.  [default: auto-mm-
-                                  add-ter]
+                                  ligand/water/ion blocks and disconnected
+                                  peptide blocks.  [default: auto-mm-add-ter]
   --auto-mm-keep-temp             Keep the mm_parm temporary working directory
                                   (for debugging).
   --auto-mm-ligand-mult TEXT      Spin multiplicity mapping forwarded to mm_parm
                                   (e.g., 'GPP:2,SAM:1'). If omitted, mm_parm
                                   defaults to 1 for all ligands.
-  --verbose BOOLEAN               Enable INFO-level logging inside extractor.
-                                  [default: True]
   -m, --multiplicity INTEGER      Multiplicity (2S+1).  [default: 1]
   --max-nodes INTEGER             Max internal nodes for **segment** GSM (String
                                   has max_nodes+2 images including endpoints).
@@ -94,10 +96,12 @@ Options:
                                   single-pass path-opt GSM between each adjacent
                                   pair and concatenate the segments (no
                                   path_search).  [default: refine-path]
-  --thresh TEXT                   Convergence preset (gau_loose|gau|gau_tight|ga
+  --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
+                                  Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never). Defaults to 'gau_loose'
                                   for path-opt, 'gau' for scan.
-  --thresh-post TEXT              Convergence preset for post-IRC endpoint
+  --thresh-post [gau_loose|gau|gau_tight|gau_vtight|baker|never]
+                                  Convergence preset for post-IRC endpoint
                                   optimizations (gau_loose|gau|gau_tight|gau_vti
                                   ght|baker|never).  [default: baker]
   --config FILE                   Base YAML configuration file applied before
@@ -208,5 +212,21 @@ Options:
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).
+  --coord-type [cart|dlc]         Optimisation coordinate system (cart|dlc).
+                                  cart is the robust default used in published
+                                  numbers; dlc speeds up torsion-rich opts.
+                                  mlmm-specific caveats: DLC + link atom and DLC
+                                  + 3-layer frozen MM are numerically
+                                  unverified.
+  --precision [fp32|fp64]         MLIP backend precision: fp32 (default) or
+                                  fp64. Routed to backend-specific kwargs (UMA
+                                  precision / ORB precision / MACE
+                                  default_dtype). aimnet2: fp32 no-op; fp64
+                                  rejected.
+  --deterministic / --no-deterministic
+                                  Strict bit-reproducible GPU runs
+                                  (deterministic algorithms + index_reduce_
+                                  shim). Slower; raises if unsupported. Default
+                                  off.
   -h, --help                      Show this message and exit.
 ```

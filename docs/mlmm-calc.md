@@ -1,4 +1,4 @@
-# ML/MM Calculator
+#  ML/MM Calculator
 
 ## Overview
 
@@ -12,12 +12,12 @@ The ML (high-level) component is provided by one of several MLIP backends, selec
 
 | Backend | Value | Package | Install |
 | --- | --- | --- | --- |
-| FAIR-Chem UMA | `uma` (default) | `fairchem-core` | `pip install mlmm` |
+| FAIR-Chem UMA | `uma` (default) | `fairchem-core` | `pip install mlmm-toolkit` |
 | ORB | `orb` | `orb-models` | `pip install "mlmm-toolkit[orb]"` |
 | MACE | `mace` | `mace-torch` | `pip install --no-deps mace-torch` |
 | AIMNet2 | `aimnet2` | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` |
 
-Internally, all backends conform to the `_MLBackend` abstraction, which provides a uniform interface for energy, force, and Hessian evaluation. A factory function selects and instantiates the appropriate backend based on the `backend` parameter.
+See [MLIP Backends](backends.md) for per-backend kwargs, model identifiers, precision options, and how to add a backend.
 
 ### Embed-charge correction
 
@@ -73,14 +73,9 @@ The MM backend can be selected via the `mm_backend` parameter:
 
 - **`"hessian_ff"`** (default): Analytical Hessian via `hessian_ff` (active atoms only, then optionally expanded to full Cartesian shape with frozen rows/cols zero-filled). CPU-only backend.
   - CMAP torsion corrections (implemented but disabled by default, as in Gaussian)
-- **`"openmm"`**: Finite-difference (FD) Hessian via OpenMM. Supports both CPU and CUDA platforms. Useful for force fields not supported by `hessian_ff` or when OpenMM is already in your workflow.
+- **`"openmm"`**: Finite-difference (FD) Hessian via OpenMM. Supports both CPU and CUDA platforms. Useful for force fields not supported by `hessian_ff` or when OpenMM is already in your workflow. See [Device Configuration & HPC Setup](device-hpc.md) for mm_backend/mm_device YAML examples and VRAM trade-offs.
 
-**Example YAML configuration:**
-```yaml
-mlmm:
- mm_backend: openmm # Use OpenMM for MM calculations
- mm_device: cuda # Use CUDA (or "cpu")
-```
+ML Hessian: `Analytical` (UMA-only, second-order autograd) or `FiniteDifference` (central differences of forces; ORB/MACE/AIMNet2, and UMA when VRAM-limited). See [YAML Reference](yaml-reference.md) `hessian_calc_mode` for the full availability and VRAM guidance.
 
 ### CMAP in the model system
 
@@ -100,10 +95,6 @@ This default behavior is consistent with Gaussian ONIOM, which also omits CMAP f
 mlmm:
  use_cmap: true  # Enable CMAP in model parm7 (non-Gaussian-compatible behavior)
 ```
-
-### ML Hessian modes
-- `"Analytical"`: Second-order autograd on the selected device. Available for the **UMA backend only**.
-- `"FiniteDifference"`: Central differences of forces. Used by **ORB, MACE, and AIMNet2** backends (and optionally by UMA when VRAM is limited).
 
 ## Inputs
 
@@ -125,10 +116,12 @@ The PySisyphus interface returns values converted to atomic units (Hartree/Bohr)
 
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
 
-- [opt](opt.md) -- Single-structure geometry optimization using the ML/MM calculator
-- [tsopt](tsopt.md) -- Transition state optimization
-- [freq](freq.md) -- Vibrational frequency analysis
-- [YAML Reference](yaml-reference.md) -- `calc`/`mlmm` configuration keys
+- [opt](opt.md) — Single-structure geometry optimization using the ML/MM calculator
+- [tsopt](tsopt.md) — Transition state optimization
+- [freq](freq.md) — Vibrational frequency analysis
+- [YAML Reference](yaml-reference.md) — `calc`/`mlmm` configuration keys
+- [MLIP Backends](backends.md) — Backend selection, install, precision, and the add-a-backend recipe (canonical backend reference)
+- [Device Configuration & HPC Setup](device-hpc.md) — ML/MM device settings and HPC submission

@@ -1,43 +1,46 @@
-# ORCA QM/MM Mode (`oniom-export --mode orca`)
-
-## Overview
+# `oniom-orca`
 
 > **Summary:** Export an ML/MM system to ORCA QM/MM (`.inp`) using an Amber parm7 topology.
 
-## Minimal example
+This is the ORCA detail mode of `oniom-export` (`mlmm oniom-export --mode orca`). It reads topology information from an Amber parm7 file, maps a model-region PDB to the QM atoms, resolves ORCAFF parameters, and writes a single ORCA QM/MM input file ready for an ORCA 6.0 run.
+
+## When to use
+
+- Use this mode when you need an ORCA QM/MM (`.inp`) input for an ML/MM system whose topology is described by an Amber parm7 file.
+- For the general export overview and a chooser between the Gaussian and ORCA modes, see [oniom-export](oniom-export.md).
+
+## Quick examples
 
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
-
-## Output checklist
-
-- `system.inp`
-- `ORCAFF.prms` (either reused, provided, or auto-generated)
-
-## Common examples
-
-1. Basic export.
-
-```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
- -o system.inp -q 0 -m 1
-```
-
-2. Set explicit total charge/multiplicity for full QM+MM system.
 
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
-3. Use an explicit ORCAFF path and disable auto conversion.
-
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
+
+## Inputs
+
+Command form:
+
+```bash
+mlmm oniom-export --mode orca --parm PARM7 --model-pdb MODEL.pdb -o OUTPUT.inp -q CHARGE [options]
+```
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `--parm` | yes | Amber parm7 topology file. |
+| `-i, --input` | no | Coordinate file (PDB/XYZ); atom order must match parm7. |
+| `--model-pdb` | yes | PDB file defining QM region atoms. |
+| `-o, --output` | yes | Output ORCA input file (`.inp`). |
+| `-q, --charge` | yes | Charge of QM region. |
 
 ## Workflow
 
@@ -49,7 +52,14 @@ ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--p
 4. Resolve ORCAFF parameters from `--orcaff` or auto-generated default.
 5. Write ORCA `.inp` with method, parallel settings, QM set, and total charge/multiplicity fields.
 
+## Outputs
+
+- `system.inp`
+- `ORCAFF.prms` (either reused, provided, or auto-generated)
+
 ## CLI options
+
+The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 
 | Option | Description | Default |
 | --- | --- | --- |
@@ -70,10 +80,10 @@ ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--p
 
 ## See Also
 
-- [oniom_gaussian](oniom-gaussian.md) -- Gaussian mode guide (`--mode g16`)
-- [oniom_export](oniom-export.md) -- Export overview and chooser
-- [mm_parm](mm-parm.md) -- Build Amber topology (`parm7`/`rst7`)
-- [define_layer](define-layer.md) -- Build/check layer annotations
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+- [oniom_gaussian](oniom-gaussian.md) — Gaussian mode guide (`--mode g16`)
+- [oniom_export](oniom-export.md) — Export overview and chooser
+- [mm_parm](mm-parm.md) — Build Amber topology (`parm7`/`rst7`)
+- [define_layer](define-layer.md) — Build/check layer annotations
+- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
 - ORCA 6.0 Manual (QM/MM): <https://www.faccts.de/docs/orca/6.0/manual/contents/typical/qmmm.html>

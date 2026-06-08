@@ -54,7 +54,7 @@ def _parse_structure(pdb_text: str, name: str):
 
 
 def test_parse_res_tokens_accepts_supported_formats():
-    from mlmm.extract import _parse_res_tokens
+    from mlmm.workflows.extract import _parse_res_tokens
 
     parsed = _parse_res_tokens("123,123A,A:45,B:67C")
     assert parsed == [
@@ -67,14 +67,17 @@ def test_parse_res_tokens_accepts_supported_formats():
 
 @pytest.mark.parametrize("spec", ["", " ", "A:", "A-10", "A:1:2", "foo"])
 def test_parse_res_tokens_rejects_invalid(spec):
-    from mlmm.extract import _parse_res_tokens
+    from mlmm.workflows.extract import _parse_res_tokens
 
+    # ValueError is intentional — `resolve_substrate_residues` upstream
+    # catches this to fall back to resname-based dispatch. CLI users still
+    # see a clean error via render_cli_exception at the cli tail.
     with pytest.raises(ValueError):
         _parse_res_tokens(spec)
 
 
 def test_parse_ligand_charge_option_numeric_and_mapping():
-    from mlmm.extract import _parse_ligand_charge_option
+    from mlmm.workflows.extract import _parse_ligand_charge_option
 
     total, mapping = _parse_ligand_charge_option("-3")
     assert total == -3.0
@@ -86,14 +89,17 @@ def test_parse_ligand_charge_option_numeric_and_mapping():
 
 
 def test_parse_ligand_charge_option_rejects_invalid_mapping():
-    from mlmm.extract import _parse_ligand_charge_option
+    import click
+    from mlmm.workflows.extract import _parse_ligand_charge_option
 
-    with pytest.raises(ValueError, match="Invalid --ligand-charge token"):
+    # click.BadParameter so the CLI shows a clean one-line error
+    # (UX audit Cluster E).
+    with pytest.raises(click.BadParameter, match="Invalid --ligand-charge token"):
         _parse_ligand_charge_option("GPP")
 
 
 def test_strip_trailing_end_normalizes_newline():
-    from mlmm.extract import _strip_trailing_END
+    from mlmm.workflows.extract import _strip_trailing_END
 
     text = "ATOM\nEND\nEND\n"
     out = _strip_trailing_END(text)
@@ -101,7 +107,7 @@ def test_strip_trailing_end_normalizes_newline():
 
 
 def test_assert_atom_ordering_identical_passes_for_identical_structures():
-    from mlmm.extract import _assert_atom_ordering_identical
+    from mlmm.workflows.extract import _assert_atom_ordering_identical
 
     s1 = _parse_structure(_sample_pdb(), "s1")
     s2 = _parse_structure(_sample_pdb(), "s2")
@@ -109,7 +115,7 @@ def test_assert_atom_ordering_identical_passes_for_identical_structures():
 
 
 def test_assert_atom_ordering_identical_raises_for_mismatch():
-    from mlmm.extract import _assert_atom_ordering_identical
+    from mlmm.workflows.extract import _assert_atom_ordering_identical
 
     s1 = _parse_structure(_sample_pdb(), "s1")
     s2 = _parse_structure(_sample_pdb(swap_first_two_atoms=True), "s2")
@@ -119,7 +125,7 @@ def test_assert_atom_ordering_identical_raises_for_mismatch():
 
 
 def test_assert_atom_ordering_identical_raises_for_atom_count_mismatch():
-    from mlmm.extract import _assert_atom_ordering_identical
+    from mlmm.workflows.extract import _assert_atom_ordering_identical
 
     s1 = _parse_structure(_sample_pdb(), "s1")
     s2 = _parse_structure(_sample_pdb(drop_last_atom=True), "s2")
@@ -129,7 +135,7 @@ def test_assert_atom_ordering_identical_raises_for_atom_count_mismatch():
 
 
 def test_compute_charge_summary_total_charge_distribution():
-    from mlmm.extract import compute_charge_summary
+    from mlmm.workflows.extract import compute_charge_summary
 
     structure = _parse_structure(_sample_pdb(), "s")
     all_res = list(structure.get_residues())
@@ -151,7 +157,7 @@ def test_compute_charge_summary_total_charge_distribution():
 
 
 def test_compute_charge_summary_mapping_mode():
-    from mlmm.extract import compute_charge_summary
+    from mlmm.workflows.extract import compute_charge_summary
 
     structure = _parse_structure(_sample_pdb(), "s")
     all_res = list(structure.get_residues())
@@ -168,3 +174,47 @@ def test_compute_charge_summary_mapping_mode():
     assert summary["ligand_total_charge"] == -3.0
     assert summary["ion_total_charge"] == 2.0
     assert summary["total_charge"] == -1.0
+
+
+def test_compute_charge_summary_terminus_cap_charges():
+    """A kept terminal cap carries the ionized-terminus formal charge the internal
+    residue charge omits: C-terminus carboxylate (OXT) -> -1, N-terminus ammonium
+    (H1/H2/H3) -> +1. No correction unless the cap is kept (keep_ncap/ccap)."""
+    from mlmm.workflows.extract import compute_charge_summary
+
+    lines = [
+        # chain A: C-terminal ALA (has OXT)
+        _atom_line(1, "N", "ALA", "A", 1, 0.0, 0.0, 0.0, "N"),
+        _atom_line(2, "CA", "ALA", "A", 1, 1.5, 0.0, 0.0, "C"),
+        _atom_line(3, "C", "ALA", "A", 1, 2.0, 1.4, 0.0, "C"),
+        _atom_line(4, "O", "ALA", "A", 1, 1.3, 2.4, 0.0, "O"),
+        _atom_line(5, "OXT", "ALA", "A", 1, 3.3, 1.4, 0.0, "O"),
+        _atom_line(6, "CB", "ALA", "A", 1, 2.1, -1.2, 0.0, "C"),
+        "TER\n",
+        # chain B: N-terminal ALA (has H1/H2/H3)
+        _atom_line(7, "N", "ALA", "B", 1, 10.0, 0.0, 0.0, "N"),
+        _atom_line(8, "H1", "ALA", "B", 1, 9.5, 0.8, 0.0, "H"),
+        _atom_line(9, "H2", "ALA", "B", 1, 9.5, -0.8, 0.0, "H"),
+        _atom_line(10, "H3", "ALA", "B", 1, 10.8, 0.0, 0.0, "H"),
+        _atom_line(11, "CA", "ALA", "B", 1, 11.5, 0.0, 0.0, "C"),
+        _atom_line(12, "C", "ALA", "B", 1, 12.0, 1.4, 0.0, "C"),
+        _atom_line(13, "O", "ALA", "B", 1, 11.3, 2.4, 0.0, "O"),
+        _atom_line(14, "CB", "ALA", "B", 1, 12.1, -1.2, 0.0, "C"),
+        "TER\n", "END\n",
+    ]
+    structure = _parse_structure("".join(lines), "term")
+    res = list(structure.get_residues())
+    cterm = next(r.get_full_id() for r in res if r.get_parent().id == "A")
+    nterm = next(r.get_full_id() for r in res if r.get_parent().id == "B")
+    sel = {r.get_full_id() for r in res}
+
+    # caps not kept -> both ALA neutral (regression target: previously dropped)
+    assert compute_charge_summary(structure, sel, set())["protein_charge"] == 0.0
+    # C-cap kept (OXT) -> -1 carboxylate
+    assert compute_charge_summary(structure, sel, set(), keep_ccap_ids={cterm})["protein_charge"] == -1.0
+    # N-cap kept (NH3+) -> +1 ammonium
+    assert compute_charge_summary(structure, sel, set(), keep_ncap_ids={nterm})["protein_charge"] == 1.0
+    # both kept -> net 0
+    assert compute_charge_summary(
+        structure, sel, set(), keep_ncap_ids={nterm}, keep_ccap_ids={cterm}
+    )["protein_charge"] == 0.0

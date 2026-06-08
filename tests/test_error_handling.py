@@ -16,14 +16,14 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.parametrize("spec", ["1-a", "0", "2-1"])
 def test_parse_indices_string_rejects_invalid(spec):
-    from mlmm.utils import parse_indices_string
+    from mlmm.core.utils import parse_indices_string
 
     with pytest.raises(click.BadParameter):
         parse_indices_string(spec)
 
 
 def test_load_yaml_dict_rejects_non_mapping_root(tmp_path: Path):
-    from mlmm.utils import load_yaml_dict
+    from mlmm.core.utils import load_yaml_dict
 
     p = tmp_path / "bad_root.yaml"
     p.write_text("- a\n- b\n", encoding="utf-8")
@@ -33,7 +33,7 @@ def test_load_yaml_dict_rejects_non_mapping_root(tmp_path: Path):
 
 
 def test_load_yaml_dict_rejects_malformed_yaml(tmp_path: Path):
-    from mlmm.utils import load_yaml_dict
+    from mlmm.core.utils import load_yaml_dict
 
     p = tmp_path / "malformed.yaml"
     p.write_text("geom: [1,2\n", encoding="utf-8")
@@ -43,7 +43,7 @@ def test_load_yaml_dict_rejects_malformed_yaml(tmp_path: Path):
 
 
 def test_collect_single_option_values_rejects_repeated_flags():
-    from mlmm.utils import collect_single_option_values
+    from mlmm.core.utils import collect_single_option_values
 
     argv = ["-i", "a.pdb", "-i", "b.pdb"]
     with pytest.raises(click.BadParameter, match="single -i/--input"):
@@ -51,7 +51,7 @@ def test_collect_single_option_values_rejects_repeated_flags():
 
 
 def test_load_structure_rejects_missing_input_file(tmp_path: Path):
-    from mlmm.extract import load_structure
+    from mlmm.workflows.extract import load_structure
 
     missing = tmp_path / "no_such_input.pdb"
     with pytest.raises(FileNotFoundError):
@@ -59,7 +59,7 @@ def test_load_structure_rejects_missing_input_file(tmp_path: Path):
 
 
 def test_resolve_atom_spec_index_rejects_invalid_token_count():
-    from mlmm.utils import resolve_atom_spec_index
+    from mlmm.core.utils import resolve_atom_spec_index
 
     atom_meta = [{"resname": "ALA", "resseq": 1, "name": "CA"}]
     with pytest.raises(ValueError, match="exactly 3 fields"):
@@ -67,7 +67,7 @@ def test_resolve_atom_spec_index_rejects_invalid_token_count():
 
 
 def test_resolve_atom_spec_index_rejects_ambiguous_match():
-    from mlmm.utils import resolve_atom_spec_index
+    from mlmm.core.utils import resolve_atom_spec_index
 
     atom_meta = [
         {"resname": "ALA", "resseq": 1, "name": "CA"},
@@ -78,7 +78,7 @@ def test_resolve_atom_spec_index_rejects_ambiguous_match():
 
 
 def test_load_pdb_atom_metadata_handles_missing_columns(tmp_path: Path):
-    from mlmm.utils import load_pdb_atom_metadata
+    from mlmm.core.utils import load_pdb_atom_metadata
 
     pdb_path = tmp_path / "short_cols.pdb"
     pdb_path.write_text("ATOM      1  N   ALA\nEND\n", encoding="utf-8")
@@ -90,14 +90,18 @@ def test_load_pdb_atom_metadata_handles_missing_columns(tmp_path: Path):
 
 
 def test_parse_ligand_charge_option_rejects_bad_mapping_token():
-    from mlmm.extract import _parse_ligand_charge_option
+    import click
+    from mlmm.workflows.extract import _parse_ligand_charge_option
 
-    with pytest.raises(ValueError, match="Invalid --ligand-charge token"):
+    # click.BadParameter for clean CLI error display (UX audit Cluster E).
+    with pytest.raises(click.BadParameter, match="Invalid --ligand-charge token"):
         _parse_ligand_charge_option("GPP")
 
 
 def test_parse_res_tokens_rejects_empty_specification():
-    from mlmm.extract import _parse_res_tokens
+    from mlmm.workflows.extract import _parse_res_tokens
 
+    # ValueError is intentional — `resolve_substrate_residues` upstream
+    # catches this for the ID-vs-name dispatch fallback.
     with pytest.raises(ValueError, match="Empty -c/--center"):
         _parse_res_tokens("   ")

@@ -5,13 +5,14 @@
 ## Quick Start
 
 ```python
+# cd examples/methyltransferase
 from mlmm import MLMMCore, MLMMASECalculator, mlmm
 
 # Base engine — returns energy (eV), forces (eV/Å), Hessian (eV/Å²)
 core = MLMMCore(
-    input_pdb="complex_layered.pdb",
-    real_parm7="real.parm7",
-    model_pdb="ml_region.pdb",
+    input_pdb="r_layered.pdb",
+    real_parm7="complex.parm7",
+    model_pdb="pocket.pdb",
     model_charge=0,
 )
 
@@ -39,9 +40,9 @@ The core ML/MM engine. Initializes topology, force field, and MLIP backend once;
 from mlmm import MLMMCore
 
 core = MLMMCore(
-    input_pdb="complex_layered.pdb",
-    real_parm7="real.parm7",
-    model_pdb="ml_region.pdb",
+    input_pdb="r_layered.pdb",
+    real_parm7="complex.parm7",
+    model_pdb="pocket.pdb",
     model_charge=0,
     model_mult=1,
     backend="uma",               # uma | orb | mace | aimnet2
@@ -57,13 +58,13 @@ core = MLMMCore(
 | `input_pdb` | `str` | *required* | Input PDB (full system with B-factor layers) |
 | `real_parm7` | `str` | *required* | Amber prmtop for the full system |
 | `model_pdb` | `str` | *required* | PDB defining the ML region |
-| `model_charge` | `int` | `0` | Net charge of the ML region |
+| `model_charge` | `int` | `0` | Net charge of the ML region. The constructor logs the resolved ML-region net charge at INFO level so you can verify it matches your expectation for charged systems. |
 | `model_mult` | `int` | `1` | Spin multiplicity of the ML region |
 | `backend` | `str` | `"uma"` | MLIP backend |
 | `embedcharge` | `bool` | `False` | Enable xTB point-charge embedding |
 | `mm_backend` | `str` | `"hessian_ff"` | MM engine (`hessian_ff` or `openmm`) |
-| `return_partial_hessian` | `bool` | `True` | Return partial Hessian (ML + boundary) |
-| `link_mlmm` | `list` | `None` | Manual link atom specification |
+| `return_partial_hessian` | `bool` | `True` | If `True`, `compute()` returns a 4D `(n_active, 3, n_active, 3)` sub-Hessian plus a `within_partial_hessian` metadata dict (active-atom indices, DOF maps). If `False`, returns the expanded 4D `(N, 3, N, 3)` full-system Hessian. |
+| `link_mlmm` | `List[Tuple[str, str]]` | `None` | Manual link-atom pairs as `[("RESN RESID ATOMNAME", "RESN RESID ATOMNAME"), ...]` (first = ML-side, second = MM-side, e.g. `[("SAM 359 CA", "SAM 359 N")]`). `None` = auto-detect. |
 
 ### compute()
 
@@ -75,7 +76,11 @@ result = core.compute(
 )
 # result["energy"]   : float (eV)
 # result["forces"]   : numpy (N, 3) (eV/Å)
-# result["hessian"]  : torch (3N, 3N) (eV/Å²)  — only if return_hessian=True
+# result["hessian"]  : torch 4D (eV/Å²) — only if return_hessian=True.
+#   Shape (n_active, 3, n_active, 3) when return_partial_hessian=True (default),
+#   else expanded to (N, 3, N, 3). Companion key "within_partial_hessian"
+#   (dict with active_atoms / active_dofs / full_to_active mappings) accompanies
+#   the partial case.
 ```
 
 ## MLMMASECalculator
@@ -87,13 +92,13 @@ from mlmm import MLMMCore, MLMMASECalculator
 from ase.io import read
 
 core = MLMMCore(
-    input_pdb="complex_layered.pdb",
-    real_parm7="real.parm7",
-    model_pdb="ml_region.pdb",
+    input_pdb="r_layered.pdb",
+    real_parm7="complex.parm7",
+    model_pdb="pocket.pdb",
 )
 calc = MLMMASECalculator(core)
 
-atoms = read("complex_layered.pdb")
+atoms = read("r_layered.pdb")
 atoms.calc = calc
 print(atoms.get_potential_energy())   # eV
 print(atoms.get_forces().shape)       # (N, 3), eV/Å
@@ -108,29 +113,16 @@ from mlmm import mlmm as MLMMCalc
 from pysisyphus.helpers import geom_loader
 
 calc = MLMMCalc(
-    input_pdb="complex_layered.pdb",
-    real_parm7="real.parm7",
-    model_pdb="ml_region.pdb",
+    input_pdb="r_layered.pdb",
+    real_parm7="complex.parm7",
+    model_pdb="pocket.pdb",
     model_charge=0,
 )
-geom = geom_loader("complex_layered.pdb")
+geom = geom_loader("r_layered.pdb")
 geom.set_calculator(calc)
 energy = geom.energy            # Hartree
 forces = geom.forces            # Hartree/Bohr (flat)
 ```
-
-The `mlmm` calculator is also registered in pysisyphus's `CALC_DICT`, so it can be used in YAML workflows:
-
-```yaml
-calc:
-  type: mlmm
-  input_pdb: complex_layered.pdb
-  real_parm7: real.parm7
-  model_pdb: ml_region.pdb
-  model_charge: 0
-```
-
-See [mlmm pysis](pysis.md) for running YAML workflows.
 
 ## v0.1.x Compatibility
 
@@ -140,7 +132,7 @@ The following v0.1.x parameter names are accepted with a `DeprecationWarning`:
 
 | v0.1.x name | v0.2.x name | Notes |
 |-------------|-------------|-------|
-| `real_pdb` | `input_pdb` | Alias — maps to `input_pdb` |
+| `real_pdb` | `input_pdb` | Legacy alias — maps to `input_pdb` |
 | `real_rst7` | *(removed)* | Ignored with warning (auto-generated internally) |
 | `vib_run` | *(removed)* | Ignored with warning |
 | `vib_dir` | *(removed)* | Ignored with warning |
@@ -153,7 +145,7 @@ core = MLMMCore(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.p
 
 ### mlmm_ase() factory
 
-The v0.1.x `mlmm_ase(real_pdb=..., ...)` convenience function is preserved:
+The v0.1.x `mlmm_ase(real_pdb=..., ...)` convenience function is preserved for backward compatibility:
 
 ```python
 from mlmm import mlmm_ase
@@ -163,17 +155,7 @@ calc = mlmm_ase(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.p
 # Equivalent to: MLMMASECalculator(MLMMCore(input_pdb="complex.pdb", ...))
 ```
 
-### import path
-
-v0.2.x uses the same import path as v0.1.x:
-
-```python
-import mlmm
-from mlmm import MLMMCore
-```
-
 ## See Also
 
 - [ML/MM Calculator](mlmm-calc.md) — Architecture and internal details
-- [mlmm pysis](pysis.md) — Running pysisyphus YAML workflows
-- [YAML Reference](yaml-reference.md) — Configuration keys for YAML mode
+- [YAML Reference](yaml-reference.md) — Configuration keys for `--config` YAML

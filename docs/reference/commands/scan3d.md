@@ -1,12 +1,16 @@
 # `mlmm scan3d`
 
 ```text
-
 Usage: mlmm scan3d [OPTIONS]
 
   3D distance scan with harmonic restraints using the ML/MM calculator.
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                Input structure file (.pdb/.xyz). Required
@@ -18,15 +22,6 @@ Options:
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
-  --detect-layer / --no-detect-layer
-                                  Detect ML/MM layers from input PDB B-factors
-                                  (ML=0, MovableMM=10, FrozenMM=20). If
-                                  disabled, you must provide --model-pdb or
-                                  --model-indices.  [default: detect-layer]
   -q, --charge INTEGER            ML-region total charge. Required unless
                                   --ligand-charge is provided.
   -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
@@ -48,35 +43,11 @@ Options:
                                   YAML/JSON spec file path.
   --csv FILE                      Plot-only mode: load a precomputed surface.csv
                                   and skip the 3D scan.
-  --one-based / --zero-based      Interpret (i,j,k) indices in --scan-lists as
-                                  1-based (default) or 0-based.  [default: one-
-                                  based]
   --print-parsed / --no-print-parsed
                                   Print parsed scan targets after resolving
                                   --scan-lists.  [default: no-print-parsed]
-  --max-step-size FLOAT           Maximum spacing between successive distance
-                                  targets [Å].  [default: 0.2]
-  --bias-k FLOAT                  Harmonic well strength k [eV/Å^2].  [default:
-                                  300.0]
-  --relax-max-cycles INTEGER      Maximum LBFGS cycles per biased relaxation
-                                  (also used for preopt).  [default: 10000]
-  --dump / --no-dump              Write inner d3 scan TRJs per (d1,d2) slice.
-                                  [default: no-dump]
-  -o, --out-dir TEXT              Base output directory.  [default:
-                                  ./result_scan3d/]
-  --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
-                                  Convergence preset.  [default: baker]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
-  --ref-pdb FILE                  Reference PDB topology to use when --input is
-                                  XYZ (keeps XYZ coordinates).
-  --preopt / --no-preopt          Run an unbiased pre-optimization.  [default:
-                                  no-preopt]
-  --baseline [min|first]          Reference for relative energy (kcal/mol):
-                                  'min' or 'first' (i=0,j=0,k=0).  [default:
-                                  min]
-  --zmin FLOAT                    Lower bound of the color scale (kcal/mol).
-  --zmax FLOAT                    Upper bound of the color scale (kcal/mol).
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-
@@ -103,5 +74,51 @@ Options:
                                   ONIOM-compatible).
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
+  --one-based / --zero-based      Interpret (i,j) indices in --scan-lists as
+                                  1-based (default) or 0-based.  [default: one-
+                                  based]
+  --max-step-size FLOAT           Maximum spacing between successive distance
+                                  targets [Å].  [default: 0.2]
+  --bias-k FLOAT                  Harmonic well strength k [eV/Å^2]. Defaults to
+                                  the YAML bias.k value (300) when omitted;
+                                  explicit CLI value overrides YAML.
+  --relax-max-cycles INTEGER      Maximum LBFGS cycles per biased relaxation
+                                  (also used for preopt).  [default: 10000]
+  --dump / --no-dump              Write inner d3 scan TRJs per (d1,d2) slice.
+                                  [default: no-dump]
+  -o, --out-dir TEXT              Base output directory.  [default:
+                                  ./result_scan3d/]
+  --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
+                                  Convergence preset.  [default: baker]
+  --ref-pdb FILE                  Reference PDB topology to use when --input is
+                                  XYZ (keeps XYZ coordinates).
+  --preopt / --no-preopt          Run an unbiased pre-optimization.  [default:
+                                  no-preopt]
+  --baseline [min|first]          Reference for relative energy (kcal/mol):
+                                  'min' or 'first' (i=0,j=0,k=0).  [default:
+                                  min]
+  --zmin FLOAT                    Lower bound of the color scale (kcal/mol).
+  --zmax FLOAT                    Upper bound of the color scale (kcal/mol).
+  --detect-layer / --no-detect-layer
+                                  Detect ML/MM layers from input PDB B-factors
+                                  (ML=0, MovableMM=10, FrozenMM=20). If
+                                  disabled, you must provide --model-pdb or
+                                  --model-indices.  [default: detect-layer]
+  --model-indices-one-based / --model-indices-zero-based
+                                  Interpret --model-indices as 1-based (default)
+                                  or 0-based.  [default: model-indices-one-
+                                  based]
+  --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
+                                  knob).  [x>=1]
+  --precision [fp32|fp64]         MLIP backend precision: fp32 (default) or
+                                  fp64. Routed to backend-specific kwargs (UMA
+                                  precision / ORB precision / MACE
+                                  default_dtype). aimnet2: fp32 no-op; fp64
+                                  rejected.
+  --deterministic / --no-deterministic
+                                  Strict bit-reproducible GPU runs
+                                  (deterministic algorithms + index_reduce_
+                                  shim). Slower; raises if unsupported. Default
+                                  off.
   -h, --help                      Show this message and exit.
 ```

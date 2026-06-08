@@ -1,9 +1,5 @@
 # Glossary
 
-This page provides definitions for abbreviations and technical terms used throughout the mlmm-toolkit documentation.
-
----
-
 ## ML/MM & ONIOM
 
 | Term | Full Name | Description |
@@ -134,7 +130,7 @@ This page provides definitions for abbreviations and technical terms used throug
 
 | Term | Description |
 |------|-------------|
-| **Boolean option** | CLI flags that take `True` or `False` (capitalized). Example: `--tsopt`. |
+| **Boolean option** | Toggle flag pair `--flag / --no-flag` (e.g., `--tsopt / --no-tsopt`); the value form `--flag True/False` is also accepted for backward compatibility. |
 | **Residue selector** | A specification like `'SAM,GPP'` (names) or `'A:123,B:456'` (chain:ID). |
 | **Atom selector** | A specification like `'TYR,285,CA'` identifying a specific atom by residue name, number, and atom name. |
 | **B-factor layer encoding** | The convention of using the PDB B-factor column to encode 3-layer assignments (0.0, 10.0, 20.0). Hessian-target MM atoms are controlled separately. |
@@ -143,9 +139,9 @@ This page provides definitions for abbreviations and technical terms used throug
 
 ## See Also
 
-- [Getting Started](getting-started.md) -- installation and a first run
-- [Concepts & Workflow](concepts.md) -- how pocket extraction, ML/MM layers, MEP search, and post-processing fit together
-- [Common Error Recipes](recipes-common-errors.md) -- symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- common errors and fixes
-- [YAML Reference](yaml-reference.md) -- configuration file format
-- [ML/MM Calculator](mlmm-calc.md) -- machine learning potential details
+- [Getting Started](getting-started.md) — installation and a first run
+- [Concepts & Workflow](concepts.md) — how pocket extraction, ML/MM layers, MEP search, and post-processing fit together
+- [Common Error Recipes](recipes-common-errors.md) — symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — common errors and fixes
+- [YAML Reference](yaml-reference.md) — configuration file format
+- [ML/MM Calculator](mlmm-calc.md) — machine learning potential details
