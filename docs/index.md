@@ -2,6 +2,8 @@
 
 *Version: v{{ version }}* — Python CLI for ML/MM ONIOM analyses of enzymatic reactions.
 
+<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
+
 ```{toctree}
 :maxdepth: 2
 :caption: Guides
