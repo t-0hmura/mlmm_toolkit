@@ -131,7 +131,7 @@ F_MM += g · F_link
 | **Calculator** | 全 ONIOM (`E_MM_real + E_ML − E_MM_model`) | MM 力場のみ (`E_MM_real`) |
 | **最適化座標** | ML原子 + リンクアトムMM親原子 | 可動MM（リンクアトムMM親を除く） |
 | **オプティマイザー** | RFO（陽的ヘシアン、BFGS更新） | L-BFGS（ヘシアン不要、毎回初期化） |
-| **収束判定** | `--thresh`（デフォルト: `gau`） | `--micro-thresh`（デフォルト: `--thresh` と同じ） |
+| **収束判定** | `--thresh`（デフォルト: `gau`） | YAML の `microiter.micro_thresh`（デフォルト: `--thresh` と同じ） |
 
 ```{note}
 **リンクアトム MM 親原子をマクロステップに含める理由:**
@@ -149,7 +149,7 @@ pysisyphus は複数のプリセット閾値を提供します（単位: 力は 
 | `gau_tight` | 1.5×10⁻⁵ | 1.0×10⁻⁵ | 6.0×10⁻⁵ | 4.0×10⁻⁵ |
 | `baker` | 3.0×10⁻⁴ | 2.0×10⁻⁴ | 3.0×10⁻⁴ | 2.0×10⁻⁴ |
 
-`overachieve_factor` は収束のショートカットです。`max(force)` と `rms(force)` の両方が `threshold / overachieve_factor` を下回った場合、ステップサイズ基準が未達であっても収束と判定されます。デフォルト設定では、メインのオプティマイザ（opt/tsopt のマクロステップ）で `overachieve_factor` は **0.0**（無効）に設定されています。**マイクロイテレーション**の MM 緩和ループ（`LayerOpt`、値は 3）でのみ有効です。YAML で `overachieve_factor: 3` と設定すれば、メインのオプティマイザでも有効化できます。
+`overachieve_factor` は収束のショートカットです。`max(force)` と `rms(force)` の両方が `threshold / overachieve_factor` を下回った場合、ステップサイズ基準が未達であっても収束と判定されます。デフォルト設定では、マイクロイテレーションの MM 緩和ループを含むすべてのオプティマイザで `overachieve_factor` は **0.0**（無効）です。必要な場合は YAML で有効化できます（例: `overachieve_factor: 3`）。
 
 マイクロイテレーションは `--microiter` で有効化します（`--opt-mode hess` 時のデフォルト）:
 

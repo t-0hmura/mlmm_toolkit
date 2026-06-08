@@ -19,7 +19,6 @@ from pysisyphus.helpers_pure import (
     report_isotopes,
     rms,
 )
-from pysisyphus.irc.Instanton import T_crossover_from_eigval
 from pysisyphus.io import save_third_deriv
 from pysisyphus.optimizers.guess_hessians import get_guess_hessian
 from pysisyphus.TablePrinter import TablePrinter
@@ -54,6 +53,7 @@ class IRC:
         prefix="",
         dump_fn="irc_data.h5",
         dump_every=5,
+        require_pos_def_hessian=False,
     ):
         """Base class for IRC calculations.
 
@@ -141,6 +141,11 @@ class IRC:
         self.rms_grad_thresh = float(rms_grad_thresh)
         self.hard_rms_grad_thresh = hard_rms_grad_thresh
         self.energy_thresh = float(energy_thresh)
+        # Sella backport (opt-in): require eigh(mw_hessian)[0] > 0 in addition
+        # to rms(grad) <= thresh. Blocks "shoulder" false convergence where
+        # the gradient is small but the Hessian still has a negative mode
+        # (= we haven't reached a true minimum yet). See sella/optimize/irc.py:167-170.
+        self.require_pos_def_hessian = bool(require_pos_def_hessian)
         assert imag_below <= 0.0
         self.imag_below = imag_below
         self.force_inflection = force_inflection
@@ -213,11 +218,28 @@ class IRC:
     def mw_gradient(self):
         return self.geometry.mw_gradient
 
-    # @property
-    # def mw_hessian(self):
-    # # TODO: This can be removed when the mw_hessian property is updated
-    # #       in Geometry.py.
-    # return self.geometry.mw_hessian
+    def _mw_hessian_is_pos_def(self) -> bool:
+        """Sella backport (opt-in): is the lowest mw_hessian eigenvalue > 0?
+
+        Returns True if mw_hessian is positive definite (= true minimum reached).
+        Returns False on any failure (missing hessian, eigh error, NaN) so the
+        convergence check defaults to "not yet" rather than silently passing.
+        """
+        H = getattr(self, "mw_hessian", None)
+        if H is None:
+            return False
+        try:
+            if isinstance(H, torch.Tensor):
+                # Active-DOF projection has happened upstream; eigh on whichever
+                # representation IRC currently holds. .cpu() to keep VRAM clean.
+                evals = torch.linalg.eigvalsh(H.detach().cpu()).numpy()
+            else:
+                evals = np.linalg.eigvalsh(np.asarray(H))
+        except Exception:
+            return False
+        if evals.size == 0 or not np.isfinite(evals[0]):
+            return False
+        return bool(evals[0] > 0.0)
 
     def log(self, msg):
         # self.logger.debug(f"step {self.cur_cycle:03d}, {msg}")
@@ -382,6 +404,8 @@ class IRC:
                 P = np.eye(self.coords.size)
 
         del mw_hessian
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         if isinstance(proj_hessian, torch.Tensor):
             eigvals, eigvecs = torch.linalg.eigh(proj_hessian)
@@ -406,11 +430,7 @@ class IRC:
 
         min_eigval = eigvals[self.root]
         min_nu = nus[self.root]
-        T_c = T_crossover_from_eigval(min_eigval)
-        min_msg = (
-            f"Transition vector is mode {self.root} with wavenumber {min_nu:.2f} cm⁻¹.\n"
-            f"Crossover temperature T_c: {T_c:.2f} K"
-        )
+        min_msg = f"Transition vector is mode {self.root} with wavenumber {min_nu:.2f} cm⁻¹."
         # Doing it this way hurts ... I'll have to improve my logging game...
         self.log(min_msg)
         print(min_msg)
@@ -623,8 +643,15 @@ class IRC:
             if self.converged:
                 break_msg = "Integrator indicated convergence!"
             elif self.past_inflection and (rms_grad <= self.rms_grad_thresh):
-                break_msg = "rms(grad) converged!"
-                self.converged = True
+                if self.require_pos_def_hessian and not self._mw_hessian_is_pos_def():
+                    # Gradient small but Hessian still has negative mode — we're on
+                    # a shoulder, not at the true minimum. Skip convergence this cycle
+                    # so the integrator keeps walking; convergence will fire on the
+                    # next cycle when the Hessian eigval-0 finally crosses zero.
+                    break_msg = ""
+                else:
+                    break_msg = "rms(grad) converged!"
+                    self.converged = True
             elif (
                 self.hard_rms_grad_thresh
                 and (not self.past_inflection)
@@ -637,11 +664,6 @@ class IRC:
             elif self.energy_converged:
                 break_msg = "Energy converged!"
                 self.converged = True
-
-            # dumped = (self.cur_cycle % self.dump_every) == 0
-            # if dumped:
-            #     dump_fn = self.get_path_for_fn(f"{direction}_{self.dump_fn}")
-            #     self.dump_data(dump_fn)
 
             if break_msg:
                 self.table.print(break_msg)
@@ -661,9 +683,6 @@ class IRC:
             self.irc_gradients.reverse()
             self.irc_mw_coords.reverse()
             self.irc_mw_gradients.reverse()
-
-        # if not dumped:
-        #     self.dump_data(dump_fn)
 
         self.cur_direction = None
         self.trj_handle.close()
@@ -775,7 +794,17 @@ class IRC:
             self.irc("forward")
             self.set_data("forward")
             if isinstance(self.mw_hessian, torch.Tensor):
-                self.forward_mw_hessian = self.mw_hessian.detach().clone()
+                # Stash on CPU: during the backward integration we already hold
+                # one active mw_hessian on the GPU. Keeping forward_mw_hessian
+                # on the GPU too doubles the VRAM footprint (~N_dof^2 * 8 B)
+                # and pushes large enzyme systems (e.g. 14k-DOF mlmm ONIOM
+                # Hessian = 1.6 GB → 3.2 GB) over the budget on 16-24 GB GPUs.
+                # The transfer happens once per IRC run (forward → backward
+                # boundary), so the H↔D copy cost is negligible vs. the
+                # multi-hour backward integration. The final consumer
+                # (mlmm/irc.py:_unmw_and_store) takes the matrix via
+                # .cpu().numpy() anyway, so the CPU residency is on its end.
+                self.forward_mw_hessian = self.mw_hessian.detach().cpu().clone()
             else:
                 self.forward_mw_hessian = self.mw_hessian.copy()
 

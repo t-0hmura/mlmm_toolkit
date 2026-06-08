@@ -50,7 +50,7 @@ def T_crossover_from_ts(ts_geom):
 logger = pysis_logger.getChild("instanton")
 logger.setLevel(logging.DEBUG)
 file_handler = logging.FileHandler("instanton.log", mode="w", delay=True)
-logger.addHandler(file_handler)
+# logger.addHandler(file_handler)
 
 
 def log_progress(val, key, i):

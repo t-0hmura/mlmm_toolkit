@@ -227,7 +227,11 @@ class TSHessianOptimizer(HessianOptimizer):
                 "Some of the requested reaction coordinates are not defined: "
                 f"{missing_prim_inds}"
             )
-            self.H = ts_hessian(self.H, coord_inds=prim_inds)
+            _old_H = self.H
+            self.H = ts_hessian(_old_H, coord_inds=prim_inds)
+            del _old_H
+            if torch.cuda.is_available() and isinstance(self.H, torch.Tensor):
+                torch.cuda.empty_cache()
 
         # Determiniation of initial mode either by using a provided
         # reference hessian, or by using a supplied root.

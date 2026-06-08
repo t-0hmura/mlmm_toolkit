@@ -1,2 +1,0 @@
-class HEIIsFirstOrLastException(Exception):
-    pass

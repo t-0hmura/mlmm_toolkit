@@ -1,55 +1,68 @@
 # Gaussian ONIOM Mode (`oniom-export --mode g16`)
 
-## Overview
+Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology. This is the Gaussian-specific detail page for `oniom-export`; it reads topology data from `--parm` (via ParmEd), optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file with method, layer flags, and connectivity.
 
-> **Summary:** Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology.
+## When to use
 
-## Minimal example
+- Use this mode to bridge an ML/MM system into a Gaussian ONIOM calculation, generating a ready-to-run `.com`/`.gjf` input from an Amber parm7 topology.
+- For the export overview and the chooser between Gaussian and ORCA modes, see [`oniom-export`](oniom-export.md).
+
+## Quick examples
 
 ```bash
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1
 ```
 
-## Output checklist
-
-- `system.com` or `system.gjf`
-- Console summary of detected QM atoms and boundary handling
-
-## Common examples
-
-1. Basic export with explicit method.
-
 ```bash
+# Basic export with explicit method
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --method "wB97XD/def2-TZVPD"
 ```
 
-2. Disable element-sequence validation when atom order is already trusted.
-
 ```bash
+# Disable element-sequence validation when atom order is already trusted
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
  -o system.gjf --no-element-check
 ```
 
-3. Tune optimization environment metadata.
-
 ```bash
+# Tune optimization environment metadata
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
 
-## Workflow
+## Inputs
 
-Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm` (via ParmEd), optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file.
+Command form:
+
+```bash
+mlmm oniom-export --mode g16 --parm PARM7 -i INPUT --model-pdb MODEL -o OUTPUT [options]
+```
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `--parm` | yes | Amber parm7 topology file. |
+| `-i, --input` | no | Coordinate file (PDB/XYZ); atom order must match parm7. |
+| `--model-pdb` | no | PDB file defining QM region atoms. |
+| `-o, --output` | yes | Output Gaussian input file (`.com` or `.gjf`). |
+
+## Workflow
 
 1. Load atom/bond/charge data from parm7.
 2. Optionally load coordinates and run element-order validation (`--element-check`).
 3. If `--model-pdb` is provided, map those atoms to define the QM layer.
 4. Detect QM/MM boundaries and annotate link atoms.
-5. Write Gaussian input with method, `%nproc`, `%mem`, coordinates, layer flags, and connectivity.
+5. Write Gaussian input with method, `%nprocshared`, `%mem`, coordinates, layer flags, and connectivity.
+
+## Outputs
+
+- `system.com` or `system.gjf`
+- Console summary of detected QM atoms and boundary handling
 
 ## CLI options
+
+The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 
 | Option | Description | Default |
 | --- | --- | --- |
@@ -67,9 +80,9 @@ Gaussian mode (`mlmm oniom-export --mode g16`) reads topology data from `--parm`
 
 ## See Also
 
-- [oniom_orca](oniom-orca.md) -- ORCA mode guide (`--mode orca`)
-- [oniom_export](oniom-export.md) -- Export overview and chooser
-- [mm_parm](mm-parm.md) -- Build Amber topology (`parm7`/`rst7`)
-- [define_layer](define-layer.md) -- Build/check layer annotations
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
+- [oniom_orca](oniom-orca.md) — ORCA mode guide (`--mode orca`)
+- [oniom_export](oniom-export.md) — Export overview and chooser
+- [mm_parm](mm-parm.md) — Build Amber topology (`parm7`/`rst7`)
+- [define_layer](define-layer.md) — Build/check layer annotations
+- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide

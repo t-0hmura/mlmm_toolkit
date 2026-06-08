@@ -1,72 +1,66 @@
 # `path-search`
 
-## 概要
+`mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、解決されたサブパスを 1 つの軌跡に統合します。再帰的分解により多段階反応を自動検出し、各素反応ステップの詳細な MEP を構築します。ただし、複雑な多段階反応の検出は困難な場合があり、入力中間体やスキャン仕様、収束閾値の調整など手動での試行錯誤が必要になることがあります。
 
-> **要約:** 再帰的 GSM セグメンテーションにより 2 つ以上の構造から連続した MEP を構築します。結合変化のある領域のみを自動的に精密化し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。
+## 使いどころ
 
-`mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、解決されたサブパスを 1 つの軌跡に統合します。
+- R + （任意の中間体）+ P からなる多段機構を駆動。再帰分割が素過程を自動検出し、共有結合変化が見つかった領域のみ精密化。
+- 端点が **2 つ**だけで再帰的精密化が不要な場合は、[path-opt](path-opt.md) がより簡単な選択です。
 
-再帰的分解により多段階反応を自動検出し、各素反応ステップの詳細な MEP を構築します。ただし、複雑な多段階反応の検出は困難な場合があり、入力中間体やスキャン仕様、収束閾値の調整など手動での試行錯誤が必要になることがあります。
-
-端点が **2 つ**だけで再帰的精密化が不要な場合は、[path-opt](path-opt.md) がより簡単な選択です。
-
-## 最小例
+## 実行例
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
-## 出力の見方
-
-- `result_path_search/mep_trj.xyz`
-- `result_path_search/summary.json`
-- `result_path_search/summary.log`
-- `result_path_search/mep_plot.png`（プロット生成時）
-
-## よくある例
-
-1. 中間体を含む多段経路を構築する。
-
 ```bash
+# 中間体を含む多段経路を構築する
 mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
-2. 事前最適化とアライメントを無効にして軽く試す。
-
 ```bash
+# 事前最適化とアライメントを無効にして軽く試す
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --no-preopt --no-align --max-nodes 8 \
  --out-dir ./result_path_search_fast
 ```
 
-## 使用法
+YAML 上書きや凍結原子を併用する例:
 
 ```bash
-mlmm path-search -i R.pdb IM1.pdb P.pdb \
- --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
- [--mep-mode gsm|dmf] [--refine-mode peak|minima]
- [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
- [--opt-mode grad|hess]
- [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
- [--show-config/--no-show-config] [--dry-run/--no-dry-run]
-```
-
-### 例
-
-```bash
-# ミニマルなポケットのみの 2 状態間 MEP
-mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
- --model-pdb ml_region.pdb -q 0
-
 # YAML 上書き、凍結原子付きマルチステップ経路
 mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
  --ref-pdb holo_template.pdb --out-dir ./run_ps
 ```
 
-## ワークフロー
+## 入力
+
+コマンド形式:
+
+```bash
+mlmm path-search -i R.pdb IM1.pdb P.pdb \
+ --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
+ [--mep-mode gsm|dmf] [--refine-mode peak|minima]
+ [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
+ [--opt-mode grad]
+ [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
+ [--show-config/--no-show-config] [--dry-run/--no-dry-run]
+```
+
+`mlmm path-search --help` はコアオプションを、`mlmm path-search --help-advanced` は全オプションを表示します。
+
+| 入力 | 必須 | 備考 |
+| --- | --- | --- |
+| `-i, --input` | はい | 反応順の 2 つ以上の完全酵素 PDB。`-i` を繰り返すか、1 つのフラグの後に複数パスを渡す。 |
+| `--parm` | はい | 完全酵素複合体の Amber parm7 トポロジー。 |
+| `--model-pdb` | 任意 | ML（高レベル）領域原子を定義する PDB。`--detect-layer` または `--model-indices` 利用時は省略可。 |
+| `-q, --charge` | はい | ML 領域の電荷。`--ligand-charge` 指定時を除き必須。 |
+| `--ref-pdb` | 任意 | XYZ→PDB 変換・トポロジー参照用の完全テンプレート PDB。 |
+
+## 処理の流れ
 
 1. **初期セグメント（隣接ペア A->B ごと; GSM/DMF）** -- 選択した MEP エンジン（`--mep-mode`）を実行して粗い MEP を取得し、最高エネルギーイメージ（HEI）を特定。
 2. **HEI 周辺の局所緩和** -- `--refine-mode`（`peak`: HEI+/-1、`minima`: 最近傍局所極小）で種点を選び、単一構造オプティマイザー（`opt-mode`）で精密化して近傍の極小（`End1`、`End2`）を回復。
@@ -78,6 +72,28 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 6. **任意のアライメント** -- 事前最適化後、`--align` で入力を剛体アラインし凍結を精密化。セグメントをプロット/分析用にアノテーション。
 
 結合変化検出は `bond` YAML セクションの閾値を使用する `bond_changes.compare_structures` に依存します。
+
+## 出力
+
+```text
+out_dir/ (デフォルト:./result_path_search/)
+ summary.json # MEP レベルの実行サマリー（完全設定ダンプなし）
+ summary.log # 人間が読めるサマリー
+ mep_trj.xyz # 最終 MEP（常に書き出し）
+ mep.pdb # 最終 MEP（参照テンプレート利用可能時は PDB）
+ mep_seg_XX_trj.xyz / mep_seg_XX.pdb # セグメント別経路
+ hei_seg_XX.xyz / hei_seg_XX.pdb # 結合変化セグメントごとの HEI
+ mep_plot.png # イメージインデックスに対する Delta-E プロファイル（trj2fig より）
+ energy_diagram_MEP.png # 反応物基準の状態レベルエネルギーダイアグラム（kcal/mol）
+ seg_000_*/ # セグメントレベルの GSM と精密化成果物
+```
+
+実行結果は通常、次のファイルを開いて確認します。
+
+- `result_path_search/mep_trj.xyz`
+- `result_path_search/summary.json`
+- `result_path_search/summary.log`
+- `result_path_search/mep_plot.png`（プロット生成時）
 
 ## CLI オプション
 
@@ -97,13 +113,14 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える MM 原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
-| `--max-nodes INT` | セグメント GSM の内部ノード数。 | `10` |
+| `--max-nodes INT` | セグメント GSM の内部ノード数。 | `20` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--opt-mode [grad\|hess]` | 単一構造オプティマイザープリセット（`grad` = LBFGS、`hess` = RFO）。 | `grad` |
-| `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `False` |
+| `--opt-mode [grad]` | 単一構造オプティマイザープリセット（現状 `grad` = LBFGS のみ。`hess` は未配線）。 | `grad` |
+| `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に入力を剛体アライメント。 | 有効 |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau_loose`） |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的 Hessian か OpenMM 有限差分か）。 | `hessian_ff` |
 | `--dump/--no-dump` | オプティマイザーダンプを保存。 | `False` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。 | `./result_path_search/` |
 | `--ref-pdb PATH...` | XYZ→PDB 変換・トポロジー参照用の完全テンプレート PDB。 | _None_ |
@@ -115,21 +132,6 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
-
-## 出力
-
-```text
-out_dir/ (デフォルト:./result_path_search/)
- summary.json # MEP レベルの実行サマリー（完全設定ダンプなし）
- summary.log # 人間が読めるサマリー
- mep_trj.xyz # 最終 MEP（常に書き出し）
- mep.pdb # 最終 MEP（参照テンプレート利用可能時は PDB）
- mep_seg_XX_trj.xyz / mep_seg_XX.pdb # セグメント別経路
- hei_seg_XX.xyz / hei_seg_XX.pdb # 結合変化セグメントごとの HEI
- mep_plot.png # イメージインデックスに対する Delta-E プロファイル（trj2fig より）
- energy_diagram_MEP.png # 反応物基準の状態レベルエネルギーダイアグラム（kcal/mol）
- seg_000_*/ # セグメントレベルの GSM と精密化成果物
-```
 
 ## YAML 設定
 

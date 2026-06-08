@@ -1,12 +1,16 @@
 # `mlmm tsopt`
 
 ```text
-
 Usage: mlmm tsopt [OPTIONS]
 
   TS optimization: grad (Dimer) or hess (RS-I-RFO) for the ML/MM calculator.
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                Starting geometry (PDB or XYZ). XYZ provides
@@ -24,15 +28,6 @@ Options:
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
-  --detect-layer / --no-detect-layer
-                                  Detect ML/MM layers from input PDB B-factors
-                                  (ML=0, MovableMM=10, FrozenMM=20). If
-                                  disabled, you must provide --model-pdb or
-                                  --model-indices.  [default: detect-layer]
   -q, --charge INTEGER            Total charge of the ML region. Required unless
                                   --ligand-charge is provided.
   -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
@@ -64,10 +59,12 @@ Options:
   -o, --out-dir TEXT              Output directory.  [default: ./result_tsopt/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset.
-  --opt-mode [grad|hess|light|heavy|dimer|rsirfo]
-                                  grad (dimer) or hess (rsirfo). Aliases
-                                  light/heavy and dimer/rsirfo are accepted.
-                                  [default: hess]
+  --opt-mode [grad|hess|light|heavy|dimer|rsirfo|trim|rsprfo]
+                                  grad/dimer/light → Hessian Guided Dimer;
+                                  hess/rsirfo/heavy → RS-I-RFO (microiter-
+                                  capable); trim → TRIM (Helgaker); rsprfo → RS-
+                                  P-RFO (Banerjee). trim/rsprfo are non-
+                                  microiter.  [default: hess]
   --microiter / --no-microiter    Enable microiteration: alternate ML 1-step
                                   (RS-I-RFO) and MM relaxation (LBFGS with MM-
                                   only forces). Only effective in --opt-mode
@@ -80,8 +77,8 @@ Options:
   --flatten / --no-flatten        Enable/disable extra imaginary-mode flattening
                                   loop. --flatten uses the default
                                   flatten_max_iter (50); --no-flatten forces it
-                                  to 0. When not provided, the value is
-                                  determined by the YAML config or defaults.
+                                  to 0. When not provided, the loop is disabled
+                                  unless YAML/config enables it.
   --ml-only-hessian-dimer / --no-ml-only-hessian-dimer
                                   Use ML-region-only Hessian (no MM Hessian
                                   contribution) for dimer orientation in grad
@@ -133,5 +130,33 @@ Options:
                                   skip-final-freq]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
+  --detect-layer / --no-detect-layer
+                                  Detect ML/MM layers from input PDB B-factors
+                                  (ML=0, MovableMM=10, FrozenMM=20). If
+                                  disabled, you must provide --model-pdb or
+                                  --model-indices.  [default: detect-layer]
+  --model-indices-one-based / --model-indices-zero-based
+                                  Interpret --model-indices as 1-based (default)
+                                  or 0-based.  [default: model-indices-one-
+                                  based]
+  --precision [fp32|fp64]         MLIP backend precision: fp32 (default) or
+                                  fp64. Routed to backend-specific kwargs (UMA
+                                  precision / ORB precision / MACE
+                                  default_dtype). aimnet2: fp32 no-op; fp64
+                                  rejected.
+  --deterministic / --no-deterministic
+                                  Strict bit-reproducible GPU runs
+                                  (deterministic algorithms + index_reduce_
+                                  shim). Slower; raises if unsupported. Default
+                                  off.
+  --coord-type [cart|redund|dlc|tric]
+                                  Optimisation coordinate system
+                                  (cart|redund|dlc|tric). cart is the robust
+                                  default used in published numbers; dlc speeds
+                                  up torsion-rich opts. mlmm-specific caveats:
+                                  DLC + link atom and DLC + 3-layer frozen MM
+                                  are numerically unverified.
+  --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
+                                  knob).  [x>=1]
   -h, --help                      Show this message and exit.
 ```

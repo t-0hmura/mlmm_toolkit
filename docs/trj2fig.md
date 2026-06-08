@@ -1,37 +1,43 @@
 # `trj2fig`
 
-## Overview
-
-> **Summary:** Extract energies from XYZ trajectory comment lines (or recompute with the MLIP backend), compute relative or absolute energy profiles, and export Plotly figures and CSV tables.
-
-### Quick reference
-- **Input:** An XYZ trajectory whose second line stores Hartree energies, or recompute energies with `-q/--charge` and/or `-m/--multiplicity`.
-- **Reference modes:** first frame (`init`), no reference (`None`), or an explicit 0-based frame index.
-- **Output formats:** PNG (default), JPEG, HTML, SVG, PDF, CSV.
-- **Units:** kcal/mol (default) or Hartree.
-- **X-axis flip:** `--reverse-x` reverses the axis so the last frame appears on the left.
-
 `mlmm trj2fig` reads the Hartree energies encoded in each frame's comment line of an XYZ trajectory, converts them to kcal/mol or Hartree, optionally references all values to a chosen frame, and exports the resulting series as static/interactive figures and CSV tables. The figure uses bold ticks, consistent fonts, markers, and a smoothed spline curve (no title).
 
-## Usage
+## When to use
+
+- Plot an energy profile from an XYZ trajectory whose second line stores Hartree energies, or recompute energies with the MLIP backend via `-q/--charge` and/or `-m/--multiplicity`.
+
+## Quick examples
+
+```bash
+# Default PNG, relative energy with respect to the first frame
+mlmm trj2fig -i traj.xyz
+```
+
+```bash
+# CSV + SVG with reference frame #5, reported in Hartree
+mlmm trj2fig -i traj.xyz -o energy.csv energy.svg -r 5 --unit hartree
+```
+
+```bash
+# Multiple outputs in one run with x-axis reversed
+mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
+```
+
+## Inputs
+
+Command form:
+
 ```bash
 mlmm trj2fig -i TRAJECTORY.xyz [-o OUTPUTS...] [-r REFERENCE] [--unit {kcal|hartree}] \
  [-q CHARGE] [-m MULTIPLICITY] [--reverse-x]
 ```
 
-### Examples
-```bash
-# Default PNG, relative energy with respect to the first frame
-mlmm trj2fig -i traj.xyz
-
-# CSV + SVG with reference frame #5, reported in Hartree
-mlmm trj2fig -i traj.xyz -o energy.csv energy.svg -r 5 --unit hartree
-
-# Multiple outputs in one run with x-axis reversed
-mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
-```
+| Input | Required | Notes |
+| --- | --- | --- |
+| `-i, --input` | yes | XYZ trajectory whose second line stores Hartree energies. |
 
 ## Workflow
+
 1. Parse the XYZ trajectory. By default, Hartree energies are extracted from each frame's comment line.
     If `-q/--charge` or `-m/--multiplicity` is provided, energies are recomputed with the MLIP backend (default: `uma-s-1p1`) instead.
 2. Normalize the reference specification:
@@ -42,22 +48,10 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
     reference is active, subtract the reference value to produce delta-E.
 4. Build the Plotly figure (strong ticks, spline interpolation, markers, no
     title) and export it to every requested extension.
-5. Optionally emit a CSV table with columns `frame`, `energy_hartree`, and the
-    appropriate delta-E or absolute-E column in the requested unit.
-
-## CLI options
-| Option | Description | Default |
-| --- | --- | --- |
-| `-i, --input PATH` | XYZ trajectory whose second line stores energies. | Required |
-| `-o, --out PATH` | Repeatable output filenames; supports `.png`, `.jpg`/`.jpeg`, `.html`, `.svg`, `.pdf`, `.csv`. | `energy.png` |
-| _extra arguments_ | Positional filenames listed after options; merged with the `-o` list. | _None_ |
-| `--unit {kcal,hartree}` | Target unit for the plotted/exported values. | `kcal` |
-| `-r, --reference TEXT` | Reference specification (`init`, `None`, or 0-based integer). | `init` |
-| `-q, --charge INT` | Total charge used for MLIP recomputation. Triggers recomputation when supplied. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1) used for MLIP recomputation. Triggers recomputation when supplied. | _None_ |
-| `--reverse-x/--no-reverse-x` | Reverse the x-axis so the last frame appears on the left (and `init` becomes the last frame). | `False` |
+5. Optionally emit a CSV table of the per-frame energies (see Outputs for the column layout).
 
 ## Outputs
+
 ```
 <output>.[png|jpg|jpeg|html|svg|pdf] # Plotly export for every requested extension (defaults to energy.png)
 <output>.csv # Optional energy table when CSV is requested
@@ -69,11 +63,25 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
   when no reference is applied).
 - PNG uses Plotly's PNG export with `scale=2` for higher resolution.
 
+## CLI options
+
+The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+
+| Option | Description | Default |
+| --- | --- | --- |
+| `-i, --input PATH` | XYZ trajectory whose second line stores energies. | Required |
+| `-o, --out PATH` | Repeatable output filenames; supports `.png`, `.jpg`/`.jpeg`, `.html`, `.svg`, `.pdf`, `.csv`. | `energy.png` |
+| _extra arguments_ | Positional filenames listed after options; merged with the `-o` list. | _None_ |
+| `--unit {kcal,hartree}` | Target unit for the plotted/exported values. | `kcal` |
+| `-r, --reference TEXT` | Reference specification (`init`, `None`, or 0-based integer). | `init` |
+| `-q, --charge INT` | Total charge used for MLIP recomputation. Triggers recomputation when supplied. | _None_ |
+| `-m, --multiplicity INT` | Spin multiplicity (2S+1) used for MLIP recomputation. Triggers recomputation when supplied. | _None_ |
+| `--reverse-x/--no-reverse-x` | Reverse the x-axis so the last frame appears on the left (and `init` becomes the last frame). | `False` |
+
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
-
-- [path_search](path-search.md) -- Recursive MEP search (produces XYZ trajectories suitable for trj2fig)
-- [irc](irc.md) -- IRC from TS (produces trajectories for energy profiling)
-- [all](all.md) -- End-to-end workflow
+- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
+- [path_search](path-search.md) — Recursive MEP search (produces XYZ trajectories suitable for trj2fig)
+- [irc](irc.md) — IRC from TS (produces trajectories for energy profiling)
+- [all](all.md) — End-to-end workflow

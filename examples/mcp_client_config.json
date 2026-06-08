@@ -1,0 +1,15 @@
+{
+  "_comment": "Sample MCP client config that launches the mlmm MCP server over stdio. The `mcpServers` schema is the de-facto MCP client convention (Claude Desktop, Claude Code, Cursor, Codeium, custom Python / TypeScript clients via the `mcp` SDK). Drop a copy of this object into your client's config file (e.g. ~/Library/Application Support/Claude/claude_desktop_config.json on macOS, ~/.cursor/mcp.json for Cursor, or your custom client's equivalent). AmberTools (antechamber / parmchk2 / tleap) must be on PATH for the prepare_amber_topology tool to work. Replace `<conda-prefix>/envs/<env-name>` with the conda env that has mlmm installed and `<amberhome>` with the AMBER installation root (the directory that contains bin/, dat/, etc.).",
+  "mcpServers": {
+    "mlmm": {
+      "command": "mlmm-mcp",
+      "args": [],
+      "env": {
+        "PATH": "<conda-prefix>/envs/<env-name>/bin:<amberhome>/bin:/usr/local/cuda/bin:/usr/bin:/bin",
+        "AMBERHOME": "<amberhome>",
+        "CUDA_VISIBLE_DEVICES": "0",
+        "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+      }
+    }
+  }
+}

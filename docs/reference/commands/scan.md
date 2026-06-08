@@ -1,13 +1,17 @@
 # `mlmm scan`
 
 ```text
-
 Usage: mlmm scan [OPTIONS]
 
   Bond-length driven scan with staged harmonic restraints and relaxation
   (ML/MM).
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                Full-enzyme PDB used by the ML/MM calculator
@@ -19,22 +23,6 @@ Options:
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
-  --detect-layer / --no-detect-layer
-                                  Detect ML/MM layers from input PDB B-factors
-                                  (ML=0, MovableMM=10, FrozenMM=20). If
-                                  disabled, you must provide --model-pdb or
-                                  --model-indices.  [default: detect-layer]
-  -q, --charge INTEGER            ML region charge. Required unless --ligand-
-                                  charge is provided.
-  -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
-                                  GPP:-3,SAM:1) used to derive charge when -q is
-                                  omitted (requires PDB input or --ref-pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
-                                  Defaults to 1 when omitted.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
   --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
@@ -57,8 +45,10 @@ Options:
                                   -s/--scan-lists.  [default: no-print-parsed]
   --max-step-size FLOAT           Maximum change in any scanned bond length per
                                   step [Å].  [default: 0.2]
-  --bias-k FLOAT                  Harmonic well strength k [eV/Å^2].  [default:
-                                  300]
+  --bias-k FLOAT                  Harmonic well strength k [eV/Å^2]. Defaults to
+                                  YAML bias.k (BIAS_KW['k']=300 in defaults.py)
+                                  when omitted; explicit CLI value overrides
+                                  YAML.
   --opt-mode [grad|hess|lbfgs|rfo|light|heavy]
                                   Compatibility option for mlmm all forwarding.
                                   Scan relaxations always use LBFGS; values
@@ -113,5 +103,33 @@ Options:
                                   ONIOM-compatible).
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
+  --detect-layer / --no-detect-layer
+                                  Detect ML/MM layers from input PDB B-factors
+                                  (ML=0, MovableMM=10, FrozenMM=20). If
+                                  disabled, you must provide --model-pdb or
+                                  --model-indices.  [default: detect-layer]
+  --model-indices-one-based / --model-indices-zero-based
+                                  Interpret --model-indices as 1-based (default)
+                                  or 0-based.  [default: model-indices-one-
+                                  based]
+  -q, --charge INTEGER            ML region charge. Required unless --ligand-
+                                  charge is provided.
+  -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
+                                  GPP:-3,SAM:1) used to derive charge when -q is
+                                  omitted (requires PDB input or --ref-pdb).
+  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
+                                  Defaults to 1 when omitted.
+  --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
+                                  knob).  [x>=1]
+  --precision [fp32|fp64]         MLIP backend precision: fp32 (default) or
+                                  fp64. Routed to backend-specific kwargs (UMA
+                                  precision / ORB precision / MACE
+                                  default_dtype). aimnet2: fp32 no-op; fp64
+                                  rejected.
+  --deterministic / --no-deterministic
+                                  Strict bit-reproducible GPU runs
+                                  (deterministic algorithms + index_reduce_
+                                  shim). Slower; raises if unsupported. Default
+                                  off.
   -h, --help                      Show this message and exit.
 ```

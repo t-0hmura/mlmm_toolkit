@@ -2,598 +2,216 @@
 
 ## Overview
 
-`mlmm-toolkit` is a Python CLI toolkit for computing **enzymatic reaction pathways** using an **ML/MM** (Machine Learning / Molecular Mechanics) approach. It couples an MLIP (Machine Learning Interatomic Potential) backend for the reactive (ML) region with a bundled MM force field engine (`hessian_ff`) for the surrounding protein environment, using an ONIOM-like energy decomposition. The default MLIP backend is **UMA** (Meta's FAIR-Chem); alternative backends (`orb`, `mace`, `aimnet2`) can be selected via `--backend`.
-
-In many workflows, a **single command** is enough to generate a useful **first-pass** reaction path:
-```bash
-mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
-```
-
----
-You can also run **ML/MM model setup, MEP search, TS optimization, IRC, thermochemistry, and single-point DFT** in a single run by adding `--tsopt --thermo --dft`:
-```bash
-mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
-```
----
-
-Given **(i) two or more full protein-ligand PDB files** (R,..., P), **or (ii) one PDB with `--scan-lists`**, **or (iii) one TS candidate with `--tsopt`**, `mlmm-toolkit` automatically:
-
-- defines the **ML region** around user-defined substrates,
-- generates **Amber parm7/rst7** topology files for the MM region ([`mm-parm`](mm-parm.md)),
-- assigns a **3-layer ML/MM partitioning** ([`define-layer`](define-layer.md)),
-- explores **minimum-energy paths (MEPs)** with path optimization methods such as the Growing String Method (GSM) and Direct Max Flux (DMF),
-- _optionally_ optimizes **transition states**, runs **vibrational analysis**, **IRC calculations**, and **single-point DFT calculations**.
-
-At the ML stage, the reactive region uses a machine learning interatomic potential (MLIP). The default backend is UMA (Meta's FAIR-Chem); alternative backends include ORB, MACE, and AIMNet2 (selected via `-b/--backend`). The MM region uses `hessian_ff`, a bundled C++ native extension that computes Amber force field energies, forces, and Hessians. The total energy follows an ONIOM-like decomposition:
+`mlmm-toolkit` is a Python CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default UMA; `orb` / `mace` / `aimnet2` via `-b`), with the surrounding protein under the bundled Amber force field `hessian_ff`. The ONIOM decomposition is:
 
 ```
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 ```
 
-where REAL is the full system, MODEL is the ML region, "high" is the selected MLIP backend (default: UMA), and "low" is `hessian_ff`.
+A single command generates a useful initial reaction path:
 
-The CLI is designed to generate **multi-step enzymatic reaction mechanisms** with minimal manual intervention. The same workflow also works for small-molecule systems. When you skip pocket extraction (omit `--center/-c` and `--ligand-charge`), you can also use `.xyz` inputs.
+```bash
+mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'                  # MEP only
+mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft   # full
+```
+
+Given (i) ≥ 2 PDBs (R → ... → P), (ii) one PDB with `--scan-lists`, or (iii) one TS candidate with `--tsopt`, `mlmm all` defines the ML region, runs `mm-parm` + `define-layer`, performs MEP search (GSM), and optionally chains TS optimisation, IRC, frequencies, and single-point DFT.
 
 ```{important}
-- Input PDB files must already contain **hydrogen atoms**.
-- When you provide multiple PDBs, they must contain **the same atoms in the same order** (only coordinates may differ); otherwise an error is raised.
-- Most subcommands require `--parm` (Amber topology) and `--model-pdb` (ML region definition). The [`all`](all.md) command generates these automatically.
+- Input PDBs must already contain **hydrogen atoms**. The "Input prep checklist" below covers the common pitfalls.
+- Multiple PDBs must share the same atoms in the same order (only coordinates differ).
+- Most per-stage subcommands require `--parm` (from `mm-parm`) and `--model-pdb` (from `extract` / `define-layer`); `mlmm all` generates both automatically.
 ```
 
-```{tip}
-If you are new to the project, read [Concepts & Workflow](concepts.md) first.
-For symptom-first diagnosis, start with [Common Error Recipes](recipes-common-errors.md).
-If you encounter an error during setup or runtime, refer to [Troubleshooting](troubleshooting.md).
-```
+For background concepts (3-layer system, link atoms, microiteration, units), read [Concepts & Workflow](concepts.md). For symptom-first diagnosis, jump to [Troubleshooting](troubleshooting.md) or [Common Error Recipes](recipes-common-errors.md).
 
 ### CLI conventions
 
 | Convention | Example |
-|------------|---------|
-| **Residue selectors** | `'SAM,GPP'` or `'A:123,B:456'` |
-| **Charge mapping** | `-l 'SAM:1,GPP:-3'` |
-| **Atom selectors** | `'TYR,285,CA'` or `'TYR 285 CA'` |
+|---|---|
+| Residue selector | `'SAM,GPP'` or `'A:123,B:456'` |
+| Charge mapping | `-l 'SAM:1,GPP:-3'` |
+| Atom selector | `'TYR,285,CA'` or `'TYR 285 CA'` |
 
-For full details, see [CLI Conventions](cli-conventions.md).
+Full table: [CLI Conventions](cli-conventions.md).
 
-`path-search` naming note: the CLI subcommand is `path-search`, while the documentation filename is [`path-search.md`](path-search.md).
+### Input prep checklist
 
-
-### Recommended tools for hydrogen addition
-
-If your PDB lacks hydrogen atoms, use one of the following tools before running mlmm-toolkit:
-
-| Tool | Example Command | Notes |
-|------|-----------------|-------|
-| **reduce** (Richardson Lab) | `reduce input.pdb > output.pdb` | Fast, widely used for crystallographic structures |
-| **pdb2pqr** | `pdb2pqr --ff=AMBER input.pdb output.pqr` | Adds hydrogens and assigns partial charges |
-| **Open Babel** | `obabel input.pdb -O output.pdb -h` | General-purpose cheminformatics toolkit |
-| **mm-parm --add-h** | `mlmm mm-parm -i input.pdb --add-h` | Hydrogen addition via PDBFixer (through AmberTools) |
-
-To ensure identical atom ordering across multiple PDB inputs, apply the same hydrogen-addition tool with consistent settings to all structures.
-
-```{warning}
-This software is still under development. Please use it at your own risk.
-```
+- **Hydrogens present.** `mlmm` does not auto-protonate. Add with AmberTools `reduce`, OpenMM `Modeller.addHydrogens`, `pdb2pqr --ff=AMBER`, Open Babel `obabel -h`, or `mlmm mm-parm --add-h` (PDBFixer wrapper). Apply the same tool to every input to keep atom order consistent.
+- **Match `-l RES:CHARGE` to the H count actually in the file** (e.g. SAM with 23 H = `SAM:1` cation, 22 H = `SAM:0` neutral). Mismatch breaks `antechamber` with an odd-electron sqm failure — do not re-protonate "to look canonical".
+- **R/P atom order must match.** In PyMOL, tick *Original atom order* on export.
+- **Multi-chain enzymes need `TER` records** between chains so `tleap` segments them correctly.
+- **Per-stage subcmds**: `-q/--charge` is the **ML-region (ONIOM model-system) net charge**, not the full-system charge. Passing the whole-enzyme charge silently builds a wrong ML region.
 
 ---
 
 ## Installation
 
-`mlmm-toolkit` is intended for Linux environments (local workstations or HPC clusters) with a CUDA-capable GPU. Several dependencies -- notably **PyTorch**, **fairchem-core (UMA)**, **gpu4pyscf-cuda12x**, and **hessian_ff** -- expect a working CUDA installation. Alternative MLIP backends (ORB, MACE, AIMNet2) have their own optional dependencies; see the install extras below.
-
-### Prerequisites
-
-mlmm-toolkit uses the following components:
-
-- **MLIP backends**: Energy, force, and Hessian calculations for the ML region. The default is UMA (fairchem-core). ORB (`pip install "mlmm-toolkit[orb]"`) and AIMNet2 (`pip install "mlmm-toolkit[aimnet]"`) are also available. MACE is also available but requires uninstalling `fairchem-core` first due to an `e3nn` version conflict (`pip uninstall fairchem-core && pip install mace-torch`).
-- **hessian_ff**: Amber force field calculations for the MM region (requires building the C++ extension).
-- **AmberTools**: Automatic parm7/rst7 generation via the `mm-parm` subcommand (tleap, antechamber, parmchk2).
-
-Refer to the upstream projects for additional details:
-
-- fairchem / UMA: <https://github.com/facebookresearch/fairchem>, <https://huggingface.co/facebook/UMA>
-- Hugging Face token & security: <https://huggingface.co/docs/hub/security-tokens>
-
-### Quick start
-
-Below is a minimal setup example that works on many CUDA 12.9 clusters. Adjust module names and versions to match your system. This example assumes the default GSM MEP mode (no DMF). For DMF, install cyipopt via conda first.
-
 ```bash
-# 1) Install a CUDA-enabled PyTorch build
-# 2) Install mlmm-toolkit
-# 3) Build the hessian_ff C++ native extension
-# 4) Install a headless Chrome for Plotly figure export
+# 0. Clone the repo (skip if you only want `pip install mlmm-toolkit` once published)
+git clone https://github.com/t-0hmura/mlmm_toolkit.git && cd mlmm_toolkit
 
+# 1. New env + AmberTools + CUDA-enabled PyTorch (match your CUDA runtime)
+conda create -n mlmm-toolkit python=3.11 -y && conda activate mlmm-toolkit
+conda install -c conda-forge ambertools pdbfixer -y
 pip install torch --index-url https://download.pytorch.org/whl/cu129
-pip install mlmm-toolkit
 
-# Previous stable release (v0.1.1):
-# pip install git+https://github.com/t-0hmura/mlmm_toolkit.git@v0.1.1
+# 2. mlmm-toolkit (editable from a local clone, or `pip install mlmm-toolkit` once published)
+pip install -e .
+# Optional MLIP extras: pip install -e ".[orb]"  /  ".[aimnet]"  /  ".[dft]"  /  ".[mcp]"
+# MACE: install in a dedicated env (incompatible with UMA via e3nn==0.4.4 vs >=0.5)
 
-# Optional: install alternative MLIP backends
-pip install "mlmm-toolkit[orb]"       # ORB backend
-pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
-# MACE backend (conflicts with UMA — uninstall fairchem-core first)
-# pip uninstall fairchem-core && pip install mace-torch
+# 3. (UMA backend only) Authenticate Hugging Face once
+#    Accept the FAIR Chemistry License v1 at https://huggingface.co/facebook/UMA, then:
+hf auth login                                                # interactive
+# OR: export HF_TOKEN=hf_xxx && hf auth login --token "$HF_TOKEN" --add-to-git-credential   # CI / HPC
 
-cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
-plotly_get_chrome -y
+# 4. Verify
+mlmm --version
 ```
 
-> **Note:** If you switch to a different runtime environment (node/container/Python/PyTorch), rebuild `hessian_ff` in that environment.  
-> On many clusters, install Ninja first:
->
-> ```bash
-> conda install -c conda-forge ninja -y
-> cd hessian_ff/native && make clean && make
-> ```
+### Optional components
 
-Next, log in to **Hugging Face Hub** so that UMA models can be downloaded (only required when using the default `uma` backend). Either:
+| Component | When to add | Install |
+|---|---|---|
+| `hessian_ff` native build | If you see a "native extension not available" warning (JIT compilation usually handles it) | `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make` (install `ninja` first on most clusters: `conda install -c conda-forge ninja -y`) |
+| `cyipopt` | DMF MEP backend for the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`); `mlmm all` is GSM-only | `conda install -c conda-forge cyipopt -y` |
+| xTB | `--embedcharge` (xTB point-charge embedding) | `conda install -c conda-forge xtb -y` (custom binary: set `xtb_cmd` in YAML) |
+| Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
+| HPC `cuda/<X.Y>` module | HPC clusters using environment modules | Load **before** `pip install torch`; match X.Y to your wheel (`cu126` ↔ 12.6, `cu129` ↔ 12.9) |
 
-```bash
-# Hugging Face CLI
-hf auth login --token '<YOUR_ACCESS_TOKEN>' --add-to-git-credential
-```
+If you switch runtime environments (node / container / Python / PyTorch), rebuild `hessian_ff` in the new env. Detailed HPC job-script templates: [docs/device-hpc.md](device-hpc.md).
 
-or
+If no usable conda `xtb` package is available, build xTB from source (requires GCC >= 10):
 
 ```bash
-# Classic CLI
-huggingface-cli login
-```
-
-You only need to do this once per machine / environment.
-
-- If you want to use the Direct Max Flux (DMF) method for MEP search, create a conda environment and install cyipopt before installing mlmm-toolkit.
-  ```bash
-  # Create and activate a dedicated conda environment
-  conda create -n mlmm python=3.11 -y
-  conda activate mlmm
-
-  # Install cyipopt (required for the DMF method in MEP search)
-  conda install -c conda-forge cyipopt -y
-  ```
-
-- If you are on an HPC cluster that uses *environment modules*, load CUDA **before** installing PyTorch, like this:
-  ```bash
-  module load cuda/12.9
-  ```
-
-- **AmberTools** is required for the `mlmm mm-parm` subcommand (Amber topology generation). Install it separately:
-  ```bash
-  conda install -c conda-forge ambertools -y
-  ```
-  Even without AmberTools, other subcommands work if you provide `--parm` manually.
-
-### Step-by-step installation
-
-If you prefer to build the environment piece by piece:
-
-1. **Load CUDA (if you use environment modules on an HPC cluster)**
-
-    ```bash
-    module load cuda/12.9
-    ```
-
-2. **Create and activate a conda environment**
-
-    ```bash
-    conda create -n mlmm python=3.11 -y
-    conda activate mlmm
-    ```
-
-3. **Install cyipopt**
-    Required if you want to use the DMF method in MEP search.
-
-    ```bash
-    conda install -c conda-forge cyipopt -y
-    ```
-
-4. **Install AmberTools**
-    Required for the `mlmm mm-parm` subcommand (Amber topology generation with tleap/antechamber).
-
-    ```bash
-    conda install -c conda-forge ambertools -y
-    ```
-
-5. **Install PyTorch with the right CUDA build**
-
-    For CUDA 12.9:
-
-    ```bash
-    pip install torch --index-url https://download.pytorch.org/whl/cu129
-    ```
-
-    (You may use another compatible version if your cluster recommends it.)
-
-6. **Install `mlmm-toolkit`**
-
-    ```bash
-    pip install mlmm-toolkit
-    ```
-
-    To install with optional MLIP backends:
-
-    ```bash
-    pip install "mlmm-toolkit[orb]"       # ORB backend
-    pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
-    # MACE backend (conflicts with UMA — uninstall fairchem-core first)
-# pip uninstall fairchem-core && pip install mace-torch
-    ```
-
-    To enable xTB point-charge embedding (`--embedcharge`), install [xTB](https://github.com/grimme-lab/xtb) and ensure the `xtb` command is available on your `PATH`.
-
-    #### Installing xTB
-
-    ```bash
-    conda install -c conda-forge xtb
-    ```
-
-    Or build from source (requires GCC >= 10):
-
-    ```bash
-    git clone --depth 1 https://github.com/grimme-lab/xtb.git
-    cd xtb
-    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-    make -C build -j8
-    ```
-
-    To use a custom xTB binary, set the `xtb_cmd` key in your YAML config.
-
-7. **Build the `hessian_ff` C++ native extension**
-
-    In most environments the native extension is JIT compiled on first use. If you see a warning about the native extension not being available, build it manually:
-
-    ```bash
-    cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
-    ```
-
-    This compiles the C++ code that provides fast Amber force field energy, force, and Hessian calculations.
-
-    > **Note:** If you move to a different runtime environment, install Ninja and rebuild in that environment:
-    >
-    > ```bash
-    > conda install -c conda-forge ninja -y
-    > cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
-    > ```
-
-8. **Install Chrome for visualization**
-
-    ```bash
-    plotly_get_chrome -y
-    ```
-
-9. **Log in to Hugging Face Hub (required for UMA backend only)**
-
-    ```bash
-    huggingface-cli login
-    ```
-
-    See also:
-
- - <https://github.com/facebookresearch/fairchem>
- - <https://huggingface.co/facebook/UMA>
- - <https://huggingface.co/docs/hub/security-tokens>
-
-10. **Verify installation**
-
-    ```bash
-    mlmm --version
-    ```
-
-    This should display the installed version (e.g., `0.x.y`; the exact output depends on the git tag).
-
----
-
-## Multi-backend examples
-
-The default MLIP backend is UMA. Use `-b/--backend` to switch to an alternative backend, and `--embedcharge` to enable xTB point-charge embedding:
-
-```bash
-# Use ORB backend
-mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
-
-# Use MACE backend
-mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
-
-# Enable xTB point-charge embedding
-mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
+git clone --depth 1 https://github.com/grimme-lab/xtb.git
+cd xtb
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+make -C build -j8
 ```
 
 ---
 
-## Quickstart routes (recommended)
+## Quickstart routes
 
-- [Quickstart: run `mlmm all`](quickstart-all.md)
-- [Quickstart: run `mlmm scan`](quickstart-scan-spec.md)
-- [Quickstart: validate TS with `mlmm tsopt`](quickstart-tsopt-freq.md)
-
----
+- [Quickstart: `mlmm all`](quickstart-all.md) — multi-structure MEP
+- [Quickstart: `mlmm` scan-spec route](quickstart-scan-spec.md) — single structure with staged bond scans
+- [Quickstart: validate TS with `mlmm tsopt`](quickstart-tsopt-freq.md) — TS-only mode
 
 ## Typical workflow
 
-The `mlmm all` command orchestrates a multi-step pipeline. When run individually, the typical workflow is:
-
 ```text
-1. extract - Define ML region from full protein-ligand PDB
-2. mm-parm - Generate Amber parm7/rst7 topology (requires AmberTools)
-3. define-layer - Assign 3-layer ML/MM partitioning (B-factor encoding)
-4. path-search - MEP search (recursive path-search by default); add --no-refine-path for single-pass path-opt
-5. tsopt - Transition state optimization
-6. freq - Vibrational analysis and thermochemistry
-7. dft - Single-point DFT energy refinement
+1. extract       — Define ML region from full protein-ligand PDB
+2. mm-parm       — Generate Amber parm7/rst7 topology (requires AmberTools)
+3. define-layer  — Assign 3-layer ML/MM partitioning (B-factor encoding)
+4. path-search   — MEP search (recursive; `--no-refine-path` for single-pass `path-opt`)
+5. tsopt         — Transition state optimisation
+6. freq          — Vibrational analysis + thermochemistry
+7. dft           — Single-point DFT energy refinement
 ```
 
-The `all` command runs steps 1-7 automatically. You can also run each step individually for debugging or custom workflows.
-
----
-
-## Command line basics
-
-The main entry point is the `mlmm` command, installed via `pip`. Internally it uses the **Click** library, and the default subcommand is `all`.
-
-This is equivalent to:
-
-```bash
-mlmm [OPTIONS]...
-# is equivalent to
-mlmm all [OPTIONS]...
-```
-
-The `all` command runs the full pipeline -- ML region extraction, MM parameterization, layer definition, MEP search, TS optimization, vibrational analysis, and optional DFT -- in a single invocation.
-
-All high-level workflows share two important options when you use ML region extraction:
-
-- `-i/--input`: one or more **full structures** (reactant, intermediate(s), product).
-- `-c/--center`: how to define the **substrate / extraction center** (e.g., residue names or residue IDs).
-
-If you omit `--center/-c`, ML region extraction is skipped and the **full input structure** is used directly.
-
----
+`mlmm all` orchestrates all seven; each step is also a standalone subcommand for debugging or custom flows.
 
 ## Main workflow modes
 
-### Multi-structure MEP workflow (reactant -> product)
+| Mode | Trigger | Use when |
+|---|---|---|
+| Multi-structure MEP | `-i R.pdb P.pdb [I1.pdb ...]` | You have ≥ 2 endpoints / intermediates (docking, MD, manual modelling). |
+| Staged scan | `-i ONE.pdb --scan-lists '[...]' [ '[...]' ...]` | You'd rather define reaction coordinates than provide multiple endpoints. |
+| TS-only | `-i TS_CANDIDATE.pdb --tsopt` | You already have a TS guess and want `tsopt → IRC → freq`. |
 
-Use this when you already have several full PDB structures along a putative reaction coordinate (e.g., R -> I1 -> I2 -> P).
-
-**Minimal example**
-
-```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
-```
-
-**Richer example**
+`mlmm [OPTIONS]` is equivalent to `mlmm all [OPTIONS]` — `all` is the default subcommand, so the bare `mlmm -i ...` examples below run the full `all` workflow.
 
 ```bash
-mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./result_all --tsopt --thermo --dft
+# Multi-structure MEP (richer)
+mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
+     --out-dir ./result_all --tsopt --thermo --dft
+
+# Staged scan
+mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
+     --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' \
+                  '[("TYR 285 CB","MMT 309 C11",1.20)]'
+
+# TS-only
+mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
 ```
 
-Behavior:
-
-- takes two or more **full systems** in reaction order,
-- defines the ML region for each structure,
-- generates Amber parm7/rst7 topology and assigns 3-layer ML/MM partitioning,
-- performs **MEP search** via recursive `path-search` by default (outputs under `path_search/`),
-- optionally switches to a **single-pass** `path-opt` run with `--no-refine-path`,
-- when PDB templates are available, merges the ML-region MEP back into the **full system**,
-- optionally runs TS optimization, vibrational analysis, and single-point DFT calculations for each segment.
-
-This is the recommended mode when you can generate reasonably spaced intermediates (e.g., from docking, MD, or manual modeling).
+Each tuple `(i, j, target_Å)` accepts a PDB atom selector (`'TYR,285,CA'` — space/comma/slash/backtick/backslash) or a 1-based atom index. Pass multiple stages as multiple literals after a single `--scan-lists` flag.
 
 ```{important}
-`mlmm-toolkit` assumes that multiple input PDBs contain **exactly the same atoms in the same order** (only coordinates may differ). If any non-coordinate fields differ across inputs, an error is raised. Input PDB files must also contain **hydrogen atoms**.
+Single-input runs require **either** `--scan-lists` (staged scan → GSM) **or** `--tsopt` (TS-only). A bare `-i ONE.pdb` will not trigger a full workflow.
 ```
 
----
-
-### Single-structure + staged scan (feeds MEP refinement)
-
-Use this when you prefer to define reaction coordinates yourself, rather than providing multiple endpoint structures.
-
-Provide a single `-i` together with `--scan-lists`:
-
-**Minimal example**
+## Multi-backend examples
 
 ```bash
-mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]'
+mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb         # ORB
+mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace        # MACE
+mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge  # xTB embedding
 ```
 
-**Richer example**
+## DFT refinement via Gaussian / ORCA (hand-off)
+
+`mlmm-toolkit` provides a round-trip hand-off — Gaussian or ORCA must be licensed and on `PATH` separately:
 
 ```bash
-mlmm -i SINGLE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]' --multiplicity 1 --out-dir ./result_scan_all --tsopt --thermo --dft
+# 1. ML/MM TS refinement
+mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
+
+# 2. Export to Gaussian ONIOM (.com)
+mlmm oniom-export --mode g16 --parm real.parm7 -i result_tsopt/final_geometry.pdb \
+     --model-pdb ml_region.pdb -o ts_refine.com -q 0 -m 1 --method "wB97XD/def2-TZVPD"
+
+# 3. Run externally (ORCA via --mode orca also supported)
+g16 < ts_refine.com > ts_refine.log
+
+# 4. Pull DFT-refined geometry back in
+mlmm oniom-import -i ts_refine.com --ref-pdb ml_region.pdb -o ts_dft
+
+# 5. Continue freq / IRC on the refined geometry
+mlmm freq -i ts_dft_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
+mlmm irc  -i ts_dft_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
 ```
 
-Key points:
+Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-import.md), [oniom-gaussian](oniom-gaussian.md), [oniom-orca](oniom-orca.md).
 
-- `--scan-lists` describes **staged distance scans** on the extracted ML region.
-- Each tuple `(i, j, target_A)` is:
- - a PDB atom selector string like `'TYR,285,CA'` (**delimiters can be: space/comma/slash/backtick/backslash ` ` `,` `/` `` ` `` `\`**) **or** a 1-based atom index,
- - automatically remapped to the ML region indices.
-- Supplying one `--scan-lists` literal runs a single scan stage; multiple literals run sequential stages. Pass multiple literals after a single flag (repeated flags are not accepted).
-- Each stage writes a `stage_XX/result.pdb`, which is treated as a candidate intermediate or product.
-- The default `all` workflow runs recursive `path-search` with automatic refinement on the concatenated stages.
-- With `--no-refine-path`, it instead runs single-pass `path-opt` GSM per adjacent pair.
-
-This mode is useful for building reaction paths starting from a single structure.
-
----
-
-### Single-structure TSOPT-only mode
-
-Use this when you already have a **transition state candidate** and only want to optimize it and proceed to IRC calculations.
-
-Provide exactly one PDB and enable `--tsopt`:
-
-**Minimal example**
-
-```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
-```
-
-**Richer example**
-
-```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft --out-dir ./result_tsopt_only
-```
-
-Behavior:
-
-- skips the MEP/path search entirely,
-- optimizes the **ML/MM TS** with TS optimization,
-- runs an **IRC** in both directions and optimizes both ends to relax down to R and P minima,
-- can then perform `freq` and `dft` on the R/TS/P,
-- produces MLIP, Gibbs, and DFT//MLIP energy diagrams.
-
-```{important}
-Single-input runs require **either** `--scan-lists` (staged scan -> GSM) **or** `--tsopt` (TSOPT-only). Supplying only a single `-i` without one of these will not trigger a full workflow.
-```
-
----
-
-## Important CLI options and behaviors
-
-Below are the most commonly used options across workflows.
+## Common options
 
 | Option | Description |
-|--------|-------------|
-| `-i, --input PATH...` | Input structures. **>= 2 PDBs** -> MEP search; **1 PDB + `--scan-lists`** -> staged scan -> GSM; **1 PDB + `--tsopt`** -> TSOPT-only mode. |
-| `-c, --center TEXT` | Defines the substrate / extraction center. Supports residue names (`'SAM,GPP'`), residue IDs (`A:123,B:456`), or PDB paths. |
-| `-l, --ligand-charge TEXT` | Charge info: mapping (`'SAM:1,GPP:-3'`) or single integer. |
-| `-q, --charge INT` | Hard override of total system charge. |
-| `-m, --multiplicity INT` | Spin multiplicity (e.g., `1` for singlet). |
-| `-s, --scan-lists TEXT...` | Staged distance scans for single-input runs (YAML/JSON file or inline literals). |
+|---|---|
+| `-i, --input PATH...` | Input structures. Dispatch trichotomy is the same as the "Main workflow modes" table above. |
+| `-c, --center TEXT` | Substrate / extraction center (residue names `'SAM,GPP'`, residue IDs `A:123,B:456`, or PDB paths). |
+| `-l, --ligand-charge TEXT` | Charge mapping (`'SAM:1,GPP:-3'`) or single integer. |
+| `-q, --charge INT` / `-m, --multiplicity INT` | ML-region net charge / spin multiplicity. |
+| `-s, --scan-lists TEXT...` | Staged distance scans for single-input runs (literals or YAML/JSON file). |
 | `-o, --out-dir PATH` | Top-level output directory. |
-| `--tsopt/--no-tsopt` | Enable TS optimization and IRC. |
-| `--thermo/--no-thermo` | Run vibrational analysis and thermochemistry. |
-| `--dft/--no-dft` | Perform single-point DFT calculations. |
-| `--refine-path/--no-refine-path` | Recursive `path-search` (default) vs single-pass `path-opt` with `--no-refine-path`. |
-| `--mep-mode gsm\|dmf` | MEP method: Growing String Method or Direct Max Flux. | `gsm` |
-| `--opt-mode grad\|hess` | Workflow preset in `all`: `grad` (LBFGS/Dimer, default) or `hess` (RFO/RS-I-RFO). |
-| `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend for the ML region (default: `uma`). |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction (default: off). |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian calculation mode. `Analytical` is available for the UMA backend only (recommended when VRAM is available); other backends use `FiniteDifference`. |
+| `--tsopt` / `--thermo` / `--dft` | TS optimisation + IRC / vibrational analysis / single-point DFT. |
+| `--refine-path` / `--no-refine-path` | Recursive `path-search` (default) vs single-pass `path-opt`. |
+| `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |
+| `--embedcharge` | xTB point-charge embedding correction (default off). |
+| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. `Analytical` is UMA-only; recommended when VRAM allows. |
 
-For a full matrix of options and YAML schemas, see [YAML Reference](yaml-reference.md).
+DMF MEP is selectable only via the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`); `mlmm all` always uses GSM (passing `--mep-mode` to `mlmm all` is silently ignored).
 
----
+Full option matrix and YAML schema: [YAML Reference](yaml-reference.md). Subcommand-by-subcommand table: [README "CLI Subcommands"](https://github.com/t-0hmura/mlmm_toolkit/blob/main/README.md#cli-subcommands).
 
 ## Run summaries
 
-Every `mlmm all` run writes:
-
-- `summary.log` -- formatted summary for quick inspection, and
-- `summary.json` -- JSON results.
-
-They typically contain:
-
-- the exact CLI command invoked,
-- global MEP statistics (e.g. maximum barrier, path length),
-- per-segment barrier heights and key bond changes,
-- energies from the MLIP backend, thermochemistry, and DFT post-processing (where enabled).
-
-Each segment directory under `path_search/` (or `path_opt/` when `--no-refine-path` is used) also gets its own `summary.log` and `summary.json`, so you can inspect local refinements independently.
-
----
-
-## CLI commands
-
-Most users will primarily call `mlmm all`. The CLI also exposes individual subcommands -- each supports `-h/--help`.
-`mlmm all --help` shows core options and `mlmm all --help-advanced` shows the complete list.
-`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
-
-| Subcommand | Role | Documentation |
-|------------|------|---------------|
-| `all` | End-to-end workflow | [all](all.md) |
-| `extract` | Define ML region (QM region) | [extract](extract.md) |
-| `mm-parm` | Generate Amber parm7/rst7 topology | [mm_parm](mm-parm.md) |
-| `define-layer` | Assign 3-layer ML/MM partitioning | [define_layer](define-layer.md) |
-| `opt` | Geometry optimization | [opt](opt.md) |
-| `tsopt` | Transition state optimization | [tsopt](tsopt.md) |
-| `path-opt` | MEP optimization (GSM/DMF) | [path_opt](path-opt.md) |
-| `path-search` | Recursive MEP search | [path_search](path-search.md) |
-| `scan` | 1D bond-length scan | [scan](scan.md) |
-| `scan2d` | 2D distance scan | [scan2d](scan2d.md) |
-| `scan3d` | 3D distance scan | [scan3d](scan3d.md) |
-| `irc` | IRC calculation | [irc](irc.md) |
-| `freq` | Vibrational analysis | [freq](freq.md) |
-| `dft` | Single-point DFT | [dft](dft.md) |
-| `oniom-export` | Export to Gaussian ONIOM / ORCA QM/MM (`--mode g16|orca`) | [oniom_export](oniom-export.md) |
-| `oniom-import` | Import Gaussian/ORCA ONIOM input and reconstruct XYZ + layered PDB | [oniom_import](oniom-import.md) |
-| `trj2fig` | Plot energy profiles | [trj2fig](trj2fig.md) |
-| `energy-diagram` | Draw state energy diagram from numeric values | [energy-diagram](energy-diagram.md) |
-| `add-elem-info` | Repair PDB element columns | [add_elem_info](add-elem-info.md) |
-| `fix-altloc` | Remove alternate location (altLoc) indicators from PDB files | [fix_altloc](fix-altloc.md) |
-| `pysis` | Run pysisyphus YAML workflow (v0.1.x compat) | [pysis](pysis.md) |
-
-```{tip}
-In `all`, `tsopt`, `freq` and `irc`, setting **`--hessian-calc-mode Analytical`** (for the ML region) is strongly recommended when you have enough VRAM. Note: `Analytical` mode is only available with the UMA backend; other backends automatically use `FiniteDifference`.
-```
-
----
-
-## Quick reference
-
-**Common command patterns:**
-
-```bash
-# Basic MEP search (2+ structures)
-mlmm -i R.pdb P.pdb -c 'SUBSTRATE' -l 'SUB:-1'
-
-# Full workflow with post-processing
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
- --tsopt --thermo --dft
-
-# Single structure with staged scan
-mlmm -i SINGLE.pdb -c 'LIG' -l 'LIG:-1' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
-
-# TS-only optimization
-mlmm -i TS.pdb -c 'LIG' -l 'LIG:-1' --tsopt --thermo
-
-# Individual subcommands (after running extract + mm-parm + define-layer)
-mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
-```
-
-**Essential options:**
-
-| Option | Purpose |
-|--------|---------|
-| `-i` | Input structure(s) |
-| `-c` | Substrate definition for ML region extraction |
-| `-l, --ligand-charge` | Substrate charges (e.g., `'SAM:1,GPP:-3'`) |
-| `--parm` | Amber parm7 topology file (required for subcommands) |
-| `--model-pdb` | ML region PDB file (required for subcommands) |
-| `--tsopt` | Enable TS optimization + IRC |
-| `--thermo` | Run vibrational analysis |
-| `--dft` | Run single-point DFT |
-| `-b, --backend` | MLIP backend (`uma`, `orb`, `mace`, `aimnet2`) |
-| `--embedcharge` | Enable xTB point-charge embedding correction |
-| `-o, --out-dir` | Output directory |
-
----
+Every `mlmm all` run writes `summary.log` (human) + `summary.json` (machine) with the CLI command, global MEP statistics, per-segment barriers / bond changes, and MLIP / thermo / DFT energies (when enabled). Per-segment `segments/seg_NN/` subdirectories carry their own summaries.
 
 ## Getting help
 
-For any subcommand:
-
 ```bash
-mlmm <subcommand> --help
-mlmm <subcommand> --help-advanced
-mlmm all --help-advanced
+mlmm --help                            # top-level
+mlmm <subcommand> --help               # core options
+mlmm <subcommand> --help-advanced      # full option set
 ```
 
-For `all`, `--help` is intentionally short. Use `--help-advanced` to see every option.
+## Driving from an AI coding agent
 
-## Driving `mlmm-toolkit` from an AI coding agent
+`mlmm-toolkit` ships `skills/` with agent-readable instructions. Copy `skills/` into your project as `.claude/skills/` (or merge into `~/.claude/skills/`) for Claude Code / Cursor / OpenCode pickup.
 
-`mlmm-toolkit` ships a `.claude/skills/` directory with agent-readable
-instructions covering CLI usage, structure I/O, backend installation,
-typical workflows, and HPC operation. To use them with Claude Code,
-Cursor, OpenCode, or other agent platforms, copy `.claude/skills/`
-into your project or home directory and the agent will pick them up
-automatically. See the project README "Agent Skills" section for the
-full list.
-
+```{warning}
+This software is still under development. Please use it at your own risk.
+```

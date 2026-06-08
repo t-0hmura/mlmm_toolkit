@@ -1,40 +1,28 @@
 # `irc`
 
-## 概要
+`mlmm irc` は ML/MM 計算機を使用した EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から反応物と生成物の方向へ追跡します。デフォルトでは正方向と逆方向の両方のブランチが計算されます。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
 
-> **要約:** ML/MM 計算機を使用した EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から反応物と生成物の方向へ追跡します。デフォルトでは正方向と逆方向の両方のブランチが計算されます。
+## 使いどころ
 
-- **用途:** 最適化された TS があり、ML/MM で反応物・生成物方向への最小エネルギー経路を追跡したい場合。
-- **手法:** 完全 ML/MM ヘシアン（MLIP バックエンド（デフォルト: UMA）+ hessian_ff）による EulerPC 予測子-補正子積分器。
-- **出力:** `finished_irc_trj.xyz`、`forward_irc_trj.xyz`、PDB 入力時は `.pdb` コンパニオン。
-- **次のステップ:** IRC 端点で [freq](freq.md) を実行し、[opt](opt.md) で真の極小に精密化。
+- 最適化された TS が、期待した反応物と生成物を接続することを検証したいとき。あるいは下流の熱化学計算 / DFT 単点計算用の反応物 / 生成物構造を生成したいとき。
+- 典型的なワークフローは `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` です。
+- デフォルトでは両方のブランチを実行します。片方向のみが必要な場合は `--no-forward` または `--no-backward` で一方を無効化します。
 
-`mlmm irc` は EulerPC 積分器を使用して IRC 計算を実行します。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
-
-典型的なワークフローは `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` です。
-
-## 最小例
+## 実行例
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 ```
 
-## 出力の見方
-
-- `result_irc/finished_irc_trj.xyz`
-- `result_irc/forward_irc_trj.xyz`
-
-## よくある例
-
-1. 正方向のみを実行する。
+正方向のみを実行する。
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --no-backward --out-dir ./result_irc_forward
 ```
 
-2. ステップサイズを増やして解析的ヘシアンを使う。
+ステップサイズを増やして解析的ヘシアンを使う。
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
@@ -42,7 +30,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
 ```
 
-3. 両ブランチを保持してステップ上限を引き上げる。
+両ブランチを保持してステップ上限を引き上げる。
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
@@ -50,14 +38,60 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --out-dir ./result_irc_long
 ```
 
-## ワークフロー
+## 入力
 
-1. **入力準備** -- `geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
+コマンド形式:
+
+```bash
+mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
+```
+
+`mlmm irc --help` でコアオプションを、`mlmm irc --help-advanced` で全オプション一覧を表示します。
+
+| 入力 | 必須 | 補足 |
+| --- | --- | --- |
+| `-i, --input` | 必須 | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。`geom_loader` で読み取り可能な任意の形式。 |
+| `--parm` | 必須 | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 |
+| `--model-pdb` | 条件付き | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 |
+| `--model-indices` | 任意 | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 |
+| `-q, --charge` | 条件付き | 総電荷。`-l/--ligand-charge` 指定時を除き必須。 |
+| `--ref-pdb` | XYZ 入力時 | `--input` が XYZ の場合に使用する参照 PDB トポロジー（XYZ 座標を保持）。 |
+
+入力の前提:
+
+- `geom_loader` でサポートされる任意の形式を受け付けます。
+- 参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
+
+## 処理の流れ
+
+1. **入力準備** -- TS 構造、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを解決します。`geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
 2. **ML/MM 計算機の構築** -- `--parm` と `--model-pdb` から ML/MM 計算機を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP ヘシアン評価を制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` または `--no-backward` でブランチを無効化可能）。ステップサイズとサイクル数で積分長を制御します。
 4. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、PDB コンパニオンが生成されます。
 
-## CLIオプション
+## 出力
+
+```
+out_dir/ (デフォルト: ./result_irc/)
+├─ <prefix>irc_data.h5              # irc.dump_every ステップごとに書き出される HDF5 ダンプ
+├─ <prefix>finished_irc_trj.xyz     # 完全 IRC 軌跡（XYZ/TRJ）
+├─ <prefix>forward_irc_trj.xyz      # 正方向パスセグメント
+├─ <prefix>backward_irc_trj.xyz     # 逆方向パスセグメント
+├─ <prefix>finished_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
+├─ <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb の場合のみ）
+├─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
+├─ <prefix>forward_last.xyz         # 正方向 IRC 終点（XYZ、単一フレーム）
+├─ <prefix>forward_last.pdb         # 正方向 IRC 終点（PDB、利用可能時）
+├─ <prefix>backward_last.xyz        # 逆方向 IRC 終点（XYZ、単一フレーム）
+└─ <prefix>backward_last.pdb        # 逆方向 IRC 終点（PDB、利用可能時）
+```
+
+主に確認するファイル:
+
+- `result_irc/finished_irc_trj.xyz`
+- `result_irc/forward_irc_trj.xyz`
+
+## CLI オプション
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
@@ -89,24 +123,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
 
-## 出力
-
-```
-out_dir/ (デフォルト: ./result_irc/)
-├─ <prefix>irc_data.h5              # irc.dump_every ステップごとに書き出される HDF5 ダンプ
-├─ <prefix>finished_irc_trj.xyz     # 完全 IRC 軌跡（XYZ/TRJ）
-├─ <prefix>forward_irc_trj.xyz      # 正方向パスセグメント
-├─ <prefix>backward_irc_trj.xyz     # 逆方向パスセグメント
-├─ <prefix>finished_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
-├─ <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb の場合のみ）
-├─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
-├─ <prefix>forward_last.xyz         # 正方向 IRC 終点（XYZ、単一フレーム）
-├─ <prefix>forward_last.pdb         # 正方向 IRC 終点（PDB、利用可能時）
-├─ <prefix>backward_last.xyz        # 逆方向 IRC 終点（XYZ、単一フレーム）
-└─ <prefix>backward_last.pdb        # 逆方向 IRC 終点（PDB、利用可能時）
-```
-
-## YAML設定
+## YAML 設定
 
 マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
 共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml-reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は `true` に強制されます（partial Hessian、active-DOF 処理）。
@@ -170,13 +187,12 @@ irc:
  corr_func: mbs                    # 相関関数の選択
 ```
 
----
+完全なスキーマ（すべての `irc` キーとデフォルト）: [YAML リファレンス](yaml-reference.md#irc-section)。
 
 ## 関連項目
 
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
-
 - [tsopt](tsopt.md) -- IRC 実行前に TS を最適化
 - [freq](freq.md) -- TS 候補が 1 つの虚振動数を持つことを検証; IRC 端点を解析
 - [opt](opt.md) -- IRC 端点を真の極小に最適化

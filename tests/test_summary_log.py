@@ -14,7 +14,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_normalize_summary_payload_sets_defaults():
-    from mlmm.summary_log import normalize_summary_payload
+    from mlmm.io.summary import normalize_summary_payload
 
     payload = normalize_summary_payload({"pipeline_mode": "path-search"})
     assert payload["pipeline_mode"] == "path-search"
@@ -25,7 +25,7 @@ def test_normalize_summary_payload_sets_defaults():
 
 
 def test_write_summary_log_accepts_empty_payload(tmp_path: Path):
-    from mlmm.summary_log import write_summary_log
+    from mlmm.io.summary import write_summary_log
 
     dest = tmp_path / "summary.log"
     write_summary_log(dest, {})
@@ -36,7 +36,7 @@ def test_write_summary_log_accepts_empty_payload(tmp_path: Path):
 
 
 def test_write_summary_log_renders_segment_section(tmp_path: Path):
-    from mlmm.summary_log import write_summary_log
+    from mlmm.io.summary import write_summary_log
 
     out_root = tmp_path / "run"
     out_root.mkdir(parents=True, exist_ok=True)

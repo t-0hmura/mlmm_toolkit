@@ -1,0 +1,144 @@
+# `mlmm dft`
+
+## Purpose
+
+Single-point DFT energy on an arbitrary geometry, via PySCF (CPU) or
+GPU4PySCF (CUDA, x86_64). Use as a post-MLIP refinement on R / TS / P
+geometries from `irc` / `tsopt`, or as a standalone DFT driver on any
+input.
+
+## Synopsis
+
+```bash
+mlmm dft -i geom.{pdb,xyz} --parm real.parm7 \
+    [-q 0 -m 1] [-l 'RES:Q,...'] \
+    [--func-basis 'wb97m-v/def2-svp'] \
+    [--engine gpu|cpu] \
+    [-o ./result_dft/]
+```
+
+
+## ML/MM-aware flags (mlmm-toolkit specific)
+
+Beyond the common flags below, **`mlmm-toolkit` requires an Amber
+topology** and supports layer-aware selection. Most subcommands accept:
+
+| flag | purpose |
+|---|---|
+| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
+| `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
+| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); overrides `--model-pdb` |
+| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
+| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
+| `--embedcharge / --no-embedcharge` | PySCF QM/MM point-charge embedding (Amber MM charges added to the QM Hamiltonian via `pyscf.qmmm.mm_charge`; default off) |
+| `-q, --charge` | **ML-region** charge (not whole-system) |
+| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
+
+Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
+
+## Key flags
+
+| flag | type | default | description |
+|---|---|---|---|
+| `-i, --input` | path | required | `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
+| `-q` / `-l` / `-m` | — | — | Charge / spin (required for `.xyz` without `--ref-pdb`) |
+| `--ref-pdb` | path | none | Reference PDB so `-l` works on `.xyz` input |
+| `--func-basis` | str | `wb97m-v/def2-tzvpd` | `'FUNC/BASIS'` |
+| `--engine` | str | `gpu` | `gpu` (GPU4PySCF) or `cpu` (PySCF) |
+| `--lowmem/--no-lowmem` | bool | `True` | `gpu4pyscf.dft.rks_lowmem.RKS` (memory-efficient direct JK) on closed-shell GPU; open-shell / CPU / pre-`rks_lowmem` GPU4PySCF auto-fall back to standard RKS/UKS |
+| `--config` | path | none | YAML config file |
+| `-o, --out-dir` | path | `./result_dft/` | Output directory |
+| `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
+
+## Examples
+
+### Default DFT//MLIP on a TS
+
+```bash
+mlmm dft -i seg_01/ts.pdb --parm real.parm7 \
+    -l 'SAM:1,GPP:-3' \
+    --func-basis 'wb97m-v/def2-tzvpd' \
+    --engine gpu
+```
+
+### Lighter basis for benchmark scans
+
+```bash
+mlmm dft -i seg_01/ts.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
+    --func-basis 'wb97m-v/def2-svp' \
+    --engine gpu \
+    -o result_dft_svp
+```
+
+### CPU PySCF (aarch64 / no GPU)
+
+```bash
+mlmm dft -i ts.xyz --parm real.parm7 -q 0 -m 1 \
+    --func-basis 'wb97m-v/def2-svp' \
+    --engine cpu \
+    -o result_dft_cpu
+```
+
+## Output
+
+```
+result_dft/
+├── result.yaml                 # ML(dft)/MM energies + per-atom charges/spin densities
+├── result.json                 # only when --out-json
+└── ml_region_with_linkH.xyz    # ML region + auto-appended link-H (PySCF input snapshot)
+```
+
+`result.json` keys (when `--out-json`):
+
+```python
+import json
+d = json.load(open("result_dft/result.json"))
+print(d["energy_hartree"])     # ML-region DFT energy
+print(d["xc_functional"])      # e.g. "wb97m-v"
+print(d["basis_set"])          # e.g. "def2-tzvpd"
+print(d["engine"])             # "gpu4pyscf(rks_lowmem)" / "gpu4pyscf" / "pyscf(cpu)"
+print(d["used_lowmem"])        # True when rks_lowmem.RKS was used
+print(d["converged"])
+```
+
+`result.yaml` carries the full PySCF / GPU4PySCF runtime info: basis
+expansion, grid_level, SCF iterations, Mulliken / Loewdin / IAO charges,
+spin densities. Useful for debugging convergence problems.
+
+## Engine choice
+
+| `--engine` | When | Cost |
+|---|---|---|
+| `gpu` | x86_64 + CUDA + > 100 atoms | ~1–10 h on RTX-class GPU per single point |
+| `cpu` | aarch64, no GPU, or < 100 atoms | ~10–100× slower than GPU |
+
+aarch64 (`uname -m`) **requires `--engine cpu` explicitly**:
+`gpu4pyscf-cuda12x` ships x86_64 wheels only, so `--engine gpu` (the
+default) raises `ClickException` on aarch64 rather than silently
+falling back.
+
+## Common errors
+
+| Symptom | Fix |
+|---|---|
+| `OSError: libcusolver.so.11 not found` | `mlmm-install-backends/env-cuda.md` (LD_LIBRARY_PATH order) |
+| `cupy ... invalid device ordinal` | `unset CUDA_VISIBLE_DEVICES` |
+| `RuntimeError: CUDA out of memory` | Lower `grid_level`, switch to `def2-svp`, or `--engine cpu` |
+| aarch64 `--engine gpu` raises `ClickException` ("GPU backend failed...") | `gpu4pyscf-cuda12x` is x86_64 only; re-submit with `--engine cpu` |
+
+## Caveats
+
+- `mlmm dft` runs only **single points**, not optimization. `mlmm tsopt`
+  / `mlmm opt` accept only MLIP backends (`-b uma|orb|mace|aimnet2`),
+  so DFT-level geometry refinement requires a separate QM code (e.g.
+  Gaussian, ORCA, PySCF) — there is no `-b dft` option.
+- `--func-basis` follows PySCF naming; cross-check with
+  `python -c "from pyscf import gto; print(gto.basis._BASIS_DEFAULT)"`.
+
+## See also
+
+- `mlmm-install-backends/dft.md` — install + aarch64 handling.
+- `tsopt.md`, `irc.md` — produce the geometries you DFT-refine.
+- `mlmm-workflows-output/SKILL.md` — DFT//MLIP recipe.
+- Defaults: `import mlmm.core.defaults as d; print(d.GEOM_KW_DEFAULT)`

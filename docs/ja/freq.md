@@ -1,48 +1,57 @@
 # `freq`
 
-## 概要
+PHVA 対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。`mlmm freq` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でヘシアン評価を高速化できます。虚振動数は負の値で表示されます。
 
-> **概要:** PHVA 対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でヘシアン評価を高速化できます。虚振動数は負の値で表示されます。
+## 使いどころ
 
-`mlmm freq` は ML/MM 計算機（`mlmm.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
+- 最適化した極小、TS、IRC 端点の振動解析。停留点の性格検証と QRRHO 熱力学計算。
 
-## 最小例
+## 実行例
 
 ```bash
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
 
-## 出力の見方
-
-- `result_freq/frequencies_cm-1.txt`
-- `result_freq/mode_*_trj.xyz`
-- `result_freq/mode_*.pdb`（PDB 入力の場合）
-
-## よくある例
-
-1. まずは出力モード数を絞って確認する。
-
 ```bash
+# まずは出力モード数を絞って確認する
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
 ```
 
-2. 凍結原子を指定した PHVA と熱化学ダンプを実行する。
-
 ```bash
+# 凍結原子を指定した PHVA と熱化学ダンプを実行する
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
-3. VRAM に余裕があるノードで解析的ヘシアンを使う。
-
 ```bash
+# VRAM に余裕があるノードで解析的ヘシアンを使う
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
-## ワークフロー
+## 入力
+
+コマンド形式:
+
+```bash
+mlmm freq -i INPUT --parm PARM7 --model-pdb ML_PDB -q CHARGE [options]
+```
+
+`mlmm freq --help` でコアオプション、`mlmm freq --help-advanced` で全オプションリストを表示します。
+
+| 入力 | 必須 | 説明 |
+| --- | --- | --- |
+| `-i, --input` | 必須 | 完全酵素 PDB（リンク原子なし）。 |
+| `--parm` | 必須 | 完全酵素の Amber parm7 トポロジー。 |
+| `--model-pdb` | オプション | ML 領域を定義する PDB。`--detect-layer` 有効時はオプション。 |
+| `--model-indices` | オプション | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 |
+| `-q, --charge` | `-l` 未指定時は必須 | ML 領域の電荷。 |
+| `-l, --ligand-charge` | オプション | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 |
+| `--ref-pdb` | 非 PDB 入力時 | 非 PDB 入力用の参照 PDB トポロジー。 |
+
+## 処理の流れ
 
 1. **ML/MM 計算機の構築** -- ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のヘシアンを選択します。計算機は完全な 3N x 3N ヘシアンまたはアクティブ自由度のサブブロックを返す場合があります。
    - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します。
@@ -53,7 +62,25 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 6. **デバイス選択** -- `ml_device="auto"` は CUDA が利用可能な場合にトリガーし、それ以外は CPU。内部の TR 射影/モード組み立ては転送を抑えるため同じデバイスで実行されます。
 7. **終了動作** -- キーボード割り込みはコード 130 で終了。その他の失敗はトレースバックを出力してコード 1 で終了。
 
-## CLIオプション
+## 出力
+
+```
+out_dir/ (デフォルト: ./result_freq/)
+├─ mode_XXXX_±freqcm-1_trj.xyz   # モードごとの正弦波アニメーション（XYZ ライク軌跡）
+├─ mode_XXXX_±freqcm-1.pdb       # 酵素原子順序にマップバックされた PDB アニメーション
+├─ frequencies_cm-1.txt           # 選択されたソート順での全振動数リスト
+└─ thermoanalysis.yaml            # thermoanalysis がインポート可能で --dump が True の場合
+```
+
+- コンソールには解決済みの `geom`、`calc`、`freq`、熱化学設定をまとめたブロックが出力されます。
+
+出力の確認ポイント:
+
+- `result_freq/frequencies_cm-1.txt`
+- `result_freq/mode_*_trj.xyz`
+- `result_freq/mode_*.pdb`（PDB 入力の場合）
+
+## CLI オプション
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
@@ -91,19 +118,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
 
-## 出力
-
-```
-out_dir/ (デフォルト: ./result_freq/)
-├─ mode_XXXX_±freqcm-1_trj.xyz   # モードごとの正弦波アニメーション（XYZ ライク軌跡）
-├─ mode_XXXX_±freqcm-1.pdb       # 酵素原子順序にマップバックされた PDB アニメーション
-├─ frequencies_cm-1.txt           # 選択されたソート順での全振動数リスト
-└─ thermoanalysis.yaml            # thermoanalysis がインポート可能で --dump が True の場合
-```
-
-- コンソールには解決済みの `geom`、`calc`、`freq`、熱化学設定をまとめたブロックが出力されます。
-
-## YAML設定
+## YAML 設定
 
 マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
 共有セクションは [YAML リファレンス](yaml-reference.md) を再利用します。
@@ -124,7 +139,7 @@ mlmm:
  uma_model: uma-s-1p1              # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
- hessian_calc_mode: Analytical         # ヘシアンモード選択
+ hessian_calc_mode: FiniteDifference   # ヘシアンモード (FiniteDifference デフォルト; VRAM に余裕がある場合 Analytical)
  out_hess_torch: true              # torch 形式ヘシアンを要求
  mm_fd: true                       # MM 有限差分トグル
  return_partial_hessian: true      # 部分ヘシアンを許可（PHVA デフォルト）
@@ -139,16 +154,13 @@ thermo:
  dump: false                       # true の場合 thermoanalysis.yaml を書き出し
 ```
 
----
-
 ## 関連項目
-
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
-- [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 
 - [tsopt](tsopt.md) -- TS 候補の最適化（freq/IRC で検証; 期待: 1 つの虚振動数）
 - [opt](opt.md) -- 構造最適化（多くの場合 freq の前に実行）
 - [dft](dft.md) -- より高レベルのエネルギー精密化のための DFT 一点計算
 - [all](all.md) -- `--thermo` 付き一気通貫ワークフロー
+- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
+- [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
 - [YAML リファレンス](yaml-reference.md) -- `freq` と `thermo` の完全な設定オプション
 - [用語集](glossary.md) -- ZPE、Gibbs エネルギー、エンタルピー、エントロピーの定義

@@ -1,316 +1,205 @@
 # CLI Conventions
 
-This page documents the conventions used across all `mlmm` commands. Understanding these conventions helps you write correct commands and avoid common errors.
+Conventions shared across all `mlmm` commands.
 
----
+## Boolean options
 
-## Boolean Options
+Every boolean CLI flag accepts **all four forms**:
 
-Boolean options are normalized at the root CLI.
-Both notations are accepted:
-
-```bash
-# Recommended
---tsopt --thermo --no-dft
-
-# Also accepted
---tsopt True --thermo yes --dft 0
-```
-
-For options that are defined only as `--flag`, the root CLI also accepts `--no-flag` and `--flag False` as compatibility aliases.
-All subcommands (including `extract` and `fix-altloc`) use Click as their CLI backend.
-
-Common boolean options:
-- `--tsopt`, `--thermo`, `--dft` -- enable post-processing stages
-- `--dump` -- write trajectory files
-- `--preopt`, `--endopt` -- pre/post optimization toggles
-- `--climb` -- enable climbing image in MEP search
-
----
-
-## Progressive Help (`all`)
-
-`mlmm all` uses two help levels:
+| Form | Example |
+|---|---|
+| Positive flag | `--tsopt` |
+| Negative flag | `--no-tsopt` |
+| Positive value | `--tsopt True`, `--tsopt yes`, `--tsopt 1`, `--tsopt on` |
+| Negative value | `--tsopt False`, `--tsopt no`, `--tsopt 0`, `--tsopt off` |
 
 ```bash
-mlmm all --help # core options only
-mlmm all --help-advanced # full option list
+--tsopt --thermo --no-dft                        # toggle form
+--tsopt True --thermo yes --dft 0                # value form
+--tsopt true --thermo on --dft off               # mix is fine
 ```
 
-`scan`, `scan2d`, `scan3d`, the calculation commands (`opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`), and selected utility commands (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`) now follow the same progressive-help pattern (`--help` core, `--help-advanced` full). `extract` and `fix-altloc` also support progressive help (`--help` core, `--help-advanced` full parser options).
+All four forms route through a single root-CLI `bool_compat` synthesizer; the toggle form (`--tsopt` / `--no-tsopt`) is canonical, and the value form (`--tsopt True`) is accepted as a legacy alias for backward compatibility. `tests/test_bool_compat_cli.py` walks every registered bool option against every form on every release, so a missing entry is caught by CI.
 
----
+Common toggles: `--tsopt` / `--thermo` / `--dft` (post-processing stages) · `--dump` (write trajectory files) · `--preopt` / `--endopt` (pre/post optimisation) · `--climb` (climbing-image MEP).
 
-## Show Config
+### Contributing a new bool flag
 
-View the current configuration (useful for verifying YAML overrides):
+When adding a boolean flag inside a subcommand, always route it through one of the `add_*_option()` factories in `mlmm/cli/common_options.py` and register the long name in the matching `_COMMAND_BOOL_*_OPTIONS` table in `mlmm/cli/app.py`. Avoid writing `@click.option("--foo/--no-foo", ...)` or `type=click.BOOL` directly in the subcommand body — that bypasses the registry, falls out of test coverage, and silently drops the value form.
+
+## Progressive help
+
+```bash
+mlmm <subcmd> --help                # core options
+mlmm <subcmd> --help-advanced       # full option set
+```
+
+`all`, every calc subcommand (`opt`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`), and the main utilities (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`, `extract`, `fix-altloc`) follow this pattern.
+
+(verbosity-levels)=
+
+## Verbosity levels
+
+`-v/--verbose LEVEL` is an integer from 0 to 3 (**default 2**) that sets how much each command prints to the console. It is a per-command option, so write it with the subcommand, e.g. `mlmm opt -v 1 ...`. The same four levels apply to every command; command pages describe only their command-specific payload (e.g. the `opt` cycle table or the `freq` thermochemistry summary).
+
+| Level | What you see |
+|---|---|
+| `-v 0` | Silent. Confirm success from the exit code and the output artifacts. |
+| `-v 1` | Milestones only: version, input summary, key settings, output location, dry-run / final status. No banner, `[command]`, `[mode]`, or config dump. |
+| `-v 2` | Default. Adds the banner, `[command]`, `[mode]`, stage progress, the main optimizer cycle table, terminal status, the one-line Hessian summary, thermo / DFT summaries, and elapsed time. |
+| `-v 3` | Debug: resolved config / dry-run plan, backend DEBUG, raw optimizer and internal-coordinate chatter, `[HessianTiming]`, and `[HessianVRAM]`. |
+
+A semantic failure is a failure at any level: a `Traceback` that appears only at `-v 3` still means the run failed.
+
+## ML/MM required options
+
+Per-stage subcommands (everything except `all`, `extract`, `mm-parm`, `define-layer`) need:
+
+```bash
+--parm real.parm7              # Amber parm7 topology of the full (real) system
+--model-pdb model.pdb          # ML region (model) PDB
+```
+
+`mlmm all` generates both automatically; standalone subcommands require them explicitly.
+
+```bash
+mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
+```
+
+## Inspect resolved config
 
 ```bash
 mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 ```
 
----
-
-## ML/MM Required Options
-
-Most subcommands (except `all`, `extract`, `mm-parm`, and `define-layer`) require two additional options for ML/MM calculations:
-
-```bash
---parm real.parm7 # Amber parm7 topology file for the full (real) system
---model-pdb model.pdb # PDB file defining the ML (model) region atoms
-```
-
-The `all` command generates these files automatically during the workflow (via `mm-parm` and `define-layer`). When running subcommands individually, you must provide them explicitly.
-
-```bash
-# Example: running path-search individually
-mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
-```
-
----
-
-## B-factor Layer Encoding
-
-mlmm-toolkit uses the PDB B-factor column to encode the 3-layer ML/MM partitioning:
+## B-factor layer encoding
 
 | Layer | B-factor | Meaning |
-|-------|----------|---------|
-| ML | 0.0 | MLIP energy/force/Hessian |
-| Movable-MM | 10.0 | MM atoms allowed to move |
-| Frozen | 20.0 | Coordinates fixed |
+|---|---|---|
+| ML | 0.0 | MLIP energy / force / Hessian |
+| Movable-MM | 10.0 | MM atoms free to move |
+| Frozen | 20.0 | Coordinates fixed (non-bonded interactions still included) |
 
-The `define-layer` subcommand writes these B-factors into the PDB. You can inspect layer assignments in any molecular viewer that supports B-factor coloring.
+Tolerance ±1.0 when reading B-factors. Inspect visually by colouring on B-factor. Four ways to assign layers:
 
-A tolerance of 1.0 is used when reading B-factors, so values near 0/10/20 are mapped to ML/Movable/Frozen.
-
-### Layer definition methods
-
-1. **`define-layer` subcommand** (recommended):
-    ```bash
-    mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
-    ```
-
-2. **Distance cutoffs** (YAML/CLI):
-    ```yaml
-    calc:
-     hess_cutoff: 3.6       # Distance cutoff for Hessian-target MM atoms
-     movable_cutoff: 8.0    # Distance cutoff for Movable-MM (beyond = Frozen)
-    ```
-
-3. **Read from B-factors**:
-    ```yaml
-    calc:
-     use_bfactor_layers: true   # Read layers from input PDB B-factors
-    ```
-
-4. **Explicit index specification** (YAML):
-    ```yaml
-    calc:
-     hess_mm_atoms: [100, 101, 102, ...]
-     movable_mm_atoms: [200, 201, 202, ...]
-     frozen_mm_atoms: [300, 301, 302, ...]
-    ```
-
----
-
-## Residue Selectors
-
-Residue selectors identify which residues to use as substrates or extraction centers.
-
-### By residue name
 ```bash
--c 'SAM,GPP' # Select all residues named SAM or GPP
--c 'LIG' # Select all residues named LIG
+# 1. define-layer subcommand (recommended)
+mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
 ```
 
-### By residue ID
+```yaml
+# 2. Distance cutoffs (YAML)
+calc:
+  hess_cutoff: 3.6        # Hessian-target MM
+  movable_cutoff: 8.0     # Movable-MM (beyond → Frozen)
+
+# 3. Read existing B-factors
+calc:
+  use_bfactor_layers: true
+
+# 4. Explicit index lists
+calc:
+  hess_mm_atoms:    [100, 101, 102, ...]
+  movable_mm_atoms: [200, 201, 202, ...]
+  frozen_mm_atoms:  [300, 301, 302, ...]
+```
+
+## Residue selectors
+
+| Form | Example | Notes |
+|---|---|---|
+| By residue name | `-c 'SAM,GPP'` / `-c 'LIG'` | If multiple residues share a name, **all** matches are included (warning logged). |
+| By residue ID | `-c '123,456'` / `-c 'A:123,B:456'` / `-c '123A'` / `-c 'A:123A'` | Optional chain prefix; trailing letter = insertion code. |
+| By PDB file | `-c substrate.pdb` | Use coordinates from a separate PDB to locate substrates. |
+
+## Charge specification
+
+For PDB inputs, `--ligand-charge` lets you specify charges only for non-standard residues (substrates, cofactors, metal ions). The net system charge is **automatically derived** by summing standard amino-acid charges, ions, and your ligand charges.
+
 ```bash
--c '123,456' # Residues 123 and 456
--c 'A:123,B:456' # Chain A residue 123, Chain B residue 456
--c '123A' # Residue 123 with insertion code A
--c 'A:123A' # Chain A, residue 123, insertion code A
+-l 'SAM:1,GPP:-3'              # per-residue mapping (recommended)
+-l 'SAM=1,GPP=-3'              # `=` separator also accepted
+-l -3                           # single integer = total ligand charge
+-q 0                            # explicit total system charge override
 ```
 
-### By PDB file
-```bash
--c substrate.pdb # Use coordinates from a separate PDB to locate substrates
-```
+Residue-name matching is case-insensitive; unmapped non-standard residues default to charge 0.
 
-```{note}
-When selecting by residue name, if multiple residues share the same name, **all** matches are included and a warning is logged.
-```
+**Resolution order** (highest priority first):
 
----
-
-## Charge Specification
-
-For PDB inputs, `--ligand-charge` lets you specify charges only for non-standard residues (substrates, cofactors, metal ions). The net system charge is then **automatically derived** by summing standard amino-acid charges, ion charges, and your ligand charges -- no need to manually count atoms across the entire complex. This is especially useful for large enzyme-substrate systems where the net system charge is not obvious.
-
-### Per-residue mapping (recommended)
-```bash
--l 'SAM:1,GPP:-3' # SAM has charge +1, GPP has charge -3
--l 'LIG:-2' # LIG has charge -2
-```
-
-### Total charge override
-```bash
--q 0 # Force net system charge to 0
--q -1 # Force net system charge to -1
-```
-
-### Charge resolution order
-1. `-q/--charge` (explicit CLI override) -- highest priority.
-2. ML-region determination charge summary (sum of amino acids, ions, and `--ligand-charge`).
-3. `--ligand-charge` fallback when extraction is skipped.
-4. Default: none (abort if unresolved).
-
-Calculation subcommands (`scan`, `scan2d`, `scan3d`, `opt`, `path-opt`, `path-search`, `tsopt`, `freq`, `irc`, `dft`, `oniom-export`) still require explicit `-q/--charge`.
+1. `-q/--charge` explicit CLI override.
+2. ML-region determination summary (sum of amino acids, ions, `--ligand-charge`; only when `-c` is set and extraction runs).
+3. `--ligand-charge` fallback when extraction is skipped (PDB input or `--ref-pdb` required).
+4. `.gjf` template metadata (Gaussian-style charge / spin header; applies to `opt`, `tsopt`, `freq`, `irc`, `scan`, `dft`, `oniom-export` when the input is `.gjf`).
+5. Default: abort if unresolved.
 
 ```{tip}
-Always provide `--ligand-charge` for non-standard residues (substrates, cofactors, unusual ligands) to ensure correct charge propagation.
+Always provide `--ligand-charge` for non-standard residues to ensure correct charge propagation.
 ```
 
----
-
-## Ligand Charge Format
-
-The `--ligand-charge` option supports two formats:
-
-### Mapping format (recommended)
-```bash
--l 'SAM:1,GPP:-3' # Per-residue name mapping
--l 'SAM=1,GPP=-3' # Same meaning (= separator)
--l 'LIG:-2' # Single residue mapping
-```
-
-Both colon (`:`) and equals (`=`) separators are accepted.
-
-### Integer format
-```bash
--l -3 # Total charge for all unknown residues
-```
-
-In the mapping format, residue names are matched case-insensitively. Unmapped non-standard residues default to charge 0.
-
----
-
-## Spin Multiplicity
+## Spin multiplicity
 
 ```bash
--m 1 # Singlet (default)
--m 2 # Doublet
--m 3 # Triplet
+-m 1    # singlet (default)
+-m 2    # doublet
+-m 3    # triplet
 ```
 
-```{note}
-Use `-m/--multiplicity` consistently in `all` and the calculation subcommands. `mm-parm` uses `--ligand-mult` for residue multiplicity metadata, which is a separate option.
-```
+`mm-parm` uses the separate `--ligand-mult` for per-residue multiplicity metadata.
 
----
+## Atom selectors
 
-## Atom Selectors
-
-Atom selectors identify specific atoms for scans and restraints. They can be:
-
-### Integer index (1-based by default)
 ```bash
---scan-lists '[(1, 5, 2.0)]' # Atoms 1 and 5, target distance 2.0 Å
+--scan-lists '[(1, 5, 2.0)]'                                          # 1-based integer indices
+--scan-lists '[("TYR,285,CA", "MMT,309,C10", 2.20)]'                  # PDB-style selector strings
 ```
 
-### PDB-style selector string
-```bash
---scan-lists '[("TYR,285,CA", "MMT,309,C10", 2.20)]'
-```
+Selector field delimiters: space · comma · slash · backtick · backslash — e.g. `'TYR 285 CA'`, `'TYR,285,CA'`, `'TYR/285/CA'`, `` 'TYR`285`CA' ``, `'TYR\285\CA'`. The three tokens (residue name / residue number / atom name) may appear in any order — the parser falls back to a heuristic for non-standard orderings.
 
-Selector fields can be separated by:
-- Space: `'TYR 285 CA'`
-- Comma: `'TYR,285,CA'`
-- Slash: `'TYR/285/CA'`
-- Backtick: `` 'TYR`285`CA' ``
-- Backslash: `'TYR\285\CA'`
+## Input file requirements
 
-The three tokens (residue name, residue number, atom name) can appear in any order -- the parser uses a fallback heuristic if the order is non-standard.
+- **PDB** — must contain hydrogens (add via `reduce` / `pdb2pqr` / Open Babel / `mlmm mm-parm --add-h`) and element symbols in cols 77–78 (`mlmm add-elem-info` if missing). Multiple PDBs must share identical atoms in the same order.
+- **XYZ** — accepted when ML-region determination is skipped (omit `-c/--center`).
+- **Amber `--parm` (parm7)** — force-field parameters for the full system; atom ordering must match the input PDB exactly.
 
----
+## Backend selection
 
-## Input File Requirements
-
-### PDB files
-- Must contain **hydrogen atoms** (use `reduce`, `pdb2pqr`, or Open Babel to add them)
-- Must have **element symbols** in columns 77-78 (use `mlmm add-elem-info` if missing)
-- Multiple PDBs must have **identical atoms in the same order** (only coordinates may differ)
-
-### XYZ files
-- Can be used when ML-region determination is skipped (omit `-c/--center`)
-
-### Amber topology files
-- `--parm`: Amber parm7 file containing force field parameters for the full system
-- The parm7 must match the atom ordering of the input PDB exactly
-
----
-
-## Backend Selection
-
-All computation subcommands (`opt`, `tsopt`, `freq`, `irc`, `dft`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`, `all`) accept:
+All calc subcommands (`opt`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`) accept:
 
 | Option | Description | Default |
-|--------|-------------|---------|
-| `-b, --backend` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2` | `uma` |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction | `--no-embedcharge` |
+|---|---|---|
+| `-b, --backend` | MLIP backend: `uma`, `orb`, `mace`, `aimnet2` | `uma` |
+| `--embedcharge` / `--no-embedcharge` | xTB point-charge embedding correction | off |
 
-Alternative backends are installed via optional dependency groups:
+Install alternatives: `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip install --no-deps mace-torch` (MACE in a dedicated env).
 
-```bash
-pip install "mlmm-toolkit[orb]"       # ORB backend
-pip install "mlmm-toolkit[aimnet]"   # AIMNet2 backend
-pip install --no-deps mace-torch      # MACE backend
+## `--opt-mode` (subcommand-dependent)
+
+```{warning}
+Choices and defaults differ across subcommands.
 ```
 
----
+| Subcommand | Gradient-only alias | Hessian-based alias | Default | Engine |
+|---|---|---|---|---|
+| `opt` | `grad` (`light`, `lbfgs`) | `hess` (`heavy`, `rfo`) | `grad` | L-BFGS vs RFO (with optional `--microiter`). |
+| `tsopt` | `grad` (`light`, `dimer`) | `hess` (`heavy`, `rsirfo`) | `hess` | Dimer vs RS-I-RFO. |
+| `path-search` | `grad` (= L-BFGS) | — (RFO/`hess` not yet wired) | `grad` | Inner optimiser for GSM / DMF nodes; `hess`/`rfo` rejected with a Click error. `path-opt` has no `--opt-mode` (use `--mep-mode gsm`/`dmf`). |
+| `scan` / `scan2d` / `scan3d` | — | — | — | No `--opt-mode`; relaxation uses the YAML inner optimiser. |
 
-## YAML Configuration
+`light` / `heavy` are accepted as legacy aliases for `grad` / `hess` for backward compatibility; prefer `grad` / `hess` in new scripts.
 
-Advanced settings can be passed via layered YAML inputs.
+### YAML precedence
 
-Precedence:
 ```
-defaults < config < CLI options < override-yaml
-```
-
-See [YAML Reference](yaml-reference.md) for all available options.
-
----
-
-## Output Directory
-
-Use `--out-dir` to specify where results are saved:
-
-```bash
---out-dir ./my_results/ # Custom output directory
+defaults < config < CLI options
 ```
 
-Default output directories:
-- `all`: `./result_all/`
-- `extract`: current directory or specified `-o`
-- `mm-parm`: current directory or specified `--out-prefix`
-- `define-layer`: current directory or specified `-o`
-- `opt`: `./result_opt/`
-- `tsopt`: `./result_tsopt/`
-- `path-opt`: `./result_path_opt/`
-- `path-search`: `./result_path_search/`
-- `scan`: `./result_scan/`
-- `scan2d`: `./result_scan2d/`
-- `scan3d`: `./result_scan3d/`
-- `freq`: `./result_freq/`
-- `irc`: `./result_irc/`
-- `dft`: `./result_dft/`
+Three tiers; `--config` is the only YAML layer (no separate "override YAML"). Full schema: [YAML Reference](yaml-reference.md).
 
----
+## Output directory
+
+`--out-dir ./my_results/` overrides. Defaults: `all → ./result_all/`, per-stage subcommand → `./result_<subcmd>/` (e.g. `result_opt/`, `result_tsopt/`, `result_path_search/`). `extract` / `mm-parm` / `define-layer` default to the current directory or the explicit `-o` / `--out-prefix`.
 
 ## See Also
 
-- [Getting Started](getting-started.md) -- Installation and first run
-- [Concepts & Workflow](concepts.md) -- ML/MM 3-layer system, ONIOM decomposition overview
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Common errors and fixes
-- [YAML Reference](yaml-reference.md) -- Complete configuration options
+[Getting Started](getting-started.md) · [Concepts & Workflow](concepts.md) · [Common Error Recipes](recipes-common-errors.md) · [Troubleshooting](troubleshooting.md) · [YAML Reference](yaml-reference.md).

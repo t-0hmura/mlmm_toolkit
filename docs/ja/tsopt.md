@@ -1,65 +1,53 @@
 # `tsopt`
 
-## 概要
+`mlmm tsopt` は層付き酵素 PDB の遷移状態*候補*を一次サドル点まで精密化します。デフォルトのオプティマイザーは RS-I-RFO（`--opt-mode hess`）で、マイクロイテレーション（`--microiter`、デフォルト有効）が ML 1 ステップ RS-I-RFO と MM L-BFGS 緩和を交互に実行します。より軽量な代替として Hessian Guided Dimer（`--opt-mode grad`）があります。収束後は `--flatten` の余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。検証済み TS は**正確に 1 つ**の虚振動数を示すべきで、必ず [`freq`](freq.md) / [`irc`](irc.md) でモードと結合性を確認してください。TS 推測構造は単独候補か、[`path-search`](path-search.md) が抽出する最高エネルギー像（HEI）が典型です。
 
-> **概要:** Hessian Guided Dimer（`--opt-mode grad`）または RS-I-RFO（`--opt-mode hess`、デフォルト）を使用して遷移状態*候補*を最適化します。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで ML 1 ステップ RS-I-RFO と MM 緩和を交互に実行します。検証済み TS は**正確に 1 つ**の虚振動数を示すべきです。必ず freq/IRC でモード/結合性を確認してください。
+## 使いどころ
 
-### `--opt-mode` の選択
+- 層付き酵素 PDB の TS 候補を一次サドル点まで精密化したいとき。単独実行も `path-search` の HEI 抽出後の継ぎとしても使用可。
 - **`--opt-mode hess`（RS-I-RFO）** を使用: デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合。`--microiter`（デフォルト有効）により ML と MM 領域を交互に最適化。
 - **`--opt-mode grad`（Hessian Guided Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。`--ml-only-hessian-dimer` で ML 領域のみのヘシアンを Dimer 方向決定に使用（高速だが精度は低下）。
 
-`mlmm tsopt` は ML/MM 計算機に特化した遷移状態最適化を実行します。`-b/--backend` で ML バックエンドを選択可能です（`uma`、`orb`、`mace`、`aimnet2`）。`--embedcharge` で xTB 点電荷埋め込み補正を有効化し、MM 環境から ML 領域への静電的影響を考慮できます。オプティマイザーは TS 推測構造から開始し、一次鞍点へ精密化します。
-
-### 主な特徴
-- **部分ヘシアンガイド付き Dimer:** ゆるい/最終 Dimer ループ中、hessian_ff 有限差分ヘシアンは無効化（`mm_fd=False`）されます。MLIP ヘシアンは MM 原子をゼロパディングして完全な 3N x 3N 空間に埋め込まれ、Dimer の方向更新をガイドする部分ヘシアンを提供します。
-- **完全ヘシアンによるフラットニングループ:** 探索がフラットニングループに入ると、完全な ML/MM ヘシアン（MM 有限差分ブロックを含む）が正確に 1 回計算され、その後 Dimer セグメント間で Bofill ステップによりアクティブ部分空間で更新されます。
-- **PHVA + TR 射影:** アクティブ自由度射影と質量加重並進/回転除去は `freq.py` をミラーリングし、一貫した虚振動数モード解析とモード書き出しを保証します。
-- **出力変換:** `--convert-files`（デフォルト）により、PDB 入力は `.pdb` にミラーリングされ（`--dump` 時）、虚振動数モードは `_trj.xyz` とともに `.pdb` としてもエクスポートされます。
-
-## 最小例
+## 実行例
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
-## 出力の見方
-
-- `result_tsopt/final_geometry.pdb`（または `final_geometry.xyz`）
-- `result_tsopt/vib/imag_*_trj.xyz`
-- `result_tsopt/vib/imag_*.pdb`
-
-## よくある例
-
-1. VRAM に余裕がある場合に light モード + 解析的ヘシアンで実行する。
-
 ```bash
+# VRAM に余裕がある場合に light モード + 解析的ヘシアンで実行する
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt_light
 ```
 
-2. 最適化軌跡を保存して確認する。
-
 ```bash
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --dump --out-dir ./result_tsopt_dump
-```
-
-3. heavy モードを YAML 上書きと併用する。
-
-```bash
+# heavy モードを YAML 上書きと併用する
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
+# --dump で最適化軌跡を保存、--backend mace で MACE バックエンドを使用
 ```
 
-4. MACE バックエンドで TS 最適化を実行する。
+## 入力
+
+コマンド形式:
 
 ```bash
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --backend mace --out-dir ./result_tsopt_mace
+mlmm tsopt -i TS_GUESS --parm PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]
 ```
 
-## ワークフロー
+`mlmm tsopt --help` で主要オプション、`mlmm tsopt --help-advanced` で全オプション一覧を表示します。
+
+| 入力 | 必須 | 備考 |
+| --- | --- | --- |
+| `-i, --input` | 必須 | 開始ジオメトリ（PDB または XYZ）。XYZ の場合はトポロジーに `--ref-pdb` を使用。 |
+| `--parm` | 必須 | 全酵素の Amber parm7 トポロジー。 |
+| `--model-pdb` | 任意 | ML 領域原子を含む PDB。`--detect-layer` 有効時はオプション。 |
+| `-q, --charge` | 必須（`-l` 未指定時） | ML 領域の総電荷。 |
+| `-m, --multiplicity` | 任意 | ML 領域のスピン多重度 (2S+1)。デフォルト 1。 |
+| `--ref-pdb` | XYZ 入力時 | 入力が XYZ の場合の参照 PDB トポロジー。 |
+
+## 処理の流れ
 
 1. **入力処理** -- 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
 2. **ML/MM 計算機の構築** -- ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がヘシアンを解析的に評価するか有限差分で評価するかを制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
@@ -71,7 +59,29 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードをフラットニングし、1 つだけ残るかフラットニング反復上限に達するまで RS-I-RFO を再実行します。
 5. **モードエクスポートと変換** -- 収束した虚振動数モードは常に `vib/imag_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
 
-## CLIオプション
+## 出力
+
+最適化が成功すると 3 種類の成果物が `result_tsopt/` に出力されます。
+
+- `result_tsopt/final_geometry.pdb`（または `final_geometry.xyz`）
+- `result_tsopt/vib/imag_*_trj.xyz`
+- `result_tsopt/vib/imag_*.pdb`
+
+```
+out_dir/ (デフォルト: ./result_tsopt/)
+├── final_geometry.xyz             # 常に書き出し
+├── final_geometry.pdb             # 入力が PDB の場合
+├── optimization_all_trj.xyz       # 連結 Dimer セグメント（--dump 時）
+├── optimization_all.pdb           # PDB コンパニオン（--dump かつ入力が PDB の場合）
+├── vib/
+│   ├── imag_NN_±XXXX.XXcm-1_trj.xyz  # 虚振動数モード軌跡
+│   └── imag_NN_±XXXX.XXcm-1.pdb      # 虚振動数モード PDB コンパニオン
+└── .dimer_mode.dat                # Dimer 方向シード（light モード）
+```
+
+## CLI オプション
+
+完全なフラグ一覧は生成された[コマンドリファレンス](../reference/commands/index.md)を参照してください。以下の表は説明が必要なオプションのみを扱い、網羅一覧の手動複製は行いません。
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
@@ -90,7 +100,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | `--hessian-calc-mode CHOICE` | MLIP ヘシアンモード: `Analytical` または `FiniteDifference`。 | `FiniteDifference` |
 | `--max-cycles INT` | 最大総オプティマイザーサイクル。 | `10000` |
-| `--opt-mode CHOICE` | TS オプティマイザーモード: `grad`（Dimer）または `hess`（RS-I-RFO）。エイリアス `light`/`heavy`、`dimer`/`rsirfo` も使用可能です。 | `hess` |
+| `--opt-mode CHOICE` | TS オプティマイザーモード（Choice: `grad` / `hess` / `light` / `heavy` / `dimer` / `rsirfo` / `trim` / `rsprfo`）。`grad`/`light`/`dimer` → Hessian-Guided Dimer; `hess`/`heavy`/`rsirfo` → RS-I-RFO（デフォルト、microiter 対応）; `trim` → TRIM（Helgaker、non-microiter）; `rsprfo` → RS-P-RFO（Banerjee、non-microiter）。`trim`/`rsprfo` は `--microiter` を無視します。 | `hess` |
 | `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RS-I-RFO）+ MM 緩和（LBFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
 | `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | `grad` モードで Dimer 方向決定に ML 領域のみのヘシアンを使用。高速だが精度は低下。 | `False` |
 | `--flatten/--no-flatten` | 余分な虚振動数モードフラットニングループの有効化/無効化。`--flatten` はデフォルト反復回数（50）を使用、`--no-flatten` は 0 に強制。light と heavy の両モードに適用。 | _None_（YAML/デフォルト依存; 実質的に 50 回で有効） |
@@ -109,21 +119,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--dry-run/--no-dry-run` | 実行せずに入力/設定を検証し、実行計画を表示。`--help-advanced` に表示。 | `False` |
 
-## 出力
-
-```
-out_dir/ (デフォルト: ./result_tsopt/)
-├── final_geometry.xyz             # 常に書き出し
-├── final_geometry.pdb             # 入力が PDB の場合
-├── optimization_all_trj.xyz       # 連結 Dimer セグメント（--dump 時）
-├── optimization_all.pdb           # PDB コンパニオン（--dump かつ入力が PDB の場合）
-├── vib/
-│   ├── imag_NN_±XXXX.XXcm-1_trj.xyz  # 虚振動数モード軌跡
-│   └── imag_NN_±XXXX.XXcm-1.pdb      # 虚振動数モード PDB コンパニオン
-└── .dimer_mode.dat                # Dimer 方向シード（light モード）
-```
-
-## YAML設定
+## YAML 設定
 
 設定は **デフォルト < config < 明示CLI < override** の順で適用されます。
 共有セクションは [YAML リファレンス](yaml-reference.md) を再利用します。ワークフローに合致している場合は以下のブロック全体をそのまま保持し、変更が必要な値のみ調整してください。
@@ -213,7 +209,7 @@ rsirfo:
  trust_radius: 0.10                # 初期信頼半径（ONIOM 向けに小さめ）
  trust_update: true                # 適応的信頼半径更新
  trust_min: 1.0e-04                # 最小信頼半径
- trust_max: 0.10                   # 最大信頼半径（v0.2.8 で ML/MM 安定性のため厳格化）
+ trust_max: 0.10                   # 最大信頼半径（ML/MM 安定性のため調整）
  max_energy_incr: null             # ステップごとの最大許容エネルギー増加
  hessian_update: bofill            # ヘシアン更新方式の上書き
  hessian_init: calc                # 初期ヘシアンソース
@@ -233,13 +229,15 @@ rsirfo:
 TS 収束が遅い場合や最適化中に TS モードが失われる場合は、`rsirfo` セクションの `hessian_recalc` を小さくしてみてください（例: 50--200）。正確なヘシアン再計算の頻度を上げることで、追加のヘシアン評価コストと引き換えに堅牢性が向上します。
 ```
 
+## 注意事項
+
+アクティブ自由度射影と質量加重並進/回転除去（PHVA + TR 射影）は `freq.py` をミラーリングし、一貫した虚振動数モード解析とモード書き出しを保証します。
+
 ```{note}
-v0.2.8 から `rsirfo.trust_max` のデフォルトが 0.10 bohr に変更されました（旧値 0.20）。TS 近傍での ML/MM 安定性が改善します。
+`rsirfo.trust_max` のデフォルトは 0.10 bohr です。TS 近傍での ML/MM 安定性が改善します。
 
 共有 `opt` ブロックには **エネルギープラトー・フォールバック**（`energy_plateau: true`、`energy_plateau_thresh: 1.0e-4` au を `energy_plateau_window: 50` ステップにわたって適用、いずれもデフォルト）も備わっています。MLIP の力ノイズフロアが `thresh` プリセットを下回れない場合でも、エネルギー自体が停滞した時点でクリーンに収束終了します。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
 ```
-
----
 
 ## 関連項目
 

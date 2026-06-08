@@ -1,0 +1,39 @@
+name: Engineering markers
+
+on:
+  push:
+    branches: [main, "release/**", "refactor/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  markers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run engineering-marker coverage checks
+        run: python .github/scripts/check_engineering_markers.py
+
+  help-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal CLI import deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e . --no-deps
+          pip install click pyyaml numpy biopython scipy ase \
+            autograd dask distributed h5py fabric jinja2 joblib \
+            matplotlib natsort psutil rmsd sympy scikit-learn \
+            pandas tabulate plotly kaleido ParmEd
+      - name: Run --help / --help-advanced registry drift check
+        run: python .github/scripts/check_help_registry.py

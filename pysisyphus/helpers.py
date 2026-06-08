@@ -34,10 +34,6 @@ from pysisyphus.io import (
     geom_from_zmat_fn,
     geoms_from_inline_xyz,
 )
-from pysisyphus.thermo import (
-    can_thermoanalysis,
-    print_thermoanalysis,
-)
 from pysisyphus.xyzloader import parse_xyz_file, parse_trj_file, make_trj_str
 
 import torch

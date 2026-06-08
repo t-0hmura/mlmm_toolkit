@@ -271,8 +271,8 @@ class Geometry:
         # Coordinate systems are handled below
         coord_class = self.coord_types[self.coord_type]
         if coord_class:
-            if (len(self.freeze_atoms) > 0) and ("freeze_atoms" not in coord_kwargs):
-                coord_kwargs["freeze_atoms"] = freeze_atoms
+            coord_kwargs = self._coord_kwargs_with_freeze(coord_kwargs)
+            self.coord_kwargs = coord_kwargs
             self.internal = coord_class(
                 atoms,
                 self.coords3d.copy(),
@@ -281,6 +281,53 @@ class Geometry:
             )
         else:
             self.internal = None
+
+    @property
+    def freeze_atoms(self):
+        return self._freeze_atoms
+
+    @freeze_atoms.setter
+    def freeze_atoms(self, freeze_atoms):
+        old_freeze_atoms = getattr(self, "_freeze_atoms", None)
+        if freeze_atoms is None:
+            freeze_atoms = list()
+        elif type(freeze_atoms) is str:
+            freeze_atoms = full_expand(freeze_atoms)
+        freeze_atoms = np.array(freeze_atoms, dtype=int)
+        self._freeze_atoms = freeze_atoms
+
+        coord_kwargs = getattr(self, "coord_kwargs", None)
+        coord_type = getattr(self, "coord_type", "cart")
+        if coord_kwargs is not None and coord_type != "cart":
+            self.coord_kwargs = self._coord_kwargs_with_freeze(coord_kwargs)
+
+        internal = getattr(self, "internal", None)
+        if internal is not None:
+            needs_rebuild = (
+                old_freeze_atoms is not None
+                and coord_type != "cart"
+                and bool(self.coord_kwargs.get("freeze_atoms_exclude", False))
+                and not np.array_equal(old_freeze_atoms, freeze_atoms)
+            )
+            if needs_rebuild:
+                self.reset_coords()
+            else:
+                try:
+                    internal.freeze_atoms = freeze_atoms.copy()
+                except Exception:
+                    pass
+
+    def _coord_kwargs_with_freeze(self, coord_kwargs=None):
+        if coord_kwargs is None:
+            coord_kwargs = self.coord_kwargs
+        coord_kwargs = coord_kwargs.copy()
+        if self.freeze_atoms.size > 0:
+            coord_kwargs["freeze_atoms"] = self.freeze_atoms.copy()
+            if getattr(self, "coord_type", "cart") != "cart":
+                coord_kwargs.setdefault("freeze_atoms_exclude", True)
+        elif "freeze_atoms" in coord_kwargs:
+            coord_kwargs["freeze_atoms"] = self.freeze_atoms.copy()
+        return coord_kwargs
 
     @property
     def moving_atoms(self):
@@ -585,6 +632,10 @@ class Geometry:
             # Geometry object and the internal coordinate object are the same.
             np.testing.assert_allclose(self.coords3d, self.internal.coords3d)
 
+            frozen_coords3d = None
+            if self.freeze_atoms.size > 0:
+                frozen_coords3d = self.coords3d[self.freeze_atoms].copy()
+
             try:
                 int_step = coords - self.internal.coords
                 cart_step = self.internal.transform_int_step(
@@ -601,8 +652,10 @@ class Geometry:
                     if i not in invalid_inds
                 ]
                 coords3d = exception.coords3d.copy()
+                if frozen_coords3d is not None:
+                    coords3d[self.freeze_atoms] = frozen_coords3d
                 coord_class = self.coord_types[self.coord_type]
-                coord_kwargs = self.coord_kwargs.copy()
+                coord_kwargs = self._coord_kwargs_with_freeze()
                 """Instead of using only the remaining, valid typed_prims
                 we could look for an entirely new set of typed_prims.
                 
@@ -624,7 +677,12 @@ class Geometry:
                 Currently the default."""
                 coord_kwargs["define_prims"] = valid_typed_prims
 
-                self.internal = coord_class(self.atoms, coords3d, **coord_kwargs)
+                self.internal = coord_class(
+                    self.atoms,
+                    coords3d,
+                    masses=self.masses,
+                    **coord_kwargs,
+                )
                 self._coords = coords3d.flatten()
                 raise RebuiltInternalsException(
                     typed_prims=self.internal.typed_prims.copy()
@@ -645,8 +703,14 @@ class Geometry:
             return
 
         coord_class = self.coord_types[self.coord_type]
+        coord_kwargs = self._coord_kwargs_with_freeze()
+        if new_typed_prims is not None:
+            coord_kwargs["typed_prims"] = new_typed_prims
         self.internal = coord_class(
-            self.atoms, self.coords3d, typed_prims=new_typed_prims
+            self.atoms,
+            self.coords3d,
+            masses=self.masses,
+            **coord_kwargs,
         )
 
     @coords.setter
@@ -1056,6 +1120,30 @@ class Geometry:
         """
         hessian = self.cart_hessian
         if self.internal:
+            # transform_hessian expects a full (3N, 3N) Cartesian Hessian
+            # because it contracts with the Wilson B matrix over ALL atoms.
+            # When mlmm BUG #1 fix routed a partial Hessian (active block
+            # only) into geometry.cart_hessian, transform_hessian crashed on
+            # shape mismatch (`cart_hessian - K`). Expand partial → full by
+            # zero-padding outside the active DOFs so internal-coord opt
+            # paths (redund / tric) work under the partial-Hessian regime.
+            if (
+                self.within_partial_hessian is not None
+                and hessian is not None
+            ):
+                _full_n = int(self.within_partial_hessian.get("full_n_dof", self.cart_coords.size))
+                if hessian.shape != (_full_n, _full_n):
+                    _act_dofs = self.within_partial_hessian.get("active_dofs")
+                    if _act_dofs is not None:
+                        import numpy as _np
+                        _idx = _np.asarray(_act_dofs, dtype=int)
+                        _expanded = _np.zeros((_full_n, _full_n), dtype=float)
+                        if hasattr(hessian, "detach"):
+                            _h_np = hessian.detach().cpu().numpy()
+                        else:
+                            _h_np = _np.asarray(hessian)
+                        _expanded[_np.ix_(_idx, _idx)] = _h_np
+                        hessian = _expanded
             int_gradient = self.gradient
             return self.internal.transform_hessian(hessian, int_gradient)
         return hessian

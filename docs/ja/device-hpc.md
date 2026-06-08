@@ -96,8 +96,8 @@ hostname
 cd "${PBS_O_WORKDIR}"
 
 # 環境モジュールのロード
-. /home/apps/Modules/init/profile.sh
-module load cuda/12.9
+source /etc/profile.d/modules.sh  # クラスター依存
+module load cuda/<version>
 
 # conda 環境の有効化
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -128,7 +128,7 @@ mlmm opt \
 set -euo pipefail
 hostname
 
-module load cuda/12.9
+module load cuda/<version>
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate mlmm
@@ -167,7 +167,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 
 ## 制限事項
 
-- **マルチ GPU 非対応:** pdb2reaction（Ray 経由のマルチワーカー推論をサポート）とは異なり、mlmm-toolkit は GPU 1 基で動作。hessian_ff バックエンドは並列プレディクタに非対応。
+- **マルチ GPU 非対応:** mlmm-toolkit は GPU 1 基で動作する。hessian_ff バックエンドは並列プレディクタに非対応。
 - **分散計算非対応:** すべての計算は単一ノードの単一プロセス内で実行。
 - **hessian_ff は CPU のみ:** デフォルトの MM バックエンドは `mm_device` の設定に関係なく常に CPU で実行。
 

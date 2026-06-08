@@ -1,31 +1,19 @@
 # `opt`
 
-## 概要
+`mlmm opt` は、ML/MM 計算機（MLIP バックエンド（デフォルト: UMA）+ hessian_ff）を使用して単一構造を局所極小に最適化します。L-BFGS（`--opt-mode grad`、デフォルト）または RFO（`--opt-mode hess`）が選択できます。エイリアス `light`/`heavy` および `lbfgs`/`rfo` も使用可能です。`--backend` で ML バックエンドを切り替え可能です（`uma`、`orb`、`mace`、`aimnet2`）。入力は `.pdb` または `.xyz`（`_trj.xyz` を含む。XYZ は `--ref-pdb` が必要）が使用可能です。
 
-> **概要:** L-BFGS（`--opt-mode grad`、デフォルト）または RFO（`--opt-mode hess`）を使用して単一構造を局所極小に最適化します。`--flatten` で虚振動数モードのフラットニングを有効化できます。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで ML 1 ステップと MM 緩和を交互に実行します。
+## 使いどころ
 
-`mlmm opt` は、ML/MM 計算機（MLIP バックエンド（デフォルト: UMA）+ hessian_ff）を使用して単一構造を局所極小に最適化します。L-BFGS（`--opt-mode grad`、デフォルト）または RFO（`--opt-mode hess`）が選択できます。エイリアス `light`/`heavy` および `lbfgs`/`rfo` も使用可能です。`--backend` で ML バックエンドを切り替え可能です（`uma`、`orb`、`mace`、`aimnet2`）。入力は `.pdb`、`.xyz`、`_trj.xyz`、または `geom_loader` がサポートする任意の形式が使用可能です。設定の優先順位は **デフォルト < config < 明示CLI < override** です。
+- ML/MM 計算機（MLIP 領域 + 可動 MM 殻 + 凍結外殻）を用いて、層付き全系 PDB を局所極小まで緩和したいとき。
+- `--opt-mode grad`（デフォルト）は L-BFGS、`--opt-mode hess` は RFOptimizer（RFO）を実行。
+- 最適化後に虚振動数モードをフラットニングするには `--flatten`、ML/MM ONIOM 最適化前の安価な MM 事前緩和には `--mm-only` を使用。
 
-入力が PDB の場合、`--convert-files/--no-convert-files`（デフォルト有効）で制御される `.pdb` コンパニオンファイルも書き出されます。PDB 固有の機能:
-- 出力変換で `final_geometry.pdb`（軌跡ダンプ時は `optimization.pdb`）が入力 PDB をトポロジー参照として生成されます。
-- B 因子のアノテーション（3 層エンコーディング）: ML 領域原子 = 0.00、可動 MM 原子 = 10.00、凍結 MM 原子 = 20.00。
-
-## 最小例
+## 実行例
 
 ```bash
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_opt
 ```
-
-## 出力の見方
-
-- `result_opt/final_geometry.xyz`
-- `result_opt/final_geometry.pdb`（入力が PDB で変換が有効な場合）
-- `result_opt/optimization_trj.xyz`（`--dump` 有効時）
-- `result_opt/optimization_all_trj.xyz`（`--dump` 有効時）
-- `result_opt/optimization_all.pdb`（`--dump` 有効時、入力が PDB の場合）
-
-## よくある例
 
 1. 収束を厳しくして軌跡を保存する。
 
@@ -48,14 +36,29 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
 ```
 
-4. デフォルトの UMA の代わりに ORB バックエンドを使用する。
+## 入力
+
+コマンド形式:
 
 ```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --backend orb --out-dir ./result_opt_orb
+mlmm opt -i INPUT --parm PARM7 --model-pdb ML_REGION -q CHARGE [options]
 ```
 
-## ワークフロー
+`mlmm opt --help` でコアオプション、`mlmm opt --help-advanced` で全オプションリストが表示されます。
+
+| 入力 | 必須 | 説明 |
+| --- | --- | --- |
+| `-i, --input` | yes | `geom_loader` が受け付ける入力構造（`.pdb`、`.xyz`、`_trj.xyz`）。XYZ 入力時は `--ref-pdb` を併用。 |
+| `--parm` | yes | 全酵素の Amber parm7 トポロジー。 |
+| `--model-pdb` / `--model-indices` / `--detect-layer` | yes | ML 領域定義（B 因子エンコード: B=0 ML、B=10 Movable-MM、B=20 Frozen）。 |
+| `-q, --charge` | yes（`-l` 未指定時） | ML 領域の正味電荷。 |
+| `--ref-pdb` | XYZ 入力時 | 入力が XYZ の場合の参照 PDB トポロジー。 |
+
+入力が PDB の場合、`--convert-files/--no-convert-files`（デフォルト有効）で制御される `.pdb` コンパニオンファイルも書き出されます。PDB 固有の機能:
+- 出力変換で `final_geometry.pdb`（軌跡ダンプ時は `optimization.pdb`）が入力 PDB をトポロジー参照として生成されます。
+- B 因子のアノテーション（3 層エンコーディング）: ML 領域原子 = 0.00、可動 MM 原子 = 10.00、凍結 MM 原子 = 20.00。
+
+## 処理の流れ
 
 1. **入力処理** -- `-i/--input` は PDB または XYZ ファイルを受け付けます（XYZ 入力時は `--ref-pdb` を使用）。オプティマイザーは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Movable-MM、B=20 Frozen）から取得されます。
 2. **ML/MM 計算機の構築** -- ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
@@ -65,9 +68,29 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 5. **ダンプと変換** -- `--dump` は `optimization_trj.xyz` を書き出します。変換が有効な場合、PDB 入力では軌跡も `.pdb` に変換されます（B 因子アノテーション付き）。`opt.dump_restart` はリスタート YAML スナップショットを出力できます。
 6. **終了コード** -- `0` 成功、`2` ゼロステップ（ステップノルム < `min_step_norm`）、`3` オプティマイザーエラー、`130` キーボード割り込み、`1` 予期しないエラー。
 
-## CLIオプション
+## 出力
 
-> **注意:** 表示されるデフォルト値はオプション未指定時に使用されます。
+```
+out_dir/ (デフォルト: ./result_opt/)
+├─ final_geometry.xyz          # 常に書き出し
+├─ final_geometry.pdb          # 入力が PDB で変換有効時のみ（B 因子アノテーション付き）
+├─ optimization_trj.xyz        # ダンプ有効時のみ
+├─ optimization.pdb            # PDB 入力で変換有効時の軌跡 PDB 変換
+├─ optimization_all_trj.xyz    # 連結フル軌跡（--dump 時）
+├─ optimization_all.pdb        # フル軌跡の PDB コンパニオン（PDB 入力、--dump 時）
+└─ restart*.yml                # opt.dump_restart 設定時のオプションリスタート
+```
+
+コンソールには解決済みの設定ブロック（`geom`、`calc`、`opt`、`lbfgs`）、`print_every` サイクルごとの進捗、最終的な実行時間サマリーが出力されます。
+
+出力の見方:
+- `result_opt/final_geometry.xyz`
+- `result_opt/final_geometry.pdb`（入力が PDB で変換が有効な場合）
+- `result_opt/optimization_trj.xyz`（`--dump` 有効時）
+- `result_opt/optimization_all_trj.xyz`（`--dump` 有効時）
+- `result_opt/optimization_all.pdb`（`--dump` 有効時、入力が PDB の場合）
+
+## CLI オプション
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
@@ -114,22 +137,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | `gau_vtight` | 非常に厳密; ベンチマーク/高精度最終構造 | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | Baker 式規則（`max\|F\| < 3e-4` **かつ** `\|dE\| < 1e-6 または max\|step\| < 3e-4` で収束） | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
-## 出力
-
-```
-out_dir/ (デフォルト: ./result_opt/)
-├─ final_geometry.xyz          # 常に書き出し
-├─ final_geometry.pdb          # 入力が PDB で変換有効時のみ（B 因子アノテーション付き）
-├─ optimization_trj.xyz        # ダンプ有効時のみ
-├─ optimization.pdb            # PDB 入力で変換有効時の軌跡 PDB 変換
-├─ optimization_all_trj.xyz    # 連結フル軌跡（--dump 時）
-├─ optimization_all.pdb        # フル軌跡の PDB コンパニオン（PDB 入力、--dump 時）
-└─ restart*.yml                # opt.dump_restart 設定時のオプションリスタート
-```
-
-コンソールには解決済みの設定ブロック（`geom`、`calc`、`opt`、`lbfgs`）、`print_every` サイクルごとの進捗、最終的な実行時間サマリーが出力されます。
-
-## YAML設定
+## YAML 設定
 
 設定は **デフォルト < config < 明示CLI < override** の順で適用されます。受け付けるセクション:
 
@@ -169,6 +177,10 @@ L-BFGS 固有の拡張: `keep_last`、`beta`、`gamma_mult`、`max_step`、`cont
 ### `rfo`
 
 RFOptimizer 固有の拡張: 信頼領域サイジング（`trust_radius`、`trust_min`、`trust_max`、`trust_update`）、`max_energy_incr`、ヘシアン管理（`hessian_update`、`hessian_init`、`hessian_recalc`、`hessian_recalc_adapt`、`small_eigval_thresh`）、マイクロイテレーション制御（`alpha0`、`max_micro_cycles`、`rfo_overlaps`）、DIIS ヘルパー（`gdiis`、`gediis`、閾値、`gdiis_test_direction`）、`adapt_step_func`。
+
+### `microiter`
+
+`--microiter` が `--opt-mode hess` で有効な場合にのみ使用されます。`micro_thresh` は MM 緩和ステップの L-BFGS 収束プリセットを設定します。`null` または省略時は、マイクロステップは macro オプティマイザーと同じプリセット（`--thresh` / `opt.thresh`）を使用します。`--micro-thresh` CLI フラグは存在せず、YAML で設定します。
 
 ### YAML 例
 ```yaml
@@ -264,7 +276,7 @@ rfo:
  trust_radius: 0.10             # 信頼領域半径
  trust_update: true             # 信頼領域更新を有効化
  trust_min: 0.0001              # 最小信頼半径
- trust_max: 0.10                # 最大信頼半径（v0.2.8 で ML/MM 安定性のため厳格化）
+ trust_max: 0.10                # 最大信頼半径（ML/MM 安定性のため調整）
  max_energy_incr: null          # ステップごとの許容エネルギー増加
  hessian_update: bfgs           # ヘシアン更新方式
  hessian_init: calc             # ヘシアン初期化ソース
@@ -281,6 +293,8 @@ rfo:
  gdiis_test_direction: true     # DIIS 前に降下方向をテスト
  adapt_step_func: true          # 適応的ステップスケーリング
 ```
+
+完全なスキーマ（全セクション、キー、デフォルト）: [YAML リファレンス](yaml-reference.md)。
 
 ---
 

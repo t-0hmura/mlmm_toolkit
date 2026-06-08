@@ -1,7 +1,7 @@
 # YAML Schema
 
 - Source template: `scripts/generate_reference.py::_ALL_TEMPLATE`
-- Template digest: `63bc0343cb6d`
+- Template digest: `3a9783043149`
 
 ## Top-level Keys
 
@@ -22,11 +22,11 @@
 
 calc:
   backend: uma              # ML backend: uma, orb, mace, aimnet2
-  orb_model: null           # ORB model name (when backend=orb)
-  orb_precision: null       # ORB precision setting (when backend=orb)
-  mace_model: null          # MACE model path or name (when backend=mace)
-  mace_dtype: null          # MACE dtype, e.g. float64 (when backend=mace)
-  aimnet2_model: null       # AIMNet2 model name (when backend=aimnet2)
+  orb_model: orb_v3_conservative_omol  # ORB model name (when backend=orb)
+  orb_precision: float32-high  # ORB precision (when backend=orb; legacy "float32" alias accepted)
+  mace_model: MACE-OMOL-0   # MACE model path or name (when backend=mace)
+  mace_dtype: float64       # MACE dtype, e.g. float32 / float64 (when backend=mace)
+  aimnet2_model: aimnet2    # AIMNet2 model name (when backend=aimnet2)
   embedcharge: false        # Enable xTB point-charge embedding correction
   embedcharge_step: 1.0e-3   # Numerical Hessian step for embedding correction (Å)
   xtb_cmd: xtb              # Path or command for the xTB executable
@@ -40,7 +40,7 @@ extract:
   radius_het2het: 0.0
 
 path_search:
-  max_nodes: 10
+  max_nodes: 20
   max_cycles: 300
 
 scan:
@@ -71,11 +71,11 @@ dft:
 | Key | Type | Default |
 |---|---|---|
 | `calc.backend` | `str` | `'uma'` |
-| `calc.orb_model` | `NoneType` | `None` |
-| `calc.orb_precision` | `NoneType` | `None` |
-| `calc.mace_model` | `NoneType` | `None` |
-| `calc.mace_dtype` | `NoneType` | `None` |
-| `calc.aimnet2_model` | `NoneType` | `None` |
+| `calc.orb_model` | `str` | `'orb_v3_conservative_omol'` |
+| `calc.orb_precision` | `str` | `'float32-high'` |
+| `calc.mace_model` | `str` | `'MACE-OMOL-0'` |
+| `calc.mace_dtype` | `str` | `'float64'` |
+| `calc.aimnet2_model` | `str` | `'aimnet2'` |
 | `calc.embedcharge` | `bool` | `False` |
 | `calc.embedcharge_step` | `float` | `0.001` |
 | `calc.xtb_cmd` | `str` | `'xtb'` |
@@ -85,7 +85,7 @@ dft:
 | `calc.xtb_ncores` | `int` | `4` |
 | `extract.radius` | `float` | `2.6` |
 | `extract.radius_het2het` | `float` | `0.0` |
-| `path_search.max_nodes` | `int` | `10` |
+| `path_search.max_nodes` | `int` | `20` |
 | `path_search.max_cycles` | `int` | `300` |
 | `scan.max_step_size` | `float` | `0.2` |
 | `scan.bias_k` | `float` | `300.0` |

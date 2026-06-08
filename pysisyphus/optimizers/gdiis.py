@@ -21,6 +21,12 @@ from scipy.optimize import minimize
 from pysisyphus.helpers import array2string
 import torch
 
+# M5 (refinement_plan §M1+M5): one-place torch-vs-numpy dispatch for the
+# subset of GDIIS sites where both backends share `xp.linalg.norm` / `xp.sum`
+# semantics. Sites with torch-specific slicing / einsum / `from_numpy` keep
+# their inline isinstance branches.
+from pysisyphus._array import get_xp
+
 COS_CUTOFFS = {
     # Looser cutoffs
     2: 0.80,
@@ -111,16 +117,12 @@ def gdiis(err_vecs, coords, forces, ref_step, max_vecs=5, test_direction=True):
             log("Torch LinAlgError when solving GDIIS matrix.")
             break
         # Scale coeffs so that their sum equals 1
-        if isinstance(err_vecs, torch.Tensor):
-            coeffs_norm = torch.linalg.norm(coeffs)
-        else:
-            coeffs_norm = np.linalg.norm(coeffs) 
+        # M5: xp.linalg.norm / xp.sum share name + semantics across torch+np.
+        xp = get_xp(err_vecs)
+        coeffs_norm = xp.linalg.norm(coeffs)
         valid_coeffs_norm = coeffs_norm <= 1e8
         log(f"\tError vectors are linearly independent: {valid_coeffs_norm}")
-        if isinstance(err_vecs, torch.Tensor):
-            coeffs /= torch.sum(coeffs)
-        else:
-            coeffs /= np.sum(coeffs)
+        coeffs /= xp.sum(coeffs)
         coeffs_str = array2string(coeffs, precision=4)
         log(f"\tGDIIS coefficients: {coeffs_str}")
 
@@ -140,10 +142,9 @@ def gdiis(err_vecs, coords, forces, ref_step, max_vecs=5, test_direction=True):
         # Calculate GDIIS step for comparison to the reference step
         diis_coords = from_coeffs(coords, coeffs)
         diis_step = diis_coords - coords[-1]
-        if isinstance(err_vecs, torch.Tensor):
-            valid_length = torch.linalg.norm(diis_step) <= (10 * torch.linalg.norm(ref_step))
-        else:
-            valid_length = np.linalg.norm(diis_step) <= (10 * np.linalg.norm(ref_step))
+        # M5: xp.linalg.norm shared name + semantics.
+        xp = get_xp(err_vecs)
+        valid_length = xp.linalg.norm(diis_step) <= (10 * xp.linalg.norm(ref_step))
         log(f"\tGDIIS step has valid length: {valid_length}")
 
         # Compare directions of GDIIS- and reference step

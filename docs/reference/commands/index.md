@@ -1,5 +1,7 @@
 # CLI Command Reference
 
+These pages are the generated `--help` reference for each command. For usage guidance and worked examples, see the command's narrative guide in the main documentation (e.g. [all](../../all.md), [opt](../../opt.md)).
+
 ```{toctree}
 :maxdepth: 1
 :hidden:
@@ -20,10 +22,10 @@ oniom_import
 opt
 path_opt
 path_search
-pysis
 scan
 scan2d
 scan3d
+sp
 trj2fig
 tsopt
 ```
@@ -46,9 +48,9 @@ tsopt
 | `mlmm opt` | [opt](opt.md) |
 | `mlmm path-opt` | [path-opt](path_opt.md) |
 | `mlmm path-search` | [path-search](path_search.md) |
-| `mlmm pysis` | [pysis](pysis.md) |
 | `mlmm scan` | [scan](scan.md) |
 | `mlmm scan2d` | [scan2d](scan2d.md) |
 | `mlmm scan3d` | [scan3d](scan3d.md) |
+| `mlmm sp` | [sp](sp.md) |
 | `mlmm trj2fig` | [trj2fig](trj2fig.md) |
 | `mlmm tsopt` | [tsopt](tsopt.md) |

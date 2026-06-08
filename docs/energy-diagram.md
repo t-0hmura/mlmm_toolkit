@@ -1,34 +1,42 @@
 # `energy-diagram`
 
-## Overview
+Draw a state energy diagram directly from numeric values (no structure file, no ML/MM calculation). `mlmm energy-diagram` only visualizes numbers you provide. It does not read PDB/XYZ structures and does not run thermochemistry (`--thermo`) or DFT (`--dft`) steps.
 
-> **Summary:** Draw a state energy diagram directly from numeric values (no structure file, no ML/MM calculation).
+## When to use
 
-`mlmm energy-diagram` only visualizes numbers you provide. It does not read PDB/XYZ structures and does not run thermochemistry (`--thermo`) or DFT (`--dft`) steps.
+- Plot a state energy diagram straight from numeric values when you already have the energies and do not need a structure-based ML/MM calculation.
+- Not for thermochemistry or DFT: it only renders the numbers you provide.
 
-## Minimal example
+## Quick examples
 
 ```bash
-mlmm energy-diagram -i 0 12.5 4.3 -o energy.png
+mlmm energy-diagram -i "[0, 12.5, 4.3]" -o energy.png
 ```
-
-## Output checklist
-
-- `OUTPUT.(png|jpg|jpeg|svg|pdf)` -- the rendered energy diagram image
-
-## Common examples
-
-1. List string input.
 
 ```bash
 mlmm energy-diagram -i "[-205.1, -190.4, -198.7]" -o energy.png
 ```
 
-2. X/Y labels.
+```bash
+mlmm energy-diagram -i 0 -i 12.5 -i 4.3 -o energy.png
+```
 
 ```bash
-mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o energy.png
+mlmm energy-diagram -i "[0, 12.5, 4.3]" --label-x R TS P --label-y "ΔE (kcal/mol)" -o energy.png
 ```
+
+## Inputs
+
+Command form:
+
+```bash
+mlmm energy-diagram -i INPUT -o OUTPUT [options]
+```
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `-i, --input` | yes | Numeric values: supports repeated flags, multiple values after one flag, and list-like strings. At least two values required. |
+| `-o, --output` | no | Output image path (`.png/.jpg/.jpeg/.svg/.pdf`). |
 
 ## Workflow
 1. Collect values from `-i/--input` (supports repeated flags, multiple values after one flag, and list-like strings).
@@ -36,6 +44,10 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o
 3. Parse optional `--label-x` values. If omitted, labels are auto-generated as `S1`, `S2`,...
 4. Validate label count (`--label-x`) against value count, then render the diagram.
 5. Save the image to `-o/--output` and print the saved path.
+
+## Outputs
+
+- `OUTPUT.(png|jpg|jpeg|svg|pdf)` -- the rendered energy diagram image
 
 ## CLI options
 | Option | Description | Default |
@@ -45,9 +57,11 @@ mlmm energy-diagram -i 0 12.5 4.3 --label-x R TS P --label-y "ΔE (kcal/mol)" -o
 | `--label-x TEXT...` | X-axis state labels. Count must match input value count. | `S1, S2,...` |
 | `--label-y TEXT` | Y-axis label. | `ΔE (kcal/mol)` |
 
+The full flag list is in the generated [command reference](reference/commands/index.md).
+
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
-- [trj2fig](trj2fig.md) -- Plot profile from trajectory energies
-- [all](all.md) -- End-to-end workflow with built-in energy diagram output
+- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
+- [trj2fig](trj2fig.md) — Plot profile from trajectory energies
+- [all](all.md) — End-to-end workflow with built-in energy diagram output

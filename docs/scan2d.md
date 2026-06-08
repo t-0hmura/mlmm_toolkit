@@ -1,44 +1,14 @@
 # `scan2d`
 
-## Overview
+Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. The 3D `scan2d_landscape.html` includes a bottom contour projection.
 
-> **Summary:** Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal.
+## When to use
 
-`mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. The scan iterates d1 first, relaxing the structure with only the d1 restraint active, then iterates d2 for each d1 value with both restraints applied.
+- Use when mapping a 2D potential energy surface across two reactive distances (e.g., bond-forming + bond-breaking) to locate saddle points and bifurcation features that a 1D scan would miss.
+- Pass a YAML/JSON spec file (recommended) or an inline Python literal to `-s/--scan-lists`; both forms accept exactly two scan axes.
 
-Energies at each grid point are re-evaluated without the bias to populate a PES grid and contour plot. Outputs include per-point XYZ snapshots, `surface.csv` summarizing the PES, a 2D contour map (`scan2d_map.png`), and a 3D landscape with bottom projection (`scan2d_landscape.html`).
+## Quick examples
 
-
-## Minimal example
-```bash
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan2d.yaml --print-parsed -o ./result_scan2d/
-```
-
-## Output checklist
-- `result_scan2d/surface.csv`
-- `result_scan2d/grid/point_i000_j000.xyz`
-- `result_scan2d/scan2d_map.png` and `result_scan2d/scan2d_landscape.html`
-
-## Common examples
-1. Validate parsed scan targets from a YAML spec.
-2. Run with an inline `-s` literal.
-3. Enable `--dump` to store inner trajectories per outer d1 step.
-
-> **Note:** Add `--print-parsed` when you want to verify parsed pair targets from `-s/--scan-lists`.
-
-## Usage
-```bash
-mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q CHARGE [-m MULT] \
- [-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
- [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
- [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
- [--dump/--no-dump] [--out-dir DIR] \
- [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
-```
-
-### Examples
 ```bash
 # Recommended: YAML/JSON spec
 cat > scan2d.yaml << 'YAML'
@@ -49,11 +19,15 @@ pairs:
 YAML
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan2d.yaml --print-parsed
+```
 
+```bash
 # Alternative: inline Python literal
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
+```
 
+```bash
 # LBFGS scan with TRJ dumps and fixed color scale for the contour plot
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
@@ -61,7 +35,31 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --zmin 0.0 --zmax 40.0
 ```
 
-## YAML/JSON spec format (recommended)
+Add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation.
+
+## Inputs
+
+Command form:
+
+```bash
+mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q CHARGE [-m MULT] \
+ [-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
+ [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
+ [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
+ [--dump/--no-dump] [--out-dir DIR] \
+ [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
+```
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `-i, --input` | yes | Input enzyme complex PDB. |
+| `--parm` | yes | Amber parm7 topology for the enzyme. |
+| `--model-pdb` | recommended | PDB defining the ML region (optional when `--detect-layer` is enabled). |
+| `-q, --charge` | required unless `-l` | ML-region net charge. |
+| `-s, --scan-lists` | yes | YAML/JSON spec file path or inline Python literal with exactly two quadruples. |
+
+### YAML/JSON spec format (recommended)
 
 `-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
 
@@ -76,11 +74,9 @@ pairs:
 - Each quadruple is `(i, j, low_A, high_A)`.
 - Indices may be integers or PDB selectors (same as inline literals).
 
-## Inline literal format
+### Inline literal format
 
 When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
-
-### Basic structure
 
 The literal is a Python list of exactly **two** quadruples `(atom1, atom2, low_A, high_A)`:
 
@@ -91,8 +87,6 @@ The literal is a Python list of exactly **two** quadruples `(atom1, atom2, low_A
 - Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
 - Each quadruple defines one scan axis: the distance between `atom1`--`atom2` is scanned from `low_A` to `high_A`.
 - Unlike `scan`, only **one literal** is accepted (no multi-stage support).
-
-### Specifying atoms
 
 Atoms can be given as **integer indices** or **PDB selector strings**:
 
@@ -111,7 +105,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 "285,TYR,CA" # order is flexible
 ```
 
-### Quoting rules
+Quoting rules:
 
 ```bash
 # Correct: single-quote the list, double-quote selector strings inside
@@ -125,6 +119,7 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 ```
 
 ## Workflow
+
 1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `-b/--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
 2. **Grid construction** -- Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal) into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
@@ -132,7 +127,27 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`.
 6. **Visualization** -- Write `scan2d_map.png` (2D contour) and `scan2d_landscape.html` (3D surface). Use `--zmin/--zmax` to clamp the color scale. Baselines: `--baseline min` zeroes the minimum energy; `--baseline first` zeroes the (i=0, j=0) grid point.
 
+## Outputs
+
+Check `surface.csv` (the PES grid), `scan2d_map.png` (2D contour), and `scan2d_landscape.html` (3D landscape) first; per-point geometries land under `grid/` (the `i###` / `j###` filename tags are integer hundredths of an ångström, not step indices).
+
+```
+out_dir/ (default: ./result_scan2d/)
+├── surface.csv # PES grid: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged, is_preopt, d1_label, d2_label
+├── scan2d_map.png # 2D contour map
+├── scan2d_landscape.html # 3D surface visualization (Plotly)
+├── grid/
+│ ├── point_i###_j###.xyz # Relaxed geometry for every (i, j) pair
+│ ├── point_i###_j###.pdb # PDB companion (when input is PDB)
+│ ├── preopt_i###_j###.xyz # Pre-optimized structure (when --preopt)
+│ └── inner_path_d1_###_trj.xyz # Inner d2 trajectory per d1 slice (when --dump)
+└── (stdout) # Progress and energy summaries
+```
+
 ## CLI options
+
+The full flag list is in the generated [command reference](reference/commands/index.md); do not hand-duplicate it. The table below covers the options that need explanation.
+
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Input enzyme complex PDB (required). | Required |
@@ -166,21 +181,10 @@ PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, bac
 | `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
+| `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
+| `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
-
-## Outputs
-```
-out_dir/ (default: ./result_scan2d/)
-├── surface.csv # PES grid: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged
-├── scan2d_map.png # 2D contour map
-├── scan2d_landscape.html # 3D surface visualization (Plotly)
-├── grid/
-│ ├── point_i###_j###.xyz # Relaxed geometry for every (i, j) pair
-│ ├── point_i###_j###.pdb # PDB companion (when input is PDB)
-│ ├── preopt_i###_j###.xyz # Pre-optimized structure (when --preopt)
-│ └── inner_path_d1_###_trj.xyz # Inner d2 trajectory per d1 slice (when --dump)
-└── (stdout) # Progress and energy summaries
-```
 
 ## YAML configuration
 
@@ -206,12 +210,13 @@ bias:
  k: 300.0
 ```
 
+Full schema (every key and default): [YAML Reference](yaml-reference.md).
+
 ## See Also
 
-- [Common Error Recipes](recipes-common-errors.md) -- Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) -- Detailed troubleshooting guide
-
-- [scan](scan.md) -- 1D bond-length driven scan
-- [scan3d](scan3d.md) -- 3D distance grid scan
-- [opt](opt.md) -- Single-structure geometry optimization
-- [all](all.md) -- End-to-end workflow
+- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
+- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
+- [scan](scan.md) — 1D bond-length driven scan
+- [scan3d](scan3d.md) — 3D distance grid scan
+- [opt](opt.md) — Single-structure geometry optimization
+- [all](all.md) — End-to-end workflow

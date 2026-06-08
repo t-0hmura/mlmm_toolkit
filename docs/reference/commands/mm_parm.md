@@ -1,18 +1,22 @@
 # `mlmm mm-parm`
 
 ```text
-
 Usage: mlmm mm-parm [OPTIONS]
 
   Generate Amber parm7/rst7 (and a LEaP-exported PDB) from a PDB using
   AmberTools only.
 
 Options:
+  -v, --verbose LEVEL           Console verbosity 0-3 (default 2). 0=silent;
+                                1=milestones only; 2=+optimizer cycle tables,
+                                per-stage timing, VRAM, deliverable paths;
+                                3=everything (full config blocks, per-file
+                                paths, DEBUG logging).  [0<=x<=3]
   --help-advanced               Show all options (including advanced settings)
                                 and exit.
   -i, --input FILE              Input PDB file (used as-is; optional hydrogens
                                 via --add-h/--ph).  [required]
-  --out-prefix TEXT             Output prefix (default: input PDB stem). For
+  -o, --out-prefix TEXT         Output prefix (default: input PDB stem). For
                                 LEaP PDB: if omitted and --add-h True,
                                 <input_stem>_parm.pdb is used.
   -l, --ligand-charge TEXT      Comma-separated mapping of residue=charge or
@@ -22,9 +26,10 @@ Options:
                                 or residue:multiplicity (e.g., "HEM=1,NO:2")
   --keep-temp / --no-keep-temp  Keep temporary working directory (in current
                                 dir) for debugging.  [default: no-keep-temp]
-  --add-ter / --no-add-ter      Insert TER before/after target residues. When
-                                contiguous, TER is not inserted between them.
-                                [default: add-ter]
+  --add-ter / --no-add-ter      Insert TER before/after target residues and
+                                disconnected peptide blocks. When target
+                                residues are contiguous, TER is not inserted
+                                between them.  [default: add-ter]
   --add-h / --no-add-h          Add hydrogens using PDBFixer at the specified
                                 --ph.  [default: no-add-h]
   --ph FLOAT                    pH used by PDBFixer when adding hydrogens

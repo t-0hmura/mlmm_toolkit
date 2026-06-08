@@ -90,12 +90,12 @@ hostname
 cd "${PBS_O_WORKDIR}"
 
 # Load environment modules
-. /home/apps/Modules/init/profile.sh
-module load cuda/12.9
+source /etc/profile.d/modules.sh  # cluster-dependent
+module load cuda/<version>
 
 # Activate conda environment
 source ~/miniconda3/etc/profile.d/conda.sh
-conda activate mlmm
+conda activate <your-env>
 
 # Run optimization
 mlmm opt \
@@ -122,10 +122,10 @@ mlmm opt \
 set -euo pipefail
 hostname
 
-module load cuda/12.9
+module load cuda/<version>
 
 source ~/miniconda3/etc/profile.d/conda.sh
-conda activate mlmm
+conda activate <your-env>
 
 mlmm opt \
   -i r_complex_layered.pdb \
@@ -161,7 +161,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 
 ## Limitations
 
-- **No multi-GPU parallelism:** Unlike pdb2reaction (which supports multi-worker inference via Ray), mlmm-toolkit runs on a single GPU. The hessian_ff backend does not support parallel predictors.
+- **No multi-GPU parallelism:** mlmm-toolkit runs on a single GPU; the `hessian_ff` backend does not support parallel predictors.
 - **No distributed computing:** All calculations run within a single process on a single node.
 - **hessian_ff is CPU-only:** The default MM backend always runs on CPU regardless of `mm_device` setting.
 
@@ -169,8 +169,8 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 
 ## See Also
 
-- [Getting Started](getting-started.md) -- Installation and CUDA setup
-- [ML/MM Calculator](mlmm-calc.md) -- Calculator architecture and parameters
-- [YAML Reference](yaml-reference.md) -- Full configuration reference
-- [freq](freq.md) -- `--hess-device` option details
-- [Troubleshooting](troubleshooting.md) -- Common error fixes
+- [Getting Started](getting-started.md) — Installation and CUDA setup
+- [ML/MM Calculator](mlmm-calc.md) — Calculator architecture and parameters
+- [YAML Reference](yaml-reference.md) — Full configuration reference
+- [freq](freq.md) — `--hess-device` option details
+- [Troubleshooting](troubleshooting.md) — Common error fixes

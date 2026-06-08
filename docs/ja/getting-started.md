@@ -110,9 +110,6 @@ mlmm-toolkit は以下のコンポーネントを使用します:
 pip install torch --index-url https://download.pytorch.org/whl/cu129
 pip install mlmm-toolkit
 
-# 以前の安定版 (v0.1.1):
-# pip install git+https://github.com/t-0hmura/mlmm_toolkit.git@v0.1.1
-
 # オプション: 代替 MLIP バックエンドのインストール
 pip install "mlmm-toolkit[orb]"       # ORB バックエンド
 pip install "mlmm-toolkit[aimnet]"   # AIMNet2 バックエンド
@@ -159,7 +156,7 @@ huggingface-cli login
 
 - HPC クラスターで*環境モジュール*を使用している場合は、PyTorch をインストールする前に CUDA をロードしてください:
   ```bash
-  module load cuda/12.9
+  module load cuda/<version>  # wheel に合わせる (cu126 ↔ 12.6, cu129 ↔ 12.9)
   ```
 
 ### ステップバイステップインストール
@@ -169,7 +166,7 @@ huggingface-cli login
 1. **CUDA をロード（HPC で環境モジュールを使用する場合）**
 
     ```bash
-    module load cuda/12.9
+    module load cuda/<version>  # wheel に合わせる (cu126 ↔ 12.6, cu129 ↔ 12.9)
     ```
 
 2. **conda 環境を作成してアクティブ化**
@@ -501,7 +498,6 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `energy-diagram` | 数値系列から状態エネルギー図を描画 | [energy-diagram](energy-diagram.md) |
 | `add-elem-info` | PDB の元素カラム（77-78）を修復 | [add_elem_info](add-elem-info.md) |
 | `fix-altloc` | PDB の代替位置標識（altLoc）を除去 | [fix_altloc](fix-altloc.md) |
-| `pysis` | pysisyphus YAML ワークフロー実行（v0.1.x 互換） | [pysis](pysis.md) |
 
 ```{tip}
 `all`、`tsopt`、`freq`、`irc` では、VRAM に余裕がある場合 **`--hessian-calc-mode Analytical`**（ML 領域用）の使用を強く推奨します。`Analytical` モードは UMA バックエンドでのみ利用可能で、他のバックエンドは自動的に `FiniteDifference` を使用します。

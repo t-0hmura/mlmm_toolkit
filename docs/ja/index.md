@@ -1,6 +1,6 @@
 # mlmm-toolkit ドキュメント
 
-*バージョン: v0.2.8*
+*バージョン: v{{ version }}*
 
 **mlmm-toolkit** は、機械学習原子間ポテンシャル（Machine Learning Interatomic Potential）と分子力学（Molecular Mechanics）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
 
@@ -59,7 +59,6 @@ yaml-reference
 json-output
 mlmm-calc
 python-api
-pysis
 glossary
 ```
 
@@ -250,22 +249,26 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 典型的な `mlmm all` 実行の出力:
 ```
 result_all/
-├── ml_region.pdb # ML 領域定義
 ├── summary.log # 人間が読めるサマリー
 ├── summary.json # 機械可読サマリー
-├── pockets/ # extract で決定された ML 領域構造
-├── mm_parm/ # AMBER トポロジーファイル
-├── scan/ # （オプション）スキャン結果
-├── path_search/ # MEP 軌跡とダイアグラム（デフォルト）
-│ ├── mep_trj.xyz # MEP 軌跡
-│ ├── mep.pdb # PDB 形式の MEP
-│ └── seg_*/ # セグメントごとの詳細
-│ # （--no-refine-path 指定時: path_opt/ に変更）
-└── path_search/post_seg_*/ # 後処理出力
- ├── tsopt/ # TS 最適化結果
- ├── irc/ # IRC 軌跡
- ├── freq/ # 振動モード
- └── dft/ # DFT 結果
+├── mep.pdb / mep_trj.xyz # MEP（ルートにコピー）
+├── energy_diagram_MEP.png # MEP ダイアグラム
+├── ml_region.pdb # ML 領域定義（--model-pdb として再利用可）
+├── mm_parm/ # AMBER トポロジー（--parm として再利用可）
+├── layered/ # B-factor 層付き全系 PDB（再利用可）
+├── segments/ # 反応セグメント別の成果物
+│ └── seg_NN/ # 正規 R/TS/P + 後処理
+│ ├── reactant.pdb · ts.pdb · product.pdb
+│ ├── ts/ # TS 最適化結果
+│ ├── irc/ # IRC 軌跡
+│ ├── freq/ # 振動モード（--thermo）
+│ └── dft/ # DFT 結果（--dft）
+└── _work/ # パイプライン作業領域（削除可）
+ ├── pockets/ # extract で決定された ML 領域構造
+ ├── scan/ # （オプション）スキャン結果
+ └── path_search/ # MEP エンジン生出力（--no-refine-path 時: path_opt/）
+ ├── mep_seg_XX_trj.xyz · hei_seg_XX.xyz/.pdb
+ └── summary.{json,log} · seg_*/ # セグメントごとの詳細
 ```
 
 ---
@@ -292,6 +295,3 @@ mlmm --help
 mlmm <command> --help
 ```
 
----
-
-*Note: 本ドキュメントは現在整備中のため、一部未完成の箇所や今後変更される箇所がある可能性があります。*

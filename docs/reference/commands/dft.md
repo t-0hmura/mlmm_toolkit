@@ -1,12 +1,16 @@
 # `mlmm dft`
 
 ```text
-
 Usage: mlmm dft [OPTIONS]
 
   Single-point ML-region DFT with ML(dft)/MM energy recombination.
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                Full enzyme structure (PDB or XYZ). If XYZ,
@@ -23,16 +27,13 @@ Options:
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
-  --detect-layer / --no-detect-layer
-                                  Detect ML/MM layers from input PDB B-factors
-                                  (ML=0, MovableMM=10, FrozenMM=20). If
-                                  disabled, you must provide --model-pdb or
-                                  --model-indices.  [default: detect-layer]
-  -q, --charge INTEGER            Charge of the ML region.  [required]
+  -q, --charge INTEGER            ML region charge. Required unless --ligand-
+                                  charge is provided (PDB inputs or XYZ with
+                                  --ref-pdb).
+  -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
+                                  'SAM:1,GPP:-3') used to derive ML region
+                                  charge when -q is omitted (requires PDB input
+                                  or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
                                   [default: 1]
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
@@ -66,8 +67,9 @@ Options:
                                   template is available.  [default: convert-
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
-                                  ML backend for the ONIOM high-level region
-                                  (default: uma).
+                                  Backend label recorded in output metadata; the
+                                  ML region in dft is computed with DFT (PySCF),
+                                  so this does not select a calculator.
   --embedcharge / --no-embedcharge
                                   Enable electrostatic embedding: MM point
                                   charges are added to the PySCF QM Hamiltonian
@@ -78,16 +80,25 @@ Options:
                                   Hamiltonian. Default: 12.0 Å. Only used when
                                   --embedcharge is enabled.
   --link-atom-method [scaled|fixed]
-                                  Link-atom position mode: scaled (g-factor,
-                                  default) or fixed (legacy 1.09/1.01 Å).
+                                  Link-atom placement: 'scaled' (g-factor,
+                                  Gaussian ONIOM standard, default) or 'fixed'
+                                  (legacy 1.09 Å for C, 1.01 Å for N).
   --mm-backend [hessian_ff|openmm]
-                                  MM backend: hessian_ff (analytical Hessian,
-                                  default) or openmm (finite-difference Hessian,
-                                  slower).
+                                  MM backend for the low-level ONIOM evaluation:
+                                  'hessian_ff' (default) or 'openmm'.
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
+  --detect-layer / --no-detect-layer
+                                  Detect ML/MM layers from input PDB B-factors
+                                  (ML=0, MovableMM=10, FrozenMM=20). If
+                                  disabled, you must provide --model-pdb or
+                                  --model-indices.  [default: detect-layer]
+  --model-indices-one-based / --model-indices-zero-based
+                                  Interpret --model-indices as 1-based (default)
+                                  or 0-based.  [default: model-indices-one-
+                                  based]
   -h, --help                      Show this message and exit.
 ```

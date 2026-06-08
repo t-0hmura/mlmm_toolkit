@@ -116,6 +116,12 @@ class ConvInfo:
 
 
 class Optimizer(metaclass=abc.ABCMeta):
+    # Class-level dedupe set so the "Convergence thresholds:" block prints
+    # once per (thresh, overachieve) key per Python process instead of at
+    # every optimizer instantiation; ONIOM / IRC / path-opt pipelines
+    # otherwise reprint the identical 5-line block 10-20 times per run.
+    _printed_thresh_keys: set = set()
+
     def __init__(
         self,
         geometry: Geometry,
@@ -460,6 +466,15 @@ class Optimizer(metaclass=abc.ABCMeta):
             )
         if self.thresh == "baker":
             use_threshs = use_threshs + ("\t   Δ(energy) <= 0.000001 E_h",)
+        # Print the threshold block once per process for the same key (=
+        # `thresh` setting). Subsequent optimizer instances using the
+        # identical thresholds skip the 5-line repeat that otherwise fills
+        # pipeline logs with ~10-20 copies of the same data. The set lives
+        # on the class so all subclasses share the dedupe state.
+        _key = (self.thresh, oaf > 0.0)
+        if _key in Optimizer._printed_thresh_keys:
+            return
+        Optimizer._printed_thresh_keys.add(_key)
         print(
             "Convergence thresholds"
             + (", (overachieved when)" if oaf > 0.0 else "")
@@ -470,7 +485,8 @@ class Optimizer(metaclass=abc.ABCMeta):
         )
 
     def log(self, message, level=50):
-        self.logger.log(level, message)
+        return  # silenced: per-cycle trace leaked to stderr, bypassing the CLI -v gate
+        # self.logger.log(level, message)
 
     def check_convergence(self, step=None, multiple=1.0, overachieve_factor=None):
         """Check if the current convergence of the optimization
@@ -916,7 +932,13 @@ class Optimizer(metaclass=abc.ABCMeta):
             if self.is_cos:
                 self.tangents.append(self.geometry.get_tangents().flatten())
 
-            self.steps.append(step)
+            # Coerce step to numpy if it's a torch tensor — keeps the steps
+            # history from pinning per-cycle GPU tensors (RFOptimizer line
+            # search can return torch).
+            if isinstance(step, torch.Tensor):
+                self.steps.append(step.detach().cpu().numpy())
+            else:
+                self.steps.append(step)
 
             # Convergence check
             self.is_converged, conv_info = self.check_convergence()
@@ -955,7 +977,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 # transformation is done iteratively.
                 self.steps[-1] = self.geometry.coords - self.coords[-1]
             except RebuiltInternalsException as exception:
-                print("Rebuilt internal coordinates!")
+                self.logger.debug("Rebuilt internal coordinates.")
                 rebuilt_fn = self.get_path_for_fn("rebuilt_primitives.xyz")
                 with open(rebuilt_fn, "w") as handle:
                     handle.write(self.geometry.as_xyz())

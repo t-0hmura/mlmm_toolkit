@@ -1,12 +1,16 @@
 # `mlmm oniom-export`
 
 ```text
-
 Usage: mlmm oniom-export [OPTIONS]
 
   Export ONIOM input from Amber parm7 topology (Gaussian g16 or ORCA).
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   --parm FILE                     Amber parm7 topology file.  [required]
@@ -40,5 +44,10 @@ Options:
                                   If ORCAFF.prms is missing, try `orca_mm
                                   -convff -AMBER` automatically (orca mode).
                                   [default: convert-orcaff]
+  --link-atom-method [scaled|fixed]
+                                  Link-H placement rule. 'scaled' uses the
+                                  Morokuma/Dapprich g-factor (matches MLMMCore
+                                  runtime). 'fixed' uses the legacy 1.09/1.01 Å
+                                  bond length.  [default: scaled]
   -h, --help                      Show this message and exit.
 ```

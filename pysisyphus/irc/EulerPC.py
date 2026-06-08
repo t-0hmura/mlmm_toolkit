@@ -125,6 +125,11 @@ class EulerPC(IRC):
                 act_n = len(self._act_dofs)
                 if H_new.shape[0] != act_n:
                     H_new = H_new[self._act_dofs][:, self._act_dofs]
+                _old_mw_hessian = self.mw_hessian
+                self.mw_hessian = None
+                del _old_mw_hessian
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
                 self.mw_hessian = self._mw_hessian_active(H_new)
                 self.geometry.clear()
                 self.log("Calculated exact hessian")

@@ -672,7 +672,6 @@ def setup_redundant(
     # at most one frozen atom.
     elif not internals_with_frozen:
         use_atoms[freeze_atoms] = False
-    freeze_atom_set = set(freeze_atoms)
     atoms = [atom for mobile, atom in zip(use_atoms, atoms) if mobile]
     coords3d = coords3d[use_atoms]
 
@@ -681,6 +680,10 @@ def setup_redundant(
         sub_ind: org_ind for sub_ind, org_ind in enumerate(np.where(use_atoms)[0])
     }
     mobile_org_inds = set(freeze_map.values())
+    # After masking frozen atoms, the remaining coordinate arrays use compact
+    # sub-indices.  Only keep a frozen set in this index space when frozen atoms
+    # were intentionally left in the internal-coordinate setup.
+    freeze_atom_set = set(freeze_atoms) if internals_with_frozen else set()
 
     def keep_coord(prim_cls, prim_inds):
         return (
@@ -867,7 +870,7 @@ def setup_redundant(
         except KeyError as error:
             """In such a case we check if the given coordinates are already fully
             defined in terms of original indices. If so, we use them as is."""
-            if set(indices) < mobile_org_inds:
+            if set(indices) <= mobile_org_inds:
                 org_indices = indices
             else:
                 raise error

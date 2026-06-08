@@ -1,18 +1,22 @@
 # `mlmm path-opt`
 
 ```text
-
 Usage: mlmm path-opt [OPTIONS]
 
   MEP optimization via the Growing String method or Direct Max Flux.
 
 Options:
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+optimizer cycle tables,
+                                  per-stage timing, VRAM, deliverable paths;
+                                  3=everything (full config blocks, per-file
+                                  paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE...             Two endpoint structures (reactant/product);
                                   both must be full-enzyme PDBs.  [required]
-  -q, --charge INTEGER            Total charge. Required unless --ligand-charge
-                                  is provided.
+  -q, --charge INTEGER            ML region charge. Required unless --ligand-
+                                  charge is provided.
   -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
                                   GPP:-3,SAM:1) used to derive charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
@@ -27,16 +31,15 @@ Options:
   --climb / --no-climb            Search for a transition state (climbing image)
                                   after path growth.  [default: climb]
   --preopt / --no-preopt          Pre-optimize the two endpoint structures with
-                                  LBFGS before string growth.  [default: no-
-                                  preopt]
+                                  LBFGS before string growth.  [default: preopt]
   --preopt-max-cycles INTEGER     Maximum LBFGS cycles for endpoint pre-
                                   optimization when --preopt is enabled.
                                   [default: 10000]
   --fix-ends / --no-fix-ends      Fix endpoint structures during path growth.
-                                  [default: no-fix-ends]
+                                  [default: fix-ends]
   --dump / --no-dump              Dump optimizer trajectory/restarts during the
                                   run.  [default: no-dump]
-  --out-dir TEXT                  Output directory.  [default:
+  -o, --out-dir TEXT              Output directory.  [default:
                                   ./result_path_opt/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the string optimizer.
@@ -56,15 +59,6 @@ Options:
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
-  --detect-layer / --no-detect-layer
-                                  Detect ML/MM layers from input PDB B-factors
-                                  (ML=0, MovableMM=10, FrozenMM=20). If
-                                  disabled, you must provide --model-pdb or
-                                  --model-indices.  [default: detect-layer]
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
                                   (applied to every image).
   --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
@@ -101,5 +95,27 @@ Options:
                                   ONIOM-compatible).
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
+  --ref-pdb FILE                  Full-size template PDBs in the same order as
+                                  --input. Required when using XYZ inputs to
+                                  provide topology and B-factor information.
+  --detect-layer / --no-detect-layer
+                                  Detect ML/MM layers from input PDB B-factors
+                                  (ML=0, MovableMM=10, FrozenMM=20). If
+                                  disabled, you must provide --model-pdb or
+                                  --model-indices.  [default: detect-layer]
+  --model-indices-one-based / --model-indices-zero-based
+                                  Interpret --model-indices as 1-based (default)
+                                  or 0-based.  [default: model-indices-one-
+                                  based]
+  --precision [fp32|fp64]         MLIP backend precision: fp32 (default) or
+                                  fp64. Routed to backend-specific kwargs (UMA
+                                  precision / ORB precision / MACE
+                                  default_dtype). aimnet2: fp32 no-op; fp64
+                                  rejected.
+  --deterministic / --no-deterministic
+                                  Strict bit-reproducible GPU runs
+                                  (deterministic algorithms + index_reduce_
+                                  shim). Slower; raises if unsupported. Default
+                                  off.
   -h, --help                      Show this message and exit.
 ```

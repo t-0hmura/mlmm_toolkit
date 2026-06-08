@@ -1,12 +1,16 @@
 # `mlmm trj2fig`
 
 ```text
-
 Usage: mlmm trj2fig [OPTIONS] [EXTRA_OUTS]...
 
   Plot ΔE or E from an XYZ trajectory and export figure/CSV.
 
 Options:
+  -v, --verbose LEVEL           Console verbosity 0-3 (default 2). 0=silent;
+                                1=milestones only; 2=+optimizer cycle tables,
+                                per-stage timing, VRAM, deliverable paths;
+                                3=everything (full config blocks, per-file
+                                paths, DEBUG logging).  [0<=x<=3]
   --help-advanced               Show all options (including advanced settings)
                                 and exit.
   -i, --input FILE              XYZ trajectory file  [required]
