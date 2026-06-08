@@ -56,7 +56,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 
 The full flag list is in the generated [command reference](reference/commands/index.md).
 
-## Limitations and when to use `--parm` instead
+## Notes
 
 `mm-parm` relies on AmberTools tleap with GAFF2 automatic parameterization and works well when the substrate is a **typical organic molecule**. For the following cases, it is strongly recommended to prepare your own topology externally (e.g. with tleap, MCPB.py, or glycam.org tools) and supply it via the `--parm` flag of each subcommand:
 

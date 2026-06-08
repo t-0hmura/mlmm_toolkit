@@ -1,36 +1,8 @@
 # `opt`
 
-Optimizes a single layered enzyme PDB (or XYZ + `--ref-pdb`) to a local minimum using L-BFGS (`--opt-mode grad`, default) or RFO (`--opt-mode hess`) with the ML/MM calculator. Optional imaginary-mode flattening can be enabled with `--flatten`. Microiteration (`--microiter`, default on) relaxes the movable-MM shell in `hess` mode.
+Optimizes a single layered enzyme PDB (or XYZ + `--ref-pdb`) to a local minimum with the ML/MM calculator (MLIP region + movable MM shell + frozen outer environment). Use it to relax a full-system layered structure: `--opt-mode grad` (default) runs L-BFGS, `--opt-mode hess` runs RFOptimizer (RFO), `--flatten` flattens imaginary modes after optimization, and `--mm-only` does a cheap MM pre-relaxation before ML/MM ONIOM optimization. Microiteration (`--microiter`, default on) relaxes the movable-MM shell in `hess` mode.
 
-## When to use
-
-- Relaxing a single full-system layered PDB to a local minimum with the ML/MM calculator (MLIP region + movable MM shell + frozen outer environment).
-- `--opt-mode grad` (default) runs L-BFGS; `--opt-mode hess` runs RFOptimizer (RFO).
-- Use `--flatten` to flatten imaginary modes after optimization; use `--mm-only` for a cheap MM pre-relaxation before ML/MM ONIOM optimization.
-
-## Quick examples
-
-```bash
-# Minimal L-BFGS optimization (grad mode, default)
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --out-dir ./result_opt
-```
-
-```bash
-# Tighten convergence and keep an optimization trajectory
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
-# add one harmonic distance restraint: --dist-freeze "[(12,45,2.20)]" --bias-k 20.0
-```
-
-```bash
-# Switch to heavy mode (RFO)
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --opt-mode hess --out-dir ./result_opt_rfo
-# use the ORB backend instead of the default: --backend orb
-```
-
-## Inputs
+## Examples
 
 Command form:
 
@@ -40,17 +12,35 @@ mlmm opt -i INPUT --parm PARM7 --model-pdb ML_REGION -q CHARGE [options]
 
 `mlmm opt --help` shows core options; `mlmm opt --help-advanced` shows the full option list.
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Input structure accepted by `geom_loader` (`.pdb`, `.xyz`, `_trj.xyz`); use `--ref-pdb` with XYZ inputs. |
-| `--parm` | yes | Amber parm7 topology for the full enzyme. |
-| `--model-pdb` / `--model-indices` / `--detect-layer` | yes | ML-region definition (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen). |
-| `-q, --charge` | yes (unless `-l`) | Net charge of the ML region. |
-| `--ref-pdb` | for XYZ inputs | Reference PDB topology when input is XYZ. |
+Minimal L-BFGS optimization (grad mode, default):
+
+```bash
+# Minimal L-BFGS optimization (grad mode, default)
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 --out-dir ./result_opt
+```
+
+Tighten convergence and keep an optimization trajectory:
+
+```bash
+# Tighten convergence and keep an optimization trajectory
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
+# add one harmonic distance restraint: --dist-freeze "[(12,45,2.20)]" --bias-k 20.0
+```
+
+Switch to heavy mode (RFO):
+
+```bash
+# Switch to heavy mode (RFO)
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 --opt-mode hess --out-dir ./result_opt_rfo
+# use the ORB backend instead of the default: --backend orb
+```
 
 ## Workflow
 
-1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding as in Inputs).
+1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region. When `--embedcharge` is enabled, xTB point-charge embedding is applied to correct for MM-to-ML environmental electrostatic effects.
 3. **Optimization** -- The optimizer runs in the selected `--opt-mode` (`grad` = L-BFGS, `hess` = RFOptimizer); see the CLI options table for the accepted aliases.
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
@@ -79,13 +69,13 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Input structure accepted by `geom_loader`. | Required |
+| `-i, --input PATH` | Input structure accepted by `geom_loader` (`.pdb`, `.xyz`, `_trj.xyz`). | Required |
 | `--ref-pdb PATH` | Reference PDB topology when input is XYZ. | _None_ |
 | `--parm PATH` | Amber parm7 topology for the full enzyme. | Required |
 | `--model-pdb PATH` | PDB defining the ML region atoms. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Alternative to `--model-pdb`. | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Index convention for `--model-indices`. | 1-based |
-| `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors (0/10/20). | Enabled |
+| `--detect-layer / --no-detect-layer` | Auto-detect ML/MM layers from B-factors (B=0 ML, B=10 Movable-MM, B=20 Frozen). | Enabled |
 | `-q, --charge INT` | Charge of the ML region. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |

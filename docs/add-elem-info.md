@@ -1,27 +1,8 @@
 # `add-elem-info`
 
-`mlmm add-elem-info` adds or repairs PDB element symbols (columns 77-78) using Biopython. It parses the input PDB with Biopython (`PDBParser`), assigns `atom.element` using residue context and atom-name heuristics, and writes via `PDBIO` to populate columns 77-78. It supports ATOM and HETATM records across all models/chains/residues without altering coordinates.
+`mlmm add-elem-info` adds or repairs PDB element symbols (columns 77-78) using Biopython, so use it to add element columns to a PDB that lacks them (or correct existing ones) before downstream tools that require them, and to re-infer and overwrite unreliable element fields (`--overwrite`). It parses the input PDB with Biopython (`PDBParser`), assigns `atom.element` using residue context and atom-name heuristics, and writes via `PDBIO` to populate columns 77-78. It supports ATOM and HETATM records across all models/chains/residues without altering coordinates.
 
-## When to use
-
-- Add element columns to a PDB that lacks them, or correct existing ones, before downstream tools that require them.
-- Re-infer and overwrite existing element fields when they are unreliable (`--overwrite`).
-
-## Quick examples
-
-```bash
-mlmm add-elem-info -i 1abc.pdb
-```
-
-```bash
-mlmm add-elem-info -i 1abc.pdb -o 1abc_fixed.pdb
-```
-
-```bash
-mlmm add-elem-info -i 1abc.pdb --overwrite
-```
-
-## Inputs
+## Examples
 
 Command form:
 
@@ -29,10 +10,23 @@ Command form:
 mlmm add-elem-info -i INPUT [-o OUTPUT] [--overwrite]
 ```
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Input PDB file. |
-| `-o, --out` | no | Output PDB path. When omitted, the input file is overwritten. |
+Add or repair element columns, overwriting the input file in place:
+
+```bash
+mlmm add-elem-info -i 1abc.pdb
+```
+
+Write the result to a separate output file:
+
+```bash
+mlmm add-elem-info -i 1abc.pdb -o 1abc_fixed.pdb
+```
+
+Re-infer and overwrite existing element fields:
+
+```bash
+mlmm add-elem-info -i 1abc.pdb --overwrite
+```
 
 ## Workflow
 

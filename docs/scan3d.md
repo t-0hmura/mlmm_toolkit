@@ -1,13 +1,8 @@
 # `scan3d`
 
-Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the MLIP backend is selected via `-b/--backend` (default: `uma`); the optimizer is PySisyphus LBFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal.
+Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB, mapping a 3D PES across three coupled distances. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the MLIP backend is selected via `-b/--backend` (default: `uma`); the optimizer is PySisyphus LBFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
 
-## When to use
-
-- Use when mapping a 3D PES across three coupled distances.
-- Supports loading a precomputed surface via `--csv` for re-plotting without re-running the scan.
-
-## Quick examples
+## Examples
 
 ```bash
 # Minimal: run a 3D scan from a YAML spec
@@ -35,90 +30,6 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
  --max-step-size 0.20 --dump -o ./result_scan3d/ \
  --preopt --baseline min
-```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm scan3d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q CHARGE [-m MULT] \
- [--csv precomputed_surface.csv] \
- [-s scan3d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2),(I3,J3,LOW3,HIGH3)]"] \
- [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
- [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
- [--dump/--no-dump] [--out-dir DIR] \
- [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
-```
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes (unless `--csv`) | Full enzyme PDB (no link atoms). |
-| `--parm` | yes (unless `--csv`) | Amber parm7 topology for the full enzyme. |
-| `--model-pdb` | recommended | PDB defining the ML region (or use `--model-indices`). |
-| `-s, --scan-lists` | yes | YAML/JSON spec file path (`pairs` with 3 quadruples) or an inline Python literal with three quadruples `(i,j,low,high)`. |
-| `-q, --charge` | yes (unless `-l` or `--csv`) | ML-region net charge. |
-| `--csv` | optional | Load precomputed `surface.csv` and generate the plot without running a scan. |
-
-### Input syntax — YAML/JSON spec format (recommended)
-
-`-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
-
-```yaml
-one_based: true # optional; defaults to CLI --one-based/--zero-based
-pairs:
- - [12, 45, 1.30, 3.10]
- - [10, 55, 1.20, 3.20]
- - [15, 60, 1.10, 3.00]
-```
-
-- `pairs` is required and must contain exactly 3 quadruples.
-- Each quadruple is `(i, j, low_A, high_A)`.
-- Indices may be integers or PDB selectors (same as inline literals).
-
-### Input syntax — Inline literal format
-
-When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
-
-The literal is a Python list of exactly **three** quadruples `(atom1, atom2, low_A, high_A)`:
-
-```
--s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A), (atom5, atom6, low_A, high_A)]'
-```
-
-- Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
-- Each quadruple defines one scan axis: the distance between `atom1`--`atom2` is scanned from `low_A` to `high_A`.
-- Unlike `scan`, only **one literal** is accepted (no multi-stage support).
-
-Atoms can be given as **integer indices** or **PDB selector strings**:
-
-| Method | Example | Notes |
-| --- | --- | --- |
-| Integer index | `(1, 5, 1.30, 3.10)` | 1-based by default (`--one-based`) |
-| PDB selector | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | Residue name, residue number, atom name |
-
-PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
-
-```bash
-# All of these specify the same atom:
-"TYR,285,CA"
-"TYR 285 CA"
-"TYR/285/CA"
-"285,TYR,CA" # order is flexible
-```
-
-Quoting rules:
-
-```bash
-# Correct: single-quote the list, double-quote selector strings inside
--s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20),("TYR,285,CG","MMT,309,C12",1.10,3.00)]'
-
-# Correct: integer indices need no inner quotes
--s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20), (3, 12, 1.10, 3.00)]'
-
-# Avoid: double-quoting the outer literal requires escaping inner quotes
--s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
 ```
 
 ## Workflow
@@ -193,6 +104,68 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 The full flag list is in the generated [command reference](reference/commands/index.md); do not hand-duplicate it here.
+
+## Scan-list syntax
+
+### YAML/JSON spec format (recommended)
+
+`-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
+
+```yaml
+one_based: true # optional; defaults to CLI --one-based/--zero-based
+pairs:
+ - [12, 45, 1.30, 3.10]
+ - [10, 55, 1.20, 3.20]
+ - [15, 60, 1.10, 3.00]
+```
+
+- `pairs` is required and must contain exactly 3 quadruples.
+- Each quadruple is `(i, j, low_A, high_A)`.
+- Indices may be integers or PDB selectors (same as inline literals).
+
+### Inline literal format
+
+When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
+
+The literal is a Python list of exactly **three** quadruples `(atom1, atom2, low_A, high_A)`:
+
+```
+-s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A), (atom5, atom6, low_A, high_A)]'
+```
+
+- Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
+- Each quadruple defines one scan axis: the distance between `atom1`--`atom2` is scanned from `low_A` to `high_A`.
+- Unlike `scan`, only **one literal** is accepted (no multi-stage support).
+
+Atoms can be given as **integer indices** or **PDB selector strings**:
+
+| Method | Example | Notes |
+| --- | --- | --- |
+| Integer index | `(1, 5, 1.30, 3.10)` | 1-based by default (`--one-based`) |
+| PDB selector | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | Residue name, residue number, atom name |
+
+PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
+
+```bash
+# All of these specify the same atom:
+"TYR,285,CA"
+"TYR 285 CA"
+"TYR/285/CA"
+"285,TYR,CA" # order is flexible
+```
+
+Quoting rules:
+
+```bash
+# Correct: single-quote the list, double-quote selector strings inside
+-s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20),("TYR,285,CG","MMT,309,C12",1.10,3.00)]'
+
+# Correct: integer indices need no inner quotes
+-s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20), (3, 12, 1.10, 3.00)]'
+
+# Avoid: double-quoting the outer literal requires escaping inner quotes
+-s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+```
 
 ## YAML configuration
 

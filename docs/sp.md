@@ -1,26 +1,36 @@
 # `sp`
 
-`mlmm sp` evaluates the ML/MM ONIOM energy + atomic forces (optionally the full ONIOM Hessian) at a single geometry.
+`mlmm sp` evaluates the ML/MM ONIOM energy + atomic forces (optionally the full ONIOM Hessian) at a single geometry. Use it for fast inspection of a layered structure before running an optimization, for comparing backends head-to-head on the same ONIOM partition, or for generating reference Hessians outside the optimizer loop.
 
-## When to use
+## Examples
 
-- Fast inspection of a layered structure before running an optimization.
-- Comparing backends head-to-head on the same ONIOM partition.
-- Generating reference Hessians outside the optimizer loop.
-
-## Quick examples
+Energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen-MM):
 
 ```bash
 # energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen-MM)
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
+Also compute the full ONIOM Hessian (Analytical when `--backend uma`):
+
 ```bash
 # also compute the full ONIOM Hessian (Analytical when --backend uma)
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 ```
 
-## Inputs
+## Outputs
+
+`sp` writes outputs under `result_sp/` by default. The ONIOM energy is also printed to stdout; the JSON files (identical payload mirrored to both names) are emitted only when `--out-json` is passed.
+
+| file | contents | written |
+|---|---|---|
+| `forces.npy` | `(N, 3)` array of ONIOM forces in atomic units (Hartree / Bohr) | always |
+| `hessian.npy` | `(3N, 3N)` mass-unweighted ONIOM Hessian (Hartree / Bohr²) | only with `--hess` |
+| `result.json` / `summary.json` | ONIOM energy (a.u.), backend, charge/spin, paths to npy outputs, elapsed time | only with `--out-json` |
+
+`sp` does not write a `summary.log`.
+
+## CLI options
 
 Command form:
 
@@ -55,19 +65,7 @@ When `--hess` is set, the backend choice picks the Hessian computation strategy:
 
 `--hessian-calc-mode` lets you override per-call.
 
-## Outputs
-
-`sp` writes outputs under `result_sp/` by default. The ONIOM energy is also printed to stdout; the JSON files (identical payload mirrored to both names) are emitted only when `--out-json` is passed.
-
-| file | contents | written |
-|---|---|---|
-| `forces.npy` | `(N, 3)` array of ONIOM forces in atomic units (Hartree / Bohr) | always |
-| `hessian.npy` | `(3N, 3N)` mass-unweighted ONIOM Hessian (Hartree / Bohr²) | only with `--hess` |
-| `result.json` / `summary.json` | ONIOM energy (a.u.), backend, charge/spin, paths to npy outputs, elapsed time | only with `--out-json` |
-
-`sp` does not write a `summary.log`.
-
-## CLI options
+### Other options
 
 The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 

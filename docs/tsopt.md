@@ -1,19 +1,19 @@
 # `tsopt`
 
-`mlmm tsopt` refines a transition-state candidate on a layered enzyme PDB into a first-order saddle point. The default optimiser is **RS-I-RFO** (`--opt-mode hess`) with microiteration (`--microiter`, default on) that alternates ML 1-step RS-I-RFO and MM L-BFGS relaxation; the lighter alternative is the **Hessian-Guided Dimer** (`--opt-mode grad`). A surplus-imaginary-mode flatten loop (`--flatten`) sanitises extra negative modes via mass-scaled displacements after convergence. A validated TS should show **exactly one** imaginary frequency — always confirm the mode and connectivity with [`freq`](freq.md) / [`irc`](irc.md). The TS guess is typically a standalone candidate or the highest-energy image (HEI) extracted by [`path-search`](path-search.md).
+`mlmm tsopt` refines a transition-state candidate on a layered enzyme PDB into a first-order saddle point — run it on a standalone TS guess or on the highest-energy image (HEI) extracted by [`path-search`](path-search.md). The default optimiser is **RS-I-RFO** (`--opt-mode hess`) with microiteration (`--microiter`, default on) that alternates ML 1-step RS-I-RFO and MM L-BFGS relaxation; reach for it when you want the default, conservative optimiser and can afford the Hessian work. The lighter alternative is the **Hessian-Guided Dimer** (`--opt-mode grad`) for a lighter-weight search or quick iteration from several TS guesses, with `--ml-only-hessian-dimer` using only the ML-region Hessian for dimer orientation (faster). A surplus-imaginary-mode flatten loop (`--flatten`) sanitises extra negative modes via mass-scaled displacements after convergence. A validated TS should show **exactly one** imaginary frequency — always confirm the mode and connectivity with [`freq`](freq.md) / [`irc`](irc.md).
 
-## When to use
+## Examples
 
-- Refine a TS guess on a layered enzyme PDB to a first-order saddle point, either as a standalone step or after `path-search` HEI extraction.
-- Use **`--opt-mode hess` (RS-I-RFO)** when you want the default, conservative optimiser and can afford the Hessian work. With `--microiter` (default on), the ML and MM regions are optimised alternately.
-- Use **`--opt-mode grad` (Hessian-Guided Dimer)** when you want a lighter-weight search, or when iterating quickly from several TS guesses. `--ml-only-hessian-dimer` uses only the ML-region Hessian for dimer orientation (faster).
+The command form is `mlmm tsopt -i TS_GUESS --parm PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]`. `mlmm tsopt --help` shows core options; `mlmm tsopt --help-advanced` shows the full option list.
 
-## Quick examples
+Default run:
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
     -q 0 -m 1 --out-dir ./result_tsopt
 ```
+
+Light mode (Dimer) with analytical Hessian:
 
 ```bash
 # Light mode (Dimer) with analytical Hessian when VRAM allows
@@ -21,31 +21,14 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
     -q 0 -m 1 --opt-mode grad --hessian-calc-mode Analytical --out-dir ./result_tsopt_grad
 ```
 
+Heavy mode (RS-I-RFO) with YAML overrides:
+
 ```bash
 # Heavy mode (RS-I-RFO) with YAML overrides
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
     -q 0 -m 1 --opt-mode hess --config tsopt.yaml --out-dir ./result_tsopt_hess
 # --dump keeps the full optimisation trajectory; --backend mace uses the MACE backend
 ```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm tsopt -i TS_GUESS --parm PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]
-```
-
-`mlmm tsopt --help` shows core options; `mlmm tsopt --help-advanced` shows the full option list.
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Starting geometry (PDB or XYZ). If XYZ, use `--ref-pdb` for topology. |
-| `--parm` | yes | Amber parm7 topology for the whole enzyme. |
-| `--model-pdb` | optional | PDB containing the ML-region atoms. Optional when `--detect-layer` is enabled. |
-| `-q, --charge` | yes (unless `-l`) | Net charge of the ML region. |
-| `-m, --multiplicity` | optional | Spin multiplicity (2S+1) for the ML region (defaults to 1). |
-| `--ref-pdb` | for XYZ inputs | Reference PDB topology when input is XYZ. |
 
 ## Workflow
 

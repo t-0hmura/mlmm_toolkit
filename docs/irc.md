@@ -1,14 +1,8 @@
 # `irc`
 
-Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transition state toward reactants and products using the ML/MM calculator. By default both forward and backward branches are computed. `mlmm irc` keeps the CLI intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. Inputs can be any structure readable by `pysisyphus.helpers.geom_loader` (`.pdb`, `.xyz`, `_trj.xyz`,...); if the input is `.pdb`, the generated trajectories are additionally converted to PDB.
+Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transition state toward reactants and products using the ML/MM calculator. Use it to validate that an optimized TS connects the expected reactant and product, or to generate reactant/product structures for downstream thermochemistry and DFT single-point evaluation — typically as `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc`. By default both forward and backward branches are computed. `mlmm irc` keeps the CLI intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. Inputs can be any structure readable by `pysisyphus.helpers.geom_loader` (`.pdb`, `.xyz`, `_trj.xyz`,...); if the input is `.pdb`, the generated trajectories are additionally converted to PDB.
 
-## When to use
-
-- Validating that an optimized TS connects the expected reactant and product, or generating reactant/product structures for downstream thermochemistry and DFT single-point evaluation.
-- A typical workflow is `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc`.
-- Run both branches by default; disable one with `--no-forward` or `--no-backward` when you only need a single direction.
-
-## Quick examples
+## Examples
 
 ```bash
 # Minimal run from a TS PDB
@@ -16,11 +10,15 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 ```
 
+Forward branch only:
+
 ```bash
 # Forward branch only
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --no-backward --out-dir ./result_irc_forward
 ```
+
+Larger step size with analytical Hessians:
 
 ```bash
 # Larger step size with analytical Hessians
@@ -30,8 +28,6 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 # keep both branches and raise the step limit with --max-cycles 150
 ```
 
-## Inputs
-
 Command form:
 
 ```bash
@@ -40,23 +36,9 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 
 `mlmm irc --help` shows core options; `mlmm irc --help-advanced` shows the full option list.
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Structure file (`.pdb`/`.xyz`/`_trj.xyz`/...). Any format readable by `geom_loader`. |
-| `--parm` | yes | Amber topology for the full enzyme/MM region. Required unless `calc.real_parm7` is set in YAML. |
-| `--model-pdb` | conditional | PDB defining the ML region. Required when `--no-detect-layer` and no `--model-indices` are given. |
-| `--model-indices` | optional | Comma-separated ML-region atom indices (ranges allowed, e.g. `1-10,15`). Used when `--model-pdb` is omitted. |
-| `-q, --charge` | conditional | Net charge; required unless `-l/--ligand-charge` is given. |
-| `--ref-pdb` | for XYZ inputs | Reference PDB topology to use when `--input` is XYZ (keeps XYZ coordinates). |
-
-Input expectations:
-
-- Any format supported by `geom_loader` is accepted.
-- When a reference PDB is available (input is `.pdb` or `--ref-pdb` is supplied), EulerPC trajectories are converted to PDB using that topology.
-
 ## Workflow
 
-1. **Input preparation** -- Load the TS structure, Amber topology (`--parm`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Accepted formats and PDB-conversion behavior are documented under [Inputs](#inputs).
+1. **Input preparation** -- Load the TS structure, Amber topology (`--parm`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Any format supported by `geom_loader` is accepted, and when a reference PDB is available (input is `.pdb` or `--ref-pdb` is supplied), EulerPC trajectories are converted to PDB using that topology.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation. When `--embedcharge` is enabled, xTB point-charge embedding is applied for MM-to-ML environmental corrections.
 3. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` or `--no-backward` disables a branch). Step size and cycle count control integration length.
 4. **Output & conversion** -- Trajectories are written as XYZ; PDB companions are generated when a PDB template is available and `--convert-files` is enabled.
@@ -145,6 +127,10 @@ irc:
 ```
 
 Full schema (every `irc` key and default): [YAML Reference](yaml-reference.md#irc-section).
+
+## Notes
+
+- Both branches run by default; disable one with `--no-forward` or `--no-backward` when you only need a single direction.
 
 ## See Also
 

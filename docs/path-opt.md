@@ -1,13 +1,8 @@
 # `path-opt`
 
-`mlmm path-opt` finds a minimum-energy path (MEP) between **exactly two** layered enzyme structures with GSM (default) or DMF (`--mep-mode dmf`), using the ML/MM calculator on the full enzyme complex. It writes the path trajectory and exports the highest-energy image (HEI) as a TS candidate.
+`mlmm path-opt` finds a minimum-energy path (MEP) between **exactly two** layered enzyme structures with GSM (default) or DMF (`--mep-mode dmf`), using the ML/MM calculator on the full enzyme complex. It writes the path trajectory and exports the highest-energy image (HEI) as a TS candidate. Use it when two layered endpoints are well defined (no intermediates expected); it is the simpler MEP-only sibling of `path-search` (no recursive segmentation, no bond-change-driven decomposition). For workflows that start from **two or more** structures and automatically refine only the reactive region, use [path-search](path-search.md) instead.
 
-## When to use
-
-- Use when two layered endpoints are well defined (no intermediates expected); the simpler MEP-only sibling of `path-search` (no recursive segmentation, no bond-change-driven decomposition).
-- For workflows that start from **two or more** structures and automatically refine only the reactive region, use [path-search](path-search.md) instead.
-
-## Quick examples
+## Examples
 
 ```bash
 # Minimal invocation
@@ -28,9 +23,7 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 # freeze selected atoms and keep optimizer dumps: --freeze-atoms "1,3,5,7" --dump
 ```
 
-## Inputs
-
-Command form:
+General command form:
 
 ```bash
 mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pdb \
@@ -38,14 +31,6 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
 ```
 
 `mlmm path-opt --help` shows core options; `mlmm path-opt --help-advanced` shows the full option list.
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Reactant and product PDB structures (full-system coordinates). |
-| `--parm` | yes | Amber prmtop for the full REAL system. |
-| `--model-pdb` | optional | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. |
-| `-q, --charge` | yes | Net ML-region charge (required unless `-l` is given). |
-| `-m, --multiplicity` | optional | Spin multiplicity (2S+1). |
 
 ## Workflow
 1. **Load endpoints** -- Read both PDB structures and resolve charge/spin from CLI or defaults.
@@ -80,7 +65,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH PATH` | Reactant and product PDB structures. | Required |
+| `-i, --input PATH PATH` | Reactant and product PDB structures (full-system coordinates). | Required |
 | `--parm PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |

@@ -1,40 +1,29 @@
 # `trj2fig`
 
-`mlmm trj2fig` reads the Hartree energies encoded in each frame's comment line of an XYZ trajectory, converts them to kcal/mol or Hartree, optionally references all values to a chosen frame, and exports the resulting series as static/interactive figures and CSV tables. The figure uses bold ticks, consistent fonts, markers, and a smoothed spline curve (no title).
+`mlmm trj2fig` reads the Hartree energies encoded in each frame's comment line of an XYZ trajectory, converts them to kcal/mol or Hartree, optionally references all values to a chosen frame, and exports the resulting series as static/interactive figures and CSV tables. Use it to plot an energy profile from an XYZ trajectory whose second line stores Hartree energies, or to recompute energies with the MLIP backend via `-q/--charge` and/or `-m/--multiplicity`. The figure uses bold ticks, consistent fonts, markers, and a smoothed spline curve (no title).
 
-## When to use
+## Examples
 
-- Plot an energy profile from an XYZ trajectory whose second line stores Hartree energies, or recompute energies with the MLIP backend via `-q/--charge` and/or `-m/--multiplicity`.
-
-## Quick examples
+Default PNG, relative energy with respect to the first frame:
 
 ```bash
 # Default PNG, relative energy with respect to the first frame
 mlmm trj2fig -i traj.xyz
 ```
 
+CSV + SVG with reference frame #5, reported in Hartree:
+
 ```bash
 # CSV + SVG with reference frame #5, reported in Hartree
 mlmm trj2fig -i traj.xyz -o energy.csv energy.svg -r 5 --unit hartree
 ```
 
+Multiple outputs in one run with x-axis reversed:
+
 ```bash
 # Multiple outputs in one run with x-axis reversed
 mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 ```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm trj2fig -i TRAJECTORY.xyz [-o OUTPUTS...] [-r REFERENCE] [--unit {kcal|hartree}] \
- [-q CHARGE] [-m MULTIPLICITY] [--reverse-x]
-```
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | XYZ trajectory whose second line stores Hartree energies. |
 
 ## Workflow
 

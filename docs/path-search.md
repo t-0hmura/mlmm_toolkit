@@ -1,24 +1,23 @@
 # `path-search`
 
-`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, scan specifications, or convergence thresholds—to obtain a satisfactory pathway.
+`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multi-step mechanism from R + (optional intermediates) + P, where the recursive segmentation auto-detects elementary steps and refines only the regions with covalent bond changes. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, scan specifications, or convergence thresholds—to obtain a satisfactory pathway.
 
-## When to use
-
-- Use when driving a multi-step mechanism from R + (optional intermediates) + P; the recursive segmentation auto-detects elementary steps and refines only those regions where covalent bond changes are detected.
-- If you only have **two** endpoints and do not need recursive refinement, prefer [path-opt](path-opt.md).
-
-## Quick examples
+## Examples
 
 ```bash
 mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
+Build a multistep path with explicit intermediates:
+
 ```bash
 # Build a multistep path with explicit intermediates
 mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
+
+Lighter pass without pre-optimization or alignment:
 
 ```bash
 # Lighter pass without pre-optimization or alignment
@@ -27,9 +26,7 @@ mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --out-dir ./result_path_search_fast
 ```
 
-## Inputs
-
-Command form:
+General command form:
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
@@ -40,16 +37,6 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
-
-`mlmm path-search --help` shows core options; `mlmm path-search --help-advanced` shows the full option list.
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Two or more full-enzyme PDBs in reaction order. Repeat `-i` or pass multiple paths after one flag. |
-| `--parm` | yes | Amber parm7 topology for the full enzyme complex. |
-| `--model-pdb` | optional | PDB defining the ML (high-level) region atoms. Optional when `--detect-layer` or `--model-indices` is used. |
-| `-q, --charge` | yes | Net charge of the ML region. Required unless `--ligand-charge` is provided. |
-| `--ref-pdb` | optional | Full template PDB(s) for XYZ→PDB conversion and topology reference. |
 
 ## Workflow
 
@@ -81,7 +68,7 @@ out_dir/ (default: ./result_path_search/)
 
 ## CLI options
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+`mlmm path-search --help` shows core options; `mlmm path-search --help-advanced` shows the full option list. The full flag list is also in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 
 | Option | Description | Default |
 | --- | --- | --- |
@@ -135,6 +122,10 @@ bond:
 ```
 
 Full schema (every key and default): [YAML Reference](yaml-reference.md).
+
+## Notes
+
+- If you only have **two** endpoints and do not need recursive refinement, prefer [path-opt](path-opt.md).
 
 ## See Also
 

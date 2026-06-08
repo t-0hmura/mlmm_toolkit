@@ -1,15 +1,11 @@
 # `oniom-export`
 
-Export an Amber-topology ML/MM system into an external QM/MM input file — Gaussian ONIOM (`--mode g16`) or ORCA QM/MM (`--mode orca`). `mlmm oniom-export` reads an Amber `parm7` topology plus a coordinate file and the ML-region (QM) definition, then writes a single ready-to-run QM/MM input file. The QM region is taken from `--model-pdb`; the surrounding MM environment is emitted in the target program's native format with link-atom annotations at the QM/MM cut.
+Export an Amber-topology ML/MM system into an external QM/MM input file — Gaussian ONIOM (`--mode g16`, with link-atom annotations) or ORCA QM/MM (`--mode orca`, with ORCAFF handling). Use it to turn an Amber `parm7` topology plus a coordinate file and the ML-region (QM) definition into a single ready-to-run QM/MM input file: the QM region is taken from `--model-pdb`, and the surrounding MM environment is emitted in the target program's native format with link-atom annotations at the QM/MM cut.
 
-## When to use
-
-- Generate a Gaussian ONIOM input with link-atom annotations (`--mode g16`).
-- Generate an ORCA QM/MM input with ORCAFF handling (`--mode orca`).
-
-## Quick examples
+## Examples
 
 ```bash
+# Gaussian ONIOM input
 mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
  -o out.gjf --mode g16 -q 0 -m 1
 ```
@@ -25,30 +21,6 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
  -o out.gjf --mode g16 --method 'wb97xd/def2-svp' --nproc 16 --mem 32GB -q 0 -m 1
 ```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
- -o out.<gjf|com|inp> --mode <g16|orca> -q 0 -m 1
-```
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `--parm` | yes | Amber parm7 topology file. |
-| `-i, --input` | no | Coordinate file (`.pdb` / `.xyz`) for the current structure. |
-| `--model-pdb` | no | PDB defining the QM-region atoms. |
-| `-o, --output` | yes | Output file path (`.gjf` / `.com` for g16, `.inp` for ORCA). |
-
-Mode selection:
-
-- `--mode` is highest priority.
-- If `--mode` is omitted, the mode is inferred from `-o`:
-  - `.gjf` / `.com` → `g16`
-  - `.inp` → `orca`
-- If `--mode` is omitted and the `-o` suffix is unknown, the command fails.
 
 ## Workflow
 
@@ -68,6 +40,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
+| `--parm PATH` | Amber parm7 topology file. | Required |
+| `-i, --input PATH` | Coordinate file (`.pdb` / `.xyz`) for the current structure. | _None_ |
+| `--model-pdb PATH` | PDB defining the QM-region atoms. | _None_ |
+| `-o, --output PATH` | Output file path (`.gjf` / `.com` for g16, `.inp` for ORCA). | Required |
 | `--mode [g16\|orca]` | Export mode; inferred from the `-o` suffix when omitted. | _inferred_ |
 | `--method TEXT` | QM method and basis set. | mode-dependent |
 | `-q, --charge INT` | Charge of the QM region. | Required |
@@ -82,6 +58,13 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--link-atom-method [scaled\|fixed]` | Link-H placement: `scaled` (g-factor, matches runtime) or `fixed` (1.09/1.01 Å). | `scaled` |
 
 `mlmm oniom-export --help` shows core options; `mlmm oniom-export --help-advanced` shows the full list.
+
+## Notes
+
+- Mode selection: `--mode` is highest priority. If `--mode` is omitted, the mode is inferred from `-o`:
+  - `.gjf` / `.com` → `g16`
+  - `.inp` → `orca`
+- If `--mode` is omitted and the `-o` suffix is unknown, the command fails.
 
 ## See Also
 

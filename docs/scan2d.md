@@ -1,43 +1,8 @@
 # `scan2d`
 
-Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. The 3D `scan2d_landscape.html` includes a bottom contour projection.
+Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB. Use it to map a 2D potential energy surface across two reactive distances (e.g., bond-forming + bond-breaking) to locate saddle points and bifurcation features that a 1D scan would miss. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal; both forms accept exactly two scan axes. The 3D `scan2d_landscape.html` includes a bottom contour projection.
 
-## When to use
-
-- Use when mapping a 2D potential energy surface across two reactive distances (e.g., bond-forming + bond-breaking) to locate saddle points and bifurcation features that a 1D scan would miss.
-- Pass a YAML/JSON spec file (recommended) or an inline Python literal to `-s/--scan-lists`; both forms accept exactly two scan axes.
-
-## Quick examples
-
-```bash
-# Recommended: YAML/JSON spec
-cat > scan2d.yaml << 'YAML'
-one_based: true
-pairs:
- - [12, 45, 1.30, 3.10]
- - [10, 55, 1.20, 3.20]
-YAML
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan2d.yaml --print-parsed
-```
-
-```bash
-# Alternative: inline Python literal
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
-```
-
-```bash
-# LBFGS scan with TRJ dumps and fixed color scale for the contour plot
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
- --max-step-size 0.20 --dump -o ./result_scan2d/ --preopt --baseline min \
- --zmin 0.0 --zmax 40.0
-```
-
-Add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation.
-
-## Inputs
+## Examples
 
 Command form:
 
@@ -51,72 +16,39 @@ mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
 ```
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Input enzyme complex PDB. |
-| `--parm` | yes | Amber parm7 topology for the enzyme. |
-| `--model-pdb` | recommended | PDB defining the ML region (optional when `--detect-layer` is enabled). |
-| `-q, --charge` | required unless `-l` | ML-region net charge. |
-| `-s, --scan-lists` | yes | YAML/JSON spec file path or inline Python literal with exactly two quadruples. |
+Recommended: YAML/JSON spec.
 
-### YAML/JSON spec format (recommended)
-
-`-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
-
-```yaml
-one_based: true # optional; defaults to CLI --one-based/--zero-based
+```bash
+# Recommended: YAML/JSON spec
+cat > scan2d.yaml << 'YAML'
+one_based: true
 pairs:
  - [12, 45, 1.30, 3.10]
  - [10, 55, 1.20, 3.20]
+YAML
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -s scan2d.yaml --print-parsed
 ```
 
-- `pairs` is required and must contain exactly 2 quadruples.
-- Each quadruple is `(i, j, low_A, high_A)`.
-- Indices may be integers or PDB selectors (same as inline literals).
-
-### Inline literal format
-
-When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
-
-The literal is a Python list of exactly **two** quadruples `(atom1, atom2, low_A, high_A)`:
-
-```
--s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
-```
-
-- Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
-- Each quadruple defines one scan axis: the distance between `atom1`--`atom2` is scanned from `low_A` to `high_A`.
-- Unlike `scan`, only **one literal** is accepted (no multi-stage support).
-
-Atoms can be given as **integer indices** or **PDB selector strings**:
-
-| Method | Example | Notes |
-| --- | --- | --- |
-| Integer index | `(1, 5, 1.30, 3.10)` | 1-based by default (`--one-based`) |
-| PDB selector | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | Residue name, residue number, atom name |
-
-PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
+Alternative: inline Python literal.
 
 ```bash
-# All of these specify the same atom:
-"TYR,285,CA"
-"TYR 285 CA"
-"TYR/285/CA"
-"285,TYR,CA" # order is flexible
+# Alternative: inline Python literal
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 ```
 
-Quoting rules:
+LBFGS scan with TRJ dumps and fixed color scale for the contour plot.
 
 ```bash
-# Correct: single-quote the list, double-quote selector strings inside
--s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20)]'
-
-# Correct: integer indices need no inner quotes
--s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
-
-# Avoid: double-quoting the outer literal requires escaping inner quotes
--s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+# LBFGS scan with TRJ dumps and fixed color scale for the contour plot
+mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
+ --max-step-size 0.20 --dump -o ./result_scan2d/ --preopt --baseline min \
+ --zmin 0.0 --zmax 40.0
 ```
+
+Add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation.
 
 ## Workflow
 
@@ -185,6 +117,67 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
+
+## Scan spec formats
+
+### YAML/JSON spec format (recommended)
+
+`-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
+
+```yaml
+one_based: true # optional; defaults to CLI --one-based/--zero-based
+pairs:
+ - [12, 45, 1.30, 3.10]
+ - [10, 55, 1.20, 3.20]
+```
+
+- `pairs` is required and must contain exactly 2 quadruples.
+- Each quadruple is `(i, j, low_A, high_A)`.
+- Indices may be integers or PDB selectors (same as inline literals).
+
+### Inline literal format
+
+When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
+
+The literal is a Python list of exactly **two** quadruples `(atom1, atom2, low_A, high_A)`:
+
+```
+-s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
+```
+
+- Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
+- Each quadruple defines one scan axis: the distance between `atom1`--`atom2` is scanned from `low_A` to `high_A`.
+- Unlike `scan`, only **one literal** is accepted (no multi-stage support).
+
+Atoms can be given as **integer indices** or **PDB selector strings**:
+
+| Method | Example | Notes |
+| --- | --- | --- |
+| Integer index | `(1, 5, 1.30, 3.10)` | 1-based by default (`--one-based`) |
+| PDB selector | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | Residue name, residue number, atom name |
+
+PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
+
+```bash
+# All of these specify the same atom:
+"TYR,285,CA"
+"TYR 285 CA"
+"TYR/285/CA"
+"285,TYR,CA" # order is flexible
+```
+
+Quoting rules:
+
+```bash
+# Correct: single-quote the list, double-quote selector strings inside
+-s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20)]'
+
+# Correct: integer indices need no inner quotes
+-s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
+
+# Avoid: double-quoting the outer literal requires escaping inner quotes
+-s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+```
 
 ## YAML configuration
 

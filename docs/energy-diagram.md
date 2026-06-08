@@ -2,19 +2,27 @@
 
 Draw a state energy diagram directly from numeric values (no structure file, no ML/MM calculation). `mlmm energy-diagram` only visualizes numbers you provide. It does not read PDB/XYZ structures and does not run thermochemistry (`--thermo`) or DFT (`--dft`) steps.
 
-## Quick examples
+## Examples
+
+Relative energies as a list-like string:
 
 ```bash
 mlmm energy-diagram -i "[0, 12.5, 4.3]" -o energy.png
 ```
 
+Absolute energies (any numeric values):
+
 ```bash
 mlmm energy-diagram -i "[-205.1, -190.4, -198.7]" -o energy.png
 ```
 
+Values via repeated `-i` flags:
+
 ```bash
 mlmm energy-diagram -i 0 -i 12.5 -i 4.3 -o energy.png
 ```
+
+Custom x-axis state labels and y-axis label:
 
 ```bash
 mlmm energy-diagram -i "[0, 12.5, 4.3]" --label-x R TS P --label-y "ΔE (kcal/mol)" -o energy.png

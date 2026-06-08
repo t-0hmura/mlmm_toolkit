@@ -1,16 +1,14 @@
 # `dft`
 
-Run a single-point DFT calculation on the ML region using GPU4PySCF (or CPU PySCF), then recombine the high-level energy with MM evaluations to obtain the ML(dft)/MM total energy. The default functional/basis is `wb97m-v/def2-tzvpd`. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
+Run a single-point DFT calculation on the ML region using GPU4PySCF (or CPU PySCF), then recombine the high-level energy with MM evaluations to obtain the ML(dft)/MM total energy. Use it to refine stationary-point energies (R / TS / P / IM) at DFT level after an MLIP path search, or to sanity-check an MLIP barrier against a benchmark functional / basis. The default functional/basis is `wb97m-v/def2-tzvpd`. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-## When to use
+## Examples
 
-- Use when refining stationary-point energies (R / TS / P / IM) at DFT level after an MLIP path search, or sanity-checking an MLIP barrier against a benchmark functional / basis.
-
-## Quick examples
+Minimal single-point DFT on the ML region:
 
 ```bash
 # Minimal single-point DFT on the ML region
@@ -18,11 +16,15 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_dft
 ```
 
+Change functional/basis for a higher-level single point:
+
 ```bash
 # Change functional/basis for a higher-level single point
 mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --func-basis "wb97m-v/def2-tzvpd" --out-dir ./result_dft_tz
 ```
+
+Freeze selected atoms in the ML/MM setup before DFT (or tighten SCF):
 
 ```bash
 # Freeze selected atoms in the ML/MM setup before DFT
@@ -30,26 +32,6 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q -1 -m 2 --freeze-atoms "1,3,5" --out-dir ./result_dft_freeze
 # tighten SCF instead: -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
 ```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 [options]
-```
-
-`mlmm dft --help` shows core options; `mlmm dft --help-advanced` shows the full option list.
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Full enzyme structure (PDB or XYZ). If XYZ, use `--ref-pdb` for topology. |
-| `--parm` | yes | Amber parm7 topology for the full system. |
-| `--model-pdb` | optional | PDB defining the ML region (atom IDs must match the enzyme PDB). Optional when `--detect-layer` is enabled. |
-| `--model-indices` | optional | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Used when `--model-pdb` is omitted. |
-| `--ref-pdb` | for XYZ inputs | Reference PDB topology when input is XYZ. |
-| `-q, --charge` | yes (unless `-l`) | Charge of the ML region. Required unless `-l/--ligand-charge` is given (PDB input or XYZ with `--ref-pdb`). |
-| `-m, --multiplicity` | optional | Spin multiplicity (2S+1) for the ML region (default `1`). |
 
 ## Workflow
 
@@ -77,7 +59,7 @@ out_dir/ (default: ./result_dft/)
 
 ## CLI options
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+`mlmm dft --help` shows core options; `mlmm dft --help-advanced` shows the full option list. The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 
 | Option | Description | Default |
 | --- | --- | --- |

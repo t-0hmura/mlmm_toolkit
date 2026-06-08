@@ -1,41 +1,29 @@
 # bond-summary
 
-Detect and report covalent bond changes between consecutive molecular structures. `bond-summary` compares consecutive pairs of input structures and reports bonds that are formed or broken. For *N* input files it produces *N − 1* comparison blocks (A→B, B→C, …). Bond perception uses element-specific covalent radii with configurable tolerances, and distances are reported in Ångström.
+Detect and report covalent bond changes between consecutive molecular structures. `bond-summary` compares consecutive pairs of input structures and reports bonds that are formed or broken, which is useful for inspecting bond formation / breaking between reactant, intermediate, and product structures along a reaction pathway, validating IRC endpoint connectivity, or checking borderline coordination (e.g. metal coordination at 2.0–2.4 Å) by tuning `--bond-factor`. For *N* input files it produces *N − 1* comparison blocks (A→B, B→C, …). Bond perception uses element-specific covalent radii with configurable tolerances, and distances are reported in Ångström.
 
-## When to use
+## Examples
 
-- Inspect bond formation / breaking between reactant, intermediate, and product structures along a reaction pathway.
-- Validate IRC endpoint connectivity or check borderline coordination (e.g. metal coordination at 2.0–2.4 Å) by tuning `--bond-factor`.
-
-## Quick examples
+Compare a reactant and a product:
 
 ```bash
 mlmm bond-summary -i 1.R.xyz -i 3.P.xyz
 ```
 
+Compare a multi-structure pathway (each consecutive pair is reported):
+
 ```bash
 mlmm bond-summary -i 1.R.xyz -i 3.IM1.xyz -i 5.IM2.xyz -i 7.P.xyz
 ```
 
-Supported formats: **XYZ**, **PDB**, **GJF** (auto-detected by extension).
-
-## Inputs
-
-Command form:
+Bare positional files are also accepted (or mix `-i` with positionals):
 
 ```bash
-mlmm bond-summary -i R.xyz -i P.xyz
-mlmm bond-summary -i R.xyz -i TS.xyz -i P.xyz
-mlmm bond-summary -i R.pdb -i IM1.pdb -i IM2.pdb -i P.pdb
+mlmm bond-summary A.xyz B.xyz
+mlmm bond-summary -i R.xyz TS.xyz P.xyz
 ```
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Input structure file (repeat for each file, ≥ 2 required); consecutive pairs are compared in order. |
-
-Bare positional files are also accepted (e.g. `mlmm bond-summary A.xyz B.xyz`, or mixing `-i` with positionals).
-
-All input structures must have **identical atom counts and element ordering**.
+Supported formats: **XYZ**, **PDB**, **GJF** (auto-detected by extension).
 
 ## Outputs
 
@@ -59,7 +47,7 @@ A multi-structure run such as `-i 1.R.xyz -i 3.IM1.xyz -i 5.IM2.xyz -i 7.P.xyz` 
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-i, --input FILE` | Input structure file (repeat for each file, ≥ 2 required) | — |
+| `-i, --input FILE` | Input structure file (repeat for each file, ≥ 2 required); consecutive pairs are compared in order. Bare positional files are also accepted, and may be mixed with `-i`. | — |
 | `--device TEXT` | Compute device (`cpu`, `cuda`) | `cpu` |
 | `--bond-factor FLOAT` | Scaling factor for covalent radii sum | `1.20` |
 | `--one-based / --zero-based` | Atom index convention in output | `--one-based` |
@@ -69,6 +57,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 ## Notes
 
+- All input structures must have **identical atom counts and element ordering**.
 - Bond detection uses the same algorithm as the internal `bond_changes` module used by the `all` workflow for IRC endpoint validation.
 - To make bond detection more permissive for borderline bonds, increase `--bond-factor` (e.g., `1.30`).
 

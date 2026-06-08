@@ -1,32 +1,8 @@
 # `fix-altloc`
 
-Remove alternate location (altLoc) indicators from PDB files by selecting the best conformer for each atom based on occupancy and dropping duplicates. The altLoc column (column 17, 1-based) is blanked with a single space (a 1-character replacement; no shifting or reformatting), and when the same atom appears in multiple altLoc states the highest-occupancy copy is retained (earliest in file on ties, or when occupancy is missing). `ATOM` / `HETATM` records undergo altLoc selection and blanking; `ANISOU` records are kept only if the corresponding ATOM/HETATM line (same serial) is kept.
+Remove alternate location (altLoc) indicators from PDB files by selecting the best conformer for each atom based on occupancy and dropping duplicates, so a structure carrying altLoc characters is cleaned before downstream ML/MM preparation (typically after repairing element columns with [add-elem-info](add-elem-info.md)). The altLoc column (column 17, 1-based) is blanked with a single space (a 1-character replacement; no shifting or reformatting), and when the same atom appears in multiple altLoc states the highest-occupancy copy is retained (earliest in file on ties, or when occupancy is missing). `ATOM` / `HETATM` records undergo altLoc selection and blanking; `ANISOU` records are kept only if the corresponding ATOM/HETATM line (same serial) is kept.
 
-## When to use
-
-- Clean a PDB that carries altLoc characters before running downstream ML/MM preparation.
-- Repair element columns first with [add-elem-info](add-elem-info.md), then resolve altLocs.
-- Files with no altLoc characters are skipped unless `--force` is set.
-
-## Quick examples
-
-```bash
-mlmm fix-altloc -i 1abc.pdb
-```
-
-```bash
-mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb
-```
-
-```bash
-mlmm fix-altloc -i ./structures -o ./cleaned --recursive
-```
-
-```bash
-mlmm fix-altloc -i ./structures --inplace --recursive
-```
-
-## Inputs
+## Examples
 
 Command form:
 
@@ -34,10 +10,29 @@ Command form:
 mlmm fix-altloc -i INPUT [-o OUTPUT] [options]
 ```
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input PATH` | yes | Input PDB file or directory. |
-| `-o, --out PATH` | no | Output file (if input is a file) or directory (if input is a directory). Defaults to `<input>_clean.pdb` (file) or `<input>_clean/` (directory). |
+Resolve altLocs in a single file (writes `<input>_clean.pdb`):
+
+```bash
+mlmm fix-altloc -i 1abc.pdb
+```
+
+Resolve altLocs in a single file with an explicit output name:
+
+```bash
+mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb
+```
+
+Process a directory recursively into a new output directory:
+
+```bash
+mlmm fix-altloc -i ./structures -o ./cleaned --recursive
+```
+
+Process a directory recursively, overwriting files in place:
+
+```bash
+mlmm fix-altloc -i ./structures --inplace --recursive
+```
 
 ## Workflow
 
@@ -111,6 +106,10 @@ if has_altloc(Path("input.pdb")):
 | `--force/--no-force` | Process files even if no altLoc is detected. | `False` |
 
 The full flag list is in the generated [command reference](reference/commands/index.md).
+
+## Notes
+
+- Files with no altLoc characters are skipped unless `--force` is set.
 
 ## See Also
 

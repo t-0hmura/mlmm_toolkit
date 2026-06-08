@@ -2,7 +2,7 @@
 
 > **Summary:** Define a 3-layer ML/MM system based on distance from the ML region and encode the layer assignments as B-factors in the output PDB.
 
-`mlmm define-layer` partitions an enzyme system into three layers around the ML region and writes the assignments as PDB B-factors. The ML region can be specified via a model PDB, explicit atom indices, or a combination of both.
+`mlmm define-layer` partitions an enzyme system into three layers around the ML region and writes the assignments as PDB B-factors. The ML region can be specified via a model PDB, explicit atom indices, or a combination of both. Use it to define the 3-layer ML/MM system for a full-system PDB before single-structure optimization or end-to-end runs.
 
 The three layers and their B-factor encodings:
 
@@ -17,38 +17,32 @@ Layer assignment strategy:
 - **Residues without ML atoms:** the entire residue is assigned to a single layer based on the minimum distance from any ML atom to any atom in the residue.
 - **Residues with ML atoms:** non-ML atoms in the same residue are classified individually by distance.
 
-## When to use
+## Examples
 
-- Define the 3-layer ML/MM system for a full-system PDB before single-structure optimization or end-to-end runs.
-
-## Quick examples
-
-```bash
-mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
-```
-
-```bash
-mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labeled.pdb
-```
-
-```bash
-mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
- --radius-freeze 10.0 -o labeled.pdb
-```
-
-## Inputs
-
-Command form:
+Command form (provide exactly one of `--model-pdb` or `--model-indices`):
 
 ```bash
 mlmm define-layer -i INPUT.pdb (--model-pdb PDB | --model-indices TEXT) [options]
 ```
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Input PDB file containing the full system. |
-| `--model-pdb` | one of | PDB file defining atoms in the ML region. |
-| `--model-indices` | one of | Comma-separated atom indices for the ML region; 1-based by default. Takes precedence over `--model-pdb`. |
+Define the ML region from a model PDB:
+
+```bash
+mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
+```
+
+Define the ML region from 0-based atom indices:
+
+```bash
+mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labeled.pdb
+```
+
+Widen the Movable-MM cutoff to 10.0 Å:
+
+```bash
+mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
+ --radius-freeze 10.0 -o labeled.pdb
+```
 
 ## Workflow
 1. **ML region identification** -- The ML region is defined by `--model-pdb` (atom matching against the input PDB) or `--model-indices` (explicit atom indices). If `--model-indices` is provided, it takes precedence over `--model-pdb`.

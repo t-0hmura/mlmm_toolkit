@@ -1,17 +1,17 @@
 # `freq`
 
-Compute ML/MM vibrational frequencies and thermochemistry (ZPE, Gibbs energy, etc.) on a layered enzyme PDB with PHVA support. `mlmm freq` performs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed. When VRAM permits, `--hessian-calc-mode Analytical` speeds Hessian evaluation; imaginary frequencies appear as negative values.
+Compute ML/MM vibrational frequencies and thermochemistry (ZPE, Gibbs energy, etc.) on a layered enzyme PDB with PHVA support. Use it for vibrational analysis of an optimized minimum, transition state, or IRC endpoint to validate stationary-point character and compute QRRHO thermochemistry. `mlmm freq` performs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed. When VRAM permits, `--hessian-calc-mode Analytical` speeds Hessian evaluation; imaginary frequencies appear as negative values.
 
-## When to use
+## Examples
 
-- Vibrational analysis of an optimized minimum, transition state, or IRC endpoint to validate stationary-point character and compute QRRHO thermochemistry.
-
-## Quick examples
+Basic frequency analysis:
 
 ```bash
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
+
+Limit the number of exported modes for quick inspection:
 
 ```bash
 # Limit the number of exported modes for quick inspection
@@ -19,11 +19,15 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
 ```
 
+PHVA with explicit frozen atoms and dump thermo payload:
+
 ```bash
 # PHVA with explicit frozen atoms and dump thermo payload
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
+
+Analytical Hessian mode on VRAM-rich nodes:
 
 ```bash
 # Analytical Hessian mode on VRAM-rich nodes
@@ -31,31 +35,11 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
-## Inputs
-
-Command form:
-
-```bash
-mlmm freq -i INPUT --parm PARM7 --model-pdb ML_PDB -q CHARGE [options]
-```
-
-`mlmm freq --help` shows core options; `mlmm freq --help-advanced` shows the full option list.
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Full enzyme PDB (no link atoms). |
-| `--parm` | yes | Amber parm7 topology for the full enzyme. |
-| `--model-pdb` | optional | PDB defining the ML region. Optional when `--detect-layer` is enabled. |
-| `--model-indices` | optional | Explicit ML-region atom indices (alternative to `--model-pdb`). |
-| `-q, --charge` | required unless `-l` | ML region charge. |
-| `-l, --ligand-charge` | optional | Per-resname charge mapping (e.g. `GPP:-3,SAM:1`); derives net charge when `-q` is omitted. |
-| `--ref-pdb` | for non-PDB inputs | Reference PDB topology for non-PDB inputs. |
-
 ## Workflow
 
 1. **ML/MM calculator setup** -- The ML region is supplied via `--model-pdb`; Amber parameters are read from `--parm`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active-DOF sub-block.
 2. **PHVA & TR projection** -- With frozen atoms, eigenanalysis occurs inside the active subspace with translation/rotation modes projected there. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
-3. **Active DOF mode** -- `--active-dof-mode` selects which atoms enter the analysis (default `partial`); see the When-to-use note or the CLI options table for the four modes.
+3. **Active DOF mode** -- `--active-dof-mode` selects which atoms enter the analysis (default `partial`); see the CLI options table for the four modes.
 4. **Mode export** -- `--max-write` limits how many modes are animated. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` (XYZ-like trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering). The sinusoidal animation amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
 5. **Thermochemistry** -- If `thermoanalysis` is installed, a QRRHO-like summary (EE, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. CLI pressure in atm is converted internally to Pa. When `--dump`, a `thermoanalysis.yaml` snapshot is also written.
 6. **Device selection** -- `ml_device="auto"` triggers CUDA when available, otherwise CPU. The internal TR projection/mode assembly runs on the same device to minimize transfers.
@@ -74,7 +58,7 @@ out_dir/ (default: ./result_freq/)
 
 ## CLI options
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+`mlmm freq --help` shows core options; `mlmm freq --help-advanced` shows the full option list. The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 
 | Option | Description | Default |
 | --- | --- | --- |

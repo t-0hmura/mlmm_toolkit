@@ -1,21 +1,19 @@
 # `extract`
 
-`mlmm extract` carves an active-site pocket from a protein–ligand PDB to define the ML region (and the surrounding MM environment for downstream stages). It selects residues near the substrate, truncates the model according to backbone / side-chain rules, optionally caps severed bonds with link hydrogens, and handles single structures or ensembles. This is typically the **first step** in an mlmm-toolkit workflow, producing a smaller, computationally tractable model from a full protein–ligand complex.
+`mlmm extract` carves an active-site pocket from a protein–ligand PDB to define the ML region (and the surrounding MM environment for downstream stages). Use it as the **first step** in an mlmm-toolkit workflow to turn a full protein–ligand complex into a smaller, computationally tractable model: it selects residues near the substrate, truncates the model according to backbone / side-chain rules, optionally caps severed bonds with link hydrogens, and handles a single structure or a multi-structure ensemble (details under [Multi-structure ensembles](#multi-structure-ensembles)). Pick a substrate-selection mode (residue IDs, a substrate PDB, or residue names) depending on what you have on hand — see [Input syntax](#input-syntax) for the exact grammar.
 
 If you run into misclassification (e.g. unusual residue / atom naming), see the appendix below on naming requirements and the internal reference lists.
 
-## When to use
+## Examples
 
-- Use `extract` as the first step to carve a computationally tractable active-site pocket from a full protein–ligand complex.
-- Pick a substrate-selection mode (residue IDs, a substrate PDB, or residue names) depending on what you have on hand — see Inputs > Input syntax for the exact grammar.
-- Process a single structure or a multi-structure ensemble (details under [Multi-structure ensembles](#multi-structure-ensembles)).
-
-## Quick examples
+Minimal run with an ID-based substrate and an explicit total ligand charge:
 
 ```bash
 # Minimal (ID-based substrate) with explicit total ligand charge
 mlmm extract -i complex.pdb -c A:123 -o pocket.pdb -l -3
 ```
+
+Substrate supplied as a PDB, with a per-resname charge mapping:
 
 ```bash
 # Substrate provided as a PDB; per-resname charge mapping (others remain 0)
@@ -23,43 +21,13 @@ mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb -l "GPP:-3,MMT:-1"
 # name-based selection includes all matches (WARNING logged): -c 'GPP,SAM'
 ```
 
+Multi-structure ensemble collapsed into one multi-MODEL output, using hetero-hetero proximity:
+
 ```bash
 # Multi-structure → single multi-MODEL output with hetero-hetero proximity
 mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
     -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose
 ```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb ...]
-    -c SUBSTRATE_SPEC
-    [-o POCKET.pdb [POCKET2.pdb ...]]
-    [--radius Å] [--radius-het2het Å]
-    [--include-h2o / --no-include-h2o]
-    [--exclude-backbone / --no-exclude-backbone]
-    [--add-linkh / --no-add-linkh]
-    [--selected-resn LIST]
-    [-l, --ligand-charge MAP_OR_NUMBER]
-    [-v LEVEL]
-```
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | One or more protein–ligand PDB files (identical atom ordering required). |
-| `-c, --center` | yes | Substrate specification: PDB path, residue IDs, or residue names. |
-| `-o, --output` | no | Pocket PDB output(s). One path ⇒ multi-MODEL; N paths ⇒ per input. Defaults to `pocket.pdb` / `pocket_<input>.pdb`. |
-| `-l, --ligand-charge` | no | Total charge or per-resname mapping (e.g. `GPP:-3,SAM:1`) for non-standard residues. |
-
-### Input syntax
-
-Substrate specification (`-c/--center`):
-
-- **PDB path**: coordinates must match the first input exactly (tolerance 1e-3 Å); residue IDs propagate to other structures.
-- **Residue IDs**: `'123,124'`, `'A:123,B:456'`, `'123A'`, `'A:123A'` (insertion codes supported).
-- **Residue names**: comma-separated, case-insensitive. If multiple residues share a name, **all** matches are included and a warning is logged.
 
 ## Workflow
 
@@ -117,6 +85,21 @@ Programmatic use (`extract_api`) returns `{"outputs": [...], "counts": [...], "c
 
 ## CLI options
 
+Command form:
+
+```bash
+mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb ...]
+    -c SUBSTRATE_SPEC
+    [-o POCKET.pdb [POCKET2.pdb ...]]
+    [--radius Å] [--radius-het2het Å]
+    [--include-h2o / --no-include-h2o]
+    [--exclude-backbone / --no-exclude-backbone]
+    [--add-linkh / --no-add-linkh]
+    [--selected-resn LIST]
+    [-l, --ligand-charge MAP_OR_NUMBER]
+    [-v LEVEL]
+```
+
 The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 
 | Option | Description | Default |
@@ -132,6 +115,14 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--selected-resn TEXT` | Force-include residues (IDs with optional chains / insertion codes). | `""` |
 | `--modified-residue TEXT` | Comma-separated residue names (with optional charge) to treat as amino acids for backbone truncation and charge assignment (e.g. `HD1,HD2,HD3` or `HD1:0,SEP:-2`). Useful for modified amino acids with non-standard names. | `""` |
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g. `GPP:-3,SAM:1`). | _None_ |
+
+### Input syntax
+
+Substrate specification (`-c/--center`):
+
+- **PDB path**: coordinates must match the first input exactly (tolerance 1e-3 Å); residue IDs propagate to other structures.
+- **Residue IDs**: `'123,124'`, `'A:123,B:456'`, `'123A'`, `'A:123A'` (insertion codes supported).
+- **Residue names**: comma-separated, case-insensitive. If multiple residues share a name, **all** matches are included and a warning is logged.
 
 ```{tip}
 If the extracted pocket is too small, calculated energies and barriers may be unreliable — increasing the extraction radius (e.g. `-r 4.0` or higher) improves accuracy by including more of the protein environment.

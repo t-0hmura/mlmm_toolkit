@@ -1,46 +1,30 @@
 # `oniom-import`
 
-Import a Gaussian/ORCA ONIOM input file and reconstruct an XYZ plus a B-factor layered PDB. The XYZ comment line carries the QM-region charge and multiplicity (`q=<charge> m=<multiplicity>`), and the layered PDB encodes ML/Movable-MM/Frozen-MM layers in its B-factor column. Import mode is taken from `--mode` or inferred from the input suffix.
+Import a Gaussian/ORCA ONIOM input file and reconstruct an XYZ plus a B-factor layered PDB, bringing an externally prepared ONIOM input back into the ML/MM toolchain as an XYZ + layered PDB pair. The XYZ comment line carries the QM-region charge and multiplicity (`q=<charge> m=<multiplicity>`), and the layered PDB encodes ML/Movable-MM/Frozen-MM layers in its B-factor column. Import mode is taken from `--mode` or inferred from the input suffix. Pass `--ref-pdb` to recover atom/residue metadata from a reference PDB when reconstructing a layered structure.
 
-## When to use
-
-- Bring an externally prepared Gaussian/ORCA ONIOM input back into the ML/MM toolchain as an XYZ + layered PDB pair.
-- Recover atom/residue metadata from a reference PDB when reconstructing a layered structure (atom count must match).
-
-## Quick examples
+## Examples
 
 ```bash
 mlmm oniom-import -i ts_guess.inp -o ts_guess_imported
 ```
 
+Let mode be inferred from suffix (`.gjf`/`.com` -> g16, `.inp` -> orca):
+
 ```bash
-# Let mode be inferred from suffix (.gjf/.com -> g16, .inp -> orca)
 mlmm oniom-import -i model.gjf -o model_imported
+```
 
-# Force mode explicitly
+Force mode explicitly:
+
+```bash
 mlmm oniom-import -i model.inp --mode orca -o model_imported
+```
 
-# Keep atom/residue metadata from a reference PDB (atom count must match)
+Keep atom/residue metadata from a reference PDB (atom count must match):
+
+```bash
 mlmm oniom-import -i model.inp --ref-pdb complex_layered.pdb -o model_imported
 ```
-
-## Inputs
-
-Command form:
-
-```bash
-mlmm oniom-import -i INPUT.[gjf|com|inp] [--mode g16|orca] \
-  [-o OUT_PREFIX] [--ref-pdb REF.pdb]
-```
-
-| Input | Required | Notes |
-| --- | --- | --- |
-| `-i, --input` | yes | Input ONIOM file (`.gjf`/`.com` for g16, `.inp` for ORCA). |
-| `--mode` | no | Import mode (`g16`/`orca`). If omitted, inferred from input suffix. |
-| `-o, --out-prefix` | no | Output prefix. Defaults to the input stem in the current directory. |
-| `--ref-pdb` | no | Reference PDB to preserve atom naming/residue metadata (atom count must match). |
-
-The full flag list (including advanced options) is in the generated [command reference](reference/commands/index.md).
 
 ## Workflow
 
@@ -64,6 +48,24 @@ The full flag list (including advanced options) is in the generated [command ref
 - `<out_prefix>.xyz` exists and atom count matches the source ONIOM input.
 - `<out_prefix>_layered.pdb` exists and B-factor values encode layers (`0/10/20`).
 - Log lines report parsed mode, atom count, and QM/movable/frozen counts.
+
+## CLI options
+
+Command form:
+
+```bash
+mlmm oniom-import -i INPUT.[gjf|com|inp] [--mode g16|orca] \
+  [-o OUT_PREFIX] [--ref-pdb REF.pdb]
+```
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `-i, --input` | yes | Input ONIOM file (`.gjf`/`.com` for g16, `.inp` for ORCA). |
+| `--mode` | no | Import mode (`g16`/`orca`). If omitted, inferred from input suffix. |
+| `-o, --out-prefix` | no | Output prefix. Defaults to the input stem in the current directory. |
+| `--ref-pdb` | no | Reference PDB to preserve atom naming/residue metadata (atom count must match). |
+
+The full flag list (including advanced options) is in the generated [command reference](reference/commands/index.md).
 
 ## See Also
 
