@@ -2,7 +2,7 @@
 
 ## Overview
 
-<img src="./docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="100%">
+<img src="./docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="90%">
 
 `mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`), and chains **MM parametrisation → ML-region selection → MEP search → TS optimisation → IRC → frequencies → DFT single-point** in one command. A link-atom boundary handles amino-acid residues straddling the ML/MM cut, and a microiteration scheme makes TS optimisation and Hessian-based methods tractable on ~10 000-atom systems.
 
