@@ -1,8 +1,5 @@
 # Architecture: mlmm-toolkit
 
-> Audience: contributors and maintainers (not end users — see [`getting-started.md`](getting-started.md) for usage).
-> Scope: 6-layer source tree map, layered responsibilities, hidden constraints, bundled-fork policy, and a Fresh-eyes 5-step navigation for new developers.
-
 ---
 
 ## 1. Overview

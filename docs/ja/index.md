@@ -1,6 +1,6 @@
 # mlmm-toolkit ドキュメント
 
-*バージョン: v{{ version }}*
+*バージョン: v0.3.0*
 
 **mlmm-toolkit** は、機械学習原子間ポテンシャル（Machine Learning Interatomic Potential）と分子力学（Molecular Mechanics）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
 
@@ -19,6 +19,7 @@ quickstart-tsopt-freq
 recipes-common-errors
 troubleshooting
 cli-conventions
+reproducibility
 ```
 
 ```{toctree}
@@ -41,6 +42,7 @@ scan3d
 freq
 irc
 dft
+sp
 trj2fig
 oniom-export
 oniom-import
@@ -61,6 +63,10 @@ yaml-reference
 json-output
 mlmm-calc
 python-api
+backends
+architecture
+output-layout
+mcp_server
 glossary
 ```
 

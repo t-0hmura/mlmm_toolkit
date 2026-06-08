@@ -1,6 +1,6 @@
 # mlmm-toolkit Documentation
 
-*Version: v{{ version }}* — Python CLI for ML/MM ONIOM analyses of enzymatic reactions.
+*Version: v0.3.0* — Python CLI for ML/MM ONIOM analyses of enzymatic reactions.
 
 <img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
 
@@ -115,7 +115,7 @@ ja/glossary
 日本語 <ja/index>
 ```
 
-## Start here
+## Quick start
 
 | Goal | Page |
 |---|---|
