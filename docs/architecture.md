@@ -4,7 +4,7 @@
 
 ## 1. Overview
 
-`mlmm-toolkit` is a Python CLI that performs **ML/MM (ONIOM) enzymatic reaction-path analysis** on a complete protein environment. From a PDB plus a substrate name, it automatically generates the parm7 topology, encodes the ONIOM region split (ML / Movable MM / Frozen MM) into B-factor channels, runs full-system Hessian-based TS search via a macro/micro alternation scheme, and produces the reaction path (extract → MM-param → ONIOM model → MEP → tsopt → IRC → freq → dft).
+`mlmm-toolkit` is a Python CLI that performs **ML/MM (ONIOM) enzymatic reaction-path analysis** on a complete protein environment. From a PDB and a substrate name, it automatically generates the parm7 topology, encodes the ONIOM region split (ML / Movable MM / Frozen MM) into B-factor channels, runs full-system Hessian-based TS search via a macro/micro alternation scheme, and produces the reaction path (extract → MM-param → ONIOM model → MEP → tsopt → IRC → freq → dft).
 
 The package is laid out as **6 physical layer directories** (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`); the role and dependency direction of each are summarised in the §4 layer tables below. External code imports directly from the layer directory (`from mlmm.backends.mlmm_calc import MLMMCore`, `from mlmm.core.utils import …`, `import mlmm.io.trj2fig`, etc.); the previous flat-top shim layer has been retired in this release.
 
@@ -301,7 +301,7 @@ For mlmm the practical curriculum is the 5-pass Hessian set first (#1, #2, #8, #
 
 ### 5.2 VRAM-management invariant (do not refactor `del` chains)
 
-The IRC / TSopt / Freq stages explicitly `del` GPU-resident objects (`calc`, `geom`, `hess`) between stages to free CUDA memory; the `all` workflow additionally runs `gc.collect()` at stage boundaries. **Do not refactor these `del` / `gc.collect()` statements out** — long-running ML/MM `all` jobs with the full protein environment OOM without them.
+The IRC / TSopt / Freq stages explicitly `del` GPU-resident objects (`calc`, `geom`, `hess`) between stages to free CUDA memory; the `all` workflow additionally runs `gc.collect()` at stage boundaries. **Do not refactor these `del` / `gc.collect()` statements out** — long-running ML/MM `all` jobs on the full protein environment OOM without them.
 
 ### 5.3 Bundled forks: do NOT install upstream alongside
 

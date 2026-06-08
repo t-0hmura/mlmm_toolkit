@@ -1,6 +1,6 @@
 # `path-search`
 
-`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multi-step mechanism from R + (optional intermediates) + P, where the recursive segmentation auto-detects elementary steps and refines only the regions with covalent bond changes. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, scan specifications, or convergence thresholds—to obtain a satisfactory pathway.
+`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multistep mechanism from R + (optional intermediates) + P, where the recursive segmentation auto-detects elementary steps. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, scan specifications, or convergence thresholds—to obtain a satisfactory pathway.
 
 ## Examples
 

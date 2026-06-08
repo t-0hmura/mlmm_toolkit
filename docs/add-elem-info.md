@@ -1,6 +1,6 @@
 # `add-elem-info`
 
-`mlmm add-elem-info` adds or repairs PDB element symbols (columns 77-78) using Biopython, so use it to add element columns to a PDB that lacks them (or correct existing ones) before downstream tools that require them, and to re-infer and overwrite unreliable element fields (`--overwrite`). It parses the input PDB with Biopython (`PDBParser`), assigns `atom.element` using residue context and atom-name heuristics, and writes via `PDBIO` to populate columns 77-78. It supports ATOM and HETATM records across all models/chains/residues without altering coordinates.
+`mlmm add-elem-info` adds or repairs PDB element symbols (columns 77-78) using Biopython. Use it to add element columns to a PDB that lacks them, or to correct existing ones, before downstream tools that require them; the `--overwrite` flag re-infers and overwrites unreliable element fields. It parses the input PDB with Biopython (`PDBParser`), assigns `atom.element` using residue context and atom-name heuristics, and writes via `PDBIO` to populate columns 77-78. It supports ATOM and HETATM records across all models/chains/residues without altering coordinates.
 
 ## Examples
 

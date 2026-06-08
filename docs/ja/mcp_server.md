@@ -1,6 +1,6 @@
 # mlmm MCP サーバー
 
-`mlmm-mcp` は [MCP](https://modelcontextprotocol.io/) サーバーで、MCP を解釈する任意のエージェントが、stdio 上の JSON-RPC を介してすべての `mlmm` CLI サブコマンドを駆動できるようにします。Claude Desktop / Claude Code / Cursor / Codeium のほか、公式の Python または TypeScript MCP SDK 上に構築された任意のカスタムエージェントを含みます。
+`mlmm-mcp` は [MCP](https://modelcontextprotocol.io/) サーバーで、MCP に対応した任意のエージェントが、stdio 上の JSON-RPC を介してすべての `mlmm` CLI サブコマンドを実行できるようにします。対象には Claude Desktop / Claude Code / Cursor / Codeium のほか、公式の Python または TypeScript MCP SDK 上に構築された任意のカスタムエージェントが含まれます。
 
 ## インストール
 

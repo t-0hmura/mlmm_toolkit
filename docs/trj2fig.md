@@ -1,6 +1,6 @@
 # `trj2fig`
 
-`mlmm trj2fig` reads the Hartree energies encoded in each frame's comment line of an XYZ trajectory, converts them to kcal/mol or Hartree, optionally references all values to a chosen frame, and exports the resulting series as static/interactive figures and CSV tables. Use it to plot an energy profile from an XYZ trajectory whose second line stores Hartree energies, or to recompute energies with the MLIP backend via `-q/--charge` and/or `-m/--multiplicity`. The figure uses bold ticks, consistent fonts, markers, and a smoothed spline curve (no title).
+`mlmm trj2fig` reads the Hartree energies encoded in each frame's comment line of an XYZ trajectory, converts them to kcal/mol or Hartree, optionally references all values to a chosen frame, and exports the resulting series as static/interactive figures and CSV tables. Use it to plot an energy profile from an existing XYZ trajectory, or to recompute energies using the MLIP backend via `-q/--charge` and/or `-m/--multiplicity`. The figure uses bold ticks, consistent fonts, markers, and a smoothed spline curve (no title).
 
 ## Examples
 

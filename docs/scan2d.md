@@ -1,6 +1,6 @@
 # `scan2d`
 
-Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB. Use it to map a 2D potential energy surface across two reactive distances (e.g., bond-forming + bond-breaking) to locate saddle points and bifurcation features that a 1D scan would miss. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal; both forms accept exactly two scan axes. The 3D `scan2d_landscape.html` includes a bottom contour projection.
+Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB. Use it to map a 2D potential energy surface across two reactive distances (e.g., bond-forming and bond-breaking) to locate saddle points and bifurcation features that a 1D scan would miss. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Pass `-s/--scan-lists` a YAML/JSON spec file (recommended) or an inline Python literal; both forms accept exactly two scan axes. The 3D `scan2d_landscape.html` includes a bottom contour projection.
 
 ## Examples
 

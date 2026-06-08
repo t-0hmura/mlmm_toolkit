@@ -94,7 +94,7 @@ CMAP（クロスマップ骨格二面角補正）は、タンパク質 AMBER 力
 | `use_cmap: false`（デフォルト） | CMAP あり | CMAP **除外** | model 骨格 CMAP が E_total に残留 |
 | `use_cmap: true` | CMAP あり | CMAP あり | model 骨格 CMAP が差し引きでキャンセル |
 
-このデフォルト動作は Gaussian ONIOM と一致しており、Gaussian ONIOM も model MM パラメータから CMAP を除外します。典型的な活性部位モデル（リガンド + 機能的残基、ML 領域に骨格原子を含まない）では、どちらの設定でも CMAP in model はゼロになります。
+このデフォルト動作は Gaussian ONIOM と一致しており、Gaussian ONIOM も model MM パラメータから CMAP を除外します。典型的な活性部位モデル（リガンド + 機能的残基、ML 領域に骨格原子を含まない）では、どちらの設定でも model 系の CMAP はゼロになります。
 
 **YAML 設定例:**
 ```yaml

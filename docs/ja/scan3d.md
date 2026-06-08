@@ -1,6 +1,6 @@
 # `scan3d`
 
-調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）グリッドスキャンを実行し、3 つの結合距離を跨ぐ 3D PES をマッピングします。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られ、MLIP バックエンドは `-b/--backend` で選択（デフォルト: `uma`）、オプティマイザーは PySisyphus LBFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
+調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）グリッドスキャンを実行し、3 つの結合距離を跨ぐ 3D PES をマッピングします。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られます。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザーは PySisyphus LBFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
 
 ## 実行例
 

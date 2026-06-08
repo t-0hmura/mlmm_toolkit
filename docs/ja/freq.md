@@ -1,6 +1,6 @@
 # `freq`
 
-PHVA 対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。最適化した極小、TS、IRC 端点の振動解析に使い、停留点の性格検証と QRRHO 熱力学計算を行います。`mlmm freq` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でヘシアン評価を高速化できます。虚振動数は負の値で表示されます。
+PHVA 対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。最適化した極小、TS、IRC 端点に対して用い、停留点の性質を検証して QRRHO 熱力学計算を行います。`mlmm freq` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でヘシアン評価を高速化できます。虚振動数は負の値で表示されます。
 
 ## 実行例
 

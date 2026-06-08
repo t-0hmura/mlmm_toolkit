@@ -109,7 +109,8 @@ calc:
   - `aimnet2_model` — AIMNet2 バックエンドのみ
 - `embedcharge`: `true` に設定すると、xTB 点電荷埋め込み補正が有効化されます。MM 領域の部分電荷を点電荷として ML 計算に埋め込み、MM 環境から ML 領域への静電的影響（分極効果）を考慮します。デフォルトは `false` です。`$PATH` 上に `xtb` 実行ファイルが必要です。
 - `xtb_cmd`、`xtb_acc`、`xtb_ncores`、`xtb_workdir`、`xtb_keep_files` は `embedcharge` が有効な場合に xTB サブプロセスを設定します。
-- `hessian_calc_mode: Analytical` が推奨です（VRAM に余裕がある場合、ML 原子 300 以上では 24 GB 以上推奨）。UMA バックエンドでのみ利用可能で、他のバックエンドでは自動的に `FiniteDifference` が使用されます。- `hess_cutoff` のデフォルト `null` は可動 MM 原子をすべて Hessian 対象に含めることを意味します（freq/irc/opt はすべての可動原子を解析します）。値（>0.0）を指定すると、その距離以内の MM 原子のみに Hessian 対象を限定します。`movable_cutoff` を指定しない場合は `freeze_atoms` の指定に従います。
+- `hessian_calc_mode: Analytical` が推奨です（VRAM に余裕がある場合、ML 原子 300 以上では 24 GB 以上推奨）。UMA バックエンドでのみ利用可能で、他のバックエンドでは自動的に `FiniteDifference` が使用されます。
+- `hess_cutoff` のデフォルト `null` は可動 MM 原子をすべて Hessian 対象に含めることを意味します（freq/irc/opt はすべての可動原子を解析します）。値（>0.0）を指定すると、その距離以内の MM 原子のみに Hessian 対象を限定します。`movable_cutoff` を指定しない場合は `freeze_atoms` の指定に従います。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
 - `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分ヘシアンを既定で使用します。
@@ -433,7 +434,7 @@ stopt:
 
 **注意:**
 - `stopt.lbfgs` は HEI±1 端点最適化およびねじれノード最適化に使用される単一構造最適化（L-BFGS）の設定です。この入れ子レベルでは L-BFGS のみが参照されるため、`stopt.rfo:` ブロックは無視されます。
-- 外側の `stopt` キーはストリング最適化（GS または DMF ラッパー）を制御
+- 外側の `stopt` キーはストリング最適化（GS または DMF ラッパー）を制御します。
 
 ---
 

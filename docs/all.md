@@ -1,6 +1,6 @@
 # `all`
 
-`mlmm all` runs the end-to-end enzymatic-reaction workflow on full-system layered PDBs with ML/MM, so you can drive the full ML/MM mechanism pipeline in one command instead of chaining `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` by hand. It chains active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (recursive `path-search` by default), and optional post-processing (TS optimisation, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
+`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command, instead of chaining `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` by hand. It chains active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (recursive `path-search` by default), and optional post-processing (TS optimisation, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
 
 `all` runs in one of three modes, chosen by what you pass:
 

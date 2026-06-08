@@ -228,7 +228,7 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 ## 重要な概念
 
 ### ML/MM 3 層システム
-mlmm は PDB の B-factor を用いた 3 層分割スキームを使用します:
+mlmm は PDB の B-factor による 3 層分割スキームを使用します:
 - **ML 領域**（B=0.0）: UMA 機械学習ポテンシャルで計算
 - **Movable-MM**（B=10.0）: 最適化時に移動可能な MM 原子
 - **Frozen**（B=20.0）: 座標固定の MM 原子。最適化中に座標は変化しないが、Movable-MM および ML 領域との非結合相互作用（静電・van der Waals）は MM エネルギー評価に含まれる

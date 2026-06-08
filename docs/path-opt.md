@@ -1,6 +1,6 @@
 # `path-opt`
 
-`mlmm path-opt` finds a minimum-energy path (MEP) between **exactly two** layered enzyme structures with GSM (default) or DMF (`--mep-mode dmf`), using the ML/MM calculator on the full enzyme complex. It writes the path trajectory and exports the highest-energy image (HEI) as a TS candidate. Use it when two layered endpoints are well defined (no intermediates expected); it is the simpler MEP-only sibling of `path-search` (no recursive segmentation, no bond-change-driven decomposition). For workflows that start from **two or more** structures and automatically refine only the reactive region, use [path-search](path-search.md) instead.
+`mlmm path-opt` finds a minimum-energy path (MEP) between **exactly two** layered enzyme structures with GSM (default) or DMF (`--mep-mode dmf`), using the ML/MM calculator on the full enzyme complex. It writes the path trajectory and exports the highest-energy image (HEI) as a TS candidate. Use it when two layered endpoints are well defined and no intermediates are expected. It is the simpler MEP-only sibling of `path-search` (no recursive segmentation, no bond-change-driven decomposition). For workflows that start from **two or more** structures and automatically refine only the reactive region, use [path-search](path-search.md) instead.
 
 ## Examples
 

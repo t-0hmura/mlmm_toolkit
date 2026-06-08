@@ -73,7 +73,7 @@ The MM backend can be selected via the `mm_backend` parameter:
 
 - **`"hessian_ff"`** (default): Analytical Hessian via `hessian_ff` (active atoms only, then optionally expanded to full Cartesian shape with frozen rows/cols zero-filled). CPU-only backend.
   - CMAP torsion corrections (implemented but disabled by default, as in Gaussian)
-- **`"openmm"`**: Finite-difference (FD) Hessian via OpenMM. Supports both CPU and CUDA platforms. Useful for force fields not supported by `hessian_ff` or when OpenMM is already in your workflow. See [Device Configuration & HPC Setup](device-hpc.md) for mm_backend/mm_device YAML examples and VRAM trade-offs.
+- **`"openmm"`**: Finite-difference (FD) Hessian via OpenMM. Supports both CPU and CUDA platforms. Covers force fields not supported by `hessian_ff`, or cases where OpenMM is already in your workflow. See [Device Configuration & HPC Setup](device-hpc.md) for mm_backend/mm_device YAML examples and VRAM trade-offs.
 
 ML Hessian: `Analytical` (UMA-only, second-order autograd) or `FiniteDifference` (central differences of forces; ORB/MACE/AIMNet2, and UMA when VRAM-limited). See [YAML Reference](yaml-reference.md) `hessian_calc_mode` for the full availability and VRAM guidance.
 

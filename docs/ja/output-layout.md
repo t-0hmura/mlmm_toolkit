@@ -1,13 +1,13 @@
 # 出力ディレクトリのレイアウト
 
-このページでは、各 `mlmm` サブコマンドが出力ディレクトリに書き込むファイルと、エージェントや後段スクリプトが依拠すべき規約を説明します。
+このページでは、各 `mlmm` サブコマンドが出力ディレクトリに書き込むファイルと、エージェントや後段スクリプトが従うべき規約を説明します。
 
 ## ファイル名の規約
 
 | ファイル名 | 書き込み元 | 用途 |
 |---|---|---|
 | `summary.json` | `all`、`path-search`、および `write_result_json` を実行するすべてのステージ別サブコマンド | 正規の JSON エンベロープ（[JSON 出力リファレンス](json-output.md) を参照）。まずこれを読んでください。`write_result_json` を呼ばない純粋なユーティリティ系サブコマンド（例: `fix-altloc`、`add-elem-info`、`bond-summary`）は出力しません。 |
-| `result.json` | `write_result_json` を呼ぶステージ別サブコマンド（`opt`、`tsopt`、`freq`、`irc`、`sp`、`scan` / `scan2d` / `scan3d`、`path-opt`、`dft`、`extract`） | 別名ファイル — ペイロードは `summary.json` と同一です。単一ファイル名の規約として `summary.json` を読んでください。`result.json` は同じ内容を持ち、`summary.json` のみを利用する場合は削除できます。 |
+| `result.json` | `write_result_json` を呼ぶステージ別サブコマンド（`opt`、`tsopt`、`freq`、`irc`、`sp`、`scan` / `scan2d` / `scan3d`、`path-opt`、`dft`、`extract`） | 別名ファイル — ペイロードは `summary.json` と同一です。単一ファイル名の規約に従い、`summary.json` を読んでください。`result.json` は同じ内容を持つため、`summary.json` のみを利用する場合は削除できます。 |
 | `summary.log` | `path-search`、`all` | 人が読むための実行ログ（セグメント / ステージごとに 1 行）。 |
 | `final_geometry.xyz` | `opt`、`tsopt` | 最適化された構造（XYZ、フル精度）。 |
 | `mep.pdb` / `mep_trj.xyz` | `path-search`、`all` | 反応経路のフレーム（PDB / XYZ）。単独実行の `path-opt` は代わりに `final_geometries_trj.xyz` / `final_geometries.pdb` を書き込みます。 |

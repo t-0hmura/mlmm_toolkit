@@ -1,6 +1,6 @@
 # `dft`
 
-PySCF/GPU4PySCF を使用して ML 領域の DFT 一点計算を実行し、MM エネルギーと再結合して ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加して PySCF（または GPU4PySCF）による一点計算を実行します。MLIP 経路探索後の停留点エネルギー（R / TS / P / IM）を DFT レベルで精密化したり、MLIP の障壁を基準汎関数/基底で sanity check したりする際に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
+GPU4PySCF（または CPU PySCF）を使用して ML 領域の DFT 一点計算を実行し、高レベルエネルギーを MM 評価と再結合して ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点エネルギー（R / TS / P / IM）を DFT レベルで精密化したり、MLIP の障壁を基準汎関数/基底で sanity check したりする際に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
@@ -30,7 +30,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 
-1. **入力処理** -- 完全酵素 PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。リンク水素は自動付加されます（C/N 親原子が 1.7 Å 以内）。YAML で明示的な `link_mlmm` ペアが提供されない限り有効です。
+1. **入力処理** -- 完全酵素 PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、リンク水素は自動付加されます（C/N 親原子が 1.7 Å 以内）。
 2. **SCF 構築** -- `--func-basis` が汎関数と基底関数に解析されます。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。`--embedcharge` が有効な場合、Amber トポロジーの MM 点電荷が `pyscf.qmmm.mm_charge()` を介して QM ハミルトニアンに埋め込まれ、DFT 波動関数が MM 環境で自己無撞着に分極します。
 3. **ML(dft)/MM 再結合** -- DFT が収束した後、全系（REAL-low）と ML サブセット（MODEL-low）の MM 評価が計算されます。結合エネルギーは Hartree と kcal/mol で報告されます。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
@@ -54,7 +54,7 @@ out_dir/ (デフォルト: ./result_dft/)
 
 ## CLI オプション
 
-`mlmm dft --help` でコアオプション、`mlmm dft --help-advanced` で全オプションを表示します。全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にあります。以下の表は説明が必要なオプションを扱います。
+`mlmm dft --help` でコアオプション、`mlmm dft --help-advanced` で全オプションを表示します。全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にあります。以下の表では説明が必要なオプションを取り上げます。
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |

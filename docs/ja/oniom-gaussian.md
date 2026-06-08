@@ -1,6 +1,6 @@
 # Gaussian ONIOM モード（`oniom-export --mode g16`）
 
-ML/MM システムを Gaussian ONIOM（`.com`/`.gjf`）入力へエクスポートし、Amber parm7 からそのまま実行できる入力を生成する場合に使います。`oniom-export` の Gaussian 向け詳細ページです。`--parm` からトポロジー情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使い、method・レイヤー・結合情報を含む Gaussian ONIOM 入力ファイルを書き出します。エクスポート全体像や Gaussian/ORCA モードの選択は [`oniom-export`](oniom-export.md) を参照してください。
+Amber parm7 トポロジーを用いて、ML/MM システムを Gaussian ONIOM（`.com`/`.gjf`）入力へエクスポートします。`oniom-export` の Gaussian 向け詳細ページです。`--parm` からトポロジー情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使い、method・レイヤー・結合情報を含む Gaussian ONIOM 入力ファイルを書き出します。エクスポート全体像や Gaussian/ORCA モードの選択は [`oniom-export`](oniom-export.md) を参照してください。
 
 ## 実行例
 

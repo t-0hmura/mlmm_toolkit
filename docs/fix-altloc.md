@@ -1,6 +1,6 @@
 # `fix-altloc`
 
-Remove alternate location (altLoc) indicators from PDB files by selecting the best conformer for each atom based on occupancy and dropping duplicates, so a structure carrying altLoc characters is cleaned before downstream ML/MM preparation (typically after repairing element columns with [add-elem-info](add-elem-info.md)). The altLoc column (column 17, 1-based) is blanked with a single space (a 1-character replacement; no shifting or reformatting), and when the same atom appears in multiple altLoc states the highest-occupancy copy is retained (earliest in file on ties, or when occupancy is missing). `ATOM` / `HETATM` records undergo altLoc selection and blanking; `ANISOU` records are kept only if the corresponding ATOM/HETATM line (same serial) is kept.
+Remove alternate location (altLoc) indicators from PDB files by selecting the best conformer for each atom based on occupancy and dropping duplicates. Use it to clean a structure carrying altLoc characters before downstream ML/MM preparation, typically after repairing element columns via [add-elem-info](add-elem-info.md). The altLoc column (column 17, 1-based) is blanked with a single space (a 1-character replacement; no shifting or reformatting), and when the same atom appears in multiple altLoc states the highest-occupancy copy is retained (earliest in file on ties, or when occupancy is missing). `ATOM` / `HETATM` records undergo altLoc selection and blanking; `ANISOU` records are kept only if the corresponding ATOM/HETATM line (same serial) is kept.
 
 ## Examples
 

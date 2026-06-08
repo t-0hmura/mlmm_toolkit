@@ -62,8 +62,8 @@ name from the CLI.
 
 ### UMA fp64
 
-Switching OMol-trained UMA from default fp32 to fp64 can have non-trivial impact
-on TSopt + Hessian. Enable via:
+Switching OMol-trained UMA from the default fp32 to fp64 can have a non-trivial
+impact on TSopt and Hessian evaluation. Enable via:
 
 ```bash
 mlmm tsopt -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...

@@ -1,6 +1,6 @@
 # `freq`
 
-Compute ML/MM vibrational frequencies and thermochemistry (ZPE, Gibbs energy, etc.) on a layered enzyme PDB with PHVA support. Use it for vibrational analysis of an optimized minimum, transition state, or IRC endpoint to validate stationary-point character and compute QRRHO thermochemistry. `mlmm freq` performs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed. When VRAM permits, `--hessian-calc-mode Analytical` speeds Hessian evaluation; imaginary frequencies appear as negative values.
+Compute ML/MM vibrational frequencies and thermochemistry (ZPE, Gibbs energy, etc.) on a layered enzyme PDB with PHVA support. Run it on an optimized minimum, transition state, or IRC endpoint to validate stationary-point character and compute QRRHO thermochemistry. `mlmm freq` performs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed. When VRAM permits, `--hessian-calc-mode Analytical` speeds up Hessian evaluation; imaginary frequencies appear as negative values.
 
 ## Examples
 

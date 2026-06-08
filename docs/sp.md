@@ -11,7 +11,7 @@ Energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen-MM):
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
-Also compute the full ONIOM Hessian (Analytical when `--backend uma`):
+Also compute the full ONIOM Hessian (analytical when `--backend uma`):
 
 ```bash
 # also compute the full ONIOM Hessian (Analytical when --backend uma)

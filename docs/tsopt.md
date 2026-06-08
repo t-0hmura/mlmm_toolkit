@@ -1,6 +1,6 @@
 # `tsopt`
 
-`mlmm tsopt` refines a transition-state candidate on a layered enzyme PDB into a first-order saddle point — run it on a standalone TS guess or on the highest-energy image (HEI) extracted by [`path-search`](path-search.md). The default optimiser is **RS-I-RFO** (`--opt-mode hess`) with microiteration (`--microiter`, default on) that alternates ML 1-step RS-I-RFO and MM L-BFGS relaxation; reach for it when you want the default, conservative optimiser and can afford the Hessian work. The lighter alternative is the **Hessian-Guided Dimer** (`--opt-mode grad`) for a lighter-weight search or quick iteration from several TS guesses, with `--ml-only-hessian-dimer` using only the ML-region Hessian for dimer orientation (faster). A surplus-imaginary-mode flatten loop (`--flatten`) sanitises extra negative modes via mass-scaled displacements after convergence. A validated TS should show **exactly one** imaginary frequency — always confirm the mode and connectivity with [`freq`](freq.md) / [`irc`](irc.md).
+`mlmm tsopt` refines a transition-state candidate on a layered enzyme PDB into a first-order saddle point — run it on a standalone TS guess or on the highest-energy image (HEI) extracted by [`path-search`](path-search.md). The default optimiser is **RS-I-RFO** (`--opt-mode hess`) with microiteration (`--microiter`, default on) that alternates ML 1-step RS-I-RFO and MM L-BFGS relaxation; use it as the conservative default when you can afford the Hessian work. The lighter alternative is the **Hessian-Guided Dimer** (`--opt-mode grad`), suited to a lower-cost search or quick iteration from several TS guesses, with `--ml-only-hessian-dimer` using only the ML-region Hessian for dimer orientation (faster). A surplus-imaginary-mode flatten loop (`--flatten`) sanitises extra negative modes via mass-scaled displacements after convergence. A validated TS should show **exactly one** imaginary frequency — always confirm the mode and connectivity with [`freq`](freq.md) / [`irc`](irc.md).
 
 ## Examples
 
@@ -40,7 +40,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Outputs
 
-Three artefacts land in `result_tsopt/`: `final_geometry.pdb` (and `.xyz`) — the optimised first-order saddle point (3-layer B-factor encoding preserved for PDB); `vib/imag_*_trj.xyz` — animation of every detected imaginary mode (expect exactly one for a valid TS); and `vib/imag_*.pdb` — PDB companions of the imaginary modes (PDB inputs only).
+Three artefacts are written to `result_tsopt/`: `final_geometry.pdb` (and `.xyz`) — the optimised first-order saddle point (3-layer B-factor encoding preserved for PDB); `vib/imag_*_trj.xyz` — animation of every detected imaginary mode (expect exactly one for a valid TS); and `vib/imag_*.pdb` — PDB companions of the imaginary modes (PDB inputs only).
 
 ```text
 out_dir/   (default: ./result_tsopt/)

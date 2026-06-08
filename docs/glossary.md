@@ -72,7 +72,7 @@
 | **AIMNet2** | Atoms In Molecules Network 2 | A neural network potential for organic molecules. Supported as an alternative ML backend (`--backend aimnet2`). Install with `pip install "mlmm-toolkit[aimnet]"`. |
 | **xTB** | Extended Tight-Binding | A semi-empirical quantum chemistry method. Used for point-charge embedding correction when `--embedcharge` is enabled. |
 | **Analytical Hessian** | -- | Computing the exact second derivatives of energy; faster but requires more VRAM. Currently available for the UMA backend only. |
-| **Finite Difference** | -- | Approximating derivatives by small displacements; slower but more memory-efficient. Used by ORB, MACE, and AIMNet2 backends. |
+| **Finite Difference** | -- | Approximating derivatives via small displacements; slower but more memory-efficient. Used by ORB, MACE, and AIMNet2 backends. |
 
 ---
 

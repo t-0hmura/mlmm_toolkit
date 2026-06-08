@@ -1,6 +1,6 @@
 # `scan3d`
 
-Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB, mapping a 3D PES across three coupled distances. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`; Amber parameters are read from `--parm`; the MLIP backend is selected via `-b/--backend` (default: `uma`); the optimizer is PySisyphus LBFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
+Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB, mapping a 3D PES across three coupled distances. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`, and Amber parameters are read from `--parm`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus LBFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
 
 ## Examples
 

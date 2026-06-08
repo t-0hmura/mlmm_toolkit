@@ -27,7 +27,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 Signal:
  - Errors mention missing element symbols, atom-count mismatch, or empty pockets.
 First checks:
- - Confirm all inputs are prepared by the same workflow and atom ordering is consistent.
+ - Confirm all inputs are prepared with the same workflow and atom ordering is consistent.
  - Ensure element columns are present before running `extract` or `all`.
 Typical fix path:
  - Repair elements -> rerun extraction -> confirm pocket size and residue inclusion.

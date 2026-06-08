@@ -1,6 +1,6 @@
 # `oniom-import`
 
-Import a Gaussian/ORCA ONIOM input file and reconstruct an XYZ plus a B-factor layered PDB, bringing an externally prepared ONIOM input back into the ML/MM toolchain as an XYZ + layered PDB pair. The XYZ comment line carries the QM-region charge and multiplicity (`q=<charge> m=<multiplicity>`), and the layered PDB encodes ML/Movable-MM/Frozen-MM layers in its B-factor column. Import mode is taken from `--mode` or inferred from the input suffix. Pass `--ref-pdb` to recover atom/residue metadata from a reference PDB when reconstructing a layered structure.
+Import a Gaussian/ORCA ONIOM input file and reconstruct an XYZ and a B-factor layered PDB, bringing an externally prepared ONIOM input back into the ML/MM toolchain. The XYZ comment line carries the QM-region charge and multiplicity (`q=<charge> m=<multiplicity>`), and the layered PDB encodes ML/Movable-MM/Frozen-MM layers in its B-factor column. Import mode is taken from `--mode` or inferred from the input suffix. Pass `--ref-pdb` to recover atom/residue metadata from a reference PDB when reconstructing a layered structure.
 
 ## Examples
 

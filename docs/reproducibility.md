@@ -16,7 +16,7 @@ re-runs for an audit), use the `--deterministic` flag.
 `--deterministic` is accepted by every compute subcommand
 (`opt`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`,
 `path-search`, `all`, `sp`). It turns on `torch.use_deterministic_algorithms`
-plus an `index_reduce_` shim so that the GPU run (the ML-region high-level
+and an `index_reduce_` shim so that the GPU run (the ML-region high-level
 inference of the ONIOM calculation) is bit-reproducible.
 
 ```bash

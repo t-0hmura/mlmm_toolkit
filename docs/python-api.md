@@ -106,7 +106,7 @@ print(atoms.get_forces().shape)       # (N, 3), eV/Å
 
 ## pysisyphus Calculator (`mlmm`)
 
-For use with pysisyphus optimization, IRC, frequency analysis.
+For use with pysisyphus optimization, IRC, and frequency analysis.
 
 ```python
 from mlmm import mlmm as MLMMCalc

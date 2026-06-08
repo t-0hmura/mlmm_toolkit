@@ -1,6 +1,6 @@
 # `dft`
 
-Run a single-point DFT calculation on the ML region using GPU4PySCF (or CPU PySCF), then recombine the high-level energy with MM evaluations to obtain the ML(dft)/MM total energy. Use it to refine stationary-point energies (R / TS / P / IM) at DFT level after an MLIP path search, or to sanity-check an MLIP barrier against a benchmark functional / basis. The default functional/basis is `wb97m-v/def2-tzvpd`. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
+Run a single-point DFT calculation on the ML region using GPU4PySCF (or CPU PySCF), then recombine the high-level energy with MM evaluations to obtain the ML(dft)/MM total energy. Use it to refine stationary-point energies (R / TS / P / IM) at the DFT level after an MLIP path search, or to sanity-check an MLIP barrier against a benchmark functional / basis. The default functional/basis is `wb97m-v/def2-tzvpd`. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low

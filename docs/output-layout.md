@@ -1,6 +1,6 @@
 # Output Directory Layout
 
-This page documents what files each `mlmm` subcommand writes to its output directory, plus the conventions agents and downstream scripts should rely on.
+This page documents what files each `mlmm` subcommand writes to its output directory, and the conventions agents and downstream scripts should rely on.
 
 ## Filename conventions
 

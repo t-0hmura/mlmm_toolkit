@@ -1,6 +1,6 @@
 # `mm-parm`
 
-`mlmm mm-parm` generates Amber topology/coordinate files (parm7/rst7/pdb) from a PDB using AmberTools tleap. Unknown residues are auto-parameterized with GAFF2 (AM1-BCC charges); see Workflow for the full pipeline and CLI options for force-field and hydrogen-addition flags.
+`mlmm mm-parm` generates Amber topology/coordinate files (parm7/rst7/pdb) from a PDB using AmberTools tleap. Unknown residues are auto-parameterized with GAFF2 (AM1-BCC charges); see Workflow for the full pipeline, and CLI options for the force-field and hydrogen-addition flags.
 
 ## Examples
 

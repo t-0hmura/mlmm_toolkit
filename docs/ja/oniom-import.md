@@ -1,6 +1,6 @@
 # `oniom-import`
 
-Gaussian/ORCA の ONIOM 入力ファイルを読み込み、XYZ と B-factor 層付き PDB を再構築し、外部で用意した ONIOM 入力を XYZ + 層付き PDB のペアとして ML/MM ツールチェーンに戻します。XYZ のコメント行に QM 領域の電荷と多重度（`q=<charge> m=<multiplicity>`）を記録し、層付き PDB は ML/Movable-MM/Frozen-MM 層を B-factor 列にエンコードします。インポートモードは `--mode` または入力拡張子から決定します。`--ref-pdb` を渡すと、層付き構造を再構築する際に参照 PDB から原子/残基メタデータを復元します。
+Gaussian/ORCA の ONIOM 入力ファイルを読み込み、XYZ と B-factor 層付き PDB のペアとして再構築することで、外部で用意した ONIOM 入力を ML/MM ツールチェーンに戻します。XYZ のコメント行に QM 領域の電荷と多重度（`q=<charge> m=<multiplicity>`）を記録し、層付き PDB は ML/Movable-MM/Frozen-MM 層を B-factor 列にエンコードします。インポートモードは `--mode` または入力拡張子から決定します。`--ref-pdb` を渡すと、層付き構造を再構築する際に参照 PDB から原子/残基メタデータを復元します。
 
 ## 実行例
 

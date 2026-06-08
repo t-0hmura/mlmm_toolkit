@@ -18,7 +18,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 ```
 ---
 
-入力として、(i) 反応順に並べたタンパク質-リガンド複合体の PDB を 2 つ以上（R →... → P）、(ii) `--scan-lists` を指定した 1 つの PDB、または (iii) TS 候補 1 構造 + `--tsopt` を与えると、`mlmm-toolkit` が次を自動化します。
+入力として、(i) 反応順に並べたタンパク質-リガンド複合体の PDB を 2 つ以上（R →... → P）、(ii) `--scan-lists` を指定した 1 つの PDB、または (iii) TS 候補 1 構造 + `--tsopt` を与えると、`mlmm-toolkit` が次の処理を自動化します。
 
 - ユーザーが指定した基質の周辺から **活性部位ポケット** を抽出し、**ML 領域** を定義
 - AmberTools を用いて **Amber トポロジー（parm7/rst7）** を自動生成し、**hessian_ff** の MM エンジンに渡す
@@ -97,7 +97,7 @@ mlmm-toolkit は以下のコンポーネントを使用します:
 
 詳細は上流プロジェクトを参照してください:
 - fairchem / UMA: <https://github.com/facebookresearch/fairchem>, <https://huggingface.co/facebook/UMA>
-- Hugging Faceトークンとセキュリティ: <https://huggingface.co/docs/hub/security-tokens>
+- Hugging Face トークンとセキュリティ: <https://huggingface.co/docs/hub/security-tokens>
 
 ### クイックスタート
 

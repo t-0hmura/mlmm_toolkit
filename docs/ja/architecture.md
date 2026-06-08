@@ -8,7 +8,7 @@
 
 このパッケージは **6 つの物理レイヤーディレクトリ** (`cli/`、`workflows/`、`domain/`、`backends/`、`io/`、`core/`) として構成されており、それぞれの役割と依存方向は後述の §4 レイヤー表にまとめています。外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。従来のフラットトップ shim レイヤーは本リリースで廃止されました。
 
-3 つの内蔵フォーク (`pysisyphus/`、`thermoanalysis/`、`hessian_ff/`) は repo-internal モジュールとしてリポジトリのトップに置かれています。これらは意図的に upstream の PyPI 配布物では **なく** (`hessian_ff/` に至っては upstream がまったく存在しないため、バンドルは必須です)。§6 を参照してください。
+3 つの内蔵フォーク (`pysisyphus/`、`thermoanalysis/`、`hessian_ff/`) は repo-internal モジュールとしてリポジトリのトップに置かれています。これらは意図的に upstream の PyPI 配布物では **ありません** (`hessian_ff/` に至っては upstream がまったく存在しないため、バンドルが必須です)。§6 を参照してください。
 
 ---
 
@@ -105,7 +105,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L2 `workflows/`** (~18 ファイル)。サブコマンドごとに 1 ファイル。各ファイルは `cli` という名前の単一の `@click.command()` とそのプライベートヘルパーを所有します。大きなステージランナー (`all.py` = 4,147 LOC、`path_search.py` = 2,348 LOC、`tsopt.py` = 3,068 LOC、`extract.py` = 2,321 LOC、`oniom_export.py` = 2,002 LOC) は現在のレイアウトでは単一ファイルのまま残されています。将来的にはステージごとのサブディレクトリへ分割する可能性がありますが、これは **opt-in** であり、本リリースラインのスコープ外です。
 
-**L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。MLIP ランタイムの deny list (`fairchem` / `orb_models` / `mace` / `aimnet`) は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーはこれとは異なる CI ゲート (`_check_domain_pure`) であり、MLIP-free を保つ必要があるバックエンド非依存の特定モジュール — `backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py` (および `workflows/sp.py` に存在) — をフラグします。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
+**L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。この deny list は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーはこれとは異なる CI ゲート (`_check_domain_pure`) であり、MLIP-free を保つ必要があるバックエンド非依存の特定モジュール — `backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py` (および `workflows/sp.py` に存在) — をフラグします。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
 
 **L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py` = 2,534 LOC) はバックエンドディスパッチ (`__init__.py`) およびスタンドアロンの xTB 点電荷埋め込み補正 (`xtb_embedcharge_correction.py`、`--embedcharge` で駆動) とともにここに置かれています。現時点では、ML 領域を評価する 4 つの MLIP バックエンド (UMA / Orb / MACE / AIMNet2) と OpenMM / hessian_ff カップリングはすべて `mlmm_calc.py` 内にインラインで配置されています。将来的には、これを MLIP レイヤー用に `backends/{base, uma, orb, mace, aimnet2}.py` へ、ONIOM コア用に `backends/mlmm_calc/` サブディレクトリ (`core.py`、`ase_calc.py`、`embed_charge.py`、`hessianff_calc.py`、`openmm_calc.py`、`facade.py`) へ分割する可能性があります。現在の単一ファイルの `mlmm_calc.py` は化学ルール **#1 (subtractive ONIOM)**、**#2 (link-atom Hessian B-matrix)**、**#8 (3-layer 5-pass partial Hessian)**、**#9 (parm7 atom indexing)** を保持しています — §5.1 を参照してください。
 

@@ -10,7 +10,7 @@
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 ```
 
-A single command generates a useful initial reaction path:
+A single command generates an initial reaction path:
 
 ```bash
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'                  # MEP only

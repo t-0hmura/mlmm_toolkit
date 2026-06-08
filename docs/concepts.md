@@ -6,7 +6,7 @@ This page explains the key terms in mlmm-toolkit -- the ML/MM 3-layer system, ON
 
 ## Workflow at a glance
 
-Most workflows follow this flow:
+Most workflows follow this sequence:
 
 ```text
 Full system(s) (PDB/XYZ)
@@ -220,7 +220,7 @@ ML region definition is controlled by:
 - **Model system**: the ML region (Layer 1 only). Evaluated at both the MLIP (high) and MM (low) levels.
 
 ### Images and segments
-- **Image**: a single geometry (one "node") along a chain-of-states path in Minimum Energy Path (MEP) search methods such as the Growing String Method (GSM).
+- **Image**: a single geometry (one "node") along a chain-of-states path in minimum-energy path (MEP) search methods such as the Growing String Method (GSM).
 - **Segment**: an MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2,...). A multi-structure run is decomposed into segments.
 
 ### Templates and file conversion (`--convert-files`)
