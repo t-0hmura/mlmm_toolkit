@@ -1,21 +1,19 @@
 # `extract`
 
-タンパク質-リガンド PDB から活性部位ポケットを抽出し、ML 領域（および下流ステージ向けの周辺 MM 環境）を定義します。基質周辺の残基を選択し、主鎖/側鎖規則に従ってモデルを切断し、任意で切断結合にリンク水素を付加し、単一構造またはアンサンブルを処理できます。これは通常、mlmm-toolkit ワークフローの**最初のステップ**であり、完全なタンパク質-リガンド複合体からより小さな計算可能なモデルを生成します。
+タンパク質-リガンド PDB から活性部位ポケットを抽出し、ML 領域（および下流ステージ向けの周辺 MM 環境）を定義します。これは通常、mlmm-toolkit ワークフローの**最初のステップ**であり、完全なタンパク質-リガンド複合体からより小さな計算可能なモデルを生成します。基質周辺の残基を選択し、主鎖/側鎖規則に従ってモデルを切断し、任意で切断結合にリンク水素を付加し、単一構造またはマルチ構造アンサンブルを処理できます（詳細は[マルチ構造アンサンブル](#マルチ構造アンサンブル)を参照）。手元にあるものに応じて基質指定モード（残基 ID、基質 PDB、残基名）を選びます。正確な文法は[基質指定](#基質指定-c-center)を参照してください。
 
 誤分類が発生した場合（例: 非標準的な残基/原子命名）、以下の付録の命名要件と内部参照リストを参照してください。
 
-## 使いどころ
-
-- 完全なタンパク質-リガンド複合体から計算可能な活性部位ポケットを切り出す最初のステップとして使います。
-- 手元にあるものに応じて基質指定モード（残基 ID、基質 PDB、残基名）を選びます（正確な文法は入力 > 基質指定を参照）。
-- 単一構造でもマルチ構造アンサンブルでも処理できます（詳細はマルチ構造アンサンブルを参照）。
-
 ## 実行例
+
+ID ベースの基質と明示的なリガンド総電荷によるミニマル実行:
 
 ```bash
 # ID ベースの基質と明示的リガンド電荷によるミニマル実行
 mlmm extract -i complex.pdb -c A:123 -o pocket.pdb -l -3
 ```
+
+PDB で基質を指定し、残基名ごとに電荷をマッピング:
 
 ```bash
 # PDB で基質を指定; 残基名ごとの電荷マッピング（その他は 0）
@@ -23,41 +21,13 @@ mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb -l "GPP:-3,MMT:-1"
 # 名前ベースの基質選択はすべてのマッチを含む（WARNING がログに出力）: -c 'GPP,SAM'
 ```
 
+マルチ構造アンサンブルをヘテロ-ヘテロ近接で単一のマルチ MODEL 出力に集約:
+
 ```bash
 # マルチ構造から単一マルチモデル出力、ヘテロ-ヘテロ近接有効
 mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
     -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
- -c SUBSTRATE_SPEC
- [-o POCKET.pdb [POCKET2.pdb...]]
- [--radius Å] [--radius-het2het Å]
- [--include-h2o/--no-include-h2o]
- [--exclude-backbone/--no-exclude-backbone]
- [--add-linkh/--no-add-linkh]
- [--selected-resn LIST]
- [-l, --ligand-charge MAP_OR_NUMBER]
- [-v LEVEL]
-```
-
-| 入力 | 必須 | 注記 |
-| --- | --- | --- |
-| `-i, --input` | はい | 1 つ以上のタンパク質-リガンド PDB ファイル（同一原子順序が必要）。 |
-| `-c, --center` | はい | 基質指定: PDB パス、残基 ID、または残基名。 |
-| `-o, --output` | いいえ | ポケット PDB 出力。1 パス => マルチ MODEL、N パス => 入力ごと。デフォルトは `pocket.pdb` / `pocket_<input>.pdb`。 |
-| `-l, --ligand-charge` | いいえ | 非標準残基向けの総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 |
-
-### 基質指定（`-c/--center`）
-
-- PDB パス: 座標が先頭入力と正確に一致する必要あり（許容 1e-3 Å）; 残基 ID を他の構造に伝播。
-- 残基 ID: `'123,456'`、`'A:123,B:456'`、`'123A'`、`'A:123A'`（インサーションコード対応）。
-- 残基名: カンマ区切りリスト（大文字小文字を区別しない）。同名残基が複数ある場合、**すべて**含まれ WARNING がログに出力。
 
 ## 処理の流れ
 
@@ -112,7 +82,22 @@ mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
 
 ## CLI オプション
 
-> **注記:** 表示されるデフォルト値は、オプション未指定時に使用されます。
+コマンド形式:
+
+```bash
+mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
+ -c SUBSTRATE_SPEC
+ [-o POCKET.pdb [POCKET2.pdb...]]
+ [--radius Å] [--radius-het2het Å]
+ [--include-h2o/--no-include-h2o]
+ [--exclude-backbone/--no-exclude-backbone]
+ [--add-linkh/--no-add-linkh]
+ [--selected-resn LIST]
+ [-l, --ligand-charge MAP_OR_NUMBER]
+ [-v LEVEL]
+```
+
+全フラグの一覧は自動生成された[コマンドリファレンス](../reference/commands/index.md)を参照してください。以下の表は説明を要するオプションを扱います。
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
@@ -128,11 +113,17 @@ mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
 | `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定（任意で電荷付き）。主鎖切断と電荷計算にアミノ酸として扱う。例: `HD1,HD2,HD3` または `HD1:0,SEP:-2`。 | `""` |
 | `-l, --ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |
 
+### 基質指定（`-c/--center`）
+
+- PDB パス: 座標が先頭入力と正確に一致する必要あり（許容 1e-3 Å）; 残基 ID を他の構造に伝播。
+- 残基 ID: `'123,456'`、`'A:123,B:456'`、`'123A'`、`'A:123A'`（インサーションコード対応）。
+- 残基名: カンマ区切りリスト（大文字小文字を区別しない）。同名残基が複数ある場合、**すべて**含まれ WARNING がログに出力。
+
 ```{tip}
 抽出されたポケットが小さすぎると、エネルギーや障壁の計算値が不正確になることがあります。そのような場合は、抽出半径を大きくする（例: `-r 4.0` 以上）ことで、タンパク質環境をより多く含めて精度を改善できます。
 ```
 
-## 注意事項
+## 注記
 
 ### MCPB 等で生成された非標準残基を含む系
 
@@ -161,7 +152,7 @@ Consider preparing the pocket model manually.
 4. 結合方向に沿って **1.09 Å** の位置に配置する
 ```
 
-### 付録: PDB 命名要件と参照リスト
+## 付録: PDB 命名要件と参照リスト
 
 この付録は主に、**非標準的な残基/原子命名**により `extract` が残基を誤分類する場合のデバッグ用です。標準 PDB 規約に従った入力であれば通常スキップ可能です。
 
@@ -171,7 +162,7 @@ Consider preparing the pocket model manually.
 
 以下の内部定数が認識される名前を定義します:
 
-#### `AMINO_ACIDS`
+### `AMINO_ACIDS`
 
 残基名を公称整数電荷にマッピングする辞書。この辞書への所属が、主鎖処理、切断、電荷計算においてアミノ酸として扱われるかを決定します。
 
@@ -211,7 +202,7 @@ Consider preparing the pocket model manually.
 
 **C 末端バリアント**（接頭辞 `C`）: `CALA` (-1), `CARG` (0), `CASP` (-2), `CGLU` (-2), `CLYS` (0) 等、及び `NHE` (0), `NME` (0), `CTER` (-1, 汎用)
 
-#### `BACKBONE_ATOMS`
+### `BACKBONE_ATOMS`
 
 アミノ酸の主鎖原子とみなされる原子名のセット。`--exclude-backbone` 時に非基質残基からどの原子を除去するかの判定に使用されます:
 
@@ -219,7 +210,7 @@ Consider preparing the pocket model manually.
 N, C, O, CA, OXT, H, H1, H2, H3, HN, HA, HA2, HA3
 ```
 
-#### `ION`
+### `ION`
 
 イオン残基名を形式電荷にマッピングする辞書。認識されたイオンは電荷サマリーで正しい電荷が自動的に割り当てられます。
 
@@ -231,7 +222,7 @@ N, C, O, CA, OXT, H, H1, H2, H3, HN, HA, HA2, HA3
 | +4 | `U4+`, `Th`, `Hf`, `Zr` |
 | -1 | `F`, `CL`, `BR`, `I`, `Cl-`, `IOD` |
 
-#### `WATER_RES`
+### `WATER_RES`
 
 水分子として認識される残基名のセット。水分子はデフォルトで含まれ（`--include-h2o`）、電荷はゼロが割り当てられます:
 

@@ -1,42 +1,8 @@
 # `opt`
 
-`mlmm opt` は、ML/MM 計算機（MLIP バックエンド（デフォルト: UMA）+ hessian_ff）を使用して単一構造を局所極小に最適化します。L-BFGS（`--opt-mode grad`、デフォルト）または RFO（`--opt-mode hess`）が選択できます。エイリアス `light`/`heavy` および `lbfgs`/`rfo` も使用可能です。`--backend` で ML バックエンドを切り替え可能です（`uma`、`orb`、`mace`、`aimnet2`）。入力は `.pdb` または `.xyz`（`_trj.xyz` を含む。XYZ は `--ref-pdb` が必要）が使用可能です。
-
-## 使いどころ
-
-- ML/MM 計算機（MLIP 領域 + 可動 MM 殻 + 凍結外殻）を用いて、層付き全系 PDB を局所極小まで緩和したいとき。
-- `--opt-mode grad`（デフォルト）は L-BFGS、`--opt-mode hess` は RFOptimizer（RFO）を実行。
-- 最適化後に虚振動数モードをフラットニングするには `--flatten`、ML/MM ONIOM 最適化前の安価な MM 事前緩和には `--mm-only` を使用。
+`mlmm opt` は、ML/MM 計算機（MLIP 領域 + 可動 MM 殻 + 凍結外殻）を使用して、層付き全系の酵素 PDB（または XYZ + `--ref-pdb`）を局所極小に最適化します。層付き全系構造を緩和したいときに使用します。`--opt-mode grad`（デフォルト）は L-BFGS、`--opt-mode hess` は RFOptimizer（RFO）を実行し、`--flatten` は最適化後に虚振動数モードをフラットニング、`--mm-only` は ML/MM ONIOM 最適化前の安価な MM 事前緩和を行います。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで可動 MM 殻を緩和します。
 
 ## 実行例
-
-```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --out-dir ./result_opt
-```
-
-1. 収束を厳しくして軌跡を保存する。
-
-```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
-```
-
-2. 最適化中に 1 本の距離拘束をかける。
-
-```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --dist-freeze "[(12,45,2.20)]" --bias-k 20.0 --out-dir ./result_opt_rest
-```
-
-3. heavy モード（RFO）で最適化する。
-
-```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 --opt-mode heavy --out-dir ./result_opt_rfo
-```
-
-## 入力
 
 コマンド形式:
 
@@ -46,17 +12,31 @@ mlmm opt -i INPUT --parm PARM7 --model-pdb ML_REGION -q CHARGE [options]
 
 `mlmm opt --help` でコアオプション、`mlmm opt --help-advanced` で全オプションリストが表示されます。
 
-| 入力 | 必須 | 説明 |
-| --- | --- | --- |
-| `-i, --input` | yes | `geom_loader` が受け付ける入力構造（`.pdb`、`.xyz`、`_trj.xyz`）。XYZ 入力時は `--ref-pdb` を併用。 |
-| `--parm` | yes | 全酵素の Amber parm7 トポロジー。 |
-| `--model-pdb` / `--model-indices` / `--detect-layer` | yes | ML 領域定義（B 因子エンコード: B=0 ML、B=10 Movable-MM、B=20 Frozen）。 |
-| `-q, --charge` | yes（`-l` 未指定時） | ML 領域の正味電荷。 |
-| `--ref-pdb` | XYZ 入力時 | 入力が XYZ の場合の参照 PDB トポロジー。 |
+最小構成の L-BFGS 最適化（grad モード、デフォルト）:
 
-入力が PDB の場合、`--convert-files/--no-convert-files`（デフォルト有効）で制御される `.pdb` コンパニオンファイルも書き出されます。PDB 固有の機能:
-- 出力変換で `final_geometry.pdb`（軌跡ダンプ時は `optimization.pdb`）が入力 PDB をトポロジー参照として生成されます。
-- B 因子のアノテーション（3 層エンコーディング）: ML 領域原子 = 0.00、可動 MM 原子 = 10.00、凍結 MM 原子 = 20.00。
+```bash
+# Minimal L-BFGS optimization (grad mode, default)
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 --out-dir ./result_opt
+```
+
+収束を厳しくして軌跡を保存する:
+
+```bash
+# Tighten convergence and keep an optimization trajectory
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
+# add one harmonic distance restraint: --dist-freeze "[(12,45,2.20)]" --bias-k 20.0
+```
+
+heavy モード（RFO）に切り替える:
+
+```bash
+# Switch to heavy mode (RFO)
+mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 --opt-mode hess --out-dir ./result_opt_rfo
+# use the ORB backend instead of the default: --backend orb
+```
 
 ## 処理の流れ
 
@@ -92,9 +72,11 @@ out_dir/ (デフォルト: ./result_opt/)
 
 ## CLI オプション
 
+全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にあります。以下の表は説明が必要なオプションを扱います。表示されているデフォルト値はオプションが指定されない場合に使用されます。
+
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH` | `geom_loader` が受け付ける入力構造。 | 必須 |
+| `-i, --input PATH` | `geom_loader` が受け付ける入力構造（`.pdb`、`.xyz`、`_trj.xyz`）。XYZ 入力時は `--ref-pdb` を併用。 | 必須 |
 | `--ref-pdb PATH` | 入力が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `--parm PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域原子を定義する PDB。`--detect-layer` 有効時は省略可。 | _None_ |

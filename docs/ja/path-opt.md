@@ -1,11 +1,6 @@
 # `path-opt`
 
-`mlmm path-opt` は、ML/MM 計算機による PySisyphus `GrowingString`（デフォルト）または DMF（`--mep-mode dmf`）を使用して、**正確に 2 つ**の層付き酵素構造間の最小エネルギー経路（MEP）を最適化します。ML/MM 計算機はリンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義され、Amber トポロジーは `--parm` から取得され、両端点は全系座標を含む PDB として提供されます。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。
-
-## 使いどころ
-
-- 2 つの層付き端点が明確で中間体が無いと予想されるとき。`path-search` のシンプル版（再帰分割や結合変化駆動分解は無し）。
-- **2 つ以上**の構造から開始し、反応領域のみを自動精密化するワークフローには、[path-search](path-search.md) を使用してください。
+`mlmm path-opt` は、ML/MM 計算機による PySisyphus `GrowingString`（デフォルト）または DMF（`--mep-mode dmf`）を使用して、**正確に 2 つ**の層付き酵素構造間の最小エネルギー経路（MEP）を最適化します。ML/MM 計算機はリンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義され、Amber トポロジーは `--parm` から取得され、両端点は全系座標を含む PDB として提供されます。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。2 つの層付き端点が明確で中間体が無いと予想されるときに使用します。`path-search` のシンプル版（再帰分割や結合変化駆動分解は無し）です。**2 つ以上**の構造から開始し、反応領域のみを自動精密化するワークフローには、[path-search](path-search.md) を使用してください。
 
 ## 実行例
 
@@ -28,8 +23,6 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 # 凍結原子の指定とダンプの保存: --freeze-atoms "1,3,5,7" --dump
 ```
 
-## 入力
-
 コマンド形式:
 
 ```bash
@@ -38,14 +31,6 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
 ```
 
 `mlmm path-opt --help` は主要オプションを、`mlmm path-opt --help-advanced` は全オプション一覧を表示します。
-
-| 入力 | 必須 | 備考 |
-| --- | --- | --- |
-| `-i, --input` | 必須 | 反応物と生成物の PDB 構造（全系座標）。 |
-| `--parm` | 必須 | 完全 REAL 系の Amber prmtop。 |
-| `--model-pdb` | 任意 | ML 領域を定義する PDB（原子 ID）。`--detect-layer` または `--model-indices` 利用時は省略可。 |
-| `-q, --charge` | 必須 | ML 領域の総電荷（`-l` 未指定時は必須）。 |
-| `-m, --multiplicity` | 任意 | スピン多重度 (2S+1)。 |
 
 ## 処理の流れ
 1. **端点の読み込み** -- 両方の PDB 構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--parm`、`--model-pdb`、電荷/スピンで ML/MM 計算機を構築します。
@@ -75,9 +60,12 @@ out_dir/ (デフォルト:./result_path_opt/)
 ```
 
 ## CLI オプション
+
+全フラグ一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にあります。以下の表は説明を要するオプションを扱います。
+
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH PATH` | 反応物と生成物の PDB 構造。 | 必須 |
+| `-i, --input PATH PATH` | 反応物と生成物の PDB 構造（全系座標）。 | 必須 |
 | `--parm PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
@@ -97,6 +85,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を LBFGS で事前最適化。 | `True` |
 | `--preopt-max-cycles INT` | 端点事前最適化サイクルの上限。 | `10000` |
 | `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実効: `gau_loose`） |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的ヘシアン vs OpenMM 有限差分）。 | `hessian_ff` |
 | `--dump/--no-dump` | `out_dir` 内にオプティマイザー軌跡とリスタートをダンプ。 | `False` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_path_opt/` |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
@@ -110,20 +99,9 @@ out_dir/ (デフォルト:./result_path_opt/)
 
 ## YAML 設定
 
-マージ順は **defaults < config < 明示指定 CLI < override** です。
+マージ順は **defaults < config < 明示指定 CLI < override** です。関連セクションは `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM 計算機の設定）、`gs`（Growing String 制御）、`opt`（StringOptimizer 設定）です。
 
-### セクション `geom`
-- `coord_type`: 座標タイプ（デカルト vs dlc 内部座標）。
-- `freeze_atoms`: CLI `--freeze-atoms` とマージされる 1 始まり凍結原子。
-
-### セクション `calc` / `mlmm`
-- ML/MM 計算機の設定: `charge`、`spin`、`backend`、`embedcharge`、MLIP モデル設定、`device`、近傍半径、ヘシアンオプション等。
-
-### セクション `gs`
-- Growing String 制御: `max_nodes`、`perp_thresh`、再パラメータ化間隔、`max_micro_cycles`、DLC リセット、クライミングトグル/閾値。
-
-### セクション `opt`
-- StringOptimizer 設定: `stop_in_when_full`、`scale_step`、`max_cycles`、ダンプフラグ、`reparam_thresh`、`coord_diff_thresh`、`out_dir`、`print_every`。
+完全なスキーマ（全キーとデフォルト）: [YAML リファレンス](yaml-reference.md)。
 
 ## 終了コード
 
@@ -136,13 +114,10 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `130` | キーボード割り込み |
 | `1` | 未処理例外 |
 
----
-
 ## 関連項目
 
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
-
 - [path-search](path-search.md) -- 自動精密化付き再帰的 MEP 探索（2 つ以上の構造用）
 - [opt](opt.md) -- 単一構造の構造最適化
 - [all](all.md) -- 一気通貫ワークフロー（デフォルトで再帰的 path-search を使用、`--no-refine-path` で単一パス path-opt）

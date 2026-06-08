@@ -1,40 +1,29 @@
 # `trj2fig`
 
-XYZ 軌跡の各フレームのコメント行に格納された Hartree エネルギーを抽出（または UMA で再計算）し、kcal/mol または Hartree に変換し、任意で選択したフレームを基準とした相対エネルギープロファイルを計算して、静的/インタラクティブ図と CSV テーブルとしてエクスポートします。図は太字目盛り、統一されたフォント、マーカー、スプライン平滑曲線を使用します（タイトルなし）。
-
-## 使いどころ
-
-- 2 行目に Hartree エネルギーが格納された XYZ 軌跡からエネルギープロファイルをプロットする、または `-q/--charge` や `-m/--multiplicity` で MLIP バックエンドによりエネルギーを再計算する。
+XYZ 軌跡の各フレームのコメント行に格納された Hartree エネルギーを抽出し、kcal/mol または Hartree に変換し、任意で選択したフレームを基準としたうえで、結果の系列を静的/インタラクティブ図と CSV テーブルとしてエクスポートします。2 行目に Hartree エネルギーが格納された XYZ 軌跡からエネルギープロファイルをプロットする、または `-q/--charge` や `-m/--multiplicity` で MLIP バックエンドによりエネルギーを再計算する場合に使用します。図は太字目盛り、統一されたフォント、マーカー、スプライン平滑曲線を使用します（タイトルなし）。
 
 ## 実行例
+
+デフォルト PNG、最初のフレームを基準とした相対エネルギー:
 
 ```bash
 # デフォルト PNG、最初のフレームを基準とした相対エネルギー
 mlmm trj2fig -i traj.xyz
 ```
 
+基準フレーム #5 の CSV + SVG、Hartree で報告:
+
 ```bash
 # 基準フレーム #5 の CSV + SVG、Hartree で報告
 mlmm trj2fig -i traj.xyz -o energy.csv energy.svg -r 5 --unit hartree
 ```
 
+X 軸反転付きの複数出力を一度に生成:
+
 ```bash
 # X 軸反転付きの複数出力を一度に生成
 mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm trj2fig -i TRAJECTORY.xyz [-o OUTPUTS...] [-r REFERENCE] [--unit {kcal|hartree}] \
- [-q CHARGE] [-m MULTIPLICITY] [--reverse-x]
-```
-
-| 入力 | 必須 | 備考 |
-| --- | --- | --- |
-| `-i, --input` | はい | 2 行目に Hartree エネルギーが格納された XYZ 軌跡。 |
 
 ## 処理の流れ
 

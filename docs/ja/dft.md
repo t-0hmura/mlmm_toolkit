@@ -1,16 +1,14 @@
 # `dft`
 
-PySCF/GPU4PySCF を使用して ML 領域の DFT 一点計算を実行し、MM エネルギーと再結合して ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加して PySCF（または GPU4PySCF）による一点計算を実行します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
+PySCF/GPU4PySCF を使用して ML 領域の DFT 一点計算を実行し、MM エネルギーと再結合して ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加して PySCF（または GPU4PySCF）による一点計算を実行します。MLIP 経路探索後の停留点エネルギー（R / TS / P / IM）を DFT レベルで精密化したり、MLIP の障壁を基準汎関数/基底で sanity check したりする際に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 ```
 
-## 使いどころ
-
-- MLIP 経路探索後の停留点エネルギー（R / TS / P / IM）を DFT レベルで精密化、または MLIP の障壁を基準汎関数/基底で sanity check。
-
 ## 実行例
+
+ML 領域に対する最小構成の DFT 一点計算:
 
 ```bash
 mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
@@ -29,26 +27,6 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q -1 -m 2 --freeze-atoms "1,3,5" --out-dir ./result_dft_freeze
 # SCF 収束を厳しくして反復回数を増やす: -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 [options]
-```
-
-`mlmm dft --help` でコアオプション、`mlmm dft --help-advanced` で全オプションを表示します。
-
-| 入力 | 必須 | 説明 |
-| --- | --- | --- |
-| `-i, --input` | 必須 | 完全酵素構造（PDB または XYZ）。XYZ の場合は `--ref-pdb` でトポロジーを指定。 |
-| `--parm` | 必須 | 全系の Amber parm7 トポロジー。 |
-| `--model-pdb` | オプション | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 |
-| `--model-indices` | オプション | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 |
-| `--ref-pdb` | XYZ 入力時 | 入力が XYZ の場合の参照 PDB トポロジー。 |
-| `-q, --charge` | 必須（`-l` 指定時を除く） | ML 領域の電荷。`-l/--ligand-charge` 指定時は不要（PDB 入力または `--ref-pdb` 付き XYZ）。 |
-| `-m, --multiplicity` | オプション | ML 領域のスピン多重度 (2S+1)（デフォルト `1`）。 |
 
 ## 処理の流れ
 
@@ -76,6 +54,8 @@ out_dir/ (デフォルト: ./result_dft/)
 
 ## CLI オプション
 
+`mlmm dft --help` でコアオプション、`mlmm dft --help-advanced` で全オプションを表示します。全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にあります。以下の表は説明が必要なオプションを扱います。
+
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-b, --backend CHOICE` | 出力メタデータに記録されるバックエンドラベル: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。dft では計算機を選択しない（ML 領域は DFT/PySCF、MM 低レベルは `--mm-backend` で選択）。 | `uma` |
@@ -88,7 +68,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。 | `True` |
-| `-q, --charge INT` | ML 領域の電荷。`-l/--ligand-charge` 指定時は不要。 | `-l` 指定時を除き必須 |
+| `-q, --charge INT` | ML 領域の電荷。`-l/--ligand-charge` 指定時は不要（PDB 入力または `--ref-pdb` 付き XYZ）。 | `-l` 指定時を除き必須 |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（例: `"1,3,5"`）。YAML `geom.freeze_atoms` とマージ。 | _None_ |
 | `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
@@ -140,7 +120,7 @@ dft:
  out_dir: ./result_dft/            # 出力ディレクトリルート
 ```
 
-## 注意事項
+## 注記
 
 - **Blackwell アーキテクチャ GPU**（RTX 50xx）: GPU4PySCF は小規模な系（~100原子）でもメモリ不足エラーが発生する場合があります。これらの GPU では `--engine cpu` または外部 DFT プログラム（ORCA, Gaussian）を使用してください。
 - **def2-TZVPD でメモリ不足になる場合**: デフォルトの基底関数 `def2-tzvpd` は大きく、16–24 GB GPU で 150 原子以上の系では OOM が発生する場合があります。`--func-basis 'wb97m-v/def2-svp'` を使用してください。def2-SVP と def2-TZVPD のバリアハイト差は通常 1–3 kcal/mol です。

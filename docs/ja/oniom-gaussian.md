@@ -1,13 +1,10 @@
 # Gaussian ONIOM モード（`oniom-export --mode g16`）
 
-Amber parm7 を用いて Gaussian ONIOM（`.com`/`.gjf`）入力を生成します。`oniom-export` の Gaussian 向け詳細ページです。`--parm` からトポロジー情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使い、method・レイヤー・結合情報を含む Gaussian ONIOM 入力ファイルを書き出します。
-
-## 使いどころ
-
-- ML/MM システムを Gaussian ONIOM 計算へ橋渡しし、Amber parm7 からそのまま実行できる `.com`/`.gjf` 入力を生成する場合に使います。
-- エクスポート全体像や Gaussian/ORCA モードの選択は [`oniom-export`](oniom-export.md) を参照してください。
+ML/MM システムを Gaussian ONIOM（`.com`/`.gjf`）入力へエクスポートし、Amber parm7 からそのまま実行できる入力を生成する場合に使います。`oniom-export` の Gaussian 向け詳細ページです。`--parm` からトポロジー情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使い、method・レイヤー・結合情報を含む Gaussian ONIOM 入力ファイルを書き出します。エクスポート全体像や Gaussian/ORCA モードの選択は [`oniom-export`](oniom-export.md) を参照してください。
 
 ## 実行例
+
+電荷・多重度を明示した最小構成のエクスポート:
 
 ```bash
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
@@ -31,21 +28,6 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.xyz --model-pdb ml_regi
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm oniom-export --mode g16 --parm PARM7 -i INPUT --model-pdb MODEL -o OUTPUT [options]
-```
-
-| 入力 | 必須 | 備考 |
-| --- | --- | --- |
-| `--parm` | yes | Amber parm7 トポロジー。 |
-| `-i, --input` | no | 座標ファイル（PDB/XYZ）。原子順は parm7 と一致必須。 |
-| `--model-pdb` | no | QM 領域原子を定義する PDB。 |
-| `-o, --output` | yes | 出力 Gaussian 入力（`.com`/`.gjf`）。 |
 
 ## 処理の流れ
 

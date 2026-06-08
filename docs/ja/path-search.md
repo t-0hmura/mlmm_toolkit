@@ -1,11 +1,6 @@
 # `path-search`
 
-`mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、解決されたサブパスを 1 つの軌跡に統合します。再帰的分解により多段階反応を自動検出し、各素反応ステップの詳細な MEP を構築します。ただし、複雑な多段階反応の検出は困難な場合があり、入力中間体やスキャン仕様、収束閾値の調整など手動での試行錯誤が必要になることがあります。
-
-## 使いどころ
-
-- R + （任意の中間体）+ P からなる多段機構を駆動。再帰分割が素過程を自動検出し、共有結合変化が見つかった領域のみ精密化。
-- 端点が **2 つ**だけで再帰的精密化が不要な場合は、[path-opt](path-opt.md) がより簡単な選択です。
+`mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、解決されたサブパスを 1 つの軌跡に統合します。R + （任意の中間体）+ P からなる多段機構を駆動する用途で使用し、再帰分割が素過程を自動検出して共有結合変化が見つかった領域のみを精密化します。ただし、複雑な多段階反応の検出は困難な場合があり、入力中間体やスキャン仕様、収束閾値の調整など手動での試行錯誤が必要になることがあります。
 
 ## 実行例
 
@@ -14,11 +9,15 @@ mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
+中間体を明示した多段経路を構築する例:
+
 ```bash
 # 中間体を含む多段経路を構築する
 mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
+
+事前最適化とアライメントを無効にして軽く試す例:
 
 ```bash
 # 事前最適化とアライメントを無効にして軽く試す
@@ -36,9 +35,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
  --ref-pdb holo_template.pdb --out-dir ./run_ps
 ```
 
-## 入力
-
-コマンド形式:
+一般的なコマンド形式:
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
@@ -49,16 +46,6 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
-
-`mlmm path-search --help` はコアオプションを、`mlmm path-search --help-advanced` は全オプションを表示します。
-
-| 入力 | 必須 | 備考 |
-| --- | --- | --- |
-| `-i, --input` | はい | 反応順の 2 つ以上の完全酵素 PDB。`-i` を繰り返すか、1 つのフラグの後に複数パスを渡す。 |
-| `--parm` | はい | 完全酵素複合体の Amber parm7 トポロジー。 |
-| `--model-pdb` | 任意 | ML（高レベル）領域原子を定義する PDB。`--detect-layer` または `--model-indices` 利用時は省略可。 |
-| `-q, --charge` | はい | ML 領域の電荷。`--ligand-charge` 指定時を除き必須。 |
-| `--ref-pdb` | 任意 | XYZ→PDB 変換・トポロジー参照用の完全テンプレート PDB。 |
 
 ## 処理の流れ
 
@@ -96,6 +83,8 @@ out_dir/ (デフォルト:./result_path_search/)
 - `result_path_search/mep_plot.png`（プロット生成時）
 
 ## CLI オプション
+
+`mlmm path-search --help` はコアオプションを、`mlmm path-search --help-advanced` は全オプションを表示します。全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にもあります。以下の表は説明が必要なオプションを扱います。
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
@@ -147,7 +136,9 @@ YAML ルートはマッピングでなければなりません。受け付ける
 - **`bond`** -- 結合変化検出: `bond_factor`、`margin_fraction`、`delta_fraction`。
 - **`search`** -- 再帰ロジック: `max_depth`、`stitch_rmsd_thresh`、`bridge_rmsd_thresh`、`max_nodes_segment`、`max_nodes_bridge`、`kink_max_nodes`、`max_seq_kink`、`refine_mode`。
 
----
+## 注記
+
+- 端点が **2 つ**だけで再帰的精密化が不要な場合は、[path-opt](path-opt.md) がより簡単な選択です。
 
 ## 関連項目
 

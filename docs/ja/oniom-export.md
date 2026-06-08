@@ -2,53 +2,25 @@
 
 Amber トポロジーを持つ ML/MM 系を、外部 QM/MM 入力ファイル（Gaussian ONIOM = `--mode g16`、または ORCA QM/MM = `--mode orca`）へエクスポートします。`mlmm oniom-export` は Amber `parm7` トポロジーと座標ファイル、ML 領域（QM 領域）定義を読み込み、そのまま実行可能な QM/MM 入力ファイルを 1 つ書き出します。QM 領域は `--model-pdb` で指定し、周囲の MM 環境は対象プログラムのネイティブ形式で、QM/MM 切断面のリンク原子注釈付きで出力されます。
 
-## 使いどころ
-
-- リンク原子注釈付きの Gaussian ONIOM 入力を生成する（`--mode g16`）。
-- ORCAFF 連携込みの ORCA QM/MM 入力を生成する（`--mode orca`）。
-
 ## 実行例
 
 ```bash
+# Gaussian ONIOM 入力
 mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
  -o out.gjf --mode g16 -q 0 -m 1
 ```
 
 ```bash
-# 1. ORCA QM/MM 入力（.inp 拡張子からモード推定）
+# ORCA QM/MM 入力（.inp 拡張子からモード推定）
 mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
  -o out.inp -q 0 -m 1
 ```
 
 ```bash
-# 2. メソッド/基底とリソースを指定した Gaussian 入力
+# メソッド/基底とリソースを指定した Gaussian 入力
 mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
  -o out.gjf --mode g16 --method 'wb97xd/def2-svp' --nproc 16 --mem 32GB -q 0 -m 1
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
- -o out.<gjf|com|inp> --mode <g16|orca> -q 0 -m 1
-```
-
-| 入力 | 必須 | 説明 |
-| --- | --- | --- |
-| `--parm` | はい | Amber parm7 トポロジーファイル。 |
-| `-i, --input` | いいえ | 現在構造の座標ファイル（`.pdb` / `.xyz`）。 |
-| `--model-pdb` | いいえ | QM 領域原子を定義する PDB。 |
-| `-o, --output` | はい | 出力ファイルパス（g16 は `.gjf` / `.com`、ORCA は `.inp`）。 |
-
-モード選択:
-
-- `--mode` が最優先です。
-- `--mode` 未指定時は `-o` から推定します。
-  - `.gjf` / `.com` -> `g16`
-  - `.inp` -> `orca`
-- `--mode` 未指定かつ `-o` が未知拡張子の場合はエラーになります。
 
 ## 処理の流れ
 
@@ -63,6 +35,8 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 - ORCA モードでは出力ディレクトリの `<parm7_stem>.ORCAFF.prms`（力場パラメータ）も読み込み/生成します
 
 ## CLI オプション
+
+全フラグの一覧は生成済みの[コマンドリファレンス](../reference/commands/index.md)にあります。以下の表は説明が必要なオプションを扱います。
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
@@ -84,6 +58,13 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 | `--link-atom-method [scaled\|fixed]` | リンク H 配置: `scaled`（g-factor、ランタイム一致）または `fixed`（1.09/1.01 Å） | `scaled` |
 
 `mlmm oniom-export --help` はコアオプション、`mlmm oniom-export --help-advanced` は全オプションを表示します。
+
+## 注記
+
+- モード選択: `--mode` が最優先です。`--mode` 未指定時は `-o` から推定します。
+  - `.gjf` / `.com` -> `g16`
+  - `.inp` -> `orca`
+- `--mode` 未指定かつ `-o` が未知拡張子の場合はエラーになります。
 
 ## 関連項目
 

@@ -2,7 +2,7 @@
 
 > **要約:** ML 領域からの距離に基づいて 3 層 ML/MM システムを定義し、レイヤー割り当てを出力 PDB の B 因子としてエンコードします。
 
-`mlmm define-layer` は、酵素系を ML 領域の周囲に 3 つのレイヤーに分割し、割り当てを PDB の B 因子として書き出します。ML 領域はモデル PDB、明示的な原子インデックス、またはその組み合わせで指定できます。
+`mlmm define-layer` は、酵素系を ML 領域の周囲に 3 つのレイヤーに分割し、割り当てを PDB の B 因子として書き出します。ML 領域はモデル PDB、明示的な原子インデックス、またはその組み合わせで指定できます。単一構造最適化や一気通貫実行の前に、全系 PDB に対して 3 層 ML/MM システムを定義する用途に使用します。
 
 3 つのレイヤーと B 因子エンコーディング:
 
@@ -17,11 +17,15 @@
 - **ML 原子を含まない残基:** 残基全体が、任意の ML 原子から残基内の任意の原子までの最小距離に基づいて単一のレイヤーに割り当てられます。
 - **ML 原子を含む残基:** 同じ残基内の非 ML 原子は距離に基づいて個別に分類されます。
 
-## 使いどころ
-
-- 単一構造最適化や一気通貫実行の前に、全系 PDB に対して 3 層 ML/MM システムを定義する。
-
 ## 実行例
+
+コマンド形式（`--model-pdb` と `--model-indices` のいずれか一方のみを指定）:
+
+```bash
+mlmm define-layer -i INPUT.pdb (--model-pdb PDB | --model-indices TEXT) [options]
+```
+
+モデル PDB から ML 領域を定義。
 
 ```bash
 mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
@@ -39,20 +43,6 @@ mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labe
 mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
  --radius-freeze 10.0 -o labeled.pdb
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm define-layer -i INPUT.pdb (--model-pdb PDB | --model-indices TEXT) [options]
-```
-
-| 入力 | 必須 | 備考 |
-| --- | --- | --- |
-| `-i, --input` | はい | 全系を含む入力 PDB ファイル。 |
-| `--model-pdb` | いずれか | ML 領域の原子を定義する PDB ファイル。 |
-| `--model-indices` | いずれか | ML 領域のカンマ区切り原子インデックス。デフォルトは 1 始まり。`--model-pdb` より優先。 |
 
 ## 処理の流れ
 
@@ -78,7 +68,7 @@ mlmm define-layer -i INPUT.pdb (--model-pdb PDB | --model-indices TEXT) [options
 | `-o, --output PATH` | B 因子がレイヤー値に設定された出力 PDB ファイル。 | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 
----
+すべてのフラグの一覧は、生成される[コマンドリファレンス](../reference/commands/index.md)に記載されています。
 
 ## 関連項目
 

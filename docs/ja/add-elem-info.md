@@ -1,27 +1,8 @@
 # `add-elem-info`
 
-Biopython を使用して PDB の元素記号（カラム 77-78）を追加または修復します。入力 PDB を Biopython（`PDBParser`）で解析し、残基コンテキストと原子名のヒューリスティクスから `atom.element` を割り当て、`PDBIO` でカラム 77-78 を書き込みます。座標を変更せず、全モデル/鎖/残基にわたって ATOM・HETATM レコードを処理します。
-
-## 使いどころ
-
-- 元素カラムを持たない PDB に追加する、または下流ツールが必要とする前に既存のカラムを修正する。
-- 既存の元素フィールドが信頼できない場合に、再推定して上書きする（`--overwrite`）。
+Biopython を使用して PDB の元素記号（カラム 77-78）を追加または修復します。元素カラムを持たない PDB に追加する、または下流ツールが必要とする前に既存のカラムを修正する場合に使用し、既存の元素フィールドが信頼できない場合に再推定して上書きすることもできます（`--overwrite`）。入力 PDB を Biopython（`PDBParser`）で解析し、残基コンテキストと原子名のヒューリスティクスから `atom.element` を割り当て、`PDBIO` でカラム 77-78 を書き込みます。座標を変更せず、全モデル/鎖/残基にわたって ATOM・HETATM レコードを処理します。
 
 ## 実行例
-
-```bash
-mlmm add-elem-info -i 1abc.pdb
-```
-
-```bash
-mlmm add-elem-info -i 1abc.pdb -o 1abc_fixed.pdb
-```
-
-```bash
-mlmm add-elem-info -i 1abc.pdb --overwrite
-```
-
-## 入力
 
 コマンド形式:
 
@@ -29,10 +10,23 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 mlmm add-elem-info -i INPUT [-o OUTPUT] [--overwrite]
 ```
 
-| 入力 | 必須 | 説明 |
-| --- | --- | --- |
-| `-i, --input` | yes | 入力 PDB ファイル。 |
-| `-o, --out` | no | 出力 PDB パス。省略時は入力ファイルを上書き。 |
+元素カラムを追加または修復し、入力ファイルをその場で上書きする:
+
+```bash
+mlmm add-elem-info -i 1abc.pdb
+```
+
+結果を別の出力ファイルに書き出す:
+
+```bash
+mlmm add-elem-info -i 1abc.pdb -o 1abc_fixed.pdb
+```
+
+既存の元素フィールドを再推定して上書きする:
+
+```bash
+mlmm add-elem-info -i 1abc.pdb --overwrite
+```
 
 ## 処理の流れ
 
@@ -59,7 +53,7 @@ mlmm add-elem-info -i INPUT [-o OUTPUT] [--overwrite]
 | `-o, --out PATH` | 出力 PDB パス。省略時は入力ファイルを上書き。 | _None_（入力を上書き） |
 | `--overwrite/--no-overwrite` | 既存の元素フィールドがあっても再推定して上書き（デフォルトでは既存値を保持）。 | `False` |
 
----
+すべてのフラグの一覧は生成された [コマンドリファレンス](../reference/commands/index.md) を参照してください。
 
 ## 関連項目
 

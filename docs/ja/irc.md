@@ -1,14 +1,10 @@
 # `irc`
 
-`mlmm irc` は ML/MM 計算機を使用した EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から反応物と生成物の方向へ追跡します。デフォルトでは正方向と逆方向の両方のブランチが計算されます。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
-
-## 使いどころ
-
-- 最適化された TS が、期待した反応物と生成物を接続することを検証したいとき。あるいは下流の熱化学計算 / DFT 単点計算用の反応物 / 生成物構造を生成したいとき。
-- 典型的なワークフローは `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` です。
-- デフォルトでは両方のブランチを実行します。片方向のみが必要な場合は `--no-forward` または `--no-backward` で一方を無効化します。
+`mlmm irc` は ML/MM 計算機を使用した EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から反応物と生成物の方向へ追跡します。最適化された TS が期待した反応物と生成物を接続することを検証したいとき、あるいは下流の熱化学計算 / DFT 単点計算用の反応物 / 生成物構造を生成したいときに使用し、典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。デフォルトでは正方向と逆方向の両方のブランチが計算されます。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
 
 ## 実行例
+
+最小構成で TS の PDB から実行する。
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
@@ -38,8 +34,6 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --out-dir ./result_irc_long
 ```
 
-## 入力
-
 コマンド形式:
 
 ```bash
@@ -47,20 +41,6 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 ```
 
 `mlmm irc --help` でコアオプションを、`mlmm irc --help-advanced` で全オプション一覧を表示します。
-
-| 入力 | 必須 | 補足 |
-| --- | --- | --- |
-| `-i, --input` | 必須 | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。`geom_loader` で読み取り可能な任意の形式。 |
-| `--parm` | 必須 | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 |
-| `--model-pdb` | 条件付き | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 |
-| `--model-indices` | 任意 | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 |
-| `-q, --charge` | 条件付き | 総電荷。`-l/--ligand-charge` 指定時を除き必須。 |
-| `--ref-pdb` | XYZ 入力時 | `--input` が XYZ の場合に使用する参照 PDB トポロジー（XYZ 座標を保持）。 |
-
-入力の前提:
-
-- `geom_loader` でサポートされる任意の形式を受け付けます。
-- 参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
 
 ## 処理の流れ
 
@@ -101,7 +81,7 @@ out_dir/ (デフォルト: ./result_irc/)
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--hess-device CHOICE` | 初期ヘシアンの格納・IRC演算のデバイス: `auto`、`cuda`、`cpu`。大規模非凍結系では `cpu` を推奨。 | `auto` |
 | `--read-hess PATH` | `.npz` ファイルから初期ヘシアンを読み込み（`mlmm freq --dump-hess` で出力）。hessian_cache および新規計算より優先。 | _None_ |
-| `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。 | 必須 |
+| `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。`geom_loader` で読み取り可能な任意の形式。 | 必須 |
 | `--parm PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 | _None_ |
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 | _None_ |
@@ -188,6 +168,10 @@ irc:
 ```
 
 完全なスキーマ（すべての `irc` キーとデフォルト）: [YAML リファレンス](yaml-reference.md#irc-section)。
+
+## 注記
+
+- デフォルトでは両方のブランチを実行します。片方向のみが必要な場合は `--no-forward` または `--no-backward` で一方を無効化します。
 
 ## 関連項目
 

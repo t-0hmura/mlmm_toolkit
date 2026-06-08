@@ -1,42 +1,32 @@
 # `energy-diagram`
 
-数値エネルギーだけを入力として状態エネルギーダイアグラムを描画します（構造ファイル不要、ML/MM 計算なし）。`mlmm energy-diagram` は与えられた数値を可視化するだけで、PDB/XYZ 構造を読み込まず、熱化学（`--thermo`）や DFT（`--dft`）の処理も実行しません。
-
-## 使いどころ
-
-- 既にエネルギー値を持っていて、構造ベースの ML/MM 計算が不要なとき、数値から直接状態エネルギーダイアグラムを描画します。
-- 熱化学や DFT には使いません。与えられた数値を描画するだけです。
+数値エネルギーだけを入力として状態エネルギーダイアグラムを描画します（構造ファイル不要、ML/MM 計算なし）。既にエネルギー値を持っていて構造ベースの ML/MM 計算が不要なときに、数値から直接ダイアグラムを描きます。`mlmm energy-diagram` は与えられた数値を可視化するだけで、PDB/XYZ 構造を読み込まず、熱化学（`--thermo`）や DFT（`--dft`）の処理も実行しません。
 
 ## 実行例
+
+相対エネルギーをリスト形式文字列で指定:
 
 ```bash
 mlmm energy-diagram -i "[0, 12.5, 4.3]" -o energy.png
 ```
 
+絶対エネルギー（任意の数値）:
+
 ```bash
 mlmm energy-diagram -i "[-205.1, -190.4, -198.7]" -o energy.png
 ```
+
+`-i` フラグの繰り返しで値を指定:
 
 ```bash
 mlmm energy-diagram -i 0 -i 12.5 -i 4.3 -o energy.png
 ```
 
+X 軸の状態ラベルと Y 軸ラベルを指定:
+
 ```bash
 mlmm energy-diagram -i "[0, 12.5, 4.3]" --label-x R TS P --label-y "ΔE (kcal/mol)" -o energy.png
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm energy-diagram -i INPUT -o OUTPUT [options]
-```
-
-| 入力 | 必須 | 説明 |
-| --- | --- | --- |
-| `-i, --input` | はい | 数値入力: フラグ繰り返し、1 フラグ後の複数値、リスト形式文字列に対応。最低 2 点が必要。 |
-| `-o, --output` | いいえ | 出力画像パス（`.png/.jpg/.jpeg/.svg/.pdf`）。 |
 
 ## 処理の流れ
 1. `-i/--input` から値を収集します（繰り返し指定、1 フラグ後の複数値、リスト文字列に対応）。
@@ -52,7 +42,7 @@ mlmm energy-diagram -i INPUT -o OUTPUT [options]
 ## CLI オプション
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input TEXT...` | 数値入力（複数引数またはリスト形式文字列） | 必須 |
+| `-i, --input TEXT...` | 数値入力（複数引数またはリスト形式文字列）。最低 2 点が必要。 | 必須 |
 | `-o, --output PATH` | 出力画像パス（`.png/.jpg/.jpeg/.svg/.pdf`） | `energy_diagram.png` |
 | `--label-x TEXT...` | X 軸状態ラベル（入力値と同じ個数が必要） | `S1, S2,...` |
 | `--label-y TEXT` | Y 軸ラベル | `ΔE (kcal/mol)` |

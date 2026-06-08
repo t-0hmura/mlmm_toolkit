@@ -6,7 +6,8 @@ folded into the opening sentence — no separate heading), then ``## Examples``
 before the ``## Workflow`` body, and none of the legacy ``When to use`` /
 ``Quick examples`` / ``Inputs`` headings.
 
-JA pages still follow the legacy template (migrated in a separate pass).
+JA pages follow the same canonical template (## 実行例 before ## 処理の流れ,
+with the legacy 使いどころ / 入力 headings removed).
 """
 
 from __future__ import annotations
@@ -43,9 +44,17 @@ EN_FORBIDDEN = (
     "## Inputs",
 )
 
-# JA legacy template (kept until the JA pages are migrated).
-JA_REQUIRED = ("## 使いどころ", "## 実行例", "## 入力")
+# JA canonical template (mirrors the EN template).
+JA_REQUIRED = ("## 実行例",)
 JA_BODY = "## 処理の流れ"
+JA_FORBIDDEN = (
+    "## 使いどころ",
+    "## クイック例",
+    "## 使用例",
+    "## 例",
+    "## 最小例",
+    "## 入力",
+)
 
 
 def _heading_positions(path: Path) -> dict[str, int]:
@@ -93,7 +102,7 @@ def main() -> int:
 
     for name in TARGETS:
         _check(DOCS_ROOT / f"{name}.md", EN_REQUIRED, EN_BODY, EN_FORBIDDEN, errors)
-        _check(DOCS_ROOT / "ja" / f"{name}.md", JA_REQUIRED, JA_BODY, (), errors)
+        _check(DOCS_ROOT / "ja" / f"{name}.md", JA_REQUIRED, JA_BODY, JA_FORBIDDEN, errors)
 
     if errors:
         print("[intro-check] failed:")

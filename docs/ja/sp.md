@@ -1,26 +1,36 @@
 # `sp`
 
-`mlmm sp` は、単一構造における ML/MM ONIOM エネルギーと原子に働く力（任意で ONIOM ヘシアン全体）を評価します。
+`mlmm sp` は、単一構造における ML/MM ONIOM エネルギーと原子に働く力（任意で ONIOM ヘシアン全体）を評価します。最適化を実行する前に層構造を高速に確認する、同一の ONIOM 分割上でバックエンドどうしを直接比較する、オプティマイザのループ外で参照用ヘシアンを生成する、といった用途に使います。
 
-## 使用する場面
+## 実行例
 
-- 最適化を実行する前に、層構造を高速に確認する。
-- 同一の ONIOM 分割上でバックエンドどうしを直接比較する。
-- オプティマイザのループ外で参照用ヘシアンを生成する。
-
-## クイック例
+層構造 PDB 上のエネルギーと力（B-factor が ML / movable-MM / frozen-MM をエンコード）:
 
 ```bash
 # energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen-MM)
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
+ONIOM ヘシアン全体も計算する（`--backend uma` のとき Analytical）:
+
 ```bash
 # also compute the full ONIOM Hessian (Analytical when --backend uma)
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 ```
 
-## 入力
+## 出力
+
+`sp` はデフォルトで `result_sp/` 以下に出力を書き込みます。ONIOM エネルギーは stdout にも出力されます。JSON ファイル（同一のペイロードを両方の名前にミラー）は `--out-json` を指定したときのみ出力されます。
+
+| ファイル | 内容 | 出力 |
+|---|---|---|
+| `forces.npy` | 原子単位（Hartree / Bohr）の ONIOM 力の `(N, 3)` 配列 | 常時 |
+| `hessian.npy` | 質量で重み付けしていない `(3N, 3N)` ONIOM ヘシアン（Hartree / Bohr²） | `--hess` 指定時のみ |
+| `result.json` / `summary.json` | ONIOM エネルギー（a.u.）、バックエンド、電荷/スピン、npy 出力へのパス、経過時間 | `--out-json` 指定時のみ |
+
+`sp` は `summary.log` を書き込みません。
+
+## CLI オプション
 
 コマンド形式:
 
@@ -55,19 +65,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 `--hessian-calc-mode` で呼び出しごとに上書きできます。
 
-## 出力
-
-`sp` はデフォルトで `result_sp/` 以下に出力を書き込みます。ONIOM エネルギーは stdout にも出力されます。JSON ファイル（同一のペイロードを両方の名前にミラー）は `--out-json` を指定したときのみ出力されます。
-
-| ファイル | 内容 | 出力 |
-|---|---|---|
-| `forces.npy` | 原子単位（Hartree / Bohr）の ONIOM 力の `(N, 3)` 配列 | 常時 |
-| `hessian.npy` | 質量で重み付けしていない `(3N, 3N)` ONIOM ヘシアン（Hartree / Bohr²） | `--hess` 指定時のみ |
-| `result.json` / `summary.json` | ONIOM エネルギー（a.u.）、バックエンド、電荷/スピン、npy 出力へのパス、経過時間 | `--out-json` 指定時のみ |
-
-`sp` は `summary.log` を書き込みません。
-
-## CLI オプション
+### その他のオプション
 
 フラグの完全な一覧は自動生成された[コマンドリファレンス](../reference/commands/index.md)にあります。以下の表は説明が必要なオプションを扱います。
 

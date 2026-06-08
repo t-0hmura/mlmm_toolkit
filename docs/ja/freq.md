@@ -1,17 +1,17 @@
 # `freq`
 
-PHVA 対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。`mlmm freq` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でヘシアン評価を高速化できます。虚振動数は負の値で表示されます。
-
-## 使いどころ
-
-- 最適化した極小、TS、IRC 端点の振動解析。停留点の性格検証と QRRHO 熱力学計算。
+PHVA 対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。最適化した極小、TS、IRC 端点の振動解析に使い、停留点の性格検証と QRRHO 熱力学計算を行います。`mlmm freq` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA による凍結原子に対応します。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でヘシアン評価を高速化できます。虚振動数は負の値で表示されます。
 
 ## 実行例
+
+基本的な振動解析:
 
 ```bash
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
+
+まずは出力モード数を絞って確認する:
 
 ```bash
 # まずは出力モード数を絞って確認する
@@ -19,37 +19,21 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
 ```
 
+凍結原子を指定した PHVA と熱化学ダンプを実行する:
+
 ```bash
 # 凍結原子を指定した PHVA と熱化学ダンプを実行する
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
+VRAM に余裕があるノードで解析的ヘシアンを使う:
+
 ```bash
 # VRAM に余裕があるノードで解析的ヘシアンを使う
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm freq -i INPUT --parm PARM7 --model-pdb ML_PDB -q CHARGE [options]
-```
-
-`mlmm freq --help` でコアオプション、`mlmm freq --help-advanced` で全オプションリストを表示します。
-
-| 入力 | 必須 | 説明 |
-| --- | --- | --- |
-| `-i, --input` | 必須 | 完全酵素 PDB（リンク原子なし）。 |
-| `--parm` | 必須 | 完全酵素の Amber parm7 トポロジー。 |
-| `--model-pdb` | オプション | ML 領域を定義する PDB。`--detect-layer` 有効時はオプション。 |
-| `--model-indices` | オプション | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 |
-| `-q, --charge` | `-l` 未指定時は必須 | ML 領域の電荷。 |
-| `-l, --ligand-charge` | オプション | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 |
-| `--ref-pdb` | 非 PDB 入力時 | 非 PDB 入力用の参照 PDB トポロジー。 |
 
 ## 処理の流れ
 
@@ -81,6 +65,8 @@ out_dir/ (デフォルト: ./result_freq/)
 - `result_freq/mode_*.pdb`（PDB 入力の場合）
 
 ## CLI オプション
+
+`mlmm freq --help` でコアオプション、`mlmm freq --help-advanced` で全オプションリストを表示します。全フラグは自動生成された [コマンドリファレンス](../reference/commands/index.md) にあります。以下の表は説明が必要なオプションを扱います。
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |

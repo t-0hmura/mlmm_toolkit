@@ -1,19 +1,19 @@
 # `tsopt`
 
-`mlmm tsopt` は層付き酵素 PDB の遷移状態*候補*を一次サドル点まで精密化します。デフォルトのオプティマイザーは RS-I-RFO（`--opt-mode hess`）で、マイクロイテレーション（`--microiter`、デフォルト有効）が ML 1 ステップ RS-I-RFO と MM L-BFGS 緩和を交互に実行します。より軽量な代替として Hessian Guided Dimer（`--opt-mode grad`）があります。収束後は `--flatten` の余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。検証済み TS は**正確に 1 つ**の虚振動数を示すべきで、必ず [`freq`](freq.md) / [`irc`](irc.md) でモードと結合性を確認してください。TS 推測構造は単独候補か、[`path-search`](path-search.md) が抽出する最高エネルギー像（HEI）が典型です。
-
-## 使いどころ
-
-- 層付き酵素 PDB の TS 候補を一次サドル点まで精密化したいとき。単独実行も `path-search` の HEI 抽出後の継ぎとしても使用可。
-- **`--opt-mode hess`（RS-I-RFO）** を使用: デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合。`--microiter`（デフォルト有効）により ML と MM 領域を交互に最適化。
-- **`--opt-mode grad`（Hessian Guided Dimer）** を使用: 軽量な探索が必要な場合、または複数の TS 推測構造から素早く反復する場合。`--ml-only-hessian-dimer` で ML 領域のみのヘシアンを Dimer 方向決定に使用（高速だが精度は低下）。
+`mlmm tsopt` は層付き酵素 PDB の遷移状態*候補*を一次サドル点まで精密化します。単独の TS 推測構造でも、[`path-search`](path-search.md) が抽出する最高エネルギー像（HEI）でも実行できます。デフォルトのオプティマイザーは RS-I-RFO（`--opt-mode hess`）で、マイクロイテレーション（`--microiter`、デフォルト有効）が ML 1 ステップ RS-I-RFO と MM L-BFGS 緩和を交互に実行します。デフォルトの保守的なオプティマイザーで、ヘシアン計算のコストを許容できる場合に使用します。より軽量な代替として Hessian Guided Dimer（`--opt-mode grad`）があり、軽量な探索が必要な場合や複数の TS 推測構造から素早く反復する場合に向きます。`--ml-only-hessian-dimer` で ML 領域のみのヘシアンを Dimer 方向決定に使用できます（高速）。収束後は `--flatten` の余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。検証済み TS は**正確に 1 つ**の虚振動数を示すべきで、必ず [`freq`](freq.md) / [`irc`](irc.md) でモードと結合性を確認してください。
 
 ## 実行例
+
+コマンド形式は `mlmm tsopt -i TS_GUESS --parm PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]` です。`mlmm tsopt --help` で主要オプション、`mlmm tsopt --help-advanced` で全オプション一覧を表示します。
+
+デフォルト実行:
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_tsopt
 ```
+
+light モード（Dimer）+ 解析的ヘシアン:
 
 ```bash
 # VRAM に余裕がある場合に light モード + 解析的ヘシアンで実行する
@@ -21,31 +21,14 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt_light
 ```
 
+heavy モード（RS-I-RFO）+ YAML 上書き:
+
 ```bash
 # heavy モードを YAML 上書きと併用する
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
 # --dump で最適化軌跡を保存、--backend mace で MACE バックエンドを使用
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm tsopt -i TS_GUESS --parm PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]
-```
-
-`mlmm tsopt --help` で主要オプション、`mlmm tsopt --help-advanced` で全オプション一覧を表示します。
-
-| 入力 | 必須 | 備考 |
-| --- | --- | --- |
-| `-i, --input` | 必須 | 開始ジオメトリ（PDB または XYZ）。XYZ の場合はトポロジーに `--ref-pdb` を使用。 |
-| `--parm` | 必須 | 全酵素の Amber parm7 トポロジー。 |
-| `--model-pdb` | 任意 | ML 領域原子を含む PDB。`--detect-layer` 有効時はオプション。 |
-| `-q, --charge` | 必須（`-l` 未指定時） | ML 領域の総電荷。 |
-| `-m, --multiplicity` | 任意 | ML 領域のスピン多重度 (2S+1)。デフォルト 1。 |
-| `--ref-pdb` | XYZ 入力時 | 入力が XYZ の場合の参照 PDB トポロジー。 |
 
 ## 処理の流れ
 
@@ -229,7 +212,7 @@ rsirfo:
 TS 収束が遅い場合や最適化中に TS モードが失われる場合は、`rsirfo` セクションの `hessian_recalc` を小さくしてみてください（例: 50--200）。正確なヘシアン再計算の頻度を上げることで、追加のヘシアン評価コストと引き換えに堅牢性が向上します。
 ```
 
-## 注意事項
+## 注記
 
 アクティブ自由度射影と質量加重並進/回転除去（PHVA + TR 射影）は `freq.py` をミラーリングし、一貫した虚振動数モード解析とモード書き出しを保証します。
 

@@ -2,45 +2,30 @@
 
 > **要約:** Amber parm7 を用いて ORCA QM/MM（`.inp`）入力を生成します。
 
-これは `oniom-export` の ORCA 詳細モード（`mlmm oniom-export --mode orca`）です。Amber parm7 ファイルからトポロジー情報を読み込み、model 領域の PDB を QM 原子へ対応付け、ORCAFF パラメータを解決し、ORCA 6.0 実行向けの単一 ORCA QM/MM 入力ファイルを書き出します。
-
-## 使いどころ
-
-- Amber parm7 でトポロジーを記述した ML/MM 系について、ORCA QM/MM（`.inp`）入力が必要なときに使います。
-- エクスポート全体像と Gaussian / ORCA モードの選択については [oniom-export](oniom-export.md) を参照してください。
+これは `oniom-export` の ORCA 詳細モード（`mlmm oniom-export --mode orca`）です。Amber parm7 でトポロジーを記述した ML/MM 系について、ORCA QM/MM（`.inp`）入力が必要なときに使います。Amber parm7 ファイルからトポロジー情報を読み込み、model 領域の PDB を QM 原子へ対応付け、ORCAFF パラメータを解決し、ORCA 6.0 実行向けの単一 ORCA QM/MM 入力ファイルを書き出します。
 
 ## 実行例
+
+基本的なエクスポート:
 
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
+全 QM+MM 系の総電荷/総多重度を明示的に指定:
+
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
+ORCAFF のパスを明示し自動変換を無効化:
+
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm oniom-export --mode orca --parm PARM7 --model-pdb MODEL.pdb -o OUTPUT.inp -q CHARGE [options]
-```
-
-| 入力 | 必須 | 説明 |
-| --- | --- | --- |
-| `--parm` | はい | Amber parm7 トポロジーファイル。 |
-| `-i, --input` | いいえ | 座標ファイル（PDB/XYZ）。原子順は parm7 と一致必須。 |
-| `--model-pdb` | はい | QM 領域原子を定義する PDB。 |
-| `-o, --output` | はい | 出力 ORCA 入力ファイル（`.inp`）。 |
-| `-q, --charge` | はい | QM 領域の電荷。 |
 
 ## 処理の流れ
 

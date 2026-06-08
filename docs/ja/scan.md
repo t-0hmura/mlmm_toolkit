@@ -1,32 +1,8 @@
 # `scan`
 
-ML/MM 計算機を使用して、調和拘束による結合距離スキャンで反応座標を駆動します。`mlmm scan` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）を使用して調和拘束による段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットが更新され、拘束ウェルが適用され、LBFGS で構造が緩和されます。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
-
-## 使いどころ
-
-- 単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動し、反応軌跡の粗い候補を生成。下流の MEP 精密化用の中間体/生成物候補を提供。
+ML/MM 計算機を使用して、調和拘束による結合距離スキャンで反応座標を駆動します。単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動して反応軌跡の粗い候補を生成し、下流の MEP 精密化用の中間体/生成物候補を提供したいときに使用します。`mlmm scan` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）を使用して調和拘束による段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットが更新され、拘束ウェルが適用され、LBFGS で構造が緩和されます。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
 
 ## 実行例
-
-```bash
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan.yaml -o ./result_scan
-```
-（`--print-parsed` を追加すると、解釈したスキャンスペックを検証し GPU 計算を実行せずに終了します。）
-
-```bash
-# インライン Python リテラル
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s "[(12,45,2.20)]"
-```
-
-```bash
-# ステージごとの軌跡を保存して確認する
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan.yaml --dump -o ./result_scan_dump
-```
-
-## 入力
 
 コマンド形式:
 
@@ -36,15 +12,104 @@ mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  [-s scan.yaml | -s "[(I,J,TARGET_ANG)]"] [options]
 ```
 
-| 入力 | 必須 | 備考 |
-| --- | --- | --- |
-| `-i, --input` | はい | 入力 PDB（またはトポロジー用に `--ref-pdb` 付きの XYZ）。 |
-| `--parm` | はい | 完全 REAL 系の Amber prmtop。 |
-| `--model-pdb` | 任意 | ML 領域を定義する PDB。`--detect-layer` 有効時または `--model-indices` 指定時は省略可能。 |
-| `-q, --charge` | はい（`-l` 未指定時） | ML 領域の総電荷。 |
-| `-s, --scan-lists` | はい | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）またはインライン Python リテラル。 |
+スペックファイルによるスキャン（`--print-parsed` を追加すると、解釈したスキャンスペックを検証し GPU 計算を実行せずに終了します）:
 
-### 入力構文
+```bash
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -s scan.yaml -o ./result_scan
+```
+
+インライン Python リテラル:
+
+```bash
+# インライン Python リテラル
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -s "[(12,45,2.20)]"
+```
+
+ステージごとの軌跡を保存して確認する:
+
+```bash
+# ステージごとの軌跡を保存して確認する
+mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -s scan.yaml --dump -o ./result_scan_dump
+```
+
+## 処理の流れ
+
+1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM 計算機に `--parm`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
+2. 任意でバイアスなし事前最適化（`--preopt`）を実行し、開始点を緩和します。
+3. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からステージターゲットを解析し、`(i, j)` インデックスを正規化します（デフォルトは 1 始まり）。入力が PDB の場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
+4. 結合ごとの変位を計算してステップに分割します:
+ - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
+ - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
+ - 各ペアの増分変化は `delta_k = delta_k / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * delta_k`。
+5. すべてのステップを進み、調和ウェル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
+6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
+7. すべてのステージで繰り返します。任意の軌跡は `--dump` が `True` の場合のみダンプされます。
+
+## 出力
+
+各ステージは最終ジオメトリとバイアスステップ軌跡を `stage_XX/` 配下に書き出し、ルートに連結軌跡を生成します。最初に確認するファイルはステージ別の `result.pdb`（または `result.xyz`）と、常に生成される `scan_trj.xyz` / `scan.pdb` です。
+
+```
+out_dir/ (デフォルト:./result_scan/)
+├─ scan_trj.xyz              # 全ステージ結合軌跡（常に書き出し）
+├─ scan.pdb                  # 結合 PDB コンパニオン（PDB 入力のみ、常に書き出し）
+├─ preopt/                   # --preopt が True の場合
+│  ├─ result.xyz
+│  └─ result.pdb             # PDB 入力のみ
+└─ stage_XX/                 # ステージごとに 1 フォルダ（k = 01..K）
+   ├─ result.xyz             # 最終（endopt 済みの可能性あり）ジオメトリ
+   ├─ result.pdb             # 入力が PDB の場合
+   ├─ scan_trj.xyz           # ステージ別バイアスステップフレーム（常に書き出し）
+   └─ scan.pdb               # scan_trj.xyz の PDB 版（PDB 入力のみ、常に書き出し）
+```
+
+## CLI オプション
+
+完全なフラグ一覧は生成された [コマンドリファレンス](../reference/commands/index.md) にあります。下表は説明が必要なオプションを扱います。
+
+| オプション | 説明 | デフォルト |
+| --- | --- | --- |
+| `-i, --input PATH` | 入力 PDB（またはトポロジー用に `--ref-pdb` 付きの XYZ）。 | 必須 |
+| `--parm PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
+| `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` 有効時または `--model-indices` 指定時は省略可能。 | _None_ |
+| `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可）。 | _None_ |
+| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
+| `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを検出。 | `True` |
+| `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
+| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
+| `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
+| `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
+| `--hess-cutoff FLOAT` | ML 原子からの MM Hessian 距離カットオフ (Å)。 | _None_ |
+| `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
+| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 三つ組もしくは `(i, j, start, end)` 四つ組（双方向スキャン）を含むインライン Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
+| `--one-based/--zero-based` | 原子インデックスを 1 始まり（既定）または 0 始まりとして解釈。 | `True`（1 始まり） |
+| `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のステージ情報を表示。 | `False` |
+| `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
+| `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
+| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | `mlmm all` からの転送互換オプション。現状の `scan` 緩和は mode に関わらず LBFGS を使用。 | _None_ |
+| `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 LBFGS サイクル。 | `10000` |
+| `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | _None_ |
+| `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
+| `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `False` |
+| `--dump/--no-dump` | ステップごとのオプティマイザー軌跡ファイルをダンプ。注: `scan_trj.xyz`/`scan.pdb` はこのフラグに関係なく常に書き出されます。 | `False` |
+| `-o, --out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
+| `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_（`gau` を継承） |
+| `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
+| `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
+| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的 Hessian vs OpenMM 有限差分）。 | `hessian_ff` |
+| `--link-atom-method [scaled\|fixed]` | リンク原子の配置: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
+| `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
+| `--dry-run/--no-dry-run` | オプションの検証と実行計画の表示のみ行い、スキャンは実行しない。`--help-advanced` に表示。 | `False` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
+
+## スキャン対象の構文
 
 **YAML/JSON スペックフォーマット（推奨）**
 
@@ -134,84 +199,6 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ```
 
 これは 2 つの手動ステージの間にジオメトリリセットを行うのと同等ですが、スクリプトを書く必要がありません。同じリテラル内で 3-tuple と 4-tuple を混在させることもできます。
-
-## 処理の流れ
-
-1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM 計算機に `--parm`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
-2. 任意でバイアスなし事前最適化（`--preopt`）を実行し、開始点を緩和します。
-3. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からステージターゲットを解析し、`(i, j)` インデックスを正規化します（デフォルトは 1 始まり）。入力が PDB の場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
-4. 結合ごとの変位を計算してステップに分割します:
- - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
- - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
- - 各ペアの増分変化は `delta_k = delta_k / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * delta_k`。
-5. すべてのステップを進み、調和ウェル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
-6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
-7. すべてのステージで繰り返します。任意の軌跡は `--dump` が `True` の場合のみダンプされます。
-
-## 出力
-
-各ステージは最終ジオメトリとバイアスステップ軌跡を `stage_XX/` 配下に書き出し、ルートに連結軌跡を生成します。最初に確認するファイルはステージ別の `result.pdb`（または `result.xyz`）と、常に生成される `scan_trj.xyz` / `scan.pdb` です。
-
-- `result_scan/stage_01/result.pdb`（または `result.xyz`）
-- `result_scan/stage_02/result.pdb`（または `result.xyz`）
-- `result_scan/stage_*/scan_trj.xyz` と `scan.pdb`（常に生成）
-
-```
-out_dir/ (デフォルト:./result_scan/)
-├─ scan_trj.xyz              # 全ステージ結合軌跡（常に書き出し）
-├─ scan.pdb                  # 結合 PDB コンパニオン（PDB 入力のみ、常に書き出し）
-├─ preopt/                   # --preopt が True の場合
-│  ├─ result.xyz
-│  └─ result.pdb             # PDB 入力のみ
-└─ stage_XX/                 # ステージごとに 1 フォルダ（k = 01..K）
-   ├─ result.xyz             # 最終（endopt 済みの可能性あり）ジオメトリ
-   ├─ result.pdb             # 入力が PDB の場合
-   ├─ scan_trj.xyz           # ステージ別バイアスステップフレーム（常に書き出し）
-   └─ scan.pdb               # scan_trj.xyz の PDB 版（PDB 入力のみ、常に書き出し）
-```
-
-## CLI オプション
-
-完全なフラグ一覧は生成された [コマンドリファレンス](../reference/commands/index.md) にあります。下表は説明が必要なオプションを扱います。
-
-| オプション | 説明 | デフォルト |
-| --- | --- | --- |
-| `-i, --input PATH` | 入力 PDB（またはトポロジー用に `--ref-pdb` 付きの XYZ）。 | 必須 |
-| `--parm PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
-| `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` 有効時または `--model-indices` 指定時は省略可能。 | _None_ |
-| `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可）。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを検出。 | `True` |
-| `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
-| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
-| `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
-| `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--hess-cutoff FLOAT` | ML 原子からの MM Hessian 距離カットオフ (Å)。 | _None_ |
-| `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
-| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 三つ組もしくは `(i, j, start, end)` 四つ組（双方向スキャン）を含むインライン Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
-| `--one-based/--zero-based` | 原子インデックスを 1 始まり（既定）または 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のステージ情報を表示。 | `False` |
-| `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
-| `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
-| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | `mlmm all` からの転送互換オプション。現状の `scan` 緩和は mode に関わらず LBFGS を使用。 | _None_ |
-| `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 LBFGS サイクル。 | `10000` |
-| `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | _None_ |
-| `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
-| `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `False` |
-| `--dump/--no-dump` | ステップごとのオプティマイザー軌跡ファイルをダンプ。注: `scan_trj.xyz`/`scan.pdb` はこのフラグに関係なく常に書き出されます。 | `False` |
-| `-o, --out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
-| `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_（`gau` を継承） |
-| `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
-| `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
-| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
-| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的 Hessian vs OpenMM 有限差分）。 | `hessian_ff` |
-| `--link-atom-method [scaled\|fixed]` | リンク原子の配置: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
-| `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
-| `--dry-run/--no-dry-run` | オプションの検証と実行計画の表示のみ行い、スキャンは実行しない。`--help-advanced` に表示。 | `False` |
-| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## YAML 設定
 

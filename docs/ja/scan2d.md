@@ -1,13 +1,22 @@
 # `scan2d`
 
-調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。`mlmm scan2d` は `--max-step-size` を使用して 2 つの結合距離の線形グリッドを構築し、適切な拘束を適用して各グリッド点を緩和し、バイアスなしの ML/MM エネルギーを可視化用に記録します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。3D の `scan2d_landscape.html` には底面投影付きのコンターが含まれます。
-
-## 使いどころ
-
-- 2 つの反応距離（例: 結合形成 + 結合切断）に対する 2D ポテンシャル面をマッピングし、1D スキャンでは見落とすサドル点や分岐構造を特定したいときに使用します。
-- `-s/--scan-lists` には YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを渡します。どちらの形式も正確に 2 つのスキャン軸を受け付けます。
+調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。2 つの反応距離（例: 結合形成 + 結合切断）に対する 2D ポテンシャル面をマッピングし、1D スキャンでは見落とすサドル点や分岐構造を特定したいときに使用します。`mlmm scan2d` は `--max-step-size` を使用して 2 つの結合距離の線形グリッドを構築し、適切な拘束を適用して各グリッド点を緩和し、バイアスなしの ML/MM エネルギーを可視化用に記録します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。どちらの形式も正確に 2 つのスキャン軸を受け付けます。3D の `scan2d_landscape.html` には底面投影付きのコンターが含まれます。
 
 ## 実行例
+
+コマンド形式:
+
+```bash
+mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+ -q CHARGE [-m MULT] \
+ [-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
+ [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
+ [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
+ [--dump/--no-dump] [--out-dir DIR] \
+ [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
+```
+
+推奨: YAML/JSON spec。
 
 ```bash
 # 推奨: YAML/JSON spec
@@ -21,11 +30,15 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan2d.yaml --print-parsed
 ```
 
+代替: インライン Python リテラル。
+
 ```bash
 # 代替: インライン Python リテラル
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 ```
+
+TRJ ダンプ付き LBFGS スキャン、コンタープロットの固定カラースケール。
 
 ```bash
 # TRJ ダンプ付き LBFGS スキャン、コンタープロットの固定カラースケール
@@ -36,85 +49,6 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ```
 
 `-s/--scan-lists` の解釈結果を確認したい場合は `--print-parsed` を追加してください。GPU 計算を実行せずに解析されたスキャンスペックを検証して終了します。
-
-## 入力
-
-```bash
-mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q CHARGE [-m MULT] \
- [-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
- [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
- [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
- [--dump/--no-dump] [--out-dir DIR] \
- [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
-```
-
-| 入力 | 必須 | 備考 |
-| --- | --- | --- |
-| `-i, --input` | はい | 入力酵素複合体 PDB。 |
-| `--parm` | はい | 酵素の Amber parm7 トポロジー。 |
-| `--model-pdb` | 推奨 | ML 領域を定義する PDB（`--detect-layer` 有効時はオプション）。 |
-| `-q, --charge` | `-l` 未指定時は必須 | ML 領域の総電荷。 |
-| `-s, --scan-lists` | はい | YAML/JSON スペックファイルパス、または正確に 2 つの四つ組を含むインライン Python リテラル。 |
-
-### YAML/JSON スペックフォーマット（推奨）
-
-`-s/--scan-lists` は YAML/JSON ファイルを自動検出します。ファイルパスを渡すとスペックモードになります:
-
-```yaml
-one_based: true # 任意; デフォルトは CLI の --one-based/--zero-based
-pairs:
- - [12, 45, 1.30, 3.10]
- - [10, 55, 1.20, 3.20]
-```
-
-- `pairs` は必須で、正確に 2 つの四つ組を含む必要があります。
-- 各四つ組は `(i, j, low_A, high_A)` です。
-- インデックスは整数または PDB セレクター（インラインリテラルと同じ）が使用可能です。
-
-### インラインリテラルフォーマット
-
-`-s/--scan-lists` がファイルパスでない値を受け取ると、**単一の Python リテラル**文字列として評価されます。シェルクォートに注意してください。
-
-リテラルは正確に **2 つ**の四つ組 `(atom1, atom2, low_A, high_A)` の Python リストです:
-
-```
--s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
-```
-
-- シェルが括弧やスペースを解釈しないよう、リテラル全体を**シングルクォート**で囲んでください。
-- 各四つ組は 1 つのスキャン軸を定義します: `atom1`--`atom2` 間の距離を `low_A` から `high_A` までスキャンします。
-- `scan` と異なり、**1 つのリテラル**のみ受け付けます（マルチステージ非対応）。
-
-原子は**整数インデックス**または **PDB セレクター文字列**で指定できます:
-
-| 方法 | 例 | 備考 |
-| --- | --- | --- |
-| 整数インデックス | `(1, 5, 1.30, 3.10)` | デフォルトは 1 始まり（`--one-based`） |
-| PDB セレクター | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | 残基名、残基番号、原子名 |
-
-PDB セレクターのトークンは、カンマ `,`、スペース、スラッシュ `/`、バッククォート `` ` ``、バックスラッシュ `\` のいずれかで区切れます。トークンの順序は自由です。
-
-```bash
-# 以下はすべて同じ原子を指定:
-"TYR,285,CA"
-"TYR 285 CA"
-"TYR/285/CA"
-"285,TYR,CA" # 順序は自由
-```
-
-クォート規則:
-
-```bash
-# 正しい: リスト全体をシングルクォート、内側のセレクター文字列をダブルクォート
--s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20)]'
-
-# 正しい: 整数インデックスは内側のクォート不要
--s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
-
-# 非推奨: 外側をダブルクォートにすると内側のクォートをエスケープする必要あり
--s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
-```
 
 ## 処理の流れ
 
@@ -178,6 +112,67 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
+
+## スキャンスペックフォーマット
+
+### YAML/JSON スペックフォーマット（推奨）
+
+`-s/--scan-lists` は YAML/JSON ファイルを自動検出します。ファイルパスを渡すとスペックモードになります:
+
+```yaml
+one_based: true # 任意; デフォルトは CLI の --one-based/--zero-based
+pairs:
+ - [12, 45, 1.30, 3.10]
+ - [10, 55, 1.20, 3.20]
+```
+
+- `pairs` は必須で、正確に 2 つの四つ組を含む必要があります。
+- 各四つ組は `(i, j, low_A, high_A)` です。
+- インデックスは整数または PDB セレクター（インラインリテラルと同じ）が使用可能です。
+
+### インラインリテラルフォーマット
+
+`-s/--scan-lists` がファイルパスでない値を受け取ると、**単一の Python リテラル**文字列として評価されます。シェルクォートに注意してください。
+
+リテラルは正確に **2 つ**の四つ組 `(atom1, atom2, low_A, high_A)` の Python リストです:
+
+```
+-s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
+```
+
+- シェルが括弧やスペースを解釈しないよう、リテラル全体を**シングルクォート**で囲んでください。
+- 各四つ組は 1 つのスキャン軸を定義します: `atom1`--`atom2` 間の距離を `low_A` から `high_A` までスキャンします。
+- `scan` と異なり、**1 つのリテラル**のみ受け付けます（マルチステージ非対応）。
+
+原子は**整数インデックス**または **PDB セレクター文字列**で指定できます:
+
+| 方法 | 例 | 備考 |
+| --- | --- | --- |
+| 整数インデックス | `(1, 5, 1.30, 3.10)` | デフォルトは 1 始まり（`--one-based`） |
+| PDB セレクター | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | 残基名、残基番号、原子名 |
+
+PDB セレクターのトークンは、カンマ `,`、スペース、スラッシュ `/`、バッククォート `` ` ``、バックスラッシュ `\` のいずれかで区切れます。トークンの順序は自由です。
+
+```bash
+# 以下はすべて同じ原子を指定:
+"TYR,285,CA"
+"TYR 285 CA"
+"TYR/285/CA"
+"285,TYR,CA" # 順序は自由
+```
+
+クォート規則:
+
+```bash
+# 正しい: リスト全体をシングルクォート、内側のセレクター文字列をダブルクォート
+-s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20)]'
+
+# 正しい: 整数インデックスは内側のクォート不要
+-s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
+
+# 非推奨: 外側をダブルクォートにすると内側のクォートをエスケープする必要あり
+-s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+```
 
 ## YAML 設定
 

@@ -1,20 +1,17 @@
 # `mm-parm`
 
-`mlmm mm-parm` は PDB から Amber トポロジー/座標ファイル（parm7/rst7/pdb）を生成します。不明な残基は GAFF2（AM1-BCC 電荷）で自動的にパラメータ化されます。完全なパイプラインは処理の流れを、力場や水素付加のフラグは CLI オプションを参照してください。
-
-## 使いどころ
-
-- PDB から Amber prmtop/rst7 トポロジーファイルを構築する。GAFF2 リガンドの自動パラメータ化、ジスルフィド結合検出、PDBFixer による任意の水素付加に対応。
-- 金属酵素、糖鎖、非標準アミノ酸・翻訳後修飾、MD スナップショット入力には不向き。これらは外部で用意したトポロジーを `--parm` から供給する（[注意事項](#注意事項)を参照）。
+`mlmm mm-parm` は PDB から Amber トポロジー/座標ファイル（parm7/rst7/pdb）を生成します。不明な残基は GAFF2（AM1-BCC 電荷）で自動的にパラメータ化され、ジスルフィド結合検出や PDBFixer による任意の水素付加にも対応します。完全なパイプラインは処理の流れを、力場や水素付加のフラグは CLI オプションを参照してください。金属酵素、糖鎖、非標準アミノ酸・翻訳後修飾、MD スナップショット入力には不向きで、これらは外部で用意したトポロジーを `--parm` から供給します（[注記](#注記)を参照）。
 
 ## 実行例
+
+基本的なトポロジー構築（リガンドの電荷・多重度を指定）。
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
  -l "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1"
 ```
 
-水素付加なしの基本的なトポロジー構築。
+TER レコード追加、ff19SB、pH 7 での水素付加。
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
@@ -22,24 +19,12 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
  --add-ter --ff-set ff19SB --add-h --ph 7.0
 ```
 
-水素付加付きのビルド。
+水素付加をスキップ（入力がすでにプロトン化済み）。
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
  -l "GPP=-3" --no-add-h
 ```
-
-## 入力
-
-コマンド形式:
-
-```bash
-mlmm mm-parm -i INPUT.pdb [options]
-```
-
-| 入力 | 必須 | 備考 |
-| --- | --- | --- |
-| `-i, --input PATH` | はい | 入力 PDB（`--add-h` でない限りそのまま使用）。 |
 
 ## 処理の流れ
 
@@ -71,7 +56,7 @@ mlmm mm-parm -i INPUT.pdb [options]
 
 全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にあります。
 
-## 注意事項
+## 注記
 
 `mm-parm` は AmberTools の tleap と GAFF2 自動パラメータ化に依存しており、基質が**典型的な有機分子**である場合にうまく機能します。以下のケースでは、外部でトポロジーを自作し（例: tleap, MCPB.py, glycam.org ツール）、各サブコマンドの `--parm` フラグから入力することを強く推奨します。
 
