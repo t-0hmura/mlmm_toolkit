@@ -134,7 +134,7 @@ Residue-name matching is case-insensitive; unmapped non-standard residues defaul
 5. Default: abort if unresolved.
 
 ```{tip}
-Always provide `--ligand-charge` for non-standard residues to ensure correct charge propagation.
+Always provide `--ligand-charge` for non-standard residues so charges propagate correctly.
 ```
 
 ## Spin multiplicity
@@ -184,7 +184,8 @@ Choices and defaults differ across subcommands.
 | `opt` | `grad` (`light`, `lbfgs`) | `hess` (`heavy`, `rfo`) | `grad` | L-BFGS vs RFO (with optional `--microiter`). |
 | `tsopt` | `grad` (`light`, `dimer`) | `hess` (`heavy`, `rsirfo`) | `hess` | Dimer vs RS-I-RFO. |
 | `path-search` | `grad` (= L-BFGS) | — (RFO/`hess` not yet wired) | `grad` | Inner optimizer for GSM / DMF nodes; `hess`/`rfo` rejected with a Click error. `path-opt` has no `--opt-mode` (use `--mep-mode gsm`/`dmf`). |
-| `scan` / `scan2d` / `scan3d` | — | — | — | No `--opt-mode`; relaxation uses the YAML inner optimizer. |
+| `scan` | `grad` (`lbfgs`/`light`) | — | — | `--opt-mode` is accepted only as a compatibility alias for L-BFGS; the per-grid relaxation otherwise follows the YAML inner optimizer. |
+| `scan2d` / `scan3d` | — | — | — | No `--opt-mode`; relaxation uses the YAML inner optimizer. |
 
 `light` / `heavy` are accepted as legacy aliases for `grad` / `hess` for backward compatibility; prefer `grad` / `hess` in new scripts.
 
