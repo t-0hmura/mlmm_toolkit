@@ -4,9 +4,15 @@
 
 ## 1. Overview
 
-`mlmm-toolkit` is a Python CLI that performs **ML/MM (ONIOM) enzymatic reaction-path analysis** on a complete protein environment. From a PDB and a substrate name, it automatically generates the parm7 topology, encodes the ONIOM region split (ML / Movable MM / Frozen MM) into B-factor channels, runs full-system Hessian-based TS search via a macro/micro alternation scheme, and produces the reaction path (extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft).
+`mlmm-toolkit` is a Python CLI that performs **ML/MM (ONIOM) enzymatic reaction-path analysis** on a complete protein environment. ML/MM here means a hybrid model in which a small reaction core is treated by a machine-learning interatomic potential (ML) and the surrounding protein by a molecular-mechanics (MM) force field, combined through the subtractive ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) energy scheme.
 
-The package is laid out as **6 physical layer directories** (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`); the role and dependency direction of each are summarised in the §4 layer tables below. External code imports directly from the layer directory (`from mlmm.backends.mlmm_calc import MLMMCore`, `from mlmm.core.utils import …`, `import mlmm.io.trj2fig`, etc.); the previous flat-top shim layer has been retired in this release.
+The input is a PDB plus a substrate name. From these the tool automatically generates the parm7 topology and encodes the ONIOM region split (ML / Movable MM / Frozen MM) into B-factor channels. It then runs a full-system Hessian-based transition-state (TS) search via a macro/micro alternation scheme.
+
+The result is a full reaction path produced by the stage pipeline `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft`, where MEP is the minimum-energy path and IRC the intrinsic reaction coordinate.
+
+The package is laid out as **6 physical layer directories** (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`). The role and dependency direction of each are summarised in the §4 layer tables below.
+
+External code imports directly from the layer directory (`from mlmm.backends.mlmm_calc import MLMMCore`, `from mlmm.core.utils import …`, `import mlmm.io.trj2fig`, etc.); the previous flat-top shim layer has been retired in this release. §2.4 details the two import surfaces this leaves.
 
 Three bundled forks (`pysisyphus/`, `thermoanalysis/`, `hessian_ff/`) live at the repo top as repo-internal modules. They are deliberately **not** the upstream PyPI distributions (and `hessian_ff/` has no upstream at all — bundling is mandatory). See §6.
 
@@ -105,7 +111,12 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L2 `workflows/`** (~18 files). One file per subcommand. Each file owns a single `@click.command()` named `cli` and its private helpers. Large stage runners (`all.py` = 4,147 LOC, `path_search.py` = 2,348 LOC, `tsopt.py` = 3,068 LOC, `extract.py` = 2,321 LOC, `oniom_export.py` = 2,002 LOC) remain as single files in the current layout; future work may split them into per-stage subdirectories, but this is **opt-in** and out of scope for this release line.
 
-**L3 `domain/`**. Chemistry-aware helper logic that may import `torch` / `numpy` / `pysisyphus.constants` (numeric back-ends), but **may not import** MLIP runtimes (`fairchem`, `orb_models`, `mace`, `aimnet`). The MLIP-runtime deny list (`fairchem` / `orb_models` / `mace` / `aimnet`) is enforced repo-wide by `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`), which forbids those imports in any module outside `backends/`. The separate `# DOMAIN_PURE` module-docstring marker is a distinct CI gate (`_check_domain_pure`) that flags the specific backend-agnostic modules required to stay MLIP-free — `backends/mlmm_calc.py`, `workflows/tsopt.py`, `workflows/freq.py` (and present on `workflows/sp.py`) — and is not itself the deny-list mechanism; no `domain/` file carries it. Domain helpers are reusable by any L2 stage runner.
+**L3 `domain/`**. Chemistry-aware helper logic that may import `torch` / `numpy` / `pysisyphus.constants` (numeric back-ends), but **may not import** machine-learning interatomic potential (MLIP) runtimes (`fairchem`, `orb_models`, `mace`, `aimnet`). Two distinct CI gates cover this, both in `.github/scripts/check_engineering_markers.py`:
+
+- The MLIP-runtime deny list (`fairchem` / `orb_models` / `mace` / `aimnet`) is enforced repo-wide by `_check_external_library_scope`, which forbids those imports in any module outside `backends/`.
+- The separate `# DOMAIN_PURE` module-docstring marker is a distinct CI gate (`_check_domain_pure`) that flags the specific backend-agnostic modules required to stay MLIP-free — `backends/mlmm_calc.py`, `workflows/tsopt.py`, `workflows/freq.py` (and present on `workflows/sp.py`). It is not itself the deny-list mechanism, and no `domain/` file carries it.
+
+Domain helpers are reusable by any L2 stage runner.
 
 **L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py` = 2,534 LOC) lives here together with the backend dispatch (`__init__.py`) and the standalone xTB point-charge embedding correction (`xtb_embedcharge_correction.py`, driven by `--embedcharge`). Today the 4 MLIP backends (UMA / Orb / MACE / AIMNet2) that evaluate the ML region and the OpenMM / hessian_ff coupling all sit inline inside `mlmm_calc.py`; future work may split this into `backends/{base, uma, orb, mace, aimnet2}.py` for the MLIP layer plus a `backends/mlmm_calc/` subdir for the ONIOM core (`core.py`, `ase_calc.py`, `embed_charge.py`, `hessianff_calc.py`, `openmm_calc.py`, `facade.py`). The current single-file `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, **#8 (3-layer 5-pass partial Hessian)**, and **#9 (parm7 atom indexing)** — see §5.1.
 
@@ -182,6 +193,8 @@ After step 5 you can read any other file by following the file index in §4. The
 | AmberTools / conda env / GPU preflight | `mlmm/cli/preflight.py` |
 
 ### 4.2 Workflow stage runners (L2 `workflows/`)
+
+Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS = chain-of-states; RSIRFO = restricted-step image-function rational-function optimization (also written RS-I-RFO); Bofill = the Bofill Hessian-update formula; PHVA = partial Hessian vibrational analysis; IRC = intrinsic reaction coordinate; Kabsch = the Kabsch rigid-body alignment algorithm.
 
 | concern | file |
 |---|---|
@@ -361,7 +374,7 @@ After the Fresh-eyes tour (§3), follow this depth-first reading order:
 
 `mlmm-toolkit` operates on the **full protein environment** via ONIOM:
 
-- **ML region**: substrate + reaction-center residues, evaluated by one of 4 MLIP backends (UMA / Orb / MACE / AIMNet2); an optional xTB point-charge embedding correction (`--embedcharge`) adds MM→ML environmental effects
+- **ML region**: substrate + reaction-center residues, evaluated by one of 4 machine-learning interatomic potential (MLIP) backends (UMA / Orb / MACE / AIMNet2); an optional xTB point-charge embedding correction (`--embedcharge`) adds MM→ML environmental effects
 - **Movable MM region**: a shell around the ML region, free to move under the AMBER force field
 - **Frozen MM region**: the rest of the protein, held rigid
 

@@ -4,7 +4,11 @@
 
 <img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
 
-`mlmm-toolkit` is a Python CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default UMA; `orb` / `mace` / `aimnet2` via `-b`), with the surrounding protein under the bundled Amber force field `hessian_ff`. The ONIOM decomposition is:
+`mlmm-toolkit` is a Python CLI for analysing enzymatic reactions with the multi-layer ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) scheme, here in an ML/MM (machine learning / molecular mechanics) flavour.
+
+Instead of the quantum-mechanical (QM) region of conventional QM/MM, it uses a machine-learning interatomic potential (MLIP) for the reactive core — default UMA, with `orb` / `mace` / `aimnet2` selectable via `-b`. The surrounding protein is treated with the bundled Amber force field `hessian_ff`.
+
+The layers are combined by the ONIOM decomposition:
 
 ```
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
@@ -17,7 +21,13 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'                  # MEP on
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft   # full
 ```
 
-Given (i) ≥ 2 PDBs (R → ... → P), (ii) one PDB with `--scan-lists`, or (iii) one TS candidate with `--tsopt`, `mlmm all` defines the ML region, runs `mm-parm` + `define-layer`, performs MEP search (GSM), and optionally chains TS optimization, IRC, frequencies, and single-point DFT.
+`mlmm all` accepts input in one of three ways:
+
+- (i) ≥ 2 PDBs (R → ... → P),
+- (ii) one PDB with `--scan-lists`, or
+- (iii) one transition-state (TS) candidate with `--tsopt`.
+
+From that input it defines the ML region, runs `mm-parm` + `define-layer`, and performs a minimum-energy-path (MEP) search via the growing string method (GSM). It then optionally chains TS optimization, intrinsic reaction coordinate (IRC), frequencies, and single-point DFT.
 
 ```{important}
 - Input PDBs must already contain **hydrogen atoms**. The "Input prep checklist" below covers the common pitfalls.
@@ -76,8 +86,8 @@ mlmm --version
 
 | Component | When to add | Install |
 |---|---|---|
-| `hessian_ff` native build | If you see a "native extension not available" warning (JIT compilation usually handles it) | `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make` (install `ninja` first on most clusters: `conda install -c conda-forge ninja -y`) |
-| `cyipopt` | DMF MEP backend for the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`); `mlmm all` is GSM-only | `conda install -c conda-forge cyipopt -y` |
+| `hessian_ff` native build | If you see a "native extension not available" warning. JIT compilation usually handles it. | First install `ninja` on most clusters: `conda install -c conda-forge ninja -y`. Then build: `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make`. |
+| `cyipopt` | Direct Max Flux (DMF) MEP backend for the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`). | `conda install -c conda-forge cyipopt -y` |
 | xTB | `--embedcharge` (xTB point-charge embedding) | `conda install -c conda-forge xtb -y` (custom binary: set `xtb_cmd` in YAML) |
 | Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
 | HPC `cuda/<X.Y>` module | HPC clusters using environment modules | Load **before** `pip install torch`; match X.Y to your wheel (`cu126` ↔ 12.6, `cu129` ↔ 12.9) |
@@ -182,7 +192,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 
 | Option | Description |
 |---|---|
-| `-i, --input PATH...` | Input structures. Dispatch trichotomy is the same as the "Main workflow modes" table above. |
+| `-i, --input PATH...` | Input structures. See the "Main workflow modes" table above for how the input count and accompanying flags select a mode. |
 | `-c, --center TEXT` | Substrate / extraction center (residue names `'SAM,GPP'`, residue IDs `A:123,B:456`, or PDB paths). |
 | `-l, --ligand-charge TEXT` | Charge mapping (`'SAM:1,GPP:-3'`) or single integer. |
 | `-q, --charge INT` / `-m, --multiplicity INT` | ML-region net charge / spin multiplicity. |
@@ -194,7 +204,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `--embedcharge` | xTB point-charge embedding correction (default off). |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. `Analytical` is UMA-only; recommended when VRAM allows. |
 
-DMF MEP is selectable only via the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`); `mlmm all` always uses GSM (passing `--mep-mode` to `mlmm all` is silently ignored).
+Direct Max Flux (DMF) MEP is selectable only via the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`). `mlmm all` always uses GSM, so passing `--mep-mode` to `mlmm all` is silently ignored.
 
 Full option matrix and YAML schema: [YAML Reference](yaml-reference.md). Subcommand-by-subcommand table: [README "CLI Subcommands"](https://github.com/t-0hmura/mlmm_toolkit/blob/main/README.md#cli-subcommands).
 
