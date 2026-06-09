@@ -1,6 +1,6 @@
 # Concepts & Workflow
 
-This page explains the key terms in mlmm-toolkit -- the ML/MM 3-layer system, ONIOM decomposition, segments, images, and templates -- and how the `all` command ties together the subcommands.
+Key terms in mlmm-toolkit — the ML/MM 3-layer system, ONIOM decomposition, segments, images, and templates — and how the `all` command ties the subcommands together.
 
 ---
 
@@ -277,7 +277,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 
 ---
 
-## A few CLI conventions worth knowing
+## CLI conventions
 
 ```{important}
 - Boolean options accept both `--flag` / `--no-flag` and value style `--flag True/False` (`yes/no`, `1/0` are also accepted). Prefer toggle style.
