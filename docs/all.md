@@ -1,12 +1,12 @@
 # `all`
 
-`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command, instead of chaining `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` by hand. It chains active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (recursive `path-search` by default), and optional post-processing (TS optimisation, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
+`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command, instead of chaining `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` by hand. It chains active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (recursive `path-search` by default), and optional post-processing (TS optimization, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
 
 `all` runs in one of three modes, chosen by what you pass:
 
 - **Multi-structure ensemble** — give ≥ 2 full PDBs in reaction order to drive a GSM MEP search across the supplied structures.
 - **Single-structure staged scan** — give one PDB plus `--scan-lists`; each literal is a scan stage and the relaxed endpoints become the MEP endpoints.
-- **TSOPT-only** — give a single PDB and set `--tsopt` (no `--scan-lists`) to run TS optimisation directly, with no MEP search.
+- **TSOPT-only** — give a single PDB and set `--tsopt` (no `--scan-lists`) to run TS optimization directly, with no MEP search.
 
 ```{important}
 `--tsopt` produces **TS candidates**. `all` runs IRC and freq automatically for validation, but always inspect the results (imaginary mode count + endpoint connectivity) before mechanistic interpretation.
@@ -73,12 +73,12 @@ PDB companion files are generated when reference templates are available; contro
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
 5. **Summary and optional post-processing**
    - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_search/` (or `<out-dir>/_work/path_opt/` with `--no-refine-path`); the merged products (`mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
-   - `--tsopt` runs TS optimisation on each HEI, follows with EulerPC IRC, and emits segment energy diagrams.
+   - `--tsopt` runs TS optimization on each HEI, follows with EulerPC IRC, and emits segment energy diagrams.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
    - `--dft` runs DFT single-point on (R, TS, P) and adds a DFT diagram. With `--thermo`, a DFT//MLIP Gibbs diagram is also produced.
    - When VRAM allows, set `--hessian-calc-mode Analytical` (strongly recommended over the FiniteDifference default).
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
-   - Skips steps 4–5 and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC, minimises both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//MLIP diagrams.
+   - Skips steps 4–5 and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC, minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//MLIP diagrams.
    - In this mode only, the IRC endpoint with **higher energy** is adopted as the reactant (R).
 
 ## Outputs
@@ -115,7 +115,7 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
       summary.{json,log} · seg_NN_mep/    # raw per-segment GSM trajectories (merged MEP products are moved to the root)
 ```
 
-In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage: the optimised R/TS/P plus `ts/`, `irc/`, `freq/`, and `dft/` land under `segments/seg_01/`, and `_work/path_search/` is absent.
+In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage: the optimized R/TS/P plus `ts/`, `irc/`, `freq/`, and `dft/` land under `segments/seg_01/`, and `_work/path_search/` is absent.
 
 At `-v 2` the console summarises extraction, MM preparation, scan stages, MEP progress (GSM), and per-stage timing; see {ref}`verbosity-levels`.
 
@@ -150,7 +150,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--model-pdb FILE` | Pre-built ML-region PDB. When provided, ML-region determination is skipped. | _None_ |
 | `--ref-pdb FILE` | Reference PDB for XYZ input (required so PDB metadata can be recovered). | _None_ |
 | `--convert-files / --no-convert-files` | Global toggle for XYZ / TRJ → PDB companions. | `True` |
-| `--dump / --no-dump` | Save optimiser dumps. Always forwarded to `path-search` / `path-opt`; forwarded to `scan` / `tsopt` only when explicitly set. `freq` defaults to `dump=True` unless you pass `--no-dump`. | `False` |
+| `--dump / --no-dump` | Save optimizer dumps. Always forwarded to `path-search` / `path-opt`; forwarded to `scan` / `tsopt` only when explicitly set. `freq` defaults to `dump=True` unless you pass `--no-dump`. | `False` |
 | `--config FILE` | Base YAML applied first. | _None_ |
 | `--show-config / --no-show-config` | Print resolved configuration before execution. | `False` |
 | `--dry-run / --no-dry-run` | Validate and print plan without running stages (shown in `--help-advanced`). | `False` |
@@ -184,11 +184,11 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--max-nodes INT` | Internal nodes for segment GSM. | `20` |
 | `--max-cycles INT` | Maximum GSM macro-cycles. | `300` |
 | `--climb / --no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--opt-mode [grad\|hess]` | Optimiser preset for scan / path-search and single optimisations (`grad` → LBFGS / Dimer, `hess` → RFO / RSIRFO). | `grad` |
-| `--opt-mode-post [grad\|hess]` | Optimiser preset override for TSOPT / post-IRC endpoint optimisations (`grad` → Dimer / LBFGS, `hess` → RS-I-RFO / RFO). | `hess` |
+| `--opt-mode [grad\|hess]` | Optimizer preset for scan / path-search and single optimizations (`grad` → LBFGS / Dimer, `hess` → RFO / RSIRFO). | `grad` |
+| `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / LBFGS, `hess` → RS-I-RFO / RFO). | `hess` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). Effective default: `gau_loose` for path-opt, `gau` for scan. | _None_ |
-| `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimisations. | `baker` |
-| `--preopt / --no-preopt` | Pre-optimise endpoints before segmentation. | `True` |
+| `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
+| `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path / --no-refine-path` | True (default) → recursive `path-search`; False → chain `path-opt` segments. Both modes support Stage 5 (TSOPT / thermo / DFT). | `True` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
@@ -197,7 +197,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors (B = 0 / 10 / 20). If disabled, downstream tools require `--model-pdb` or `--model-indices`. | `True` |
 
-TSOPT optimiser selection order: `--opt-mode-post` (if set) → `--opt-mode` (only when explicitly provided) → TSOPT default (`hess` → RS-I-RFO).
+TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (only when explicitly provided) → TSOPT default (`hess` → RS-I-RFO).
 
 ### Scan (single-input runs)
 
@@ -209,14 +209,14 @@ TSOPT optimiser selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--scan-max-step-size FLOAT` | Maximum step size (Å). | _Default_ |
 | `--scan-bias-k FLOAT` | Harmonic bias strength (eV / Å²). | _Default_ |
 | `--scan-relax-max-cycles INT` | Relaxation max cycles per step. | _Default_ |
-| `--scan-preopt / --no-scan-preopt` | Override scan pre-optimisation toggle. | _None_ |
-| `--scan-endopt / --no-scan-endopt` | Override scan end-of-stage optimisation. | _None_ |
+| `--scan-preopt / --no-scan-preopt` | Override scan pre-optimization toggle. | _None_ |
+| `--scan-endopt / --no-scan-endopt` | Override scan end-of-stage optimization. | _None_ |
 
 ### Post-processing + freq / DFT overrides
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--tsopt / --no-tsopt` | Run TS optimisation + EulerPC IRC per reactive segment. | `False` |
+| `--tsopt / --no-tsopt` | Run TS optimization + EulerPC IRC per reactive segment. | `False` |
 | `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R / TS / P. | `False` |
 | `--dft / --no-dft` | Run single-point DFT on R / TS / P. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
@@ -226,7 +226,7 @@ TSOPT optimiser selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--freq-max-write INT` | Maximum modes to write. | _Default_ |
 | `--freq-amplitude-ang FLOAT` | Mode animation amplitude (Å). | _Default_ |
 | `--freq-n-frames INT` | Frames per mode animation. | _Default_ |
-| `--freq-sort TEXT` | Mode sorting behaviour. | _Default_ |
+| `--freq-sort TEXT` | Mode sorting behavior. | _Default_ |
 | `--freq-temperature FLOAT` | Thermochemistry temperature (K). | _Default_ |
 | `--freq-pressure FLOAT` | Thermochemistry pressure (atm). | _Default_ |
 | `--dft-out-dir PATH` | Base directory override for DFT outputs. | _None_ |

@@ -58,7 +58,7 @@ out_dir/ (default: ./result_opt/)
 ├─ optimization.pdb            # PDB conversion of the trajectory (PDB inputs, conversion enabled)
 ├─ optimization_all_trj.xyz    # Concatenated full trajectory (when --dump)
 ├─ optimization_all.pdb        # PDB companion of the full trajectory (PDB inputs, when --dump)
-└─ restart*.yml                # Optional restarts when opt.dump_restart is set
+└─ restart_*.yaml              # Optional restarts when opt.dump_restart is set
 ```
 
 Console output prints resolved configuration blocks (`geom`, `calc`, `opt`, `lbfgs`), progress every `print_every` cycles, and a final wall-clock time summary.
@@ -115,7 +115,7 @@ Forces in Hartree/bohr, steps in bohr.
 | `gau` | Standard Gaussian-like tightness for routine work | 4.5e-4 | 3.0e-4 | 1.8e-3 | 1.2e-3 |
 | `gau_tight` | Tighter; better structures / freq / TS refinement | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
 | `gau_vtight` | Very tight; benchmarking/high-precision final structures | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
-| `baker` | Baker-style rule (converged if `max\|F\| < 3e-4` **and** `\|dE\| < 1e-6 or max\|step\| < 3e-4`) | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+| `baker` | Baker-style rule (converged only when all four force/step values below are met **and** `\|dE\| < 1e-6`) | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
 ## YAML configuration
 

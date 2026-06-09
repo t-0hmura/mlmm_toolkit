@@ -46,6 +46,7 @@ mlmm energy-diagram -i "[0, 12.5, 4.3]" --label-x R TS P --label-y "ΔE (kcal/mo
 | `-o, --output PATH` | Output image path (`.png/.jpg/.jpeg/.svg/.pdf`). | `energy_diagram.png` |
 | `--label-x TEXT...` | X-axis state labels. Count must match input value count. | `S1, S2,...` |
 | `--label-y TEXT` | Y-axis label. | `ΔE (kcal/mol)` |
+| `--out-json / --no-out-json` | Write a machine-readable `result.json` next to the output image. | `--no-out-json` |
 
 The full flag list is in the generated [command reference](reference/commands/index.md).
 

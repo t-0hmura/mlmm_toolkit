@@ -355,10 +355,10 @@ To rebuild hessian_ff native extensions in this environment:
 - MLIP モデルの重みをダウンロードできない、認証が必要、といったエラー。デフォルトの UMA バックエンドでは、Hugging Face のログイン/トークンが不足していることが原因です。
 
 対処:
-- 環境/マシンごとに一度ログインします:
+- 環境/マシンごとに一度ログインし、HF のモデルページでライセンスに同意します:
 
   ```bash
-  huggingface-cli login
+  hf auth login
   ```
 
 - HPC では、計算ノードから HF キャッシュ（ホームディレクトリ等）に書き込み可能か確認してください。
@@ -384,13 +384,13 @@ To rebuild hessian_ff native extensions in this environment:
 
 ### DMF モードが動かない（cyipopt がない）
 
-DMF（`--mep-mode dmf`）を使うときに IPOPT/cyipopt の import エラーが出る場合:
+DMF（`--mep-mode dmf`）を使うときに `ase`、`cyipopt`、`pydmf` のいずれかが見つからず import エラーが出る場合:
 
 対処:
-- `mlmm` をインストールする前に、conda-forge から `cyipopt` をインストールしてください:
+- `ase` と `cyipopt` を conda-forge から、`pydmf` を pip からインストールしてください:
 
   ```bash
-  conda install -c conda-forge cyipopt
+  conda install -c conda-forge ase cyipopt -y && pip install pydmf
   ```
 
 ---
@@ -550,7 +550,7 @@ pip install --no-deps mace-torch      # MACE バックエンド
 
 **対処:** xTB をインストールし、`$PATH` 上にあることを確認します:
 ```bash
-conda install -c conda-forge xtb
+conda install -c conda-forge xtb -y
 ```
 
 ---

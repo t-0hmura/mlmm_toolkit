@@ -2268,7 +2268,7 @@ class mlmm(PySiCalc):
     """Pysisyphus ``Calculator`` adapter for :class:`MLMMCore`.
 
     Wraps the lower-level MLMMCore engine so existing pysisyphus
-    optimisers / IRC / NEB drivers can consume ML/MM ONIOM energies +
+    optimizers / IRC / NEB drivers can consume ML/MM ONIOM energies +
     forces + Hessian through the standard ``Calculator`` interface
     (``get_energy`` / ``get_forces`` / ``get_hessian``). All constructor
     arguments map 1:1 onto the underlying MLMMCore; see that class for

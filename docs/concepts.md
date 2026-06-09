@@ -224,7 +224,7 @@ ML region definition is controlled by:
 - **Segment**: an MEP between two adjacent endpoints (e.g., R -> I1, I1 -> I2,...). A multi-structure run is decomposed into segments.
 
 ### Templates and file conversion (`--convert-files`)
-`mlmm-toolkit` often writes a **trajectory** (e.g., `mep_trj.xyz`, `irc_trj.xyz`). When you supply topology-aware inputs (PDB templates), it can optionally write companion files:
+`mlmm-toolkit` often writes a **trajectory** (e.g., `mep_trj.xyz`, `finished_irc_trj.xyz`). When you supply topology-aware inputs (PDB templates), it can optionally write companion files:
 - `.pdb` companions when a PDB template exists
 
 This behavior is controlled globally by `--convert-files/--no-convert-files` (default: `True`).

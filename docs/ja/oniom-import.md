@@ -29,10 +29,11 @@ mlmm oniom-import -i model.inp --ref-pdb complex_layered.pdb -o model_imported
 ## 処理の流れ
 1. `--mode` または入力拡張子からインポートモードを決定します。
 2. 座標と層情報を解析します。
- - Gaussian モード: ONIOM 座標行（`H`/`L` レイヤー）を使用。
+ - Gaussian モード: ONIOM 座標行（`H`/`L` の層マーカー）を使用。
  - ORCA モード: `%qmmm`（`QMAtoms`/`ActiveAtoms`）と `* xyz` ブロックを使用。
-3. `<out_prefix>.xyz` を出力します。
-4. `<out_prefix>_layered.pdb` を出力します。
+3. QM 領域の電荷と多重度を解析し（Gaussian: ONIOM の電荷/多重度行、すなわち整数6個の行。ORCA: `* xyz <charge> <mult>` ヘッダ）、XYZ のコメント行に `q=<charge> m=<multiplicity>` として出力します。
+4. `<out_prefix>.xyz` を出力します。
+5. `<out_prefix>_layered.pdb` を出力します。
  - `--ref-pdb` 未指定: 汎用的な原子/残基名で生成。
  - `--ref-pdb` 指定: 命名/残基メタデータを保持しつつ座標/B-factor を更新。
 

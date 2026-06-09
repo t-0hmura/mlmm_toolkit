@@ -49,7 +49,7 @@ private なファクトリ）を呼び出して適切なアダプタをインス
 
 | backend | install | model identifier | precision option |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p1` / `uma-s-1p2` | `uma_precision="fp32" \| "fp64"` |
+| `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p1` / `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
 | `orb` | `pip install orb-models` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float64"`（`"float32"` も別名として受理） |
 | `mace` | 専用環境: `pip uninstall -y fairchem-core && pip install mace-torch`（`e3nn` の pin が UMA と競合） | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install aimnet` | `aimnet2` | n/a |

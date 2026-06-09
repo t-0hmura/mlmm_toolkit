@@ -30,7 +30,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 単一コマンドの TS 結果は「候補」として扱ってください。酵素反応では、endpoint 品質、ポケット定義、拘束、scan ターゲットの調整を伴う反復が一般的です。最終解釈の前に、`freq` と `irc` の両方で TS を必ず検証してください。
 ```
 
-ML 領域の計算には機械学習原子間ポテンシャル（MLIP）を使用します。デフォルトのバックエンドは UMA（Meta の FAIR-Chem）で、ORB、MACE、AIMNet2 も `--backend` で選択可能です。MM 領域の計算には hessian_ff（内蔵の C++ ネイティブ MM 力場エンジン）を用います。全エネルギーは ONIOM 的な減算分解に従います:
+MM 領域の計算には hessian_ff（内蔵の C++ ネイティブ MM 力場エンジン）を用います。全エネルギーは ONIOM 的な減算分解に従います:
 
 ```
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
@@ -454,8 +454,9 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（デフォルト: 無効） |
 | `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（LBFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
-| `--mep-mode gsm\|dmf` | MEP 手法: Growing String Method または Direct Max Flux |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML ヘシアン計算モード。`Analytical` は UMA バックエンドで利用可能（VRAM に余裕がある場合推奨）。他のバックエンドは `FiniteDifference` を使用 |
+
+DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `path-opt`（`--mep-mode dmf`）でのみ選択できます。`mlmm all` は常に GSM を使用し、`mlmm all` に `--mep-mode` を渡しても黙って無視されます。
 
 すべてのオプションと YAML スキーマについては [all](all.md) および [YAML リファレンス](yaml-reference.md) を参照してください。
 
@@ -465,10 +466,10 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 
 `mlmm all` 実行後、トップレベル出力には次が保存されます。
 
-- `summary.log` -- 人が読むための実行要約
-- `summary.json` -- 機械処理向けの要約
+- `summary.log` — 人が読むための実行要約
+- `summary.json` — 機械処理向けの要約
 
-代表的には、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。`path_search/`（`--no-refine-path` 使用時は `path_opt/`）以下の各セグメントにも個別 summary が出力されます。
+代表的には、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。`segments/seg_NN/` 以下の各セグメントにも個別 summary が出力されます。
 
 ---
 

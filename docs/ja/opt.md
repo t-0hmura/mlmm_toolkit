@@ -58,7 +58,7 @@ out_dir/ (デフォルト: ./result_opt/)
 ├─ optimization.pdb            # PDB 入力で変換有効時の軌跡 PDB 変換
 ├─ optimization_all_trj.xyz    # 連結フル軌跡（--dump 時）
 ├─ optimization_all.pdb        # フル軌跡の PDB コンパニオン（PDB 入力、--dump 時）
-└─ restart*.yml                # opt.dump_restart 設定時のオプションリスタート
+└─ restart_*.yaml              # opt.dump_restart 設定時のオプションリスタート
 ```
 
 コンソールには解決済みの設定ブロック（`geom`、`calc`、`opt`、`lbfgs`）、`print_every` サイクルごとの進捗、最終的な実行時間サマリーが出力されます。
@@ -117,7 +117,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `gau` | 標準的な Gaussian 相当の厳密さ | 4.5e-4 | 3.0e-4 | 1.8e-3 | 1.2e-3 |
 | `gau_tight` | より厳密; 良好な構造 / freq / TS 精密化向け | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
 | `gau_vtight` | 非常に厳密; ベンチマーク/高精度最終構造 | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
-| `baker` | Baker 式規則（`max\|F\| < 3e-4` **かつ** `\|dE\| < 1e-6 または max\|step\| < 3e-4` で収束） | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+| `baker` | Baker 式規則（下記の力・ステップ 4 値すべてを満たし **かつ** `\|dE\| < 1e-6` のときのみ収束） | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
 ## YAML 設定
 

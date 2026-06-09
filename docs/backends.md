@@ -55,7 +55,7 @@ name from the CLI.
 
 | backend | install | model identifier | precision option |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p1` / `uma-s-1p2` | `uma_precision="fp32" \| "fp64"` |
+| `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p1` / `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
 | `orb` | `pip install orb-models` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float64"` (`"float32"` accepted as an alias) |
 | `mace` | dedicated env: `pip uninstall -y fairchem-core && pip install mace-torch` (`e3nn` pin conflicts with UMA) | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install aimnet` | `aimnet2` | n/a |

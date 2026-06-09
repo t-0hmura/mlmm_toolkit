@@ -65,7 +65,7 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```
 out_dir/ (デフォルト:./result_scan2d/)
-├── surface.csv # PES グリッド: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged
+├── surface.csv # PES グリッド: i, j, d1_A, d2_A, energy_hartree, bias_converged, is_preopt, energy_kcal, d1_label, d2_label
 ├── scan2d_map.png # 2D コンターマップ
 ├── scan2d_landscape.html # 3D サーフェス可視化（Plotly）
 ├── grid/
@@ -77,6 +77,8 @@ out_dir/ (デフォルト:./result_scan2d/)
 ```
 
 ## CLI オプション
+
+フラグの全リストは生成された[コマンドリファレンス](../reference/commands/index.md)にあります。手作業で重複させないでください。以下の表は説明が必要なオプションを扱います。
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
@@ -111,6 +113,9 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的ヘシアン vs OpenMM 有限差分）。 | `hessian_ff` |
+| `--link-atom-method [scaled\|fixed]` | リンク原子の配置: scaled（$g$ ファクター）または fixed（固定 1.09/1.01 Å）。 | `scaled` |
+| `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
 
 ## スキャンスペックフォーマット
@@ -197,6 +202,8 @@ lbfgs:
 bias:
  k: 300.0
 ```
+
+全スキーマ（すべてのキーとデフォルト）: [YAML リファレンス](yaml-reference.md)。
 
 ## 関連項目
 

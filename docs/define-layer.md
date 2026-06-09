@@ -17,7 +17,7 @@ Layer assignment strategy:
 
 ## Examples
 
-Command form (provide exactly one of `--model-pdb` or `--model-indices`):
+Command form (provide at least one of `--model-pdb` or `--model-indices`):
 
 ```bash
 mlmm define-layer -i INPUT.pdb (--model-pdb PDB | --model-indices TEXT) [options]

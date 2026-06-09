@@ -17,7 +17,7 @@
 
 ## 実行例
 
-コマンド形式（`--model-pdb` と `--model-indices` のいずれか一方のみを指定）:
+コマンド形式（`--model-pdb` と `--model-indices` の少なくとも一方を指定）:
 
 ```bash
 mlmm define-layer -i INPUT.pdb (--model-pdb PDB | --model-indices TEXT) [options]

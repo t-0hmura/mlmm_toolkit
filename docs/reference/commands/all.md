@@ -212,7 +212,7 @@ Options:
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).
-  --coord-type [cart|dlc]         Optimisation coordinate system (cart|dlc).
+  --coord-type [cart|dlc]         Optimization coordinate system (cart|dlc).
                                   cart is the robust default used in published
                                   numbers; dlc speeds up torsion-rich opts.
                                   mlmm-specific caveats: DLC + link atom and DLC

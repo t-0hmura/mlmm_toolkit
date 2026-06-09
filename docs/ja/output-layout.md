@@ -29,9 +29,9 @@
 | `scan` / `scan2d` / `scan3d` | `./result_scan*/` |
 | `path-opt` / `path-search` | `./result_path_*/` |
 | `sp` | `./result_sp/` |
-| `extract` | `./`（作業ディレクトリに `<input>_<cluster>.pdb` を書き込み） |
-| `mm-parm` | `./`（`<base>.parm7` / `<base>.rst7` を書き込み） |
-| `define-layer` | `./`（ラベル付き PDB をインラインで書き込み） |
+| `extract` | `./`（作業ディレクトリに `pocket.pdb` を書き込み。入力が複数の場合は `pocket_<input>.pdb`） |
+| `mm-parm` | `./`（`<prefix>.parm7` / `<prefix>.rst7` を書き込み） |
+| `define-layer` | `./`（`<input>_layered.pdb` を書き込み） |
 
 `--out-dir <path>`（または `-o`）で上書きできます。明示的に指定したパスは、ステージ別デフォルトと YAML の両方に優先します。
 

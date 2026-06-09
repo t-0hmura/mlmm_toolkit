@@ -48,10 +48,10 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
     selector fields can be separated by spaces, commas, slashes, backticks, or
     backslashes and may be in any order.
 4. Compute the per-bond displacement and split into steps:
- - For scan tuples `[(i, j, target_A)]`, compute `delta = target - current_distance_A`.
- - With `--max-step-size = h`, the stage takes `N = ceil(max(|delta|) / h)` biased relaxations.
- - Each pair's incremental change is `delta_k = delta_k / N` (Å). At step `s`, the temporary
-  target is `r_k(s) = r_k(0) + s * delta_k`.
+ - For scan tuples `[(i, j, target_A)]`, compute the per-pair displacement `delta_k = target_k - current_distance_A_k`.
+ - With `--max-step-size = h`, the stage takes `N = ceil(max(|delta_k|) / h)` biased relaxations.
+ - Each pair's incremental change is `step_k = delta_k / N` (Å). At step `s`, the temporary
+  target is `r_k(s) = r_k(0) + s * step_k`.
 5. March through all steps, applying the harmonic wells
     `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with LBFGS.
     `k` comes from `--bias-k` (eV/Å²) and is converted once to Hartree/Bohr^2.

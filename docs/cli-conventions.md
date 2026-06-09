@@ -21,7 +21,7 @@ Every boolean CLI flag accepts **all four forms**:
 
 All four forms route through a single root-CLI `bool_compat` synthesizer; the toggle form (`--tsopt` / `--no-tsopt`) is canonical, and the value form (`--tsopt True`) is accepted as a legacy alias for backward compatibility. `tests/test_bool_compat_cli.py` walks every registered bool option against every form on every release, so a missing entry is caught by CI.
 
-Common toggles: `--tsopt` / `--thermo` / `--dft` (post-processing stages) · `--dump` (write trajectory files) · `--preopt` / `--endopt` (pre/post optimisation) · `--climb` (climbing-image MEP).
+Common toggles: `--tsopt` / `--thermo` / `--dft` (post-processing stages) · `--dump` (write trajectory files) · `--preopt` / `--endopt` (pre/post optimization) · `--climb` (climbing-image MEP).
 
 ### Contributing a new bool flag
 
@@ -34,7 +34,7 @@ mlmm <subcmd> --help                # core options
 mlmm <subcmd> --help-advanced       # full option set
 ```
 
-`all`, every calc subcommand (`opt`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`), and the main utilities (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`, `extract`, `fix-altloc`) follow this pattern.
+`all`, every calc subcommand (`opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`), and the main utilities (`mm-parm`, `define-layer`, `add-elem-info`, `trj2fig`, `energy-diagram`, `oniom-export`, `extract`, `fix-altloc`) follow this pattern.
 
 (verbosity-levels)=
 
@@ -80,7 +80,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 | Movable-MM | 10.0 | MM atoms free to move |
 | Frozen | 20.0 | Coordinates fixed (non-bonded interactions still included) |
 
-Tolerance ±1.0 when reading B-factors. Inspect visually by colouring on B-factor. Four ways to assign layers:
+Tolerance ±1.0 when reading B-factors. Inspect visually by coloring on B-factor. Four ways to assign layers:
 
 ```bash
 # 1. define-layer subcommand (recommended)
@@ -130,7 +130,7 @@ Residue-name matching is case-insensitive; unmapped non-standard residues defaul
 1. `-q/--charge` explicit CLI override.
 2. ML-region determination summary (sum of amino acids, ions, `--ligand-charge`; only when `-c` is set and extraction runs).
 3. `--ligand-charge` fallback when extraction is skipped (PDB input or `--ref-pdb` required).
-4. `.gjf` template metadata (Gaussian-style charge / spin header; applies to `opt`, `tsopt`, `freq`, `irc`, `scan`, `dft`, `oniom-export` when the input is `.gjf`).
+4. `.gjf` charge / spin header (Gaussian-style); read only by `oniom-import`, the sole command that accepts `.gjf` as a structure input.
 5. Default: abort if unresolved.
 
 ```{tip}
@@ -164,7 +164,7 @@ Selector field delimiters: space · comma · slash · backtick · backslash — 
 
 ## Backend selection
 
-All calc subcommands (`opt`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`) accept:
+All calc subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`) accept:
 
 | Option | Description | Default |
 |---|---|---|
@@ -183,8 +183,8 @@ Choices and defaults differ across subcommands.
 |---|---|---|---|---|
 | `opt` | `grad` (`light`, `lbfgs`) | `hess` (`heavy`, `rfo`) | `grad` | L-BFGS vs RFO (with optional `--microiter`). |
 | `tsopt` | `grad` (`light`, `dimer`) | `hess` (`heavy`, `rsirfo`) | `hess` | Dimer vs RS-I-RFO. |
-| `path-search` | `grad` (= L-BFGS) | — (RFO/`hess` not yet wired) | `grad` | Inner optimiser for GSM / DMF nodes; `hess`/`rfo` rejected with a Click error. `path-opt` has no `--opt-mode` (use `--mep-mode gsm`/`dmf`). |
-| `scan` / `scan2d` / `scan3d` | — | — | — | No `--opt-mode`; relaxation uses the YAML inner optimiser. |
+| `path-search` | `grad` (= L-BFGS) | — (RFO/`hess` not yet wired) | `grad` | Inner optimizer for GSM / DMF nodes; `hess`/`rfo` rejected with a Click error. `path-opt` has no `--opt-mode` (use `--mep-mode gsm`/`dmf`). |
+| `scan` / `scan2d` / `scan3d` | — | — | — | No `--opt-mode`; relaxation uses the YAML inner optimizer. |
 
 `light` / `heavy` are accepted as legacy aliases for `grad` / `hess` for backward compatibility; prefer `grad` / `hess` in new scripts.
 

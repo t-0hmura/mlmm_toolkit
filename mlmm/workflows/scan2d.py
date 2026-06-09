@@ -89,7 +89,7 @@ from mlmm.cli.common_options import (
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 from mlmm.workflows.scan_common import add_scan_common_options, make_scan_lbfgs as _make_lbfgs
 
-# Shared defaults (copied from opt.py to keep ML/MM behaviour consistent)
+# Shared defaults (copied from opt.py to keep ML/MM behavior consistent)
 GEOM_KW: Dict[str, Any] = deepcopy(_OPT_GEOM_KW)
 CALC_KW: Dict[str, Any] = deepcopy(_OPT_CALC_KW)
 OPT_BASE_KW: Dict[str, Any] = deepcopy(_OPT_BASE_KW)

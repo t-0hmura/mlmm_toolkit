@@ -9,7 +9,7 @@ This page documents what files each `mlmm` subcommand writes to its output direc
 | `summary.json` | `all`, `path-search`, and every per-stage subcommand that runs `write_result_json` | Authoritative JSON envelope (see [JSON Output Reference](json-output.md)). Read this first. Pure utility subcommands that do not call `write_result_json` (e.g. `fix-altloc`, `add-elem-info`, `bond-summary`) do not emit it. |
 | `result.json` | per-stage subcommands that call `write_result_json` (`opt`, `tsopt`, `freq`, `irc`, `sp`, `scan` / `scan2d` / `scan3d`, `path-opt`, `dft`, `extract`) | Alternate filename — identical payload to `summary.json`. Read `summary.json` for the single-filename convention; `result.json` carries the same content and can be deleted if you only consume `summary.json`. |
 | `summary.log` | `path-search`, `all` | Human-readable run log (one row per segment / stage). |
-| `final_geometry.xyz` | `opt`, `tsopt` | Optimised geometry (XYZ, full precision). |
+| `final_geometry.xyz` | `opt`, `tsopt` | Optimized geometry (XYZ, full precision). |
 | `mep.pdb` / `mep_trj.xyz` | `path-search`, `all` | Reaction path frames (PDB / XYZ); standalone `path-opt` writes `final_geometries_trj.xyz` / `final_geometries.pdb` instead. |
 | `mep_plot.png` | `path-search`, `all` | Raw MEP energy profile (PNG). `all` copies it to the root from the engine output. |
 | `forward_irc_trj.xyz` / `backward_irc_trj.xyz` (and `finished_irc_trj.xyz`) | `irc` | IRC trajectories (XYZ); companion `*_irc.pdb` files carry the same frames in PDB form. |
@@ -29,9 +29,9 @@ This page documents what files each `mlmm` subcommand writes to its output direc
 | `scan` / `scan2d` / `scan3d` | `./result_scan*/` |
 | `path-opt` / `path-search` | `./result_path_*/` |
 | `sp` | `./result_sp/` |
-| `extract` | `./` (writes `<input>_<cluster>.pdb` in the working directory) |
-| `mm-parm` | `./` (writes `<base>.parm7` / `<base>.rst7`) |
-| `define-layer` | `./` (writes the labeled PDB inline) |
+| `extract` | `./` (writes `pocket.pdb`, or `pocket_<input>.pdb` for multiple inputs, in the working directory) |
+| `mm-parm` | `./` (writes `<prefix>.parm7` / `<prefix>.rst7`) |
+| `define-layer` | `./` (writes `<input>_layered.pdb`) |
 
 Override with `--out-dir <path>` (or `-o`); explicit paths take precedence over both per-stage defaults and YAML.
 

@@ -43,7 +43,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. 結合ごとの変位を計算してステップに分割します:
  - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
  - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
- - 各ペアの増分変化は `delta_k = delta_k / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * delta_k`。
+ - 各ペアの増分変化は `step_k = delta / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * step_k`。
 5. すべてのステップを進み、調和ウェル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
 6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
 7. すべてのステージで繰り返します。任意の軌跡は `--dump` が `True` の場合のみダンプされます。
@@ -82,7 +82,7 @@ out_dir/ (デフォルト:./result_scan/)
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--hess-cutoff FLOAT` | ML 原子からの MM Hessian 距離カットオフ (Å)。 | _None_ |
+| `--hess-cutoff FLOAT` | Hessian 計算に含める MM 原子の ML 領域からの距離カットオフ (Å)。`--detect-layer` と併用可能。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
 | `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 三つ組もしくは `(i, j, start, end)` 四つ組（双方向スキャン）を含むインライン Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
 | `--one-based/--zero-based` | 原子インデックスを 1 始まり（既定）または 0 始まりとして解釈。 | `True`（1 始まり） |

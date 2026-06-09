@@ -178,7 +178,7 @@ def normalize_bool_argv(
                     # a no-op for single-flag bools: emitting the negative
                     # synthetic name (which Click never registered) would
                     # trigger "no such option". The flag-as-disabled state
-                    # is the default-off behaviour anyway, matching the bare
+                    # is the default-off behavior anyway, matching the bare
                     # `--no-FLAG` case below.
                 i = next_i
                 continue

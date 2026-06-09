@@ -191,7 +191,7 @@ def register_all(mcp) -> None:
         `input_pdb` must already carry ML/MM B-factor assignments
         (e.g. produced by `define_layer` or `extract_pocket` followed by
         manual / scripted layer setup). Default `opt_mode="grad"` matches
-        the CLI default; pass `"hess"` for RFO Hessian-based optimisation.
+        the CLI default; pass `"hess"` for RFO Hessian-based optimization.
         """
         od = _resolve_out_dir(out_dir, "opt")
         argv: list[str] = ["mlmm", "opt", "-i", input_pdb,
@@ -251,7 +251,7 @@ def register_all(mcp) -> None:
 
         Notes:
         - opt_mode 'trim' (Helgaker 1991) / 'rsprfo' (Banerjee 1985) are
-          non-microiter TS optimisers; the server passes --no-microiter
+          non-microiter TS optimizers; the server passes --no-microiter
           automatically when those modes are set (the mlmm CLI emits a
           warning otherwise).
         """

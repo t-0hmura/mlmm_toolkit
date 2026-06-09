@@ -62,7 +62,7 @@ When a subcommand fails, the parsed `summary` (or sibling `result.json`) carries
 | MCP tool | CLI subcmd | Purpose |
 |---|---|---|
 | `scan_1d` / `scan_2d` / `scan_3d` | `mlmm scan{,2d,3d}` | ONIOM restraint scans |
-| `optimize_path` | `mlmm path-opt` | Two-endpoint ONIOM MEP optimisation |
+| `optimize_path` | `mlmm path-opt` | Two-endpoint ONIOM MEP optimization |
 | `search_paths` | `mlmm path-search` | Recursive ONIOM pathway search |
 | `run_full_pipeline` | `mlmm all` | End-to-end: extract → MEP → TS → IRC → freq → DFT |
 | `run_single_point_dft` | `mlmm dft` | ONIOM-embedded single-point DFT via gpu4pyscf |
@@ -92,7 +92,7 @@ requires a positive-definite mass-weighted Hessian, blocking the IRC
 before reaching the local minimum. Defaults to `None` (rms-only, legacy).
 
 `find_transition_state` accepts `opt_mode="trim"` (Helgaker 1991) /
-`opt_mode="rsprfo"` (Banerjee 1985) as alternative TS optimisers; the
+`opt_mode="rsprfo"` (Banerjee 1985) as alternative TS optimizers; the
 server passes `--no-microiter` automatically since those modes are not
 microiter-capable.
 

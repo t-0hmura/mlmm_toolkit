@@ -37,7 +37,7 @@ geom:
 ```
 
 **注記:**
-- ML/MM モードでは、Frozen 層の原子が自動的に `freeze_atoms` に追加されます。
+- Frozen 層の原子は力がゼロに設定され、ヘシアンの対応する列もゼロになります。
 - `irc` では `geom.coord_type` が YAML/CLI マージ後に `cart` へ強制されます。
 
 ---
