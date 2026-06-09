@@ -46,8 +46,8 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 |---|---|---|
 | `-i, --input FILE` | はい | ML / movable-MM / frozen-MM 分割を定義する層構造 PDB（または XYZ） |
 | `--parm FILE` | はい | 全系の Amber `parm7` トポロジー（`--real-parm7` をエイリアスとして保持） |
-| `-q, --charge INT` | はい | ML 領域の総電荷 |
-| `-l, --ligand-charge TEXT` | いいえ | リガンドごとの電荷マッピング（例: `SAM:1,GPP:-3`） |
+| `-q, --charge INT` | はい（`-l` を指定する場合は不要） | ML 領域の総電荷 |
+| `-l, --ligand-charge TEXT` | いいえ | リガンドごとの電荷マッピング（例: `SAM:1,GPP:-3`）。`-q` を省略した場合に正味電荷を導出 |
 | `-m, --multiplicity INT` | いいえ | ML 領域のスピン多重度、2S+1（デフォルト `1`） |
 
 ### ML 領域の選択

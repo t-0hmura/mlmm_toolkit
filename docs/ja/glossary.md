@@ -72,7 +72,7 @@
 | **MLIP** | Machine Learning Interatomic Potential | 量子化学データから学習し、構造からエネルギー・力を予測する原子間ポテンシャル。 |
 | **UMA** | Universal Models for Atoms | Meta が公開している事前学習 MLIP 群。mlmm のデフォルト MLIP バックエンド。`--backend uma` で選択（デフォルト）。 |
 | **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。`pip install "mlmm-toolkit[orb]"` で追加インストール。 |
-| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。`pip install --no-deps mace-torch` で追加インストール。 |
+| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。専用の conda 環境で `pip uninstall fairchem-core`（UMA の pin が `e3nn` で衝突するため）を実行してから `pip install mace-torch` でインストールします。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install "mlmm-toolkit[aimnet]"` で追加インストール。 |
 | **xTB** | Extended Tight-Binding | 半経験的量子化学手法。mlmm では `--embedcharge` 有効時に点電荷埋め込み補正に使用。 |
 | **解析ヘシアン** | Analytical Hessian | エネルギーの正確な二階微分を計算。高速だが VRAM を多く消費。現在 UMA バックエンドでのみ利用可能。 |
@@ -134,7 +134,7 @@
 
 | 用語 | 説明 |
 |------|------|
-| **ブール値オプション** | `True` または `False`（大文字始まり）を取る CLI フラグ。例: `--tsopt`。 |
+| **ブール値オプション** | `--flag / --no-flag` の形式で切り替えるトグルフラグの組（例: `--tsopt / --no-tsopt`）。後方互換のため `--flag True/False` の値指定形式も受け付けます。 |
 | **残基セレクタ** | `'SAM,GPP'`（名前）や `'A:123,B:456'`（チェーン:ID）のような指定方法。 |
 | **原子セレクタ** | `'TYR,285,CA'` のように残基名・番号・原子名で特定の原子を指定する方法。 |
 | **B-factor 層エンコーディング** | PDB の B-factor カラムを使用して 3 層の層割り当て（0.0, 10.0, 20.0）をエンコードする方式。Hessian 対象 MM 原子は別設定で制御。 |

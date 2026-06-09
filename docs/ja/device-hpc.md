@@ -75,7 +75,7 @@ mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使用、または `mlmm define-layer` で `--radius-freeze` を絞る。
 2. **hessian_ff（デフォルト）を使用:** hessian_ff は CPU のみなので、VRAM はすべて UMA に使用可能。
 3. **大きな系では OpenMM CUDA を避ける:** ML と MM の両方が CUDA を使うと VRAM 圧力が倍増する。
-4. **VRAM を監視:** YAML で `print_vram: True` を設定すると、各 ML 評価後に VRAM 使用量を表示。
+4. **VRAM を監視:** YAML で `print_vram: True` を設定すると、ヘシアン計算中に VRAM 使用量（ピーク）を表示。
 
 ---
 
@@ -101,7 +101,7 @@ module load cuda/<version>
 
 # conda 環境の有効化
 source ~/miniconda3/etc/profile.d/conda.sh
-conda activate mlmm
+conda activate <your-env>
 
 # 最適化の実行
 mlmm opt \
@@ -131,7 +131,7 @@ hostname
 module load cuda/<version>
 
 source ~/miniconda3/etc/profile.d/conda.sh
-conda activate mlmm
+conda activate <your-env>
 
 mlmm opt \
   -i r_complex_layered.pdb \
@@ -167,7 +167,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 
 ## 制限事項
 
-- **マルチ GPU 非対応:** mlmm-toolkit は GPU 1 基で動作する。hessian_ff バックエンドは並列プレディクタに非対応。
+- **マルチ GPU 非対応:** mlmm-toolkit は GPU 1 基で動作する。
 - **分散計算非対応:** すべての計算は単一ノードの単一プロセス内で実行。
 - **hessian_ff は CPU のみ:** デフォルトの MM バックエンドは `mm_device` の設定に関係なく常に CPU で実行。
 

@@ -69,6 +69,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。 | `True` |
 | `-q, --charge INT` | ML 領域の電荷。`-l/--ligand-charge` 指定時は不要（PDB 入力または `--ref-pdb` 付き XYZ）。 | `-l` 指定時を除き必須 |
+| `-l, --ligand-charge TEXT` | 全体電荷、または残基名ごとのマッピング（例: `SAM:1,GPP:-3`）。`-q` 省略時に ML 領域の電荷を導出するために使用（PDB 入力または `--ref-pdb` が必要）。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（例: `"1,3,5"`）。YAML `geom.freeze_atoms` とマージ。 | _None_ |
 | `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
@@ -122,8 +123,9 @@ dft:
 
 ## 注記
 
+- 基底関数名が `def2` で始まる場合、対応する def2 有効内殻ポテンシャル（ECP）が自動的に付加されます（元素の有無はチェックしません）。
 - **Blackwell アーキテクチャ GPU**（RTX 50xx）: GPU4PySCF は小規模な系（~100原子）でもメモリ不足エラーが発生する場合があります。これらの GPU では `--engine cpu` または外部 DFT プログラム（ORCA, Gaussian）を使用してください。
-- **def2-TZVPD でメモリ不足になる場合**: デフォルトの基底関数 `def2-tzvpd` は大きく、16–24 GB GPU で 150 原子以上の系では OOM が発生する場合があります。`--func-basis 'wb97m-v/def2-svp'` を使用してください。def2-SVP と def2-TZVPD のバリアハイト差は通常 1–3 kcal/mol です。
+- **def2-TZVPD でメモリ不足になる場合**: デフォルトの基底関数 `def2-tzvpd` は大きく、16–24 GB GPU で 150 原子以上の系では OOM が発生する場合があります。`--func-basis 'wb97m-v/def2-svp'` を使用してください。def2-SVP と def2-TZVPD の障壁高さの差は通常 1–3 kcal/mol です。
 - GPU4PySCF のコンパイル済みホイールは非 x86 環境では動作しない場合があります。ソースからビルドしてください（参照: https://github.com/pyscf/gpu4pyscf）。
 
 ## 関連項目

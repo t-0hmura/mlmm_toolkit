@@ -4,21 +4,21 @@
 
 ## 実行例
 
-最小構成で TS の PDB から実行する。
+最小構成で TS の PDB から実行:
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 ```
 
-正方向のみを実行する。
+正方向のみ実行:
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --no-backward --out-dir ./result_irc_forward
 ```
 
-ステップサイズを増やして解析的ヘシアンを使う。
+ステップサイズを増やして解析的ヘシアンを使用:
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
@@ -26,7 +26,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
 ```
 
-両ブランチを保持してステップ上限を引き上げる。
+両ブランチを保持してステップ上限を引き上げ:
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
@@ -101,12 +101,15 @@ out_dir/ (デフォルト: ./result_irc/)
 | `--hessian-calc-mode CHOICE` | MLIP がヘシアンを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | `FiniteDifference` |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（hessian_ff: 解析的ヘシアン / openmm: 有限差分ヘシアン）。 | `hessian_ff` |
+| `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（$g$ 係数）または fixed（1.09/1.01 Å）。 | `scaled` |
+| `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
 
 ## YAML 設定
 
 マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
-共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml-reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は `true` に強制されます（partial Hessian、active-DOF 処理）。
+共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml-reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は `true` に強制されます（active-DOF 処理を伴う partial Hessian）。
 
 ### CLI から YAML へのマッピング
 

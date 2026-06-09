@@ -18,7 +18,7 @@ light モード（Dimer）+ 解析的ヘシアン:
 ```bash
 # VRAM に余裕がある場合に light モード + 解析的ヘシアンで実行する
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --opt-mode light --hessian-calc-mode Analytical --out-dir ./result_tsopt_light
+ -q 0 -m 1 --opt-mode grad --hessian-calc-mode Analytical --out-dir ./result_tsopt_grad
 ```
 
 heavy モード（RS-I-RFO）+ YAML 上書き:
@@ -26,7 +26,7 @@ heavy モード（RS-I-RFO）+ YAML 上書き:
 ```bash
 # heavy モードを YAML 上書きと併用する
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --opt-mode heavy --config tsopt.yaml --out-dir ./result_tsopt_heavy
+ -q 0 -m 1 --opt-mode hess --config tsopt.yaml --out-dir ./result_tsopt_hess
 # --dump で最適化軌跡を保存、--backend mace で MACE バックエンドを使用
 ```
 

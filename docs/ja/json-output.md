@@ -4,7 +4,7 @@ mlmm は、AI エージェント・スクリプト・下流ツールがプログ
 
 ## `--out-json` フラグ
 
-主要な MLIP 系サブコマンド（`opt`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`）が `--out-json / --no-out-json`（デフォルト: off）に対応しています。
+主要な MLIP 系サブコマンド（`opt`, `sp`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`）が `--out-json / --no-out-json`（デフォルト: off）に対応しています。
 有効にすると、出力ディレクトリに `result.json` が生成されます。
 
 ```bash
@@ -86,7 +86,7 @@ cat result_opt/result.json | python -m json.tool
 | `energy_hartree` | float | TS エネルギー (Hartree) |
 | `n_imaginary_modes` | int | 虚振動数 |
 | `imaginary_frequencies_cm` | float[] | 虚振動数 (cm$^{-1}$, 負の値) |
-| `opt_mode` | string | `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"` のいずれか（`light`/`dimer` は `grad` (PHG-Dimer)、`heavy`/`rsirfo` は `hess` (RS-I-RFO) の別名） |
+| `opt_mode` | string | `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"`, `"trim"`, `"rsprfo"` のいずれか（`light`/`dimer` は `grad` (PHG-Dimer)、`heavy`/`rsirfo` は `hess` (RS-I-RFO)、`trim` は TRIM、`rsprfo` は RS-P-RFO の別名） |
 | `n_atoms` | int | 全原子数 |
 | `n_opt_cycles` | int | 最適化サイクル数 |
 | `backend` | string | ML バックエンド |
@@ -124,7 +124,7 @@ cat result_opt/result.json | python -m json.tool
 
 ### `scan` / `scan2d` / `scan3d`
 
-scan は `stages[]` 配列にステージごとのデータ、scan2d/scan3d は `pair1`/`pair2`(/`pair3`) と `grid_shape` を含みます。すべて `backend`, `charge`, `spin`, `min_energy_hartree` を持ちます。
+scan は `stages[]` 配列にステージごとのデータと `n_stages` を含みます。scan2d/scan3d は `n_grid_points` と `pair1`/`pair2`(/`pair3`)（各 `{i, j, low, high}`）に加えて、表面の最小エネルギー `min_energy_hartree` を含みます。いずれも `backend`・`charge`・`spin` を備えます。
 
 ### `path-opt`
 
@@ -158,7 +158,7 @@ scan は `stages[]` 配列にステージごとのデータ、scan2d/scan3d は 
 | `protein_charge` | float | タンパク質電荷 |
 | `ligand_total_charge` | float | リガンド電荷合計 |
 | `unknown_residue_charges` | object | `{残基名: 電荷}` |
-| `center` | string | 中心残基 |
+| `center` | string | 基質指定（生の `-c` 値）: PDB パス、残基ID リスト（例 `'A:123,B:456'`）、または残基名リスト（例 `'GPP,MMT'`） |
 | `radius` | float | 抽出半径 (angstrom) |
 
 ## `summary.json` (`path-search` / `all`)

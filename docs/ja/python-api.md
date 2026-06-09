@@ -75,7 +75,10 @@ result = core.compute(
 )
 # result["energy"]   : float (eV)
 # result["forces"]   : numpy (N, 3) (eV/Å)
-# result["hessian"]  : torch (3N, 3N) (eV/Å²)  — return_hessian=Trueの場合のみ
+# result["hessian"]  : torch 4D (eV/Å²) — return_hessian=Trueの場合のみ。
+#   return_partial_hessian=True（デフォルト）では形状 (n_active, 3, n_active, 3)、
+#   False では展開された (N, 3, N, 3)。部分Hessianの場合は付随キー
+#   "within_partial_hessian"（active_atoms / active_dofs / full_to_active のマッピングを含む dict）が併せて返される。
 ```
 
 ## MLMMASECalculator

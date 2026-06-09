@@ -89,7 +89,12 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的ヘシアン対 OpenMM 差分）。 | `hessian_ff` |
+| `--link-atom-method [scaled\|fixed]` | リンク原子の配置法: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
+| `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
+
+全フラグの一覧は自動生成された[コマンドリファレンス](../reference/commands/index.md)にあります。ここに手動で複製しないでください。
 
 ## スキャンリスト構文
 

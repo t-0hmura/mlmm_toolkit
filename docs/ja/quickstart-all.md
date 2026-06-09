@@ -21,7 +21,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 
 - `result_all/summary.log`
 - `result_all/summary.json`
-- `result_all/mep.pdb`（root に移動）と raw 出力 `result_all/_work/path_search/`（`--no-refine-path` 時は `_work/path_opt/`）
+- `result_all/mep.pdb`（ルートに移動）と生出力 `result_all/_work/path_search/`（`--no-refine-path` 時は `_work/path_opt/`）
 
 ## 補足
 

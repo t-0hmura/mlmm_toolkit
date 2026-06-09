@@ -35,7 +35,7 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_regi
 2. `-i/--input` がある場合は読み込み、`--element-check` で元素順を検証。
 3. `--model-pdb` がある場合は QM 領域をマッピング。
 4. QM/MM 境界を検出し、リンク原子情報を付与。
-5. `%nproc`/`%mem`/method/座標/レイヤー/結合情報を含む入力を生成。
+5. `%nprocshared`/`%mem`/method/座標/レイヤー/結合情報を含む入力を生成。
 
 ## 出力
 
