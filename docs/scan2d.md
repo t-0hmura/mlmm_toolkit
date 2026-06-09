@@ -65,7 +65,7 @@ Check `surface.csv` (the PES grid), `scan2d_map.png` (2D contour), and `scan2d_l
 
 ```
 out_dir/ (default: ./result_scan2d/)
-├── surface.csv # PES grid: i, j, d1_A, d2_A, energy_hartree, energy_kcal, bias_converged, is_preopt, d1_label, d2_label
+├── surface.csv # PES grid: i, j, d1_A, d2_A, energy_hartree, bias_converged, is_preopt, energy_kcal, d1_label, d2_label
 ├── scan2d_map.png # 2D contour map
 ├── scan2d_landscape.html # 3D surface visualization (Plotly)
 ├── grid/

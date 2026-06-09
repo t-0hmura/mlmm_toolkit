@@ -1,6 +1,6 @@
 # `path-search`
 
-`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multistep mechanism from R + (optional intermediates) + P, where the recursive segmentation auto-detects elementary steps. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, scan specifications, or convergence thresholds—to obtain a satisfactory pathway.
+`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multistep mechanism from R + (optional intermediates) + P, where the recursive segmentation auto-detects elementary steps. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, MEP-engine settings, or convergence thresholds—to obtain a satisfactory pathway.
 
 ## Examples
 
@@ -41,7 +41,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 ## Workflow
 
 1. **Initial segment per pair (GSM/DMF)** -- Run the selected MEP engine (`--mep-mode`) between each adjacent input (A->B) to obtain a coarse MEP and identify the highest-energy image (HEI).
-2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then optimize with the chosen single-structure optimizer (`opt-mode`) to recover nearby minima (`End1`, `End2`).
+2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then optimize with the chosen single-structure optimizer (`--opt-mode`) to recover nearby minima (`End1`, `End2`).
 3. **Decide between kink vs. refinement**:
  - If no covalent bond change is detected between `End1` and `End2`, treat the region as a *kink*: insert `search.kink_max_nodes` linear nodes and optimize each individually.
  - Otherwise, launch a **refinement segment (GSM)** between `End1` and `End2` to sharpen the barrier.

@@ -38,16 +38,16 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
 - **Independent hetero–hetero cutoff (`--radius-het2het`)**: adds residues when a substrate hetero atom (non C / H) lies within the specified Å of a protein hetero atom. With backbone exclusion enabled, the protein atom must be non-backbone.
 - **Water handling**: HOH / WAT / H2O / DOD / TIP / TIP3 / SOL are included by default (`--include-h2o`).
 - **Forced inclusion**: `--selected-resn` accepts residue IDs with chains / insertion codes (e.g. `A:123A`).
-- **Neighbour safeguards**:
-  - When backbone exclusion is off and a residue contacts the substrate with a backbone atom, the peptide-adjacent N / C neighbours (C–N ≤ 1.9 Å) are auto-included; termini keep caps (N/H* or C/O/OXT).
+- **Neighbor safeguards**:
+  - When backbone exclusion is off and a residue contacts the substrate with a backbone atom, the peptide-adjacent N / C neighbors (C–N ≤ 1.9 Å) are auto-included; termini keep caps (N/H* or C/O/OXT).
   - Disulfide bonds (SG–SG ≤ 2.5 Å) bring both cysteines.
-  - Non-terminal PRO residues always pull in the N-side amino acid; CA is preserved even when backbone atoms are removed, and under `--exclude-backbone` the neighbour's C / O / OXT remain to maintain the peptide bond.
+  - Non-terminal PRO residues always pull in the N-side amino acid; CA is preserved even when backbone atoms are removed, and under `--exclude-backbone` the neighbor's C / O / OXT remain to maintain the peptide bond.
 
 ### Truncation and capping
 
 - Isolated residues retain only side-chain atoms; amino-acid backbone atoms (N, CA, C, O, OXT plus N/CA hydrogens) are removed except for PRO / HYP safeguards.
 - Continuous peptide stretches keep internal backbone atoms; only terminal caps (N/H* or C/O/OXT) are removed. TER awareness prevents capping across chain breaks.
-- With `--exclude-backbone`, main-chain atoms on all **non-substrate** amino acids are stripped (subject to PRO / HYP safeguards and PRO neighbour retention).
+- With `--exclude-backbone`, main-chain atoms on all **non-substrate** amino acids are stripped (subject to PRO / HYP safeguards and PRO neighbor retention).
 - Non-amino-acid residues never lose atoms named like backbone (N / CA / HA / H / H1 / H2 / H3).
 
 ### Link hydrogens (`--add-linkh`)
@@ -159,7 +159,7 @@ If `--modified-residue` cannot cover your case (e.g. unusual backbone topology),
 This appendix exists mainly for debugging cases where `extract` misclassifies residues due to **non-standard residue or atom naming**. If your inputs follow standard PDB conventions, you can usually skip it.
 
 ```{important}
-For `extract` to work correctly, **residue and atom names in the input PDB must conform to standard PDB naming conventions**. The tool relies on internal dictionaries to recognise amino acids, ions, water molecules, and backbone atoms. Non-standard naming will cause residues to be misclassified or charges to be incorrectly assigned.
+For `extract` to work correctly, **residue and atom names in the input PDB must conform to standard PDB naming conventions**. The tool relies on internal dictionaries to recognize amino acids, ions, water molecules, and backbone atoms. Non-standard naming will cause residues to be misclassified or charges to be incorrectly assigned.
 ```
 
 ### `AMINO_ACIDS`
@@ -199,19 +199,19 @@ N, C, O, CA, OXT, H, H1, H2, H3, HN, HA, HA2, HA3
 
 ### `ION`
 
-Recognised ion residue names with formal charges:
+Recognized ion residue names with formal charges:
 
 | Charge | Residue names |
 |---|---|
-| +1 | `LI`, `NA`, `K`, `RB`, `CS`, `TL`, `AG`, `CU1`, `Ag`, `K+`, `Na+`, `NH4`, `H3O+`, `HE+`, `HZ+`, `Tl` |
-| +2 | `MG`, `CA`, `SR`, `BA`, `MN`, `FE2`, `CO`, `NI`, `CU`, `ZN`, `CD`, `HG`, `PB`, `Be`, `PD`, `PT`, `Sn`, `Ra`, `YB2`, `V2+` |
-| +3 | `FE`, `AU3`, `AL`, `GA`, `IN`, `CE`, `Ce`, `CR`, `Cr`, `Dy`, `EU`, `EU3`, `Er`, `GD3`, `LA`, `LU`, `Nd`, `PR`, `SM`, `Sm`, `TB`, `Tm`, `Y`, `Pu` |
-| +4 | `U4+`, `Th`, `Hf`, `Zr` |
-| −1 | `F`, `CL`, `BR`, `I`, `Cl-`, `IOD` |
+| +1 | `LI`, `NA`, `K`, `RB`, `CS`, `TL`, `AG`, `CU1`, `K+`, `NA+`, `NH4`, `H3O+`, `HE+`, `HZ+` |
+| +2 | `MG`, `CA`, `SR`, `BA`, `MN`, `FE2`, `CO`, `NI`, `CU`, `ZN`, `CD`, `HG`, `PB`, `BE`, `PD`, `PT`, `SN`, `RA`, `YB2`, `V2+` |
+| +3 | `FE`, `AU3`, `AL`, `GA`, `IN`, `CE`, `CR`, `DY`, `EU`, `EU3`, `ER`, `GD3`, `LA`, `LU`, `ND`, `PR`, `SM`, `TB`, `TM`, `Y`, `PU` |
+| +4 | `U4+`, `TH`, `HF`, `ZR` |
+| −1 | `F`, `CL`, `BR`, `I`, `CL-`, `IOD` |
 
 ### `WATER_RES`
 
-Recognised water residue names (included by default with `--include-h2o`, assigned zero charge):
+Recognized water residue names (included by default with `--include-h2o`, assigned zero charge):
 
 ```
 HOH, WAT, H2O, DOD, TIP, TIP3, SOL

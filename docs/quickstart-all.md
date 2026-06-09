@@ -2,7 +2,7 @@
 
 ## Goal
 
-Run the end-to-end ML/MM ONIOM workflow once from a reactant and product PDB pair: MM parametrisation → ML-region selection → MEP search (path_search) → optional TS optimisation, frequencies, IRC, and DFT single-point.
+Run the end-to-end ML/MM ONIOM workflow once from a reactant and product PDB pair: MM parametrization → ML-region selection → MEP search (`path-search`) → optional TS optimization, frequencies, IRC, and DFT single-point.
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 \
   --ligand-charge 'PRE:0' -q -1 -m 1 --out-dir ./result_all
 ```
 
-With TS optimisation, thermochemistry, and DFT single-point:
+With TS optimization, thermochemistry, and DFT single-point:
 
 ```bash
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 \

@@ -123,7 +123,7 @@ calc:
 ```
 
 **Notes:**
-- The section name `calc:` is the canonical form; `mlmm:` is accepted as a legacy alias (recognised by `opt`, `tsopt`, `freq`, `irc`, `dft`, `path-opt`, `path-search`, `scan`, `scan2d`, `scan3d`). When both are present, `calc:` takes precedence.
+- The section name `calc:` is the canonical form; `mlmm:` is accepted as a legacy alias (recognized by `opt`, `tsopt`, `freq`, `irc`, `dft`, `path-opt`, `path-search`, `scan`, `scan2d`, `scan3d`). When both are present, `calc:` takes precedence.
 - `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install "mlmm-toolkit[orb]"`, etc.)
 - Backend-specific model keys are only relevant when the corresponding backend is selected:
   - `uma_model`, `uma_task_name` — UMA backend only
@@ -291,26 +291,26 @@ dmf:
  sequential: true # Sequential DMF execution
  fbenm_only_endpoints: false # Run FB-ENM beyond endpoints
  fbenm_options:
- delta_scale: 0.2 # FB-ENM displacement scaling
- bond_scale: 1.25 # Bond cutoff scaling
- fix_planes: true # Enforce planar constraints
+   delta_scale: 0.2 # FB-ENM displacement scaling
+   bond_scale: 1.25 # Bond cutoff scaling
+   fix_planes: true # Enforce planar constraints
  cfbenm_options:
- bond_scale: 1.25 # CFB-ENM bond cutoff scaling
- corr0_scale: 1.1 # Correlation scale for corr0
- corr1_scale: 1.5 # Correlation scale for corr1
- corr2_scale: 1.6 # Correlation scale for corr2
- eps: 0.05 # Correlation epsilon
- pivotal: true # Pivotal residue handling
- single: true # Single-atom pivots
- remove_fourmembered: true # Prune four-membered rings
+   bond_scale: 1.25 # CFB-ENM bond cutoff scaling
+   corr0_scale: 1.1 # Correlation scale for corr0
+   corr1_scale: 1.5 # Correlation scale for corr1
+   corr2_scale: 1.6 # Correlation scale for corr2
+   eps: 0.05 # Correlation epsilon
+   pivotal: true # Pivotal residue handling
+   single: true # Single-atom pivots
+   remove_fourmembered: true # Prune four-membered rings
  dmf_options:
- remove_rotation_and_translation: false # Keep rigid-body motions
- mass_weighted: false # Toggle mass weighting
- parallel: false # Enable parallel DMF
- eps_vel: 0.01 # Velocity tolerance
- eps_rot: 0.01 # Rotational tolerance
- beta: 10.0 # Beta parameter for DMF
- update_teval: false # Update transition evaluation
+   remove_rotation_and_translation: false # Keep rigid-body motions
+   mass_weighted: false # Toggle mass weighting
+   parallel: false # Enable parallel DMF
+   eps_vel: 0.01 # Velocity tolerance
+   eps_rot: 0.01 # Rotational tolerance
+   beta: 10.0 # Beta parameter for DMF
+   update_teval: false # Update transition evaluation
  k_fix: 300.0 # Harmonic constant for restraints
 ```
 
@@ -391,29 +391,29 @@ hessian_dimer:
  device: auto # Device selection for eigensolver
  root: 0 # Targeted TS root index
  dimer:
- length: 0.0189 # Dimer separation (Bohr)
- rotation_max_cycles: 15 # Max rotation iterations
- rotation_method: fourier # Rotation optimizer method
- rotation_thresh: 0.0001 # Rotation convergence threshold
- rotation_tol: 1 # Rotation tolerance factor
- rotation_max_element: 0.001 # Max rotation matrix element
- rotation_interpolate: true # Interpolate rotation steps
- rotation_disable: false # Disable rotations entirely
- rotation_disable_pos_curv: true # Disable when positive curvature detected
- rotation_remove_trans: true # Remove translational components
- trans_force_f_perp: true # Project forces perpendicular to translation
- bonds: null # Bond list for constraints
- N_hessian: null # Hessian size override
- bias_rotation: false # Bias rotational search
- bias_translation: false # Bias translational search
- bias_gaussian_dot: 0.1 # Gaussian bias dot product
- seed: null # RNG seed for rotations
- write_orientations: true # Write rotation orientations
- forward_hessian: true # Propagate Hessian forward
+   length: 0.0189 # Dimer separation (Bohr)
+   rotation_max_cycles: 15 # Max rotation iterations
+   rotation_method: fourier # Rotation optimizer method
+   rotation_thresh: 0.0001 # Rotation convergence threshold
+   rotation_tol: 1 # Rotation tolerance factor
+   rotation_max_element: 0.001 # Max rotation matrix element
+   rotation_interpolate: true # Interpolate rotation steps
+   rotation_disable: false # Disable rotations entirely
+   rotation_disable_pos_curv: true # Disable when positive curvature detected
+   rotation_remove_trans: true # Remove translational components
+   trans_force_f_perp: true # Project forces perpendicular to translation
+   bonds: null # Bond list for constraints
+   N_hessian: null # Hessian size override
+   bias_rotation: false # Bias rotational search
+   bias_translation: false # Bias translational search
+   bias_gaussian_dot: 0.1 # Gaussian bias dot product
+   seed: null # RNG seed for rotations
+   write_orientations: true # Write rotation orientations
+   forward_hessian: true # Propagate Hessian forward
  lbfgs:
- # Same keys as lbfgs section
- thresh: baker
- max_cycles: 10000
+   # Same keys as lbfgs section
+   thresh: baker
+   max_cycles: 10000
 ```
 
 **Notes:**

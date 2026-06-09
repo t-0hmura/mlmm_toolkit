@@ -4,7 +4,7 @@
 
 ## 1. Overview
 
-`mlmm-toolkit` is a Python CLI that performs **ML/MM (ONIOM) enzymatic reaction-path analysis** on a complete protein environment. From a PDB and a substrate name, it automatically generates the parm7 topology, encodes the ONIOM region split (ML / Movable MM / Frozen MM) into B-factor channels, runs full-system Hessian-based TS search via a macro/micro alternation scheme, and produces the reaction path (extract → MM-param → ONIOM model → MEP → tsopt → IRC → freq → dft).
+`mlmm-toolkit` is a Python CLI that performs **ML/MM (ONIOM) enzymatic reaction-path analysis** on a complete protein environment. From a PDB and a substrate name, it automatically generates the parm7 topology, encodes the ONIOM region split (ML / Movable MM / Frozen MM) into B-factor channels, runs full-system Hessian-based TS search via a macro/micro alternation scheme, and produces the reaction path (extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft).
 
 The package is laid out as **6 physical layer directories** (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`); the role and dependency direction of each are summarised in the §4 layer tables below. External code imports directly from the layer directory (`from mlmm.backends.mlmm_calc import MLMMCore`, `from mlmm.core.utils import …`, `import mlmm.io.trj2fig`, etc.); the previous flat-top shim layer has been retired in this release.
 
@@ -18,13 +18,13 @@ Three bundled forks (`pysisyphus/`, `thermoanalysis/`, `hessian_ff/`) live at th
 
 | layer | dir | responsibility | may depend on |
 |---|---|---|---|
-| **L1 Interface** | `mlmm/cli/` | Click root group, decorator factories, `--help-advanced`, bool flag normalisation, subcommand resolver, AmberTools preflight | `workflows/`, `core/` |
+| **L1 Interface** | `mlmm/cli/` | Click root group, decorator factories, `--help-advanced`, bool flag normalization, subcommand resolver, AmberTools preflight | `workflows/`, `core/` |
 | **L2 Application** | `mlmm/workflows/` | per-subcommand orchestration; one file per stage runner (`all.py`, `path_search.py`, `tsopt.py`, `extract.py`, `oniom_export.py`, `mm_parm.py`, …) | `domain/`, `backends/`, `io/`, `core/` |
 | **L3 Domain** | `mlmm/domain/` | chemistry-aware helper logic (bond change detection, bond summary, element-info propagation) | `core/` |
 | **L4a Infra (MLIP + ONIOM)** | `mlmm/backends/` | MLIP backend dispatcher + per-backend adapter + ML/MM ONIOM calculator core | `core/` |
 | **L4b Infra (I/O)** | `mlmm/io/` | output layout, summary, trajectory, PDB fix, energy diagram, Hessian cache, analytical-Hessian glue | `core/` |
 | **L5 Foundation** | `mlmm/core/` | defaults (single source of truth), utils (PDB / XYZ / plot helpers), future `errors.py` / `types.py` | (none) |
-| (bundle, not a layer) | `<repo>/pysisyphus/`, `<repo>/thermoanalysis/`, `<repo>/hessian_ff/` | repo-internal forks (optimiser / thermochemistry / analytical MM Hessian) | (sibling, layer-external) |
+| (bundle, not a layer) | `<repo>/pysisyphus/`, `<repo>/thermoanalysis/`, `<repo>/hessian_ff/` | repo-internal forks (optimizer / thermochemistry / analytical MM Hessian) | (sibling, layer-external) |
 
 **Dependency direction (one-way)**: `L1 → L2 → {L3, L4} → L5` (per the §2.1 layer table). The directional rule is enforced by CI marker coverage (`.github/scripts/check_engineering_markers.py`). Bundled forks sit outside the layer graph and may be imported from any layer through their absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`).
 
@@ -109,7 +109,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py` = 2,534 LOC) lives here together with the backend dispatch (`__init__.py`) and the standalone xTB point-charge embedding correction (`xtb_embedcharge_correction.py`, driven by `--embedcharge`). Today the 4 MLIP backends (UMA / Orb / MACE / AIMNet2) that evaluate the ML region and the OpenMM / hessian_ff coupling all sit inline inside `mlmm_calc.py`; future work may split this into `backends/{base, uma, orb, mace, aimnet2}.py` for the MLIP layer plus a `backends/mlmm_calc/` subdir for the ONIOM core (`core.py`, `ase_calc.py`, `embed_charge.py`, `hessianff_calc.py`, `openmm_calc.py`, `facade.py`). The current single-file `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, **#8 (3-layer 5-pass partial Hessian)**, and **#9 (parm7 atom indexing)** — see §5.1.
 
-**L4b `io/`** (7 files). Output-side I/O concerns: per-stage summary writer, energy diagram, trajectory rendering, PDB altloc fix, Hessian cache, numerical Hessian construction + frequency / vibrational I/O (`hessian_calc.py`), harmonic-restraint setup. `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
+**L4b `io/`** (7 files). Output-side I/O concerns: per-stage summary writer, energy diagram, trajectory rendering, PDB altloc fix, Hessian cache, numerical Hessian construction + frequency / vibrational I/O (`hessian_calc.py`). `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
 
 **L5 `core/`**. The lowest layer. `defaults.py` is the **single source of truth** for every CLI default — grep here before adding a number anywhere else. `utils.py` is a ~2,560-LOC grab-bag of PDB / XYZ / plotting helpers; future work may split it into `utils/{pdb,plot,coord,yaml,freeze,input_prep}.py`. `logging.py` (`-v` / `-vv` wiring), `calc_eval.py` (per-stage calc evaluation) and `residue_data.py` (residue tables) also live here. The internal-only modules `errors.py`, `types.py` / `_stage.py` are introduced here as they land.
 
@@ -186,11 +186,11 @@ After step 5 you can read any other file by following the file index in §4. The
 | concern | file |
 |---|---|
 | Full pipeline orchestrator | `mlmm/workflows/all.py` |
-| Geometry optimisation (ONIOM macro/micro pre-opt) | `mlmm/workflows/opt.py` |
+| Geometry optimization (ONIOM macro/micro pre-opt) | `mlmm/workflows/opt.py` |
 | 1D / 2D / 3D scans + shared | `mlmm/workflows/scan{,2d,3d,_common}.py` |
 | MEP search (GSM) | `mlmm/workflows/path_search.py` |
-| MEP optimiser core (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
-| TS optimisation (RSIRFO + Bofill + macro/micro) | `mlmm/workflows/tsopt.py` |
+| MEP optimizer core (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
+| TS optimization (RSIRFO + Bofill + macro/micro) | `mlmm/workflows/tsopt.py` |
 | Vibrational analysis (PHVA + UMA active block) | `mlmm/workflows/freq.py` |
 | IRC integration (macro / micro) | `mlmm/workflows/irc.py` |
 | Single-point DFT (gpu4pyscf subprocess, ONIOM-embedded) | `mlmm/workflows/dft.py` |
@@ -207,7 +207,7 @@ After step 5 you can read any other file by following the file index in §4. The
 |---|---|
 | R↔P bond change detection | `mlmm/domain/bond_changes.py` |
 | Post-IRC bond summary | `mlmm/domain/bond_summary.py` |
-| PDB element column normaliser | `mlmm/domain/add_elem_info.py` |
+| PDB element column normalizer | `mlmm/domain/add_elem_info.py` |
 
 ### 4.4 MLIP + ONIOM (L4a `backends/`)
 
@@ -248,7 +248,7 @@ See [MLIP Backends](backends.md) for the add-a-backend recipe (currently scoped 
 
 | dir | role | divergent files (do NOT replace with upstream) |
 |---|---|---|
-| `pysisyphus/` | optimiser / TS / IRC engine | `irc/IRC.py`, `optimizers/hessian_updates.py`, `run.py`, `tsoptimizers/TSHessianOptimizer.py`, `calculators/*` (5 files total) |
+| `pysisyphus/` | optimizer / TS / IRC engine | `irc/IRC.py`, `optimizers/hessian_updates.py`, `run.py`, `tsoptimizers/TSHessianOptimizer.py`, `calculators/*` (5 files total) |
 | `thermoanalysis/` | thermochemistry (ΔG, ZPE, partition functions) | `QCData.py` (branding diff vs upstream) |
 | `hessian_ff/` | analytical Hessian on MM force field — **PyPI 404, bundling is mandatory** | `analytical_hessian.py` (sole entry consumed by `mlmm/backends/mlmm_calc.py`) |
 
@@ -293,7 +293,7 @@ Editing any of these requires a `[CHEMISTRY-RULE:N]` commit prefix and a HEAVY-t
 | cluster | rules | shared concern | learn-first file |
 |---|---|---|---|
 | 5-pass Hessian set | #1, #2, #8, #9 | subtractive ONIOM + link-atom B-matrix + 3-layer assembly + parm7 indexing | `mlmm/backends/mlmm_calc.py` (host of 4 of the 9 rules) |
-| TS optimisation set | #3, #7 | macro / micro alternation + Bofill scatter | `mlmm/workflows/tsopt.py` |
+| TS optimization set | #3, #7 | macro / micro alternation + Bofill scatter | `mlmm/workflows/tsopt.py` |
 | Vibrational set | #6 | PHVA + UMA active-block partial Hessian | `mlmm/workflows/freq.py` |
 | DFT set | #4, #5 | gpu4pyscf low-memory + def2 ECP injection | `mlmm/workflows/dft.py` |
 
@@ -331,7 +331,7 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 
 | dir | upstream PyPI? | purpose | scope of edits allowed |
 |---|---|---|---|
-| `pysisyphus/` | NO — fork, do not `pip install pysisyphus` alongside | optimiser, TS, IRC, COS, calculators | annotation-only in this release (docstring + type hints); logic edits forbidden |
+| `pysisyphus/` | NO — fork, do not `pip install pysisyphus` alongside | optimizer, TS, IRC, COS, calculators | annotation-only in this release (docstring + type hints); logic edits forbidden |
 | `thermoanalysis/` | NO — fork (branding diff) | ΔG, ZPE, partition functions, `QCData` | same as `pysisyphus/` |
 | `hessian_ff/` | **NO — PyPI 404, bundling mandatory** | analytical Hessian on MM force field | same as `pysisyphus/` |
 
@@ -361,7 +361,7 @@ After the Fresh-eyes tour (§3), follow this depth-first reading order:
 
 `mlmm-toolkit` operates on the **full protein environment** via ONIOM:
 
-- **ML region**: substrate + reaction-centre residues, evaluated by one of 4 MLIP backends (UMA / Orb / MACE / AIMNet2); an optional xTB point-charge embedding correction (`--embedcharge`) adds MM→ML environmental effects
+- **ML region**: substrate + reaction-center residues, evaluated by one of 4 MLIP backends (UMA / Orb / MACE / AIMNet2); an optional xTB point-charge embedding correction (`--embedcharge`) adds MM→ML environmental effects
 - **Movable MM region**: a shell around the ML region, free to move under the AMBER force field
 - **Frozen MM region**: the rest of the protein, held rigid
 

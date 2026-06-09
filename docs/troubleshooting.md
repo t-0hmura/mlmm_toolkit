@@ -76,7 +76,7 @@ Also ensure `hessian_ff` is importable at all (it is if you installed mlmm-toolk
 Encoding: ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0 (tolerance ±1.0). Common symptoms:
 
 - **Wrong layer assignments / ML region too small or too large** — verify `--model-pdb` selects the intended atoms; adjust `--radius-freeze` (default 8.0 Å) for the Movable / Frozen boundary; control Hessian-target MM separately via `hess_cutoff` / `hess_mm_atoms`. Inspect the layered PDB visually (color by B-factor).
-- **B-factors not recognised** (calculator treats all atoms as one layer) — re-run `define-layer`; do not hand-edit B-factors to arbitrary values.
+- **B-factors not recognized** (calculator treats all atoms as one layer) — re-run `define-layer`; do not hand-edit B-factors to arbitrary values.
 - **`--detect-layer` produces unexpected splits or fails without `--model-pdb`** — supply a PDB input (or XYZ + `--ref-pdb`); re-run `define-layer` explicitly; for distance-based control, set `hess_cutoff` / `movable_cutoff` and use `--no-detect-layer` (supplying `--movable-cutoff` already disables `--detect-layer`).
 
 ---
@@ -86,7 +86,7 @@ Encoding: ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0 (tolerance ±1.0). Commo
 
 | Symptom | Fix |
 |---|---|
-| MLIP model download fails / HF auth missing (`huggingface_hub.errors.GatedRepoError`, `401`, `403`) | `hf auth login` once per env / machine; accept the model licence on the HF page. On HPC, ensure HF cache dir is writable from compute nodes. |
+| MLIP model download fails / HF auth missing (`huggingface_hub.errors.GatedRepoError`, `401`, `403`) | `hf auth login` once per env / machine; accept the model license on the HF page. On HPC, ensure HF cache dir is writable from compute nodes. |
 | `torch.cuda.is_available()` returns `False` | Install PyTorch matching your cluster CUDA runtime; verify `nvidia-smi` and `python -c "import torch; print(torch.version.cuda, torch.cuda.is_available())"`. |
 | `DMF mode requires ase, cyipopt, and pydmf to be installed.` | `conda install -c conda-forge ase cyipopt -y && pip install pydmf`. |
 | Plot export fails (Plotly / Chrome) | `plotly_get_chrome -y`. |
@@ -122,7 +122,7 @@ ML/MM systems are larger than pure MLIP, so VRAM pressure is higher. Try in orde
 4. **Pre-define layers** with `define-layer` and `use_bfactor_layers: true` in YAML.
 5. **Bigger GPU** — 24 GB+ for 500+ ML atoms; 48 GB+ for 1000+.
 
-### TS optimisation does not converge / multiple imaginary modes remain
+### TS optimization does not converge / multiple imaginary modes remain
 
 Try `--opt-mode grad` (Dimer) ↔ `--opt-mode hess` (RS-I-RFO); `--flatten` to flatten extra imaginary modes; `--max-cycles 20000`; tighter `--thresh baker` / `gau_tight`; expand Hessian-target atoms via `hess_cutoff`.
 
@@ -138,7 +138,7 @@ opt:
   # energy_plateau: false           # disable entirely (e.g. for benchmarking)
 ```
 
-The plateau check is skipped automatically for chain-of-states optimisers (GS / DMF), so `path-opt` / `path-search` are unaffected.
+The plateau check is skipped automatically for chain-of-states optimizers (GS / DMF), so `path-opt` / `path-search` are unaffected.
 
 ### IRC does not terminate properly
 

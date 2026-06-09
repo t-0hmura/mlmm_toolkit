@@ -132,7 +132,7 @@ Options:
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
                                   Defaults to 1 when omitted.
   --coord-type [cart|redund|dlc|tric]
-                                  Optimisation coordinate system
+                                  Optimization coordinate system
                                   (cart|redund|dlc|tric). cart is the robust
                                   default used in published numbers; dlc speeds
                                   up torsion-rich opts. mlmm-specific caveats:

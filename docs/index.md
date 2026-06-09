@@ -136,8 +136,8 @@ ja/glossary
 |---|---|
 | [`all`](all.md) | End-to-end: ML/MM model setup → MEP → TS → IRC → freq → DFT |
 | [`extract`](extract.md) · [`mm-parm`](mm-parm.md) · [`define-layer`](define-layer.md) · [`add-elem-info`](add-elem-info.md) · [`fix-altloc`](fix-altloc.md) | Structure preparation |
-| [`opt`](opt.md) · [`tsopt`](tsopt.md) | Geometry / TS optimisation |
-| [`path-opt`](path-opt.md) · [`path-search`](path-search.md) | MEP optimisation / recursive refinement |
+| [`opt`](opt.md) · [`tsopt`](tsopt.md) | Geometry / TS optimization |
+| [`path-opt`](path-opt.md) · [`path-search`](path-search.md) | MEP optimization / recursive refinement |
 | [`scan`](scan.md) · [`scan2d`](scan2d.md) · [`scan3d`](scan3d.md) | 1D / 2D / 3D bond-distance scans |
 | [`freq`](freq.md) · [`irc`](irc.md) | Vibrational analysis + thermochemistry / IRC (EulerPC) |
 | [`dft`](dft.md) · [`sp`](sp.md) | Single-point DFT / single-point ML/MM ONIOM |

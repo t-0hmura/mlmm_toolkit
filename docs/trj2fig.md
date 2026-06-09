@@ -30,9 +30,9 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 1. Parse the XYZ trajectory. By default, Hartree energies are extracted from each frame's comment line.
     If `-q/--charge` or `-m/--multiplicity` is provided, energies are recomputed with the MLIP backend (default: `uma-s-1p1`) instead.
 2. Normalize the reference specification:
- - `init` -- frame `0` (or the last frame when `--reverse-x` is active).
- - `None`/`none`/`null` -- absolute energies (no referencing).
- - Integer literal -- the corresponding 0-based frame index.
+    - `init` -- frame `0` (or the last frame when `--reverse-x` is active).
+    - `None`/`none`/`null` -- absolute energies (no referencing).
+    - Integer literal -- the corresponding 0-based frame index.
 3. Convert energies to either kcal/mol (default) or Hartree and, when a
     reference is active, subtract the reference value to produce delta-E.
 4. Build the Plotly figure (strong ticks, spline interpolation, markers, no

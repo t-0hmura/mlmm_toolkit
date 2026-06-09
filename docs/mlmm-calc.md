@@ -14,7 +14,7 @@ The ML (high-level) component is provided by one of several MLIP backends, selec
 | --- | --- | --- | --- |
 | FAIR-Chem UMA | `uma` (default) | `fairchem-core` | `pip install mlmm-toolkit` |
 | ORB | `orb` | `orb-models` | `pip install "mlmm-toolkit[orb]"` |
-| MACE | `mace` | `mace-torch` | `pip install --no-deps mace-torch` |
+| MACE | `mace` | `mace-torch` | dedicated env: `pip uninstall -y fairchem-core && pip install mace-torch` |
 | AIMNet2 | `aimnet2` | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` |
 
 See [MLIP Backends](backends.md) for per-backend kwargs, model identifiers, precision options, and how to add a backend.

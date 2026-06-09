@@ -274,7 +274,7 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
             if is_partial:
                 # --- Case B: Active-subspace Hessian supplied ---
                 # Mass-weight using only active atoms → project TR modes in the active space
-                # → diagonalise → embed back into the full space.
+                # → diagonalize → embed back into the full space.
                 masses_act = masses_au_t[active_idx]
                 coords_act = coords_bohr_t[active_idx, :]
 

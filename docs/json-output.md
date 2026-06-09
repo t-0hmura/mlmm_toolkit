@@ -4,7 +4,7 @@ mlmm provides machine-readable JSON output for programmatic consumption by AI ag
 
 ## `--out-json` flag
 
-Most MLIP-based subcommands (`opt`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`) support `--out-json / --no-out-json` (default: off).
+Most MLIP-based subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`) support `--out-json / --no-out-json` (default: off).
 When enabled, a `result.json` file is written to the output directory alongside the normal outputs.
 
 ```bash
@@ -86,7 +86,7 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int | Number of imaginary frequencies |
 | `imaginary_frequencies_cm` | float[] | Imaginary frequencies (cm$^{-1}$, negative) |
-| `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"` (aliases: `light`/`dimer` → `grad` (PHG-Dimer); `heavy`/`rsirfo` → `hess` (RS-I-RFO)) |
+| `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"`, `"trim"`, `"rsprfo"` (aliases: `light`/`dimer` → `grad` (PHG-Dimer); `heavy`/`rsirfo` → `hess` (RS-I-RFO); `trim` → TRIM; `rsprfo` → RS-P-RFO) |
 | `n_atoms` | int | Total atoms |
 | `n_opt_cycles` | int | Optimization cycles |
 | `backend` | string | ML backend |

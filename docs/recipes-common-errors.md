@@ -9,7 +9,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 | --- | --- | --- |
 | Missing element columns / extraction aborts | `add-elem-info` on the original PDB | [Input / extraction](troubleshooting.md#input--extraction) |
 | `[multi] Atom count mismatch` / `Coordinate shape mismatch` / `Element sequence mismatch` | Regenerate all PDBs with the same prep tool + settings; re-run `mm-parm` from the current PDB; never reorder atoms after `mm-parm` | [Input / extraction](troubleshooting.md#input--extraction) |
-| UMA model 401/403 / gated-repo error (`huggingface_hub.errors.GatedRepoError`) | `hf auth login` and accept the model licence | [Installation / environment](troubleshooting.md#installation--environment) |
+| UMA model 401/403 / gated-repo error (`huggingface_hub.errors.GatedRepoError`) | `hf auth login` and accept the model license | [Installation / environment](troubleshooting.md#installation--environment) |
 | `ImportError: orb-models is required` (or similar for AIMNet2 / MACE) | `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"`; MACE installs into a separate env | [Installation / environment](troubleshooting.md#installation--environment) |
 | CUDA out-of-memory at runtime (`torch.cuda.OutOfMemoryError`) | Shrink ML region (`--radius`), use `--hessian-calc-mode FiniteDifference`, or move to a larger GPU | [CUDA OOM](troubleshooting.md#cuda-oom-torchcudaoutofmemoryerror) |
 | "Charge is required" errors | Set `-q/--charge` and `-m/--multiplicity` explicitly | [Charge / spin](troubleshooting.md#charge--spin) |

@@ -3205,9 +3205,9 @@ def cli(
             _echo_detail(f"  - {p}")
 
         # Input series to path_search: [preopt result (if available), scan stage results ...]
-        # When scan ran with --preopt, its optimised reactant geometry lives in
+        # When scan ran with --preopt, its optimized reactant geometry lives in
         # scan/preopt/result.xyz (full precision) or result.pdb.  Using this
-        # avoids a redundant ~2000-cycle re-optimisation inside path_search.
+        # avoids a redundant ~2000-cycle re-optimization inside path_search.
         preopt_xyz = scan_dir / "preopt" / "result.xyz"
         preopt_pdb = scan_dir / "preopt" / "result.pdb"
         if preopt_xyz.exists():

@@ -721,7 +721,7 @@ def _run_microiter_opt(
     rfo_args["thresh"] = thresh
 
     macro_optimizer = RFOptimizer(geometry, **rfo_args)
-    macro_optimizer.prepare_opt()  # initialise Hessian from geometry.cart_hessian
+    macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
 
     # Microiteration progress table (pysisyphus-style with micro_steps column)
     micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()

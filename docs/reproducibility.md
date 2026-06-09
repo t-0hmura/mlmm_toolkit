@@ -34,7 +34,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 - The environment variable `MLMM_STRICT_DETERMINISTIC=1` is the equivalent
   entry point for CI or the direct Python API.
 
-### Verified behaviour by backend
+### Verified behavior by backend
 
 | ML backend | `--deterministic` |
 |---|---|
@@ -55,7 +55,7 @@ precision. Only `--deterministic` gives bit-exactness.
 
 `--precision fp64` and the (internal, always-on) fp64 Hessian (`H_double`) are
 independent knobs; passing `--precision fp64` additionally forces the Hessian to
-fp64 so the optimiser linear algebra cannot silently run in a lower precision
+fp64 so the optimizer linear algebra cannot silently run in a lower precision
 than the model.
 
 ## AIMNet2 limitations

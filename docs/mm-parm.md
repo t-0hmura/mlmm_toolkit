@@ -45,7 +45,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB (used as-is unless `--add-h`). | Required |
-| `--out-prefix TEXT` | Output prefix for parm7/rst7/pdb files. | Stem of input PDB |
+| `-o, --out-prefix TEXT` | Output prefix for parm7/rst7/pdb files. | Stem of input PDB |
 | `-l, --ligand-charge TEXT` | Map residue name to formal charge, e.g. `"GPP=-3,MMT=-1"`. | _None_ |
 | `--ligand-mult TEXT` | Map residue name to spin multiplicity, e.g. `"HEM=1,NO=2"`. Unspecified residues default to singlet (1). | _None_ |
 | `--keep-temp/--no-keep-temp` | Keep intermediate files/logs in a working directory (for debugging). | `False` |

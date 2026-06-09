@@ -87,7 +87,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau_loose`) |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
 | `--dump/--no-dump` | Dump optimizer trajectories and restarts inside `out_dir`. | `False` |
-| `--out-dir TEXT` | Output directory. | `./result_path_opt/` |
+| `-o, --out-dir TEXT` | Output directory. | `./result_path_opt/` |
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layers) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running optimization. Shown in `--help-advanced`. | `False` |

@@ -17,7 +17,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'                  # MEP on
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft   # full
 ```
 
-Given (i) ≥ 2 PDBs (R → ... → P), (ii) one PDB with `--scan-lists`, or (iii) one TS candidate with `--tsopt`, `mlmm all` defines the ML region, runs `mm-parm` + `define-layer`, performs MEP search (GSM), and optionally chains TS optimisation, IRC, frequencies, and single-point DFT.
+Given (i) ≥ 2 PDBs (R → ... → P), (ii) one PDB with `--scan-lists`, or (iii) one TS candidate with `--tsopt`, `mlmm all` defines the ML region, runs `mm-parm` + `define-layer`, performs MEP search (GSM), and optionally chains TS optimization, IRC, frequencies, and single-point DFT.
 
 ```{important}
 - Input PDBs must already contain **hydrogen atoms**. The "Input prep checklist" below covers the common pitfalls.
@@ -119,7 +119,7 @@ make -C build -j8
 
 | Mode | Trigger | Use when |
 |---|---|---|
-| Multi-structure MEP | `-i R.pdb P.pdb [I1.pdb ...]` | You have ≥ 2 endpoints / intermediates (docking, MD, manual modelling). |
+| Multi-structure MEP | `-i R.pdb P.pdb [I1.pdb ...]` | You have ≥ 2 endpoints / intermediates (docking, MD, manual modeling). |
 | Staged scan | `-i ONE.pdb --scan-lists '[...]' [ '[...]' ...]` | You'd rather define reaction coordinates than provide multiple endpoints. |
 | TS-only | `-i TS_CANDIDATE.pdb --tsopt` | You already have a TS guess and want `tsopt → IRC → freq`. |
 
@@ -188,7 +188,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `-q, --charge INT` / `-m, --multiplicity INT` | ML-region net charge / spin multiplicity. |
 | `-s, --scan-lists TEXT...` | Staged distance scans for single-input runs (literals or YAML/JSON file). |
 | `-o, --out-dir PATH` | Top-level output directory. |
-| `--tsopt` / `--thermo` / `--dft` | TS optimisation + IRC / vibrational analysis / single-point DFT. |
+| `--tsopt` / `--thermo` / `--dft` | TS optimization + IRC / vibrational analysis / single-point DFT. |
 | `--refine-path` / `--no-refine-path` | Recursive `path-search` (default) vs single-pass `path-opt`. |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |
 | `--embedcharge` | xTB point-charge embedding correction (default off). |

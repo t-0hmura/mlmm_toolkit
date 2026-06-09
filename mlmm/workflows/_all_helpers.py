@@ -4,7 +4,7 @@ Holds side-effect-free helpers plus a frozen parameter context
 (``AllContext``) for `mlmm/workflows/all.py:cli()`.
 
 Anything imported here must be safe to use from ``cli()`` body callers
-without changing observable behaviour.
+without changing observable behavior.
 """
 
 from __future__ import annotations
@@ -122,13 +122,13 @@ def copy_path_outputs_to_root(
     """Copy MEP path-search outputs from ``path_dir`` up to ``out_dir``.
 
     Extracted from the nested ``_copy_path_outputs_to_root`` in
-    ``workflows/all.py:cli()``. Behaviour-equivalent: best-effort copy
-    of the canonical MEP artefacts (plot / pdb / xyz / summary), with
+    ``workflows/all.py:cli()``. Behavior-equivalent: best-effort copy
+    of the canonical MEP artifacts (plot / pdb / xyz / summary), with
     any copy failure routed to ``warn_fn`` instead of propagating.
 
     When ``warn_fn`` is None (default), failures are swallowed silently
     — the original nested helper printed a "[all] WARNING: ..." line,
-    so callers that want that behaviour pass an `_echo`-equivalent.
+    so callers that want that behavior pass an `_echo`-equivalent.
     """
     try:
         # MEP deliverables: MOVE to root (no _work/ duplicate). The summary
@@ -312,7 +312,7 @@ def build_tsopt_overrides(
 
     Extracted from the inline `if x is not None: tsopt_overrides[k] = ...`
     ladder in ``workflows/all.py:cli()`` (~20 LOC) so the dict-construction
-    is independently unit-testable. Behaviour preserved: a key only lands
+    is independently unit-testable. Behavior preserved: a key only lands
     in the returned dict when the corresponding CLI flag was either
     explicitly set or has a non-None value to forward.
     """

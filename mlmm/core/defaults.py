@@ -105,7 +105,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     #   Frozen MM (B=20)
     # Hessian-target MM is selected by hess_cutoff (distance from ML),
     # independent of B-factor layer.
-    "hess_cutoff": None,      # Å, MM atoms within this distance of ML get MM Hessian (None = all movable MM, so freq/irc/opt analyse every movable atom). tsopt's TS search pins its own ML-only Hessian (0.0) internally.
+    "hess_cutoff": None,      # Å, MM atoms within this distance of ML get MM Hessian (None = all movable MM, so freq/irc/opt analyze every movable atom). tsopt's TS search pins its own ML-only Hessian (0.0) internally.
     "movable_cutoff": None,   # Å, MM atoms within this distance of ML are movable (None = use freeze_atoms)
     # CLI defaults to --detect-layer for layer-aware commands.
     # Keep the base default aligned so config merge semantics stay consistent.

@@ -998,7 +998,7 @@ def cli(
         # NOTE: time_start was previously re-assigned here, but it is now bound
         # before the try-block (see comment near `prepared_input = None`).
         # Re-baseline so the wall-clock figure still excludes YAML resolution
-        # and ML-region preparation overhead, matching pre-fix behaviour.
+        # and ML-region preparation overhead, matching pre-fix behavior.
         time_start = time.perf_counter()
 
         workspace = _prepare_ml_region_workspace(
