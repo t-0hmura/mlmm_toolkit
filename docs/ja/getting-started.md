@@ -30,7 +30,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 単一コマンドの TS 結果は「候補」として扱ってください。酵素反応では、endpoint 品質、ポケット定義、拘束、scan ターゲットの調整を伴う反復が一般的です。最終解釈の前に、`freq` と `irc` の両方で TS を必ず検証してください。
 ```
 
-ML 領域の計算には機械学習原子間ポテンシャル（MLIP）を使用します。デフォルトのバックエンドは UMA（Meta の FAIR-Chem）で、ORB、MACE、AIMNet2 も `--backend` で選択可能です。MM 領域の計算には hessian_ff（内蔵の C++ ネイティブ MM 力場エンジン）を用います。全エネルギーは ONIOM 的な減算分解に従います:
+MM 領域の計算には hessian_ff（内蔵の C++ ネイティブ MM 力場エンジン）を用います。全エネルギーは ONIOM 的な減算分解に従います:
 
 ```
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
@@ -466,8 +466,8 @@ DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `pat
 
 `mlmm all` 実行後、トップレベル出力には次が保存されます。
 
-- `summary.log` -- 人が読むための実行要約
-- `summary.json` -- 機械処理向けの要約
+- `summary.log` — 人が読むための実行要約
+- `summary.json` — 機械処理向けの要約
 
 代表的には、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。`segments/seg_NN/` 以下の各セグメントにも個別 summary が出力されます。
 

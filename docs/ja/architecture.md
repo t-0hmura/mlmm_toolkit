@@ -4,7 +4,11 @@
 
 ## 1. 概要
 
-`mlmm-toolkit` は、完全なタンパク質環境に対して **ML/MM (ONIOM) 酵素反応経路解析** を実行する Python 製 CLI です。PDB と基質名から、parm7 トポロジーを自動生成し、ONIOM 領域分割 (ML / Movable MM / Frozen MM) を B-factor チャネルにエンコードし、マクロ/マイクロ交互スキームによる全系のヘシアンベース TS 探索を実行し、反応経路を生成します (extract → MM-param → ONIOM model → MEP → tsopt → IRC → freq → dft)。
+`mlmm-toolkit` は、完全なタンパク質環境に対して **ML/MM (ONIOM) 酵素反応経路解析** を実行する Python 製 CLI です。ここでの ML/MM とは、小さな反応コアを機械学習原子間ポテンシャル (ML) で、周囲のタンパク質を分子力学 (MM) 力場で扱い、両者を subtractive ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) エネルギースキームで結合したハイブリッドモデルを指します。
+
+入力は PDB と基質名です。これらから、本ツールは parm7 トポロジーを自動生成し、ONIOM 領域分割 (ML / Movable MM / Frozen MM) を B-factor チャネルにエンコードします。続いて、マクロ/マイクロ交互スキームによる全系のヘシアンベース TS (遷移状態) 探索を実行します。
+
+結果として、ステージパイプライン `extract → MM-param → ONIOM model → MEP → tsopt → IRC → freq → dft` による完全な反応経路が生成されます。ここで MEP は最小エネルギー経路、IRC は内在反応座標です。
 
 このパッケージは **6 つの物理レイヤーディレクトリ** (`cli/`、`workflows/`、`domain/`、`backends/`、`io/`、`core/`) として構成されており、それぞれの役割と依存方向は後述の §4 レイヤー表にまとめています。外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。従来のフラットトップ shim レイヤーは本リリースで廃止されました。
 
@@ -182,6 +186,8 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | AmberTools / conda env / GPU preflight | `mlmm/cli/preflight.py` |
 
 ### 4.2 ワークフローステージランナー (L2 `workflows/`)
+
+以下で用いる略語: MEP = 最小エネルギー経路、GSM = growing-string method、COS = chain-of-states、RSIRFO = restricted-step image-function rational-function optimization (RS-I-RFO とも表記)、Bofill = Bofill ヘシアン更新式、PHVA = partial Hessian vibrational analysis、IRC = 内在反応座標、Kabsch = Kabsch 剛体アラインメントアルゴリズム。
 
 | concern | file |
 |---|---|
