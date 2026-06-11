@@ -27,7 +27,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft   
 - (ii) one PDB with `--scan-lists`, or
 - (iii) one transition-state (TS) candidate with `--tsopt`.
 
-From that input it defines the ML region, runs `mm-parm` + `define-layer`, and performs a minimum-energy-path (MEP) search via the growing string method (GSM). It then optionally chains TS optimization, intrinsic reaction coordinate (IRC), frequencies, and single-point DFT.
+From that input it defines the ML region, runs `mm-parm` + `define-layer`, and performs a minimum-energy-path (MEP) search via the growing string method (GSM). It then optionally chains TS optimization, intrinsic reaction coordinate (IRC), thermochemical correction, and single-point DFT.
 
 ```{important}
 - Input PDBs must already contain **hydrogen atoms**. The "Input prep checklist" below covers the common pitfalls.

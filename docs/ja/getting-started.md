@@ -12,7 +12,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
 ---
-さらに `--tsopt --thermo --dft` を追加すると、**ML/MM モデル構築 → MEP 探索 → TS 最適化 → IRC → 熱化学解析 → DFT 一点計算** までまとめて実行できます。
+さらに `--tsopt --thermo --dft` を追加すると、**ML/MM モデル構築 → MEP 探索 → TS 最適化 → IRC → 熱化学補正 → DFT 一点計算** までまとめて実行できます。
 ```bash
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 ```

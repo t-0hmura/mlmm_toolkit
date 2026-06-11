@@ -4,7 +4,7 @@
 
 <img src="./docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="90%">
 
-`mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`), and chains **MM parametrization → ML-region selection → MEP search → TS optimization → IRC → frequencies → DFT single-point** in one command. A link-atom boundary handles amino-acid residues straddling the ML/MM cut, and a microiteration scheme makes TS optimization and Hessian-based methods tractable on ~10 000-atom systems.
+`mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`), and chains **MM parametrization → ML-region selection → MEP search → TS optimization → IRC → thermochemical correction → DFT single-point** in one command. A link-atom boundary handles amino-acid residues straddling the ML/MM cut, and a microiteration scheme makes TS optimization and Hessian-based methods tractable on ~10 000-atom systems.
 
 A useful initial reaction path is one command:
 
@@ -22,10 +22,10 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 | Tool | Use case |
 |---|---|
 | **`mlmm-toolkit`** (this repo) | **ML/MM ONIOM** with the full protein environment; automates MM parameterization and ML-region assignment from a single PDB. |
-| [**pdb2reaction**](https://github.com/t-0hmura/pdb2reaction) | Pure-MLIP reaction paths for **cluster models and small molecules** from PDB / XYZ / GJF — no MM force field required. |
-| [**uma_pysis**](https://github.com/t-0hmura/uma_pysis) | Lightweight **YAML-driven UMA–pysisyphus interface** for single PES jobs (GS / TS / IRC / ΔG). |
+| [**pdb2reaction**](https://github.com/t-0hmura/pdb2reaction) | Pure-MLIP reaction paths for **cluster models and small molecules** from PDB / XYZ / GJF. |
+| [**uma_pysis**](https://github.com/t-0hmura/uma_pysis) | Lightweight **YAML-driven UMA–pysisyphus interface** for light reaction mechanism investigation (GS / TS / IRC / ΔG). |
 
-`mlmm-toolkit` and `pdb2reaction` bundle the same GPU-optimized pysisyphus fork; it is **not** compatible with upstream pysisyphus — do not install them side by side.
+> `mlmm-toolkit` and `pdb2reaction` bundle the same GPU-optimized pysisyphus fork; it is **not** compatible with upstream pysisyphus — do not install them side by side.
 
 ## Documentation
 
@@ -37,9 +37,9 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 
 | Component | Requirement |
 |---|---|
-| OS / Python | Linux x86_64 (validated); WSL 2 also works. macOS untested; native Windows unsupported (AmberTools/`tleap` unavailable). Python >= 3.11 (3.12 tested). |
-| GPU / CUDA / VRAM | NVIDIA GPU, CUDA >= 12.6 (12.9 recommended; required for RTX 50-series, matched to the PyTorch wheel). 8 GB VRAM minimum, 16 GB recommended (24 GB for analytical Hessian / `mm_backend: openmm`). |
-| RAM / Disk | 32 GB RAM minimum (120 GB recommended for enzyme active-site models); 20 GB free disk for the conda env, AmberTools, UMA cache, and artifacts. |
+| OS / Python | Linux recommended; native Windows unsupported (AmberTools/`tleap` unavailable). Python >= 3.11. |
+| GPU / CUDA / VRAM | NVIDIA GPU, CUDA >= 12.6 (12.8~ recommended; required for RTX 50-series). 8 GB~ VRAM recommended. |
+| RAM / Disk | 32 GB~ RAM recommended; 20 GB free disk for the conda env, AmberTools, UMA cache, and artifacts. |
 
 Required external tools: **AmberTools** (`tleap`) and **pdbfixer** — `conda install -c conda-forge ambertools pdbfixer -y`. CPU-only execution works for setup commands but is 10–100× slower for any ML/MM dynamics or Hessian step. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
 
@@ -163,13 +163,13 @@ Issues: <https://github.com/t-0hmura/mlmm_toolkit/issues>.
 
 ## Agent Skills
 
-Agent instructions for Claude Code / Cursor live in [`skills/`](skills/) — copy into your project's skill location (e.g. `.claude/skills/`) to let an agent drive `mm-parm` / `extract` / `tsopt` / `irc` / `dft` end-to-end.
+Agent Skills for Claude Code / Codex / Cursor etc. in [`skills/`](skills/) — copy into your project's skill location (e.g. `.claude/skills/`) to let an agent drive `mlmm-toolkit` workflows and subcommands.
 
 ## Known limitations
 
 - **MACE + UMA cannot coexist** (`e3nn` version conflict). Use separate conda envs.
-- **DFT single-point** is practical to ~500 ML-region atoms; larger regions need fragmentation or an external QM program.
-- **ORB backend** sometimes converges TS with extra soft imaginary modes — prefer UMA / MACE or re-score with DFT for clean single-saddle spectra.
+- **DFT single-point** is practical to ~500 ML-region atoms; larger regions need high computational cost.
+- **ORB backend** sometimes converges TS with extra soft imaginary modes — prefer UMA / MACE for clean single-saddle spectra.
 - **CPU-only execution** is 10–100× slower than GPU; AmberTools (`tleap`) is required for `mm-parm`.
 
 ## Contributing
