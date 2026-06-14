@@ -23,12 +23,17 @@ meaningful energies.
 
 ## Charge (`-q`, or summed via `-l 'RES:Q'`)
 
-Two routes:
+**For PDB inputs, prefer `-l`**: give only the non-standard-residue charges
+and let the **ML-region** total charge be auto-derived (standard AAs from the
+internal table + ions + your ligand charges; waters / link atoms are neutral).
+It matches the extraction's reported ML-region charge and stays correct when
+the ML region changes — so you never hand-enter the charge. Reserve `-q` for
+`.xyz` / `.gjf` inputs (no residues to sum) or to deliberately override.
 
-1. **Direct total** — pass `-q INTEGER` if you already know the total
-   charge of the cluster.
-2. **Per-residue mapping** — pass `-l 'RES1:Q1,RES2:Q2,...'` and let
-   `mlmm-toolkit` sum amino-acid + ligand charges.
+1. **Per-residue mapping (recommended for PDB)** — pass `-l 'RES1:Q1,RES2:Q2,...'`
+   and let `mlmm-toolkit` sum amino-acid + ligand charges over the ML region.
+2. **Direct total / override** — pass `-q INTEGER` if you already know the
+   total charge of the ML region (or to override the `-l` derivation).
 
 The amino-acid table is internal:
 
