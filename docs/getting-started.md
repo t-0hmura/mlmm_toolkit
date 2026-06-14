@@ -71,6 +71,9 @@ pip install torch --index-url https://download.pytorch.org/whl/cu129
 # 2. mlmm-toolkit (editable from a local clone, or `pip install mlmm-toolkit` once published)
 pip install -e .
 # Optional MLIP extras: pip install -e ".[orb]"  /  ".[aimnet]"  /  ".[dft]"  /  ".[mcp]"
+# [orb] needs torch_scatter, whose prebuilt wheels live on PyG's index (not PyPI), so pip
+# source-builds it and may fail with "No module named 'torch'". Add PyG's index (match torch+CUDA):
+#   pip install -e ".[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.html
 # MACE: install in a dedicated env (incompatible with UMA via e3nn==0.4.4 vs >=0.5)
 
 # 3. (UMA backend only) Authenticate Hugging Face once

@@ -1726,6 +1726,7 @@ _ALL_PRIMARY_HELP_OPTIONS = frozenset(
         "--tsopt",
         "--thermo",
         "--dft",
+        "--dft-func-basis",
         "--config",
         "--dry-run",
         "--embedcharge",

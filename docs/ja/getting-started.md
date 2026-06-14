@@ -114,6 +114,9 @@ pip install mlmm-toolkit
 
 # オプション: 代替 MLIP バックエンドのインストール
 pip install "mlmm-toolkit[orb]"       # ORB バックエンド
+# [orb] が要求する torch_scatter は prebuilt wheel が PyPI でなく PyG の index にあるため、pip は
+# ソースビルドし "No module named 'torch'" で失敗し得ます。PyG index を追加(torch+CUDAに合わせる):
+#   pip install "mlmm-toolkit[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.html
 pip install "mlmm-toolkit[aimnet]"   # AIMNet2 バックエンド
 # MACE バックエンド (UMA と競合 — 先に fairchem-core をアンインストール)
 # pip uninstall fairchem-core && pip install mace-torch
