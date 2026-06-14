@@ -35,6 +35,8 @@ NAME_MAP = {
     "hg": "H",
     "hl": "H",
     "so": "Na",
+    "ep": "ep",  # extra point / virtual site (OPC/TIP4P 4th site "EPW", lone pairs)
+    "lp": "ep",  # lone-pair virtual site
 }
 FULL_NAME = {
     " sod",

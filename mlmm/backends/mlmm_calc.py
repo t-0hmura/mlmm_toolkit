@@ -30,9 +30,35 @@ import torch
 import torch.nn as nn
 
 from ase import Atoms
-from ase.io import read
+from ase.io import read as _ase_read
 from ase.calculators.calculator import Calculator, all_changes
 from ase.constraints import FixAtoms
+
+
+def read(filename, *args, **kwargs):
+    """ASE read() that tolerates virtual-site atoms (element 'EP', e.g. OPC/TIP4P 4-point water
+    'EPW', or lone pairs 'LP'). ASE's label_to_symbol cannot parse 'EP'/'EPW', so we rewrite the
+    element column (PDB cols 77-78) of such atoms to 'X' (ASE dummy, Z=0) before reading. Virtual
+    sites are MM point charges handled by OpenMM via the parm and never enter the MLIP region, so
+    the dummy symbol is bookkeeping only. Non-PDB inputs pass straight through to ASE."""
+    import io as _io
+    try:
+        is_pdb = isinstance(filename, str) and filename.lower().endswith((".pdb", ".pdb1", ".ent"))
+    except Exception:
+        is_pdb = False
+    if not is_pdb:
+        return _ase_read(filename, *args, **kwargs)
+    out = []
+    with open(filename) as fh:
+        for ln in fh:
+            if (ln.startswith("ATOM") or ln.startswith("HETATM")) and len(ln) >= 78:
+                elem = ln[76:78].strip().upper()
+                name = ln[12:16].strip().upper()
+                if elem in ("EP", "LP") or name.startswith(("EPW", "LP")):
+                    ln = ln[:76] + " X" + ln[78:]
+            out.append(ln)
+    kwargs.setdefault("format", "proteindatabank")
+    return _ase_read(_io.StringIO("".join(out)), *args, **kwargs)
 
 import parmed as pmd
 from hessian_ff import ForceFieldTorch, load_coords, load_system
@@ -955,6 +981,12 @@ class OpenMMCalculator(Calculator):
         self.integrator = mm.VerletIntegrator(0 * unit.femtoseconds)
         self.context = mm.Context(self.system, self.integrator, platform, properties)
         self.context.setPositions(inpcrd.positions)
+        # Virtual sites (4-point water OPC/TIP4P EPW, lone pairs): OpenMM's getForces() does NOT
+        # redistribute their force to the parent atoms outside MD integration, so an external
+        # optimizer would treat them as spurious DOF (stalls). We zero their force each eval and
+        # rely on computeVirtualSites() to keep their positions correct from the parents.
+        self._vsite_idx = [i for i in range(self.system.getNumParticles())
+                           if self.system.isVirtualSite(i)]
 
     def calculate(self, atoms: Atoms = None, properties=None, system_changes=all_changes):
         """Compute energy and forces for the given atoms."""
@@ -966,11 +998,19 @@ class OpenMMCalculator(Calculator):
 
         # Update positions and get state
         self.context.setPositions(atoms.get_positions() * unit.angstrom)
+        # Place virtual sites (4-point water OPC/TIP4P "EPW", lone pairs) from their parent atoms,
+        # so the MM point charge sits correctly even when the parent water moves. Without this the
+        # optimizer's (inert) EP coordinate would be used verbatim. No-op if there are no v-sites.
+        self.context.computeVirtualSites()
         state = self.context.getState(getEnergy=True, getForces=True)
 
         # Extract energy and forces in eV units
         energy = state.getPotentialEnergy().value_in_unit(eV / unit.item)
         forces = state.getForces(asNumpy=True).value_in_unit(eV / unit.angstrom / unit.item)
+        # Zero forces on virtual sites so the optimizer never moves them (their position is set by
+        # computeVirtualSites() from the parent atoms; the MM force on real atoms is already correct).
+        if self._vsite_idx:
+            forces[self._vsite_idx] = 0.0
 
         self.results = {"energy": energy, "forces": forces}
 

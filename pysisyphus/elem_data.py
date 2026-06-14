@@ -6,6 +6,8 @@ import numpy as np
 # Taken from periodictable-1.5.0
 MASS_DICT = {
     "x": 1.,  # dummy atom
+    "ep": 1.,  # extra point / virtual site (4-point water OPC/TIP4P, lone pairs). Massless in MM;
+    #            inert placeholder so full-system PDBs with virtual sites parse / bond-perceive.
     "n": 14.0067,
     "h": 1.00794,
     "he": 4.002602,
@@ -3097,6 +3099,7 @@ ISOTOPE_DICT = {
 # In Bohr
 COVALENT_RADII = {
     "x": 0.0,
+    "ep": 0.0,  # virtual site: zero radius => never bonded by distance-based bond perception
     # Hydrogen uses a hardcoded value of 0.4 Angstrom instead of 0.31 Angstrom
     # (0.5858 au).
     "n": 1.3417,
@@ -3329,6 +3332,8 @@ HBOND_VDW_SUMS = {x: _vdw_h + VDW_RADII[x] for x in HBOND_ATOMS}
 HBOND_FACTORS = {x: 0.9 * HBOND_VDW_SUMS[x] / HBOND_CR_SUMS[x] for x in HBOND_ATOMS}
 
 ATOMIC_NUMBERS = {
+    "x": 0,    # dummy atom
+    "ep": 0,   # extra point / virtual site (no nucleus)
     "n": 7,
     "h": 1,
     "he": 2,
