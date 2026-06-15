@@ -1,9 +1,9 @@
 ---
-name: mlmm-barrier-strategy
+name: mlmm-ts-strategy
 description: Decision know-how for ML/MM enzyme reaction-barrier campaigns — precision (fp32 vs fp64 by GPU class), TS-candidate routes (path-search MEP vs distance-restrained scan), fixing wrong imaginary-frequency counts at TS-opt (fp64 / --coord-type dlc), reading a barrier when the scan started from Product (reverse direction), staged vs concerted scans, and the same-atom-set rule for controlled mutant-vs-WT comparisons (B-factor layer transplant + --detect-layer). TRIGGER on "barrier", "imaginary frequency", "wrong saddle", "fp64 / precision", "MEP vs restraint", "scan from product", "staged vs concerted scan", "mutant comparison", or "controlled experiment". SKIP for install / pure structure-format editing / MCP-transport questions.
 ---
 
-# mlmm barrier-strategy
+# mlmm ts-strategy
 
 Cross-cutting decisions for getting a *correct* reaction barrier out of an ML/MM
 ONIOM campaign. Every flag below is verified against `mlmm/cli/common_options.py`,

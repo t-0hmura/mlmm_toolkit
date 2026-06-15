@@ -79,6 +79,31 @@ mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 
 ---
 
+## GPU クラスごとの精度
+
+`--precision` は MLIP バックエンドの浮動小数点精度（`fp32` または `fp64`、大文字小文字無視）を選びます。実質的なデフォルトは `fp32` です。適切な選択は実行する GPU クラスに依存します:
+
+| ハードウェア | 推奨 | 理由 |
+| --- | --- | --- |
+| HPC データセンター GPU（H100 / H200 / A100） | `--precision fp64` | 決定論グレードで数値ノイズが低い。ネイティブ fp64 スループットが現実的なコスト。TS 最適化とヘシアンを安定化。 |
+| コンシューマー GPU（RTX 50xx / 40xx） | `--precision fp32`（デフォルト） | コンシューマーカードでは fp64 が著しく遅い。fp32 が速度/スクリーニングの基準。 |
+
+```bash
+# データセンター H200 — フル精度のベース推論
+mlmm tsopt -i ts.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma --precision fp64 -o result_ts
+
+# コンシューマー RTX — デフォルトで高速スクリーニング
+mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma --scan-lists '[(1,5,1.4)]' -o result_scan
+```
+
+`--precision` はすべての計算系サブコマンド（`sp`、`opt`、`tsopt`、`freq`、`irc`、`scan` / `scan2d` / `scan3d`、`path-opt`、`path-search`、`all`）で受け付けられ、バックエンドごとにルーティングされます（UMA precision、ORB precision、MACE `default_dtype`）。
+
+```{note}
+`-b aimnet2` では `fp32` は no-op、`fp64` は*拒否*されます — モデル入力が上流で float32 にキャストされるためです。fp64 が必要なら `uma`、`orb`、`mace` を使ってください。`--precision fp64` は GPU のリダクション順序ドリフトを*低減*しますが、実行をビット単位で同一には**しません**。ビット単位の厳密性は `--deterministic` のみが与えます — [再現性](reproducibility.md) を参照。
+```
+
+---
+
 ## HPC ジョブ投入
 
 ### PBS 例

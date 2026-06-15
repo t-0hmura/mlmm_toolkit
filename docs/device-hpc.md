@@ -69,6 +69,31 @@ Use `--hess-device cpu` when:
 
 ---
 
+## Precision by GPU class
+
+`--precision` selects the MLIP backend floating-point precision (`fp32` or `fp64`, case-insensitive). The effective default is `fp32`. The right choice depends on the GPU class you are running on:
+
+| Hardware | Recommended | Reasoning |
+| --- | --- | --- |
+| HPC datacenter GPU (H100 / H200 / A100) | `--precision fp64` | Deterministic-grade, low numerical noise; native fp64 throughput is affordable. Stabilises TS optimization and the Hessian. |
+| Consumer GPU (RTX 50xx / 40xx) | `--precision fp32` (default) | fp64 is markedly slower on consumer cards. fp32 is the speed/screening baseline. |
+
+```bash
+# Datacenter H200 — full-precision base inference
+mlmm tsopt -i ts.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma --precision fp64 -o result_ts
+
+# Consumer RTX — fast screening with the default
+mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma --scan-lists '[(1,5,1.4)]' -o result_scan
+```
+
+`--precision` is accepted on every compute subcommand (`sp`, `opt`, `tsopt`, `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`) and is routed per backend (UMA precision, ORB precision, MACE `default_dtype`).
+
+```{note}
+For `-b aimnet2`, `fp32` is a no-op and `fp64` is *rejected* — its model inputs are cast to float32 upstream. Use `uma`, `orb`, or `mace` when you need fp64. `--precision fp64` *reduces* GPU reduction-order drift but does **not** make a run bit-identical; only `--deterministic` gives bit-exactness — see [Reproducibility](reproducibility.md).
+```
+
+---
+
 ## HPC Job Submission
 
 ### PBS example

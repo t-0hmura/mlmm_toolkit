@@ -196,6 +196,28 @@ Pass multiple literals after a single `-s/--scan-lists` flag. Each literal becom
 
 Stages run sequentially; each starts from the previous stage's relaxed result. **Do not repeat the `-s/--scan-lists` flag** -- supply all stage literals after a single flag.
 
+**Concerted versus staged scans**
+
+The number of literals you pass decides whether the coordinates are driven together (concerted) or in sequence (staged):
+
+| Form | How to invoke | Meaning | Mechanism needed up front? |
+| --- | --- | --- | --- |
+| Concerted | a **single** literal containing several `(i, j, target)` tuples | all coordinates driven together within one stage | No |
+| Staged | **several** literals, one per stage | each stage is its own restrained relaxation, written to `stage_NN/` | Yes — define the mechanism per stage |
+
+```bash
+# Concerted: one stage, two distances driven together
+mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
+    -s '[(1,5,1.40),(7,9,1.60)]' -o result_concerted
+
+# Staged: two sequential stages
+mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
+    -s '[(1,5,1.40)]' \
+       '[(7,9,0.95)]' -o result_staged
+```
+
+A concerted scan needs no mechanism breakdown — [`path-search`](path-search.md) performs the multistep auto-segmentation for you. A staged scan needs the mechanism defined up front, **but when the mechanism is known, staged scans give cleaner per-step control and are generally preferred.** (A four-tuple expands into two stages for a bidirectional scan.)
+
 **Bidirectional scan (4-tuple)**
 
 Instead of a 3-tuple `(i, j, target)`, you can pass a **4-tuple** `(i, j, start, end)` to scan in both directions from the current geometry. The CLI automatically expands each 4-tuple into two stages:
@@ -213,6 +235,17 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ```
 
 This is equivalent to two manual stages with a geometry reset between them, but avoids the need to script it yourself. Mixed 3-tuples and 4-tuples are accepted in the same literal.
+
+## Reading the barrier direction
+
+The barrier you read depends on which endpoint the scan started from. If the scan (or the path it seeds) **starts at the product**, the raw reported barrier is the **reverse** direction.
+
+| Quantity | Formula |
+| --- | --- |
+| Forward barrier | `E(TS) − E(reactant)` |
+| Reverse barrier (the raw product-start number) | `E(TS) − E(product)` |
+
+This is a *read-time* interpretation, not a CLI flag. Always confirm which endpoint is the reactant versus the product by reading `segments/seg_NN/{reactant,product}.pdb` from the IRC, rather than trusting the scan direction. For a product-start campaign, the forward barrier you want is `E(TS) − E(reactant)`, not the number printed against the product start.
 
 ## YAML configuration
 
