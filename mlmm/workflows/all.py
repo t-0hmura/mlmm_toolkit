@@ -416,6 +416,37 @@ def _write_ml_region_definition(pocket_pdb: Path, dest: Path) -> Path:
     return dest.resolve()
 
 
+def _write_bfactor_ml_subset(src_pdb: Path, dest: Path) -> Optional[Path]:
+    """Write only the ML-layer (B-factor ≈ 0) ATOM/HETATM records of *src_pdb* to *dest*.
+
+    Used as the ``--model-pdb`` ML-region definition when extraction is skipped but
+    the input carries B-factor layers (detect-layer). Without it ml_region.pdb is the
+    FULL input (skip_extract copies the whole system), so any downstream stage whose
+    detect-layer can't read B-factors (e.g. an XYZ geometry) falls back to --model-pdb
+    and treats the ENTIRE system as the ML/QM region (sum_Z huge → electron-count
+    error). Returns ``None`` if the input has no B≈0 atoms (caller falls back).
+    """
+    try:
+        ml_lines: List[str] = []
+        for ln in open(src_pdb, "r", encoding="utf-8", errors="ignore"):
+            if ln.startswith(("ATOM", "HETATM")):
+                try:
+                    bf = float(ln[60:66])
+                except ValueError:
+                    continue
+                if abs(bf) < 0.5:
+                    ml_lines.append(ln)
+        if not ml_lines:
+            return None
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with open(dest, "w", encoding="utf-8") as fh:
+            fh.writelines(ml_lines)
+            fh.write("END\n")
+        return dest.resolve()
+    except Exception:
+        return None
+
+
 def _summarize_existing_bfactor_layers(pdb_path: Path) -> Dict[str, int]:
     """Count atoms per B-factor layer (ML=0 / MovableMM=10 / FrozenMM=20).
 
@@ -2628,13 +2659,23 @@ def cli(
     pocket_for_ml_region = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_pocket
     pdb_for_mm_parm = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_full_input
 
-    # ML region definition: use --model-pdb if provided, otherwise generate from pocket
+    # ML region definition: use --model-pdb if provided, otherwise generate from pocket.
+    # When extraction was skipped + detect-layer, the "pocket" is the whole input, so
+    # write only the B≈0 ML atoms — otherwise ml_region.pdb is the full system and a
+    # downstream stage that can't read B-factors collapses ML to the entire input
+    # (sum_Z=45875 electron-count error at freq/dft).
     if model_pdb_override is not None:
         ml_region_pdb = model_pdb_override.resolve()
         _echo_detail(f"[all] ML region definition (--model-pdb override) → {ml_region_pdb}")
     else:
-        ml_region_pdb = _write_ml_region_definition(pocket_for_ml_region, out_dir / "ml_region.pdb")  # reusable deliverable (--model-pdb input for follow-up runs)
-        _echo_detail(f"[all] ML region definition → {ml_region_pdb}")
+        ml_region_pdb = None
+        if skip_extract and detect_layer:
+            ml_region_pdb = _write_bfactor_ml_subset(pocket_for_ml_region, out_dir / "ml_region.pdb")
+            if ml_region_pdb is not None:
+                _echo_detail(f"[all] ML region definition (B≈0 subset from layered input) → {ml_region_pdb}")
+        if ml_region_pdb is None:
+            ml_region_pdb = _write_ml_region_definition(pocket_for_ml_region, out_dir / "ml_region.pdb")  # reusable deliverable (--model-pdb input for follow-up runs)
+            _echo_detail(f"[all] ML region definition → {ml_region_pdb}")
 
     # mm_parm: use --parm if provided, otherwise run tleap
     if parm7_override is not None:
