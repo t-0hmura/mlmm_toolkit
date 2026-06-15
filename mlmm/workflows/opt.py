@@ -101,7 +101,7 @@ from mlmm.cli.common_options import (
     add_coord_type_option,
     add_print_every_option,
     add_precision_option,
-    add_deterministic_option,
+    add_deterministic_option, add_allow_charge_mult_mismatch_option,
 )
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 
@@ -1081,6 +1081,7 @@ def _run_microiter_opt(
 @add_print_every_option()
 @add_precision_option()
 @add_deterministic_option()
+@add_allow_charge_mult_mismatch_option()
 @click.pass_context
 def cli(
     ctx: click.Context,

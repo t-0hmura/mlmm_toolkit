@@ -63,7 +63,7 @@ import logging
 import sys
 import math
 import click
-from mlmm.cli.common_options import add_coord_type_option, add_precision_option, add_deterministic_option
+from mlmm.cli.common_options import add_coord_type_option, add_precision_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.decorators import make_is_param_explicit
 import time
 import json
@@ -2095,6 +2095,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @add_coord_type_option(choices=("cart", "dlc"))
 @add_precision_option()
 @add_deterministic_option()
+@add_allow_charge_mult_mismatch_option()
 @click.pass_context
 def cli(
     ctx: click.Context,

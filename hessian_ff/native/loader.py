@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 import importlib.util
 from importlib import import_module
@@ -180,15 +179,10 @@ def _build_in_tree_extension(
             build_directory=str(build_dir),
             verbose=bool(verbose),
         )
-        # Some cluster conda envs do not provide ninja. Prefer distutils build
-        # in that case instead of failing hard.
-        if shutil.which("ninja") is None:
-            kwargs["use_ninja"] = False
-        try:
-            return load(**kwargs)
-        except TypeError:
-            kwargs.pop("use_ninja", None)
-            return load(**kwargs)
+        # torch >= 2.x JIT-builds these extensions through Ninja (a declared
+        # dependency: the pip ``ninja`` wheel, available on every platform), so it is
+        # always importable and there is no distutils fallback left to attempt.
+        return load(**kwargs)
 
     # Try aggressive CPU flags first, then fall back progressively.
     build_attempts = [

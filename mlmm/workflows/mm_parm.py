@@ -783,10 +783,14 @@ def ambertools_route(
         if rn in AMINO_ACIDS:
             raise RuntimeError(
                 f"Nonstandard amino acid residue '{rn}' is not supported by mm_parm. "
-                "This workflow does not auto-parameterize amino-acid residues. "
-                "Please prepare the parameters manually with AmberTools, edit the "
-                "input structure to use a supported residue, or explicitly list the "
-                "residue in --ligand-charge to force GAFF2 parameterization."
+                "This workflow does not auto-parameterize amino-acid residues. Options: "
+                "(1) explicitly list the residue in --ligand-charge to force GAFF2 "
+                "parameterization; (2) edit the input structure to use a supported residue; or "
+                "(3) for a modified residue / covalent cross-link (which tleap cannot build "
+                "automatically), prepare the topology yourself with tleap (lib/frcmod + a `bond` "
+                "command for the cross-link) and supply it to the compute subcommands via --parm. "
+                "If that parm uses 4-point water (OPC/TIP4P), run with --mm-backend openmm, or "
+                "convert the water to 3-point OPC3 so mlmm-toolkit's default MM backend handles it."
             )
 
         mol2, frcmod = antechamber_parametrize(rn, charge, mult, tmpdir)

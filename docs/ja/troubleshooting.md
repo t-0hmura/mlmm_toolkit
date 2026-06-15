@@ -534,6 +534,18 @@ pip install --no-deps mace-torch      # MACE バックエンド
 
 ---
 
+### `[orb]` のインストールで torch_scatter のビルドに失敗する
+
+**症状:** `pip install "mlmm-toolkit[orb]"` が **torch_scatter** のビルド時に `No module named 'torch'` で失敗する
+
+**対処:** torch_scatter は PyPI にバイナリ wheel がなく（sdist のみ）、PEP517 のビルド分離下ではソースビルドが失敗します。torch+CUDA タグに一致する PyG の prebuilt-wheel インデックスからインストールしてください:
+```bash
+pip install "mlmm-toolkit[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.html
+```
+フォールバック（CUDA ツールチェーンがある場合）: `pip install torch_scatter --no-build-isolation`
+
+---
+
 ### 非 UMA バックエンドで CUDA メモリ不足になる
 
 **症状:** ORB、MACE、AIMNet2 の使用時に `RuntimeError: CUDA out of memory` が発生する

@@ -191,6 +191,44 @@ def add_deterministic_option() -> Callable[[Callable], Callable]:
     return decorator
 
 
+def _allow_charge_mult_mismatch_callback(ctx, param, value):
+    """Eager callback: when --allow-charge-mult-mismatch is set, disable the ML-region
+    electron-parity check process-globally (covers every backend + every in-process child
+    stage of ``all`` without per-stage forwarding, like --deterministic). ``expose_value=False``
+    keeps it out of the command signature."""
+    if ctx.resilient_parsing:
+        return value
+    if value:
+        from mlmm.core.utils import set_allow_charge_mult_mismatch
+        set_allow_charge_mult_mismatch(True)
+    return value
+
+
+def add_allow_charge_mult_mismatch_option() -> Callable[[Callable], Callable]:
+    """Attach ``--allow-charge-mult-mismatch`` to a Click command.
+
+    Skips the ML-region charge/multiplicity electron-parity check (``validate_charge_spin``)
+    and logs that it was skipped. For users who know their (charge, multiplicity) is intentional
+    despite a parity warning -- e.g. a genuinely open-shell ML region, or a covalently-modified
+    residue whose ML/MM cut leaves an unpaired electron. Process-global via an eager, value-less
+    callback, so it propagates to every backend and child stage without per-stage forwarding.
+    """
+    def decorator(func: Callable) -> Callable:
+        return click.option(
+            "--allow-charge-mult-mismatch",
+            is_flag=True,
+            default=False,
+            is_eager=True,
+            expose_value=False,
+            callback=_allow_charge_mult_mismatch_callback,
+            help=(
+                "Skip the ML-region charge/multiplicity electron-parity check (logs that it was "
+                "skipped). For an intentional open-shell or covalently-cut ML region."
+            ),
+        )(func)
+    return decorator
+
+
 def add_ml_charge_spin_options() -> Callable[[Callable], Callable]:
     """Attach the standard ML region charge/spin triple to a Click command.
 

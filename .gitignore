@@ -65,3 +65,6 @@ hessian_ff/native/.build_*/
 optimizer.log
 pysisyphus.log
 dimer.log
+
+# release-process scratch — not distributed in the repo
+RELEASE_NOTES*

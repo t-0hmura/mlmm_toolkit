@@ -41,7 +41,7 @@ from mlmm.core.utils import (
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
     add_precision_option,
-    add_deterministic_option,
+    add_deterministic_option, add_allow_charge_mult_mismatch_option,
     add_print_every_option,
 )
 from mlmm.cli.decorators import (
@@ -195,6 +195,7 @@ EV2AU = 1.0 / AU2EV
 @add_ml_layer_detection_options()
 @add_precision_option()
 @add_deterministic_option()
+@add_allow_charge_mult_mismatch_option()
 @add_print_every_option()
 @click.pass_context
 def cli(

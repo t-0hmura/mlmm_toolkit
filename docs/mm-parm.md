@@ -66,6 +66,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 - **MD snapshot initial structures** -- When starting from an MD trajectory snapshot, reusing the same `.parm7` file from the MD simulation is the most appropriate approach. This ensures consistency between the MM energy surface used for ML/MM and the one used in the preceding MD, avoiding artifacts from re-parameterization (e.g. different partial charges or atom-type assignments).
 - Amino-acid residues listed in `AMINO_ACIDS` but still unrecognized by the selected force field are not handled automatically -- the build aborts with a message asking you to parameterize them manually.
 - `--ff-set ff14SB` switches the force field to ff14SB (proteins) + TIP3P (water) (+ phosaa14SB); the default `ff19SB` set is used otherwise.
+- **4-point water with a virtual site (OPC, TIP4P/-Ew, TIP5P) is _not yet_ supported by mlmm-toolkit's default MM backend** — the massless extra point (Amber `EPW`, element `EP`) is treated as a free atom, so the geometry optimizer stalls. Use a **3-point water model**: the default `ff19SB` set already builds **OPC3** (the recommended 3-point model), and `--ff-set ff14SB` builds TIP3P. To keep 4-point water, run with `--mm-backend openmm`, which places the virtual sites correctly but is slower (finite-difference MM Hessian).
 
 ```bash
 # Example: supply a pre-built topology from MD

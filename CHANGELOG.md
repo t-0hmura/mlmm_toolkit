@@ -6,9 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
-## [0.3.0] — 2026-06-09
+## [0.3.0] — 2026-06-15
 
 ### Changed
+- `--dft-func-basis` is now surfaced in the primary `mlmm <subcmd> --help`
+  (previously only under `--help-advanced`), so the DFT//MLIP functional/basis
+  is discoverable without the advanced listing.
 - Standalone `path-opt` / `path-search` now default to `--preopt` (each MEP
   endpoint is pre-optimized before the search); the previous default was
   `--no-preopt`. The `all` pipeline forwards the flag explicitly and is
@@ -49,6 +52,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   registries.
 
 ### Fixed
+- mlmm-toolkit's default MM backend now declares `ninja` as a dependency. Its C++ kernels are
+  JIT-compiled through `torch.utils.cpp_extension`, which on modern torch requires
+  Ninja and no longer has a distutils fallback, so a clean-env install (e.g. a
+  fresh HPC conda env) could fail at runtime with "native bonded extension is
+  unavailable". Ninja ships as a pip wheel on every platform (incl. linux-aarch64),
+  so the extensions now build out of the box; the dead `use_ninja=False` fallback
+  was removed.
+- OPC / TIP4P 4-point water with a virtual site (Amber `EPW`, element `EP`) is
+  now read and parameterised correctly through the PDB/ASE input layer and the
+  OpenMM MM backend (`computeVirtualSites`), instead of mishandling the massless
+  extra point. (mlmm-toolkit's default MM backend still needs a 3-point model —
+  see `docs/mm-parm.md`.)
 - `orb_precision` now reaches `_OrbBackend` (the kwarg was being silently
   dropped via `**_kwargs`, so `--precision fp64` on the ORB backend
   always ran at the default `float32-high`). The legacy alias
@@ -227,6 +242,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   behaviour change since defaults were always legacy.
 
 ### Documentation
+- Documented that the `[orb]` extra's `torch_scatter` has no PyPI binary wheel
+  (sdist only, fails under PEP517 build isolation): install from PyG's
+  prebuilt-wheel index, e.g.
+  `pip install "mlmm-toolkit[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.html`.
+- Documented the default MM backend's 4-point-water (OPC/TIP4P) limitation and the
+  3-point (OPC3/TIP3P) / `--mm-backend openmm` workarounds in `mm-parm.md`.
 - Removed stray internal authoring notes from in-source comments and
   docs; technical rationale preserved verbatim, no runtime change.
 

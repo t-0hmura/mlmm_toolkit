@@ -34,6 +34,11 @@ dependencies = [
     # mlmm core dependencies
     "fairchem-core",
     "torch~=2.8.0",
+    # hessian_ff JIT-compiles its C++ kernels through torch.utils.cpp_extension,
+    # which on torch >= 2.x requires Ninja and no longer has a distutils fallback.
+    # The pip `ninja` wheel ships a binary for every platform (incl. linux-aarch64),
+    # so depending on it makes a clean-env install build the extensions out of the box.
+    "ninja",
     # No direct mlmm/* import of torch_geometric or torch_scatter; both are
     # listed here to guarantee they install alongside fairchem-core's
     # historical pull-them-in behaviour. fairchem-core 2.19.0 no longer

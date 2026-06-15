@@ -106,7 +106,7 @@ from mlmm.core.utils import (
     parse_layer_indices_from_bfactors,
     collect_single_option_values,
 )
-from mlmm.cli.common_options import add_coord_type_option, add_ml_layer_detection_options, add_precision_option, add_deterministic_option
+from mlmm.cli.common_options import add_coord_type_option, add_ml_layer_detection_options, add_precision_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.cli.preflight import validate_existing_files
 from mlmm.io.trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
@@ -1389,6 +1389,7 @@ def _build_multistep_path(
 @add_ml_layer_detection_options()
 @add_precision_option()
 @add_deterministic_option()
+@add_allow_charge_mult_mismatch_option()
 @click.pass_context
 def cli(
     ctx: click.Context,

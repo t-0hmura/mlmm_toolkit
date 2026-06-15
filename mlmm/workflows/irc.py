@@ -57,7 +57,7 @@ from mlmm.core.utils import (
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
     add_precision_option,
-    add_deterministic_option,
+    add_deterministic_option, add_allow_charge_mult_mismatch_option,
     add_irc_pos_def_option,
 )
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
@@ -275,6 +275,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 @add_ml_layer_detection_options()
 @add_precision_option()
 @add_deterministic_option()
+@add_allow_charge_mult_mismatch_option()
 @add_irc_pos_def_option()
 @click.pass_context
 def cli(
