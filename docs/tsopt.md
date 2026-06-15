@@ -37,8 +37,10 @@ A clean first-order saddle has **exactly one** dominant imaginary mode along the
 
 | Symptom | Fix |
 | --- | --- |
-| Spurious 2nd small imaginary mode, or no dominant reaction mode | Raise precision with `--precision fp64`, **and/or** switch coordinates with `--coord-type dlc`. |
-| Still no clean saddle | Combine both, then verify in `vib/` that the imaginary mode actually moves the reacting atoms. |
+| Spurious 2nd small imaginary mode, or no dominant reaction mode | Raise precision with `--precision fp64`, **and/or** switch coordinates with `--coord-type dlc`, **and/or** flatten the surplus mode with `--flatten`. |
+| Still no clean saddle | Combine them, then verify in `vib/` that the imaginary mode actually moves the reacting atoms. |
+
+`--flatten` runs the surplus-imaginary-mode flattening loop (`grad`: dimer loop; `hess`: post-RS-I-RFO); `--no-flatten` forces `flatten_max_iter=0`. It is most useful when a dominant reaction mode survives alongside a residual tiny one — for example, a mutant chorismate-mutase TS converged to the Claisen mode at −223 cm⁻¹ plus a residual −12.5 cm⁻¹, and `--flatten` drives it to a clean single-imaginary saddle.
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \

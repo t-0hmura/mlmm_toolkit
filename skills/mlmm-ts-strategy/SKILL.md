@@ -38,8 +38,11 @@ A clean first-order saddle = **exactly one** dominant imaginary mode along the r
 
 | Symptom | Action |
 |---|---|
-| Spurious 2nd small imaginary mode, OR no dominant reaction mode | (i) raise precision: `--precision fp64`; AND/OR (ii) switch coordinates: `--coord-type dlc` |
-| Still no clean saddle | combine both; verify the imaginary-mode visualization in `freq/` actually moves the reacting atoms |
+| Spurious 2nd small imaginary mode, OR no dominant reaction mode | (i) raise precision: `--precision fp64`; AND/OR (ii) switch coordinates: `--coord-type dlc`; AND/OR (iii) flatten the surplus mode: `--flatten` |
+| Still no clean saddle | combine them; verify the imaginary-mode visualization in `freq/` actually moves the reacting atoms |
+
+- `--flatten`/`--no-flatten` (`tsopt.py` cli `default=None`): runs the extra-imaginary-mode flattening loop (`grad`: dimer loop; `hess`: post-RS-I-RFO step, triggered when `n_imag > 1`). `--flatten` uses `flatten_max_iter=50`; `--no-flatten` forces `flatten_max_iter=0`. Available on `tsopt`/`all`. Try `fp64` and/or `dlc` first, then add `--flatten` for a residual small mode — they are complementary.
+- Example: a mutant CM TS came out as the dominant Claisen mode −223 cm⁻¹ plus a residual −12.5 cm⁻¹; `--flatten` drives it to a clean single-imaginary saddle.
 
 - `--coord-type` = `click.Choice(['cart','redund','dlc','tric'])`, case-insensitive; `'dlc'` is present verbatim (`common_options.py` `add_coord_type_option`). Effective default `'cart'` (`defaults.py` `GEOM_KW_DEFAULT['coord_type']='cart'`).
 - `dlc` = delocalized internal coordinates: slower but more robust convergence on torsion-rich systems.
