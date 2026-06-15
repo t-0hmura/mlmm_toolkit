@@ -114,6 +114,10 @@ Options:
                                   (deterministic algorithms + index_reduce_
                                   shim). Slower; raises if unsupported. Default
                                   off.
+  --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
+                                  electron-parity check (logs that it was
+                                  skipped). For an intentional open-shell or
+                                  covalently-cut ML region.
   --irc-pos-def / --no-irc-pos-def
                                   Require pos-def Hessian at IRC convergence
                                   (blocks shoulder false-convergence).

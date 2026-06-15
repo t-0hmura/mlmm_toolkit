@@ -127,5 +127,9 @@ Options:
                                   (deterministic algorithms + index_reduce_
                                   shim). Slower; raises if unsupported. Default
                                   off.
+  --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
+                                  electron-parity check (logs that it was
+                                  skipped). For an intentional open-shell or
+                                  covalently-cut ML region.
   -h, --help                      Show this message and exit.
 ```
