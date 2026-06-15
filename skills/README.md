@@ -16,6 +16,14 @@ pattern.
   before touching code.
 - `mlmm-cli`: index of the 22 subcommands plus per-subcommand
   mds (each with synopsis, key flags, examples, output, caveats).
+- `mlmm-barrier-strategy`: cross-cutting decision know-how for a
+  reaction-barrier campaign — precision by GPU class (`--precision`
+  fp32/fp64), the two TS-candidate routes (`path-search` MEP vs
+  distance-restrained `scan`), fixing a wrong imaginary-frequency count
+  (`--precision fp64` / `--coord-type dlc`), reading a barrier when the
+  scan started from the Product side, staged vs concerted `--scan-lists`,
+  and the same-atom-set rule for controlled mutant-vs-WT comparisons
+  (B-factor layer transplant + `--detect-layer`).
 - `mlmm-mcp`: how to drive `mlmm-toolkit` from any MCP client (Claude
   Desktop / Claude Code / Cursor / custom SDK) via the bundled
   `mlmm-mcp` server; lists the 22 MCP tools (including the mlmm-specific

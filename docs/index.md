@@ -15,6 +15,7 @@ quickstart-all
 quickstart-scan-spec
 quickstart-tsopt-freq
 recipes-common-errors
+barrier-strategy
 troubleshooting
 cli-conventions
 reproducibility
@@ -124,6 +125,7 @@ ja/glossary
 | End-to-end pipeline from a PDB | [Quickstart: all](quickstart-all.md) |
 | Single-structure staged scan | [Quickstart: scan](quickstart-scan-spec.md) |
 | TS validation (`tsopt` + freq) | [Quickstart: tsopt](quickstart-tsopt-freq.md) |
+| Precision, TS routes, scan modes, controlled mutant comparison | [Reaction-barrier strategy](barrier-strategy.md) |
 | Symptom-first failure routing | [Common Error Recipes](recipes-common-errors.md) · [Troubleshooting](troubleshooting.md) |
 | CLI conventions, YAML schema | [CLI Conventions](cli-conventions.md) · [YAML Reference](yaml-reference.md) |
 | Python API / ML/MM calculator architecture | [Python API](python-api.md) · [ML/MM Calculator](mlmm-calc.md) |
