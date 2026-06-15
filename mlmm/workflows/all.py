@@ -623,6 +623,81 @@ def _derive_charge_from_ligand_charge_when_extract_skipped(
         return None
 
 
+def _derive_ml_charge_from_layered_pdb(
+    pdb_path: Path,
+    ligand_charge: Optional[str],
+) -> Optional[int]:
+    """Derive the ML-region (B≈0) charge from a B-factor-layered PDB when extraction
+    is skipped (ts-only / no -c), reusing extract's ``compute_charge_summary`` WITH
+    terminal-cap correction at the ML/MM boundary.
+
+    Needed because ML ⊊ system in ONIOM: summing the whole input gives the total
+    system charge (mis-applied as the ML model charge — the ts-only charge bug),
+    while summing only the B≈0 atoms misses the backbone-cut terminal caps (off by
+    the number of cut termini). The cut residues (peptide neighbor not in the ML
+    set) are flagged as N-/C-caps, exactly as the extract path does. Validated:
+    CM r4.0 ML=0, R90A ML=-2. Returns ``None`` on any failure so the caller can
+    fall back to the full-input derivation.
+    """
+    if ligand_charge is None:
+        return None
+    try:
+        from mlmm.workflows.extract import (
+            compute_charge_summary,
+            are_peptide_adjacent,
+            AMINO_ACIDS,
+        )
+
+        parser = PDB.PDBParser(QUIET=True)
+        st = parser.get_structure("complex", str(pdb_path))
+        ml_ids = {
+            r.get_full_id()
+            for r in st.get_residues()
+            if any(abs(a.get_bfactor()) < 0.5 for a in r.get_atoms())
+        }
+        if not ml_ids:
+            return None
+        keep_ncap = set()
+        keep_ccap = set()
+        for res in st.get_residues():
+            fid = res.get_full_id()
+            if fid not in ml_ids or res.get_resname() not in AMINO_ACIDS:
+                continue
+            chain_res = list(res.get_parent().get_residues())
+            idx = chain_res.index(res)
+            prev_aa = next(
+                (chain_res[j] for j in range(idx - 1, -1, -1) if chain_res[j].get_resname() in AMINO_ACIDS),
+                None,
+            )
+            next_aa = next(
+                (chain_res[j] for j in range(idx + 1, len(chain_res)) if chain_res[j].get_resname() in AMINO_ACIDS),
+                None,
+            )
+            if not (prev_aa is not None and are_peptide_adjacent(prev_aa, res) and prev_aa.get_full_id() in ml_ids):
+                keep_ncap.add(fid)
+            if not (next_aa is not None and are_peptide_adjacent(res, next_aa) and next_aa.get_full_id() in ml_ids):
+                keep_ccap.add(fid)
+        summary = compute_charge_summary(
+            st, ml_ids, set(), ligand_charge,
+            keep_ncap_ids=keep_ncap, keep_ccap_ids=keep_ccap,
+        )
+        q_total = float(summary.get("total_charge", 0.0))
+        click.echo(
+            f"[all] ML-region charge from {pdb_path.name} "
+            f"(detect-layer, extraction skipped; cap-corrected): "
+            f"Protein: {summary.get('protein_charge', 0.0):+g},  "
+            f"Ligand: {summary.get('ligand_total_charge', 0.0):+g},  "
+            f"Total: {q_total:+g}"
+        )
+        return _round_charge_with_note(q_total)
+    except Exception as e:
+        click.echo(
+            f"[all] NOTE: cap-aware ML-region charge derivation failed: {e}",
+            err=True,
+        )
+        return None
+
+
 def _pdb_needs_elem_fix(p: Path) -> bool:
     """
     Return True if the PDB has at least one ATOM/HETATM record whose element field (cols 77–78) is empty.
@@ -2461,12 +2536,31 @@ def cli(
         _echo("[all] Pocket inputs (full structures):")
         for op in pocket_outputs:
             _echo(f"  - {op}")
-        # Use --model-pdb for charge derivation when provided (pocket charge),
-        # otherwise fall back to full input PDB.
-        charge_source_pdb = model_pdb_override if model_pdb_override is not None else extract_inputs[0]
-        resolved_charge = _derive_charge_from_ligand_charge_when_extract_skipped(
-            charge_source_pdb, ligand_charge
-        )
+        # Charge derivation when extraction is skipped:
+        #  - --model-pdb provided → derive over that ML pocket PDB.
+        #  - detect-layer with a layered input that actually has MM atoms (ML ⊊
+        #    system) → derive the ML-region (B≈0) charge WITH cap correction.
+        #    Deriving over the full input would mis-apply the whole-system charge
+        #    to the ML/QM region (the ts-only / flatten charge bug: e.g. CM total
+        #    -15 vs ML +0; R90A total -16 vs ML -2). validate_charge_spin only
+        #    catches an electron-parity break, so same-parity cases were silently
+        #    wrong. Reuse extract's compute_charge_summary with backbone-cut caps.
+        #  - otherwise (the whole input IS the model, p2r-style) → full input PDB.
+        resolved_charge = None
+        if model_pdb_override is not None:
+            resolved_charge = _derive_charge_from_ligand_charge_when_extract_skipped(
+                model_pdb_override, ligand_charge
+            )
+        elif detect_layer:
+            _layer_counts = _summarize_existing_bfactor_layers(extract_inputs[0])
+            if _layer_counts.get("movable", 0) > 0 or _layer_counts.get("frozen", 0) > 0:
+                resolved_charge = _derive_ml_charge_from_layered_pdb(
+                    extract_inputs[0], ligand_charge
+                )
+        if resolved_charge is None:
+            resolved_charge = _derive_charge_from_ligand_charge_when_extract_skipped(
+                extract_inputs[0], ligand_charge
+            )
     else:
         _echo_section(
             f"====== [all] Stage 1/{stage_total} — Active-site pocket extraction ======"
