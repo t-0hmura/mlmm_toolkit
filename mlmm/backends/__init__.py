@@ -15,7 +15,7 @@ User-facing API (factory pattern, per-backend kwargs, unified
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 # Backend-specific value domain for the unified ``--precision`` CLI flag.
 # Routes the user-facing `fp32` / `fp64` choice to each backend's native
@@ -36,17 +36,27 @@ _PRECISION_DISPATCH: Dict[str, Dict[str, tuple]] = {
 }
 
 
-def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: str) -> None:
+def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[str] = None) -> None:
     """Route the unified ``--precision`` CLI value into backend-specific kwargs.
 
     Mutates ``calc_cfg`` in place; for aimnet2 fp32 is a no-op and fp64
     is rejected (its model inputs are cast to float32 upstream).
     Raises ``ValueError`` for invalid values.
+
+    Also consumes (pops) any raw ``precision`` token already sitting in
+    ``calc_cfg`` — e.g. one propagated through a ``--config`` YAML. The raw
+    token is NOT a Calculator kwarg, so leaving it in would leak to
+    ``Calculator(**calc_cfg)`` as an unexpected keyword. It is popped here and
+    used as the value when no explicit ``precision`` argument is passed, so a
+    YAML-propagated precision is still honoured (no silent fp32 fallback).
     """
-    val = str(precision or "").lower()
+    raw = calc_cfg.pop("precision", None)
+    val = str((precision if precision is not None else raw) or "").lower()
+    if not val:
+        return  # no precision requested via arg or config → keep backend defaults
     if val not in _PRECISION_DISPATCH:
         raise ValueError(
-            f"--precision must be 'fp32' or 'fp64', got {precision!r}"
+            f"--precision must be 'fp32' or 'fp64', got {precision if precision is not None else raw!r}"
         )
     backend = str(calc_cfg.get("backend") or "uma").strip().lower()
     mapping = _PRECISION_DISPATCH[val]

@@ -375,12 +375,16 @@ def _inject_coord_type_into_args_yaml(
         if not isinstance(calc_cfg, dict):
             calc_cfg = {}
         calc_cfg = dict(calc_cfg)
-        # mlmm backends consume the per-backend native kwarg directly
-        # (apply_precision_to_calc_cfg routes --precision to uma_precision /
-        # orb_precision / mace_dtype). For YAML propagation we write the
-        # user-facing token under ``precision`` and let the sub-stage's CLI
-        # apply_precision_to_calc_cfg do the per-backend translation.
-        calc_cfg["precision"] = precision
+        # Translate --precision into the per-backend NATIVE kwarg
+        # (uma_precision / orb_precision / mace_dtype) HERE and write THAT into
+        # the args YAML. Writing the raw ``precision`` token instead leaks an
+        # unknown kwarg into a sub-stage's Calculator(**calc_cfg) whenever that
+        # stage's own --precision is unset (the stage does not re-translate the
+        # YAML token), raising "Calculator.__init__() got an unexpected keyword
+        # argument 'precision'". apply_precision_to_calc_cfg also pops any stray
+        # raw ``precision`` key, keeping calc_cfg Calculator-clean.
+        from mlmm.backends import apply_precision_to_calc_cfg
+        apply_precision_to_calc_cfg(calc_cfg, precision)
         cfg["calc"] = calc_cfg
 
     with tempfile.NamedTemporaryFile(
