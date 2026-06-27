@@ -182,13 +182,13 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 
 # --- Determinism gate ---
 
-# test44: `all` pipeline determinism monitor (ONIOM end-to-end).
-# Runs the full pipeline twice with identical inputs / args and reports how many
-# .pdb / .xyz outputs drift between the two runs. Determinism is best-effort:
-# default fp32/fp64 GPU runs carry ~ULP scatter/atomic non-determinism, and the
-# only way to bit-exactness would be a discouraged monkey-patch path, so this is
-# an informational monitor and never gates the smoke.
-det_args="-i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft"
+# test44: `all` pipeline determinism GATE (`--deterministic`, ONIOM end-to-end).
+# Runs the full pipeline twice with identical inputs / args + `--deterministic`
+# and REQUIRES the two runs to be bit-identical. Default (non-deterministic) GPU
+# runs carry ~ULP scatter/atomic non-determinism and are not asserted here;
+# `--deterministic` enables torch deterministic algorithms and MUST be
+# bit-reproducible, so any drift is a real regression and fails the smoke.
+det_args="-i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --deterministic"
 mlmm all $det_args --out-dir test44_a > test44_a.out 2>&1
 mlmm all $det_args --out-dir test44_b > test44_b.out 2>&1
 {
@@ -202,9 +202,13 @@ mlmm all $det_args --out-dir test44_b > test44_b.out 2>&1
       cmp -s "$path_a" "$path_b" || { drifted=$((drifted + 1)); echo "DRIFT: $rel"; }
     fi
   done < <(find test44_a -type f \( -name "*.pdb" -o -name "*.xyz" \))
-  echo "[det_check] all pipeline: compared $total .pdb/.xyz file(s); $drifted differ"
-  echo "[det_check] informational only (determinism is best-effort; not gating)."
+  echo "[det_check] all pipeline (--deterministic): compared $total .pdb/.xyz file(s); $drifted differ"
 } > test44.out 2>&1
+if [ "${drifted:-0}" -ne 0 ]; then
+  echo "[smoke] FAIL test44: --deterministic runs are not bit-reproducible ($drifted file(s) differ)"
+  cat test44.out
+  exit 1
+fi
 
 # --- --coord-type CLI plumbing (throttled, fast) ---
 
@@ -277,6 +281,9 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --coord-type
 
 # test50m: opt --precision fp64 (UMA backend, alternate precision)
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --precision fp64 --max-cycles 3 --thresh gau_loose --out-dir test50m_opt_fp64 > test50m_opt_fp64.out 2>&1
+
+# test50n: opt --precision fp32 (explicit fp32 dispatch; default is fp32, this pins the explicit path alongside test50m fp64)
+mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --precision fp32 --max-cycles 3 --thresh gau_loose --out-dir test50n_opt_fp32 > test50n_opt_fp32.out 2>&1
 
 # test50n: opt --mm-backend openmm (alternate MM backend; analytical Hessian path → FD)
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 3 --thresh gau_loose --out-dir test50n_opt_openmm > test50n_opt_openmm.out 2>&1
