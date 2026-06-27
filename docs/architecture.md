@@ -109,7 +109,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L1 `cli/`**. Only this layer constructs Click commands and parses argv. `app.py` holds the root `Click.Group` plus the `_LAZY_SUBCOMMANDS` registry — every entry uses an **absolute module path** (`mlmm.workflows.all`, `mlmm.io.trj2fig`, …) so the resolver is independent of where `default_group.py` itself lives. The `mlmm`-specific `preflight.py` (AmberTools / conda env / GPU preflight) lives here because it runs during CLI startup before any L2 workflow is invoked.
 
-**L2 `workflows/`** (~18 files). One file per subcommand. Each file owns a single `@click.command()` named `cli` and its private helpers. Large stage runners (`all.py` = 4,147 LOC, `path_search.py` = 2,348 LOC, `tsopt.py` = 3,068 LOC, `extract.py` = 2,321 LOC, `oniom_export.py` = 2,002 LOC) remain as single files in the current layout; future work may split them into per-stage subdirectories, but this is **opt-in** and out of scope for this release line.
+**L2 `workflows/`** (~18 files). One file per subcommand. Each file owns a single `@click.command()` named `cli` and its private helpers. Large stage runners (`all.py` = 4,414 LOC, `path_search.py` = 2,352 LOC, `tsopt.py` = 3,181 LOC, `extract.py` = 2,274 LOC, `oniom_export.py` = 2,027 LOC) remain as single files in the current layout; future work may split them into per-stage subdirectories, but this is **opt-in** and out of scope for this release line.
 
 **L3 `domain/`**. Chemistry-aware helper logic that may import `torch` / `numpy` / `pysisyphus.constants` (numeric back-ends), but **may not import** machine-learning interatomic potential (MLIP) runtimes (`fairchem`, `orb_models`, `mace`, `aimnet`). Two distinct CI gates cover this, both in `.github/scripts/check_engineering_markers.py`:
 
@@ -171,7 +171,7 @@ For a contributor opening the repo for the first time, follow this path top-to-b
 | 1 | 3 | [`README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/README.md) | one-paragraph elevator pitch + single-command usage |
 | 2 | 5 | this file (`docs/architecture.md`) §2 + §4 | 6-layer dir tree, dependency direction, where each concern lives |
 | 3 | 5 | [`mlmm/cli/app.py`](../mlmm/cli/app.py) | Click root group, `_LAZY_SUBCOMMANDS` registry (≈ 18 entries), absolute-path resolution |
-| 4 | 20 | [`mlmm/workflows/all.py`](../mlmm/workflows/all.py) (4,147 LOC, skim) | one full subcommand top-to-bottom; trace `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft` |
+| 4 | 20 | [`mlmm/workflows/all.py`](../mlmm/workflows/all.py) (4,414 LOC, skim) | one full subcommand top-to-bottom; trace `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft` |
 | 5 | 7 | [`CONTRIBUTING.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md) §3 + §4 | 5 add-a-X recipes + the "do not touch" hidden constraints |
 
 After step 5 you can read any other file by following the file index in §4. The package is intentionally **flat-within-each-layer** — there is no nested package below `mlmm/<layer>/` (other than the future split of `backends/mlmm_calc/` into per-backend modules), so you never need to navigate more than two directories deep.

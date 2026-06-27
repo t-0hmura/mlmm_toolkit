@@ -107,7 +107,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L1 `cli/`**。このレイヤーだけが Click コマンドを構築し argv をパースします。`app.py` はルートの `Click.Group` と `_LAZY_SUBCOMMANDS` レジストリを保持します — すべてのエントリが **絶対モジュールパス** (`mlmm.workflows.all`、`mlmm.io.trj2fig`、…) を使用するため、リゾルバは `default_group.py` 自体の置き場所に依存しません。`mlmm` 固有の `preflight.py` (AmberTools / conda env / GPU preflight) がここにあるのは、CLI 起動時、いかなる L2 ワークフローが呼び出されるよりも前に実行されるためです。
 
-**L2 `workflows/`** (~18 ファイル)。サブコマンドごとに 1 ファイル。各ファイルは `cli` という名前の単一の `@click.command()` とそのプライベートヘルパーを所有します。大きなステージランナー (`all.py` = 4,147 LOC、`path_search.py` = 2,348 LOC、`tsopt.py` = 3,068 LOC、`extract.py` = 2,321 LOC、`oniom_export.py` = 2,002 LOC) は現在のレイアウトでは単一ファイルのまま残されています。将来的にはステージごとのサブディレクトリへ分割する可能性がありますが、これは **opt-in** であり、本リリースラインのスコープ外です。
+**L2 `workflows/`** (~18 ファイル)。サブコマンドごとに 1 ファイル。各ファイルは `cli` という名前の単一の `@click.command()` とそのプライベートヘルパーを所有します。大きなステージランナー (`all.py` = 4,414 LOC、`path_search.py` = 2,352 LOC、`tsopt.py` = 3,181 LOC、`extract.py` = 2,274 LOC、`oniom_export.py` = 2,027 LOC) は現在のレイアウトでは単一ファイルのまま残されています。将来的にはステージごとのサブディレクトリへ分割する可能性がありますが、これは **opt-in** であり、本リリースラインのスコープ外です。
 
 **L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。この deny list は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーはこれとは異なる CI ゲート (`_check_domain_pure`) であり、MLIP-free を保つ必要があるバックエンド非依存の特定モジュール — `backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py` (および `workflows/sp.py` に存在) — をフラグします。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
 
@@ -164,7 +164,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | 1 | 3 | [`README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/README.md) | 1 段落のエレベーターピッチ + 単一コマンドの使用法 |
 | 2 | 5 | このファイル (`docs/architecture.md`) §2 + §4 | 6 レイヤーのディレクトリツリー、依存方向、各関心事の所在 |
 | 3 | 5 | [`mlmm/cli/app.py`](../../mlmm/cli/app.py) | Click ルートグループ、`_LAZY_SUBCOMMANDS` レジストリ (≈ 18 エントリ)、絶対パス解決 |
-| 4 | 20 | [`mlmm/workflows/all.py`](../../mlmm/workflows/all.py) (4,147 LOC, skim) | 1 つの完全なサブコマンドを上から下まで。`extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft` をトレース |
+| 4 | 20 | [`mlmm/workflows/all.py`](../../mlmm/workflows/all.py) (4,414 LOC, skim) | 1 つの完全なサブコマンドを上から下まで。`extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft` をトレース |
 | 5 | 7 | [`CONTRIBUTING.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md) §3 + §4 | 5 つの add-a-X レシピ + 「触るな」の隠れた制約 |
 
 ステップ 5 のあとは、§4 のファイルインデックスをたどることで他のどのファイルも読めます。このパッケージは意図的に **各レイヤー内でフラット** です — `mlmm/<layer>/` 配下にネストしたパッケージはありません (`backends/mlmm_calc/` をバックエンドごとのモジュールへ分割する将来計画を除く)。したがって 2 ディレクトリより深くナビゲートする必要は決してありません。

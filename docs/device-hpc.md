@@ -158,7 +158,7 @@ mlmm opt \
 
 ### Key points
 
-- **Single GPU:** mlmm-toolkit uses one GPU per job. Request `gpus=1` (PBS) or `--gres=gpu:1` (Slurm).
+- **Single GPU for ML:** ML inference runs on one GPU. Request `gpus=1` (PBS) or `--gres=gpu:1` (Slurm); request a second GPU only if you place the OpenMM MM backend on a separate CUDA device (`mm_device: cuda`, `mm_cuda_idx: 1`).
 - **CPU threads:** Request enough CPUs for the MM backend (`mm_threads`, default 16). Set `ppn=32` (PBS) or `--cpus-per-task=32` (Slurm) for safety margin.
 - **Memory:** 120 GB is typically sufficient for enzyme active-site models. Increase for very large systems.
 - **CUDA module:** Load CUDA **before** activating conda to ensure PyTorch finds the correct CUDA runtime.
@@ -182,7 +182,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 
 ## Limitations
 
-- **No multi-GPU parallelism:** mlmm-toolkit runs on a single GPU.
+- **No ML multi-GPU parallelism:** ML inference runs on a single GPU. The OpenMM MM backend may use a separate CUDA device (`mm_device: cuda`, `mm_cuda_idx`); the default hessian_ff MM backend is CPU-only.
 - **No distributed computing:** All calculations run within a single process on a single node.
 - **hessian_ff is CPU-only:** The default MM backend always runs on CPU regardless of `mm_device` setting.
 

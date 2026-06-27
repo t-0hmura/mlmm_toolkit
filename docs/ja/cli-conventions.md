@@ -306,7 +306,8 @@ pip install --no-deps mace-torch      # MACE バックエンド
 | `opt` | `grad`（`light`, `lbfgs`） | `hess`（`heavy`, `rfo`） | `grad` | L-BFGS / RFO（任意で `--microiter`）。 |
 | `tsopt` | `grad`（`light`, `dimer`） | `hess`（`heavy`, `rsirfo`） | `hess` | Dimer / RS-I-RFO。 |
 | `path-search` | `grad`（= L-BFGS） | —（`hess` / `rfo` は未配線で Click エラー） | `grad` | GSM / DMF ノードの内部ストリングオプティマイザ。`path-opt` には `--opt-mode` がなく、`--mep-mode gsm`/`dmf` を使います。 |
-| `scan` / `scan2d` / `scan3d` | — | — | — | `--opt-mode` なし。緩和は YAML の内部オプティマイザを使用。 |
+| `scan` | `grad`（`lbfgs`/`light`） | — | — | `--opt-mode` は L-BFGS の互換別名としてのみ受理され、それ以外のグリッド緩和は YAML の内部オプティマイザに従う。 |
+| `scan2d` / `scan3d` | — | — | — | `--opt-mode` なし。緩和は YAML の内部オプティマイザを使用。 |
 
 `light` / `heavy` は `grad` / `hess` の別名として受理されますが、新しいスクリプトでは `grad` / `hess` を推奨します。
 

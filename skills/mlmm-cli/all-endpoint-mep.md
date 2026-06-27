@@ -114,7 +114,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |

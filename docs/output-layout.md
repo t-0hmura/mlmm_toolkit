@@ -41,7 +41,7 @@ A subcommand run on its own writes a **flat** result directory. The same writer,
 
 - **Standalone subcommand** → flat `result_<subcmd>/` with the files above. There is no `segments/` and no `_work/` — those appear only when `all` coordinates several writers in one run.
 - **Inside `all`, leaf writers nest unchanged.** A per-segment leaf output at `segments/seg_NN/<subcmd>/` is structurally identical to the standalone `result_<subcmd>/`; `all` just points the writer at a different directory.
-- **`path-search` / `path-opt` are the engine exception.** Run standalone, `path-search` is itself a deliverable (`result_path_search/` with its own `summary.log`, `mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`). Inside `all`, its raw output is engine scratch under `_work/path_search/`; the merged products (`mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the pipeline root and `summary.{json,log}` copied there. This asymmetry is intentional.
+- **`path-search` / `path-opt` are the engine exception.** Run standalone, `path-search` is itself a deliverable (`result_path_search/` with its own `summary.log`, `mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`). Inside `all`, its raw output is engine scratch under `_work/path_opt/` (`_work/path_search/` only with `--refine-path`); the merged products (`mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the pipeline root and `summary.{json,log}` copied there. This asymmetry is intentional.
 
 The `all` tree therefore has three zones:
 
@@ -59,10 +59,10 @@ result_all/
 │     └─ ts/ · irc/ · freq/ · dft/ · structures/    # per-stage working files (--tsopt / --thermo / --dft)
 └─ _work/                                      # pipeline scratch (safe to remove)
    ├─ pockets/ · scan/
-   └─ path_search/                             # raw MEP-engine output (path_opt/ with --no-refine-path)
+   └─ path_opt/                                # raw MEP-engine output (path_search/ with --refine-path)
 ```
 
-In TSOPT-only mode there is no MEP stage, so `_work/path_search/` is absent and the deliverables live under `segments/seg_01/`. See [all](all.md) for the full per-mode breakdown.
+In TSOPT-only mode there is no MEP stage, so `_work/path_opt/` is absent and the deliverables live under `segments/seg_01/`. See [all](all.md) for the full per-mode breakdown.
 
 ## Agent recipe
 

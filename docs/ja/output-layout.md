@@ -41,7 +41,7 @@
 
 - **単独サブコマンド** → 上記のファイルを含むフラットな `result_<subcmd>/`。`segments/` も `_work/` もありません。これらは `all` が 1 回の実行で複数のライターを協調させるときのみ現れます。
 - **`all` の内部では、リーフライターはそのままネストされます。** `segments/seg_NN/<subcmd>/` のセグメント別リーフ出力は、単独の `result_<subcmd>/` と構造的に同一です。`all` はライターの出力先を別のディレクトリに向けているだけです。
-- **`path-search` / `path-opt` はエンジン側の例外です。** 単独実行では `path-search` 自体が成果物です（`result_path_search/` に独自の `summary.log`、`mep.pdb`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png` を持ちます）。`all` の内部では、その生の出力は `_work/path_search/` 以下のエンジン用スクラッチであり、マージされた成果物（`mep.pdb`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）はパイプラインのルートに移動され、`summary.{json,log}` がそこにコピーされます。この非対称性は意図的なものです。
+- **`path-search` / `path-opt` はエンジン側の例外です。** 単独実行では `path-search` 自体が成果物です（`result_path_search/` に独自の `summary.log`、`mep.pdb`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png` を持ちます）。`all` の内部では、その生の出力は `_work/path_opt/` 以下のエンジン用スクラッチであり（`--refine-path` 指定時のみ `_work/path_search/`）、マージされた成果物（`mep.pdb`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）はパイプラインのルートに移動され、`summary.{json,log}` がそこにコピーされます。この非対称性は意図的なものです。
 
 したがって `all` のツリーには 3 つのゾーンがあります。
 
@@ -59,10 +59,10 @@ result_all/
 │     └─ ts/ · irc/ · freq/ · dft/ · structures/    # per-stage working files (--tsopt / --thermo / --dft)
 └─ _work/                                      # pipeline scratch (safe to remove)
    ├─ pockets/ · scan/
-   └─ path_search/                             # raw MEP-engine output (path_opt/ with --no-refine-path)
+   └─ path_opt/                                # raw MEP-engine output (path_search/ with --refine-path)
 ```
 
-TSOPT のみのモードでは MEP ステージがないため、`_work/path_search/` は存在せず、成果物は `segments/seg_01/` 以下に置かれます。モードごとの完全な内訳は [all](all.md) を参照してください。
+TSOPT のみのモードでは MEP ステージがないため、`_work/path_opt/` は存在せず、成果物は `segments/seg_01/` 以下に置かれます。モードごとの完全な内訳は [all](all.md) を参照してください。
 
 ## エージェント向けレシピ
 
