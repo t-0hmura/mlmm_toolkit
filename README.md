@@ -38,8 +38,8 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 | Component | Requirement |
 |---|---|
 | OS / Python | Linux recommended; native Windows unsupported (AmberTools/`tleap` unavailable). Python >= 3.11. |
-| GPU / CUDA / VRAM | NVIDIA GPU, CUDA >= 12.6 (12.8~ recommended; required for RTX 50-series). 8 GB~ VRAM recommended. |
-| RAM / Disk | 32 GB~ RAM recommended; 20 GB free disk for the conda env, AmberTools, UMA cache, and artifacts. |
+| GPU / CUDA / VRAM | NVIDIA GPU, CUDA >= 12.6 (12.8+ recommended; required for RTX 50-series). 8 GB+ VRAM recommended. |
+| RAM / Disk | 32 GB+ RAM recommended; 20 GB free disk for the conda env, AmberTools, UMA cache, and artifacts. |
 
 Required external tools: **AmberTools** (`tleap`) and **pdbfixer** — `conda install -c conda-forge ambertools pdbfixer -y`. CPU-only execution works for setup commands but is 10–100× slower for any ML/MM dynamics or Hessian step. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
 
@@ -168,7 +168,7 @@ Agent Skills for Claude Code / Codex / Cursor etc. in [`skills/`](skills/) — c
 ## Known limitations
 
 - **MACE + UMA cannot coexist** (`e3nn` version conflict). Use separate conda envs.
-- **DFT single-point** is practical to ~500 ML-region atoms; larger regions need high computational cost.
+- **DFT single-point** is practical to ~500 ML-region atoms; larger regions incur high computational cost.
 - **ORB backend** sometimes converges TS with extra soft imaginary modes — prefer UMA / MACE for clean single-saddle spectra.
 - **CPU-only execution** is 10–100× slower than GPU; AmberTools (`tleap`) is required for `mm-parm`.
 

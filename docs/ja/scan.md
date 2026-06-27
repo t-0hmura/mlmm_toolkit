@@ -231,7 +231,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 | 順方向バリア | `E(TS) − E(reactant)` |
 | 逆方向バリア（生成物始点の生の値） | `E(TS) − E(product)` |
 
-これは*読み取り時*の解釈であり、CLI フラグではありません。どちらの端点が反応物か生成物かは、スキャン方向を信頼せず、IRC の `segments/seg_NN/{reactant,product}.pdb` を読んで必ず確認してください。生成物始点のキャンペーンでは、欲しい順方向バリアは `E(TS) − E(reactant)` であり、生成物始点に対して印字される値ではありません。
+これは*読み取り時*の解釈であり、CLI フラグではありません。どちらの端点が反応物か生成物かは、スキャン方向を信頼せず、IRC の `segments/seg_NN/{reactant,product}.pdb` を読んで必ず確認してください。生成物始点の計算では、欲しい順方向バリアは `E(TS) − E(reactant)` であり、生成物始点に対して印字される値ではありません。
 
 ## YAML 設定
 

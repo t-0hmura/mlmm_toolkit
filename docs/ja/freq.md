@@ -1,6 +1,6 @@
 # `freq`
 
-層状の酵素 PDB に対して、PHVA（部分ヘシアン振動解析、partial-Hessian vibrational analysis）対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。
+層を定義した酵素 PDB に対して、PHVA（部分ヘシアン振動解析、partial-Hessian vibrational analysis）対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。
 
 **`mlmm freq` を使う場面:**
 

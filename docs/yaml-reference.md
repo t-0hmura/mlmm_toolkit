@@ -363,7 +363,7 @@ stopt:
 **Notes:**
 - `stopt.lbfgs` configures the single-structure L-BFGS optimizer used for
   HEI+/-1 endpoint optimization and kink node optimization within path-search.
-  Only L-BFGS is consumed at this nested level; an `stopt.rfo:` block is not honored.
+  Only L-BFGS is consumed at this nested level; a `stopt.rfo:` block is not honored.
 - The outer `stopt` keys control the string optimizer (GS or DMF wrapper)
 
 ---
