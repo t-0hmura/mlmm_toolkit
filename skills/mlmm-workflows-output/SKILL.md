@@ -1,6 +1,6 @@
 ---
 name: mlmm-workflows-output
-description: Output parsing and multi-step workflow selection for mlmm-toolkit — `summary.json` schema, R/TS/P/IM canonical paths, `bond_changes` interpretation, energy-diagram conventions, and the cluster + 1-step / multistep / scan-list / endpoint-MEP / TS-only / DFT//ML/MM recipes used to extract numerical results. TRIGGER on output parsing (`summary.json`, `result.json`, `seg_NN/`), extracting barriers / ΔE / Gibbs for a paper, or choosing between multi-input / scan-list / endpoint-MEP / TS-only modes. SKIP for single-subcommand syntax (CLI skill) or install / HPC questions.
+description: Output parsing and multi-step workflow selection for mlmm-toolkit — `summary.json` schema, R/TS/P/IM canonical paths, `bond_changes` interpretation, energy-diagram conventions, and the cluster + 1-step / multistep / scan-list / endpoint-MEP / TS-only / DFT//ML/MM / stage-by-stage (subcommand-only, gate each stage) recipes used to extract numerical results. TRIGGER on output parsing (`summary.json`, `result.json`, `seg_NN/`), extracting barriers / ΔE / Gibbs for a paper, choosing between multi-input / scan-list / endpoint-MEP / TS-only modes, or running the pipeline subcommand-by-subcommand with a success check at each stage (instead of one `all` run). SKIP for single-subcommand syntax (CLI skill) or install / HPC questions.
 ---
 
 # mlmm-toolkit Workflows and Output Parsing
@@ -119,6 +119,79 @@ mlmm dft -i seg_01/product.pdb  -l '...' --func-basis '...' -o dft_P
 ```
 
 Composite the energies with `energy-diagram` (see below).
+
+## Stage-by-stage execution (subcommand-only, gate each stage)
+
+Run the pipeline as separate subcommands instead of one `mlmm all` when you want to
+**judge each stage's success before spending GPU time on the next** — e.g. confirm
+path-search found the right segments / bond changes before optimizing a TS, or validate
+the TS (one imaginary mode + correct IRC connectivity) before thermo / DFT. `mlmm all`
+runs exactly this chain unconditionally:
+
+```
+extract → [mm-parm] → path-search → (per reactive seg) tsopt → freq → irc → [freq R/TS/P] → [dft] → energy-diagram
+```
+
+**mlmm carry-through**: every ML/MM-evaluating stage needs the *same* `--parm` + layer
+definition (`--detect-layer` on a B-factor-encoded PDB, or `--model-pdb` / `--model-indices`)
+and the *same* `-l` / `-q` / `-m`. Pass them on every command. After each stage, read its
+`result.json` / `summary.json` `status` and gate before continuing.
+
+**Stage 0 — prep** (only from a full enzyme PDB; most staged campaigns start from
+already-prepared R/P cluster PDBs + parm7): generate topology, cut the pocket, encode
+layers with `mm-parm` → `extract` → `define-layer` (flags in
+`mlmm-cli/{mm-parm,extract,define-layer}.md`). **GATE**: `real.parm7` written and the
+pocket PDB carries the intended ML atoms + layer B-factors (0/10/20).
+
+**Stage 1 — MEP (`path-search`)**
+
+```bash
+mlmm path-search -i 1.R.pdb 3.P.pdb --parm real.parm7 --detect-layer \
+    -l 'SAM:1,GPP:-3' -b uma -o ps/
+```
+
+**GATE** (`ps/summary.json`): `status == "success"`; inspect `n_segments` and EACH
+segment's `bond_changes` — the intended bonds must be *formed AND broken* for the right
+atoms (`mlmm-cli/bond-summary.md`, `mlmm-ts-strategy/SKILL.md`). Wrong segmentation /
+spurious changes → fix chemistry or inputs **before** any TS work (don't optimize a TS
+for the wrong step).
+
+**Stage 2 — per reactive segment: TS → validate → connectivity** (seed = `ps/hei_seg_NN.xyz`)
+
+```bash
+mlmm tsopt -i ps/hei_seg_NN.xyz               --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma -o seg_NN/tsopt
+mlmm freq  -i seg_NN/tsopt/final_geometry.xyz --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma -o seg_NN/freq
+mlmm irc   -i seg_NN/tsopt/final_geometry.xyz --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma -o seg_NN/irc
+```
+
+**GATE** in order: tsopt `result.json` `status` is `converged` (or `completed`; not
+`not_converged`) → freq `result.json` `n_imaginary == 1` (exactly one imaginary frequency)
+whose mode moves the reacting atoms (0 or >1 → fix via fp64 / `--coord-type dlc` /
+`--flatten`, see `mlmm-ts-strategy/SKILL.md` §3, before trusting the barrier) → irc
+`result.json` `status == "completed"` and forward/backward endpoints connect the **intended**
+R and P (bond changes match this step). A TS that fails any gate is not this elementary step.
+
+**Stage 3 — thermochemistry** (optional, = `all --thermo`): run `mlmm freq` on R / TS / P
+for the Gibbs/QRRHO profile (`post_segments[i].gibbs_uma`).
+
+**Stage 4 — DFT//ML/MM** (optional, = `all --dft`):
+
+```bash
+mlmm dft -i seg_NN/reactant.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' -o seg_NN/dft/R   # repeat for ts, product
+```
+
+**GATE**: each `dft/<state>/result.json` shows `"converged": true`.
+
+**Stage 5 — energy diagram**
+
+```bash
+mlmm energy-diagram -i 0.0 -i 21.5 -i -0.7 --label-x R --label-x TS --label-x P -o diagram.png
+```
+
+> Resuming after a walltime hit uses these same commands — see `mlmm-cli/all.md`
+> "Resume / restart". On any non-success status read `summary.log`, then
+> `segments/seg_NN/<stage>/result.json`, before retrying. Large IRC/freq (n ≳ 4000
+> atoms) on a 16 GB GPU can OOM — run pysisyphus `bofill_update` on CPU.
 
 ## summary.json schema (`mlmm all` output)
 
