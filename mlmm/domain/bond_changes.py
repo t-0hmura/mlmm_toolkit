@@ -26,33 +26,33 @@ Algorithm (core logic):
 - Classification:
     - Formed: `(~A1) & A2 & need_change`
     - Broken:  `A1 & (~A2) & need_change`
-- Distances: pairwise matrices `D1`, `D2` via `torch.cdist`.
+- Distances: row-chunked `torch.cdist` (rows processed in blocks) to bound peak memory to O(N·chunk); the full N×N matrices are not materialized.
 
 Public API:
 - `compare_structures(geom1, geom2, device='cuda', bond_factor=1.20, margin_fraction=0.05, delta_fraction=0.05) -> BondChangeResult`
-  Detects formed and broken covalent bonds. Returns sets of zero-based index pairs and (by default) the full distance matrices (`numpy.ndarray`) in the same units as the inputs (Bohr in pysisyphus).
+  Detects formed and broken covalent bonds. Returns sets of zero-based index pairs plus `changed_lengths` (per-pair lengths in Bohr for the changed pairs only). The full distance matrices (`distances_1/2`) are no longer materialized or returned (memory-bounded path).
 - `summarize_changes(geom, result, one_based: bool = True) -> str`
   Builds a human-readable report:
   - Sections: “Bond formed” and “Bond broken” (with counts).
   - Lines formatted as `ElemI-ElemJ` with atom indices (1-based by default, e.g., `C1-O2`).
-  - If `result.distances_1/2` are present, prints bond lengths as `D1 Å --> D2 Å`, converting from Bohr using `pysisyphus.constants.BOHR2ANG`.
+  - Bond lengths come from `result.changed_lengths` (sparse per-pair map, preferred) or, when present, the full `result.distances_1/2` matrices; printed as `D1 Å --> D2 Å`, converting from Bohr using `pysisyphus.constants.BOHR2ANG`.
 - Helper utilities (internal):
   - `_resolve_device(device: str) -> torch.device`: chooses the requested device; falls back to CPU with a warning if unavailable.
   - `_element_arrays(atoms) -> (elems, cov_radii)`: normalizes element symbols and looks up covalent radii.
-  - `_upper_pairs_from_mask(mask) -> Set[Tuple[int, int]]`: returns index pairs where `mask` is True (assumes an upper-triangular mask).
   - `_bond_str(i, j, elems, one_based=True) -> str`: formats `ElemI-ElemJ` labels.
 - Data container:
   - `BondChangeResult`:
     - `formed_covalent: Set[Tuple[int, int]]` — zero-based pairs for bonds formed.
     - `broken_covalent: Set[Tuple[int, int]]` — zero-based pairs for bonds broken.
-    - `distances_1: Optional[np.ndarray]`, `distances_2: Optional[np.ndarray]` — square distance matrices (shape N×N).
+    - `distances_1: Optional[np.ndarray]`, `distances_2: Optional[np.ndarray]` — full N×N distance matrices; `None` by default (memory-bounded path).
+    - `changed_lengths: Optional[Dict[Tuple[int, int], Tuple[float, float]]]` — per-pair (d1, d2) lengths in Bohr for the changed pairs only.
 
 Outputs (& Directory Layout)
 -----
 - No files or directories are created.
 - `compare_structures` returns a `BondChangeResult` as described above.
 - `summarize_changes` returns a multi-line string; typical headings:
-  - `Bond formed (k):` followed by `ElemI-ElemJ : D1 Å --> D2 Å` (if distances available).
+  - `Bond formed (k):` followed by `ElemI-ElemJ : D1 Å --> D2 Å` (when lengths available).
   - `Bond broken (m):` followed by lines in the same format.
   - If a set is empty, the section reads `None`.
 
@@ -72,7 +72,7 @@ Notes:
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Iterable, Tuple, Set, List, Optional
+from typing import Iterable, Tuple, Set, List, Optional, Dict
 
 import warnings
 import torch
@@ -92,11 +92,9 @@ class BondChangeResult:
     broken_covalent: Set[Pair]
     distances_1: Optional[np.ndarray] = None
     distances_2: Optional[np.ndarray] = None
-
-
-def _upper_pairs_from_mask(mask: torch.Tensor) -> Set[Pair]:
-    idx = torch.nonzero(mask, as_tuple=False).detach().cpu().numpy()
-    return set(map(tuple, idx))
+    # Sparse per-pair lengths (Bohr) for the changed pairs only; populated when
+    # the full distance matrices are not materialized (memory-bounded path).
+    changed_lengths: Optional[Dict[Pair, Tuple[float, float]]] = None
 
 
 def _element_arrays(atoms: Iterable[str]) -> Tuple[List[str], np.ndarray]:
@@ -158,31 +156,57 @@ def compare_structures(
     R2 = torch.as_tensor(geom2.coords3d, dtype=dtype, device=dev)
     cov = torch.as_tensor(cov_np, dtype=dtype, device=dev)
 
-    T_cov = bond_factor * (cov[:, None] + cov[None, :])
-    eps_cov = margin_fraction * T_cov
+    # Row-chunked covalent bond-change detection. A dense formulation needs ~10
+    # simultaneous N×N float64 tensors (D1, D2, masks); that is O(N^2) memory and
+    # OOMs on large systems (full solvated clusters of ~20k+ atoms exceed 16-24 GB
+    # GPUs via torch.cdist). Processing rows in blocks bounds peak memory to
+    # O(N*chunk). Only formed/broken covalent pairs are consumed downstream, so the
+    # full N×N distance matrices are no longer materialized or returned.
+    formed_idx: List[torch.Tensor] = []
+    broken_idx: List[torch.Tensor] = []
+    chunk = max(1, min(N, 1024))   # ~chunk*N float64 peak; small enough to coexist with a resident ML model on a 16 GB GPU
+    cols_g = torch.arange(N, device=dev)[None, :]
+    for i0 in range(0, N, chunk):
+        i1 = min(i0 + chunk, N)
+        T = bond_factor * (cov[i0:i1, None] + cov[None, :])      # (b, N)
+        eps = margin_fraction * T
+        d1 = torch.cdist(R1[i0:i1], R1)                          # (b, N)
+        d2 = torch.cdist(R2[i0:i1], R2)
+        up = cols_g > torch.arange(i0, i1, device=dev)[:, None]  # strict upper triangle
+        a1 = (d1 <= (T - eps)) & up
+        a2 = (d2 <= (T - eps)) & up
+        need = ((d2 - d1).abs() >= (delta_fraction * T)) & up
+        fi = torch.nonzero((~a1) & a2 & need, as_tuple=False)
+        bi = torch.nonzero(a1 & (~a2) & need, as_tuple=False)
+        if fi.numel():
+            fi[:, 0] += i0
+            formed_idx.append(fi.detach().cpu())
+        if bi.numel():
+            bi[:, 0] += i0
+            broken_idx.append(bi.detach().cpu())
 
-    D1 = torch.cdist(R1, R1)
-    D2 = torch.cdist(R2, R2)
+    def _to_pairs(chunks: List[torch.Tensor]) -> Set[Pair]:
+        if not chunks:
+            return set()
+        return set(map(tuple, torch.cat(chunks).numpy()))
 
-    up = torch.triu(torch.ones((N, N), dtype=torch.bool, device=dev), diagonal=1)
+    formed_covalent = _to_pairs(formed_idx)
+    broken_covalent = _to_pairs(broken_idx)
 
-    A1 = (D1 <= (T_cov - eps_cov)) & up
-    A2 = (D2 <= (T_cov - eps_cov)) & up
-
-    dD = D2 - D1
-    need_change = (dD.abs() >= (delta_fraction * T_cov)) & up
-
-    formed_cov_mask = (~A1) & A2 & need_change
-    broken_cov_mask = A1 & (~A2) & need_change
-
-    formed_covalent = _upper_pairs_from_mask(formed_cov_mask)
-    broken_covalent = _upper_pairs_from_mask(broken_cov_mask)
+    # Per-pair bond lengths (Bohr) for the changed pairs only — keeps the
+    # "d1 Å --> d2 Å" reporting in summarize_changes without an O(N^2) matrix.
+    changed_lengths: Dict[Pair, Tuple[float, float]] = {}
+    for (i, j) in formed_covalent | broken_covalent:
+        d1 = float(torch.linalg.norm(R1[i] - R1[j]))
+        d2 = float(torch.linalg.norm(R2[i] - R2[j]))
+        changed_lengths[(i, j)] = (d1, d2)
 
     return BondChangeResult(
         formed_covalent=formed_covalent,
         broken_covalent=broken_covalent,
-        distances_1=D1.detach().cpu().numpy(),
-        distances_2=D2.detach().cpu().numpy(),
+        distances_1=None,
+        distances_2=None,
+        changed_lengths=changed_lengths,
     )
 
 
@@ -199,22 +223,27 @@ def summarize_changes(geom, result: BondChangeResult, one_based: bool = True) ->
     elems = [a.capitalize() for a in geom.atoms]
     lines: List[str] = []
 
-    # Use distance matrices (Bohr) converted to Å when available
+    # Bond lengths (Bohr) → Å. Prefer the sparse per-pair map (memory-bounded
+    # path); fall back to the full distance matrices when present.
     D1 = result.distances_1
     D2 = result.distances_2
-    have_lengths = (
+    lengths = result.changed_lengths
+    have_matrices = (
         isinstance(D1, np.ndarray)
         and isinstance(D2, np.ndarray)
         and D1.shape == D2.shape
     )
 
     def _len_str(i: int, j: int) -> str:
-        if not have_lengths:
+        if lengths is not None and (i, j) in lengths:
+            d1, d2 = lengths[(i, j)]
+        elif have_matrices:
+            d1 = float(D1[i, j])
+            d2 = float(D2[i, j])
+        else:
             return ""
         # ``coords3d`` is given in Bohr; convert to Å
-        d1 = float(D1[i, j]) * BOHR2ANG
-        d2 = float(D2[i, j]) * BOHR2ANG
-        return f" : {d1:.3f} Å --> {d2:.3f} Å"
+        return f" : {d1 * BOHR2ANG:.3f} Å --> {d2 * BOHR2ANG:.3f} Å"
 
     def pairs_to_lines(title: str, pairs: Set[Pair]):
         if not pairs:
