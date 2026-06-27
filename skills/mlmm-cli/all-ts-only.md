@@ -135,6 +135,7 @@ saddle**; see "Distinctive failure modes" below.
   fine-grained control).
 - `mlmm-workflows-output/SKILL.md` — IRC interpretation
   and bond-change conventions.
+
 ## ML/MM-aware flags (mlmm-toolkit specific)
 
 In addition to the common flags below,
@@ -154,3 +155,25 @@ selection. Most subcommands accept:
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
 Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
+
+## Mutant-vs-WT barrier comparison (preserve the WT ML region)
+
+To compare a point-mutant TS barrier against WT, the mutant's **ML region must be the same residues as
+WT** (only the mutated residue differs) — otherwise a geometric `-c/-r` re-selects a *different* ML /
+movable / frozen set on the mutated geometry, and the mismatched frozen region produces spurious soft
+modes (`tsopt.n_imaginary >= 2`, both tiny, IRC then aborts).
+
+Recipe (no `--parm`; the `all` pipeline rebuilds the mutant parm via mm-parm):
+
+| step | action |
+|---|---|
+| 1. mutate | On the WT TS PDB, truncate the sidechain + rename the residue (e.g. ARG→ALA). Keep the layer B-factors of the retained atoms. |
+| 2. complete | Run once (or let mm-parm/tleap) so the missing H is re-added; the **input atom count must equal the rebuilt parm7** (a hand-truncated PDB is short one H → `Atom-count mismatch` at tsopt). Use the tleap-completed full PDB as the new input. |
+| 3. transplant layers | Copy WT's B-factors (0/10/20) onto the completed mutant by `(resid, atom-name)`; the new H inherits its residue's modal layer. Mutant ML = WT ML − deleted sidechain atoms (+ added H). |
+| 4. run | `mlmm all -i mutant_layered.pdb -l 'LIG:Q' --tsopt True --thermo True [--dft ...] -o result` |
+
+Flags for step 4: **OMIT `-c` / `-r`** (geometric selection) — `--detect-layer` (default on) reads the
+transplanted B-factor layers, so the ML/movable/frozen layers are byte-identical to WT. **KEEP `-l`** (or
+`-q`): a non-standard ligand's charge can't be derived from the standard-AA table. The WT-matched frozen
+region also cures the `n_imaginary >= 2` soft-mode failure above. (A first-class `mutate` subcommand that
+automates steps 1–3 is on the backlog.)
