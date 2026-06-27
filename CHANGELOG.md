@@ -6,9 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
-## [0.3.0] — 2026-06-15
+## [0.3.0] — 2026-06-28
 
 ### Changed
+- **Behavior change (default):** `all --refine-path/--no-refine-path` now
+  defaults to `--no-refine-path`. The `all` pipeline's MEP stage runs a
+  single-pass `path-opt` by default; pass `--refine-path` to run the recursive
+  `path-search` (automatic multi-step bond-change segmentation), which was the
+  previous default. The default MEP work directory is now `_work/path_opt/`
+  (was `_work/path_search/`). The standalone `path-search` subcommand is
+  unchanged. Docs/skills updated throughout.
 - `--dft-func-basis` is now surfaced in the primary `mlmm <subcmd> --help`
   (previously only under `--help-advanced`), so the DFT//MLIP functional/basis
   is discoverable without the advanced listing.
@@ -52,6 +59,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   registries.
 
 ### Fixed
+- Bond-change detection (`domain/bond_changes.compare_structures`) is now
+  row-chunked instead of building dense N×N distance matrices, removing a CUDA
+  out-of-memory failure on large solvated clusters (~20k+ atoms) during
+  `path-search` / `scan` kink detection on 16–24 GB GPUs.
 - mlmm-toolkit's default MM backend now declares `ninja` as a dependency. Its C++ kernels are
   JIT-compiled through `torch.utils.cpp_extension`, which on modern torch requires
   Ninja and no longer has a distutils fallback, so a clean-env install (e.g. a
@@ -304,7 +315,8 @@ comprehensive documentation overhaul (EN/JA).
 - Atom indices unified to **1-based** for all user-facing I/O
   (`--freeze-atoms`, layer atoms, scan target display, etc.) with
   corresponding EN/JA documentation updates.
-- `--refine-path` default `True` (path-opt is the default MEP mode).
+- `--refine-path` introduced (default `True`, recursive `path-search`; the
+  default was later flipped to `--no-refine-path` / single-pass `path-opt` in 0.3.0).
 - `--exclude-backbone` default `False`.
 - RFO / RS-I-RFO `trust_max` reduced from `0.20` to `0.10` for MLIP
   stability.

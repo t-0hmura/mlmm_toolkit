@@ -71,7 +71,8 @@ PDB(s)          (B-factor: 0.0=ML, 10.0=movable-MM, 20.0=frozen)
 [define-layer]  expand / refine / verify the ML/MM/Frozen labels
   │
   ▼
-[path-search]   recursive MEP with ONIOM gradients (ML + MM coupling)
+[path-opt]      single-pass MEP with ONIOM gradients (ML + MM coupling);
+                recursive [path-search] with --refine-path
   │
   ▼
 [tsopt]         TS refinement per segment

@@ -1,6 +1,6 @@
 ---
 name: mlmm-hpc
-description: PBS (Torque / PBSPro) and SLURM submission for mlmm-toolkit — generic preamble templates with placeholders, walltime budgeting, CPU vs GPU choice, job monitoring, and the dynamic-dispatch (`flock` + `pbsdsh`) recipe in `dynamic-dispatch.md`. TRIGGER on cluster submission / `qsub` / `sbatch` / walltime / preamble / multi-job dispatch / `pbsdsh` / `flock` / many-system batch questions. SKIP for local single-machine runs, install setup, or output parsing. Note: mlmm-toolkit is single-GPU per job and has no `--resume` / `--workers` interface.
+description: PBS (Torque / PBSPro) and SLURM submission for mlmm-toolkit — generic preamble templates with placeholders, walltime budgeting, CPU vs GPU choice, job monitoring, and the dynamic-dispatch (`flock` + `pbsdsh`) recipe in `dynamic-dispatch.md`. TRIGGER on cluster submission / `qsub` / `sbatch` / walltime / preamble / multi-job dispatch / `pbsdsh` / `flock` / many-system batch questions. SKIP for local single-machine runs, install setup, or output parsing. Note: mlmm-toolkit runs as a single-GPU job per invocation.
 ---
 
 # mlmm HPC
@@ -39,8 +39,8 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 # CUDA + toolchain: HPC modulefiles (env-detect outputs <CUDA_MODULE>)
 # - gcc: load when the system default is too old for the CUDA toolkit or
 #   when pip will compile a C/CUDA extension from source.
-# (OpenMPI is not needed: mlmm-toolkit is single-GPU only and has no Ray /
-#  `--workers` path.)
+# (OpenMPI is not needed: mlmm-toolkit runs as a single-GPU job, with no
+#  cross-node MPI launcher.)
 command -v module >/dev/null && module load <CUDA_MODULE> gcc
 
 # Conda env (env-detect outputs <YOUR_ENV>)
@@ -99,8 +99,8 @@ on a single mid-range GPU. Adjust generously.
 | Stage | Per-segment time | Notes |
 |---|---|---|
 | `extract` | < 1 min | Pure Python, CPU |
-| `path-search` (GSM) | 5–30 min | Scales with `--max-nodes` |
-| `path-search` (DMF) | 10–60 min | Slower than GSM but more robust |
+| `path-opt`/`path-search` (GSM) | 5–30 min | Scales with `--max-nodes` |
+| `path-opt`/`path-search` (DMF) | 10–60 min | Slower than GSM but more robust |
 | `tsopt` (RS-I-RFO) | 5–60 min | Hessian rebuilds dominate |
 | `tsopt` (Dimer) | 1–10 min | Hessian-free; cheaper |
 | `irc` | 5–30 min | Forward + backward; default 125 cycles each |

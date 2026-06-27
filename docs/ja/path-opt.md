@@ -120,5 +120,5 @@ out_dir/ (デフォルト:./result_path_opt/)
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 - [path-search](path-search.md) -- 自動精密化付き再帰的 MEP 探索（2 つ以上の構造用）
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- 一気通貫ワークフロー（デフォルトで再帰的 path-search を使用、`--no-refine-path` で単一パス path-opt）
+- [all](all.md) -- 一気通貫ワークフロー（既定で単一パス path-opt、`--refine-path` で再帰 path-search）
 - [YAML リファレンス](yaml-reference.md) -- `gs`、`opt` の完全な設定オプション

@@ -133,6 +133,6 @@ Full schema (every key and default): [YAML Reference](yaml-reference.md).
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
 - [path-opt](path-opt.md) — Single-pass MEP optimization (no recursive refinement)
 - [opt](opt.md) — Single-structure geometry optimization
-- [all](all.md) — End-to-end workflow (uses recursive path-search by default; `--no-refine-path` for single-pass path-opt)
+- [all](all.md) — End-to-end workflow (uses single-pass path-opt by default; `--refine-path` for recursive path-search)
 - [trj2fig](trj2fig.md) — Plot energy profiles from MEP trajectories
 - [YAML Reference](yaml-reference.md) — Full `gs`, `bond`, `search` configuration options

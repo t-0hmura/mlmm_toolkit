@@ -3,7 +3,9 @@
 ## Purpose
 
 `all` is the meta-command that chains the entire workflow:
-extract → path-search → tsopt → irc → freq → (optional) dft. It
+extract → path-opt → tsopt → irc → freq → (optional) dft. The MEP stage
+is single-pass `path-opt` by default; recursive `path-search` runs only
+with `--refine-path`. It
 resolves three input modes via flag context (see the three companion
 mds: `all-endpoint-mep.md`, `all-scan-list.md`, `all-ts-only.md`).
 
@@ -50,7 +52,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-m, --multiplicity` | int | 1 | Spin multiplicity (2S+1) |
 | `-r, --radius` | float | 2.6 | Pocket radius (Å) when `-c` triggers extraction |
 | `--scan-lists` | repeated | none | Staged distance scans (mode 2 — `all-scan-list.md`) |
-| `--tsopt BOOL` | BOOL | `False` | Run TS optimization after path-search |
+| `--tsopt BOOL` | BOOL | `False` | Run TS optimization after the MEP stage (path-opt/path-search) |
 | `--thermo BOOL` | BOOL | `False` | Run freq + thermochemistry |
 | `--dft BOOL` | BOOL | `False` | Run DFT single point on R / TS / P |
 | `--dft-func-basis` | str | `wb97m-v/def2-tzvpd` | DFT functional/basis (when `--dft True`) |
@@ -96,7 +98,7 @@ result_all/
 │       └── dft/                    # single-point DFT (--dft)
 └── _work/                          # pipeline scratch (safe to delete)
     ├── pockets/ / scan/ / add_elem_info/
-    └── path_search/                # raw MEP-engine output
+    └── path_opt/                   # raw MEP-engine output (path_search/ with --refine-path)
         ├── seg_NN_mep/ / hei_seg_NN.* / mep_trj.xyz / mep.pdb
         └── energy_diagram_*.png
 ```
@@ -131,7 +133,7 @@ Per-segment fields include `barrier_kcal`, `delta_kcal`, `bond_changes`,
 `--help-advanced`). To rerun only a failed segment:
 
 ```bash
-mlmm tsopt -i _work/path_search/hei_seg_03.xyz -o segments/seg_03/tsopt -b uma
+mlmm tsopt -i _work/path_opt/hei_seg_03.xyz -o segments/seg_03/tsopt -b uma
 mlmm irc   -i segments/seg_03/tsopt/final_geometry.xyz -o segments/seg_03/irc -b uma
 mlmm freq  -i segments/seg_03/irc/finished_irc_trj.xyz -o segments/seg_03/freq -b uma
 ```
@@ -147,8 +149,9 @@ analysis scripts keep working.
   at the corresponding `summary.log` block; per-stage errors are also
   duplicated into `segments/seg_NN/<stage>/result.json`.
 - The `segments/seg_NN/` deliverable directory is **only populated on success**
-  for that segment. Failed segments leave `_work/path_search/seg_NN_mep/`
-  scratch but not the `segments/seg_NN/` copy.
+  for that segment. Failed segments leave `_work/path_opt/seg_NN_mep/`
+  scratch (`_work/path_search/...` under `--refine-path`) but not the
+  `segments/seg_NN/` copy.
 
 ## See also
 

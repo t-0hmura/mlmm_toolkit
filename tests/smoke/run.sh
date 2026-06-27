@@ -317,3 +317,11 @@ mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex
 
 # test61: all --scan-lists (single-PDB scan->path mode of `all`, distinct from the multi-PDB MEP branch)
 mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --no-refine-path --max-cycles 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test61_all_scan > test61_all_scan.out 2>&1
+
+# --- refine-path opt-in (recursive path_search) extra coverage ---
+# The `all` default is now single-pass path-opt; exercise the recursive
+# path_search opt-in (`--refine-path`) in scan->path mode too (test37 already
+# covers the multi-input endpoint MEP with --refine-path).
+
+# test62: all --scan-lists --refine-path (single-PDB scan -> recursive path_search)
+mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --refine-path --max-cycles 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test62_rp_scan > test62_rp_scan.out 2>&1

@@ -5,7 +5,7 @@ Usage: mlmm all [OPTIONS]
 
   Run pocket extraction → (optional single-structure staged scan) → MEP search
   in one shot. If exactly one input is provided: (a) with --scan-lists, stage
-  results feed into path-search (or path_opt with --no-refine-path); (b) with
+  results feed into path-opt (or path_search with --refine-path); (b) with
   --tsopt True and no --scan-lists, run TSOPT-only mode.
 
 Options:
@@ -91,11 +91,12 @@ Options:
                                   during the run, forwarding the same flag to
                                   scan/tsopt/freq.  [default: False]
   --refine-path / --no-refine-path
-                                  If True (default), run recursive path_search
-                                  on the full ordered series; if False, run a
-                                  single-pass path-opt GSM between each adjacent
-                                  pair and concatenate the segments (no
-                                  path_search).  [default: refine-path]
+                                  If False (default), run a single-pass path-opt
+                                  GSM between each adjacent pair and concatenate
+                                  the segments (no path_search); if True, run
+                                  recursive path_search on the full ordered
+                                  series for automatic multistep discovery.
+                                  [default: no-refine-path]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never). Defaults to 'gau_loose'

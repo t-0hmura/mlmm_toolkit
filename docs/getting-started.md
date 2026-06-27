@@ -120,7 +120,7 @@ make -C build -j8
 1. extract       — Define ML region from full protein-ligand PDB
 2. mm-parm       — Generate Amber parm7/rst7 topology (requires AmberTools)
 3. define-layer  — Assign 3-layer ML/MM partitioning (B-factor encoding)
-4. path-search   — MEP search (recursive; `--no-refine-path` for single-pass `path-opt`)
+4. path-search   — MEP search (single-pass `path-opt` by default; `--refine-path` for recursive `path-search`)
 5. tsopt         — Transition state optimisation
 6. freq          — Vibrational analysis + thermochemistry
 7. dft           — Single-point DFT energy refinement
@@ -202,7 +202,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `-s, --scan-lists TEXT...` | Staged distance scans for single-input runs (literals or YAML/JSON file). |
 | `-o, --out-dir PATH` | Top-level output directory. |
 | `--tsopt` / `--thermo` / `--dft` | TS optimization + IRC / vibrational analysis / single-point DFT. |
-| `--refine-path` / `--no-refine-path` | Recursive `path-search` (default) vs single-pass `path-opt`. |
+| `--refine-path` / `--no-refine-path` | Single-pass `path-opt` (default) vs recursive `path-search` (`--refine-path`). |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |
 | `--embedcharge` | xTB point-charge embedding correction (default off). |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. `Analytical` is UMA-only; recommended when VRAM allows. |

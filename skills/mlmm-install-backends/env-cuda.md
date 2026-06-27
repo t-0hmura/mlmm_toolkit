@@ -45,8 +45,8 @@ Add `module load <CUDA_MODULE>` (and `gcc` if relevant) to **every** PBS
 parallelises the MM side over CPU threads (default `mm_threads=16`,
 backed by PyTorch / OpenMP — `gcc` ships the matching `libgomp`), so
 the PBS preamble should request `ppn`/`--cpus-per-task` ≥ `mm_threads`.
-It does not use Ray or `--workers`, and no MPI launcher is involved, so
-OpenMPI is not part of the standard preamble. On clusters whose system
+No cross-node MPI launcher is involved, so OpenMPI is not part of the
+standard preamble. On clusters whose system
 default gcc already matches the CUDA toolkit, the explicit `module load
 gcc` line may be unnecessary — leave it in the template anyway and let
 the modulefile

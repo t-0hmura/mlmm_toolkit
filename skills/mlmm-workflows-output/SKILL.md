@@ -46,18 +46,21 @@ Result: `result_mep/seg_NN/{reactant,ts,product}.pdb`,
 ### 2. Multi-step recursive (multi-input MEP, recursive segmentation)
 
 You have R and P. The mechanism is multi-step, but you don't have
-intermediates handy. Path-search recursively segments by detecting
-bond changes.
+intermediates handy. `--refine-path` runs the recursive `path-search`,
+which segments by detecting bond changes.
 
 ```bash
 mlmm all -i 1.R.pdb 3.P.pdb \
     -c '...' -l '...' \
+    --refine-path \
     --tsopt --thermo \
     -o result_mep
 ```
 
-The output `summary.json["n_segments"]` may be > 1 — that's the
-recursion finding intermediates the inputs didn't contain.
+With `--refine-path` the output `summary.json["n_segments"]` may be > 1 —
+that's the recursion finding intermediates the inputs didn't contain.
+(Without it, single-pass `path-opt` yields one segment per adjacent input
+pair.)
 
 ### 3. Single-input scan-list (when only R is available)
 
@@ -87,8 +90,10 @@ mlmm all -i 1.R.pdb 2.IM1.pdb 3.IM2.pdb 4.P.pdb \
     -o result_mep_4pt
 ```
 
-Recursive segmentation still runs *between* adjacent endpoints, so
-you don't have to provide every elementary step.
+Add `--refine-path` to run recursive sub-segmentation *between* adjacent
+endpoints (then you don't have to provide every elementary step); default
+single-pass `path-opt` treats the provided endpoints as the elementary
+steps.
 
 ### 5. TS-only validation (existing TS candidate)
 
@@ -126,10 +131,11 @@ Run the pipeline as separate subcommands instead of one `mlmm all` when you want
 **judge each stage's success before spending GPU time on the next** — e.g. confirm
 path-search found the right segments / bond changes before optimizing a TS, or validate
 the TS (one imaginary mode + correct IRC connectivity) before thermo / DFT. `mlmm all`
-runs exactly this chain unconditionally:
+runs this chain (the MEP stage is single-pass `path-opt` by default; recursive
+`path-search` with `--refine-path`):
 
 ```
-extract → [mm-parm] → path-search → (per reactive seg) tsopt → freq → irc → [freq R/TS/P] → [dft] → energy-diagram
+extract → [mm-parm] → path-opt → (per reactive seg) tsopt → freq → irc → [freq R/TS/P] → [dft] → energy-diagram
 ```
 
 **mlmm carry-through**: every ML/MM-evaluating stage needs the *same* `--parm` + layer
@@ -335,14 +341,16 @@ When `summary.json["status"] != "success"`, look at:
 
 Even on failed runs, partial outputs are kept:
 
-- `path_search/seg_NN/` exists for any segment that completed
-  path-search (even if downstream stages failed).
+- `path_opt/seg_NN/` (`path_search/seg_NN/` under `--refine-path`) exists
+  for any segment that completed the MEP stage (even if downstream stages
+  failed).
 - `segments/seg_NN/` is **only populated** for fully-successful
   segments.
 
 ## Energy diagrams
 
-`mlmm all` writes `path_search/energy_diagram_*.png`:
+`mlmm all` writes `path_opt/energy_diagram_*.png` (`path_search/...` under
+`--refine-path`):
 
 - `energy_diagram_MEP.png` — bare MEP energies from the path-search
   string (MLIP, no thermochemistry).

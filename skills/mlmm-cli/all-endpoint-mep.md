@@ -30,9 +30,12 @@ mlmm all --parm enzyme.parm7 -i 1.R.pdb 2.IM.pdb 3.P.pdb \
     -o result_mep_3pt
 ```
 
-The recursive bond-change segmentation in `path-search` will still run
-inside each adjacent pair, so you don't have to provide every
-elementary step — just the "obvious" ones from the literature.
+By default each adjacent pair is connected with a single-pass `path-opt`,
+so the endpoints you pass are taken as the elementary steps. Add
+`--refine-path` to enable the recursive bond-change segmentation in
+`path-search`, which splits a pair further when it detects intermediate
+bond changes — then you don't have to provide every elementary step,
+just the "obvious" ones from the literature.
 
 ## Mode-specific flags
 
@@ -41,8 +44,9 @@ elementary step — just the "obvious" ones from the literature.
 | `--max-nodes` | 20 | Maximum string nodes per segment (final string ≤ `max-nodes + 2`) |
 
 `--mep-mode` / `--refine-mode` are exposed on standalone `path-search`,
-not on `mlmm all`; `mlmm all` uses GSM with the recursive
-`path-search` defaults internally.
+not on `mlmm all`; by default `mlmm all` runs single-pass `path-opt`
+(GSM) between adjacent pairs, and recursive `path-search` runs only with
+`--refine-path`.
 
 `--scan-lists` is **not** allowed in this mode — it triggers
 `all-scan-list.md` instead.
@@ -68,8 +72,9 @@ mlmm extract -i 1.R_raw.pdb 3.P_raw.pdb \
 
 Same as the base `all.md`. Specifically for endpoint-MEP mode:
 
-- `path_search/mep.pdb` — the full MEP across all segments
-- `path_search/seg_01/ … seg_NN/` — per-segment string of nodes
+- `path_opt/mep.pdb` — the full MEP across all segments
+  (`path_search/...` under `--refine-path`)
+- `path_opt/seg_01/ … seg_NN/` — per-segment string of nodes
 - `seg_NN/{reactant,ts,product}.pdb` — canonical R/TS/P per segment
   after IRC + LBFGS endpoint optimization
 - `summary.json["segments"]` — list of `{index, barrier_kcal,
@@ -88,10 +93,11 @@ Same as the base `all.md`. Specifically for endpoint-MEP mode:
 - The MEP method used internally by `mlmm all` is GSM; to switch to
   DMF, drive `mlmm path-search` directly with `--mep-mode dmf` and
   then feed the result into `mlmm tsopt`/`freq`/`irc` manually.
-- Path search may discover **more** segments than you have inputs:
-  if `summary.json["n_segments"] > len(inputs) - 1`, that's the
-  recursive bond-change segmentation finding intermediates the inputs
-  didn't contain. Often this is the *correct* answer.
+- Under `--refine-path`, path search may discover **more** segments than
+  you have inputs: if `summary.json["n_segments"] > len(inputs) - 1`,
+  that's the recursive bond-change segmentation finding intermediates the
+  inputs didn't contain — often the *correct* answer. (Default single-pass
+  `path-opt` yields one segment per adjacent input pair.)
 
 ## See also
 

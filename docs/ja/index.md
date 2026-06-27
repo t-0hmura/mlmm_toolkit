@@ -274,7 +274,7 @@ result_all/
 └── _work/ # パイプライン作業領域（削除可）
  ├── pockets/ # extract で決定された ML 領域構造
  ├── scan/ # （オプション）スキャン結果
- └── path_search/ # MEP エンジン生出力（--no-refine-path 時: path_opt/）
+ └── path_opt/ # MEP エンジン生出力（--refine-path 時: path_search/）
  ├── mep_seg_XX_trj.xyz · hei_seg_XX.xyz/.pdb
  └── summary.{json,log} · seg_*/ # セグメントごとの詳細
 ```

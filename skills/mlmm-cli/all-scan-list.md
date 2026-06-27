@@ -5,9 +5,10 @@
 You have **only the reactant** (no product structure) and you can
 articulate the chemistry as a sequence of staged distance scans —
 e.g. "first push the methyl from S of SAM to C7 of GPP, then snap H11
-to OE2 of GLU186". `mlmm all` runs each stage in order, ties
-the resulting trajectories into an MEP, and the recursive bond-change
-segmentation slots in any intermediates it finds.
+to OE2 of GLU186". `mlmm all` runs each stage in order, then ties
+the resulting trajectories into an MEP with single-pass `path-opt`. With
+`--refine-path`, the recursive bond-change segmentation slots in any
+intermediates it finds.
 
 Typical use: multistep methyltransferase mechanisms where the user
 encodes successive distance scans (methyl transfer → proton abstraction,
@@ -65,9 +66,10 @@ Examples:
 |---|---|---|
 | `--scan-lists` | required | One or more stages of distance-restraint scans |
 
-After scans complete, `mlmm all` invokes the recursive `path-search`
-internally with GSM; switch to DMF only by driving `mlmm path-search`
-standalone.
+After scans complete, `mlmm all` stitches the scan trajectories with
+single-pass `path-opt` (GSM) by default; pass `--refine-path` to run the
+recursive `path-search` instead. Switch to DMF only by driving
+`mlmm path-search` standalone.
 
 Unlike endpoint-MEP mode, `-i` is **a single PDB** (the reactant). The
 toolkit synthesizes intermediate / product geometries from the scan
@@ -87,8 +89,8 @@ result_scan/
     │   ├── stage_01/  scan_*.xyz   # raw distance-restraint scan trajectory
     │   ├── stage_02/  scan_*.xyz
     │   └── ...
-    └── path_search/                # raw MEP-engine output
-        └── seg_NN_mep/             # segments after bond-change splitting
+    └── path_opt/                   # raw MEP-engine output (path_search/ with --refine-path)
+        └── seg_NN_mep/             # one MEP per stitched pair (recursive bond-change splitting only with --refine-path)
 ```
 
 `summary.json["scan"]` carries the

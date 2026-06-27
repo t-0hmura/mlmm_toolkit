@@ -2,7 +2,7 @@
 
 ## Goal
 
-Run the end-to-end ML/MM ONIOM workflow once from a reactant and product PDB pair: MM parametrization → ML-region selection → MEP search (`path-search`) → optional TS optimization, thermochemical correction, IRC, and DFT single-point.
+Run the end-to-end ML/MM ONIOM workflow once from a reactant and product PDB pair: MM parametrization → ML-region selection → MEP search (single-pass `path-opt` by default) → optional TS optimization, thermochemical correction, IRC, and DFT single-point.
 
 ## Prerequisites
 

@@ -1,6 +1,6 @@
 # `all`
 
-`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command, instead of chaining `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` by hand. It chains active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (recursive `path-search` by default), and optional post-processing (TS optimization, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
+`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command, instead of chaining `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` by hand. It chains active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (single-pass `path-opt` by default; recursive `path-search` with `--refine-path`), and optional post-processing (TS optimization, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
 
 `all` runs in one of three modes, chosen by what you pass:
 
@@ -68,11 +68,11 @@ PDB companion files are generated when reference templates are available; contro
    - Each stage's relaxed structure (`stage_XX/result.pdb`) is collected as an intermediate / product candidate. The ordered input series for the path search becomes `[initial layered PDB, stage_01/result.pdb, stage_02/result.pdb, ...]`.
 4. **MEP search on full-system layered PDBs**
    - All MEP calculations run on full-system layered PDBs (with `--parm` and `--detect-layer`), not on pockets.
-   - **`path-search` (default)** runs recursive `path_search` with automatic refinement, detecting multistep reactions and building a detailed MEP per elementary step. Complex multistep mechanisms may need manual trial-and-error to converge a satisfactory pathway.
-   - **`--no-refine-path`** runs `path-opt` GSM per adjacent pair, then concatenates trajectories, extracts the HEI per segment, detects bond changes, and writes `summary.json`. Both modes support Stage 5 post-processing.
+   - **`--refine-path`** runs recursive `path_search` with automatic refinement, detecting multistep reactions and building a detailed MEP per elementary step. Complex multistep mechanisms may need manual trial-and-error to converge a satisfactory pathway.
+   - **`--no-refine-path` (default)** runs `path-opt` GSM per adjacent pair, then concatenates trajectories, extracts the HEI per segment, detects bond changes, and writes `summary.json`. Both modes support Stage 5 post-processing.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
 5. **Summary and optional post-processing**
-   - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_search/` (or `<out-dir>/_work/path_opt/` with `--no-refine-path`); the merged products (`mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
+   - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
    - `--tsopt` runs TS optimization on each HEI, follows with EulerPC IRC, and emits segment energy diagrams.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
    - `--dft` runs DFT single-point on (R, TS, P) and adds a DFT diagram. With `--thermo`, a DFT//MLIP Gibbs diagram is also produced.
@@ -83,11 +83,11 @@ PDB companion files are generated when reference templates are available; contro
 
 ## Outputs
 
-The tree has three zones: **deliverables at the root**, **per-segment deliverables under `segments/seg_NN/`**, and **pipeline scratch under `_work/`** (safe to remove once you have the results). The three you check first are `summary.log`, `summary.json`, and `mep.pdb` (the concatenated reaction path, moved to the root; raw engine output stays under `_work/path_search/`).
+The tree has three zones: **deliverables at the root**, **per-segment deliverables under `segments/seg_NN/`**, and **pipeline scratch under `_work/`** (safe to remove once you have the results). The three you check first are `summary.log`, `summary.json`, and `mep.pdb` (the concatenated reaction path, moved to the root; raw engine output stays under `_work/path_opt/` by default, or `_work/path_search/` with `--refine-path`).
 
 ```text
 <out-dir>/
-  summary.json                   # mirrored top-level summary (when path_search runs)
+  summary.json                   # mirrored top-level summary (when the MEP stage runs)
   summary.log
   mep.pdb                        # concatenated MEP path (copied to the root)
   mep_trj.xyz
@@ -111,11 +111,11 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
   _work/                         # pipeline scratch (safe to delete)
     pockets/                     # Per-input pocket PDBs (multi-structure union)
     scan/                        # present only in single-structure + scan mode (stage_01/result.pdb …)
-    path_search/                 # raw MEP-engine output (path_opt/ when --no-refine-path)
+    path_opt/                    # raw MEP-engine output (path_search/ with --refine-path)
       summary.{json,log} · seg_NN_mep/    # raw per-segment GSM trajectories (merged MEP products are moved to the root)
 ```
 
-In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage: the optimized R/TS/P plus `ts/`, `irc/`, `freq/`, and `dft/` land under `segments/seg_01/`, and `_work/path_search/` is absent.
+In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage: the optimized R/TS/P plus `ts/`, `irc/`, `freq/`, and `dft/` land under `segments/seg_01/`, and `_work/path_opt/` is absent.
 
 At `-v 2` the console summarises extraction, MM preparation, scan stages, MEP progress (GSM), and per-stage timing; see {ref}`verbosity-levels`.
 
@@ -189,7 +189,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). Effective default: `gau_loose` for path-opt, `gau` for scan. | _None_ |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
-| `--refine-path / --no-refine-path` | True (default) → recursive `path-search`; False → chain `path-opt` segments. Both modes support Stage 5 (TSOPT / thermo / DFT). | `True` |
+| `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
