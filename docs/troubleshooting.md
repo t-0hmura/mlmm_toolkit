@@ -60,7 +60,7 @@ ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'
 RuntimeError: hessian_ff build attempts failed: ...
 ```
 
-The C++ native extension is JIT-built on first use. If that fails: ensure `g++ >= 9` (`g++ --version`), that PyTorch headers are available (`python -c "import torch; print(torch.utils.cmake_prefix_path)"`), and that `ninja` is installed. On HPC: `module load gcc/11`. Then clean + rebuild:
+The C++ native extension is JIT-built on first use, in a local temp directory (override with `TORCH_EXTENSIONS_DIR`; a network-mounted build dir — NFS/Lustre — can hang on torch's build lock, so a local path is used by default). If that fails: ensure `g++ >= 9` (`g++ --version`; on conda, `conda install -c conda-forge gxx_linux-64`), that PyTorch headers are available (`python -c "import torch; print(torch.utils.cmake_prefix_path)"`), and that `ninja` is installed. On HPC: `module load gcc/11`. Then clean + rebuild:
 
 ```bash
 conda install -c conda-forge ninja -y

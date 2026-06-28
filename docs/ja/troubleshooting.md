@@ -246,7 +246,8 @@ Coordinate shape mismatch for... got (N, 3), expected (M, 3)
 - `RuntimeError: hessian_ff build attempts failed: ...`
 
 対処の例:
-- C++ コンパイラ（g++ >= 9）がインストールされていることを確認:
+- ビルドはローカルの一時ディレクトリで行われます（`TORCH_EXTENSIONS_DIR` で変更可）。ネットワーク FS（NFS/Lustre）上の build dir は torch のビルドロックでハングするため、既定でローカルパスを使います。
+- C++ コンパイラ（g++ >= 9; conda なら `conda install -c conda-forge gxx_linux-64`）がインストールされていることを確認:
 
   ```bash
   g++ --version

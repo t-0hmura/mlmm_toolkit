@@ -104,10 +104,17 @@ def _build_in_tree_extension(
         return None
 
     here = Path(__file__).resolve().parent
-    # Candidate build directories: package-internal first, then user cache.
+    # Candidate build directories. A local-filesystem dir is tried FIRST: torch's
+    # cpp_extension build lock (baton) deadlocks on network filesystems (NFS/Lustre),
+    # so a network-mounted package dir or ~/.cache would hang the JIT build. Honor
+    # TORCH_EXTENSIONS_DIR, else use the system temp dir (local on virtually all hosts).
+    import tempfile
+    local_build_dir = Path(
+        os.environ.get("TORCH_EXTENSIONS_DIR") or tempfile.gettempdir()
+    ) / "mlmm_hessian_ff" / build_subdir
     pkg_build_dir = here / build_subdir
     cache_build_dir = _cache_build_dir(build_subdir)
-    build_dirs = [pkg_build_dir, cache_build_dir]
+    build_dirs = [local_build_dir, pkg_build_dir, cache_build_dir]
 
     def _find_prebuilt_so() -> Optional[Path]:
         """Search all candidate directories for a prebuilt .so."""
