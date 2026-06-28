@@ -11,20 +11,20 @@ There is no upstream `hessian_ff` package on PyPI or any public registry. The an
 
 1. **Single consumer**: only `mlmm/mlmm_calc.py` calls into it; `analytical_hessian.py` is the sole entry point.
 2. **Tight coupling to ONIOM math**: the analytical Hessian must match the link-atom B-matrix projection convention (chemistry-rule #2) and the 3-layer 5-pass assembly order (chemistry-rule #8) used in `mlmm_calc.py`.
-3. **Numpy-only + parmed**: no GPU code, no torch dependency; numerical correctness is fingerprinted against the FD-Hessian path during smoke tests.
+3. **PyTorch-based (CPU-only) + parmed**: numerical correctness is fingerprinted against the FD-Hessian path during smoke tests.
 
 ## File map
 
 | file | role |
 |------|------|
-| `analytical_hessian.py` | **The single entry point** — `analytical_hessian(parm, coords,...)` returns the dense MM Hessian for the active subset |
+| `analytical_hessian.py` | **The single entry point** — `build_analytical_hessian(system, coords, active_atoms=...)` returns `(H, info)`: the dense MM Hessian for the active subset plus an info dict |
 | `forcefield.py` | force-field term definitions (bond / angle / proper / improper / LJ / Coulomb) |
 | `prmtop_parmed.py` | parmed-based parm7 reader, atom-indexing helpers (chemistry-rule #9) |
 | `loaders.py` | force-field parameter loading |
 | `system.py` | atom / topology data classes |
 | `constants.py` | unit conversion constants |
 | `terms/` | per-term analytical derivative code (one file per term type) |
-| `native/` | optional C-accelerated kernels (compiled at install if present) |
+| `native/` | **required** C-accelerated kernels for `build_analytical_hessian` (compiled at install; the automatic torch fallback was removed) |
 | `workflows.py` | dead code — production never reaches this, but `__all__` declared = retention policy says do not delete during polish |
 | `tests/` | unit tests for individual force-field terms |
 
@@ -50,10 +50,10 @@ Logic edits must be explicitly requested via a `[CHEMISTRY-RULE:2]` or `[CHEMIST
 ## `mlmm_calc.py` is the sole entry point
 
 ```python
-from hessian_ff.analytical_hessian import analytical_hessian
+from hessian_ff.analytical_hessian import build_analytical_hessian
 
 # Called inside the 3-layer 5-pass partial Hessian assembly:
-H_mm = analytical_hessian(parm, coords, active_indices=movable_mm_mask)
+H_mm, info = build_analytical_hessian(system, coords, active_atoms=movable_mm_mask)
 ```
 
 If you are adding a new MM term (e.g. a CMAP correction), edit `forcefield.py` + add a new `terms/cmap.py` file + register it in `analytical_hessian.py` — that single entry point routes everything. Do not add a parallel entry point.

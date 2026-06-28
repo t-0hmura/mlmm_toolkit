@@ -5,7 +5,9 @@
 (`mlmm mm-parm`). AmberTools is required if you want to drive the
 parameter file (`parm7`) generation through the toolkit; if you have
 hand-built `parm7` / `rst7` files, you can skip the install and feed
-them directly to `mlmm extract` / `mlmm define-layer`.
+them to the compute subcommands (`opt` / `sp` / `freq` / `tsopt` / `irc` /
+`dft` / `path-opt` / `path-search` / `all`) via `--parm`. (`extract` and
+`define-layer` operate on PDB only and do not take `parm7` / `rst7`.)
 
 ## Install via conda (recommended)
 

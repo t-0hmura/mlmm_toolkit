@@ -42,7 +42,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | flag | type | default | description |
 |---|---|---|---|
 | `-i, --input` | path | required | `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
-| `-q` / `-l` / `-m` | — | — | Charge / spin (required for `.xyz` without `--ref-pdb`) |
+| `-q` / `-l` / `-m` | — | — | Charge / spin / multiplicity (XYZ input always needs `--ref-pdb`) |
 | `--ref-pdb` | path | none | Reference PDB so `-l` works on `.xyz` input |
 | `--func-basis` | str | `wb97m-v/def2-tzvpd` | `'FUNC/BASIS'` |
 | `--engine` | choice {gpu,cpu} | `gpu` | `gpu` (GPU4PySCF) or `cpu` (PySCF) |
@@ -74,7 +74,7 @@ mlmm dft -i seg_01/ts.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
 ### CPU PySCF (aarch64 / no GPU)
 
 ```bash
-mlmm dft -i ts.xyz --parm real.parm7 -q 0 -m 1 \
+mlmm dft -i ts.xyz --ref-pdb real.pdb --parm real.parm7 -q 0 -m 1 \
     --func-basis 'wb97m-v/def2-svp' \
     --engine cpu \
     -o result_dft_cpu

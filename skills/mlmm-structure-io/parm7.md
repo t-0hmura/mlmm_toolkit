@@ -102,7 +102,7 @@ moves):
 # Move residue 44 from movable-MM (10.0) to frozen (20.0):
 awk 'BEGIN{OFS=""} /^ATOM|^HETATM/{if(substr($0,23,4)+0==44){$0=substr($0,1,60)" 20.00"substr($0,67)}} {print}' \
     complex.pdb > complex_edited.pdb
-mlmm opt -i complex.parm7 complex.rst7 --ref-pdb complex_edited.pdb ...
+mlmm opt -i complex_edited.pdb --parm complex.parm7 -o result_opt ...
 ```
 
 For larger reassignments, use `mlmm define-layer` instead of by-hand

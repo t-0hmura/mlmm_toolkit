@@ -75,7 +75,7 @@ Same as the base `all.md`. Specifically for endpoint-MEP mode:
 - `mep.pdb` (output root) — the full MEP across all segments
   (raw engine copy under `_work/path_opt/`, or `_work/path_search/` with `--refine-path`)
 - `segments/seg_01/ … seg_NN/` — per-segment string of nodes
-- `segments/seg_NN/structures/{reactant,ts,product}.pdb` — canonical R/TS/P per
+- `segments/seg_NN/{reactant,ts,product}.pdb` — canonical R/TS/P per
   segment after IRC + LBFGS endpoint optimization
 - `summary.json["segments"]` — list of `{index, barrier_kcal,
   delta_kcal, bond_changes, ...}` entries

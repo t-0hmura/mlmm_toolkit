@@ -229,7 +229,7 @@ Per-segment keys (`summary.json["segments"][i]`, from path-search output):
 |---|---|
 | `index` | Segment index (1, 2, …) |
 | `tag` | Segment tag string |
-| `kind` | `"reactive"` or `"bridge"` |
+| `kind` | `"seg"` or `"bridge"` (non-bridge reactive segments are `"seg"`) |
 | `barrier_kcal` | MEP barrier — peak energy along the segment, kcal/mol (relative to segment reactant) |
 | `delta_kcal` | MEP reaction energy — segment endpoint difference, kcal/mol |
 | `bond_changes` | Multi-line **string** in the form `"Bond formed (k):\n  Cs-C : 3.17 Å -> 1.68 Å\n..."` (empty for `kind=="bridge"`). Default cutoff is 1.20× covalent radii (with internal margin 0.05) — see `mlmm-cli/bond-summary.md`. |

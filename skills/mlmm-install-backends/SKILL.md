@@ -102,8 +102,10 @@ dependencies:
       - --extra-index-url https://download.pytorch.org/whl/<cu_index>
       - torch
       - mace-torch
-      - mlmm-toolkit  # without [orb,aimnet] to avoid fairchem deps
+      - mlmm-toolkit  # fairchem-core is a CORE dep (installs anyway); see the note below
 ```
+
+> **Note:** `fairchem-core` is a *core* dependency of `mlmm-toolkit`, so it installs regardless of extras. After creating this env, run `pip uninstall -y fairchem-core` — `mace-torch` pins `e3nn==0.4.4`, which conflicts with `fairchem-core`'s `e3nn>=0.5`.
 
 `<cu_index>` is one of `cpu`, `cu118`, `cu121`, `cu126`, `cu129` — see
 `env-cuda.md` for the driver version → index mapping.

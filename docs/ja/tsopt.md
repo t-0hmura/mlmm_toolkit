@@ -172,7 +172,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | `grad` モードで Dimer 方向決定に ML 領域のみのヘシアンを使用。高速だが精度は低下。 | `False` |
 | **収束とフラットニング** | | |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
-| `--flatten/--no-flatten` | 余分な虚振動数モードフラットニングループの有効化/無効化。`--flatten` はデフォルト反復回数（50）を使用、`--no-flatten` は 0 に強制。light と heavy の両モードに適用。 | _None_（YAML/デフォルト依存; 実質的に 50 回で有効） |
+| `--flatten/--no-flatten` | 余分な虚振動数モードフラットニングループの有効化/無効化。`--flatten` はデフォルト反復回数（50）を使用、`--no-flatten` は 0 に強制。light と heavy の両モードに適用。 | _None_（CLI 既定は無効 = `flatten_max_iter` 0; `--flatten` または YAML/config で初めて有効化され、その場合 50 回） |
 | `--partial-hessian-flatten / --full-hessian-flatten` | フラットニングループでの虚振動数モード検出に部分ヘシアン（ML のみ）を使用。 | `True`（部分） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--skip-final-freq/--no-skip-final-freq` | 収束後の振動解析とイマジナリモードフラットニングをスキップ。大規模非凍結系でHessian対角化が高コストな場合に有用。TSの鞍点次数は未検証となる。 | `False` |
