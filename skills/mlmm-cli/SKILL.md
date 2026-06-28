@@ -65,7 +65,8 @@ These flags appear on most subcommands (canonical list:
 | `-b, --backend` | MLIP backend: `uma` / `orb` / `mace` / `aimnet2` |
 | `-o, --out-dir` | Output directory, subcommand-specific default |
 | `--config` | YAML configuration file applied before CLI flags |
-| `--show-config` / `--dry-run` | Print resolved config without running |
+| `--show-config` | Print resolved merged config and exit |
+| `--dry-run` | Validate options and print the run plan without executing |
 | `--help-advanced` | Reveal hidden / advanced flags |
 | `--ref-pdb` | Reference PDB used to derive residue context for XYZ inputs |
 Charge precedence: explicit `-q` > `-l 'RES:Q'` derivation > `--config` YAML > `defaults.py`.

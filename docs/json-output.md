@@ -27,7 +27,7 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `schema_version` | string | Envelope schema version; current value comes from `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` — pin against that constant rather than the literal in this doc. Bumps signal a structural change. |
 | `command` | string | Subcommand name (e.g. `"opt"`) |
 | `mlmm_version` | string | Package version |
-| `status` | string | One of `success`, `partial`, `error`, `unknown` |
+| `status` | string | Supplied by each subcommand (not auto-injected): `all`/`path-search` use `success`/`partial`/`failed`, the error path uses `error`, and per-stage subcommands use command-specific values (e.g. `converged`/`not_converged`, `completed`) |
 | `elapsed_seconds` | float | Wall-clock time (seconds) |
 | `environment` | object | Hardware info (see below) |
 

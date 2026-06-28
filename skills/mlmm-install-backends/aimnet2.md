@@ -47,7 +47,7 @@ python -c "import mlmm.core.defaults as d; print(d.MLMM_CALC_KW)"
 
 ## Backend-specific flags
 
-AIMNet2 accepts (the `_AIMNet2Backend.__init__` parameters in `backends/mlmm_calc.py`; defaults in `core/defaults.py`):
+AIMNet2 honors (the `_AIMNet2Backend.__init__` takes only `aimnet2_model` / `model_charge` / `model_mult` / `ml_device`; the remaining keys below are calculator/config-level `MLMM_CALC_KW`, defaults in `core/defaults.py`):
 
 | Key | Purpose |
 |---|---|

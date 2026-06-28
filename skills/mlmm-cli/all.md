@@ -59,7 +59,8 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_all/` | Top-level output directory |
 | `--config` | path | none | YAML config applied before CLI flags |
-| `--show-config` / `--dry-run` | flag | off | Print resolved config and exit |
+| `--show-config` | flag | off | Print resolved config and continue execution |
+| `--dry-run` | flag | off | Validate options, print execution plan, and exit without running |
 | `--help-advanced` | flag | — | Reveal advanced flags (extraction / `mm_parm` / freeze-atom / stage-specific overrides) |
 
 Run `mlmm all --help-advanced` for the full list (it changes

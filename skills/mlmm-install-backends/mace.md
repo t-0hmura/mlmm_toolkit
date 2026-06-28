@@ -21,9 +21,10 @@ conda activate <your_mace_mlmm_env>
 # torch matching your CUDA driver (see env-cuda.md)
 pip install torch --index-url https://download.pytorch.org/whl/<cu_index>
 
-# MACE + mlmm (without UMA-pulling extras)
+# MACE + mlmm (separate env; fairchem-core is a CORE dep, so remove it)
 pip install mace-torch
-pip install mlmm-toolkit          # WITHOUT [orb] / [aimnet] which would pull fairchem
+pip install mlmm-toolkit
+pip uninstall -y fairchem-core    # core dep; its e3nn>=0.5 conflicts with mace-torch's e3nn==0.4.4
 ```
 
 If you accidentally install both UMA and MACE in one env, you'll see

@@ -28,7 +28,7 @@ ONIOM campaign. Every flag below is verified against `mlmm/cli/common_options.py
 | (a) MEP / path-search | `path-search` (or `path-opt` for one segment) | Recursive GSM/DMF segmentation; brackets the TS between endpoints, auto-bridges gaps, one TS per segment | You have R (and optionally P / intermediates) and want the path discovered |
 | (b) Distance-restrained build-up | `scan` (`scan2d`/`scan3d`) | Harmonic restraint `E = ½·k·(r_ij − target)²` (scan default `k=300` via `BIAS_KW`; the `10.0` in `restraints.py` `HarmonicBiasCalculator` is only an unused constructor fallback) drives the reacting distance(s) toward the barrier with L-BFGS relaxation | No usable second endpoint / TS guess — drive the reacting bond directly |
 
-- There is **no `opt --restraint` flag**. The restrained-optimization route IS the `scan` subcommand (`scan.py` docstring "staged bond-length scan with harmonic restraints"); plain `opt` is un-restrained.
+- There is **no `opt --restraint` flag**, but `opt` supports restrained optimization via `--dist-freeze` (with `--bias-k`, default k=300, the same `HarmonicBiasCalculator`); `scan` additionally drives staged target distances up to a TS candidate.
 - `path-search` (`app.py`: "Search reaction pathways recursively.") auto-segments a multistep path; `path-opt` optimizes a single given segment.
 - Feed a TS candidate from either route into `tsopt → irc → freq` (or `all --tsopt`).
 

@@ -35,7 +35,7 @@ mlmm oniom-export --parm enzyme.parm7 [-i complex.pdb] \
 | `-q, --charge` | int | required | Charge of the QM region |
 | `-m, --multiplicity` | int | `1` | Multiplicity of the QM region |
 | `--near` | float | `6.0` | Distance cutoff (Å) for movable/active atoms |
-| `--nproc` | int | `8` | Processor count (g16) |
+| `--nproc` | int | `8` | Processor count (g16 nprocshared / ORCA %pal nprocs) |
 | `--mem` | str | `16GB` | Memory allocation (g16) |
 | `--total-charge` / `--total-mult` | int | none | ORCA `Charge_Total` / `Mult_Total` for the full QM+MM system |
 | `--orcaff` | path | derived | Path to `ORCAFF.prms` (ORCA mode) |

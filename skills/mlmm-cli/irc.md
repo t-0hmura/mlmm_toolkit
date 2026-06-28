@@ -27,7 +27,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm FILE` | Amber `parm7` topology of the whole enzyme — required unless provided in YAML as `calc.real_parm7` |
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |

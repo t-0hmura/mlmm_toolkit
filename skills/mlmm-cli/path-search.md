@@ -5,8 +5,9 @@
 Recursive minimum-energy-path (MEP) search across two or more
 endpoints. Detects bond changes along the candidate MEP and
 **recursively re-segments** the path until each segment crosses
-exactly one transition state. Output: one `seg_NN/` per elementary
-step, plus a stitched `mep.pdb` and energy diagrams.
+exactly one transition state. Output: flat per-segment files
+(`mep_seg_NN_trj.xyz`, `hei_seg_NN.{xyz,pdb}`) per elementary step,
+plus a stitched `mep.pdb`/`mep_trj.xyz` and energy diagrams.
 
 This is the engine behind `mlmm all` in endpoint-MEP mode.
 

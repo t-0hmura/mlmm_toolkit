@@ -9,15 +9,15 @@ column-aware operation, not as plain-text find-and-replace.
 
 | Record | Used for |
 |---|---|
-| `ATOM` | Standard amino-acid / nucleic-acid atoms (residue ≤ 3 letters, in `mlmm-toolkit`'s AMINO_ACIDS table) |
+| `ATOM` | Standard amino-acid atoms (residues in `mlmm-toolkit`'s AMINO_ACIDS table; nucleic-acid residues are treated as unknown ligand residues) |
 | `HETATM` | Ligand, metal, water, cofactor, link-H atoms |
 | `TER` | Chain terminator — used by `extract` to identify chain breaks |
 | `END`, `ENDMDL` | File terminator — informational only |
 | `CRYST1` | Unit cell — read but not written by `mlmm-toolkit` (cluster model only) |
 
-`mlmm-toolkit` ignores `MODEL`, `ANISOU`, `LINK`, `SSBOND`, etc. Strip
-them with `mlmm add-elem-info` or `fix-altloc` if a downstream
-step complains.
+`mlmm-toolkit` does not use `LINK` / `SSBOND` records. `fix-altloc`
+resolves altLocs and prunes unselected `ANISOU` while **preserving**
+`MODEL` blocks; it does not strip `MODEL` / `LINK` / `SSBOND`.
 
 ## Column layout (`ATOM` / `HETATM`)
 
@@ -72,7 +72,7 @@ mlmm extract -i complex.pdb -c 'A:44' -o cluster.pdb
 > substrate-PDB workflow.
 
 The pocket radius around the centers is set by `-r <Å>` (default 2.6 Å).
-All residues with at least one heavy atom inside the radius are kept.
+All residues with at least one atom (any element, including hydrogen) inside the radius are kept.
 
 ## Per-residue charge mapping (`-l / --ligand-charge`)
 

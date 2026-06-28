@@ -75,7 +75,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ └── add_elem_info.py PDB element column normaliser
 │ │
 │ ├── backends/ # === L4a Infra (MLIP + ONIOM) ===
-│ │ ├── __init__.py backend dispatch + registry
+│ │ ├── __init__.py --precision routing (apply_precision_to_calc_cfg)
 │ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / Orb / MACE / AIMNet2
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ │ Future: split into base.py + per-backend uma.py / orb.py
@@ -231,7 +231,8 @@ Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS
 | concern | file |
 |---|---|
 | ML/MM ONIOM calculator core + 4 inline MLIP backends + ONIOM coupling | `mlmm/backends/mlmm_calc.py` |
-| Backend dispatch + registry | `mlmm/backends/__init__.py` |
+| `--precision` routing (`apply_precision_to_calc_cfg` / `_PRECISION_DISPATCH`) | `mlmm/backends/__init__.py` |
+| Backend dispatch / factory (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
 | xTB point-charge embedding correction (`--embedcharge`) | `mlmm/backends/xtb_embedcharge_correction.py` |
 | per-backend adapter split (planned, not yet present) | `mlmm/backends/{base, uma, orb, mace, aimnet2}.py` |
 | ONIOM core subdir (planned, not yet present) | `mlmm/backends/mlmm_calc/{core, ase_calc, embed_charge, hessianff_calc, openmm_calc, facade}.py` |

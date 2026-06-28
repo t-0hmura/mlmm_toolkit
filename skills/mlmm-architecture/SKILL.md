@@ -25,7 +25,7 @@ mlmm/                              ← the package body, one folder per layer
 │               #       xTB QM/MM embed-charge correction.
 ├── io/         # L4b — summary writer, energy diagram, trajectory plot,
 │               #       Hessian cache, analytical-Hessian glue, PDB altloc
-│               #       fix, harmonic restraints.
+│               #       fix. (harmonic restraints live in workflows/restraints.py, L2)
 └── core/       # L5 — `defaults.py` (single source of truth for every CLI
                 #       default), `utils.py` (PDB / XYZ / plot helpers),
                 #       `logging.py`, `calc_eval.py`,

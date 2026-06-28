@@ -213,7 +213,7 @@ Top-level keys:
 | `config` | Full effective config after CLI + YAML + defaults merge |
 | `freeze_atoms` | Indices held fixed during optimization (link-H parents) |
 | `n_segments` | Number of elementary steps detected |
-| `n_segments_reactive` | Number of segments with non-empty bond changes |
+| `n_segments_reactive` | Number of non-bridge (reactive, `kind != "bridge"`) segments |
 | `rate_limiting_step` | Dict `{segment, barrier_kcal, method}` describing the highest-barrier segment (or `null` when no segments) |
 | `overall_reaction_energy_kcal` | R → P total energy difference |
 | `segments` | List, one per path-search segment (see below) |
@@ -242,7 +242,7 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `post_dir` | `result/segments/seg_NN/` directory |
 | `structures` | Map: `reactant`, `ts`, `product` → file paths |
 | `irc_plot` / `irc_traj` | IRC-related artifact paths |
-| `ts_imag` | `{n_imag, frequencies_cm}` |
+| `ts_imag` | `{n_imag}` |
 | `uma` | `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}` (or whichever MLIP backend was used) |
 | `gibbs_uma` | `{energies, barrier_kcal, delta_kcal, ...}` (when `--thermo` is on) |
 | `dft` | `{labels, energies_au, energies_kcal, diagram, structures, barrier_kcal, delta_kcal}` (when `--dft` is on) |

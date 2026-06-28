@@ -27,7 +27,7 @@ cat result_opt/result.json | python -m json.tool
 | `schema_version` | string | エンベロープのスキーマバージョン。現在値は `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` に由来する（この文書のリテラルではなく定数を参照すること）。値の更新は構造変更を示す。 |
 | `command` | string | サブコマンド名（例: `"opt"`） |
 | `mlmm_version` | string | パッケージバージョン |
-| `status` | string | `success`、`partial`、`error`、`unknown` のいずれか |
+| `status` | string | 各サブコマンドが設定（自動付与ではない）。all/path-search は success/partial/failed、エラー時は error、ステージ別は converged/not_converged/completed 等 |
 | `elapsed_seconds` | float | 実行時間（秒） |
 | `environment` | object | ハードウェア情報（下表参照） |
 
@@ -165,7 +165,7 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | `"success"` / `"partial"` |
+| `status` | string | `"success"` / `"partial"` / `"failed"`（all。path-search は success/partial） |
 | `segments` | object[] | セグメントごとの障壁、反応エネルギー、結合変化 |
 | `energy_diagrams` | object[] | エネルギーダイアグラム |
 | `mlip_backend` | string | モデル名 |
