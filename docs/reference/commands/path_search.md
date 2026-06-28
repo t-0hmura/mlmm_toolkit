@@ -35,6 +35,10 @@ Options:
                                   omitted.
   --mep-mode [gsm|dmf]            MEP method: gsm (GrowingString) or dmf (Direct
                                   Max Flux).  [default: gsm]
+  --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
+                                  (dmf.torch / CUDA) or cpu (dmf / NumPy). On a
+                                  GPU out-of-memory, retry with cpu.  [default:
+                                  gpu]
   --refine-mode [peak|minima]     Refinement seed around the highest-energy
                                   image: 'peak' uses HEI±1, 'minima' uses
                                   nearest local minima. Defaults to peak for gsm

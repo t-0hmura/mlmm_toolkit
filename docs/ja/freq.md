@@ -23,7 +23,6 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 まずは出力モード数を絞って確認する:
 
 ```bash
-# まずは出力モード数を絞って確認する
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
 ```
@@ -31,7 +30,6 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 凍結原子を指定した PHVA と熱化学ダンプを実行する:
 
 ```bash
-# 凍結原子を指定した PHVA と熱化学ダンプを実行する
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
@@ -39,7 +37,6 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 VRAM に余裕があるノードで解析的ヘシアンを使う:
 
 ```bash
-# VRAM に余裕があるノードで解析的ヘシアンを使う
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```

@@ -10,7 +10,7 @@
 | **入力 / 抽出** | | |
 | 元素カラム欠損 / 抽出が中断 | 元の PDB に対して `add-elem-info` を実行 | [入力 / 抽出](troubleshooting.md#入力--抽出の問題) |
 | **電荷 / スピン** | | |
-| "Charge is required" エラー | `-q/--charge` と `-m/--multiplicity` を明示的に指定 | [電荷 / スピン](troubleshooting.md#電荷--スピンの問題) |
+| `Total charge is unresolved. Provide -q/--charge or --ligand-charge.` エラー | `-q/--charge` または `-l/--ligand-charge` を明示的に指定 | [電荷 / スピン](troubleshooting.md#電荷--スピンの問題) |
 | 実行後にエネルギー/状態がおかしい | CLI 規約の電荷/多重度ポリシーを再確認 | [電荷 / スピン](troubleshooting.md#電荷--スピンの問題) |
 | **インストール / 環境** | | |
 | `mm-parm` が実行できない（`tleap`/`antechamber`/`parmchk2` が見つからない） | AmberTools の利用可能性を先に修正 | [AmberTools / mm-parm](troubleshooting.md#ambertools--mm-parm-の問題) |

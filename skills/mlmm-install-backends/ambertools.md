@@ -60,7 +60,7 @@ separate `--water` flag**, and there is **no `--force-field` flag**
 | Symptom | Cause / fix |
 |---|---|
 | `tleap: command not found` | AmberTools not installed; or `<amber_install>/amber.sh` not sourced. |
-| `Unknown residue name 'GPP'` | The ligand has no parameters; run `antechamber` to derive GAFF parameters first, then point `mm-parm` at the resulting `.frcmod`. |
+| `Unknown residue name 'GPP'` | A non-standard ligand: give its formal charge via `--ligand-charge` (e.g. `-l 'GPP=-3'`); `mm-parm` then auto-runs `antechamber` + `parmchk2` to derive GAFF parameters (there is no flag to pass a pre-built `.frcmod`). |
 | `parm7` written but `mm-parm` reports charge mismatch | Check `mlmm-structure-io/charge-multiplicity.md` — the `-l` mapping must agree with the protonation states in the PDB. |
 | Linux aarch64 not supported | conda-forge ships `linux-64`, `osx-64`, and `osx-arm64` only — `linux-aarch64` is not a published platform for `ambertools`. On ARM HPC, build from the official tarball. |
 

@@ -31,7 +31,7 @@ accept:
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
-| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); overrides `--model-pdb` |
+| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
@@ -100,11 +100,11 @@ produced only by `mlmm all`, not by standalone `path-search`.
 ```python
 {
   "index": 1,
-  "tag": "seg_01",
-  "kind": "elementary",
+  "tag": "seg_000_refine",
+  "kind": "seg",
   "barrier_kcal": 21.5,
   "delta_kcal": -0.7,
-  "bond_changes": {"formed": ["..."], "broken": ["..."]}
+  "bond_changes": "...summary text..."
 }
 ```
 

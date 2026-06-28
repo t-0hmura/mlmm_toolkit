@@ -57,17 +57,16 @@ python -c "import mlmm.core.defaults as d; print(d.MLMM_CALC_KW)"
 
 ## Backend-specific flags
 
-Orb accepts (canonical list in
-`backends/__init__.py:_BACKEND_ACCEPTED_KEYS['orb']`):
+Orb accepts (the `_OrbBackend.__init__` parameters in
+`backends/mlmm_calc.py`; defaults in `core/defaults.py`):
 
 | Key | Purpose |
 |---|---|
-| `charge`, `spin` | Total charge and spin multiplicity |
-| `device` | `'cuda'`, `'cpu'`, `'auto'` |
-| `model` | Override the default Orb checkpoint |
+| `model_charge`, `model_mult` | Total charge and spin multiplicity |
+| `ml_device` | `'cuda'`, `'cpu'`, `'auto'` |
+| `orb_model` | Override the default Orb checkpoint |
 | `orb_precision` | `'float32-high'` (default) or `'float64'` for tighter convergence (key in `MLMM_CALC_KW`; legacy `'float32'` alias still accepted) |
-| `orb_compile_model` | `True` to torch-compile (faster after first call, slower start) |
-| `freeze_atoms`, `hessian_calc_mode`, `return_partial_hessian`, `hessian_double` | Same as UMA |
+| `freeze_atoms`, `hessian_calc_mode`, `return_partial_hessian`, `H_double` | Same as UMA |
 
 ## Strengths and weaknesses
 
@@ -85,7 +84,6 @@ re-run survivors with UMA or MACE for the final TS / IRC.
 | Symptom | Cause / fix |
 |---|---|
 | `RuntimeError: ... mat1 and mat2 shapes ... ` during Hessian | `orb_precision='float32-high'` (default) insufficient on near-degenerate modes; try `orb_precision='float64'`. |
-| `orb_compile_model=True` makes the first call 60+ s slow | Expected; subsequent calls are faster. Disable for short jobs. |
 | TS converges with > 1 imaginary mode | Common with Orb on aromatic or metalloenzyme systems. Re-run that step with UMA/MACE. |
 
 ## See also

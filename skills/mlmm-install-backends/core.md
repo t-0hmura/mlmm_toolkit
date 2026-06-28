@@ -1,8 +1,11 @@
 # Installing mlmm itself (core.md)
 
-`mlmm-toolkit` is a pure-Python package; no native C/C++ build is needed.
-The bundled `pysisyphus` (GPU-tensor fork) and `thermoanalysis` install
-automatically with `pip install mlmm-toolkit`.
+`mlmm-toolkit` needs no C/C++ build at `pip install` time, but the bundled
+`hessian_ff` JIT-compiles its C++ kernels at first run via
+`torch.utils.cpp_extension` (Ninja is pulled in as a dependency; a working
+C++ compiler must be on `PATH`). The bundled `pysisyphus` (GPU-tensor fork),
+`thermoanalysis`, and `hessian_ff` install automatically with
+`pip install mlmm-toolkit` as separate top-level packages alongside `mlmm`.
 
 ## Prerequisites
 
@@ -83,9 +86,11 @@ Inside that directory:
 | `cli/app.py` | Click entry point |
 | `core/defaults.py` | All default kwarg dicts (read with `import mlmm.core.defaults`) |
 | `backends/` | UMA / Orb / MACE / AIMNet2 calculator factories |
-| `pysisyphus/` | Bundled GPU-tensor pysisyphus fork |
-| `thermoanalysis/` | Bundled QRRHO thermochemistry |
 | `workflows/{extract,path_search,tsopt,irc,freq,dft,all}.py` | Subcommand implementations |
+
+`pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` are **not** inside `mlmm/` —
+they install as separate top-level packages (siblings of `mlmm/` in
+`site-packages/`).
 
 ## Upgrading
 

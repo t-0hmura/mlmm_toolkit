@@ -90,12 +90,16 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── hessian_cache.py in-memory Hessian cache
 │ │ └── hessian_calc.py numerical-Hessian build + frequency / vibrational I/O helpers
 │ │
-│ └── core/ # === L5 Foundation ===
-│   ├── defaults.py C1 single source of truth for every default
-│   ├── utils.py PDB / XYZ / plot helpers
-│   ├── logging.py -v / -vv logging wiring
-│   ├── calc_eval.py per-stage calc evaluation
-│   └── residue_data.py residue tables
+│ ├── core/ # === L5 Foundation ===
+│ │ ├── defaults.py C1 single source of truth for every default
+│ │ ├── utils.py PDB / XYZ / plot helpers
+│ │ ├── logging.py -v / -vv logging wiring
+│ │ ├── calc_eval.py per-stage calc evaluation
+│ │ └── residue_data.py residue tables
+│ │
+│ └── mcp/ # non-layer subpackage: MCP server exposing every CLI subcommand
+│   ├── server.py / _runner.py
+│   └── _tools.py
 │
 ├── tests/ smoke / unit
 ├── .github/ workflows/ + scripts/ (docs-quality lint helpers; CI-only)
@@ -109,7 +113,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L1 `cli/`**. Only this layer constructs Click commands and parses argv. `app.py` holds the root `Click.Group` plus the `_LAZY_SUBCOMMANDS` registry — every entry uses an **absolute module path** (`mlmm.workflows.all`, `mlmm.io.trj2fig`, …) so the resolver is independent of where `default_group.py` itself lives. The `mlmm`-specific `preflight.py` (AmberTools / conda env / GPU preflight) lives here because it runs during CLI startup before any L2 workflow is invoked.
 
-**L2 `workflows/`** (~18 files). One file per subcommand. Each file owns a single `@click.command()` named `cli` and its private helpers. Large stage runners (`all.py` = 4,414 LOC, `path_search.py` = 2,352 LOC, `tsopt.py` = 3,181 LOC, `extract.py` = 2,274 LOC, `oniom_export.py` = 2,027 LOC) remain as single files in the current layout; future work may split them into per-stage subdirectories, but this is **opt-in** and out of scope for this release line.
+**L2 `workflows/`** (~21 files). One file per subcommand. Each file owns a single `@click.command()` named `cli` and its private helpers. Large stage runners (`all.py` = 4,414 LOC, `path_search.py` = 2,352 LOC, `tsopt.py` = 3,181 LOC, `extract.py` = 2,274 LOC, `oniom_export.py` = 2,027 LOC) remain as single files in the current layout; future work may split them into per-stage subdirectories, but this is **opt-in** and out of scope for this release line.
 
 **L3 `domain/`**. Chemistry-aware helper logic that may import `torch` / `numpy` / `pysisyphus.constants` (numeric back-ends), but **may not import** machine-learning interatomic potential (MLIP) runtimes (`fairchem`, `orb_models`, `mace`, `aimnet`). Two distinct CI gates cover this, both in `.github/scripts/check_engineering_markers.py`:
 
@@ -118,11 +122,11 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 Domain helpers are reusable by any L2 stage runner.
 
-**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py` = 2,534 LOC) lives here together with the backend dispatch (`__init__.py`) and the standalone xTB point-charge embedding correction (`xtb_embedcharge_correction.py`, driven by `--embedcharge`). Today the 4 MLIP backends (UMA / Orb / MACE / AIMNet2) that evaluate the ML region and the OpenMM / hessian_ff coupling all sit inline inside `mlmm_calc.py`; future work may split this into `backends/{base, uma, orb, mace, aimnet2}.py` for the MLIP layer plus a `backends/mlmm_calc/` subdir for the ONIOM core (`core.py`, `ase_calc.py`, `embed_charge.py`, `hessianff_calc.py`, `openmm_calc.py`, `facade.py`). The current single-file `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, **#8 (3-layer 5-pass partial Hessian)**, and **#9 (parm7 atom indexing)** — see §5.1.
+**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py` = 2,550 LOC) lives here together with the backend dispatch (`__init__.py`) and the standalone xTB point-charge embedding correction (`xtb_embedcharge_correction.py`, driven by `--embedcharge`). Today the 4 MLIP backends (UMA / Orb / MACE / AIMNet2) that evaluate the ML region and the OpenMM / hessian_ff coupling all sit inline inside `mlmm_calc.py`; future work may split this into `backends/{base, uma, orb, mace, aimnet2}.py` for the MLIP layer plus a `backends/mlmm_calc/` subdir for the ONIOM core (`core.py`, `ase_calc.py`, `embed_charge.py`, `hessianff_calc.py`, `openmm_calc.py`, `facade.py`). The current single-file `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, **#8 (3-layer 5-pass partial Hessian)**, and **#9 (parm7 atom indexing)** — see §5.1.
 
 **L4b `io/`** (7 files). Output-side I/O concerns: per-stage summary writer, energy diagram, trajectory rendering, PDB altloc fix, Hessian cache, numerical Hessian construction + frequency / vibrational I/O (`hessian_calc.py`). `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
 
-**L5 `core/`**. The lowest layer. `defaults.py` is the **single source of truth** for every CLI default — grep here before adding a number anywhere else. `utils.py` is a ~2,560-LOC grab-bag of PDB / XYZ / plotting helpers; future work may split it into `utils/{pdb,plot,coord,yaml,freeze,input_prep}.py`. `logging.py` (`-v` / `-vv` wiring), `calc_eval.py` (per-stage calc evaluation) and `residue_data.py` (residue tables) also live here. The internal-only modules `errors.py`, `types.py` / `_stage.py` are introduced here as they land.
+**L5 `core/`**. The lowest layer. `defaults.py` is the **single source of truth** for every CLI default — grep here before adding a number anywhere else. `utils.py` is a ~3,200-LOC grab-bag of PDB / XYZ / plotting helpers; future work may split it into `utils/{pdb,plot,coord,yaml,freeze,input_prep}.py`. `logging.py` (`-v` / `-vv` wiring), `calc_eval.py` (per-stage calc evaluation) and `residue_data.py` (residue tables) also live here. The internal-only modules `errors.py`, `types.py` / `_stage.py` are introduced here as they land.
 
 ### 2.4 Lazy-import mechanism (conceptual diagram)
 
@@ -170,7 +174,7 @@ For a contributor opening the repo for the first time, follow this path top-to-b
 |------|---------|------|-----------------|
 | 1 | 3 | [`README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/README.md) | one-paragraph elevator pitch + single-command usage |
 | 2 | 5 | this file (`docs/architecture.md`) §2 + §4 | 6-layer dir tree, dependency direction, where each concern lives |
-| 3 | 5 | [`mlmm/cli/app.py`](../mlmm/cli/app.py) | Click root group, `_LAZY_SUBCOMMANDS` registry (≈ 18 entries), absolute-path resolution |
+| 3 | 5 | [`mlmm/cli/app.py`](../mlmm/cli/app.py) | Click root group, `_LAZY_SUBCOMMANDS` registry (≈ 22 entries), absolute-path resolution |
 | 4 | 20 | [`mlmm/workflows/all.py`](../mlmm/workflows/all.py) (4,414 LOC, skim) | one full subcommand top-to-bottom; trace `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft` |
 | 5 | 7 | [`CONTRIBUTING.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md) §3 + §4 | 5 add-a-X recipes + the "do not touch" hidden constraints |
 
@@ -322,7 +326,6 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 
 - `pysisyphus/irc/IRC.py` — initial-displacement memory hygiene
 - `pysisyphus/optimizers/hessian_updates.py` — Bofill scatter on advanced indices, CPU-only `bofill_update` path for GPU OOM avoidance
-- `pysisyphus/run.py` — stage wiring
 - `pysisyphus/tsoptimizers/TSHessianOptimizer.py` — RSIRFO kwargs
 - `pysisyphus/calculators/...` — GPU-aware backend hooks
 - `thermoanalysis/QCData.py` — branding / I/O diff vs upstream
@@ -338,7 +341,7 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 
 ---
 
-## 6. Bundled forks (repo-internal, two-repo independent evolution)
+## 6. Bundled forks (repo-internal)
 
 `mlmm_toolkit` ships **three** repo-internal modules at the repo top:
 

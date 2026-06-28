@@ -62,12 +62,14 @@ mlmm extract -i complex.pdb -c substrate.pdb -o cluster.pdb
 mlmm extract -i complex.pdb -c 'A:44' -o cluster.pdb
 ```
 
-> **Caveat**: only `chainID:resSeq` (numeric) is parsed as chain-aware
-> in `extract.py`. Tokens like `'A:SAM'` (chain:resName) silently fall
-> back to a plain resName match across all chains. To restrict by chain
-> you must supply numeric resSeq. To select all SAM in chain A, run
-> `extract` with `-c 'SAM'` first then trim chains by hand, or use the
-> Form-2 substrate-PDB workflow.
+> **Caveat**: only `chainID:resSeq` (numeric resSeq) is parsed as
+> chain-aware in `extract.py`. A token like `'A:SAM'` (chain:resName) is
+> **not** parsed as chain+resName — `_parse_res_tokens` requires a numeric
+> resSeq, so `'A:SAM'` is taken as a literal residue name, matches nothing,
+> and raises a "Residue name not found" error. To restrict by chain you
+> must supply a numeric resSeq. To select all SAM in chain A, run `extract`
+> with `-c 'SAM'` first then trim chains by hand, or use the Form-2
+> substrate-PDB workflow.
 
 The pocket radius around the centers is set by `-r <Å>` (default 2.6 Å).
 All residues with at least one heavy atom inside the radius are kept.
@@ -92,18 +94,19 @@ If you don't know a ligand's formal charge, see
 ## Link-hydrogen capping
 
 When `extract` cuts a covalent bond between an in-cluster atom (`A`)
-and an out-of-cluster atom (`B`), it places a hydrogen `H_link` along
-the `A→B` direction at 1.09 Å (standard C-H length). The link hydrogen
-is written as a `HETATM` with residue name `LKH` (or similar marker
-in your version — check by reading `mlmm.workflows.extract.AMINO_ACIDS`).
+and an out-of-cluster atom (`B`), it places a hydrogen (atom name `HL`)
+along the `A→B` direction at 1.09 Å (standard C-H length). The link
+hydrogen is written as a `HETATM` named `HL` in residue `LKH` (chain `L`);
+see `_format_linkH_block` in `extract.py` for the convention.
 
 Link hydrogens carry **no formal charge**; they do not enter the
 charge sum.
 
-The atoms that **donate** hydrogens (i.e. atom `A`, the cluster-side
-parent of each cap) are added to a `freeze_atoms` list so they do not
-move during optimization. `mlmm-toolkit` writes the indices to the
-extracted PDB's B-factor field for downstream consumption.
+Freezing the cap parents is **not** done by `extract` — `extract` only
+cuts bonds and adds caps. The ML / movable-MM / frozen layer partition
+(which atoms stay fixed during optimization) is assigned later by
+`mlmm define-layer`, which encodes the categories in the PDB's B-factor
+field for downstream consumption.
 
 ## Common edits
 

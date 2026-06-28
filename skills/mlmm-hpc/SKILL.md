@@ -105,7 +105,7 @@ on a single mid-range GPU. Adjust generously.
 | `tsopt` (Dimer) | 1–10 min | Hessian-free; cheaper |
 | `irc` | 5–30 min | Forward + backward; default 125 cycles each |
 | `freq` | 5–30 min | Hessian once + diagonalization |
-| `dft` (ωB97M-V/def2-svp, GPU) | 30 min – 6 h | Heavy; ~1–10 h on TZVPD |
+| `dft` (ωB97M-V/def2-tzvpd = default, GPU) | ~1–10 h | Heavy; a lighter non-default def2-svp basis is ~30 min – 6 h |
 | `dft` (CPU) | 10× GPU time | Use only for small clusters |
 
 For an `all` run with 2 segments + DFT: budget **6–24 h walltime**.
@@ -161,7 +161,7 @@ unrelated jobs (e.g. interactive sessions or another campaign).
 a fresh `result_all/`. Several stages support manual continuation:
 
 - `tsopt`, `freq`, `irc`, `dft` — re-run on the previous output.
-- `path-search` — pass the partial `mep.pdb` as `-i`.
+- `path-search` — needs **≥2** input structures (reactant/product endpoints); pass them as repeated `-i` (a lone `mep.pdb` is rejected).
 
 For walltime-truncated jobs, write the per-stage outputs to a
 persistent location and resume from the last completed stage.

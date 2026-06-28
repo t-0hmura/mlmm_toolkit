@@ -48,8 +48,8 @@ out_dir/ (デフォルト: ./result_dft/)
 - `result.yaml` の内容:
   - `energy`: Hartree/kcal/mol 値、収束フラグ、実行時間、バックエンド情報（`engine`: `gpu4pyscf(rks_lowmem)` / `gpu4pyscf` / `pyscf(cpu)`、`used_gpu`、`used_lowmem`）。
   - `mlmm_energy`: REAL-low / MODEL-low の MM 評価値と再結合エネルギー `E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low`（Hartree と kcal/mol）。
-  - `charges`: Mulliken、meta-Lowdin、IAO 原子電荷（手法失敗時は `null`）。
-  - `spin_densities`: Mulliken、meta-Lowdin、IAO スピン密度（UKS のみ）。
+  - `charges`: 各原子 `[index, element, mulliken, lowdin, iao]`（Mulliken / meta-Löwdin / IAO 原子電荷。手法失敗時は `null`）。
+  - `spin_densities`: 同形式 `[index, element, mulliken, lowdin, iao]`（スピン密度、UKS のみ）。
 - 電荷、多重度、スピン (2S)、汎関数、基底関数、収束パラメータ、解決済み出力ディレクトリも要約されます。
 
 ## CLI オプション

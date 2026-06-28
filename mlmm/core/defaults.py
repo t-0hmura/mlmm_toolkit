@@ -210,6 +210,7 @@ OPT_MODE_ALIASES = (
 # DMF (Direct Max Flux) defaults for path optimization
 
 DMF_KW: Dict[str, Any] = {
+    "backend": "gpu",  # DMF backend: "gpu" (dmf.torch / CUDA, default) or "cpu" (dmf / NumPy)
     "max_cycles": 300,
     "correlated": True,
     "sequential": True,

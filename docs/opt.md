@@ -1,6 +1,6 @@
 # `opt`
 
-Optimizes a single layered enzyme PDB (or XYZ + `--ref-pdb`) to a local minimum using the ML/MM calculator (MLIP region + movable MM shell + frozen outer environment). Use it to relax a full-system layered structure. `--opt-mode grad` (default) runs L-BFGS, `--opt-mode hess` runs RFOptimizer (RFO), `--flatten` flattens imaginary modes after optimization, and `--mm-only` runs a fast MM pre-relaxation before ML/MM ONIOM optimization. Microiteration (`--microiter`, default on) relaxes the movable-MM shell in `hess` mode.
+Optimizes a single layered enzyme PDB (or XYZ + `--ref-pdb`) to a local minimum using the ML/MM calculator (MLIP region + movable MM shell + frozen outer environment). Use it to relax a full-system layered structure. `--opt-mode grad` (default) runs L-BFGS, `--opt-mode hess` runs RFOptimizer (RFO), `--flatten` flattens imaginary modes after optimization, and `--mm-only` minimizes the full system on the MM force field only, skipping the MLIP component (grad/L-BFGS only; microiteration auto-disabled). Microiteration (`--microiter`, default on) relaxes the movable-MM shell in `hess` mode.
 
 ## Examples
 

@@ -18,10 +18,11 @@ reference for **reading** and **diagnosing** them.
 | `<name>.rst7` | Coordinates (and optionally velocities) for the system at one geometry |
 
 The names match: a single `mm-parm` invocation produces one `.parm7`
-and one `.rst7` file. Downstream subcommands take both:
+and one `.rst7` file. Downstream geometry subcommands take the structure
+via `-i` (a PDB / XYZ) and the topology via `--parm`:
 
 ```bash
-mlmm opt -i complex.parm7 complex.rst7 ...
+mlmm opt -i complex.pdb --parm complex.parm7 ...
 ```
 
 ## When you need to inspect a `parm7`
@@ -51,12 +52,12 @@ for r in p.residues[:5]:
 ## Layer assignment is **NOT** in `parm7`
 
 `parm7` carries MM parameters. The ML / movable-MM / frozen partition
-is encoded in the **PDB's B-factor field** (see `pdb.md`). When a
-subcommand takes a `parm7` + `rst7` pair, it pairs them with the
-**original PDB** via `--ref-pdb`:
+is encoded in the **PDB's B-factor field** (see `pdb.md`). A geometry
+subcommand reads the layered structure from `-i` and the topology from
+`--parm` (use `--ref-pdb` only when the input is an XYZ):
 
 ```bash
-mlmm opt -i complex.parm7 complex.rst7 --ref-pdb complex.pdb -b uma -o result_opt
+mlmm opt -i complex.pdb --parm complex.parm7 -b uma -o result_opt
 ```
 
 Without `--ref-pdb`, the toolkit defaults to "all-MM" (no ML region).
@@ -71,7 +72,7 @@ If you need to update layer labels, edit the PDB's B-factor column
 
 | `--ff-set` | Protein FF | Water | Use case |
 |---|---|---|---|
-| `ff19SB` (default) | ff19SB | OPC (4-point) | Recommended modern default |
+| `ff19SB` (default) | ff19SB | OPC3 (3-point) | Recommended modern default |
 | `ff14SB` | ff14SB | TIP3P (3-point) | Legacy / when matching prior literature setups |
 
 The water model is bound to the chosen `--ff-set`. Other Amber protein

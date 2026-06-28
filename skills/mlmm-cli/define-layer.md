@@ -33,7 +33,7 @@ mlmm define-layer -i full_system.pdb \
 | `-o, --output` | path | `<input>_layered.pdb` | Output PDB with B-factor layer encoding |
 
 `--model-pdb` and `--model-indices` are alternatives; supply exactly
-one. `--model-indices` overrides `--model-pdb` if both are given.
+one. `--model-indices` takes precedence over `--model-pdb` if both are given.
 
 ## Examples
 

@@ -57,7 +57,7 @@ Common flag set:
 |---|---|---|
 | `-i, --input` | `.pdb`, or `.xyz` (with `--ref-pdb`) input | required |
 | `--parm` | Amber parm7 topology for the full system | required |
-| `-q, --charge` / `-l, --ligand-charge` | Total charge or per-residue mapping | required for `.xyz` input |
+| `-q, --charge` / `-l, --ligand-charge` | Total charge or per-residue mapping | `-q` or `-l` required for all inputs (charge cannot be auto-derived without one) |
 | `-m, --multiplicity` | Spin multiplicity (2S+1) | 1 |
 | `--func-basis` | `'FUNC/BASIS'` like `'wb97m-v/def2-tzvpd'` | `wb97m-v/def2-tzvpd` |
 | `--engine` | `gpu` / `cpu` | `gpu` |

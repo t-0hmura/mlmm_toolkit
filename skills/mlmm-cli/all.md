@@ -123,9 +123,11 @@ for seg in d["segments"]:
     print(seg["index"], seg["barrier_kcal"], seg["delta_kcal"])
 ```
 
-Per-segment fields include `barrier_kcal`, `delta_kcal`, `bond_changes`,
-`structures` (paths to reactant/ts/product files), `tsopt` /
-`irc` / `freq` / `dft` sub-objects with their own `status` and energies.
+Per-segment fields are `index`, `tag`, `kind`, `barrier_kcal`, `delta_kcal`,
+and `bond_changes` — the segment record has no `structures` / `tsopt` / `irc` /
+`freq` / `dft` sub-objects. The geometries live on disk under
+`segments/seg_NN/structures/`, and each stage's results in
+`segments/seg_NN/<stage>/result.json`.
 
 ## Resume / restart
 

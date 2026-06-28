@@ -335,7 +335,7 @@ def _extract_verbose_callback(ctx: "click.Context", param: "click.Parameter", va
 @click.option(
     "-i", "--input", "complex_pdb",
     type=str, multiple=True, required=True,
-    help="Protein-substrate complex PDB(s). Repeat -i for each file. If multiple, they must have identical atom counts and ordering.",
+    help="Protein-substrate complex PDB(s). Multiple files may be given space-separated after a single -i ('-i a.pdb b.pdb') or by repeating -i. If multiple, they must have identical atom counts and ordering.",
 )
 @click.option(
     "-c", "--center", "substrate_pdb",
@@ -438,17 +438,17 @@ def cli(
     out_json: bool,
     verbose: int,
 ) -> None:
-    # Recover variadic values after -i / -o from extra args (supports
-    # space-separated syntax: ``-i a.pdb b.pdb`` in addition to ``-i a.pdb -i b.pdb``).
-    extra_inputs = _gather_extract_variadic(ctx.args, ("-i", "--input"))
-    input_list = list(complex_pdb) + extra_inputs if extra_inputs else list(complex_pdb)
+    # Accept space-separated multi-input / -output (``-i a.pdb b.pdb``), consistent with
+    # `all` / `path-opt` / `path-search`: collect every value following each -i / -o from the
+    # raw argv. (Previously only ``-i a.pdb -i b.pdb`` worked; space-separated silently dropped b.)
+    import sys
+    from mlmm.core.utils import collect_single_option_values
 
-    extra_outputs = _gather_extract_variadic(ctx.args, ("-o", "--output"))
-    output_list: Optional[List[str]]
-    if output_pdb or extra_outputs:
-        output_list = list(output_pdb) + extra_outputs if extra_outputs else list(output_pdb)
-    else:
-        output_list = None
+    _argv = sys.argv[1:]
+    _ins = collect_single_option_values(_argv, ("-i", "--input"), "-i/--input")
+    input_list = _ins if _ins else list(complex_pdb)
+    _outs = collect_single_option_values(_argv, ("-o", "--output"), "-o/--output")
+    output_list: Optional[List[str]] = _outs if _outs else (list(output_pdb) if output_pdb else None)
 
     ns = argparse.Namespace(
         complex_pdb=input_list,

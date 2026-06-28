@@ -1,6 +1,6 @@
 # `energy-diagram`
 
-Draw a state energy diagram directly from numeric values (no structure file, no ML/MM calculation). `mlmm energy-diagram` only visualizes numbers you provide. It does not read PDB/XYZ structures and does not run thermochemistry (`--thermo`) or DFT (`--dft`) steps.
+Draw a state energy diagram directly from numeric values (no structure file, no ML/MM calculation). It does not read PDB/XYZ structures and does not run thermochemistry (`--thermo`) or DFT (`--dft`) steps.
 
 ## Examples
 

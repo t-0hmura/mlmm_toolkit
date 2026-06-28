@@ -337,7 +337,7 @@ To rebuild hessian_ff native extensions in this environment:
 
 症状:
 - B-factor からのレイヤー自動判定で、ML / Movable / Frozen の分割が想定と異なる
-- `--detect-layer` 有効時に `--model-pdb` なしで実行すると失敗する
+- `--detect-layer` が、入力 PDB に有効な B-factor レイヤーが無い（かつ `--model-pdb` も未指定の）状態で失敗する
 
 対処の例:
 - 入力が PDB（または `--ref-pdb` 付き XYZ）であることを確認する

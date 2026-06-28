@@ -1,7 +1,7 @@
 # Charge and multiplicity (charge-multiplicity.md)
 
-Sometimes, failure of "the optimizer ran but the chemistry is wrong"
-traces back to a wrong total charge or multiplicity. `mlmm-toolkit`
+Sometimes a failure of the form "the optimizer ran but the chemistry is
+wrong" traces back to a wrong total charge or multiplicity. `mlmm-toolkit`
 needs both as integers; getting them right is **non-negotiable** for
 meaningful energies.
 
@@ -115,7 +115,7 @@ After summing residue + ligand + metal charges, sanity-check by:
 - Or run a tiny optimization and read `summary.json`:
 
   ```bash
-  mlmm opt -i cluster.pdb -q ... -m 1 -o /tmp/check
+  mlmm opt -i cluster.pdb --parm real.parm7 -q ... -m 1 -o /tmp/check
   python -c "import json; print(json.load(open('/tmp/check/result.json'))['charge'])"
   ```
 

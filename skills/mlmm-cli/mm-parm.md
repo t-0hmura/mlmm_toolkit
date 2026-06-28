@@ -28,7 +28,7 @@ mlmm mm-parm -i complex.pdb \
 | `-i, --input` | path | required | Input PDB |
 | `-l, --ligand-charge` | str | none | Per-residue charges, e.g. `'GPP=-3,SAM:1'`. Both `=` and `:` separators accepted. |
 | `--ligand-mult` | str | none | Per-residue multiplicities, e.g. `'HEM=1,NO:2'` |
-| `--ff-set` | choice | `ff19SB` | Force-field set: `ff19SB` (with OPC water) or `ff14SB` (with TIP3P) |
+| `--ff-set` | choice | `ff19SB` | Force-field set: `ff19SB` (with OPC3 water) or `ff14SB` (with TIP3P) |
 | `--add-h / --no-add-h` | flag | `--no-add-h` | Add hydrogens via PDBFixer at `--ph` |
 | `--ph` | float | `7.0` | pH for PDBFixer hydrogen placement |
 | `--add-ter / --no-add-ter` | flag | `--add-ter` | Insert TER records before/after target residues |
@@ -72,7 +72,7 @@ Files are written **directly to the current working directory** (no
 ```
 complex.parm7              # Amber topology
 complex.rst7               # Coordinates (and box if water)
-complex.pdb                # LEaP-exported PDB (written whenever --out-prefix is given; <stem>_parm.pdb only when --out-prefix is omitted with --add-h)
+complex.pdb                # LEaP-exported PDB
 ```
 
 There is **no `result.json` output**. To verify the parm:

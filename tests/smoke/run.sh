@@ -330,5 +330,15 @@ mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-
 # path_search opt-in (`--refine-path`) in scan->path mode too (test37 already
 # covers the multi-input endpoint MEP with --refine-path).
 
+# test63: extract MULTI-INPUT via space-separated '-i a.pdb b.pdb' (one flag, two paths).
+# Regression guard: a single -i with several space-separated paths must NOT drop the 2nd input.
+# A single -o yields one multi-MODEL PDB, so both endpoints must appear (-> exactly 2 MODEL records).
+mlmm extract -i r_complex.pdb p_complex.pdb -c PRE -r 5.0 --no-exclude-backbone --ligand-charge 'PRE:0' -o pocket_multi.pdb > test63_multi_extract.out 2>&1
+n_models=$(grep -c '^MODEL' pocket_multi.pdb 2>/dev/null)
+if [ "${n_models:-0}" -ne 2 ]; then
+  echo "[extract-multi] test63: space-separated '-i a b' yielded ${n_models:-0} MODEL records (expected 2); the 2nd input was dropped" >> test63_multi_extract.out
+  exit 1
+fi
+
 # test62: all --scan-lists --refine-path (single-PDB scan -> recursive path_search)
 mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --refine-path --max-cycles 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test62_rp_scan > test62_rp_scan.out 2>&1

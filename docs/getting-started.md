@@ -90,7 +90,7 @@ mlmm --version
 | Component | When to add | Install |
 |---|---|---|
 | `hessian_ff` native build | If you see a "native extension not available" warning. JIT compilation usually handles it. | First install `ninja` on most clusters: `conda install -c conda-forge ninja -y`. Then build: `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make`. |
-| `cyipopt` | Direct Max Flux (DMF) MEP backend for the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`). | `conda install -c conda-forge cyipopt -y` |
+| `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
 | xTB | `--embedcharge` (xTB point-charge embedding) | `conda install -c conda-forge xtb -y` (custom binary: set `xtb_cmd` in YAML) |
 | Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
 | HPC `cuda/<X.Y>` module | HPC clusters using environment modules | Load **before** `pip install torch`; match X.Y to your wheel (`cu126` ↔ 12.6, `cu129` ↔ 12.9) |

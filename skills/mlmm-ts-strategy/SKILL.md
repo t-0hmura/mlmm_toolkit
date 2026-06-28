@@ -26,7 +26,7 @@ ONIOM campaign. Every flag below is verified against `mlmm/cli/common_options.py
 | Route | Subcommand | Mechanism | Use when |
 |---|---|---|---|
 | (a) MEP / path-search | `path-search` (or `path-opt` for one segment) | Recursive GSM/DMF segmentation; brackets the TS between endpoints, auto-bridges gaps, one TS per segment | You have R (and optionally P / intermediates) and want the path discovered |
-| (b) Distance-restrained build-up | `scan` (`scan2d`/`scan3d`) | Harmonic restraint `E = ½·k·(r_ij − target)²` (default `k=10`, `restraints.py` `HarmonicBiasCalculator`) drives the reacting distance(s) toward the barrier with L-BFGS relaxation | No usable second endpoint / TS guess — drive the reacting bond directly |
+| (b) Distance-restrained build-up | `scan` (`scan2d`/`scan3d`) | Harmonic restraint `E = ½·k·(r_ij − target)²` (scan default `k=300` via `BIAS_KW`; the `10.0` in `restraints.py` `HarmonicBiasCalculator` is only an unused constructor fallback) drives the reacting distance(s) toward the barrier with L-BFGS relaxation | No usable second endpoint / TS guess — drive the reacting bond directly |
 
 - There is **no `opt --restraint` flag**. The restrained-optimization route IS the `scan` subcommand (`scan.py` docstring "staged bond-length scan with harmonic restraints"); plain `opt` is un-restrained.
 - `path-search` (`app.py`: "Search reaction pathways recursively.") auto-segments a multistep path; `path-opt` optimizes a single given segment.

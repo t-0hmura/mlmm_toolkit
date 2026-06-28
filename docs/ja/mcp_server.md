@@ -5,7 +5,7 @@
 ## インストール
 
 ```bash
-pip install "mlmm[mcp]"
+pip install "mlmm-toolkit[mcp]"
 ```
 
 これにより `mcp[cli]` 依存関係が追加され、`mlmm-mcp` コンソールスクリプトが登録されます。

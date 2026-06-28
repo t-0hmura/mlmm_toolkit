@@ -1,6 +1,6 @@
 # `opt`
 
-`mlmm opt` は、ML/MM 計算機（MLIP 領域 + 可動 MM 殻 + 凍結外殻）を用いて、層付き全系の酵素 PDB（または XYZ + `--ref-pdb`）を局所極小に最適化します。層付き全系構造を緩和したいときに使います。`--opt-mode grad`（デフォルト）は L-BFGS、`--opt-mode hess` は RFOptimizer（RFO）を実行し、`--flatten` は最適化後に虚振動数モードをフラットニング、`--mm-only` は ML/MM ONIOM 最適化前の安価な MM 事前緩和を行います。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで可動 MM 殻を緩和します。
+`mlmm opt` は、ML/MM 計算機（MLIP 領域 + 可動 MM 殻 + 凍結外殻）を用いて、層付き全系の酵素 PDB（または XYZ + `--ref-pdb`）を局所極小に最適化します。層付き全系構造を緩和したいときに使います。`--opt-mode grad`（デフォルト）は L-BFGS、`--opt-mode hess` は RFOptimizer（RFO）を実行し、`--flatten` は最適化後に虚振動数モードをフラット化、`--mm-only` は MLIP を使わず全系を MM 力場のみで最適化します（grad/L-BFGS のみ、マイクロイテレーションは自動無効）。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで可動 MM 殻を緩和します。
 
 ## 実行例
 
@@ -15,7 +15,6 @@ mlmm opt -i INPUT --parm PARM7 --model-pdb ML_REGION -q CHARGE [options]
 最小構成の L-BFGS 最適化（grad モード、デフォルト）:
 
 ```bash
-# Minimal L-BFGS optimization (grad mode, default)
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_opt
 ```
@@ -23,19 +22,17 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 収束を厳しくして軌跡を保存する:
 
 ```bash
-# Tighten convergence and keep an optimization trajectory
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
-# add one harmonic distance restraint: --dist-freeze "[(12,45,2.20)]" --bias-k 20.0
+# 調和距離拘束を1つ追加する: --dist-freeze "[(12,45,2.20)]" --bias-k 20.0
 ```
 
 heavy モード（RFO）に切り替える:
 
 ```bash
-# Switch to heavy mode (RFO)
 mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode hess --out-dir ./result_opt_rfo
-# use the ORB backend instead of the default: --backend orb
+# デフォルトの代わりに ORB バックエンドを使う: --backend orb
 ```
 
 ## 処理の流れ
@@ -43,7 +40,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. **入力処理** -- `-i/--input` は PDB または XYZ ファイルを受け付けます（XYZ 入力時は `--ref-pdb` を使用）。オプティマイザーは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Movable-MM、B=20 Frozen）から取得されます。
 2. **ML/MM 計算機の構築** -- ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **最適化** -- `--opt-mode grad`（`light`）は L-BFGS、`--opt-mode hess`（`heavy`）は RFOptimizer（RFO）を実行します。
-   - `--flatten` は最適化後の虚振動数モードのフラットニングを有効にします。検出されたすべての虚振動数モードが各反復でフラットニングされ、虚振動数モードがなくなるか内部ループ上限に達するまで続きます。
+   - `--flatten` は最適化後の虚振動数モードのフラット化を有効にします。検出されたすべての虚振動数モードが各反復でフラット化され、虚振動数モードがなくなるか内部ループ上限に達するまで続きます。
 4. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を受け付けます。`target_A` は目標距離（Å）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/Å²）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
 5. **ダンプと変換** -- `--dump` は `optimization_trj.xyz` を書き出します。変換が有効な場合、PDB 入力では軌跡も `.pdb` に変換されます（B 因子アノテーション付き）。`opt.dump_restart` はリスタート YAML スナップショットを出力できます。
 6. **終了コード** -- `0` 成功、`2` ゼロステップ（ステップノルム < `min_step_norm`）、`3` オプティマイザーエラー、`130` キーボード割り込み、`1` 予期しないエラー。
@@ -94,7 +91,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--max-cycles INT` | 最適化反復のハードリミット。 | `10000` |
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザーモード: `grad`/`lbfgs`（LBFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
 | `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（LBFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
-| `--flatten/--no-flatten` | 最適化後の虚振動数モードフラットニングループの有効化/無効化。 | `False` |
+| `--flatten/--no-flatten` | 最適化後の虚振動数モードフラット化ループの有効化/無効化。 | `False` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`、`optimization_all_trj.xyz`）を出力。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの有効化/無効化。 | `True` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |

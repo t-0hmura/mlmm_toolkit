@@ -1,8 +1,16 @@
 # Gaussian gjf format (gjf.md)
 
-`gjf` (or `.com`) is the input format for Gaussian. `mlmm-toolkit`
-reads it as an alternative to PDB / XYZ when you have a Gaussian-style
-input that already encodes charge, spin, and a route specification.
+`gjf` (or `.com`) is Gaussian's input format. In `mlmm-toolkit` it is the
+**Gaussian ONIOM exchange format** — not a generic geometry input:
+
+- **written** by `mlmm oniom-export` (builds a g16 ONIOM input from a parm7 + layered PDB), and
+- **read** by `mlmm oniom-import` (reconstructs an XYZ + a layer-encoded PDB from a Gaussian/ORCA ONIOM file).
+
+The geometry pipeline does **not** read gjf. `opt` / `tsopt` / `freq` / `irc` /
+`scan` / `path-opt` / `path-search` take **PDB / XYZ** via `-i` (other suffixes
+are rejected with `Unsupported input format: … Use .pdb or .xyz`), and `dft`
+takes a **PDB** (`-i`, with `--ref-pdb` for an XYZ). To feed a Gaussian file into
+the pipeline, convert it first with `mlmm oniom-import`.
 
 ## Structure
 
@@ -38,108 +46,43 @@ Layout:
 | (blank) | 1 | Terminator |
 | (optional) | 0+ | Connectivity, ECP block, custom basis, etc. |
 
-`mlmm-toolkit` reads the geometry block plus the charge/spin line. It
-**ignores** the route line (the MLIP backend / DFT engine selected on
-the CLI overrides whatever's in the gjf).
-
-## What `mlmm-toolkit` parses
-
-| gjf field | Where it goes |
-|---|---|
-| Element + x/y/z | Geometry, fed to the calculator |
-| Charge | `-q` (only if you don't override on CLI) |
-| Multiplicity | `-m` (only if you don't override on CLI) |
-| Frozen flag (`-1` in column 2) | **Silently ignored** by the gjf coordinate parser. Use `--freeze-atoms` (CLI) or YAML `freeze_atoms` to declare frozen atoms; the gjf header's `-1` does not propagate. |
-
-## CLI usage
+## Export: generate a Gaussian ONIOM gjf
 
 ```bash
-mlmm tsopt -i ts.gjf -b uma -o result_tsopt
+mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb -o out.com
 ```
 
-No need to pass `-q`/`-m` when they're in the header. To override:
+`--mode g16` (or a `.gjf`/`.com` output suffix) selects Gaussian; `.inp` /
+`--mode orca` selects ORCA. See `mlmm-cli/oniom-export.md`.
+
+## Import: read a Gaussian ONIOM gjf back
 
 ```bash
-mlmm tsopt -i ts.gjf -q -1 -m 2 -b uma -o result_tsopt
+mlmm oniom-import -i system.gjf -o system   # -> system.xyz + a layer-encoded PDB
 ```
 
-`mlmm dft` reads gjf the same way, but its `--func-basis` flag
-takes precedence over the route-line method:
+`oniom-import` parses the ONIOM layer assignment / QM-MM regions from the
+Gaussian (`.gjf`/`.com`) or ORCA (`.inp`) file and rebuilds the structures the
+geometry pipeline consumes. See `mlmm-cli/oniom-import.md`.
 
-```bash
-mlmm dft -i ts.gjf --func-basis 'wb97m-v/def2-tzvpd' --engine gpu
-```
+## Charge / spin / frozen atoms
 
-## Frozen atoms
+These are properties of the geometry pipeline, which reads PDB/XYZ — not gjf.
+Charge / spin come from `-q` / `-m` (or the layer-charge summary); declare frozen
+atoms with `--freeze-atoms` (CLI, comma-separated 1-based indices) or a YAML
+`--config` `freeze_atoms: [<index>, ...]`. A `-1` frozen marker inside a Gaussian
+file is **not** a generic-input mechanism; layer/active-atom information is handled
+by `oniom-import`. See `charge-multiplicity.md`.
 
-A `-1` in the second column of a coordinate line marks the atom as
-frozen during optimization. Gaussian convention:
+## Notes on output conversion
 
-```
-  C  -1   1.234   5.678   9.012
-```
-
-**`mlmm-toolkit` does not parse this flag.** Its gjf coordinate regex
-captures element + x/y/z only; the `-1` is dropped silently on read
-and never written on output.
-
-To declare frozen atoms, use either:
-
-- `--freeze-atoms` (CLI; comma-separated 1-based indices), or
-- a YAML `--config` with `freeze_atoms: [<index>, ...]`.
-
-(Link-H caps on `extract`-produced clusters are frozen automatically;
-no flag is required for those.)
-
-If you have a Gaussian gjf with frozen markers you care about, extract
-those indices in a preprocessing step and feed them via `--config`.
-
-## Generating gjf from `mlmm-toolkit` output
-
-```bash
-# Any geometry-touching subcommand emits a .gjf alongside its output
-# when --convert-files gjf is set (extract writes PDB only and has no
-# such flag).
-mlmm opt -i cluster.pdb --parm system.parm7 -q 0 -m 1 \
-    --convert-files gjf      # writes the optimized geometry as .gjf too
-```
-
-Or via ASE:
-
-```python
-from ase.io import read, write
-atoms = read("ts.xyz")
-atoms.info["charge"] = 0
-atoms.info["multiplicity"] = 1
-write("ts.gjf", atoms, format="gaussian-in",
-      properties=["forces"], extra="# wB97X-D/def2-svp opt freq")
-```
-
-## Validation
-
-```bash
-# Are charge and spin present?
-awk '/^[ ]*-?[0-9]+ +[1-9][0-9]*$/{print "charge,spin:", $0; exit}' ts.gjf
-
-# Atom count
-awk 'BEGIN{at=0} /^[ ]*[A-Z][a-z]?[ ]+(-?[0-9]+|[0-9.]+)/{at++} END{print "atoms:", at}' ts.gjf
-
-# Route line
-grep -m1 '^#' ts.gjf
-```
-
-## Common gotchas
-
-| Symptom | Cause | Fix |
-|---|---|---|
-| `mlmm-toolkit` says "unknown element symbol Mn"  | Two-letter elements written without correct casing (`MN`) | Use `Mn`, not `MN`, in the element column |
-| Charge is read wrong | A blank line missing between title and charge/spin block | Insert the missing blank line |
-| Frozen flag ignored | `-1` is in the wrong column or there's a tab instead of space | Use space-separated columns; `-1` must be the 2nd whitespace-separated token |
-| Connectivity block confuses the parser | Trailing blocks (after coords) are not parsed by `mlmm-toolkit` and are discarded | Strip them or just ignore the warning |
+`--convert-files/--no-convert-files` is a **boolean** toggle (default on) that
+writes **PDB companions** for XYZ/TRJ outputs — it takes no format value
+(there is no `--convert-files gjf`). gjf output is produced by `oniom-export`,
+not by the optimization subcommands.
 
 ## See also
 
-- `pdb.md`, `xyz.md` — the other two formats.
-- `charge-multiplicity.md` — when the gjf header is missing or wrong.
-- `mlmm-cli/dft.md` — gjf is the most natural input for
-  `mlmm dft` because it carries charge / spin already.
+- `pdb.md`, `xyz.md` — the geometry-pipeline input formats.
+- `mlmm-cli/oniom-export.md`, `mlmm-cli/oniom-import.md` — the gjf producer / consumer.
+- `charge-multiplicity.md` — charge / spin resolution.

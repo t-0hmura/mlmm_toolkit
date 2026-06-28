@@ -19,6 +19,7 @@ mlmm energy-diagram -i "[0, 12.5, 4.3]" \
 |---|---|---|---|
 | `-i, --input` | numeric sequence | required | Energy values. Accepts a Python-list literal (`-i "[0, 12.5, 4.3]"`), repeated `-i` calls (`-i 0 -i 12.5 -i 4.3`), or a bare space-separated list after one flag (`-i 0 12.5 4.3`) — all three forms are equivalent |
 | `-o, --output` | path | `energy_diagram.png` | Output image path |
+| `--out-json` | flag | off | Also write a machine-readable `result.json` (behind `--help-advanced`) |
 | `--help-advanced` | flag | — | Reveal x-axis labels (`--label-x`) and y-axis label (`--label-y`) |
 
 State labels and y-axis units are exposed via `--help-advanced`. Without

@@ -31,7 +31,7 @@ selection. Most subcommands accept:
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
-| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); overrides `--model-pdb` |
+| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
@@ -134,8 +134,9 @@ of frozen residues) or real chemical second-order saddle points.
 
 - A converged `tsopt` is **not** a complete validation; always follow
   with `irc.md` to confirm the TS connects the expected R and P.
-- `--max-cycles` rarely needs to be increased above 200 in practice;
-  failure usually means the TS guess is too far off.
+- `tsopt` rarely needs more than ~200 cycles to converge in practice
+  (the default `--max-cycles` is only a high safety cap); failure
+  usually means the TS guess is too far off.
 - Backend choice matters here more than for minima: UMA / MACE are
   usually safer than Orb for TS curvature.
 

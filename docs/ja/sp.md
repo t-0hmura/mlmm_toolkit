@@ -11,14 +11,12 @@
 層構造 PDB 上のエネルギーと力（B-factor が ML / movable-MM / frozen-MM をエンコード）:
 
 ```bash
-# energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen-MM)
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
 ONIOM ヘシアン全体も計算する（`--backend uma` のとき Analytical）:
 
 ```bash
-# also compute the full ONIOM Hessian (Analytical when --backend uma)
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 ```
 

@@ -89,14 +89,19 @@ result_ts_only/
 ```python
 import json
 d = json.load(open("result_ts_only/summary.json"))
-seg = d["segments"][0]
+seg = d["segments"][0]                  # keys: index, tag, kind, barrier_kcal, delta_kcal, bond_changes
 print(seg["barrier_kcal"], seg["delta_kcal"])
 print(seg["bond_changes"])             # what bonds broke / formed along the IRC
-print(seg["tsopt"]["n_imaginary"])     # should be 1
-print(seg["irc"]["energy_reactant_hartree"], seg["irc"]["energy_ts_hartree"], seg["irc"]["energy_product_hartree"])
+
+# n_imaginary and IRC endpoint energies are NOT on the summary segment;
+# they live in the per-stage result.json files:
+ts = json.load(open("result_ts_only/segments/seg_01/tsopt/result.json"))
+print(ts["n_imaginary_modes"])         # should be 1
+irc = json.load(open("result_ts_only/segments/seg_01/irc/result.json"))
+print(irc["energy_reactant_hartree"], irc["energy_ts_hartree"], irc["energy_product_hartree"])
 ```
 
-If `tsopt.n_imaginary != 1`, the geometry is **not a true first-order
+If `n_imaginary_modes != 1`, the geometry is **not a true first-order
 saddle**; see "Distinctive failure modes" below.
 
 ## Distinctive failure modes
@@ -147,7 +152,7 @@ selection. Most subcommands accept:
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
-| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); overrides `--model-pdb` |
+| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |

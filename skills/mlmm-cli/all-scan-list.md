@@ -93,14 +93,17 @@ result_scan/
         └── seg_NN_mep/             # one MEP per stitched pair (recursive bond-change splitting only with --refine-path)
 ```
 
-`summary.json["scan"]` carries the
-stage-by-stage record:
+The `all` pipeline runs the scan in `_work/scan/` and does **not** emit a JSON
+record (the top-level `summary.json` is the `all` envelope and carries no scan
+stages). To get the stage-by-stage record as JSON, run the scan standalone with
+`--out-json`; its `summary.json` then holds the record under the top-level
+`stages` key:
 
 ```python
 import json
-d = json.load(open("result_scan/summary.json"))
-for stage in d["path_search"]["scan"]["stages"]:
-    print(stage["index"], stage["bonds"], stage["status"], stage["final_distance_A"])
+d = json.load(open("result_scan/summary.json"))  # from `mlmm scan ... --out-json`
+for stage in d["stages"]:
+    print(stage["index"], stage["converged"], stage["bond_changes"], stage["target_distances_angstrom"])
 ```
 
 ## Distinctive failure modes
@@ -138,7 +141,7 @@ selection. Most subcommands accept:
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
-| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); overrides `--model-pdb` |
+| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |

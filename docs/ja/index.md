@@ -165,7 +165,7 @@ glossary
 ### エクスポート
 | サブコマンド | 説明 |
 |---------|------|
-| [`oniom-export`](oniom-export.md) | Amber parm7 から Gaussian ONIOM / ORCA QM/MM 入力を生成（`--mode g16|orca`） |
+| [`oniom-export`](oniom-export.md) | Amber parm7 から Gaussian ONIOM / ORCA QM/MM 入力を生成（`--mode g16\|orca`） |
 | [`oniom-import`](oniom-import.md) | Gaussian/ORCA ONIOM 入力を読み込み、XYZ と層付き PDB を再構築 |
 
 ---

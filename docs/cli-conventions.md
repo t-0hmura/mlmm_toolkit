@@ -130,7 +130,7 @@ Residue-name matching is case-insensitive; unmapped non-standard residues defaul
 1. `-q/--charge` explicit CLI override.
 2. ML-region determination summary (sum of amino acids, ions, `--ligand-charge`; only when `-c` is set and extraction runs).
 3. `--ligand-charge` fallback when extraction is skipped (PDB input or `--ref-pdb` required).
-4. `.gjf` charge / spin header (Gaussian-style); read only by `oniom-import`, the sole command that accepts `.gjf` as a structure input.
+4. `.gjf` charge / spin header (Gaussian-style); the header is read only by `oniom-import` (`bond-summary` also reads `.gjf` geometry, but the optimization/MEP pipeline takes PDB/XYZ).
 5. Default: abort if unresolved.
 
 ```{tip}

@@ -82,7 +82,7 @@ cat result_opt/result.json | python -m json.tool
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | `"completed"` |
+| `status` | string | `"completed"`（hess モード）/ `"converged"` / `"not_converged"`（grad モードは収束判定を返す） |
 | `energy_hartree` | float | TS エネルギー (Hartree) |
 | `n_imaginary_modes` | int | 虚振動数 |
 | `imaginary_frequencies_cm` | float[] | 虚振動数 (cm$^{-1}$, 負の値) |

@@ -77,5 +77,5 @@ is older than the one that introduced `--embedcharge`; upgrade with
 ## Live source
 
 ```bash
-python -c "from mlmm import xtb_embedcharge_correction as x; print([n for n in dir(x) if not n.startswith('_')])"
+python -c "from mlmm.backends import xtb_embedcharge_correction as x; print([n for n in dir(x) if not n.startswith('_')])"
 ```

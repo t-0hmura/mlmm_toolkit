@@ -115,11 +115,12 @@ mlmm --version
 mlmm --help                     # subcommand list
 python -c "import mlmm.core.defaults as d; print(sorted(n for n in dir(d) if not n.startswith('_')))"
 
-# backend smoke checks (only those you installed)
-mlmm tsopt --help >/dev/null && echo "mlmm + uma backend OK"
-mlmm tsopt --help >/dev/null && echo "mlmm + orb backend OK"
-mlmm tsopt --help >/dev/null && echo "mlmm + mace backend OK"   # only in MACE env
-mlmm tsopt --help >/dev/null && echo "mlmm + aimnet2 backend OK"
+# backend smoke checks (only those you installed) — import the backend module itself
+# (`mlmm tsopt --help` only loads the CLI and does NOT import any MLIP backend)
+python -c "import fairchem"   && echo "mlmm + uma backend OK"
+python -c "import orb_models" && echo "mlmm + orb backend OK"
+python -c "import mace"       && echo "mlmm + mace backend OK"   # only in MACE env
+python -c "import aimnet"     && echo "mlmm + aimnet2 backend OK"
 ```
 
 If any of these fails with `ImportError`, the corresponding backend's

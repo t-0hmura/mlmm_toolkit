@@ -24,11 +24,11 @@ mlmm/                              ← the package body, one folder per layer
 │               #       AIMNet2 / xTB + OpenMM + hessian_ff coupling) +
 │               #       xTB QM/MM embed-charge correction.
 ├── io/         # L4b — summary writer, energy diagram, trajectory plot,
-│               #       Hessian cache, analytical-Hessian glue (consumes
-│               #       hessian_ff), PDB altloc fix, harmonic restraints.
+│               #       Hessian cache, analytical-Hessian glue, PDB altloc
+│               #       fix, harmonic restraints.
 └── core/       # L5 — `defaults.py` (single source of truth for every CLI
                 #       default), `utils.py` (PDB / XYZ / plot helpers),
-                #       `logging.py`, `_pysis_quiet.py`, `calc_eval.py`,
+                #       `logging.py`, `calc_eval.py`,
                 #       `residue_data.py`.
 
 pysisyphus/        ← bundled fork of the optimiser / TS / IRC engine.

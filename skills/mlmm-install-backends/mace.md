@@ -60,15 +60,15 @@ python -c "import mlmm.core.defaults as d; print(d.MLMM_CALC_KW)"
 
 ## Backend-specific flags
 
-MACE accepts (from `backends/__init__.py:_BACKEND_ACCEPTED_KEYS['mace']`):
+MACE accepts (the `_MACEBackend.__init__` parameters in `backends/mlmm_calc.py`; defaults in `core/defaults.py`):
 
 | Key | Purpose |
 |---|---|
-| `charge`, `spin` | Total charge and spin multiplicity |
-| `device` | `'cuda'`, `'cpu'`, `'auto'` |
-| `model` | Override the default MACE checkpoint |
+| `model_charge`, `model_mult` | Total charge and spin multiplicity |
+| `ml_device` | `'cuda'`, `'cpu'`, `'auto'` |
+| `mace_model` | Override the default MACE checkpoint |
 | `mace_dtype` | `'float64'` (default; matches mlmm's float64 Hessian assembly) or `'float32'` |
-| `freeze_atoms`, `hessian_calc_mode`, `return_partial_hessian`, `hessian_double` | Standard cross-backend |
+| `freeze_atoms`, `hessian_calc_mode`, `return_partial_hessian`, `H_double` | Standard cross-backend |
 
 ## Strengths and weaknesses
 

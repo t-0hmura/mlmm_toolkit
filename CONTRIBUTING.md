@@ -101,7 +101,7 @@ Five "add-a-X" recipes cover ~90 % of contributor changes. Each names the exact 
 
 **Goal**: introduce a new MLIP backend `XYZModel` consumable as `--backend xyz`.
 
-This recipe applies **after lands** (when `mlmm/backends/{base,uma,orb,mace,aimnet2}.py` split is complete). Until, the backend dispatch lives inline in `mlmm/backends/mlmm_calc.py` and adding a backend requires editing that file directly (search for the `ML Backend Abstraction` banner and the `HAS_*` flags).
+This recipe applies **after the per-backend split lands** (when the `mlmm/backends/{base,uma,orb,mace,aimnet2}.py` split is complete). Until then, the backend dispatch lives inline in `mlmm/backends/mlmm_calc.py` and adding a backend requires editing that file directly (search for the `ML Backend Abstraction` banner and the `HAS_*` flags).
 
 | step | action | file |
 |---|---|---|
@@ -176,13 +176,12 @@ grep -rn '# DOMAIN_PURE' mlmm/
 
 The IRC / TSopt / Freq stages explicitly `del calc`, `del geom`, `del hess` between stages and the `all` workflow runs `gc.collect()` at stage boundaries. **Do not refactor those `del` / `gc.collect()` statements out** — long-running ML/MM jobs with the full protein environment OOM without them.
 
-### 4.3 Five divergent files in bundled forks
+### 4.3 Divergent files in bundled forks
 
 Logic edits to these files are forbidden in this release line (annotation-only is allowed: docstring + type hints):
 
 - `pysisyphus/irc/IRC.py`
 - `pysisyphus/optimizers/hessian_updates.py`
-- `pysisyphus/run.py`
 - `pysisyphus/tsoptimizers/TSHessianOptimizer.py`
 - `thermoanalysis/QCData.py`
 

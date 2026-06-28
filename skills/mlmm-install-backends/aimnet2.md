@@ -47,14 +47,14 @@ python -c "import mlmm.core.defaults as d; print(d.MLMM_CALC_KW)"
 
 ## Backend-specific flags
 
-AIMNet2 accepts (from `backends/__init__.py:_BACKEND_ACCEPTED_KEYS['aimnet2']`):
+AIMNet2 accepts (the `_AIMNet2Backend.__init__` parameters in `backends/mlmm_calc.py`; defaults in `core/defaults.py`):
 
 | Key | Purpose |
 |---|---|
-| `charge`, `spin` | Total charge and spin multiplicity |
-| `device` | `'cuda'`, `'cpu'`, `'auto'` |
-| `model` | Override the default checkpoint |
-| `freeze_atoms`, `hessian_calc_mode`, `return_partial_hessian`, `hessian_double` | Standard cross-backend |
+| `model_charge`, `model_mult` | Total charge and spin multiplicity |
+| `ml_device` | `'cuda'`, `'cpu'`, `'auto'` |
+| `aimnet2_model` | Override the default checkpoint |
+| `freeze_atoms`, `hessian_calc_mode`, `return_partial_hessian`, `H_double` | Standard cross-backend |
 
 ## When to use AIMNet2
 

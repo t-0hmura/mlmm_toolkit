@@ -481,11 +481,18 @@ def _run_dmf_between(
 
     geoms_for_dmf = [gA, gB]
 
+    dmf_backend = str((dmf_cfg or {}).get("backend", "gpu")).strip().lower()
     try:
         from ase.calculators.mixing import SumCalculator
-        from dmf import DirectMaxFlux, interpolate_fbenm
+        if dmf_backend == "cpu":
+            from dmf import DirectMaxFlux, interpolate_fbenm
+        else:
+            from dmf.torch import DirectMaxFlux, interpolate_fbenm
     except Exception as e:
-        raise RuntimeError(f"DMF mode requires pydmf and cyipopt: {e}") from e
+        raise RuntimeError(
+            "DMF mode requires cyipopt and pydmf>=1.2 "
+            "(`pip install 'pydmf[torch]'` for the default gpu backend): " f"{e}"
+        ) from e
 
     from mlmm.workflows.restraints import HarmonicFixAtoms
     from mlmm.core.utils import deep_update, is_verbose
@@ -1214,6 +1221,14 @@ def _build_multistep_path(
     help="MEP method: gsm (GrowingString) or dmf (Direct Max Flux).",
 )
 @click.option(
+    "--dmf-backend",
+    type=click.Choice(["cpu", "gpu"], case_sensitive=False),
+    default="gpu",
+    show_default=True,
+    help="DMF compute backend (--mep-mode dmf only): gpu (dmf.torch / CUDA) or cpu (dmf / NumPy). "
+    "On a GPU out-of-memory, retry with cpu.",
+)
+@click.option(
     "--refine-mode",
     type=click.Choice(["peak", "minima"], case_sensitive=False),
     default=None,
@@ -1403,6 +1418,7 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     mep_mode: str,
+    dmf_backend: str,
     refine_mode: Optional[str],
     freeze_atoms_text: Optional[str],
     hess_cutoff: Optional[float],
@@ -1595,6 +1611,8 @@ def cli(
             stopt_cfg["max_cycles"] = int(max_cycles)
             stopt_cfg["stop_in_when_full"] = int(max_cycles)
             dmf_cfg["max_cycles"] = int(max_cycles)
+        if _is_param_explicit("dmf_backend"):
+            dmf_cfg["backend"] = str(dmf_backend).lower()
         if _is_param_explicit("climb"):
             gs_cfg["climb"] = bool(climb)
             gs_cfg["climb_lanczos"] = bool(climb)
