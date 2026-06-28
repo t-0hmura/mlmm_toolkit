@@ -70,6 +70,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   unavailable". Ninja ships as a pip wheel on every platform (incl. linux-aarch64),
   so the extensions now build out of the box; the dead `use_ninja=False` fallback
   was removed.
+- The `hessian_ff` native extensions now build into a local-filesystem
+  directory by default (system temp dir, or `TORCH_EXTENSIONS_DIR`), since
+  `torch`'s cpp_extension build lock deadlocks on network filesystems and
+  previously hung the first build on NFS/Lustre. Requires GCC ≥ 9
+  (`conda install -c conda-forge gxx_linux-64`).
 - OPC / TIP4P 4-point water with a virtual site (Amber `EPW`, element `EP`) is
   now read and parameterised correctly through the PDB/ASE input layer and the
   OpenMM MM backend (`computeVirtualSites`), instead of mishandling the massless
