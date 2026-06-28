@@ -166,18 +166,17 @@ RFOptimizer 固有の拡張: 信頼領域サイジング（`trust_radius`、`tru
 geom:
  coord_type: cart               # 座標タイプ: デカルト vs dlc 内部座標
  freeze_atoms: []               # 1 始まり凍結原子（CLI/リンク検出とマージ）
-calc:
- charge: 0                      # 総電荷（CLI 上書き）
- spin: 1                        # スピン多重度 2S+1
-mlmm:
+calc:                           # calc 計算機キーは単一セクションにまとめる
+ model_charge: 0                # 総電荷（キーは charge ではなく model_charge。CLI 上書き）
+ model_mult: 1                  # スピン多重度 2S+1（キーは spin ではなく model_mult）
  real_parm7: real.parm7         # 全酵素の Amber parm7 トポロジー
  model_pdb: ml_region.pdb       # ML 領域を定義する PDB
  backend: uma                   # ML バックエンド (uma/orb/mace/aimnet2)
  embedcharge: false             # xTB 点電荷埋め込み補正
  uma_model: uma-s-1p1           # uma-s-1p1 | uma-m-1p1
- uma_task_name: omol             # UMA タスク名 (backend=uma 時)
+ uma_task_name: omol            # UMA タスク名 (backend=uma 時)
  ml_device: auto                # ML デバイス選択
- hessian_calc_mode: Analytical         # ヘシアンモード選択
+ hessian_calc_mode: Analytical  # ヘシアンモード選択
  out_hess_torch: true           # torch 形式ヘシアンを要求
  mm_fd: true                    # MM 有限差分トグル
  return_partial_hessian: true   # 部分ヘシアンを許可（opt のデフォルト）
