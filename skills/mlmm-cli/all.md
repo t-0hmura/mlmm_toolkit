@@ -127,8 +127,10 @@ for seg in d["segments"]:
 Per-segment fields are `index`, `tag`, `kind`, `barrier_kcal`, `delta_kcal`,
 and `bond_changes` — the segment record has no `structures` / `tsopt` / `irc` /
 `freq` / `dft` sub-objects. The geometries live on disk under
-`segments/seg_NN/structures/`, and each stage's results in
-`segments/seg_NN/<stage>/result.json`.
+`segments/seg_NN/structures/`, and each stage's working files under the
+`segments/seg_NN/` stage subdirs (`ts/`, `irc/`, `freq/`, `dft/`); a per-stage
+`result.json` is written there only when `--out-json` is passed (the `all`
+pipeline does not pass it by default).
 
 ## Resume / restart
 

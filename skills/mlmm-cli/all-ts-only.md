@@ -56,7 +56,7 @@ ts_candidate.{xyz,pdb,gjf}
    [tsopt]            (Dimer or RS-I-RFO; default RS-I-RFO)
        │
        ▼
-   [irc]              (forward + backward; RS-I-RFO endpoint refinement by default)
+   [irc]              (forward + backward; RFO endpoint refinement by default, via --opt-mode-post hess)
        │
        ▼
    [freq]             (Hessian + thermo)

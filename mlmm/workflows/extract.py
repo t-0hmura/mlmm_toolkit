@@ -335,7 +335,7 @@ def _extract_verbose_callback(ctx: "click.Context", param: "click.Parameter", va
 @click.option(
     "-i", "--input", "complex_pdb",
     type=str, multiple=True, required=True,
-    help="Protein-substrate complex PDB(s). Multiple files may be given space-separated after a single -i ('-i a.pdb b.pdb') or by repeating -i. If multiple, they must have identical atom counts and ordering.",
+    help="Protein-substrate complex PDB(s). Multiple files may be given space-separated after a single -i ('-i a.pdb b.pdb'). If multiple, they must have identical atom counts and ordering.",
 )
 @click.option(
     "-c", "--center", "substrate_pdb",

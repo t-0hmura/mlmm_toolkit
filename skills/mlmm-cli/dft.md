@@ -42,7 +42,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | flag | type | default | description |
 |---|---|---|---|
 | `-i, --input` | path | required | `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
-| `-q` / `-l` / `-m` | — | — | Charge / spin / multiplicity (XYZ input always needs `--ref-pdb`) |
+| `-q` / `-l` / `-m` | — | — | Total charge / ligand-charge mapping / multiplicity (XYZ input always needs `--ref-pdb`) |
 | `--ref-pdb` | path | none | Reference PDB so `-l` works on `.xyz` input |
 | `--func-basis` | str | `wb97m-v/def2-tzvpd` | `'FUNC/BASIS'` |
 | `--engine` | choice {gpu,cpu} | `gpu` | `gpu` (GPU4PySCF) or `cpu` (PySCF) |
