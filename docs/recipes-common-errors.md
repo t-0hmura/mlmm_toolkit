@@ -18,7 +18,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 | `ImportError: orb-models is required` (or similar for AIMNet2 / MACE) | `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"`; MACE installs into a separate env | [Installation / environment](troubleshooting.md#installation--environment) |
 | `mm-parm` cannot run (`tleap`/`antechamber`/`parmchk2` missing) | Fix AmberTools availability first | [AmberTools / mm-parm](troubleshooting.md#ambertools--mm-parm) |
 | `hessian_ff` import/build errors | Rebuild native extension (`hessian_ff/native`) | [hessian_ff build](troubleshooting.md#hessian_ff-build--import) |
-| DMF mode import errors (`ase` / `cyipopt` / `pydmf`) | Install `ase` + `cyipopt` (conda-forge) and `pydmf` (PyPI) | [DMF mode](troubleshooting.md#dmf-mode-fails-cyipopt--pydmf--ase-missing) |
+| DMF mode import errors (`ase` / `cyipopt` / `pydmf`) | Install `ase` + `cyipopt` (conda-forge) and `pydmf>=1.2` (PyPI) | [DMF mode](troubleshooting.md#dmf-mode-fails-cyipopt--pydmf--ase-missing) |
 | **GPU & CUDA** | | |
 | CUDA out-of-memory at runtime (`torch.cuda.OutOfMemoryError`) | Shrink ML region (`--radius`), use `--hessian-calc-mode FiniteDifference`, or move to a larger GPU | [CUDA OOM](troubleshooting.md#cuda-oom-torchcudaoutofmemoryerror) |
 | CUDA/GPU runtime mismatch | Verify `torch.cuda.is_available()` and CUDA build pairing | [CUDA / PyTorch](troubleshooting.md#cuda--pytorch-mismatch) |

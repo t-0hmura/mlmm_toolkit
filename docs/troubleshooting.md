@@ -89,7 +89,7 @@ Encoding: ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0 (tolerance ±1.0). Commo
 | MLIP model download fails / HF auth missing (`huggingface_hub.errors.GatedRepoError`, `401`, `403`) | `hf auth login` once per env / machine; accept the model license on the HF page. On HPC, ensure HF cache dir is writable from compute nodes. |
 | `torch.cuda.is_available()` returns `False` | Install PyTorch matching your cluster CUDA runtime; verify `nvidia-smi` and `python -c "import torch; print(torch.version.cuda, torch.cuda.is_available())"`. |
 | `[orb]` install fails building **torch_scatter** (`No module named 'torch'`) | torch_scatter ships no PyPI binary wheel (only an sdist) → source-build fails under PEP517 build isolation. Install from PyG's prebuilt-wheel index matching your torch+CUDA tag: `pip install -e ".[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.html`. Fallback (CUDA toolchain present): `pip install torch_scatter --no-build-isolation`. |
-| `DMF mode requires ase, cyipopt, and pydmf to be installed.` | `conda install -c conda-forge ase cyipopt -y && pip install pydmf`. |
+| `DMF mode requires ase, cyipopt, and pydmf to be installed.` | `conda install -c conda-forge ase cyipopt -y && pip install 'pydmf>=1.2'`. (`pydmf>=1.2` ships the `dmf.torch` backend used by the default `--dmf-backend gpu`.) |
 | Plot export fails (Plotly / Chrome) | `plotly_get_chrome -y`. |
 
 (dmf-mode-fails-cyipopt--pydmf--ase-missing)=

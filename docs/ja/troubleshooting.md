@@ -387,10 +387,10 @@ To rebuild hessian_ff native extensions in this environment:
 DMF（`--mep-mode dmf`）を使うときに `ase`、`cyipopt`、`pydmf` のいずれかが見つからず import エラーが出る場合:
 
 対処:
-- `ase` と `cyipopt` を conda-forge から、`pydmf` を pip からインストールしてください:
+- `ase` と `cyipopt` を conda-forge から、`pydmf>=1.2` を pip からインストールしてください（`pydmf>=1.2` はデフォルトの `--dmf-backend gpu` が使う `dmf.torch` バックエンドを同梱）:
 
   ```bash
-  conda install -c conda-forge ase cyipopt -y && pip install pydmf
+  conda install -c conda-forge ase cyipopt -y && pip install 'pydmf>=1.2'
   ```
 
 ---

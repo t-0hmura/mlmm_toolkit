@@ -98,6 +98,7 @@ out_dir/ (デフォルト:./result_path_search/)
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `SAM:1,PHN:-1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--mep-mode [gsm\|dmf]` | セグメント/ブリッジ探索に使う MEP バックエンド。 | `gsm` |
+| `--dmf-backend [cpu\|gpu]` | DMF 計算バックエンド（`--mep-mode dmf` 時のみ）: `gpu`（`dmf.torch`/CUDA）または `cpu`（`dmf`/NumPy）。GPU メモリ不足時は `cpu` で再実行。`pydmf>=1.2` が必要。 | `gpu` |
 | `--refine-mode [peak\|minima]` | HEI 精密化の種点ルール。 | `gsm` は `peak`、`dmf` は `minima` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。 | _None_ |
