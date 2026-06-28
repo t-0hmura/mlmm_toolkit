@@ -197,7 +197,7 @@ Entries in `mlmm/cli/app.py:_LAZY_SUBCOMMANDS` MUST use absolute module paths (`
 
 ### 4.6 Chemistry default choices
 
-Default basis sets (def2-SVP, def2-TZVP), default functionals (ωB97X-D, B3LYP-D3), default convergence thresholds, default ECP handling, default solvent models, default ONIOM region shell radii — **none** of these are open for change without a `[CHEMISTRY-RULE]` commit and explicit lab decision. Grep `mlmm/core/defaults.py` to see the current values; if you think a change is justified, open an issue first.
+Default basis set (def2-TZVPD), default functional (ωB97M-V), default convergence thresholds, default ECP handling, default solvent models, default ONIOM region shell radii — **none** of these are open for change without a `[CHEMISTRY-RULE]` commit and explicit lab decision. Grep `mlmm/core/defaults.py` (`func_basis`) to see the current values; if you think a change is justified, open an issue first.
 
 ### 4.7 Downstream-parser-visible log lines
 

@@ -27,7 +27,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 \
   --tsopt --thermo --dft --out-dir ./result_all
 ```
 
-(`-c` = ligand residue list for ML-region centring; `-r` = ML-region radius in Å; `-q`/`-m` = total ML charge / multiplicity.)
+(`-c` = ligand residue list for ML-region centring; `-r` = ML-region radius in Å; `-q`/`-m` = total system charge / multiplicity.)
 
 ## Result
 

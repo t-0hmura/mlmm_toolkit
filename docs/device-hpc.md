@@ -65,7 +65,7 @@ Use `--hess-device cpu` when:
 1. **Reduce the ML region size:** Use `mlmm extract` with a smaller `--radius` or `mlmm define-layer` with a tighter `--radius-freeze`.
 2. **Use hessian_ff (default):** The hessian_ff backend is CPU-only, leaving all VRAM for MLIP inference.
 3. **Avoid OpenMM CUDA for large systems:** If both ML and MM use CUDA, VRAM pressure doubles.
-4. **Monitor VRAM:** Set `print_vram: True` in YAML to print VRAM usage during Hessian computation.
+4. **Monitor VRAM:** `print_vram` defaults to `True` (VRAM usage is printed during Hessian computation); set `print_vram: False` in YAML to suppress it.
 
 ---
 
@@ -184,7 +184,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 
 - **No ML multi-GPU parallelism:** ML inference runs on a single GPU. The OpenMM MM backend may use a separate CUDA device (`mm_device: cuda`, `mm_cuda_idx`); the default hessian_ff MM backend is CPU-only.
 - **No distributed computing:** All calculations run within a single process on a single node.
-- **hessian_ff is CPU-only:** The default MM backend always runs on CPU regardless of `mm_device` setting.
+- **hessian_ff is CPU-only:** the default MM backend runs on CPU; `mm_device` must be `cpu`/`auto` — `mm_device: cuda` raises a `ValueError` rather than silently falling back.
 
 ---
 

@@ -90,7 +90,7 @@ This means:
 
 The same decomposition applies to forces and (where applicable) Hessians. Link-hydrogen contributions are redistributed to the ML and MM host atoms via a Jacobian.
 
-The MLIP backend is selected via `-b/--backend` (default: `uma`). Alternative backends (`orb`, `mace`, `aimnet2`) are installed as optional dependencies (e.g., `pip install "mlmm-toolkit[orb]"`).
+The MLIP backend is selected via `-b/--backend` (default: `uma`). `orb` installs via `pip install "mlmm-toolkit[orb]"` and `aimnet2` via the `[aimnet]` extra; `mace` has no extra and must be installed in a separate conda env (its `e3nn` pin conflicts with UMA's `fairchem-core`).
 
 When `--embedcharge` is enabled, an xTB point-charge embedding correction is applied to account for the electrostatic influence of the MM environment on the ML region.
 

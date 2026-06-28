@@ -258,7 +258,7 @@ add-a-backend レシピについては [MLIP Backends](backends.md) を参照し
 
 | dir | role | divergent files (do NOT replace with upstream) |
 |---|---|---|
-| `pysisyphus/` | オプティマイザ / TS / IRC エンジン | `irc/IRC.py`、`optimizers/hessian_updates.py`、`run.py`、`tsoptimizers/TSHessianOptimizer.py`、`calculators/*` (合計 5 ファイル) |
+| `pysisyphus/` | オプティマイザ / TS / IRC エンジン | `irc/IRC.py`、`optimizers/hessian_updates.py`、`tsoptimizers/TSHessianOptimizer.py`、`calculators/*` (合計 4 ファイル) |
 | `thermoanalysis/` | 熱化学 (ΔG, ZPE, 分配関数) | `QCData.py` (upstream とのブランディング差分) |
 | `hessian_ff/` | MM 力場上の解析的ヘシアン — **PyPI 404、バンドルは必須** | `analytical_hessian.py` (`mlmm/backends/mlmm_calc.py` が消費する唯一のエントリ) |
 

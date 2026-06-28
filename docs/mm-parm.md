@@ -38,7 +38,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 
 - `<prefix>.parm7` -- Amber prmtop topology
 - `<prefix>.rst7` -- Amber ASCII inpcrd coordinates
-- `<prefix>.pdb` -- LEaP savepdb output
+- `<prefix>.pdb` -- LEaP savepdb output (written only when `--out-prefix` is given or `--add-h` is set; otherwise only parm7/rst7 are produced)
 
 ## CLI options
 

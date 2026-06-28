@@ -76,7 +76,7 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 
 力とヘシアンも同様の ONIOM 分解で結合されます。リンク水素の寄与はヤコビアンを用いて ML 原子と MM 原子に再分配されます。
 
-MLIP バックエンドは `-b/--backend`（デフォルト: `uma`）で選択します。代替バックエンド（`orb`、`mace`、`aimnet2`）はオプション依存としてインストールします（例: `pip install "mlmm-toolkit[orb]"`）。
+MLIP バックエンドは `-b/--backend`（デフォルト: `uma`）で選択します。`orb` は `pip install "mlmm-toolkit[orb]"`、`aimnet2` は `[aimnet]` extra でインストールします。`mace` には専用 extra がなく、`e3nn` のピンが UMA（`fairchem-core`）と競合するため別の conda env でインストールします。
 
 `--embedcharge` を有効にすると、MM 環境が ML 領域に及ぼす静電影響を考慮するための xTB 点電荷埋め込み補正が適用されます。
 

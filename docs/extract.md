@@ -34,7 +34,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
 ### Residue inclusion
 
 - Always include the substrate residues from `-c/--center`.
-- **Standard cutoff (`--radius`, default 2.6 Å)**: with `--no-exclude-backbone` (default), any atom within the cutoff qualifies a residue. With `--exclude-backbone`, amino-acid residues must contact the substrate with a **non-backbone** atom (not N / H* / CA / HA* / C / O). Non-amino acids always use any atom.
+- **Standard cutoff (`--radius`, default 2.6 Å)**: with `--no-exclude-backbone` (default), any atom within the cutoff qualifies a residue. With `--exclude-backbone`, amino-acid residues must contact the substrate with a **non-backbone** atom (not N / H* / CA / HA* / C / O / OXT). Non-amino acids always use any atom.
 - **Independent hetero–hetero cutoff (`--radius-het2het`)**: adds residues when a substrate hetero atom (non C / H) lies within the specified Å of a protein hetero atom. With backbone exclusion enabled, the protein atom must be non-backbone.
 - **Water handling**: HOH / WAT / H2O / DOD / TIP / TIP3 / SOL are included by default (`--include-h2o`).
 - **Forced inclusion**: `--selected-resn` accepts residue IDs with chains / insertion codes (e.g. `A:123A`).

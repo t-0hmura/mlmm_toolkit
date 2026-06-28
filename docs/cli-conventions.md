@@ -118,7 +118,7 @@ For PDB inputs, `--ligand-charge` lets you specify charges only for non-standard
 
 ```bash
 -l 'SAM:1,GPP:-3'              # per-residue mapping (recommended)
--l 'SAM=1,GPP=-3'              # `=` separator also accepted
+-l 'SAM:1,GPP:-3'              # per-residue mapping uses the ':' separator
 -l -3                           # single integer = total ligand charge
 -q 0                            # explicit total system charge override
 ```

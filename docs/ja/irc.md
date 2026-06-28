@@ -57,9 +57,9 @@ out_dir/ (デフォルト: ./result_irc/)
 ├─ <prefix>finished_irc_trj.xyz     # 完全 IRC 軌跡（XYZ/TRJ）
 ├─ <prefix>forward_irc_trj.xyz      # 正方向パスセグメント
 ├─ <prefix>backward_irc_trj.xyz     # 逆方向パスセグメント
-├─ <prefix>finished_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
-├─ <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb の場合のみ）
-├─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb の場合のみ）
+├─ <prefix>finished_irc.pdb         # PDB 変換（入力が .pdb または --ref-pdb 指定時）
+├─ <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb または --ref-pdb 指定時）
+├─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb または --ref-pdb 指定時）
 ├─ <prefix>forward_last.xyz         # 正方向 IRC 終点（XYZ、単一フレーム）
 ├─ <prefix>forward_last.pdb         # 正方向 IRC 終点（PDB、利用可能時）
 ├─ <prefix>backward_last.xyz        # 逆方向 IRC 終点（XYZ、単一フレーム）
@@ -109,7 +109,7 @@ out_dir/ (デフォルト: ./result_irc/)
 ## YAML 設定
 
 マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
-共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml-reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は `true` に強制されます（active-DOF 処理を伴う partial Hessian）。
+共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml-reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は明示的な YAML 指定が無い場合に `true` がデフォルト適用されます（active-DOF 処理を伴う partial Hessian）。
 
 ### CLI から YAML へのマッピング
 

@@ -1,6 +1,6 @@
 # Tests Layout
 
-`mlmm-toolkit` uses `tests/` as the single test root.
+`mlmm-toolkit` uses `tests/` as the primary test root (the bundled `hessian_ff/tests/` is a second root configured in `pyproject.toml` `testpaths`).
 
 ## Unit and CI Tests
 

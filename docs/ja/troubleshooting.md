@@ -529,7 +529,7 @@ ML/MM 系は純粋な MLIP 計算よりも一般的に大きいため、VRAM の
 ```bash
 pip install "mlmm-toolkit[orb]"      # ORB バックエンド
 pip install "mlmm-toolkit[aimnet]"  # AIMNet2 バックエンド
-pip install --no-deps mace-torch      # MACE バックエンド
+pip uninstall -y fairchem-core && pip install --no-deps mace-torch  # MACE は別 conda env で（e3nn ピンが UMA/fairchem-core と競合）
 ```
 
 ---

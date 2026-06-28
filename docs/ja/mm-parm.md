@@ -38,7 +38,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 
 - `<prefix>.parm7` -- Amber prmtop トポロジー
 - `<prefix>.rst7` -- Amber ASCII inpcrd 座標
-- `<prefix>.pdb` -- LEaP savepdb 出力
+- `<prefix>.pdb` -- LEaP savepdb 出力（`--out-prefix` 指定時または `--add-h` 指定時のみ。両方省略時は parm7/rst7 のみ）
 
 ## CLI オプション
 
