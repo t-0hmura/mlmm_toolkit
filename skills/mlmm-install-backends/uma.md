@@ -50,10 +50,14 @@ mlmm all -i 1.R.pdb 3.P.pdb \
     -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --tsopt --thermo \
     -b uma                       # explicit, identical to default
+
+# pick a non-default model variant from the CLI (no YAML needed):
+mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
+    -b uma --backend-model uma-m-1p1
 ```
 
-Available models (set via `mlmm.core.defaults.MLMM_CALC_KW["uma_model"]` or
-the `calc.uma_model` YAML key):
+Available models (select with the `--backend-model` CLI flag, or via
+`mlmm.core.defaults.MLMM_CALC_KW["uma_model"]` / the `calc.uma_model` YAML key):
 
 | config string (`uma_model`) | paper notation | HuggingFace repo | Notes |
 |---|---|---|---|
