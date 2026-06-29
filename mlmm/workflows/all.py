@@ -63,7 +63,7 @@ import logging
 import sys
 import math
 import click
-from mlmm.cli.common_options import add_coord_type_option, add_precision_option, add_backend_model_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
+from mlmm.cli.common_options import add_coord_type_option, add_precision_option, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.decorators import make_is_param_explicit
 import time
 import json
@@ -347,6 +347,8 @@ def _inject_coord_type_into_args_yaml(
     coord_type: Optional[str],
     precision: Optional[str] = None,
     backend_model: Optional[str] = None,
+    calc_file: Optional[str] = None,
+    calc_factory: str = "get_calculator",
 ) -> Optional[Path]:
     """Inject ``geom.coord_type`` (and optionally ``calc.uma_precision``) into
     the all-pipeline args YAML.
@@ -358,7 +360,7 @@ def _inject_coord_type_into_args_yaml(
     original ``args_yaml`` unchanged when both ``coord_type`` and ``precision``
     are None.
     """
-    if coord_type is None and precision is None and backend_model is None:
+    if coord_type is None and precision is None and backend_model is None and calc_file is None:
         return args_yaml
 
     cfg = {} if args_yaml is None else load_yaml_dict(args_yaml)
@@ -371,7 +373,7 @@ def _inject_coord_type_into_args_yaml(
         geom_cfg = dict(geom_cfg)
         geom_cfg["coord_type"] = coord_type
         cfg["geom"] = geom_cfg
-    if precision is not None or backend_model is not None:
+    if precision is not None or backend_model is not None or calc_file is not None:
         calc_cfg = cfg.get("calc")
         if not isinstance(calc_cfg, dict):
             calc_cfg = {}
@@ -384,9 +386,10 @@ def _inject_coord_type_into_args_yaml(
         # YAML token), raising "Calculator.__init__() got an unexpected keyword
         # argument 'precision'". apply_precision_to_calc_cfg also pops any stray
         # raw ``precision`` key, keeping calc_cfg Calculator-clean.
-        from mlmm.backends import apply_precision_to_calc_cfg, apply_backend_model_to_calc_cfg
+        from mlmm.backends import apply_precision_to_calc_cfg, apply_backend_model_to_calc_cfg, apply_calc_file_to_calc_cfg
         apply_precision_to_calc_cfg(calc_cfg, precision)
         apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+        apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
         cfg["calc"] = calc_cfg
 
     with tempfile.NamedTemporaryFile(
@@ -2208,6 +2211,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @add_coord_type_option(choices=("cart", "dlc"))
 @add_precision_option()
 @add_backend_model_option()
+@add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @click.pass_context
@@ -2286,6 +2290,8 @@ def cli(
     cli_coord_type: Optional[str],
     precision: Optional[str],
     backend_model: Optional[str],
+    calc_file: Optional[str],
+    calc_factory: str,
 ) -> None:
     """
     The **all** command composes `extract` → (optional `scan` on pocket) → MEP search (single-pass `path-opt` by default,
@@ -2324,9 +2330,10 @@ def cli(
         if _is_param_explicit("cli_coord_type") and cli_coord_type is not None
         else None
     )
-    if _injected_coord is not None or precision is not None or backend_model is not None:
+    if _injected_coord is not None or precision is not None or backend_model is not None or calc_file is not None:
         args_yaml = _inject_coord_type_into_args_yaml(
-            args_yaml, _injected_coord, precision=precision, backend_model=backend_model
+            args_yaml, _injected_coord, precision=precision, backend_model=backend_model,
+            calc_file=(str(Path(calc_file).resolve()) if calc_file else None), calc_factory=calc_factory,
         )
 
     mm_ff_set = "ff14SB" if str(mm_ff_set).lower().startswith("ff14") else "ff19SB"
