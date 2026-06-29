@@ -68,6 +68,39 @@ def apply_backend_model_to_calc_cfg(calc_cfg: Dict[str, Any], backend_model: Opt
     calc_cfg[key] = str(val).strip()
 
 
+def apply_calc_file_to_calc_cfg(
+    calc_cfg: Dict[str, Any],
+    calc_file: Optional[str] = None,
+    calc_factory: Optional[str] = None,
+) -> None:
+    """Route the ``--calc-file`` CLI value into the ``custom`` ML backend.
+
+    When a calc-file is given, switch the ML-region backend to ``custom``
+    (loading an arbitrary ASE Calculator from the user Python file) and store the
+    file path and factory name. Mutates ``calc_cfg`` in place; a no-op when no
+    calc-file is set, so the normal ``--backend`` selection is untouched.
+
+    Also consumes (pops) any raw ``calc_file`` / ``calc_factory`` already in
+    ``calc_cfg`` (e.g. propagated through a ``--config`` YAML); an explicit CLI
+    argument takes precedence over the YAML token.
+    """
+    raw_file = calc_cfg.pop("calc_file", None)
+    raw_factory = calc_cfg.pop("calc_factory", None)
+    chosen = calc_file if calc_file is not None else raw_file
+    if chosen is None or str(chosen).strip() == "":
+        return  # no calc-file: keep the --backend selection
+    calc_cfg["backend"] = "custom"
+    calc_cfg["calc_file"] = str(chosen)
+    factory = calc_factory if calc_factory is not None else raw_factory
+    if factory is not None and str(factory).strip() != "":
+        calc_cfg["calc_factory"] = str(factory).strip()
+    # A user ASE Calculator has no MLIP model variant: drop the inherited
+    # per-backend model defaults so run headers don't mislabel it (e.g. as
+    # 'uma-s-1p1'). The MLMMCore signature keeps its own defaults for the keys.
+    for _k in ("uma_model", "orb_model", "mace_model", "aimnet2_model", "model"):
+        calc_cfg.pop(_k, None)
+
+
 def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[str] = None) -> None:
     """Route the unified ``--precision`` CLI value into backend-specific kwargs.
 

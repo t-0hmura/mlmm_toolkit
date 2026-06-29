@@ -81,7 +81,7 @@ from mlmm.core.utils import (
     yaml_section_has_key,
     echo_resolved_device,
 )
-from mlmm.cli.common_options import add_ml_charge_spin_options, add_ml_layer_detection_options, add_precision_option, add_backend_model_option, add_deterministic_option, add_allow_charge_mult_mismatch_option, add_coord_type_option
+from mlmm.cli.common_options import add_ml_charge_spin_options, add_ml_layer_detection_options, add_precision_option, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option, add_coord_type_option
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 
 
@@ -907,6 +907,7 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
 @add_ml_charge_spin_options()
 @add_precision_option()
 @add_backend_model_option()
+@add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @click.pass_context
@@ -950,6 +951,8 @@ def cli(
     out_json: bool,
     precision: Optional[str],
     backend_model: Optional[str],
+    calc_file: Optional[str],
+    calc_factory: str,
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -1040,6 +1043,9 @@ def cli(
     if backend_model is not None:
         from mlmm.backends import apply_backend_model_to_calc_cfg
         apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+    # --calc-file overrides --backend with a user ASE Calculator (custom backend).
+    from mlmm.backends import apply_calc_file_to_calc_cfg
+    apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
     if _is_param_explicit("embedcharge"):
         calc_cfg["embedcharge"] = bool(embedcharge)
     if _is_param_explicit("embedcharge_cutoff"):

@@ -40,7 +40,7 @@ from mlmm.core.utils import (
 )
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
-    add_precision_option, add_backend_model_option,
+    add_precision_option, add_backend_model_option, add_calc_file_option,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
     add_print_every_option,
 )
@@ -195,6 +195,7 @@ EV2AU = 1.0 / AU2EV
 @add_ml_layer_detection_options()
 @add_precision_option()
 @add_backend_model_option()
+@add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @add_print_every_option()
@@ -230,6 +231,8 @@ def cli(
     use_cmap_legacy: Optional[bool],
     precision: Optional[str],
     backend_model: Optional[str],
+    calc_file: Optional[str],
+    calc_factory: str,
     print_every: Optional[int],
 ) -> None:
     """Compute a single-point ML/MM ONIOM energy + forces (and optionally Hessian)."""
@@ -297,6 +300,9 @@ def cli(
         if _is_param_explicit("backend_model") and backend_model is not None:
             from mlmm.backends import apply_backend_model_to_calc_cfg
             apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+        # --calc-file overrides --backend with a user ASE Calculator (custom backend).
+        from mlmm.backends import apply_calc_file_to_calc_cfg
+        apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
         if _is_param_explicit("print_every") and print_every is not None:
             calc_cfg["print_every"] = int(print_every)
 

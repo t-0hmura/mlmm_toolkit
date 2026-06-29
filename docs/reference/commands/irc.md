@@ -114,6 +114,14 @@ Options:
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
                                   / MACE-OFF23_small for mace). Default: the
                                   backend's built-in model.
+  --calc-file FILE                Python file exposing get_calculator(...) -> an
+                                  ASE Calculator used as the ML-region backend
+                                  (overrides --backend). Couples GFN-xTB / DFTB+
+                                  / any ASE engine. See --calc-factory.
+  --calc-factory TEXT             Name of the callable in --calc-file that
+                                  returns an ASE Calculator (or a module-level
+                                  Calculator instance).  [default:
+                                  get_calculator]
   --deterministic / --no-deterministic
                                   Strict bit-reproducible GPU runs
                                   (deterministic algorithms + index_reduce_

@@ -56,7 +56,7 @@ from mlmm.core.utils import (
 )
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
-    add_precision_option, add_backend_model_option,
+    add_precision_option, add_backend_model_option, add_calc_file_option,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
     add_irc_pos_def_option,
 )
@@ -275,6 +275,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 @add_ml_layer_detection_options()
 @add_precision_option()
 @add_backend_model_option()
+@add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @add_irc_pos_def_option()
@@ -314,6 +315,8 @@ def cli(
     out_json: bool,
     precision: Optional[str],
     backend_model: Optional[str],
+    calc_file: Optional[str],
+    calc_factory: str,
     irc_pos_def: Optional[bool],
 ) -> None:
     set_convert_file_enabled(convert_files)
@@ -383,6 +386,9 @@ def cli(
         if backend_model is not None:
             from mlmm.backends import apply_backend_model_to_calc_cfg
             apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+        # --calc-file overrides --backend with a user ASE Calculator (custom backend).
+        from mlmm.backends import apply_calc_file_to_calc_cfg
+        apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
         if _is_param_explicit("embedcharge"):
             calc_cfg["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):

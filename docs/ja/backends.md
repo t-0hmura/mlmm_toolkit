@@ -82,6 +82,49 @@ calc:
 
 `InferenceSettings` API のために `fairchem-core ≥ 2.0` が必要です。
 
+## Custom backend — bring your own ASE Calculator (`--calc-file`)
+
+組み込みの MLIP バックエンドに加えて、**ML 領域**を実行時に `--calc-file` で指定した
+任意の [ASE](https://wiki.fysik.dtu.dk/ase/) Calculator で駆動できます（`mlmm_toolkit`
+本体の変更は不要）。これにより ML/MM ONIOM の ML 側を GFN-xTB（`tblite` / `xtb-python`
+経由）、DFTB+、ORCA、Psi4 など ASE 互換の任意エンジンと結合できます。境界は標準の
+ASE Calculator インターフェース（エネルギー eV、力 eV/Å）で、既存の `_ASEMLBackend`
+アダプタがラップします。
+
+ASE Calculator を返す `get_calculator` ファクトリを持つ Python ファイルを用意します:
+
+```python
+# my_calc.py（最小の例）
+from ase.calculators.emt import EMT
+
+def get_calculator(charge=0, spin=1, device="auto", **kwargs):
+    return EMT()
+```
+
+`EMT()` を使いたいエンジンに差し替えてください — 例えば GFN-xTB なら
+`tblite.ase.TBLite(...)`、DFTB+ の ASE calculator、`ase.calculators.orca.ORCA(...)`
+など。このファイルを単一ステージのサブコマンドに渡すと、`custom` ML バックエンドが
+選択され `--backend` を上書きします:
+
+    mlmm sp    -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py
+    mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py
+
+補足:
+
+- ファクトリには、シグネチャが受け取る場合（または `**kwargs` を宣言している場合）に
+  `charge`・`spin`（多重度。`mult` / `multiplicity` でも渡されます）・`device` が
+  渡されるため、全電荷が必要なエンジン（xTB など）も設定できます。ファクトリ名を
+  変える場合は `--calc-factory NAME`、モジュール直下の Calculator インスタンスも
+  受け付けます。
+- カスタム calculator が駆動するのは **ML 領域のみ**で、MM 側は通常どおり
+  `hessian_ff` / OpenMM バックエンドを使い、ONIOM カップリングも変わりません。
+  Hessian は有限差分経路を使うため、`freq` や `tsopt --opt-mode hess` も任意エンジンで
+  動作します。凍結原子も通常どおり尊重されます。
+- 単一ステージのサブコマンド（`sp`・`opt`・`tsopt`・`freq`・`irc`・`scan` /
+  `scan2d` / `scan3d`・`path-opt`・`path-search`）で利用できます。独自の `--backend`
+  名を持つ恒久的なバックエンドにする場合は、以下のレシピを参照してください。
+
 ## Add-a-backend recipe (5 steps)
 
 `--backend xyz` として公開する新しいバックエンド `XYZModel` を追加するには:

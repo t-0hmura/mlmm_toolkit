@@ -510,6 +510,38 @@ class _AIMNet2Backend(_ASEMLBackend):
         self._model_mult = model_mult
 
 
+class _CustomBackend(_ASEMLBackend):
+    """User-supplied ASE Calculator loaded from a Python file (``--calc-file``).
+
+    Drives the ML region with any ASE-compatible engine (GFN-xTB, DFTB+, ORCA,
+    …) via the standard ``_ASEMLBackend`` adapter. See ``mlmm/backends/custom.py``
+    for the file/factory contract.
+    """
+
+    def __init__(
+        self,
+        *,
+        calc_file: str,
+        calc_factory: str = "get_calculator",
+        model_charge: int = 0,
+        model_mult: int = 1,
+        ml_device: torch.device,
+    ):
+        from mlmm.backends.custom import load_ase_calculator
+
+        device_str = "cuda" if ml_device.type == "cuda" else "cpu"
+        self._ase_calc = load_ase_calculator(
+            calc_file,
+            calc_factory,
+            charge=model_charge,
+            spin=model_mult,
+            device=device_str,
+        )
+        self._device = ml_device
+        self._model_charge = model_charge
+        self._model_mult = model_mult
+
+
 def _create_ml_backend(
     backend: str,
     *,
@@ -521,6 +553,8 @@ def _create_ml_backend(
     mace_model: str = "MACE-OMOL-0",
     mace_dtype: str = "float64",
     aimnet2_model: str = "aimnet2",
+    calc_file: Optional[str] = None,
+    calc_factory: str = "get_calculator",
     model_charge: int = 0,
     model_mult: int = 1,
     ml_device: torch.device,
@@ -575,9 +609,23 @@ def _create_ml_backend(
             model_mult=model_mult,
             ml_device=ml_device,
         )
+    elif backend == "custom":
+        if not calc_file:
+            raise ValueError(
+                "ML backend 'custom' requires --calc-file pointing to a Python "
+                "file that exposes get_calculator(...) -> an ASE Calculator."
+            )
+        return _CustomBackend(
+            calc_file=calc_file,
+            calc_factory=calc_factory,
+            model_charge=model_charge,
+            model_mult=model_mult,
+            ml_device=ml_device,
+        )
     else:
         raise ValueError(
-            f"Unknown ML backend '{backend}'. Choose from: uma, orb, mace, aimnet2."
+            f"Unknown ML backend '{backend}'. "
+            "Choose from: uma, orb, mace, aimnet2, custom (--calc-file)."
         )
 
 
@@ -1112,6 +1160,9 @@ class MLMMCore:
         mace_model: str = "MACE-OMOL-0",
         mace_dtype: str = "float64",
         aimnet2_model: str = "aimnet2",
+        # Custom ML backend from a user Python file (--calc-file)
+        calc_file: Optional[str] = None,
+        calc_factory: str = "get_calculator",
         # MM settings
         mm_fd: bool = True,
         mm_fd_dir: Optional[str] = None,
@@ -1292,6 +1343,8 @@ class MLMMCore:
             mace_model=mace_model,
             mace_dtype=mace_dtype,
             aimnet2_model=aimnet2_model,
+            calc_file=calc_file,
+            calc_factory=calc_factory,
             model_charge=self.model_charge,
             model_mult=self.model_mult,
             ml_device=self.ml_device,
@@ -2337,6 +2390,9 @@ class mlmm(PySiCalc):
         mace_model: str = "MACE-OMOL-0",
         mace_dtype: str = "float64",
         aimnet2_model: str = "aimnet2",
+        # Custom ML backend from a user Python file (--calc-file)
+        calc_file: Optional[str] = None,
+        calc_factory: str = "get_calculator",
         # MM settings
         mm_fd: bool = True,
         mm_fd_dir: Optional[str] = None,
@@ -2405,6 +2461,8 @@ class mlmm(PySiCalc):
             mace_model=mace_model,
             mace_dtype=mace_dtype,
             aimnet2_model=aimnet2_model,
+            calc_file=calc_file,
+            calc_factory=calc_factory,
             mm_fd=mm_fd,
             mm_fd_dir=mm_fd_dir,
             mm_fd_delta=mm_fd_delta,

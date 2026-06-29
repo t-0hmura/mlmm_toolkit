@@ -106,7 +106,7 @@ from mlmm.core.utils import (
     parse_layer_indices_from_bfactors,
     collect_single_option_values,
 )
-from mlmm.cli.common_options import add_coord_type_option, add_ml_layer_detection_options, add_precision_option, add_backend_model_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
+from mlmm.cli.common_options import add_coord_type_option, add_ml_layer_detection_options, add_precision_option, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.cli.preflight import validate_existing_files
 from mlmm.io.trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
@@ -1404,6 +1404,7 @@ def _build_multistep_path(
 @add_ml_layer_detection_options()
 @add_precision_option()
 @add_backend_model_option()
+@add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @click.pass_context
@@ -1446,6 +1447,8 @@ def cli(
     use_cmap: Optional[bool],
     precision: Optional[str],
     backend_model: Optional[str],
+    calc_file: Optional[str],
+    calc_factory: str,
 ) -> None:
     set_convert_file_enabled(convert_files)
     prepared_inputs: List[PreparedInputStructure] = []
@@ -1543,6 +1546,9 @@ def cli(
         if backend_model is not None:
             from mlmm.backends import apply_backend_model_to_calc_cfg
             apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+        # --calc-file overrides --backend with a user ASE Calculator (custom backend).
+        from mlmm.backends import apply_calc_file_to_calc_cfg
+        apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
         geom_cfg["coord_type"] = "cart"  # no microiteration: DLC over MM atoms is meaningless; fixed to cart
         if _is_param_explicit("embedcharge"):
             calc_cfg["embedcharge"] = bool(embedcharge)

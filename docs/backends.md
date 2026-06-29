@@ -89,6 +89,52 @@ calc:
 
 Requires `fairchem-core ≥ 2.0` for the `InferenceSettings` API.
 
+## Custom backend — bring your own ASE Calculator (`--calc-file`)
+
+Beyond the built-in MLIP backends, the **ML region** can be driven by any
+[ASE](https://wiki.fysik.dtu.dk/ase/) Calculator supplied at run time with
+`--calc-file`, without modifying `mlmm_toolkit`. This couples the ML side of the
+ML/MM ONIOM scheme to GFN-xTB (via `tblite` / `xtb-python`), DFTB+, ORCA, Psi4,
+or any ASE-compatible engine — the boundary is the standard ASE Calculator
+interface (energy in eV, forces in eV/Å), wrapped by the existing
+`_ASEMLBackend` adapter.
+
+Write a Python file exposing a `get_calculator` factory that returns an ASE
+Calculator:
+
+```python
+# my_calc.py  (minimal illustrative example)
+from ase.calculators.emt import EMT
+
+def get_calculator(charge=0, spin=1, device="auto", **kwargs):
+    return EMT()
+```
+
+Swap `EMT()` for the engine you want — e.g. `tblite.ase.TBLite(...)` for
+GFN-xTB, the DFTB+ ASE calculator, or `ase.calculators.orca.ORCA(...)`. Then
+pass the file to any single-stage subcommand (it selects the `custom` ML
+backend, overriding `--backend`):
+
+    mlmm sp    -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py
+    mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py
+
+Notes:
+
+- The factory receives `charge`, `spin` (multiplicity; also offered as `mult` /
+  `multiplicity`), and `device` when its signature accepts them, or
+  unconditionally if it declares `**kwargs`, so engines that need the total
+  charge (e.g. xTB) can be configured. Use a different factory name with
+  `--calc-factory NAME`; a module-level Calculator instance is also accepted.
+- The custom calculator drives the **ML region only**; the MM side keeps its
+  usual `hessian_ff` / OpenMM backend and the ONIOM coupling is unchanged.
+  Hessians use the finite-difference path, so `freq` and `tsopt --opt-mode hess`
+  work with any engine. Frozen atoms are honored as usual.
+- Available on the standalone subcommands (`sp`, `opt`, `tsopt`, `freq`, `irc`,
+  `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`). For a permanent,
+  installable backend with its own `--backend` name instead, see the recipe
+  below.
+
 ## Add-a-backend recipe (5 steps)
 
 To add a new backend `XYZModel` exposed as `--backend xyz`:

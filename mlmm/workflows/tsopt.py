@@ -128,7 +128,7 @@ from mlmm.core.utils import (
 )
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
-    add_precision_option, add_backend_model_option,
+    add_precision_option, add_backend_model_option, add_calc_file_option,
     add_deterministic_option,
     add_coord_type_option,
     add_print_every_option,
@@ -2164,6 +2164,7 @@ hessian_dimer_KW = {
 @add_ml_layer_detection_options()
 @add_precision_option()
 @add_backend_model_option()
+@add_calc_file_option()
 @add_deterministic_option()
 @add_coord_type_option()
 @add_print_every_option()
@@ -2208,6 +2209,8 @@ def cli(
     out_json: bool,
     precision: Optional[str],
     backend_model: Optional[str],
+    calc_file: Optional[str],
+    calc_factory: str,
     cli_coord_type: Optional[str],
     print_every: Optional[int],
 ) -> None:
@@ -2349,6 +2352,9 @@ def cli(
     if backend_model is not None:
         from mlmm.backends import apply_backend_model_to_calc_cfg
         apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+    # --calc-file overrides --backend with a user ASE Calculator (custom backend).
+    from mlmm.backends import apply_calc_file_to_calc_cfg
+    apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
     if _is_param_explicit("embedcharge"):
         calc_cfg["embedcharge"] = bool(embedcharge)
     if _is_param_explicit("embedcharge_cutoff"):
