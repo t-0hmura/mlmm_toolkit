@@ -35,6 +35,38 @@ _PRECISION_DISPATCH: Dict[str, Dict[str, tuple]] = {
     },
 }
 
+# Backend-specific model-variant kwarg for the unified ``--backend-model`` flag.
+# Routes one CLI value to the active backend's model kwarg; the backend's
+# built-in default model is kept when unset. Mirrors ``_PRECISION_DISPATCH``.
+_BACKEND_MODEL_KEY: Dict[str, str] = {
+    "uma": "uma_model",
+    "orb": "orb_model",
+    "mace": "mace_model",
+    "aimnet2": "aimnet2_model",
+}
+
+
+def apply_backend_model_to_calc_cfg(calc_cfg: Dict[str, Any], backend_model: Optional[str] = None) -> None:
+    """Route the unified ``--backend-model`` CLI value into the active backend's
+    model kwarg (``uma_model`` / ``orb_model`` / ``mace_model`` /
+    ``aimnet2_model``). Mutates ``calc_cfg`` in place; a no-op when unset, so each
+    backend keeps its built-in default model.
+
+    Also consumes (pops) any raw ``backend_model`` token already in ``calc_cfg``
+    (e.g. propagated through a ``--config`` YAML), since it is not a Calculator
+    kwarg and would otherwise leak to ``Calculator(**calc_cfg)``. That token is
+    used when no explicit argument is passed, so a YAML-set value is honoured.
+    """
+    raw = calc_cfg.pop("backend_model", None)
+    val = backend_model if backend_model is not None else raw
+    if val is None or str(val).strip() == "":
+        return  # keep the backend default model
+    backend = str(calc_cfg.get("backend") or "uma").strip().lower()
+    key = _BACKEND_MODEL_KEY.get(backend)
+    if key is None:
+        return
+    calc_cfg[key] = str(val).strip()
+
 
 def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[str] = None) -> None:
     """Route the unified ``--precision`` CLI value into backend-specific kwargs.

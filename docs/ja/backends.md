@@ -69,6 +69,11 @@ mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
 によって各バックエンドのネイティブ kwarg（UMA は `uma_precision`、ORB は `orb_precision`、MACE は
 `mace_dtype`）へルーティングされます。
 
+統一された `--backend-model NAME` フラグも同様に、選択中の `--backend` のモデル変種を
+上書きし、`apply_backend_model_to_calc_cfg` によってバックエンドのモデル kwarg
+（`uma_model` / `orb_model` / `mace_model` / `aimnet2_model`）へルーティングされます。
+未指定ならバックエンド既定のモデルを使用します。
+
 または YAML 設定経由（バックエンドごとの kwarg 名）:
 
 ```yaml

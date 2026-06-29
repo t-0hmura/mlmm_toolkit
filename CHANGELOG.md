@@ -120,6 +120,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   now fails in O(ms) instead of after the multi-second ML model load.
 
 ### Added
+- `--backend-model NAME` flag on every backend-using subcommand (`opt`,
+  `tsopt`, `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`,
+  `path-search`, `sp`, `all`) to override the model variant for the selected
+  `--backend` (e.g. `--backend uma --backend-model uma-m-1p1`), routed to the
+  backend's model kwarg via `apply_backend_model_to_calc_cfg`. Previously the
+  model variant was settable only through `--config` YAML.
 - `--deterministic` flag on every compute subcommand (`opt`, `tsopt`,
   `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`,
   `all`, `sp`) for bit-reproducible GPU runs (deterministic algorithms +

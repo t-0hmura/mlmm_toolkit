@@ -85,7 +85,7 @@ from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
     add_coord_type_option,
     add_print_every_option,
-    add_precision_option,
+    add_precision_option, add_backend_model_option,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
 )
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
@@ -532,6 +532,7 @@ def _finalize_surface_and_plot(
 @add_ml_layer_detection_options()
 @add_print_every_option()
 @add_precision_option()
+@add_backend_model_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @click.pass_context
@@ -575,6 +576,7 @@ def cli(
     out_json: bool,
     print_every: Optional[int],
     precision: Optional[str],
+    backend_model: Optional[str],
 ) -> None:
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -729,8 +731,9 @@ def cli(
             if backend is not None:
                 calc_cfg["backend"] = str(backend).lower()
             if precision is not None:
-                from mlmm.backends import apply_precision_to_calc_cfg
+                from mlmm.backends import apply_precision_to_calc_cfg, apply_backend_model_to_calc_cfg
                 apply_precision_to_calc_cfg(calc_cfg, precision)
+                apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
             if _is_param_explicit("embedcharge"):
                 calc_cfg["embedcharge"] = bool(embedcharge)
             if _is_param_explicit("embedcharge_cutoff"):

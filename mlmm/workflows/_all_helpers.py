@@ -111,6 +111,7 @@ class AllContext:
     dft_engine: Optional[str]
     cli_coord_type: Optional[str]
     precision: Optional[str]
+    backend_model: Optional[str]
 
 
 def copy_path_outputs_to_root(

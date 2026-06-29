@@ -251,6 +251,7 @@ def test_all_context_frozen_and_field_count() -> None:
         dft_engine=None,
         cli_coord_type=None,
         precision=None,
+        backend_model=None,
     )
     import dataclasses
     assert dataclasses.is_dataclass(ctx)
@@ -259,4 +260,4 @@ def test_all_context_frozen_and_field_count() -> None:
     assert "input_paths" in field_names
     assert "do_dft" in field_names
     assert "precision" in field_names
-    assert len(field_names) == 72  # current cli() param count
+    assert len(field_names) == 73  # current cli() param count

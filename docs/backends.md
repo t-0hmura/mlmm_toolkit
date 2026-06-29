@@ -75,6 +75,11 @@ The unified `--precision` flag is routed to each backend's native kwarg
 (`uma_precision` for UMA, `orb_precision` for ORB, `mace_dtype` for MACE)
 by `apply_precision_to_calc_cfg` in `mlmm/backends/__init__.py`.
 
+The unified `--backend-model NAME` flag likewise overrides the model variant
+for the selected `--backend`, routed to the backend's model kwarg
+(`uma_model` / `orb_model` / `mace_model` / `aimnet2_model`) by
+`apply_backend_model_to_calc_cfg`. Unset keeps the backend's default model.
+
 Or via YAML config (per-backend kwarg name):
 
 ```yaml
