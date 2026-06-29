@@ -260,4 +260,4 @@ def test_all_context_frozen_and_field_count() -> None:
     assert "input_paths" in field_names
     assert "do_dft" in field_names
     assert "precision" in field_names
-    assert len(field_names) == 73  # current cli() param count
+    assert len(field_names) == 75  # current cli() param count
