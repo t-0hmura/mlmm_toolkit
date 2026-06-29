@@ -57,7 +57,7 @@ mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb --force
 ### altLoc 状態間で原子数が異なる場合の処理
 
 異なる altLoc 状態で異なる原子が含まれている場合（例：altLoc A には N, CA, CB, CG、
-altLoc B には N, CA, CB, CD がある場合）、`fix-altloc` は以下のように正しく処理します：
+altLoc B には N, CA, CB, CD がある場合）、`fix-altloc` は以下のように処理します：
 
 - **重複原子**（複数の altLoc で同じ残基＋原子名、例：N, CA, CB）：
   占有率に基づいて最良のものを選択（最高値を優先、同点の場合はファイル内で最初のもの）

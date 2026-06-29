@@ -49,7 +49,7 @@ mlmm fix-altloc -i ./structures --inplace --recursive
 ### Handling different atom counts between altLoc states
 
 When different altLoc states contain different atoms (e.g., altLoc A has atoms
-N, CA, CB, CG while altLoc B has N, CA, CB, CD), `fix-altloc` handles this correctly:
+N, CA, CB, CG while altLoc B has N, CA, CB, CD), `fix-altloc` processes them as follows:
 
 - **Duplicate atoms** (same residue + atom name in multiple altLocs, e.g., N, CA, CB):
   The best one is selected using the same occupancy / earliest-appearance rule.
