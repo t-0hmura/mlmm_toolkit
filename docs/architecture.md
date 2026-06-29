@@ -50,7 +50,8 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │
 │ ├── cli/ # === L1 Interface ===
 │ │ ├── app.py Click group + _LAZY_SUBCOMMANDS registry (absolute paths)
-│ │ ├── decorators.py @add_chem_common_options / @add_mm_layer_common_options et al.
+│ │ ├── common_options.py @add_precision_option / @add_backend_model_option / @add_ml_charge_spin_options et al.
+│ │ ├── decorators.py make_is_param_explicit, bool/YAML helpers, render_cli_exception
 │ │ ├── help_pages.py --help-advanced pager
 │ │ ├── bool_compat.py --flag / --no-flag normalisation
 │ │ ├── default_group.py subcommand resolver, lazy module import
@@ -191,7 +192,8 @@ After step 5 you can read any other file by following the file index in §4. The
 | Click root group + subcommand dispatch | `mlmm/cli/app.py` |
 | Subcommand resolver (lazy import) | `mlmm/cli/default_group.py` |
 | `python -m mlmm` shim | `mlmm/__main__.py` |
-| Shared option decorator factories | `mlmm/cli/decorators.py` |
+| Shared option decorator factories | `mlmm/cli/common_options.py` |
+| Bool/YAML/exception CLI helpers | `mlmm/cli/decorators.py` |
 | `--help-advanced` pager | `mlmm/cli/help_pages.py` |
 | Bool flag compat (`--flag` / `--no-flag` + value style) | `mlmm/cli/bool_compat.py` |
 | AmberTools / conda env / GPU preflight | `mlmm/cli/preflight.py` |

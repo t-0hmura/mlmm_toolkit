@@ -48,7 +48,8 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │
 │ ├── cli/ # === L1 Interface ===
 │ │ ├── app.py Click group + _LAZY_SUBCOMMANDS registry (absolute paths)
-│ │ ├── decorators.py @add_chem_common_options / @add_mm_layer_common_options et al.
+│ │ ├── common_options.py @add_precision_option / @add_backend_model_option / @add_ml_charge_spin_options et al.
+│ │ ├── decorators.py make_is_param_explicit, bool/YAML helpers, render_cli_exception
 │ │ ├── help_pages.py --help-advanced pager
 │ │ ├── bool_compat.py --flag / --no-flag normalisation
 │ │ ├── default_group.py subcommand resolver, lazy module import
@@ -73,7 +74,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ └── add_elem_info.py PDB element column normaliser
 │ │
 │ ├── backends/ # === L4a Infra (MLIP + ONIOM) ===
-│ │ ├── __init__.py backend dispatch + registry
+│ │ ├── __init__.py --precision routing (apply_precision_to_calc_cfg)
 │ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / Orb / MACE / AIMNet2
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ │ Future: split into base.py + per-backend uma.py / orb.py
@@ -111,7 +112,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L1 `cli/`**。このレイヤーだけが Click コマンドを構築し argv をパースします。`app.py` はルートの `Click.Group` と `_LAZY_SUBCOMMANDS` レジストリを保持します — すべてのエントリが **絶対モジュールパス** (`mlmm.workflows.all`、`mlmm.io.trj2fig`、…) を使用するため、リゾルバは `default_group.py` 自体の置き場所に依存しません。`mlmm` 固有の `preflight.py` (AmberTools / conda env / GPU preflight) がここにあるのは、CLI 起動時、いかなる L2 ワークフローが呼び出されるよりも前に実行されるためです。
 
-**L2 `workflows/`** (~18 ファイル)。サブコマンドごとに 1 ファイル。各ファイルは `cli` という名前の単一の `@click.command()` とそのプライベートヘルパーを所有します。大きなステージランナー (`all.py` = 4,414 LOC、`path_search.py` = 2,352 LOC、`tsopt.py` = 3,181 LOC、`extract.py` = 2,274 LOC、`oniom_export.py` = 2,027 LOC) は現在のレイアウトでは単一ファイルのまま残されています。将来的にはステージごとのサブディレクトリへ分割する可能性がありますが、これは **opt-in** であり、本リリースラインのスコープ外です。
+**L2 `workflows/`** (~21 ファイル)。サブコマンドごとに 1 ファイル。各ファイルは `cli` という名前の単一の `@click.command()` とそのプライベートヘルパーを所有します。大きなステージランナー (`all.py` = 4,414 LOC、`path_search.py` = 2,352 LOC、`tsopt.py` = 3,181 LOC、`extract.py` = 2,274 LOC、`oniom_export.py` = 2,027 LOC) は現在のレイアウトでは単一ファイルのまま残されています。将来的にはステージごとのサブディレクトリへ分割する可能性がありますが、これは **opt-in** であり、本リリースラインのスコープ外です。
 
 **L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。この deny list は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーはこれとは異なる CI ゲート (`_check_domain_pure`) であり、MLIP-free を保つ必要があるバックエンド非依存の特定モジュール — `backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py` (および `workflows/sp.py` に存在) — をフラグします。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
 
@@ -224,7 +225,8 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | concern | file |
 |---|---|
 | ML/MM ONIOM 計算コア + 4 つのインライン MLIP バックエンド + ONIOM カップリング | `mlmm/backends/mlmm_calc.py` |
-| バックエンドディスパッチ + レジストリ | `mlmm/backends/__init__.py` |
+| `--precision` ルーティング (`apply_precision_to_calc_cfg` / `_PRECISION_DISPATCH`) | `mlmm/backends/__init__.py` |
+| バックエンドディスパッチ / ファクトリ (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
 | xTB 点電荷埋め込み補正 (`--embedcharge`) | `mlmm/backends/xtb_embedcharge_correction.py` |
 | バックエンドごとのアダプタ分割 (計画中、未実装) | `mlmm/backends/{base, uma, orb, mace, aimnet2}.py` |
 | ONIOM コアサブディレクトリ (計画中、未実装) | `mlmm/backends/mlmm_calc/{core, ase_calc, embed_charge, hessianff_calc, openmm_calc, facade}.py` |

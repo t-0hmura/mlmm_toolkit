@@ -75,7 +75,7 @@ mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使用、または `mlmm define-layer` で `--radius-freeze` を絞る。
 2. **hessian_ff（デフォルト）を使用:** hessian_ff は CPU のみなので、VRAM はすべて UMA に使用可能。
 3. **大きな系では OpenMM CUDA を避ける:** ML と MM の両方が CUDA を使うと VRAM 圧力が倍増する。
-4. **VRAM を監視:** YAML で `print_vram: True` を設定すると、ヘシアン計算中に VRAM 使用量（ピーク）を表示。
+4. **VRAM を監視:** `print_vram` は既定で True（ヘシアン計算中に VRAM 使用量（ピーク）を表示）。抑制するには YAML で `print_vram: False` を設定。
 
 ---
 
@@ -194,7 +194,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 
 - **ML モデル並列は非対応:** ML 推論は単一 GPU で動作する。OpenMM MM バックエンドは別の CUDA デバイス（`mm_device: cuda`, `mm_cuda_idx`）を使用可能だが、デフォルトの hessian_ff MM バックエンドは CPU のみ。
 - **分散計算非対応:** すべての計算は単一ノードの単一プロセス内で実行。
-- **hessian_ff は CPU のみ:** デフォルトの MM バックエンドは `mm_device` の設定に関係なく常に CPU で実行。
+- **hessian_ff は CPU のみ:** デフォルトの MM バックエンドでは `mm_device` は `cpu`/`auto` のみ可。`mm_device: cuda` を指定すると ValueError を送出（暗黙の CPU フォールバックはしない）。
 
 ---
 

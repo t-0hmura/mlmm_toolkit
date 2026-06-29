@@ -8,7 +8,7 @@ agent built on the official Python or TypeScript MCP SDKs.
 ## Install
 
 ```bash
-pip install "mlmm[mcp]"
+pip install "mlmm-toolkit[mcp]"
 ```
 
 This adds the `mcp[cli]` dependency and registers the `mlmm-mcp` console

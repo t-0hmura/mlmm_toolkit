@@ -26,6 +26,7 @@ ja/quickstart-tsopt-freq
 ja/recipes-common-errors
 ja/troubleshooting
 ja/cli-conventions
+ja/reproducibility
 ```
 
 ```{toctree}
@@ -72,6 +73,7 @@ ja/scan3d
 ja/freq
 ja/irc
 ja/dft
+ja/sp
 ja/trj2fig
 ja/oniom-export
 ja/oniom-import
