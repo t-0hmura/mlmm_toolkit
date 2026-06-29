@@ -108,7 +108,7 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--sort CHOICE` | モードのソート方法: `value`（cm^-1）または `abs`。 | `value` |
 | `--amplitude-ang FLOAT` | モードアニメーション振幅 (Å)。 | `0.8` |
 | `--n-frames INT` | モードアニメーションのフレーム数。 | `20` |
-| `--convert-files/--no-convert-files` | PDB テンプレートが利用可能な場合の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
+| `--convert-files/--no-convert-files` | PDB テンプレートが利用可能な場合の XYZ/TRJ から対応する PDB への変換の切り替え。 | `True` |
 | **熱化学** | | |
 | `--temperature FLOAT` | 熱化学温度 (K)。 | `298.15` |
 | `--pressure FLOAT` | 熱化学圧力 (atm)。 | `1.0` |

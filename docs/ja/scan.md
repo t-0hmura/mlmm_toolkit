@@ -1,6 +1,6 @@
 # `scan`
 
-ML/MM 計算機を用い、調和拘束による結合距離スキャンで階層化された酵素 PDB の反応座標を駆動します。単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動して反応軌跡の粗い候補を生成し、下流の MEP 精密化用の中間体/生成物候補を得たいときに使用します。`mlmm scan` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）による調和拘束付きの段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットを更新し、拘束ウェルを適用して LBFGS で構造を緩和します。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
+ML/MM 計算機を用い、調和拘束による結合距離スキャンで階層化された酵素 PDB の反応座標を駆動します。単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動して反応軌跡の粗い候補を生成し、下流の MEP 精密化用の中間体/生成物候補を得たいときに使用します。`mlmm scan` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）による調和拘束付きの段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットを更新し、調和拘束ポテンシャルを適用して LBFGS で構造を緩和します。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
 
 ## 実行例
 
@@ -44,7 +44,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
  - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
  - 各ペアの増分変化は `step_k = delta / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * step_k`。
-5. すべてのステップを進み、調和ウェル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
+5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
 6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
 7. すべてのステージで繰り返します。任意の軌跡は `--dump` が `True` の場合のみダンプされます。
 
@@ -55,7 +55,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ```
 out_dir/ (デフォルト:./result_scan/)
 ├─ scan_trj.xyz              # 全ステージ結合軌跡（常に書き出し）
-├─ scan.pdb                  # 結合 PDB コンパニオン（PDB 入力のみ、常に書き出し）
+├─ scan.pdb                  # 対応する結合 PDB（PDB 入力のみ、常に書き出し）
 ├─ preopt/                   # --preopt が True の場合
 │  ├─ result.xyz
 │  └─ result.pdb             # PDB 入力のみ
@@ -84,7 +84,7 @@ out_dir/ (デフォルト:./result_scan/)
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | Hessian 計算に含める MM 原子の ML 領域からの距離カットオフ (Å)。`--detect-layer` と併用可能。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
-| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 三つ組もしくは `(i, j, start, end)` 四つ組（双方向スキャン）を含むインライン Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
+| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 3 要素タプルもしくは `(i, j, start, end)` 4 要素タプル（双方向スキャン）を含むインライン Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
 | `--one-based/--zero-based` | 原子インデックスを 1 始まり（既定）または 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のステージ情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
@@ -107,7 +107,7 @@ out_dir/ (デフォルト:./result_scan/)
 | `--link-atom-method [scaled\|fixed]` | リンク原子の配置: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
 | `--dry-run/--no-dry-run` | オプションの検証と実行計画の表示のみ行い、スキャンは実行しない。`--help-advanced` に表示。 | `False` |
-| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
 
 ## スキャン対象の構文
 
@@ -123,21 +123,21 @@ stages:
 ```
 
 - `stages` は必須です。
-- 各ステージは `(i, j, target_A)` の三つ組のリストです。
+- 各ステージは `(i, j, target_A)` の 3 要素タプルのリストです。
 - インデックスは整数または PDB セレクター（PDB 入力時）が使用可能で、インラインリテラルと同じです。
 
 **インラインリテラルフォーマット**
 
 `-s/--scan-lists` がファイルパスでない値を受け取ると、**Python リテラル**文字列として評価されます。シェルクォートに注意してください。
 
-各リテラルは三つ組 `(atom1, atom2, target_A)` の Python リストです:
+各リテラルは 3 要素タプル `(atom1, atom2, target_A)` の Python リストです:
 
 ```
 -s '[(atom1, atom2, target_A),...]'
 ```
 
 - シェルが括弧やスペースを解釈しないよう、リテラル全体を**シングルクォート**で囲んでください。
-- 各三つ組は `atom1`--`atom2` 間の距離を `target_A` に向けて駆動します。
+- 各 3 要素タプルは `atom1`--`atom2` 間の距離を `target_A` に向けて駆動します。
 - 1 つのリテラル = 1 つの**ステージ**です。複数ステージの場合、**単一の** `-s/--scan-lists` フラグの後に複数リテラルを渡します（フラグを繰り返さないでください）。
 
 原子は**整数インデックス**または **PDB セレクター文字列**で指定できます:

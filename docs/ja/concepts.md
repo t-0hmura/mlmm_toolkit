@@ -226,8 +226,8 @@ ML 領域の指定には 2 通りあります。
 
 ### テンプレートとファイル変換（`--convert-files`）
 
-`mlmm-toolkit` は軌跡（例: `mep_trj.xyz`, `finished_irc_trj.xyz`）を出力します。トポロジー対応の入力（PDB テンプレート）がある場合、コンパニオンファイルも出力できます:
-- PDB テンプレートがあれば `.pdb` コンパニオン
+`mlmm-toolkit` は軌跡（例: `mep_trj.xyz`, `finished_irc_trj.xyz`）を出力します。トポロジー対応の入力（PDB テンプレート）がある場合、対応するファイルも出力できます:
+- PDB テンプレートがあれば対応する `.pdb`
 
 この動作は `--convert-files/--no-convert-files`（デフォルト: `--convert-files`）でグローバルに制御します。
 

@@ -86,7 +86,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。`--help-advanced` に表示。 | `False` |
 | `--ref-pdb FILE` | XYZ 入力時の参照 PDB トポロジー（原子順序と残基マッピングのテンプレート）。 | _None_ |
-| `--convert-files/--no-convert-files` | PDB テンプレートがあれば XYZ/TRJ → PDB コンパニオンファイルを生成。 | `True` |
+| `--convert-files/--no-convert-files` | PDB テンプレートがあれば XYZ/TRJ → 対応する PDB ファイルを生成。 | `True` |
 
 ## YAML 設定
 

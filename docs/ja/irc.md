@@ -47,7 +47,7 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 1. **入力準備** -- TS 構造、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを解決します。`geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
 2. **ML/MM 計算機の構築** -- `--parm` と `--model-pdb` から ML/MM 計算機を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP ヘシアン評価を制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` または `--no-backward` でブランチを無効化可能）。ステップサイズとサイクル数で積分長を制御します。
-4. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、PDB コンパニオンが生成されます。
+4. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、対応する PDB が生成されます。
 
 ## 出力
 
@@ -97,7 +97,7 @@ out_dir/ (デフォルト: ./result_irc/)
 | `--backward/--no-backward` | 逆方向 IRC を実行。`irc.backward` を上書き。 | `True` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |
 | `--ref-pdb FILE` | `--input` が XYZ の場合に使用する参照 PDB トポロジー（XYZ 座標を保持）。 | _None_ |
-| `--convert-files/--no-convert-files` | 参照 PDB 利用可能時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
+| `--convert-files/--no-convert-files` | 参照 PDB 利用可能時の XYZ/TRJ から対応する PDB の切り替え。 | `True` |
 | `--hessian-calc-mode CHOICE` | MLIP がヘシアンを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | `FiniteDifference` |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |

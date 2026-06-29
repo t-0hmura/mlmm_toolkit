@@ -25,7 +25,7 @@
 
 ### 新しいブールフラグの追加
 
-サブコマンドにブールフラグを追加する際は、必ず `mlmm/cli/common_options.py` の `add_*_option()` ファクトリ経由とし、長い名前を `mlmm/cli/app.py` の対応する `_COMMAND_BOOL_*_OPTIONS` テーブルに登録してください。サブコマンド本体に `@click.option("--foo/--no-foo", ...)` や `type=click.BOOL` を直接書くと、レジストリを迂回してテスト対象から外れ、値指定記法が黙って失われます。
+サブコマンドにブールフラグを追加する際は、必ず `mlmm/cli/common_options.py` の `add_*_option()` ファクトリ経由とし、長い名前を `mlmm/cli/app.py` の対応する `_COMMAND_BOOL_*_OPTIONS` テーブルに登録してください。サブコマンド本体に `@click.option("--foo/--no-foo", ...)` や `type=click.BOOL` を直接書くと、レジストリを迂回してテスト対象から外れ、値指定記法が警告なく失われます。
 
 よく使うブール値オプション:
 - `--tsopt`, `--thermo`, `--dft` -- 後処理ステージの有効化

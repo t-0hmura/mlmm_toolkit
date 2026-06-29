@@ -50,7 +50,7 @@ mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
 `--coord-type` は最適化の座標系（`cart` | `redund` | `dlc` | `tric`、デフォルト `cart`）を選びます。`dlc`（非局在化内部座標）は低速ですが、ねじれの多い系やクリーンな一次サドルへの収束でより堅牢です。
 
 ```{warning}
-`--coord-type dlc` は**ヘシアンベース**のオプティマイザーが必要です。デフォルトの L-BFGS（`--opt-mode grad`）の [`opt`](opt.md) では黙って `cart` に戻されます。`tsopt`（RFO / RS-I-RFO）または `opt --opt-mode hess` で使ってください。`path-opt` / `path-search` は `cart` と `dlc` のみ受け付けます。`DLC + リンク原子` と `DLC + 3 層凍結 MM` は数値的に未検証なため、論文掲載値の背後では `cart` がデフォルトのままです。
+`--coord-type dlc` は**ヘシアンベース**のオプティマイザーが必要です。デフォルトの L-BFGS（`--opt-mode grad`）の [`opt`](opt.md) では警告なく `cart` に戻されます。`tsopt`（RFO / RS-I-RFO）または `opt --opt-mode hess` で使ってください。`path-opt` / `path-search` は `cart` と `dlc` のみ受け付けます。`DLC + リンク原子` と `DLC + 3 層凍結 MM` は数値的に未検証なため、論文掲載値の背後では `cart` がデフォルトのままです。
 ```
 
 同じ失敗の症状起点の切り分けは [典型エラー別レシピ — レシピ 4](recipes-common-errors.md#レシピ-4-収束後処理で止まる) を参照してください。
@@ -136,10 +136,10 @@ out_dir/ (デフォルト: ./result_tsopt/)
 ├── final_geometry.xyz             # 常に書き出し
 ├── final_geometry.pdb             # 入力が PDB の場合
 ├── optimization_all_trj.xyz       # 連結 Dimer セグメント（--dump 時）
-├── optimization_all.pdb           # PDB コンパニオン（--dump かつ入力が PDB の場合）
+├── optimization_all.pdb           # 対応する PDB（--dump かつ入力が PDB の場合）
 ├── vib/
 │   ├── imag_NN_±XXXX.XXcm-1_trj.xyz  # 虚振動数モード軌跡
-│   └── imag_NN_±XXXX.XXcm-1.pdb      # 虚振動数モード PDB コンパニオン
+│   └── imag_NN_±XXXX.XXcm-1.pdb      # 虚振動数モードに対応する PDB
 └── .dimer_mode.dat                # Dimer 方向シード（light モード）
 ```
 
@@ -183,7 +183,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | **出力と設定** | | |
 | `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
-| `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの切り替え。 | `True` |
+| `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_tsopt/` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |

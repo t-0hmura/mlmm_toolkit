@@ -34,7 +34,7 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 1. `geom_loader` で構造を読み込み、CLI から電荷/スピンを解決し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
-2. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からターゲットを解析して 3 つの四つ組にします（デフォルト 1 始まりインデックス、`--zero-based` 指定時は 0 始まり）。PDB 入力の場合、各原子エントリは整数インデックスまたは `"TYR,285,CA"` のようなセレクター文字列が使用可能。区切り文字はスペース、カンマ、スラッシュ、バッククォート、バックスラッシュ。
+2. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からターゲットを解析して 3 つの 4 要素タプルにします（デフォルト 1 始まりインデックス、`--zero-based` 指定時は 0 始まり）。PDB 入力の場合、各原子エントリは整数インデックスまたは `"TYR,285,CA"` のようなセレクター文字列が使用可能。区切り文字はスペース、カンマ、スラッシュ、バッククォート、バックスラッシュ。
 3. 外側ループ `d1[i]`: d1 拘束のみで緩和。d1 値が最も近い以前のスキャン済みジオメトリから開始。
 4. 中間ループ `d2[j]`: d1 と d2 の拘束で緩和。最も近い (d1, d2) ジオメトリから開始。
 5. 内側ループ `d3[k]`: 3 つの拘束すべてで緩和。バイアスなしエネルギーを測定（評価時にバイアス除去）し、拘束ジオメトリと収束フラグを書き出し。
@@ -47,7 +47,7 @@ out_dir/ (デフォルト:./result_scan3d/)
  surface.csv # グリッドメタデータ（d1, d2, d3, energy, convergence）
  scan3d_density.html # 3D エネルギーアイソサーフェス可視化
  grid/point_i###_j###_k###.xyz # 各グリッド点の緩和ジオメトリ
- grid/point_i###_j###_k###.pdb # PDB コンパニオン（B 因子: ML=0, Movable-MM=10, Frozen=20）
+ grid/point_i###_j###_k###.pdb # 対応する PDB（B 因子: ML=0, Movable-MM=10, Frozen=20）
  grid/inner_path_d1_###_d2_###_trj.xyz # --dump が True の場合のみ
 ```
 
@@ -69,12 +69,12 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å) — ヘシアン計算に含める MM 原子を指定。`--detect-layer` と併用可能。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
-| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出、`pairs` に 3 四つ組）またはインライン Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | `--csv` 指定時を除き必須 |
+| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出、`pairs` に 3 つの 4 要素タプル）またはインライン Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | `--csv` 指定時を除き必須 |
 | `--csv FILE` | 事前計算済み `surface.csv` を読み込みスキャンなしでプロット生成。 | _None_ |
 | `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を制御。 | `0.20` |
-| `--bias-k FLOAT` | 調和ウェル強度 k (eV/Å²)。 | `300.0` |
+| `--bias-k FLOAT` | 調和拘束ポテンシャル強度 k (eV/Å²)。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの最大オプティマイザーサイクル。 | `10000` |
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
@@ -92,7 +92,7 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的ヘシアン対 OpenMM 差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子の配置法: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
-| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から PDB コンパニオン生成の切り替え。 | `True` |
+| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
 
 全フラグの一覧は自動生成された[コマンドリファレンス](../reference/commands/index.md)にあります。ここに手動で複製しないでください。
 
@@ -110,22 +110,22 @@ pairs:
  - [15, 60, 1.10, 3.00]
 ```
 
-- `pairs` は必須で、正確に 3 つの四つ組を含む必要があります。
-- 各四つ組は `(i, j, low_A, high_A)` です。
+- `pairs` は必須で、正確に 3 つの 4 要素タプルを含む必要があります。
+- 各 4 要素タプルは `(i, j, low_A, high_A)` です。
 - インデックスは整数または PDB セレクター（`--scan-lists` と同じ）が使用可能です。
 
 ### インラインリテラルフォーマット
 
 `-s/--scan-lists` がファイルパスでない値を受け取ると、**単一の Python リテラル**文字列として評価されます。シェルクォートに注意してください。
 
-リテラルは正確に **3 つ**の四つ組 `(atom1, atom2, low_A, high_A)` の Python リストです:
+リテラルは正確に **3 つ**の 4 要素タプル `(atom1, atom2, low_A, high_A)` の Python リストです:
 
 ```
 -s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A), (atom5, atom6, low_A, high_A)]'
 ```
 
 - シェルが括弧やスペースを解釈しないよう、リテラル全体を**シングルクォート**で囲んでください。
-- 各四つ組は 1 つのスキャン軸を定義します: `atom1`--`atom2` 間の距離を `low_A` から `high_A` までスキャンします。
+- 各 4 要素タプルは 1 つのスキャン軸を定義します: `atom1`--`atom2` 間の距離を `low_A` から `high_A` までスキャンします。
 - `scan` と異なり、**1 つのリテラル**のみ受け付けます（マルチステージ非対応）。
 
 原子は**整数インデックス**または **PDB セレクター文字列**で指定できます:

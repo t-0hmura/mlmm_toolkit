@@ -54,7 +54,7 @@ out_dir/ (デフォルト: ./result_opt/)
 ├─ optimization_trj.xyz        # ダンプ有効時のみ
 ├─ optimization.pdb            # PDB 入力で変換有効時の軌跡 PDB 変換
 ├─ optimization_all_trj.xyz    # 連結フル軌跡（--dump 時）
-├─ optimization_all.pdb        # フル軌跡の PDB コンパニオン（PDB 入力、--dump 時）
+├─ optimization_all.pdb        # フル軌跡に対応する PDB（PDB 入力、--dump 時）
 └─ restart_*.yaml              # opt.dump_restart 設定時のオプションリスタート
 ```
 
@@ -93,7 +93,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（LBFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
 | `--flatten/--no-flatten` | 最適化後の虚振動数モードフラット化ループの有効化/無効化。 | `False` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`、`optimization_all_trj.xyz`）を出力。 | `False` |
-| `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から PDB コンパニオンの有効化/無効化。 | `True` |
+| `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から対応する PDB 生成の有効化/無効化。 | `True` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |
 | `--thresh TEXT` | 収束プリセットの上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（内部的に `gau` を適用） |
 | `--config FILE` | ベース YAML 設定ファイル。 | _None_ |
@@ -145,7 +145,7 @@ out_dir/ (デフォルト: ./result_opt/)
 - 共通制御: `max_cycles`（デフォルト 10000）、`print_every`（100）、`min_step_norm`（1e-8）、`assert_min_step` True。
 - 収束トグル: `rms_force`、`rms_force_only`、`max_force_only`、`force_only`。
 - その他: `converge_to_geom_rms_thresh`、`overachieve_factor`、`check_eigval_structure`。
-- エネルギープラトー・フォールバック（デフォルト有効）: `energy_plateau`（bool、デフォルト True）、`energy_plateau_thresh`（1e-4 au、約 0.06 kcal/mol）、`energy_plateau_window`（50 ステップ）。直近ウィンドウのエネルギー範囲が閾値を下回ったら収束と判定します。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットを上回る場合の安全網です。Chain-of-states オプティマイザでは自動的にスキップされます。
+- エネルギープラトー・フォールバック（デフォルト有効）: `energy_plateau`（bool、デフォルト True）、`energy_plateau_thresh`（1e-4 au、約 0.06 kcal/mol）、`energy_plateau_window`（50 ステップ）。直近ウィンドウのエネルギー範囲が閾値を下回ったら収束と判定します。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットを上回る場合のセーフティネットです。Chain-of-states オプティマイザでは自動的にスキップされます。
 - ラインサーチ: `line_search`（bool、デフォルト True）。
 - 管理項目: `dump`、`dump_restart`、`prefix`、`out_dir`（デフォルト `./result_opt/`）。
 

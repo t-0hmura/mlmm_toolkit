@@ -459,7 +459,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（LBFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML ヘシアン計算モード。`Analytical` は UMA バックエンドで利用可能（VRAM に余裕がある場合推奨）。他のバックエンドは `FiniteDifference` を使用 |
 
-DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `path-opt`（`--mep-mode dmf`）でのみ選択できます。`mlmm all` は常に GSM を使用し、`mlmm all` に `--mep-mode` を渡しても黙って無視されます。
+DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `path-opt`（`--mep-mode dmf`）でのみ選択できます。`mlmm all` は常に GSM を使用し、`mlmm all` に `--mep-mode` を渡しても警告なく無視されます。
 
 すべてのオプションと YAML スキーマについては [all](all.md) および [YAML リファレンス](yaml-reference.md) を参照してください。
 
