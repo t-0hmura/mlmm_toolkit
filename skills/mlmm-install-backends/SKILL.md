@@ -57,7 +57,34 @@ Working on small organic molecules, no metals?
 
 Need DFT//MLIP refinement?
     └── add dft.md regardless of MLIP choice
+
+Need a non-MLIP engine for the ML region (GFN-xTB / DFTB+ / ORCA / any ASE calc)?
+    └── --calc-file my_calc.py (custom backend, see below)
 ```
+
+## Custom backend — any ASE Calculator (`--calc-file`)
+
+To drive the **ML region** with an engine that is not a built-in MLIP
+(GFN-xTB, DFTB+, ORCA, Psi4, …), write a Python file exposing a
+`get_calculator()` factory that returns an [ASE](https://wiki.fysik.dtu.dk/ase/)
+Calculator, and pass it with `--calc-file` (selects the `custom` ML backend,
+overriding `-b`):
+
+```bash
+# my_calc.py:
+#   from ase.calculators.emt import EMT
+#   def get_calculator(charge=0, spin=1, device="auto", **kwargs):
+#       return EMT()              # swap for tblite.ase.TBLite(...) etc.
+mlmm sp -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
+```
+
+- The custom calculator drives the **ML region only**; the MM side keeps its
+  usual `hessian_ff` / OpenMM backend and the ONIOM coupling is unchanged.
+- Works on every subcommand (`sp` / `opt` / `tsopt` / `freq` / `irc` /
+  `scan{,2d,3d}` / `path-opt` / `path-search`) **and the `all` pipeline**
+  (propagated via the args-YAML `calc` section). Rename the factory with
+  `--calc-factory NAME`. Hessians use the finite-difference path. Full guide:
+  `docs/backends.md` (Custom backend section).
 
 ## Why two envs for MACE
 
