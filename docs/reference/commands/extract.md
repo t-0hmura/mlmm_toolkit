@@ -12,9 +12,9 @@ Options:
                                   and exit.
   -i, --input TEXT                Protein-substrate complex PDB(s). Multiple
                                   files may be given space-separated after a
-                                  single -i ('-i a.pdb b.pdb') or by repeating
-                                  -i. If multiple, they must have identical atom
-                                  counts and ordering.  [required]
+                                  single -i ('-i a.pdb b.pdb'). If multiple,
+                                  they must have identical atom counts and
+                                  ordering.  [required]
   -c, --center TEXT               Substrate specification: a PDB path, a
                                   comma/space-separated residue-ID list like
                                   '123,124' or 'A:123,B:456' (insertion codes
@@ -36,7 +36,11 @@ Options:
                                   Delete main-chain atoms from non-substrate
                                   amino acids.  [default: no-exclude-backbone]
   --add-linkh / --no-add-linkh    Add carbon-only link-H at 1.09 angstrom along
-                                  cut-bond directions.  [default: no-add-linkh]
+                                  cut-bond directions (distance-based). Not
+                                  needed when preparing a --model-pdb for mlmm
+                                  (the ML/MM calculator adds link H from the
+                                  --parm topology); use only for standalone
+                                  pocket models.  [default: no-add-linkh]
   --selected-resn TEXT            Comma/space-separated residue IDs to force-
                                   include.
   --modified-residue TEXT         Comma-separated residue names (with optional

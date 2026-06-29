@@ -113,6 +113,11 @@ Options:
                                   precision / ORB precision / MACE
                                   default_dtype). aimnet2: fp32 no-op; fp64
                                   rejected.
+  --backend-model TEXT            Model variant for the selected --backend (e.g.
+                                  uma-s-1p1 / uma-m-1p1 for uma,
+                                  orb_v3_conservative_omol for orb, MACE-OMOL-0
+                                  / MACE-OFF23_small for mace). Default: the
+                                  backend's built-in model.
   --deterministic / --no-deterministic
                                   Strict bit-reproducible GPU runs
                                   (deterministic algorithms + index_reduce_
