@@ -9,7 +9,7 @@ increment.
 
 This is the same pattern used by `pbsdsh` + `flock` on Torque/PBSPro
 clusters. The recipe below is **placeholder-driven** — fill in
-`<NCPU>`, `<NGPU>`, `<QUEUE>`, `<CUDA_MODULE>`, `<YOUR_ENV>`,
+`<NCPU>`, `<NGPU>`, `<YOUR_QUEUE>`, `<CUDA_MODULE>`, `<YOUR_ENV>`,
 `<TASK_LIST_FILE>` from `mlmm-env-detect/SKILL.md`.
 
 ## Files involved

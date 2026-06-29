@@ -27,8 +27,7 @@ pip install orb-models
 Confirm:
 
 ```bash
-python -c "import orb_models; print('orb_models:', orb_models.__version__)"
-mlmm tsopt --help >/dev/null && echo "mlmm + orb backend OK"
+python -c "import orb_models; print('orb backend OK:', orb_models.__version__)"
 ```
 
 Orb model weights are downloaded on first use; no separate auth required.
@@ -57,8 +56,10 @@ python -c "import mlmm.core.defaults as d; print(d.MLMM_CALC_KW)"
 
 ## Backend-specific flags
 
-Orb accepts (the `_OrbBackend.__init__` parameters in
-`backends/mlmm_calc.py`; defaults in `core/defaults.py`):
+Orb accepts these `MLMM_CALC_KW` keys (the Orb-specific `orb_model` /
+`orb_precision` are `_OrbBackend.__init__` parameters in `backends/mlmm_calc.py`;
+the Hessian/calc keys below apply to every backend; defaults in
+`core/defaults.py`):
 
 | Key | Purpose |
 |---|---|

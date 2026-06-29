@@ -17,7 +17,7 @@ C++ compiler must be on `PATH`). The bundled `pysisyphus` (GPU-tensor fork),
 
 ```bash
 conda activate <YOUR_ENV>
-pip install mlmm-toolkit                         # core only (UMA + Orb)
+pip install mlmm-toolkit                         # core only (UMA)
 pip install 'mlmm-toolkit[orb,aimnet,dft]'        # extras as needed
 ```
 

@@ -96,15 +96,15 @@ mlmm all -i 1.R.pdb \
 ### Validate a TS candidate without re-running path search
 
 ```bash
-mlmm tsopt -i ts_guess.xyz -q -1 -m 1 -b uma -o result_tsopt
-mlmm freq  -i result_tsopt/final_geometry.xyz -q -1 -m 1 -b uma -o result_freq
-mlmm irc   -i result_tsopt/final_geometry.xyz -q -1 -m 1 -b uma -o result_irc
+mlmm tsopt -i ts_guess.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_tsopt
+mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq
+mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
 ```
 
 ### DFT//MLIP single point on the rate-limiting TS
 
 ```bash
-mlmm dft -i seg_01/ts.pdb \
+mlmm dft -i seg_01/ts.pdb --parm real.parm7 \
     -l 'SAM:1,GPP:-3' \
     --func-basis 'wb97m-v/def2-tzvpd' \
     --engine gpu

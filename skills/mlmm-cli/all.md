@@ -93,7 +93,7 @@ result_all/
 │       ├── reactant.pdb / .xyz
 │       ├── ts.pdb / .xyz
 │       ├── product.pdb / .xyz
-│       ├── tsopt/                  # TS optimization output (--tsopt)
+│       ├── ts/                     # TS optimization output (--tsopt)
 │       ├── irc/                    # forward/backward IRC trajectories
 │       ├── freq/                   # frequencies + thermo (--thermo)
 │       └── dft/                    # single-point DFT (--dft)
@@ -138,8 +138,8 @@ pipeline does not pass it by default).
 `--help-advanced`). To rerun only a failed segment:
 
 ```bash
-mlmm tsopt -i _work/path_opt/hei_seg_03.xyz -o segments/seg_03/tsopt -b uma
-mlmm irc   -i segments/seg_03/tsopt/final_geometry.xyz -o segments/seg_03/irc -b uma
+mlmm tsopt -i _work/path_opt/hei_seg_03.xyz -o segments/seg_03/ts -b uma
+mlmm irc   -i segments/seg_03/ts/final_geometry.xyz -o segments/seg_03/irc -b uma
 mlmm freq  -i segments/seg_03/irc/finished_irc_trj.xyz -o segments/seg_03/freq -b uma
 ```
 

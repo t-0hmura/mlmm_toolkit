@@ -77,7 +77,7 @@ result_ts_only/
         ├── reactant.pdb   canonical R (from the IRC backward endpoint)
         ├── ts.pdb         canonical TS
         ├── product.pdb    canonical P (from the IRC forward endpoint)
-        ├── tsopt/         final_geometry.{xyz,pdb}, result.json
+        ├── ts/            final_geometry.{xyz,pdb} (result.json only with --out-json)
         ├── irc/           forward_irc_trj.xyz, backward_irc_trj.xyz, finished_irc_trj.xyz
         ├── freq/          frequencies_cm-1.txt, thermoanalysis.yaml
         ├── structures/    nested copies + raw IRC endpoints ({reactant_irc,ts,product_irc}.{xyz,pdb})
@@ -94,8 +94,10 @@ print(seg["barrier_kcal"], seg["delta_kcal"])
 print(seg["bond_changes"])             # what bonds broke / formed along the IRC
 
 # n_imaginary and IRC endpoint energies are NOT on the summary segment;
-# they live in the per-stage result.json files:
-ts = json.load(open("result_ts_only/segments/seg_01/tsopt/result.json"))
+# they live in the per-stage result.json files, written only when the stage
+# ran with --out-json (rerun the stage standalone with --out-json, or read
+# summary.json / summary.log):
+ts = json.load(open("result_ts_only/segments/seg_01/ts/result.json"))
 print(ts["n_imaginary_modes"])         # should be 1
 irc = json.load(open("result_ts_only/segments/seg_01/irc/result.json"))
 print(irc["energy_reactant_hartree"], irc["energy_ts_hartree"], irc["energy_product_hartree"])
@@ -152,7 +154,6 @@ selection. Most subcommands accept:
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
-| `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |

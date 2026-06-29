@@ -93,9 +93,11 @@ If you don't know a ligand's formal charge, see
 
 ## Link-hydrogen capping
 
-When `extract` cuts a covalent bond between an in-cluster atom (`A`)
-and an out-of-cluster atom (`B`), it places a hydrogen (atom name `HL`)
-along the `A→B` direction at 1.09 Å (standard C-H length). The link
+With `--add-linkh` (default off), when `extract` cuts a covalent bond between
+an in-cluster atom (`A`) and an out-of-cluster atom (`B`), it places a hydrogen
+(atom name `HL`) along the `A→B` direction at 1.09 Å (standard C-H length). This
+is for **standalone** pocket models; an mlmm `--model-pdb` does **not** need it —
+the ML/MM calculator adds link H from the `--parm` topology. The link
 hydrogen is written as a `HETATM` named `HL` in residue `LKH` (chain `L`);
 see `_format_linkH_block` in `extract.py` for the convention.
 
