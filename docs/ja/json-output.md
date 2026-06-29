@@ -160,6 +160,16 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `unknown_residue_charges` | object | `{残基名: 電荷}` |
 | `center` | string | 基質指定（生の `-c` 値）: PDB パス、残基ID リスト（例 `'A:123,B:456'`）、または残基名リスト（例 `'GPP,MMT'`） |
 | `radius` | float | 抽出半径 (angstrom) |
+| `status` | string | `"ok"` |
+| `ion_total_charge` | float | イオン電荷合計 |
+| `input_files` | string[] | 入力 PDB パス |
+| `n_atoms_raw` | int | 抽出前の生入力の原子数 |
+| `n_link_hydrogens` | int | 切断結合に付加されたリンク H 原子数 |
+| `files` | object | 出力ファイル名のマップ（入力ごとのポケット PDB 等） |
+| `exclude_backbone` | bool | 実行時の `--exclude-backbone` の値 |
+| `include_h2o` | bool | 実行時の `--include-H2O` の値 |
+| `ligand_charge_input` | string | 生の `-l/--ligand-charge` 引数 |
+| `ion_charges` | array | イオン残基の `[残基名, 電荷]` ペアのリスト |
 
 ## `summary.json` (`path-search` / `all`)
 
