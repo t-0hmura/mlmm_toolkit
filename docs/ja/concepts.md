@@ -202,6 +202,18 @@ ML 領域定義は主に以下で制御します。
 - `-c/--center`: 基質の指定（残基ID、残基名、または基質のみのPDB）
 - `-r/--radius`, `--radius-het2het`, `--include-H2O`, `--exclude-backbone`, `--add-linkH`, `--selected-resn`
 
+ML 領域の指定には 2 通りあります。
+
+- **自動切り出し**（`-c/--center` + `--exclude-backbone`）: `extract` / `all` が Cα–Cβ
+  境界で主鎖を切断し、切断結合をリンク水素でキャップし、残基・`--modified-residue`・
+  `-l/--ligand-charge` から model 電荷を**導出**します。非標準アミノ酸は
+  `--modified-residue NAME:charge`、リガンドは `-l NAME:charge` で与え、`-q` は不要です。
+- **手動**（`--model-pdb` + `--parm`）: ML 原子の選択を自分で与え、model 電荷は `-q` で明示
+  します。電荷が変わる原子を手で編集した場合（独自の切断・プロトン化/電荷変更で自動導出が
+  当てにならない場合）や、自動切り出しが扱えない異常トポロジーで堅実です。この経路では
+  `--modified-residue` / `-l` は効かず、model PDB にリンク水素を入れる必要も**ありません**
+  — ML/MM calculator が `--parm` のトポロジーから ML/MM 境界に付与します。
+
 ### Real system と Model system（ONIOM 用語）
 
 - **Real system（実系）**: すべての原子（3 層すべて）。MM（低レベル）で評価されます。

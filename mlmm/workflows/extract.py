@@ -379,7 +379,12 @@ def _extract_verbose_callback(ctx: "click.Context", param: "click.Parameter", va
     "--add-linkh/--no-add-linkh",
     "add_linkh",
     default=False, show_default=True,
-    help="Add carbon-only link-H at 1.09 angstrom along cut-bond directions.",
+    help=(
+        "Add carbon-only link-H at 1.09 angstrom along cut-bond directions "
+        "(distance-based). Not needed when preparing a --model-pdb for mlmm "
+        "(the ML/MM calculator adds link H from the --parm topology); use only "
+        "for standalone pocket models."
+    ),
 )
 @click.option(
     "--selected-resn",
@@ -561,7 +566,7 @@ def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
         dest="add_linkh",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Add carbon‑only link‑H at 1.09 Å along cut‑bond directions; appended after a TER as HL/LKH HETATM records. (default: False)"
+        help="Add carbon‑only link‑H at 1.09 Å along cut‑bond directions (distance-based); appended after a TER as HL/LKH HETATM records. Not needed when preparing a --model-pdb for mlmm (the ML/MM calculator adds link H from the --parm topology); use only for standalone pocket models. (default: False)"
     )
     p.add_argument(
         "--selected-resn", dest="selected_resn", required=False, default="",

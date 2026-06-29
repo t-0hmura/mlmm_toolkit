@@ -215,6 +215,21 @@ ML region definition is controlled by:
 - `-c/--center`: how to locate the substrate (residue IDs, residue names, or a substrate-only PDB).
 - `-r/--radius`, `--radius-het2het`, `--include-H2O`, `--exclude-backbone`, `--add-linkH`, `--selected-resn`.
 
+There are two ways to define the ML region:
+
+- **Automatic extraction** (`-c/--center` + `--exclude-backbone`): `extract` / `all`
+  truncate the backbone at the Cα–Cβ boundary, cap severed bonds with link
+  hydrogens, and **derive** the model charge from the residues, `--modified-residue`,
+  and `-l/--ligand-charge`. Use `--modified-residue NAME:charge` for non-standard
+  amino acids and `-l NAME:charge` for ligands; an explicit `-q` is then unnecessary.
+- **Manual** (`--model-pdb` + `--parm`): you supply the ML-atom selection yourself and
+  set the model charge explicitly with `-q`. This is the robust choice when you have
+  hand-edited atoms (custom truncation, protonation / charge changes) that automatic
+  derivation cannot infer, or when the topology is too unusual for automatic
+  extraction. `--modified-residue` / `-l` do not apply on this path, and you do **not**
+  need to add link hydrogens to the model PDB — the ML/MM calculator inserts them from
+  the `--parm` topology at the ML/MM boundary.
+
 ### Real system vs. Model system (ONIOM terminology)
 - **Real system**: the entire set of atoms (all 3 layers). Evaluated at the MM (low) level.
 - **Model system**: the ML region (Layer 1 only). Evaluated at both the MLIP (high) and MM (low) levels.

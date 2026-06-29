@@ -108,7 +108,7 @@ mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
 | `--radius-het2het FLOAT` | 独立したヘテロ-ヘテロカットオフ (Å, C/H 以外)。 | `0.0`（内部でゼロの場合 0.001 Å） |
 | `--include-h2o/--no-include-h2o` | HOH/WAT/H2O/DOD/TIP/TIP3/SOL 水分子を含める。 | `True` |
 | `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去（PRO/HYP セーフガード）。 | `False` |
-| `--add-linkh/--no-add-linkh` | 切断結合に 1.09 Å のカーボンオンリーリンク水素を付加。 | `False` |
+| `--add-linkh/--no-add-linkh` | 切断結合に 1.09 Å のカーボンオンリーリンク水素を付加（距離ベース）。mlmm の `--model-pdb` 用途では不要（ML/MM calculator が `--parm` のトポロジーから境界に付与）。standalone ポケット用。 | `False` |
 | `--selected-resn TEXT` | 強制包含する残基（鎖/インサーションコード付き ID）。 | `""` |
 | `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定（任意で電荷付き）。主鎖切断と電荷計算においてアミノ酸として扱います。例: `HD1,HD2,HD3` または `HD1:0,SEP:-2`。 | `""` |
 | `-l, --ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |
