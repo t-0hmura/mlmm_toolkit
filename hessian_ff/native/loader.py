@@ -21,10 +21,20 @@ _EXT_ERROR: Dict[str, Optional[str]] = {
 
 def _rebuild_hint() -> str:
     return (
-        "mlmm-toolkit JIT-compiles C++ extensions on first use via torch.utils.cpp_extension.\n"
-        "This requires a C++ compiler (g++). If compilation fails, run:  apt install g++  (or:  yum install gcc-c++)\n"
-        "To manually rebuild:\n"
-        "  cd $(python -c \"import hessian_ff; print(hessian_ff.__path__[0])\")/native && make clean && make"
+        "mlmm-toolkit JIT-compiles its C++ extensions on first use via "
+        "torch.utils.cpp_extension. This needs a C++ compiler with GCC >= 9 "
+        "(required by torch's C++17 headers) plus ninja (a pip dependency).\n"
+        "If the build fails:\n"
+        "  - check the compiler version:  g++ --version   (must be >= 9)\n"
+        "  - install a modern compiler:  conda install -c conda-forge gxx_linux-64"
+        "   (or  apt install g++ / yum install gcc-c++  on a distro whose g++ is "
+        ">= 9; on HPC:  module load gcc/11)\n"
+        "  - a network-mounted build dir (NFS/Lustre) can hang torch's build "
+        "lock; the build defaults to a local temp dir (override via "
+        "TORCH_EXTENSIONS_DIR).\n"
+        "To rebuild manually:\n"
+        "  cd $(python -c \"import hessian_ff; print(hessian_ff.__path__[0])\")/native && make clean && make\n"
+        "See docs/troubleshooting.md ('hessian_ff build / import') for details."
     )
 
 
