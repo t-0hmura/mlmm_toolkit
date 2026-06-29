@@ -46,12 +46,12 @@ cat result_opt/result.json | python -m json.tool
 | フィールド | 型 | 例 |
 |-----------|------|------|
 | `device` | string | `"cuda"` または `"cpu"` |
-| `gpu_name` | string | `"NVIDIA GeForce RTX 5080"` |
-| `gpu_vram_gb` | float | `16.6` |
-| `cuda_version` | string | `"12.9"` |
-| `cpu` | string | `"AMD Ryzen 9 7950X 16-Core Processor"` |
-| `n_cpus` | int | `32` |
-| `ram_gb` | float | `133.7` |
+| `gpu_name` | string | `"<gpu model>"` |
+| `gpu_vram_gb` | float | `<vram in GB>` |
+| `cuda_version` | string | `"<cuda version>"` |
+| `cpu` | string | `"<cpu model>"` |
+| `n_cpus` | int | `<int>` |
+| `ram_gb` | float | `<ram in GB>` |
 
 ## サブコマンド別スキーマ
 
