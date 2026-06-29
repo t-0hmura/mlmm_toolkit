@@ -342,3 +342,8 @@ fi
 
 # test62: all --scan-lists --refine-path (single-PDB scan -> recursive path_search)
 mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --refine-path --max-cycles 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test62_rp_scan > test62_rp_scan.out 2>&1
+
+# test64: --backend-model routing — the override must reach the resolved config.
+# dry-run + show-config (no model download, fast): proves --backend-model is honored.
+mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --backend-model uma-s-1p2 --show-config --dry-run --out-dir test64_backend_model > test64_backend_model.out 2>&1
+grep -q 'uma-s-1p2' test64_backend_model.out || { echo "[smoke] FAIL test64: --backend-model uma-s-1p2 not reflected in resolved config" >> test64_backend_model.out; exit 1; }

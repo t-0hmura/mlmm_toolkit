@@ -1257,8 +1257,10 @@ def cli(
         if backend is not None:
             calc_cfg["backend"] = str(backend).lower()
         if precision is not None:
-            from mlmm.backends import apply_precision_to_calc_cfg, apply_backend_model_to_calc_cfg
+            from mlmm.backends import apply_precision_to_calc_cfg
             apply_precision_to_calc_cfg(calc_cfg, precision)
+        if backend_model is not None:
+            from mlmm.backends import apply_backend_model_to_calc_cfg
             apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
         if _is_param_explicit("embedcharge"):
             calc_cfg["embedcharge"] = bool(embedcharge)
