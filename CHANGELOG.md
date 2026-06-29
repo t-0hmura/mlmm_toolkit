@@ -75,6 +75,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `torch`'s cpp_extension build lock deadlocks on network filesystems and
   previously hung the first build on NFS/Lustre. Requires GCC ≥ 9
   (`conda install -c conda-forge gxx_linux-64`).
+- Dropped `torch_geometric` / `torch_scatter` from the package dependencies:
+  neither is imported by mlmm and current `fairchem-core` does not require them,
+  while `torch_scatter` (sdist only) broke a clean `pip install mlmm-toolkit`
+  under PEP 517 build isolation.
 - OPC / TIP4P 4-point water with a virtual site (Amber `EPW`, element `EP`) is
   now read and parameterised correctly through the PDB/ASE input layer and the
   OpenMM MM backend (`computeVirtualSites`), instead of mishandling the massless
@@ -262,6 +266,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   (sdist only, fails under PEP517 build isolation): install from PyG's
   prebuilt-wheel index, e.g.
   `pip install "mlmm-toolkit[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.html`.
+- Documented automatic vs manual ML-region definition (concepts) and clarified
+  that `extract --add-linkh` is distance-based and unnecessary when preparing a
+  `--model-pdb` for mlmm (the ML/MM calculator caps the boundary from the `--parm`
+  topology). Genericized the `json-output` environment example to placeholders,
+  and switched the README overview image to an absolute URL so it renders on PyPI.
 - Documented the default MM backend's 4-point-water (OPC/TIP4P) limitation and the
   3-point (OPC3/TIP3P) / `--mm-backend openmm` workarounds in `mm-parm.md`.
 - Removed stray internal authoring notes from in-source comments and
