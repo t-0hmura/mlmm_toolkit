@@ -24,7 +24,7 @@ There is no upstream `hessian_ff` package on PyPI or any public registry. The an
 | `system.py` | atom / topology data classes |
 | `constants.py` | unit conversion constants |
 | `terms/` | per-term analytical derivative code (one file per term type) |
-| `native/` | **required** C-accelerated kernels for `build_analytical_hessian` (compiled at install; the automatic torch fallback was removed) |
+| `native/` | **required** C-accelerated kernels for `build_analytical_hessian` (JIT-compiled on first use at runtime via `torch.utils.cpp_extension`; needs GCC ≥ 9 + ninja) |
 | `workflows.py` | dead code — production never reaches this, but `__all__` declared = retention policy says do not delete during polish |
 | `tests/` | unit tests for individual force-field terms |
 

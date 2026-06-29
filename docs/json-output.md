@@ -82,7 +82,7 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"completed"` |
+| `status` | string | `"completed"` (opt-mode hess) / `"converged"` / `"not_converged"` (opt-mode grad) |
 | `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int | Number of imaginary frequencies |
 | `imaginary_frequencies_cm` | float[] | Imaginary frequencies (cm$^{-1}$, negative) |
@@ -219,7 +219,7 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `exclude_backbone` | bool | Value of `--exclude-backbone` at run time |
 | `include_h2o` | bool | Value of `--include-H2O` at run time |
 | `ligand_charge_input` | string | Raw `-l/--ligand-charge` argument |
-| `ion_charges` | object | Map `{resname: charge}` for ion residues encountered |
+| `ion_charges` | array | List of `[resname, charge]` pairs for ion residues encountered |
 
 ## `summary.json` (`path-search` / `all`)
 
