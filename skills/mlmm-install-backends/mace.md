@@ -2,8 +2,8 @@
 
 MACE-OMOL-0 is a high-accuracy MLIP trained on the OMol25 dataset
 (83 elements, organic + biomolecules + transition-metal complexes;
-Levine et al. 2025, arXiv:2505.08762). It competes with UMA on
-TS-region work and is one of the four "chemical accuracy"
+Levine et al. 2025, arXiv:2505.08762). It is competitive with UMA for transition-state
+(TS) regions and is one of the four "chemical accuracy"
 (MAE ≲ 1 kcal/mol) backends in the Eastman et al. 2026 15-MLIP
 benchmark (arXiv:2601.16331), alongside UMA-s-1.1, UMA-m-1.1, and
 Orb-v3-omol.
@@ -34,7 +34,7 @@ errors like:
 ImportError: e3nn 0.5.x requires ... but mace-torch installed e3nn 0.4.x
 ```
 
-The fix is to nuke the env and start over (`conda env remove -n <env>`).
+The fix is to remove the env and start over (`conda env remove -n <env>`).
 
 ## Confirm install
 
@@ -76,7 +76,7 @@ MACE accepts (the `_MACEBackend.__init__` parameters in `backends/mlmm_calc.py`;
 | Strength | Weakness |
 |---|---|
 | Often the most accurate TS curvature on first-row organometallics | Separate env needed |
-| Slower than Orb but ~2× faster than UMA-m | Larger first-load (~30 s) |
+| Slower than Orb but ~2× faster than UMA-m | Longer first-load time (~30 s) |
 | Mature, widely benchmarked | No multi-GPU sharding API |
 
 ## Known gotchas

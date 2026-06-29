@@ -91,17 +91,17 @@ print(d["total_charge"], d["n_atoms_extracted"])
   `mlmm add-elem-info` / `fix-altloc` first if the PDB came out of
   PyMOL or Maestro.
 - **`--add-linkh` is for standalone pockets, not for an mlmm `--model-pdb`.**
-  In the ML/MM workflow the calculator caps the ML/MM boundary with link H from
+  In the ML/MM workflow the calculator caps the ML/MM boundary with link-H from
   the `--parm` topology, so a `--model-pdb` fed to `opt`/`tsopt`/`all` does not
   need `--add-linkh`. (extract's link-H detection is distance-based and can
   misfire on unusual topologies; the topology-based calc path is authoritative.)
 - **ML region: automatic vs manual (know-how).** Automatic extraction here
-  (`-c` + `--exclude-backbone`) truncates the backbone, caps with link H, and
+  (`-c` + `--exclude-backbone`) truncates the backbone, caps with link-H, and
   **derives** the charge from residues + `--modified-residue` + `-l`; so
   `--modified-residue` / `-l` belong to this automatic path. If instead you
   hand-build the ML selection (e.g. edit atoms / protonation / custom
   truncation), give it to the downstream command as `--model-pdb` + `--parm`
-  and set the charge explicitly with `-q` — that is the robust route when the
+  and set the charge explicitly with `-q` — that is the safer route when the
   derived charge can't be trusted; `--modified-residue` / `-l` do not apply
   there.
 

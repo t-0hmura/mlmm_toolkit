@@ -26,8 +26,8 @@ Options:
                                   Direct Max Flux (dmf).  [default: gsm]
   --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
                                   (dmf.torch / CUDA) or cpu (dmf / NumPy). On a
-                                  GPU out-of-memory, retry with cpu.  [default:
-                                  gpu]
+                                  GPU out-of-memory error, retry with cpu.
+                                  [default: gpu]
   --max-nodes INTEGER             Number of internal nodes (for GSM: string has
                                   max_nodes+2 images including endpoints; for
                                   DMF: number of path waypoints).  [default: 20]
@@ -82,8 +82,8 @@ Options:
                                   (default: uma).
   --embedcharge / --no-embedcharge
                                   Enable xTB point-charge embedding correction
-                                  for MM→ML environmental effects.  [default:
-                                  no-embedcharge]
+                                  for MM→ML environmental effects
+                                  (experimental).  [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
                                   point charges in xTB embedding. Default: 12.0
                                   Å. Only used when --embedcharge is enabled.

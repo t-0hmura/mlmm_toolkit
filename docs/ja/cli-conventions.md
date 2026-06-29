@@ -44,7 +44,7 @@ mlmm all --help           # 主要オプションのみ
 mlmm all --help-advanced  # 全オプション
 ```
 
-`scan` / `scan2d` / `scan3d` と計算系サブコマンド（`opt` / `sp` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft`）に加え、ユーティリティ系（`mm-parm` / `define-layer` / `add-elem-info` / `trj2fig` / `energy-diagram` / `oniom-export`）も同様に `--help` は主要オプションのみ、`--help-advanced` で全オプションを表示します。`extract` と `fix-altloc` も段階的 help に対応し、`--help-advanced` で parser の全オプションを示します。
+`scan` / `scan2d` / `scan3d` と計算系サブコマンド（`opt` / `sp` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft`）に加え、ユーティリティ系（`mm-parm` / `define-layer` / `add-elem-info` / `trj2fig` / `energy-diagram` / `oniom-export`）も同様に段階的 help に対応します。いずれも `--help` は主要オプションのみ、`--help-advanced` で全オプションを表示します。`extract` と `fix-altloc` も段階的 help に対応し、`--help-advanced` で parser の全オプションを示します。
 
 ---
 
@@ -82,7 +82,7 @@ mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 
 
 | 層 | B-factor | 説明 |
 |-----|----------|------|
-| ML | 0.0 | MLIP によるエネルギー・力・ヘシアン計算（デフォルトバックエンド: UMA） |
+| ML | 0.0 | MLIP によるエネルギー・力・Hessian計算（デフォルトバックエンド: UMA） |
 | Movable-MM | 10.0 | 最適化時に移動可能な MM 原子 |
 | Frozen | 20.0 | 座標固定 |
 

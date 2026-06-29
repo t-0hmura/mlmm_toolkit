@@ -535,7 +535,7 @@ thermo:
 
 Micro-iteration settings for ML/MM optimization. When `--microiter` is enabled,
 the MM region is relaxed (with frozen ML atoms) between each macro-step of the
-ML-region optimizer. This can dramatically reduce the number of expensive
+ML-region optimizer. This can substantially reduce the number of expensive
 ML Hessian evaluations needed.
 
 ```yaml

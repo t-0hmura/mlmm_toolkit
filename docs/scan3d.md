@@ -1,6 +1,6 @@
 # `scan3d`
 
-Perform a three-distance (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB, mapping a 3D PES across three coupled distances. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the appropriate restraints active using the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`). The ML region comes from `--model-pdb`, and Amber parameters are read from `--parm`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus LBFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
+Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB, mapping a 3D PES across three coupled distances. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. The ML region comes from `--model-pdb`, and Amber parameters are read from `--parm`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus LBFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
 
 ## Examples
 
@@ -95,7 +95,7 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `--zmin FLOAT` | Manual lower limit for the isosurface color bands (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Manual upper limit for the isosurface color bands (kcal/mol). | Autoscaled |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |

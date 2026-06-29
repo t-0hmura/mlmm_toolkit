@@ -47,7 +47,7 @@ python -c "import mlmm.core.defaults as d; print(d.MLMM_CALC_KW)"
 
 ## Backend-specific flags
 
-AIMNet2 honors (the `_AIMNet2Backend.__init__` takes only `aimnet2_model` / `model_charge` / `model_mult` / `ml_device`; the remaining keys below are calculator/config-level `MLMM_CALC_KW`, defaults in `core/defaults.py`):
+AIMNet2 honors the keys below. (Note: `_AIMNet2Backend.__init__` takes only `aimnet2_model` / `model_charge` / `model_mult` / `ml_device`; the remaining keys are calculator/config-level `MLMM_CALC_KW`, defaults in `core/defaults.py`.)
 
 | Key | Purpose |
 |---|---|
@@ -69,8 +69,8 @@ AIMNet2 honors (the `_AIMNet2Backend.__init__` takes only `aimnet2_model` / `mod
 | Symptom | Cause / fix |
 |---|---|
 | `KeyError` on element during atom-type lookup | Unsupported element; switch to UMA or MACE. |
-| `RuntimeError: charge mismatch` | AIMNet2 charge is per-atom-network output; supply `-q TOTAL` matching the cluster. |
-| Convergence failures on radicals | AIMNet2 is closed-shell trained. Use `-m 1` only. |
+| `RuntimeError: charge mismatch` | AIMNet2 charge is a per-atom-network output; supply `-q TOTAL` matching the cluster. |
+| Convergence failures on radicals | AIMNet2 is trained on closed-shell systems. Use `-m 1` only. |
 
 ## See also
 

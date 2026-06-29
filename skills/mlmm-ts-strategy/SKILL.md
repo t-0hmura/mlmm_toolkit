@@ -13,7 +13,7 @@ ONIOM campaign. Every flag below is verified against `mlmm/cli/common_options.py
 
 | Hardware | Flag | Why |
 |---|---|---|
-| HPC datacenter GPU (H100 / H200 / A100) | `--precision fp64` | Deterministic-grade, low numerical noise; native fp64 throughput is affordable. Stabilises TS-opt / Hessian. |
+| HPC datacenter GPU (H100 / H200 / A100) | `--precision fp64` | Near-deterministic, low numerical noise; native fp64 throughput is affordable. Stabilises TS-opt / Hessian. |
 | Consumer GPU (RTX 50xx / 40xx) | `--precision fp32` (default) | fp64 is much slower on consumer cards; fp32 is the speed/screening baseline. |
 
 - `--precision` = `click.Choice(['fp32','fp64'])`, case-insensitive (`common_options.py` `add_precision_option`). Option default `None`; effective default `fp32` from `defaults.py` `MLMM_CALC_KW['uma_precision']='fp32'`.

@@ -93,7 +93,7 @@ mlmm all -i 1.R.pdb 3.P.pdb \
 
 ## Walltime budgeting
 
-Empirical rough-cuts for clusters of ~200–700 atoms with UMA-s-1.1
+Rough empirical estimates for systems of ~200–700 atoms with UMA-s-1.1
 on a single mid-range GPU. Adjust generously.
 
 | Stage | Per-segment time | Notes |

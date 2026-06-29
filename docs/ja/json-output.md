@@ -1,6 +1,6 @@
 # JSON 出力リファレンス
 
-mlmm は、AI エージェント・スクリプト・下流ツールがプログラムで利用するための機械可読 JSON 出力を提供します。
+mlmm は、AI エージェント・スクリプト・下流ツールがプログラムから利用するための機械可読 JSON 出力を提供します。
 
 ## `--out-json` フラグ
 
@@ -16,7 +16,7 @@ cat result_opt/result.json | python -m json.tool
 
 ### `summary.json` ミラー
 
-`write_result_json` は各ステージの `result.json` ペイロードを同じディレクトリの `summary.json` にミラーします。MCP クライアントやエージェントスクリプトは全サブコマンドで単一のファイル名（`summary.json`）を読めば済みます。隣に書かれる `result.json` は同一のペイロードを保持します。
+`write_result_json` は各ステージの `result.json` ペイロードを同じディレクトリの `summary.json` にミラーします。MCP クライアントやエージェントスクリプトは全サブコマンドで単一のファイル名（`summary.json`）を読めば済みます。同じディレクトリに書き出される `result.json` も同一内容です。
 
 ## 共通エンベロープ
 

@@ -76,10 +76,10 @@ atom) get `10.00`, the rest get `20.00`.
 
 ## Caveats
 
-- The radius logic is **freezing-threshold**, not an expansion radius.
+- The radius logic is a **freezing threshold**, not an expansion radius.
   Atoms **beyond** `--radius-freeze` of any ML atom are frozen; atoms
   **inside** but not ML are movable-MM. Increase the radius to free
-  more environment, decrease to lock more.
+  more of the environment; decrease it to lock more.
 - Layer assignment lives in the **PDB B-factor**, not the parm7. The
   parm7 / rst7 pair is unaffected; downstream subcommands pair the
   layer-encoded PDB with parm7 via `--detect-layer` (default).

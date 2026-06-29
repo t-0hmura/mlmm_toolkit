@@ -1,6 +1,6 @@
 # `irc`
 
-`mlmm irc` は ML/MM 計算機を用いた EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から反応物・生成物の方向へ経路を追跡します。最適化された TS が期待どおり反応物と生成物を接続するかを検証したいとき、あるいは下流の熱化学計算 / DFT 単点計算用の反応物 / 生成物構造を生成したいときに使用します。典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。デフォルトでは正方向と逆方向の両方のブランチが計算されます。CLI は意図的に狭く設計されており、コマンドラインに表面化されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
+`mlmm irc` は ML/MM calculatorを用いた EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から反応物・生成物の方向へ経路を追跡します。最適化された TS が期待どおり反応物と生成物を接続するかを検証したいとき、あるいは下流の熱化学計算 / DFT 単点計算用の反応物 / 生成物構造を生成したいときに使用します。典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。デフォルトでは正方向と逆方向の両方のブランチが計算されます。CLI は意図的に最小限に絞っており、コマンドラインに用意されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
 
 ## 実行例
 
@@ -18,7 +18,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --no-backward --out-dir ./result_irc_forward
 ```
 
-ステップサイズを増やして解析的ヘシアンを使用:
+ステップサイズを増やして解析的Hessianを使用:
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
@@ -44,8 +44,8 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 
 ## 処理の流れ
 
-1. **入力準備** -- TS 構造、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを解決します。`geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
-2. **ML/MM 計算機の構築** -- `--parm` と `--model-pdb` から ML/MM 計算機を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP ヘシアン評価を制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
+1. **入力準備** -- TS 構造、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを確定します。`geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
+2. **ML/MM calculatorの構築** -- `--parm` と `--model-pdb` から ML/MM calculatorを構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP Hessian評価を制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` または `--no-backward` でブランチを無効化可能）。ステップサイズとサイクル数で積分長を制御します。
 4. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、対応する PDB が生成されます。
 
@@ -76,11 +76,11 @@ out_dir/ (デフォルト: ./result_irc/)
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
-| `--hess-device CHOICE` | 初期ヘシアンの格納・IRC演算のデバイス: `auto`、`cuda`、`cpu`。大規模非凍結系では `cpu` を推奨。 | `auto` |
-| `--read-hess PATH` | `.npz` ファイルから初期ヘシアンを読み込み（`mlmm freq --dump-hess` で出力）。hessian_cache および新規計算より優先。 | _None_ |
+| `--hess-device CHOICE` | 初期Hessianの格納・IRC演算のデバイス: `auto`、`cuda`、`cpu`。大規模非凍結系では `cpu` を推奨。 | `auto` |
+| `--read-hess PATH` | `.npz` ファイルから初期Hessianを読み込み（`mlmm freq --dump-hess` で出力）。hessian_cache および新規計算より優先。 | _None_ |
 | `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。`geom_loader` で読み取り可能な任意の形式。 | 必須 |
 | `--parm PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 | _None_ |
@@ -97,11 +97,11 @@ out_dir/ (デフォルト: ./result_irc/)
 | `--backward/--no-backward` | 逆方向 IRC を実行。`irc.backward` を上書き。 | `True` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |
 | `--ref-pdb FILE` | `--input` が XYZ の場合に使用する参照 PDB トポロジー（XYZ 座標を保持）。 | _None_ |
-| `--convert-files/--no-convert-files` | 参照 PDB 利用可能時の XYZ/TRJ から対応する PDB の切り替え。 | `True` |
-| `--hessian-calc-mode CHOICE` | MLIP がヘシアンを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | `FiniteDifference` |
+| `--convert-files/--no-convert-files` | 参照 PDB が利用可能な場合に XYZ/TRJ を対応する PDB へ変換するかの切り替え。 | `True` |
+| `--hessian-calc-mode CHOICE` | MLIP がHessianを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | `FiniteDifference` |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（hessian_ff: 解析的ヘシアン / openmm: 有限差分ヘシアン）。 | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（hessian_ff: 解析的Hessian / openmm: 有限差分Hessian）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（$g$ 係数）または fixed（1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
@@ -142,7 +142,7 @@ mlmm:
  uma_model: uma-s-1p1              # uma-s-1p1 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
- hessian_calc_mode: Analytical         # ヘシアンモード選択
+ hessian_calc_mode: Analytical         # Hessianモード選択
  return_partial_hessian: true      # irc では true に強制（partial Hessian、active-DOF 処理）
 irc:
  step_length: 0.1                  # 積分ステップ長
@@ -151,7 +151,7 @@ irc:
  forward: true                     # 正方向に伝播
  backward: true                    # 逆方向に伝播
  root: 0                           # 基準振動ルートインデックス
- hessian_init: calc                # ヘシアン初期化ソース
+ hessian_init: calc                # Hessian初期化ソース
  displ: energy                     # 変位構築方法
  displ_energy: 0.001               # エネルギーベースの変位スケーリング
  displ_length: 0.1                 # 長さベースの変位フォールバック
@@ -163,8 +163,8 @@ irc:
  check_bonds: false                # 伝播中の結合チェック
  out_dir: ./result_irc/            # 出力ディレクトリ
  prefix: ""                        # ファイル名プレフィックス
- hessian_update: bofill            # ヘシアン更新方式
- hessian_recalc: null              # ヘシアン再構築間隔
+ hessian_update: bofill            # Hessian更新方式
+ hessian_recalc: null              # Hessian再構築間隔
  max_pred_steps: 500               # 予測子-補正子の最大ステップ数
  loose_cycles: 3                   # 厳密化前のゆるいサイクル数
  corr_func: mbs                    # 相関関数の選択

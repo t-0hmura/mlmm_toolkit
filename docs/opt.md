@@ -83,7 +83,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. Alias: `--movable-cutoff`. | _None_ |
 | `--radius-partial-hessian, --hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms included in Hessian calculation. Combinable with `--detect-layer`. | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
-| `--mm-only / --no-mm-only` | Skip the MLIP component and minimize on the MM force field only. Layers are still honored via B-factor / `--radius-freeze`; only `--opt-mode grad` is supported in this mode and microiteration is disabled automatically. Suited to a fast MM pre-relaxation before ML/MM ONIOM optimization. | `False` |
+| `--mm-only / --no-mm-only` | Skip the MLIP component and minimize on the MM force field only. Layers are still honored via B-factor / `--radius-freeze`; only `--opt-mode grad` is supported in this mode and microiteration is disabled automatically. Suited to fast MM pre-relaxation before ML/MM ONIOM optimization. | `False` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
 | `--dist-freeze TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints (inline literal or YAML/JSON file path); omit `target_A` to restrain the starting distance. | _None_ |
@@ -100,7 +100,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--config FILE` | Base YAML configuration file. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layer information before execution. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running optimization. Shown in `--help-advanced`. | `False` |

@@ -483,7 +483,7 @@ def _finalize_surface_and_plot(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
 )
 @click.option(
     "--embedcharge-cutoff",

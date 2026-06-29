@@ -24,7 +24,7 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.xyz --model-pdb ml_regi
 ```
 
 ```bash
-# Tune optimization environment metadata
+# Set compute resources and the movable-atom cutoff
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
  -o system.com --nproc 16 --mem 32GB --near 5.0
 ```
@@ -56,7 +56,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--method TEXT` | QM method and basis set. | `wB97XD/def2-TZVPD` |
 | `-q, --charge INT` | Charge of QM region. | Required |
 | `-m, --multiplicity INT` | Multiplicity of QM region. | `1` |
-| `--near FLOAT` | Distance cutoff (Å) for movable atoms. | `6.0` |
+| `--near FLOAT` | Distance cutoff (Å) for movable MM atoms. | `6.0` |
 | `--nproc INT` | Number of processors. | `8` |
 | `--mem TEXT` | Memory allocation. | `16GB` |
 

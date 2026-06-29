@@ -2,7 +2,7 @@
 
 ## Goal
 
-Drive one or more bond distances from a single structure using a YAML scan specification.
+Scan one or more bond distances starting from a single structure using a YAML scan specification.
 
 ## Prerequisites
 

@@ -4,7 +4,7 @@
 
 <img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
 
-`mlmm-toolkit` is a Python CLI for analysing enzymatic reactions with the multi-layer ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) scheme, here in an ML/MM (machine learning / molecular mechanics) flavour.
+`mlmm-toolkit` is a Python CLI for analysing enzymatic reactions with the multi-layer ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) scheme, here in an ML/MM (machine learning / molecular mechanics) variant.
 
 Instead of the quantum-mechanical (QM) region of conventional QM/MM, it uses a machine-learning interatomic potential (MLIP) for the reactive core — default UMA, with `orb` / `mace` / `aimnet2` selectable via `-b`. The surrounding protein is treated with mlmm-toolkit's bundled Amber force field.
 
@@ -90,7 +90,7 @@ mlmm --version
 | Component | When to add | Install |
 |---|---|---|
 | `hessian_ff` native build | If you see a "native extension not available" warning. JIT compilation usually handles it. | First install `ninja` on most clusters: `conda install -c conda-forge ninja -y`. Then build: `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make`. |
-| `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
+| `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory error. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
 | xTB | `--embedcharge` (xTB point-charge embedding) | `conda install -c conda-forge xtb -y` (custom binary: set `xtb_cmd` in YAML) |
 | Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
 | HPC `cuda/<X.Y>` module | HPC clusters using environment modules | Load **before** `pip install torch`; match X.Y to your wheel (`cu126` ↔ 12.6, `cu129` ↔ 12.9) |

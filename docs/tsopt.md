@@ -7,7 +7,7 @@ Two optimizers are available, and you pick between them with `--opt-mode`:
 - **Restricted-Step Image-function Rational Function Optimization (RS-I-RFO)** (`--opt-mode hess`) is the default and the conservative choice when you can afford the Hessian work. It runs with microiteration (`--microiter`, default on) that alternates a machine-learning (ML) 1-step RS-I-RFO move with a molecular-mechanics (MM) L-BFGS relaxation.
 - **Hessian-Guided Dimer** (`--opt-mode grad`) is the lighter alternative, suited to a lower-cost search or quick iteration from several TS guesses. Add `--ml-only-hessian-dimer` to use only the ML-region Hessian for dimer orientation (faster).
 
-After convergence, a surplus-imaginary-mode flatten loop (`--flatten`) sanitises extra negative modes via mass-scaled displacements. A validated TS should show **exactly one** imaginary frequency — always confirm the mode and connectivity with [`freq`](freq.md) / [`irc`](irc.md).
+After convergence, a surplus-imaginary-mode flatten loop (`--flatten`) removes extra negative modes via mass-scaled displacements. A validated TS should show **exactly one** imaginary frequency — always confirm the mode and connectivity with [`freq`](freq.md) / [`irc`](irc.md).
 
 ## Building a TS candidate first
 
@@ -16,7 +16,7 @@ After convergence, a surplus-imaginary-mode flatten loop (`--flatten`) sanitises
 | Route | Subcommand | What it does | Use when |
 | --- | --- | --- | --- |
 | (a) MEP / path search | [`path-search`](path-search.md) (or [`path-opt`](path-opt.md) for one segment) | Recursive GSM/DMF minimum-energy-path search; brackets the TS between endpoints, bridges gaps between segments, and emits one TS per segment. | You have a reactant (and optionally a product or intermediates) and want the path *discovered*. |
-| (b) Distance-restrained build-up | [`scan`](scan.md) | Adds a harmonic restraint `E = ½·k·(r_ij − target)²` to each reacting pair and relaxes everything else with L-BFGS, walking the reacting distance toward the barrier. | You have neither a usable second endpoint nor a TS guess — drive the reacting bond directly. |
+| (b) Distance-restrained build-up | [`scan`](scan.md) | Adds a harmonic restraint `E = ½·k·(r_ij − target)²` to each reacting pair and relaxes everything else with L-BFGS, driving the reacting distance toward the barrier. | You have neither a usable second endpoint nor a TS guess — drive the reacting bond directly. |
 
 ```bash
 # Route (a): discover the path, then refine its highest-energy image
@@ -40,17 +40,17 @@ A clean first-order saddle has **exactly one** dominant imaginary mode along the
 | Spurious 2nd small imaginary mode, or no dominant reaction mode | Raise precision with `--precision fp64`, **and/or** switch coordinates with `--coord-type dlc`, **and/or** flatten the surplus mode with `--flatten`. |
 | Still no clean saddle | Combine them, then verify in `vib/` that the imaginary mode actually moves the reacting atoms. |
 
-`--flatten` runs the surplus-imaginary-mode flattening loop (`grad`: dimer loop; `hess`: post-RS-I-RFO); `--no-flatten` forces `flatten_max_iter=0`. It is most useful when a dominant reaction mode survives alongside a residual tiny one — for example, a mutant chorismate-mutase TS converged to the Claisen mode at −223 cm⁻¹ plus a residual −12.5 cm⁻¹, and `--flatten` drives it to a clean single-imaginary saddle.
+`--flatten` runs the surplus-imaginary-mode flattening loop (`grad`: dimer loop; `hess`: post-RS-I-RFO); `--no-flatten` forces `flatten_max_iter=0`. It is most useful when a dominant reaction mode survives alongside a tiny residual one — for example, a mutant chorismate-mutase TS converged to the Claisen mode at −223 cm⁻¹ plus a residual −12.5 cm⁻¹, and `--flatten` drives it to a clean single-imaginary saddle.
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
     --precision fp64 --coord-type dlc -o result_ts
 ```
 
-`--coord-type` selects the optimization coordinate system (`cart` | `redund` | `dlc` | `tric`; default `cart`). `dlc` (delocalized internal coordinates) is slower but converges more robustly on torsion-rich systems and toward a clean first-order saddle.
+`--coord-type` selects the optimization coordinate system (`cart` | `redund` | `dlc` | `tric`; default `cart`). `dlc` (delocalized internal coordinates) is slower but converges more robustly on torsion-rich systems and is more likely to reach a clean first-order saddle.
 
 ```{warning}
-`--coord-type dlc` needs a **Hessian-based** optimizer. On [`opt`](opt.md) with the default L-BFGS (`--opt-mode grad`) it is silently forced back to `cart`; use it on `tsopt` (RFO / RS-I-RFO) or `opt --opt-mode hess`. `path-opt` / `path-search` accept only `cart` and `dlc`. `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified, so `cart` remains the default behind the published numbers.
+`--coord-type dlc` needs a **Hessian-based** optimizer. On [`opt`](opt.md) with the default L-BFGS (`--opt-mode grad`) it is silently forced back to `cart`; use it on `tsopt` (RFO / RS-I-RFO) or `opt --opt-mode hess`. `path-opt` / `path-search` accept only `cart` and `dlc`. `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified, so `cart` remains the default, and is the setting used to produce the published results.
 ```
 
 See [Common Error Recipes — Recipe 4](recipes-common-errors.md#recipe-4-convergence-and-post-processing-failures) for symptom-first routing of the same failure.
@@ -108,7 +108,7 @@ Heavy mode (RS-I-RFO) with YAML overrides:
 # Heavy mode (RS-I-RFO) with YAML overrides
 mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
     -q 0 -m 1 --opt-mode hess --config tsopt.yaml --out-dir ./result_tsopt_hess
-# --dump keeps the full optimisation trajectory; --backend mace uses the MACE backend
+# --dump keeps the full optimization trajectory; --backend mace uses the MACE backend
 ```
 
 ## Workflow
@@ -176,7 +176,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | **Backend & compute** | | |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--precision [fp32\|fp64]` | MLIP backend precision; routed to backend-native kwarg (UMA `precision`, ORB `precision`, MACE `default_dtype`; aimnet2: fp32 no-op, fp64 rejected). | `fp32` |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--embedcharge / --no-embedcharge` | xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--cmap / --no-cmap` | CMAP (backbone cross-map dihedral correction) in the model parm7. Disabled by default, consistent with Gaussian ONIOM. | `--no-cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |

@@ -1,6 +1,6 @@
 # `scan`
 
-ML/MM 計算機を用い、調和拘束による結合距離スキャンで階層化された酵素 PDB の反応座標を駆動します。単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動して反応軌跡の粗い候補を生成し、下流の MEP 精密化用の中間体/生成物候補を得たいときに使用します。`mlmm scan` は ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）による調和拘束付きの段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットを更新し、調和拘束ポテンシャルを適用して LBFGS で構造を緩和します。ML/MM 計算機は MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
+ML/MM calculatorを用い、調和拘束による結合距離スキャンで階層化された酵素 PDB の反応座標を駆動します。単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動して反応軌跡の粗い候補を生成し、下流の MEP 精密化用の中間体/生成物候補を得たいときに使用します。`mlmm scan` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による調和拘束付きの段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットを更新し、調和拘束ポテンシャルを適用して LBFGS で構造を緩和します。ML/MM calculatorは MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
 
 ## 実行例
 
@@ -37,14 +37,14 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 
-1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM 計算機に `--parm`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
+1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM calculatorに `--parm`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
 2. 任意でバイアスなし事前最適化（`--preopt`）を実行し、開始点を緩和します。
 3. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からステージターゲットを解析し、`(i, j)` インデックスを正規化します（デフォルトは 1 始まり）。入力が PDB の場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
 4. 結合ごとの変位を計算してステップに分割します:
  - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
  - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
  - 各ペアの増分変化は `step_k = delta / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * step_k`。
-5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
+5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度だけ変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
 6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
 7. すべてのステージで繰り返します。任意の軌跡は `--dump` が `True` の場合のみダンプされます。
 
@@ -54,8 +54,8 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```
 out_dir/ (デフォルト:./result_scan/)
-├─ scan_trj.xyz              # 全ステージ結合軌跡（常に書き出し）
-├─ scan.pdb                  # 対応する結合 PDB（PDB 入力のみ、常に書き出し）
+├─ scan_trj.xyz              # 全ステージ連結軌跡（常に書き出し）
+├─ scan.pdb                  # 対応する連結 PDB（PDB 入力のみ、常に書き出し）
 ├─ preopt/                   # --preopt が True の場合
 │  ├─ result.xyz
 │  └─ result.pdb             # PDB 入力のみ
@@ -85,29 +85,29 @@ out_dir/ (デフォルト:./result_scan/)
 | `--hess-cutoff FLOAT` | Hessian 計算に含める MM 原子の ML 領域からの距離カットオフ (Å)。`--detect-layer` と併用可能。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
 | `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 3 要素タプルもしくは `(i, j, start, end)` 4 要素タプル（双方向スキャン）を含むインライン Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
-| `--one-based/--zero-based` | 原子インデックスを 1 始まり（既定）または 0 始まりとして解釈。 | `True`（1 始まり） |
+| `--one-based/--zero-based` | 原子インデックスを 1 始まり（デフォルト）または 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のステージ情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
-| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | `mlmm all` からの転送互換オプション。現状の `scan` 緩和は mode に関わらず LBFGS を使用。 | _None_ |
+| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | `mlmm all` からの引き継ぎ用（互換目的の）オプション。現状の `scan` 緩和は mode に関わらず LBFGS を使用。 | _None_ |
 | `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 LBFGS サイクル。 | `10000` |
 | `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | _None_ |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
 | `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `False` |
-| `--dump/--no-dump` | ステップごとのオプティマイザー軌跡ファイルをダンプ。注: `scan_trj.xyz`/`scan.pdb` はこのフラグに関係なく常に書き出されます。 | `False` |
+| `--dump/--no-dump` | ステップごとのオプティマイザ軌跡ファイルをダンプ。注: `scan_trj.xyz`/`scan.pdb` はこのフラグに関係なく常に書き出されます。 | `False` |
 | `-o, --out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_（`gau` を継承） |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的 Hessian vs OpenMM 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子の配置: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
 | `--dry-run/--no-dry-run` | オプションの検証と実行計画の表示のみ行い、スキャンは実行しない。`--help-advanced` に表示。 | `False` |
-| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
+| `--convert-files/--no-convert-files` | PDB テンプレートが利用可能な場合に、XYZ/TRJ から対応する PDB を生成するかどうかを切り替え。 | `True` |
 
 ## スキャン対象の構文
 
@@ -186,10 +186,10 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 
 渡すリテラルの数で、座標を同時に駆動するか（協奏的）順次駆動するか（段階的）が決まります:
 
-| 形式 | 指定方法 | 意味 | 機構を事前に要する? |
+| 形式 | 指定方法 | 意味 | 事前に機構が必要? |
 | --- | --- | --- | --- |
 | 協奏的 | **単一**のリテラルに複数の `(i, j, target)` タプルを含める | すべての座標を 1 ステージ内で同時に駆動 | 不要 |
-| 段階的 | **複数**のリテラル（ステージごとに 1 つ） | 各ステージが独自の拘束付き緩和で、`stage_NN/` に書き出される | 必要 — ステージごとに機構を定義 |
+| 段階的 | **複数**のリテラル（ステージごとに 1 つ） | 各ステージが独自の拘束付き緩和を行い、`stage_NN/` に書き出される | 必要 — ステージごとに機構を定義 |
 
 ```bash
 # 協奏的: 1 ステージ、2 つの距離を同時に駆動
@@ -211,7 +211,7 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
 1. **パス 1:** `i`--`j` の距離を現在の値から `start` に向けて駆動。
 2. **パス 2:** 初期構造を復元し、`i`--`j` の距離を `end` に向けて駆動。
 
-結合軌跡は `start → 初期構造 → end` の順に連結され、出発構造を通る連続的な経路が得られます。
+連結軌跡は `start → 初期構造 → end` の順に並び、出発構造を通る連続的な経路が得られます。
 
 ```bash
 # 双方向スキャン: 結合 12--45 を現在の構造から
@@ -224,7 +224,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## バリアの方向を読む
 
-読み取るバリアは、スキャンがどちらの端点から始まったかに依存します。スキャン（またはそれが種とする経路）が**生成物から始まる**場合、生のバリア値は**逆方向**です。
+読み取るバリアは、スキャンがどちらの端点から始まったかに依存します。スキャン（またはそれを起点に生成した経路）が**生成物から始まる**場合、生のバリア値は**逆方向**です。
 
 | 量 | 式 |
 | --- | --- |
@@ -235,16 +235,16 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## YAML 設定
 
-スキャンは共有の `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM 計算機設定）、`opt` / `lbfgs`（オプティマイザー）の各セクションに加え、`bias`（`k`、調和強度（eV/Å²））と MLIP ベースの結合変化検出用 `bond` セクションを読み込みます。
+スキャンは共有の `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM calculator設定）、`opt` / `lbfgs`（オプティマイザ）の各セクションに加え、`bias`（`k`、調和強度（eV/Å²））と MLIP ベースの結合変化検出用 `bond` セクションを読み込みます。
 
 - `coord_type`: 座標タイプ（デカルト vs dlc 内部座標）。
 - `freeze_atoms`: CLI `--freeze-atoms` とマージされる 1 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`
-- ML/MM 計算機の設定: `charge`、`spin`、`backend`、`embedcharge`、MLIP モデル設定、`device`、近傍半径、ヘシアンオプション等。
+- ML/MM calculatorの設定: `charge`、`spin`、`backend`、`embedcharge`、MLIP モデル設定、`device`、近傍半径、Hessianオプション等。
 
 ### セクション `opt` / `lbfgs`
-- オプティマイザー設定: `thresh`、`max_cycles`、`print_every`、ステップ制御、ラインサーチ、ダンプフラグ。
+- オプティマイザ設定: `thresh`、`max_cycles`、`print_every`、ステップ制御、ラインサーチ、ダンプフラグ。
 
 ### セクション `bias`
 - `k`（`300`）: 調和強度（eV/Å²）。
@@ -253,8 +253,8 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 - MLIP ベースの結合変化検出:
  - `device`（`"auto"`）: グラフ分析用の MLIP デバイス。
  - `bond_factor`（`1.20`）: カットオフ用の共有結合半径スケーリング。
- - `margin_fraction`（`0.05`）: 比較用の許容分数。
- - `delta_fraction`（`0.05`）: 結合形成/切断をフラグする最小相対変化。
+ - `margin_fraction`（`0.05`）: 比較用の許容割合。
+ - `delta_fraction`（`0.05`）: 結合形成/切断と判定する最小相対変化。
 
 全スキーマ（すべてのキーとデフォルト）: [YAML リファレンス](yaml-reference.md)。
 

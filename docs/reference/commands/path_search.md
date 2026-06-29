@@ -37,8 +37,8 @@ Options:
                                   Max Flux).  [default: gsm]
   --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
                                   (dmf.torch / CUDA) or cpu (dmf / NumPy). On a
-                                  GPU out-of-memory, retry with cpu.  [default:
-                                  gpu]
+                                  GPU out-of-memory error, retry with cpu.
+                                  [default: gpu]
   --refine-mode [peak|minima]     Refinement seed around the highest-energy
                                   image: 'peak' uses HEI±1, 'minima' uses
                                   nearest local minima. Defaults to peak for gsm
@@ -96,8 +96,8 @@ Options:
                                   (default: uma).
   --embedcharge / --no-embedcharge
                                   Enable xTB point-charge embedding correction
-                                  for MM→ML environmental effects.  [default:
-                                  no-embedcharge]
+                                  for MM→ML environmental effects
+                                  (experimental).  [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
                                   point charges in xTB embedding. Default: 12.0
                                   Å. Only used when --embedcharge is enabled.

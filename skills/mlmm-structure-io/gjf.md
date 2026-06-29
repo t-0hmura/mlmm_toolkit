@@ -67,7 +67,7 @@ geometry pipeline consumes. See `mlmm-cli/oniom-import.md`.
 
 ## Charge / spin / frozen atoms
 
-These are properties of the geometry pipeline, which reads PDB/XYZ — not gjf.
+These are handled by the geometry pipeline, which reads PDB/XYZ — not gjf.
 Charge / spin come from `-q` / `-m` (or the layer-charge summary); declare frozen
 atoms with `--freeze-atoms` (CLI, comma-separated 1-based indices) or a YAML
 `--config` `freeze_atoms: [<index>, ...]`. A `-1` frozen marker inside a Gaussian

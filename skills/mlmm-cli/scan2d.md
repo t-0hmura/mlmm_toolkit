@@ -74,9 +74,7 @@ result_scan2d/
     └── inner_path_d1_###_trj.xyz  # with --dump
 ```
 
-`surface.csv` (always written) is ready for downstream contour plotting,
-alongside `scan2d_map.png` and `scan2d_landscape.html`. `result.json` is
-written only when `--out-json` is passed.
+`surface.csv` is ready for downstream contour plotting.
 
 ## Caveats
 

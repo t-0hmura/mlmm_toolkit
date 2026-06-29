@@ -95,7 +95,7 @@ energies. Plot with `trj2fig.md`.
   double quotes inside. Atom-name strings use `"NAME RESNAME RESID"`
   with single spaces.
 - Stage *k+1* starts from stage *k*'s final geometry; a diverged
-  stage poisons downstream stages.
+  stage derails all downstream stages.
 - For coupled multi-bond drives in one stage, put multiple tuples in
   one `-s` argument: `'[(a,b,1.6),(c,d,3.0)]'`.
 

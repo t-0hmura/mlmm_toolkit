@@ -5,7 +5,7 @@
 | セクション | 説明 | 使用されるコマンド |
 |---------|-------------|---------|
 | [`geom`](#geom) | ジオメトリと座標設定 | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
-| [`calc`](#calc) | ML/MM 計算機の設定（別名: `mlmm:`） | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`calc`](#calc) | ML/MM calculatorの設定（別名: `mlmm:`） | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`opt`](#opt) | 最適化の共通設定 | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
 | [`lbfgs`](#lbfgs) | L-BFGSの設定 | opt, scan, scan2d, scan3d, path-opt, path-search |
 | [`rfo`](#rfo) | RFOの設定 | opt |
@@ -18,7 +18,7 @@
 | [`bias`](#bias) | 調和バイアス設定 | scan, scan2d, scan3d |
 | [`bond`](#bond) | 結合変化検出設定 | scan, path-search |
 | [`search`](#search) | 再帰的経路探索設定 | path-search |
-| [`hessian_dimer`](#hessian_dimer) | ヘシアン・ダイマーTS 最適化 | tsopt |
+| [`hessian_dimer`](#hessian_dimer) | Hessian・ダイマーTS 最適化 | tsopt |
 | [`rsirfo`](#rsirfo) | RS-I-RFO TS 最適化 | tsopt |
 | [`stopt`](#stopt) | ストリング最適化（StringOptimizer）設定 | path-opt, path-search |
 | [`microiter`](#microiter) | マイクロイテレーション（MM緩和）設定 | opt, tsopt |
@@ -37,14 +37,14 @@ geom:
 ```
 
 **注記:**
-- Frozen 層の原子は力がゼロに設定され、ヘシアンの対応する列もゼロになります。
+- Frozen 層の原子は力がゼロに設定され、Hessianの対応する列もゼロになります。
 - `irc` では `geom.coord_type` が YAML/CLI マージ後に `cart` へ強制されます。
 
 ---
 
 ### `calc`
 
-ML/MM 計算機（MLIP バックエンド + hessian_ff）の設定。
+ML/MM calculator（MLIP バックエンド + hessian_ff）の設定。
 
 ```yaml
 calc:
@@ -57,7 +57,7 @@ calc:
  link_atom_method: scaled    # リンク原子配置: "scaled" (g-factor) または "fixed" (1.09/1.01 Å)
  backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
  embedcharge: false # xTB 点電荷埋め込み補正 (CLI --embedcharge で有効化)
- embedcharge_step: 0.001 # 埋め込み補正の数値ヘシアンステップ (Å)
+ embedcharge_step: 0.001 # 埋め込み補正の数値Hessianステップ (Å)
  embedcharge_cutoff: 12.0 # xTB 埋め込み用 MM 点電荷のカットオフ距離 (Å)
  xtb_cmd: xtb # xTB 実行コマンド
  xtb_acc: 0.2 # xTB 精度パラメータ
@@ -72,23 +72,23 @@ calc:
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
- hessian_calc_mode: FiniteDifference # ML ヘシアンモード: "FiniteDifference" または "Analytical"
- out_hess_torch: true # ヘシアンを torch.Tensor で返す
- H_double: true # ヘシアンを float64 で組み立て・返却
+ hessian_calc_mode: FiniteDifference # ML Hessianモード: "FiniteDifference" または "Analytical"
+ out_hess_torch: true # Hessianを torch.Tensor で返す
+ H_double: true # Hessianを float64 で組み立て・返却
  ml_device: auto # ML デバイス: "cuda", "cpu", "auto"
  ml_cuda_idx: 0 # CUDA デバイスインデックス
- mm_backend: hessian_ff # MM バックエンド: "hessian_ff" (解析的) | "openmm" (FD ヘシアン)
+ mm_backend: hessian_ff # MM バックエンド: "hessian_ff" (解析的) | "openmm" (FD Hessian)
  use_cmap: false        # true にすると model parm7 に CMAP 項を含める。false (デフォルト) は Gaussian ONIOM と同一
  mm_device: cpu # MM デバイス (hessian_ff は CPU のみ、OpenMM は CUDA/CPU 対応)
  mm_cuda_idx: 0 # MM CUDA インデックス (OpenMM のみ)
  mm_threads: 16 # MM 計算のスレッド数
- mm_fd: true # MM ヘシアンに有限差分を使用
- mm_fd_dir: null # MM ヘシアンログの出力ディレクトリ
+ mm_fd: true # MM Hessianに有限差分を使用
+ mm_fd_dir: null # MM Hessianログの出力ディレクトリ
  mm_fd_delta: 0.001 # 有限差分ステップ（保持）
- symmetrize_hessian: true # 最終ヘシアンを 0.5*(H+H^T) で対称化
- print_timing: true # ML/MM ヘシアンのタイミング内訳を表示
+ symmetrize_hessian: true # 最終Hessianを 0.5*(H+H^T) で対称化
+ print_timing: true # ML/MM Hessianのタイミング内訳を表示
  print_vram: true # CUDA VRAM 使用量を表示
- return_partial_hessian: true # アクティブブロック部分ヘシアン（CLI ラッパー側で true 既定を適用）
+ return_partial_hessian: true # アクティブブロック部分Hessian（CLI ラッパー側で true デフォルトを適用）
  freeze_atoms: [] # geom.freeze_atoms から継承
  # 層設定:
  hess_cutoff: null # Å: null = 可動 MM をすべて Hessian 対象に含める (デフォルト)、>0.0 で ML 周辺の指定距離内 MM のみに限定
@@ -113,10 +113,10 @@ calc:
 - `hess_cutoff` のデフォルト `null` は可動 MM 原子をすべて Hessian 対象に含めることを意味します（freq/irc/opt はすべての可動原子を解析します）。値（>0.0）を指定すると、その距離以内の MM 原子のみに Hessian 対象を限定します。`movable_cutoff` を指定しない場合は `freeze_atoms` の指定に従います。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
-- `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分ヘシアンを既定で使用します。
-- これらのコマンドで完全ヘシアンを強制するには `calc.return_partial_hessian: false` を明示してください。
-- `mm_fd: true` は MM ヘシアンに有限差分を使用します。解析的 MM ヘシアン（hessian_ff）を使用するには `false` に設定してください。
-- `use_cmap: false`（デフォルト）は model parm7 から CMAP 項（骨格クロスマップ二面角補正）を除外します。これは Gaussian ONIOM の挙動（CMAP を model MM に含めない）と一致します。`true` に設定すると model parm7 に CMAP が含まれ、ONIOM 差し引きで骨格 CMAP がキャンセルされます。ML 領域に骨格原子を含まない典型的な活性部位モデルでは、どちらの設定も実質的に同じ結果になります。
+- `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分Hessianをデフォルトで使用します。
+- これらのコマンドで完全Hessianを強制するには `calc.return_partial_hessian: false` を明示してください。
+- `mm_fd: true` は MM Hessianに有限差分を使用します。解析的 MM Hessian（hessian_ff）を使用するには `false` に設定してください。
+- `use_cmap: false`（デフォルト）は model parm7 から CMAP 項（骨格クロスマップ二面角補正）を除外します。これは Gaussian ONIOM の挙動（CMAP を model MM に含めない）と一致します。`true` に設定すると model parm7 に CMAP が含まれ、ONIOM 差し引きで骨格 CMAP が相殺されます。ML 領域に骨格原子を含まない典型的な活性部位モデルでは、どちらの設定も実質的に同じ結果になります。
 - `real_parm7` と `model_pdb` は ML/MM 計算に必須です。
 - `irc` は YAML の設定にかかわらず `geom.coord_type = cart` を強制します。
 
@@ -143,7 +143,7 @@ opt:
  force_only: false # 変位チェックをスキップ
  converge_to_geom_rms_thresh: 0.05 # 参照ジオメトリへの収束 RMS 閾値
  overachieve_factor: 0.0 # 閾値の引き締め係数
- check_eigval_structure: false # ヘシアン固有値構造の検証
+ check_eigval_structure: false # Hessian固有値構造の検証
  energy_plateau: true # フォールバック: エネルギーが停滞したら収束と判定
  energy_plateau_thresh: 1.0e-4 # エネルギー変動許容幅 au（約 0.06 kcal/mol）
  energy_plateau_window: 50 # プラトー判定に用いる直近ステップ数
@@ -217,10 +217,10 @@ rfo:
  trust_min: 0.0001 # 最小信頼半径
  trust_max: 0.10 # 最大信頼半径（ML/MM 安定性のため調整）
  max_energy_incr: null # ステップあたりの許容エネルギー増加
- hessian_update: bfgs # ヘシアン更新スキーム: bfgs, bofill 等
- hessian_init: calc # ヘシアン初期化: calc, unit 等
- hessian_recalc: 500 # N ステップごとにヘシアンを再構築
- hessian_recalc_adapt: null # 適応的ヘシアン再構築係数
+ hessian_update: bfgs # Hessian更新スキーム: bfgs, bofill 等
+ hessian_init: calc # Hessian初期化: calc, unit 等
+ hessian_recalc: 500 # N ステップごとにHessianを再構築
+ hessian_recalc_adapt: null # 適応的Hessian再構築係数
  small_eigval_thresh: 1.0e-08 # 安定性のための固有値閾値
  alpha0: 1.0 # 初期マイクロステップ
  max_micro_cycles: 50 # マイクロイテレーションの上限
@@ -251,7 +251,7 @@ gs:
  reparam_every: 1 # 再パラメータ化間隔
  reparam_every_full: 1 # 完全再パラメータ化間隔
  param: equi # パラメータ化スキーム
- max_micro_cycles: 10 # マイクロ反復の上限
+ max_micro_cycles: 10 # マイクロイテレーションの上限
  reset_dlc: true # 各ステップで非局在化座標を再構築
  climb: true # クライミングイメージを有効化
  climb_rms: 0.0005 # クライミング RMS 閾値
@@ -321,13 +321,13 @@ search:
 
 ### `hessian_dimer`
 
-ヘシアン・ダイマー TS 最適化（`tsopt --opt-mode grad`）。
+Hessian・ダイマー TS 最適化（`tsopt --opt-mode grad`）。
 
 ```yaml
 hessian_dimer:
  thresh_loose: gau_loose # 緩い収束プリセット
  thresh: baker # メイン収束プリセット
- update_interval_hessian: 500 # ヘシアン再構築間隔
+ update_interval_hessian: 500 # Hessian再構築間隔
  neg_freq_thresh_cm: 5.0 # 負振動数閾値 (cm^-1)
  flatten_amp_ang: 0.1 # フラット化振幅 (Å)
  flatten_max_iter: 50 # フラット化反復上限（デフォルト 50、--no-flatten で 0 に設定）
@@ -337,8 +337,8 @@ hessian_dimer:
  mem: 100000 # ソルバーのメモリ上限
  device: auto # 固有値ソルバーのデバイス選択
  root: 0 # ターゲット TS ルートインデックス
- partial_hessian_flatten: true # 部分ヘシアンを虚モード検出に使用
- ml_only_hessian_dimer: false # ダイマー方向決定に ML 領域のみのヘシアンを使用
+ partial_hessian_flatten: true # 部分Hessianを虚モード検出に使用
+ ml_only_hessian_dimer: false # ダイマー方向決定に ML 領域のみのHessianを使用
  dimer:
  length: 0.0189 # ダイマー間隔 (Bohr)
  rotation_max_cycles: 15 # 最大回転反復数
@@ -352,13 +352,13 @@ hessian_dimer:
  rotation_remove_trans: true # 並進成分の除去
  trans_force_f_perp: true # 並進に垂直な力の投影
  bonds: null # 拘束用の結合リスト
- N_hessian: null # ヘシアンサイズの上書き
+ N_hessian: null # Hessianサイズの上書き
  bias_rotation: false # 回転探索のバイアス
  bias_translation: false # 並進探索のバイアス
  bias_gaussian_dot: 0.1 # ガウスバイアスの内積
  seed: null # 回転の乱数シード
  write_orientations: true # 回転方向の書き出し
- forward_hessian: true # ヘシアンの前方伝搬
+ forward_hessian: true # Hessianの前方伝搬
  lbfgs:
  # lbfgs セクションと同じキー
  thresh: baker
@@ -383,14 +383,14 @@ rsirfo:
  min_step_norm: 1.0e-08 # 最小ステップノルム
  assert_min_step: true # ステップ停滞時にアサート
  roots: [0] # ターゲットルートインデックス（pysisyphus デフォルト; mlmm では未設定）
- hessian_ref: null # 参照ヘシアン
+ hessian_ref: null # 参照Hessian
  rx_modes: null # 反応モード定義
  prim_coord: null # 監視する主座標
  rx_coords: null # 監視する反応座標
- hessian_update: bofill # ヘシアン更新スキーム
- hessian_recalc_reset: true # 正確なヘシアン後に再計算カウンタをリセット
- hessian_init: calc # ヘシアン初期化
- hessian_recalc: 500 # ヘシアン再構築間隔
+ hessian_update: bofill # Hessian更新スキーム
+ hessian_recalc_reset: true # 正確なHessian後に再計算カウンタをリセット
+ hessian_init: calc # Hessian初期化
+ hessian_recalc: 500 # Hessian再構築間隔
  max_micro_cycles: 50 # マクロサイクルあたりのマイクロイテレーション数
  augment_bonds: false # 結合解析に基づく反応経路の拡張
  min_line_search: false # 虚モードに沿ったラインサーチ（pysisyphus デフォルト）
@@ -453,9 +453,9 @@ irc:
  forward: true # 順方向に伝搬
  backward: true # 逆方向に伝搬
  root: 0 # 基準振動モードのルートインデックス
- hessian_init: calc # ヘシアン初期化ソース
- hessian_update: bofill # ヘシアン更新スキーム
- hessian_recalc: null # ヘシアン再構築間隔
+ hessian_init: calc # Hessian初期化ソース
+ hessian_update: bofill # Hessian更新スキーム
+ hessian_recalc: null # Hessian再構築間隔
  displ: energy # 変位構築方法
  displ_energy: 0.001 # エネルギーベースの変位スケーリング
  displ_length: 0.1 # 長さベースの変位フォールバック
@@ -653,4 +653,4 @@ dft:
 - [freq](freq.md) - 振動解析
 - [dft](dft.md) - DFT 計算
 - [概念とワークフロー](concepts.md) - ML/MM 3層システムと ONIOM エネルギー分解
-- [ML/MM 計算機](mlmm-calc.md) - ML/MM 計算機の詳細
+- [ML/MM calculator](mlmm-calc.md) - ML/MM calculatorの詳細

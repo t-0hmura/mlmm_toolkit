@@ -1,13 +1,13 @@
 # Output Directory Layout
 
-Each `mlmm` subcommand writes to its output directory under the filename conventions below, which agents and downstream scripts can rely on.
+Each `mlmm` subcommand writes to its output directory following the filename conventions below, which agents and downstream scripts can rely on.
 
 ## Filename conventions
 
 | Filename | Written by | Purpose |
 |---|---|---|
 | `summary.json` | `all`, `path-search`, and per-stage subcommands **only when `--out-json` is passed** (default `--no-out-json`) | Authoritative JSON envelope (see [JSON Output Reference](json-output.md)). Read this first. Pure utility subcommands (e.g. `fix-altloc`, `add-elem-info`, `bond-summary`) never emit it. |
-| `result.json` | per-stage subcommands **only when `--out-json` is passed** — default `--no-out-json` (`opt`, `tsopt`, `freq`, `irc`, `sp`, `scan` / `scan2d` / `scan3d`, `path-opt`, `dft`, `extract`) | Alternate filename — identical payload to `summary.json`. Read `summary.json` for the single-filename convention; `result.json` carries the same content and can be deleted if you only consume `summary.json`. |
+| `result.json` | per-stage subcommands **only when `--out-json` is passed** — default `--no-out-json` (`opt`, `tsopt`, `freq`, `irc`, `sp`, `scan` / `scan2d` / `scan3d`, `path-opt`, `dft`, `extract`) | Alternate filename — identical payload to `summary.json`. Prefer `summary.json` so downstream code reads a single filename; `result.json` holds identical content and can be deleted. |
 | `summary.log` | `path-search`, `all` | Human-readable run log (one row per segment / stage). |
 | `final_geometry.xyz` | `opt`, `tsopt` | Optimized geometry (XYZ, full precision). |
 | `mep.pdb` / `mep_trj.xyz` | `path-search`, `all` | Reaction path frames (PDB / XYZ); standalone `path-opt` writes `final_geometries_trj.xyz` / `final_geometries.pdb` instead. |

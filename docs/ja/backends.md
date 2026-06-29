@@ -1,6 +1,6 @@
 # MLIP Backends
 
-mlmm-toolkit は、あらゆる ML/MM ワークフローステージ（`opt`、`scan`、`tsopt`、`freq`、`irc`、`path-search`,...）を単一の `MLMMCore` ONIOM 結合オブジェクトを通じて駆動します。`MLMMCore` は ML 領域を、private な `_create_ml_backend` ファクトリ経由でバックエンドごとのアダプタ（`_UMABackend` / `_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`）にディスパッチします。このページでは、バックエンドの選択方法、バックエンドごとの kwargs、新しいバックエンドの追加方法を説明します。
+mlmm-toolkit は、あらゆる ML/MM ワークフローステージ（`opt`、`scan`、`tsopt`、`freq`、`irc`、`path-search`,...）を単一の `MLMMCore` ONIOM 結合オブジェクトを通じて実行します。`MLMMCore` は ML 領域を、private な `_create_ml_backend` ファクトリ経由でバックエンドごとのアダプタ（`_UMABackend` / `_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`）にディスパッチします。このページでは、バックエンドの選択方法、バックエンドごとの kwargs、新しいバックエンドの追加方法を説明します。
 
 ## Public surface
 
@@ -34,8 +34,7 @@ pysis_calc = mlmm(
 
 内部的には、`MLMMCore.__init__` が `_create_ml_backend(backend, ...)`（`mlmm/backends/mlmm_calc.py` 内の
 private なファクトリ）を呼び出して適切なアダプタをインスタンス化します。このファクトリは未知のバックエンドに対して
-`ValueError` を送出します。mlmm には `'auto'` フォールバックはありません。ワークフローコードが CLI から
-解決済みのバックエンド名を渡します。
+`ValueError` を送出します。mlmm には `'auto'` フォールバックはありません。ワークフローコードが CLI で解決されたバックエンド名を渡します。
 
 ## File map
 
@@ -72,7 +71,7 @@ mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
 統一された `--backend-model NAME` フラグも同様に、選択中の `--backend` のモデル変種を
 上書きし、`apply_backend_model_to_calc_cfg` によってバックエンドのモデル kwarg
 （`uma_model` / `orb_model` / `mace_model` / `aimnet2_model`）へルーティングされます。
-未指定ならバックエンド既定のモデルを使用します。
+未指定ならバックエンドデフォルトのモデルを使用します。
 
 または YAML 設定経由（バックエンドごとの kwarg 名）:
 
@@ -105,7 +104,7 @@ calc:
  `backend == "xyz"` を `_XYZBackend(...)` にディスパッチします。
  `MLMMCore` が転送できるよう、新しいバックエンドの kwargs を `_create_ml_backend(...)` の
  シグネチャに追加します。
-4. **統一された `--precision` フラグを配線**（任意） — バックエンドが精度のつまみを公開する場合は、
+4. **統一された `--precision` フラグを配線**（任意） — バックエンドが精度の設定項目を公開する場合は、
  `mlmm/backends/__init__.py` の `_PRECISION_DISPATCH` 内の `"fp32"`
  と `"fp64"` の両方に `"xyz": (kw_name, kw_value)` エントリを追加し、
  ユーザー向けの `--precision fp32|fp64` CLI フラグが正しくルーティングされるようにします。
@@ -117,7 +116,7 @@ calc:
 
 ML/MM ONIOM ジョブでは、ML バックエンドが PySCF（DFT 補正）、
 parmed（parm7）、MM 力場配列と同一デバイス上に共存します。`mlmm/backends/mlmm_calc.py` 内の
-方向ごとの FD-Hessian ループは、この複合的なフットプリントに収まるようにサイズ設定されています。GPU smoke ゲート全体
+方向ごとの FD-Hessian ループは、この合計メモリ使用量に収まるよう設計されています。GPU smoke ゲート全体
 （`tests/smoke/run.sh`）の再実行とピーク VRAM の監視を行わない限り、**方向ごとのループを
 バッチ化テンソルにリファクタリングしないでください**。さもないと全タンパク質 ML/MM の `all` ジョブが OOM します。ステージランナーは
 ステージ間で `del calc` を行い、`all` ワークフローはステージ境界で `gc.collect()` を実行します。
@@ -131,7 +130,7 @@ parmed（parm7）、MM 力場配列と同一デバイス上に共存します。
 B 行列射影（`# CHEMISTRY-RULE:2`）、3 層 5 パスの partial Hessian
 組み立て（`# CHEMISTRY-RULE:8`）は、同じファイル内に存在します。新しい MLIP を追加する
 バックエンドの作成者は ONIOM 結合を知る必要はありません。ML 領域のエネルギー / 力 / Hessian を
-正しい単位で返すカリキュレータを公開するだけで十分です。
+正しい単位で返す Calculator を公開するだけで十分です。
 
 ## See Also
 

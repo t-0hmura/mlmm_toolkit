@@ -6,8 +6,8 @@
 
 | ファイル名 | 書き込み元 | 用途 |
 |---|---|---|
-| `summary.json` | `all`、`path-search`、およびステージ別サブコマンド（**`--out-json` 指定時のみ**、既定 `--no-out-json`） | 正規の JSON エンベロープ（[JSON 出力リファレンス](json-output.md) を参照）。まずこれを読んでください。`write_result_json` を呼ばない純粋なユーティリティ系サブコマンド（例: `fix-altloc`、`add-elem-info`、`bond-summary`）は出力しません。 |
-| `result.json` | ステージ別サブコマンド（**`--out-json` 指定時のみ**、既定 `--no-out-json`）（`opt`、`tsopt`、`freq`、`irc`、`sp`、`scan` / `scan2d` / `scan3d`、`path-opt`、`dft`、`extract`） | 別名ファイル — ペイロードは `summary.json` と同一です。単一ファイル名の規約に従い、`summary.json` を読んでください。`result.json` は同じ内容を持つため、`summary.json` のみを利用する場合は削除できます。 |
+| `summary.json` | `all`、`path-search`、およびステージ別サブコマンド（**`--out-json` 指定時のみ**、デフォルト `--no-out-json`） | 正規の JSON エンベロープ（[JSON 出力リファレンス](json-output.md) を参照）。まずこれを読んでください。`write_result_json` を呼ばない純粋なユーティリティ系サブコマンド（例: `fix-altloc`、`add-elem-info`、`bond-summary`）は出力しません。 |
+| `result.json` | ステージ別サブコマンド（**`--out-json` 指定時のみ**、デフォルト `--no-out-json`）（`opt`、`tsopt`、`freq`、`irc`、`sp`、`scan` / `scan2d` / `scan3d`、`path-opt`、`dft`、`extract`） | 別名ファイル — ペイロードは `summary.json` と同一です。常に同じファイル名を読む規約に従い、`summary.json` を読んでください。`result.json` は同じ内容を持つため、`summary.json` のみを利用する場合は削除できます。 |
 | `summary.log` | `path-search`、`all` | 人が読むための実行ログ（セグメント / ステージごとに 1 行）。 |
 | `final_geometry.xyz` | `opt`、`tsopt` | 最適化された構造（XYZ、フル精度）。 |
 | `mep.pdb` / `mep_trj.xyz` | `path-search`、`all` | 反応経路のフレーム（PDB / XYZ）。単独実行の `path-opt` は代わりに `final_geometries_trj.xyz` / `final_geometries.pdb` を書き込みます。 |
@@ -82,4 +82,4 @@ if summary["status"] == "error":
         raise RuntimeError(summary["error"])
 ```
 
-`summary.json` / `result.json` は `all` と `path-search`、およびステージ別サブコマンド（**`--out-json` 指定時のみ**、既定 `--no-out-json`）で書き込まれます。成功パスで書かれる場合、エンベロープはスキーマバージョンとステータスを保持します。ステージ別の `summary.json` が既定で存在すると仮定しないでください（失敗パスでは失敗エンベロープがスキーマバージョンとエラークラスチェーンを保持します）。
+`summary.json` / `result.json` は `all` と `path-search`、およびステージ別サブコマンド（**`--out-json` 指定時のみ**、デフォルト `--no-out-json`）で書き込まれます。成功パスで書かれる場合、エンベロープはスキーマバージョンとステータスを保持します。ステージ別の `summary.json` がデフォルトで存在すると仮定しないでください（失敗パスでは失敗エンベロープがスキーマバージョンとエラークラスチェーンを保持します）。

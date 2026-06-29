@@ -5,7 +5,7 @@
 Single-point ML/MM ONIOM energy + forces (and optionally the full
 Hessian). The cheapest stage: useful for spot-checking a geometry,
 extracting forces, or producing a Hessian without running an
-optimisation.
+optimization.
 
 ## Synopsis
 

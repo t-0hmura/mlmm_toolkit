@@ -78,9 +78,9 @@ result = core.compute(
 # result["forces"]   : numpy (N, 3) (eV/Å)
 # result["hessian"]  : torch 4D (eV/Å²) — only if return_hessian=True.
 #   Shape (n_active, 3, n_active, 3) when return_partial_hessian=True (default),
-#   else expanded to (N, 3, N, 3). Companion key "within_partial_hessian"
+#   else expanded to (N, 3, N, 3). Companion key `within_partial_hessian`
 #   (dict with active_atoms / active_dofs / full_to_active mappings) accompanies
-#   the partial case.
+#   the partial-Hessian result.
 ```
 
 ## MLMMASECalculator

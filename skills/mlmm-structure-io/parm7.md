@@ -8,7 +8,7 @@ every subcommand that needs MM gradients (`opt`, `tsopt`, `freq`,
 
 You don't usually edit `parm7` by hand — regenerate via `mm-parm`
 when residue / parameter changes are needed. This file is the
-reference for **reading** and **diagnosing** them.
+reference for **reading** and **diagnosing** the pair.
 
 ## File pair
 

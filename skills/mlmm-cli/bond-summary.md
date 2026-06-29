@@ -57,7 +57,7 @@ Bond broken (2):
 
 ## Caveats
 
-- Atom ordering must match across all inputs. If they don't, run
+- Atom ordering must match across all inputs. If it doesn't, run
   `mlmm extract` first to canonicalize.
 - The default `1.2` × covalent-radius cutoff (with internal margin
   fraction `0.05`) is geometry-only — it does not classify covalent

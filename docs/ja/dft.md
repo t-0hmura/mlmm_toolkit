@@ -1,6 +1,6 @@
 # `dft`
 
-GPU4PySCF（または CPU PySCF）を使用して ML 領域の DFT 一点計算を実行し、高レベルエネルギーを MM 評価と再結合して ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は完全酵素 PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点エネルギー（R / TS / P / IM）を DFT レベルで精密化したり、MLIP の障壁を基準汎関数/基底で sanity check したりする際に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
+GPU4PySCF（または CPU PySCF）を使用して ML 領域の DFT 一点計算を実行し、QM領域（ML領域）の DFT エネルギーを MM エネルギーと ML/MM と同様に合成して ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は酵素全体の PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点エネルギー（R / TS / P / IM）を DFT レベルで精密化したり、MLIP の障壁を基準汎関数/基底で sanity check したりする際に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
@@ -30,9 +30,9 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 
-1. **入力処理** -- 完全酵素 PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、リンク水素は自動付加されます（C/N 親原子が 1.7 Å 以内）。
-2. **SCF 構築** -- `--func-basis` が汎関数と基底関数に解析されます。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。`--embedcharge` が有効な場合、Amber トポロジーの MM 点電荷が `pyscf.qmmm.mm_charge()` を介して QM ハミルトニアンに埋め込まれ、DFT 波動関数が MM 環境で自己無撞着に分極します。
-3. **ML(dft)/MM 再結合** -- DFT が収束した後、全系（REAL-low）と ML サブセット（MODEL-low）の MM 評価が計算されます。結合エネルギーは Hartree と kcal/mol で報告されます。
+1. **入力処理** -- 酵素全体の PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、リンク水素は自動付加されます（C/N 親原子が 1.7 Å 以内）。
+2. **SCF 構築** -- `--func-basis` でスラッシュ区切りで汎関数/基底関数を定義します。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。`--embedcharge` が有効な場合、Amber トポロジーの MM 点電荷が `pyscf.qmmm.mm_charge()` を介して QM ハミルトニアンに埋め込まれ、DFT 波動関数が MM 環境で自己無撞着に分極します。
+3. **ML(dft)/MM 再結合** -- DFT が収束した後、全系（REAL-low）と ML サブセット（MODEL-low）の MM エネルギーが計算されます。結合エネルギーは Hartree と kcal/mol で報告されます。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
 
 ## 出力
@@ -48,7 +48,7 @@ out_dir/ (デフォルト: ./result_dft/)
 - `result.yaml` の内容:
   - `energy`: Hartree/kcal/mol 値、収束フラグ、実行時間、バックエンド情報（`engine`: `gpu4pyscf(rks_lowmem)` / `gpu4pyscf` / `pyscf(cpu)`、`used_gpu`、`used_lowmem`）。
   - `mlmm_energy`: REAL-low / MODEL-low の MM 評価値と再結合エネルギー `E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low`（Hartree と kcal/mol）。
-  - `charges`: 各原子 `[index, element, mulliken, lowdin, iao]`（Mulliken / meta-Löwdin / IAO 原子電荷。手法失敗時は `null`）。
+  - `charges`: 各原子 `[index, element, mulliken, lowdin, iao]`（Mulliken / meta-Löwdin / IAO 原子電荷。計算に失敗した場合は `null`）。
   - `spin_densities`: 同形式 `[index, element, mulliken, lowdin, iao]`（スピン密度、UKS のみ）。
 - 電荷、多重度、スピン (2S)、汎関数、基底関数、収束パラメータ、解決済み出力ディレクトリも要約されます。
 
@@ -62,7 +62,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--embedcharge/--no-embedcharge` | 静電埋め込みの有効化: Amber トポロジーの MM 点電荷を PySCF QM ハミルトニアンに追加し、DFT 波動関数が MM 環境により分極。 | `False` |
 | `--embedcharge-cutoff FLOAT` | `--embedcharge` 有効時に PySCF QM ハミルトニアンに埋め込む MM 点電荷の ML 領域からのカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
-| `-i, --input PATH` | 完全酵素構造ファイル（PDB または XYZ）。XYZ の場合は `--ref-pdb` でトポロジーを指定。 | 必須 |
+| `-i, --input PATH` | 酵素全体の構造ファイル（PDB または XYZ）。XYZ の場合は `--ref-pdb` でトポロジーを指定。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
@@ -75,12 +75,12 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | 最大 SCF 反復数。 | `100` |
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
-| `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=fine, 9=very fine)。 | `3` |
+| `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=細かい, 9=非常に細かい)。 | `3` |
 | `--engine {gpu,cpu}` | GPU4PySCF（`gpu`）または CPU PySCF（`cpu`）を強制。 | `gpu` |
 | `--lowmem/--no-lowmem` | closed-shell の GPU 経路で `gpu4pyscf.dft.rks_lowmem.RKS` を使用（メモリ効率の良い直接 JK；`mlmm dft` はどちらの経路でも `density_fit()` を呼ばない）。open-shell、CPU、`rks_lowmem` 非搭載の旧 `gpu4pyscf` では標準 RKS/UKS に自動フォールバック。 | `True` |
 | `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
 | `--link-atom-method {scaled,fixed}` | リンク原子位置モード: `scaled`（g-factor、Gaussian ONIOM 標準）または `fixed`（旧式 1.09/1.01 Å 固定）。 | `scaled` |
-| `--mm-backend {hessian_ff,openmm}` | ONIOM 低レベル評価用 MM バックエンド: `hessian_ff`（解析ヘシアン）または `openmm`（有限差分ヘシアン）。 | `hessian_ff` |
+| `--mm-backend {hessian_ff,openmm}` | ONIOM 低レベル評価用 MM バックエンド: `hessian_ff`（解析Hessian）または `openmm`（有限差分Hessian）。 | `hessian_ff` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に出力。 | `False` |
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
@@ -100,7 +100,7 @@ out_dir/ (デフォルト: ./result_dft/)
 - `conv_tol`（`1e-9`）: SCF 収束閾値 (Hartree)。
 - `max_cycle`（`100`）: 最大 SCF 反復数。
 - `grid_level`（`3`）: PySCF `grids.level`。
-- `verbose`（`0`）: PySCF 冗長度 (0-9)。デフォルトは quiet。CLI `-v 2/3` では実行時に PySCF 冗長度が最低 `4` へ上がります。
+- `verbose`（`0`）: PySCF verbose レベル (0-9)。デフォルトは quiet。CLI `-v 2/3` では実行時に PySCF verbose レベルが最低 `4` へ上がります。
 - `out_dir`（`"./result_dft/"`）: 出力ディレクトリルート。
 
 ```yaml
@@ -117,7 +117,7 @@ dft:
  conv_tol: 1.0e-09                # SCF 収束閾値 (Hartree)
  max_cycle: 100                    # 最大 SCF 反復数
  grid_level: 3                     # PySCF グリッドレベル
- verbose: 0                        # PySCF 冗長度 (0-9); CLI -v 2/3 では実行時 PySCF verbosity が >=4
+ verbose: 0                        # PySCF verbose レベル (0-9); CLI -v 2/3 では実行時 PySCF verbose レベルが >=4
  out_dir: ./result_dft/            # 出力ディレクトリルート
 ```
 

@@ -5,7 +5,7 @@
 Intrinsic Reaction Coordinate (IRC) integration from a TS geometry.
 Default integrator: **EulerPC** (mass-weighted Cartesians). Forward
 and backward branches are run; `forward_last` / `backward_last` are the
-raw last IRC frames (the IRC endpoints), not optimized minima. Output:
+last raw IRC frames (the IRC endpoints), not optimized minima. Output:
 a stitched IRC trajectory plus the forward/backward endpoint geometries.
 Run `mlmm opt` separately to relax the endpoints to true minima.
 
@@ -29,7 +29,7 @@ selection. Most subcommands accept:
 |---|---|
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — required unless provided in YAML as `calc.real_parm7` |
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
-| `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
+| `--detect-layer / --no-detect-layer` | Derive layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
@@ -95,7 +95,7 @@ print(d["status"])                  # "completed" (success path only; errors emi
 
 ## Forward / backward endpoints
 
-Two flavours of endpoint geometry are written:
+Two forms of endpoint geometry are written:
 
 | File | What |
 |---|---|

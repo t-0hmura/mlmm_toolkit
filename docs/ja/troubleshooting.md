@@ -246,7 +246,7 @@ Coordinate shape mismatch for... got (N, 3), expected (M, 3)
 - `RuntimeError: hessian_ff build attempts failed: ...`
 
 対処の例:
-- ビルドはローカルの一時ディレクトリで行われます（`TORCH_EXTENSIONS_DIR` で変更可）。ネットワーク FS（NFS/Lustre）上の build dir は torch のビルドロックでハングするため、既定でローカルパスを使います。
+- ビルドはローカルの一時ディレクトリで行われます（`TORCH_EXTENSIONS_DIR` で変更可）。ネットワーク FS（NFS/Lustre）上の build dir は torch のビルドロックでハングするため、デフォルトでローカルパスを使います。
 - C++ コンパイラ（g++ >= 9; conda なら `conda install -c conda-forge gxx_linux-64`）がインストールされていることを確認:
 
   ```bash
@@ -316,7 +316,7 @@ To rebuild hessian_ff native extensions in this environment:
 - `--model-pdb` が正しく ML 領域の原子を定義しているか確認する
 - `define-layer` の距離カットオフを調整する:
  - `--radius-freeze`（デフォルト 8.0 Angstrom）: Movable-MM/Frozen の境界を制御
-- 必要に応じて、計算オプション（`hess_cutoff`, `hess_mm_atoms`）でヘシアン対象 MM を別途制御する
+- 必要に応じて、計算オプション（`hess_cutoff`, `hess_mm_atoms`）でHessian対象 MM を別途制御する
 - YAML で `use_bfactor_layers: true` を使う場合、B-factor 値が期待されるエンコーディング（0.0, 10.0, 20.0; 許容差 1.0）と一致するか確認する
 
 ---
@@ -416,14 +416,14 @@ Plotly/Chrome 系のエラーで静的画像が出ない場合:
 症状:
 - `torch.cuda.OutOfMemoryError: CUDA out of memory`
 - 「CUDA out of memory」メッセージ
-- ヘシアン計算中にシステムがハングまたはクラッシュする
+- Hessian計算中にシステムがハングまたはクラッシュする
 
-ML/MM 系は純粋な MLIP 計算よりも一般的に大きいため、VRAM の負荷が高くなります。
+ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の負荷が高くなります。
 
 対処の例（優先度順）:
-- **Frozen-MM 層を確認**: `define-layer` で Frozen-MM 原子（B=20.0）が正しく割り当てられているか確認する。Frozen-MM 領域が小さすぎると、Movable-MM 領域（ひいてはヘシアン）が不必要に大きくなる。`--radius-freeze` を小さくして Frozen 領域を拡大する。
+- **Frozen-MM 層を確認**: `define-layer` で Frozen-MM 原子（B=20.0）が正しく割り当てられているか確認する。Frozen-MM 領域が小さすぎると、Movable-MM 領域（ひいてはHessian）が不必要に大きくなる。`--radius-freeze` を小さくして Frozen 領域を拡大する。
 - **ML 領域サイズを縮小**: `extract` の `--radius` を小さくするか、`--model-pdb` で手動定義した小さい ML 領域 PDB を指定する。
-- **有限差分 ML ヘシアンを使用**: `--hessian-calc-mode FiniteDifference`（VRAM 消費が少ないが低速）。
+- **有限差分 ML Hessianを使用**: `--hessian-calc-mode FiniteDifference`（VRAM 消費が少ないが低速）。
 - **`define-layer` で事前に層を定義** し、`use_bfactor_layers: true` で読み取る。
 - **GPU メモリが大きいカードに変更**: 500 原子以上の ML 領域には 24 GB 以上推奨、1000 原子以上には 48 GB 以上推奨。
 
@@ -440,7 +440,7 @@ ML/MM 系は純粋な MLIP 計算よりも一般的に大きいため、VRAM の
 - 余分な虚モードのフラット化を有効にする: `--flatten`
 - 最大サイクル数を増やす: `--max-cycles 20000`
 - より厳しい収束閾値を使う: `--thresh baker` または `--thresh gau_tight`
-- `hess_cutoff` を調整して、ヘシアン計算に含む原子の範囲を広げる
+- `hess_cutoff` を調整して、Hessian計算に含む原子の範囲を広げる
 
 ---
 
@@ -449,7 +449,7 @@ ML/MM 系は純粋な MLIP 計算よりも一般的に大きいため、VRAM の
 症状:
 - `opt`/`tsopt` が延々と回り続けるが、直近数十サイクルでエネルギーが
   ほぼ平坦（`|dE| < 1e-4` au）
-- Max/RMS 力が `gau`/`baker` 閾値のわずか上でサチってしまい、数千サイクル
+- Max/RMS 力が `gau`/`baker` 閾値のわずか上で飽和してしまい、数千サイクル
   回してもそれ以上下がらない
 - サマリログで最終的に **エネルギープラトー** によるフォールバック収束
   として終了する
@@ -510,10 +510,10 @@ ML/MM 系は純粋な MLIP 計算よりも一般的に大きいため、VRAM の
 
 ## パフォーマンス / 安定性のヒント
 
-- **VRAM 不足**: ML 領域サイズを縮小、ヘシアン対象 MM 領域を縮小、ノード数を削減（`--max-nodes`）、または軽量なオプティマイザ設定（`--opt-mode grad`）を使用。
-- **解析ヘシアンが遅いまたは OOM**: `--hessian-calc-mode FiniteDifference` を使用。`Analytical` は十分な VRAM がある場合のみ推奨（ML 原子 300 以上には 24 GB 以上推奨）
-- **MM ヘシアン**: `mm_fd: true`（デフォルト）は MM ヘシアンに有限差分を使用。解析 MM ヘシアン（`mm_fd: false`）は小規模系では高速だがメモリ消費が増える場合がある
-- **MM ヘシアン計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
+- **VRAM 不足**: ML 領域サイズを縮小、Hessian対象 MM 領域を縮小、ノード数を削減（`--max-nodes`）、または軽量なオプティマイザ設定（`--opt-mode grad`）を使用。
+- **解析Hessianが遅いまたは OOM**: `--hessian-calc-mode FiniteDifference` を使用。`Analytical` は十分な VRAM がある場合のみ推奨（ML 原子 300 以上には 24 GB 以上推奨）
+- **MM Hessian**: `mm_fd: true`（デフォルト）は MM Hessianに有限差分を使用。解析 MM Hessian（`mm_fd: false`）は小規模系では高速だがメモリ消費が増える場合がある
+- **MM Hessian計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
 - **大規模系（2000 原子以上）**: `define-layer` で `--radius-freeze` を小さくして Frozen 層（B=20）を拡大し、可動自由度数を削減する
 - **マルチ GPU**: ML を 1 つの GPU（`ml_cuda_idx: 0`）、MM を別の GPU（`mm_device: cuda`, `mm_cuda_idx: 1`）に配置可能
 - **ML と MM の並列実行**: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。`mm_threads` で CPU スレッド数を調整可能
@@ -551,7 +551,7 @@ pip install "mlmm-toolkit[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.ht
 
 **症状:** ORB、MACE、AIMNet2 の使用時に `RuntimeError: CUDA out of memory` が発生する
 
-**対処:** 非 UMA バックエンドは有限差分ヘシアンを使用するため、より多くの VRAM を消費します。以下の方法を試してください:
+**対処:** 非 UMA バックエンドは有限差分Hessianを使用するため、より多くの VRAM を消費します。以下の方法を試してください:
 - `--hessian-calc-mode FiniteDifference` を明示的に指定し、`hess_cutoff` を小さめに設定する
 - YAML で `ml_device: cpu` を指定する（遅くなるが VRAM 制限を回避できる）
 

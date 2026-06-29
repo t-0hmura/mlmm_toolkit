@@ -2,10 +2,10 @@
 
 When you have **many short tasks** (e.g. dozens of `mlmm dft`
 single points), submitting one PBS job per task wastes scheduler time
-and produces noisy queue activity. Better: submit **one** multi-node
+and clutters the queue with many small jobs. Better: submit **one** multi-node
 PBS job that grabs N nodes, runs one worker per node, and the workers
-pull tasks from a shared list with file-lock-protected counter
-increment.
+pull tasks from a shared list, incrementing a counter under a file
+lock.
 
 This is the same pattern used by `pbsdsh` + `flock` on Torque/PBSPro
 clusters. The recipe below is **placeholder-driven** — fill in

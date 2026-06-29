@@ -1,10 +1,10 @@
 # `sp`
 
-`mlmm sp` は、単一構造における ML/MM ONIOM エネルギーと原子に働く力（任意で ONIOM ヘシアン全体）を評価します。次のような用途に使います。
+`mlmm sp` は、単一構造における ML/MM ONIOM エネルギーと原子に働く力（任意で ONIOM Hessian全体）を評価します。次のような用途に使います。
 
 - 最適化を実行する前に層構造を高速に確認する
 - 同一の ONIOM 分割上でバックエンドどうしを直接比較する
-- オプティマイザのループ外で参照用ヘシアンを生成する
+- オプティマイザのループ外で参照用Hessianを生成する
 
 ## 実行例
 
@@ -14,7 +14,7 @@
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
-ONIOM ヘシアン全体も計算する（`--backend uma` のとき Analytical）:
+ONIOM Hessian全体も計算する（`--backend uma` のとき Analytical）:
 
 ```bash
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
@@ -22,12 +22,12 @@ mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 
 ## 出力
 
-`sp` はデフォルトで `result_sp/` 以下に出力を書き込みます。ONIOM エネルギーは stdout にも出力されます。JSON ファイル（同一のペイロードを両方の名前にミラー）は `--out-json` を指定したときのみ出力されます。
+`sp` はデフォルトで `result_sp/` 以下に出力を書き込みます。ONIOM エネルギーは stdout にも出力されます。JSON ファイル（同一内容を両方のファイル名（result.json / summary.json）に出力）は `--out-json` を指定したときのみ出力されます。
 
 | ファイル | 内容 | 出力 |
 |---|---|---|
 | `forces.npy` | 原子単位（Hartree / Bohr）の ONIOM 力の `(N, 3)` 配列 | 常時 |
-| `hessian.npy` | 質量で重み付けしていない `(3N, 3N)` ONIOM ヘシアン（Hartree / Bohr²） | `--hess` 指定時のみ |
+| `hessian.npy` | 質量で重み付けしていない `(3N, 3N)` ONIOM Hessian（Hartree / Bohr²） | `--hess` 指定時のみ |
 | `result.json` / `summary.json` | ONIOM エネルギー（a.u.）、バックエンド、電荷/スピン、npy 出力へのパス、経過時間 | `--out-json` 指定時のみ |
 
 `sp` は `summary.log` を書き込みません。
@@ -58,11 +58,11 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 | `--model-pdb FILE` | ML 原子を定義する代替 PDB |
 | `--model-indices TEXT` | カンマ区切りの 1-based 原子インデックス（例: `1-50,75,100-110`） |
 
-### ヘシアンバックエンド
+### Hessianバックエンド
 
-`--hess` を指定すると、バックエンドの選択がヘシアン計算戦略を決めます:
+`--hess` を指定すると、バックエンドの選択がHessian計算戦略を決めます:
 
-- `--backend uma`（デフォルト）→ UMA の torch autograd 経路による ML 領域の `Analytical` ヘシアン。MM 領域は `hessian_ff` の解析ヘシアンを使用
+- `--backend uma`（デフォルト）→ UMA の torch autograd 経路による ML 領域の `Analytical` Hessian。MM 領域は `hessian_ff` の解析Hessianを使用
 - `--backend orb` / `mace` / `aimnet2` → ML 領域は `FiniteDifference` にフォールバック
 
 `--hessian-calc-mode` で呼び出しごとに上書きできます。
@@ -75,16 +75,16 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 |---|---|---|
 | `-b, --backend [uma\|orb\|mace\|aimnet2]` | `uma` | ML 領域の MLIP バックエンド |
 | `--hess / --no-hess` | `--no-hess` | `hessian.npy` も計算して書き込む |
-| `--hessian-calc-mode [Analytical\|FiniteDifference]` | auto | 特定のヘシアンモードを強制（`--hess` 指定時のみ） |
+| `--hessian-calc-mode [Analytical\|FiniteDifference]` | auto | 特定のHessianモードを強制（`--hess` 指定時のみ） |
 | `--embedcharge / --no-embedcharge` | off | MM→ML カップリングのための xTB 点電荷埋め込み補正 |
 | `--link-atom-method [scaled\|fixed]` | `scaled` | リンク原子の配置 |
-| `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM バックエンド（解析ヘシアン vs 有限差分ヘシアン） |
+| `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM バックエンド（解析Hessian vs 有限差分Hessian） |
 | `-o, --out-dir PATH` | `./result_sp/` | 出力ディレクトリ |
 | `--precision [fp32\|fp64]` | `fp32` | バックエンドに渡す数値精度 |
 | `--config PATH` | — | `calc.*`、`geom.*` のデフォルトを与える YAML 設定 |
 | `--show-config / --dry-run` | off | 有効なマージ済み設定を表示 / 実行せずに検証 |
 
-ヘシアンの cutoff 上書き、MCP 形式の result.json などを含む完全な一覧は `mlmm sp --help-advanced` を実行してください。
+Hessianの cutoff 上書き、MCP 形式の result.json などを含む完全な一覧は `mlmm sp --help-advanced` を実行してください。
 
 ## 関連項目
 

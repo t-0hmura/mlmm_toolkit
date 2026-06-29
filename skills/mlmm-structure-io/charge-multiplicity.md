@@ -16,7 +16,7 @@ meaningful energies.
 | 5 (quintet) | Mn(III), Fe(II) high-spin |
 | 6 (sextet) | Mn(II) high-spin, S=5/2 ferric |
 
-> **Default to `-m 1` unless you have a positive reason to disagree.**
+> **Default to `-m 1` unless you have a positive reason to do otherwise.**
 > If the system contains a known paramagnetic metal, look up the
 > oxidation state and use the high-spin/low-spin assignment from the
 > primary literature for that enzyme.
@@ -26,7 +26,7 @@ meaningful energies.
 **For PDB inputs, prefer `-l`**: give only the non-standard-residue charges
 and let the **ML-region** total charge be auto-derived (standard AAs from the
 internal table + ions + your ligand charges; waters / link atoms are neutral).
-It matches the extraction's reported ML-region charge and stays correct when
+This matches the ML-region charge reported by the extraction and stays correct when
 the ML region changes — so you never hand-enter the charge. Reserve `-q` for
 `.xyz` / `.gjf` inputs (no residues to sum) or to deliberately override.
 
@@ -53,7 +53,7 @@ When you don't know a ligand's formal charge:
 ### Step 1 — check the primary paper
 
 Most enzyme-mechanism papers state the charge state of the substrate
-explicitly in the Methods. The PDB Bank summary page links to the
+explicitly in the Methods. The PDB summary page links to the
 reference; check there first.
 
 ### Step 2 — PubChem / ChEBI

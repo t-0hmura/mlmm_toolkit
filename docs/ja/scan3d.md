@@ -1,6 +1,6 @@
 # `scan3d`
 
-調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）グリッドスキャンを実行し、3 つの結合距離を跨ぐ 3D PES をマッピングします。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM 計算機（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られます。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザーは PySisyphus LBFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
+調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）のグリッドスキャンを実行し、3 つの結合距離を変数とする 3D PES をマッピングします。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM Calculator（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb` から、Amber パラメータは `--parm` から読み取られます。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザは PySisyphus LBFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
 
 ## 実行例
 
@@ -67,7 +67,7 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
-| `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å) — ヘシアン計算に含める MM 原子を指定。`--detect-layer` と併用可能。 | _None_ |
+| `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å) — Hessian計算に含める MM 原子を指定。`--detect-layer` と併用可能。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
 | `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出、`pairs` に 3 つの 4 要素タプル）またはインライン Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | `--csv` 指定時を除き必須 |
 | `--csv FILE` | 事前計算済み `surface.csv` を読み込みスキャンなしでプロット生成。 | _None_ |
@@ -75,7 +75,7 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和拘束ポテンシャル強度 k (eV/Å²)。 | `300.0` |
-| `--relax-max-cycles INT` | バイアス緩和ごとの最大オプティマイザーサイクル。 | `10000` |
+| `--relax-max-cycles INT` | バイアス緩和ごとの最大オプティマイザサイクル。 | `10000` |
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
 | `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `baker` |
@@ -86,10 +86,10 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `--zmin FLOAT` | アイソサーフェスカラーバンドの手動下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | アイソサーフェスカラーバンドの手動上限（kcal/mol）。 | 自動スケール |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的ヘシアン対 OpenMM 差分）。 | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的Hessian対 OpenMM 差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子の配置法: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |

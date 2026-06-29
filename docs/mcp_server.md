@@ -1,7 +1,7 @@
 # mlmm MCP server
 
 `mlmm-mcp` is an [MCP](https://modelcontextprotocol.io/) server that lets any
-MCP-speaking agent drive every `mlmm` CLI subcommand via JSON-RPC over stdio
+MCP-compatible agent run every `mlmm` CLI subcommand via JSON-RPC over stdio
 — including Claude Desktop / Claude Code / Cursor / Codeium, and any custom
 agent built on the official Python or TypeScript MCP SDKs.
 
@@ -18,7 +18,7 @@ script.
 
 22 tools, one per CLI subcommand. Each tool returns a structured dict (`SubcmdResultDict` in `mlmm.mcp._runner`) with:
 
-- `schema_version`: envelope version. Live value: `mlmm.mcp._runner.MCP_SUBCMD_RESULT_SCHEMA_VERSION`. Bumps signal a field-set / value-type change; pin against the constant rather than the literal in this doc.
+- `schema_version`: envelope version. Live value: `mlmm.mcp._runner.MCP_SUBCMD_RESULT_SCHEMA_VERSION`. A version bump signals a field-set or value-type change; pin to the constant rather than the literal value in this doc.
 - `status`: `ok` | `failed` | `summary_missing` | `summary_parse_error`
 - `exit_code`: subprocess exit code
 - `out_dir`: working directory the CLI wrote to
@@ -88,7 +88,7 @@ When a subcommand fails, the parsed `summary` (or sibling `result.json`) carries
 
 `run_irc` accepts `irc_pos_def: bool` — IRC convergence then additionally
 requires a positive-definite mass-weighted Hessian, blocking the IRC
-"shoulder" false-convergence where the rms-only criterion calls success
+"shoulder" false-convergence where the rms-only criterion declares success
 before reaching the local minimum. Defaults to `None` (rms-only, legacy).
 
 `find_transition_state` accepts `opt_mode="trim"` (Helgaker 1991) /

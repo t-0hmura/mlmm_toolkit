@@ -1,6 +1,6 @@
 # `path-search`
 
-`mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、解決されたサブパスを 1 つの軌跡に統合します。R + （任意の中間体）+ P からなる多段機構を駆動する用途に向いており、再帰分割が素過程を自動検出します。ただし、複雑な多段階反応の検出は困難な場合があり、入力中間体・MEP エンジン設定・収束閾値の調整など手動での試行錯誤が必要になることがあります。
+`mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、精密化済みのサブパスを 1 つの軌跡に統合します。R + （任意の中間体）+ P からなる多段機構を駆動する用途に向いており、再帰分割が素過程を自動検出します。ただし、複雑な多段階反応の検出は困難な場合があり、入力中間体・MEP エンジン設定・収束閾値の調整など手動での試行錯誤が必要になることがあります。
 
 ## 実行例
 
@@ -50,12 +50,12 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 ## 処理の流れ
 
 1. **初期セグメント（隣接ペア A->B ごと; GSM/DMF）** -- 選択した MEP エンジン（`--mep-mode`）を実行して粗い MEP を取得し、最高エネルギーイメージ（HEI）を特定。
-2. **HEI 周辺の局所緩和** -- `--refine-mode`（`peak`: HEI+/-1、`minima`: 最近傍局所極小）で種点を選び、単一構造オプティマイザー（`opt-mode`）で精密化して近傍の極小（`End1`、`End2`）を回復。
+2. **HEI 周辺の局所緩和** -- `--refine-mode`（`peak`: HEI+/-1、`minima`: 最近傍局所極小）で種点を選び、単一構造オプティマイザ（`opt-mode`）で精密化して近傍の極小（`End1`、`End2`）を得る。
 3. **ねじれ vs 精密化の判定**:
  - `End1` と `End2` の間に共有結合変化が検出されない場合、その領域を*ねじれ*として扱い、`search.kink_max_nodes` 個の線形ノードを挿入して各ノードを個別に最適化。
- - それ以外の場合、`End1` と `End2` の間で**精密化セグメント（GSM）**を起動して障壁を鮮明化。
+ - それ以外の場合、`End1` と `End2` の間で**精密化セグメント（GSM）**を起動して障壁を明確化。
 4. **選択的再帰** -- `(A->End1)` と `(End2->B)` の結合変化を `bond` 閾値で比較。共有結合の更新を含むサブ区間のみに再帰。再帰深度は `search.max_depth` で制限。
-5. **統合とブリッジ** -- 解決されたサブパスを連結し、RMSD <= `search.stitch_rmsd_thresh` の重複端点を削除。2 つの統合部分の間の RMSD ギャップが `search.bridge_rmsd_thresh` を超える場合、選択中の `--mep-mode` でブリッジ MEP セグメントを挿入。インターフェース自体に結合変化がある場合、ブリッジの代わりに新たな再帰セグメントを生成。
+5. **統合とブリッジ** -- 精密化済みのサブパスを連結し、RMSD <= `search.stitch_rmsd_thresh` の重複端点を削除。2 つの統合部分の間の RMSD ギャップが `search.bridge_rmsd_thresh` を超える場合、選択中の `--mep-mode` でブリッジ MEP セグメントを挿入。インターフェース自体に結合変化がある場合、ブリッジの代わりに新たな再帰セグメントを生成。
 6. **任意のアライメント** -- 事前最適化後、`--align` で全入力を最初の入力に剛体アラインし、凍結原子を再マッチ。セグメントをプロット/分析用にアノテーション。
 
 結合変化検出は `bond` YAML セクションの閾値を使用する `bond_changes.compare_structures` に依存します。
@@ -106,19 +106,19 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `20` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--opt-mode [grad]` | 単一構造オプティマイザープリセット（現状 `grad` = LBFGS のみ。`hess` は未配線）。 | `grad` |
+| `--opt-mode [grad]` | 単一構造オプティマイザプリセット（現状 `grad` = LBFGS のみ。`hess` は未配線）。 | `grad` |
 | `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に全入力を最初の入力へ剛体アライメントし、凍結原子を再マッチ。 | 有効 |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau_loose`） |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的 Hessian か OpenMM 有限差分か）。 | `hessian_ff` |
-| `--dump/--no-dump` | オプティマイザーダンプを保存。 | `False` |
+| `--dump/--no-dump` | オプティマイザダンプを保存。 | `False` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。 | `./result_path_search/` |
 | `--ref-pdb PATH...` | XYZ→PDB 変換・トポロジー参照用の完全テンプレート PDB。 | _None_ |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。`--help-advanced` に表示。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
@@ -130,10 +130,10 @@ out_dir/ (デフォルト:./result_path_search/)
 YAML ルートはマッピングでなければなりません。受け付けるセクション:
 
 - **`geom`** -- `coord_type`（デフォルト `"cart"`）、`freeze_atoms`（1 始まりインデックス）。
-- **`calc` / `mlmm`** -- ML/MM 計算機設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、バックエンド選択（`backend`、`embedcharge`）、UMA 制御（`uma_model`、`uma_task_name`、`hessian_calc_mode`）、デバイス選択、凍結原子。
+- **`calc` / `mlmm`** -- ML/MM calculator設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、バックエンド選択（`backend`、`embedcharge`）、UMA 制御（`uma_model`、`uma_task_name`、`hessian_calc_mode`）、デバイス選択、凍結原子。
 - **`gs`** -- Growing String 設定: `max_nodes`、`climb`、`climb_rms`、`climb_fixed`、`reparam_every_full`、`reparam_check`。
 - **`opt`** -- StringOptimizer 制御: `max_cycles`、`print_every`、`dump`、`dump_restart`、`out_dir`。
-- **`lbfgs`** -- HEI+/-1 精密化用の単一構造オプティマイザー制御: `keep_last`、`beta`、`gamma_mult`、`max_step`、`control_step`、`double_damp`、`mu_reg`、`max_mu_reg_adaptions`。
+- **`lbfgs`** -- HEI+/-1 精密化用の単一構造オプティマイザ制御: `keep_last`、`beta`、`gamma_mult`、`max_step`、`control_step`、`double_damp`、`mu_reg`、`max_mu_reg_adaptions`。
 - **`bond`** -- 結合変化検出: `bond_factor`、`margin_fraction`、`delta_fraction`。
 - **`search`** -- 再帰ロジック: `max_depth`、`stitch_rmsd_thresh`、`bridge_rmsd_thresh`、`max_nodes_segment`、`max_nodes_bridge`、`kink_max_nodes`、`max_seq_kink`、`refine_mode`。
 
@@ -148,5 +148,5 @@ YAML ルートはマッピングでなければなりません。受け付ける
 
 - [path-opt](path-opt.md) -- MEP 最適化（再帰的精密化なし）
 - [opt](opt.md) -- 単一構造の構造最適化
-- [all](all.md) -- all が内部で path-opt（既定）または path-search（`--refine-path` 指定時）を呼び出す一気通貫ワークフロー
+- [all](all.md) -- all が内部で path-opt（デフォルト）または path-search（`--refine-path` 指定時）を呼び出す一気通貫ワークフロー
 - [trj2fig](trj2fig.md) -- MEP 軌跡からエネルギープロファイルをプロット

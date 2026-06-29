@@ -65,8 +65,7 @@ on consumer cards where `fp64` is markedly slower — see
 
 ## AIMNet2 limitations
 
-AIMNet2 supports neither route to high reproducibility, and both combinations
-are rejected with a clear error rather than run misleadingly:
+AIMNet2 does not support these features:
 
 - **`--precision fp64`** — AIMNet2's model inputs are cast to float32 upstream,
   so an "fp64" run would not actually be fp64.

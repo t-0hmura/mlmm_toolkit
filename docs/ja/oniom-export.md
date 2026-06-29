@@ -27,7 +27,7 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 1. **トポロジー + 座標** -- `parm7` と `-i` 座標ファイルを読み込みます（原子順序はトポロジーと一致が必須。`--element-check` が元素配列を検証）。
 2. **QM 領域** -- `--model-pdb` で QM（ML 領域）原子を定義し、`--near` で可動/活性 MM のカットオフ（Å）を設定します。
 3. **リンク原子** -- 切断された QM/MM 結合ごとに配置されます。`--link-atom-method scaled`（デフォルト）は Morokuma/Dapprich の g-factor（`MLMMCore` ランタイムと一致）、`fixed` は固定 1.09/1.01 Å を使用します。
-4. **書き出し** -- `-o` に対象形式の入力ファイルを出力します。ORCA モードでは `ORCAFF.prms` を解決します（`--convert-orcaff` が有効なら Amber から `orca_mm -convff -AMBER` で自動変換）。
+4. **書き出し** -- `-o` に対象形式の入力ファイルを出力します。ORCA モードでは `ORCAFF.prms` のパスを特定します（`--convert-orcaff` が有効なら Amber から `orca_mm -convff -AMBER` で自動変換）。
 
 ## 出力
 

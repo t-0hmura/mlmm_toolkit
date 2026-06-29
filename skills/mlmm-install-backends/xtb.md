@@ -2,7 +2,7 @@
 
 `mlmm-toolkit` can apply an **xTB point-charge embedding correction** on
 top of the MLIP energy and forces, replacing the bare ML/MM coupling at
-the boundary by an electrostatic embedding obtained from an xTB
+the boundary with an electrostatic embedding obtained from an xTB
 single-point with the surrounding MM-region atoms inserted as point
 charges. This is exposed through the `--embedcharge` /
 `--embedcharge-cutoff` flags on every ML/MM-evaluating subcommand
@@ -14,7 +14,7 @@ charges. This is exposed through the `--embedcharge` /
 | Use it for | Don't use it for |
 |---|---|
 | Polar active sites where the bare ML/MM electrostatics underestimate the ligand–environment coupling | Reproducing absolute solvation free energies (the correction is geared toward TS / barrier shifts, not bulk thermodynamics) |
-| Sanity-checking that an MLIP barrier doesn't change drastically when the surrounding charges are felt with a different embedding | Cluster models without an explicit MM region |
+| Sanity-checking that an MLIP barrier doesn't change drastically when the surrounding charges are introduced through a different embedding scheme | Cluster models without an explicit MM region |
 | Systems where the MLIP backend was trained on isolated organics and may miss long-range polarization | Systems already well-described by the ML/MM ONIOM coupling alone — `--embedcharge` adds wall-clock cost per energy/force call |
 
 ## Install
@@ -41,7 +41,7 @@ used by mlmm.
 
 ## CLI usage
 
-The flag is a Boolean toggle plus a cutoff radius:
+The feature exposes a Boolean toggle plus a cutoff radius:
 
 ```bash
 mlmm tsopt -i ts_guess.pdb -q 0 -m 1 \

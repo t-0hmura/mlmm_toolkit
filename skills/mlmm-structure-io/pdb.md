@@ -1,8 +1,8 @@
 # PDB format (pdb.md)
 
 The Protein Data Bank format is the primary input to `mlmm-toolkit`. It
-is **column-based** — each field has a fixed character range — so a one-
-character drift breaks everything downstream. Treat editing as a
+is **column-based** — each field has a fixed character range — so a
+one-character shift corrupts every downstream field. Treat editing as a
 column-aware operation, not as plain-text find-and-replace.
 
 ## Record types `mlmm-toolkit` cares about
@@ -116,7 +116,7 @@ field for downstream consumption.
 
 PDB columns: resName 18-20, chainID 22, resSeq 23-26. Match all three
 explicitly via `awk substr` (the natural column-aware tool — sed regex
-on PDB lines is error-prone because of the dot-counts):
+on PDB lines is error-prone because you must count exact character positions with `.`):
 
 ```bash
 awk 'BEGIN{OFS=""} \

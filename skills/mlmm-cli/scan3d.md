@@ -58,7 +58,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
   sizes modest (5×5×5 = 125 points already).
 - For inherently 1D or 2D mechanisms, `scan.md` / `scan2d.md` are
   drastically cheaper.
-- `--csv` is the post-mortem entry point: rerun energy diagrams or
+- `--csv` is the re-plotting entry point: rerun energy diagrams or
   contour plots without redoing the scan.
 
 ## See also

@@ -177,7 +177,7 @@ glossary
 | **CLI コマンドリファレンス** | [コマンドリファレンス](../reference/commands/index.md) |
 | **YAML スキーマ** | [YAML スキーマ](../reference/yaml.md) |
 | **YAML 設定オプション** | [YAML リファレンス](yaml-reference.md) |
-| **ML/MM 計算機アーキテクチャ** | [ML/MM 計算機](mlmm-calc.md) |
+| **ML/MM calculatorアーキテクチャ** | [ML/MM calculator](mlmm-calc.md) |
 | **用語集** | [用語集](glossary.md) |
 
 ---

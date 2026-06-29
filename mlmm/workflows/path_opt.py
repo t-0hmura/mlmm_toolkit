@@ -606,7 +606,7 @@ def _run_dmf_mep(
     default="gpu",
     show_default=True,
     help="DMF compute backend (--mep-mode dmf only): gpu (dmf.torch / CUDA) or cpu (dmf / NumPy). "
-    "On a GPU out-of-memory, retry with cpu.",
+    "On a GPU out-of-memory error, retry with cpu.",
 )
 @click.option("--max-nodes", type=int, default=GS_KW["max_nodes"], show_default=True,
               help="Number of internal nodes (for GSM: string has max_nodes+2 images including endpoints; for DMF: number of path waypoints).")
@@ -736,7 +736,7 @@ def _run_dmf_mep(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
 )
 @click.option(
     "--embedcharge-cutoff",

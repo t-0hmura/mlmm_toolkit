@@ -1226,7 +1226,7 @@ def _build_multistep_path(
     default="gpu",
     show_default=True,
     help="DMF compute backend (--mep-mode dmf only): gpu (dmf.torch / CUDA) or cpu (dmf / NumPy). "
-    "On a GPU out-of-memory, retry with cpu.",
+    "On a GPU out-of-memory error, retry with cpu.",
 )
 @click.option(
     "--refine-mode",
@@ -1367,7 +1367,7 @@ def _build_multistep_path(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
 )
 @click.option(
     "--embedcharge-cutoff",

@@ -6,10 +6,10 @@
 
 `mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`), and chains **MM parametrization → ML-region selection → MEP search → TS optimization → IRC → thermochemical correction → DFT single-point** in one command. A link-atom boundary handles amino-acid residues straddling the ML/MM cut, and a microiteration scheme makes TS optimization and Hessian-based methods tractable on ~10 000-atom systems.
 
-A useful initial reaction path is one command:
+Test a reaction mechanism in a single command:
 
 ```bash
-# Multi-structure MEP (R + P endpoints → MEP, with TS optimisation + thermo)
+# Multi-structure MEP (R + P endpoints → MEP, with TS optimization + thermo)
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
 ```
 
@@ -22,7 +22,7 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 | Tool | Use case |
 |---|---|
 | **`mlmm-toolkit`** (this repo) | **ML/MM ONIOM** with the full protein environment; automates MM parameterization and ML-region assignment from a single PDB. |
-| [**uma_pysis**](https://github.com/t-0hmura/uma_pysis) | Lightweight **YAML-driven UMA–pysisyphus interface** for light reaction mechanism investigation (GS / TS / IRC / ΔG). |
+| [**uma_pysis**](https://github.com/t-0hmura/uma_pysis) | Lightweight **YAML-driven UMA–pysisyphus interface** for quick/exploratory reaction-mechanism studies (GS / TS / IRC / ΔG). |
 
 > `mlmm-toolkit` bundles a GPU-optimized pysisyphus fork that is **not** compatible with upstream pysisyphus — do not install it into an environment that already has upstream pysisyphus.
 
@@ -77,7 +77,7 @@ CUDA module-load recipes, alternative-backend installs, DMF / `cyipopt`, Plotly 
 ## Preparing an Enzyme-Substrate System
 
 1. **Build a structural model of the complex.**
-   Download coordinates from Protein Data Bank. If an experimental structure is not available, use structure prediction programs such as **AlphaFold3**, docking simulation programs, or GUI software such as **PyMOL**.
+   Download coordinates from Protein Data Bank. If an experimental structure is not available, use structure prediction programs such as **AlphaFold3**, **Boltz2**, or **Chai**; docking simulation programs; or GUI software such as **PyMOL**.
 
 2. **Generate parameter/topology and coordinate files.**
    Create `.pdb`, `.parm7`, and `.rst7` files of the complex (see the [OpenMM tutorial](https://openmm.github.io/openmm-cookbook/latest/tutorials)).

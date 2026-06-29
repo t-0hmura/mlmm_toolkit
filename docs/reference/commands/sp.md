@@ -62,8 +62,8 @@ Options:
                                   (default: uma).
   --embedcharge / --no-embedcharge
                                   Enable xTB point-charge embedding correction
-                                  for MM->ML environmental effects.  [default:
-                                  no-embedcharge]
+                                  for MM→ML environmental effects
+                                  (experimental).  [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Embed-charge cutoff radius (Å) around the ML
                                   region.
   --link-atom-method [scaled|fixed]

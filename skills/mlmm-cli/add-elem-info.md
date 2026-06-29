@@ -4,7 +4,7 @@
 
 Repair the element column (PDB cols 77–78) when it is blank or
 inconsistent with the atom name. Many PDBs from PyMOL / Maestro come
-out with empty element columns; running `extract` on them then fails
+out with empty element columns; running `extract` on them fails
 because the element-aware truncation logic can't classify atoms.
 
 Always run `add-elem-info` (and `fix-altloc.md`) on a freshly-downloaded

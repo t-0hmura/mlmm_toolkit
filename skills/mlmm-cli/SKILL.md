@@ -25,13 +25,13 @@ Each row points to the full per-subcommand md in this skill directory.
 | `opt.md` | `opt` | Single-structure geometry optimization with LBFGS or RFO.<br>`--opt-mode grad` (LBFGS, default) is fast; `--opt-mode hess` (RFO) is robust on tricky surfaces. |
 | `tsopt.md` | `tsopt` | TS optimization: default RS-I-RFO (`--opt-mode hess/rsirfo`); Hessian-Guided Dimer is the lighter alternative (`--opt-mode grad/dimer`). |
 | `freq.md` | `freq` | Vibrational analysis: Hessian, frequencies, normal-mode visualization, QRRHO thermochemistry.<br>Default temperature/pressure 298.15 K / 1 atm; partial-Hessian variant when `freeze_atoms` is non-empty. |
-| `sp.md` | `sp` | ONIOM single-point energy + forces (and optional Hessian).<br>Cheapest stage; useful for spot-checking a geometry without running an optimisation. |
+| `sp.md` | `sp` | ONIOM single-point energy + forces (and optional Hessian).<br>Cheapest stage; useful for spot-checking a geometry without running an optimization. |
 | `irc.md` | `irc` | IRC integration with EulerPC in mass-weighted Cartesians.<br>Forward + backward from a TS, plus LBFGS optimization of each endpoint. |
 | `dft.md` | `dft` | Single-point DFT through PySCF (CPU) or GPU4PySCF (CUDA, x86_64).<br>`--engine gpu` is the default; if the GPU backend is unavailable it raises an error — select CPU explicitly with `--engine cpu`. |
 | `scan.md` | `scan` | 1D distance scan with harmonic restraints to seed a path search.<br>Useful when neither endpoint nor TS guess is available — drives the bond manually. |
 | `scan2d.md` | `scan2d` | 2D analog of `scan` with two restrained distances.<br>Generates a grid; mlmm interpolates the MEP through the grid minima. |
 | `scan3d.md` | `scan3d` | 3D analog with three restrained distances.<br>Rare but supported; output volume grows quickly, plan resources. |
-| `trj2fig.md` | `trj2fig` | Plot an energy profile from an XYZ trajectory.<br>Reads ASE-style energies in the comment line and writes a static PNG/HTML. |
+| `trj2fig.md` | `trj2fig` | Plot an energy profile from an XYZ trajectory.<br>Reads ASE-style energies in the comment line and writes a figure or CSV (PNG/HTML/SVG/PDF/CSV). |
 | `energy-diagram.md` | `energy-diagram` | Build an ad-hoc energy diagram from a list of state names + energies.<br>For composing diagrams that combine multiple `mlmm-toolkit` runs. |
 | `add-elem-info.md` | `add-elem-info` | Repair / add the element column (PDB cols 77-78).<br>Run before `extract` if your PDB came out of PyMOL or Maestro and elements are missing. |
 | `fix-altloc.md` | `fix-altloc` | Resolve PDB alternate locations (`altloc` field).<br>Pick a single conformation per residue; needed before `extract` on raw RCSB downloads. |

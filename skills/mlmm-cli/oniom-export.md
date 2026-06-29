@@ -4,7 +4,7 @@
 
 Export an `mlmm-toolkit` system (parm7 + layer-encoded PDB / XYZ) as a
 Gaussian g16 ONIOM input (`.gjf`/`.com`) or an ORCA ONIOM input
-(`.inp`). Useful for hand-comparing to a reference DFT/MM
+(`.inp`). Useful for manually comparing against a reference DFT/MM
 calculation, re-running with a third-party engine, or feeding into a
 pipeline that expects a Gaussian-style input.
 
@@ -90,8 +90,7 @@ A single text input file the chosen engine can run directly:
 - Multiplicity defaults to `1`; specify explicitly for radicals.
 - For ORCA, `--orcaff` is required when the prms file does not yet
   exist and `--convert-orcaff` is disabled.
-- Round-trip (`oniom-export` → `oniom-import`) is lossy in atom
-  numbering / chain / residue rebuilding; pass `--ref-pdb` on import
+- Round-trip (`oniom-export` → `oniom-import`) loses information when rebuilding atom numbering, chains, and residues; pass `--ref-pdb` on import
   to recover names.
 
 ## See also

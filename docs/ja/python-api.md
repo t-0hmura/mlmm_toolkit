@@ -143,7 +143,7 @@ core = MLMMCore(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.p
 
 ### mlmm_ase() ファクトリ
 
-v0.1.x の `mlmm_ase(real_pdb=..., ...)` 便利関数は後方互換のため保持されています:
+v0.1.x の `mlmm_ase(real_pdb=..., ...)` ユーティリティ関数は後方互換のため保持されています:
 
 ```python
 from mlmm import mlmm_ase

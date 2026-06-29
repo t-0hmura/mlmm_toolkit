@@ -14,7 +14,7 @@ pip install "mlmm-toolkit[mcp]"
 
 22 個のツールがあり、CLI サブコマンドごとに 1 つ対応します。各ツールは、以下を含む構造化された dict（`mlmm.mcp._runner` の `SubcmdResultDict`）を返します:
 
-- `schema_version`: エンベロープのバージョン。実際の値: `mlmm.mcp._runner.MCP_SUBCMD_RESULT_SCHEMA_VERSION`。値の上昇はフィールドセットや値の型の変更を示します。このドキュメント内のリテラルではなく定数に対してピン留めしてください。
+- `schema_version`: エンベロープのバージョン。実際の値: `mlmm.mcp._runner.MCP_SUBCMD_RESULT_SCHEMA_VERSION`。値の上昇はフィールドセットや値の型の変更を示します。リテラル値をハードコードせず、定数を参照してください。
 - `status`: `ok` | `failed` | `summary_missing` | `summary_parse_error`
 - `exit_code`: サブプロセスの終了コード
 - `out_dir`: CLI が書き込んだ作業ディレクトリ
@@ -23,7 +23,7 @@ pip install "mlmm-toolkit[mcp]"
 - `hint`: CLI エラーメッセージからパースされた `; recover: <hint>` サフィックス（存在する場合）
 - `argv`: 実行された完全な argv（再現性のため）
 
-型付き Python の利用者向けに、`mlmm.mcp._runner` は `SubcmdResultDict`（実行時ペイロードを反映する `TypedDict`）と `MCP_SUBCMD_RESULT_STATUSES`（許可される `status` 文字列の列挙タプル）も公開しています。
+型付き Python のユーザー向けに、`mlmm.mcp._runner` は `SubcmdResultDict`（実行時ペイロードを反映する `TypedDict`）と `MCP_SUBCMD_RESULT_STATUSES`（許可される `status` 文字列の列挙タプル）も公開しています。
 
 ### 構造化エラーエンベロープ
 

@@ -22,7 +22,7 @@ mlmm energy-diagram -i "[0, 12.5, 4.3]" \
 | `--out-json` | flag | off | Also write a machine-readable `result.json` (behind `--help-advanced`) |
 | `--help-advanced` | flag | — | Reveal x-axis labels (`--label-x`) and y-axis label (`--label-y`) |
 
-State labels and y-axis units are exposed via `--help-advanced`. Without
+State labels and the y-axis label are exposed via `--help-advanced`. Without
 labels, points are plotted in input order.
 
 ## Examples
@@ -46,8 +46,6 @@ mlmm energy-diagram -i "[0.0, 21.5, -0.7, 2.2, -18.2]" -o diagram.png
   calling.
 - For a profile along a continuous trajectory (XYZ frames with energies
   in the comment line), use `trj2fig.md`.
-- Per-state x-axis labels (`--label-x`) and the y-axis label (`--label-y`)
-  live behind `--help-advanced`; refer to that for production figures.
 
 ## See also
 

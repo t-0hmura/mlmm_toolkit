@@ -117,7 +117,7 @@ When the ML/MM boundary cuts a covalent bond, a **link hydrogen atom** is insert
 
 The default is **scaled** (Morokuma–Dapprich g-factor), the same method used in Gaussian ONIOM. The link atom position scales linearly with the QM–MM distance, producing a smooth PES and a constant Jacobian (no second-derivative correction needed). The **fixed** method places the link hydrogen at a fixed distance along the bond axis regardless of QM–MM distance.
 
-Forces on the link atom are redistributed back to the QM and MM host atoms via the Jacobian:
+Forces on the link atom are redistributed back to the ML and MM host atoms via the Jacobian:
 
 ```
 F_QM += (1−g) · F_link    (scaled)
@@ -185,7 +185,7 @@ mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter 
 - CPU execution (GPU memory is reserved for MLIP inference)
 - CMAP torsion corrections (implemented but disabled by default, as in Gaussian)
 
-Unlike OpenMM, `hessian_ff` is designed specifically for providing the **MM Hessian** needed by the ONIOM-like coupling and vibrational analysis.
+Unlike OpenMM, `hessian_ff` is designed specifically to provide the **MM Hessian** needed by the ONIOM-like coupling and vibrational analysis.
 
 ---
 
@@ -223,7 +223,7 @@ There are two ways to define the ML region:
   and `-l/--ligand-charge`. Use `--modified-residue NAME:charge` for non-standard
   amino acids and `-l NAME:charge` for ligands; an explicit `-q` is then unnecessary.
 - **Manual** (`--model-pdb` + `--parm`): you supply the ML-atom selection yourself and
-  set the model charge explicitly with `-q`. This is the robust choice when you have
+  set the model charge explicitly with `-q`. This is the safer choice when you have
   hand-edited atoms (custom truncation, protonation / charge changes) that automatic
   derivation cannot infer, or when the topology is too unusual for automatic
   extraction. `--modified-residue` / `-l` do not apply on this path, and you do **not**

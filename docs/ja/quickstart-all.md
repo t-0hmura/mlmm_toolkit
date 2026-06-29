@@ -30,7 +30,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 - 別の MLIP バックエンドを使用するには、`-b orb`（または `mace`、`aimnet2`）を追加します。デフォルトは `uma` です。
 - `--embedcharge` を追加すると、MM 環境から ML 領域への静電影響を考慮する xTB 点電荷埋め込み補正が有効になります。
 
-## 次の導線
+## 次のステップ
 
 - 単一構造スキャン: [クイックスタート: `mlmm scan` + `-s`（YAML スペック）](quickstart-scan-spec.md)
 - TS 検証: [クイックスタート: `mlmm tsopt` -> `mlmm freq`](quickstart-tsopt-freq.md)

@@ -28,7 +28,7 @@ selection. Most subcommands accept:
 |---|---|
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
-| `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
+| `--detect-layer / --no-detect-layer` | Derive layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
@@ -98,7 +98,7 @@ Default thermochemistry uses the QRRHO (Grimme) treatment with a
 100 cm⁻¹ rotor cutoff:
 
 - low-frequency vibrations (< 100 cm⁻¹) are interpolated toward the
-  free-rotor entropy formula,
+  free-rotor entropy limit,
 - high-frequency vibrations use the standard harmonic-oscillator
   partition function.
 
@@ -122,7 +122,7 @@ use `--config` YAML and set `freeze_atoms`.
   **exactly 1**.
 - Imaginary frequencies < ~50 cm⁻¹ are often numerical noise, not real
   modes. The QRRHO cutoff (100 cm⁻¹) is one safeguard.
-- `--hessian-calc-mode FiniteDifference` is more memory-friendly but
+- `--hessian-calc-mode FiniteDifference` uses less memory but is
   ~3× slower than `Analytical`.
 - Thermochemistry depends on charge / spin — make sure `-q`/`-m` are
   correct or ZPE will be off.

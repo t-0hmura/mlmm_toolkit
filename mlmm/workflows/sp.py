@@ -163,7 +163,7 @@ EV2AU = 1.0 / AU2EV
 @click.option(
     "--embedcharge/--no-embedcharge", "embedcharge",
     default=False, show_default=True,
-    help="Enable xTB point-charge embedding correction for MM->ML environmental effects.",
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
 )
 @click.option(
     "--embedcharge-cutoff", "embedcharge_cutoff",

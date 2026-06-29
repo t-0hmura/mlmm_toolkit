@@ -205,7 +205,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
 )
 @click.option(
     "--embedcharge-cutoff",

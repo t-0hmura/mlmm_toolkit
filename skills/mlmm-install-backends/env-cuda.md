@@ -35,7 +35,7 @@ reported:
 
 ```bash
 module load <CUDA_MODULE>           # exact name from `module avail cuda`
-module load gcc                     # required when system /usr/bin/gcc is too old for the CUDA toolkit, or when pip will build any C/CUDA extension from source (e.g. gpu4pyscf source build, sm_120 / Blackwell, niche wheels)
+module load gcc                     # toolchain for the CUDA build (see note below)
 nvcc --version                      # confirm
 echo "$CUDA_HOME"                   # often set by the module
 ```
@@ -46,7 +46,10 @@ parallelises the MM side over CPU threads (default `mm_threads=16`,
 backed by PyTorch / OpenMP — `gcc` ships the matching `libgomp`), so
 the PBS preamble should request `ppn`/`--cpus-per-task` ≥ `mm_threads`.
 No cross-node MPI launcher is involved, so OpenMPI is not part of the
-standard preamble. On clusters whose system
+standard preamble. `module load gcc` is required when the system
+`/usr/bin/gcc` is too old for the CUDA toolkit, or when pip will build
+any C/CUDA extension from source (e.g. gpu4pyscf source build,
+sm_120 / Blackwell, niche wheels). On clusters whose system
 default gcc already matches the CUDA toolkit, the explicit `module load
 gcc` line may be unnecessary — leave it in the template anyway and let
 the modulefile

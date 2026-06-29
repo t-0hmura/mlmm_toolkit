@@ -366,7 +366,7 @@ def _snapshot_geometry(g) -> Any:
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects.",
+    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
 )
 @click.option(
     "--embedcharge-cutoff",

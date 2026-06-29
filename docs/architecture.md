@@ -10,7 +10,7 @@ The input is a PDB plus a substrate name. From these the tool automatically gene
 
 The result is a full reaction path produced by the stage pipeline `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft`, where MEP is the minimum-energy path and IRC the intrinsic reaction coordinate.
 
-The package is laid out as **6 physical layer directories** (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`). The role and dependency direction of each are summarised in the §4 layer tables below.
+The package is laid out as **6 physical layer directories** (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`). The role and dependency direction of each are summarized in the §2.1 layer table below.
 
 External code imports directly from the layer directory (`from mlmm.backends.mlmm_calc import MLMMCore`, `from mlmm.core.utils import …`, `import mlmm.io.trj2fig`, etc.); the previous flat-top shim layer has been retired in this release. §2.4 details the two import surfaces this leaves.
 
@@ -53,7 +53,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── common_options.py @add_precision_option / @add_backend_model_option / @add_ml_charge_spin_options et al.
 │ │ ├── decorators.py make_is_param_explicit, bool/YAML helpers, render_cli_exception
 │ │ ├── help_pages.py --help-advanced pager
-│ │ ├── bool_compat.py --flag / --no-flag normalisation
+│ │ ├── bool_compat.py --flag / --no-flag normalization
 │ │ ├── default_group.py subcommand resolver, lazy module import
 │ │ └── preflight.py AmberTools / conda env / GPU preflight
 │ │
@@ -73,7 +73,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ ├── domain/ # === L3 Domain ===
 │ │ ├── bond_changes.py R↔P bond detection
 │ │ ├── bond_summary.py post-IRC diagnostic
-│ │ └── add_elem_info.py PDB element column normaliser
+│ │ └── add_elem_info.py PDB element column normalizer
 │ │
 │ ├── backends/ # === L4a Infra (MLIP + ONIOM) ===
 │ │ ├── __init__.py --precision routing (apply_precision_to_calc_cfg)
@@ -105,7 +105,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 ├── tests/ smoke / unit
 ├── .github/ workflows/ + scripts/ (docs-quality lint helpers; CI-only)
 └── (repo-top sibling, layer-external bundled forks)
- pysisyphus/ ~90 file, repo-internal fork (slimmed; CLI driver + QM backends + wavefunction + dead optimisers / IRC / NEB variants removed)
+ pysisyphus/ ~90 file, repo-internal fork (slimmed; CLI driver + QM backends + wavefunction + dead optimizers / IRC / NEB variants removed)
  thermoanalysis/ 5 file, repo-internal fork
  hessian_ff/ 19 file / 4.2k LOC, NO upstream PyPI, mandatory bundling
 ```
@@ -127,7 +127,7 @@ Domain helpers are reusable by any L2 stage runner.
 
 **L4b `io/`** (7 files). Output-side I/O concerns: per-stage summary writer, energy diagram, trajectory rendering, PDB altloc fix, Hessian cache, numerical Hessian construction + frequency / vibrational I/O (`hessian_calc.py`). `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
 
-**L5 `core/`**. The lowest layer. `defaults.py` is the **single source of truth** for every CLI default — grep here before adding a number anywhere else. `utils.py` is a ~3,200-LOC grab-bag of PDB / XYZ / plotting helpers; future work may split it into `utils/{pdb,plot,coord,yaml,freeze,input_prep}.py`. `logging.py` (`-v` / `-vv` wiring), `calc_eval.py` (per-stage calc evaluation) and `residue_data.py` (residue tables) also live here. The internal-only modules `errors.py`, `types.py` / `_stage.py` are introduced here as they land.
+**L5 `core/`**. The lowest layer. `defaults.py` is the **single source of truth** for every CLI default — grep here before adding a number anywhere else. `utils.py` is a ~3,200-LOC grab-bag of PDB / XYZ / plotting helpers; future work may split it into `utils/{pdb,plot,coord,yaml,freeze,input_prep}.py`. `logging.py` (`-v` / `-vv` wiring), `calc_eval.py` (per-stage calc evaluation) and `residue_data.py` (residue tables) also live here. The internal-only modules `errors.py`, `types.py` / `_stage.py` will be introduced here as they land.
 
 ### 2.4 Lazy-import mechanism (conceptual diagram)
 
@@ -160,7 +160,7 @@ Two import surfaces (the flat-top shim layer was retired in this
 release; downstream code that used `from mlmm.<oldmod>` must migrate
 to the layered path):
 
-1. **Layered import path**: external code imports directly from the layer directory (`from mlmm.backends.mlmm_calc import MLMMCore`, `from mlmm.core.utils import …`, `import mlmm.io.trj2fig`, etc.).
+1. **Layered import path**: external code imports directly from the layer directory (see the §2.1 layer table; e.g. `from mlmm.backends.mlmm_calc import MLMMCore`).
 2. **Root symbol attribute** (`from mlmm import MLMMCore`) — handled by `mlmm/__init__.py:_LAZY_IMPORTS` + PEP 562 `__getattr__`. The five re-exported symbols (`MLMMCore`, `MLMMASECalculator`, `mlmm`, `mlmm_ase`, `mlmm_mm_only`) all resolve to `mlmm.backends.mlmm_calc` and are loaded on first access, so `import mlmm` stays cheap (only `__version__` is eager). There is **no** root module-attribute surface — submodules are reached by their full path (`import mlmm.io.trj2fig`), not as attributes of the top-level package.
 
 The CLI subcommand resolver (`cli/app.py:_LAZY_SUBCOMMANDS`) uses **absolute** module paths (e.g. `"mlmm.workflows.all"`) so that moving `default_group.py` into `cli/` does not silently break subcommand discovery (the registry no longer depends on `__package__`).

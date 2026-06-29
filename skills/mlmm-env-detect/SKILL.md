@@ -58,7 +58,7 @@ constrain which torch CUDA index and which model size you can use.
 
 ### 4. CUDA toolkit
 
-Three places it might live (skill content does not transcribe paths):
+Three places it might live (this skill does not hard-code absolute paths — probe for them):
 
 ```bash
 # 4a. HPC modulefile (most common on managed clusters)
@@ -103,7 +103,7 @@ for env in $(conda env list | awk '/^[a-zA-Z]/{print $1}'); do
 done
 ```
 
-The env that successfully imports `mlmm-toolkit` is your `<YOUR_ENV>`.
+The env where `import mlmm` succeeds is your `<YOUR_ENV>`.
 If none does, see `mlmm-install-backends/SKILL.md`.
 
 ### 8. Loaded modules

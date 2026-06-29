@@ -1,6 +1,6 @@
 # `define-layer`
 
-`mlmm define-layer` partitions an enzyme system into three layers around the ML region and writes the assignments as PDB B-factors. The ML region can be specified via a model PDB, explicit atom indices, or a combination of both. Use it to define the 3-layer ML/MM system for a full-system PDB before single-structure optimization or end-to-end runs.
+`mlmm define-layer` partitions an enzyme system into three layers around the ML region and writes the assignments as PDB B-factors. The ML region can be specified via a model PDB, explicit atom indices, or a combination of both. Use it to define the three-layer ML/MM system for a full-system PDB before single-structure optimization or end-to-end runs.
 
 The three layers and their B-factor encodings:
 

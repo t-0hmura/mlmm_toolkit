@@ -57,7 +57,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 mlmm path-opt -i R.pdb P.pdb --parm real.parm7 -q 0 -m 1 -b uma -o result_path_opt
 ```
 
-### DMF for tough strings
+### DMF for hard-to-converge strings
 
 ```bash
 mlmm path-opt -i R.pdb P.pdb --parm real.parm7 -l 'GPP:-3' --mep-mode dmf -b mace \

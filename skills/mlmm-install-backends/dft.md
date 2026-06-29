@@ -79,7 +79,7 @@ python -c "import mlmm.core.defaults as d; print(d.GEOM_KW_DEFAULT, d.MLMM_CALC_
 | `gpu4pyscf` import succeeds but SCF stalls at start | cuTENSOR not installed | `pip install cutensor-cu12` (optional accelerator; no longer pulled by the `[dft]` extra) |
 | aarch64: `--engine gpu` requested but no `gpu4pyscf` | Architecture not supported | Raises `ClickException`; rerun with `--engine cpu` (or set `dft.engine: cpu` in YAML); expect 10× slower |
 
-## Memory rough-cuts
+## Rough memory estimates
 
 | Atoms | def2-SVP / wB97M-V | def2-TZVPD / wB97M-V |
 |---|---|---|

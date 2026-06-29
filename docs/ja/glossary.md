@@ -14,7 +14,7 @@
 | **real system** | -- | ONIOM 分解における全系（3 層すべて）。parm7 トポロジーで記述され、hessian_ff で MM エネルギーを計算。 |
 | **model system** | -- | ONIOM 分解における ML 領域（Layer 1）。MLIP バックエンド（デフォルト: UMA）と MM の両方で評価。 |
 | **リンク水素** | Link Hydrogen | ML 領域と MM 領域の境界で切断された結合をキャップする水素原子。ヤコビアンで力を再分配。 |
-| **hessian_ff** | -- | mlmm-toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析ヘシアンをサポート。 |
+| **hessian_ff** | -- | mlmm-toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析Hessianをサポート。 |
 | **3 層システム** | 3-layer system | mlmm-toolkit の B-factor による層分割方式: ML（B=0.0）、Movable-MM（B=10.0）、Frozen（B=20.0）。 |
 | **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）カラムに層の所属を格納する方式: 0.0 = ML、10.0 = Movable-MM、20.0 = Frozen。Hessian 対象 MM 原子はカットオフ/明示的インデックスで制御。 |
 
@@ -57,11 +57,11 @@
 
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
-| **L-BFGS** | Limited-memory BFGS | 勾配履歴からヘシアンを近似する準ニュートン法。`--opt-mode grad` で使用。 |
-| **RFO** | Rational Function Optimization | 明示的なヘシアン情報を使用する信頼領域最適化法。`--opt-mode hess` で使用。 |
+| **L-BFGS** | Limited-memory BFGS | 勾配履歴からHessianを近似する準ニュートン法。`--opt-mode grad` で使用。 |
+| **RFO** | Rational Function Optimization | 明示的なHessian情報を使用する信頼領域最適化法。`--opt-mode hess` で使用。 |
 | **RS-I-RFO** | Restricted-Step Image-RFO | 1 つの負固有値方向に沿う、鞍点（TS）最適化用の RFO 変種。 |
-| **Dimer** | Dimer Method | 完全なヘシアンを計算せずに最低曲率モードを推定する TS 最適化法。`--opt-mode grad` の TSOPT で使用。 |
-| **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非凍結）原子のヘシアンブロックのみを使用した振動数計算。`freq` のデフォルト。 |
+| **Dimer** | Dimer Method | 完全なHessianを計算せずに最低曲率モードを推定する TS 最適化法。`--opt-mode grad` の TSOPT で使用。 |
+| **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非凍結）原子のHessianブロックのみを使用した振動数計算。`freq` のデフォルト。 |
 
 ---
 
@@ -75,7 +75,7 @@
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。専用の conda 環境で `pip uninstall fairchem-core`（UMA の pin が `e3nn` で衝突するため）を実行してから `pip install mace-torch` でインストールします。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install "mlmm-toolkit[aimnet]"` で追加インストール。 |
 | **xTB** | Extended Tight-Binding | 半経験的量子化学手法。mlmm では `--embedcharge` 有効時に点電荷埋め込み補正に使用。 |
-| **解析ヘシアン** | Analytical Hessian | エネルギーの正確な二階微分を計算。高速だが VRAM を多く消費。現在 UMA バックエンドでのみ利用可能。 |
+| **解析Hessian** | Analytical Hessian | エネルギーの正確な二階微分を計算。高速だが VRAM を多く消費。現在 UMA バックエンドでのみ利用可能。 |
 | **有限差分** | Finite Difference | 微小変位による微分近似。低速だがメモリ効率が良い。ORB、MACE、AIMNet2 バックエンドで使用。 |
 
 ---
@@ -102,7 +102,7 @@
 | **ポケット** | Active-site Pocket | `extract` サブコマンドで基質周辺から切り出した部分構造。ML/MM ワークフローでは ML 領域と周辺 MM 環境を定義する。 |
 | **リンク水素** | Link Hydrogen | ポケット抽出時に切断された結合をキャップするために付加する水素原子。 |
 | **主鎖** | Backbone | タンパク質の主骨格（N-Ca-C-O 原子）。`--exclude-backbone` で除外可能。 |
-| **B-factor** | Temperature Factor | PDB の温度因子カラム。mlmm では 3 層の層割り当てをエンコードするために使用（0.0, 10.0, 20.0）。 |
+| **B-factor** | Temperature Factor | PDB の温度因子カラム。mlmm では 3 層への割り当てをエンコードするために使用（0.0, 10.0, 20.0）。 |
 
 ---
 
@@ -148,4 +148,4 @@
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- よくあるエラーと対処法
 - [YAML リファレンス](yaml-reference.md) -- 設定ファイルの仕様
-- [ML/MM 計算機](mlmm-calc.md) -- 機械学習ポテンシャルの詳細
+- [ML/MM calculator](mlmm-calc.md) -- 機械学習ポテンシャルの詳細

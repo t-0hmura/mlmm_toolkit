@@ -37,7 +37,7 @@ accept:
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
 | `-q, --charge` | **ML-region** charge (not whole-system); stored as `model_charge` |
-| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
+| `-l, --ligand-charge` | Per-residue ML-region charge mapping |
 
 Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 

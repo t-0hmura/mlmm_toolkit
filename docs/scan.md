@@ -1,6 +1,6 @@
 # `scan`
 
-Drive a reaction coordinate on a layered enzyme PDB by scanning bond distances under harmonic restraints with the ML/MM calculator. Use it to generate a coarse reaction trajectory from a single starting structure by driving one or more interatomic distances toward target values, providing intermediate/product candidates for downstream MEP refinement. `mlmm scan` performs a staged, bond-length-driven scan with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under harmonic restraints. At each step the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and mlmm-toolkit's MM force field. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
+`mlmm scan` drives a reaction coordinate on a layered enzyme PDB to generate a coarse reaction trajectory from a single starting structure, providing intermediate/product candidates for downstream MEP refinement. It performs a staged, bond-length-driven scan with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`), driving one or more interatomic distances toward target values under harmonic restraints. At each step the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and mlmm-toolkit's MM force field. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
 
 ## Examples
 
@@ -64,7 +64,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Outputs
 
-Each stage writes its final geometry and biased-step trajectory under `stage_XX/`, with a combined trajectory at the root. The files you check first are the per-stage `result.pdb` (or `result.xyz`) and the always-generated `scan_trj.xyz` / `scan.pdb`.
+Each stage writes its final geometry and biased-step trajectory under `stage_XX/`, with a combined trajectory at the root. Check the per-stage `result.pdb` (or `result.xyz`) and the always-generated `scan_trj.xyz` / `scan.pdb` first.
 
 ```
 out_dir/ (default: ./result_scan/)
@@ -114,7 +114,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects. | `False` |
+| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |

@@ -1,6 +1,6 @@
 # `oniom-orca`
 
-Export an ML/MM system to ORCA QM/MM (`.inp`) using an Amber parm7 topology. This is the ORCA detail mode of `oniom-export` (`mlmm oniom-export --mode orca`). It reads topology information from an Amber parm7 file, maps a model-region PDB to the QM atoms, resolves ORCAFF parameters, and writes a single ORCA QM/MM input file ready for an ORCA 6.0 run.
+Export an ML/MM system to ORCA QM/MM (`.inp`) using an Amber parm7 topology. This is the ORCA-specific detail page for `oniom-export` (`mlmm oniom-export --mode orca`). It reads topology information from an Amber parm7 file, maps a model-region PDB to the QM atoms, resolves ORCAFF parameters, and writes a single ORCA QM/MM input file ready for an ORCA 6.0 run.
 
 ## Examples
 

@@ -35,7 +35,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
     - Integer literal -- the corresponding 0-based frame index.
 3. Convert energies to either kcal/mol (default) or Hartree and, when a
     reference is active, subtract the reference value to produce delta-E.
-4. Build the Plotly figure (strong ticks, spline interpolation, markers, no
+4. Build the Plotly figure (bold ticks, spline interpolation, markers, no
     title) and export it to every requested extension.
 5. Optionally emit a CSV table of the per-frame energies (see Outputs for the column layout).
 
@@ -48,7 +48,7 @@ mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 - When no `-o` or positional outputs are provided, a single `energy.png` is written
   to the current directory.
 - CSV exports include `frame`, `energy_hartree`, and either a delta-E column
-  (`delta_kcal`/`delta_hartree`) or absolute column (`energy_kcal`/`energy_hartree`
+  (`delta_kcal`/`delta_hartree`) or an absolute column (`energy_kcal`/`energy_hartree`
   when no reference is applied).
 - PNG uses Plotly's PNG export with `scale=2` for higher resolution.
 
@@ -58,7 +58,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | XYZ trajectory whose second line stores energies. | Required |
+| `-i, --input PATH` | XYZ trajectory whose per-frame comment line stores energies. | Required |
 | `-o, --out PATH` | Repeatable output filenames; supports `.png`, `.jpg`/`.jpeg`, `.html`, `.svg`, `.pdf`, `.csv`. | `energy.png` |
 | _extra arguments_ | Positional filenames listed after options; merged with the `-o` list. | _None_ |
 | `--unit {kcal,hartree}` | Target unit for the plotted/exported values. | `kcal` |

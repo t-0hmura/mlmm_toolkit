@@ -1,6 +1,6 @@
 # `scan2d`
 
-調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。2 つの反応距離（例: 結合形成 + 結合切断）に対する 2D ポテンシャル面をマッピングし、1D スキャンでは見落とすサドル点や分岐構造を特定したいときに使用します。`mlmm scan2d` は `--max-step-size` を使用して 2 つの結合距離の線形グリッドを構築し、適切な拘束を適用して各グリッド点を緩和し、バイアスなしの ML/MM エネルギーを可視化用に記録します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。どちらの形式も正確に 2 つのスキャン軸を受け付けます。3D の `scan2d_landscape.html` には底面投影付きのコンターが含まれます。
+調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。2 つの反応距離（例: 結合形成 + 結合切断）に対する 2D ポテンシャル面をマッピングし、1D スキャンでは見落とすサドル点や分岐構造を特定したいときに使用します。`mlmm scan2d` は `--max-step-size` を使用して 2 つの結合距離の線形グリッドを構築し、適切な拘束を適用して各グリッド点を緩和し、バイアスなしの ML/MM エネルギーを可視化用に記録します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。どちらの形式も正確に 2 つのスキャン軸を受け付けます。3D の `scan2d_landscape.html` には底面に投影した等高線が含まれます。
 
 ## 実行例
 
@@ -52,7 +52,7 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 
-1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM 計算機（MLIP バックエンド + hessian_ff）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。`-b/--backend` で ML バックエンドを選択（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化可能。
+1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM calculator（MLIP バックエンド + hessian_ff）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。`-b/--backend` で ML バックエンドを選択（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化可能。
 2. **グリッド構築** -- `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からターゲットを 2 つの 4 要素タプルに解析し、インデックスを正規化（デフォルト 1 始まりまたは `"TYR,285,CA"` のような PDB 原子セレクター）。`ceil(|high - low| / h) + 1` 点の線形グリッドを構築（`h = --max-step-size`）。
 3. **外側ループ（d1）** -- 各 d1 値について、**d1 拘束のみ**で系を緩和。
 4. **内側ループ（d2）** -- 現在の d1 での各 d2 値について、最も近い収束済み構造から開始し**両方の拘束**で緩和。
@@ -92,7 +92,7 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
-| `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å) — ヘシアン計算に含める MM 原子を指定。`--detect-layer` と併用可能。 | _None_ |
+| `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å) — Hessian計算に含める MM 原子を指定。`--detect-layer` と併用可能。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
 | `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出、`pairs` に 2 つの 4 要素タプル）またはインライン Python リテラル `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | 必須 |
 | `--one-based / --zero-based` | `-s/--scan-lists` の `(i,j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
@@ -110,10 +110,10 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `--zmin FLOAT` | コンターカラースケールの下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | コンターカラースケールの上限（kcal/mol）。 | 自動スケール |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
+| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的ヘシアン vs OpenMM 有限差分）。 | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的Hessian vs OpenMM 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子の配置: scaled（$g$ ファクター）または fixed（固定 1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
@@ -131,7 +131,7 @@ pairs:
  - [10, 55, 1.20, 3.20]
 ```
 
-- `pairs` は必須で、正確に 2 つの 4 要素タプルを含む必要があります。
+- `pairs` は必須で、ちょうど 2 つの 4 要素タプルを含む必要があります。
 - 各 4 要素タプルは `(i, j, low_A, high_A)` です。
 - インデックスは整数または PDB セレクター（インラインリテラルと同じ）が使用可能です。
 

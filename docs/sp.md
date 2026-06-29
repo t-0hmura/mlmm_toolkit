@@ -1,6 +1,6 @@
 # `sp`
 
-`mlmm sp` evaluates the ML/MM ONIOM energy + atomic forces (optionally the full ONIOM Hessian) at a single geometry. Use it for fast inspection of a layered structure before running an optimization, for comparing backends head-to-head on the same ONIOM partition, or for generating reference Hessians outside the optimizer loop.
+`mlmm sp` evaluates the ML/MM ONIOM energy + atomic forces (optionally the full ONIOM Hessian) at a single geometry. Use it for fast inspection of a layered structure before running an optimization, for comparing backends directly on the same ONIOM partition, or for generating reference Hessians outside the optimizer loop.
 
 ## Examples
 
@@ -20,7 +20,7 @@ mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 
 ## Outputs
 
-`sp` writes outputs under `result_sp/` by default. The ONIOM energy is also printed to stdout; the JSON files (identical payload mirrored to both names) are emitted only when `--out-json` is passed.
+`sp` writes outputs under `result_sp/` by default. The ONIOM energy is also printed to stdout; the JSON files (written to both `result.json` and `summary.json` with identical content) are emitted only when `--out-json` is passed.
 
 | file | contents | written |
 |---|---|---|
@@ -60,7 +60,7 @@ Either embed the partition in the input PDB's B-factor (ML=0.0, movable-MM=10.0,
 
 When `--hess` is set, the backend choice picks the Hessian computation strategy:
 
-- `--backend uma` (default) → `Analytical` Hessian for the ML region via the UMA torch autograd path; MM region uses `hessian_ff` analytical Hessian
+- `--backend uma` (default) → `Analytical` Hessian for the ML region via the UMA torch autograd path; the MM region uses the `hessian_ff` analytical Hessian
 - `--backend orb` / `mace` / `aimnet2` → falls back to `FiniteDifference` for the ML region
 
 `--hessian-calc-mode` lets you override per-call.

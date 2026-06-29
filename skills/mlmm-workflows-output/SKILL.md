@@ -7,7 +7,7 @@ description: Output parsing and multi-step workflow selection for mlmm-toolkit â
 
 ## Purpose
 
-This skill ties the per-subcommand mds in `mlmm-cli/` together
+This skill ties the per-subcommand `.md` files in `mlmm-cli/` together
 into **end-to-end recipes** and explains how to read the resulting
 output trees, JSON, and figures. Use this when you have a goal
 ("compute the barrier of step 1 of this enzyme") and want the path

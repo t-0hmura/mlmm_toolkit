@@ -7,7 +7,7 @@ articulate the chemistry as a sequence of staged distance scans —
 e.g. "first push the methyl from S of SAM to C7 of GPP, then snap H11
 to OE2 of GLU186". `mlmm all` runs each stage in order, then ties
 the resulting trajectories into an MEP with single-pass `path-opt`. With
-`--refine-path`, the recursive bond-change segmentation slots in any
+`--refine-path`, the recursive bond-change segmentation inserts any
 intermediates it finds.
 
 Typical use: multistep methyltransferase mechanisms where the user
@@ -46,7 +46,7 @@ tuples, where each tuple is `(atom_a, atom_b, target_distance_Å)`.
 | `"NAME RESNAME RESID"` | Atom by PDB name + residue name + residue index, separated by single spaces |
 | `"RESNAME\`RESID/NAME"` | Compact form with backticks and slash; same three fields, different separators |
 
-Multiple bonds per stage drive simultaneously. If you want them done
+All bonds in a stage are driven simultaneously. If you want them done
 **sequentially**, split them into separate `--scan-lists` arguments.
 
 Examples:
@@ -68,7 +68,7 @@ Examples:
 
 After scans complete, `mlmm all` stitches the scan trajectories with
 single-pass `path-opt` (GSM) by default; pass `--refine-path` to run the
-recursive `path-search` instead. Switch to DMF only by driving
+recursive `path-search` instead. Switch to DMF only by running
 `mlmm path-search` standalone.
 
 Unlike endpoint-MEP mode, `-i` is **a single PDB** (the reactant). The

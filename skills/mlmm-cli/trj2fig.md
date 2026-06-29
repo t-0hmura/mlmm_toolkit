@@ -19,7 +19,7 @@ mlmm trj2fig -i trajectory.xyz [-o out.png] [-o out.html] [--unit kcal|hartree]
 | flag | type | default | description |
 |---|---|---|---|
 | `-i, --input` | path | required | XYZ trajectory with energy in comment line |
-| `-o, --out` | path (multi) | `energy.png` | Output file(s); repeat `-o` or list extras positionally. Format from suffix. |
+| `-o, --out` | path (multi) | `energy.png` | Output file(s); repeat `-o`, or give additional output paths as positional arguments. Format from suffix. |
 | `--unit` | choice | `kcal` | Energy unit (`kcal` or `hartree`). |
 | `-r, --reference` | str | `init` | Reference: `init` (initial frame), `None` (absolute E), or integer index. |
 | `-q, --charge` | int | — | Total charge; recompute energies when supplied. |

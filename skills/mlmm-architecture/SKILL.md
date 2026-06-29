@@ -54,7 +54,7 @@ Dependency direction is one-way: `L1 → L2 → {L3, L4} → L5`. The bundled fo
 |---|---|
 | Default for any CLI flag | `mlmm/core/defaults.py` (single source of truth — grep here before any other file) |
 | Subcommand body / orchestration | `mlmm/workflows/<subcmd>.py` |
-| New MLIP backend | extend `mlmm/backends/mlmm_calc.py` inline (per-backend split is a future polish) |
+| New MLIP backend | extend `mlmm/backends/mlmm_calc.py` inline (per-backend split is a future refinement) |
 | `--help` / option decorator | `mlmm/cli/common_options.py` (shared) or the subcommand file (inline) |
 | ONIOM layer assignment (B-factor channels) | `mlmm/workflows/define_layer.py` |
 | AMBER parm7 / rst7 generation | `mlmm/workflows/mm_parm.py` |
