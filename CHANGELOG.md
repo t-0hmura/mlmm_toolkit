@@ -120,6 +120,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   now fails in O(ms) instead of after the multi-second ML model load.
 
 ### Added
+- `--calc-file PATH` (with `--calc-factory NAME`): drive the ML region with an
+  arbitrary ASE Calculator loaded from a user Python file (a `custom` backend) —
+  usable on every subcommand and forwarded through the `all` pipeline. Couple
+  GFN-xTB, DFTB+, ORCA, or any ASE-compatible engine without modifying the
+  package; the MM side and ONIOM coupling are unchanged and Hessians use the
+  finite-difference path. See `docs/backends.md`.
 - `--backend-model NAME` flag on every backend-using subcommand (`opt`,
   `tsopt`, `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`,
   `path-search`, `sp`, `all`) to override the model variant for the selected
