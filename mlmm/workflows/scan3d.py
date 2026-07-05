@@ -83,7 +83,6 @@ from mlmm.core.utils import (
 from mlmm.workflows.scan_common import add_scan_common_options, make_scan_lbfgs as _make_lbfgs
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
-    add_coord_type_option,
     add_print_every_option,
     add_precision_option, add_backend_model_option, add_calc_file_option,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,

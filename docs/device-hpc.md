@@ -71,7 +71,7 @@ Use `--hess-device cpu` when:
 
 ## Precision by GPU class
 
-`--precision` selects the MLIP backend floating-point precision (`fp32` or `fp64`, case-insensitive). The effective default is `fp32`. The right choice depends on the GPU class you are running on:
+`--precision` selects the MLIP backend floating-point precision (`fp32` or `fp64`, case-insensitive). When `--precision` is not passed, each backend keeps its own default: `fp32` for UMA and ORB, but `float64` (fp64) for MACE. The right choice depends on the GPU class you are running on:
 
 | Hardware | Recommended | Reasoning |
 | --- | --- | --- |

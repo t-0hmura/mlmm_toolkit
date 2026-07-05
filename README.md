@@ -40,7 +40,7 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 | GPU / CUDA / VRAM | NVIDIA GPU, CUDA >= 12.6 (12.8+ recommended; required for RTX 50-series). 8 GB+ VRAM recommended. |
 | RAM / Disk | 32 GB+ RAM recommended; 20 GB free disk for the conda env, AmberTools, UMA cache, and artifacts. |
 
-Required external tools: **AmberTools** (`tleap`) and **pdbfixer** — `conda install -c conda-forge ambertools pdbfixer -y`. CPU-only execution works for setup commands but is 10–100× slower for any ML/MM dynamics or Hessian step. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
+Required external tools: **AmberTools** (`tleap`). **pdbfixer** is optional — only `mm-parm --add-h` needs it — `conda install -c conda-forge ambertools pdbfixer -y` installs both. CPU-only execution works for setup commands but is 10–100× slower for any ML/MM dynamics or Hessian step. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
 
 ## Installation
 

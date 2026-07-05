@@ -79,7 +79,6 @@ from mlmm.domain.bond_changes import compare_structures, summarize_changes
 from mlmm.cli.common_options import (
     add_ml_charge_spin_options,
     add_ml_layer_detection_options,
-    add_coord_type_option,
     add_print_every_option,
     add_precision_option, add_backend_model_option, add_calc_file_option,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
