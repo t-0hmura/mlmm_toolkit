@@ -289,26 +289,6 @@ _EXTRACT_ALL_FLAGS = (
 )
 
 
-def _gather_extract_variadic(
-    ctx_args: List[str],
-    flag_names: Sequence[str],
-) -> List[str]:
-    """Collect variadic positional values after *flag_names* from Click extra args."""
-    names_set = set(flag_names)
-    stop_set = set(_EXTRACT_ALL_FLAGS)
-    vals: List[str] = []
-    i = 0
-    while i < len(ctx_args):
-        tok = ctx_args[i]
-        if tok in names_set:
-            j = i + 1
-            while j < len(ctx_args) and ctx_args[j] not in stop_set:
-                vals.append(ctx_args[j])
-                j += 1
-            i = j
-        else:
-            i += 1
-    return vals
 
 
 def _extract_verbose_callback(ctx: "click.Context", param: "click.Parameter", value: int) -> int:

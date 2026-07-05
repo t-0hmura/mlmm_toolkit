@@ -1112,32 +1112,6 @@ def nearest_index(point, pool):
     return best_i, math.sqrt(best_d2)
 
 
-def detect_freeze_links(pdb_path):
-    """Identify link-parent atom indices for 'LKH'/'HL' link hydrogens.
-
-    For each 'HL' atom in residue 'LKH', find the nearest atom among all other
-    ATOM/HETATM records and return the indices of those nearest neighbors in the
-    same atom ordering used by geometry loading (first MODEL if present).
-
-    Args:
-        pdb_path: Path to the input PDB file.
-
-    Returns:
-        List of 0-based indices into the full atom sequence (including any link H atoms)
-        corresponding to the nearest neighbors (link parents). Returns an empty list if
-        no LKH/HL atoms are present or if link hydrogens exist without any other atoms.
-    """
-    others, lkhs = parse_pdb_coords(pdb_path)
-
-    if not lkhs or not others:
-        return []
-
-    indices = []
-    for (x, y, z, _line) in lkhs:
-        idx, dist = nearest_index((x, y, z), others)
-        if idx >= 0:
-            indices.append(idx)
-    return indices
 
 
 def apply_layer_freeze_constraints(

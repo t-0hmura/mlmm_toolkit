@@ -221,6 +221,11 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                               atomic_numbers: List[int],
                               coords_bohr: np.ndarray,
                               device: torch.device,
+                              # tol is a mass-weighted eigenvalue (ω², au) floor for numerical-noise
+                              # removal: 1e-6 au(ω²) ≈ 5.14 cm⁻¹, so near-zero modes (FD/analytical
+                              # Hessian noise, translation/rotation residue) are dropped before the
+                              # imaginary count and thermochemistry. NOT a physical soft-mode cutoff;
+                              # tsopt counts imaginary at neg_freq_thresh_cm=5.0 (≈ the same floor).
                               tol: float = 1e-6,
                               freeze_idx: Optional[List[int]] = None) -> Tuple[np.ndarray, torch.Tensor]:
     """

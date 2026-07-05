@@ -35,7 +35,10 @@ tests/smoke/result_*/
 tests/smoke/internal_coords.log
 tests/smoke/*_smoke.pdb
 tests/smoke/*_smoke_refactor.pdb
-tests/smoke/test_*.png
+tests/smoke/test*.png
+# local HPC launcher + its log (personal paths / cluster env; never distributed)
+tests/smoke/*.pbs
+tests/smoke/*_smoke.out
 tests/smoke/pocket_r.pdb
 tests/smoke/r_complex_layered.pdb
 tests/smoke/r_complex_elem.pdb
