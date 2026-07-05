@@ -283,18 +283,28 @@ class _UMABackend(_MLBackend):
         return self._device
 
     def eval(self, atoms: Atoms, need_grad: bool = True) -> Tuple[float, np.ndarray, Any]:
-        atoms.info.update({"charge": self.model_charge, "spin": self.model_mult - 1})
+        # fairchem/OMol wants atoms.info["spin"] = spin MULTIPLICITY (2S+1), i.e. singlet=1,
+        # doublet=2, triplet=3 (verified empirically: O2 ground state minimizes at spin=3, and
+        # spin=0 is fairchem's NULL token, NOT a singlet). `model_mult` is already the
+        # multiplicity, so pass it directly. (Was `model_mult - 1` = unpaired-electron count,
+        # which sent singlets to the null token and shifted every open-shell state by one.)
+        atoms.info.update({"charge": self.model_charge, "spin": self.model_mult})
         # When the inference path uses fp64, hand AtomicData the matching
         # target dtype so it does not down-cast positions to fp32 only to be
         # re-upcasted (and emit the fairchem `Upcasting atomic coordinates`
         # WARNING on every call). fp32 path keeps fairchem's default.
         target_dtype = torch.float64 if self.precision == "fp64" else torch.float32
+        # r_data_keys=["spin", "charge"] is REQUIRED: fairchem's AtomicData.from_ase only
+        # reads charge/spin from atoms.info when the key is listed here, else it HARDCODES
+        # both to 0 (older fairchem read atoms.info unconditionally; a version bump gated it).
+        # Without this the UMA backend silently ran at charge=0/spin=0(null) regardless of input.
         data = self._AtomicData.from_ase(
             atoms,
             max_neigh=self._uma_max_neigh,
             radius=self._uma_radius,
             r_edges=False,
             target_dtype=target_dtype,
+            r_data_keys=["spin", "charge"],
         ).to(self._device)
         data.dataset = self.uma_task_name
         batch = self._data_list_collater([data], otf_graph=True).to(self._device)
@@ -374,12 +384,17 @@ class _ASEMLBackend(_MLBackend):
         atoms_copy = atoms.copy()
         atoms_copy.calc = self._ase_calc
         # Propagate charge/spin to ASE Atoms info for backends that use them.
-        # AIMNet2 reads 'charge' + 'mult'; ORB reads 'charge' + 'spin'
-        # (where spin = number of unpaired electrons = mult - 1). Set both so
-        # this ASE-based backend dispatcher is backend-agnostic.
+        # AIMNet2 reads 'charge' + 'mult'; ORB/MACE (OMol) read 'charge' + 'spin'.
+        # OMol-trained models (ORB/MACE OMOL, like fairchem UMA) expect the "spin" key
+        # to be the spin MULTIPLICITY (2S+1): singlet=1, doublet=2, triplet=3, and spin=0 is
+        # a NULL/unspecified token, NOT a singlet. Verified empirically for orb_v3_conservative_omol
+        # (O2 energy minimizes at spin=3; N2 at spin=1; spin=0 is +1.8 eV off the singlet).
+        # Was `model_mult - 1` (unpaired-electron count), which sent every default singlet to the
+        # null token and shifted open-shell states by one. AIMNet2 uses the separate "mult" key
+        # (already the multiplicity), so it is unaffected by the "spin" value.
         atoms_copy.info["charge"] = self._model_charge
         atoms_copy.info["mult"] = self._model_mult
-        atoms_copy.info["spin"] = int(self._model_mult) - 1
+        atoms_copy.info["spin"] = int(self._model_mult)
         E = float(atoms_copy.get_potential_energy())
         F = np.array(atoms_copy.get_forces(), dtype=np.float64)
         return E, F, None

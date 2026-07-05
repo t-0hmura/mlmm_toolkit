@@ -94,11 +94,14 @@ def recompute_energies(
     energies_h: List[float] = []
     for atoms in frames:
         atoms.info.update({"charge": q, "spin": mult})
+        # r_data_keys is REQUIRED or fairchem's from_ase hardcodes charge=0/spin=0 (see
+        # backends/mlmm_calc.py). "spin"=mult here is already the multiplicity (correct).
         data = AtomicData.from_ase(
             atoms,
             max_neigh=uma_max_neigh,
             radius=uma_radius,
             r_edges=False,
+            r_data_keys=["spin", "charge"],
         ).to(device)
         data.dataset = "omol"
         batch = data_list_collater([data], otf_graph=True).to(device)
