@@ -116,6 +116,16 @@ ION: Dict[str, int] = {
 
     # -1
     "F": -1, "CL": -1, "BR": -1, "I": -1, "CL-": -1, "IOD": -1,
+
+    # Amber-style mixed-case aliases: some consumers (e.g. mm_parm) look up the
+    # raw PDB residue name without upper-casing, and Amber writes ions like "Na+"
+    # / "Cl-" / "Be". Same charges as the upper-case keys above; kept so a single
+    # canonical ION table serves both the upper-casing (extract) and raw-name paths.
+    "Na+": +1, "Ag": +1, "Tl": +1,
+    "Be": +2, "Ra": +2, "Sn": +2,
+    "Ce": +3, "Cr": +3, "Dy": +3, "Er": +3, "Nd": +3, "Pu": +3, "Sm": +3, "Tm": +3,
+    "Hf": +4, "Th": +4, "Zr": +4,
+    "Cl-": -1,
 }
 
 WATER_RES = {"HOH", "WAT", "H2O", "DOD", "TIP", "TIP3", "SOL"}
