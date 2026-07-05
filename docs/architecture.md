@@ -81,6 +81,8 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ │ Future: split into base.py + per-backend uma.py / orb.py
 │ │ │ / mace.py / aimnet2.py + ONIOM subdir
+│ │ ├── custom.py user ASE calculator loaded from --calc-file (custom backend)
+│ │ ├── _determinism.py strict-determinism setup (--deterministic)
 │ │ └── xtb_embedcharge_correction.py xTB point-charge embedding correction (--embedcharge)
 │ │
 │ ├── io/ # === L4b Infra (I/O) ===
