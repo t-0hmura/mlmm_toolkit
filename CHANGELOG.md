@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## [0.3.1] — 2026-07-05
+
+### Fixed
+- **Charge/spin were silently dropped on the UMA MLIP path.** `AtomicData.from_ase` was
+  called without `r_data_keys`, so fairchem-core ≥2.x ran the UMA/ORB/MACE backends at
+  charge=0/spin=0 regardless of the requested charge/multiplicity. Now passes
+  `r_data_keys=["spin","charge"]`, and `atoms.info["spin"]` is the spin multiplicity (2S+1)
+  for the OMol backends — it previously used the unpaired-electron count (`mult-1`), which sent
+  closed-shell singlets to the null spin token.
+- `mm-parm` used a local copy of the residue/ion charge tables that had drifted from
+  `mlmm.core.residue_data` (it lacked the phosphorylated S1P/T1P/Y1P and several His tautomers,
+  assigning them charge 0, and used a different disulfide cutoff). It now imports the canonical
+  tables.
+
+### Changed
+- Documentation corrections to match the code (`--precision` per-backend default; `pdbfixer`
+  is optional; backend/architecture notes).
+
 ## [0.3.0] — 2026-06-28
 
 ### Changed
