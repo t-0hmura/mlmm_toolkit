@@ -84,8 +84,9 @@ When `--precision` is not given, each backend takes its own default:
 | `mace` | fp64 | MACE ships `default_dtype="float64"` upstream. |
 | `aimnet2` | fp32 | No precision knob. |
 
-`--precision fp32` downgrades ORB / MACE for throughput; expect noisier Hessians
-and check the imaginary-mode count.
+`--precision fp32` explicitly lowers ORB / MACE precision for throughput. This is not
+recommended outside screening. If you do use it, expect noisier Hessians and check the
+imaginary-mode count.
 
 The unified `--backend-model NAME` flag likewise overrides the model variant
 for the selected `--backend`, routed to the backend's model kwarg
