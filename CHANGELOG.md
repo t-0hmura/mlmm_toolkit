@@ -14,6 +14,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   explicitly to restore the previous behaviour for screening runs.
 
 ### Fixed
+- **MACE backend could not load its own default model.** The `MACE-OMOL-0` default was
+  routed to `mace_off()`, which treats any non-preset, non-URL string as a local file
+  path (raising `FileNotFoundError`). It now uses the dedicated `mace_omol` factory.
+- **An analytical-Hessian request the backend cannot honour now warns instead of
+  degrading silently.** ORB/MACE/AIMNet2 expose no analytical Hessian; `--hessian-calc-mode
+  analytical` falls back to finite differences with a warning.
+- **`make_is_param_explicit` logs on a failed parameter-source query.** Behaviour is
+  unchanged (still treats the param as not explicit); the debug log makes a genuine
+  typo diagnosable, matching pdb2reaction's `cli_param_overridden`.
 - **Smoke `--deterministic` gate (test44) rebuilt the MM parm in each run, exposing non-deterministic antechamber
   AM1-BCC charges.** The gate runs the ONIOM pipeline twice with `--deterministic` and asserts bit-identical
   geometry/MEP output. Each run regenerated the MM `parm7` via antechamber; for this substrate the sqm AM1 SCF is

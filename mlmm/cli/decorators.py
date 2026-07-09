@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 import textwrap
 import time
@@ -14,6 +15,8 @@ import click
 
 from mlmm.core.utils import deep_update, load_yaml_dict
 
+logger = logging.getLogger(__name__)
+
 
 
 def make_is_param_explicit(ctx: "click.Context"):
@@ -23,7 +26,11 @@ def make_is_param_explicit(ctx: "click.Context"):
         try:
             source = ctx.get_parameter_source(name)
             return source not in (None, ParameterSource.DEFAULT)
-        except Exception:
+        except Exception as exc:
+            # Unknown param name: treat as not explicit (fall through to
+            # YAML/defaults) rather than letting a Click default outrank a
+            # --config entry. Log so a genuine typo is diagnosable.
+            logger.debug("make_is_param_explicit: failed to query source for %r: %s", name, exc)
             return False
     return _is_param_explicit
 

@@ -536,7 +536,7 @@ class _MACEBackend(_ASEMLBackend):
                 "mace-torch is required for the MACE backend. "
                 "Install with `pip install mace-torch`."
             )
-        from mace.calculators import mace_off, mace_mp, mace_anicc
+        from mace.calculators import mace_off, mace_mp, mace_anicc, mace_omol
 
         device_str = "cuda" if ml_device.type == "cuda" else "cpu"
         model_lower = mace_model.lower()
@@ -555,9 +555,13 @@ class _MACEBackend(_ASEMLBackend):
         elif model_lower.startswith("anicc") or model_lower.startswith("mace-anicc"):
             self._ase_calc = mace_anicc(device=device_str, default_dtype=mace_dtype)
         elif model_lower.startswith("omol") or model_lower.startswith("mace-omol"):
-            # MACE-OMOL uses mace_off with the omol model
-            self._ase_calc = mace_off(
-                model=mace_model, device=device_str, default_dtype=mace_dtype
+            # MACE-OMOL loads via the dedicated mace_omol factory. Routing it
+            # through mace_off (as before) fails: mace_off treats any non-preset,
+            # non-URL string as a LOCAL file path, so the default "MACE-OMOL-0"
+            # raises FileNotFoundError. mace_omol maps "extra_large"/None to the
+            # published OMOL-0 checkpoint.
+            self._ase_calc = mace_omol(
+                model="extra_large", device=device_str, default_dtype=mace_dtype
             )
         else:
             # Treat as a local model file or direct mace_off model
@@ -1942,6 +1946,15 @@ class MLMMCore:
                 local_timing["ml_hessian_mode"] = "Analytical"
                 local_timing["ml_hessian_s"] = time.perf_counter() - t0
             else:
+                if self._ml_hessian_mode == "analytical" and not self._ml_backend.supports_analytical_hessian:
+                    # An explicit analytical request the backend cannot honour
+                    # (ORB/MACE/AIMNet2 expose no analytical Hessian) degrades to
+                    # finite differences — say so instead of degrading silently.
+                    warnings.warn(
+                        f"analytical Hessian is unavailable for the {self.backend_name} "
+                        f"backend; falling back to finite differences.",
+                        stacklevel=2,
+                    )
                 t0 = time.perf_counter()
                 H_high = self._ml_backend.hessian_fd(
                     atoms_model_LH, freeze_model,
