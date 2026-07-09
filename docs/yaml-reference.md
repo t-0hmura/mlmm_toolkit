@@ -62,13 +62,13 @@ calc:
  backend: uma # MLIP backend: "uma", "orb", "mace", or "aimnet2"
 
  # --- UMA backend settings ---
- uma_model: uma-s-1p1 # uma-s-1p1 | uma-m-1p1
+ uma_model: uma-s-1p2 # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
  uma_precision: fp32 # fp32 | fp64 (UMA backend numerical precision)
 
  # --- ORB backend settings ---
  orb_model: orb_v3_conservative_omol  # ORB model name (ORB backend only)
- orb_precision: float32-high  # ORB floating-point precision (ORB backend only; "float32" accepted as a legacy alias)
+ orb_precision: float64  # ORB floating-point precision, default (ORB backend only; "float32-high" = TF32 matmul, also reachable via --precision fp32; "float32" accepted as a legacy alias)
 
  # --- MACE backend settings ---
  mace_model: MACE-OMOL-0 # MACE model name (MACE backend only)
@@ -621,7 +621,7 @@ calc:
  model_mult: 1
  backend: uma                  # MLIP backend: "uma", "orb", "mace", or "aimnet2"
  embedcharge: false            # xTB point-charge embedding correction
- uma_model: uma-s-1p1          # uma-s-1p1 | uma-m-1p1
+ uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # Recommended when VRAM permits
  mm_device: cpu

@@ -64,11 +64,11 @@ calc:
  xtb_workdir: tmp # xTB 作業ディレクトリ
  xtb_keep_files: false # xTB 一時ファイルを保持
  xtb_ncores: 4 # xTB のコア数
- uma_model: uma-s-1p1 # UMA モデル名: uma-s-1p1, uma-m-1p1
+ uma_model: uma-s-1p2 # UMA モデル名: uma-s-1p2, uma-m-1p1
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  uma_precision: fp32 # fp32 | fp64 (UMA バックエンドの数値精度)
  orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
- orb_precision: float32-high  # ORB 浮動小数点精度 (backend=orb 時; レガシー "float32" alias は受理)
+ orb_precision: float64  # ORB 浮動小数点精度の既定 (backend=orb 時; "float32-high" は TF32 matmul で --precision fp32 でも選択可、レガシー "float32" alias は受理)
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
@@ -596,7 +596,7 @@ calc:
  model_mult: 1
  backend: uma                  # ML バックエンド: uma | orb | mace | aimnet2
  embedcharge: false            # xTB 点電荷埋め込み補正
- uma_model: uma-s-1p1          # uma-s-1p1 | uma-m-1p1
+ uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # VRAM に余裕がある場合に推奨
  mm_device: cpu

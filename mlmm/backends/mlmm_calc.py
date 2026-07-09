@@ -64,6 +64,8 @@ import parmed as pmd
 from hessian_ff import ForceFieldTorch, load_coords, load_system
 from hessian_ff.analytical_hessian import build_analytical_hessian
 
+from mlmm.core.defaults import DEFAULT_UMA_MODEL  # noqa: E402
+
 # Optional OpenMM import
 try:
     import openmm as mm
@@ -88,6 +90,14 @@ try:
     HAS_FAIRCHEM = True
 except ImportError:
     HAS_FAIRCHEM = False
+
+# Optional: parallel MLIP predictor, only needed when workers > 1.
+try:
+    from fairchem.core.units.mlip_unit.predict import ParallelMLIPPredictUnit
+    from fairchem.core.units.mlip_unit.api.inference import guess_inference_settings
+except Exception:
+    ParallelMLIPPredictUnit = None
+    guess_inference_settings = None
 
 # fp64 base precision: switching OMol-trained UMA from default fp32 to
 # fp64 can have non-trivial impact on TSopt + Hessian numerics. Available
@@ -231,12 +241,14 @@ class _UMABackend(_MLBackend):
     def __init__(
         self,
         *,
-        uma_model: str = "uma-s-1p1",
+        uma_model: str = DEFAULT_UMA_MODEL,
         uma_task_name: str = "omol",
         model_charge: int = 0,
         model_mult: int = 1,
         ml_device: torch.device,
         precision: str = "fp32",
+        workers: int = 1,
+        workers_per_node: int = 1,
     ):
         if not HAS_FAIRCHEM:
             raise ImportError(
@@ -259,24 +271,71 @@ class _UMABackend(_MLBackend):
                 "UMA precision='fp64' requires fairchem-core's InferenceSettings; "
                 "upgrade fairchem-core (≥ 2.0) or pass precision='fp32'."
             )
-        _uma_kwargs = {"device": device_str}
-        if self.precision == "fp64" and _UMAInferenceSettings is not None:
-            _uma_kwargs["inference_settings"] = _UMAInferenceSettings(base_precision_dtype="float64")
-        self.predictor = pretrained_mlip.get_predict_unit(uma_model, **_uma_kwargs)
-        self.predictor.model.eval()
-        for m in self.predictor.model.modules():
-            if isinstance(m, nn.Dropout):
-                m.p = 0.0
+        self.workers = max(int(workers or 1), 1)
+        self.workers_per_node = max(int(workers_per_node or 1), 1)
+        self.parallel_predict = self.workers > 1
+
+        _uma_inference_settings = (
+            _UMAInferenceSettings(base_precision_dtype="float64")
+            if self.precision == "fp64" and _UMAInferenceSettings is not None
+            else None
+        )
+        if self.parallel_predict:
+            # ParallelMLIPPredictUnit spreads inference over `workers` processes but
+            # does NOT expose `.model`; analytical Hessians are therefore unavailable
+            # in this mode (supports_analytical_hessian → False, callers fall back to FD).
+            if ParallelMLIPPredictUnit is None or guess_inference_settings is None:
+                raise ImportError(
+                    "workers>1 requested, but ParallelMLIPPredictUnit/guess_inference_settings "
+                    "could not be imported from fairchem. Install `fairchem-core[extras]`."
+                )
+            ckpt_path = pretrained_mlip.pretrained_checkpoint_path_from_name(uma_model)
+            inference_settings = _uma_inference_settings or guess_inference_settings("default")
+            atom_refs = pretrained_mlip.get_reference_energies(uma_model, reference_type="atom_refs")
+            form_elem_refs = pretrained_mlip.get_reference_energies(uma_model, reference_type="form_elem_refs")
+            self.predictor = ParallelMLIPPredictUnit(
+                inference_model_path=str(ckpt_path),
+                device=device_str,
+                inference_settings=inference_settings,
+                atom_refs=atom_refs,
+                form_elem_refs=form_elem_refs,
+                num_workers=self.workers,
+                num_workers_per_node=self.workers_per_node,
+            )
+        else:
+            # Serial in-process predictor (default). Left byte-identical to the
+            # pre-workers path so the workers=1 default is unchanged.
+            _uma_kwargs = {"device": device_str}
+            if _uma_inference_settings is not None:
+                _uma_kwargs["inference_settings"] = _uma_inference_settings
+            self.predictor = pretrained_mlip.get_predict_unit(uma_model, **_uma_kwargs)
+
         self.uma_task_name = uma_task_name
         self.model_charge = model_charge
         self.model_mult = model_mult
-        backbone = getattr(self.predictor.model, "module", self.predictor.model).backbone
-        self._uma_max_neigh = getattr(backbone, "max_neighbors", None)
-        self._uma_radius = getattr(backbone, "cutoff", None)
+        # ParallelMLIPPredictUnit has no `.model`; guard every torch-model access.
+        self._has_torch_model = hasattr(self.predictor, "model") and isinstance(
+            getattr(self.predictor, "model", None), nn.Module
+        )
+        if self._has_torch_model:
+            self.predictor.model.eval()
+            for m in self.predictor.model.modules():
+                if isinstance(m, nn.Dropout):
+                    m.p = 0.0
+            backbone = getattr(self.predictor.model, "module", self.predictor.model).backbone
+            self._uma_max_neigh = getattr(backbone, "max_neighbors", None)
+            self._uma_radius = getattr(backbone, "cutoff", None)
+        else:
+            # Graph-construction cutoffs live inside the worker processes; let
+            # AtomicData.from_ase fall back to the checkpoint defaults (None).
+            self._uma_max_neigh = None
+            self._uma_radius = None
 
     @property
     def supports_analytical_hessian(self) -> bool:
-        return True
+        # ParallelMLIPPredictUnit (workers>1) exposes no `.model` for autograd, so
+        # analytical Hessians require the in-process predictor (workers=1).
+        return self._has_torch_model
 
     @property
     def device(self) -> torch.device:
@@ -305,8 +364,19 @@ class _UMABackend(_MLBackend):
             r_edges=False,
             target_dtype=target_dtype,
             r_data_keys=["spin", "charge"],
-        ).to(self._device)
+        )
         data.dataset = self.uma_task_name
+        if self.parallel_predict:
+            # ParallelMLIPPredictUnit moves tensors to its worker devices itself and
+            # exposes no autograd graph; forces come straight from the predictor
+            # output (analytical Hessian is unavailable in this mode, so need_grad
+            # is irrelevant here).
+            batch = self._data_list_collater([data], otf_graph=True)
+            res = self.predictor.predict(batch)
+            E = float(res["energy"].squeeze().detach().item())
+            F = res["forces"].detach().cpu().numpy()
+            return E, F, batch
+        data = data.to(self._device)
         batch = self._data_list_collater([data], otf_graph=True).to(self._device)
         pos = batch.pos.detach().clone().to(self._device)
         pos.requires_grad_(need_grad)
@@ -425,7 +495,7 @@ class _OrbBackend(_ASEMLBackend):
         self,
         *,
         orb_model: str = "orb_v3_conservative_omol",
-        orb_precision: str = "float32-high",
+        orb_precision: str = "float64",
         model_charge: int = 0,
         model_mult: int = 1,
         ml_device: torch.device,
@@ -560,11 +630,13 @@ class _CustomBackend(_ASEMLBackend):
 def _create_ml_backend(
     backend: str,
     *,
-    uma_model: str = "uma-s-1p1",
+    uma_model: str = DEFAULT_UMA_MODEL,
     uma_task_name: str = "omol",
     uma_precision: str = "fp32",
+    workers: int = 1,
+    workers_per_node: int = 1,
     orb_model: str = "orb_v3_conservative_omol",
-    orb_precision: str = "float32-high",
+    orb_precision: str = "float64",
     mace_model: str = "MACE-OMOL-0",
     mace_dtype: str = "float64",
     aimnet2_model: str = "aimnet2",
@@ -600,6 +672,8 @@ def _create_ml_backend(
             model_mult=model_mult,
             ml_device=ml_device,
             precision=uma_precision,
+            workers=workers,
+            workers_per_node=workers_per_node,
         )
     elif backend == "orb":
         return _OrbBackend(
@@ -1167,11 +1241,13 @@ class MLMMCore:
         link_atom_method: str = "scaled",
         # ML backend selection
         backend: str = "uma",
-        uma_model: str = "uma-s-1p1",
+        uma_model: str = DEFAULT_UMA_MODEL,
         uma_task_name: str = "omol",
         uma_precision: str = "fp32",
+        workers: int = 1,
+        workers_per_node: int = 1,
         orb_model: str = "orb_v3_conservative_omol",
-        orb_precision: str = "float32-high",
+        orb_precision: str = "float64",
         mace_model: str = "MACE-OMOL-0",
         mace_dtype: str = "float64",
         aimnet2_model: str = "aimnet2",
@@ -1353,6 +1429,8 @@ class MLMMCore:
             uma_model=uma_model,
             uma_task_name=uma_task_name,
             uma_precision=uma_precision,
+            workers=workers,
+            workers_per_node=workers_per_node,
             orb_model=orb_model,
             orb_precision=orb_precision,
             mace_model=mace_model,
@@ -2397,11 +2475,13 @@ class mlmm(PySiCalc):
         link_atom_method: str = "scaled",
         # ML backend selection
         backend: str = "uma",
-        uma_model: str = "uma-s-1p1",
+        uma_model: str = DEFAULT_UMA_MODEL,
         uma_task_name: str = "omol",
         uma_precision: str = "fp32",
+        workers: int = 1,
+        workers_per_node: int = 1,
         orb_model: str = "orb_v3_conservative_omol",
-        orb_precision: str = "float32-high",
+        orb_precision: str = "float64",
         mace_model: str = "MACE-OMOL-0",
         mace_dtype: str = "float64",
         aimnet2_model: str = "aimnet2",
@@ -2471,6 +2551,8 @@ class mlmm(PySiCalc):
             uma_model=uma_model,
             uma_task_name=uma_task_name,
             uma_precision=uma_precision,
+            workers=workers,
+            workers_per_node=workers_per_node,
             orb_model=orb_model,
             orb_precision=orb_precision,
             mace_model=mace_model,

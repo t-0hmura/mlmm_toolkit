@@ -20,7 +20,7 @@ core = MLMMCore(
     model_pdb="model.pdb",
     backend="uma",          # one of: "uma", "orb", "mace", "aimnet2"
     model_charge=0, model_mult=1,
-    uma_model="uma-s-1p1",
+    uma_model="uma-s-1p2",
     uma_precision="fp32",   # or "fp64" (full-precision base inference)
 )
 
@@ -55,7 +55,7 @@ name from the CLI.
 
 | backend | install | model identifier | precision option |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p1` / `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
+| `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p2` / `uma-s-1p1` / `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
 | `orb` | `pip install orb-models` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float64"` (`"float32"` accepted as an alias) |
 | `mace` | dedicated env: `pip uninstall -y fairchem-core && pip install mace-torch` (`e3nn` pin conflicts with UMA) | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install aimnet` | `aimnet2` | n/a |
@@ -74,6 +74,18 @@ mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
 The unified `--precision` flag is routed to each backend's native kwarg
 (`uma_precision` for UMA, `orb_precision` for ORB, `mace_dtype` for MACE)
 by `apply_precision_to_calc_cfg` in `mlmm/backends/__init__.py`.
+
+When `--precision` is not given, each backend takes its own default:
+
+| backend | default | why |
+|---------|---------|-----|
+| `uma` | fp32 | The upstream fairchem baseline. |
+| `orb` | fp64 | ORB's fp32 is the reduced `float32-high` (TF32) matmul mode, whose force noise inflates finite-difference Hessians into spurious imaginary modes. |
+| `mace` | fp64 | MACE ships `default_dtype="float64"` upstream. |
+| `aimnet2` | fp32 | No precision knob. |
+
+`--precision fp32` downgrades ORB / MACE for throughput; expect noisier Hessians
+and check the imaginary-mode count.
 
 The unified `--backend-model NAME` flag likewise overrides the model variant
 for the selected `--backend`, routed to the backend's model kwarg

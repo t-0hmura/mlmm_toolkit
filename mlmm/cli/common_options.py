@@ -118,6 +118,11 @@ def add_precision_option() -> Callable[[Callable], Callable]:
     - ``aimnet2`` -> fp32 no-op; fp64 rejected (model inputs are cast to
       float32 upstream, so fp64 cannot be honoured)
 
+    Unset resolves per backend: UMA fp32 (its upstream fairchem baseline),
+    ORB and MACE fp64. ORB's fp32 is the reduced TF32 matmul mode and MACE
+    ships fp64 upstream, so a fp32 finite-difference Hessian from either
+    carries enough force noise to invent imaginary modes.
+
     fp64 base precision can have non-trivial TSopt/Hessian impact for
     OMol-trained UMA; for ORB/MACE the higher precision similarly costs
     throughput and can stabilise gradients/Hessians.
@@ -135,7 +140,8 @@ def add_precision_option() -> Callable[[Callable], Callable]:
             default=None,
             show_default=False,
             help=(
-                "MLIP backend precision: fp32 (default) or fp64. Routed to "
+                "MLIP backend precision: fp32 or fp64. Unset defaults per "
+                "backend (uma: fp32; orb, mace: fp64). Routed to "
                 "backend-specific kwargs (UMA precision / ORB precision / "
                 "MACE default_dtype). aimnet2: fp32 no-op; fp64 rejected."
             ),
@@ -149,6 +155,44 @@ def add_precision_option() -> Callable[[Callable], Callable]:
 add_uma_precision_option = add_precision_option
 
 
+def add_workers_options() -> Callable[[Callable], Callable]:
+    """Attach ``--workers`` / ``--workers-per-node`` to a Click command.
+
+    MLIP predictor parallelism. ``--workers > 1`` routes the UMA backend through
+    ``ParallelMLIPPredictUnit`` (needs ``fairchem-core[extras]``); the parallel
+    predictor exposes no autograd model, so analytical Hessians are unavailable and
+    ``--hessian-calc-mode Analytical`` is downgraded to ``FiniteDifference``.
+
+    The CLI body routes the values via ``mlmm.backends.apply_workers_to_calc_cfg``.
+    Wire targets: every subcommand that constructs a backend calculator — ``sp``,
+    ``opt``, ``tsopt``, ``freq``, ``irc``, ``scan`` / ``scan2d`` / ``scan3d``,
+    ``path-opt``, ``path-search``, and ``all``.
+    """
+    def decorator(func: Callable) -> Callable:
+        func = click.option(
+            "--workers-per-node",
+            "workers_per_node",
+            type=int,
+            default=None,
+            show_default=False,
+            help="Workers per node when the parallel MLIP predictor is used (--workers > 1).",
+        )(func)
+        func = click.option(
+            "--workers",
+            "workers",
+            type=int,
+            default=None,
+            show_default=False,
+            help=(
+                "MLIP predictor workers (UMA). >1 uses a parallel predictor "
+                "(fairchem-core[extras]); analytical Hessian is then unavailable "
+                "(auto-downgraded to FiniteDifference). Default 1."
+            ),
+        )(func)
+        return func
+    return decorator
+
+
 def add_backend_model_option() -> Callable[[Callable], Callable]:
     """Attach ``--backend-model NAME`` to a Click command.
 
@@ -156,7 +200,7 @@ def add_backend_model_option() -> Callable[[Callable], Callable]:
     the active backend's model kwarg via
     ``mlmm.backends.apply_backend_model_to_calc_cfg``:
 
-    - ``uma``     -> ``uma_model``     (default ``uma-s-1p1``)
+    - ``uma``     -> ``uma_model``     (default ``uma-s-1p2``)
     - ``orb``     -> ``orb_model``     (default ``orb_v3_conservative_omol``)
     - ``mace``    -> ``mace_model``    (default ``MACE-OMOL-0``)
     - ``aimnet2`` -> ``aimnet2_model`` (default ``aimnet2``)
@@ -174,7 +218,7 @@ def add_backend_model_option() -> Callable[[Callable], Callable]:
             show_default=False,
             help=(
                 "Model variant for the selected --backend (e.g. "
-                "uma-s-1p1 / uma-m-1p1 for uma, orb_v3_conservative_omol for orb, "
+                "uma-s-1p2 / uma-m-1p1 for uma, orb_v3_conservative_omol for orb, "
                 "MACE-OMOL-0 / MACE-OFF23_small for mace). "
                 "Default: the backend's built-in model."
             ),

@@ -60,6 +60,11 @@ GEOM_KW_DEFAULT: Dict[str, Any] = {
     "freeze_atoms": [],
 }
 
+# Single source of truth for the default UMA model name. Every code default
+# (backend factory, calculators, workflows) references this instead of a
+# hardcoded literal so the release model can be bumped in one place.
+DEFAULT_UMA_MODEL = "uma-s-1p2"
+
 # Calculator defaults (ML/MM with MLIP backend + hessian_ff MM)
 
 MLMM_CALC_KW: Dict[str, Any] = {
@@ -72,11 +77,17 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "link_atom_method": "scaled",  # "scaled" (g-factor, Gaussian ONIOM standard) | "fixed" (1.09/1.01 Å legacy)
     # ML backend selection: "uma" | "orb" | "mace" | "aimnet2"
     "backend": "uma",
-    "uma_model": "uma-s-1p1",
+    "uma_model": DEFAULT_UMA_MODEL,
     "uma_task_name": "omol",
     "uma_precision": "fp32",  # "fp32" (established baseline) | "fp64" (full-precision base inference; non-trivial TSopt/Hessian impact)
+    "workers": 1,             # MLIP predictor workers; >1 uses ParallelMLIPPredictUnit (UMA only). Analytical Hessian is unavailable then (FD forced).
+    "workers_per_node": 1,    # Workers per node when the parallel predictor is used (workers>1).
     "orb_model": "orb_v3_conservative_omol",
-    "orb_precision": "float32-high",  # matches ORB pretrained `precision=` default; legacy "float32" still accepted via _OrbBackend._PRECISION_ALIASES
+    # float64, not ORB's pretrained "float32-high" default: that mode is TF32 matmul,
+    # whose force noise inflates finite-difference Hessians into spurious imaginary
+    # modes. Pass --precision fp32 to opt back in. Legacy "float32" still accepted
+    # via _OrbBackend._PRECISION_ALIASES.
+    "orb_precision": "float64",
     "mace_model": "MACE-OMOL-0",
     "mace_dtype": "float64",
     "aimnet2_model": "aimnet2",

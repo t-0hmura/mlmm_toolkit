@@ -6,6 +6,60 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+### Changed
+- **`--precision` now defaults per backend instead of globally to fp32: ORB runs fp64
+  when no precision is given (MACE already did), UMA keeps fp32.** ORB's fp32 is the
+  reduced `float32-high` (TF32) matmul mode, whose force noise inflates
+  finite-difference Hessians into spurious imaginary modes. Pass `--precision fp32`
+  explicitly to restore the previous behaviour for screening runs.
+
+### Fixed
+- **Smoke `--deterministic` gate (test44) rebuilt the MM parm in each run, exposing non-deterministic antechamber
+  AM1-BCC charges.** The gate runs the ONIOM pipeline twice with `--deterministic` and asserts bit-identical
+  geometry/MEP output. Each run regenerated the MM `parm7` via antechamber; for this substrate the sqm AM1 SCF is
+  poorly convergent (tightening `scfconv` makes it fail outright), so its early-stop point — and thus the AM1-BCC
+  ligand charges — vary run-to-run (observed: 24/122 charges differ, up to 0.3 e). Different charges → different MM
+  electrostatics → different ONIOM forces → the endpoint pre-opt diverges (~0.14 Å) → the bit-gate flaked ~1/6–1/3
+  of runs. The ML forward and the MM force *given a fixed parm* are both bit-deterministic (verified). The MM parm
+  (charges) is a non-deterministic **input**, not part of the compute `--deterministic` controls; the gate now builds
+  the parm once and reuses it in the second run via `--parm`, so it tests compute reproducibility (verified 0 drift
+  across many pairs where the regenerate-each-run version drifted). **User-facing note:** end-to-end bit-identical
+  reproducibility of a `--deterministic` run requires pinning the MM topology — pass a fixed `--parm` — because
+  antechamber AM1-BCC charges are not reproducible for hard-to-converge ligands. Not a model (`uma-s-1p1` vs
+  `uma-s-1p2`) or GPU issue.
+- **Run summary recorded the default UMA model and `mlip_backend: "unknown"`, ignoring `--backend-model` / `-b`.**
+  The `all` workflow's summary payload never populated `uma_model`, so `summary.py` fell back to the default
+  `MLMM_CALC_KW` model (now `uma-s-1p2`): a run launched with e.g. `--backend-model uma-s-1p1` recorded
+  `UMA model: uma-s-1p2` in `summary.log` and `"uma_model": null` / `"mlip_backend": "unknown"` in `summary.json`.
+  The **actual computation always honored `--backend-model`** (verified: `uma-s-1p1` vs `uma-s-1p2` produce
+  different deterministic results), so this was a provenance/display bug only — no effect on energies, geometries,
+  or classifications. Now the summary records the resolved model (`--backend-model` or `DEFAULT_UMA_MODEL`) and the
+  resolved backend (`-b` or the `uma` default). Mirrors pdb2reaction's 0.4.5 fix (`Fix run summary recording
+  default UMA model, not --backend-model`).
+
+### Added
+- **`--workers` / `--workers-per-node` on every MLIP subcommand** (`sp`, `opt`, `tsopt`, `freq`,
+  `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`), pairing with pdb2reaction.
+  `--workers > 1` routes the UMA backend through fairchem's `ParallelMLIPPredictUnit` (needs
+  `fairchem-core[extras]`); the parallel predictor exposes no autograd model, so analytical Hessians
+  are unavailable and an `Analytical` request is auto-downgraded to `FiniteDifference`. The default
+  `--workers 1` keeps the in-process predictor and is byte-for-byte the previous behavior.
+- **Microiteration now works with every Hessian TS optimizer.** `--microiter` (default on)
+  previously engaged only with RS-I-RFO (`--opt-mode hess` / `rsirfo`); it now also drives the
+  RS-P-RFO (`--opt-mode rsprfo`) and TRIM (`--opt-mode trim`) macro step, alternating a 1-step
+  macro TS move with MM-only L-BFGS relaxation. All three are `TSHessianOptimizer` subclasses that
+  share the `optimize()`/`prepare_opt()`/Bofill-update contract the macro loop drives. The default
+  TS optimizer (RS-I-RFO) is unchanged.
+
+### Changed
+- **Behavior change (default): the default UMA model is now `uma-s-1p2`** (was `uma-s-1p1`), pairing
+  with pdb2reaction v0.4.4. At the same small-model cost it is more robust on the benchmark (fewer
+  optimization/frequency errors and a few more clean saddles). Other models (`uma-s-1p1`,
+  `uma-m-1p1`, MACE-OMOL, Orb-v3-omol) remain selectable via `-b` / `--backend-model` / config.
+- **Centralized the default UMA model** in a single constant `DEFAULT_UMA_MODEL`
+  (`mlmm/core/defaults.py`); the `uma-s-1p1` defaults previously hardcoded across backends and
+  `io/trj2fig.py` now all reference it. CLI help and docs were updated for consistency.
+
 ## [0.3.1] — 2026-07-05
 
 ### Fixed
