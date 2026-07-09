@@ -6,16 +6,37 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## [0.3.2] — 2026-07-10
+
 ### Changed
 - **`--precision` now defaults per backend instead of globally to fp32: ORB runs fp64
   when no precision is given (MACE already did), UMA keeps fp32.** ORB's fp32 is the
   reduced `float32-high` (TF32) matmul mode, whose force noise inflates
   finite-difference Hessians into spurious imaginary modes. Pass `--precision fp32`
   explicitly to restore the previous behaviour for screening runs.
+- **Behavior change (default): the default UMA model is now `uma-s-1p2`** (was `uma-s-1p1`), pairing
+  with pdb2reaction v0.4.4. At the same small-model cost it is more robust on the benchmark (fewer
+  optimization/frequency errors and a few more clean saddles). Other models (`uma-s-1p1`,
+  `uma-m-1p1`, MACE-OMOL, Orb-v3-omol) remain selectable via `-b` / `--backend-model` / config.
+- **Centralized the default UMA model** in a single constant `DEFAULT_UMA_MODEL`
+  (`mlmm/core/defaults.py`); the `uma-s-1p1` defaults previously hardcoded across backends and
+  `io/trj2fig.py` now all reference it. CLI help and docs were updated for consistency.
 
 ### Added
 - **`--dry-run` on `scan2d` and `scan3d`.** Validates options and prints the execution
   plan without running the scan, pairing with `scan` and pdb2reaction.
+- **`--workers` / `--workers-per-node` on every MLIP subcommand** (`sp`, `opt`, `tsopt`, `freq`,
+  `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`), pairing with pdb2reaction.
+  `--workers > 1` routes the UMA backend through fairchem's `ParallelMLIPPredictUnit` (needs
+  `fairchem-core[extras]`); the parallel predictor exposes no autograd model, so analytical Hessians
+  are unavailable and an `Analytical` request is auto-downgraded to `FiniteDifference`. The default
+  `--workers 1` keeps the in-process predictor and is byte-for-byte the previous behavior.
+- **Microiteration now works with every Hessian TS optimizer.** `--microiter` (default on)
+  previously engaged only with RS-I-RFO (`--opt-mode hess` / `rsirfo`); it now also drives the
+  RS-P-RFO (`--opt-mode rsprfo`) and TRIM (`--opt-mode trim`) macro step, alternating a 1-step
+  macro TS move with MM-only L-BFGS relaxation. All three are `TSHessianOptimizer` subclasses that
+  share the `optimize()`/`prepare_opt()`/Bofill-update contract the macro loop drives. The default
+  TS optimizer (RS-I-RFO) is unchanged.
 
 ### Fixed
 - **MACE backend could not load its own default model.** The `MACE-OMOL-0` default was
@@ -57,29 +78,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   or classifications. Now the summary records the resolved model (`--backend-model` or `DEFAULT_UMA_MODEL`) and the
   resolved backend (`-b` or the `uma` default). Mirrors pdb2reaction's 0.4.5 fix (`Fix run summary recording
   default UMA model, not --backend-model`).
-
-### Added
-- **`--workers` / `--workers-per-node` on every MLIP subcommand** (`sp`, `opt`, `tsopt`, `freq`,
-  `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`), pairing with pdb2reaction.
-  `--workers > 1` routes the UMA backend through fairchem's `ParallelMLIPPredictUnit` (needs
-  `fairchem-core[extras]`); the parallel predictor exposes no autograd model, so analytical Hessians
-  are unavailable and an `Analytical` request is auto-downgraded to `FiniteDifference`. The default
-  `--workers 1` keeps the in-process predictor and is byte-for-byte the previous behavior.
-- **Microiteration now works with every Hessian TS optimizer.** `--microiter` (default on)
-  previously engaged only with RS-I-RFO (`--opt-mode hess` / `rsirfo`); it now also drives the
-  RS-P-RFO (`--opt-mode rsprfo`) and TRIM (`--opt-mode trim`) macro step, alternating a 1-step
-  macro TS move with MM-only L-BFGS relaxation. All three are `TSHessianOptimizer` subclasses that
-  share the `optimize()`/`prepare_opt()`/Bofill-update contract the macro loop drives. The default
-  TS optimizer (RS-I-RFO) is unchanged.
-
-### Changed
-- **Behavior change (default): the default UMA model is now `uma-s-1p2`** (was `uma-s-1p1`), pairing
-  with pdb2reaction v0.4.4. At the same small-model cost it is more robust on the benchmark (fewer
-  optimization/frequency errors and a few more clean saddles). Other models (`uma-s-1p1`,
-  `uma-m-1p1`, MACE-OMOL, Orb-v3-omol) remain selectable via `-b` / `--backend-model` / config.
-- **Centralized the default UMA model** in a single constant `DEFAULT_UMA_MODEL`
-  (`mlmm/core/defaults.py`); the `uma-s-1p1` defaults previously hardcoded across backends and
-  `io/trj2fig.py` now all reference it. CLI help and docs were updated for consistency.
 
 ## [0.3.1] — 2026-07-05
 
