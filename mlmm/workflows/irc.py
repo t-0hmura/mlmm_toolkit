@@ -57,6 +57,7 @@ from mlmm.core.utils import (
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
     add_precision_option, add_backend_model_option, add_calc_file_option,
+    add_workers_options,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
     add_irc_pos_def_option,
 )
@@ -274,6 +275,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 )
 @add_ml_layer_detection_options()
 @add_precision_option()
+@add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
 @add_deterministic_option()
@@ -314,6 +316,8 @@ def cli(
     read_hess: Optional[str],
     out_json: bool,
     precision: Optional[str],
+    workers: Optional[int],
+    workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
     calc_factory: str,
@@ -380,12 +384,16 @@ def cli(
         # CLI explicit overrides (after config YAML, before override YAML)
         if backend is not None:
             calc_cfg["backend"] = str(backend).lower()
-        if precision is not None:
-            from mlmm.backends import apply_precision_to_calc_cfg
-            apply_precision_to_calc_cfg(calc_cfg, precision)
-        if backend_model is not None:
-            from mlmm.backends import apply_backend_model_to_calc_cfg
-            apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+        from mlmm.backends import apply_precision_to_calc_cfg
+        # Unconditional: also dispatches a --config YAML calc.precision
+        # (the helper no-ops when neither the CLI arg nor the YAML names one).
+        apply_precision_to_calc_cfg(calc_cfg, precision)
+        # Always run so a YAML-set workers>1 also gets the analytical-Hessian guard.
+        from mlmm.backends import apply_workers_to_calc_cfg
+        apply_workers_to_calc_cfg(calc_cfg, workers, workers_per_node)
+        from mlmm.backends import apply_backend_model_to_calc_cfg
+        # Unconditional: also pops a raw backend_model token from a --config YAML.
+        apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
         # --calc-file overrides --backend with a user ASE Calculator (custom backend).
         from mlmm.backends import apply_calc_file_to_calc_cfg
         apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)

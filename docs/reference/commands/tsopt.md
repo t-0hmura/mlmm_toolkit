@@ -61,15 +61,17 @@ Options:
                                   Convergence preset.
   --opt-mode [grad|hess|light|heavy|dimer|rsirfo|trim|rsprfo]
                                   grad/dimer/light → Hessian Guided Dimer;
-                                  hess/rsirfo/heavy → RS-I-RFO (microiter-
-                                  capable); trim → TRIM (Helgaker); rsprfo → RS-
-                                  P-RFO (Banerjee). trim/rsprfo are non-
-                                  microiter.  [default: hess]
-  --microiter / --no-microiter    Enable microiteration: alternate ML 1-step
-                                  (RS-I-RFO) and MM relaxation (LBFGS with MM-
-                                  only forces). Only effective in --opt-mode
-                                  hess. Ignored in grad mode.  [default:
-                                  microiter]
+                                  hess/rsirfo/heavy → RS-I-RFO; trim → TRIM
+                                  (Helgaker); rsprfo → RS-P-RFO (Banerjee). All
+                                  three Hessian TS optimizers
+                                  (rsirfo/rsprfo/trim) are microiter-capable.
+                                  [default: hess]
+  --microiter / --no-microiter    Enable microiteration: alternate a 1-step
+                                  macro TS move (RS-I-RFO / RS-P-RFO / TRIM) and
+                                  MM relaxation (LBFGS with MM-only forces).
+                                  Effective in any Hessian --opt-mode
+                                  (hess/rsirfo/rsprfo/trim); ignored in
+                                  grad/dimer mode.  [default: microiter]
   --partial-hessian-flatten / --full-hessian-flatten
                                   Use partial (active-block) Hessian for
                                   imaginary mode detection in flatten loop.
@@ -139,13 +141,20 @@ Options:
                                   Interpret --model-indices as 1-based (default)
                                   or 0-based.  [default: model-indices-one-
                                   based]
-  --precision [fp32|fp64]         MLIP backend precision: fp32 (default) or
-                                  fp64. Routed to backend-specific kwargs (UMA
+  --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
+                                  defaults per backend (uma: fp32; orb, mace:
+                                  fp64). Routed to backend-specific kwargs (UMA
                                   precision / ORB precision / MACE
                                   default_dtype). aimnet2: fp32 no-op; fp64
                                   rejected.
+  --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
+                                  parallel predictor (fairchem-core[extras]);
+                                  analytical Hessian is then unavailable (auto-
+                                  downgraded to FiniteDifference). Default 1.
+  --workers-per-node INTEGER      Workers per node when the parallel MLIP
+                                  predictor is used (--workers > 1).
   --backend-model TEXT            Model variant for the selected --backend (e.g.
-                                  uma-s-1p1 / uma-m-1p1 for uma,
+                                  uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
                                   / MACE-OFF23_small for mace). Default: the
                                   backend's built-in model.

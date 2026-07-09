@@ -96,9 +96,39 @@ def apply_calc_file_to_calc_cfg(
         calc_cfg["calc_factory"] = str(factory).strip()
     # A user ASE Calculator has no MLIP model variant: drop the inherited
     # per-backend model defaults so run headers don't mislabel it (e.g. as
-    # 'uma-s-1p1'). The MLMMCore signature keeps its own defaults for the keys.
+    # 'uma-s-1p2'). The MLMMCore signature keeps its own defaults for the keys.
     for _k in ("uma_model", "orb_model", "mace_model", "aimnet2_model", "model"):
         calc_cfg.pop(_k, None)
+
+
+def apply_workers_to_calc_cfg(
+    calc_cfg: Dict[str, Any],
+    workers: Optional[int] = None,
+    workers_per_node: Optional[int] = None,
+) -> None:
+    """Route ``--workers`` / ``--workers-per-node`` CLI values into ``calc_cfg``.
+
+    Mutates ``calc_cfg`` in place. Unlike ``--precision`` these are real
+    Calculator kwargs, so they simply override the CALC_KW / YAML default.
+    When ``workers > 1`` the UMA backend uses ``ParallelMLIPPredictUnit``, which
+    exposes no autograd model — analytical Hessians are then impossible, so an
+    explicit ``Analytical`` request is downgraded to ``FiniteDifference`` with a
+    warning (mirrors the p2r behaviour).
+    """
+    if workers is not None:
+        calc_cfg["workers"] = int(workers)
+    if workers_per_node is not None:
+        calc_cfg["workers_per_node"] = int(workers_per_node)
+    if int(calc_cfg.get("workers", 1) or 1) > 1:
+        mode = str(calc_cfg.get("hessian_calc_mode", "") or "")
+        if mode.lower().startswith("anal"):
+            warnings.warn(
+                "workers>1 uses the parallel MLIP predictor (no autograd model); "
+                "analytical Hessians are unavailable. Forcing "
+                "hessian_calc_mode='FiniteDifference'.",
+                stacklevel=2,
+            )
+            calc_cfg["hessian_calc_mode"] = "FiniteDifference"
 
 
 def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[str] = None) -> None:

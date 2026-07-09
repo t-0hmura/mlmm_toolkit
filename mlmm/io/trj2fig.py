@@ -21,6 +21,8 @@ from ase import Atoms
 from ase.io import read
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 
+from mlmm.core.defaults import DEFAULT_UMA_MODEL
+
 AXIS_WIDTH = 3         # axis and tick thickness
 FONT_SIZE = 18         # tick-label font size
 AXIS_TITLE_SIZE = 20   # axis-title font size
@@ -83,7 +85,7 @@ def recompute_energies(
         raise RuntimeError(f"No frames found in {traj_path}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    predictor = pretrained_mlip.get_predict_unit("uma-s-1p1", device=str(device))
+    predictor = pretrained_mlip.get_predict_unit(DEFAULT_UMA_MODEL, device=str(device))
     predictor.model.eval()
     backbone = getattr(getattr(predictor.model, "module", predictor.model), "backbone", None)
     uma_max_neigh = getattr(backbone, "max_neighbors", None)

@@ -41,6 +41,7 @@ from mlmm.core.utils import (
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
     add_precision_option, add_backend_model_option, add_calc_file_option,
+    add_workers_options,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
     add_print_every_option,
 )
@@ -194,6 +195,7 @@ EV2AU = 1.0 / AU2EV
 )
 @add_ml_layer_detection_options()
 @add_precision_option()
+@add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
 @add_deterministic_option()
@@ -230,6 +232,8 @@ def cli(
     use_cmap: Optional[bool],
     use_cmap_legacy: Optional[bool],
     precision: Optional[str],
+    workers: Optional[int],
+    workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
     calc_factory: str,
@@ -297,6 +301,9 @@ def cli(
         if _is_param_explicit("precision") and precision is not None:
             from mlmm.backends import apply_precision_to_calc_cfg
             apply_precision_to_calc_cfg(calc_cfg, str(precision))
+        # Always run so a YAML-set workers>1 also gets the analytical-Hessian guard.
+        from mlmm.backends import apply_workers_to_calc_cfg
+        apply_workers_to_calc_cfg(calc_cfg, workers, workers_per_node)
         if _is_param_explicit("backend_model") and backend_model is not None:
             from mlmm.backends import apply_backend_model_to_calc_cfg
             apply_backend_model_to_calc_cfg(calc_cfg, backend_model)

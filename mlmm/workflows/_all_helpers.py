@@ -112,6 +112,8 @@ class AllContext:
     cli_coord_type: Optional[str]
     precision: Optional[str]
     backend_model: Optional[str]
+    workers: Optional[int] = None
+    workers_per_node: Optional[int] = None
     calc_file: Optional[str] = None
     calc_factory: str = "get_calculator"
 
@@ -245,6 +247,7 @@ def build_pipeline_summary_payload(
     q_int: int,
     spin: int,
     post_segment_logs: Sequence[Dict[str, Any]],
+    uma_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Assemble the summary_log payload for the `all` pipeline.
 
@@ -283,7 +286,7 @@ def build_pipeline_summary_payload(
         "opt_mode": opt_mode_norm,
         "opt_mode_post": opt_mode_post.lower() if opt_mode_post else None,
         "mep_mode": "path-search" if refine_path else "path-opt",
-        "uma_model": None,
+        "uma_model": uma_model,
         "command": command_str,
         "charge": q_int,
         "spin": spin,

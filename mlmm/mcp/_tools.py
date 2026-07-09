@@ -250,10 +250,9 @@ def register_all(mcp) -> None:
         """ONIOM TS optimization (CLI: `mlmm tsopt`).
 
         Notes:
-        - opt_mode 'trim' (Helgaker 1991) / 'rsprfo' (Banerjee 1985) are
-          non-microiter TS optimizers; the server passes --no-microiter
-          automatically when those modes are set (the mlmm CLI emits a
-          warning otherwise).
+        - opt_mode 'rsirfo' (default), 'rsprfo' (Banerjee 1985), and 'trim'
+          (Helgaker 1991) are all Hessian TS optimizers and support
+          microiteration; pass microiter=False to disable it.
         """
         od = _resolve_out_dir(out_dir, "tsopt")
         argv: list[str] = ["mlmm", "tsopt", "-i", input_pdb,
@@ -267,8 +266,6 @@ def register_all(mcp) -> None:
             argv.extend(["--coord-type", coord_type])
         if microiter is not None:
             argv.append("--microiter" if microiter else "--no-microiter")
-        elif opt_mode in ("trim", "rsprfo"):
-            argv.append("--no-microiter")  # mlmm CLI ignores microiter for these anyway
         if flatten is not None:
             argv.append("--flatten" if flatten else "--no-flatten")
         if hessian_calc_mode:

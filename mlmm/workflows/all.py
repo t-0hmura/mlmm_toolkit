@@ -63,7 +63,7 @@ import logging
 import sys
 import math
 import click
-from mlmm.cli.common_options import add_coord_type_option, add_precision_option, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
+from mlmm.cli.common_options import add_coord_type_option, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.decorators import make_is_param_explicit
 import time
 import json
@@ -93,6 +93,7 @@ from mlmm.io.trj2fig import run_trj2fig
 from mlmm.io.summary import write_summary_log
 from mlmm.workflows.align_freeze import align_and_refine_sequence_inplace
 from mlmm.core.defaults import (
+    DEFAULT_UMA_MODEL,
     OUT_DIR_ALL,
     SEGMENTS_DIRNAME,
     THRESH_CHOICES,
@@ -346,6 +347,8 @@ def _inject_coord_type_into_args_yaml(
     args_yaml: Optional[Path],
     coord_type: Optional[str],
     precision: Optional[str] = None,
+    workers: Optional[int] = None,
+    workers_per_node: Optional[int] = None,
     backend_model: Optional[str] = None,
     calc_file: Optional[str] = None,
     calc_factory: str = "get_calculator",
@@ -386,8 +389,9 @@ def _inject_coord_type_into_args_yaml(
         # YAML token), raising "Calculator.__init__() got an unexpected keyword
         # argument 'precision'". apply_precision_to_calc_cfg also pops any stray
         # raw ``precision`` key, keeping calc_cfg Calculator-clean.
-        from mlmm.backends import apply_precision_to_calc_cfg, apply_backend_model_to_calc_cfg, apply_calc_file_to_calc_cfg
+        from mlmm.backends import apply_precision_to_calc_cfg, apply_backend_model_to_calc_cfg, apply_calc_file_to_calc_cfg, apply_workers_to_calc_cfg
         apply_precision_to_calc_cfg(calc_cfg, precision)
+        apply_workers_to_calc_cfg(calc_cfg, workers, workers_per_node)
         apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
         apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
         cfg["calc"] = calc_cfg
@@ -767,6 +771,7 @@ def _enrich_summary(
     config: Optional[dict] = None,
     freeze_atoms: Optional[str] = None,
     out_dir: Optional[Path] = None,
+    uma_model: Optional[str] = None,
 ) -> dict:
     """Add machine-readable metadata to summary dict for AI agent consumption.
 
@@ -818,6 +823,11 @@ def _enrich_summary(
     summary["pipeline_mode"] = pipeline_mode
     summary["status"] = status
     summary["mlip_backend"] = mlip_backend
+    # Record the resolved UMA model (honors --backend-model) so summary.json /
+    # summary.log show the model actually used, not the DEFAULT_UMA_MODEL that
+    # summary.py falls back to when this key is absent (provenance/display only).
+    if uma_model is not None:
+        summary["uma_model"] = uma_model
     summary["charge"] = charge
     summary["spin"] = spin
     summary["n_segments_reactive"] = n_reactive
@@ -2210,6 +2220,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @add_coord_type_option(choices=("cart", "dlc"))
 @add_precision_option()
+@add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
 @add_deterministic_option()
@@ -2289,6 +2300,8 @@ def cli(
     dft_engine: Optional[str],
     cli_coord_type: Optional[str],
     precision: Optional[str],
+    workers: Optional[int],
+    workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
     calc_factory: str,
@@ -2332,7 +2345,7 @@ def cli(
     )
     if _injected_coord is not None or precision is not None or backend_model is not None or calc_file is not None:
         args_yaml = _inject_coord_type_into_args_yaml(
-            args_yaml, _injected_coord, precision=precision, backend_model=backend_model,
+            args_yaml, _injected_coord, precision=precision, workers=workers, workers_per_node=workers_per_node, backend_model=backend_model,
             calc_file=(str(Path(calc_file).resolve()) if calc_file else None), calc_factory=calc_factory,
         )
 
@@ -3095,7 +3108,8 @@ def cli(
             version="",
             pipeline_mode="tsopt-only",
             out_dir=out_dir,
-            mlip_backend=backend or "unknown",
+            mlip_backend=(backend or "uma"),
+            uma_model=((backend_model or DEFAULT_UMA_MODEL) if (backend or "uma") == "uma" else backend_model),
             charge=q_int,
             spin=spin,
             command=command_str,
@@ -3198,7 +3212,7 @@ def cli(
             "dft": do_dft,
             "opt_mode": tsopt_opt_mode_default,
             "mep_mode": "tsopt-only",
-            "uma_model": None,
+            "uma_model": ((backend_model or DEFAULT_UMA_MODEL) if (backend or "uma") == "uma" else backend_model),
             "command": command_str,
             "charge": q_int,
             "spin": spin,
@@ -3751,7 +3765,8 @@ def cli(
             version="",
             pipeline_mode="path-search" if refine_path else "path-opt",
             out_dir=out_dir,
-            mlip_backend=backend or "unknown",
+            mlip_backend=(backend or "uma"),
+            uma_model=((backend_model or DEFAULT_UMA_MODEL) if (backend or "uma") == "uma" else backend_model),
             charge=q_int,
             spin=spin,
             command=command_str,
@@ -3844,6 +3859,7 @@ def cli(
                 q_int=q_int,
                 spin=spin,
                 post_segment_logs=post_segment_logs,
+                uma_model=((backend_model or DEFAULT_UMA_MODEL) if (backend or "uma") == "uma" else backend_model),
             )
             write_summary_log(path_dir / "summary.log", summary_payload)
             _copy_path_outputs_to_root()
@@ -4391,7 +4407,8 @@ def cli(
             version="",
             pipeline_mode="path-search" if refine_path else "path-opt",
             out_dir=out_dir,
-            mlip_backend=backend or "unknown",
+            mlip_backend=(backend or "uma"),
+            uma_model=((backend_model or DEFAULT_UMA_MODEL) if (backend or "uma") == "uma" else backend_model),
             charge=q_int,
             spin=spin,
             command=command_str,

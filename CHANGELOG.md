@@ -13,6 +13,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   finite-difference Hessians into spurious imaginary modes. Pass `--precision fp32`
   explicitly to restore the previous behaviour for screening runs.
 
+### Added
+- **`--dry-run` on `scan2d` and `scan3d`.** Validates options and prints the execution
+  plan without running the scan, pairing with `scan` and pdb2reaction.
+
 ### Fixed
 - **MACE backend could not load its own default model.** The `MACE-OMOL-0` default was
   routed to `mace_off()`, which treats any non-preset, non-URL string as a local file
@@ -23,6 +27,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - **`make_is_param_explicit` logs on a failed parameter-source query.** Behaviour is
   unchanged (still treats the param as not explicit); the debug log makes a genuine
   typo diagnosable, matching pdb2reaction's `cli_param_overridden`.
+- **A `--config` YAML `calc.precision` is now dispatched on every subcommand.** The
+  per-subcommand call sites guarded the dispatch helper on the CLI value being
+  non-`None`, so a YAML-only precision was never applied (ORB silently ran at its
+  default precision); `all` was already correct. The guard is dropped on all 9
+  subcommands, re-enabling the helper's YAML path and its invalid-token / aimnet2-fp64
+  validators.
+- **`--backend-model` supplied via a `--config` YAML is now honoured** on every
+  subcommand (same guard as above; only `all` was correct).
 - **Smoke `--deterministic` gate (test44) rebuilt the MM parm in each run, exposing non-deterministic antechamber
   AM1-BCC charges.** The gate runs the ONIOM pipeline twice with `--deterministic` and asserts bit-identical
   geometry/MEP output. Each run regenerated the MM `parm7` via antechamber; for this substrate the sqm AM1 SCF is

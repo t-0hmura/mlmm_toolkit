@@ -104,13 +104,20 @@ Options:
                                   Interpret --model-indices as 1-based (default)
                                   or 0-based.  [default: model-indices-one-
                                   based]
-  --precision [fp32|fp64]         MLIP backend precision: fp32 (default) or
-                                  fp64. Routed to backend-specific kwargs (UMA
+  --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
+                                  defaults per backend (uma: fp32; orb, mace:
+                                  fp64). Routed to backend-specific kwargs (UMA
                                   precision / ORB precision / MACE
                                   default_dtype). aimnet2: fp32 no-op; fp64
                                   rejected.
+  --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
+                                  parallel predictor (fairchem-core[extras]);
+                                  analytical Hessian is then unavailable (auto-
+                                  downgraded to FiniteDifference). Default 1.
+  --workers-per-node INTEGER      Workers per node when the parallel MLIP
+                                  predictor is used (--workers > 1).
   --backend-model TEXT            Model variant for the selected --backend (e.g.
-                                  uma-s-1p1 / uma-m-1p1 for uma,
+                                  uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
                                   / MACE-OFF23_small for mace). Default: the
                                   backend's built-in model.

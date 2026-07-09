@@ -129,6 +129,7 @@ from mlmm.core.utils import (
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
     add_precision_option, add_backend_model_option, add_calc_file_option,
+    add_workers_options,
     add_deterministic_option,
     add_coord_type_option,
     add_print_every_option,
@@ -152,6 +153,7 @@ def _build_rsirfo_kwargs(
     max_cycles: int,
     out_dir: Path,
     macro_thresh: Optional[str] = None,
+    mode: str = "rsirfo",
 ) -> Dict[str, Any]:
     # DO NOT INLINE: RSIRFOptimizer rejects RFOptimizer-only DIIS knobs
     # (gediis/gdiis/gdiis_thresh/gediis_thresh/gdiis_test_direction/adapt_step_func);
@@ -166,6 +168,12 @@ def _build_rsirfo_kwargs(
         args["thresh"] = str(macro_thresh)
     for _diis_kw in ("gediis", "gdiis", "gdiis_thresh", "gediis_thresh", "gdiis_test_direction", "adapt_step_func"):
         args.pop(_diis_kw, None)
+    # TRIM / RS-P-RFO are pure-numpy single-pass TS optimizers and do not support the
+    # torch-backed line search used by RS-I-RFO; disable it so the shared macro kwargs
+    # construct cleanly for every Hessian --opt-mode (mirrors the non-microiter path).
+    if mode != "rsirfo":
+        args["min_line_search"] = False
+        args["max_line_search"] = False
     return args
 
 
@@ -1619,10 +1627,11 @@ def _run_microiter_tsopt(
     *,
     dump: bool = False,
     thresh: Optional[str] = None,
+    mode: str = "rsirfo",
 ) -> None:
     """Run macro/micro alternating TS optimization (Gaussian 16-style microiteration).
 
-    Macro step: 1 RS-I-RFO step moving ML atoms + link-atom MM parents (full ONIOM force).
+    Macro step: 1 Hessian-based TS step (RS-I-RFO / RS-P-RFO / TRIM) moving ML atoms + link-atom MM parents (full ONIOM force).
     Micro step: LBFGS relaxing remaining MM atoms with MM-only forces until convergence.
     Link-atom MM parents are included in the macro step to maintain consistency
     of the link atom position across macro/micro boundaries.
@@ -1709,7 +1718,7 @@ def _run_microiter_tsopt(
 
     cached_ts = _hess_load_ts("ts")
     if cached_ts is not None:
-        click.echo("[microiter] Reusing cached TS Hessian for RS-I-RFO macro step.")
+        click.echo("[microiter] Reusing cached TS Hessian for the macro TS step.")
         active_dofs = cached_ts.get("active_dofs")
         h_raw = cached_ts["hessian"]
         if isinstance(h_raw, torch.Tensor):
@@ -1729,7 +1738,7 @@ def _run_microiter_tsopt(
         click.echo(f"[microiter] Initial Hessian seeded from cache (shape={h_init.shape[0]}x{h_init.shape[1]}).")
         del h_init
     else:
-        click.echo("[microiter] Seeding initial Hessian for RS-I-RFO macro step.")
+        click.echo("[microiter] Seeding initial Hessian for the macro TS step.")
 
         geometry.freeze_atoms = macro_freeze
         geometry.set_calculator(macro_calc)
@@ -1743,8 +1752,11 @@ def _run_microiter_tsopt(
     macro_trj_path = out_dir_path / "optimization_trj.xyz"
     total_macro_steps = 0
 
-    # Create persistent RSIRFOptimizer once (LayerOpt pattern).
+    # Create the persistent macro TS optimizer once (LayerOpt pattern).
     # This preserves the BFGS Hessian update chain across macro iterations.
+    # The macro optimizer is the resolved --opt-mode (RS-I-RFO / RS-P-RFO / TRIM);
+    # all three are TSHessianOptimizer subclasses sharing the optimize()/prepare_opt()
+    # + Bofill-update contract the macro loop drives.
     # NOTE: geometry already has macro_calc set (line above); do NOT call
     # set_calculator() again as it clears the pre-computed cart_hessian.
     geometry.freeze_atoms = macro_freeze
@@ -1754,9 +1766,10 @@ def _run_microiter_tsopt(
         max_cycles=max_cycles,
         out_dir=out_dir_path,
         macro_thresh=macro_thresh,
+        mode=mode,
     )
 
-    macro_optimizer = RSIRFOptimizer(geometry, **rsirfo_args)
+    macro_optimizer = TSOPT_CLASS_MAP[mode](geometry, **rsirfo_args)
     macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
 
     # Microiteration progress table (pysisyphus-style with micro_steps column)
@@ -2026,9 +2039,9 @@ hessian_dimer_KW = {
     show_default=True,
     help=(
         "grad/dimer/light → Hessian Guided Dimer; "
-        "hess/rsirfo/heavy → RS-I-RFO (microiter-capable); "
-        "trim → TRIM (Helgaker); rsprfo → RS-P-RFO (Banerjee). "
-        "trim/rsprfo are non-microiter."
+        "hess/rsirfo/heavy → RS-I-RFO; trim → TRIM (Helgaker); "
+        "rsprfo → RS-P-RFO (Banerjee). "
+        "All three Hessian TS optimizers (rsirfo/rsprfo/trim) are microiter-capable."
     ),
 )
 @click.option(
@@ -2036,8 +2049,8 @@ hessian_dimer_KW = {
     "microiter",
     default=True,
     show_default=True,
-    help="Enable microiteration: alternate ML 1-step (RS-I-RFO) and MM relaxation (LBFGS with MM-only forces). "
-         "Only effective in --opt-mode hess. Ignored in grad mode.",
+    help="Enable microiteration: alternate a 1-step macro TS move (RS-I-RFO / RS-P-RFO / TRIM) and MM relaxation (LBFGS with MM-only forces). "
+         "Effective in any Hessian --opt-mode (hess/rsirfo/rsprfo/trim); ignored in grad/dimer mode.",
 )
 @click.option(
     "--partial-hessian-flatten/--full-hessian-flatten",
@@ -2163,6 +2176,7 @@ hessian_dimer_KW = {
 )
 @add_ml_layer_detection_options()
 @add_precision_option()
+@add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
 @add_deterministic_option()
@@ -2208,6 +2222,8 @@ def cli(
     skip_final_freq: bool,
     out_json: bool,
     precision: Optional[str],
+    workers: Optional[int],
+    workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
     calc_factory: str,
@@ -2346,12 +2362,16 @@ def cli(
 
     if backend is not None:
         calc_cfg["backend"] = str(backend).lower()
-    if precision is not None:
-        from mlmm.backends import apply_precision_to_calc_cfg
-        apply_precision_to_calc_cfg(calc_cfg, precision)
-    if backend_model is not None:
-        from mlmm.backends import apply_backend_model_to_calc_cfg
-        apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+    from mlmm.backends import apply_precision_to_calc_cfg
+    # Unconditional: also dispatches a --config YAML calc.precision
+    # (the helper no-ops when neither the CLI arg nor the YAML names one).
+    apply_precision_to_calc_cfg(calc_cfg, precision)
+    # Always run so a YAML-set workers>1 also gets the analytical-Hessian guard.
+    from mlmm.backends import apply_workers_to_calc_cfg
+    apply_workers_to_calc_cfg(calc_cfg, workers, workers_per_node)
+    from mlmm.backends import apply_backend_model_to_calc_cfg
+    # Unconditional: also pops a raw backend_model token from a --config YAML.
+    apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
     # --calc-file overrides --backend with a user ASE Calculator (custom backend).
     from mlmm.backends import apply_calc_file_to_calc_cfg
     apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
@@ -2395,13 +2415,12 @@ def cli(
         [(microiter_cfg, (("microiter",),))],
     )
 
-    # Microiter macro is RSIRFO-specific (different image-function / line-search semantics).
-    # trim / rsprfo run as standard non-microiter TS opts even when --microiter is set.
-    use_microiter = bool(microiter) and use_heavy and mode_resolved == "rsirfo"
+    # Microiteration drives one macro TS step per cycle and works with any of the
+    # Hessian TS optimizers (RS-I-RFO / RS-P-RFO / TRIM), which share the
+    # optimize()/prepare_opt()/Bofill-update contract. Only grad/dimer modes lack it.
+    use_microiter = bool(microiter) and use_heavy
     if bool(microiter) and not use_heavy:
-        click.echo("[microiter] --microiter is only effective with --opt-mode hess (RS-I-RFO). Ignoring.")
-    elif bool(microiter) and use_heavy and mode_resolved != "rsirfo":
-        click.echo(f"[microiter] --microiter is RS-I-RFO-specific; ignoring for --opt-mode {mode_resolved}.")
+        click.echo("[microiter] --microiter needs a Hessian TS optimizer (hess/rsirfo/rsprfo/trim); ignoring for grad/dimer.")
 
     try:
         geom_freeze = _normalize_geom_freeze_opt(geom_cfg.get("freeze_atoms"))
@@ -2633,6 +2652,7 @@ def cli(
                     out_dir_path,
                     dump=bool(opt_cfg["dump"]),
                     thresh=thresh,
+                    mode=mode_resolved,
                 )
 
                 # Write final geometry

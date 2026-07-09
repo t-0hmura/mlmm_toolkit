@@ -188,9 +188,18 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 # runs carry ~ULP scatter/atomic non-determinism and are not asserted here;
 # `--deterministic` enables torch deterministic algorithms and MUST be
 # bit-reproducible, so any drift is a real regression and fails the smoke.
+#
+# The MM parm (antechamber AM1-BCC ligand charges) is a NON-deterministic INPUT,
+# not part of the compute this gate exercises: sqm's AM1 SCF for this ligand is
+# poorly convergent, so its early-stop point — and thus the charges — vary
+# run-to-run. Regenerating it in both runs would make the gate test antechamber,
+# not `--deterministic` compute reproducibility. So build the parm once (run a)
+# and REUSE it via `--parm` in run b, giving both runs identical MM charges;
+# `--deterministic` then yields bit-identical geometry/MEP output. (For full
+# end-to-end reproducibility across separate invocations, pass a fixed `--parm`.)
 det_args="-i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --deterministic"
 mlmm all $det_args --out-dir test44_a > test44_a.out 2>&1
-mlmm all $det_args --out-dir test44_b > test44_b.out 2>&1
+mlmm all $det_args --parm test44_a/mm_parm/r_complex.parm7 --out-dir test44_b > test44_b.out 2>&1
 {
   total=0
   drifted=0

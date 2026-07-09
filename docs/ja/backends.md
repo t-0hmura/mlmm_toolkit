@@ -15,7 +15,7 @@ core = MLMMCore(
     model_pdb="model.pdb",
     backend="uma",          # one of: "uma", "orb", "mace", "aimnet2"
     model_charge=0, model_mult=1,
-    uma_model="uma-s-1p1",
+    uma_model="uma-s-1p2",
     uma_precision="fp32",   # or "fp64" (full-precision base inference)
 )
 
@@ -48,7 +48,7 @@ private なファクトリ）を呼び出して適切なアダプタをインス
 
 | backend | install | model identifier | precision option |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p1` / `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
+| `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p2` / `uma-s-1p1` / `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
 | `orb` | `pip install orb-models` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float64"`（`"float32"` も別名として受理） |
 | `mace` | 専用環境: `pip uninstall -y fairchem-core && pip install mace-torch`（`e3nn` の pin が UMA と競合） | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install aimnet` | `aimnet2` | n/a |
@@ -67,6 +67,17 @@ mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
 統一された `--precision` フラグは、`mlmm/backends/__init__.py` の `apply_precision_to_calc_cfg`
 によって各バックエンドのネイティブ kwarg（UMA は `uma_precision`、ORB は `orb_precision`、MACE は
 `mace_dtype`）へルーティングされます。
+
+`--precision` を指定しない場合、既定値はバックエンドごとに決まります。
+
+| backend | 既定 | 理由 |
+|---------|------|------|
+| `uma` | fp32 | 上流 fairchem のベースライン。 |
+| `orb` | fp64 | ORB の fp32 は縮約された `float32-high`（TF32）matmul であり、その力のノイズが有限差分 Hessian に偽の虚振動を生じさせる。 |
+| `mace` | fp64 | MACE は上流で `default_dtype="float64"` を既定とする。 |
+| `aimnet2` | fp32 | 精度の切り替えを持たない。 |
+
+`--precision fp32` はスループットのために ORB / MACE の精度を明示的に落とします（スクリーニング用途以外では非推奨）。使用する場合は、Hessian のノイズが増えるため、虚振動の本数を確認してください。
 
 統一された `--backend-model NAME` フラグも同様に、選択中の `--backend` のモデル変種を
 上書きし、`apply_backend_model_to_calc_cfg` によってバックエンドのモデル kwarg
