@@ -110,6 +110,23 @@ cuts bonds and adds caps. The ML / movable-MM / frozen layer partition
 `mlmm define-layer`, which encodes the categories in the PDB's B-factor
 field for downstream consumption.
 
+## `model.pdb` construction checklist
+
+- `model.pdb` is a selection of atoms from the full PDB/parm7, never a
+  separately rebuilt cluster. Preserve full-system atom order, atom/residue
+  names and numbers, and chain IDs. Do not renumber/reorder or add link H.
+- Include every atom involved in bond/proton transfer plus covalently attached
+  partners whose bonding changes.
+- Make retained backbone fragments terminate consistently at alpha carbons
+  (`CA`). Put other boundaries on aliphatic C–C single bonds (`CA–CB` or farther
+  out) whenever possible. Never cut peptide C–N, polar C–N/C–O,
+  aromatic/conjugated, disulfide, or metal-coordination bonds; expand/move the
+  boundary instead.
+- Reuse one identical `model.pdb` selection for every R/IM/P full-system PDB,
+  which must themselves have identical atoms and order.
+- Inspect boundary valences and confirm the **ML-region** charge/multiplicity.
+  `define-layer` labels atoms but cannot fix a chemically invalid selection.
+
 ## Common edits
 
 ### Rename residue 44 in chain A from CYS to CSS

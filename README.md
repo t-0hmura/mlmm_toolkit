@@ -92,7 +92,7 @@ For most systems the only hard requirement is a **PDB with explicit hydrogens** 
    mlmm extract -i complex.pdb -c 'SAM,GPP' -r 6.0 -l 'SAM:1,GPP:-3' -o ml_region.pdb
    ```
 
-   **Important:** atom order, residue names, and residue numbers must match between the *full* PDB and the *ML-region* PDB. (In PyMOL, tick **"Original atom order"** when exporting.)
+   **Important:** `model.pdb` must be an unchanged subset of the full PDB/`parm7` atom topology. Preserve original atom order, names, residue IDs, and chain IDs; do not add link H manually. Terminate retained backbone fragments consistently at Cα (`CA`), put other ML/MM boundaries on aliphatic C–C single bonds whenever possible, and avoid peptide/polar/conjugated/metal bonds. Use the same selection for every R/IM/P state. (In PyMOL, tick **"Original atom order"** when exporting.) See [How to construct `model.pdb`](docs/concepts.md#how-to-construct-a-reliable-modelpdb).
 
 ## Quick Examples
 

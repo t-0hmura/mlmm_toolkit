@@ -214,6 +214,25 @@ ML 領域の指定には 2 通りあります。
   `--modified-residue` / `-l` は効かず、model PDB にリンク水素を入れる必要も**ありません**
   — ML/MM calculator が `--parm` のトポロジーから ML/MM 境界に付与します。
 
+#### 信頼できる`model.pdb`の作り方
+
+`model.pdb`は独立に再構築したclusterではなく、full PDB/`parm7`から選んだ
+**原子selection file**です。原子名、残基名／番号、chain ID、full-system内の原子順序を
+変えないでください。renumber/reorder、cap水素の手動追加、別途水素付加したmodelのexportは
+行いません。
+
+- 反応中心、共有結合cofactor／partner、path中にprotonationまたは結合が変化する原子を
+  完全にML領域へ含めます。
+- protein主鎖断片は、両端の主鎖末端が一貫してCα（`CA`）になる範囲を選び、
+  境界原子価はML/MM link処理に任せます。
+- 側鎖・ligand・cofactor境界は、可能な限り脂肪族の**C–C単結合**
+  （`CA–CB`または反応中心からさらに外側）に置きます。peptide C–N、極性C–N/C–O、
+  芳香族／共役、S–S、金属配位結合を切らず、結合相手を含めるか境界を移します。
+- R/IM/Pのfull systemは同一原子・同一順序とし、同一の`model.pdb` selectionを再利用します。
+  各状態で独立にmodelを作るとatom mappingとbarrier比較が無効になります。
+- production前に全境界を目視し、ML領域のcharge/multiplicityを確認します。
+  `define-layer`はlayerを付与するだけで、化学的に悪い境界は修復しません。
+
 ### Real system と Model system（ONIOM 用語）
 
 - **Real system（実系）**: すべての原子（3 層すべて）。MM（低レベル）で評価されます。

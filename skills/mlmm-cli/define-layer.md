@@ -35,6 +35,13 @@ mlmm define-layer -i full_system.pdb \
 `--model-pdb` and `--model-indices` are alternatives; supply exactly
 one. `--model-indices` takes precedence over `--model-pdb` if both are given.
 
+The model PDB must be an unchanged atom subset of the full input/topology:
+preserve original order and identifiers, do not include explicit link H, and
+reuse the same selection across R/IM/P. Prefer Cα-terminated backbone fragments
+and aliphatic C–C single-bond ML/MM boundaries; avoid peptide, polar,
+conjugated, disulfide, and metal-coordination cuts. See
+`mlmm-structure-io/pdb.md` for the boundary checklist.
+
 ## Examples
 
 ### Auto-expand around an ML model PDB
