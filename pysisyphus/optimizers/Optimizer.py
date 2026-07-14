@@ -379,6 +379,8 @@ class Optimizer(metaclass=abc.ABCMeta):
         col_fmts = "int float float float float float float_short".split()
         self.table = TablePrinter(header, col_fmts, width=12)
         self.is_converged = False
+        self.stop_requested = False
+        self.stop_reason = ""
 
     def get_path_for_fn(self, fn, with_prefix=True):
         prefix = self.prefix if with_prefix else ""
@@ -488,6 +490,54 @@ class Optimizer(metaclass=abc.ABCMeta):
         return  # silenced: per-cycle trace leaked to stderr, bypassing the CLI -v gate
         # self.logger.log(level, message)
 
+    def request_stop(self, reason):
+        """Request a clean, non-converged stop after the current trial.
+
+        Optimizer subclasses use this when further retries would only repeat a
+        rejected step.  Keeping this distinct from convergence prevents a
+        safeguarded failure from being reported as a stationary point.
+        """
+        self.stop_requested = True
+        self.stop_reason = str(reason)
+
+    def _rollback_trial_state(self):
+        """Rollback hook for optimizer-specific per-trial state."""
+
+    def reject_current_trial(self):
+        """Restore the last accepted geometry and discard the current trial.
+
+        ``run()`` records trial coordinates before calling ``optimize()``.  At
+        that point the matching energy, force, and incoming step are also the
+        final entries in their histories.  Rejection must remove all of them
+        atomically so a subsequent quasi-Newton update never compares records
+        belonging to different geometries.
+        """
+        if len(self.coords) < 2 or len(self.cart_coords) < 2:
+            raise RuntimeError("Cannot reject a trial without an accepted predecessor.")
+        if not self.energies or not self.forces or not self.steps:
+            raise RuntimeError("Incomplete optimizer histories for trial rejection.")
+
+        previous_cart_coords = self.cart_coords[-2].copy()
+        self.geometry.cart_coords = previous_cart_coords
+
+        self.coords.pop()
+        self.cart_coords.pop()
+        self.energies.pop()
+        self.forces.pop()
+        self.steps.pop()
+        self._rollback_trial_state()
+
+        # These records are appended alongside coordinates before optimize().
+        if len(self.image_inds) > len(self.coords):
+            self.image_inds.pop()
+        if len(self.image_nums) > len(self.coords):
+            self.image_nums.pop()
+
+        # Internal-coordinate back-transformation can introduce roundoff.
+        # Make the surviving record exactly match the restored Geometry.
+        self.coords[-1] = self.geometry.coords.copy()
+        self.cart_coords[-1] = self.geometry.cart_coords.copy()
+
     def check_convergence(self, step=None, multiple=1.0, overachieve_factor=None):
         """Check if the current convergence of the optimization
         is equal to or below the required thresholds, or a multiple
@@ -580,12 +630,15 @@ class Optimizer(metaclass=abc.ABCMeta):
         desired_eigval_structure = True
         if self.check_eigval_structure:
             try:
-                desired_eigval_structure = (
-                    # Acutally all eigenvalues would have to be checked, but
-                    # currently they are not stored anywhere.
-                    self.ts_mode_eigvals
-                    < self.small_eigval_thresh
-                ).sum() == len(self.roots)
+                desired_eigval_structure = bool(
+                    (
+                        # Acutally all eigenvalues would have to be checked, but
+                        # currently they are not stored anywhere.
+                        self.ts_mode_eigvals
+                        < -self.small_eigval_thresh
+                    ).sum()
+                    == len(self.roots)
+                )
             except AttributeError:
                 self.log(
                     "Skipping check of eigenvalue structure, as information is unavailable."
@@ -635,18 +688,33 @@ class Optimizer(metaclass=abc.ABCMeta):
             e_window = self.energies[-W:]
             e_range = float(np.max(e_window) - np.min(e_window))
             if e_range < self.energy_plateau_thresh:
-                energy_plateau_converged = True
-                self.table.print(
-                    f"Energy plateau detected (range={e_range:.2e} au "
-                    f"over {W} steps); treating as converged."
+                energy_plateau_converged = (
+                    not self.check_eigval_structure or desired_eigval_structure
                 )
+                if energy_plateau_converged:
+                    self.table.print(
+                        f"Energy plateau detected (range={e_range:.2e} au "
+                        f"over {W} steps); treating as converged."
+                    )
+                else:
+                    self.table.print(
+                        f"Energy plateau detected (range={e_range:.2e} au over "
+                        f"{W} steps), but the required Hessian eigenvalue "
+                        "structure is absent; continuing."
+                    )
 
-        return (
-            any((converged_to_geom, converged, overachieved, geom_converged,
-                 energy_plateau_converged))
-            and not_never,
-            conv_info,
+        terminal_candidate = any(
+            (
+                converged_to_geom,
+                converged,
+                overachieved,
+                geom_converged,
+                energy_plateau_converged,
+            )
         )
+        if self.check_eigval_structure:
+            terminal_candidate = terminal_candidate and desired_eigval_structure
+        return terminal_candidate and not_never, conv_info
 
     def print_opt_progress(self, conv_info):
         try:
@@ -942,6 +1010,8 @@ class Optimizer(metaclass=abc.ABCMeta):
 
             # Convergence check
             self.is_converged, conv_info = self.check_convergence()
+            if self.stop_requested:
+                self.is_converged = False
 
             end_time = time.time()
             elapsed_seconds = end_time - start_time
@@ -959,9 +1029,17 @@ class Optimizer(metaclass=abc.ABCMeta):
             ):
                 self.dump_restart_info()
 
-            if (self.cur_cycle % self.print_every) == 0 or self.is_converged:
+            if (
+                (self.cur_cycle % self.print_every) == 0
+                or self.is_converged
+                or self.stop_requested
+            ):
                 self.print_opt_progress(conv_info)
-            if self.is_converged:
+            if self.stop_requested:
+                self.table.print(f"Stopped without convergence: {self.stop_reason}")
+                self.stopped = True
+                break
+            elif self.is_converged:
                 self.table.print("Converged!")
                 break
             # Allow convergence, before checking for too small steps

@@ -54,7 +54,7 @@ AMINO_ACIDS: Dict[str, int] = {
     "CYM": -1,   # deprotonated Cys
 
     # --- Lys variants / carboxylation ---
-    "MLY": +1, "LLP": +1, "DLY": +1,
+    "MLY": +1, "LLP": +1,
     "KCX": -1,   # Lysine Nz-Carboxylic Acid
 
     # --- D isomers (19 residues) ---

@@ -15,7 +15,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
 
 For scan-mode on a single structure and the bundled methyltransferase walk-through, see [`examples/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples). Each stage is also exposed as an [individual subcommand](#cli-subcommands).
 
-> **Prerequisites:** input PDBs must already contain hydrogens; multiple PDBs must share the same atoms in the same order (only coordinates differ). `mlmm all` runs `mm-parm` automatically. Match `-l RES:CHARGE` to the H count actually present (e.g. SAM with 23 H = `SAM:1` cation, 22 H = `SAM:0` neutral) — full input-prep checklist in [docs/getting-started.md](docs/getting-started.md).
+> **Prerequisites:** input PDB/mmCIF structures must already contain hydrogens; multiple reaction states must share the same atoms in the same order (only coordinates differ). `mlmm all` runs `mm-parm` automatically. Match `-l RES:CHARGE` to the H count actually present (e.g. SAM with 23 H = `SAM:1` cation, 22 H = `SAM:0` neutral) — full input-prep checklist in [docs/getting-started.md](docs/getting-started.md).
 
 ## Related tools
 
@@ -28,9 +28,20 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md) · [Concepts](docs/concepts.md) · [Installation](docs/getting-started.md#installation) · [Troubleshooting](docs/troubleshooting.md)
+- [Getting Started](docs/getting-started.md) · [mmCIF and Large Structures](docs/cif.md) · [Concepts](docs/concepts.md) · [Installation](docs/getting-started.md#installation) · [Troubleshooting](docs/troubleshooting.md)
 - [Python API](docs/python-api.md) · [CLI Conventions](docs/cli-conventions.md) · [YAML Reference](docs/yaml-reference.md) · [JSON Output Schema](docs/json-output.md)
 - Full command index: [docs/index.md](docs/index.md)
+
+## Colab GUI
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
+
+[`examples/mlmm_colab.ipynb`](examples/mlmm_colab.ipynb) provides a
+notebook-native PDB/mmCIF and `parm7` uploader, 3D chain-qualified residue/atom
+picking, backend/model options, an editable exact command, a separate
+`--dry-run` validation action, and result/trajectory views. It installs the
+release-matched tag and one backend into the user's own GPU runtime; MACE and
+UMA still require separate runtimes.
 
 ## System requirements
 

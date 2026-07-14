@@ -18,6 +18,7 @@ import warnings
 import shutil
 import tempfile
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from concurrent.futures import ThreadPoolExecutor
@@ -152,6 +153,72 @@ EV2AU = 1.0 / AU2EV  # eV → Hartree
 KCALMOL2EV = AU2EV / AU2KCALPERMOL  # kcal/mol -> eV
 
 
+def _prepare_model_for_autograd_hessian(model_obj: Any) -> Dict[str, Any]:
+    """Temporarily make a torch model deterministic and double-backward safe."""
+    state: Dict[str, Any] = {
+        "was_training": bool(getattr(model_obj, "training", False)),
+        "param_flags": [],
+        "dropout_states": [],
+    }
+    if hasattr(model_obj, "parameters"):
+        for param in model_obj.parameters():
+            state["param_flags"].append((param, bool(param.requires_grad)))
+            param.requires_grad_(False)
+    if hasattr(model_obj, "train"):
+        model_obj.train(True)
+    dropout_types = tuple(
+        cls
+        for cls in (
+            nn.Dropout,
+            nn.Dropout1d,
+            nn.Dropout2d,
+            nn.Dropout3d,
+            nn.AlphaDropout,
+            nn.FeatureAlphaDropout,
+        )
+        if cls is not None
+    )
+    if hasattr(model_obj, "modules"):
+        for module in model_obj.modules():
+            if not isinstance(module, dropout_types):
+                continue
+            old_p = getattr(module, "p", None)
+            state["dropout_states"].append(
+                (module, bool(getattr(module, "training", False)), old_p)
+            )
+            if old_p is not None:
+                module.p = 0.0
+            module.train(False)
+    return state
+
+
+def _restore_model_after_autograd_hessian(
+    model_obj: Any, state: Dict[str, Any]
+) -> None:
+    """Restore state saved by :func:`_prepare_model_for_autograd_hessian`."""
+    for module, was_training, old_p in state.get("dropout_states", []):
+        if old_p is not None:
+            module.p = old_p
+        module.train(was_training)
+    if hasattr(model_obj, "train"):
+        model_obj.train(state.get("was_training", False))
+    for param, requires_grad in state.get("param_flags", []):
+        param.requires_grad_(requires_grad)
+
+
+def _autograd_hessian_with_mutation_guard(energy_fn, flat0: torch.Tensor) -> torch.Tensor:
+    """Evaluate a Hessian while permitting ORB's saved-tensor mutations."""
+    graph = getattr(torch.autograd, "graph", None)
+    mutation_guard = getattr(graph, "allow_mutation_on_saved_tensors", nullcontext)
+    with mutation_guard():
+        return torch.autograd.functional.hessian(
+            energy_fn,
+            flat0,
+            vectorize=False,
+            create_graph=False,
+        )
+
+
 
 
 class _MLBackend(abc.ABC):
@@ -283,7 +350,8 @@ class _UMABackend(_MLBackend):
         if self.parallel_predict:
             # ParallelMLIPPredictUnit spreads inference over `workers` processes but
             # does NOT expose `.model`; analytical Hessians are therefore unavailable
-            # in this mode (supports_analytical_hessian → False, callers fall back to FD).
+            # in this mode. Automatic selection uses finite differences; an explicit
+            # Analytical request is rejected by the preflight before model loading.
             if ParallelMLIPPredictUnit is None or guess_inference_settings is None:
                 raise ImportError(
                     "workers>1 requested, but ParallelMLIPPredictUnit/guess_inference_settings "
@@ -467,7 +535,8 @@ class _ASEMLBackend(_MLBackend):
         atoms_copy.info["spin"] = int(self._model_mult)
         E = float(atoms_copy.get_potential_energy())
         F = np.array(atoms_copy.get_forces(), dtype=np.float64)
-        return E, F, None
+        # Keep the prepared Atoms object as the opaque analytical-Hessian input.
+        return E, F, atoms_copy
 
     def hessian_analytical(self, opaque: Any, n_atoms: int, *, dtype: torch.dtype) -> torch.Tensor:
         raise NotImplementedError(
@@ -507,16 +576,140 @@ class _OrbBackend(_ASEMLBackend):
                 "Install with `pip install orb-models`."
             )
         from orb_models.forcefield import pretrained
-        from orb_models.forcefield.calculator import ORBCalculator
 
         device_str = "cuda" if ml_device.type == "cuda" else "cpu"
         precision = self._PRECISION_ALIASES.get(str(orb_precision), str(orb_precision))
-        orbff = getattr(pretrained, orb_model)(device=device_str, precision=precision)
-        self._ase_calc = ORBCalculator(orbff, device=device_str)
+        loaded = getattr(pretrained, orb_model)(
+            device=device_str, precision=precision
+        )
+        if isinstance(loaded, tuple) and len(loaded) >= 2:
+            self._model_obj, self._adapter = loaded[0], loaded[1]
+        else:
+            self._model_obj, self._adapter = loaded, None
+
+        def _construct(calculator_cls):
+            attempts = []
+            if self._adapter is not None:
+                attempts.extend(
+                    [
+                        ((self._model_obj, self._adapter), {"device": device_str}),
+                        ((self._model_obj, self._adapter), {}),
+                    ]
+                )
+            attempts.extend(
+                [
+                    ((self._model_obj,), {"device": device_str}),
+                    ((self._model_obj,), {}),
+                ]
+            )
+            for args, kwargs in attempts:
+                try:
+                    return calculator_cls(*args, **kwargs)
+                except TypeError:
+                    continue
+            return None
+
+        self._ase_calc = None
+        try:
+            from orb_models.forcefield.inference.calculator import ORBCalculator
+
+            self._ase_calc = _construct(ORBCalculator)
+        except ImportError:
+            pass
+        if self._ase_calc is None:
+            from orb_models.forcefield.calculator import ORBCalculator
+
+            self._ase_calc = _construct(ORBCalculator)
+        if self._ase_calc is None:
+            raise RuntimeError("Failed to build ORBCalculator.")
         self._device = ml_device
         self._model_charge = model_charge
         self._model_mult = model_mult
         self._orb_precision = precision
+
+    @property
+    def supports_analytical_hessian(self) -> bool:
+        return hasattr(self._model_obj, "predict")
+
+    def hessian_analytical(
+        self, opaque: Any, n_atoms: int, *, dtype: torch.dtype
+    ) -> torch.Tensor:
+        """Compute ORB's analytical Hessian with double-backward safeguards."""
+        atoms = opaque.copy()
+        atoms.info.update(
+            {"charge": self._model_charge, "spin": int(self._model_mult)}
+        )
+        device_str = str(self._device)
+        if self._adapter is not None and hasattr(self._adapter, "from_ase_atoms"):
+            base_graph = self._adapter.from_ase_atoms(
+                atoms=atoms, device=device_str
+            )
+        else:
+            try:
+                from orb_models.forcefield import atomic_system
+            except ImportError as exc:
+                raise RuntimeError(
+                    "ORB analytical Hessian requires orb_models.forcefield.atomic_system."
+                ) from exc
+            base_graph = atomic_system.ase_atoms_to_atom_graphs(
+                atoms,
+                getattr(self._model_obj, "system_config", None),
+                device=device_str,
+            )
+        if (
+            not hasattr(base_graph, "node_features")
+            or "positions" not in base_graph.node_features
+        ):
+            raise RuntimeError(
+                "Unexpected ORB graph: node_features['positions'] is missing."
+            )
+
+        flat0 = (
+            base_graph.node_features["positions"]
+            .detach()
+            .clone()
+            .reshape(-1)
+            .to(device_str)
+        )
+
+        def energy_fn(flat_pos: torch.Tensor) -> torch.Tensor:
+            base_graph.node_features["positions"] = flat_pos.view(n_atoms, 3)
+            result = self._model_obj.predict(base_graph)
+            if isinstance(result, dict):
+                for key in ("energy", "free_energy", "total_energy", "E"):
+                    if key in result:
+                        return result[key].reshape(-1)[0]
+                raise RuntimeError(
+                    f"ORB predict() output has no energy key: {sorted(result)}"
+                )
+            return result.reshape(-1)[0]
+
+        donated_before = None
+        try:
+            donated_before = torch._functorch.config.donated_buffer
+            torch._functorch.config.donated_buffer = False
+        except (AttributeError, RuntimeError):
+            donated_before = None
+        state = _prepare_model_for_autograd_hessian(self._model_obj)
+        try:
+            hessian = _autograd_hessian_with_mutation_guard(energy_fn, flat0)
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as exc:
+            if "out of memory" in str(exc).lower():
+                raise RuntimeError(
+                    "ORB analytical Hessian ran out of GPU memory; use "
+                    "hessian_calc_mode='FiniteDifference'."
+                ) from exc
+            raise RuntimeError(f"ORB analytical Hessian failed: {exc}") from exc
+        finally:
+            _restore_model_after_autograd_hessian(self._model_obj, state)
+            if donated_before is not None:
+                try:
+                    torch._functorch.config.donated_buffer = donated_before
+                except AttributeError:
+                    pass
+            if self._device.type == "cuda":
+                torch.cuda.empty_cache()
+        return hessian.detach().reshape(n_atoms, 3, n_atoms, 3).to(dtype)
 
 
 class _MACEBackend(_ASEMLBackend):
@@ -573,6 +766,56 @@ class _MACEBackend(_ASEMLBackend):
         self._model_charge = model_charge
         self._model_mult = model_mult
 
+    @property
+    def supports_analytical_hessian(self) -> bool:
+        return hasattr(self._ase_calc, "get_hessian")
+
+    def hessian_analytical(
+        self, opaque: Any, n_atoms: int, *, dtype: torch.dtype
+    ) -> torch.Tensor:
+        """Return MACE's native analytical Hessian in eV/Å²."""
+        atoms = opaque.copy()
+        atoms.info.update(
+            {"charge": self._model_charge, "spin": int(self._model_mult)}
+        )
+        calc = self._ase_calc
+        if not hasattr(calc, "get_hessian"):
+            raise RuntimeError(
+                "Installed MACE calculator has no analytical Hessian API; "
+                "upgrade mace-torch or use FiniteDifference."
+            )
+        try:
+            internal = (
+                hasattr(calc, "_atoms_to_batch")
+                and hasattr(calc, "_clone_batch")
+                and getattr(calc, "models", None) is not None
+                and len(calc.models) == 1
+            )
+            if internal:
+                batch = calc._atoms_to_batch(atoms)
+                result = calc.models[0](
+                    calc._clone_batch(batch).to_dict(),
+                    compute_hessian=True,
+                    compute_stress=False,
+                    training=getattr(calc, "use_compile", False),
+                )
+                hessian = result["hessian"].detach()
+                del result
+            else:
+                hessian = calc.get_hessian(atoms=atoms)
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as exc:
+            if "out of memory" in str(exc).lower():
+                raise RuntimeError(
+                    "MACE analytical Hessian ran out of GPU memory; use "
+                    "hessian_calc_mode='FiniteDifference'."
+                ) from exc
+            raise RuntimeError(f"MACE analytical Hessian failed: {exc}") from exc
+        if not isinstance(hessian, torch.Tensor):
+            hessian = torch.as_tensor(hessian, device=self._device)
+        if hessian.ndim == 5 and hessian.shape[0] > 0:
+            hessian = hessian[0]
+        return hessian.detach().reshape(n_atoms, 3, n_atoms, 3).to(dtype)
+
 
 class _AIMNet2Backend(_ASEMLBackend):
     """AIMNet2 ML backend."""
@@ -597,6 +840,55 @@ class _AIMNet2Backend(_ASEMLBackend):
         self._device = ml_device
         self._model_charge = model_charge
         self._model_mult = model_mult
+
+    @property
+    def supports_analytical_hessian(self) -> bool:
+        return callable(self._ase_calc)
+
+    def hessian_analytical(
+        self, opaque: Any, n_atoms: int, *, dtype: torch.dtype
+    ) -> torch.Tensor:
+        """Return AIMNet2's native analytical Hessian in eV/Å²."""
+        atoms = opaque
+        data = {
+            "coord": np.asarray(
+                atoms.get_positions(), dtype=np.float32
+            ).reshape(-1, 3),
+            "numbers": np.asarray(
+                atoms.get_atomic_numbers(), dtype=np.int64
+            ).reshape(-1),
+            "charge": np.asarray(
+                [float(self._model_charge)], dtype=np.float32
+            ),
+            "mult": np.asarray(
+                [float(self._model_mult)], dtype=np.float32
+            ),
+        }
+        try:
+            result = self._ase_calc(data, forces=True, hessian=True)
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as exc:
+            if "out of memory" in str(exc).lower():
+                raise RuntimeError(
+                    "AIMNet2 analytical Hessian ran out of GPU memory; use "
+                    "hessian_calc_mode='FiniteDifference'."
+                ) from exc
+            raise RuntimeError(f"AIMNet2 analytical Hessian failed: {exc}") from exc
+        hessian = None
+        if isinstance(result, (list, tuple)) and len(result) > 2:
+            hessian = result[2]
+        elif isinstance(result, dict):
+            for key in ("hessian", "Hessian", "hess", "hessians"):
+                if key in result:
+                    hessian = result[key]
+                    break
+        if hessian is None:
+            raise RuntimeError(
+                "AIMNet2 did not return an analytical Hessian; use "
+                "hessian_calc_mode='FiniteDifference'."
+            )
+        if not isinstance(hessian, torch.Tensor):
+            hessian = torch.as_tensor(hessian, device=self._device)
+        return hessian.detach().reshape(n_atoms, 3, n_atoms, 3).to(dtype)
 
 
 class _CustomBackend(_ASEMLBackend):
@@ -1225,6 +1517,41 @@ class _MMLowOut:
     timing: Dict[str, float | str]
 
 
+def validate_parmed_atom_order(
+    input_structure,
+    real_topology,
+    *,
+    input_label: str = "input structure",
+    topology_label: str = "parm7 topology",
+) -> None:
+    """Validate count and known-element order before positional assignment."""
+    n_input = int(len(input_structure.atoms))
+    n_top = int(len(real_topology.atoms))
+    if n_input != n_top:
+        raise ValueError(
+            "Atom-count mismatch between input structure and real topology: "
+            f"{input_label!r} has {n_input} atoms, {topology_label!r} expects "
+            f"{n_top} atoms. Provide a full-system structure consistent with the parm7."
+        )
+    for index, (input_atom, top_atom) in enumerate(
+        zip(input_structure.atoms, real_topology.atoms)
+    ):
+        input_z = int(getattr(input_atom, "atomic_number", 0) or 0)
+        top_z = int(getattr(top_atom, "atomic_number", 0) or 0)
+        # Unknown PDB elements cannot prove identity; known unequal elements do
+        # prove that positional coordinate assignment would be unsafe.
+        if input_z > 0 and top_z > 0 and input_z != top_z:
+            from ase.data import chemical_symbols
+
+            raise ValueError(
+                "Atom-order mismatch between input structure and parm7 at "
+                f"atom {index + 1} (0-based {index}): input has "
+                f"{chemical_symbols[input_z]}, topology has "
+                f"{chemical_symbols[top_z]}. Regenerate the topology from the "
+                "same atom ordering or reorder the input structure."
+            )
+
+
 class MLMMCore:
     """ONIOM-like ML/MM engine supporting multiple MLIP backends.
 
@@ -1308,6 +1635,12 @@ class MLMMCore:
             raise TypeError(f"MLMMCore.__init__() got unexpected keyword arguments: {', '.join(kwargs)}")
         if input_pdb is None:
             raise TypeError("MLMMCore.__init__() missing required keyword argument: 'input_pdb'")
+        if int(workers or 1) > 1 and str(hessian_calc_mode or "").lower().startswith("anal"):
+            raise ValueError(
+                "Analytical Hessian cannot be combined with workers>1: the "
+                "parallel UMA predictor exposes no autograd model. Use workers=1 "
+                "or select hessian_calc_mode='FiniteDifference'."
+            )
 
         # ── Workspace setup ───────────────────────────────────────────────
         # The constructor copies input.pdb / real.parm7 / model.pdb into a
@@ -1336,15 +1669,12 @@ class MLMMCore:
                 f"(parmed: {exc}). Regenerate with `mlmm mm-parm` or tleap."
             ) from exc
         start_struct = pmd.load_file(self.input_pdb)
-        real_n_atoms = int(len(real_top.atoms))
-        start_n_atoms = int(len(start_struct.atoms))
-        if start_n_atoms != real_n_atoms:
-            raise ValueError(
-                "Atom-count mismatch between input structure and real topology: "
-                f"input_pdb='{input_pdb}' has {start_n_atoms} atoms, "
-                f"real_parm7='{real_parm7}' expects {real_n_atoms} atoms. "
-                "Provide a full-system input structure consistent with the parm7."
-            )
+        validate_parmed_atom_order(
+            start_struct,
+            real_top,
+            input_label=f"input_pdb={input_pdb}",
+            topology_label=f"real_parm7={real_parm7}",
+        )
         real_top.coordinates = start_struct.coordinates
         real_top.box = None
         real_top.save(self.real_parm7, overwrite=True)
@@ -1523,8 +1853,8 @@ class MLMMCore:
         # CHEMISTRY-RULE:9 parm7 1-based atom indexing (NOT PDB serial).
         # Use 1-based ATOM/HETATM file position as `idx`. parm7 atoms (parmed)
         # are renumbered 1..N sequentially after tleap, so PDB serial fields
-        # cannot be used as parm7 indices — gaps in input PDB serials break
-        # `real.atoms[idx-1]` lookups (e.g. COMT model has a 3411→3418 gap).
+        # cannot be used as parm7 indices because serial gaps break
+        # `real.atoms[idx-1]` lookups.
         atom_pos = 0
         for ln in open(self.input_pdb):
             if not ln.startswith(("ATOM", "HETATM")):
@@ -1620,6 +1950,11 @@ class MLMMCore:
         all_indices = set(range(n_atoms))
         mm_indices = all_indices - set(self.ml_indices)
 
+        def min_dist_to_ml(atom_idx: int) -> float:
+            atom_coord = coords[atom_idx]
+            dists = np.linalg.norm(coords[self.ml_indices] - atom_coord, axis=1)
+            return float(np.min(dists))
+
         has_explicit = (
             self._explicit_hess_mm_atoms is not None
             or self._explicit_movable_mm_atoms is not None
@@ -1673,13 +2008,6 @@ class MLMMCore:
                 # Hessian-target MM selection:
                 hess_mm: set[int]
                 if self.hess_cutoff is not None:
-                    ml_coords = coords[self.ml_indices]
-
-                    def min_dist_to_ml(atom_idx: int) -> float:
-                        atom_coord = coords[atom_idx]
-                        dists = np.linalg.norm(ml_coords - atom_coord, axis=1)
-                        return float(np.min(dists))
-
                     hess_cut = float(self.hess_cutoff)
                     hess_mm = {idx for idx in movable_pool if min_dist_to_ml(idx) <= hess_cut}
                 else:
@@ -1702,13 +2030,6 @@ class MLMMCore:
             self.hess_indices = sorted(self.ml_indices + self.hess_mm_indices)
             self.movable_indices = sorted(self.ml_indices + self.hess_mm_indices)
             return
-
-        ml_coords = coords[self.ml_indices]
-
-        def min_dist_to_ml(atom_idx: int) -> float:
-            atom_coord = coords[atom_idx]
-            dists = np.linalg.norm(ml_coords - atom_coord, axis=1)
-            return float(np.min(dists))
 
         hess_mm: List[int] = []
         movable_mm: List[int] = []
@@ -1947,13 +2268,10 @@ class MLMMCore:
                 local_timing["ml_hessian_s"] = time.perf_counter() - t0
             else:
                 if self._ml_hessian_mode == "analytical" and not self._ml_backend.supports_analytical_hessian:
-                    # An explicit analytical request the backend cannot honour
-                    # (ORB/MACE/AIMNet2 expose no analytical Hessian) degrades to
-                    # finite differences — say so instead of degrading silently.
-                    warnings.warn(
-                        f"analytical Hessian is unavailable for the {self.backend_name} "
-                        f"backend; falling back to finite differences.",
-                        stacklevel=2,
+                    raise RuntimeError(
+                        "The requested analytical Hessian is unavailable for "
+                        f"the {self.backend_name} backend. Select "
+                        "hessian_calc_mode='FiniteDifference' explicitly."
                     )
                 t0 = time.perf_counter()
                 H_high = self._ml_backend.hessian_fd(

@@ -60,12 +60,11 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 ### Hessianバックエンド
 
-`--hess` を指定すると、バックエンドの選択がHessian計算戦略を決めます:
-
-- `--backend uma`（デフォルト）→ UMA の torch autograd 経路による ML 領域の `Analytical` Hessian。MM 領域は `hessian_ff` の解析Hessianを使用
-- `--backend orb` / `mace` / `aimnet2` → ML 領域は `FiniteDifference` にフォールバック
-
-`--hessian-calc-mode` で呼び出しごとに上書きできます。
+`--hess` と `--hessian-calc-mode Analytical` を指定すると、選択した
+バックエンド（UMA、ORB、MACE、AIMNet2）の解析/native Hessian 経路を使います。
+`FiniteDifference` は全バックエンドで利用でき、MM 領域はデフォルトで
+`hessian_ff` の解析 Hessian を使います。必要な backend API が無い場合は
+有限差分へ暗黙に切り替えずエラーになります。
 
 ### その他のオプション
 

@@ -35,10 +35,21 @@ Geometry loading and coordinate handling.
 ```yaml
 geom:
  coord_type: cart # Coordinate type: "cart" (Cartesian) or "dlc" (delocalized internals)
+ freeze_atoms: [] # 1-based frozen-atom indices
+ tr_projection: constrained # constrained (default) | legacy-active
 ```
 
 **Notes:**
 - Frozen atoms have zeroed forces; their Hessian columns are also zeroed
+- `tr_projection: constrained` removes only full-system rigid motions that
+  leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for
+  zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries
+  therefore usually have rank 0. An all-frozen selection is an explicit error.
+- `legacy-active` is an isolated-active comparison treatment that uses the
+  current common projection kernel and numerical rank handling. Bitwise
+  identity is not guaranteed for rank-degenerate geometries.
+- `tr_projection` controls frozen-boundary PHVA used by `freq`, `irc`, `tsopt`,
+  and `opt --flatten`. It is unrelated to the `tsopt --ref-mode` MEP tangent.
 - For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging
 
 ---
@@ -132,7 +143,7 @@ calc:
   - `aimnet2_model` — AIMNet2 backend only
 - `embedcharge: true` enables xTB point-charge embedding, which models MM-to-ML electrostatic polarization effects. Default is `false`. Requires an `xtb` executable on `$PATH`.
 - `xtb_cmd`, `xtb_acc`, `xtb_ncores`, `xtb_workdir`, `xtb_keep_files` configure the xTB subprocess when `embedcharge` is enabled.
-- `hessian_calc_mode: Analytical` is recommended when sufficient VRAM is available for the ML region (24 GB+ for 300+ ML atoms). Only available for the UMA backend; other backends use `FiniteDifference` automatically.
+- `hessian_calc_mode: Analytical` requests the backend's analytical Hessian and is recommended when sufficient VRAM is available. UMA, ORB, MACE, and AIMNet2 implement this path; an incompatible installed backend version raises an error instead of silently changing methods. `workers > 1` cannot be combined with an analytical Hessian and also raises an error.
 - `mm_fd: true` uses finite-difference for MM Hessian; set to `false` to use analytical MM Hessian from hessian_ff
 - `use_cmap: false` (default) excludes CMAP (backbone cross-map dihedral correction) from the model parm7, consistent with Gaussian ONIOM behavior. Set `true` to include CMAP in the model region (CMAP remains in the real system in both cases).
 - `real_parm7` and `model_pdb` are required for ML/MM calculations
@@ -615,6 +626,7 @@ Below is a full example combining multiple sections:
 geom:
  coord_type: cart
  freeze_atoms: []
+ tr_projection: constrained
 
 calc:
  model_charge: 0
@@ -629,7 +641,7 @@ calc:
  use_bfactor_layers: true # Read layers from PDB B-factors
 
 gs:
- max_nodes: 12
+ max_nodes: 20
  climb: true
  climb_lanczos: true
 

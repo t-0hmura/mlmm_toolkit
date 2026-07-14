@@ -111,30 +111,9 @@ _LAZY_SUBCOMMANDS: dict[str, tuple[str, str, str]] = {
     "bond-summary": ("mlmm.domain.bond_summary", "cli", "Detect bond changes between structures."),
 }
 
-# Only the ``all`` subcommand is listed here because it uses Click's
-# ``type=click.BOOL`` (value-style) booleans that cannot be auto-detected
-# from ``is_bool_flag``.  For all other subcommands the ``DefaultGroup``
-# in ``default_group.py`` inspects the Click command's parameters at
-# runtime and auto-discovers ``is_bool_flag`` / ``BoolParamType`` options,
-# so they do not need to be repeated in these manual registries.
-_COMMAND_BOOL_VALUE_OPTIONS: dict[str, frozenset[str]] = {
-    "all": frozenset(
-        {
-            "--add-linkh",
-            "--climb",
-            "--dft",
-            "--dump",
-            "--exclude-backbone",
-            "--include-h2o",
-            "--preopt",
-            "--scan-endopt",
-            "--scan-one-based",
-            "--scan-preopt",
-            "--thermo",
-            "--tsopt",
-        }
-    ),
-}
+# Native Click toggles are used throughout. Legacy ``--flag True/False`` input
+# is still normalized through the toggle registry below.
+_COMMAND_BOOL_VALUE_OPTIONS: dict[str, frozenset[str]] = {}
 
 # Manual toggle-option hints.  ``DefaultGroup._resolve_bool_options()``
 # auto-detects toggle options from Click's ``is_bool_flag`` attribute,
@@ -148,16 +127,28 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
     ),
     "all": frozenset(
         {
+            "--add-linkh",
             "--auto-mm-add-ter",
+            "--climb",
             "--cmap",
             "--convert-files",
             "--detect-layer",
+            "--dft",
             "--dry-run",
+            "--dump",
             "--embedcharge",
+            "--exclude-backbone",
             "--flatten",
+            "--include-h2o",
+            "--preopt",
             "--refine-path",
+            "--scan-endopt",
+            "--scan-one-based",
+            "--scan-preopt",
             "--show-config",
             "--skip-final-freq",
+            "--thermo",
+            "--tsopt",
         }
     ),
     "bond-summary": frozenset(
@@ -371,6 +362,9 @@ _COMMAND_BOOL_SINGLE_FLAG_OPTIONS: dict[str, frozenset[str]] = {
 }
 
 _COMMAND_BOOL_TOGGLE_NEGATIVE_ALIASES: dict[str, dict[str, str]] = {
+    "all": {
+        "--scan-one-based": "--scan-zero-based",
+    },
     "scan": {
         "--one-based": "--zero-based",
     },

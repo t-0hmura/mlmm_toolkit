@@ -7,10 +7,8 @@ Catches three classes of staleness:
 
 1. **Unknown CLI flags** — any ``--flag-name`` token that exists nowhere
    in the Click subcommand graph. Either a typo or a removed flag.
-2. **Stale status enum literals** — ``"status": "completed"`` left over
-   from pre-0.3.x; the canonical envelope ``status`` values are
-   ``"success"`` / ``"partial"`` / ``"error"`` / ``"unknown"`` (see
-   ``RESULT_JSON_STATUS_VALUES`` in ``mlmm.core.utils``).
+2. **Unknown status literals** — command-specific CLI and MCP status values
+   are checked against the union implemented by the current workflows.
 3. **Renamed strings** — file names and JSON keys that were renamed in
    the source (``opt_trj.xyz`` → ``optimization_trj.xyz``,
    ``"n_cycles"`` → ``"n_opt_cycles"``, etc.). Maintained as a small
@@ -46,7 +44,6 @@ RENAMED_STRINGS: list[tuple[str, str, str]] = [
     ("\"gradient_max\"", "\"final_max_force\"", "result.json key renamed"),
     ("\"structure_path\"", "files.final_geometry_xyz",
      "structure_path is no longer a top-level result.json key"),
-    ("\"status\": \"completed\"", "\"status\": \"success\"", "status enum"),
     ("opt.log", "(none — pysisyphus loggers are silenced; use --dump)",
      "skill referenced a log file that is not produced"),
     ("tsopt.log", "(none — pysisyphus loggers are silenced; use --dump)",
@@ -57,12 +54,24 @@ RENAMED_STRINGS: list[tuple[str, str, str]] = [
      "skill referenced a log file that is not produced"),
 ]
 
-CANONICAL_STATUS: set[str] = {"success", "partial", "failed"}
+# CLI status is command-specific: summaries, optimizers, TS validation,
+# completed analysis/integration stages, and exception envelopes each use a
+# deliberately distinct value.
+CANONICAL_STATUS: set[str] = {
+    "success",
+    "partial",
+    "failed",
+    "converged",
+    "not_converged",
+    "unverified",
+    "completed",
+    "error",
+}
 
 # MCP runner-level status vocabulary (mlmm/mcp/_runner.py): a distinct
 # enum from the CLI summary.json status above, valid only inside the
 # mlmm-mcp skill.
-MCP_STATUS: set[str] = {"ok", "summary_missing", "summary_parse_error"}
+MCP_STATUS: set[str] = {"ok", "failed", "summary_missing", "summary_parse_error"}
 MCP_SKILL_DIRS: set[str] = {"mlmm-mcp"}
 
 # Match a backtick-quoted flag in prose (`--foo`) — the typical

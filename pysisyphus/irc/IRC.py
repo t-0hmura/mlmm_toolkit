@@ -54,6 +54,7 @@ class IRC:
         dump_fn="irc_data.h5",
         dump_every=5,
         require_pos_def_hessian=False,
+        never_stop=False,
     ):
         """Base class for IRC calculations.
 
@@ -99,6 +100,10 @@ class IRC:
             given threshold. If given, it should be a negative number.
         force_inflection : bool, optional
             Don't indicate convergence before passing an inflection point.
+        never_stop : bool, optional
+            Ignore energy-increase and energy-change stopping conditions so a
+            short uphill/flat section does not terminate the path. Gradient
+            convergence, integrator convergence, and max_cycles still apply.
         check_bonds : bool, optional, default=True
             Report whether bonds are formed/broken along the IRC, w.r.t the TS.
         out_dir : str, optional
@@ -146,6 +151,7 @@ class IRC:
         # the gradient is small but the Hessian still has a negative mode
         # (= we haven't reached a true minimum yet). See sella/optimize/irc.py:167-170.
         self.require_pos_def_hessian = bool(require_pos_def_hessian)
+        self.never_stop = bool(never_stop)
         assert imag_below <= 0.0
         self.imag_below = imag_below
         self.force_inflection = force_inflection
@@ -186,6 +192,16 @@ class IRC:
         self.cycle_places = ceil(log(self.max_cycles, 10))
 
         self.mm_inv2 = self.geometry.mm_sqrt_inv[np.ix_(self._act_dofs, self._act_dofs)]
+
+    def _energy_stop_message(self):
+        """Return the legacy energy-based stop reason, if it is enabled."""
+        if self.never_stop:
+            return ""
+        if self.energy_increased:
+            return "Energy increased!"
+        if self.energy_converged:
+            return "Energy converged!"
+        return ""
 
     def get_path_for_fn(self, fn):
         return self.out_dir / f"{self.prefix}{fn}"
@@ -229,9 +245,8 @@ class IRC:
         if H is None:
             return False
         try:
+            H = self._project_active(H)
             if isinstance(H, torch.Tensor):
-                # Active-DOF projection has happened upstream; eigh on whichever
-                # representation IRC currently holds. .cpu() to keep VRAM clean.
                 evals = torch.linalg.eigvalsh(H.detach().cpu()).numpy()
             else:
                 evals = np.linalg.eigvalsh(np.asarray(H))
@@ -263,24 +278,27 @@ class IRC:
             return self.mm_inv2 @ H_act @ self.mm_inv2       # in‑place not possible → tiny matrix
         return self.mm_inv2.dot(H_act).dot(self.mm_inv2)
     
-    # Eckart projector that *ignores* frozen atoms
+    # Rigid projector for the Cartesian-constrained active space.
     def _project_active(self, mw_H_act, *, return_P=False):
-        if self.geometry.is_analytical_2d or mw_H_act.shape[0] <= 6:
+        if self.geometry.is_analytical_2d:
             return (mw_H_act, None) if return_P else mw_H_act
 
-        from pysisyphus.Geometry import get_trans_rot_projector
+        from pysisyphus.tr_projection import active_tr_basis, compact_project_hessian
 
-        coords_act  = self.geometry.coords3d[self._act_atoms].flatten()
-        masses_act  = self.geometry.masses[self._act_atoms]
-        P           = get_trans_rot_projector(coords_act, masses=masses_act, full=False)
-
-        if isinstance(mw_H_act, torch.Tensor):
-            P = torch.as_tensor(P, dtype=mw_H_act.dtype, device=mw_H_act.device)
-            proj = (P @ mw_H_act @ P.T)
-            proj = 0.5 * (proj + proj.T)   # restore symmetry
-        else:
-            proj = P.dot(mw_H_act).dot(P.T)
-            proj = 0.5 * (proj + proj.T)
+        coords = torch.as_tensor(
+            self.geometry.coords3d,
+            dtype=mw_H_act.dtype if isinstance(mw_H_act, torch.Tensor) else torch.float64,
+            device=mw_H_act.device if isinstance(mw_H_act, torch.Tensor) else "cpu",
+        )
+        masses = torch.as_tensor(self.geometry.masses, dtype=coords.dtype, device=coords.device)
+        basis, info = active_tr_basis(
+            coords,
+            masses,
+            self._act_atoms,
+            mode=getattr(self.geometry, "tr_projection", "constrained"),
+        )
+        self.rigid_projection_info = info
+        proj, P = compact_project_hessian(mw_H_act, basis)
         return (proj, P) if return_P else proj
 
     # Expand an active‑vector (or ‑step) to 3N
@@ -416,14 +434,14 @@ class IRC:
             cart_displs = self.mm_inv2 @ mw_cart_displs
         else:
             eigvals, eigvecs = np.linalg.eigh(proj_hessian)    
-            mw_cart_displs = P.T.dot(eigvecs)
+            mw_cart_displs = eigvecs if P is None else P.T.dot(eigvecs)
             cart_displs = self.mm_inv2.dot(mw_cart_displs)
         
         nus = eigval_to_wavenumber(eigvals)
         nu_root = nus[self.root]
         assert nu_root <= self.imag_below, (
-            f"Wavenumber {nu_root:.2f} cm⁻¹ of imaginary mode {self.root} is above "
-            f"the threshold of {self.imag_below:.2f} cm⁻¹."
+            f"Wavenumber {nu_root:.2f} cm⁻¹ (mode {self.root}) is not an imaginary mode, so "
+            f"the structure is not a transition state. Re-run the TS optimization."
         )
         neg_inds = eigvals < -1e-8
         assert sum(neg_inds) > 0, "The hessian does not have any negative eigenvalues!"
@@ -658,12 +676,20 @@ class IRC:
                 and (rms_grad <= self.hard_rms_grad_thresh)
             ):
                 break_msg = "rms(grad) below hard threshold."
-            # TODO: Allow some threshold?
-            elif self.energy_increased:
-                break_msg = "Energy increased!"
-            elif self.energy_converged:
-                break_msg = "Energy converged!"
-                self.converged = True
+            else:
+                break_msg = self._energy_stop_message()
+                if break_msg == "Energy converged!":
+                    self.converged = True
+
+            if self.never_stop and not break_msg:
+                if self.energy_increased:
+                    self.table.print(
+                        "Energy increased; continuing because never_stop=True."
+                    )
+                elif self.energy_converged:
+                    self.table.print(
+                        "Energy change converged; continuing because never_stop=True."
+                    )
 
             if break_msg:
                 self.table.print(break_msg)
@@ -716,6 +742,7 @@ class IRC:
         setattr(self, f"{prefix}_is_converged", self.converged)
         setattr(self, f"{prefix}_energy_increased", self.energy_increased)
         setattr(self, f"{prefix}_energy_converged", self.energy_converged)
+        setattr(self, f"{prefix}_never_stop", self.never_stop)
         setattr(self, f"{prefix}_cycle", self.cur_cycle)
         self.dump_ends(".", prefix, getattr(self, mw_coords_name))
 
@@ -794,16 +821,9 @@ class IRC:
             self.irc("forward")
             self.set_data("forward")
             if isinstance(self.mw_hessian, torch.Tensor):
-                # Stash on CPU: during the backward integration we already hold
-                # one active mw_hessian on the GPU. Keeping forward_mw_hessian
-                # on the GPU too doubles the VRAM footprint (~N_dof^2 * 8 B)
-                # and pushes large enzyme systems (e.g. 14k-DOF mlmm ONIOM
-                # Hessian = 1.6 GB → 3.2 GB) over the budget on 16-24 GB GPUs.
-                # The transfer happens once per IRC run (forward → backward
-                # boundary), so the H↔D copy cost is negligible vs. the
-                # multi-hour backward integration. The final consumer
-                # (mlmm/irc.py:_unmw_and_store) takes the matrix via
-                # .cpu().numpy() anyway, so the CPU residency is on its end.
+                # Stash on CPU during backward integration so we don't hold
+                # forward + active mw_hessian on GPU simultaneously
+                # (~3.2 GB on 14k-DOF systems).
                 self.forward_mw_hessian = self.mw_hessian.detach().cpu().clone()
             else:
                 self.forward_mw_hessian = self.mw_hessian.copy()

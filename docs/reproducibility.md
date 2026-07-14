@@ -61,7 +61,7 @@ than the model.
 For *which* precision to choose by GPU class — `fp64` on HPC datacenter GPUs
 (H100 / H200 / A100) for deterministic-grade low-noise results, `fp32` (default)
 on consumer cards where `fp64` is markedly slower — see
-[Device & HPC Setup → Precision by GPU class](device-hpc.md#precision-by-gpu-class).
+[Device & HPC Setup → Backend precision defaults](device-hpc.md#backend-precision-defaults).
 
 ## AIMNet2 limitations
 

@@ -1,39 +1,4 @@
-"""Partial Hessian guided Dimer / RS-I-RFO transition-state search with ML/MM.
-
-Example:
-    mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
-        -q 0 -m 1 --max-cycles 8000
-
-For detailed documentation, see: docs/tsopt.md
-
-Table of contents (top-level definitions; refresh manually after structural edits):
-    def _build_rsirfo_kwargs
-    def _calc_full_hessian_torch
-    def _omega2_to_freqs_cm
-    def _clear_cuda_cache
-    def _mw_projected_hessian_inplace
-    def _mode_direction_by_root
-    def _calc_gradient
-    def _frequencies_cm_and_modes
-    def _write_mode_trj_and_pdb
-    def _write_all_imag_modes
-    def _active_indices
-    def _active_mask_dof
-    def _mask_dof_from_active_idx
-    def _extract_active_block
-    def _mw_tr_project_active_inplace
-    def _frequencies_from_Hact
-    def _modes_from_Hact_embedded
-    def _mode_direction_by_root_from_Hact
-    def _representative_atoms_for_mode
-    def _select_flatten_targets_for_geom
-    def _flatten_once_with_modes_for_geom
-    def _get_active_dof_indices
-    def _bofill_update_active
-    class HessianDimer
-    def _run_microiter_tsopt
-    def cli
-"""
+"""Partial-Hessian transition-state optimization for ML/MM models."""
 # DOMAIN_PURE
 
 from __future__ import annotations
@@ -43,20 +8,18 @@ import gc
 import io
 import logging
 import sys
+import time
 from copy import deepcopy
-
-logger = logging.getLogger(__name__)
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 import numpy as np
 import torch
 from ase import Atoms
-from ase.io import write
-from ase.data import atomic_masses
 import ase.units as units
-import time
+from ase.data import atomic_masses
+from ase.io import write
 
 # ---------------- pysisyphus / mlmm imports ----------------
 from pysisyphus.helpers import geom_loader
@@ -64,16 +27,142 @@ from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import BOHR2ANG, AMU2AU, AU2EV
 from pysisyphus.calculators.Dimer import Dimer  # Dimer calculator (orientation-projected forces)
+from pysisyphus.tr_projection import (
+    active_tr_basis,
+    normalize_tr_projection_mode,
+    project_hessian_inplace,
+)
 
 # RS-I-RFO optimizer for heavy mode
 from pysisyphus.tsoptimizers.RSIRFOptimizer import RSIRFOptimizer
 from pysisyphus.tsoptimizers.TRIM import TRIM  # Helgaker trust-region image-min TS opt
 from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer  # Banerjee P-RFO TS opt
 
+logger = logging.getLogger(__name__)
+
 # TS optimizer class map. All three classes inherit from TSHessianOptimizer
 # and share the kwargs surface (`_build_rsirfo_kwargs`). Microiter macro
 # stays RSIRFO-specific (different image-function / line-search math).
 TSOPT_CLASS_MAP = {"rsirfo": RSIRFOptimizer, "trim": TRIM, "rsprfo": RSPRFOptimizer}
+PATH_MODE_RESTART_AMPLITUDES_ANG = (-0.10, 0.10, -0.20, 0.20)
+FLATTEN_RETRY_HIGHER_ORDER_CHECKS = 3
+
+
+def _mirrored_flatten_start(
+    saddle_coords: np.ndarray,
+    primary_start: np.ndarray,
+) -> np.ndarray:
+    """Return the opposite signed displacement about a saddle geometry."""
+    saddle = np.asarray(saddle_coords, dtype=float)
+    primary = np.asarray(primary_start, dtype=float)
+    if saddle.shape != primary.shape:
+        raise ValueError("saddle and flatten-start coordinates must have equal shapes")
+    return 2.0 * saddle - primary
+
+
+def _flatten_branch_needs_alternate(result: Dict[str, Any]) -> bool:
+    optimizer = result["optimizer"]
+    target_negative = (
+        getattr(optimizer, "_last_exact_target_mode_is_negative", None) is True
+    )
+    return int(result["n_imag"]) != 1 or not target_negative
+
+
+def _effective_flatten_iterations(
+    configured: int,
+    *,
+    has_reference_mode: bool,
+    n_imag: int,
+    target_mode_is_negative: Optional[bool],
+) -> Tuple[int, bool]:
+    """Return the explicit flatten budget and whether path safety vetoed it."""
+    iterations = max(int(configured), 0)
+    vetoed = (
+        iterations > 0
+        and has_reference_mode
+        and int(n_imag) > 1
+        and target_mode_is_negative is not True
+    )
+    return (0 if vetoed else iterations), vetoed
+
+
+def _transported_path_mode_full(
+    optimizer,
+    geometry,
+    fallback: Optional[np.ndarray],
+) -> Optional[np.ndarray]:
+    """Return the latest path-correlated mode as a full Cartesian unit vector."""
+    mode = None
+    if geometry.coord_type in ("cart", "cartesian"):
+        for attr in (
+            "_last_exact_physical_mode",
+            "_physical_ts_mode",
+            "_saddle_recovery_mode",
+        ):
+            mode = getattr(optimizer, attr, None)
+            if mode is not None:
+                break
+        if mode is None and len(getattr(optimizer, "ts_modes", ())):
+            mode = optimizer.ts_modes[0]
+        if isinstance(mode, torch.Tensor):
+            mode = mode.detach().cpu().numpy()
+        if mode is not None:
+            mode = np.asarray(mode, dtype=float).reshape(-1)
+            if mode.size != geometry.cart_coords.size:
+                try:
+                    mode = optimizer.full_from_active(mode)
+                except (AttributeError, IndexError, ValueError):
+                    mode = None
+    if mode is None and fallback is not None:
+        mode = np.asarray(fallback, dtype=float).reshape(-1)
+    if mode is None or mode.size != geometry.cart_coords.size:
+        return None
+    norm = float(np.linalg.norm(mode))
+    if not np.all(np.isfinite(mode)) or norm <= 0.0:
+        return None
+    return mode / norm
+
+
+def _initial_path_root_mode_full(optimizer, geometry) -> Optional[np.ndarray]:
+    if geometry.coord_type not in ("cart", "cartesian"):
+        return None
+    mode = getattr(optimizer, "_initial_reference_root_mode", None)
+    if isinstance(mode, torch.Tensor):
+        mode = mode.detach().cpu().numpy()
+    if mode is None:
+        return None
+    mode = np.asarray(mode, dtype=float).reshape(-1)
+    if mode.size != geometry.cart_coords.size:
+        try:
+            mode = optimizer.full_from_active(mode)
+        except (AttributeError, IndexError, ValueError):
+            return None
+    norm = float(np.linalg.norm(mode))
+    if mode.size != geometry.cart_coords.size or not np.all(np.isfinite(mode)) or norm <= 0.0:
+        return None
+    return mode / norm
+
+
+def _path_restart_mode_candidates(
+    optimizer,
+    geometry,
+    reference_mode: np.ndarray,
+) -> List[Tuple[str, np.ndarray]]:
+    """Return the MEP tangent and, when distinct, its initial soft root."""
+    reference = np.asarray(reference_mode, dtype=float).reshape(-1)
+    norm = float(np.linalg.norm(reference))
+    if (
+        reference.size != geometry.cart_coords.size
+        or not np.all(np.isfinite(reference))
+        or norm <= 0.0
+    ):
+        return []
+    reference /= norm
+    candidates = [("mep-tangent", reference)]
+    soft_root = _initial_path_root_mode_full(optimizer, geometry)
+    if soft_root is not None and abs(float(np.dot(reference, soft_root))) < 0.95:
+        candidates.append(("initial-soft-root", soft_root))
+    return candidates
 from pysisyphus.TablePrinter import TablePrinter
 
 # local helpers from mlmm
@@ -138,7 +227,6 @@ from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make
 from mlmm.workflows.freq import (
     _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
     _torch_device,
-    _tr_orthonormal_basis,
     _mass_weighted_hessian,
     _align_three_layer_hessian_targets,
     _resolve_active_atom_indices,
@@ -213,7 +301,9 @@ def _clear_cuda_cache(tensor: Optional[torch.Tensor] = None) -> None:
 def _mw_projected_hessian_inplace(H_t: torch.Tensor,
                                   coords_bohr_t: torch.Tensor,
                                   masses_au_t: torch.Tensor,
-                                  freeze_idx: Optional[List[int]] = None) -> torch.Tensor:
+                                  freeze_idx: Optional[List[int]] = None,
+                                  tr_projection: str = "constrained",
+                                  projection_info: Optional[dict] = None) -> torch.Tensor:
     """
     Mass-weight H in-place, optionally restrict to active DOF subspace (PHVA) and
     project out TR motions (in that subspace), also in-place.
@@ -234,28 +324,28 @@ def _mw_projected_hessian_inplace(H_t: torch.Tensor,
             for i in frozen:
                 mask_dof[3 * i:3 * i + 3] = False
             H_t = H_t[mask_dof][:, mask_dof]
-            # TR basis and projection in active subspace (in-place)
-            coords_act = coords_bohr_t[active_idx, :]
-            masses_act = masses_au_t[active_idx]
-            Q, _ = _tr_orthonormal_basis(coords_act, masses_act)  # (3N_act, r)
-            Qt = Q.T
-            QtH = Qt @ H_t
-            H_t.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
-            H_t.addmm_((QtH.T), Qt, beta=1.0, alpha=-1.0)
-            QtHQ = QtH @ Q
-            H_t.addmm_(Q @ QtHQ, Qt, beta=1.0, alpha=1.0)
-            del Q, Qt, QtH, QtHQ, mask_dof, coords_act, masses_act, active_idx, frozen
+            Q, info = active_tr_basis(
+                coords_bohr_t,
+                masses_au_t,
+                active_idx,
+                mode=tr_projection,
+            )
+            project_hessian_inplace(H_t, Q)
+            del Q, mask_dof, active_idx, frozen
         else:
             # Full DOF: mass-weight + TR projection in-place
             H_t = _mass_weighted_hessian(H_t, masses_au_t)
-            Q, _ = _tr_orthonormal_basis(coords_bohr_t, masses_au_t)  # (3N, r)
-            Qt = Q.T
-            QtH = Qt @ H_t
-            H_t.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
-            H_t.addmm_(QtH.T, Qt, beta=1.0, alpha=-1.0)
-            QtHQ = QtH @ Q
-            H_t.addmm_(Q @ QtHQ, Qt, beta=1.0, alpha=1.0)
-            del Q, Qt, QtH, QtHQ
+            Q, info = active_tr_basis(
+                coords_bohr_t,
+                masses_au_t,
+                list(range(int(N))),
+                mode=tr_projection,
+            )
+            project_hessian_inplace(H_t, Q)
+            del Q
+        if projection_info is not None:
+            projection_info.clear()
+            projection_info.update(info.as_dict())
         _clear_cuda_cache()
         return H_t
 
@@ -264,7 +354,9 @@ def _mode_direction_by_root(H_t: torch.Tensor,
                             coords_bohr_t: torch.Tensor,
                             masses_au_t: torch.Tensor,
                             root: int = 0,
-                            freeze_idx: Optional[List[int]] = None) -> np.ndarray:
+                            freeze_idx: Optional[List[int]] = None,
+                            tr_projection: str = "constrained",
+                            projection_info: Optional[dict] = None) -> np.ndarray:
     """
     Get the eigenvector (Cartesian space) corresponding to the `root`-th most negative
     eigenvalue (root=0: most negative) of the mass-weighted, TR-projected Hessian.
@@ -273,7 +365,14 @@ def _mode_direction_by_root(H_t: torch.Tensor,
     """
     with torch.no_grad():
         # In-place: mass weight + (active-subspace) TR projection
-        Hmw_proj = _mw_projected_hessian_inplace(H_t, coords_bohr_t, masses_au_t, freeze_idx=freeze_idx)
+        Hmw_proj = _mw_projected_hessian_inplace(
+            H_t,
+            coords_bohr_t,
+            masses_au_t,
+            freeze_idx=freeze_idx,
+            tr_projection=tr_projection,
+            projection_info=projection_info,
+        )
 
         # Bounded-peak symmetrization (helper writes both triangles).
         from mlmm.core.utils import symmetrize_inplace
@@ -347,7 +446,9 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                               coords_bohr: np.ndarray,
                               device: torch.device,
                               tol: float = 1e-6,
-                              freeze_idx: Optional[List[int]] = None) -> Tuple[np.ndarray, torch.Tensor]:
+                              freeze_idx: Optional[List[int]] = None,
+                              tr_projection: str = "constrained",
+                              projection_info: Optional[dict] = None) -> Tuple[np.ndarray, torch.Tensor]:
     """
     In-place PHVA/TR projection (active-subspace if freeze_idx) and diagonalization.
     Returns:
@@ -362,7 +463,14 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         coords_bohr_t = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_t.dtype, device=device)
 
         # in-place mass-weight + (active-subspace) TR projection
-        Hmw = _mw_projected_hessian_inplace(H_t, coords_bohr_t, masses_au_t, freeze_idx=freeze_idx)
+        Hmw = _mw_projected_hessian_inplace(
+            H_t,
+            coords_bohr_t,
+            masses_au_t,
+            freeze_idx=freeze_idx,
+            tr_projection=tr_projection,
+            projection_info=projection_info,
+        )
 
         # Bounded-peak symmetrization (helper writes both triangles).
         from mlmm.core.utils import symmetrize_inplace
@@ -536,13 +644,17 @@ def _extract_active_block(H_full: torch.Tensor, mask_dof: np.ndarray) -> torch.T
 
 
 def _mw_tr_project_active_inplace(H_act: torch.Tensor,
-                                  coords_act_t: torch.Tensor,
-                                  masses_act_au_t: torch.Tensor) -> torch.Tensor:
+                                  coords_full_t: torch.Tensor,
+                                  masses_full_au_t: torch.Tensor,
+                                  active_idx: List[int],
+                                  tr_projection: str = "constrained",
+                                  projection_info: Optional[dict] = None) -> torch.Tensor:
     """
     Mass-weight & project TR in the *active* subspace (in-place).
     """
     with torch.no_grad():
         # mass-weight
+        masses_act_au_t = masses_full_au_t[active_idx]
         masses_amu_t = (masses_act_au_t / AMU2AU).to(dtype=H_act.dtype, device=H_act.device)
         m3 = torch.repeat_interleave(masses_amu_t, 3).clamp(min=1e-10)
         inv_sqrt_m_col = torch.sqrt(1.0 / m3).view(1, -1)
@@ -550,14 +662,17 @@ def _mw_tr_project_active_inplace(H_act: torch.Tensor,
         H_act.mul_(inv_sqrt_m_row)
         H_act.mul_(inv_sqrt_m_col)
         # TR basis & projection
-        Q, _ = _tr_orthonormal_basis(coords_act_t, masses_act_au_t)  # (3N_act, r)
-        Qt = Q.T
-        QtH = Qt @ H_act
-        H_act.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
-        H_act.addmm_(QtH.T, Qt, beta=1.0, alpha=-1.0)
-        QtHQ = QtH @ Q
-        H_act.addmm_(Q @ QtHQ, Qt, beta=1.0, alpha=1.0)
-        del masses_amu_t, m3, inv_sqrt_m_col, inv_sqrt_m_row, Q, Qt, QtH, QtHQ
+        Q, info = active_tr_basis(
+            coords_full_t,
+            masses_full_au_t,
+            active_idx,
+            mode=tr_projection,
+        )
+        project_hessian_inplace(H_act, Q)
+        if projection_info is not None:
+            projection_info.clear()
+            projection_info.update(info.as_dict())
+        del masses_act_au_t, masses_amu_t, m3, inv_sqrt_m_col, inv_sqrt_m_row, Q
         return H_act
 
 
@@ -566,17 +681,28 @@ def _frequencies_from_Hact(H_act: torch.Tensor,
                            coords_bohr: np.ndarray,
                            active_idx: List[int],
                            device: torch.device,
-                           tol: float = 1e-6) -> np.ndarray:
+                           tol: float = 1e-6,
+                           tr_projection: str = "constrained",
+                           projection_info: Optional[dict] = None) -> np.ndarray:
     """
     Frequencies (cm^-1) computed from active-block Hessian with active-space TR projection.
     """
     with torch.no_grad():
-        coords_act = torch.as_tensor(coords_bohr.reshape(-1, 3)[active_idx, :], dtype=H_act.dtype, device=device)
-        masses_act_au = torch.as_tensor([atomic_masses[int(z)] * AMU2AU
-                                         for z in np.array(atomic_numbers, int)[active_idx]],
-                                        dtype=H_act.dtype, device=device)
+        coords_full = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_act.dtype, device=device)
+        masses_full_au = torch.as_tensor(
+            [atomic_masses[int(z)] * AMU2AU for z in np.array(atomic_numbers, int)],
+            dtype=H_act.dtype,
+            device=device,
+        )
         Hmw = H_act.clone()
-        _mw_tr_project_active_inplace(Hmw, coords_act, masses_act_au)
+        _mw_tr_project_active_inplace(
+            Hmw,
+            coords_full,
+            masses_full_au,
+            active_idx,
+            tr_projection=tr_projection,
+            projection_info=projection_info,
+        )
         # Bounded-peak symmetrization (helper writes both triangles).
         from mlmm.core.utils import symmetrize_inplace
         symmetrize_inplace(Hmw)
@@ -584,7 +710,7 @@ def _frequencies_from_Hact(H_act: torch.Tensor,
         sel = torch.abs(omega2) > tol
         omega2 = omega2[sel]
         freqs_cm = _omega2_to_freqs_cm(omega2)
-        del coords_act, masses_act_au, Hmw, omega2, sel
+        del coords_full, masses_full_au, Hmw, omega2, sel
         _clear_cuda_cache(H_act)
         return freqs_cm
 
@@ -594,7 +720,9 @@ def _modes_from_Hact_embedded(H_act: torch.Tensor,
                               coords_bohr: np.ndarray,
                               active_idx: List[int],
                               device: torch.device,
-                              tol: float = 1e-6) -> Tuple[np.ndarray, torch.Tensor]:
+                              tol: float = 1e-6,
+                              tr_projection: str = "constrained",
+                              projection_info: Optional[dict] = None) -> Tuple[np.ndarray, torch.Tensor]:
     """
     Diagonalize active-block Hessian with mass-weight/TR in active space and return:
       freqs_cm : (nmode,)
@@ -602,12 +730,21 @@ def _modes_from_Hact_embedded(H_act: torch.Tensor,
     """
     with torch.no_grad():
         N = len(atomic_numbers)
-        coords_act = torch.as_tensor(coords_bohr.reshape(-1, 3)[active_idx, :], dtype=H_act.dtype, device=device)
-        masses_act_au = torch.as_tensor([atomic_masses[int(z)] * AMU2AU
-                                         for z in np.array(atomic_numbers, int)[active_idx]],
-                                        dtype=H_act.dtype, device=device)
+        coords_full = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_act.dtype, device=device)
+        masses_full_au = torch.as_tensor(
+            [atomic_masses[int(z)] * AMU2AU for z in np.array(atomic_numbers, int)],
+            dtype=H_act.dtype,
+            device=device,
+        )
         Hmw = H_act.clone()
-        _mw_tr_project_active_inplace(Hmw, coords_act, masses_act_au)
+        _mw_tr_project_active_inplace(
+            Hmw,
+            coords_full,
+            masses_full_au,
+            active_idx,
+            tr_projection=tr_projection,
+            projection_info=projection_info,
+        )
         # Bounded-peak symmetrization (helper writes both triangles).
         from mlmm.core.utils import symmetrize_inplace
         symmetrize_inplace(Hmw)
@@ -624,7 +761,7 @@ def _modes_from_Hact_embedded(H_act: torch.Tensor,
         # frequencies
         freqs_cm = _omega2_to_freqs_cm(omega2)
 
-        del coords_act, masses_act_au, Hmw, omega2, Vsub, mask_t
+        del coords_full, masses_full_au, Hmw, omega2, Vsub, mask_t
         _clear_cuda_cache(H_act)
         return freqs_cm, modes_full
 
@@ -635,18 +772,27 @@ def _mode_direction_by_root_from_Hact(H_act: torch.Tensor,
                                       masses_au_t: torch.Tensor,
                                       active_idx: List[int],
                                       device: torch.device,
-                                      root: int = 0) -> np.ndarray:
+                                      root: int = 0,
+                                      tr_projection: str = "constrained",
+                                      projection_info: Optional[dict] = None) -> np.ndarray:
     """
     TS direction from the *active* Hessian block. Mass-weighting/TR are done in the
     active space. Result is embedded back to full 3N in Cartesian space.
     """
     with torch.no_grad():
         N = len(atomic_numbers)
-        coords_act = torch.as_tensor(coords_bohr.reshape(-1, 3)[active_idx, :], dtype=H_act.dtype, device=device)
+        coords_full = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_act.dtype, device=device)
         masses_act_au = masses_au_t[active_idx].to(device=device, dtype=H_act.dtype)
         # mass-weight + TR in active space
         Hmw = H_act.clone()
-        _mw_tr_project_active_inplace(Hmw, coords_act, masses_act_au)
+        _mw_tr_project_active_inplace(
+            Hmw,
+            coords_full,
+            masses_au_t.to(device=device, dtype=H_act.dtype),
+            active_idx,
+            tr_projection=tr_projection,
+            projection_info=projection_info,
+        )
         # Bounded-peak symmetrization (helper writes both triangles).
         from mlmm.core.utils import symmetrize_inplace
         symmetrize_inplace(Hmw)
@@ -684,7 +830,7 @@ def _mode_direction_by_root_from_Hact(H_act: torch.Tensor,
         full[mask_t] = v_cart_act
         mode = full.reshape(-1, 3).detach().cpu().numpy()
 
-        del coords_act, masses_act_au, masses_act_amu, m3, v_cart_act, full, mask_t, Hmw, u_mw
+        del coords_full, masses_act_au, masses_act_amu, m3, v_cart_act, full, mask_t, Hmw, u_mw
         _clear_cuda_cache(H_act)
         return mode
 
@@ -710,6 +856,7 @@ def _select_flatten_targets_for_geom(
     root: int,
     flatten_sep_cutoff: float,
     flatten_k: int,
+    primary_idx: Optional[int] = None,
 ) -> List[int]:
     """
     Select a subset of imaginary modes to flatten for a geometry.
@@ -720,8 +867,11 @@ def _select_flatten_targets_for_geom(
 
     order = np.argsort(freqs_cm[neg_idx_all])
     sorted_neg = neg_idx_all[order]
-    root_clamped = max(0, min(int(root), len(order) - 1))
-    primary_idx = sorted_neg[root_clamped]
+    if primary_idx is None or int(primary_idx) not in set(map(int, sorted_neg)):
+        root_clamped = max(0, min(int(root), len(order) - 1))
+        primary_idx = int(sorted_neg[root_clamped])
+    else:
+        primary_idx = int(primary_idx)
     candidates = [int(i) for i in sorted_neg if int(i) != int(primary_idx)]
     if not candidates:
         return []
@@ -771,6 +921,7 @@ def _flatten_once_with_modes_for_geom(
     flatten_sep_cutoff: float,
     flatten_k: int,
     root: int,
+    reference_mode: Optional[np.ndarray] = None,
 ) -> bool:
     """
     Flatten extra imaginary modes for a geometry (single pass).
@@ -778,6 +929,25 @@ def _flatten_once_with_modes_for_geom(
     neg_idx_all = np.where(freqs_cm < -abs(neg_freq_thresh_cm))[0]
     if len(neg_idx_all) <= 1:
         return False
+
+    primary_idx = None
+    if reference_mode is not None:
+        reference = np.asarray(reference_mode, dtype=float).reshape(-1)
+        reference_norm = float(np.linalg.norm(reference))
+        if reference.size == modes.shape[1] and reference_norm > 0.0:
+            reference /= reference_norm
+            m3_flat = np.repeat(masses_amu, 3)
+            overlaps = []
+            for idx in neg_idx_all:
+                cart_mode = modes[int(idx)].detach().cpu().numpy().reshape(-1)
+                cart_mode = cart_mode / np.sqrt(m3_flat)
+                cart_norm = float(np.linalg.norm(cart_mode))
+                overlaps.append(
+                    0.0
+                    if cart_norm <= 0.0
+                    else abs(float(np.dot(reference, cart_mode / cart_norm)))
+                )
+            primary_idx = int(neg_idx_all[int(np.argmax(overlaps))])
 
     targets = _select_flatten_targets_for_geom(
         freqs_cm,
@@ -787,12 +957,13 @@ def _flatten_once_with_modes_for_geom(
         root,
         flatten_sep_cutoff,
         flatten_k,
+        primary_idx=primary_idx,
     )
     if not targets:
         return False
 
-    mass_scale = np.sqrt(12.011 / masses_amu)[:, None]
     amp_bohr = float(flatten_amp_ang) / BOHR2ANG
+    energy_ref = _calc_energy(geom, calc_kwargs)
 
     for idx in targets:
         v_mw = modes[idx].detach().cpu().numpy().reshape(-1, 3)
@@ -800,7 +971,10 @@ def _flatten_once_with_modes_for_geom(
         v_cart = v_mw / np.sqrt(m3)
         v_cart /= np.linalg.norm(v_cart)
 
-        disp = amp_bohr * mass_scale * v_cart
+        # Dividing the mass-weighted eigenvector by sqrt(mass) above already
+        # gives its Cartesian direction. A second mass factor would rotate the
+        # displacement away from the negative-curvature mode.
+        disp = amp_bohr * v_cart
         ref = geom.cart_coords.reshape(-1, 3)
 
         plus = ref + disp
@@ -812,12 +986,17 @@ def _flatten_once_with_modes_for_geom(
         geom.coords = minus.reshape(-1)
         E_minus = _calc_energy(geom, calc_kwargs)
 
-        # Move towards lower energy
-        if E_plus <= E_minus:
-            geom.coords = plus.reshape(-1)
-        else:
-            geom.coords = minus.reshape(-1)
+        use_plus = E_plus <= E_minus
+        geom.coords = (plus if use_plus else minus).reshape(-1)
+        energy_keep = E_plus if use_plus else E_minus
+        click.echo(
+            f"[Flatten] mode={idx} freq={freqs_cm[idx]:+.2f} cm^-1 "
+            f"E_disp={energy_keep:.8f} Ha "
+            f"ΔE={energy_keep - energy_ref:+.8f} Ha"
+        )
 
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     return True
 
 
@@ -922,7 +1101,7 @@ class HessianDimer:
       - The flatten loop uses a *Bofill*-updated active Hessian block, so the
         expensive exact Hessian is evaluated only once before the flatten loop and
         once at the end for the final frequency analysis.
-      - UMA calculator kwargs accept ``freeze_atoms`` and ``hessian_calc_mode`` and
+      - Calculator kwargs accept ``freeze_atoms`` and ``hessian_calc_mode`` and
         default to ``return_partial_hessian=True`` (active-block Hessian when frozen).
     """
 
@@ -1036,6 +1215,8 @@ class HessianDimer:
         self.calc_kwargs_ml_only["out_hess_torch"] = True
         self.calc_kwargs_ml_only["hess_cutoff"] = 0.0  # ML atoms only in Hessian
         self.geom = geom_loader(fn, coord_type=coord_type, **gkw)
+        self.tr_projection = self.geom.tr_projection
+        self.rigid_projection_info: Dict[str, Any] = {}
         # If partial Hessian is requested (explicitly or via B-factor layers),
         # avoid full 3N Hessian allocations in light TS dimer runs.
         if self.calc_kwargs.get("return_partial_hessian"):
@@ -1282,14 +1463,19 @@ class HessianDimer:
             if H_t.size(0) == 3 * N:
                 mode_xyz = _mode_direction_by_root(
                     H_t, coords_bohr_t, self.masses_au_t,
-                    root=self.root, freeze_idx=self.freeze_atoms if len(self.freeze_atoms) > 0 else None
+                    root=self.root,
+                    freeze_idx=self.freeze_atoms if len(self.freeze_atoms) > 0 else None,
+                    tr_projection=self.tr_projection,
+                    projection_info=self.rigid_projection_info,
                 )
             else:
                 # partial (active) Hessian returned by UMA
                 active_idx, _ = self._resolve_hessian_active_subspace(H_t, N)
                 mode_xyz = _mode_direction_by_root_from_Hact(
                     H_t, self.geom.coords.reshape(-1, 3), self.geom.atomic_numbers,
-                    self.masses_au_t, active_idx, self.device, root=self.root
+                    self.masses_au_t, active_idx, self.device, root=self.root,
+                    tr_projection=self.tr_projection,
+                    projection_info=self.rigid_projection_info,
                 )
             np.savetxt(self.mode_path, mode_xyz, fmt="%.12f")
             del H_t, coords_bohr_t, mode_xyz
@@ -1330,8 +1516,6 @@ class HessianDimer:
         if not targets:
             return False
 
-        # Mass scaling (carbon moves exactly flatten_amp_ang Å)
-        mass_scale = np.sqrt(12.011 / self.masses_amu)[:, None]
         amp_bohr = self.flatten_amp_ang / BOHR2ANG
 
         # Get reference energy
@@ -1344,7 +1528,7 @@ class HessianDimer:
             v_cart = v_mw / np.sqrt(m3)
             v_cart /= np.linalg.norm(v_cart)
 
-            disp = amp_bohr * mass_scale * v_cart
+            disp = amp_bohr * v_cart
             ref = self.geom.coords.reshape(-1, 3)
 
             plus = ref + disp
@@ -1397,13 +1581,18 @@ class HessianDimer:
             click.echo("[tsopt] TR-projection residual check skipped to conserve VRAM.")
             mode_xyz = _mode_direction_by_root(
                 H_t, coords_bohr_t, self.masses_au_t,
-                root=self.root, freeze_idx=self.freeze_atoms if len(self.freeze_atoms) > 0 else None
+                root=self.root,
+                freeze_idx=self.freeze_atoms if len(self.freeze_atoms) > 0 else None,
+                tr_projection=self.tr_projection,
+                projection_info=self.rigid_projection_info,
             )
         else:
             click.echo("[tsopt] Using active-block Hessian from UMA (partial Hessian). Skip full-space TR check.")
             mode_xyz = _mode_direction_by_root_from_Hact(
                 H_t, self.geom.coords.reshape(-1, 3), self.geom.atomic_numbers,
-                self.masses_au_t, active_idx, self.device, root=self.root
+                self.masses_au_t, active_idx, self.device, root=self.root,
+                tr_projection=self.tr_projection,
+                projection_info=self.rigid_projection_info,
             )
         np.savetxt(self.mode_path, mode_xyz, fmt="%.12f")
         del mode_xyz, coords_bohr_t, H_t
@@ -1431,14 +1620,19 @@ class HessianDimer:
                 click.echo("[tsopt] TR-projection residual check skipped to conserve VRAM.")
                 mode_xyz = _mode_direction_by_root(
                     H_t, coords_bohr_t, self.masses_au_t,
-                    root=self.root, freeze_idx=self.freeze_atoms if len(self.freeze_atoms) > 0 else None
+                    root=self.root,
+                    freeze_idx=self.freeze_atoms if len(self.freeze_atoms) > 0 else None,
+                    tr_projection=self.tr_projection,
+                    projection_info=self.rigid_projection_info,
                 )
             else:
                 click.echo("[tsopt] Using active-block Hessian from UMA (partial Hessian). Skip full-space TR check.")
                 active_idx, mask_dof = self._resolve_hessian_active_subspace(H_t, N)
                 mode_xyz = _mode_direction_by_root_from_Hact(
                     H_t, self.geom.coords.reshape(-1, 3), self.geom.atomic_numbers,
-                    self.masses_au_t, active_idx, self.device, root=self.root
+                    self.masses_au_t, active_idx, self.device, root=self.root,
+                    tr_projection=self.tr_projection,
+                    projection_info=self.rigid_projection_info,
                 )
             np.savetxt(self.mode_path, mode_xyz, fmt="%.12f")
             del mode_xyz, coords_bohr_t, H_t
@@ -1481,7 +1675,9 @@ class HessianDimer:
 
                 # (a) Estimate current imaginary modes using the *active* Hessian
                 freqs_est = _frequencies_from_Hact(H_act, self.geom.atomic_numbers,
-                                                   self.geom.coords.reshape(-1, 3), active_idx, self.device)
+                                                   self.geom.coords.reshape(-1, 3), active_idx, self.device,
+                                                   tr_projection=self.tr_projection,
+                                                   projection_info=self.rigid_projection_info)
                 n_imag = int(np.sum(freqs_est < -abs(self.neg_freq_thresh_cm)))
                 click.echo(f"[tsopt] n≈{n_imag}  (approx imag: {[float(x) for x in freqs_est if x < -abs(self.neg_freq_thresh_cm)]})")
                 if n_imag <= 1:
@@ -1489,7 +1685,9 @@ class HessianDimer:
 
                 # (b) Get approximate modes for flattening (embedded, mass-weighted)
                 freqs_cm_approx, modes_embedded = _modes_from_Hact_embedded(
-                    H_act, self.geom.atomic_numbers, self.geom.coords.reshape(-1, 3), active_idx, self.device
+                    H_act, self.geom.atomic_numbers, self.geom.coords.reshape(-1, 3), active_idx, self.device,
+                    tr_projection=self.tr_projection,
+                    projection_info=self.rigid_projection_info,
                 )
 
                 # (c) Do flatten step using the approximate modes
@@ -1514,7 +1712,9 @@ class HessianDimer:
                 # (e) Refresh dimer direction from updated active Hessian
                 mode_xyz = _mode_direction_by_root_from_Hact(
                     H_act, self.geom.coords.reshape(-1, 3), self.geom.atomic_numbers,
-                    self.masses_au_t, active_idx, self.device, root=self.root
+                    self.masses_au_t, active_idx, self.device, root=self.root,
+                    tr_projection=self.tr_projection,
+                    projection_info=self.rigid_projection_info,
                 )
                 np.savetxt(self.mode_path, mode_xyz, fmt="%.12f")
                 del mode_xyz
@@ -1559,6 +1759,9 @@ class HessianDimer:
         if self.skip_final_freq:
             click.echo("[tsopt] --skip-final-freq: skipping final frequency analysis and imaginary-mode export.")
             click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
+            self.saddle_order_verified = False
+            self.n_imaginary_modes = None
+            self.imaginary_frequencies_cm = []
             return
 
         reuse_final_hessian = (
@@ -1574,14 +1777,25 @@ class HessianDimer:
         if H_t.size(0) == 3 * N:
             freqs_cm, modes = _frequencies_cm_and_modes(
                 H_t, self.geom.atomic_numbers, self.geom.coords.reshape(-1, 3), self.device,
-                freeze_idx=self.freeze_atoms if len(self.freeze_atoms) > 0 else None
+                freeze_idx=self.freeze_atoms if len(self.freeze_atoms) > 0 else None,
+                tr_projection=self.tr_projection,
+                projection_info=self.rigid_projection_info,
             )
         else:
             active_idx_final, _ = self._resolve_hessian_active_subspace(H_t, N)
             freqs_cm, modes = _modes_from_Hact_embedded(
                 H_t, self.geom.atomic_numbers, self.geom.coords.reshape(-1, 3),
-                active_idx_final, self.device
+                active_idx_final, self.device,
+                tr_projection=self.tr_projection,
+                projection_info=self.rigid_projection_info,
             )
+
+        self.rigid_projection_info.update({
+            "hessian_space": "full" if H_t.size(0) == 3 * N else "active",
+            "raw_hessian_shape": list(H_t.shape),
+            "source": "tsopt_exact",
+        })
+        click.echo(pretty_block("rigid_projection", self.rigid_projection_info))
 
         del H_t
         del H_final_reuse_cpu, H_final_reuse_coords
@@ -1598,6 +1812,15 @@ class HessianDimer:
             self.vib_dir,
             ref_pdb=_ref_pdb_light,
         )
+        self.saddle_order_verified = True
+        self.n_imaginary_modes = int(n_written)
+        self.imaginary_frequencies_cm = [
+            float(freq)
+            for freq in freqs_cm
+            if freq < -abs(self.neg_freq_thresh_cm)
+        ]
+        if n_written != 1:
+            self.is_converged = False
         if n_written == 0:
             click.echo(
                 "[tsopt] No imaginary mode found at the end (nu_min = %.2f cm^-1)." % (float(freqs_cm.min()),),
@@ -1628,7 +1851,8 @@ def _run_microiter_tsopt(
     dump: bool = False,
     thresh: Optional[str] = None,
     mode: str = "rsirfo",
-) -> None:
+    reference_mode: Optional[np.ndarray] = None,
+) -> Dict[str, Any]:
     """Run macro/micro alternating TS optimization (Gaussian 16-style microiteration).
 
     Macro step: 1 Hessian-based TS step (RS-I-RFO / RS-P-RFO / TRIM) moving ML atoms + link-atom MM parents (full ONIOM force).
@@ -1668,8 +1892,7 @@ def _run_microiter_tsopt(
     frozen_mm = sorted(layer_sets["frozen_mm"])
 
     if not ml_indices:
-        click.echo("[microiter] WARNING: No ML atoms found. Falling back to standard RS-I-RFO.")
-        return None
+        raise RuntimeError("Microiteration requires at least one ML-region atom.")
 
     # Identify link-atom MM parent atoms (boundary atoms that should move
     # with ML atoms in the macro step to keep link atom positions consistent).
@@ -1713,10 +1936,22 @@ def _run_microiter_tsopt(
 
     # Seed initial Hessian for RS-I-RFO (with macro freeze)
     # Try TS Hessian cache first; fall back to full Hessian calculation.
-    from mlmm.io.hessian_cache import load as _hess_load_ts
+    from mlmm.io.hessian_cache import (
+        load as _hess_load_ts,
+        matches_cart_coords as _hess_matches_coords,
+    )
     hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
 
     cached_ts = _hess_load_ts("ts")
+    if cached_ts is not None and not _hess_matches_coords(
+        cached_ts, geometry.cart_coords
+    ):
+        click.echo(
+            "[microiter] Cached TS Hessian does not match the current geometry; "
+            "calculating a fresh Hessian.",
+            err=True,
+        )
+        cached_ts = None
     if cached_ts is not None:
         click.echo("[microiter] Reusing cached TS Hessian for the macro TS step.")
         active_dofs = cached_ts.get("active_dofs")
@@ -1768,6 +2003,8 @@ def _run_microiter_tsopt(
         macro_thresh=macro_thresh,
         mode=mode,
     )
+    if reference_mode is not None:
+        rsirfo_args["reference_mode"] = reference_mode
 
     macro_optimizer = TSOPT_CLASS_MAP[mode](geometry, **rsirfo_args)
     macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
@@ -1779,6 +2016,7 @@ def _run_microiter_tsopt(
     click.echo("")
     micro_table.print_header()
 
+    macro_converged = False
     for macro_iter in range(max_cycles):
         # ---- Macro step: 1 RS-I-RFO step with ONIOM forces, MM frozen ----
         geometry.freeze_atoms = macro_freeze
@@ -1796,6 +2034,14 @@ def _run_microiter_tsopt(
         # Convergence check
         macro_converged, conv_info = macro_optimizer.check_convergence()
         total_macro_steps += 1
+
+        if macro_optimizer.stop_requested:
+            click.echo(
+                "[microiter] Stopped without convergence: "
+                f"{macro_optimizer.stop_reason}",
+                err=True,
+            )
+            break
 
         if dump:
             with open(macro_trj_path, "a") as f:
@@ -1891,7 +2137,27 @@ def _run_microiter_tsopt(
         print()  # blank line closes the table (print() shares the table's stdout path)
         click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).", detail=True)
 
-    del macro_optimizer
+    outcome = {
+        "converged": bool(macro_optimizer.is_converged or macro_converged),
+        "cycles": total_macro_steps,
+        "stop_requested": bool(macro_optimizer.stop_requested),
+        "stop_reason": macro_optimizer.stop_reason,
+        "safeguards": {
+            "rejected_mode_loss_trials": int(
+                getattr(macro_optimizer, "rejected_mode_loss_steps", 0)
+            ),
+            "exact_saddle_checks": int(
+                getattr(macro_optimizer, "exact_saddle_checks", 0)
+            ),
+            "saddle_recovery_steps": int(
+                getattr(macro_optimizer, "saddle_recovery_steps", 0)
+            ),
+            "last_exact_n_imaginary": getattr(
+                macro_optimizer, "_last_exact_n_imaginary", None
+            ),
+        },
+        "optimizer": macro_optimizer,
+    }
     _clear_cuda_cache()
 
     click.echo(f"[microiter] Total macro steps: {total_macro_steps}", detail=True)
@@ -1900,7 +2166,7 @@ def _run_microiter_tsopt(
     base_calc = mlmm(**calc_cfg)
     geometry.set_calculator(base_calc)
 
-    return geometry
+    return outcome
 
 
 
@@ -1912,8 +2178,28 @@ CALC_KW: Dict[str, Any] = deepcopy(MLMM_CALC_KW)
 hessian_dimer_KW = {
     **HESSIAN_DIMER_KW,
     "dimer": {**DIMER_KW},
-    "lbfgs": {**LBFGS_KW},
+    # The dimer rotates the physical gradient into an effective TS force, so
+    # physical-energy uphill rejection is not meaningful for its inner LBFGS.
+    "lbfgs": {**LBFGS_KW, "reject_uphill": False},
 }
+
+
+def _load_reference_mode(path: Path, expected_size: int) -> np.ndarray:
+    """Load and validate a full Cartesian path-mode hint."""
+    try:
+        mode = np.load(path) if path.suffix.lower() == ".npy" else np.loadtxt(path)
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"Failed to read --ref-mode '{path}': {exc}") from exc
+    mode = np.asarray(mode, dtype=float).reshape(-1)
+    if mode.size != int(expected_size):
+        raise ValueError(
+            "--ref-mode must contain one Cartesian value per degree of "
+            f"freedom ({mode.size} read, {expected_size} expected)."
+        )
+    norm = float(np.linalg.norm(mode))
+    if not np.all(np.isfinite(mode)) or not np.isfinite(norm) or norm <= 0.0:
+        raise ValueError("--ref-mode must be a finite, non-zero Cartesian vector.")
+    return mode / norm
 
 
 @click.command(
@@ -1927,6 +2213,17 @@ hessian_dimer_KW = {
     required=True,
     help="Starting geometry (PDB or XYZ). XYZ provides higher coordinate precision. "
          "If XYZ, use --ref-pdb to specify PDB topology for atom ordering and output conversion.",
+)
+@click.option(
+    "--ref-mode",
+    "reference_mode_path",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help=(
+        "Advanced path-mode hint for Hessian TS recovery (.npy or whitespace "
+        "Cartesian 3N text). 'mlmm all' supplies this from its MEP; ordinary "
+        "standalone tsopt runs normally omit it."
+    ),
 )
 @click.option(
     "--ref-pdb",
@@ -1986,6 +2283,17 @@ hessian_dimer_KW = {
     default=None,
     show_default=False,
     help="Comma-separated 1-based indices to freeze (e.g., '1,3,5').",
+)
+@click.option(
+    "--tr-projection",
+    type=click.Choice(["constrained", "legacy-active"], case_sensitive=False),
+    default=GEOM_KW["tr_projection"],
+    show_default=True,
+    help=(
+        "Rigid translation/rotation treatment for Cartesian PHVA. "
+        "'constrained' removes only full-system rigid motions compatible with "
+        "the frozen atoms; 'legacy-active' treats the active fragment as isolated."
+    ),
 )
 @click.option(
     "--radius-hessian",
@@ -2186,6 +2494,7 @@ hessian_dimer_KW = {
 def cli(
     ctx: click.Context,
     input_path: Path,
+    reference_mode_path: Optional[Path],
     ref_pdb: Optional[Path],
     real_parm7: Path,
     model_pdb: Optional[Path],
@@ -2196,6 +2505,7 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
+    tr_projection: str,
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     hessian_calc_mode: Optional[str],
@@ -2226,7 +2536,7 @@ def cli(
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
-    calc_factory: str,
+    calc_factory: Optional[str],
     cli_coord_type: Optional[str],
     print_every: Optional[int],
 ) -> None:
@@ -2243,10 +2553,9 @@ def cli(
         override_yaml=None,
     )
 
-    # Handle input: PDB directly, or XYZ with --ref-pdb for topology
+    # Handle PDB/mmCIF directly, or XYZ with --ref-pdb for topology.
     suffix = input_path.suffix.lower()
-    if suffix == ".pdb":
-        # PDB input: use directly
+    if suffix in {".pdb", ".cif", ".mmcif"}:
         prepared_input = prepare_input_structure(input_path)
     elif suffix == ".xyz":
         # XYZ input: require --ref-pdb for topology
@@ -2257,11 +2566,23 @@ def cli(
         apply_ref_pdb_override(prepared_input, ref_pdb)
         click.echo(f"[input] Using XYZ coordinates from {input_path.name}, PDB topology from {ref_pdb.name}")
     else:
-        click.echo(f"ERROR: Unsupported input format: {suffix}. Use .pdb or .xyz (with --ref-pdb).", err=True)
+        click.echo(f"ERROR: Unsupported input format: {suffix}. Use .pdb/.cif/.mmcif or .xyz (with --ref-pdb).", err=True)
         sys.exit(1)
 
     geom_input_path = prepared_input.geom_path
     source_path = prepared_input.source_path
+    reference_mode = None
+    if reference_mode_path is not None:
+        try:
+            from ase.io import read as ase_read
+
+            n_atoms_reference = len(ase_read(str(geom_input_path), index=0))
+            reference_mode = _load_reference_mode(
+                reference_mode_path, 3 * n_atoms_reference
+            )
+        except (OSError, RuntimeError, ValueError) as exc:
+            prepared_input.cleanup()
+            raise click.BadParameter(str(exc), param_hint="--ref-mode") from exc
     charge, spin = resolve_charge_spin_or_raise(
         prepared_input, charge, spin,
         ligand_charge=ligand_charge, prefix="[tsopt]",
@@ -2333,6 +2654,8 @@ def cli(
         rsirfo_cfg["thresh"] = str(thresh)
     if _is_param_explicit("cli_coord_type") and cli_coord_type is not None:
         geom_cfg["coord_type"] = str(cli_coord_type).lower()
+    if _is_param_explicit("tr_projection"):
+        geom_cfg["tr_projection"] = str(tr_projection).lower()
     # Handle --flatten/--no-flatten CLI toggle
     if flatten is not None:
         if flatten:
@@ -2396,6 +2719,13 @@ def cli(
             (rsirfo_cfg, (("rsirfo",),)),
         ],
     )
+    try:
+        geom_cfg["tr_projection"] = normalize_tr_projection_mode(
+            geom_cfg.get("tr_projection")
+        )
+    except ValueError as exc:
+        prepared_input.cleanup()
+        raise click.ClickException(str(exc)) from exc
     calc_paths = (("calc",), ("mlmm",))
     partial_explicit = (
         yaml_section_has_key(config_layer_cfg, calc_paths, "return_partial_hessian")
@@ -2512,9 +2842,13 @@ def cli(
                     "hessian_calc_mode": calc_cfg.get("hessian_calc_mode"),
                     "partial_hessian_flatten": bool(partial_hessian_flatten),
                     "active_dof_mode": str(active_dof_mode),
+                    "tr_projection": geom_cfg["tr_projection"],
                     "will_run_tsopt": True,
                     "will_write_summary": True,
                     "backend": calc_cfg.get("backend", "uma"),
+                    "reference_mode": (
+                        None if reference_mode_path is None else str(reference_mode_path)
+                    ),
                     "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                 },
             )
@@ -2588,13 +2922,10 @@ def cli(
         mode_desc += " + Microiteration"
 
     # Default-verbosity entry summary (skipped in child mode).
-    from mlmm.core.utils import echo_run_summary
-    _backend = calc_cfg.get("backend") or "uma"
-    _model = calc_cfg.get("uma_model") or calc_cfg.get("model")
-    _precision = calc_cfg.get("uma_precision") or calc_cfg.get("precision", "fp32")
+    from mlmm.core.utils import calculator_run_label, echo_run_summary
     echo_run_summary({
         "input": str(input_path),
-        "backend": f"{_backend} ({_model}, {_precision})" if _model else _backend,
+        "backend": calculator_run_label(calc_cfg),
         "opt": mode_desc,
         "out": str(out_dir_path),
     })
@@ -2637,12 +2968,35 @@ def cli(
                 coord_type=coord_type,
                 **coord_kwargs,
             )
+            initial_ts_cart_coords = geometry.cart_coords.copy()
 
             echo_resolved_device()
+            _heavy_optimizer_converged = False
+            _heavy_safeguards: Dict[str, Any] = {}
+            rsirfo_args = dict(rsirfo_cfg)
+            rsirfo_args["out_dir"] = str(out_dir_path)
+            rsirfo_args["max_cycles"] = int(opt_cfg["max_cycles"])
+            rsirfo_args["dump"] = bool(opt_cfg["dump"])
+            if thresh is not None:
+                rsirfo_args["thresh"] = str(thresh)
+            if reference_mode is not None:
+                rsirfo_args["reference_mode"] = reference_mode
+            for _diis_kw in (
+                "gediis",
+                "gdiis",
+                "gdiis_thresh",
+                "gediis_thresh",
+                "gdiis_test_direction",
+                "adapt_step_func",
+            ):
+                rsirfo_args.pop(_diis_kw, None)
+            if mode_resolved != "rsirfo":
+                rsirfo_args["min_line_search"] = False
+                rsirfo_args["max_line_search"] = False
 
             if use_microiter:
                 # --- Microiteration path ---
-                _run_microiter_tsopt(
+                microiter_outcome = _run_microiter_tsopt(
                     geometry,
                     calc_cfg,
                     rsirfo_cfg,
@@ -2653,7 +3007,11 @@ def cli(
                     dump=bool(opt_cfg["dump"]),
                     thresh=thresh,
                     mode=mode_resolved,
+                    reference_mode=reference_mode,
                 )
+                _heavy_optimizer_converged = bool(microiter_outcome["converged"])
+                _heavy_safeguards = dict(microiter_outcome["safeguards"])
+                last_optimizer = microiter_outcome["optimizer"]
 
                 # Write final geometry
                 final_xyz = out_dir_path / "final_geometry.xyz"
@@ -2665,7 +3023,7 @@ def cli(
                 hess_active_atoms = list(getattr(_temp_core, "hess_active_atoms", []))
                 del _temp_calc, _temp_core
                 _clear_cuda_cache()
-                _rsirfo_cycles_spent = int(opt_cfg.get("max_cycles", 10000))  # budget consumed
+                _rsirfo_cycles_spent = int(microiter_outcome["cycles"])
             else:
                 # --- Standard RS-I-RFO path ---
                 base_calc = mlmm(**calc_cfg)
@@ -2680,27 +3038,27 @@ def cli(
                 )
                 del h_init
 
-                rsirfo_args = {**rsirfo_cfg}
-                rsirfo_args["out_dir"] = str(out_dir_path)
-                rsirfo_args["max_cycles"] = int(opt_cfg["max_cycles"])
-                rsirfo_args["dump"] = bool(opt_cfg["dump"])
-                if thresh is not None:
-                    rsirfo_args["thresh"] = str(thresh)
-                # RSIRFOptimizer does not accept RFOptimizer-specific DIIS knobs; strip them.
-                for _diis_kw in ("gediis", "gdiis", "gdiis_thresh", "gediis_thresh", "gdiis_test_direction", "adapt_step_func"):
-                    rsirfo_args.pop(_diis_kw, None)
-
                 calc_core = base_calc.core if hasattr(base_calc, "core") else base_calc
                 hess_active_atoms = list(getattr(calc_core, "hess_active_atoms", []))
 
-                # TRIM / RS-P-RFO are pure-numpy, single-pass TS optimizers and
-                # do not support the torch-backed line_search used by RS-I-RFO.
-                if mode_resolved != "rsirfo":
-                    rsirfo_args["min_line_search"] = False
-                    rsirfo_args["max_line_search"] = False
-
                 optimizer = TSOPT_CLASS_MAP[mode_resolved](geometry, **rsirfo_args)
                 optimizer.run()
+                last_optimizer = optimizer
+                _heavy_optimizer_converged = bool(optimizer.is_converged)
+                _heavy_safeguards = {
+                    "rejected_mode_loss_trials": int(
+                        getattr(optimizer, "rejected_mode_loss_steps", 0)
+                    ),
+                    "exact_saddle_checks": int(
+                        getattr(optimizer, "exact_saddle_checks", 0)
+                    ),
+                    "saddle_recovery_steps": int(
+                        getattr(optimizer, "saddle_recovery_steps", 0)
+                    ),
+                    "last_exact_n_imaginary": getattr(
+                        optimizer, "_last_exact_n_imaginary", None
+                    ),
+                }
                 emit_optimizer_terminal_status(
                     "tsopt",
                     converged=getattr(optimizer, "is_converged", None),
@@ -2714,7 +3072,6 @@ def cli(
                 # Save cycle count before deleting optimizer for budget check.
                 _rsirfo_cycles_spent = getattr(optimizer, "cur_cycle", 0) + 1
                 geometry.set_calculator(None)
-                del optimizer
                 del calc_core
                 del base_calc
                 _clear_cuda_cache()
@@ -2736,6 +3093,8 @@ def cli(
                 freeze_atoms_freq = [i for i in range(n_atoms) if i not in active_set]
             else:
                 freeze_atoms_freq = freeze_atoms_final if freeze_atoms_final else None
+
+            rigid_projection_info: Dict[str, Any] = {}
 
             def _calc_freqs_and_modes() -> Tuple[np.ndarray, torch.Tensor]:
                 H, _energy_ha = _freq_calc_full_hessian_torch(
@@ -2763,7 +3122,16 @@ def cli(
                         _active_dofs = sorted(_all_dofs - _frozen_dofs)
                 else:
                     _active_dofs = None
-                _hess_store("ts", H, active_dofs=_active_dofs, meta={"energy_ha": _energy_ha})
+                _hess_store(
+                    "ts",
+                    H,
+                    active_dofs=_active_dofs,
+                    meta={
+                        "energy_ha": _energy_ha,
+                        "cart_coords": geometry.cart_coords,
+                        "source": "tsopt_exact",
+                    },
+                )
                 n_full = len(geometry.atomic_numbers)
                 if H.shape[0] != 3 * n_full:
                     # Partial Hessian: use Hessian-target atoms only and embed modes back.
@@ -2782,20 +3150,16 @@ def cli(
                         raise RuntimeError(
                             "No active atoms available for partial Hessian frequency analysis."
                         )
-                    coords_act = geometry.cart_coords.reshape(-1, 3)[active_atoms]
-                    nums_act = np.asarray(geometry.atomic_numbers)[active_atoms]
-                    freqs_local, modes_act = _frequencies_cm_and_modes(
+                    freqs_local, modes_local = _modes_from_Hact_embedded(
                         H,
-                        nums_act,
-                        coords_act,
+                        geometry.atomic_numbers,
+                        geometry.cart_coords.reshape(-1, 3),
+                        active_atoms,
                         device,
-                        freeze_idx=None,
+                        tr_projection=geom_cfg["tr_projection"],
+                        projection_info=rigid_projection_info,
                     )
-                    # Embed modes into full 3N on CPU to reduce VRAM peak.
-                    modes_local = torch.zeros((modes_act.shape[0], 3 * n_full), dtype=modes_act.dtype, device="cpu")
-                    mask_dof = torch.as_tensor(_mask_dof_from_active_idx(n_full, active_atoms), dtype=torch.bool)
-                    modes_local[:, mask_dof] = modes_act.detach().cpu()
-                    del coords_act, nums_act, modes_act, mask_dof
+                    modes_local = modes_local.detach().cpu()
                 else:
                     freqs_local, modes_gpu = _frequencies_cm_and_modes(
                         H,
@@ -2803,12 +3167,91 @@ def cli(
                         geometry.cart_coords.reshape(-1, 3),
                         device,
                         freeze_idx=freeze_atoms_freq,
+                        tr_projection=geom_cfg["tr_projection"],
+                        projection_info=rigid_projection_info,
                     )
                     modes_local = modes_gpu.detach().cpu()
                     del modes_gpu
+                rigid_projection_info.update({
+                    "hessian_space": (
+                        "full" if H.shape[0] == 3 * n_full else "active"
+                    ),
+                    "raw_hessian_shape": list(H.shape),
+                    "source": "tsopt_exact",
+                })
                 del H
                 _clear_cuda_cache()
                 return freqs_local, modes_local
+
+            def _optimizer_safeguards(opt) -> Dict[str, Any]:
+                return {
+                    "rejected_mode_loss_trials": int(
+                        getattr(opt, "rejected_mode_loss_steps", 0)
+                    ),
+                    "exact_saddle_checks": int(
+                        getattr(opt, "exact_saddle_checks", 0)
+                    ),
+                    "saddle_recovery_steps": int(
+                        getattr(opt, "saddle_recovery_steps", 0)
+                    ),
+                    "last_exact_n_imaginary": getattr(
+                        opt, "_last_exact_n_imaginary", None
+                    ),
+                }
+
+            def _run_path_restart(
+                restart_reference: Optional[np.ndarray],
+            ) -> Tuple[Any, bool, Dict[str, Any], int]:
+                """Run the selected Hessian optimizer from current coordinates."""
+                if use_microiter:
+                    outcome = _run_microiter_tsopt(
+                        geometry,
+                        calc_cfg,
+                        rsirfo_cfg,
+                        lbfgs_cfg,
+                        opt_cfg,
+                        microiter_cfg,
+                        out_dir_path,
+                        dump=bool(opt_cfg["dump"]),
+                        thresh=thresh,
+                        mode=mode_resolved,
+                        reference_mode=restart_reference,
+                    )
+                    restart_optimizer = outcome["optimizer"]
+                    return (
+                        restart_optimizer,
+                        bool(outcome["converged"]),
+                        dict(outcome["safeguards"]),
+                        int(outcome["cycles"]),
+                    )
+
+                restart_calc = mlmm(**calc_cfg)
+                geometry.set_calculator(restart_calc)
+                restart_hessian = _calc_full_hessian_torch(
+                    geometry, calc_cfg, device
+                )
+                geometry.cart_hessian = restart_hessian
+                del restart_hessian
+                restart_args = dict(rsirfo_args)
+                if restart_reference is not None:
+                    restart_args["reference_mode"] = restart_reference
+                restart_optimizer = TSOPT_CLASS_MAP[mode_resolved](
+                    geometry, **restart_args
+                )
+                restart_optimizer.run()
+                emit_optimizer_terminal_status(
+                    "tsopt",
+                    converged=getattr(restart_optimizer, "is_converged", None),
+                    cycles=optimizer_cycle_count(restart_optimizer),
+                    max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                )
+                cycles = int(getattr(restart_optimizer, "cur_cycle", 0)) + 1
+                converged = bool(restart_optimizer.is_converged)
+                safeguards = _optimizer_safeguards(restart_optimizer)
+                geometry.set_calculator(None)
+                del restart_calc
+                _clear_cuda_cache()
+                return restart_optimizer, converged, safeguards, cycles
 
             if not _do_final_freq:
                 freqs_cm, modes = None, None
@@ -2835,7 +3278,147 @@ def cli(
                 ims = [float(x) for x in freqs_cm if x < -abs(neg_freq_thresh_cm)]
                 click.echo(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
 
+                saddle_multistart_attempts: List[Dict[str, Any]] = []
+                target_mode_is_negative = getattr(
+                    last_optimizer,
+                    "_last_exact_target_mode_is_negative",
+                    None,
+                )
+                if (
+                    not _heavy_optimizer_converged
+                    and reference_mode is not None
+                    and (n_imag <= 1 or target_mode_is_negative is False)
+                ):
+                    baseline = {
+                        "coords": geometry.cart_coords.copy(),
+                        "optimizer": last_optimizer,
+                        "freqs": freqs_cm.copy(),
+                        "modes": modes.detach().cpu().clone(),
+                        "converged": _heavy_optimizer_converged,
+                        "safeguards": dict(_heavy_safeguards),
+                        "cycles": _rsirfo_cycles_spent,
+                    }
+                    best_path_negative = None
+                    multistart_success = False
+                    for mode_source, restart_unit in _path_restart_mode_candidates(
+                        last_optimizer, geometry, reference_mode
+                    ):
+                        if mode_source == "initial-soft-root" and best_path_negative is not None:
+                            break
+                        for amplitude_ang in PATH_MODE_RESTART_AMPLITUDES_ANG:
+                            geometry.cart_coords = (
+                                initial_ts_cart_coords
+                                + (amplitude_ang / BOHR2ANG) * restart_unit
+                            )
+                            geometry.set_calculator(None)
+                            click.echo(
+                                "[path-mode restart] "
+                                f"source={mode_source}, displacement={amplitude_ang:+.2f} Å",
+                                narrative=True,
+                            )
+                            (
+                                restart_optimizer,
+                                restart_converged,
+                                restart_safeguards,
+                                restart_cycles,
+                            ) = _run_path_restart(restart_unit)
+                            last_optimizer = restart_optimizer
+                            _heavy_optimizer_converged = restart_converged
+                            _heavy_safeguards = restart_safeguards
+                            _rsirfo_cycles_spent = restart_cycles
+                            geometry.set_calculator(None)
+                            restart_freqs, restart_modes = _calc_freqs_and_modes()
+                            restart_n_imag = int(
+                                np.sum(
+                                    restart_freqs
+                                    < -abs(neg_freq_thresh_cm)
+                                )
+                            )
+                            target_negative = getattr(
+                                restart_optimizer,
+                                "_last_exact_target_mode_is_negative",
+                                None,
+                            )
+                            attempt = {
+                                "mode_source": mode_source,
+                                "displacement_ang": amplitude_ang,
+                                "converged": restart_converged,
+                                "n_imaginary": restart_n_imag,
+                                "target_mode_negative": target_negative,
+                            }
+                            saddle_multistart_attempts.append(attempt)
+                            click.echo(
+                                "[path-mode restart] "
+                                f"converged={restart_converged}, n_imag={restart_n_imag}",
+                                narrative=True,
+                            )
+                            if restart_converged and restart_n_imag == 1:
+                                freqs_cm, modes = restart_freqs, restart_modes
+                                n_imag = restart_n_imag
+                                multistart_success = True
+                                break
+                            if target_negative is True:
+                                force = (
+                                    restart_optimizer.forces[-1]
+                                    if restart_optimizer.forces
+                                    else geometry.cart_forces
+                                )
+                                if isinstance(force, torch.Tensor):
+                                    force = force.detach().cpu().numpy()
+                                score = (
+                                    abs(restart_n_imag - 1),
+                                    float(np.max(np.abs(np.asarray(force, dtype=float)))),
+                                )
+                                if best_path_negative is None or score < best_path_negative["score"]:
+                                    best_path_negative = {
+                                        "score": score,
+                                        "coords": geometry.cart_coords.copy(),
+                                        "optimizer": restart_optimizer,
+                                        "freqs": restart_freqs.copy(),
+                                        "modes": restart_modes.detach().cpu().clone(),
+                                        "converged": restart_converged,
+                                        "safeguards": dict(restart_safeguards),
+                                        "cycles": restart_cycles,
+                                    }
+                        if multistart_success:
+                            break
+
+                    if not multistart_success:
+                        selected = best_path_negative or baseline
+                        geometry.cart_coords = selected["coords"]
+                        last_optimizer = selected["optimizer"]
+                        freqs_cm = selected["freqs"]
+                        modes = selected["modes"]
+                        _heavy_optimizer_converged = bool(selected["converged"])
+                        _heavy_safeguards = dict(selected["safeguards"])
+                        _rsirfo_cycles_spent = int(selected["cycles"])
+                        n_imag = int(
+                            np.sum(freqs_cm < -abs(neg_freq_thresh_cm))
+                        )
+                    (out_dir_path / "final_geometry.xyz").write_text(
+                        geometry.as_xyz(), encoding="utf-8"
+                    )
+                if saddle_multistart_attempts:
+                    _heavy_safeguards["path_mode_restarts"] = saddle_multistart_attempts
+
                 flatten_max_iter = int(simple_cfg.get("flatten_max_iter", 0))
+                target_mode_is_negative = getattr(
+                    last_optimizer,
+                    "_last_exact_target_mode_is_negative",
+                    None,
+                )
+                flatten_max_iter, flatten_vetoed = _effective_flatten_iterations(
+                    flatten_max_iter,
+                    has_reference_mode=reference_mode is not None,
+                    n_imag=n_imag,
+                    target_mode_is_negative=target_mode_is_negative,
+                )
+                if flatten_vetoed:
+                    click.echo(
+                        "[flatten] Skipping extra-mode flattening because the "
+                        "path-correlated mode is not negative.",
+                        err=True,
+                    )
                 user_max_cycles = int(opt_cfg.get("max_cycles", 10000))
                 budget_remaining = user_max_cycles - _rsirfo_cycles_spent > 0
 
@@ -2846,8 +3429,87 @@ def cli(
                     masses_amu = np.array([atomic_masses[z] for z in geometry.atomic_numbers])
                     main_root = int(simple_cfg.get("root", 0))
 
+                    def _run_flatten_branch(
+                        start_coords: np.ndarray,
+                        branch_reference: Optional[np.ndarray],
+                        label: str,
+                    ) -> Dict[str, Any]:
+                        geometry.cart_coords = np.asarray(start_coords, dtype=float).copy()
+                        branch_optimizer, converged, safeguards, cycles = (
+                            _run_path_restart(branch_reference)
+                        )
+                        geometry.set_calculator(None)
+                        branch_freqs, branch_modes = _calc_freqs_and_modes()
+                        branch_n_imag = int(
+                            np.sum(branch_freqs < -abs(neg_freq_thresh_cm))
+                        )
+                        click.echo(
+                            f"[Imaginary modes:{label}] n={branch_n_imag}",
+                            narrative=True,
+                        )
+                        return {
+                            "label": label,
+                            "optimizer": branch_optimizer,
+                            "coords": geometry.cart_coords.copy(),
+                            "freqs": branch_freqs,
+                            "modes": branch_modes,
+                            "n_imag": branch_n_imag,
+                            "converged": converged,
+                            "safeguards": safeguards,
+                            "cycles": cycles,
+                        }
+
+                    def _flatten_branch_score(
+                        result: Dict[str, Any],
+                    ) -> Tuple[int, int, float, float]:
+                        branch_optimizer = result["optimizer"]
+                        target_negative = (
+                            getattr(
+                                branch_optimizer,
+                                "_last_exact_target_mode_is_negative",
+                                None,
+                            )
+                            is True
+                        )
+                        branch_freqs = np.asarray(result["freqs"], dtype=float)
+                        negative_indices = np.flatnonzero(
+                            branch_freqs < -abs(neg_freq_thresh_cm)
+                        )
+                        target_index = getattr(
+                            branch_optimizer,
+                            "_last_exact_target_mode_index",
+                            None,
+                        )
+                        surplus_strength = sum(
+                            abs(float(branch_freqs[int(mode_index)]))
+                            for mode_index in negative_indices
+                            if not (
+                                target_negative
+                                and target_index is not None
+                                and int(mode_index) == int(target_index)
+                            )
+                        )
+                        force = (
+                            branch_optimizer.forces[-1]
+                            if branch_optimizer.forces
+                            else np.asarray([], dtype=float)
+                        )
+                        if isinstance(force, torch.Tensor):
+                            force = force.detach().cpu().numpy()
+                        force = np.asarray(force, dtype=float).reshape(-1)
+                        return (
+                            0 if target_negative else 1,
+                            abs(int(result["n_imag"]) - 1),
+                            surplus_strength,
+                            float(np.max(np.abs(force))) if force.size else float("inf"),
+                        )
+
                     for it in range(flatten_max_iter):
                         click.echo(f"[flatten] RS-I-RFO iteration {it + 1}/{flatten_max_iter}")
+                        flatten_reference_mode = _transported_path_mode_full(
+                            last_optimizer, geometry, reference_mode
+                        )
+                        pre_flatten_coords = geometry.cart_coords.copy()
                         did_flatten = _flatten_once_with_modes_for_geom(
                             geometry,
                             masses_amu,
@@ -2859,31 +3521,41 @@ def cli(
                             float(simple_cfg.get("flatten_sep_cutoff", 0.0)),
                             int(simple_cfg.get("flatten_k", 10)),
                             main_root,
+                            reference_mode=flatten_reference_mode,
                         )
                         if not did_flatten:
                             click.echo("[flatten] No eligible modes to flatten; stopping.")
                             break
 
-                        del freqs_cm, modes
-                        _clear_cuda_cache()
-                        base_calc = mlmm(**calc_cfg)
-                        geometry.set_calculator(base_calc)
-                        optimizer = TSOPT_CLASS_MAP[mode_resolved](geometry, **rsirfo_args)
-                        optimizer.run()
-                        emit_optimizer_terminal_status(
-                            "tsopt",
-                            converged=getattr(optimizer, "is_converged", None),
-                            cycles=optimizer_cycle_count(optimizer),
-                            max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
-                        )
-                        if bool(opt_cfg["dump"]):
-                            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
-                        geometry.set_calculator(None)
-                        del optimizer, base_calc
-                        _clear_cuda_cache()
-
                         try:
-                            freqs_cm, modes = _calc_freqs_and_modes()
+                            primary_start = geometry.cart_coords.copy()
+                            primary_result = _run_flatten_branch(
+                                primary_start,
+                                flatten_reference_mode,
+                                "primary",
+                            )
+                            selected_result = primary_result
+                            if (
+                                reference_mode is not None
+                                and _flatten_branch_needs_alternate(primary_result)
+                            ):
+                                alternate_result = _run_flatten_branch(
+                                    _mirrored_flatten_start(
+                                        pre_flatten_coords, primary_start
+                                    ),
+                                    flatten_reference_mode,
+                                    "alternate",
+                                )
+                                primary_score = _flatten_branch_score(primary_result)
+                                alternate_score = _flatten_branch_score(alternate_result)
+                                if alternate_score < primary_score:
+                                    selected_result = alternate_result
+                                click.echo(
+                                    "[flatten] Signed-branch probe selected "
+                                    f"{selected_result['label']} "
+                                    f"(primary={primary_score}, alternate={alternate_score}).",
+                                    narrative=True,
+                                )
                         except Exception as exc:
                             is_oom = isinstance(exc, torch.OutOfMemoryError) or ("cuda out of memory" in str(exc).lower())
                             if is_oom:
@@ -2897,10 +3569,34 @@ def cli(
                                 break
                             raise
 
-                        neg_mask = freqs_cm < -abs(neg_freq_thresh_cm)
-                        n_imag = int(np.sum(neg_mask))
+                        last_optimizer = selected_result["optimizer"]
+                        geometry.cart_coords = selected_result["coords"]
+                        freqs_cm = selected_result["freqs"]
+                        modes = selected_result["modes"]
+                        n_imag = int(selected_result["n_imag"])
+                        _heavy_optimizer_converged = bool(selected_result["converged"])
+                        _heavy_safeguards = dict(selected_result["safeguards"])
+                        _rsirfo_cycles_spent = int(selected_result["cycles"])
                         ims = [float(x) for x in freqs_cm if x < -abs(neg_freq_thresh_cm)]
                         click.echo(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
+                        (out_dir_path / "final_geometry.xyz").write_text(
+                            geometry.as_xyz(), encoding="utf-8"
+                        )
+                        if (
+                            reference_mode is not None
+                            and getattr(
+                                last_optimizer,
+                                "_last_exact_target_mode_is_negative",
+                                None,
+                            )
+                            is not True
+                        ):
+                            click.echo(
+                                "[flatten] Path-correlated mode was lost; stopping "
+                                "without preserving an unrelated negative mode.",
+                                err=True,
+                            )
+                            break
                         if n_imag <= 1:
                             break
 
@@ -2927,30 +3623,42 @@ def cli(
 
             # Capture freq/energy data for result.json BEFORE deleting
             _heavy_imag_freqs: list = []
-            _heavy_n_imag = 0
+            _heavy_n_imag: Optional[int] = None
             _heavy_energy = None
             if freqs_cm is not None:
                 _heavy_imag_freqs = [float(f) for f in freqs_cm if f < -abs(neg_freq_thresh_cm)]
                 _heavy_n_imag = len(_heavy_imag_freqs)
-            # Get energy from hessian cache meta
-            try:
-                from mlmm.io.hessian_cache import load as _hess_load_energy
-                _hess_data = _hess_load_energy("ts")
-                if _hess_data is not None and "meta" in _hess_data:
-                    _heavy_energy = _hess_data["meta"].get("energy_ha")
-            except Exception:
-                pass
-            if _heavy_energy is None:
-                # fallback: compute energy explicitly
-                try:
-                    _heavy_energy = _calc_energy(geometry, calc_cfg)
-                except (RuntimeError, ValueError, AttributeError, KeyError) as _ee:
-                    logger.warning(
-                        "Heavy-mode energy fallback failed: %s. "
-                        "Reporting status='energy_missing' with NaN energy.",
-                        _ee,
+                if _heavy_n_imag != 1:
+                    _heavy_optimizer_converged = False
+                    click.echo(
+                        "[tsopt] WARNING: The final exact Hessian has "
+                        f"n_imag={_heavy_n_imag}; this is not a first-order "
+                        "saddle and is marked not_converged.",
+                        err=True,
                     )
-                    _heavy_energy = float("nan")
+            _heavy_status = (
+                "unverified"
+                if _heavy_n_imag is None
+                else (
+                    "converged"
+                    if _heavy_optimizer_converged and _heavy_n_imag == 1
+                    else "not_converged"
+                )
+            )
+            if rigid_projection_info:
+                click.echo(pretty_block("rigid_projection", rigid_projection_info))
+            # Restart branches share the Hessian cache. Evaluate the selected
+            # final coordinates directly so an unselected branch cannot leak
+            # its cached energy into result.json.
+            try:
+                _heavy_energy = _calc_energy(geometry, calc_cfg)
+            except (RuntimeError, ValueError, AttributeError, KeyError) as _ee:
+                logger.warning(
+                    "Heavy-mode final energy evaluation failed: %s. "
+                    "Reporting status='energy_missing' with NaN energy.",
+                    _ee,
+                )
+                _heavy_energy = float("nan")
 
             if modes is not None:
                 del modes
@@ -3085,17 +3793,15 @@ def cli(
         click.echo(format_elapsed("[time] Elapsed Time for TS Opt", time_start), narrative=True)
 
         if out_json:
-            from mlmm.core.utils import write_result_json
+            from mlmm.core.utils import calculator_provenance, write_result_json
             _tsopt_imag_freqs: list = []
-            _tsopt_n_imag = 0
+            _tsopt_n_imag: Optional[int] = None
             _tsopt_energy = None
-            # Honest run status: the dimer (grad) branch reports converged/not_converged
-            # from runner.is_converged (set on cycle-budget exhaustion); heavy mode keeps
-            # its existing "completed" literal (its convergence is reported separately).
-            _tsopt_status = "completed"
+            _tsopt_status = "unverified"
 
             if use_heavy:
                 # Heavy mode: use captured data from before del
+                _tsopt_status = _heavy_status
                 _tsopt_imag_freqs = _heavy_imag_freqs
                 _tsopt_n_imag = _heavy_n_imag
                 _tsopt_energy = _heavy_energy
@@ -3103,34 +3809,24 @@ def cli(
                 _tsopt_n_opt_cycles = _rsirfo_cycles_spent if '_rsirfo_cycles_spent' in dir() else None
             else:
                 # Light mode: compute freq/energy from runner
-                if 'runner' in dir() and hasattr(runner, 'is_converged'):
-                    _tsopt_status = "converged" if runner.is_converged else "not_converged"
+                _light_optimizer_converged = bool(
+                    'runner' in dir()
+                    and hasattr(runner, 'is_converged')
+                    and runner.is_converged
+                )
                 _tsopt_n_atoms = len(runner.geom.atomic_numbers) if 'runner' in dir() and hasattr(runner, 'geom') else None
                 _tsopt_n_opt_cycles = runner._cycles_spent if 'runner' in dir() and hasattr(runner, '_cycles_spent') else None
+                if not skip_final_freq and 'runner' in dir():
+                    _tsopt_n_imag = getattr(runner, "n_imaginary_modes", None)
+                    _tsopt_imag_freqs = list(
+                        getattr(runner, "imaginary_frequencies_cm", [])
+                    )
+                    _tsopt_status = (
+                        "converged"
+                        if _light_optimizer_converged and _tsopt_n_imag == 1
+                        else "not_converged"
+                    )
                 if 'runner' in dir() and hasattr(runner, 'geom'):
-                    try:
-                        from mlmm.workflows.freq import _frequencies_cm_and_modes as _json_freq_fn
-                        _tsopt_device = _torch_device(calc_cfg.get("ml_device", "auto"))
-                        # Use tsopt-local _calc_full_hessian_torch (returns Tensor, not tuple)
-                        _tsopt_H = _calc_full_hessian_torch(runner.geom, dict(calc_cfg), _tsopt_device)
-                        _tsopt_freqs, _ = _json_freq_fn(
-                            _tsopt_H,
-                            runner.geom.atomic_numbers,
-                            runner.geom.cart_coords.reshape(-1, 3),
-                            _tsopt_device,
-                            freeze_idx=list(geom_cfg.get("freeze_atoms", [])) or None,
-                        )
-                        del _tsopt_H
-                        _neg_thresh = float(simple_cfg.get("neg_freq_thresh_cm", 5.0))
-                        _tsopt_imag_freqs = [float(f) for f in _tsopt_freqs if f < -abs(_neg_thresh)]
-                        _tsopt_n_imag = len(_tsopt_imag_freqs)
-                        del _tsopt_freqs
-                    except (RuntimeError, ValueError, AttributeError, KeyError, ImportError) as _fe:
-                        logger.warning(
-                            "Light-mode imaginary-frequency probe failed: %s. "
-                            "Reporting n_imaginary_modes=0 with empty list.",
-                            _fe,
-                        )
                     try:
                         _tsopt_energy = _calc_energy(runner.geom, calc_cfg)
                     except (RuntimeError, ValueError, AttributeError, KeyError) as _ee2:
@@ -3149,15 +3845,25 @@ def cli(
                 "opt_mode": opt_mode,
                 "n_atoms": _tsopt_n_atoms,
                 "n_opt_cycles": _tsopt_n_opt_cycles,
-                "backend": calc_cfg.get("backend", "uma"),
+                **calculator_provenance(calc_cfg),
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
                 "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
                 "thresh": simple_cfg.get("thresh"),
                 "max_cycles": simple_cfg.get("max_cycles"),
                 "input_file": str(input_path),
+                "reference_mode_file": (
+                    None if reference_mode_path is None else str(reference_mode_path)
+                ),
                 "files": {"final_geometry_xyz": "final_geometry.xyz"},
+                "rigid_projection": dict(
+                    rigid_projection_info
+                    if use_heavy
+                    else getattr(runner, "rigid_projection_info", {})
+                ),
             }
+            if use_heavy:
+                result_data["safeguards"] = _heavy_safeguards
             for ext in (".pdb", ".gjf"):
                 f = out_dir_path / f"final_geometry{ext}"
                 if f.exists():

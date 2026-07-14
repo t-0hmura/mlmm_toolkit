@@ -19,11 +19,24 @@ reference for **reading** and **diagnosing** the pair.
 
 The names match: a single `mm-parm` invocation produces one `.parm7`
 and one `.rst7` file. Downstream geometry subcommands take the structure
-via `-i` (a PDB / XYZ) and the topology via `--parm`:
+via `-i` (PDB/mmCIF or XYZ with `--ref-pdb`) and the topology via `--parm`:
 
 ```bash
 mlmm opt -i complex.pdb --parm complex.parm7 ...
 ```
+
+## Atom-order contract
+
+`parm7` is positional: its atom count and order must match the full-system
+coordinate input exactly. A `model.pdb` is only an unchanged subset used to
+select ML atoms; it is not a replacement topology. Keep atom names, residues,
+chains, insertion codes, and order unchanged across R/IM/P.
+
+Before coordinate assignment, `mlmm-toolkit` checks the atom count and the
+sequence of known elements against the `parm7` and raises on a mismatch. This
+cannot detect an exchange between two atoms of the same element, so build or
+reuse the topology from the same ordering rather than relying on the guard to
+repair a reordered structure.
 
 ## When you need to inspect a `parm7`
 

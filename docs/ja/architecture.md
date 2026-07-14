@@ -1,7 +1,5 @@
 # アーキテクチャ: mlmm-toolkit
 
----
-
 ## 1. 概要
 
 `mlmm-toolkit` は、完全なタンパク質環境に対して **ML/MM (ONIOM) 酵素反応経路解析** を実行する Python 製 CLI です。ここでの ML/MM とは、小さな反応コアを機械学習原子間ポテンシャル (ML) で、周囲のタンパク質を分子力学 (MM) 力場で扱い、両者を subtractive ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) エネルギースキームで結合したハイブリッドモデルを指します。
@@ -202,7 +200,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | MEP 探索 (GSM) | `mlmm/workflows/path_search.py` |
 | MEP オプティマイザコア (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
 | TS 最適化 (RSIRFO + Bofill + マクロ/マイクロ) | `mlmm/workflows/tsopt.py` |
-| 振動解析 (PHVA + UMA active block) | `mlmm/workflows/freq.py` |
+| 振動解析 (PHVA + MLIP active block) | `mlmm/workflows/freq.py` |
 | IRC 積分 (マクロ / マイクロ) | `mlmm/workflows/irc.py` |
 | 単一点 DFT (gpu4pyscf サブプロセス、ONIOM 埋め込み) | `mlmm/workflows/dft.py` |
 | 活性部位抽出 (cluster cap) | `mlmm/workflows/extract.py` |
@@ -293,7 +291,7 @@ grep -rn '# DOMAIN_PURE' mlmm/
 | 3 | マクロ / マイクロ交互 (RS-I-RFO hess mode microiteration) | `mlmm/workflows/tsopt.py` |
 | 4 | gpu4pyscf `rks_lowmem` トリプルガード | `mlmm/workflows/dft.py` |
 | 5 | def2 ファミリーの自動 ECP 注入 | `mlmm/workflows/dft.py` |
-| 6 | PHVA + UMA active-block partial Hessian | `mlmm/workflows/freq.py` |
+| 6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | 7 | `bofill_update` advanced-indexing scatter | `mlmm/workflows/tsopt.py` |
 | 8 | 3-layer 5-pass partial Hessian アセンブリ | `mlmm/backends/mlmm_calc.py` |
 | 9 | parm7 アトムインデックス (1-based / serial gap handling) | `mlmm/backends/mlmm_calc.py` |
@@ -306,7 +304,7 @@ grep -rn '# DOMAIN_PURE' mlmm/
 |---|---|---|---|
 | 5-pass Hessian セット | #1, #2, #8, #9 | subtractive ONIOM + link-atom B-matrix + 3-layer アセンブリ + parm7 インデックス | `mlmm/backends/mlmm_calc.py` (9 ルールのうち 4 つのホスト) |
 | TS 最適化セット | #3, #7 | マクロ / マイクロ交互 + Bofill scatter | `mlmm/workflows/tsopt.py` |
-| 振動セット | #6 | PHVA + UMA active-block partial Hessian | `mlmm/workflows/freq.py` |
+| 振動セット | #6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | DFT セット | #4, #5 | gpu4pyscf 低メモリ + def2 ECP 注入 | `mlmm/workflows/dft.py` |
 
 mlmm における実践的なカリキュラムは、まず 5-pass Hessian セット (#1, #2, #8, #9 — すべて `mlmm_calc.py` 内)、次に TS セット (#3, #7)、次に DFT (#4, #5)、最後に振動 (#6) です。
@@ -362,7 +360,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 5. `mlmm/workflows/mm_parm.py` — AmberTools parm7 生成。
 6. `mlmm/backends/mlmm_calc.py` — ML/MM の心臓部 (化学ルール #1, #2, #8, #9 がすべてここにある)。
 7. `mlmm/workflows/tsopt.py` — RSIRFO + Bofill (CHEMISTRY-RULE:7) + マクロ / マイクロ交互 (CHEMISTRY-RULE:3)。
-8. `mlmm/workflows/freq.py` — PHVA + UMA active-block (CHEMISTRY-RULE:6)。
+8. `mlmm/workflows/freq.py` — PHVA + MLIP active-block (CHEMISTRY-RULE:6)。
 9. `mlmm/workflows/irc.py` — VRAM 管理 + マクロ / マイクロ IRC。
 10. `mlmm/core/utils.py` — 共有 PDB / XYZ / プロットヘルパー。
 

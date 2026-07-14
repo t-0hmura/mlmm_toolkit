@@ -37,10 +37,17 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
 
 | 症状 | 対処 |
 | --- | --- |
-| 余計な 2 つ目の小さい虚モード、または支配的な反応モードがない | `--precision fp64` で精度を上げる、**かつ/または** `--coord-type dlc` で座標を切り替える、**かつ/または** `--flatten` で余分なモードを平坦化する。 |
-| それでもクリーンなサドルにならない | これらを組み合わせ、`vib/` の虚モードが実際に反応原子を動かしているか確認する。 |
+| `n_imag = 0`（極小へ崩壊） | 失敗として扱い、TS 初期構造または MEP を改善する。`--flatten` は余分な負モードを除くだけで、失われた反応方向を作れない。 |
+| `n_imag > 1` | バックエンドの本計算精度で再計算し、`--coord-type dlc` と残留モード向け `--flatten` を検討する。 |
+| 1 モードだが原子運動が意図と異なる | 経路/初期構造を改善し IRC で接続性を確認する。モード数だけでは目的反応を同定できない。 |
 
-`--flatten` は余分な虚モードの平坦化ループを実行します（`grad`: ダイマーループ、`hess`: RS-I-RFO 後処理）。`--no-flatten` は `flatten_max_iter=0` に強制します。支配的な反応モードに残留する小さい虚モードが伴う場合に特に有効です。例えば、ある変異型コリスミ酸ムターゼの TS は支配的な Claisen モード −223 cm⁻¹ に加え残留 −12.5 cm⁻¹ を伴って収束しましたが、`--flatten` でクリーンな単一虚振動数のサドルへ駆動できます。
+`--flatten` は余分な虚モードの平坦化ループを実行します（`grad`:
+Dimer loop、`hess`: RS-I-RFO 後処理）。`--no-flatten` は
+`flatten_max_iter=0` に強制します。追加 Hessian 評価を伴うため opt-in
+です。経路自体が粗い場合は TS 最適化の前に `all --refine-path`
+（または `path-search`）で MEP を精密化します。再帰精密化は悪い経路を
+複数セグメントに分割して計算量を大きく増やす場合があるため、これも
+デフォルトでは無効です。
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
@@ -50,10 +57,18 @@ mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
 `--coord-type` は最適化の座標系（`cart` | `redund` | `dlc` | `tric`、デフォルト `cart`）を選びます。`dlc`（非局在化内部座標）は低速ですが、ねじれの多い系やクリーンな一次サドルへの収束でより堅牢です。
 
 ```{warning}
-`--coord-type dlc` は**Hessianベース**のオプティマイザが必要です。デフォルトの L-BFGS（`--opt-mode grad`）の [`opt`](opt.md) では警告なく `cart` に戻されます。`tsopt`（RFO / RS-I-RFO）または `opt --opt-mode hess` で使ってください。`path-opt` / `path-search` は `cart` と `dlc` のみ受け付けます。`DLC + リンク原子` と `DLC + 3 層凍結 MM` は数値的に未検証なため、論文掲載値の背後では `cart` がデフォルトのままです。
+`--coord-type dlc` は**Hessianベース**のオプティマイザが必要です。デフォルトの L-BFGS（`--opt-mode grad`）の [`opt`](opt.md) では警告を出して `cart` に戻ります。`tsopt`（RFO / RS-I-RFO）または `opt --opt-mode hess` で使ってください。`path-opt` / `path-search` は `cart` と `dlc` のみ受け付けます。`DLC + リンク原子` と `DLC + 3 層凍結 MM` は数値的に未検証なため、論文掲載値の背後では `cart` がデフォルトのままです。
 ```
 
 同じ症状からの切り分けについては [典型エラー別レシピ — レシピ 4](recipes-common-errors.md#レシピ-4-収束後処理で止まる) を参照してください。
+
+### 高度な MEP 参照モード
+
+`--ref-mode` は MEP tangent を指定する非ゼロ Cartesian 3N vector
+（`.npy` または空白区切り text）を読み込みます。これは一気通貫 workflow
+向けの内部的な高度オプションで、`mlmm all` が MEP から生成して自動的に
+渡します。通常の単独 `mlmm tsopt` では省略してください。同じ原子順の
+vector を明示的に構築済みの場合だけ指定します。
 
 ## 対照を揃えた変異体 vs 野生型（あるいは機構 vs 機構）の比較
 
@@ -71,7 +86,7 @@ mlmm では、**野生型の B 因子レイヤーエンコーディングを変�
 
 ```bash
 mlmm all -i mutant_layered.pdb -l 'LIG:Q' \
-    --tsopt True --thermo True -o result_mutant
+    --tsopt --thermo -o result_mutant
 ```
 
 | フラグ | 操作 | 理由 |
@@ -116,7 +131,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. **入力処理** — 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
 2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がHessianを解析的に評価するか有限差分で評価するかを制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **Light モード（Dimer）:**
-   - Hessian Dimer ステージは、部分Hessian（アクティブ部分空間、TR 射影済み）を評価して Dimer 方向を定期的に更新します。
+   - Hessian Dimer ステージはアクティブ部分空間の部分Hessianを評価して Dimer 方向を定期的に更新します。TR 処理は `--tr-projection` に従い、デフォルトでは凍結 anchor と両立する全系剛体運動だけを除去します。
    - 平坦化ループが有効な場合（`--flatten`）、保存されたアクティブHessianは変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回平坦化し、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
 4. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザを、`rsirfo` YAML セクションで定義されたオプションのHessian参照ファイルとマイクロサイクル制御とともに実行します。
@@ -124,6 +139,11 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 5. **モードエクスポートと変換** — 収束した虚振動数モードは常に `vib/imag_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
 
 ## 出力
+
+最終振動解析を行う場合、`result.json` の `status` が `converged` になるのは、
+optimizer が収束し、かつ最終 Hessian の虚モードが正確に 1 つの場合だけです。
+0 または複数なら `not_converged`、`--skip-final-freq` で鞍点次数を検証しない
+場合は `unverified` です。
 
 最適化が成功すると 3 種類の成果物が `result_tsopt/` に出力されます。
 
@@ -133,6 +153,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```
 out_dir/ (デフォルト: ./result_tsopt/)
+├── result.json                    # --out-json 時。rigid_projection provenance を含む
 ├── final_geometry.xyz             # 常に書き出し
 ├── final_geometry.pdb             # 入力が PDB の場合
 ├── optimization_all_trj.xyz       # 連結 Dimer セグメント（--dump 時）
@@ -162,10 +183,12 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | _None_（デフォルト 1） |
 | **アクティブ領域の凍結** | | |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
+| `--tr-projection [constrained\|legacy-active]` | Cartesian PHVA、Dimer 更新、flatten、最終鞍点検証の TR 処理。`legacy-active` は isolated-active 比較処理。 | `constrained` |
 | `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。`0.0` は ML のみの部分Hessian。エイリアス: `--radius-hessian`。 | `0.0` |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | **TS 探索とオプティマイザモード** | | |
 | `--hessian-calc-mode CHOICE` | MLIP Hessianモード: `Analytical` または `FiniteDifference`。 | `FiniteDifference` |
+| `--ref-mode PATH` | 高度な Cartesian 3N 経路方向ヒント。`all` が MEP から自動供給し、通常の単独 `tsopt` では省略。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザサイクル。 | `10000` |
 | `--opt-mode CHOICE` | TS オプティマイザモード（Choice: `grad` / `hess` / `light` / `heavy` / `dimer` / `rsirfo` / `trim` / `rsprfo`）。`grad`/`light`/`dimer` → Hessian-Guided Dimer; `hess`/`heavy`/`rsirfo` → RS-I-RFO（デフォルト）; `trim` → TRIM（Helgaker）; `rsprfo` → RS-P-RFO（Banerjee）。Hessian TS オプティマイザ3種（`rsirfo`/`rsprfo`/`trim`）はいずれも microiter 対応。 | `hess` |
 | `--microiter/--no-microiter` | マイクロイテレーション: 1 ステップの macro TS 移動（RS-I-RFO / RS-P-RFO / TRIM）+ MM 緩和（LBFGS）を交互に実行。任意の Hessian モード（`hess`/`rsirfo`/`rsprfo`/`trim`）で有効。 | `True` |
@@ -178,6 +201,9 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--skip-final-freq/--no-skip-final-freq` | 収束後の振動解析と虚振動数モード平坦化をスキップ。大規模非凍結系でHessian対角化が高コストな場合に有用。TS の鞍点次数は未検証のままになる。 | `False` |
 | **バックエンドと計算** | | |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
+| `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
+| `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
@@ -198,6 +224,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 geom:
  coord_type: cart                  # 座標タイプ: デカルト vs dlc 内部座標
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
+ tr_projection: constrained        # constrained（デフォルト）| legacy-active 比較
 calc:
  charge: 0                         # 総電荷（CLI 上書き）
  spin: 1                           # スピン多重度 2S+1
@@ -301,7 +328,16 @@ TS 収束が遅い場合や最適化中に TS モードが失われる場合は�
 
 ## 注記
 
-アクティブ自由度射影と質量加重並進/回転除去（PHVA + TR 射影）は `freq.py` をミラーリングし、一貫した虚振動数モード解析とモード書き出しを保証します。
+凍結境界 PHVA と質量加重 TR 処理は `freq.py` と共通です。
+`constrained`（デフォルト）は、凍結 anchor をすべて動かさない全系剛体運動だけを
+除去します。一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき
+6/3/1/0 で、実用的な ML/MM 境界では通常 0 です。全原子凍結は明示的なエラーになります。
+
+`--tr-projection` と `--ref-mode` は別の機能です。前者は凍結境界の剛体モード射影を制御し、
+後者は鞍点回復用の高度な 3N MEP 接線を与えます。`legacy-active` は現行の共通 kernel と
+数値 rank 判定を使う isolated-active 比較処理です。rank 退化構造も現行 kernel で処理され、
+bitwise 一致は保証しません。`--out-json` 時は `result.json.rigid_projection` に treatment、有効 rank、
+Hessian source、Hessian shape を記録します。
 
 ```{note}
 `rsirfo.trust_max` のデフォルトは 0.10 bohr です。TS 近傍での ML/MM 安定性が改善します。

@@ -25,7 +25,7 @@ Common toggles: `--tsopt` / `--thermo` / `--dft` (post-processing stages) · `--
 
 ### Contributing a new bool flag
 
-When adding a boolean flag inside a subcommand, always route it through one of the `add_*_option()` factories in `mlmm/cli/common_options.py` and register the long name in the matching `_COMMAND_BOOL_*_OPTIONS` table in `mlmm/cli/app.py`. Avoid writing `@click.option("--foo/--no-foo", ...)` or `type=click.BOOL` directly in the subcommand body — that bypasses the registry, falls out of test coverage, and silently drops the value form.
+Declare the canonical interface as `@click.option("--foo/--no-foo", ...)` (or a shared `add_*_option()` factory). Runtime parameter introspection detects ordinary Click toggles. Add a manual hint in `mlmm/cli/app.py` only when normalization must happen before a lazy command is imported or a parser wrapper prevents introspection. Extend `tests/test_bool_compat_cli.py` for either path.
 
 ## Progressive help
 
@@ -151,9 +151,14 @@ Always provide `--ligand-charge` for non-standard residues so charges propagate 
 ```bash
 --scan-lists '[(1, 5, 2.0)]'                                          # 1-based integer indices
 --scan-lists '[("TYR,285,CA", "MMT,309,C10", 2.20)]'                  # PDB-style selector strings
+--scan-lists '[("A:TYR:285:CA", "B:MMT:309A:C10", 2.20)]'             # exact chain-qualified form
 ```
 
 Selector field delimiters: space · comma · slash · backtick · backslash — e.g. `'TYR 285 CA'`, `'TYR,285,CA'`, `'TYR/285/CA'`, `` 'TYR`285`CA' ``, `'TYR\285\CA'`. The three tokens (residue name / residue number / atom name) may appear in any order — the parser falls back to a heuristic for non-standard orderings.
+
+For repeated identifiers and mmCIF inputs, prefer the exact four-field form
+`CHAIN:RESNAME:RESSEQ[ICODE]:ATOM`; it avoids heuristic matching and supports
+multi-character chains and residue numbers above 9,999.
 
 ## Input file requirements
 
@@ -171,6 +176,26 @@ All calc subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan
 | `--embedcharge` / `--no-embedcharge` | xTB point-charge embedding correction | off |
 
 Install alternatives: `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip install --no-deps mace-torch` (MACE in a dedicated env).
+
+## Precision, workers, and analytical Hessians
+
+Leaving `--precision` unset selects the backend default: UMA and AIMNet2 use
+fp32; ORB and MACE use fp64. AIMNet2 rejects fp64. Use explicit fp32 for
+ORB/MACE only when screening speed is more important than low-noise curvature.
+
+`--workers` controls the UMA parallel predictor (`fairchem-core[extras]`), not
+generic CPU threading. The default is one worker. `--workers > 1` cannot expose
+the autograd model needed for an analytical Hessian, so combining it with an
+explicit `--hessian-calc-mode Analytical` is a hard error. Choose one of:
+
+```bash
+--workers 1 --hessian-calc-mode Analytical       # analytical Hessian
+--workers 4 --hessian-calc-mode FiniteDifference # parallel UMA predictor + FD
+```
+
+ORB, MACE, and AIMNet2 do not use this UMA worker pool. All four MLIP backends
+support an analytical/native Hessian with compatible installed versions; an
+unavailable analytical API raises rather than silently falling back.
 
 ## `--opt-mode` (subcommand-dependent)
 

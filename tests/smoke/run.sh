@@ -5,16 +5,25 @@
 #   - a Python with `mlmm` installed and importable
 #   - AmberTools (antechamber / parmchk2 / tleap) on PATH
 #   - CUDA available
-#   - a writeable working directory (the smoke artefacts land in `test*/`)
+#   - a writable scratch copy of this directory (artefacts land in `testNN*`)
 # It does NOT activate conda, load modules, or contain HPC scheduler
-# directives. Run it directly from your active env:
+# directives. Copy the fixtures to scratch, then run from that copy:
 #
-#   bash tests/smoke/run.sh
+#   cp -a tests/smoke /path/to/scratch/mlmm-smoke
+#   cd /path/to/scratch/mlmm-smoke
+#   bash run.sh
 #
 # If you need an HPC scheduler wrapper, keep that in
 # your own out-of-tree submission script and have it invoke this file as
 # the body.
 set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -n "$REPO_ROOT" ]]; then
+  echo "ERROR: copy tests/smoke to writable scratch and run that copy; do not run the repository script in place." >&2
+  exit 2
+fi
 
 # Deterministic run gate: pin PYTHONHASHSEED so Set / dict iteration order
 # does not leak hash randomisation into the produced output. Combined with the
@@ -24,8 +33,9 @@ export PYTHONHASHSEED=0
 # Reduce CUDA allocator fragmentation across the 40+ stage processes.
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
-# Clean previous results
-rm -rf test* pocket_r.pdb r_complex_layered.pdb r_complex_elem.pdb r_complex_fixalt.pdb
+# Clean only artifacts authored by this harness. The digit-qualified glob must
+# not be widened to `test*`, which would also match the repository's tests/.
+rm -rf -- test[0-9]* pocket_r.pdb r_complex_layered.pdb r_complex_layered.cif r_complex_elem.pdb r_complex_fixalt.pdb
 
 MLMM_COMPLEX_FREEZE_ATOMS="1,32"
 
@@ -83,15 +93,15 @@ mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex
 # test18: all (no tsopt/thermo/dft)
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
 
-# test19: all (tsopt + thermo + dft) — the throttled --max-cycles run may leave the
-# IRC seed non-converged for some MLIP seeds; tolerate ONLY that case (with a printed
-# message) and fail the suite on any other non-zero exit (tsopt ZeroStepLength /
-# OptimizationError, DFT/SCF sys.exit(3), OOM, setup error).
+# test19: all (tsopt + thermo + dft) — throttled cycles may leave the TS short of
+# a validated first-order saddle. Tolerate only the orchestrator's exact
+# TS-validation refusal; unrelated failures stay fatal.
 rc=0
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --tsopt --thermo --dft --tsopt-max-cycles 5 --dft-func-basis 'hf/sto-3g' --dft-grid-level 0 --dft-conv-tol 1e-5 --dft-max-cycle 40 --dft-engine cpu --out-dir test19 > test19.out 2>&1 || rc=$?
 if [ "${rc:-0}" -ne 0 ]; then
-  if grep -qiE "IRC|did not converge|not converged" test19.out; then
-    echo "[smoke] test19: IRC non-convergence on throttled run (rc=$rc) — tolerated, continuing"
+  if grep -Fq "TS optimization did not produce a validated first-order saddle" test19.out \
+    && grep -Fq "IRC was not started." test19.out; then
+    echo "[smoke] test19: exact TS validation rejected the throttled run (rc=$rc) — tolerated, continuing"
   else
     echo "[smoke] FAIL test19 (rc=$rc) — real pipeline failure"
     tail -40 test19.out
@@ -356,3 +366,38 @@ mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-
 # dry-run + show-config (no model download, fast): proves --backend-model is honored.
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --backend-model uma-s-1p2 --show-config --dry-run --out-dir test64_backend_model > test64_backend_model.out 2>&1
 grep -q 'uma-s-1p2' test64_backend_model.out || { echo "[smoke] FAIL test64: --backend-model uma-s-1p2 not reflected in resolved config" >> test64_backend_model.out; exit 1; }
+
+# Build an mmCIF equivalent of the layered fixture while exercising identifiers
+# that cannot be represented in fixed-column PDB.
+python - <<'PY'
+from Bio.PDB import MMCIFIO, PDBParser
+
+structure = PDBParser(QUIET=True).get_structure("smoke", "r_complex_layered.pdb")
+chains = list(structure.get_chains())
+assert len(chains) == 1
+chain = chains[0]
+chain.id = "LONG_CHAIN"
+ligands = [res for res in chain if res.get_resname().strip() == "PRE"]
+assert len(ligands) == 1
+het, _resseq, icode = ligands[0].id
+ligands[0].id = (het, 10001, icode)
+writer = MMCIFIO()
+writer.set_structure(structure)
+writer.save("r_complex_layered.cif")
+PY
+
+# test65: a real ML/MM optimization crosses the mmCIF bridge and restores the
+# original long chain and five-digit residue identifier in its public output.
+mlmm opt -i r_complex_layered.cif --parm p_complex.parm7 -q -1 -m 1 --max-cycles 1 --thresh gau_loose --out-dir test65_opt_cif > test65_opt_cif.out 2>&1
+test -s test65_opt_cif/final_geometry.pdb || { echo "[smoke] FAIL test65: final PDB missing" >> test65_opt_cif.out; exit 1; }
+test -s test65_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test65: final CIF missing" >> test65_opt_cif.out; exit 1; }
+grep -q 'LONG_CHAIN' test65_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test65: auth chain was not restored" >> test65_opt_cif.out; exit 1; }
+grep -q '10001' test65_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test65: auth residue number was not restored" >> test65_opt_cif.out; exit 1; }
+
+# test66: exact chain/residue-name/residue-number selection remains stable
+# after normalization, with both internal PDB and identifier-preserving CIF.
+mlmm extract -i r_complex_layered.cif -c 'LONG_CHAIN:PRE:10001' -r 0.1 --no-add-linkh -o test66_model_from_cif.pdb -v 0 > test66_extract_cif.out 2>&1
+test -s test66_model_from_cif.pdb || { echo "[smoke] FAIL test66: extracted PDB missing" >> test66_extract_cif.out; exit 1; }
+test -s test66_model_from_cif.cif || { echo "[smoke] FAIL test66: extracted CIF missing" >> test66_extract_cif.out; exit 1; }
+
+echo "[smoke] PASS: all GPU, ML/MM, and structure-I/O cases completed."

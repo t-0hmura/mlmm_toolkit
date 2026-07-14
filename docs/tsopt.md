@@ -37,10 +37,17 @@ A clean first-order saddle has **exactly one** dominant imaginary mode along the
 
 | Symptom | Fix |
 | --- | --- |
-| Spurious 2nd small imaginary mode, or no dominant reaction mode | Raise precision with `--precision fp64`, **and/or** switch coordinates with `--coord-type dlc`, **and/or** flatten the surplus mode with `--flatten`. |
-| Still no clean saddle | Combine them, then verify in `vib/` that the imaginary mode actually moves the reacting atoms. |
+| `n_imag = 0` (collapsed to a minimum) | Treat the run as failed. Improve the TS guess or MEP; `--flatten` only removes surplus negative modes and cannot create the missing reaction direction. |
+| `n_imag > 1` | Recompute at the backend's production precision, try `--coord-type dlc`, and use `--flatten` for residual surplus modes. |
+| Exactly one mode, but wrong motion | Improve the path/guess and verify connectivity by IRC; mode count alone does not identify the intended reaction. |
 
-`--flatten` runs the surplus-imaginary-mode flattening loop (`grad`: dimer loop; `hess`: post-RS-I-RFO); `--no-flatten` forces `flatten_max_iter=0`. It is most useful when a dominant reaction mode survives alongside a tiny residual one — for example, a mutant chorismate-mutase TS converged to the Claisen mode at −223 cm⁻¹ plus a residual −12.5 cm⁻¹, and `--flatten` drives it to a clean single-imaginary saddle.
+`--flatten` runs the surplus-imaginary-mode flattening loop (`grad`: dimer
+loop; `hess`: post-RS-I-RFO); `--no-flatten` forces
+`flatten_max_iter=0`. It is opt-in because it adds Hessian evaluations. When
+the path itself is too coarse, rerun `all --refine-path` (or refine it with
+`path-search`) before TS optimization. Recursive refinement can split a poor
+path into multiple segments and substantially increase cost, so it is also off
+by default.
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
@@ -50,10 +57,18 @@ mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
 `--coord-type` selects the optimization coordinate system (`cart` | `redund` | `dlc` | `tric`; default `cart`). `dlc` (delocalized internal coordinates) is slower but converges more robustly on torsion-rich systems and is more likely to reach a clean first-order saddle.
 
 ```{warning}
-`--coord-type dlc` needs a **Hessian-based** optimizer. On [`opt`](opt.md) with the default L-BFGS (`--opt-mode grad`) it is silently forced back to `cart`; use it on `tsopt` (RFO / RS-I-RFO) or `opt --opt-mode hess`. `path-opt` / `path-search` accept only `cart` and `dlc`. `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified, so `cart` remains the default, and is the setting used to produce the published results.
+`--coord-type dlc` needs a **Hessian-based** optimizer. On [`opt`](opt.md) with the default L-BFGS (`--opt-mode grad`) the CLI warns and falls back to `cart`; use it on `tsopt` (RFO / RS-I-RFO) or `opt --opt-mode hess`. `path-opt` / `path-search` accept only `cart` and `dlc`. `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified, so `cart` remains the default, and is the setting used to produce the published results.
 ```
 
 See [Common Error Recipes — Recipe 4](recipes-common-errors.md#recipe-4-convergence-and-post-processing-failures) for symptom-first routing of the same failure.
+
+### Advanced MEP reference mode
+
+`--ref-mode` reads a non-zero Cartesian 3N vector (`.npy` or whitespace text)
+that identifies the MEP tangent during saddle recovery. It is an internal,
+advanced input for the end-to-end workflow: `mlmm all` derives and passes it
+from the MEP. Ordinary standalone `mlmm tsopt` users should omit it unless they
+have constructed a matching vector in exactly the same atom order.
 
 ## Controlled mutant-vs-WT (or mechanism-vs-mechanism) comparison
 
@@ -71,7 +86,7 @@ In mlmm, preserve the wild-type ML/MM layering by **transplanting the WT B-facto
 
 ```bash
 mlmm all -i mutant_layered.pdb -l 'LIG:Q' \
-    --tsopt True --thermo True -o result_mutant
+    --tsopt --thermo -o result_mutant
 ```
 
 | Flag | Action | Why |
@@ -115,7 +130,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 1. **Input handling** — load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge / spin. Frozen atoms from CLI and YAML are merged.
 2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference. With `--embedcharge`, xTB point-charge embedding provides MM-to-ML environmental corrections.
-3. **Light mode (Hessian-Guided Dimer)** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian (active subspace, TR-projected). The mechanics:
+3. **Light mode (Hessian-Guided Dimer)** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian in the active subspace. Its TR treatment follows `--tr-projection`: the default removes only full-system rigid motions compatible with the frozen anchors. The mechanics:
    - During the loose / final Dimer loops the `hessian_ff` finite-difference Hessian is disabled (`mm_fd=False`). The ML backend Hessian is then embedded into the full 3N × 3N space with MM atoms zero-padded, giving a partial Hessian that still guides the Dimer direction updates.
    - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences.
    - Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a Dimer + L-BFGS micro-segment.
@@ -126,10 +141,16 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Outputs
 
+With final frequency validation enabled, `result.json` reports `status:
+"converged"` only when the optimizer converged and the final Hessian has exactly
+one imaginary mode. It reports `not_converged` for zero or multiple modes, and
+`unverified` when `--skip-final-freq` suppresses saddle-order validation.
+
 Three artifacts are written to `result_tsopt/`: `final_geometry.pdb` (and `.xyz`) — the optimized first-order saddle point (3-layer B-factor encoding preserved for PDB); `vib/imag_*_trj.xyz` — animation of every detected imaginary mode (expect exactly one for a valid TS); and `vib/imag_*.pdb` — PDB companions of the imaginary modes (PDB inputs only).
 
 ```text
 out_dir/   (default: ./result_tsopt/)
+├── result.json                         # With --out-json; includes rigid_projection provenance
 ├── final_geometry.xyz                  # Always written
 ├── final_geometry.pdb                  # When the input was PDB
 ├── optimization_all_trj.xyz            # Concatenated Dimer segments (--dump)
@@ -159,10 +180,12 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | **Active-region freezing** | | |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
+| `--tr-projection [constrained\|legacy-active]` | TR treatment for Cartesian PHVA, Dimer refresh, flattening, and final saddle validation. `legacy-active` is an isolated-active comparison treatment. | `constrained` |
 | `--radius-hessian` / `--hess-cutoff FLOAT` | Distance cutoff (Å) from the ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. `0.0` means ML-only partial Hessian. | `0.0` |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | **TS search & optimizer mode** | | |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | `FiniteDifference` |
+| `--ref-mode PATH` | Advanced Cartesian 3N path-direction hint. `all` supplies it from the MEP; ordinary standalone `tsopt` runs omit it. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
 | `--opt-mode CHOICE` | TS optimizer mode (Choice: `grad` / `hess` / `light` / `heavy` / `dimer` / `rsirfo` / `trim` / `rsprfo`). `grad` / `light` / `dimer` → Hessian-Guided Dimer; `hess` / `heavy` / `rsirfo` → RS-I-RFO (default); `trim` → TRIM (Helgaker); `rsprfo` → RS-P-RFO (Banerjee). All three Hessian TS optimizers (`rsirfo` / `rsprfo` / `trim`) are microiter-capable. | `hess` |
 | `--microiter / --no-microiter` | Microiteration: alternate a 1-step macro TS move (RS-I-RFO / RS-P-RFO / TRIM) + MM relaxation (L-BFGS). Effective in any Hessian mode (`hess` / `rsirfo` / `rsprfo` / `trim`); no-op in `--opt-mode grad` / `dimer`. | `True` |
@@ -175,7 +198,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--skip-final-freq / --no-skip-final-freq` | Skip post-convergence frequency analysis and imaginary-mode flattening. Useful for large unfrozen systems where Hessian diagonalization is expensive. TS saddle-point order will NOT be verified. | `False` |
 | **Backend & compute** | | |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
-| `--precision [fp32\|fp64]` | MLIP backend precision; routed to backend-native kwarg (UMA `precision`, ORB `precision`, MACE `default_dtype`; aimnet2: fp32 no-op, fp64 rejected). | `fp32` |
+| `--precision [fp32\|fp64]` | MLIP backend precision; unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
+| `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
+| `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--cmap / --no-cmap` | CMAP (backbone cross-map dihedral correction) in the model parm7. Disabled by default, consistent with Gaussian ONIOM. | `--no-cmap` |
@@ -197,6 +222,7 @@ Settings are applied with `defaults < config < explicit CLI < override`. Shared 
 geom:
   coord_type: cart
   freeze_atoms: []
+  tr_projection: constrained      # constrained (default) | legacy-active comparison
 calc:
   charge: 0
   spin: 1
@@ -227,7 +253,19 @@ Set `rsirfo.track_mode_by_overlap: true` if the TS mode switches root during opt
 
 ## Notes
 
-Active-DOF projection and mass-weighted translation / rotation removal (PHVA + TR projection) mirror `freq.py`, ensuring consistent imaginary-mode analysis and mode writing.
+Frozen-boundary PHVA and mass-weighted TR treatment mirror `freq.py`. With
+`constrained` (default), only full-system rigid motions that leave every frozen
+anchor fixed are removed. The generic effective rank is 6/3/1/0 for
+zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries
+normally have rank 0. An all-frozen selection raises an explicit error.
+
+`--tr-projection` is unrelated to `--ref-mode`: the former controls
+frozen-boundary rigid-mode projection, while the latter supplies an advanced 3N
+MEP tangent for saddle recovery. `legacy-active` is an isolated-active
+comparison treatment using the current common kernel and numerical rank
+handling; bitwise identity is not guaranteed for rank-degenerate cases. With
+`--out-json`, `result.json.rigid_projection` records the treatment, effective
+rank, Hessian source, and Hessian shape.
 
 ```{note}
 `rsirfo.trust_max` defaults to 0.10 bohr for improved ML/MM stability near the TS.

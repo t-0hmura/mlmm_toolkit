@@ -49,6 +49,10 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--opt-mode` | str | `hess` | `grad`/`dimer` (Hessian-Guided Dimer) or `hess`/`rsirfo` (RS-I-RFO); also `trim` (TRIM/Helgaker) and `rsprfo` (RS-P-RFO/Banerjee); the mlmm-only `light` / `heavy` shortcuts are also accepted (light = Dimer, heavy = full-Hessian RS-I-RFO) |
 | `--max-cycles` | int | 10000 | Optimization step cap |
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` or `FiniteDifference`; check `RSIRFO_KW` / `DIMER_KW` |
+| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment for Dimer/flatten/final PHVA; `legacy-active` is comparison-only |
+| `--ref-mode` | path | none | Advanced Cartesian 3N MEP tangent. `all` supplies it; ordinary standalone runs omit it. |
+| `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
+| `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_tsopt/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
@@ -93,11 +97,12 @@ result_tsopt/
 ```python
 import json
 d = json.load(open("result_tsopt/result.json"))
-print(d["status"])                      # "converged" / "not_converged" (also "completed")
+print(d["status"])                      # "converged" / "not_converged" / "unverified"
 print(d["energy_hartree"])
 print(d["n_imaginary_modes"])           # should be 1 for a real TS
 print(d["imaginary_frequencies_cm"])    # list of cm⁻¹
 print(d["files"]["final_geometry_xyz"]) # final_geometry.xyz
+print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
 ```
 
 ## `--opt-mode` choice
@@ -129,6 +134,27 @@ elif d["n_imaginary_modes"] > 1:
 For multi-imaginary cases, visualize the modes (`pymol vib/imag_*.pdb`)
 to decide whether the extra modes are spurious (translation/rotation
 of frozen residues) or real chemical second-order saddle points.
+
+`n_imaginary_modes == 0` is a failed TS optimization, even when the force
+optimizer stopped normally. `--flatten` can remove surplus negative modes but
+cannot create a missing reaction direction. Improve the MEP/starting guess;
+`all --refine-path` is opt-in because recursive refinement can split a poor
+path into several costly segments.
+
+`--ref-mode` is an advanced `all`-workflow handoff, not a routine standalone
+requirement. Supply it manually only when the non-zero 3N vector uses exactly
+the same atom ordering as the TS input.
+
+Do not confuse it with `--tr-projection`. `--ref-mode` supplies an MEP tangent;
+`--tr-projection` controls frozen-boundary rigid modes. The default
+`constrained` treatment removes only full-system rigid motions that leave
+frozen anchors fixed (generic rank 6/3/1/0 for 0/1/2/3+ non-collinear
+anchors; realistic boundaries normally rank 0). All-frozen input is an
+explicit error. `legacy-active` is an isolated-active comparison treatment
+using the current common kernel; bitwise identity is not guaranteed for
+rank-degenerate cases.
+`result.json.rigid_projection` records treatment, rank, Hessian source, and
+shape.
 
 ## Caveats
 

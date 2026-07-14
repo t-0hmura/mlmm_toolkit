@@ -78,10 +78,11 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
    - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、元の完全 PDB 1 つがすべての入力の参照テンプレートとして再利用されます。
 
 5. **サマリーと任意の後処理**
-   - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep.pdb`・`mep_trj.xyz`・`mep_plot.png`・`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
+   - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
    - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
    - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//MLIP Gibbs ダイアグラムも生成されます。
+   - `--tr-projection` は TS 最適化、IRC、振動解析、flatten PHVA に転送されます。デフォルトの `constrained` は凍結 anchor を動かさない全系剛体運動だけを除去し、実用的な ML/MM 境界では有効 rank は通常 0 です。
    - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します（デフォルトの FiniteDifference より優先）。
 
 6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
@@ -90,33 +91,33 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
 
 ## 出力
 
-ツリーは 3 つのゾーンで構成されます: **ルート直下の成果物**、**`segments/seg_NN/` 配下のセグメント別成果物**、**`_work/` 配下のパイプライン作業領域**（結果を取り出したあとは削除して構いません）。最初に確認する 3 つは `summary.log`、`summary.json`、`mep.pdb`（連結した反応経路。ルートへ移動。MEP エンジン生出力はデフォルトで `_work/path_opt/`（`--refine-path` 時は `_work/path_search/`）に残る）です。
+ツリーは 3 つのゾーンで構成されます: **ルート直下の成果物**、**`segments/seg_NN/` 配下のセグメント別成果物**、**`_work/` 配下のパイプライン作業領域**（結果を取り出したあとは削除して構いません）。最初に確認する 3 つは `summary.log`、`summary.json`、`mep.pdb`（連結した反応経路。ルートへ移動）です。CIF/mmCIF bridge 入力では、元の識別子を復元した `mep.cif` もルートへ移動します。
 
 ```text
 <out-dir>/
  summary.json                          # トップレベルサマリーのミラー（MEP ステージ実行時）
  summary.log
- mep.pdb                               # 連結 MEP 経路（ルートにコピー）
+ mep.pdb · mep.cif                     # CIF は bridge 入力で元の ID を復元
  mep_trj.xyz
  mep_plot.png                          # MEP 生エネルギープロファイル
  energy_diagram_MEP.png                # 全セグメント MEP 障壁
- energy_diagram_UMA_all.png            # 集約後処理ダイアグラム（有効時）
- energy_diagram_G_UMA_all.png
+ energy_diagram_MLIP_all.png           # 集約後処理ダイアグラム（有効時）
+ energy_diagram_G_MLIP_all.png
  energy_diagram_DFT_all.png
- energy_diagram_G_DFT_plus_UMA_all.png
+ energy_diagram_G_DFT_plus_MLIP_all.png
  irc_plot_all.png
  ml_region.pdb                         # ML 領域定義（--model-pdb として再利用可能）
  mm_parm/<input1>.parm7,.rst7          # 最初の完全酵素入力 PDB から生成した MM トポロジー（--parm として再利用可能）
  layered/                              # レイヤード全系 PDB（B 因子アノテーション付き、再利用可能な入力）
  segments/                             # 反応セグメント別の成果物
   seg_NN/                              # 2 桁インデックス (1 始まり)、例: seg_01, seg_02
-   reactant.pdb · ts.pdb · product.pdb  # 正規 R/TS/P
+   reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # CIF は bridge 入力時
    ts/...                              # TS 最適化 + EulerPC IRC（--tsopt）
    irc/...
    freq/...                            # --thermo の場合
    dft/...                             # --dft の場合
    structures/{reactant,ts,product}.pdb  # 入れ子コピー + 生 IRC 端点
-   energy_diagram_{UMA,G_UMA,DFT,G_DFT_plus_UMA}.png
+   energy_diagram_{MLIP,G_MLIP,DFT,G_DFT_plus_MLIP}.png
  _work/                               # パイプライン作業領域（削除可）
   pockets/                             # 入力ごとのポケット PDB（複数構造は統合）
   scan/                                # 単一構造+スキャンモードの場合のみ（stage_01/result.pdb …）
@@ -133,7 +134,7 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
 - **[1] グローバル MEP 概要** -- イメージ/セグメント数、MEP 軌跡プロットパス、集約 MEP エネルギーダイアグラム。
 - **[2] セグメントレベル MEP サマリー（MLIP 経路）** -- セグメントごとの障壁、反応エネルギー、結合変化サマリー。
 - **[3] セグメントごとの後処理（TSOPT / Thermo / DFT）** -- セグメントごとの TS 虚振動数チェック、IRC 出力、エネルギーテーブル。
-- **[4] エネルギーダイアグラム（概要）** -- MEP/UMA/Gibbs/DFT シリーズのダイアグラムテーブルと任意のクロスメソッドサマリーテーブル。
+- **[4] エネルギーダイアグラム（概要）** -- MEP/MLIP/Gibbs/DFT シリーズのダイアグラムテーブルと任意のクロスメソッドサマリーテーブル。
 - **[5] 出力ディレクトリ構造** -- インラインアノテーション付きの生成ファイルのコンパクトツリー。
 
 ### `summary.json` の読み方
@@ -141,6 +142,10 @@ summary.json はコンパクトな機械可読サマリーです。主なトッ�
 - `out_dir`、`n_images`、`n_segments` -- 実行メタデータと総数。
 - `segments` -- `index`、`tag`、`kind`、`barrier_kcal`、`delta_kcal`、`bond_changes` を持つセグメントごとのエントリリスト。
 - `energy_diagrams`（任意）-- `labels`、`energies_kcal`、`energies_au`、`ylabel`、`image` パスを持つダイアグラムペイロード。
+
+stage の `result.json` または `thermoanalysis.yaml` が書き出される場合、
+`rigid_projection` ブロックに treatment、有効 rank、Hessian source、Hessian shape が
+記録されます。全原子凍結はアクティブ自由度が残らないためエラーになります。
 
 ## CLI オプション
 
@@ -162,7 +167,7 @@ summary.json はコンパクトな機械可読サマリーです。主なトッ�
 | `--dump/--no-dump` | オプティマイザダンプを保存。常に `path-search`/`path-opt` に転送。`scan`/`tsopt` にはここで明示設定時のみ転送。`freq` は明示的に `--no-dump` を指定しない限りデフォルトで dump=True。 | `False` |
 | `--config FILE` | 先に適用するベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済み設定を表示。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せず検証と計画表示のみ行う。`--help-advanced` に表示。 | `False` |
+| `--dry-run/--no-dry-run` | 一時ディレクトリで抽出/setup と電荷・parity 検証を実行し、計画を表示して計算 stage は省略。`--help-advanced` に表示。 | `False` |
 
 ### 抽出オプション
 
@@ -204,6 +209,9 @@ summary.json はコンパクトな機械可読サマリーです。主なトッ�
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
 | `--refine-path/--no-refine-path` | `--no-refine-path`（デフォルト）= 単一パス `path-opt`（GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.json）、`--refine-path` = 再帰的 `path-search`。両モードとも Stage 5（TSOPT/thermo/DFT）対応。 | `False` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessianモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
+| `--precision [fp32\|fp64]` | バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
+| `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
+| `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。無効時は下流ツールで `--model-pdb` または `--model-indices` が必要。 | `True` |
 
 TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-mode`（明示指定時のみ）-> TSOPT デフォルト（`hess` → RS-I-RFO）。
@@ -214,7 +222,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | --- | --- | --- |
 | `-s, --scan-lists TEXT...` | 段階的スキャン: `(i,j,target_A)` タプル。 | _None_ |
 | `--scan-out-dir PATH` | スキャン出力ディレクトリの上書き。 | _None_ |
-| `--scan-one-based/--no-scan-one-based` | スキャンインデックスの解釈を上書き（True = 1 始まり、False = 0 始まり）。 | _None_ |
+| `--scan-one-based/--scan-zero-based` | スキャン原子インデックスを 1 始まりまたは 0 始まりとして解釈。 | _None_ |
 | `--scan-max-step-size FLOAT` | 最大ステップサイズ (Å)。 | _デフォルト_ |
 | `--scan-bias-k FLOAT` | 調和バイアス強度 (eV/Å^2)。 | _デフォルト_ |
 | `--scan-relax-max-cycles INT` | ステップごとの緩和最大サイクル。 | _デフォルト_ |
@@ -229,6 +237,8 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--thermo/--no-thermo` | R/TS/P で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | R/TS/P で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
+| `--tr-projection [constrained\|legacy-active]` | 凍結境界 TR 処理を `tsopt`、`irc`、`freq`、flatten PHVA へ転送。`legacy-active` は現行の共通 kernel を使う isolated-active 比較処理。 | `constrained` |
+| `--irc-never-stop/--no-irc-never-stop` | エネルギー上昇/plateau 停止だけを無視して IRC を継続。収束、非有限値、サイクル上限では停止。 | `False` |
 | `--tsopt-max-cycles INT` | `tsopt --max-cycles` の上書き。 | _デフォルト_ |
 | `--tsopt-out-dir PATH` | tsopt サブディレクトリのカスタマイズ。 | _None_ |
 | `--freq-out-dir PATH` | freq 出力ディレクトリの上書き。 | _None_ |
@@ -267,6 +277,8 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 
 **最小の YAML 例:**
 ```yaml
+geom:
+ tr_projection: constrained      # constrained（デフォルト）| legacy-active 比較
 calc:
  charge: 0
  spin: 1
@@ -278,13 +290,16 @@ mlmm:
  uma_model: uma-s-1p2            # uma-s-1p2 | uma-m-1p1
  hessian_calc_mode: Analytical     # VRAM に余裕がある場合に推奨
 gs:
- max_nodes: 12
+ max_nodes: 20
  climb: true
 dft:
  grid_level: 6
 ```
 
 すべての YAML オプションの完全なリファレンスは **[YAML 設定リファレンス](yaml-reference.md)** を参照してください。
+
+`--tr-projection` と `tsopt --ref-mode` は別の機能です。前者は凍結境界の剛体モード、
+後者は鞍点回復で使う内部的な MEP 接線 handoff を制御します。
 
 ## 注記
 

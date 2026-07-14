@@ -8,6 +8,9 @@
 - **Single-structure staged scan** — give one PDB plus `--scan-lists`; each literal is a scan stage and the relaxed endpoints become the MEP endpoints.
 - **TSOPT-only** — give a single PDB and set `--tsopt` (no `--scan-lists`) to run TS optimization directly, with no MEP search.
 
+Inputs may also be `.cif` / `.mmcif`; computation uses a temporary internal
+PDB and public CIF companions restore the original identifiers.
+
 ```{important}
 `--tsopt` produces **TS candidates**. `all` runs IRC and freq automatically for validation, but always inspect the results (imaginary mode count + endpoint connectivity) before mechanistic interpretation.
 ```
@@ -26,7 +29,7 @@ Multi-structure MEP with full post-processing:
 
 ```bash
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
-    --tsopt True --thermo True --dft True --out-dir ./result_all
+    --tsopt --thermo --dft --out-dir ./result_all
 ```
 
 Single-structure staged scan (two stages):
@@ -41,7 +44,7 @@ TSOPT-only validation (single input, no MEP search):
 
 ```bash
 mlmm all -i A.pdb -c 'GPP,MMT' -l 'GPP:-3,MMT:-1' \
-    --tsopt True --thermo True --dft True --out-dir result_tsopt_only
+    --tsopt --thermo --dft --out-dir result_tsopt_only
 ```
 
 ORB backend with xTB point-charge embedding:
@@ -72,10 +75,11 @@ PDB companion files are generated when reference templates are available; contro
    - **`--no-refine-path` (default)** runs `path-opt` GSM per adjacent pair, then concatenates trajectories, extracts the HEI per segment, detects bond changes, and writes `summary.json`. Both modes support Stage 5 post-processing.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
 5. **Summary and optional post-processing**
-   - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
+   - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
    - `--tsopt` runs TS optimization on each HEI, follows with EulerPC IRC, and emits segment energy diagrams.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
    - `--dft` runs DFT single-point on (R, TS, P) and adds a DFT diagram. With `--thermo`, a DFT//MLIP Gibbs diagram is also produced.
+   - `--tr-projection` is forwarded to TS optimization, IRC, frequency analysis, and flatten PHVA. The default `constrained` treatment removes only full-system rigid motions that leave frozen anchors fixed; realistic ML/MM boundaries normally have effective rank 0.
    - When VRAM allows, set `--hessian-calc-mode Analytical` (strongly recommended over the FiniteDifference default).
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
    - Skips steps 4–5 and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC, minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//MLIP diagrams.
@@ -89,14 +93,14 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
 <out-dir>/
   summary.json                   # mirrored top-level summary (when the MEP stage runs)
   summary.log
-  mep.pdb                        # concatenated MEP path (copied to the root)
+  mep.pdb · mep.cif             # path; CIF companion is emitted for bridged input
   mep_trj.xyz
   mep_plot.png                   # smooth MEP energy profile
   energy_diagram_MEP.png         # all-segment MEP barriers
-  energy_diagram_UMA_all.png            # aggregated post-processing diagrams (when enabled)
-  energy_diagram_G_UMA_all.png
+  energy_diagram_MLIP_all.png           # aggregated post-processing diagrams (when enabled)
+  energy_diagram_G_MLIP_all.png
   energy_diagram_DFT_all.png
-  energy_diagram_G_DFT_plus_UMA_all.png
+  energy_diagram_G_DFT_plus_MLIP_all.png
   irc_plot_all.png
   ml_region.pdb                  # ML-region definition (reusable as --model-pdb for follow-up runs)
   mm_parm/<input1>.parm7,.rst7   # MM topology from the first full-enzyme input (reusable as --parm)
@@ -104,10 +108,11 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
   segments/                      # per-reactive-segment deliverables
     seg_NN/                      # 1-based 2-digit index, e.g. seg_01, seg_02
       reactant.pdb · ts.pdb · product.pdb   # canonical R/TS/P
+      reactant.cif · ts.cif · product.cif   # bridged-input companions with original IDs
       ts/, irc/                  # TS optimisation + EulerPC IRC (--tsopt)
       freq/ (--thermo), dft/ (--dft)
       structures/{reactant,ts,product}.pdb  # nested copy + raw IRC endpoints
-      energy_diagram_{UMA,G_UMA,DFT,G_DFT_plus_UMA}.png
+      energy_diagram_{MLIP,G_MLIP,DFT,G_DFT_plus_MLIP}.png
   _work/                         # pipeline scratch (safe to delete)
     pockets/                     # Per-input pocket PDBs (multi-structure union)
     scan/                        # present only in single-structure + scan mode (stage_01/result.pdb …)
@@ -133,6 +138,11 @@ The log is organised into numbered sections:
 
 Top-level keys: `out_dir`, `n_images`, `n_segments` (run metadata and counts); `segments` (per-segment entries with `index`, `tag`, `kind`, `barrier_kcal`, `delta_kcal`, `bond_changes`); `energy_diagrams` (optional payloads with `labels`, `energies_kcal`, `energies_au`, `ylabel`, `image` paths).
 
+When stage `result.json` files or `thermoanalysis.yaml` are written, their
+`rigid_projection` block records the selected treatment, effective rank,
+Hessian source, and Hessian shape. An all-frozen selection is rejected because
+no active DOF remains.
+
 ## CLI options
 
 Defaults shown are used when the option is not specified. The full flag list is in the generated [command reference](reference/commands/index.md); the tables below cover the options that need explanation.
@@ -153,7 +163,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--dump / --no-dump` | Save optimizer dumps. Always forwarded to `path-search` / `path-opt`; forwarded to `scan` / `tsopt` only when explicitly set. `freq` defaults to `dump=True` unless you pass `--no-dump`. | `False` |
 | `--config FILE` | Base YAML applied first. | _None_ |
 | `--show-config / --no-show-config` | Print resolved configuration before execution. | `False` |
-| `--dry-run / --no-dry-run` | Validate and print plan without running stages (shown in `--help-advanced`). | `False` |
+| `--dry-run / --no-dry-run` | Run extraction/setup and charge/parity validation in a temporary directory, print the plan, and skip compute stages (shown in `--help-advanced`). | `False` |
 
 ### Extraction
 
@@ -191,6 +201,9 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `--precision [fp32\|fp64]` | Backend precision. Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
+| `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and are incompatible with an analytical Hessian. | `1` |
+| `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--cmap / --no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in the model parm7. Disabled by default, consistent with Gaussian ONIOM. | `--no-cmap` |
@@ -205,7 +218,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | --- | --- | --- |
 | `-s, --scan-lists TEXT...` | Staged scans: `(i, j, target_Å)` tuples. | _None_ |
 | `--scan-out-dir PATH` | Override the scan output directory. | _None_ |
-| `--scan-one-based / --no-scan-one-based` | Override scan indexing (True = 1-based, False = 0-based). | _None_ |
+| `--scan-one-based / --scan-zero-based` | Interpret scan atom indices as 1-based or 0-based. | _None_ |
 | `--scan-max-step-size FLOAT` | Maximum step size (Å). | _Default_ |
 | `--scan-bias-k FLOAT` | Harmonic bias strength (eV / Å²). | _Default_ |
 | `--scan-relax-max-cycles INT` | Relaxation max cycles per step. | _Default_ |
@@ -220,6 +233,8 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R / TS / P. | `False` |
 | `--dft / --no-dft` | Run single-point DFT on R / TS / P. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
+| `--tr-projection [constrained\|legacy-active]` | Forward the frozen-boundary TR treatment to `tsopt`, `irc`, `freq`, and flatten PHVA. `legacy-active` is an isolated-active comparison treatment using the current common kernel. | `constrained` |
+| `--irc-never-stop / --no-irc-never-stop` | Forward opt-in IRC continuation across energy-rise/plateau stops. Integrator convergence, invalid values, and the cycle cap still stop each branch. | `False` |
 | `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |
 | `--tsopt-out-dir PATH` | Custom tsopt subdirectory. | _None_ |
 | `--freq-out-dir PATH` | Base directory override for freq outputs. | _None_ |
@@ -250,6 +265,8 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 
 ```yaml
 # Minimal example
+geom:
+  tr_projection: constrained        # constrained (default) | legacy-active comparison
 calc:
   charge: 0
   spin: 1
@@ -261,13 +278,17 @@ mlmm:
   uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
   hessian_calc_mode: Analytical     # recommended when VRAM permits
 gs:
-  max_nodes: 12
+  max_nodes: 20
   climb: true
 dft:
   grid_level: 6
 ```
 
 Full schema: [YAML Reference](yaml-reference.md).
+
+`--tr-projection` is unrelated to `tsopt --ref-mode`: the former controls
+frozen-boundary rigid modes, while the latter is an internal MEP-tangent
+handoff used for saddle recovery.
 
 ## Notes
 

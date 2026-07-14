@@ -146,6 +146,12 @@ def _capture_help(command_name: str, *, advanced: bool) -> str:
             f"Failed to collect help for '{TOOL_NAME} {command_name}' "
             f"(advanced={advanced}):\n{result.output}"
         )
+    if "[Unavailable]" in result.output:
+        raise RuntimeError(
+            f"Cannot generate help for '{TOOL_NAME} {command_name}': the lazy "
+            "subcommand could not be imported. Install the repository's "
+            "development/runtime dependencies and retry."
+        )
     # Strip version line and pysisyphus config warning for reproducibility
     text = _VERSION_LINE_RE.sub("", result.output)
     text = _PYSISRC_LINE_RE.sub("", text)

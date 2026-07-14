@@ -1,6 +1,4 @@
-"""Regression test: mlmm_calc must use sequential ATOM file position as `idx`,
-not raw PDB serial. PDB serial gaps (e.g. COMT model 1.R.pdb has 3411→3418)
-must not break parm7 lookups."""
+"""PDB serial gaps must not break sequential parm7 atom lookups."""
 
 from __future__ import annotations
 

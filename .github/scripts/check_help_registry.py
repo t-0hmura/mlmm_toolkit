@@ -26,10 +26,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-# ``--help-advanced`` is injected by ``cli.help_pages._ensure_help_advanced_option``
-# so it is NOT declared on the lazy Click commands themselves. Treat it as the
-# single allow-listed token that need not resolve to a ``command.params`` opt.
-_INJECTED_OPTS: frozenset[str] = frozenset({"--help-advanced"})
+# These options are attached after lazy-command resolution rather than declared
+# on each workflow command: help pagination injects ``--help-advanced`` and
+# ``cli.app._ensure_verbose_option`` injects the unified verbosity aliases.
+_INJECTED_OPTS: frozenset[str] = frozenset(
+    {"--help-advanced", "-v", "--verbose"}
+)
 
 from mlmm.cli.app import (  # noqa: E402
     _LAZY_SUBCOMMANDS,

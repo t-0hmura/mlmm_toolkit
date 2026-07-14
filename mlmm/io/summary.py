@@ -15,7 +15,6 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 from pysisyphus.constants import AU2KCALPERMOL
 from mlmm import __version__
 from mlmm.core.defaults import (
-    MLMM_CALC_KW,
     BFACTOR_ML,
     BFACTOR_MOVABLE_MM,
     BFACTOR_FROZEN,
@@ -359,13 +358,13 @@ def _classify_diagram_method(diag: Dict[str, Any]) -> str:
     ylabel_txt = str(diag.get("ylabel", "")).lower()
 
     if "g_dft" in name or "gibbs_dft" in name or ("gibbs" in ylabel_txt and "dft" in name):
-        return "gibbs_dft_uma"
+        return "gibbs_dft_mlip"
     if "dft" in name:
         return "dft"
-    if "g_uma" in name or "gibbs" in name or "gibbs" in ylabel_txt:
-        return "gibbs_uma"
-    if "uma" in name:
-        return "uma"
+    if "g_mlip" in name or "gibbs" in name or "gibbs" in ylabel_txt:
+        return "gibbs_mlip"
+    if "mlip" in name:
+        return "mlip"
     return "mep"
 
 
@@ -456,8 +455,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     version_base = payload.get("code_version") or __version__
     version_txt = f"mlmm {version_base}"
     lines.append(f"Code version       : {version_txt}")
-    uma_model = payload.get("uma_model") or MLMM_CALC_KW.get("uma_model") or "-"
-    lines.append(f"UMA model          : {uma_model}")
+    mlip_backend = payload.get("mlip_backend") or "-"
+    mlip_model = payload.get("mlip_model") or "-"
+    lines.append(f"MLIP backend        : {mlip_backend}")
+    lines.append(f"MLIP model          : {mlip_model}")
     lines.append(f"Total charge (ML)  : {charge if charge is not None else '-'}")
     lines.append(f"Multiplicity (2S+1): {spin if spin is not None else '-'}")
 
@@ -574,12 +575,12 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     f"    IRC trajectory   : {_shorten_path(seg.get('irc_traj'), root_out_path)}"
                 )
             _emit_energy_block(
-                lines, "ML/MM energies (TSOPT+IRC)", seg.get("uma"), root_out_path
+                lines, "MLIP energies (TSOPT+IRC)", seg.get("mlip"), root_out_path
             )
-            _emit_energy_block(lines, "ML/MM Gibbs (thermo)", seg.get("gibbs_uma"), root_out_path)
+            _emit_energy_block(lines, "MLIP Gibbs (thermo)", seg.get("gibbs_mlip"), root_out_path)
             _emit_energy_block(lines, "DFT single-point", seg.get("dft"), root_out_path)
             _emit_energy_block(
-                lines, "DFT//ML/MM Gibbs", seg.get("gibbs_dft_uma"), root_out_path
+                lines, "DFT//MLIP Gibbs", seg.get("gibbs_dft_mlip"), root_out_path
             )
 
             entry = segment_entries.setdefault(
@@ -591,30 +592,30 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                 entry["mep_barrier"] = seg.get("mep_barrier_kcal")
             if seg.get("mep_delta_kcal") is not None:
                 entry["mep_delta"] = seg.get("mep_delta_kcal")
-            if seg.get("uma"):
-                uma_payload = seg.get("uma") or {}
-                if uma_payload.get("barrier_kcal") is not None:
-                    entry["uma_barrier"] = uma_payload.get("barrier_kcal")
-                if uma_payload.get("delta_kcal") is not None:
-                    entry["uma_delta"] = uma_payload.get("delta_kcal")
-            if seg.get("gibbs_uma"):
-                g_payload = seg.get("gibbs_uma") or {}
+            if seg.get("mlip"):
+                mlip_payload = seg.get("mlip") or {}
+                if mlip_payload.get("barrier_kcal") is not None:
+                    entry["mlip_barrier"] = mlip_payload.get("barrier_kcal")
+                if mlip_payload.get("delta_kcal") is not None:
+                    entry["mlip_delta"] = mlip_payload.get("delta_kcal")
+            if seg.get("gibbs_mlip"):
+                g_payload = seg.get("gibbs_mlip") or {}
                 if g_payload.get("barrier_kcal") is not None:
-                    entry["gibbs_uma_barrier"] = g_payload.get("barrier_kcal")
+                    entry["gibbs_mlip_barrier"] = g_payload.get("barrier_kcal")
                 if g_payload.get("delta_kcal") is not None:
-                    entry["gibbs_uma_delta"] = g_payload.get("delta_kcal")
+                    entry["gibbs_mlip_delta"] = g_payload.get("delta_kcal")
             if seg.get("dft"):
                 dft_payload = seg.get("dft") or {}
                 if dft_payload.get("barrier_kcal") is not None:
                     entry["dft_barrier"] = dft_payload.get("barrier_kcal")
                 if dft_payload.get("delta_kcal") is not None:
                     entry["dft_delta"] = dft_payload.get("delta_kcal")
-            if seg.get("gibbs_dft_uma"):
-                gd_payload = seg.get("gibbs_dft_uma") or {}
+            if seg.get("gibbs_dft_mlip"):
+                gd_payload = seg.get("gibbs_dft_mlip") or {}
                 if gd_payload.get("barrier_kcal") is not None:
-                    entry["gibbs_dft_uma_barrier"] = gd_payload.get("barrier_kcal")
+                    entry["gibbs_dft_mlip_barrier"] = gd_payload.get("barrier_kcal")
                 if gd_payload.get("delta_kcal") is not None:
-                    entry["gibbs_dft_uma_delta"] = gd_payload.get("delta_kcal")
+                    entry["gibbs_dft_mlip_delta"] = gd_payload.get("delta_kcal")
     else:
         lines.append("  (no post-processing results)")
 
@@ -622,14 +623,14 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         table_rows = [
             (f"MEP {delta}E{dagger} [kcal/mol]", "mep_barrier"),
             (f"MEP {delta}E  [kcal/mol]", "mep_delta"),
-            (f"UMA {delta}E{dagger} [kcal/mol]", "uma_barrier"),
-            (f"UMA {delta}E  [kcal/mol]", "uma_delta"),
-            (f"UMA {delta}G{dagger} [kcal/mol]", "gibbs_uma_barrier"),
-            (f"UMA {delta}G  [kcal/mol]", "gibbs_uma_delta"),
-            (f"DFT//UMA {delta}E{dagger} [kcal/mol]", "dft_barrier"),
-            (f"DFT//UMA {delta}E  [kcal/mol]", "dft_delta"),
-            (f"DFT//UMA {delta}G{dagger} [kcal/mol]", "gibbs_dft_uma_barrier"),
-            (f"DFT//UMA {delta}G  [kcal/mol]", "gibbs_dft_uma_delta"),
+            (f"MLIP {delta}E{dagger} [kcal/mol]", "mlip_barrier"),
+            (f"MLIP {delta}E  [kcal/mol]", "mlip_delta"),
+            (f"MLIP {delta}G{dagger} [kcal/mol]", "gibbs_mlip_barrier"),
+            (f"MLIP {delta}G  [kcal/mol]", "gibbs_mlip_delta"),
+            (f"DFT//MLIP {delta}E{dagger} [kcal/mol]", "dft_barrier"),
+            (f"DFT//MLIP {delta}E  [kcal/mol]", "dft_delta"),
+            (f"DFT//MLIP {delta}G{dagger} [kcal/mol]", "gibbs_dft_mlip_barrier"),
+            (f"DFT//MLIP {delta}G  [kcal/mol]", "gibbs_dft_mlip_delta"),
         ]
         sorted_entries = [segment_entries[k] for k in sorted(segment_entries.keys())]
         headers = [f"{int(e.get('index', 0)):d}({e.get('tag', '-')})" for e in sorted_entries]
@@ -688,10 +689,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
 
         table_rows = [
             (f"MEP {delta}E  [kcal/mol]", "mep"),
-            (f"UMA {delta}E  [kcal/mol]", "uma"),
-            (f"UMA {delta}G  [kcal/mol]", "gibbs_uma"),
-            (f"DFT//UMA {delta}E  [kcal/mol]", "dft"),
-            (f"DFT//UMA {delta}G  [kcal/mol]", "gibbs_dft_uma"),
+            (f"MLIP {delta}E  [kcal/mol]", "mlip"),
+            (f"MLIP {delta}G  [kcal/mol]", "gibbs_mlip"),
+            (f"DFT//MLIP {delta}E  [kcal/mol]", "dft"),
+            (f"DFT//MLIP {delta}G  [kcal/mol]", "gibbs_dft_mlip"),
         ]
 
         label_width = max(len(label) for label, _ in table_rows) + 2
@@ -730,10 +731,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         "mep_trj.xyz": "Full MEP as XYZ trajectory",
         "mep_plot.png": "ML/MM MEP energy plot",
         "energy_diagram_MEP.png": "Compressed MEP diagram",
-        "energy_diagram_UMA_all.png": "UMA R-TS-P energies (all segments)",
-        "energy_diagram_G_UMA_all.png": "UMA Gibbs R-TS-P (all segments)",
+        "energy_diagram_MLIP_all.png": "ML/MM R-TS-P energies (all segments)",
+        "energy_diagram_G_MLIP_all.png": "MLIP Gibbs R-TS-P (all segments)",
         "energy_diagram_DFT_all.png": "DFT R-TS-P (all segments)",
-        "energy_diagram_G_DFT_plus_UMA_all.png": "DFT//UMA Gibbs R-TS-P (all segments)",
+        "energy_diagram_G_DFT_plus_MLIP_all.png": "DFT//MLIP Gibbs R-TS-P (all segments)",
         "irc_plot_all.png": "Aggregated IRC plot",
         # _work/ scratch subdirectories
         f"{WORK_DIRNAME}/pockets": "Extracted pocket PDBs",

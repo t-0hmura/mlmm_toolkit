@@ -97,3 +97,46 @@ def test_apply_calc_file_switches_backend() -> None:
     cfg2 = {"backend": "uma"}
     apply_calc_file_to_calc_cfg(cfg2, None, None)
     assert cfg2["backend"] == "uma"
+
+
+def test_sp_yaml_custom_factory_is_not_overwritten_by_cli_default(
+    tmp_path: Path,
+) -> None:
+    from click.testing import CliRunner
+
+    from mlmm.cli import cli as root_cli
+
+    calc_file = _write(
+        tmp_path / "toy_build.py", TOY_CALC.replace("def get_calculator", "def build")
+    )
+    input_pdb = _write(
+        tmp_path / "carbon.pdb",
+        "HETATM    1  C1  MOL A   1       0.000   0.000   0.000  1.00  0.00           C\nEND\n",
+    )
+    parm = _write(tmp_path / "empty.parm7", "placeholder\n")
+    config = _write(
+        tmp_path / "config.yaml",
+        f"calc:\n  calc_file: {calc_file}\n  calc_factory: build\n",
+    )
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "sp",
+            "-i",
+            str(input_pdb),
+            "--parm",
+            str(parm),
+            "-q",
+            "0",
+            "-m",
+            "1",
+            "--config",
+            str(config),
+            "--show-config",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "backend: custom" in result.output
+    assert "calc_factory: build" in result.output

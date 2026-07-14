@@ -1,6 +1,6 @@
 # mlmm-toolkit ドキュメント
 
-*バージョン: v0.3.0*
+*バージョン: v0.3.3*
 
 **mlmm-toolkit** は、機械学習原子間ポテンシャル（Machine Learning Interatomic Potential）と分子力学（Molecular Mechanics）を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
 
@@ -12,6 +12,7 @@
 :hidden:
 
 getting-started
+cif
 concepts
 quickstart-all
 quickstart-scan-spec
@@ -49,7 +50,6 @@ oniom-import
 fix-altloc
 energy-diagram
 bond-summary
-device-hpc
 oniom-gaussian
 oniom-orca
 ```
@@ -64,6 +64,7 @@ json-output
 mlmm-calc
 python-api
 backends
+device-hpc
 architecture
 output-layout
 mcp_server
@@ -77,6 +78,7 @@ glossary
 | ユースケース | 推奨コマンド | ガイド |
 |--------------|--------------|--------|
 | 最初の 1 回を実行（一気通貫） | `mlmm all` | [クイックスタート: all](quickstart-all.md) |
+| mmCIF・大規模残基 ID・一意な selector | -- | [mmCIF と大規模構造](cif.md) |
 | 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan](quickstart-scan-spec.md) |
 | TS 検証（`tsopt` + 振動解析） | `mlmm tsopt` | [クイックスタート: tsopt](quickstart-tsopt-freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
@@ -109,6 +111,7 @@ glossary
 | **症状起点の切り分け** | [典型エラー別レシピ](recipes-common-errors.md) |
 | **よくあるエラーと対処** | [トラブルシューティング](troubleshooting.md) |
 | **CLI 規約と入力要件** | [CLI 規約](cli-conventions.md) |
+| **GPU・HPC 設定** | [Device & HPC](device-hpc.md) |
 
 ---
 
@@ -152,6 +155,7 @@ glossary
 | [`irc`](irc.md) | 固有反応座標（IRC）計算 |
 | [`freq`](freq.md) | 振動解析と熱化学 |
 | [`dft`](dft.md) | DFT 一点計算（GPU4PySCF / PySCF） |
+| [`sp`](sp.md) | ML/MM ONIOM 一点エネルギー・力（任意で Hessian） |
 | [`trj2fig`](trj2fig.md) | XYZ 軌跡からエネルギープロファイルをプロット |
 | [`energy-diagram`](energy-diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
 | [`bond-summary`](bond-summary.md) | 連続構造間の共有結合変化を検出・レポート |
@@ -160,7 +164,6 @@ glossary
 | サブコマンド | 説明 |
 |---------|------|
 | [`fix-altloc`](fix-altloc.md) | PDB の代替コンフォメーション（altloc）を解決 |
-| [`device-hpc`](device-hpc.md) | HPC 環境での GPU デバイス情報の確認 |
 
 ### エクスポート
 | サブコマンド | 説明 |
@@ -229,7 +232,7 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 
 ### ML/MM 3 層システム
 mlmm は PDB の B-factor による 3 層分割スキームを使用します:
-- **ML 領域**（B=0.0）: UMA 機械学習ポテンシャルで計算
+- **ML 領域**（B=0.0）: 選択した MLIP バックエンドで計算
 - **Movable-MM**（B=10.0）: 最適化時に移動可能な MM 原子
 - **Frozen**（B=20.0）: 座標固定の MM 原子。最適化中に座標は変化しないが、Movable-MM および ML 領域との非結合相互作用（静電・van der Waals）は MM エネルギー評価に含まれる
 
@@ -259,7 +262,7 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 result_all/
 ├── summary.log # 人間が読めるサマリー
 ├── summary.json # 機械可読サマリー
-├── mep.pdb / mep_trj.xyz # MEP（ルートにコピー）
+├── mep.pdb / mep.cif / mep_trj.xyz # CIF は bridge 入力時
 ├── energy_diagram_MEP.png # MEP ダイアグラム
 ├── ml_region.pdb # ML 領域定義（--model-pdb として再利用可）
 ├── mm_parm/ # AMBER トポロジー（--parm として再利用可）
@@ -302,4 +305,3 @@ mlmm --help
 # コマンドのヘルプ
 mlmm <command> --help
 ```
-

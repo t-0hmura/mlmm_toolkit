@@ -58,12 +58,11 @@ Either embed the partition in the input PDB's B-factor (ML=0.0, movable-MM=10.0,
 
 ### Hessian backend
 
-When `--hess` is set, the backend choice picks the Hessian computation strategy:
-
-- `--backend uma` (default) → `Analytical` Hessian for the ML region via the UMA torch autograd path; the MM region uses the `hessian_ff` analytical Hessian
-- `--backend orb` / `mace` / `aimnet2` → falls back to `FiniteDifference` for the ML region
-
-`--hessian-calc-mode` lets you override per-call.
+When `--hess` is set, `--hessian-calc-mode Analytical` uses the selected
+backend's analytical/native Hessian path (UMA, ORB, MACE, or AIMNet2), while
+`FiniteDifference` uses central differences of forces. The MM region uses the
+`hessian_ff` analytical Hessian by default. An unavailable analytical path is
+an error; mlmm does not silently change the requested method.
 
 ### Other options
 

@@ -26,6 +26,18 @@ class RSPRFOptimizer(TSHessianOptimizer):
         eigvecs = as_numpy(eigvecs)
         gradient = as_numpy(gradient)
 
+        if self._physical_ts_mode is not None:
+            residual_negative = eigvals < -self.small_eigval_thresh
+            residual_negative[self.roots] = False
+            residual_count = int(np.count_nonzero(residual_negative))
+            if residual_count:
+                eigvals = np.where(residual_negative, -eigvals, eigvals)
+                self.log(
+                    "Stabilized "
+                    f"{residual_count} residual negative minimizing root(s) "
+                    "outside the PHVA-verified TS mode."
+                )
+
         # Transform gradient to eigensystem of hessian
         gradient_trans = eigvecs.T.dot(gradient)
         # Minimize energy along all modes, except the TS-mode
@@ -107,7 +119,8 @@ class RSPRFOptimizer(TSHessianOptimizer):
             max_norm = np.linalg.norm(step_max)
             self.log(f"norm(step_max)={max_norm:.6f}")
             self.log(f"norm(step_min)={min_norm:.6f}")
-            self.log(f"norm(step_max)/norm(step_min)={max_norm/min_norm:.2%}")
+            norm_ratio = max_norm / min_norm if min_norm > 0.0 else float("inf")
+            self.log(f"norm(step_max)/norm(step_min)={norm_ratio:.2%}")
             # Calculate overlaps with originally proposed step in mu == 0
             # TODO: convert back to original space
             # max_ovlp = ref_step_max @ step_max
@@ -183,6 +196,7 @@ class RSPRFOptimizer(TSHessianOptimizer):
         # predicted_energy_change = 1/2 * (eigval_max / nu_max**2 + eigval_min / nu_min**2)
         # self.predicted_energy_changes.append(predicted_energy_change)
 
+        step = self.apply_saddle_recovery_step(step)
         self.predicted_energy_changes.append(self.rfo_model(gradient, as_numpy(self.cur_H), step))
 
         self.log("")

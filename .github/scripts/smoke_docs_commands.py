@@ -102,6 +102,7 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
     xyz = tmp / "input.xyz"
     gjf = tmp / "input.gjf"
     cfg = tmp / "config.yaml"
+    parm7 = tmp / "fixture.parm7"
     out_dir = tmp / "result_all"
 
     r_pdb.write_text(pdb_text, encoding="utf-8")
@@ -109,6 +110,18 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
     xyz.write_text("1\n\nC 0.0 0.0 0.0\n", encoding="utf-8")
     gjf.write_text("%chk=test\n#p hf/3-21g\n\nTitle\n\n0 1\nC 0.0 0.0 0.0\n\n", encoding="utf-8")
     cfg.write_text("extract:\n  radius: 2.6\n", encoding="utf-8")
+    # all --dry-run now performs the real topology atom-count/order check.
+    # Build a minimal, parameterized one-atom Amber topology so the smoke
+    # validates that contract without requiring AmberTools executables.
+    import parmed as pmd
+    from parmed.topologyobjects import AtomType
+
+    structure = pmd.load_file(str(r_pdb))
+    atom_type = AtomType("C", 1, 12.011, 6)
+    atom_type.set_lj_params(0.1, 1.7)
+    structure.atoms[0].atom_type = atom_type
+    structure.atoms[0].type = "C"
+    pmd.amber.AmberParm.from_structure(structure).save(str(parm7))
     out_dir.mkdir(parents=True, exist_ok=True)
 
     return {
@@ -117,6 +130,7 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
         "xyz": xyz,
         "gjf": gjf,
         "config": cfg,
+        "parm7": parm7,
         "out_dir": out_dir,
     }
 
@@ -126,6 +140,7 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
     saw_input = False
     saw_dry_run = False
     saw_center = False
+    saw_parm = False
     i = 0
     while i < len(args):
         tok = args[i]
@@ -144,6 +159,11 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
         if tok in {"-l", "--ligand-charge", "-q", "--charge"}:
             # Skip explicit charge inputs tied to the example's real residues;
             # the extractor derives a charge consistent with the LIG fixture.
+            i += 2
+            continue
+        if tok == "--parm":
+            saw_parm = True
+            out.extend([tok, str(fixture["parm7"])])
             i += 2
             continue
         if tok in {"-i", "--input"}:
@@ -191,6 +211,8 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
         out.extend(["-i", str(fixture["r_pdb"]), str(fixture["p_pdb"])])
     if not saw_center:
         out.extend(["-c", "LIG"])
+    if not saw_parm:
+        out.extend(["--parm", str(fixture["parm7"])])
     if not saw_dry_run:
         out.append("--dry-run")
     if "--out-dir" not in out:
@@ -246,6 +268,9 @@ def _run_all_dry_run_smoke(commands: list[str]) -> None:
 
     with tempfile.TemporaryDirectory(prefix=f"{TOOL_NAME}_docs_smoke_") as tmpdir:
         fixture = _prepare_fixture_files(Path(tmpdir))
+        # Many EN/JA pages intentionally repeat the same canonical invocation.
+        # Sanitize first and execute each distinct CLI contract once.
+        cases: dict[tuple[str, ...], str] = {}
         for raw in all_cmds:
             tokens = shlex.split(raw)
             if not tokens or tokens[0] != TOOL_NAME:
@@ -256,6 +281,10 @@ def _run_all_dry_run_smoke(commands: list[str]) -> None:
             if args[0] != "all":
                 continue
             dry_args = _sanitize_all_args(args, fixture)
+            cases.setdefault(tuple(dry_args), raw)
+
+        for dry_args_tuple, raw in cases.items():
+            dry_args = list(dry_args_tuple)
             try:
                 completed = subprocess.run(
                     [sys.executable, "-m", CLI_MODULE, *dry_args],
@@ -279,6 +308,7 @@ def _run_all_dry_run_smoke(commands: list[str]) -> None:
                 )
     print(
         f"[dry-run-smoke] validated {len(all_cmds)} docs examples "
+        f"through {len(cases)} distinct plans "
         f"(timeout={DOCS_SMOKE_COMMAND_TIMEOUT_SEC:g}s)."
     )
 

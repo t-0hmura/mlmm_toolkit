@@ -43,8 +43,10 @@ Options:
                                   to hessian.npy.  [default: no-hess]
   --hessian-calc-mode [analytical|finitedifference]
                                   Hessian backend when --hess is set. Analytical
-                                  only works for UMA; other backends fall back
-                                  to FiniteDifference.
+                                  is supported by UMA, ORB, MACE, and AIMNet2;
+                                  custom calculators use FiniteDifference.
+                                  Analytical cannot be combined with --workers >
+                                  1.
   --convert-files / --no-convert-files
                                   Auto-convert output XYZ-like files into
                                   matching PDB beside them.  [default: convert-
@@ -90,8 +92,8 @@ Options:
                                   rejected.
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
-                                  analytical Hessian is then unavailable (auto-
-                                  downgraded to FiniteDifference). Default 1.
+                                  combining it with an analytical Hessian is an
+                                  error. Default 1.
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
                                   predictor is used (--workers > 1).
   --backend-model TEXT            Model variant for the selected --backend (e.g.
@@ -105,8 +107,8 @@ Options:
                                   / any ASE engine. See --calc-factory.
   --calc-factory TEXT             Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
-                                  Calculator instance).  [default:
-                                  get_calculator]
+                                  Calculator instance). CLI overrides config
+                                  YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
                                   Strict bit-reproducible GPU runs
                                   (deterministic algorithms + index_reduce_

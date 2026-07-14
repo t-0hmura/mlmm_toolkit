@@ -31,7 +31,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 \
 
 ## Result
 
-Read `summary.log` (human-readable) and `summary.json` (segments, ΔE‡, ΔE, bond_changes); the merged path is `mep.pdb` / `energy_diagram_MEP.png` at the output root. See [all](all.md) for the full output tree and per-segment deliverables, and [output-layout](output-layout.md) for the filename reference.
+Read `summary.log` (human-readable) and `summary.json` (segments, ΔE‡, ΔE, bond_changes); the merged path is `mep.pdb` (plus `mep.cif` for bridged input) with `energy_diagram_MEP.png` at the output root. See [all](all.md) for the full output tree and per-segment deliverables, and [output-layout](output-layout.md) for the filename reference.
 
 ## Next step
 

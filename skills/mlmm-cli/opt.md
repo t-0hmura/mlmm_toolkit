@@ -44,6 +44,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `--opt-mode` | str | `grad` | `grad` (LBFGS) or `hess` (RFO); aliases `lbfgs` / `rfo` and the mlmm-only `light` / `heavy` shortcuts (light = LBFGS, heavy = RFO with full Hessian) are accepted |
 | `--mm-only` / `--no-mm-only` | flag | `False` | Skip the MLIP component and minimize on the MM force field only. Layers honored as usual; only `--opt-mode grad` supported (microiter auto-off). Useful as a cheap MM pre-relaxation before ML/MM ONIOM opt. |
+| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment used only by `--flatten` PHVA; `legacy-active` is comparison-only |
 | `--max-cycles` | int | (live default) | Stop after N cycles; check `OPT_BASE_KW` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_opt/` | Output directory |
@@ -83,6 +84,8 @@ result_opt/
 
 `result.json` keys: `status` (converged / not_converged), `n_opt_cycles`,
 `energy_hartree`, `final_max_force`, `files.final_geometry_xyz`.
+When `--flatten` runs, `rigid_projection` also records the selected treatment,
+effective rank, Hessian source, and Hessian shape.
 
 ## `--opt-mode` choice
 
@@ -94,6 +97,12 @@ result_opt/
 ## Caveats
 
 - Not a TS optimizer — for TS use `tsopt.md`.
+- `--tr-projection` has no effect unless `--flatten` performs PHVA. The default
+  `constrained` treatment has generic rank 6/3/1/0 for 0/1/2/3+
+  non-collinear frozen anchors; realistic boundaries normally rank 0 and
+  all-frozen input is an error. `legacy-active` is an isolated-active
+  comparison using the current common kernel; bitwise identity is not
+  guaranteed for rank-degenerate cases.
 - LBFGS occasionally walks past a saddle on shallow surfaces; if the
   resulting geometry has imaginary frequencies (run `freq` to check),
   re-run with `--opt-mode rfo`.

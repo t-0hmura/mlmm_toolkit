@@ -1,0 +1,746 @@
+"""Tests for mmCIF and PDB-size-limit-safe structure I/O."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+
+def _write_minimal_cif(path: Path) -> None:
+    path.write_text(
+        """data_input
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.pdbx_formal_charge
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+HETATM 1 C C1 . SAM LONG_CHAIN 1 . ? 0.0 1.0 2.0 1.00 12.0 . 10001 SAM LONG_CHAIN C1 1
+HETATM 2 O O1 . SAM LONG_CHAIN 1 . ? 1.0 1.0 2.0 1.00 13.0 . 10001 SAM LONG_CHAIN O1 1
+#
+""",
+        encoding="utf-8",
+    )
+
+
+def test_cif_is_normalized_and_output_restores_auth_ids(tmp_path: Path) -> None:
+    from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+    from mlmm.core.utils import (
+        convert_xyz_to_pdb,
+        load_pdb_atom_metadata,
+        prepare_input_structure,
+    )
+
+    source = tmp_path / "large-id.cif"
+    _write_minimal_cif(source)
+    xyz = tmp_path / "optimized.xyz"
+    xyz.write_text("2\nframe\nC 3.0 4.0 5.0\nO 6.0 7.0 8.0\n", encoding="utf-8")
+    out_pdb = tmp_path / "optimized.pdb"
+
+    prepared = prepare_input_structure(source)
+    try:
+        assert prepared.is_cif
+        assert prepared.source_path.suffix == ".pdb"
+        metadata = load_pdb_atom_metadata(prepared.source_path)
+        assert metadata[0]["chain"] == "LONG_CHAIN"
+        assert metadata[0]["resseq"] == 10001
+
+        convert_xyz_to_pdb(xyz, prepared.source_path, out_pdb)
+        out_cif = out_pdb.with_suffix(".cif")
+        assert out_cif.exists()
+        data = MMCIF2Dict(str(out_cif))
+        assert data["_atom_site.auth_asym_id"] == ["LONG_CHAIN", "LONG_CHAIN"]
+        assert data["_atom_site.auth_seq_id"] == ["10001", "10001"]
+        assert np.allclose([float(value) for value in data["_atom_site.Cartn_x"]], [3.0, 6.0])
+    finally:
+        prepared.cleanup()
+
+
+def test_pdb_output_rejects_coordinate_field_overflow(tmp_path: Path) -> None:
+    from mlmm.core.utils import convert_xyz_to_pdb
+
+    ref = tmp_path / "ref.pdb"
+    ref.write_text(
+        "ATOM      1  C   MOL A   1       0.000   0.000   0.000  1.00  0.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    xyz = tmp_path / "far.xyz"
+    xyz.write_text("1\nframe\nC 10000.0 0.0 0.0\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="fixed-column PDB range"):
+        convert_xyz_to_pdb(xyz, ref, tmp_path / "out.pdb")
+
+
+def test_pdb_output_rejects_when_no_xyz_frame_matches_topology(tmp_path: Path) -> None:
+    from mlmm.core.utils import convert_xyz_to_pdb
+
+    ref = tmp_path / "ref.pdb"
+    ref.write_text(
+        "ATOM      1  C   MOL A   1       0.000   0.000   0.000  1.00  0.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    xyz = tmp_path / "wrong-count.xyz"
+    xyz.write_text("2\nframe\nC 0 0 0\nH 1 0 0\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="No frame.*matched"):
+        convert_xyz_to_pdb(xyz, ref, tmp_path / "out.pdb")
+
+
+def test_pdb_with_more_than_ten_thousand_residues_uses_safe_bridge(tmp_path: Path) -> None:
+    from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+    from mlmm.core.utils import load_pdb_atom_metadata, prepare_input_structure
+    from mlmm.io.structure_formats import write_pdb_as_mmcif
+    from pysisyphus.io.pdb import parse_pdb
+
+    source = tmp_path / "ten-thousand.pdb"
+    lines = []
+    for index in range(10_001):
+        chain = "A"
+        resseq = index + 1
+        serial = index + 1
+        lines.append(
+            f"ATOM  {serial:5d}  CA  GLY {chain}{resseq:4d}    "
+            f"{float(index % 10):8.3f}{0.0:8.3f}{0.0:8.3f}"
+            f"{1.0:6.2f}{0.0:6.2f}           C\n"
+        )
+    lines.append("END\n")
+    source.write_text("".join(lines), encoding="utf-8")
+
+    prepared = prepare_input_structure(source)
+    try:
+        assert prepared.source_path != source
+        assert prepared.structure_template is not None
+        assert prepared.structure_template.natoms == 10_001
+        atoms, _coords, fragments, _atom_map = parse_pdb(str(prepared.source_path))
+        assert len(atoms) == 10_001
+        assert len(fragments) == 10_001
+        metadata = load_pdb_atom_metadata(prepared.source_path)
+        assert metadata[0]["chain"] == "A"
+        assert metadata[-1]["chain"] == "A"
+        assert metadata[-1]["resseq"] == 10_001
+        out_cif = tmp_path / "large-output.cif"
+        write_pdb_as_mmcif(
+            prepared.source_path, prepared.structure_template, out_cif
+        )
+        data = MMCIF2Dict(str(out_cif))
+        assert data["_atom_site.auth_asym_id"][-1] == "A"
+        assert data["_atom_site.auth_seq_id"][-1] == "10001"
+    finally:
+        prepared.cleanup()
+
+
+def test_chain_qualified_atom_selector_disambiguates_repeated_ids() -> None:
+    from mlmm.core.utils import resolve_atom_spec_index
+
+    metadata = [
+        {"chain": "A", "resname": "SAM", "resseq": 12, "name": "C1"},
+        {"chain": "B", "resname": "SAM", "resseq": 12, "name": "C1"},
+    ]
+    assert resolve_atom_spec_index("B:SAM:12:C1", metadata) == 1
+
+
+def test_chain_qualified_atom_selector_keeps_duplicate_field_roles_distinct() -> None:
+    from mlmm.core.utils import resolve_atom_spec_index
+
+    metadata = [
+        {"chain": "A", "resname": "SAM", "resseq": 12, "name": "A"},
+        {"chain": "B", "resname": "SAM", "resseq": 12, "name": "A"},
+    ]
+    assert resolve_atom_spec_index("A:SAM:12:A", metadata) == 0
+
+
+def test_chain_qualified_atom_selector_accepts_insertion_code() -> None:
+    from mlmm.core.utils import resolve_atom_spec_index
+
+    metadata = [
+        {"chain": "A", "resname": "SAM", "resseq": 12, "icode": "A", "name": "C1"},
+        {"chain": "A", "resname": "SAM", "resseq": 12, "icode": "B", "name": "C1"},
+    ]
+    assert resolve_atom_spec_index("A:SAM:12B:C1", metadata) == 1
+
+
+def test_chain_qualified_atom_selector_keeps_chain_case_distinct() -> None:
+    from mlmm.core.utils import resolve_atom_spec_index
+
+    metadata = [
+        {"chain": "A", "resname": "SAM", "resseq": 12, "name": "C1"},
+        {"chain": "a", "resname": "SAM", "resseq": 12, "name": "C1"},
+    ]
+    assert resolve_atom_spec_index("a:SAM:12:C1", metadata) == 1
+
+
+def test_atom_label_includes_chain_for_repeated_residues() -> None:
+    from mlmm.core.utils import atom_label_from_meta
+
+    metadata = [
+        {"chain": "LONG_CHAIN", "resname": "SAM", "resseq": 10001, "name": "C1"}
+    ]
+    assert atom_label_from_meta(metadata, 0) == "LONG_CHAIN:SAM:10001:C1"
+
+
+def test_atom_label_includes_insertion_code() -> None:
+    from mlmm.core.utils import atom_label_from_meta
+
+    metadata = [
+        {"chain": "A", "resname": "SAM", "resseq": 12, "icode": "B", "name": "C1"}
+    ]
+    assert atom_label_from_meta(metadata, 0) == "A:SAM:12B:C1"
+
+
+def test_hybrid36_upper_and_lower_ranges_are_decoded() -> None:
+    from mlmm.io.structure_formats import _hy36decode
+
+    assert _hy36decode(4, "A000") == 10_000
+    assert _hy36decode(4, "ZZZZ") == 1_223_055
+    assert _hy36decode(4, "a000") == 1_223_056
+    assert _hy36decode(5, "A0000") == 100_000
+
+
+def test_internal_atom_serial_wraps_without_six_digit_pdb_field() -> None:
+    from mlmm.io.structure_formats import _internal_atom_serial
+
+    assert _internal_atom_serial(0) == 1
+    assert _internal_atom_serial(99_998) == 99_999
+    assert _internal_atom_serial(99_999) == 1
+
+
+def test_decimal_overflow_pdb_fields_are_normalized(tmp_path: Path) -> None:
+    from mlmm.io.structure_formats import read_pdb_atom_sites
+
+    source = tmp_path / "overflow.pdb"
+    source.write_text(
+        f"ATOM  {100000:5d}  CA  GLY A{100000:4d}    "
+        f"{1.25:8.3f}{2.5:8.3f}{3.75:8.3f}{1.0:6.2f}{4.0:6.2f}           C1+\nEND\n",
+        encoding="utf-8",
+    )
+
+    records, nonstandard = read_pdb_atom_sites(source)
+    assert nonstandard
+    assert len(records) == 1
+    assert records[0].chain_id == "A"
+    assert records[0].resseq == "100000"
+    assert records[0].formal_charge == "1"
+    assert np.allclose([records[0].x, records[0].y, records[0].z], [1.25, 2.5, 3.75])
+
+
+def test_duplicate_atom_names_without_altloc_are_preserved(tmp_path: Path) -> None:
+    from mlmm.io.structure_formats import (
+        pdb_requires_normalization,
+        read_pdb_atom_sites,
+    )
+
+    source = tmp_path / "small-molecule.pdb"
+    source.write_text(
+        "ATOM      1  C   MOL     1       0.000   0.000   0.000                       C\n"
+        "ATOM      2  H   MOL     1       1.000   0.000   0.000                       H\n"
+        "ATOM      3  H   MOL     1      -1.000   0.000   0.000                       H\n"
+        "END\n",
+        encoding="utf-8",
+    )
+
+    records, nonstandard = read_pdb_atom_sites(source)
+    assert [record.atom_name for record in records] == ["C", "H", "H"]
+    assert not nonstandard
+    assert not pdb_requires_normalization(source)
+
+
+def test_failed_internal_pdb_write_removes_temporary_bridge(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from mlmm.io import structure_formats
+
+    source = tmp_path / "out-of-range.cif"
+    _write_minimal_cif(source)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace("0.0 1.0 2.0", "10000.0 1.0 2.0"),
+        encoding="utf-8",
+    )
+    bridge_dir = tmp_path / "bridge"
+
+    def controlled_mkdtemp(*, prefix):
+        assert prefix == "mlmm_structure_"
+        bridge_dir.mkdir()
+        return str(bridge_dir)
+
+    monkeypatch.setattr(structure_formats.tempfile, "mkdtemp", controlled_mkdtemp)
+    with np.testing.assert_raises_regex(ValueError, "fixed-column PDB range"):
+        structure_formats.normalize_structure_to_pdb(source)
+    assert not bridge_dir.exists()
+
+
+def test_ref_cif_atom_count_error_cleans_temporary_bridge(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from click import ClickException
+    from mlmm.core import utils
+
+    xyz = tmp_path / "one.xyz"
+    xyz.write_text("1\nframe\nC 0 0 0\n", encoding="utf-8")
+    ref = tmp_path / "two.cif"
+    _write_minimal_cif(ref)
+    bridge_dirs = []
+    normalize = utils.normalize_structure_to_pdb
+
+    def record_bridge(path):
+        result = normalize(path)
+        bridge_dirs.append(result[2])
+        return result
+
+    monkeypatch.setattr(utils, "normalize_structure_to_pdb", record_bridge)
+    prepared = utils.prepare_input_structure(xyz)
+    try:
+        with pytest.raises(ClickException, match="atom count"):
+            utils.apply_ref_pdb_override(prepared, ref)
+    finally:
+        prepared.cleanup()
+
+    assert bridge_dirs
+    assert all(not path.exists() for path in bridge_dirs)
+
+
+def test_pdb_to_cif_preserves_output_occupancy_and_bfactor(tmp_path: Path) -> None:
+    from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+    from mlmm.io.structure_formats import (
+        AtomSiteRecord,
+        CoordinateTemplate,
+        write_pdb_as_mmcif,
+    )
+
+    pdb = tmp_path / "marked.pdb"
+    pdb.write_text(
+        "HETATM    1  C1  SAM A   1       1.000   2.000   3.000  0.50 99.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    record = AtomSiteRecord(
+        group_pdb="HETATM",
+        element="C",
+        atom_name="C1",
+        altloc="",
+        resname="SAM",
+        chain_id="LONG_CHAIN",
+        resseq="10001",
+        icode="",
+        occupancy=1.0,
+        bfactor=12.0,
+    )
+    template = CoordinateTemplate((record,), pdb, "mmcif", "test")
+    out = tmp_path / "marked.cif"
+    write_pdb_as_mmcif(pdb, template, out)
+
+    data = MMCIF2Dict(str(out))
+    assert data["_atom_site.occupancy"] == ["0.50"]
+    assert data["_atom_site.B_iso_or_equiv"] == ["99.00"]
+
+
+def test_multimodel_pdb_is_written_as_multimodel_cif(tmp_path: Path) -> None:
+    from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+    from mlmm.io.structure_formats import (
+        AtomSiteRecord,
+        CoordinateTemplate,
+        write_pdb_as_mmcif,
+    )
+
+    pdb = tmp_path / "trajectory.pdb"
+    pdb.write_text(
+        "MODEL        1\n"
+        "HETATM    1  C1  SAM A   1       1.000   2.000   3.000  1.00 10.00           C\n"
+        "ENDMDL\n"
+        "MODEL        2\n"
+        "HETATM    1  C1  SAM A   1       4.000   5.000   6.000  1.00 20.00           C\n"
+        "ENDMDL\nEND\n",
+        encoding="utf-8",
+    )
+    record = AtomSiteRecord(
+        group_pdb="HETATM",
+        element="C",
+        atom_name="C1",
+        altloc="",
+        resname="SAM",
+        chain_id="LONG_CHAIN",
+        resseq="10001",
+        icode="",
+        occupancy=1.0,
+        bfactor=0.0,
+    )
+    template = CoordinateTemplate((record,), pdb, "mmcif", "test")
+    out = tmp_path / "trajectory.cif"
+    write_pdb_as_mmcif(pdb, template, out)
+
+    data = MMCIF2Dict(str(out))
+    assert data["_atom_site.pdbx_PDB_model_num"] == ["1", "2"]
+    assert data["_atom_site.Cartn_x"] == ["1.000000", "4.000000"]
+    assert data["_atom_site.B_iso_or_equiv"] == ["10.00", "20.00"]
+
+
+def test_cif_altloc_selection_is_coherent_per_residue(tmp_path: Path) -> None:
+    from mlmm.io.structure_formats import read_mmcif_atom_sites
+
+    source = tmp_path / "altloc.cif"
+    source.write_text(
+        """data_alt
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 1 C CA . ALA A 1 1 ? 0 0 0 1.0 0 1 ALA A CA 1
+ATOM 2 C CB A ALA A 1 1 ? 1 0 0 0.9 0 1 ALA A CB 1
+ATOM 3 C CG A ALA A 1 1 ? 2 0 0 0.1 0 1 ALA A CG 1
+ATOM 4 C CB B ALA A 1 1 ? 3 0 0 0.2 0 1 ALA A CB 1
+ATOM 5 C CD B ALA A 1 1 ? 4 0 0 0.8 0 1 ALA A CD 1
+#
+""",
+        encoding="utf-8",
+    )
+
+    records = read_mmcif_atom_sites(source)
+    assert [record.atom_name for record in records] == ["CA", "CB", "CG"]
+    assert all(record.altloc == "" for record in records)
+
+
+def test_altloc_selection_preserves_repeated_blank_atom_names(tmp_path: Path) -> None:
+    from mlmm.io.structure_formats import read_mmcif_atom_sites
+
+    source = tmp_path / "blank-duplicates.cif"
+    source.write_text(
+        """data_alt
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+HETATM 1 H H . MOL A 1 1 ? 0 0 0 1.0 0 1 MOL A H 1
+HETATM 2 H H . MOL A 1 1 ? 1 0 0 1.0 0 1 MOL A H 1
+HETATM 3 C C1 A MOL A 1 1 ? 2 0 0 0.8 0 1 MOL A C1 1
+HETATM 4 C C1 B MOL A 1 1 ? 3 0 0 0.2 0 1 MOL A C1 1
+#
+""",
+        encoding="utf-8",
+    )
+
+    records = read_mmcif_atom_sites(source)
+    assert [record.atom_name for record in records] == ["H", "H", "C1"]
+
+
+def test_cif_duplicate_atom_names_survive_internal_pdb_and_structure_load(
+    tmp_path: Path,
+) -> None:
+    from mlmm.core.utils import prepare_input_structure
+    from mlmm.workflows.extract import load_structure
+
+    source = tmp_path / "duplicate-names.cif"
+    source.write_text(
+        """data_duplicate
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+HETATM 1 H H . MOL A 1 1 ? 0 0 0 1.0 0 1 MOL A H 1
+HETATM 2 H H . MOL A 1 1 ? 1 0 0 1.0 0 1 MOL A H 1
+HETATM 3 C C1 . MOL A 1 1 ? 2 0 0 1.0 0 1 MOL A C1 1
+#
+""",
+        encoding="utf-8",
+    )
+
+    prepared = prepare_input_structure(source)
+    try:
+        structure = load_structure(str(prepared.source_path), "duplicate")
+    finally:
+        prepared.cleanup()
+
+    atoms = list(structure.get_atoms())
+    assert len(atoms) == 3
+    assert len({atom.get_name() for atom in atoms}) == 3
+    assert [atom.xtra["mlmm_atom_site"].atom_name for atom in atoms] == ["H", "H", "C1"]
+
+
+def test_all_segment_copy_emits_registered_cif_companion(tmp_path: Path) -> None:
+    from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+    from mlmm.io.structure_formats import (
+        AtomSiteRecord,
+        CoordinateTemplate,
+        register_coordinate_template,
+        unregister_coordinate_template,
+    )
+    from mlmm.workflows.all import _copy_structures_to_seg_dir
+
+    xyz = tmp_path / "reactant.xyz"
+    xyz.write_text("1\nreactant\nC 1 2 3\n", encoding="utf-8")
+    pdb = tmp_path / "reactant.pdb"
+    pdb.write_text(
+        "HETATM    1  C1  MOL A   1       1.000   2.000   3.000  1.00  0.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    record = AtomSiteRecord(
+        group_pdb="HETATM",
+        element="C",
+        atom_name="C1",
+        altloc="",
+        resname="MOL",
+        chain_id="LONG_CHAIN",
+        resseq="10001",
+        icode="",
+        occupancy=1.0,
+        bfactor=0.0,
+        x=1.0,
+        y=2.0,
+        z=3.0,
+    )
+    template = CoordinateTemplate((record,), tmp_path / "input.cif", "mmcif", "test")
+    register_coordinate_template(pdb, template)
+    try:
+        seg_dir = _copy_structures_to_seg_dir(
+            {"R": xyz}, tmp_path / "out", 1, ".cif"
+        )
+        out_pdb = seg_dir / "reactant.pdb"
+        out_cif = seg_dir / "reactant.cif"
+        assert out_pdb.exists()
+        assert out_cif.exists()
+        data = MMCIF2Dict(str(out_cif))
+        assert data["_atom_site.auth_asym_id"] == ["LONG_CHAIN"]
+        assert data["_atom_site.auth_seq_id"] == ["10001"]
+    finally:
+        unregister_coordinate_template(pdb)
+        unregister_coordinate_template(tmp_path / "out" / "segments" / "seg_01" / "reactant.pdb")
+
+
+def test_extract_cif_accepts_chain_resname_and_emits_cif(tmp_path: Path) -> None:
+    from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+    from mlmm.workflows.extract import extract_api
+
+    source = tmp_path / "complex.cif"
+    _write_minimal_cif(source)
+    out_pdb = tmp_path / "new" / "nested" / "model.pdb"
+    result = extract_api(
+        complex_pdb=[str(source)],
+        center="LONG_CHAIN:SAM",
+        output=[str(out_pdb)],
+        radius=0.1,
+        include_h2o=False,
+        add_linkh=False,
+    )
+
+    out_cif = out_pdb.with_suffix(".cif")
+    assert out_pdb.exists()
+    assert out_cif.exists()
+    assert str(out_cif) in result["outputs"]
+    data = MMCIF2Dict(str(out_cif))
+    assert data["_atom_site.auth_asym_id"] == ["LONG_CHAIN", "LONG_CHAIN"]
+    assert data["_atom_site.auth_seq_id"] == ["10001", "10001"]
+
+
+def test_extract_multi_input_creates_nested_output_directories(tmp_path: Path) -> None:
+    from mlmm.workflows.extract import extract_api
+
+    source = tmp_path / "complex.cif"
+    _write_minimal_cif(source)
+    first = tmp_path / "per_file" / "a" / "model_a.pdb"
+    second = tmp_path / "per_file" / "b" / "model_b.pdb"
+    extract_api(
+        complex_pdb=[str(source), str(source)],
+        center="LONG_CHAIN:SAM",
+        output=[str(first), str(second)],
+        radius=0.1,
+        include_h2o=False,
+        add_linkh=False,
+    )
+    assert first.exists()
+    assert second.exists()
+
+    combined = tmp_path / "combined" / "nested" / "models.pdb"
+    extract_api(
+        complex_pdb=[str(source), str(source)],
+        center="LONG_CHAIN:SAM",
+        output=[str(combined)],
+        radius=0.1,
+        include_h2o=False,
+        add_linkh=False,
+    )
+    assert combined.exists()
+    assert combined.read_text().count("MODEL") == 2
+
+
+def test_define_layer_matches_cif_author_identifiers_and_emits_cif(
+    tmp_path: Path,
+) -> None:
+    from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+    from mlmm.workflows.define_layer import define_layers
+
+    full = tmp_path / "full.cif"
+    model = tmp_path / "model.cif"
+    _write_minimal_cif(full)
+    model.write_text(
+        full.read_text(encoding="utf-8").replace(
+            "HETATM 2 O O1 . SAM LONG_CHAIN 1 . ? 1.0 1.0 2.0 1.00 13.0 . 10001 SAM LONG_CHAIN O1 1\n",
+            "",
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "layered.pdb"
+
+    layers = define_layers(full, out, model_pdb=model)
+
+    assert layers["ml_indices"] == [0]
+    data = MMCIF2Dict(str(out.with_suffix(".cif")))
+    assert data["_atom_site.auth_asym_id"] == ["LONG_CHAIN", "LONG_CHAIN"]
+    assert data["_atom_site.auth_seq_id"] == ["10001", "10001"]
+    assert data["_atom_site.B_iso_or_equiv"] == ["0.00", "10.00"]
+
+
+def test_define_layer_accepts_extracted_internal_model_pdb(tmp_path: Path) -> None:
+    from mlmm.core.utils import prepare_input_structure
+    from mlmm.workflows.define_layer import define_layers
+
+    full = tmp_path / "full.cif"
+    _write_minimal_cif(full)
+    prepared = prepare_input_structure(full)
+    try:
+        first_atom = next(
+            line
+            for line in prepared.source_path.read_text(encoding="utf-8").splitlines()
+            if line.startswith(("ATOM", "HETATM"))
+        )
+        model = tmp_path / "extracted-model.pdb"
+        model.write_text(first_atom + "\nEND\n", encoding="utf-8")
+        layers = define_layers(full, tmp_path / "layered.pdb", model_pdb=model)
+    finally:
+        prepared.cleanup()
+
+    assert layers["ml_indices"] == [0]
+
+
+def test_parm_topology_order_validator_rejects_count_and_element_mismatch() -> None:
+    from types import SimpleNamespace
+
+    from mlmm.backends.mlmm_calc import validate_parmed_atom_order
+
+    def structure(*atomic_numbers):
+        return SimpleNamespace(
+            atoms=[SimpleNamespace(atomic_number=value) for value in atomic_numbers]
+        )
+
+    with pytest.raises(ValueError, match="Atom-count mismatch"):
+        validate_parmed_atom_order(structure(6), structure(6, 1))
+    with pytest.raises(ValueError, match="Atom-order mismatch.*atom 2"):
+        validate_parmed_atom_order(structure(6, 8), structure(6, 7))
+    validate_parmed_atom_order(structure(6, 0), structure(6, 1))
+
+
+def test_annotated_conversion_emits_one_final_cif(tmp_path: Path, monkeypatch) -> None:
+    from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+    from mlmm.core import utils as core_utils
+    from mlmm.io import structure_formats
+
+    source = tmp_path / "input.cif"
+    _write_minimal_cif(source)
+    xyz = tmp_path / "trajectory.xyz"
+    xyz.write_text(
+        "2\nframe\nC 3.12345 4.0 5.0\nO 6.54321 7.0 8.0\n",
+        encoding="utf-8",
+    )
+    prepared = core_utils.prepare_input_structure(source)
+    try:
+        atom_line = next(
+            line
+            for line in prepared.source_path.read_text(encoding="utf-8").splitlines()
+            if line.startswith(("ATOM", "HETATM"))
+        )
+        model = tmp_path / "model.pdb"
+        model.write_text(atom_line + "\nEND\n", encoding="utf-8")
+        out_pdb = tmp_path / "annotated.pdb"
+
+        writes = 0
+        original_writer = structure_formats.write_mmcif_frames
+
+        def counted_writer(*args, **kwargs):
+            nonlocal writes
+            writes += 1
+            return original_writer(*args, **kwargs)
+
+        monkeypatch.setattr(structure_formats, "write_mmcif_frames", counted_writer)
+        core_utils.convert_and_annotate_xyz_to_pdb(
+            xyz,
+            prepared.source_path,
+            out_pdb,
+            model,
+            freeze_indices_0based=[1],
+        )
+
+        assert writes == 1
+        data = MMCIF2Dict(str(out_pdb.with_suffix(".cif")))
+        assert data["_atom_site.B_iso_or_equiv"] == ["0.00", "20.00"]
+        assert np.allclose(
+            [float(value) for value in data["_atom_site.Cartn_x"]],
+            [3.12345, 6.54321],
+        )
+    finally:
+        prepared.cleanup()

@@ -110,10 +110,9 @@ def apply_workers_to_calc_cfg(
 
     Mutates ``calc_cfg`` in place. Unlike ``--precision`` these are real
     Calculator kwargs, so they simply override the CALC_KW / YAML default.
-    When ``workers > 1`` the UMA backend uses ``ParallelMLIPPredictUnit``, which
-    exposes no autograd model — analytical Hessians are then impossible, so an
-    explicit ``Analytical`` request is downgraded to ``FiniteDifference`` with a
-    warning (mirrors the p2r behaviour).
+    When ``workers > 1`` the parallel predictor exposes no autograd model.
+    Because ``Analytical`` is an explicit numerical-method request, reject this
+    combination instead of silently changing it to finite differences.
     """
     if workers is not None:
         calc_cfg["workers"] = int(workers)
@@ -122,13 +121,11 @@ def apply_workers_to_calc_cfg(
     if int(calc_cfg.get("workers", 1) or 1) > 1:
         mode = str(calc_cfg.get("hessian_calc_mode", "") or "")
         if mode.lower().startswith("anal"):
-            warnings.warn(
-                "workers>1 uses the parallel MLIP predictor (no autograd model); "
-                "analytical Hessians are unavailable. Forcing "
-                "hessian_calc_mode='FiniteDifference'.",
-                stacklevel=2,
+            raise ValueError(
+                "Analytical Hessian cannot be combined with workers>1: the "
+                "parallel predictor exposes no autograd model. Use workers=1 "
+                "or select hessian_calc_mode='FiniteDifference'."
             )
-            calc_cfg["hessian_calc_mode"] = "FiniteDifference"
 
 
 def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[str] = None) -> None:

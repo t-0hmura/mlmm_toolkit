@@ -104,8 +104,8 @@ mlmm:
 
 ### ML Hessianモード
 
-- `"Analytical"`: 選択されたデバイスでの 2 次自動微分。**UMA バックエンドでのみ使用可能**。
-- `"FiniteDifference"`: 力の中心差分。**ORB、MACE、AIMNet2** バックエンドで使用（VRAM が限られている場合は UMA でも使用可能）。
+- `"Analytical"`: UMA、ORB、MACE、AIMNet2 の自動微分またはネイティブ Hessian 経路。必要な API がない場合は暗黙に計算法を変えずエラーになります。
+- `"FiniteDifference"`: 力の中心差分。全 MLIP バックエンドで使用可能です。
 
 ## 入力
 

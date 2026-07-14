@@ -26,7 +26,7 @@ Each row points to the full per-subcommand md in this skill directory.
 | `tsopt.md` | `tsopt` | TS optimization: default RS-I-RFO (`--opt-mode hess/rsirfo`); Hessian-Guided Dimer is the lighter alternative (`--opt-mode grad/dimer`). |
 | `freq.md` | `freq` | Vibrational analysis: Hessian, frequencies, normal-mode visualization, QRRHO thermochemistry.<br>Default temperature/pressure 298.15 K / 1 atm; partial-Hessian variant when `freeze_atoms` is non-empty. |
 | `sp.md` | `sp` | ONIOM single-point energy + forces (and optional Hessian).<br>Cheapest stage; useful for spot-checking a geometry without running an optimization. |
-| `irc.md` | `irc` | IRC integration with EulerPC in mass-weighted Cartesians.<br>Forward + backward from a TS, plus LBFGS optimization of each endpoint. |
+| `irc.md` | `irc` | IRC integration with EulerPC in mass-weighted Cartesians.<br>Writes raw forward/backward endpoints; optimize them separately with `opt` or through `all`. |
 | `dft.md` | `dft` | Single-point DFT through PySCF (CPU) or GPU4PySCF (CUDA, x86_64).<br>`--engine gpu` is the default; if the GPU backend is unavailable it raises an error — select CPU explicitly with `--engine cpu`. |
 | `scan.md` | `scan` | 1D distance scan with harmonic restraints to seed a path search.<br>Useful when neither endpoint nor TS guess is available — drives the bond manually. |
 | `scan2d.md` | `scan2d` | 2D analog of `scan` with two restrained distances.<br>Generates a grid; mlmm interpolates the MEP through the grid minima. |
@@ -58,11 +58,13 @@ These flags appear on most subcommands (canonical list:
 
 | Flag | Meaning |
 |---|---|
-| `-i, --input` | Input file(s); accepts `.pdb`, `.xyz`, `.gjf` |
+| `-i, --input` | Input file(s); calculation workflows use `.pdb` / `.xyz` (Gaussian/ORCA input belongs to `oniom-import`) |
 | `-q, --charge` | Total charge (integer) |
 | `-l, --ligand-charge` | `'RES1:Q1,RES2:Q2'` per-residue mapping (PDB inputs) |
 | `-m, --multiplicity` | Spin multiplicity (2S+1), default 1 |
 | `-b, --backend` | MLIP backend: `uma` / `orb` / `mace` / `aimnet2` |
+| `--precision` | Unset defaults by backend: UMA/AIMNet2 fp32; ORB/MACE fp64 |
+| `--workers` | UMA predictor workers; `>1` is incompatible with an analytical Hessian |
 | `-o, --out-dir` | Output directory, subcommand-specific default |
 | `--config` | YAML configuration file applied before CLI flags |
 | `--show-config` | Print resolved merged config, then continue execution |
@@ -126,6 +128,7 @@ mlmm bond-summary -i reactant.pdb product.pdb
 | `--config` YAML ignored | YAML is read **after** built-in defaults but **before** explicit CLI flags. Anything also given on CLI overrides YAML. |
 | `--help-advanced` flags differ between versions | They are subject to change; if a flag isn't in `--help`, check `--help-advanced` and version-pin if the workflow is shared. |
 | OOM on the Hessian step | If `hessian_calc_mode='Analytical'` was enabled, switch back to the default `'FiniteDifference'` (FD is bounded by a single energy/force evaluation; autograd retains $O(N \cdot D)$ activations across $3N$ backward passes). Also try `return_partial_hessian=True` or downgrade backend (UMA-m → UMA-s). |
+| `workers > 1` with `Analytical` | This is an intentional hard error. Use one UMA worker for an analytical Hessian, or request `FiniteDifference` before enabling the parallel predictor. |
 
 ## Defaults
 

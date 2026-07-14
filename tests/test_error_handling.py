@@ -50,6 +50,18 @@ def test_collect_single_option_values_rejects_repeated_flags():
         collect_single_option_values(argv, ("-i", "--input"), label="-i/--input")
 
 
+def test_collect_option_values_accepts_grouped_and_repeated_flags():
+    from mlmm.core.utils import collect_option_values
+
+    argv = ["-i", "a.pdb", "b.cif", "--output", "x.pdb", "-i", "c.pdb"]
+    assert collect_option_values(argv, ("-i", "--input")) == [
+        "a.pdb",
+        "b.cif",
+        "c.pdb",
+    ]
+    assert collect_option_values(argv, ("-o", "--output")) == ["x.pdb"]
+
+
 def test_load_structure_rejects_missing_input_file(tmp_path: Path):
     from mlmm.workflows.extract import load_structure
 
@@ -62,7 +74,7 @@ def test_resolve_atom_spec_index_rejects_invalid_token_count():
     from mlmm.core.utils import resolve_atom_spec_index
 
     atom_meta = [{"resname": "ALA", "resseq": 1, "name": "CA"}]
-    with pytest.raises(ValueError, match="exactly 3 fields"):
+    with pytest.raises(ValueError, match="must have 3 fields.*or 4 fields"):
         resolve_atom_spec_index("ALA-1-CA", atom_meta)
 
 

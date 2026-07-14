@@ -44,7 +44,7 @@ python -c "import importlib.metadata as m; print(m.metadata('mlmm-toolkit').get_
 ## Install from source (development)
 
 ```bash
-git clone <repo-url-from-the-toolkit-README> mlmm
+git clone https://github.com/t-0hmura/mlmm_toolkit.git mlmm
 cd mlmm
 pip install -e '.[orb,aimnet,dft]'
 ```

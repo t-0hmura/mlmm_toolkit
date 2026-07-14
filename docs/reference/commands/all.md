@@ -6,7 +6,7 @@ Usage: mlmm all [OPTIONS]
   Run pocket extraction → (optional single-structure staged scan) → MEP search
   in one shot. If exactly one input is provided: (a) with --scan-lists, stage
   results feed into path-opt (or path_search with --refine-path); (b) with
-  --tsopt True and no --scan-lists, run TSOPT-only mode.
+  --tsopt and no --scan-lists, run TSOPT-only mode.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
@@ -16,12 +16,13 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Two or more **full** PDBs in reaction order
-                                  (reactant [intermediates ...] product), or a
-                                  single **full** PDB (with --scan-lists or with
-                                  --tsopt True). You may pass a single '-i'
+  -i, --input FILE                Two or more full PDB/mmCIF structures in
+                                  reaction order (reactant [intermediates ...]
+                                  product), or one full structure with --scan-
+                                  lists or --tsopt. A single '-i' may be
                                   followed by multiple space-separated files
-                                  (e.g., '-i A.pdb B.pdb C.pdb').  [required]
+                                  (for example, '-i A.pdb B.pdb C.pdb').
+                                  [required]
   -c, --center TEXT               Substrate specification for the extractor: a
                                   PDB path, a residue-ID list like '123,124' or
                                   'A:123,B:456' (insertion codes OK: '123A' /
@@ -34,13 +35,15 @@ Options:
                                   [default: 2.6]
   --radius-het2het FLOAT          Independent hetero–hetero cutoff (Å) for
                                   non‑C/H pairs.  [default: 0.0]
-  --include-h2o BOOLEAN           Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL)
-                                  in the pocket.  [default: True]
-  --exclude-backbone BOOLEAN      Remove backbone atoms on non‑substrate amino
+  --include-h2o / --no-include-h2o
+                                  Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL)
+                                  in the pocket.  [default: include-h2o]
+  --exclude-backbone / --no-exclude-backbone
+                                  Remove backbone atoms on non‑substrate amino
                                   acids (with PRO/HYP safeguards).  [default:
-                                  False]
-  --add-linkh BOOLEAN             Add link hydrogens for severed bonds (carbon-
-                                  only) in pockets.  [default: False]
+                                  no-exclude-backbone]
+  --add-linkh / --no-add-linkh    Add link hydrogens for severed bonds (carbon-
+                                  only) in pockets.  [default: no-add-linkh]
   --selected-resn TEXT            Force-include residues (comma/space separated;
                                   chain/insertion codes allowed).  [default: ""]
   --modified-residue TEXT         Comma-separated residue names (with optional
@@ -72,14 +75,19 @@ Options:
                                   (e.g., 'GPP:2,SAM:1'). If omitted, mm_parm
                                   defaults to 1 for all ligands.
   -m, --multiplicity INTEGER      Multiplicity (2S+1).  [default: 1]
+  --tr-projection [constrained|legacy-active]
+                                  Rigid translation/rotation treatment forwarded
+                                  to TSopt, IRC, freq, and flatten PHVA. The
+                                  default respects frozen anchors.  [default:
+                                  constrained]
   --max-nodes INTEGER             Max internal nodes for **segment** GSM (String
                                   has max_nodes+2 images including endpoints).
                                   [default: 20]
   --max-cycles INTEGER            Maximum GSM optimization cycles.  [default:
                                   300]
-  --climb BOOLEAN                 Enable transition-state climbing after growth
+  --climb / --no-climb            Enable transition-state climbing after growth
                                   for the **first** segment in each pair.
-                                  [default: True]
+                                  [default: climb]
   --opt-mode [grad|hess]          Optimizer mode forwarded to scan/path-search
                                   and used for single optimizations: grad
                                   (=LBFGS/Dimer) or hess (=RFO/RSIRFO).
@@ -87,9 +95,9 @@ Options:
   --opt-mode-post [grad|hess]     Optimizer mode for TSOPT and post-IRC endpoint
                                   optimizations. Takes precedence over --opt-
                                   mode for these stages.  [default: hess]
-  --dump BOOLEAN                  Dump GSM / single-structure trajectories
+  --dump / --no-dump              Dump GSM / single-structure trajectories
                                   during the run, forwarding the same flag to
-                                  scan/tsopt/freq.  [default: False]
+                                  scan/tsopt/freq.  [default: no-dump]
   --refine-path / --no-refine-path
                                   If False (default), run a single-pass path-opt
                                   GSM between each adjacent pair and concatenate
@@ -110,12 +118,12 @@ Options:
   --show-config / --no-show-config
                                   Print resolved configuration and continue
                                   execution.  [default: no-show-config]
-  --dry-run / --no-dry-run        Validate options and print the execution plan
-                                  without running any stage.  [default: no-dry-
-                                  run]
-  --preopt BOOLEAN                If True, run initial single-structure
-                                  optimizations of the pocket inputs.  [default:
-                                  True]
+  --dry-run / --no-dry-run        Run input preparation and preflight checks in
+                                  a temporary directory, print the execution
+                                  plan, and skip calculation stages.  [default:
+                                  no-dry-run]
+  --preopt / --no-preopt          Run initial single-structure optimizations of
+                                  the pocket inputs.  [default: preopt]
   --hessian-calc-mode [analytical|finitedifference]
                                   Common MLIP Hessian calculation mode forwarded
                                   to tsopt and freq. Default:
@@ -127,22 +135,27 @@ Options:
                                   downstream tools. If disabled, downstream
                                   tools require --model-pdb or --model-indices.
                                   [default: detect-layer]
-  --tsopt BOOLEAN                 TS optimization + EulerPC IRC per reactive
+  --tsopt / --no-tsopt            TS optimization + EulerPC IRC per reactive
                                   segment (or TSOPT-only mode for single-
                                   structure), and build energy diagrams.
-                                  [default: False]
-  --thermo BOOLEAN                Run freq on (R,TS,P) per reactive segment (or
+                                  [default: no-tsopt]
+  --thermo / --no-thermo          Run freq on (R,TS,P) per reactive segment (or
                                   TSOPT-only mode) and build Gibbs free-energy
-                                  diagram (MLIP).  [default: False]
-  --dft BOOLEAN                   Run DFT single-point on (R,TS,P) and build DFT
-                                  energy diagram. With --thermo True, also
+                                  diagram (MLIP).  [default: no-thermo]
+  --dft / --no-dft                Run DFT single-point on (R,TS,P) and build a
+                                  DFT energy diagram. With --thermo, also
                                   generate a DFT//MLIP Gibbs diagram.  [default:
-                                  False]
+                                  no-dft]
   --tsopt-max-cycles INTEGER      Override tsopt --max-cycles value.
   --flatten / --no-flatten        Enable the extra-imaginary-mode flattening
                                   loop in tsopt (grad: dimer loop, hess: post-
                                   RSIRFO); --no-flatten forces
                                   flatten_max_iter=0.  [default: no-flatten]
+  --irc-never-stop / --no-irc-never-stop
+                                  Forward IRC never-stop mode to every post-TS
+                                  IRC. It ignores energy-rise/plateau stops but
+                                  retains physical/integrator stops; default
+                                  follows irc.never_stop (off).
   --skip-final-freq / --no-skip-final-freq
                                   Skip post-convergence frequency analysis in
                                   tsopt. Useful for large unfrozen systems.
@@ -175,15 +188,18 @@ Options:
   --scan-out-dir DIRECTORY        Override the scan output directory (default:
                                   <out-dir>/scan/). Relative paths are resolved
                                   against the default parent.
-  --scan-one-based BOOLEAN        Override scan indexing interpretation (True =
-                                  1-based, False = 0-based).
+  --scan-one-based / --scan-zero-based
+                                  Override scan indexing interpretation (one-
+                                  based or zero-based).
   --scan-max-step-size FLOAT      Override scan --max-step-size (Å).
   --scan-bias-k FLOAT             Override scan harmonic bias strength k
                                   (eV/Å^2).
   --scan-relax-max-cycles INTEGER
                                   Override scan relaxation max cycles per step.
-  --scan-preopt BOOLEAN           Override scan --preopt flag.
-  --scan-endopt BOOLEAN           Override scan --endopt flag.
+  --scan-preopt / --no-scan-preopt
+                                  Override scan --preopt flag.
+  --scan-endopt / --no-scan-endopt
+                                  Override scan --endopt flag.
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs to PDB format using
                                   reference topology; forwarded to all
@@ -227,8 +243,8 @@ Options:
                                   rejected.
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
-                                  analytical Hessian is then unavailable (auto-
-                                  downgraded to FiniteDifference). Default 1.
+                                  combining it with an analytical Hessian is an
+                                  error. Default 1.
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
                                   predictor is used (--workers > 1).
   --backend-model TEXT            Model variant for the selected --backend (e.g.
@@ -242,8 +258,8 @@ Options:
                                   / any ASE engine. See --calc-factory.
   --calc-factory TEXT             Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
-                                  Calculator instance).  [default:
-                                  get_calculator]
+                                  Calculator instance). CLI overrides config
+                                  YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
                                   Strict bit-reproducible GPU runs
                                   (deterministic algorithms + index_reduce_

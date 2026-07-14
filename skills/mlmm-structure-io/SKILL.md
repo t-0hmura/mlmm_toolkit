@@ -1,23 +1,24 @@
 ---
 name: mlmm-structure-io
-description: PDB / XYZ / GJF / Amber parm7+rst7 input-file reference for mlmm-toolkit, plus the charge / multiplicity decision workflow and the B-factor layer encoding (ML=0 / movable-MM=10 / frozen-MM=20) that defines a three-layer ONIOM system from a single prepared PDB. TRIGGER on editing or inspecting a structure file, deciding `-q` / `-l` / `-m`, interpreting residue / charge / spin in an input, or assigning B-factor layers. SKIP for subcommand syntax, output parsing, install, or HPC questions.
+description: PDB, mmCIF, XYZ, GJF, and Amber parm7/rst7 input guidance for mlmm-toolkit, including large residue IDs, exact chain/residue/insertion selectors, topology atom-order checks, charge/multiplicity decisions, and B-factor layer encoding (ML=0 / movable-MM=10 / frozen-MM=20). Use when inspecting or preparing structures, choosing `-q` / `-l` / `-m`, building a `model.pdb`, assigning layers, or diagnosing coordinate/topology identity mismatches. Skip for subcommand syntax, output parsing, installation, or HPC questions.
 ---
 
 # mlmm-toolkit Structure I/O
 
 ## Purpose
 
-`mlmm-toolkit` reads four formats; each carries different information
+`mlmm-toolkit` reads five structure/topology formats; each carries different information
 and is preferred for different stages:
 
 | Format | Carries | Preferred for |
 |---|---|---|
 | **PDB** | atom name, residue, chain, occupancy, **B-factor (layer label)**, element | Initial input; B-factor encodes ML / movable-MM / frozen layer |
+| **mmCIF** | PDB metadata without one-character/four-digit identifier limits | Multi-character chains, residue IDs ≥10,000, oversized PDB round-trip |
 | **XYZ** | element + Cartesian coordinates only | Trajectories, post-IRC outputs, single-stage exchange between subcommands |
 | **GJF** | element + coords + charge / spin / route line | Round-tripping with Gaussian; `mlmm oniom-{export,import}` |
 | **parm7 / rst7** | Amber topology + coordinate pair | MM region force-field parameters; output of `mlmm mm-parm` |
 
-PDB / XYZ / GJF use Å for coordinates and conventional element symbols.
+PDB / mmCIF / XYZ / GJF use Å for coordinates and conventional element symbols.
 `parm7` is the Amber topology format (text but byte-aligned).
 
 Per-format details:
@@ -25,6 +26,7 @@ Per-format details:
 | File | Topic |
 |---|---|
 | `pdb.md` | PDB column-by-column layout, residue selectors, **B-factor layer encoding (0.0=ML / 10.0=movable-MM / 20.0=frozen)**, link-H placement |
+| `cif.md` | mmCIF/oversized-PDB bridge, original-ID restoration, exact selectors, limits |
 | `xyz.md` | XYZ format, ASE extension comment line |
 | `gjf.md` | Gaussian gjf header (`%link0 → route → charge spin → coords`) |
 | `parm7.md` | Amber `parm7` topology + `rst7` coordinates (mlmm-specific) |
@@ -34,11 +36,11 @@ Per-format details:
 
 ```
 Is the input the full enzyme + parm7 you'll run ML/MM on?
-  └── PDB (full enzyme, with B-factor layer assignment) + parm7
-      → all of opt / tsopt / scan / path-search / freq / irc / dft
+  └── PDB or mmCIF (full enzyme, with B-factor layer assignment) + parm7
+      → opt / tsopt / scans / path commands / freq / irc / dft / all
 
 Is the input a single TS candidate to validate?
-  └── XYZ + --ref-pdb (full enzyme PDB) + --parm
+  └── XYZ + --ref-pdb (full enzyme PDB/mmCIF) + --parm
       → tsopt / freq / irc / all (TS-only mode)
 
 Is the input a Gaussian g16 ONIOM input you want to import?
@@ -57,7 +59,7 @@ Most subcommands take `--parm FILE` (the parm7) plus one of:
 - `--model-pdb FILE` — explicit ML-region PDB
 - `--model-indices '1-50,75,100-110'` — explicit atom-index list
 
-When `-i` is XYZ, also pass `--ref-pdb` so atom ordering and residue
+When `-i` is XYZ, also pass a PDB/mmCIF to `--ref-pdb` so atom ordering and residue
 context are recoverable.
 
 ## Editing approach (agent-side)
@@ -78,18 +80,16 @@ When an agent must edit a structure file:
 
 ## Subcommand × format compatibility
 
-| Subcommand | PDB | XYZ | GJF | parm7 |
+| Subcommand | PDB/mmCIF | XYZ | GJF | parm7 |
 |---|---|---|---|---|
-| `extract` | ✓ (in/out) | — | — | — |
-| `mm-parm` | ✓ (in) | — | — | ✓ (out) |
-| `define-layer` | ✓ (in/out) | — | — | — |
-| `path-search` / `path-opt` | ✓ | ✓ | ✓ | ✓ |
-| `opt` / `tsopt` / `freq` / `irc` | ✓ | ✓ | ✓ | ✓ |
-| `dft` | ✓ | ✓ | ✓ | ✓ |
-| `scan` / `scan2d` / `scan3d` | ✓ | ✓ (with `--ref-pdb`) | — | ✓ |
-| `oniom-export` | ✓ (in) | ✓ (in) | ✓ (out) | ✓ (in) |
-| `oniom-import` | ✓ (out) | — | ✓ (in) | — |
-| `bond-summary` | ✓ | ✓ | ✓ | — |
+| `extract` | ✓ (in/out; CIF companion) | — | — | — |
+| `mm-parm` | PDB input | — | — | ✓ (out) |
+| `define-layer` | ✓ (in/out; CIF companion) | — | — | — |
+| `path-search` / `path-opt` | ✓ | ✓ with `--ref-pdb` | — | required |
+| `sp` / `opt` / `tsopt` / `freq` / `irc` / `dft` | ✓ | ✓ with `--ref-pdb` | — | required |
+| `scan` / `scan2d` / `scan3d` | ✓ | ✓ with `--ref-pdb` | — | required |
+| `oniom-export` | PDB input | ✓ (in) | ✓ (out) | required |
+| `oniom-import` | PDB (out) | XYZ (out) | ✓ (in) | — |
 
 ## Quick reference
 
@@ -124,7 +124,7 @@ Full byte-by-byte / per-keyword detail in the per-format mds.
 - `-m 1` (singlet, closed shell) is the default for almost every
   organic / biological / metal-coordination cluster.
 - Use `-m 2` for radicals, `-m 3+` for unusual high-spin metals.
-- `-q` is the **ML region** charge. `-l 'RES:Q'` derives `-q` from
+- `-q` is the **ML region** charge. `-l 'RES:Q'` derives it from
   per-residue charges + `mlmm`'s internal amino-acid table.
 - For XYZ inputs (no header), `-q` and `-m` must be on the CLI.
 
@@ -136,4 +136,4 @@ If unsure about charge or spin, do **not** guess silently — follow
 - `mlmm-cli/extract.md`, `mm-parm.md`, `define-layer.md` — pre-pipeline.
 - `mlmm-cli/SKILL.md` — common flag conventions across subcommands.
 - `mlmm-workflows-output/SKILL.md` — what comes out of the pipeline
-  (XYZ / PDB).
+  (XYZ / PDB / CIF).

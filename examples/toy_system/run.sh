@@ -1,7 +1,7 @@
 # mlmm toy system examples — GPU required
 
 # test1: extract
-mlmm extract -i r_complex.pdb -c PRE -r 5.0 --exclude-backbone False --ligand-charge 'PRE:0' -o pocket_r.pdb > test1.out 2>&1
+mlmm extract -i r_complex.pdb -c PRE -r 5.0 --ligand-charge 'PRE:0' -o pocket_r.pdb > test1.out 2>&1
 
 # test2: define-layer
 mlmm define-layer -i r_complex.pdb --model-pdb pocket_r.pdb --radius-freeze 8.0 -o r_complex_layered.pdb > test2.out 2>&1

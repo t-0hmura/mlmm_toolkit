@@ -13,9 +13,10 @@ Options:
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Input PDB file containing the full system.
-                                  [required]
-  --model-pdb FILE                PDB file defining atoms in the ML region.
+  -i, --input FILE                Input PDB or mmCIF file containing the full
+                                  system.  [required]
+  --model-pdb FILE                PDB or mmCIF file defining atoms in the ML
+                                  region.
   --model-indices TEXT            Comma-separated atom indices for ML region
                                   (e.g., '1,2,3,4' or '1-10,15,20-25'). Takes
                                   precedence over --model-pdb.

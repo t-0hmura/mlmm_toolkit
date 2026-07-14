@@ -457,7 +457,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（デフォルト: 無効） |
 | `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（LBFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian計算モード。`Analytical` は UMA バックエンドで利用可能（VRAM に余裕がある場合推奨）。他のバックエンドは `FiniteDifference` を使用 |
+| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--workers > 1` とは併用不可。 |
 
 DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `path-opt`（`--mep-mode dmf`）でのみ選択できます。`mlmm all` は常に GSM を使用し、`mlmm all` に `--mep-mode` を渡しても警告なく無視されます。
 
@@ -506,7 +506,7 @@ DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `pat
 | `fix-altloc` | PDB の代替位置標識（altLoc）を除去 | [fix_altloc](fix-altloc.md) |
 
 ```{tip}
-`all`、`tsopt`、`freq`、`irc` では、VRAM に余裕がある場合 **`--hessian-calc-mode Analytical`**（ML 領域用）の使用を強く推奨します。`Analytical` モードは UMA バックエンドでのみ利用可能で、他のバックエンドは自動的に `FiniteDifference` を使用します。
+`all`、`tsopt`、`freq`、`irc` では、VRAM に余裕がある場合 **`--hessian-calc-mode Analytical`**（ML 領域用）を使用できます。UMA、ORB、MACE、AIMNet2 が対応しますが、`--workers > 1` と同時に指定するとエラーになります。
 ```
 
 ---

@@ -1,0 +1,130 @@
+"""Summary-status and MLIP provenance regression tests."""
+
+from __future__ import annotations
+
+from mlmm.workflows.all import (
+    _derive_pipeline_status,
+    _enrich_summary,
+    _resolve_mlip_provenance,
+    _validate_tsopt_result_payload,
+)
+import pytest
+
+
+def test_resolved_mlip_provenance_uses_backend_defaults() -> None:
+    assert _resolve_mlip_provenance(
+        backend="orb",
+        backend_model=None,
+        calc_file=None,
+        calc_factory="get_calculator",
+    ) == ("orb", "orb_v3_conservative_omol")
+    assert _resolve_mlip_provenance(
+        backend=None,
+        backend_model=None,
+        calc_file="/tmp/custom_calc.py",
+        calc_factory="make_calc",
+    ) == ("custom", "custom_calc.py:make_calc")
+
+
+def test_resolved_mlip_provenance_uses_yaml_custom_calculator() -> None:
+    assert _resolve_mlip_provenance(
+        backend=None,
+        backend_model=None,
+        calc_file=None,
+        calc_factory=None,
+        merged_yaml_cfg={
+            "calc": {"calc_file": "/tmp/custom.py", "calc_factory": "build"}
+        },
+    ) == ("custom", "custom.py:build")
+
+
+def test_resolved_mlip_provenance_defaults_custom_factory() -> None:
+    assert _resolve_mlip_provenance(
+        backend=None,
+        backend_model=None,
+        calc_file="/tmp/custom.py",
+        calc_factory=None,
+    ) == ("custom", "custom.py:get_calculator")
+
+
+def test_pipeline_status_rejects_zero_imaginary_modes() -> None:
+    status, reasons = _derive_pipeline_status(
+        {"segments": [{"index": 1}], "energy_diagrams": [{"name": "MEP"}]},
+        post_segments=[
+            {
+                "index": 1,
+                "mlip": {"barrier_kcal": 10.0},
+                "gibbs_mlip": {"barrier_kcal": 9.0},
+                "irc_traj": "irc.xyz",
+                "ts_imag": {"n_imag": 0},
+            }
+        ],
+        config={"tsopt": True, "thermo": True, "dft": False},
+    )
+
+    assert status == "partial"
+    assert any("n_imag=0" in reason for reason in reasons)
+
+
+@pytest.mark.parametrize("n_imag", [0, 2])
+def test_all_stops_before_irc_for_wrong_saddle_order(n_imag: int) -> None:
+    with pytest.raises(Exception, match="IRC was not started"):
+        _validate_tsopt_result_payload(
+            {"status": "not_converged", "n_imaginary_modes": n_imag},
+            skip_final_freq=False,
+        )
+
+
+def test_all_allows_only_explicitly_unverified_skip() -> None:
+    _validate_tsopt_result_payload(
+        {"status": "unverified", "n_imaginary_modes": None},
+        skip_final_freq=True,
+    )
+    with pytest.raises(Exception, match="IRC was not started"):
+        _validate_tsopt_result_payload(
+            {"status": "unverified", "n_imaginary_modes": None},
+            skip_final_freq=False,
+        )
+
+
+def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
+    summary = {
+        "out_dir": str(tmp_path / "_work"),
+        "segments": [{"index": 1, "kind": "seg", "barrier_kcal": 5.0}],
+        "energy_diagrams": [
+            {
+                "name": "energy_diagram_MLIP_all",
+                "energies_kcal": [0.0, 12.0, -1.0],
+            }
+        ],
+    }
+    post = [
+        {
+            "index": 1,
+            "mlip": {"barrier_kcal": 12.0},
+            "irc_traj": "irc.xyz",
+            "ts_imag": {"n_imag": 1},
+        }
+    ]
+    _enrich_summary(
+        summary,
+        version="",
+        pipeline_mode="path-opt",
+        mlip_backend="orb",
+        mlip_model="orb_v3_conservative_omol",
+        charge=0,
+        spin=1,
+        post_segments=post,
+        config={"tsopt": True, "thermo": False, "dft": False},
+        out_dir=tmp_path,
+    )
+
+    assert summary["status"] == "success"
+    assert summary["rate_limiting_step"] == {
+        "segment": 1,
+        "barrier_kcal": 12.0,
+        "method": "MLIP",
+        "mep_barrier_kcal": 5.0,
+    }
+    assert summary["mlip_backend"] == "orb"
+    assert summary["mlip_model"] == "orb_v3_conservative_omol"

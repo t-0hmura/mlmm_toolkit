@@ -297,7 +297,6 @@ class DefaultGroup(click.Group):
             set_console_gating(False)
         return result
 
-    # DO NOT INLINE: this call must run AFTER lazy subcommand import (pysisyphus installs handlers on module import). Moving to module top would silence nothing.
     @staticmethod
     def _silence_pysisyphus_loggers():
         """Remove pysisyphus file handlers and suppress log output.
@@ -309,7 +308,8 @@ class DefaultGroup(click.Group):
         """
         import logging as _logging
 
-        # DO NOT INLINE: (list axis): list mirrors pysisyphus/__init__.py handler creators (no public "silence all" API; enumeration is the supported workaround).
+        # pysisyphus has no public aggregate logger, so enumerate the loggers
+        # whose handlers are installed during its module imports.
         _PYSIS_LOGGERS = (
             "pysisyphus", "calculator", "cos", "dimer", "dynamics",
             "gdiis", "internal_coords", "irc", "optimizer",

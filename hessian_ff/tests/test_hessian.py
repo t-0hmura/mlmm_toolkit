@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 import torch
 
 from hessian_ff.analytical_hessian import build_analytical_hessian

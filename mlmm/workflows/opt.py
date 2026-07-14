@@ -1,30 +1,7 @@
-"""
-ML/MM geometry optimization (LBFGS or RFO) with UMA + hessian_ff calculator.
-
-Example:
-    mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
-
-For detailed documentation, see: docs/opt.md
-
-Table of contents (top-level definitions; refresh manually after structural edits):
-    def _parse_freeze_atoms
-    def _normalize_geom_freeze
-    def _convert_yaml_layer_atoms_1to0
-    def _parse_dist_freeze_args
-    def _resolve_dist_freeze_targets
-    def _pdb_keys_from_line
-    def _collect_ml_atom_keys
-    def _format_with_bfactor
-    def _annotate_b_factors_inplace
-    def _maybe_convert_outputs_to_pdb
-    def _calc_energy
-    def _flatten_all_imag_modes_for_geom
-    def _run_microiter_opt
-    def cli
-"""
+"""ML/MM geometry optimization with L-BFGS or RFO."""
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import contextlib
 import gc
@@ -45,6 +22,7 @@ from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import ANG2BOHR, BOHR2ANG, AU2EV
+from pysisyphus.tr_projection import normalize_tr_projection_mode
 from mlmm.workflows.restraints import HarmonicBiasCalculator
 from pysisyphus.TablePrinter import TablePrinter
 
@@ -94,6 +72,9 @@ from mlmm.core.utils import (
     echo_resolved_device,
     emit_optimizer_terminal_status,
     optimizer_cycle_count,
+    pdb_keys_from_line as _pdb_keys_from_line,
+    collect_ml_atom_keys as _collect_ml_atom_keys,
+    format_pdb_with_bfactor as _format_with_bfactor,
 )
 from mlmm.cli.common_options import (
     add_ml_charge_spin_options,
@@ -219,57 +200,6 @@ def _resolve_dist_freeze_targets(
         resolved.append((i, j, dist))
     return resolved
 
-
-
-def _pdb_keys_from_line(line: str) -> Tuple[Tuple, Tuple]:
-    """
-    Extract robust keys from a PDB ATOM/HETATM record.
-
-    Returns:
-        key_full: (chain, resseq, icode, resname, atomname, altloc)
-        key_simple: (chain, resseq, icode, atomname)
-    """
-    atom_name = line[12:16].strip()
-    altloc = line[16:17].strip()
-    resname = line[17:20].strip()
-    chain = line[21:22].strip()
-    resseq_str = line[22:26].strip()
-    try:
-        resseq = int(resseq_str)
-    except ValueError:
-        resseq = -10**9  # unlikely sentinel when missing
-    icode = line[26:27].strip()
-    key_full = (chain, resseq, icode, resname, atom_name, altloc)
-    key_simple = (chain, resseq, icode, atom_name)
-    return key_full, key_simple
-
-
-def _collect_ml_atom_keys(model_pdb: Path) -> Tuple[Set[Tuple], Set[Tuple]]:
-    """Collect ML-region atom keys from model_pdb."""
-    keys_full: Set[Tuple] = set()
-    keys_simple: Set[Tuple] = set()
-    try:
-        with model_pdb.open("r") as fh:
-            for line in fh:
-                if line.startswith("ATOM") or line.startswith("HETATM"):
-                    kf, ks = _pdb_keys_from_line(line)
-                    keys_full.add(kf)
-                    keys_simple.add(ks)
-    except Exception:
-        logger.debug("Failed to collect ML atom keys from %s", model_pdb, exc_info=True)
-    return keys_full, keys_simple
-
-
-def _format_with_bfactor(line: str, b: float) -> str:
-    """Return PDB line with B-factor field (cols 61-66) set to b (6.2f)."""
-    if len(line) < 66:
-        line = line.rstrip("\n")
-        line = line + " " * max(0, 66 - len(line))
-        line = line + "\n"
-    bf_str = f"{b:6.2f}"
-    # Preserve occupancy (cols 55-60), overwrite tempFactor (61-66).
-    new_line = line[:60] + bf_str + line[66:]
-    return new_line
 
 
 def _annotate_b_factors_inplace(
@@ -612,7 +542,10 @@ def _run_microiter_opt(
 
     # Seed initial Hessian for RFO (with macro freeze)
     # Try IRC endpoint cache first; fall back to full Hessian calculation.
-    from mlmm.io.hessian_cache import load as _hess_load
+    from mlmm.io.hessian_cache import (
+        load as _hess_load,
+        matches_cart_coords as _hess_matches_coords,
+    )
     from mlmm.workflows.freq import (
         _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
         _torch_device as _freq_torch_device,
@@ -626,6 +559,13 @@ def _run_microiter_opt(
     macro_calc = mlmm(**macro_calc_cfg)
 
     cached = _hess_load("irc_endpoint")
+    if cached is not None and not _hess_matches_coords(cached, geometry.cart_coords):
+        click.echo(
+            "[microiter] Cached IRC Hessian does not match the input geometry; "
+            "calculating a fresh Hessian.",
+            err=True,
+        )
+        cached = None
     _cache_used = False
     if cached is not None:
         active_dofs = cached.get("active_dofs")
@@ -898,6 +838,17 @@ def _run_microiter_opt(
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
+    "--tr-projection",
+    type=click.Choice(["constrained", "legacy-active"], case_sensitive=False),
+    default=GEOM_KW["tr_projection"],
+    show_default=True,
+    help=(
+        "Rigid translation/rotation treatment used by --flatten PHVA. "
+        "'constrained' respects frozen anchors; 'legacy-active' treats the "
+        "active fragment as isolated."
+    ),
+)
+@click.option(
     "--radius-partial-hessian",
     "--hess-cutoff",
     "radius_partial_hessian",
@@ -1100,6 +1051,7 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
+    tr_projection: str,
     radius_partial_hessian: Optional[float],
     radius_freeze: Optional[float],
     dist_freeze_raw: Sequence[str],
@@ -1131,7 +1083,7 @@ def cli(
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
-    calc_factory: str,
+    calc_factory: Optional[str],
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -1149,10 +1101,9 @@ def cli(
         override_yaml=None,
     )
 
-    # Handle input: PDB directly, or XYZ with --ref-pdb for topology
+    # Handle PDB/mmCIF directly, or XYZ with --ref-pdb for topology.
     suffix = input_path.suffix.lower()
-    if suffix == ".pdb":
-        # PDB input: use directly
+    if suffix in {".pdb", ".cif", ".mmcif"}:
         prepared_input = prepare_input_structure(input_path)
     elif suffix == ".xyz":
         # XYZ input: require --ref-pdb for topology
@@ -1163,7 +1114,7 @@ def cli(
         apply_ref_pdb_override(prepared_input, ref_pdb)
         click.echo(f"[input] Using XYZ coordinates from {input_path.name}, PDB topology from {ref_pdb.name}")
     else:
-        click.echo(f"ERROR: Unsupported input format: {suffix}. Use .pdb or .xyz (with --ref-pdb).", err=True)
+        click.echo(f"ERROR: Unsupported input format: {suffix}. Use .pdb/.cif/.mmcif or .xyz (with --ref-pdb).", err=True)
         sys.exit(1)
 
     geom_input_path = prepared_input.geom_path
@@ -1242,6 +1193,8 @@ def cli(
             opt_cfg["print_every"] = int(print_every)
         if _is_param_explicit("cli_coord_type") and cli_coord_type is not None:
             geom_cfg["coord_type"] = str(cli_coord_type).lower()
+        if _is_param_explicit("tr_projection"):
+            geom_cfg["tr_projection"] = str(tr_projection).lower()
 
         if _is_param_explicit("detect_layer"):
             calc_cfg["use_bfactor_layers"] = bool(detect_layer)
@@ -1297,6 +1250,13 @@ def cli(
                 (rfo_cfg, (("rfo",), ("opt", "rfo"))),
             ],
         )
+        try:
+            geom_cfg["tr_projection"] = normalize_tr_projection_mode(
+                geom_cfg.get("tr_projection")
+            )
+        except ValueError as exc:
+            prepared_input.cleanup()
+            raise click.ClickException(str(exc)) from exc
 
         # DLC is only meaningful with Hessian-based microiteration (ML region in
         # internal coordinates, MM as a Cartesian twin). Under plain L-BFGS
@@ -1363,13 +1323,10 @@ def cli(
         mode_str = "RFO (hess)" if use_rfo else "LBFGS (grad)"
 
         if dry_run:
-            from mlmm.core.utils import echo_run_summary
-            _backend = calc_cfg.get("backend") or "uma"
-            _model = calc_cfg.get("uma_model") or calc_cfg.get("model")
-            _precision = calc_cfg.get("uma_precision") or calc_cfg.get("precision", "fp32")
+            from mlmm.core.utils import calculator_run_label, echo_run_summary
             echo_run_summary({
                 "input": str(input_path),
-                "backend": f"{_backend} ({_model}, {_precision})" if _model else _backend,
+                "backend": calculator_run_label(calc_cfg),
                 "opt": f"{mode_str}, max_cycles={opt_cfg.get('max_cycles', '?')}",
                 "out": str(out_dir_path),
             })
@@ -1402,6 +1359,7 @@ def cli(
                         "detect_layer": bool(detect_layer_enabled),
                         "model_region_source": model_region_source,
                         "model_indices_count": 0 if not model_indices else len(model_indices),
+                        "tr_projection": geom_cfg["tr_projection"],
                         "will_run_optimization": True,
                         "will_convert_outputs": True,
                         "backend": calc_cfg.get("backend", "uma"),
@@ -1494,13 +1452,10 @@ def cli(
                 calc_cfg[key] = str(Path(val).expanduser().resolve())
 
         # Default-verbosity entry summary (skipped in child mode).
-        from mlmm.core.utils import echo_run_summary
-        _backend = calc_cfg.get("backend") or "uma"
-        _model = calc_cfg.get("uma_model") or calc_cfg.get("model")
-        _precision = calc_cfg.get("uma_precision") or calc_cfg.get("precision", "fp32")
+        from mlmm.core.utils import calculator_run_label, echo_run_summary
         echo_run_summary({
             "input": str(input_path),
-            "backend": f"{_backend} ({_model}, {_precision})" if _model else _backend,
+            "backend": calculator_run_label(calc_cfg),
             "opt": f"{mode_str}, max_cycles={opt_cfg.get('max_cycles', '?')}",
             "out": str(out_dir_path),
         })
@@ -1611,8 +1566,20 @@ def cli(
 
         def _seed_rfo_hessian():
             """Seed initial Hessian via shared freq backend for RFO."""
-            from mlmm.io.hessian_cache import load as _hess_load
+            from mlmm.io.hessian_cache import (
+                load as _hess_load,
+                matches_cart_coords as _hess_matches_coords,
+            )
             cached = _hess_load("irc_endpoint")
+            if cached is not None and not _hess_matches_coords(
+                cached, geometry.cart_coords
+            ):
+                click.echo(
+                    "[opt] Cached IRC Hessian does not match the input geometry; "
+                    "calculating a fresh Hessian.",
+                    err=True,
+                )
+                cached = None
             if cached is not None:
                 click.echo("[opt] Reusing IRC endpoint Hessian for RFO seeding.")
                 active_dofs = cached.get("active_dofs")
@@ -1711,6 +1678,8 @@ def cli(
                     trj_path = optimizer.get_path_for_fn("optimization_trj.xyz")
                     _append_xyz_trajectory(optim_all_path, trj_path, reset=True)
 
+        rigid_projection_info: Dict[str, Any] = {}
+
         # Flatten loop (all imaginary modes)
         if flatten:
             from mlmm.workflows.freq import (
@@ -1718,13 +1687,14 @@ def cli(
                 _calc_full_hessian_torch,
                 _frequencies_cm_and_modes,
                 _safe_masses_amu,
+                _active_atoms_from_partial_hessian_metadata,
             )
 
             click.echo("\n====== Optimization (Flatten loop) ======\n", narrative=True)
 
             geometry.set_calculator(None)
-            uma_kwargs_for_flatten = dict(calc_cfg)
-            uma_kwargs_for_flatten["out_hess_torch"] = True
+            calc_kwargs_for_flatten = dict(calc_cfg)
+            calc_kwargs_for_flatten["out_hess_torch"] = True
             device = _torch_device(calc_cfg.get("ml_device", "auto"))
             freeze_idx = list(geom_cfg.get("freeze_atoms", [])) if len(geom_cfg.get("freeze_atoms", [])) > 0 else None
             masses_amu = _safe_masses_amu(geometry.atomic_numbers)
@@ -1735,19 +1705,41 @@ def cli(
                 )
 
             def _calc_freqs_and_modes() -> Tuple[np.ndarray, torch.Tensor]:
-                # refresh_geom_meta=True propagates within_partial_hessian +
-                # _hess_active_atoms_last so partial-Hessian routing in
-                # _frequencies_cm_and_modes works (BUG #1 fix discipline).
+                # Refresh the active-DOF metadata used by PHVA routing.
                 H, _e = _calc_full_hessian_torch(
-                    geometry, uma_kwargs_for_flatten, device, refresh_geom_meta=True,
+                    geometry, calc_kwargs_for_flatten, device, refresh_geom_meta=True,
                 )
+                effective_freeze_idx = freeze_idx
+                if H.shape[0] != 3 * len(geometry.atomic_numbers):
+                    active_atoms = _active_atoms_from_partial_hessian_metadata(
+                        geometry, int(H.shape[0])
+                    )
+                    if active_atoms is None:
+                        raise RuntimeError(
+                            "Partial Hessian metadata does not identify its active atoms."
+                        )
+                    active_set = set(active_atoms)
+                    effective_freeze_idx = [
+                        i for i in range(len(geometry.atomic_numbers))
+                        if i not in active_set
+                    ]
                 freqs_local, modes_local = _frequencies_cm_and_modes(
                     H,
                     geometry.atomic_numbers,
                     geometry.cart_coords.reshape(-1, 3),
                     device,
-                    freeze_idx=freeze_idx,
+                    freeze_idx=effective_freeze_idx,
+                    tr_projection=geom_cfg["tr_projection"],
+                    projection_info=rigid_projection_info,
                 )
+                rigid_projection_info.update({
+                    "hessian_space": (
+                        "full" if H.shape[0] == 3 * len(geometry.atomic_numbers)
+                        else "active"
+                    ),
+                    "raw_hessian_shape": list(H.shape),
+                    "source": "opt_flatten",
+                })
                 del H
                 return freqs_local, modes_local
 
@@ -1765,7 +1757,7 @@ def cli(
                 did_flatten = _flatten_all_imag_modes_for_geom(
                     geometry,
                     masses_amu,
-                    uma_kwargs_for_flatten,
+                    calc_kwargs_for_flatten,
                     freqs_cm,
                     modes,
                     OPT_FLATTEN_NEG_FREQ_THRESH_CM,
@@ -1801,6 +1793,7 @@ def cli(
                 )
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+            click.echo(pretty_block("rigid_projection", rigid_projection_info))
 
             # Update final geometry after flatten
             final_xyz_path = out_dir_path / "final_geometry.xyz"
@@ -1834,7 +1827,7 @@ def cli(
         click.echo(format_elapsed("[time] Elapsed Time for Opt", time_start), narrative=True)
 
         if out_json:
-            from mlmm.core.utils import write_result_json
+            from mlmm.core.utils import calculator_provenance, write_result_json
             _opt_converged = optimizer.is_converged if 'optimizer' in dir() and hasattr(optimizer, 'is_converged') else None
             _opt_cycles = optimizer.cur_cycle if 'optimizer' in dir() and hasattr(optimizer, 'cur_cycle') else None
             # Microiteration path: optimizer not in scope, use max_cycles as budget
@@ -1845,7 +1838,7 @@ def cli(
                 "energy_hartree": float(geometry.energy) if geometry.energy is not None else None,
                 "n_opt_cycles": _opt_cycles,
                 "opt_mode": opt_cfg.get("opt_mode", opt_mode),
-                "backend": calc_cfg.get("backend", "uma"),
+                **calculator_provenance(calc_cfg),
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
                 "n_atoms": len(geometry.atoms),
@@ -1857,6 +1850,8 @@ def cli(
                     "final_geometry_xyz": str(final_xyz_path.name),
                 },
             }
+            if rigid_projection_info:
+                result_data["rigid_projection"] = dict(rigid_projection_info)
             # Final force convergence values
             if 'optimizer' in dir() and hasattr(optimizer, 'max_forces') and optimizer.max_forces:
                 result_data["final_max_force"] = float(optimizer.max_forces[-1])

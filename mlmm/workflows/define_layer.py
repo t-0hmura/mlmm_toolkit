@@ -18,6 +18,11 @@ from mlmm.core.defaults import (
     BFACTOR_MOVABLE_MM,
     BFACTOR_FROZEN,
 )
+from mlmm.core.utils import prepare_input_structure
+from mlmm.io.structure_formats import (
+    coordinate_template_for,
+    register_output_template_and_write_cif,
+)
 
 # Default radii for layer definition
 # NOTE: reserved in 3-layer mode (no-op).
@@ -96,6 +101,7 @@ def _parse_pdb_atoms(pdb_path: Path) -> List[Dict[str, Any]]:
 def _get_ml_indices_from_model_pdb(
     input_atoms: List[Dict[str, Any]],
     model_pdb_path: Path,
+    input_pdb_path: Optional[Path] = None,
 ) -> List[int]:
     """
     Get ML region atom indices by matching atoms from model_pdb to input atoms.
@@ -106,6 +112,39 @@ def _get_ml_indices_from_model_pdb(
     icode, atom_name) for that entry (single-chain model_pdb describing a
     multi-chain input).
     """
+    # Prefer retained author identifiers when either side came through the
+    # mmCIF/large-PDB bridge. Internal one-character chain IDs and 4-column
+    # residue numbers are implementation details and may differ for a subset.
+    input_template = (
+        coordinate_template_for(input_pdb_path)
+        if input_pdb_path is not None
+        else None
+    )
+    model_template = coordinate_template_for(model_pdb_path)
+    if input_template is not None and model_template is not None:
+        model_keys = {
+            (
+                rec.chain_id,
+                rec.resseq,
+                rec.icode,
+                rec.resname,
+                rec.atom_name,
+            )
+            for rec in model_template.records
+        }
+        return [
+            index
+            for index, rec in enumerate(input_template.records)
+            if (
+                rec.chain_id,
+                rec.resseq,
+                rec.icode,
+                rec.resname,
+                rec.atom_name,
+            )
+            in model_keys
+        ]
+
     # Parse model PDB
     model_atoms = _parse_pdb_atoms(model_pdb_path)
 
@@ -331,7 +370,7 @@ def write_layered_pdb(
         f.writelines(lines_out)
 
 
-def define_layers(
+def _define_layers_pdb(
     input_pdb: Path,
     output_pdb: Path,
     model_pdb: Optional[Path] = None,
@@ -371,7 +410,9 @@ def define_layers(
     if model_indices is not None:
         ml_indices = sorted(set(model_indices))
     elif model_pdb is not None:
-        ml_indices = _get_ml_indices_from_model_pdb(atoms, model_pdb)
+        ml_indices = _get_ml_indices_from_model_pdb(
+            atoms, model_pdb, input_pdb_path=input_pdb
+        )
     else:
         raise ValueError("Either model_pdb or model_indices must be provided")
 
@@ -398,6 +439,43 @@ def define_layers(
     return layer_indices
 
 
+def define_layers(
+    input_pdb: Path,
+    output_pdb: Path,
+    model_pdb: Optional[Path] = None,
+    model_indices: Optional[List[int]] = None,
+    radius_partial_hessian: float = DEFAULT_RADIUS_PARTIAL_HESSIAN,
+    radius_freeze: float = DEFAULT_RADIUS_FREEZE,
+) -> Dict[str, List[int]]:
+    """Define layers through the PDB/mmCIF normalization bridge."""
+    prepared_input = prepare_input_structure(Path(input_pdb))
+    prepared_model = (
+        prepare_input_structure(Path(model_pdb)) if model_pdb is not None else None
+    )
+    output_pdb = Path(output_pdb)
+    if output_pdb.suffix.lower() in {".cif", ".mmcif"}:
+        output_pdb = output_pdb.with_suffix(".pdb")
+    try:
+        layer_indices = _define_layers_pdb(
+            input_pdb=prepared_input.source_path,
+            output_pdb=output_pdb,
+            model_pdb=(
+                prepared_model.source_path if prepared_model is not None else None
+            ),
+            model_indices=model_indices,
+            radius_partial_hessian=radius_partial_hessian,
+            radius_freeze=radius_freeze,
+        )
+        register_output_template_and_write_cif(
+            output_pdb, prepared_input.structure_template
+        )
+        return layer_indices
+    finally:
+        prepared_input.cleanup()
+        if prepared_model is not None:
+            prepared_model.cleanup()
+
+
 
 @click.command(
     help="Define 3-layer ML/MM system based on distance from ML region.",
@@ -408,14 +486,14 @@ def define_layers(
     "input_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Input PDB file containing the full system.",
+    help="Input PDB or mmCIF file containing the full system.",
 )
 @click.option(
     "--model-pdb",
     "model_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="PDB file defining atoms in the ML region.",
+    help="PDB or mmCIF file defining atoms in the ML region.",
 )
 @click.option(
     "--model-indices",

@@ -79,21 +79,29 @@ mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 
 ---
 
-## GPU クラスごとの精度
+## バックエンドごとの精度既定値
 
-`--precision` は MLIP バックエンドの浮動小数点精度（`fp32` または `fp64`、大文字小文字無視）を選びます。`--precision` を指定しない場合は各バックエンド固有のデフォルトが使われます: UMA と ORB は `fp32`、MACE は `float64`（fp64）です。適切な選択は実行する GPU クラスに依存します:
+`--precision` は `fp32` または `fp64`（大文字小文字無視）を選びます。
+未指定時の有効な既定値はバックエンドごとに異なります。
 
-| ハードウェア | 推奨 | 理由 |
-| --- | --- | --- |
-| HPC データセンター GPU（H100 / H200 / A100） | `--precision fp64` | 決定論的な計算に向き、数値ノイズが低い。ネイティブ fp64 のスループットコストはこれらのカードでは小さい。TS 最適化とHessianを安定化。 |
-| コンシューマー GPU（RTX 50xx / 40xx） | `--precision fp32`（デフォルト） | コンシューマーカードでは fp64 が著しく遅い。fp32 が速度/スクリーニングの基準。 |
+| backend | 既定 | 理由 |
+|---|---|---|
+| UMA | fp32 | 上流 fairchem の baseline。 |
+| ORB | fp64 | ORB fp32 は縮約 `float32-high`（TF32）matmul を使い、force noise が有限差分 Hessian に偽の虚振動を作る場合がある。 |
+| MACE | fp64 | 上流の `default_dtype="float64"` と一致。 |
+| AIMNet2 | fp32 | 精度切替を持たず、明示的 fp64 は拒否。 |
+
+ORB/MACE で `--precision fp32` を明示するのは、Hessian の noise より
+screening throughput を優先する場合に限ります。UMA fp64 は数値的に敏感な
+TS/Hessian を安定化する場合がありますが、consumer GPU では遅くなります。
+どの精度でも freq と IRC による独立検証が必要です。
 
 ```bash
 # データセンター H200 — フル精度のベース推論
 mlmm tsopt -i ts.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma --precision fp64 -o result_ts
 
-# コンシューマー RTX — デフォルトで高速スクリーニング
-mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma --scan-lists '[(1,5,1.4)]' -o result_scan
+# ORB の縮約精度を明示した screening
+mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
 ```
 
 `--precision` はすべての計算系サブコマンド（`sp`、`opt`、`tsopt`、`freq`、`irc`、`scan` / `scan2d` / `scan3d`、`path-opt`、`path-search`、`all`）で受け付けられ、バックエンドごとにルーティングされます（UMA precision、ORB precision、MACE `default_dtype`）。

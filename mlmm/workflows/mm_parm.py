@@ -214,7 +214,7 @@ def add_hydrogens_with_pdbfixer(pdb_in: Path, pdb_out: Path, ph: float) -> None:
         from pdbfixer import pdbfixer as _pdbfixer_mod
     except Exception as e:
         raise RuntimeError(
-            "PDBFixer is required to use --add-h True, but it was not found."
+            "PDBFixer is required to use --add-h, but it was not found."
         ) from e
 
     pdbfile_writer = getattr(getattr(_pdbfixer_mod, "app", None), "PDBFile", None)
@@ -773,7 +773,7 @@ def run_pipeline(args: Args) -> None:
         )
 
     # Decide PDB filename to export/copy (used both on success and as H-added fallback)
-    # When --out-prefix is omitted and --add-h False, do not write <input_stem>_parm.pdb.
+    # Without --out-prefix or --add-h, do not write <input_stem>_parm.pdb.
     final_pdb_out: Optional[Path]
     if args.out_prefix_given:
         final_pdb_out = Path(f"{args.out_prefix}.pdb").resolve()
@@ -898,7 +898,7 @@ def run_pipeline(args: Args) -> None:
     default=None,
     help=(
         "Output prefix (default: input PDB stem). For LEaP PDB: "
-        "if omitted and --add-h True, <input_stem>_parm.pdb is used."
+        "if omitted with --add-h, <input_stem>_parm.pdb is used."
     ),
 )
 @click.option(
@@ -947,7 +947,7 @@ def run_pipeline(args: Args) -> None:
     "ph",
     type=float,
     default=7.0,
-    help="pH used by PDBFixer when adding hydrogens (--add-h True). Default: 7.0",
+    help="pH used by PDBFixer when adding hydrogens (--add-h). Default: 7.0",
 )
 @click.option(
     "--ff-set",

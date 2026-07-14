@@ -205,7 +205,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `--refine-path` / `--no-refine-path` | Single-pass `path-opt` (default) vs recursive `path-search` (`--refine-path`). |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |
 | `--embedcharge` | xTB point-charge embedding correction (default off). |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. `Analytical` is UMA-only; recommended when VRAM allows. |
+| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. All bundled MLIP backends support `Analytical`; use it when VRAM allows. It is incompatible with `--workers > 1`. |
 
 Direct Max Flux (DMF) MEP is selectable only via the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`). `mlmm all` always uses GSM, so passing `--mep-mode` to `mlmm all` is silently ignored.
 

@@ -18,15 +18,28 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --no-backward --out-dir ./result_irc_forward
 ```
 
-Larger step size with analytical Hessians:
+Smaller step size with analytical Hessians:
 
 ```bash
-# Larger step size with analytical Hessians
+# Smaller step size for a shallow surface
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- --no-detect-layer -q 0 -m 1 --step-size 0.20 \
+ --no-detect-layer -q 0 -m 1 --step-size 0.05 \
  --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
 # keep both branches and raise the step limit with --max-cycles 150
 ```
+
+If an IRC stops almost immediately, first reduce `--step-size` (for example,
+from 0.10 to 0.05 Bohr). If a verified small shoulder still triggers only the
+energy-rise/plateau stop, opt in to `--never-stop`:
+
+```bash
+mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
+ --step-size 0.05 --never-stop --max-cycles 250 -o result_irc_continue
+```
+
+This is not an unlimited loop: integrator convergence, invalid numerical
+values, and the cycle cap still stop the run. Inspect both trajectories and
+endpoint connectivity before accepting it.
 
 Command form:
 
@@ -40,13 +53,15 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 
 1. **Input preparation** -- Load the TS structure, Amber topology (`--parm`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Any format supported by `geom_loader` is accepted, and when a reference PDB is available (input is `.pdb` or `--ref-pdb` is supplied), EulerPC trajectories are converted to PDB using that topology.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation. When `--embedcharge` is enabled, xTB point-charge embedding (experimental) is applied to correct for MM environment effects on the ML region.
-3. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` or `--no-backward` disables a branch). Step size and cycle count control integration length.
-4. **Output & conversion** -- Trajectories are written as XYZ; PDB companions are generated when a PDB template is available and `--convert-files` is enabled.
+3. **Frozen-boundary TR treatment** -- `--tr-projection constrained` removes only full-system rigid motions that leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries normally have rank 0. `legacy-active` is an isolated-active comparison treatment, not the physical default.
+4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` or `--no-backward` disables a branch). Step size and cycle count control integration length.
+5. **Output & conversion** -- Trajectories are written as XYZ; PDB companions are generated when a PDB template is available and `--convert-files` is enabled.
 
 ## Outputs
 
 ```text
 out_dir/ (default: ./result_irc/)
+├─ result.json                      # Present with --out-json; includes rigid_projection provenance
 ├─ <prefix>irc_data.h5              # HDF5 dump written every irc.dump_every steps
 ├─ <prefix>finished_irc_trj.xyz     # Full IRC trajectory (XYZ/TRJ)
 ├─ <prefix>forward_irc_trj.xyz      # Forward path segment
@@ -72,6 +87,8 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed, e.g. `1-10,15`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer/--no-detect-layer` | Detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | `True` |
+| `--freeze-atoms TEXT` | Comma-separated 1-based frozen-atom indices. | _None_ |
+| `--tr-projection [constrained\|legacy-active]` | Rigid-mode treatment for the frozen/partial Hessian. `legacy-active` is an isolated-active comparison treatment. | `constrained` |
 | `-q, --charge INT` | Net charge; overrides `calc.charge` from YAML. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1); overrides `calc.spin`. | `1` |
@@ -80,10 +97,13 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--root INT` | Imaginary mode index for the initial displacement; overrides `irc.root`. | `0` |
 | `--forward/--no-forward` | Run the forward IRC; overrides `irc.forward`. | `True` |
 | `--backward/--no-backward` | Run the backward IRC; overrides `irc.backward`. | `True` |
+| `--never-stop/--no-never-stop` | Ignore energy-rise and plateau stops only. Convergence, invalid values, and `--max-cycles` remain active. | `False` |
 | `-o, --out-dir PATH` | Output directory; overrides `irc.out_dir`. | `./result_irc/` |
 | `--ref-pdb FILE` | Reference PDB topology to use when `--input` is XYZ (keeps XYZ coordinates). | _None_ |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a reference PDB is available. | `True` |
 | `--hessian-calc-mode CHOICE` | How the ML backend builds the Hessian (`Analytical` or `FiniteDifference`); overrides `calc.hessian_calc_mode`. | `FiniteDifference` |
+| `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
+| `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
@@ -106,6 +126,7 @@ Shared sections reuse [YAML Reference](yaml-reference.md) for geometry/calculato
 geom:
  coord_type: cart                  # forced to cart for irc (YAML value ignored)
  freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
+ tr_projection: constrained        # constrained (default) | legacy-active comparison
 calc:
  charge: 0                         # net charge (CLI override)
  spin: 1                           # spin multiplicity 2S+1
@@ -124,6 +145,7 @@ irc:
  max_cycles: 125                   # maximum steps along IRC (CLI: --max-cycles)
  forward: true                     # propagate forward branch (CLI: --forward)
  backward: true                    # propagate backward branch (CLI: --backward)
+ never_stop: false                 # ignore energy-rise/plateau stops only
 ```
 
 Full schema (every `irc` key and default): [YAML Reference](yaml-reference.md#irc-section).
@@ -131,6 +153,12 @@ Full schema (every `irc` key and default): [YAML Reference](yaml-reference.md#ir
 ## Notes
 
 - Both branches run by default; disable one with `--no-forward` or `--no-backward` when you only need a single direction.
+- For early stopping, reduce `--step-size` before enabling `--never-stop`; use the latter only after inspecting the surface.
+- An all-frozen selection has no IRC direction and raises an explicit error.
+- With `--out-json`, `result.json.rigid_projection` records the selected
+  treatment, effective rank, initial-Hessian source, and Hessian shape.
+- `legacy-active` uses the current common projection kernel and numerical rank
+  handling; bitwise identity is not guaranteed for rank-degenerate geometries.
 
 ## See Also
 

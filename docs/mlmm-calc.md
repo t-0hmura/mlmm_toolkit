@@ -75,7 +75,7 @@ The MM backend can be selected via the `mm_backend` parameter:
   - CMAP torsion corrections (implemented but disabled by default, as in Gaussian)
 - **`"openmm"`**: Finite-difference (FD) Hessian via OpenMM. Supports both CPU and CUDA platforms. Covers force fields not supported by `hessian_ff`, or cases where OpenMM is already in your workflow. See [Device Configuration & HPC Setup](device-hpc.md) for mm_backend/mm_device YAML examples and VRAM trade-offs.
 
-ML Hessian: `Analytical` (UMA-only, second-order autograd) or `FiniteDifference` (central differences of forces; ORB/MACE/AIMNet2, and UMA when VRAM-limited). See [YAML Reference](yaml-reference.md) `hessian_calc_mode` for the full availability and VRAM guidance.
+ML Hessian: `Analytical` (backend autograd/native Hessian for UMA, ORB, MACE, and AIMNet2) or `FiniteDifference` (central differences of forces for any backend). An explicit analytical request fails if the installed backend lacks its required API; it is never silently downgraded. See [YAML Reference](yaml-reference.md) for VRAM guidance.
 
 ### CMAP in the model system
 

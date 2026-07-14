@@ -47,6 +47,9 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--temperature` | float | 298.15 | K, for thermochemistry |
 | `--pressure` | float | 1.0 | atm, for thermochemistry |
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` / `FiniteDifference`; check `FREQ_KW` / `MLMM_CALC_KW` |
+| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment: `constrained` or isolated-active comparison `legacy-active` |
+| `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
+| `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_freq/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
@@ -90,6 +93,7 @@ print(d["thermochemistry"]["zpe_ha"])
 print(d["thermochemistry"]["thermal_correction_energy_ha"])
 print(d["thermochemistry"]["S_cal_per_mol_K"])
 print(d["thermochemistry"]["sum_EE_and_thermal_free_energy_ha"])
+print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
 ```
 
 ## QRRHO thermochemistry
@@ -116,6 +120,15 @@ out. This is much cheaper for large clusters.
 Frozen atoms are written by `extract` for link-H parents. To override,
 use `--config` YAML and set `freeze_atoms`.
 
+The default `constrained` TR treatment removes only full-system rigid motions
+that leave every frozen anchor fixed. Generic effective ranks are 6/3/1/0 for
+zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries
+normally have rank 0. All-frozen input is an explicit error. `legacy-active`
+is an isolated-active comparison treatment using the current common kernel;
+bitwise identity is not guaranteed for rank-degenerate cases. `result.json` and dumped
+`thermoanalysis.yaml` record the treatment, effective rank, Hessian source,
+and Hessian shape under `rigid_projection`.
+
 ## Caveats
 
 - A minimum should have **0 imaginary frequencies**, a TS should have
@@ -124,6 +137,9 @@ use `--config` YAML and set `freeze_atoms`.
   modes. The QRRHO cutoff (100 cm⁻¹) is one safeguard.
 - `--hessian-calc-mode FiniteDifference` uses less memory but is
   ~3× slower than `Analytical`.
+- An explicit analytical Hessian with `workers > 1` is a hard error. Use one
+  worker for analytical curvature or select `FiniteDifference` before enabling
+  the UMA parallel predictor.
 - Thermochemistry depends on charge / spin — make sure `-q`/`-m` are
   correct or ZPE will be off.
 

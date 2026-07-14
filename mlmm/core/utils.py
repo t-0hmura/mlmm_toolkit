@@ -1,60 +1,4 @@
-# mlmm/utils.py
-
-"""
-utils — concise utilities for configuration, plotting, and coordinates
-====================================================================
-
-Usage (API)
------
-    from mlmm.core.utils import (
-        build_energy_diagram,
-        convert_xyz_to_pdb,
-        merge_freeze_atom_indices,
-        pretty_block,
-    )
-
-Examples::
-    >>> from pathlib import Path
-    >>> block = pretty_block("Geometry", {"freeze_atoms": [0, 1, 5]})
-    >>> diagram = build_energy_diagram([0.0, 12.3, 5.4], ["R", "TS", "P"])
-
-Description
------
-- **Generic helpers**
-  - `pretty_block(title, content)`: Return a YAML-formatted block with an underlined title. Uses `yaml.safe_dump` with `allow_unicode=True`, `sort_keys=False`. Renders `{}` when `content` is empty.
-  - `format_freeze_atoms_for_echo(cfg, key="freeze_atoms")`: Normalize geometry configuration for CLI echo. If the key is an iterable (but not a string), summarize to a compact single-line form like `"11073 atoms [0,1,2,3,4,...,12981,12982,12983,12984,12985]"`.
-  - `format_elapsed(prefix, start_time, end_time=None)`: Format a wall-clock duration (HH:MM:SS.sss) given a start time and optional end time, using `time.perf_counter()` when the end time is omitted.
-  - `merge_freeze_atom_indices(geom_cfg, *indices)`: Merge one or more iterables of atom indices into `geom_cfg["freeze_atoms"]`. Preserve existing entries, de-duplicate, sort numerically, and return the updated list (in place).
-  - `apply_layer_freeze_constraints(geom_cfg, calc_cfg, layer_info, echo_fn=None)`: Merge layer-detected frozen indices (`layer_info["frozen_indices"]`) into both `geom_cfg["freeze_atoms"]` and `calc_cfg["freeze_atoms"]`, then optionally emit a concise summary line.
-  - `deep_update(dst, src)`: Recursively update mapping `dst` with `src`. Nested dicts are merged, non-dicts overwrite; returns `dst`.
-  - `_get_mapping_section(cfg, path)`: Internal helper to resolve a nested mapping section. Returns a `dict` or `None`.
-  - `apply_yaml_overrides(yaml_cfg, overrides)`: For each target dictionary and its candidate key paths, find the first existing path in `yaml_cfg` and apply it via `deep_update`. Centralizes repeated `yaml_cfg.get(...)`-style merging.
-  - `load_yaml_dict(path)`: Load a YAML file whose root must be a mapping. Returns `{}` when `path` is `None`. Raises `ValueError` if the YAML root is not a mapping.
-
-- **Plotly: Energy diagram builder**
-  - `build_energy_diagram(energies, labels, ylabel="ΔE", baseline=False, showgrid=False)`:
-    Render an energy diagram where each state is a thick horizontal segment and adjacent states are connected by dotted diagonals (right end of left state → left end of right state). Segment length shrinks as the number of states grows to keep gaps readable. X ticks are centered on states and labeled by `labels`. Optional dotted baseline at the first state’s energy; optional grid. Energies are plotted as provided (no unit conversion). Returns a `plotly.graph_objs.Figure`. Validates equal lengths for `energies`/`labels` and non-empty input.
-
-- **Coordinate conversion utilities**
-  - `convert_xyz_to_pdb(xyz_path, ref_pdb_path, out_pdb_path)`:
-    Overlay coordinates from an XYZ file (single or multi-frame) onto the atom ordering/topology of a reference PDB and write to `out_pdb_path`. The first frame creates/overwrites; subsequent frames append using `MODEL`/`ENDMDL`. Implemented with ASE (`ase.io.read`/`write`). Raises `ValueError` if no frames are found in the XYZ.
-
-Outputs (& Directory Layout)
------
-- This module does not create directories.
-- Functions primarily return Python objects or mutate dictionaries in place.
-- On-disk output occurs only when explicitly requested by the caller:
-  - `convert_xyz_to_pdb` writes a PDB file to `out_pdb_path` (first frame create/overwrite; subsequent frames append with `MODEL`/`ENDMDL` blocks).
-  - `build_energy_diagram` returns a Plotly `Figure`; it does not write files unless the caller saves/exports the figure.
-
-Notes:
------
-- Energy units in `build_energy_diagram` are passed through unchanged; ensure consistent units across states.
-- Axis/line styling in `build_energy_diagram` is fixed-width with automatic padding; segment length adapts to the number of states.
-- `load_yaml_dict` uses `yaml.safe_load` and enforces a mapping at the YAML root; empty files yield `{}`.
-- `apply_yaml_overrides` tries candidate key paths in order and applies only the first existing mapping section per target.
-- Dependencies: PyYAML, ASE (`ase.io.read`/`write`), Plotly (graph objects).
-"""
+"""Shared configuration, structure-I/O, reporting, and plotting utilities."""
 
 import ast
 import logging
@@ -63,8 +7,9 @@ import os
 import re
 import time
 import tempfile
+from collections import Counter
 from collections.abc import Iterable as _Iterable, Mapping, Sequence as _Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from numbers import Real, Integral
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence, List, Tuple
@@ -78,6 +23,19 @@ from pysisyphus.helpers import geom_loader
 from pysisyphus.constants import ANG2BOHR
 
 from mlmm.domain.add_elem_info import guess_element
+from mlmm.io.structure_formats import (
+    CIF_SUFFIXES,
+    CoordinateTemplate,
+    cleanup_normalized_structure,
+    coordinate_template_for,
+    is_cif_path,
+    normalize_structure_to_pdb,
+    pdb_requires_normalization,
+    register_coordinate_template,
+    unregister_coordinate_template,
+    write_pdb_as_mmcif,
+    write_xyz_as_mmcif,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -489,15 +447,68 @@ def snapshot_geometry(geom: Any, *, coord_type_default: str) -> Any:
 
 
 def unbiased_energy_hartree(geom, base_calc) -> float:
-    """Evaluate UMA energy (Hartree) without harmonic bias."""
-    coords_bohr = np.asarray(geom.coords)
+    """Evaluate the underlying ML/MM energy (Hartree) without harmonic bias."""
+    # ``geom.coords`` is an internal-coordinate vector for redund/dlc/tric;
+    # calculator calls always require Cartesian coordinates in bohr.
+    coords_bohr = np.asarray(geom.coords3d)
     elems = getattr(geom, "atoms", None)
     if elems is None:
         return float("nan")
     try:
         return float(base_calc.get_energy(elems, coords_bohr)["energy"])
-    except Exception:
+    except Exception as exc:
+        click.echo(
+            f"[energy] WARNING: bare ML/MM energy evaluation failed: {exc}",
+            err=True,
+        )
         return float("nan")
+
+
+def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return backend-neutral ML/MM calculator provenance for JSON outputs."""
+    from mlmm.core.defaults import MLMM_CALC_KW
+
+    backend = str(calc_cfg.get("backend") or MLMM_CALC_KW["backend"]).lower()
+    model_keys = {
+        "uma": "uma_model",
+        "orb": "orb_model",
+        "mace": "mace_model",
+        "aimnet2": "aimnet2_model",
+    }
+    if backend == "custom":
+        calc_file = calc_cfg.get("calc_file")
+        factory = calc_cfg.get("calc_factory") or "make_calculator"
+        model = f"{Path(calc_file).name}:{factory}" if calc_file else str(factory)
+    else:
+        key = model_keys.get(backend)
+        model = calc_cfg.get(key) if key is not None else None
+        if model is None and key is not None:
+            model = MLMM_CALC_KW.get(key)
+
+    return {
+        "mlip_backend": backend,
+        "mlip_model": None if model is None else str(model),
+        "mm_backend": str(calc_cfg.get("mm_backend") or MLMM_CALC_KW["mm_backend"]),
+        "link_atom_method": str(
+            calc_cfg.get("link_atom_method") or MLMM_CALC_KW["link_atom_method"]
+        ),
+        "use_cmap": bool(calc_cfg.get("use_cmap", MLMM_CALC_KW["use_cmap"])),
+    }
+
+
+def calculator_run_label(calc_cfg: Mapping[str, Any]) -> str:
+    """Format backend, model, and effective precision for concise run headers."""
+    provenance = calculator_provenance(calc_cfg)
+    backend = provenance["mlip_backend"]
+    model = provenance["mlip_model"]
+    precision_keys = {
+        "uma": "uma_precision",
+        "orb": "orb_precision",
+        "mace": "mace_dtype",
+    }
+    precision = calc_cfg.get(precision_keys.get(backend, ""))
+    details = [str(value) for value in (model, precision) if value not in (None, "")]
+    return f"{backend} ({', '.join(details)})" if details else str(backend)
 
 
 def pretty_block(title: str, content: Dict[str, Any]) -> str:
@@ -1156,6 +1167,24 @@ def deep_update(dst: Dict[str, Any], src: Optional[Dict[str, Any]]) -> Dict[str,
     return dst
 
 
+def collect_option_values(
+    argv: _Sequence[str],
+    names: _Sequence[str],
+) -> List[str]:
+    """Collect all values following matching command-line option names."""
+    vals: List[str] = []
+    i = 0
+    while i < len(argv):
+        if argv[i] in names:
+            i += 1
+            while i < len(argv) and not argv[i].startswith("-"):
+                vals.append(argv[i])
+                i += 1
+        else:
+            i += 1
+    return vals
+
+
 def collect_single_option_values(
     argv: _Sequence[str],
     names: _Sequence[str],
@@ -1184,7 +1213,7 @@ def collect_single_option_values(
 
 
 def load_pdb_atom_metadata(pdb_path: Path) -> List[Dict[str, Any]]:
-    """Return per-atom metadata (serial, name, resname, resseq, element) in file order."""
+    """Return atom metadata in file order, restoring original CIF identifiers."""
     atoms: List[Dict[str, Any]] = []
     with open(pdb_path, "r") as f:
         for line in f:
@@ -1195,6 +1224,8 @@ def load_pdb_atom_metadata(pdb_path: Path) -> List[Dict[str, Any]]:
             resseq_txt = line[22:26].strip()
             atom_name = line[12:16].strip()
             res_name = line[17:20].strip()
+            chain_id = line[21:22].strip()
+            icode = line[26:27].strip()
             element_txt = line[76:78].strip()
             is_hetatm = line.startswith("HETATM")
 
@@ -1217,60 +1248,115 @@ def load_pdb_atom_metadata(pdb_path: Path) -> List[Dict[str, Any]]:
                     "name": atom_name,
                     "resname": res_name,
                     "resseq": resseq,
+                    "chain": chain_id,
+                    "icode": icode,
                     "element": element_txt,
+                }
+            )
+    template = coordinate_template_for(pdb_path)
+    if template is not None:
+        if len(atoms) != template.natoms:
+            raise ValueError(
+                f"PDB metadata atom count ({len(atoms)}) does not match retained "
+                f"template ({template.natoms}) for {pdb_path}."
+            )
+        for meta, record in zip(atoms, template.records):
+            meta.update(
+                {
+                    "name": record.atom_name,
+                    "resname": record.resname,
+                    "resseq": (
+                        int(record.resseq)
+                        if re.fullmatch(r"[-+]?\d+", record.resseq)
+                        else record.resseq
+                    ),
+                    "chain": record.chain_id,
+                    "icode": record.icode,
+                    "element": record.element,
                 }
             )
     return atoms
 
 
+def _split_atom_spec_tokens(spec: str) -> List[str]:
+    return [
+        token
+        for token in re.split(r"[\s/:`,\\]+", spec.strip().replace(" ", ","))
+        if token
+    ]
+
+
 def resolve_atom_spec_index(spec: str, atom_meta: _Sequence[Dict[str, Any]]) -> int:
-    """Resolve an atom selector string into a 0-based atom index using PDB metadata."""
-    tokens = [t for t in re.split(r"[\s/`,\\]+", spec.strip().replace(" ", ",")) if t]
-    if len(tokens) != 3:
+    """Resolve 3-field or ``CHAIN:RESNAME:RESSEQ[ICODE]:ATOM`` selectors."""
+    tokens = _split_atom_spec_tokens(spec)
+    if len(tokens) not in {3, 4}:
         raise ValueError(
-            f"Atom spec '{spec}' must have exactly 3 fields (resname, resseq, atomname)."
+            f"Atom spec '{spec}' must have 3 fields (resname, resseq, atomname) "
+            "or 4 fields including chain ID."
         )
 
     tokens_upper = [t.upper() for t in tokens]
+    canonical_four = spec.count(":") == 3 and all(
+        part.strip() for part in spec.split(":")
+    )
+    canonical_parts = [part.strip() for part in spec.split(":")] if canonical_four else []
     matches: List[int] = []
     for idx, meta in enumerate(atom_meta):
         resname = (meta.get("resname") or "").strip().upper()
         resseq = meta.get("resseq")
         atom = (meta.get("name") or "").strip().upper()
+        chain_text = (meta.get("chain") or "").strip()
+        chain = chain_text.upper()
         if resseq is None:
             continue
-        fields = {resname, str(resseq), atom}
-        if all(tok in fields for tok in tokens_upper):
+        resseq_text = str(resseq)
+        if canonical_four:
+            chain_token, resname_token, resseq_token, atom_token = canonical_parts
+            numbered = re.fullmatch(
+                r"(?P<number>[-+]?\d+)(?P<icode>[A-Za-z]?)", resseq_token
+            )
+            if numbered is not None:
+                try:
+                    same_resseq = int(numbered.group("number")) == int(resseq_text)
+                except ValueError:
+                    same_resseq = numbered.group("number") == resseq_text
+                requested_icode = numbered.group("icode").upper()
+                if requested_icode:
+                    same_resseq = same_resseq and requested_icode == str(
+                        meta.get("icode") or ""
+                    ).upper()
+            else:
+                same_resseq = resseq_token.upper() == resseq_text.upper()
+            is_match = (
+                chain_token == chain_text
+                and resname_token.upper() == resname
+                and same_resseq
+                and atom_token.upper() == atom
+            )
+        else:
+            normalized_tokens = [
+                str(int(token)) if re.fullmatch(r"[-+]?\d+", token) else token
+                for token in tokens_upper
+            ]
+            expected = [resname, resseq_text, atom]
+            if len(tokens) == 4:
+                expected.append(chain)
+            is_match = Counter(normalized_tokens) == Counter(expected)
+        if is_match:
             matches.append(idx)
 
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
         raise ValueError(
-            f"Atom spec '{spec}' matches {len(matches)} atoms; use an explicit atom index."
+            f"Atom spec '{spec}' matches {len(matches)} atoms; add chain ID as "
+            "CHAIN:RESNAME:RESSEQ[ICODE]:ATOM or use an explicit atom index."
         )
-
-    resname, resseq_str, atom = tokens_upper
-    if not resseq_str.isdigit():
+    if len(tokens) == 4 and not canonical_four:
         raise ValueError(
-            f"Atom spec '{spec}' could not be resolved and residue number '{tokens[1]}' is not numeric."
+            f"Atom spec '{spec}' did not match any atom. Use the positional "
+            "CHAIN:RESNAME:RESSEQ[ICODE]:ATOM form for chain-qualified selectors."
         )
-    resseq_int = int(resseq_str)
-    ordered_matches = [
-        idx
-        for idx, meta in enumerate(atom_meta)
-        if (meta.get("resname") or "").strip().upper() == resname
-        and meta.get("resseq") == resseq_int
-        and (meta.get("name") or "").strip().upper() == atom
-    ]
-    if len(ordered_matches) == 1:
-        return ordered_matches[0]
-    if len(ordered_matches) > 1:
-        raise ValueError(
-            f"Atom spec '{spec}' matches {len(ordered_matches)} atoms after ordered fallback; "
-            "use an explicit atom index."
-        )
-
     raise ValueError(f"Atom spec '{spec}' did not match any atom.")
 
 
@@ -1281,8 +1367,13 @@ def atom_label_from_meta(atom_meta: _Sequence[Dict[str, Any]], index: int) -> st
     resname = (meta.get("resname") or "?").strip() or "?"
     resseq = meta.get("resseq")
     resseq_txt = "?" if resseq is None else str(resseq)
+    icode = (meta.get("icode") or "").strip()
+    if icode:
+        resseq_txt += icode
     atom = (meta.get("name") or "?").strip() or "?"
-    return f"{resname}-{resseq_txt}-{atom}"
+    chain = (meta.get("chain") or "").strip()
+    prefix = f"{chain}:" if chain else ""
+    return f"{prefix}{resname}:{resseq_txt}:{atom}"
 
 
 def axis_label_csv(
@@ -2005,7 +2096,13 @@ def build_energy_diagram(
     return fig
 
 
-def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -> None:
+def convert_xyz_to_pdb(
+    xyz_path: Path,
+    ref_pdb_path: Path,
+    out_pdb_path: Path,
+    *,
+    _emit_cif: bool = True,
+) -> None:
     """Overlay coordinates from *xyz_path* onto the topology of *ref_pdb_path* and write to *out_pdb_path*.
 
     The reference PDB is used as a text template: only the coordinate columns
@@ -2059,6 +2156,11 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
         for line_idx, line in enumerate(ref_lines):
             if line_idx in atom_line_set:
                 x, y, z = positions[atom_idx]
+                if not all(-999.999 <= float(value) <= 9999.999 for value in (x, y, z)):
+                    raise ValueError(
+                        "Coordinates exceed the fixed-column PDB range required by "
+                        "the internal bridge. Translate the structure closer to the origin."
+                    )
                 # PDB coordinate columns: 31-38 (x), 39-46 (y), 47-54 (z)
                 new_line = line[:30] + f"{x:8.3f}{y:8.3f}{z:8.3f}" + line[54:]
                 frame_lines.append(new_line)
@@ -2079,6 +2181,26 @@ def convert_xyz_to_pdb(xyz_path: Path, ref_pdb_path: Path, out_pdb_path: Path) -
             if multi_frame:
                 fh.write("ENDMDL\n")
         first_write = False
+
+    if first_write:
+        raise ValueError(
+            f"No frame in '{xyz_path}' matched the {n_ref} atoms in "
+            f"reference structure '{ref_pdb_path}'."
+        )
+
+    # Propagate original identifiers from a CIF/oversized-PDB bridge and emit
+    # a public mmCIF companion directly from the unrounded XYZ coordinates.
+    template = coordinate_template_for(ref_pdb_path)
+    if template is not None and not first_write:
+        if _emit_cif:
+            try:
+                write_xyz_as_mmcif(xyz_path, template, out_pdb_path.with_suffix(".cif"))
+            except BaseException:
+                unregister_coordinate_template(out_pdb_path)
+                raise
+        register_coordinate_template(out_pdb_path, template)
+    elif not first_write:
+        unregister_coordinate_template(out_pdb_path)
 
 
 _CONVERT_FILES_ENABLED: bool = True
@@ -2159,6 +2281,8 @@ def annotate_pdb_bfactors_inplace(
     beta_ml: float = 0.0,
     beta_frz: float = 20.0,
     beta_both: float = 0.0,
+    *,
+    _emit_cif: bool = True,
 ) -> None:
     """Overwrite B-factors in-place using 3-layer encoding (ML=0, MovableMM=10, FrozenMM=20).
 
@@ -2173,8 +2297,8 @@ def annotate_pdb_bfactors_inplace(
 
     try:
         lines = pdb_path.read_text().splitlines(keepends=True)
-    except Exception:
-        return
+    except OSError as exc:
+        raise OSError(f"Failed to read PDB for B-factor annotation '{pdb_path}': {exc}") from exc
 
     out_lines: List[str] = []
     atom_idx = 0  # resets per MODEL
@@ -2204,9 +2328,15 @@ def annotate_pdb_bfactors_inplace(
 
     try:
         pdb_path.write_text("".join(out_lines))
-    except Exception:
-        # Silently ignore if we cannot write; conversion outputs are still present.
-        pass
+    except Exception as exc:
+        raise OSError(f"Failed to annotate B factors in '{pdb_path}': {exc}") from exc
+
+    # Keep a bridged CIF companion synchronized with the layer B factors. This
+    # generic path uses the annotated PDB coordinates; callers that still hold
+    # the original XYZ overwrite it below with the unrounded coordinates.
+    template = coordinate_template_for(pdb_path)
+    if template is not None and _emit_cif:
+        write_pdb_as_mmcif(pdb_path, template, pdb_path.with_suffix(".cif"))
 
 
 def convert_and_annotate_xyz_to_pdb(
@@ -2226,17 +2356,27 @@ def convert_and_annotate_xyz_to_pdb(
       - frozen MM atoms: 20.00
       - ML ∩ frozen: 0.00 (ML takes precedence)
     """
-    try:
-        convert_xyz_to_pdb(src_xyz_or_trj, ref_pdb, dst_pdb)
-        annotate_pdb_bfactors_inplace(
-            dst_pdb,
-            model_pdb=model_pdb,
-            freeze_indices_0based=freeze_indices_0based,
-        )
-    except Exception as exc:
-        click.echo(
-            f"[convert] WARNING: Failed to convert '{src_xyz_or_trj}' to PDB: {exc}",
-            err=True,
+    convert_xyz_to_pdb(src_xyz_or_trj, ref_pdb, dst_pdb, _emit_cif=False)
+    annotate_pdb_bfactors_inplace(
+        dst_pdb,
+        model_pdb=model_pdb,
+        freeze_indices_0based=freeze_indices_0based,
+        _emit_cif=False,
+    )
+    template = coordinate_template_for(dst_pdb)
+    if template is not None:
+        from mlmm.io.structure_formats import _pdb_frame_data, write_mmcif_frames
+
+        _, occupancies, bfactors = _pdb_frame_data(dst_pdb)
+        from ase.io import read as ase_read
+
+        frames = ase_read(str(src_xyz_or_trj), index=":", format="xyz")
+        write_mmcif_frames(
+            [np.asarray(frame.get_positions(), dtype=float) for frame in frames],
+            template,
+            dst_pdb.with_suffix(".cif"),
+            occupancy_frames=occupancies,
+            bfactor_frames=bfactors,
         )
 
 
@@ -2246,10 +2386,25 @@ def convert_and_annotate_xyz_to_pdb(
 class PreparedInputStructure:
     source_path: Path
     geom_path: Path
+    original_path: Optional[Path] = None
+    structure_template: Optional[CoordinateTemplate] = None
+    _normalized_structures: List[Tuple[Path, Path]] = field(default_factory=list)
+
+    @property
+    def is_cif(self) -> bool:
+        return bool(
+            self.original_path is not None
+            and self.original_path.suffix.lower() in CIF_SUFFIXES
+        )
+
+    @property
+    def display_path(self) -> Path:
+        return self.original_path or self.source_path
 
     def cleanup(self) -> None:
-        """No-op: no temporary files are created."""
-        return None
+        for internal_path, tmp_dir in self._normalized_structures:
+            cleanup_normalized_structure(internal_path, tmp_dir)
+        self._normalized_structures.clear()
 
     def __enter__(self) -> "PreparedInputStructure":
         return self
@@ -2257,10 +2412,40 @@ class PreparedInputStructure:
     def __exit__(self, exc_type, exc, tb) -> None:
         self.cleanup()
 
+    def __del__(self) -> None:
+        try:
+            self.cleanup()
+        except Exception:
+            pass
+
 
 def prepare_input_structure(path: Path) -> PreparedInputStructure:
-    """Return a lightweight wrapper for the provided structure path."""
-    return PreparedInputStructure(source_path=path, geom_path=path)
+    """Normalize mmCIF and PDB-overflow inputs to an internal safe PDB."""
+    path = Path(path)
+    registered_template = coordinate_template_for(path)
+    if registered_template is not None:
+        return PreparedInputStructure(
+            source_path=path,
+            geom_path=path,
+            original_path=registered_template.source_path,
+            structure_template=registered_template,
+        )
+    if is_cif_path(path) or (
+        path.suffix.lower() == ".pdb" and pdb_requires_normalization(path)
+    ):
+        internal, structure_template, tmp_dir = normalize_structure_to_pdb(path)
+        return PreparedInputStructure(
+            source_path=internal,
+            geom_path=internal,
+            original_path=path.resolve(),
+            structure_template=structure_template,
+            _normalized_structures=[(internal, tmp_dir)],
+        )
+    return PreparedInputStructure(
+        source_path=path,
+        geom_path=path,
+        original_path=path,
+    )
 
 
 def _count_atoms_in_file(path: Path) -> int:
@@ -2298,17 +2483,24 @@ def apply_ref_pdb_override(
     if ref_pdb is None:
         return None
     ref_pdb = Path(ref_pdb).resolve()
-    if ref_pdb.suffix.lower() != ".pdb":
-        raise click.BadParameter("--ref-pdb must be a .pdb file.")
+    if ref_pdb.suffix.lower() not in ({".pdb"} | set(CIF_SUFFIXES)):
+        raise click.BadParameter("--ref-pdb must be a .pdb, .cif, or .mmcif file.")
+    prepared_ref = prepare_input_structure(ref_pdb)
     geom_count = _count_atoms_in_file(prepared_input.geom_path)
-    ref_count = _count_atoms_in_file(ref_pdb)
+    ref_count = _count_atoms_in_file(prepared_ref.geom_path)
     if geom_count != ref_count:
+        prepared_ref.cleanup()
         raise click.BadParameter(
-            f"Atom count mismatch: {prepared_input.geom_path.name} has {geom_count} atoms, "
+            f"atom count mismatch: {prepared_input.geom_path.name} has {geom_count} atoms, "
             f"but --ref-pdb {ref_pdb.name} has {ref_count} atoms."
         )
-    prepared_input.source_path = ref_pdb
-    return ref_pdb
+    prepared_input.source_path = prepared_ref.source_path
+    prepared_input.structure_template = prepared_ref.structure_template
+    if prepared_ref.structure_template is not None:
+        prepared_input.original_path = ref_pdb
+        prepared_input._normalized_structures.extend(prepared_ref._normalized_structures)
+        prepared_ref._normalized_structures.clear()
+    return prepared_input.source_path
 
 
 def _round_charge_with_note(q: float, prefix: str = "") -> int:
@@ -2920,18 +3112,24 @@ def _collect_environment_info() -> dict:
     return env
 
 
-# Schema version for the result/summary JSON envelope. Bump when the
-# envelope keys / value types change in a way downstream parsers must
-# adapt to. 1.0 = baseline envelope (command, mlmm_version, status,
-# elapsed_seconds, files, environment). Always written into
-# `schema_version`; older consumers can fall back to the legacy
-# `mlmm_version` field.
-RESULT_JSON_SCHEMA_VERSION = "1.0"
+# Schema version for result/summary JSON. Version 2.0 removes the UMA-specific
+# all-workflow energy keys in favor of backend-neutral MLIP keys.
+RESULT_JSON_SCHEMA_VERSION = "2.0"
 
-# Allowed values for the `status` field in result/summary.json. Subcommands
-# should set one of these strings; anything else is reserved for future
-# extension. Documented in docs/json-output.md.
-RESULT_JSON_STATUS_VALUES = ("success", "partial", "error", "unknown")
+# Union of public command-specific values for ``status``. Each command exposes
+# a narrower enum documented in docs/json-output.md.
+RESULT_JSON_STATUS_VALUES = (
+    "completed",
+    "converged",
+    "error",
+    "failed",
+    "not_converged",
+    "ok",
+    "partial",
+    "success",
+    "unknown",
+    "unverified",
+)
 
 
 def write_result_json(

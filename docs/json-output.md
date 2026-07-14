@@ -27,7 +27,7 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `schema_version` | string | Envelope schema version; current value comes from `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` — pin against that constant rather than the literal in this doc. Bumps signal a structural change. |
 | `command` | string | Subcommand name (e.g. `"opt"`) |
 | `mlmm_version` | string | Package version |
-| `status` | string | Supplied by each subcommand (not auto-injected): `all`/`path-search` use `success`/`partial`/`failed`, the error path uses `error`, and per-stage subcommands use command-specific values (e.g. `converged`/`not_converged`, `completed`) |
+| `status` | string | Command-specific: `all`/`path-search` use `success`/`partial`/`failed`; `opt` uses `converged`/`not_converged`; `tsopt` uses `converged`/`not_converged`/`unverified`; completed analysis/integration stages use `completed`; exception envelopes use `error`. |
 | `elapsed_seconds` | float | Wall-clock time (seconds) |
 | `environment` | object | Hardware info (see below) |
 
@@ -76,13 +76,14 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `final_max_step` | float | Last max displacement (Bohr) |
 | `final_rms_step` | float | Last RMS displacement |
 | `convergence_thresholds` | object | Numeric thresholds for the named preset |
+| `rigid_projection` | object\|null | Present when `--flatten` performs PHVA; frozen-boundary TR provenance |
 | `files` | object | Output file map |
 
 ### `tsopt`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"completed"` (opt-mode hess) / `"converged"` / `"not_converged"` (opt-mode grad) |
+| `status` | string | `"converged"` only when the optimizer converged and `n_imaginary_modes == 1`; otherwise `"not_converged"`, or `"unverified"` with `--skip-final-freq` |
 | `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int | Number of imaginary frequencies |
 | `imaginary_frequencies_cm` | float[] | Imaginary frequencies (cm$^{-1}$, negative) |
@@ -92,6 +93,7 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `backend` | string | ML backend |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
+| `rigid_projection` | object | Frozen-boundary TR provenance for Dimer/flatten/final saddle analysis |
 | `files` | object | Final geometry + vib mode files |
 
 ### `freq`
@@ -109,6 +111,7 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `spin` | int | Model-region multiplicity |
 | `n_atoms` | int | Total atoms |
 | `n_freeze_atoms` | int | Frozen atoms |
+| `rigid_projection` | object | Frozen-boundary TR provenance used for frequencies and thermochemistry |
 | `files` | object | `{"frequencies_txt": "frequencies_cm-1.txt"}` |
 
 **`thermochemistry`** (null if thermoanalysis unavailable):
@@ -139,8 +142,17 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `energy_product_hartree` | float | Product energy |
 | `forward_converged` / `backward_converged` | bool | IRC convergence |
 | `backend` | string | ML backend |
+| `rigid_projection` | object | Frozen-boundary TR provenance for the initial/updated Hessian |
 | `bond_changes` | object | `{formed: [...], broken: [...]}` |
 | `files` | object | Trajectory files (xyz + pdb) |
+
+**`rigid_projection` provenance:** the object records the selected treatment
+(`treatment`), `effective_rank`, active/frozen atom counts and indices, and the
+Hessian source/shape used by that workflow. `constrained` is the default;
+`legacy-active` is an isolated-active comparison treatment. A `freq --dump`
+run writes the same object to `thermoanalysis.yaml`. Field names for the final
+two values follow the producing workflow (`hessian_source` / `hessian_shape`,
+or `source` / `raw_hessian_shape`).
 
 ### `scan`
 
@@ -232,6 +244,7 @@ The `all` and `path-search` commands write `summary.json`:
 | `segments` | object[] | Per-segment barrier, delta, bond changes |
 | `energy_diagrams` | object[] | Energy profiles with labels and kcal/mol values |
 | `mlip_backend` | string | Backend name (`uma`, `orb`, `mace`, or `aimnet2`) |
+| `mlip_model` | string \| null | Exact model/checkpoint name, recorded separately from the backend |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
 | `environment` | object | Hardware info |

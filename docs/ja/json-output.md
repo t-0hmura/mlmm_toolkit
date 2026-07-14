@@ -27,7 +27,7 @@ cat result_opt/result.json | python -m json.tool
 | `schema_version` | string | エンベロープのスキーマバージョン。現在値は `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` に由来する（この文書のリテラルではなく定数を参照すること）。値の更新は構造変更を示す。 |
 | `command` | string | サブコマンド名（例: `"opt"`） |
 | `mlmm_version` | string | パッケージバージョン |
-| `status` | string | 各サブコマンドが設定（自動付与ではない）。all/path-search は success/partial/failed、エラー時は error、ステージ別は converged/not_converged/completed 等 |
+| `status` | string | コマンド固有。all/path-search は success/partial/failed、opt は converged/not_converged、tsopt は converged/not_converged/unverified、完了した解析/積分 stage は completed、例外 envelope は error。 |
 | `elapsed_seconds` | float | 実行時間（秒） |
 | `environment` | object | ハードウェア情報（下表参照） |
 
@@ -76,13 +76,14 @@ cat result_opt/result.json | python -m json.tool
 | `final_max_step` | float | 最終 max 変位 (Bohr) |
 | `final_rms_step` | float | 最終 RMS 変位 |
 | `convergence_thresholds` | object | 収束閾値の数値 |
+| `rigid_projection` | object\|null | `--flatten` が PHVA を実行した場合の凍結境界 TR provenance |
 | `files` | object | 出力ファイルマップ |
 
 ### `tsopt`
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | `"completed"`（hess モード）/ `"converged"` / `"not_converged"`（grad モードは収束判定を返す） |
+| `status` | string | optimizer 収束かつ `n_imaginary_modes == 1` の場合だけ `"converged"`。それ以外は `"not_converged"`、`--skip-final-freq` 時は `"unverified"`。 |
 | `energy_hartree` | float | TS エネルギー (Hartree) |
 | `n_imaginary_modes` | int | 虚振動数 |
 | `imaginary_frequencies_cm` | float[] | 虚振動数 (cm$^{-1}$, 負の値) |
@@ -90,6 +91,7 @@ cat result_opt/result.json | python -m json.tool
 | `n_atoms` | int | 全原子数 |
 | `n_opt_cycles` | int | 最適化サイクル数 |
 | `backend` | string | ML バックエンド |
+| `rigid_projection` | object | Dimer/flatten/最終鞍点解析の凍結境界 TR provenance |
 | `files` | object | 最終構造 + vib モードファイル |
 
 ### `freq`
@@ -104,6 +106,7 @@ cat result_opt/result.json | python -m json.tool
 | `thermochemistry` | object\|null | 熱化学データ |
 | `backend` | string | ML バックエンド |
 | `n_atoms` | int | 原子数 |
+| `rigid_projection` | object | 振動解析と熱化学で使った凍結境界 TR provenance |
 | `files` | object | `{"frequencies_txt": "frequencies_cm-1.txt"}` |
 
 **`thermochemistry`** (thermoanalysis 利用不可時は null):
@@ -120,7 +123,15 @@ cat result_opt/result.json | python -m json.tool
 | `energy_product_hartree` | float | 生成物エネルギー |
 | `forward_converged` / `backward_converged` | bool | IRC 収束判定 |
 | `backend` | string | ML バックエンド |
+| `rigid_projection` | object | 初期/更新Hessianの凍結境界 TR provenance |
 | `bond_changes` | object | `{formed: [...], broken: [...]}` |
+
+**`rigid_projection` provenance:** 選択した処理は `treatment`、有効 rank は
+`effective_rank` として、アクティブ/凍結原子数・インデックス、および各 workflow が
+使ったHessian source/shape とともに記録します。デフォルトは `constrained`、
+`legacy-active` は isolated-active 比較処理です。`freq --dump` は同じ object を
+`thermoanalysis.yaml` にも書き出します。最後の 2 値のキー名は生成 workflow により
+`hessian_source` / `hessian_shape` または `source` / `raw_hessian_shape` です。
 
 ### `scan` / `scan2d` / `scan3d`
 
@@ -176,9 +187,13 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `status` | string | `"success"` / `"partial"` / `"failed"`（all。path-search は success/partial） |
+| `n_segments` | int | セグメント数 |
 | `segments` | object[] | セグメントごとの障壁、反応エネルギー、結合変化 |
 | `energy_diagrams` | object[] | エネルギーダイアグラム |
-| `mlip_backend` | string | モデル名 |
+| `mlip_backend` | string | バックエンド名（`uma`, `orb`, `mace`, `aimnet2`） |
+| `mlip_model` | string \| null | バックエンドと分離して記録するモデル/checkpoint名 |
+| `charge` | int | モデル領域の電荷 |
+| `spin` | int | モデル領域のスピン多重度 |
 | `environment` | object | ハードウェア情報 |
 
 `all` はさらに `n_segments_reactive`（bridge 以外の反応セグメント数）, `rate_limiting_step`, `overall_reaction_energy_kcal`, `post_segments` を含みます。

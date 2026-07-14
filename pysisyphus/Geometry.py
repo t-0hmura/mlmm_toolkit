@@ -181,6 +181,7 @@ class Geometry:
         freeze_atoms=None,
         comment="",
         name="",
+        tr_projection="constrained",
     ):
         """Object representing atoms in a coordinate system.
 
@@ -214,6 +215,8 @@ class Geometry:
             Comment string.
         name : str, optional
             Verbose name of the geometry, e.g. methanal or water. Used for printing
+        tr_projection : {"constrained", "legacy-active"}
+            Rigid-body treatment used when a partial Hessian is diagonalized.
         """
         self.atoms = tuple([atom.capitalize() for atom in atoms])
         # self._coords always holds cartesian coordinates.
@@ -238,6 +241,8 @@ class Geometry:
         elif type(freeze_atoms) is str:
             freeze_atoms = full_expand(freeze_atoms)
         self.freeze_atoms = np.array(freeze_atoms, dtype=int)
+        from pysisyphus.tr_projection import normalize_tr_projection_mode
+        self.tr_projection = normalize_tr_projection_mode(tr_projection)
         self.comment = comment
         self.name = name
 
@@ -472,6 +477,7 @@ class Geometry:
             coord_kwargs=_coord_kwargs,
             isotopes=copy.deepcopy(self.isotopes),
             freeze_atoms=self.freeze_atoms.copy(),
+            tr_projection=self.tr_projection,
         )
 
     def copy_all(self, coord_type=None, coord_kwargs=None):
@@ -1120,13 +1126,8 @@ class Geometry:
         """
         hessian = self.cart_hessian
         if self.internal:
-            # transform_hessian expects a full (3N, 3N) Cartesian Hessian
-            # because it contracts with the Wilson B matrix over ALL atoms.
-            # When mlmm BUG #1 fix routed a partial Hessian (active block
-            # only) into geometry.cart_hessian, transform_hessian crashed on
-            # shape mismatch (`cart_hessian - K`). Expand partial → full by
-            # zero-padding outside the active DOFs so internal-coord opt
-            # paths (redund / tric) work under the partial-Hessian regime.
+            # transform_hessian contracts against the Wilson B matrix for all
+            # atoms. Expand an active block to 3N by zero-padding frozen DOFs.
             if (
                 self.within_partial_hessian is not None
                 and hessian is not None
@@ -1155,24 +1156,31 @@ class Geometry:
     # self._hessian = hessian
 
     def mass_weigh_hessian(self, hessian):
+        partial_layout = (
+            self._validated_partial_hessian_layout()
+            if self.within_partial_hessian is not None and hessian is not None
+            else None
+        )
+        if partial_layout is not None:
+            act_atoms, _, active_n_dof, full_n_dof = partial_layout
+            if hessian.shape not in (
+                (active_n_dof, active_n_dof),
+                (full_n_dof, full_n_dof),
+            ):
+                raise ValueError(
+                    "partial Hessian shape must match either active_n_dof or full_n_dof"
+                )
         if (
-            self.within_partial_hessian is not None
-            and hessian is not None
-            and hessian.shape == (int(self.within_partial_hessian.get("active_n_dof", 0)),
-                                  int(self.within_partial_hessian.get("active_n_dof", 0)))
+            partial_layout is not None
+            and hessian.shape == (active_n_dof, active_n_dof)
         ):
-            act_atoms = self.hess_active_atom_indices
             masses_act = self.masses[act_atoms]
             m3 = np.repeat(masses_act, 3)
             inv_sqrt_m = 1.0 / np.sqrt(m3)
             if isinstance(hessian, torch.Tensor):
                 inv = torch.as_tensor(inv_sqrt_m, dtype=hessian.dtype, device=hessian.device)
-                hessian.mul_(inv.view(-1, 1))
-                hessian.mul_(inv.view(1, -1))
-                return hessian
-            hessian *= inv_sqrt_m[:, None]
-            hessian *= inv_sqrt_m[None, :]
-            return hessian
+                return hessian * inv.view(-1, 1) * inv.view(1, -1)
+            return hessian * inv_sqrt_m[:, None] * inv_sqrt_m[None, :]
 
         inv_sqrt_m = 1.0 / (self.masses_rep ** 0.5)
         if isinstance(hessian, torch.Tensor):
@@ -1249,6 +1257,74 @@ class Geometry:
             return self.active_dof_indices
         return self.within_partial_hessian["active_dofs"]
 
+    def _validated_partial_hessian_layout(self):
+        """Return validated ordered PHVA atom/DOF metadata.
+
+        Partial-Hessian consumers must use the exact Cartesian block order
+        declared by ``active_atoms``.  Silently sorting or accepting incomplete
+        xyz triplets would apply masses and rigid projections in a different
+        basis from the supplied Hessian.
+        """
+        meta = self.within_partial_hessian
+        if meta is None:
+            return None
+
+        def _indices(value, name):
+            if value is None:
+                raise ValueError(f"partial Hessian metadata is missing {name!r}")
+            if isinstance(value, torch.Tensor):
+                value = value.detach().cpu().numpy()
+            array = np.asarray(value)
+            if array.ndim != 1 or not np.issubdtype(array.dtype, np.integer):
+                raise ValueError(f"partial Hessian {name} must be a one-dimensional integer list")
+            return array.astype(int, copy=False)
+
+        active_atoms = _indices(meta.get("active_atoms"), "active_atoms")
+        active_dofs = _indices(meta.get("active_dofs"), "active_dofs")
+        full_n_dof = int(meta.get("full_n_dof", self.cart_coords.size))
+        active_n_dof = int(meta.get("active_n_dof", active_dofs.size))
+
+        if full_n_dof != self.cart_coords.size:
+            raise ValueError(
+                "partial Hessian full_n_dof does not match the Geometry Cartesian size"
+            )
+        if active_atoms.size == 0:
+            raise ValueError("PHVA requires at least one active atom")
+        if (
+            np.any(active_atoms < 0)
+            or np.any(active_atoms >= len(self.atoms))
+            or np.unique(active_atoms).size != active_atoms.size
+        ):
+            raise ValueError("partial Hessian active_atoms contains duplicate or invalid indices")
+        expected_dofs = np.asarray(
+            [3 * atom + axis for atom in active_atoms for axis in range(3)],
+            dtype=int,
+        )
+        if active_n_dof != active_dofs.size or not np.array_equal(active_dofs, expected_dofs):
+            raise ValueError(
+                "partial Hessian active_dofs must contain complete xyz triplets "
+                "in active_atoms order"
+            )
+        return active_atoms, active_dofs, active_n_dof, full_n_dof
+
+    def _hess_active_block(self, hessian):
+        """Return an active PHVA block from a full or already-active Hessian."""
+        layout = self._validated_partial_hessian_layout()
+        if layout is None or hessian is None:
+            return hessian
+        _, active_dofs, active_n_dof, full_n_dof = layout
+        if hessian.shape == (active_n_dof, active_n_dof):
+            return hessian
+        if hessian.shape != (full_n_dof, full_n_dof):
+            raise ValueError(
+                "partial Hessian shape must match either active_n_dof or full_n_dof"
+            )
+        if isinstance(hessian, torch.Tensor):
+            indices = torch.as_tensor(active_dofs, dtype=torch.long, device=hessian.device)
+            return hessian.index_select(0, indices).index_select(1, indices)
+        array = np.asarray(hessian)
+        return array[np.ix_(active_dofs, active_dofs)]
+
     # Convenience: extract / insert an active slice
     def full_from_active(self, active_vec):
         """Expand a vector defined on active DOFs to 3N, keeping frozen data."""
@@ -1302,19 +1378,15 @@ class Geometry:
         if cart_hessian is None:
             cart_hessian = self.cart_hessian
 
+        if self.within_partial_hessian is not None:
+            self._validated_partial_hessian_layout()
         mw_hessian = self.mass_weigh_hessian(cart_hessian)
+        is_partial = self.within_partial_hessian is not None
         proj_hessian, P = self.eckart_projection(mw_hessian, return_P=True, full=full)
-
-        is_partial = (
-            self.within_partial_hessian is not None
-            and proj_hessian is not None
-            and proj_hessian.shape == (int(self.within_partial_hessian.get("active_n_dof", 0)),
-                                       int(self.within_partial_hessian.get("active_n_dof", 0)))
-        )
 
         if isinstance(proj_hessian, torch.Tensor):
             eigvals, eigvecs = torch.linalg.eigh(proj_hessian)
-            mw_cart_displs = P.T @ eigvecs
+            mw_cart_displs = eigvecs if P is None else P.T @ eigvecs
             if is_partial:
                 masses_act = self.masses[self.hess_active_atom_indices]
                 m3 = torch.repeat_interleave(
@@ -1336,7 +1408,7 @@ class Geometry:
             eigvals = eigvals.cpu().numpy()
         else:
             eigvals, eigvecs = np.linalg.eigh(proj_hessian)
-            mw_cart_displs = P.T.dot(eigvecs)
+            mw_cart_displs = eigvecs if P is None else P.T.dot(eigvecs)
             if is_partial:
                 masses_act = self.masses[self.hess_active_atom_indices]
                 m3 = np.repeat(masses_act, 3)
@@ -1400,15 +1472,44 @@ class Geometry:
         if self.is_analytical_2d:
             return mw_hessian
 
-        if (
-            self.within_partial_hessian is not None
-            and mw_hessian is not None
-            and mw_hessian.shape == (int(self.within_partial_hessian.get("active_n_dof", 0)),
-                                     int(self.within_partial_hessian.get("active_n_dof", 0)))
-        ):
-            coords_act = self.coords3d[self.hess_active_atom_indices].flatten()
-            masses_act = self.masses[self.hess_active_atom_indices]
-            P = get_trans_rot_projector(coords_act, masses=masses_act, full=full)
+        if self.within_partial_hessian is not None and mw_hessian is not None:
+            mw_hessian = self._hess_active_block(mw_hessian)
+            from pysisyphus.tr_projection import (
+                active_tr_basis,
+                compact_project_hessian,
+            )
+            coords = torch.as_tensor(
+                self.coords3d,
+                dtype=mw_hessian.dtype if isinstance(mw_hessian, torch.Tensor) else torch.float64,
+                device=mw_hessian.device if isinstance(mw_hessian, torch.Tensor) else "cpu",
+            )
+            masses = torch.as_tensor(self.masses, dtype=coords.dtype, device=coords.device)
+            basis, info = active_tr_basis(
+                coords,
+                masses,
+                self.hess_active_atom_indices,
+                mode=self.tr_projection,
+            )
+            self._last_rigid_projection_info = info
+            if full:
+                q = basis.to(
+                    dtype=mw_hessian.dtype,
+                    device=mw_hessian.device,
+                ) if isinstance(mw_hessian, torch.Tensor) else basis.detach().cpu().numpy()
+                if isinstance(mw_hessian, torch.Tensor):
+                    P = torch.eye(
+                        mw_hessian.shape[0], dtype=mw_hessian.dtype, device=mw_hessian.device
+                    ) - q @ q.T
+                    proj_hessian = P @ mw_hessian @ P.T
+                else:
+                    P = np.eye(mw_hessian.shape[0], dtype=mw_hessian.dtype) - q @ q.T
+                    proj_hessian = P.dot(mw_hessian).dot(P.T)
+                proj_hessian = 0.5 * (proj_hessian + proj_hessian.T)
+            else:
+                proj_hessian, P = compact_project_hessian(mw_hessian, basis)
+            if return_P:
+                return proj_hessian, P
+            return proj_hessian
         else:
             P = self.get_trans_rot_projector(full=full)
         if isinstance(mw_hessian, torch.Tensor):

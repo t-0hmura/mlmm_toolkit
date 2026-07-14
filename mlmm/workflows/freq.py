@@ -1,28 +1,4 @@
-"""
-ML/MM vibrational frequency analysis with PHVA support and thermochemistry.
-
-Example:
-    mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
-
-For detailed documentation, see: docs/freq.md
-
-Table of contents (top-level definitions; refresh manually after structural edits):
-    def _safe_masses_amu
-    def _torch_device
-    def _build_tr_basis
-    def _tr_orthonormal_basis
-    def _mw_projected_hessian
-    def _mass_weighted_hessian
-    def _frequencies_cm_and_modes
-    def _mw_mode_to_cart
-    def _calc_full_hessian_torch
-    def _active_atoms_from_partial_hessian_metadata
-    def _collect_layer_atom_sets
-    def _align_three_layer_hessian_targets
-    def _resolve_active_atom_indices
-    def _write_mode_trj_and_pdb
-    def cli
-"""
+"""ML/MM vibrational analysis with PHVA and thermochemistry."""
 # DOMAIN_PURE
 
 from __future__ import annotations
@@ -49,6 +25,7 @@ from ase.io import write
 
 from pysisyphus.constants import AMU2AU, ANG2BOHR, AU2EV, BOHR2ANG
 from pysisyphus.helpers import geom_loader
+from pysisyphus.tr_projection import active_tr_basis, project_hessian_inplace
 
 from mlmm.backends.mlmm_calc import mlmm
 from mlmm.core.defaults import FREQ_KW, THERMO_KW
@@ -104,46 +81,11 @@ def _torch_device(auto: str = "auto") -> torch.device:
 
 
 
-def _build_tr_basis(coords_bohr_t: torch.Tensor,
-                    masses_au_t: torch.Tensor) -> torch.Tensor:
-    """
-    Mass-weighted translation/rotation basis (Tx, Ty, Tz, Rx, Ry, Rz), shape (3N, r<=6).
-    """
-    device, dtype = coords_bohr_t.device, coords_bohr_t.dtype
-    N = coords_bohr_t.shape[0]
-    m_au = masses_au_t.to(dtype=dtype, device=device)
-    m_sqrt = torch.sqrt(m_au).reshape(-1, 1)
-
-    com = (m_au.reshape(-1, 1) * coords_bohr_t).sum(0) / m_au.sum()
-    x = coords_bohr_t - com
-
-    eye3 = torch.eye(3, dtype=dtype, device=device)
-    cols = []
-    for i in range(3):
-        cols.append((eye3[i].repeat(N, 1) * m_sqrt).reshape(-1, 1))
-    for i in range(3):
-        rot = torch.cross(x, eye3[i].expand_as(x), dim=1) * m_sqrt
-        cols.append(rot.reshape(-1, 1))
-    return torch.cat(cols, dim=1)
-
-
-def _tr_orthonormal_basis(coords_bohr_t: torch.Tensor,
-                          masses_au_t: torch.Tensor,
-                          rtol: float = 1e-12) -> Tuple[torch.Tensor, int]:
-    """
-    Orthonormalize TR basis in mass-weighted space by SVD. Returns (Q, rank).
-    """
-    B = _build_tr_basis(coords_bohr_t, masses_au_t)
-    U, S, Vh = torch.linalg.svd(B, full_matrices=False)
-    r = int((S > rtol * S.max()).sum().item())
-    Q = U[:, :r]
-    del B, S, Vh, U
-    return Q, r
-
-
 def _mw_projected_hessian(H_t: torch.Tensor,
                           coords_bohr_t: torch.Tensor,
-                          masses_au_t: torch.Tensor) -> torch.Tensor:
+                          masses_au_t: torch.Tensor,
+                          tr_projection: str = "constrained",
+                          projection_info: Optional[dict] = None) -> torch.Tensor:
     """
     Project out translations/rotations in mass-weighted space:
     Hmw = M^{-1/2} H M^{-1/2};  P = I - QQ^T;  Hmw_proj = P Hmw P
@@ -166,19 +108,16 @@ def _mw_projected_hessian(H_t: torch.Tensor,
         H_t.mul_(inv_sqrt_m_row)
         H_t.mul_(inv_sqrt_m_col)
 
-        Q, _ = _tr_orthonormal_basis(coords_bohr_t, masses_au_t)  # (3N, r)
-        Q = Q.to(dtype=dtype, device=device)
-        Qt = Q.T
-
-        QtH = Qt @ H_t                   # (r,3N)
-        H_t.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
-
-        HQ = QtH.T                       # (3N,r)
-        H_t.addmm_(HQ, Qt, beta=1.0, alpha=-1.0)
-
-        QtHQ = QtH @ Q                   # (r,r)
-        tmp = Q @ QtHQ                   # (3N,r)
-        H_t.addmm_(tmp, Qt, beta=1.0, alpha=1.0)
+        Q, info = active_tr_basis(
+            coords_bohr_t,
+            masses_au_t,
+            list(range(int(coords_bohr_t.shape[0]))),
+            mode=tr_projection,
+        )
+        project_hessian_inplace(H_t, Q)
+        if projection_info is not None:
+            projection_info.clear()
+            projection_info.update(info.as_dict())
 
         # Bounded-peak symmetrization (writes BOTH triangles; peak temp <= chunk^2
         # instead of full N×N clone). Do not rely on upper-triangle-only tricks
@@ -187,14 +126,14 @@ def _mw_projected_hessian(H_t: torch.Tensor,
         symmetrize_inplace(H_t)
 
         del masses_amu_t, m3, inv_sqrt_m, inv_sqrt_m_col, inv_sqrt_m_row
-        del Q, Qt, QtH, HQ, QtHQ, tmp
+        del Q
 
         if torch.cuda.is_available() and device.type == "cuda":
             torch.cuda.empty_cache()
         return H_t
 
 
-# CHEMISTRY-RULE:6 PHVA + UMA active-block: mass-weighted Hessian only;
+# CHEMISTRY-RULE:6 PHVA + MLIP active-block: mass-weighted Hessian only;
 # TR projection is applied separately downstream.
 # ---- PHVA helper: mass-weighted Hessian without TR projection (for active subspace) ----
 def _mass_weighted_hessian(H_t: torch.Tensor,
@@ -216,7 +155,7 @@ def _mass_weighted_hessian(H_t: torch.Tensor,
         return H_t
 
 
-# DO NOT INLINE: PHVA / UMA active-block chemistry math derivation lives in this docstring; splitting orphans the explanation. Do NOT split: chemistry math + docstring must stay co-located.
+# DO NOT INLINE: PHVA / MLIP active-block chemistry math derivation lives in this docstring; splitting orphans the explanation. Do NOT split: chemistry math + docstring must stay co-located.
 def _frequencies_cm_and_modes(H_t: torch.Tensor,
                               atomic_numbers: List[int],
                               coords_bohr: np.ndarray,
@@ -227,7 +166,9 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                               # imaginary count and thermochemistry. NOT a physical soft-mode cutoff;
                               # tsopt counts imaginary at neg_freq_thresh_cm=5.0 (≈ the same floor).
                               tol: float = 1e-6,
-                              freeze_idx: Optional[List[int]] = None) -> Tuple[np.ndarray, torch.Tensor]:
+                              freeze_idx: Optional[List[int]] = None,
+                              tr_projection: str = "constrained",
+                              projection_info: Optional[dict] = None) -> Tuple[np.ndarray, torch.Tensor]:
     """
     Diagonalize a (possibly PHVA/active-subspace) TR-projected mass-weighted Hessian
     to obtain frequencies (cm^-1) and mass-weighted eigenvectors (modes).
@@ -238,13 +179,13 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
       A) Full Hessian given (3N×3N):
          1) build Hmw = M^{-1/2} H M^{-1/2}
          2) take the active subspace by removing DOF of frozen atoms
-         3) perform TR projection **only in the active subspace** (always applied)
+         3) remove only constrained-system rigid null modes represented in the active subspace
          4) diagonalize and embed eigenvectors back to 3N by zero-filling frozen DOF
 
       B) Already-reduced (active-block) Hessian given (3N_act×3N_act), e.g.
          when UMA is called with return_partial_hessian=True:
          1) mass-weight with **active** masses only
-         2) TR projection in the active space
+         2) apply the same constrained-system rigid-null treatment in active space
          3) diagonalize and embed back to 3N by zero-filling frozen DOF
 
     Returns:
@@ -256,7 +197,7 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
             H_t = H_t.to(dtype=torch.float64)
         Z = np.array(atomic_numbers, dtype=int)
         N = int(len(Z))
-        masses_amu = np.array([atomic_masses[z] for z in Z])  # amu
+        masses_amu = _safe_masses_amu(Z)
         masses_au_t = torch.as_tensor(masses_amu * AMU2AU, dtype=H_t.dtype, device=device)
         coords_bohr_t = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_t.dtype, device=device)
 
@@ -267,38 +208,41 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
             active_idx = [i for i in range(N) if i not in frozen_set]
             n_active = len(active_idx)
             if n_active == 0:
-                # All atoms are frozen → no modes
-                freqs_cm = np.zeros((0,), dtype=float)
-                modes = torch.zeros((0, 3 * N), dtype=H_t.dtype, device=H_t.device)
-                return freqs_cm, modes
+                raise ValueError("PHVA requires at least one active atom")
 
             # Determine whether the provided Hessian is already the active block (3N_act×3N_act).
             expected_act_dim = 3 * n_active
             is_partial = (H_t.shape[0] == expected_act_dim and H_t.shape[1] == expected_act_dim)
+            is_full = (H_t.shape[0] == 3 * N and H_t.shape[1] == 3 * N)
+            if not (is_partial or is_full):
+                raise ValueError(
+                    "Hessian shape is inconsistent with the full and active PHVA spaces: "
+                    f"got {tuple(H_t.shape)}, expected {(3 * N, 3 * N)} or "
+                    f"{(expected_act_dim, expected_act_dim)}"
+                )
+            Q, info = active_tr_basis(
+                coords_bohr_t,
+                masses_au_t,
+                active_idx,
+                mode=tr_projection,
+            )
+            if projection_info is not None:
+                projection_info.clear()
+                projection_info.update(info.as_dict())
 
             if is_partial:
                 # --- Case B: Active-subspace Hessian supplied ---
                 # Mass-weight using only active atoms → project TR modes in the active space
                 # → diagonalize → embed back into the full space.
                 masses_act = masses_au_t[active_idx]
-                coords_act = coords_bohr_t[active_idx, :]
-
                 # in-place mass-weight (active masses)
                 Hmw_act = _mass_weighted_hessian(H_t, masses_act)
-
-                # TR basis and projection in the active space
-                Q, _ = _tr_orthonormal_basis(coords_act, masses_act)  # (3N_act, r)
-                Qt = Q.T
-                QtH = Qt @ Hmw_act
-                Hmw_act.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
-                Hmw_act.addmm_(QtH.T, Qt, beta=1.0, alpha=-1.0)
-                QtHQ = QtH @ Q
-                Hmw_act.addmm_(Q @ QtHQ, Qt, beta=1.0, alpha=1.0)
+                project_hessian_inplace(Hmw_act, Q)
 
                 # Bounded-peak symmetrization (helper writes both triangles).
                 from mlmm.core.utils import symmetrize_inplace
                 symmetrize_inplace(Hmw_act)
-                omega2, Vsub = torch.linalg.eigh(Hmw_act, UPLO="U")
+                omega2, Vsub = torch.linalg.eigh(Hmw_act)
 
                 # Free the (only) Hessian ASAP
                 del Hmw_act
@@ -316,7 +260,7 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                 for i in frozen_set:
                     mask_dof[3 * i:3 * i + 3] = False
                 modes[:, mask_dof] = Vsub.T
-                del Q, Qt, QtH, QtHQ, mask_dof
+                del Q, mask_dof
 
             else:
                 # --- Case A: Full Hessian (3N×3N) supplied ---
@@ -336,23 +280,12 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                 H_t = H_act
                 del H_act
 
-                coords_act = coords_bohr_t[active_idx, :]
-                masses_act = masses_au_t[active_idx]
-                Q, _ = _tr_orthonormal_basis(coords_act, masses_act)  # (3N_act, r)
-                Qt = Q.T
-
-                QtH = Qt @ H_t
-                H_t.addmm_(Q, QtH, beta=1.0, alpha=-1.0)
-
-                H_t.addmm_(QtH.T, Qt, beta=1.0, alpha=-1.0)
-
-                QtH = QtH @ Q
-                H_t.addmm_(Q @ QtH, Qt, beta=1.0, alpha=1.0)
+                project_hessian_inplace(H_t, Q)
 
                 # Bounded-peak symmetrization (helper writes both triangles).
                 from mlmm.core.utils import symmetrize_inplace
                 symmetrize_inplace(H_t)
-                omega2, Vsub = torch.linalg.eigh(H_t, UPLO="U")
+                omega2, Vsub = torch.linalg.eigh(H_t)
 
                 # Free the (only) Hessian ASAP
                 del H_t
@@ -365,15 +298,17 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
 
                 modes = torch.zeros((Vsub.shape[1], 3 * N), dtype=Vsub.dtype, device=Vsub.device)
                 modes[:, mask_dof] = Vsub.T  # (nsel, 3N_act) → place into active DOF
-                del Vsub, mask_dof, Q, Qt, QtH
+                del Vsub, mask_dof, Q
 
         else:
-            # Legacy behavior: TR-projection in full DOF → diagonalization (both in-place)
-            H_t = _mw_projected_hessian(H_t, coords_bohr_t, masses_au_t)
-            # Bounded-peak symmetrization (helper writes both triangles).
-            from mlmm.core.utils import symmetrize_inplace
-            symmetrize_inplace(H_t)
-            omega2, V = torch.linalg.eigh(H_t, UPLO="U")
+            H_t = _mw_projected_hessian(
+                H_t,
+                coords_bohr_t,
+                masses_au_t,
+                tr_projection=tr_projection,
+                projection_info=projection_info,
+            )
+            omega2, V = torch.linalg.eigh(H_t)
 
             # Free the (only) Hessian ASAP
             del H_t
@@ -743,6 +678,16 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
+    "--tr-projection",
+    type=click.Choice(["constrained", "legacy-active"], case_sensitive=False),
+    default=None,
+    help=(
+        "Rigid-mode treatment for PHVA. 'constrained' removes only full-system "
+        "rigid motions compatible with frozen anchors (default); 'legacy-active' "
+        "treats the active fragment as isolated for comparison."
+    ),
+)
+@click.option(
     "--hess-cutoff",
     "hess_cutoff",
     type=float,
@@ -929,6 +874,7 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
+    tr_projection: Optional[str],
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     hessian_calc_mode: Optional[str],
@@ -960,7 +906,7 @@ def cli(
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
-    calc_factory: str,
+    calc_factory: Optional[str],
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
@@ -976,10 +922,10 @@ def cli(
         override_yaml=None,
     )
 
-    # Validate input format: PDB directly, or XYZ with --ref-pdb
+    # Validate input format: PDB/mmCIF directly, or XYZ with --ref-pdb.
     suffix = input_path.suffix.lower()
-    if suffix not in (".pdb", ".xyz"):
-        click.echo("ERROR: --input must be a PDB or XYZ file.", err=True)
+    if suffix not in (".pdb", ".cif", ".mmcif", ".xyz"):
+        click.echo("ERROR: --input must be a PDB, mmCIF, or XYZ file.", err=True)
         sys.exit(1)
     if suffix == ".xyz" and ref_pdb is None:
         click.echo("ERROR: --ref-pdb is required when --input is an XYZ file.", err=True)
@@ -1071,6 +1017,10 @@ def cli(
 
     if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
         calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
+    # The first routing pass precedes this explicit CLI override. Re-run the
+    # compatibility guard so ``--workers >1 --hessian-calc-mode Analytical``
+    # cannot evade validation.
+    apply_workers_to_calc_cfg(calc_cfg, None, None)
 
     if _is_param_explicit("max_write"):
         freq_cfg["max_write"] = int(max_write)
@@ -1084,6 +1034,8 @@ def cli(
         freq_cfg["out_dir"] = out_dir
     if _is_param_explicit("active_dof_mode"):
         freq_cfg["active_dof_mode"] = str(active_dof_mode)
+    if _is_param_explicit("tr_projection") and tr_projection is not None:
+        geom_cfg["tr_projection"] = str(tr_projection).lower()
     if _is_param_explicit("temperature"):
         thermo_cfg["temperature"] = float(temperature)
     if _is_param_explicit("pressure_atm"):
@@ -1118,6 +1070,10 @@ def cli(
             (freq_cfg, (("freq",),)),
             (thermo_cfg, (("thermo",), ("freq", "thermo"))),
         ],
+    )
+    from pysisyphus.tr_projection import normalize_tr_projection_mode
+    geom_cfg["tr_projection"] = normalize_tr_projection_mode(
+        geom_cfg.get("tr_projection")
     )
     calc_paths = (("calc",), ("mlmm",))
     partial_explicit = (
@@ -1197,6 +1153,7 @@ def cli(
                     "model_region_source": model_region_source,
                     "model_indices_count": 0 if not model_indices else len(model_indices),
                     "active_dof_mode": str(freq_cfg.get("active_dof_mode", active_dof_mode)),
+                    "tr_projection": geom_cfg["tr_projection"],
                     "will_run_frequency_analysis": True,
                     "will_write_modes": True,
                     "will_dump_thermo_yaml": bool(thermo_cfg.get("dump", False)),
@@ -1274,13 +1231,10 @@ def cli(
             calc_cfg[key] = str(Path(val).expanduser().resolve())
 
     # Default-verbosity entry summary (skipped in child mode).
-    from mlmm.core.utils import echo_run_summary
-    _backend = calc_cfg.get("backend") or "uma"
-    _model = calc_cfg.get("uma_model") or calc_cfg.get("model")
-    _precision = calc_cfg.get("uma_precision") or calc_cfg.get("precision", "fp32")
+    from mlmm.core.utils import calculator_run_label, echo_run_summary
     echo_run_summary({
         "input": str(input_path),
-        "backend": f"{_backend} ({_model}, {_precision})" if _model else _backend,
+        "backend": calculator_run_label(calc_cfg),
         "out": str(out_dir_path),
     })
 
@@ -1342,8 +1296,23 @@ def cli(
     freeze_list = sorted(set(freeze_for_freq) | explicit_freeze)
 
     try:
-        from mlmm.io.hessian_cache import load as _hess_load
+        from mlmm.io.hessian_cache import (
+            load as _hess_load,
+            matches_cart_coords as _hess_matches_coords,
+        )
         _cached_ts = _hess_load("ts")
+        if _cached_ts is not None and not _hess_matches_coords(
+            _cached_ts,
+            geometry.cart_coords,
+            # The all workflow may round-trip the TS through a PDB file.
+            atol=1.1e-3,
+        ):
+            click.echo(
+                "[freq] Cached TS Hessian does not match the input geometry; "
+                "calculating a fresh Hessian.",
+                err=True,
+            )
+            _cached_ts = None
         if _cached_ts is not None:
             click.echo("[freq] Reusing cached TS Hessian.", narrative=True)
             H_t = _cached_ts["hessian"]
@@ -1354,11 +1323,8 @@ def cli(
             energy_ha = _cached_ts.get("meta", {}).get("energy_ha")
             if energy_ha is None:
                 energy_ha = float(geometry.energy)
-            # Populate partial-Hessian metadata from the cache's active_dofs so
-            # the partial-Hessian routing below can detect partial shape and
-            # synthesize freeze_idx. Without this, cached partial Hessians
-            # (from tsopt → freq pipeline in `mlmm all`) trip the legacy ELSE
-            # branch shape mismatch in _frequencies_cm_and_modes.
+            # Restore active-DOF metadata so cached partial Hessians follow the
+            # same PHVA route as freshly evaluated Hessians.
             _cached_active_dofs = _cached_ts.get("active_dofs")
             if _cached_active_dofs is not None and len(_cached_active_dofs) > 0:
                 _active_atoms_from_cache = sorted({d // 3 for d in _cached_active_dofs})
@@ -1376,10 +1342,7 @@ def cli(
                         "active_atoms": _active_atoms_from_cache,
                     }
         else:
-            # refresh_geom_meta=True populates geometry.within_partial_hessian /
-            # _hess_active_atoms_last / _hess_active_dofs_last so the downstream
-            # PHVA routing can detect a partial Hessian and route to Case B
-            # (active-subspace path) instead of the legacy full-Hessian ELSE.
+            # Populate active-DOF metadata for downstream PHVA routing.
             H_t, energy_ha = _calc_full_hessian_torch(
                 geometry, calc_cfg, device, refresh_geom_meta=True
             )
@@ -1451,12 +1414,32 @@ def cli(
             f"frozen_atoms={_n_frozen}, active_dof={3 * _n_active}",
             detail=True,
         )
+        _rigid_projection = {}
         freqs_cm, modes_mw = _frequencies_cm_and_modes(
             H_t,
             geometry.atomic_numbers,
             coords_bohr,
             device,
             freeze_idx=_effective_freeze if _effective_freeze else None,
+            tr_projection=geom_cfg["tr_projection"],
+            projection_info=_rigid_projection,
+        )
+        _rigid_projection.update(
+            {
+                "hessian_space": (
+                    "full" if H_t.shape[0] == 3 * len(geometry.atomic_numbers)
+                    else "active"
+                ),
+                "hessian_shape": list(H_t.shape),
+                "hessian_source": "cache" if _cached_ts is not None else "fresh",
+                "hessian_representation": "cartesian-unweighted-unprojected",
+            }
+        )
+        click.echo(
+            "[freq] Rigid projection: "
+            f"treatment={_rigid_projection['treatment']}, "
+            f"rank={_rigid_projection['effective_rank']}, "
+            f"full_rigid_rank={_rigid_projection['full_rigid_rank']}."
         )
 
         del H_t
@@ -1589,6 +1572,7 @@ def cli(
                     "temperature_K": T,
                     "pressure_atm": p_atm,
                     "num_imag_freq": n_imag,
+                    "rigid_projection": _rigid_projection,
                     "electronic_energy_ha": EE,
                     "zpe_correction_ha": ZPE,
                     "thermal_correction_energy_ha": dE_therm,
@@ -1619,7 +1603,7 @@ def cli(
         click.echo(format_elapsed("[time] Elapsed Time for Freq", time_start), narrative=True)
 
         if out_json:
-            from mlmm.core.utils import write_result_json
+            from mlmm.core.utils import calculator_provenance, write_result_json
             _all_freqs = [float(f) for f in freqs_cm]
             _imag_freqs = [f for f in _all_freqs if f < 0.0]
             _thermo_data = None
@@ -1649,7 +1633,8 @@ def cli(
                 "frequencies_cm": _all_freqs,
                 "imaginary_frequencies_cm": _imag_freqs,
                 "thermochemistry": _thermo_data,
-                "backend": calc_cfg.get("backend", "uma"),
+                "rigid_projection": _rigid_projection,
+                **calculator_provenance(calc_cfg),
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
                 "n_atoms": len(geometry.atomic_numbers),

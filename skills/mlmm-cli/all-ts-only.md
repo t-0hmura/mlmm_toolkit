@@ -36,7 +36,7 @@ mlmm all --parm enzyme.parm7 -i ts_candidate.pdb \
 The orchestrator skips path-search automatically and starts the
 pipeline at `tsopt`. There is **no explicit "force TS-only" flag** — the
 mode is selected purely from the input shape. TSOPT-only mode requires
-`--tsopt True`; passing `--tsopt False` with a single input raises a
+`--tsopt`; passing `--no-tsopt` with a single input raises a
 validation error.
 
 For finer control, run the underlying subcommands directly:
@@ -125,7 +125,7 @@ saddle**; see "Distinctive failure modes" below.
 
 ## Caveats
 
-- `--tsopt True` is mandatory in TSOPT-only mode; `--tsopt False` with
+- `--tsopt` is mandatory in TSOPT-only mode; `--no-tsopt` with
   a single PDB triggers a validation error.
 - For an XYZ TS candidate, you must supply `-q` and `-m` explicitly
   (XYZ has no header). Use `--ref-pdb cluster.pdb` if you want
@@ -176,7 +176,7 @@ Recipe (no `--parm`; the `all` pipeline rebuilds the mutant parm via mm-parm):
 | 1. mutate | On the WT TS PDB, truncate the sidechain + rename the residue (e.g. ARG→ALA). Keep the layer B-factors of the retained atoms. |
 | 2. complete | Run once (or let mm-parm/tleap) so the missing H is re-added; the **input atom count must equal the rebuilt parm7** (a hand-truncated PDB is short one H → `Atom-count mismatch` at tsopt). Use the tleap-completed full PDB as the new input. |
 | 3. transplant layers | Copy WT's B-factors (0/10/20) onto the completed mutant by `(resid, atom-name)`; the new H inherits its residue's modal layer. Mutant ML = WT ML − deleted sidechain atoms (+ added H). |
-| 4. run | `mlmm all -i mutant_layered.pdb -l 'LIG:Q' --tsopt True --thermo True [--dft ...] -o result` |
+| 4. run | `mlmm all -i mutant_layered.pdb -l 'LIG:Q' --tsopt --thermo [--dft ...] -o result` |
 
 Flags for step 4: **OMIT `-c` / `-r`** (geometric selection) — `--detect-layer` (default on) reads the
 transplanted B-factor layers, so the ML/movable/frozen layers are byte-identical to WT. **KEEP `-l`** (or

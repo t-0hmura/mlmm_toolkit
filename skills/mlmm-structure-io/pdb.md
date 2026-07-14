@@ -58,18 +58,16 @@ mlmm extract -i complex.pdb -c 'SAM,GPP,MG' -o cluster.pdb
 # Form 2 — a separate PDB containing only the substrate residues.
 mlmm extract -i complex.pdb -c substrate.pdb -o cluster.pdb
 
-# Form 3 — chain-aware: `chainID:resSeq` (numeric resSeq is honored)
+# Form 3 — exact chain + residue sequence (insertion code optional)
 mlmm extract -i complex.pdb -c 'A:44' -o cluster.pdb
+
+# Form 4 — exact chain + residue name + sequence
+mlmm extract -i complex.pdb -c 'A:SAM:44' -o cluster.pdb
 ```
 
-> **Caveat**: only `chainID:resSeq` (numeric resSeq) is parsed as
-> chain-aware in `extract.py`. A token like `'A:SAM'` (chain:resName) is
-> **not** parsed as chain+resName — `_parse_res_tokens` requires a numeric
-> resSeq, so `'A:SAM'` is taken as a literal residue name, matches nothing,
-> and raises a "Residue name not found" error. To restrict by chain you
-> must supply a numeric resSeq. To select all SAM in chain A, run `extract`
-> with `-c 'SAM'` first then trim chains by hand, or use the Form-2
-> substrate-PDB workflow.
+`A:SAM` deliberately selects every SAM residue in chain A. Add the residue
+number (`A:SAM:44`) when the match must be unique. Large/multi-character
+identifiers use the same grammar through the mmCIF bridge; see `cif.md`.
 
 The pocket radius around the centers is set by `-r <Å>` (default 2.6 Å).
 All residues with at least one atom (any element, including hydrogen) inside the radius are kept.
@@ -117,8 +115,8 @@ field for downstream consumption.
   names and numbers, and chain IDs. Do not renumber/reorder or add link H.
 - Include every atom involved in bond/proton transfer plus covalently attached
   partners whose bonding changes.
-- Make retained backbone fragments terminate consistently at alpha carbons
-  (`CA`). Put other boundaries on aliphatic C–C single bonds (`CA–CB` or farther
+- Make each retained backbone fragment terminate at `CA` on both its N- and
+  C-side ends. Put every other boundary on an aliphatic C–C single bond (`CA–CB` or farther
   out) whenever possible. Never cut peptide C–N, polar C–N/C–O,
   aromatic/conjugated, disulfide, or metal-coordination bonds; expand/move the
   boundary instead.
@@ -187,7 +185,7 @@ awk '/^ATOM|^HETATM/{key=substr($0,22,5)"-"substr($0,13,4); print key}' my.pdb \
 
 ## See also
 
-- `xyz.md`, `gjf.md` — alternative formats.
+- `cif.md`, `xyz.md`, `gjf.md` — alternative formats.
 - `charge-multiplicity.md` — figuring out per-ligand charges.
 - `mlmm-cli/extract.md` — full `extract` flag set and examples.
 - `mlmm-cli/{add-elem-info,fix-altloc}.md` — utility subcommands.

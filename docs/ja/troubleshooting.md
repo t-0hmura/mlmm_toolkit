@@ -551,8 +551,9 @@ pip install "mlmm-toolkit[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.ht
 
 **症状:** ORB、MACE、AIMNet2 の使用時に `RuntimeError: CUDA out of memory` が発生する
 
-**対処:** 非 UMA バックエンドは有限差分Hessianを使用するため、より多くの VRAM を消費します。以下の方法を試してください:
-- `--hessian-calc-mode FiniteDifference` を明示的に指定し、`hess_cutoff` を小さめに設定する
+**対処:** ORB/MACE/AIMNet2 の解析/native Hessian もモデルサイズに応じて
+大きな VRAM を使用します。以下を試してください:
+- `--hessian-calc-mode FiniteDifference` を明示し、`hess_cutoff` を小さくする
 - YAML で `ml_device: cpu` を指定する（遅くなるが VRAM 制限を回避できる）
 
 ---

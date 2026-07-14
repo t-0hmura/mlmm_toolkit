@@ -106,6 +106,10 @@ class HessianOptimizer(Optimizer):
         weighted_trust_wd: float = 0.25,
         weighted_trust_wo: float = 0.5,
         weighted_trust_wx: float = 1.0,
+        reject_uphill: bool = False,
+        uphill_tolerance: float = 1e-8,
+        rejection_trust_floor: float = 1e-7,
+        max_rejections_at_floor: int = 3,
         **kwargs,
     ) -> None:
         """Baseclass for optimizers utilizing Hessian information.
@@ -150,6 +154,17 @@ class HessianOptimizer(Optimizer):
             Maximum number of RS iterations.
         rfo_overlaps
             Enable mode-following in RS procedure.
+        reject_uphill
+            Reject minimization trials whose actual energy rises.
+        uphill_tolerance
+            Positive energy change tolerated before a trial is rejected.
+        rejection_trust_floor
+            Emergency trust-radius floor used only while retrying a rejected
+            uphill trial; it may be smaller than ``trust_min``.
+        max_rejections_at_floor
+            Repeated rejected trials allowed at the emergency floor before the
+            lower-energy geometry is retained and the run stops as
+            non-converged.
 
         Other Parameters
         ----------------
@@ -167,6 +182,20 @@ class HessianOptimizer(Optimizer):
         self.trust_min = float(trust_min)
         self.trust_max = float(trust_max)
         self.max_energy_incr = max_energy_incr
+        self.reject_uphill = bool(reject_uphill)
+        self.uphill_tolerance = float(uphill_tolerance)
+        if self.uphill_tolerance < 0.0:
+            raise ValueError("uphill_tolerance must be non-negative")
+        self.rejection_trust_floor = float(rejection_trust_floor)
+        if self.rejection_trust_floor <= 0.0:
+            raise ValueError("rejection_trust_floor must be positive")
+        self.max_rejections_at_floor = int(max_rejections_at_floor)
+        if self.max_rejections_at_floor < 1:
+            raise ValueError("max_rejections_at_floor must be at least 1")
+        self.rejected_uphill_steps = 0
+        self.rejections_at_floor = 0
+        self.uphill_rejection_stalled = False
+        self.skipped_bfgs_updates = 0
         # Constrain initial trust radius if trust_max > trust_radius
         self.trust_radius = min(trust_radius, trust_max)
         self.log(f"Initial trust radius: {self.trust_radius:.6f}")
@@ -500,14 +529,54 @@ class HessianOptimizer(Optimizer):
             )
         else:
             last_step_norm = np.linalg.norm(step)
-        self.set_new_trust_radius(coeff, last_step_norm)
+        rejected_uphill = (
+            unexpected_increase
+            and self.reject_uphill
+            and actual_change > self.uphill_tolerance
+        )
+        min_radius = self.rejection_trust_floor if rejected_uphill else None
+        self.set_new_trust_radius(coeff, last_step_norm, min_radius=min_radius)
         if unexpected_increase:
             self.table.print(
                 f"Unexpected energy increase ({actual_change:.6f} au)! "
                 f"Trust radius: old={old_trust:.4}, new={self.trust_radius:.4}"
             )
+        return unexpected_increase
 
-    def set_new_trust_radius(self, coeff, last_step_norm):
+    def _rollback_trial_state(self):
+        if not self.predicted_energy_changes:
+            raise RuntimeError("Missing model prediction for Hessian trial rejection.")
+        self.predicted_energy_changes.pop()
+
+    def reject_current_uphill_step(self):
+        """Reject an uphill minimization trial through the shared transaction."""
+        actual_change = float(self.energies[-1] - self.energies[-2])
+        self.reject_current_trial()
+        self.rejected_uphill_steps += 1
+        self.table.print(
+            "Rejected uphill RFO trial and restored the previous geometry "
+            f"(ΔE={actual_change:+.6f} au)."
+        )
+        at_floor = self.trust_radius <= self.rejection_trust_floor * (1.0 + 1e-12)
+        self.rejections_at_floor = self.rejections_at_floor + 1 if at_floor else 0
+        if self.rejections_at_floor >= self.max_rejections_at_floor:
+            self.uphill_rejection_stalled = True
+            self.table.print(
+                "Repeated uphill RFO trials at the emergency trust floor; "
+                "retaining the lower-energy geometry and stopping without "
+                "claiming convergence."
+            )
+            self.request_stop(
+                "repeated uphill RFO trials at the emergency trust floor"
+            )
+
+    def set_new_trust_radius(self, coeff, last_step_norm, min_radius=None):
+        if min_radius is None:
+            min_radius = self.trust_min
+        # A rejected RFO trial may deliberately move the radius below the
+        # ordinary user-facing trust_min.  Never make a small radius larger in
+        # the branch whose purpose is to shrink it.
+        min_radius = min(float(min_radius), self.trust_radius)
         if self.trust_band:
             # Sella backport (opt-in): rho-band trust update (sella/optimize/optimize.py:280-289).
             # `coeff` here is ΔE_actual / ΔE_predicted -- same definition as Sella's `rho`.
@@ -516,7 +585,7 @@ class HessianOptimizer(Optimizer):
             # otherwise                              -> keep current trust
             rho = float(coeff)
             if (rho < 1.0 / self.trust_band_rho_dec) or (rho > self.trust_band_rho_dec):
-                new_tr = max(last_step_norm * self.trust_band_sigma_dec, self.trust_min)
+                new_tr = max(last_step_norm * self.trust_band_sigma_dec, min_radius)
                 self.trust_radius = min(new_tr, self.trust_max)
                 self.log(f"\tTrust band shrink (rho={rho:.3f}): {self.trust_radius:.6f}")
             elif (1.0 / self.trust_band_rho_inc) < rho < self.trust_band_rho_inc:
@@ -533,7 +602,7 @@ class HessianOptimizer(Optimizer):
         # coeff will be negative and lead to a decreased trust radius,
         # which is fine.
         if coeff < 0.25:
-            self.trust_radius = max(self.trust_radius / 4, self.trust_min)
+            self.trust_radius = max(self.trust_radius / 4, min_radius)
             self.log("\tDecreasing trust radius.")
         # Only increase trust radius if last step norm was at least 80% of it
         # See [5], Appendix, step size and direction control
@@ -613,10 +682,23 @@ class HessianOptimizer(Optimizer):
                 dx = self.active_from_full(dx)
                 dg = self.active_from_full(dg)
             curv_cond = dx.dot(dg)
-            if curv_cond < 0.0:
+            curv_value = (
+                float(curv_cond.detach().cpu())
+                if isinstance(curv_cond, torch.Tensor)
+                else float(curv_cond)
+            )
+            if curv_value <= 0.0:
                 self.log(
-                    f"Curvature condition (s·y = {curv_cond:.4f} < 0) not satisfied!"
+                    f"Curvature condition (s·y = {curv_value:.4f} <= 0) not satisfied!"
                 )
+                # The BFGS Hessian update divides by s·y and only preserves a
+                # minimization model when this curvature condition is positive.
+                # Applying it anyway can inject an arbitrarily large negative
+                # eigenvalue, which in turn sends RFO to the trust boundary.
+                if self.hessian_update == "bfgs":
+                    self.skipped_bfgs_updates += 1
+                    self.log("Skipped unsafe BFGS Hessian update.")
+                    return
             if self.hessian_update_window >= 2:
                 # Multi-step TS-BFGS update from a sliding (dx, dg) buffer.
                 # Multistep helper is numpy-only, so detach torch tensors to CPU
@@ -874,10 +956,44 @@ class HessianOptimizer(Optimizer):
             and len(self.energies) > 1
         )
         if can_update:
+            unexpected_increase = False
             if self.trust_update:
-                self.update_trust_radius()
-            self.update_hessian()
+                unexpected_increase = self.update_trust_radius()
+            actual_change = self.energies[-1] - self.energies[-2]
+            reject_trial = (
+                self.reject_uphill
+                and actual_change > self.uphill_tolerance
+            )
+            if reject_trial:
+                # A minimizer must not accept an uphill point even if a faulty
+                # model happened to predict an increase too.  Such a case does
+                # not enter update_trust_radius's "unexpected" branch, so force
+                # the radius down here to ensure that the retry differs.
+                if not unexpected_increase:
+                    self.trust_radius = max(
+                        self.trust_radius / 4.0,
+                        min(self.rejection_trust_floor, self.trust_radius),
+                    )
+                self.reject_current_uphill_step()
+                energy = self.energies[-1]
+                gradient_full = -self.forces[-1]
+                can_update = False
+            else:
+                self.rejections_at_floor = 0
+                self.update_hessian()
 
+        gradient, H, eigvals, eigvecs = self._hessian_system(gradient_full)
+
+        resetted = not can_update
+        return energy, gradient, H, eigvals, eigvecs, resetted
+
+    def _hessian_system(self, gradient_full):
+        """Return the active Hessian eigensystem for ``gradient_full``.
+
+        Keeping this transformation separate lets a safeguarded optimizer
+        restore or exactly recalculate its Hessian and rebuild a consistent
+        eigensystem without appending duplicate energy/force history entries.
+        """
         # Convert gradient to match H device/dtype AFTER update_hessian(),
         # so that hessian_recalc (which may replace self.H with a new tensor
         # on a different device) is accounted for.
@@ -923,9 +1039,8 @@ class HessianOptimizer(Optimizer):
         # Neglect small eigenvalues
         eigvals, eigvecs = self.filter_small_eigvals(eigvals, eigvecs)
 
-        resetted = not can_update
         self.cur_H = H
-        return energy, gradient, H, eigvals, eigvecs, resetted
+        return gradient, H, eigvals, eigvecs
 
     def get_augmented_hessian(self, eigvals, gradient, alpha=1.0):
         if isinstance(gradient, torch.Tensor):

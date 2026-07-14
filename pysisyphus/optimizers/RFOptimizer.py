@@ -26,6 +26,10 @@ class RFOptimizer(HessianOptimizer):
         gdiis_test_direction: bool = True,
         max_micro_cycles: int = 25,
         adapt_step_func: bool = False,
+        reject_uphill: bool = True,
+        uphill_tolerance: float = 1e-8,
+        rejection_trust_floor: float = 1e-7,
+        max_rejections_at_floor: int = 3,
         **kwargs,
     ) -> None:
         """
@@ -51,13 +55,31 @@ class RFOptimizer(HessianOptimizer):
             Number of restricted-step microcycles. Disabled by default.
         adapt_step_func
             Whether to switch between shifted Newton and RFO-steps.
+        reject_uphill
+            Reject energy-increasing minimization trials and retry from the
+            previous accepted geometry.
+        uphill_tolerance
+            Positive energy change tolerated before rejecting a trial.
+        rejection_trust_floor
+            Emergency trust-radius floor for repeated rejected trials.
+        max_rejections_at_floor
+            Rejections allowed at the emergency floor before retaining the
+            lower-energy point and stopping without convergence.
 
         Other Parameters
         ----------------
         **kwargs
             Keyword arguments passed to the Optimizer/HessianOptimizer baseclass.
         """
-        super().__init__(geometry, max_micro_cycles=max_micro_cycles, **kwargs)
+        super().__init__(
+            geometry,
+            max_micro_cycles=max_micro_cycles,
+            reject_uphill=reject_uphill,
+            uphill_tolerance=uphill_tolerance,
+            rejection_trust_floor=rejection_trust_floor,
+            max_rejections_at_floor=max_rejections_at_floor,
+            **kwargs,
+        )
 
         self.line_search = line_search
         self.gediis = gediis
@@ -172,6 +194,18 @@ class RFOptimizer(HessianOptimizer):
         return step
 
     def postprocess_opt(self):
+        if self.rejected_uphill_steps or self.skipped_bfgs_updates:
+            print(
+                "RFO safeguards: "
+                f"rejected {self.rejected_uphill_steps} uphill trial(s), "
+                f"skipped {self.skipped_bfgs_updates} unsafe BFGS update(s)."
+            )
+        if self.uphill_rejection_stalled:
+            print(
+                "RFO stopped at the rejected-trial trust floor; "
+                "the previous lower-energy geometry was retained without "
+                "claiming convergence."
+            )
         msg = (
             f"Successful invocations:\n"
             f"\t     GEDIIS: {self.successful_gediis}\n"

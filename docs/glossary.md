@@ -71,8 +71,8 @@
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | A message-passing equivariant neural network MLIP. Supported as an alternative ML backend (`-b mace`). Install in a **separate** conda env: `pip uninstall fairchem-core` (UMA pin clashes on `e3nn`), then `pip install mace-torch`. |
 | **AIMNet2** | Atoms In Molecules Network 2 | A neural network potential for organic molecules. Supported as an alternative ML backend (`--backend aimnet2`). Install with `pip install "mlmm-toolkit[aimnet]"`. |
 | **xTB** | Extended Tight-Binding | A semi-empirical quantum chemistry method. Used for point-charge embedding correction when `--embedcharge` is enabled. |
-| **Analytical Hessian** | -- | Computing the exact second derivatives of energy; faster but requires more VRAM. Currently available for the UMA backend only. |
-| **Finite Difference** | -- | Approximating derivatives via small displacements; slower but more memory-efficient. Used by ORB, MACE, and AIMNet2 backends. |
+| **Analytical Hessian** | -- | Computing second derivatives through the backend's differentiable/native Hessian path; usually faster but requires more VRAM. Supported by UMA, ORB, MACE, and AIMNet2. |
+| **Finite Difference** | -- | Approximating derivatives from displaced-force evaluations; slower but generally more memory-efficient. Available for every MLIP backend. |
 
 ---
 

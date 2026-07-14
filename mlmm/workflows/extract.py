@@ -1,154 +1,18 @@
 """
-extract — Automated binding‑pocket (active‑site) extractor
-====================================================================
+Automated active-site model extraction from protein-substrate complexes.
 
-Usage (CLI)
------------
-    mlmm extract -i INPUT.pdb [INPUT2.pdb ...] -c <substrate_spec> \
-        [-o OUTPUT.pdb ...] [-r <Å>] [--radius-het2het <Å>] \
-        [--include-h2o/--no-include-h2o] [--exclude-backbone/--no-exclude-backbone] \
-        [--add-linkh/--no-add-linkh] [--selected-resn "CHAIN:RES" ...] \
-        [-l, --ligand-charge <number|"RES:Q,...">] [--verbose/--no-verbose]
+Example:
+    mlmm extract -i complex.pdb -c '123' -o pocket.pdb -l=-3
 
-Examples
---------
-    # Minimal (ID-based substrate) with explicit total ligand charge
-    mlmm extract -i complex.pdb -c A:123 -o pocket.pdb -l -3
-
-    # Substrate provided as a PDB; per-resname charge mapping (others remain 0)
-    mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb \
-        -l "GPP:-3,MMT:-1"
-
-    # Name-based substrate selection including all matches (WARNING is logged)
-    mlmm extract -i complex.pdb -c "GPP,MMT" -o pocket.pdb -l -4
-
-    # Multi-structure to single multi-MODEL output with hetero-hetero proximity enabled
-    mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
-        -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose
-
-Description
------------
-Extracts an active‑site pocket around specified substrate residues from a protein–substrate complex,
-applies biochemically aware truncation (backbone/side‑chain capping with safeguards), and can append
-link hydrogens for cut bonds. Supports single structures and ensembles (multi‑MODEL or per‑file outputs).
-Typical use cases include QM/MM, ML/MM, and cluster QM models.
-
-Residue inclusion
------
-- Always include the substrate residues.
-- Standard cutoff (``--radius``, default 2.6 Å):
-  - If ``--no-exclude-backbone`` (default): include any residue if **any atom** is within the cutoff.
-  - If ``--exclude-backbone``: for **amino‑acid residues**, the qualifying atom
-    must be **non‑backbone** (not in {N, H*, CA, HA*, C, O, OXT}); non‑amino‑acid residues qualify by any atom.
-- Independent hetero–hetero proximity (``--radius-het2het``):
-  add residues if a **substrate hetero atom (non‑C/H)** is within the cutoff of a **protein hetero atom**.
-  With ``--exclude-backbone``, amino‑acid neighbors must be **non‑backbone** atoms.
-- Waters are included by default (``--include-h2o``; disable with ``--no-include-h2o``).
-- ``--selected-resn`` force‑includes residues (chain and insertion codes supported).
-- When ``--no-exclude-backbone`` and a selected residue’s **backbone atom** contacts the substrate
-  (within either cutoff), include its peptide‑adjacent N‑side and C‑side neighbors (C–N ≤ 1.9 Å). For true termini,
-  keep the respective terminal cap atoms (N/H* or C/O/OXT).
-- **Disulfide safeguard:** if a selected CYS/CYX forms an SG–SG contact ≤ 2.5 Å, include both partners.
-- **Proline safeguard:** if a selected **PRO** is not N‑terminal (peptide‑adjacent), include the immediately
-  preceding amino acid. For that neighbor, **CA is always kept**, and when backbone exclusion is on,
-  keep **C** and **O/OXT** (to preserve the bond into PRO–N).
-
-Truncation (capping)
------
-- **Isolated residues** → keep **pure side‑chain** (remove N, CA, C, O, OXT and N/CA H*).
-  - **PRO/HYP** retain N, CA, HA, H* to keep the ring.
-- **Continuous peptide stretches** keep internal backbone; only **terminal caps** are removed
-  (N‑cap: N/H*; C‑cap: C/O/OXT). TER‑aware segmentation prevents crossing chain breaks.
-- With ``--exclude-backbone``, delete main‑chain atoms on all **non‑substrate amino acids**,
-  except for the specific PRO/HYP retention and PRO‑adjacency preservation above.
-- **Non‑amino‑acid residues**: atoms named like protein backbone ({"N","CA","HA","H","H1","H2","H3"})
-  are **never deleted** by capping logic.
-
-Link hydrogens (--add-linkh)
------
-- Adds **carbon‑only** link H at **1.09 Å** along the cut‑bond vector.
-  Normal residues: checks **CB–CA**, **CA–N**, **CA–C**; **PRO/HYP**: **CA–C** only.
-- If any are added, append a **TER** then a contiguous **HETATM** block with atoms named **``HL``**
-  in residue **``LKH``** (chain ``L``); serials continue from the main block.
-- In multi‑structure mode, link‑H **targets and ordering** are enforced to be **identical across models**;
-  coordinates remain model‑specific. The flag is honored in both single‑ and multi‑structure modes.
-
-Charge summary
------
-- **AMINO_ACIDS** dictionary supplies nominal integer charges for amino‑acid residues (common variants included).
-- **ION** supplies charges for common ions (e.g., ZN, MG, FE2). Waters are 0.
-- **Unknown residues** (not in AMINO_ACIDS/ION/WATER) are **0** unless ``--ligand-charge`` is given.
-  - ``--ligand-charge <number>``: total charge distributed across **unknown substrate** residues
-    (or across all unknowns if no unknown substrate).
-  - ``--ligand-charge "RES1:Q1,RES2:Q2"``: set **per‑resname** charges; any other unknown residues remain 0.
-- In multi‑structure mode the **charge summary is computed on the first input PDB** only.
-
-Multi-structure ensembles
------
-- Accepts multiple input PDBs (same **atom count**; ordering is **assumed identical** and is
-  **spot‑checked** at the beginning and end of the atom list).
-- Each structure is selected independently; the **union** of selected residues is applied to all.
-  Disulfides, PRO‑adjacency, and (if enabled) backbone‑contact neighbor augmentation are also unioned.
-- Outputs:
-  - Provide **one** output path → **multi‑MODEL** PDB (one MODEL per input).
-  - Provide **N** output paths where **N == number of inputs** → **N** single‑model PDBs.
-  - If ``-o`` is omitted with multiple inputs → per‑file outputs ``pocket_{original_filename}.pdb``.
-- **Diagnostics:** atom counts (**raw** vs **after truncation**) are logged **per model**.
-
-Substrate specification
------
-``-c/--center`` accepts:
-- a **PDB path** (exact coordinate match on the first input; IDs propagated to others),
-- a list of **residue IDs**: ``"123,124"``, ``"A:123,B:456"``, ``"123A"``, ``"A:123A"`` (insertion codes OK),
-- or a list of **residue names** (case‑insensitive), e.g., ``"GPP,MMT"``.
-  If multiple residues share the same name, **all** matches are used and a **WARNING** is logged.
-
-Outputs (& Directory Layout)
-----------------------------
-<output>/ (default: pocket.pdb for single input; pocket_<source>.pdb per input when -o is omitted)
-  ├─ pocket.pdb                         # default single-input pocket
-  ├─ pocket_<original_filename>.pdb     # default per-input pocket when multiple inputs and -o omitted
-  └─ <user_paths>.pdb                   # custom outputs; one path = multi-MODEL, N paths = per-structure
-
-Link hydrogens, logs, and programmatic use
-  ├─ Link-H block (when added) follows a TER as contiguous HETATM records named HL in residue LKH (chain L).
-  ├─ INFO logs summarize residue selection, raw/kept atom counts, and the charge summary.
-  └─ ``extract(..., api=True)`` / ``extract_api(...)`` returns ``{"outputs": [...], "counts": [...], "charge_summary": {...}}``.
-
-
-Notes
------
-- **Defaults / behavior:**
-  - ``--radius`` default: **2.6 Å**. If given **0**, internally nudged to **0.001 Å**.
-  - ``--radius-het2het`` default: **0 Å** (off). Internally treated as **0.001 Å** if ``0`` is given.
-  - ``--include-h2o`` default: **true**.
-  - ``--exclude-backbone`` default: **false**.
-  - ``--add-linkh`` default: **false**.
-  - ``--ligand-charge`` default: **None** (unknown residues counted as 0 unless set).
-  - Output default: single input → ``pocket.pdb``; multiple inputs → ``pocket_{original_filename}.pdb``.
-- **Geometry thresholds and tolerances:**
-  - Peptide adjacency: **C(prev)–N(next) ≤ 1.9 Å** (distance‑based; practical TER awareness).
-  - Disulfide detection: **SG–SG ≤ 2.5 Å**.
-  - Link‑H distance: **1.09 Å** (C–H) along the cut‑bond vector.
-  - Exact match tolerance for substrate PDB: **1e‑3 Å** per atom.
-- **Safeguards and special cases:**
-  - **PRO/HYP** retain N, CA, HA, H* in isolated truncations; PRO’s **N‑side neighbor** is auto‑included
-    when peptide‑adjacent; **CA** on that neighbor is always kept, and with backbone exclusion
-    **C** and **O/OXT** are preserved to maintain the peptide bond into PRO–N.
-  - **Non‑amino‑acid residues** never lose atoms named like backbone (``N, CA, HA, H, H1, H2, H3``).
-  - **Waters** (HOH/WAT/H2O/DOD/TIP/TIP3/SOL) are always neutral (charge 0) and included by default.
-- **Dependencies:** Python ≥ **3.10** (PEP 604 unions), Biopython ≥ **1.80**, NumPy.
-- **Python API (for reference):**
-  - ``extract(args: argparse.Namespace | None = None, api=False)`` — main entry (CLI or programmatic).
-  - ``extract_api(...)`` — convenience wrapper that returns ``{'outputs','counts','charge_summary'}`` when used programmatically.
+For detailed documentation, see: docs/extract.md
 """
 
 from __future__ import annotations
 
 import argparse
-import logging
 import io as _io
 import os
+from pathlib import Path
 import re
 from typing import Dict, List, Set, Tuple, Iterable, Any, Optional, Sequence
 
@@ -157,72 +21,61 @@ import numpy as np
 from Bio import PDB
 from Bio.PDB import NeighborSearch
 
+from mlmm.io.structure_formats import (
+    CIF_SUFFIXES,
+    attach_template_metadata,
+    coordinate_template_for,
+    register_output_template_and_write_cif,
+    residue_auth_identity,
+    template_from_selected_structure,
+)
+
 # Public API
 __all__ = ["extract", "extract_api"]
 
-
-LOGGER = logging.getLogger(__name__)
-
-
-class _ClickEchoHandler(logging.Handler):
-    """Route logger records to click.echo with stderr for warnings/errors."""
-
-    def emit(self, record: logging.LogRecord) -> None:
-        try:
-            # Warnings/errors always go to stderr. INFO records carry an optional
-            # ``vlevel`` (1=milestone, 2=detail [default], 3=debug) which maps to
-            # the unified -v console gate, so each line shows at the right
-            # verbosity both standalone and inside the `all` pipeline.
-            if record.levelno >= logging.WARNING:
-                click.echo(self.format(record), err=True, narrative=False)
-            else:
-                vlevel = getattr(record, "vlevel", 2)
-                # The click.echo level gate only fires inside the `all` pipeline
-                # (a standalone leaf keeps full stdout there). extract is the
-                # exception: its deliverable is the pocket PDB, not stdout, so it
-                # should still tier by -v when run on its own. Apply the same
-                # per-record gate here for the standalone case.
-                from mlmm.core.utils import (
-                    is_console_gating,
-                    is_pipeline_mode,
-                    verbose_level,
-                )
-
-                if is_console_gating() and not is_pipeline_mode():
-                    level = verbose_level()
-                    if level <= 0:
-                        return
-                    required = 1 if vlevel <= 1 else (2 if vlevel == 2 else 3)
-                    if level < required:
-                        return
-                click.echo(
-                    self.format(record),
-                    narrative=(vlevel <= 1),
-                    detail=(vlevel == 2),
-                )
-        except Exception:
-            self.handleError(record)
+def _format_echo_message(msg: str, *args: Any) -> str:
+    if not args:
+        return str(msg)
+    try:
+        return str(msg) % args
+    except Exception:
+        tail = " ".join(str(x) for x in args)
+        return f"{msg} {tail}".strip()
 
 
-def _configure_extract_logger(verbose: bool = True) -> None:
-    """Configure module-local logger for CLI output without touching global logging.
+def _echo_info(msg: str, *args: Any, level: int = 2) -> None:
+    # Extract output mapped to the unified `-v` console gate by tier:
+    #   level 1 = milestone (atom counts, net/total charge, output path)
+    #   level 2 = detail [default] (options, per-residue/per-resname, context)
+    #   level 3 = debug (terminal-cap charge corrections, etc.)
+    # The click.echo gate only fires inside the `all` pipeline (a standalone
+    # leaf keeps full stdout). extract is the exception: its deliverable is the
+    # pocket PDB, not stdout, so it should still tier by -v standalone. Apply
+    # the same per-record gate here for the standalone case (silent at -v 0).
+    from mlmm.core.utils import (
+        is_console_gating,
+        is_pipeline_mode,
+        verbose_level,
+    )
 
-    INFO records always reach the handler; visibility is decided by the unified
-    -v console gate (narrative/detail per record ``vlevel``), not by the logger
-    level. Gating at the logger level previously suppressed extract output inside
-    the `all` pipeline (which passes ``verbose`` as a bool). ``verbose`` is kept
-    for call-site compatibility but no longer gates the logger.
-    """
-    LOGGER.setLevel(logging.INFO)
-    LOGGER.propagate = False
+    if is_console_gating() and not is_pipeline_mode():
+        _lvl = verbose_level()
+        if _lvl <= 0:
+            return
+        required = 1 if level <= 1 else (2 if level == 2 else 3)
+        if _lvl < required:
+            return
+    rendered = _format_echo_message(msg, *args)
+    if is_console_gating():
+        click.echo(rendered, narrative=(level <= 1), detail=(level == 2))
+    else:
+        # Programmatic extract_api callers do not install the CLI echo shim,
+        # so passing private verbosity tags to vanilla Click would raise.
+        click.echo(rendered)
 
-    for handler in list(LOGGER.handlers):
-        LOGGER.removeHandler(handler)
 
-    handler = _ClickEchoHandler()
-    handler.setLevel(logging.INFO)
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    LOGGER.addHandler(handler)
+def _echo_warning(msg: str, *args: Any) -> None:
+    click.echo(f"WARNING: {_format_echo_message(msg, *args)}", err=True)
 
 
 BACKBONE_ATOMS: Set[str] = {
@@ -234,77 +87,144 @@ BACKBONE_ALL: Set[str] = BACKBONE_ATOMS
 
 # Unified amino-acid dictionary: resname -> nominal integer charge
 # (membership checks throughout the code use dictionary keys)
-# Residue/ion/water dictionaries live in mlmm.core.residue_data so the L3
-# domain layer (add_elem_info) can consume them without importing this L2
-# module (which would invert the L1 -> L2 -> L3 -> L5 dependency direction).
-# Re-export the names here for back-compat with any downstream `from
-# mlmm.workflows.extract import AMINO_ACIDS, ...` form.
-from mlmm.core.residue_data import (
-    AMINO_ACIDS,
-    DISULFIDE_CUTOFF,
-    EXACT_EPS,
-    ION,
-    ResidueKey,
-    WATER_RES,
-)
+AMINO_ACIDS: Dict[str, int] = {
+    # --- Standard 20 (L) ---
+    "ALA":  0, "ARG": +1, "ASN":  0, "ASP": -1, "CYS":  0,
+    "GLU": -1, "GLN":  0, "GLY":  0, "HIS":  0, "ILE":  0,
+    "LEU":  0, "LYS": +1, "MET":  0, "PHE":  0, "PRO":  0,
+    "SER":  0, "THR":  0, "TRP":  0, "TYR":  0, "VAL":  0,
+
+    # --- Canonical extras ---
+    "SEC":  0,   # selenocysteine
+    "PYL": +1,   # pyrrolysine
+
+    # --- Protonation / tautomers (Amber/CHARMM style) ---
+    "HIP": +1,   # fully protonated His
+    "HID":  0,   # Nδ-protonated His
+    "HIE":  0,   # Nε-protonated His
+    "ASH":  0,   # neutral Asp
+    "GLH":  0,   # neutral Glu
+    "LYN":  0,   # neutral Lys
+    "ARN":  0,   # neutral Arg
+    "TYM": -1,   # deprotonated Tyr (phenolate)
+
+    # --- Phosphorylated residues ---
+    "SEP": -2, "TPO": -2, "PTR": -2,
+    "S1P": -1, "T1P": -1, "Y1P": -1,   # monoanionic phospho-Ser/Thr/Tyr
+
+    # --- Phosphorylated histidines (phosaa19SB) ---
+    "H1D":  0,  # ND1-phospho-His, neutral
+    "H2D": -1,  # ND1-phospho-His, anionic
+    "H1E":  0,  # NE2-phospho-His, neutral
+    "H2E": -1,  # NE2-phospho-His, anionic
+
+    # --- Cys family ---
+    "CYX":  0,   # disulfide Cys
+    "CSO":  0,   # Cys sulfenic acid
+    "CSD": -1,   # Cys sulfinic acid
+    "CSX":  0,   # generic Cys derivative
+    "OCS": -1,   # cysteic acid
+    "CYM": -1,   # deprotonated Cys
+
+    # --- Lys variants / carboxylation ---
+    "MLY": +1, "LLP": +1,
+    "KCX": -1,   # Lysine Nz-Carboxylic Acid
+
+    # --- D isomers (19 residues) ---
+    "DAL":  0, "DAR": +1, "DSG": 0, "DAS": -1, "DCY": 0,
+    "DGN":  0, "DGL": -1, "DHI": 0, "DIL":  0, "DLE": 0,
+    "DLY": +1, "MED":  0, "DPN": 0, "DPR":  0, "DSN": 0,
+    "DTH":  0, "DTR":  0, "DTY": 0, "DVA":  0,
+
+    # --- Carboxylation / cyclization / others ---
+    "CGU": -2,   # gamma-carboxy-glutamate
+    "CGA": -1,   # carboxymethylated glutamate
+    "PCA":  0,   # pyroglutamate
+    "MSE":  0,   # selenomethionine
+    "OMT":  0,   # methionine sulfone
+
+    # --- Other modified residues possibly encountered ---
+    "ASA": 0, "CIR": 0, "FOR": 0, "MVA": 0, "IIL": 0, "AIB": 0, "HTN": 0,
+    "SAR": 0, "NMC": 0, "PFF": 0, "NFA": 0, "ALY": 0, "AZF": 0, "CNX": 0, "CYF": 0,
+
+    # --- Hydroxyproline ---
+    "HYP": 0,
+
+    # --- All C-terminus ---
+    "CALA": -1, "CARG":  0, "CASN": -1, "CASP": -2, "CCYS": -1,
+    "CCYX": -1, "CGLN": -1, "CGLU": -2, "CGLY": -1, "CHID": -1,
+    "CHIE": -1, "CHIP":  0, "CHYP": -1, "CILE": -1, "CLEU": -1,
+    "CLYS":  0, "CMET": -1, "CPHE": -1, "CPRO": -1, "CSER": -1,
+    "CTHR": -1, "CTRP": -1, "CTYR": -1, "CVAL": -1, "NHE": 0,
+    "NME": 0,
+    "CTER": -1,  # generic C-terminus
+
+    # --- All N-terminus ---
+    "NALA": +1, "NARG": +2, "NASN": +1, "NASP":  0, "NCYS": +1,
+    "NCYX": +1, "NGLN": +1, "NGLU":  0, "NGLY": +1, "NHID": +1,
+    "NHIE": +1, "NHIP": +2, "NILE": +1, "NLEU": +1, "NLYS": +2,
+    "NMET": +1, "NPHE": +1, "NPRO": +1, "NSER": +1, "NTHR": +1,
+    "NTRP": +1, "NTYR": +1, "NVAL": +1, "ACE": 0,
+    "NTER": +1,  # generic N-terminus
+}
+
+# Amber terminal residue names whose AMINO_ACIDS value already BAKES IN the
+# ionized-terminus formal charge (e.g. CGLU=-2, NLYS=+2). For these the
+# kept-cap correction in compute_charge_summary must NOT be applied again.
+C_TERMINAL_RESNAMES: frozenset = frozenset({
+    "CALA", "CARG", "CASN", "CASP", "CCYS", "CCYX", "CGLN", "CGLU", "CGLY",
+    "CHID", "CHIE", "CHIP", "CHYP", "CILE", "CLEU", "CLYS", "CMET", "CPHE",
+    "CPRO", "CSER", "CTHR", "CTRP", "CTYR", "CVAL", "CTER",
+})
+N_TERMINAL_RESNAMES: frozenset = frozenset({
+    "NALA", "NARG", "NASN", "NASP", "NCYS", "NCYX", "NGLN", "NGLU", "NGLY",
+    "NHID", "NHIE", "NHIP", "NILE", "NLEU", "NLYS", "NMET", "NPHE", "NPRO",
+    "NSER", "NTHR", "NTRP", "NTYR", "NVAL", "NTER",
+})
+
+# Common ions (by residue name) and their formal charges.
+# Keys MUST be all-uppercase to match the case-folded lookup at compute_charge_summary
+# (rn = res.get_resname().upper(); if rn in ION). Mixed-case keys are unreachable.
+ION: Dict[str, int] = {
+    # +1
+    "LI": +1, "NA": +1, "K": +1, "RB": +1, "CS": +1, "TL": +1, "AG": +1, "CU1": +1,
+    "K+": +1, "NA+": +1, "NH4": +1, "H3O+": +1, "HE+": +1, "HZ+": +1,
+
+    # +2
+    "MG": +2, "CA": +2, "SR": +2, "BA": +2, "MN": +2, "FE2": +2, "CO": +2, "NI": +2,
+    "CU": +2, "ZN": +2, "CD": +2, "HG": +2, "PB": +2, "BE": +2, "PD": +2, "PT": +2,
+    "SN": +2, "RA": +2, "YB2": +2, "V2+": +2,
+
+    # +3
+    "FE": +3, "AU3": +3, "AL": +3, "GA": +3, "IN": +3,
+    "CE": +3, "CR": +3, "DY": +3, "EU": +3, "EU3": +3, "ER": +3,
+    "GD3": +3, "LA": +3, "LU": +3, "ND": +3, "PR": +3, "SM": +3, "TB": +3,
+    "TM": +3, "Y": +3, "PU": +3,
+
+    # +4
+    "U4+": +4, "TH": +4, "HF": +4, "ZR": +4,
+
+    # -1
+    "F": -1, "CL": -1, "BR": -1, "I": -1, "CL-": -1, "IOD": -1,
+}
+
+DISULFIDE_CUTOFF = 2.5   # Å Sγ–Sγ (SG–SG)
+EXACT_EPS = 1e-3         # Å tolerance for exact match
+WATER_RES = {"HOH","WAT","H2O","DOD","TIP","TIP3","SOL"}
+
+# Type for cross-structure residue identity (chain, hetflag, resseq, icode, resname)
+ResidueKey = Tuple[str, str, str, str, str]
 
 
 
-def _extract_short_help() -> str:
-    return "\n".join(
-        [
-            "Usage: mlmm extract [OPTIONS]",
-            "",
-            "Extract a binding pocket around substrate residues.",
-            "",
-            "Core options:",
-            "  -i, --input PATH [PATH ...]      Input complex PDB file(s).",
-            "  -c, --center SPEC                Substrate selector (PDB / residue IDs / residue names).",
-            "  -o, --output PATH [PATH ...]     Output pocket PDB path(s).",
-            "  -r, --radius FLOAT               Pocket inclusion radius in angstrom.",
-            "  -l, --ligand-charge VALUE        Total or mapped ligand charge.",
-            "  --help-advanced                  Show full extract options and exit.",
-            "",
-            "Use '--help-advanced' to see all extractor options.",
-        ]
-    )
-
-
-# ── Native Click command ─────────────────────────────────────────────
-
-_EXTRACT_ALL_FLAGS = (
-    "-i", "--input",
-    "-c", "--center",
-    "-o", "--output",
-    "-r", "--radius",
-    "--radius-het2het",
-    "--include-h2o", "--no-include-h2o",
-    "--exclude-backbone", "--no-exclude-backbone",
-    "--add-linkh", "--no-add-linkh",
-    "--selected-resn",
-    "-l",
-    "--ligand-charge",
-    "-v", "--verbose",
-    "-h", "--help", "--help-advanced",
-)
-
-
-
-
-def _extract_verbose_callback(ctx: "click.Context", param: "click.Parameter", value: int) -> int:
-    # `extract` is a parser-wrapper subcommand (excluded from the central -v
-    # injection in DefaultGroup), so it carries its own unified `-v/--verbose
-    # LEVEL` option. Defer the import to call time to avoid module-load cycles.
-    from mlmm.cli.app import _verbose_callback
-    return _verbose_callback(ctx, param, value)
 
 
 @click.command(
     name="extract",
     help=(
-        "Extract a binding pocket around substrate residues (from a PDB or "
+        "Extract an active site model around substrate residues (from PDB/mmCIF or "
         "residue IDs/names), with biochemically aware truncation and optional "
-        "link-H; supports multi-structure input and multi-MODEL output."
+        "cap-H; mmCIF inputs also produce mmCIF outputs."
     ),
     context_settings={
         "help_option_names": ["-h", "--help"],
@@ -315,40 +235,47 @@ def _extract_verbose_callback(ctx: "click.Context", param: "click.Parameter", va
 @click.option(
     "-i", "--input", "complex_pdb",
     type=str, multiple=True, required=True,
-    help="Protein-substrate complex PDB(s). Multiple files may be given space-separated after a single -i ('-i a.pdb b.pdb'). If multiple, they must have identical atom counts and ordering.",
+    help=(
+        "Protein-substrate complex PDB/mmCIF file(s). Multiple files may be given space-separated "
+        "after one -i or by repeating -i. PDBs beyond fixed-column residue/atom limits are "
+        "handled through an internal safe bridge. "
+        "If multiple, they must have identical atom counts and ordering."
+    ),
 )
 @click.option(
     "-c", "--center", "substrate_pdb",
     type=str, required=True,
     help=(
-        "Substrate specification: a PDB path, a comma/space-separated residue-ID list "
+        "Substrate specification: a PDB/mmCIF path, a comma/space-separated residue-ID list "
         "like '123,124' or 'A:123,B:456' (insertion codes supported), "
-        "or a residue-name list like 'GPP,SAM'."
+        "a residue-name list like 'GPP,SAM', or a chain-qualified name like "
+        "'A:SAM' (all matches in chain A) / 'A:SAM:123' (one residue)."
     ),
 )
 @click.option(
     "-o", "--output", "output_pdb",
     type=str, multiple=True, default=(),
     help=(
-        "Output PDB path(s). One path for multi-MODEL PDB, or N paths for per-file output. "
-        "If omitted: single input -> pocket.pdb; multiple inputs -> pocket_{filename}.pdb."
+        "Internal/output PDB path(s). For mmCIF or oversized-PDB input, a .cif companion with "
+        "the original chain/residue IDs is written automatically. One path creates multi-MODEL "
+        "output; N paths create one output per input."
     ),
 )
 @click.option(
     "-r", "--radius",
     type=float, default=2.6, show_default=True,
-    help="Cutoff (angstrom) around substrate atoms for pocket inclusion.",
+    help="Cutoff (angstrom) around substrate atoms for active site model inclusion.",
 )
 @click.option(
     "--radius-het2het",
     type=float, default=0, show_default=True,
-    help="Cutoff (angstrom) for substrate-protein hetero-atom proximity (non-C/H). 0 disables.",
+    help="Cutoff (angstrom) for substrate hetero-atom (non-C/H) to neighbor hetero-atom proximity. 0 is treated as 0.001 angstrom (effectively off).",
 )
 @click.option(
     "--include-h2o/--no-include-h2o",
     "include_h2o",
     default=True, show_default=True,
-    help="Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL).",
+    help="Include waters (HOH/WAT/TIP3/SOL).",
 )
 @click.option(
     "--exclude-backbone/--no-exclude-backbone",
@@ -359,17 +286,12 @@ def _extract_verbose_callback(ctx: "click.Context", param: "click.Parameter", va
     "--add-linkh/--no-add-linkh",
     "add_linkh",
     default=False, show_default=True,
-    help=(
-        "Add carbon-only link-H at 1.09 angstrom along cut-bond directions "
-        "(distance-based). Not needed when preparing a --model-pdb for mlmm "
-        "(the ML/MM calculator adds link H from the --parm topology); use only "
-        "for standalone pocket models."
-    ),
+    help="Add cap hydrogens (carbon boundaries only) at 1.09 angstrom along cut-bond directions.",
 )
 @click.option(
     "--selected-resn",
     type=str, default="",
-    help="Comma/space-separated residue IDs to force-include.",
+    help="Comma/space-separated residue IDs/names to force-include; chain-qualified A:SAM is supported.",
 )
 @click.option(
     "--modified-residue",
@@ -393,19 +315,6 @@ def _extract_verbose_callback(ctx: "click.Context", param: "click.Parameter", va
     show_default=True,
     help="Write machine-readable result.json next to the output PDB.",
 )
-@click.option(
-    "-v",
-    "--verbose",
-    "verbose",
-    type=click.IntRange(0, 3),
-    default=2,
-    metavar="LEVEL",
-    is_eager=True,
-    callback=_extract_verbose_callback,
-    help="Console verbosity 0-3 (default 2). 0=silent; 1=milestones only; "
-         "2=+detailed step logging and deliverable paths; "
-         "3=everything (full config blocks, per-file paths, DEBUG logging).",
-)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -421,18 +330,16 @@ def cli(
     modified_residue: str,
     ligand_charge: Optional[str],
     out_json: bool,
-    verbose: int,
 ) -> None:
     # Accept space-separated multi-input / -output (``-i a.pdb b.pdb``), consistent with
     # `all` / `path-opt` / `path-search`: collect every value following each -i / -o from the
-    # raw argv. (Previously only ``-i a.pdb -i b.pdb`` worked; space-separated silently dropped b.)
+    # raw argv (a single -i may be followed by several paths; repeated -i / -o also works).
     import sys
-    from mlmm.core.utils import collect_single_option_values
+    from mlmm.core.utils import collect_option_values
 
     _argv = sys.argv[1:]
-    _ins = collect_single_option_values(_argv, ("-i", "--input"), "-i/--input")
-    input_list = _ins if _ins else list(complex_pdb)
-    _outs = collect_single_option_values(_argv, ("-o", "--output"), "-o/--output")
+    input_list = collect_option_values(_argv, ("-i", "--input")) or list(complex_pdb)
+    _outs = collect_option_values(_argv, ("-o", "--output"))
     output_list: Optional[List[str]] = _outs if _outs else (list(output_pdb) if output_pdb else None)
 
     ns = argparse.Namespace(
@@ -447,7 +354,7 @@ def cli(
         selected_resn=selected_resn,
         modified_residue=modified_residue,
         ligand_charge=ligand_charge,
-        verbose=verbose,  # int level; extract INFO log is gated at level >= 2
+        verbose=True,  # INFO lines now gated by the unified global -v level
     )
     result = extract(ns, api=out_json)
 
@@ -455,7 +362,8 @@ def cli(
         from pathlib import Path as _Path
         from mlmm.core.utils import write_result_json
 
-        first_output = (output_list or ["model.pdb"])[0]
+        # Determine output directory from the first output PDB path
+        first_output = (output_list or ["pocket.pdb"])[0]
         out_dir = _Path(first_output).resolve().parent
 
         counts = result.get("counts", [{}])
@@ -484,129 +392,41 @@ def cli(
         write_result_json(out_dir, result_data, command="extract")
 
 
-def _build_arg_parser(*, prog: str) -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog=prog,
-        description=(
-            "Extract a binding pocket around substrate residues (from a PDB or residue IDs/names), "
-            "with biochemically aware truncation and optional link‑H; supports multi‑structure input "
-            "and multi‑MODEL output. Also logs pocket charge summary."
-        )
-    )
-
-    p.add_argument(
-        "-i", "--input", dest="complex_pdb", required=True, nargs="+",
-        metavar="complex.pdb",
-        help="Protein–substrate complex PDB(s). If multiple, they must have identical atom counts and ordering."
-    )
-    p.add_argument(
-        "-c", "--center", dest="substrate_pdb", required=True,
-        metavar="substrate.pdb | '123,124' | 'A:123,B:456' | 'GPP,MMT'",
-        help=("Substrate specification: either a PDB containing exactly the substrate residue(s), "
-              "a comma/space‑separated residue‑ID list like '123,124' or 'A:123,B:456' "
-              "(insertion codes supported: '123A' / 'A:123A'), "
-              "or a comma/space‑separated **residue‑name** list like 'GPP,MMT'. "
-              "When residue names are used and multiple residues share a name, all are used and a WARNING is logged.")
-    )
-    p.add_argument(
-        "-o", "--output", dest="output_pdb", required=False, nargs="+",
-        metavar="pocket.pdb", default=None,
-        help=("Output PDB path(s). Provide one path to write a single multi‑MODEL PDB, "
-              "or provide N paths where N == number of inputs to write N single‑model PDBs (one per input, in order). "
-              "If omitted: single input → pocket.pdb; multiple inputs → pocket_{original_filename}.pdb.")
-    )
-    p.add_argument(
-        "-r", "--radius", type=float, default=2.6,
-        help=("Cutoff (Å) around substrate atoms. With --exclude-backbone, an **amino-acid** "
-              "neighbor must have a **non-backbone** atom within this distance; otherwise **any atom** suffices. "
-              "(default: 2.6)")
-    )
-    p.add_argument(
-        "--radius-het2het", type=float, default=0,
-        help=("Cutoff (Å) for substrate–protein hetero‑atom proximity (non‑C/H on both sides); "
-              "applied independently of --radius. 0 conceptually disables this rule, "
-              "but is internally treated as 0.001 Å. (default: 0)")
-    )
-    p.add_argument(
-        "--include-h2o", "--include-H2O",
-        dest="include_h2o",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL). (default: True)"
-    )
-    p.add_argument(
-        "--exclude-backbone",
-        dest="exclude_backbone",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Delete main‑chain atoms (N, H*, CA, HA*, C, O, OXT) from non‑substrate amino acids; PRO/HYP keep N, CA, HA, H*. (default: False)"
-    )
-    p.add_argument(
-        "--add-linkh", "--add-linkH",
-        dest="add_linkh",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Add carbon‑only link‑H at 1.09 Å along cut‑bond directions (distance-based); appended after a TER as HL/LKH HETATM records. Not needed when preparing a --model-pdb for mlmm (the ML/MM calculator adds link H from the --parm topology); use only for standalone pocket models. (default: False)"
-    )
-    p.add_argument(
-        "--selected-resn", dest="selected_resn", required=False, default="",
-        help=("Comma/space‑separated residue IDs to force‑include (e.g., '123,124', 'A:123,B:456'; "
-              "insertion codes allowed: '123A' / 'A:123A').")
-    )
-    p.add_argument(
-        "-l", "--ligand-charge", type=str, default=None,
-        help=("Either a single **number** giving the **total** charge to distribute across unknown residues "
-              "(preferring unknown substrate), or a comma/space‑separated **per‑resname** list like "
-              "'GPP:-3,MMT:-1'. In mapping mode, any other unknown residues remain 0.")
-    )
-    p.add_argument(
-        "-v", "--verbose",
-        dest="verbose",
-        type=int,
-        choices=(0, 1, 2, 3),
-        default=2,
-        metavar="LEVEL",
-        help="Console verbosity 0-3 (default 2); detailed step logging at >= 2.",
-    )
-    return p
-
-
-def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
-    """
-    Parse CLI arguments.
-
-    Parameters
-    ----------
-    argv : Optional[Sequence[str]]
-        Command-line arguments to parse. If None, uses sys.argv.
-
-    Returns
-    -------
-    argparse.Namespace
-        Parameters for running the pocket extraction.
-    """
-    argv_list = list(argv) if argv is not None else None
-    if argv_list is not None:
-        wants_adv = "--help-advanced" in argv_list
-        wants_help = ("--help" in argv_list) or ("-h" in argv_list)
-        if wants_help and not wants_adv:
-            click.echo(_extract_short_help())
-            raise SystemExit(0)
-        if wants_adv:
-            argv_list = [a for a in argv_list if a != "--help-advanced"]
-            if ("--help" not in argv_list) and ("-h" not in argv_list):
-                argv_list.append("--help")
-
-    p = _build_arg_parser(prog="mlmm extract")
-    return p.parse_args(args=argv_list)
-
-
 def load_structure(path: str, name: str) -> PDB.Structure.Structure:
     """
-    Load a PDB file into a Biopython Structure object.
+    Load PDB/mmCIF through the common internal-PDB bridge.
     """
-    parser = PDB.PDBParser(QUIET=True)
-    return parser.get_structure(name, path)
+    from pathlib import Path
+    from mlmm.core.utils import prepare_input_structure
+
+    prepared = prepare_input_structure(Path(path))
+    try:
+        parser = PDB.PDBParser(QUIET=True)
+        structure = parser.get_structure(name, str(prepared.geom_path))
+        template = prepared.structure_template or coordinate_template_for(prepared.geom_path)
+        if template is not None:
+            attach_template_metadata(structure, template)
+    finally:
+        prepared.cleanup()
+    models = list(structure.get_models())
+    if len(models) > 1:
+        _echo_warning(
+            "Input '%s' contains %d MODELs; extract supports single-model PDBs only. "
+            "Using first model (%s) and ignoring the rest.",
+            path,
+            len(models),
+            models[0].id,
+        )
+        for model in models[1:]:
+            structure.detach_child(model.id)
+    missing_elem = [a for a in structure.get_atoms() if not (getattr(a, "element", "") or "").strip()]
+    if missing_elem:
+        raise ValueError(
+            f"Element symbols are missing in '{path}'. "
+            f"For PDB input, run `mlmm add-elem-info -i {path}` before extract; "
+            "mmCIF must provide _atom_site.type_symbol."
+        )
+    return structure
 
 
 #   Formatting helpers (for logging / API)
@@ -615,11 +435,9 @@ def _fmt_res_id(res: PDB.Residue.Residue) -> str:
     """
     Return a compact residue tag like 'A:123A SER' or '123 SER'.
     """
-    chain = res.get_parent().id or ""
-    het, resseq, icode = res.id
-    icode_txt = "" if icode == " " else icode
+    chain, resseq, icode_txt, resname = residue_auth_identity(res)
     chain_txt = f"{chain}:" if chain else ""
-    return f"{chain_txt}{resseq}{icode_txt} {res.get_resname()}"
+    return f"{chain_txt}{resseq}{icode_txt} {resname}"
 
 
 def _fmt_fid(structure, fid: Tuple) -> str:
@@ -651,19 +469,19 @@ def find_substrate_residues(complex_struct, substrate_struct) -> List[PDB.Residu
     substrate_res_list = list(substrate_struct.get_residues())
     matched: List[PDB.Residue.Residue] = []
     for lig in substrate_res_list:
-        lig_name = lig.get_resname()
+        _, _, _, lig_name = residue_auth_identity(lig)
         lig_atoms = {a.get_name(): a.get_vector() for a in lig}
-        candidates = [r for r in complex_struct.get_residues()
-                      if r.get_resname() == lig_name and len(r) == len(lig_atoms)]
+        candidates = [
+            r
+            for r in complex_struct.get_residues()
+            if residue_auth_identity(r)[3] == lig_name and len(r) == len(lig_atoms)
+        ]
         for cand in candidates:
             if is_exact_match(lig_atoms, cand):
                 matched.append(cand)
                 break
         else:
-            chain_id = lig.get_full_id()[2] if len(lig.get_full_id()) > 2 else ""
-            resseq = lig.id[1]
-            icode = lig.id[2] if len(lig.id) > 2 else " "
-            icode_str = "" if icode == " " else icode
+            chain_id, resseq, icode_str, _ = residue_auth_identity(lig)
             raise ValueError(
                 f"Exact match not found for substrate residue {lig_name} chain {chain_id} {resseq}{icode_str}"
             )
@@ -675,7 +493,7 @@ def find_substrate_residues(complex_struct, substrate_struct) -> List[PDB.Residu
 _RES_TOKEN_RE = re.compile(r"""
     ^\s*
     (?:(?P<chain>[^:\s,]+)\s*:\s*)?   # optional chain like A or A_long
-    (?P<resseq>\d+)                   # residue sequence number
+    (?P<resseq>[-+]?\d+)              # residue sequence number
     (?P<icode>[A-Za-z]?)              # optional insertion code (single letter)
     \s*$
 """, re.VERBOSE)
@@ -685,11 +503,9 @@ def _parse_res_tokens(spec: str) -> List[Tuple[str | None, int, str | None]]:
     Parse a residue specification string into (chain, resseq, icode) tuples.
     """
     # NOTE: ValueError here is intentional — it doubles as a flow-control
-    # signal for `resolve_substrate_residues`, which calls this parser first
-    # to decide whether the input is an ID spec or a resname list. Promoting
-    # this to click.BadParameter would break the ID-vs-name dispatch.
-    # The user-facing rendering still arrives via render_cli_exception at the
-    # CLI tail.
+    # signal upstream (`resolve_substrate_residues` calls this parser first
+    # to decide whether the input is an ID spec or a resname list).
+    # Promoting to click.BadParameter would break the ID-vs-name dispatch.
     if not spec or not spec.strip():
         raise ValueError("Empty -c/--center specification.")
     tokens = [t.strip() for t in re.split(r"[,\s]+", spec) if t.strip()]
@@ -728,13 +544,17 @@ def find_substrate_by_idspec(complex_struct, spec: str) -> List[PDB.Residue.Resi
         matches: List[PDB.Residue.Residue] = []
         for model in complex_struct:
             for chain in model:
-                if chain_req is not None and chain.id != chain_req:
-                    continue
                 for res in chain.get_residues():
-                    _, resseq, icode = res.id
-                    if resseq != resseq_req:
+                    auth_chain, auth_resseq, auth_icode, _ = residue_auth_identity(res)
+                    if chain_req is not None and auth_chain != chain_req:
                         continue
-                    if icode_req is not None and icode != icode_req:
+                    try:
+                        numeric_resseq = int(auth_resseq)
+                    except ValueError:
+                        continue
+                    if numeric_resseq != resseq_req:
+                        continue
+                    if icode_req is not None and auth_icode != icode_req:
                         continue
                     fid = res.get_full_id()
                     if fid not in seen:
@@ -750,9 +570,85 @@ def find_substrate_by_idspec(complex_struct, spec: str) -> List[PDB.Residue.Resi
 
 # ---------- Residue-name-based substrate selection ----------
 
+_CHAIN_RESNAME_TOKEN_RE = re.compile(
+    r"^\s*(?P<chain>[^:\s,]+)\s*:\s*(?P<resname>[^:\s,]+)"
+    r"(?:\s*:\s*(?P<resseq>[-+]?\d+)(?P<icode>[A-Za-z]?))?\s*$"
+)
+
+
+def _parse_chain_resname_tokens(
+    spec: str,
+) -> List[Tuple[str, str, int | None, str | None]]:
+    """Parse ``CHAIN:RESNAME`` and ``CHAIN:RESNAME:RESSEQ`` selectors."""
+
+    if not spec or not spec.strip():
+        raise ValueError("Empty -c/--center specification.")
+    parsed: List[Tuple[str, str, int | None, str | None]] = []
+    for token in [item.strip() for item in re.split(r"[,\s]+", spec) if item.strip()]:
+        match = _CHAIN_RESNAME_TOKEN_RE.match(token)
+        if match is None:
+            raise ValueError(
+                f"Invalid chain/residue-name selector '{token}'. Use 'A:SAM' or 'A:SAM:123'."
+            )
+        parsed.append(
+            (
+                match.group("chain"),
+                match.group("resname").upper(),
+                int(match.group("resseq")) if match.group("resseq") else None,
+                match.group("icode") or None,
+            )
+        )
+    return parsed
+
+
+def find_substrate_by_chain_resname(
+    complex_struct,
+    spec: str,
+) -> List[PDB.Residue.Residue]:
+    """Resolve chain-qualified residue names, optionally narrowed by resSeq."""
+
+    selectors = _parse_chain_resname_tokens(spec)
+    found: List[PDB.Residue.Residue] = []
+    seen: Set[Tuple] = set()
+    for chain_req, resname_req, resseq_req, icode_req in selectors:
+        matches: List[PDB.Residue.Residue] = []
+        for residue in complex_struct.get_residues():
+            chain, resseq, icode, resname = residue_auth_identity(residue)
+            if chain != chain_req or resname.upper() != resname_req:
+                continue
+            if resseq_req is not None:
+                try:
+                    if int(resseq) != resseq_req:
+                        continue
+                except ValueError:
+                    continue
+            if icode_req is not None and icode != icode_req:
+                continue
+            matches.append(residue)
+        if not matches:
+            suffix = f":{resseq_req}{icode_req or ''}" if resseq_req is not None else ""
+            raise ValueError(
+                f"Residue selector '{chain_req}:{resname_req}{suffix}' not found in complex."
+            )
+        if len(matches) > 1:
+            sample = ", ".join(_fmt_res_id(residue) for residue in matches[:5])
+            _echo_warning(
+                "[extract] Selector '%s:%s' matched %d residues. Using all: %s",
+                chain_req,
+                resname_req,
+                len(matches),
+                sample,
+            )
+        for residue in matches:
+            fid = residue.get_full_id()
+            if fid not in seen:
+                seen.add(fid)
+                found.append(residue)
+    return found
+
 def find_substrate_by_resname(complex_struct, spec: str) -> List[PDB.Residue.Residue]:
     """
-    Resolve a comma/space-separated residue-name list (e.g., 'GPP,MMT') into residues in the complex.
+    Resolve a comma/space-separated residue-name list (e.g., 'GPP,SAM') into residues in the complex.
 
     Behavior
     --------
@@ -765,22 +661,19 @@ def find_substrate_by_resname(complex_struct, spec: str) -> List[PDB.Residue.Res
     found: List[PDB.Residue.Residue] = []
     seen_fids: Set[Tuple] = set()
     for rn in tokens:
-        matches = [r for r in complex_struct.get_residues() if r.get_resname().upper() == rn]
+        matches = [
+            r
+            for r in complex_struct.get_residues()
+            if residue_auth_identity(r)[3].upper() == rn
+        ]
         if not matches:
-            _present = sorted({r.get_resname().strip().upper() for r in complex_struct.get_residues()})
-            # DO NOT INLINE: extract_api is imported from notebooks/downstream scripts where click.BadParameter would be confusing (no Click context). CLI wrapper catches ValueError and re-raises as BadParameter for nice rendering.
-            # NOTE: ValueError (not click.BadParameter) — extract_api is a
-            # public programmatic API; the CLI layer renders this cleanly.
-            raise ValueError(
-                f"Residue name '{rn}' not found in complex. "
-                f"Residue names present: {', '.join(_present)}"
-            )
+            raise ValueError(f"Residue name '{rn}' not found in complex.")
         if len(matches) > 1:
             try:
                 sample = ", ".join(_fmt_res_id(r) for r in matches[:5])
             except Exception:
                 sample = "(list omitted)"
-            LOGGER.warning("[extract] Multiple residues with resname '%s' found (%d). Using all: %s",
+            _echo_warning("[extract] Multiple residues with resname '%s' found (%d). Using all: %s",
                             rn, len(matches), sample)
         for r in matches:
             fid = r.get_full_id()
@@ -792,18 +685,24 @@ def find_substrate_by_resname(complex_struct, spec: str) -> List[PDB.Residue.Res
 
 def resolve_substrate_residues(complex_struct, center_spec: str) -> List[PDB.Residue.Residue]:
     """
-    Determine substrate residues from a PDB path, residue-ID list, or residue-name list.
+    Determine substrate residues from a PDB/mmCIF path, ID list, or name selector.
     """
-    if os.path.exists(center_spec):
+    if Path(center_spec).suffix.lower() in ({".pdb"} | set(CIF_SUFFIXES)):
         substrate_struct = load_structure(center_spec, "substrate")
         return find_substrate_residues(complex_struct, substrate_struct)
     # If it parses as ID-spec, treat as IDs (and propagate any not-found errors).
     try:
         _parse_res_tokens(center_spec)
-        return find_substrate_by_idspec(complex_struct, center_spec)
     except ValueError:
-        # Otherwise, interpret as residue-name list (e.g., 'GPP,MMT').
+        pass
+    else:
+        return find_substrate_by_idspec(complex_struct, center_spec)
+    try:
+        _parse_chain_resname_tokens(center_spec)
+    except ValueError:
+        # Otherwise, interpret as an unqualified residue-name list (e.g., GPP,SAM).
         return find_substrate_by_resname(complex_struct, center_spec)
+    return find_substrate_by_chain_resname(complex_struct, center_spec)
 
 
 #   Polypeptide adjacency (C–N) helper
@@ -831,6 +730,27 @@ def are_peptide_adjacent(prev_res: PDB.Residue.Residue,
 
 
 
+def _is_amino_backbone_atom(atom: PDB.Atom.Atom) -> bool:
+    res = atom.get_parent()
+    return (res.get_resname() in AMINO_ACIDS) and (atom.get_name() in BACKBONE_ATOMS)
+
+
+def _add_residue_if_eligible(
+    atom: PDB.Atom.Atom,
+    include_h2o: bool,
+    selected_ids: Set[Tuple],
+    backbone_contact_ids: Set[Tuple],
+    via_backbone: bool,
+) -> None:
+    res = atom.get_parent()
+    if not include_h2o and res.get_resname() in WATER_RES:
+        return
+    fid = res.get_full_id()
+    selected_ids.add(fid)
+    if via_backbone and res.get_resname() in AMINO_ACIDS:
+        backbone_contact_ids.add(fid)
+
+
 def select_residues(complex_struct,
                     substrate_res_list: List[PDB.Residue.Residue],
                     r_as: float,
@@ -838,7 +758,7 @@ def select_residues(complex_struct,
                     include_h2o: bool,
                     exclude_backbone: bool) -> Tuple[Set[Tuple], Set[Tuple]]:
     """
-    Select pocket residues around the substrate.
+    Select model residues around the substrate.
 
     Selection rule
     --------------
@@ -866,36 +786,35 @@ def select_residues(complex_struct,
     selected_ids: Set[Tuple] = {res.get_full_id() for res in substrate_res_list}
     backbone_contact_ids: Set[Tuple] = set()
 
-    def is_amino_backbone_atom(atom: PDB.Atom.Atom) -> bool:
-        res = atom.get_parent()
-        return (res.get_resname() in AMINO_ACIDS) and (atom.get_name() in BACKBONE_ATOMS)
-
-    def maybe_add(atom, via_backbone: bool):
-        res = atom.get_parent()
-        if not include_h2o and res.get_resname() in WATER_RES:
-            return
-        fid = res.get_full_id()
-        selected_ids.add(fid)
-        if via_backbone and res.get_resname() in AMINO_ACIDS:
-            backbone_contact_ids.add(fid)
-
     # standard radius: any atom within r_as (with backbone filter when exclude_backbone==True)
     for atom in substrate_atoms:
         for neigh in ns.search(atom.get_coord(), r_as):
-            if exclude_backbone and is_amino_backbone_atom(neigh):
+            if exclude_backbone and _is_amino_backbone_atom(neigh):
                 continue  # require non-backbone atom for amino-acid residues
             via_backbone_neigh = (neigh.get_name() in BACKBONE_ATOMS)
-            maybe_add(neigh, via_backbone_neigh)
+            _add_residue_if_eligible(
+                neigh,
+                include_h2o,
+                selected_ids,
+                backbone_contact_ids,
+                via_backbone_neigh,
+            )
 
     # hetero-hetero radius: both sides non-C/H (and non-backbone filter for amino acids when exclude_backbone==True)
     for atom in substrate_het:
         for neigh in ns.search(atom.get_coord(), r_het):
             if neigh.element in ("C", "H"):
                 continue
-            if exclude_backbone and is_amino_backbone_atom(neigh):
+            if exclude_backbone and _is_amino_backbone_atom(neigh):
                 continue
             via_backbone_neigh = (neigh.get_name() in BACKBONE_ATOMS)
-            maybe_add(neigh, via_backbone_neigh)
+            _add_residue_if_eligible(
+                neigh,
+                include_h2o,
+                selected_ids,
+                backbone_contact_ids,
+                via_backbone_neigh,
+            )
 
     return selected_ids, backbone_contact_ids
 
@@ -961,7 +880,7 @@ def augment_proline_prev_neighbor(structure, selected_ids: Set[Tuple]):
             selected_ids.add(prev_fid)
             added += 1
     if added:
-        LOGGER.info("[extract] Added %d N-side neighbor residues for PRO (TER-aware).", added)
+        _echo_info("[extract] Added %d N-side neighbor residues for PRO (TER-aware).", added)
 
 
 #   Backbone-contact neighbor augmentation (exclude_backbone == False; TER-aware)
@@ -1033,7 +952,7 @@ def augment_backbone_contact_neighbors(structure,
             termini_kept_c += 1
 
     if added or termini_kept_n or termini_kept_c:
-        LOGGER.info("[extract] Backbone-contact context (TER-aware): added %d neighbors; kept N-cap on %d, C-cap on %d residues.",
+        _echo_info("[extract] Backbone-contact context (TER-aware): added %d neighbors; kept N-cap on %d, C-cap on %d residues.",
                      added, termini_kept_n, termini_kept_c)
     return keep_ncap_ids, keep_ccap_ids
 
@@ -1322,10 +1241,9 @@ def _residue_key_from_res(res: PDB.Residue.Residue) -> ResidueKey:
     """
     Build a cross-structure residue key from a residue.
     """
-    chain_id = res.get_parent().id
-    hetflag, resseq, icode = res.id
-    icode_str = icode if icode != " " else ""
-    return (chain_id, hetflag, int(resseq), icode_str, res.get_resname())
+    chain_id, resseq, icode, resname = residue_auth_identity(res)
+    hetflag = str(res.id[0])
+    return (chain_id, hetflag, str(resseq), icode, resname)
 
 def _residue_key_from_fid(structure, fid: Tuple) -> ResidueKey:
     """
@@ -1380,7 +1298,11 @@ def _parse_ligand_charge_option(ligand_charge: float | str | Dict[str, float] | 
             try:
                 qval = float(qtxt.strip())
             except ValueError:
-                raise ValueError(f"Invalid --ligand-charge token '{tok}': '{qtxt}' is not a number.")
+                raise click.BadParameter(
+                    f"Invalid --ligand-charge token '{tok}': "
+                    f"'{qtxt}' is not a number.",
+                    param_hint="-l / --ligand-charge",
+                )
             mapping[resname] = qval
         if not mapping:
             raise ValueError("Empty --ligand-charge mapping.")
@@ -1394,19 +1316,19 @@ def compute_charge_summary(structure,
                            keep_ncap_ids: Set[Tuple] | None = None,
                            keep_ccap_ids: Set[Tuple] | None = None) -> Dict[str, Any]:
     """
-    Compute pocket charge summary.
+    Compute model charge summary.
 
     Args
     ----
     structure : Bio.PDB.Structure.Structure
         The (first) structure to evaluate.
     selected_ids : set[tuple]
-        Residues included in the pocket.
+        Residues included in the model.
     substrate_ids : set[tuple]
         Residues designated as substrate.
     ligand_charge : float | str | dict[str,float] | None
         - float: total charge to assign across **unknown residues** (preferring unknown substrate).
-        - str  : numeric string (total) or mapping like "GPP:-3,MMT:-1" (per‑resname).
+        - str  : numeric string (total) or mapping like 'GPP:-3,SAM:1' (per‑resname).
         - dict : mapping {RESNAME: charge}. In mapping mode, other unknown residues remain 0.
 
     Returns
@@ -1452,10 +1374,12 @@ def compute_charge_summary(structure,
             # TER-break caps have neither OXT nor NH3+ Hs, so they stay neutral.
             if keep_ccap_ids or keep_ncap_ids:
                 atom_names = {a.get_name() for a in res}
-                if fid in keep_ccap_ids and "OXT" in atom_names:
+                if fid in keep_ccap_ids and "OXT" in atom_names \
+                        and rn not in C_TERMINAL_RESNAMES:
                     q -= 1.0
                     terminal_corrections.append((res.get_resname(), res.id[1], -1))
-                if fid in keep_ncap_ids and {"H1", "H2", "H3"} <= atom_names:
+                if fid in keep_ncap_ids and {"H1", "H2", "H3"} <= atom_names \
+                        and rn not in N_TERMINAL_RESNAMES:
                     q += 1.0
                     terminal_corrections.append((res.get_resname(), res.id[1], 1))
             aa_charge += q
@@ -1484,14 +1408,34 @@ def compute_charge_summary(structure,
             # recompute totals
             total = sum(per_map.values())
             aa_charge = sum(q for k, q in per_map.items() if k[4] in AMINO_ACIDS)
+        else:
+            _echo_warning(
+                "[extract] --ligand-charge %s was provided but no unknown "
+                "(non-dictionary) residues were found to apply it to; the value "
+                "is ignored — check the substrate/ligand resname.", total_spec)
     elif mapping_spec is not None:
         # Per‑resname mapping. Unspecified unknown residues remain 0.
+        matched_resnames: Set[str] = set()
         for fid in unknown_fids:
             res = structure[fid[1]][fid[2]].child_dict[fid[3]]
             rn = res.get_resname().upper()
             if rn in mapping_spec:
                 key = _residue_key_from_fid(structure, fid)
                 per_map[key] = float(mapping_spec[rn])
+                matched_resnames.add(rn)
+        unmatched_resnames = sorted(set(mapping_spec) - matched_resnames)
+        if unmatched_resnames:
+            _echo_warning(
+                "[extract] --ligand-charge mapping entr%s %s matched no "
+                "unknown (non-dictionary) selected residue%s and %s ignored. "
+                "Standard/modified amino acids, ions, and water use the "
+                "internal charge tables; otherwise check the input and "
+                "residue selector. Use -q to override the derived total charge.",
+                "y" if len(unmatched_resnames) == 1 else "ies",
+                ", ".join(unmatched_resnames),
+                "" if len(unmatched_resnames) == 1 else "s",
+                "was" if len(unmatched_resnames) == 1 else "were",
+            )
         # recompute totals
         total = sum(per_map.values())
         aa_charge = sum(q for k, q in per_map.items() if k[4] in AMINO_ACIDS)
@@ -1533,23 +1477,23 @@ def log_charge_summary(prefix: str,
 
     if unk_map:
         items = ", ".join(f"{res}: {q:g}" for res, q in sorted(unk_map.items()))
-        LOGGER.info("%s Per-resname ligand charges: %s", prefix, items)
+        _echo_info("%s Per-resname ligand charges: %s", prefix, items)
     else:
-        LOGGER.info("%s Per-resname ligand charges: (none)", prefix)
+        _echo_info("%s Per-resname ligand charges: (none)", prefix)
 
-    LOGGER.info("%s Net protein charge: %+g", prefix, protein, extra={"vlevel": 1})
-    LOGGER.info("%s Net ligand charge: %+g", prefix, ligand, extra={"vlevel": 1})
+    _echo_info("%s Net protein charge: %+g", prefix, protein, level=1)
+    _echo_info("%s Net ligand charge: %+g", prefix, ligand, level=1)
     if ion_list:
-        LOGGER.info("%s Ion charges (each):", prefix)
+        _echo_info("%s Ion charges (each):", prefix)
         for tag, q in ion_list:
-            LOGGER.info("  %s  ->  %+g", tag, q)
-        LOGGER.info("%s Net ion charge: %+g", prefix, ion_total)
+            _echo_info("  %s  ->  %+g", tag, q)
+        _echo_info("%s Net ion charge: %+g", prefix, ion_total)
     else:
-        LOGGER.info("%s Ion charges: (none)", prefix)
-    LOGGER.info("%s Total pocket charge: %+g", prefix, total, extra={"vlevel": 1})
+        _echo_info("%s Ion charges: (none)", prefix)
+    _echo_info("%s Total active site model charge: %+g", prefix, total, level=1)
     for _rn, _rs, _dq in summary.get("terminal_corrections", []):
         _lbl = "C-terminal carboxylate" if _dq < 0 else "N-terminal ammonium"
-        LOGGER.info("%s   %s %s %s: %+d", prefix, _lbl, _rn, _rs, _dq, extra={"vlevel": 3})
+        _echo_info("%s   %s %s %s: %+d", prefix, _lbl, _rn, _rs, _dq, level=3)
 
 
 # =========================== Cross-structure helpers ===========================
@@ -1600,20 +1544,18 @@ def _substrate_residues_for_structs(structs: List[PDB.Structure.Structure],
 
     Behavior
     --------
-    * If `center_spec` is a PDB path: exact‑match on the first structure only,
+    * If `center_spec` is a PDB/mmCIF path: exact-match on the first structure only,
       then propagate to others by a residue‑ID list derived from the first match.
     * If `center_spec` is an ID list: apply to all structures.
     * If `center_spec` is a residue‑name list: apply to all structures; names may match multiple residues
       (all included; WARNING logged per structure).
     """
-    if os.path.exists(center_spec):
+    if Path(center_spec).suffix.lower() in ({".pdb"} | set(CIF_SUFFIXES)):
         sub_first = resolve_substrate_residues(structs[0], center_spec)
         tokens = []
         for res in sub_first:
-            chain = res.get_parent().id
+            chain, num, icode_txt, _ = residue_auth_identity(res)
             chain_txt = (chain or "").strip()
-            het, num, icode = res.id
-            icode_txt = "" if icode == " " else icode
             if chain_txt:
                 tokens.append(f"{chain}:{num}{icode_txt}")
             else:
@@ -1627,9 +1569,15 @@ def _substrate_residues_for_structs(structs: List[PDB.Structure.Structure],
         # Distinguish ID-spec vs resname list by attempting to parse as IDs first.
         try:
             _parse_res_tokens(center_spec)
+        except ValueError:
+            pass
+        else:
             return [find_substrate_by_idspec(st, center_spec) for st in structs]
+        try:
+            _parse_chain_resname_tokens(center_spec)
         except ValueError:
             return [find_substrate_by_resname(st, center_spec) for st in structs]
+        return [find_substrate_by_chain_resname(st, center_spec) for st in structs]
 
 def _disulfide_partner_keys(structure, candidate_keys: Set[ResidueKey],
                             cutoff: float = DISULFIDE_CUTOFF) -> Set[ResidueKey]:
@@ -1671,8 +1619,8 @@ def _assert_atom_ordering_identical(structs: List[PDB.Structure.Structure]):
             for chain in model:
                 for res in chain.get_residues():
                     het, resseq, icode = res.id
-                    icode_txt = icode if icode != " " else ""
-                    base = f"{chain.id}|{het}|{resseq}{icode_txt}|{res.get_resname()}"
+                    auth_chain, auth_resseq, auth_icode, auth_resname = residue_auth_identity(res)
+                    base = f"{auth_chain}|{het}|{auth_resseq}{auth_icode}|{auth_resname}"
                     for atom in res:
                         sig.append(base + f"|{atom.get_name()}")
         return sig
@@ -1681,14 +1629,11 @@ def _assert_atom_ordering_identical(structs: List[PDB.Structure.Structure]):
         sigi = signature(structs[i])
         if len(sigi) != len(sig0):
             raise ValueError(f"[multi] Atom count mismatch between input #1 and input #{i+1}: {len(sig0)} vs {len(sigi)}")
-        check_pairs = [(0, min(10, len(sig0))),
-                       (max(0, len(sig0)-10), len(sig0))]
-        mismatch = False
-        for a, b in check_pairs:
-            if sig0[a:b] != sigi[a:b]:
-                mismatch = True
-                break
-        if mismatch and sig0 != sigi:
+        # Full per-atom signature identity: a swapped MIDDLE atom (e.g. OE1/OE2
+        # order flip in a mid-chain GLU) must raise, not just first/last-10.
+        # A prior first10/last10 spot-check AND-gate let reordered middles pass
+        # silently -> positionally-mispaired R/P endpoints -> nonphysical coord.
+        if sig0 != sigi:
             raise ValueError(f"[multi] Atom order mismatch between input #1 and input #{i+1}.")
 
 
@@ -1748,6 +1693,7 @@ def _compute_linkH_defs(structure,
             _maybe("CA", "N",  "CA-N")
             _maybe("CA", "C",  "CA-C")
 
+
     return out
 
 
@@ -1773,7 +1719,7 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
     names = [f"complex{i+1}" for i in range(len(paths))]
     structs: List[PDB.Structure.Structure] = [load_structure(p, n) for p, n in zip(paths, names)]
 
-    LOGGER.info("[extract:multi] Loaded %d structures.", len(structs))
+    _echo_info("[extract:multi] Loaded %d structures.", len(structs))
     _assert_atom_ordering_identical(structs)
 
     # Substrates per structure (PDB-path -> first only, then propagate by IDs)
@@ -1787,24 +1733,24 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
         union_sel_keys |= _fids_to_keys(st, selected_ids)
         union_bb_contact_keys |= _fids_to_keys(st, bb_contact_ids)
 
-    LOGGER.info("[extract:multi] Initial union selection: %d residues; backbone-contact: %d residues.",
+    _echo_info("[extract:multi] Initial union selection: %d residues; backbone-contact: %d residues.",
                  len(union_sel_keys), len(union_bb_contact_keys))
 
     # 1a) Force-include residues via --selected-resn (OR across structures)
     if getattr(args, "selected_resn", ""):
         forced_union: Set[ResidueKey] = set()
         for st in structs:
-            forced_res = find_substrate_by_idspec(st, args.selected_resn)
+            forced_res = resolve_substrate_residues(st, args.selected_resn)
             forced_union |= {_residue_key_from_res(r) for r in forced_res}
         if forced_union:
-            LOGGER.info("[extract:multi] Force-include (--selected-resn): +%d residues.", len(forced_union))
+            _echo_info("[extract:multi] Force-include (--selected-resn): +%d residues.", len(forced_union))
             union_sel_keys |= forced_union
 
     dis_keys_union: Set[ResidueKey] = set()
     for st in structs:
         dis_keys_union |= _disulfide_partner_keys(st, union_sel_keys, DISULFIDE_CUTOFF)
     if dis_keys_union:
-        LOGGER.info("[extract:multi] Disulfide partner addition (union): +%d residues.", len(dis_keys_union))
+        _echo_info("[extract:multi] Disulfide partner addition (union): +%d residues.", len(dis_keys_union))
     union_sel_keys |= dis_keys_union
 
     keep_ncap_union: Set[ResidueKey] = set()
@@ -1822,7 +1768,7 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
             keep_ncap_union |= _fids_to_keys(st, kn_fids)
             keep_ccap_union |= _fids_to_keys(st, kc_fids)
         if added_neighbor_union:
-            LOGGER.info("[extract:multi] Backbone-contact neighbor addition (union): +%d residues.",
+            _echo_info("[extract:multi] Backbone-contact neighbor addition (union): +%d residues.",
                          len(added_neighbor_union))
         union_sel_keys |= added_neighbor_union
 
@@ -1833,7 +1779,7 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
         added = _fids_to_keys(st, sel_ids) - union_sel_keys
         pro_prev_add_union |= added
     if pro_prev_add_union:
-        LOGGER.info("[extract:multi] PRO N-side neighbor addition (union): +%d residues.",
+        _echo_info("[extract:multi] PRO N-side neighbor addition (union): +%d residues.",
                      len(pro_prev_add_union))
     union_sel_keys |= pro_prev_add_union
 
@@ -1865,7 +1811,7 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
                 f"[multi] link-H targets/order differ between model #1 and model #{i+1}. "
                 f"Ensure inputs and options produce identical truncation across models."
             )
-    LOGGER.info("[extract:multi] link-H targets common across models: %d.", len(ref_targets))
+    _echo_info("[extract:multi] link-H targets common across models: %d.", len(ref_targets))
 
     # ==== Write outputs ====
     per_file_outputs = (len(args.output_pdb) == len(paths))
@@ -1876,11 +1822,12 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
     io = PDB.PDBIO()
     model_texts: List[str] = []
     model_counts: List[Dict[str, int]] = []
+    output_templates = []
 
     for m, (st, sel_fids, skip_map) in enumerate(zip(structs, selected_ids_per_struct, skip_maps_per_struct), start=1):
         io.set_structure(st)
         buf = _io.StringIO()
-        io.save(buf, AS_Select(sel_fids, skip_map))
+        io.save(buf, AS_Select(sel_fids, skip_map), preserve_atom_numbering=True)
         main_text = _strip_trailing_END(buf.getvalue())
 
         # Atom-count diagnostics
@@ -1890,8 +1837,8 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
             for a in st[fid[1]][fid[2]].child_dict[fid[3]]
             if a.get_name() not in skip_map.get(fid, set())
         )
-        LOGGER.info("[extract:multi] Raw atoms (model %d): %d", m, raw_atoms, extra={"vlevel": 1})
-        LOGGER.info("[extract:multi] Atoms after truncation (model %d): %d", m, kept_atoms, extra={"vlevel": 1})
+        _echo_info("[extract:multi] Raw atoms (model %d): %d", m, raw_atoms, level=1)
+        _echo_info("[extract:multi] Atoms after truncation (model %d): %d", m, kept_atoms, level=1)
         model_counts.append({"raw_atoms": raw_atoms, "kept_atoms": kept_atoms})
 
         # Append TER + link‑H block (honor --add-linkh)
@@ -1908,6 +1855,14 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
             main_text = "".join(parts)
 
         model_texts.append(main_text)
+        output_templates.append(
+            template_from_selected_structure(
+                st,
+                sel_fids,
+                skip_map,
+                link_coordinates=link_coords if args.add_linkh else (),
+            )
+        )
 
     outputs: List[str] = []
     if per_file_outputs:
@@ -1917,10 +1872,18 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
                 content += "\n"
             content += "END\n"
             out_path = args.output_pdb[idx]
+            Path(out_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
             with open(out_path, "w") as fh:
                 fh.write(content)
             outputs.append(out_path)
-            LOGGER.info("[extract:multi] Single‑model pocket saved to %s", out_path, extra={"vlevel": 1})
+            cif_path = register_output_template_and_write_cif(
+                out_path,
+                output_templates[idx],
+            )
+            if cif_path is not None:
+                outputs.append(str(cif_path))
+                _echo_info("[extract:multi] mmCIF model saved to %s", cif_path, level=1)
+            _echo_info("[extract:multi] Single‑model active site model saved to %s", out_path, level=1)
     else:
         buf_models: List[str] = []
         for m, text in enumerate(model_texts, start=1):
@@ -1930,12 +1893,20 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
             model_block.append("ENDMDL\n")
             buf_models.append("".join(model_block))
         out_path = args.output_pdb[0]
+        Path(out_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
         with open(out_path, "w") as fh:
             for blk in buf_models:
                 fh.write(blk)
             fh.write("END\n")
         outputs.append(out_path)
-        LOGGER.info("[extract:multi] Multi‑MODEL pocket saved to %s", out_path, extra={"vlevel": 1})
+        cif_path = register_output_template_and_write_cif(
+            out_path,
+            output_templates[0] if output_templates else None,
+        )
+        if cif_path is not None:
+            outputs.append(str(cif_path))
+            _echo_info("[extract:multi] Multi-model mmCIF saved to %s", cif_path, level=1)
+        _echo_info("[extract:multi] Multi‑MODEL active site model saved to %s", out_path, level=1)
 
     # ==== Charge summary (first model only) ====
     charge_summary = compute_charge_summary(
@@ -1948,11 +1919,14 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
     )
     log_charge_summary("[extract:multi]", charge_summary)
 
-    if api==True:
+    n_linkh = len(ref_targets) if args.add_linkh and ref_targets else 0
+
+    if api:
         return {
             "outputs": outputs,
             "counts": model_counts,
             "charge_summary": charge_summary,
+            "n_link_hydrogens": n_linkh,
         }
     else:
         return
@@ -1976,14 +1950,18 @@ class AS_Select(PDB.Select):
 
 #   Main driver (single or multi) — CLI or API
 
-def extract(args: argparse.Namespace | None = None, api=False) -> Dict[str, Any]:
+def extract(args: argparse.Namespace, api=False) -> Dict[str, Any]:
     """
-    Run from CLI (args=None → parse_args()) or as an API with a pre-built Namespace.
+    Run extraction with a pre-built argparse Namespace.
+
+    The CLI entry point is the ``cli()`` Click command, which builds the
+    Namespace and calls this function.  For programmatic use, build the
+    Namespace manually or use :func:`extract_api`.
 
     Args
     ----
-    args : argparse.Namespace | None
-        If None, parse CLI args. Otherwise, use the provided Namespace.
+    args : argparse.Namespace
+        Parsed arguments (required; use ``extract_api()`` for keyword API).
     api : bool
         If True, return a structured result dictionary; if False (CLI), return None.
 
@@ -1993,9 +1971,10 @@ def extract(args: argparse.Namespace | None = None, api=False) -> Dict[str, Any]
         When api=True, returns { 'outputs', 'counts', 'charge_summary' }. Otherwise, None.
     """
     if args is None:
-        args = parse_args()
-
-    _configure_extract_logger(int(args.verbose) >= 2)
+        raise TypeError(
+            "extract() requires an argparse.Namespace; "
+            "use the 'mlmm extract' CLI or extract_api() for keyword API."
+        )
 
     # Augment AMINO_ACIDS with user-specified modified residues
     # Save original state so repeated API calls don't accumulate mutations.
@@ -2020,7 +1999,7 @@ def _extract_body(args, api):
                 AMINO_ACIDS[name.strip().upper()] = int(float(charge_str.strip()))
             else:
                 AMINO_ACIDS[token.upper()] = 0
-        LOGGER.info("[extract] Modified residues added to amino acid list: %s", _mod_res)
+        _echo_info("[extract] Modified residues added to amino acid list: %s", _mod_res)
 
     if args.radius == 0.0:
         args.radius = 0.001
@@ -2028,13 +2007,13 @@ def _extract_body(args, api):
         args.radius_het2het = 0.001
 
     # Log extract options
-    LOGGER.info("[extract] Options: radius=%.2f, radius_het2het=%.2f, "
-                "include_h2o=%s, exclude_backbone=%s, add_linkh=%s, "
-                "selected_resn='%s'",
-                args.radius, args.radius_het2het,
-                args.include_h2o, args.exclude_backbone,
-                args.add_linkh,
-                getattr(args, 'selected_resn', ''))
+    _echo_info("[extract] Options: radius=%.2f, radius_het2het=%.2f, "
+               "include_h2o=%s, exclude_backbone=%s, add_linkh=%s, "
+               "selected_resn='%s'",
+               args.radius, args.radius_het2het,
+               args.include_h2o, args.exclude_backbone,
+               getattr(args, 'add_linkh', False),
+               getattr(args, 'selected_resn', ''))
 
     # default output names
     if args.output_pdb is None:
@@ -2054,7 +2033,7 @@ def _extract_body(args, api):
         # Resolve substrate residues from PDB path or residue-ID/name list
         substrate_residues = resolve_substrate_residues(complex_struct, args.substrate_pdb)
         substrate_ids = {r.get_full_id() for r in substrate_residues}
-        LOGGER.info("[extract] Substrate residues matched: resseq %s",
+        _echo_info("[extract] Substrate residues matched: resseq %s",
                      [r.id[1] for r in substrate_residues])
 
         selected_ids, backbone_contact_ids = select_residues(
@@ -2066,7 +2045,7 @@ def _extract_body(args, api):
 
         # Force-include residues via --selected-resn
         if getattr(args, "selected_resn", ""):
-            forced_res = find_substrate_by_idspec(complex_struct, args.selected_resn)
+            forced_res = resolve_substrate_residues(complex_struct, args.selected_resn)
             add_n = 0
             for r in forced_res:
                 fid = r.get_full_id()
@@ -2074,7 +2053,7 @@ def _extract_body(args, api):
                     selected_ids.add(fid)
                     add_n += 1
             if add_n:
-                LOGGER.info("[extract] Force-include (--selected-resn): +%d residues.", add_n)
+                _echo_info("[extract] Force-include (--selected-resn): +%d residues.", add_n)
 
         augment_disulfides(complex_struct, selected_ids)
 
@@ -2093,7 +2072,7 @@ def _extract_body(args, api):
 
         # Atom counts
         raw = sum(len(complex_struct[f[1]][f[2]].child_dict[f[3]]) for f in selected_ids)
-        LOGGER.info("[extract] Raw atoms: %d", raw, extra={"vlevel": 1})
+        _echo_info("[extract] Raw atoms: %d", raw, level=1)
 
         skip_map = mark_atoms_to_skip(
             complex_struct, selected_ids, substrate_ids,
@@ -2107,7 +2086,7 @@ def _extract_body(args, api):
             for a in complex_struct[fid[1]][fid[2]].child_dict[fid[3]]
             if a.get_name() not in skip_map.get(fid, set())
         )
-        LOGGER.info("[extract] Atoms after truncation: %d", kept_atoms, extra={"vlevel": 1})
+        _echo_info("[extract] Atoms after truncation: %d", kept_atoms, level=1)
 
         # Warn about non-standard residues that may be amino acids
         _bb_full = {"N", "CA", "C", "O"}
@@ -2121,11 +2100,11 @@ def _extract_body(args, api):
             res_atoms = {a.get_name() for a in res}
             if _bb_full.issubset(res_atoms):
                 _resseq = res.get_id()[1]
-                LOGGER.warning(
+                _echo_info(
                     "[extract] WARNING: Residue %s %d may be an amino acid "
                     "(has N, CA, C, O) but is not recognized as a standard residue name. "
                     "Backbone truncation was not applied. "
-                    "Consider preparing the pocket model manually.",
+                    "Consider preparing the active site model manually.",
                     resname, _resseq,
                 )
 
@@ -2134,15 +2113,17 @@ def _extract_body(args, api):
         io.set_structure(complex_struct)
 
         buf = _io.StringIO()
-        io.save(buf, AS_Select(selected_ids, skip_map))
+        io.save(buf, AS_Select(selected_ids, skip_map), preserve_atom_numbering=True)
         main_pdb_text = buf.getvalue()
 
         output_path = args.output_pdb[0]
+        Path(output_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
         outputs: List[str] = []
+        link_coords: List[Tuple[float, float, float]] = []
 
         if args.add_linkh:
             link_coords = compute_linkH_atoms(complex_struct, selected_ids, skip_map)
-            LOGGER.info("[extract] Link-H to add: %d", len(link_coords))
+            _echo_info("[extract] Link-H to add: %d", len(link_coords))
 
             lines = [ln for ln in main_pdb_text.splitlines() if ln.strip() != "END"]
             if lines and lines[-1].strip() == "TER":
@@ -2160,13 +2141,24 @@ def _extract_body(args, api):
 
             with open(output_path, "w") as fh:
                 fh.write("".join(final_parts))
-            LOGGER.info("[extract] Binding-Pocket (Active Site) + link-H saved to %s", output_path, extra={"vlevel": 1})
+            _echo_info("[extract] Binding-Pocket (Active Site) + link-H saved to %s", output_path, level=1)
             outputs.append(output_path)
         else:
             with open(output_path, "w") as fh:
                 fh.write(main_pdb_text)
-            LOGGER.info("[extract] Binding-Pocket (Active Site) saved to %s", output_path, extra={"vlevel": 1})
+            _echo_info("[extract] Binding-Pocket (Active Site) saved to %s", output_path, level=1)
             outputs.append(output_path)
+
+        output_template = template_from_selected_structure(
+            complex_struct,
+            selected_ids,
+            skip_map,
+            link_coordinates=link_coords if args.add_linkh else (),
+        )
+        cif_path = register_output_template_and_write_cif(output_path, output_template)
+        if cif_path is not None:
+            outputs.append(str(cif_path))
+            _echo_info("[extract] mmCIF active-site model saved to %s", cif_path, level=1)
 
         # Charge summary (single model)
         charge_summary = compute_charge_summary(
@@ -2176,11 +2168,14 @@ def _extract_body(args, api):
         )
         log_charge_summary("[extract]", charge_summary)
 
+        n_linkh = len(link_coords) if args.add_linkh else 0
+
         if api:
             return {
                 "outputs": outputs,
                 "counts": [{"raw_atoms": raw, "kept_atoms": kept_atoms}],
                 "charge_summary": charge_summary,
+                "n_link_hydrogens": n_linkh,
             }
         else:
             return
@@ -2207,10 +2202,10 @@ def extract_api(complex_pdb: List[str],
     Args
     ----
     complex_pdb : list[str]
-        Input PDB path(s). len==1 → single, len>1 → multi.
+        Input PDB/mmCIF path(s). len==1 → single, len>1 → multi.
     center : str
-        Substrate spec: a PDB path, a residue‑ID list 'A:123,456' (insertion codes OK),
-        or a residue‑name list 'GPP,MMT'.
+        Substrate spec: a PDB/mmCIF path, residue IDs such as 'A:123,456',
+        residue names such as 'GPP,SAM', or chain-qualified names such as 'A:SAM'.
     output : list[str] | None
         Output path(s): one path for multi‑MODEL PDB, or N paths for per‑file outputs.
         If None, defaults to ['pocket.pdb'].
@@ -2231,9 +2226,9 @@ def extract_api(complex_pdb: List[str],
         for backbone truncation and charge assignment. E.g. 'HD1,HD2' or 'HD1:0,SEP:-2'.
     ligand_charge : float | str | dict[str,float] | None
         Either a total charge (float/str) for unknown residues (prefer unknown substrate),
-        or a mapping like {'GPP': -3, 'MMT': -1}. In mapping mode, other unknown residues remain 0.
+        or a mapping like {'GPP': -3, 'SAM': -1}. In mapping mode, other unknown residues remain 0.
     verbose : bool
-        Enable INFO logging.
+        Retained for API compatibility; output follows the global verbosity context.
 
     Returns
     -------

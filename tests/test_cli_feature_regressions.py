@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import sys
 from pathlib import Path
 
@@ -44,6 +45,34 @@ def test_path_search_help_shows_refine_mode() -> None:
     assert "--refine-mode" in result.output
 
 
+def test_path_search_dry_run_uses_prepared_layer_source(tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    smoke = repo / "tests" / "smoke"
+    runner = CliRunner()
+    result = runner.invoke(
+        root_cli,
+        [
+            "path-search",
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            "-i",
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--dry-run",
+            "--out-dir",
+            str(tmp_path / "path-search"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "[dry-run] Validation complete. Path search execution was skipped." in result.output
+
+
 def test_path_opt_help_shows_fix_ends() -> None:
     runner = CliRunner()
     result = runner.invoke(root_cli, ["path-opt", "--help"])
@@ -78,10 +107,21 @@ def test_scan3d_csv_mode_runs_without_scan_inputs(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(
         root_cli,
-        ["scan3d", "--csv", str(csv_path), "--out-dir", str(out_dir)],
+        [
+            "scan3d",
+            "--csv",
+            str(csv_path),
+            "--out-dir",
+            str(out_dir),
+            "--out-json",
+        ],
     )
     assert result.exit_code == 0, result.output
     assert (out_dir / "scan3d_density.html").exists()
+    payload = json.loads((out_dir / "result.json").read_text(encoding="utf-8"))
+    assert payload["mlip_backend"] is None
+    assert payload["mlip_model"] is None
+    assert "backend" not in payload
 
 
 @pytest.mark.parametrize("extra_args", [["-q", "0"], ["-m", "2"]])
@@ -137,6 +177,36 @@ def test_coord_type_dlc_falls_back_to_cart_under_lbfgs() -> None:
     hess = runner.invoke(root_cli, base + ["--opt-mode", "hess"])
     assert hess.exit_code == 0, hess.output
     assert "falling back to cart" not in hess.output
+
+
+@pytest.mark.parametrize(
+    ("extra", "expected"),
+    [([], "legacy-active"), (["--tr-projection", "constrained"], "constrained")],
+)
+def test_opt_tr_projection_cli_overrides_yaml(
+    tmp_path: Path, extra: list[str], expected: str,
+) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    in_pdb = repo / "examples" / "toy_system" / "p_complex_layered.pdb"
+    parm = repo / "examples" / "toy_system" / "p_complex.parm7"
+    if not (in_pdb.exists() and parm.exists()):
+        pytest.skip("toy_system example inputs not present")
+    config = tmp_path / "projection.yaml"
+    config.write_text(
+        "geom:\n  tr_projection: legacy-active\n",
+        encoding="utf-8",
+    )
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "opt", "-i", str(in_pdb), "--parm", str(parm), "-q", "0",
+            "--detect-layer", "--config", str(config), "--dry-run", "-v", "3",
+            *extra,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"tr_projection: {expected}" in result.output
 
 
 def test_verbose_is_a_per_subcommand_option() -> None:

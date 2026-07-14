@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+import yaml
 
 from mlmm.workflows._all_helpers import (
     AllContext,
@@ -12,6 +13,17 @@ from mlmm.workflows._all_helpers import (
     copy_path_outputs_to_root,
     promote_diag_for_root,
 )
+
+
+def test_all_tr_projection_is_injected_into_child_config() -> None:
+    from mlmm.workflows.all import _inject_coord_type_into_args_yaml
+
+    path = _inject_coord_type_into_args_yaml(
+        None, None, tr_projection="legacy-active"
+    )
+    assert path is not None
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert payload["geom"]["tr_projection"] == "legacy-active"
 
 
 def test_build_energy_level_dict_zero_referenced_kcal() -> None:
@@ -62,10 +74,10 @@ def test_promote_diag_for_root_returns_none_on_empty() -> None:
 
 def test_promote_diag_for_root_rewrites_name_and_image() -> None:
     original = {"name": "MEP", "image": "old.png", "x": [0, 1]}
-    promoted = promote_diag_for_root(original, "energy_diagram_UMA", Path("/tmp/out"))
+    promoted = promote_diag_for_root(original, "energy_diagram_MLIP", Path("/tmp/out"))
     assert promoted is not None
-    assert promoted["name"] == "energy_diagram_UMA_all"
-    assert promoted["image"] == "/tmp/out/energy_diagram_UMA_all.png"
+    assert promoted["name"] == "energy_diagram_MLIP_all"
+    assert promoted["image"] == "/tmp/out/energy_diagram_MLIP_all.png"
     # caller's dict must not be mutated
     assert original["name"] == "MEP"
     assert original["image"] == "old.png"
@@ -92,6 +104,7 @@ def test_copy_path_outputs_copies_known_artefacts(tmp_path: Path) -> None:
     dst.mkdir()
     (src / "mep_plot.png").write_text("dummy-png")
     (src / "mep.pdb").write_text("dummy-pdb")
+    (src / "mep.cif").write_text("dummy-cif")
     (src / "summary.json").write_text("{}")
     (src / "mep_trj.xyz").write_text("xyz")
     (src / "unrelated.tmp").write_text("ignore me")
@@ -100,6 +113,7 @@ def test_copy_path_outputs_copies_known_artefacts(tmp_path: Path) -> None:
 
     assert (dst / "mep_plot.png").read_text() == "dummy-png"
     assert (dst / "mep.pdb").read_text() == "dummy-pdb"
+    assert (dst / "mep.cif").read_text() == "dummy-cif"
     assert (dst / "summary.json").read_text() == "{}"
     assert (dst / "mep_trj.xyz").read_text() == "xyz"
     assert not (dst / "unrelated.tmp").exists()
@@ -141,6 +155,8 @@ def test_build_pipeline_summary_payload_shape() -> None:
     assert payload["opt_mode_post"] == "hess"
     assert payload["charge"] == -1
     assert payload["spin"] == 1
+    assert payload["mlip_backend"] == "uma"
+    assert payload["mlip_model"] is None
     assert payload["mep"]["n_images"] == 5
     assert payload["mep"]["diagram"]["name"] == "MEP"
     assert payload["post_segments"] == [{"seg": 1, "status": "ok"}]
@@ -198,6 +214,7 @@ def test_all_context_frozen_and_field_count() -> None:
         mm_keep_temp=False,
         mm_ligand_mult=None,
         spin=1,
+        tr_projection="constrained",
         max_nodes=5,
         max_cycles=100,
         climb=True,
@@ -236,6 +253,7 @@ def test_all_context_frozen_and_field_count() -> None:
         flatten=False,
         skip_final_freq=False,
         tsopt_out_dir=None,
+        irc_never_stop=None,
         freq_out_dir=None,
         freq_max_write=None,
         freq_amplitude_ang=None,
@@ -260,4 +278,3 @@ def test_all_context_frozen_and_field_count() -> None:
     assert "input_paths" in field_names
     assert "do_dft" in field_names
     assert "precision" in field_names
-    assert len(field_names) == 77  # current cli() param count

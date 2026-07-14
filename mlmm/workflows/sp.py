@@ -31,6 +31,7 @@ from mlmm.core.utils import (
     apply_yaml_overrides,
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
+    calculator_provenance,
     format_elapsed,
     merge_freeze_atom_indices,
     parse_indices_string,
@@ -131,7 +132,11 @@ EV2AU = 1.0 / AU2EV
     "--hessian-calc-mode", "hessian_calc_mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None, show_default=False,
-    help="Hessian backend when --hess is set. Analytical only works for UMA; other backends fall back to FiniteDifference.",
+    help=(
+        "Hessian backend when --hess is set. Analytical is supported by UMA, "
+        "ORB, MACE, and AIMNet2; custom calculators use FiniteDifference. "
+        "Analytical cannot be combined with --workers > 1."
+    ),
 )
 @click.option(
     "--convert-files/--no-convert-files", "convert_files",
@@ -236,7 +241,7 @@ def cli(
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
-    calc_factory: str,
+    calc_factory: Optional[str],
     print_every: Optional[int],
 ) -> None:
     """Compute a single-point ML/MM ONIOM energy + forces (and optionally Hessian)."""
@@ -320,6 +325,11 @@ def cli(
             sp_cfg["hess"] = bool(do_hess)
         if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
             sp_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
+        if sp_cfg.get("hessian_calc_mode"):
+            # ``geom.hessian`` reads the mode from the calculator, not from
+            # the reporting-only SP config.
+            calc_cfg["hessian_calc_mode"] = str(sp_cfg["hessian_calc_mode"])
+        apply_workers_to_calc_cfg(calc_cfg, None, None)
 
         # Charge/spin resolution
         resolved_charge, resolved_spin = resolve_charge_spin_or_raise(
@@ -419,7 +429,9 @@ def cli(
         # Optional Hessian
         hessian_path: Optional[Path] = None
         if sp_cfg["hess"]:
-            mode = sp_cfg.get("hessian_calc_mode") or ("Analytical" if calc_cfg.get("backend", "uma") == "uma" else "FiniteDifference")
+            mode = sp_cfg.get("hessian_calc_mode") or calc_cfg.get(
+                "hessian_calc_mode", "FiniteDifference"
+            )
             click.echo(f"[sp] computing full ONIOM Hessian (mode={mode}) ...")
             t0 = time.perf_counter()
             # geom.hessian may be a CUDA torch.Tensor (UMA analytical path);
@@ -440,7 +452,7 @@ def cli(
             "status": "ok",
             "input": str(prepared.source_path),
             "real_parm7": str(real_parm7),
-            "backend": calc_cfg.get("backend", "uma"),
+            **calculator_provenance(calc_cfg),
             # charge/spin were popped + renamed to model_charge/model_mult
             # before mlmm() construction (see "Rename CLI-style keys" block).
             "charge": calc_cfg.get("model_charge"),

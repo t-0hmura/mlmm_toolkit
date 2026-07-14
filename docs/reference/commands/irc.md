@@ -42,6 +42,10 @@ Options:
                                   from YAML.
   --backward / --no-backward      Run the backward IRC; overrides irc.backward
                                   from YAML.
+  --never-stop / --no-never-stop  Ignore energy-rise and energy-plateau stop
+                                  conditions so a small shoulder can be crossed.
+                                  Integrator convergence, invalid values, and
+                                  max-cycles still stop the run; default off.
   -o, --out-dir TEXT              Output directory; overrides irc.out_dir from
                                   YAML.  [default: ./result_irc/]
   --hessian-calc-mode [analytical|finitedifference]
@@ -93,6 +97,12 @@ Options:
                                   computation.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
+  --tr-projection [constrained|legacy-active]
+                                  Rigid-mode treatment for a frozen/partial
+                                  Hessian. 'constrained' removes only full-
+                                  system rigid motions compatible with the
+                                  anchors (default); 'legacy-active' treats the
+                                  active fragment as isolated for comparison.
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer
@@ -112,8 +122,8 @@ Options:
                                   rejected.
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
-                                  analytical Hessian is then unavailable (auto-
-                                  downgraded to FiniteDifference). Default 1.
+                                  combining it with an analytical Hessian is an
+                                  error. Default 1.
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
                                   predictor is used (--workers > 1).
   --backend-model TEXT            Model variant for the selected --backend (e.g.
@@ -127,8 +137,8 @@ Options:
                                   / any ASE engine. See --calc-factory.
   --calc-factory TEXT             Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
-                                  Calculator instance).  [default:
-                                  get_calculator]
+                                  Calculator instance). CLI overrides config
+                                  YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
                                   Strict bit-reproducible GPU runs
                                   (deterministic algorithms + index_reduce_

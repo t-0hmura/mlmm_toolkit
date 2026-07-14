@@ -16,9 +16,15 @@ _need_py311 = pytest.mark.skipif(
 def test_import_mlmm():
     import mlmm
 
+    assert mlmm.__name__ == "mlmm"
+
 
 def test_import_defaults():
     from mlmm.core.defaults import MLMM_CALC_KW, GEOM_KW_DEFAULT, OPT_BASE_KW
+
+    assert isinstance(MLMM_CALC_KW, dict)
+    assert isinstance(GEOM_KW_DEFAULT, dict)
+    assert isinstance(OPT_BASE_KW, dict)
 
 
 @_need_py311

@@ -26,7 +26,8 @@ mlmm all --parm enzyme.parm7 -i 1.R.pdb \
     -o result_scan
 ```
 
-Each `--scan-lists '...'` argument is **one stage**. Stages run
+Each literal after the single `--scan-lists` flag is **one stage**; do not
+repeat the flag. Stages run
 sequentially; the final geometry of stage *k* is the input geometry of
 stage *k+1*.
 
@@ -45,6 +46,7 @@ tuples, where each tuple is `(atom_a, atom_b, target_distance_Å)`.
 |---|---|
 | `"NAME RESNAME RESID"` | Atom by PDB name + residue name + residue index, separated by single spaces |
 | `"RESNAME\`RESID/NAME"` | Compact form with backticks and slash; same three fields, different separators |
+| `"CHAIN:RESNAME:RESID[ICODE]:NAME"` | Exact chain-qualified form for repeated or mmCIF identifiers |
 
 All bonds in a stage are driven simultaneously. If you want them done
 **sequentially**, split them into separate `--scan-lists` arguments.
@@ -81,7 +83,7 @@ Same overall tree as in `all.md`, plus per-stage scan output:
 
 ```
 result_scan/
-├── mep.pdb / mep_trj.xyz           # stitched MEP (copied to the root)
+├── mep.pdb / mep.cif / mep_trj.xyz # CIF companion for bridged input
 ├── segments/
 │   └── seg_NN/                     # canonical R/TS/P + post-processing per segment
 └── _work/                          # pipeline scratch

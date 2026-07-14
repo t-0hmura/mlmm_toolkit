@@ -17,7 +17,7 @@ This document is for **contributors and maintainers**. For end-user usage, see [
 | 1. Unit tests | `pytest tests/ -q` | `pytest tests/ -q` | logic regression; **never delete or skip the failing test** — root-cause it |
 | 2. Engineering markers | `# CHEMISTRY-RULE:N` coverage, `# DOMAIN_PURE` coverage, external-library import scope | `python .github/scripts/check_engineering_markers.py` | a required marker is missing, or an MLIP SDK is imported outside `backends/` |
 | 3. Help registry drift | CLI `--help` and `--help-advanced` compliance with registry | `python .github/scripts/check_help_registry.py` | CLI option mismatch — re-run after CLI changes |
-| 4. Smoke | `tests/smoke/run.sh` exercises the canonical ONIOM CLI surface (`mm-parm` → `define-layer` → `extract` → `path-search` → `tsopt` → `irc` → `freq` → `all`) on a representative system | qsub `tests/smoke/run.sh` on HPC | functional regression — root-cause before merge |
+| 4. Smoke | `tests/smoke/run.sh` exercises the canonical ONIOM CLI surface (`mm-parm` → `define-layer` → `extract` → `path-search` → `tsopt` → `irc` → `freq` → `all`) on a representative system | copy `tests/smoke/` to scratch, then invoke `bash run.sh` from a site-specific scheduler wrapper | functional regression — root-cause before merge |
 
 ### 1.2 Before any patch
 
@@ -90,7 +90,7 @@ Five "add-a-X" recipes cover ~90 % of contributor changes. Each names the exact 
 | 1 | Add a Python module `mlmm/workflows/myaction.py` with a top-level `@click.command(...)` named `cli` | new file in L2 |
 | 2 | Register defaults (every default value) in `mlmm/core/defaults.py` under a new `MYACTION_DEFAULTS` dict | `mlmm/core/defaults.py` (L5) |
 | 3 | Wire the command into the lazy registry — add `"myaction": ("mlmm.workflows.myaction", "cli", "<short description>")` to `_LAZY_SUBCOMMANDS` | `mlmm/cli/app.py` (L1) |
-| 4 | If your subcommand has value-style bool flags (`--flag True`), add it to `_COMMAND_BOOL_VALUE_OPTIONS` in the same file | `mlmm/cli/app.py` |
+| 4 | Declare booleans as canonical Click toggle pairs (`--flag/--no-flag`). Runtime parameter introspection discovers ordinary decorators automatically; add a manual pre-import hint in `mlmm/cli/app.py` only when a lazy/parser-wrapper path requires it. | `mlmm/cli/default_group.py`, `mlmm/cli/app.py` |
 | 5 | Add a docs page `docs/myaction.md` (and `docs/ja/myaction.md` if you maintain the JP set); add a unit test in `tests/test_myaction.py` | new files |
 
 **Gate that catches mistakes**: the unit-test suite (step 3) will fail if the subcommand cannot be discovered or instantiated; the engineering-marker check (step 4) will fail if a new backend SDK leaks outside `backends/`.
@@ -163,7 +163,7 @@ These are **hard constraints** enforced by the release process. Violating them e
 
 ### 4.1 Nine chemistry rules
 
-The reaction-path correctness rules listed in [`docs/architecture.md`](docs/architecture.md) §5.1 must not be reordered, simplified, or factored out. They are marked with `# CHEMISTRY-RULE:N` inline comments and `# DOMAIN_PURE` module-docstring markers. The CI gate `.github/scripts/check_engineering_markers.py` enforces marker completeness and confines MLIP-only SDK imports (`fairchem`, `orb_models`, `mace`, `aimnet`) to the `backends/` layer. For **mlmm specifically** all 9 rules apply: #1 (subtractive ONIOM energy), #2 (link-atom Hessian B-matrix), #8 (3-layer 5-pass partial Hessian), #9 (parm7 atom indexing) in `backends/mlmm_calc.py`; #3 (macro/micro alternation), #7 (`bofill_update` advanced-indexing) in `workflows/tsopt.py`; #6 (PHVA + UMA active block) in `workflows/freq.py`; #4 (gpu4pyscf `rks_lowmem`), #5 (def2 auto-ECP) in `workflows/dft.py`.
+The reaction-path correctness rules listed in [`docs/architecture.md`](docs/architecture.md) §5.1 must not be reordered, simplified, or factored out. They are marked with `# CHEMISTRY-RULE:N` inline comments and `# DOMAIN_PURE` module-docstring markers. The CI gate `.github/scripts/check_engineering_markers.py` enforces marker completeness and confines MLIP-only SDK imports (`fairchem`, `orb_models`, `mace`, `aimnet`) to the `backends/` layer. For **mlmm specifically** all 9 rules apply: #1 (subtractive ONIOM energy), #2 (link-atom Hessian B-matrix), #8 (3-layer 5-pass partial Hessian), #9 (parm7 atom indexing) in `backends/mlmm_calc.py`; #3 (macro/micro alternation), #7 (`bofill_update` advanced-indexing) in `workflows/tsopt.py`; #6 (PHVA + MLIP active block) in `workflows/freq.py`; #4 (gpu4pyscf `rks_lowmem`), #5 (def2 auto-ECP) in `workflows/dft.py`.
 
 Use the grep recipe before any patch:
 

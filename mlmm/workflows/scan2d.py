@@ -366,7 +366,7 @@ def cli(
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
-    calc_factory: str,
+    calc_factory: Optional[str],
 ) -> None:
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -378,10 +378,10 @@ def cli(
         args_yaml_legacy=None,
     )
 
-    # Validate input format: PDB directly, or XYZ with --ref-pdb
+    # Validate input format: PDB/mmCIF directly, or XYZ with --ref-pdb.
     suffix = input_path.suffix.lower()
-    if suffix not in (".pdb", ".xyz"):
-        click.echo("ERROR: --input must be a PDB or XYZ file.", err=True)
+    if suffix not in (".pdb", ".cif", ".mmcif", ".xyz"):
+        click.echo("ERROR: --input must be a PDB, mmCIF, or XYZ file.", err=True)
         sys.exit(1)
     if suffix == ".xyz" and ref_pdb is None:
         click.echo("ERROR: --ref-pdb is required when --input is an XYZ file.", err=True)
@@ -1182,14 +1182,15 @@ def cli(
             click.echo(format_elapsed("[time] Elapsed Time for 2D Scan", time_start), narrative=True)
 
             if out_json:
-                from mlmm.core.utils import write_result_json
+                from mlmm.core.utils import calculator_provenance, write_result_json
                 min_energy = float(df["energy_hartree"].min()) if not df.empty else None
                 result_data: Dict[str, Any] = {
                     "status": "completed",
+                    "energy_reference": "bare_mlmm_pes",
                     "n_grid_points": len(df),
                     "pair1": {"i": int(i1 + 1), "j": int(j1 + 1), "low": float(low1), "high": float(high1)},
                     "pair2": {"i": int(i2 + 1), "j": int(j2 + 1), "low": float(low2), "high": float(high2)},
-                    "backend": calc_cfg.get("backend", "uma"),
+                    **calculator_provenance(calc_cfg),
                     "charge": calc_cfg.get("model_charge"),
                     "spin": calc_cfg.get("model_mult"),
                     "min_energy_hartree": min_energy,

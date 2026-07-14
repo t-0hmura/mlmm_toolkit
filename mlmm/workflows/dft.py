@@ -778,19 +778,21 @@ def cli(
 ) -> None:
     set_convert_file_enabled(convert_files)
 
-    # Resolve XYZ + --ref-pdb → use ref-pdb as topology source.
+    # Resolve every topology input through the common PDB/mmCIF bridge.
     # Delegate to the shared apply_ref_pdb_override helper so the atom-count guard
     # (geom vs ref) used by opt/tsopt/freq/irc/scan/path_search is applied here too.
-    if input_path.suffix.lower() != ".pdb":
+    prepared_input_for_ref = None
+    if input_path.suffix.lower() == ".xyz":
         if ref_pdb is None:
             raise click.BadParameter(
-                "Input is not a PDB file. Provide --ref-pdb for topology when using XYZ input."
+                "Provide --ref-pdb for topology when using XYZ input."
             )
         prepared_input_for_ref = prepare_input_structure(input_path)
         apply_ref_pdb_override(prepared_input_for_ref, ref_pdb)
         source_pdb = prepared_input_for_ref.source_path
     else:
-        source_pdb = input_path
+        prepared_input_for_ref = prepare_input_structure(input_path)
+        source_pdb = prepared_input_for_ref.source_path
 
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -1291,7 +1293,7 @@ def cli(
         click.echo(format_elapsed("[time] Elapsed Time for DFT", time_start), narrative=True)
 
         if out_json:
-            from mlmm.core.utils import write_result_json
+            from mlmm.core.utils import calculator_provenance, write_result_json
             result_data: Dict[str, Any] = {
                 "converged": converged,
                 "energy_hartree": e_h,
@@ -1301,7 +1303,7 @@ def cli(
                 "engine": engine_label,
                 "used_gpu": bool(using_gpu),
                 "used_lowmem": bool(using_lowmem),
-                "backend": calc_kw.get("backend", "uma"),
+                **calculator_provenance(calc_kw),
                 "charge": calc_kw.get("model_charge"),
                 "spin": calc_kw.get("model_mult"),
                 "n_atoms": mol.natm,
@@ -1333,6 +1335,8 @@ def cli(
     finally:
         if prepared_input is not None:
             prepared_input.cleanup()
+        if prepared_input_for_ref is not None:
+            prepared_input_for_ref.cleanup()
         if workspace is not None:
             workspace.cleanup()
 

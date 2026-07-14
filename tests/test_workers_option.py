@@ -1,9 +1,9 @@
 """F2: `--workers` / `--workers-per-node` wiring.
 
 Covers the calc_cfg router (``apply_workers_to_calc_cfg``): it sets the keys,
-leaves them alone when no CLI value is given, and downgrades an explicit
-``Analytical`` Hessian request to ``FiniteDifference`` when workers > 1 (the
-parallel MLIP predictor exposes no autograd model).
+leaves them alone when no CLI value is given, and rejects an explicit
+``Analytical`` Hessian request when workers > 1 (the parallel MLIP predictor
+exposes no autograd model).
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from __future__ import annotations
 import sys
 
 import pytest
+import yaml
 
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
@@ -36,17 +37,56 @@ def test_workers_none_is_noop():
     assert cfg["workers_per_node"] == 1
 
 
-def test_workers_gt1_downgrades_analytical_hessian():
+def test_workers_gt1_rejects_analytical_hessian():
     cfg = {"hessian_calc_mode": "Analytical"}
-    _router()(cfg, 2, 1)
-    assert cfg["workers"] == 2
-    assert cfg["hessian_calc_mode"] == "FiniteDifference"
+    with pytest.raises(ValueError, match="Analytical Hessian.*workers>1"):
+        _router()(cfg, 2, 1)
 
 
 def test_workers_eq1_keeps_analytical_hessian():
     cfg = {"hessian_calc_mode": "Analytical"}
     _router()(cfg, 1, 1)
     assert cfg["hessian_calc_mode"] == "Analytical"
+
+
+def test_all_injects_workers_into_finite_difference_child_config(tmp_path):
+    from mlmm.workflows.all import _inject_coord_type_into_args_yaml
+
+    source = tmp_path / "all.yaml"
+    source.write_text(
+        "calc:\n  hessian_calc_mode: FiniteDifference\n", encoding="utf-8"
+    )
+    effective = _inject_coord_type_into_args_yaml(
+        source, None, workers=2, workers_per_node=1
+    )
+    assert effective is not None and effective != source
+    payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
+    assert payload["calc"]["workers"] == 2
+    assert payload["calc"]["workers_per_node"] == 1
+
+
+def test_all_rejects_parallel_analytical_child_config(tmp_path):
+    from mlmm.workflows.all import _inject_coord_type_into_args_yaml
+
+    source = tmp_path / "all.yaml"
+    source.write_text("calc:\n  hessian_calc_mode: Analytical\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Analytical Hessian.*workers>1"):
+        _inject_coord_type_into_args_yaml(
+            source, None, workers=2, workers_per_node=1
+        )
+
+
+def test_direct_core_rejects_analytical_parallelism_before_io():
+    """The Python API must fail before copying inputs or loading a model."""
+    core_cls = pytest.importorskip("mlmm.backends.mlmm_calc").MLMMCore
+    with pytest.raises(ValueError, match="Analytical Hessian.*workers>1"):
+        core_cls(
+            input_pdb="does-not-exist.pdb",
+            real_parm7="does-not-exist.parm7",
+            model_pdb="does-not-exist-model.pdb",
+            workers=2,
+            hessian_calc_mode="Analytical",
+        )
 
 
 def test_opt_registers_workers_options():

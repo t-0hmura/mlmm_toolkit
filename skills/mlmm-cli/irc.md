@@ -47,6 +47,9 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `--max-cycles` | int | 125 | Max IRC steps per branch (forward + backward) |
 | `--step-size` | float | 0.10 (Bohr) | Step in Bohr; maps to `IRC_KW['step_length']` |
+| `--never-stop / --no-never-stop` | bool | off | Ignore energy-rise/plateau stops only; convergence, invalid values, and max cycles remain active |
+| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment: `constrained` or isolated-active comparison `legacy-active` |
+| `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_irc/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
@@ -66,6 +69,10 @@ mlmm irc -i ts.xyz -q -1 -m 1 \
     --max-cycles 250 --step-size 0.05 \
     -b uma -o result_irc_long
 ```
+
+If a branch stops immediately, reduce `--step-size` first. Use
+`--never-stop` only for a verified small shoulder; it does not disable
+integrator convergence, invalid-value checks, or the maximum-cycle guard.
 
 ## Output
 
@@ -91,7 +98,16 @@ print(d["n_frames_forward"], d["n_frames_backward"])
 print(d["energy_reactant_hartree"], d["energy_ts_hartree"], d["energy_product_hartree"])
 print(d["bond_changes"])           # {"formed": [...], "broken": [...]}
 print(d["status"])                  # "completed" (success path only; errors emit a separate error JSON)
+print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
 ```
+
+The default `constrained` treatment removes only full-system rigid motions
+that leave frozen anchors fixed. Generic ranks are 6/3/1/0 for
+zero/one/two/at least three non-collinear anchors, and realistic ML/MM
+boundaries normally have rank 0. All-frozen input is an explicit error.
+`legacy-active` is an isolated-active comparison treatment using the current
+common kernel; bitwise identity is not guaranteed for rank-degenerate cases. `result.json` records the
+treatment, effective rank, initial-Hessian source, and Hessian shape.
 
 ## Forward / backward endpoints
 

@@ -69,21 +69,29 @@ Use `--hess-device cpu` when:
 
 ---
 
-## Precision by GPU class
+## Backend precision defaults
 
-`--precision` selects the MLIP backend floating-point precision (`fp32` or `fp64`, case-insensitive). When `--precision` is not passed, each backend keeps its own default: `fp32` for UMA and ORB, but `float64` (fp64) for MACE. The right choice depends on the GPU class you are running on:
+`--precision` selects `fp32` or `fp64` (case-insensitive). When it is omitted,
+the effective default is backend-specific:
 
-| Hardware | Recommended | Reasoning |
-| --- | --- | --- |
-| HPC datacenter GPU (H100 / H200 / A100) | `--precision fp64` | Near-deterministic, low numerical noise; native fp64 throughput makes the cost acceptable. Stabilises TS optimization and the Hessian. |
-| Consumer GPU (RTX 50xx / 40xx) | `--precision fp32` (default) | fp64 is markedly slower on consumer cards. fp32 is the baseline for speed and screening. |
+| Backend | Default | Reason |
+|---|---|---|
+| UMA | fp32 | Upstream fairchem baseline. |
+| ORB | fp64 | ORB fp32 uses reduced `float32-high` (TF32) matrix multiplication; force noise can create spurious finite-difference Hessian modes. |
+| MACE | fp64 | Matches MACE's upstream `default_dtype="float64"`. |
+| AIMNet2 | fp32 | No precision switch; explicit fp64 is rejected. |
+
+Use explicit `--precision fp32` on ORB/MACE only when screening throughput is
+worth the noisier Hessian. UMA fp64 can stabilize a numerically sensitive TS or
+Hessian but may be much slower on consumer GPUs. Precision does not replace an
+independent frequency and IRC check.
 
 ```bash
 # Datacenter H200 — full-precision base inference
 mlmm tsopt -i ts.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma --precision fp64 -o result_ts
 
-# Consumer RTX — fast screening with the default
-mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma --scan-lists '[(1,5,1.4)]' -o result_scan
+# Explicit reduced-precision ORB screening
+mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
 ```
 
 `--precision` is accepted on every compute subcommand (`sp`, `opt`, `tsopt`, `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`) and is routed per backend (UMA precision, ORB precision, MACE `default_dtype`).

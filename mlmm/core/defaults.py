@@ -58,6 +58,7 @@ WORK_DIRNAME = "_work"  # pipeline-wide scratch (safe to rm -rf)
 GEOM_KW_DEFAULT: Dict[str, Any] = {
     "coord_type": "cart",
     "freeze_atoms": [],
+    "tr_projection": "constrained",
 }
 
 # Single source of truth for the default UMA model name. Every code default
@@ -80,7 +81,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "uma_model": DEFAULT_UMA_MODEL,
     "uma_task_name": "omol",
     "uma_precision": "fp32",  # "fp32" (established baseline) | "fp64" (full-precision base inference; non-trivial TSopt/Hessian impact)
-    "workers": 1,             # MLIP predictor workers; >1 uses ParallelMLIPPredictUnit (UMA only). Analytical Hessian is unavailable then (FD forced).
+    "workers": 1,             # MLIP predictor workers; >1 uses ParallelMLIPPredictUnit (UMA only). Combining it with an explicit Analytical Hessian is an error.
     "workers_per_node": 1,    # Workers per node when the parallel predictor is used (workers>1).
     "orb_model": "orb_v3_conservative_omol",
     # float64, not ORB's pretrained "float32-high" default: that mode is TF32 matmul,
@@ -172,6 +173,10 @@ LBFGS_KW: Dict[str, Any] = {
     "double_damp": True,
     "mu_reg": None,
     "max_mu_reg_adaptions": 10,
+    "reject_uphill": True,
+    "uphill_tolerance": 1e-8,
+    "rejection_step_floor": 1e-7,
+    "max_rejections_at_floor": 3,
 }
 
 
@@ -182,6 +187,10 @@ RFO_KW: Dict[str, Any] = {
     "trust_min": 1e-4,
     "trust_max": 0.10,
     "max_energy_incr": None,
+    "reject_uphill": True,
+    "uphill_tolerance": 1e-8,
+    "rejection_trust_floor": 1e-7,
+    "max_rejections_at_floor": 3,
     "hessian_update": "bfgs",
     "hessian_init": "calc",
     "hessian_recalc": 500,
@@ -296,7 +305,7 @@ SEARCH_KW: Dict[str, Any] = {
     "max_depth": 10,
     "stitch_rmsd_thresh": 1.0e-4,
     "bridge_rmsd_thresh": 1.0e-4,
-    "max_nodes_segment": 10,
+    "max_nodes_segment": 20,
     "max_nodes_bridge": 5,
     "kink_max_nodes": 3,
     "max_seq_kink": 2,
@@ -328,6 +337,7 @@ IRC_KW: Dict[str, Any] = {
     "max_pred_steps": 500,
     "loose_cycles": 3,
     "corr_func": "mbs",
+    "never_stop": False,
 }
 
 # Microiteration defaults (opt heavy / tsopt heavy)
@@ -410,11 +420,14 @@ HESSIAN_DIMER_KW: Dict[str, Any] = {
 _RFO_ONLY_KEYS = {
     "gediis", "gdiis", "gdiis_thresh", "gediis_thresh",
     "gdiis_test_direction", "adapt_step_func", "rfo_overlaps",
+    "reject_uphill", "uphill_tolerance", "rejection_trust_floor",
+    "max_rejections_at_floor",
 }
 
 RSIRFO_KW: Dict[str, Any] = {
     **{k: v for k, v in RFO_KW.items() if k not in _RFO_ONLY_KEYS},
     "thresh": "baker",
+    "check_eigval_structure": True,
     "trust_radius": 0.10,
     "trust_max": 0.10,
     "max_energy_incr": None,
@@ -424,6 +437,14 @@ RSIRFO_KW: Dict[str, Any] = {
     "small_eigval_thresh": 1e-8,
     "assert_neg_eigval": False,
     "track_mode_by_overlap": False,
+    "reject_mode_loss": True,
+    "mode_loss_trust_floor": 1e-5,
+    "max_mode_loss_rejections": 5,
+    "verify_saddle": True,
+    "saddle_imaginary_threshold_cm": 5.0,
+    "saddle_recovery_step": 0.01,
+    "saddle_recovery_check_interval": 50,
+    "saddle_recovery_max_cycles": 200,
     "out_dir": OUT_DIR_TSOPT,
 }
 

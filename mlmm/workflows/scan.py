@@ -74,6 +74,7 @@ from mlmm.core.utils import (
     resolve_ml_layer_assignment,
     snapshot_geometry,
     echo_resolved_device,
+    unbiased_energy_hartree,
 )
 from mlmm.domain.bond_changes import compare_structures, summarize_changes
 from mlmm.cli.common_options import (
@@ -461,7 +462,7 @@ def cli(
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
-    calc_factory: str,
+    calc_factory: Optional[str],
 ) -> None:
     _is_param_explicit = make_is_param_explicit(ctx)
 
@@ -484,10 +485,10 @@ def cli(
             err=True,
         )
 
-    # Validate input format: PDB directly, or XYZ with --ref-pdb
+    # Validate input format: PDB/mmCIF directly, or XYZ with --ref-pdb.
     suffix = input_path.suffix.lower()
-    if suffix not in (".pdb", ".xyz"):
-        click.echo("ERROR: --input must be a PDB or XYZ file.", err=True)
+    if suffix not in (".pdb", ".cif", ".mmcif", ".xyz"):
+        click.echo("ERROR: --input must be a PDB, mmCIF, or XYZ file.", err=True)
         sys.exit(1)
     if suffix == ".xyz" and ref_pdb is None:
         click.echo("ERROR: --ref-pdb is required when --input is an XYZ file.", err=True)
@@ -910,14 +911,11 @@ def cli(
                         click.echo(f"[stage {k}] WARNING: Failed to evaluate bond changes: {e}", err=True)
 
                     final_xyz = stage_dir / "result.xyz"
+                    final_energy_h = unbiased_energy_hartree(geom, base_calc)
                     with open(final_xyz, "w") as f:
-                        f.write(_coords3d_to_xyz_string(geom))
+                        f.write(_coords3d_to_xyz_string(geom, energy=final_energy_h))
                     click.echo(f"[write] Wrote '{final_xyz}'.")
-                    # Capture final energy directly from geometry object
-                    try:
-                        srec["final_energy_hartree"] = float(geom.energy) if geom.energy is not None else None
-                    except Exception:
-                        srec["final_energy_hartree"] = None
+                    srec["final_energy_hartree"] = final_energy_h
                     try:
                         convert_xyz_to_pdb(final_xyz, source_path.resolve(), stage_dir / "result.pdb")
                         click.echo(f"[convert] Wrote '{stage_dir / 'result.pdb'}'.")
@@ -940,8 +938,11 @@ def cli(
                     except OptimizationError as e:
                         click.echo(f"[stage {k}] step {s}: OptimizationError — {e}", err=True)
 
-                    trj_blocks.append(_coords3d_to_xyz_string(geom))
-                    stage_energies.append(float(geom.energy) if geom.energy is not None else None)
+                    # The biased calculator remains attached during relaxation;
+                    # report the bare ML/MM PES, not the restraint penalty.
+                    step_energy_h = unbiased_energy_hartree(geom, base_calc)
+                    trj_blocks.append(_coords3d_to_xyz_string(geom, energy=step_energy_h))
+                    stage_energies.append(step_energy_h)
                     with open(stage_trj_path, "a") as _tf:
                         _tf.write(trj_blocks[-1])
 
@@ -1002,14 +1003,11 @@ def cli(
                         click.echo(f"[convert] WARNING: Failed to convert stage trajectory to PDB: {e}", err=True)
 
                 final_xyz = stage_dir / "result.xyz"
+                final_energy_h = unbiased_energy_hartree(geom, base_calc)
                 with open(final_xyz, "w") as f:
-                    f.write(_coords3d_to_xyz_string(geom))
+                    f.write(_coords3d_to_xyz_string(geom, energy=final_energy_h))
                 click.echo(f"[write] Wrote '{final_xyz}'.")
-                # Capture final energy directly from geometry object
-                try:
-                    srec["final_energy_hartree"] = float(geom.energy) if geom.energy is not None else None
-                except Exception:
-                    srec["final_energy_hartree"] = None
+                srec["final_energy_hartree"] = final_energy_h
                 try:
                     convert_xyz_to_pdb(final_xyz, source_path.resolve(), stage_dir / "result.pdb")
                     click.echo(f"[convert] Wrote '{stage_dir / 'result.pdb'}'.")
@@ -1075,7 +1073,7 @@ def cli(
         click.echo(format_elapsed("[time] Elapsed Time for Scan", time_start), narrative=True)
 
         if out_json:
-            from mlmm.core.utils import write_result_json
+            from mlmm.core.utils import calculator_provenance, write_result_json
             json_stages = []
             for srec in stages_summary:
                 stage_entry: Dict[str, Any] = {
@@ -1094,9 +1092,10 @@ def cli(
                 json_stages.append(stage_entry)
             result_data: Dict[str, Any] = {
                 "status": "completed",
+                "energy_reference": "bare_mlmm_pes",
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
-                "backend": calc_cfg.get("backend", "uma"),
+                **calculator_provenance(calc_cfg),
                 "max_step_size_angstrom": float(max_step_size),
                 "n_stages": len(stages_summary),
                 "stages": json_stages,

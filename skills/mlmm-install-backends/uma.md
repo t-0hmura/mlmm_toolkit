@@ -42,7 +42,7 @@ separate repos).
 
 ## CLI usage
 
-`uma` is the default — `mlmm all -i ...` uses UMA-s-1.1 unless
+`uma` is the default — `mlmm all -i ...` uses UMA-s-1.2 unless
 overridden:
 
 ```bash
@@ -61,7 +61,8 @@ Available models (select with the `--backend-model` CLI flag, or via
 
 | config string (`uma_model`) | paper notation | HuggingFace repo | Notes |
 |---|---|---|---|
-| `uma-s-1p1` (default) | UMA-s-1.1 | `facebook/UMA` | Smaller / faster, sufficient for most workflows |
+| `uma-s-1p2` (default) | UMA-s-1.2 | `facebook/UMA` | Current small-model default |
+| `uma-s-1p1` | UMA-s-1.1 | `facebook/UMA` | Previous small model; explicit opt-in |
 | `uma-m-1p1` | UMA-m-1.1 | `facebook/UMA` | Larger, slightly more accurate, ~3× slower |
 
 `p` is the dot replacement used by fairchem-core's config parser
@@ -81,7 +82,7 @@ YAML under the `calc:` block, or via the appropriate CLI flag):
 | Key | Purpose |
 |---|---|
 | `backend` | `'uma'` (default) / `'orb'` / `'mace'` / `'aimnet2'` |
-| `uma_model` | `'uma-s-1p1'` (default) or `'uma-m-1p1'` |
+| `uma_model` | `'uma-s-1p2'` (default), `'uma-s-1p1'`, or `'uma-m-1p1'` |
 | `uma_task_name` | `'omol'` (default — organic molecules + 1st-row metals) |
 | `ml_device` | `'auto'` (default), `'cuda'`, or `'cpu'` |
 | `ml_cuda_idx` | GPU ordinal when `ml_device='cuda'` |
@@ -100,7 +101,7 @@ list. `mlmm-toolkit` runs single-GPU on the ML side.
 | Symptom | Cause / fix |
 |---|---|
 | `e3nn` install conflict | UMA's `fairchem-core` pin clashes with `mace-torch`. Use a separate env for MACE (see `mace.md`). |
-| `uma-m-1p1` runs out of VRAM during freq | Switch `hessian_calc_mode` to `'FiniteDifference'`, or use `uma-s-1p1`. |
+| `uma-m-1p1` runs out of VRAM during freq | Switch `hessian_calc_mode` to `'FiniteDifference'`, or use `uma-s-1p2`. |
 | First call is slow (10–30 s) | One-time model download + JIT compile. The cache lives at `~/.cache/huggingface/hub/`. |
 | `GatedRepoError` / `401 Unauthorized` | HuggingFace token missing or lacks access to the gated UMA repo — re-run `huggingface-cli login`. |
 

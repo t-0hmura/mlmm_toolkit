@@ -1,6 +1,6 @@
 # mlmm-toolkit Documentation
 
-*Version: v0.3.0* — Python CLI for ML/MM ONIOM analyses of enzymatic reactions.
+*Version: v0.3.3* — Python CLI for ML/MM ONIOM analyses of enzymatic reactions.
 
 <img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
 
@@ -10,6 +10,7 @@
 :hidden:
 
 getting-started
+cif
 concepts
 quickstart-all
 quickstart-scan-spec
@@ -19,6 +20,7 @@ troubleshooting
 cli-conventions
 reproducibility
 ja/getting-started
+ja/cif
 ja/concepts
 ja/quickstart-all
 ja/quickstart-scan-spec
@@ -122,6 +124,7 @@ ja/glossary
 | Goal | Page |
 |---|---|
 | Install + run a first end-to-end pipeline | [Getting Started](getting-started.md) |
+| mmCIF, large residue IDs, and exact selectors | [mmCIF and Large Structures](cif.md) |
 | 3-layer ONIOM, microiteration, link atoms | [Concepts & Workflow](concepts.md) |
 | End-to-end pipeline from a PDB | [Quickstart: all](quickstart-all.md) |
 | Single-structure staged scan | [Quickstart: scan](quickstart-scan-spec.md) |

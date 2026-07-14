@@ -44,17 +44,44 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 処理の流れ
 
 1. **ML/MM calculatorの構築** — ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のHessianを選択します。計算機は完全な 3N x 3N Hessianまたはアクティブ自由度（DOF）のサブブロックを返す場合があります。
-2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われ、並進/回転モードがそこに射影されます。3N x 3N とアクティブブロックの両方のHessianが受け付けられ、振動数は cm^-1 で報告されます（負の値 = 虚数）。
+2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われます。デフォルトの constrained 射影は、凍結 anchor をすべて動かさない全系剛体運動のみを除去し、アクティブ断片を孤立分子として扱いません。3N x 3N とアクティブブロックの両方のHessianを受け付け、振動数は cm^-1 で報告します（負の値 = 虚振動数）。
 3. **アクティブ自由度モード** — `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層、B=0）、`partial`（ML + MovableMM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
 4. **モードエクスポート** — `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `_trj.xyz`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML のデフォルト値と同じです。
 5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（EE、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。CLI の圧力（atm）は内部で Pa に変換されます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。
 6. **デバイス選択** — `ml_device="auto"` は CUDA が利用可能な場合は CUDA を使用し、それ以外は CPU を使用します。内部の TR 射影/モード組み立ては転送を抑えるため同じデバイスで実行されます。
 7. **終了動作** — キーボード割り込みはコード 130 で終了します。その他の失敗はトレースバックを出力してコード 1 で終了します。
 
+### 凍結境界の TR 射影
+
+PHVA の物理的なデフォルトは `--tr-projection constrained` です。
+全系の剛体並進/回転から、凍結 anchor を動かさない成分だけを残します。
+一般的な有効 rank は次のとおりです。
+
+| 凍結 anchor の幾何 | 除去する有効 rank |
+| --- | ---: |
+| 0 個 | 6 |
+| 1 個 | 3 |
+| 異なる 2 個 | 1 |
+| 非共線の 3 個以上 | 0 |
+
+実用的な ML/MM 境界には通常、非共線の anchor が複数あるため、
+有効 rank は通常 0 で、アクティブ部分空間の方向は除去されません。
+全原子を凍結するとアクティブ自由度が無いため、明示的なエラーになります。
+
+`--tr-projection legacy-active` は isolated-active 比較処理で、アクティブブロックを
+孤立分子として扱いますが、現行の共通射影 kernel と数値 rank 判定を使用します。
+直線、共線、同一座標など rank が退化する構造も現行 kernel で処理され、
+bitwise 一致は保証しません。
+
+`--out-json` 時は `result.json.rigid_projection` に treatment、有効 rank、
+Hessian source、Hessian shape を記録します。`--dump` 時は同じ provenance を
+`thermoanalysis.yaml` に記録します。
+
 ## 出力
 
 ```
 out_dir/ (デフォルト: ./result_freq/)
+├─ result.json                      # --out-json 時。rigid_projection provenance を含む
 ├─ mode_XXXX_±freqcm-1_trj.xyz   # モードごとの正弦波アニメーション（XYZ ライク軌跡）
 ├─ mode_XXXX_±freqcm-1.pdb       # 酵素原子順序にマップバックされた PDB アニメーション
 ├─ frequencies_cm-1.txt           # 選択されたソート順での全振動数リスト
@@ -88,7 +115,9 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--ref-pdb FILE` | 非 PDB 入力用の参照 PDB トポロジー。 | _None_ |
 | **バックエンドと計算** | | |
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--precision [fp32\|fp64]` | MLIP バックエンド精度。バックエンドネイティブ kwarg にルーティング（UMA `precision`、ORB `precision`、MACE `default_dtype`、aimnet2: fp32 は no-op / fp64 は拒否）。 | `fp32` |
+| `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
+| `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
+| `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的Hessian vs OpenMM 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（g 因子）または fixed（1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
@@ -98,6 +127,7 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--hess-device CHOICE` | Hessian組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
 | **アクティブ領域の凍結とHessian** | | |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
+| `--tr-projection [constrained\|legacy-active]` | PHVA の剛体モード処理。`constrained` は凍結 anchor を尊重し、`legacy-active` は isolated-active 比較モード。 | `constrained` |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM 層のカットオフ距離。 | _None_ |
@@ -121,6 +151,9 @@ out_dir/ (デフォルト: ./result_freq/)
 
 ## YAML 設定
 
+解析 Hessian を明示した状態で `workers > 1` を指定するとエラーになります。
+解析曲率には worker 1、UMA 並列 predictor には `FiniteDifference` を使用してください。
+
 マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
 共有セクションは [YAML リファレンス](yaml-reference.md) を再利用します。
 熱化学制御用の追加 `thermo` セクションがサポートされます。
@@ -129,6 +162,7 @@ out_dir/ (デフォルト: ./result_freq/)
 geom:
  coord_type: cart                  # 座標タイプ: デカルト vs dlc 内部座標
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
+ tr_projection: constrained        # constrained（デフォルト）| legacy-active 比較
 calc:
  charge: 0                         # 総電荷（CLI 上書き）
  spin: 1                           # スピン多重度 2S+1

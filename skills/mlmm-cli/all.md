@@ -17,7 +17,7 @@ more elementary steps.
 
 ```bash
 mlmm all [--parm enzyme.parm7] -i <input(s)> [-c <substrate>] [-l 'RES:Q,...'] \
-    [--scan-lists '...'] [--tsopt True] [--thermo True] [--dft True] \
+    [--scan-lists '...'] [--tsopt] [--thermo] [--dft] \
     [-b uma|orb|mace|aimnet2] [-o result_all/]
 ```
 
@@ -52,15 +52,19 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-m, --multiplicity` | int | 1 | Spin multiplicity (2S+1) |
 | `-r, --radius` | float | 2.6 | Pocket radius (Å) when `-c` triggers extraction |
 | `--scan-lists` | repeated | none | Staged distance scans (mode 2 — `all-scan-list.md`) |
-| `--tsopt BOOL` | BOOL | `False` | Run TS optimization after the MEP stage (path-opt/path-search) |
-| `--thermo BOOL` | BOOL | `False` | Run freq + thermochemistry |
-| `--dft BOOL` | BOOL | `False` | Run DFT single point on R / TS / P |
-| `--dft-func-basis` | str | `wb97m-v/def2-tzvpd` | DFT functional/basis (when `--dft True`) |
+| `--tsopt / --no-tsopt` | flag | off | Run TS optimization after the MEP stage (path-opt/path-search) |
+| `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
+| `--dft / --no-dft` | flag | off | Run DFT single point on R / TS / P |
+| `--dft-func-basis` | str | `wb97m-v/def2-tzvpd` | DFT functional/basis (when `--dft` is enabled) |
 | `-b, --backend` | str | `uma` | MLIP backend |
+| `--precision` | str | backend-specific | Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64 |
+| `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
+| `--tr-projection` | str | `constrained` | Forward frozen-boundary TR treatment to TSopt, IRC, freq, and flatten PHVA |
+| `--irc-never-stop / --no-irc-never-stop` | flag | off | Ignore only IRC energy-rise/plateau stops; convergence, invalid-value, and cycle-cap stops remain |
 | `-o, --out-dir` | path | `./result_all/` | Top-level output directory |
 | `--config` | path | none | YAML config applied before CLI flags |
 | `--show-config` | flag | off | Print resolved config and continue execution |
-| `--dry-run` | flag | off | Validate options, print execution plan, and exit without running |
+| `--dry-run` | flag | off | Run extraction/setup and charge/parity validation in a temporary directory, print the plan, and skip compute stages |
 | `--help-advanced` | flag | — | Reveal advanced flags (extraction / `mm_parm` / freeze-atom / stage-specific overrides) |
 
 Run `mlmm all --help-advanced` for the full list (it changes
@@ -69,7 +73,7 @@ between versions).
 ## Mode selection cheatsheet
 
 ```
-Single -i input.{xyz,pdb,gjf} (no --scan-lists, no extra inputs)
+Single -i input.{xyz,pdb,cif,mmcif} (no --scan-lists, no extra inputs)
     └── all-ts-only.md     (treat input as TS candidate; tsopt+irc+freq)
 
 Single -i input.pdb + --scan-lists '...'
@@ -85,14 +89,14 @@ Multiple -i 1.R.pdb [2.IM.pdb ...] N.P.pdb (reaction-ordered)
 result_all/
 ├── summary.json                    # machine-readable per-stage results
 ├── summary.log                     # human-readable text + dir tree
-├── mep.pdb / mep_trj.xyz           # full path (copied to the root)
+├── mep.pdb / mep.cif / mep_trj.xyz # CIF companion for bridged input
 ├── mep_plot.png / energy_diagram_MEP.png
 ├── ml_region.pdb / mm_parm/ / layered/   # reusable ONIOM setup (--model-pdb / --parm inputs)
 ├── segments/
 │   └── seg_NN/                     # canonical R/TS/P/IM + per-stage output
-│       ├── reactant.pdb / .xyz
-│       ├── ts.pdb / .xyz
-│       ├── product.pdb / .xyz
+│       ├── reactant.pdb / .cif / .xyz
+│       ├── ts.pdb / .cif / .xyz
+│       ├── product.pdb / .cif / .xyz
 │       ├── ts/                     # TS optimization output (--tsopt)
 │       ├── irc/                    # forward/backward IRC trajectories
 │       ├── freq/                   # frequencies + thermo (--thermo)
@@ -131,6 +135,16 @@ and `bond_changes` — the segment record has no `structures` / `tsopt` / `irc` 
 `segments/seg_NN/` stage subdirs (`ts/`, `irc/`, `freq/`, `dft/`); a per-stage
 `result.json` is written there only when `--out-json` is passed (the `all`
 pipeline does not pass it by default).
+
+`--tr-projection constrained` removes only full-system rigid motions that leave
+frozen anchors fixed. Its generic rank is 6/3/1/0 for 0/1/2/3+
+non-collinear anchors; realistic ML/MM boundaries normally rank 0, and
+all-frozen input is an error. `legacy-active` is an isolated-active comparison
+treatment using the current common kernel; bitwise identity is not guaranteed
+for rank-degenerate cases. When
+stage `result.json`/`thermoanalysis.yaml` artifacts are written, their
+`rigid_projection` block records treatment, rank, Hessian source, and shape.
+This flag is unrelated to the internal `tsopt --ref-mode` MEP tangent.
 
 ## Resume / restart
 

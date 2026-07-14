@@ -1,7 +1,5 @@
 # Architecture: mlmm-toolkit
 
----
-
 ## 1. Overview
 
 `mlmm-toolkit` is a Python CLI that performs **ML/MM (ONIOM) enzymatic reaction-path analysis** on a complete protein environment. ML/MM here means a hybrid model in which a small reaction core is treated by a machine-learning interatomic potential (ML) and the surrounding protein by a molecular-mechanics (MM) force field, combined through the subtractive ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) energy scheme.
@@ -212,7 +210,7 @@ Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS
 | MEP search (GSM) | `mlmm/workflows/path_search.py` |
 | MEP optimizer core (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
 | TS optimization (RSIRFO + Bofill + macro/micro) | `mlmm/workflows/tsopt.py` |
-| Vibrational analysis (PHVA + UMA active block) | `mlmm/workflows/freq.py` |
+| Vibrational analysis (PHVA + MLIP active block) | `mlmm/workflows/freq.py` |
 | IRC integration (macro / micro) | `mlmm/workflows/irc.py` |
 | Single-point DFT (gpu4pyscf subprocess, ONIOM-embedded) | `mlmm/workflows/dft.py` |
 | Active-site extraction (cluster cap) | `mlmm/workflows/extract.py` |
@@ -303,7 +301,7 @@ All 9 rules apply to `mlmm`:
 | 3 | Macro / micro alternation (RS-I-RFO hess mode microiteration) | `mlmm/workflows/tsopt.py` |
 | 4 | gpu4pyscf `rks_lowmem` triple-guard | `mlmm/workflows/dft.py` |
 | 5 | def2 family auto-ECP injection | `mlmm/workflows/dft.py` |
-| 6 | PHVA + UMA active-block partial Hessian | `mlmm/workflows/freq.py` |
+| 6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | 7 | `bofill_update` advanced-indexing scatter | `mlmm/workflows/tsopt.py` |
 | 8 | 3-layer 5-pass partial Hessian assembly | `mlmm/backends/mlmm_calc.py` |
 | 9 | parm7 atom indexing (1-based / serial gap handling) | `mlmm/backends/mlmm_calc.py` |
@@ -316,7 +314,7 @@ Editing any of these requires a `[CHEMISTRY-RULE:N]` commit prefix and a HEAVY-t
 |---|---|---|---|
 | 5-pass Hessian set | #1, #2, #8, #9 | subtractive ONIOM + link-atom B-matrix + 3-layer assembly + parm7 indexing | `mlmm/backends/mlmm_calc.py` (host of 4 of the 9 rules) |
 | TS optimization set | #3, #7 | macro / micro alternation + Bofill scatter | `mlmm/workflows/tsopt.py` |
-| Vibrational set | #6 | PHVA + UMA active-block partial Hessian | `mlmm/workflows/freq.py` |
+| Vibrational set | #6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | DFT set | #4, #5 | gpu4pyscf low-memory + def2 ECP injection | `mlmm/workflows/dft.py` |
 
 For mlmm the practical curriculum is the 5-pass Hessian set first (#1, #2, #8, #9 — all in `mlmm_calc.py`), then the TS set (#3, #7), then DFT (#4, #5), then vibrational (#6).
@@ -372,7 +370,7 @@ After the Fresh-eyes tour (§3), follow this depth-first reading order:
 5. `mlmm/workflows/mm_parm.py` — AmberTools parm7 generation.
 6. `mlmm/backends/mlmm_calc.py` — the heart of ML/MM (chemistry-rules #1, #2, #8, #9 all live here).
 7. `mlmm/workflows/tsopt.py` — RSIRFO + Bofill (CHEMISTRY-RULE:7) + macro / micro alternation (CHEMISTRY-RULE:3).
-8. `mlmm/workflows/freq.py` — PHVA + UMA active-block (CHEMISTRY-RULE:6).
+8. `mlmm/workflows/freq.py` — PHVA + MLIP active-block (CHEMISTRY-RULE:6).
 9. `mlmm/workflows/irc.py` — VRAM hygiene + macro / micro IRC.
 10. `mlmm/core/utils.py` — shared PDB / XYZ / plot helpers.
 

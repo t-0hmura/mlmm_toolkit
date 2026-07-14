@@ -1,6 +1,11 @@
 ---
 name: mlmm-hpc
-description: PBS (Torque / PBSPro) and SLURM submission for mlmm-toolkit — generic preamble templates with placeholders, walltime budgeting, CPU vs GPU choice, job monitoring, and the dynamic-dispatch (`flock` + `pbsdsh`) recipe in `dynamic-dispatch.md`. TRIGGER on cluster submission / `qsub` / `sbatch` / walltime / preamble / multi-job dispatch / `pbsdsh` / `flock` / many-system batch questions. SKIP for local single-machine runs, install setup, or output parsing. Note: mlmm-toolkit runs as a single-GPU job per invocation.
+description: >-
+  PBS and SLURM submission guidance for mlmm-toolkit, including generic
+  placeholder-based job templates, resource budgeting, monitoring, UMA
+  predictor workers, and dynamic dispatch for many independent systems. Use
+  for qsub, sbatch, walltime, GPU/CPU resources, workers, pbsdsh, flock, or
+  batch-campaign questions. Skip local runs, installation, and output parsing.
 ---
 
 # mlmm HPC
@@ -8,7 +13,7 @@ description: PBS (Torque / PBSPro) and SLURM submission for mlmm-toolkit — gen
 ## Purpose
 
 `mlmm-toolkit` is a CPU+GPU Python program; on HPC clusters you typically
-submit it as a PBS or SLURM job that requests one node with one GPU.
+submit it as a PBS or SLURM job that requests one node with one GPU by default.
 This skill provides **generic templates** with placeholders — fill in
 your queue / module / env names from `mlmm-env-detect/SKILL.md`.
 
@@ -39,8 +44,7 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 # CUDA + toolchain: HPC modulefiles (env-detect outputs <CUDA_MODULE>)
 # - gcc: load when the system default is too old for the CUDA toolkit or
 #   when pip will compile a C/CUDA extension from source.
-# (OpenMPI is not needed: mlmm-toolkit runs as a single-GPU job, with no
-#  cross-node MPI launcher.)
+# The default workers=1 run needs no MPI launcher.
 command -v module >/dev/null && module load <CUDA_MODULE> gcc
 
 # Conda env (env-detect outputs <YOUR_ENV>)
@@ -93,7 +97,7 @@ mlmm all -i 1.R.pdb 3.P.pdb \
 
 ## Walltime budgeting
 
-Rough empirical estimates for systems of ~200–700 atoms with UMA-s-1.1
+Rough empirical estimates for systems of ~200–700 atoms with UMA-s-1.2
 on a single mid-range GPU. Adjust generously.
 
 | Stage | Per-segment time | Notes |
@@ -118,7 +122,7 @@ For pure MLIP `all` (no DFT): **2–6 h** is usually enough.
 | MLIP inference (any backend) | Possible but ~50–200× slower | **Required for production** |
 | `mlmm dft` with ωB97M-V on > 200 atoms | Slow (10–100 h) | Recommended |
 | `mlmm dft` with cheap functional / small molecule | Fine | Marginal speedup |
-| Hessian (analytical, UMA) | OK if VRAM-limited | Faster |
+| Analytical MLIP Hessian | Possible but slow | Usually faster; memory demand is backend/model dependent |
 
 Check `mlmm-install-backends/dft.md` for `--engine gpu` / `cpu`
 specifics, including the aarch64 caveat (CPU PySCF only).
@@ -141,19 +145,16 @@ scontrol show job <jobid>
 scancel <jobid>
 ```
 
-**Scope cancellation by job-name pattern; never `xargs qdel` over
-unfiltered output.** When cancelling a batch, filter explicitly:
+Before cancellation, inspect the owner, name, and state, then cancel the
+specific job ID:
 
 ```bash
-# PBS — terminate only jobs matching a name pattern
-qstat -u "$USER" | grep <pattern> | awk '{print $1}' | xargs -r qdel
-# SLURM — equivalent
-squeue -u "$USER" --name=<pattern> -h -o '%i' | xargs -r scancel
+qstat -f <jobid> && qdel <jobid>
+scontrol show job <jobid> && scancel <jobid>
 ```
 
-`qdel` / `scancel` only terminate jobs you own, so they cannot affect
-other users; the scope warning is to avoid cancelling your own
-unrelated jobs (e.g. interactive sessions or another campaign).
+Do not derive cancellation IDs from an unreviewed bulk pipeline; a broad
+filter can cancel an unrelated job in the same account.
 
 ## Failed jobs / restart
 
@@ -165,6 +166,20 @@ a fresh `result_all/`. Several stages support manual continuation:
 
 For walltime-truncated jobs, write the per-stage outputs to a
 persistent location and resume from the last completed stage.
+
+## UMA predictor workers
+
+The default `--workers 1` uses one in-process UMA predictor. `--workers N`
+with `N > 1` selects fairchem's `ParallelMLIPPredictUnit`; install
+`fairchem-core[extras]`, request enough GPU/process resources, and set
+`--workers-per-node` to match the allocation. The exact multi-node launcher is
+site/fairchem specific and is intentionally absent from these generic templates.
+
+The parallel predictor exposes no autograd model. Therefore an explicit
+`--hessian-calc-mode Analytical` combined with `--workers > 1` is a hard error,
+not a finite-difference fallback. Use `--workers 1` or explicitly select
+`FiniteDifference`. ORB, MACE, AIMNet2, and custom calculators do not use the
+UMA worker pool.
 
 ## Parallel job submission patterns
 

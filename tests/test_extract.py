@@ -218,3 +218,73 @@ def test_compute_charge_summary_terminus_cap_charges():
     assert compute_charge_summary(
         structure, sel, set(), keep_ncap_ids={nterm}, keep_ccap_ids={cterm}
     )["protein_charge"] == 0.0
+def test_chain_resname_selector_limits_repeated_ligands_to_requested_chain():
+    import io
+    from Bio import PDB
+    from mlmm.workflows.extract import resolve_substrate_residues
+
+    pdb_text = (
+        "HETATM    1  C1  SAM A  10       0.000   0.000   0.000  1.00  0.00           C\n"
+        "HETATM    2  C1  SAM A  20       1.000   0.000   0.000  1.00  0.00           C\n"
+        "HETATM    3  C1  SAM B  10       2.000   0.000   0.000  1.00  0.00           C\n"
+        "END\n"
+    )
+    structure = PDB.PDBParser(QUIET=True).get_structure(
+        "repeated", io.StringIO(pdb_text)
+    )
+    assert [r.id[1] for r in resolve_substrate_residues(structure, "A:SAM")] == [10, 20]
+    exact = resolve_substrate_residues(structure, "A:SAM:20")
+    assert len(exact) == 1 and exact[0].get_parent().id == "A" and exact[0].id[1] == 20
+
+
+def test_chain_resname_parser_accepts_ccd_and_negative_ids():
+    from mlmm.workflows.extract import _parse_chain_resname_tokens
+
+    assert _parse_chain_resname_tokens("A:1AB:-2C") == [("A", "1AB", -2, "C")]
+
+
+def test_valid_selector_not_found_is_not_reinterpreted_as_resname():
+    import io
+    import pytest
+    from Bio import PDB
+    from mlmm.workflows.extract import resolve_substrate_residues
+
+    structure = PDB.PDBParser(QUIET=True).get_structure(
+        "single",
+        io.StringIO(
+            "HETATM    1  C1  SAM A  10       0.000   0.000   0.000  1.00  0.00           C\nEND\n"
+        ),
+    )
+    with pytest.raises(ValueError, match="A:999"):
+        resolve_substrate_residues(structure, "A:999")
+    with pytest.raises(ValueError, match="A:SAM:999"):
+        resolve_substrate_residues(structure, "A:SAM:999")
+
+
+def test_extract_cli_executes_real_command_path(tmp_path):
+    from click.testing import CliRunner
+    from mlmm.cli import cli as root_cli
+
+    input_path = tmp_path / "complex.pdb"
+    output_path = tmp_path / "pocket.pdb"
+    input_path.write_text(_sample_pdb(), encoding="utf-8")
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "extract",
+            "-i",
+            str(input_path),
+            "-c",
+            "GPP",
+            "-l",
+            "GPP:-3",
+            "--no-add-linkh",
+            "-o",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert output_path.is_file()
+    assert "GPP" in output_path.read_text(encoding="utf-8")

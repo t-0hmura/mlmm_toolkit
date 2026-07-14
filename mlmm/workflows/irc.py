@@ -74,6 +74,24 @@ IRC_KW_DEFAULT: Dict[str, Any] = {
 }
 
 
+def _directional_endpoint_energy_fields(
+    all_energies: Any, ts_energy: Any
+) -> Dict[str, Any]:
+    """Report standalone IRC endpoints without inventing reactant/product identity."""
+    first = float(all_energies[0]) if len(all_energies) > 0 else None
+    last = float(all_energies[-1]) if len(all_energies) > 0 else None
+    ts = float(ts_energy) if ts_energy is not None else None
+    return {
+        "energy_first_hartree": first,
+        "energy_ts_hartree": ts,
+        "energy_last_hartree": last,
+        "endpoint_energy_orientation": "finished_first_to_finished_last",
+        # Retained for schema compatibility; their orientation is declared above.
+        "energy_reactant_hartree": first,
+        "energy_product_hartree": last,
+    }
+
+
 def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: Path) -> None:
     if not is_convert_file_enabled():
         return
@@ -152,6 +170,16 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "backward",
     default=None,
     help="Run the backward IRC; overrides irc.backward from YAML.",
+)
+@click.option(
+    "--never-stop/--no-never-stop",
+    "never_stop",
+    default=None,
+    help=(
+        "Ignore energy-rise and energy-plateau stop conditions so a small "
+        "shoulder can be crossed. Integrator convergence, invalid values, and "
+        "max-cycles still stop the run; default off."
+    ),
 )
 @click.option("-o", "--out-dir", type=str, default=IRC_KW["out_dir"], show_default=True, help="Output directory; overrides irc.out_dir from YAML.")
 @click.option(
@@ -267,6 +295,16 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
+    "--tr-projection",
+    type=click.Choice(["constrained", "legacy-active"], case_sensitive=False),
+    default=None,
+    help=(
+        "Rigid-mode treatment for a frozen/partial Hessian. 'constrained' "
+        "removes only full-system rigid motions compatible with the anchors "
+        "(default); 'legacy-active' treats the active fragment as isolated for comparison."
+    ),
+)
+@click.option(
     "--out-json/--no-out-json",
     "out_json",
     default=False,
@@ -291,6 +329,7 @@ def cli(
     model_indices_one_based: bool,
     detect_layer: bool,
     freeze_atoms_text: Optional[str],
+    tr_projection: Optional[str],
     charge: Optional[int],
     ligand_charge: Optional[str],
     spin: Optional[int],
@@ -299,6 +338,7 @@ def cli(
     root: Optional[int],
     forward: Optional[bool],
     backward: Optional[bool],
+    never_stop: Optional[bool],
     out_dir: str,
     hessian_calc_mode: Optional[str],
     config_yaml: Optional[Path],
@@ -320,7 +360,7 @@ def cli(
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
-    calc_factory: str,
+    calc_factory: Optional[str],
     irc_pos_def: Optional[bool],
 ) -> None:
     set_convert_file_enabled(convert_files)
@@ -410,6 +450,9 @@ def cli(
 
         if _is_param_explicit("hessian_calc_mode") and hessian_calc_mode is not None:
             calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
+        # Validate again after the explicit mode override; the routing pass
+        # above primarily installs worker counts and validates YAML values.
+        apply_workers_to_calc_cfg(calc_cfg, None, None)
         if _is_param_explicit("max_cycles") and max_cycles is not None:
             irc_cfg["max_cycles"] = int(max_cycles)
         if _is_param_explicit("step_size") and step_size is not None:
@@ -420,8 +463,12 @@ def cli(
             irc_cfg["forward"] = bool(forward)
         if _is_param_explicit("backward") and backward is not None:
             irc_cfg["backward"] = bool(backward)
+        if _is_param_explicit("never_stop") and never_stop is not None:
+            irc_cfg["never_stop"] = bool(never_stop)
         if _is_param_explicit("out_dir"):
             irc_cfg["out_dir"] = str(out_dir)
+        if _is_param_explicit("tr_projection") and tr_projection is not None:
+            geom_cfg["tr_projection"] = str(tr_projection).lower()
         # CLI knobs → irc_cfg. require_pos_def_hessian = PSD-Hessian convergence guard.
         if _is_param_explicit("irc_pos_def") and irc_pos_def is not None:
             irc_cfg["require_pos_def_hessian"] = bool(irc_pos_def)
@@ -446,6 +493,10 @@ def cli(
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (irc_cfg, (("irc",),)),
             ],
+        )
+        from pysisyphus.tr_projection import normalize_tr_projection_mode
+        geom_cfg["tr_projection"] = normalize_tr_projection_mode(
+            geom_cfg.get("tr_projection")
         )
         calc_paths = (("calc",), ("mlmm",))
         partial_explicit = (
@@ -515,6 +566,7 @@ def cli(
                         "detect_layer": bool(detect_layer_enabled),
                         "model_region_source": model_region_source,
                         "model_indices_count": 0 if not model_indices else len(model_indices),
+                        "tr_projection": geom_cfg["tr_projection"],
                         "will_run_irc": True,
                         "will_write_trajectories": True,
                         "backend": calc_cfg.get("backend", "uma"),
@@ -575,13 +627,10 @@ def cli(
         _align_three_layer_hessian_targets(calc_cfg, echo_fn=click.echo)
 
         # Default-verbosity entry summary (skipped in child mode).
-        from mlmm.core.utils import echo_run_summary
-        _backend = calc_cfg.get("backend") or "uma"
-        _model = calc_cfg.get("uma_model") or calc_cfg.get("model")
-        _precision = calc_cfg.get("uma_precision") or calc_cfg.get("precision", "fp32")
+        from mlmm.core.utils import calculator_run_label, echo_run_summary
         echo_run_summary({
             "input": str(input_path),
-            "backend": f"{_backend} ({_model}, {_precision})" if _model else _backend,
+            "backend": calculator_run_label(calc_cfg),
             "out": str(out_dir_path),
         })
 
@@ -607,7 +656,12 @@ def cli(
 
         # Seed the initial Hessian.
         # Priority: --read-hess file > hessian_cache > fresh computation.
-        from mlmm.io.hessian_cache import load as _hess_load, store as _hess_store
+        from mlmm.io.hessian_cache import (
+            discard as _hess_discard,
+            load as _hess_load,
+            matches_cart_coords as _hess_matches_coords,
+            store as _hess_store,
+        )
         if hess_device.lower() == "auto":
             _hess_dev = _torch_device(calc_cfg.get("ml_device", "auto"))
         else:
@@ -616,6 +670,7 @@ def cli(
             click.echo("[device] Hessian operations will run on CPU.")
 
         if read_hess:
+            _initial_hessian_source = "file"
             click.echo(f"[irc] Loading initial Hessian from {read_hess}")
             _data = np.load(read_hess)
             h_init = torch.as_tensor(_data["hessian"], dtype=torch.float64, device=_hess_dev)
@@ -636,29 +691,47 @@ def cli(
                         f"(active_n_dof={len(_ad)})."
                     )
             del _data
-        elif (cached := _hess_load("ts")) is not None:
-            click.echo("[irc] Reusing cached TS Hessian from tsopt.")
-            active_dofs = cached.get("active_dofs")
-            h_raw = cached["hessian"]
-            if isinstance(h_raw, torch.Tensor):
-                h_init = h_raw.to(device=_hess_dev)
-            else:
-                h_init = torch.as_tensor(h_raw, dtype=torch.float64, device=_hess_dev)
-            if active_dofs is not None:
-                geometry.within_partial_hessian = {
-                    "active_n_dof": len(active_dofs),
-                    "full_n_dof": geometry.cart_coords.size,
-                    "active_dofs": active_dofs,
-                    "active_atoms": sorted(set(d // 3 for d in active_dofs)),
-                }
         else:
-            click.echo("[irc] Seeding initial Hessian via shared freq backend.")
-            h_init, _ = _calc_full_hessian_torch(
-                geometry,
-                calc_cfg,
-                _hess_dev,
-                refresh_geom_meta=True,
-            )
+            cached = _hess_load("ts")
+            if cached is not None and not _hess_matches_coords(
+                cached,
+                geometry.cart_coords,
+                # The all workflow may round-trip the TS through a PDB.
+                atol=1.1e-3,
+            ):
+                click.echo(
+                    "[irc] Cached TS Hessian does not match the IRC start "
+                    "geometry; calculating a fresh Hessian.",
+                    err=True,
+                )
+                cached = None
+            if cached is not None:
+                _initial_hessian_source = "cache"
+                click.echo("[irc] Reusing cached TS Hessian from tsopt.")
+                active_dofs = cached.get("active_dofs")
+                h_raw = cached["hessian"]
+                if isinstance(h_raw, torch.Tensor):
+                    h_init = h_raw.to(device=_hess_dev)
+                else:
+                    h_init = torch.as_tensor(
+                        h_raw, dtype=torch.float64, device=_hess_dev
+                    )
+                if active_dofs is not None:
+                    geometry.within_partial_hessian = {
+                        "active_n_dof": len(active_dofs),
+                        "full_n_dof": geometry.cart_coords.size,
+                        "active_dofs": active_dofs,
+                        "active_atoms": sorted(set(d // 3 for d in active_dofs)),
+                    }
+            else:
+                _initial_hessian_source = "fresh"
+                click.echo("[irc] Seeding initial Hessian via shared freq backend.")
+                h_init, _ = _calc_full_hessian_torch(
+                    geometry,
+                    calc_cfg,
+                    _hess_dev,
+                    refresh_geom_meta=True,
+                )
 
         # --- Fix A: reduce the seeded Hessian to the ML macro sub-block
         # (ML atoms + link-MM parents), matching the microiteration macro step
@@ -729,6 +802,7 @@ def cli(
                         "(opt.py-consistent fallback)."
                     )
                     geometry.within_partial_hessian = None
+                    _initial_hessian_source = "fresh"
                     h_init, _ = _calc_full_hessian_torch(
                         geometry, calc_cfg, _hess_dev, refresh_geom_meta=True,
                     )
@@ -751,11 +825,47 @@ def cli(
         del h_init
 
         eulerpc = EulerPC(geometry, **irc_cfg)
+        from pysisyphus.tr_projection import active_tr_basis
+        _basis, _rigid_info = active_tr_basis(
+            torch.as_tensor(geometry.coords3d, dtype=torch.float64),
+            torch.as_tensor(geometry.masses, dtype=torch.float64),
+            eulerpc._act_atoms,
+            mode=geometry.tr_projection,
+        )
+        del _basis
+        eulerpc.rigid_projection_info = _rigid_info
+        click.echo(
+            "[irc] Rigid projection: "
+            f"treatment={_rigid_info.treatment}, "
+            f"rank={_rigid_info.effective_rank}, "
+            f"full_rigid_rank={_rigid_info.full_rigid_rank}."
+        )
 
+        # A failed or one-sided IRC must not expose an endpoint Hessian left by
+        # an earlier segment in this process.
+        _hess_discard("irc_left")
+        _hess_discard("irc_right")
         eulerpc.run()
 
+        quick_directions = []
+        for direction in ("forward", "backward"):
+            if not getattr(eulerpc, direction, False):
+                continue
+            n_frames = len(getattr(eulerpc, f"{direction}_energies", []))
+            if 0 < n_frames <= 3:
+                quick_directions.append(direction)
+        if quick_directions:
+            click.echo(
+                "[irc] IRC stopped after only a few frames in "
+                + ", ".join(quick_directions)
+                + ". Retry with a smaller maximum step, for example "
+                "--step-size 0.05. If a small uphill/flat section is "
+                "intentional, also consider --never-stop; it is opt-in.",
+                err=True,
+            )
+
         # Cache IRC endpoint Hessians (Bofill-updated mw → Cartesian)
-        def _unmw_and_store(mw_H, key):
+        def _unmw_and_store(mw_H, key, endpoint_cart_coords, direction):
             """Un-mass-weight active-DOF Hessian on device, store partial on CPU."""
             import numpy as np
             act = eulerpc._act_dofs
@@ -771,13 +881,39 @@ def cli(
                     torch.cuda.empty_cache()
             else:
                 H_cart_act_np = np.diag(ms_act) @ mw_H @ np.diag(ms_act)
-            _hess_store(key, H_cart_act_np, active_dofs=list(act))
+            _hess_store(
+                key,
+                H_cart_act_np,
+                active_dofs=list(act),
+                meta={
+                    "cart_coords": endpoint_cart_coords,
+                    "irc_direction": direction,
+                },
+            )
 
-        if getattr(eulerpc, "forward_mw_hessian", None) is not None:
-            _unmw_and_store(eulerpc.forward_mw_hessian, "irc_left")
+        if eulerpc.forward and getattr(eulerpc, "forward_mw_hessian", None) is not None:
+            forward_endpoint = (
+                np.asarray(eulerpc.forward_mw_coords[0], dtype=float)
+                / np.asarray(eulerpc.m_sqrt, dtype=float)
+            )
+            _unmw_and_store(
+                eulerpc.forward_mw_hessian,
+                "irc_left",
+                forward_endpoint,
+                "forward",
+            )
             click.echo("[irc] Cached forward endpoint Hessian as 'irc_left'.")
-        if getattr(eulerpc, "mw_hessian", None) is not None:
-            _unmw_and_store(eulerpc.mw_hessian, "irc_right")
+        if eulerpc.backward and getattr(eulerpc, "mw_hessian", None) is not None:
+            backward_endpoint = (
+                np.asarray(eulerpc.backward_mw_coords[-1], dtype=float)
+                / np.asarray(eulerpc.m_sqrt, dtype=float)
+            )
+            _unmw_and_store(
+                eulerpc.mw_hessian,
+                "irc_right",
+                backward_endpoint,
+                "backward",
+            )
             click.echo("[irc] Cached backward endpoint Hessian as 'irc_right'.")
 
         if source_path.suffix.lower() == ".pdb":
@@ -817,13 +953,11 @@ def cli(
         click.echo(format_elapsed("[time] Elapsed Time for IRC", time_start), narrative=True)
 
         if out_json:
-            from mlmm.core.utils import write_result_json
+            from mlmm.core.utils import calculator_provenance, write_result_json
             _all_e = eulerpc.all_energies
             _n_fwd = len(getattr(eulerpc, "forward_energies", [])) if hasattr(eulerpc, "forward_energies") else 0
             _n_bwd = len(getattr(eulerpc, "backward_energies", [])) if hasattr(eulerpc, "backward_energies") else 0
             _ts_e = float(eulerpc.ts_energy) if hasattr(eulerpc, "ts_energy") else None
-            _e_reactant = float(_all_e[0]) if len(_all_e) > 0 else None
-            _e_product = float(_all_e[-1]) if len(_all_e) > 0 else None
             _irc_files = {}
             prefix = irc_cfg.get("prefix", "")
             for _fn in ("finished_irc_trj.xyz", "forward_irc_trj.xyz", "backward_irc_trj.xyz"):
@@ -839,20 +973,30 @@ def cli(
                 "n_frames_forward": _n_fwd,
                 "n_frames_backward": _n_bwd,
                 "n_frames_total": len(_all_e),
-                "energy_reactant_hartree": _e_reactant,
-                "energy_ts_hartree": _ts_e,
-                "energy_product_hartree": _e_product,
                 "forward_converged": getattr(eulerpc, 'forward_is_converged', None),
                 "backward_converged": getattr(eulerpc, 'backward_is_converged', None),
-                "backend": calc_cfg.get("backend", "uma"),
+                **calculator_provenance(calc_cfg),
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
                 "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
                 "step_length": irc_cfg.get("step_length"),
                 "max_cycles": irc_cfg.get("max_cycles"),
+                "never_stop": bool(irc_cfg.get("never_stop", False)),
+                "rigid_projection": {
+                    **getattr(eulerpc, "rigid_projection_info", _rigid_info).as_dict(),
+                    "hessian_space": (
+                        "active" if len(eulerpc._act_atoms) < len(geometry.atoms) else "full"
+                    ),
+                    "hessian_shape": list(eulerpc.init_hessian.shape),
+                    "hessian_source": _initial_hessian_source,
+                    "hessian_representation": "cartesian-unweighted-unprojected",
+                },
                 "input_file": str(source_path),
                 "files": _irc_files,
             }
+            result_data.update(
+                _directional_endpoint_energy_fields(_all_e, _ts_e)
+            )
 
             # Bond changes between IRC endpoints
             try:
@@ -868,6 +1012,9 @@ def cli(
                         "formed": [f"{_elems[i]}{i+1}-{_elems[j]}{j+1}" for i, j in sorted(_bc.formed_covalent)],
                         "broken": [f"{_elems[i]}{i+1}-{_elems[j]}{j+1}" for i, j in sorted(_bc.broken_covalent)],
                     }
+                    result_data["bond_changes_direction"] = (
+                        "finished_first_to_finished_last"
+                    )
             except Exception:
                 logger.debug("irc: bond-changes enrichment skipped", exc_info=True)
 

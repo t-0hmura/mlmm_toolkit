@@ -34,10 +34,21 @@
 ```yaml
 geom:
  coord_type: cart # 座標タイプ: "cart" (デカルト) または "dlc" (非局在化内部座標)
+ freeze_atoms: [] # 1 始まりの凍結原子インデックス
+ tr_projection: constrained # constrained（デフォルト）| legacy-active
 ```
 
 **注記:**
 - Frozen 層の原子は力がゼロに設定され、Hessianの対応する列もゼロになります。
+- `tr_projection: constrained` は、凍結 anchor をすべて動かさない
+  全系剛体運動だけを除去します。一般的な有効 rank は anchor が
+  0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では
+  通常 0 です。全原子凍結は明示的なエラーになります。
+- `legacy-active` はアクティブブロックを孤立分子として扱う比較処理ですが、
+  現行の共通射影 kernel と数値 rank 判定を使います。rank 退化構造も現行 kernel で処理され、
+  bitwise 一致は保証しません。
+- `tr_projection` は `freq`、`irc`、`tsopt`、`opt --flatten` の凍結境界 PHVA を
+  制御します。`tsopt --ref-mode` の MEP 接線とは無関係です。
 - `irc` では `geom.coord_type` が YAML/CLI マージ後に `cart` へ強制されます。
 
 ---
@@ -109,7 +120,7 @@ calc:
   - `aimnet2_model` — AIMNet2 バックエンドのみ
 - `embedcharge`: `true` に設定すると、xTB 点電荷埋め込み補正が有効化されます。MM 領域の部分電荷を点電荷として ML 計算に埋め込み、MM 環境から ML 領域への静電的影響（分極効果）を考慮します。デフォルトは `false` です。`$PATH` 上に `xtb` 実行ファイルが必要です。
 - `xtb_cmd`、`xtb_acc`、`xtb_ncores`、`xtb_workdir`、`xtb_keep_files` は `embedcharge` が有効な場合に xTB サブプロセスを設定します。
-- `hessian_calc_mode: Analytical` が推奨です（VRAM に余裕がある場合、ML 原子 300 以上では 24 GB 以上推奨）。UMA バックエンドでのみ利用可能で、他のバックエンドでは自動的に `FiniteDifference` が使用されます。
+- `hessian_calc_mode: Analytical` はバックエンドの解析 Hessian を明示的に要求します。UMA、ORB、MACE、AIMNet2 がこの経路を実装しており、インストール済みバックエンドが非対応なら計算法を暗黙に変更せずエラーになります。`workers > 1` との併用もエラーです。
 - `hess_cutoff` のデフォルト `null` は可動 MM 原子をすべて Hessian 対象に含めることを意味します（freq/irc/opt はすべての可動原子を解析します）。値（>0.0）を指定すると、その距離以内の MM 原子のみに Hessian 対象を限定します。`movable_cutoff` を指定しない場合は `freeze_atoms` の指定に従います。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
@@ -590,6 +601,7 @@ bond:
 geom:
  coord_type: cart
  freeze_atoms: []
+ tr_projection: constrained
 
 calc:
  model_charge: 0
@@ -604,7 +616,7 @@ calc:
  use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り
 
 gs:
- max_nodes: 12
+ max_nodes: 20
  climb: true
  climb_lanczos: true
 

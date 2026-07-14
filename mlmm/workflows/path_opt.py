@@ -56,6 +56,7 @@ from mlmm.core.utils import (
     format_freeze_atoms_for_echo,
     format_elapsed,
     merge_freeze_atom_indices,
+    apply_ref_pdb_override,
     prepare_input_structure,
     resolve_charge_spin_or_raise,
     PreparedInputStructure,
@@ -837,7 +838,7 @@ def cli(
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
-    calc_factory: str,
+    calc_factory: Optional[str],
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -853,11 +854,11 @@ def cli(
     )
 
     input_paths = tuple(Path(p) for p in input_paths)
-    prepared_inputs = [prepare_input_structure(p) for p in input_paths]
+    prepared_inputs: List[PreparedInputStructure] = []
     try:
         time_start = time.perf_counter()
 
-        if len(prepared_inputs) != 2:
+        if len(input_paths) != 2:
             click.echo("ERROR: Provide exactly two endpoint structures (-i reactant product).", err=True)
             sys.exit(1)
 
@@ -865,11 +866,11 @@ def cli(
         # coordinates onto the reference PDB topology so path-opt runs on full
         # ML/MM PDBs (mirrors the --ref-pdb support already in path-search/scan).
         ref_list = list(ref_pdb_paths) if ref_pdb_paths else []
-        _resolved_inputs: List[Path] = []
         for i, src in enumerate(input_paths):
             suffix = src.suffix.lower()
-            if suffix == ".pdb":
-                _resolved_inputs.append(src)
+            prepared = prepare_input_structure(src)
+            if suffix in {".pdb", ".cif", ".mmcif"}:
+                pass
             elif suffix == ".xyz":
                 if i >= len(ref_list):
                     click.echo(
@@ -878,18 +879,15 @@ def cli(
                         err=True,
                     )
                     sys.exit(1)
-                Path(out_dir).mkdir(parents=True, exist_ok=True)
-                materialized = (Path(out_dir) / f"path_opt_input_{i:02d}.pdb").resolve()
-                convert_xyz_to_pdb(src.resolve(), Path(ref_list[i]).resolve(), materialized)
-                _resolved_inputs.append(materialized)
+                apply_ref_pdb_override(prepared, Path(ref_list[i]))
             else:
                 click.echo(
-                    f"ERROR: '{src.name}': unsupported format. Use .pdb or .xyz (with --ref-pdb).",
+                    f"ERROR: '{src.name}': unsupported format. Use .pdb/.cif/.mmcif or .xyz (with --ref-pdb).",
                     err=True,
                 )
                 sys.exit(1)
-        input_paths = tuple(_resolved_inputs)
-        prepared_inputs = [prepare_input_structure(p) for p in input_paths]
+            prepared_inputs.append(prepared)
+        input_paths = tuple(prep.source_path for prep in prepared_inputs)
 
         config_layer_cfg = load_yaml_dict(config_yaml)
         override_layer_cfg = load_yaml_dict(override_yaml)
@@ -1345,7 +1343,7 @@ def cli(
             click.echo(format_elapsed("[time] Elapsed Time for Path Opt (DMF)", time_start), narrative=True)
 
             if out_json:
-                from mlmm.core.utils import write_result_json
+                from mlmm.core.utils import calculator_provenance, write_result_json
                 from pysisyphus.constants import AU2KCALPERMOL as _AU2KCAL
                 # _run_dmf_mep writes hei.xyz; re-read energies from the trajectory
                 _dmf_trj = out_dir_path / "final_geometries_trj.xyz"
@@ -1384,7 +1382,7 @@ def cli(
                     "status": "converged" if _dmf_converged else ("not_converged" if _dmf_converged is False else "completed"),
                     "converged": _dmf_converged,
                     "mep_mode": "dmf",
-                    "backend": calc_cfg.get("backend", "uma"),
+                    **calculator_provenance(calc_cfg),
                     "charge": calc_cfg.get("model_charge"),
                     "spin": calc_cfg.get("model_mult"),
                     "reactant_energy_hartree": float(_dmf_energies[0]) if _dmf_energies else None,
@@ -1542,7 +1540,7 @@ def cli(
         click.echo(format_elapsed("[time] Elapsed Time for Path Opt", time_start), narrative=True)
 
         if out_json:
-            from mlmm.core.utils import write_result_json
+            from mlmm.core.utils import calculator_provenance, write_result_json
             from pysisyphus.constants import AU2KCALPERMOL as _AU2KCAL
             _gsm_energies = list(map(float, energies))
             _gsm_hei = int(hei_idx)
@@ -1556,7 +1554,7 @@ def cli(
                 "status": "converged" if _converged else ("not_converged" if _converged is False else "completed"),
                 "converged": _converged,
                 "mep_mode": "gsm",
-                "backend": calc_cfg.get("backend", "uma"),
+                **calculator_provenance(calc_cfg),
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
                 "reactant_energy_hartree": float(_gsm_e0),

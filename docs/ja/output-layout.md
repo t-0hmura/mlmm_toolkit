@@ -10,7 +10,7 @@
 | `result.json` | ステージ別サブコマンド（**`--out-json` 指定時のみ**、デフォルト `--no-out-json`）（`opt`、`tsopt`、`freq`、`irc`、`sp`、`scan` / `scan2d` / `scan3d`、`path-opt`、`dft`、`extract`） | 別名ファイル — ペイロードは `summary.json` と同一です。常に同じファイル名を読む規約に従い、`summary.json` を読んでください。`result.json` は同じ内容を持つため、`summary.json` のみを利用する場合は削除できます。 |
 | `summary.log` | `path-search`、`all` | 人が読むための実行ログ（セグメント / ステージごとに 1 行）。 |
 | `final_geometry.xyz` | `opt`、`tsopt` | 最適化された構造（XYZ、フル精度）。 |
-| `mep.pdb` / `mep_trj.xyz` | `path-search`、`all` | 反応経路のフレーム（PDB / XYZ）。単独実行の `path-opt` は代わりに `final_geometries_trj.xyz` / `final_geometries.pdb` を書き込みます。 |
+| `mep.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`、`all` | 反応経路のフレーム。bridge 入力では `mep.cif` が元の ID を復元します。単独実行の `path-opt` は代わりに `final_geometries_trj.xyz` / `final_geometries.pdb` を書き込みます。 |
 | `mep_plot.png` | `path-search`、`all` | 生の MEP エネルギープロファイル（PNG）。`all` はエンジン出力からルートにコピーします。 |
 | `forward_irc_trj.xyz` / `backward_irc_trj.xyz`（および `finished_irc_trj.xyz`） | `irc` | IRC 軌跡（XYZ）。対応する `*_irc.pdb` ファイルが同じフレームを PDB 形式で保持します。 |
 | `frequencies_cm-1.txt` | `freq` | 振動数の一覧（cm⁻¹）。 |
@@ -41,21 +41,21 @@
 
 - **単独サブコマンド** → 上記のファイルを含むフラットな `result_<subcmd>/`。`segments/` も `_work/` もありません。これらは `all` が 1 回の実行で複数のライターを協調させるときのみ現れます。
 - **`all` の内部では、リーフライターはそのままネストされます。** `segments/seg_NN/<subcmd>/` のセグメント別リーフ出力は、単独の `result_<subcmd>/` と構造的に同一です。`all` はライターの出力先を別のディレクトリに向けているだけです。
-- **`path-search` / `path-opt` はエンジン側の例外です。** 単独実行では `path-search` 自体が成果物となります（`result_path_search/` に独自の `summary.log`、`mep.pdb`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png` を持ちます）。`all` の内部では、その生の出力は `_work/path_opt/` 以下のエンジン用スクラッチであり（`--refine-path` 指定時のみ `_work/path_search/`）、マージされた成果物（`mep.pdb`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）はパイプラインのルートに移動され、`summary.{json,log}` がそこにコピーされます。この非対称性は意図的なものです。
+- **`path-search` / `path-opt` はエンジン側の例外です。** 単独実行では `path-search` 自体が成果物となります（`result_path_search/` に独自の `summary.log`、`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png` を持ちます）。`all` の内部では、その生の出力は `_work/path_opt/` 以下のエンジン用スクラッチであり（`--refine-path` 指定時のみ `_work/path_search/`）、マージされた成果物（`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）はパイプラインのルートに移動され、`summary.{json,log}` がそこにコピーされます。この非対称性は意図的なものです。
 
 したがって `all` のツリーには 3 つのゾーンがあります。
 
 ```text
 result_all/
 ├─ summary.log · summary.json                 # copied to the root
-├─ mep.pdb · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png   # MEP products moved from the engine
+├─ mep.pdb · mep.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
 ├─ energy_diagram_*_all.png · irc_plot_all.png
 ├─ ml_region.pdb                              # ML-region definition (reusable as --model-pdb)
 ├─ mm_parm/                                   # MM topology <input>.parm7 / .rst7 (reusable as --parm)
 ├─ layered/                                   # layered full-system PDBs (B-factor annotated; reusable inputs)
 ├─ segments/
 │  └─ seg_NN/                                  # 2-digit per-reactive-segment deliverables
-│     ├─ reactant.pdb · ts.pdb · product.pdb         # canonical R/TS/P
+│     ├─ reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # CIF は bridge 入力時
 │     └─ ts/ · irc/ · freq/ · dft/ · structures/    # per-stage working files (--tsopt / --thermo / --dft)
 └─ _work/                                      # pipeline scratch (safe to remove)
    ├─ pockets/ · scan/

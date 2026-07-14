@@ -39,6 +39,33 @@ class RSIRFOptimizer(TSHessianOptimizer):
                 P -= 2 * np.outer(trans_vec, trans_vec)
             H_star = P.dot(H)
             eigvals_, eigvecs_ = np.linalg.eigh(H_star)
+
+        # Once PHVA has identified the physical first-order saddle mode, any
+        # remaining negative roots of the unprojected Cartesian Hessian are
+        # outside that target (commonly translation/rotation FD artifacts).
+        # RS-I-RFO minimizes the image potential, so leaving those roots
+        # negative makes that minimization indefinite and can drive a large
+        # nonphysical step. Reflect only these residual image-Hessian roots to
+        # positive curvature; the selected TS root has already been flipped by
+        # P above.
+        if self._physical_ts_mode is not None:
+            residual_negative = eigvals_ < -self.small_eigval_thresh
+            if isinstance(eigvals_, torch.Tensor):
+                residual_count = int(residual_negative.sum().item())
+                if residual_count:
+                    eigvals_ = torch.where(
+                        residual_negative, -eigvals_, eigvals_
+                    )
+            else:
+                residual_count = int(np.count_nonzero(residual_negative))
+                if residual_count:
+                    eigvals_ = np.where(residual_negative, -eigvals_, eigvals_)
+            if residual_count:
+                self.log(
+                    "Stabilized "
+                    f"{residual_count} residual negative image-Hessian root(s) "
+                    "outside the PHVA-verified TS mode."
+                )
         # Neglect small eigenvalues
         eigvals_, eigvecs_ = self.filter_small_eigvals(eigvals_, eigvecs_)
 
@@ -48,6 +75,7 @@ class RSIRFOptimizer(TSHessianOptimizer):
             grad_star = P.dot(gradient)
         step = self.get_rs_step(eigvals_, eigvecs_, grad_star, name="RS-I-RFO")
 
+        step = self.apply_saddle_recovery_step(step)
         self.predicted_energy_changes.append(self.rfo_model(gradient, self.cur_H, step))
 
         step = self.full_from_active(step)

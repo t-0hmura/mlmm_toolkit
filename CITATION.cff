@@ -12,7 +12,7 @@ authors:
 license: GPL-3.0
 repository-code: "https://github.com/t-0hmura/mlmm_toolkit"
 url: "https://t-0hmura.github.io/mlmm_toolkit/"
-version: "0.2.9"
+version: "0.3.3"
 preferred-citation:
   type: article
   title: "ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions"

@@ -1,38 +1,4 @@
-"""
-ML/MM recursive GSM segmentation for multistep minimum-energy paths.
-
-Example:
-    mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0
-
-For detailed documentation, see: docs/path_search.md
-
-Table of contents (top-level definitions; refresh manually after structural edits):
-    def _load_structures
-    def _write_xyz_trj_with_energy
-    def _maybe_convert_to_pdb
-    def _kabsch_rmsd
-    def _has_bond_change
-    def _new_geom_from_coords
-    def _make_linear_interpolations
-    def _tag_images
-    def _segment_base_id
-    def _is_local_minimum
-    def _find_nearest_local_minimum
-    class GSMResult
-    class SegmentReport
-    def _run_gsm_between
-    def _run_dmf_between
-    def _write_xyz_trj_with_energy_from_ase
-    def _run_mep_between
-    def _optimize_single
-    def _refine_between
-    def _maybe_bridge_segments
-    def _stitch_paths
-    class CombinedPath
-    def _trailing_kink_count
-    def _build_multistep_path
-    def cli
-"""
+"""Recursive ML/MM GSM/DMF paths with multistep segmentation."""
 
 from __future__ import annotations
 
@@ -144,6 +110,72 @@ DMF_KW: Dict[str, Any] = deepcopy(_PATH_DMF_KW)
 
 # Global search control
 SEARCH_KW: Dict[str, Any] = deepcopy(_SEARCH_KW_DEFAULT)
+
+
+def _normalized_path_tangent(
+    coords: Sequence[np.ndarray],
+    index: int,
+    energies: Optional[Sequence[float]] = None,
+) -> Optional[np.ndarray]:
+    """Return a normalized Cartesian tangent for a path image.
+
+    Finite image energies enable the improved upwind tangent used by the
+    chain-of-states optimizer.  Trajectories without energies fall back to a
+    spacing-independent secant bisector; endpoints use their only secant.
+    """
+    if len(coords) < 2 or not 0 <= int(index) < len(coords):
+        return None
+
+    arrays = [np.asarray(item, dtype=float).reshape(-1) for item in coords]
+
+    def _unit(vector: np.ndarray) -> Optional[np.ndarray]:
+        norm = float(np.linalg.norm(vector))
+        if not np.isfinite(norm) or norm <= 0.0:
+            return None
+        return vector / norm
+
+    if index == 0:
+        return _unit(arrays[1] - arrays[0])
+    if index == len(arrays) - 1:
+        return _unit(arrays[-1] - arrays[-2])
+
+    incoming_raw = arrays[index] - arrays[index - 1]
+    outgoing_raw = arrays[index + 1] - arrays[index]
+    incoming = _unit(incoming_raw)
+    outgoing = _unit(outgoing_raw)
+    if incoming is None:
+        return outgoing
+    if outgoing is None:
+        return incoming
+
+    if energies is not None and len(energies) == len(arrays):
+        energy_values = np.asarray(energies, dtype=float)
+        previous = float(energy_values[index - 1])
+        current = float(energy_values[index])
+        following = float(energy_values[index + 1])
+        if np.all(np.isfinite((previous, current, following))):
+            if following > current > previous:
+                tangent_raw = outgoing_raw
+            elif following < current < previous:
+                tangent_raw = incoming_raw
+            else:
+                next_delta = abs(following - current)
+                previous_delta = abs(previous - current)
+                delta_max = max(next_delta, previous_delta)
+                delta_min = min(next_delta, previous_delta)
+                if following >= previous:
+                    tangent_raw = outgoing_raw * delta_max + incoming_raw * delta_min
+                else:
+                    tangent_raw = outgoing_raw * delta_min + incoming_raw * delta_max
+            tangent = _unit(tangent_raw)
+            if tangent is not None:
+                return tangent
+
+    tangent = _unit(incoming + outgoing)
+    if tangent is not None:
+        return tangent
+    return _unit(arrays[index + 1] - arrays[index - 1])
+
 
 # Multi-structure loader
 def _load_structures(
@@ -1451,7 +1483,7 @@ def cli(
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
-    calc_factory: str,
+    calc_factory: Optional[str],
 ) -> None:
     set_convert_file_enabled(convert_files)
     prepared_inputs: List[PreparedInputStructure] = []
@@ -1506,9 +1538,9 @@ def cli(
                     raise click.BadParameter(
                         f"XYZ input '{p}' requires a corresponding --ref-pdb for topology/B-factor info."
                     )
-            elif p.suffix.lower() != ".pdb":
+            elif p.suffix.lower() not in {".pdb", ".cif", ".mmcif"}:
                 raise click.BadParameter(
-                    f"'{p}': unsupported format. Use .pdb or .xyz (with --ref-pdb)."
+                    f"'{p}': unsupported format. Use .pdb/.cif/.mmcif or .xyz (with --ref-pdb)."
                 )
             prepared_inputs.append(pi)
         config_layer_cfg = load_yaml_dict(config_yaml)
@@ -1610,12 +1642,8 @@ def cli(
         calc_cfg["model_charge"] = int(resolved_charge)
         calc_cfg["model_mult"] = int(resolved_spin)
 
-        first_input = p_list[0]
-        # input_pdb must be a PDB (parmed requirement); use --ref-pdb when input is XYZ
-        if first_input.suffix.lower() != ".pdb" and ref_list:
-            calc_cfg["input_pdb"] = str(Path(ref_list[0]).resolve())
-        else:
-            calc_cfg["input_pdb"] = str(first_input)
+        # The calculator consumes the normalized internal PDB topology.
+        calc_cfg["input_pdb"] = str(prepared_inputs[0].source_path)
         calc_cfg["real_parm7"] = str(real_parm7)
 
         detect_layer_effective = bool(calc_cfg.get("use_bfactor_layers", detect_layer))
@@ -1697,7 +1725,7 @@ def cli(
         if ref_list and ref_list[0]:
             layer_source_pdb = Path(ref_list[0]).resolve()
         else:
-            layer_source_pdb = first_input
+            layer_source_pdb = prepared_inputs[0].source_path.resolve()
         if detect_layer_effective and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
             sys.exit(1)
@@ -1915,13 +1943,8 @@ def cli(
 
         # Reference PDB for output conversion: prefer --ref-pdb, fall back to input PDBs
         ref_pdb_for_segments: Optional[Path] = None
-        if ref_list:
-            ref_pdb_for_segments = Path(ref_list[0]).resolve()
-        else:
-            for p in p_list:
-                if p.suffix.lower() == ".pdb":
-                    ref_pdb_for_segments = p.resolve()
-                    break
+        if prepared_inputs:
+            ref_pdb_for_segments = prepared_inputs[0].source_path.resolve()
 
         if pre_opt:
             new_geoms: List[Any] = []
@@ -2299,7 +2322,10 @@ def cli(
         summary["mlmm_toolkit_version"] = __version__
         summary["pipeline_mode"] = "path-search"
         summary["status"] = "success" if summary.get("energy_diagrams") else "partial"
-        summary["mlip_backend"] = calc_cfg.get("backend", "uma")
+        from mlmm.core.utils import calculator_provenance
+
+        _provenance = calculator_provenance(calc_cfg)
+        summary.update(_provenance)
         summary["charge"] = calc_cfg.get("model_charge")
         summary["spin"] = calc_cfg.get("model_mult")
         summary["command"] = command_str
@@ -2345,7 +2371,8 @@ def cli(
                 "dft": False,
                 "opt_mode": opt_mode,
                 "mep_mode": "path-search",
-                "uma_model": calc_cfg.get("uma_model"),
+                "mlip_backend": _provenance["mlip_backend"],
+                "mlip_model": _provenance["mlip_model"],
                 "command": command_str,
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),

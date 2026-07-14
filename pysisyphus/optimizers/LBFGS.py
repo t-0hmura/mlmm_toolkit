@@ -24,6 +24,10 @@ class LBFGS(Optimizer):
         mu_reg: Optional[float] = None,
         max_mu_reg_adaptions: int = 10,
         control_step: bool = True,
+        reject_uphill: bool = True,
+        uphill_tolerance: float = 1e-8,
+        rejection_step_floor: float = 1e-7,
+        max_rejections_at_floor: int = 3,
         **kwargs,
     ) -> None:
         """Limited-memory BFGS optimizer.
@@ -58,6 +62,16 @@ class LBFGS(Optimizer):
         control_step
             Wheter to scale down the proposed step its biggest absolute component
             is equal to or below 'max_step'
+        reject_uphill
+            Reject energy-increasing minimization trials and retry from the
+            previous accepted geometry with a smaller step limit.
+        uphill_tolerance
+            Positive energy change tolerated before a trial is rejected.
+        rejection_step_floor
+            Emergency maximum-component step floor for rejected trials.
+        max_rejections_at_floor
+            Rejections allowed at the emergency floor before stopping at the
+            retained lower-energy geometry.
 
         Other Parameters
         ----------------
@@ -77,6 +91,21 @@ class LBFGS(Optimizer):
         self.max_mu_reg_adaptions = max_mu_reg_adaptions
         self.line_search = (not self.is_cos) and line_search
         self.control_step = control_step
+        # Chain-of-states and dimer-like objectives may legitimately increase
+        # the physical energy.  Their callers leave this safeguard disabled.
+        self.reject_uphill = bool(reject_uphill) and not self.is_cos
+        self.uphill_tolerance = float(uphill_tolerance)
+        if self.uphill_tolerance < 0.0:
+            raise ValueError("uphill_tolerance must be non-negative")
+        self.rejection_step_floor = float(rejection_step_floor)
+        if self.rejection_step_floor <= 0.0:
+            raise ValueError("rejection_step_floor must be positive")
+        self.max_rejections_at_floor = int(max_rejections_at_floor)
+        if self.max_rejections_at_floor < 1:
+            raise ValueError("max_rejections_at_floor must be at least 1")
+        self._trial_max_step = float(max_step)
+        self.rejected_uphill_steps = 0
+        self.rejections_at_floor = 0
 
         self.tot_adapt_mu_cycles = 0
         if self.mu_reg:
@@ -146,7 +175,45 @@ class LBFGS(Optimizer):
             self.log(f"      Energy={energy: >24.6f} au")
         self.log(f"norm(forces)={norm: >24.6f} au / bohr (rad)")
 
-        if self.cur_cycle > 0 and (self.forces[-2].size == forces.size):
+        trial_rejected = False
+        if (
+            self.reject_uphill
+            and len(self.energies) > 1
+            and energy - self.energies[-2] > self.uphill_tolerance
+        ):
+            actual_change = float(energy - self.energies[-2])
+            self._trial_max_step = max(
+                self._trial_max_step / 2.0,
+                self.rejection_step_floor,
+            )
+            self.reject_current_trial()
+            forces = self.forces[-1]
+            energy = self.energies[-1]
+            trial_rejected = True
+            self.rejected_uphill_steps += 1
+            at_floor = self._trial_max_step <= self.rejection_step_floor * (1.0 + 1e-12)
+            self.rejections_at_floor = self.rejections_at_floor + 1 if at_floor else 0
+            self.table.print(
+                "Rejected uphill LBFGS trial and restored the previous geometry "
+                f"(ΔE={actual_change:+.6f} au, max_step={self._trial_max_step:.3e})."
+            )
+            if self.rejections_at_floor >= self.max_rejections_at_floor:
+                self.request_stop(
+                    "repeated uphill LBFGS trials at the emergency step floor"
+                )
+                return np.zeros_like(forces)
+        elif len(self.energies) > 1:
+            self.rejections_at_floor = 0
+            self._trial_max_step = min(
+                self.max_step,
+                self._trial_max_step * 2.0,
+            )
+
+        if (
+            not trial_rejected
+            and len(self.forces) > 1
+            and self.forces[-2].size == forces.size
+        ):
             y = self.forces[-2] - forces
             s = self.steps[-1]
             if self.double_damp:
@@ -165,7 +232,7 @@ class LBFGS(Optimizer):
         ###############
 
         ip_gradient, ip_step = None, None
-        if self.line_search and (self.cur_cycle > 0):
+        if self.line_search and len(self.energies) > 1:
             ip_energy, ip_gradient, ip_step = poly_line_search(
                 energy, self.energies[-2], -forces, -self.forces[-2], self.steps[-1]
             )
@@ -218,11 +285,16 @@ class LBFGS(Optimizer):
 
         # Only try to scale down first step in regularized L-BFGS
         if (self.mu_reg and self.cur_cycle == 0) or self.control_step:
-            step = scale_by_max_step(step, self.max_step)
+            step = scale_by_max_step(step, min(self.max_step, self._trial_max_step))
 
         return step
 
     def postprocess_opt(self):
+        if self.rejected_uphill_steps:
+            print(
+                "LBFGS safeguards: "
+                f"rejected {self.rejected_uphill_steps} uphill trial(s)."
+            )
         if self.mu_reg:
             msg = f"\nNumber of μ updates: {self.tot_adapt_mu_cycles}"
             self.log(msg)

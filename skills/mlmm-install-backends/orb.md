@@ -66,7 +66,7 @@ the Hessian/calc keys below apply to every backend; defaults in
 | `model_charge`, `model_mult` | Total charge and spin multiplicity |
 | `ml_device` | `'cuda'`, `'cpu'`, `'auto'` |
 | `orb_model` | Override the default Orb checkpoint |
-| `orb_precision` | `'float32-high'` (default) or `'float64'` for tighter convergence (key in `MLMM_CALC_KW`; legacy `'float32'` alias still accepted) |
+| `orb_precision` | `'float64'` (default) or `'float32-high'` for reduced-precision screening (key in `MLMM_CALC_KW`; `'float32'` normalizes to `'float32-high'`) |
 | `freeze_atoms`, `hessian_calc_mode`, `return_partial_hessian`, `H_double` | Same as UMA |
 
 ## Strengths and weaknesses
@@ -84,7 +84,7 @@ re-run survivors with UMA or MACE for the final TS / IRC.
 
 | Symptom | Cause / fix |
 |---|---|
-| `RuntimeError: ... mat1 and mat2 shapes ... ` during Hessian | `orb_precision='float32-high'` (default) insufficient on near-degenerate modes; try `orb_precision='float64'`. |
+| Extra small imaginary modes with explicit fp32 | Re-run at the fp64 default and independently recompute frequencies/IRC. |
 | TS converges with > 1 imaginary mode | Common with Orb on aromatic or metalloenzyme systems. Re-run that step with UMA/MACE. |
 
 ## See also

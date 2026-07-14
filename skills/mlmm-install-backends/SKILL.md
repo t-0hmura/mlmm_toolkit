@@ -46,7 +46,7 @@ This skill directory contains ten files; read them in this order:
 
 ```
 Need TS + IRC validation on a known organic + 1st-row metal cluster?
-    └── start with UMA-s-1.1 (uma.md)
+    └── start with UMA-s-1.2 / `uma-s-1p2` (uma.md)
         └── if accuracy is borderline, also install MACE-OMOL-0 (mace.md, separate env)
 
 Need a fast screen across many candidates?
@@ -165,7 +165,7 @@ go back to `env-cuda.md`.
 | `gpu4pyscf` import fails on aarch64 | `gpu4pyscf-cuda12x` is x86_64 only | `dft.md` — fall back to CPU PySCF |
 | `huggingface_hub.errors.GatedRepoError` on UMA load | UMA model is gated, not authenticated | `uma.md` — `huggingface-cli login` |
 | `OSError: libcusolver.so.11 not found` | torch's bundled CUDA libs missing or shadowed | `env-cuda.md` — `LD_LIBRARY_PATH` order |
-| `RuntimeError: CUDA out of memory` during freq | Analytical Hessian too memory-heavy | set `hessian_calc_mode: FiniteDifference` (or use `uma-s-1p1` / `return_partial_hessian`) to cut Hessian memory |
+| `RuntimeError: CUDA out of memory` during freq | Analytical Hessian too memory-heavy | set `hessian_calc_mode: FiniteDifference` (or keep the default `uma-s-1p2` and use `return_partial_hessian`) to cut Hessian memory |
 
 ## See also
 `pyproject.toml` lists the canonical extras and version pins. To inspect

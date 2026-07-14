@@ -1,6 +1,13 @@
 ---
 name: mlmm-ts-strategy
-description: Decision know-how for ML/MM enzyme reaction-barrier campaigns — precision (fp32 vs fp64 by GPU class), TS-candidate routes (path-search MEP vs distance-restrained scan), fixing wrong imaginary-frequency counts at TS-opt (fp64 / --coord-type dlc), reading a barrier when the scan started from Product (reverse direction), staged vs concerted scans, and the same-atom-set rule for controlled mutant-vs-WT comparisons (B-factor layer transplant + --detect-layer). TRIGGER on "barrier", "imaginary frequency", "wrong saddle", "fp64 / precision", "MEP vs restraint", "scan from product", "staged vs concerted scan", "mutant comparison", or "controlled experiment". SKIP for install / pure structure-format editing / MCP-transport questions.
+description: >-
+  Decision guidance for ML/MM enzyme reaction-barrier campaigns: backend-specific
+  precision, TS-candidate routes, exact first-order-saddle recovery, IRC early-stop
+  handling, scan direction/staging, and controlled mutant comparisons with an
+  identical atom/layer selection. Use for barrier, imaginary-frequency,
+  wrong-saddle, precision, MEP-vs-restraint, IRC connectivity, scan-direction, or
+  mutant-comparison questions. Skip installation, pure structure-format editing,
+  and MCP transport.
 ---
 
 # mlmm ts-strategy
@@ -9,14 +16,16 @@ Cross-cutting decisions for getting a *correct* reaction barrier out of an ML/MM
 ONIOM campaign. Every flag below is verified against `mlmm/cli/common_options.py`,
 `mlmm/workflows/{scan,opt,path_search,all}.py`, and `mlmm/core/defaults.py`.
 
-## 1. Precision: pick by GPU class
+## 1. Precision: preserve backend defaults
 
-| Hardware | Flag | Why |
+| Backend | Unset default | Guidance |
 |---|---|---|
-| HPC datacenter GPU (H100 / H200 / A100) | `--precision fp64` | Near-deterministic, low numerical noise; native fp64 throughput is affordable. Stabilises TS-opt / Hessian. |
-| Consumer GPU (RTX 50xx / 40xx) | `--precision fp32` (default) | fp64 is much slower on consumer cards; fp32 is the speed/screening baseline. |
+| UMA | fp32 | Try explicit fp64 for a numerically sensitive TS/Hessian; validate cost on the target GPU. |
+| ORB | fp64 | Keep fp64 for TS/frequency work. Explicit fp32 is `float32-high`/TF32 and is screening-only. |
+| MACE | fp64 | Keep the upstream float64 default for TS/frequency work. |
+| AIMNet2 | fp32 | No precision switch; explicit fp64 is rejected. |
 
-- `--precision` = `click.Choice(['fp32','fp64'])`, case-insensitive (`common_options.py` `add_precision_option`). Option default `None`; effective default `fp32` from `defaults.py` `MLMM_CALC_KW['uma_precision']='fp32'`.
+- `--precision` is case-insensitive and unset resolves through the selected backend.
 - Backend routing: `uma`→`uma_precision`; `orb`→`orb_precision` (`float32-high`|`float64`); `mace`→`mace_dtype`; `aimnet2`→fp32 is a no-op and **fp64 is rejected** (inputs cast to float32 upstream).
 - Accepted on `sp`, `opt`, `tsopt`, `freq`, `irc`, `scan`/`scan2d`/`scan3d`, `path-opt`, `path-search`, `all`.
 - fp64 *reduces* GPU reduction-order drift but does **not** make a run bit-identical — only `--deterministic` does (see `reproducibility.md`).
@@ -38,8 +47,10 @@ A clean first-order saddle = **exactly one** dominant imaginary mode along the r
 
 | Symptom | Action |
 |---|---|
-| Spurious 2nd small imaginary mode, OR no dominant reaction mode | (i) raise precision: `--precision fp64`; AND/OR (ii) switch coordinates: `--coord-type dlc`; AND/OR (iii) flatten the surplus mode: `--flatten` |
-| Still no clean saddle | combine them; verify the imaginary-mode visualization in `freq/` actually moves the reacting atoms |
+| Extra imaginary modes | Keep ORB/MACE at fp64; consider UMA fp64, `--coord-type dlc`, and `--flatten`. Independently rerun `freq` and inspect the reaction mode. |
+| Collapsed to `n_imag = 0` | Treat as failed, not as a TS. Improve the MEP/initial guess; `--flatten` only removes surplus modes and cannot create a missing reaction direction. |
+| Poor MEP/HEI | In `all`, try opt-in `--refine-path` before TS optimization. It can split a poor path into several stages and increase cost, so it is off by default. |
+| Still no clean saddle | Revise endpoints/scan coordinates and verify that the single imaginary mode moves the reacting atoms. |
 
 - `--flatten`/`--no-flatten` (`tsopt.py` cli `default=None`): runs the extra-imaginary-mode flattening loop (`grad`: dimer loop; `hess`: post-RS-I-RFO step, triggered when `n_imag > 1`). `--flatten` uses `flatten_max_iter=50`; `--no-flatten` forces `flatten_max_iter=0`. Available on `tsopt`/`all`. Try `fp64` and/or `dlc` first, then add `--flatten` for a residual small mode — they are complementary.
 - Example: a mutant CM TS came out as the dominant Claisen mode −223 cm⁻¹ plus a residual −12.5 cm⁻¹; `--flatten` drives it to a clean single-imaginary saddle.
@@ -50,7 +61,22 @@ A clean first-order saddle = **exactly one** dominant imaginary mode along the r
 - `path-opt`/`path-search` restrict choices to `('cart','dlc')` (pysisyphus ChainOfStates supports only those).
 - mlmm caveat (help text): `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified — `cart` is the published-numbers default.
 
-## 4. Reading the barrier when the scan started from Product
+`--ref-mode` is an advanced path-direction input, not a routine standalone
+remedy. `mlmm all` derives and supplies the normalized 3N Cartesian tangent
+from its MEP so saddle recovery can reject a nearby minimum. Ordinary
+standalone `tsopt` should omit it unless an externally derived, atom-order-
+matched reaction mode is available.
+
+## 4. IRC stops too early
+
+First reduce the step length, for example `mlmm irc ... --step-size 0.05`.
+This is the preferred response to an early plateau/energy-rise stop. If a small
+shoulder must be crossed, opt in to `--never-stop` (or
+`all --irc-never-stop`). It ignores energy-rise and plateau stop conditions;
+integrator convergence, invalid values, and `--max-cycles` still stop the run.
+Always inspect both branches and bond connectivity. The mode is off by default.
+
+## 5. Reading the barrier when the scan started from Product
 
 If the scan/path **starts from P**, the raw reported barrier is the **reverse** direction.
 
@@ -62,14 +88,14 @@ If the scan/path **starts from P**, the raw reported barrier is the **reverse** 
 - This is a *read-time interpretation*, **not a CLI flag**. Always confirm which endpoint is R vs P (read `segments/seg_NN/{reactant,product}.pdb` from the IRC, not the scan direction).
 - Concrete case (CM): the scan begins at P, so the campaign's "barrier" is reverse; the forward barrier = `E(TS) − E(R)`.
 
-## 5. Staged vs concerted scan
+## 6. Staged vs concerted scan
 
 `-s/--scan-lists` is `multiple=True` (`scan.py`). Help: "Multiple inline literals define sequential stages."
 
 | Form | Invocation | Meaning | Needs mechanism up front? |
 |---|---|---|---|
 | Concerted | **single** `--scan-lists` literal with several `(i,j,target)` tuples | all coords driven together in one stage | No |
-| Staged | **repeat** `--scan-lists` (one literal per stage) | each stage = its own restrained relaxation, written to `stage_NN/` | Yes — define the mechanism per stage |
+| Staged | one `--scan-lists` followed by several literals | each literal is one sequential restrained relaxation, written to `stage_NN/` | Yes — define the mechanism per stage |
 
 ```bash
 # Concerted (one stage, two coords driven together):
@@ -78,15 +104,14 @@ mlmm scan -i r.pdb --parm e.parm7 -l 'LIG:Q' \
 
 # Staged (two sequential stages):
 mlmm scan -i r.pdb --parm e.parm7 -l 'LIG:Q' \
-    --scan-lists '[(1,5,1.40)]' \
-    --scan-lists '[(7,9,0.95)]' -o result_staged
+    --scan-lists '[(1,5,1.40)]' '[(7,9,0.95)]' -o result_staged
 ```
 
 - `path-search` does multistep auto-segmentation, so a **concerted** scan needs no mechanism breakdown.
 - A **staged** scan needs the mechanism defined up front, **but when the mechanism is known, staged gives cleaner per-step control and is generally preferred.**
 - A 4-tuple expands into 2 stages (bidirectional scan).
 
-## 6. Controlled mutant-vs-WT (or mechanism-vs-mechanism) comparison
+## 7. Controlled mutant-vs-WT (or mechanism-vs-mechanism) comparison
 
 **Rule: every compared model MUST use the SAME atom set — identical atom count and residues — or it is not a controlled experiment.** A different atom set changes the energy reference and invalidates the ΔE‡ comparison; a geometrically re-derived ML/movable/frozen partition on the mutant also produces spurious soft modes (`tsopt.n_imaginary ≥ 2`, both tiny → IRC aborts).
 
@@ -100,7 +125,7 @@ mlmm recipe (transplant the WT ML/MM layer encoding onto the mutant; run with `-
 
 ```bash
 mlmm all -i mutant_layered.pdb -l 'LIG:Q' \
-    --tsopt True --thermo True [--dft True --dft-func-basis '...'] \
+    --tsopt --thermo [--dft --dft-func-basis '...'] \
     -o result_mutant
 ```
 

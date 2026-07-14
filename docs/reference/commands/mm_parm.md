@@ -17,7 +17,7 @@ Options:
   -i, --input FILE              Input PDB file (used as-is; optional hydrogens
                                 via --add-h/--ph).  [required]
   -o, --out-prefix TEXT         Output prefix (default: input PDB stem). For
-                                LEaP PDB: if omitted and --add-h True,
+                                LEaP PDB: if omitted with --add-h,
                                 <input_stem>_parm.pdb is used.
   -l, --ligand-charge TEXT      Comma-separated mapping of residue=charge or
                                 residue:charge (e.g., "GPP=-3,MMT=-1" or
@@ -33,7 +33,7 @@ Options:
   --add-h / --no-add-h          Add hydrogens using PDBFixer at the specified
                                 --ph.  [default: no-add-h]
   --ph FLOAT                    pH used by PDBFixer when adding hydrogens
-                                (--add-h True). Default: 7.0
+                                (--add-h). Default: 7.0
   --ff-set [ff19SB|ff14SB]      Force-field set for proteins/backbone typing and
                                 water/ion parameters (default: ff19SB).
   -h, --help                    Show this message and exit.

@@ -10,7 +10,7 @@ Each `mlmm` subcommand writes to its output directory following the filename con
 | `result.json` | per-stage subcommands **only when `--out-json` is passed** — default `--no-out-json` (`opt`, `tsopt`, `freq`, `irc`, `sp`, `scan` / `scan2d` / `scan3d`, `path-opt`, `dft`, `extract`) | Alternate filename — identical payload to `summary.json`. Prefer `summary.json` so downstream code reads a single filename; `result.json` holds identical content and can be deleted. |
 | `summary.log` | `path-search`, `all` | Human-readable run log (one row per segment / stage). |
 | `final_geometry.xyz` | `opt`, `tsopt` | Optimized geometry (XYZ, full precision). |
-| `mep.pdb` / `mep_trj.xyz` | `path-search`, `all` | Reaction path frames (PDB / XYZ); standalone `path-opt` writes `final_geometries_trj.xyz` / `final_geometries.pdb` instead. |
+| `mep.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`, `all` | Reaction path frames; `mep.cif` restores original IDs for bridged input. Standalone `path-opt` writes `final_geometries_trj.xyz` / `final_geometries.pdb` instead. |
 | `mep_plot.png` | `path-search`, `all` | Raw MEP energy profile (PNG). `all` copies it to the root from the engine output. |
 | `forward_irc_trj.xyz` / `backward_irc_trj.xyz` (and `finished_irc_trj.xyz`) | `irc` | IRC trajectories (XYZ); companion `*_irc.pdb` files carry the same frames in PDB form. |
 | `frequencies_cm-1.txt` | `freq` | Vibrational frequency listing (cm⁻¹). |
@@ -41,21 +41,21 @@ A subcommand run on its own writes a **flat** result directory. The same writer,
 
 - **Standalone subcommand** → flat `result_<subcmd>/` with the files above. There is no `segments/` and no `_work/` — those appear only when `all` coordinates several writers in one run.
 - **Inside `all`, leaf writers nest unchanged.** A per-segment leaf output at `segments/seg_NN/<subcmd>/` is structurally identical to the standalone `result_<subcmd>/`; `all` just points the writer at a different directory.
-- **`path-search` / `path-opt` are the engine exception.** Run standalone, `path-search` is itself a deliverable (`result_path_search/` with its own `summary.log`, `mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`). Inside `all`, its raw output is engine scratch under `_work/path_opt/` (`_work/path_search/` only with `--refine-path`); the merged products (`mep.pdb`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the pipeline root and `summary.{json,log}` copied there. This asymmetry is intentional.
+- **`path-search` / `path-opt` are the engine exception.** Run standalone, `path-search` is itself a deliverable (`result_path_search/` with its own `summary.log`, `mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`). Inside `all`, its raw output is engine scratch under `_work/path_opt/` (`_work/path_search/` only with `--refine-path`); the merged products (`mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the pipeline root and `summary.{json,log}` copied there. This asymmetry is intentional.
 
 The `all` tree therefore has three zones:
 
 ```text
 result_all/
 ├─ summary.log · summary.json                 # copied to the root
-├─ mep.pdb · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png   # MEP products moved from the engine
+├─ mep.pdb · mep.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
 ├─ energy_diagram_*_all.png · irc_plot_all.png
 ├─ ml_region.pdb                              # ML-region definition (reusable as --model-pdb)
 ├─ mm_parm/                                   # MM topology <input>.parm7 / .rst7 (reusable as --parm)
 ├─ layered/                                   # layered full-system PDBs (B-factor annotated; reusable inputs)
 ├─ segments/
 │  └─ seg_NN/                                  # 2-digit per-reactive-segment deliverables
-│     ├─ reactant.pdb · ts.pdb · product.pdb         # canonical R/TS/P
+│     ├─ reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # CIF for bridged input
 │     └─ ts/ · irc/ · freq/ · dft/ · structures/    # per-stage working files (--tsopt / --thermo / --dft)
 └─ _work/                                      # pipeline scratch (safe to remove)
    ├─ pockets/ · scan/

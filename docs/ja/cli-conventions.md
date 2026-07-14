@@ -25,7 +25,7 @@
 
 ### 新しいブールフラグの追加
 
-サブコマンドにブールフラグを追加する際は、必ず `mlmm/cli/common_options.py` の `add_*_option()` ファクトリ経由とし、長い名前を `mlmm/cli/app.py` の対応する `_COMMAND_BOOL_*_OPTIONS` テーブルに登録してください。サブコマンド本体に `@click.option("--foo/--no-foo", ...)` や `type=click.BOOL` を直接書くと、レジストリを迂回してテスト対象から外れ、値指定記法が警告なく失われます。
+正規 interface は `@click.option("--foo/--no-foo", ...)` または共通 `add_*_option()` factory で定義します。通常の Click toggle は runtime の parameter introspection が検出します。lazy command の import 前に正規化する必要がある場合、または parser wrapper により introspection できない場合だけ `mlmm/cli/app.py` に手動 hint を追加し、どちらの経路も `tests/test_bool_compat_cli.py` へ追加してください。
 
 よく使うブール値オプション:
 - `--tsopt`, `--thermo`, `--dft` -- 後処理ステージの有効化
@@ -233,7 +233,12 @@ PDB 入力の場合、`--ligand-charge` で非標準残基（基質、補因子�
 ### PDB形式のセレクタ文字列
 ```bash
 --scan-lists '[("TYR,285,CA", "MMT,309,C10", 2.20)]'
+--scan-lists '[("A:TYR:285:CA", "B:MMT:309A:C10", 2.20)]'  # chain を含む一意形式
 ```
+
+識別子が繰り返される系や mmCIF では、厳密な
+`CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` 形式を優先してください。複数文字 chain
+と 10,000 以上の残基番号にも対応し、heuristic matching を避けられます。
 
 セレクタのフィールドは以下で区切れます:
 - 空白: `'TYR 285 CA'`
@@ -278,6 +283,28 @@ pip install "mlmm-toolkit[orb]"       # ORB バックエンド
 pip install "mlmm-toolkit[aimnet]"   # AIMNet2 バックエンド
 pip install --no-deps mace-torch      # MACE バックエンド
 ```
+
+---
+
+## 精度、workers、解析 Hessian
+
+`--precision` を省略した場合、UMA と AIMNet2 は fp32、ORB と MACE は
+fp64 を使用します。AIMNet2 は fp64 を受け付けません。ORB/MACE の fp32
+明示指定は、曲率の低ノイズ性よりスクリーニング速度を優先する場合に限ります。
+
+`--workers` は一般的な CPU スレッド数ではなく、UMA の並列 predictor
+（`fairchem-core[extras]`）を制御します。デフォルトは 1 です。
+`--workers > 1` は解析 Hessian に必要な autograd model を公開しないため、
+`--hessian-calc-mode Analytical` との併用はエラーになります。
+
+```bash
+--workers 1 --hessian-calc-mode Analytical       # 解析 Hessian
+--workers 4 --hessian-calc-mode FiniteDifference # UMA 並列 predictor + FD
+```
+
+ORB、MACE、AIMNet2 はこの UMA worker pool を使用しません。互換性のある
+バックエンド版では 4 種すべてが解析/native Hessian に対応し、必要な API が
+無い場合は有限差分へ暗黙に切り替えずエラーになります。
 
 ---
 

@@ -76,7 +76,8 @@ mlmm all -i 1.R.pdb \
     -o result_scan
 ```
 
-Each `--scan-lists` argument is one stage. See
+Each literal following the single `--scan-lists` flag is one stage; do not
+repeat the flag. See
 `mlmm-cli/all-scan-list.md` for syntax details.
 
 ### 4. Endpoint-MEP with explicit intermediates
@@ -170,15 +171,16 @@ mlmm freq  -i seg_NN/tsopt/final_geometry.xyz --parm real.parm7 --detect-layer -
 mlmm irc   -i seg_NN/tsopt/final_geometry.xyz --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma -o seg_NN/irc
 ```
 
-**GATE** in order: tsopt `result.json` `status` is `converged` (or `completed`; not
-`not_converged`) → freq `result.json` `n_imaginary == 1` (exactly one imaginary frequency)
+**GATE** in order: tsopt `result.json` `status` is exactly `converged`
+(`not_converged` means zero/multiple modes or optimizer failure; `unverified` means
+the final frequency check was skipped) → freq `result.json` `n_imaginary == 1` (exactly one imaginary frequency)
 whose mode moves the reacting atoms (0 or >1 → fix via fp64 / `--coord-type dlc` /
 `--flatten`, see `mlmm-ts-strategy/SKILL.md` §3, before trusting the barrier) → irc
 `result.json` `status == "completed"` and forward/backward endpoints connect the **intended**
 R and P (bond changes match this step). A TS that fails any gate is not this elementary step.
 
 **Stage 3 — thermochemistry** (optional, = `all --thermo`): run `mlmm freq` on R / TS / P
-for the Gibbs/QRRHO profile (`post_segments[i].gibbs_uma`).
+for the Gibbs/QRRHO profile (`post_segments[i].gibbs_mlip`).
 
 **Stage 4 — DFT//ML/MM** (optional, = `all --dft`):
 
@@ -243,10 +245,10 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `structures` | Map: `reactant`, `ts`, `product` → file paths |
 | `irc_plot` / `irc_traj` | IRC-related artifact paths |
 | `ts_imag` | `{n_imag}` |
-| `uma` | `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}` (or whichever MLIP backend was used) |
-| `gibbs_uma` | `{energies, barrier_kcal, delta_kcal, ...}` (when `--thermo` is on) |
+| `mlip` | `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}` for the selected backend |
+| `gibbs_mlip` | `{energies, barrier_kcal, delta_kcal, ...}` (when `--thermo` is on) |
 | `dft` | `{labels, energies_au, energies_kcal, diagram, structures, barrier_kcal, delta_kcal}` (when `--dft` is on) |
-| `gibbs_dft_uma` | DFT//ML/MM Gibbs profile (when both `--dft` and `--thermo` are on) |
+| `gibbs_dft_mlip` | DFT//ML/MM Gibbs profile (when both `--dft` and `--thermo` are on) |
 | `mep_barrier_kcal` / `mep_delta_kcal` | Plain-MEP energies (no Gibbs / DFT correction) |
 
 ## R/TS/P canonical paths
@@ -354,9 +356,9 @@ Even on failed runs, partial outputs are kept:
 
 - `energy_diagram_MEP.png` — bare MEP energies from the path-search
   string (MLIP, no thermochemistry).
-- `energy_diagram_UMA_all.png` (etc.) — per-segment energies for
+- `energy_diagram_MLIP_all.png` (etc.) — per-segment energies for
   whichever backend was used.
-- `energy_diagram_G_UMA_all.png` — Gibbs free-energy diagram with
+- `energy_diagram_G_MLIP_all.png` — Gibbs free-energy diagram with
   QRRHO thermochemistry (when `--thermo`).
 
 To compose a custom diagram from energies of multiple runs, use

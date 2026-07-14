@@ -6,6 +6,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+### Added
+- Add a lossless mmCIF/large-PDB bridge, exact selectors, safe duplicate atom
+  names, and root/segment CIF companions with original identifiers.
+- Add `tsopt --ref-mode`, opt-in IRC never-stop traversal, and analytical
+  Hessians for ORB, MACE, and AIMNet2.
+- Add a release-pinned Colab GUI for structure preparation, exact selectors,
+  backend controls, validated execution, and result inspection.
+
+### Changed
+- Reject explicit analytical Hessians with `workers > 1`, and use constrained
+  frozen-boundary rigid projection for PHVA, IRC, Dimer, and TS validation.
+- Require `n_imag = 1` for TS success, preserve rejected optimizer state, and
+  report resolved backend/model and the highest common rate-limiting method.
+- Replace UMA-specific summary keys with backend-neutral MLIP keys; this
+  breaking JSON contract is `schema_version: "2.0"`.
+
+### Fixed
+- Keep scan energies on the unbiased PES and prevent stale Hessian reuse across
+  TS, IRC, frequency, and endpoint optimization.
+- Roll back rejected RFO/L-BFGS state, recover TS searches from `n_imag=0`, and
+  keep path-guided flattening explicitly opt-in and mode-safe.
+- Correct IRC endpoint labels, `all` worker propagation, YAML custom-factory
+  provenance, and CIF publication at pipeline root and segment level.
+
 ## [0.3.2] — 2026-07-10
 
 ### Changed

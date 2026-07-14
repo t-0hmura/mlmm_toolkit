@@ -80,6 +80,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
+| `--tr-projection [constrained\|legacy-active]` | TR treatment used only by `--flatten` PHVA. `constrained` respects frozen anchors; `legacy-active` is an isolated-active comparison treatment. | `constrained` |
 | `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. Alias: `--movable-cutoff`. | _None_ |
 | `--radius-partial-hessian, --hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms included in Hessian calculation. Combinable with `--detect-layer`. | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
@@ -117,6 +118,18 @@ Forces in Hartree/bohr, steps in bohr.
 | `gau_vtight` | Very tight; benchmarking/high-precision final structures | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | Baker-style rule (converged only when all four force/step values below are met **and** `\|dE\| < 1e-6`) | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
+### Frozen-boundary TR projection
+
+`--tr-projection` affects `opt` only when `--flatten` performs PHVA. The
+default `constrained` treatment removes only full-system rigid motions that do
+not move frozen anchors; its generic effective rank is 6/3/1/0 for
+zero/one/two/at least three non-collinear anchors. Realistic ML/MM boundaries
+normally have rank 0, and an all-frozen selection raises an explicit error.
+`legacy-active` is an isolated-active comparison treatment using the current
+common kernel; bitwise identity is not guaranteed for rank-degenerate cases. With
+`--out-json`, flatten runs record treatment, effective rank, Hessian source,
+and Hessian shape under `result.json.rigid_projection`.
+
 ## YAML configuration
 
 Settings are applied with **defaults < config < explicit CLI < override**. The accepted sections are `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator: backends, devices, Hessian mode, embedding), `opt` (shared optimizer controls), and the optimizer-specific `lbfgs` / `rfo` sections.
@@ -125,6 +138,7 @@ Settings are applied with **defaults < config < explicit CLI < override**. The a
 geom:
  coord_type: cart               # cartesian vs dlc internals (dlc needs --opt-mode hess; grad/L-BFGS falls back to cart)
  freeze_atoms: []               # 1-based frozen atoms
+ tr_projection: constrained     # constrained (default) | legacy-active comparison
 calc:
  charge: 0                      # net charge
  spin: 1                        # spin multiplicity 2S+1

@@ -16,12 +16,13 @@ class TRIM(TSHessianOptimizer):
         energy, gradient, H, eigvals, eigvecs, resetted = self.housekeeping()
         self.update_ts_mode(eigvals, eigvecs)
 
-        # When the Hessian is a partial (active-block) Hessian — e.g. ONIOM
-        # ML-region only — the eigvecs span only the active DOFs, but gradient
-        # may still be in full-coord space. Mirror RSIRFOptimizer's reduction
-        # so eigvecs.T @ gradient is shape-compatible. Without this, TRIM
-        # crashed with `coords(366,) + step(183,)` broadcast error in ONIOM
-        # tsopt (HPC verification 2026-05-26).
+        # When the Hessian is a partial (active-block) Hessian — e.g. a frozen
+        # active site — the eigvecs span only the active DOFs, but the gradient
+        # may still be in full-coord space. Mirror RSIRFO/RSPRFO's reduction so
+        # eigvecs.T @ gradient is shape-compatible. Without this, TRIM crashes
+        # with a `coords(3N,) + step(3N_active,)` broadcast error under
+        # freeze_atoms (partial Hessian is the default), which RSIRFO/RSPRFO
+        # already guard against.
         if isinstance(H, torch.Tensor):
             if gradient.size(0) != eigvecs.size(0):
                 gradient = self.active_from_full(gradient)
@@ -45,6 +46,16 @@ class TRIM(TSHessianOptimizer):
         # -vector of the mode to follow uphill.
         eigvals_ = eigvals.copy()
         eigvals_[self.roots] *= -1
+        if self._physical_ts_mode is not None:
+            residual_negative = eigvals_ < -self.small_eigval_thresh
+            residual_count = int(np.count_nonzero(residual_negative))
+            if residual_count:
+                eigvals_[residual_negative] *= -1
+                self.log(
+                    "Stabilized "
+                    f"{residual_count} residual negative image-Hessian root(s) "
+                    "outside the PHVA-verified TS mode."
+                )
         gradient_ = gradient_.copy()
         gradient_[self.roots] *= -1
 
@@ -86,10 +97,12 @@ class TRIM(TSHessianOptimizer):
         step_norm = np.linalg.norm(step)
         self.log(f"norm(step)={step_norm:.6f}")
 
+        step = self.apply_saddle_recovery_step(step)
         self.predicted_energy_changes.append(self.quadratic_model(gradient, as_numpy(self.H), step))
 
-        # Expand step back to full coord space when active subspace is in use,
-        # so Optimizer.run() can do `geometry.coords.copy() + step` without a
-        # shape mismatch (same convention as RSIRFOptimizer / RSPRFOptimizer).
+        # Expand the step back to full-coord space when the active subspace is in
+        # use, so Optimizer.run() can do `geometry.coords + step` without a shape
+        # mismatch (same convention as RSIRFOptimizer / RSPRFOptimizer).
         step = self.full_from_active(step)
+
         return step

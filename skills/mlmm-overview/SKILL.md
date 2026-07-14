@@ -96,10 +96,10 @@ Supported MLIP backends:
 
 | `-b` | Model | Notes |
 |---|---|---|
-| `uma` (default) | UMA-s-1.1 / UMA-m-1.1 (config strings: `uma-s-1p1` / `uma-m-1p1`) | Default for ML region |
-| `mace` | MACE-OMOL-0 | Separate env (e3nn conflict) |
-| `orb` | `orb_v3_conservative_omol` (Orb-v3-omol in papers) | Fast screening |
-| `aimnet2` | AIMNet2 | Limited element coverage |
+| `uma` (default) | UMA-s-1.2 (default) / UMA-s-1.1 / UMA-m-1.1 (`uma-s-1p2` / `uma-s-1p1` / `uma-m-1p1`) | Default ML-region backend; fp32 default |
+| `mace` | MACE-OMOL-0 | Separate env (e3nn conflict); fp64 default |
+| `orb` | `orb_v3_conservative_omol` | fp64 default; explicit fp32 uses TF32 and needs Hessian validation |
+| `aimnet2` | AIMNet2 | fp32 only; explicit fp64 is rejected |
 
 MM backend defaults to `hessian_ff` (CPU, analytical Hessian); the
 finite-difference `openmm` backend is selectable via `--mm-backend openmm`.

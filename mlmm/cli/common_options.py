@@ -148,20 +148,13 @@ def add_precision_option() -> Callable[[Callable], Callable]:
         )(func)
     return decorator
 
-
-# Deprecated alias for one cycle so external scripts that import
-# `add_uma_precision_option` keep working. Internal call sites must use
-# `add_precision_option`.
-add_uma_precision_option = add_precision_option
-
-
 def add_workers_options() -> Callable[[Callable], Callable]:
     """Attach ``--workers`` / ``--workers-per-node`` to a Click command.
 
     MLIP predictor parallelism. ``--workers > 1`` routes the UMA backend through
     ``ParallelMLIPPredictUnit`` (needs ``fairchem-core[extras]``); the parallel
     predictor exposes no autograd model, so analytical Hessians are unavailable and
-    ``--hessian-calc-mode Analytical`` is downgraded to ``FiniteDifference``.
+    combining ``--workers >1`` with ``--hessian-calc-mode Analytical`` is an error.
 
     The CLI body routes the values via ``mlmm.backends.apply_workers_to_calc_cfg``.
     Wire targets: every subcommand that constructs a backend calculator — ``sp``,
@@ -185,8 +178,8 @@ def add_workers_options() -> Callable[[Callable], Callable]:
             show_default=False,
             help=(
                 "MLIP predictor workers (UMA). >1 uses a parallel predictor "
-                "(fairchem-core[extras]); analytical Hessian is then unavailable "
-                "(auto-downgraded to FiniteDifference). Default 1."
+                "(fairchem-core[extras]); combining it with an analytical Hessian "
+                "is an error. Default 1."
             ),
         )(func)
         return func
@@ -243,11 +236,12 @@ def add_calc_file_option() -> Callable[[Callable], Callable]:
             "--calc-factory",
             "calc_factory",
             type=str,
-            default="get_calculator",
-            show_default=True,
+            default=None,
+            show_default=False,
             help=(
                 "Name of the callable in --calc-file that returns an ASE "
-                "Calculator (or a module-level Calculator instance)."
+                "Calculator (or a module-level Calculator instance). "
+                "CLI overrides config YAML; otherwise defaults to get_calculator."
             ),
         )(func)
         func = click.option(

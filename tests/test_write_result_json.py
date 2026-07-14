@@ -14,6 +14,7 @@ from mlmm.core.utils import (
 
 
 def test_writes_result_and_summary_mirror() -> None:
+    assert RESULT_JSON_SCHEMA_VERSION == "2.0"
     with tempfile.TemporaryDirectory() as d:
         path = write_result_json(
             Path(d),
@@ -59,4 +60,15 @@ def test_disable_summary_mirror() -> None:
 
 def test_status_enum_documented() -> None:
     # Catch typo regressions in the documented status values.
-    assert RESULT_JSON_STATUS_VALUES == ("success", "partial", "error", "unknown")
+    assert RESULT_JSON_STATUS_VALUES == (
+        "completed",
+        "converged",
+        "error",
+        "failed",
+        "not_converged",
+        "ok",
+        "partial",
+        "success",
+        "unknown",
+        "unverified",
+    )

@@ -42,7 +42,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path | required | Layered `.pdb` (or `.xyz`) |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `--hess` / `--no-hess` | flag | `no-hess` | Also compute the full ONIOM Hessian and save to `hessian.npy` |
-| `--hessian-calc-mode` | str | (auto) | `analytical` (UMA only) or `finitedifference`; used only with `--hess` |
+| `--hessian-calc-mode` | str | (auto) | `Analytical` (UMA/ORB/MACE/AIMNet2) or `FiniteDifference`; used only with `--hess` |
 | `--mm-backend` | str | `hessian_ff` | MM backend: `hessian_ff` or `openmm` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_sp/` | Output directory |
@@ -80,8 +80,9 @@ result_sp/
 
 - Single-point only — no geometry change. For relaxation use `opt.md`;
   for TS search use `tsopt.md`.
-- `--hessian-calc-mode analytical` requires the UMA backend; other
-  backends fall back to FiniteDifference automatically.
+- An explicit `--hessian-calc-mode Analytical` requires the selected
+  backend's analytical API. If it is unavailable, the command raises an error;
+  it does not silently switch to `FiniteDifference`.
 - `--config` YAML overrides less-common settings; inspect
   `MLMM_CALC_KW` and `GEOM_KW_DEFAULT` in `mlmm.core.defaults`.
 

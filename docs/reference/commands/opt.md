@@ -31,6 +31,11 @@ Options:
                                   pdb is omitted.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
+  --tr-projection [constrained|legacy-active]
+                                  Rigid translation/rotation treatment used by
+                                  --flatten PHVA. 'constrained' respects frozen
+                                  anchors; 'legacy-active' treats the active
+                                  fragment as isolated.  [default: constrained]
   --radius-partial-hessian, --hess-cutoff FLOAT
                                   Distance cutoff (Å) from ML region for MM
                                   atoms to include in Hessian calculation.
@@ -148,8 +153,8 @@ Options:
                                   rejected.
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
-                                  analytical Hessian is then unavailable (auto-
-                                  downgraded to FiniteDifference). Default 1.
+                                  combining it with an analytical Hessian is an
+                                  error. Default 1.
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
                                   predictor is used (--workers > 1).
   --backend-model TEXT            Model variant for the selected --backend (e.g.
@@ -163,8 +168,8 @@ Options:
                                   / any ASE engine. See --calc-factory.
   --calc-factory TEXT             Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
-                                  Calculator instance).  [default:
-                                  get_calculator]
+                                  Calculator instance). CLI overrides config
+                                  YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
                                   Strict bit-reproducible GPU runs
                                   (deterministic algorithms + index_reduce_

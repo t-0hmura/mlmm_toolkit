@@ -53,6 +53,7 @@ class AllContext:
     mm_ligand_mult: Optional[str]
     # Charges
     spin: int
+    tr_projection: str
     # MEP search
     max_nodes: int
     max_cycles: int
@@ -94,6 +95,7 @@ class AllContext:
     # TSOPT / FREQ / DFT
     tsopt_max_cycles: Optional[int]
     flatten: bool
+    irc_never_stop: Optional[bool]
     skip_final_freq: bool
     tsopt_out_dir: Optional[Path]
     freq_out_dir: Optional[Path]
@@ -115,7 +117,7 @@ class AllContext:
     workers: Optional[int] = None
     workers_per_node: Optional[int] = None
     calc_file: Optional[str] = None
-    calc_factory: str = "get_calculator"
+    calc_factory: Optional[str] = None
 
 
 def copy_path_outputs_to_root(
@@ -140,7 +142,12 @@ def copy_path_outputs_to_root(
         # payload reads these from path_dir before this runs, so the move is
         # safe; summary.{json,log} stay COPY because they are re-written under
         # path_dir downstream.
-        for name in ("mep_plot.png", "energy_diagram_MEP.png", "mep.pdb"):
+        for name in (
+            "mep_plot.png",
+            "energy_diagram_MEP.png",
+            "mep.pdb",
+            "mep.cif",
+        ):
             src = path_dir / name
             if src.exists():
                 shutil.move(str(src), str(out_dir / name))
@@ -167,16 +174,10 @@ def build_energy_level_dict(
     diagram_path: str,
     structures: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Assemble a segment_log sub-dict for one energy level (UMA / Gibbs / DFT).
+    """Assemble one ML/MM, Gibbs, or DFT R/TS/P energy payload.
 
-    Extracted from the repeated R/TS/P payload pattern in
-    ``workflows/all.py:cli()`` (TSOPT-only mode segment_log). The 3
-    inline copies that built ``segment_log["uma"]`` /
-    ``segment_log["gibbs_uma"]`` / ``segment_log["dft"]`` all shared
-    the same layout: energies in Hartree, energies in kcal/mol relative
-    to the reactant, barrier_kcal, delta_kcal, plus the diagram + the
-    R/TS/P structure mapping. Pulling them through this helper drops
-    the in-place duplication.
+    The shared layout contains absolute and relative energies, barrier and
+    reaction energies, the diagram path, and R/TS/P structure mappings.
 
     Parameters
     ----------
@@ -247,7 +248,8 @@ def build_pipeline_summary_payload(
     q_int: int,
     spin: int,
     post_segment_logs: Sequence[Dict[str, Any]],
-    uma_model: Optional[str] = None,
+    mlip_backend: str = "uma",
+    mlip_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Assemble the summary_log payload for the `all` pipeline.
 
@@ -286,7 +288,8 @@ def build_pipeline_summary_payload(
         "opt_mode": opt_mode_norm,
         "opt_mode_post": opt_mode_post.lower() if opt_mode_post else None,
         "mep_mode": "path-search" if refine_path else "path-opt",
-        "uma_model": uma_model,
+        "mlip_backend": mlip_backend,
+        "mlip_model": mlip_model,
         "command": command_str,
         "charge": q_int,
         "spin": spin,
