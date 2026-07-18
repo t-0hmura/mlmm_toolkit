@@ -1,11 +1,13 @@
-# YAML Schema
+# Curated `mlmm all` Starter Snapshot
+
+This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It shows a common subset of keys whose values are pinned to (and equal) their runtime owners; it is **not** the full configuration schema. For every configurable section and option, see the [YAML Reference](../yaml-reference.md).
 
 - Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`
 - Template digest: `e28cc93b71aa`
 
-## Top-level Keys
+## Included Sections
 
-| Key |
+| Section |
 |---|
 | `calc` |
 | `extract` |
@@ -68,39 +70,41 @@ dft:
 
 ## Scalar Defaults
 
-| Key | Type | Default |
-|---|---|---|
-| `calc.backend` | `str` | `'uma'` |
-| `calc.orb_model` | `str` | `'orb_v3_conservative_omol'` |
-| `calc.orb_precision` | `str` | `'float64'` |
-| `calc.mace_model` | `str` | `'MACE-OMOL-0'` |
-| `calc.mace_dtype` | `str` | `'float64'` |
-| `calc.aimnet2_model` | `str` | `'aimnet2'` |
-| `calc.embedcharge` | `bool` | `False` |
-| `calc.embedcharge_step` | `float` | `0.001` |
-| `calc.xtb_cmd` | `str` | `'xtb'` |
-| `calc.xtb_acc` | `float` | `0.2` |
-| `calc.xtb_workdir` | `str` | `'tmp'` |
-| `calc.xtb_keep_files` | `bool` | `False` |
-| `calc.xtb_ncores` | `int` | `4` |
-| `extract.radius` | `float` | `2.6` |
-| `extract.radius_het2het` | `float` | `0.0` |
-| `path_search.max_nodes` | `int` | `20` |
-| `path_search.max_cycles` | `int` | `300` |
-| `scan.max_step_size` | `float` | `0.2` |
-| `scan.bias_k` | `float` | `300.0` |
-| `scan.relax_max_cycles` | `int` | `10000` |
-| `tsopt.max_cycles` | `int` | `10000` |
-| `freq.max_write` | `int` | `10` |
-| `freq.amplitude_ang` | `float` | `0.8` |
-| `freq.n_frames` | `int` | `20` |
-| `freq.sort` | `str` | `'value'` |
-| `freq.temperature` | `float` | `298.15` |
-| `freq.pressure_atm` | `float` | `1.0` |
-| `dft.func_basis` | `str` | `'wb97m-v/def2-tzvpd'` |
-| `dft.max_cycle` | `int` | `100` |
-| `dft.conv_tol` | `float` | `1e-09` |
-| `dft.grid_level` | `int` | `3` |
+Each scalar is pinned to (and equals) the runtime owner shown.
+
+| Key | Type | Default | Runtime owner |
+|---|---|---|---|
+| `calc.backend` | `str` | `'uma'` | `MLMM_CALC_KW["backend"]` |
+| `calc.orb_model` | `str` | `'orb_v3_conservative_omol'` | `MLMM_CALC_KW["orb_model"]` |
+| `calc.orb_precision` | `str` | `'float64'` | `MLMM_CALC_KW["orb_precision"]` |
+| `calc.mace_model` | `str` | `'MACE-OMOL-0'` | `MLMM_CALC_KW["mace_model"]` |
+| `calc.mace_dtype` | `str` | `'float64'` | `MLMM_CALC_KW["mace_dtype"]` |
+| `calc.aimnet2_model` | `str` | `'aimnet2'` | `MLMM_CALC_KW["aimnet2_model"]` |
+| `calc.embedcharge` | `bool` | `False` | `MLMM_CALC_KW["embedcharge"]` |
+| `calc.embedcharge_step` | `float` | `0.001` | `MLMM_CALC_KW["embedcharge_step"]` |
+| `calc.xtb_cmd` | `str` | `'xtb'` | `MLMM_CALC_KW["xtb_cmd"]` |
+| `calc.xtb_acc` | `float` | `0.2` | `MLMM_CALC_KW["xtb_acc"]` |
+| `calc.xtb_workdir` | `str` | `'tmp'` | `MLMM_CALC_KW["xtb_workdir"]` |
+| `calc.xtb_keep_files` | `bool` | `False` | `MLMM_CALC_KW["xtb_keep_files"]` |
+| `calc.xtb_ncores` | `int` | `4` | `MLMM_CALC_KW["xtb_ncores"]` |
+| `extract.radius` | `float` | `2.6` | `mlmm all --radius` default |
+| `extract.radius_het2het` | `float` | `0.0` | `mlmm all --radius-het2het` default |
+| `path_search.max_nodes` | `int` | `20` | `GS_KW["max_nodes"]` |
+| `path_search.max_cycles` | `int` | `300` | `STOPT_KW["max_cycles"]` |
+| `scan.max_step_size` | `float` | `0.2` | `mlmm scan --max-step-size` default |
+| `scan.bias_k` | `float` | `300.0` | `BIAS_KW["k"]` |
+| `scan.relax_max_cycles` | `int` | `10000` | `OPT_BASE_KW["max_cycles"]` |
+| `tsopt.max_cycles` | `int` | `10000` | `OPT_BASE_KW["max_cycles"]` |
+| `freq.max_write` | `int` | `10` | `FREQ_KW["max_write"]` |
+| `freq.amplitude_ang` | `float` | `0.8` | `FREQ_KW["amplitude_ang"]` |
+| `freq.n_frames` | `int` | `20` | `FREQ_KW["n_frames"]` |
+| `freq.sort` | `str` | `'value'` | `FREQ_KW["sort"]` |
+| `freq.temperature` | `float` | `298.15` | `THERMO_KW["temperature"]` |
+| `freq.pressure_atm` | `float` | `1.0` | `THERMO_KW["pressure_atm"]` |
+| `dft.func_basis` | `str` | `'wb97m-v/def2-tzvpd'` | `DFT_KW["func_basis"]` |
+| `dft.max_cycle` | `int` | `100` | `DFT_KW["max_cycle"]` |
+| `dft.conv_tol` | `float` | `1e-09` | `DFT_KW["conv_tol"]` |
+| `dft.grid_level` | `int` | `3` | `DFT_KW["grid_level"]` |
 
 ## Scan Spec Shapes
 

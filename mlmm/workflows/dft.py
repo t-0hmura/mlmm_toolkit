@@ -22,6 +22,7 @@ import time
 logger = logging.getLogger(__name__)
 
 import click
+from mlmm.core.output import emit
 import numpy as np
 import yaml
 
@@ -37,6 +38,7 @@ from mlmm.workflows.opt import (
     _parse_freeze_atoms as _parse_freeze_atoms_opt,
     _normalize_geom_freeze as _normalize_geom_freeze_opt,
 )
+from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 from mlmm.core.utils import (
     apply_layer_freeze_constraints,
     apply_ref_pdb_override,
@@ -46,7 +48,6 @@ from mlmm.core.utils import (
     format_elapsed,
     merge_freeze_atom_indices,
     prepare_input_structure,
-    resolve_charge_spin_or_raise,
     parse_indices_string,
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
@@ -55,6 +56,7 @@ from mlmm.core.utils import (
 from mlmm.cli.common_options import add_ml_layer_detection_options
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 from mlmm.core.defaults import DFT_KW as _DFT_KW_DEFAULT
+from mlmm.io.pdb_indexing import PDBOrdinalAtom, parse_pdb_ordinal_atoms
 
 from functools import reduce
 
@@ -109,43 +111,17 @@ def _atoms_to_pyscf_atoms(atoms: Atoms) -> List[Tuple[str, Tuple[float, float, f
 
 
 def _load_model_region_ids(model_pdb: Path) -> set[str]:
-    ids: set[str] = set()
-    with model_pdb.open() as fh:
-        for line in fh:
-            if line.startswith(("ATOM", "HETATM")):
-                ids.add(f"{line[12:16].strip()} {line[17:20].strip()} {line[22:26].strip()}")
-    if not ids:
-        raise ValueError("No atoms found in model_pdb to define the ML region.")
-    return ids
+    return {atom.id for atom in parse_pdb_ordinal_atoms(model_pdb)}
 
 
-def _load_input_atoms(input_pdb: Path) -> List[Dict[str, Any]]:
-    atoms: List[Dict[str, Any]] = []
-    with input_pdb.open() as fh:
-        for line in fh:
-            if not line.startswith(("ATOM", "HETATM")):
-                continue
-            elem = line[76:78].strip()
-            if not elem:
-                elem = line[12:16].strip()[0]
-            atoms.append(
-                {
-                    "idx": int(line[6:11]),
-                    "id": f"{line[12:16].strip()} {line[17:20].strip()} {line[22:26].strip()}",
-                    "elem": elem,
-                    "coord": np.array(
-                        [float(line[30:38]), float(line[38:46]), float(line[46:54])],
-                        dtype=float,
-                    ),
-                }
-            )
-    if not atoms:
-        raise ValueError("No ATOM/HETATM records found in the input PDB.")
-    return atoms
+def _load_input_atoms(input_pdb: Path) -> List[PDBOrdinalAtom]:
+    """Compatibility wrapper around the product-local ordinal parser."""
+
+    return parse_pdb_ordinal_atoms(input_pdb)
 
 
 def _detect_link_pairs(
-    leap_atoms: Sequence[Dict[str, Any]],
+    leap_atoms: Sequence[PDBOrdinalAtom],
     ml_region_ids: set[str],
     manual_links: Optional[Sequence[Sequence[str]]],
 ) -> List[Tuple[int, int]]:
@@ -155,23 +131,23 @@ def _detect_link_pairs(
         mm_indices: List[int] = []
         for atom in leap_atoms:
             for qnm, mnm in processed:
-                if atom["id"] == qnm:
-                    ml_indices.append(atom["idx"])
-                elif atom["id"] == mnm:
-                    mm_indices.append(atom["idx"])
+                if atom.id == qnm:
+                    ml_indices.append(atom.idx)
+                elif atom.id == mnm:
+                    mm_indices.append(atom.idx)
         if len(set(ml_indices)) != len(ml_indices) or len(set(mm_indices)) != len(mm_indices):
             raise ValueError("Duplicated ML or MM indices detected in link_mlmm specification.")
         return list(zip(ml_indices, mm_indices))
 
     threshold = 1.7
-    ml_set = {atom["idx"] for atom in leap_atoms if atom["id"] in ml_region_ids}
-    coords = {atom["idx"]: atom["coord"] for atom in leap_atoms}
-    elems = {atom["idx"]: atom["elem"] for atom in leap_atoms}
+    ml_set = {atom.idx for atom in leap_atoms if atom.id in ml_region_ids}
+    coords = {atom.idx: np.asarray(atom.coord) for atom in leap_atoms}
+    elems = {atom.idx: atom.elem for atom in leap_atoms}
     ml_indices: List[int] = []
     mm_indices: List[int] = []
     for qidx in ml_set:
         for atom in leap_atoms:
-            midx = atom["idx"]
+            midx = atom.idx
             if midx in ml_set:
                 continue
             if np.linalg.norm(coords[midx] - coords[qidx]) < threshold and (
@@ -305,7 +281,7 @@ def _prepare_ml_region_workspace(
 
     ml_region_ids = _load_model_region_ids(model_copy)
     leap_atoms = _load_input_atoms(input_copy)
-    ml_ids = [atom["idx"] for atom in leap_atoms if atom["id"] in ml_region_ids]
+    ml_ids = [atom.idx for atom in leap_atoms if atom.id in ml_region_ids]
     if not ml_ids:
         tmpdir.cleanup()
         raise ValueError("No overlap between model_pdb atoms and the input PDB was found.")
@@ -358,6 +334,100 @@ def _prepare_ml_region_workspace(
 
 def _hartree_to_kcalmol(Eh: float) -> float:
     return float(Eh * AU2KCALPERMOL)
+
+
+def _build_dft_result_payload(
+    *,
+    converged: bool,
+    energy_hartree: float,
+    energy_kcal_per_mol: float,
+    xc: str,
+    basis: str,
+    engine_label: str,
+    using_gpu: bool,
+    using_lowmem: bool,
+    dft_kw: Dict[str, Any],
+    calc_kw: Dict[str, Any],
+    n_atoms: int,
+    input_path: Path,
+    charges: Dict[str, Any],
+    spin_densities: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build the DFT JSON payload from the effective runtime request."""
+
+    from mlmm.core.utils import calculator_provenance
+
+    did_converge = bool(converged)
+    return {
+        "status": "converged" if did_converge else "not_converged",
+        "converged": did_converge,
+        "energy_hartree": energy_hartree,
+        "energy_kcal_per_mol": energy_kcal_per_mol,
+        "xc_functional": xc,
+        "basis_set": basis,
+        "engine": engine_label,
+        "used_gpu": bool(using_gpu),
+        "used_lowmem": bool(using_lowmem),
+        **calculator_provenance(calc_kw),
+        "charge": calc_kw.get("model_charge"),
+        "spin": calc_kw.get("model_mult"),
+        "n_atoms": int(n_atoms),
+        "grid_level": dft_kw["grid_level"],
+        "conv_tol": dft_kw["conv_tol"],
+        "max_cycle": dft_kw["max_cycle"],
+        "input_file": str(input_path),
+        "charges": dict(charges),
+        "spin_densities": dict(spin_densities),
+        "files": {"result_yaml": "result.yaml"},
+    }
+
+
+def _apply_explicit_dft_overrides(
+    dft_kw: Dict[str, Any],
+    *,
+    is_param_explicit,
+    conv_tol: float,
+    max_cycle: int,
+    grid_level: int,
+    out_dir: Path,
+    lowmem: bool,
+) -> Dict[str, Any]:
+    """Apply only explicit CLI values over an already YAML-resolved DFT map."""
+
+    resolved = dict(dft_kw)
+    if is_param_explicit("conv_tol"):
+        resolved["conv_tol"] = float(conv_tol)
+    if is_param_explicit("max_cycle"):
+        resolved["max_cycle"] = int(max_cycle)
+    if is_param_explicit("grid_level"):
+        resolved["grid_level"] = int(grid_level)
+    if is_param_explicit("out_dir"):
+        resolved["out_dir"] = str(out_dir)
+    if is_param_explicit("lowmem"):
+        resolved["lowmem"] = bool(lowmem)
+    return resolved
+
+
+def _finalize_dft_result(
+    *,
+    out_json: bool,
+    out_dir: Path,
+    payload: Dict[str, Any],
+    elapsed_seconds: float,
+) -> None:
+    """Commit a truthful payload before signalling SCF nonconvergence."""
+
+    if out_json:
+        from mlmm.core.utils import write_result_json
+
+        write_result_json(
+            out_dir,
+            payload,
+            command="dft",
+            elapsed_seconds=elapsed_seconds,
+        )
+    if not bool(payload["converged"]):
+        raise SystemExit(3)
 
 
 class FlowList(list):
@@ -778,22 +848,6 @@ def cli(
 ) -> None:
     set_convert_file_enabled(convert_files)
 
-    # Resolve every topology input through the common PDB/mmCIF bridge.
-    # Delegate to the shared apply_ref_pdb_override helper so the atom-count guard
-    # (geom vs ref) used by opt/tsopt/freq/irc/scan/path_search is applied here too.
-    prepared_input_for_ref = None
-    if input_path.suffix.lower() == ".xyz":
-        if ref_pdb is None:
-            raise click.BadParameter(
-                "Provide --ref-pdb for topology when using XYZ input."
-            )
-        prepared_input_for_ref = prepare_input_structure(input_path)
-        apply_ref_pdb_override(prepared_input_for_ref, ref_pdb)
-        source_pdb = prepared_input_for_ref.source_path
-    else:
-        prepared_input_for_ref = prepare_input_structure(input_path)
-        source_pdb = prepared_input_for_ref.source_path
-
     _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
@@ -822,6 +876,18 @@ def cli(
             raise click.ClickException(str(e))
 
     try:
+        # One prepared input owns the complete DFT lifetime.  Reference
+        # topology is overlaid onto this same object, so layer selection and
+        # ligand-charge derivation cannot observe different structures.
+        prepared_input = prepare_input_structure(input_path)
+        if input_path.suffix.lower() == ".xyz":
+            if ref_pdb is None:
+                raise click.BadParameter(
+                    "Provide --ref-pdb for topology when using XYZ input."
+                )
+            apply_ref_pdb_override(prepared_input, ref_pdb)
+        source_pdb = prepared_input.source_path
+
         geom_kw = deepcopy(OPT_GEOM_KW)
         calc_kw = deepcopy(OPT_CALC_KW)
         dft_kw = dict(DFT_KW)
@@ -849,16 +915,15 @@ def cli(
         if use_cmap is not None:
             calc_kw["use_cmap"] = use_cmap
 
-        if _is_param_explicit("conv_tol"):
-            dft_kw["conv_tol"] = float(conv_tol)
-        if _is_param_explicit("max_cycle"):
-            dft_kw["max_cycle"] = int(max_cycle)
-        if _is_param_explicit("grid_level"):
-            dft_kw["grid_level"] = int(grid_level)
-        if _is_param_explicit("out_dir"):
-            dft_kw["out_dir"] = str(out_dir)
-        if _is_param_explicit("lowmem"):
-            dft_kw["lowmem"] = bool(lowmem)
+        dft_kw = _apply_explicit_dft_overrides(
+            dft_kw,
+            is_param_explicit=_is_param_explicit,
+            conv_tol=conv_tol,
+            max_cycle=max_cycle,
+            grid_level=grid_level,
+            out_dir=out_dir,
+            lowmem=lowmem,
+        )
 
         func_basis_value = str(dft_kw.get("func_basis", func_basis))
         if _is_param_explicit("func_basis"):
@@ -887,7 +952,6 @@ def cli(
         # charge=None + ligand_charge=... (derives charge from PDB residues)
         # and charge=None + ligand_charge=None (raises a clean ClickException
         # "Total charge is unresolved" instead of a TypeError).
-        prepared_input = prepare_input_structure(input_path)
         charge, spin = resolve_charge_spin_or_raise(
             prepared_input, charge, spin,
             ligand_charge=ligand_charge, prefix="[dft]",
@@ -1290,40 +1354,30 @@ def cli(
         if not converged:
             click.echo("WARNING: SCF did not converge.", err=True)
 
-        click.echo(format_elapsed("[time] Elapsed Time for DFT", time_start), narrative=True)
+        emit(format_elapsed("[time] Elapsed Time for DFT", time_start), narrative=True)
 
-        if out_json:
-            from mlmm.core.utils import calculator_provenance, write_result_json
-            result_data: Dict[str, Any] = {
-                "converged": converged,
-                "energy_hartree": e_h,
-                "energy_kcal_per_mol": e_kcal,
-                "xc_functional": xc,
-                "basis_set": basis,
-                "engine": engine_label,
-                "used_gpu": bool(using_gpu),
-                "used_lowmem": bool(using_lowmem),
-                **calculator_provenance(calc_kw),
-                "charge": calc_kw.get("model_charge"),
-                "spin": calc_kw.get("model_mult"),
-                "n_atoms": mol.natm,
-                "grid_level": grid_level,
-                "conv_tol": conv_tol,
-                "input_file": str(input_path),
-                "charges": {k: v for k, v in charges.items()},
-                "spin_densities": {k: v for k, v in spins.items()},
-                "files": {
-                    "result_yaml": "result.yaml",
-                },
-            }
-            write_result_json(
-                out_dir_path, result_data,
-                command="dft",
-                elapsed_seconds=time.perf_counter() - time_start,
-            )
-
-        if not converged:
-            sys.exit(3)
+        result_data = _build_dft_result_payload(
+            converged=converged,
+            energy_hartree=e_h,
+            energy_kcal_per_mol=e_kcal,
+            xc=xc,
+            basis=basis,
+            engine_label=engine_label,
+            using_gpu=using_gpu,
+            using_lowmem=using_lowmem,
+            dft_kw=dft_kw,
+            calc_kw=calc_kw,
+            n_atoms=mol.natm,
+            input_path=input_path,
+            charges=charges,
+            spin_densities=spins,
+        )
+        _finalize_dft_result(
+            out_json=out_json,
+            out_dir=out_dir_path,
+            payload=result_data,
+            elapsed_seconds=time.perf_counter() - time_start,
+        )
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
@@ -1335,8 +1389,6 @@ def cli(
     finally:
         if prepared_input is not None:
             prepared_input.cleanup()
-        if prepared_input_for_ref is not None:
-            prepared_input_for_ref.cleanup()
         if workspace is not None:
             workspace.cleanup()
 

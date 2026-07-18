@@ -100,7 +100,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 ## YAML configuration
 
-Merge order is **defaults < config < explicit CLI < override**. The relevant sections are `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), `gs` (Growing String controls), and `opt` (StringOptimizer settings).
+Merge order is **defaults < config < explicit CLI**. The relevant sections are `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), `gs` (Growing String controls), and `opt` (StringOptimizer settings).
 
 Full schema (every key and default): [YAML Reference](yaml-reference.md).
 

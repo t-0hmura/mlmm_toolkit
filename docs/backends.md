@@ -56,7 +56,7 @@ name from the CLI.
 | backend | install | model identifier | precision option |
 |---------|---------|------------------|------------------|
 | `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p2` / `uma-s-1p1` / `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
-| `orb` | `pip install orb-models` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float64"` (`"float32"` accepted as an alias) |
+| `orb` | `pip install orb-models` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float32-highest" \| "float64"` (`fp32` / `float32` are normalized aliases) |
 | `mace` | dedicated env: `pip uninstall -y fairchem-core && pip install mace-torch` (`e3nn` pin conflicts with UMA) | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install aimnet` | `aimnet2` | n/a |
 
@@ -125,12 +125,13 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 
 Swap `EMT()` for the engine you want — e.g. `tblite.ase.TBLite(...)` for
 GFN-xTB, the DFTB+ ASE calculator, or `ase.calculators.orca.ORCA(...)`. Then
-pass the file to any single-stage subcommand (it selects the `custom` ML
-backend, overriding `--backend`):
+pass the file to a stage or to `all` (it selects the `custom` ML backend,
+overriding `--backend`):
 
     mlmm sp    -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
     mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py
     mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py
+    mlmm all   -i R.pdb P.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
 
 Notes:
 
@@ -143,10 +144,10 @@ Notes:
   usual `hessian_ff` / OpenMM backend and the ONIOM coupling is unchanged.
   Hessians use the finite-difference path, so `freq` and `tsopt --opt-mode hess`
   work with any engine. Frozen atoms are honored as usual.
-- Available on the standalone subcommands (`sp`, `opt`, `tsopt`, `freq`, `irc`,
-  `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`). For a permanent,
-  installable backend with its own `--backend` name instead, see the recipe
-  below.
+- Available on `all` and the standalone subcommands (`sp`, `opt`, `tsopt`,
+  `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`).
+  `all` forwards the same factory to its calculator-backed child stages. For
+  a permanent, installable backend with its own `--backend` name, see below.
 
 ## Add-a-backend recipe (5 steps)
 

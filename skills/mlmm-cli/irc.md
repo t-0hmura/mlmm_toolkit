@@ -12,7 +12,7 @@ Run `mlmm opt` separately to relax the endpoints to true minima.
 ## Synopsis
 
 ```bash
-mlmm irc -i ts.{pdb,xyz,gjf} --parm real.parm7 \
+mlmm irc -i ts.{pdb,cif,mmcif,xyz} --parm real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--max-cycles 125] [--step-size 0.1] \
     [-b uma|orb|mace|aimnet2] [-o ./result_irc/]
@@ -31,7 +31,7 @@ selection. Most subcommands accept:
 | `--model-pdb FILE` | PDB defining the ML-region atoms (optional with `--detect-layer`) |
 | `--detect-layer / --no-detect-layer` | Derive layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
-| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
+| `--ref-pdb FILE` | Full-enzyme PDB/mmCIF used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
 | `-q, --charge` | Net charge; overrides `calc.charge` from YAML |
@@ -49,6 +49,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--step-size` | float | 0.10 (Bohr) | Step in Bohr; maps to `IRC_KW['step_length']` |
 | `--never-stop / --no-never-stop` | bool | off | Ignore energy-rise/plateau stops only; convergence, invalid values, and max cycles remain active |
 | `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment: `constrained` or isolated-active comparison `legacy-active` |
+| `--read-hess` | path | — | Identified NPZ from `freq --dump-hess`; geometry, atom order, and active-DOF basis must match |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_irc/` | Output directory |
@@ -80,14 +81,21 @@ integrator convergence, invalid-value checks, or the maximum-cycle guard.
 result_irc/
 ├── result.json                     # written when --out-json
 ├── forward_irc_trj.xyz             # raw IRC forward trajectory
-├── forward_irc.pdb                 # PDB conversion when input is a PDB or --ref-pdb supplied
+├── forward_irc.pdb                 # PDB companion when topology + conversion are available
+├── forward_irc.cif                 # bridge-input companion with restored IDs
 ├── backward_irc_trj.xyz            # raw IRC backward trajectory
-├── backward_irc.pdb                # PDB conversion when input is a PDB or --ref-pdb supplied
-├── finished_irc_trj.xyz            # full stitched IRC trajectory (reactant -> TS -> product)
-├── finished_irc.pdb                # PDB conversion when input is a PDB or --ref-pdb supplied
-├── forward_last.{xyz,pdb}          # single-frame forward IRC endpoint
-└── backward_last.{xyz,pdb}         # single-frame backward IRC endpoint
+├── backward_irc.pdb                # PDB companion (same gating)
+├── backward_irc.cif                # bridge-input companion with restored IDs
+├── finished_irc_trj.xyz            # full stitched path (first endpoint -> TS -> last endpoint)
+├── finished_irc.pdb                # PDB companion (same gating)
+├── finished_irc.cif                # bridge-input companion with restored IDs
+├── forward_last.{xyz,pdb,cif}      # single-frame forward IRC endpoint/companions
+└── backward_last.{xyz,pdb,cif}     # single-frame backward IRC endpoint/companions
 ```
+
+With a non-empty YAML `irc.prefix`, EulerPC inserts one underscore before each
+filename (`prefix: trial` → `trial_finished_irc_trj.xyz`); read the normalized
+names from `result.json.files`.
 
 `result.json` keys:
 
@@ -95,11 +103,19 @@ result_irc/
 import json
 d = json.load(open("result_irc/result.json"))
 print(d["n_frames_forward"], d["n_frames_backward"])
-print(d["energy_reactant_hartree"], d["energy_ts_hartree"], d["energy_product_hartree"])
-print(d["bond_changes"])           # {"formed": [...], "broken": [...]}
+print(d["energy_first_hartree"], d["energy_ts_hartree"], d["energy_last_hartree"])
+print(d.get("bond_changes"))       # directed first -> last; may be omitted
 print(d["status"])                  # "completed" (success path only; errors emit a separate error JSON)
+print(d["never_stop"], d["never_stop_energy_bypasses"])
 print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
 ```
+
+Standalone IRC does not know which endpoint is the chemical reactant or
+product. Read `energy_first_hartree` / `energy_last_hartree`; the older
+`energy_reactant_hartree` / `energy_product_hartree` keys are compatibility
+aliases for first/last only. Assign R/P after inspecting or matching the
+endpoint structures. `never_stop` records whether the opt-in mode was enabled;
+`never_stop_energy_bypasses` is the observed bypass count.
 
 The default `constrained` treatment removes only full-system rigid motions
 that leave frozen anchors fixed. Generic ranks are 6/3/1/0 for
@@ -115,15 +131,17 @@ Two forms of endpoint geometry are written:
 
 | File | What |
 |---|---|
-| `forward_last.{xyz,pdb}` / `backward_last.{xyz,pdb}` | Single-frame raw IRC endpoints — **canonical** for downstream stages |
+| `forward_last.{xyz,pdb,cif}` / `backward_last.{xyz,pdb,cif}` | Single-frame raw IRC endpoints — **canonical** for downstream stages; companions depend on topology/bridge metadata |
 | Last frame of `forward_irc_trj.xyz` / `backward_irc_trj.xyz` | Identical to `forward_last` / `backward_last` (same final IRC frame) |
 
 The validator and bond-change detector use `forward_last` / `backward_last`
-when present. See `mlmm-workflows-output/SKILL.md`.
+when present. Their direction is not a chemical R→P assignment. See
+`mlmm-workflows-output/SKILL.md`.
 
 ## Bond-change check
 
-`bond_changes` records which bonds are different between R and P
+`bond_changes` records the directed difference between the first and last
+standalone IRC endpoints
 according to a 1.20× covalent-radius cutoff (`bond_factor` default). This is the same algorithm
 used by `bond-summary` and `path-search` segmentation.
 

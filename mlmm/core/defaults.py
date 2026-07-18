@@ -9,7 +9,9 @@ Modules should import defaults from here instead of defining local copies.
 Project-specific overrides are commented with rationale.
 """
 
-from typing import Any, Dict
+from copy import deepcopy
+from typing import Any, Dict, Mapping, Optional
+from pysisyphus.tr_projection import DEFAULT_TR_PROJECTION
 
 
 # B-factor values encode atom layer membership in PDB files:
@@ -58,7 +60,7 @@ WORK_DIRNAME = "_work"  # pipeline-wide scratch (safe to rm -rf)
 GEOM_KW_DEFAULT: Dict[str, Any] = {
     "coord_type": "cart",
     "freeze_atoms": [],
-    "tr_projection": "constrained",
+    "tr_projection": DEFAULT_TR_PROJECTION,
 }
 
 # Single source of truth for the default UMA model name. Every code default
@@ -261,6 +263,32 @@ DMF_KW: Dict[str, Any] = {
     },
     "k_fix": 300.0,
 }
+
+
+def fresh_dmf_config(
+    overrides: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Return an invocation-local DMF configuration.
+
+    ``DMF_KW`` contains nested mappings.  A shallow ``dict(DMF_KW)`` copy
+    therefore aliases the process-wide templates and lets a recursive YAML
+    merge leak into later in-process runs.  Clone both the defaults and any
+    replacement values at this request boundary.
+    """
+
+    config = deepcopy(DMF_KW)
+
+    def _merge(dst: Dict[str, Any], src: Mapping[str, Any]) -> None:
+        for key, value in src.items():
+            if isinstance(value, Mapping) and isinstance(dst.get(key), dict):
+                _merge(dst[key], value)
+            else:
+                dst[key] = deepcopy(value)
+
+    if overrides:
+        _merge(config, overrides)
+    return config
+
 
 # GrowingString (path representation) defaults
 

@@ -17,13 +17,13 @@ def test_resolved_mlip_provenance_uses_backend_defaults() -> None:
         backend_model=None,
         calc_file=None,
         calc_factory="get_calculator",
-    ) == ("orb", "orb_v3_conservative_omol")
+    ) == ("orb", "orb_v3_conservative_omol", "fp64")
     assert _resolve_mlip_provenance(
         backend=None,
         backend_model=None,
         calc_file="/tmp/custom_calc.py",
         calc_factory="make_calc",
-    ) == ("custom", "custom_calc.py:make_calc")
+    ) == ("custom", "custom_calc.py:make_calc", None)
 
 
 def test_resolved_mlip_provenance_uses_yaml_custom_calculator() -> None:
@@ -35,7 +35,7 @@ def test_resolved_mlip_provenance_uses_yaml_custom_calculator() -> None:
         merged_yaml_cfg={
             "calc": {"calc_file": "/tmp/custom.py", "calc_factory": "build"}
         },
-    ) == ("custom", "custom.py:build")
+    ) == ("custom", "custom.py:build", None)
 
 
 def test_resolved_mlip_provenance_defaults_custom_factory() -> None:
@@ -44,7 +44,28 @@ def test_resolved_mlip_provenance_defaults_custom_factory() -> None:
         backend_model=None,
         calc_file="/tmp/custom.py",
         calc_factory=None,
-    ) == ("custom", "custom.py:get_calculator")
+    ) == ("custom", "custom.py:get_calculator", None)
+
+
+@pytest.mark.parametrize(
+    ("backend", "precision", "expected"),
+    [
+        ("uma", "fp64", "fp64"),
+        ("orb", "fp32", "fp32"),
+        ("mace", "fp32", "fp32"),
+        ("mace", None, "fp64"),
+    ],
+)
+def test_resolved_mlip_provenance_records_effective_precision(
+    backend: str, precision: str | None, expected: str
+) -> None:
+    assert _resolve_mlip_provenance(
+        backend=backend,
+        backend_model=None,
+        calc_file=None,
+        calc_factory=None,
+        precision=precision,
+    )[2] == expected
 
 
 def test_pipeline_status_rejects_zero_imaginary_modes() -> None:
@@ -112,6 +133,7 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
         pipeline_mode="path-opt",
         mlip_backend="orb",
         mlip_model="orb_v3_conservative_omol",
+        mlip_precision="fp64",
         charge=0,
         spin=1,
         post_segments=post,
@@ -120,6 +142,7 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
     )
 
     assert summary["status"] == "success"
+    assert summary["mlip_precision"] == "fp64"
     assert summary["rate_limiting_step"] == {
         "segment": 1,
         "barrier_kcal": 12.0,

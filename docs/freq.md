@@ -50,7 +50,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 2. **PHVA & translation/rotation (TR) projection** — With frozen atoms, eigenanalysis occurs inside the active subspace. The default constrained projector removes only full-system rigid motions that leave every frozen anchor fixed; it does not treat the active fragment as an isolated molecule. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
 3. **Active DOF mode** — `--active-dof-mode` selects which atoms enter the analysis (default `partial`); see the CLI options table for the four modes.
 4. **Mode export** — `--max-write` limits how many modes are animated. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` (XYZ-like trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering). The sinusoidal animation amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
-5. **Thermochemistry** — If `thermoanalysis` is installed, a QRRHO-like summary (EE, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. CLI pressure in atm is converted internally to Pa. When `--dump`, a `thermoanalysis.yaml` snapshot is also written.
+5. **Thermochemistry** — If `thermoanalysis` is installed, a QRRHO-like summary (EE, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. CLI pressure in atm is converted internally to Pa. When `--dump`, a `thermoanalysis.yaml` snapshot is also written. **Frequency-treatment policy**: `freq` applies the **standalone-freq policy** — QRRHO with a 100 cm⁻¹ rotor cutoff, unit frequency/ZPE scaling, **no** imaginary-frequency inversion, and **no** positive-frequency floor. This is deliberately different from the internal `Geometry.get_thermoanalysis` policy used by some bundled-engine paths, which additionally inverts small imaginaries (from −15 cm⁻¹) and floors positive frequencies below 25 cm⁻¹. Neither is a universal scientific default; each is tied to its entry point. The effective policy (`kind`, `rotor_cutoff_cm`, `frequency_scale`, `zpe_scale`, `invert_imag_from_cm`, `positive_frequency_floor_cm`) is serialized under `thermo_policy` in `thermoanalysis.yaml` and in `result.json`.
 6. **Device selection** — `ml_device="auto"` triggers CUDA when available, otherwise CPU. The internal TR projection/mode assembly runs on the same device to minimize transfers.
 7. **Exit behavior** — Keyboard interrupts exit with code 130; other failures print a traceback and exit with code 1.
 
@@ -128,7 +128,7 @@ out_dir/ (default: ./result_freq/)
 | `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
-| `--dump-hess PATH` | Save computed Hessian to a compressed `.npz` file. Can be loaded by `mlmm irc --read-hess`. | _None_ |
+| `--dump-hess PATH` | Save Hessian, atom order, Cartesian geometry, active-DOF basis, and PHVA metadata to `.npz` for a matching `mlmm irc --read-hess` run. | _None_ |
 | **Mode export** | | |
 | `--max-write INT` | Number of modes to export. | `10` |
 | `--sort CHOICE` | Mode ordering: `value` (cm^-1) or `abs`. | `value` |
@@ -146,13 +146,17 @@ out_dir/ (default: ./result_freq/)
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate and print execution plan without running frequency analysis. Shown in `--help-advanced`. | `False` |
 
+The handoff is identity-checked: IRC rejects legacy files without identity
+metadata and files from a different atom order, geometry, layer selection, or
+Hessian active basis. Regenerate the file with the same layer/Hessian settings.
+
 ## YAML configuration
 
 An explicit analytical Hessian with `workers > 1` is rejected. Use one worker
 for analytical curvature, or select `FiniteDifference` before enabling the UMA
 parallel predictor.
 
-Provide mappings with merge order **defaults < config < explicit CLI < override**.
+Provide mappings with merge order **defaults < config < explicit CLI**.
 Shared sections reuse [YAML Reference](yaml-reference.md).
 An additional `thermo` section is supported for thermochemistry controls.
 

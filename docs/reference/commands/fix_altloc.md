@@ -3,8 +3,8 @@
 ```text
 Usage: mlmm fix-altloc [OPTIONS]
 
-  Blank PDB altLoc column (col 17) without shifting, and keep one altLoc per
-  atom by default rule: highest occupancy, then earliest appearance.
+  Blank PDB altLoc column (col 17) without shifting, and select one coherent
+  label per residue by highest mean occupancy, then earliest appearance.
 
 Options:
   -v, --verbose LEVEL           Console verbosity 0-3 (default 2). 0=silent;

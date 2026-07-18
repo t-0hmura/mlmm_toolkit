@@ -1,0 +1,7 @@
+hessian_dimer:
+  flatten_max_iter: 1
+rsirfo:
+  check_eigval_structure: false
+  verify_saddle: false
+  rms_force: 0.1
+  rms_force_only: true

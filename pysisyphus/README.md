@@ -72,5 +72,5 @@ If you `pip install pysisyphus` into the same environment as `mlmm_toolkit`, Pyt
 ## See also
 
 - [`../docs/architecture.md`](../docs/architecture.md) §5.3, §6 — repo-internal fork policy
-- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) §4.2 — do-not-touch list (5 divergent files)
+- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) §4.3 — bundled-fork validation gate
 - `THIRD_PARTY_NOTICES.txt` — pysisyphus upstream attribution

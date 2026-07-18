@@ -130,7 +130,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 1. **Input handling** — load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge / spin. Frozen atoms from CLI and YAML are merged.
 2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference. With `--embedcharge`, xTB point-charge embedding provides MM-to-ML environmental corrections.
-3. **Light mode (Hessian-Guided Dimer)** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian in the active subspace. Its TR treatment follows `--tr-projection`: the default removes only full-system rigid motions compatible with the frozen anchors. The mechanics:
+3. **Light mode (Hessian-Guided Dimer)** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian in the active subspace. Its TR treatment follows `--tr-projection`: the default removes only full-system rigid motions compatible with the frozen anchors. Every stored, rotated, and trial orientation has frozen Cartesian components set to zero, and every off-centre force evaluation retains the central image's frozen coordinates exactly. The mechanics:
    - During the loose / final Dimer loops the `hessian_ff` finite-difference Hessian is disabled (`mm_fd=False`). The ML backend Hessian is then embedded into the full 3N × 3N space with MM atoms zero-padded, giving a partial Hessian that still guides the Dimer direction updates.
    - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences.
    - Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a Dimer + L-BFGS micro-segment.
@@ -217,7 +217,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 ## YAML configuration
 
-Settings are applied with `defaults < config < explicit CLI < override`. Shared sections reuse [YAML Reference](yaml-reference.md).
+Settings are applied with `defaults < config < explicit CLI`. Shared sections reuse [YAML Reference](yaml-reference.md).
 ```yaml
 geom:
   coord_type: cart
@@ -258,6 +258,9 @@ Frozen-boundary PHVA and mass-weighted TR treatment mirror `freq.py`. With
 anchor fixed are removed. The generic effective rank is 6/3/1/0 for
 zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries
 normally have rank 0. An all-frozen selection raises an explicit error.
+The Dimer rebuilds this basis whenever its central image changes and applies it
+to orientations and rotation forces; it does not subtract active-fragment
+translations that are finite-curvature motions against the frozen boundary.
 
 `--tr-projection` is unrelated to `--ref-mode`: the former controls
 frozen-boundary rigid-mode projection, while the latter supplies an advanced 3N
@@ -270,7 +273,7 @@ rank, Hessian source, and Hessian shape.
 ```{note}
 `rsirfo.trust_max` defaults to 0.10 bohr for improved ML/MM stability near the TS.
 
-The shared `opt` block also provides an **energy-plateau fallback** (`energy_plateau: true` by default, `energy_plateau_thresh: 1.0e-4` au over `energy_plateau_window: 50` steps). If the MLIP force noise floor prevents the gradient-based `thresh` preset from being reached, the optimizer still exits cleanly once the energy itself has plateaued. See [yaml-reference](yaml-reference.md#opt) for full details.
+The shared `opt` block also provides an **energy-plateau fallback** (`energy_plateau: true` by default, `energy_plateau_thresh: 1.0e-4` au over `energy_plateau_window: 50` steps). If the MLIP force noise floor prevents the gradient-based `thresh` preset from being reached, a plateau stops the search instead of spending the remaining cycles, and reports `status: "stalled"` — a distinct non-converged outcome, never `converged`. The terminal exact Hessian still runs, so the saddle diagnosis is reported either way; the flatten/retry loop does not, because a stalled root is not a validated TS mode. See [yaml-reference](yaml-reference.md#opt) for full details.
 
 For `--microiter`, `rsirfo.thresh` controls the macro RS-I-RFO step. The MM
 relaxation threshold is set with `microiter.micro_thresh`; when it is `null` or

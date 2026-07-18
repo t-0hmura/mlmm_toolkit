@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 from pysisyphus.Geometry import Geometry
+from pysisyphus.constants import AMU2AU
 from pysisyphus.tr_projection import active_tr_basis, project_hessian_inplace
 
 
@@ -444,3 +445,103 @@ def test_cuda_cpu_projector_parity_for_float32_two_anchor_case():
         atol=1.0e-12,
         rtol=1.0e-12,
     )
+
+
+@pytest.mark.parametrize("frozen", [[], [0], [0, 1]])
+@pytest.mark.parametrize("active_block", [False, True])
+def test_dimer_root_selection_excludes_projector_zero_modes(frozen, active_block):
+    from mlmm.workflows.tsopt import (
+        _mode_direction_by_root,
+        _mode_direction_by_root_from_Hact,
+    )
+
+    n_atoms = len(COORDS)
+    active = [atom for atom in range(n_atoms) if atom not in frozen]
+    masses_au = MASSES * AMU2AU
+    full_hessian = torch.diag(torch.repeat_interleave(MASSES, 3))
+
+    if active_block:
+        active_dofs = [3 * atom + axis for atom in active for axis in range(3)]
+        mode = _mode_direction_by_root_from_Hact(
+            full_hessian[active_dofs][:, active_dofs],
+            COORDS.numpy(),
+            [6, 1, 8, 7, 16],
+            masses_au,
+            active,
+            torch.device("cpu"),
+        )
+    else:
+        mode = _mode_direction_by_root(
+            full_hessian,
+            COORDS,
+            masses_au,
+            freeze_idx=frozen,
+        )
+
+    mode_active = torch.as_tensor(mode[active].reshape(-1), dtype=torch.float64)
+    mode_mw = mode_active * torch.sqrt(torch.repeat_interleave(MASSES[active], 3))
+    mode_mw /= torch.linalg.norm(mode_mw)
+    basis, info = active_tr_basis(COORDS, masses_au, active)
+
+    assert info.effective_rank > 0
+    assert np.all(np.isfinite(mode))
+    torch.testing.assert_close(
+        basis.T @ mode_mw,
+        torch.zeros(info.effective_rank, dtype=torch.float64),
+        atol=2.0e-10,
+        rtol=0.0,
+    )
+
+
+@pytest.mark.parametrize("frozen", [[], [0], [0, 1]])
+def test_dimer_root_order_is_preserved_in_compact_complement(frozen):
+    from mlmm.workflows.tsopt import (
+        _mode_direction_by_root,
+        _mode_direction_by_root_from_Hact,
+    )
+
+    n_atoms = len(COORDS)
+    active = [atom for atom in range(n_atoms) if atom not in frozen]
+    active_dofs = [3 * atom + axis for atom in active for axis in range(3)]
+    masses_au = MASSES * AMU2AU
+    basis, info = active_tr_basis(COORDS, masses_au, active)
+    complete, _ = torch.linalg.qr(basis, mode="complete")
+    complement = complete[:, info.effective_rank :]
+    spectrum = torch.arange(1, complement.shape[1] + 1, dtype=torch.float64)
+    spectrum[:2] = torch.tensor([-2.0, -1.0], dtype=torch.float64)
+    hessian_mw = complement @ torch.diag(spectrum) @ complement.T
+    sqrt_m = torch.sqrt(torch.repeat_interleave(MASSES[active], 3))
+    hessian_active = sqrt_m[:, None] * hessian_mw * sqrt_m[None, :]
+    hessian_full = torch.diag(torch.repeat_interleave(MASSES, 3))
+    hessian_full[np.ix_(active_dofs, active_dofs)] = hessian_active
+
+    modes_full = []
+    modes_active = []
+    for root in (0, 1):
+        mode_full = _mode_direction_by_root(
+            hessian_full.clone(),
+            COORDS,
+            masses_au,
+            root=root,
+            freeze_idx=frozen,
+        )
+        mode_active = _mode_direction_by_root_from_Hact(
+            hessian_active.clone(),
+            COORDS.numpy(),
+            [6, 1, 8, 7, 16],
+            masses_au,
+            active,
+            torch.device("cpu"),
+            root=root,
+        )
+        for mode, collected in ((mode_full, modes_full), (mode_active, modes_active)):
+            mw = torch.as_tensor(mode[active].reshape(-1), dtype=torch.float64) * sqrt_m
+            mw /= torch.linalg.norm(mw)
+            collected.append(mw)
+            assert abs(float(torch.dot(mw, complement[:, root]))) > 1.0 - 1.0e-10
+
+    # root=0 uses iterative LOBPCG, whose returned orthogonality is typically
+    # at the 1e-8 level for this deliberately degenerate positive complement.
+    assert abs(float(torch.dot(modes_full[0], modes_full[1]))) < 1.0e-7
+    for full, partial in zip(modes_full, modes_active):
+        assert abs(float(torch.dot(full, partial))) > 1.0 - 1.0e-10

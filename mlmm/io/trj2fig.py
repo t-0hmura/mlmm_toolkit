@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 import click
+from mlmm.core.output import emit
 import plotly.graph_objs as go
 from ase import Atoms
 from ase.io import read
@@ -250,14 +251,14 @@ def save_outputs(
         elif ext == ".html":
             assert fig is not None
             fig.write_html(out)
-            click.echo(f"[trj2fig] Saved figure -> {out}", detail=True)
+            emit(f"[trj2fig] Saved figure -> {out}", detail=True)
         elif ext in {".png", ".jpg", ".jpeg", ".pdf", ".svg"}:
             assert fig is not None
             kw = {"engine": "kaleido"}
             if ext == ".png":
                 kw["scale"] = 2  # high-resolution PNG
             fig.write_image(out, **kw)
-            click.echo(f"[trj2fig] Saved figure -> {out}", detail=True)
+            emit(f"[trj2fig] Saved figure -> {out}", detail=True)
         else:
             raise ValueError(f"Unsupported format: {ext}")
 
@@ -278,7 +279,7 @@ def write_csv(
         w.writerow(["frame", "energy_hartree", colname])
         for i, (eh, y) in enumerate(zip(energies_hartree, series)):
             w.writerow([i, f"{eh:.8f}", f"{y:.6f}"])
-    click.echo(f"[trj2fig] Saved CSV -> {out}", detail=True)
+    emit(f"[trj2fig] Saved CSV -> {out}", detail=True)
 
 
 #  CLI (argparse)
@@ -341,7 +342,7 @@ def run_trj2fig(
     if charge is None and multiplicity is None:
         energies = read_energies_xyz(traj)
     else:
-        click.echo("[trj2fig] Recomputing energies with UMA model ...", detail=True)
+        emit("[trj2fig] Recomputing energies with UMA model ...", detail=True)
         energies = recompute_energies(traj, charge, multiplicity)
     values, ylabel, is_delta = transform_series(energies, reference, unit, reverse_x)
 

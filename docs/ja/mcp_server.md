@@ -15,15 +15,29 @@ pip install "mlmm-toolkit[mcp]"
 22 個のツールがあり、CLI サブコマンドごとに 1 つ対応します。各ツールは、以下を含む構造化された dict（`mlmm.mcp._runner` の `SubcmdResultDict`）を返します:
 
 - `schema_version`: エンベロープのバージョン。実際の値: `mlmm.mcp._runner.MCP_SUBCMD_RESULT_SCHEMA_VERSION`。値の上昇はフィールドセットや値の型の変更を示します。リテラル値をハードコードせず、定数を参照してください。
-- `status`: `ok` | `failed` | `summary_missing` | `summary_parse_error`
+- `status`: `ok` | `failed` | `summary_missing` | `summary_parse_error` | `summary_run_mismatch`
 - `exit_code`: サブプロセスの終了コード
 - `out_dir`: CLI が書き込んだ作業ディレクトリ
 - `summary`: パースされた `summary.json`（CLI 出力スキーマ。ステージごとの形状は [JSON 出力リファレンス](json-output.md) を参照）
 - `stderr_tail` / `stdout_tail`: プロセス出力の末尾 ~60 行
 - `hint`: CLI エラーメッセージからパースされた `; recover: <hint>` サフィックス（存在する場合）
 - `argv`: 実行された完全な argv（再現性のため）
+- `run_id`: このサブプロセス呼び出しに割り当てられた UUID
 
 型付き Python のユーザー向けに、`mlmm.mcp._runner` は `SubcmdResultDict`（実行時ペイロードを反映する `TypedDict`）と `MCP_SUBCMD_RESULT_STATUSES`（許可される `status` 文字列の列挙タプル）も公開しています。
+
+サーバーは `mlmm` を、MCP サーバーを実行中の Python interpreter と
+import 済み module（`python -m mlmm`）へ固定します。その source root を
+child `PYTHONPATH` の先頭に置き、working directory は変更しません。
+各呼び出しは `MLMM_RUN_ID` で `run_id` を渡し、その ID と一致する
+`summary.json` だけを返します。leaf command では同一世代・同一 byte の
+`result.json` も必須です。aggregate の `all` と `path-search` は一つの
+summary のみを発行します。
+
+出力先は typed tool parameter が所有します。summary tool の `extra_args`
+では `-o`, `--out-dir`, `--out-json`, `--no-out-json` を、utility では typed
+output option を上書きできません。短縮 option の連結形と
+`--option=value` 形も subprocess 起動前に拒否されます。
 
 ### 構造化エラーエンベロープ
 
@@ -105,6 +119,6 @@ pip install "mlmm-toolkit[mcp]"
 
 ## サンドボックス / 安全性に関する注意
 
-- MCP サーバーは、呼び出し元の環境の PATH、conda 環境、CUDA セットアップ、AmberTools のパスを継承します。各ツールは `mlmm` CLI をサブプロセスとして起動するため、長時間実行されるツール（opt / tsopt / irc / scan）はプロセス外で実行されます。各呼び出しで `timeout_seconds` を設定して上限を設けてください。
+- MCP サーバーは外部 tool 用の PATH、conda 環境、CUDA セットアップ、AmberTools のパスを継承します。各ツールは server interpreter から import 済み `mlmm` module をサブプロセスとして起動するため、長時間実行されるツール（opt / tsopt / irc / scan）はプロセス外で実行されます。各呼び出しで `timeout_seconds` を設定して上限を設けてください。
 - 出力ファイルは `out_dir` kwarg の配下に配置されます（デフォルトは一意の `tempfile.mkdtemp("mlmm_mcp_<subcmd>_…")`）。
 - サーバーは `~/.bashrc` / ログイン環境を変更したり、ソフトウェアをインストールしたり、`out_dir` の外に書き込んだりしません。必要な入力（PDB、parm7、ML 重み）はあらかじめディスク上に存在している必要があります。

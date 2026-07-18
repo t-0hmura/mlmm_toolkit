@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import sys
 
 import click
+from mlmm.core.output import emit
 import numpy as np
 
 from mlmm.core.defaults import (
@@ -585,7 +586,7 @@ def cli(
         output_pdb = input_pdb.parent / f"{input_pdb.stem}_layered.pdb"
 
     # Echo configuration
-    click.echo("\n====== Define Layer Configuration ======\n", narrative=True)
+    emit("\n====== Define Layer Configuration ======\n", narrative=True)
     click.echo(f"Input PDB: {input_pdb}")
     if model_pdb is not None:
         click.echo(f"Model PDB: {model_pdb}")
@@ -612,7 +613,7 @@ def cli(
         )
 
         # Print summary
-        click.echo("\n====== Layer Summary ======\n", narrative=True)
+        emit("\n====== Layer Summary ======\n", narrative=True)
         click.echo(f"Layer 1 (ML, B={BFACTOR_ML:.0f}):         {len(layer_indices['ml_indices']):6d} atoms")
         click.echo(f"Layer 2 (Movable MM, B={BFACTOR_MOVABLE_MM:.0f}): {len(layer_indices['movable_mm_indices']):6d} atoms")
         click.echo(f"Layer 3 (Frozen MM, B={BFACTOR_FROZEN:.0f}):     {len(layer_indices['frozen_indices']):6d} atoms")

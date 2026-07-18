@@ -1,0 +1,4 @@
+irc:
+  energy_thresh: 1000000.0
+  rms_grad_thresh: 0.0
+  hard_rms_grad_thresh: null

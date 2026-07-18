@@ -14,8 +14,7 @@ Catches three classes of staleness:
    ``"n_cycles"`` → ``"n_opt_cycles"``, etc.). Maintained as a small
    allowlist of (old, new) pairs.
 
-Warning-only: always exits 0. Run on PR / push to surface drift early
-without blocking merges. Promote to hard-fail after a tuning period.
+The check is release-gating: any detected drift exits nonzero.
 """
 
 from __future__ import annotations
@@ -181,14 +180,12 @@ def main() -> int:
         for w in all_warnings:
             print(w)
         print(
-            "\nNote: warning-only — this check does not fail CI. "
-            "Address the items above (or update RENAMED_STRINGS / "
-            "CANONICAL_STATUS in .github/scripts/check_skill_drift.py if a "
-            "rename is intentional)."
+            "\nAddress the items above, or update RENAMED_STRINGS / "
+            "CANONICAL_STATUS when the source contract intentionally changed."
         )
     else:
         print(f"[skill-drift] OK: no warnings across {n_files} file(s)")
-    return 0
+    return 1 if all_warnings else 0
 
 
 if __name__ == "__main__":

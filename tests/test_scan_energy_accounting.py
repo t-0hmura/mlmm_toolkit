@@ -48,6 +48,7 @@ def test_calculator_provenance_resolves_backend_specific_model() -> None:
     assert provenance == {
         "mlip_backend": "orb",
         "mlip_model": "orb-test",
+        "mlip_precision": "fp64",
         "mm_backend": "openmm",
         "link_atom_method": "fixed",
         "use_cmap": True,
@@ -64,3 +65,4 @@ def test_calculator_provenance_labels_custom_factory() -> None:
     )
     assert provenance["mlip_backend"] == "custom"
     assert provenance["mlip_model"] == "my_calc.py:build"
+    assert provenance["mlip_precision"] is None

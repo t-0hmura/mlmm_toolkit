@@ -91,3 +91,16 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "rxworkspace" in app
     assert "rxviewer" in app
     assert "rxinspector" in app
+
+
+def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
+    app = _notebook()["cells"][2]["source"]
+
+    assert "'mep_mode': {'path-opt', 'path-search'}" in app
+    assert "sub in TOOL_CAPABILITIES['threshold']" in app
+    assert "elif sub == 'dft':" in app
+    assert "cmd += ['--func-basis', fb]" in app
+    assert "adv_mep.disabled = sub not in TOOL_CAPABILITIES['mep_mode']" in app
+    assert "d['all_mode'] = _wv('all_mode', 'mep')" in app
+    assert "all_mode.value = saved_all_mode" in app
+    assert "bytes(c).decode('utf-8')" in app

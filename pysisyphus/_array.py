@@ -65,6 +65,46 @@ def _dot(a: ArrayLike, b: ArrayLike) -> ArrayLike:
     return np.dot(a, b)
 
 
+def active_square(H: ArrayLike, idx, *, row_chunk_bytes: int = 2 * 1024 * 1024) -> ArrayLike:
+    """Extract the active square sub-block ``H[idx][:, idx]`` with bounded peak.
+
+    Equivalent to ``H[np.ix_(idx, idx)]`` (numpy) or
+    ``H.index_select(0, idx).index_select(1, idx)`` (torch), but for torch the
+    chained form first materialises a full ``(len(idx), n)`` row temporary. For
+    a large Hessian that intermediate can dominate peak VRAM. This routine
+    preallocates the ``(m, m)`` output and fills it in bounded row chunks, so
+    the transient peak is ``output + one (chunk, n)`` block instead of
+    ``output + (m, n)``. It is a pure gather (no arithmetic) and therefore
+    bit-identical to the chained result. ``row_chunk_bytes`` is a per-block byte
+    budget; the row count is derived from it and clamped to ``[1, m]``.
+
+    numpy inputs keep the simple ``np.ix_`` path (numpy fancy indexing does not
+    build the same oversized intermediate).
+    """
+    if not isinstance(H, torch.Tensor):
+        idx_np = np.asarray(idx)
+        return H[np.ix_(idx_np, idx_np)]
+
+    if not isinstance(idx, torch.Tensor):
+        idx = torch.as_tensor(idx, dtype=torch.long, device=H.device)
+    else:
+        idx = idx.to(device=H.device, dtype=torch.long)
+
+    m = int(idx.numel())
+    n = int(H.shape[1])
+    out = torch.empty((m, m), dtype=H.dtype, device=H.device)
+    if m == 0:
+        return out
+    itemsize = out.element_size()
+    rows = max(1, int(row_chunk_bytes // max(1, n * itemsize)))
+    rows = min(rows, m)
+    for start in range(0, m, rows):
+        stop = min(start + rows, m)
+        block = H.index_select(0, idx[start:stop])  # (chunk, n)
+        out[start:stop] = block.index_select(1, idx)  # (chunk, m)
+    return out
+
+
 def _eigh(H: ArrayLike):
     """Symmetric eigendecomposition preserving the backend of *H*.
 
@@ -76,4 +116,4 @@ def _eigh(H: ArrayLike):
     return np.linalg.eigh(H)
 
 
-__all__ = ["get_xp", "to_xp", "as_numpy", "_outer", "_dot", "_eigh"]
+__all__ = ["get_xp", "to_xp", "as_numpy", "_outer", "_dot", "_eigh", "active_square"]

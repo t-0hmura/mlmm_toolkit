@@ -25,7 +25,8 @@ def calc_energy(
     Parameters
     ----------
     geom:
-        Pysisyphus ``Geometry`` instance carrying ``atoms`` and ``coords``.
+        Pysisyphus ``Geometry`` instance carrying ``atoms`` and Cartesian
+        ``cart_coords``.
     calc_kwargs:
         Keyword arguments for constructing a fresh :class:`mlmm.backends.mlmm`
         when ``calc`` is ``None``. ``out_hess_torch`` is forced to ``False``
@@ -41,7 +42,7 @@ def calc_energy(
         kw = dict(calc_kwargs or {})
         kw["out_hess_torch"] = False
         calc = mlmm(**kw)
-    result = calc.get_energy(geom.atoms, geom.coords)
+    result = calc.get_energy(geom.atoms, geom.cart_coords)
     energy = float(result.get("energy", 0.0))
     del result
     if owns_calc:

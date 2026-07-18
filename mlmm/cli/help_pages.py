@@ -46,17 +46,19 @@ def _ensure_help_advanced_option(command: click.Command) -> click.Command:
     return command
 
 
-def _configure_subcommand_help_visibility(
-    command_name: str,
+def _hide_advanced_options(
     command: click.Command,
-    primary_options_by_subcommand: dict[str, frozenset[str]],
+    primary_options: "frozenset[str] | set[str]",
 ) -> click.Command:
-    """Hide advanced options from default --help for selected subcommands."""
-    if hasattr(command, "_advanced_hidden_options"):
-        return command
+    """Hide every option not in *primary_options* from the default ``--help``.
 
-    primary_options = primary_options_by_subcommand.get(command_name)
-    if not primary_options:
+    Records the options it hides on ``command._advanced_hidden_options`` so
+    ``_show_advanced_subcommand_help`` can temporarily un-hide exactly that set.
+    Idempotent: a second call is a no-op once the marker is present.  This is the
+    single advanced-help visibility implementation shared by ``all`` and the
+    lazily-loaded subcommands (M38).
+    """
+    if hasattr(command, "_advanced_hidden_options"):
         return command
 
     hidden_options: list[click.Option] = []
@@ -73,3 +75,19 @@ def _configure_subcommand_help_visibility(
 
     setattr(command, "_advanced_hidden_options", tuple(hidden_options))
     return command
+
+
+def _configure_subcommand_help_visibility(
+    command_name: str,
+    command: click.Command,
+    primary_options_by_subcommand: dict[str, frozenset[str]],
+) -> click.Command:
+    """Hide advanced options from default --help for selected subcommands."""
+    if hasattr(command, "_advanced_hidden_options"):
+        return command
+
+    primary_options = primary_options_by_subcommand.get(command_name)
+    if not primary_options:
+        return command
+
+    return _hide_advanced_options(command, primary_options)

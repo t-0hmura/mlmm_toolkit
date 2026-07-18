@@ -77,7 +77,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--link-atom-method [scaled\|fixed]` | `scaled` | link-atom positioning |
 | `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM backend (analytical vs finite-difference Hessian) |
 | `-o, --out-dir PATH` | `./result_sp/` | output directory |
-| `--precision [fp32\|fp64]` | `fp32` | numeric precision passed to the backend |
+| `--precision [fp32\|fp64]` | backend-specific | numeric precision passed to the backend (unset: UMA/AIMNet2 fp32, ORB/MACE fp64) |
 | `--config PATH` | — | YAML config providing `calc.*`, `geom.*` defaults |
 | `--show-config / --dry-run` | off | print effective merged config / validate without running |
 

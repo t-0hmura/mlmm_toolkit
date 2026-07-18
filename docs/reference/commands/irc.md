@@ -14,8 +14,8 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Input structure file (.pdb, .xyz, _trj.xyz,
-                                  etc.).  [required]
+  -i, --input FILE                Input structure file (.pdb, .cif, .mmcif,
+                                  .xyz, _trj.xyz, etc.).  [required]
   --parm FILE                     Amber parm7 topology for the whole enzyme (MM
                                   region). If omitted, must be provided in YAML
                                   as calc.real_parm7.
@@ -28,7 +28,8 @@ Options:
                                   Required unless --ligand-charge is provided.
   -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
                                   GPP:-3,SAM:1) used to derive charge when -q is
-                                  omitted (requires PDB input or --ref-pdb).
+                                  omitted (requires PDB/mmCIF input or --ref-
+                                  pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1); overrides calc.spin
                                   from YAML.
   --max-cycles INTEGER            Maximum number of IRC steps; overrides
@@ -61,8 +62,8 @@ Options:
                                   execution.  [default: no-show-config]
   --dry-run / --no-dry-run        Validate options and print the execution plan
                                   without running IRC.  [default: no-dry-run]
-  --ref-pdb FILE                  Reference PDB topology to use when --input is
-                                  XYZ (keeps XYZ coordinates).
+  --ref-pdb FILE                  Reference PDB/mmCIF topology to use when
+                                  --input is XYZ (keeps XYZ coordinates).
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-
@@ -91,9 +92,10 @@ Options:
                                   operations (auto/cuda/cpu). Use 'cpu' for
                                   large unfrozen systems to avoid VRAM limits.
                                   [default: auto]
-  --read-hess FILE                Read initial Hessian from a .npz file
-                                  (produced by 'mlmm freq --dump-hess'). Takes
-                                  priority over the hessian_cache and fresh
+  --read-hess FILE                Read an identified initial Hessian from 'mlmm
+                                  freq --dump-hess'. The geometry, atom order,
+                                  and active-DOF basis must match; the file
+                                  takes priority over hessian_cache and fresh
                                   computation.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').

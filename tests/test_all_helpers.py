@@ -4,15 +4,348 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+
+import pytest
 import yaml
 
 from mlmm.workflows._all_helpers import (
-    AllContext,
+    build_dft_overrides,
     build_energy_level_dict,
+    build_freq_overrides,
+    build_path_child_argv,
     build_pipeline_summary_payload,
+    build_scan_child_argv,
+    build_tsopt_overrides,
     copy_path_outputs_to_root,
     promote_diag_for_root,
+    resolve_dft_func_basis_forwarding,
+    resolve_post_thresh_forwarding,
 )
+
+
+def _path_child_kwargs(*, include_opt_mode: bool) -> dict:
+    return {
+        "include_opt_mode": include_opt_mode,
+        "max_nodes": 31,
+        "max_cycles": 47,
+        "climb": False,
+        "opt_mode": "hess",
+        "dump": False,
+        "pre_opt": False,
+        "convert_files": False,
+        "thresh": "gau_tight",
+    }
+
+
+_PATH_COMMON_CASES = (
+    ("max_nodes", ["--max-nodes", "31"]),
+    ("max_cycles", ["--max-cycles", "47"]),
+    ("climb", ["--no-climb"]),
+    ("dump", ["--no-dump"]),
+    ("pre_opt", ["--no-preopt"]),
+    ("convert_files", ["--no-convert-files"]),
+    ("thresh", ["--thresh", "gau_tight"]),
+)
+
+
+@pytest.mark.parametrize(
+    ("parameter", "expected"),
+    _PATH_COMMON_CASES + (("opt_mode", ["--opt-mode", "hess"]),),
+)
+def test_path_search_child_forwards_each_explicit_field_once(
+    parameter: str,
+    expected: list[str],
+) -> None:
+    argv = build_path_child_argv(
+        {parameter},
+        **_path_child_kwargs(include_opt_mode=True),
+    )
+    assert argv == expected
+    assert argv.count(expected[0]) == 1
+
+
+@pytest.mark.parametrize(("parameter", "expected"), _PATH_COMMON_CASES)
+def test_path_opt_child_forwards_each_explicit_field_once(
+    parameter: str,
+    expected: list[str],
+) -> None:
+    argv = build_path_child_argv(
+        {parameter},
+        **_path_child_kwargs(include_opt_mode=False),
+    )
+    assert argv == expected
+    assert argv.count(expected[0]) == 1
+
+
+def test_path_opt_explicitly_omits_unsupported_opt_mode() -> None:
+    assert build_path_child_argv(
+        {"opt_mode"},
+        **_path_child_kwargs(include_opt_mode=False),
+    ) == []
+
+
+@pytest.mark.parametrize("include_opt_mode", [True, False])
+def test_path_defaults_leave_pipeline_owned_and_yaml_tokens_unchanged(
+    include_opt_mode: bool,
+) -> None:
+    pipeline_owned = [
+        "-i",
+        "state.pdb",
+        "-q",
+        "-1",
+        "--parm",
+        "real.parm7",
+        "--out-dir",
+        "result",
+        "--config",
+        "effective.yaml",
+    ]
+    argv = pipeline_owned + build_path_child_argv(
+        set(),
+        **_path_child_kwargs(include_opt_mode=include_opt_mode),
+    )
+    assert argv == pipeline_owned
+
+
+@pytest.mark.parametrize(
+    ("parameter", "expected"),
+    [
+        ("convert_files", ["--no-convert-files"]),
+        ("thresh", ["--thresh", "gau_tight"]),
+    ],
+)
+def test_scan_child_forwards_each_explicit_field_once(
+    parameter: str,
+    expected: list[str],
+) -> None:
+    argv = build_scan_child_argv(
+        {parameter},
+        convert_files=False,
+        thresh="gau_tight",
+    )
+    assert argv == expected
+    assert argv.count(expected[0]) == 1
+
+
+def test_scan_defaults_leave_pipeline_owned_and_yaml_tokens_unchanged() -> None:
+    pipeline_owned = [
+        "-i",
+        "state.pdb",
+        "-q",
+        "-1",
+        "--parm",
+        "real.parm7",
+        "--out-dir",
+        "result",
+        "--config",
+        "effective.yaml",
+    ]
+    argv = pipeline_owned + build_scan_child_argv(
+        set(),
+        convert_files=False,
+        thresh="gau_tight",
+    )
+    assert argv == pipeline_owned
+
+
+def _tsopt_override_kwargs() -> dict:
+    return {
+        "tsopt_max_cycles": None,
+        "dump": False,
+        "dump_override_requested": False,
+        "tsopt_out_dir": None,
+        "hessian_calc_mode": None,
+        "opt_mode_post_norm": "hess",
+        "opt_mode_post_set": False,
+        "opt_mode_set": False,
+        "tsopt_opt_mode_default": "hess",
+        "convert_files": True,
+        "convert_files_explicit": False,
+        "thresh_post_forward": None,
+        "flatten_explicit": False,
+        "flatten": False,
+        "skip_final_freq": False,
+        "skip_final_freq_explicit": False,
+    }
+
+
+def _freq_override_kwargs() -> dict:
+    return {
+        "freq_max_write": None,
+        "freq_amplitude_ang": None,
+        "freq_n_frames": None,
+        "freq_sort": None,
+        "freq_temperature": None,
+        "freq_pressure": None,
+        "dump_override_requested": False,
+        "dump": False,
+        "hessian_calc_mode": None,
+        "convert_files": True,
+        "convert_files_explicit": False,
+    }
+
+
+def _dft_override_kwargs() -> dict:
+    return {
+        "dft_max_cycle": None,
+        "dft_conv_tol": None,
+        "dft_grid_level": None,
+        "dft_engine": None,
+        "dft_func_basis_forward": None,
+        "convert_files": True,
+        "convert_files_explicit": False,
+    }
+
+
+def test_all_post_stage_overrides_do_not_reemit_parent_defaults() -> None:
+    assert build_tsopt_overrides(**_tsopt_override_kwargs()) == {}
+    assert build_freq_overrides(**_freq_override_kwargs()) == {}
+    assert build_dft_overrides(**_dft_override_kwargs()) == {}
+
+
+@pytest.mark.parametrize(
+    ("updates", "expected"),
+    [
+        ({"tsopt_max_cycles": 41}, {"max_cycles": 41}),
+        ({"dump_override_requested": True}, {"dump": False}),
+        ({"tsopt_out_dir": Path("ts")}, {"out_dir": Path("ts")}),
+        ({"hessian_calc_mode": "Analytical"}, {"hessian_calc_mode": "Analytical"}),
+        (
+            {"opt_mode_post_norm": "grad", "opt_mode_post_set": True},
+            {"opt_mode": "grad"},
+        ),
+        (
+            {"opt_mode_set": True, "tsopt_opt_mode_default": "grad"},
+            {"opt_mode": "grad"},
+        ),
+        (
+            {"convert_files": False, "convert_files_explicit": True},
+            {"convert_files": False},
+        ),
+        ({"thresh_post_forward": "gau_loose"}, {"thresh": "gau_loose"}),
+        ({"flatten_explicit": True}, {"flatten": False}),
+        ({"skip_final_freq_explicit": True}, {"skip_final_freq": False}),
+    ],
+)
+def test_tsopt_override_builder_covers_each_forwarded_field(
+    updates: dict,
+    expected: dict,
+) -> None:
+    kwargs = _tsopt_override_kwargs()
+    kwargs.update(updates)
+    assert build_tsopt_overrides(**kwargs) == expected
+
+
+@pytest.mark.parametrize(
+    ("updates", "expected"),
+    [
+        ({"freq_max_write": 7}, {"max_write": 7}),
+        ({"freq_amplitude_ang": 0.25}, {"amplitude_ang": 0.25}),
+        ({"freq_n_frames": 11}, {"n_frames": 11}),
+        ({"freq_sort": "ABS"}, {"sort": "abs"}),
+        ({"freq_temperature": 310.0}, {"temperature": 310.0}),
+        ({"freq_pressure": 0.9}, {"pressure": 0.9}),
+        ({"dump_override_requested": True}, {"dump": False}),
+        ({"hessian_calc_mode": "Analytical"}, {"hessian_calc_mode": "Analytical"}),
+        (
+            {"convert_files": False, "convert_files_explicit": True},
+            {"convert_files": False},
+        ),
+    ],
+)
+def test_freq_override_builder_covers_each_forwarded_field(
+    updates: dict,
+    expected: dict,
+) -> None:
+    kwargs = _freq_override_kwargs()
+    kwargs.update(updates)
+    assert build_freq_overrides(**kwargs) == expected
+
+
+@pytest.mark.parametrize(
+    ("updates", "expected"),
+    [
+        ({"dft_max_cycle": 55}, {"max_cycle": 55}),
+        ({"dft_conv_tol": 1e-8}, {"conv_tol": 1e-8}),
+        ({"dft_grid_level": 5}, {"grid_level": 5}),
+        ({"dft_engine": "cpu"}, {"engine": "cpu"}),
+        (
+            {"dft_func_basis_forward": "pbe0/def2-svp"},
+            {"func_basis": "pbe0/def2-svp"},
+        ),
+        (
+            {"convert_files": False, "convert_files_explicit": True},
+            {"convert_files": False},
+        ),
+    ],
+)
+def test_dft_override_builder_covers_each_forwarded_field(
+    updates: dict,
+    expected: dict,
+) -> None:
+    kwargs = _dft_override_kwargs()
+    kwargs.update(updates)
+    assert build_dft_overrides(**kwargs) == expected
+
+
+def test_yaml_post_values_are_not_reemitted_as_default_cli_tokens() -> None:
+    yaml_cfg = {
+        "opt": {"thresh": "gau_tight"},
+        "dft": {"func_basis": "pbe0/def2-svp"},
+    }
+    thresh_forward = resolve_post_thresh_forwarding(
+        set(),
+        thresh_post="baker",
+        yaml_cfg=yaml_cfg,
+    )
+    func_basis_forward, effective_method = resolve_dft_func_basis_forwarding(
+        set(),
+        dft_func_basis=None,
+        yaml_cfg=yaml_cfg,
+    )
+
+    tsopt_kwargs = _tsopt_override_kwargs()
+    tsopt_kwargs["thresh_post_forward"] = thresh_forward
+    dft_kwargs = _dft_override_kwargs()
+    dft_kwargs["dft_func_basis_forward"] = func_basis_forward
+    assert "thresh" not in build_tsopt_overrides(**tsopt_kwargs)
+    assert "func_basis" not in build_dft_overrides(**dft_kwargs)
+    assert effective_method == "pbe0/def2-svp"
+
+
+def test_explicit_post_values_override_yaml_once() -> None:
+    yaml_cfg = {
+        "opt": {"thresh": "gau_tight"},
+        "dft": {"func_basis": "pbe0/def2-svp"},
+    }
+    thresh_forward = resolve_post_thresh_forwarding(
+        {"thresh_post"},
+        thresh_post="baker",
+        yaml_cfg=yaml_cfg,
+    )
+    func_basis_forward, effective_method = resolve_dft_func_basis_forwarding(
+        {"dft_func_basis"},
+        dft_func_basis="wb97x/def2-tzvp",
+        yaml_cfg=yaml_cfg,
+    )
+
+    tsopt_kwargs = _tsopt_override_kwargs()
+    tsopt_kwargs["thresh_post_forward"] = thresh_forward
+    dft_kwargs = _dft_override_kwargs()
+    dft_kwargs["dft_func_basis_forward"] = func_basis_forward
+    assert build_tsopt_overrides(**tsopt_kwargs) == {"thresh": "baker"}
+    assert build_dft_overrides(**dft_kwargs) == {
+        "func_basis": "wb97x/def2-tzvp"
+    }
+    assert effective_method == "wb97x/def2-tzvp"
+
+
+def test_post_threshold_default_is_forwarded_only_without_yaml_value() -> None:
+    assert resolve_post_thresh_forwarding(
+        set(),
+        thresh_post="baker",
+        yaml_cfg={},
+    ) == "baker"
 
 
 def test_all_tr_projection_is_injected_into_child_config() -> None:
@@ -24,6 +357,129 @@ def test_all_tr_projection_is_injected_into_child_config() -> None:
     assert path is not None
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert payload["geom"]["tr_projection"] == "legacy-active"
+
+
+def test_all_effective_yaml_canonicalizes_alias_only_calculator(tmp_path: Path) -> None:
+    from mlmm.workflows.all import _build_effective_args_yaml
+
+    source = tmp_path / "alias.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "mlmm": {
+                    "backend": "orb",
+                    "orb_model": "alias-model",
+                    "embedcharge": True,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    effective, payload = _build_effective_args_yaml(
+        source, None, tmp_prefix="test_mlmm_alias_"
+    )
+    assert effective is not None
+    assert effective != source
+    assert payload["calc"] == payload["mlmm"]
+    assert payload["calc"]["backend"] == "orb"
+    assert yaml.safe_load(effective.read_text(encoding="utf-8"))["calc"] == payload["calc"]
+
+
+def test_all_effective_yaml_keeps_canonical_whole_section_precedence(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows.all import _build_effective_args_yaml
+
+    source = tmp_path / "both.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "calc": {"backend": "mace", "mace_model": "canonical-model"},
+                "mlmm": {"backend": "orb", "orb_model": "legacy-model"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    effective, payload = _build_effective_args_yaml(
+        source, None, tmp_prefix="test_mlmm_both_"
+    )
+    assert effective == source
+    assert payload["calc"] == {
+        "backend": "mace",
+        "mace_model": "canonical-model",
+    }
+    assert payload["mlmm"]["backend"] == "orb"
+
+
+def test_all_injection_preserves_alias_only_calculator_values(tmp_path: Path) -> None:
+    from mlmm.workflows.all import _inject_coord_type_into_args_yaml
+
+    source = tmp_path / "alias.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "mlmm": {
+                    "backend": "orb",
+                    "orb_model": "alias-model",
+                    "embedcharge": True,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    effective = _inject_coord_type_into_args_yaml(
+        source,
+        None,
+        precision="fp64",
+        workers=3,
+        workers_per_node=2,
+        backend_model="explicit-model",
+    )
+    assert effective is not None
+    payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
+    assert payload["calc"]["backend"] == "orb"
+    assert payload["calc"]["orb_model"] == "explicit-model"
+    assert payload["calc"]["embedcharge"] is True
+    assert payload["calc"]["orb_precision"] == "float64"
+    assert payload["calc"]["workers"] == 3
+    assert payload["calc"]["workers_per_node"] == 2
+
+
+def test_all_calc_file_injection_preserves_alias_only_calculator_values(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows.all import _inject_coord_type_into_args_yaml
+
+    source = tmp_path / "alias.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "mlmm": {
+                    "backend": "orb",
+                    "embedcharge": True,
+                    "embedcharge_cutoff": 8.5,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    effective = _inject_coord_type_into_args_yaml(
+        source,
+        None,
+        calc_file="custom_calc.py",
+        calc_factory="make_calculator",
+    )
+    assert effective is not None
+    payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
+    assert payload["calc"]["backend"] == "custom"
+    assert payload["calc"]["calc_file"] == "custom_calc.py"
+    assert payload["calc"]["calc_factory"] == "make_calculator"
+    assert payload["calc"]["embedcharge"] is True
+    assert payload["calc"]["embedcharge_cutoff"] == 8.5
 
 
 def test_build_energy_level_dict_zero_referenced_kcal() -> None:
@@ -157,124 +613,8 @@ def test_build_pipeline_summary_payload_shape() -> None:
     assert payload["spin"] == 1
     assert payload["mlip_backend"] == "uma"
     assert payload["mlip_model"] is None
+    assert payload["mlip_precision"] is None
     assert payload["mep"]["n_images"] == 5
     assert payload["mep"]["diagram"]["name"] == "MEP"
     assert payload["post_segments"] == [{"seg": 1, "status": "ok"}]
     assert payload["energy_diagrams"] == summary["energy_diagrams"]
-
-
-def test_all_context_fields_match_cli_signature() -> None:
-    """Regression guard: AllContext field names must mirror cli() params.
-
-    When someone adds / removes a parameter on `mlmm.workflows.all.cli`
-    they must also update `AllContext`; this test enforces the contract
-    so the dataclass cannot silently drift out of sync. Excludes
-    `ctx: click.Context` since it isn't carried in the bundle.
-    """
-    import dataclasses
-    import inspect
-    from mlmm.workflows.all import cli
-    # cli is a Click command; the underlying callable is .callback
-    callback = cli.callback
-    assert callback is not None, "cli() should expose its callback"
-    sig = inspect.signature(callback)
-    cli_param_names = {n for n in sig.parameters if n != "ctx"}
-    ctx_field_names = {f.name for f in dataclasses.fields(AllContext)}
-    missing = cli_param_names - ctx_field_names
-    extra = ctx_field_names - cli_param_names
-    assert not missing, (
-        f"AllContext is missing fields present in cli(): {sorted(missing)}"
-    )
-    assert not extra, (
-        f"AllContext has fields NOT in cli(): {sorted(extra)}"
-    )
-
-
-def test_all_context_frozen_and_field_count() -> None:
-    # AllContext mirrors the cli() signature; we don't need every field
-    # populated to verify the contract here, but the dataclass should
-    # be frozen and provide the canonical bundle for future decomp.
-    ctx = AllContext(
-        input_paths=(),
-        center_spec=None,
-        out_dir=Path("."),
-        radius=5.0,
-        radius_het2het=0.0,
-        include_h2o=True,
-        exclude_backbone=False,
-        add_linkh=False,
-        selected_resn="",
-        modified_residue="",
-        ligand_charge=None,
-        charge_override=None,
-        parm7_override=None,
-        model_pdb_override=None,
-        mm_ff_set="ff19SB",
-        mm_add_ter=True,
-        mm_keep_temp=False,
-        mm_ligand_mult=None,
-        spin=1,
-        tr_projection="constrained",
-        max_nodes=5,
-        max_cycles=100,
-        climb=True,
-        opt_mode="grad",
-        opt_mode_post=None,
-        dump=False,
-        refine_path=True,
-        thresh=None,
-        thresh_post="gau",
-        config_yaml=None,
-        show_config=False,
-        dry_run=False,
-        pre_opt=True,
-        hessian_calc_mode=None,
-        detect_layer=True,
-        do_tsopt=False,
-        do_thermo=False,
-        do_dft=False,
-        scan_lists_raw=(),
-        scan_out_dir=None,
-        scan_one_based=None,
-        scan_max_step_size=None,
-        scan_bias_k=None,
-        scan_relax_max_cycles=None,
-        scan_preopt_override=None,
-        scan_endopt_override=None,
-        convert_files=True,
-        ref_pdb_cli=None,
-        backend=None,
-        embedcharge=False,
-        embedcharge_cutoff=None,
-        link_atom_method=None,
-        mm_backend=None,
-        use_cmap=None,
-        tsopt_max_cycles=None,
-        flatten=False,
-        skip_final_freq=False,
-        tsopt_out_dir=None,
-        irc_never_stop=None,
-        freq_out_dir=None,
-        freq_max_write=None,
-        freq_amplitude_ang=None,
-        freq_n_frames=None,
-        freq_sort=None,
-        freq_temperature=None,
-        freq_pressure=None,
-        dft_out_dir=None,
-        dft_func_basis=None,
-        dft_max_cycle=None,
-        dft_conv_tol=None,
-        dft_grid_level=None,
-        dft_engine=None,
-        cli_coord_type=None,
-        precision=None,
-        backend_model=None,
-    )
-    import dataclasses
-    assert dataclasses.is_dataclass(ctx)
-    assert getattr(ctx.__dataclass_params__, "frozen", False) is True  # frozen
-    field_names = {f.name for f in dataclasses.fields(ctx)}
-    assert "input_paths" in field_names
-    assert "do_dft" in field_names
-    assert "precision" in field_names

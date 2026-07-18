@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 
+from .active_space import topology_identity, validate_active_atoms
 from .analytical_hessian import build_analytical_hessian
 from .forcefield import ForceFieldTorch
 from .loaders import load_coords, load_system
@@ -44,9 +45,13 @@ class _RuntimeEntry:
     system: AmberSystem
     ff: ForceFieldTorch
     coords_buffer: Optional[torch.Tensor] = None
+    # M54: content identity (path/sha256/size/schema) of the parsed prmtop, so
+    # M70 can include the same digest in mlmm's Hessian-cache identity.
+    topology_identity: Optional[Dict[str, Any]] = None
 
 
-_RUNTIME_CACHE: Dict[tuple[str, str, str, int, bool], _RuntimeEntry] = {}
+# M54: keyed by (resolved path, topology content SHA-256, device, dtype, fast).
+_RUNTIME_CACHE: Dict[tuple[str, str, str, str, bool], _RuntimeEntry] = {}
 
 
 def clear_runtime_cache() -> None:
@@ -153,8 +158,14 @@ def _load_runtime(
 ) -> tuple[AmberSystem, torch.Tensor, ForceFieldTorch]:
     dtype = _dtype_from_double(double)
     dev = str(torch.device(device))
+    # M54: key the runtime on the topology CONTENT digest, not the pathname
+    # alone, so replacing a parm7's bytes at the same path never reuses the old
+    # parsed system/force field (including a same-size / same-mtime replacement).
+    topo = topology_identity(prmtop)
+    resolved_path = topo["path"]
     cache_key = (
-        str(Path(prmtop).resolve()),
+        resolved_path,
+        topo["sha256"],
         dev,
         str(dtype),
         bool(nonbonded_cpu_fast),
@@ -162,12 +173,22 @@ def _load_runtime(
 
     cached = _RUNTIME_CACHE.get(cache_key)
     if cached is None:
+        # Evict any stale generation for the same path whose content changed, so
+        # repeated same-path replacements do not grow memory without bound.
+        for stale in [
+            k
+            for k in _RUNTIME_CACHE
+            if k[0] == resolved_path and k[1] != topo["sha256"]
+        ]:
+            del _RUNTIME_CACHE[stale]
         system = load_system(prmtop, device=device).to(dtype=dtype)
         ff = ForceFieldTorch(
             system,
             nonbonded_cpu_fast=nonbonded_cpu_fast,
         )
-        entry = _RuntimeEntry(system=system, ff=ff, coords_buffer=None)
+        entry = _RuntimeEntry(
+            system=system, ff=ff, coords_buffer=None, topology_identity=dict(topo)
+        )
         _RUNTIME_CACHE[cache_key] = entry
     else:
         entry = cached
@@ -581,19 +602,9 @@ def torch_force_batch(
 # Public API: torch_hessian
 # ---------------------------------------------------------------------------
 def _normalize_active_atoms(natom: int, active_atoms: Sequence[int]) -> list[int]:
-    out: list[int] = []
-    seen: set[int] = set()
-    for a in active_atoms:
-        ia = int(a)
-        if ia < 0 or ia >= natom:
-            raise ValueError(f"active atom index out of range: {ia} (natom={natom})")
-        if ia in seen:
-            continue
-        seen.add(ia)
-        out.append(ia)
-    if not out:
-        raise ValueError("active atom list is empty")
-    return out
+    # M54: one shared ordered validator (reject bool / float / negative /
+    # >= natom / duplicate / empty), replacing the former silent duplicate-drop.
+    return validate_active_atoms(natom, active_atoms)
 
 
 def torch_hessian(

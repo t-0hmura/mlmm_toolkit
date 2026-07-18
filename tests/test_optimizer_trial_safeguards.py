@@ -8,6 +8,7 @@ import torch
 
 from pysisyphus.Geometry import Geometry
 from pysisyphus.calculators.Calculator import Calculator
+from pysisyphus.intcoords.exceptions import RebuiltInternalsException
 from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.HessianOptimizer import HessianOptimizer
 from pysisyphus.tsoptimizers.RSIRFOptimizer import RSIRFOptimizer
@@ -15,6 +16,7 @@ from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer
 from pysisyphus.tsoptimizers.TRIM import TRIM
 from mlmm.workflows.tsopt import (
     FLATTEN_RETRY_HIGHER_ORDER_CHECKS,
+    HessianDimer,
     PATH_MODE_RESTART_AMPLITUDES_ANG,
     _effective_flatten_iterations,
     _flatten_branch_needs_alternate,
@@ -22,6 +24,7 @@ from mlmm.workflows.tsopt import (
     _mirrored_flatten_start,
     _path_restart_mode_candidates,
     _select_flatten_targets_for_geom,
+    _set_cartesian_flatten_coords,
     _transported_path_mode_full,
 )
 
@@ -441,6 +444,59 @@ def test_current_coordinate_exact_saddle_can_authorize_convergence(tmp_path) -> 
 
     assert converged is True
     assert conv_info.energy_converged is True
+
+
+def test_energy_plateau_with_exact_saddle_but_failed_force_stalls(
+    tmp_path,
+) -> None:
+    # Required curvature is present (a verified first-order saddle at these
+    # exact coordinates) and the energy is flat over the window, but the
+    # configured current force/step criteria fail: this is an M14/P14 stall,
+    # never a converged saddle.
+    geom, opt = _ts_optimizer(
+        tmp_path, 0.0, energy_plateau=True, energy_plateau_window=3
+    )
+    opt.cur_cycle = 3
+    opt.last_cycle = 0
+    opt.forces = [np.full(3, 1.0)]      # large current force -> not converged
+    opt.energies = [0.0, 0.0, 0.0]      # flat window -> energy plateau
+    opt.steps = [np.full(3, 1.0)]
+    opt.ts_mode_eigvals = np.array([-4.0])
+    opt._last_exact_n_imaginary = 1
+    opt._last_exact_saddle_verified = True
+    opt._last_exact_cart_coords = geom.cart_coords.copy()
+
+    converged, conv_info = opt.check_convergence()
+
+    assert converged is False
+    assert opt.is_stalled is True
+    assert opt.termination_status == "stalled"
+    assert "energy plateau" in opt.stop_reason
+    assert not bool(conv_info.max_force_converged)
+
+
+def test_energy_plateau_provisional_check_does_not_stall_ts_optimizer(
+    tmp_path,
+) -> None:
+    # A provisional probe (allow_stall=False) must never arm the stall, even
+    # with an exact saddle and a full flat window.
+    geom, opt = _ts_optimizer(
+        tmp_path, 0.0, energy_plateau=True, energy_plateau_window=3
+    )
+    opt.cur_cycle = 3
+    opt.last_cycle = 0
+    opt.forces = [np.full(3, 1.0)]
+    opt.energies = [0.0, 0.0, 0.0]
+    opt.steps = [np.full(3, 1.0)]
+    opt.ts_mode_eigvals = np.array([-4.0])
+    opt._last_exact_n_imaginary = 1
+    opt._last_exact_saddle_verified = True
+    opt._last_exact_cart_coords = geom.cart_coords.copy()
+
+    converged, _ = opt.check_convergence(allow_stall=False)
+
+    assert converged is False
+    assert opt.is_stalled is False
 
 
 def test_exact_current_saddle_ignores_stale_raw_root_and_outgoing_step(
@@ -873,6 +929,9 @@ def test_unrelated_initial_negative_root_does_not_mark_path_mode_seen(
     opt.prepare_opt()
 
     assert int(opt.roots[0]) == 1
+    assert opt._initial_reference_root_index == 1
+    assert opt._initial_reference_root_overlap == pytest.approx(1.0)
+    assert np.isfinite(opt._initial_reference_root_eigenvalue)
     assert opt.ts_mode_eigvals[0] > 0.0
     assert opt.negative_mode_seen is False
     np.testing.assert_allclose(
@@ -1069,6 +1128,121 @@ def test_flatten_displacement_preserves_unweighted_normal_mode(
     actual = geom.cart_coords / np.linalg.norm(geom.cart_coords)
     assert flattened is True
     np.testing.assert_allclose(actual, expected, atol=1.0e-12)
+
+
+@pytest.mark.parametrize("implementation", ["module", "class"])
+def test_ts_flatten_uses_cartesian_boundary_for_redundant_geometry(
+    implementation: str,
+    monkeypatch,
+) -> None:
+    atoms = ["C", "C", "O", "C", "N", "H"]
+    cart_coords = np.array(
+        [
+            0.0, 0.0, 0.0,
+            1.4, 0.0, 0.0,
+            2.1, 1.2, 0.0,
+            3.5, 1.2, 0.1,
+            4.2, 0.1, 0.2,
+            5.6, 0.1, 0.0,
+        ],
+        dtype=float,
+    )
+    geom = Geometry(atoms, cart_coords, coord_type="redund")
+    assert geom.coords.size != geom.cart_coords.size
+
+    masses = np.array([12.011, 12.011, 15.999, 12.011, 14.007, 1.008])
+    modes = torch.zeros((2, cart_coords.size), dtype=torch.float64)
+    modes[0, 0] = 1.0
+    modes[1, 4] = 1.0
+    probes = []
+    energies = iter((0.0, -1.0, -2.0))
+
+    class _CartesianProbeCalculator:
+        def get_energy(self, elements, coords):
+            probe = np.asarray(coords, dtype=float).reshape(-1).copy()
+            assert probe.size == cart_coords.size
+            probes.append(probe)
+            return {"energy": next(energies)}
+
+    calculator = _CartesianProbeCalculator()
+    monkeypatch.setattr(
+        "mlmm.workflows.tsopt._calc_energy",
+        lambda geometry, kwargs: calculator.get_energy(
+            geometry.atoms, geometry.cart_coords
+        )["energy"],
+    )
+
+    if implementation == "module":
+        flattened = _flatten_once_with_modes_for_geom(
+            geom,
+            masses,
+            {},
+            np.array([-100.0, -40.0]),
+            modes,
+            neg_freq_thresh_cm=5.0,
+            flatten_amp_ang=0.01,
+            flatten_sep_cutoff=0.0,
+            flatten_k=1,
+            root=0,
+            reference_mode=modes[0].numpy(),
+        )
+    else:
+        runner = object.__new__(HessianDimer)
+        runner.geom = geom
+        runner.masses_amu = masses
+        runner.neg_freq_thresh_cm = 5.0
+        runner.flatten_amp_ang = 0.01
+        runner.flatten_sep_cutoff = 0.0
+        runner.root = 0
+        runner.calc_kwargs = {}
+        flattened = HessianDimer._flatten_once_with_modes(
+            runner, np.array([-100.0, -40.0]), modes
+        )
+
+    assert flattened is True
+    assert len(probes) == 3
+    assert all(probe.shape == (cart_coords.size,) for probe in probes)
+    np.testing.assert_allclose(geom.cart_coords, probes[-1], atol=1.0e-12)
+    np.testing.assert_allclose(
+        geom.internal.coords3d.reshape(-1), geom.cart_coords, atol=1.0e-12
+    )
+    np.testing.assert_allclose(geom.coords, geom.internal.coords, atol=1.0e-12)
+
+
+def test_cartesian_flatten_setter_accepts_only_completed_rebuild_signal() -> None:
+    class _RebuiltGeometry:
+        def __init__(self) -> None:
+            self.installed = None
+            self.clear_count = 0
+
+        @property
+        def cart_coords(self):
+            return self.installed
+
+        @cart_coords.setter
+        def cart_coords(self, value) -> None:
+            self.installed = np.asarray(value, dtype=float).copy()
+            raise RebuiltInternalsException()
+
+        def clear(self) -> None:
+            self.clear_count += 1
+
+    rebuilt = _RebuiltGeometry()
+    _set_cartesian_flatten_coords(rebuilt, np.arange(6.0).reshape(2, 3))
+    np.testing.assert_allclose(rebuilt.installed, np.arange(6.0))
+    assert rebuilt.clear_count == 1
+
+    class _InvalidGeometry(_RebuiltGeometry):
+        @property
+        def cart_coords(self):
+            return self.installed
+
+        @cart_coords.setter
+        def cart_coords(self, value) -> None:
+            raise ValueError("invalid Cartesian trial")
+
+    with pytest.raises(ValueError, match="invalid Cartesian trial"):
+        _set_cartesian_flatten_coords(_InvalidGeometry(), np.zeros(6))
 
 
 def test_path_reference_mode_overrides_unrelated_lowest_mode_for_recovery(

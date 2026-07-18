@@ -301,6 +301,17 @@ class Geometry:
         freeze_atoms = np.array(freeze_atoms, dtype=int)
         self._freeze_atoms = freeze_atoms
 
+        # M51: a changed freeze mask must never reuse a memoized active
+        # atom/DOF basis derived from the previous mask.  Invalidate both
+        # memoized views before any internal-coordinate rebuild so that an
+        # exception during the rebuild cannot leave a physically changed
+        # mask paired with a stale cached active basis.
+        if old_freeze_atoms is None or not np.array_equal(
+            np.asarray(old_freeze_atoms).reshape(-1), freeze_atoms.reshape(-1)
+        ):
+            self.__dict__.pop("_active_atom_indices", None)
+            self.__dict__.pop("_active_dof_indices", None)
+
         coord_kwargs = getattr(self, "coord_kwargs", None)
         coord_type = getattr(self, "coord_type", "cart")
         if coord_kwargs is not None and coord_type != "cart":
@@ -1126,8 +1137,11 @@ class Geometry:
         """
         hessian = self.cart_hessian
         if self.internal:
-            # transform_hessian contracts against the Wilson B matrix for all
-            # atoms. Expand an active block to 3N by zero-padding frozen DOFs.
+            # transform_hessian expects a full (3N, 3N) Cartesian Hessian
+            # because it contracts with the Wilson B matrix over ALL atoms.
+            # Expand partial Hessian → full by zero-padding outside the
+            # active DOFs so internal-coord opt paths (redund / tric) work
+            # under the partial-Hessian regime.
             if (
                 self.within_partial_hessian is not None
                 and hessian is not None
@@ -1458,9 +1472,17 @@ class Geometry:
         }
 
         qcd = QCData(thermo_dict, point_group=point_group)
+        # P05: the bundled-geometry policy inverts small imaginaries (>= -15 cm^-1)
+        # and floors positive frequencies below 25 cm^-1. Pass every value
+        # explicitly and record the effective policy on the Geometry result; this
+        # reproduces the historical invert_imags=-15 / cutoff=25 numbers exactly.
+        from thermoanalysis.config import GEOMETRY_THERMO_POLICY
+
+        policy = GEOMETRY_THERMO_POLICY
         thermo = thermochemistry(
-            qcd, temperature=T, pressure=p, invert_imags=-15.0, cutoff=25.0
+            qcd, temperature=T, pressure=p, **policy.thermochemistry_kwargs()
         )
+        self.thermo_policy = policy.as_dict()
 
         return thermo
 

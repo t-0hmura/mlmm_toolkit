@@ -88,7 +88,7 @@ independent frequency and IRC check.
 
 ```bash
 # Datacenter H200 — full-precision base inference
-mlmm tsopt -i ts.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma --precision fp64 -o result_ts
+mlmm tsopt -i ts.pdb --parm enzyme.parm7 -q 0 -m 1 -b uma --precision fp64 -o result_ts
 
 # Explicit reduced-precision ORB screening
 mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan

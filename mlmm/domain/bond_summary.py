@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import List
 
 import click
+from mlmm.core.output import emit
 
 from mlmm.domain.bond_changes import compare_structures, summarize_changes
 
@@ -26,9 +27,15 @@ def _load_geom(path: str):
     if suffix == ".pdb":
         from pysisyphus.io.pdb import geom_from_pdb
         return geom_from_pdb(str(p))
-    elif suffix == ".gjf":
-        from pysisyphus.io.gaussian import geom_from_gaussian_input
-        return geom_from_gaussian_input(str(p))
+    elif suffix in {".gjf", ".com"}:
+        import numpy as np
+        from pysisyphus.Geometry import Geometry
+        from pysisyphus.constants import ANG2BOHR
+        from mlmm.io.gaussian_input import parse_gaussian_input
+
+        gaussian = parse_gaussian_input(p)
+        coordinates = np.asarray(gaussian.coordinates, dtype=float) * ANG2BOHR
+        return Geometry(gaussian.elements, coordinates.reshape(-1), coord_type="cart")
     else:
         from pysisyphus.helpers import geom_from_xyz_file
         return geom_from_xyz_file(str(p))
@@ -136,7 +143,7 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
         # reach stdout, even at default verbosity (which otherwise drops DETAIL
         # console output via the core.utils click.echo chokepoint). `force=True`
         # bypasses the narrative gate; see mlmm.core.utils._patch_click_echo.
-        click.echo(
+        emit(
             _json.dumps(
                 {"status": status, "comparisons": comparisons_json},
                 indent=2, ensure_ascii=False,

@@ -33,8 +33,8 @@ mlmm/                              ← the package body, one folder per layer
 
 pysisyphus/        ← bundled fork of the optimiser / TS / IRC engine.
                      Slimmed to the subset mlmm actually uses; see its
-                     own README for the 5 divergent files (chemistry-rule
-                     load-bearing). Annotation-only edits in normal workflow.
+                     own README for the live divergent-file table. Routine
+                     polish is annotation-only; defect/feature logic is gated.
 
 thermoanalysis/    ← bundled fork for ΔG / ZPE / partition functions.
                      QCData.py is the only consumer; same touch restriction
@@ -46,7 +46,7 @@ hessian_ff/        ← analytical Hessian on the MM force field (AMBER
                      is `mlmm/backends/mlmm_calc.py`.
 ```
 
-Dependency direction is one-way: `L1 → L2 → {L3, L4} → L5`. The bundled forks sit outside the layer graph and may be imported from any layer.
+Dependency direction: the *design intent* is one-way `L1 → L2 → {L3, L4} → L5`. What is actually enforced is a cycle-free `mlmm` module graph, `core`/`domain` never importing `workflows`, and no bundled fork importing `mlmm` — checked by [`.github/scripts/check_import_graph.py`](../../.github/scripts/check_import_graph.py), which parses the real import edges (`check_engineering_markers.py` does not — it covers chemistry / `DOMAIN_PURE` / MLIP scope only). A few cycle-free back-edges remain today: some `core.utils` helpers reach into `domain`/`io`, and `core.calc_eval` into `backends`. The bundled forks sit outside the layer graph and may be imported from any layer.
 
 ## Where to look first
 
@@ -62,7 +62,7 @@ Dependency direction is one-way: `L1 → L2 → {L3, L4} → L5`. The bundled fo
 | MM analytical Hessian | `hessian_ff/analytical_hessian.py` (consumed by `mlmm_calc.py`) |
 | Output schema (summary.json, trajectory, energy diagram) | `mlmm/io/` |
 | Chemistry rule (subtractive ONIOM, link-atom Hessian, 5-pass partial Hessian, parm7 indexing) | search `# CHEMISTRY-RULE:` markers (lab-sign-off required to edit) |
-| TS / IRC / optimiser internals | `pysisyphus/` (annotation-only — chemistry-rule risk) |
+| TS / IRC / optimiser internals | `pysisyphus/` (read its live divergence table and validation gate first) |
 | MCP server / agent integration | `mlmm/mcp/` — see [`mlmm-mcp`](../mlmm-mcp/SKILL.md) |
 
 ## Hidden constraints to remember
@@ -70,9 +70,10 @@ Dependency direction is one-way: `L1 → L2 → {L3, L4} → L5`. The bundled fo
 1. **`mlmm/cli/app.py:_LAZY_SUBCOMMANDS`** entries MUST use absolute module paths (`"mlmm.workflows.all"`, never `".all"`). Relative dotted paths silently break the resolver if `default_group.py` moves.
 2. **VRAM hygiene**: `# DO NOT INLINE` markers around `del calc; gc.collect(); torch.cuda.empty_cache()` between stages are load-bearing — removing them OOMs the next stage on full-protein ONIOM systems.
 3. **`pyproject.toml [tool.setuptools.packages.find].include`** and `dependencies` arrays are treated as 0-diff for this release line. Adding a vendor / internal dir or pinning a new runtime dep breaks behaviour-level guarantees and is out of scope.
-4. **Bundled-fork edits** to `pysisyphus/` / `thermoanalysis/` / `hessian_ff/` outside the 5 divergent files require `[CHEMISTRY-RULE:N]` commit prefix and a HEAVY benchmark.
+4. **Bundled-fork edits** use each directory README's live table. Routine polish is annotation-only; logic requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
 
 ## See also
 - Full architecture (~400 lines): [`docs/architecture.md`](../../docs/architecture.md)
 - Contributor recipe + per-step gate cycle: [`CONTRIBUTING.md`](../../CONTRIBUTING.md)
-- Engineering-marker coverage check: [`.github/scripts/check_engineering_markers.py`](../../.github/scripts/check_engineering_markers.py)
+- Engineering-marker coverage check (chemistry / `DOMAIN_PURE` / MLIP scope): [`.github/scripts/check_engineering_markers.py`](../../.github/scripts/check_engineering_markers.py)
+- Import-graph gate (no cycles / no fork→product / no core·domain→workflows): [`.github/scripts/check_import_graph.py`](../../.github/scripts/check_import_graph.py)

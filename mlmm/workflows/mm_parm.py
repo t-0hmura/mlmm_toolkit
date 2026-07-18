@@ -518,7 +518,7 @@ def antechamber_parametrize(resname: str, res_charge: int, res_mult: int, workdi
         _elems = []
     if _elems:
         try:
-            validate_charge_spin(_elems, res_charge, res_mult)
+            validate_charge_spin(_elems, res_charge, res_mult, source=str(pdb))
         except ValueError as _vc:
             raise RuntimeError(
                 f"[{resname}] electron-count check failed before antechamber: "

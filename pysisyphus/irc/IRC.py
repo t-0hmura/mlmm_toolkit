@@ -10,6 +10,7 @@ import sys
 import h5py
 import numpy as np
 
+from pysisyphus._array import active_square
 from pysisyphus.constants import BOHR2ANG, AU2KJPERMOL
 from pysisyphus.Geometry import Geometry
 from pysisyphus.helpers import check_for_end_sign
@@ -152,6 +153,8 @@ class IRC:
         # (= we haven't reached a true minimum yet). See sella/optimize/irc.py:167-170.
         self.require_pos_def_hessian = bool(require_pos_def_hessian)
         self.never_stop = bool(never_stop)
+        self.never_stop_energy_increase_bypasses = 0
+        self.never_stop_energy_convergence_bypasses = 0
         assert imag_below <= 0.0
         self.imag_below = imag_below
         self.force_inflection = force_inflection
@@ -234,18 +237,16 @@ class IRC:
     def mw_gradient(self):
         return self.geometry.mw_gradient
 
-    def _mw_hessian_is_pos_def(self) -> bool:
-        """Sella backport (opt-in): is the lowest mw_hessian eigenvalue > 0?
+    def _mw_active_is_pos_def(self, H_mw_act) -> bool:
+        """Is the lowest projected eigenvalue of a mass-weighted active Hessian > 0?
 
-        Returns True if mw_hessian is positive definite (= true minimum reached).
         Returns False on any failure (missing hessian, eigh error, NaN) so the
         convergence check defaults to "not yet" rather than silently passing.
         """
-        H = getattr(self, "mw_hessian", None)
-        if H is None:
+        if H_mw_act is None:
             return False
         try:
-            H = self._project_active(H)
+            H = self._project_active(H_mw_act)
             if isinstance(H, torch.Tensor):
                 evals = torch.linalg.eigvalsh(H.detach().cpu()).numpy()
             else:
@@ -255,6 +256,87 @@ class IRC:
         if evals.size == 0 or not np.isfinite(evals[0]):
             return False
         return bool(evals[0] > 0.0)
+
+    def _mw_hessian_is_pos_def(self) -> bool:
+        """Predicate on the integrator's quasi-Newton ``mw_hessian`` (legacy)."""
+        return self._mw_active_is_pos_def(getattr(self, "mw_hessian", None))
+
+    def _exact_cart_hessian_at_current_coords(self):
+        """Force one exact Cartesian Hessian at the current coordinates.
+
+        Does not disturb the integrator's cached quasi-Newton ``mw_hessian``:
+        only the geometry's Cartesian-Hessian cache is transiently cleared so
+        the calculator is re-queried, then restored.
+        """
+        geom = self.geometry
+        prev = getattr(geom, "_hessian", None)
+        try:
+            geom._hessian = None
+            H = geom.cart_hessian
+        finally:
+            geom._hessian = prev
+        return H
+
+    def _exact_mw_active_hessian(self, coords_before):
+        """Return the mass-weighted active exact Hessian, or None on any mismatch."""
+        H_full = self._exact_cart_hessian_at_current_coords()
+        coords_after = np.asarray(self.geometry.cart_coords, dtype=float)
+        if coords_after.shape != coords_before.shape or not np.array_equal(
+            coords_after, coords_before
+        ):
+            # The exact evaluation must not have moved the geometry.
+            return None
+        n_full = int(np.asarray(self.geometry.cart_coords).size)
+        n_act = len(self._act_dofs)
+        if isinstance(H_full, torch.Tensor):
+            shape = tuple(H_full.shape)
+        else:
+            H_full = np.asarray(H_full)
+            shape = H_full.shape
+        if shape == (n_full, n_full):
+            idx = self._act_dofs
+            if isinstance(H_full, torch.Tensor):
+                idx_t = torch.as_tensor(idx, dtype=torch.long, device=H_full.device)
+                # C14 (H10): bounded row-chunk active square extraction.
+                H_act = active_square(H_full, idx_t)
+            else:
+                H_act = H_full[np.ix_(np.asarray(idx, dtype=int), np.asarray(idx, dtype=int))]
+        elif shape == (n_act, n_act):
+            H_act = H_full
+        else:
+            # Inconsistent shape — fail closed.
+            return None
+        return self._mw_hessian_active(H_act)
+
+    def _exact_endpoint_is_pos_def(self) -> bool:
+        """M55: decide endpoint minimality on an EXACT Hessian at the CURRENT coords.
+
+        The integrator's ``mw_hessian`` is a BFGS/Bofill quasi-Newton matrix
+        that can be positive definite on a shoulder where the exact geometry
+        Hessian is still indefinite.  This gate therefore evaluates an exact
+        Hessian at the exact current coordinates, reuses it only for those exact
+        coordinates (a coordinate change requests a fresh one), and never
+        overwrites the integrator's update state.  Fails closed (returns False)
+        on any calculator/shape/coordinate/eigensolver failure.
+        """
+        coords_before = np.asarray(self.geometry.cart_coords, dtype=float).copy()
+        cached = getattr(self, "_exact_endpoint_hessian_cache", None)
+        if cached is not None:
+            cached_coords, cached_H = cached
+            if cached_coords.shape == coords_before.shape and np.array_equal(
+                cached_coords, coords_before
+            ):
+                return self._mw_active_is_pos_def(cached_H)
+        try:
+            H_mw_act = self._exact_mw_active_hessian(coords_before)
+        except Exception:
+            self._exact_endpoint_hessian_cache = None
+            return False
+        if H_mw_act is None:
+            self._exact_endpoint_hessian_cache = None
+            return False
+        self._exact_endpoint_hessian_cache = (coords_before, H_mw_act)
+        return self._mw_active_is_pos_def(H_mw_act)
 
     def log(self, msg):
         # self.logger.debug(f"step {self.cur_cycle:03d}, {msg}")
@@ -272,18 +354,25 @@ class IRC:
     
     # mass‑weight only the sub‑Hessian that belongs to the moving atoms
     def _mw_hessian_active(self, H_act):
+        # C14 (H09): mm_inv2 is a diagonal mass-scaling matrix by construction
+        # (Geometry.mm_sqrt_inv = diag(1/sqrt(m))), so ``D @ H @ D`` reduces
+        # exactly to row/column scaling by its diagonal vector. This avoids two
+        # dense O(N^3) matmuls and the dense-diagonal temporaries; the result is
+        # bit-identical (max error 0) to the dense product for a diagonal D.
         if isinstance(H_act, torch.Tensor):
             if not isinstance(self.mm_inv2, torch.Tensor):
                 self.mm_inv2 = torch.as_tensor(self.mm_inv2, dtype=H_act.dtype, device=H_act.device)
-            return self.mm_inv2 @ H_act @ self.mm_inv2       # in‑place not possible → tiny matrix
-        return self.mm_inv2.dot(H_act).dot(self.mm_inv2)
+            d = torch.diagonal(self.mm_inv2)
+            return d.unsqueeze(1) * H_act * d.unsqueeze(0)
+        d = np.diagonal(np.asarray(self.mm_inv2))
+        return (d[:, None] * np.asarray(H_act)) * d[None, :]
     
     # Rigid projector for the Cartesian-constrained active space.
     def _project_active(self, mw_H_act, *, return_P=False):
         if self.geometry.is_analytical_2d:
             return (mw_H_act, None) if return_P else mw_H_act
 
-        from pysisyphus.tr_projection import active_tr_basis, compact_project_hessian
+        from pysisyphus.tr_projection import DEFAULT_TR_PROJECTION, active_tr_basis, compact_project_hessian
 
         coords = torch.as_tensor(
             self.geometry.coords3d,
@@ -295,7 +384,7 @@ class IRC:
             coords,
             masses,
             self._act_atoms,
-            mode=getattr(self.geometry, "tr_projection", "constrained"),
+            mode=getattr(self.geometry, "tr_projection", DEFAULT_TR_PROJECTION),
         )
         self.rigid_projection_info = info
         proj, P = compact_project_hessian(mw_H_act, basis)
@@ -431,11 +520,12 @@ class IRC:
             mw_cart_displs = P.T @ eigvecs if P is not None else eigvecs
             if not isinstance(self.mm_inv2, torch.Tensor):
                 self.mm_inv2 = torch.as_tensor(self.mm_inv2, dtype=proj_hessian.dtype, device=proj_hessian.device)
-            cart_displs = self.mm_inv2 @ mw_cart_displs
+            # C14 (H09): diagonal D @ (mode matrix) == row scaling by diag(D).
+            cart_displs = torch.diagonal(self.mm_inv2).unsqueeze(1) * mw_cart_displs
         else:
-            eigvals, eigvecs = np.linalg.eigh(proj_hessian)    
+            eigvals, eigvecs = np.linalg.eigh(proj_hessian)
             mw_cart_displs = eigvecs if P is None else P.T.dot(eigvecs)
-            cart_displs = self.mm_inv2.dot(mw_cart_displs)
+            cart_displs = np.diagonal(np.asarray(self.mm_inv2))[:, None] * mw_cart_displs
         
         nus = eigval_to_wavenumber(eigvals)
         nu_root = nus[self.root]
@@ -661,7 +751,7 @@ class IRC:
             if self.converged:
                 break_msg = "Integrator indicated convergence!"
             elif self.past_inflection and (rms_grad <= self.rms_grad_thresh):
-                if self.require_pos_def_hessian and not self._mw_hessian_is_pos_def():
+                if self.require_pos_def_hessian and not self._exact_endpoint_is_pos_def():
                     # Gradient small but Hessian still has negative mode — we're on
                     # a shoulder, not at the true minimum. Skip convergence this cycle
                     # so the integrator keeps walking; convergence will fire on the
@@ -683,10 +773,12 @@ class IRC:
 
             if self.never_stop and not break_msg:
                 if self.energy_increased:
+                    self.never_stop_energy_increase_bypasses += 1
                     self.table.print(
                         "Energy increased; continuing because never_stop=True."
                     )
                 elif self.energy_converged:
+                    self.never_stop_energy_convergence_bypasses += 1
                     self.table.print(
                         "Energy change converged; continuing because never_stop=True."
                     )

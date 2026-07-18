@@ -11,6 +11,22 @@ import torch
 
 TR_PROJECTION_MODES = ("constrained", "legacy-active")
 
+# Single source of truth for the default rigid-mode treatment.
+#
+# ``constrained`` projects only an actual null space of the constrained problem:
+# it builds the full-system rigid basis, keeps the part that leaves the frozen
+# atoms fixed, and skips the projection entirely when that rank is 0 -- which it
+# is for every real frozen active-site cluster.
+#
+# ``legacy-active`` is the superseded treatment: it projects the ACTIVE
+# FRAGMENT's own translations/rotations out of the Hessian.  With frozen atoms
+# those are not null modes (K_BB*t_B = -K_BC*t_C != 0), so it is a Rayleigh-Ritz
+# compression onto a different, more constrained model -- structurally biased
+# toward a SMALLER n_imag, i.e. it can hide a real imaginary mode but never
+# create one.  It is retained ONLY as a named opt-in, for reproducing output
+# produced before the fix.  Do not make it the default again.
+DEFAULT_TR_PROJECTION = "constrained"
+
 
 @dataclass(frozen=True)
 class TRProjectionInfo:
@@ -47,10 +63,23 @@ class TRProjectionInfo:
 def normalize_tr_projection_mode(mode: str | None) -> str:
     """Return a validated projection mode name."""
 
-    value = "constrained" if mode is None else str(mode).strip().lower()
+    value = DEFAULT_TR_PROJECTION if mode is None else str(mode).strip().lower()
     if value not in TR_PROJECTION_MODES:
         choices = ", ".join(TR_PROJECTION_MODES)
         raise ValueError(f"Unknown TR projection mode {mode!r}; choose one of: {choices}.")
+    if value == "legacy-active":
+        import warnings
+
+        warnings.warn(
+            "tr_projection='legacy-active' is deprecated and scheduled for removal: it "
+            "projects the active fragment's own rigid modes, which is not a null space of "
+            "the frozen system and can hide a real imaginary mode on frozen-boundary "
+            "systems. Use the default 'constrained' treatment; do not use 'legacy-active' "
+            "for pass/HOSP transition-state certification. To reproduce pre-fix results "
+            "bitwise, install the pinned pre-fix release instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     return value
 
 
@@ -193,6 +222,60 @@ def active_tr_basis(
         frozen_tuple,
     )
     return q_active, info
+
+
+def full_cartesian_tr_basis(
+    coords: torch.Tensor,
+    masses: torch.Tensor,
+    active_atoms: Sequence[int] | torch.Tensor,
+    *,
+    mode: str = "constrained",
+    rtol: float = 1.0e-10,
+) -> tuple[torch.Tensor, TRProjectionInfo]:
+    """Return feasible rigid displacements in full Cartesian coordinates.
+
+    :func:`active_tr_basis` represents rigid motions in the active,
+    mass-weighted space used for Hessian diagonalization.  Dimer orientations
+    are ordinary Cartesian displacements, so they require the corresponding
+    mass-unweighted basis embedded in the full ``3N`` vector.  Frozen rows are
+    exactly zero and the returned columns are Euclidean-orthonormal.
+    """
+
+    coords = torch.as_tensor(coords).reshape(-1, 3)
+    masses = torch.as_tensor(masses, device=coords.device).reshape(-1)
+    basis_mw, info = active_tr_basis(
+        coords,
+        masses,
+        active_atoms,
+        mode=mode,
+        rtol=rtol,
+    )
+    n_atoms = int(coords.shape[0])
+    full = coords.new_zeros((3 * n_atoms, info.effective_rank), dtype=torch.float64)
+    if info.effective_rank == 0:
+        return full, info
+
+    active = torch.as_tensor(
+        info.active_atoms, dtype=torch.long, device=coords.device
+    )
+    masses64 = masses.to(dtype=torch.float64, device=coords.device)
+    active_masses = masses64.index_select(0, active)
+    scale = torch.sqrt(torch.repeat_interleave(active_masses, 3)).reshape(-1, 1)
+    basis_cart = basis_mw.to(dtype=torch.float64, device=coords.device) / scale
+    basis_cart, cart_rank = _orthonormal_columns(basis_cart, rtol=rtol)
+    if cart_rank != info.effective_rank:
+        raise RuntimeError(
+            "Mass-unweighting changed the numerical rank of the rigid basis "
+            f"({info.effective_rank} -> {cart_rank})."
+        )
+
+    active_dofs = torch.as_tensor(
+        [3 * atom + axis for atom in info.active_atoms for axis in range(3)],
+        dtype=torch.long,
+        device=coords.device,
+    )
+    full.index_copy_(0, active_dofs, basis_cart)
+    return full, info
 
 
 def project_hessian_inplace(hessian: torch.Tensor, basis: torch.Tensor) -> torch.Tensor:

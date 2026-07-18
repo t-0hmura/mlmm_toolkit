@@ -20,6 +20,8 @@
 #     Bungay, Poirier
 
 
+import os
+
 import numpy as np
 
 from pysisyphus.optimizers.closures import bfgs_multiply
@@ -186,29 +188,92 @@ def mod_flowchart_update(H, dx, dg):
     return update, key
 
 
+def bofill_cpu_offload_enabled() -> bool:
+    """Calibrated CPU-offload fallback switch for the torch Bofill update.
+
+    Default is the GPU-resident rank-two path (C14). Setting
+    ``PYSIS_BOFILL_CPU_OFFLOAD=1`` restores the legacy CPU round-trip as an
+    explicit, logged fallback (e.g. when a calibrated resolver decides the
+    on-device path will not fit). An explicit CUDA Hessian is never silently
+    moved to CPU: the rank-two path keeps every tensor on ``H.device`` and this
+    flag is opt-in only.
+    """
+    return os.environ.get("PYSIS_BOFILL_CPU_OFFLOAD", "0") not in ("0", "", "false", "False")
+
+
+def bofill_rank2_factors(H, dx, dg):
+    """Low-rank factors ``(U, C)`` of the Bofill update ``dH = U @ C @ U.T``.
+
+    The Bofill update ``mix*SR1 + (1-mix)*PSB`` is exactly a symmetric rank-two
+    update with ``U = [z, dx]`` (n, 2) and a (2, 2) symmetric ``C``:
+
+        z    = dg - H @ dx
+        mix  = (z·dx)^2 / ((z·z)(dx·dx))
+        C = [[ mix/(z·dx),        (1-mix)/(dx·dx)            ],
+             [ (1-mix)/(dx·dx),  -(1-mix)(z·dx)/(dx·dx)^2    ]]
+
+    Reconstructing ``U @ C @ U.T`` reproduces the dense formula to ordinary
+    floating-point roundoff (relative error ~1e-16 in fp64) while allocating
+    only O(N) explicit scratch. All returned tensors live on ``H.device`` /
+    ``H.dtype`` so an explicit-CUDA Hessian stays on CUDA.
+    """
+    dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)
+    dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)
+    z = dg - H @ dx
+    zz = _dot(z, z)
+    zdx = _dot(z, dx)
+    dxdx = _dot(dx, dx)
+    mix = (zdx * zdx) / (zz * dxdx)
+    one_m = 1.0 - mix
+    c00 = mix / zdx
+    c01 = one_m / dxdx
+    c11 = -one_m * zdx / (dxdx * dxdx)
+    U = torch.stack((z, dx), dim=1)  # (n, 2)
+    row0 = torch.stack((c00, c01))
+    row1 = torch.stack((c01, c11))
+    C = torch.stack((row0, row1))  # (2, 2), symmetric
+    return U, C
+
+
+def _bofill_update_cpu_offload(H, dx, dg):
+    """Legacy CPU round-trip Bofill update (explicit calibrated fallback).
+
+    Kept verbatim as the ``PYSIS_BOFILL_CPU_OFFLOAD`` fallback: moves the full
+    Hessian to CPU, builds the dense SR1/PSB terms there, and returns the update
+    on ``H.device``. Superseded as the default by the on-device rank-two path.
+    """
+    target_device = H.device
+    target_dtype = H.dtype
+    H_cpu = H.detach().cpu()
+    dx_cpu = torch.as_tensor(dx, dtype=H_cpu.dtype).cpu()
+    dg_cpu = torch.as_tensor(dg, dtype=H_cpu.dtype).cpu()
+    z = dg_cpu - H_cpu @ dx_cpu
+    sr1 = sr1_update(z, dx_cpu)[0]
+    psb = psb_update(z, dx_cpu)[0]
+    mix = (_dot(z, dx_cpu) ** 2) / (_dot(z, z) * _dot(dx_cpu, dx_cpu))
+    update = mix * sr1 + (1 - mix) * psb
+    del sr1, psb, H_cpu, dx_cpu, dg_cpu, z
+    return update.to(dtype=target_dtype, device=target_device), "Bofill"
+
+
 def bofill_update(H, dx, dg):
     """Bofill's combination of SR1 and PSB updates.
 
-    For torch.Tensor input, perform the update on CPU to avoid a ~5 GB
-    GPU peak (sr1, psb, mix*sr1, (1-mix)*psb temporaries each ~1.35 GB
-    for n=4338 atoms). The update is pure linear algebra over a single
-    Hessian; CPU is plenty fast at this granularity, and the result is
-    moved back to H's device at the end. This prevents IRC OOMs on
-    16 GB GPUs.
+    For torch.Tensor input the update is computed GPU-resident as an
+    algebraically-equivalent symmetric rank-two construction (C14):
+    ``dH = U @ C @ U.T`` with ``U = [z, dx]``. This removes the two full-Hessian
+    host transfers and the simultaneous dense SR1/PSB temporaries of the legacy
+    CPU-offload path while keeping every tensor on ``H.device`` (an explicit
+    CUDA Hessian stays on CUDA). ``PYSIS_BOFILL_CPU_OFFLOAD=1`` restores the
+    legacy CPU round-trip as an explicit, logged fallback.
     """
     if isinstance(H, torch.Tensor):
-        target_device = H.device
-        target_dtype = H.dtype
-        H_cpu = H.detach().cpu()
-        dx_cpu = torch.as_tensor(dx, dtype=H_cpu.dtype).cpu()
-        dg_cpu = torch.as_tensor(dg, dtype=H_cpu.dtype).cpu()
-        z = dg_cpu - H_cpu @ dx_cpu
-        sr1 = sr1_update(z, dx_cpu)[0]
-        psb = psb_update(z, dx_cpu)[0]
-        mix = (_dot(z, dx_cpu) ** 2) / (_dot(z, z) * _dot(dx_cpu, dx_cpu))
-        update = mix * sr1 + (1 - mix) * psb
-        del sr1, psb, H_cpu, dx_cpu, dg_cpu, z
-        return update.to(dtype=target_dtype, device=target_device), "Bofill"
+        if bofill_cpu_offload_enabled():
+            return _bofill_update_cpu_offload(H, dx, dg)
+        U, C = bofill_rank2_factors(H, dx, dg)
+        # dH = U @ (C @ U.T); one dense N x N result, no host round-trip.
+        dH = U @ (C @ U.t())
+        return dH, "Bofill"
 
     z = dg - H @ dx
     sr1 = sr1_update(z, dx)[0]

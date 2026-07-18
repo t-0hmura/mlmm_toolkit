@@ -27,9 +27,21 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `schema_version` | string | Envelope schema version; current value comes from `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` — pin against that constant rather than the literal in this doc. Bumps signal a structural change. |
 | `command` | string | Subcommand name (e.g. `"opt"`) |
 | `mlmm_version` | string | Package version |
-| `status` | string | Command-specific: `all`/`path-search` use `success`/`partial`/`failed`; `opt` uses `converged`/`not_converged`; `tsopt` uses `converged`/`not_converged`/`unverified`; completed analysis/integration stages use `completed`; exception envelopes use `error`. |
+| `status` | string | Command-specific: `all`/`path-search` use `success`/`partial`/`failed`; `opt` uses `converged`/`not_converged`/`stalled`; `tsopt` uses `converged`/`not_converged`/`stalled`/`unverified`; completed analysis/integration stages use `completed`; exception envelopes use `error`. |
 | `elapsed_seconds` | float | Wall-clock time (seconds) |
 | `environment` | object | Hardware info (see below) |
+| `run_id` | string | Present when an orchestrator (including MCP) assigns a current invocation identity; conflicting caller values are rejected. |
+
+MLIP/ML/MM calculator stages additionally record:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mlip_backend` | string \| null | Backend identifier (`uma`, `orb`, `mace`, `aimnet2`, or `custom`); null when a plot-only command did not evaluate a calculator |
+| `mlip_model` | string \| null | Exact model/checkpoint; `filename:factory` for `--calc-file` |
+| `mlip_precision` | string \| null | Effective public precision (`fp32` or `fp64`); null for custom calculators |
+| `mm_backend` | string \| null | MM Hessian/energy backend (`hessian_ff` or `openmm`); null when a plot-only command did not evaluate a calculator |
+| `link_atom_method` | string \| null | Link-atom placement (`scaled` or `fixed`); null for plot-only output |
+| `use_cmap` | bool \| null | Whether CMAP terms were enabled; null for plot-only output |
 
 ### Error envelope (when `status == "error"`)
 
@@ -53,17 +65,32 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `n_cpus` | int | `<int>` |
 | `ram_gb` | float | `<ram in GB>` |
 
+An optimizer may also report `"status": "stalled"`: the energy stopped decreasing over the configured window (an energy plateau) while the configured force/step convergence criteria remained unmet. A stall is a distinct, non-converged outcome — it is never reported as `converged` — and it stops further flatten/retry work rather than repeating a non-progressing optimization. When present, a `stop_reason` string records the energy range, window, and the failed criteria. A stall may be retried (e.g. from a perturbed geometry or with tighter step control); it is not an alias for `max_cycles` exhaustion or a generic failure. In microiteration, a stalled macro step or a stalled latest micro (MM) relaxation is reported truthfully and never masquerades as macro convergence.
+
 ## Subcommand schemas
+
+### `sp`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` / `stage` | string / string | `"ok"` / `"sp"` |
+| `input` | string | Input structure path |
+| `real_parm7` | string | Full-system Amber topology path |
+| `charge` / `spin` | int / int | Model-region charge and multiplicity |
+| `energy_au` | float | ONIOM single-point energy (Hartree) |
+| `forces_path` | string | Path to `forces.npy` |
+| `hessian_path` | string \| null | Path to `hessian.npy`, or null without `--hess` |
+| `elapsed` | string | Human-readable elapsed time |
 
 ### `opt`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"converged"` or `"not_converged"` |
+| `status` | string | `"converged"`, `"not_converged"`, or `"stalled"` (energy plateau; see above) |
+| `stop_reason` | string | Present only for a non-converged stop (stalled/stopped); records the energy plateau range/window and failed criteria |
 | `energy_hartree` | float | Final ONIOM energy (Hartree) |
 | `n_opt_cycles` | int | Optimization cycles completed |
 | `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"lbfgs"`, `"rfo"` (aliases: `light`/`lbfgs` → `grad`; `heavy`/`rfo` → `hess`) |
-| `backend` | string | ML backend (`"uma"`, `"orb"`, `"mace"`, `"aimnet2"`) |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
 | `n_atoms` | int | Total atoms (all layers) |
@@ -83,16 +110,17 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"converged"` only when the optimizer converged and `n_imaginary_modes == 1`; otherwise `"not_converged"`, or `"unverified"` with `--skip-final-freq` |
+| `status` | string | `"converged"` only when the optimizer converged and `n_imaginary_modes == 1`; otherwise `"not_converged"`, or `"unverified"` with `--skip-final-freq`. An energy-plateau `"stalled"` outcome (see above) wins over all of these and is never reported as `converged`; the dimer (grad) mode also reports `stalled`. |
 | `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int | Number of imaginary frequencies |
 | `imaginary_frequencies_cm` | float[] | Imaginary frequencies (cm$^{-1}$, negative) |
 | `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"`, `"trim"`, `"rsprfo"` (aliases: `light`/`dimer` → `grad` (PHG-Dimer); `heavy`/`rsirfo` → `hess` (RS-I-RFO); `trim` → TRIM; `rsprfo` → RS-P-RFO) |
 | `n_atoms` | int | Total atoms |
 | `n_opt_cycles` | int | Optimization cycles |
-| `backend` | string | ML backend |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
+| `reference_mode_file` | string\|null | Advanced path-derived mode supplied with `--ref-mode` |
+| `safeguards` | object | Heavy-mode rejection/recovery, exact-saddle, and target-mode diagnostics |
 | `rigid_projection` | object | Frozen-boundary TR provenance for Dimer/flatten/final saddle analysis |
 | `files` | object | Final geometry + vib mode files |
 
@@ -106,13 +134,12 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | `frequencies_cm` | float[] | All frequencies (cm$^{-1}$) |
 | `imaginary_frequencies_cm` | float[] | Negative frequencies only |
 | `thermochemistry` | object\|null | Thermodynamic data (see below) |
-| `backend` | string | ML backend |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
 | `n_atoms` | int | Total atoms |
 | `n_freeze_atoms` | int | Frozen atoms |
 | `rigid_projection` | object | Frozen-boundary TR provenance used for frequencies and thermochemistry |
-| `files` | object | `{"frequencies_txt": "frequencies_cm-1.txt"}` |
+| `files` | object | Output map; includes `hessian_npz` when `--dump-hess` is used |
 
 **`thermochemistry`** (null if thermoanalysis unavailable):
 
@@ -136,15 +163,19 @@ Every `result.json` (and the mirrored `summary.json`) automatically includes:
 | Field | Type | Description |
 |-------|------|-------------|
 | `status` | string | `"completed"` |
-| `n_frames_forward` / `backward` / `total` | int | IRC frames |
-| `energy_reactant_hartree` | float | Reactant energy |
+| `n_frames_forward` / `n_frames_backward` / `n_frames_total` | int | IRC frames |
+| `energy_first_hartree` | float | First stitched-path endpoint; standalone IRC assigns no chemical identity |
 | `energy_ts_hartree` | float | TS energy |
-| `energy_product_hartree` | float | Product energy |
-| `forward_converged` / `backward_converged` | bool | IRC convergence |
-| `backend` | string | ML backend |
+| `energy_last_hartree` | float | Last stitched-path endpoint; standalone IRC assigns no chemical identity |
+| `endpoint_energy_orientation` | string | `"finished_first_to_finished_last"` |
+| `energy_reactant_hartree` / `energy_product_hartree` | float | Compatibility aliases for first/last; do not infer R/P identity from the names |
+| `forward_converged` / `backward_converged` | bool\|null | Directional convergence flags |
+| `never_stop` | bool | Whether opt-in energy-rise/plateau bypass mode was enabled |
+| `never_stop_energy_bypasses` | int | Number of energy-rise/plateau stops actually bypassed |
 | `rigid_projection` | object | Frozen-boundary TR provenance for the initial/updated Hessian |
-| `bond_changes` | object | `{formed: [...], broken: [...]}` |
-| `files` | object | Trajectory files (xyz + pdb) |
+| `bond_changes` | object | Directed first→last `{formed: [...], broken: [...]}`; omitted if comparison was unavailable |
+| `bond_changes_direction` | string | `"finished_first_to_finished_last"` when bond changes are present |
+| `files` | object | Trajectory and endpoint files (XYZ plus available PDB/CIF companions) |
 
 **`rigid_projection` provenance:** the object records the selected treatment
 (`treatment`), `effective_rank`, active/frozen atom counts and indices, and the
@@ -161,12 +192,11 @@ or `source` / `raw_hessian_shape`).
 | `status` | string | `"completed"` |
 | `n_stages` | int | Number of scan stages |
 | `stages` | object[] | Per-stage data |
-| `backend` | string | ML backend |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
 | `files` | object | Output files |
 
-**`stages[]`**: `n_steps`, `converged`, `pairs_1based`, `energies_hartree`, `final_energy_hartree`, `bond_changes`
+**`stages[]`**: `n_steps`, `converged`, `pairs_1based`, `energies_hartree`, `final_energy_hartree`, `bond_changes`, and (M14/P14, additive) `optimizer_status` (`converged`/`not_converged`/`stalled`) plus `stop_reason` when the stage's last optimizer stopped without convergence
 
 ### `scan2d` / `scan3d`
 
@@ -175,10 +205,13 @@ or `source` / `raw_hessian_shape`).
 | `n_grid_points` | int | Total grid points |
 | `pair1`, `pair2` (,`pair3`) | object | `{i, j, low, high}` |
 | `min_energy_hartree` | float | Surface minimum energy |
-| `backend` | string | ML backend |
-| `charge` | int | Model-region charge |
-| `spin` | int | Model-region multiplicity |
+| `charge` | int \| null | Model-region charge; null for plot-only `scan3d --csv` |
+| `spin` | int \| null | Model-region multiplicity; null for plot-only `scan3d --csv` |
 | `files` | object | CSV + plot files |
+
+Fresh `scan2d`/`scan3d` results include the common MLIP/ML/MM calculator
+provenance. Plot-only `scan3d --csv` keeps the same keys but writes null because
+the imported energy grid does not identify the calculator that produced it.
 
 ### `path-opt`
 
@@ -186,7 +219,6 @@ or `source` / `raw_hessian_shape`).
 |-------|------|-------------|
 | `converged` | bool | Convergence flag |
 | `mep_mode` | string | `"dmf"` or `"gsm"` |
-| `backend` | string | ML backend |
 | `image_energies_hartree` | float[] | All image energies |
 | `n_images` | int | Image count |
 | `hei_index` | int | Highest-energy image index |
@@ -199,16 +231,18 @@ or `source` / `raw_hessian_shape`).
 | Field | Type | Description |
 |-------|------|-------------|
 | `converged` | bool | SCF converged? |
+| `status` | string | `"converged"` or `"not_converged"`; the latter is committed before exit code 3. |
 | `energy_hartree` | float | DFT energy |
 | `xc_functional` | string | XC functional |
 | `basis_set` | string | Basis set |
 | `used_gpu` | bool | GPU acceleration used? |
-| `backend` | string | ML backend for ONIOM high-level region |
 | `charges` | object | `{mulliken, lowdin, iao}` per-atom arrays |
 | `spin_densities` | object | `{mulliken, lowdin, iao}` per-atom arrays |
 | `n_atoms` | int | QM-region atom count |
 | `grid_level` | int | DFT grid level |
 | `conv_tol` | float | SCF convergence tolerance |
+| `max_cycle` | int | Effective maximum SCF iterations after YAML/CLI resolution |
+| `engine` | string | Actual runtime engine label (`pyscf(cpu)`, `gpu4pyscf`, or low-memory GPU variant) |
 | `files` | object | `{"result_yaml": "result.yaml"}` |
 
 ### `extract`
@@ -243,8 +277,9 @@ The `all` and `path-search` commands write `summary.json`:
 | `n_segments` | int | Segment count |
 | `segments` | object[] | Per-segment barrier, delta, bond changes |
 | `energy_diagrams` | object[] | Energy profiles with labels and kcal/mol values |
-| `mlip_backend` | string | Backend name (`uma`, `orb`, `mace`, or `aimnet2`) |
+| `mlip_backend` | string | Backend name (`uma`, `orb`, `mace`, `aimnet2`, or `custom`) |
 | `mlip_model` | string \| null | Exact model/checkpoint name, recorded separately from the backend |
+| `mlip_precision` | string \| null | Effective `fp32` / `fp64`; null for custom calculators |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
 | `environment` | object | Hardware info |

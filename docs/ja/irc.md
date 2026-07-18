@@ -1,6 +1,6 @@
 # `irc`
 
-`mlmm irc` は ML/MM calculatorを用いた EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から反応物・生成物の方向へ経路を追跡します。最適化された TS が期待どおり反応物と生成物を接続するかを検証したいとき、あるいは下流の熱化学計算 / DFT 単点計算用の反応物 / 生成物構造を生成したいときに使用します。典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。デフォルトでは正方向と逆方向の両方のブランチが計算されます。CLI は意図的に最小限に絞っており、コマンドラインに用意されていないパラメータは YAML で提供し、実行を明示的かつ再現可能に保つべきです。入力は `pysisyphus.helpers.geom_loader` で読み取り可能な任意の構造（`.pdb`、`.xyz`、`_trj.xyz`、...）です。入力が `.pdb` の場合、生成される軌跡は追加で PDB に変換されます。
+`mlmm irc` は ML/MM calculatorを用いた EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から反応物・生成物の方向へ経路を追跡します。最適化された TS が期待どおり反応物と生成物を接続するかを検証したいとき、あるいは下流の熱化学計算 / DFT 単点計算用の反応物 / 生成物構造を生成したいときに使用します。典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。デフォルトでは正方向と逆方向の両方のブランチが計算されます。共通input bridgeはPDB/mmCIFと`geom_loader`対応形式を受け入れます。直接入力または`--ref-pdb`でPDB/mmCIF topologyがあり、変換が有効ならPDB companionを生成し、mmCIF/oversized-PDB bridge入力では元IDを復元したCIF companionも生成します。
 
 ## 実行例
 
@@ -56,11 +56,11 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 
 ## 処理の流れ
 
-1. **入力準備** -- TS 構造、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを確定します。`geom_loader` でサポートされる任意の形式を受け付けます。参照 PDB が利用可能な場合（入力が `.pdb` または `--ref-pdb` 指定時）、EulerPC 軌跡はそのトポロジーを使用して PDB に変換されます。
+1. **入力準備** -- TS 構造、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを確定します。直接PDB/mmCIF入力または`--ref-pdb`がcompanion出力用topologyを提供します。
 2. **ML/MM calculatorの構築** -- `--parm` と `--model-pdb` から ML/MM calculatorを構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP Hessian評価を制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **凍結境界の TR 処理** -- `--tr-projection constrained` は、凍結 anchor をすべて動かさない全系剛体運動だけを除去します。一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では通常 0 です。`legacy-active` は isolated-active 比較処理であり、物理的なデフォルトではありません。
 4. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` または `--no-backward` でブランチを無効化可能）。ステップサイズとサイクル数で積分長を制御します。
-5. **出力と変換** -- 軌跡は XYZ で書き出されます。PDB テンプレートが利用可能で `--convert-files` が有効な場合、対応する PDB が生成されます。
+5. **出力と変換** -- 軌跡はXYZで書き出されます。PDB/mmCIF topologyが利用可能で`--convert-files`が有効ならPDB companionを生成し、bridge入力では元ID付きCIF companionも生成します。
 
 ## 出力
 
@@ -72,13 +72,24 @@ out_dir/ (デフォルト: ./result_irc/)
 ├─ <prefix>forward_irc_trj.xyz      # 正方向パスセグメント
 ├─ <prefix>backward_irc_trj.xyz     # 逆方向パスセグメント
 ├─ <prefix>finished_irc.pdb         # PDB 変換（入力が .pdb または --ref-pdb 指定時）
+├─ <prefix>finished_irc.cif         # bridge入力。元IDを復元
 ├─ <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb または --ref-pdb 指定時）
+├─ <prefix>forward_irc.cif          # bridge入力の順方向CIF
 ├─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb または --ref-pdb 指定時）
+├─ <prefix>backward_irc.cif         # bridge入力の逆方向CIF
 ├─ <prefix>forward_last.xyz         # 正方向 IRC 終点（XYZ、単一フレーム）
-├─ <prefix>forward_last.pdb         # 正方向 IRC 終点（PDB、利用可能時）
+├─ <prefix>forward_last.pdb/.cif    # 正方向IRC終点companion（利用可能時）
 ├─ <prefix>backward_last.xyz        # 逆方向 IRC 終点（XYZ、単一フレーム）
-└─ <prefix>backward_last.pdb        # 逆方向 IRC 終点（PDB、利用可能時）
+└─ <prefix>backward_last.pdb/.cif   # 逆方向IRC終点companion（利用可能時）
 ```
+
+`irc.prefix`が空でない場合、EulerPCはファイル名との間に`_`を1つ補います。たとえば
+`prefix: trial`は`trial_finished_irc_trj.xyz`を生成し、`result.json.files`にも
+正規化後の名前を記録します。
+
+standalone IRCはstitched pathの`first` / `last`端点と、その方向のbond changesを
+記録します。化学的なreactant/product identityは割り当てないため、R/Pの命名前に
+端点構造を確認または参照構造と対応付けてください。
 
 主に確認するファイル:
 
@@ -94,7 +105,7 @@ out_dir/ (デフォルト: ./result_irc/)
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--hess-device CHOICE` | 初期Hessianの格納・IRC演算のデバイス: `auto`、`cuda`、`cpu`。大規模非凍結系では `cpu` を推奨。 | `auto` |
-| `--read-hess PATH` | `.npz` ファイルから初期Hessianを読み込み（`mlmm freq --dump-hess` で出力）。hessian_cache および新規計算より優先。 | _None_ |
+| `--read-hess PATH` | `mlmm freq --dump-hess`のidentified `.npz`を読み込む。geometry、原子順序、layer選択、active-DOF basisが一致する必要があり、cache／新規計算より優先。 | _None_ |
 | `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。`geom_loader` で読み取り可能な任意の形式。 | 必須 |
 | `--parm PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 | _None_ |
@@ -113,8 +124,8 @@ out_dir/ (デフォルト: ./result_irc/)
 | `--backward/--no-backward` | 逆方向 IRC を実行。`irc.backward` を上書き。 | `True` |
 | `--never-stop/--no-never-stop` | エネルギー上昇/plateau 停止だけを無視。収束、非有限値、最大サイクルでは停止。 | `False` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |
-| `--ref-pdb FILE` | `--input` が XYZ の場合に使用する参照 PDB トポロジー（XYZ 座標を保持）。 | _None_ |
-| `--convert-files/--no-convert-files` | 参照 PDB が利用可能な場合に XYZ/TRJ を対応する PDB へ変換するかの切り替え。 | `True` |
+| `--ref-pdb FILE` | `--input`がXYZの場合に使用する参照PDB/mmCIF topology（XYZ座標を保持）。 | _None_ |
+| `--convert-files/--no-convert-files` | 参照topologyがある場合のXYZ/TRJ→PDB/CIF companionを切り替え。 | `True` |
 | `--hessian-calc-mode CHOICE` | MLIP がHessianを構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | `FiniteDifference` |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
@@ -124,6 +135,10 @@ out_dir/ (デフォルト: ./result_irc/)
 | `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（$g$ 係数）または fixed（1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
+
+geometry identity metadataを持たない旧NPZは拒否します。構造またはHessian対象layerを
+変更した場合は`freq`で再生成してください。有効なhandoffではpartial-Hessian/PHVA
+metadataを保持します。
 
 ## YAML 設定
 

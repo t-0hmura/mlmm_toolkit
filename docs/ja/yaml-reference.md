@@ -319,7 +319,7 @@ search:
  max_depth: 10 # 再帰深度の上限
  stitch_rmsd_thresh: 0.0001 # セグメント縫合の RMSD 閾値
  bridge_rmsd_thresh: 0.0001 # ブリッジノードの RMSD 閾値
- max_nodes_segment: 10 # セグメントあたりの最大ノード数
+ max_nodes_segment: 20 # セグメントあたりの最大ノード数
  max_nodes_bridge: 5 # ブリッジあたりの最大ノード数
  kink_max_nodes: 3 # ねじれ最適化の最大ノード数
  max_seq_kink: 2 # 連続ねじれの上限
@@ -360,7 +360,7 @@ hessian_dimer:
  rotation_interpolate: true # 回転ステップの補間
  rotation_disable: false # 回転を完全に無効化
  rotation_disable_pos_curv: true # 正曲率検出時に回転を無効化
- rotation_remove_trans: true # 並進成分の除去
+ rotation_remove_trans: true # 選択した剛体null成分を除去
  trans_force_f_perp: true # 並進に垂直な力の投影
  bonds: null # 拘束用の結合リスト
  N_hessian: null # Hessianサイズの上書き
@@ -639,7 +639,7 @@ bond:
 
 search:
  max_depth: 10
- max_nodes_segment: 10
+ max_nodes_segment: 20
 
 freq:
  max_write: 10

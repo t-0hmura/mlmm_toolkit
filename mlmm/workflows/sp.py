@@ -15,7 +15,7 @@ import gc
 import logging
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import click
 import numpy as np
@@ -27,16 +27,16 @@ from pysisyphus.constants import AU2EV
 
 from mlmm.backends.mlmm_calc import mlmm
 from mlmm.core.defaults import GEOM_KW_DEFAULT, MLMM_CALC_KW, OUT_DIR_SP
+from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 from mlmm.core.utils import (
     apply_yaml_overrides,
-    build_model_pdb_from_bfactors,
-    build_model_pdb_from_indices,
     calculator_provenance,
     format_elapsed,
     merge_freeze_atom_indices,
     parse_indices_string,
     prepare_input_structure,
-    resolve_charge_spin_or_raise,
+    read_bfactors_from_pdb,
+    resolve_ml_layer_assignment,
     set_convert_file_enabled,
 )
 from mlmm.cli.common_options import (
@@ -55,6 +55,89 @@ from mlmm.cli.decorators import (
 logger = logging.getLogger(__name__)
 
 EV2AU = 1.0 / AU2EV
+
+
+def _resolve_sp_ml_region(
+    *,
+    source_path: Path,
+    out_dir_path: Path,
+    calc_cfg: Dict[str, Any],
+    model_indices_str: Optional[str],
+    model_indices_one_based: bool,
+) -> Dict[str, Any]:
+    """Resolve one explicit/layered SP ML region and return its provenance."""
+
+    atom_count = len(read_bfactors_from_pdb(source_path))
+    if atom_count <= 0:
+        raise click.ClickException(f"No atoms found in input PDB: {source_path}")
+
+    configured_model = calc_cfg.get("model_pdb")
+    model_indices = None
+    if configured_model is None and model_indices_str is not None:
+        model_indices = parse_indices_string(
+            str(model_indices_str), one_based=bool(model_indices_one_based)
+        )
+        if not model_indices:
+            raise click.BadParameter("--model-indices must select at least one atom.")
+        invalid = [
+            index for index in model_indices if index < 0 or index >= atom_count
+        ]
+        if invalid:
+            raise click.BadParameter(
+                "--model-indices contains indices outside the input atom bounds "
+                f"[0, {atom_count}): {invalid}"
+            )
+
+    layer_detection_requested = bool(calc_cfg.get("use_bfactor_layers", True))
+    if configured_model is not None:
+        source = "model_pdb"
+        detect_layer = False
+    elif model_indices is not None:
+        source = "model_indices"
+        detect_layer = False
+    else:
+        source = "bfactor"
+        detect_layer = bool(calc_cfg.get("use_bfactor_layers", True))
+
+    model_pdb_path, layer_info = resolve_ml_layer_assignment(
+        source_path=source_path,
+        out_dir_path=out_dir_path,
+        model_pdb=configured_model,
+        model_indices=model_indices,
+        detect_layer=detect_layer,
+        hess_cutoff=calc_cfg.get("hess_cutoff"),
+        movable_cutoff=calc_cfg.get("movable_cutoff"),
+        calc_cfg=calc_cfg,
+        echo_fn=click.echo,
+    )
+    if source in {"model_pdb", "model_indices"}:
+        # Explicit ML membership and B-factor movable/frozen layers are
+        # independent in SP.  The shared resolver disables layer reading while
+        # choosing an explicit model, so restore the already-resolved SP policy.
+        calc_cfg["use_bfactor_layers"] = layer_detection_requested
+
+    if source == "model_indices":
+        region_count = len(model_indices or [])
+    elif source == "bfactor" and layer_info is not None:
+        region_count = len(layer_info.get("ml_indices", []))
+    else:
+        region_count = len(read_bfactors_from_pdb(model_pdb_path))
+    if region_count <= 0:
+        raise click.ClickException(
+            f"The resolved ML region contains no atoms: {model_pdb_path}"
+        )
+
+    return {
+        "ml_region_source": source,
+        "ml_region_atom_count": int(region_count),
+        "full_system_ml": bool(region_count == atom_count),
+        "ml_region_model_pdb": str(model_pdb_path),
+        "ml_region_indices": (
+            [int(index) for index in model_indices]
+            if source == "model_indices" and model_indices is not None
+            else None
+        ),
+    }
 
 
 @click.command(
@@ -372,41 +455,13 @@ def cli(
         calc_cfg.setdefault("freeze_atoms", list(geom_cfg.get("freeze_atoms", [])))
         calc_cfg["return_partial_hessian"] = bool(sp_cfg["hess"])
 
-        # Auto-derive model_pdb when not user-supplied. MLMMCore unconditionally
-        # copies model_pdb to its tmpdir (mlmm_calc.py:1137), so it must be a
-        # valid path. Mirror opt.py / tsopt.py / irc.py: B-factor layers first,
-        # then --model-indices, fall back to input PDB itself for layered files.
-        # NOTE: MLMM_CALC_KW seeds calc_cfg with "model_pdb": None, so use
-        # explicit None check rather than `not in`.
-        if calc_cfg.get("model_pdb") is None:
-            _src_pdb = Path(prepared.source_path)
-            if model_indices_str is not None:
-                calc_cfg["model_indices_str"] = str(model_indices_str)
-                calc_cfg["model_indices_one_based"] = bool(model_indices_one_based)
-                # Parse --model-indices into an explicit atom list before
-                # building the model PDB. Mirror opt.py / tsopt.py: without
-                # this the ML region defaults to the entire structure because
-                # write_model_pdb_from_indices([]) raises and we fall back to
-                # the full input PDB.
-                _model_indices = parse_indices_string(
-                    str(model_indices_str), one_based=bool(model_indices_one_based)
-                )
-                try:
-                    _model_pdb_path = build_model_pdb_from_indices(
-                        _src_pdb, out_dir_path, _model_indices or []
-                    )
-                    calc_cfg["model_pdb"] = str(_model_pdb_path)
-                except Exception:
-                    calc_cfg["model_pdb"] = str(_src_pdb)
-            else:
-                try:
-                    _model_pdb_path, _ = build_model_pdb_from_bfactors(
-                        _src_pdb, out_dir_path
-                    )
-                    calc_cfg["model_pdb"] = str(_model_pdb_path)
-                except Exception:
-                    # Input PDB already layered serves as model_pdb fallback.
-                    calc_cfg["model_pdb"] = str(_src_pdb)
+        ml_region_provenance = _resolve_sp_ml_region(
+            source_path=Path(prepared.source_path),
+            out_dir_path=out_dir_path,
+            calc_cfg=calc_cfg,
+            model_indices_str=model_indices_str,
+            model_indices_one_based=model_indices_one_based,
+        )
 
         # Rename CLI-style keys to mlmm constructor kwargs to avoid duplicate-
         # value TypeError at super().__init__(charge=model_charge, ...).
@@ -457,6 +512,7 @@ def cli(
             # before mlmm() construction (see "Rename CLI-style keys" block).
             "charge": calc_cfg.get("model_charge"),
             "spin": calc_cfg.get("model_mult"),
+            **ml_region_provenance,
             "energy_au": energy_au,
             "forces_path": str(forces_path),
             "hessian_path": str(hessian_path) if hessian_path else None,

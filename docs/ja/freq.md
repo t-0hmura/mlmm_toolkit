@@ -47,7 +47,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われます。デフォルトの constrained 射影は、凍結 anchor をすべて動かさない全系剛体運動のみを除去し、アクティブ断片を孤立分子として扱いません。3N x 3N とアクティブブロックの両方のHessianを受け付け、振動数は cm^-1 で報告します（負の値 = 虚振動数）。
 3. **アクティブ自由度モード** — `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層、B=0）、`partial`（ML + MovableMM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
 4. **モードエクスポート** — `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `_trj.xyz`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML のデフォルト値と同じです。
-5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（EE、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。CLI の圧力（atm）は内部で Pa に変換されます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。
+5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（EE、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。CLI の圧力（atm）は内部で Pa に変換されます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
 6. **デバイス選択** — `ml_device="auto"` は CUDA が利用可能な場合は CUDA を使用し、それ以外は CPU を使用します。内部の TR 射影/モード組み立ては転送を抑えるため同じデバイスで実行されます。
 7. **終了動作** — キーボード割り込みはコード 130 で終了します。その他の失敗はトレースバックを出力してコード 1 で終了します。
 
@@ -132,7 +132,7 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM 層のカットオフ距離。 | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessianモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
-| `--dump-hess PATH` | 計算済みHessianを圧縮 `.npz` ファイルに保存。`mlmm irc --read-hess` で読み込み可能。 | _None_ |
+| `--dump-hess PATH` | Hessian、原子順序、Cartesian geometry、active-DOF basis、PHVA metadataを`.npz`へ保存し、一致する`mlmm irc --read-hess`へ渡す。 | _None_ |
 | **モードエクスポート** | | |
 | `--max-write INT` | エクスポートするモード数。 | `10` |
 | `--sort CHOICE` | モードのソート方法: `value`（cm^-1）または `abs`。 | `value` |
@@ -148,6 +148,10 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 確定した YAML レイヤー/設定を表示して続行。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
+
+handoffではidentityを検証します。IRCはidentity metadataのない旧形式、および原子順序・
+geometry・layer選択・Hessian active basisが異なるfileを拒否します。同じlayer/Hessian
+設定でfileを再生成してください。
 
 ## YAML 設定
 

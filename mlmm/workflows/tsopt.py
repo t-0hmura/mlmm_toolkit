@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import click
+from mlmm.core.output import emit
 import numpy as np
 import torch
 from ase import Atoms
@@ -25,10 +26,13 @@ from ase.io import write
 from pysisyphus.helpers import geom_loader
 from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
+from pysisyphus.intcoords.exceptions import RebuiltInternalsException
 from pysisyphus.constants import BOHR2ANG, AMU2AU, AU2EV
 from pysisyphus.calculators.Dimer import Dimer  # Dimer calculator (orientation-projected forces)
 from pysisyphus.tr_projection import (
     active_tr_basis,
+    compact_project_hessian,
+    full_cartesian_tr_basis,
     normalize_tr_projection_mode,
     project_hessian_inplace,
 )
@@ -37,8 +41,104 @@ from pysisyphus.tr_projection import (
 from pysisyphus.tsoptimizers.RSIRFOptimizer import RSIRFOptimizer
 from pysisyphus.tsoptimizers.TRIM import TRIM  # Helgaker trust-region image-min TS opt
 from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer  # Banerjee P-RFO TS opt
+from pysisyphus.TablePrinter import TablePrinter
+
+# local helpers from mlmm
+from mlmm.backends.mlmm_calc import mlmm, mlmm_mm_only
+from mlmm.core.defaults import (
+    OUT_DIR_TSOPT,
+    GEOM_KW_DEFAULT,
+    MLMM_CALC_KW,
+    OPT_BASE_KW,
+    LBFGS_KW,
+    DIMER_KW,
+    HESSIAN_DIMER_KW,
+    RSIRFO_KW,
+    MICROITER_KW,
+    TSOPT_MODE_ALIASES,
+    BFACTOR_ML,
+    BFACTOR_MOVABLE_MM,
+    BFACTOR_FROZEN,
+    THRESH_CHOICES,
+)
+from mlmm.workflows.opt import (
+    _parse_freeze_atoms as _parse_freeze_atoms_opt,
+    _normalize_geom_freeze as _normalize_geom_freeze_opt,
+    _convert_yaml_layer_atoms_1to0,
+)
+from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
+from mlmm.core.utils import (
+    append_xyz_trajectory as _append_xyz_trajectory,
+    apply_layer_freeze_constraints,
+    convert_xyz_to_pdb,
+    set_convert_file_enabled,
+    is_convert_file_enabled,
+    load_yaml_dict,
+    apply_yaml_overrides,
+    pretty_block,
+    strip_inherited_keys,
+    filter_calc_for_echo,
+    format_freeze_atoms_for_echo,
+    format_elapsed,
+    merge_freeze_atom_indices,
+    prepare_input_structure,
+    apply_ref_pdb_override,
+    parse_indices_string,
+    build_model_pdb_from_bfactors,
+    build_model_pdb_from_indices,
+    update_pdb_bfactors_from_layers,
+    normalize_choice,
+    yaml_section_has_key,
+    echo_resolved_device,
+    emit_optimizer_terminal_status,
+    finalize_microiter_macro_convergence,
+    optimizer_cycle_count,
+)
+from mlmm.workflows._microiteration import (
+    MicroiterationOutcome,
+    OptimizerOutcome,
+    PartitionError,
+    build_aggregate,
+    resolve_partition_from_core,
+)
+from mlmm.cli.common_options import (
+    add_ml_layer_detection_options,
+    add_precision_option,
+    add_backend_model_option,
+    add_calc_file_option,
+    add_workers_options,
+    add_deterministic_option,
+    add_coord_type_option,
+    add_print_every_option,
+)
+from mlmm.cli.decorators import (
+    resolve_yaml_sources,
+    load_merged_yaml_cfg,
+    make_is_param_explicit,
+    _write_error_json,
+    render_cli_exception,
+)
+from mlmm.workflows.freq import (
+    _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
+    _torch_device,
+    _mass_weighted_hessian,
+    _align_three_layer_hessian_targets,
+    _resolve_active_atom_indices,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _set_cartesian_flatten_coords(geom, cart_coords: np.ndarray) -> None:
+    """Install a Cartesian TS trial and accept a completed internals rebuild."""
+
+    try:
+        geom.cart_coords = np.asarray(cart_coords, dtype=float).reshape(-1)
+    except RebuiltInternalsException:
+        # The Cartesian setter installs the requested geometry before it uses
+        # this exception to report that its primitive internals were rebuilt.
+        geom.clear()
+
 
 # TS optimizer class map. All three classes inherit from TSHessianOptimizer
 # and share the kwargs surface (`_build_rsirfo_kwargs`). Microiter macro
@@ -46,6 +146,62 @@ logger = logging.getLogger(__name__)
 TSOPT_CLASS_MAP = {"rsirfo": RSIRFOptimizer, "trim": TRIM, "rsprfo": RSPRFOptimizer}
 PATH_MODE_RESTART_AMPLITUDES_ANG = (-0.10, 0.10, -0.20, 0.20)
 FLATTEN_RETRY_HIGHER_ORDER_CHECKS = 3
+
+
+def _restart_microiteration_carry(
+    outcome: Dict[str, Any],
+) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
+    """Extract the additive microiteration block + executed micro-cycle total from
+    a ``_run_microiter_tsopt`` outcome so a restart/multistart/flatten selection
+    can re-anchor the serialized ``microiteration`` object on the run that
+    produced the FINAL geometry (never a superseded initial run).
+
+    Returns ``(microiteration_result_object, micro_cycles)`` on the
+    microiteration path, or ``(None, None)`` for an ordinary (non-microiter)
+    restart whose outcome carries no :class:`MicroiterationOutcome`.
+    """
+
+    mi_obj = outcome.get("outcome")
+    if mi_obj is None:
+        return None, None
+    return mi_obj.to_result_object(), int(outcome.get("micro_cycles", 0))
+
+
+def _optimizer_safeguard_payload(optimizer) -> Dict[str, Any]:
+    """Return machine-readable TS-mode selection and rollback diagnostics."""
+    return {
+        "rejected_mode_loss_trials": int(
+            getattr(optimizer, "rejected_mode_loss_steps", 0)
+        ),
+        "exact_saddle_checks": int(getattr(optimizer, "exact_saddle_checks", 0)),
+        "saddle_recovery_steps": int(
+            getattr(optimizer, "saddle_recovery_steps", 0)
+        ),
+        "last_exact_n_imaginary": getattr(
+            optimizer, "_last_exact_n_imaginary", None
+        ),
+        "initial_reference_root_index": getattr(
+            optimizer, "_initial_reference_root_index", None
+        ),
+        "initial_reference_root_overlap": getattr(
+            optimizer, "_initial_reference_root_overlap", None
+        ),
+        "initial_reference_root_eigenvalue": getattr(
+            optimizer, "_initial_reference_root_eigenvalue", None
+        ),
+        "last_exact_target_mode_index": getattr(
+            optimizer, "_last_exact_target_mode_index", None
+        ),
+        "last_exact_target_mode_overlap": getattr(
+            optimizer, "_last_exact_target_mode_overlap", None
+        ),
+        "last_exact_target_mode_is_negative": getattr(
+            optimizer, "_last_exact_target_mode_is_negative", None
+        ),
+        "last_exact_target_mode_reanchored": bool(
+            getattr(optimizer, "_last_exact_target_mode_reanchored", False)
+        ),
+    }
 
 
 def _mirrored_flatten_start(
@@ -163,74 +319,6 @@ def _path_restart_mode_candidates(
     if soft_root is not None and abs(float(np.dot(reference, soft_root))) < 0.95:
         candidates.append(("initial-soft-root", soft_root))
     return candidates
-from pysisyphus.TablePrinter import TablePrinter
-
-# local helpers from mlmm
-from mlmm.backends.mlmm_calc import mlmm, mlmm_mm_only
-from mlmm.core.defaults import OUT_DIR_TSOPT
-from mlmm.core.defaults import (
-    GEOM_KW_DEFAULT,
-    MLMM_CALC_KW,
-    OPT_BASE_KW,
-    LBFGS_KW,
-    DIMER_KW,
-    HESSIAN_DIMER_KW,
-    RSIRFO_KW,
-    MICROITER_KW,
-    TSOPT_MODE_ALIASES,
-    BFACTOR_ML,
-    BFACTOR_MOVABLE_MM,
-    BFACTOR_FROZEN,
-    THRESH_CHOICES,
-)
-from mlmm.workflows.opt import (
-    _parse_freeze_atoms as _parse_freeze_atoms_opt,
-    _normalize_geom_freeze as _normalize_geom_freeze_opt,
-)
-from mlmm.workflows.opt import _convert_yaml_layer_atoms_1to0
-from mlmm.core.utils import (
-    append_xyz_trajectory as _append_xyz_trajectory,
-    apply_layer_freeze_constraints,
-    convert_xyz_to_pdb,
-    set_convert_file_enabled,
-    is_convert_file_enabled,
-    load_yaml_dict,
-    apply_yaml_overrides,
-    pretty_block,
-    strip_inherited_keys,
-    filter_calc_for_echo,
-    format_freeze_atoms_for_echo,
-    format_elapsed,
-    merge_freeze_atom_indices,
-    prepare_input_structure,
-    apply_ref_pdb_override,
-    resolve_charge_spin_or_raise,
-    parse_indices_string,
-    build_model_pdb_from_bfactors,
-    build_model_pdb_from_indices,
-    update_pdb_bfactors_from_layers,
-    normalize_choice,
-    yaml_section_has_key,
-    echo_resolved_device,
-    emit_optimizer_terminal_status,
-    optimizer_cycle_count,
-)
-from mlmm.cli.common_options import (
-    add_ml_layer_detection_options,
-    add_precision_option, add_backend_model_option, add_calc_file_option,
-    add_workers_options,
-    add_deterministic_option,
-    add_coord_type_option,
-    add_print_every_option,
-)
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
-from mlmm.workflows.freq import (
-    _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
-    _torch_device,
-    _mass_weighted_hessian,
-    _align_three_layer_hessian_targets,
-    _resolve_active_atom_indices,
-)
 
 
 
@@ -303,11 +391,14 @@ def _mw_projected_hessian_inplace(H_t: torch.Tensor,
                                   masses_au_t: torch.Tensor,
                                   freeze_idx: Optional[List[int]] = None,
                                   tr_projection: str = "constrained",
-                                  projection_info: Optional[dict] = None) -> torch.Tensor:
+                                  projection_info: Optional[dict] = None,
+                                  compact: bool = False):
     """
     Mass-weight H in-place, optionally restrict to active DOF subspace (PHVA) and
     project out TR motions (in that subspace), also in-place.
-    Returns the (possibly reduced) Hessian to be diagonalized.
+    With ``compact=True``, return ``(H_compact, lift)`` for the true
+    orthogonal complement of the rigid basis.  This keeps root selection away
+    from the artificial zero eigenvectors of a same-size ``P H P`` matrix.
     """
     device = H_t.device
     with torch.no_grad():
@@ -330,7 +421,11 @@ def _mw_projected_hessian_inplace(H_t: torch.Tensor,
                 active_idx,
                 mode=tr_projection,
             )
-            project_hessian_inplace(H_t, Q)
+            if compact:
+                H_t, lift = compact_project_hessian(H_t, Q)
+            else:
+                project_hessian_inplace(H_t, Q)
+                lift = None
             del Q, mask_dof, active_idx, frozen
         else:
             # Full DOF: mass-weight + TR projection in-place
@@ -341,13 +436,17 @@ def _mw_projected_hessian_inplace(H_t: torch.Tensor,
                 list(range(int(N))),
                 mode=tr_projection,
             )
-            project_hessian_inplace(H_t, Q)
+            if compact:
+                H_t, lift = compact_project_hessian(H_t, Q)
+            else:
+                project_hessian_inplace(H_t, Q)
+                lift = None
             del Q
         if projection_info is not None:
             projection_info.clear()
             projection_info.update(info.as_dict())
         _clear_cuda_cache()
-        return H_t
+        return (H_t, lift) if compact else H_t
 
 
 def _mode_direction_by_root(H_t: torch.Tensor,
@@ -365,14 +464,19 @@ def _mode_direction_by_root(H_t: torch.Tensor,
     """
     with torch.no_grad():
         # In-place: mass weight + (active-subspace) TR projection
-        Hmw_proj = _mw_projected_hessian_inplace(
+        Hmw_proj, lift = _mw_projected_hessian_inplace(
             H_t,
             coords_bohr_t,
             masses_au_t,
             freeze_idx=freeze_idx,
             tr_projection=tr_projection,
             projection_info=projection_info,
+            compact=True,
         )
+        if Hmw_proj.shape[0] == 0:
+            raise RuntimeError(
+                "No Dimer orientation remains after rigid-null projection."
+            )
 
         # Bounded-peak symmetrization (helper writes both triangles).
         from mlmm.core.utils import symmetrize_inplace
@@ -382,10 +486,10 @@ def _mode_direction_by_root(H_t: torch.Tensor,
         if int(root) == 0:
             try:
                 w, v_mw_sub = torch.lobpcg(Hmw_proj, k=1, largest=False)
-                u_mw_sub = v_mw_sub[:, 0]
+                u_mw_reduced = v_mw_sub[:, 0]
             except Exception:
                 evals_f, evecs_f = torch.linalg.eigh(Hmw_proj, UPLO="U")
-                u_mw_sub = evecs_f[:, torch.argmin(evals_f)]
+                u_mw_reduced = evecs_f[:, torch.argmin(evals_f)]
                 del evals_f, evecs_f
         else:
             evals, evecs_mw = torch.linalg.eigh(Hmw_proj, UPLO="U")  # ascending
@@ -396,8 +500,12 @@ def _mode_direction_by_root(H_t: torch.Tensor,
             else:
                 k = max(0, min(int(root), neg_inds.numel() - 1))
                 pick = int(neg_inds[k].item())
-            u_mw_sub = evecs_mw[:, pick]
+            u_mw_reduced = evecs_mw[:, pick]
             del evals, evecs_mw
+
+        u_mw_sub = (
+            lift.T @ u_mw_reduced if lift is not None else u_mw_reduced
+        )
 
         # Embed back to full 3N (frozen DOF as zeros) if we solved in subspace
         N = coords_bohr_t.shape[0]
@@ -421,7 +529,7 @@ def _mode_direction_by_root(H_t: torch.Tensor,
         v = v / torch.linalg.norm(v)
         mode = v.reshape(-1, 3).detach().cpu().numpy()
 
-        del masses_amu_t, m3, inv_sqrt_m, v, u_mw, u_mw_sub
+        del masses_amu_t, m3, inv_sqrt_m, v, u_mw, u_mw_sub, u_mw_reduced
         _clear_cuda_cache()
         return mode
 
@@ -648,7 +756,8 @@ def _mw_tr_project_active_inplace(H_act: torch.Tensor,
                                   masses_full_au_t: torch.Tensor,
                                   active_idx: List[int],
                                   tr_projection: str = "constrained",
-                                  projection_info: Optional[dict] = None) -> torch.Tensor:
+                                  projection_info: Optional[dict] = None,
+                                  compact: bool = False):
     """
     Mass-weight & project TR in the *active* subspace (in-place).
     """
@@ -668,12 +777,16 @@ def _mw_tr_project_active_inplace(H_act: torch.Tensor,
             active_idx,
             mode=tr_projection,
         )
-        project_hessian_inplace(H_act, Q)
+        if compact:
+            H_act, lift = compact_project_hessian(H_act, Q)
+        else:
+            project_hessian_inplace(H_act, Q)
+            lift = None
         if projection_info is not None:
             projection_info.clear()
             projection_info.update(info.as_dict())
         del masses_act_au_t, masses_amu_t, m3, inv_sqrt_m_col, inv_sqrt_m_row, Q
-        return H_act
+        return (H_act, lift) if compact else H_act
 
 
 def _frequencies_from_Hact(H_act: torch.Tensor,
@@ -784,15 +897,19 @@ def _mode_direction_by_root_from_Hact(H_act: torch.Tensor,
         coords_full = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_act.dtype, device=device)
         masses_act_au = masses_au_t[active_idx].to(device=device, dtype=H_act.dtype)
         # mass-weight + TR in active space
-        Hmw = H_act.clone()
-        _mw_tr_project_active_inplace(
-            Hmw,
+        Hmw, lift = _mw_tr_project_active_inplace(
+            H_act.clone(),
             coords_full,
             masses_au_t.to(device=device, dtype=H_act.dtype),
             active_idx,
             tr_projection=tr_projection,
             projection_info=projection_info,
+            compact=True,
         )
+        if Hmw.shape[0] == 0:
+            raise RuntimeError(
+                "No Dimer orientation remains after rigid-null projection."
+            )
         # Bounded-peak symmetrization (helper writes both triangles).
         from mlmm.core.utils import symmetrize_inplace
         symmetrize_inplace(Hmw)
@@ -801,10 +918,10 @@ def _mode_direction_by_root_from_Hact(H_act: torch.Tensor,
         if int(root) == 0:
             try:
                 w, V = torch.lobpcg(Hmw, k=1, largest=False)
-                u_mw = V[:, 0]
+                u_mw_reduced = V[:, 0]
             except Exception:
                 vals, vecs = torch.linalg.eigh(Hmw, UPLO="U")
-                u_mw = vecs[:, torch.argmin(vals)]
+                u_mw_reduced = vecs[:, torch.argmin(vals)]
                 del vals, vecs
         else:
             vals, vecs = torch.linalg.eigh(Hmw, UPLO="U")
@@ -815,8 +932,10 @@ def _mode_direction_by_root_from_Hact(H_act: torch.Tensor,
             else:
                 k = max(0, min(int(root), neg_inds.numel() - 1))
                 pick = int(neg_inds[k].item())
-            u_mw = vecs[:, pick]
+            u_mw_reduced = vecs[:, pick]
             del vals, vecs
+
+        u_mw = lift.T @ u_mw_reduced if lift is not None else u_mw_reduced
 
         # Mass un-weight to Cartesian in the active space, then embed to full 3N
         masses_act_amu = (masses_act_au / AMU2AU).to(dtype=H_act.dtype, device=device)
@@ -980,14 +1099,14 @@ def _flatten_once_with_modes_for_geom(
         plus = ref + disp
         minus = ref - disp
 
-        geom.coords = plus.reshape(-1)
+        _set_cartesian_flatten_coords(geom, plus)
         E_plus = _calc_energy(geom, calc_kwargs)
 
-        geom.coords = minus.reshape(-1)
+        _set_cartesian_flatten_coords(geom, minus)
         E_minus = _calc_energy(geom, calc_kwargs)
 
         use_plus = E_plus <= E_minus
-        geom.coords = (plus if use_plus else minus).reshape(-1)
+        _set_cartesian_flatten_coords(geom, plus if use_plus else minus)
         energy_keep = E_plus if use_plus else E_minus
         click.echo(
             f"[Flatten] mode={idx} freq={freqs_cm[idx]:+.2f} cm^-1 "
@@ -1075,7 +1194,8 @@ def _bofill_update_active(H_act: torch.Tensor,
 
     # Off-diagonal (i < j): symmetric update
     if off.any():
-        i = iu0[off]; j = iu1[off]
+        i = iu0[off]
+        j = iu1[off]
         inc = (alpha * xi[i] * xi[j]
                + beta * d[i] * d[j]
                + gamma * (d[i] * xi[j] + xi[i] * d[j]))
@@ -1086,6 +1206,22 @@ def _bofill_update_active(H_act: torch.Tensor,
 
 
 #                        HessianDimer (extended)
+
+def _tsopt_terminal_status(optimizer: Any, *, saddle_verified: bool) -> str:
+    """Compose a TS optimizer's public status (M14/P14).
+
+    Precedence, per the C7 contract: a stall wins (an energy-plateau outcome is
+    never a converged saddle); otherwise a genuine first-order saddle
+    (``is_converged`` and ``saddle_verified``) is ``converged``; anything else
+    is ``not_converged``.  n_imag / stop_reason are recorded separately so a
+    stall does not hide saddle-order evidence.
+    """
+    if getattr(optimizer, "is_stalled", False):
+        return "stalled"
+    if getattr(optimizer, "is_converged", False) and saddle_verified:
+        return "converged"
+    return "not_converged"
+
 
 class HessianDimer:
     """
@@ -1141,8 +1277,10 @@ class HessianDimer:
 
         self.fn = fn
         self.source_path = Path(source_path) if source_path is not None else None
-        self.out_dir = Path(out_dir); self.out_dir.mkdir(parents=True, exist_ok=True)
-        self.vib_dir = self.out_dir / "vib"; self.vib_dir.mkdir(parents=True, exist_ok=True)
+        self.out_dir = Path(out_dir)
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.vib_dir = self.out_dir / "vib"
+        self.vib_dir.mkdir(parents=True, exist_ok=True)
 
         self.thresh_loose = thresh_loose
         self.thresh = thresh
@@ -1173,6 +1311,13 @@ class HessianDimer:
         # so the dimer (grad) branch reports converged/not_converged like the
         # RS-I-RFO branch instead of a neutral "completed" literal.
         self.is_converged = False
+
+        # Additive M14/P14 stall state propagated from a child LBFGS whose
+        # energy plateaued (energy stopped decreasing while its force/step
+        # criteria stayed unmet).  A stall stops all later segments/loops and
+        # is never reported as a converged TS.
+        self.is_stalled = False
+        self.stop_reason = ""
 
         # Hessian caching for 0-step convergence (avoid redundant recalculation)
         self._raw_hessian_cache_cpu: Optional[torch.Tensor] = None
@@ -1229,7 +1374,7 @@ class HessianDimer:
         self.masses_au_t = torch.as_tensor(self.masses_amu * AMU2AU, dtype=torch.float32)
 
         # --- Preserve freeze list (for PHVA) ---
-        self.freeze_atoms: List[int] = list(gkw.get("freeze_atoms", [])) if "freeze_atoms" in gkw else []
+        self.freeze_atoms: List[int] = [int(i) for i in self.geom.freeze_atoms]
 
         # Device
         self.device = _torch_device(device)
@@ -1241,16 +1386,52 @@ class HessianDimer:
         self.dump = bool(dump)
         self.optim_all_path = self.out_dir / "optimization_all_trj.xyz"
 
+    @property
+    def termination_status(self) -> str:
+        """Public terminal outcome: ``stalled`` > ``converged`` > ``not_converged``."""
+        if self.is_stalled:
+            return "stalled"
+        if self.is_converged:
+            return "converged"
+        return "not_converged"
+
     # ----- One dimer segment for up to n_steps; returns (steps_done, converged) -----
     def _dimer_segment(self, threshold: str, n_steps: int) -> Tuple[int, bool]:
         # Dimer calculator using current mode as initial N
         calc_sp = mlmm(**self.calc_kwargs)
 
-        # Merge user dimer kwargs (but enforce N_raw & write_orientations)
+        n_atoms = len(self.geom.atomic_numbers)
+        active_idx = _active_indices(n_atoms, self.freeze_atoms)
+        rigid_masses = self.masses_au_t.detach().to(device="cpu", dtype=torch.float64)
+        projection_mode = self.tr_projection
+        rigid_basis, projection = full_cartesian_tr_basis(
+            torch.as_tensor(self.geom.cart_coords.reshape(-1, 3), dtype=torch.float64),
+            rigid_masses,
+            active_idx,
+            mode=projection_mode,
+        )
+
+        def rigid_basis_at(coords_flat: np.ndarray) -> np.ndarray:
+            basis, _ = full_cartesian_tr_basis(
+                torch.as_tensor(coords_flat.reshape(-1, 3), dtype=torch.float64),
+                rigid_masses,
+                active_idx,
+                mode=projection_mode,
+            )
+            return basis.detach().cpu().numpy()
+
+        self.rigid_projection_info.clear()
+        self.rigid_projection_info.update(projection.as_dict())
+
+        # Merge user dimer kwargs, while enforcing the geometry's exact Cartesian
+        # constraints and its selected rigid-null treatment.
         dimer_kwargs = dict(self.dimer_kwargs)
         dimer_kwargs.update({
             "calculator": calc_sp,
             "N_raw": str(self.mode_path),
+            "frozen_atoms": self.freeze_atoms,
+            "rigid_basis": rigid_basis.detach().cpu().numpy(),
+            "rigid_basis_getter": rigid_basis_at,
             "write_orientations": False,  # runner override to reduce IO
             "seed": 0,                    # runner override for determinism
             "mem": self.mem,              # accepted by Calculator base through **kwargs
@@ -1273,6 +1454,11 @@ class HessianDimer:
         # to the requested segment step count.
         steps = min(max(int(opt.cur_cycle) + 1, 1), int(n_steps))
         converged = opt.is_converged
+        # Propagate an energy-plateau stall from the child LBFGS (M14/P14). A
+        # stalled child is not converged; the caller stops all later segments.
+        if getattr(opt, "is_stalled", False):
+            self.is_stalled = True
+            self.stop_reason = getattr(opt, "stop_reason", "") or self.stop_reason
         self.geom.set_calculator(None)
 
         # Free dimer/optimizer GPU resources before next Hessian computation
@@ -1440,6 +1626,9 @@ class HessianDimer:
             steps, ok = self._dimer_segment(threshold, steps_this)
             self._cycles_spent += steps
             steps_in_this_call += steps
+            # A stalled child stops all further segments in this loop (M14/P14).
+            if self.is_stalled:
+                break
             if ok:
                 loop_converged = True
                 # Check if geometry unchanged (0-step convergence)
@@ -1529,20 +1718,22 @@ class HessianDimer:
             v_cart /= np.linalg.norm(v_cart)
 
             disp = amp_bohr * v_cart
-            ref = self.geom.coords.reshape(-1, 3)
+            ref = self.geom.cart_coords.reshape(-1, 3)
 
             plus = ref + disp
             minus = ref - disp
 
-            self.geom.coords = plus.reshape(-1)
+            _set_cartesian_flatten_coords(self.geom, plus)
             E_plus = _calc_energy(self.geom, self.calc_kwargs)
 
-            self.geom.coords = minus.reshape(-1)
+            _set_cartesian_flatten_coords(self.geom, minus)
             E_minus = _calc_energy(self.geom, self.calc_kwargs)
 
             # Keep lower-energy side and continue from there
             use_plus = E_plus <= E_minus
-            self.geom.coords = (plus if use_plus else minus).reshape(-1)
+            _set_cartesian_flatten_coords(
+                self.geom, plus if use_plus else minus
+            )
             E_keep = E_plus if use_plus else E_minus
             delta_e = E_keep - E_ref
             click.echo(
@@ -1611,7 +1802,12 @@ class HessianDimer:
         self.is_converged = conv_loose
 
         zero_step_normal = False
-        if (self.max_total_cycles - self._cycles_spent) > 0:
+        # A stalled loose loop stops all further optimization work (M14/P14):
+        # skip the Hessian/mode update and the normal + flatten loops so a
+        # stalled TS search is never retried.
+        if self.is_stalled:
+            click.echo("[tsopt] Optimization stalled (energy plateau); skipping the normal dimer loop.")
+        elif (self.max_total_cycles - self._cycles_spent) > 0:
             # (3) Update mode & normal loop (reuse Hessian if 0-step converged)
             H_t = self._calc_full_hessian_cached(self.calc_kwargs_partial, allow_reuse=zero_step_loose)
             coords_bohr_t = torch.as_tensor(self.geom.coords.reshape(-1, 3),
@@ -1644,7 +1840,10 @@ class HessianDimer:
         else:
             click.echo("[tsopt] Reached --max-cycles budget after loose loop; skipping normal dimer loop.")
 
-        if self.flatten_max_iter > 0 and (self.max_total_cycles - self._cycles_spent) > 0:
+        # A stalled optimization never enters the flatten/retry loop (M14/P14).
+        if self.flatten_max_iter > 0 and self.is_stalled:
+            click.echo("[tsopt] Optimization stalled (energy plateau); skipping the flatten loop.")
+        elif self.flatten_max_iter > 0 and (self.max_total_cycles - self._cycles_spent) > 0:
             # (4) Flatten Loop — *reduced* exact Hessian calls via Bofill updates (active DOF only)
             click.echo("[tsopt] Flatten Loop with Bofill-updated active Hessian...")
 
@@ -1726,6 +1925,11 @@ class HessianDimer:
                 _, zero_step_flat, conv_flat = self._dimer_loop(self.thresh)
                 self.is_converged = conv_flat
 
+                # A stall inside the flatten loop stops the remaining iterations
+                # (M14/P14): do not keep retrying a stalled optimization.
+                if self.is_stalled:
+                    break
+
                 # (g) Bofill update again across the optimization displacement
                 x_after_opt = self.geom.coords.copy().reshape(-1)
                 g_after_opt = _calc_gradient(self.geom, self.calc_kwargs).reshape(-1)
@@ -1742,8 +1946,15 @@ class HessianDimer:
 
         # Honest convergence signal: if the dimer optimization exhausted its cycle
         # budget without the optimizer reporting convergence, surface it loudly so
-        # the result.json status="not_converged" is not silently buried.
-        if not self.is_converged:
+        # the result.json status="not_converged" is not silently buried. A stall
+        # is a distinct energy-plateau outcome (M14/P14).
+        if self.is_stalled:
+            click.echo(
+                "[tsopt] WARNING: TS optimization stalled (energy plateau): "
+                f"{self.stop_reason}",
+                err=True,
+            )
+        elif not self.is_converged:
             click.echo(
                 "[tsopt] WARNING: max cycles reached without convergence "
                 f"(dimer used {self._cycles_spent}/{self.max_total_cycles} cycles).",
@@ -1883,36 +2094,37 @@ def _run_microiter_tsopt(
       update on CPU + MM-only micro on CPU. No GPU residency growth across
       macro cycles.
     """
-    from mlmm.workflows.freq import _collect_layer_atom_sets
-
-    # Resolve layer atom sets
-    layer_sets = _collect_layer_atom_sets(calc_cfg)
-    ml_indices = sorted(layer_sets["ml"])
-    movable_mm = sorted(layer_sets["movable_mm"] | layer_sets["hess_mm"])
-    frozen_mm = sorted(layer_sets["frozen_mm"])
-
-    if not ml_indices:
-        raise RuntimeError("Microiteration requires at least one ML-region atom.")
-
-    # Identify link-atom MM parent atoms (boundary atoms that should move
-    # with ML atoms in the macro step to keep link atom positions consistent).
-    link_mm_parents: set[int] = set()
+    # M44/M45: resolve the ONE immutable partition from a single accepted core
+    # (loud on failure, never a swallowed empty set), consuming the exact
+    # geometry freeze mask as the immutable original freeze. The user's freeze is
+    # preserved in BOTH phase masks and restored exactly in ``finally``.
     temp_calc = mlmm(**dict(calc_cfg))
     calc_core = temp_calc.core if hasattr(temp_calc, "core") else temp_calc
-    for _ml_1, mm_1 in getattr(calc_core, "mlmm_links", []):
-        link_mm_parents.add(mm_1 - 1)  # mlmm_links uses 1-based indices
-    del temp_calc
+    partition = resolve_partition_from_core(
+        calc_core, len(geometry.atoms), geometry.freeze_atoms
+    )
+    del temp_calc, calc_core
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-    n_atoms = len(geometry.atoms)
-    all_indices = list(range(n_atoms))
+    if not partition.has_macro_active:
+        # A TS microiteration without an ML macro region is uncomputable; fail
+        # loudly (never return an unchanged geometry as an optimized result).
+        raise PartitionError(
+            "Microiteration requires at least one ML macro-active atom; the "
+            "resolved partition has none."
+        )
 
-    # Macro step: optimize ML atoms + link MM parents; freeze remaining MM.
-    # Micro step: optimize movable MM except link MM parents; freeze ML + link MM parents.
-    macro_active = set(ml_indices) | link_mm_parents
-    macro_freeze = sorted(set(all_indices) - macro_active)
-    micro_freeze = sorted(set(ml_indices) | link_mm_parents | set(frozen_mm))
+    ml_indices = list(partition.ml_atoms)
+    movable_mm = list(partition.movable_mm_atoms)
+    link_mm_parents = set(partition.link_parent_atoms)
+    original_freeze = list(partition.original_freeze)
+    frozen_mm = list(original_freeze)
+
+    n_atoms = partition.n_atoms
+
+    macro_freeze = list(partition.macro_freeze_atoms)
+    micro_freeze = list(partition.micro_freeze_atoms)
 
     max_cycles = int(opt_cfg.get("max_cycles", 10000))
     macro_thresh = thresh if thresh is not None else rsirfo_cfg.get("thresh", "baker")
@@ -1933,150 +2145,23 @@ def _run_microiter_tsopt(
     macro_calc_cfg["hess_mm_atoms"] = sorted(link_mm_parents)  # ML + link MM parents in Hessian
     macro_calc = mlmm(**macro_calc_cfg)
     mm_calc = mlmm_mm_only(macro_calc.core, freeze_atoms=micro_freeze)
+    # Full-constraint calculator restored on the normal exit path (M45). Built
+    # lazily just before returning so it does not add a second live core to the
+    # macro/micro loop's VRAM footprint (mm_calc reuses macro_calc.core).
+    base_calc = None
 
-    # Seed initial Hessian for RS-I-RFO (with macro freeze)
-    # Try TS Hessian cache first; fall back to full Hessian calculation.
-    from mlmm.io.hessian_cache import (
-        load as _hess_load_ts,
-        matches_cart_coords as _hess_matches_coords,
-    )
-    hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
+    # Ordered record of every micro (MM) relaxation's truthful outcome (M46/M47).
+    micro_attempts: List[OptimizerOutcome] = []
+    micro_cycles_total = 0
 
-    cached_ts = _hess_load_ts("ts")
-    if cached_ts is not None and not _hess_matches_coords(
-        cached_ts, geometry.cart_coords
-    ):
-        click.echo(
-            "[microiter] Cached TS Hessian does not match the current geometry; "
-            "calculating a fresh Hessian.",
-            err=True,
-        )
-        cached_ts = None
-    if cached_ts is not None:
-        click.echo("[microiter] Reusing cached TS Hessian for the macro TS step.")
-        active_dofs = cached_ts.get("active_dofs")
-        h_raw = cached_ts["hessian"]
-        if isinstance(h_raw, torch.Tensor):
-            h_init = h_raw.clone()
-        else:
-            h_init = torch.as_tensor(h_raw, dtype=torch.float64)
-        geometry.freeze_atoms = macro_freeze
-        geometry.set_calculator(macro_calc)
-        if active_dofs is not None:
-            geometry.within_partial_hessian = {
-                "active_n_dof": len(active_dofs),
-                "full_n_dof": geometry.cart_coords.size,
-                "active_dofs": active_dofs,
-                "active_atoms": sorted(set(d // 3 for d in active_dofs)),
-            }
-        geometry.cart_hessian = h_init
-        click.echo(f"[microiter] Initial Hessian seeded from cache (shape={h_init.shape[0]}x{h_init.shape[1]}).")
-        del h_init
-    else:
-        click.echo("[microiter] Seeding initial Hessian for the macro TS step.")
+    def _relax_micro() -> Tuple[Any, int]:
+        """Run one MM-only micro relaxation on a cart twin; copy coords back.
 
-        geometry.freeze_atoms = macro_freeze
-        geometry.set_calculator(macro_calc)
+        Returns the LBFGS optimizer (for its explicit convergence bit) and the
+        number of executed micro cycles.  A normal Python return is not evidence
+        of convergence (M46).
+        """
 
-        h_init = _calc_full_hessian_torch(geometry, macro_calc_cfg, hess_device)
-        geometry.cart_hessian = h_init
-        click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
-        del h_init
-
-    optim_all_path = out_dir_path / "optimization_all_trj.xyz"
-    macro_trj_path = out_dir_path / "optimization_trj.xyz"
-    total_macro_steps = 0
-
-    # Create the persistent macro TS optimizer once (LayerOpt pattern).
-    # This preserves the BFGS Hessian update chain across macro iterations.
-    # The macro optimizer is the resolved --opt-mode (RS-I-RFO / RS-P-RFO / TRIM);
-    # all three are TSHessianOptimizer subclasses sharing the optimize()/prepare_opt()
-    # + Bofill-update contract the macro loop drives.
-    # NOTE: geometry already has macro_calc set (line above); do NOT call
-    # set_calculator() again as it clears the pre-computed cart_hessian.
-    geometry.freeze_atoms = macro_freeze
-
-    rsirfo_args = _build_rsirfo_kwargs(
-        rsirfo_cfg,
-        max_cycles=max_cycles,
-        out_dir=out_dir_path,
-        macro_thresh=macro_thresh,
-        mode=mode,
-    )
-    if reference_mode is not None:
-        rsirfo_args["reference_mode"] = reference_mode
-
-    macro_optimizer = TSOPT_CLASS_MAP[mode](geometry, **rsirfo_args)
-    macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
-
-    # Microiteration progress table (pysisyphus-style with micro_steps column)
-    micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
-    micro_col_fmts = "int float float float float float int float_short".split()
-    micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
-    click.echo("")
-    micro_table.print_header()
-
-    macro_converged = False
-    for macro_iter in range(max_cycles):
-        # ---- Macro step: 1 RS-I-RFO step with ONIOM forces, MM frozen ----
-        geometry.freeze_atoms = macro_freeze
-        geometry.set_calculator(macro_calc)
-
-        # Manually feed state to the persistent optimizer (cf. LayerOpt lines 358-364)
-        macro_optimizer.coords.append(geometry.coords.copy())
-        macro_optimizer.cart_coords.append(geometry.cart_coords.copy())
-        macro_optimizer.cur_cycle = macro_iter
-
-        t_start = time.time()
-        step = macro_optimizer.optimize()  # housekeeping() triggers BFGS update
-        macro_optimizer.steps.append(step)
-
-        # Convergence check
-        macro_converged, conv_info = macro_optimizer.check_convergence()
-        total_macro_steps += 1
-
-        if macro_optimizer.stop_requested:
-            click.echo(
-                "[microiter] Stopped without convergence: "
-                f"{macro_optimizer.stop_reason}",
-                err=True,
-            )
-            break
-
-        if dump:
-            with open(macro_trj_path, "a") as f:
-                f.write(geometry.as_xyz() + "\n")
-            _append_xyz_trajectory(optim_all_path, macro_trj_path)
-
-        if macro_converged:
-            # Print final converged row (no micro steps)
-            energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
-            marks = [False, *conv_info.get_convergence()[:-1], False, False]
-            cycle_time = time.time() - t_start
-            micro_table.print_row(
-                (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
-                 macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], 0, cycle_time),
-                marks=marks,
-            )
-            print()  # blank line closes the table (print() shares the table's stdout path)
-            click.echo("[microiter] Converged!", detail=True)
-            break
-
-        # Apply step to geometry
-        new_coords = geometry.coords.copy() + step
-        geometry.coords = new_coords
-        # Record actual step (may differ due to coordinate back-transformation)
-        macro_optimizer.steps[-1] = geometry.coords - macro_optimizer.coords[-1]
-
-        # ---- Micro step: LBFGS with MM-only forces, ML frozen ----
-        # When the macro geometry uses internal coordinates (dlc / redund /
-        # tric), the cart<->internal roundtrip applied on every LBFGS step
-        # accumulates ~10⁻²-10⁻¹ Å drift over a 100-atom MM relaxation, which
-        # then trips pysisyphus Geometry.set_coords' strict
-        # `assert_allclose(self.coords3d, self.internal.coords3d)` sanity
-        # check. MM-only relaxation has no chemistry-aware coordinate concern
-        # — run the micro step on a cart-only twin geometry instead and copy
-        # the converged positions back. Macro chemistry stays in DLC.
         macro_coord_type = getattr(geometry, "coord_type", "cart")
         if macro_coord_type != "cart":
             from pysisyphus.Geometry import Geometry as _Geom
@@ -2097,76 +2182,295 @@ def _run_microiter_tsopt(
         micro_lbfgs_args["out_dir"] = str(out_dir_path)
         micro_lbfgs_args["dump"] = dump
 
-        micro_opt = LBFGS(micro_geom, **micro_lbfgs_args)
+        _micro_opt = LBFGS(micro_geom, **micro_lbfgs_args)
         with contextlib.redirect_stdout(io.StringIO()):
-            micro_opt.run()
-        micro_steps = max(int(micro_opt.cur_cycle) + 1, 1)
-
+            _micro_opt.run()
+        _micro_steps = max(int(_micro_opt.cur_cycle) + 1, 1)
         if macro_coord_type != "cart":
-            # Project the converged cart positions back onto the macro
-            # geometry. Use the `coords3d` setter (set_coords with
-            # cartesian=True) so the internal-coord object updates its
-            # Cartesians in-place while preserving the typed primitive
-            # set; calling reset_coords() instead would re-discover the
-            # primitives and invalidate the macro RFO's persistent
-            # Bofill-updated Hessian.
             geometry.coords3d = micro_geom.coords3d.flatten()
-            # Drop the shared mm_calc reference held by the micro geometry
-            # before del so the macro loop is the sole holder when we exit.
             micro_geom.set_calculator(None)
             del micro_geom
-        if dump:
-            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+        return _micro_opt, _micro_steps
 
-        del micro_opt
+    try:
+        # Seed initial Hessian for RS-I-RFO (with macro freeze)
+        # Try TS Hessian cache first; fall back to full Hessian calculation.
+        from mlmm.io.hessian_cache import (
+            load_matching as _hess_load_matching,
+            identity_from_context as _hess_identity,
+        )
+        hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
+
+        # M70: reuse a cached TS Hessian only on a full evaluation-identity match.
+        cached_ts = _hess_load_matching(
+            "ts",
+            _hess_identity(geometry, calc_cfg, role="ts"),
+            atol=1.1e-3,
+        )
+        if cached_ts is not None:
+            click.echo("[microiter] Reusing cached TS Hessian for the macro TS step.")
+            active_dofs = cached_ts.get("active_dofs")
+            h_raw = cached_ts["hessian"]
+            if isinstance(h_raw, torch.Tensor):
+                h_init = h_raw.clone()
+            else:
+                h_init = torch.as_tensor(h_raw, dtype=torch.float64)
+            geometry.freeze_atoms = macro_freeze
+            geometry.set_calculator(macro_calc)
+            if active_dofs is not None:
+                geometry.within_partial_hessian = {
+                    "active_n_dof": len(active_dofs),
+                    "full_n_dof": geometry.cart_coords.size,
+                    "active_dofs": active_dofs,
+                    "active_atoms": sorted(set(d // 3 for d in active_dofs)),
+                }
+            geometry.cart_hessian = h_init
+            click.echo(f"[microiter] Initial Hessian seeded from cache (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+            del h_init
+        else:
+            click.echo("[microiter] Seeding initial Hessian for the macro TS step.")
+
+            geometry.freeze_atoms = macro_freeze
+            geometry.set_calculator(macro_calc)
+
+            h_init = _calc_full_hessian_torch(geometry, macro_calc_cfg, hess_device)
+            geometry.cart_hessian = h_init
+            click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+            del h_init
+
+        optim_all_path = out_dir_path / "optimization_all_trj.xyz"
+        macro_trj_path = out_dir_path / "optimization_trj.xyz"
+        total_macro_steps = 0
+
+        # Create the persistent macro TS optimizer once (LayerOpt pattern).
+        # This preserves the BFGS Hessian update chain across macro iterations.
+        # The macro optimizer is the resolved --opt-mode (RS-I-RFO / RS-P-RFO / TRIM);
+        # all three are TSHessianOptimizer subclasses sharing the optimize()/prepare_opt()
+        # + Bofill-update contract the macro loop drives.
+        # NOTE: geometry already has macro_calc set (line above); do NOT call
+        # set_calculator() again as it clears the pre-computed cart_hessian.
+        geometry.freeze_atoms = macro_freeze
+
+        rsirfo_args = _build_rsirfo_kwargs(
+            rsirfo_cfg,
+            max_cycles=max_cycles,
+            out_dir=out_dir_path,
+            macro_thresh=macro_thresh,
+            mode=mode,
+        )
+        if reference_mode is not None:
+            rsirfo_args["reference_mode"] = reference_mode
+
+        macro_optimizer = TSOPT_CLASS_MAP[mode](geometry, **rsirfo_args)
+        macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
+
+        # Microiteration progress table (pysisyphus-style with micro_steps column)
+        micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
+        micro_col_fmts = "int float float float float float int float_short".split()
+        micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
+        click.echo("")
+        micro_table.print_header()
+
+        macro_converged = False
+        # M14/P14: track the latest micro (MM) relaxation's energy-plateau stall so a
+        # stalled micro relaxation cannot masquerade as clean macro convergence.
+        latest_micro_stalled = False
+        latest_micro_stop_reason = ""
+
+        # M46: establish an initial MM equilibrium at the input geometry before the
+        # first macro TS step. A first-iteration macro convergence therefore cannot
+        # accept before any MM relaxation; an initial micro that does not explicitly
+        # converge fails closed (no macro step is taken).
+        run_macro = True
+        if partition.has_micro_active:
+            _init_micro_opt, _init_micro_steps = _relax_micro()
+            micro_cycles_total += _init_micro_steps
+            _init_micro_out = OptimizerOutcome.from_optimizer(
+                _init_micro_opt, max_cycles=micro_max_cycles
+            )
+            micro_attempts.append(_init_micro_out)
+            latest_micro_stalled = _init_micro_out.stalled
+            latest_micro_stop_reason = _init_micro_out.stop_reason or ""
+            if _init_micro_out.converged is not True:
+                run_macro = False
+                click.echo(
+                    "[microiter] Initial MM equilibration did not converge "
+                    f"(status={_init_micro_out.status}); no macro step is taken.",
+                    err=True,
+                )
+            del _init_micro_opt
+            _clear_cuda_cache()
+            geometry.freeze_atoms = macro_freeze
+            geometry.set_calculator(macro_calc)
+
+        for macro_iter in range(max_cycles if run_macro else 0):
+            # ---- Macro step: 1 RS-I-RFO step with ONIOM forces, MM frozen ----
+            geometry.freeze_atoms = macro_freeze
+            geometry.set_calculator(macro_calc)
+
+            # Manually feed state to the persistent optimizer (cf. LayerOpt lines 358-364)
+            macro_optimizer.coords.append(geometry.coords.copy())
+            macro_optimizer.cart_coords.append(geometry.cart_coords.copy())
+            macro_optimizer.cur_cycle = macro_iter
+
+            t_start = time.time()
+            step = macro_optimizer.optimize()  # housekeeping() triggers BFGS update
+            macro_optimizer.steps.append(step)
+
+            # Convergence check
+            macro_converged, conv_info = macro_optimizer.check_convergence()
+            total_macro_steps += 1
+
+            if macro_optimizer.stop_requested:
+                # A real macro energy-plateau stall (M14/P14) is a distinct outcome
+                # from a generic stop; it is never convergence.
+                if macro_optimizer.is_stalled:
+                    click.echo(
+                        "[microiter] Stalled (energy plateau; not converged): "
+                        f"{macro_optimizer.stop_reason}",
+                        err=True,
+                    )
+                else:
+                    click.echo(
+                        "[microiter] Stopped without convergence: "
+                        f"{macro_optimizer.stop_reason}",
+                        err=True,
+                    )
+                break
+
+            if dump:
+                with open(macro_trj_path, "a") as f:
+                    f.write(geometry.as_xyz() + "\n")
+                _append_xyz_trajectory(optim_all_path, macro_trj_path)
+
+            if macro_converged:
+                # Print final converged row (no micro steps)
+                energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
+                marks = [False, *conv_info.get_convergence()[:-1], False, False]
+                cycle_time = time.time() - t_start
+                micro_table.print_row(
+                    (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
+                     macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], 0, cycle_time),
+                    marks=marks,
+                )
+                print()  # blank line closes the table (print() shares the table's stdout path)
+                emit("[microiter] Converged!", detail=True)
+                break
+
+            # Apply step to geometry
+            new_coords = geometry.coords.copy() + step
+            geometry.coords = new_coords
+            # Record actual step (may differ due to coordinate back-transformation)
+            macro_optimizer.steps[-1] = geometry.coords - macro_optimizer.coords[-1]
+
+            # ---- Micro step: LBFGS with MM-only forces, ML frozen ----
+            # ``_relax_micro`` runs the MM relaxation on a cart-only twin and copies
+            # the converged positions back via the coords3d setter (preserving the
+            # macro RFO's persistent Bofill-updated Hessian); the macro chemistry
+            # stays in DLC.
+            if partition.has_micro_active:
+                micro_opt, micro_steps = _relax_micro()
+                micro_cycles_total += micro_steps
+                _micro_out = OptimizerOutcome.from_optimizer(micro_opt, max_cycles=micro_max_cycles)
+                del micro_opt
+                _clear_cuda_cache()
+            else:
+                # M45 falsifier #5: a validated partition with macro-active atoms but
+                # ZERO micro-active MM atoms (e.g. the entire MM region is
+                # user-frozen) has no movable MM coordinate to relax. Append the
+                # zero-cycle vacuous micro success instead of building an LBFGS with
+                # every atom frozen (mirrors the initial-equilibration guard above).
+                _micro_out = OptimizerOutcome.vacuous_success()
+                micro_steps = 0
+            micro_attempts.append(_micro_out)
+            # M14/P14: remember whether THIS micro (MM) relaxation stalled on an
+            # energy plateau. Coordinate copying alone is not evidence of
+            # convergence, so a stalled/non-converged latest micro relaxation must
+            # not later read as clean macro convergence.
+            latest_micro_stalled = _micro_out.stalled
+            latest_micro_stop_reason = _micro_out.stop_reason or ""
+
+            if dump:
+                _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+
+            # M46: a required micro relaxation that did not explicitly converge stops
+            # the macro/micro alternation; the aggregate cannot be converged and no
+            # further macro step is taken (a normal LBFGS return on max-cycle
+            # exhaustion is not convergence).
+            if _micro_out.converged is not True:
+                click.echo(
+                    "[microiter] Latest MM relaxation did not converge "
+                    f"(status={_micro_out.status}); stopping the macro/micro loop.",
+                    err=True,
+                )
+                print()
+                break
+
+            # Print progress row with micro_steps
+            cycle_time = time.time() - t_start
+            energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
+            marks = [False, *conv_info.get_convergence()[:-1], False, False]
+            if (macro_iter > 1) and (macro_iter % 10 == 0):
+                micro_table.print_sep()
+            micro_table.print_row(
+                (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
+                 macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], micro_steps, cycle_time),
+                marks=marks,
+            )
+
+        else:
+            if run_macro:
+                print()  # blank line closes the table (print() shares the table's stdout path)
+                emit(f"[microiter] Reached max macro iterations ({max_cycles}).", detail=True)
+
+        # M14/P14: a stalled latest micro (MM) relaxation must not masquerade as
+        # clean macro convergence, and it must not be lost as a reasonless
+        # not_converged when the macro merely ran out of cycles: surface it as a
+        # stall (with its reason) in either case so the returned optimizer is truthful.
+        finalize_microiter_macro_convergence(
+            macro_optimizer,
+            macro_converged=macro_converged,
+            latest_micro_stalled=latest_micro_stalled,
+            latest_micro_stop_reason=latest_micro_stop_reason,
+        )
+        # M46/M47: fold the macro state (after the M14/P14 stall demotion) and the
+        # ordered micro attempts into ONE fail-closed aggregate outcome.
+        macro_outcome = OptimizerOutcome.from_optimizer(macro_optimizer, max_cycles=max_cycles)
+        aggregate = build_aggregate(macro_outcome, micro_attempts, max_cycles=max_cycles)
+        micro_outcome = MicroiterationOutcome(
+            aggregate=aggregate,
+            macro=macro_outcome,
+            micro_attempts=tuple(micro_attempts),
+            macro_cycles=total_macro_steps,
+            micro_cycles=micro_cycles_total,
+            partition=partition,
+        )
+        outcome = {
+            "converged": bool(aggregate.converged is True),
+            "cycles": total_macro_steps,
+            "stop_requested": bool(macro_optimizer.stop_requested),
+            "stop_reason": aggregate.stop_reason or (macro_optimizer.stop_reason or None),
+            "is_stalled": bool(aggregate.stalled),
+            "safeguards": _optimizer_safeguard_payload(macro_optimizer),
+            "optimizer": macro_optimizer,
+            "micro_cycles": micro_cycles_total,
+            "outcome": micro_outcome,
+        }
         _clear_cuda_cache()
 
-        # Print progress row with micro_steps
-        cycle_time = time.time() - t_start
-        energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
-        marks = [False, *conv_info.get_convergence()[:-1], False, False]
-        if (macro_iter > 1) and (macro_iter % 10 == 0):
-            micro_table.print_sep()
-        micro_table.print_row(
-            (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
-             macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], micro_steps, cycle_time),
-            marks=marks,
-        )
+        emit(f"[microiter] Total macro steps: {total_macro_steps}", detail=True)
 
-    else:
-        print()  # blank line closes the table (print() shares the table's stdout path)
-        click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).", detail=True)
-
-    outcome = {
-        "converged": bool(macro_optimizer.is_converged or macro_converged),
-        "cycles": total_macro_steps,
-        "stop_requested": bool(macro_optimizer.stop_requested),
-        "stop_reason": macro_optimizer.stop_reason,
-        "safeguards": {
-            "rejected_mode_loss_trials": int(
-                getattr(macro_optimizer, "rejected_mode_loss_steps", 0)
-            ),
-            "exact_saddle_checks": int(
-                getattr(macro_optimizer, "exact_saddle_checks", 0)
-            ),
-            "saddle_recovery_steps": int(
-                getattr(macro_optimizer, "saddle_recovery_steps", 0)
-            ),
-            "last_exact_n_imaginary": getattr(
-                macro_optimizer, "_last_exact_n_imaginary", None
-            ),
-        },
-        "optimizer": macro_optimizer,
-    }
-    _clear_cuda_cache()
-
-    click.echo(f"[microiter] Total macro steps: {total_macro_steps}", detail=True)
-    # Restore full calculator with only frozen MM frozen
-    geometry.freeze_atoms = list(set(frozen_mm))
-    base_calc = mlmm(**calc_cfg)
-    geometry.set_calculator(base_calc)
-
-    return outcome
+        # Restore the full-constraint calculator for downstream use.
+        base_calc = mlmm(**calc_cfg)
+        return outcome
+    finally:
+        # M45: restore the EXACT original freeze mask on every exit path
+        # (success, micro non-convergence, macro stall, and raised exception);
+        # restore the full-constraint calculator whenever one was built.
+        geometry.freeze_atoms = list(original_freeze)
+        if base_calc is not None:
+            geometry.set_calculator(base_calc)
+        _clear_cuda_cache()
 
 
 
@@ -2950,6 +3254,7 @@ def cli(
 
     out_dir_path.mkdir(parents=True, exist_ok=True)
 
+    geometry = None
     try:
         if use_heavy:
             # Heavy mode: RS-I-RFO with full Hessian
@@ -2973,6 +3278,11 @@ def cli(
             echo_resolved_device()
             _heavy_optimizer_converged = False
             _heavy_safeguards: Dict[str, Any] = {}
+            # M47: additive microiteration serialization (populated on the
+            # microiteration path only). Carries the macro/micro leaf outcomes and
+            # the separate executed micro-cycle total.
+            _heavy_microiteration_obj: Optional[Dict[str, Any]] = None
+            _heavy_micro_cycles: Optional[int] = None
             rsirfo_args = dict(rsirfo_cfg)
             rsirfo_args["out_dir"] = str(out_dir_path)
             rsirfo_args["max_cycles"] = int(opt_cfg["max_cycles"])
@@ -3012,6 +3322,10 @@ def cli(
                 _heavy_optimizer_converged = bool(microiter_outcome["converged"])
                 _heavy_safeguards = dict(microiter_outcome["safeguards"])
                 last_optimizer = microiter_outcome["optimizer"]
+                _mi_outcome_obj = microiter_outcome.get("outcome")
+                if _mi_outcome_obj is not None:
+                    _heavy_microiteration_obj = _mi_outcome_obj.to_result_object()
+                    _heavy_micro_cycles = int(microiter_outcome.get("micro_cycles", 0))
 
                 # Write final geometry
                 final_xyz = out_dir_path / "final_geometry.xyz"
@@ -3045,25 +3359,14 @@ def cli(
                 optimizer.run()
                 last_optimizer = optimizer
                 _heavy_optimizer_converged = bool(optimizer.is_converged)
-                _heavy_safeguards = {
-                    "rejected_mode_loss_trials": int(
-                        getattr(optimizer, "rejected_mode_loss_steps", 0)
-                    ),
-                    "exact_saddle_checks": int(
-                        getattr(optimizer, "exact_saddle_checks", 0)
-                    ),
-                    "saddle_recovery_steps": int(
-                        getattr(optimizer, "saddle_recovery_steps", 0)
-                    ),
-                    "last_exact_n_imaginary": getattr(
-                        optimizer, "_last_exact_n_imaginary", None
-                    ),
-                }
+                _heavy_safeguards = _optimizer_safeguard_payload(optimizer)
                 emit_optimizer_terminal_status(
                     "tsopt",
                     converged=getattr(optimizer, "is_converged", None),
                     cycles=optimizer_cycle_count(optimizer),
                     max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                    stalled=getattr(optimizer, "is_stalled", False),
+                    stop_reason=getattr(optimizer, "stop_reason", None) or None,
                 )
                 if bool(opt_cfg["dump"]):
                     _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
@@ -3100,7 +3403,10 @@ def cli(
                 H, _energy_ha = _freq_calc_full_hessian_torch(
                     geometry, mlmm_kwargs_for_heavy, device, refresh_geom_meta=True,
                 )
-                from mlmm.io.hessian_cache import store as _hess_store
+                from mlmm.io.hessian_cache import (
+                    store as _hess_store,
+                    identity_from_context as _hess_identity,
+                )
                 # Determine active_dofs for partial Hessian.
                 # Prefer the within_partial_hessian metadata (populated by
                 # refresh_geom_meta=True above) over deriving from freeze_atoms:
@@ -3131,6 +3437,7 @@ def cli(
                         "cart_coords": geometry.cart_coords,
                         "source": "tsopt_exact",
                     },
+                    identity=_hess_identity(geometry, calc_cfg, role="ts"),
                 )
                 n_full = len(geometry.atomic_numbers)
                 if H.shape[0] != 3 * n_full:
@@ -3184,25 +3491,22 @@ def cli(
                 return freqs_local, modes_local
 
             def _optimizer_safeguards(opt) -> Dict[str, Any]:
-                return {
-                    "rejected_mode_loss_trials": int(
-                        getattr(opt, "rejected_mode_loss_steps", 0)
-                    ),
-                    "exact_saddle_checks": int(
-                        getattr(opt, "exact_saddle_checks", 0)
-                    ),
-                    "saddle_recovery_steps": int(
-                        getattr(opt, "saddle_recovery_steps", 0)
-                    ),
-                    "last_exact_n_imaginary": getattr(
-                        opt, "_last_exact_n_imaginary", None
-                    ),
-                }
+                return _optimizer_safeguard_payload(opt)
 
             def _run_path_restart(
                 restart_reference: Optional[np.ndarray],
-            ) -> Tuple[Any, bool, Dict[str, Any], int]:
-                """Run the selected Hessian optimizer from current coordinates."""
+            ) -> Tuple[
+                Any, bool, Dict[str, Any], int, Optional[Dict[str, Any]], Optional[int]
+            ]:
+                """Run the selected Hessian optimizer from current coordinates.
+
+                Returns ``(optimizer, converged, safeguards, cycles,
+                microiteration_obj, micro_cycles)``.  On the microiteration path the
+                last two carry THIS restart's own additive ``microiteration`` result
+                object and executed micro-cycle total so the serialized block
+                describes the run that produced the final geometry (never a
+                superseded initial run); on the ordinary path both are ``None``.
+                """
                 if use_microiter:
                     outcome = _run_microiter_tsopt(
                         geometry,
@@ -3218,11 +3522,16 @@ def cli(
                         reference_mode=restart_reference,
                     )
                     restart_optimizer = outcome["optimizer"]
+                    restart_micro_obj, restart_micro_cycles = (
+                        _restart_microiteration_carry(outcome)
+                    )
                     return (
                         restart_optimizer,
                         bool(outcome["converged"]),
                         dict(outcome["safeguards"]),
                         int(outcome["cycles"]),
+                        restart_micro_obj,
+                        restart_micro_cycles,
                     )
 
                 restart_calc = mlmm(**calc_cfg)
@@ -3244,6 +3553,8 @@ def cli(
                     converged=getattr(restart_optimizer, "is_converged", None),
                     cycles=optimizer_cycle_count(restart_optimizer),
                     max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                    stalled=getattr(restart_optimizer, "is_stalled", False),
+                    stop_reason=getattr(restart_optimizer, "stop_reason", None) or None,
                 )
                 cycles = int(getattr(restart_optimizer, "cur_cycle", 0)) + 1
                 converged = bool(restart_optimizer.is_converged)
@@ -3251,7 +3562,7 @@ def cli(
                 geometry.set_calculator(None)
                 del restart_calc
                 _clear_cuda_cache()
-                return restart_optimizer, converged, safeguards, cycles
+                return restart_optimizer, converged, safeguards, cycles, None, None
 
             if not _do_final_freq:
                 freqs_cm, modes = None, None
@@ -3276,7 +3587,7 @@ def cli(
                 neg_mask = freqs_cm < -abs(neg_freq_thresh_cm)
                 n_imag = int(np.sum(neg_mask))
                 ims = [float(x) for x in freqs_cm if x < -abs(neg_freq_thresh_cm)]
-                click.echo(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
+                emit(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
 
                 saddle_multistart_attempts: List[Dict[str, Any]] = []
                 target_mode_is_negative = getattr(
@@ -3297,6 +3608,11 @@ def cli(
                         "converged": _heavy_optimizer_converged,
                         "safeguards": dict(_heavy_safeguards),
                         "cycles": _rsirfo_cycles_spent,
+                        # The additive microiteration block that describes the
+                        # initial run (the baseline geometry), carried so a
+                        # baseline selection re-anchors it truthfully.
+                        "microiteration_obj": _heavy_microiteration_obj,
+                        "micro_cycles": _heavy_micro_cycles,
                     }
                     best_path_negative = None
                     multistart_success = False
@@ -3311,7 +3627,7 @@ def cli(
                                 + (amplitude_ang / BOHR2ANG) * restart_unit
                             )
                             geometry.set_calculator(None)
-                            click.echo(
+                            emit(
                                 "[path-mode restart] "
                                 f"source={mode_source}, displacement={amplitude_ang:+.2f} Å",
                                 narrative=True,
@@ -3321,11 +3637,17 @@ def cli(
                                 restart_converged,
                                 restart_safeguards,
                                 restart_cycles,
+                                restart_micro_obj,
+                                restart_micro_cycles,
                             ) = _run_path_restart(restart_unit)
                             last_optimizer = restart_optimizer
                             _heavy_optimizer_converged = restart_converged
                             _heavy_safeguards = restart_safeguards
                             _rsirfo_cycles_spent = restart_cycles
+                            # Re-anchor the additive microiteration block on the run
+                            # that produced the current geometry (the last restart).
+                            _heavy_microiteration_obj = restart_micro_obj
+                            _heavy_micro_cycles = restart_micro_cycles
                             geometry.set_calculator(None)
                             restart_freqs, restart_modes = _calc_freqs_and_modes()
                             restart_n_imag = int(
@@ -3347,7 +3669,7 @@ def cli(
                                 "target_mode_negative": target_negative,
                             }
                             saddle_multistart_attempts.append(attempt)
-                            click.echo(
+                            emit(
                                 "[path-mode restart] "
                                 f"converged={restart_converged}, n_imag={restart_n_imag}",
                                 narrative=True,
@@ -3379,6 +3701,8 @@ def cli(
                                         "converged": restart_converged,
                                         "safeguards": dict(restart_safeguards),
                                         "cycles": restart_cycles,
+                                        "microiteration_obj": restart_micro_obj,
+                                        "micro_cycles": restart_micro_cycles,
                                     }
                         if multistart_success:
                             break
@@ -3392,6 +3716,10 @@ def cli(
                         _heavy_optimizer_converged = bool(selected["converged"])
                         _heavy_safeguards = dict(selected["safeguards"])
                         _rsirfo_cycles_spent = int(selected["cycles"])
+                        # The selected run (best-path-negative or baseline) owns the
+                        # additive microiteration block for the final geometry.
+                        _heavy_microiteration_obj = selected["microiteration_obj"]
+                        _heavy_micro_cycles = selected["micro_cycles"]
                         n_imag = int(
                             np.sum(freqs_cm < -abs(neg_freq_thresh_cm))
                         )
@@ -3435,15 +3763,20 @@ def cli(
                         label: str,
                     ) -> Dict[str, Any]:
                         geometry.cart_coords = np.asarray(start_coords, dtype=float).copy()
-                        branch_optimizer, converged, safeguards, cycles = (
-                            _run_path_restart(branch_reference)
-                        )
+                        (
+                            branch_optimizer,
+                            converged,
+                            safeguards,
+                            cycles,
+                            branch_micro_obj,
+                            branch_micro_cycles,
+                        ) = _run_path_restart(branch_reference)
                         geometry.set_calculator(None)
                         branch_freqs, branch_modes = _calc_freqs_and_modes()
                         branch_n_imag = int(
                             np.sum(branch_freqs < -abs(neg_freq_thresh_cm))
                         )
-                        click.echo(
+                        emit(
                             f"[Imaginary modes:{label}] n={branch_n_imag}",
                             narrative=True,
                         )
@@ -3457,6 +3790,8 @@ def cli(
                             "converged": converged,
                             "safeguards": safeguards,
                             "cycles": cycles,
+                            "microiteration_obj": branch_micro_obj,
+                            "micro_cycles": branch_micro_cycles,
                         }
 
                     def _flatten_branch_score(
@@ -3550,7 +3885,7 @@ def cli(
                                 alternate_score = _flatten_branch_score(alternate_result)
                                 if alternate_score < primary_score:
                                     selected_result = alternate_result
-                                click.echo(
+                                emit(
                                     "[flatten] Signed-branch probe selected "
                                     f"{selected_result['label']} "
                                     f"(primary={primary_score}, alternate={alternate_score}).",
@@ -3577,8 +3912,12 @@ def cli(
                         _heavy_optimizer_converged = bool(selected_result["converged"])
                         _heavy_safeguards = dict(selected_result["safeguards"])
                         _rsirfo_cycles_spent = int(selected_result["cycles"])
+                        # Re-anchor the additive microiteration block on the selected
+                        # flatten branch (the run that produced the final geometry).
+                        _heavy_microiteration_obj = selected_result["microiteration_obj"]
+                        _heavy_micro_cycles = selected_result["micro_cycles"]
                         ims = [float(x) for x in freqs_cm if x < -abs(neg_freq_thresh_cm)]
-                        click.echo(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
+                        emit(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
                         (out_dir_path / "final_geometry.xyz").write_text(
                             geometry.as_xyz(), encoding="utf-8"
                         )
@@ -3636,8 +3975,18 @@ def cli(
                         "saddle and is marked not_converged.",
                         err=True,
                     )
+            # M14/P14: a stall (energy-plateau outcome of the selected optimizer)
+            # wins over every convergence/saddle-order verdict — it is never a
+            # converged saddle. n_imag / stop_reason are recorded separately so
+            # a stall does not hide saddle-order evidence.
+            _heavy_stalled = bool(
+                'last_optimizer' in dir()
+                and getattr(last_optimizer, "is_stalled", False)
+            )
             _heavy_status = (
-                "unverified"
+                "stalled"
+                if _heavy_stalled
+                else "unverified"
                 if _heavy_n_imag is None
                 else (
                     "converged"
@@ -3709,6 +4058,8 @@ def cli(
                 converged=getattr(runner, "is_converged", None),
                 cycles=getattr(runner, "_cycles_spent", None),
                 max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                stalled=getattr(runner, "is_stalled", False),
+                stop_reason=getattr(runner, "stop_reason", None) or None,
             )
 
         if is_convert_file_enabled() and source_path.suffix.lower() == ".pdb":
@@ -3790,7 +4141,7 @@ def cli(
             final_xyz = out_dir_path / "final_geometry.xyz"
 
         # summary.md and key_* outputs are disabled.
-        click.echo(format_elapsed("[time] Elapsed Time for TS Opt", time_start), narrative=True)
+        emit(format_elapsed("[time] Elapsed Time for TS Opt", time_start), narrative=True)
 
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
@@ -3814,6 +4165,12 @@ def cli(
                     and hasattr(runner, 'is_converged')
                     and runner.is_converged
                 )
+                # M14/P14: a dimer runner stall (energy-plateau child) wins over
+                # every convergence/saddle-order verdict — even under
+                # --skip-final-freq — and is never a converged saddle.
+                _light_stalled = bool(
+                    'runner' in dir() and getattr(runner, "is_stalled", False)
+                )
                 _tsopt_n_atoms = len(runner.geom.atomic_numbers) if 'runner' in dir() and hasattr(runner, 'geom') else None
                 _tsopt_n_opt_cycles = runner._cycles_spent if 'runner' in dir() and hasattr(runner, '_cycles_spent') else None
                 if not skip_final_freq and 'runner' in dir():
@@ -3822,10 +4179,16 @@ def cli(
                         getattr(runner, "imaginary_frequencies_cm", [])
                     )
                     _tsopt_status = (
-                        "converged"
-                        if _light_optimizer_converged and _tsopt_n_imag == 1
-                        else "not_converged"
+                        "stalled"
+                        if _light_stalled
+                        else (
+                            "converged"
+                            if _light_optimizer_converged and _tsopt_n_imag == 1
+                            else "not_converged"
+                        )
                     )
+                elif _light_stalled:
+                    _tsopt_status = "stalled"
                 if 'runner' in dir() and hasattr(runner, 'geom'):
                     try:
                         _tsopt_energy = _calc_energy(runner.geom, calc_cfg)
@@ -3864,6 +4227,29 @@ def cli(
             }
             if use_heavy:
                 result_data["safeguards"] = _heavy_safeguards
+                # M47: additive microiteration serialization (present only when the
+                # microiteration path ran). Legacy keys are unchanged.
+                if _heavy_microiteration_obj is not None:
+                    if _heavy_micro_cycles is not None:
+                        result_data["n_micro_cycles"] = int(_heavy_micro_cycles)
+                    result_data["microiteration"] = _heavy_microiteration_obj
+            # Additive stop_reason, present only for a non-converged stop
+            # (stalled/stopped) so a converged TS run's JSON stays
+            # byte-compatible (M14/P14).
+            if use_heavy:
+                _tsopt_stop_reason = (
+                    getattr(last_optimizer, "stop_reason", "") or ""
+                    if 'last_optimizer' in dir()
+                    else ""
+                )
+            else:
+                _tsopt_stop_reason = (
+                    getattr(runner, "stop_reason", "") or ""
+                    if 'runner' in dir()
+                    else ""
+                )
+            if _tsopt_stop_reason:
+                result_data["stop_reason"] = _tsopt_stop_reason
             for ext in (".pdb", ".gjf"):
                 f = out_dir_path / f"final_geometry{ext}"
                 if f.exists():
@@ -3902,11 +4288,12 @@ def cli(
     finally:
         prepared_input.cleanup()
         # Release GPU memory (model + Hessian) so subsequent stages don't OOM.
-        # `= None` decref's the heavy refs; `del` then removes names from
-        # the local frame so torch.nn.Module hooks / closures cannot retain.
+        # ``geometry`` is a closure cell for the post-optimization helpers, so
+        # clear it without deleting the name. Deleting that cell makes the
+        # helpers' otherwise valid references statically and dynamically unsafe.
         base_calc = geometry = optimizer = last_optimizer = None
         macro_calc = macro_optimizer = mm_calc = None
-        del base_calc, geometry, optimizer, last_optimizer
+        del base_calc, optimizer, last_optimizer
         del macro_calc, macro_optimizer, mm_calc
         gc.collect()  # break cyclic refs inside torch.nn.Module
         if torch.cuda.is_available():

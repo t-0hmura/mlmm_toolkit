@@ -25,6 +25,7 @@ import time
 logger = logging.getLogger(__name__)
 
 import click
+from mlmm.core.output import emit
 import numpy as np
 import torch
 import pandas as pd
@@ -47,6 +48,14 @@ from mlmm.workflows.opt import (
 )
 from mlmm.workflows.restraints import HarmonicBiasCalculator
 from mlmm.workflows.opt import _convert_yaml_layer_atoms_1to0
+from mlmm.workflows._outcomes import (
+    attach_outcomes,
+    make_scan_point,
+    optimizer_converged_bit,
+    scan_scientific_status,
+    seed_eligible_mask,
+)
+from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 from mlmm.core.utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
@@ -59,7 +68,6 @@ from mlmm.core.utils import (
     format_elapsed,
     merge_freeze_atom_indices,
     prepare_input_structure,
-    resolve_charge_spin_or_raise,
     load_pdb_atom_metadata,
     parse_scan_list_quads,
     parse_scan_spec_quads,
@@ -87,7 +95,11 @@ from mlmm.cli.common_options import (
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
 )
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
-from mlmm.workflows.scan_common import add_scan_common_options, make_scan_lbfgs as _make_lbfgs
+from mlmm.workflows.scan_common import (
+    add_scan_common_options,
+    make_scan_lbfgs as _make_lbfgs,
+    resolve_scan_optimizer_configs,
+)
 
 # Shared defaults (copied from opt.py to keep ML/MM behavior consistent)
 GEOM_KW: Dict[str, Any] = deepcopy(_OPT_GEOM_KW)
@@ -423,17 +435,22 @@ def cli(
 
             geom_cfg = dict(GEOM_KW)
             calc_cfg = dict(CALC_KW)
-            opt_cfg = dict(OPT_BASE_KW)
-            lbfgs_cfg = dict(LBFGS_KW)
             bias_cfg = dict(BIAS_KW)
+
+            opt_cfg, lbfgs_cfg = resolve_scan_optimizer_configs(
+                yaml_cfg,
+                opt_defaults=OPT_BASE_KW,
+                lbfgs_defaults=LBFGS_KW,
+                thresh=thresh,
+                relax_max_cycles=relax_max_cycles,
+                is_param_explicit=_is_param_explicit,
+            )
 
             apply_yaml_overrides(
                 yaml_cfg,
                 [
                     (geom_cfg, (("geom",),)),
                     (calc_cfg, (("calc",), ("mlmm",))),
-                    (opt_cfg, (("opt",),)),
-                    (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
                     (bias_cfg, (("bias",),)),
                 ],
             )
@@ -452,16 +469,6 @@ def cli(
 
             opt_cfg["out_dir"] = out_dir
             opt_cfg["dump"] = False
-            # Honor the documented precedence defaults < --config YAML < CLI:
-            # only override (already-YAML-merged) max_cycles when the user
-            # explicitly passed --relax-max-cycles. Mirrors scan.py:554's
-            # gate; an unconditional assignment silently clobbered the YAML
-            # tier when the CLI default (10000) won.
-            if _is_param_explicit("relax_max_cycles"):
-                opt_cfg["max_cycles"] = int(relax_max_cycles)
-                lbfgs_cfg["max_cycles"] = int(relax_max_cycles)
-            if thresh is not None:
-                opt_cfg["thresh"] = str(thresh)
             if bias_k is not None:
                 bias_cfg["k"] = float(bias_k)
 
@@ -618,13 +625,13 @@ def cli(
                 )
             )
             if pdb_atom_meta:
-                click.echo("[scan2d] PDB atom details for scanned pairs:", detail=True)
+                emit("[scan2d] PDB atom details for scanned pairs:", detail=True)
                 legend = PDB_ATOM_META_HEADER
-                click.echo(f"        legend: {legend}", detail=True)
-                click.echo(f"  d1 i: {format_pdb_atom_metadata(pdb_atom_meta, i1)}", detail=True)
-                click.echo(f"     j: {format_pdb_atom_metadata(pdb_atom_meta, j1)}", detail=True)
-                click.echo(f"  d2 i: {format_pdb_atom_metadata(pdb_atom_meta, i2)}", detail=True)
-                click.echo(f"     j: {format_pdb_atom_metadata(pdb_atom_meta, j2)}", detail=True)
+                emit(f"        legend: {legend}", detail=True)
+                emit(f"  d1 i: {format_pdb_atom_metadata(pdb_atom_meta, i1)}", detail=True)
+                emit(f"     j: {format_pdb_atom_metadata(pdb_atom_meta, j1)}", detail=True)
+                emit(f"  d2 i: {format_pdb_atom_metadata(pdb_atom_meta, i2)}", detail=True)
+                emit(f"     j: {format_pdb_atom_metadata(pdb_atom_meta, j2)}", detail=True)
 
             # Directory layout: final outputs under out_dir/, optimizer scratch in a temporary directory
             tmp_root = Path(tempfile.mkdtemp(prefix="scan2d_tmp_"))
@@ -652,6 +659,10 @@ def cli(
 
             echo_resolved_device()
 
+            # The reference/anchor structure is usable-by-default when no preopt
+            # is requested; when preopt runs, its truthful convergence bit (M50)
+            # replaces the default so a nonconverged preopt never seeds the grid.
+            _preopt_conv: Optional[bool] = True
             if preopt:
                 click.echo("[preopt] Unbiased relaxation of the initial structure ...")
                 geom_outer.set_calculator(base_calc)
@@ -660,16 +671,18 @@ def cli(
                     lbfgs_cfg,
                     opt_cfg,
                     max_step_bohr=float(max_step_size) * ANG2BOHR,
-                    relax_max_cycles=relax_max_cycles,
                     out_dir=tmp_opt_dir,
                     prefix="preopt",
                 )
                 try:
                     optimizer0.run()
+                    _preopt_conv = optimizer_converged_bit(optimizer0)
                 except ZeroStepLength:
                     click.echo("[preopt] ZeroStepLength — continuing.", err=True)
+                    _preopt_conv = optimizer_converged_bit(optimizer0)
                 except OptimizationError as exc:
                     click.echo(f"[preopt] OptimizationError — {exc}", err=True)
+                    _preopt_conv = False
 
             records: List[Dict[str, Any]] = []
             # Keep track of previously visited structures (preopt + biased scans)
@@ -719,19 +732,23 @@ def cli(
                         "d1_A": float(d1_ref),
                         "d2_A": float(d2_ref),
                         "energy_hartree": preopt_energy_h,
-                        "bias_converged": True,
+                        "bias_converged": _preopt_conv,
+                        "artifact_written": True,
                         "is_preopt": True,
                     }
                 )
                 # Also store a snapshot of this structure as the first candidate
-                # starting point for subsequent biased scans.
-                grid_states.append(
-                    {
-                        "d1_A": float(d1_ref),
-                        "d2_A": float(d2_ref),
-                        "geom": _snapshot_geometry(geom_outer),
-                    }
-                )
+                # starting point for subsequent biased scans — ONLY when it
+                # explicitly converged; a nonconverged preopt must never seed a
+                # later grid point (M48).
+                if _preopt_conv is True:
+                    grid_states.append(
+                        {
+                            "d1_A": float(d1_ref),
+                            "d2_A": float(d2_ref),
+                            "geom": _snapshot_geometry(geom_outer),
+                        }
+                    )
             else:
                 click.echo(
                     "[center] WARNING: failed to determine reference distances; using grid order as-is.",
@@ -756,9 +773,9 @@ def cli(
                 )
 
             N1, N2 = len(d1_values), len(d2_values)
-            click.echo(f"[grid] d1 steps = {N1}  values(A)={list(map(lambda x: f'{x:.3f}', d1_values))}", narrative=True)
-            click.echo(f"[grid] d2 steps = {N2}  values(A)={list(map(lambda x: f'{x:.3f}', d2_values))}", narrative=True)
-            click.echo(f"[grid] total grid points = {N1 * N2}", narrative=True)
+            emit(f"[grid] d1 steps = {N1}  values(A)={list(map(lambda x: f'{x:.3f}', d1_values))}", narrative=True)
+            emit(f"[grid] d2 steps = {N2}  values(A)={list(map(lambda x: f'{x:.3f}', d2_values))}", narrative=True)
+            emit(f"[grid] total grid points = {N1 * N2}", narrative=True)
 
             max_step_bohr = float(max_step_size) * ANG2BOHR
 
@@ -782,22 +799,27 @@ def cli(
                     lbfgs_cfg,
                     opt_cfg,
                     max_step_bohr=max_step_bohr,
-                    relax_max_cycles=relax_max_cycles,
                     out_dir=tmp_opt_dir,
                     prefix=f"d1_{d1_tag}",
                 )
+                _outer_conv: Optional[bool] = None
                 try:
                     opt1.run()
+                    _outer_conv = optimizer_converged_bit(opt1)
                 except ZeroStepLength:
                     click.echo(f"[d1 {i_idx}] ZeroStepLength — continuing to d2 scan.", err=True)
+                    _outer_conv = optimizer_converged_bit(opt1)
                 except OptimizationError as exc:
                     click.echo(f"[d1 {i_idx}] OptimizationError — {exc}", err=True)
+                    _outer_conv = False
 
                 # Record the relaxed (d1-biased) structure as another candidate
-                # starting point for subsequent grid points.
+                # starting point for subsequent grid points — ONLY when it
+                # explicitly converged, so a nonconverged relaxation never seeds a
+                # later grid point (M48).
                 d1_cur_outer = distance_A_from_coords(np.asarray(geom_outer.coords3d), i1, j1)
                 d2_cur_outer = distance_A_from_coords(np.asarray(geom_outer.coords3d), i2, j2)
-                if math.isfinite(d1_cur_outer) and math.isfinite(d2_cur_outer):
+                if _outer_conv is True and math.isfinite(d1_cur_outer) and math.isfinite(d2_cur_outer):
                     grid_states.append(
                         {
                             "d1_A": float(d1_cur_outer),
@@ -828,19 +850,21 @@ def cli(
                         lbfgs_cfg,
                         opt_cfg,
                         max_step_bohr=max_step_bohr,
-                        relax_max_cycles=relax_max_cycles,
                         out_dir=tmp_opt_dir,
                         prefix=f"d1_{d1_tag}_d2_{d2_tag}",
                     )
+                    # M50: a normal (non-raising) run() is NOT convergence — read
+                    # the optimizer's explicit tri-state bit rather than assume True.
+                    converged: Optional[bool] = None
                     try:
                         opt2.run()
-                        converged = True
+                        converged = optimizer_converged_bit(opt2)
                     except ZeroStepLength:
                         click.echo(
                             f"[d1 {i_idx}, d2 {j_idx}] ZeroStepLength — recorded anyway.",
                             err=True,
                         )
-                        converged = False
+                        converged = optimizer_converged_bit(opt2)
                     except OptimizationError as exc:
                         click.echo(f"[d1 {i_idx}, d2 {j_idx}] OptimizationError — {exc}", err=True)
                         converged = False
@@ -848,10 +872,11 @@ def cli(
                     energy_h = unbiased_energy_hartree(geom_inner, base_calc)
 
                     # Record this grid point as a new candidate starting structure
-                    # for subsequent scans.
+                    # for subsequent scans — ONLY when it explicitly converged; a
+                    # nonconverged/failed point must never seed a later target (M48).
                     d1_cur = distance_A_from_coords(np.asarray(geom_inner.coords3d), i1, j1)
                     d2_cur = distance_A_from_coords(np.asarray(geom_inner.coords3d), i2, j2)
-                    if math.isfinite(d1_cur) and math.isfinite(d2_cur):
+                    if converged is True and math.isfinite(d1_cur) and math.isfinite(d2_cur):
                         grid_states.append(
                             {
                                 "d1_A": float(d1_cur),
@@ -862,12 +887,14 @@ def cli(
 
                     # Distance-based filenames: e.g., point_i125_j324.xyz for d1=1.25 Å, d2=3.24 Å
                     xyz_path = grid_dir / f"point_i{d1_tag}_j{d2_tag}.xyz"
+                    _artifact_written = False
                     try:
                         xyz = geom_inner.as_xyz()
                         if not xyz.endswith("\n"):
                             xyz += "\n"
                         with open(xyz_path, "w") as handle:
                             handle.write(xyz)
+                        _artifact_written = True
 
                         # Convert grid-point XYZ to PDB (with B-factor annotation)
                         convert_and_annotate_xyz_to_pdb(
@@ -896,7 +923,8 @@ def cli(
                             "d1_A": float(d1_target),
                             "d2_A": float(d2_target),
                             "energy_hartree": energy_h,
-                            "bias_converged": bool(converged),
+                            "bias_converged": converged,
+                            "artifact_written": bool(_artifact_written),
                             "is_preopt": False,
                         }
                     )
@@ -928,21 +956,38 @@ def cli(
                 click.echo("No grid records produced; aborting.", err=True)
                 sys.exit(1)
 
+            # Seed / reference-minimum eligibility (M48): only points whose
+            # optimizer explicitly converged with a finite unbiased energy may
+            # define the baseline or the reported minimum. Failed/nonconverged
+            # rows are retained in surface.csv for diagnostics but excluded here.
+            df["seed_eligible"] = seed_eligible_mask(records)
+            _elig_df = df[df["seed_eligible"]]
+
+            def _eligible_min() -> float:
+                if not _elig_df.empty:
+                    return float(_elig_df["energy_hartree"].min())
+                # No eligible point: fall back to the raw min so the surface still
+                # renders, but the scientific_status below reports the failure.
+                return float(df["energy_hartree"].min())
+
             if baseline == "first":
-                mask = (df["i"] == 0) & (df["j"] == 0)
+                mask = (df["i"] == 0) & (df["j"] == 0) & df["seed_eligible"]
                 if mask.sum() == 0:
-                    click.echo("WARNING: baseline='first' but grid point (0,0) not found; falling back to min.", err=True)
-                    ref = float(df["energy_hartree"].min())
+                    click.echo("WARNING: baseline='first' but no eligible grid point (0,0); falling back to eligible min.", err=True)
+                    ref = _eligible_min()
                 else:
                     ref = float(df.loc[mask, "energy_hartree"].iloc[0])
             else:
-                ref = float(df["energy_hartree"].min())
+                ref = _eligible_min()
             df["energy_kcal"] = (df["energy_hartree"] - ref) * AU2KCALPERMOL
             df["d1_label"] = d1_label_csv
             df["d2_label"] = d2_label_csv
 
             surface_csv = final_dir / "surface.csv"
-            df.to_csv(surface_csv, index=False)
+            # Keep internal-only eligibility columns out of the public CSV so a
+            # genuinely converged run's surface.csv schema is unchanged (M48/P07).
+            _csv_drop = [c for c in ("seed_eligible", "artifact_written") if c in df.columns]
+            df.drop(columns=_csv_drop).to_csv(surface_csv, index=False)
             click.echo(f"[write] Wrote '{surface_csv}'.")
 
             # ===== Plots (RBF on a fixed 50×50 grid, unified layout, placed under final_dir) =====
@@ -1179,11 +1224,17 @@ def cli(
             fig3d.write_html(str(html3d))
             click.echo(f"[plot] Wrote '{html3d}'.")
 
-            click.echo(format_elapsed("[time] Elapsed Time for 2D Scan", time_start), narrative=True)
+            emit(format_elapsed("[time] Elapsed Time for 2D Scan", time_start), narrative=True)
 
             if out_json:
                 from mlmm.core.utils import calculator_provenance, write_result_json
-                min_energy = float(df["energy_hartree"].min()) if not df.empty else None
+                # M48: the reported minimum comes ONLY from seed-eligible points
+                # (converged + finite); a failed point with a numerically lower
+                # energy must never become min_energy_hartree.
+                if "seed_eligible" in df.columns and df["seed_eligible"].any():
+                    min_energy = float(df.loc[df["seed_eligible"], "energy_hartree"].min())
+                else:
+                    min_energy = None
                 result_data: Dict[str, Any] = {
                     "status": "completed",
                     "energy_reference": "bare_mlmm_pes",
@@ -1200,6 +1251,31 @@ def cli(
                         "scan2d_landscape_html": "scan2d_landscape.html",
                     },
                 }
+                # Additive truthful outcomes: every attempted point, with its
+                # seed-eligibility, plus an aggregate scientific_status. Legacy
+                # ``status`` stays "completed" (the process completed).
+                _point_outcomes = [
+                    make_scan_point(
+                        f"i{rec.get('i')}_j{rec.get('j')}",
+                        executed=True,
+                        converged=rec.get("bias_converged"),
+                        energy=rec.get("energy_hartree"),
+                        artifact_written=bool(rec.get("artifact_written", False)),
+                    )
+                    for rec in records
+                ]
+                _sci, _sci_reasons = scan_scientific_status(_point_outcomes)
+                result_data["execution_status"] = "completed"
+                result_data["n_points_attempted"] = len(_point_outcomes)
+                result_data["n_points_usable"] = sum(
+                    1 for p in _point_outcomes if p.seed_eligible
+                )
+                attach_outcomes(
+                    result_data,
+                    point_outcomes=_point_outcomes,
+                    scientific_status=_sci,
+                    scientific_status_reasons=_sci_reasons,
+                )
                 write_result_json(
                     final_dir, result_data,
                     command="scan2d",

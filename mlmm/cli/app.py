@@ -8,6 +8,7 @@ import warnings
 from pathlib import Path
 
 import click
+from mlmm.core.output import emit
 
 from mlmm.cli.help_pages import (
     _configure_subcommand_help_visibility,
@@ -64,7 +65,7 @@ def _has_help_or_version_request(argv: list[str]) -> bool:
 
 
 def _emit_start_header(ctx: click.Context) -> None:
-    from mlmm.core.utils import emit, is_child_mode, verbose_level
+    from mlmm.core.utils import is_child_mode, verbose_level
 
     if is_child_mode() or _has_help_or_version_request(sys.argv):
         return

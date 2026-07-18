@@ -14,16 +14,19 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Sequence, TypedDict
 
 
 # Schema version for the MCP tool return envelope. Bump when the field
-# set / value types in `SubcmdResultDict` change. 1.0 matches the
+# set / value types in `SubcmdResultDict` change. 1.0 matched the
 # baseline (status / exit_code / out_dir / summary / stderr_tail /
-# stdout_tail / hint / argv / schema_version).
-MCP_SUBCMD_RESULT_SCHEMA_VERSION = "1.0"
+# stdout_tail / hint / argv / schema_version); 1.1 adds ``run_id`` and
+# current-run summary validation.
+MCP_SUBCMD_RESULT_SCHEMA_VERSION = "1.1"
 
 # Allowed values for the `status` field. Documented in docs/mcp_server.md.
 MCP_SUBCMD_RESULT_STATUSES = (
@@ -31,7 +34,10 @@ MCP_SUBCMD_RESULT_STATUSES = (
     "failed",
     "summary_missing",
     "summary_parse_error",
+    "summary_run_mismatch",
 )
+
+_SUMMARY_ONLY_COMMANDS = frozenset({"all", "path-search"})
 
 
 class SubcmdResultDict(TypedDict, total=False):
@@ -50,6 +56,7 @@ class SubcmdResultDict(TypedDict, total=False):
     stdout_tail: str
     hint: Optional[str]
     argv: list[str]
+    run_id: str
 
 
 @dataclass
@@ -57,7 +64,7 @@ class SubcmdResult:
     """Structured result of a single mlmm subcmd invocation.
 
     `status` is one of :data:`MCP_SUBCMD_RESULT_STATUSES`. The envelope
-    carries `schema_version = "1.0"` so MCP clients can pin the contract
+    carries a versioned ``schema_version`` so MCP clients can pin the contract
     and migrate when the structure changes.
     """
 
@@ -69,6 +76,7 @@ class SubcmdResult:
     stdout_tail: str = ""
     hint: Optional[str] = None
     argv: list[str] = field(default_factory=list)
+    run_id: str = ""
 
     def to_dict(self) -> SubcmdResultDict:
         """Serialise to a plain dict the MCP framework can ship over JSON-RPC."""
@@ -82,6 +90,7 @@ class SubcmdResult:
             "stdout_tail": self.stdout_tail,
             "hint": self.hint,
             "argv": self.argv,
+            "run_id": self.run_id,
         }
 
 
@@ -109,6 +118,76 @@ def _extract_hint(stderr: str) -> Optional[str]:
     return hint
 
 
+def _bind_server_argv(argv: Sequence[str]) -> list[str]:
+    """Bind the product CLI alias to this interpreter and imported package."""
+
+    requested = list(argv)
+    if requested and Path(requested[0]).name == "mlmm":
+        return [sys.executable, "-m", "mlmm", *requested[1:]]
+    return requested
+
+
+def _expected_primary_filename(argv: Sequence[str]) -> Optional[str]:
+    """Return the leaf-pair primary, excluding aggregate one-file commands."""
+
+    requested = list(argv)
+    if len(requested) < 2 or Path(requested[0]).name != "mlmm":
+        return None
+    command = requested[1]
+    return None if command in _SUMMARY_ONLY_COMMANDS else "result.json"
+
+
+def _child_env(
+    *,
+    run_id: str,
+    env_overrides: Optional[dict[str, str]],
+) -> dict[str, str]:
+    """Build a child environment with the imported source root first."""
+
+    from mlmm.core.result_commit import MLMM_RUN_ID_ENV
+
+    env = os.environ.copy()
+    if env_overrides:
+        env.update({str(key): str(value) for key, value in env_overrides.items()})
+    source_root = str(Path(__file__).resolve().parents[2])
+    inherited = env.get("PYTHONPATH", "")
+    inherited_parts = [
+        part
+        for part in inherited.split(os.pathsep)
+        if part and part != source_root
+    ]
+    env["PYTHONPATH"] = os.pathsep.join([source_root, *inherited_parts])
+    env[MLMM_RUN_ID_ENV] = run_id
+    return env
+
+
+def _read_current_summary(
+    summary_path: Path,
+    *,
+    expected_run_id: str,
+) -> tuple[str, dict[str, Any], Optional[str]]:
+    """Read only a well-formed summary produced by this invocation."""
+
+    if not summary_path.exists():
+        return "summary_missing", {}, None
+    try:
+        loaded = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return (
+            "summary_parse_error",
+            {},
+            f"{summary_path.name} present but not valid JSON: {exc}",
+        )
+    if not isinstance(loaded, dict) or loaded.get("run_id") != expected_run_id:
+        actual = loaded.get("run_id") if isinstance(loaded, dict) else None
+        return (
+            "summary_run_mismatch",
+            {},
+            f"{summary_path.name} run_id {actual!r} does not match current run",
+        )
+    return "ok", loaded, None
+
+
 def run_subcmd(
     argv: Sequence[str],
     *,
@@ -123,8 +202,7 @@ def run_subcmd(
     ----------
     argv
         Argv list (e.g. ``["mlmm", "opt", "-i", "r.pdb", "-q", "-1"]``).
-        The leading executable must already be on PATH inside the MCP server's
-        environment.
+        The known ``mlmm`` alias is bound to this interpreter/module.
     out_dir
         Expected output directory (must match the `--out-dir` argv entry).
         Used to locate `summary.json`. If None, the runner does not parse a
@@ -136,13 +214,14 @@ def run_subcmd(
     summary_filename
         Override for the summary file (default ``summary.json``).
     """
-    env = os.environ.copy()
-    if env_overrides:
-        env.update(env_overrides)
+    run_id = str(uuid.uuid4())
+    executed_argv = _bind_server_argv(argv)
+    expected_primary_filename = _expected_primary_filename(argv)
+    env = _child_env(run_id=run_id, env_overrides=env_overrides)
 
     try:
         proc = subprocess.run(
-            list(argv),
+            executed_argv,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -154,10 +233,11 @@ def run_subcmd(
             exit_code=127,
             stderr_tail=str(exc),
             hint=(
-                "The mlmm CLI is not on PATH. Install mlmm "
-                "into the environment that hosts the MCP server."
+                "The requested subprocess executable is unavailable in the "
+                "environment that hosts the MCP server."
             ),
-            argv=list(argv),
+            argv=executed_argv,
+            run_id=run_id,
         )
     except subprocess.TimeoutExpired as exc:
         return SubcmdResult(
@@ -168,7 +248,8 @@ def run_subcmd(
                 "Increase the `timeout` parameter or rerun with a smaller "
                 "system / fewer cycles."
             ),
-            argv=list(argv),
+            argv=executed_argv,
+            run_id=run_id,
         )
 
     exit_code = proc.returncode
@@ -180,13 +261,30 @@ def run_subcmd(
     summary_status: str = "summary_missing"
     if out_dir is not None:
         summary_path = Path(out_dir) / summary_filename
-        if summary_path.exists():
+        summary_status, summary, summary_hint = _read_current_summary(
+            summary_path,
+            expected_run_id=run_id,
+        )
+        hint = hint or summary_hint
+        if summary_status == "ok" and expected_primary_filename:
+            primary_path = Path(out_dir) / expected_primary_filename
+            primary_status, primary, primary_hint = _read_current_summary(
+                primary_path,
+                expected_run_id=run_id,
+            )
             try:
-                summary = json.loads(summary_path.read_text())
-                summary_status = "ok"
-            except (json.JSONDecodeError, OSError) as exc:
-                summary_status = "summary_parse_error"
-                hint = hint or f"{summary_filename} present but not valid JSON: {exc}"
+                pair_bytes_match = (
+                    primary_path.read_bytes() == summary_path.read_bytes()
+                )
+            except OSError:
+                pair_bytes_match = False
+            if primary_status != "ok" or primary != summary or not pair_bytes_match:
+                summary_status = "summary_run_mismatch"
+                summary = {}
+                hint = hint or primary_hint or (
+                    f"{expected_primary_filename} does not match the current "
+                    f"{summary_filename} generation"
+                )
 
     if exit_code != 0:
         status = "failed"
@@ -203,6 +301,6 @@ def run_subcmd(
         stderr_tail=stderr_tail,
         stdout_tail=stdout_tail,
         hint=hint,
-        argv=list(argv),
+        argv=executed_argv,
+        run_id=run_id,
     )
-

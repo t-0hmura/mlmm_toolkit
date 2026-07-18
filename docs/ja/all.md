@@ -257,11 +257,11 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 
 ## YAML 設定
 
-`all` は階層化された YAML をサポートします:
+`all` は YAML 設定をサポートします:
 
 - `--config FILE`: ベース設定。
 
-`defaults < config < CLI < override-yaml`
+`defaults < config < 明示指定 CLI`
 
 解決後の YAML が下流サブコマンドへ転送されます。各ツールは独自ドキュメントに記載されたセクションを読み取ります:
 
@@ -273,7 +273,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | [`freq`](freq.md) | `geom`, `calc`/`mlmm`, `freq`, `thermo` |
 | [`dft`](dft.md) | `dft` |
 
-> **注意:** CLI 値の後に適用されます。
+明示指定した CLI 値だけが `--config` の値を上書きします。
 
 **最小の YAML 例:**
 ```yaml
@@ -282,7 +282,6 @@ geom:
 calc:
  charge: 0
  spin: 1
-mlmm:
  real_parm7: real.parm7
  model_pdb: ml_region.pdb
  backend: uma                    # ML バックエンド (uma/orb/mace/aimnet2)

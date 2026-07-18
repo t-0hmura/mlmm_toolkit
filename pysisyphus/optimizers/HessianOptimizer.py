@@ -19,6 +19,7 @@ from pysisyphus.optimizers.hessian_updates import (
     flowchart_update,
     damped_bfgs_update,
     bofill_update,
+    bofill_cpu_offload_enabled,
     ts_bfgs_update,
     ts_bfgs_update_org,
     ts_bfgs_update_revised,
@@ -35,7 +36,7 @@ import torch
 # torch-specific ops (`index_select`, `matmul`, `.clone()`) keep their inline
 # isinstance branches because the corresponding numpy code is structurally
 # different, not just a different module.
-from pysisyphus._array import get_xp
+from pysisyphus._array import get_xp, active_square
 
 def dummy_hessian_update(H, dx, dg):
     return np.zeros_like(H), "no"
@@ -386,8 +387,10 @@ class HessianOptimizer(Optimizer):
             # L289-302 already clamps inds to [0, n-1], so the deleted silent
             # fallback (`except: return hessian`) is unreachable in practice
             # and previously masked shape-mismatch bugs downstream.
+            # C14 (H10): bounded row-chunk extraction avoids the full
+            # (len(inds), n) row temporary of the chained index_select.
             idx = torch.as_tensor(inds, device=hessian.device, dtype=torch.int64)
-            return hessian.index_select(0, idx).index_select(1, idx)
+            return active_square(hessian, idx)
         return hessian[np.ix_(inds, inds)]
 
     def active_list(self, seq):
@@ -476,12 +479,56 @@ class HessianOptimizer(Optimizer):
             # the first cycle.
             self.hessian_recalc_in = self.hessian_recalc - 1
 
+    # Subclass restart keys required for a bit-exact resume.  ``trust_radius``
+    # is adapted every cycle in :meth:`update_trust_radius`; omitting it from
+    # the restart payload silently reset a resumed run to
+    # ``min(trust_radius, trust_max)`` and diverged the trajectory.  It is a
+    # newly added key, so it is *restored tolerantly* (see
+    # :meth:`_set_opt_restart_info`) and is deliberately absent from the
+    # transactional-load required set below to keep pre-``trust_radius``
+    # checkpoints loadable.  The same holds for the newer uphill-rejection
+    # counters (``rejections_at_floor`` / ``rejected_uphill_steps`` /
+    # ``uphill_rejection_stalled``), the multi-step Hessian buffer
+    # (``_sy_buffer_S`` / ``_sy_buffer_Y``, empty unless
+    # ``hessian_update_window >= 2``) and ``_prev_eigvec_min`` (``None`` unless
+    # ``rfo_overlaps``): all are serialized unconditionally but restored
+    # presence-guarded, so a checkpoint written before they existed still
+    # loads.  Keeping them out of the required set below preserves that
+    # backward tolerance; the presence-guard means an absent key never raises.
+    required_opt_restart_keys = (
+        "adapt_norm",
+        "H",
+        "hessian_recalc_in",
+        "predicted_energy_changes",
+    )
+
     def _get_opt_restart_info(self):
         opt_restart_info = {
             "adapt_norm": self.adapt_norm,
             "H": self.H.tolist(),
             "hessian_recalc_in": self.hessian_recalc_in,
             "predicted_energy_changes": self.predicted_energy_changes,
+            # Per-cycle adaptive trust radius (see update_trust_radius).
+            "trust_radius": self.trust_radius,
+            # Uphill-rejection adaptive state (reject_current_uphill_step):
+            # ``rejections_at_floor`` gates request_stop, so resetting it on a
+            # resume changes the retry budget and the cycle a stalled run
+            # terminates on.  The other two make the rejection state complete.
+            "rejections_at_floor": self.rejections_at_floor,
+            "rejected_uphill_steps": self.rejected_uphill_steps,
+            "uphill_rejection_stalled": self.uphill_rejection_stalled,
+            # Sliding (dx, dg) buffer for the multi-step TS-BFGS update used when
+            # ``hessian_update_window >= 2``; the next Hessian update stacks
+            # these columns, so an empty buffer on resume diverges the update.
+            "_sy_buffer_S": [np.asarray(s).tolist() for s in self._sy_buffer_S],
+            "_sy_buffer_Y": [np.asarray(y).tolist() for y in self._sy_buffer_Y],
+            # Previous minimum-mode eigenvector for ``rfo_overlaps`` root
+            # following; ``None`` unless overlap-based mode following is active.
+            "_prev_eigvec_min": (
+                None
+                if self._prev_eigvec_min is None
+                else np.asarray(self._prev_eigvec_min).tolist()
+            ),
         }
         return opt_restart_info
 
@@ -490,6 +537,30 @@ class HessianOptimizer(Optimizer):
         self.H = np.array(opt_restart_info["H"])
         self.hessian_recalc_in = opt_restart_info["hessian_recalc_in"]
         self.predicted_energy_changes = opt_restart_info["predicted_energy_changes"]
+        # Backward-tolerant: a checkpoint written before trust_radius was
+        # serialized keeps the __init__-constrained value already in place.
+        if "trust_radius" in opt_restart_info:
+            self.trust_radius = float(opt_restart_info["trust_radius"])
+        # Uphill-rejection adaptive state.  All presence-guarded so a checkpoint
+        # written before these keys existed keeps the __init__ defaults.
+        if "rejections_at_floor" in opt_restart_info:
+            self.rejections_at_floor = int(opt_restart_info["rejections_at_floor"])
+        if "rejected_uphill_steps" in opt_restart_info:
+            self.rejected_uphill_steps = int(opt_restart_info["rejected_uphill_steps"])
+        if "uphill_rejection_stalled" in opt_restart_info:
+            self.uphill_rejection_stalled = bool(
+                opt_restart_info["uphill_rejection_stalled"]
+            )
+        # Multi-step Hessian-update buffer; only non-empty for
+        # ``hessian_update_window >= 2``.  Default [] when the key is absent.
+        if "_sy_buffer_S" in opt_restart_info:
+            self._sy_buffer_S = [np.array(s) for s in opt_restart_info["_sy_buffer_S"]]
+        if "_sy_buffer_Y" in opt_restart_info:
+            self._sy_buffer_Y = [np.array(y) for y in opt_restart_info["_sy_buffer_Y"]]
+        # Previous minimum-mode eigenvector for ``rfo_overlaps``; default None.
+        if "_prev_eigvec_min" in opt_restart_info:
+            stored = opt_restart_info["_prev_eigvec_min"]
+            self._prev_eigvec_min = None if stored is None else np.array(stored)
 
     def update_trust_radius(self):
         # The predicted change should be calculated at the end of optimize
@@ -731,10 +802,30 @@ class HessianOptimizer(Optimizer):
                 else:
                     dH = dH_np
                 self.log(f"Did {key} Hessian update (window={len(self._sy_buffer_S)}).")
+                self.H = H_work + dH
+            elif (
+                isinstance(H_work, torch.Tensor)
+                and self.hessian_update == "bofill"
+                and not bofill_cpu_offload_enabled()
+            ):
+                # C14: copy-on-write rank-two Bofill. Clone the accepted Hessian
+                # once and apply the low-rank update into the clone with addmm_.
+                # This preserves the replacement/rollback invariant (the trial
+                # snapshot keeps the old H reference, which is never mutated)
+                # while dropping the transient peak from H_work + dH + new_H to
+                # H_work + new_H (one fewer dense N x N matrix). Numerically
+                # identical to H_work + (U @ C @ U.T) to fp roundoff.
+                from pysisyphus.optimizers.hessian_updates import bofill_rank2_factors
+
+                U, C = bofill_rank2_factors(H_work, dx, dg)
+                new_H = H_work.clone()
+                new_H.addmm_(U, C @ U.t())
+                self.H = new_H
+                self.log("Did Bofill Hessian update (rank-2, copy-on-write).")
             else:
                 dH, key = self.hessian_update_func(H_work, dx, dg)
                 self.log(f"Did {key} Hessian update.")
-            self.H = H_work + dH
+                self.H = H_work + dH
 
     def solve_rfo(self, rfo_mat, kind="min", prev_eigvec=None):
         # When using the restricted step variant of RFO the RFO matrix
@@ -1010,7 +1101,16 @@ class HessianOptimizer(Optimizer):
             # Symmetrize hessian, as the projection may break it?!
             H = (H_proj + H_proj.T) / 2
 
-        if getattr(self.geometry, "within_partial_hessian", None) is not None:
+        if self.geometry.internal:
+            # Geometry.hessian expands a partial Cartesian block to 3N before
+            # transforming it into the selected internal-coordinate basis.
+            # The transformed Hessian and gradient are therefore already a
+            # complete, self-consistent internal system. Cartesian PHVA DOF
+            # indices cannot be applied to that basis (its dimension/order is
+            # unrelated), and expanding its step with those indices causes a
+            # shape mismatch in TS optimizers.
+            use_active = False
+        elif getattr(self.geometry, "within_partial_hessian", None) is not None:
             use_active = True
         elif (
             H.shape[0] != self.geometry.cart_coords.size

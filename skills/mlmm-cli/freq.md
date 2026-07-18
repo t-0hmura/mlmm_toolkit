@@ -82,6 +82,13 @@ result_freq/
 └── mode_NNNN_<±freq>cm-1_trj.xyz / .pdb # per-mode displacement (visualize in PyMOL)
 ```
 
+`--dump-hess result_freq/hessian.npz` writes the Hessian at that exact path;
+a relative path is resolved from the current working directory, not relocated
+under `--out-dir`. The NPZ stores atom order, Cartesian geometry, active-DOF basis, and
+PHVA metadata with the Hessian. `mlmm irc --read-hess` accepts it only for the
+matching geometry and layer/Hessian settings; legacy unidentified NPZ files
+are rejected.
+
 `result.json` keys:
 
 ```python

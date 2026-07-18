@@ -33,6 +33,48 @@ export PYTHONHASHSEED=0
 # Reduce CUDA allocator fragmentation across the 40+ stage processes.
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
+# Every capability in this lane is required. Missing prerequisites block the
+# release lane before case 1; they are never converted into a passing skip.
+command -v xtb >/dev/null 2>&1 || {
+  echo "[smoke] BLOCKED: xtb is required by the embedcharge cell" >&2
+  exit 2
+}
+python - <<'PY'
+from importlib.metadata import version
+from pathlib import Path
+import subprocess
+import sys
+
+import mlmm
+import torch
+
+installed = version("mlmm-toolkit")
+if mlmm.__version__ != installed:
+    raise SystemExit(
+        "[smoke] BLOCKED: distribution/module version mismatch: "
+        f"metadata={installed}, module={mlmm.__version__}"
+    )
+cli_version = subprocess.run(
+    [sys.executable, "-m", "mlmm", "--version"],
+    check=True,
+    capture_output=True,
+    text=True,
+).stdout.strip().split()[-1]
+if cli_version != installed:
+    raise SystemExit(
+        "[smoke] BLOCKED: distribution/CLI version mismatch: "
+        f"metadata={installed}, cli={cli_version}"
+    )
+if not torch.cuda.is_available():
+    raise SystemExit("[smoke] BLOCKED: CUDA is required by this lane")
+print(
+    "[smoke] package mlmm "
+    f"version={installed} source={Path(mlmm.__file__).resolve()}"
+)
+PY
+mlmm() { python -m mlmm "$@"; }
+python assert_tr_cuda_parity.py
+
 # Clean only artifacts authored by this harness. The digit-qualified glob must
 # not be widened to `test*`, which would also match the repository's tests/.
 rm -rf -- test[0-9]* pocket_r.pdb r_complex_layered.pdb r_complex_layered.cif r_complex_elem.pdb r_complex_fixalt.pdb
@@ -93,21 +135,9 @@ mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex
 # test18: all (no tsopt/thermo/dft)
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
 
-# test19: all (tsopt + thermo + dft) — throttled cycles may leave the TS short of
-# a validated first-order saddle. Tolerate only the orchestrator's exact
-# TS-validation refusal; unrelated failures stay fatal.
-rc=0
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --tsopt --thermo --dft --tsopt-max-cycles 5 --dft-func-basis 'hf/sto-3g' --dft-grid-level 0 --dft-conv-tol 1e-5 --dft-max-cycle 40 --dft-engine cpu --out-dir test19 > test19.out 2>&1 || rc=$?
-if [ "${rc:-0}" -ne 0 ]; then
-  if grep -Fq "TS optimization did not produce a validated first-order saddle" test19.out \
-    && grep -Fq "IRC was not started." test19.out; then
-    echo "[smoke] test19: exact TS validation rejected the throttled run (rc=$rc) — tolerated, continuing"
-  else
-    echo "[smoke] FAIL test19 (rc=$rc) — real pipeline failure"
-    tail -40 test19.out
-    exit "$rc"
-  fi
-fi
+# test19: required positive MEP -> TSopt -> IRC -> thermo -> DFT handoff.
+mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --tsopt --thermo --dft --flatten --irc-never-stop --tsopt-max-cycles 100 --dft-func-basis 'hf/sto-3g' --dft-grid-level 0 --dft-conv-tol 1e-5 --dft-max-cycle 40 --dft-engine cpu --out-dir test19 > test19.out 2>&1
+python assert_release_result.py all test19 --require-thermo --require-dft >> test19.out 2>&1
 
 # test20: all (--parm + --model-pdb override, reuse test19 outputs)
 mlmm all -i r_complex.pdb p_complex.pdb --parm test19/mm_parm/r_complex.parm7 --model-pdb test19/ml_region.pdb -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test20 > test20.out 2>&1
@@ -167,22 +197,18 @@ mlmm oniom-import -i test33.gjf -o test36 > test36.out 2>&1
 # test37: all (--refine-path)
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test37 > test37.out 2>&1
 
-# --- xTB-dependent tests (requires xtb binary) ---
+# --- xTB-dependent test (xTB is a lane preflight requirement) ---
 
-# test38: opt (embedcharge) — skip if xtb is not available
-if command -v xtb &>/dev/null; then
-  mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --out-dir test38 > test38.out 2>&1
-else
-  echo "SKIP test38: xtb not found" > test38.out
-fi
+# test38: opt (embedcharge)
+mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --out-dir test38 > test38.out 2>&1
 
 # --- Polish-train new CLI flags (A1 + W3 + B4 wires; all opt-in, defaults preserve Table 1 numerics) ---
 
 # test39: tsopt --opt-mode trim (A1 Helgaker trust-region image-min; non-microiter)
-mlmm tsopt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode trim --no-microiter --max-cycles 5 --thresh gau_loose --skip-final-freq --out-dir test39 > test39.out 2>&1
+mlmm tsopt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode trim --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test39 > test39.out 2>&1
 
 # test40: tsopt --opt-mode rsprfo (A1 Banerjee P-RFO; non-microiter)
-mlmm tsopt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode rsprfo --no-microiter --max-cycles 5 --thresh gau_loose --skip-final-freq --out-dir test40 > test40.out 2>&1
+mlmm tsopt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode rsprfo --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test40 > test40.out 2>&1
 
 # test42: irc --irc-pos-def (Sella backport 1: PSD-Hessian convergence guard)
 mlmm irc -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --max-cycles 3 --irc-pos-def --out-dir test42 > test42.out 2>&1
@@ -210,21 +236,33 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 det_args="-i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --deterministic"
 mlmm all $det_args --out-dir test44_a > test44_a.out 2>&1
 mlmm all $det_args --parm test44_a/mm_parm/r_complex.parm7 --out-dir test44_b > test44_b.out 2>&1
-{
-  total=0
-  drifted=0
-  while IFS= read -r path_a; do
-    rel="${path_a#test44_a/}"
-    path_b="test44_b/$rel"
-    if [ -f "$path_b" ]; then
-      total=$((total + 1))
-      cmp -s "$path_a" "$path_b" || { drifted=$((drifted + 1)); echo "DRIFT: $rel"; }
-    fi
-  done < <(find test44_a -type f \( -name "*.pdb" -o -name "*.xyz" \))
-  echo "[det_check] all pipeline (--deterministic): compared $total .pdb/.xyz file(s); $drifted differ"
-} > test44.out 2>&1
-if [ "${drifted:-0}" -ne 0 ]; then
-  echo "[smoke] FAIL test44: --deterministic runs are not bit-reproducible ($drifted file(s) differ)"
+# Run b is given the parm via `--parm`, so by design it never runs the mm-parm
+# stage and never writes `mm_parm/`. That directory is the gate's fixed INPUT,
+# not its output, so comparing it would fail on the very workaround above.
+find test44_a -type f \( -name "*.pdb" -o -name "*.xyz" \) -not -path '*/mm_parm/*' -printf '%P\n' | LC_ALL=C sort > test44_a.manifest
+find test44_b -type f \( -name "*.pdb" -o -name "*.xyz" \) -not -path '*/mm_parm/*' -printf '%P\n' | LC_ALL=C sort > test44_b.manifest
+if ! cmp -s test44_a.manifest test44_b.manifest; then
+  echo "[smoke] FAIL test44: deterministic runs produced different file manifests" > test44.out
+  comm -3 test44_a.manifest test44_b.manifest >> test44.out
+  cat test44.out
+  exit 1
+fi
+total=$(wc -l < test44_a.manifest)
+if [ "$total" -eq 0 ]; then
+  echo "[smoke] FAIL test44: deterministic gate found no PDB/XYZ artifacts" > test44.out
+  cat test44.out
+  exit 1
+fi
+drifted=0
+while IFS= read -r rel; do
+  if ! cmp -s "test44_a/$rel" "test44_b/$rel"; then
+    drifted=$((drifted + 1))
+    echo "DRIFT: $rel" >> test44.out
+  fi
+done < test44_a.manifest
+echo "[det_check] compared $total PDB/XYZ files; $drifted differ" >> test44.out
+if [ "$drifted" -ne 0 ]; then
+  echo "[smoke] FAIL test44: --deterministic runs differ" >> test44.out
   cat test44.out
   exit 1
 fi
@@ -260,16 +298,10 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -
 # handoff otherwise. test49 (cart) keeps the no-cap default-behaviour check.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type dlc --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test50 > test50.out 2>&1
 
-# --- Per-stage internal-coord code-path verify (opt + scan only) ---
+# --- Per-stage internal-coordinate code-path verification ---
 # Each test is scoped at max-cycles 3 + thresh gau_loose so it exercises the
-# coord-type code path without long convergence. Excluded subcmds:
-#   - tsopt: pysisyphus RSIRFOptimizer.full_from_active raises a shape mismatch
-#     for non-cart coord types when active-atom subset DOF differs from the
-#     internal coord count (upstream pysisyphus fork issue).
-#   - freq: vibrational analysis uses cart Hessian regardless of --coord-type;
-#     the only thing the flag adds is a cusolver SVD on the internal B-matrix
-#     that occasionally fails on the per-atom-subset internal-coord set.
-#     freq + cart is already covered by test9.
+# coordinate paths without requiring convergence. Frequency analysis remains
+# Cartesian because its PHVA contract consumes a Cartesian Hessian directly.
 
 # test50a: opt --coord-type dlc
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --coord-type dlc --max-cycles 3 --thresh gau_loose --out-dir test50a_opt_dlc > test50a_opt_dlc.out 2>&1
@@ -290,6 +322,10 @@ if grep -q "Covalent-bond changes (start vs final): Yes" test50d_scan_freeze_dlc
   exit 1
 fi
 
+# test50e: Hessian TS microiteration with DLC and frozen atoms. This is the
+# partial-Cartesian-Hessian -> internal-coordinate handoff regression.
+mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --microiter --max-cycles 2 --thresh gau_loose --out-dir test50e_ts_hess_dlc > test50e_ts_hess_dlc.out 2>&1
+
 # test50g: opt --coord-type redund
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --coord-type redund --max-cycles 3 --thresh gau_loose --out-dir test50g_opt_redund > test50g_opt_redund.out 2>&1
 
@@ -304,14 +340,15 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --precision 
 # test50n: opt --precision fp32 (explicit fp32 dispatch; default is fp32, this pins the explicit path alongside test50m fp64)
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --precision fp32 --max-cycles 3 --thresh gau_loose --out-dir test50n_opt_fp32 > test50n_opt_fp32.out 2>&1
 
-# test50n: opt --mm-backend openmm (alternate MM backend; analytical Hessian path → FD)
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 3 --thresh gau_loose --out-dir test50n_opt_openmm > test50n_opt_openmm.out 2>&1
+# test50p: opt --mm-backend openmm (alternate MM backend; analytical Hessian path → FD)
+mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 3 --thresh gau_loose --out-dir test50p_opt_openmm > test50p_opt_openmm.out 2>&1
 
-# test50o: opt --link-atom-method fixed (legacy 1.09/1.01 Å placement)
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --link-atom-method fixed --max-cycles 3 --thresh gau_loose --out-dir test50o_opt_linkfixed > test50o_opt_linkfixed.out 2>&1
+# test50q: opt --link-atom-method fixed (legacy 1.09/1.01 Å placement)
+mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --link-atom-method fixed --max-cycles 3 --thresh gau_loose --out-dir test50q_opt_linkfixed > test50q_opt_linkfixed.out 2>&1
 
 # test51: full `all` with `--backend orb` — exercises the non-default MLIP backend.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --backend orb --out-dir test51 > test51.out 2>&1
+python assert_release_result.py provenance test51 --expected-backend orb --expected-model orb_v3_conservative_omol --expected-precision fp64 >> test51.out 2>&1
 
 # ---- Coverage-gap regression (subcommand-specific code paths; coverage audit 2026-06-05) ----
 # test52: opt --mm-only (MM-only minimization; skips the MLIP component entirely)
@@ -320,7 +357,7 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mm-only --
 # test53: freq --active-dof-mode ml-only (alternate PHVA active-DOF subspace)
 mlmm freq -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --active-dof-mode ml-only --max-write 5 --out-dir test53_freq_mlonly > test53_freq_mlonly.out 2>&1
 
-# test54: freq --hessian-calc-mode Analytical (ML-block Hessian analytical vs FD)
+# test54: freq --hessian-calc-mode Analytical (workflow analytical path)
 mlmm freq -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --hessian-calc-mode Analytical --max-write 5 --out-dir test54_freq_anahess > test54_freq_anahess.out 2>&1
 
 # test55: irc --hessian-calc-mode analytical (IRC initial Hessian path)
@@ -362,10 +399,10 @@ fi
 # test62: all --scan-lists --refine-path (single-PDB scan -> recursive path_search)
 mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --refine-path --max-cycles 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test62_rp_scan > test62_rp_scan.out 2>&1
 
-# test64: --backend-model routing — the override must reach the resolved config.
-# dry-run + show-config (no model download, fast): proves --backend-model is honored.
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --backend-model uma-s-1p2 --show-config --dry-run --out-dir test64_backend_model > test64_backend_model.out 2>&1
-grep -q 'uma-s-1p2' test64_backend_model.out || { echo "[smoke] FAIL test64: --backend-model uma-s-1p2 not reflected in resolved config" >> test64_backend_model.out; exit 1; }
+# test64: --backend-model routing — a non-default model must reach the resolved
+# runtime header. Dry-run avoids downloading the alternate model.
+mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --backend-model uma-m-1p1 --dry-run --out-dir test64_backend_model > test64_backend_model.out 2>&1
+grep -Eq '^\[backend\] uma \(uma-m-1p1, fp32\)$' test64_backend_model.out || { echo "[smoke] FAIL test64: non-default backend model missing from resolved runtime summary" >> test64_backend_model.out; exit 1; }
 
 # Build an mmCIF equivalent of the layered fixture while exercising identifiers
 # that cannot be represented in fixed-column PDB.
@@ -400,4 +437,118 @@ mlmm extract -i r_complex_layered.cif -c 'LONG_CHAIN:PRE:10001' -r 0.1 --no-add-
 test -s test66_model_from_cif.pdb || { echo "[smoke] FAIL test66: extracted PDB missing" >> test66_extract_cif.out; exit 1; }
 test -s test66_model_from_cif.cif || { echo "[smoke] FAIL test66: extracted CIF missing" >> test66_extract_cif.out; exit 1; }
 
-echo "[smoke] PASS: all GPU, ML/MM, and structure-I/O cases completed."
+# test67/68: a partial Hessian dumped by freq must be consumed unchanged by
+# IRC, including its active-DOF metadata. Never-stop is verified at runtime.
+# The dump must use IRC's own active-DOF basis (ML + MovableMM, i.e. freq's
+# default). IRC has no --active-dof-mode/--hess-cutoff flag and always analyzes
+# every movable atom, so an ml-only dump would be rejected as a basis mismatch;
+# the partial nature is still exercised because --freeze-atoms keeps it < full.
+mlmm freq -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --max-write 1 --dump-hess test67_freq/hessian.npz --out-json --out-dir test67_freq > test67_freq.out 2>&1
+test -s test67_freq/hessian.npz || { echo "[smoke] FAIL test67: dumped Hessian missing" >> test67_freq.out; exit 1; }
+mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test67_freq/hessian.npz --never-stop --config never_stop_config.yaml --max-cycles 2 --out-json --out-dir test68_irc_handoff > test68_irc_handoff.out 2>&1
+python assert_release_result.py irc-handoff test68_irc_handoff --hessian-file test67_freq/hessian.npz >> test68_irc_handoff.out 2>&1
+
+# A same-size Hessian from a different geometry must be rejected before IRC.
+python - <<'PY'
+from pathlib import Path
+
+lines = Path("p_complex_layered.pdb").read_text(encoding="utf-8").splitlines(True)
+for index, line in enumerate(lines):
+    if line.startswith(("ATOM  ", "HETATM")):
+        x = float(line[30:38]) + 0.100
+        lines[index] = line[:30] + f"{x:8.3f}" + line[38:]
+        break
+Path("test68_wrong_geometry.pdb").write_text("".join(lines), encoding="utf-8")
+PY
+rc=0
+mlmm irc -i test68_wrong_geometry.pdb --parm p_complex.parm7 -q -1 -m 1 --read-hess test67_freq/hessian.npz --max-cycles 1 --out-dir test68_wrong > test68_wrong.out 2>&1 || rc=$?
+if [ "$rc" -eq 0 ] || ! grep -Fq 'coordinates do not match' test68_wrong.out; then
+  echo "[smoke] FAIL test68: stale same-size Hessian was not rejected" >> test68_wrong.out
+  exit 1
+fi
+
+# test69: standalone --ref-mode is an actual Cartesian mode vector. The
+# all-workflow path-tangent handoff is exercised by required-positive test19.
+python - <<'PY'
+from pathlib import Path
+import numpy as np
+
+def read(path):
+    coords = []
+    layers = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if line.startswith(("ATOM  ", "HETATM")):
+            coords.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+            layers.append(float(line[60:66]))
+    return np.asarray(coords), np.asarray(layers)
+
+reactant, _ = read("r_complex_layered.pdb")
+product, layers = read("p_complex_layered.pdb")
+mode = (reactant - product).reshape(-1)
+active = np.repeat(np.isclose(layers, 0.0, atol=1.0), 3)
+if np.linalg.norm(mode[active]) <= 1.0e-8:
+    raise SystemExit("reference path tangent is zero in the active ML Hessian space")
+np.savetxt("test69_reference_mode.txt", mode)
+PY
+mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --ref-mode test69_reference_mode.txt --max-cycles 2 --thresh gau_loose --out-json --out-dir test69_ref_mode > test69_ref_mode.out 2>&1
+python assert_release_result.py tsopt-reference test69_ref_mode >> test69_ref_mode.out 2>&1
+
+# test70: YAML backend-model/precision settings reach a real calculation while
+# an explicit CLI max-cycles value retains precedence.
+mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --config runtime_config.yaml --max-cycles 1 --out-json --out-dir test70_config > test70_config.out 2>&1
+python assert_release_result.py opt-config test70_config --expected-model uma-s-1p2 --expected-max-cycles 1 --expected-precision fp64 --expected-link-atom-method fixed --expected-thresh gau_loose >> test70_config.out 2>&1
+
+# test71: a user ASE calculator with only energy/forces supports the ML-region
+# finite-difference Hessian path.
+mlmm sp -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --calc-file harmonic_calc.py --hess --hessian-calc-mode FiniteDifference --out-json --out-dir test71_custom > test71_custom.out 2>&1
+python assert_release_result.py sp-hessian test71_custom >> test71_custom.out 2>&1
+
+# test72: an explicit analytical Hessian request cannot silently fall back when
+# predictor workers remove the autograd model.
+rc=0
+mlmm sp -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --hess --hessian-calc-mode Analytical --workers 2 --out-dir test72_workers > test72_workers.out 2>&1 || rc=$?
+if [ "$rc" -ne 1 ] || ! grep -Fq "Analytical Hessian cannot be combined with workers>1: the parallel predictor exposes no autograd model. Use workers=1 or select hessian_calc_mode='FiniteDifference'." test72_workers.out || [ -e test72_workers/hessian.npy ]; then
+  echo "[smoke] FAIL test72: Analytical + workers>1 was not rejected exactly" >> test72_workers.out
+  exit 1
+fi
+
+# test73: ORCA QM/MM export/import round-trip preserves coordinates and all
+# three layer classes without requiring an ORCA installation.
+python - <<'PY'
+from pathlib import Path
+
+lines = Path("r_complex_layered.pdb").read_text(encoding="utf-8").splitlines(True)
+changed = False
+for index in range(len(lines) - 1, -1, -1):
+    line = lines[index]
+    if line.startswith(("ATOM  ", "HETATM")) and abs(float(line[60:66]) - 10.0) <= 1.0:
+        lines[index] = line[:60] + f"{20.0:6.2f}" + line[66:]
+        changed = True
+        break
+if not changed:
+    raise SystemExit("could not create a frozen-MM layer for ORCA round-trip")
+Path("test73_three_layer.pdb").write_text("".join(lines), encoding="utf-8")
+PY
+mlmm oniom-export --parm p_complex.parm7 -i test73_three_layer.pdb --model-pdb pocket_r.pdb -q -1 -m 1 --mode orca --no-convert-orcaff -o test73_orca.inp > test73_orca_export.out 2>&1
+for token in '! QMMM' 'QMAtoms {' 'ActiveAtoms {' 'Charge_Total -1' '* xyz -1 1'; do
+  grep -Fq "$token" test73_orca.inp || { echo "[smoke] FAIL test73: ORCA input missing $token" >> test73_orca_export.out; exit 1; }
+done
+mlmm oniom-import -i test73_orca.inp --ref-pdb test73_three_layer.pdb -o test73_orca_import > test73_orca_import.out 2>&1
+test -s test73_orca_import.xyz || { echo "[smoke] FAIL test73: restored XYZ missing" >> test73_orca_import.out; exit 1; }
+test -s test73_orca_import_layered.pdb || { echo "[smoke] FAIL test73: restored layered PDB missing" >> test73_orca_import.out; exit 1; }
+sed -n '2p' test73_orca_import.xyz | grep -Fq 'mode=orca' || { echo "[smoke] FAIL test73: restored XYZ omits ORCA provenance" >> test73_orca_import.out; exit 1; }
+sed -n '2p' test73_orca_import.xyz | grep -Fq 'q=-1 m=1' || { echo "[smoke] FAIL test73: restored XYZ charge/multiplicity mismatch" >> test73_orca_import.out; exit 1; }
+python assert_orca_roundtrip.py test73_three_layer.pdb test73_orca_import_layered.pdb >> test73_orca_import.out 2>&1
+
+# test74: force a known higher-order candidate through the actual flatten
+# branch. The checker requires n_imag>1 before flattening, an executed RS-I-RFO
+# flatten iteration, and no increase in saddle order.
+mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --no-microiter --flatten --config flatten_branch_config.yaml --max-cycles 50 --thresh gau_loose --out-json --out-dir test74_flatten > test74_flatten.out 2>&1
+python assert_flatten_branch.py test74_flatten.out test74_flatten/result.json >> test74_flatten.out 2>&1
+
+# Numerical analytical-vs-FD agreement for every backend installed in the
+# default strict environment. MACE/AIMNet2 use this same required wrapper in
+# their dependency-isolated cluster environments.
+bash run_backend_hessian.sh uma orb > backend_hessian.out 2>&1
+
+echo "[smoke] PASS: required GPU, ML/MM, Hessian-handoff, and structure-I/O lane completed with zero skips."

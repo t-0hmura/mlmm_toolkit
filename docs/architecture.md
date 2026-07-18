@@ -27,10 +27,15 @@ Three bundled forks (`pysisyphus/`, `thermoanalysis/`, `hessian_ff/`) live at th
 | **L3 Domain** | `mlmm/domain/` | chemistry-aware helper logic (bond change detection, bond summary, element-info propagation) | `core/` |
 | **L4a Infra (MLIP + ONIOM)** | `mlmm/backends/` | MLIP backend dispatcher + per-backend adapter + ML/MM ONIOM calculator core | `core/` |
 | **L4b Infra (I/O)** | `mlmm/io/` | output layout, summary, trajectory, PDB fix, energy diagram, Hessian cache, analytical-Hessian glue | `core/` |
-| **L5 Foundation** | `mlmm/core/` | defaults (single source of truth), utils (PDB / XYZ / plot helpers), future `errors.py` / `types.py` | (none) |
+| **L5 Foundation** | `mlmm/core/` | defaults (single source of truth), utils (PDB / XYZ / plot helpers), residue tables, future `errors.py` / `types.py` | `backends/`, `domain/`, `io/` (compatibility back-edges, see below) |
 | (bundle, not a layer) | `<repo>/pysisyphus/`, `<repo>/thermoanalysis/`, `<repo>/hessian_ff/` | repo-internal forks (optimizer / thermochemistry / analytical MM Hessian) | (sibling, layer-external) |
 
-**Dependency direction (one-way)**: `L1 → L2 → {L3, L4} → L5` (per the §2.1 layer table). The directional rule is enforced by CI marker coverage (`.github/scripts/check_engineering_markers.py`). Bundled forks sit outside the layer graph and may be imported from any layer through their absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`).
+**Dependency direction**: the *design intent* is one-way `L1 → L2 → {L3, L4} → L5`. What is actually **enforced** — and by which checker — is:
+
+- `.github/scripts/check_import_graph.py` (AST import-graph gate) enforces the parts that are true today: (a) the `mlmm` package has **no import cycle** (no strongly connected component among its modules); (b) `core` and `domain` **never import `workflows`**; (c) no bundled fork (`pysisyphus` / `hessian_ff` / `thermoanalysis`) imports `mlmm`.
+- `.github/scripts/check_engineering_markers.py` covers a *different* concern — chemistry-rule / `DOMAIN_PURE` marker completeness and the MLIP-runtime import scope. It does **not** parse the layer import edges, so it does not enforce the direction.
+
+Current allowed back-edges (measured, cycle-free, retired in the major rewrite): a few `core.utils` helpers reach *down* into `domain.add_elem_info` and `io.structure_formats`, and `core.calc_eval` into `backends.mlmm_calc`. `core.utils` no longer imports any `workflows` module; the historical `core.utils ↔ workflows.extract` and `workflows.freq ↔ workflows.opt` cycles were removed by relocating the shared charge/spin preparation (`workflows/charge_prep.py`) and layer helpers (`workflows/_opt_freq_common.py`). Bundled forks sit outside the layer graph and may be imported from any layer through their absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`).
 
 ### 2.2 ASCII map of the package tree
 
@@ -350,9 +355,9 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 
 | dir | upstream PyPI? | purpose | scope of edits allowed |
 |---|---|---|---|
-| `pysisyphus/` | NO — fork, do not `pip install pysisyphus` alongside | optimizer, TS, IRC, COS, calculators | annotation-only in this release (docstring + type hints); logic edits forbidden |
-| `thermoanalysis/` | NO — fork (branding diff) | ΔG, ZPE, partition functions, `QCData` | same as `pysisyphus/` |
-| `hessian_ff/` | **NO — PyPI 404, bundling mandatory** | analytical Hessian on MM force field | same as `pysisyphus/` |
+| `pysisyphus/` | NO — fork, do not `pip install pysisyphus` alongside | optimizer, TS, IRC, COS, calculators | routine polish is annotation-only; logic needs a demonstrated defect or approved feature, focused regression tests, and relevant HEAVY/GPU validation |
+| `thermoanalysis/` | NO — fork (branding diff) | ΔG, ZPE, partition functions, `QCData` | same conditional gate; see its README |
+| `hessian_ff/` | **NO — PyPI 404, bundling mandatory** | analytical Hessian on MM force field | same conditional gate; see its README |
 
 Each dir carries its own `README.md` listing the divergent files and the touch-restriction boundary. From the layer model these forks live **outside** the L1..L5 graph: any layer may import them via the absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`) without breaking the `L1 → L2 → {L3, L4} → L5` direction.
 

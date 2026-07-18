@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import click
+import pytest
 from click.testing import CliRunner
 
 from mlmm.cli.help_pages import (
@@ -117,7 +118,11 @@ def test_help_advanced_shows_hidden_options() -> None:
 def test_lazy_import_failure_is_reported_as_click_exception() -> None:
     cli = _make_group(
         lazy_subcommands={
-            "broken": (".__this_module_should_not_exist__", "cli", "Broken command")
+            "broken": (
+                "optional_mlmm_plugin.__this_module_should_not_exist__",
+                "cli",
+                "Broken command",
+            )
         }
     )
 
@@ -126,6 +131,51 @@ def test_lazy_import_failure_is_reported_as_click_exception() -> None:
     assert result.exit_code != 0
     assert "Command 'broken' is unavailable because the module could not be imported." in result.output
     assert "Missing dependency:" in result.output
+
+
+@pytest.mark.parametrize(
+    "missing_name",
+    [
+        "mlmm.internal_missing",
+        "pysisyphus.internal_missing",
+        "thermoanalysis.internal_missing",
+        "hessian_ff.internal_missing",
+    ],
+)
+def test_lazy_internal_missing_module_is_not_masked(
+    monkeypatch: pytest.MonkeyPatch,
+    missing_name: str,
+) -> None:
+    from mlmm.cli import default_group
+
+    cli = _make_group(
+        lazy_subcommands={"broken": ("mlmm.workflows.broken", "cli", "Broken command")}
+    )
+
+    def _raise_internal_missing(*_args, **_kwargs):
+        raise ModuleNotFoundError(
+            f"No module named {missing_name!r}", name=missing_name
+        )
+
+    monkeypatch.setattr(default_group.importlib, "import_module", _raise_internal_missing)
+    with pytest.raises(ModuleNotFoundError) as exc_info:
+        cli.get_command(click.Context(cli), "broken")
+    assert exc_info.value.name == missing_name
+
+
+def test_lazy_plain_import_error_is_not_masked(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mlmm.cli import default_group
+
+    cli = _make_group(
+        lazy_subcommands={"broken": ("external_plugin", "cli", "Broken command")}
+    )
+
+    def _raise_plain_import_error(*_args, **_kwargs):
+        raise ImportError("missing symbol inside imported module")
+
+    monkeypatch.setattr(default_group.importlib, "import_module", _raise_plain_import_error)
+    with pytest.raises(ImportError, match="missing symbol"):
+        cli.get_command(click.Context(cli), "broken")
 
 
 def test_bool_toggle_accepts_value_style_syntax_via_auto_detection() -> None:

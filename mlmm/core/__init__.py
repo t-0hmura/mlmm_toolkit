@@ -9,6 +9,11 @@ Modules:
 - ``logging`` — ``setup_logging(verbose)`` driven by the ``-v`` / ``-vv`` root flag;
   configures stdlib logging level (WARNING / INFO / DEBUG).
 
-Dependency direction: this layer **does not import any other in-package layer**
-(L1 / L2 / L3 / L4). It is the leaf.
+Dependency direction (measured): this layer **does not import the L1 (cli) or
+L2 (workflows) layers** — that one-way direction, plus the absence of any import
+cycle, is what ``.github/scripts/check_import_graph.py`` enforces. A few core
+utilities still reach *down* into ``backends`` / ``domain`` / ``io`` as
+compatibility back-edges (e.g. ``core.utils`` uses ``domain.add_elem_info`` and
+``io.structure_formats``); these introduce no cycle and are retired in the major
+rewrite. The leaf ideal is a design intent, not a current fact.
 """

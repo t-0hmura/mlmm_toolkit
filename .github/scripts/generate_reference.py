@@ -76,6 +76,59 @@ dft:
 """
 
 
+# Ordered top-level sections this curated starter snapshot deliberately shows.
+# The snapshot is intentionally NON-EXHAUSTIVE; the full schema lives in the
+# hand-authored docs/yaml-reference.md.
+_CURATED_SECTIONS: tuple[str, ...] = (
+    "calc",
+    "extract",
+    "path_search",
+    "scan",
+    "tsopt",
+    "freq",
+    "dft",
+)
+
+# Value-free pointer from each curated scalar path to its single runtime owner.
+# No expected value is hardcoded here: the generator resolves the live owner
+# value and asserts the template scalar EQUALS it, so a stale snapshot value or
+# an unused parity declaration fails generation. Owner kinds:
+#   ("defaults", SYMBOL, KEY) -> mlmm.core.defaults.SYMBOL[KEY]
+#   ("click", COMMAND, "--opt") -> the live `mlmm COMMAND --opt` Click default
+_STARTER_OWNERS: dict[str, tuple[str, str, str]] = {
+    "calc.backend": ("defaults", "MLMM_CALC_KW", "backend"),
+    "calc.orb_model": ("defaults", "MLMM_CALC_KW", "orb_model"),
+    "calc.orb_precision": ("defaults", "MLMM_CALC_KW", "orb_precision"),
+    "calc.mace_model": ("defaults", "MLMM_CALC_KW", "mace_model"),
+    "calc.mace_dtype": ("defaults", "MLMM_CALC_KW", "mace_dtype"),
+    "calc.aimnet2_model": ("defaults", "MLMM_CALC_KW", "aimnet2_model"),
+    "calc.embedcharge": ("defaults", "MLMM_CALC_KW", "embedcharge"),
+    "calc.embedcharge_step": ("defaults", "MLMM_CALC_KW", "embedcharge_step"),
+    "calc.xtb_cmd": ("defaults", "MLMM_CALC_KW", "xtb_cmd"),
+    "calc.xtb_acc": ("defaults", "MLMM_CALC_KW", "xtb_acc"),
+    "calc.xtb_workdir": ("defaults", "MLMM_CALC_KW", "xtb_workdir"),
+    "calc.xtb_keep_files": ("defaults", "MLMM_CALC_KW", "xtb_keep_files"),
+    "calc.xtb_ncores": ("defaults", "MLMM_CALC_KW", "xtb_ncores"),
+    "extract.radius": ("click", "all", "--radius"),
+    "extract.radius_het2het": ("click", "all", "--radius-het2het"),
+    "path_search.max_nodes": ("defaults", "GS_KW", "max_nodes"),
+    "path_search.max_cycles": ("defaults", "STOPT_KW", "max_cycles"),
+    "scan.max_step_size": ("click", "scan", "--max-step-size"),
+    "scan.bias_k": ("defaults", "BIAS_KW", "k"),
+    "scan.relax_max_cycles": ("defaults", "OPT_BASE_KW", "max_cycles"),
+    "tsopt.max_cycles": ("defaults", "OPT_BASE_KW", "max_cycles"),
+    "freq.max_write": ("defaults", "FREQ_KW", "max_write"),
+    "freq.amplitude_ang": ("defaults", "FREQ_KW", "amplitude_ang"),
+    "freq.n_frames": ("defaults", "FREQ_KW", "n_frames"),
+    "freq.sort": ("defaults", "FREQ_KW", "sort"),
+    "freq.temperature": ("defaults", "THERMO_KW", "temperature"),
+    "freq.pressure_atm": ("defaults", "THERMO_KW", "pressure_atm"),
+    "dft.func_basis": ("defaults", "DFT_KW", "func_basis"),
+    "dft.max_cycle": ("defaults", "DFT_KW", "max_cycle"),
+    "dft.conv_tol": ("defaults", "DFT_KW", "conv_tol"),
+    "dft.grid_level": ("defaults", "DFT_KW", "grid_level"),
+}
+
 
 @dataclass(frozen=True)
 class RenderedFile:
@@ -188,23 +241,117 @@ def _render_commands_index(command_docs: list[CommandDoc]) -> str:
     )
 
 
-def _iter_scalar_rows(data: dict, prefix: str = "") -> Iterable[tuple[str, str, str]]:
+def _iter_scalar_items(data: dict, prefix: str = "") -> Iterable[tuple[str, object]]:
     for key, value in data.items():
         full_key = f"{prefix}.{key}" if prefix else str(key)
         if isinstance(value, dict):
-            yield from _iter_scalar_rows(value, prefix=full_key)
+            yield from _iter_scalar_items(value, prefix=full_key)
         else:
-            type_name = type(value).__name__
-            value_repr = repr(value)
-            yield full_key, type_name, value_repr
+            yield full_key, value
 
 
-def _render_yaml_reference() -> str:
+def _scalar_equal(template_value: object, owner_value: object) -> bool:
+    if isinstance(template_value, bool) or isinstance(owner_value, bool):
+        return template_value is owner_value or template_value == owner_value
+    return template_value == owner_value
+
+
+def _resolve_owner_values(root_cli) -> dict[str, tuple[str, object]]:
+    """Resolve each curated scalar's runtime owner label and live value."""
+    from mlmm.core import defaults as mlmm_defaults  # noqa: E402
+
+    ctx = root_cli.make_context(TOOL_NAME, [], resilient_parsing=True)
+    click_cache: dict[str, dict[str, object]] = {}
+
+    def _click_default(command_name: str, opt_name: str) -> object:
+        cache = click_cache.get(command_name)
+        if cache is None:
+            command = root_cli.get_command(ctx, command_name)
+            if command is None or (command.help or "").startswith("[Unavailable]"):
+                raise RuntimeError(
+                    f"live command {command_name!r} unavailable for owner resolution"
+                )
+            cache = {}
+            for param in command.params:
+                if isinstance(param, click.Option):
+                    for opt in param.opts:
+                        if opt.startswith("--"):
+                            cache[opt] = param.default
+            click_cache[command_name] = cache
+        if opt_name not in cache:
+            raise RuntimeError(f"owner option {opt_name!r} not found on {command_name!r}")
+        return cache[opt_name]
+
+    resolved: dict[str, tuple[str, object]] = {}
+    try:
+        for path, owner in _STARTER_OWNERS.items():
+            kind = owner[0]
+            if kind == "defaults":
+                _, symbol, key = owner
+                container = getattr(mlmm_defaults, symbol, None)
+                if not isinstance(container, dict) or key not in container:
+                    raise RuntimeError(f"owner {symbol}[{key!r}] missing in defaults")
+                resolved[path] = (f'`{symbol}["{key}"]`', container[key])
+            elif kind == "click":
+                _, command_name, opt_name = owner
+                resolved[path] = (
+                    f"`mlmm {command_name} {opt_name}` default",
+                    _click_default(command_name, opt_name),
+                )
+            else:  # pragma: no cover - guarded by the static owner map
+                raise RuntimeError(f"unknown owner kind {kind!r} for {path!r}")
+    finally:
+        ctx.close()
+    return resolved
+
+
+def _validate_starter_snapshot(
+    template_data: dict, owner_values: dict[str, tuple[str, object]]
+) -> None:
+    """Assert exact bidirectional scalar-path coverage and per-scalar parity."""
+    template_items = dict(_iter_scalar_items(template_data))
+    scalar_paths = set(template_items)
+    errors: list[str] = []
+
+    for path in sorted(scalar_paths):
+        if path not in owner_values:
+            errors.append(f"ownerless starter scalar: '{path}' declares no runtime owner")
+    for path in sorted(owner_values):
+        if path not in scalar_paths:
+            errors.append(
+                f"stale owner declaration: '{path}' is not present in the starter template"
+            )
+    for path in sorted(scalar_paths & set(owner_values)):
+        label, owner_value = owner_values[path]
+        template_value = template_items[path]
+        if not _scalar_equal(template_value, owner_value):
+            errors.append(
+                f"starter value drift at '{path}': template={template_value!r} "
+                f"!= runtime owner {label} = {owner_value!r}"
+            )
+
+    top = list(template_data.keys()) if isinstance(template_data, dict) else []
+    if top != list(_CURATED_SECTIONS):
+        errors.append(
+            f"curated sections changed: {top} != {list(_CURATED_SECTIONS)}"
+        )
+
+    if errors:
+        raise RuntimeError(
+            "[yaml-reference] curated starter snapshot parity failed:\n"
+            + "\n".join(errors)
+        )
+
+
+def _render_yaml_reference(owner_values: dict[str, tuple[str, object]]) -> str:
     template_data = yaml.safe_load(_ALL_TEMPLATE) or {}
+    _validate_starter_snapshot(template_data, owner_values)
+
     top_keys = list(template_data.keys()) if isinstance(template_data, dict) else []
     top_rows = "\n".join(f"| `{k}` |" for k in top_keys)
     scalar_rows = "\n".join(
-        f"| `{k}` | `{t}` | `{v}` |" for k, t, v in _iter_scalar_rows(template_data)
+        f"| `{k}` | `{type(v).__name__}` | `{v!r}` | {owner_values[k][0]} |"
+        for k, v in _iter_scalar_items(template_data)
     )
     digest = hashlib.sha256(_ALL_TEMPLATE.encode("utf-8")).hexdigest()[:12]
 
@@ -224,11 +371,16 @@ pairs:
 ```"""
 
     return (
-        "# YAML Schema\n\n"
+        "# Curated `mlmm all` Starter Snapshot\n\n"
+        "This page is a **curated, non-exhaustive** starter snapshot for "
+        "`mlmm all`. It shows a common subset of keys whose values are pinned to "
+        "(and equal) their runtime owners; it is **not** the full configuration "
+        "schema. For every configurable section and option, see the "
+        "[YAML Reference](../yaml-reference.md).\n\n"
         f"- Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`\n"
         f"- Template digest: `{digest}`\n\n"
-        "## Top-level Keys\n\n"
-        "| Key |\n"
+        "## Included Sections\n\n"
+        "| Section |\n"
         "|---|\n"
         f"{top_rows}\n\n"
         "## Starter Template\n\n"
@@ -236,8 +388,9 @@ pairs:
         f"{_ALL_TEMPLATE.strip()}\n"
         "```\n\n"
         "## Scalar Defaults\n\n"
-        "| Key | Type | Default |\n"
-        "|---|---|---|\n"
+        "Each scalar is pinned to (and equals) the runtime owner shown.\n\n"
+        "| Key | Type | Default | Runtime owner |\n"
+        "|---|---|---|---|\n"
         f"{scalar_rows}\n\n"
         "## Scan Spec Shapes\n\n"
         "Accepted by `scan`, `scan2d`, and `scan3d` with `-s/--scan-lists`.\n\n"
@@ -267,7 +420,10 @@ def _render() -> list[RenderedFile]:
             content=_render_commands_index(command_docs),
         )
     )
-    rendered.append(RenderedFile(path=YAML_REF_PATH, content=_render_yaml_reference()))
+    owner_values = _resolve_owner_values(root_cli)
+    rendered.append(
+        RenderedFile(path=YAML_REF_PATH, content=_render_yaml_reference(owner_values))
+    )
     return rendered
 
 

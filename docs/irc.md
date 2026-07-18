@@ -1,6 +1,6 @@
 # `irc`
 
-Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transition state toward reactants and products using the ML/MM calculator. Use it to validate that an optimized TS connects the expected reactant and product, or to generate reactant/product structures for downstream thermochemistry and DFT single-point energy evaluation — typically as `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc`. By default both forward and backward branches are computed. `mlmm irc` keeps the CLI intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. Inputs can be any structure readable by `pysisyphus.helpers.geom_loader` (`.pdb`, `.xyz`, `_trj.xyz`,...); if the input is `.pdb`, the generated trajectories are additionally converted to PDB.
+Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transition state toward reactants and products using the ML/MM calculator. Use it to validate that an optimized TS connects the expected reactant and product, or to generate reactant/product structures for downstream thermochemistry and DFT single-point energy evaluation — typically as `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc`. By default both forward and backward branches are computed. `mlmm irc` keeps the CLI intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. The common input bridge accepts PDB/mmCIF and `geom_loader` formats. With a PDB/mmCIF topology (direct input or `--ref-pdb`) and conversion enabled, trajectories receive PDB companions; mmCIF and oversized-PDB bridge inputs also receive CIF companions with restored identifiers.
 
 ## Examples
 
@@ -51,11 +51,11 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 
 ## Workflow
 
-1. **Input preparation** -- Load the TS structure, Amber topology (`--parm`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Any format supported by `geom_loader` is accepted, and when a reference PDB is available (input is `.pdb` or `--ref-pdb` is supplied), EulerPC trajectories are converted to PDB using that topology.
+1. **Input preparation** -- Load the TS structure, Amber topology (`--parm`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Direct PDB/mmCIF input or `--ref-pdb` supplies the topology used for companion output.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation. When `--embedcharge` is enabled, xTB point-charge embedding (experimental) is applied to correct for MM environment effects on the ML region.
 3. **Frozen-boundary TR treatment** -- `--tr-projection constrained` removes only full-system rigid motions that leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries normally have rank 0. `legacy-active` is an isolated-active comparison treatment, not the physical default.
 4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` or `--no-backward` disables a branch). Step size and cycle count control integration length.
-5. **Output & conversion** -- Trajectories are written as XYZ; PDB companions are generated when a PDB template is available and `--convert-files` is enabled.
+5. **Output & conversion** -- Trajectories are written as XYZ. PDB companions are generated when a PDB/mmCIF reference topology is available and `--convert-files` is enabled. Bridge inputs additionally produce CIF companions with original identifiers.
 
 ## Outputs
 
@@ -66,14 +66,25 @@ out_dir/ (default: ./result_irc/)
 ├─ <prefix>finished_irc_trj.xyz     # Full IRC trajectory (XYZ/TRJ)
 ├─ <prefix>forward_irc_trj.xyz      # Forward path segment
 ├─ <prefix>backward_irc_trj.xyz     # Backward path segment
-├─ <prefix>finished_irc.pdb         # PDB conversion (only if input was .pdb)
-├─ <prefix>forward_irc.pdb          # PDB conversion (only if input was .pdb)
-├─ <prefix>backward_irc.pdb         # PDB conversion (only if input was .pdb)
+├─ <prefix>finished_irc.pdb         # PDB companion (reference topology + conversion enabled)
+├─ <prefix>finished_irc.cif         # Bridge-input companion with restored IDs
+├─ <prefix>forward_irc.pdb          # Forward PDB companion (same gating)
+├─ <prefix>forward_irc.cif          # Forward CIF companion (bridge input)
+├─ <prefix>backward_irc.pdb         # Backward PDB companion (same gating)
+├─ <prefix>backward_irc.cif         # Backward CIF companion (bridge input)
 ├─ <prefix>forward_last.xyz         # Single-frame forward IRC endpoint (XYZ)
-├─ <prefix>forward_last.pdb         # Single-frame forward IRC endpoint (PDB, when available)
+├─ <prefix>forward_last.pdb/.cif    # Forward endpoint companions, when available
 ├─ <prefix>backward_last.xyz        # Single-frame backward IRC endpoint (XYZ)
-└─ <prefix>backward_last.pdb        # Single-frame backward IRC endpoint (PDB, when available)
+└─ <prefix>backward_last.pdb/.cif   # Backward endpoint companions, when available
 ```
+
+When `irc.prefix` is non-empty, EulerPC inserts one underscore before the
+filename; for example, `prefix: trial` produces
+`trial_finished_irc_trj.xyz`. `result.json.files` records the normalized names.
+
+Standalone IRC records stitched-path `first` / `last` endpoints and their
+directed bond changes; it does not assign chemical reactant/product identity.
+Inspect or match the endpoint structures before naming them R/P.
 
 ## CLI options
 
@@ -99,8 +110,8 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--backward/--no-backward` | Run the backward IRC; overrides `irc.backward`. | `True` |
 | `--never-stop/--no-never-stop` | Ignore energy-rise and plateau stops only. Convergence, invalid values, and `--max-cycles` remain active. | `False` |
 | `-o, --out-dir PATH` | Output directory; overrides `irc.out_dir`. | `./result_irc/` |
-| `--ref-pdb FILE` | Reference PDB topology to use when `--input` is XYZ (keeps XYZ coordinates). | _None_ |
-| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a reference PDB is available. | `True` |
+| `--ref-pdb FILE` | Reference PDB or mmCIF topology to use when `--input` is XYZ (keeps XYZ coordinates). | _None_ |
+| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB/CIF companions when a reference topology is available. | `True` |
 | `--hessian-calc-mode CHOICE` | How the ML backend builds the Hessian (`Analytical` or `FiniteDifference`); overrides `calc.hessian_calc_mode`. | `FiniteDifference` |
 | `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
 | `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
@@ -111,15 +122,19 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--hess-device CHOICE` | Device for initial Hessian storage and IRC operations: `auto`, `cuda`, `cpu`. Use `cpu` for large unfrozen systems. | `auto` |
-| `--read-hess PATH` | Read initial Hessian from a `.npz` file (from `mlmm freq --dump-hess`). Takes priority over hessian_cache and fresh computation. | _None_ |
+| `--read-hess PATH` | Read an identified `.npz` from `mlmm freq --dump-hess`; geometry, atom order, layer selection, and active-DOF basis must match. Takes priority over cache/fresh computation. | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
 | `--dry-run/--no-dry-run` | Validate and print execution plan without running IRC. Shown in `--help-advanced`. | `False` |
 
+Legacy NPZ files without geometry identity metadata are rejected. If the
+structure or Hessian target layer changed, regenerate the file with `freq`;
+partial-Hessian/PHVA metadata is preserved across a valid handoff.
+
 ## YAML configuration
 
-Provide mappings with merge order **defaults < config < explicit CLI < override**.
+Provide mappings with merge order **defaults < config < explicit CLI**.
 Shared sections reuse [YAML Reference](yaml-reference.md) for geometry/calculator keys. For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging. `calc.return_partial_hessian` is forced to `true` (partial Hessian with active-DOF processing).
 
 ```yaml

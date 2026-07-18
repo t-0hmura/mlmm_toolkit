@@ -100,8 +100,13 @@ print(seg["bond_changes"])             # what bonds broke / formed along the IRC
 ts = json.load(open("result_ts_only/segments/seg_01/ts/result.json"))
 print(ts["n_imaginary_modes"])         # should be 1
 irc = json.load(open("result_ts_only/segments/seg_01/irc/result.json"))
-print(irc["energy_reactant_hartree"], irc["energy_ts_hartree"], irc["energy_product_hartree"])
+print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_hartree"])
 ```
+
+The child IRC result reports directional first/last endpoints only. In
+TSOPT-only mode the parent `all` workflow separately assigns canonical
+`reactant` / `product` names using its documented endpoint rule; inspect the
+structures before attaching chemical identity.
 
 If `n_imaginary_modes != 1`, the geometry is **not a true first-order
 saddle**; see "Distinctive failure modes" below.

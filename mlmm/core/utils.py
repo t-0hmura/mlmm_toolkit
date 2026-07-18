@@ -23,6 +23,8 @@ from pysisyphus.helpers import geom_loader
 from pysisyphus.constants import ANG2BOHR
 
 from mlmm.domain.add_elem_info import guess_element
+from mlmm.core.output import _TAG_AWARE_MARKER, emit
+from mlmm.core.result_commit import commit_payloads
 from mlmm.io.structure_formats import (
     CIF_SUFFIXES,
     CoordinateTemplate,
@@ -32,9 +34,11 @@ from mlmm.io.structure_formats import (
     normalize_structure_to_pdb,
     pdb_requires_normalization,
     register_coordinate_template,
+    render_pdb_coordinate_frames,
+    render_mmcif_frames,
     unregister_coordinate_template,
+    validate_coordinate_template_symbols,
     write_pdb_as_mmcif,
-    write_xyz_as_mmcif,
 )
 
 logger = logging.getLogger(__name__)
@@ -124,20 +128,6 @@ def is_pipeline_mode() -> bool:
     return _PIPELINE_MODE or _CHILD_MODE
 
 
-def emit(message: str = "", *, narrative: bool = True, detail: bool = False, **kwargs) -> None:
-    """Echo a console line, tagged NARRATIVE (level 1) by default.
-
-    Thin wrapper over ``click.echo`` for the milestone lines (stage banners,
-    per-stage status, charge/spin, scan progress, final summary) that show at
-    the default level. Pass ``detail=True`` for level-2 lines (cycle tables,
-    per-stage timing, VRAM, key deliverable paths) shown only at ``-v 2``+.
-    Pass ``narrative=False`` (untagged) for level-3 lines shown only at ``-v 3``.
-    ``err=True`` always shows (except -v 0).
-    """
-    import click as _click
-    _click.echo(message, narrative=narrative, detail=detail, **kwargs)
-
-
 def set_child_mode(value: bool) -> None:
     """Toggle child-invocation mode for in-proc subcommand dispatch."""
     global _CHILD_MODE
@@ -158,14 +148,13 @@ def echo_run_summary(items: Dict[str, Any]) -> None:
     and output dir without dumping the full per-stage config block (which
     only fires under `-v`).
     """
-    import click as _click
     if is_child_mode() or not items:
         return
     for key, value in items.items():
         if value is None or value == "":
             continue
-        _click.echo(f"[{key}] {value}", narrative=True)
-    _click.echo("")
+        emit(f"[{key}] {value}", narrative=True)
+    emit("", narrative=False)
 
 
 def ensure_dir(path: Path) -> None:
@@ -206,31 +195,108 @@ def optimizer_cycle_count(optimizer: Any) -> Optional[int]:
         return None
 
 
+def optimizer_terminal_status(optimizer: Any) -> str:
+    """Map a pysisyphus optimizer (or a product-local runner) terminal state to
+    the public status vocabulary.
+
+    Returns ``"stalled"`` for the additive M14/P14 energy-plateau outcome,
+    ``"converged"`` for a genuine stationary point, and ``"not_converged"``
+    otherwise.  ``stalled`` takes precedence so a plateau is never reported as
+    converged; legacy callers that only read ``is_converged`` still see
+    ``False`` for a stall.
+    """
+    status = getattr(optimizer, "termination_status", None)
+    if status in ("stalled", "converged", "not_converged"):
+        return status
+    if getattr(optimizer, "is_stalled", False):
+        return "stalled"
+    return "converged" if getattr(optimizer, "is_converged", False) else "not_converged"
+
+
+def finalize_microiter_macro_convergence(
+    macro_optimizer: Any,
+    *,
+    macro_converged: bool,
+    latest_micro_stalled: bool,
+    latest_micro_stop_reason: str = "",
+) -> bool:
+    """Fold a stalled latest micro (MM) relaxation into the macro terminal state.
+
+    M14/P14: a stalled final micro (MM) relaxation is a real energy plateau, so
+    it must never read as clean macro convergence.  Surface it as an
+    energy-plateau stall on ``macro_optimizer`` (carrying its reason) whether the
+    macro would otherwise converge (a demotion) OR merely ran out of macro
+    cycles -- otherwise a stalled final MM relaxation on a non-converged macro is
+    lost as a reasonless ``not_converged``.  A macro that already stalled or
+    requested its own (more specific) stop keeps that reason.  Returns the
+    terminal macro-convergence flag, which is never ``True`` once a stall is
+    surfaced.
+    """
+    macro_conv = bool(
+        getattr(macro_optimizer, "is_converged", False) or macro_converged
+    )
+    # Write the terminal verdict back onto the optimizer.  The microiteration
+    # driver calls ``check_convergence()`` directly instead of ``run()``, and
+    # ``check_convergence`` only *returns* its verdict -- it never assigns
+    # ``self.is_converged`` (that happens inside ``run``).  So a macro loop that
+    # converged still carries ``is_converged=False``, and every consumer reads
+    # the attribute, not this return value: ``optimizer_terminal_status`` and
+    # ``OptimizerOutcome.from_optimizer`` both do ``getattr(optimizer,
+    # "is_converged", False)``.  Without this write-back a converged TS with an
+    # exact-PHVA-validated n_imag=1 saddle is reported ``not_converged`` and the
+    # ``all`` pipeline refuses to start its IRC.
+    if not latest_micro_stalled:
+        macro_optimizer.is_converged = macro_conv
+        return macro_conv
+    # ``request_stall`` also sets ``stop_requested``; a macro that already
+    # stalled or made a clean ``request_stop`` therefore short-circuits here and
+    # keeps its own reason rather than being overwritten by the micro reason.
+    if getattr(macro_optimizer, "stop_requested", False):
+        macro_optimizer.is_converged = macro_conv
+        return macro_conv
+    # ``request_stall`` sets ``is_converged = False`` itself.
+    macro_optimizer.request_stall(
+        latest_micro_stop_reason
+        or "energy plateau in the latest micro (MM) relaxation"
+    )
+    return False
+
+
 def emit_optimizer_terminal_status(
     label: str,
     *,
     converged: Optional[bool],
     cycles: Optional[int],
     max_cycles: Optional[int],
+    stalled: bool = False,
+    stop_reason: Optional[str] = None,
 ) -> None:
-    """Emit a consistent optimizer terminal status at detail verbosity."""
-    import click as _click
+    """Emit a consistent optimizer terminal status at detail verbosity.
 
+    ``stalled`` renders the additive M14/P14 energy-plateau outcome and takes
+    precedence over the convergence/max-cycle branches so a stalled run is
+    never printed as ``Converged!``.
+    """
     prefix = f"[{label}]"
-    if converged is True:
-        _click.echo(f"{prefix} Converged!", detail=True)
+    if stalled:
+        if stop_reason:
+            emit(f"{prefix} Stalled (energy plateau; not converged): {stop_reason}", detail=True)
+        else:
+            emit(f"{prefix} Stalled (energy plateau; not converged).", detail=True)
+    elif converged is True:
+        emit(f"{prefix} Converged!", detail=True)
     elif cycles is not None and max_cycles is not None and cycles >= max_cycles:
-        _click.echo(f"{prefix} Reached max cycles ({cycles}/{max_cycles}).", detail=True)
+        emit(f"{prefix} Reached max cycles ({cycles}/{max_cycles}).", detail=True)
     elif converged is False:
         if cycles is None:
-            _click.echo(f"{prefix} Stopped without convergence.", detail=True)
+            emit(f"{prefix} Stopped without convergence.", detail=True)
         else:
-            _click.echo(f"{prefix} Stopped without convergence (cycles={cycles}).", detail=True)
+            emit(f"{prefix} Stopped without convergence (cycles={cycles}).", detail=True)
     elif cycles is not None:
-        _click.echo(f"{prefix} Finished (cycles={cycles}).", detail=True)
+        emit(f"{prefix} Finished (cycles={cycles}).", detail=True)
 
     if cycles is not None:
-        _click.echo(f"{prefix} Total cycles: {cycles}", detail=True)
+        emit(f"{prefix} Total cycles: {cycles}", detail=True)
 
 
 def _parse_freeze_atoms(arg: Optional[str]) -> List[int]:
@@ -477,17 +543,39 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
     }
     if backend == "custom":
         calc_file = calc_cfg.get("calc_file")
-        factory = calc_cfg.get("calc_factory") or "make_calculator"
+        factory = calc_cfg.get("calc_factory") or "get_calculator"
         model = f"{Path(calc_file).name}:{factory}" if calc_file else str(factory)
+        precision = None
     else:
         key = model_keys.get(backend)
         model = calc_cfg.get(key) if key is not None else None
         if model is None and key is not None:
             model = MLMM_CALC_KW.get(key)
+        precision_keys = {
+            "uma": "uma_precision",
+            "orb": "orb_precision",
+            "mace": "mace_dtype",
+        }
+        precision_key = precision_keys.get(backend)
+        if precision_key is None:
+            precision = "fp32" if backend == "aimnet2" else None
+        else:
+            precision = calc_cfg.get(precision_key)
+            if precision is None:
+                precision = MLMM_CALC_KW.get(precision_key)
+
+        token = "" if precision is None else str(precision).strip().lower()
+        if token in {"fp64", "float64", "double", "highest"}:
+            precision = "fp64"
+        elif token in {"fp32", "float32", "float32-high", "float32-highest", "single"}:
+            precision = "fp32"
+        else:
+            precision = token or None
 
     return {
         "mlip_backend": backend,
         "mlip_model": None if model is None else str(model),
+        "mlip_precision": None if precision is None else str(precision),
         "mm_backend": str(calc_cfg.get("mm_backend") or MLMM_CALC_KW["mm_backend"]),
         "link_atom_method": str(
             calc_cfg.get("link_atom_method") or MLMM_CALC_KW["link_atom_method"]
@@ -501,12 +589,7 @@ def calculator_run_label(calc_cfg: Mapping[str, Any]) -> str:
     provenance = calculator_provenance(calc_cfg)
     backend = provenance["mlip_backend"]
     model = provenance["mlip_model"]
-    precision_keys = {
-        "uma": "uma_precision",
-        "orb": "orb_precision",
-        "mace": "mace_dtype",
-    }
-    precision = calc_cfg.get(precision_keys.get(backend, ""))
+    precision = provenance["mlip_precision"]
     details = [str(value) for value in (model, precision) if value not in (None, "")]
     return f"{backend} ({', '.join(details)})" if details else str(backend)
 
@@ -693,6 +776,7 @@ def _patch_click_echo() -> None:
             if raw_path:
                 _raw_path_echo_depth[0] -= 1
 
+    setattr(_patched_echo, _TAG_AWARE_MARKER, True)
     _click.echo = _patched_echo
 
     # Wrap sys.stdout so the bundled pysisyphus optimizer's raw output obeys
@@ -2100,8 +2184,6 @@ def convert_xyz_to_pdb(
     xyz_path: Path,
     ref_pdb_path: Path,
     out_pdb_path: Path,
-    *,
-    _emit_cif: bool = True,
 ) -> None:
     """Overlay coordinates from *xyz_path* onto the topology of *ref_pdb_path* and write to *out_pdb_path*.
 
@@ -2112,94 +2194,44 @@ def convert_xyz_to_pdb(
     misidentification bugs in external PDB parsers (e.g., ASE reading ``ZN``
     atom names as nitrogen).
 
-    Notes:
-        - *xyz_path* may contain one or many frames. For multi-frame trajectories,
-          MODEL/ENDMDL blocks are written for each frame.
-        - On the first frame the output file is created/overwritten; subsequent frames are appended.
+    Every frame is validated before the destination, a CIF companion, or the
+    coordinate-template registry is changed.  Publication replaces the exact
+    destination path atomically.
     """
-    # --- Read the reference PDB as text lines ---
-    ref_text = ref_pdb_path.read_text(encoding="utf-8")
-    ref_lines: list[str] = [
-        ln for ln in ref_text.splitlines(keepends=True)
-        if not (ln.startswith(("MODEL", "ENDMDL")) or ln.strip() == "END")
-    ]
-    atom_line_indices: list[int] = []
-    for idx, line in enumerate(ref_lines):
-        if line.startswith(("ATOM", "HETATM")):
-            atom_line_indices.append(idx)
-
-    n_ref = len(atom_line_indices)
-    if n_ref == 0:
-        raise ValueError(f"No ATOM/HETATM records in reference PDB: {ref_pdb_path}")
-
-    # --- Read the XYZ trajectory ---
     from ase.io import read as ase_read
     traj = ase_read(str(xyz_path), index=":", format="xyz")
     if not traj:
         raise ValueError(f"No frames found in {xyz_path}.")
+    symbols = [frame.get_chemical_symbols() for frame in traj]
+    positions_by_frame = [
+        np.asarray(frame.get_positions(), dtype=float) for frame in traj
+    ]
+    template = coordinate_template_for(ref_pdb_path)
+    if template is not None:
+        validate_coordinate_template_symbols(symbols, template)
+    pdb_content = render_pdb_coordinate_frames(
+        ref_pdb_path,
+        symbols,
+        positions_by_frame,
+    ).encode("utf-8")
 
-    multi_frame = len(traj) > 1
-    first_write = True  # Track whether we've written the first frame
-    atom_line_set = set(atom_line_indices)
-    for step, frame in enumerate(traj):
-        positions = frame.get_positions()  # (N, 3) in Ångström
-        if len(positions) != n_ref:
-            click.echo(
-                f"[convert] WARNING: Atom count mismatch between '{xyz_path.name}' ({len(positions)}) "
-                f"and '{ref_pdb_path.name}' ({n_ref}); skipping frame {step}.",
-            )
-            continue
+    cif_content: Optional[bytes] = None
+    if template is not None:
+        cif_content = render_mmcif_frames(
+            positions_by_frame,
+            template,
+        ).encode("utf-8")
 
-        # Build frame lines by replacing coordinate columns in ATOM/HETATM records
-        frame_lines: list[str] = []
-        atom_idx = 0
-        for line_idx, line in enumerate(ref_lines):
-            if line_idx in atom_line_set:
-                x, y, z = positions[atom_idx]
-                if not all(-999.999 <= float(value) <= 9999.999 for value in (x, y, z)):
-                    raise ValueError(
-                        "Coordinates exceed the fixed-column PDB range required by "
-                        "the internal bridge. Translate the structure closer to the origin."
-                    )
-                # PDB coordinate columns: 31-38 (x), 39-46 (y), 47-54 (z)
-                new_line = line[:30] + f"{x:8.3f}{y:8.3f}{z:8.3f}" + line[54:]
-                frame_lines.append(new_line)
-                atom_idx += 1
-            else:
-                frame_lines.append(line)
-
-        # Use "w" for the first written frame to avoid stale data from previous runs;
-        # subsequent frames append.
-        mode = "w" if first_write else "a"
-        with open(out_pdb_path, mode, encoding="utf-8") as fh:
-            if multi_frame:
-                fh.write(f"MODEL     {step + 1:>4d}\n")
-            fh.writelines(frame_lines)
-            # Ensure trailing newline before ENDMDL (or EOF for single-frame)
-            if frame_lines and not frame_lines[-1].endswith("\n"):
-                fh.write("\n")
-            if multi_frame:
-                fh.write("ENDMDL\n")
-        first_write = False
-
-    if first_write:
-        raise ValueError(
-            f"No frame in '{xyz_path}' matched the {n_ref} atoms in "
-            f"reference structure '{ref_pdb_path}'."
-        )
+    payloads = {Path(out_pdb_path): pdb_content}
+    if cif_content is not None:
+        payloads[Path(out_pdb_path).with_suffix(".cif")] = cif_content
+    commit_payloads(Path(out_pdb_path), payloads)
 
     # Propagate original identifiers from a CIF/oversized-PDB bridge and emit
     # a public mmCIF companion directly from the unrounded XYZ coordinates.
-    template = coordinate_template_for(ref_pdb_path)
-    if template is not None and not first_write:
-        if _emit_cif:
-            try:
-                write_xyz_as_mmcif(xyz_path, template, out_pdb_path.with_suffix(".cif"))
-            except BaseException:
-                unregister_coordinate_template(out_pdb_path)
-                raise
+    if template is not None:
         register_coordinate_template(out_pdb_path, template)
-    elif not first_write:
+    else:
         unregister_coordinate_template(out_pdb_path)
 
 
@@ -2348,36 +2380,59 @@ def convert_and_annotate_xyz_to_pdb(
 ) -> None:
     """Convert an XYZ/TRJ file to PDB and annotate B-factors with the 3-layer encoding.
 
-    Delegates to :func:`annotate_pdb_bfactors_inplace` with its default
-    layer beta values (matching the `opt` workflow's PDB output):
+    The complete trajectory is rendered and validated first. Annotation runs
+    on a private PDB, then the annotated PDB and retained-metadata CIF are
+    staged together and published with the PDB authoritative. Layer values
+    match the `opt` workflow's PDB output:
 
       - ML-region atoms: 0.00
       - movable MM atoms: 10.00
       - frozen MM atoms: 20.00
       - ML ∩ frozen: 0.00 (ML takes precedence)
     """
-    convert_xyz_to_pdb(src_xyz_or_trj, ref_pdb, dst_pdb, _emit_cif=False)
-    annotate_pdb_bfactors_inplace(
-        dst_pdb,
-        model_pdb=model_pdb,
-        freeze_indices_0based=freeze_indices_0based,
-        _emit_cif=False,
-    )
-    template = coordinate_template_for(dst_pdb)
+    from ase.io import read as ase_read
+    from mlmm.io.structure_formats import _pdb_frame_data
+
+    trajectory = ase_read(str(src_xyz_or_trj), index=":", format="xyz")
+    if not trajectory:
+        raise ValueError(f"No frames found in {src_xyz_or_trj}.")
+    symbols = [frame.get_chemical_symbols() for frame in trajectory]
+    frames = [np.asarray(frame.get_positions(), dtype=float) for frame in trajectory]
+    template = coordinate_template_for(ref_pdb)
     if template is not None:
-        from mlmm.io.structure_formats import _pdb_frame_data, write_mmcif_frames
+        validate_coordinate_template_symbols(symbols, template)
+    unannotated = render_pdb_coordinate_frames(ref_pdb, symbols, frames)
 
-        _, occupancies, bfactors = _pdb_frame_data(dst_pdb)
-        from ase.io import read as ase_read
+    # B-factor annotation is performed only on a private file.  No public PDB,
+    # CIF companion, or registry entry changes until every frame, annotation,
+    # and companion serialization has succeeded.
+    with tempfile.TemporaryDirectory(prefix="mlmm_annotated_pdb_") as tmp_dir:
+        private_pdb = Path(tmp_dir) / "annotated.pdb"
+        private_pdb.write_text(unannotated, encoding="utf-8")
+        annotate_pdb_bfactors_inplace(
+            private_pdb,
+            model_pdb=model_pdb,
+            freeze_indices_0based=freeze_indices_0based,
+            _emit_cif=False,
+        )
+        annotated_payload = private_pdb.read_bytes()
+        _, occupancies, bfactors = _pdb_frame_data(private_pdb)
 
-        frames = ase_read(str(src_xyz_or_trj), index=":", format="xyz")
-        write_mmcif_frames(
-            [np.asarray(frame.get_positions(), dtype=float) for frame in frames],
+    payloads = {Path(dst_pdb): annotated_payload}
+    if template is not None:
+        cif_payload = render_mmcif_frames(
+            frames,
             template,
-            dst_pdb.with_suffix(".cif"),
             occupancy_frames=occupancies,
             bfactor_frames=bfactors,
-        )
+        ).encode("utf-8")
+        payloads[Path(dst_pdb).with_suffix(".cif")] = cif_payload
+
+    commit_payloads(Path(dst_pdb), payloads)
+    if template is not None:
+        register_coordinate_template(dst_pdb, template)
+    else:
+        unregister_coordinate_template(dst_pdb)
 
 
 
@@ -2503,104 +2558,11 @@ def apply_ref_pdb_override(
     return prepared_input.source_path
 
 
-def _round_charge_with_note(q: float, prefix: str = "") -> int:
-    """Round a float charge to the nearest integer, with a note if not exact."""
-    if not math.isfinite(q):
-        raise click.BadParameter(f"Computed total charge is non-finite: {q!r}")
-    q_int = int(round(q))
-    if abs(float(q) - q_int) > 1e-6:
-        click.echo(
-            f"{prefix} NOTE: total charge = {q:+g} → rounded to integer {q_int:+d}."
-        )
-    return q_int
-
-
-def _derive_charge_from_ligand_charge(
-    pdb_path: Path,
-    ligand_charge: Optional[str],
-    *,
-    prefix: str = "",
-) -> Optional[int]:
-    """Derive total system charge from a PDB file using ``--ligand-charge`` metadata.
-
-    Returns ``None`` when *ligand_charge* is ``None`` or derivation fails.
-    """
-    if ligand_charge is None:
-        return None
-    try:
-        from Bio import PDB as BioPDB
-        from mlmm.workflows.extract import compute_charge_summary, log_charge_summary
-
-        parser = BioPDB.PDBParser(QUIET=True)
-        complex_struct = parser.get_structure("complex", str(pdb_path))
-
-        # Use only ML-region residues (B-factor ≈ 0) when layered PDB is available.
-        # A residue is included if ANY of its atoms has B-factor < 1.0 (ML layer).
-        ml_residue_ids = set()
-        all_residue_ids = set()
-        for res in complex_struct.get_residues():
-            fid = res.get_full_id()
-            all_residue_ids.add(fid)
-            for atom in res.get_atoms():
-                if atom.get_bfactor() < 1.0:
-                    ml_residue_ids.add(fid)
-                    break
-        # Fall back to all residues if no B-factor layering is present
-        # (i.e. every residue has B=0 means unlayered PDB).
-        selected_ids = ml_residue_ids if ml_residue_ids != all_residue_ids else all_residue_ids
-        summary = compute_charge_summary(
-            complex_struct, selected_ids, set(), ligand_charge
-        )
-        log_charge_summary(prefix, summary)
-        q_total = float(summary.get("total_charge", 0.0))
-        click.echo(
-            f"{prefix} Charge summary (--ligand-charge):"
-        )
-        click.echo(
-            f"  Protein: {summary.get('protein_charge', 0.0):+g},  "
-            f"Ligand: {summary.get('ligand_total_charge', 0.0):+g},  "
-            f"Ions: {summary.get('ion_total_charge', 0.0):+g},  "
-            f"Total: {q_total:+g}"
-        )
-        return _round_charge_with_note(q_total, prefix)
-    except Exception as e:
-        click.echo(
-            f"{prefix} NOTE: failed to derive charge from --ligand-charge: {e}",
-            err=True,
-        )
-        return None
-
-
-def resolve_charge_spin_or_raise(
-    prepared: PreparedInputStructure,
-    charge: Optional[int],
-    spin: Optional[int],
-    *,
-    spin_default: int = 1,
-    charge_default: Optional[int] = None,
-    ligand_charge: Optional[str] = None,
-    prefix: str = "",
-) -> Tuple[int, int]:
-    """Resolve charge/spin from inputs.
-
-    Priority: explicit ``-q/--charge`` > ``--ligand-charge`` derivation >
-    ``charge_default``.  Raises :class:`click.ClickException` when charge
-    cannot be resolved.
-    """
-    if charge is None and ligand_charge is not None:
-        charge = _derive_charge_from_ligand_charge(
-            prepared.source_path, ligand_charge, prefix=prefix,
-        )
-    if charge is None:
-        if charge_default is None:
-            raise click.ClickException(
-                "Total charge is unresolved. Provide -q/--charge or --ligand-charge."
-            )
-        charge = charge_default
-    if spin is None:
-        spin = spin_default
-    return int(charge), int(spin)
-
+# Charge/spin preparation moved to ``mlmm.workflows.charge_prep`` (M39): it
+# consumes ``extract.compute_charge_summary``, a workflow-level service, so it
+# cannot live in ``core`` without recreating the ``core.utils <-> extract``
+# import cycle.  Workflow subcommands import ``resolve_charge_spin_or_raise``
+# from ``mlmm.workflows.charge_prep``.
 
 
 def read_bfactors_from_pdb(pdb_path: Path) -> List[float]:
@@ -3126,6 +3088,7 @@ RESULT_JSON_STATUS_VALUES = (
     "not_converged",
     "ok",
     "partial",
+    "stalled",
     "success",
     "unknown",
     "unverified",
@@ -3140,7 +3103,7 @@ def write_result_json(
     elapsed_seconds: Optional[float] = None,
     filename: str = "result.json",
     also_write_summary_json: bool = True,
-) -> Optional[Path]:
+) -> Path:
     """Write a machine-readable result.json for a subcommand.
 
     The ``data`` dict is augmented with common envelope fields
@@ -3155,14 +3118,15 @@ def write_result_json(
     ``summary.json``; the per-stage subcommands continue to write
     ``result.json`` for backward compatibility).
 
-    Returns the path to the primary written file, or None on failure.
+    Returns the primary path.  Any serialization, staging, or publication
+    failure raises ``ResultCommitError`` (an ``OSError`` subclass).
     """
-    import json as _json
     try:
         from mlmm._version import __version__
     except ImportError:
         __version__ = "unknown"
 
+    data = dict(data)
     data.setdefault("command", command)
     data.setdefault("mlmm_version", __version__)
     data.setdefault("schema_version", RESULT_JSON_SCHEMA_VERSION)
@@ -3194,23 +3158,14 @@ def write_result_json(
             pass
         return obj
 
-    data = _to_json(data)
+    from mlmm.core.result_commit import commit_json_exact, with_current_run_id
 
+    payload = with_current_run_id(_to_json(data))
     dest = Path(out_dir) / filename
-    try:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        with open(dest, "w", encoding="utf-8") as f:
-            _json.dump(data, f, indent=2, ensure_ascii=False)
-    except OSError:
-        return None
+    mirrors = ()
     if also_write_summary_json and Path(filename).name != "summary.json":
-        summary_dest = Path(out_dir) / "summary.json"
-        try:
-            with open(summary_dest, "w", encoding="utf-8") as f:
-                _json.dump(data, f, indent=2, ensure_ascii=False)
-        except OSError:
-            pass  # best-effort mirror; primary result.json is the authoritative write
-    return dest
+        mirrors = (Path(out_dir) / "summary.json",)
+    return commit_json_exact(dest, payload, mirrors=mirrors)
 
 
 _ALLOW_CHARGE_MULT_MISMATCH = False
@@ -3222,93 +3177,51 @@ def set_allow_charge_mult_mismatch(value: bool = True) -> None:
     _ALLOW_CHARGE_MULT_MISMATCH = bool(value)
 
 
-def validate_charge_spin(elements, charge, multiplicity):
+def validate_charge_spin(elements, charge, multiplicity, source: Optional[str] = None):
     """Raise ValueError if sum_Z(elements) - charge has the wrong parity for multiplicity,
-    unless ``--allow-charge-mult-mismatch`` was set (then log a warning and skip)."""
+    unless ``--allow-charge-mult-mismatch`` was set (then log a warning and skip).
+
+    ``source`` is an optional label (typically the ML-region/model PDB path) whose atoms
+    were counted; it is appended to both the raise message and the skip warning so a
+    full-system count (thousands of atoms) is distinguishable from an ML-only count.
+    """
     from pysisyphus.elem_data import ATOMIC_NUMBERS
 
     sum_z = sum(ATOMIC_NUMBERS[str(e).lower()] for e in elements)
     total = sum_z - int(charge)
     unpaired = int(multiplicity) - 1
+    counted_atoms = len(elements)
+    source_suffix = f", source={source}" if source is not None else ""
     if total < unpaired or (total - unpaired) % 2:
         if _ALLOW_CHARGE_MULT_MISMATCH:
             import logging
             logging.getLogger(__name__).warning(
                 "ML-region electron-parity check SKIPPED (--allow-charge-mult-mismatch): "
-                "sum_Z=%d, charge=%d, total_electrons=%d, multiplicity=%d -- proceeding; "
-                "make sure this charge/multiplicity is intentional.",
-                sum_z, charge, total, multiplicity,
+                "sum_Z=%d, charge=%d, total_electrons=%d, multiplicity=%d, counted_atoms=%d%s "
+                "-- proceeding; make sure this charge/multiplicity is intentional.",
+                sum_z, charge, total, multiplicity, counted_atoms, source_suffix,
             )
             return
         raise ValueError(
             f"ML region electron count inconsistent: sum_Z={sum_z}, charge={charge}, "
-            f"total_electrons={total}, multiplicity={multiplicity}. Adjust charge (-q) or "
+            f"total_electrons={total}, multiplicity={multiplicity}, counted_atoms={counted_atoms}"
+            f"{source_suffix}. Adjust charge (-q) or "
             f"multiplicity (-m) so the electron count matches the spin state (e.g. -m 2 for an odd "
             f"electron count). Common cause: a covalently-modified residue whose ML/MM cut was not "
-            f"capped -- include the bonded partner in the ML region. If this charge/multiplicity is "
+            f"capped -- include the bonded partner in the ML region. A very large counted_atoms "
+            f"(e.g. the whole system) usually means an ML-region PDB was not restricted to the "
+            f"B-factor=0 layer. If this charge/multiplicity is "
             f"intentional, pass --allow-charge-mult-mismatch to skip this check."
         )
 
 
-def symmetrize_inplace(H, chunk: int = 512):
-    """Symmetrize a square Hessian-like tensor in place with bounded peak VRAM.
-
-    Replaces the 2x-peak idiom ``_t = H.T.clone(); H.add_(_t).mul_(0.5); del _t``
-    with a chunked average that writes BOTH triangles symmetrically (no
-    upper-triangle-only tricks). Peak extra allocation is bounded by
-    ``chunk * chunk`` elements (vs ``N * N`` for the naive form).
-
-    Parameters
-    ----------
-    H : torch.Tensor
-        2-D square tensor of any floating dtype (fp32 / fp64) on any device.
-        Modified in place; partial Hessian semantics preserved (no shape change).
-    chunk : int, optional
-        Block edge length for the off-diagonal averaging loop. Peak extra VRAM
-        is bounded by ``chunk * chunk * dtype.itemsize`` bytes. Default 512.
-
-    Returns
-    -------
-    torch.Tensor
-        The same ``H`` object, modified in place, for chainability.
-    """
-
-    if H.ndim != 2 or H.shape[0] != H.shape[1]:
-        raise ValueError(
-            f"symmetrize_inplace expects a square 2-D tensor, got shape {tuple(H.shape)}"
-        )
-    N = H.shape[0]
-    if N == 0:
-        return H
-
-    # Degenerate fast path: whole matrix fits inside one chunk — naive in-place
-    # average on a single chunk-sized temp (still bounded by chunk*chunk).
-    if N <= chunk:
-        tmp = H.T.contiguous()
-        H.add_(tmp).mul_(0.5)
-        del tmp
-        return H
-
-    # Chunked loop: bound peak extra alloc to chunk*chunk; writes BOTH triangles.
-    for i in range(0, N, chunk):
-        ie = min(i + chunk, N)
-        diag = H[i:ie, i:ie]
-        diag_tmp = diag.T.contiguous()
-        # Out-of-place add then assign: an in-place `diag.add_(diag_tmp)` on a
-        # strided self-overlapping view raises RuntimeError ("some elements of
-        # the input tensor and the written-to tensor refer to a single memory
-        # location") for some block sizes. Mirror the off-diagonal assign below.
-        H[i:ie, i:ie] = diag.add(diag_tmp).mul(0.5)
-        del diag_tmp
-        for j in range(ie, N, chunk):
-            je = min(j + chunk, N)
-            upper = H[i:ie, j:je]
-            lower_T = H[j:je, i:ie].T
-            avg = upper.add(lower_T).mul_(0.5)
-            upper.copy_(avg)
-            H[j:je, i:ie].copy_(avg.T)
-            del avg
-    return H
+# Compatibility re-export (M40): the bounded-peak Hessian symmetrizer was lowered
+# into the bundled-engine layer (``pysisyphus.normal_modes``) so the pure
+# normal-mode kernel there stays free of any upward ``mlmm``/``pdb2reaction``
+# import. It is re-exported here so existing callers of
+# ``mlmm.core.utils.symmetrize_inplace`` (backends/mlmm_calc, workflows/tsopt,
+# tests) keep resolving to the SAME function object.
+from pysisyphus.normal_modes import symmetrize_inplace  # noqa: F401,E402
 
 
 # ---------------------------------------------------------------------------

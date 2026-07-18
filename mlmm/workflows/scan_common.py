@@ -14,14 +14,72 @@ default differs, and that is parameterised.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Mapping, Tuple
 
 import click
 
 from pysisyphus.optimizers.LBFGS import LBFGS
 
-from mlmm.core.defaults import THRESH_CHOICES
+from mlmm.core.defaults import LBFGS_KW, OPT_BASE_KW, THRESH_CHOICES
+from mlmm.core.utils import apply_yaml_overrides
+
+
+SCAN_THRESH_DEFAULT = "baker"
+
+
+def resolve_scan_optimizer_configs(
+    yaml_cfg: Mapping[str, Any],
+    *,
+    opt_defaults: Mapping[str, Any] = OPT_BASE_KW,
+    lbfgs_defaults: Mapping[str, Any] = LBFGS_KW,
+    thresh: str,
+    relax_max_cycles: int,
+    is_param_explicit: Callable[[str], bool],
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Resolve scan optimizer settings once using Click parameter sources.
+
+    The scan-specific ``baker`` threshold is a default layer, YAML is applied
+    next, and only explicitly supplied CLI values replace the result.
+    """
+
+    opt_cfg = deepcopy(dict(opt_defaults))
+    lbfgs_cfg = deepcopy(dict(lbfgs_defaults))
+    opt_cfg["thresh"] = SCAN_THRESH_DEFAULT
+    lbfgs_cfg["thresh"] = SCAN_THRESH_DEFAULT
+    apply_yaml_overrides(
+        yaml_cfg,
+        [
+            (opt_cfg, (("opt",),)),
+            (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
+        ],
+    )
+    if is_param_explicit("relax_max_cycles"):
+        opt_cfg["max_cycles"] = int(relax_max_cycles)
+        lbfgs_cfg["max_cycles"] = int(relax_max_cycles)
+    if is_param_explicit("thresh"):
+        opt_cfg["thresh"] = str(thresh)
+        lbfgs_cfg["thresh"] = str(thresh)
+    return opt_cfg, lbfgs_cfg
+
+
+def build_scan_lbfgs_kwargs(
+    lbfgs_cfg: Mapping[str, Any],
+    opt_cfg: Mapping[str, Any],
+    *,
+    max_step_bohr: float,
+    out_dir: Path,
+    prefix: str,
+) -> Dict[str, Any]:
+    """Build LBFGS kwargs from the already-resolved scan configuration."""
+
+    common = dict(opt_cfg)
+    common["out_dir"] = str(out_dir)
+    common["prefix"] = prefix
+    args = {**dict(lbfgs_cfg), **common}
+    args["max_step"] = min(float(lbfgs_cfg.get("max_step", 0.30)), max_step_bohr)
+    return args
 
 
 def make_scan_lbfgs(
@@ -30,20 +88,20 @@ def make_scan_lbfgs(
     opt_cfg: Dict[str, Any],
     *,
     max_step_bohr: float,
-    relax_max_cycles: int,
     out_dir: Path,
     prefix: str,
 ) -> LBFGS:
     # Shared LBFGS factory for scan2d / scan3d (scan.py has a different
     # closure shape and is intentionally left inline). max_step is the LBFGS
-    # cap in Bohr; max_cycles is overridden per relaxation via
-    # --relax-max-cycles.
-    common = dict(opt_cfg)
-    common["out_dir"] = str(out_dir)
-    common["prefix"] = prefix
-    args = {**lbfgs_cfg, **common}
-    args["max_step"] = min(float(lbfgs_cfg.get("max_step", 0.30)), max_step_bohr)
-    args["max_cycles"] = int(relax_max_cycles)
+    # cap in Bohr; max_cycles already comes from the effective config resolved
+    # by ``resolve_scan_optimizer_configs``.
+    args = build_scan_lbfgs_kwargs(
+        lbfgs_cfg,
+        opt_cfg,
+        max_step_bohr=max_step_bohr,
+        out_dir=out_dir,
+        prefix=prefix,
+    )
     return LBFGS(geom, **args)
 
 

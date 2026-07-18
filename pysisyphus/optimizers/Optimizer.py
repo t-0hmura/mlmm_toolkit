@@ -122,6 +122,15 @@ class Optimizer(metaclass=abc.ABCMeta):
     # otherwise reprint the identical 5-line block 10-20 times per run.
     _printed_thresh_keys: set = set()
 
+    # Subclass-specific restart_info keys that ``_set_opt_restart_info`` reads
+    # unconditionally (i.e. with ``opt_restart_info[key]``, not a tolerant
+    # ``.get``).  A transactional checkpoint loader validates the presence of
+    # these keys *before* any base history is mutated, so a truncated/partial
+    # checkpoint raises a typed validation error instead of a bare ``KeyError``
+    # after coords/energies/forces/steps have already been overwritten.  The
+    # base optimizer stores no subclass state, so its required set is empty.
+    required_opt_restart_keys: tuple = ()
+
     def __init__(
         self,
         geometry: Geometry,
@@ -381,6 +390,10 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.is_converged = False
         self.stop_requested = False
         self.stop_reason = ""
+        # Additive M14/P14 terminal outcome: an energy-only plateau (the energy
+        # stopped decreasing while the configured force/step convergence
+        # criteria are NOT met) is a *stalled* stop, never convergence.
+        self.is_stalled = False
 
     def get_path_for_fn(self, fn, with_prefix=True):
         prefix = self.prefix if with_prefix else ""
@@ -500,6 +513,87 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.stop_requested = True
         self.stop_reason = str(reason)
 
+    def request_stall(self, reason):
+        """Request an additive 'stalled' stop (M14/P14).
+
+        A stall is an energy-only plateau: the energy has stopped decreasing
+        over the configured window while the configured force/step convergence
+        criteria are still NOT satisfied.  It is never convergence, so it must
+        never be reported as ``is_converged=True``; it stops further trials the
+        same way ``request_stop`` does.  Legacy callers that only read
+        ``is_converged`` continue to see ``False``.
+        """
+        self.is_stalled = True
+        self.is_converged = False
+        self.request_stop(reason)
+
+    @property
+    def termination_status(self):
+        """Public terminal outcome: ``stalled`` > ``converged`` > ``not_converged``.
+
+        ``stalled`` (the additive energy-plateau outcome) takes precedence so a
+        stalled run is never mislabeled as a converged stationary point.
+        """
+        if self.is_stalled:
+            return "stalled"
+        if self.is_converged:
+            return "converged"
+        return "not_converged"
+
+    def _energy_plateau_range(self):
+        """Scalar energy range over the plateau window, or ``None`` if the
+        plateau path does not apply (COS, disabled, or too few samples).
+
+        A returned float below ``energy_plateau_thresh`` is a genuine plateau;
+        the caller decides whether that plateau should stall.
+        """
+        W = self.energy_plateau_window
+        if not self.energy_plateau or self.is_cos or len(self.energies) < W:
+            return None
+        e_window = self.energies[-W:]
+        return float(np.max(e_window) - np.min(e_window))
+
+    def _maybe_request_energy_plateau_stall(self, conv_info, *, curvature_ok):
+        """Transition to the additive 'stalled' outcome for an energy plateau.
+
+        Fires only when a genuine plateau coincides with failed configured
+        force/step criteria, ``thresh`` is not ``never``, and any required
+        eigenvalue-structure gate (``curvature_ok``) holds.  Returns ``True``
+        when a stall was requested.  A plateau never makes a failed configured
+        force or step boolean true.
+        """
+        if self.is_stalled or self.stop_requested or self.thresh == "never":
+            return False
+        if not curvature_ok:
+            return False
+        e_range = self._energy_plateau_range()
+        if e_range is None or e_range >= self.energy_plateau_thresh:
+            return False
+        failed = [
+            label
+            for label, key, ok in (
+                ("max_force", "max_force_thresh", conv_info.max_force_converged),
+                ("rms_force", "rms_force_thresh", conv_info.rms_force_converged),
+                ("max_step", "max_step_thresh", conv_info.max_step_converged),
+                ("rms_step", "rms_step_thresh", conv_info.rms_step_converged),
+            )
+            if key in self.convergence and not ok
+        ]
+        reason = (
+            f"energy plateau: range={e_range:.2e} au over "
+            f"{self.energy_plateau_window} steps below "
+            f"{self.energy_plateau_thresh:.1e}; configured convergence criteria "
+            f"not met ({', '.join(failed) if failed else 'none'})"
+        )
+        self.table.print(
+            f"Energy plateau detected (range={e_range:.2e} au over "
+            f"{self.energy_plateau_window} steps) without meeting the "
+            "configured force/step criteria; stopping as stalled (not "
+            "converged)."
+        )
+        self.request_stall(reason)
+        return True
+
     def _rollback_trial_state(self):
         """Rollback hook for optimizer-specific per-trial state."""
 
@@ -538,10 +632,17 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.coords[-1] = self.geometry.coords.copy()
         self.cart_coords[-1] = self.geometry.cart_coords.copy()
 
-    def check_convergence(self, step=None, multiple=1.0, overachieve_factor=None):
+    def check_convergence(
+        self, step=None, multiple=1.0, overachieve_factor=None, allow_stall=True
+    ):
         """Check if the current convergence of the optimization
         is equal to or below the required thresholds, or a multiple
         thereof. The latter may be used in initiating the climbing image.
+
+        ``allow_stall`` gates the M14/P14 energy-plateau stall side effect.
+        The run-loop's final check passes ``True``; internal provisional
+        probes (RFOptimizer's ref_step probe, TSHessianOptimizer's exact-saddle
+        wrapper) pass ``False`` so a plateau does not stall a mid-cycle guess.
         """
 
         if step is None:
@@ -679,42 +780,35 @@ class Optimizer(metaclass=abc.ABCMeta):
             converged = (self.cur_cycle > self.last_cycle) and all(convergence.values())
             # Keep Baker strict: don't bypass the energy criterion via overachievement.
             overachieved = False
-        # Energy plateau fallback: declare converged if the energy range
-        # over a window of steps is below threshold (truly not moving).
-        # Skip for chain-of-states (energies are arrays, not scalars).
-        energy_plateau_converged = False
-        W = self.energy_plateau_window
-        if self.energy_plateau and not self.is_cos and len(self.energies) >= W:
-            e_window = self.energies[-W:]
-            e_range = float(np.max(e_window) - np.min(e_window))
-            if e_range < self.energy_plateau_thresh:
-                energy_plateau_converged = (
-                    not self.check_eigval_structure or desired_eigval_structure
-                )
-                if energy_plateau_converged:
-                    self.table.print(
-                        f"Energy plateau detected (range={e_range:.2e} au "
-                        f"over {W} steps); treating as converged."
-                    )
-                else:
-                    self.table.print(
-                        f"Energy plateau detected (range={e_range:.2e} au over "
-                        f"{W} steps), but the required Hessian eigenvalue "
-                        "structure is absent; continuing."
-                    )
-
-        terminal_candidate = any(
+        # Real (physical) terminal convergence, computed WITHOUT the energy
+        # plateau.  An energy-only plateau is NOT convergence (M14/P14); it is
+        # an additive 'stalled' outcome handled separately below.
+        real_terminal = any(
             (
                 converged_to_geom,
                 converged,
                 overachieved,
                 geom_converged,
-                energy_plateau_converged,
             )
         )
         if self.check_eigval_structure:
-            terminal_candidate = terminal_candidate and desired_eigval_structure
-        return terminal_candidate and not_never, conv_info
+            real_terminal = real_terminal and desired_eigval_structure
+        real_converged = real_terminal and not_never
+
+        # A real convergence result wins if it coincides with a plateau.  Only
+        # when there is no real convergence does a genuine energy plateau
+        # stall (never converge).  ``allow_stall`` lets internal provisional
+        # probes suppress this side effect.  The required eigenvalue-structure
+        # gate (for TS searches) is carried via ``curvature_ok``.
+        if not real_converged and allow_stall:
+            self._maybe_request_energy_plateau_stall(
+                conv_info,
+                curvature_ok=(
+                    not self.check_eigval_structure or desired_eigval_structure
+                ),
+            )
+
+        return real_converged, conv_info
 
     def print_opt_progress(self, conv_info):
         try:
@@ -1023,20 +1117,20 @@ class Optimizer(metaclass=abc.ABCMeta):
                     handle.write(self.geometry.as_xyz())
 
             if (
-                self.dump
-                and self.dump_restart
-                and (self.cur_cycle % self.dump_restart) == 0
-            ):
-                self.dump_restart_info()
-
-            if (
                 (self.cur_cycle % self.print_every) == 0
                 or self.is_converged
                 or self.stop_requested
             ):
                 self.print_opt_progress(conv_info)
             if self.stop_requested:
-                self.table.print(f"Stopped without convergence: {self.stop_reason}")
+                if self.is_stalled:
+                    self.table.print(
+                        f"Stalled without convergence: {self.stop_reason}"
+                    )
+                else:
+                    self.table.print(
+                        f"Stopped without convergence: {self.stop_reason}"
+                    )
                 self.stopped = True
                 break
             elif self.is_converged:
@@ -1132,6 +1226,33 @@ class Optimizer(metaclass=abc.ABCMeta):
                 self.table.print("Operator indicated convergence!")
                 break
 
+            # M52: capture a resumable checkpoint only at the post-step
+            # boundary — after the actual transformed step and any
+            # reparametrization are known — so a resumed optimizer continues the
+            # same trajectory instead of re-applying an uncommitted step.
+            if (
+                self.dump
+                and self.dump_restart
+                and (self.cur_cycle % self.dump_restart) == 0
+            ):
+                # Declining to write a checkpoint must not kill the optimization.
+                # M52 is right that a restart file this class cannot reload is
+                # worthless, but ``dump_restart`` is a documented opt-in
+                # (docs/yaml-reference.md, docs/opt.md) and at the RC the same run
+                # completed.  Warn once, stop dumping, keep optimizing.
+                from pysisyphus.optimizers.checkpoint import CheckpointUnsupportedError
+
+                try:
+                    self.dump_restart_info()
+                except CheckpointUnsupportedError as exc:
+                    self.dump_restart = 0
+                    self.log(f"Checkpoint dumping disabled: {exc}")
+                    print(
+                        f"Checkpoint dumping is not available for "
+                        f"{type(self).__name__}: {exc} Continuing without restart "
+                        f"snapshots."
+                    )
+
             self.log("")
         else:
             self.table.print("Number of cycles exceeded!")
@@ -1172,6 +1293,18 @@ class Optimizer(metaclass=abc.ABCMeta):
             "forces": [forces.tolist() for forces in self.forces],
             "steps": [step.tolist() for step in self.steps],
         }
+        # Cartesian coordinate history.  The uphill-rejection transaction
+        # (:meth:`reject_current_trial`) restores ``cart_coords[-2]`` and refuses
+        # with a ``len(self.cart_coords) < 2`` guard; a resume that never
+        # repopulates ``cart_coords`` therefore fails/diverges on the first
+        # rejection after restart.  Serialized alongside the other accepted-state
+        # histories and restored presence-guarded (see set_restart_info), so an
+        # optimizer/geometry without a cart_coords history still loads.
+        cart_coords = getattr(self, "cart_coords", None)
+        if cart_coords is not None:
+            restart_info["cart_coords"] = [
+                np.asarray(cc).tolist() for cc in cart_coords
+            ]
         restart_info.update(self._get_opt_restart_info())
         return restart_info
 
@@ -1193,6 +1326,13 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.energies = restart_info["energies"]
         self.forces = [np.array(forces) for forces in restart_info["forces"]]
         self.steps = [np.array(step) for step in restart_info["steps"]]
+        # Restore the Cartesian coordinate history when present (see
+        # get_restart_info).  Presence-guarded so a checkpoint written before
+        # cart_coords was serialized still loads (the empty list stays in place).
+        if "cart_coords" in restart_info:
+            self.cart_coords = [
+                np.array(cc) for cc in restart_info["cart_coords"]
+            ]
 
         # Set subclass specific information
         self._set_opt_restart_info(restart_info)
@@ -1201,8 +1341,11 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.geometry.set_restart_info(restart_info["geom_info"])
 
     def dump_restart_info(self):
-        restart_info = self.get_restart_info()
+        # M52: write a safe-primitive, atomic, post-step checkpoint.  An
+        # optimizer class whose complete resumable state is not declared fails
+        # loud (CheckpointUnsupportedError) rather than writing a partial or
+        # self-unreloadable restart file.
+        from pysisyphus.optimizers import checkpoint as _checkpoint
 
         restart_fn = f"restart_{self.cur_cycle:03d}.yaml"
-        restart_yaml = yaml.dump(restart_info)
-        self.write_to_out_dir(restart_fn, restart_yaml)
+        _checkpoint.save_checkpoint(self, self.out_dir / restart_fn)

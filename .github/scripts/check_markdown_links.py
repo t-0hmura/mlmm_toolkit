@@ -13,6 +13,38 @@ LINK_RE = re.compile(r"(?<!\!)\[[^\]]+\]\(([^)]+)\)")
 EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "tel:")
 
 
+def public_markdown_paths() -> list[Path]:
+    """Every public Markdown page whose local links must resolve.
+
+    Explicit roots replace the previous implicit ``docs/`` rglob so that
+    README, CONTRIBUTING, skills, and example pages are protected too.
+    """
+    paths: list[Path] = []
+    for name in ("README.md", "CONTRIBUTING.md"):
+        candidate = REPO_ROOT / name
+        if candidate.exists():
+            paths.append(candidate)
+    for root_name in ("docs", "skills", "examples"):
+        root = REPO_ROOT / root_name
+        if root.exists():
+            paths.extend(root.rglob("*.md"))
+    return sorted(set(paths))
+
+
+def _is_docs_page(path: Path) -> bool:
+    try:
+        return path.relative_to(REPO_ROOT).parts[0] == "docs"
+    except (ValueError, IndexError):
+        return False
+
+
+def _rel(path: Path) -> Path:
+    try:
+        return path.relative_to(REPO_ROOT)
+    except ValueError:
+        return path
+
+
 def _normalize_target(raw: str) -> str:
     target = raw.strip()
     if target.startswith("<") and target.endswith(">"):
@@ -89,22 +121,25 @@ def _check_path(path: Path, errors: list[str]) -> None:
         resolved = (path.parent / target_path).resolve()
         if not resolved.exists():
             errors.append(
-                f"{path.relative_to(REPO_ROOT)}:{lineno}: broken local link -> {target}"
+                f"{_rel(path)}:{lineno}: broken local link -> {target}"
             )
 
+    # Sphinx toctree directives are only meaningful on docs pages.
+    if not _is_docs_page(path):
+        return
     for lineno, target in _iter_toctree_targets(path):
         resolved = _resolve_doc_target(path, target)
         if resolved is None:
             continue
         if not resolved.exists():
             errors.append(
-                f"{path.relative_to(REPO_ROOT)}:{lineno}: broken toctree target -> {target}"
+                f"{_rel(path)}:{lineno}: broken toctree target -> {target}"
             )
 
 
 def main() -> int:
     errors: list[str] = []
-    pages = sorted(DOCS_ROOT.rglob("*.md"))
+    pages = public_markdown_paths()
     for md in pages:
         _check_path(md, errors)
 
@@ -114,7 +149,7 @@ def main() -> int:
             print(f"- {e}")
         return 1
 
-    print(f"[link-check] validated local links in {len(pages)} pages.")
+    print(f"[link-check] validated local links in {len(pages)} public pages.")
     return 0
 
 

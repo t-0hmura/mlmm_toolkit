@@ -12,6 +12,7 @@ import warnings
 import pytest
 
 from mlmm.backends import apply_precision_to_calc_cfg
+from mlmm.backends.mlmm_calc import _normalize_orb_precision
 
 
 def test_fp64_routes_uma_precision_kwarg() -> None:
@@ -56,3 +57,17 @@ def test_fp64_rejected_for_aimnet2() -> None:
 def test_invalid_precision_rejected() -> None:
     with pytest.raises(ValueError):
         apply_precision_to_calc_cfg({"backend": "uma"}, "fp16")
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("FP32", "float32-high"),
+        (" Float32 ", "float32-high"),
+        ("FP64", "float64"),
+        ("FLOAT64", "float64"),
+        ("float32-highest", "float32-highest"),
+    ],
+)
+def test_orb_precision_aliases_are_case_insensitive(raw: str, expected: str) -> None:
+    assert _normalize_orb_precision(raw) == expected

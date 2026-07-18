@@ -10,15 +10,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCAN_ROOTS = (REPO_ROOT / "docs", REPO_ROOT / "skills")
-LEGACY_BOOL_PAGES = {
-    Path("docs/cli-conventions.md"),
-    Path("docs/ja/cli-conventions.md"),
-    Path("docs/concepts.md"),
-    Path("docs/ja/concepts.md"),
-    Path("docs/glossary.md"),
-    Path("docs/ja/glossary.md"),
-}
-VALUE_BOOL_RE = re.compile(r"--[a-z][a-z0-9-]*\s+(?:True|False|yes|no|on|off)\b", re.IGNORECASE)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 STALE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(
         r"uma-s-1p1\s*(?:\([^)]*\))?\s*(?:is\s+)?(?:the\s+)?default\b"
@@ -34,6 +26,40 @@ STALE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
      "backend-neutral output names use MLIP/mlip"),
 )
 
+REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
+    Path("docs/json-output.md"): (
+        "`mlip_precision`",
+        "`energy_first_hartree`",
+        "`never_stop_energy_bypasses`",
+        "`safeguards`",
+        "`hessian_npz`",
+    ),
+    Path("docs/ja/json-output.md"): (
+        "`mlip_precision`",
+        "`energy_first_hartree`",
+        "`never_stop_energy_bypasses`",
+        "`safeguards`",
+        "`hessian_npz`",
+    ),
+    Path("skills/mlmm-cli/sp.md"): (
+        "`mlip_backend`",
+        "`mlip_model`",
+        "`mlip_precision`",
+    ),
+    Path("skills/mlmm-cli/irc.md"): (
+        "`energy_first_hartree`",
+        "`never_stop_energy_bypasses`",
+        "active-DOF basis",
+        "inserts one underscore",
+    ),
+    Path("skills/mlmm-workflows-output/SKILL.md"): (
+        "`mlip_model`",
+        "`mlip_precision`",
+    ),
+    Path("docs/backends.md"): ("mlmm all", "forwards the same factory"),
+    Path("docs/ja/backends.md"): ("mlmm all", "同じfactory"),
+}
+
 
 def _iter_markdown() -> list[Path]:
     paths: list[Path] = []
@@ -46,6 +72,13 @@ def main() -> int:
     sys.path.insert(0, str(REPO_ROOT))
     from mlmm.core.defaults import DEFAULT_UMA_MODEL, MLMM_CALC_KW
 
+    from docs_command_contract import (
+        bool_style_sources,
+        load_root_cli,
+        resolve_live_bool_options,
+        validate_bool_style,
+    )
+
     errors: list[str] = []
     if DEFAULT_UMA_MODEL != "uma-s-1p2":
         errors.append(f"source default changed: DEFAULT_UMA_MODEL={DEFAULT_UMA_MODEL!r}")
@@ -54,17 +87,27 @@ def main() -> int:
         if MLMM_CALC_KW.get(key) != value:
             errors.append(f"source default changed: {key}={MLMM_CALC_KW.get(key)!r}, expected {value!r}")
 
+    # Live-derived canonical bool-style check over the full authored surface
+    # (README, CONTRIBUTING, docs, skills, examples, smoke scripts). Only names
+    # that resolve to a live boolean option are flagged; bool_compat runtime
+    # `--flag True/False` is unaffected.
+    live_bool = resolve_live_bool_options(load_root_cli())
+    errors.extend(validate_bool_style(bool_style_sources(), live_bool))
+
     for path in _iter_markdown():
         rel = path.relative_to(REPO_ROOT)
         text = path.read_text(encoding="utf-8")
-        if rel not in LEGACY_BOOL_PAGES:
-            for match in VALUE_BOOL_RE.finditer(text):
-                line = text.count("\n", 0, match.start()) + 1
-                errors.append(f"{rel}:{line}: use canonical bare/toggle bool syntax: {match.group(0)!r}")
         for pattern, message in STALE_PATTERNS:
             for match in pattern.finditer(text):
                 line = text.count("\n", 0, match.start()) + 1
                 errors.append(f"{rel}:{line}: {message}: {match.group(0)!r}")
+
+    for rel, snippets in REQUIRED_SNIPPETS.items():
+        path = REPO_ROOT / rel
+        text = path.read_text(encoding="utf-8")
+        for snippet in snippets:
+            if snippet not in text:
+                errors.append(f"{rel}: required semantic contract missing: {snippet!r}")
 
     if errors:
         print(f"[docs-contract] FAIL: {len(errors)} issue(s)")

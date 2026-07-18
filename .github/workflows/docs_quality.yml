@@ -8,6 +8,7 @@ on:
 jobs:
   reference-and-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -24,15 +25,17 @@ jobs:
           pip install click==8.3.2 pyyaml numpy biopython scipy ase \
             autograd dask distributed h5py fabric jinja2 joblib \
             matplotlib natsort psutil rmsd sympy scikit-learn \
-            pandas tabulate plotly kaleido ParmEd
+            pandas tabulate plotly kaleido ParmEd cffconvert==2.0.0
+
+      - name: Validate citation metadata
+        run: cffconvert --validate
 
       - name: Run docs quality suite
-        timeout-minutes: 20
         env:
-          DOCS_DUMP_CASE_TIMEOUT_SEC: "180"
+          DOCS_DUMP_CASE_TIMEOUT_SEC: "300"
         run: |
           set -o pipefail
-          python .github/scripts/run_docs_quality.py --skip-dump | tee docs_quality_timing.log
+          python .github/scripts/run_docs_quality.py | tee docs_quality_timing.log
 
       - name: Upload docs quality timing log
         if: always()

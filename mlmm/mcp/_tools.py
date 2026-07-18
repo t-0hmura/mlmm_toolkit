@@ -13,6 +13,50 @@ from typing import Any, Optional
 from mlmm.mcp._runner import run_subcmd
 
 
+_SUMMARY_RESERVED_OUTPUTS = frozenset(
+    {"-o", "--out-dir", "--out-json", "--no-out-json"}
+)
+_UTILITY_RESERVED_OUTPUTS = frozenset(
+    {"-o", "--out", "--output", "--output-file", "--output-prefix"}
+)
+
+
+def _validate_extra_args(
+    extra_args: Optional[list[str]],
+    *,
+    reserved: frozenset[str],
+) -> None:
+    """Reject output switches owned by typed MCP parameters."""
+
+    for raw_token in extra_args or ():
+        token = str(raw_token)
+        for option in reserved:
+            attached_short = (
+                option.startswith("-")
+                and not option.startswith("--")
+                and token.startswith(option)
+                and token != option
+            )
+            assigned_long = option.startswith("--") and token.startswith(option + "=")
+            if token == option or attached_short or assigned_long:
+                raise ValueError(
+                    f"extra_args cannot override MCP-managed output option {option!r}"
+                )
+
+
+def _append_extra_args(
+    argv: list[str],
+    extra_args: Optional[list[str]],
+    *,
+    reserved: frozenset[str],
+) -> None:
+    """Validate and append an optional CLI tail."""
+
+    _validate_extra_args(extra_args, reserved=reserved)
+    if extra_args:
+        argv.extend(str(arg) for arg in extra_args)
+
+
 def _resolve_out_dir(out_dir: Optional[str], prefix: str) -> Path:
     """Pick a usable output directory: explicit > unique temp."""
     if out_dir:
@@ -86,8 +130,7 @@ def register_all(mcp) -> None:
         argv.extend(["--ff-set", str(ff_set)])
         if keep_temp:
             argv.append("--keep-temp")
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
 
     @mcp.tool()
@@ -122,8 +165,7 @@ def register_all(mcp) -> None:
             argv.extend(["--radius-partial-hessian", str(radius_partial_hessian)])
         if one_based is not None:
             argv.append("--one-based" if one_based else "--zero-based")
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
 
     @mcp.tool()
@@ -155,8 +197,7 @@ def register_all(mcp) -> None:
             argv.append("--exclude-backbone")
         elif exclude_backbone is False:
             argv.append("--no-exclude-backbone")
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
 
     # Core stage runners (opt / tsopt / irc / freq) — ONIOM-aware
@@ -216,9 +257,12 @@ def register_all(mcp) -> None:
         ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def find_transition_state(
@@ -281,9 +325,12 @@ def register_all(mcp) -> None:
         ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def run_irc(
@@ -337,9 +384,12 @@ def register_all(mcp) -> None:
         ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def compute_frequencies(
@@ -373,9 +423,12 @@ def register_all(mcp) -> None:
             argv.extend(["--precision", precision])
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def run_single_point_oniom(
@@ -450,9 +503,12 @@ def register_all(mcp) -> None:
         ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
 
     @mcp.tool()
@@ -498,9 +554,12 @@ def register_all(mcp) -> None:
         ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def scan_2d(
@@ -539,9 +598,12 @@ def register_all(mcp) -> None:
             argv.extend(["--precision", precision])
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def scan_3d(
@@ -580,9 +642,12 @@ def register_all(mcp) -> None:
             argv.extend(["--precision", precision])
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def optimize_path(
@@ -620,9 +685,12 @@ def register_all(mcp) -> None:
             argv.extend(["--precision", precision])
         argv.append("--out-json")
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def search_paths(
@@ -658,9 +726,12 @@ def register_all(mcp) -> None:
         if precision:
             argv.extend(["--precision", precision])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def run_full_pipeline(
@@ -717,15 +788,18 @@ def register_all(mcp) -> None:
         if refine_path is not None:
             argv.append("--refine-path" if refine_path else "--no-refine-path")
         if do_tsopt is not None:
-            argv.extend(["--tsopt", "true" if do_tsopt else "false"])
+            argv.append("--tsopt" if do_tsopt else "--no-tsopt")
         if do_dft is not None:
-            argv.extend(["--dft", "true" if do_dft else "false"])
+            argv.append("--dft" if do_dft else "--no-dft")
         if do_thermo is not None:
-            argv.extend(["--thermo", "true" if do_thermo else "false"])
+            argv.append("--thermo" if do_thermo else "--no-thermo")
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     @mcp.tool()
     def run_single_point_dft(
@@ -754,9 +828,12 @@ def register_all(mcp) -> None:
             argv.extend(["--func-basis", func_basis])
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
-        if extra_args:
-            argv.extend(extra_args)
-        return run_subcmd(argv, out_dir=od, timeout=timeout_seconds).to_dict()
+        _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
+        return run_subcmd(
+            argv,
+            out_dir=od,
+            timeout=timeout_seconds,
+        ).to_dict()
 
     # ONIOM I/O (Gaussian / ORCA)
 
@@ -782,8 +859,7 @@ def register_all(mcp) -> None:
             argv.extend(["--model-pdb", model_pdb])
         if format_engine:
             argv.extend(["--mode", format_engine])
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
 
     @mcp.tool()
@@ -796,8 +872,7 @@ def register_all(mcp) -> None:
     ) -> dict[str, Any]:
         """Import an ONIOM input deck and reconstruct XYZ / layered PDB (CLI: `mlmm oniom-import`)."""
         argv: list[str] = ["mlmm", "oniom-import", "-i", input_file, "-o", output_prefix]
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
 
     # Structure / I/O helpers (no out_dir, no summary.json)
@@ -815,8 +890,7 @@ def register_all(mcp) -> None:
         argv: list[str] = ["mlmm", "add-elem-info", "-i", input_pdb, "-o", output_pdb]
         if overwrite:
             argv.append("--overwrite")
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
 
     @mcp.tool()
@@ -829,8 +903,7 @@ def register_all(mcp) -> None:
     ) -> dict[str, Any]:
         """Resolve PDB alternate locations (CLI: `mlmm fix-altloc`)."""
         argv: list[str] = ["mlmm", "fix-altloc", "-i", input_pdb, "-o", output_pdb]
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
 
     @mcp.tool()
@@ -843,8 +916,7 @@ def register_all(mcp) -> None:
     ) -> dict[str, Any]:
         """Plot an energy profile from a trajectory (CLI: `mlmm trj2fig`)."""
         argv: list[str] = ["mlmm", "trj2fig", "-i", input_trj_xyz, "-o", output_png]
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
 
     @mcp.tool()
@@ -860,8 +932,7 @@ def register_all(mcp) -> None:
         `energies`: Python-literal list of floats, e.g. "[0, 12.5, 4.3, 18.7, -1.2]".
         """
         argv: list[str] = ["mlmm", "energy-diagram", "-i", energies, "-o", output_png]
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
 
     @mcp.tool()
@@ -874,6 +945,5 @@ def register_all(mcp) -> None:
     ) -> dict[str, Any]:
         """Detect bond changes between two PDB structures (CLI: `mlmm bond-summary`)."""
         argv: list[str] = ["mlmm", "bond-summary", "-i", reactant_pdb, product_pdb]
-        if extra_args:
-            argv.extend(extra_args)
+        _append_extra_args(argv, extra_args, reserved=frozenset())
         return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()

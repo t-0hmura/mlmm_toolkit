@@ -19,6 +19,7 @@ import sys
 logger = logging.getLogger(__name__)
 
 import click
+from mlmm.core.output import emit
 import numpy as np
 import time
 import torch
@@ -32,6 +33,7 @@ from mlmm.core.defaults import (
     MLMM_CALC_KW as _UMA_CALC_KW,
     IRC_KW,
 )
+from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 from mlmm.core.utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
@@ -47,7 +49,6 @@ from mlmm.core.utils import (
     format_elapsed,
     merge_freeze_atom_indices,
     prepare_input_structure,
-    resolve_charge_spin_or_raise,
     parse_indices_string,
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
@@ -92,6 +93,38 @@ def _directional_endpoint_energy_fields(
     }
 
 
+def _irc_output_path(eulerpc: EulerPC, filename: str) -> Path:
+    """Resolve an engine-authored IRC filename, including normalized prefix."""
+    return Path(eulerpc.get_path_for_fn(filename))
+
+
+def _collect_irc_output_files(eulerpc: EulerPC) -> Dict[str, str]:
+    """Collect normalized-prefix XYZ/PDB/CIF trajectory and endpoint outputs."""
+    specs = (
+        ("finished_irc_trj.xyz", "finished_irc"),
+        ("forward_irc_trj.xyz", "forward_irc"),
+        ("backward_irc_trj.xyz", "backward_irc"),
+        ("finished_irc.pdb", "finished_irc_pdb"),
+        ("forward_irc.pdb", "forward_irc_pdb"),
+        ("backward_irc.pdb", "backward_irc_pdb"),
+        ("finished_irc.cif", "finished_irc_cif"),
+        ("forward_irc.cif", "forward_irc_cif"),
+        ("backward_irc.cif", "backward_irc_cif"),
+        ("forward_last.xyz", "forward_last"),
+        ("backward_last.xyz", "backward_last"),
+        ("forward_last.pdb", "forward_last_pdb"),
+        ("backward_last.pdb", "backward_last_pdb"),
+        ("forward_last.cif", "forward_last_cif"),
+        ("backward_last.cif", "backward_last_cif"),
+    )
+    files: Dict[str, str] = {}
+    for filename, key in specs:
+        path = _irc_output_path(eulerpc, filename)
+        if path.exists():
+            files[key] = path.name
+    return files
+
+
 def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: Path) -> None:
     if not is_convert_file_enabled():
         return
@@ -114,7 +147,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Input structure file (.pdb, .xyz, _trj.xyz, etc.).",
+    help="Input structure file (.pdb, .cif, .mmcif, .xyz, _trj.xyz, etc.).",
 )
 @click.option(
     "--parm",
@@ -144,7 +177,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
               help="Total charge; overrides calc.charge from YAML. Required unless --ligand-charge is provided.")
 @click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
               help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
-                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
+                   "charge when -q is omitted (requires PDB/mmCIF input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -213,7 +246,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "--ref-pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="Reference PDB topology to use when --input is XYZ (keeps XYZ coordinates).",
+    help="Reference PDB/mmCIF topology to use when --input is XYZ (keeps XYZ coordinates).",
 )
 @click.option(
     "--convert-files/--no-convert-files",
@@ -283,8 +316,9 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=click.Path(exists=True, dir_okay=False),
     default=None,
     show_default=False,
-    help="Read initial Hessian from a .npz file (produced by 'mlmm freq --dump-hess'). "
-         "Takes priority over the hessian_cache and fresh computation.",
+    help="Read an identified initial Hessian from 'mlmm freq --dump-hess'. "
+         "The geometry, atom order, and active-DOF basis must match; the file "
+         "takes priority over hessian_cache and fresh computation.",
 )
 @click.option(
     "--freeze-atoms",
@@ -652,62 +686,117 @@ def cli(
         calc = mlmm(**calc_cfg)
         geometry.set_calculator(calc)
 
+        def _current_hessian_active_dofs() -> np.ndarray:
+            """Return the exact Cartesian basis produced by the current calculator."""
+            full_n_dof = int(geometry.cart_coords.size)
+            core = getattr(calc, "core", None)
+            if core is None or not bool(getattr(core, "return_partial_hessian", False)):
+                return np.arange(full_n_dof, dtype=np.int64)
+            active_atoms = np.asarray(
+                getattr(core, "hess_active_atoms", []), dtype=np.int64
+            ).reshape(-1)
+            if active_atoms.size == 0:
+                raise click.ClickException(
+                    "Current calculator resolved an empty Hessian active-atom basis."
+                )
+            return np.concatenate(
+                [3 * active_atoms + axis for axis in range(3)]
+            ).reshape(3, -1).T.reshape(-1)
+
+        _expected_hessian_dofs = _current_hessian_active_dofs()
+
         echo_resolved_device()
 
         # Seed the initial Hessian.
         # Priority: --read-hess file > hessian_cache > fresh computation.
         from mlmm.io.hessian_cache import (
             discard as _hess_discard,
-            load as _hess_load,
-            matches_cart_coords as _hess_matches_coords,
+            load_matching as _hess_load_matching,
             store as _hess_store,
+            identity_from_context as _hess_identity,
         )
-        if hess_device.lower() == "auto":
+        # M43: calibrated GPU-first IRC Hessian/integration device policy.
+        # ``auto`` keeps the resolved backend device (GPU-first when a CUDA
+        # device is present), so the integration Hessian and large tensors stay
+        # GPU-resident by default. An explicit ``cuda`` request stays on CUDA or
+        # errors -- it is never silently moved to CPU. ``cpu`` is an explicit,
+        # calibrated offload for large unfrozen systems, not a silent fallback.
+        from mlmm.workflows._microiteration import resolve_hessian_device
+        _requested_hess_device = (hess_device or "auto").strip().lower()
+        if _requested_hess_device == "auto":
             _hess_dev = _torch_device(calc_cfg.get("ml_device", "auto"))
+            _hess_dev_reason = "auto_gpu_first" if _hess_dev.type == "cuda" else "auto_cpu"
         else:
-            _hess_dev = _torch_device(hess_device.lower())
+            try:
+                _eff_hess_device, _hess_dev_reason = resolve_hessian_device(
+                    _requested_hess_device, torch.cuda.is_available()
+                )
+            except ValueError as exc:
+                raise click.ClickException(str(exc)) from exc
+            _hess_dev = _torch_device(_eff_hess_device)
+        click.echo(
+            f"[device] IRC Hessian device: requested={_requested_hess_device}, "
+            f"effective={_hess_dev.type} ({_hess_dev_reason})."
+        )
         if _hess_dev.type == "cpu":
             click.echo("[device] Hessian operations will run on CPU.")
 
         if read_hess:
             _initial_hessian_source = "file"
             click.echo(f"[irc] Loading initial Hessian from {read_hess}")
-            _data = np.load(read_hess)
-            h_init = torch.as_tensor(_data["hessian"], dtype=torch.float64, device=_hess_dev)
+            from mlmm.io.hessian_file import load_hessian_file
+
+            try:
+                _loaded_hessian = load_hessian_file(
+                    read_hess,
+                    cart_coords_bohr=geometry.cart_coords,
+                    atomic_numbers=geometry.atomic_numbers,
+                    expected_active_dofs=_expected_hessian_dofs,
+                )
+            except ValueError as exc:
+                raise click.ClickException(str(exc)) from exc
+            h_init = torch.as_tensor(
+                _loaded_hessian["hessian"], dtype=torch.float64, device=_hess_dev
+            )
             # Restore partial-Hessian metadata if freq --dump-hess saved it,
             # so a partial Hessian (active_n_dof != 3N) is consumed correctly
             # instead of tripping the Geometry cart_hessian shape assertion.
-            if "wph_active_dofs" in getattr(_data, "files", []):
-                _ad = [int(d) for d in _data["wph_active_dofs"].tolist()]
-                if _ad:
-                    geometry.within_partial_hessian = {
-                        "active_n_dof": int(_data["wph_active_n_dof"]) if "wph_active_n_dof" in _data.files else len(_ad),
-                        "full_n_dof": int(_data["wph_full_n_dof"]) if "wph_full_n_dof" in _data.files else int(geometry.cart_coords.size),
-                        "active_dofs": _ad,
-                        "active_atoms": sorted(set(d // 3 for d in _ad)),
-                    }
-                    click.echo(
-                        f"[irc] Restored partial-Hessian metadata from npz "
-                        f"(active_n_dof={len(_ad)})."
-                    )
-            del _data
-        else:
-            cached = _hess_load("ts")
-            if cached is not None and not _hess_matches_coords(
-                cached,
-                geometry.cart_coords,
-                # The all workflow may round-trip the TS through a PDB.
-                atol=1.1e-3,
-            ):
+            _partial_metadata = _loaded_hessian["partial_metadata"]
+            if _partial_metadata is not None:
+                geometry.within_partial_hessian = dict(_partial_metadata)
                 click.echo(
-                    "[irc] Cached TS Hessian does not match the IRC start "
-                    "geometry; calculating a fresh Hessian.",
-                    err=True,
+                    f"[irc] Restored partial-Hessian metadata from npz "
+                    f"(active_n_dof={_partial_metadata['active_n_dof']})."
                 )
-                cached = None
+            del _loaded_hessian
+        else:
+            # M70: reuse the tsopt TS Hessian only on a full evaluation-identity
+            # match; the all workflow may round-trip the TS through a
+            # three-decimal PDB, so the coordinate field keeps the wider bohr
+            # tolerance.  The layer-specific active-DOF basis check below is an
+            # additional guard that identity matching does not replace.
+            cached = _hess_load_matching(
+                "ts",
+                _hess_identity(geometry, calc_cfg, role="ts"),
+                atol=1.1e-3,
+            )
+            if cached is not None:
+                _cached_dofs = cached.get("active_dofs")
+                if _cached_dofs is None:
+                    _cached_dofs = np.arange(geometry.cart_coords.size, dtype=np.int64)
+                if not np.array_equal(
+                    np.asarray(_cached_dofs, dtype=np.int64).reshape(-1),
+                    _expected_hessian_dofs,
+                ):
+                    click.echo(
+                        "[irc] Cached TS Hessian active-DOF basis does not match "
+                        "the current layer selection; calculating a fresh Hessian.",
+                        err=True,
+                    )
+                    cached = None
             if cached is not None:
                 _initial_hessian_source = "cache"
-                click.echo("[irc] Reusing cached TS Hessian from tsopt.")
+                emit("[irc] Reusing cached TS Hessian from tsopt.", narrative=True)
                 active_dofs = cached.get("active_dofs")
                 h_raw = cached["hessian"]
                 if isinstance(h_raw, torch.Tensor):
@@ -733,92 +822,35 @@ def cli(
                     refresh_geom_meta=True,
                 )
 
-        # --- Fix A: reduce the seeded Hessian to the ML macro sub-block
-        # (ML atoms + link-MM parents), matching the microiteration macro step
-        # used by tsopt/opt. In 3-layer mode the TS path caches a
-        # Hessian-target Hessian spanning ML+MovableMM (e.g. 14472 DOF);
-        # running IRC's initial_displacement eigh on that dense matrix OOMs on
-        # a 16 GB GPU. tsopt avoids this because its macro RFO step operates on
-        # the ML sub-block (e.g. 2652 DOF) via opt.py's sub-block extraction.
-        # Mirror that here so IRC handles the Hessian the same way as TS.
-        # Robustness (opt.py-consistent): the cached-"ts" basis may omit a few
-        # link-parent DOFs, so we reduce to the macro-DOF intersection of the
-        # seeded-Hessian basis (still ~ML-sized → no OOM); and if a large
-        # Hessian cannot be reduced from its current basis at all, recompute a
-        # FRESH Hessian and reduce that — exactly how opt.py falls back —
-        # instead of silently keeping the full (OOM-prone) matrix. Guarded:
-        # non-microiter / 2-layer / already-small Hessians and any resolution
-        # failure leave behavior unchanged (no regression). --read-hess is
-        # never silently recomputed (the user supplied an explicit Hessian).
-        try:
-            from mlmm.workflows.freq import _collect_layer_atom_sets as _f_collect_layer_sets
-
-            _layer_sets = _f_collect_layer_sets(calc_cfg)
-            _ml_idx = set(int(i) for i in _layer_sets.get("ml", set()))
-            _reduced = False
-            if _ml_idx:
-                _core = getattr(calc, "core", calc)
-                _link_parents = set(
-                    int(mm_1) - 1 for (_ml_1, mm_1) in getattr(_core, "mlmm_links", [])
+        # M43: preserve the declared ordered active basis (ML + MovableMM).
+        # A promised ML+MovableMM IRC active space must NOT be silently cropped
+        # to ML + link-parent DOFs: that drops every MovableMM coordinate from
+        # the physical IRC path, so the bundled integrator writes zero
+        # displacement into those atoms. VRAM pressure on a large dense Hessian
+        # is managed by the explicit, logged --hess-device policy (GPU-first by
+        # default; `cpu` is a calibrated user offload), never by a silent basis
+        # change. We only VALIDATE the seeded matrix against the already-declared
+        # ordered basis here; we never reduce it or rebuild its active map.
+        _full_n_dof = int(geometry.cart_coords.size)
+        _seeded_n = int(h_init.shape[0])
+        _within = getattr(geometry, "within_partial_hessian", None)
+        if _within is not None and _within.get("active_dofs") is not None:
+            _declared = np.asarray(_within["active_dofs"], dtype=np.int64).reshape(-1)
+            if set(_declared.tolist()) != set(int(d) for d in _expected_hessian_dofs.tolist()):
+                raise click.ClickException(
+                    "Seeded Hessian active-DOF basis does not match the declared "
+                    "layer selection; refusing to run IRC on an inconsistent basis."
                 )
-                _macro_atoms = sorted(_ml_idx | _link_parents)
-                _macro_dofs = []
-                for _a in _macro_atoms:
-                    _macro_dofs.extend((3 * _a, 3 * _a + 1, 3 * _a + 2))
-                _macro_set = set(_macro_dofs)
-
-                def _try_reduce(_h):
-                    """Reduce _h to the ML-macro sub-block of its own basis.
-
-                    Returns (hessian, reduced?). Sets geometry.within_partial_hessian
-                    to exactly the kept (global) DOFs so IRC's _act_dofs matches.
-                    """
-                    _w = getattr(geometry, "within_partial_hessian", None)
-                    if _w is not None and _w.get("active_dofs") is not None:
-                        _basis = [int(d) for d in _w["active_dofs"]]
-                    elif _h.shape[0] == geometry.cart_coords.size:
-                        _basis = list(range(int(geometry.cart_coords.size)))
-                    else:
-                        return _h, False
-                    _sub = [i for i, d in enumerate(_basis) if d in _macro_set]
-                    if not _sub or len(_sub) >= _h.shape[0]:
-                        return _h, False
-                    _kept = [_basis[i] for i in _sub]
-                    _idx = torch.as_tensor(_sub, dtype=torch.long, device=_h.device)
-                    _h = _h.index_select(0, _idx).index_select(1, _idx)
-                    geometry.within_partial_hessian = {
-                        "active_n_dof": len(_kept),
-                        "full_n_dof": int(geometry.cart_coords.size),
-                        "active_dofs": _kept,
-                        "active_atoms": sorted(set(d // 3 for d in _kept)),
-                    }
-                    return _h, True
-
-                h_init, _reduced = _try_reduce(h_init)
-                if (not _reduced) and (not read_hess) and h_init.shape[0] > len(_macro_dofs):
-                    click.echo(
-                        "[irc] Cached/seeded Hessian could not be reduced to the "
-                        "ML macro sub-block; recomputing a fresh Hessian "
-                        "(opt.py-consistent fallback)."
-                    )
-                    geometry.within_partial_hessian = None
-                    _initial_hessian_source = "fresh"
-                    h_init, _ = _calc_full_hessian_torch(
-                        geometry, calc_cfg, _hess_dev, refresh_geom_meta=True,
-                    )
-                    h_init, _reduced = _try_reduce(h_init)
-                if _reduced:
-                    click.echo(
-                        f"[irc] Reduced seeded Hessian to ML macro sub-block "
-                        f"(-> {h_init.shape[0]}x{h_init.shape[0]}; "
-                        f"ML+link~{len(_macro_atoms)} atoms) to match the tsopt "
-                        f"macro step and avoid IRC OOM."
-                    )
-        except Exception as _e:  # pragma: no cover - defensive guard
-            click.echo(
-                f"[irc] WARNING: ML-macro Hessian reduction skipped ({_e}); "
-                f"using the originally seeded Hessian."
+            _expected_n = int(_declared.size)
+        else:
+            _expected_n = int(_expected_hessian_dofs.size)
+        if _seeded_n not in (_expected_n, _full_n_dof):
+            raise click.ClickException(
+                f"Seeded Hessian dimension {_seeded_n} matches neither the "
+                f"declared active basis ({_expected_n}) nor the full Cartesian "
+                f"space ({_full_n_dof}); refusing to run IRC on a cropped basis."
             )
+        del _expected_hessian_dofs
 
         geometry.cart_hessian = h_init
         click.echo(f"[irc] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
@@ -889,9 +921,31 @@ def cli(
                     "cart_coords": endpoint_cart_coords,
                     "irc_direction": direction,
                 },
+                identity=_hess_identity(
+                    geometry,
+                    calc_cfg,
+                    role=key,
+                    cart_coords=endpoint_cart_coords,
+                ),
             )
 
-        if eulerpc.forward and getattr(eulerpc, "forward_mw_hessian", None) is not None:
+        # M42/C6: cache an endpoint Hessian ONLY for a requested direction that
+        # explicitly CONVERGED. A nonconverged (max-cycle) direction may still
+        # carry a Bofill-updated Hessian, but promoting it would let a
+        # nonconverged endpoint seed a downstream RFO as if it were a real
+        # minimum. The keys were discarded before eulerpc.run(); keep them
+        # discarded when the direction did not converge so no stale/never-
+        # converged Hessian is reused.
+        from mlmm.workflows._outcomes import (
+            irc_hessian_cache_eligible as _irc_hess_eligible,
+        )
+        _fwd_conv = _irc_hess_eligible(eulerpc, "forward_is_converged")
+        _bwd_conv = _irc_hess_eligible(eulerpc, "backward_is_converged")
+        if (
+            eulerpc.forward
+            and _fwd_conv
+            and getattr(eulerpc, "forward_mw_hessian", None) is not None
+        ):
             forward_endpoint = (
                 np.asarray(eulerpc.forward_mw_coords[0], dtype=float)
                 / np.asarray(eulerpc.m_sqrt, dtype=float)
@@ -903,7 +957,13 @@ def cli(
                 "forward",
             )
             click.echo("[irc] Cached forward endpoint Hessian as 'irc_left'.")
-        if eulerpc.backward and getattr(eulerpc, "mw_hessian", None) is not None:
+        else:
+            _hess_discard("irc_left")
+        if (
+            eulerpc.backward
+            and _bwd_conv
+            and getattr(eulerpc, "mw_hessian", None) is not None
+        ):
             backward_endpoint = (
                 np.asarray(eulerpc.backward_mw_coords[-1], dtype=float)
                 / np.asarray(eulerpc.m_sqrt, dtype=float)
@@ -915,32 +975,23 @@ def cli(
                 "backward",
             )
             click.echo("[irc] Cached backward endpoint Hessian as 'irc_right'.")
+        else:
+            _hess_discard("irc_right")
 
         if source_path.suffix.lower() == ".pdb":
             ref_pdb_path = source_path.resolve()
 
             # Whole IRC trajectory
-            _echo_convert_trj_to_pdb_if_exists(
-                out_dir_path / f"{irc_cfg.get('prefix','')}{'finished_irc_trj.xyz'}",
-                ref_pdb_path,
-                out_dir_path / f"{irc_cfg.get('prefix','')}{'finished_irc.pdb'}",
-            )
-            # Forward/backward trajectories
-            _echo_convert_trj_to_pdb_if_exists(
-                out_dir_path / f"{irc_cfg.get('prefix','')}{'forward_irc_trj.xyz'}",
-                ref_pdb_path,
-                out_dir_path / f"{irc_cfg.get('prefix','')}{'forward_irc.pdb'}",
-            )
-            _echo_convert_trj_to_pdb_if_exists(
-                out_dir_path / f"{irc_cfg.get('prefix','')}{'backward_irc_trj.xyz'}",
-                ref_pdb_path,
-                out_dir_path / f"{irc_cfg.get('prefix','')}{'backward_irc.pdb'}",
-            )
+            for stem in ("finished", "forward", "backward"):
+                _echo_convert_trj_to_pdb_if_exists(
+                    _irc_output_path(eulerpc, f"{stem}_irc_trj.xyz"),
+                    ref_pdb_path,
+                    _irc_output_path(eulerpc, f"{stem}_irc.pdb"),
+                )
             # Single-frame endpoint PDBs (forward_last, backward_last)
-            prefix = irc_cfg.get("prefix", "")
             for tag in ("forward_last", "backward_last"):
-                endpoint_xyz = out_dir_path / f"{prefix}{tag}.xyz"
-                endpoint_pdb = out_dir_path / f"{prefix}{tag}.pdb"
+                endpoint_xyz = _irc_output_path(eulerpc, f"{tag}.xyz")
+                endpoint_pdb = _irc_output_path(eulerpc, f"{tag}.pdb")
                 if endpoint_xyz.exists() and not endpoint_pdb.exists():
                     try:
                         convert_xyz_to_pdb(endpoint_xyz, ref_pdb_path, endpoint_pdb)
@@ -950,7 +1001,7 @@ def cli(
                         click.echo(f"[convert] WARNING: Failed to convert '{tag}.xyz' to PDB: {e}", err=True)
 
         # summary.md and key_* outputs are disabled.
-        click.echo(format_elapsed("[time] Elapsed Time for IRC", time_start), narrative=True)
+        emit(format_elapsed("[time] Elapsed Time for IRC", time_start), narrative=True)
 
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
@@ -958,16 +1009,7 @@ def cli(
             _n_fwd = len(getattr(eulerpc, "forward_energies", [])) if hasattr(eulerpc, "forward_energies") else 0
             _n_bwd = len(getattr(eulerpc, "backward_energies", [])) if hasattr(eulerpc, "backward_energies") else 0
             _ts_e = float(eulerpc.ts_energy) if hasattr(eulerpc, "ts_energy") else None
-            _irc_files = {}
-            prefix = irc_cfg.get("prefix", "")
-            for _fn in ("finished_irc_trj.xyz", "forward_irc_trj.xyz", "backward_irc_trj.xyz"):
-                _fp = out_dir_path / f"{prefix}{_fn}"
-                if _fp.exists():
-                    _irc_files[_fn.replace("_trj.xyz", "")] = _fp.name
-            for _fn in ("finished_irc.pdb", "forward_irc.pdb", "backward_irc.pdb"):
-                _fp = out_dir_path / f"{prefix}{_fn}"
-                if _fp.exists():
-                    _irc_files[_fn.replace(".pdb", "_pdb")] = _fp.name
+            _irc_files = _collect_irc_output_files(eulerpc)
             result_data = {
                 "status": "completed",
                 "n_frames_forward": _n_fwd,
@@ -982,6 +1024,10 @@ def cli(
                 "step_length": irc_cfg.get("step_length"),
                 "max_cycles": irc_cfg.get("max_cycles"),
                 "never_stop": bool(irc_cfg.get("never_stop", False)),
+                "never_stop_energy_bypasses": int(
+                    getattr(eulerpc, "never_stop_energy_increase_bypasses", 0)
+                    + getattr(eulerpc, "never_stop_energy_convergence_bypasses", 0)
+                ),
                 "rigid_projection": {
                     **getattr(eulerpc, "rigid_projection_info", _rigid_info).as_dict(),
                     "hessian_space": (
@@ -998,11 +1044,44 @@ def cli(
                 _directional_endpoint_energy_fields(_all_e, _ts_e)
             )
 
+            # M42/C6: one truthful LeafOutcome per requested IRC direction. A
+            # requested direction is usable only when it explicitly converged; a
+            # disabled direction is optional (not a failure). Legacy ``status``
+            # stays "completed" (the IRC process ran).
+            from mlmm.workflows._outcomes import (
+                aggregate_workflow_truth as _agg_truth,
+                attach_outcomes as _attach,
+                irc_direction_leaves as _irc_dir_leaves,
+            )
+            _dir_leaves, _dir_expected = _irc_dir_leaves(
+                (
+                    (
+                        "forward",
+                        bool(getattr(eulerpc, "forward", False)),
+                        getattr(eulerpc, "forward_is_converged", None),
+                        _n_fwd,
+                        [_irc_files["forward_irc"]] if "forward_irc" in _irc_files else [],
+                    ),
+                    (
+                        "backward",
+                        bool(getattr(eulerpc, "backward", False)),
+                        getattr(eulerpc, "backward_is_converged", None),
+                        _n_bwd,
+                        [_irc_files["backward_irc"]] if "backward_irc" in _irc_files else [],
+                    ),
+                )
+            )
+            _attach(
+                result_data,
+                truth=_agg_truth(_dir_leaves, _dir_expected),
+                stage_outcomes=_dir_leaves,
+            )
+
             # Bond changes between IRC endpoints
             try:
                 from mlmm.domain.bond_changes import compare_structures
-                _irc_first_xyz = out_dir_path / f"{prefix}forward_last.xyz"
-                _irc_last_xyz = out_dir_path / f"{prefix}backward_last.xyz"
+                _irc_first_xyz = _irc_output_path(eulerpc, "finished_first.xyz")
+                _irc_last_xyz = _irc_output_path(eulerpc, "finished_last.xyz")
                 if _irc_first_xyz.exists() and _irc_last_xyz.exists():
                     _g1 = geom_loader(str(_irc_first_xyz))
                     _g2 = geom_loader(str(_irc_last_xyz))

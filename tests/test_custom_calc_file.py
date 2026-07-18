@@ -99,6 +99,40 @@ def test_apply_calc_file_switches_backend() -> None:
     assert cfg2["backend"] == "uma"
 
 
+def test_custom_calculator_provenance_uses_loader_default_factory() -> None:
+    from mlmm.core.utils import calculator_provenance
+
+    provenance = calculator_provenance({
+        "backend": "custom",
+        "calc_file": "/tmp/toy.py",
+    })
+
+    assert provenance["mlip_backend"] == "custom"
+    assert provenance["mlip_model"] == "toy.py:get_calculator"
+    assert provenance["mlip_precision"] is None
+
+
+@pytest.mark.parametrize(
+    ("backend", "key", "value", "expected"),
+    [
+        ("uma", "uma_precision", "fp64", "fp64"),
+        ("orb", "orb_precision", "float32-high", "fp32"),
+        ("orb", "orb_precision", "float32-highest", "fp32"),
+        ("mace", "mace_dtype", "float32", "fp32"),
+        ("aimnet2", None, "fp32", "fp32"),
+    ],
+)
+def test_calculator_provenance_records_effective_precision(
+    backend, key, value, expected
+) -> None:
+    from mlmm.core.utils import calculator_provenance
+
+    cfg = {"backend": backend}
+    if key is not None:
+        cfg[key] = value
+    assert calculator_provenance(cfg)["mlip_precision"] == expected
+
+
 def test_sp_yaml_custom_factory_is_not_overwritten_by_cli_default(
     tmp_path: Path,
 ) -> None:

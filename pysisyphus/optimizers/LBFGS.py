@@ -123,6 +123,22 @@ class LBFGS(Optimizer):
         self.coord_diffs = list()
         self.grad_diffs = list()
 
+    # Subclass restart keys required for a bit-exact resume.  The C7 uphill-
+    # rejection adaptive state (_trial_max_step, rejected_uphill_steps,
+    # rejections_at_floor) is mutated every cycle by the reject/relax logic in
+    # :meth:`optimize`; omitting it silently reset a resumed run to the
+    # __init__ defaults and diverged the trajectory across a rejection
+    # boundary.  Those three keys are new, so they are *restored tolerantly*
+    # (see :meth:`_set_opt_restart_info`) and are kept out of the transactional
+    # required set below so pre-C8 checkpoints still load.
+    required_opt_restart_keys = (
+        "coord_diffs",
+        "grad_diffs",
+        "double_damp",
+        "gamma_mult",
+        "keep_last",
+    )
+
     def _get_opt_restart_info(self):
         opt_restart_info = {
             "coord_diffs": np.array(self.coord_diffs).tolist(),
@@ -130,6 +146,15 @@ class LBFGS(Optimizer):
             "double_damp": self.double_damp,
             "gamma_mult": self.gamma_mult,
             "keep_last": self.keep_last,
+            # C7 uphill-rejection adaptive state.
+            "_trial_max_step": self._trial_max_step,
+            "rejected_uphill_steps": self.rejected_uphill_steps,
+            "rejections_at_floor": self.rejections_at_floor,
+            # Regularized-L-BFGS adaptive state: mu_reg is adapted per cycle and
+            # feeds get_lbfgs_step, so a resumed regularized run diverges without
+            # it; tot_adapt_mu_cycles keeps the reported update count accurate.
+            "mu_reg": self.mu_reg,
+            "tot_adapt_mu_cycles": self.tot_adapt_mu_cycles,
         }
         return opt_restart_info
 
@@ -138,6 +163,19 @@ class LBFGS(Optimizer):
         self.grad_diffs = [np.array(gd) for gd in opt_restart_info["grad_diffs"]]
         for attr in ("double_damp", "gamma_mult", "keep_last"):
             setattr(self, attr, opt_restart_info[attr])
+        # Backward-tolerant: checkpoints written before the C7 adaptive state
+        # was serialized keep the __init__ defaults already assigned above.
+        if "_trial_max_step" in opt_restart_info:
+            self._trial_max_step = float(opt_restart_info["_trial_max_step"])
+        if "rejected_uphill_steps" in opt_restart_info:
+            self.rejected_uphill_steps = int(opt_restart_info["rejected_uphill_steps"])
+        if "rejections_at_floor" in opt_restart_info:
+            self.rejections_at_floor = int(opt_restart_info["rejections_at_floor"])
+        # mu_reg may be None (regularization off) or a float; restore verbatim.
+        if "mu_reg" in opt_restart_info:
+            self.mu_reg = opt_restart_info["mu_reg"]
+        if "tot_adapt_mu_cycles" in opt_restart_info:
+            self.tot_adapt_mu_cycles = int(opt_restart_info["tot_adapt_mu_cycles"])
 
     def get_lbfgs_step(self, forces):
         return bfgs_multiply(

@@ -221,7 +221,8 @@ def test_pretty_block_with_numpy_scalars():
 
 def test_resolve_charge_spin_or_raise_requires_charge():
     """Charge remains unresolved by default and should raise."""
-    from mlmm.core.utils import PreparedInputStructure, resolve_charge_spin_or_raise
+    from mlmm.core.utils import PreparedInputStructure
+    from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 
     prepared = PreparedInputStructure(
         source_path=Path("dummy.pdb"),
@@ -233,7 +234,8 @@ def test_resolve_charge_spin_or_raise_requires_charge():
 
 def test_resolve_charge_spin_or_raise_accepts_explicit_charge():
     """Explicit charge with omitted spin should resolve using spin default."""
-    from mlmm.core.utils import PreparedInputStructure, resolve_charge_spin_or_raise
+    from mlmm.core.utils import PreparedInputStructure
+    from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 
     prepared = PreparedInputStructure(
         source_path=Path("dummy.pdb"),

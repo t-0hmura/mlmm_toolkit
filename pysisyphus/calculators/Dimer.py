@@ -82,6 +82,9 @@ class Dimer(Calculator):
         rotation_disable=False,
         rotation_disable_pos_curv=True,
         rotation_remove_trans=True,
+        frozen_atoms=None,
+        rigid_basis=None,
+        rigid_basis_getter=None,
         trans_force_f_perp=True,
         bonds=None,
         N_hessian=None,
@@ -93,6 +96,12 @@ class Dimer(Calculator):
         forward_hessian=True,
         **kwargs,
     ):
+        valid_rotation_methods = ("direct", "fourier")
+        if rotation_method not in valid_rotation_methods:
+            raise ValueError(
+                f"Invalid rotation_method={rotation_method!r}; "
+                f"valid methods are {valid_rotation_methods}"
+            )
         super().__init__(*args, **kwargs)
 
         self.logger = logging.getLogger("dimer")
@@ -107,14 +116,7 @@ class Dimer(Calculator):
             "direct": self.direct_rotation,
             "fourier": self.fourier_rotation,
         }
-        try:
-            self.rotation_method = rotation_methods[rotation_method]
-        except KeyError as err:
-            print(
-                f"Invalid rotation_method={rotation_method}! Valid types are: "
-                f"{tuple(self.rotation_methods.keys())}"
-            )
-            raise err
+        self.rotation_method = rotation_methods[rotation_method]
         self.rotation_thresh = float(rotation_thresh)
         self.rotation_tol = np.deg2rad(rotation_tol)
         self.rotation_max_element = float(rotation_max_element)
@@ -122,6 +124,24 @@ class Dimer(Calculator):
         self.rotation_disable = bool(rotation_disable)
         self.rotation_disable_pos_curv = bool(rotation_disable_pos_curv)
         self.rotation_remove_trans = bool(rotation_remove_trans)
+        self.freeze_atoms = np.asarray(
+            [] if frozen_atoms is None else frozen_atoms, dtype=int
+        ).reshape(-1)
+        if np.any(self.freeze_atoms < 0) or np.unique(self.freeze_atoms).size != self.freeze_atoms.size:
+            raise ValueError("frozen_atoms must contain unique non-negative atom indices")
+        if rigid_basis is None:
+            self.rigid_basis = None
+        else:
+            basis = np.asarray(rigid_basis, dtype=float)
+            if basis.ndim != 2:
+                raise ValueError("rigid_basis must be a two-dimensional (3N, rank) array")
+            self.rigid_basis = basis.copy()
+        if rigid_basis_getter is not None and not callable(rigid_basis_getter):
+            raise TypeError("rigid_basis_getter must be callable")
+        self.rigid_basis_getter = rigid_basis_getter
+        self._rigid_basis_cache_coords = None
+        self._rigid_basis_cache_frozen = None
+        self._rigid_basis_cache = None
         self.trans_force_f_perp = trans_force_f_perp
         self.forward_hessian = forward_hessian
 
@@ -165,10 +185,12 @@ class Dimer(Calculator):
         self.N_init = None
 
         if seed is None:
-            # 2**32 - 1
-            seed = np.random.randint(4294967295)
-        np.random.seed(seed)
-        msg = f"Using seed {seed} to initialize the random number generator.\n"
+            seed = int(
+                np.random.SeedSequence().generate_state(1, dtype=np.uint32)[0]
+            )
+        self.seed = int(seed)
+        self._rng = np.random.RandomState(self.seed)
+        msg = f"Using seed {self.seed} to initialize the random number generator.\n"
         print(msg)
         self.log(msg)
 
@@ -178,11 +200,7 @@ class Dimer(Calculator):
 
     @N.setter
     def N(self, N_new):
-        N_new = np.array(N_new, dtype=float).flatten()
-        if self.rotation_remove_trans:
-            N_new = self.remove_translation(N_new)
-        N_new /= np.linalg.norm(N_new)
-        self._N = N_new
+        self._N = self._normalize_orientation(N_new)
         self._f1 = None
 
     @property
@@ -195,10 +213,14 @@ class Dimer(Calculator):
         self._energy0 = None
         self._f0 = None
         self._f1 = None
+        if getattr(self, "_N", None) is not None and self._has_explicit_constraints:
+            self.N = self._N
 
     @property
     def coords1(self):
-        return self.coords0 + self.length * self.N
+        if not self._has_explicit_constraints:
+            return self.coords0 + self.length * self.N
+        return self._displaced_coords(self.coords0, self.length, self.N)
 
     @coords1.setter
     def coords1(self, coords1_new):
@@ -209,7 +231,7 @@ class Dimer(Calculator):
     @property
     def energy0(self):
         if self._energy0 is None:
-            results = self.calculator.get_energy(self.atoms, self.coords0)["energy"]
+            results = self.calculator.get_energy(self.atoms, self.coords0)
             self._energy0 = results["energy"]
         return self._energy0
 
@@ -284,6 +306,8 @@ class Dimer(Calculator):
             f1_bias_perp = perp_comp(self.f1_bias, self.N)
             f_perp += f1_bias_perp
 
+        if self._has_explicit_constraints:
+            f_perp = self._apply_orientation_constraints(f_perp)
         return f_perp
 
     def curvature(self, f1, f2, N):
@@ -310,6 +334,8 @@ class Dimer(Calculator):
     def add_gaussian(
         self, atoms, center, N, height=0.1, std=0.0529, max_cycles=50, dot_ref=None
     ):
+        if self._has_explicit_constraints:
+            N = self._normalize_orientation(N)
         # Create new gaussian object with default height that will be
         # refined later.
         gaussian = Gaussian(height=height, center=center, std=std, N=N)
@@ -318,7 +344,10 @@ class Dimer(Calculator):
             dot_ref = self.bias_gaussian_dot
 
         # Calculate real forces at inflection point of new gaussian
-        infl_coords = center + gaussian.std * N
+        if self._has_explicit_constraints:
+            infl_coords = self._displaced_coords(center, gaussian.std, N)
+        else:
+            infl_coords = center + gaussian.std * N
         infl_results = self.calculator.get_forces(atoms, infl_coords)
         self.force_evals += 1
         infl_forces = infl_results["forces"]
@@ -406,7 +435,7 @@ class Dimer(Calculator):
             msg = "first imaginary mode of HDF5 Hessian"
         else:
             msg = "random guess"
-            N_raw = np.random.rand(coords.size)
+            N_raw = self._rng.rand(coords.size)
         self.log(f"Obtained initial orientation from {msg}.")
         # Make N_raw translationally invariant and normalize
         self.N = N_raw
@@ -420,7 +449,7 @@ class Dimer(Calculator):
 
         if max(abs(average)) > 1e-8:
             self.log(
-                f"N-vector not translationally invariant. Removing average before normalization."
+                "N-vector not translationally invariant. Removing average before normalization."
             )
         else:
             return displacement
@@ -430,13 +459,127 @@ class Dimer(Calculator):
         ).flatten()
         return invariant_displacement
 
+    @property
+    def _has_explicit_constraints(self):
+        return (
+            self.rigid_basis is not None
+            or self.rigid_basis_getter is not None
+            or self.freeze_atoms.size > 0
+        )
+
+    def _frozen_dof_mask(self, size):
+        if size % 3:
+            raise ValueError("Dimer vectors must contain complete Cartesian xyz triplets")
+        n_atoms = size // 3
+        if self.freeze_atoms.size and int(self.freeze_atoms.max()) >= n_atoms:
+            raise ValueError(
+                f"frozen atom index {int(self.freeze_atoms.max())} is outside {n_atoms} atoms"
+            )
+        mask = np.zeros(size, dtype=bool)
+        for atom in self.freeze_atoms:
+            mask[3 * int(atom) : 3 * int(atom) + 3] = True
+        return mask
+
+    def _orthonormal_rigid_basis(self, size, frozen_dofs, coords=None):
+        basis_input = self.rigid_basis
+        if self.rigid_basis_getter is not None and coords is not None:
+            coords_key = np.asarray(coords, dtype=float).reshape(-1)
+            frozen_key = tuple(int(atom) for atom in self.freeze_atoms)
+            if (
+                self._rigid_basis_cache_coords is not None
+                and self._rigid_basis_cache_frozen == frozen_key
+                and np.array_equal(self._rigid_basis_cache_coords, coords_key)
+            ):
+                return self._rigid_basis_cache
+            basis_input = self.rigid_basis_getter(coords_key.copy())
+        if basis_input is None:
+            return None
+        basis_input = np.asarray(basis_input, dtype=float)
+        if basis_input.ndim != 2:
+            raise ValueError("rigid_basis_getter must return a two-dimensional array")
+        if basis_input.shape[0] != size:
+            raise ValueError(
+                f"rigid_basis has {basis_input.shape[0]} rows; expected {size}"
+            )
+        basis = basis_input.copy()
+        basis[frozen_dofs] = 0.0
+        if basis.shape[1] == 0:
+            orthonormal = basis
+        else:
+            u, singular, _ = np.linalg.svd(basis, full_matrices=False)
+            if singular.size == 0 or singular[0] == 0.0:
+                orthonormal = basis[:, :0]
+            else:
+                tol = np.finfo(float).eps * max(basis.shape) * singular[0]
+                rank = int(np.count_nonzero(singular > tol))
+                orthonormal = u[:, :rank]
+        if self.rigid_basis_getter is not None and coords is not None:
+            self._rigid_basis_cache_coords = coords_key.copy()
+            self._rigid_basis_cache_frozen = frozen_key
+            self._rigid_basis_cache = orthonormal
+        return orthonormal
+
+    def _apply_orientation_constraints(self, vector, coords=None):
+        """Restrict a Cartesian direction to the configured tangent space."""
+
+        constrained = np.asarray(vector, dtype=float).reshape(-1).copy()
+        if not np.all(np.isfinite(constrained)):
+            raise ValueError("Dimer orientation contains non-finite values")
+        frozen_dofs = self._frozen_dof_mask(constrained.size)
+        constrained[frozen_dofs] = 0.0
+
+        if self.rotation_remove_trans:
+            if coords is None:
+                coords = self.coords0
+            basis = self._orthonormal_rigid_basis(
+                constrained.size, frozen_dofs, coords=coords
+            )
+            if basis is not None:
+                constrained -= basis @ (basis.T @ constrained)
+            elif self.freeze_atoms.size == 0:
+                # Preserve the upstream Dimer behavior when no constraint-aware
+                # basis was supplied.
+                constrained = self.remove_translation(constrained)
+
+        # Reapply the exact Cartesian constraints after floating-point projection.
+        constrained[frozen_dofs] = 0.0
+        return constrained
+
+    def _normalize_orientation(self, vector, coords=None):
+        input_vector = np.asarray(vector, dtype=float).reshape(-1)
+        input_norm = np.linalg.norm(input_vector)
+        constrained = self._apply_orientation_constraints(vector, coords=coords)
+        norm = np.linalg.norm(constrained)
+        if (
+            not np.isfinite(input_norm)
+            or not np.isfinite(norm)
+            or input_norm <= np.finfo(float).eps
+            or norm <= np.finfo(float).eps
+            or norm <= 1.0e-12 * input_norm
+        ):
+            raise ValueError("Dimer orientation vanishes after applying constraints")
+        return constrained / norm
+
+    def _displaced_coords(self, center, distance, direction):
+        center = np.asarray(center, dtype=float).reshape(-1)
+        direction = self._normalize_orientation(direction, coords=center)
+        displaced = center + float(distance) * direction
+        frozen_dofs = self._frozen_dof_mask(center.size)
+        displaced[frozen_dofs] = center[frozen_dofs]
+        return displaced
+
     def rotate_coords1(self, rad, theta):
         """Rotate dimer and produce new coords1."""
-        return self.coords0 + (self.N * np.cos(rad) + theta * np.sin(rad)) * self.length
+        direction = self.N * np.cos(rad) + theta * np.sin(rad)
+        if not self._has_explicit_constraints:
+            return self.coords0 + direction * self.length
+        return self._displaced_coords(self.coords0, self.length, direction)
 
     def direct_rotation(self, optimizer, prev_step):
         rot_step = optimizer(self.rot_force, prev_step)
         rot_step = self.restrict_step(rot_step)
+        if self._has_explicit_constraints:
+            rot_step = self._apply_orientation_constraints(rot_step)
         # Strictly speaking rot_step should be constrained to conserve the desired
         # dimer length (coords1 - coords0)*2. This step is unconstrained.
         # Later on we calculate the actual step between the old coords1 and the new
@@ -445,9 +588,16 @@ class Dimer(Calculator):
 
     def fourier_rotation(self, optimizer, prev_step):
         theta_dir = optimizer(self.rot_force, prev_step)
+        if self._has_explicit_constraints:
+            theta_dir = self._apply_orientation_constraints(theta_dir)
         # Remove component that is parallel to N
         theta_dir = theta_dir - theta_dir.dot(self.N) * self.N
-        theta = theta_dir / np.linalg.norm(theta_dir)
+        if self._has_explicit_constraints:
+            theta_dir = self._apply_orientation_constraints(theta_dir)
+        theta_norm = np.linalg.norm(theta_dir)
+        if not np.isfinite(theta_norm) or theta_norm <= np.finfo(float).eps:
+            raise RotationConverged
+        theta = theta_dir / theta_norm
 
         # Get rotated endpoint geometries. The rotation takes place in a plane
         # spanned by N and theta. Theta is a unit vector perpendicular to N that
@@ -470,7 +620,10 @@ class Dimer(Calculator):
         f1_trial = self.calculator.get_forces(self.atoms, coords1_trial)["forces"]
         self.force_evals += 1
         f2_trial = 2 * self.f0 - f1_trial
-        N_trial = make_unit_vec(coords1_trial, self.coords0)
+        if self._has_explicit_constraints:
+            N_trial = self._normalize_orientation(coords1_trial - self.coords0)
+        else:
+            N_trial = make_unit_vec(coords1_trial, self.coords0)
         C_trial = self.curvature(f1_trial, f2_trial, N_trial)
 
         b1 = 0.5 * dC
@@ -664,6 +817,8 @@ class Dimer(Calculator):
         if (self.C < 0) or self.trans_force_f_perp:
             f_tran += f_perp
             force_str = "full"
+        if self._has_explicit_constraints:
+            f_tran = self._apply_orientation_constraints(f_tran)
         self.log(f"Curvature is {curv_str}. Returning {force_str} f_tran.")
         # self.log(f"\tf_tran:\n\t{f_tran}")
         self.log()

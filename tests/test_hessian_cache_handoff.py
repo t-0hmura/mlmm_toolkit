@@ -77,3 +77,423 @@ def test_discard_prevents_missing_endpoint_from_reusing_previous_seed() -> None:
     hessian_cache.store("irc_endpoint", np.eye(3))
     hessian_cache.discard("irc_endpoint")
     assert hessian_cache.load("irc_endpoint") is None
+
+
+# ---------------------------------------------------------------------------
+# M15 — defensive in-process ownership
+# ---------------------------------------------------------------------------
+def test_load_returns_independent_tensor_snapshots() -> None:
+    hessian_cache.store(
+        "ts",
+        torch.eye(3, dtype=torch.float64),
+        meta={"cart_coords": np.zeros(3)},
+    )
+    first = hessian_cache.load("ts")
+    second = hessian_cache.load("ts")
+
+    assert first is not None and second is not None
+    assert first["hessian"].data_ptr() != second["hessian"].data_ptr()
+
+    # Mutating a loaded snapshot must not corrupt the retained raw artifact.
+    first["hessian"].add_(5.0)
+    again = hessian_cache.load("ts")
+    torch.testing.assert_close(again["hessian"], torch.eye(3, dtype=torch.float64))
+
+
+def test_load_snapshot_isolates_numpy_meta_and_active_dofs() -> None:
+    hessian_cache.store(
+        "ts",
+        np.eye(3),
+        active_dofs=[0, 1, 2],
+        meta={"cart_coords": np.zeros(3), "source": "tsopt_exact"},
+    )
+    snap = hessian_cache.load("ts")
+    snap["meta"]["cart_coords"][0] = 99.0
+    snap["active_dofs"].append(999)
+    # Mutating a loaded numpy Hessian through torch.as_tensor must not persist.
+    torch.as_tensor(snap["hessian"]).mul_(0.0)
+
+    fresh = hessian_cache.load("ts")
+    assert fresh["meta"]["cart_coords"][0] == 0.0
+    assert fresh["active_dofs"] == [0, 1, 2]
+    np.testing.assert_array_equal(fresh["hessian"], np.eye(3))
+
+
+# ---------------------------------------------------------------------------
+# M70 — complete reuse identity
+# ---------------------------------------------------------------------------
+def _identity(
+    *,
+    run="run-A",
+    backend="uma",
+    model="m",
+    precision="fp64",
+    charge=0,
+    spin=1,
+    active_atoms=(0, 1),
+    active_dofs=(0, 1, 2, 3, 4, 5),
+    potential=None,
+    constraints=None,
+    source="tsopt_exact",
+    coords=None,
+):
+    if coords is None:
+        coords = np.zeros(6)
+    return hessian_cache.build_identity(
+        atoms=[1, 1],
+        cart_coords=coords,
+        run_id=run,
+        backend=backend,
+        model=model,
+        precision=precision,
+        charge=charge,
+        spin=spin,
+        potential=potential or {},
+        active_atoms=list(active_atoms),
+        active_dofs=list(active_dofs),
+        constraints=constraints or {"freeze_atoms": []},
+        source=source,
+        method=source,
+    )
+
+
+def test_load_matching_accepts_only_full_identity() -> None:
+    hessian_cache.store("ts", np.eye(6), identity=_identity())
+
+    # Exact identity, exact coordinates.
+    assert hessian_cache.load_matching("ts", _identity()) is not None
+    # Coordinates within the bohr round-trip tolerance.
+    assert hessian_cache.load_matching("ts", _identity(coords=np.full(6, 2.0e-6))) is not None
+    # Every single-field change rejects.
+    assert hessian_cache.load_matching("ts", _identity(coords=np.full(6, 1.0e-3))) is None
+    assert hessian_cache.load_matching("ts", _identity(backend="orb")) is None
+    assert hessian_cache.load_matching("ts", _identity(model="other")) is None
+    assert hessian_cache.load_matching("ts", _identity(precision="fp32")) is None
+    assert hessian_cache.load_matching("ts", _identity(charge=-1)) is None
+    assert hessian_cache.load_matching("ts", _identity(spin=3)) is None
+    assert hessian_cache.load_matching("ts", _identity(active_dofs=(0, 1, 2))) is None
+    assert hessian_cache.load_matching("ts", _identity(active_atoms=(0,))) is None
+    assert hessian_cache.load_matching(
+        "ts", _identity(constraints={"freeze_atoms": [0]})
+    ) is None
+    assert hessian_cache.load_matching(
+        "ts", _identity(potential={"mm_backend": "openmm"})
+    ) is None
+    assert hessian_cache.load_matching("ts", _identity(source="irc_endpoint_quasi_newton")) is None
+    assert hessian_cache.load_matching("ts", _identity(run="run-B")) is None
+
+
+def test_load_matching_returns_defensive_snapshot() -> None:
+    hessian_cache.store("ts", np.eye(6), active_dofs=[0, 1, 2, 3, 4, 5], identity=_identity())
+    snap = hessian_cache.load_matching("ts", _identity())
+    assert snap is not None
+    snap["hessian"][0, 0] = 42.0
+    snap["active_dofs"].append(7)
+    again = hessian_cache.load_matching("ts", _identity())
+    np.testing.assert_array_equal(again["hessian"], np.eye(6))
+    assert again["active_dofs"] == [0, 1, 2, 3, 4, 5]
+
+
+def test_legacy_coordinate_only_entry_is_never_reused_by_load_matching() -> None:
+    # A legacy entry carries no identity token.
+    hessian_cache.store("ts", np.eye(6), meta={"cart_coords": np.zeros(6)})
+    assert hessian_cache.load_matching("ts", _identity()) is None
+    # The coordinate-only load path still returns a snapshot for legacy callers.
+    assert hessian_cache.load("ts") is not None
+
+
+def test_missing_run_id_never_reuses() -> None:
+    hessian_cache.store("ts", np.eye(6), identity=_identity(run=None))
+    assert hessian_cache.load_matching("ts", _identity(run=None)) is None
+    assert hessian_cache.load_matching("ts", _identity(run="run-A")) is None
+
+
+def test_identity_from_context_round_trips_through_cache(monkeypatch) -> None:
+    from mlmm.core.result_commit import MLMM_RUN_ID_ENV as RUN_ID_ENV
+
+    monkeypatch.setenv(RUN_ID_ENV, "run-X")
+
+    class _Geom:
+        atomic_numbers = np.array([1, 1, 8])
+        cart_coords = np.arange(9, dtype=float)
+        freeze_atoms = np.array([0])
+
+    # Realistic mlmm calc_cfg: the ML model + precision live under the
+    # backend-prefixed keys (uma_model / uma_precision), never the generic
+    # model / precision keys.
+    calc_cfg = {
+        "backend": "uma",
+        "uma_model": "uma-s-1p2",
+        "uma_precision": "fp64",
+        "charge": 0,
+        "spin": 1,
+        "freeze_atoms": [0],
+    }
+    hessian_cache.store(
+        "ts",
+        np.eye(6),
+        identity=hessian_cache.identity_from_context(_Geom(), calc_cfg, role="ts"),
+    )
+    # Same evaluator context reuses.
+    assert hessian_cache.load_matching(
+        "ts", hessian_cache.identity_from_context(_Geom(), calc_cfg, role="ts")
+    ) is not None
+    # A different evaluator does not.
+    other = dict(calc_cfg, backend="orb")
+    assert hessian_cache.load_matching(
+        "ts", hessian_cache.identity_from_context(_Geom(), other, role="ts")
+    ) is None
+
+
+def test_identity_from_context_rejects_backend_specific_model_and_precision() -> None:
+    """The cache identity resolves the ML model + precision from the
+    BACKEND-PREFIXED keys (uma_model / uma_precision, ...), so changing the ML
+    model or fp32-vs-fp64 precision rejects reuse; a genuinely matching context
+    still reuses.  The generic ``model`` / ``precision`` keys (which mlmm never
+    sets) must NOT participate."""
+
+    class _Geom:
+        atomic_numbers = np.array([1, 1, 8])
+        cart_coords = np.arange(9, dtype=float)
+        freeze_atoms = np.array([], dtype=int)
+
+    import os
+
+    os.environ["MLMM_RUN_ID"] = "run-MP"
+    try:
+        base_cfg = {
+            "backend": "uma",
+            "uma_model": "uma-s-1p2",
+            "uma_precision": "fp32",
+            "charge": 0,
+            "spin": 1,
+            "freeze_atoms": [],
+        }
+        ident = hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
+        hessian_cache.store("ts", np.eye(9), identity=ident)
+
+        # Exact same context reuses.
+        assert hessian_cache.load_matching(
+            "ts", hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
+        ) is not None
+
+        # fp32 -> fp64 precision change rejects (scientifically load-bearing).
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(base_cfg, uma_precision="fp64"), role="ts"
+            ),
+        ) is None
+
+        # A different ML model rejects.
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(base_cfg, uma_model="uma-s-other"), role="ts"
+            ),
+        ) is None
+
+        # The generic model/precision keys are inert: setting them to bogus
+        # values (while the backend keys match) must still reuse.
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(),
+                dict(base_cfg, model="ignored", precision="ignored"),
+                role="ts",
+            ),
+        ) is not None
+
+        # The resolved identity actually carries the effective model/precision.
+        assert ident["evaluator"]["model"] == "uma-s-1p2"
+        assert ident["evaluator"]["precision"] == "fp32"
+    finally:
+        os.environ.pop("MLMM_RUN_ID", None)
+
+
+def test_identity_from_context_custom_backend_uses_calc_file_as_model() -> None:
+    """A custom ASE calculator has no MLIP model variant; its
+    calc_file / calc_factory reference stands in as the model identity, so two
+    different custom calculators reject reuse."""
+
+    class _Geom:
+        atomic_numbers = np.array([1, 1, 8])
+        cart_coords = np.zeros(9, dtype=float)
+        freeze_atoms = np.array([], dtype=int)
+
+    import os
+
+    os.environ["MLMM_RUN_ID"] = "run-C"
+    try:
+        cfg = {
+            "backend": "custom",
+            "calc_file": "/tmp/my_calc.py",
+            "calc_factory": "get_calculator",
+            "charge": 0,
+            "spin": 1,
+            "freeze_atoms": [],
+        }
+        ident = hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
+        hessian_cache.store("ts", np.eye(9), identity=ident)
+        assert ident["evaluator"]["model"] == "/tmp/my_calc.py:get_calculator"
+
+        assert hessian_cache.load_matching(
+            "ts", hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
+        ) is not None
+        # A different calc_file rejects.
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(cfg, calc_file="/tmp/other_calc.py"), role="ts"
+            ),
+        ) is None
+        # A different factory rejects.
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(cfg, calc_factory="build"), role="ts"
+            ),
+        ) is None
+    finally:
+        os.environ.pop("MLMM_RUN_ID", None)
+
+
+def test_mlmm_potential_identity_rejects_parm7_link_embed_region_changes(tmp_path) -> None:
+    """M70/M54: the mlmm potential identity rejects a topology-content change,
+    a link-method change, an embedding change, and a region-map change."""
+
+    parm7 = tmp_path / "system.parm7"
+    parm7.write_bytes(b"ORIGINAL-PRMTOP-CONTENT")
+
+    class _Geom:
+        atomic_numbers = np.array([1, 1, 8])
+        cart_coords = np.zeros(9, dtype=float)
+        freeze_atoms = np.array([], dtype=int)
+
+    base_cfg = {
+        "backend": "uma",
+        "charge": 0,
+        "spin": 1,
+        "mm_backend": "openmm",
+        "link_atom_method": "ratio",
+        "embedcharge": True,
+        "use_cmap": True,
+        "real_parm7": str(parm7),
+        "hess_mm_atoms": [3, 4, 5],
+        "freeze_atoms": [],
+    }
+
+    monkeyrun = "run-P"
+    import os
+
+    os.environ["MLMM_RUN_ID"] = monkeyrun
+    try:
+        ident = hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
+        hessian_cache.store("ts", np.eye(9), identity=ident)
+
+        # Exact same context reuses.
+        assert hessian_cache.load_matching(
+            "ts", hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
+        ) is not None
+
+        # Replace the parm7's BYTES at the same path -> reject.
+        parm7.write_bytes(b"MUTATED-PRMTOP-CONTENT-DIFFERENT")
+        assert hessian_cache.load_matching(
+            "ts", hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
+        ) is None
+        # Restore original bytes -> reuse again (content, not path, is authoritative).
+        parm7.write_bytes(b"ORIGINAL-PRMTOP-CONTENT")
+        assert hessian_cache.load_matching(
+            "ts", hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
+        ) is not None
+
+        # Link-method / embedding / region-map changes each reject.
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(base_cfg, link_atom_method="scaled"), role="ts"
+            ),
+        ) is None
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(base_cfg, embedcharge=False), role="ts"
+            ),
+        ) is None
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(base_cfg, hess_mm_atoms=[3, 4]), role="ts"
+            ),
+        ) is None
+    finally:
+        os.environ.pop("MLMM_RUN_ID", None)
+
+
+def test_mlmm_potential_identity_rejects_explicit_region_and_link_changes() -> None:
+    """The explicit region partition (movable_mm_atoms / frozen_mm_atoms) and
+    the link-atom map (link_mlmm) are NOT folded into the captured freeze set,
+    so a change to any of them at matching coordinates + run must reject reuse.
+    A genuinely matching context still reuses."""
+
+    class _Geom:
+        atomic_numbers = np.array([1, 1, 8, 8, 8, 8])
+        cart_coords = np.zeros(18, dtype=float)
+        freeze_atoms = np.array([], dtype=int)
+
+    import os
+
+    os.environ["MLMM_RUN_ID"] = "run-RL"
+    try:
+        base_cfg = {
+            "backend": "uma",
+            "uma_model": "uma-s-1p2",
+            "uma_precision": "fp32",
+            "charge": 0,
+            "spin": 1,
+            "movable_mm_atoms": [3, 4],
+            "frozen_mm_atoms": [5],
+            "link_mlmm": [("A:CYS100:CB", "A:CYS100:CA")],
+            "freeze_atoms": [],
+        }
+        ident = hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
+        hessian_cache.store("ts", np.eye(18), identity=ident)
+
+        # Exact same context reuses.
+        assert hessian_cache.load_matching(
+            "ts", hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
+        ) is not None
+
+        # A movable-region change rejects.
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(base_cfg, movable_mm_atoms=[3]), role="ts"
+            ),
+        ) is None
+        # A frozen-region change rejects.
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(base_cfg, frozen_mm_atoms=[4, 5]), role="ts"
+            ),
+        ) is None
+        # A link-boundary change rejects.
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(),
+                dict(base_cfg, link_mlmm=[("A:CYS100:SG", "A:CYS100:CB")]),
+                role="ts",
+            ),
+        ) is None
+
+        # Region-partition order is canonical: reordering movable_mm_atoms reuses.
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(base_cfg, movable_mm_atoms=[4, 3]), role="ts"
+            ),
+        ) is not None
+    finally:
+        os.environ.pop("MLMM_RUN_ID", None)

@@ -2,11 +2,13 @@
 
 ## Purpose
 
-Blank the PDB altLoc column (col 17) without shifting any other field,
-and keep **one** altLoc per atom. The default rule is **highest
-occupancy first, then earliest appearance** — there is no letter-based
-selection. Run on raw RCSB PDBs before `extract`; most downstream tools
-(including `mlmm extract`) expect one conformation per atom.
+Blank the PDB altLoc column (col 17) without shifting any other field, and
+select **one coherent non-blank label per residue**. Labels are ranked by mean
+parsed occupancy across their labelled atoms. A label with no parsed occupancy
+ranks below every parsed mean; equal scores (including all-missing cases) use
+first appearance. Blank/shared atoms remain, while atoms unique to unselected
+labels are dropped. Run on raw RCSB PDBs before `extract`; most downstream
+tools (including `mlmm extract`) expect one residue conformer.
 
 ## Synopsis
 
@@ -26,8 +28,8 @@ mlmm fix-altloc -i in.pdb [-o out.pdb] [--help-advanced]
 | `--recursive / --no-recursive` | flag | — | Recurse into subdirectories (directory input) |
 | `--help-advanced` | flag | — | Reveal advanced flags (`--inplace`, `--overwrite`, `--force`) |
 
-The selection rule is **fixed**: highest occupancy, then earliest
-appearance.
+The selection rule is fixed: highest residue-level mean parsed occupancy, then
+earliest appearance for equal scores.
 
 ## Examples
 

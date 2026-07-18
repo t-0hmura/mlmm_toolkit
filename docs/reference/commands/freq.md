@@ -102,9 +102,9 @@ Options:
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).
-  --dump-hess FILE                Save the computed Hessian to a compressed .npz
-                                  file. Can be loaded by 'mlmm irc --read-hess'
-                                  to avoid recomputation.
+  --dump-hess FILE                Save the computed Hessian and geometry/active-
+                                  basis identity to a compressed .npz file for a
+                                  matching 'mlmm irc --read-hess' run.
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer

@@ -1,5 +1,7 @@
 """Tests for defaults.py configuration constants."""
 
+from copy import deepcopy
+
 from mlmm.core.defaults import (
     GEOM_KW_DEFAULT,
     MLMM_CALC_KW,
@@ -18,6 +20,8 @@ from mlmm.core.defaults import (
     HESSIAN_DIMER_KW,
     RSIRFO_KW,
     DFT_KW,
+    DMF_KW,
+    fresh_dmf_config,
     BFACTOR_ML,
     BFACTOR_HESS_MM,
     BFACTOR_MOVABLE_MM,
@@ -76,3 +80,24 @@ def test_all_defaults_are_dicts():
         ("DFT_KW", DFT_KW),
     ]:
         assert isinstance(obj, dict), f"{name} should be a dict"
+
+
+def test_fresh_dmf_config_isolates_nested_requests_and_template() -> None:
+    original = deepcopy(DMF_KW)
+
+    first = fresh_dmf_config(
+        {
+            "fbenm_options": {"delta_scale": 9.0},
+            "cfbenm_options": {"eps": 8.0},
+            "dmf_options": {"beta": 7.0},
+        }
+    )
+    first["fbenm_options"]["bond_scale"] = -1.0
+    first["dmf_options"]["parallel"] = True
+
+    second = fresh_dmf_config()
+    assert second == original
+    assert DMF_KW == original
+    assert first["fbenm_options"] is not second["fbenm_options"]
+    assert first["cfbenm_options"] is not second["cfbenm_options"]
+    assert first["dmf_options"] is not second["dmf_options"]

@@ -1,0 +1,8 @@
+calc:
+  backend: uma
+  backend_model: uma-s-1p2
+  precision: fp64
+  link_atom_method: fixed
+opt:
+  max_cycles: 3
+  thresh: gau_loose

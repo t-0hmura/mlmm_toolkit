@@ -100,7 +100,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 
 ## YAML 設定
 
-マージ順は **defaults < config < 明示指定 CLI < override** です。関連セクションは `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM calculatorの設定）、`gs`（Growing String 制御）、`opt`（StringOptimizer 設定）です。
+マージ順は **defaults < config < 明示指定 CLI** です。関連セクションは `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM calculatorの設定）、`gs`（Growing String 制御）、`opt`（StringOptimizer 設定）です。
 
 完全なスキーマ（全キーとデフォルト）: [YAML リファレンス](yaml-reference.md)。
 

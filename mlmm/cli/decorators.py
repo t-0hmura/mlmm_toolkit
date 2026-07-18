@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
+from copy import deepcopy
 import logging
 import sys
 import textwrap
@@ -17,6 +19,21 @@ from mlmm.core.utils import deep_update, load_yaml_dict
 
 logger = logging.getLogger(__name__)
 
+
+def canonicalize_calculator_section(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a copy whose alias-only ``mlmm`` section is available as ``calc``.
+
+    ``calc`` is the canonical section and has whole-section precedence when
+    both names are present.  The legacy alias is retained for compatibility;
+    only alias-only inputs receive a copied canonical section.
+    """
+
+    normalized = deepcopy(config)
+    if "calc" not in normalized:
+        legacy = normalized.get("mlmm")
+        if isinstance(legacy, Mapping):
+            normalized["calc"] = deepcopy(dict(legacy))
+    return normalized
 
 
 def make_is_param_explicit(ctx: "click.Context"):
@@ -180,5 +197,3 @@ def render_cli_exception(
         err=True,
     )
     sys.exit(1)
-
-

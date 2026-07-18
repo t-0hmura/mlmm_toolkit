@@ -125,7 +125,7 @@ out_dir/ (デフォルト:./result_path_search/)
 
 ## YAML 設定
 
-マージ順は **defaults < config < 明示指定 CLI < override** です。
+マージ順は **defaults < config < 明示指定 CLI** です。
 
 YAML ルートはマッピングでなければなりません。受け付けるセクション:
 

@@ -7,7 +7,7 @@
 
 ## Why bundled?
 
-There is no upstream `hessian_ff` package on PyPI or any public registry. The analytical-Hessian implementation is research code originating from the lab and is shipped as a sibling module to `mlmm/` because:
+There is no upstream `hessian_ff` package on PyPI or any public registry. The module is primarily lab-originated research code; its CMAP interpolation/coefficient material in `terms/cmap.py` and `native/bonded_ext.cpp` is adapted from OpenMM under the MIT license documented in `THIRD_PARTY_NOTICES.txt`. It is shipped as a sibling module to `mlmm/` because:
 
 1. **Single consumer**: only `mlmm/backends/mlmm_calc.py` calls into it; `analytical_hessian.py` is the sole entry point.
 2. **Tight coupling to ONIOM math**: the analytical Hessian must match the link-atom B-matrix projection convention (chemistry-rule #2) and the 3-layer 5-pass assembly order (chemistry-rule #8) used in `mlmm_calc.py`.
@@ -23,8 +23,8 @@ There is no upstream `hessian_ff` package on PyPI or any public registry. The an
 | `loaders.py` | force-field parameter loading |
 | `system.py` | atom / topology data classes |
 | `constants.py` | unit conversion constants |
-| `terms/` | per-term analytical derivative code (one file per term type) |
-| `native/` | **required** C-accelerated kernels for `build_analytical_hessian` (JIT-compiled on first use at runtime via `torch.utils.cpp_extension`; needs GCC ≥ 9 + ninja) |
+| `terms/` | per-term analytical derivative code (one file per term type); `terms/cmap.py` includes OpenMM-derived MIT-licensed material |
+| `native/` | **required** C-accelerated kernels for `build_analytical_hessian` (JIT-compiled on first use at runtime via `torch.utils.cpp_extension`; needs GCC ≥ 9 + ninja); `native/bonded_ext.cpp` includes OpenMM-derived MIT-licensed material |
 | `workflows.py` | dead code — production never reaches this, but `__all__` declared = retention policy says do not delete during polish |
 | `tests/` | unit tests for individual force-field terms |
 
@@ -61,5 +61,5 @@ If you are adding a new MM term, edit `forcefield.py` + add a new per-term file 
 ## See also
 
 - [`../docs/architecture.md`](../docs/architecture.md) §5.3, §6 — repo-internal fork policy + chemistry-rule #2, #8, #9 file:line
-- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) §4.2 — do-not-touch list
-- `THIRD_PARTY_NOTICES.txt` — third-party attributions (parmed is `pip install parmed`; only the analytical-Hessian glue is bundled)
+- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) §4.3 — bundled-fork edit policy
+- [`../THIRD_PARTY_NOTICES.txt`](../THIRD_PARTY_NOTICES.txt) — third-party attributions, including the exact OpenMM-derived files and license

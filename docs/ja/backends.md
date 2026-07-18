@@ -49,7 +49,7 @@ private なファクトリ）を呼び出して適切なアダプタをインス
 | backend | install | model identifier | precision option |
 |---------|---------|------------------|------------------|
 | `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p2` / `uma-s-1p1` / `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
-| `orb` | `pip install orb-models` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float64"`（`"float32"` も別名として受理） |
+| `orb` | `pip install orb-models` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`fp32` / `float32` は正規化される別名） |
 | `mace` | 専用環境: `pip uninstall -y fairchem-core && pip install mace-torch`（`e3nn` の pin が UMA と競合） | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install aimnet` | `aimnet2` | n/a |
 
@@ -114,12 +114,13 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 
 `EMT()` を使いたいエンジンに差し替えてください — 例えば GFN-xTB なら
 `tblite.ase.TBLite(...)`、DFTB+ の ASE calculator、`ase.calculators.orca.ORCA(...)`
-など。このファイルを単一ステージのサブコマンドに渡すと、`custom` ML バックエンドが
-選択され `--backend` を上書きします:
+など。このファイルを各stageまたは`all`に渡すと、`custom` ML backendが選択され
+`--backend`を上書きします:
 
     mlmm sp    -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
     mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py
     mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py
+    mlmm all   -i R.pdb P.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
 
 補足:
 
@@ -132,9 +133,10 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
   `hessian_ff` / OpenMM バックエンドを使い、ONIOM カップリングも変わりません。
   Hessian は有限差分経路を使うため、`freq` や `tsopt --opt-mode hess` も任意エンジンで
   動作します。凍結原子も通常どおり尊重されます。
-- 単一ステージのサブコマンド（`sp`・`opt`・`tsopt`・`freq`・`irc`・`scan` /
-  `scan2d` / `scan3d`・`path-opt`・`path-search`）で利用できます。独自の `--backend`
-  名を持つ恒久的なバックエンドにする場合は、以下のレシピを参照してください。
+- `all`および単独subcommand（`sp`・`opt`・`tsopt`・`freq`・`irc`・`scan` /
+  `scan2d` / `scan3d`・`path-opt`・`path-search`）で利用できます。`all`は同じfactoryを
+  calculatorを使う子stageへ転送します。独自の`--backend`名を持つ恒久的なbackendに
+  する場合は、以下のレシピを参照してください。
 
 ## Add-a-backend recipe (5 steps)
 

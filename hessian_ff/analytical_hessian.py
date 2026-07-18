@@ -4,6 +4,7 @@ from typing import Dict, Sequence, Tuple
 
 import torch
 
+from .active_space import validate_active_atoms
 from .constants import TWO_PI
 from .system import AmberSystem
 from .native.analytical_hessian import (
@@ -528,10 +529,13 @@ def build_analytical_hessian(
     - CMAP: closed-form (manual second-order chain rule + bicubic patch derivatives)
     - Nonbonded + 1-4 (including NB_INDEX<0 HB 12-10): closed-form
     """
+    # M54: validate the ordered active list before any native probing or
+    # Hessian allocation, using the same typed error vocabulary as the public
+    # workflows.torch_hessian path.  Preserves the caller's valid order exactly.
+    active_list = validate_active_atoms(int(system.natom), active_atoms)
     coords_work = coords.detach()
     system_work = system.to(device=coords_work.device, dtype=coords_work.dtype)
 
-    active_list = [int(a) for a in active_atoms]
     if not _has_native_analytical_ext():
         raise RuntimeError(
             "Native analytical Hessian extension is required. "

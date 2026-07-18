@@ -29,7 +29,7 @@ jobs:
           pip install click pyyaml numpy biopython scipy ase \
             autograd dask distributed h5py fabric jinja2 joblib \
             matplotlib natsort psutil rmsd sympy scikit-learn \
-            pandas tabulate plotly kaleido ParmEd \
+            pandas tabulate plotly kaleido ParmEd openmm \
             pytest pytest-cov pytest-timeout
         timeout-minutes: 15
 

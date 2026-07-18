@@ -23,7 +23,7 @@ This document is for **contributors and maintainers**. For end-user usage, see [
 
 1. Read [`docs/architecture.md`](docs/architecture.md) §5 "Hidden constraints" once per session — VRAM `del` invariant, chemistry rules, repo-internal fork policy, `pyproject.toml` 0-diff arrays, `_LAZY_SUBCOMMANDS` absolute-path rule.
 2. Grep [`mlmm/core/defaults.py`](mlmm/core/defaults.py) for any default value you are about to touch — that file is the single source of truth.
-3. If you are about to edit any file under `pysisyphus/`, `thermoanalysis/`, or `hessian_ff/` — re-read the per-dir `README.md` in that dir to confirm logic edits are forbidden in this release line (annotation-only is allowed).
+3. Before editing `pysisyphus/`, `thermoanalysis/`, or `hessian_ff/`, read that directory's `README.md`. Routine polish is annotation-only; a logic change requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
 4. Identify which layer your change belongs to (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`). Stay inside one layer per commit when possible; the dependency direction is `L1 → L2 → {L3, L4} → L5` and must not be inverted.
 
 ### 1.3 Dev setup (lint / type-check tooling)
@@ -178,12 +178,10 @@ The IRC / TSopt / Freq stages explicitly `del calc`, `del geom`, `del hess` betw
 
 ### 4.3 Divergent files in bundled forks
 
-Logic edits to these files are forbidden in this release line (annotation-only is allowed: docstring + type hints):
-
-- `pysisyphus/irc/IRC.py`
-- `pysisyphus/optimizers/hessian_updates.py`
-- `pysisyphus/tsoptimizers/TSHessianOptimizer.py`
-- `thermoanalysis/QCData.py`
+The per-directory README tables are the live inventory of divergent files.
+Routine polish is annotation-only. A logic change is allowed only for a
+demonstrated defect or approved numerical feature, with focused regression
+tests and the relevant HEAVY/GPU validation.
 
 Do not `pip install pysisyphus` or `pip install thermoanalysis` from PyPI alongside this package — silent runtime breakage. `hessian_ff/` has no upstream package; only the bundled copy works.
 

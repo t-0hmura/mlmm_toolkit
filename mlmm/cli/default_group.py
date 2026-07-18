@@ -35,6 +35,23 @@ ConfigureSubcommandHelpVisibilityFunc = Callable[
 ]
 BuildUnavailableCommandFunc = Callable[[str, ImportError], click.Command]
 
+_INTERNAL_IMPORT_ROOTS = frozenset(
+    {"mlmm", "pysisyphus", "thermoanalysis", "hessian_ff"}
+)
+
+
+def _is_external_missing_dependency(exc: ModuleNotFoundError) -> bool:
+    """Return whether *exc* names a dependency outside this distribution.
+
+    A missing ``mlmm`` module is an internal packaging/import defect and must
+    retain its traceback.  Only a genuinely external missing dependency is
+    eligible for the friendly lazy-command placeholder.
+    """
+
+    missing = str(exc.name or "")
+    missing_root = missing.split(".", 1)[0]
+    return bool(missing_root) and missing_root not in _INTERNAL_IMPORT_ROOTS
+
 
 def build_unavailable_command(command_name: str, exc: ImportError) -> click.Command:
     """Return a placeholder command that reports import failure details at runtime."""
@@ -375,7 +392,9 @@ class DefaultGroup(click.Group):
         try:
             module = importlib.import_module(module_name, package=__package__)
             loaded_cmd = getattr(module, attr_name)
-        except (ModuleNotFoundError, ImportError) as exc:
+        except ModuleNotFoundError as exc:
+            if not _is_external_missing_dependency(exc):
+                raise
             loaded_cmd = self._build_unavailable_command(cmd_name, exc)
 
         if cmd_name not in self._parser_wrapper_subcommands:

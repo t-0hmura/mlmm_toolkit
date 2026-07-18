@@ -20,76 +20,18 @@ CLI_MODULE = "mlmm"
 DOCS_SMOKE_COMMAND_TIMEOUT_SEC = float(os.environ.get("DOCS_SMOKE_COMMAND_TIMEOUT_SEC", "120"))
 
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from mlmm.cli import cli as root_cli  # noqa: E402
 
+from docs_command_contract import (  # noqa: E402
+    extract_docs_commands,
+    subcommand_from_tokens as _subcommand_from_tokens,
+    validate_option_names,
+)
 
-_CODE_LANGS = {"", "bash", "sh", "shell", "console"}
+
 _ALL_ONLY_PATH_EXTS = {".pdb", ".xyz", ".gjf", ".yaml", ".yml", ".json"}
-
-
-def _extract_commands_from_block(lines: list[str]) -> list[str]:
-    commands: list[str] = []
-    current = ""
-    for raw in lines:
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if " #" in line:
-            line = line.split(" #", 1)[0].rstrip()
-            if not line:
-                continue
-        if line.startswith("$"):
-            line = line[1:].strip()
-        current = f"{current} {line}".strip() if current else line
-        if current.endswith("\\"):
-            current = current[:-1].rstrip()
-            continue
-        commands.append(current)
-        current = ""
-    if current:
-        commands.append(current)
-    filtered: list[str] = []
-    for cmd in commands:
-        if not cmd.startswith(TOOL_NAME):
-            continue
-        if any(mark in cmd for mark in ("<", ">", "[", "]")):
-            continue
-        filtered.append(cmd)
-    return filtered
-
-
-def _extract_docs_commands() -> list[str]:
-    commands: list[str] = []
-    for path in sorted(DOCS_ROOT.rglob("*.md")):
-        lines = path.read_text(encoding="utf-8").splitlines()
-        in_fence = False
-        fence_lang = ""
-        block: list[str] = []
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("```"):
-                marker = stripped[3:].strip().lower()
-                if not in_fence:
-                    in_fence = True
-                    fence_lang = marker
-                    block = []
-                else:
-                    if fence_lang in _CODE_LANGS:
-                        commands.extend(_extract_commands_from_block(block))
-                    in_fence = False
-                    fence_lang = ""
-                    block = []
-                continue
-            if in_fence:
-                block.append(line)
-    return commands
-
-
-def _subcommand_from_tokens(tokens: list[str]) -> str:
-    if len(tokens) < 2 or tokens[1].startswith("-"):
-        return "all"
-    return tokens[1]
 
 
 def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
@@ -248,8 +190,9 @@ def _run_all_dry_run_smoke(commands: list[str]) -> None:
         ) from exc
     probe_output = f"{probe.stdout}\n{probe.stderr}"
     if "Command 'all' is unavailable" in probe_output or "Missing dependency:" in probe_output:
-        print("[dry-run-smoke] skipped: 'all' command is unavailable in this environment.")
-        return
+        raise RuntimeError(
+            "[dry-run-smoke] required 'all' command is unavailable in this environment."
+        )
 
     all_cmds: set[str] = set()
     for cmd in commands:
@@ -317,12 +260,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
 
-    commands = _extract_docs_commands()
-    if not commands:
+    authored = extract_docs_commands()
+    if not authored:
         raise RuntimeError("No commands were extracted from docs markdown code fences.")
 
-    _run_help_smoke(commands)
-    _run_all_dry_run_smoke(commands)
+    # Static validation retains EVERY authored command (including bracket-bearing
+    # and data-literal examples); execution eligibility is classified separately.
+    errors = validate_option_names(authored, root_cli)
+    if errors:
+        raise RuntimeError(
+            "[option-smoke] docs option validation failed:\n" + "\n".join(errors)
+        )
+    print(f"[option-smoke] validated option names in {len(authored)} docs examples.")
+
+    _run_help_smoke([cmd.text for cmd in authored])
+    _run_all_dry_run_smoke([cmd.text for cmd in authored if cmd.executable])
     return 0
 
 

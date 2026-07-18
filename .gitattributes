@@ -1,0 +1,5 @@
+# PDB is an 80-column fixed-format record: the element field is columns 77-78 and
+# the charge field 79-80 is legitimately blank, so ATOM/HETATM lines carry
+# significant trailing spaces. Stripping them to satisfy a whitespace linter
+# would corrupt the fixture. Exclude the format from git's whitespace checks.
+*.pdb -whitespace

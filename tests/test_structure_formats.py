@@ -101,8 +101,262 @@ def test_pdb_output_rejects_when_no_xyz_frame_matches_topology(tmp_path: Path) -
     xyz = tmp_path / "wrong-count.xyz"
     xyz.write_text("2\nframe\nC 0 0 0\nH 1 0 0\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="No frame.*matched"):
+    with pytest.raises(ValueError, match="Atom count mismatch"):
         convert_xyz_to_pdb(xyz, ref, tmp_path / "out.pdb")
+
+
+@pytest.mark.parametrize(
+    ("bad_frame", "message"),
+    [
+        pytest.param(
+            "1\nbad count\nC 2 0 0\n",
+            "Atom count mismatch",
+            id="late-count",
+        ),
+        pytest.param(
+            "2\nbad order\nO 2 0 0\nC 3 0 0\n",
+            "Ordered elements differ",
+            id="late-order",
+        ),
+        pytest.param(
+            "2\nbad width\nC 10000 0 0\nO 3 0 0\n",
+            "fixed-column PDB range",
+            id="late-width",
+        ),
+        pytest.param(
+            "2\nbad nan\nC nan 0 0\nO 3 0 0\n",
+            "non-finite",
+            id="late-nan",
+        ),
+        pytest.param(
+            "2\nbad positive infinity\nC inf 0 0\nO 3 0 0\n",
+            "non-finite",
+            id="late-positive-inf",
+        ),
+        pytest.param(
+            "2\nbad negative infinity\nC -inf 0 0\nO 3 0 0\n",
+            "non-finite",
+            id="late-negative-inf",
+        ),
+    ],
+)
+def test_xyz_overlay_prevalidates_every_frame_before_mutating_destinations(
+    tmp_path: Path,
+    bad_frame: str,
+    message: str,
+) -> None:
+    from dataclasses import replace
+
+    from mlmm.core.utils import convert_xyz_to_pdb, prepare_input_structure
+    from mlmm.io.structure_formats import (
+        coordinate_template_for,
+        register_coordinate_template,
+        unregister_coordinate_template,
+    )
+
+    source = tmp_path / "topology.cif"
+    _write_minimal_cif(source)
+    prepared = prepare_input_structure(source)
+    xyz = tmp_path / "trajectory.xyz"
+    xyz.write_text(
+        "2\nvalid\nC 0 0 0\nO 1 0 0\n" + bad_frame,
+        encoding="utf-8",
+    )
+    out_pdb = tmp_path / "result.pdb"
+    out_cif = tmp_path / "result.cif"
+    pdb_before = b"existing pdb generation\n"
+    cif_before = b"existing cif generation\n"
+    out_pdb.write_bytes(pdb_before)
+    out_cif.write_bytes(cif_before)
+    assert prepared.structure_template is not None
+    previous_template = replace(
+        prepared.structure_template,
+        reason="pre-existing output generation",
+    )
+    register_coordinate_template(out_pdb, previous_template)
+
+    try:
+        with pytest.raises(ValueError, match=message):
+            convert_xyz_to_pdb(xyz, prepared.source_path, out_pdb)
+
+        assert out_pdb.read_bytes() == pdb_before
+        assert out_cif.read_bytes() == cif_before
+        assert coordinate_template_for(out_pdb) is previous_template
+    finally:
+        unregister_coordinate_template(out_pdb)
+        prepared.cleanup()
+
+
+def test_xyz_overlay_rejects_swapped_coordinate_template_before_mutation(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    from mlmm.core.utils import convert_xyz_to_pdb, prepare_input_structure
+    from mlmm.io.structure_formats import (
+        coordinate_template_for,
+        register_coordinate_template,
+        unregister_coordinate_template,
+    )
+
+    source = tmp_path / "topology.cif"
+    _write_minimal_cif(source)
+    xyz = tmp_path / "frame.xyz"
+    xyz.write_text("2\nframe\nC 2 0 0\nO 3 0 0\n", encoding="utf-8")
+    prepared = prepare_input_structure(source)
+    out_pdb = tmp_path / "existing.pdb"
+    out_cif = out_pdb.with_suffix(".cif")
+    out_pdb.write_bytes(b"old-pdb\n")
+    out_cif.write_bytes(b"old-cif\n")
+    try:
+        assert prepared.structure_template is not None
+        swapped_template = replace(
+            prepared.structure_template,
+            records=tuple(reversed(prepared.structure_template.records)),
+            reason="same-count swapped template",
+        )
+        previous_template = replace(
+            prepared.structure_template,
+            reason="pre-existing output generation",
+        )
+        register_coordinate_template(prepared.source_path, swapped_template)
+        register_coordinate_template(out_pdb, previous_template)
+
+        with pytest.raises(
+            ValueError,
+            match="retained coordinate template.*atom 1",
+        ):
+            convert_xyz_to_pdb(xyz, prepared.source_path, out_pdb)
+
+        assert out_pdb.read_bytes() == b"old-pdb\n"
+        assert out_cif.read_bytes() == b"old-cif\n"
+        assert coordinate_template_for(out_pdb) is previous_template
+    finally:
+        unregister_coordinate_template(out_pdb)
+        prepared.cleanup()
+
+
+def test_xyz_overlay_valid_trajectory_emits_every_model(tmp_path: Path) -> None:
+    from mlmm.core.utils import convert_xyz_to_pdb
+
+    ref = tmp_path / "ref.pdb"
+    ref.write_text(
+        "ATOM      1  C   MOL A   1       0.000   0.000   0.000  1.00  0.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    xyz = tmp_path / "trajectory.xyz"
+    xyz.write_text(
+        "1\nfirst\nC 1 0 0\n1\nsecond\nC 2 0 0\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "trajectory.pdb"
+
+    convert_xyz_to_pdb(xyz, ref, out)
+
+    content = out.read_text(encoding="utf-8")
+    assert content.count("MODEL") == 2
+    assert content.count("ENDMDL") == 2
+    assert "   1.000" in content
+    assert "   2.000" in content
+
+
+def test_xyz_overlay_companion_publish_failure_preserves_primary_and_registry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from mlmm.core import result_commit
+    from mlmm.core.utils import convert_xyz_to_pdb, prepare_input_structure
+    from mlmm.io.structure_formats import (
+        coordinate_template_for,
+        register_coordinate_template,
+        unregister_coordinate_template,
+    )
+
+    source = tmp_path / "topology.cif"
+    _write_minimal_cif(source)
+    xyz = tmp_path / "frame.xyz"
+    xyz.write_text("2\nframe\nC 2 0 0\nO 3 0 0\n", encoding="utf-8")
+    out_pdb = tmp_path / "existing.pdb"
+    out_cif = out_pdb.with_suffix(".cif")
+    out_pdb.write_bytes(b"old-pdb\n")
+    out_cif.write_bytes(b"old-cif\n")
+
+    prepared = prepare_input_structure(source)
+    try:
+        assert prepared.structure_template is not None
+        previous_template = prepared.structure_template
+        register_coordinate_template(out_pdb, previous_template)
+        real_replace = result_commit._replace_exact
+
+        def fail_companion(staged: Path, destination: Path) -> None:
+            if destination == out_cif:
+                raise OSError("injected companion publication failure")
+            real_replace(staged, destination)
+
+        monkeypatch.setattr(result_commit, "_replace_exact", fail_companion)
+        with pytest.raises(
+            result_commit.ResultCommitError,
+            match="companion publication failure",
+        ):
+            convert_xyz_to_pdb(xyz, prepared.source_path, out_pdb)
+
+        assert out_pdb.read_bytes() == b"old-pdb\n"
+        assert out_cif.read_bytes() == b"old-cif\n"
+        assert coordinate_template_for(out_pdb) is previous_template
+    finally:
+        unregister_coordinate_template(out_pdb)
+        prepared.cleanup()
+
+
+def test_xyz_overlay_primary_publish_failure_rolls_back_companion_and_registry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from mlmm.core import result_commit
+    from mlmm.core.utils import convert_xyz_to_pdb, prepare_input_structure
+    from mlmm.io.structure_formats import (
+        coordinate_template_for,
+        register_coordinate_template,
+        unregister_coordinate_template,
+    )
+
+    source = tmp_path / "topology.cif"
+    _write_minimal_cif(source)
+    xyz = tmp_path / "frame.xyz"
+    xyz.write_text("2\nframe\nC 2 0 0\nO 3 0 0\n", encoding="utf-8")
+    out_pdb = tmp_path / "existing.pdb"
+    out_cif = out_pdb.with_suffix(".cif")
+    out_pdb.write_bytes(b"old-pdb\n")
+    out_cif.write_bytes(b"old-cif\n")
+
+    prepared = prepare_input_structure(source)
+    try:
+        assert prepared.structure_template is not None
+        previous_template = prepared.structure_template
+        register_coordinate_template(out_pdb, previous_template)
+        real_replace = result_commit._replace_exact
+        failed = False
+
+        def fail_primary_once(staged: Path, destination: Path) -> None:
+            nonlocal failed
+            if destination == out_pdb and not failed:
+                failed = True
+                raise OSError("injected primary publication failure")
+            real_replace(staged, destination)
+
+        monkeypatch.setattr(result_commit, "_replace_exact", fail_primary_once)
+        with pytest.raises(
+            result_commit.ResultCommitError,
+            match="primary publication failure",
+        ):
+            convert_xyz_to_pdb(xyz, prepared.source_path, out_pdb)
+
+        assert out_pdb.read_bytes() == b"old-pdb\n"
+        assert out_cif.read_bytes() == b"old-cif\n"
+        assert coordinate_template_for(out_pdb) is previous_template
+    finally:
+        unregister_coordinate_template(out_pdb)
+        prepared.cleanup()
 
 
 def test_pdb_with_more_than_ten_thousand_residues_uses_safe_bridge(tmp_path: Path) -> None:
@@ -317,6 +571,72 @@ def test_ref_cif_atom_count_error_cleans_temporary_bridge(
     assert all(not path.exists() for path in bridge_dirs)
 
 
+def test_dft_dry_run_uses_one_reference_overlaid_preparation_for_charge(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from types import MethodType
+
+    from click.testing import CliRunner
+    from mlmm.cli import cli as root_cli
+    from mlmm.workflows import dft
+
+    xyz = tmp_path / "input.xyz"
+    xyz.write_text("1\ninput\nC 1.0 2.0 3.0\n", encoding="utf-8")
+    ref = tmp_path / "reference.pdb"
+    ref.write_text(
+        "HETATM    7  C1  SAM A   8       1.000   2.000   3.000  1.00  0.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    parm = tmp_path / "dummy.parm7"
+    parm.write_text("dry-run placeholder\n", encoding="utf-8")
+
+    real_prepare = dft.prepare_input_structure
+    prepared_objects = []
+    cleanup_calls = []
+
+    def recording_prepare(path):
+        prepared = real_prepare(path)
+        prepared_objects.append(prepared)
+        original_cleanup = prepared.cleanup
+
+        def recording_cleanup(self):
+            cleanup_calls.append(self)
+            original_cleanup()
+
+        prepared.cleanup = MethodType(recording_cleanup, prepared)
+        return prepared
+
+    monkeypatch.setattr(dft, "prepare_input_structure", recording_prepare)
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "dft",
+            "-i",
+            str(xyz),
+            "--ref-pdb",
+            str(ref),
+            "--parm",
+            str(parm),
+            "--ligand-charge",
+            "SAM:-1",
+            "--no-detect-layer",
+            "--model-indices",
+            "1",
+            "--dry-run",
+            "--out-dir",
+            str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Total: -1" in result.output
+    assert "[dry-run] Validation complete" in result.output
+    assert len(prepared_objects) == 1
+    assert cleanup_calls == prepared_objects
+
+
 def test_pdb_to_cif_preserves_output_occupancy_and_bfactor(tmp_path: Path) -> None:
     from Bio.PDB.MMCIF2Dict import MMCIF2Dict
     from mlmm.io.structure_formats import (
@@ -431,6 +751,48 @@ ATOM 5 C CD B ALA A 1 1 ? 4 0 0 0.8 0 1 ALA A CD 1
     records = read_mmcif_atom_sites(source)
     assert [record.atom_name for record in records] == ["CA", "CB", "CG"]
     assert all(record.altloc == "" for record in records)
+
+
+def test_cif_altloc_parsed_zero_beats_missing_occupancy(tmp_path: Path) -> None:
+    from mlmm.io.structure_formats import read_mmcif_atom_sites
+
+    source = tmp_path / "missing-occupancy-altloc.cif"
+    source.write_text(
+        """data_alt
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 1 C CA A ALA A 1 1 ? 1 0 0 0.0 0 1 ALA A CA 1
+ATOM 2 C CA B ALA A 1 1 ? 2 0 0 ? 0 1 ALA A CA 1
+#
+""",
+        encoding="utf-8",
+    )
+
+    records = read_mmcif_atom_sites(source)
+
+    assert len(records) == 1
+    assert records[0].x == pytest.approx(1.0)
+    assert records[0].occupancy == pytest.approx(0.0)
+    assert records[0].occupancy_known
 
 
 def test_altloc_selection_preserves_repeated_blank_atom_names(tmp_path: Path) -> None:
@@ -697,8 +1059,12 @@ def test_parm_topology_order_validator_rejects_count_and_element_mismatch() -> N
 
 def test_annotated_conversion_emits_one_final_cif(tmp_path: Path, monkeypatch) -> None:
     from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+    from mlmm.core import result_commit
     from mlmm.core import utils as core_utils
-    from mlmm.io import structure_formats
+    from mlmm.io.structure_formats import (
+        coordinate_template_for,
+        unregister_coordinate_template,
+    )
 
     source = tmp_path / "input.cif"
     _write_minimal_cif(source)
@@ -718,15 +1084,14 @@ def test_annotated_conversion_emits_one_final_cif(tmp_path: Path, monkeypatch) -
         model.write_text(atom_line + "\nEND\n", encoding="utf-8")
         out_pdb = tmp_path / "annotated.pdb"
 
-        writes = 0
-        original_writer = structure_formats.write_mmcif_frames
+        published = []
+        real_replace = result_commit._replace_exact
 
-        def counted_writer(*args, **kwargs):
-            nonlocal writes
-            writes += 1
-            return original_writer(*args, **kwargs)
+        def record_replace(staged: Path, destination: Path) -> None:
+            published.append(destination)
+            real_replace(staged, destination)
 
-        monkeypatch.setattr(structure_formats, "write_mmcif_frames", counted_writer)
+        monkeypatch.setattr(result_commit, "_replace_exact", record_replace)
         core_utils.convert_and_annotate_xyz_to_pdb(
             xyz,
             prepared.source_path,
@@ -735,12 +1100,199 @@ def test_annotated_conversion_emits_one_final_cif(tmp_path: Path, monkeypatch) -
             freeze_indices_0based=[1],
         )
 
-        assert writes == 1
+        assert published == [out_pdb.with_suffix(".cif"), out_pdb]
         data = MMCIF2Dict(str(out_pdb.with_suffix(".cif")))
         assert data["_atom_site.B_iso_or_equiv"] == ["0.00", "20.00"]
         assert np.allclose(
             [float(value) for value in data["_atom_site.Cartn_x"]],
             [3.12345, 6.54321],
         )
+        assert coordinate_template_for(out_pdb) is prepared.structure_template
     finally:
+        unregister_coordinate_template(tmp_path / "annotated.pdb")
+        prepared.cleanup()
+
+
+def test_annotated_conversion_rejects_swapped_template_before_mutation(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    from mlmm.core import utils as core_utils
+    from mlmm.io.structure_formats import (
+        coordinate_template_for,
+        register_coordinate_template,
+        unregister_coordinate_template,
+    )
+
+    source = tmp_path / "input.cif"
+    _write_minimal_cif(source)
+    xyz = tmp_path / "trajectory.xyz"
+    xyz.write_text("2\nframe\nC 3 4 5\nO 6 7 8\n", encoding="utf-8")
+    prepared = core_utils.prepare_input_structure(source)
+    out_pdb = tmp_path / "annotated.pdb"
+    out_cif = out_pdb.with_suffix(".cif")
+    out_pdb.write_bytes(b"old annotated pdb\n")
+    out_cif.write_bytes(b"old annotated cif\n")
+    try:
+        atom_line = next(
+            line
+            for line in prepared.source_path.read_text(encoding="utf-8").splitlines()
+            if line.startswith(("ATOM", "HETATM"))
+        )
+        model = tmp_path / "model.pdb"
+        model.write_text(atom_line + "\nEND\n", encoding="utf-8")
+        assert prepared.structure_template is not None
+        swapped_template = replace(
+            prepared.structure_template,
+            records=tuple(reversed(prepared.structure_template.records)),
+            reason="same-count swapped template",
+        )
+        previous_template = replace(
+            prepared.structure_template,
+            reason="pre-existing annotated output generation",
+        )
+        register_coordinate_template(prepared.source_path, swapped_template)
+        register_coordinate_template(out_pdb, previous_template)
+
+        with pytest.raises(
+            ValueError,
+            match="retained coordinate template.*atom 1",
+        ):
+            core_utils.convert_and_annotate_xyz_to_pdb(
+                xyz,
+                prepared.source_path,
+                out_pdb,
+                model,
+                freeze_indices_0based=[1],
+            )
+
+        assert out_pdb.read_bytes() == b"old annotated pdb\n"
+        assert out_cif.read_bytes() == b"old annotated cif\n"
+        assert coordinate_template_for(out_pdb) is previous_template
+    finally:
+        unregister_coordinate_template(out_pdb)
+        prepared.cleanup()
+
+
+def test_annotated_conversion_companion_failure_preserves_public_generation(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from mlmm.core import result_commit
+    from mlmm.core import utils as core_utils
+    from mlmm.io.structure_formats import (
+        coordinate_template_for,
+        register_coordinate_template,
+        unregister_coordinate_template,
+    )
+
+    source = tmp_path / "input.cif"
+    _write_minimal_cif(source)
+    xyz = tmp_path / "trajectory.xyz"
+    xyz.write_text("2\nframe\nC 3 4 5\nO 6 7 8\n", encoding="utf-8")
+    prepared = core_utils.prepare_input_structure(source)
+    out_pdb = tmp_path / "annotated.pdb"
+    out_cif = out_pdb.with_suffix(".cif")
+    out_pdb.write_bytes(b"old annotated pdb\n")
+    out_cif.write_bytes(b"old annotated cif\n")
+    try:
+        atom_line = next(
+            line
+            for line in prepared.source_path.read_text(encoding="utf-8").splitlines()
+            if line.startswith(("ATOM", "HETATM"))
+        )
+        model = tmp_path / "model.pdb"
+        model.write_text(atom_line + "\nEND\n", encoding="utf-8")
+        assert prepared.structure_template is not None
+        previous_template = prepared.structure_template
+        register_coordinate_template(out_pdb, previous_template)
+        real_replace = result_commit._replace_exact
+
+        def fail_companion(staged: Path, destination: Path) -> None:
+            if destination == out_cif:
+                raise OSError("injected annotated companion failure")
+            real_replace(staged, destination)
+
+        monkeypatch.setattr(result_commit, "_replace_exact", fail_companion)
+        with pytest.raises(
+            result_commit.ResultCommitError,
+            match="annotated companion failure",
+        ):
+            core_utils.convert_and_annotate_xyz_to_pdb(
+                xyz,
+                prepared.source_path,
+                out_pdb,
+                model,
+                freeze_indices_0based=[1],
+            )
+
+        assert out_pdb.read_bytes() == b"old annotated pdb\n"
+        assert out_cif.read_bytes() == b"old annotated cif\n"
+        assert coordinate_template_for(out_pdb) is previous_template
+    finally:
+        unregister_coordinate_template(out_pdb)
+        prepared.cleanup()
+
+
+def test_annotated_conversion_primary_failure_rolls_back_public_generation(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from mlmm.core import result_commit
+    from mlmm.core import utils as core_utils
+    from mlmm.io.structure_formats import (
+        coordinate_template_for,
+        register_coordinate_template,
+        unregister_coordinate_template,
+    )
+
+    source = tmp_path / "input.cif"
+    _write_minimal_cif(source)
+    xyz = tmp_path / "trajectory.xyz"
+    xyz.write_text("2\nframe\nC 3 4 5\nO 6 7 8\n", encoding="utf-8")
+    prepared = core_utils.prepare_input_structure(source)
+    out_pdb = tmp_path / "annotated.pdb"
+    out_cif = out_pdb.with_suffix(".cif")
+    out_pdb.write_bytes(b"old annotated pdb\n")
+    out_cif.write_bytes(b"old annotated cif\n")
+    try:
+        atom_line = next(
+            line
+            for line in prepared.source_path.read_text(encoding="utf-8").splitlines()
+            if line.startswith(("ATOM", "HETATM"))
+        )
+        model = tmp_path / "model.pdb"
+        model.write_text(atom_line + "\nEND\n", encoding="utf-8")
+        assert prepared.structure_template is not None
+        previous_template = prepared.structure_template
+        register_coordinate_template(out_pdb, previous_template)
+        real_replace = result_commit._replace_exact
+        failed = False
+
+        def fail_primary_once(staged: Path, destination: Path) -> None:
+            nonlocal failed
+            if destination == out_pdb and not failed:
+                failed = True
+                raise OSError("injected annotated primary failure")
+            real_replace(staged, destination)
+
+        monkeypatch.setattr(result_commit, "_replace_exact", fail_primary_once)
+        with pytest.raises(
+            result_commit.ResultCommitError,
+            match="annotated primary failure",
+        ):
+            core_utils.convert_and_annotate_xyz_to_pdb(
+                xyz,
+                prepared.source_path,
+                out_pdb,
+                model,
+                freeze_indices_0based=[1],
+            )
+
+        assert out_pdb.read_bytes() == b"old annotated pdb\n"
+        assert out_cif.read_bytes() == b"old annotated cif\n"
+        assert coordinate_template_for(out_pdb) is previous_template
+    finally:
+        unregister_coordinate_template(out_pdb)
         prepared.cleanup()

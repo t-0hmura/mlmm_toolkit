@@ -36,23 +36,65 @@ def test_idx_is_file_position_not_pdb_serial(tmp_path: Path) -> None:
     pdb = tmp_path / "gap.pdb"
     _write_pdb_with_gap(pdb)
 
-    from mlmm.backends import mlmm_calc as _mc
+    from mlmm.backends.mlmm_calc import MLMMCore
+    from mlmm.io.pdb_indexing import parse_pdb_ordinal_atoms
 
-    # We don't actually instantiate MLMMCore (it needs parm7/rst7 + UMA).
-    # Just verify the file-position logic by re-implementing the relevant
-    # snippet locally — mirroring the production code path.
-    leap_atoms = []
-    atom_pos = 0
-    for ln in open(pdb):
-        if not ln.startswith(("ATOM", "HETATM")):
-            continue
-        atom_pos += 1
-        leap_atoms.append({"idx": atom_pos, "serial": int(ln[6:11])})
+    atoms = parse_pdb_ordinal_atoms(pdb)
+    assert [atom.idx for atom in atoms] == [1, 2, 3, 4, 5]
+    assert [atom.serial for atom in atoms] == [1, 2, 3, 8, 9]
 
-    assert [a["idx"] for a in leap_atoms] == [1, 2, 3, 4, 5]
-    assert [a["serial"] for a in leap_atoms] == [1, 2, 3, 8, 9]
+    # Exercise production `_ml_prep` without running the heavyweight
+    # constructor.  Taking the whole input as the model avoids link atoms.
+    core = MLMMCore.__new__(MLMMCore)
+    core.input_pdb = str(pdb)
+    core.model_pdb = str(pdb)
+    core.link_mlmm = None
+    ml_ids, links, element_pairs = core._ml_prep()
 
-    # Confirm the production code uses the same `atom_pos += 1` pattern:
-    src = Path(_mc.__file__).read_text()
-    assert "atom_pos = 0" in src and 'leap_atoms.append' in src
-    assert '"idx": atom_pos,' in src
+    assert ml_ids == ["1", "2", "3", "4", "5"]
+    assert links == []
+    assert element_pairs == []
+
+
+@_need_py311
+def test_dft_loader_delegates_to_ordinal_parser(tmp_path: Path, monkeypatch) -> None:
+    from mlmm.io.pdb_indexing import parse_pdb_ordinal_atoms
+    from mlmm.workflows import dft
+
+    pdb = tmp_path / "gap.pdb"
+    _write_pdb_with_gap(pdb)
+    expected = parse_pdb_ordinal_atoms(pdb)
+    calls = []
+
+    def recording_parser(path):
+        calls.append(Path(path))
+        return expected
+
+    monkeypatch.setattr(dft, "parse_pdb_ordinal_atoms", recording_parser)
+
+    assert dft._load_input_atoms(pdb) is expected
+    assert calls == [pdb]
+
+
+@_need_py311
+def test_ordinal_parser_accepts_hybrid36_and_opaque_diagnostic_serials(
+    tmp_path: Path,
+) -> None:
+    from mlmm.io.pdb_indexing import parse_pdb_ordinal_atoms
+
+    source = tmp_path / "hybrid36.pdb"
+    base = (
+        "ATOM      1  C   MOL A   1       0.000   0.000   0.000  1.00  0.00           C\n"
+    )
+    source.write_text(
+        base[:6] + "A0000" + base[11:]
+        + base[:6] + "A0002" + base[11:]
+        + base[:6] + "*****" + base[11:]
+        + "END\n",
+        encoding="utf-8",
+    )
+
+    atoms = parse_pdb_ordinal_atoms(source)
+
+    assert [atom.idx for atom in atoms] == [1, 2, 3]
+    assert [atom.serial for atom in atoms] == [100_000, 100_002, "*****"]

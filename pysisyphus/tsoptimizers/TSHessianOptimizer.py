@@ -282,6 +282,9 @@ class TSHessianOptimizer(HessianOptimizer):
         self._last_exact_target_mode_reanchored = False
         self._last_exact_physical_mode = None
         self._initial_reference_root_mode = None
+        self._initial_reference_root_index = None
+        self._initial_reference_root_overlap = None
+        self._initial_reference_root_eigenvalue = None
         self._best_exact_saddle = None
 
         self.ts_modes = list()
@@ -367,7 +370,11 @@ class TSHessianOptimizer(HessianOptimizer):
                 else np.asarray(eigvecs)
             )
             overlaps = eigvecs_np.T @ ref_mode
-            self.roots = [self._select_initial_reference_root(eigvals, overlaps)]
+            selected_root = self._select_initial_reference_root(eigvals, overlaps)
+            self.roots = [selected_root]
+            self._initial_reference_root_index = int(selected_root)
+            self._initial_reference_root_overlap = float(abs(overlaps[selected_root]))
+            self._initial_reference_root_eigenvalue = float(eigvals[selected_root])
             used_str = (
                 "overlap-band/curvature selection with Cartesian "
                 "path/reference mode"
@@ -668,7 +675,8 @@ class TSHessianOptimizer(HessianOptimizer):
             )
             return None
 
-        from mlmm.workflows.freq import _frequencies_cm_and_modes
+        from pysisyphus.normal_modes import _frequencies_cm_and_modes
+        from pysisyphus.tr_projection import DEFAULT_TR_PROJECTION
 
         if isinstance(H, torch.Tensor):
             H_in = H.detach().clone().to(dtype=torch.float64)
@@ -687,7 +695,7 @@ class TSHessianOptimizer(HessianOptimizer):
             device,
             freeze_idx=sorted(frozen) or None,
             tr_projection=getattr(
-                self.geometry, "tr_projection", "constrained"
+                self.geometry, "tr_projection", DEFAULT_TR_PROJECTION
             ),
             projection_info=projection_info,
         )
@@ -700,7 +708,7 @@ class TSHessianOptimizer(HessianOptimizer):
             return None
 
         from pysisyphus.constants import AMU2AU
-        from mlmm.workflows.freq import _mw_mode_to_cart, _safe_masses_amu
+        from pysisyphus.normal_modes import _mw_mode_to_cart, _safe_masses_amu
 
         mode_mw = modes[int(mode_index)]
         masses_au = torch.as_tensor(
@@ -1053,7 +1061,7 @@ class TSHessianOptimizer(HessianOptimizer):
         if self.geometry.coord_type in ("cart", "cartesian"):
             from ase import units
             from pysisyphus.constants import AU2EV, BOHR2ANG
-            from mlmm.workflows.freq import _safe_masses_amu
+            from pysisyphus.normal_modes import _safe_masses_amu
 
             masses_3n = np.repeat(
                 _safe_masses_amu(self.geometry.atomic_numbers), 3
@@ -1335,10 +1343,22 @@ class TSHessianOptimizer(HessianOptimizer):
         return energy, gradient, H, eigvals, eigvecs, resetted
 
     def check_convergence(self, *args, **kwargs):
-        converged, conv_info = super().check_convergence(*args, **kwargs)
+        # The TS optimizer owns saddle-recovery vs. energy-plateau precedence,
+        # so it always suppresses the base plateau stall (allow_stall=False),
+        # decides exact-saddle convergence/recovery first, and only then
+        # finalizes a stall if the requested curvature is present while the
+        # configured current force/step criteria fail.
+        kwargs = dict(kwargs)
+        outer_allow_stall = kwargs.pop("allow_stall", True)
+        converged, conv_info = super().check_convergence(
+            *args, allow_stall=False, **kwargs
+        )
         if self._saddle_recovery_active or self.stop_requested:
-            converged = False
-        elif self.verify_saddle:
+            # A wrong/missing physical mode arms bounded saddle recovery, and a
+            # pre-existing bounded stop already owns the outcome; neither is an
+            # energy-plateau stall.
+            return False, conv_info
+        if self.verify_saddle:
             # A plateau or a raw/quasi-Newton root is insufficient.  Exact
             # PHVA at these exact coordinates plus converged current forces is
             # the physical definition of a stationary saddle.  The proposed
@@ -1357,6 +1377,14 @@ class TSHessianOptimizer(HessianOptimizer):
                 # Exact curvature plus current force/step criteria makes a
                 # repeated zero-displacement cycle unnecessary.
                 conv_info = replace(conv_info, energy_converged=True)
+            elif outer_allow_stall and exact_current_saddle:
+                # Required curvature is present (a verified first-order saddle
+                # at these exact coordinates) but the energy is flat while the
+                # configured current force/step criteria fail: this is a
+                # stall, never a converged saddle.
+                self._maybe_request_energy_plateau_stall(
+                    conv_info, curvature_ok=True
+                )
         return converged, conv_info
 
     def apply_saddle_recovery_step(self, step):

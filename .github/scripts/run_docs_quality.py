@@ -31,11 +31,6 @@ def main() -> int:
         description="Run docs/reference/smoke checks used by CI."
     )
     parser.add_argument(
-        "--skip-dump",
-        action="store_true",
-        help="Skip smoke_dump_trajectories.py (faster local verification).",
-    )
-    parser.add_argument(
         "--dump-timeout-sec",
         type=float,
         default=None,
@@ -59,17 +54,22 @@ def main() -> int:
          [sys.executable, ".github/scripts/check_skill_frontmatter.py"]),
         ("Check handwritten docs/skill semantic contracts",
          [sys.executable, ".github/scripts/check_docs_contract.py"]),
-        ("Check skill drift (prose tables / JSON snippets — warning-only)",
+        ("Check product import graph (no cycles / fork->product / core->workflows)",
+         [sys.executable, ".github/scripts/check_import_graph.py"]),
+        ("Check skill drift (prose tables / JSON snippets)",
          [sys.executable, ".github/scripts/check_skill_drift.py"]),
+        ("Check release-version consistency",
+         [sys.executable, ".github/scripts/check_release_versions.py"]),
         ("Check intro template headings", [sys.executable, ".github/scripts/check_intro_template.py"]),
         ("Check markdown local links", [sys.executable, ".github/scripts/check_markdown_links.py"]),
         ("Check all->scan option contract", [sys.executable, ".github/scripts/check_all_scan_contract.py"]),
+        ("Check advertised example scripts (bash -n + option names)",
+         [sys.executable, ".github/scripts/check_example_scripts.py"]),
         ("Smoke docs commands", [sys.executable, ".github/scripts/smoke_docs_commands.py"]),
     ]
-    if not args.skip_dump:
-        steps.append(
-            ("Smoke dump trajectories", [sys.executable, ".github/scripts/smoke_dump_trajectories.py"])
-        )
+    steps.append(
+        ("Smoke dump trajectories", [sys.executable, ".github/scripts/smoke_dump_trajectories.py"])
+    )
 
     total_elapsed = 0.0
     for label, cmd in steps:

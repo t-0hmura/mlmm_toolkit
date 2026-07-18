@@ -253,7 +253,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 
 ## YAML configuration
 
-`all` supports layered YAML — `--config FILE` for base settings, with the precedence `defaults < config < CLI < override-yaml`. The effective YAML is forwarded to downstream subcommands, and each tool reads the sections described in its own documentation:
+`all` accepts `--config FILE` with the public precedence `defaults < config < explicit CLI`. The effective YAML is forwarded to downstream subcommands, and each tool reads the sections described in its own documentation:
 
 | Subcommand | YAML sections |
 |---|---|
@@ -270,7 +270,6 @@ geom:
 calc:
   charge: 0
   spin: 1
-mlmm:
   real_parm7: real.parm7
   model_pdb: ml_region.pdb
   backend: uma                      # uma | orb | mace | aimnet2

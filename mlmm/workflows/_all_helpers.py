@@ -1,7 +1,6 @@
 """Helpers for the `mlmm all` subcommand.
 
-Holds side-effect-free helpers plus a frozen parameter context
-(``AllContext``) for `mlmm/workflows/all.py:cli()`.
+Holds side-effect-free helpers for `mlmm/workflows/all.py:cli()`.
 
 Anything imported here must be safe to use from ``cli()`` body callers
 without changing observable behavior.
@@ -10,114 +9,8 @@ without changing observable behavior.
 from __future__ import annotations
 
 import shutil
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Sequence
-
-
-@dataclass(frozen=True)
-class AllContext:
-    """Frozen bundle of the `mlmm all` CLI parameters.
-
-    Mirrors the ``cli()`` signature in `mlmm/workflows/all.py` so that
-    helper functions can accept a single argument instead of re-listing
-    74 keyword parameters.
-
-    A drift guard in ``tests/test_all_helpers.py`` keeps the field names
-    in lockstep with the ``cli.callback`` signature.
-
-    Field order matches the CLI option declaration order in
-    `workflows/all.py` so reading the two side-by-side is easy.
-    """
-
-    # Inputs / output
-    input_paths: Sequence[Path]
-    center_spec: Optional[str]
-    out_dir: Path
-    # Extract knobs
-    radius: float
-    radius_het2het: float
-    include_h2o: bool
-    exclude_backbone: bool
-    add_linkh: bool
-    selected_resn: str
-    modified_residue: str
-    ligand_charge: Optional[str]
-    charge_override: Optional[int]
-    parm7_override: Optional[Path]
-    model_pdb_override: Optional[Path]
-    # MM topology
-    mm_ff_set: str
-    mm_add_ter: bool
-    mm_keep_temp: bool
-    mm_ligand_mult: Optional[str]
-    # Charges
-    spin: int
-    tr_projection: str
-    # MEP search
-    max_nodes: int
-    max_cycles: int
-    climb: bool
-    opt_mode: str
-    opt_mode_post: Optional[str]
-    dump: bool
-    refine_path: bool
-    thresh: Optional[str]
-    thresh_post: str
-    config_yaml: Optional[Path]
-    show_config: bool
-    dry_run: bool
-    pre_opt: bool
-    hessian_calc_mode: Optional[str]
-    detect_layer: bool
-    # Stage toggles
-    do_tsopt: bool
-    do_thermo: bool
-    do_dft: bool
-    # Scan
-    scan_lists_raw: Sequence[str]
-    scan_out_dir: Optional[Path]
-    scan_one_based: Optional[bool]
-    scan_max_step_size: Optional[float]
-    scan_bias_k: Optional[float]
-    scan_relax_max_cycles: Optional[int]
-    scan_preopt_override: Optional[bool]
-    scan_endopt_override: Optional[bool]
-    convert_files: bool
-    ref_pdb_cli: Optional[Path]
-    # MLIP backend
-    backend: Optional[str]
-    embedcharge: bool
-    embedcharge_cutoff: Optional[float]
-    link_atom_method: Optional[str]
-    mm_backend: Optional[str]
-    use_cmap: Optional[bool]
-    # TSOPT / FREQ / DFT
-    tsopt_max_cycles: Optional[int]
-    flatten: bool
-    irc_never_stop: Optional[bool]
-    skip_final_freq: bool
-    tsopt_out_dir: Optional[Path]
-    freq_out_dir: Optional[Path]
-    freq_max_write: Optional[int]
-    freq_amplitude_ang: Optional[float]
-    freq_n_frames: Optional[int]
-    freq_sort: Optional[str]
-    freq_temperature: Optional[float]
-    freq_pressure: Optional[float]
-    dft_out_dir: Optional[Path]
-    dft_func_basis: Optional[str]
-    dft_max_cycle: Optional[int]
-    dft_conv_tol: Optional[float]
-    dft_grid_level: Optional[int]
-    dft_engine: Optional[str]
-    cli_coord_type: Optional[str]
-    precision: Optional[str]
-    backend_model: Optional[str]
-    workers: Optional[int] = None
-    workers_per_node: Optional[int] = None
-    calc_file: Optional[str] = None
-    calc_factory: Optional[str] = None
+from typing import Any, Callable, Collection, Dict, Mapping, Optional, Sequence, Tuple
 
 
 def copy_path_outputs_to_root(
@@ -250,6 +143,7 @@ def build_pipeline_summary_payload(
     post_segment_logs: Sequence[Dict[str, Any]],
     mlip_backend: str = "uma",
     mlip_model: Optional[str] = None,
+    mlip_precision: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Assemble the summary_log payload for the `all` pipeline.
 
@@ -290,6 +184,7 @@ def build_pipeline_summary_payload(
         "mep_mode": "path-search" if refine_path else "path-opt",
         "mlip_backend": mlip_backend,
         "mlip_model": mlip_model,
+        "mlip_precision": mlip_precision,
         "command": command_str,
         "charge": q_int,
         "spin": spin,
@@ -309,21 +204,24 @@ def build_tsopt_overrides(
     tsopt_out_dir: Optional[Path],
     hessian_calc_mode: Optional[str],
     opt_mode_post_norm: Optional[str],
+    opt_mode_post_set: bool,
     opt_mode_set: bool,
     tsopt_opt_mode_default: Optional[str],
     convert_files: bool,
-    thresh_post: Optional[str],
+    convert_files_explicit: bool,
+    thresh_post_forward: Optional[str],
     flatten_explicit: bool,
     flatten: Optional[bool],
     skip_final_freq: bool,
+    skip_final_freq_explicit: bool,
 ) -> Dict[str, Any]:
     """Assemble the `tsopt_overrides` dict consumed by the post-MEP TSOPT call.
 
     Extracted from the inline `if x is not None: tsopt_overrides[k] = ...`
     ladder in ``workflows/all.py:cli()`` (~20 LOC) so the dict-construction
-    is independently unit-testable. Behavior preserved: a key only lands
-    in the returned dict when the corresponding CLI flag was either
-    explicitly set or has a non-None value to forward.
+    is independently unit-testable.  Default-valued parent options are
+    omitted unless their parameter source is explicit or the pipeline has
+    deliberately resolved a value for the child stage.
     """
     overrides: Dict[str, Any] = {}
     if tsopt_max_cycles is not None:
@@ -334,17 +232,18 @@ def build_tsopt_overrides(
         overrides["out_dir"] = tsopt_out_dir
     if hessian_calc_mode is not None:
         overrides["hessian_calc_mode"] = hessian_calc_mode
-    if opt_mode_post_norm in {"grad", "hess"}:
+    if opt_mode_post_set and opt_mode_post_norm in {"grad", "hess"}:
         overrides["opt_mode"] = opt_mode_post_norm
     elif opt_mode_set:
         overrides["opt_mode"] = tsopt_opt_mode_default
-    overrides["convert_files"] = bool(convert_files)
-    if thresh_post is not None:
-        overrides["thresh"] = str(thresh_post)
+    if convert_files_explicit:
+        overrides["convert_files"] = bool(convert_files)
+    if thresh_post_forward is not None:
+        overrides["thresh"] = str(thresh_post_forward)
     if flatten_explicit:
         overrides["flatten"] = bool(flatten)
-    if skip_final_freq:
-        overrides["skip_final_freq"] = True
+    if skip_final_freq_explicit:
+        overrides["skip_final_freq"] = bool(skip_final_freq)
     return overrides
 
 
@@ -360,6 +259,7 @@ def build_freq_overrides(
     dump: bool,
     hessian_calc_mode: Optional[str],
     convert_files: bool,
+    convert_files_explicit: bool,
 ) -> Dict[str, Any]:
     """Assemble the `freq_overrides` dict for the post-TSOPT FREQ call.
 
@@ -382,8 +282,136 @@ def build_freq_overrides(
         overrides["dump"] = bool(dump)
     if hessian_calc_mode is not None:
         overrides["hessian_calc_mode"] = hessian_calc_mode
-    overrides["convert_files"] = bool(convert_files)
+    if convert_files_explicit:
+        overrides["convert_files"] = bool(convert_files)
     return overrides
+
+
+ChildArgSpec = Tuple[str, str, Any, bool]
+
+
+def build_explicit_child_argv(
+    explicit_params: Collection[str],
+    specs: Sequence[ChildArgSpec],
+) -> list[str]:
+    """Return canonical child tokens for explicitly supplied parent options.
+
+    Each spec is ``(parameter_name, option, value, is_toggle)``.  Omitted
+    parent defaults produce no token, so the child's effective YAML remains
+    authoritative.  Pipeline-owned paths, charge, topology, and other
+    deliberately resolved values are assembled separately by the caller.
+    """
+
+    argv: list[str] = []
+    for parameter_name, option, value, is_toggle in specs:
+        if parameter_name not in explicit_params or value is None:
+            continue
+        if is_toggle:
+            if not isinstance(value, bool):
+                raise TypeError(
+                    f"Toggle option {option!r} requires bool, got {type(value).__name__}."
+                )
+            positive = option if not option.startswith("--no-") else f"--{option[5:]}"
+            negative = f"--no-{positive[2:]}"
+            argv.append(positive if value else negative)
+        else:
+            argv.extend([option, str(value)])
+    return argv
+
+
+def build_path_child_argv(
+    explicit_params: Collection[str],
+    *,
+    include_opt_mode: bool,
+    max_nodes: int,
+    max_cycles: int,
+    climb: bool,
+    opt_mode: Optional[str],
+    dump: bool,
+    pre_opt: bool,
+    convert_files: bool,
+    thresh: Optional[str],
+) -> list[str]:
+    """Build explicit-only argv shared by path-search and path-opt children.
+
+    Both path commands accept the same parent-controlled settings except that
+    only path-search accepts ``--opt-mode``.  Pipeline-owned input, charge,
+    topology, output, and config tokens remain at the dispatch call site.
+    """
+
+    specs: list[ChildArgSpec] = [
+        ("max_nodes", "--max-nodes", max_nodes, False),
+        ("max_cycles", "--max-cycles", max_cycles, False),
+        ("climb", "--climb", climb, True),
+    ]
+    if include_opt_mode:
+        specs.append(("opt_mode", "--opt-mode", opt_mode, False))
+    specs.extend(
+        [
+            ("dump", "--dump", dump, True),
+            ("pre_opt", "--preopt", pre_opt, True),
+            ("convert_files", "--convert-files", convert_files, True),
+            ("thresh", "--thresh", thresh, False),
+        ]
+    )
+    return build_explicit_child_argv(explicit_params, specs)
+
+
+def build_scan_child_argv(
+    explicit_params: Collection[str],
+    *,
+    convert_files: bool,
+    thresh: Optional[str],
+) -> list[str]:
+    """Build the explicit-only parent options forwarded to staged scan."""
+
+    return build_explicit_child_argv(
+        explicit_params,
+        (
+            ("convert_files", "--convert-files", convert_files, True),
+            ("thresh", "--thresh", thresh, False),
+        ),
+    )
+
+
+def resolve_post_thresh_forwarding(
+    explicit_params: Collection[str],
+    *,
+    thresh_post: Optional[str],
+    yaml_cfg: Mapping[str, Any],
+) -> Optional[str]:
+    """Return a post-stage threshold only when it should become a CLI token."""
+
+    opt_cfg = yaml_cfg.get("opt")
+    if "thresh_post" in explicit_params:
+        return None if thresh_post is None else str(thresh_post)
+    if isinstance(opt_cfg, Mapping) and "thresh" in opt_cfg:
+        return None
+    return None if thresh_post is None else str(thresh_post)
+
+
+def resolve_dft_func_basis_forwarding(
+    explicit_params: Collection[str],
+    *,
+    dft_func_basis: Optional[str],
+    yaml_cfg: Mapping[str, Any],
+    default: str = "wb97m-v/def2-tzvpd",
+) -> Tuple[Optional[str], str]:
+    """Return the child CLI value and effective DFT method label.
+
+    A YAML-only method is used for reporting but remains absent from child
+    argv, allowing the DFT command to resolve its own effective config.
+    """
+
+    forwarded = (
+        str(dft_func_basis)
+        if "dft_func_basis" in explicit_params and dft_func_basis is not None
+        else None
+    )
+    dft_cfg = yaml_cfg.get("dft")
+    yaml_value = dft_cfg.get("func_basis") if isinstance(dft_cfg, Mapping) else None
+    effective = str(forwarded or yaml_value or default)
+    return forwarded, effective
 
 
 def append_backend_forwarding_args(
@@ -437,7 +465,9 @@ def build_dft_overrides(
     dft_conv_tol: Optional[float],
     dft_grid_level: Optional[int],
     dft_engine: Optional[str],
+    dft_func_basis_forward: Optional[str],
     convert_files: bool,
+    convert_files_explicit: bool,
 ) -> Dict[str, Any]:
     """Assemble the `dft_overrides` dict for the post-FREQ DFT call.
 
@@ -452,12 +482,14 @@ def build_dft_overrides(
         overrides["grid_level"] = int(dft_grid_level)
     if dft_engine is not None:
         overrides["engine"] = str(dft_engine)
-    overrides["convert_files"] = bool(convert_files)
+    if dft_func_basis_forward is not None:
+        overrides["func_basis"] = str(dft_func_basis_forward)
+    if convert_files_explicit:
+        overrides["convert_files"] = bool(convert_files)
     return overrides
 
 
 __all__ = [
-    "AllContext",
     "copy_path_outputs_to_root",
     "promote_diag_for_root",
     "build_energy_level_dict",
@@ -465,5 +497,10 @@ __all__ = [
     "build_tsopt_overrides",
     "build_freq_overrides",
     "build_dft_overrides",
+    "build_explicit_child_argv",
+    "build_path_child_argv",
+    "build_scan_child_argv",
+    "resolve_post_thresh_forwarding",
+    "resolve_dft_func_basis_forwarding",
     "append_backend_forwarding_args",
 ]

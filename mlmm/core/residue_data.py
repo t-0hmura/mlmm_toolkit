@@ -1,20 +1,29 @@
 """Residue / ion / water dictionaries shared by L2 (workflows) and L3 (domain).
 
-Foundation-tier data — no MLIP / numpy / torch / Bio dependencies.
-``mlmm.workflows.extract`` and ``mlmm.domain.add_elem_info`` both consume
-these tables; co-locating them here keeps the L3 -> L2 import inversion
-out of the dependency graph.
+Foundation-tier data — no MLIP / numpy / torch / Bio dependencies, and no
+Click / workflow imports.  ``mlmm.workflows.extract`` (charge inference),
+``mlmm.domain.add_elem_info`` (element inference), and ``mlmm.workflows.mm_parm``
+all consume these tables, so this is the single source of truth: editing one
+table can no longer change element inference without changing charge inference.
 
-Keys MUST be all-uppercase to match the case-folded lookup at
-``compute_charge_summary`` (``rn = res.get_resname().upper()``). Mixed-
-case keys are unreachable.
+The public tables are exported **read-only** (``MappingProxyType`` / ``frozenset``)
+so a consumer cannot mutate the canonical catalog.  Callers that must add
+entries (e.g. ``extract``'s ``--modified-residue``) copy into a request-local
+``dict`` at their single mutation boundary; the canonical table stays intact.
+
+For the amino-acid keys, ``rn = res.get_resname().upper()`` is used at the
+charge-inference lookup, so uppercase keys are what the protein/terminus path
+reads.  The ``ION`` table additionally carries Amber-style mixed-case aliases
+for the raw-name path (``mm_parm``); their uppercase folds equal the uppercase
+keys, so the upper-casing consumers see an identical table.
 """
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from types import MappingProxyType
+from typing import Dict, Mapping, Tuple
 
-AMINO_ACIDS: Dict[str, int] = {
+_AMINO_ACIDS: Dict[str, int] = {
     # --- Standard 20 (L) ---
     "ALA":  0, "ARG": +1, "ASN":  0, "ASP": -1, "CYS":  0,
     "GLU": -1, "GLN":  0, "GLY":  0, "HIS":  0, "ILE":  0,
@@ -95,7 +104,7 @@ AMINO_ACIDS: Dict[str, int] = {
     "NTER": +1,  # generic N-terminus
 }
 
-ION: Dict[str, int] = {
+_ION: Dict[str, int] = {
     # +1
     "LI": +1, "NA": +1, "K": +1, "RB": +1, "CS": +1, "TL": +1, "AG": +1, "CU1": +1,
     "K+": +1, "NA+": +1, "NH4": +1, "H3O+": +1, "HE+": +1, "HZ+": +1,
@@ -128,10 +137,31 @@ ION: Dict[str, int] = {
     "Cl-": -1,
 }
 
-WATER_RES = {"HOH", "WAT", "H2O", "DOD", "TIP", "TIP3", "SOL"}
+# Amber terminal residue names whose AMINO_ACIDS value already BAKES IN the
+# ionized-terminus formal charge (e.g. CGLU=-2, NLYS=+2). For these the
+# kept-cap correction in compute_charge_summary must NOT be applied again.
+C_TERMINAL_RESNAMES: frozenset = frozenset({
+    "CALA", "CARG", "CASN", "CASP", "CCYS", "CCYX", "CGLN", "CGLU", "CGLY",
+    "CHID", "CHIE", "CHIP", "CHYP", "CILE", "CLEU", "CLYS", "CMET", "CPHE",
+    "CPRO", "CSER", "CTHR", "CTRP", "CTYR", "CVAL", "CTER",
+})
+N_TERMINAL_RESNAMES: frozenset = frozenset({
+    "NALA", "NARG", "NASN", "NASP", "NCYS", "NCYX", "NGLN", "NGLU", "NGLY",
+    "NHID", "NHIE", "NHIP", "NILE", "NLEU", "NLYS", "NMET", "NPHE", "NPRO",
+    "NSER", "NTHR", "NTRP", "NTYR", "NVAL", "NTER",
+})
+
+WATER_RES: frozenset = frozenset({"HOH", "WAT", "H2O", "DOD", "TIP", "TIP3", "SOL"})
 
 DISULFIDE_CUTOFF = 2.5   # Å Sγ–Sγ (SG–SG)
 EXACT_EPS = 1e-3         # Å tolerance for exact match
 
-# Cross-structure residue identity: (chain, hetflag, resseq, icode, resname)
-ResidueKey = Tuple[str, str, int, str, str]
+# Cross-structure residue identity: (chain, hetflag, resseq, icode, resname).
+# The runtime key is built with ``str(resseq)`` (all fields are strings).
+ResidueKey = Tuple[str, str, str, str, str]
+
+# Public read-only views of the mutable source tables above.  Mutating either
+# proxy raises ``TypeError``; consumers that must extend the catalog copy into a
+# request-local ``dict`` first (see ``extract`` ``--modified-residue``).
+AMINO_ACIDS: Mapping[str, int] = MappingProxyType(_AMINO_ACIDS)
+ION: Mapping[str, int] = MappingProxyType(_ION)

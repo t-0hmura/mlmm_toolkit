@@ -131,7 +131,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. **入力処理** — 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
 2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がHessianを解析的に評価するか有限差分で評価するかを制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **Light モード（Dimer）:**
-   - Hessian Dimer ステージはアクティブ部分空間の部分Hessianを評価して Dimer 方向を定期的に更新します。TR 処理は `--tr-projection` に従い、デフォルトでは凍結 anchor と両立する全系剛体運動だけを除去します。
+   - Hessian Dimer ステージはアクティブ部分空間の部分Hessianを評価して Dimer 方向を定期的に更新します。TR 処理は `--tr-projection` に従い、デフォルトでは凍結 anchor と両立する全系剛体運動だけを除去します。保存・回転・試行する全方向で凍結Cartesian成分をゼロに保ち、中心外のforce評価でも凍結座標を中心imageと厳密に一致させます。
    - 平坦化ループが有効な場合（`--flatten`）、保存されたアクティブHessianは変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回平坦化し、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
 4. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザを、`rsirfo` YAML セクションで定義されたオプションのHessian参照ファイルとマイクロサイクル制御とともに実行します。
@@ -278,7 +278,7 @@ hessian_dimer:
   rotation_interpolate: true       # 回転ステップの補間
   rotation_disable: false          # 回転を完全に無効化
   rotation_disable_pos_curv: true  # 正の曲率検出時に無効化
-  rotation_remove_trans: true      # 並進成分を除去
+  rotation_remove_trans: true      # 選択した剛体null成分を除去
   trans_force_f_perp: true         # 並進に垂直な力を射影
   bonds: null                      # 拘束用の結合リスト
   N_hessian: null                  # Hessianサイズの上書き
@@ -332,6 +332,8 @@ TS 収束が遅い場合や最適化中に TS モードが失われる場合は�
 `constrained`（デフォルト）は、凍結 anchor をすべて動かさない全系剛体運動だけを
 除去します。一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき
 6/3/1/0 で、実用的な ML/MM 境界では通常 0 です。全原子凍結は明示的なエラーになります。
+Dimer は中心imageが変わるたびにこの基底を再構築して方向と回転forceに適用し、
+凍結境界に対する有限曲率運動であるactive fragmentの並進は差し引きません。
 
 `--tr-projection` と `--ref-mode` は別の機能です。前者は凍結境界の剛体モード射影を制御し、
 後者は鞍点回復用の高度な 3N MEP 接線を与えます。`legacy-active` は現行の共通 kernel と

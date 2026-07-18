@@ -46,6 +46,29 @@ _BACKEND_MODEL_KEY: Dict[str, str] = {
 }
 
 
+def normalize_calculator_methods(calc_cfg: Dict[str, Any]) -> None:
+    """Canonicalize strict calculator method enums in a resolved config.
+
+    This lightweight orchestration boundary lets YAML/dry-run paths report the
+    same errors as direct ``MLMMCore`` construction. The constructor repeats
+    the validation because it is also a public API.
+    """
+
+    from mlmm.backends.mlmm_calc import (
+        normalize_hessian_calc_mode,
+        normalize_link_atom_method,
+    )
+
+    if "hessian_calc_mode" in calc_cfg:
+        calc_cfg["hessian_calc_mode"] = normalize_hessian_calc_mode(
+            calc_cfg.get("hessian_calc_mode")
+        )
+    if "link_atom_method" in calc_cfg:
+        calc_cfg["link_atom_method"] = normalize_link_atom_method(
+            calc_cfg.get("link_atom_method")
+        )
+
+
 def apply_backend_model_to_calc_cfg(calc_cfg: Dict[str, Any], backend_model: Optional[str] = None) -> None:
     """Route the unified ``--backend-model`` CLI value into the active backend's
     model kwarg (``uma_model`` / ``orb_model`` / ``mace_model`` /
@@ -118,9 +141,10 @@ def apply_workers_to_calc_cfg(
         calc_cfg["workers"] = int(workers)
     if workers_per_node is not None:
         calc_cfg["workers_per_node"] = int(workers_per_node)
+    normalize_calculator_methods(calc_cfg)
     if int(calc_cfg.get("workers", 1) or 1) > 1:
-        mode = str(calc_cfg.get("hessian_calc_mode", "") or "")
-        if mode.lower().startswith("anal"):
+        mode = calc_cfg.get("hessian_calc_mode")
+        if mode == "Analytical":
             raise ValueError(
                 "Analytical Hessian cannot be combined with workers>1: the "
                 "parallel predictor exposes no autograd model. Use workers=1 "

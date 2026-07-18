@@ -826,18 +826,22 @@ def thermochemistry(
         is_linear=qc.is_linear,
     )
 
-    # Zero point energy
-    zpe_org = zpe_scale_factor * zero_point_energy(vib_frequencies)
-    zpe = zpe_scale_factor * zpe_org
+    # Zero point energy. `zpe_scale_factor` is applied exactly once: the raw ZPE
+    # is scaled to the reported value, and the same single scaling is applied to
+    # the ZPE term inside U_vib below. (Previously the raw ZPE was scaled twice
+    # -- `zpe = f * (f * raw)` -- so a non-unity scale factor entered U/H/G and
+    # the reported ZPE as f**2 instead of f; f == 1.0 was unaffected.)
+    raw_zpe = zero_point_energy(vib_frequencies)
+    zpe = zpe_scale_factor * raw_zpe
 
     # Internal energies
     U_el = qc.scf_energy
     U_trans = translational_energy(T)
     U_rot = rotational_energy(T, qc.is_linear, qc.is_atom)
-    # U_vib already includes ZPE
+    # U_vib already includes the raw (unscaled) ZPE
     U_vib = vibrational_energy(T, vib_frequencies)
-    # Replace ZPE in U_vib w/ scaled ZPE
-    U_vib = U_vib - zpe_org + zpe
+    # Replace the raw ZPE in U_vib with the scaled ZPE
+    U_vib = U_vib - raw_zpe + zpe
     U_therm = U_rot + U_vib + U_trans
     U_tot = U_el + U_therm
 

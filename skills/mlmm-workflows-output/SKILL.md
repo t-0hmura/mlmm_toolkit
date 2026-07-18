@@ -102,9 +102,9 @@ You have a TS guess from another code or a prior run. Skip
 extract / path-search:
 
 ```bash
-mlmm tsopt -i ts.xyz -q -1 -m 1 -b uma -o result_tsopt
-mlmm freq  -i result_tsopt/final_geometry.xyz -q -1 -m 1 -b uma -o result_freq
-mlmm irc   -i result_tsopt/final_geometry.xyz -q -1 -m 1 -b uma -o result_irc
+mlmm tsopt -i ts.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_tsopt
+mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq
+mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
 ```
 
 Or use `mlmm all` with a single `-i` (collapses to TS-only
@@ -223,6 +223,8 @@ Top-level keys:
 | `key_output_files` | Map of role → path (mep_pdb, energy_diagrams, …) |
 | `pipeline_mode` | Internal mode tag |
 | `mlip_backend` | Which backend produced the energies |
+| `mlip_model` | Exact model/checkpoint identifier; `filename:factory` for custom calculators |
+| `mlip_precision` | Effective `fp32` / `fp64`; null for custom calculators |
 | `energy_diagrams` | Paths to PNG / HTML diagrams |
 
 Per-segment keys (`summary.json["segments"][i]`, from path-search output):

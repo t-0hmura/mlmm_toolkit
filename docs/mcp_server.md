@@ -19,15 +19,30 @@ script.
 22 tools, one per CLI subcommand. Each tool returns a structured dict (`SubcmdResultDict` in `mlmm.mcp._runner`) with:
 
 - `schema_version`: envelope version. Live value: `mlmm.mcp._runner.MCP_SUBCMD_RESULT_SCHEMA_VERSION`. A version bump signals a field-set or value-type change; pin to the constant rather than the literal value in this doc.
-- `status`: `ok` | `failed` | `summary_missing` | `summary_parse_error`
+- `status`: `ok` | `failed` | `summary_missing` | `summary_parse_error` | `summary_run_mismatch`
 - `exit_code`: subprocess exit code
 - `out_dir`: working directory the CLI wrote to
 - `summary`: parsed `summary.json` (CLI output schema; see [JSON Output Reference](json-output.md) for the per-stage shape)
 - `stderr_tail` / `stdout_tail`: last ~60 lines of process output
 - `hint`: parsed `; recover: <hint>` suffix from CLI error messages, if any
 - `argv`: the full argv that was executed (for reproducibility)
+- `run_id`: UUID assigned to this subprocess invocation
 
 For typed-Python consumers, `mlmm.mcp._runner` also exposes `SubcmdResultDict` (a `TypedDict` mirroring the runtime payload) and `MCP_SUBCMD_RESULT_STATUSES` (the enum tuple of allowed `status` strings).
+
+The server binds `mlmm` to the Python interpreter and imported module that
+host the MCP server (`python -m mlmm`), prepends that source root to the child
+`PYTHONPATH`, and leaves the working directory unchanged. Relative scientific
+inputs therefore retain their caller meaning while a different `mlmm` earlier
+on `PATH` cannot service the request. Every invocation supplies its `run_id`
+through `MLMM_RUN_ID`; only a `summary.json` carrying that exact ID is returned.
+Leaf commands must also have an identical current `result.json`; the aggregate
+`all` and `path-search` commands intentionally publish one summary file.
+
+Output paths are owned by typed tool parameters. `extra_args` cannot override
+`-o`, `--out-dir`, `--out-json`, or `--no-out-json` for summary tools, nor a
+typed utility output option. Attached short and `--option=value` forms are
+rejected before subprocess launch.
 
 ### Structured error envelope
 
@@ -120,8 +135,9 @@ CUDA_VISIBLE_DEVICES).
 
 ## Sandbox / safety notes
 
-- The MCP server inherits the calling environment's PATH, conda env, CUDA
-  setup, and AmberTools path. Each tool spawns the `mlmm` CLI as a subprocess,
+- The MCP server inherits the calling environment's PATH for external tools,
+  plus the conda env, CUDA setup, and AmberTools path. Each tool spawns the
+  imported `mlmm` module with the server interpreter as a subprocess,
   so long-running tools (opt / tsopt / irc / scan) run out-of-process — set
   `timeout_seconds` on each call to bound them.
 - Output files land under the `out_dir` kwarg (defaults to a unique

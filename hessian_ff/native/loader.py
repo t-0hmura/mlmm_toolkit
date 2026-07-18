@@ -1,22 +1,363 @@
 from __future__ import annotations
 
-import os
-import sys
+import hashlib
 import importlib.util
 from importlib import import_module
+import json
+import os
+import platform
 from pathlib import Path
-from typing import Any, Dict, Optional
+import shlex
+import shutil
+import subprocess
+import sys
+import sysconfig
+import tempfile
+from typing import Any, Dict, Mapping, Optional, Sequence
 
-_EXT_CACHE: Dict[str, Optional[Any]] = {
-    "nonbonded": None,
-    "analytical_hessian": None,
-    "bonded": None,
-}
-_EXT_ERROR: Dict[str, Optional[str]] = {
-    "nonbonded": None,
-    "analytical_hessian": None,
-    "bonded": None,
-}
+_FINGERPRINT_SCHEMA = 1
+_FINGERPRINT_SUFFIX_LENGTH = 16
+_BUILD_RECIPES = (
+    (
+        (
+            "-Ofast",
+            "-ffast-math",
+            "-funroll-loops",
+            "-march=native",
+            "-mtune=native",
+            "-fopenmp",
+        ),
+        ("-fopenmp",),
+    ),
+    (
+        (
+            "-O3",
+            "-ffast-math",
+            "-funroll-loops",
+            "-march=native",
+            "-mtune=native",
+            "-fopenmp",
+        ),
+        ("-fopenmp",),
+    ),
+    (
+        ("-O3", "-ffast-math", "-funroll-loops", "-fopenmp"),
+        ("-fopenmp",),
+    ),
+    (("-O3", "-fopenmp"), ("-fopenmp",)),
+    (("-O3",), ()),
+)
+
+# Native modules and build errors are valid only for the exact build identity.
+_EXT_CACHE: Dict[tuple[str, str], Any] = {}
+_EXT_ERROR: Dict[tuple[str, str], str] = {}
+_LAST_FINGERPRINT: Dict[str, str] = {}
+
+
+def _canonical_json(payload: Mapping[str, Any]) -> str:
+    return json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _source_records(
+    source_dir: Path, source_files: Sequence[str]
+) -> list[dict[str, str]]:
+    records: list[dict[str, str]] = []
+    for source_file in source_files:
+        relative = Path(source_file)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError(f"native source path must be relative: {source_file!r}")
+        source_path = source_dir / relative
+        records.append(
+            {
+                "name": relative.as_posix(),
+                "sha256": _sha256_file(source_path),
+            }
+        )
+    return records
+
+
+def _run_compiler_probe(command: Sequence[str], *arguments: str) -> str:
+    try:
+        completed = subprocess.run(
+            [*command, *arguments],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"unavailable:{type(exc).__name__}"
+    return completed.stdout.strip()
+
+
+def _compiler_command() -> list[str]:
+    configured = os.environ.get("CXX")
+    if configured:
+        return shlex.split(configured) or ["c++"]
+    conda_compiler = (
+        Path(sys.prefix) / "bin" / f"{platform.machine()}-conda-linux-gnu-g++"
+    )
+    if conda_compiler.is_file() and os.access(conda_compiler, os.X_OK):
+        return [str(conda_compiler)]
+    return ["c++"]
+
+
+def _compiler_identity() -> dict[str, Any]:
+    command = _compiler_command()
+    displayed_command = [Path(command[0]).name, *command[1:]]
+    return {
+        "command": displayed_command,
+        "version": _run_compiler_probe(command, "--version"),
+        "version_number": _run_compiler_probe(
+            command, "-dumpfullversion", "-dumpversion"
+        ),
+        "target": _run_compiler_probe(command, "-dumpmachine"),
+    }
+
+
+def _cpu_identity() -> dict[str, Any]:
+    features: set[str] = set()
+    cpuinfo = Path("/proc/cpuinfo")
+    try:
+        contents = cpuinfo.read_text(encoding="utf-8", errors="replace")
+        for line in contents.splitlines():
+            label, separator, value = line.partition(":")
+            if separator and label.strip().lower() in {"flags", "features"}:
+                features.update(value.split())
+    except OSError:
+        pass
+
+    torch_capability: Optional[str]
+    try:
+        import torch
+
+        torch_capability = str(torch.backends.cpu.get_cpu_capability())
+    except Exception:
+        torch_capability = None
+    return {
+        "machine": platform.machine(),
+        "processor": platform.processor(),
+        "torch_capability": torch_capability,
+        "features": sorted(features),
+    }
+
+
+def _runtime_identity() -> dict[str, Any]:
+    import torch
+
+    torch_c = getattr(torch, "_C", None)
+    return {
+        "python": {
+            "implementation": platform.python_implementation(),
+            "cache_tag": getattr(sys.implementation, "cache_tag", None),
+            "soabi": sysconfig.get_config_var("SOABI"),
+            "extension_suffix": sysconfig.get_config_var("EXT_SUFFIX"),
+        },
+        "torch": {
+            "version": str(torch.__version__),
+            "cuda_version": getattr(torch.version, "cuda", None),
+            "hip_version": getattr(torch.version, "hip", None),
+            "debug_build": bool(getattr(torch.version, "debug", False)),
+            "cxx11_abi": getattr(torch_c, "_GLIBCXX_USE_CXX11_ABI", None),
+            "openmp": bool(torch.backends.openmp.is_available()),
+            "mkl": bool(torch.backends.mkl.is_available()),
+            "mkldnn": bool(torch.backends.mkldnn.is_available()),
+        },
+        "platform": {
+            "system": platform.system(),
+            "release": platform.release(),
+            "tag": sysconfig.get_platform(),
+            "libc": list(platform.libc_ver()),
+            "byteorder": sys.byteorder,
+        },
+    }
+
+
+def _native_build_identity(
+    source_dir: Path,
+    source_files: Sequence[str],
+    *,
+    build_recipes: Sequence[tuple[Sequence[str], Sequence[str]]] = _BUILD_RECIPES,
+    runtime_identity: Optional[Mapping[str, Any]] = None,
+    compiler_identity: Optional[Mapping[str, Any]] = None,
+    cpu_identity: Optional[Mapping[str, Any]] = None,
+) -> tuple[dict[str, Any], str]:
+    """Return the path-independent native-build payload and its SHA-256."""
+
+    payload = {
+        "schema_version": _FINGERPRINT_SCHEMA,
+        "sources": _source_records(Path(source_dir), source_files),
+        "build_recipes": [
+            {"cflags": list(cflags), "ldflags": list(ldflags)}
+            for cflags, ldflags in build_recipes
+        ],
+        "runtime": dict(
+            _runtime_identity() if runtime_identity is None else runtime_identity
+        ),
+        "compiler": dict(
+            _compiler_identity() if compiler_identity is None else compiler_identity
+        ),
+        "cpu": dict(_cpu_identity() if cpu_identity is None else cpu_identity),
+    }
+    fingerprint = hashlib.sha256(
+        _canonical_json(payload).encode("utf-8")
+    ).hexdigest()
+    return payload, fingerprint
+
+
+def _module_name(ext_name: str, fingerprint: str, recipe_index: int = 0) -> str:
+    return (
+        f"{ext_name}_r{int(recipe_index)}_"
+        f"{fingerprint[:_FINGERPRINT_SUFFIX_LENGTH]}"
+    )
+
+
+def _sidecar_path(binary_path: Path) -> Path:
+    return binary_path.with_name(f"{binary_path.name}.identity.json")
+
+
+def _sidecar_payload(
+    *,
+    identity: Mapping[str, Any],
+    fingerprint: str,
+    module_name: str,
+    binary_path: Path,
+) -> dict[str, Any]:
+    return {
+        "schema_version": _FINGERPRINT_SCHEMA,
+        "fingerprint": fingerprint,
+        "module_name": module_name,
+        "identity": dict(identity),
+        "binary": {
+            "name": binary_path.name,
+            "sha256": _sha256_file(binary_path),
+        },
+    }
+
+
+def _write_identity_sidecar(
+    *,
+    identity: Mapping[str, Any],
+    fingerprint: str,
+    module_name: str,
+    binary_path: Path,
+) -> None:
+    sidecar = _sidecar_path(binary_path)
+    encoded = (
+        _canonical_json(
+            _sidecar_payload(
+                identity=identity,
+                fingerprint=fingerprint,
+                module_name=module_name,
+                binary_path=binary_path,
+            )
+        )
+        + "\n"
+    ).encode("utf-8")
+    temporary: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{sidecar.name}.",
+            suffix=".tmp",
+            dir=sidecar.parent,
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, sidecar)
+        temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _has_valid_identity_sidecar(
+    binary_path: Path,
+    *,
+    identity: Mapping[str, Any],
+    fingerprint: str,
+    module_name: str,
+) -> bool:
+    sidecar = _sidecar_path(binary_path)
+    try:
+        payload = json.loads(sidecar.read_text(encoding="utf-8"))
+        expected = _sidecar_payload(
+            identity=identity,
+            fingerprint=fingerprint,
+            module_name=module_name,
+            binary_path=binary_path,
+        )
+    except (OSError, ValueError, TypeError):
+        return False
+    return payload == expected
+
+
+def _expected_binary_names(module_name: str) -> tuple[str, ...]:
+    ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
+    names = [f"{module_name}.so", f"{module_name}.pyd"]
+    if ext_suffix:
+        names.append(f"{module_name}{ext_suffix}")
+    return tuple(dict.fromkeys(names))
+
+
+def _find_valid_prebuilt(
+    build_dirs: Sequence[Path],
+    *,
+    identity: Mapping[str, Any],
+    fingerprint: str,
+    module_name: str,
+) -> Optional[Path]:
+    for build_dir in build_dirs:
+        for name in _expected_binary_names(module_name):
+            candidate = build_dir / name
+            if candidate.is_file() and _has_valid_identity_sidecar(
+                candidate,
+                identity=identity,
+                fingerprint=fingerprint,
+                module_name=module_name,
+            ):
+                return candidate
+    return None
+
+
+def _build_dirs(
+    here: Path, build_subdir: str, fingerprint: str
+) -> tuple[Path, Path, Path]:
+    local_base = Path(
+        os.environ.get("TORCH_EXTENSIONS_DIR")
+        or (Path(tempfile.gettempdir()) / "mlmm_hessian_ff")
+    )
+    package_base = here / build_subdir
+    cache_base = _cache_build_dir(build_subdir)
+    return (
+        local_base / build_subdir / fingerprint,
+        package_base / fingerprint,
+        cache_base / fingerprint,
+    )
+
+
+def _error_for(key: str) -> Optional[str]:
+    fingerprint = _LAST_FINGERPRINT.get(key)
+    if fingerprint is None:
+        return None
+    return _EXT_ERROR.get((key, fingerprint))
 
 
 def _rebuild_hint() -> str:
@@ -99,7 +440,7 @@ def _cache_build_dir(build_subdir: str) -> Path:
     return cache_root / "mlmm-toolkit" / "hessian_ff" / build_subdir
 
 
-def _build_in_tree_extension(
+def _load_or_build_extension(
     *,
     key: str,
     ext_name: str,
@@ -108,73 +449,68 @@ def _build_in_tree_extension(
     verbose: bool,
     force_rebuild: bool,
 ) -> Optional[Any]:
-    if _EXT_CACHE[key] is not None and not force_rebuild:
-        return _EXT_CACHE[key]
-    if _EXT_ERROR[key] is not None and not force_rebuild:
-        return None
-
     here = Path(__file__).resolve().parent
-    # Candidate build directories. A local-filesystem dir is tried FIRST: torch's
-    # cpp_extension build lock (baton) deadlocks on network filesystems (NFS/Lustre),
-    # so a network-mounted package dir or ~/.cache would hang the JIT build. Honor
-    # TORCH_EXTENSIONS_DIR, else use the system temp dir (local on virtually all hosts).
-    import tempfile
-    local_build_dir = Path(
-        os.environ.get("TORCH_EXTENSIONS_DIR") or tempfile.gettempdir()
-    ) / "mlmm_hessian_ff" / build_subdir
-    pkg_build_dir = here / build_subdir
-    cache_build_dir = _cache_build_dir(build_subdir)
-    build_dirs = [local_build_dir, pkg_build_dir, cache_build_dir]
+    identity, fingerprint = _native_build_identity(here, source_files)
+    module_names = tuple(
+        _module_name(ext_name, fingerprint, recipe_index)
+        for recipe_index in range(len(_BUILD_RECIPES))
+    )
+    cache_key = (key, fingerprint)
+    _LAST_FINGERPRINT[key] = fingerprint
 
-    def _find_prebuilt_so() -> Optional[Path]:
-        """Search all candidate directories for a prebuilt .so."""
-        for bd in build_dirs:
-            if not bd.is_dir():
-                continue
-            cands = sorted(
-                bd.glob(f"{ext_name}*.so"),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True,
-            )
-            if cands:
-                return cands[0]
+    if cache_key in _EXT_CACHE and not force_rebuild:
+        return _EXT_CACHE[cache_key]
+    if cache_key in _EXT_ERROR and not force_rebuild:
         return None
 
-    def _load_prebuilt_so(path: Path) -> Optional[Any]:
-        try:
-            mod_name = path.stem
-            if mod_name in sys.modules:
-                mod = sys.modules[mod_name]
-                _EXT_CACHE[key] = mod
-                _EXT_ERROR[key] = None
-                return mod
-            spec = importlib.util.spec_from_file_location(mod_name, str(path))
-            if spec is None or spec.loader is None:
-                raise ImportError(f"spec loader is unavailable for {path}")
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            _EXT_CACHE[key] = mod
-            _EXT_ERROR[key] = None
-            return mod
-        except Exception as e:
-            _EXT_ERROR[key] = _with_rebuild_hint(
-                f"failed to load prebuilt extension {path}: {e}"
-            )
-            return None
+    build_dirs = _build_dirs(here, build_subdir, fingerprint)
+    prebuilt_error: Optional[Exception] = None
 
-    # Prefer prebuilt artifact when available (useful on nodes without a compiler toolchain).
+    # Only an exact fingerprint directory, module name, identity sidecar, and
+    # binary digest can be reused. Legacy constant-name artifacts are ignored.
     if not force_rebuild:
-        prebuilt = _find_prebuilt_so()
-        if prebuilt is not None:
-            loaded = _load_prebuilt_so(prebuilt)
-            if loaded is not None:
+        for module_name in module_names:
+            prebuilt = _find_valid_prebuilt(
+                build_dirs,
+                identity=identity,
+                fingerprint=fingerprint,
+                module_name=module_name,
+            )
+            if prebuilt is None:
+                continue
+            try:
+                spec = importlib.util.spec_from_file_location(
+                    module_name, str(prebuilt)
+                )
+                if spec is None or spec.loader is None:
+                    raise ImportError(f"spec loader is unavailable for {prebuilt}")
+                loaded = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(loaded)
+                sys.modules[module_name] = loaded
+                _EXT_CACHE[cache_key] = loaded
+                _EXT_ERROR.pop(cache_key, None)
                 return loaded
+            except Exception as exc:
+                prebuilt_error = exc
+
+    if force_rebuild:
+        _EXT_CACHE.pop(cache_key, None)
+        _EXT_ERROR.pop(cache_key, None)
+        for module_name in module_names:
+            sys.modules.pop(module_name, None)
+        # Package-supplied prebuilds are immutable inputs. Only disposable,
+        # out-of-tree build directories are cleared for an explicit rebuild.
+        for build_dir in (build_dirs[0], build_dirs[2]):
+            shutil.rmtree(build_dir, ignore_errors=True)
 
     try:
         from torch.utils.cpp_extension import load
-    except Exception as e:
-        _EXT_ERROR[key] = _with_rebuild_hint(
-            f"torch cpp_extension import failed: {e}"
+    except Exception as exc:
+        detail = f"torch cpp_extension import failed: {exc}"
+        if prebuilt_error is not None:
+            detail = f"failed to load verified prebuilt: {prebuilt_error}; {detail}"
+        _EXT_ERROR[cache_key] = _with_rebuild_hint(
+            detail
         )
         return None
 
@@ -182,59 +518,91 @@ def _build_in_tree_extension(
 
     srcs = [here / s for s in source_files]
 
-    def _try_build_in_dir(
-        build_dir: Path,
-        extra_cflags: list[str],
-        extra_ldflags: Optional[list[str]] = None,
-    ):
-        os.makedirs(build_dir, exist_ok=True)
-        kwargs = dict(
-            name=ext_name,
-            sources=[str(s) for s in srcs],
-            extra_cflags=extra_cflags,
-            extra_ldflags=(extra_ldflags or []),
-            build_directory=str(build_dir),
-            verbose=bool(verbose),
+    # Compile only outside the source/package tree. The package directory above
+    # remains a read-only fallback for deliberately supplied verified prebuilds.
+    compilation_dirs = (build_dirs[0], build_dirs[2])
+    compiler_command = _compiler_command()
+    restore_cxx = "CXX" not in os.environ and compiler_command != ["c++"]
+    if restore_cxx:
+        os.environ["CXX"] = shlex.join(compiler_command)
+    original_path = os.environ.get("PATH")
+    ninja = Path(sys.prefix) / "bin" / "ninja"
+    restore_path = shutil.which("ninja") is None and ninja.is_file()
+    if restore_path:
+        prefix = str(ninja.parent)
+        os.environ["PATH"] = (
+            prefix if not original_path else prefix + os.pathsep + original_path
         )
-        # torch >= 2.x JIT-builds these extensions through Ninja (a declared
-        # dependency: the pip ``ninja`` wheel, available on every platform), so it is
-        # always importable and there is no distutils fallback left to attempt.
-        return load(**kwargs)
-
-    # Try aggressive CPU flags first, then fall back progressively.
-    build_attempts = [
-        (["-Ofast", "-ffast-math", "-funroll-loops", "-march=native", "-mtune=native", "-fopenmp"], ["-fopenmp"]),
-        (["-O3", "-ffast-math", "-funroll-loops", "-march=native", "-mtune=native", "-fopenmp"], ["-fopenmp"]),
-        (["-O3", "-ffast-math", "-funroll-loops", "-fopenmp"], ["-fopenmp"]),
-        (["-O3", "-fopenmp"], ["-fopenmp"]),
-        (["-O3"], []),
-    ]
-
-    # Try each build directory: package-internal first, then user cache.
     last_err: Optional[Exception] = None
-    for build_dir in build_dirs:
-        try:
-            os.makedirs(build_dir, exist_ok=True)
-        except OSError:
-            continue
-        for cflags, ldflags in build_attempts:
+    try:
+        for build_dir in compilation_dirs:
             try:
-                _EXT_CACHE[key] = _try_build_in_dir(
-                    build_dir,
-                    extra_cflags=cflags,
-                    extra_ldflags=ldflags,
-                )
-                _EXT_ERROR[key] = None
-                return _EXT_CACHE[key]
-            except Exception as e:
-                last_err = e
+                os.makedirs(build_dir, exist_ok=True)
+            except OSError:
                 continue
-        # All flag combinations failed in this directory; try next.
+            for recipe_index, (cflags, ldflags) in enumerate(_BUILD_RECIPES):
+                module_name = module_names[recipe_index]
+                try:
+                    loaded = load(
+                        name=module_name,
+                        sources=[str(source) for source in srcs],
+                        extra_cflags=list(cflags),
+                        extra_ldflags=list(ldflags),
+                        build_directory=str(build_dir),
+                        verbose=bool(verbose),
+                    )
+                    binary_path = Path(getattr(loaded, "__file__", "")).resolve()
+                    if not binary_path.is_file():
+                        raise ImportError(
+                            "built extension did not expose a binary file: "
+                            f"{binary_path}"
+                        )
+                    if binary_path.parent != build_dir.resolve():
+                        raise ImportError(
+                            "built extension resolved outside its fingerprinted "
+                            f"directory: {binary_path}"
+                        )
+                    if binary_path.name not in _expected_binary_names(module_name):
+                        raise ImportError(
+                            "built extension has unexpected module name: "
+                            f"{binary_path.name}"
+                        )
+                    if _source_records(here, source_files) != identity["sources"]:
+                        raise RuntimeError("native source changed during compilation")
+                    _write_identity_sidecar(
+                        identity=identity,
+                        fingerprint=fingerprint,
+                        module_name=module_name,
+                        binary_path=binary_path,
+                    )
+                    if not _has_valid_identity_sidecar(
+                        binary_path,
+                        identity=identity,
+                        fingerprint=fingerprint,
+                        module_name=module_name,
+                    ):
+                        raise RuntimeError(
+                            "native extension identity sidecar verification failed"
+                        )
+                    _EXT_CACHE[cache_key] = loaded
+                    _EXT_ERROR.pop(cache_key, None)
+                    return loaded
+                except Exception as exc:
+                    last_err = exc
+                    continue
+    finally:
+        if restore_cxx:
+            os.environ.pop("CXX", None)
+        if restore_path:
+            if original_path is None:
+                os.environ.pop("PATH", None)
+            else:
+                os.environ["PATH"] = original_path
 
-    _EXT_CACHE[key] = None
-    _EXT_ERROR[key] = _with_rebuild_hint(
-        f"hessian_ff build attempts failed: {last_err}"
-    )
+    detail = f"hessian_ff build attempts failed: {last_err}"
+    if prebuilt_error is not None:
+        detail = f"failed to load verified prebuilt: {prebuilt_error}; {detail}"
+    _EXT_ERROR[cache_key] = _with_rebuild_hint(detail)
     return None
 
 
@@ -243,12 +611,12 @@ def get_nonbonded_extension(
     verbose: bool = False,
     force_rebuild: bool = False,
 ) -> Optional[Any]:
-    """Build/load in-tree C++ extension for nonbonded kernels.
+    """Load or build the fingerprinted C++ extension for nonbonded kernels.
 
     References:
     - torch.utils.cpp_extension.load() runtime build workflow.
     """
-    return _build_in_tree_extension(
+    return _load_or_build_extension(
         key="nonbonded",
         ext_name="hessian_ff_nonbonded_ext",
         source_files=["nonbonded_ext.cpp"],
@@ -261,7 +629,7 @@ def get_nonbonded_extension(
 def nonbonded_extension_status() -> Dict[str, str]:
     ext = get_nonbonded_extension(verbose=False, force_rebuild=False)
     if ext is None:
-        note = _EXT_ERROR["nonbonded"] or _with_rebuild_hint("extension unavailable")
+        note = _error_for("nonbonded") or _with_rebuild_hint("extension unavailable")
         return {
             "available": "false",
             "backend": "native_required",
@@ -279,8 +647,8 @@ def get_analytical_hessian_extension(
     verbose: bool = False,
     force_rebuild: bool = False,
 ) -> Optional[Any]:
-    """Build/load in-tree C++ extension for analytical Hessian helpers."""
-    return _build_in_tree_extension(
+    """Load or build the fingerprinted analytical-Hessian extension."""
+    return _load_or_build_extension(
         key="analytical_hessian",
         ext_name="hessian_ff_analytical_hessian_ext",
         source_files=["analytical_hessian_ext.cpp"],
@@ -293,7 +661,9 @@ def get_analytical_hessian_extension(
 def analytical_hessian_extension_status() -> Dict[str, str]:
     ext = get_analytical_hessian_extension(verbose=False, force_rebuild=False)
     if ext is None:
-        note = _EXT_ERROR["analytical_hessian"] or _with_rebuild_hint("extension unavailable")
+        note = _error_for("analytical_hessian") or _with_rebuild_hint(
+            "extension unavailable"
+        )
         return {
             "available": "false",
             "backend": "native_analytical_hessian_optional",
@@ -311,8 +681,8 @@ def get_bonded_extension(
     verbose: bool = False,
     force_rebuild: bool = False,
 ) -> Optional[Any]:
-    """Build/load in-tree C++ extension for bonded energy-force kernels."""
-    return _build_in_tree_extension(
+    """Load or build the fingerprinted bonded energy-force extension."""
+    return _load_or_build_extension(
         key="bonded",
         ext_name="hessian_ff_bonded_ext",
         source_files=["bonded_ext.cpp"],
@@ -325,7 +695,7 @@ def get_bonded_extension(
 def bonded_extension_status() -> Dict[str, str]:
     ext = get_bonded_extension(verbose=False, force_rebuild=False)
     if ext is None:
-        note = _EXT_ERROR["bonded"] or _with_rebuild_hint("extension unavailable")
+        note = _error_for("bonded") or _with_rebuild_hint("extension unavailable")
         return {
             "available": "false",
             "backend": "native_bonded_optional",
@@ -346,15 +716,19 @@ def build_native_extensions(
     """Build/load all native extensions up front.
 
     This provides a practical "compile together" workflow by triggering
-    all in-tree extension builds in one step before production runs.
+    all fingerprinted extension builds in one step before production runs.
     """
     ext_nb = get_nonbonded_extension(verbose=verbose, force_rebuild=force_rebuild)
     ext_ah = get_analytical_hessian_extension(verbose=verbose, force_rebuild=force_rebuild)
     ext_bd = get_bonded_extension(verbose=verbose, force_rebuild=force_rebuild)
     return {
-        "nonbonded": "ok" if ext_nb is not None else f"error: {_EXT_ERROR['nonbonded']}",
+        "nonbonded": "ok"
+        if ext_nb is not None
+        else f"error: {_error_for('nonbonded')}",
         "analytical_hessian": "ok"
         if ext_ah is not None
-        else f"error: {_EXT_ERROR['analytical_hessian']}",
-        "bonded": "ok" if ext_bd is not None else f"error: {_EXT_ERROR['bonded']}",
+        else f"error: {_error_for('analytical_hessian')}",
+        "bonded": "ok"
+        if ext_bd is not None
+        else f"error: {_error_for('bonded')}",
     }

@@ -11,6 +11,7 @@ For detailed documentation, see: docs/path_opt.md
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -23,6 +24,7 @@ import textwrap
 logger = logging.getLogger(__name__)
 
 import click
+from mlmm.core.output import emit
 import numpy as np
 import time
 import torch
@@ -42,12 +44,12 @@ from mlmm.workflows.opt import (
     _normalize_geom_freeze as _normalize_geom_freeze_opt,
 )
 from mlmm.workflows.opt import _convert_yaml_layer_atoms_1to0
+from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 from mlmm.core.utils import (
     apply_layer_freeze_constraints,
     convert_xyz_to_pdb,
     set_convert_file_enabled,
     is_convert_file_enabled,
-    deep_update,
     load_yaml_dict,
     apply_yaml_overrides,
     pretty_block,
@@ -58,7 +60,6 @@ from mlmm.core.utils import (
     merge_freeze_atom_indices,
     apply_ref_pdb_override,
     prepare_input_structure,
-    resolve_charge_spin_or_raise,
     PreparedInputStructure,
     parse_indices_string,
     build_model_pdb_from_bfactors,
@@ -73,6 +74,7 @@ from mlmm.core.defaults import (
     BFACTOR_ML,
     BFACTOR_MOVABLE_MM,
     DMF_KW as _DMF_KW_DEFAULT,
+    fresh_dmf_config,
     GS_KW as _GS_KW_DEFAULT,
     OUT_DIR_PATH_OPT,
     STOPT_KW as _STOPT_KW_DEFAULT,
@@ -318,6 +320,119 @@ def _select_hei_index(energies: Sequence[float]) -> int:
     return hei_idx
 
 
+@dataclass(frozen=True)
+class DMFMepResult:
+    """Scientific state returned by one DMF solve."""
+
+    images: Tuple[Any, ...]
+    energies: Tuple[float, ...]
+    hei_idx: int
+    converged: bool
+    ipopt_status: Optional[int]
+    reason: str
+
+
+def _dmf_solver_outcome(solve_result: Any) -> Tuple[bool, Optional[int], str]:
+    """Normalize cyipopt's ``(x, info)`` result without hiding failures."""
+
+    info: Dict[str, Any] = {}
+    if (
+        isinstance(solve_result, tuple)
+        and len(solve_result) >= 2
+        and isinstance(solve_result[1], dict)
+    ):
+        info = solve_result[1]
+
+    raw_status = info.get("status")
+    try:
+        status = int(raw_status) if raw_status is not None else None
+    except (TypeError, ValueError):
+        status = None
+
+    raw_reason = (
+        info.get("status_msg")
+        or info.get("status_message")
+        or info.get("message")
+    )
+    if isinstance(raw_reason, bytes):
+        reason = raw_reason.decode("utf-8", errors="replace")
+    elif raw_reason is not None:
+        reason = str(raw_reason)
+    elif status is None:
+        reason = "IPOPT status was not reported."
+    else:
+        reason = f"IPOPT status {status}."
+    return status == 0, status, reason
+
+
+def _shared_frozen_reference(
+    images: Sequence[Any], fix_atoms: Sequence[int]
+) -> Optional[np.ndarray]:
+    """Copy one validated frozen-coordinate anchor from the first image."""
+
+    indices = tuple(int(index) for index in fix_atoms)
+    if not indices:
+        return None
+    if not images:
+        raise ValueError("Frozen-atom restraints require at least one path image.")
+
+    atom_count = len(images[0])
+    invalid = sorted({index for index in indices if index < 0 or index >= atom_count})
+    if invalid:
+        raise ValueError(
+            "Frozen atom indices are outside the path image bounds "
+            f"[0, {atom_count}): {invalid}"
+        )
+    if any(len(image) != atom_count for image in images):
+        raise ValueError("All DMF path images must contain the same number of atoms.")
+
+    reference = np.asarray(images[0].get_positions(), dtype=float)[list(indices)].copy()
+    reference.setflags(write=False)
+    return reference
+
+
+def _build_dmf_result_data(
+    result: DMFMepResult,
+    calc_cfg: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build the JSON payload from structured DMF state only."""
+
+    from mlmm.core.utils import calculator_provenance
+    from pysisyphus.constants import AU2KCALPERMOL
+
+    energies = result.energies
+    hei_idx = int(result.hei_idx)
+    barrier = None
+    delta = None
+    if energies:
+        initial = float(energies[0])
+        barrier = (float(energies[hei_idx]) - initial) * AU2KCALPERMOL
+        delta = (float(energies[-1]) - initial) * AU2KCALPERMOL
+
+    return {
+        "status": "converged" if result.converged else "not_converged",
+        "converged": bool(result.converged),
+        "mep_mode": "dmf",
+        "ipopt_status": result.ipopt_status,
+        "reason": result.reason,
+        **calculator_provenance(calc_cfg),
+        "charge": calc_cfg.get("model_charge"),
+        "spin": calc_cfg.get("model_mult"),
+        "reactant_energy_hartree": float(energies[0]) if energies else None,
+        "product_energy_hartree": float(energies[-1]) if energies else None,
+        "image_energies_hartree": [float(energy) for energy in energies],
+        "n_images": len(energies),
+        "hei_index": hei_idx,
+        "hei_energy_hartree": float(energies[hei_idx]) if energies else None,
+        "barrier_kcal": round(barrier, 6) if barrier is not None else None,
+        "delta_kcal": round(delta, 6) if delta is not None else None,
+        "files": {
+            "final_geometries_trj_xyz": "final_geometries_trj.xyz",
+            "hei_xyz": "hei.xyz",
+        },
+    }
+
+
 # DMF (Direct Max Flux) MEP optimization
 
 def _is_cuda_oom(exc: BaseException) -> bool:
@@ -331,7 +446,7 @@ def _is_cuda_oom(exc: BaseException) -> bool:
 
 def _run_dmf_mep(
     geoms: Sequence,
-    calc_cfg: Dict[str, Any],
+    shared_calc,
     out_dir_path: Path,
     input_paths: Sequence[Path],
     max_nodes: int,
@@ -339,7 +454,7 @@ def _run_dmf_mep(
     dmf_cfg: Optional[Dict[str, Any]] = None,
     ml_indices_set: Optional[Set[int]] = None,
     freeze_atoms_final: Optional[Sequence[int]] = None,
-) -> None:
+) -> DMFMepResult:
     """Run Direct Max Flux (DMF) MEP optimization between two endpoints.
 
     Uses pydmf with harmonic constraints for frozen atoms; the ML/MM ONIOM calculator is
@@ -376,17 +491,17 @@ def _run_dmf_mep(
     fix_atoms = list(sorted(set(map(int, fix_atoms))))
 
     ref_images = [_geom_to_ase(g) for g in geoms]
-    charge = int(calc_cfg.get("model_charge", 0))
-    spin = int(calc_cfg.get("model_mult", 1))
+    fix_ref_positions = _shared_frozen_reference(ref_images, fix_atoms)
+    charge = int(shared_calc.core.model_charge)
+    spin = int(shared_calc.core.model_mult)
     for img in ref_images:
         img.info["charge"] = charge
         img.info["spin"] = spin
 
-    # Build the ONIOM ASE calculator
-    shared_pysis_calc = mlmm(**calc_cfg)
-    ase_calc = MLMMASECalculator(core=shared_pysis_calc.core)
+    # Reuse the already-created heavy core for both DMF and final evaluation.
+    ase_calc = MLMMASECalculator(core=shared_calc.core)
 
-    dmf_cfg = deep_update(dict(DMF_KW), dmf_cfg)
+    dmf_cfg = fresh_dmf_config(dmf_cfg)
     fbenm_opts: Dict[str, Any] = dict(dmf_cfg.get("fbenm_options", {}))
     cfbenm_opts: Dict[str, Any] = dict(dmf_cfg.get("cfbenm_options", {}))
     dmf_opts: Dict[str, Any] = dict(dmf_cfg.get("dmf_options", {}))
@@ -404,7 +519,7 @@ def _run_dmf_mep(
         ipopt_opts["print_level"] = 0
 
     # Run FB-ENM interpolation
-    click.echo("\n====== DMF: FB-ENM interpolation ======\n", narrative=True)
+    emit("\n====== DMF: FB-ENM interpolation ======\n", narrative=True)
     mxflx_fbenm = interpolate_fbenm(
         ref_images,
         nmove=max(1, int(max_nodes)),
@@ -434,7 +549,7 @@ def _run_dmf_mep(
     coefs = mxflx_fbenm.coefs.copy()
 
     # Create DirectMaxFlux object
-    click.echo("\n====== DMF: Direct Max Flux optimization ======\n", narrative=True)
+    emit("\n====== DMF: Direct Max Flux optimization ======\n", narrative=True)
     mxflx = DirectMaxFlux(
         ref_images,
         coefs=coefs,
@@ -448,14 +563,6 @@ def _run_dmf_mep(
         eps_vel=float(dmf_opts.get("eps_vel", DMF_KW["dmf_options"]["eps_vel"])),
         eps_rot=float(dmf_opts.get("eps_rot", DMF_KW["dmf_options"]["eps_rot"])),
         beta=float(dmf_opts.get("beta", DMF_KW["dmf_options"]["beta"])),
-    )
-
-    # Endpoint anchor: take ref_positions ONCE from the reactant endpoint so the
-    # HarmonicFixAtoms restraint pulls every image back to a shared reference
-    # (per-image self-reference made the restraint a no-op — atoms drifted freely
-    # along the path).
-    fix_ref_positions = (
-        ref_images[0].get_positions()[fix_atoms] if fix_atoms else None
     )
 
     # Assign calculators to images
@@ -488,8 +595,9 @@ def _run_dmf_mep(
                 mxflx.add_ipopt_options({"max_iter": max_iter})
         except Exception:
             logger.debug("Failed to set ipopt max_iter option", exc_info=True)
-    mxflx.solve(tol="tight")
-    click.echo("\n====== DMF: optimization finished ======\n", narrative=True)
+    solve_result = mxflx.solve(tol="tight")
+    converged, ipopt_status, reason = _dmf_solver_outcome(solve_result)
+    emit("\n====== DMF: optimization finished ======\n", narrative=True)
 
     # Evaluate final energies using the PySisyphus calculator for consistency
     from pysisyphus.constants import ANG2BOHR
@@ -497,7 +605,7 @@ def _run_dmf_mep(
     for image in mxflx.images:
         elems = image.get_chemical_symbols()
         coords_bohr = np.asarray(image.get_positions(), dtype=float).reshape(-1, 3) * ANG2BOHR
-        energies.append(float(shared_pysis_calc.get_energy(elems, coords_bohr)["energy"]))
+        energies.append(float(shared_calc.get_energy(elems, coords_bohr)["energy"]))
     hei_idx = _select_hei_index(energies)
 
     # Write final trajectory
@@ -560,6 +668,22 @@ def _run_dmf_mep(
             )
         except Exception as e:
             click.echo(f"[convert] WARNING: {e}", err=True)
+
+    images = tuple(mxflx.images)
+    result = DMFMepResult(
+        images=images,
+        energies=tuple(float(energy) for energy in energies),
+        hei_idx=int(hei_idx),
+        converged=bool(converged),
+        ipopt_status=ipopt_status,
+        reason=reason,
+    )
+    # Image calculators own only light wrappers, but clearing them bounds those
+    # references while the caller retains the single heavy ``shared_calc`` core.
+    for image in images:
+        image.calc = None
+    del ase_calc, mxflx_fbenm, mxflx
+    return result
 
 
 
@@ -899,7 +1023,7 @@ def cli(
         gs_cfg = dict(GS_KW)
         stopt_cfg = dict(STOPT_KW)
         lbfgs_cfg = dict(LBFGS_KW)
-        dmf_cfg = dict(DMF_KW)
+        dmf_cfg = fresh_dmf_config()
 
         apply_yaml_overrides(
             config_layer_cfg,
@@ -1006,6 +1130,10 @@ def cli(
                 (dmf_cfg, (("dmf",),)),
             ],
         )
+        # The final layer may replace strict method enums or the workers count.
+        # Revalidate the fully resolved calculator mapping before dry-run can
+        # report success (the constructor repeats this for normal execution).
+        apply_workers_to_calc_cfg(calc_cfg, None, None)
 
         try:
             geom_freeze = _normalize_geom_freeze(geom_cfg.get("freeze_atoms"))
@@ -1258,7 +1386,7 @@ def cli(
         # optional endpoint pre-optimization
         if preopt:
             try:
-                click.echo("\n====== Pre-optimizing endpoints (LBFGS) ======\n", narrative=True)
+                emit("\n====== Pre-optimizing endpoints (LBFGS) ======\n", narrative=True)
                 pre_dir_base = out_dir_path / "preopt"
                 for i, g in enumerate(geoms):
                     try:
@@ -1295,7 +1423,7 @@ def cli(
         # By default, apply external Kabsch alignment (if freeze_atoms exist, use only them)
         align_thresh = str(stopt_cfg.get("thresh", "gau"))
         try:
-            click.echo("\n====== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ======\n", narrative=True)
+            emit("\n====== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ======\n", narrative=True)
             _ = align_and_refine_sequence_inplace(
                 geoms,
                 thresh=align_thresh,
@@ -1318,9 +1446,9 @@ def cli(
 
         if mep_mode_kind == "dmf":
             try:
-                _run_dmf_mep(
+                dmf_res = _run_dmf_mep(
                     geoms,
-                    calc_cfg,
+                    shared_calc,
                     out_dir_path,
                     input_paths,
                     max_nodes,
@@ -1340,68 +1468,43 @@ def cli(
                     tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
                     click.echo(f"[dmf] ERROR: DMF optimization failed:\n{textwrap.indent(tb, '  ')}", err=True)
                 sys.exit(3)
-            click.echo(format_elapsed("[time] Elapsed Time for Path Opt (DMF)", time_start), narrative=True)
+            emit(format_elapsed("[time] Elapsed Time for Path Opt (DMF)", time_start), narrative=True)
 
             if out_json:
-                from mlmm.core.utils import calculator_provenance, write_result_json
-                from pysisyphus.constants import AU2KCALPERMOL as _AU2KCAL
-                # _run_dmf_mep writes hei.xyz; re-read energies from the trajectory
-                _dmf_trj = out_dir_path / "final_geometries_trj.xyz"
-                _dmf_energies: list = []
-                if _dmf_trj.exists():
-                    try:
-                        # Comment line is a bare float; parse it directly
-                        with open(_dmf_trj) as _f:
-                            _lines = _f.readlines()
-                        _i = 0
-                        while _i < len(_lines):
-                            _natoms_line = _lines[_i].strip()
-                            if _natoms_line.isdigit():
-                                _comment = _lines[_i + 1].strip()
-                                try:
-                                    _dmf_energies.append(float(_comment))
-                                except ValueError:
-                                    pass
-                                _i += int(_natoms_line) + 2
-                            else:
-                                _i += 1
-                    except Exception:
-                        pass
-                _dmf_hei_idx = 0
-                _dmf_barrier = None
-                _dmf_delta = None
-                if _dmf_energies:
-                    _dmf_hei_idx = int(np.argmax(_dmf_energies))
-                    _dmf_e0 = _dmf_energies[0]
-                    _dmf_barrier = (_dmf_energies[_dmf_hei_idx] - _dmf_e0) * _AU2KCAL
-                    _dmf_delta = (_dmf_energies[-1] - _dmf_e0) * _AU2KCAL
-                # DMF convergence is not directly returned by _run_dmf_mep;
-                # infer from trajectory: if energies were parsed, mark as completed.
-                _dmf_converged = None
-                result_data_dmf: Dict[str, Any] = {
-                    "status": "converged" if _dmf_converged else ("not_converged" if _dmf_converged is False else "completed"),
-                    "converged": _dmf_converged,
-                    "mep_mode": "dmf",
-                    **calculator_provenance(calc_cfg),
-                    "charge": calc_cfg.get("model_charge"),
-                    "spin": calc_cfg.get("model_mult"),
-                    "reactant_energy_hartree": float(_dmf_energies[0]) if _dmf_energies else None,
-                    "product_energy_hartree": float(_dmf_energies[-1]) if _dmf_energies else None,
-                    "image_energies_hartree": [float(e) for e in _dmf_energies] if _dmf_energies else [],
-                    "n_images": len(_dmf_energies) if _dmf_energies else None,
-                    "hei_index": _dmf_hei_idx,
-                    "hei_energy_hartree": float(_dmf_energies[_dmf_hei_idx]) if _dmf_energies else None,
-                    "barrier_kcal": round(_dmf_barrier, 6) if _dmf_barrier is not None else None,
-                    "delta_kcal": round(_dmf_delta, 6) if _dmf_delta is not None else None,
-                    "files": {
-                        "final_geometries_trj_xyz": "final_geometries_trj.xyz",
-                        "hei_xyz": "hei.xyz",
-                    },
-                }
+                from mlmm.core.utils import write_result_json
+
+                result_data_dmf = _build_dmf_result_data(dmf_res, calc_cfg)
                 for ext in (".pdb", ".gjf"):
                     f = out_dir_path / f"hei{ext}"
                     if f.exists():
                         result_data_dmf["files"][f"hei_{ext[1:]}"] = f.name
+                # Additive truthful outcomes (M09/C6): the DMF path is a required
+                # leaf usable only when the IPOPT solve explicitly converged. The
+                # scientific_status path routes convergence through the ONE
+                # canonical criterion (IPOPT status 0 or 1), matching path_search,
+                # so the additive axis is consistent across both DMF producers.
+                # The legacy convergence-aware ``status``/``converged`` fields
+                # (status==0) in result_data_dmf are intentionally left untouched.
+                from mlmm.workflows._outcomes import (
+                    aggregate_workflow_truth as _agg_truth,
+                    attach_outcomes as _attach,
+                    ipopt_status_to_converged,
+                    make_leaf as _mk_leaf,
+                )
+                _dmf_leaf_conv, _dmf_leaf_reason = ipopt_status_to_converged(dmf_res.ipopt_status)
+                _dmf_leaf = _mk_leaf(
+                    "path-opt",
+                    "dmf_mep",
+                    executed=True,
+                    converged=_dmf_leaf_conv,
+                    artifacts=["final_geometries_trj.xyz"],
+                    reason=_dmf_leaf_reason or dmf_res.reason or "",
+                )
+                _attach(
+                    result_data_dmf,
+                    truth=_agg_truth([_dmf_leaf], ["dmf_mep"]),
+                    stage_outcomes=[_dmf_leaf],
+                )
                 write_result_json(
                     out_dir_path, result_data_dmf,
                     command="path-opt",
@@ -1537,7 +1640,7 @@ def cli(
             sys.exit(5)
 
         # summary.md and key_* outputs are disabled.
-        click.echo(format_elapsed("[time] Elapsed Time for Path Opt", time_start), narrative=True)
+        emit(format_elapsed("[time] Elapsed Time for Path Opt", time_start), narrative=True)
 
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
@@ -1574,6 +1677,26 @@ def cli(
                 f = out_dir_path / f"hei{ext}"
                 if f.exists():
                     result_data_gsm["files"][f"hei_{ext[1:]}"] = f.name
+            # Additive truthful outcomes (M09/C6): the GSM path is a required leaf
+            # usable only when the StringOptimizer explicitly converged. The legacy
+            # convergence-aware ``status``/``converged`` fields are left untouched.
+            from mlmm.workflows._outcomes import (
+                aggregate_workflow_truth as _agg_truth,
+                attach_outcomes as _attach,
+                make_leaf as _mk_leaf,
+            )
+            _gsm_leaf = _mk_leaf(
+                "path-opt",
+                "gsm_mep",
+                executed=True,
+                converged=_converged if isinstance(_converged, bool) else None,
+                artifacts=["final_geometries_trj.xyz"],
+            )
+            _attach(
+                result_data_gsm,
+                truth=_agg_truth([_gsm_leaf], ["gsm_mep"]),
+                stage_outcomes=[_gsm_leaf],
+            )
             write_result_json(
                 out_dir_path, result_data_gsm,
                 command="path-opt",

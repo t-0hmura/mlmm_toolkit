@@ -42,5 +42,5 @@ If you `pip install thermoanalysis` into the same environment as `mlmm_toolkit`,
 ## See also
 
 - [`../docs/architecture.md`](../docs/architecture.md) §5.3, §6 — repo-internal fork policy
-- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) §4.3 — do-not-touch list (4 divergent fork files)
+- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) §4.3 — bundled-fork edit policy
 - `THIRD_PARTY_NOTICES.txt` — thermoanalysis upstream attribution

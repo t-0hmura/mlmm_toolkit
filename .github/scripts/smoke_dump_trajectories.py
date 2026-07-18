@@ -14,6 +14,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_MODULE = "mlmm"
+CALC_FILE = Path(__file__).with_name("docs_harmonic_calc.py")
 TIMEOUT_ENV = "MLMM_DUMP_CASE_TIMEOUT_SEC"
 GENERIC_TIMEOUT_ENV = "DOCS_DUMP_CASE_TIMEOUT_SEC"
 DEFAULT_CASE_TIMEOUT_SEC = 900.0
@@ -161,16 +162,14 @@ def _validate_case(case: Case, base_dir: Path, timeout_sec: float | None = None)
 def main() -> int:
     runnable, reason = _check_runnable()
     if not runnable:
-        print(f"[dump-smoke] skipped: {reason}")
-        return 0
+        raise RuntimeError(f"[dump-smoke] required trajectory smoke cannot run: {reason}")
 
     fixture = _resolve_fixture()
     if fixture is None:
-        print(
-            "[dump-smoke] skipped: no fixture found. "
-            "Set MLMM_DUMP_FIXTURE_DIR or provide hessian_ff/tests/data/small inputs."
+        raise RuntimeError(
+            "[dump-smoke] required fixture is unavailable. Set MLMM_DUMP_FIXTURE_DIR "
+            "or provide hessian_ff/tests/data/small inputs."
         )
-        return 0
 
     common = [
         "-i",
@@ -181,6 +180,8 @@ def main() -> int:
         str(fixture.charge),
         "-m",
         str(fixture.multiplicity),
+        "--calc-file",
+        str(CALC_FILE),
         "--max-cycles",
         "1",
     ]

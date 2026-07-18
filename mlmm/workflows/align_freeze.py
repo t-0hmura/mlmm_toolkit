@@ -99,6 +99,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, Dict, Any
 
 import click
+from mlmm.core.output import emit
 import numpy as np
 
 # pysisyphus
@@ -296,7 +297,7 @@ def align_second_to_first_kabsch_inplace(g_ref, g_mob,
         after = _rmsd(P, Q_aln)
         mode = "one_anchor"
         if verbose:
-            click.echo(f"[align] one-anchor: RMSD {before:.6f} Å → {after:.6f} Å (idx={i})", detail=True)
+            emit(f"[align] one-anchor: RMSD {before:.6f} Å → {after:.6f} Å (idx={i})", detail=True)
         return {"before_A": before, "after_A": after, "n_used": 1, "mode": mode}
 
     # ---- 2 anchors ----
@@ -331,7 +332,7 @@ def align_second_to_first_kabsch_inplace(g_ref, g_mob,
             after = _rmsd(P, Q1)
             mode = "two_anchor"
             if verbose:
-                click.echo(f"[align] two-anchors: RMSD {before:.6f} Å → {after:.6f} Å (idx=({i0},{i1}))", detail=True)
+                emit(f"[align] two-anchors: RMSD {before:.6f} Å → {after:.6f} Å (idx=({i0},{i1}))", detail=True)
             return {"before_A": before, "after_A": after, "n_used": 2, "mode": mode}
 
     # ---- Default: Kabsch (selected freeze atoms or all atoms) ----
@@ -356,7 +357,7 @@ def align_second_to_first_kabsch_inplace(g_ref, g_mob,
     after_sel = _rmsd(P_sel, Q_aln[use])
 
     if verbose:
-        click.echo(f"[align] kabsch:     RMSD {before_sel:.6f} Å → {after_sel:.6f} Å (used {n_used})", detail=True)
+        emit(f"[align] kabsch:     RMSD {before_sel:.6f} Å → {after_sel:.6f} Å (used {n_used})", detail=True)
 
     return {"before_A": before_sel, "after_A": after_sel, "n_used": n_used, "mode": mode}
 
@@ -417,7 +418,7 @@ def scan_freeze_atoms_toward_target_inplace(
             max_rem_bohr = float(rem_bohr.max()) if len(rem_bohr) else 0.0
             max_remaining_A = max_rem_bohr * BOHR2ANG
             if verbose:
-                click.echo(f"[scan] step {istep:03d}: max remaining = {max_remaining_A:.6f} Å", detail=True)
+                emit(f"[scan] step {istep:03d}: max remaining = {max_remaining_A:.6f} Å", detail=True)
 
             if max_rem_bohr <= step_bohr + 1e-12:
                 # Final step: enforce exact coincidence

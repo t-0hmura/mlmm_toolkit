@@ -25,10 +25,15 @@
 | **L3 Domain** | `mlmm/domain/` | 化学を意識したヘルパーロジック (結合変化検出、結合サマリー、元素情報伝播) | `core/` |
 | **L4a Infra (MLIP + ONIOM)** | `mlmm/backends/` | MLIP バックエンドディスパッチャ + バックエンドごとのアダプタ + ML/MM ONIOM 計算コア | `core/` |
 | **L4b Infra (I/O)** | `mlmm/io/` | 出力レイアウト、サマリー、軌跡、PDB 修正、エネルギー図、Hessianキャッシュ、解析的Hessian glue | `core/` |
-| **L5 Foundation** | `mlmm/core/` | defaults (全 CLI デフォルトのソース)、utils (PDB / XYZ / プロットヘルパー)、将来の `errors.py` / `types.py` | (none) |
+| **L5 Foundation** | `mlmm/core/` | defaults (全 CLI デフォルトのソース)、utils (PDB / XYZ / プロットヘルパー)、残基テーブル、将来の `errors.py` / `types.py` | `backends/`、`domain/`、`io/` (後述の互換 back-edge) |
 | (bundle, not a layer) | `<repo>/pysisyphus/`、`<repo>/thermoanalysis/`、`<repo>/hessian_ff/` | repo-internal フォーク (オプティマイザ / 熱化学 / 解析的 MM Hessian) | (sibling, layer-external) |
 
-**依存方向 (一方向)**: `L1 → L2 → {L3, L4} → L5` (§2.1 レイヤー表に準拠)。この方向ルールは CI のマーカーカバレッジ (`.github/scripts/check_engineering_markers.py`) によって強制されます。内蔵フォークはレイヤーグラフの外側に位置し、絶対パッケージパス (`from pysisyphus.X import Y`、`from hessian_ff.analytical_hessian import …`) を通じて任意のレイヤーからインポートできます。
+**依存方向**: *設計意図* は一方向 `L1 → L2 → {L3, L4} → L5` です。実際に **強制されている** 内容と、その担当チェッカーは次のとおりです:
+
+- `.github/scripts/check_import_graph.py` (AST インポートグラフゲート) が、現時点で真である部分を強制します: (a) `mlmm` パッケージに **インポート循環がないこと** (モジュール間の強連結成分が存在しないこと)、(b) `core` と `domain` は **`workflows` を決してインポートしないこと**、(c) 内蔵フォーク (`pysisyphus` / `hessian_ff` / `thermoanalysis`) が `mlmm` をインポートしないこと。
+- `.github/scripts/check_engineering_markers.py` は *別の* 関心事 — 化学ルール / `DOMAIN_PURE` マーカーの網羅性と MLIP ランタイムのインポートスコープ — を扱います。レイヤーのインポートエッジは解析しないため、方向自体は強制しません。
+
+現在許容されている back-edge (実測・循環なし・メジャー改修で解消予定): 一部の `core.utils` ヘルパーが `domain.add_elem_info` と `io.structure_formats` へ、`core.calc_eval` が `backends.mlmm_calc` へと *下方向* に依存します。`core.utils` はもはやいかなる `workflows` モジュールもインポートしません。歴史的な `core.utils ↔ workflows.extract` および `workflows.freq ↔ workflows.opt` の循環は、共有していた charge/spin 準備 (`workflows/charge_prep.py`) とレイヤーヘルパー (`workflows/_opt_freq_common.py`) を移設することで解消しました。内蔵フォークはレイヤーグラフの外側に位置し、絶対パッケージパス (`from pysisyphus.X import Y`、`from hessian_ff.analytical_hessian import …`) を通じて任意のレイヤーからインポートできます。
 
 ### 2.2 パッケージツリーの ASCII マップ
 
@@ -340,9 +345,9 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 
 | dir | upstream PyPI? | purpose | scope of edits allowed |
 |---|---|---|---|
-| `pysisyphus/` | NO — フォーク、`pip install pysisyphus` を併存させない | オプティマイザ、TS、IRC、COS、calculators | 本リリースでは annotation のみ (docstring + 型ヒント)。ロジック編集は禁止 |
-| `thermoanalysis/` | NO — フォーク (ブランディング差分) | ΔG, ZPE, 分配関数, `QCData` | `pysisyphus/` と同じ |
-| `hessian_ff/` | **NO — PyPI 404、バンドル必須** | MM 力場上の解析的Hessian | `pysisyphus/` と同じ |
+| `pysisyphus/` | NO — フォーク、`pip install pysisyphus` を併存させない | オプティマイザ、TS、IRC、COS、calculators | 通常のpolishはannotationのみ。logic変更には実証された不具合または承認済みfeature、focused regression test、関連HEAVY/GPU検証が必要 |
+| `thermoanalysis/` | NO — フォーク (ブランディング差分) | ΔG, ZPE, 分配関数, `QCData` | 同じ条件付きgate。README参照 |
+| `hessian_ff/` | **NO — PyPI 404、バンドル必須** | MM 力場上の解析的Hessian | 同じ条件付きgate。README参照 |
 
 各ディレクトリは、分岐ファイルと触るべきでない境界 (touch-restriction boundary) を列挙する独自の `README.md` を持ちます。レイヤーモデルから見ると、これらのフォークは L1..L5 グラフの **外側** に位置します。任意のレイヤーが絶対パッケージパス (`from pysisyphus.X import Y`、`from hessian_ff.analytical_hessian import …`) を通じてこれらをインポートでき、`L1 → L2 → {L3, L4} → L5` の方向を壊しません。
 

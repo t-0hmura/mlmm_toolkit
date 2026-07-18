@@ -9,23 +9,105 @@ Two pysisyphus-style Calculator wrappers consumed by multiple workflow stages:
 - ``HarmonicBiasCalculator`` — harmonic *distance* restraint on selected atom
   pairs (1-based / 0-based indexing per caller). Used by ``scan`` / ``scan2d`` /
   ``scan3d`` for bond-length staged scans, and by ``opt`` for ad-hoc distance
-  biasing. Wraps a base UMA-style calculator and adds the bias E/F per evaluation.
+  biasing. Wraps a base ML/MM calculator and adds the bias E/F/H on one PES.
 
 Both classes are pure-Python (numpy only) and do not import any MLIP SDK, so they
 belong with the workflow orchestration layer rather than ``io`` or ``backends``.
 """
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 from ase.calculators.calculator import Calculator
 from pysisyphus.constants import ANG2BOHR, AU2EV
 
+from mlmm.core.pes_composition import (
+    clone_pes_result,
+    compose_additive_pes_result,
+)
+
 
 # eV/Å² → Hartree/Bohr² conversion (= k_evAA * H_EVAA_2_AU)
 EV2AU = 1.0 / AU2EV
 H_EVAA_2_AU = EV2AU / ANG2BOHR / ANG2BOHR
+
+
+def _calculator_chain(root):
+    """Yield a calculator and its ``base``/``core`` delegates once each."""
+
+    pending = [root]
+    seen = set()
+    while pending:
+        calculator = pending.pop(0)
+        if calculator is None or id(calculator) in seen:
+            continue
+        seen.add(id(calculator))
+        yield calculator
+        for attribute in ("base", "core"):
+            try:
+                delegate = getattr(calculator, attribute)
+            except AttributeError:
+                continue
+            if delegate is not calculator:
+                pending.append(delegate)
+
+
+def harmonic_pair_energy_forces_hessian(
+    coords_bohr: np.ndarray,
+    k_au_bohr2: float,
+    pairs: Sequence[Tuple[int, int, float]],
+    *,
+    need_hessian: bool = True,
+) -> Tuple[float, np.ndarray, Optional[np.ndarray]]:
+    """Evaluate harmonic pair energy, force, and exact Cartesian Hessian.
+
+    Coordinates and returned quantities use atomic units; pair targets remain
+    in Angstrom to match the public restraint configuration.
+    """
+
+    coords = np.asarray(coords_bohr, dtype=float).reshape(-1, 3)
+    n_atoms = coords.shape[0]
+    force = np.zeros((n_atoms, 3), dtype=float)
+    hessian = (
+        np.zeros((3 * n_atoms, 3 * n_atoms), dtype=float)
+        if need_hessian
+        else None
+    )
+    energy = 0.0
+    identity = np.eye(3, dtype=float)
+    k = float(k_au_bohr2)
+
+    for i_raw, j_raw, target_ang in pairs:
+        i, j = int(i_raw), int(j_raw)
+        if not (0 <= i < n_atoms and 0 <= j < n_atoms):
+            continue
+        delta = coords[i] - coords[j]
+        distance = float(np.linalg.norm(delta))
+        if distance < 1.0e-14:
+            continue
+        target_bohr = float(target_ang) * ANG2BOHR
+        displacement = distance - target_bohr
+        unit = delta / distance
+
+        energy += 0.5 * k * displacement * displacement
+        pair_force = -k * displacement * unit
+        force[i] += pair_force
+        force[j] -= pair_force
+
+        if hessian is not None:
+            outer = np.outer(unit, unit)
+            block = k * (
+                outer + (displacement / distance) * (identity - outer)
+            )
+            i_slice = slice(3 * i, 3 * i + 3)
+            j_slice = slice(3 * j, 3 * j + 3)
+            hessian[i_slice, i_slice] += block
+            hessian[j_slice, j_slice] += block
+            hessian[i_slice, j_slice] -= block
+            hessian[j_slice, i_slice] -= block
+
+    return float(energy), force.reshape(-1), hessian
 
 
 class HarmonicFixAtoms(Calculator):
@@ -68,8 +150,8 @@ class HarmonicBiasCalculator:
     """Wrap a base UMA-style calculator with harmonic distance restraints.
 
     Per-pair bias: Energy = 1/2 * k * (r_ij − target)² for each (i, j, target) tuple.
-    Forces are added to the base calculator's force output. Indices are 0-based
-    Cartesian atom indices.
+    Forces and exact Cartesian Hessians are added to the base calculator's
+    output. Indices are 0-based Cartesian atom indices.
 
     Used by scan / scan2d / scan3d for bond-length staged scans, and by opt for
     ad-hoc distance biasing. Reusable for any future DMF distance-restraint case
@@ -86,40 +168,100 @@ class HarmonicBiasCalculator:
         self._pairs = [(int(i), int(j), float(t)) for (i, j, t) in pairs]
 
     def _bias_energy_forces_bohr(self, coords_bohr: np.ndarray) -> Tuple[float, np.ndarray]:
-        coords = np.array(coords_bohr, dtype=float).reshape(-1, 3)
-        n = coords.shape[0]
-        E_bias = 0.0
-        F_bias = np.zeros((n, 3), dtype=float)
-        k = self.k_au_bohr2
-        for (i, j, target_ang) in self._pairs:
-            if not (0 <= i < n and 0 <= j < n):
+        energy, forces, _ = harmonic_pair_energy_forces_hessian(
+            coords_bohr,
+            self.k_au_bohr2,
+            self._pairs,
+            need_hessian=False,
+        )
+        return energy, forces
+
+    @property
+    def _constrained_atoms(self) -> Sequence[int]:
+        atoms = getattr(self.base, "freeze_atoms", ())
+        return tuple(() if atoms is None else atoms)
+
+    @property
+    def _hessian_constrained_atoms(self) -> Sequence[int]:
+        """Resolve ML/MM's stricter Hessian mask through wrapper delegates.
+
+        ``MLMMCore.compute`` refreshes ``effective_hess_freeze_atoms`` at its
+        evaluation boundary, so callers intentionally read this property only
+        after the base Hessian evaluation.  The fallback union also supports
+        calculator implementations that expose the two source sets but not
+        the derived attribute.
+        """
+
+        calculators = tuple(_calculator_chain(self.base))
+        effective_atoms = set()
+        found_effective = False
+        for calculator in calculators:
+            try:
+                effective = getattr(calculator, "effective_hess_freeze_atoms")
+            except AttributeError:
                 continue
-            rij_vec = coords[i] - coords[j]
-            rij = float(np.linalg.norm(rij_vec))
-            if rij < 1e-14:
-                continue
-            target_bohr = float(target_ang) * ANG2BOHR
-            diff_bohr = rij - target_bohr
-            E_bias += 0.5 * k * diff_bohr * diff_bohr
-            u = rij_vec / max(rij, 1e-14)
-            Fi = -k * diff_bohr * u
-            F_bias[i] += Fi
-            F_bias[j] -= Fi
-        return E_bias, F_bias.reshape(-1)
+            if effective is not None:
+                found_effective = True
+                effective_atoms.update(int(atom) for atom in effective)
+        if found_effective:
+            return tuple(sorted(effective_atoms))
+
+        constrained = set()
+        for calculator in calculators:
+            for attribute in ("freeze_atoms", "hess_freeze_atoms"):
+                try:
+                    atoms = getattr(calculator, attribute)
+                except AttributeError:
+                    continue
+                if atoms is not None:
+                    constrained.update(int(atom) for atom in atoms)
+        return tuple(sorted(constrained))
 
     def get_forces(self, elem, coords):
         coords_bohr = np.asarray(coords, dtype=float).reshape(-1, 3)
         base = self.base.get_forces(elem, coords_bohr)
-        E0 = float(base["energy"])
-        F0 = np.asarray(base["forces"], dtype=float).reshape(-1)
         Ebias, Fbias = self._bias_energy_forces_bohr(coords_bohr)
-        return {"energy": E0 + Ebias, "forces": F0 + Fbias}
+        return compose_additive_pes_result(
+            base,
+            n_atoms=coords_bohr.shape[0],
+            energy_delta=Ebias,
+            force_delta_full=Fbias,
+            constrained_atoms=self._constrained_atoms,
+        )
 
     def get_energy(self, elem, coords):
         coords_bohr = np.asarray(coords, dtype=float).reshape(-1, 3)
-        E0 = float(self.base.get_energy(elem, coords_bohr)["energy"])
+        base = self.base.get_energy(elem, coords_bohr)
+        if not self._pairs:
+            return clone_pes_result(base)
         Ebias, _ = self._bias_energy_forces_bohr(coords_bohr)
-        return {"energy": E0 + Ebias}
+        return compose_additive_pes_result(
+            base,
+            n_atoms=coords_bohr.shape[0],
+            energy_delta=Ebias,
+        )
+
+    def get_hessian(self, elem, coords):
+        coords_bohr = np.asarray(coords, dtype=float).reshape(-1, 3)
+        base = self.base.get_hessian(elem, coords_bohr)
+        if not self._pairs:
+            return clone_pes_result(base)
+        energy, forces, hessian = harmonic_pair_energy_forces_hessian(
+            coords_bohr,
+            self.k_au_bohr2,
+            self._pairs,
+            need_hessian=True,
+        )
+        assert hessian is not None
+        return compose_additive_pes_result(
+            base,
+            n_atoms=coords_bohr.shape[0],
+            energy_delta=energy,
+            force_delta_full=forces,
+            hessian_delta_full=hessian,
+            constrained_atoms=self._constrained_atoms,
+            hessian_constrained_atoms=self._hessian_constrained_atoms,
+        )
 
     def get_energy_and_forces(self, elem, coords):
         res = self.get_forces(elem, coords)

@@ -13,6 +13,7 @@ import sys
 logger = logging.getLogger(__name__)
 
 import click
+from mlmm.core.output import emit
 import numpy as np
 import torch
 import time
@@ -21,6 +22,7 @@ from pysisyphus.helpers import geom_loader
 from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
+from pysisyphus.intcoords.exceptions import RebuiltInternalsException
 from pysisyphus.constants import ANG2BOHR, BOHR2ANG, AU2EV
 from pysisyphus.tr_projection import normalize_tr_projection_mode
 from mlmm.workflows.restraints import HarmonicBiasCalculator
@@ -29,9 +31,7 @@ from pysisyphus.TablePrinter import TablePrinter
 from mlmm.backends.mlmm_calc import mlmm, mlmm_mm_only
 from mlmm.core.defaults import (
     BIAS_KW,
-    GEOM_KW_DEFAULT,
     HESSIAN_DIMER_KW,
-    MLMM_CALC_KW,
     OPT_BASE_KW,
     LBFGS_KW,
     RFO_KW,
@@ -43,6 +43,7 @@ from mlmm.core.defaults import (
     BFACTOR_MOVABLE_MM,
     BFACTOR_FROZEN,
 )
+from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 from mlmm.core.utils import (
     append_xyz_trajectory as _append_xyz_trajectory,
     convert_xyz_to_pdb,
@@ -58,7 +59,6 @@ from mlmm.core.utils import (
     merge_freeze_atom_indices,
     prepare_input_structure,
     apply_ref_pdb_override,
-    resolve_charge_spin_or_raise,
     parse_indices_string,
     build_model_pdb_from_bfactors,
     build_model_pdb_from_indices,
@@ -71,6 +71,7 @@ from mlmm.core.utils import (
     load_pdb_atom_metadata,
     echo_resolved_device,
     emit_optimizer_terminal_status,
+    finalize_microiter_macro_convergence,
     optimizer_cycle_count,
     pdb_keys_from_line as _pdb_keys_from_line,
     collect_ml_atom_keys as _collect_ml_atom_keys,
@@ -86,6 +87,14 @@ from mlmm.cli.common_options import (
     add_workers_options,
 )
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
+from mlmm.workflows._microiteration import (
+    MicroiterationOutcome,
+    MicroiterationPartition,
+    OptimizerOutcome,
+    PartitionError,
+    build_aggregate,
+    resolve_partition_from_core,
+)
 
 EV2AU = 1.0 / AU2EV                 # eV → Hartree
 H_EVAA_2_AU = EV2AU / (ANG2BOHR * ANG2BOHR)  # (eV/Å^2) → (Hartree/Bohr^2)
@@ -102,51 +111,23 @@ OPT_FLATTEN_MAX_ITER = HESSIAN_DIMER_KW["flatten_max_iter"]
 OPT_FLATTEN_UNCONVERGED_GUARD = 25
 
 
-# Default settings (imported from defaults.py, aliased for compatibility)
-
-GEOM_KW: Dict[str, Any] = dict(GEOM_KW_DEFAULT)
-CALC_KW: Dict[str, Any] = dict(MLMM_CALC_KW)
+# Default settings + shared layer helpers now live in the neutral
+# ``_opt_freq_common`` module (M39) so ``freq`` no longer imports ``opt``.
+# Re-exported here for opt's own use and for the many workflows that import
+# GEOM_KW / CALC_KW / _normalize_geom_freeze / _convert_yaml_layer_atoms_1to0
+# from ``mlmm.workflows.opt``.
+from mlmm.workflows._opt_freq_common import (  # noqa: F401
+    GEOM_KW,
+    CALC_KW,
+    _normalize_geom_freeze,
+    _convert_yaml_layer_atoms_1to0,
+)
 
 # Note: OPT_BASE_KW, LBFGS_KW, RFO_KW are imported from defaults.py
-
-
 
 # Canonical home moved to mlmm.core.utils so cross-subcommand callers (e.g. sp.py)
 # can import the same parser without depending on workflows/opt.py.
 from mlmm.core.utils import _parse_freeze_atoms  # re-export for backward compat
-
-
-def _normalize_geom_freeze(value: Any) -> List[int]:
-    """Normalize YAML-provided geom.freeze_atoms to a sorted 0-based list."""
-    if value is None:
-        return []
-    if isinstance(value, str):
-        tokens = [tok.strip() for tok in value.split(",") if tok.strip()]
-        try:
-            return sorted({int(tok) - 1 for tok in tokens})
-        except ValueError as exc:
-            raise click.BadParameter(
-                "geom.freeze_atoms must contain integers (string form)."
-            ) from exc
-    try:
-        return sorted({int(idx) - 1 for idx in value})
-    except TypeError as exc:
-        raise click.BadParameter("geom.freeze_atoms must be iterable of integers.") from exc
-
-
-def _convert_yaml_layer_atoms_1to0(calc_cfg: dict) -> None:
-    """Convert 1-based YAML layer atom indices to 0-based in-place.
-
-    Applies to calc.hess_mm_atoms, calc.movable_mm_atoms, calc.frozen_mm_atoms.
-    Only converts non-None values (None = not specified in YAML).
-    """
-    for key in ("hess_mm_atoms", "movable_mm_atoms", "frozen_mm_atoms"):
-        val = calc_cfg.get(key)
-        if val is not None and not isinstance(val, str):
-            try:
-                calc_cfg[key] = sorted(int(i) - 1 for i in val)
-            except (TypeError, ValueError):
-                pass  # Leave as-is if not iterable of ints
 
 
 def _parse_dist_freeze_args(
@@ -404,6 +385,19 @@ def _maybe_convert_outputs_to_pdb(
 from mlmm.core.calc_eval import calc_energy as _calc_energy  # noqa: E402
 
 
+def _set_cartesian_flatten_coords(geom, cart_coords: np.ndarray) -> None:
+    """Install a Cartesian trial while accepting an internal-basis rebuild."""
+
+    try:
+        geom.cart_coords = np.asarray(cart_coords, dtype=float).reshape(-1)
+    except RebuiltInternalsException:
+        # Geometry has already installed the Cartesian coordinates and rebuilt
+        # its primitive set before signalling this control-flow exception.
+        # Flatten probes evaluate directly through the active calculator, so a
+        # state clear is sufficient; no optimizer reset is involved here.
+        geom.clear()
+
+
 def _flatten_all_imag_modes_for_geom(
     geom,
     masses_amu: np.ndarray,
@@ -412,6 +406,7 @@ def _flatten_all_imag_modes_for_geom(
     modes: torch.Tensor,
     neg_freq_thresh_cm: float,
     flatten_amp_ang: float,
+    calculator=None,
 ) -> bool:
     """
     Flatten all imaginary modes for a geometry in a single pass.
@@ -435,30 +430,36 @@ def _flatten_all_imag_modes_for_geom(
 
     order = np.argsort(freqs_cm[neg_idx_all])  # most negative first
     targets = [int(x) for x in neg_idx_all[order]]
-    mass_scale = np.sqrt(12.011 / masses_amu)[:, None]
     amp_bohr = float(flatten_amp_ang) / BOHR2ANG
-    E_ref = _calc_energy(geom, calc_kwargs)
+    E_ref = _calc_energy(geom, calc_kwargs, calc=calculator)
 
     m3 = np.repeat(masses_amu, 3).reshape(-1, 3)
     for idx in targets:
         v_mw = modes[idx].detach().cpu().numpy().reshape(-1, 3)
+        # A returned mode row is a mass-weighted eigenvector q of
+        # M^(-1/2) H M^(-1/2).  The Cartesian normal-mode direction is
+        # u = M^(-1/2) q / ||M^(-1/2) q||, computed once here (divide by
+        # sqrt(m) then L2-normalize).  The flatten displacement is
+        # amp_bohr * u so ||disp|| == amp_bohr.  A second per-atom mass
+        # factor would rotate the direction toward M^(-1) q and change the
+        # amplitude; there is no such factor.
         v_cart = v_mw / np.sqrt(m3)
         v_cart /= np.linalg.norm(v_cart)
 
-        disp = amp_bohr * mass_scale * v_cart
+        disp = amp_bohr * v_cart
         ref = geom.cart_coords.reshape(-1, 3)
 
         plus = ref + disp
         minus = ref - disp
 
-        geom.coords = plus.reshape(-1)
-        E_plus = _calc_energy(geom, calc_kwargs)
+        _set_cartesian_flatten_coords(geom, plus)
+        E_plus = _calc_energy(geom, calc_kwargs, calc=calculator)
 
-        geom.coords = minus.reshape(-1)
-        E_minus = _calc_energy(geom, calc_kwargs)
+        _set_cartesian_flatten_coords(geom, minus)
+        E_minus = _calc_energy(geom, calc_kwargs, calc=calculator)
 
         use_plus = E_plus <= E_minus
-        geom.coords = (plus if use_plus else minus).reshape(-1)
+        _set_cartesian_flatten_coords(geom, plus if use_plus else minus)
         E_keep = E_plus if use_plus else E_minus
         delta_e = E_keep - E_ref
         click.echo(
@@ -471,6 +472,111 @@ def _flatten_all_imag_modes_for_geom(
     return True
 
 
+def _seed_rfo_initial_hessian(
+    geometry,
+    calc_cfg: Dict[str, Any],
+    calculator,
+    *,
+    restraints_active: bool,
+) -> str:
+    """Seed RFO from the exact active PES, with safe cache reuse."""
+
+    from mlmm.workflows.freq import (
+        _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
+        _torch_device as _freq_torch_device,
+    )
+
+    hess_device = _freq_torch_device(calc_cfg.get("ml_device", "auto"))
+    if restraints_active:
+        click.echo(
+            "[opt] Distance restraints are active; calculating "
+            "the initial RFO Hessian on the restrained PES."
+        )
+        h_init, _ = _freq_calc_full_hessian_torch(
+            geometry,
+            calc_cfg,
+            hess_device,
+            refresh_geom_meta=True,
+            calculator=calculator,
+        )
+        geometry.cart_hessian = h_init
+        click.echo(
+            f"[opt] Initial restrained Hessian seeded "
+            f"(shape={h_init.shape[0]}x{h_init.shape[1]})."
+        )
+        return "restrained"
+
+    from mlmm.io.hessian_cache import (
+        load_matching as _hess_load_matching,
+        identity_from_context as _hess_identity,
+    )
+
+    # M70: reuse an IRC endpoint Hessian only on a full evaluation-identity
+    # match (run/system/evaluator/active space/potential).
+    cached = _hess_load_matching(
+        "irc_endpoint",
+        _hess_identity(geometry, calc_cfg, role="irc_endpoint"),
+    )
+    if cached is not None:
+        click.echo("[opt] Reusing IRC endpoint Hessian for RFO seeding.")
+        active_dofs = cached.get("active_dofs")
+        h_raw = cached["hessian"]
+        if isinstance(h_raw, torch.Tensor):
+            h_init = h_raw.clone()
+        else:
+            h_init = torch.as_tensor(h_raw, dtype=torch.float64)
+        if active_dofs is not None:
+            geometry.within_partial_hessian = {
+                "active_n_dof": len(active_dofs),
+                "full_n_dof": geometry.cart_coords.size,
+                "active_dofs": active_dofs,
+                "active_atoms": sorted(set(d // 3 for d in active_dofs)),
+            }
+        geometry.cart_hessian = h_init
+        click.echo(
+            f"[opt] Initial Hessian seeded "
+            f"(shape={h_init.shape[0]}x{h_init.shape[1]})."
+        )
+        return "irc_cache"
+
+    click.echo("[opt] Seeding initial Hessian via shared freq backend.")
+    h_init, _ = _freq_calc_full_hessian_torch(
+        geometry,
+        calc_cfg,
+        hess_device,
+        refresh_geom_meta=True,
+        calculator=calculator,
+    )
+    geometry.cart_hessian = h_init
+    click.echo(
+        f"[opt] Initial Hessian seeded "
+        f"(shape={h_init.shape[0]}x{h_init.shape[1]})."
+    )
+    return "fresh"
+
+
+def _opt_terminal_converged(
+    use_microiter: bool,
+    microiter_result: Optional[Dict[str, Any]],
+    optimizer: Any,
+) -> Optional[bool]:
+    """Source the opt terminal convergence flag from whichever runner produced it.
+
+    On the QM/MM microiteration path there is no standalone ``optimizer`` in
+    scope, so the convergence truth lives in ``microiter_result['converged']``
+    (mirroring how ``is_stalled`` / ``stop_reason`` are already sourced).  A
+    genuinely converged microiter run must therefore report ``converged`` in
+    result.json, matching the ``[opt] Converged!`` console emit -- reading a
+    missing ``optimizer`` here was the bug that mislabeled it ``not_converged``.
+    Returns ``None`` (unknown) when neither runner is available.
+    """
+    if use_microiter:
+        if microiter_result is not None:
+            return bool(microiter_result.get("converged"))
+        return None
+    if optimizer is not None and hasattr(optimizer, "is_converged"):
+        return bool(optimizer.is_converged)
+    return None
 
 
 def _run_microiter_opt(
@@ -482,46 +588,44 @@ def _run_microiter_opt(
     microiter_cfg: Dict[str, Any],
     out_dir_path: Path,
     *,
+    partition: MicroiterationPartition,
     dump: bool = False,
-) -> None:
+) -> Dict[str, Any]:
     """Run macro/micro alternating optimization (Gaussian 16-style microiteration).
 
     Macro step: 1 RFO step moving ML atoms + link-atom MM parents (full ONIOM force).
     Micro step: LBFGS relaxing remaining MM atoms with MM-only forces until convergence.
     Link-atom MM parents are included in the macro step to maintain consistency
     of the link atom position across macro/micro boundaries.
+
+    The macro/micro phase masks and the user's original freeze mask come from the
+    single immutable :class:`MicroiterationPartition` resolved by the caller from
+    the accepted calculator core (M44/M45): the original freeze is preserved in
+    both phases and restored exactly on every exit path.  A micro relaxation that
+    does not explicitly converge fails closed and never reads as macro
+    convergence (M46).
     """
-    from mlmm.workflows.freq import _collect_layer_atom_sets
+    # M44: a valid empty-ML partition is a documented caller-side fallback to a
+    # real standard optimization; reaching this driver with no macro-active atoms
+    # is a contract violation, raised loudly (never an unchanged-geometry return).
+    if not partition.has_macro_active:
+        raise PartitionError(
+            "microiteration reached the macro/micro driver with no ML macro-active "
+            "atoms; the caller must dispatch a standard optimization instead."
+        )
 
-    # Resolve layer atom sets
-    layer_sets = _collect_layer_atom_sets(calc_cfg)
-    ml_indices = sorted(layer_sets["ml"])
-    movable_mm = sorted(layer_sets["movable_mm"] | layer_sets["hess_mm"])
-    frozen_mm = sorted(layer_sets["frozen_mm"])
+    # M45: consume the single immutable partition. The user's original freeze
+    # mask is preserved in BOTH phase masks and restored exactly in ``finally``.
+    ml_indices = list(partition.ml_atoms)
+    movable_mm = list(partition.movable_mm_atoms)
+    link_mm_parents = set(partition.link_parent_atoms)
+    original_freeze = list(partition.original_freeze)
+    frozen_mm = list(original_freeze)
 
-    if not ml_indices:
-        click.echo("[microiter] WARNING: No ML atoms found. Falling back to standard optimization.")
-        return None
+    n_atoms = partition.n_atoms
 
-    # Identify link-atom MM parent atoms (boundary atoms that should move
-    # with ML atoms in the macro step to keep link atom positions consistent).
-    link_mm_parents: set[int] = set()
-    temp_calc = mlmm(**dict(calc_cfg))
-    calc_core = temp_calc.core if hasattr(temp_calc, "core") else temp_calc
-    for _ml_1, mm_1 in getattr(calc_core, "mlmm_links", []):
-        link_mm_parents.add(mm_1 - 1)  # mlmm_links uses 1-based indices
-    del temp_calc
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-
-    n_atoms = len(geometry.atoms)
-    all_indices = list(range(n_atoms))
-
-    # Macro step: optimize ML atoms + link MM parents; freeze remaining MM.
-    # Micro step: optimize movable MM except link MM parents; freeze ML + link MM parents.
-    macro_active = set(ml_indices) | link_mm_parents
-    macro_freeze = sorted(set(all_indices) - macro_active)
-    micro_freeze = sorted(set(ml_indices) | link_mm_parents | set(frozen_mm))
+    macro_freeze = list(partition.macro_freeze_atoms)
+    micro_freeze = list(partition.micro_freeze_atoms)
 
     max_cycles = int(opt_cfg.get("max_cycles", 10000))
     thresh = opt_cfg.get("thresh", "gau")
@@ -540,185 +644,19 @@ def _run_microiter_opt(
     base_calc = mlmm(**calc_cfg)
     mm_calc = mlmm_mm_only(base_calc.core, freeze_atoms=micro_freeze)
 
-    # Seed initial Hessian for RFO (with macro freeze)
-    # Try IRC endpoint cache first; fall back to full Hessian calculation.
-    from mlmm.io.hessian_cache import (
-        load as _hess_load,
-        matches_cart_coords as _hess_matches_coords,
-    )
-    from mlmm.workflows.freq import (
-        _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
-        _torch_device as _freq_torch_device,
-    )
-    hess_device = _freq_torch_device(calc_cfg.get("ml_device", "auto"))
+    # Ordered record of every micro (MM) relaxation's truthful outcome (M46/M47).
+    micro_attempts: List[OptimizerOutcome] = []
+    micro_cycles_total = 0
 
-    # Always create macro calculator (needed for optimization loop below)
-    macro_calc_cfg = dict(calc_cfg)
-    macro_calc_cfg["freeze_atoms"] = macro_freeze
-    macro_calc_cfg["hess_mm_atoms"] = sorted(link_mm_parents)  # ML + link MM parents in Hessian
-    macro_calc = mlmm(**macro_calc_cfg)
+    def _relax_micro() -> Tuple[Any, int]:
+        """Run one MM-only micro relaxation on a cart twin; copy coords back.
 
-    cached = _hess_load("irc_endpoint")
-    if cached is not None and not _hess_matches_coords(cached, geometry.cart_coords):
-        click.echo(
-            "[microiter] Cached IRC Hessian does not match the input geometry; "
-            "calculating a fresh Hessian.",
-            err=True,
-        )
-        cached = None
-    _cache_used = False
-    if cached is not None:
-        active_dofs = cached.get("active_dofs")
-        h_raw = cached["hessian"]
-        if isinstance(h_raw, torch.Tensor):
-            h_init = h_raw.clone()
-        else:
-            h_init = torch.as_tensor(h_raw, dtype=torch.float64)
+        Returns the LBFGS optimizer (for its explicit convergence bit) and the
+        number of executed micro cycles.  A normal Python return is not, by
+        itself, evidence of convergence (M46): the caller reads
+        ``micro_opt.is_converged`` via :class:`OptimizerOutcome`.
+        """
 
-        # Macro step freezes MM atoms → only ML DOFs are free.
-        # The cached IRC Hessian covers ML+MovableMM DOFs and is generally
-        # larger.  Extract the ML-only sub-block when active_dofs are known;
-        # otherwise fall back to a fresh Hessian calculation.
-        n_free = geometry.cart_coords.size - 3 * len(macro_freeze)
-        if h_init.shape[0] == n_free:
-            # Size already matches (e.g. non-microiter or same freeze set)
-            geometry.set_calculator(macro_calc)
-            if active_dofs is not None:
-                geometry.within_partial_hessian = {
-                    "active_n_dof": len(active_dofs),
-                    "full_n_dof": geometry.cart_coords.size,
-                    "active_dofs": active_dofs,
-                    "active_atoms": sorted(set(d // 3 for d in active_dofs)),
-                }
-            geometry.cart_hessian = h_init
-            click.echo(f"[microiter] Reusing IRC endpoint Hessian for RFO macro step (shape={h_init.shape[0]}x{h_init.shape[1]}).")
-            _cache_used = True
-        elif active_dofs is not None:
-            # Extract ML-only sub-block from the larger cached Hessian.
-            macro_free_atoms = sorted(set(range(geometry.cart_coords.size // 3)) - set(macro_freeze))
-            macro_free_dofs = []
-            for a in macro_free_atoms:
-                macro_free_dofs.extend([3 * a, 3 * a + 1, 3 * a + 2])
-            # Map macro free DOFs to indices within the cached active_dofs
-            cached_dof_set = set(active_dofs)
-            sub_indices = []
-            for d in macro_free_dofs:
-                if d in cached_dof_set:
-                    sub_indices.append(active_dofs.index(d))
-            if len(sub_indices) == n_free:
-                idx = torch.tensor(sub_indices, dtype=torch.long)
-                h_sub = h_init[idx][:, idx]
-                macro_active_dofs = macro_free_dofs
-                geometry.set_calculator(macro_calc)
-                geometry.within_partial_hessian = {
-                    "active_n_dof": len(macro_active_dofs),
-                    "full_n_dof": geometry.cart_coords.size,
-                    "active_dofs": macro_active_dofs,
-                    "active_atoms": macro_free_atoms,
-                }
-                geometry.cart_hessian = h_sub
-                click.echo(
-                    f"[microiter] Reusing IRC endpoint Hessian (sub-block) for RFO macro step "
-                    f"(cached {h_init.shape[0]}x{h_init.shape[1]} → extracted {h_sub.shape[0]}x{h_sub.shape[1]})."
-                )
-                _cache_used = True
-                del h_sub
-            else:
-                click.echo(
-                    f"[microiter] IRC endpoint Hessian sub-block extraction failed "
-                    f"(expected {n_free}, got {len(sub_indices)}). Falling back to fresh Hessian."
-                )
-        else:
-            click.echo(
-                f"[microiter] IRC endpoint Hessian size mismatch "
-                f"(cached={h_init.shape[0]}, needed={n_free}). Falling back to fresh Hessian."
-            )
-        del h_init
-    if not _cache_used:
-        click.echo("[microiter] Seeding initial Hessian for RFO macro step.")
-        geometry.set_calculator(macro_calc)
-
-        h_init, _ = _freq_calc_full_hessian_torch(
-            geometry, macro_calc_cfg, hess_device, refresh_geom_meta=True,
-        )
-        geometry.cart_hessian = h_init
-        click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
-        del h_init
-
-    optim_all_path = out_dir_path / "optimization_all_trj.xyz"
-    macro_trj_path = out_dir_path / "optimization_trj.xyz"
-    total_macro_steps = 0
-
-    # Create persistent RFOptimizer once (LayerOpt pattern).
-    # This preserves the BFGS Hessian update chain across macro iterations.
-    # NOTE: geometry already has macro_calc set (line above); do NOT call
-    # set_calculator() again as it clears the pre-computed cart_hessian.
-    geometry.freeze_atoms = macro_freeze
-
-    rfo_args = dict(rfo_cfg)
-    rfo_args["max_cycles"] = max_cycles
-    rfo_args["out_dir"] = str(out_dir_path)
-    rfo_args["dump"] = False  # trajectory dumping handled externally
-    rfo_args["thresh"] = thresh
-
-    macro_optimizer = RFOptimizer(geometry, **rfo_args)
-    macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
-
-    # Microiteration progress table (pysisyphus-style with micro_steps column)
-    micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
-    micro_col_fmts = "int float float float float float int float_short".split()
-    micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
-    click.echo("")
-    micro_table.print_header()
-
-    for macro_iter in range(max_cycles):
-        # ---- Macro step: 1 RFO step with ONIOM forces, MM frozen ----
-        geometry.freeze_atoms = macro_freeze
-        geometry.set_calculator(macro_calc)
-
-        # Manually feed state to the persistent optimizer (cf. LayerOpt lines 358-364)
-        macro_optimizer.coords.append(geometry.coords.copy())
-        macro_optimizer.cart_coords.append(geometry.cart_coords.copy())
-        macro_optimizer.cur_cycle = macro_iter
-
-        t_start = time.time()
-        step = macro_optimizer.optimize()  # housekeeping() triggers BFGS update
-        macro_optimizer.steps.append(step)
-
-        # Convergence check
-        macro_converged, conv_info = macro_optimizer.check_convergence()
-        total_macro_steps += 1
-
-        if dump:
-            with open(macro_trj_path, "a") as f:
-                f.write(geometry.as_xyz() + "\n")
-            _append_xyz_trajectory(optim_all_path, macro_trj_path)
-
-        if macro_converged:
-            # Print final converged row (no micro steps)
-            energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
-            marks = [False, *conv_info.get_convergence()[:-1], False, False]
-            cycle_time = time.time() - t_start
-            micro_table.print_row(
-                (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
-                 macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], 0, cycle_time),
-                marks=marks,
-            )
-            print()  # blank line closes the table (print() shares the table's stdout path)
-            click.echo("[microiter] Converged!", detail=True)
-            break
-
-        # Apply step to geometry
-        new_coords = geometry.coords.copy() + step
-        geometry.coords = new_coords
-        # Record actual step (may differ due to coordinate back-transformation)
-        macro_optimizer.steps[-1] = geometry.coords - macro_optimizer.coords[-1]
-
-        # ---- Micro step: MM relaxation on a cart-only twin geometry ----
-        # Moving MM atoms through the macro DLC internals trips Geometry.set_coords'
-        # internal<->cartesian assert. Run the MM micro relaxation on a cart twin and
-        # copy the converged positions back via the coords3d setter; the macro
-        # chemistry stays in DLC (mirrors tsopt's _run_microiter_tsopt).
         macro_coord_type = getattr(geometry, "coord_type", "cart")
         if macro_coord_type != "cart":
             from pysisyphus.Geometry import Geometry as _Geometry
@@ -739,48 +677,356 @@ def _run_microiter_opt(
         micro_lbfgs_args["out_dir"] = str(out_dir_path)
         micro_lbfgs_args["dump"] = dump
 
-        micro_opt = LBFGS(micro_geom, **micro_lbfgs_args)
+        _micro_opt = LBFGS(micro_geom, **micro_lbfgs_args)
         with contextlib.redirect_stdout(io.StringIO()):
-            micro_opt.run()
-        micro_steps = max(int(micro_opt.cur_cycle) + 1, 1)
+            _micro_opt.run()
+        _micro_steps = max(int(_micro_opt.cur_cycle) + 1, 1)
         if macro_coord_type != "cart":
             geometry.coords3d = micro_geom.coords3d.flatten()
             micro_geom.set_calculator(None)
             del micro_geom
+        return _micro_opt, _micro_steps
 
-        if dump:
-            _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+    try:
+        # Seed initial Hessian for RFO (with macro freeze)
+        # Try IRC endpoint cache first; fall back to full Hessian calculation.
+        from mlmm.io.hessian_cache import (
+            load_matching as _hess_load_matching,
+            identity_from_context as _hess_identity,
+        )
+        from mlmm.workflows.freq import (
+            _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
+            _torch_device as _freq_torch_device,
+        )
+        hess_device = _freq_torch_device(calc_cfg.get("ml_device", "auto"))
 
-        del micro_opt
+        # Always create macro calculator (needed for optimization loop below)
+        macro_calc_cfg = dict(calc_cfg)
+        macro_calc_cfg["freeze_atoms"] = macro_freeze
+        macro_calc_cfg["hess_mm_atoms"] = sorted(link_mm_parents)  # ML + link MM parents in Hessian
+        macro_calc = mlmm(**macro_calc_cfg)
+
+        # M70: reuse an IRC endpoint Hessian only on a full evaluation-identity
+        # match (run/system/evaluator/active space/potential).
+        cached = _hess_load_matching(
+            "irc_endpoint",
+            _hess_identity(geometry, calc_cfg, role="irc_endpoint"),
+        )
+        _cache_used = False
+        if cached is not None:
+            active_dofs = cached.get("active_dofs")
+            h_raw = cached["hessian"]
+            if isinstance(h_raw, torch.Tensor):
+                h_init = h_raw.clone()
+            else:
+                h_init = torch.as_tensor(h_raw, dtype=torch.float64)
+
+            # Macro step freezes MM atoms → only ML DOFs are free.
+            # The cached IRC Hessian covers ML+MovableMM DOFs and is generally
+            # larger.  Extract the ML-only sub-block when active_dofs are known;
+            # otherwise fall back to a fresh Hessian calculation.
+            n_free = geometry.cart_coords.size - 3 * len(macro_freeze)
+            if h_init.shape[0] == n_free:
+                # Size already matches (e.g. non-microiter or same freeze set)
+                geometry.set_calculator(macro_calc)
+                if active_dofs is not None:
+                    geometry.within_partial_hessian = {
+                        "active_n_dof": len(active_dofs),
+                        "full_n_dof": geometry.cart_coords.size,
+                        "active_dofs": active_dofs,
+                        "active_atoms": sorted(set(d // 3 for d in active_dofs)),
+                    }
+                geometry.cart_hessian = h_init
+                click.echo(f"[microiter] Reusing IRC endpoint Hessian for RFO macro step (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+                _cache_used = True
+            elif active_dofs is not None:
+                # Extract ML-only sub-block from the larger cached Hessian.
+                macro_free_atoms = sorted(set(range(geometry.cart_coords.size // 3)) - set(macro_freeze))
+                macro_free_dofs = []
+                for a in macro_free_atoms:
+                    macro_free_dofs.extend([3 * a, 3 * a + 1, 3 * a + 2])
+                # Map macro free DOFs to indices within the cached active_dofs
+                cached_dof_set = set(active_dofs)
+                sub_indices = []
+                for d in macro_free_dofs:
+                    if d in cached_dof_set:
+                        sub_indices.append(active_dofs.index(d))
+                if len(sub_indices) == n_free:
+                    idx = torch.tensor(sub_indices, dtype=torch.long)
+                    h_sub = h_init[idx][:, idx]
+                    macro_active_dofs = macro_free_dofs
+                    geometry.set_calculator(macro_calc)
+                    geometry.within_partial_hessian = {
+                        "active_n_dof": len(macro_active_dofs),
+                        "full_n_dof": geometry.cart_coords.size,
+                        "active_dofs": macro_active_dofs,
+                        "active_atoms": macro_free_atoms,
+                    }
+                    geometry.cart_hessian = h_sub
+                    click.echo(
+                        f"[microiter] Reusing IRC endpoint Hessian (sub-block) for RFO macro step "
+                        f"(cached {h_init.shape[0]}x{h_init.shape[1]} → extracted {h_sub.shape[0]}x{h_sub.shape[1]})."
+                    )
+                    _cache_used = True
+                    del h_sub
+                else:
+                    click.echo(
+                        f"[microiter] IRC endpoint Hessian sub-block extraction failed "
+                        f"(expected {n_free}, got {len(sub_indices)}). Falling back to fresh Hessian."
+                    )
+            else:
+                click.echo(
+                    f"[microiter] IRC endpoint Hessian size mismatch "
+                    f"(cached={h_init.shape[0]}, needed={n_free}). Falling back to fresh Hessian."
+                )
+            del h_init
+        if not _cache_used:
+            click.echo("[microiter] Seeding initial Hessian for RFO macro step.")
+            geometry.set_calculator(macro_calc)
+
+            h_init, _ = _freq_calc_full_hessian_torch(
+                geometry,
+                macro_calc_cfg,
+                hess_device,
+                refresh_geom_meta=True,
+                calculator=macro_calc,
+            )
+            geometry.cart_hessian = h_init
+            click.echo(f"[microiter] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+            del h_init
+
+        optim_all_path = out_dir_path / "optimization_all_trj.xyz"
+        macro_trj_path = out_dir_path / "optimization_trj.xyz"
+        total_macro_steps = 0
+
+        # Create persistent RFOptimizer once (LayerOpt pattern).
+        # This preserves the BFGS Hessian update chain across macro iterations.
+        # NOTE: geometry already has macro_calc set (line above); do NOT call
+        # set_calculator() again as it clears the pre-computed cart_hessian.
+        geometry.freeze_atoms = macro_freeze
+
+        rfo_args = dict(rfo_cfg)
+        rfo_args["max_cycles"] = max_cycles
+        rfo_args["out_dir"] = str(out_dir_path)
+        rfo_args["dump"] = False  # trajectory dumping handled externally
+        rfo_args["thresh"] = thresh
+
+        macro_optimizer = RFOptimizer(geometry, **rfo_args)
+        macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
+
+        # Microiteration progress table (pysisyphus-style with micro_steps column)
+        micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
+        micro_col_fmts = "int float float float float float int float_short".split()
+        micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
+        click.echo("")
+        micro_table.print_header()
+
+        # M14/P14: track the latest micro (MM) relaxation's energy-plateau stall so a
+        # stalled micro relaxation cannot masquerade as clean macro convergence.
+        macro_converged = False
+        latest_micro_stalled = False
+        latest_micro_stop_reason = ""
+
+        # M46: establish an initial MM equilibrium at the input geometry before the
+        # first macro step. A first-iteration macro convergence therefore cannot
+        # accept before any MM relaxation, and an initial micro that does not
+        # explicitly converge fails closed (no macro step is taken).
+        run_macro = True
+        if partition.has_micro_active:
+            _init_micro_opt, _init_micro_steps = _relax_micro()
+            micro_cycles_total += _init_micro_steps
+            _init_micro_out = OptimizerOutcome.from_optimizer(
+                _init_micro_opt, max_cycles=micro_max_cycles
+            )
+            micro_attempts.append(_init_micro_out)
+            latest_micro_stalled = _init_micro_out.stalled
+            latest_micro_stop_reason = _init_micro_out.stop_reason or ""
+            if _init_micro_out.converged is not True:
+                run_macro = False
+                click.echo(
+                    "[microiter] Initial MM equilibration did not converge "
+                    f"(status={_init_micro_out.status}); no macro step is taken.",
+                    err=True,
+                )
+            del _init_micro_opt
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            # Restore the macro phase context for the loop below.
+            geometry.freeze_atoms = macro_freeze
+            geometry.set_calculator(macro_calc)
+
+        for macro_iter in range(max_cycles if run_macro else 0):
+            # ---- Macro step: 1 RFO step with ONIOM forces, MM frozen ----
+            geometry.freeze_atoms = macro_freeze
+            geometry.set_calculator(macro_calc)
+
+            # Manually feed state to the persistent optimizer (cf. LayerOpt lines 358-364)
+            macro_optimizer.coords.append(geometry.coords.copy())
+            macro_optimizer.cart_coords.append(geometry.cart_coords.copy())
+            macro_optimizer.cur_cycle = macro_iter
+
+            t_start = time.time()
+            step = macro_optimizer.optimize()  # housekeeping() triggers BFGS update
+            macro_optimizer.steps.append(step)
+
+            # Convergence check
+            macro_converged, conv_info = macro_optimizer.check_convergence()
+            total_macro_steps += 1
+
+            # A real macro energy-plateau stall (M14/P14) stops the loop BEFORE the
+            # step is applied or a micro relaxation is launched; it is never
+            # convergence.
+            if macro_optimizer.stop_requested:
+                if macro_optimizer.is_stalled:
+                    click.echo(
+                        "[microiter] Stalled (energy plateau; not converged): "
+                        f"{macro_optimizer.stop_reason}",
+                        err=True,
+                    )
+                else:
+                    click.echo(
+                        "[microiter] Stopped without convergence: "
+                        f"{macro_optimizer.stop_reason}",
+                        err=True,
+                    )
+                print()  # blank line closes the table
+                break
+
+            if dump:
+                with open(macro_trj_path, "a") as f:
+                    f.write(geometry.as_xyz() + "\n")
+                _append_xyz_trajectory(optim_all_path, macro_trj_path)
+
+            if macro_converged:
+                # Print final converged row (no micro steps)
+                energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
+                marks = [False, *conv_info.get_convergence()[:-1], False, False]
+                cycle_time = time.time() - t_start
+                micro_table.print_row(
+                    (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
+                     macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], 0, cycle_time),
+                    marks=marks,
+                )
+                print()  # blank line closes the table (print() shares the table's stdout path)
+                emit("[microiter] Converged!", detail=True)
+                break
+
+            # Apply step to geometry
+            new_coords = geometry.coords.copy() + step
+            geometry.coords = new_coords
+            # Record actual step (may differ due to coordinate back-transformation)
+            macro_optimizer.steps[-1] = geometry.coords - macro_optimizer.coords[-1]
+
+            # ---- Micro step: MM relaxation on a cart-only twin geometry ----
+            # ``_relax_micro`` runs the MM relaxation on a cart twin and copies the
+            # converged positions back via the coords3d setter; the macro chemistry
+            # stays in DLC (mirrors tsopt's _run_microiter_tsopt).
+            if partition.has_micro_active:
+                micro_opt, micro_steps = _relax_micro()
+                micro_cycles_total += micro_steps
+                _micro_out = OptimizerOutcome.from_optimizer(micro_opt, max_cycles=micro_max_cycles)
+                del micro_opt
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            else:
+                # M45 falsifier #5: a validated partition with macro-active atoms but
+                # ZERO micro-active MM atoms (e.g. the entire MM region is
+                # user-frozen) has no movable MM coordinate to relax. Append the
+                # zero-cycle vacuous micro success instead of building an LBFGS with
+                # every atom frozen (mirrors the initial-equilibration guard above).
+                _micro_out = OptimizerOutcome.vacuous_success()
+                micro_steps = 0
+            micro_attempts.append(_micro_out)
+            # M14/P14: remember whether THIS micro (MM) relaxation stalled on an
+            # energy plateau. Coordinate copying alone is not evidence of
+            # convergence, so a stalled/non-converged latest micro relaxation must
+            # not later read as clean macro convergence.
+            latest_micro_stalled = _micro_out.stalled
+            latest_micro_stop_reason = _micro_out.stop_reason or ""
+
+            if dump:
+                _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
+
+            # M46: a required micro relaxation that did not explicitly converge stops
+            # the macro/micro alternation; the aggregate cannot be converged and no
+            # further macro step is taken (a normal LBFGS return on max-cycle
+            # exhaustion is not convergence).
+            if _micro_out.converged is not True:
+                click.echo(
+                    "[microiter] Latest MM relaxation did not converge "
+                    f"(status={_micro_out.status}); stopping the macro/micro loop.",
+                    err=True,
+                )
+                print()
+                break
+
+            # Print progress row with micro_steps
+            cycle_time = time.time() - t_start
+            energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
+            marks = [False, *conv_info.get_convergence()[:-1], False, False]
+            if (macro_iter > 1) and (macro_iter % 10 == 0):
+                micro_table.print_sep()
+            micro_table.print_row(
+                (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
+                 macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], micro_steps, cycle_time),
+                marks=marks,
+            )
+
+        else:
+            if run_macro:
+                print()  # blank line closes the table (print() shares the table's stdout path)
+                emit(f"[microiter] Reached max macro iterations ({max_cycles}).", detail=True)
+
+        # M14/P14 terminal outcome. A stalled latest micro (MM) relaxation must not
+        # masquerade as clean macro convergence, and it must not be lost as a
+        # reasonless not_converged when the macro merely ran out of cycles: surface
+        # it as a stall (with its reason) in either case.
+        finalize_microiter_macro_convergence(
+            macro_optimizer,
+            macro_converged=macro_converged,
+            latest_micro_stalled=latest_micro_stalled,
+            latest_micro_stop_reason=latest_micro_stop_reason,
+        )
+        # M46/M47: serialize ONE truthful outcome. The macro state (after the M14/P14
+        # stall demotion above) and the ordered micro attempts are folded fail-closed
+        # into a single aggregate: converged only when the macro is converged AND the
+        # latest required micro relaxation is converged.
+        macro_outcome = OptimizerOutcome.from_optimizer(macro_optimizer, max_cycles=max_cycles)
+        aggregate = build_aggregate(macro_outcome, micro_attempts, max_cycles=max_cycles)
+        micro_outcome = MicroiterationOutcome(
+            aggregate=aggregate,
+            macro=macro_outcome,
+            micro_attempts=tuple(micro_attempts),
+            macro_cycles=total_macro_steps,
+            micro_cycles=micro_cycles_total,
+            partition=partition,
+        )
+        outcome = {
+            "converged": bool(aggregate.converged is True),
+            "cycles": total_macro_steps,
+            "stop_requested": bool(macro_optimizer.stop_requested),
+            "stop_reason": aggregate.stop_reason or (macro_optimizer.stop_reason or None),
+            "is_stalled": bool(aggregate.stalled),
+            "optimizer": macro_optimizer,
+            "micro_cycles": micro_cycles_total,
+            "outcome": micro_outcome,
+        }
+
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        # Print progress row with micro_steps
-        cycle_time = time.time() - t_start
-        energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
-        marks = [False, *conv_info.get_convergence()[:-1], False, False]
-        if (macro_iter > 1) and (macro_iter % 10 == 0):
-            micro_table.print_sep()
-        micro_table.print_row(
-            (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
-             macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], micro_steps, cycle_time),
-            marks=marks,
-        )
+        emit(f"[microiter] Total macro steps: {total_macro_steps}", detail=True)
 
-    else:
-        print()  # blank line closes the table (print() shares the table's stdout path)
-        click.echo(f"[microiter] Reached max macro iterations ({max_cycles}).", detail=True)
-
-    del macro_optimizer
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-
-    click.echo(f"[microiter] Total macro steps: {total_macro_steps}", detail=True)
-    # Restore full calculator
-    geometry.freeze_atoms = list(set(frozen_mm))
-    geometry.set_calculator(base_calc)
-
-    return geometry
+        return outcome
+    finally:
+        # M45: restore the EXACT original freeze mask + base calculator on
+        # every exit path (success, micro non-convergence, macro stall, and
+        # raised exception), so no user freeze constraint leaks past the
+        # microiteration driver.
+        geometry.freeze_atoms = list(original_freeze)
+        geometry.set_calculator(base_calc)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 
@@ -1250,6 +1496,9 @@ def cli(
                 (rfo_cfg, (("rfo",), ("opt", "rfo"))),
             ],
         )
+        # Revalidate after the highest-precedence YAML layer so dry-run and
+        # real execution share the constructor's strict method vocabulary.
+        apply_workers_to_calc_cfg(calc_cfg, None, None)
         try:
             geom_cfg["tr_projection"] = normalize_tr_projection_mode(
                 geom_cfg.get("tr_projection")
@@ -1527,6 +1776,7 @@ def cli(
         echo_resolved_device()
 
         resolved_dist_freeze: List[Tuple[int, int, float]] = []
+        active_calc = base_calc
         if dist_freeze:
             try:
                 resolved_dist_freeze = _resolve_dist_freeze_targets(geometry, dist_freeze)
@@ -1547,7 +1797,8 @@ def cli(
             )
             bias_calc = HarmonicBiasCalculator(base_calc, k=bias_k_eff)
             bias_calc.set_pairs(resolved_dist_freeze)
-            geometry.set_calculator(bias_calc)
+            active_calc = bias_calc
+            geometry.set_calculator(active_calc)
 
         # Pass only opt-level values that differ from OPT_BASE defaults, so
         # optimizer-specific YAML (e.g. rfo.print_every / lbfgs.print_every)
@@ -1564,57 +1815,6 @@ def cli(
                 return RFOptimizer(geometry, **rfo_args)
             raise click.BadParameter(f"Unknown optimizer kind '{run_kind}'.")
 
-        def _seed_rfo_hessian():
-            """Seed initial Hessian via shared freq backend for RFO."""
-            from mlmm.io.hessian_cache import (
-                load as _hess_load,
-                matches_cart_coords as _hess_matches_coords,
-            )
-            cached = _hess_load("irc_endpoint")
-            if cached is not None and not _hess_matches_coords(
-                cached, geometry.cart_coords
-            ):
-                click.echo(
-                    "[opt] Cached IRC Hessian does not match the input geometry; "
-                    "calculating a fresh Hessian.",
-                    err=True,
-                )
-                cached = None
-            if cached is not None:
-                click.echo("[opt] Reusing IRC endpoint Hessian for RFO seeding.")
-                active_dofs = cached.get("active_dofs")
-                h_raw = cached["hessian"]
-                if isinstance(h_raw, torch.Tensor):
-                    h_init = h_raw.clone()
-                else:
-                    h_init = torch.as_tensor(h_raw, dtype=torch.float64)
-                if active_dofs is not None:
-                    geometry.within_partial_hessian = {
-                        "active_n_dof": len(active_dofs),
-                        "full_n_dof": geometry.cart_coords.size,
-                        "active_dofs": active_dofs,
-                        "active_atoms": sorted(set(d // 3 for d in active_dofs)),
-                    }
-                geometry.cart_hessian = h_init
-                click.echo(f"[opt] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
-                del h_init
-                return
-            click.echo("[opt] Seeding initial Hessian via shared freq backend.")
-            from mlmm.workflows.freq import (
-                _calc_full_hessian_torch as _freq_calc_full_hessian_torch,
-                _torch_device as _freq_torch_device,
-            )
-            hess_device = _freq_torch_device(calc_cfg.get("ml_device", "auto"))
-            h_init, _ = _freq_calc_full_hessian_torch(
-                geometry,
-                calc_cfg,
-                hess_device,
-                refresh_geom_meta=True,
-            )
-            geometry.cart_hessian = h_init
-            click.echo(f"[opt] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
-            del h_init
-
         # Resolve microiteration config from YAML
         microiter_cfg = dict(MICROITER_KW)
         apply_yaml_overrides(
@@ -1626,6 +1826,12 @@ def cli(
             [(microiter_cfg, (("microiter",),))],
         )
 
+        # Serialize state through one set of names (no dir()-based discovery).
+        optimizer = None
+        microiter_result = None
+        microiter_partition = None
+        microiter_fallback_reason = None
+
         use_microiter = bool(microiter) and use_rfo and not dist_freeze
         if bool(microiter) and not use_rfo:
             click.echo("[microiter] --microiter is only effective with --opt-mode hess (RFO). Ignoring.")
@@ -1633,8 +1839,27 @@ def cli(
             click.echo("[microiter] --microiter is not compatible with --dist-freeze. Falling back to standard RFO.")
 
         if use_microiter:
-            click.echo("\n====== Optimization (RFO + Microiteration) ======\n", narrative=True)
-            _run_microiter_opt(
+            # M44: resolve the ONE immutable partition strictly from the accepted
+            # calculator core BEFORE dispatch. A construction/partition failure
+            # raises PartitionError (loud, ordinary error envelope); a VALID
+            # empty-ML partition is a documented fallback to a REAL standard RFO
+            # run, never an unchanged geometry returned as a completed result.
+            _mi_core = base_calc.core if hasattr(base_calc, "core") else base_calc
+            microiter_partition = resolve_partition_from_core(
+                _mi_core, len(geometry.atoms), geometry.freeze_atoms
+            )
+            if not microiter_partition.has_macro_active:
+                microiter_fallback_reason = "no_ml_atoms"
+                click.echo(
+                    "[microiter] No ML macro-active atoms in the resolved "
+                    "partition; running a standard RFO optimization "
+                    "(fallback_reason=no_ml_atoms)."
+                )
+                use_microiter = False
+
+        if use_microiter:
+            emit("\n====== Optimization (RFO + Microiteration) ======\n", narrative=True)
+            microiter_result = _run_microiter_opt(
                 geometry,
                 calc_cfg,
                 rfo_cfg,
@@ -1642,8 +1867,18 @@ def cli(
                 opt_cfg,
                 microiter_cfg,
                 out_dir_path,
+                partition=microiter_partition,
                 dump=bool(opt_cfg["dump"]),
             )
+            if microiter_result is not None:
+                emit_optimizer_terminal_status(
+                    "opt",
+                    converged=microiter_result.get("converged"),
+                    cycles=microiter_result.get("cycles"),
+                    max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                    stalled=bool(microiter_result.get("is_stalled")),
+                    stop_reason=microiter_result.get("stop_reason") or None,
+                )
 
             # Write final geometry
             from ase import Atoms as _Atoms
@@ -1656,17 +1891,24 @@ def cli(
         else:
             main_kind = "rfo" if use_rfo else "lbfgs"
             if use_rfo:
-                _seed_rfo_hessian()
+                _seed_rfo_initial_hessian(
+                    geometry,
+                    calc_cfg,
+                    active_calc,
+                    restraints_active=bool(resolved_dist_freeze),
+                )
 
             main_label = "RFO" if use_rfo else "LBFGS"
             optimizer = _build_optimizer(main_kind)
-            click.echo(f"\n====== Optimization ({main_label}) ======\n", narrative=True)
+            emit(f"\n====== Optimization ({main_label}) ======\n", narrative=True)
             optimizer.run()
             emit_optimizer_terminal_status(
                 "opt",
                 converged=getattr(optimizer, "is_converged", None),
                 cycles=optimizer_cycle_count(optimizer),
                 max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                stalled=getattr(optimizer, "is_stalled", False),
+                stop_reason=getattr(optimizer, "stop_reason", None) or None,
             )
 
             # Get final geometry path
@@ -1680,7 +1922,25 @@ def cli(
 
         rigid_projection_info: Dict[str, Any] = {}
 
-        # Flatten loop (all imaginary modes)
+        # M14/P14: track a real energy-plateau stall from whichever optimizer
+        # ran (standard, microiteration macro/latest-micro, or a flatten retry
+        # below). A stall stops further flatten/retry work and is reported as a
+        # distinct, non-converged outcome (never converged).
+        _opt_stalled = False
+        _opt_stop_reason = ""
+        if use_microiter:
+            if microiter_result is not None:
+                _opt_stalled = bool(microiter_result.get("is_stalled"))
+                _opt_stop_reason = microiter_result.get("stop_reason") or ""
+        elif optimizer is not None:
+            _opt_stalled = bool(getattr(optimizer, "is_stalled", False))
+            _opt_stop_reason = getattr(optimizer, "stop_reason", "") or ""
+
+        # Flatten loop (all imaginary modes).  A stalled optimization is
+        # precisely when this is wanted: it rebuilds the Hessian and displaces
+        # along the remaining imaginary modes to leave the plateau.  M14/P14's
+        # no-retry rule belongs inside the loop (a flatten *retry* that stalls
+        # again stops there and sets ``_opt_stalled``), not in front of it.
         if flatten:
             from mlmm.workflows.freq import (
                 _torch_device,
@@ -1690,7 +1950,7 @@ def cli(
                 _active_atoms_from_partial_hessian_metadata,
             )
 
-            click.echo("\n====== Optimization (Flatten loop) ======\n", narrative=True)
+            emit("\n====== Optimization (Flatten loop) ======\n", narrative=True)
 
             geometry.set_calculator(None)
             calc_kwargs_for_flatten = dict(calc_cfg)
@@ -1700,14 +1960,16 @@ def cli(
             masses_amu = _safe_masses_amu(geometry.atomic_numbers)
 
             def _attach_opt_calc() -> None:
-                geometry.set_calculator(
-                    bias_calc if resolved_dist_freeze else base_calc
-                )
+                geometry.set_calculator(active_calc)
 
             def _calc_freqs_and_modes() -> Tuple[np.ndarray, torch.Tensor]:
                 # Refresh the active-DOF metadata used by PHVA routing.
                 H, _e = _calc_full_hessian_torch(
-                    geometry, calc_kwargs_for_flatten, device, refresh_geom_meta=True,
+                    geometry,
+                    calc_kwargs_for_flatten,
+                    device,
+                    refresh_geom_meta=True,
+                    calculator=active_calc,
                 )
                 effective_freeze_idx = freeze_idx
                 if H.shape[0] != 3 * len(geometry.atomic_numbers):
@@ -1747,7 +2009,7 @@ def cli(
             neg_mask = freqs_cm < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)
             n_imag = int(np.sum(neg_mask))
             ims = [float(x) for x in freqs_cm if x < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)]
-            click.echo(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
+            emit(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
 
             flatten_kind = mode_resolved  # reuse same optimizer type
             for it in range(OPT_FLATTEN_MAX_ITER):
@@ -1762,6 +2024,7 @@ def cli(
                     modes,
                     OPT_FLATTEN_NEG_FREQ_THRESH_CM,
                     OPT_FLATTEN_AMP_ANG,
+                    calculator=active_calc,
                 )
                 if not did_flatten:
                     click.echo("[flatten] No eligible imaginary modes to flatten; stopping.")
@@ -1770,21 +2033,37 @@ def cli(
                 _attach_opt_calc()
                 opt_restart = _build_optimizer(flatten_kind)
                 restart_label = "LBFGS" if flatten_kind == "lbfgs" else "RFO"
-                click.echo(f"\n====== Optimization ({restart_label}, flatten retry) ======\n", narrative=True)
+                emit(f"\n====== Optimization ({restart_label}, flatten retry) ======\n", narrative=True)
                 opt_restart.run()
                 emit_optimizer_terminal_status(
                     "opt",
                     converged=getattr(opt_restart, "is_converged", None),
                     cycles=optimizer_cycle_count(opt_restart),
                     max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                    stalled=getattr(opt_restart, "is_stalled", False),
+                    stop_reason=getattr(opt_restart, "stop_reason", None) or None,
                 )
+
+                # Stop retrying a stalled optimization (M14/P14): a flatten
+                # retry that stalled is not making progress, so re-running it
+                # would only repeat the stall.
+                if getattr(opt_restart, "is_stalled", False):
+                    _opt_stalled = True
+                    _opt_stop_reason = (
+                        getattr(opt_restart, "stop_reason", "") or _opt_stop_reason
+                    )
+                    click.echo(
+                        "[flatten] Optimization stalled (energy plateau); "
+                        "stopping the flatten loop."
+                    )
+                    break
 
                 geometry.set_calculator(None)
                 freqs_cm, modes = _calc_freqs_and_modes()
                 neg_mask = freqs_cm < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)
                 n_imag = int(np.sum(neg_mask))
                 ims = [float(x) for x in freqs_cm if x < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)]
-                click.echo(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
+                emit(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
 
             if n_imag > 0:
                 click.echo(
@@ -1824,17 +2103,38 @@ def cli(
             frozen_layer_indices=frozen_layer_indices,
         )
 
-        click.echo(format_elapsed("[time] Elapsed Time for Opt", time_start), narrative=True)
+        emit(format_elapsed("[time] Elapsed Time for Opt", time_start), narrative=True)
 
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
-            _opt_converged = optimizer.is_converged if 'optimizer' in dir() and hasattr(optimizer, 'is_converged') else None
-            _opt_cycles = optimizer.cur_cycle if 'optimizer' in dir() and hasattr(optimizer, 'cur_cycle') else None
-            # Microiteration path: optimizer not in scope, use max_cycles as budget
-            if _opt_cycles is None and use_microiter:
-                _opt_cycles = int(opt_cfg.get("max_cycles", 0))
+            _opt_converged = _opt_terminal_converged(
+                use_microiter,
+                microiter_result,
+                optimizer,
+            )
+            # M47: n_opt_cycles is the EXECUTED macro cycle count, never the
+            # configured budget. On the microiteration path there is no standalone
+            # optimizer in scope, so the executed macro cycles come from the
+            # driver's outcome (previously this substituted max_cycles, which was
+            # always wrong for a converged run).
+            #
+            # C9 truthfulness correction (mirrors the microiter n_opt_cycles fix):
+            # the ordinary path previously serialized the raw ZERO-based
+            # ``optimizer.cur_cycle`` here, while the console log and tsopt both
+            # report ``cur_cycle + 1`` (executed cycles). A 1-cycle converged opt
+            # therefore reported n_opt_cycles=0 in JSON but "Total cycles: 1" in the
+            # log. Use ``optimizer_cycle_count`` so JSON == log == tsopt.
+            if use_microiter and microiter_result is not None:
+                _opt_cycles = int(microiter_result.get("cycles", 0))
+            elif optimizer is not None and hasattr(optimizer, "cur_cycle"):
+                _opt_cycles = optimizer_cycle_count(optimizer)
+            else:
+                _opt_cycles = None
+            # M14/P14: an energy-plateau stall is a distinct, additive outcome
+            # that is never reported as converged.  ``converged`` / ``not_converged``
+            # remain byte-compatible; only ``stalled`` is new.
             result_data = {
-                "status": "converged" if _opt_converged else "not_converged",
+                "status": "stalled" if _opt_stalled else ("converged" if _opt_converged else "not_converged"),
                 "energy_hartree": float(geometry.energy) if geometry.energy is not None else None,
                 "n_opt_cycles": _opt_cycles,
                 "opt_mode": opt_cfg.get("opt_mode", opt_mode),
@@ -1850,17 +2150,31 @@ def cli(
                     "final_geometry_xyz": str(final_xyz_path.name),
                 },
             }
+            # Additive stop_reason, present only for a non-converged stop
+            # (stalled/stopped) so a genuinely converged run's JSON stays
+            # byte-compatible (M14/P14).
+            if _opt_stop_reason:
+                result_data["stop_reason"] = _opt_stop_reason
+            # M47: additive microiteration serialization. Executed macro cycles
+            # already populate n_opt_cycles; n_micro_cycles and the microiteration
+            # object carry the separate micro totals + macro/micro leaf outcomes.
+            # These are additive: a converged run's legacy keys are unchanged.
+            if use_microiter and microiter_result is not None:
+                _mi_outcome = microiter_result.get("outcome")
+                if _mi_outcome is not None:
+                    result_data["n_micro_cycles"] = int(microiter_result.get("micro_cycles", 0))
+                    result_data["microiteration"] = _mi_outcome.to_result_object()
             if rigid_projection_info:
                 result_data["rigid_projection"] = dict(rigid_projection_info)
             # Final force convergence values
-            if 'optimizer' in dir() and hasattr(optimizer, 'max_forces') and optimizer.max_forces:
+            if optimizer is not None and hasattr(optimizer, 'max_forces') and optimizer.max_forces:
                 result_data["final_max_force"] = float(optimizer.max_forces[-1])
                 result_data["final_rms_force"] = float(optimizer.rms_forces[-1])
             # Convergence thresholds (numeric values for the named preset)
-            if 'optimizer' in dir() and hasattr(optimizer, 'convergence') and optimizer.convergence:
+            if optimizer is not None and hasattr(optimizer, 'convergence') and optimizer.convergence:
                 result_data["convergence_thresholds"] = {k: float(v) for k, v in optimizer.convergence.items()}
             # Final step convergence values
-            if 'optimizer' in dir() and hasattr(optimizer, 'max_steps') and optimizer.max_steps:
+            if optimizer is not None and hasattr(optimizer, 'max_steps') and optimizer.max_steps:
                 result_data["final_max_step"] = float(optimizer.max_steps[-1])
                 result_data["final_rms_step"] = float(optimizer.rms_steps[-1])
             # Add PDB/GJF if generated
@@ -1899,8 +2213,8 @@ def cli(
         # Release GPU memory so subsequent pipeline stages don't OOM.
         # `= None` decref's the heavy refs; `del` then removes names from
         # the local frame so torch.nn.Module hooks / closures cannot retain.
-        base_calc = bias_calc = geometry = optimizer = mm_calc = macro_calc = macro_optimizer = None
-        del base_calc, bias_calc, geometry, optimizer, mm_calc, macro_calc, macro_optimizer
+        base_calc = bias_calc = active_calc = geometry = optimizer = mm_calc = macro_calc = macro_optimizer = None
+        del base_calc, bias_calc, active_calc, geometry, optimizer, mm_calc, macro_calc, macro_optimizer
         gc.collect()  # break cyclic refs inside torch.nn.Module
         if torch.cuda.is_available():
             torch.cuda.empty_cache()

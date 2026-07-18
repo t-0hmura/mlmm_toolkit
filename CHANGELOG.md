@@ -6,29 +6,157 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+> Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,
+> vibrational classifications, thermochemistry, and scientific/terminal status. Consumers of
+> `result.json`/`summary.json` must review the Breaking changes and Machine-readable output sections.
+
+### Breaking changes
+- **JSON schema 2.0 (breaking).** UMA-specific summary keys became backend-neutral MLIP keys
+  (`post_segments[].uma` → `.mlip`, `gibbs_uma` → `gibbs_mlip`, `gibbs_dft_uma` → `gibbs_dft_mlip`);
+  the old keys were removed. This is `schema_version: "2.0"`. Update parsers before upgrading.
+- **Removed the `add_uma_precision_option` Python alias** (`mlmm.cli.common_options`). It previously
+  aliased `add_precision_option`; external scripts importing the old name break with `ImportError`.
+  Migration: import `add_precision_option`.
+- **MCP tools now reject `extra_args` that override a managed output option.** Passing `-o`/`--out-dir`
+  (or another MCP-managed output switch) through `extra_args` now raises `ValueError` instead of being
+  forwarded verbatim. Migration: use the tool's own output parameters.
+
 ### Added
-- Add a lossless mmCIF/large-PDB bridge, exact selectors, safe duplicate atom
-  names, and root/segment CIF companions with original identifiers.
+- Add an mmCIF/large-PDB bridge (atom-identity–preserving; multi-model input keeps the first model,
+  with a warning), exact selectors, safe duplicate atom names, and root/segment CIF companions with
+  original identifiers.
 - Add `tsopt --ref-mode`, opt-in IRC never-stop traversal, and analytical
   Hessians for ORB, MACE, and AIMNet2.
 - Add a release-pinned Colab GUI for structure preparation, exact selectors,
   backend controls, validated execution, and result inspection.
 
 ### Changed
-- Reject explicit analytical Hessians with `workers > 1`, and use constrained
-  frozen-boundary rigid projection for PHVA, IRC, Dimer, and TS validation.
+- Remove the unused internal `AllContext` parameter mirror and break the product
+  import cycles (`core.utils`↔`extract`, `freq`↔`opt`) by relocating the shared
+  charge/spin preparation and layer helpers; the relocation itself makes no CLI or
+  JSON contract change (see the `sp` ML-region resolution change below, which does
+  move numbers).
+- Reject explicit analytical Hessians with `workers > 1`.
+- Project only rigid modes that are an actual null space of the frozen system for
+  PHVA, IRC, Dimer, and TS validation, and record the effective mode. The former
+  active-fragment projection could hide a real imaginary mode, so `n_imag`, ZPE
+  and ΔG‡ move on frozen-boundary systems. The superseded `--tr-projection
+  legacy-active` treatment is deprecated: it now warns and must not be used for
+  pass/HOSP transition-state certification; install the pinned pre-fix release to
+  reproduce old results bitwise.
 - Require `n_imag = 1` for TS success, preserve rejected optimizer state, and
-  report resolved backend/model and the highest common rate-limiting method.
-- Replace UMA-specific summary keys with backend-neutral MLIP keys; this
-  breaking JSON contract is `schema_version: "2.0"`.
+  report resolved backend/model/precision and the highest common rate-limiting method.
+- Reject energy-increasing trial steps by default in the RFO/L-BFGS minimizers
+  (`reject_uphill`), reject TS trial steps that lose the saddle mode
+  (`reject_mode_loss`), require an eigenvalue-structure check and an explicit
+  saddle verification before a TS optimization may stop (`check_eigval_structure`,
+  `verify_saddle`), and add saddle recovery. These are default-on optimizer
+  behavior changes: an optimization can now stop at a different geometry, or
+  report a different terminal status, than it did in the released version.
+- Double the default segment path resolution (`max_nodes_segment` 10 → 20), which
+  changes the MEP, its highest-energy image, and therefore the reported barrier.
+- Unify the residue/ion/water catalog so charge inference recognizes the same
+  ions as element inference; charge summaries now include monatomic ions that
+  were previously unrecognized.
+- Keep finite-difference Hessian assembly, low-rank Bofill updates, and mass
+  scaling device-resident on GPU runs, avoiding per-step host round-trips.
+- Honor YAML `opt.thresh`, the `dft` method, and `--func-basis` in `all`: these are
+  forwarded to the post-MEP TSOPT and R/P endpoint-optimization children only when set
+  explicitly, so a YAML value is no longer clobbered by a hardcoded default. Endpoint
+  geometry/energy and DFT numbers change when configured.
+- Build the align/refine and `--no-tsopt` HEI-probe calculators from the resolved
+  calculator template, so `uma_precision`/`uma_model`/`workers`/`cutoff`/
+  `embedcharge_cutoff` (and the YAML `calc` section) now reach them; aligned geometry
+  and HEI energy/barrier move when these are set.
+- Skip the BFGS Hessian update when the curvature `s·y ≤ 0` (was applied), and force
+  `use_active=False` on internal-coordinate frequency analysis, fixing a partial-Hessian
+  index mismatch reachable via `--coord-type` with frozen atoms.
+- Decide IRC endpoint minimality on an exact Cartesian Hessian under the opt-in
+  `--irc-pos-def`, replacing the integrator's quasi-Newton Hessian.
+- Mask the harmonic-restraint Hessian on a separate `hessian_constrained_atoms` set
+  from the forces, changing frequencies where restraints and frozen atoms interact.
+- Seed `scan2d`/`scan3d` grid points only from explicitly converged relaxations,
+  reference relative and minimum energies to seed-eligible points only, and honor YAML
+  `opt.thresh`/`opt.max_cycles` (previously clobbered by the CLI default); relative
+  energies shift when any grid point fails.
+- Isolate Direct-Max-Flux configuration per invocation (`fresh_dmf_config` deep-copy).
+- Load `path-opt --ref-pdb` geometry from the original unrounded `.xyz` (was: a PDB
+  rounded to 0.001 Å, then reloaded), removing a coordinate round-trip.
+- Resolve the `sp` ML region through the shared validator instead of a bare
+  `except`-and-use-the-whole-system fallback: a resolution failure now raises rather
+  than silently treating the full input as the ML layer (which changed the ONIOM energy).
+- Take `dft` QM-region atom indices from the one-based file ordinal (was the deposited
+  PDB serial and `name[0]` element), so the QM region and cap-hydrogen pairs shift on
+  gapped serials or two-letter elements.
+- Drop the ±1 terminal-charge correction for Amber-capped C-/N-terminal residues in the
+  `extract` charge summary, changing the net protein/active-site charge for capped termini.
 
 ### Fixed
+- Keep Hessian-Dimer orientations and off-centre images on the frozen Cartesian
+  constraint manifold, refreshing constraint-compatible rigid null modes at
+  each central image.
 - Keep scan energies on the unbiased PES and prevent stale Hessian reuse across
   TS, IRC, frequency, and endpoint optimization.
 - Roll back rejected RFO/L-BFGS state, recover TS searches from `n_imag=0`, and
   keep path-guided flattening explicitly opt-in and mode-safe.
+- Report a microiterated optimization's real terminal convergence. The macro
+  loop's verdict was computed and then dropped, so a converged TS — including one
+  whose exact-PHVA validation found a single imaginary mode — was written as
+  `not_converged`, and `all` refused to start its IRC.
+- Release the transition-state probe calculator before returning, so the IRC
+  phase's leased core is the only heavy ML/MM core alive across the handoff.
+- Run the `opt --flatten` loop when the optimizer stalls on an energy plateau.
+  The loop rebuilds the Hessian and displaces along the remaining imaginary
+  modes, so a stall is exactly when it is wanted; only a flatten *retry* that
+  stalls again stops the loop.
+- Keep optimizing when `opt.dump_restart` is set on an optimizer class whose
+  restart state is not declared: the unsupported checkpoint is refused once,
+  further dumping is disabled, and the run continues instead of aborting.
+- Resolve the rigid-mode default from one place, so the `freq`/IRC/TS-optimizer
+  fallbacks can no longer drift apart from the documented default.
 - Correct IRC endpoint labels, `all` worker propagation, YAML custom-factory
   provenance, and CIF publication at pipeline root and segment level.
+- Select one coherent altLoc per residue and identity-check frequency-to-IRC
+  Hessian handoff against geometry, atom order, and active-DOF basis.
+- Honor EulerPC's normalized IRC filename prefix in conversion, endpoint checks,
+  and JSON; ship the third-party/OpenMM CMAP notices in built distributions.
+- Apply the ZPE scale factor exactly once in thermochemistry, so a non-unity
+  factor no longer enters the reported ZPE and `U`/`H`/`G` quadratically.
+- Isolate each Dimer's random state from the process-global NumPy RNG, and raise
+  a clear error for an invalid rotation method.
+- Fingerprint the native `hessian_ff` build and runtime identity before loading a
+  prebuilt extension, refusing a stale or host-incompatible binary.
+- Stop reporting an electronic energy as a Gibbs free energy: `all` builds the
+  per-segment MLIP and DFT//MLIP Gibbs diagrams only when every state's frequency
+  free energy (and DFT thermal correction) is finite, otherwise it skips the diagram
+  and warns, instead of substituting the MLIP/DFT electronic energy or a `0.0`
+  thermal correction. Reported ΔG changes wherever a thermochemistry value was
+  missing.
+- Compare the full per-atom signature when guarding `extract`'s multi-input atom
+  order, so a swapped mid-chain atom now raises instead of passing a first/last-atom
+  spot check.
+
+### Machine-readable output
+- `result.json`/`summary.json` gained additive field families — a `run_id` (from
+  `MLMM_RUN_ID`; a conflicting id raises `RunIdentityError`); `execution_status` and
+  `scientific_status` with reasons and item/expected/observed ids; per-stage and
+  per-point outcomes; per-segment `converged`, `irc`, `endpoint_opt`, `ts_imag`, and
+  `dft_status`; scan `energy_reference`/`n_points_usable`; a serialized
+  `microiteration` object in `opt`/`tsopt` output; a `thermo_policy` block in the
+  frequency YAML/`result.json`; and resolved provenance. These are additive for
+  consumers that tolerate unknown fields. `scientific_status` also participates in
+  usability/promotion decisions, not only provenance.
+- `key_output_files` now lists only the artifacts claimed by the current
+  invocation's run manifest rather than files discovered under the output tree, so a
+  reused `-o/--out-dir` no longer reports stale files from an earlier run.
+- The MCP tool-return envelope moved from `schema_version` `1.0` to `1.1`, adding a
+  per-invocation `run_id`, a `summary_run_mismatch` status, and a run-id byte check
+  (distinct from the summary `schema_version: "2.0"`).
+- Commit `result.json`/`summary.json` and converted structures by staged atomic
+  replace and raise on a write failure that was previously swallowed; the mmCIF/PDB
+  bridge hard-fails on out-of-range or non-finite coordinates and unresolved elements
+  rather than emitting a corrupted fixed-column record. Valid-input output bytes are
+  unchanged.
 
 ## [0.3.2] — 2026-07-10
 
@@ -53,7 +181,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`), pairing with pdb2reaction.
   `--workers > 1` routes the UMA backend through fairchem's `ParallelMLIPPredictUnit` (needs
   `fairchem-core[extras]`); the parallel predictor exposes no autograd model, so analytical Hessians
-  are unavailable and an `Analytical` request is auto-downgraded to `FiniteDifference`. The default
+  are unavailable and an `Analytical` request is rejected with an error. The default
   `--workers 1` keeps the in-process predictor and is byte-for-byte the previous behavior.
 - **Microiteration now works with every Hessian TS optimizer.** `--microiter` (default on)
   previously engaged only with RS-I-RFO (`--opt-mode hess` / `rsirfo`); it now also drives the
@@ -66,9 +194,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - **MACE backend could not load its own default model.** The `MACE-OMOL-0` default was
   routed to `mace_off()`, which treats any non-preset, non-URL string as a local file
   path (raising `FileNotFoundError`). It now uses the dedicated `mace_omol` factory.
-- **An analytical-Hessian request the backend cannot honour now warns instead of
-  degrading silently.** ORB/MACE/AIMNet2 expose no analytical Hessian; `--hessian-calc-mode
-  analytical` falls back to finite differences with a warning.
+- **An analytical-Hessian request the backend cannot honour now raises instead of
+  degrading silently.** A backend build without an autograd model rejects
+  `--hessian-calc-mode analytical` with an error naming `FiniteDifference`, rather than
+  quietly changing the Hessian method.
 - **`make_is_param_explicit` logs on a failed parameter-source query.** Behaviour is
   unchanged (still treats the param as not explicit); the debug log makes a genuine
   typo diagnosable, matching pdb2reaction's `cli_param_overridden`.

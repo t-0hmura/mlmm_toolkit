@@ -109,7 +109,7 @@ out_dir/ (default: ./result_path_search/)
 
 ## YAML configuration
 
-Merge order is **defaults < config < explicit CLI < override**. The YAML root must be a mapping. The relevant sections are `geom`/`calc`(alias `mlmm`)/`gs`/`opt` (shared with `path-opt`) plus `lbfgs` (HEI+/-1 single-structure refinement), `bond` (bond-change detection), and `search` (recursive segmentation logic, path-search only).
+Merge order is **defaults < config < explicit CLI**. The YAML root must be a mapping. The relevant sections are `geom`/`calc`(alias `mlmm`)/`gs`/`opt` (shared with `path-opt`) plus `lbfgs` (HEI+/-1 single-structure refinement), `bond` (bond-change detection), and `search` (recursive segmentation logic, path-search only).
 
 ```yaml
 # Minimal path-search YAML (every key and default: see YAML Reference)

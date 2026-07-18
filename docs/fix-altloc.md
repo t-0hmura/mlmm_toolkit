@@ -1,6 +1,11 @@
 # `fix-altloc`
 
-Remove alternate location (altLoc) indicators from PDB files by selecting the best conformer for each atom based on occupancy and dropping duplicates. Use it to clean a structure carrying altLoc characters before downstream ML/MM preparation, typically after repairing element columns via [add-elem-info](add-elem-info.md). The altLoc column (column 17, 1-based) is blanked with a single space (a 1-character replacement; no shifting or reformatting), and when the same atom appears in multiple altLoc states the highest-occupancy copy is retained (earliest in file on ties, or when occupancy is missing). `ATOM` / `HETATM` records undergo altLoc selection and blanking; `ANISOU` records are kept only if the corresponding ATOM/HETATM line (same serial) is kept.
+Remove alternate locations by selecting one coherent non-blank altLoc label per
+residue. The label with the highest mean occupancy across that residue's
+labelled atoms is selected; ties are broken by first appearance. Blank/shared
+atoms are retained, atoms from other labels are dropped, and column 17 is
+blanked on surviving records. This prevents a per-atom selection from creating
+an A/B hybrid that corresponds to no deposited conformer.
 
 ## Examples
 
@@ -38,11 +43,16 @@ mlmm fix-altloc -i ./structures --inplace --recursive
 
 1. Check if the input file contains any non-blank altLoc characters (column 17).
  - If no altLoc is found and `--force` is not set, skip the file (left unchanged).
-2. For each ATOM/HETATM record, build an identity key ignoring the altLoc field:
- - record name, atom name, residue name, chain ID, residue sequence, insertion code, segID
-3. Among atoms with the same identity key, select the best one using the occupancy / earliest-appearance rule (highest occupancy; ties or missing occupancy keep the earliest in file; occupancy is read from columns 55–60).
-4. Write output with:
- - Only the selected atoms retained
+2. Group labelled ATOM/HETATM records by residue (residue name, chain ID,
+   residue sequence, insertion code, and segID).
+3. Select one non-blank label per residue using the highest mean parsed
+   occupancy (columns 55–60). A label with no parsed occupancy ranks below any
+   label with a parsed mean; earliest appearance breaks equal scores, including
+   the case where every label lacks parsed occupancy.
+4. Keep blank/shared atoms and atoms from the selected label. Resolve malformed
+   duplicates that remain by occupancy and file order.
+5. Write output with:
+ - Only blank/shared atoms and the selected residue conformer retained
  - altLoc column (17) blanked to a single space
  - ANISOU records filtered to match retained atoms
 
@@ -51,10 +61,8 @@ mlmm fix-altloc -i ./structures --inplace --recursive
 When different altLoc states contain different atoms (e.g., altLoc A has atoms
 N, CA, CB, CG while altLoc B has N, CA, CB, CD), `fix-altloc` processes them as follows:
 
-- **Duplicate atoms** (same residue + atom name in multiple altLocs, e.g., N, CA, CB):
-  The best one is selected using the same occupancy / earliest-appearance rule.
-- **Unique atoms** (only present in one altLoc, e.g., CG in A, CD in B):
-  ALL unique atoms are preserved in the output.
+Only atoms belonging to the selected residue label are retained. An atom unique
+to an unselected label is dropped.
 
 **Example:**
 ```
@@ -70,7 +78,6 @@ Output:
  ATOM 1 N ALA A 1... 0.50 # from A (higher occ)
  ATOM 2 CA ALA A 1... 0.50 # from A (higher occ)
  ATOM 3 CG ALA A 1... 0.50 # kept (A only)
- ATOM 6 CD ALA A 1... 0.40 # kept (B only)
 ```
 
 ## Outputs
