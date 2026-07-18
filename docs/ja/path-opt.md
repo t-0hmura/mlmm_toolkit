@@ -34,7 +34,7 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
 
 ## 処理の流れ
 1. **端点の読み込み** -- 両方の PDB 構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--parm`、`--model-pdb`、電荷/スピンで ML/MM calculatorを構築します。
-2. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に LBFGS（同じ ML/MM calculatorを使用）で事前最適化されます。LBFGS サイクル数は `--preopt-max-cycles`（デフォルト: 10000）で制御されます。
+2. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に L-BFGS（同じ ML/MM calculatorを使用）で事前最適化されます。L-BFGS サイクル数は `--preopt-max-cycles`（デフォルト: 10000）で制御されます。
 3. **事前アライメント** -- 事前最適化後、最初の構造以降のすべての端点が最初の構造に Kabsch アライメントされます。`freeze_atoms` が定義されている場合、それらの原子のみが RMSD フィットに参加し、結果の変換がすべての原子に適用されます。
 4. **経路最適化** -- `--mep-mode gsm` は PySisyphus `GrowingString`（端点込み `(max_nodes + 2)` イメージ）を使用し、`--mep-mode dmf` は Direct Max Flux を使用します。
 5. **クライミングイメージ（GSM のみ）** -- `--climb` の場合、ストリングが完全に成長した後にクライミングイメージ精密化が適用され、最高エネルギーイメージ（HEI）が報告されます。
@@ -83,7 +83,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `20` |
 | `--max-cycles INT` | マクロ反復回数の上限（成長 + 精密化）。`opt.stop_in_when_full` も設定。 | `300` |
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |
-| `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を LBFGS で事前最適化。 | `True` |
+| `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を L-BFGS で事前最適化。 | `True` |
 | `--preopt-max-cycles INT` | 端点事前最適化サイクルの上限。 | `10000` |
 | `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実効: `gau_loose`） |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的Hessian vs OpenMM 有限差分）。 | `hessian_ff` |

@@ -13,10 +13,9 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Input enzyme complex PDB (required).
+  -i, --input FILE                Input enzyme complex PDB.  [required]
+  --parm FILE                     Amber parm7 topology for the enzyme.
                                   [required]
-  --parm FILE                     Amber parm7 topology for the enzyme
-                                  (required).  [required]
   --model-pdb FILE                PDB defining the ML region. Optional when
                                   --detect-layer is enabled.
   --model-indices TEXT            Comma-separated atom indices for the ML region
@@ -84,7 +83,7 @@ Options:
                                   YAML bias.k (BIAS_KW['k']=300 in defaults.py)
                                   when omitted; explicit CLI value overrides
                                   YAML.
-  --relax-max-cycles INTEGER      Maximum LBFGS cycles per biased relaxation
+  --relax-max-cycles INTEGER      Maximum L-BFGS cycles per biased relaxation
                                   (also used for preopt).  [default: 10000]
   --dump / --no-dump              Write inner d2 scan TRJs per d1 slice.
                                   [default: no-dump]

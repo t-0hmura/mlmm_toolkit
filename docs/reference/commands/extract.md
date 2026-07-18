@@ -4,7 +4,7 @@
 Usage: mlmm extract [OPTIONS]
 
   Extract an active site model around substrate residues (from PDB/mmCIF or
-  residue IDs/names), with biochemically aware truncation and optional cap-H;
+  residue IDs/names), with biochemically aware truncation and optional link-H;
   mmCIF inputs also produce mmCIF outputs.
 
 Options:
@@ -34,21 +34,21 @@ Options:
                                   original chain/residue IDs is written
                                   automatically. One path creates multi-MODEL
                                   output; N paths create one output per input.
-  -r, --radius FLOAT              Cutoff (angstrom) around substrate atoms for
-                                  active site model inclusion.  [default: 2.6]
-  --radius-het2het FLOAT          Cutoff (angstrom) for substrate hetero-atom
-                                  (non-C/H) to neighbor hetero-atom proximity. 0
-                                  is treated as 0.001 angstrom (effectively
-                                  off).  [default: 0]
+  -r, --radius FLOAT              Cutoff (Å) around substrate atoms for active
+                                  site model inclusion.  [default: 2.6]
+  --radius-het2het FLOAT          Cutoff (Å) for substrate hetero-atom (non-C/H)
+                                  to neighbor hetero-atom proximity. 0 is
+                                  treated as 0.001 Å (effectively off).
+                                  [default: 0]
   --include-h2o / --no-include-h2o
                                   Include waters (HOH/WAT/TIP3/SOL).  [default:
                                   include-h2o]
   --exclude-backbone / --no-exclude-backbone
                                   Delete main-chain atoms from non-substrate
                                   amino acids.  [default: no-exclude-backbone]
-  --add-linkh / --no-add-linkh    Add cap hydrogens (carbon boundaries only) at
-                                  1.09 angstrom along cut-bond directions.
-                                  [default: no-add-linkh]
+  --add-linkh / --no-add-linkh    Add link hydrogens (carbon boundaries only) at
+                                  1.09 Å along cut-bond directions.  [default:
+                                  no-add-linkh]
   --selected-resn TEXT            Comma/space-separated residue IDs/names to
                                   force-include; chain-qualified A:SAM is
                                   supported.

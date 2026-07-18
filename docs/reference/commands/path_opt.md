@@ -35,8 +35,9 @@ Options:
   --climb / --no-climb            Search for a transition state (climbing image)
                                   after path growth.  [default: climb]
   --preopt / --no-preopt          Pre-optimize the two endpoint structures with
-                                  LBFGS before string growth.  [default: preopt]
-  --preopt-max-cycles INTEGER     Maximum LBFGS cycles for endpoint pre-
+                                  L-BFGS before string growth.  [default:
+                                  preopt]
+  --preopt-max-cycles INTEGER     Maximum L-BFGS cycles for endpoint pre-
                                   optimization when --preopt is enabled.
                                   [default: 10000]
   --fix-ends / --no-fix-ends      Fix endpoint structures during path growth.

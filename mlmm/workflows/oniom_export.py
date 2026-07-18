@@ -1917,7 +1917,7 @@ end
     type=float,
     default=6.0,
     show_default=True,
-    help="Distance cutoff for movable/active atoms (Angstrom).",
+    help="Distance cutoff for movable/active atoms (Å).",
 )
 @click.option(
     "--nproc",

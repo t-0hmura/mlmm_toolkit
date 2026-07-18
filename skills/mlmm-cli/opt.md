@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Single-structure geometry optimization with LBFGS or RFO.
+Single-structure geometry optimization with L-BFGS or RFO.
 Use this to relax a starting geometry to its nearest local minimum
 before feeding it to `path-search` / `path-opt`, or as a post-IRC
 endpoint refinement.
@@ -42,7 +42,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 |---|---|---|---|
 | `-i, --input` | path | required | `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `--opt-mode` | str | `grad` | `grad` (LBFGS) or `hess` (RFO); aliases `lbfgs` / `rfo` and the mlmm-only `light` / `heavy` shortcuts (light = LBFGS, heavy = RFO with full Hessian) are accepted |
+| `--opt-mode` | str | `grad` | `grad` (L-BFGS) or `hess` (RFO); aliases `lbfgs` / `rfo` and the mlmm-only `light` / `heavy` shortcuts (light = L-BFGS, heavy = RFO with full Hessian) are accepted |
 | `--mm-only` / `--no-mm-only` | flag | `False` | Skip the MLIP component and minimize on the MM force field only. Layers honored as usual; only `--opt-mode grad` supported (microiter auto-off). Useful as a cheap MM pre-relaxation before ML/MM ONIOM opt. |
 | `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment used only by `--flatten` PHVA; `legacy-active` is comparison-only |
 | `--max-cycles` | int | (live default) | Stop after N cycles; check `OPT_BASE_KW` |
@@ -52,7 +52,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 
 ## Examples
 
-### Default LBFGS
+### Default L-BFGS
 
 ```bash
 mlmm opt -i my.pdb --parm real.parm7 -l 'SAM:1' -b uma -o result_opt
@@ -91,8 +91,8 @@ effective rank, Hessian source, and Hessian shape.
 
 | Mode | Algorithm | When |
 |---|---|---|
-| `grad` / `lbfgs` | LBFGS | Default, fast, robust for most well-conditioned minima |
-| `hess` / `rfo` | RFO with Hessian updates | Stiffer convergence; useful when LBFGS oscillates |
+| `grad` / `lbfgs` | L-BFGS | Default, fast, robust for most well-conditioned minima |
+| `hess` / `rfo` | RFO with Hessian updates | Stiffer convergence; useful when L-BFGS oscillates |
 
 ## Caveats
 
@@ -103,15 +103,15 @@ effective rank, Hessian source, and Hessian shape.
   all-frozen input is an error. `legacy-active` is an isolated-active
   comparison using the current common kernel; bitwise identity is not
   guaranteed for rank-degenerate cases.
-- LBFGS occasionally walks past a saddle on shallow surfaces; if the
+- L-BFGS occasionally walks past a saddle on shallow surfaces; if the
   resulting geometry has imaginary frequencies (run `freq` to check),
   re-run with `--opt-mode rfo`.
 - `--config` YAML is the way to override less-common settings (step
-  limits, trust radius, etc.); inspect `OPT_BASE_KW` and `LBFGS_KW`
+  limits, trust radius, etc.); inspect `OPT_BASE_KW` and `L-BFGS_KW`
   in `mlmm.core.defaults`.
 
 ## See also
 
 - `tsopt.md` — TS analog.
 - `freq.md` — verify the optimized minimum (zero imaginary modes).
-- Defaults: `import mlmm.core.defaults as d; print(d.OPT_BASE_KW, d.LBFGS_KW, d.RFO_KW)`
+- Defaults: `import mlmm.core.defaults as d; print(d.OPT_BASE_KW, d.L-BFGS_KW, d.RFO_KW)`

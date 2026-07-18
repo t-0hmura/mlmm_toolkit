@@ -29,8 +29,8 @@ Options:
                                   mode.
   -q, --charge INTEGER            Charge of QM region.  [required]
   -m, --multiplicity INTEGER      Multiplicity of QM region.  [default: 1]
-  --near FLOAT                    Distance cutoff for movable/active atoms
-                                  (Angstrom).  [default: 6.0]
+  --near FLOAT                    Distance cutoff for movable/active atoms (Å).
+                                  [default: 6.0]
   --nproc INTEGER                 Number of processors.  [default: 8]
   --mem TEXT                      Memory allocation (g16 mode).  [default: 16GB]
   --total-charge INTEGER          Total charge of full QM+MM system for ORCA

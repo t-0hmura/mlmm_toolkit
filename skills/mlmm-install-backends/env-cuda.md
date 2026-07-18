@@ -42,7 +42,7 @@ echo "$CUDA_HOME"                   # often set by the module
 
 Add `module load <CUDA_MODULE>` (and `gcc` if relevant) to **every** PBS
 / SLURM script that uses the GPU (see `mlmm-hpc/SKILL.md`). `mlmm-toolkit`
-parallelises the MM side over CPU threads (default `mm_threads=16`,
+parallelizes the MM side over CPU threads (default `mm_threads=16`,
 backed by PyTorch / OpenMP — `gcc` ships the matching `libgomp`), so
 the PBS preamble should request `ppn`/`--cpus-per-task` ≥ `mm_threads`.
 No cross-node MPI launcher is involved, so OpenMPI is not part of the

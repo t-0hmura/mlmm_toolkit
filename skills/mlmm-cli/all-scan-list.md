@@ -44,7 +44,7 @@ tuples, where each tuple is `(atom_a, atom_b, target_distance_Å)`.
 
 | Form | Meaning |
 |---|---|
-| `"NAME RESNAME RESID"` | Atom by PDB name + residue name + residue index, separated by single spaces |
+| `"RESNAME RESID NAME"` | Atom by residue name + residue index + PDB name, separated by single spaces |
 | `"RESNAME\`RESID/NAME"` | Compact form with backticks and slash; same three fields, different separators |
 | `"CHAIN:RESNAME:RESID[ICODE]:NAME"` | Exact chain-qualified form for repeated or mmCIF identifiers |
 
@@ -114,7 +114,7 @@ for stage in d["stages"]:
 |---|---|---|
 | Stage k goes to a different geometry than expected | Distance restraint not strong enough; SCF found a side product | Tighten the target distance, or split a complex stage into two simpler ones |
 | `--scan-lists` triggers a Python literal-eval error | Quoting mistake | Wrap each stage in single quotes outside, double quotes inside; backticks survive bash without escaping |
-| Path search reports more segments than expected | Bond-change detector found a "free" intermediate | This is usually correct; check the IM geometry in `seg_01/product.pdb` (= `seg_03/reactant.pdb`) |
+| Path search reports more segments than expected | Bond-change detector found a "free" intermediate | This is usually correct; check the IM geometry in `seg_01/product.pdb` (= `seg_02/reactant.pdb`) |
 
 ## Caveats
 

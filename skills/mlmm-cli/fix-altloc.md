@@ -4,7 +4,7 @@
 
 Blank the PDB altLoc column (col 17) without shifting any other field, and
 select **one coherent non-blank label per residue**. Labels are ranked by mean
-parsed occupancy across their labelled atoms. A label with no parsed occupancy
+parsed occupancy across their labeled atoms. A label with no parsed occupancy
 ranks below every parsed mean; equal scores (including all-missing cases) use
 first appearance. Blank/shared atoms remain, while atoms unique to unselected
 labels are dropped. Run on raw RCSB PDBs before `extract`; most downstream

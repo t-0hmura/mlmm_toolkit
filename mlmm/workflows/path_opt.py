@@ -749,10 +749,10 @@ def _run_dmf_mep(
     # string growth to avoid GSM step inflation.
     default=True,
     show_default=True,
-    help="Pre-optimize the two endpoint structures with LBFGS before string growth.",
+    help="Pre-optimize the two endpoint structures with L-BFGS before string growth.",
 )
 @click.option("--preopt-max-cycles", "preopt_max_cycles", type=int, default=10000, show_default=True,
-              help="Maximum LBFGS cycles for endpoint pre-optimization when --preopt is enabled.")
+              help="Maximum L-BFGS cycles for endpoint pre-optimization when --preopt is enabled.")
 @click.option(
     "--fix-ends/--no-fix-ends",
     default=True,

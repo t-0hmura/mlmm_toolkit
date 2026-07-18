@@ -4,10 +4,10 @@
 
 ## Examples
 
-Energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen-MM):
+Energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen):
 
 ```bash
-# energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen-MM)
+# energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen)
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
@@ -40,7 +40,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 | Input | Required | Notes |
 |---|---|---|
-| `-i, --input FILE` | yes | layered PDB (or XYZ) defining the ML / movable-MM / frozen-MM partition |
+| `-i, --input FILE` | yes | layered PDB (or XYZ) defining the ML / movable-MM / frozen partition |
 | `--parm FILE` | yes | Amber `parm7` topology of the full enzyme (`--real-parm7` retained as alias) |
 | `-q, --charge INT` | yes (unless `-l` is given) | ML region total charge |
 | `-l, --ligand-charge TEXT` | no | per-ligand charge mapping (e.g. `SAM:1,GPP:-3`); derives the net charge when `-q` is omitted |
@@ -48,7 +48,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 ### ML region selection
 
-Either embed the partition in the input PDB's B-factor (ML=0.0, movable-MM=10.0, frozen-MM=20.0) with `--detect-layer` (the default), or pass it explicitly:
+Either embed the partition in the input PDB's B-factor (ML=0.0, movable-MM=10.0, frozen=20.0) with `--detect-layer` (the default), or pass it explicitly:
 
 | flag | meaning |
 |---|---|

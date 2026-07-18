@@ -2,7 +2,7 @@
 
 Remove alternate locations by selecting one coherent non-blank altLoc label per
 residue. The label with the highest mean occupancy across that residue's
-labelled atoms is selected; ties are broken by first appearance. Blank/shared
+labeled atoms is selected; ties are broken by first appearance. Blank/shared
 atoms are retained, atoms from other labels are dropped, and column 17 is
 blanked on surviving records. This prevents a per-atom selection from creating
 an A/B hybrid that corresponds to no deposited conformer.
@@ -43,7 +43,7 @@ mlmm fix-altloc -i ./structures --inplace --recursive
 
 1. Check if the input file contains any non-blank altLoc characters (column 17).
  - If no altLoc is found and `--force` is not set, skip the file (left unchanged).
-2. Group labelled ATOM/HETATM records by residue (residue name, chain ID,
+2. Group labeled ATOM/HETATM records by residue (residue name, chain ID,
    residue sequence, insertion code, and segID).
 3. Select one non-blank label per residue using the highest mean parsed
    occupancy (columns 55–60). A label with no parsed occupancy ranks below any

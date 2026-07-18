@@ -1,4 +1,4 @@
-# Quickstart: scan
+# Quickstart: `mlmm scan`
 
 ## Goal
 
@@ -28,8 +28,9 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan.yaml -o ./result_scan
 ```
 
-!!! note
-    To validate the spec without running (GPU-free), add `--print-parsed`. This prints the parsed targets and exits before any calculation, so it does **not** produce the scan outputs listed below.
+```{note}
+To validate the spec without running (GPU-free), add `--print-parsed`. This prints the parsed targets and exits before any calculation, so it does **not** produce the scan outputs listed below.
+```
 
 ## What to check
 

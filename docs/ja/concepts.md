@@ -216,9 +216,9 @@ ML 領域の指定には 2 通りあります。
 
 #### 信頼できる`model.pdb`の作り方
 
-`model.pdb`は独立に再構築したclusterではなく、full PDB/`parm7`から選んだ
-**原子selection file**です。原子名、残基名／番号、chain ID、full-system内の原子順序を
-変えないでください。renumber/reorder、cap水素の手動追加、別途水素付加したmodelのexportは
+`model.pdb` は独立に再構築したクラスターではなく、全系 PDB / `parm7` から選んだ
+**原子選択ファイル**です。原子名、残基名／番号、chain ID、full-system内の原子順序を
+変えないでください。原子の再採番・並べ替え、リンク水素の手動追加、別途水素付加したモデルのエクスポートは
 行いません。
 
 - 反応中心、共有結合cofactor／partner、path中にprotonationまたは結合が変化する原子を

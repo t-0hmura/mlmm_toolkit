@@ -196,7 +196,7 @@ or `source` / `raw_hessian_shape`).
 | `spin` | int | Model-region multiplicity |
 | `files` | object | Output files |
 
-**`stages[]`**: `n_steps`, `converged`, `pairs_1based`, `energies_hartree`, `final_energy_hartree`, `bond_changes`, and (M14/P14, additive) `optimizer_status` (`converged`/`not_converged`/`stalled`) plus `stop_reason` when the stage's last optimizer stopped without convergence
+**`stages[]`**: `n_steps`, `converged`, `pairs_1based`, `energies_hartree`, `final_energy_hartree`, `bond_changes`, and (additive) `optimizer_status` (`converged`/`not_converged`/`stalled`) plus `stop_reason` when the stage's last optimizer stopped without convergence
 
 ### `scan2d` / `scan3d`
 

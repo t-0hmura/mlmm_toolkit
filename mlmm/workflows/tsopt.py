@@ -2661,7 +2661,7 @@ def _load_reference_mode(path: Path, expected_size: int) -> np.ndarray:
     "microiter",
     default=True,
     show_default=True,
-    help="Enable microiteration: alternate a 1-step macro TS move (RS-I-RFO / RS-P-RFO / TRIM) and MM relaxation (LBFGS with MM-only forces). "
+    help="Enable microiteration: alternate a 1-step macro TS move (RS-I-RFO / RS-P-RFO / TRIM) and MM relaxation (L-BFGS with MM-only forces). "
          "Effective in any Hessian --opt-mode (hess/rsirfo/rsprfo/trim); ignored in grad/dimer mode.",
 )
 @click.option(

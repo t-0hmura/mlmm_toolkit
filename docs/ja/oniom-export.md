@@ -71,8 +71,8 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
-- [oniom_gaussian](oniom-gaussian.md) -- Gaussian モード詳細（`--mode g16`）
-- [oniom_orca](oniom-orca.md) -- ORCA モード詳細（`--mode orca`）
-- [oniom_import](oniom-import.md) -- ONIOM 入力から XYZ/層付き PDB を再構築
-- [mm_parm](mm-parm.md) -- Amber トポロジー構築
-- [define_layer](define-layer.md) -- レイヤー定義/確認
+- [oniom-gaussian](oniom-gaussian.md) -- Gaussian モード詳細（`--mode g16`）
+- [oniom-orca](oniom-orca.md) -- ORCA モード詳細（`--mode orca`）
+- [oniom-import](oniom-import.md) -- ONIOM 入力から XYZ/層付き PDB を再構築
+- [mm-parm](mm-parm.md) -- Amber トポロジー構築
+- [define-layer](define-layer.md) -- レイヤー定義/確認

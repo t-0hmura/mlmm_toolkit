@@ -116,7 +116,7 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
     help=(
         "Extract an active site model around substrate residues (from PDB/mmCIF or "
         "residue IDs/names), with biochemically aware truncation and optional "
-        "cap-H; mmCIF inputs also produce mmCIF outputs."
+        "link-H; mmCIF inputs also produce mmCIF outputs."
     ),
     context_settings={
         "help_option_names": ["-h", "--help"],
@@ -156,12 +156,12 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
 @click.option(
     "-r", "--radius",
     type=float, default=2.6, show_default=True,
-    help="Cutoff (angstrom) around substrate atoms for active site model inclusion.",
+    help="Cutoff (Å) around substrate atoms for active site model inclusion.",
 )
 @click.option(
     "--radius-het2het",
     type=float, default=0, show_default=True,
-    help="Cutoff (angstrom) for substrate hetero-atom (non-C/H) to neighbor hetero-atom proximity. 0 is treated as 0.001 angstrom (effectively off).",
+    help="Cutoff (Å) for substrate hetero-atom (non-C/H) to neighbor hetero-atom proximity. 0 is treated as 0.001 Å (effectively off).",
 )
 @click.option(
     "--include-h2o/--no-include-h2o",
@@ -178,7 +178,7 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
     "--add-linkh/--no-add-linkh",
     "add_linkh",
     default=False, show_default=True,
-    help="Add cap hydrogens (carbon boundaries only) at 1.09 angstrom along cut-bond directions.",
+    help="Add link hydrogens (carbon boundaries only) at 1.09 Å along cut-bond directions.",
 )
 @click.option(
     "--selected-resn",

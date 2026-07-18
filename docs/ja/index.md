@@ -83,7 +83,7 @@ glossary
 | TS 検証（`tsopt` + 振動解析） | `mlmm tsopt` | [クイックスタート: tsopt](quickstart-tsopt-freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
 | 現在の設定を確認 | `mlmm opt --show-config` | [YAML リファレンス](yaml-reference.md) |
-| タンパク質-リガンド複合体からQM領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
+| タンパク質-リガンド複合体から ML 領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
 | MM トポロジー（parm7/rst7）を構築 | `mlmm mm-parm` | [mm-parm.md](mm-parm.md) |
 | ML/MM 3層領域を定義 | `mlmm define-layer` | [define-layer.md](define-layer.md) |
 | 単一構造を最適化 | `mlmm opt` | [opt.md](opt.md) |

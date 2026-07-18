@@ -4,7 +4,7 @@
 
 `mlmm-toolkit` is a Python CLI that performs **ML/MM (ONIOM) enzymatic reaction-path analysis** on a complete protein environment. ML/MM here means a hybrid model in which a small reaction core is treated by a machine-learning interatomic potential (ML) and the surrounding protein by a molecular-mechanics (MM) force field, combined through the subtractive ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) energy scheme.
 
-The input is a PDB plus a substrate name. From these the tool automatically generates the parm7 topology and encodes the ONIOM region split (ML / Movable MM / Frozen MM) into B-factor channels. It then runs a full-system Hessian-based transition-state (TS) search via a macro/micro alternation scheme.
+The input is a PDB plus a substrate name. From these the tool automatically generates the parm7 topology and encodes the ONIOM region split (ML / Movable-MM / Frozen) into B-factor channels. It then runs a full-system Hessian-based transition-state (TS) search via a macro/micro alternation scheme.
 
 The result is a full reaction path produced by the stage pipeline `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft`, where MEP is the minimum-energy path and IRC the intrinsic reaction coordinate.
 
@@ -35,7 +35,7 @@ Three bundled forks (`pysisyphus/`, `thermoanalysis/`, `hessian_ff/`) live at th
 - `.github/scripts/check_import_graph.py` (AST import-graph gate) enforces the parts that are true today: (a) the `mlmm` package has **no import cycle** (no strongly connected component among its modules); (b) `core` and `domain` **never import `workflows`**; (c) no bundled fork (`pysisyphus` / `hessian_ff` / `thermoanalysis`) imports `mlmm`.
 - `.github/scripts/check_engineering_markers.py` covers a *different* concern — chemistry-rule / `DOMAIN_PURE` marker completeness and the MLIP-runtime import scope. It does **not** parse the layer import edges, so it does not enforce the direction.
 
-Current allowed back-edges (measured, cycle-free, retired in the major rewrite): a few `core.utils` helpers reach *down* into `domain.add_elem_info` and `io.structure_formats`, and `core.calc_eval` into `backends.mlmm_calc`. `core.utils` no longer imports any `workflows` module; the historical `core.utils ↔ workflows.extract` and `workflows.freq ↔ workflows.opt` cycles were removed by relocating the shared charge/spin preparation (`workflows/charge_prep.py`) and layer helpers (`workflows/_opt_freq_common.py`). Bundled forks sit outside the layer graph and may be imported from any layer through their absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`).
+Current allowed back-edges (measured, cycle-free, retained in the major rewrite): a few `core.utils` helpers reach *down* into `domain.add_elem_info` and `io.structure_formats`, and `core.calc_eval` into `backends.mlmm_calc`. `core.utils` no longer imports any `workflows` module; the historical `core.utils ↔ workflows.extract` and `workflows.freq ↔ workflows.opt` cycles were removed by relocating the shared charge/spin preparation (`workflows/charge_prep.py`) and layer helpers (`workflows/_opt_freq_common.py`). Bundled forks sit outside the layer graph and may be imported from any layer through their absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`).
 
 ### 2.2 ASCII map of the package tree
 
@@ -67,7 +67,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── opt.py / scan.py / scan2d.py /
 │ │ │ scan3d.py / scan_common.py ONIOM geometry opt / scans
 │ │ ├── extract.py active-site extraction CLI
-│ │ ├── define_layer.py ML / Movable MM / Frozen MM B-factor assignment
+│ │ ├── define_layer.py ML / Movable-MM / Frozen B-factor assignment
 │ │ ├── mm_parm.py AmberTools-driven parm7 / rst7 generation
 │ │ ├── oniom_export.py ONIOM input writer (Gaussian / ORCA)
 │ │ ├── oniom_import.py ONIOM input reader (sanity / atom-name diff)
@@ -80,7 +80,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │
 │ ├── backends/ # === L4a Infra (MLIP + ONIOM) ===
 │ │ ├── __init__.py --precision routing (apply_precision_to_calc_cfg)
-│ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / Orb / MACE / AIMNet2
+│ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / ORB / MACE / AIMNet2
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ │ Future: split into base.py + per-backend uma.py / orb.py
 │ │ │ / mace.py / aimnet2.py + ONIOM subdir
@@ -110,9 +110,9 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 ├── tests/ smoke / unit
 ├── .github/ workflows/ + scripts/ (docs-quality lint helpers; CI-only)
 └── (repo-top sibling, layer-external bundled forks)
- pysisyphus/ ~90 file, repo-internal fork (slimmed; CLI driver + QM backends + wavefunction + dead optimizers / IRC / NEB variants removed)
- thermoanalysis/ 5 file, repo-internal fork
- hessian_ff/ 19 file / 4.2k LOC, NO upstream PyPI, mandatory bundling
+ pysisyphus/ ~90 files, repo-internal fork (slimmed; CLI driver + QM backends + wavefunction + dead optimizers / IRC / NEB variants removed)
+ thermoanalysis/ 5 files, repo-internal fork
+ hessian_ff/ 19 files / 4.2k LOC, NO upstream PyPI, mandatory bundling
 ```
 
 ### 2.3 Per-layer responsibility detail
@@ -128,7 +128,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 Domain helpers are reusable by any L2 stage runner.
 
-**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py` = 2,550 LOC) lives here together with the backend dispatch (`__init__.py`) and the standalone xTB point-charge embedding correction (`xtb_embedcharge_correction.py`, driven by `--embedcharge`). Today the 4 MLIP backends (UMA / Orb / MACE / AIMNet2) that evaluate the ML region and the OpenMM / hessian_ff coupling all sit inline inside `mlmm_calc.py`; future work may split this into `backends/{base, uma, orb, mace, aimnet2}.py` for the MLIP layer plus a `backends/mlmm_calc/` subdir for the ONIOM core (`core.py`, `ase_calc.py`, `embed_charge.py`, `hessianff_calc.py`, `openmm_calc.py`, `facade.py`). The current single-file `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, **#8 (3-layer 5-pass partial Hessian)**, and **#9 (parm7 atom indexing)** — see §5.1.
+**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py` = 2,550 LOC) lives here together with the backend dispatch (`__init__.py`) and the standalone xTB point-charge embedding correction (`xtb_embedcharge_correction.py`, driven by `--embedcharge`). Today the 4 MLIP backends (UMA / ORB / MACE / AIMNet2) that evaluate the ML region and the OpenMM / hessian_ff coupling all sit inline inside `mlmm_calc.py`; future work may split this into `backends/{base, uma, orb, mace, aimnet2}.py` for the MLIP layer plus a `backends/mlmm_calc/` subdir for the ONIOM core (`core.py`, `ase_calc.py`, `embed_charge.py`, `hessianff_calc.py`, `openmm_calc.py`, `facade.py`). The current single-file `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, **#8 (3-layer 5-pass partial Hessian)**, and **#9 (parm7 atom indexing)** — see §5.1.
 
 **L4b `io/`** (7 files). Output-side I/O concerns: per-stage summary writer, energy diagram, trajectory rendering, PDB altloc fix, Hessian cache, numerical Hessian construction + frequency / vibrational I/O (`hessian_calc.py`). `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
 
@@ -218,8 +218,8 @@ Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS
 | Vibrational analysis (PHVA + MLIP active block) | `mlmm/workflows/freq.py` |
 | IRC integration (macro / micro) | `mlmm/workflows/irc.py` |
 | Single-point DFT (gpu4pyscf subprocess, ONIOM-embedded) | `mlmm/workflows/dft.py` |
-| Active-site extraction (cluster cap) | `mlmm/workflows/extract.py` |
-| ML / Movable MM / Frozen MM region assignment | `mlmm/workflows/define_layer.py` |
+| Active-site extraction (cluster cut-out + link-atom cap) | `mlmm/workflows/extract.py` |
+| ML / Movable-MM / Frozen region assignment | `mlmm/workflows/define_layer.py` |
 | AmberTools-driven MM parameter generation | `mlmm/workflows/mm_parm.py` |
 | ONIOM input writer (Gaussian / ORCA) | `mlmm/workflows/oniom_export.py` |
 | ONIOM input reader (sanity, atom-name diff) | `mlmm/workflows/oniom_import.py` |
@@ -371,7 +371,7 @@ After the Fresh-eyes tour (§3), follow this depth-first reading order:
 1. `mlmm/core/defaults.py` — internalise the default-value table; everything downstream reads from here.
 2. `mlmm/cli/app.py` — Click root + `_LAZY_SUBCOMMANDS` registry.
 3. `mlmm/workflows/all.py` — one full pipeline top-to-bottom.
-4. `mlmm/workflows/extract.py` + `define_layer.py` — cluster cap + ONIOM layer assignment.
+4. `mlmm/workflows/extract.py` + `define_layer.py` — cluster cut-out + link-atom cap + ONIOM layer assignment.
 5. `mlmm/workflows/mm_parm.py` — AmberTools parm7 generation.
 6. `mlmm/backends/mlmm_calc.py` — the heart of ML/MM (chemistry-rules #1, #2, #8, #9 all live here).
 7. `mlmm/workflows/tsopt.py` — RSIRFO + Bofill (CHEMISTRY-RULE:7) + macro / micro alternation (CHEMISTRY-RULE:3).
@@ -385,8 +385,8 @@ After the Fresh-eyes tour (§3), follow this depth-first reading order:
 
 `mlmm-toolkit` operates on the **full protein environment** via ONIOM:
 
-- **ML region**: substrate + reaction-center residues, evaluated by one of 4 machine-learning interatomic potential (MLIP) backends (UMA / Orb / MACE / AIMNet2); an optional xTB point-charge embedding correction (`--embedcharge`) adds MM→ML environmental effects
-- **Movable MM region**: a shell around the ML region, free to move under the AMBER force field
-- **Frozen MM region**: the rest of the protein, held rigid
+- **ML region**: substrate + reaction-center residues, evaluated by one of 4 machine-learning interatomic potential (MLIP) backends (UMA / ORB / MACE / AIMNet2); an optional xTB point-charge embedding correction (`--embedcharge`) adds MM→ML environmental effects
+- **Movable-MM region**: a shell around the ML region, free to move under the AMBER force field
+- **Frozen region**: the rest of the protein, held rigid
 
 The split is encoded in B-factor channels of the input PDB and propagated through `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft`.

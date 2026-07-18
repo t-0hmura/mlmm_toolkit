@@ -73,7 +73,7 @@ calc:
  backend: uma # MLIP backend: "uma", "orb", "mace", or "aimnet2"
 
  # --- UMA backend settings ---
- uma_model: uma-s-1p2 # uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p2 # uma-s-1p2 | uma-s-1p1 | uma-m-1p1
  uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
  uma_precision: fp32 # fp32 | fp64 (UMA backend numerical precision)
 
@@ -275,9 +275,9 @@ gs:
  fix_last: true # Keep last endpoint fixed
  max_nodes: 20 # Maximum string nodes (internal images)
  perp_thresh: 0.005 # Perpendicular displacement threshold
- reparam_check: rms # Reparametrization check metric
- reparam_every: 1 # Reparametrization stride
- reparam_every_full: 1 # Full reparametrization stride
+ reparam_check: rms # Reparameterization check metric
+ reparam_every: 1 # Reparameterization stride
+ reparam_every_full: 1 # Full reparameterization stride
  param: equi # Parametrization scheme
  max_micro_cycles: 10 # Micro-iteration limit
  reset_dlc: true # Rebuild delocalized coordinates each step
@@ -360,7 +360,7 @@ stopt:
  max_cycles: 300        # Maximum string optimizer iterations
  dump: false            # Dump trajectory/restart data
  dump_restart: false    # Dump restart checkpoints
- reparam_thresh: 0.0    # Reparametrization threshold
+ reparam_thresh: 0.0    # Reparameterization threshold
  coord_diff_thresh: 0.0 # Coordinate difference threshold
  out_dir: ./result_path_opt/  # Output directory
  print_every: 10        # Logging stride
@@ -633,7 +633,7 @@ calc:
  model_mult: 1
  backend: uma                  # MLIP backend: "uma", "orb", "mace", or "aimnet2"
  embedcharge: false            # xTB point-charge embedding correction
- uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p2          # uma-s-1p2 | uma-s-1p1 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # Recommended when VRAM permits
  mm_device: cpu

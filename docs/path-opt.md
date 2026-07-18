@@ -39,8 +39,8 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
     structure. If `freeze_atoms` is defined, only those atoms participate in the RMSD
     fit; the resulting transform is applied to all atoms.
 3. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
-    by LBFGS (using the same ML/MM calculator) before alignment and string growth.
-    The number of LBFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
+    by L-BFGS (using the same ML/MM calculator) before alignment and string growth.
+    The number of L-BFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
 4. **Path optimization** -- `--mep-mode gsm` uses pysisyphus `GrowingString` with `(max_nodes + 2)` images including endpoints; `--mep-mode dmf` uses Direct Max Flux.
 5. **Climbing image (GSM only)** -- With `--climb`, a climbing-image refinement is applied after string growth, and the highest-energy image (HEI) is reported.
 6. **Output** -- Final path trajectory and HEI are written as XYZ and PDB files.
@@ -83,7 +83,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `20` |
 | `--max-cycles INT` | Optimizer macro-iteration cap (growth + refinement). Also sets `opt.stop_in_when_full`. | `300` |
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
-| `--preopt/--no-preopt` | Pre-optimize each endpoint with LBFGS before alignment/string growth. | `True` |
+| `--preopt/--no-preopt` | Pre-optimize each endpoint with L-BFGS before alignment/string growth. | `True` |
 | `--preopt-max-cycles INT` | Cap for endpoint pre-optimization cycles. | `10000` |
 | `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau_loose`) |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |

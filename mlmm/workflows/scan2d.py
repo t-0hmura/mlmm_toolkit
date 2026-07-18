@@ -167,14 +167,14 @@ def _select_closest_state_1d(
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Input enzyme complex PDB (required).",
+    help="Input enzyme complex PDB.",
 )
 @click.option(
     "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Amber parm7 topology for the enzyme (required).",
+    help="Amber parm7 topology for the enzyme.",
 )
 @click.option(
     "--model-pdb",

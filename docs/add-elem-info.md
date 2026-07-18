@@ -68,5 +68,5 @@ The full flag list is in the generated [command reference](reference/commands/in
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
 
-- [mm_parm](mm-parm.md) — Build AMBER topology (requires correct element columns)
+- [mm-parm](mm-parm.md) — Build AMBER topology (requires correct element columns)
 - [extract](extract.md) — Extract active-site pocket from protein-ligand complex

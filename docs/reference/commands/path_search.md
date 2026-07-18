@@ -33,8 +33,8 @@ Options:
                                   omitted (requires PDB input or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1). Defaults to 1 when
                                   omitted.
-  --mep-mode [gsm|dmf]            MEP method: gsm (GrowingString) or dmf (Direct
-                                  Max Flux).  [default: gsm]
+  --mep-mode [gsm|dmf]            MEP method: gsm (Growing String) or dmf
+                                  (Direct Max Flux).  [default: gsm]
   --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
                                   (dmf.torch / CUDA) or cpu (dmf / NumPy). On a
                                   GPU out-of-memory error, retry with cpu.
@@ -63,13 +63,13 @@ Options:
                                   growth.  [default: climb]
   --dump / --no-dump              Dump GSM/single-optimization trajectories
                                   during the run.  [default: no-dump]
-  --opt-mode [grad]               Single-structure optimizer: grad (=LBFGS). RFO
-                                  (hess) not yet wired.  [default: grad]
+  --opt-mode [grad]               Single-structure optimizer: grad (=L-BFGS).
+                                  RFO (hess) not yet wired.  [default: grad]
   -o, --out-dir TEXT              Output directory.  [default:
                                   ./result_path_search/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for GSM/StringOptimizer and
-                                  single LBFGS runs.
+                                  single L-BFGS runs.
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config

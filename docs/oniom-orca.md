@@ -63,10 +63,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 ## See Also
 
-- [oniom_gaussian](oniom-gaussian.md) — Gaussian mode guide (`--mode g16`)
-- [oniom_export](oniom-export.md) — Export overview and chooser
-- [mm_parm](mm-parm.md) — Build Amber topology (`parm7`/`rst7`)
-- [define_layer](define-layer.md) — Build/check layer annotations
+- [oniom-gaussian](oniom-gaussian.md) — Gaussian mode guide (`--mode g16`)
+- [oniom-export](oniom-export.md) — Export overview and chooser
+- [mm-parm](mm-parm.md) — Build Amber topology (`parm7`/`rst7`)
+- [define-layer](define-layer.md) — Build/check layer annotations
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
 - ORCA 6.0 Manual (QM/MM): <https://www.faccts.de/docs/orca/6.0/manual/contents/typical/qmmm.html>

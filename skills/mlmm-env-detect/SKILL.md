@@ -52,7 +52,7 @@ nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv 2>/dev/null
   || echo "no NVIDIA GPU detected"
 ```
 
-If no GPU: stay on CPU (`--engine cpu`, no `gpus=N` request in PBS).
+If no GPU: MLIP falls back automatically via `ml_device: auto`; `--engine cpu` is the dft-only knob; drop any `gpus=N` request in PBS.
 If a GPU is present, note the **driver version** and **VRAM** — both
 constrain which torch CUDA index and which model size you can use.
 

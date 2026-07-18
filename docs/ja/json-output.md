@@ -167,7 +167,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 ### `scan` / `scan2d` / `scan3d`
 
-scan は `stages[]` 配列にステージごとのデータと `n_stages` を含みます。各 stage には（M14/P14、追加フィールド）`optimizer_status`（`converged`/`not_converged`/`stalled`）と、そのステージの最後の optimizer が非収束停止した場合の `stop_reason` を含みます。scan2d/scan3d は `n_grid_points` と `pair1`/`pair2`(/`pair3`)（各 `{i, j, low, high}`）に加えて、表面の最小エネルギー `min_energy_hartree` を含みます。fresh runでは共通calculator provenanceと`charge`・`spin`を記録します。plot-onlyの`scan3d --csv`も同じキーを保持しますが、importしたenergy gridからcalculatorを特定できないため、`mlip_backend`、`mlip_model`、`mlip_precision`、`mm_backend`、`link_atom_method`、`use_cmap`、`charge`、`spin`はnullです。
+scan は `stages[]` 配列にステージごとのデータと `n_stages` を含みます。各 stage には（追加フィールド）`optimizer_status`（`converged`/`not_converged`/`stalled`）と、そのステージの最後の optimizer が非収束停止した場合の `stop_reason` を含みます。scan2d/scan3d は `n_grid_points` と `pair1`/`pair2`(/`pair3`)（各 `{i, j, low, high}`）に加えて、表面の最小エネルギー `min_energy_hartree` を含みます。fresh runでは共通calculator provenanceと`charge`・`spin`を記録します。plot-onlyの`scan3d --csv`も同じキーを保持しますが、importしたenergy gridからcalculatorを特定できないため、`mlip_backend`、`mlip_model`、`mlip_precision`、`mm_backend`、`link_atom_method`、`use_cmap`、`charge`、`spin`はnullです。
 
 ### `path-opt`
 
@@ -205,7 +205,7 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `ligand_total_charge` | float | リガンド電荷合計 |
 | `unknown_residue_charges` | object | `{残基名: 電荷}` |
 | `center` | string | 基質指定（生の `-c` 値）: PDB パス、残基ID リスト（例 `'A:123,B:456'`）、または残基名リスト（例 `'GPP,MMT'`） |
-| `radius` | float | 抽出半径 (angstrom) |
+| `radius` | float | 抽出半径 (Å) |
 | `status` | string | `"ok"` |
 | `ion_total_charge` | float | イオン電荷合計 |
 | `input_files` | string[] | 入力 PDB パス |

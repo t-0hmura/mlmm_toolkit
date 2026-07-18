@@ -4,7 +4,7 @@
 
 `mlmm-toolkit` は、完全なタンパク質環境に対して **ML/MM (ONIOM) 酵素反応経路解析** を実行する Python 製 CLI です。ここでの ML/MM とは、小さな反応コアを機械学習原子間ポテンシャル (ML) で、周囲のタンパク質を分子力学 (MM) 力場で扱い、両者を subtractive ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) エネルギースキームで結合したハイブリッドモデルを指します。
 
-入力は PDB と基質名です。これらから、本ツールは parm7 トポロジーを自動生成し、ONIOM 領域分割 (ML / Movable MM / Frozen MM) を B-factor チャネルにエンコードします。続いて、マクロ/マイクロ交互スキームによる全系のHessianベース TS (遷移状態) 探索を実行します。
+入力は PDB と基質名です。これらから、本ツールは parm7 トポロジーを自動生成し、ONIOM 領域分割 (ML / Movable-MM / Frozen) を B-factor チャネルにエンコードします。続いて、マクロ/マイクロ交互スキームによる全系のHessianベース TS (遷移状態) 探索を実行します。
 
 結果として、ステージパイプライン `extract → MM-param → ONIOM model → MEP → tsopt → IRC → freq → dft` による完全な反応経路が生成されます。ここで MEP は最小エネルギー経路、IRC は内在反応座標です。
 
@@ -54,7 +54,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── common_options.py @add_precision_option / @add_backend_model_option / @add_ml_charge_spin_options et al.
 │ │ ├── decorators.py make_is_param_explicit, bool/YAML helpers, render_cli_exception
 │ │ ├── help_pages.py --help-advanced pager
-│ │ ├── bool_compat.py --flag / --no-flag normalisation
+│ │ ├── bool_compat.py --flag / --no-flag normalization
 │ │ ├── default_group.py subcommand resolver, lazy module import
 │ │ └── preflight.py AmberTools / conda env / GPU preflight
 │ │
@@ -65,7 +65,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── opt.py / scan.py / scan2d.py /
 │ │ │ scan3d.py / scan_common.py ONIOM geometry opt / scans
 │ │ ├── extract.py active-site extraction CLI
-│ │ ├── define_layer.py ML / Movable MM / Frozen MM B-factor assignment
+│ │ ├── define_layer.py ML / Movable-MM / Frozen B-factor assignment
 │ │ ├── mm_parm.py AmberTools-driven parm7 / rst7 generation
 │ │ ├── oniom_export.py ONIOM input writer (Gaussian / ORCA)
 │ │ ├── oniom_import.py ONIOM input reader (sanity / atom-name diff)
@@ -74,7 +74,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ ├── domain/ # === L3 Domain ===
 │ │ ├── bond_changes.py R↔P bond detection
 │ │ ├── bond_summary.py post-IRC diagnostic
-│ │ └── add_elem_info.py PDB element column normaliser
+│ │ └── add_elem_info.py PDB element column normalizer
 │ │
 │ ├── backends/ # === L4a Infra (MLIP + ONIOM) ===
 │ │ ├── __init__.py --precision routing (apply_precision_to_calc_cfg)
@@ -106,7 +106,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 ├── tests/ smoke / unit
 ├── .github/ workflows/ + scripts/ (docs-quality lint helpers; CI-only)
 └── (repo-top sibling, layer-external bundled forks)
- pysisyphus/ ~90 file, repo-internal fork (slimmed; CLI driver + QM backends + wavefunction + dead optimisers / IRC / NEB variants removed)
+ pysisyphus/ ~90 file, repo-internal fork (slimmed; CLI driver + QM backends + wavefunction + dead optimizers / IRC / NEB variants removed)
  thermoanalysis/ 5 file, repo-internal fork
  hessian_ff/ 19 file / 4.2k LOC, NO upstream PyPI, mandatory bundling
 ```
@@ -208,8 +208,8 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | 振動解析 (PHVA + MLIP active block) | `mlmm/workflows/freq.py` |
 | IRC 積分 (マクロ / マイクロ) | `mlmm/workflows/irc.py` |
 | 単一点 DFT (gpu4pyscf サブプロセス、ONIOM 埋め込み) | `mlmm/workflows/dft.py` |
-| 活性部位抽出 (cluster cap) | `mlmm/workflows/extract.py` |
-| ML / Movable MM / Frozen MM 領域割り当て | `mlmm/workflows/define_layer.py` |
+| 活性部位抽出 (クラスター切り出し + リンク原子キャップ) | `mlmm/workflows/extract.py` |
+| ML / Movable-MM / Frozen 領域割り当て | `mlmm/workflows/define_layer.py` |
 | AmberTools 駆動の MM パラメータ生成 | `mlmm/workflows/mm_parm.py` |
 | ONIOM 入力ライター (Gaussian / ORCA) | `mlmm/workflows/oniom_export.py` |
 | ONIOM 入力リーダー (sanity, atom-name diff) | `mlmm/workflows/oniom_import.py` |
@@ -361,7 +361,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 1. `mlmm/core/defaults.py` — デフォルト値テーブルを取り込む。下流のすべてがここから読み取る。
 2. `mlmm/cli/app.py` — Click ルート + `_LAZY_SUBCOMMANDS` レジストリ。
 3. `mlmm/workflows/all.py` — 1 つの完全なパイプラインを上から下まで。
-4. `mlmm/workflows/extract.py` + `define_layer.py` — cluster cap + ONIOM レイヤー割り当て。
+4. `mlmm/workflows/extract.py` + `define_layer.py` — クラスター切り出し + リンク原子キャップ + ONIOM レイヤー割り当て。
 5. `mlmm/workflows/mm_parm.py` — AmberTools parm7 生成。
 6. `mlmm/backends/mlmm_calc.py` — ML/MM の心臓部 (化学ルール #1, #2, #8, #9 がすべてここにある)。
 7. `mlmm/workflows/tsopt.py` — RSIRFO + Bofill (CHEMISTRY-RULE:7) + マクロ / マイクロ交互 (CHEMISTRY-RULE:3)。
@@ -376,7 +376,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 `mlmm-toolkit` は ONIOM を介して **完全なタンパク質環境** を扱います:
 
 - **ML 領域**: 基質 + 反応中心残基。4 つの MLIP バックエンド (UMA / Orb / MACE / AIMNet2) のいずれかで評価されます。オプションの xTB 点電荷埋め込み補正 (`--embedcharge`) は MM→ML の環境効果を加えます
-- **Movable MM 領域**: ML 領域を取り囲むシェルで、AMBER 力場の下で自由に移動できます
-- **Frozen MM 領域**: タンパク質の残りの部分で、剛体として保持されます
+- **Movable-MM 領域**: ML 領域を取り囲むシェルで、AMBER 力場の下で自由に移動できます
+- **Frozen 領域**: タンパク質の残りの部分で、剛体として保持されます
 
 この分割は入力 PDB の B-factor チャネルにエンコードされ、`extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft` を通じて伝播されます。

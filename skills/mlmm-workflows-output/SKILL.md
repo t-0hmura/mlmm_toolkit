@@ -70,7 +70,7 @@ distance-restraint scans.
 ```bash
 mlmm all -i 1.R.pdb \
     -c '...' -l '...' \
-    --scan-lists '[("CS1 SAM 320","GPP 321 C7",1.60)]' \
+    --scan-lists '[("SAM 320 CS1","GPP 321 C7",1.60)]' \
                  '[("GPP`321/H11","GLU`186/OE2",0.90)]' \
     --tsopt --thermo \
     -o result_scan
@@ -115,13 +115,13 @@ mode automatically; see `mlmm-cli/all-ts-only.md`).
 After any of the above, refine R / TS / P energies at DFT level:
 
 ```bash
-mlmm dft -i seg_01/reactant.pdb \
+mlmm dft -i seg_01/reactant.pdb --parm real.parm7 \
     -l 'SAM:1,GPP:-3' \
     --func-basis 'wb97m-v/def2-tzvpd' \
     --engine gpu \
     -o dft_R
-mlmm dft -i seg_01/ts.pdb       -l '...' --func-basis '...' -o dft_TS
-mlmm dft -i seg_01/product.pdb  -l '...' --func-basis '...' -o dft_P
+mlmm dft -i seg_01/ts.pdb --parm real.parm7 -l '...' --func-basis '...' -o dft_TS
+mlmm dft -i seg_01/product.pdb --parm real.parm7 -l '...' --func-basis '...' -o dft_P
 ```
 
 Composite the energies with `energy-diagram` (see below).
@@ -136,7 +136,7 @@ runs this chain (the MEP stage is single-pass `path-opt` by default; recursive
 `path-search` with `--refine-path`):
 
 ```
-extract → [mm-parm] → path-opt → (per reactive seg) tsopt → freq → irc → [freq R/TS/P] → [dft] → energy-diagram
+extract → [mm-parm] → path-opt → (per reactive seg) tsopt → irc → freq → [dft] → energy-diagram
 ```
 
 **mlmm carry-through**: every ML/MM-evaluating stage needs the *same* `--parm` + layer
@@ -259,24 +259,24 @@ Two locations get written for each elementary step:
 
 ```
 result_all/
-└── segments/seg_NN/                        # CANONICAL — post-LBFGS optimized
-    ├── reactant.{xyz,pdb}                  # IRC backward endpoint, then LBFGS-optimized
+└── segments/seg_NN/                        # CANONICAL — post-L-BFGS optimized
+    ├── reactant.{xyz,pdb}                  # IRC backward endpoint, then L-BFGS-optimized
     ├── ts.{xyz,pdb}                        # tsopt'd transition state
-    ├── product.{xyz,pdb}                   # IRC forward endpoint, then LBFGS-optimized
+    ├── product.{xyz,pdb}                   # IRC forward endpoint, then L-BFGS-optimized
     └── structures/
         ├── reactant.{xyz,pdb}              # same as above (canonical) — nested copy
-        ├── reactant_irc.{xyz,pdb}          # raw IRC backward end (pre-LBFGS)
+        ├── reactant_irc.{xyz,pdb}          # raw IRC backward end (pre-L-BFGS)
         ├── ts.{xyz,pdb}                    # same as above
         ├── product.{xyz,pdb}              # same as above (canonical)
-        └── product_irc.{xyz,pdb}           # raw IRC forward end (pre-LBFGS)
+        └── product_irc.{xyz,pdb}           # raw IRC forward end (pre-L-BFGS)
 ```
 
 **Rule of thumb**: read from `segments/seg_NN/` for downstream stages. Use
 `structures/reactant_irc.xyz` / `structures/product_irc.xyz` only when debugging
-IRC vs. LBFGS divergence.
+IRC vs. L-BFGS divergence.
 
 `bond_changes` are computed from `reactant.xyz` / `product.xyz`
-(post-LBFGS), not from the raw IRC endpoints.
+(post-L-BFGS), not from the raw IRC endpoints.
 
 ## Programmatic key extraction
 

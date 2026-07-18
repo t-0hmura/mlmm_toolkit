@@ -76,7 +76,7 @@ Same as the base `all.md`. Specifically for endpoint-MEP mode:
   (raw engine copy under `_work/path_opt/`, or `_work/path_search/` with `--refine-path`)
 - `segments/seg_01/ … seg_NN/` — per-segment string of nodes
 - `segments/seg_NN/{reactant,ts,product}.pdb` (plus CIF companions for bridged input) — canonical R/TS/P per
-  segment after IRC + LBFGS endpoint optimization
+  segment after IRC + L-BFGS endpoint optimization
 - `summary.json["segments"]` — list of `{index, barrier_kcal,
   delta_kcal, bond_changes, ...}` entries
 

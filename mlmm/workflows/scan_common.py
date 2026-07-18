@@ -111,7 +111,7 @@ def add_scan_common_options(
     baseline_help: str,
     dump_help: str,
     max_step_help: str = "Maximum spacing between successive distance targets [Å].",
-    relax_max_cycles_help: str = "Maximum LBFGS cycles per biased relaxation (also used for preopt).",
+    relax_max_cycles_help: str = "Maximum L-BFGS cycles per biased relaxation (also used for preopt).",
     preopt_help: str = "Run an unbiased pre-optimization.",
     thresh_default: str = "baker",
     max_step_size_default: float = 0.20,

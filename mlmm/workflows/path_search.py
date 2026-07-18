@@ -1362,7 +1362,7 @@ def _build_multistep_path(
     type=click.Choice(["gsm", "dmf"], case_sensitive=False),
     default="gsm",
     show_default=True,
-    help="MEP method: gsm (GrowingString) or dmf (Direct Max Flux).",
+    help="MEP method: gsm (Growing String) or dmf (Direct Max Flux).",
 )
 @click.option(
     "--dmf-backend",
@@ -1433,14 +1433,14 @@ def _build_multistep_path(
     type=click.Choice(["grad"], case_sensitive=False),
     default="grad",
     show_default=True,
-    help="Single-structure optimizer: grad (=LBFGS). RFO (hess) not yet wired.",
+    help="Single-structure optimizer: grad (=L-BFGS). RFO (hess) not yet wired.",
 )
 @click.option("-o", "--out-dir", "out_dir", type=str, default=OUT_DIR_PATH_SEARCH, show_default=True, help="Output directory.")
 @click.option(
     "--thresh",
     type=click.Choice(THRESH_CHOICES, case_sensitive=False),
     default=None,
-    help="Convergence preset for GSM/StringOptimizer and single LBFGS runs.",
+    help="Convergence preset for GSM/StringOptimizer and single L-BFGS runs.",
 )
 @click.option(
     "--config",

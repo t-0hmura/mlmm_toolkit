@@ -78,7 +78,7 @@ PDB(s)          (B-factor: 0.0=ML, 10.0=movable-MM, 20.0=frozen)
 [tsopt]         TS refinement per segment
   │
   ▼
-[irc]           forward/backward IRC + endpoint LBFGS
+[irc]           forward/backward IRC + endpoint L-BFGS
   │
   ▼
 [freq]          analytical-Hessian ONIOM frequencies + QRRHO thermo

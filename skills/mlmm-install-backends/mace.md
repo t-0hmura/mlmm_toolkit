@@ -39,8 +39,7 @@ The fix is to remove the env and start over (`conda env remove -n <env>`).
 ## Confirm install
 
 ```bash
-python -c "import mace; print('mace:', mace.__version__)"
-mlmm tsopt --help >/dev/null && echo "mlmm + mace backend OK"
+python -c "import mace; print('mace:', mace.__version__)" && echo "mlmm + mace backend OK"
 ```
 
 ## CLI usage
@@ -85,7 +84,7 @@ MACE accepts (the `_MACEBackend.__init__` parameters in `backends/mlmm_calc.py`;
 |---|---|
 | `e3nn` import error | UMA + MACE in the same env. Use a fresh env. |
 | `RuntimeError: Expected all tensors to be on the same device` | Mixed `cpu`/`cuda` tensors after a `.to()` round-trip. Restart Python and ensure `device='cuda'` consistently. |
-| Slow Hessian on `default_dtype='float64'` | Expected: float64 + 600-atom Hessian is ~4× slower than float32 with marginal accuracy gain. Use float64 only when you suspect a near-degenerate eigenvalue. |
+| Slow Hessian on `mace_dtype='float64'` | Expected: float64 + 600-atom Hessian is ~4× slower than float32 with marginal accuracy gain. Use float64 only when you suspect a near-degenerate eigenvalue. |
 
 ## See also
 

@@ -1,6 +1,6 @@
 # `scan`
 
-ML/MM calculatorを用い、調和拘束による結合距離スキャンで階層化された酵素 PDB の反応座標を駆動します。単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動して反応軌跡の粗い候補を生成し、下流の MEP 精密化用の中間体/生成物候補を得たいときに使用します。`mlmm scan` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による調和拘束付きの段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットを更新し、調和拘束ポテンシャルを適用して LBFGS で構造を緩和します。ML/MM calculatorは MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
+ML/MM calculatorを用い、調和拘束による結合距離スキャンで階層化された酵素 PDB の反応座標を駆動します。単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動して反応軌跡の粗い候補を生成し、下流の MEP 精密化用の中間体/生成物候補を得たいときに使用します。`mlmm scan` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による調和拘束付きの段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットを更新し、調和拘束ポテンシャルを適用して L-BFGS で構造を緩和します。ML/MM calculatorは MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
 
 ## 実行例
 
@@ -44,7 +44,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
  - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
  - 各ペアの増分変化は `step_k = delta / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * step_k`。
-5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して LBFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度だけ変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
+5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して L-BFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度だけ変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
 6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
 7. すべてのステージで繰り返します。任意の軌跡は `--dump` が `True` の場合のみダンプされます。
 
@@ -89,8 +89,8 @@ out_dir/ (デフォルト:./result_scan/)
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のステージ情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
-| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | `mlmm all` からの引き継ぎ用（互換目的の）オプション。現状の `scan` 緩和は mode に関わらず LBFGS を使用。 | _None_ |
-| `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 LBFGS サイクル。 | `10000` |
+| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | `mlmm all` からの引き継ぎ用（互換目的の）オプション。現状の `scan` 緩和は mode に関わらず L-BFGS を使用。 | _None_ |
+| `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 L-BFGS サイクル。 | `10000` |
 | `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | _None_ |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
 | `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `False` |

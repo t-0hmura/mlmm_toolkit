@@ -35,7 +35,7 @@ mlmm all --parm enzyme.parm7 -i ts_candidate.pdb \
 
 The orchestrator skips path-search automatically and starts the
 pipeline at `tsopt`. There is **no explicit "force TS-only" flag** — the
-mode is selected purely from the input shape. TSOPT-only mode requires
+mode is selected purely from the input shape. TS-only mode requires
 `--tsopt`; passing `--no-tsopt` with a single input raises a
 validation error.
 
@@ -104,7 +104,7 @@ print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_ha
 ```
 
 The child IRC result reports directional first/last endpoints only. In
-TSOPT-only mode the parent `all` workflow separately assigns canonical
+TS-only mode the parent `all` workflow separately assigns canonical
 `reactant` / `product` names using its documented endpoint rule; inspect the
 structures before attaching chemical identity.
 
@@ -116,8 +116,8 @@ saddle**; see "Distinctive failure modes" below.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `tsopt.status == "not_converged"` | Initial Hessian misleading or step size too large | `mlmm tsopt -i ts.xyz --opt-mode rsirfo --max-cycles 200` standalone, then re-run downstream stages |
-| `tsopt.n_imaginary == 0` | Geometry collapsed to a minimum during refinement | TS guess was not a real saddle; re-do `path-search` instead |
-| `tsopt.n_imaginary == 2+` | Two near-degenerate negative modes | Normal for some metalloenzyme TSs; check whether the second imaginary mode is a residual translation / rotation (mode) (often resolved by tightening `freeze_atoms`) |
+| `tsopt.n_imaginary_modes == 0` | Geometry collapsed to a minimum during refinement | TS guess was not a real saddle; re-do `path-search` instead |
+| `tsopt.n_imaginary_modes == 2+` | Two near-degenerate negative modes | Normal for some metalloenzyme TSs; check whether the second imaginary mode is a residual translation / rotation (often resolved by tightening `freeze_atoms`) |
 | `irc.bond_changes == {}` (no bonds change) | TS connects two essentially identical wells (numerical ringing) | Verify the imaginary mode visualization in `freq/`; this is sometimes a non-physical TS |
 
 ## When *not* to use TS-only mode
@@ -130,7 +130,7 @@ saddle**; see "Distinctive failure modes" below.
 
 ## Caveats
 
-- `--tsopt` is mandatory in TSOPT-only mode; `--no-tsopt` with
+- `--tsopt` is mandatory in TS-only mode; `--no-tsopt` with
   a single PDB triggers a validation error.
 - For an XYZ TS candidate, you must supply `-q` and `-m` explicitly
   (XYZ has no header). Use `--ref-pdb cluster.pdb` if you want
@@ -172,7 +172,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 To compare a point-mutant TS barrier against WT, the mutant's **ML region must be the same residues as
 WT** (only the mutated residue differs) — otherwise a geometric `-c/-r` re-selects a *different* ML /
 movable / frozen set on the mutated geometry, and the mismatched frozen region produces spurious soft
-modes (`tsopt.n_imaginary >= 2`, both tiny, IRC then aborts).
+modes (`tsopt.n_imaginary_modes >= 2`, both tiny, IRC then aborts).
 
 Recipe (no `--parm`; the `all` pipeline rebuilds the mutant parm via mm-parm):
 

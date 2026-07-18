@@ -75,16 +75,16 @@ mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使用、または `mlmm define-layer` で `--radius-freeze` を絞る。
 2. **hessian_ff（デフォルト）を使用:** hessian_ff は CPU のみなので、VRAM はすべて UMA に使用可能。
 3. **大きな系では OpenMM CUDA を避ける:** ML と MM の両方が CUDA を使うと VRAM 圧力が倍増する。
-4. **VRAM を監視:** `print_vram` はデフォルトで True（Hessian計算中に VRAM 使用量（ピーク）を表示）。抑制するには YAML で `print_vram: False` を設定。
+4. **VRAM を監視:** `print_vram` はデフォルトで true（Hessian 計算中に VRAM 使用量（ピーク）を表示）。抑制するには YAML で `print_vram: False` を設定。
 
 ---
 
-## バックエンドごとの精度既定値
+## バックエンドごとの精度デフォルト値
 
 `--precision` は `fp32` または `fp64`（大文字小文字無視）を選びます。
-未指定時の有効な既定値はバックエンドごとに異なります。
+未指定時の有効なデフォルト値はバックエンドごとに異なります。
 
-| backend | 既定 | 理由 |
+| backend | デフォルト | 理由 |
 |---|---|---|
 | UMA | fp32 | 上流 fairchem の baseline。 |
 | ORB | fp64 | ORB fp32 は縮約 `float32-high`（TF32）matmul を使い、force noise が有限差分 Hessian に偽の虚振動を作る場合がある。 |

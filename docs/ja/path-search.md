@@ -106,8 +106,8 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `20` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--opt-mode [grad]` | 単一構造オプティマイザプリセット（現状 `grad` = LBFGS のみ。`hess` は未配線）。 | `grad` |
-| `--preopt/--no-preopt` | セグメンテーション前に端点を LBFGS で事前最適化。 | `True` |
+| `--opt-mode [grad]` | 単一構造オプティマイザプリセット（現状 `grad` = L-BFGS のみ。`hess` は未配線）。 | `grad` |
+| `--preopt/--no-preopt` | セグメンテーション前に端点を L-BFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に全入力を最初の入力へ剛体アライメントし、凍結原子を再マッチ。 | 有効 |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau_loose`） |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的 Hessian か OpenMM 有限差分か）。 | `hessian_ff` |

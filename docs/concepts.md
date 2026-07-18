@@ -143,7 +143,7 @@ repeat until converged:
 | | Macro step | Micro step |
 |---|---|---|
 | **Calculator** | Full ONIOM (`E_MM_real + E_ML − E_MM_model`) | MM force field only (`E_MM_real`) |
-| **Coordinates optimized** | ML atoms + link-atom MM parents | Movable MM (excluding link-atom MM parents) |
+| **Coordinates optimized** | ML atoms + link-atom MM parents | Movable-MM (excluding link-atom MM parents) |
 | **Optimizer** | RFO (explicit Hessian, BFGS-updated) | L-BFGS (Hessian-free, from scratch each cycle) |
 | **Convergence** | `--thresh` (default: `gau`) | `micro_thresh` YAML key (default: same as `--thresh`) |
 
@@ -220,7 +220,7 @@ There are two ways to define the ML region:
 - **Automatic extraction** (`-c/--center` + `--exclude-backbone`): `extract` / `all`
   truncate the backbone at the Cα–Cβ boundary, cap severed bonds with link
   hydrogens, and **derive** the model charge from the residues, `--modified-residue`,
-  and `-l/--ligand-charge`. Use `--modified-residue NAME:charge` for non-standard
+  and `-l/--ligand-charge`. Use `--modified-residue NAME[:charge]` (`:charge` optional, default 0) for non-standard
   amino acids and `-l NAME:charge` for ligands; an explicit `-q` is then unnecessary.
 - **Manual** (`--model-pdb` + `--parm`): you supply the ML-atom selection yourself and
   set the model charge explicitly with `-q`. This is the safer choice when you have
@@ -235,7 +235,7 @@ There are two ways to define the ML region:
 `model.pdb` is an **atom-selection file**, not an independently rebuilt cluster.
 Every atom must be an unchanged subset of the full PDB/`parm7` topology: preserve
 atom names, residue names/numbers, chain IDs, and full-system atom order. Do not
-renumber, reorder, add cap hydrogens, or export a separately hydrogenated model.
+renumber, reorder, add link hydrogens, or export a separately hydrogenated model.
 
 - Include the complete reactive center, covalent cofactors/partners, and any
   atoms whose protonation or bonding changes along the path.

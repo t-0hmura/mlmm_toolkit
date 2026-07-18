@@ -80,7 +80,7 @@ Options:
                                   [default: hess]
   --microiter / --no-microiter    Enable microiteration: alternate a 1-step
                                   macro TS move (RS-I-RFO / RS-P-RFO / TRIM) and
-                                  MM relaxation (LBFGS with MM-only forces).
+                                  MM relaxation (L-BFGS with MM-only forces).
                                   Effective in any Hessian --opt-mode
                                   (hess/rsirfo/rsprfo/trim); ignored in
                                   grad/dimer mode.  [default: microiter]

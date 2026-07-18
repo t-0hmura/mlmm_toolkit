@@ -134,7 +134,7 @@ dependencies:
 
 > **Note:** `fairchem-core` is a *core* dependency of `mlmm-toolkit`, so it installs regardless of extras. After creating this env, run `pip uninstall -y fairchem-core` — `mace-torch` pins `e3nn==0.4.4`, which conflicts with `fairchem-core`'s `e3nn>=0.5`.
 
-`<cu_index>` is one of `cpu`, `cu118`, `cu121`, `cu126`, `cu129` — see
+`<cu_index>` is one of `cpu`, `cu118`, `cu121`, `cu124`, `cu126`, `cu129` — see
 `env-cuda.md` for the driver version → index mapping.
 
 ## Verify the install
@@ -165,7 +165,7 @@ go back to `env-cuda.md`.
 | `gpu4pyscf` import fails on aarch64 | `gpu4pyscf-cuda12x` is x86_64 only | `dft.md` — fall back to CPU PySCF |
 | `huggingface_hub.errors.GatedRepoError` on UMA load | UMA model is gated, not authenticated | `uma.md` — `huggingface-cli login` |
 | `OSError: libcusolver.so.11 not found` | torch's bundled CUDA libs missing or shadowed | `env-cuda.md` — `LD_LIBRARY_PATH` order |
-| `RuntimeError: CUDA out of memory` during freq | Analytical Hessian too memory-heavy | set `hessian_calc_mode: FiniteDifference` (or keep the default `uma-s-1p2` and use `return_partial_hessian`) to cut Hessian memory |
+| `RuntimeError: CUDA out of memory` during freq | Analytical Hessian too memory-heavy | set `hessian_calc_mode: FiniteDifference` (or keep `return_partial_hessian: True`, the default) to cut Hessian memory |
 
 ## See also
 `pyproject.toml` lists the canonical extras and version pins. To inspect

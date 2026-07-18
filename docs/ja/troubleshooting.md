@@ -72,7 +72,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 - 触媒残基が含まれない
 
 対処の例:
-- `--radius` を増やす（例: 2.6 → 3.5 Angstrom）
+- `--radius` を増やす（例: 2.6 → 3.5 Å）
 - `--selected-resn` で残基を強制包含する（例: `--selected-resn 'A:123,B:456'`）
 - PyMOL 等の分子ビューアで活性部位の原子を選択・エクスポートし、ML 領域の PDB を手動で作成することもできます。`--model-pdb` でこの PDB を指定してください。
 
@@ -311,11 +311,11 @@ To rebuild hessian_ff native extensions in this environment:
 - ML 領域が小さすぎる、または大きすぎる
 
 対処の例:
-- B-factor エンコーディング: ML = 0.0、Movable-MM = 10.0、Frozen-MM = 20.0。
+- B-factor エンコーディング: ML = 0.0、Movable-MM = 10.0、Frozen = 20.0。
 - レイヤーが割り当てられた PDB を分子ビューアで可視化（B-factor で色分け）する
 - `--model-pdb` が正しく ML 領域の原子を定義しているか確認する
 - `define-layer` の距離カットオフを調整する:
- - `--radius-freeze`（デフォルト 8.0 Angstrom）: Movable-MM/Frozen の境界を制御
+ - `--radius-freeze`（デフォルト 8.0 Å）: Movable-MM/Frozen の境界を制御
 - 必要に応じて、計算オプション（`hess_cutoff`, `hess_mm_atoms`）でHessian対象 MM を別途制御する
 - YAML で `use_bfactor_layers: true` を使う場合、B-factor 値が期待されるエンコーディング（0.0, 10.0, 20.0; 許容差 1.0）と一致するか確認する
 
@@ -421,7 +421,7 @@ Plotly/Chrome 系のエラーで静的画像が出ない場合:
 ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の負荷が高くなります。
 
 対処の例（優先度順）:
-- **Frozen-MM 層を確認**: `define-layer` で Frozen-MM 原子（B=20.0）が正しく割り当てられているか確認する。Frozen-MM 領域が小さすぎると、Movable-MM 領域（ひいてはHessian）が不必要に大きくなる。`--radius-freeze` を小さくして Frozen 領域を拡大する。
+- **Frozen 層を確認**: `define-layer` で Frozen 原子（B=20.0）が正しく割り当てられているか確認する。Frozen 領域が小さすぎると、Movable-MM 領域（ひいてはHessian）が不必要に大きくなる。`--radius-freeze` を小さくして Frozen 領域を拡大する。
 - **ML 領域サイズを縮小**: `extract` の `--radius` を小さくするか、`--model-pdb` で手動定義した小さい ML 領域 PDB を指定する。
 - **有限差分 ML Hessianを使用**: `--hessian-calc-mode FiniteDifference`（VRAM 消費が少ないが低速）。
 - **`define-layer` で事前に層を定義** し、`use_bfactor_layers: true` で読み取る。

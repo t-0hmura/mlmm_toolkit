@@ -153,7 +153,7 @@ calc = mlmm_ase(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.p
 # 等価: MLMMASECalculator(MLMMCore(input_pdb="complex.pdb", ...))
 ```
 
-## 関連ドキュメント
+## 関連項目
 
 - [ML/MM Calculator](mlmm-calc.md) — アーキテクチャと内部詳細
 - [YAML Reference](yaml-reference.md) — `--config` YAML の設定キー

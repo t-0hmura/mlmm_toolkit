@@ -73,7 +73,7 @@ Also ensure `hessian_ff` is importable at all (it is if you installed mlmm-toolk
 
 ## B-factor layer assignment
 
-Encoding: ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0 (tolerance ±1.0). Common symptoms:
+Encoding: ML = 0.0, Movable-MM = 10.0, Frozen = 20.0 (tolerance ±1.0). Common symptoms:
 
 - **Wrong layer assignments / ML region too small or too large** — verify `--model-pdb` selects the intended atoms; adjust `--radius-freeze` (default 8.0 Å) for the Movable / Frozen boundary; control Hessian-target MM separately via `hess_cutoff` / `hess_mm_atoms`. Inspect the layered PDB visually (color by B-factor).
 - **B-factors not recognized** (calculator treats all atoms as one layer) — re-run `define-layer`; do not hand-edit B-factors to arbitrary values.
@@ -117,7 +117,7 @@ See the `Plot export fails (Plotly / Chrome)` row above.
 
 ML/MM systems are larger than pure MLIP, so VRAM pressure is higher. Try in order:
 
-1. **Verify Frozen-MM** — `define-layer` should put distal atoms at B=20.0. If the Frozen region is too small, the Movable-MM region (and its Hessian) inflates. Decrease `--radius-freeze` to expand Frozen.
+1. **Verify Frozen** — `define-layer` should put distal atoms at B=20.0. If the Frozen region is too small, the Movable-MM region (and its Hessian) inflates. Decrease `--radius-freeze` to expand Frozen.
 2. **Shrink ML region** — smaller `--radius` in `extract`, or hand-craft a smaller `--model-pdb`.
 3. **`--hessian-calc-mode FiniteDifference`** — slower but lower peak VRAM.
 4. **Pre-define layers** with `define-layer` and `use_bfactor_layers: true` in YAML.

@@ -110,7 +110,7 @@ mlmm:
 | --- | --- | --- |
 | Energy | eV | Hartree |
 | Forces | eV/Å | Hartree/Bohr |
-| Hessian | eV/Å² | Hartree/Bohr^2 |
+| Hessian | eV/Å² | Hartree/Bohr² |
 
 The PySisyphus interface returns values converted to atomic units (Hartree/Bohr).
 

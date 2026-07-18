@@ -52,7 +52,7 @@ mlmm mm-parm -i complex.pdb --out-prefix complex
 
 ```bash
 mlmm mm-parm -i complex.pdb \
-    --ligand-charge 'GPP=-3,SAM=1' \
+    --ligand-charge 'GPP:-3,SAM:1' \
     --ff-set ff14SB \
     --add-h --ph 7.0 \
     --out-prefix complex

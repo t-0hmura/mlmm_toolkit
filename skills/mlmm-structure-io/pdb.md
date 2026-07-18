@@ -41,7 +41,7 @@ Columns are 1-based, inclusive on both ends.
 | 77–78 | Element symbol | 2 | right-just upper-case | ` C` |
 | 79–80 | Formal charge | 2 | right-just (e.g. `2+`, `1-`) | `  ` |
 
-`mlmm.add-elem-info` repairs columns 77-78 when they are blank,
+`mlmm add-elem-info` repairs columns 77-78 when they are blank,
 which they often are after PyMOL/Maestro export. Always run it before
 `extract` if the elements are missing.
 
@@ -102,8 +102,8 @@ see `_format_linkH_block` in `extract.py` for the convention.
 Link hydrogens carry **no formal charge**; they do not enter the
 charge sum.
 
-Freezing the cap parents is **not** done by `extract` — `extract` only
-cuts bonds and adds caps. The ML / movable-MM / frozen layer partition
+Freezing the link-H parents is **not** done by `extract` — `extract` only
+cuts bonds and adds link H. The ML / movable-MM / frozen layer partition
 (which atoms stay fixed during optimization) is assigned later by
 `mlmm define-layer`, which encodes the categories in the PDB's B-factor
 field for downstream consumption.

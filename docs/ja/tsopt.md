@@ -132,7 +132,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がHessianを解析的に評価するか有限差分で評価するかを制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
 3. **Light モード（Dimer）:**
    - Hessian Dimer ステージはアクティブ部分空間の部分Hessianを評価して Dimer 方向を定期的に更新します。TR 処理は `--tr-projection` に従い、デフォルトでは凍結 anchor と両立する全系剛体運動だけを除去します。保存・回転・試行する全方向で凍結Cartesian成分をゼロに保ち、中心外のforce評価でも凍結座標を中心imageと厳密に一致させます。
-   - 平坦化ループが有効な場合（`--flatten`）、保存されたアクティブHessianは変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回平坦化し、Dimer 方向を更新し、Dimer + LBFGS マイクロセグメントを実行します。
+   - 平坦化ループが有効な場合（`--flatten`）、保存されたアクティブHessianは変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回平坦化し、Dimer 方向を更新し、Dimer + L-BFGS マイクロセグメントを実行します。
 4. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザを、`rsirfo` YAML セクションで定義されたオプションのHessian参照ファイルとマイクロサイクル制御とともに実行します。
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードを平坦化し、1 つだけ残るか平坦化反復上限に達するまで RS-I-RFO を再実行します。
@@ -191,7 +191,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--ref-mode PATH` | 高度な Cartesian 3N 経路方向ヒント。`all` が MEP から自動供給し、通常の単独 `tsopt` では省略。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザサイクル。 | `10000` |
 | `--opt-mode CHOICE` | TS オプティマイザモード（Choice: `grad` / `hess` / `light` / `heavy` / `dimer` / `rsirfo` / `trim` / `rsprfo`）。`grad`/`light`/`dimer` → Hessian-Guided Dimer; `hess`/`heavy`/`rsirfo` → RS-I-RFO（デフォルト）; `trim` → TRIM（Helgaker）; `rsprfo` → RS-P-RFO（Banerjee）。Hessian TS オプティマイザ3種（`rsirfo`/`rsprfo`/`trim`）はいずれも microiter 対応。 | `hess` |
-| `--microiter/--no-microiter` | マイクロイテレーション: 1 ステップの macro TS 移動（RS-I-RFO / RS-P-RFO / TRIM）+ MM 緩和（LBFGS）を交互に実行。任意の Hessian モード（`hess`/`rsirfo`/`rsprfo`/`trim`）で有効。 | `True` |
+| `--microiter/--no-microiter` | マイクロイテレーション: 1 ステップの macro TS 移動（RS-I-RFO / RS-P-RFO / TRIM）+ MM 緩和（L-BFGS）を交互に実行。任意の Hessian モード（`hess`/`rsirfo`/`rsprfo`/`trim`）で有効。 | `True` |
 | `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | `grad` モードで Dimer 方向決定に ML 領域のみのHessianを使用。高速だが精度は低下。 | `False` |
 | **収束と平坦化** | | |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
@@ -289,7 +289,7 @@ hessian_dimer:
   write_orientations: true         # 回転方向を書き出し
   forward_hessian: true            # Hessianを前方伝播
  lbfgs:
-  thresh: baker                    # LBFGS 収束プリセット
+  thresh: baker                    # L-BFGS 収束プリセット
   max_cycles: 10000                # 反復上限
   print_every: 100                 # ログ出力間隔
   min_step_norm: 1.0e-08           # 受け入れ最小ステップノルム
@@ -297,7 +297,7 @@ hessian_dimer:
   max_step: 0.3                    # 最大ステップ長
   control_step: true               # 適応的ステップ長制御
   double_damp: true                # ダブルダンピングセーフガード
-  keep_last: 7                     # LBFGS バッファの履歴サイズ
+  keep_last: 7                     # L-BFGS バッファの履歴サイズ
   beta: 1.0                        # 初期ダンピングベータ
   mu_reg: null                     # 正則化強度
   max_mu_reg_adaptions: 10         # mu 適応の上限

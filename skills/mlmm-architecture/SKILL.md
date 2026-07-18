@@ -1,6 +1,6 @@
 ---
 name: mlmm-architecture
-description: Where the source code lives in `mlmm-toolkit`. 6 physical layer directories (`cli` / `workflows` / `domain` / `backends` / `io` / `core`) + 3 repo-internal forks (`pysisyphus` / `thermoanalysis` / `hessian_ff`). Tells an agent which directory to grep for a given concern (Click option, ONIOM stage runner, MLIP backend, hessian-ff analytical MM Hessian, output writer, chemistry default, link-atom math) before touching code. TRIGGER on questions like "where is X implemented", "which file defines flag Y", "how is the repo organised", "what's safe to refactor". SKIP for usage questions — those belong to `mlmm-cli` / `-overview`.
+description: Where the source code lives in `mlmm-toolkit`. 6 physical layer directories (`cli` / `workflows` / `domain` / `backends` / `io` / `core`) + 3 repo-internal forks (`pysisyphus` / `thermoanalysis` / `hessian_ff`). Tells an agent which directory to grep for a given concern (Click option, ONIOM stage runner, MLIP backend, hessian-ff analytical MM Hessian, output writer, chemistry default, link-atom math) before touching code. TRIGGER on questions like "where is X implemented", "which file defines flag Y", "how is the repo organized", "what's safe to refactor". SKIP for usage questions — those belong to `mlmm-cli` / `-overview`.
 ---
 
 # mlmm-toolkit architecture (one-screen map)
@@ -9,7 +9,7 @@ description: Where the source code lives in `mlmm-toolkit`. 6 physical layer dir
 
 ```
 mlmm/                              ← the package body, one folder per layer
-├── cli/        # L1 — Click root group, --help-advanced, bool normalisation,
+├── cli/        # L1 — Click root group, --help-advanced, bool normalization,
 │               #      shared option-decorator factories, subcommand resolver,
 │               #      AmberTools preflight, pysisyphus `mlmm` calculator
 │               #      registration.
@@ -31,7 +31,7 @@ mlmm/                              ← the package body, one folder per layer
                 #       `logging.py`, `calc_eval.py`,
                 #       `residue_data.py`.
 
-pysisyphus/        ← bundled fork of the optimiser / TS / IRC engine.
+pysisyphus/        ← bundled fork of the optimizer / TS / IRC engine.
                      Slimmed to the subset mlmm actually uses; see its
                      own README for the live divergent-file table. Routine
                      polish is annotation-only; defect/feature logic is gated.
@@ -62,14 +62,14 @@ Dependency direction: the *design intent* is one-way `L1 → L2 → {L3, L4} →
 | MM analytical Hessian | `hessian_ff/analytical_hessian.py` (consumed by `mlmm_calc.py`) |
 | Output schema (summary.json, trajectory, energy diagram) | `mlmm/io/` |
 | Chemistry rule (subtractive ONIOM, link-atom Hessian, 5-pass partial Hessian, parm7 indexing) | search `# CHEMISTRY-RULE:` markers (lab-sign-off required to edit) |
-| TS / IRC / optimiser internals | `pysisyphus/` (read its live divergence table and validation gate first) |
+| TS / IRC / optimizer internals | `pysisyphus/` (read its live divergence table and validation gate first) |
 | MCP server / agent integration | `mlmm/mcp/` — see [`mlmm-mcp`](../mlmm-mcp/SKILL.md) |
 
 ## Hidden constraints to remember
 
 1. **`mlmm/cli/app.py:_LAZY_SUBCOMMANDS`** entries MUST use absolute module paths (`"mlmm.workflows.all"`, never `".all"`). Relative dotted paths silently break the resolver if `default_group.py` moves.
 2. **VRAM hygiene**: `# DO NOT INLINE` markers around `del calc; gc.collect(); torch.cuda.empty_cache()` between stages are load-bearing — removing them OOMs the next stage on full-protein ONIOM systems.
-3. **`pyproject.toml [tool.setuptools.packages.find].include`** and `dependencies` arrays are treated as 0-diff for this release line. Adding a vendor / internal dir or pinning a new runtime dep breaks behaviour-level guarantees and is out of scope.
+3. **`pyproject.toml [tool.setuptools.packages.find].include`** and `dependencies` arrays are treated as 0-diff for this release line. Adding a vendor / internal dir or pinning a new runtime dep breaks behavior-level guarantees and is out of scope.
 4. **Bundled-fork edits** use each directory README's live table. Routine polish is annotation-only; logic requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
 
 ## See also

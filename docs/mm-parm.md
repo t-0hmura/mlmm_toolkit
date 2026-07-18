@@ -8,14 +8,14 @@ Basic build (ligand charges + multiplicities):
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- -l "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1"
+ -l "GPP:-3,MMT:-1" --ligand-mult "GPP:1,MMT:1"
 ```
 
 Add TER records, ff19SB, and hydrogens at pH 7:
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- -l "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
+ -l "GPP:-3,MMT:-1" --ligand-mult "GPP:1,MMT:1" \
  --add-ter --ff-set ff19SB --add-h --ph 7.0
 ```
 
@@ -23,7 +23,7 @@ Skip hydrogen addition (input already protonated):
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- -l "GPP=-3" --no-add-h
+ -l "GPP:-3" --no-add-h
 ```
 
 ## Workflow
@@ -46,8 +46,8 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB (used as-is unless `--add-h`). | Required |
 | `-o, --out-prefix TEXT` | Output prefix for parm7/rst7/pdb files. | Stem of input PDB |
-| `-l, --ligand-charge TEXT` | Map residue name to formal charge, e.g. `"GPP=-3,MMT=-1"`. | _None_ |
-| `--ligand-mult TEXT` | Map residue name to spin multiplicity, e.g. `"HEM=1,NO=2"`. Unspecified residues default to singlet (1). | _None_ |
+| `-l, --ligand-charge TEXT` | Map residue name to formal charge, e.g. `"GPP:-3,MMT:-1"`. | _None_ |
+| `--ligand-mult TEXT` | Map residue name to spin multiplicity, e.g. `"HEM:1,NO:2"`. Unspecified residues default to singlet (1). | _None_ |
 | `--keep-temp/--no-keep-temp` | Keep intermediate files/logs in a working directory (for debugging). | `False` |
 | `--add-ter/--no-add-ter` | Insert TER before/after ligand/water/ion blocks. | `True` |
 | `--add-h/--no-add-h` | Add hydrogens at `--ph` using PDBFixer. | `False` |
@@ -66,7 +66,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 - **MD snapshot initial structures** -- When starting from an MD trajectory snapshot, reusing the same `.parm7` file from the MD simulation is the most appropriate approach. This ensures consistency between the MM energy surface used for ML/MM and the one used in the preceding MD, avoiding artifacts from re-parameterization (e.g. different partial charges or atom-type assignments).
 - Amino-acid residues listed in `AMINO_ACIDS` but still unrecognized by the selected force field are not handled automatically -- the build aborts with a message asking you to parameterize them manually.
 - `--ff-set ff14SB` switches the force field to ff14SB (proteins) + TIP3P (water) (+ phosaa14SB); the default `ff19SB` set is used otherwise.
-- **4-point water with a virtual site (OPC, TIP4P/-Ew, TIP5P) is _not yet_ supported by mlmm-toolkit's default MM backend** — the massless extra point (Amber `EPW`, element `EP`) is treated as a free atom, so the geometry optimizer stalls. Use a **3-point water model**: the default `ff19SB` set already builds **OPC3** (the recommended 3-point model), and `--ff-set ff14SB` builds TIP3P. To keep 4-point water, run with `--mm-backend openmm`, which places the virtual sites correctly but is slower (finite-difference MM Hessian).
+- **Water with a massless virtual site (4-point OPC, TIP4P/-Ew, or 5-point TIP5P) is _not yet_ supported by mlmm-toolkit's default MM backend** — the massless extra point (Amber `EPW`, element `EP`) is treated as a free atom, so the geometry optimizer stalls. Use a **3-point water model**: the default `ff19SB` set already builds **OPC3** (the recommended 3-point model), and `--ff-set ff14SB` builds TIP3P. To keep 4-point water, run with `--mm-backend openmm`, which places the virtual sites correctly but is slower (finite-difference MM Hessian).
 
 ```bash
 # Example: supply a pre-built topology from MD

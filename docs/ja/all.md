@@ -202,8 +202,8 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--max-nodes INT` | セグメント GSM の内部ノード数。 | `20` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--opt-mode [grad\|hess]` | スキャン/path-opt/path-search と単一構造最適化のプリセット（`grad` → LBFGS/Dimer、`hess` → RFO/RSIRFO）。 | `grad` |
-| `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/LBFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |
+| `--opt-mode [grad\|hess]` | スキャン/path-opt/path-search と単一構造最適化のプリセット（`grad` → L-BFGS/Dimer、`hess` → RFO/RSIRFO）。 | `grad` |
+| `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。実効デフォルト: path-opt は `gau_loose`、scan は `gau`。 | _None_ |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
@@ -314,7 +314,7 @@ dft:
 ## 関連項目
 
 - [extract](extract.md) -- 単独の ML 領域決定（`all` が内部で呼び出し）
-- [mm_parm](mm-parm.md) -- AMBER トポロジー構築（`all` が内部で呼び出し）
+- [mm-parm](mm-parm.md) -- AMBER トポロジー構築（`all` が内部で呼び出し）
 - [path-search](path-search.md) -- 単独の再帰的 MEP 探索
 - [tsopt](tsopt.md) -- 単独の TS 最適化
 - [freq](freq.md) -- 振動解析と熱化学

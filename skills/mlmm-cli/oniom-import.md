@@ -43,7 +43,7 @@ mlmm oniom-import -i oniom.gjf -o reconstructed
 
 The output PDB has each atom assigned generic residue/chain
 identities; B-factors carry the three-layer encoding (ML / movable-MM /
-frozen-MM → 0.0/10.0/20.0) derived from each atom's `H`/`L` marker plus
+frozen → 0.0/10.0/20.0) derived from each atom's `H`/`L` marker plus
 its per-atom freeze flag in the gjf.
 
 ### Recover original residue / chain identities

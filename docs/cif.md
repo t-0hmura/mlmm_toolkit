@@ -81,7 +81,7 @@ mlmm all -i reactant.cif product.cif --parm full_system.parm7 \
   9,999 residues). It raises an error instead of truncating identifiers beyond
   that limit.
 - Coordinates must fit the PDB fixed-column numeric range after conversion.
-  Translate an unusually distant structure closer to the origin if requested.
+  Translate an unusually distant structure closer to the origin if needed.
 - PDB files with decimal overflow or hybrid-36 serial/residue fields are
   normalized automatically.
 - A missing mmCIF `_atom_site.type_symbol`, non-finite coordinates, or a

@@ -8,7 +8,7 @@
 
 ## 実行例
 
-層構造 PDB 上のエネルギーと力（B-factor が ML / movable-MM / frozen-MM をエンコード）:
+層構造 PDB 上のエネルギーと力（B-factor が ML / movable-MM / frozen をエンコード）:
 
 ```bash
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
@@ -42,7 +42,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 | 入力 | 必須 | 備考 |
 |---|---|---|
-| `-i, --input FILE` | はい | ML / movable-MM / frozen-MM 分割を定義する層構造 PDB（または XYZ） |
+| `-i, --input FILE` | はい | ML / movable-MM / frozen 分割を定義する層構造 PDB（または XYZ） |
 | `--parm FILE` | はい | 全系の Amber `parm7` トポロジー（`--real-parm7` をエイリアスとして保持） |
 | `-q, --charge INT` | はい（`-l` を指定する場合は不要） | ML 領域の総電荷 |
 | `-l, --ligand-charge TEXT` | いいえ | リガンドごとの電荷マッピング（例: `SAM:1,GPP:-3`）。`-q` を省略した場合に正味電荷を導出 |
@@ -50,7 +50,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 ### ML 領域の選択
 
-分割を入力 PDB の B-factor に埋め込む（ML=0.0、movable-MM=10.0、frozen-MM=20.0）方法を `--detect-layer`（デフォルト）で使うか、明示的に渡します:
+分割を入力 PDB の B-factor に埋め込む（ML=0.0、movable-MM=10.0、frozen=20.0）方法を `--detect-layer`（デフォルト）で使うか、明示的に渡します:
 
 | フラグ | 意味 |
 |---|---|

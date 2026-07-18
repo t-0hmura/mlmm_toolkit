@@ -1031,7 +1031,7 @@ def _run_microiter_opt(
 
 
 @click.command(
-    help="ML/MM geometry optimization with LBFGS (light) or RFO (heavy).",
+    help="ML/MM geometry optimization with L-BFGS (light) or RFO (heavy).",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -1171,7 +1171,7 @@ def _run_microiter_opt(
     "microiter",
     default=True,
     show_default=True,
-    help="Enable microiteration: alternate ML 1-step (RFO) and MM relaxation (LBFGS with MM-only forces). "
+    help="Enable microiteration: alternate ML 1-step (RFO) and MM relaxation (L-BFGS with MM-only forces). "
          "Only effective in --opt-mode hess (RFO). Ignored in grad mode.",
 )
 @click.option(

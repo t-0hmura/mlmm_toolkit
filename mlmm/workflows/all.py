@@ -2952,10 +2952,10 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     ),
 )
 @click.option("--max-nodes", type=int, default=_path_opt.GS_KW["max_nodes"], show_default=True,
-              help="Max internal nodes for **segment** GSM (String has max_nodes+2 images including endpoints).")
+              help="Max internal nodes for *segment* GSM (String has max_nodes+2 images including endpoints).")
 @click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum GSM optimization cycles.")
 @click.option("--climb/--no-climb", default=True, show_default=True,
-              help="Enable transition-state climbing after growth for the **first** segment in each pair.")
+              help="Enable transition-state climbing after growth for the *first* segment in each pair.")
 @click.option(
     "--opt-mode",
     type=click.Choice(["grad", "hess"], case_sensitive=False),
@@ -2963,7 +2963,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default=True,
     help=(
         "Optimizer mode forwarded to scan/path-search and used for single optimizations: "
-        "grad (=LBFGS/Dimer) or hess (=RFO/RSIRFO)."
+        "grad (=L-BFGS/Dimer) or hess (=RFO/RSIRFO)."
     ),
 )
 @click.option(

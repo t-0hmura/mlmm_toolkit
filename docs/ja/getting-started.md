@@ -62,7 +62,7 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 
 詳細は [CLI 規約](cli-conventions.md) を参照してください。
 
-`path-search` の命名に関する注意: CLI サブコマンドは `path-search` ですが、ドキュメントファイル名は [`path-search.md`](path-search.md) です。
+`path-search` の命名に関する注意: CLI サブコマンドとドキュメントは `path-search`（ハイフン）、内部ワークフローモジュールは `path_search`（アンダースコア）です。
 
 ### 水素原子付与の推奨ツール
 
@@ -456,7 +456,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（デフォルト: 無効） |
-| `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（LBFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
+| `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（L-BFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--workers > 1` とは併用不可。 |
 
 DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `path-opt`（`--mep-mode dmf`）でのみ選択できます。`mlmm all` は常に GSM を使用し、`mlmm all` に `--mep-mode` を渡しても警告なく無視されます。
@@ -486,24 +486,24 @@ DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `pat
 |------------|------|------------|
 | `all` | 一気通貫ワークフロー | [all](all.md) |
 | `extract` | 活性部位ポケット抽出 | [extract](extract.md) |
-| `mm-parm` | Amber parm7/rst7 構築 | [mm_parm](mm-parm.md) |
-| `define-layer` | 3 層 ML/MM 領域定義 | [define_layer](define-layer.md) |
+| `mm-parm` | Amber parm7/rst7 構築 | [mm-parm](mm-parm.md) |
+| `define-layer` | 3 層 ML/MM 領域定義 | [define-layer](define-layer.md) |
 | `opt` | 構造最適化 | [opt](opt.md) |
 | `tsopt` | 遷移状態最適化 | [tsopt](tsopt.md) |
-| `path-opt` | MEP 最適化 (GSM/DMF) | [path_opt](path-opt.md) |
-| `path-search` | 再帰的 MEP 探索 | [path_search](path-search.md) |
+| `path-opt` | MEP 最適化 (GSM/DMF) | [path-opt](path-opt.md) |
+| `path-search` | 再帰的 MEP 探索 | [path-search](path-search.md) |
 | `scan` | 1D 結合長スキャン | [scan](scan.md) |
 | `scan2d` | 2D 距離スキャン | [scan2d](scan2d.md) |
 | `scan3d` | 3D 距離スキャン | [scan3d](scan3d.md) |
 | `irc` | IRC 計算 | [irc](irc.md) |
 | `freq` | 振動解析 | [freq](freq.md) |
 | `dft` | DFT 一点計算 | [dft](dft.md) |
-| `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16\|orca`） | [oniom_export](oniom-export.md) |
-| `oniom-import` | Gaussian/ORCA ONIOM 入力から XYZ + 層付き PDB を再構築 | [oniom_import](oniom-import.md) |
+| `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16\|orca`） | [oniom-export](oniom-export.md) |
+| `oniom-import` | Gaussian/ORCA ONIOM 入力から XYZ + 層付き PDB を再構築 | [oniom-import](oniom-import.md) |
 | `trj2fig` | エネルギープロファイルプロット | [trj2fig](trj2fig.md) |
 | `energy-diagram` | 数値系列から状態エネルギー図を描画 | [energy-diagram](energy-diagram.md) |
-| `add-elem-info` | PDB の元素カラム（77-78）を修復 | [add_elem_info](add-elem-info.md) |
-| `fix-altloc` | PDB の代替位置標識（altLoc）を除去 | [fix_altloc](fix-altloc.md) |
+| `add-elem-info` | PDB の元素カラム（77-78）を修復 | [add-elem-info](add-elem-info.md) |
+| `fix-altloc` | PDB の代替位置標識（altLoc）を除去 | [fix-altloc](fix-altloc.md) |
 
 ```{tip}
 `all`、`tsopt`、`freq`、`irc` では、VRAM に余裕がある場合 **`--hessian-calc-mode Analytical`**（ML 領域用）を使用できます。UMA、ORB、MACE、AIMNet2 が対応しますが、`--workers > 1` と同時に指定するとエラーになります。

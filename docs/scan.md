@@ -1,6 +1,6 @@
 # `scan`
 
-`mlmm scan` drives a reaction coordinate on a layered enzyme PDB to generate a coarse reaction trajectory from a single starting structure, providing intermediate/product candidates for downstream MEP refinement. It performs a staged, bond-length-driven scan with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`), driving one or more interatomic distances toward target values under harmonic restraints. At each step the temporary targets are updated, restraint wells are applied, and the structure is relaxed with LBFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and mlmm-toolkit's MM force field. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
+`mlmm scan` drives a reaction coordinate on a layered enzyme PDB to generate a coarse reaction trajectory from a single starting structure, providing intermediate/product candidates for downstream MEP refinement. It performs a staged, bond-length-driven scan with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`), driving one or more interatomic distances toward target values under harmonic restraints. At each step the temporary targets are updated, restraint wells are applied, and the structure is relaxed with L-BFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and mlmm-toolkit's MM force field. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
 
 ## Examples
 
@@ -53,7 +53,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  - Each pair's incremental change is `step_k = delta_k / N` (Å). At step `s`, the temporary
   target is `r_k(s) = r_k(0) + s * step_k`.
 5. March through all steps, applying the harmonic wells
-    `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with LBFGS.
+    `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with L-BFGS.
     `k` comes from `--bias-k` (eV/Å²) and is converted once to Hartree/Bohr^2.
     Coordinates are stored in Bohr for PySisyphus and converted internally for reporting.
 6. After the last step of each stage, optionally run an unbiased relaxation
@@ -103,8 +103,8 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of biased relaxation steps. | `0.20` |
 | `--bias-k FLOAT` | Harmonic bias strength `k` in eV/Å². | `300` |
-| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use LBFGS regardless of mode. | _None_ |
-| `--max-cycles INT` | Maximum LBFGS cycles per biased step and per pre/end optimization stage. | `10000` |
+| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use L-BFGS regardless of mode. | _None_ |
+| `--max-cycles INT` | Maximum L-BFGS cycles per biased step and per pre/end optimization stage. | `10000` |
 | `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `False` |

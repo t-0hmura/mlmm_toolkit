@@ -22,7 +22,7 @@ Each row points to the full per-subcommand md in this skill directory.
 | `oniom-import.md` | `oniom-import` | Reverse direction: read a g16 / ORCA ONIOM input and reconstruct an `mlmm-toolkit` PDB.<br>Use when adopting an existing Gaussian ONIOM workflow. |
 | `path-search.md` | `path-search` | Recursive MEP search (GSM or DMF) across N endpoints with bond-change segmentation.<br>Splits multi-step paths into one-TS-per-segment automatically. |
 | `path-opt.md` | `path-opt` | MEP optimization for a **single** segment between two endpoints.<br>Building block of `path-search`; also useful for refining one segment without re-running the whole search. |
-| `opt.md` | `opt` | Single-structure geometry optimization with LBFGS or RFO.<br>`--opt-mode grad` (LBFGS, default) is fast; `--opt-mode hess` (RFO) is robust on tricky surfaces. |
+| `opt.md` | `opt` | Single-structure geometry optimization with L-BFGS or RFO.<br>`--opt-mode grad` (L-BFGS, default) is fast; `--opt-mode hess` (RFO) is robust on tricky surfaces. |
 | `tsopt.md` | `tsopt` | TS optimization: default RS-I-RFO (`--opt-mode hess/rsirfo`); Hessian-Guided Dimer is the lighter alternative (`--opt-mode grad/dimer`). |
 | `freq.md` | `freq` | Vibrational analysis: Hessian, frequencies, normal-mode visualization, QRRHO thermochemistry.<br>Default temperature/pressure 298.15 K / 1 atm; partial-Hessian variant when `freeze_atoms` is non-empty. |
 | `sp.md` | `sp` | ONIOM single-point energy + forces (and optional Hessian).<br>Cheapest stage; useful for spot-checking a geometry without running an optimization. |
@@ -89,7 +89,7 @@ mlmm all -i 1.R.pdb 3.P.pdb \
 ```bash
 mlmm all -i 1.R.pdb \
     -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    --scan-lists '[("CS1 SAM 320","GPP 321 C7",1.60)]' \
+    --scan-lists '[("SAM 320 CS1","GPP 321 C7",1.60)]' \
                  '[("GPP`321/H11","GLU`186/OE2",0.90)]' \
     --tsopt --thermo \
     --out-dir result_scan
@@ -122,7 +122,7 @@ mlmm bond-summary -i reactant.pdb product.pdb
 
 | Pitfall | Fix |
 |---|---|
-| `--scan-lists` syntax error | The list is a Python literal-eval expression. Quote with single-quotes outside, double-quotes inside, and watch ` ` vs ``\``. |
+| `--scan-lists` syntax error | The list is a Python literal-eval expression. Quote with single-quotes outside, double-quotes inside, and watch space- vs backtick-separated atom specs. |
 | Wrong charge silently | Always run `--show-config` once before a long job; it prints the resolved charge. |
 | Forgetting `-b` falls back to the default (`uma`) | Spell `-b uma` / `-b orb` / `-b mace` / `-b aimnet2` explicitly for production runs. |
 | `--config` YAML ignored | YAML is read **after** built-in defaults but **before** explicit CLI flags. Anything also given on CLI overrides YAML. |
@@ -140,7 +140,7 @@ releases):
 python -c "import mlmm.core.defaults as d; print([n for n in dir(d) if n.endswith('_KW') or n.startswith('OUT_DIR')])"
 
 # Examples:
-python -c "import mlmm.core.defaults as d; print(d.LBFGS_KW)"
+python -c "import mlmm.core.defaults as d; print(d.L-BFGS_KW)"
 python -c "import mlmm.core.defaults as d; print(d.RSIRFO_KW)"
 python -c "import mlmm.core.defaults as d; print(d.IRC_KW)"
 python -c "import mlmm.core.defaults as d; print(d.MLMM_CALC_KW)"
@@ -154,7 +154,7 @@ Each per-subcommand md points at the relevant `_KW` dict in the
 - `mlmm-overview/SKILL.md` — what `mlmm-toolkit` is and when to
   use it.
 - `mlmm-structure-io/` — input file formats and charge / spin.
-- `mlmm-install-backends/` — `<tool>` / backend installation.
+- `mlmm-install-backends/` — AmberTools / backend installation.
 - `mlmm-workflows-output/SKILL.md` — what comes out of each
   invocation, summary.json schema, R/TS/P canonical paths.
 - `mlmm-hpc/SKILL.md` — running these recipes on PBS / SLURM.

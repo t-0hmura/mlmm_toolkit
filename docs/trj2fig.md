@@ -71,6 +71,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [path_search](path-search.md) — Recursive MEP search (produces XYZ trajectories suitable for trj2fig)
+- [path-search](path-search.md) — Recursive MEP search (produces XYZ trajectories suitable for trj2fig)
 - [irc](irc.md) — IRC from TS (produces trajectories for energy profiling)
 - [all](all.md) — End-to-end workflow

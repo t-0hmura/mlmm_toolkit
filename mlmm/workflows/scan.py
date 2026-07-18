@@ -285,14 +285,14 @@ def _snapshot_geometry(g) -> Any:
     default=None,
     show_default=False,
     help="Compatibility option for mlmm all forwarding. "
-         "Scan relaxations always use LBFGS; values other than grad/lbfgs/light emit a warning.",
+         "Scan relaxations always use L-BFGS; values other than grad/lbfgs/light emit a warning.",
 )
 @click.option(
     "--max-cycles",
     type=int,
     default=10000,
     show_default=True,
-    help="Maximum LBFGS cycles per biased step and per (pre|end)opt stage.",
+    help="Maximum L-BFGS cycles per biased step and per (pre|end)opt stage.",
 )
 @click.option(
     "--relax-max-cycles",

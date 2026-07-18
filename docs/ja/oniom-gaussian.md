@@ -60,9 +60,9 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_regi
 
 ## 関連項目
 
-- [oniom_orca](oniom-orca.md) -- ORCA モードガイド（`--mode orca`）
-- [oniom_export](oniom-export.md) -- エクスポート全体ガイド
-- [mm_parm](mm-parm.md) -- Amber トポロジー構築
-- [define_layer](define-layer.md) -- レイヤー定義/確認
+- [oniom-orca](oniom-orca.md) -- ORCA モードガイド（`--mode orca`）
+- [oniom-export](oniom-export.md) -- エクスポート全体ガイド
+- [mm-parm](mm-parm.md) -- Amber トポロジー構築
+- [define-layer](define-layer.md) -- レイヤー定義/確認
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド

@@ -61,10 +61,10 @@ ORCA モード（`mlmm oniom-export --mode orca`）は `--parm` からトポロ�
 
 ## 関連項目
 
-- [oniom_gaussian](oniom-gaussian.md) -- Gaussian モードガイド（`--mode g16`）
-- [oniom_export](oniom-export.md) -- エクスポート全体ガイド
-- [mm_parm](mm-parm.md) -- Amber トポロジー構築
-- [define_layer](define-layer.md) -- レイヤー定義/確認
+- [oniom-gaussian](oniom-gaussian.md) -- Gaussian モードガイド（`--mode g16`）
+- [oniom-export](oniom-export.md) -- エクスポート全体ガイド
+- [mm-parm](mm-parm.md) -- Amber トポロジー構築
+- [define-layer](define-layer.md) -- レイヤー定義/確認
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 - ORCA 6.0 マニュアル（QM/MM）: <https://www.faccts.de/docs/orca/6.0/manual/contents/typical/qmmm.html>

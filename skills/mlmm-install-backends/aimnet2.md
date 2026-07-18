@@ -26,8 +26,7 @@ pip install 'aimnet>=0.2.0'
 Confirm:
 
 ```bash
-python -c "import aimnet; print('aimnet:', aimnet.__version__)"
-mlmm tsopt --help >/dev/null && echo "mlmm + aimnet2 backend OK"
+python -c "import aimnet; print('aimnet:', aimnet.__version__)" && echo "mlmm + aimnet2 backend OK"
 ```
 
 ## CLI usage

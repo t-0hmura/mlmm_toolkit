@@ -38,10 +38,10 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 ```
 
-TRJ ダンプ付き LBFGS スキャン、コンタープロットの固定カラースケール。
+TRJ ダンプ付き L-BFGS スキャン、コンタープロットの固定カラースケール。
 
 ```bash
-# TRJ ダンプ付き LBFGS スキャン、コンタープロットの固定カラースケール
+# TRJ ダンプ付き L-BFGS スキャン、コンタープロットの固定カラースケール
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
  --max-step-size 0.20 --dump -o ./result_scan2d/ --preopt --baseline min \
@@ -99,7 +99,7 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を決定。 | `0.20` |
 | `--bias-k FLOAT` | 調和拘束ポテンシャル強度 k (eV/Å²)。 | `300.0` |
-| `--relax-max-cycles INT` | バイアス緩和ごとの最大 LBFGS サイクル。 | `10000` |
+| `--relax-max-cycles INT` | バイアス緩和ごとの最大 L-BFGS サイクル。 | `10000` |
 | `--dump/--no-dump` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | `baker` |

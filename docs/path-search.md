@@ -90,8 +90,8 @@ out_dir/ (default: ./result_path_search/)
 | `--max-nodes INT` | Internal nodes for segment GSM. | `20` |
 | `--max-cycles INT` | Max GSM macro-cycles. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--opt-mode [grad]` | Single-structure optimizer preset (currently `grad` = LBFGS only; `hess` not yet wired). | `grad` |
-| `--preopt/--no-preopt` | Pre-optimize endpoints with LBFGS before segmentation. | `True` |
+| `--opt-mode [grad]` | Single-structure optimizer preset (currently `grad` = L-BFGS only; `hess` not yet wired). | `grad` |
+| `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS before segmentation. | `True` |
 | `--align/--no-align` | After pre-optimization, rigidly align all inputs to the first input and re-match freeze atoms. | `True` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau_loose`) |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |

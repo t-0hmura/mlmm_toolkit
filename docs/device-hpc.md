@@ -91,7 +91,7 @@ independent frequency and IRC check.
 mlmm tsopt -i ts.pdb --parm enzyme.parm7 -q 0 -m 1 -b uma --precision fp64 -o result_ts
 
 # Explicit reduced-precision ORB screening
-mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
+mlmm scan -i r.pdb --parm enzyme.parm7 -q 0 -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
 ```
 
 `--precision` is accepted on every compute subcommand (`sp`, `opt`, `tsopt`, `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`) and is routed per backend (UMA precision, ORB precision, MACE `default_dtype`).

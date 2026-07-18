@@ -1,4 +1,4 @@
-# mmCIF and oversized PDB inputs
+# mmCIF and oversized PDB inputs (cif.md)
 
 Use `.cif` / `.mmcif` when a structure has multi-character chain IDs,
 residue numbers of 10,000 or greater, or identifiers that do not fit PDB

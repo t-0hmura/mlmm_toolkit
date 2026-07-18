@@ -2,7 +2,7 @@
 
 mlmm-toolkit は、あらゆる ML/MM ワークフローステージ（`opt`、`scan`、`tsopt`、`freq`、`irc`、`path-search`,...）を単一の `MLMMCore` ONIOM 結合オブジェクトを通じて実行します。`MLMMCore` は ML 領域を、private な `_create_ml_backend` ファクトリ経由でバックエンドごとのアダプタ（`_UMABackend` / `_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`）にディスパッチします。このページでは、バックエンドの選択方法、バックエンドごとの kwargs、新しいバックエンドの追加方法を説明します。
 
-## Public surface
+## 公開インターフェース
 
 ```python
 from mlmm.backends.mlmm_calc import MLMMCore, MLMMASECalculator, mlmm
@@ -36,7 +36,7 @@ pysis_calc = mlmm(
 private なファクトリ）を呼び出して適切なアダプタをインスタンス化します。このファクトリは未知のバックエンドに対して
 `ValueError` を送出します。mlmm には `'auto'` フォールバックはありません。ワークフローコードが CLI で解決されたバックエンド名を渡します。
 
-## File map
+## ファイルマップ
 
 | file | role |
 |------|------|
@@ -44,7 +44,7 @@ private なファクトリ）を呼び出して適切なアダプタをインス
 | `mlmm/backends/mlmm_calc.py` | `MLMMCore`（ML/MM ONIOM 結合）+ `MLMMASECalculator`（ASE）+ `mlmm`（pysisyphus Calculator）+ バックエンドごとのアダプタ（`_UMABackend`、`_OrbBackend`、`_MACEBackend`、`_AIMNet2Backend`）+ private な `_create_ml_backend` ファクトリ + FD-Hessian の組み立て + 単位変換 |
 | `mlmm/backends/xtb_embedcharge_correction.py` | MM→ML 環境効果のための xTB 点電荷埋め込み補正（`--embedcharge` フラグ） |
 
-## Per-backend characteristics
+## バックエンド別の特性
 
 | backend | install | model identifier | precision option |
 |---------|---------|------------------|------------------|
@@ -68,13 +68,13 @@ mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
 によって各バックエンドのネイティブ kwarg（UMA は `uma_precision`、ORB は `orb_precision`、MACE は
 `mace_dtype`）へルーティングされます。
 
-`--precision` を指定しない場合、既定値はバックエンドごとに決まります。
+`--precision` を指定しない場合、デフォルト値はバックエンドごとに決まります。
 
-| backend | 既定 | 理由 |
+| backend | デフォルト | 理由 |
 |---------|------|------|
 | `uma` | fp32 | 上流 fairchem のベースライン。 |
 | `orb` | fp64 | ORB の fp32 は縮約された `float32-high`（TF32）matmul であり、その力のノイズが有限差分 Hessian に偽の虚振動を生じさせる。 |
-| `mace` | fp64 | MACE は上流で `default_dtype="float64"` を既定とする。 |
+| `mace` | fp64 | MACE は上流で `default_dtype="float64"` をデフォルトとする。 |
 | `aimnet2` | fp32 | 精度の切り替えを持たない。 |
 
 `--precision fp32` はスループットのために ORB / MACE の精度を明示的に落とします（スクリーニング用途以外では非推奨）。使用する場合は、Hessian のノイズが増えるため、虚振動の本数を確認してください。
@@ -93,7 +93,7 @@ calc:
 
 `InferenceSettings` API のために `fairchem-core ≥ 2.0` が必要です。
 
-## Custom backend — bring your own ASE Calculator (`--calc-file`)
+## カスタムバックエンド — 独自の ASE Calculator を使う (`--calc-file`)
 
 組み込みの MLIP バックエンドに加えて、**ML 領域**を実行時に `--calc-file` で指定した
 任意の [ASE](https://wiki.fysik.dtu.dk/ase/) Calculator で駆動できます（`mlmm_toolkit`
@@ -138,7 +138,7 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
   calculatorを使う子stageへ転送します。独自の`--backend`名を持つ恒久的なbackendに
   する場合は、以下のレシピを参照してください。
 
-## Add-a-backend recipe (5 steps)
+## バックエンド追加レシピ（5 ステップ）
 
 `--backend xyz` として公開する新しいバックエンド `XYZModel` を追加するには:
 
@@ -168,7 +168,7 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
  model identifier + インストールコマンドを記載し、新しいバックエンドが end-to-end で
  動作確認されるよう `tests/smoke/run.sh` に `xyz` 行を追加します。
 
-## VRAM invariant (ML/MM-specific)
+## VRAM 不変条件（ML/MM 固有）
 
 ML/MM ONIOM ジョブでは、ML バックエンドが PySCF（DFT 補正）、
 parmed（parm7）、MM 力場配列と同一デバイス上に共存します。`mlmm/backends/mlmm_calc.py` 内の
@@ -179,7 +179,7 @@ parmed（parm7）、MM 力場配列と同一デバイス上に共存します。
 これは public contract の一部であり、ワークフローのリファクタリング時に
 削除してはなりません。
 
-## ONIOM coupling vs raw MLIP
+## ONIOM 結合と生の MLIP
 
 `mlmm/backends/mlmm_calc.py` の MLIP アダプタは、**ML 領域のみ**を評価します。
 減算的 ONIOM エネルギー式（`# CHEMISTRY-RULE:1`）、リンク原子 Hessian の
@@ -188,7 +188,7 @@ B 行列射影（`# CHEMISTRY-RULE:2`）、3 層 5 パスの partial Hessian
 バックエンドの作成者は ONIOM 結合を知る必要はありません。ML 領域のエネルギー / 力 / Hessian を
 正しい単位で返す Calculator を公開するだけで十分です。
 
-## See Also
+## 関連項目
 
 - [Python API](python-api.md) — `MLMMCore` / `MLMMASECalculator` / `mlmm`（pysisyphus Calculator）の public surface。
 - [Architecture](architecture.md) — 6 層ディレクトリマップ + 依存方向。

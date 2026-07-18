@@ -51,7 +51,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--near FLOAT` | Distance cutoff (Å) for movable/active MM atoms. | `6.0` |
 | `--nproc INT` | Number of processors. | `8` |
 | `--mem TEXT` | Memory allocation (g16 mode). | `16GB` |
-| `--total-charge INT` / `--total-mult INT` | Total charge / multiplicity of the full QM+MM system (ORCA `Charge_Total` / `Mult_Total`). | _None_ |
+| `--total-charge INT` / `--total-mult INT` | Total charge / multiplicity of the full QM+MM system (ORCA `Charge_Total` / `Mult_Total`). | topology-derived / same as `--multiplicity` |
 | `--orcaff PATH` | Path to `ORCAFF.prms` (ORCA mode); created in the output directory if omitted. | _None_ |
 | `--convert-orcaff / --no-convert-orcaff` | Auto-convert a missing `ORCAFF.prms` via `orca_mm -convff -AMBER` (ORCA mode). | `True` |
 | `--element-check / --no-element-check` | Validate the `--input` element sequence against the parm7 topology. | `True` |
@@ -71,8 +71,8 @@ The full flag list is in the generated [command reference](reference/commands/in
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
 
-- [oniom_gaussian](oniom-gaussian.md) — Gaussian-mode details (`--mode g16`)
-- [oniom_orca](oniom-orca.md) — ORCA-mode details (`--mode orca`)
-- [oniom_import](oniom-import.md) — Reconstruct XYZ/layered PDB from ONIOM inputs
-- [mm_parm](mm-parm.md) — Build Amber topology
-- [define_layer](define-layer.md) — Build/check layer annotations
+- [oniom-gaussian](oniom-gaussian.md) — Gaussian-mode details (`--mode g16`)
+- [oniom-orca](oniom-orca.md) — ORCA-mode details (`--mode orca`)
+- [oniom-import](oniom-import.md) — Reconstruct XYZ/layered PDB from ONIOM inputs
+- [mm-parm](mm-parm.md) — Build Amber topology
+- [define-layer](define-layer.md) — Build/check layer annotations

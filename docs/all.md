@@ -65,7 +65,7 @@ PDB companion files are generated when reference templates are available; contro
    - Omitting `-c/--center` skips extraction and uses the full input structures directly.
 2. **ML/MM preparation (parm7 + layer assignment)**
    - `mm_parm` runs once on the first full input PDB and writes `<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7` (a reusable deliverable you can pass back as `--parm`), which are passed automatically as `--parm`.
-   - `define-layer` runs on each full-system PDB and assigns 3-layer B-factors (ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0) based on the ML-region definition. The layered full-system PDBs are written under `<out-dir>/layered/`.
+   - `define-layer` runs on each full-system PDB and assigns 3-layer B-factors (ML = 0.0, Movable-MM = 10.0, Frozen = 20.0) based on the ML-region definition. The layered full-system PDBs are written under `<out-dir>/layered/`.
 3. **Optional staged scan** (single-structure only)
    - When exactly one input PDB is provided and `--scan-lists` is given, the tool performs a staged, bond-length-driven scan on the layered full-system PDB using the ML/MM calculator.
    - Each stage's relaxed structure (`stage_XX/result.pdb`) is collected as an intermediate / product candidate. The ordered input series for the path search becomes `[initial layered PDB, stage_01/result.pdb, stage_02/result.pdb, ...]`.
@@ -109,7 +109,7 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
     seg_NN/                      # 1-based 2-digit index, e.g. seg_01, seg_02
       reactant.pdb · ts.pdb · product.pdb   # canonical R/TS/P
       reactant.cif · ts.cif · product.cif   # bridged-input companions with original IDs
-      ts/, irc/                  # TS optimisation + EulerPC IRC (--tsopt)
+      ts/, irc/                  # TS optimization + EulerPC IRC (--tsopt)
       freq/ (--thermo), dft/ (--dft)
       structures/{reactant,ts,product}.pdb  # nested copy + raw IRC endpoints
       energy_diagram_{MLIP,G_MLIP,DFT,G_DFT_plus_MLIP}.png
@@ -126,7 +126,7 @@ At `-v 2` the console summarises extraction, MM preparation, scan stages, MEP pr
 
 ### Reading `summary.log`
 
-The log is organised into numbered sections:
+The log is organized into numbered sections:
 
 - **[1] Global MEP overview** — image / segment counts, MEP trajectory plot paths, aggregate MEP energy diagram.
 - **[2] Segment-level MEP summary (MLIP path)** — per-segment barriers, reaction energies, bond-change summaries.
@@ -194,8 +194,8 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--max-nodes INT` | Internal nodes for segment GSM. | `20` |
 | `--max-cycles INT` | Maximum GSM macro-cycles. | `300` |
 | `--climb / --no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--opt-mode [grad\|hess]` | Optimizer preset for scan / path-search and single optimizations (`grad` → LBFGS / Dimer, `hess` → RFO / RSIRFO). | `grad` |
-| `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / LBFGS, `hess` → RS-I-RFO / RFO). | `hess` |
+| `--opt-mode [grad\|hess]` | Optimizer preset for scan / path-search and single optimizations (`grad` → L-BFGS / Dimer, `hess` → RFO / RSIRFO). | `grad` |
+| `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). | `hess` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). Effective default: `gau_loose` for path-opt, `gau` for scan. | _None_ |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
@@ -302,4 +302,4 @@ Charge is resolved in order of priority — `-q/--charge` (explicit CLI override
 
 ## See Also
 
-[extract](extract.md) (called internally by `all`) · [mm_parm](mm-parm.md) (called internally by `all`) · [path-search](path-search.md) · [tsopt](tsopt.md) · [freq](freq.md) · [dft](dft.md) · [trj2fig](trj2fig.md) · [Common Error Recipes](recipes-common-errors.md) (symptom-first failure routing) · [Troubleshooting](troubleshooting.md) (common errors and fixes) · [YAML Reference](yaml-reference.md) · [Glossary](glossary.md).
+[extract](extract.md) (called internally by `all`) · [mm-parm](mm-parm.md) (called internally by `all`) · [path-search](path-search.md) · [tsopt](tsopt.md) · [freq](freq.md) · [dft](dft.md) · [trj2fig](trj2fig.md) · [Common Error Recipes](recipes-common-errors.md) (symptom-first failure routing) · [Troubleshooting](troubleshooting.md) (common errors and fixes) · [YAML Reference](yaml-reference.md) · [Glossary](glossary.md).

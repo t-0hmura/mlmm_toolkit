@@ -1,6 +1,6 @@
 ---
 name: mlmm-structure-io
-description: PDB, mmCIF, XYZ, GJF, and Amber parm7/rst7 input guidance for mlmm-toolkit, including large residue IDs, exact chain/residue/insertion selectors, topology atom-order checks, charge/multiplicity decisions, and B-factor layer encoding (ML=0 / movable-MM=10 / frozen-MM=20). Use when inspecting or preparing structures, choosing `-q` / `-l` / `-m`, building a `model.pdb`, assigning layers, or diagnosing coordinate/topology identity mismatches. Skip for subcommand syntax, output parsing, installation, or HPC questions.
+description: PDB, mmCIF, XYZ, GJF, and Amber parm7/rst7 input guidance for mlmm-toolkit, including large residue IDs, exact chain/residue/insertion selectors, topology atom-order checks, charge/multiplicity decisions, and B-factor layer encoding (ML=0 / movable-MM=10 / frozen=20). Use when inspecting or preparing structures, choosing `-q` / `-l` / `-m`, building a `model.pdb`, assigning layers, or diagnosing coordinate/topology identity mismatches. Skip for subcommand syntax, output parsing, installation, or HPC questions.
 ---
 
 # mlmm-toolkit Structure I/O

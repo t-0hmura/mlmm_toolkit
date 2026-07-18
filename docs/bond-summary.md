@@ -1,4 +1,4 @@
-# bond-summary
+# `bond-summary`
 
 Detect and report covalent bond changes between consecutive molecular structures. `bond-summary` compares consecutive pairs of input structures and reports the bonds that are formed or broken. It is useful for inspecting bond formation and breaking between reactant, intermediate, and product structures along a reaction pathway, for validating IRC endpoint connectivity, and for checking borderline coordination (e.g. metal coordination at 2.0–2.4 Å) via `--bond-factor`. For *N* input files it produces *N − 1* comparison blocks (A→B, B→C, …). Bond perception uses element-specific covalent radii with configurable tolerances, and distances are reported in Ångström.
 

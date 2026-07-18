@@ -11,7 +11,7 @@ optimization.
 
 ```bash
 mlmm sp -i structure.pdb --parm real.parm7 [-q 0 -m 1] \
-    [--hess] [--hessian-calc-mode analytical|finitedifference] \
+    [--hess] [--hessian-calc-mode Analytical|FiniteDifference] \
     [-b uma|orb|mace|aimnet2] [-o ./result_sp/]
 ```
 

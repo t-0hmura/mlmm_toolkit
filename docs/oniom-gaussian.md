@@ -62,9 +62,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 ## See Also
 
-- [oniom_orca](oniom-orca.md) — ORCA mode guide (`--mode orca`)
-- [oniom_export](oniom-export.md) — Export overview and chooser
-- [mm_parm](mm-parm.md) — Build Amber topology (`parm7`/`rst7`)
-- [define_layer](define-layer.md) — Build/check layer annotations
+- [oniom-orca](oniom-orca.md) — ORCA mode guide (`--mode orca`)
+- [oniom-export](oniom-export.md) — Export overview and chooser
+- [mm-parm](mm-parm.md) — Build Amber topology (`parm7`/`rst7`)
+- [define-layer](define-layer.md) — Build/check layer annotations
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide

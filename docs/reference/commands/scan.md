@@ -51,9 +51,9 @@ Options:
                                   YAML.
   --opt-mode [grad|hess|lbfgs|rfo|light|heavy]
                                   Compatibility option for mlmm all forwarding.
-                                  Scan relaxations always use LBFGS; values
+                                  Scan relaxations always use L-BFGS; values
                                   other than grad/lbfgs/light emit a warning.
-  --max-cycles INTEGER            Maximum LBFGS cycles per biased step and per
+  --max-cycles INTEGER            Maximum L-BFGS cycles per biased step and per
                                   (pre|end)opt stage.  [default: 10000]
   --relax-max-cycles INTEGER      Compatibility alias of --max-cycles (overrides
                                   it when provided).

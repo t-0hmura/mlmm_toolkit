@@ -90,8 +90,8 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--one-based / --zero-based` | `--dist-freeze` のインデックス規約。 | 1 始まり |
 | `--bias-k FLOAT` | 調和バイアス強度 (eV/Å²)。 | `300.0` |
 | `--max-cycles INT` | 最適化反復のハードリミット。 | `10000` |
-| `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザモード: `grad`/`lbfgs`（LBFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
-| `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（LBFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
+| `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザモード: `grad`/`lbfgs`（L-BFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
+| `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（L-BFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
 | `--flatten/--no-flatten` | 最適化後の虚振動数モードフラット化ループの有効化/無効化。 | `False` |
 | `--reject-uphill/--no-reject-uphill` | `hess` モードで RFO の上り坂試行ステップを拒否（低エネルギー形状へロールバックし trust radius を縮小）。`grad`/`lbfgs` モードでは無効。 | `True` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`、`optimization_all_trj.xyz`）を出力。 | `False` |
@@ -216,7 +216,7 @@ opt:
  prefix: ""                     # ファイル名プレフィックス
  out_dir: ./result_opt/         # 出力ディレクトリ
 lbfgs:
- thresh: gau                    # LBFGS 収束プリセット
+ thresh: gau                    # L-BFGS 収束プリセット
  max_cycles: 10000              # 反復上限
  print_every: 100               # ログ出力間隔
  min_step_norm: 1.0e-08         # 受け入れ最小ステップノルム
@@ -236,7 +236,7 @@ lbfgs:
  dump_restart: false            # リスタートチェックポイントのダンプ
  prefix: ""                     # ファイル名プレフィックス
  out_dir: ./result_opt/         # 出力ディレクトリ
- keep_last: 7                   # LBFGS バッファの履歴サイズ
+ keep_last: 7                   # L-BFGS バッファの履歴サイズ
  beta: 1.0                      # 初期ダンピングベータ
  gamma_mult: false              # 乗算ガンマ更新トグル
  max_step: 0.3                  # 最大ステップ長

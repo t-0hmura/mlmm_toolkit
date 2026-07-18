@@ -10,6 +10,7 @@
 | **Real system** | -- | The full set of atoms (all 3 layers). Evaluated at the MM (low) level in the ONIOM decomposition. Described by the parm7 topology; MM energy computed by hessian_ff. |
 | **Model system** | -- | The ML region (Layer 1). Evaluated at both the MLIP (high) and MM (low) levels in the ONIOM decomposition. |
 | **Link Hydrogen** | -- | A hydrogen atom added to cap severed bonds at the ML/MM boundary during pocket extraction. Forces are redistributed via a Jacobian. |
+| **Link atom** | -- | See **Link Hydrogen**; in mlmm-toolkit the link atoms placed at severed ML/MM boundaries are hydrogens. |
 | **hessian_ff** | -- | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm-toolkit. |
 | **3-layer system** | -- | mlmm-toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen (B=20.0). |
 | **B-factor encoding** | -- | Convention of storing layer membership in the PDB B-factor (temperature factor) column: 0.0 = ML, 10.0 = Movable-MM, 20.0 = Frozen. Hessian-target MM is controlled by cutoffs/explicit indices. |
@@ -96,8 +97,7 @@
 | **XYZ** | -- | A simple text format listing atomic symbols and Cartesian coordinates. |
 | **GJF** | Gaussian Job File | An input format for Gaussian; mlmm-toolkit reads charge/multiplicity and coordinates from these files. |
 | **Pocket** | Active-site Pocket | A truncated structure around the substrate(s), extracted by the `extract` subcommand. In the ML/MM workflow, this defines the ML region and surrounding MM environment. |
-| **Link Hydrogen** | -- | A hydrogen atom added to cap severed bonds when extracting a pocket from a larger structure. |
-| **Backbone** | -- | The main chain of a protein (N-C_alpha-C-O atoms). Can be excluded during pocket extraction with `--exclude-backbone`. |
+| **Backbone** | -- | The main chain of a protein (N-Cα-C-O atoms). Can be excluded during pocket extraction with `--exclude-backbone`. |
 | **B-factor** | Temperature Factor | The PDB temperature factor column. In mlmm-toolkit, used to encode 3-layer membership (0.0, 10.0, 20.0). |
 
 ---

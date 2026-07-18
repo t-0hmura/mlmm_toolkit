@@ -71,6 +71,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
 
-- [mm_parm](mm-parm.md) — Build AMBER topology (parm7/rst7) before layer definition
+- [mm-parm](mm-parm.md) — Build AMBER topology (parm7/rst7) before layer definition
 - [opt](opt.md) — Single-structure optimization using the layered system
 - [all](all.md) — End-to-end workflow that includes automatic layer definition

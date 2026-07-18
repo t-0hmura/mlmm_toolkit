@@ -149,9 +149,7 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--show-config/--no-show-config` | 確定した YAML レイヤー/設定を表示して続行。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
 
-handoffではidentityを検証します。IRCはidentity metadataのない旧形式、および原子順序・
-geometry・layer選択・Hessian active basisが異なるfileを拒否します。同じlayer/Hessian
-設定でfileを再生成してください。
+受け渡し時に識別情報（identity）を検証します。IRC は、識別メタデータを持たない旧形式や、原子順序・座標・レイヤー選択・Hessian のアクティブ基底が異なるファイルを拒否します。同じレイヤー/Hessian 設定でファイルを再生成してください。
 
 ## YAML 設定
 

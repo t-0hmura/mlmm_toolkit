@@ -4,7 +4,7 @@
 
 <img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
 
-`mlmm-toolkit` is a Python CLI for analysing enzymatic reactions with the multi-layer ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) scheme, here in an ML/MM (machine learning / molecular mechanics) variant.
+`mlmm-toolkit` is a Python CLI for analyzing enzymatic reactions with the multi-layer ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) scheme, here in an ML/MM (machine learning / molecular mechanics) variant.
 
 Instead of the quantum-mechanical (QM) region of conventional QM/MM, it uses a machine-learning interatomic potential (MLIP) for the reactive core — default UMA, with `orb` / `mace` / `aimnet2` selectable via `-b`. The surrounding protein is treated with mlmm-toolkit's bundled Amber force field.
 
@@ -121,7 +121,7 @@ make -C build -j8
 2. mm-parm       — Generate Amber parm7/rst7 topology (requires AmberTools)
 3. define-layer  — Assign 3-layer ML/MM partitioning (B-factor encoding)
 4. path-search   — MEP search (single-pass `path-opt` by default; `--refine-path` for recursive `path-search`)
-5. tsopt         — Transition state optimisation
+5. tsopt         — Transition state optimization
 6. freq          — Vibrational analysis + thermochemistry
 7. dft           — Single-point DFT energy refinement
 ```

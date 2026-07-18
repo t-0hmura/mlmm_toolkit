@@ -35,9 +35,9 @@
 
 ---
 
-## Progressive Help (`all`)
+## 段階的ヘルプ (progressive help)
 
-`mlmm all` は 2 段階ヘルプです:
+計算系サブコマンドと `all` は 2 段階ヘルプです:
 
 ```bash
 mlmm all --help           # 主要オプションのみ
@@ -82,7 +82,7 @@ mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 
 
 | 層 | B-factor | 説明 |
 |-----|----------|------|
-| ML | 0.0 | MLIP によるエネルギー・力・Hessian計算（デフォルトバックエンド: UMA） |
+| ML | 0.0 | MLIP によるエネルギー・力・Hessian 計算（デフォルトバックエンド: UMA） |
 | Movable-MM | 10.0 | 最適化時に移動可能な MM 原子 |
 | Frozen | 20.0 | 座標固定 |
 

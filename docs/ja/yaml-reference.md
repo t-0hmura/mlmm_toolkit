@@ -79,7 +79,7 @@ calc:
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  uma_precision: fp32 # fp32 | fp64 (UMA バックエンドの数値精度)
  orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
- orb_precision: float64  # ORB 浮動小数点精度の既定 (backend=orb 時; "float32-high" は TF32 matmul で --precision fp32 でも選択可、レガシー "float32" alias は受理)
+ orb_precision: float64  # ORB 浮動小数点精度のデフォルト (backend=orb 時; "float32-high" は TF32 matmul で --precision fp32 でも選択可、レガシー "float32" alias は受理)
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)

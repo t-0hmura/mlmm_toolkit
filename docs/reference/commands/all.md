@@ -80,17 +80,17 @@ Options:
                                   to TSopt, IRC, freq, and flatten PHVA. The
                                   default respects frozen anchors.  [default:
                                   constrained]
-  --max-nodes INTEGER             Max internal nodes for **segment** GSM (String
+  --max-nodes INTEGER             Max internal nodes for *segment* GSM (String
                                   has max_nodes+2 images including endpoints).
                                   [default: 20]
   --max-cycles INTEGER            Maximum GSM optimization cycles.  [default:
                                   300]
   --climb / --no-climb            Enable transition-state climbing after growth
-                                  for the **first** segment in each pair.
+                                  for the *first* segment in each pair.
                                   [default: climb]
   --opt-mode [grad|hess]          Optimizer mode forwarded to scan/path-search
                                   and used for single optimizations: grad
-                                  (=LBFGS/Dimer) or hess (=RFO/RSIRFO).
+                                  (=L-BFGS/Dimer) or hess (=RFO/RSIRFO).
                                   [default: grad]
   --opt-mode-post [grad|hess]     Optimizer mode for TSOPT and post-IRC endpoint
                                   optimizations. Takes precedence over --opt-

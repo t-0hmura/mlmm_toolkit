@@ -38,10 +38,10 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 ```
 
-LBFGS scan with TRJ dumps and fixed color scale for the contour plot.
+L-BFGS scan with TRJ dumps and fixed color scale for the contour plot.
 
 ```bash
-# LBFGS scan with TRJ dumps and fixed color scale for the contour plot
+# L-BFGS scan with TRJ dumps and fixed color scale for the contour plot
 mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
  --max-step-size 0.20 --dump -o ./result_scan2d/ --preopt --baseline min \
@@ -99,7 +99,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Determines grid density. | `0.20` |
 | `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
-| `--relax-max-cycles INT` | Maximum LBFGS cycles per biased relaxation. | `10000` |
+| `--relax-max-cycles INT` | Maximum L-BFGS cycles per biased relaxation. | `10000` |
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `-o, --out-dir TEXT` | Base output directory. | `./result_scan2d/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | `baker` |

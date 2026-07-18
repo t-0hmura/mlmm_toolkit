@@ -92,7 +92,7 @@ energies. Plot with `trj2fig.md`.
 ## Caveats
 
 - `-s` is Python literal-eval. Quote with single quotes outside,
-  double quotes inside. Atom-name strings use `"NAME RESNAME RESID"`
+  double quotes inside. Atom-name strings use `"RESNAME RESID NAME"`
   with single spaces.
 - Stage *k+1* starts from stage *k*'s final geometry; a diverged
   stage derails all downstream stages.

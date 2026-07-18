@@ -87,7 +87,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 
 - Confirm TS candidate quality with one dominant imaginary mode.
 - Reduce step length (trust_radius / max_step) and increase cycle limits. Note that `trust_max` defaults to 0.10 bohr for both RFO and RS-I-RFO.
-- Check whether the energy has already plateaued. If the last ~50 cycles show `|dE| < 1e-4` au (atomic units) while forces are flat, the cause is the noise floor of the machine-learned interatomic potential (MLIP) force rather than an optimization bug. In that case the default `energy_plateau` fallback declares convergence automatically (see [Troubleshooting](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)).
+- Check whether the energy has already plateaued. If the last ~50 cycles show `|dE| < 1e-4` au (atomic units) while forces are flat, the cause is the noise floor of the machine-learning interatomic potential (MLIP) force rather than an optimization bug. In that case the default `energy_plateau` fallback declares convergence automatically (see [Troubleshooting](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)).
 
 **Typical fix path:**
 

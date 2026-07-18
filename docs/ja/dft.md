@@ -1,6 +1,6 @@
 # `dft`
 
-GPU4PySCF（または CPU PySCF）を使用して ML 領域の DFT 一点計算を実行し、QM領域（ML領域）の DFT エネルギーを MM エネルギーと ML/MM と同様に合成して ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は酵素全体の PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点エネルギー（R / TS / P / IM）を DFT レベルで精密化したり、MLIP の障壁を基準汎関数/基底で sanity check したりする際に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
+GPU4PySCF（または CPU PySCF）を使用して ML 領域の DFT 一点計算を実行し、QM 領域（ML 領域）の DFT エネルギーを、ML/MM と同じ要領で MM エネルギーと合成し、ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は酵素全体の PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点エネルギー（R / TS / P / IM）を DFT レベルで精密化したり、MLIP の障壁を基準汎関数/基底で sanity check したりする際に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
@@ -48,7 +48,7 @@ out_dir/ (デフォルト: ./result_dft/)
 - `result.yaml` の内容:
   - `energy`: Hartree/kcal/mol 値、収束フラグ、実行時間、バックエンド情報（`engine`: `gpu4pyscf(rks_lowmem)` / `gpu4pyscf` / `pyscf(cpu)`、`used_gpu`、`used_lowmem`）。
   - `mlmm_energy`: REAL-low / MODEL-low の MM 評価値と再結合エネルギー `E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low`（Hartree と kcal/mol）。
-  - `charges`: 各原子 `[index, element, mulliken, lowdin, iao]`（Mulliken / meta-Löwdin / IAO 原子電荷。計算に失敗した場合は `null`）。
+  - `charges`: 各原子 `[index, element, mulliken, lowdin, iao]`（Mulliken / meta-Lowdin / IAO 原子電荷。計算に失敗した場合は `null`）。
   - `spin_densities`: 同形式 `[index, element, mulliken, lowdin, iao]`（スピン密度、UKS のみ）。
 - 電荷、多重度、スピン (2S)、汎関数、基底関数、収束パラメータ、解決済み出力ディレクトリも要約されます。
 
