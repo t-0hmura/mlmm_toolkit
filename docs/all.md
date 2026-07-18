@@ -233,6 +233,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R / TS / P. | `False` |
 | `--dft / --no-dft` | Run single-point DFT on R / TS / P. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
+| `--reject-uphill / --no-reject-uphill` | Reject energy-raising RFO steps during post-IRC **endpoint re-optimization only** (forwarded to the opt child); does not affect TS optimization or path search. | `True` |
 | `--tr-projection [constrained\|legacy-active]` | Forward the frozen-boundary TR treatment to `tsopt`, `irc`, `freq`, and flatten PHVA. `legacy-active` is an isolated-active comparison treatment using the current common kernel. | `constrained` |
 | `--irc-never-stop / --no-irc-never-stop` | Forward opt-in IRC continuation across energy-rise/plateau stops. Integrator convergence, invalid values, and the cycle cap still stop each branch. | `False` |
 | `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |

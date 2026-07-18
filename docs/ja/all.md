@@ -237,6 +237,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--thermo/--no-thermo` | R/TS/P で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | R/TS/P で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
+| `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップを拒否（opt 子へ転送。低エネルギー形状へロールバックし trust radius を縮小）。TS 最適化や経路探索には影響しない。 | `True` |
 | `--tr-projection [constrained\|legacy-active]` | 凍結境界 TR 処理を `tsopt`、`irc`、`freq`、flatten PHVA へ転送。`legacy-active` は現行の共通 kernel を使う isolated-active 比較処理。 | `constrained` |
 | `--irc-never-stop/--no-irc-never-stop` | エネルギー上昇/plateau 停止だけを無視して IRC を継続。収束、非有限値、サイクル上限では停止。 | `False` |
 | `--tsopt-max-cycles INT` | `tsopt --max-cycles` の上書き。 | _デフォルト_ |

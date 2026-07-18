@@ -29,6 +29,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   Hessians for ORB, MACE, and AIMNet2.
 - Add a release-pinned Colab GUI for structure preparation, exact selectors,
   backend controls, validated execution, and result inspection.
+- Add `opt`/`all --reject-uphill/--no-reject-uphill` (default on) to opt out of the
+  RFO uphill-rejection safeguard; on `all` it is forwarded to the post-IRC endpoint
+  re-optimization child only.
 
 ### Changed
 - Remove the unused internal `AllContext` parameter mirror and break the product
@@ -52,7 +55,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   saddle verification before a TS optimization may stop (`check_eigval_structure`,
   `verify_saddle`), and add saddle recovery. These are default-on optimizer
   behavior changes: an optimization can now stop at a different geometry, or
-  report a different terminal status, than it did in the released version.
+  report a different terminal status, than it did in the released version. The
+  `reject_uphill` safeguard rests on an as-yet-unconfirmed endpoint-divergence
+  hypothesis and stays on provisionally; it can be toggled with
+  `opt`/`all --reject-uphill/--no-reject-uphill` (post-IRC endpoint re-optimization
+  only on `all`), and a future release may change the default once its net effect is
+  measured.
 - Double the default segment path resolution (`max_nodes_segment` 10 → 20), which
   changes the MEP, its highest-energy image, and therefore the reported barrier.
 - Unify the residue/ion/water catalog so charge inference recognizes the same

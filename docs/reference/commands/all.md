@@ -151,6 +151,14 @@ Options:
                                   loop in tsopt (grad: dimer loop, hess: post-
                                   RSIRFO); --no-flatten forces
                                   flatten_max_iter=0.  [default: no-flatten]
+  --reject-uphill / --no-reject-uphill
+                                  Reject energy-raising RFO trial steps during
+                                  post-IRC endpoint re-optimization ONLY (roll
+                                  back to the lower-energy geometry and shrink
+                                  the trust radius). Does not affect TS
+                                  optimization or path search. --no-reject-
+                                  uphill disables it for the endpoint re-
+                                  optimization.  [default: reject-uphill]
   --irc-never-stop / --no-irc-never-stop
                                   Forward IRC never-stop mode to every post-TS
                                   IRC. It ignores energy-rise/plateau stops but

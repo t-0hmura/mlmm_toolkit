@@ -79,6 +79,12 @@ Options:
                                   microiter]
   --flatten / --no-flatten        Enable/disable imaginary-mode flatten loop
                                   after optimization.  [default: no-flatten]
+  --reject-uphill / --no-reject-uphill
+                                  Reject energy-raising RFO trial steps in hess
+                                  mode (roll back to the lower-energy geometry
+                                  and shrink the trust radius). Applies to
+                                  --opt-mode hess; ignored in grad/lbfgs mode.
+                                  [default: reject-uphill]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config

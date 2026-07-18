@@ -1182,6 +1182,17 @@ def _run_microiter_opt(
     help="Enable/disable imaginary-mode flatten loop after optimization.",
 )
 @click.option(
+    "--reject-uphill/--no-reject-uphill",
+    "reject_uphill",
+    default=True,
+    show_default=True,
+    help=(
+        "Reject energy-raising RFO trial steps in hess mode (roll back to the "
+        "lower-energy geometry and shrink the trust radius). Applies to "
+        "--opt-mode hess; ignored in grad/lbfgs mode."
+    ),
+)
+@click.option(
     "--config",
     "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -1310,6 +1321,7 @@ def cli(
     opt_mode: str,
     microiter: bool,
     flatten: bool,
+    reject_uphill: bool,
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
@@ -1441,6 +1453,8 @@ def cli(
             geom_cfg["coord_type"] = str(cli_coord_type).lower()
         if _is_param_explicit("tr_projection"):
             geom_cfg["tr_projection"] = str(tr_projection).lower()
+        if _is_param_explicit("reject_uphill"):
+            rfo_cfg["reject_uphill"] = bool(reject_uphill)
 
         if _is_param_explicit("detect_layer"):
             calc_cfg["use_bfactor_layers"] = bool(detect_layer)

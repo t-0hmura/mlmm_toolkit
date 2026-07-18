@@ -2513,6 +2513,7 @@ def _run_opt_for_state(
     mm_backend: Optional[str] = None,
     use_cmap: Optional[bool] = None,
     thresh: Optional[str] = None,
+    reject_uphill: Optional[bool] = None,
     xyz_path: Optional[Path] = None,
 ) -> Tuple[Any, Path, Optional[bool]]:
     """
@@ -2561,6 +2562,7 @@ def _run_opt_for_state(
         args.append("--detect-layer" if detect_layer else "--no-detect-layer")
         _append_toggle_arg(args, "--convert-files", convert_files)
         _append_cli_arg(args, "--thresh", thresh)
+        _append_toggle_arg(args, "--reject-uphill", reject_uphill)
 
         if args_yaml is not None:
             args.extend(["--config", str(args_yaml)])
@@ -3045,6 +3047,18 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     help="Enable the extra-imaginary-mode flattening loop in tsopt (grad: dimer loop, hess: post-RSIRFO); --no-flatten forces flatten_max_iter=0.",
 )
 @click.option(
+    "--reject-uphill/--no-reject-uphill",
+    "reject_uphill",
+    default=True,
+    show_default=True,
+    help=(
+        "Reject energy-raising RFO trial steps during post-IRC endpoint "
+        "re-optimization ONLY (roll back to the lower-energy geometry and shrink "
+        "the trust radius). Does not affect TS optimization or path search. "
+        "--no-reject-uphill disables it for the endpoint re-optimization."
+    ),
+)
+@click.option(
     "--irc-never-stop/--no-irc-never-stop",
     "irc_never_stop",
     default=None,
@@ -3239,6 +3253,7 @@ def cli(
     use_cmap: Optional[bool],
     tsopt_max_cycles: Optional[int],
     flatten: bool,
+    reject_uphill: bool,
     irc_never_stop: Optional[bool],
     skip_final_freq: bool,
     tsopt_out_dir: Optional[Path],
@@ -3300,6 +3315,12 @@ def cli(
     command_str = "mlmm all " + " ".join(sys.argv[1:])
 
     _is_param_explicit = make_is_param_explicit(ctx)
+    # Post-IRC endpoint re-optimization uphill-rejection toggle, forwarded to the
+    # opt child. ``None`` unless the flag was explicitly passed, so the default
+    # path keeps the opt child's own RFO_KW reject_uphill (unchanged behavior).
+    _reject_uphill_eff = (
+        bool(reject_uphill) if _is_param_explicit("reject_uphill") else None
+    )
     explicit_params = frozenset(
         parameter.name
         for parameter in ctx.command.params
@@ -4079,6 +4100,7 @@ def cli(
                 mm_backend=mm_backend,
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
+                reject_uphill=_reject_uphill_eff,
                 xyz_path=xR_irc,
             )
         except Exception as e:
@@ -4107,6 +4129,7 @@ def cli(
                 mm_backend=mm_backend,
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
+                reject_uphill=_reject_uphill_eff,
                 xyz_path=xP_irc,
             )
         except Exception as e:
@@ -5337,6 +5360,7 @@ def cli(
                 mm_backend=mm_backend,
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
+                reject_uphill=_reject_uphill_eff,
                 xyz_path=xL_irc,
             )
         except Exception as e:
@@ -5365,6 +5389,7 @@ def cli(
                 mm_backend=mm_backend,
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
+                reject_uphill=_reject_uphill_eff,
                 xyz_path=xR_irc,
             )
         except Exception as e:

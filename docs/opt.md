@@ -94,6 +94,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | Optimizer mode: `grad` (LBFGS) or `hess` (RFO). Aliases `light`/`heavy` and `lbfgs`/`rfo` accepted. | `grad` |
 | `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RFO) + MM relaxation (LBFGS). Only effective in `hess` mode (no-op in `--opt-mode grad`). | `True` |
 | `--flatten/--no-flatten` | Enable/disable the post-optimization imaginary-mode flatten loop. | `False` |
+| `--reject-uphill/--no-reject-uphill` | Reject energy-raising RFO trial steps in `hess` mode (roll back to the lower-energy geometry and shrink the trust radius); ignored in `grad`/`lbfgs` mode. | `True` |
 | `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`, `optimization_all_trj.xyz`). | `False` |
 | `--convert-files/--no-convert-files` | Enable or disable XYZ/TRJ to PDB companions for PDB inputs. | `True` |
 | `-o, --out-dir TEXT` | Output directory for all files. | `./result_opt/` |
