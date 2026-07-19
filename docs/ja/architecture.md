@@ -8,7 +8,7 @@
 
 結果として、ステージパイプライン `extract → MM-param → ONIOM model → MEP → tsopt → IRC → freq → dft` による完全な反応経路が生成されます。ここで MEP は最小エネルギー経路、IRC は内在反応座標です。
 
-このパッケージは **6 つの物理レイヤーディレクトリ** (`cli/`、`workflows/`、`domain/`、`backends/`、`io/`、`core/`) として構成されており、それぞれの役割と依存方向は後述の §4 レイヤー表にまとめています。外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。従来のフラットトップ shim レイヤーは本リリースで廃止されました。
+このパッケージは **6 つの物理レイヤーディレクトリ** (`cli/`、`workflows/`、`domain/`、`backends/`、`io/`、`core/`) として構成されており、それぞれの役割と依存方向は後述の §2.1 レイヤー表にまとめています。外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。従来のフラットトップ shim レイヤーは本リリースで廃止されました。
 
 3 つの内蔵フォーク (`pysisyphus/`、`thermoanalysis/`、`hessian_ff/`) は repo-internal モジュールとしてリポジトリのトップに置かれています。これらは意図的に upstream の PyPI 配布物では **ありません** (`hessian_ff/` に至っては upstream がまったく存在しないため、バンドルが必須です)。§6 を参照してください。
 
@@ -78,7 +78,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │
 │ ├── backends/ # === L4a Infra (MLIP + ONIOM) ===
 │ │ ├── __init__.py --precision routing (apply_precision_to_calc_cfg)
-│ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / Orb / MACE / AIMNet2
+│ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / ORB / MACE / AIMNet2
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ │ Future: split into base.py + per-backend uma.py / orb.py
 │ │ │ / mace.py / aimnet2.py + ONIOM subdir
@@ -121,7 +121,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。この deny list は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーは、これとは異なる CI ゲート (`_check_domain_pure`) です。このマーカーは、MLIP-free を保つ必要があるバックエンド非依存の特定モジュール（`backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py`、および `workflows/sp.py` に存在）を検出します。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
 
-**L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py` = 2,550 LOC) はバックエンドディスパッチ (`__init__.py`) およびスタンドアロンの xTB 点電荷埋め込み補正 (`xtb_embedcharge_correction.py`、`--embedcharge` で駆動) とともにここに置かれています。現時点では、ML 領域を評価する 4 つの MLIP バックエンド (UMA / Orb / MACE / AIMNet2) と OpenMM / hessian_ff カップリングはすべて `mlmm_calc.py` 内にインラインで配置されています。将来的には、これを MLIP レイヤー用に `backends/{base, uma, orb, mace, aimnet2}.py` へ、ONIOM コア用に `backends/mlmm_calc/` サブディレクトリ (`core.py`、`ase_calc.py`、`embed_charge.py`、`hessianff_calc.py`、`openmm_calc.py`、`facade.py`) へ分割する可能性があります。現在の単一ファイルの `mlmm_calc.py` は化学ルール **#1 (subtractive ONIOM)**、**#2 (link-atom Hessian B-matrix)**、**#8 (3-layer 5-pass partial Hessian)**、**#9 (parm7 atom indexing)** を保持しています — §5.1 を参照してください。
+**L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py` = 2,550 LOC) はバックエンドディスパッチ (`__init__.py`) およびスタンドアロンの xTB 点電荷埋め込み補正 (`xtb_embedcharge_correction.py`、`--embedcharge` で駆動) とともにここに置かれています。現時点では、ML 領域を評価する 4 つの MLIP バックエンド (UMA / ORB / MACE / AIMNet2) と OpenMM / hessian_ff カップリングはすべて `mlmm_calc.py` 内にインラインで配置されています。将来的には、これを MLIP レイヤー用に `backends/{base, uma, orb, mace, aimnet2}.py` へ、ONIOM コア用に `backends/mlmm_calc/` サブディレクトリ (`core.py`、`ase_calc.py`、`embed_charge.py`、`hessianff_calc.py`、`openmm_calc.py`、`facade.py`) へ分割する可能性があります。現在の単一ファイルの `mlmm_calc.py` は化学ルール **#1 (subtractive ONIOM)**、**#2 (link-atom Hessian B-matrix)**、**#8 (3-layer 5-pass partial Hessian)**、**#9 (parm7 atom indexing)** を保持しています — §5.1 を参照してください。
 
 **L4b `io/`** (7 ファイル)。出力側の I/O 関連: ステージごとのサマリーライター、エネルギー図、軌跡レンダリング、PDB altloc 修正、Hessianキャッシュ、数値Hessian構築 + 振動数 / 振動 I/O (`hessian_calc.py`)、調和拘束のセットアップ。`io/` は決して `workflows/` に依存しません。出力フォーマットはここで所有され、ステージランナーから消費されます。
 
@@ -377,7 +377,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 
 `mlmm-toolkit` は ONIOM を介して **完全なタンパク質環境** を扱います:
 
-- **ML 領域**: 基質 + 反応中心残基。4 つの MLIP バックエンド (UMA / Orb / MACE / AIMNet2) のいずれかで評価されます。オプションの xTB 点電荷埋め込み補正 (`--embedcharge`) は MM→ML の環境効果を加えます
+- **ML 領域**: 基質 + 反応中心残基。4 つの MLIP バックエンド (UMA / ORB / MACE / AIMNet2) のいずれかで評価されます。オプションの xTB 点電荷埋め込み補正 (`--embedcharge`) は MM→ML の環境効果を加えます
 - **Movable-MM 領域**: ML 領域を取り囲むシェルで、AMBER 力場の下で自由に移動できます
 - **Frozen 領域**: タンパク質の残りの部分で、剛体として保持されます
 

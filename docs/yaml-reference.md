@@ -174,7 +174,7 @@ opt:
  converge_to_geom_rms_thresh: 0.05 # RMS threshold when converging to reference geometry
  overachieve_factor: 0.0 # Factor to tighten thresholds
  check_eigval_structure: false # Validate Hessian eigenstructure
- energy_plateau: true # Fallback: declare convergence when the energy stops evolving
+ energy_plateau: true # Fallback: stop the optimizer as stalled (status: "stalled", never converged) when the energy plateaus
  energy_plateau_thresh: 1.0e-4 # Energy range tolerance in au (~0.06 kcal/mol)
  energy_plateau_window: 50 # Number of trailing steps used for plateau detection
  line_search: true # Enable line search

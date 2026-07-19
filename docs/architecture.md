@@ -128,7 +128,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 Domain helpers are reusable by any L2 stage runner.
 
-**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py` = 2,550 LOC) lives here together with the backend dispatch (`__init__.py`) and the standalone xTB point-charge embedding correction (`xtb_embedcharge_correction.py`, driven by `--embedcharge`). Today the 4 MLIP backends (UMA / ORB / MACE / AIMNet2) that evaluate the ML region and the OpenMM / hessian_ff coupling all sit inline inside `mlmm_calc.py`; future work may split this into `backends/{base, uma, orb, mace, aimnet2}.py` for the MLIP layer plus a `backends/mlmm_calc/` subdir for the ONIOM core (`core.py`, `ase_calc.py`, `embed_charge.py`, `hessianff_calc.py`, `openmm_calc.py`, `facade.py`). The current single-file `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, **#8 (3-layer 5-pass partial Hessian)**, and **#9 (parm7 atom indexing)** — see §5.1.
+**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py` = 2,550 LOC) lives here together with the backend dispatch (`__init__.py`) and the standalone xTB point-charge embedding correction (`xtb_embedcharge_correction.py`, driven by `--embedcharge`). Today the 4 MLIP backends (UMA / ORB / MACE / AIMNet2) that evaluate the ML region and the OpenMM / hessian_ff coupling all sit inline inside `mlmm_calc.py`; future work may split this into `backends/{base, uma, orb, mace, aimnet2}.py` for the MLIP layer plus a `backends/mlmm_calc/` subdir for the ONIOM core (`core.py`, `ase_calc.py`, `embed_charge.py`, `hessianff_calc.py`, `openmm_calc.py`, `facade.py`). The current single-file `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, and **#8 (3-layer 5-pass partial Hessian)**; rule **#9 (parm7 atom indexing)** lives in `io/pdb_indexing.py` — see §5.1.
 
 **L4b `io/`** (7 files). Output-side I/O concerns: per-stage summary writer, energy diagram, trajectory rendering, PDB altloc fix, Hessian cache, numerical Hessian construction + frequency / vibrational I/O (`hessian_calc.py`). `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
 
@@ -309,7 +309,7 @@ All 9 rules apply to `mlmm`:
 | 6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | 7 | `bofill_update` advanced-indexing scatter | `mlmm/workflows/tsopt.py` |
 | 8 | 3-layer 5-pass partial Hessian assembly | `mlmm/backends/mlmm_calc.py` |
-| 9 | parm7 atom indexing (1-based / serial gap handling) | `mlmm/backends/mlmm_calc.py` |
+| 9 | parm7 atom indexing (1-based / serial gap handling) | `mlmm/io/pdb_indexing.py` |
 
 Editing any of these requires a `[CHEMISTRY-RULE:N]` commit prefix and a HEAVY-tier numerical-golden gate pass (see `CONTRIBUTING.md` §1.1).
 
@@ -317,12 +317,12 @@ Editing any of these requires a `[CHEMISTRY-RULE:N]` commit prefix and a HEAVY-t
 
 | cluster | rules | shared concern | learn-first file |
 |---|---|---|---|
-| 5-pass Hessian set | #1, #2, #8, #9 | subtractive ONIOM + link-atom B-matrix + 3-layer assembly + parm7 indexing | `mlmm/backends/mlmm_calc.py` (host of 4 of the 9 rules) |
+| 5-pass Hessian set | #1, #2, #8, #9 | subtractive ONIOM + link-atom B-matrix + 3-layer assembly + parm7 indexing | `mlmm/backends/mlmm_calc.py` (host of 3 of the 9 rules: #1/#2/#8; #9 in `mlmm/io/pdb_indexing.py`) |
 | TS optimization set | #3, #7 | macro / micro alternation + Bofill scatter | `mlmm/workflows/tsopt.py` |
 | Vibrational set | #6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | DFT set | #4, #5 | gpu4pyscf low-memory + def2 ECP injection | `mlmm/workflows/dft.py` |
 
-For mlmm the practical curriculum is the 5-pass Hessian set first (#1, #2, #8, #9 — all in `mlmm_calc.py`), then the TS set (#3, #7), then DFT (#4, #5), then vibrational (#6).
+For mlmm the practical curriculum is the 5-pass Hessian set first (#1, #2, #8 in `mlmm_calc.py`; #9 in `io/pdb_indexing.py`), then the TS set (#3, #7), then DFT (#4, #5), then vibrational (#6).
 
 ### 5.2 VRAM-management invariant (do not refactor `del` chains)
 
@@ -373,7 +373,7 @@ After the Fresh-eyes tour (§3), follow this depth-first reading order:
 3. `mlmm/workflows/all.py` — one full pipeline top-to-bottom.
 4. `mlmm/workflows/extract.py` + `define_layer.py` — cluster cut-out + link-atom cap + ONIOM layer assignment.
 5. `mlmm/workflows/mm_parm.py` — AmberTools parm7 generation.
-6. `mlmm/backends/mlmm_calc.py` — the heart of ML/MM (chemistry-rules #1, #2, #8, #9 all live here).
+6. `mlmm/backends/mlmm_calc.py` — the heart of ML/MM (chemistry-rules #1, #2, #8 live here; #9 in `mlmm/io/pdb_indexing.py`).
 7. `mlmm/workflows/tsopt.py` — RSIRFO + Bofill (CHEMISTRY-RULE:7) + macro / micro alternation (CHEMISTRY-RULE:3).
 8. `mlmm/workflows/freq.py` — PHVA + MLIP active-block (CHEMISTRY-RULE:6).
 9. `mlmm/workflows/irc.py` — VRAM hygiene + macro / micro IRC.

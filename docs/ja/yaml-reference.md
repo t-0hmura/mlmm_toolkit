@@ -155,7 +155,7 @@ opt:
  converge_to_geom_rms_thresh: 0.05 # 参照ジオメトリへの収束 RMS 閾値
  overachieve_factor: 0.0 # 閾値の引き締め係数
  check_eigval_structure: false # Hessian固有値構造の検証
- energy_plateau: true # フォールバック: エネルギーが停滞したら収束と判定
+ energy_plateau: true # フォールバック: エネルギーが停滞したら stalled として停止 (収束扱いにはしない)
  energy_plateau_thresh: 1.0e-4 # エネルギー変動許容幅 au（約 0.06 kcal/mol）
  energy_plateau_window: 50 # プラトー判定に用いる直近ステップ数
  line_search: true # ラインサーチを有効化
