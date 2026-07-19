@@ -103,7 +103,7 @@ mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme
 mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
 ```
 
-### DFT//MLIP single point on the rate-limiting TS
+### DFT//ML/MM single point on the rate-limiting TS
 
 ```bash
 mlmm dft -i seg_01/ts.pdb --parm real.parm7 \

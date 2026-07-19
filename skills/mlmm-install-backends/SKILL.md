@@ -55,7 +55,7 @@ Need a fast screen across many candidates?
 Working on small organic molecules, no metals?
     └── AIMNet2 (aimnet2.md) — limited element coverage, but light
 
-Need DFT//MLIP refinement?
+Need DFT//ML/MM refinement?
     └── add dft.md regardless of MLIP choice
 
 Need a non-MLIP engine for the ML region (GFN-xTB / DFTB+ / ORCA / any ASE calc)?

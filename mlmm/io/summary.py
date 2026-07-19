@@ -580,7 +580,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             _emit_energy_block(lines, "MLIP Gibbs (thermo)", seg.get("gibbs_mlip"), root_out_path)
             _emit_energy_block(lines, "DFT single-point", seg.get("dft"), root_out_path)
             _emit_energy_block(
-                lines, "DFT//MLIP Gibbs", seg.get("gibbs_dft_mlip"), root_out_path
+                lines, "DFT//ML/MM Gibbs", seg.get("gibbs_dft_mlip"), root_out_path
             )
 
             entry = segment_entries.setdefault(
@@ -627,10 +627,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             (f"MLIP {delta}E  [kcal/mol]", "mlip_delta"),
             (f"MLIP {delta}G{dagger} [kcal/mol]", "gibbs_mlip_barrier"),
             (f"MLIP {delta}G  [kcal/mol]", "gibbs_mlip_delta"),
-            (f"DFT//MLIP {delta}E{dagger} [kcal/mol]", "dft_barrier"),
-            (f"DFT//MLIP {delta}E  [kcal/mol]", "dft_delta"),
-            (f"DFT//MLIP {delta}G{dagger} [kcal/mol]", "gibbs_dft_mlip_barrier"),
-            (f"DFT//MLIP {delta}G  [kcal/mol]", "gibbs_dft_mlip_delta"),
+            (f"DFT//ML/MM {delta}E{dagger} [kcal/mol]", "dft_barrier"),
+            (f"DFT//ML/MM {delta}E  [kcal/mol]", "dft_delta"),
+            (f"DFT//ML/MM {delta}G{dagger} [kcal/mol]", "gibbs_dft_mlip_barrier"),
+            (f"DFT//ML/MM {delta}G  [kcal/mol]", "gibbs_dft_mlip_delta"),
         ]
         sorted_entries = [segment_entries[k] for k in sorted(segment_entries.keys())]
         headers = [f"{int(e.get('index', 0)):d}({e.get('tag', '-')})" for e in sorted_entries]
@@ -691,8 +691,8 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             (f"MEP {delta}E  [kcal/mol]", "mep"),
             (f"MLIP {delta}E  [kcal/mol]", "mlip"),
             (f"MLIP {delta}G  [kcal/mol]", "gibbs_mlip"),
-            (f"DFT//MLIP {delta}E  [kcal/mol]", "dft"),
-            (f"DFT//MLIP {delta}G  [kcal/mol]", "gibbs_dft_mlip"),
+            (f"DFT//ML/MM {delta}E  [kcal/mol]", "dft"),
+            (f"DFT//ML/MM {delta}G  [kcal/mol]", "gibbs_dft_mlip"),
         ]
 
         label_width = max(len(label) for label, _ in table_rows) + 2
@@ -734,7 +734,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         "energy_diagram_MLIP_all.png": "ML/MM R-TS-P energies (all segments)",
         "energy_diagram_G_MLIP_all.png": "MLIP Gibbs R-TS-P (all segments)",
         "energy_diagram_DFT_all.png": "DFT R-TS-P (all segments)",
-        "energy_diagram_G_DFT_plus_MLIP_all.png": "DFT//MLIP Gibbs R-TS-P (all segments)",
+        "energy_diagram_G_DFT_plus_MLIP_all.png": "DFT//ML/MM Gibbs R-TS-P (all segments)",
         "irc_plot_all.png": "Aggregated IRC plot",
         # _work/ scratch subdirectories
         f"{WORK_DIRNAME}/pockets": "Extracted pocket PDBs",

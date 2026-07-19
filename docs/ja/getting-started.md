@@ -429,7 +429,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 - ML 領域の **TS** を TS 最適化で最適化
 - 両方向に **IRC** を実行し、両端を最適化して R, P の極小に緩和
 - その後 `freq` と `dft` を R/TS/P に対して実行可能
-- MLIP、Gibbs、DFT//MLIP エネルギー図を生成
+- MLIP、Gibbs、DFT//ML/MM エネルギー図を生成
 
 ```{important}
 単一入力での実行には、**`--scan-lists`**（段階的スキャン → GSM）**または** **`--tsopt`**（TSOPT のみ）のいずれかが必要です。単一の `-i` のみでこれらを指定しないと、完全なワークフローはトリガーされません。

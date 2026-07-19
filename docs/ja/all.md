@@ -1,6 +1,6 @@
 # `all`
 
-`mlmm all` は全系レイヤード PDB 上で ML/MM 機構パイプライン全体を 1 コマンドで実行します。手作業で `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` を連結する代わりに、`all` 1 つで完結します。活性部位抽出、MM トポロジー準備、ML/MM レイヤー割り当て、任意の段階的スキャン、MEP 探索（デフォルトは単一パス `path-opt`、`--refine-path` で再帰 `path-search`）、任意の後処理（TS 最適化、EulerPC IRC、熱化学、DFT 一点計算、DFT//MLIP ダイアグラム）を順に実行します。ML 領域のデフォルト MLIP バックエンドは UMA で、`-b/--backend` で他のバックエンドを選択できます。
+`mlmm all` は全系レイヤード PDB 上で ML/MM 機構パイプライン全体を 1 コマンドで実行します。手作業で `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` を連結する代わりに、`all` 1 つで完結します。活性部位抽出、MM トポロジー準備、ML/MM レイヤー割り当て、任意の段階的スキャン、MEP 探索（デフォルトは単一パス `path-opt`、`--refine-path` で再帰 `path-search`）、任意の後処理（TS 最適化、EulerPC IRC、熱化学、DFT 一点計算、DFT//ML/MM ダイアグラム）を順に実行します。ML 領域のデフォルト MLIP バックエンドは UMA で、`-b/--backend` で他のバックエンドを選択できます。
 
 `all` は渡す入力に応じて 3 つのモードのいずれかで動作します:
 
@@ -81,12 +81,12 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
    - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
    - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
-   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//MLIP Gibbs ダイアグラムも生成されます。
+   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//ML/MM Gibbs ダイアグラムも生成されます。
    - `--tr-projection` は TS 最適化、IRC、振動解析、flatten PHVA に転送されます。デフォルトの `constrained` は凍結 anchor を動かさない全系剛体運動だけを除去し、実用的な ML/MM 境界では有効 rank は通常 0 です。
    - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します（デフォルトの FiniteDifference より優先）。
 
 6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
-   - ステップ (4)-(5) をスキップし、レイヤード全系 PDB で `tsopt` を実行し、EulerPC IRC と両端の極小化を行い、R-TS-P の ML/MM エネルギーダイアグラムを構築し、任意で Gibbs、DFT、DFT//MLIP ダイアグラムを追加します。
+   - ステップ (4)-(5) をスキップし、レイヤード全系 PDB で `tsopt` を実行し、EulerPC IRC と両端の極小化を行い、R-TS-P の ML/MM エネルギーダイアグラムを構築し、任意で Gibbs、DFT、DFT//ML/MM ダイアグラムを追加します。
    - このモードでのみ、**より高いエネルギー**の IRC 端点が反応物 (R) として採用されます。
 
 ## 出力

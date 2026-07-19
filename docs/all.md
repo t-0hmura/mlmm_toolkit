@@ -1,6 +1,6 @@
 # `all`
 
-`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command, instead of chaining `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` by hand. It chains active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (single-pass `path-opt` by default; recursive `path-search` with `--refine-path`), and optional post-processing (TS optimization, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
+`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command, instead of chaining `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` by hand. It chains active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (single-pass `path-opt` by default; recursive `path-search` with `--refine-path`), and optional post-processing (TS optimization, EulerPC IRC, thermochemistry, single-point DFT, and DFT//ML/MM diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
 
 `all` runs in one of three modes, chosen by what you pass:
 
@@ -78,11 +78,11 @@ PDB companion files are generated when reference templates are available; contro
    - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
    - `--tsopt` runs TS optimization on each HEI, follows with EulerPC IRC, and emits segment energy diagrams.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
-   - `--dft` runs DFT single-point on (R, TS, P) and adds a DFT diagram. With `--thermo`, a DFT//MLIP Gibbs diagram is also produced.
+   - `--dft` runs DFT single-point on (R, TS, P) and adds a DFT diagram. With `--thermo`, a DFT//ML/MM Gibbs diagram is also produced.
    - `--tr-projection` is forwarded to TS optimization, IRC, frequency analysis, and flatten PHVA. The default `constrained` treatment removes only full-system rigid motions that leave frozen anchors fixed; realistic ML/MM boundaries normally have effective rank 0.
    - When VRAM allows, set `--hessian-calc-mode Analytical` (strongly recommended over the FiniteDifference default).
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
-   - Skips steps 4–5 and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC, minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//MLIP diagrams.
+   - Skips steps 4–5 and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC, minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//ML/MM diagrams.
    - In this mode only, the IRC endpoint with **higher energy** is adopted as the reactant (R).
 
 ## Outputs

@@ -144,8 +144,8 @@ Options:
                                   diagram (MLIP).  [default: no-thermo]
   --dft / --no-dft                Run DFT single-point on (R,TS,P) and build a
                                   DFT energy diagram. With --thermo, also
-                                  generate a DFT//MLIP Gibbs diagram.  [default:
-                                  no-dft]
+                                  generate a DFT//ML/MM Gibbs diagram.
+                                  [default: no-dft]
   --tsopt-max-cycles INTEGER      Override tsopt --max-cycles value.
   --flatten / --no-flatten        Enable the extra-imaginary-mode flattening
                                   loop in tsopt (grad: dimer loop, hess: post-

@@ -435,7 +435,7 @@ def test_freq_zero_exit_returns_parsed_thermo(tmp_path: Path, monkeypatch) -> No
 
 
 def test_m28_thermo_gibbs_finite_gate() -> None:
-    # Binds to the production finite-gates the all.py Gibbs/DFT//MLIP consumers
+    # Binds to the production finite-gates the all.py Gibbs/DFT//ML/MM consumers
     # use in place of the old 0.0 / MLIP substitution: a missing/nonfinite field
     # returns None (so the diagram/dict is skipped, never substituted).
     from mlmm.workflows.all import _thermo_gibbs_ha, _thermo_correction_ha
@@ -456,10 +456,10 @@ def test_m28_thermo_gibbs_finite_gate() -> None:
 
 
 def test_m28_dft_energy_gates_on_dft_failed() -> None:
-    # Binds to the production helper the all.py DFT / DFT//MLIP consumers use in
+    # Binds to the production helper the all.py DFT / DFT//ML/MM consumers use in
     # place of the old `dR.get("energy",{}).get("hartree", eR)` / np.nan MLIP
     # fallback: a finite energy.hartree is NOT trusted when the DFT child failed
-    # (_dft_failed) — so the DFT and DFT//MLIP diagrams are skipped, never
+    # (_dft_failed) — so the DFT and DFT//ML/MM diagrams are skipped, never
     # substituted with an MLIP or 0.0 value.
     from mlmm.workflows.all import _dft_energy_ha, _dft_succeeded
 
