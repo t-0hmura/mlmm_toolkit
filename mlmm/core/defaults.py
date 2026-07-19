@@ -443,8 +443,11 @@ HESSIAN_DIMER_KW: Dict[str, Any] = {
 
 # RS-I-RFO defaults for TS optimization (heavy mode)
 
-# Inherit shared keys from RFO_KW, but exclude RFOptimizer-only params
-# that RSIRFOptimizer (via TSHessianOptimizer → Optimizer) does not accept.
+# Inherit shared keys from RFO_KW, but drop two groups the TS optimizers must
+# not take from RFO_KW: the gdiis/gediis family (the base Optimizer has no
+# **kwargs, so RSIRFOptimizer would raise TypeError), and the reject_uphill
+# group (accepted via TSHessianOptimizer, but deliberately not forced on TS
+# optimizers — keep HessianOptimizer's reject_uphill=False default).
 _RFO_ONLY_KEYS = {
     "gediis", "gdiis", "gdiis_thresh", "gediis_thresh",
     "gdiis_test_direction", "adapt_step_func", "rfo_overlaps",

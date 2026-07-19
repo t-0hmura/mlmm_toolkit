@@ -107,11 +107,11 @@ effective rank, Hessian source, and Hessian shape.
   resulting geometry has imaginary frequencies (run `freq` to check),
   re-run with `--opt-mode rfo`.
 - `--config` YAML is the way to override less-common settings (step
-  limits, trust radius, etc.); inspect `OPT_BASE_KW` and `L-BFGS_KW`
+  limits, trust radius, etc.); inspect `OPT_BASE_KW` and `LBFGS_KW`
   in `mlmm.core.defaults`.
 
 ## See also
 
 - `tsopt.md` — TS analog.
 - `freq.md` — verify the optimized minimum (zero imaginary modes).
-- Defaults: `import mlmm.core.defaults as d; print(d.OPT_BASE_KW, d.L-BFGS_KW, d.RFO_KW)`
+- Defaults: `import mlmm.core.defaults as d; print(d.OPT_BASE_KW, d.LBFGS_KW, d.RFO_KW)`

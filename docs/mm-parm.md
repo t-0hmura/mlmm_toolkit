@@ -31,7 +31,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 1. **Input preparation** -- The input PDB is read as-is (no structural fixing). If `--add-h` is set, hydrogens are added via PDBFixer at the specified `--ph`.
 2. **TER insertion** -- When `--add-ter` (default), TER records are inserted before and after contiguous blocks of ligand/water/ion residues.
 3. **Unknown residue parameterization** -- Residues not recognized by the force field are parameterized with antechamber (GAFF2, AM1-BCC) and parmchk2. Residues named in `--ligand-charge` are prioritized for this route. Formal charge and spin multiplicity are controlled via `--ligand-charge` and `--ligand-mult`.
-4. **Disulfide detection** -- CYS/CYM/CYX pairs with SG-SG (or S-S) distance <= 2.3 Å are bonded automatically.
+4. **Disulfide detection** -- CYS/CYM/CYX pairs with SG-SG (or S-S) distance <= 2.5 Å are bonded automatically.
 5. **Topology build** -- tleap generates parm7/rst7/pdb files using the selected force field set.
 
 ## Outputs

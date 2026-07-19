@@ -41,8 +41,8 @@ Options:
                                   treated as 0.001 Å (effectively off).
                                   [default: 0]
   --include-h2o / --no-include-h2o
-                                  Include waters (HOH/WAT/TIP3/SOL).  [default:
-                                  include-h2o]
+                                  Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL).
+                                  [default: include-h2o]
   --exclude-backbone / --no-exclude-backbone
                                   Delete main-chain atoms from non-substrate
                                   amino acids.  [default: no-exclude-backbone]

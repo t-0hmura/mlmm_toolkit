@@ -140,7 +140,7 @@ releases):
 python -c "import mlmm.core.defaults as d; print([n for n in dir(d) if n.endswith('_KW') or n.startswith('OUT_DIR')])"
 
 # Examples:
-python -c "import mlmm.core.defaults as d; print(d.L-BFGS_KW)"
+python -c "import mlmm.core.defaults as d; print(d.LBFGS_KW)"
 python -c "import mlmm.core.defaults as d; print(d.RSIRFO_KW)"
 python -c "import mlmm.core.defaults as d; print(d.IRC_KW)"
 python -c "import mlmm.core.defaults as d; print(d.MLMM_CALC_KW)"

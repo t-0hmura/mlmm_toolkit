@@ -181,8 +181,8 @@ opt:
 
 `energy_plateau: true`（デフォルト）の場合、直近 `energy_plateau_window` ステップ
 （デフォルト 50）のエネルギー範囲 `max(E) - min(E)` が `energy_plateau_thresh`
-（デフォルト `1.0e-4` au、約 0.06 kcal/mol）を下回ると、オプティマイザは収束したと
-判定します。
+（デフォルト `1.0e-4` au、約 0.06 kcal/mol）を下回ると、オプティマイザを `status: "stalled"` で停止します（`converged` とは
+区別される非収束の結果で、決して `converged` にはなりません）。
 
 これは ML/MM 最適化特有のセーフティネットです。MLIP の力には数値精度に起因する
 ノイズフロアがあり、これが `gau`/`baker` などの勾配ベース収束閾値を

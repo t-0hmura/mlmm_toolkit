@@ -51,7 +51,7 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 | `--near FLOAT` | 可動/活性 MM 原子の距離カットオフ（Å） | `6.0` |
 | `--nproc INT` | プロセッサ数 | `8` |
 | `--mem TEXT` | メモリ割り当て（g16 モード） | `16GB` |
-| `--total-charge INT` / `--total-mult INT` | 全 QM+MM 系の総電荷/総多重度（ORCA `Charge_Total` / `Mult_Total`） | _None_ |
+| `--total-charge INT` / `--total-mult INT` | 全 QM+MM 系の総電荷/総多重度（ORCA `Charge_Total` / `Mult_Total`） | トポロジー由来 / `--multiplicity` と同じ |
 | `--orcaff PATH` | `ORCAFF.prms` のパス（ORCA モード）。未指定時は出力ディレクトリに生成 | _None_ |
 | `--convert-orcaff / --no-convert-orcaff` | `ORCAFF.prms` 欠損時に `orca_mm -convff -AMBER` で自動変換（ORCA モード） | `True` |
 | `--element-check / --no-element-check` | `--input` の元素配列を parm7 トポロジーと照合 | `True` |

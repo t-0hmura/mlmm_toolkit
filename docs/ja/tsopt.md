@@ -344,7 +344,7 @@ Hessian source、Hessian shape を記録します。
 ```{note}
 `rsirfo.trust_max` のデフォルトは 0.10 bohr です。TS 近傍での ML/MM 安定性が改善します。
 
-共有 `opt` ブロックには **エネルギープラトー・フォールバック**（`energy_plateau: true`、`energy_plateau_thresh: 1.0e-4` au を `energy_plateau_window: 50` ステップにわたって適用、いずれもデフォルト）も備わっています。MLIP の力ノイズフロアが `thresh` プリセットを下回れない場合でも、エネルギー自体が停滞した時点でクリーンに収束終了します。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
+共有 `opt` ブロックには **エネルギープラトー・フォールバック**（`energy_plateau: true`、`energy_plateau_thresh: 1.0e-4` au を `energy_plateau_window: 50` ステップにわたって適用、いずれもデフォルト）も備わっています。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットに到達できない場合、残りのサイクルを費やす代わりにプラトーで探索を停止し、`status: "stalled"` を報告します（`converged` とは区別される非収束の結果で、決して `converged` にはなりません）。終端の厳密 Hessian は実行されるため鞍点診断は報告されますが、flatten/retry ループは実行されません（stalled な root は検証済みの TS モードではないため）。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
 ```
 
 ## 関連項目

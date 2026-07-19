@@ -85,7 +85,8 @@ Every tool returns the same structured dict so the calling agent can dispatch on
 
 ```python
 {
-    "schema_version": "1.0",         # pin to MCP_SUBCMD_RESULT_SCHEMA_VERSION
+    "schema_version": "1.1",         # pin to MCP_SUBCMD_RESULT_SCHEMA_VERSION
+    "run_id": str,                   # unique id for this run (added in schema 1.1)
     "status": "ok" | "failed" | "summary_missing" | "summary_parse_error",
     "exit_code": int,                # subprocess exit code
     "out_dir": str | None,           # working directory the CLI wrote to

@@ -167,7 +167,7 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
     "--include-h2o/--no-include-h2o",
     "include_h2o",
     default=True, show_default=True,
-    help="Include waters (HOH/WAT/TIP3/SOL).",
+    help="Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL).",
 )
 @click.option(
     "--exclude-backbone/--no-exclude-backbone",

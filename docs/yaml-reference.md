@@ -198,7 +198,8 @@ opt:
 
 **Energy plateau fallback:**
 
-When `energy_plateau: true` (default), the optimizer declares convergence if the
+When `energy_plateau: true` (default), a plateau stops the optimizer with
+`status: "stalled"` (a distinct non-converged outcome, never `converged`) if the
 energy range `max(E) - min(E)` over the last `energy_plateau_window` steps (default
 50) falls below `energy_plateau_thresh` (default `1.0e-4` au, ~0.06 kcal/mol).
 
