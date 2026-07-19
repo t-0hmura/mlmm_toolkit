@@ -56,11 +56,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `verify_saddle`), and add saddle recovery. These are default-on optimizer
   behavior changes: an optimization can now stop at a different geometry, or
   report a different terminal status, than it did in the released version. The
-  `reject_uphill` safeguard rests on an as-yet-unconfirmed endpoint-divergence
-  hypothesis and stays on provisionally; it can be toggled with
-  `opt`/`all --reject-uphill/--no-reject-uphill` (post-IRC endpoint re-optimization
-  only on `all`), and a future release may change the default once its net effect is
-  measured.
+  `reject_uphill` safeguard is on by default. Its net effect has now been
+  measured: it rescues real post-IRC endpoint divergences (an endpoint
+  re-optimization that would otherwise settle at a spurious uphill minimum) with
+  no regression on already-converged endpoints, so it is kept on as a confirmed
+  net-positive safeguard. Toggle it with `opt`/`all
+  --reject-uphill/--no-reject-uphill` (post-IRC endpoint re-optimization only on
+  `all`).
 - Double the default segment path resolution (`max_nodes_segment` 10 → 20), which
   changes the MEP, its highest-energy image, and therefore the reported barrier.
 - Unify the residue/ion/water catalog so charge inference recognizes the same
@@ -135,7 +137,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Fingerprint the native `hessian_ff` build and runtime identity before loading a
   prebuilt extension, refusing a stale or host-incompatible binary.
 - Stop reporting an electronic energy as a Gibbs free energy: `all` builds the
-  per-segment MLIP and DFT//MLIP Gibbs diagrams only when every state's frequency
+  per-segment MLIP and DFT//ML/MM Gibbs diagrams only when every state's frequency
   free energy (and DFT thermal correction) is finite, otherwise it skips the diagram
   and warns, instead of substituting the MLIP/DFT electronic energy or a `0.0`
   thermal correction. Reported ΔG changes wherever a thermochemistry value was
@@ -269,7 +271,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   (was `_work/path_search/`). The standalone `path-search` subcommand is
   unchanged. Docs/skills updated throughout.
 - `--dft-func-basis` is now surfaced in the primary `mlmm <subcmd> --help`
-  (previously only under `--help-advanced`), so the DFT//MLIP functional/basis
+  (previously only under `--help-advanced`), so the DFT//ML/MM functional/basis
   is discoverable without the advanced listing.
 - Standalone `path-opt` / `path-search` now default to `--preopt` (each MEP
   endpoint is pre-optimized before the search); the previous default was
