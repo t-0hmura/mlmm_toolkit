@@ -136,7 +136,12 @@ mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
 
 # test19: required positive MEP -> TSopt -> IRC -> thermo -> DFT handoff.
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --tsopt --thermo --dft --flatten --irc-never-stop --tsopt-max-cycles 100 --dft-func-basis 'hf/sto-3g' --dft-grid-level 0 --dft-conv-tol 1e-5 --dft-max-cycle 40 --dft-engine cpu --out-dir test19 > test19.out 2>&1
+# --tsopt-max-cycles budget must cover the opt-in --flatten repair, which drives a
+# soft spectator mode toward zero over ~40 iterations. The flatten loop draws from
+# this global cycle budget, so it must exceed flatten_max_iter (=50, ~135 cycles) or
+# a still-descending repair is cut off short of a clean saddle (product default is
+# 10000; 100 was ~5 cycles too tight for this system and made the verdict fragile).
+mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --tsopt --thermo --dft --flatten --irc-never-stop --tsopt-max-cycles 200 --dft-func-basis 'hf/sto-3g' --dft-grid-level 0 --dft-conv-tol 1e-5 --dft-max-cycle 40 --dft-engine cpu --out-dir test19 > test19.out 2>&1
 python assert_release_result.py all test19 --require-thermo --require-dft >> test19.out 2>&1
 
 # test20: all (--parm + --model-pdb override, reuse test19 outputs)
