@@ -1102,8 +1102,15 @@ def cli(
                 margin=dict(l=10, r=10, b=10, t=40),
             )
             png2d = final_dir / "scan2d_map.png"
-            fig2d.write_image(str(png2d), scale=2, engine="kaleido", width=680, height=600)
-            click.echo(f"[plot] Wrote '{png2d}'.")
+            try:
+                fig2d.write_image(str(png2d), scale=2, engine="kaleido", width=680, height=600)
+            except Exception as e:
+                click.echo(
+                    f"[plot] NOTE: PNG export skipped (install 'kaleido' to enable): {e}",
+                    err=True,
+                )
+            else:
+                click.echo(f"[plot] Wrote '{png2d}'.")
 
             # ---- 3D surface plus base-plane projection ----
             spread = vmax - vmin if (vmax > vmin) else 1.0
