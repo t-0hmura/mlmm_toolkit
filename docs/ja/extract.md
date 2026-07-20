@@ -26,7 +26,7 @@ mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb -l "GPP:-3,MMT:-1"
 ```bash
 # マルチ構造から単一マルチモデル出力、ヘテロ-ヘテロ近接有効
 mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
-    -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose
+    -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose 3
 ```
 
 ## 処理の流れ

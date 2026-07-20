@@ -26,7 +26,7 @@ Multi-structure ensemble collapsed into one multi-MODEL output, using hetero-het
 ```bash
 # Multi-structure → single multi-MODEL output with hetero-hetero proximity
 mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
-    -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose
+    -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose 3
 ```
 
 ## Workflow
