@@ -107,9 +107,9 @@ requires a positive-definite mass-weighted Hessian, blocking the IRC
 before reaching the local minimum. Defaults to `None` (rms-only, legacy).
 
 `find_transition_state` accepts `opt_mode="trim"` (Helgaker 1991) /
-`opt_mode="rsprfo"` (Banerjee 1985) as alternative TS optimizers; the
-server passes `--no-microiter` automatically since those modes are not
-microiter-capable.
+`opt_mode="rsprfo"` (Banerjee 1985) as alternative TS optimizers. All three
+Hessian TS optimizers (`rsirfo`/`rsprfo`/`trim`) are microiteration-capable
+and run with microiteration on by default; pass `microiter=False` to disable it.
 
 ## Client configuration
 

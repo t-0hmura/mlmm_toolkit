@@ -98,7 +98,7 @@ output option を上書きできません。短縮 option の連結形と
 
 `run_irc` は `irc_pos_def: bool` を受け付けます。これを指定すると、IRC の収束に加えて正定値の質量重み付き Hessian も必要となり、rms のみの基準が局所極小に到達する前に成功と判定してしまう IRC の「ショルダー」誤収束をブロックします。デフォルトは `None`（rms のみ、レガシー）です。
 
-`find_transition_state` は代替の TS オプティマイザとして `opt_mode="trim"`（Helgaker 1991）/ `opt_mode="rsprfo"`（Banerjee 1985）を受け付けます。これらのモードは microiter に対応していないため、サーバーは自動的に `--no-microiter` を渡します。
+`find_transition_state` は代替の TS オプティマイザとして `opt_mode="trim"`（Helgaker 1991）/ `opt_mode="rsprfo"`（Banerjee 1985）を受け付けます。3 つの Hessian TS オプティマイザ（`rsirfo`/`rsprfo`/`trim`）はいずれも microiteration に対応しており、既定で microiteration を有効にして実行します。無効化するには `microiter=False` を渡します。
 
 ## クライアント設定
 
