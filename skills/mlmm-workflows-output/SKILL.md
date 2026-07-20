@@ -1,6 +1,6 @@
 ---
 name: mlmm-workflows-output
-description: Output parsing and multi-step workflow selection for mlmm-toolkit — `summary.json` schema, R/TS/P/IM canonical paths, `bond_changes` interpretation, energy-diagram conventions, and the cluster + 1-step / multistep / scan-list / endpoint-MEP / TS-only / DFT//ML/MM / stage-by-stage (subcommand-only, gate each stage) recipes used to extract numerical results. TRIGGER on output parsing (`summary.json`, `result.json`, `seg_NN/`), extracting barriers / ΔE / Gibbs for a paper, choosing between multi-input / scan-list / endpoint-MEP / TS-only modes, or running the pipeline subcommand-by-subcommand with a success check at each stage (instead of one `all` run). SKIP for single-subcommand syntax (CLI skill) or install / HPC questions.
+description: Output parsing and multi-step workflow selection for mlmm-toolkit — `summary.json` schema, R/TS/P/IM canonical paths, `bond_changes` interpretation, energy-diagram conventions, and the cluster + 1-step / multistep / scan-list / endpoint-MEP / TS-only / DFT//MLIP/MM / stage-by-stage (subcommand-only, gate each stage) recipes used to extract numerical results. TRIGGER on output parsing (`summary.json`, `result.json`, `seg_NN/`), extracting barriers / ΔE / Gibbs for a paper, choosing between multi-input / scan-list / endpoint-MEP / TS-only modes, or running the pipeline subcommand-by-subcommand with a success check at each stage (instead of one `all` run). SKIP for single-subcommand syntax (CLI skill) or install / HPC questions.
 ---
 
 # mlmm-toolkit Workflows and Output Parsing
@@ -110,7 +110,7 @@ mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme
 Or use `mlmm all` with a single `-i` (collapses to TS-only
 mode automatically; see `mlmm-cli/all-ts-only.md`).
 
-### 6. DFT//ML/MM refinement
+### 6. DFT//MLIP/MM refinement
 
 After any of the above, refine R / TS / P energies at DFT level:
 
@@ -182,7 +182,7 @@ R and P (bond changes match this step). A TS that fails any gate is not this ele
 **Stage 3 — thermochemistry** (optional, = `all --thermo`): run `mlmm freq` on R / TS / P
 for the Gibbs/QRRHO profile (`post_segments[i].gibbs_mlip`).
 
-**Stage 4 — DFT//ML/MM** (optional, = `all --dft`):
+**Stage 4 — DFT//MLIP/MM** (optional, = `all --dft`):
 
 ```bash
 mlmm dft -i seg_NN/reactant.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' -o seg_NN/dft/R   # repeat for ts, product
@@ -250,7 +250,7 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `mlip` | `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}` for the selected backend |
 | `gibbs_mlip` | `{energies, barrier_kcal, delta_kcal, ...}` (when `--thermo` is on) |
 | `dft` | `{labels, energies_au, energies_kcal, diagram, structures, barrier_kcal, delta_kcal}` (when `--dft` is on) |
-| `gibbs_dft_mlip` | DFT//ML/MM Gibbs profile (when both `--dft` and `--thermo` are on) |
+| `gibbs_dft_mlip` | DFT//MLIP/MM Gibbs profile (when both `--dft` and `--thermo` are on) |
 | `mep_barrier_kcal` / `mep_delta_kcal` | Plain-MEP energies (no Gibbs / DFT correction) |
 
 ## R/TS/P canonical paths
@@ -304,7 +304,7 @@ for ps in d.get("post_segments", []):
     if n_imag is not None and n_imag != 1:
         print(f"WARNING: {ps['tag']} has {n_imag} imaginary modes at TS")
 
-# DFT//ML/MM energies (when --dft was used)
+# DFT//MLIP/MM energies (when --dft was used)
 for ps in d.get("post_segments", []):
     if "dft" in ps:
         print(ps["tag"], ps["dft"]["energies_kcal"])

@@ -1342,7 +1342,7 @@ def _derive_pipeline_status(
                 if cfg.get("thermo") and not isinstance(
                     item.get("gibbs_dft_mlip"), dict
                 ):
-                    reasons.append(f"{prefix}: DFT//ML/MM thermochemistry result is missing")
+                    reasons.append(f"{prefix}: DFT//MLIP/MM thermochemistry result is missing")
 
     if cfg.get("dft") and cfg.get("dft_status") == "failed":
         reasons.append("DFT failed for one or more TS-only states")
@@ -1404,7 +1404,7 @@ def _enrich_summary(
                 return False
 
         for candidate_method, candidate_key in (
-            ("DFT//ML/MM_Gibbs", "gibbs_dft_mlip"),
+            ("DFT//MLIP/MM_Gibbs", "gibbs_dft_mlip"),
             ("DFT", "dft"),
             ("MLIP_Gibbs", "gibbs_mlip"),
             ("MLIP", "mlip"),
@@ -1450,10 +1450,10 @@ def _enrich_summary(
         for diag in summary.get("energy_diagrams", [])
         if isinstance(diag, dict)
     }
-    ranks = {"MEP": 0, "MLIP": 1, "MLIP_Gibbs": 2, "DFT": 3, "DFT//ML/MM_Gibbs": 4}
+    ranks = {"MEP": 0, "MLIP": 1, "MLIP_Gibbs": 2, "DFT": 3, "DFT//MLIP/MM_Gibbs": 4}
     max_rank = ranks.get(best_method or "MEP", 0)
     for diagram_name, method in (
-        ("energy_diagram_G_DFT_plus_MLIP_all", "DFT//ML/MM_Gibbs"),
+        ("energy_diagram_G_DFT_plus_MLIP_all", "DFT//MLIP/MM_Gibbs"),
         ("energy_diagram_DFT_all", "DFT"),
         ("energy_diagram_G_MLIP_all", "MLIP_Gibbs"),
         ("energy_diagram_MLIP_all", "MLIP"),
@@ -2478,7 +2478,7 @@ def _thermo_correction_ha(payload: Any) -> Optional[float]:
     """Return ``thermal_correction_free_energy_ha`` only when finite; else None.
 
     M28/C6: a missing/nonfinite thermal correction must NEVER be replaced by 0.0
-    in a DFT//ML/MM Gibbs result (that would silently report the electronic DFT
+    in a DFT//MLIP/MM Gibbs result (that would silently report the electronic DFT
     energy as a Gibbs free energy).
     """
 
@@ -3036,7 +3036,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--thermo/--no-thermo", "do_thermo", default=False, show_default=True,
               help="Run freq on (R,TS,P) per reactive segment (or TSOPT-only mode) and build Gibbs free-energy diagram (MLIP).")
 @click.option("--dft/--no-dft", "do_dft", default=False, show_default=True,
-              help="Run DFT single-point on (R,TS,P) and build a DFT energy diagram. With --thermo, also generate a DFT//ML/MM Gibbs diagram.")
+              help="Run DFT single-point on (R,TS,P) and build a DFT energy diagram. With --thermo, also generate a DFT//MLIP/MM Gibbs diagram.")
 @click.option("--tsopt-max-cycles", type=int, default=None,
               help="Override tsopt --max-cycles value.")
 @click.option(
@@ -4225,7 +4225,7 @@ def cli(
                     err=True,
                 )
 
-        # DFT & DFT//ML/MM
+        # DFT & DFT//MLIP/MM
         if do_dft:
             # DO NOT INLINE: (single-TS path): freq subprocess parsing may
             # have re-bound heavy refs onto cli()-frame Geometry locals.
@@ -4236,7 +4236,7 @@ def cli(
             # rebind to None below is the only mechanism that actually
             # decrements the heavy refs before gc.collect + empty_cache.
             # NOTE: thermo_payloads is deliberately NOT nulled here — the
-            # DFT//ML/MM Gibbs-diagram block below and the
+            # DFT//MLIP/MM Gibbs-diagram block below and the
             # segment_log num_imag write both read from it.
             for _g in (gL, gR, gT, g_react, g_prod):
                 if _g is not None and hasattr(_g, "calculator"):
@@ -4280,7 +4280,7 @@ def cli(
                 except Exception as e:
                     _echo(f"[dft] WARNING: failed to build DFT diagram: {e}", err=True)
 
-            # M28/C6: build the DFT//ML/MM Gibbs diagram ONLY when every requested
+            # M28/C6: build the DFT//MLIP/MM Gibbs diagram ONLY when every requested
             # state has BOTH a usable DFT energy (already gated by _dft_all_ok) and
             # a finite FREQ thermal correction. A missing correction must NOT be
             # replaced by 0.0 (which would report the electronic DFT energy as a
@@ -4298,16 +4298,16 @@ def cli(
                         tsroot / "energy_diagram_G_DFT_plus_MLIP",
                         labels=["R", "TS", "P"],
                         energies_eh=[GR_dftMLIP, GT_dftMLIP, GP_dftMLIP],
-                        title_note="(Gibbs, DFT//ML/MM)",
+                        title_note="(Gibbs, DFT//MLIP/MM)",
                         ylabel="ΔG (kcal/mol)",
                     )
                 except Exception as e:
-                    _echo(f"[dft//mlip] WARNING: failed to build DFT//ML/MM Gibbs diagram: {e}", err=True)
+                    _echo(f"[dft//mlip] WARNING: failed to build DFT//MLIP/MM Gibbs diagram: {e}", err=True)
             elif do_thermo and _dft_all_ok:
                 _missing_dg = [s for s, g in zip(("R", "TS", "P"), (_dgR, _dgT, _dgP)) if g is None]
                 _echo(
                     f"[dft//mlip] WARNING: FREQ thermal correction unusable for state(s): "
-                    f"{', '.join(_missing_dg)}; DFT//ML/MM Gibbs diagram skipped (no 0.0 "
+                    f"{', '.join(_missing_dg)}; DFT//MLIP/MM Gibbs diagram skipped (no 0.0 "
                     "substitution).",
                     err=True,
                 )
@@ -5547,7 +5547,7 @@ def cli(
                     err=True,
                 )
 
-        # 4.5 DFT single-point and (optionally) DFT//ML/MM Gibbs
+        # 4.5 DFT single-point and (optionally) DFT//MLIP/MM Gibbs
         eR_dft = eT_dft = eP_dft = None
         GR_dftMLIP = GT_dftMLIP = GP_dftMLIP = None
         if do_dft:
@@ -5635,7 +5635,7 @@ def cli(
             except Exception as e:
                 _echo(f"[dft] WARNING: failed to build DFT diagram: {e}", err=True)
 
-            # DFT//ML/MM thermal Gibbs (E_DFT + ML/MM thermal correction)
+            # DFT//MLIP/MM thermal Gibbs (E_DFT + ML/MM thermal correction)
             # M28/C6: build ONLY when every state has BOTH a usable DFT energy
             # (_dft_energy_ha gates on _dft_failed) and a finite FREQ thermal
             # correction. A missing DFT energy must NOT be substituted by the MLIP
@@ -5672,15 +5672,15 @@ def cli(
                             seg_dir / "energy_diagram_G_DFT_plus_MLIP",
                             labels=["R", f"TS{seg_idx}", "P"],
                             energies_eh=[GR_dftMLIP, GT_dftMLIP, GP_dftMLIP],
-                            title_note="(Gibbs, DFT//ML/MM)",
+                            title_note="(Gibbs, DFT//MLIP/MM)",
                             ylabel="ΔG (kcal/mol)",
                         )
                     except Exception as e:
-                        _echo(f"[dft//mlip] WARNING: failed to build DFT//ML/MM Gibbs diagram: {e}", err=True)
+                        _echo(f"[dft//mlip] WARNING: failed to build DFT//MLIP/MM Gibbs diagram: {e}", err=True)
                 else:
                     _echo(
                         f"[dft//mlip] WARNING: seg {seg_idx}: DFT energy or FREQ thermal "
-                        "correction unusable for one or more states; DFT//ML/MM Gibbs "
+                        "correction unusable for one or more states; DFT//MLIP/MM Gibbs "
                         "diagram skipped (no 0.0/MLIP substitution).",
                         err=True,
                     )

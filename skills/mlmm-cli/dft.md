@@ -53,7 +53,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 
 ## Examples
 
-### Default DFT//ML/MM on a TS
+### Default DFT//MLIP/MM on a TS
 
 ```bash
 mlmm dft -i seg_01/ts.pdb --parm real.parm7 \
@@ -141,5 +141,5 @@ falling back.
 
 - `mlmm-install-backends/dft.md` — install + aarch64 handling.
 - `tsopt.md`, `irc.md` — produce the geometries you DFT-refine.
-- `mlmm-workflows-output/SKILL.md` — DFT//ML/MM recipe.
+- `mlmm-workflows-output/SKILL.md` — DFT//MLIP/MM recipe.
 - Defaults: `import mlmm.core.defaults as d; print(d.GEOM_KW_DEFAULT)`

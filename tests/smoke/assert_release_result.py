@@ -124,7 +124,7 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
                 explained = any("thermochemistry" in str(r).lower() for r in reasons)
                 if not explained:
                     raise SystemExit(
-                        f"DFT//ML/MM thermochemistry is missing for {tag} and no reason "
+                        f"DFT//MLIP/MM thermochemistry is missing for {tag} and no reason "
                         f"says so; reasons={reasons}"
                     )
             dft_files = [

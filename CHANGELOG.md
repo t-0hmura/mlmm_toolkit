@@ -137,7 +137,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Fingerprint the native `hessian_ff` build and runtime identity before loading a
   prebuilt extension, refusing a stale or host-incompatible binary.
 - Stop reporting an electronic energy as a Gibbs free energy: `all` builds the
-  per-segment MLIP and DFT//ML/MM Gibbs diagrams only when every state's frequency
+  per-segment MLIP and DFT//MLIP/MM Gibbs diagrams only when every state's frequency
   free energy (and DFT thermal correction) is finite, otherwise it skips the diagram
   and warns, instead of substituting the MLIP/DFT electronic energy or a `0.0`
   thermal correction. Reported ΔG changes wherever a thermochemistry value was
@@ -271,7 +271,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   (was `_work/path_search/`). The standalone `path-search` subcommand is
   unchanged. Docs/skills updated throughout.
 - `--dft-func-basis` is now surfaced in the primary `mlmm <subcmd> --help`
-  (previously only under `--help-advanced`), so the DFT//ML/MM functional/basis
+  (previously only under `--help-advanced`), so the DFT//MLIP/MM functional/basis
   is discoverable without the advanced listing.
 - Standalone `path-opt` / `path-search` now default to `--preopt` (each MEP
   endpoint is pre-optimized before the search); the previous default was

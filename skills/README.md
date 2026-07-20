@@ -35,7 +35,7 @@ pattern.
   backends (UMA / Orb / MACE / AIMNet2), DFT (PySCF / GPU4PySCF), and
   xtb; CUDA + PyTorch pairing.
 - `mlmm-workflows-output`: canonical workflows (cluster /
-  multistep / scan-list / endpoint-MEP / TS-only / DFT//ML/MM), output
+  multistep / scan-list / endpoint-MEP / TS-only / DFT//MLIP/MM), output
   schema, and R/TS/P canonical paths.
 - `mlmm-hpc`: PBS / SLURM preamble templates with placeholders,
   walltime guidance, monitoring, plus a flock+pbsdsh dynamic-dispatch
