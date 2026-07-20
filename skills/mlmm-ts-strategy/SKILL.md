@@ -58,7 +58,7 @@ A clean first-order saddle = **exactly one** dominant imaginary mode along the r
 - `--coord-type` = `click.Choice(['cart','redund','dlc','tric'])`, case-insensitive; `'dlc'` is present verbatim (`common_options.py` `add_coord_type_option`). Effective default `'cart'` (`defaults.py` `GEOM_KW_DEFAULT['coord_type']='cart'`).
 - `dlc` = delocalized internal coordinates: slower but more robust convergence on torsion-rich systems.
 - `dlc` requires a **Hessian-based optimizer**: in `opt.py`, `--coord-type dlc` with L-BFGS (`--opt-mode grad`) is forced back to `cart` with a warning. Use it on `tsopt` (RFO/RS-I-RFO) or `opt --opt-mode hess`.
-- `path-opt`/`path-search` restrict choices to `('cart','dlc')` (pysisyphus ChainOfStates supports only those).
+- `path-opt`/`path-search` have no `--coord-type` flag; they take the coordinate system from `--config` YAML (`geom.coord_type`), and pysisyphus ChainOfStates supports only `cart`/`dlc` there.
 - mlmm caveat (help text): `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified — `cart` is the published-numbers default.
 
 `--ref-mode` is an advanced path-direction input, not a routine standalone

@@ -10,7 +10,7 @@ description: How to drive `mlmm-toolkit` from an MCP-speaking agent (Claude Desk
 ## Install + register
 
 ```bash
-pip install "mlmm[mcp]"   # adds the `mcp[cli]` extra
+pip install "mlmm-toolkit[mcp]"   # adds the `mcp[cli]` extra
 ```
 
 This registers the `mlmm-mcp` console script. Drop the snippet below into your client's MCP config file:
