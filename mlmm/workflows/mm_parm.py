@@ -286,6 +286,52 @@ def detect_disulfides_from_pdb(
     return pairs
 
 
+def rename_disulfide_cys_to_cyx(
+    pdb_in: Path,
+    pdb_out: Path,
+    ss_pairs: List[Tuple[Tuple[str, int], Tuple[str, int]]],
+) -> int:
+    """
+    Rename CYS -> CYX for every residue taking part in a detected disulfide.
+
+    tleap's ``bond`` only adds the S-S connection; it does not strip the CYS
+    template's HG. A disulfide cysteine left named CYS therefore keeps HG and
+    its SG becomes hypervalent (CB + HG + SG). CYX is the Amber template for a
+    disulfide-bonded cysteine (no HG), so the rename must happen before
+    ``loadpdb``. CYM (thiolate, formal -1) is left untouched because renaming
+    it would silently change the net charge; it is reported instead.
+
+    Returns the number of renamed residues.
+    """
+    targets = {res for pair in ss_pairs for res in pair}
+    renamed_res: Set[Tuple[str, int]] = set()
+    cym_left: List[Tuple[str, int]] = []
+    with open(pdb_in, "r") as fi, open(pdb_out, "w") as fo:
+        for line in fi:
+            if line.startswith(("ATOM", "HETATM")) and len(line) >= 26:
+                resname = line[17:20].strip()
+                chain = line[21]
+                try:
+                    resseq = int(line[22:26])
+                except ValueError:
+                    fo.write(line)
+                    continue
+                if (chain, resseq) in targets:
+                    if resname == "CYS":
+                        line = line[:17] + "CYX" + line[20:]
+                        renamed_res.add((chain, resseq))
+                    elif resname == "CYM" and (chain, resseq) not in cym_left:
+                        cym_left.append((chain, resseq))
+            fo.write(line)
+    for chain, resseq in cym_left:
+        print(
+            f"[mm-parm] WARNING: {chain}{resseq} is CYM but takes part in a detected "
+            "disulfide; leaving it as CYM (renaming would change the net charge). "
+            "Rename it to CYX in the input if the disulfide is intended."
+        )
+    return len(renamed_res)
+
+
 def build_leap_residue_index(pdb_path: Path) -> Dict[Tuple[str, str], int]:
     """
     Build a mapping (chainID, resSeq as 4-char string) → LEaP 1-based residue index
@@ -649,6 +695,16 @@ def ambertools_route(
 
     # Detect S–S candidates
     ss_pairs = detect_disulfides_from_pdb(fixed_pdb, cutoff=DISULFIDE_CUTOFF)
+
+    # A disulfide cysteine must be CYX *before* loadpdb: tleap's `bond` adds the
+    # S-S connection but does not strip the CYS template's HG, which would leave
+    # SG hypervalent (CB + HG + SG).
+    if ss_pairs:
+        cyx_pdb = tmpdir / "fixed_cyx.pdb"
+        n_cyx = rename_disulfide_cys_to_cyx(fixed_pdb, cyx_pdb, ss_pairs)
+        if n_cyx:
+            print(f"[mm-parm] Renamed {n_cyx} disulfide CYS -> CYX before tleap.")
+        fixed_pdb = cyx_pdb
 
     # Pass 1 (no extra params) -> will write complex.parm7/.inpcrd/.pdb
     leap_in = tmpdir / "tleap_1.in"

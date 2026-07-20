@@ -79,3 +79,81 @@ def test_add_ter_splits_distant_peptide_block(tmp_path) -> None:
     assert out[2].startswith("ATOM")
     assert out[3] == "TER"
     assert out[4].startswith("ATOM")
+
+
+def test_disulfide_cys_pair_is_renamed_to_cyx(tmp_path) -> None:
+    """A CYS taking part in a detected S-S must become CYX before loadpdb.
+
+    tleap's `bond` adds the S-S connection but does not strip the CYS template's
+    HG, so a CYS-named disulfide cysteine would end up with a hypervalent SG.
+    """
+    src = tmp_path / "in.pdb"
+    dst = tmp_path / "out.pdb"
+    src.write_text(
+        "".join(
+            [
+                _atom(1, "CB", "CYS", 10, 1.5, 0.0, 0.0),
+                _atom(2, "SG", "CYS", 10, 2.5, 0.0, 0.0),
+                _atom(3, "HG", "CYS", 10, 3.0, 0.9, 0.0),
+                _atom(4, "CB", "CYS", 20, 5.5, 0.0, 0.0),
+                _atom(5, "SG", "CYS", 20, 4.55, 0.0, 0.0),
+            ]
+        )
+    )
+
+    pairs = mm_parm.detect_disulfides_from_pdb(src, cutoff=mm_parm.DISULFIDE_CUTOFF)
+    assert pairs == [(("A", 10), ("A", 20))]
+
+    renamed = mm_parm.rename_disulfide_cys_to_cyx(src, dst, pairs)
+
+    assert renamed == 2  # residues, not atom lines
+    out = dst.read_text()
+    assert "CYS" not in out
+    assert out.count("CYX") == 5
+
+
+def test_isolated_cys_and_disulfide_cym_are_left_alone(tmp_path) -> None:
+    """Only bonded CYS is renamed; an isolated CYS and a CYM keep their names.
+
+    CYM is the thiolate (formal -1); renaming it would silently change the net
+    charge, so it is reported rather than converted.
+    """
+    src = tmp_path / "in.pdb"
+    dst = tmp_path / "out.pdb"
+    src.write_text(
+        "".join(
+            [
+                _atom(1, "SG", "CYS", 30, 20.0, 0.0, 0.0),
+                _atom(2, "SG", "CYM", 40, 40.0, 0.0, 0.0),
+                _atom(3, "SG", "CYM", 41, 42.05, 0.0, 0.0),
+            ]
+        )
+    )
+
+    pairs = mm_parm.detect_disulfides_from_pdb(src, cutoff=mm_parm.DISULFIDE_CUTOFF)
+    assert pairs == [(("A", 40), ("A", 41))]
+
+    renamed = mm_parm.rename_disulfide_cys_to_cyx(src, dst, pairs)
+
+    assert renamed == 0
+    out = dst.read_text()
+    assert "CYX" not in out
+    assert out.count("CYM") == 2
+    assert out.count("CYS") == 1
+
+
+def test_rename_without_disulfides_is_a_noop(tmp_path) -> None:
+    src = tmp_path / "in.pdb"
+    dst = tmp_path / "out.pdb"
+    body = "".join(
+        [
+            _atom(1, "SG", "CYS", 10, 0.0, 0.0, 0.0),
+            _atom(2, "SG", "CYS", 20, 20.0, 0.0, 0.0),
+        ]
+    )
+    src.write_text(body)
+
+    renamed = mm_parm.rename_disulfide_cys_to_cyx(src, dst, [])
+
+    assert renamed == 0
+    assert dst.read_text() == body
