@@ -102,6 +102,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `extract` charge summary, changing the net protein/active-site charge for capped termini.
 
 ### Fixed
+- Write `thermoanalysis.yaml` from the `all` pipeline's `freq` stages by default, so
+  `--thermo` actually yields thermochemistry. The child `freq` inherited its own
+  `--dump` default (off), so `all --thermo` computed and printed the thermochemistry
+  but never persisted the file the Gibbs assembly reads — every run reported
+  `thermochemistry result is missing` and produced no Gibbs diagram. An explicit
+  `--no-dump` still suppresses the file.
+
 - Keep Hessian-Dimer orientations and off-centre images on the frozen Cartesian
   constraint manifold, refreshing constraint-compatible rigid null modes at
   each central image.

@@ -1,6 +1,6 @@
 # mmCIF と大規模構造
 
-`mlmm-toolkit` は `.cif` / `.mmcif` と、PDB 固定幅の原子番号・残基番号の
+`mlmm-toolkit` は `.cif` / `.mmcif` と、PDB 固定幅の原子通し番号・残基番号の
 上限を超える PDB を受け付けます。数値計算は内部 PDB で行います。入力
 bridge が安全に再採番した一時 PDB を作成し、元の atom-site metadata を保持し、
 出力時に元の chain・残基 ID を `.cif` companion へ復元します。

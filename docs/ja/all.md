@@ -187,6 +187,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | --- | --- | --- |
 | `--auto-mm-ff-set {ff19SB\|ff14SB}` | `mm_parm` 用の力場セット（ff19SB は OPC3、ff14SB は TIP3P を使用）。 | `ff19SB` |
 | `--auto-mm-add-ter/--auto-mm-no-add-ter` | リガンド/水/イオンブロック周囲の TER 挿入を制御。 | `True` |
+| `--auto-mm-disulfide/--auto-mm-no-disulfide` | mm_parm に転送：CYS/CYM/CYX にわたり SG-SG 幾何からジスルフィドを検出して結合（結合された CYS は CYX にリネーム）。`--auto-mm-no-disulfide` では既に CYX の残基のみを結合。 | `True` |
 | `--auto-mm-keep-temp` | `mm_parm` の一時作業ディレクトリを保持（デバッグ用）。 | `False` |
 | `--auto-mm-ligand-mult TEXT` | `mm_parm` に転送するスピン多重度マッピング（例: `GPP:2,SAM:1`）。省略時は全リガンドに 1 を使用。 | _None_ |
 

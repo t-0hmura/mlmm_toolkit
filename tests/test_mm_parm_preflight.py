@@ -157,3 +157,36 @@ def test_rename_without_disulfides_is_a_noop(tmp_path) -> None:
 
     assert renamed == 0
     assert dst.read_text() == body
+
+
+def test_auto_disulfide_off_bonds_only_explicit_cyx(tmp_path) -> None:
+    """--no-auto-disulfide trusts the input naming: only CYX pairs are bonded.
+
+    A CYS that merely sits within the cutoff of another one is then left alone,
+    both as a bond candidate and as a rename target.
+    """
+    src = tmp_path / "in.pdb"
+    src.write_text(
+        "".join(
+            [
+                _atom(1, "SG", "CYS", 10, 0.0, 0.0, 0.0),
+                _atom(2, "SG", "CYS", 20, 2.05, 0.0, 0.0),
+                _atom(3, "SG", "CYX", 30, 20.0, 0.0, 0.0),
+                _atom(4, "SG", "CYX", 40, 22.05, 0.0, 0.0),
+            ]
+        )
+    )
+
+    auto = mm_parm.detect_disulfides_from_pdb(src, cutoff=mm_parm.DISULFIDE_CUTOFF)
+    explicit = mm_parm.detect_disulfides_from_pdb(
+        src, cutoff=mm_parm.DISULFIDE_CUTOFF, cyx_only=True
+    )
+
+    assert auto == [(("A", 10), ("A", 20)), (("A", 30), ("A", 40))]
+    assert explicit == [(("A", 30), ("A", 40))]
+
+    dst = tmp_path / "out.pdb"
+    renamed = mm_parm.rename_disulfide_cys_to_cyx(src, dst, explicit)
+
+    assert renamed == 0
+    assert dst.read_text().count("CYS") == 2

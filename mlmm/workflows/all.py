@@ -755,6 +755,7 @@ def _build_mm_parm7(
     ff_set: str,
     add_ter: bool,
     keep_temp: bool,
+    auto_disulfide: bool = True,
 ) -> Tuple[Path, Path]:
     """Run mm_parm on ``pdb`` and return (parm7, rst7)."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -767,6 +768,7 @@ def _build_mm_parm7(
         ligand_mult=_mm_mult_mapping(ligand_mult_expr),
         keep_temp=bool(keep_temp),
         add_ter=bool(add_ter),
+        auto_disulfide=bool(auto_disulfide),
         add_h=False,
         ph=7.0,
         ff_set=str(ff_set),
@@ -2393,6 +2395,12 @@ def _run_freq_for_state(pdb_path: Path,
     overrides = overrides or {}
 
     dump_use = overrides.get("dump")
+    # `all --thermo` assembles its Gibbs diagram from the child freq stage's
+    # thermoanalysis.yaml, which freq writes only under --dump. Default the
+    # child to dump so requesting thermochemistry actually yields it; an
+    # explicit --no-dump still reaches the child through *overrides*.
+    if dump_use is None:
+        dump_use = True
 
     # Prefer XYZ (full precision) with --ref-pdb for topology
     if xyz_path is not None and xyz_path.exists():
@@ -2939,6 +2947,12 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     help=("Spin multiplicity mapping forwarded to mm_parm (e.g., 'GPP:2,SAM:1'). "
           "If omitted, mm_parm defaults to 1 for all ligands.")
 )
+@click.option("--auto-mm-disulfide/--auto-mm-no-disulfide", "mm_auto_disulfide",
+              default=True, show_default=True,
+              help="Forwarded to mm_parm: detect disulfides from SG-SG geometry across "
+                   "CYS/CYM/CYX and bond them (renaming a bonded CYS to CYX). With "
+                   "--auto-mm-no-disulfide only residues already named CYX are bonded "
+                   "and CYS is left untouched.")
 # ===== Path search knobs (subset of path_search.cli) =====
 @click.option("-m", "--multiplicity", "spin", type=int, default=1, show_default=True, help="Multiplicity (2S+1).")
 @click.option(
@@ -3213,6 +3227,7 @@ def cli(
     model_pdb_override: Optional[Path],
     mm_ff_set: str,
     mm_add_ter: bool,
+    mm_auto_disulfide: bool,
     mm_keep_temp: bool,
     mm_ligand_mult: Optional[str],
     spin: int,
@@ -3919,6 +3934,7 @@ def cli(
             ff_set=mm_ff_set,
             add_ter=mm_add_ter,
             keep_temp=mm_keep_temp,
+            auto_disulfide=mm_auto_disulfide,
         )
         _echo_detail(f"[all] mm_parm outputs → parm7: {real_parm7_path.name}, rst7: {real_rst7_path.name}")
 

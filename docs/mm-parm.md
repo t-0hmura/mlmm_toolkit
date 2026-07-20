@@ -31,7 +31,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 1. **Input preparation** -- The input PDB is read as-is (no structural fixing). If `--add-h` is set, hydrogens are added via PDBFixer at the specified `--ph`.
 2. **TER insertion** -- When `--add-ter` (default), TER records are inserted before and after contiguous blocks of ligand/water/ion residues.
 3. **Unknown residue parameterization** -- Residues not recognized by the force field are parameterized with antechamber (GAFF2, AM1-BCC) and parmchk2. Residues named in `--ligand-charge` are prioritized for this route. Formal charge and spin multiplicity are controlled via `--ligand-charge` and `--ligand-mult`.
-4. **Disulfide detection** -- CYS/CYM/CYX pairs with SG-SG (or S-S) distance <= 2.5 Å are bonded automatically.
+4. **Disulfide detection** -- CYS/CYM/CYX pairs with SG-SG (or S-S) distance <= 2.5 Å are bonded automatically, and a bonded CYS is renamed to CYX so LEaP drops its HG. With `--no-auto-disulfide` only residues already named CYX are bonded and CYS is left untouched.
 5. **Topology build** -- tleap generates parm7/rst7/pdb files using the selected force field set.
 
 ## Outputs
@@ -50,6 +50,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 | `--ligand-mult TEXT` | Map residue name to spin multiplicity, e.g. `"HEM:1,NO:2"`. Unspecified residues default to singlet (1). | _None_ |
 | `--keep-temp/--no-keep-temp` | Keep intermediate files/logs in a working directory (for debugging). | `False` |
 | `--add-ter/--no-add-ter` | Insert TER before/after ligand/water/ion blocks. | `True` |
+| `--auto-disulfide/--no-auto-disulfide` | Detect disulfides from SG-SG geometry across CYS/CYM/CYX and bond them, renaming a bonded CYS to CYX. With `--no-auto-disulfide` only residues already named CYX are bonded. | `True` |
 | `--add-h/--no-add-h` | Add hydrogens at `--ph` using PDBFixer. | `False` |
 | `--ph FLOAT` | pH for PDBFixer hydrogen addition (used only with `--add-h`). | `7.0` |
 | `--ff-set {ff19SB\|ff14SB}` | Force field set: ff19SB (default) or ff14SB. | `ff19SB` |

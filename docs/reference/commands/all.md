@@ -74,6 +74,13 @@ Options:
   --auto-mm-ligand-mult TEXT      Spin multiplicity mapping forwarded to mm_parm
                                   (e.g., 'GPP:2,SAM:1'). If omitted, mm_parm
                                   defaults to 1 for all ligands.
+  --auto-mm-disulfide / --auto-mm-no-disulfide
+                                  Forwarded to mm_parm: detect disulfides from
+                                  SG-SG geometry across CYS/CYM/CYX and bond
+                                  them (renaming a bonded CYS to CYX). With
+                                  --auto-mm-no-disulfide only residues already
+                                  named CYX are bonded and CYS is left
+                                  untouched.  [default: auto-mm-disulfide]
   -m, --multiplicity INTEGER      Multiplicity (2S+1).  [default: 1]
   --tr-projection [constrained|legacy-active]
                                   Rigid translation/rotation treatment forwarded

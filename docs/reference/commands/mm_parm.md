@@ -7,34 +7,42 @@ Usage: mlmm mm-parm [OPTIONS]
   AmberTools only.
 
 Options:
-  -v, --verbose LEVEL           Console verbosity 0-3 (default 2). 0=silent;
-                                1=milestones only; 2=+detailed step logging and
-                                deliverable paths; 3=everything (full config
-                                blocks, per-file paths, DEBUG logging).
-                                [0<=x<=3]
-  --help-advanced               Show all options (including advanced settings)
-                                and exit.
-  -i, --input FILE              Input PDB file (used as-is; optional hydrogens
-                                via --add-h/--ph).  [required]
-  -o, --out-prefix TEXT         Output prefix (default: input PDB stem). For
-                                LEaP PDB: if omitted with --add-h,
-                                <input_stem>_parm.pdb is used.
-  -l, --ligand-charge TEXT      Comma-separated mapping of residue=charge or
-                                residue:charge (e.g., "GPP=-3,MMT=-1" or
-                                "GPP:-3,MMT:-1")
-  --ligand-mult TEXT            Comma-separated mapping of residue=multiplicity
-                                or residue:multiplicity (e.g., "HEM=1,NO:2")
-  --keep-temp / --no-keep-temp  Keep temporary working directory (in current
-                                dir) for debugging.  [default: no-keep-temp]
-  --add-ter / --no-add-ter      Insert TER before/after target residues and
-                                disconnected peptide blocks. When target
-                                residues are contiguous, TER is not inserted
-                                between them.  [default: add-ter]
-  --add-h / --no-add-h          Add hydrogens using PDBFixer at the specified
-                                --ph.  [default: no-add-h]
-  --ph FLOAT                    pH used by PDBFixer when adding hydrogens
-                                (--add-h). Default: 7.0
-  --ff-set [ff19SB|ff14SB]      Force-field set for proteins/backbone typing and
-                                water/ion parameters (default: ff19SB).
-  -h, --help                    Show this message and exit.
+  -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
+                                  1=milestones only; 2=+detailed step logging
+                                  and deliverable paths; 3=everything (full
+                                  config blocks, per-file paths, DEBUG logging).
+                                  [0<=x<=3]
+  --help-advanced                 Show all options (including advanced settings)
+                                  and exit.
+  -i, --input FILE                Input PDB file (used as-is; optional hydrogens
+                                  via --add-h/--ph).  [required]
+  -o, --out-prefix TEXT           Output prefix (default: input PDB stem). For
+                                  LEaP PDB: if omitted with --add-h,
+                                  <input_stem>_parm.pdb is used.
+  -l, --ligand-charge TEXT        Comma-separated mapping of residue=charge or
+                                  residue:charge (e.g., "GPP=-3,MMT=-1" or
+                                  "GPP:-3,MMT:-1")
+  --ligand-mult TEXT              Comma-separated mapping of
+                                  residue=multiplicity or residue:multiplicity
+                                  (e.g., "HEM=1,NO:2")
+  --keep-temp / --no-keep-temp    Keep temporary working directory (in current
+                                  dir) for debugging.  [default: no-keep-temp]
+  --add-ter / --no-add-ter        Insert TER before/after target residues and
+                                  disconnected peptide blocks. When target
+                                  residues are contiguous, TER is not inserted
+                                  between them.  [default: add-ter]
+  --auto-disulfide / --no-auto-disulfide
+                                  Detect disulfides from SG-SG geometry (<= 2.5
+                                  A) across CYS/CYM/CYX and bond them, renaming
+                                  a bonded CYS to CYX so tleap drops its HG.
+                                  With --no-auto-disulfide only residues already
+                                  named CYX are bonded and CYS is left
+                                  untouched.  [default: auto-disulfide]
+  --add-h / --no-add-h            Add hydrogens using PDBFixer at the specified
+                                  --ph.  [default: no-add-h]
+  --ph FLOAT                      pH used by PDBFixer when adding hydrogens
+                                  (--add-h). Default: 7.0
+  --ff-set [ff19SB|ff14SB]        Force-field set for proteins/backbone typing
+                                  and water/ion parameters (default: ff19SB).
+  -h, --help                      Show this message and exit.
 ```

@@ -31,7 +31,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 1. **入力準備** -- 入力 PDB はそのまま読み込まれます（構造修正なし）。`--add-h` が設定されている場合、PDBFixer により、指定した `--ph` で水素が付加されます。
 2. **TER 挿入** -- `--add-ter`（デフォルト）の場合、リガンド/水/イオン残基の連続ブロックの前後に TER レコードが挿入されます。
 3. **不明残基のパラメータ化** -- 力場で認識されない残基は antechamber（GAFF2、AM1-BCC）と parmchk2 で自動パラメータ化されます。`--ligand-charge` に名前を列挙した残基はこの経路が最優先されます。形式電荷とスピン多重度は `--ligand-charge` と `--ligand-mult` で制御されます。
-4. **ジスルフィド検出** -- CYS/CYM/CYX ペアで SG-SG（または S-S）距離が 2.5 Å 以下のものが自動的に結合されます。
+4. **ジスルフィド検出** -- CYS/CYM/CYX ペアで SG-SG（または S-S）距離が 2.5 Å 以下のものが自動的に結合され、結合された CYS は CYX にリネームされます（LEaP が HG を外すため）。`--no-auto-disulfide` を指定した場合は、既に CYX と名付けられた残基のみが結合され、CYS は変更されません。
 5. **トポロジー構築** -- tleap が選択された力場セットを使用して parm7/rst7/pdb ファイルを生成します。
 
 ## 出力
@@ -50,6 +50,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 | `--ligand-mult TEXT` | 残基名とスピン多重度のマッピング（例: `"HEM=1,NO=2"`）。未指定の残基はデフォルトで一重項（1）。 | _None_ |
 | `--keep-temp/--no-keep-temp` | 作業ディレクトリの中間ファイル/ログを保持（デバッグ用）。 | `False` |
 | `--add-ter/--no-add-ter` | リガンド/水/イオンブロックの前後に TER を挿入。 | `True` |
+| `--auto-disulfide/--no-auto-disulfide` | CYS/CYM/CYX にわたり SG-SG 幾何からジスルフィドを検出して結合し、結合された CYS を CYX にリネーム。`--no-auto-disulfide` では既に CYX の残基のみを結合。 | `True` |
 | `--add-h/--no-add-h` | PDBFixer で `--ph` に基づいて水素を付加。 | `False` |
 | `--ph FLOAT` | PDBFixer の水素付加用 pH（`--add-h` の場合のみ使用）。 | `7.0` |
 | `--ff-set {ff19SB\|ff14SB}` | 力場セット: ff19SB（デフォルト）または ff14SB。 | `ff19SB` |

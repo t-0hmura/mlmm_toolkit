@@ -232,10 +232,16 @@ def add_hydrogens_with_pdbfixer(pdb_in: Path, pdb_out: Path, ph: float) -> None:
 def detect_disulfides_from_pdb(
     pdb_path: Path,
     cutoff: float = DISULFIDE_CUTOFF,
+    cyx_only: bool = False,
 ) -> List[Tuple[Tuple[str, int], Tuple[str, int]]]:
     """
     Extract SG (or S) atoms from CYS/CYM/CYX in a PDB and return residue-pairs
     with SG–SG distance ≤ cutoff Å.
+
+    With ``cyx_only`` the scan is restricted to residues already named CYX, so a
+    disulfide is formed only where the input says so explicitly and a CYS that
+    merely happens to sit close to another one is left alone.
+
     Return format: [((chainID, resSeq), (chainID, resSeq)), ...]
     """
     sg_sites: List[Tuple[str, int, float, float, float]] = []
@@ -247,7 +253,7 @@ def detect_disulfides_from_pdb(
             # Restrict disulfide detection to residues defined in AMINO_ACIDS.
             if resname not in AMINO_ACIDS:
                 continue
-            if resname not in {"CYS", "CYM", "CYX"}:
+            if resname not in ({"CYX"} if cyx_only else {"CYS", "CYM", "CYX"}):
                 continue
             atom_name = line[12:16].strip()
             if atom_name not in {"SG", "S"}:
@@ -669,6 +675,7 @@ def ambertools_route(
     tmpdir: Path,
     ff_set: str,
     add_ter: bool,
+    auto_disulfide: bool = True,
 ) -> Tuple[Path, Path]:
     """
     AmberTools route:
@@ -693,13 +700,17 @@ def ambertools_route(
         insert_ter_around_special_residues(fixed_pdb, fixed_pdb_with_ter, special_resnames)
         fixed_pdb = fixed_pdb_with_ter
 
-    # Detect S–S candidates
-    ss_pairs = detect_disulfides_from_pdb(fixed_pdb, cutoff=DISULFIDE_CUTOFF)
+    # Detect S–S candidates. With --no-auto-disulfide only residues already named
+    # CYX are considered, so a CYS is never bonded on proximity alone.
+    ss_pairs = detect_disulfides_from_pdb(
+        fixed_pdb, cutoff=DISULFIDE_CUTOFF, cyx_only=not auto_disulfide
+    )
 
     # A disulfide cysteine must be CYX *before* loadpdb: tleap's `bond` adds the
     # S-S connection but does not strip the CYS template's HG, which would leave
-    # SG hypervalent (CB + HG + SG).
-    if ss_pairs:
+    # SG hypervalent (CB + HG + SG). Only reachable with auto-detection on; with
+    # --no-auto-disulfide every pair is already CYX, so nothing is renamed.
+    if auto_disulfide and ss_pairs:
         cyx_pdb = tmpdir / "fixed_cyx.pdb"
         n_cyx = rename_disulfide_cys_to_cyx(fixed_pdb, cyx_pdb, ss_pairs)
         if n_cyx:
@@ -800,6 +811,7 @@ class Args:
     ligand_mult: Dict[str, int]
     keep_temp: bool
     add_ter: bool
+    auto_disulfide: bool
     add_h: bool
     ph: float
     ff_set: str  # "ff19SB" or "ff14SB"
@@ -888,6 +900,7 @@ def run_pipeline(args: Args) -> None:
                 tmpdir_path,
                 ff_set=args.ff_set,
                 add_ter=args.add_ter,
+                auto_disulfide=args.auto_disulfide,
             )
         except Exception as e:
             # Fallback export of H-added PDB on failure
@@ -992,6 +1005,18 @@ def run_pipeline(args: Args) -> None:
     ),
 )
 @click.option(
+    "--auto-disulfide/--no-auto-disulfide",
+    "auto_disulfide",
+    default=True,
+    show_default=True,
+    help=(
+        "Detect disulfides from SG-SG geometry (<= 2.5 A) across CYS/CYM/CYX and bond "
+        "them, renaming a bonded CYS to CYX so tleap drops its HG. With "
+        "--no-auto-disulfide only residues already named CYX are bonded and CYS is "
+        "left untouched."
+    ),
+)
+@click.option(
     "--add-h/--no-add-h",
     "add_h",
     default=False,
@@ -1018,6 +1043,7 @@ def cli(
     ligand_mult: Optional[str],
     keep_temp: bool,
     add_ter: bool,
+    auto_disulfide: bool,
     add_h: bool,
     ph: float,
     ff_set: str,
@@ -1030,6 +1056,7 @@ def cli(
         ligand_mult=parse_ligand_mult(ligand_mult),
         keep_temp=keep_temp,
         add_ter=bool(add_ter),
+        auto_disulfide=bool(auto_disulfide),
         add_h=bool(add_h),
         ph=ph,
         ff_set=ff_set,

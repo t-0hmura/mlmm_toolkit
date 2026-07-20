@@ -183,6 +183,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | --- | --- | --- |
 | `--auto-mm-ff-set {ff19SB\|ff14SB}` | Force-field set for `mm_parm` (ff19SB → OPC3; ff14SB → TIP3P). | `ff19SB` |
 | `--auto-mm-add-ter / --auto-mm-no-add-ter` | Control TER insertion around ligand / water / ion blocks. | `True` |
+| `--auto-mm-disulfide / --auto-mm-no-disulfide` | Forwarded to mm_parm: detect disulfides from SG-SG geometry across CYS/CYM/CYX and bond them (renaming a bonded CYS to CYX). With `--auto-mm-no-disulfide` only residues already named CYX are bonded. | `True` |
 | `--auto-mm-keep-temp` | Keep the `mm_parm` temporary working directory (for debugging). | `False` |
 | `--auto-mm-ligand-mult TEXT` | Spin multiplicity mapping forwarded to `mm_parm` (e.g. `GPP:2,SAM:1`). If omitted, defaults to 1 for all ligands. | _None_ |
 
