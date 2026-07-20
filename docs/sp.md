@@ -14,7 +14,7 @@ mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 Also compute the full ONIOM Hessian (analytical when `--backend uma`):
 
 ```bash
-# also compute the full ONIOM Hessian (Analytical when --backend uma)
+# also compute the full ONIOM Hessian (FiniteDifference by default; pass --hessian-calc-mode Analytical for the backend's native Hessian)
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 ```
 
@@ -72,7 +72,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 |---|---|---|
 | `-b, --backend [uma\|orb\|mace\|aimnet2]` | `uma` | MLIP backend for the ML region |
 | `--hess / --no-hess` | `--no-hess` | also compute and write `hessian.npy` |
-| `--hessian-calc-mode [Analytical\|FiniteDifference]` | auto | force a specific Hessian mode (only with `--hess`) |
+| `--hessian-calc-mode [Analytical\|FiniteDifference]` | `FiniteDifference` | Hessian mode when `--hess` is set; `Analytical` uses the backend's native path |
 | `--embedcharge / --no-embedcharge` | off | xTB point-charge embedding correction for MM→ML coupling |
 | `--link-atom-method [scaled\|fixed]` | `scaled` | link-atom positioning |
 | `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM backend (analytical vs finite-difference Hessian) |

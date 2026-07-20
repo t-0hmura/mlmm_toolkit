@@ -78,7 +78,7 @@ Diagnostics echo raw vs. kept atom counts per model along with residue IDs.
 <output>.pdb        # Pocket PDB(s) with optional link hydrogens after a TER record.
                     # See the "Multi-structure ensembles" output-policy table above
                     # for the -o / multi-input naming rules.
-                    # Output directories are not created automatically; ensure they exist.
+                    # Parent directories of -o are created automatically if missing.
 ```
 
 Programmatic use (`extract_api`) returns `{"outputs": [...], "counts": [...], "charge_summary": {...}}` (the verbose-mode charge summary is described under Workflow > Charge summary).

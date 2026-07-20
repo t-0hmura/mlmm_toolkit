@@ -14,7 +14,7 @@
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
-ONIOM Hessian全体も計算する（`--backend uma` のとき Analytical）:
+ONIOM Hessian全体も計算する（デフォルトは FiniteDifference。バックエンドのネイティブ Hessian を使うには `--hessian-calc-mode Analytical` を指定）:
 
 ```bash
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
@@ -74,12 +74,12 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 |---|---|---|
 | `-b, --backend [uma\|orb\|mace\|aimnet2]` | `uma` | ML 領域の MLIP バックエンド |
 | `--hess / --no-hess` | `--no-hess` | `hessian.npy` も計算して書き込む |
-| `--hessian-calc-mode [Analytical\|FiniteDifference]` | auto | 特定のHessianモードを強制（`--hess` 指定時のみ） |
+| `--hessian-calc-mode [Analytical\|FiniteDifference]` | `FiniteDifference` | `--hess` 指定時の Hessian モード。`Analytical` はバックエンドのネイティブ経路を使用 |
 | `--embedcharge / --no-embedcharge` | off | MM→ML カップリングのための xTB 点電荷埋め込み補正 |
 | `--link-atom-method [scaled\|fixed]` | `scaled` | リンク原子の配置 |
 | `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM バックエンド（解析Hessian vs 有限差分Hessian） |
 | `-o, --out-dir PATH` | `./result_sp/` | 出力ディレクトリ |
-| `--precision [fp32\|fp64]` | `fp32` | バックエンドに渡す数値精度 |
+| `--precision [fp32\|fp64]` | バックエンド依存 | バックエンドに渡す数値精度（未指定: UMA/AIMNet2 は fp32、ORB/MACE は fp64） |
 | `--config PATH` | — | `calc.*`、`geom.*` のデフォルトを与える YAML 設定 |
 | `--show-config / --dry-run` | off | 有効なマージ済み設定を表示 / 実行せずに検証 |
 
