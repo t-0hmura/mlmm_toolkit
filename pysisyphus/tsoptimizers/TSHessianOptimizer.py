@@ -1705,7 +1705,10 @@ class TSHessianOptimizer(HessianOptimizer):
         ip_step = np.zeros_like(gradient_trans)
         ip_gradient_trans = gradient_trans.copy()
 
-        if self.max_line_search and self.cur_cycle > 0:
+        # ``prev_*`` are consumed by BOTH the max and the min line search below,
+        # so compute them once above both blocks; otherwise min_line_search=True
+        # with max_line_search=False references undefined names (NameError).
+        if (self.max_line_search or self.min_line_search) and self.cur_cycle > 0:
             prev_energy = self.energies[-2]
             prev_gradient = -self.forces[-2]
             try:
@@ -1716,6 +1719,7 @@ class TSHessianOptimizer(HessianOptimizer):
             except ValueError:
                 return ip_step, ip_gradient_trans
 
+        if self.max_line_search and self.cur_cycle > 0:
             # Max subspace
             # max_energy, max_gradient, max_step = self.do_max_line_search(
             max_energy, max_gradient, max_step = self.do_line_search(

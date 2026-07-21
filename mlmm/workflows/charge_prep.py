@@ -71,7 +71,7 @@ def _derive_charge_from_ligand_charge(
                     break
         # Fall back to all residues if no B-factor layering is present
         # (i.e. every residue has B=0 means unlayered PDB).
-        selected_ids = ml_residue_ids if ml_residue_ids != all_residue_ids else all_residue_ids
+        selected_ids = ml_residue_ids or all_residue_ids
         summary = compute_charge_summary(
             complex_struct, selected_ids, set(), ligand_charge
         )

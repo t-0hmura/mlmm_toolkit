@@ -97,13 +97,17 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
     res_u = resname.strip().upper()
 
     if res_u in {k.upper() for k in ION.keys()}:
-        # Polyatomic ions (NH4, H3O+, …): decide per atom name (treat D* as H)
-        if name_u.startswith(("H", "D")):
-            return "H"
-        if name_u.startswith("N"):
-            return "N"
-        if name_u.startswith("O"):
-            return "O"
+        # Genuinely polyatomic ions (NH4, H3O+) contain more than one element,
+        # so decide per atom name (treat D* as H). Monatomic metal/halogen ions
+        # fall through to residue-name resolution below, so an ion whose symbol
+        # starts with H/N/O (Na, Ni, Hg, Nd, Hf, He, …) is not mislabelled.
+        if res_u in {"NH4", "H3O+", "H3O"}:
+            if name_u.startswith(("H", "D")):
+                return "H"
+            if name_u.startswith("N"):
+                return "N"
+            if name_u.startswith("O"):
+                return "O"
         # Monatomic metals/halogens: from residue name
         sym = _symbol_from_resname(res_u)
         if sym:

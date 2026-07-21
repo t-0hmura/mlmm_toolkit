@@ -4217,8 +4217,12 @@ def cli(
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
                 "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
-                "thresh": simple_cfg.get("thresh"),
-                "max_cycles": simple_cfg.get("max_cycles"),
+                "thresh": (
+                    rsirfo_cfg.get("thresh", simple_cfg.get("thresh"))
+                    if use_heavy
+                    else simple_cfg.get("thresh")
+                ),
+                "max_cycles": int(opt_cfg.get("max_cycles", 10000)),
                 "input_file": str(input_path),
                 "reference_mode_file": (
                     None if reference_mode_path is None else str(reference_mode_path)
