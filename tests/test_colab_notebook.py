@@ -87,7 +87,17 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "@media (max-width: 600px)" in app
     assert "max_width='100%'" in app
     assert "No structure loaded" in app
-    assert "['1 Input', '2 Select', '3 Options', '4 Results']" in app
+    # Colab renders ipywidgets' Tab and Accordion as empty blocks, so the tab
+    # strip is Buttons + a swapping VBox and every collapsible is Button + VBox.
+    assert "_TAB_PAGES = [('1 Input', input_box), ('2 Select', select_box)," in app
+    assert "('3 Options', options_box), ('4 Results', results_box)]" in app
+    assert "def _tab_go(i):" in app
+    assert "W.Tab(" not in app
+    assert "def _collapsible(title, child, on_open=None):" in app
+    assert "W.Accordion(" not in app
+    # Hover help is the HTML `title` global attribute with a ⓘ affordance.
+    assert "def _hdr(html, tip):" in app
+    assert "&#9432;" in app
     assert "rxworkspace" in app
     assert "rxviewer" in app
     assert "rxinspector" in app
@@ -96,7 +106,31 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
 def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     app = _notebook()["cells"][2]["source"]
 
-    assert "'mep_mode': {'path-opt', 'path-search'}" in app
+    # SPEC / FLAG_SUBS are the single source of truth, re-derived against the
+    # mlmm CLI: mlmm's `all` does NOT accept --mep-mode (p2r's does), and
+    # --freeze-atoms reaches sp and dft here.
+    assert "SPEC = {" in app
+    assert "SUBREQ = {k: v['req'] for k, v in SPEC.items()}" in app
+    assert "'adv_mep':     {'path-opt', 'path-search'}," in app
+    assert "'mep_mode': FLAG_SUBS['adv_mep']," in app
+    assert "'threshold': FLAG_SUBS['adv_thresh']," in app
+    assert "if 'freeze' in SPEC.get(sub, {}).get('panels', ()) and S['freeze_atoms']:" in app
+    # `--tr-projection legacy-active` is deprecated (it warns and must not be used
+    # for pass/HOSP transition-state certification), and --embedcharge is
+    # experimental. Neither may be offered in the GUI, matching pdb2reaction.
+    assert "legacy-active" not in app
+    assert "--tr-projection" not in app
+    assert "--embedcharge" not in app
+    # ONIOM utilities are classified, with their inputs/outputs stated.
+    for _sub in ("'define-layer'", "'mm-parm'", "'oniom-export'", "'oniom-import'"):
+        assert _sub in app
+    # Surfaced key flags + the standalone cluster-model button.
+    assert "key_opts_box = W.VBox([" in app
+    assert "cmd += ['--flatten']" in app
+    assert "cmd += ['--max-cycles', str(int(mc))]" in app
+    assert "b_extract = W.Button(description='Extract cluster model'" in app
+    # -r/--radius is extraction-only; scan must not receive it.
+    assert "if sub in ('all', 'extract') and r and r > 0: cmd += ['-r', str(r)]" in app
     assert "sub in TOOL_CAPABILITIES['threshold']" in app
     assert "elif sub == 'dft':" in app
     assert "cmd += ['--func-basis', fb]" in app
