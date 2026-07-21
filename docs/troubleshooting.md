@@ -127,6 +127,8 @@ ML/MM systems are larger than pure MLIP, so VRAM pressure is higher. Try in orde
 
 Try `--opt-mode grad` (Dimer) ↔ `--opt-mode hess` (RS-I-RFO); `--flatten` to flatten extra imaginary modes; `--max-cycles 20000`; tighter `--thresh baker` / `gau_tight`; expand Hessian-target atoms via `hess_cutoff`.
 
+In particular, a **near-zero** extra imaginary mode (a few cm⁻¹) at the default `baker` threshold is usually a convergence artifact, not a real second reaction coordinate. `baker` is cost-effective for the bulk; when `n_imag >= 2` appears, re-run with a tighter `--thresh` (`gau_tight` or tighter) — the soft mode typically resolves to `n_imag = 1`. Only if a robust (well below the noise floor) second imaginary mode survives tightening is it a genuine higher-order saddle.
+
 (optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)=
 ### Optimizer "stalls" with flat energy + forces just above threshold (MLIP force noise floor)
 

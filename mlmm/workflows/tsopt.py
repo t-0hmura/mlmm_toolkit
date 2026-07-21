@@ -1247,6 +1247,11 @@ class HessianDimer:
                  thresh_loose: str = "gau_loose",
                  thresh: str = "baker",
                  update_interval_hessian: int = 500,
+                 # neg_freq_thresh_cm: a mode counts as imaginary iff freqs_cm < -5.0. It is
+                 # SUBORDINATE to the ~5.14 cm⁻¹ tol floor in _frequencies_cm_and_modes
+                 # (|ω²| > 1e-6 au drops near-zero modes first), so survivors already exceed
+                 # ~5.14 cm⁻¹ and 5.0 never fires independently. Do NOT raise it above ~5.14
+                 # expecting a looser cutoff — that would discard genuine soft modes.
                  neg_freq_thresh_cm: float = 5.0,
                  flatten_amp_ang: float = 0.10,
                  flatten_max_iter: int = 50,
