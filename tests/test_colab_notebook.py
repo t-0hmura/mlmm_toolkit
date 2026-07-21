@@ -29,7 +29,11 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     setup = _notebook()["cells"][1]["source"]
 
     assert 'mlmm_ref = "v0.3.3"' in setup
-    assert "checkout','--detach'" in setup
+    # The release notebook installs the pinned wheel from PyPI, the same way a
+    # normal user does, so the version guard below compares the version actually
+    # resolved by pip against the requested tag.
+    assert "pip('mlmm-toolkit' + '==' + mlmm_ref.lstrip('v'))" in setup
+    assert "git clone" not in setup
     assert "installed_version != mlmm_ref[1:]" in setup
     assert "version('mlmm-toolkit')" in setup
     assert "Restart the Colab runtime first" in setup
@@ -129,6 +133,11 @@ def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     assert "cmd += ['--flatten']" in app
     assert "cmd += ['--max-cycles', str(int(mc))]" in app
     assert "b_extract = W.Button(description='Extract cluster model'" in app
+    # The wheel ships no examples, so Load example resolves them from the git
+    # tag matching the installed release (a source checkout is used when present).
+    assert "def _example_file(relpath):" in app
+    assert "raw.githubusercontent.com/t-0hmura/mlmm_toolkit" in app
+    assert "Run Setup first" not in app
     # -r/--radius is extraction-only; scan must not receive it.
     assert "if sub in ('all', 'extract') and r and r > 0: cmd += ['-r', str(r)]" in app
     assert "sub in TOOL_CAPABILITIES['threshold']" in app
