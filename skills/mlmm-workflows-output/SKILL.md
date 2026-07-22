@@ -148,7 +148,10 @@ and the *same* `-l` / `-q` / `-m`. Pass them on every command. After each stage,
 already-prepared R/P cluster PDBs + parm7): generate topology, cut the pocket, encode
 layers with `mm-parm` → `extract` → `define-layer` (flags in
 `mlmm-cli/{mm-parm,extract,define-layer}.md`). **GATE**: `real.parm7` written and the
-pocket PDB carries the intended ML atoms + layer B-factors (0/10/20).
+PDB explicitly requested with `mm-parm --out-prefix real` is used for
+extraction/layering; `real.pdb` has complete element columns and the same atom
+identity/order as `real.parm7`. The resulting model carries the intended ML
+atoms + layer B-factors (0/10/20).
 
 **Stage 1 — MEP (`path-search`)**
 

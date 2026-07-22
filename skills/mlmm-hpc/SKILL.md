@@ -41,15 +41,22 @@ cd "${PBS_O_WORKDIR}"
 command -v conda >/dev/null || { echo "conda not on PATH"; exit 1; }
 nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 
-# CUDA + toolchain: HPC modulefiles (env-detect outputs <CUDA_MODULE>)
-# - gcc: load when the system default is too old for the CUDA toolkit or
-#   when pip will compile a C/CUDA extension from source.
+# Prebuilt PyTorch/backend wheels need a compatible NVIDIA driver, not a local
+# CUDA toolkit module. hessian_ff still JIT-compiles C++ kernels on first use;
+# if the system g++ is missing or older than GCC 9, load <COMPILER_MODULE> here.
+# Load <CUDA_MODULE> separately only for an extension that needs that toolkit.
 # The default workers=1 run needs no MPI launcher.
-command -v module >/dev/null && module load <CUDA_MODULE> gcc
 
 # Conda env (env-detect outputs <YOUR_ENV>)
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
+command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
+gxx_major=$(g++ -dumpversion | cut -d. -f1)
+if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
+    echo "hessian_ff requires GCC >= 9 (found major: $gxx_major)" >&2
+    exit 1
+fi
+command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
 
 # Optional: torch CUDA tuning
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -83,10 +90,17 @@ cd "${SLURM_SUBMIT_DIR}"
 # Preflight: confirm conda + GPU before launching
 command -v conda >/dev/null || { echo "ERROR: conda not on PATH"; exit 1; }
 command -v nvidia-smi >/dev/null && nvidia-smi -L || echo "WARN: nvidia-smi not found; continuing"
-# CUDA + toolchain (see PBS template above for when gcc is needed)
-command -v module >/dev/null && module load <CUDA_MODULE> gcc
+# Prebuilt wheels need no CUDA toolkit module. hessian_ff needs GCC >= 9;
+# load <COMPILER_MODULE> here if the system g++ is missing or too old.
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
+command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
+gxx_major=$(g++ -dumpversion | cut -d. -f1)
+if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
+    echo "hessian_ff requires GCC >= 9 (found major: $gxx_major)" >&2
+    exit 1
+fi
+command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 mlmm all -i 1.R.pdb 3.P.pdb \

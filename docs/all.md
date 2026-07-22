@@ -1,6 +1,17 @@
 # `all`
 
-`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command, instead of chaining `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` by hand. It chains active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (single-pass `path-opt` by default; recursive `path-search` with `--refine-path`), and optional post-processing (TS optimization, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP/MM diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
+`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command. Internally it coordinates active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (single-pass `path-opt` by default; recursive `path-search` with `--refine-path`), and optional post-processing (TS optimization, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP/MM diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
+
+That sequence describes `all`'s internally managed stages. For reusable files,
+request a distinct `mm-parm` output prefix, then run `extract` and
+`define-layer` on that exported PDB. It has the same atom identity and order as
+the generated `parm7`; `mm-parm` fills its missing element columns.
+
+```bash
+mlmm mm-parm -i input.pdb -l 'LIG:0' --out-prefix system
+mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
+mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
+```
 
 `all` runs in one of three modes, chosen by what you pass:
 

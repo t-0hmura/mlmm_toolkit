@@ -13,6 +13,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 > `result.json`/`summary.json` must review the Breaking changes and Machine-readable output sections.
 
 ### Breaking changes
+- **`add-elem-info` no longer overwrites its input by default.** Omitting `-o`
+  now writes `<input>_add_elem.pdb`. Pass `--inplace` to replace the input;
+  `--overwrite` continues to mean re-infer existing element fields.
 - **JSON schema 2.0 (breaking).** UMA-specific summary keys became backend-neutral MLIP keys
   (`post_segments[].uma` → `.mlip`, `gibbs_uma` → `gibbs_mlip`, `gibbs_dft_uma` → `gibbs_dft_mlip`);
   the old keys were removed. This is `schema_version: "2.0"`. Update parsers before upgrading.
@@ -43,8 +46,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   Validation follows the exact command and content hashes for every existing-file input
   declared by the selected Click command, while its transcript remains separate from
   current-run diagnostics. Private runtime files avoid upload collisions; Results previews
-  diagrams, SVG, HTML, CSV, PDF, and trajectories while handling missing energies, failures,
+  structures, diagrams, SVG, HTML, CSV, PDF, and trajectories while handling missing energies, failures,
   cancellations, and diagnostic bundles explicitly.
+  The compact Select workspace appends uploads as removable rows, keeps water
+  visible on request, frames the clicked residue behind a foreground atom marker,
+  and derives searchable per-option controls and help from the selected live CLI.
 - Add `opt`/`all --reject-uphill/--no-reject-uphill` (default on) to opt out of the
   RFO uphill-rejection safeguard; on `all` it is forwarded to the post-IRC endpoint
   re-optimization child only.
@@ -55,6 +61,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
 
 ### Changed
+- Pin backend setup recipes to the official PyTorch 2.8 wheel matrix, install
+  dedicated-environment MACE only after removing `fairchem-core`, and make HPC
+  templates fail fast unless the `hessian_ff` JIT compiler prerequisites are
+  present.
 - Remove the unused internal `AllContext` parameter mirror and break the product
   import cycles (`core.utils`↔`extract`, `freq`↔`opt`) by relocating the shared
   charge/spin preparation and layer helpers; the relocation itself makes no CLI or
@@ -89,6 +99,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Unify the residue/ion/water catalog so charge inference recognizes the same
   ions as element inference; charge summaries now include monatomic ions that
   were previously unrecognized.
+- Populate missing element columns in the topology-matched PDB exported by
+  `mm-parm`, preserving LEaP atom records and order; extraction recovery text
+  now names the non-destructive output or explicit `--inplace` route.
 - Keep finite-difference Hessian assembly, low-rank Bofill updates, and mass
   scaling device-resident on GPU runs, avoiding per-step host round-trips.
 - Honor YAML `opt.thresh`, the `dft` method, and `--func-basis` in `all`: these are

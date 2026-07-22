@@ -33,8 +33,10 @@ SUBCOMMANDS = [
     "scan",
     "scan2d",
     "scan3d",
+    "sp",
     "trj2fig",
     "tsopt",
+    "bond-summary",
 ]
 
 SCAN_SUBCOMMANDS = [
@@ -51,15 +53,33 @@ CALC_SUBCOMMANDS = [
     ("freq", "--temperature"),
     ("irc", "--step-size"),
     ("dft", "--func-basis"),
+    ("sp", "--hess"),
 ]
 
 UTILITY_SUBCOMMANDS = [
     ("mm-parm", "-o, --out-prefix", "--keep-temp"),
     ("define-layer", "--model-pdb", "--radius-partial-hessian"),
     ("add-elem-info", "-o, --out", "--overwrite"),
-    ("trj2fig", "--unit", "--reverse-x"),
+    ("trj2fig", "--unit", "--backend-model"),
     ("energy-diagram", "-o, --output", "--label-x"),
     ("oniom-export", "--mode", "--orcaff"),
+    ("bond-summary", "--device", "--json"),
+]
+
+SHARED_PRIMARY_SCIENTIFIC_OPTIONS = [
+    ("add-elem-info", "--inplace"),
+    ("all", "--refine-path"),
+    ("opt", "--thresh"),
+    ("opt", "--bias-k"),
+    ("opt", "--dist-freeze"),
+    ("opt", "--dump"),
+    ("scan", "--bias-k"),
+    ("scan2d", "--bias-k"),
+    ("scan3d", "--bias-k"),
+    ("tsopt", "--thresh"),
+    ("irc", "--never-stop"),
+    ("dft", "--engine"),
+    ("trj2fig", "--reverse-x"),
 ]
 
 
@@ -83,6 +103,15 @@ def _has_option_header(output: str, option_prefix: str) -> bool:
         if (not tail) or tail[0].isspace() or tail[0] in {",", "/"}:
             return True
     return False
+
+
+@pytest.mark.parametrize(("subcommand", "option"), SHARED_PRIMARY_SCIENTIFIC_OPTIONS)
+def test_shared_scientific_options_stay_in_primary_help(
+    runner, cli_group, subcommand: str, option: str
+) -> None:
+    result = runner.invoke(cli_group, [subcommand, "--help"])
+    assert result.exit_code == 0, result.output
+    assert _has_option_header(result.output, option), result.output
 
 
 def test_main_help(runner, cli_group):

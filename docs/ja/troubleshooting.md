@@ -537,15 +537,17 @@ pip uninstall -y fairchem-core && pip install --no-deps mace-torch  # MACE は�
 
 ---
 
-### `[orb]` のインストールで torch_scatter のビルドに失敗する
+### ORB バックエンドを import できない
 
-**症状:** `pip install "mlmm-toolkit[orb]"` が **torch_scatter** のビルド時に `No module named 'torch'` で失敗する
+**対処:** 現行の追加依存関係をインストールし、依存関係を確認します:
 
-**対処:** torch_scatter は PyPI にバイナリ wheel がなく（sdist のみ）、PEP517 のビルド分離下ではソースビルドが失敗します。torch+CUDA タグに一致する PyG の prebuilt-wheel インデックスからインストールしてください:
 ```bash
-pip install "mlmm-toolkit[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.html
+pip install "mlmm-toolkit[orb]"
+python -m pip check
 ```
-フォールバック（CUDA ツールチェーンがある場合）: `pip install torch_scatter --no-build-isolation`
+
+依存関係の解決または import エラーが示したパッケージを確認し、無関係な PyG
+パッケージは追加しないでください。
 
 ---
 
@@ -553,7 +555,7 @@ pip install "mlmm-toolkit[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.ht
 
 **症状:** ORB、MACE、AIMNet2 の使用時に `RuntimeError: CUDA out of memory` が発生する
 
-**対処:** ORB/MACE/AIMNet2 の解析/native Hessian もモデルサイズに応じて
+**対処:** ORB/MACE/AIMNet2 の解析的/ネイティブ Hessian もモデルサイズに応じて
 大きな VRAM を使用します。以下を試してください:
 - `--hessian-calc-mode FiniteDifference` を明示し、`hess_cutoff` を小さくする
 - YAML で `ml_device: cpu` を指定する（遅くなるが VRAM 制限を回避できる）

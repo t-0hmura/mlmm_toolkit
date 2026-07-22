@@ -123,6 +123,7 @@ _COMMAND_BOOL_VALUE_OPTIONS: dict[str, frozenset[str]] = {}
 _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
     "add-elem-info": frozenset(
         {
+            "--inplace",
             "--overwrite",
         }
     ),
@@ -423,6 +424,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "-s", "--scan-lists",
             "--config",
             "-o", "--out-dir",
+            "--bias-k",
             "--help-advanced",
         }
     ),
@@ -444,6 +446,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "-s", "--scan-lists",
             "--config",
             "-o", "--out-dir",
+            "--bias-k",
             "--help-advanced",
         }
     ),
@@ -466,6 +469,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--csv",
             "--config",
             "-o", "--out-dir",
+            "--bias-k",
             "--help-advanced",
         }
     ),
@@ -487,6 +491,10 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--config",
             "-o", "--out-dir",
             "--opt-mode",
+            "--thresh",
+            "--dump", "--no-dump",
+            "--dist-freeze",
+            "--bias-k",
             "--max-cycles",
             "--help-advanced",
         }
@@ -559,6 +567,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--opt-mode",
             "-o", "--out-dir",
             "--hessian-calc-mode",
+            "--thresh",
             "--help-advanced",
         }
     ),
@@ -602,6 +611,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--embedcharge",
             "--max-cycles",
             "--step-size",
+            "--never-stop",
             "--forward",
             "--backward",
             "--config",
@@ -626,6 +636,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "-b", "--backend",
             "--embedcharge",
             "--func-basis",
+            "--engine",
             "--config",
             "-o", "--out-dir",
             "--help-advanced",
@@ -710,6 +721,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--input",
             "-o",
             "--out",
+            "--inplace", "--no-inplace",
             "--help-advanced",
         }
     ),
@@ -726,6 +738,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--charge",
             "-m",
             "--multiplicity",
+            "--reverse-x", "--no-reverse-x",
             "--help-advanced",
         }
     ),

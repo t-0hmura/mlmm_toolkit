@@ -32,13 +32,23 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 2. **TER 挿入** -- `--add-ter`（デフォルト）の場合、リガンド/水/イオン残基の連続ブロックの前後に TER レコードが挿入されます。
 3. **不明残基のパラメータ化** -- 力場で認識されない残基は antechamber（GAFF2、AM1-BCC）と parmchk2 で自動パラメータ化されます。`--ligand-charge` に名前を列挙した残基はこの経路が最優先されます。形式電荷とスピン多重度は `--ligand-charge` と `--ligand-mult` で制御されます。
 4. **ジスルフィド検出** -- CYS/CYM/CYX ペアで SG-SG（または S-S）距離が 2.5 Å 以下のものが自動的に結合され、結合された CYS は CYX にリネームされます（LEaP が HG を外すため）。`--no-auto-disulfide` を指定した場合は、既に CYX と名付けられた残基のみが結合され、CYS は変更されません。
-5. **トポロジー構築** -- tleap が選択された力場セットを使用して parm7/rst7/pdb ファイルを生成します。
+5. **トポロジー構築** -- tleap が選択された力場セットを使用して parm7/rst7/pdb ファイルを生成します。PDB を公開する前に、`mlmm` がレコード順と原子の同一性を変えず、空の元素記号列を補完します。
 
 ## 出力
 
 - `<prefix>.parm7` -- Amber prmtop トポロジー
 - `<prefix>.rst7` -- Amber ASCII inpcrd 座標
-- `<prefix>.pdb` -- LEaP savepdb 出力（`--out-prefix` 指定時または `--add-h` 指定時のみ。両方省略時は parm7/rst7 のみ）
+- `<prefix>.pdb` -- 元素記号列を補完した LEaP savepdb 出力（`--out-prefix` 指定時または `--add-h` 指定時のみ。両方省略時は parm7/rst7 のみ）
+
+再利用可能なファイルを手作業で準備する場合は、入力とは異なる接頭辞を指定し、
+出力 PDB を抽出とレイヤー割り当ての両方に使います。この PDB は生成された
+`parm7` と原子の同一性・順序が一致します。
+
+```bash
+mlmm mm-parm -i input.pdb -l 'LIG:0' --out-prefix system
+mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
+mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
+```
 
 ## CLI オプション
 
@@ -80,5 +90,5 @@ mlmm opt -i snapshot_layered.pdb --parm md_system.parm7 -q -1 -m 1 \
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 - [all](all.md) -- 一気通貫ワークフロー（内部で mm-parm を呼び出し）
-- [extract](extract.md) -- パラメータ化前に活性部位ポケットを抽出
-- [define-layer](define-layer.md) -- トポロジー構築後に ML/MM レイヤーを定義
+- [extract](extract.md) -- トポロジーと対応する PDB から活性部位モデルを抽出
+- [define-layer](define-layer.md) -- トポロジーと対応する PDB に ML/MM レイヤーを割り当て

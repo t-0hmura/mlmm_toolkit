@@ -52,10 +52,17 @@ STATE_FILE="$3"
 LOCK_FILE="$4"
 TASK_LIST="$5"
 
-# Env (replace <CUDA_MODULE> and <YOUR_ENV> via sed below if needed)
-command -v module >/dev/null && module load <CUDA_MODULE>
+# Prebuilt wheels need no CUDA toolkit module. hessian_ff needs GCC >= 9;
+# load <COMPILER_MODULE> here if the system g++ is missing or too old.
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
+command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
+gxx_major=$(g++ -dumpversion | cut -d. -f1)
+if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
+    echo "hessian_ff requires GCC >= 9 (found major: $gxx_major)" >&2
+    exit 1
+fi
+command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 while true; do

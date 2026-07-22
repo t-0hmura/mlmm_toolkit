@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import stat
+
 from mlmm.workflows import mm_parm
 
 
@@ -36,6 +38,46 @@ def test_ambertools_available_uses_missing_command_detection(monkeypatch) -> Non
     assert paths["antechamber"] is None
     assert paths["parmchk2"] == "/opt/amber/bin/parmchk2"
     assert mm_parm.ambertools_available() is False
+
+
+def test_leap_pdb_export_populates_elements_without_reordering(tmp_path) -> None:
+    source = tmp_path / "leap.pdb"
+    destination = tmp_path / "system.pdb"
+    source.write_text(
+        "ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  0.00\n"
+        "HETATM    2 MG    MG A   2       2.000   0.000   0.000  1.00  0.00\n"
+        "TER\nEND\n",
+        encoding="utf-8",
+    )
+
+    assigned, unresolved = mm_parm.copy_pdb_with_element_fields(source, destination)
+
+    lines = destination.read_text(encoding="utf-8").splitlines()
+    assert (assigned, unresolved) == (2, 0)
+    assert [line[:6].strip() for line in lines] == ["ATOM", "HETATM", "TER", "END"]
+    assert lines[0][76:78].strip() == "C"
+    assert lines[1][76:78].strip() == "Mg"
+
+
+def test_leap_pdb_export_preserves_line_endings_and_mode(tmp_path) -> None:
+    source = tmp_path / "leap_mixed_endings.pdb"
+    destination = tmp_path / "system.pdb"
+    source.write_bytes(
+        b"ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  0.00\r\n"
+        b"HETATM    2 MG    MG A   2       2.000   0.000   0.000  1.00  0.00\r"
+        b"TER\nEND"
+    )
+    source.chmod(0o640)
+
+    assigned, unresolved = mm_parm.copy_pdb_with_element_fields(source, destination)
+
+    payload = destination.read_bytes()
+    assert (assigned, unresolved) == (2, 0)
+    assert payload.count(b"\r\n") == 1
+    assert payload.count(b"\r") == 2
+    assert payload.count(b"\n") == 2
+    assert payload.endswith(b"END")
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o640
 
 
 def test_add_ter_keeps_connected_peptide_block(tmp_path) -> None:

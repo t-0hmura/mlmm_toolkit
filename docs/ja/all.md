@@ -1,6 +1,17 @@
 # `all`
 
-`mlmm all` は全系レイヤード PDB 上で ML/MM 機構パイプライン全体を 1 コマンドで実行します。手作業で `extract` → `mm-parm` → `define-layer` → `scan` / `path-search` → `tsopt` → `irc` / `freq` / `dft` を連結する代わりに、`all` 1 つで完結します。活性部位抽出、MM トポロジー準備、ML/MM レイヤー割り当て、任意の段階的スキャン、MEP 探索（デフォルトは単一パス `path-opt`、`--refine-path` で再帰 `path-search`）、任意の後処理（TS 最適化、EulerPC IRC、熱化学、DFT 一点計算、DFT//MLIP/MM ダイアグラム）を順に実行します。ML 領域のデフォルト MLIP バックエンドは UMA で、`-b/--backend` で他のバックエンドを選択できます。
+`mlmm all` は全系レイヤード PDB 上で ML/MM 機構パイプライン全体を 1 コマンドで実行します。内部では、活性部位抽出、MM トポロジー準備、ML/MM レイヤー割り当て、任意の段階的スキャン、MEP 探索（デフォルトは単一パス `path-opt`、`--refine-path` で再帰 `path-search`）、任意の後処理（TS 最適化、EulerPC IRC、熱化学、DFT 一点計算、DFT//MLIP/MM ダイアグラム）を順に管理します。ML 領域のデフォルト MLIP バックエンドは UMA で、`-b/--backend` で他のバックエンドを選択できます。
+
+この順序は `all` が内部管理するステージを示します。単独で再利用するファイルを
+作る場合は、`mm-parm` に明示的な出力接頭辞を与え、その出力 PDB に対して
+`extract` と `define-layer` を実行します。この PDB は生成された parm7 と原子の
+同一性・順序が一致し、空の元素記号列は `mm-parm` が補完します。
+
+```bash
+mlmm mm-parm -i input.pdb -l 'LIG:0' --out-prefix system
+mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
+mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
+```
 
 `all` は渡す入力に応じて 3 つのモードのいずれかで動作します:
 

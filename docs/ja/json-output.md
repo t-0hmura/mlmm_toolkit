@@ -171,17 +171,17 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `n_frames_forward` / `n_frames_backward` / `n_frames_total` | int | IRC フレーム数 |
-| `energy_first_hartree` | float | stitched pathの最初の端点。standalone IRCは化学的identityを割り当てない |
+| `energy_first_hartree` | float | 連結経路の最初の端点。単独 IRC は反応物/生成物の化学的な同一性を割り当てない |
 | `energy_ts_hartree` | float | TS エネルギー |
-| `energy_last_hartree` | float | stitched pathの最後の端点。standalone IRCは化学的identityを割り当てない |
+| `energy_last_hartree` | float | 連結経路の最後の端点。単独 IRC は反応物/生成物の化学的な同一性を割り当てない |
 | `endpoint_energy_orientation` | string | `"finished_first_to_finished_last"` |
-| `energy_reactant_hartree` / `energy_product_hartree` | float | first/lastの互換alias。key名からR/P identityを推定しないこと |
-| `forward_converged` / `backward_converged` | bool\|null | 各方向の収束flag |
-| `never_stop` | bool | opt-inのenergy上昇／平坦化bypass modeを有効にしたか |
-| `never_stop_energy_bypasses` | int | 実際にbypassしたenergy上昇／平坦化停止event数 |
+| `energy_reactant_hartree` / `energy_product_hartree` | float | 最初/最後の端点を表す互換エイリアス。キー名から反応物/生成物の同一性を推定しない |
+| `forward_converged` / `backward_converged` | bool\|null | 各方向の収束フラグ |
+| `never_stop` | bool | 任意指定のエネルギー上昇・平坦化回避モードを有効にしたか |
+| `never_stop_energy_bypasses` | int | 実際に回避したエネルギー上昇・平坦化停止イベントの数 |
 | `rigid_projection` | object | 初期/更新Hessianの凍結境界 TR provenance |
-| `bond_changes` | object | first→last方向の`{formed: [...], broken: [...]}`。比較不可時は省略 |
-| `bond_changes_direction` | string | bond changesがある場合は`"finished_first_to_finished_last"` |
+| `bond_changes` | object | 最初→最後の方向の `{formed: [...], broken: [...]}`。比較できない場合は省略 |
+| `bond_changes_direction` | string | 結合変化がある場合は `"finished_first_to_finished_last"` |
 | `files` | object | 軌跡と端点ファイル（XYZと、利用可能なPDB/CIF companion） |
 
 **`rigid_projection` provenance:** 選択した処理は `treatment`、有効 rank は

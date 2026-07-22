@@ -24,6 +24,14 @@ STALE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
      "an explicit analytical Hessian request must raise when unavailable"),
     (re.compile(r"energy_diagram_(?:G_)?UMA|gibbs_(?:dft_)?uma|post_segments\[i\]\.uma\b"),
      "backend-neutral output names use MLIP/mlip"),
+    (re.compile(r"torch_scatter|torch-scatter", re.I),
+     "the current ORB extra does not require torch_scatter"),
+    (re.compile(
+        r"Load CUDA \*\*before\*\* activating conda"
+        r"|wheel に合わせる \(cu126 ↔ 12\.6, cu129 ↔ 12\.9\)",
+        re.I,
+    ),
+     "prebuilt PyTorch wheels do not require a matching local CUDA module"),
 )
 
 REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
@@ -58,6 +66,60 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     ),
     Path("docs/backends.md"): ("mlmm all", "forwards the same factory"),
     Path("docs/ja/backends.md"): ("mlmm all", "同じfactory"),
+    Path("docs/add-elem-info.md"): (
+        "`--inplace/--no-inplace`",
+        "`<input>_add_elem.pdb`",
+        "`PDBIO` reserializes",
+    ),
+    Path("docs/ja/add-elem-info.md"): (
+        "`--inplace/--no-inplace`",
+        "`<input>_add_elem.pdb`",
+        "`PDBIO` は構造を再シリアライズ",
+    ),
+    Path("skills/mlmm-install-backends/SKILL.md"): (
+        "torch==2.8.0",
+        "`cpu`, `cu126`, `cu128`, `cu129`",
+    ),
+    Path("skills/mlmm-install-backends/env-cuda.md"): (
+        "torch==2.8.0",
+        "`cu126`, `cu128`, `cu129`, and `cpu`",
+        "does not require a\nmatching local CUDA toolkit",
+    ),
+    Path("skills/mlmm-install-backends/mace.md"): ("torch==2.8.0",),
+    Path("docs/device-hpc.md"): (
+        "g++ -dumpversion",
+        "command -v ninja",
+    ),
+    Path("docs/ja/device-hpc.md"): (
+        "g++ -dumpversion",
+        "command -v ninja",
+    ),
+    Path("skills/mlmm-hpc/SKILL.md"): (
+        "g++ -dumpversion",
+        "command -v ninja",
+    ),
+    Path("skills/mlmm-hpc/dynamic-dispatch.md"): (
+        "g++ -dumpversion",
+        "command -v ninja",
+    ),
+    Path("skills/mlmm-cli/extract.md"): (
+        "`mm-parm → extract →\n  define-layer",
+        "`mlmm mm-parm -i input.pdb --out-prefix system`",
+        "same atom identity/order as `system.parm7`",
+    ),
+}
+
+ORDERED_SNIPPETS: dict[Path, tuple[str, ...]] = {
+    Path("skills/mlmm-install-backends/SKILL.md"): (
+        "      - mlmm-toolkit  # install core first",
+        "pip uninstall -y fairchem-core",
+        "pip install mace-torch",
+    ),
+    Path("skills/mlmm-install-backends/mace.md"): (
+        "pip install mlmm-toolkit",
+        "pip uninstall -y fairchem-core",
+        "pip install mace-torch",
+    ),
 }
 
 
@@ -108,6 +170,15 @@ def main() -> int:
         for snippet in snippets:
             if snippet not in text:
                 errors.append(f"{rel}: required semantic contract missing: {snippet!r}")
+
+    for rel, snippets in ORDERED_SNIPPETS.items():
+        text = (REPO_ROOT / rel).read_text(encoding="utf-8")
+        positions = [text.find(snippet) for snippet in snippets]
+        if any(position < 0 for position in positions) or positions != sorted(positions):
+            errors.append(
+                f"{rel}: MACE environment order must be mlmm install, "
+                "fairchem-core removal, then MACE install"
+            )
 
     if errors:
         print(f"[docs-contract] FAIL: {len(errors)} issue(s)")

@@ -32,13 +32,23 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 2. **TER insertion** -- When `--add-ter` (default), TER records are inserted before and after contiguous blocks of ligand/water/ion residues.
 3. **Unknown residue parameterization** -- Residues not recognized by the force field are parameterized with antechamber (GAFF2, AM1-BCC) and parmchk2. Residues named in `--ligand-charge` are prioritized for this route. Formal charge and spin multiplicity are controlled via `--ligand-charge` and `--ligand-mult`.
 4. **Disulfide detection** -- CYS/CYM/CYX pairs with SG-SG (or S-S) distance <= 2.5 Å are bonded automatically, and a bonded CYS is renamed to CYX so LEaP drops its HG. With `--no-auto-disulfide` only residues already named CYX are bonded and CYS is left untouched.
-5. **Topology build** -- tleap generates parm7/rst7/pdb files using the selected force field set.
+5. **Topology build** -- tleap generates parm7/rst7/pdb files using the selected force field set. Before publishing the PDB, `mlmm` fills blank element columns without changing record order or atom identity.
 
 ## Outputs
 
 - `<prefix>.parm7` -- Amber prmtop topology
 - `<prefix>.rst7` -- Amber ASCII inpcrd coordinates
-- `<prefix>.pdb` -- LEaP savepdb output (written only when `--out-prefix` is given or `--add-h` is set; otherwise only parm7/rst7 are produced)
+- `<prefix>.pdb` -- LEaP savepdb output with element columns filled (written only when `--out-prefix` is given or `--add-h` is set; otherwise only parm7/rst7 are produced)
+
+For reusable manual preparation, choose a prefix different from the input path,
+then use the exported PDB for both extraction and layer assignment. Its atom
+identity and order match the generated `parm7`:
+
+```bash
+mlmm mm-parm -i input.pdb -l 'LIG:0' --out-prefix system
+mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
+mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
+```
 
 ## CLI options
 
@@ -80,5 +90,5 @@ mlmm opt -i snapshot_layered.pdb --parm md_system.parm7 -q -1 -m 1 \
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
 - [all](all.md) — End-to-end workflow (calls mm-parm internally)
-- [extract](extract.md) — Extract active-site pocket before parameterization
-- [define-layer](define-layer.md) — Define ML/MM layers after building topology
+- [extract](extract.md) — Extract the active-site model from the topology-matched PDB
+- [define-layer](define-layer.md) — Assign ML/MM layers to the topology-matched PDB

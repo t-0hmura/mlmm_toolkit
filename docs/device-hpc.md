@@ -118,13 +118,20 @@ set -euo pipefail
 hostname
 cd "${PBS_O_WORKDIR}"
 
-# Load environment modules
-source /etc/profile.d/modules.sh  # cluster-dependent
-module load cuda/<version>
+# hessian_ff JIT-compiles C++ kernels on first use. If the system compiler is
+# missing or older than GCC 9, load the site's compiler module here:
+# module load <COMPILER_MODULE>
 
 # Activate conda environment
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
+command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
+gxx_major=$(g++ -dumpversion | cut -d. -f1)
+if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
+  echo "hessian_ff requires GCC >= 9 (found major: $gxx_major)" >&2
+  exit 1
+fi
+command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
 
 # Run optimization
 mlmm opt \
@@ -151,10 +158,17 @@ mlmm opt \
 set -euo pipefail
 hostname
 
-module load cuda/<version>
-
+# hessian_ff JIT-compiles C++ kernels on first use. If needed:
+# module load <COMPILER_MODULE>
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
+command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
+gxx_major=$(g++ -dumpversion | cut -d. -f1)
+if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
+  echo "hessian_ff requires GCC >= 9 (found major: $gxx_major)" >&2
+  exit 1
+fi
+command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
 
 mlmm opt \
   -i r_complex_layered.pdb \
@@ -169,7 +183,8 @@ mlmm opt \
 - **Single GPU for ML:** ML inference runs on one GPU. Request `gpus=1` (PBS) or `--gres=gpu:1` (Slurm); request a second GPU only if you place the OpenMM MM backend on a separate CUDA device (`mm_device: cuda`, `mm_cuda_idx: 1`).
 - **CPU threads:** Request enough CPUs for the MM backend (`mm_threads`, default 16). Set `ppn=32` (PBS) or `--cpus-per-task=32` (Slurm) for a safety margin.
 - **Memory:** 120 GB is typically sufficient for enzyme active-site models. Increase for very large systems.
-- **CUDA module:** Load CUDA **before** activating conda to ensure PyTorch finds the correct CUDA runtime.
+- **CUDA runtime:** Official PyTorch wheels carry CUDA user-space libraries; a compatible NVIDIA driver is normally sufficient. Load a site CUDA toolkit only for an extension that needs it.
+- **C++ compiler:** The default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs GCC ≥ 9 and Ninja; load a compiler module when the system `g++` is absent or too old.
 
 ### Specifying a GPU index
 

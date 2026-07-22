@@ -1,6 +1,6 @@
 # `extract`
 
-`mlmm extract` carves an active-site pocket from a protein–ligand PDB to define the ML region (and the surrounding MM environment for downstream stages). Use it as the **first step** in an mlmm-toolkit workflow to turn a full protein–ligand complex into a smaller, computationally tractable model. It selects residues near the substrate, truncates the model according to backbone / side-chain rules, optionally caps severed bonds with link hydrogens, and accepts either a single structure or a multi-structure ensemble (details under [Multi-structure ensembles](#multi-structure-ensembles)). Pick a substrate-selection mode (residue IDs, a substrate PDB, or residue names) depending on what you have on hand — see [Input syntax](#input-syntax) for the exact grammar.
+`mlmm extract` carves an active-site pocket from a protein–ligand PDB to define the ML region (and the surrounding MM environment for downstream stages). In `mlmm all`, this selection stage is managed internally. For reusable manual files, first run `mm-parm --out-prefix system`, then extract from its topology-matched `system.pdb`. The command selects residues near the substrate, truncates the model according to backbone / side-chain rules, optionally caps severed bonds with link hydrogens, and accepts either a single structure or a multi-structure ensemble (details under [Multi-structure ensembles](#multi-structure-ensembles)). Pick a substrate-selection mode (residue IDs, a substrate PDB, or residue names) depending on what you have on hand — see [Input syntax](#input-syntax) for the exact grammar.
 
 If you run into misclassification (e.g. unusual residue / atom naming), see the appendix below on naming requirements and the internal reference lists.
 
@@ -224,5 +224,6 @@ HOH, WAT, H2O, DOD, TIP, TIP3, SOL
 - [Getting Started](getting-started.md) — Installation and first run
 - [Concepts](concepts.md) — Full system vs. ML region
 - [CLI Conventions](cli-conventions.md) — Residue selectors and charge specification
-- [mm-parm](mm-parm.md) — Generate Amber topology from the extracted pocket
+- [mm-parm](mm-parm.md) — Generate the full-system Amber topology and the
+  topology-matched PDB to use for standalone extraction/layering
 - [define-layer](define-layer.md) — Assign 3-layer ML/MM partitioning

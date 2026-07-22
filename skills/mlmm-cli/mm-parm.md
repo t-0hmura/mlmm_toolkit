@@ -18,7 +18,7 @@ mlmm mm-parm -i complex.pdb \
     [--add-h --ph 7.0] \
     [--add-ter / --no-add-ter] \
     [--keep-temp] \
-    [--out-prefix complex]
+    [--out-prefix system]
 ```
 
 ## Key flags
@@ -44,8 +44,8 @@ invocation for non-standard residues is automatic when needed.
 ### Standard residues only
 
 ```bash
-mlmm mm-parm -i complex.pdb --out-prefix complex
-# → complex.parm7, complex.rst7  in CWD
+mlmm mm-parm -i complex.pdb --out-prefix system
+# → system.parm7, system.rst7, system.pdb in CWD
 ```
 
 ### Non-standard ligand requiring antechamber/GAFF2
@@ -55,7 +55,7 @@ mlmm mm-parm -i complex.pdb \
     --ligand-charge 'GPP:-3,SAM:1' \
     --ff-set ff14SB \
     --add-h --ph 7.0 \
-    --out-prefix complex
+    --out-prefix system
 ```
 
 `mm-parm` invokes `antechamber -at gaff2 -c bcc` and `parmchk2`
@@ -70,15 +70,15 @@ Files are written **directly to the current working directory** (no
 `mm_parm/` subdirectory):
 
 ```
-complex.parm7              # Amber topology
-complex.rst7               # Coordinates (and box if water)
-complex.pdb                # LEaP-exported PDB
+system.parm7              # Amber topology
+system.rst7               # Coordinates (and box if water)
+system.pdb                # Topology-matched PDB with element columns filled
 ```
 
 There is **no `result.json` output**. To verify the parm:
 
 ```bash
-parmed -p complex.parm7 -i <(echo "summary"; echo "go")
+parmed -p system.parm7 -i <(echo "summary"; echo "go")
 ```
 
 ## Caveats

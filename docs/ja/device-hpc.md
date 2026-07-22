@@ -128,13 +128,20 @@ set -euo pipefail
 hostname
 cd "${PBS_O_WORKDIR}"
 
-# 環境モジュールのロード
-source /etc/profile.d/modules.sh  # クラスター依存
-module load cuda/<version>
+# hessian_ff は初回利用時に C++ カーネルを JIT ビルドします。システムの
+# コンパイラがない、または GCC 9 未満なら、サイトのコンパイラモジュールを読み込みます:
+# module load <COMPILER_MODULE>
 
 # conda 環境の有効化
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
+command -v g++ >/dev/null || { echo "hessian_ff には g++ が必要です" >&2; exit 1; }
+gxx_major=$(g++ -dumpversion | cut -d. -f1)
+if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
+  echo "hessian_ff には GCC >= 9 が必要です（検出したメジャー: $gxx_major）" >&2
+  exit 1
+fi
+command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" >&2; exit 1; }
 
 # 最適化の実行
 mlmm opt \
@@ -161,10 +168,17 @@ mlmm opt \
 set -euo pipefail
 hostname
 
-module load cuda/<version>
-
+# hessian_ff は初回利用時に C++ カーネルを JIT ビルドします。必要な場合:
+# module load <COMPILER_MODULE>
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
+command -v g++ >/dev/null || { echo "hessian_ff には g++ が必要です" >&2; exit 1; }
+gxx_major=$(g++ -dumpversion | cut -d. -f1)
+if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
+  echo "hessian_ff には GCC >= 9 が必要です（検出したメジャー: $gxx_major）" >&2
+  exit 1
+fi
+command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" >&2; exit 1; }
 
 mlmm opt \
   -i r_complex_layered.pdb \
@@ -179,7 +193,8 @@ mlmm opt \
 - **GPU 1 基:** mlmm-toolkit はジョブあたり GPU 1 基を使用。PBS なら `gpus=1`、Slurm なら `--gres=gpu:1` を指定。
 - **CPU スレッド:** MM バックエンド用に十分な CPU を確保（`mm_threads` デフォルト 16）。PBS なら `ppn=32`、Slurm なら `--cpus-per-task=32` を推奨。
 - **メモリ:** 酵素活性部位モデルには通常 120 GB で十分。非常に大きな系では増量。
-- **CUDA モジュール:** PyTorch が正しい CUDA ランタイムを検出するよう、conda 有効化**前に** CUDA をロード。
+- **CUDA ランタイム:** 公式 PyTorch wheel には CUDA のユーザー空間ライブラリが含まれるため、通常は互換性のある NVIDIA ドライバーだけで十分です。必要な拡張をソースビルドする場合だけ CUDA toolkit module を読み込みます。
+- **C++ コンパイラ:** デフォルトの `hessian_ff` MM バックエンドは初回利用時に C++ カーネルを JIT ビルドします。CUDA とは独立に、各計算ノードで GCC 9 以上と Ninja が必要です。システムの `g++` がない、または古い場合はコンパイラモジュールを読み込みます。
 
 ### GPU インデックスの指定
 

@@ -10,13 +10,9 @@ than UMA / MACE.
 pip install 'mlmm-toolkit[orb]'         # pulls orb-models
 ```
 
-> **torch_scatter has no PyPI binary wheel** (only an sdist), so `[orb]` source-builds it and fails
-> under PEP517 isolation (`No module named 'torch'`). Install from PyG's prebuilt-wheel index matching
-> your torch+CUDA tag (single command, no compiler needed):
-> ```bash
-> pip install 'mlmm-toolkit[orb]' -f https://data.pyg.org/whl/torch-2.8.0+cu129.html
-> ```
-> Fallback (CUDA toolchain present): `pip install torch` → `pip install torch_scatter --no-build-isolation` → `[orb]`.
+The current ORB extra installs `orb-models`. If installation fails, inspect the
+actual resolver error and `python -m pip check` instead of adding unrelated PyG
+packages.
 
 Or, if `mlmm-toolkit` is already installed:
 

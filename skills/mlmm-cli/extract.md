@@ -85,8 +85,12 @@ print(d["total_charge"], d["n_atoms_extracted"])
   for dry pockets.
 - `--exclude-backbone` is **off by default**; turn on for cluster-style
   truncated backbones.
-- For the standard ML/MM workflow, follow `extract → mm-parm →
-  define-layer → opt/tsopt/...`.
+- For a reusable standalone ML/MM workflow, follow `mm-parm → extract →
+  define-layer → opt/tsopt/...`. Request that PDB with a distinct prefix, for
+  example `mlmm mm-parm -i input.pdb --out-prefix system`, then run the latter
+  two commands on `system.pdb`. LEaP may change hydrogens; the exported PDB has
+  the same atom identity/order as `system.parm7`, and `mm-parm` fills missing
+  element columns.
 - Atom names must match exactly (case-sensitive). Run
   `mlmm add-elem-info` / `fix-altloc` first if the PDB came out of
   PyMOL or Maestro.
@@ -108,6 +112,7 @@ print(d["total_charge"], d["n_atoms_extracted"])
 ## See also
 
 - `../mlmm-structure-io/pdb.md` — PDB column layout, residue selectors.
-- `mm-parm.md` — parm7 generation (typically run after extract).
+- `mm-parm.md` — parm7 generation and the topology-matched PDB used as the
+  input to a standalone extraction.
 - `define-layer.md` — assign ML / movable-MM / frozen labels (B-factor).
 - `add-elem-info.md`, `fix-altloc.md` — pre-clean a raw PDB.

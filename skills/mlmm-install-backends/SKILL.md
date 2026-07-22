@@ -111,7 +111,7 @@ dependencies:
   - pip
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/<cu_index>
-      - torch
+      - torch==2.8.0
       - mlmm-toolkit[orb,aimnet,dft]   # extras: see core.md / per-backend md
   # xtb (optional, for --embedcharge): install separately via `conda install -c conda-forge xtb`
   # since xtb is shipped as a binary, not a PyPI wheel.
@@ -127,15 +127,25 @@ dependencies:
   - pip
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/<cu_index>
-      - torch
-      - mace-torch
-      - mlmm-toolkit  # fairchem-core is a CORE dep (installs anyway); see the note below
+      - torch==2.8.0
+      - mlmm-toolkit  # install core first; finish the backend swap below
 ```
 
-> **Note:** `fairchem-core` is a *core* dependency of `mlmm-toolkit`, so it installs regardless of extras. After creating this env, run `pip uninstall -y fairchem-core` — `mace-torch` pins `e3nn==0.4.4`, which conflicts with `fairchem-core`'s `e3nn>=0.5`.
+After creating and activating this environment, finish the backend swap in
+this order:
 
-`<cu_index>` is one of `cpu`, `cu118`, `cu121`, `cu124`, `cu126`, `cu129` — see
-`env-cuda.md` for the driver version → index mapping.
+```bash
+pip uninstall -y fairchem-core
+pip install mace-torch
+```
+
+`fairchem-core` is a core dependency of `mlmm-toolkit`, so it must be removed
+*before* MACE is installed. The final command then resolves MACE's
+`e3nn==0.4.4`; installing `mlmm-toolkit` after MACE would replace it with
+`fairchem-core`'s incompatible `e3nn>=0.5`.
+
+`<cu_index>` is one of `cpu`, `cu126`, `cu128`, `cu129` — the indexes in
+PyTorch's official 2.8.0 matrix. See `env-cuda.md`.
 
 ## Verify the install
 

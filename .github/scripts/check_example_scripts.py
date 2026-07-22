@@ -46,6 +46,17 @@ def main() -> int:
         return 1
 
     for s in scripts:
+        text = s.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        rel = s.relative_to(REPO_ROOT)
+        if not lines or lines[0] != "#!/usr/bin/env bash":
+            errors.append(f"{rel}: first line must be '#!/usr/bin/env bash'")
+        if "set -euo pipefail" not in lines[:5]:
+            errors.append(f"{rel}: missing 'set -euo pipefail' near the top")
+        if not s.stat().st_mode & 0o111:
+            errors.append(f"{rel}: script is not executable")
+        if "BASH_SOURCE[0]" not in text:
+            errors.append(f"{rel}: fixture paths are not anchored to the script directory")
         completed = subprocess.run(
             ["bash", "-n", str(s)], text=True, capture_output=True
         )
@@ -53,6 +64,19 @@ def main() -> int:
             errors.append(
                 f"bash -n failed for {s.relative_to(REPO_ROOT)}:\n{completed.stderr.strip()}"
             )
+
+    stepwise = REPO_ROOT / "examples" / "methyltransferase" / "run_stepwise.sh"
+    stepwise_text = stepwise.read_text(encoding="utf-8")
+    if (
+        '[0, 15.6, -43.7]' in stepwise_text
+        or "${ENERGIES:-}" not in stepwise_text
+        or "${ENDPOINT_LABELS:-}" not in stepwise_text
+        or "freq_reac" in stepwise_text
+        or "freq_prod" in stepwise_text
+    ):
+        errors.append(
+            "examples/methyltransferase/run_stepwise.sh: endpoint identity and energies must be explicit"
+        )
 
     commands = extract_shell_commands(scripts)
     per_script: dict[str, int] = {}

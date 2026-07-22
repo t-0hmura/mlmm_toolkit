@@ -101,7 +101,7 @@ to derive GAFF2 parameters automatically. Inspect the produced
 |---|---|
 | `Could not find unit "GPP"` | Ligand not in standard Amber libraries; `antechamber` must run on it. `mm-parm` does this automatically if the ligand is in the PDB. |
 | `mismatching atom counts` between `parm7` and `rst7` | `rst7` was written for a different molecule; regenerate with `mm-parm`. |
-| MM-evaluating subcommand reports "no MM region found" | The PDB passed via `--detect-layer` (or `--ref-pdb`) does not have B-factor 10.0 atoms. Re-run `define-layer` to assign movable-MM atoms before passing to `opt`/`tsopt`/etc. (`mlmm extract` itself does **not** consume `parm7` — only PDB. Run `extract` → `mm-parm` → `define-layer` separately.) |
+| MM-evaluating subcommand reports "no MM region found" | The PDB passed via `--detect-layer` (or `--ref-pdb`) does not have B-factor 10.0 atoms. Re-run `define-layer` to assign movable-MM atoms before passing to `opt`/`tsopt`/etc. (`mlmm extract` itself consumes only PDB; for reusable files, request `mm-parm --out-prefix system`, then extract and layer `system.pdb`, whose identity/order matches `system.parm7`.) |
 | Charge sum in `parm7` ≠ `-l` total | `tleap` rounded charges; check `parmed` output: `printDetails *` and sum the `charge` column. |
 | `parmed` not on PATH | Install via AmberTools (see `../mlmm-install-backends/ambertools.md`). |
 

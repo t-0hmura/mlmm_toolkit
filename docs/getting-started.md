@@ -70,7 +70,7 @@ git clone https://github.com/t-0hmura/mlmm_toolkit.git && cd mlmm_toolkit
 # 1. New env + AmberTools + CUDA-enabled PyTorch (match your CUDA runtime)
 conda create -n mlmm-toolkit python=3.11 -y && conda activate mlmm-toolkit
 conda install -c conda-forge ambertools pdbfixer -y
-pip install torch --index-url https://download.pytorch.org/whl/cu129
+pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 
 # 2a. Released wheel
 pip install mlmm-toolkit
@@ -78,9 +78,6 @@ pip install mlmm-toolkit
 # 2b. Or editable source from the clone above
 pip install -e .
 # Optional MLIP extras: pip install -e ".[orb]"  /  ".[aimnet]"  /  ".[dft]"  /  ".[mcp]"
-# [orb] needs torch_scatter, whose prebuilt wheels live on PyG's index (not PyPI), so pip
-# source-builds it and may fail with "No module named 'torch'". Add PyG's index (match torch+CUDA):
-#   pip install -e ".[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.html
 # MACE: install in a dedicated env (incompatible with UMA via e3nn==0.4.4 vs >=0.5)
 
 # 3. (UMA backend only) Authenticate Hugging Face once
@@ -100,7 +97,7 @@ mlmm --version
 | `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for `all`, `path-search`, and `path-opt` (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory error. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
 | xTB | `--embedcharge` (xTB point-charge embedding) | `conda install -c conda-forge xtb -y` (custom binary: set `xtb_cmd` in YAML) |
 | Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
-| HPC `cuda/<X.Y>` module | HPC clusters using environment modules | Load **before** `pip install torch`; match X.Y to your wheel (`cu126` ↔ 12.6, `cu129` ↔ 12.9) |
+| CUDA toolkit/module | Only when compiling a C/CUDA extension from source | Use the site-supported toolkit/compiler pair for that build. Official PyTorch wheels carry their CUDA user-space libraries and require only a compatible NVIDIA driver at runtime. |
 
 If you switch runtime environments (node / container / Python / PyTorch), rebuild `hessian_ff` in the new env. Detailed HPC job-script templates: [docs/device-hpc.md](device-hpc.md).
 
@@ -121,19 +118,33 @@ make -C build -j8
 - [Quickstart: `mlmm` scan-spec route](quickstart-scan-spec.md) — single structure with staged bond scans
 - [Quickstart: validate TS with `mlmm tsopt`](quickstart-tsopt-freq.md) — TS-only mode
 
-## Typical workflow
+## Typical manual workflow
+
+Create the reusable topology-matched PDB explicitly:
+
+```bash
+mlmm mm-parm -i input.pdb -l 'LIG:0' --out-prefix system
+mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
+mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
+```
 
 ```text
-1. extract       — Define ML region from full protein-ligand PDB
-2. mm-parm       — Generate Amber parm7/rst7 topology (requires AmberTools)
-3. define-layer  — Assign 3-layer ML/MM partitioning (B-factor encoding)
+1. mm-parm       — Generate parm7/rst7 plus LEaP's topology-matched PDB
+2. extract       — Define the ML region from that generated PDB
+3. define-layer  — Layer the same generated full-system PDB
 4. path-search   — MEP search (single-pass `path-opt` by default; `--refine-path` for recursive `path-search`)
 5. tsopt         — Transition state optimization
 6. freq          — Vibrational analysis + thermochemistry
 7. dft           — Single-point DFT energy refinement
 ```
 
-`mlmm all` orchestrates all seven; each step is also a standalone subcommand for debugging or custom flows.
+Use the PDB written by `mm-parm` for steps 2 onward because LEaP may change
+hydrogens. An explicit `--out-prefix` requests this PDB; `mm-parm` fills missing
+element columns while preserving its topology-matched atom records and order.
+`mlmm all` performs equivalent preparation with internal bookkeeping;
+its internal `extract → mm-parm → define-layer` stage order is not a standalone
+file-reuse recipe. Each stage is also available as a subcommand for debugging or
+custom flows.
 
 ## Main workflow modes
 

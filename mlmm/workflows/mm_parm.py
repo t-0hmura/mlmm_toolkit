@@ -121,6 +121,65 @@ def missing_ambertools_commands(paths: Optional[Dict[str, Optional[str]]] = None
     return [cmd for cmd in _AMBERTOOLS_REQUIRED_COMMANDS if not resolved.get(cmd)]
 
 
+def copy_pdb_with_element_fields(source: Path, destination: Path) -> Tuple[int, int]:
+    """Copy a LEaP PDB while filling missing element columns in place.
+
+    LEaP commonly leaves columns 77--78 blank. Preserve every record, line
+    ending, and atom ordering; short atom records are padded only as needed to
+    fill those columns. The exported PDB therefore remains topology-matched to
+    the generated ``parm7``.
+
+    Returns ``(assigned, unresolved)``.
+    """
+    from mlmm.domain.add_elem_info import guess_element
+
+    assigned = 0
+    unresolved = 0
+    output_lines: List[str] = []
+    with source.open(encoding="utf-8", errors="replace", newline="") as handle:
+        for raw_line in handle:
+            if raw_line.endswith("\r\n"):
+                newline = "\r\n"
+            elif raw_line.endswith("\n"):
+                newline = "\n"
+            elif raw_line.endswith("\r"):
+                newline = "\r"
+            else:
+                newline = ""
+            line = raw_line.rstrip("\r\n")
+            if line.startswith(("ATOM  ", "HETATM")):
+                padded = line.ljust(78)
+                if not padded[76:78].strip():
+                    element = guess_element(
+                        padded[12:16].strip(),
+                        padded[17:20].strip(),
+                        padded.startswith("HETATM"),
+                    )
+                    if element:
+                        line = padded[:76] + f"{element:>2}" + padded[78:]
+                        assigned += 1
+                    else:
+                        line = padded
+                        unresolved += 1
+            output_lines.append(line + newline)
+
+    destination = destination.resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", newline="", dir=destination.parent,
+        delete=False,
+    ) as handle:
+        temporary = Path(handle.name)
+        handle.writelines(output_lines)
+    try:
+        shutil.copymode(source, temporary)
+        os.replace(temporary, destination)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+    return assigned, unresolved
+
+
 def ambertools_available() -> bool:
     """Return True if tleap, antechamber and parmchk2 are available on PATH."""
     return not missing_ambertools_commands()
@@ -919,8 +978,15 @@ def run_pipeline(args: Args) -> None:
         if final_pdb_out is not None:
             src_pdb = tmpdir_path / "complex.pdb"
             if src_pdb.exists():
-                shutil.copy2(src_pdb, final_pdb_out)
+                assigned, unresolved = copy_pdb_with_element_fields(src_pdb, final_pdb_out)
                 click.echo(f"[mm-parm] Wrote: {final_pdb_out}")
+                if assigned:
+                    click.echo(f"[mm-parm] Populated element columns for {assigned} atoms.")
+                if unresolved:
+                    click.echo(
+                        f"[mm-parm] WARNING: Could not infer element columns for {unresolved} atoms.",
+                        err=True,
+                    )
             else:
                 click.echo("[mm-parm] WARNING: LEaP PDB (complex.pdb) was not found; skipping PDB export copy.", err=True)
 

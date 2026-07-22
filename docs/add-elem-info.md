@@ -7,13 +7,19 @@
 Command form:
 
 ```bash
-mlmm add-elem-info -i INPUT [-o OUTPUT] [--overwrite]
+mlmm add-elem-info -i INPUT [-o OUTPUT] [--inplace] [--overwrite]
 ```
 
-Add or repair element columns, overwriting the input file in place:
+Add or repair element columns into the non-destructive default output:
 
 ```bash
 mlmm add-elem-info -i 1abc.pdb
+```
+
+This writes `1abc_add_elem.pdb`. To replace the input explicitly:
+
+```bash
+mlmm add-elem-info -i 1abc.pdb --inplace
 ```
 
 Write the result to a separate output file:
@@ -42,7 +48,8 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
  - **Ligands/cofactors:** Uses atom-name prefixes (C*/P*, excluding CL) and
   two-letter/one-letter normalization; recognizes halogens (Cl/Br/I/F).
 3. Write the structure through `PDBIO`:
- - No `-o/--out` given: overwrites the input file.
+ - No `-o/--out` given: writes `<input>_add_elem.pdb`.
+ - `--inplace` without `-o/--out`: replaces the input file.
  - `-o/--out` given: writes to the specified path.
 4. Print a summary reporting total atoms, newly assigned, kept existing,
     overwritten (when `--overwrite`), per-element counts, and up to 50
@@ -58,8 +65,14 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB file. | Required |
-| `-o, --out PATH` | Output PDB path. When omitted, the input file is overwritten. | _None_ (overwrites input) |
+| `-o, --out PATH` | Output PDB path; takes precedence over `--inplace`. | _None_ → `<input>_add_elem.pdb` |
+| `--inplace/--no-inplace` | Replace the input file when `-o/--out` is omitted. | `False` |
 | `--overwrite/--no-overwrite` | Re-infer and overwrite element fields even if already present (by default, existing values are preserved). | `False` |
+
+`PDBIO` reserializes the structure. It preserves atom coordinates and standard
+ATOM/HETATM fields, but not every non-ATOM record (for example HEADER, REMARK,
+CONECT, or ANISOU) or legacy charge columns. Keep the default separate output
+unless replacement is intentional.
 
 The full flag list is in the generated [command reference](reference/commands/index.md).
 

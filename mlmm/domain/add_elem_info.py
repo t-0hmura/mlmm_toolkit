@@ -209,6 +209,7 @@ def scan_existing_elements_by_serial(pdb_path: str) -> Set[int]:
         pass
     return serials_with_elem
 
+
 def _get_atom_serial(atom) -> Optional[int]:
     """
     Safely obtain the serial number from a Biopython Atom, handling version differences.
@@ -221,7 +222,20 @@ def _get_atom_serial(atom) -> Optional[int]:
             sn = None
     return sn
 
-def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False) -> None:
+
+def _default_out_pdb_path(in_pdb: str) -> str:
+    path = Path(in_pdb)
+    if path.suffix.lower() == ".pdb":
+        return str(path.with_name(path.stem + "_add_elem.pdb"))
+    return str(path) + "_add_elem.pdb"
+
+
+def assign_elements(
+    in_pdb: str,
+    out_pdb: Optional[str],
+    overwrite: bool = False,
+    inplace: bool = False,
+) -> None:
     # Scan the input file for the original presence of element fields
     existing_by_serial = scan_existing_elements_by_serial(in_pdb)
 
@@ -272,7 +286,13 @@ def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False
 
     io = PDBIO()
     io.set_structure(structure)
-    out_path = out_pdb if out_pdb else in_pdb  # overwrite input if not specified
+    # File replacement and field re-inference are independent choices. An
+    # explicit output always wins over --inplace.
+    out_path = (
+        out_pdb
+        if out_pdb
+        else (in_pdb if inplace else _default_out_pdb_path(in_pdb))
+    )
     io.save(out_path)
 
     # Summary
@@ -285,7 +305,10 @@ def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False
         top = ", ".join(f"{k}:{v}" for k, v in by_element.most_common())
         click.echo(f"  assignment breakdown        : {top}")
     if unknown:
-        click.echo(f"[add-elem-info] WARNING: Could not confidently assign {len(unknown)} atoms; left unchanged.")
+        click.echo(
+            "[add-elem-info] WARNING: Could not confidently assign "
+            f"{len(unknown)} atoms; left unchanged."
+        )
         for (mid, chid, resid, resn, aname, serial) in unknown[:50]:
             if isinstance(resid, tuple):
                 resseq = resid[1]
@@ -293,20 +316,36 @@ def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False
             else:
                 resseq, icode = "?", ""
             s_str = f" serial {serial}" if serial is not None else ""
-            click.echo(f"    model {mid} chain {chid} {resn} {resseq}{icode} : {aname}{s_str}")
+            click.echo(
+                f"    model {mid} chain {chid} {resn} {resseq}{icode} : "
+                f"{aname}{s_str}"
+            )
         if len(unknown) > 50:
             click.echo("    ... (truncated) ...")
+
 
 def main():
     ap = argparse.ArgumentParser(
         description="Add/repair element columns (77–78) in a PDB using Biopython."
     )
     ap.add_argument("pdb", help="input PDB filepath")
-    ap.add_argument("-o", "--out", help="output PDB filepath (omit to overwrite input)")
+    ap.add_argument(
+        "-o",
+        "--out",
+        help="output PDB filepath (default: <input>_add_elem.pdb)",
+    )
+    ap.add_argument(
+        "--inplace",
+        action="store_true",
+        help="replace the input file when --out is omitted",
+    )
     ap.add_argument(
         "--overwrite",
         action="store_true",
-        help="Re-infer and overwrite element fields even if present (by default, existing values are preserved).",
+        help=(
+            "Re-infer and overwrite element fields even if present "
+            "(by default, existing values are preserved)."
+        ),
     )
     args = ap.parse_args()
 
@@ -315,10 +354,11 @@ def main():
         sys.exit(1)
 
     try:
-        assign_elements(args.pdb, args.out, overwrite=args.overwrite)
+        assign_elements(args.pdb, args.out, overwrite=args.overwrite, inplace=args.inplace)
     except Exception as e:
         click.echo(f"[add-elem-info] ERROR: Failed: {e}", err=True)
         sys.exit(2)
+
 
 # Click subcommand (mlmm add-elem-info)
 @click.command(
@@ -337,21 +377,35 @@ def main():
     "out_pdb",
     type=click.Path(path_type=Path, dir_okay=False),
     default=None,
-    help="Output PDB filepath (omit to overwrite input)",
+    help="Output PDB filepath (default: <input>_add_elem.pdb; overrides --inplace)",
+)
+@click.option(
+    "--inplace/--no-inplace",
+    default=False,
+    show_default=True,
+    help="Replace the input file when -o/--out is omitted.",
 )
 @click.option(
     "--overwrite/--no-overwrite",
     "overwrite",
     default=False,
     show_default=True,
-    help="Re-infer and overwrite element fields even if present (by default, existing values are preserved).",
+    help=(
+        "Re-infer and overwrite element fields even if present "
+        "(by default, existing values are preserved)."
+    ),
 )
-def cli(in_pdb: Path, out_pdb: Optional[Path], overwrite: bool) -> None:
+def cli(in_pdb: Path, out_pdb: Optional[Path], inplace: bool, overwrite: bool) -> None:
     """
     Click wrapper to run via the `mlmm add-elem-info` subcommand.
     """
     try:
-        assign_elements(str(in_pdb), (str(out_pdb) if out_pdb else None), overwrite=overwrite)
+        assign_elements(
+            str(in_pdb),
+            (str(out_pdb) if out_pdb else None),
+            overwrite=overwrite,
+            inplace=inplace,
+        )
     except SystemExit as e:
         # Match argparse-like behavior: propagate SystemExit as-is
         raise e

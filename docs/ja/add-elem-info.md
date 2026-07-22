@@ -7,13 +7,20 @@ Biopython を使用して PDB の元素記号（カラム 77-78）を追加ま�
 コマンド形式:
 
 ```bash
-mlmm add-elem-info -i INPUT [-o OUTPUT] [--overwrite]
+mlmm add-elem-info -i INPUT [-o OUTPUT] [--inplace] [--overwrite]
 ```
 
-元素カラムを追加または修復し、入力ファイルをその場で上書きする:
+元素カラムを追加または修復し、安全なデフォルト出力へ書き出す:
 
 ```bash
 mlmm add-elem-info -i 1abc.pdb
+```
+
+このコマンドは `1abc_add_elem.pdb` を書き出します。入力ファイルを明示的に
+置換する場合は、次のように指定します:
+
+```bash
+mlmm add-elem-info -i 1abc.pdb --inplace
 ```
 
 結果を別の出力ファイルに書き出す:
@@ -36,7 +43,8 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
  - **タンパク質、核酸、水:** H/D は H に、水素・酸素原子は H/O に、P/N/O/S は先頭文字から、Se は専用判定で、炭素ラベル（CA/CB/CG/...）は C に割り当てます。
  - **リガンド/補因子:** 原子名接頭辞（C*/P*、CL を除く）と 2 文字/1 文字の正規化を使用。ハロゲン（Cl/Br/I/F）を認識。
 3. `PDBIO` で構造を書き出します:
- - `-o/--out` 未指定: 入力ファイルを上書き。
+ - `-o/--out` 未指定: `<input>_add_elem.pdb` へ書き出し。
+ - `--inplace` を指定し、`-o/--out` を省略: 入力ファイルを置換。
  - `-o/--out` 指定: 指定パスに書き出し。
 4. 処理結果のサマリーを出力します: 総原子数、新規割り当て数、既存保持数、上書き数（`--overwrite` 時）、元素ごとのカウント、未解決原子（最大 50 件、モデル/鎖/残基/原子/シリアル番号）。
 
@@ -50,8 +58,14 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 入力 PDB ファイル。 | 必須 |
-| `-o, --out PATH` | 出力 PDB パス。省略時は入力ファイルを上書き。 | _None_（入力を上書き） |
+| `-o, --out PATH` | 出力 PDB パス。`--inplace` より優先。 | _None_ → `<input>_add_elem.pdb` |
+| `--inplace/--no-inplace` | `-o/--out` の省略時に入力ファイルを置換。 | `False` |
 | `--overwrite/--no-overwrite` | 既存の元素フィールドがあっても再推定して上書き（デフォルトでは既存値を保持）。 | `False` |
+
+`PDBIO` は構造を再シリアライズします。座標と標準的な ATOM/HETATM
+フィールドは保持しますが、HEADER、REMARK、CONECT、ANISOU などの
+非 ATOM レコードや従来形式の電荷カラムをすべて保持するわけではありません。
+置換が必要な場合を除き、別ファイルへ書き出すデフォルトを使用してください。
 
 すべてのフラグの一覧は生成された [コマンドリファレンス](../reference/commands/index.md) を参照してください。
 

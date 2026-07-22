@@ -1,4 +1,16 @@
-# mlmm toy system examples — GPU required
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Independent mlmm toy-system command examples — GPU required. The bundled
+# parm7/rst7 files are fixtures, so numbered examples are not one workflow.
+# Pass a new output directory as $1.
+
+fixture_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+work_dir=${1:-"$PWD/mlmm_toy_output"}
+mkdir -p -- "$(dirname -- "$work_dir")"
+mkdir -- "$work_dir"  # refuse to overwrite an earlier run
+cp -- "$fixture_dir"/*.pdb "$fixture_dir"/*.parm7 "$fixture_dir"/*.rst7 "$work_dir"/
+cd -- "$work_dir"
 
 # test1: extract
 mlmm extract -i r_complex.pdb -c PRE -r 5.0 --ligand-charge 'PRE:0' -o pocket_r.pdb > test1.out 2>&1

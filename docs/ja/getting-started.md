@@ -113,14 +113,11 @@ mlmm-toolkit は以下のコンポーネントを使用します:
 # 3) hessian_ff の C++ 拡張をビルド
 # 4) Plotly 図表エクスポート用のヘッドレス Chrome をインストール
 
-pip install torch --index-url https://download.pytorch.org/whl/cu129
+pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 pip install mlmm-toolkit
 
 # オプション: 代替 MLIP バックエンドのインストール
 pip install "mlmm-toolkit[orb]"       # ORB バックエンド
-# [orb] が要求する torch_scatter は prebuilt wheel が PyPI でなく PyG の index にあるため、pip は
-# ソースビルドし "No module named 'torch'" で失敗し得ます。PyG index を追加(torch+CUDAに合わせる):
-#   pip install "mlmm-toolkit[orb]" -f https://data.pyg.org/whl/torch-2.8.0+cu129.html
 pip install "mlmm-toolkit[aimnet]"   # AIMNet2 バックエンド
 # MACE バックエンド (UMA と競合 — 先に fairchem-core をアンインストール)
 # pip uninstall fairchem-core && pip install mace-torch
@@ -163,19 +160,16 @@ huggingface-cli login
   conda install -c conda-forge cyipopt -y
   ```
 
-- HPC クラスターで*環境モジュール*を使用している場合は、PyTorch をインストールする前に CUDA をロードしてください:
-  ```bash
-  module load cuda/<version>  # wheel に合わせる (cu126 ↔ 12.6, cu129 ↔ 12.9)
-  ```
+- 公式 PyTorch wheel には CUDA のユーザー空間ライブラリが含まれます。通常は互換性のある NVIDIA ドライバーと割り当て済み GPU だけで動作し、ローカル CUDA toolkit や CUDA モジュールは不要です。C/CUDA 拡張をソースからビルドする場合だけ、サイトが指定する toolkit/compiler モジュールをビルド時と実行時の両方で使用してください。
 
 ### ステップバイステップインストール
 
 環境を段階的に構築する場合:
 
-1. **CUDA をロード（HPC で環境モジュールを使用する場合）**
+1. **NVIDIA ドライバーと GPU 割り当てを確認**
 
     ```bash
-    module load cuda/<version>  # wheel に合わせる (cu126 ↔ 12.6, cu129 ↔ 12.9)
+    nvidia-smi
     ```
 
 2. **conda 環境を作成してアクティブ化**
@@ -200,7 +194,7 @@ huggingface-cli login
 5. **適切な CUDA ビルドの PyTorch をインストール**
 
     ```bash
-    pip install torch --index-url https://download.pytorch.org/whl/cu129
+    pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
     ```
 
 6. **mlmm 本体をインストール**
@@ -299,21 +293,31 @@ mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharg
 
 ---
 
-## 典型ワークフロー
+## 典型的な手動ワークフロー
 
-`mlmm all` を個別サブコマンドへ分解すると、典型的には次の順で進みます。
+再利用可能なトポロジーと PDB を個別サブコマンドで準備する場合は、まず次を実行します。
+
+```bash
+mlmm mm-parm -i input.pdb -l 'LIG:0' --out-prefix system
+mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
+mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
+```
 
 ```text
-1. extract - 完全系 PDB から活性部位ポケットを抽出
-2. mm-parm - Amber parm7/rst7 を生成
-3. define-layer - 3 層 ML/MM 分割を付与（B-factor エンコード）
+1. mm-parm - parm7/rst7 と LEaP のトポロジー対応 PDB を生成
+2. extract - その生成 PDB から活性部位ポケットを抽出
+3. define-layer - 同じ生成 PDB に 3 層 ML/MM 分割を付与（B-factor エンコード）
 4. path-search - MEP 探索（単一パス path-opt がデフォルト）; `--refine-path` で再帰 path-search に切替
 5. tsopt - 遷移状態最適化
 6. freq - 振動解析と熱化学
 7. dft - DFT 一点計算
 ```
 
-`all` は上記 1-7 を自動実行します。必要に応じて各ステップを単独で実行してデバッグできます。
+LEaP が水素を変更する場合があるため、2 以降では `mm-parm` が出力した
+PDB を使用します。明示的な `--out-prefix` でこの PDB を出力でき、空の元素記号列は
+原子レコードと順序を保ったまま補完されます。`all` は同等の準備を内部管理し、内部では
+`extract → mm-parm → define-layer` の順に処理します。この内部順序は、単独ファイルを
+手動で再利用するための手順ではありません。各ステップは単独でも実行できます。
 
 ---
 

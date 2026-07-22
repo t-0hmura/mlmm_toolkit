@@ -4,77 +4,55 @@ This file picks up after `mlmm-env-detect/SKILL.md` — i.e. you
 already know your driver version, your CPU architecture, and whether
 CUDA is available via `module`, system install, or conda.
 
-## Step 1. Pick the torch CUDA index from the driver
+## Step 1. Pick an official PyTorch 2.8 wheel
 
-NVIDIA's userland driver is forward-compatible: a newer driver runs older
-torch wheels, but not the other way around. Pick the **highest** torch
-CUDA index whose minimum driver is ≤ your driver version.
+`mlmm-toolkit` pins `torch~=2.8.0`. PyTorch's official 2.8.0 matrix
+publishes Linux/Windows wheels for `cu126`, `cu128`, `cu129`, and `cpu`.
+It does not publish a 2.8.0 wheel on `cu118`, `cu121`, or `cu124`.
 
-| Driver version | Torch CUDA index (`<cu_index>`) | Notes |
-|---|---|---|
-| ≥ 450 (CUDA 11.8 baseline) | `cu118` | Maximum back-compat, slow on 5xx-series GPUs |
-| ≥ 525 (CUDA 12.0+) | `cu121` | |
-| ≥ 545 (CUDA 12.3+) | `cu124` (when available) | |
-| ≥ 555 (CUDA 12.5+) | `cu126` | |
-| ≥ 560 (CUDA 12.6+) | `cu126` | |
-| ≥ 570 (CUDA 12.9+) | `cu129` | Recent / Blackwell-class GPUs |
-| no GPU | `cpu` | CPU-only inference |
+Pick the index supported by the site's driver **and the GPU architecture**:
 
-Check what wheels actually exist:
+- use the cluster administrator's tested module/wheel combination when one is
+  supplied;
+- `cu126` is the conservative starting point for pre-Blackwell hardware;
+- use `cu128` or `cu129` when the GPU architecture or a dependency explicitly
+  requires it;
+- use `cpu` only when no NVIDIA GPU is assigned.
+
+Do not convert the `nvidia-smi` "CUDA Version" banner directly into a wheel
+index: it reports the newest CUDA version the driver advertises, not a locally
+installed toolkit. The decisive check is the smoke test in Step 3.
+
+## Step 2. Start from the NVIDIA driver, not a toolkit module
+
+An official prebuilt PyTorch wheel carries its CUDA user-space libraries. It
+needs a compatible NVIDIA driver and an allocated GPU; it does not require a
+matching local CUDA toolkit, `nvcc`, `CUDA_HOME`, or a `cuda/<X.Y>` module.
+Start with a clean runtime and verify the driver:
 
 ```bash
-curl -s https://download.pytorch.org/whl/torch/ | grep -oE 'torch-[0-9.]+\+cu[0-9]+' | sort -u | tail
+nvidia-smi
 ```
 
-## Step 2. Make CUDA visible to the install
-
-Three setups, depending on what `mlmm-env-detect/SKILL.md`
-reported:
-
-**Setup A — HPC modulefile** (`module avail cuda` had hits):
+Load a CUDA toolkit and compiler only when building a C/CUDA extension from
+source (for example a source-built GPU4PySCF or an architecture not covered by
+available wheels). In that case, use the cluster administrator's compatible
+module pair and keep it in both the build and job environments:
 
 ```bash
-module load <CUDA_MODULE>           # exact name from `module avail cuda`
-module load gcc                     # toolchain for the CUDA build (see note below)
-nvcc --version                      # confirm
-echo "$CUDA_HOME"                   # often set by the module
-```
-
-Add `module load <CUDA_MODULE>` (and `gcc` if relevant) to **every** PBS
-/ SLURM script that uses the GPU (see `mlmm-hpc/SKILL.md`). `mlmm-toolkit`
-parallelizes the MM side over CPU threads (default `mm_threads=16`,
-backed by PyTorch / OpenMP — `gcc` ships the matching `libgomp`), so
-the PBS preamble should request `ppn`/`--cpus-per-task` ≥ `mm_threads`.
-No cross-node MPI launcher is involved, so OpenMPI is not part of the
-standard preamble. `module load gcc` is required when the system
-`/usr/bin/gcc` is too old for the CUDA toolkit, or when pip will build
-any C/CUDA extension from source (e.g. gpu4pyscf source build,
-sm_120 / Blackwell, niche wheels). On clusters whose system
-default gcc already matches the CUDA toolkit, the explicit `module load
-gcc` line may be unnecessary — leave it in the template anyway and let
-the modulefile
-no-op if the version is already current.
-
-**Setup B — system install** (e.g. `/usr/local/cuda` on a workstation):
-
-```bash
-export CUDA_HOME=/usr/local/cuda
-export PATH="$CUDA_HOME/bin:$PATH"
-export LD_LIBRARY_PATH="$CUDA_HOME/lib64:$LD_LIBRARY_PATH"
+module load <CUDA_MODULE>           # exact site-provided name
+module load <COMPILER_MODULE>       # only when required by that toolkit
 nvcc --version
 ```
 
-**Setup C — install inside a conda env** (no system CUDA, no modules):
-
-```bash
-conda activate <YOUR_ENV>
-conda install -c nvidia cuda-toolkit=<MAJOR.MINOR>   # e.g. 12.6
-```
+`mlmm-toolkit` parallelizes the MM side over CPU threads (default
+`mm_threads=16`), so request `ppn`/`--cpus-per-task` ≥ `mm_threads`. No
+cross-node MPI launcher is involved.
 
 ## Step 3. Install torch matching `<cu_index>`
 
 ```bash
-pip install torch --index-url https://download.pytorch.org/whl/<cu_index>
+pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/<cu_index>
 ```
 
 Verify:
@@ -90,22 +68,25 @@ print('device 0 :', torch.cuda.get_device_name(0) if torch.cuda.is_available() e
 ```
 
 If `torch.cuda.is_available()` is `False` despite a working `nvidia-smi`,
-the torch wheel does not match your driver. Pick a **smaller** `<cu_index>`
-and reinstall.
+capture `python -m torch.utils.collect_env`, `python -m pip check`, and
+`CUDA_VISIBLE_DEVICES` before changing wheel indexes. A CPU wheel, an
+unassigned GPU, an unsupported architecture, or mixed module libraries can
+produce the same symptom.
 
 ## Step 4. Avoid library-loading collisions
 
-Torch ships its own CUDA libs in `<env>/lib/python<X.Y>/site-packages/nvidia/`.
-A system `LD_LIBRARY_PATH` containing an older `libcusolver`,
-`libcudnn`, or `libnvrtc` shadows torch's wheel. Two options:
+Torch wheels install CUDA libraries under `site-packages/nvidia/`. A system or
+module `LD_LIBRARY_PATH` can select an incompatible `libcusolver`, `libcudnn`,
+`libnvrtc`, or `libnvJitLink` first. Compare against a clean environment:
 
 ```bash
-# Option 1 — let torch's bundled libs win:
-export LD_LIBRARY_PATH="$(python -c 'import torch, os; print(os.path.dirname(torch.__file__) + "/lib")'):$LD_LIBRARY_PATH"
-
-# Option 2 — keep system libs, disable torch's preload:
-export PYTORCH_NO_CUDA_PRELOAD=1
+env -u LD_LIBRARY_PATH python -c "import torch; print(torch.cuda.is_available())"
+python -m pip check
 ```
+
+If the clean check works, remove the conflicting module/path entry from the
+job. Do not use `PYTORCH_NO_CUDA_PRELOAD`; it is not a documented PyTorch
+control variable.
 
 Symptoms that you have this problem:
 `OSError: libcusolver.so.11: cannot open shared object file`,
@@ -115,11 +96,11 @@ Symptoms that you have this problem:
 ## Step 5. CPU-only fallback
 
 ```bash
-pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
 ```
 
-`mlmm-toolkit` runs MLIP backends on CPU but is **much slower**
-(50–200×). For DFT (`mlmm dft`), CPU PySCF is **not** an automatic
+`mlmm-toolkit` runs MLIP backends on CPU but is usually much slower; benchmark
+a representative structure. For DFT (`mlmm dft`), CPU PySCF is **not** an automatic
 fallback — pass `--engine cpu` (or set `dft.engine: cpu` in YAML)
 explicitly when the GPU backend is unavailable; with the default
 `--engine gpu` the command raises a `ClickException` rather than
