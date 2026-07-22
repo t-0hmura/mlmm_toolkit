@@ -38,7 +38,7 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 
 [`examples/mlmm_colab.ipynb`](examples/mlmm_colab.ipynb) provides an ordered
 PDB/mmCIF input queue with explicit `parm7` and separately prepared model inputs,
-and a compact **Input → Viewer → Options (optional) → Results** workspace. The
+and a compact **Input → Viewer → Options → Results** workspace. The
 Viewer places the workflow and relevant selectors beside a 4:3 molecular view;
 an exact pick shows the residue as thick element-colored sticks and keeps the
 atom distinct with a dark halo. Key and advanced options stay collapsed until
