@@ -169,7 +169,7 @@ def test_colab_gui_is_mlmm_native_and_tracks_structure_contracts() -> None:
     assert "pdb2reaction" not in whole
     assert "p2r" not in whole
     assert ".pdb,.ent,.cif,.mmcif,.parm7" in app
-    assert "else '.pdb,.ent,.cif,.mmcif,.parm7'" in app
+    assert "'.pdb,.ent,.cif,.mmcif,.parm7,.xyz,.gjf,.com,.inp,.csv'" in app
     assert "prepare_input_structure" in app
     assert "load_pdb_atom_metadata" in app
     assert "Path(_runtime_path('viewer_input.pdb'))" in app
@@ -228,7 +228,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "W.HBox([btn_reset, btn_zoomsel, btn_zoompick, btn_clear_pick]," in app
     assert "sel_lang" not in app
     assert "No structure loaded" in app
-    assert "('Scan (1 input)', 'scan')" in app
+    assert "('Scan 1', 'scan')" in app
+    assert "style={'button_width': '74px', 'description_width': '0px'}" in app
     assert "No results yet." in app
     assert "frame_slider.disabled = False" in app
     assert "trajectory_box.layout.display = 'none'" in app
@@ -251,8 +252,18 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "W.Button(description='Show information'" in app
     assert "body.layout.display = '' if state['open'] else 'none'" in app
     assert "_OPEN_INFO = {'control': None}" in app
-    assert "command_editor = _collapsible('Command line', cmd_box)" in app
+    assert ".rxapp .rxinfo-popover { position:fixed !important" in app
+    assert "width:min(360px,calc(100vw - 24px))" in app
+    assert ".rxinfo-popover .widget-html-content small { color:#f8fafc !important; }" in app
+    assert "📥 needs" not in app
+    assert "run_log_fold = _collapsible('Run log', logbox)" in app
+    assert "command_editor = _collapsible('Command line', W.VBox([cmd_box" in app
     assert "W.HBox([view_input, pick_action, last_pick_info])" in app
+    assert "workflow_contract_row = W.HBox([subreq, outputs_html]" in app
+    assert "workflow_controls.add_class('rxworkflow-controls')" in app
+    assert "grid-template-columns:minmax(280px,320px) minmax(150px,1fr) 240px" in app
+    assert ".rxviewer { flex:2 1 520px !important; min-width:300px; position:sticky" in app
+    assert ".rxviewer { position:static; }" in app
     assert 'role="tooltip"' not in app
     assert "rxworkspace" in app
     assert "rxviewer" in app
@@ -262,7 +273,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "Appended to the command" not in app
     assert "Every remaining option" not in app
     assert "def _ingest_saved_files(" in app
-    assert "input_file_rows" in app and "description='×'" in app
+    assert "input_file_rows" in app and "description='Remove file'" in app
     assert "def _advanced_coverage(" in app and "adv_extra" not in app
     assert "def _advanced_options(sub):" in app
     assert "adv_acc = _collapsible('Advanced flags', adv_box)" in app
@@ -357,6 +368,9 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert contract["_artifact_kind"]("optimization_trj.xyz") is None
     opt = contract["_trajectory_semantics"]("opt", "optimization_trj.xyz")
     path = contract["_trajectory_semantics"]("path-opt", "mep_trj.xyz")
+    vibration = contract["_trajectory_semantics"]("tsopt", "vib/imag_120i_trj.xyz")
+    assert vibration["title"] == "Vibrational-mode animation"
+    assert vibration["x"] == "phase frame" and not vibration["extrema"]
     assert contract["_stationary"]([0.0, 2.0, 0.0], opt) == [
         (0, "initial"), (2, "optimized"),
     ]
@@ -490,6 +504,9 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     app["_do_validate"](None)
     assert app["S"]["_last_log"] == "old log"
     assert app["_RUN_STATE"]["validation_log"] == "validation transcript"
+    app["_stream"] = lambda argv: (2, "invalid options")
+    app["_do_validate"](None)
+    assert app["run_log_fold"].children[1].layout.display == ""
     app["_invalidate_last_run"]("Input identity changed; run again.")
     assert app["S"]["_last_manifest"] == {} and app["S"]["_last_files"] == []
     assert app["artifact_choice"].disabled and app["dl_btn"].disabled
@@ -538,10 +555,13 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
 
     app["_load_view_structure"] = load_view
     assert app["_ingest_saved_files"]([str(primary), str(topology)], "test drop")
+    assert app["all_mode"].value == "scan"
+    assert app["pick_action"].value == "scanA"
     assert app["workspace"].layout.display == ""
     assert app["selection_help"].layout.display == "none"
     assert app["selection_route"].layout.display == "none"
     assert app["_ingest_saved_files"]([str(secondary)], "test drop")
+    assert app["all_mode"].value == "mep"
     assert app["S"]["inputs"] == [str(primary), str(secondary)]
     assert app["S"]["parm"] == str(topology)
     assert len(app["input_file_rows"].children) == 3
@@ -560,6 +580,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     second_info = app["_info_control"]("second")
     second_info._rx_info_button.click()
     assert info._rx_info_body.layout.display == "none"
+    assert info._rx_info_button.description == "Show information"
     assert second_info._rx_info_body.layout.display == ""
     second_info._rx_info_button.click()
     info._rx_info_button.click()
@@ -568,6 +589,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert info._rx_info_body.layout.display == "none"
     assert app["key_opts_box"].children[1].layout.display == "none"
     assert app["command_editor"].children[1].layout.display == "none"
+    assert app["run_log_fold"].children[1].layout.display == "none"
     assert set(app["_center_values"]()) == {"LIG", "MG"}
     mg_row = app["charge_rows"]["MG"]
     assert mg_row["auto"] and mg_row["use"].disabled and mg_row["val"].disabled
@@ -699,6 +721,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         assert flag in app["_advanced_argv"](utility)
 
     app["dd_subcmd"].value = "sp"
+    assert app["key_opts_box"].layout.display == ""
     assert [value for _label, value in app["pick_action"].options] == [
         "center", "ligand", "freezeA", "freezeB", "freezeatom", "measure",
     ]
@@ -707,6 +730,18 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["extract_panel"].layout.display == ""
     assert app["adv_radius"]._rx_flag_row.layout.display == "none"
     assert app["adv_dftfb"]._rx_flag_row.layout.display == "none"
+    app["dd_subcmd"].value = "freq"
+    assert app["key_opts_box"].layout.display == ""
+    app["cb_advsub"].value = True
+    app["dd_subcmd"].value = "extract"
+    assert app["key_opts_box"].layout.display == ""
+    assert app["adv_radius"]._rx_flag_row.layout.display == ""
+    app["center_widget"].value = ()
+    app["S"]["center_ids"] = []
+    with pytest.raises(ValueError, match="needs a center residue"):
+        app["build_cmd"]()
+    app["center_widget"].value = ("LIG",)
+    app["dd_subcmd"].value = "sp"
     app["prep_radius"].value = 4.2
     assert app["adv_radius"].value == 4.2
     extract_commands = []
@@ -795,10 +830,61 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["_artifact_kind"](str(result_json)) == "JSON"
     preview = app["_text_preview_html"](str(result_json), "JSON")
     assert "&quot;energy&quot;" in preview and "-1.25" in preview
+    summary = tmp_path / "summary.json"
+    summary.write_text(json.dumps({
+        "status": "success", "scientific_status": "partial",
+        "scientific_status_reasons": ["IRC endpoint mismatch"],
+        "segments": [{"index": 1, "barrier_kcal": 8.0, "delta_kcal": -1.0}],
+        "post_segments": [{"index": 1, "mlip": {"barrier_kcal": 7.5, "delta_kcal": -1.2}}],
+        "rate_limiting_step": {"barrier_kcal": 7.5, "method": "mlip"},
+    }), encoding="utf-8")
+    summary_html = app["_summary_html"](str(summary))
+    assert "Provisional barrier" in summary_html
+    assert "IRC endpoint mismatch" in summary_html
+    assert "refined MLIP" in summary_html and "⚡" not in summary_html
     calls.clear()
     app["_structure_preview"](str(primary))
     assert any(call[0] == "addModel" and call[1][1] == "pdb" for call in calls)
     assert any(call[0] == "show" for call in calls)
+
+    # Charge semantics and controls follow the selected ML/MM workflow.
+    app["dd_subcmd"].value = "all"
+    assert app["w_q"].description == "system charge (-q)"
+    assert "full-system charge override" in app["charge_info"]._rx_info_body.value
+    app["dd_subcmd"].value = "sp"
+    assert app["w_q"].description == "ML charge (-q)"
+    assert "ML region" in app["charge_info"]._rx_info_body.value
+    app["cb_advsub"].value = True
+    app["dd_subcmd"].value = "oniom-export"
+    assert app["w_q"].description == "QM charge (-q)"
+    assert "QM region" in app["charge_info"]._rx_info_body.value
+
+    # mm-parm exposes its owned ligand-charge editor and gates AmberTools.
+    app["S"]["inputs"] = [str(primary)]
+    app["dd_subcmd"].value = "mm-parm"
+    assert app["charge_panel"].layout.display == ""
+    assert app["center_panel"].layout.display == "none"
+    app["charge_rows"]["LIG"]["use"].value = True
+    app["charge_rows"]["LIG"]["val"].value = 1
+    app["_ambertools_available"] = lambda: False
+    with pytest.raises(ValueError, match="needs tleap"):
+        app["build_cmd"]()
+    app["_ambertools_available"] = lambda: True
+    mm_parm_command = app["build_cmd"]()
+    assert mm_parm_command[1] == "mm-parm" and mm_parm_command[-2:] == ["-l", "LIG:1"]
+
+    # Utility files route directly to their workflow; scan3d CSV needs no parm7.
+    oniom = tmp_path / "job.gjf"
+    oniom.write_text("# oniom\n", encoding="utf-8")
+    assert app["_ingest_saved_files"]([str(oniom)], "test utility")
+    oniom_command = app["build_cmd"]()
+    assert oniom_command[1] == "oniom-import" and oniom_command[oniom_command.index("-i") + 1] == str(oniom)
+    surface = tmp_path / "surface.csv"
+    surface.write_text("d1,d2,d3,energy\n1,1,1,0\n", encoding="utf-8")
+    assert app["_ingest_saved_files"]([str(surface)], "test csv")
+    csv_command = app["build_cmd"]()
+    assert csv_command[:2] == ["mlmm", "scan3d"]
+    assert "--csv" in csv_command and "--parm" not in csv_command and "-i" not in csv_command
 
     app["S"]["_pre_extract"] = {"model_pdb": None}
     app["b_revert"].layout.display = ""
@@ -923,7 +1009,13 @@ def test_colab_adversarial_session_upload_and_view_state(
     app["load_pdb"](
         [str(primary), str(incompatible)], parm=str(topology), center=["LIG"], lcharge={"LIG": 1},
     )
+    app["S"]["scan_atoms"] = [
+        {"index": 0, "chain": "A", "resn": "LIG", "resi": "10", "atom": "C1", "xyz": (0.0, 0.0, 0.0)},
+        {"index": 1, "chain": "A", "resn": "LIG", "resi": "10", "atom": "O1", "xyz": (1.2, 0.0, 0.0)},
+    ]
+    primary_owned = json.dumps(app["S"]["scan_atoms"], sort_keys=True)
     app["view_input"].value = 1
+    assert json.dumps(app["S"]["scan_atoms"], sort_keys=True) == primary_owned
     before_selection = (list(app["S"]["center"]), dict(app["S"]["lcharge"]))
     assert app["b_clear"].disabled and app["center_widget"].disabled
     app["_clear_sel"](None)
@@ -959,6 +1051,19 @@ def test_colab_adversarial_session_upload_and_view_state(
     assert app["dd_backend"].value == "uma" and app["dd_model"].value == "uma-m-1p1"
     assert app["dd_rep"].value == "sticks" and app["dd_col"].value == "spectrum"
     assert app["_auto"]["on"] is True and app["cmd_box"].value != stale_command
+
+    app["all_mode"].value = "mep"
+    app["w_ts"].value = False
+    app["all_mode"].value = "tsonly"
+    ts_only_saved = app["_session_dict"]()
+    assert ts_only_saved["tsopt"] is False
+    assert app["_apply_session"](ts_only_saved) == []
+    app["all_mode"].value = "mep"
+    assert app["w_ts"].value is False
+
+    app["w_reuse"].value = True
+    app["_invalidate_last_run"]("new system")
+    assert app["w_reuse"].value is False
 
     missing = tmp_path / "missing-dir" / "missing.pdb"
     pending = app["_session_dict"]()
@@ -1088,7 +1193,7 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "layout=W.Layout(width='560px')" not in app
     assert "ML-region charge (-q)" in app and "charge verified" in app
     assert "Verify the ML-region charge (-q)" in app
-    assert "'.pdb / .cif / .mmcif + matching .parm7'" in app
+    assert "utility .xyz / .gjf / .com / .inp / .csv" in app
     assert app.count("effective = _normalized_scope_argv(a)") == 2
     assert "a = _force_dry_run(a)" in app
     assert "real_run = not _flag_enabled(effective, '--dry-run', '--no-dry-run')" in app
