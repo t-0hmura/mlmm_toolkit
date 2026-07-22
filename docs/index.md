@@ -124,6 +124,7 @@ ja/glossary
 | Goal | Page |
 |---|---|
 | Install + run a first end-to-end pipeline | [Getting Started](getting-started.md) |
+| Use the interactive GPU GUI | [Open the mlmm Colab notebook](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb) |
 | mmCIF, large residue IDs, and exact selectors | [mmCIF and Large Structures](cif.md) |
 | 3-layer ONIOM, microiteration, link atoms | [Concepts & Workflow](concepts.md) |
 | End-to-end pipeline from a PDB | [Quickstart: all](quickstart-all.md) |

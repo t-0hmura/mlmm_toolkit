@@ -53,6 +53,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--ref-mode` | path | none | Advanced Cartesian 3N MEP tangent. `all` supplies it; ordinary standalone runs omit it. |
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
+| `--allow-charge-mult-mismatch` | flag | off | Warn and skip ML-region charge/multiplicity electron-parity validation for an intentional mismatch |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_tsopt/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
@@ -62,20 +63,22 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ### Default RS-I-RFO
 
 ```bash
-mlmm tsopt -i hei.xyz -q 0 -m 1 -b uma -o result_tsopt
+mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb \
+    -q 0 -m 1 -b uma -o result_tsopt
 ```
 
 ### Dimer mode (lighter, no full Hessian)
 
 ```bash
-mlmm tsopt -i hei.xyz -q 0 -m 1 \
+mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb -q 0 -m 1 \
     --opt-mode dimer -b uma -o result_tsopt_dimer
 ```
 
 ### Tighter convergence on an ill-conditioned saddle
 
 ```bash
-mlmm tsopt -i hei.xyz -l 'SAM:1,GPP:-3' \
+mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb \
+    -l 'SAM:1,GPP:-3' \
     --opt-mode rsirfo --max-cycles 200 -b mace \
     -o result_tsopt_rsirfo
 ```

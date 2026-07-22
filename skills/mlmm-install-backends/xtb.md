@@ -44,7 +44,7 @@ used by mlmm.
 The feature exposes a Boolean toggle plus a cutoff radius:
 
 ```bash
-mlmm tsopt -i ts_guess.pdb -q 0 -m 1 \
+mlmm tsopt -i ts_guess.pdb --parm real.parm7 -q 0 -m 1 \
     --embedcharge \
     --embedcharge-cutoff 12.0
 ```

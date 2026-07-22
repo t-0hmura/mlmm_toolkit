@@ -699,6 +699,8 @@ def register_all(mcp) -> None:
         charge: int,
         multiplicity: int,
         *,
+        product_pdb: str,
+        intermediate_pdbs: Optional[list[str]] = None,
         ligand_charge: Optional[str] = None,
         max_nodes: Optional[int] = None,
         mep_mode: Optional[str] = None,
@@ -709,9 +711,15 @@ def register_all(mcp) -> None:
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
     ) -> dict[str, Any]:
-        """Recursive ONIOM pathway search (CLI: `mlmm path-search`)."""
+        """Recursive ONIOM pathway search (CLI: `mlmm path-search`).
+
+        ``input_pdb`` and ``product_pdb`` are the required endpoints.
+        Optional intermediates are inserted between them in reaction order, so
+        the CLI always receives the minimum two structures it requires.
+        """
         od = _resolve_out_dir(out_dir, "path_search")
-        argv: list[str] = ["mlmm", "path-search", "-i", input_pdb,
+        endpoint_paths = [input_pdb, *(intermediate_pdbs or []), product_pdb]
+        argv: list[str] = ["mlmm", "path-search", "-i", *endpoint_paths,
                            "--parm", parm7, "-q", str(charge), "-m", str(multiplicity)]
         if ligand_charge:
             argv.extend(["-l", ligand_charge])

@@ -60,7 +60,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ### 2-endpoint MEP, GSM, default refinement
 
 ```bash
-mlmm path-search -i 1.R.pdb 3.P.pdb \
+mlmm path-search -i 1.R.pdb 3.P.pdb --parm real.parm7 \
     -l 'SAM:1,GPP:-3' -b uma \
     -o result_path_search
 ```
@@ -68,7 +68,7 @@ mlmm path-search -i 1.R.pdb 3.P.pdb \
 ### 3-endpoint with explicit intermediate
 
 ```bash
-mlmm path-search -i 1.R.pdb 2.IM.pdb 3.P.pdb \
+mlmm path-search -i 1.R.pdb 2.IM.pdb 3.P.pdb --parm real.parm7 \
     -l 'SAM:1,GPP:-3' -b uma --max-nodes 30 \
     -o result_path_search
 ```
@@ -76,7 +76,7 @@ mlmm path-search -i 1.R.pdb 2.IM.pdb 3.P.pdb \
 ### DMF mode (sometimes better for ill-conditioned strings)
 
 ```bash
-mlmm path-search -i 1.R.pdb 3.P.pdb \
+mlmm path-search -i 1.R.pdb 3.P.pdb --parm real.parm7 \
     --mep-mode dmf --refine-mode minima \
     -l 'SAM:1,GPP:-3' -b uma -o result_path_search
 ```

@@ -137,6 +137,8 @@ def build_pipeline_summary_payload(
     do_dft: bool,
     opt_mode_norm: str,
     opt_mode_post: Optional[str],
+    mep_mode: str,
+    dmf_backend: str,
     command_str: str,
     q_int: int,
     spin: int,
@@ -181,7 +183,8 @@ def build_pipeline_summary_payload(
         "dft": do_dft,
         "opt_mode": opt_mode_norm,
         "opt_mode_post": opt_mode_post.lower() if opt_mode_post else None,
-        "mep_mode": "path-search" if refine_path else "path-opt",
+        "mep_mode": mep_mode,
+        "dmf_backend": dmf_backend,
         "mlip_backend": mlip_backend,
         "mlip_model": mlip_model,
         "mlip_precision": mlip_precision,
@@ -323,6 +326,8 @@ def build_path_child_argv(
     explicit_params: Collection[str],
     *,
     include_opt_mode: bool,
+    mep_mode: str,
+    dmf_backend: str,
     max_nodes: int,
     max_cycles: int,
     climb: bool,
@@ -332,14 +337,18 @@ def build_path_child_argv(
     convert_files: bool,
     thresh: Optional[str],
 ) -> list[str]:
-    """Build explicit-only argv shared by path-search and path-opt children.
+    """Build parent-controlled argv shared by path-search and path-opt children.
 
-    Both path commands accept the same parent-controlled settings except that
-    only path-search accepts ``--opt-mode``.  Pipeline-owned input, charge,
-    topology, output, and config tokens remain at the dispatch call site.
+    The selected MEP algorithm is always forwarded because it is an ``all``
+    workflow selector rather than a YAML setting.  Other parent defaults stay
+    absent so child YAML remains authoritative; in particular, the DMF backend
+    is forwarded only when explicitly supplied.  Only path-search accepts
+    ``--opt-mode``. Pipeline-owned input, charge, topology, output, and config
+    tokens remain at the dispatch call site.
     """
 
     specs: list[ChildArgSpec] = [
+        ("dmf_backend", "--dmf-backend", dmf_backend, False),
         ("max_nodes", "--max-nodes", max_nodes, False),
         ("max_cycles", "--max-cycles", max_cycles, False),
         ("climb", "--climb", climb, True),
@@ -354,7 +363,9 @@ def build_path_child_argv(
             ("thresh", "--thresh", thresh, False),
         ]
     )
-    return build_explicit_child_argv(explicit_params, specs)
+    return ["--mep-mode", str(mep_mode).lower(), *build_explicit_child_argv(
+        explicit_params, specs
+    )]
 
 
 def build_scan_child_argv(

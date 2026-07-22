@@ -11,22 +11,27 @@ _TAG_AWARE_MARKER = "__mlmm_private_echo_tags__"
 
 
 def emit(
-    message: Any = "",
+    message: str = "",
     *,
-    narrative: bool = True,
+    narrative: bool | None = None,
     detail: bool = False,
+    force: bool = False,
+    raw_path: bool = False,
     **kwargs: Any,
 ) -> None:
-    """Emit through the CLI gate when installed, or native Click otherwise.
+    """Echo one line while safely consuming private tags before bootstrap."""
 
-    ``narrative``, ``detail``, ``force``, and ``raw_path`` are MLMM-private
-    presentation metadata.  Programmatic/library use before CLI bootstrap
-    consumes those tags locally so they never reach native ``click.echo``.
-    """
+    if narrative is None:
+        narrative = not (detail or force or raw_path)
 
-    if getattr(click.echo, _TAG_AWARE_MARKER, False):
-        click.echo(message, narrative=narrative, detail=detail, **kwargs)
+    if not getattr(click.echo, _TAG_AWARE_MARKER, False):
+        click.echo(message, **kwargs)
         return
-    kwargs.pop("force", None)
-    kwargs.pop("raw_path", None)
-    click.echo(message, **kwargs)
+    click.echo(
+        message,
+        narrative=narrative,
+        detail=detail,
+        force=force,
+        raw_path=raw_path,
+        **kwargs,
+    )

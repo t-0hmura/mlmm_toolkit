@@ -65,7 +65,6 @@ from mlmm.core.utils import (
     format_elapsed,
     merge_freeze_atom_indices,
     prepare_input_structure,
-    collect_single_option_values,
     load_pdb_atom_metadata,
     parse_scan_list_triples,
     parse_scan_spec_stages,
@@ -413,6 +412,18 @@ def _snapshot_geometry(g) -> Any:
 )
 @add_ml_layer_detection_options()
 @add_ml_charge_spin_options()
+@click.option(
+    "--coord-type",
+    "cli_coord_type",
+    type=click.Choice(["cart", "redund", "dlc", "tric"], case_sensitive=False),
+    default=None,
+    show_default=False,
+    help=(
+        "Compatibility input for composite workflows. ML/MM restrained scan "
+        "relaxation always uses Cartesian coordinates; non-cart values are "
+        "accepted with a notice and resolved to cart."
+    ),
+)
 @add_print_every_option()
 @add_precision_option()
 @add_workers_options()
@@ -459,6 +470,7 @@ def cli(
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
     out_json: bool,
+    cli_coord_type: Optional[str],
     print_every: Optional[int],
     precision: Optional[str],
     workers: Optional[int],
@@ -467,6 +479,19 @@ def cli(
     calc_file: Optional[str],
     calc_factory: Optional[str],
 ) -> None:
+    from mlmm.core.utils import (
+        collect_option_values,
+        current_cli_args,
+        reject_option_like_extra_args,
+    )
+
+    _argv = current_cli_args(ctx)
+
+    reject_option_like_extra_args(
+        ctx.args,
+        allowed_values=collect_option_values(_argv, ("-s", "--scan-lists")),
+        consumed_values=scan_lists_raw,
+    )
     _is_param_explicit = make_is_param_explicit(ctx)
 
     set_convert_file_enabled(convert_files)
@@ -553,6 +578,12 @@ def cli(
             # over the ML/MM system is meaningless (it crashes poly_line_search
             # with a Cartesian/internal dimension mismatch); force Cartesian,
             # matching path-opt / path-search.
+            if cli_coord_type is not None and str(cli_coord_type).lower() != "cart":
+                click.echo(
+                    f"[scan] NOTE: --coord-type={cli_coord_type} is accepted for "
+                    "workflow compatibility, but restrained scan relaxation uses cart.",
+                    err=True,
+                )
             geom_cfg["coord_type"] = "cart"
 
             try:
@@ -659,8 +690,8 @@ def cli(
             if source_path.suffix.lower() == ".pdb":
                 pdb_atom_meta = load_pdb_atom_metadata(source_path)
 
-            cli_scan_values = collect_single_option_values(
-                sys.argv[1:], ("-s", "--scan-lists"), "--scan-lists"
+            cli_scan_values = collect_option_values(
+                _argv, ("-s", "--scan-lists")
             )
             if not cli_scan_values:
                 raise click.BadParameter("--scan-lists is required.")

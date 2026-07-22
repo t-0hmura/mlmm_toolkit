@@ -42,11 +42,13 @@ just the "obvious" ones from the literature.
 | Flag | Default | Meaning |
 |---|---|---|
 | `--max-nodes` | 20 | Maximum string nodes per segment (final string ≤ `max-nodes + 2`) |
+| `--mep-mode gsm\|dmf` | `gsm` | MEP optimizer for both the default and recursive path routes |
+| `--dmf-backend gpu\|cpu` | `gpu` | DMF implementation; set `cpu` after a GPU out-of-memory error |
 
-`--mep-mode` / `--refine-mode` are exposed on standalone `path-search`,
-not on `mlmm all`; by default `mlmm all` runs single-pass `path-opt`
-(GSM) between adjacent pairs, and recursive `path-search` runs only with
-`--refine-path`.
+By default `mlmm all` runs single-pass `path-opt` between adjacent pairs;
+`--refine-path` selects recursive `path-search`. `--mep-mode` controls the
+optimizer in either route. The finer-grained `--refine-mode` remains a
+standalone `path-search` option.
 
 `--scan-lists` is **not** allowed in this mode — it triggers
 `all-scan-list.md` instead.
@@ -90,9 +92,8 @@ Same as the base `all.md`. Specifically for endpoint-MEP mode:
 
 ## Caveats
 
-- The MEP method used internally by `mlmm all` is GSM; to switch to
-  DMF, drive `mlmm path-search` directly with `--mep-mode dmf` and
-  then feed the result into `mlmm tsopt`/`freq`/`irc` manually.
+- GSM is the default. Use `--mep-mode dmf`; choose `--dmf-backend cpu`
+  when the GPU implementation runs out of memory.
 - Under `--refine-path`, path search may discover **more** segments than
   you have inputs: if `summary.json["n_segments"] > len(inputs) - 1`,
   that's the recursive bond-change segmentation finding intermediates the

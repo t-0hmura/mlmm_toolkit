@@ -4,33 +4,42 @@ mlmm は、AI エージェント・スクリプト・下流ツールがプログ
 
 ## `--out-json` フラグ
 
-主要な MLIP 系サブコマンド（`opt`, `sp`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`）が `--out-json / --no-out-json`（デフォルト: off）に対応しています。
-有効にすると、出力ディレクトリに `result.json` が生成されます。
+主要な MLIP 系・レポート系サブコマンド（`opt`, `sp`, `tsopt`, `freq`,
+`irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`, `trj2fig`,
+`energy-diagram`）が `--out-json / --no-out-json`（デフォルト: off）に
+対応しています。有効にすると、正規の `result.json` と、同一内容の互換ミラー
+`summary.json` が通常の出力と同じ場所に生成されます。
 
 ```bash
-mlmm opt -i r_complex_layered.pdb --max-cycles 5 --out-json --out-dir result_opt
+mlmm opt -i r_complex_layered.pdb --parm real.parm7 -q 0 -m 1 \
+  --max-cycles 5 --out-json --out-dir result_opt
 cat result_opt/result.json | python -m json.tool
 ```
 
-`all` / `path-search` は常に `summary.json` を出力します（`--out-json` 不要）。
+`all` / `path-search` は、集約結果を書き込む段階まで到達すると、`--out-json` なしで `summary.json` を出力します。早期の CLI 引数または入力の検証で失敗した場合は、ファイルが作られないことがあります。
 
 ### `summary.json` ミラー
 
-`write_result_json` は各ステージの `result.json` ペイロードを同じディレクトリの `summary.json` にミラーします。MCP クライアントやエージェントスクリプトは全サブコマンドで単一のファイル名（`summary.json`）を読めば済みます。同じディレクトリに書き出される `result.json` も同一内容です。
+`write_result_json` は両方の名前に同じバイト列を準備し、互換ミラー
+`summary.json` を先に、正規の `result.json` を最後に公開します。
+正常終了時は両ファイルのバイト列が同一です。公開が中断された場合は
+`result.json` を正規とし、処理と書き込みが正常終了したことを確認してください。
+実行管理側が `run_id` を割り当てた場合は、その一致も検証します。
 
 ## 共通エンベロープ
 
-すべての `result.json`（およびミラーされた `summary.json`）に自動付与されるフィールド:
+共通の書き込み処理と集約結果の生成側が供給するフィールドを示します。
+任意と記したフィールドは、生成側が対応するデータを渡した場合にだけ含まれます。
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `schema_version` | string | エンベロープのスキーマバージョン。現在値は `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` に由来する（この文書のリテラルではなく定数を参照すること）。値の更新は構造変更を示す。 |
-| `command` | string | サブコマンド名（例: `"opt"`） |
-| `mlmm_version` | string | パッケージバージョン |
-| `status` | string | コマンド固有。all/path-search は success/partial/failed、opt は converged/not_converged/stalled、tsopt は converged/not_converged/stalled/unverified、完了した解析/積分 stage は completed、例外 envelope は error。 |
-| `elapsed_seconds` | float | 実行時間（秒） |
+| `command` | string | leaf envelope はサブコマンド名（例: `"opt"`）、aggregate `all` / `path-search` summary は完全な invocation string。 |
+| `mlmm_version` / `mlmm_toolkit_version` | string | パッケージバージョン（leaf は `mlmm_version`、aggregate summary は `mlmm_toolkit_version`）。 |
+| `status` | string | コマンド固有。`all` は success/partial/failed、`path-search` は success/partial、opt は converged/not_converged/stalled、tsopt はさらに unverified、完了した解析/積分 stage は completed、例外 envelope は error。 |
+| `elapsed_seconds` | float | 任意の実行時間（秒）。shared writer に時間を渡さない producer では省略。 |
 | `environment` | object | ハードウェア情報（下表参照） |
-| `run_id` | string | MCP などの orchestrator が現在の呼び出し identity を割り当てた場合に含まれる。矛盾する caller 値は拒否される。 |
+| `run_id` | string | 任意。MCP などの orchestrator が現在の呼び出し identity を割り当てた場合に含まれる。矛盾する caller 値は拒否される。 |
 
 MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
@@ -42,6 +51,23 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `mm_backend` | string \| null | MM energy/Hessian backend（`hessian_ff` / `openmm`）。plot-onlyではnull |
 | `link_atom_method` | string \| null | link atom配置（`scaled` / `fixed`）。plot-onlyではnull |
 | `use_cmap` | bool \| null | CMAP項を有効にしたか。plot-onlyではnull |
+
+### 実行結果と科学的妥当性
+
+複数段階のワークフローと scan の出力処理は、構成要素を評価できる場合に以下のフィールドを追加します。出力されるフィールドはコマンドによって異なり、各コマンド固有の `status` も互換性のため維持されます。科学的に利用できるかを判断する際は、`scientific_status` と各 outcome を確認してください。収束を確認できない個別結果は安全側に倒して扱われ、`usable` にはなりません。
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `execution_status` | string | 通常は `completed` または `failed`。必須の構成コマンドが実行されたかを示します。 |
+| `scientific_status` | string | `success`、`partial`、`failed`。得られた科学的結果が完全かつ利用可能かを示します。 |
+| `scientific_status_reasons` | string[] | 利用できない、または欠落した個別結果の理由。正常終了時は省略されます。集約ワークフローの従来の `status_reasons` とは別です。 |
+| `expected_item_ids` / `observed_item_ids` | string[] | 集約結果の欠落を検出するための、期待された項目と観測された項目の ID。 |
+| `stage_outcomes` | object[] | `stage`、`item_id`、`required`、`executed`、`converged`、`usable`、`reason`、`artifacts` を持つ段階別 outcome。 |
+| `point_outcomes` | object[] | `point_id`、`executed`、`converged`、`energy_valid`、`artifact_written`、`seed_eligible`、`reason` を持つ scan 点別 outcome。 |
+
+`run_id` が存在する場合は、現在の呼び出しを識別します。`all` の集約結果では
+`current_output_paths` と `key_output_files` をその呼び出しの manifest から
+再構築するため、再利用した出力ディレクトリに残る既存ファイルは除外されます。
 
 ### エラーエンベロープ（`status == "error"` のとき）
 
@@ -195,6 +221,21 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `engine` | string | 実際に使用した runtime engine label |
 | `charges` / `spin_densities` | object | `{mulliken, lowdin, iao}` 原子電荷/スピン密度 |
 
+### `trj2fig`
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `status` | string | `"ok"` |
+| `n_frames` | int | 軌跡のフレーム数。 |
+| `min_energy_hartree` / `max_energy_hartree` | float | フレームエネルギーの最小値と最大値。 |
+| `energy_source` | string | `"trajectory_comment"` または `"mlip_recomputed"`。 |
+| `mlip_backend` / `mlip_model` / `mlip_precision` | string \| null | 再計算で確定した来歴。コメントモードではすべて null。 |
+| `charge` / `multiplicity` | int \| null | 再計算で解決された電荷とスピン多重度。コメントモードでは null。再計算時に省略した値は 0 と 1。 |
+| `output_files` | string[] | すべての出力パスを順序どおりに保持する正規フィールド。別ディレクトリに同名ファイルがあっても保持される。 |
+| `files` | object | 後方互換用のベース名からパスへの対応表。同じベース名が重複すると一方だけが残る。 |
+
+`-q/--charge` または `-m/--multiplicity` のいずれかを指定すると、選択した MLIP で全フレームを再計算します。これは MLIP による各フレームの直接再評価であり、トポロジーやモデル領域の入力を受け取らず、ONIOM エネルギーは計算しません。
+
 ### `extract`
 
 | フィールド | 型 | 説明 |
@@ -217,11 +258,22 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `ligand_charge_input` | string | 生の `-l/--ligand-charge` 引数 |
 | `ion_charges` | array | イオン残基の `[残基名, 電荷]` ペアのリスト |
 
+### `energy-diagram`
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `status` | string | `"ok"` |
+| `n_points` | int | エネルギーデータ点の数 |
+| `files` | object | 出力ダイアグラムのファイル名からパスへの対応表 |
+
 ## `summary.json` (`path-search` / `all`)
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `status` | string | `"success"` / `"partial"` / `"failed"`（all。path-search は success/partial） |
+| `execution_status` / `scientific_status` | string / string | 実行の完了度と科学的な利用可能性。従来の `status` とは分けて評価します。 |
+| `scientific_status_reasons` | string[] | 不完全または利用できない科学的結果の理由。正常終了時は省略されます。 |
+| `expected_item_ids` / `observed_item_ids` | string[] | 期待された集約項目と観測された集約項目。 |
 | `n_segments` | int | セグメント数 |
 | `segments` | object[] | セグメントごとの障壁、反応エネルギー、結合変化 |
 | `energy_diagrams` | object[] | エネルギーダイアグラム |
@@ -232,7 +284,16 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `spin` | int | モデル領域のスピン多重度 |
 | `environment` | object | ハードウェア情報 |
 
-`all` はさらに `n_segments_reactive`（bridge 以外の反応セグメント数）, `rate_limiting_step`, `overall_reaction_energy_kcal`, `post_segments` を含みます。
+`all` はさらに以下を含みます。
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `n_segments_reactive` | int | bridge 以外の反応セグメント数。 |
+| `rate_limiting_step` | object | 最大障壁を持つセグメントと method。 |
+| `overall_reaction_energy_kcal` | float | 全体の反応エネルギー。 |
+| `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果。 |
+| `key_output_files` | object | 現在の呼び出しの出力索引。ルートファイルはファイル名 → 説明、各 `seg_NN` は `{description, files}` で、`files` はそのセグメントディレクトリからの相対パス。 |
+| `current_output_paths` | string[] | `--out-dir` からの相対パスを並べたリスト。現在の呼び出しが記録した成果物だけを含みます。 |
 
 ## 使用例
 

@@ -10,7 +10,7 @@ without the upstream extract / path-search.
 ## Synopsis
 
 ```bash
-mlmm all --parm enzyme.parm7 -i ts_candidate.xyz \
+mlmm all --parm enzyme.parm7 -i ts_candidate.xyz --ref-pdb enzyme_layered.pdb \
     -q -1 -m 1 -b uma \
     --tsopt --thermo \
     [--dft --dft-func-basis 'wb97m-v/def2-svp'] \
@@ -42,9 +42,9 @@ validation error.
 For finer control, run the underlying subcommands directly:
 
 ```bash
-mlmm tsopt -i ts.xyz -q ... -m 1 -o result_tsopt -b uma
-mlmm irc   -i result_tsopt/final_geometry.xyz -o result_irc -b uma
-mlmm freq  -i result_tsopt/final_geometry.xyz -o result_freq -b uma
+mlmm tsopt -i ts.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_tsopt -b uma
+mlmm irc   -i result_tsopt/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_irc -b uma
+mlmm freq  -i result_tsopt/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_freq -b uma
 ```
 
 ## Pipeline collapses to
@@ -132,9 +132,8 @@ saddle**; see "Distinctive failure modes" below.
 
 - `--tsopt` is mandatory in TS-only mode; `--no-tsopt` with
   a single PDB triggers a validation error.
-- For an XYZ TS candidate, you must supply `-q` and `-m` explicitly
-  (XYZ has no header). Use `--ref-pdb cluster.pdb` if you want
-  `-l 'RES:Q'` to work.
+- For an XYZ TS candidate, supply `--ref-pdb` for topology and B-factor
+  layers, plus `-q` and `-m` because XYZ has no charge or spin metadata.
 - The IRC step here is the **canonical validation** that the TS
   connects the expected R and P. Always read `segments/seg_01/{reactant,product}.pdb`
   to confirm the IRC ended up where you thought.

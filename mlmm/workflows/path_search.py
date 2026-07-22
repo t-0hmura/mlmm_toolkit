@@ -78,7 +78,6 @@ from mlmm.core.utils import (
     read_bfactors_from_pdb,
     has_valid_layer_bfactors,
     parse_layer_indices_from_bfactors,
-    collect_single_option_values,
 )
 from mlmm.core.result_commit import commit_json_exact, with_current_run_id
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
@@ -543,7 +542,9 @@ def _run_dmf_between(
     except Exception as e:
         raise RuntimeError(
             "DMF mode requires cyipopt and pydmf>=1.2 "
-            "(`pip install 'pydmf[torch]'` for the default gpu backend): " f"{e}"
+            "(`conda install -c conda-forge cyipopt -y`, then `pip install "
+            "'pydmf[torch]>=1.2'` for GPU or `pip install 'pydmf>=1.2'` for CPU): "
+            f"{e}"
         ) from e
 
     from mlmm.workflows.restraints import HarmonicFixAtoms
@@ -1038,6 +1039,81 @@ def _path_leaves_and_expected(
             )
         )
     return leaves, expected
+
+
+def _enrich_path_summary_contract(
+    summary: Dict[str, Any],
+    *,
+    segments: Sequence[SegmentReport],
+    out_dir: Path,
+    calc_cfg: Dict[str, Any],
+    command: str,
+) -> Dict[str, Any]:
+    """Attach the fail-closed machine contract for standalone path-search."""
+
+    try:
+        from mlmm._version import __version__
+    except Exception:
+        __version__ = "unknown"
+    from mlmm.core.utils import (
+        RESULT_JSON_SCHEMA_VERSION,
+        calculator_provenance,
+    )
+    from mlmm.workflows._outcomes import (
+        aggregate_workflow_truth,
+        attach_outcomes,
+    )
+
+    summary["mlmm_toolkit_version"] = __version__
+    summary["schema_version"] = RESULT_JSON_SCHEMA_VERSION
+    summary["pipeline_mode"] = "path-search"
+    raw_artifacts = [
+        name
+        for name in (
+            "mep.pdb",
+            "mep.cif",
+            "mep_plot.png",
+            "energy_diagram_MEP.png",
+        )
+        if (out_dir / name).exists()
+    ]
+    path_leaves, path_expected = _path_leaves_and_expected(
+        segments,
+        raw_artifacts=raw_artifacts,
+    )
+    path_truth = aggregate_workflow_truth(path_leaves, path_expected)
+
+    reactive = [
+        segment
+        for segment in segments
+        if getattr(segment, "kind", "seg") != "bridge"
+    ]
+    legacy_status = "success" if summary.get("energy_diagrams") else "partial"
+    if legacy_status == "success" and not reactive:
+        legacy_status = "partial"
+    summary["status"] = legacy_status
+    attach_outcomes(summary, truth=path_truth, stage_outcomes=path_leaves)
+    summary.update(calculator_provenance(calc_cfg))
+    summary["charge"] = calc_cfg.get("model_charge")
+    summary["spin"] = calc_cfg.get("model_mult")
+    summary["command"] = command
+    try:
+        from mlmm.core.utils import _collect_environment_info
+
+        summary.setdefault("environment", _collect_environment_info())
+    except Exception:
+        pass
+    return summary
+
+
+def _summary_log_provenance(summary: Dict[str, Any]) -> Dict[str, Any]:
+    """Copy calculator provenance from the already-enriched run summary."""
+
+    return {
+        "mlip_backend": summary.get("mlip_backend"),
+        "mlip_model": summary.get("mlip_model"),
+        "mlip_precision": summary.get("mlip_precision"),
+    }
 
 
 def _trailing_kink_count(segments: Sequence[SegmentReport]) -> int:
@@ -1597,11 +1673,25 @@ def cli(
     calc_file: Optional[str],
     calc_factory: Optional[str],
 ) -> None:
+    from mlmm.core.utils import (
+        collect_option_values,
+        current_cli_args,
+        reject_option_like_extra_args,
+    )
+
+    argv_all = current_cli_args(ctx)
+    _claimed_values = collect_option_values(
+        argv_all, ("-i", "--input", "--ref-pdb")
+    )
+    reject_option_like_extra_args(
+        ctx.args,
+        allowed_values=_claimed_values,
+        consumed_values=[*input_paths, *(ref_pdb_paths or ())],
+    )
     set_convert_file_enabled(convert_files)
     prepared_inputs: List[PreparedInputStructure] = []
     # --- Robustly accept both styles for -i/--input and --ref-pdb ---
-    argv_all = sys.argv[1:]  # drop program name
-    i_vals = collect_single_option_values(argv_all, ("-i", "--input"), label="-i/--input")
+    i_vals = collect_option_values(argv_all, ("-i", "--input"))
     if i_vals:
         i_parsed = validate_existing_files(
             i_vals,
@@ -1610,7 +1700,7 @@ def cli(
         )
         input_paths = tuple(i_parsed)
 
-    ref_vals = collect_single_option_values(argv_all, ("--ref-pdb",), label="--ref-pdb")
+    ref_vals = collect_option_values(argv_all, ("--ref-pdb",))
     if ref_vals:
         ref_parsed = validate_existing_files(
             ref_vals,
@@ -1633,7 +1723,7 @@ def cli(
     )
 
     time_start = time.perf_counter()  # start timing
-    command_str = "mlmm path-search " + " ".join(sys.argv[1:])
+    command_str = "mlmm " + " ".join(argv_all)
     try:
         if len(input_paths) < 2:
             raise click.BadParameter("Provide at least two structures for --input in reaction order (reactant [intermediates ...] product).")
@@ -2434,48 +2524,13 @@ def cli(
         if diagram_payload is not None:
             summary["energy_diagrams"] = [diagram_payload]
 
-        # Inline enrichment for machine-readable summary.json
-        try:
-            from mlmm._version import __version__
-        except Exception:
-            __version__ = "unknown"
-        summary["mlmm_toolkit_version"] = __version__
-        summary["pipeline_mode"] = "path-search"
-        summary["status"] = "success" if summary.get("energy_diagrams") else "partial"
-        # Additive C6 truth axes (M29): the legacy overloaded ``status`` above is
-        # left intact; ``scientific_status`` is computed from truthful per-segment
-        # LeafOutcomes so a nonconverged reactive segment (whose trajectory still
-        # exists) cannot make the path a scientific success. An endpoint-HEI path
-        # (segments=[]) yields an unusable raw_path leaf → partial, not success.
-        try:
-            from mlmm.workflows._outcomes import (
-                aggregate_workflow_truth as _agg_truth,
-                attach_outcomes as _attach_outcomes,
-            )
-            _raw_artifacts = []
-            if (out_dir_path / "mep.pdb").exists():
-                _raw_artifacts.append("mep.pdb")
-            if (out_dir_path / "energy_diagram_MEP.png").exists():
-                _raw_artifacts.append("energy_diagram_MEP.png")
-            _path_leaves, _path_expected = _path_leaves_and_expected(
-                combined_all.segments, raw_artifacts=_raw_artifacts
-            )
-            _path_truth = _agg_truth(_path_leaves, _path_expected)
-            _attach_outcomes(summary, truth=_path_truth, stage_outcomes=_path_leaves)
-        except Exception:
-            logger.debug("Failed to attach path-search C6 outcomes", exc_info=True)
-        from mlmm.core.utils import calculator_provenance
-
-        _provenance = calculator_provenance(calc_cfg)
-        summary.update(_provenance)
-        summary["charge"] = calc_cfg.get("model_charge")
-        summary["spin"] = calc_cfg.get("model_mult")
-        summary["command"] = command_str
-        try:
-            from mlmm.core.utils import _collect_environment_info
-            summary.setdefault("environment", _collect_environment_info())
-        except Exception:
-            pass
+        _enrich_path_summary_contract(
+            summary,
+            segments=combined_all.segments,
+            out_dir=out_dir_path,
+            calc_cfg=calc_cfg,
+            command=command_str,
+        )
 
         summary = with_current_run_id(summary)
         commit_json_exact(out_dir_path / "summary.json", summary)
@@ -2513,9 +2568,7 @@ def cli(
                 "dft": False,
                 "opt_mode": opt_mode,
                 "mep_mode": "path-search",
-                "mlip_backend": _provenance["mlip_backend"],
-                "mlip_model": _provenance["mlip_model"],
-                "mlip_precision": _provenance["mlip_precision"],
+                **_summary_log_provenance(summary),
                 "command": command_str,
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),

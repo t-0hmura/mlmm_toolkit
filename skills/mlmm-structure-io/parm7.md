@@ -70,7 +70,7 @@ subcommand reads the layered structure from `-i` and the topology from
 `--parm` (use `--ref-pdb` only when the input is an XYZ):
 
 ```bash
-mlmm opt -i complex.pdb --parm complex.parm7 -b uma -o result_opt
+mlmm opt -i complex.pdb --parm complex.parm7 -q 0 -m 1 -b uma -o result_opt
 ```
 
 For a PDB input the ML region comes from B-factor-0 atoms via `--detect-layer` (default on), regardless of `--ref-pdb`; "all-MM" results only when the PDB has no ML-tagged atoms. `--ref-pdb` only supplies topology for XYZ input.

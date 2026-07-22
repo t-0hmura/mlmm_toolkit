@@ -6,8 +6,9 @@ Each `mlmm` subcommand writes to its output directory following the filename con
 
 | Filename | Written by | Purpose |
 |---|---|---|
-| `summary.json` | `all`, `path-search`, and per-stage subcommands **only when `--out-json` is passed** (default `--no-out-json`) | Authoritative JSON envelope (see [JSON Output Reference](json-output.md)). Read this first. Pure utility subcommands (e.g. `fix-altloc`, `add-elem-info`, `bond-summary`) never emit it. |
-| `result.json` | per-stage subcommands **only when `--out-json` is passed** — default `--no-out-json` (`opt`, `tsopt`, `freq`, `irc`, `sp`, `scan` / `scan2d` / `scan3d`, `path-opt`, `dft`, `extract`) | Alternate filename — identical payload to `summary.json`. Prefer `summary.json` so downstream code reads a single filename; `result.json` holds identical content and can be deleted. |
+| `summary.json` | `all` and `path-search` after their summary writer is reached | Authoritative aggregate JSON envelope (see [JSON Output Reference](json-output.md)). Early CLI/input validation may fail before it exists. |
+| `summary.json` | successful per-stage/report runs with `--out-json` (default `--no-out-json`); caught runtime errors may write a best-effort envelope without the flag | Compatibility mirror of leaf `result.json`. A successful writer return guarantees identical bytes. Pure utilities such as `fix-altloc`, `add-elem-info`, and `bond-summary` never emit it. |
+| `result.json` | same conditions as the per-stage `summary.json` (`opt`, `tsopt`, `freq`, `irc`, `sp`, scan variants, `path-opt`, `dft`, `extract`, `trj2fig`, `energy-diagram`) | Authoritative leaf/report envelope, published after its compatibility mirror. Consume this file when distinguishing interrupted generations. |
 | `summary.log` | `path-search`, `all` | Human-readable run log (one row per segment / stage). |
 | `final_geometry.xyz` | `opt`, `tsopt` | Optimized geometry (XYZ, full precision). |
 | `mep.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`, `all` | Reaction path frames; `mep.cif` restores original IDs for bridged input. Standalone `path-opt` writes `final_geometries_trj.xyz` / `final_geometries.pdb` instead. |
@@ -67,12 +68,13 @@ In TSOPT-only mode there is no MEP stage, so `_work/path_opt/` is absent and the
 ## Agent recipe
 
 ```python
-# Read whichever subcommand's output, single filename across the board.
-# (all / path-search write summary.json; per-stage subcommands need --out-json.)
+# Select the authoritative name for the command that produced out_dir.
 import json
 from pathlib import Path
 
-summary = json.loads((Path(out_dir) / "summary.json").read_text())
+subcommand = "opt"  # replace with the command you ran
+primary = "summary.json" if subcommand in {"all", "path-search"} else "result.json"
+summary = json.loads((Path(out_dir) / primary).read_text())
 
 if summary["status"] == "error":
     chain = summary.get("error_class_chain", [])
@@ -83,4 +85,4 @@ if summary["status"] == "error":
         raise RuntimeError(summary["error"])
 ```
 
-`summary.json` / `result.json` are written by `all` and `path-search`, and by per-stage subcommands **only when `--out-json` is passed** (default `--no-out-json`). When written on the success path the envelope carries the schema version + status; do not assume a per-stage `summary.json` exists by default.
+`all` / `path-search` write aggregate `summary.json` after reaching their summary writer. Per-stage/report commands write `result.json` plus the mirror on a successful `--out-json` run; caught runtime exceptions may write a best-effort error envelope even without the flag. Do not assume a per-stage JSON file exists after usage validation or before its output directory is resolved.

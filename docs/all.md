@@ -4,7 +4,7 @@
 
 `all` runs in one of three modes, chosen by what you pass:
 
-- **Multi-structure ensemble** — give ≥ 2 full PDBs in reaction order to drive a GSM MEP search across the supplied structures.
+- **Multi-structure ensemble** — give ≥ 2 full PDBs in reaction order to drive a GSM (default) or DMF MEP search across the supplied structures.
 - **Single-structure staged scan** — give one PDB plus `--scan-lists`; each literal is a scan stage and the relaxed endpoints become the MEP endpoints.
 - **TSOPT-only** — give a single PDB and set `--tsopt` (no `--scan-lists`) to run TS optimization directly, with no MEP search.
 
@@ -54,6 +54,13 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
     --backend orb --embedcharge --out-dir ./result_all_orb
 ```
 
+DMF with the CPU implementation (the default DMF backend is GPU):
+
+```bash
+mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
+    --mep-mode dmf --dmf-backend cpu --out-dir ./result_all_dmf
+```
+
 PDB companion files are generated when reference templates are available; control with `--convert-files` (on by default).
 
 ## Workflow
@@ -72,7 +79,8 @@ PDB companion files are generated when reference templates are available; contro
 4. **MEP search on full-system layered PDBs**
    - All MEP calculations run on full-system layered PDBs (with `--parm` and `--detect-layer`), not on pockets.
    - **`--refine-path`** runs recursive `path_search` with automatic refinement, detecting multistep reactions and building a detailed MEP per elementary step. Complex multistep mechanisms may need manual trial-and-error to obtain a converged pathway.
-   - **`--no-refine-path` (default)** runs `path-opt` GSM per adjacent pair, then concatenates trajectories, extracts the HEI per segment, detects bond changes, and writes `summary.json`. Both modes support Stage 5 post-processing.
+   - Select GSM (default) or DMF with `--mep-mode`. `--dmf-backend gpu` uses `dmf.torch`; use `--dmf-backend cpu` for the NumPy implementation or after a GPU out-of-memory error.
+   - **`--no-refine-path` (default)** runs `path-opt` with the selected optimizer per adjacent pair, then concatenates trajectories, extracts the HEI per segment, detects bond changes, and writes `summary.json`. Both modes support Stage 5 post-processing.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
 5. **Summary and optional post-processing**
    - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
@@ -117,12 +125,12 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
     pockets/                     # Per-input pocket PDBs (multi-structure union)
     scan/                        # present only in single-structure + scan mode (stage_01/result.pdb …)
     path_opt/                    # raw MEP-engine output (path_search/ with --refine-path)
-      summary.{json,log} · seg_NN_mep/    # raw per-segment GSM trajectories (merged MEP products are moved to the root)
+      summary.{json,log} · seg_NN_mep/    # raw per-segment MEP trajectories (merged products are moved to the root)
 ```
 
 In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage: the optimized R/TS/P plus `ts/`, `irc/`, `freq/`, and `dft/` land under `segments/seg_01/`, and `_work/path_opt/` is absent.
 
-At `-v 2` the console summarises extraction, MM preparation, scan stages, MEP progress (GSM), and per-stage timing; see {ref}`verbosity-levels`.
+At `-v 2` the console summarises extraction, MM preparation, scan stages, MEP progress, and per-stage timing; see {ref}`verbosity-levels`.
 
 ### Reading `summary.log`
 
@@ -192,9 +200,11 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | Option | Description | Default |
 | --- | --- | --- |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
-| `--max-nodes INT` | Internal nodes for segment GSM. | `20` |
-| `--max-cycles INT` | Maximum GSM macro-cycles. | `300` |
-| `--climb / --no-climb` | Enable TS refinement for segment GSM. | `True` |
+| `--mep-mode [gsm\|dmf]` | MEP optimizer forwarded to both `path-opt` and recursive `path-search`. | `gsm` |
+| `--dmf-backend [gpu\|cpu]` | DMF implementation. The parent forwards this only when explicitly set, so a child YAML `dmf.backend` remains effective otherwise. | `gpu` |
+| `--max-nodes INT` | Internal nodes per GSM/DMF segment. | `20` |
+| `--max-cycles INT` | Maximum MEP optimization cycles. | `300` |
+| `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
 | `--opt-mode [grad\|hess]` | Optimizer preset for scan / path-search and single optimizations (`grad` → L-BFGS / Dimer, `hess` → RFO / RSIRFO). | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). | `hess` |
 | `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). Effective default: `gau_loose` for path-opt, `gau` for scan. | _None_ |
@@ -236,6 +246,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
 | `--reject-uphill / --no-reject-uphill` | Reject energy-raising RFO steps during post-IRC **endpoint re-optimization only** (forwarded to the opt child); does not affect TS optimization or path search. | `True` |
 | `--tr-projection [constrained\|legacy-active]` | Forward the frozen-boundary TR treatment to `tsopt`, `irc`, `freq`, and flatten PHVA. `legacy-active` is an isolated-active comparison treatment using the current common kernel. | `constrained` |
+| `--irc-step-size FLOAT` | Override the EulerPC maximum step (Bohr) for every post-TS IRC. If a branch stops after only a few frames, retry with a smaller value such as `0.05`. | IRC default `0.10` |
 | `--irc-never-stop / --no-irc-never-stop` | Forward opt-in IRC continuation across energy-rise/plateau stops. Integrator convergence, invalid values, and the cycle cap still stop each branch. | `False` |
 | `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |
 | `--tsopt-out-dir PATH` | Custom tsopt subdirectory. | _None_ |

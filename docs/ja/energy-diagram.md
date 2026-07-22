@@ -37,7 +37,11 @@ mlmm energy-diagram -i "[0, 12.5, 4.3]" --label-x R TS P --label-y "ΔE (kcal/mo
 
 ## 出力
 
-- `OUTPUT.(png|jpg|jpeg|svg|pdf)` -- 描画されたエネルギーダイアグラム画像
+```text
+OUTPUT.(png|jpg|jpeg|svg|pdf)
+result.json   # status / n_points / files と共通 envelope を持つ任意の正規サイドカー
+summary.json  # --out-json 成功時に byte 単位で同一の互換ミラー
+```
 
 ## CLI オプション
 | オプション | 説明 | デフォルト |
@@ -46,7 +50,7 @@ mlmm energy-diagram -i "[0, 12.5, 4.3]" --label-x R TS P --label-y "ΔE (kcal/mo
 | `-o, --output PATH` | 出力画像パス（`.png/.jpg/.jpeg/.svg/.pdf`） | `energy_diagram.png` |
 | `--label-x TEXT...` | X 軸状態ラベル（入力値と同じ個数が必要） | `S1, S2,...` |
 | `--label-y TEXT` | Y 軸ラベル | `ΔE (kcal/mol)` |
-| `--out-json / --no-out-json` | 出力画像の隣に機械可読の `result.json` を書き出します。 | `--no-out-json` |
+| `--out-json / --no-out-json` | 出力画像の隣に正規 `result.json` と同一内容の `summary.json` ミラーを書き出します。 | `--no-out-json` |
 
 すべてのフラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)を参照してください。
 

@@ -11,7 +11,7 @@ inferred from the filename suffix (`.png` / `.html` / `.svg` / `.pdf` /
 ## Synopsis
 
 ```bash
-mlmm trj2fig -i trajectory.xyz [-o out.png] [-o out.html] [--unit kcal|hartree]
+mlmm trj2fig -i trajectory.xyz [-o out.png] [-o out.html] [--unit kcal|hartree] [--out-json]
 ```
 
 ## Key flags
@@ -24,6 +24,10 @@ mlmm trj2fig -i trajectory.xyz [-o out.png] [-o out.html] [--unit kcal|hartree]
 | `-r, --reference` | str | `init` | Reference: `init` (initial frame), `None` (absolute E), or integer index. |
 | `-q, --charge` | int | — | Total charge; recompute energies when supplied. |
 | `-m, --multiplicity` | int | — | Spin multiplicity (2S+1); recompute energies when supplied. |
+| `-b, --backend` | choice | `uma` | Recomputation backend: `uma`, `orb`, `mace`, or `aimnet2`. |
+| `--backend-model` | str | backend default | Model variant used for recomputation. |
+| `--precision` | choice | backend default | Case-insensitive `fp32` or `fp64`. |
+| `--out-json` / `--no-out-json` | flag | off | Write `result.json` beside the first output. |
 | `--reverse-x` / `--no-reverse-x` | flag | off | Reverse the x-axis (last frame on the left). |
 
 ## Examples
@@ -46,11 +50,20 @@ mlmm trj2fig -i scan_trj.xyz -o mep.html
 mlmm trj2fig -i scan_trj.xyz -o profile.png -o profile.csv
 ```
 
+### Recompute and record provenance
+
+```bash
+mlmm trj2fig -i trajectory.xyz -q 0 -m 1 -b uma \
+    --backend-model uma-s-1p2 --precision fp32 -o profile.png --out-json
+```
+
 ## Caveats
 
 - The XYZ comment line must contain the energy as a decimal or scientific
   float (e.g. `-1234.56` or `-1.23e3`); the first such number is used. A bare
   integer is rejected to avoid mistaking a frame index for an energy.
+- Either `-q` or `-m` recomputes every frame with the selected MLIP; omitted values resolve to charge 0 and multiplicity 1. This is a direct MLIP rescore, not an ONIOM energy.
+- Comment-mode JSON records null backend/model/precision/charge/multiplicity; recomputation records the resolved provenance.
 - For a labeled energy diagram (R / TS / IM / P), use `energy-diagram.md`
   instead.
 

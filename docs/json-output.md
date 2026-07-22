@@ -4,33 +4,40 @@ mlmm provides machine-readable JSON output for programmatic consumption by AI ag
 
 ## `--out-json` flag
 
-Most MLIP-based subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`) support `--out-json / --no-out-json` (default: off).
-When enabled, a `result.json` file is written to the output directory alongside the normal outputs.
+Most MLIP-based and reporting subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `dft`, `extract`, `trj2fig`, and `energy-diagram`) support `--out-json / --no-out-json` (default: off).
+When enabled, authoritative `result.json` and its identical `summary.json` compatibility mirror are written beside the normal outputs.
 
 ```bash
-mlmm opt -i r_complex_layered.pdb --max-cycles 5 --out-json --out-dir result_opt
+mlmm opt -i r_complex_layered.pdb --parm real.parm7 -q 0 -m 1 \
+  --max-cycles 5 --out-json --out-dir result_opt
 cat result_opt/result.json | python -m json.tool
 ```
 
-The `all` and `path-search` commands always write `summary.json` (no `--out-json` flag needed).
+The `all` and `path-search` commands write `summary.json` without an `--out-json` flag once execution reaches their summary writer. Early CLI or input validation can fail before the file exists.
 
 ### `summary.json` mirror
 
-`write_result_json` mirrors every per-stage `result.json` payload to `summary.json` alongside it. MCP clients and agent scripts can read a single filename (`summary.json`) across every subcommand; the `result.json` written next to it carries the identical payload.
+`write_result_json` stages the same bytes for both names, publishes the
+`summary.json` compatibility mirror first, and publishes authoritative
+`result.json` last. A successful return guarantees identical bytes. If
+publication is interrupted, treat `result.json` as authoritative and require
+successful process/writer completion; when an orchestrator assigned `run_id`,
+validate it as well rather than assuming both names identify one generation.
 
 ## Common envelope
 
-Every `result.json` (and the mirrored `summary.json`) automatically includes:
+The shared writer and aggregate summary producers supply the fields below.
+Rows marked optional are present only when the producer supplies that data:
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `schema_version` | string | Envelope schema version; current value comes from `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` — pin against that constant rather than the literal in this doc. Bumps signal a structural change. |
-| `command` | string | Subcommand name (e.g. `"opt"`) |
-| `mlmm_version` | string | Package version |
-| `status` | string | Command-specific: `all`/`path-search` use `success`/`partial`/`failed`; `opt` uses `converged`/`not_converged`/`stalled`; `tsopt` uses `converged`/`not_converged`/`stalled`/`unverified`; completed analysis/integration stages use `completed`; exception envelopes use `error`. |
-| `elapsed_seconds` | float | Wall-clock time (seconds) |
+| `command` | string | Leaf envelopes use the subcommand name (e.g. `"opt"`); aggregate `all` / `path-search` summaries record the full invocation. |
+| `mlmm_version` / `mlmm_toolkit_version` | string | Package version (`mlmm_version` in leaf envelopes; `mlmm_toolkit_version` in aggregate summaries). |
+| `status` | string | Command-specific: `all` uses `success`/`partial`/`failed`; `path-search` uses `success`/`partial`; `opt` uses `converged`/`not_converged`/`stalled`; `tsopt` also has `unverified`; completed analysis/integration stages use `completed`; exception envelopes use `error`. |
+| `elapsed_seconds` | float | Optional wall-clock time; omitted when the producer does not pass timing to the shared writer. |
 | `environment` | object | Hardware info (see below) |
-| `run_id` | string | Present when an orchestrator (including MCP) assigns a current invocation identity; conflicting caller values are rejected. |
+| `run_id` | string | Optional. Present when an orchestrator (including MCP) assigns a current invocation identity; conflicting caller values are rejected. |
 
 MLIP/ML/MM calculator stages additionally record:
 
@@ -42,6 +49,23 @@ MLIP/ML/MM calculator stages additionally record:
 | `mm_backend` | string \| null | MM Hessian/energy backend (`hessian_ff` or `openmm`); null when a plot-only command did not evaluate a calculator |
 | `link_atom_method` | string \| null | Link-atom placement (`scaled` or `fixed`); null for plot-only output |
 | `use_cmap` | bool \| null | Whether CMAP terms were enabled; null for plot-only output |
+
+### Execution and scientific truth
+
+Multi-stage and scan producers add the fields below when they can evaluate constituent work. These fields are additive and producer-dependent; the command-specific `status` remains in place. Consumers should gate scientific use on `scientific_status` and the leaf outcomes. Missing or ambiguous convergence is fail-closed and cannot promote a leaf to usable.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `execution_status` | string | Normally `completed` or `failed`; reports whether required constituent commands executed. |
+| `scientific_status` | string | `success`, `partial`, or `failed`; reports whether the produced scientific result is complete and usable. |
+| `scientific_status_reasons` | string[] | Reasons for unusable or missing leaves; omitted on clean success. This is distinct from an aggregate workflow's legacy `status_reasons`. |
+| `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed leaf identifiers used to detect missing aggregate work. |
+| `stage_outcomes` | object[] | Stage leaves with `stage`, `item_id`, `required`, `executed`, `converged`, `usable`, `reason`, and `artifacts`. |
+| `point_outcomes` | object[] | Scan points with `point_id`, `executed`, `converged`, `energy_valid`, `artifact_written`, `seed_eligible`, and `reason`. |
+
+When present, `run_id` identifies the current invocation. The `all` aggregate
+rebuilds `current_output_paths` and `key_output_files` from that invocation's
+manifest, so stale files in a reused output tree are excluded.
 
 ### Error envelope (when `status == "error"`)
 
@@ -245,6 +269,21 @@ the imported energy grid does not identify the calculator that produced it.
 | `engine` | string | Actual runtime engine label (`pyscf(cpu)`, `gpu4pyscf`, or low-memory GPU variant) |
 | `files` | object | `{"result_yaml": "result.yaml"}` |
 
+### `trj2fig`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `"ok"` |
+| `n_frames` | int | Number of trajectory frames. |
+| `min_energy_hartree` / `max_energy_hartree` | float | Minimum and maximum frame energies. |
+| `energy_source` | string | `"trajectory_comment"` or `"mlip_recomputed"`. |
+| `mlip_backend` / `mlip_model` / `mlip_precision` | string \| null | Resolved recomputation provenance; all are null in comment mode. |
+| `charge` / `multiplicity` | int \| null | Resolved recomputation state; null in comment mode. Omitted recomputation values resolve to 0 and 1. |
+| `output_files` | string[] | Canonical ordered paths for every output; preserves files with the same basename in different directories. |
+| `files` | object | Legacy basename-to-path map; retained for compatibility and therefore lossy when basenames collide. |
+
+Supplying either `-q/--charge` or `-m/--multiplicity` recomputes every frame with the selected MLIP. This is a direct MLIP frame rescore; the command has no topology or model-region input and does not calculate an ONIOM energy.
+
 ### `extract`
 
 | Field | Type | Description |
@@ -267,13 +306,24 @@ the imported energy grid does not identify the calculator that produced it.
 | `ligand_charge_input` | string | Raw `-l/--ligand-charge` argument |
 | `ion_charges` | array | List of `[resname, charge]` pairs for ion residues encountered |
 
+### `energy-diagram`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `"ok"` |
+| `n_points` | int | Number of energy data points |
+| `files` | object | Output diagram filename-to-path map |
+
 ## `summary.json` (`path-search` / `all`)
 
 The `all` and `path-search` commands write `summary.json`:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"success"` / `"partial"` |
+| `status` | string | `"success"` / `"partial"` / `"failed"` for `all`; `"success"` / `"partial"` for `path-search`. |
+| `execution_status` / `scientific_status` | string / string | Execution completeness and scientific usability; evaluate these separately from legacy `status`. |
+| `scientific_status_reasons` | string[] | Reasons for incomplete or unusable science; omitted on clean success. |
+| `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed aggregate leaves. |
 | `n_segments` | int | Segment count |
 | `segments` | object[] | Per-segment barrier, delta, bond changes |
 | `energy_diagrams` | object[] | Energy profiles with labels and kcal/mol values |
@@ -292,6 +342,8 @@ The `all` command additionally includes:
 | `rate_limiting_step` | object | RLS segment index and barrier |
 | `overall_reaction_energy_kcal` | float | Overall reaction energy |
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
+| `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |
+| `current_output_paths` | string[] | Sorted paths relative to `--out-dir`, limited to artifacts claimed by the current invocation. |
 
 ## Usage examples
 

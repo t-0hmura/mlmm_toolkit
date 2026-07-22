@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## [0.3.3] — 2026-07-22
+
 > Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,
 > vibrational classifications, thermochemistry, and scientific/terminal status. Consumers of
 > `result.json`/`summary.json` must review the Breaking changes and Machine-readable output sections.
@@ -20,6 +22,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - **MCP tools now reject `extra_args` that override a managed output option.** Passing `-o`/`--out-dir`
   (or another MCP-managed output switch) through `extra_args` now raises `ValueError` instead of being
   forwarded verbatim. Migration: use the tool's own output parameters.
+- **MCP `search_paths` now requires `product_pdb` (keyword-only).** The tool previously
+  sent one structure to a CLI that requires at least two. Migration: pass the product
+  endpoint explicitly; optional `intermediate_pdbs` are inserted in reaction order.
 
 ### Added
 - Add an mmCIF/large-PDB bridge (atom-identity–preserving; multi-model input keeps the first model,
@@ -27,11 +32,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   original identifiers.
 - Add `tsopt --ref-mode`, opt-in IRC never-stop traversal, and analytical
   Hessians for ORB, MACE, and AIMNet2.
-- Add a release-pinned Colab GUI for structure preparation, exact selectors,
-  backend controls, validated execution, and result inspection.
+- Add a release-pinned, keyboard-accessible Colab GUI that preserves full-system
+  coordinate/topology identity, prepares an ML-region model, builds workflow-aware
+  commands, reaps interrupted jobs, and limits result views/downloads to the current run.
 - Add `opt`/`all --reject-uphill/--no-reject-uphill` (default on) to opt out of the
   RFO uphill-rejection safeguard; on `all` it is forwarded to the post-IRC endpoint
   re-optimization child only.
+- Add `all --irc-step-size` so the end-to-end workflow can forward a smaller
+  EulerPC step to every post-TS IRC branch.
+- Add selectable UMA/ORB/MACE/AIMNet2 frame rescoring to `trj2fig`, with model,
+  precision, and machine-readable provenance controls. Comment-energy mode remains
+  calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
 
 ### Changed
 - Remove the unused internal `AllContext` parameter mirror and break the product
@@ -96,12 +107,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `except`-and-use-the-whole-system fallback: a resolution failure now raises rather
   than silently treating the full input as the ML layer (which changed the ONIOM energy).
 - Take `dft` QM-region atom indices from the one-based file ordinal (was the deposited
-  PDB serial and `name[0]` element), so the QM region and cap-hydrogen pairs shift on
+  PDB serial and `name[0]` element), so the QM region and link-hydrogen pairs shift on
   gapped serials or two-letter elements.
 - Drop the ±1 terminal-charge correction for Amber-capped C-/N-terminal residues in the
   `extract` charge summary, changing the net protein/active-site charge for capped termini.
+- Attach the built wheel and source distribution to each GitHub Release before
+  trusted PyPI publication.
 
 ### Fixed
+- Expose the shared `--allow-charge-mult-mismatch` escape hatch on `tsopt`,
+  matching the other ML/MM compute commands that run the same ML-region
+  electron-parity validation.
+- Require `scan2d --scan-lists` during Click parsing, reject unknown
+  `energy-diagram` options instead of silently accepting them, and keep
+  detail-only pipeline messages out of verbosity level 1.
+- Reject unknown options and orphan arguments in legacy grouped-value commands,
+  while accepting grouped or repeated path-search inputs and topology references
+  consistently in shell and in-process Click invocations.
+- Honor `tsopt --dump` when the initial microiteration MM relaxation fails closed
+  before the first macro step; the combined trajectory now contains that executed
+  micro relaxation instead of being absent.
 - Write `thermoanalysis.yaml` from the `all` pipeline's `freq` stages by default, so
   `--thermo` actually yields thermochemistry. The child `freq` inherited its own
   `--dump` default (off), so `all --thermo` computed and printed the thermochemistry
@@ -109,7 +134,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `thermochemistry result is missing` and produced no Gibbs diagram. An explicit
   `--no-dump` still suppresses the file.
 
-- Keep Hessian-Dimer orientations and off-centre images on the frozen Cartesian
+- Keep Hessian-Dimer orientations and off-center images on the frozen Cartesian
   constraint manifold, refreshing constraint-compatible rigid null modes at
   each central image.
 - Keep scan energies on the unbiased PES and prevent stale Hessian reuse across
@@ -133,6 +158,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   fallbacks can no longer drift apart from the documented default.
 - Correct IRC endpoint labels, `all` worker propagation, YAML custom-factory
   provenance, and CIF publication at pipeline root and segment level.
+- Keep custom `--calc-file` selection consistent across child and in-process
+  `all` stages when `--backend` is also supplied.
 - Select one coherent altLoc per residue and identity-check frequency-to-IRC
   Hessian handoff against geometry, atom order, and active-DOF basis.
 - Honor EulerPC's normalized IRC filename prefix in conversion, endpoint checks,
@@ -162,7 +189,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `microiteration` object in `opt`/`tsopt` output; a `thermo_policy` block in the
   frequency YAML/`result.json`; and resolved provenance. These are additive for
   consumers that tolerate unknown fields. `scientific_status` also participates in
-  usability/promotion decisions, not only provenance.
+  usability/promotion decisions, not only provenance. Aggregate success requires
+  every applicable producer convergence signal; direct-TS segments do not invent
+  an MEP gate.
 - `key_output_files` now lists only the artifacts claimed by the current
   invocation's run manifest rather than files discovered under the output tree, so a
   reused `-o/--out-dir` no longer reports stale files from an earlier run.
@@ -174,6 +203,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   bridge hard-fails on out-of-range or non-finite coordinates and unresolved elements
   rather than emitting a corrupted fixed-column record. Valid-input output bytes are
   unchanged.
+
+### Documentation
+- Rebuild the CLI references and skills for the current ML/MM input contract,
+  validate required parm7 and XYZ topology references in runnable skill examples,
+  and document JSON 2.0 truth/provenance plus the Colab workflow.
 
 ## [0.3.2] — 2026-07-10
 

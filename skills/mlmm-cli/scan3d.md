@@ -12,10 +12,12 @@ protons + one redox-donor distance).
 ## Synopsis
 
 ```bash
-mlmm scan3d -i input.pdb \
+mlmm scan3d -i input.pdb --parm real.parm7 \
     -s '[(a1,b1,low1,high1), (a2,b2,low2,high2), (a3,b3,low3,high3)]' \
-    [--csv surface.csv] \
     [-l 'RES:Q,...'] [-b uma|orb|mace|aimnet2] [-o ./result_scan3d/]
+
+# Redraw an existing surface without a structure or topology:
+mlmm scan3d --csv surface.csv [-o ./result_scan3d_plot/]
 ```
 
 

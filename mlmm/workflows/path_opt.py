@@ -477,8 +477,8 @@ def _run_dmf_mep(
     except Exception as e:
         raise RuntimeError(
             "DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2 "
-            "(`pip install 'pydmf[torch]'` for the default GPU backend; the `cpu` "
-            "backend needs only `pip install pydmf`). "
+            "(`conda install -c conda-forge cyipopt -y`, then `pip install "
+            "'pydmf[torch]>=1.2'` for GPU or `pip install 'pydmf>=1.2'` for CPU). "
             f"Import error: {e}"
         ) from e
 

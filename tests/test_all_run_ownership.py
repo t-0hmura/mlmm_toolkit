@@ -217,3 +217,62 @@ def test_publish_and_seg_copy_track_only_current_run(tmp_path: Path) -> None:
     assert "output.public.summary.json" in internal["produced"]
     assert "output.public.segments/seg_01/reactant.xyz" in internal["produced"]
     assert "output.public.irc_plot_all.png" not in internal["produced"]
+
+
+def test_finalize_summary_includes_outputs_from_late_producers(tmp_path: Path) -> None:
+    """The last summary generation owns logs and products written after JSON."""
+
+    import json
+
+    out_dir = tmp_path / "out"
+    work_dir = out_dir / "_work" / "path_search"
+    work_dir.mkdir(parents=True)
+    manifest = InvocationManifest()
+    late_paths = [
+        out_dir / "summary.log",
+        out_dir / "ml_region.pdb",
+        out_dir / "energy_diagram_MLIP_all.png",
+    ]
+    for path in [out_dir / "summary.json", *late_paths]:
+        all_workflow._declare_public_output(manifest, out_dir, path)
+
+    summary = {"out_dir": str(out_dir), "status": "success"}
+    all_workflow._publish_manifest_summary(
+        out_dir / "summary.json",
+        summary,
+        manifest=manifest,
+        out_dir=out_dir,
+        mirrors=(work_dir / "summary.json",),
+    )
+    for path in late_paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"current {path.name}\n", encoding="utf-8")
+
+    all_workflow._finalize_current_summary(
+        out_dir / "summary.json",
+        summary,
+        manifest=manifest,
+        out_dir=out_dir,
+        mirrors=(work_dir / "summary.json",),
+    )
+
+    stored = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert stored["current_output_paths"] == [
+        "energy_diagram_MLIP_all.png",
+        "ml_region.pdb",
+        "summary.json",
+        "summary.log",
+    ]
+    assert set(stored["key_output_files"]) == set(stored["current_output_paths"])
+    assert json.loads((work_dir / "summary.json").read_text(encoding="utf-8")) == stored
+
+
+def test_all_finalizes_after_each_late_summary_log_producer() -> None:
+    """Every successful terminal path republishes after writing summary.log."""
+
+    import inspect
+
+    source = inspect.getsource(all_workflow.cli.callback)
+    assert source.count("_write_pipeline_summary_log([])") == 3
+    assert source.count("_write_pipeline_summary_log(post_segment_logs)") == 1
+    assert source.count("_finalize_current_summary(") == 5

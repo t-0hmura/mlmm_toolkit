@@ -60,7 +60,7 @@ previous stage's final geometry.
 ### Single stage by atom name
 
 ```bash
-mlmm scan -i 1.R.pdb -l 'SAM:1,GPP:-3' \
+mlmm scan -i 1.R.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
     -s '[("CS1 SAM 320","C7 GPP 321",1.60)]' \
     -b uma -o result_scan
 ```
@@ -68,7 +68,7 @@ mlmm scan -i 1.R.pdb -l 'SAM:1,GPP:-3' \
 ### Two sequential stages
 
 ```bash
-mlmm scan -i 1.R.pdb -l 'SAM:1,GPP:-3' \
+mlmm scan -i 1.R.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
     -s '[("CS1 SAM 320","C7 GPP 321",1.60)]' '[("GPP 321 H11","GLU 186 OE2",0.90)]' \
     -b uma -o result_scan_staged
 ```

@@ -39,7 +39,7 @@ Options:
                                   Providing --movable-cutoff disables --detect-
                                   layer.
   -s, --scan-lists TEXT           Scan targets: inline Python literal or a
-                                  YAML/JSON spec file path.
+                                  YAML/JSON spec file path.  [required]
   --print-parsed / --no-print-parsed
                                   Print parsed scan targets after resolving
                                   --scan-lists.  [default: no-print-parsed]

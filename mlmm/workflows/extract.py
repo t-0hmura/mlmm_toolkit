@@ -223,13 +223,21 @@ def cli(
     ligand_charge: Optional[str],
     out_json: bool,
 ) -> None:
+    from mlmm.core.utils import (
+        collect_option_values,
+        current_cli_args,
+        reject_option_like_extra_args,
+    )
+
+    _argv = current_cli_args(ctx)
+    reject_option_like_extra_args(
+        ctx.args,
+        allowed_values=collect_option_values(_argv, ("-i", "--input", "-o", "--output")),
+        consumed_values=[*complex_pdb, *output_pdb],
+    )
     # Accept space-separated multi-input / -output (``-i a.pdb b.pdb``), consistent with
     # `all` / `path-opt` / `path-search`: collect every value following each -i / -o from the
     # raw argv (a single -i may be followed by several paths; repeated -i / -o also works).
-    import sys
-    from mlmm.core.utils import collect_option_values
-
-    _argv = sys.argv[1:]
     input_list = collect_option_values(_argv, ("-i", "--input")) or list(complex_pdb)
     _outs = collect_option_values(_argv, ("-o", "--output"))
     output_list: Optional[List[str]] = _outs if _outs else (list(output_pdb) if output_pdb else None)

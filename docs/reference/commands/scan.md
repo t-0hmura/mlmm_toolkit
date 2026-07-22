@@ -119,6 +119,11 @@ Options:
                                   omitted (requires PDB input or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
                                   Defaults to 1 when omitted.
+  --coord-type [cart|redund|dlc|tric]
+                                  Compatibility input for composite workflows.
+                                  ML/MM restrained scan relaxation always uses
+                                  Cartesian coordinates; non-cart values are
+                                  accepted with a notice and resolved to cart.
   --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
                                   knob).  [x>=1]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset

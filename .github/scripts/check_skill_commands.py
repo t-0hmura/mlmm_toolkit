@@ -2,19 +2,20 @@
 """Audit fenced ``bash`` blocks in skills/**/*.md.
 
 For every line that starts with ``mlmm <subcommand>``, parse out flag
-tokens (``--foo`` and ``-f``) and verify each one is registered on that
-subcommand via Click introspection. Stale flags from past edits are
-reported with file:line.
+tokens (``--foo`` and ``-f``), verify each one against Click introspection,
+and reject examples that omit the topology needed to execute them. XYZ
+examples must also supply the matching PDB topology reference.
 
 This is intentionally conservative:
 * shell line continuations (\\) are joined.
-* placeholders / templates (``<arg>``, ``{xyz,pdb,gjf}``) are skipped.
+* placeholders / templates (``<arg>``, ``{xyz,pdb,gjf}``) are not treated
+  as concrete XYZ paths.
 * values for known boolean flags (``--tsopt true``, ``--no-tsopt``) are
   accepted as flag-only.
 * free-form prose example fragments inside backticks (single-line
   ``mlmm extract --foo``) are also checked.
 
-Exits non-zero on any unknown flag.
+Exits non-zero on an unknown flag or an incomplete runnable example.
 """
 
 from __future__ import annotations
@@ -33,23 +34,50 @@ sys.path.insert(0, str(REPO_ROOT))
 from mlmm.cli import cli as root_cli  # noqa: E402
 
 
-def _collect_subcommand_flags() -> dict[str, set[str]]:
-    flags_per_cmd: dict[str, set[str]] = {}
+class CommandContract:
+    def __init__(
+        self,
+        *,
+        flags: set[str],
+        parm_flags: set[str],
+        charge_flags: set[str],
+    ) -> None:
+        self.flags = frozenset(flags)
+        self.parm_flags = frozenset(parm_flags)
+        self.charge_flags = frozenset(charge_flags)
+
+
+def _collect_subcommand_contracts() -> dict[str, CommandContract]:
+    contracts: dict[str, CommandContract] = {}
     ctx = click.Context(root_cli)
     for name in root_cli.list_commands(ctx):
         cmd = root_cli.get_command(ctx, name)
         if cmd is None:
             continue
         flags: set[str] = set()
+        parm_flags: set[str] = set()
+        charge_flags: set[str] = set()
         for p in cmd.params:
-            for opt in getattr(p, "opts", []) or []:
+            opts = set(getattr(p, "opts", []) or [])
+            opts.update(getattr(p, "secondary_opts", []) or [])
+            for opt in opts:
                 flags.add(opt)
-            for opt in getattr(p, "secondary_opts", []) or []:
-                flags.add(opt)
+            if getattr(p, "name", None) == "real_parm7" and p.required:
+                parm_flags.update(opts)
+            if getattr(p, "name", None) in {
+                "charge",
+                "charge_override",
+                "ligand_charge",
+            }:
+                charge_flags.update(opts)
         # universal flags every subcommand inherits in our setup
         flags.update({"--help", "--help-advanced"})
-        flags_per_cmd[name] = flags
-    return flags_per_cmd
+        contracts[name] = CommandContract(
+            flags=flags,
+            parm_flags=parm_flags,
+            charge_flags=charge_flags,
+        )
+    return contracts
 
 
 _FENCE_RE = re.compile(r"^```(?:bash|console|sh)?\s*$")
@@ -94,7 +122,32 @@ def _iter_command_lines(text: str):
             yield lineno, m.group(1)
 
 
-def _check_command(cmd_text: str, flags_per_cmd: dict[str, set[str]]):
+def _option_values(tokens: list[str], option_names: set[str]) -> list[str]:
+    """Return values following any named option until the next option token."""
+
+    values: list[str] = []
+    collecting = False
+    for tok in tokens:
+        flag = tok.split("=", 1)[0]
+        if flag in option_names:
+            collecting = True
+            if "=" in tok:
+                values.append(tok.split("=", 1)[1])
+                collecting = False
+            continue
+        if tok.startswith("-"):
+            collecting = False
+            continue
+        if collecting:
+            values.append(tok)
+    return values
+
+
+def _is_concrete_xyz(value: str) -> bool:
+    return not any(mark in value for mark in "<>{}[]") and value.lower().endswith(".xyz")
+
+
+def _check_command(cmd_text: str, contracts: dict[str, CommandContract]) -> list[str]:
     try:
         tokens = shlex.split(cmd_text, posix=True)
     except ValueError:
@@ -102,10 +155,12 @@ def _check_command(cmd_text: str, flags_per_cmd: dict[str, set[str]]):
     if len(tokens) < 2 or tokens[0] != "mlmm":
         return []
     sub = tokens[1]
-    if sub not in flags_per_cmd:
+    if sub not in contracts:
         return []
-    valid = flags_per_cmd[sub]
-    bad: list[str] = []
+    contract = contracts[sub]
+    valid = contract.flags
+    issues: list[str] = []
+    present_flags: set[str] = set()
     for tok in tokens[2:]:
         if tok.startswith("<") or tok.startswith("{") or tok.startswith("["):
             continue
@@ -115,24 +170,107 @@ def _check_command(cmd_text: str, flags_per_cmd: dict[str, set[str]]):
         flag = tok.split("=", 1)[0]
         if not _FLAG_RE.match(flag):
             continue
+        present_flags.add(flag)
         if flag not in valid:
-            bad.append(flag)
-    return bad
+            issues.append(f"unknown flag {flag}")
+
+    if present_flags & {"--help", "--help-advanced"}:
+        return issues
+
+    inputs = _option_values(tokens[2:], {"-i", "--input"})
+    # Bare command names and partial prose snippets are references, not runnable
+    # examples. Unknown flags above are still checked in those fragments.
+    if not inputs:
+        return issues
+
+    # Synopsis/template lines are flag inventories, not copy-paste commands.
+    # Unknown flags are still checked above; completeness applies only to
+    # concrete examples.
+    template_tokens = any(
+        tok.startswith("[-") or tok in {"[", "]", "..."}
+        for tok in tokens[2:]
+    )
+    template_inputs = any(
+        value == "..." or any(mark in value for mark in "<>{}")
+        for value in inputs
+    )
+    if template_tokens or template_inputs:
+        return issues
+
+    plot_only_scan3d = sub == "scan3d" and "--csv" in present_flags
+    parm_flags = set(contract.parm_flags)
+    if sub in {"irc", "scan3d"} and not plot_only_scan3d:
+        parm_flags.add("--parm")
+    if parm_flags and not (present_flags & parm_flags):
+        # ``irc`` may obtain calc.real_parm7 from YAML. Click-required topology
+        # options on the other commands cannot be satisfied this way.
+        if not (sub == "irc" and "--config" in present_flags):
+            issues.append(f"missing topology option ({'/'.join(sorted(parm_flags))})")
+
+    charge_commands = {
+        "all", "dft", "freq", "irc", "opt", "path-opt", "path-search",
+        "scan", "scan2d", "scan3d", "sp", "tsopt",
+    }
+    gjf_supplies_charge = bool(inputs) and all(
+        not any(mark in value for mark in "<>{}[]")
+        and value.lower().endswith(".gjf")
+        for value in inputs
+    )
+    if (
+        sub in charge_commands
+        and not plot_only_scan3d
+        and not gjf_supplies_charge
+        and not (present_flags & set(contract.charge_flags))
+        and "--config" not in present_flags
+    ):
+        expected = "/".join(sorted(contract.charge_flags)) or "-q/--charge"
+        issues.append(f"missing charge option ({expected})")
+
+    xyz_ref_commands = {
+        "all",
+        "dft",
+        "freq",
+        "irc",
+        "opt",
+        "path-opt",
+        "path-search",
+        "scan",
+        "scan2d",
+        "scan3d",
+        "sp",
+        "tsopt",
+    }
+    xyz_positions = (
+        [i for i, value in enumerate(inputs) if _is_concrete_xyz(value)]
+        if sub in xyz_ref_commands
+        else []
+    )
+    if xyz_positions:
+        refs = _option_values(tokens[2:], {"--ref-pdb"})
+        required_refs = max(xyz_positions) + 1 if sub in {"path-opt", "path-search"} else 1
+        if len(refs) < required_refs:
+            issues.append(
+                f"XYZ input requires {required_refs} corresponding --ref-pdb value(s)"
+            )
+    return issues
 
 
 def main() -> int:
-    flags_per_cmd = _collect_subcommand_flags()
+    contracts = _collect_subcommand_contracts()
     n_files = 0
     n_errors = 0
     for path in sorted(SKILLS_DIR.rglob("*.md")):
         text = path.read_text()
         for lineno, cmd in _iter_command_lines(text):
-            bad = _check_command(cmd, flags_per_cmd)
-            if bad:
+            issues = _check_command(cmd, contracts)
+            if issues:
                 n_errors += 1
-                print(f"{path.relative_to(REPO_ROOT)}:{lineno}: unknown flag(s) {bad} in: {cmd[:120]}")
+                print(
+                    f"{path.relative_to(REPO_ROOT)}:{lineno}: "
+                    f"{'; '.join(issues)} in: {cmd[:120]}"
+                )
         n_files += 1
-    print(f"\nChecked {n_files} skill files; {n_errors} stale flag occurrences.")
+    print(f"\nChecked {n_files} skill files; {n_errors} command-contract errors.")
     return 1 if n_errors else 0
 
 

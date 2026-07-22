@@ -83,6 +83,31 @@ def test_adapter_tracks_the_current_echo_marker_not_stale_bootstrap_state(
     assert calls[-1] == ("native", {"err": True})
 
 
+def test_detail_tag_is_not_implicitly_promoted_to_narrative(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def marked_echo(message=None, **kwargs):
+        calls.append((message, kwargs))
+
+    setattr(marked_echo, output._TAG_AWARE_MARKER, True)
+    monkeypatch.setattr(output.click, "echo", marked_echo)
+    output.emit("detail-only", detail=True)
+
+    assert calls == [
+        (
+            "detail-only",
+            {
+                "narrative": False,
+                "detail": True,
+                "force": False,
+                "raw_path": False,
+            },
+        )
+    ]
+
+
 def test_no_native_click_echo_receives_private_or_dynamic_tags() -> None:
     private_tags = {"narrative", "detail", "force", "raw_path"}
     package_root = Path(__file__).resolve().parents[1] / "mlmm"

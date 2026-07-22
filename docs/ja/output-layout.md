@@ -6,8 +6,9 @@
 
 | ファイル名 | 書き込み元 | 用途 |
 |---|---|---|
-| `summary.json` | `all`、`path-search`、およびステージ別サブコマンド（**`--out-json` 指定時のみ**、デフォルト `--no-out-json`） | 正規の JSON エンベロープ（[JSON 出力リファレンス](json-output.md) を参照）。まずこれを読んでください。`write_result_json` を呼ばない純粋なユーティリティ系サブコマンド（例: `fix-altloc`、`add-elem-info`、`bond-summary`）は出力しません。 |
-| `result.json` | ステージ別サブコマンド（**`--out-json` 指定時のみ**、デフォルト `--no-out-json`）（`opt`、`tsopt`、`freq`、`irc`、`sp`、`scan` / `scan2d` / `scan3d`、`path-opt`、`dft`、`extract`） | 別名ファイル — ペイロードは `summary.json` と同一です。常に同じファイル名を読む規約に従い、`summary.json` を読んでください。`result.json` は同じ内容を持つため、`summary.json` のみを利用する場合は削除できます。 |
+| `summary.json` | 集約結果の書き込み処理まで到達した `all` / `path-search` | 集約ワークフローの正規 JSON エンベロープ（[JSON 出力リファレンス](json-output.md)）。早期の CLI 引数または入力の検証では作られない場合があります。 |
+| `summary.json` | 正常終了した段階別・レポート系コマンドでは `--out-json` 指定時（デフォルトは `--no-out-json`）。捕捉した実行時エラーでは、フラグなしでも可能な範囲でエラーエンベロープを書く場合があります | 個別結果の `result.json` と互換性のあるミラー。書き込み処理が正常終了した場合は同一のバイト列です。`fix-altloc`、`add-elem-info`、`bond-summary` などは出力しません。 |
+| `result.json` | 段階別 `summary.json` と同条件（`opt`、`tsopt`、`freq`、`irc`、`sp`、scan 系、`path-opt`、`dft`、`extract`、`trj2fig`、`energy-diagram`） | 個別結果・レポートの正規エンベロープ。互換ミラーより後に公開されるため、中断した世代を判定するときはこちらを読みます。 |
 | `summary.log` | `path-search`、`all` | 人が読むための実行ログ（セグメント / ステージごとに 1 行）。 |
 | `final_geometry.xyz` | `opt`、`tsopt` | 最適化された構造（XYZ、フル精度）。 |
 | `mep.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`、`all` | 反応経路のフレーム。bridge 入力では `mep.cif` が元の ID を復元します。単独実行の `path-opt` は代わりに `final_geometries_trj.xyz` / `final_geometries.pdb` を書き込みます。 |
@@ -47,19 +48,19 @@
 
 ```text
 result_all/
-├─ summary.log · summary.json                 # copied to the root
+├─ summary.log · summary.json                 # ルートへコピー
 ├─ mep.pdb · mep.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
 ├─ energy_diagram_*_all.png · irc_plot_all.png
 ├─ ml_region.pdb                              # ML-region definition (reusable as --model-pdb)
 ├─ mm_parm/                                   # MM topology <input>.parm7 / .rst7 (reusable as --parm)
 ├─ layered/                                   # layered full-system PDBs (B-factor annotated; reusable inputs)
 ├─ segments/
-│  └─ seg_NN/                                  # 2-digit per-reactive-segment deliverables
+│  └─ seg_NN/                                  # 反応セグメント別の成果物（2桁番号）
 │     ├─ reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # CIF は bridge 入力時
-│     └─ ts/ · irc/ · freq/ · dft/ · structures/    # per-stage working files (--tsopt / --thermo / --dft)
-└─ _work/                                      # pipeline scratch (safe to remove)
+│     └─ ts/ · irc/ · freq/ · dft/ · structures/    # 段階別の作業ファイル（--tsopt / --thermo / --dft）
+└─ _work/                                      # パイプラインのスクラッチ（削除可）
    ├─ pockets/ · scan/
-   └─ path_opt/                                # raw MEP-engine output (path_search/ with --refine-path)
+   └─ path_opt/                                # MEP エンジンの生出力（--refine-path 時は path_search/）
 ```
 
 TSOPT のみのモードでは MEP ステージがないため、`_work/path_opt/` は存在せず、成果物は `segments/seg_01/` 以下に置かれます。モードごとの完全な内訳は [all](all.md) を参照してください。
@@ -67,11 +68,13 @@ TSOPT のみのモードでは MEP ステージがないため、`_work/path_opt
 ## エージェント向けレシピ
 
 ```python
-# Read whichever subcommand's output, single filename across the board.
+# 実行したコマンドに対応する正規のファイル名を選ぶ。
 import json
 from pathlib import Path
 
-summary = json.loads((Path(out_dir) / "summary.json").read_text())
+subcommand = "opt"  # 実行したコマンドに置き換える
+primary = "summary.json" if subcommand in {"all", "path-search"} else "result.json"
+summary = json.loads((Path(out_dir) / primary).read_text())
 
 if summary["status"] == "error":
     chain = summary.get("error_class_chain", [])
@@ -82,4 +85,8 @@ if summary["status"] == "error":
         raise RuntimeError(summary["error"])
 ```
 
-`summary.json` / `result.json` は `all` と `path-search`、およびステージ別サブコマンド（**`--out-json` 指定時のみ**、デフォルト `--no-out-json`）で書き込まれます。成功パスで書かれる場合、エンベロープはスキーマバージョンとステータスを保持します。ステージ別の `summary.json` がデフォルトで存在すると仮定しないでください（失敗パスでは失敗エンベロープがスキーマバージョンとエラークラスチェーンを保持します）。
+`all` / `path-search` は、集約結果の書き込み処理まで到達すると正規の
+`summary.json` を書きます。段階別・レポート系コマンドは、`--out-json` を指定して
+正常終了した場合に `result.json` と互換ミラーを書きます。捕捉した実行時例外では、
+フラグなしでも可能な範囲でエラーエンベロープを書くことがあります。使用法の検証で
+終了した場合や出力ディレクトリの確定前は、JSON が存在するとは限りません。

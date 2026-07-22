@@ -69,7 +69,6 @@ from mlmm.core.utils import (
     ensure_dir,
     format_elapsed,
     prepare_input_structure,
-    collect_single_option_values,
     load_yaml_dict,
     load_pdb_atom_metadata,
     parse_scan_list_triples,
@@ -86,6 +85,7 @@ from mlmm.workflows._run_session import (
     RunSession,
     claim_public_output as _claim_public_output,
     current_key_output_files as _current_key_output_files,
+    current_output_paths as _current_output_paths,
     declare_public_output as _declare_public_output,
     public_output_key as _public_output_key,
     refresh_current_public_outputs as _refresh_current_public_outputs,
@@ -192,7 +192,11 @@ def _resolve_calculator_template(
         if isinstance(calc_section, Mapping):
             resolved.update(deepcopy(dict(calc_section)))
 
-    if backend is not None:
+    # ``--calc-file`` is the documented final calculator selector and switches
+    # the effective YAML to ``backend: custom``.  Do not let an accompanying
+    # ``--backend`` overlay split the run so child processes use the custom
+    # calculator while in-process pre-alignment/endpoint stages use an MLIP.
+    if backend is not None and not resolved.get("calc_file"):
         resolved["backend"] = str(backend).lower()
     if embedcharge_explicit:
         resolved["embedcharge"] = bool(embedcharge)
@@ -527,6 +531,7 @@ def _inject_coord_type_into_args_yaml(
     args_yaml: Optional[Path],
     coord_type: Optional[str],
     tr_projection: Optional[str] = None,
+    backend: Optional[str] = None,
     precision: Optional[str] = None,
     workers: Optional[int] = None,
     workers_per_node: Optional[int] = None,
@@ -534,31 +539,35 @@ def _inject_coord_type_into_args_yaml(
     calc_file: Optional[str] = None,
     calc_factory: Optional[str] = None,
 ) -> Optional[Path]:
-    """Inject ``geom.coord_type`` (and optionally ``calc.uma_precision``) into
-    the all-pipeline args YAML.
+    """Inject geometry and backend-native calculator overrides into args YAML.
 
-    Used by ``mlmm all --coord-type cart|dlc`` / ``--precision fp32|fp64`` to
-    propagate the choice through the all-pipeline args YAML. Only the opt/tsopt
+    Used by ``mlmm all --coord-type cart|dlc`` and the backend/model/precision
+    options to propagate the choice through the all-pipeline args YAML. Only the opt/tsopt
     stages honour ``coord_type`` (DLC is meaningful there via microiteration);
     freq/scan/path stages are fixed to cartesian and ignore it. Returns the
-    original ``args_yaml`` unchanged when both ``coord_type`` and ``precision``
-    are None.
+    original ``args_yaml`` unchanged when there are no injected values.
     """
+    cfg = {} if args_yaml is None else load_yaml_dict(args_yaml)
+    if not isinstance(cfg, dict):
+        cfg = {}
+    cfg = canonicalize_calculator_section(cfg)
+    existing_calc = cfg.get("calc")
+    has_generic_calc_alias = isinstance(existing_calc, dict) and any(
+        key in existing_calc
+        for key in ("precision", "backend_model", "calc_file", "calc_factory")
+    )
     if (
         coord_type is None
         and tr_projection is None
+        and backend is None
         and precision is None
         and workers is None
         and workers_per_node is None
         and backend_model is None
         and calc_file is None
+        and not has_generic_calc_alias
     ):
         return args_yaml
-
-    cfg = {} if args_yaml is None else load_yaml_dict(args_yaml)
-    if not isinstance(cfg, dict):
-        cfg = {}
-    cfg = canonicalize_calculator_section(cfg)
     if coord_type is not None or tr_projection is not None:
         geom_cfg = cfg.get("geom")
         if not isinstance(geom_cfg, dict):
@@ -570,16 +579,24 @@ def _inject_coord_type_into_args_yaml(
             geom_cfg["tr_projection"] = tr_projection
         cfg["geom"] = geom_cfg
     if (
-        precision is not None
+        backend is not None
+        or precision is not None
         or workers is not None
         or workers_per_node is not None
         or backend_model is not None
         or calc_file is not None
+        or has_generic_calc_alias
     ):
         calc_cfg = cfg.get("calc")
         if not isinstance(calc_cfg, dict):
             calc_cfg = {}
         calc_cfg = dict(calc_cfg)
+        # Set the explicit CLI backend before translating generic model and
+        # precision tokens.  The translators dispatch from calc.backend; without
+        # this, a config-less ``all --backend orb|mace|aimnet2`` is mistaken for
+        # UMA and the child silently runs its backend defaults.
+        if backend is not None:
+            calc_cfg["backend"] = str(backend).strip().lower()
         # Translate --precision into the per-backend NATIVE kwarg
         # (uma_precision / orb_precision / mace_dtype) HERE and write THAT into
         # the args YAML. Writing the raw ``precision`` token instead leaks an
@@ -1123,13 +1140,13 @@ def _pipeline_aggregate_truth(
 ):
     """Compose the truthful ``all``-pipeline aggregate from per-segment leaves.
 
-    One required :class:`LeafOutcome` is built per reactive MEP segment. A segment
-    is usable only when every post-processing convergence signal is explicitly
-    ``True``: the IRC leaf (every requested direction converged, read from the
-    child's ``result.json``) and, when present, both endpoint optimizations. A
+    One required :class:`LeafOutcome` is built per reactive segment. A path
+    segment is usable only when its MEP and every post-processing convergence
+    signal are explicitly ``True``. A direct TSOPT segment has no MEP stage, so
+    it is gated by its IRC and, when present, both endpoint optimizations. A
     dict-present / trajectory-present but nonconverged leaf never counts toward
-    completeness (C6 fail-closed) — a never_stop / max-cycle IRC therefore cannot
-    yield ``scientific_status == "success"``.
+    completeness (C6 fail-closed) — a never_stop / max-cycle IRC therefore
+    cannot yield ``scientific_status == "success"``.
 
     The convergence-gated aggregate is then composed with the legacy completeness
     axis (``legacy_status`` from :func:`_derive_pipeline_status`, which already
@@ -1181,9 +1198,23 @@ def _pipeline_aggregate_truth(
         # True (C6).
         _seg_conv = s.get("converged")
         seg_converged: Optional[bool] = _seg_conv if isinstance(_seg_conv, bool) else None
+        # ``kind=tsopt`` is the direct-TS branch: no MEP child runs and therefore
+        # no MEP convergence field exists. Only that explicit kind bypasses the
+        # MEP gate; unknown/future kinds remain fail-closed like path segments.
+        mep_converged: Optional[bool] = (
+            True if s.get("kind") == "tsopt" else seg_converged
+        )
         if post is not None:
-            # Post-processing ran: gate on the truthful IRC / endpoint records.
-            converged: Optional[bool] = True
+            # Post-processing ran: compose its truthful IRC / endpoint records
+            # with the MEP engine's own convergence.  Successful downstream
+            # work must never promote a nonconverged/unknown path segment.
+            converged: Optional[bool] = mep_converged
+            if converged is not True:
+                reason = (
+                    "mep_not_converged"
+                    if converged is False
+                    else "mep_convergence_unknown"
+                )
             irc = post.get("irc")
             if isinstance(irc, dict):
                 _u = irc.get("usable")
@@ -1219,7 +1250,7 @@ def _pipeline_aggregate_truth(
             # Path-only final summary (no tsopt): the segment's own reported
             # convergence is the whole truth. A missing/unknown field fails closed
             # (None) — never default to True.
-            converged = seg_converged
+            converged = mep_converged
             if converged is not True and not reason:
                 reason = "not_converged" if converged is False else "convergence_unknown"
         leaves.append(
@@ -1529,8 +1560,10 @@ def _enrich_summary(
         if manifest is not None:
             # Producer-declared, current-run outputs only (no discovery): a
             # stale file from an earlier invocation is never surfaced.
+            current_paths = _current_output_paths(manifest, root)
             key_files: Dict[str, Any] = _current_key_output_files(manifest, root)
         else:
+            current_paths = []
             key_files = {}
             # Root-level deliverables (MEP products + authored/mirrored summaries live at root)
             for name, desc in [
@@ -1555,6 +1588,10 @@ def _enrich_summary(
                             "description": f"Per-segment results for {child.name}",
                             "files": seg_files,
                         }
+        if current_paths:
+            summary["current_output_paths"] = current_paths
+        else:
+            summary.pop("current_output_paths", None)
         if key_files:
             summary["key_output_files"] = key_files
         else:
@@ -1623,6 +1660,58 @@ def _publish_manifest_summary(
     summary["run_id"] = manifest.run_id
     published = _commit_summary_json(destination, summary, mirrors=mirrors)
     manifest.claim_one(key)
+    _persist_run_manifest(manifest, out_dir)
+    return published
+
+
+def _finalize_current_summary(
+    primary: Path,
+    summary: Dict[str, Any],
+    *,
+    manifest: InvocationManifest,
+    out_dir: Path,
+    mirrors: Sequence[Path] = (),
+) -> Path:
+    """Republish a summary after every late public producer has finished.
+
+    ``all`` writes and promotes a few public artifacts after its first
+    ``summary.json`` generation (notably ``summary.log`` and aggregate plots).
+    Refresh ownership after those producers, then publish the final path list.
+    A second generation is needed only when the first publication itself adds
+    ``summary.json`` to a previously empty manifest.
+    """
+
+    def refresh_metadata() -> tuple[list[str], Dict[str, Any]]:
+        current_paths = _current_output_paths(manifest, out_dir)
+        key_files = _current_key_output_files(manifest, out_dir)
+        if current_paths:
+            summary["current_output_paths"] = current_paths
+        else:
+            summary.pop("current_output_paths", None)
+        if key_files:
+            summary["key_output_files"] = key_files
+        else:
+            summary.pop("key_output_files", None)
+        return current_paths, key_files
+
+    before = refresh_metadata()
+    published = _publish_manifest_summary(
+        primary,
+        summary,
+        manifest=manifest,
+        out_dir=out_dir,
+        mirrors=mirrors,
+    )
+    after = refresh_metadata()
+    if after != before:
+        published = _publish_manifest_summary(
+            primary,
+            summary,
+            manifest=manifest,
+            out_dir=out_dir,
+            mirrors=mirrors,
+        )
+    _refresh_current_public_outputs(manifest, out_dir)
     _persist_run_manifest(manifest, out_dir)
     return published
 
@@ -1774,22 +1863,23 @@ def _irc_and_match(seg_idx: int,
                    link_atom_method: Optional[str] = None,
                    mm_backend: Optional[str] = None,
                    use_cmap: Optional[bool] = None,
+                   irc_step_size: Optional[float] = None,
                    irc_never_stop: Optional[bool] = None,
                    session: Optional[RunSession] = None,
                    args_yaml: Optional[Path] = None) -> Dict[str, Any]:
     """
     Run EulerPC IRC from a TS geometry, then map the IRC endpoints to (left, right)
-    by comparing bond states with the GSM segment endpoints (when available).
+    by comparing bond states with the MEP segment endpoints (when available).
     Falls back to raw IRC orientation in TSOPT-only mode.
 
-    Endpoint matching logic (when GSM endpoints exist):
+    Endpoint matching logic (when MEP endpoints exist):
       - Compute bond change sets at IRC's two endpoints (`bond_changes.compare_structures`).
-      - Score each pairing (IRC.fwd, IRC.bwd) ↔ (GSM.left, GSM.right) by symmetric-diff
+      - Score each pairing (IRC.fwd, IRC.bwd) ↔ (MEP.left, MEP.right) by symmetric-diff
         bond change count, pick the orientation with minimum total diff.
       - On tie, prefer the orientation whose forward endpoint shares more atoms
-        with the GSM reactant side (= side selected by `seg_idx`-based ordering convention).
+        with the MEP reactant side (= side selected by `seg_idx`-based ordering convention).
 
-    TSOPT-only fallback: when no GSM endpoints (= TS-only pipeline), IRC's raw
+    TSOPT-only fallback: when no MEP endpoints (= TS-only pipeline), IRC's raw
     forward/backward orientation is preserved as (left, right) without remapping;
     the caller can post-hoc swap if needed.
 
@@ -1821,6 +1911,8 @@ def _irc_and_match(seg_idx: int,
         "--out-dir", str(irc_dir),
     ]
     irc_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+    if irc_step_size is not None:
+        irc_args.extend(["--step-size", str(float(irc_step_size))])
     if irc_never_stop is not None:
         irc_args.append(
             "--never-stop" if irc_never_stop else "--no-never-stop"
@@ -2299,7 +2391,7 @@ def _write_segment_energy_diagram(
 
 def _build_global_segment_labels(n_segments: int) -> List[str]:
     """
-    Build GSM-like labels for aggregated R/TS/P diagrams over multiple segments.
+    Build R/TS/P labels for an aggregated multi-segment MEP diagram.
 
     Pattern:
       - n = 1: ["R", "TS1", "P"]
@@ -2965,9 +3057,26 @@ def _configure_all_help_visibility(command: click.Command) -> None:
         "and flatten PHVA. The default respects frozen anchors."
     ),
 )
+@click.option(
+    "--mep-mode",
+    type=click.Choice(["gsm", "dmf"], case_sensitive=False),
+    default="gsm",
+    show_default=True,
+    help="MEP optimizer: Growing String Method (gsm) or Direct Max Flux (dmf).",
+)
+@click.option(
+    "--dmf-backend",
+    type=click.Choice(["cpu", "gpu"], case_sensitive=False),
+    default="gpu",
+    show_default=True,
+    help=(
+        "DMF compute backend (--mep-mode dmf only): gpu (dmf.torch / CUDA) "
+        "or cpu (dmf / NumPy). On a GPU out-of-memory error, retry with cpu."
+    ),
+)
 @click.option("--max-nodes", type=int, default=_path_opt.GS_KW["max_nodes"], show_default=True,
-              help="Max internal nodes for *segment* GSM (String has max_nodes+2 images including endpoints).")
-@click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum GSM optimization cycles.")
+              help="Max internal nodes per GSM/DMF segment (max_nodes+2 images including endpoints).")
+@click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum MEP optimization cycles.")
 @click.option("--climb/--no-climb", default=True, show_default=True,
               help="Enable transition-state climbing after growth for the *first* segment in each pair.")
 @click.option(
@@ -2991,14 +3100,14 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     ),
 )
 @click.option("--dump/--no-dump", default=False, show_default=True,
-              help="Dump GSM / single-structure trajectories during the run, forwarding the same flag to scan/tsopt/freq.")
+              help="Dump MEP / single-structure trajectories during the run, forwarding the same flag to scan/tsopt/freq.")
 @click.option(
     "--refine-path/--no-refine-path",
     "refine_path",
     default=False,
     show_default=True,
     help=(
-        "If False (default), run a single-pass path-opt GSM between each adjacent pair and concatenate the "
+        "If False (default), run single-pass path-opt with the selected MEP optimizer between each adjacent pair and concatenate the "
         "segments (no path_search); if True, run recursive path_search on the full ordered series for "
         "automatic multistep discovery."
     ),
@@ -3070,6 +3179,15 @@ def _configure_all_help_visibility(command: click.Command) -> None:
         "re-optimization ONLY (roll back to the lower-energy geometry and shrink "
         "the trust radius). Does not affect TS optimization or path search. "
         "--no-reject-uphill disables it for the endpoint re-optimization."
+    ),
+)
+@click.option(
+    "--irc-step-size",
+    type=float,
+    default=None,
+    help=(
+        "Override IRC --step-size (Bohr). If an IRC stops after only a few "
+        "frames, retry with a smaller value such as 0.05."
     ),
 )
 @click.option(
@@ -3232,6 +3350,8 @@ def cli(
     mm_ligand_mult: Optional[str],
     spin: int,
     tr_projection: str,
+    mep_mode: str,
+    dmf_backend: str,
     max_nodes: int,
     max_cycles: int,
     climb: bool,
@@ -3269,6 +3389,7 @@ def cli(
     tsopt_max_cycles: Optional[int],
     flatten: bool,
     reject_uphill: bool,
+    irc_step_size: Optional[float],
     irc_never_stop: Optional[bool],
     skip_final_freq: bool,
     tsopt_out_dir: Optional[Path],
@@ -3300,6 +3421,21 @@ def cli(
       - with --scan-lists: run staged scan on the pocket and use stage results as inputs for path-opt (or path_search),
       - with --tsopt and no --scan-lists: run TSOPT-only mode (no MEP search).
     """
+    from mlmm.core.utils import (
+        collect_option_values,
+        current_cli_args,
+        reject_option_like_extra_args,
+    )
+
+    _argv = current_cli_args(ctx)
+
+    reject_option_like_extra_args(
+        ctx.args,
+        allowed_values=collect_option_values(
+            _argv, ("-i", "--input", "-s", "--scan-lists")
+        ),
+        consumed_values=[*input_paths, *scan_lists_raw],
+    )
     # Turn on pipeline-scoped default-verbosity suppression for this `all` run
     # (reset per-invocation in DefaultGroup.parse_args). Standalone leaf/report
     # commands are unaffected and keep full output at default verbosity.
@@ -3327,7 +3463,7 @@ def cli(
     _echo_state.reset()
 
     time_start = time.perf_counter()
-    command_str = "mlmm all " + " ".join(sys.argv[1:])
+    command_str = "mlmm " + " ".join(_argv)
 
     _is_param_explicit = make_is_param_explicit(ctx)
     # Post-IRC endpoint re-optimization uphill-rejection toggle, forwarded to the
@@ -3355,6 +3491,20 @@ def cli(
         override_yaml=None,
         tmp_prefix="mlmm_all_merged_",
     )
+    _dmf_yaml_cfg = (
+        merged_yaml_cfg.get("dmf", {})
+        if isinstance(merged_yaml_cfg, dict)
+        else {}
+    )
+    dmf_backend_effective = str(
+        dmf_backend
+        if "dmf_backend" in explicit_params
+        else (
+            _dmf_yaml_cfg.get("backend", dmf_backend)
+            if isinstance(_dmf_yaml_cfg, dict)
+            else dmf_backend
+        )
+    ).lower()
     _injected_coord = (
         str(cli_coord_type).lower()
         if _is_param_explicit("cli_coord_type") and cli_coord_type is not None
@@ -3366,7 +3516,8 @@ def cli(
         else None
     )
     if (
-        _injected_coord is not None
+        args_yaml is not None
+        or _injected_coord is not None
         or _injected_tr_projection is not None
         or precision is not None
         or workers is not None
@@ -3376,6 +3527,7 @@ def cli(
     ):
         args_yaml = _inject_coord_type_into_args_yaml(
             args_yaml, _injected_coord, tr_projection=_injected_tr_projection,
+            backend=backend,
             precision=precision, workers=workers, workers_per_node=workers_per_node, backend_model=backend_model,
             calc_file=(str(Path(calc_file).resolve()) if calc_file else None), calc_factory=calc_factory,
         )
@@ -3405,8 +3557,8 @@ def cli(
     mm_ff_set = "ff14SB" if str(mm_ff_set).lower().startswith("ff14") else "ff19SB"
 
     # --- Robustly accept a single "-i" followed by multiple paths (like path_search.cli) ---
-    argv_all = sys.argv[1:]
-    i_vals = collect_single_option_values(argv_all, ("-i", "--input"), label="-i/--input")
+    argv_all = _argv
+    i_vals = collect_option_values(argv_all, ("-i", "--input"))
     if i_vals:
         i_parsed = validate_existing_files(
             i_vals,
@@ -3415,7 +3567,7 @@ def cli(
         )
         input_paths = tuple(i_parsed)
 
-    scan_vals = collect_single_option_values(argv_all, ("-s", "--scan-lists"), "--scan-lists")
+    scan_vals = collect_option_values(argv_all, ("-s", "--scan-lists"))
     if scan_vals:
         scan_lists_raw = tuple(scan_vals)
 
@@ -3493,6 +3645,7 @@ def cli(
         "heavy": "hess",
     }
     opt_mode_norm = _mode_alias.get(str(opt_mode).strip().lower(), "grad")
+    mep_mode_kind = str(mep_mode).strip().lower()
     path_search_opt_mode = opt_mode_norm
     opt_mode_post_norm = (
         None
@@ -3590,6 +3743,8 @@ def cli(
                 "skip_extract": bool(center_spec is None or str(center_spec).strip() == ""),
                 "out_dir": str(out_dir),
                 "spin": int(spin),
+                "mep_mode": mep_mode_kind,
+                "dmf_backend": dmf_backend_effective,
                 "max_nodes": int(max_nodes),
                 "max_cycles": int(max_cycles),
                 "climb": bool(climb),
@@ -3687,11 +3842,17 @@ def cli(
         "summary.log",
         "summary.json",
         "mep_trj.xyz",
+        "mep.xyz",
         "mep.pdb",
         "mep.cif",
+        "ml_region.pdb",
         "energy_diagram_MEP.png",
         "mep_plot.png",
         "irc_plot_all.png",
+        "energy_diagram_MLIP_all.png",
+        "energy_diagram_G_MLIP_all.png",
+        "energy_diagram_DFT_all.png",
+        "energy_diagram_G_DFT_plus_MLIP_all.png",
     ):
         _declare_public_output(manifest, out_dir, out_dir / _public_name)
 
@@ -4048,6 +4209,7 @@ def cli(
                                  link_atom_method=link_atom_method,
                                  mm_backend=mm_backend,
                                  use_cmap=use_cmap,
+                                 irc_step_size=irc_step_size,
                                  irc_never_stop=irc_never_stop,
                                  session=session,
                                  args_yaml=args_yaml)
@@ -4590,6 +4752,14 @@ def cli(
         except Exception as e:
             _echo(f"[all] WARNING: failed to copy irc_plot_all.png: {e}", err=True)
 
+        _finalize_current_summary(
+            out_dir / "summary.json",
+            summary,
+            manifest=manifest,
+            out_dir=out_dir,
+            mirrors=(tsroot / "summary.json",),
+        )
+
         _echo_section("====== [all] TSOPT-only pipeline finished successfully ======")
         _emit_final_summary(out_dir, time_start, manifest)
         return
@@ -4759,8 +4929,12 @@ def cli(
             )
 
     # Stage 2: Path search on full-system layered PDBs
+    mep_mode_label = mep_mode_kind.upper()
     if refine_path:
-        _echo_section(f"====== [all] Stage 2/{stage_total} — MEP search on full-system layered PDBs (recursive GSM) ======")
+        _echo_section(
+            f"====== [all] Stage 2/{stage_total} — MEP search on full-system "
+            f"layered PDBs (recursive {mep_mode_label}) ======"
+        )
 
         # Build path_search CLI args using *repeated* options (robust for Click)
         ps_args: List[str] = []
@@ -4785,6 +4959,8 @@ def cli(
             _build_path_child_argv(
                 explicit_params,
                 include_opt_mode=True,
+                mep_mode=mep_mode_kind,
+                dmf_backend=dmf_backend,
                 max_nodes=max_nodes,
                 max_cycles=max_cycles,
                 climb=climb,
@@ -4825,15 +5001,18 @@ def cli(
 
         _echo_detail(
             f"[all] dispatch path-search: inputs={len(pockets_for_path)}, "
-            f"mode=recursive-gsm, preopt={'yes' if pre_opt else 'no'}, "
+            f"mode=recursive-{mep_mode_kind}, preopt={'yes' if pre_opt else 'no'}, "
             f"detect_layer={'yes' if detect_layer else 'no'}, out={path_dir}"
         )
         _echo("[all] mlmm path-search " + " ".join(ps_args))
 
         _run_cli_main("path_search", _path_search.cli, ps_args, on_nonzero="raise", on_exception="raise", prefix="all")
     else:
-        # --no-refine-path: run path-opt GSM between each adjacent pair and concatenate
-        _echo_section(f"====== [all] Stage 2/{stage_total} — MEP path-opt on full-system layered PDBs (single-pass GSM per pair) ======")
+        # --no-refine-path: run path-opt between each adjacent pair and concatenate.
+        _echo_section(
+            f"====== [all] Stage 2/{stage_total} — MEP path-opt on full-system "
+            f"layered PDBs (single-pass {mep_mode_label} per pair) ======"
+        )
 
         if len(pockets_for_path) < 2:
             raise click.ClickException("[all] Need at least two structures for path-opt MEP concatenation.")
@@ -4842,10 +5021,13 @@ def cli(
         combined_blocks: List[str] = []
         path_opt_segments: List[Dict[str, Any]] = []
 
-        for pair_idx in range(len(pockets_for_path) - 1):
-            p_left = pockets_for_path[pair_idx]
-            p_right = pockets_for_path[pair_idx + 1]
-            seg_tag = f"seg_{pair_idx:02d}"
+        for pair_pos in range(len(pockets_for_path) - 1):
+            # Array access remains zero-based; every public segment identifier
+            # follows the documented one-based seg_01, seg_02, ... contract.
+            seg_idx = pair_pos + 1
+            p_left = pockets_for_path[pair_pos]
+            p_right = pockets_for_path[pair_pos + 1]
+            seg_tag = f"seg_{seg_idx:02d}"
             seg_out = path_dir / f"{seg_tag}_mep"
             ensure_dir(seg_out)
 
@@ -4860,8 +5042,8 @@ def cli(
             # coordinates onto full ML/MM topology (path-search receives these too).
             if is_single and has_scan:
                 po_args.extend([
-                    "--ref-pdb", str(refs_for_path[pair_idx]),
-                    "--ref-pdb", str(refs_for_path[pair_idx + 1]),
+                    "--ref-pdb", str(refs_for_path[pair_pos]),
+                    "--ref-pdb", str(refs_for_path[pair_pos + 1]),
                 ])
             # Forward the chosen --detect-layer/--no-detect-layer toggle
             # (default True). Hardcoded "--detect-layer" silently overrode
@@ -4871,6 +5053,8 @@ def cli(
                 _build_path_child_argv(
                     explicit_params,
                     include_opt_mode=False,
+                    mep_mode=mep_mode_kind,
+                    dmf_backend=dmf_backend,
                     max_nodes=max_nodes,
                     max_cycles=max_cycles,
                     climb=climb,
@@ -4882,6 +5066,9 @@ def cli(
                 )
             )
             po_args.extend(["--out-dir", str(seg_out)])
+            # Pipeline-owned machine contract: the aggregate reads this child's
+            # real MEP convergence from result.json.
+            po_args.append("--out-json")
             from mlmm.workflows._all_helpers import append_backend_forwarding_args
             append_backend_forwarding_args(
                 po_args,
@@ -4896,32 +5083,35 @@ def cli(
             )
 
             _echo_detail(
-                f"[all] dispatch path-opt pair {pair_idx + 1}/{len(pockets_for_path) - 1}: "
-                f"preopt={'yes' if pre_opt else 'no'}, climb={'yes' if climb else 'no'}, out={seg_out}"
+                f"[all] dispatch path-opt pair {seg_idx}/{len(pockets_for_path) - 1}: "
+                f"mode={mep_mode_kind}, preopt={'yes' if pre_opt else 'no'}, "
+                f"climb={'yes' if climb else 'no'}, out={seg_out}"
             )
             _echo("[all] mlmm path-opt " + " ".join(po_args))
             _run_cli_main("path_opt", _path_opt.cli, po_args, on_nonzero="raise", on_exception="raise", prefix="all")
+
+            seg_converged = _read_path_opt_segment_converged(seg_out)
 
             # --- Post-processing per segment ---
             seg_trj = seg_out / "final_geometries_trj.xyz"
             if not seg_trj.exists():
                 raise click.ClickException(
-                    f"[all] path-opt segment {pair_idx} did not produce final_geometries_trj.xyz"
+                    f"[all] path-opt segment {seg_idx} did not produce final_geometries_trj.xyz"
                 )
 
             # Copy per-segment trajectory to path_dir
             try:
-                seg_mep_trj = path_dir / f"mep_seg_{pair_idx:02d}_trj.xyz"
+                seg_mep_trj = path_dir / f"mep_seg_{seg_idx:02d}_trj.xyz"
                 shutil.copy2(seg_trj, seg_mep_trj)
                 if pockets_for_path[0].suffix.lower() == ".pdb":
                     _path_search._maybe_convert_to_pdb(
                         seg_mep_trj,
                         ref_pdb_path=pockets_for_path[0],
-                        out_path=path_dir / f"mep_seg_{pair_idx:02d}.pdb",
+                        out_path=path_dir / f"mep_seg_{seg_idx:02d}.pdb",
                     )
             except Exception as e:
                 _echo(
-                    f"[all] WARNING: failed to emit per-segment trajectory copies for segment {pair_idx:02d}: {e}",
+                    f"[all] WARNING: failed to emit per-segment trajectory copies for segment {seg_idx:02d}: {e}",
                     err=True,
                 )
 
@@ -4929,13 +5119,13 @@ def cli(
             hei_src = seg_out / "hei.xyz"
             if hei_src.exists():
                 try:
-                    shutil.copy2(hei_src, path_dir / f"hei_seg_{pair_idx:02d}.xyz")
+                    shutil.copy2(hei_src, path_dir / f"hei_seg_{seg_idx:02d}.xyz")
                     hei_pdb_src = seg_out / "hei.pdb"
                     if hei_pdb_src.exists():
-                        shutil.copy2(hei_pdb_src, path_dir / f"hei_seg_{pair_idx:02d}.pdb")
+                        shutil.copy2(hei_pdb_src, path_dir / f"hei_seg_{seg_idx:02d}.pdb")
                 except Exception as e:
                     _echo(
-                        f"[all] WARNING: failed to prepare HEI artifacts for segment {pair_idx:02d}: {e}",
+                        f"[all] WARNING: failed to prepare HEI artifacts for segment {seg_idx:02d}: {e}",
                         err=True,
                     )
 
@@ -4944,10 +5134,10 @@ def cli(
             blocks = ["\n".join(b) + "\n" for b in raw_blocks]
             if not blocks:
                 raise click.ClickException(
-                    f"[all] No frames read from path-opt segment {pair_idx} trajectory: {seg_trj}"
+                    f"[all] No frames read from path-opt segment {seg_idx} trajectory: {seg_trj}"
                 )
             # Skip duplicate first frame for subsequent segments
-            if pair_idx > 0:
+            if pair_pos > 0:
                 blocks = blocks[1:]
             combined_blocks.extend(blocks)
 
@@ -4968,7 +5158,7 @@ def cli(
                 first_last = xyz_blocks_first_last(raw_blocks, path=seg_trj)
             except Exception as e:
                 _echo(
-                    f"[all] WARNING: failed to parse first/last frames for segment {pair_idx:02d}: {e}",
+                    f"[all] WARNING: failed to parse first/last frames for segment {seg_idx:02d}: {e}",
                     err=True,
                 )
 
@@ -4979,6 +5169,9 @@ def cli(
                     "traj": seg_trj,
                     "inputs": (p_left, p_right),
                     "first_last": first_last,
+                    # Truthful child MEP signal; False/unknown remains
+                    # fail-closed even if later IRC/endpoint work succeeds.
+                    "converged": seg_converged,
                 }
             )
 
@@ -5028,7 +5221,11 @@ def cli(
                 energies_chain.append(float(np.nanmax(Es)))
                 energies_chain.append(Es[-1])
             if labels and energies_chain and len(labels) == len(energies_chain):
-                title_note = "(GSM; all segments)" if len(path_opt_segments) > 1 else "(GSM)"
+                title_note = (
+                    f"({mep_mode_label}; all segments)"
+                    if len(path_opt_segments) > 1
+                    else f"({mep_mode_label})"
+                )
                 diag_payload = _write_segment_energy_diagram(
                     path_dir / "energy_diagram_MEP",
                     labels=labels,
@@ -5038,12 +5235,16 @@ def cli(
                 if diag_payload:
                     energy_diagrams_po.append(diag_payload)
         except Exception as e:
-            _echo(f"[diagram] WARNING: Failed to build GSM diagram for path-opt branch: {e}", err=True)
+            _echo(
+                f"[diagram] WARNING: Failed to build {mep_mode_label} diagram "
+                f"for path-opt branch: {e}",
+                err=True,
+            )
 
         # --- Bond change detection and summary.json ---
         segments_summary: List[Dict[str, Any]] = []
         bond_cfg = dict(_path_search.BOND_KW)
-        for seg_idx, info in enumerate(path_opt_segments):
+        for seg_idx, info in enumerate(path_opt_segments, start=1):
             Es = [float(x) for x in info.get("energies", []) if np.isfinite(x)]
             if not Es:
                 continue
@@ -5073,6 +5274,7 @@ def cli(
                     "index": seg_idx,
                     "tag": info.get("tag", f"seg_{seg_idx:02d}"),
                     "kind": "seg",
+                    "converged": info.get("converged"),
                     "barrier_kcal": float(barrier),
                     "delta_kcal": float(delta),
                     "bond_changes": bond_summary,
@@ -5105,7 +5307,8 @@ def cli(
                 "thermo": do_thermo,
                 "dft": do_dft,
                 "opt_mode": tsopt_opt_mode_default,
-                "mep_mode": "gsm",
+                "mep_mode": mep_mode_kind,
+                "dmf_backend": dmf_backend_effective,
             },
         )
         try:
@@ -5189,6 +5392,8 @@ def cli(
                 do_dft=do_dft,
                 opt_mode_norm=opt_mode_norm,
                 opt_mode_post=opt_mode_post,
+                mep_mode=mep_mode_kind,
+                dmf_backend=dmf_backend_effective,
                 command_str=command_str,
                 q_int=q_int,
                 spin=spin,
@@ -5205,6 +5410,13 @@ def cli(
     # Optional Stage 4: TSOPT / THERMO / DFT (per reactive segment)
     if not (do_tsopt or do_thermo or do_dft):
         _write_pipeline_summary_log([])
+        _finalize_current_summary(
+            out_dir / "summary.json",
+            summary,
+            manifest=manifest,
+            out_dir=out_dir,
+            mirrors=(path_dir / "summary.json",),
+        )
         # Elapsed time
         _emit_final_summary(out_dir, time_start, manifest)
         return
@@ -5215,6 +5427,13 @@ def cli(
     if not segments:
         _echo("[post] No segments found in summary; nothing to do.", narrative=True)
         _write_pipeline_summary_log([])
+        _finalize_current_summary(
+            out_dir / "summary.json",
+            summary,
+            manifest=manifest,
+            out_dir=out_dir,
+            mirrors=(path_dir / "summary.json",),
+        )
         _emit_final_summary(out_dir, time_start, manifest)
         return
 
@@ -5223,6 +5442,13 @@ def cli(
     if not reactive:
         _echo("[post] No bond-change segments. Skipping TS/thermo/DFT.", narrative=True)
         _write_pipeline_summary_log([])
+        _finalize_current_summary(
+            out_dir / "summary.json",
+            summary,
+            manifest=manifest,
+            out_dir=out_dir,
+            mirrors=(path_dir / "summary.json",),
+        )
         _emit_final_summary(out_dir, time_start, manifest)
         return
 
@@ -5282,7 +5508,7 @@ def cli(
                 ref_pdb=layered_inputs[0] if layered_inputs else None,
             )
         else:
-            # If TSOPT off: use the GSM HEI (pocket) as TS geometry
+            # If TSOPT is off, use the MEP highest-energy image as TS geometry.
             ts_pdb = hei_pocket_pdb
             g_ts = geom_loader(ts_pdb, coord_type="cart")
             _hei_calc_kwargs = _stage_calc_kwargs(
@@ -5319,6 +5545,7 @@ def cli(
                                  link_atom_method=link_atom_method,
                                  mm_backend=mm_backend,
                                  use_cmap=use_cmap,
+                                 irc_step_size=irc_step_size,
                                  irc_never_stop=irc_never_stop,
                                  session=session,
                                  args_yaml=args_yaml)
@@ -5344,7 +5571,7 @@ def cli(
         ensure_dir(endpoint_opt_dir)
 
         # Map IRC left/right Hessians → R/P endpoint
-        # When reverse_irc is True, _irc_and_match swapped left/right to match GSM endpoints,
+        # When reverse_irc is True, _irc_and_match swapped left/right to match MEP endpoints,
         # so "irc_left" (=forward) now corresponds to gR and "irc_right" (=backward) to gL.
         from mlmm.io.hessian_cache import (
             clear as _clear_hess_cache,
@@ -5838,7 +6065,8 @@ def cli(
                 "thermo": do_thermo,
                 "dft": do_dft,
                 "opt_mode": tsopt_opt_mode_default,
-                "mep_mode": "gsm",
+                "mep_mode": mep_mode_kind,
+                "dmf_backend": dmf_backend_effective,
             },
         )
         _publish_manifest_summary(
@@ -5852,6 +6080,13 @@ def cli(
         _echo(f"[write] WARNING: Failed to refresh summary.json with energy diagram metadata: {e}", err=True)
 
     _write_pipeline_summary_log(post_segment_logs)
+    _finalize_current_summary(
+        out_dir / "summary.json",
+        summary,
+        manifest=manifest,
+        out_dir=out_dir,
+        mirrors=(path_dir / "summary.json",),
+    )
     _emit_final_summary(out_dir, time_start, manifest)
 
 

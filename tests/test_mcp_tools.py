@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 import pytest
@@ -134,3 +135,27 @@ def test_summary_only_tools_do_not_expose_leaf_pair_override(registry, tmp_path:
     assert "--thermo" in argv
     assert "true" not in argv and "false" not in argv
     assert "expected_primary_filename" not in kwargs
+
+
+def test_search_paths_always_passes_two_ordered_endpoints(
+    registry, tmp_path: Path,
+) -> None:
+    tools, calls = registry
+    signature = inspect.signature(tools["search_paths"])
+    assert signature.parameters["product_pdb"].default is inspect.Parameter.empty
+
+    tools["search_paths"](
+        "R.pdb",
+        "full.parm7",
+        -1,
+        1,
+        product_pdb="P.pdb",
+        intermediate_pdbs=["IM1.pdb", "IM2.pdb"],
+        out_dir=str(tmp_path / "path-search"),
+    )
+
+    argv, _ = calls[-1]
+    input_at = argv.index("-i")
+    assert argv[input_at + 1 : input_at + 5] == [
+        "R.pdb", "IM1.pdb", "IM2.pdb", "P.pdb",
+    ]

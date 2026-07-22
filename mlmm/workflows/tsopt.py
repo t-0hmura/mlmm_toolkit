@@ -110,6 +110,7 @@ from mlmm.cli.common_options import (
     add_deterministic_option,
     add_coord_type_option,
     add_print_every_option,
+    add_allow_charge_mult_mismatch_option,
 )
 from mlmm.cli.decorators import (
     resolve_yaml_sources,
@@ -2298,6 +2299,16 @@ def _run_microiter_tsopt(
             latest_micro_stop_reason = _init_micro_out.stop_reason or ""
             if _init_micro_out.converged is not True:
                 run_macro = False
+                if dump:
+                    # ``--dump`` promises a combined trajectory even when the
+                    # fail-closed initial MM equilibration prevents every macro
+                    # step. Seed it only on this early-stop path; otherwise the
+                    # first macro append already carries the initial micro frames.
+                    _append_xyz_trajectory(
+                        optim_all_path,
+                        out_dir_path / "optimization_trj.xyz",
+                        reset=True,
+                    )
                 click.echo(
                     "[microiter] Initial MM equilibration did not converge "
                     f"(status={_init_micro_out.status}); no macro step is taken.",
@@ -2799,6 +2810,7 @@ def _load_reference_mode(path: Path, expected_size: int) -> np.ndarray:
 @add_deterministic_option()
 @add_coord_type_option()
 @add_print_every_option()
+@add_allow_charge_mult_mismatch_option()
 @click.pass_context
 def cli(
     ctx: click.Context,

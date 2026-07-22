@@ -4,7 +4,7 @@
 
 `all` は渡す入力に応じて 3 つのモードのいずれかで動作します:
 
-- **マルチ構造アンサンブル** -- 反応順に 2 つ以上の完全 PDB を提供し、複数構造にまたがる GSM MEP 探索を駆動する。
+- **マルチ構造アンサンブル** -- 反応順に 2 つ以上の完全 PDB を提供し、複数構造にまたがる GSM（デフォルト）または DMF の MEP 探索を実行する。
 - **単一構造 + 段階的スキャン** -- 1 つの PDB と `--scan-lists` を提供する。各リテラルがスキャンステージとなり、緩和済みの端点が MEP の端点となる。
 - **TSOPT のみ** -- 1 つの PDB を提供し `--tsopt` を設定（`--scan-lists` なし）して、MEP 探索なしで TS 最適化を直接実行する。
 
@@ -51,6 +51,13 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
  --backend orb --embedcharge --out-dir ./result_all_orb
 ```
 
+CPU 実装の DMF（DMF バックエンドのデフォルトは GPU）:
+
+```bash
+mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
+ --mep-mode dmf --dmf-backend cpu --out-dir ./result_all_dmf
+```
+
 対応する PDB はテンプレートが利用可能な場合に生成され、`--convert-files/--no-convert-files`（デフォルト有効）で制御されます。
 
 ## 処理の流れ
@@ -74,7 +81,8 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
 4. **全系レイヤード PDB での MEP 探索**
    - すべての MEP 計算は全系レイヤード PDB（`--parm` + `--detect-layer`）上で実行されます（ポケット上ではありません）。
    - **`--refine-path`:** 自動精密化を含む再帰的 `path_search` を実行し、多段階反応を自動検出して各素反応の詳細な MEP を構築します。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 5 後処理に対応。
-   - **`--no-refine-path`（デフォルト）:** 隣接ペアごとに単一パス `path-opt` GSM を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 5 後処理（TSOPT、thermo、DFT）が利用可能。
+   - `--mep-mode` で GSM（デフォルト）または DMF を選択します。`--dmf-backend gpu` は `dmf.torch`、`--dmf-backend cpu` は NumPy 実装を使用します。GPU メモリ不足時は CPU を選択してください。
+   - **`--no-refine-path`（デフォルト）:** 隣接ペアごとに選択した最適化法で単一パス `path-opt` を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 5 後処理（TSOPT、thermo、DFT）が利用可能。
    - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、元の完全 PDB 1 つがすべての入力の参照テンプレートとして再利用されます。
 
 5. **サマリーと任意の後処理**
@@ -122,12 +130,12 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
   pockets/                             # 入力ごとのポケット PDB（複数構造は統合）
   scan/                                # 単一構造+スキャンモードの場合のみ（stage_01/result.pdb …）
   path_opt/                            # MEP エンジン生出力（--refine-path 時は path_search/）
-   summary.{json,log} · seg_NN_mep/    # 生の per-segment GSM 軌跡（マージ済み MEP 成果物は root へ移動）
+   summary.{json,log} · seg_NN_mep/    # セグメント別の生 MEP 軌跡（マージ済み成果物はルートへ移動）
 ```
 
 **TSOPT のみモード**（単一入力 + `--tsopt`、`--scan-lists` なし）では MEP ステージが無く、最適化済み R/TS/P と `ts/`・`irc/`・`freq/`・`dft/` は `segments/seg_01/` 配下に生成され、`_work/path_opt/` は存在しません。
 
-`-v 2` ではコンソールに抽出、MM 準備、スキャンステージ、MEP の進捗（GSM）、ステージごとのタイミングが要約されます。{ref}`ja-verbosity-levels` を参照してください。
+`-v 2` ではコンソールに抽出、MM 準備、スキャンステージ、MEP の進捗、ステージごとの所要時間が要約されます。{ref}`ja-verbosity-levels` を参照してください。
 
 ### `summary.log` の読み方
 ログは番号付きセクションで構成されています:
@@ -200,15 +208,17 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
-| `--max-nodes INT` | セグメント GSM の内部ノード数。 | `20` |
-| `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
-| `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--opt-mode [grad\|hess]` | スキャン/path-opt/path-search と単一構造最適化のプリセット（`grad` → L-BFGS/Dimer、`hess` → RFO/RSIRFO）。 | `grad` |
+| `--mep-mode [gsm\|dmf]` | `path-opt` と再帰的 `path-search` の両方へ転送する MEP 最適化法。 | `gsm` |
+| `--dmf-backend [gpu\|cpu]` | DMF 実装。明示指定時だけ子コマンドへ転送するため、省略時は子コマンドの YAML 設定 `dmf.backend` が有効。 | `gpu` |
+| `--max-nodes INT` | GSM/DMF セグメントの内部ノード数。 | `20` |
+| `--max-cycles INT` | MEP 最適化サイクルの最大数。 | `300` |
+| `--climb/--no-climb` | 選択した最適化法が対応する場合に climbing-image TS 精密化を有効化。 | `True` |
+| `--opt-mode [grad\|hess]` | スキャン/path-search と単一構造最適化のプリセット（`grad` → L-BFGS/Dimer、`hess` → RFO/RSIRFO）。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。実効デフォルト: path-opt は `gau_loose`、scan は `gau`。 | _None_ |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
-| `--refine-path/--no-refine-path` | `--no-refine-path`（デフォルト）= 単一パス `path-opt`（GSM + 軌跡結合 + HEI 抽出 + 結合変化検出 + summary.json）、`--refine-path` = 再帰的 `path-search`。両モードとも Stage 5（TSOPT/thermo/DFT）対応。 | `False` |
+| `--refine-path/--no-refine-path` | `--no-refine-path`（デフォルト）= 単一パス `path-opt`（軌跡結合 + HEI 抽出 + 結合変化検出 + `summary.json`）、`--refine-path` = 再帰的 `path-search`。どちらも `--mep-mode` の選択と Stage 5（TSOPT/thermo/DFT）に対応。 | `False` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessianモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--precision [fp32\|fp64]` | バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
@@ -240,6 +250,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
 | `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップを拒否（opt 子へ転送。低エネルギー形状へロールバックし trust radius を縮小）。TS 最適化や経路探索には影響しない。 | `True` |
 | `--tr-projection [constrained\|legacy-active]` | 凍結境界 TR 処理を `tsopt`、`irc`、`freq`、flatten PHVA へ転送。`legacy-active` は現行の共通 kernel を使う isolated-active 比較処理。 | `constrained` |
+| `--irc-step-size FLOAT` | TS 後の各 IRC に EulerPC 最大ステップ（Bohr）を転送。数フレームで停止する場合は `0.05` など小さい値で再試行。 | IRC 既定 `0.10` |
 | `--irc-never-stop/--no-irc-never-stop` | エネルギー上昇/plateau 停止だけを無視して IRC を継続。収束、非有限値、サイクル上限では停止。 | `False` |
 | `--tsopt-max-cycles INT` | `tsopt --max-cycles` の上書き。 | _デフォルト_ |
 | `--tsopt-out-dir PATH` | tsopt サブディレクトリのカスタマイズ。 | _None_ |

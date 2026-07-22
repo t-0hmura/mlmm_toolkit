@@ -6,7 +6,7 @@ on:
       - published
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -70,6 +70,13 @@ jobs:
           PY
           python -m mlmm --version
           mlmm --version
+
+      - name: Attach distribution to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            dist/*.whl dist/*.tar.gz --clobber
 
       - name: Publish to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@release/v1

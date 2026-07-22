@@ -62,6 +62,23 @@ def test_collect_option_values_accepts_grouped_and_repeated_flags():
     assert collect_option_values(argv, ("-o", "--output")) == ["x.pdb"]
 
 
+def test_collect_option_values_preserves_equals_attached_and_grouped_order():
+    from mlmm.core.utils import collect_option_values
+
+    argv = [
+        "--input=first.pdb", "-i", "second.pdb", "third.pdb",
+        "--output=first.out", "-osecond.out", "--ref-pdb=template.pdb",
+        "--input=fourth.pdb",
+    ]
+    assert collect_option_values(argv, ("-i", "--input")) == [
+        "first.pdb", "second.pdb", "third.pdb", "fourth.pdb",
+    ]
+    assert collect_option_values(argv, ("-o", "--output")) == [
+        "first.out", "second.out",
+    ]
+    assert collect_option_values(argv, ("--ref-pdb",)) == ["template.pdb"]
+
+
 def test_load_structure_rejects_missing_input_file(tmp_path: Path):
     from mlmm.workflows.extract import load_structure
 

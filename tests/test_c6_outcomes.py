@@ -261,6 +261,72 @@ def test_path_engine_nonconverged_endpoint_reason_retained() -> None:
     assert "endpoint_hei" in raw.reason and "engine_nonconverged" in raw.reason
 
 
+def test_path_summary_contract_is_versioned_and_endpoint_fail_closed(tmp_path: Path) -> None:
+    from mlmm.core.utils import RESULT_JSON_SCHEMA_VERSION
+    from mlmm.workflows.path_search import _enrich_path_summary_contract
+
+    for name in ("mep.pdb", "energy_diagram_MEP.png"):
+        (tmp_path / name).write_text("current\n", encoding="utf-8")
+    summary = {"energy_diagrams": [{"name": "energy_diagram_MEP"}]}
+
+    _enrich_path_summary_contract(
+        summary,
+        segments=[],
+        out_dir=tmp_path,
+        calc_cfg={"backend": "orb", "model_charge": -1, "model_mult": 1},
+        command="mlmm path-search -i r.pdb -i p.pdb",
+    )
+
+    assert summary["schema_version"] == RESULT_JSON_SCHEMA_VERSION
+    assert summary["status"] == "partial"
+    assert summary["execution_status"] == "completed"
+    assert summary["scientific_status"] == "partial"
+    assert summary["stage_outcomes"][0]["item_id"] == "raw_path"
+    assert summary["stage_outcomes"][0]["usable"] is False
+    assert summary["charge"] == -1 and summary["spin"] == 1
+
+
+def test_path_summary_log_reuses_enriched_calculator_provenance(tmp_path: Path) -> None:
+    from mlmm.io.summary import write_summary_log
+    from mlmm.workflows.path_search import _summary_log_provenance
+
+    summary = {
+        "mlip_backend": "orb",
+        "mlip_model": "orb-v3",
+        "mlip_precision": "fp64",
+    }
+    payload = {
+        "pipeline_mode": "path-search",
+        **_summary_log_provenance(summary),
+    }
+    assert payload == {"pipeline_mode": "path-search", **summary}
+
+    destination = tmp_path / "summary.log"
+    write_summary_log(destination, payload)
+    rendered = destination.read_text(encoding="utf-8")
+    assert "orb" in rendered and "orb-v3" in rendered
+
+
+def test_path_summary_contract_does_not_swallow_truth_failures(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    from mlmm.workflows import path_search
+
+    monkeypatch.setattr(
+        path_search,
+        "_path_leaves_and_expected",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("truth failed")),
+    )
+    with pytest.raises(RuntimeError, match="truth failed"):
+        path_search._enrich_path_summary_contract(
+            {"energy_diagrams": []},
+            segments=[],
+            out_dir=tmp_path,
+            calc_cfg={"backend": "orb"},
+            command="mlmm path-search",
+        )
+
+
 def test_path_single_reactive_segment_is_success() -> None:
     from mlmm.workflows.path_search import SegmentReport, _path_leaves_and_expected
 
@@ -671,7 +737,9 @@ def test_read_irc_outcome_gates_on_scientific_status(tmp_path: Path) -> None:
 def test_all_pipeline_aggregate_excludes_nonconverged_irc() -> None:
     from mlmm.workflows.all import _pipeline_aggregate_truth
 
-    summary = {"segments": [{"index": 1, "kind": "seg", "barrier_kcal": 10.0}]}
+    summary = {"segments": [{
+        "index": 1, "kind": "seg", "barrier_kcal": 10.0, "converged": True,
+    }]}
     config = {"tsopt": True, "thermo": False, "dft": False}
 
     # Legacy status="success" (a trajectory exists, so _derive_pipeline_status is
@@ -701,6 +769,24 @@ def test_all_pipeline_aggregate_excludes_nonconverged_irc() -> None:
         summary, post_segments=converged, config=config, legacy_status="success",
     )
     assert truth_ok.scientific_status == "success"
+
+
+def test_all_pipeline_tsopt_only_does_not_require_mep_convergence() -> None:
+    """A direct-TS segment has no MEP convergence field to gate on."""
+    from mlmm.workflows.all import _pipeline_aggregate_truth
+
+    summary = {"segments": [{"index": 1, "kind": "tsopt", "barrier_kcal": 10.0}]}
+    post = [{
+        "index": 1,
+        "irc": {"usable": True, "reason": "ok"},
+        "endpoint_opt": {"reactant_converged": True, "product_converged": True},
+    }]
+    truth = _pipeline_aggregate_truth(
+        summary, post_segments=post, config={"tsopt": True},
+        legacy_status="success",
+    )
+    assert truth.scientific_status == "success"
+    assert "mep_convergence_unknown" not in truth.status_reasons
 
 
 def test_read_opt_endpoint_converged_gates_on_status(tmp_path: Path) -> None:
@@ -743,7 +829,9 @@ def test_all_pipeline_aggregate_gates_on_endpoint_opt(tmp_path: Path) -> None:
     (react_dir / "result.json").write_text(json.dumps({"status": "converged"}))
     (prod_dir / "result.json").write_text(json.dumps({"status": "not_converged"}))
 
-    summary = {"segments": [{"index": 1, "kind": "seg", "barrier_kcal": 10.0}]}
+    summary = {"segments": [{
+        "index": 1, "kind": "seg", "barrier_kcal": 10.0, "converged": True,
+    }]}
     config = {"tsopt": True}
     # The producer assembles segment_log["endpoint_opt"] from the reader's bits.
     post = [{
@@ -790,7 +878,7 @@ def test_all_pipeline_aggregate_preserves_legacy_severity() -> None:
     # a legacy `partial` (e.g. DFT failed) with a fully-converged IRC stays partial.
     from mlmm.workflows.all import _pipeline_aggregate_truth
 
-    summary = {"segments": [{"index": 1, "kind": "seg"}]}
+    summary = {"segments": [{"index": 1, "kind": "seg", "converged": True}]}
     post = [{
         "index": 1,
         "irc": {"usable": True, "reason": "ok"},
@@ -847,3 +935,52 @@ def test_all_pipeline_aggregate_no_tsopt_uses_segment_converged() -> None:
     assert _pipeline_aggregate_truth(
         ok, post_segments=None, config=cfg, legacy_status="success",
     ).scientific_status == "success"
+
+
+@pytest.mark.parametrize("mep_converged", [False, None])
+def test_all_pipeline_post_success_cannot_promote_bad_mep(
+    mep_converged: bool | None,
+) -> None:
+    """Successful IRC/endpoints cannot overwrite false/unknown MEP truth."""
+    from mlmm.workflows.all import _pipeline_aggregate_truth
+
+    summary = {"segments": [{
+        "index": 1, "kind": "seg", "barrier_kcal": 10.0,
+        "converged": mep_converged,
+    }]}
+    post = [{
+        "index": 1,
+        "irc": {"usable": True, "reason": "ok"},
+        "endpoint_opt": {"reactant_converged": True, "product_converged": True},
+    }]
+    truth = _pipeline_aggregate_truth(
+        summary, post_segments=post, config={"tsopt": True},
+        legacy_status="success",
+    )
+    assert truth.scientific_status != "success"
+
+
+def test_read_path_opt_segment_converged_is_tristate(tmp_path: Path) -> None:
+    from mlmm.workflows.all import _read_path_opt_segment_converged
+
+    assert _read_path_opt_segment_converged(tmp_path) is None
+    result = tmp_path / "result.json"
+    result.write_text(json.dumps({"stage_outcomes": [{"converged": True}]}))
+    assert _read_path_opt_segment_converged(tmp_path) is True
+    result.write_text(json.dumps({"stage_outcomes": [{"converged": False}]}))
+    assert _read_path_opt_segment_converged(tmp_path) is False
+    result.write_text("{ not json")
+    assert _read_path_opt_segment_converged(tmp_path) is None
+
+
+def test_all_path_opt_child_emits_machine_result() -> None:
+    """The no-refine path-opt producer must enable its result.json contract."""
+    from mlmm.workflows import all as all_workflow
+
+    source = Path(all_workflow.__file__).read_text(encoding="utf-8")
+    branch = source[source.index("else:\n        # --no-refine-path"):source.index("final_trj = path_dir", source.index("else:\n        # --no-refine-path"))]
+    assert 'po_args.append("--out-json")' in branch
+    assert "_read_path_opt_segment_converged(seg_out)" in branch
+    assert "seg_idx = pair_pos + 1" in branch
+    assert 'seg_tag = f"seg_{seg_idx:02d}"' in branch
+    assert "enumerate(path_opt_segments, start=1)" in source

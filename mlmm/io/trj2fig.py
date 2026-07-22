@@ -9,7 +9,6 @@ For detailed documentation, see: docs/trj2fig.md
 
 from __future__ import annotations
 
-import argparse
 import csv
 import re
 from pathlib import Path
@@ -21,8 +20,6 @@ import plotly.graph_objs as go
 from ase import Atoms
 from ase.io import read
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
-
-from mlmm.core.defaults import DEFAULT_UMA_MODEL
 
 AXIS_WIDTH = 3         # axis and tick thickness
 FONT_SIZE = 18         # tick-label font size
@@ -69,50 +66,90 @@ def recompute_energies(
     traj_path: Path,
     charge: Optional[int],
     multiplicity: Optional[int],
+    *,
+    backend: str = "uma",
+    backend_model: Optional[str] = None,
+    precision: Optional[str] = None,
 ) -> List[float]:
+    """Recalculate frame energies with the selected MLIP backend."""
     try:
         import torch
-        from fairchem.core import pretrained_mlip
-        from fairchem.core.datasets import data_list_collater
-        from fairchem.core.datasets.atomic_data import AtomicData
     except Exception as exc:
-        raise RuntimeError(
-            "Energy recomputation requires fairchem-core and torch."
-        ) from exc
+        raise RuntimeError("Energy recomputation requires torch.") from exc
+
+    from mlmm.backends.mlmm_calc import _create_ml_backend
+    from mlmm.core.utils import validate_charge_spin
 
     frames_obj = read(traj_path, index=":", format="xyz")
     frames = [frames_obj] if isinstance(frames_obj, Atoms) else list(frames_obj)
     if not frames:
         raise RuntimeError(f"No frames found in {traj_path}")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    predictor = pretrained_mlip.get_predict_unit(DEFAULT_UMA_MODEL, device=str(device))
-    predictor.model.eval()
-    backbone = getattr(getattr(predictor.model, "module", predictor.model), "backbone", None)
-    uma_max_neigh = getattr(backbone, "max_neighbors", None)
-    uma_radius = getattr(backbone, "cutoff", None)
-
     q = int(charge if charge is not None else 0)
     mult = int(multiplicity if multiplicity is not None else 1)
+    validate_charge_spin(
+        frames[0].get_chemical_symbols(),
+        q,
+        mult,
+        source=str(traj_path),
+    )
+
+    calc_cfg, _ = _resolved_backend_config(
+        backend,
+        backend_model=backend_model,
+        precision=precision,
+    )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    backend_kwargs = {
+        key: value
+        for key, value in calc_cfg.items()
+        if key
+        in {
+            "uma_model",
+            "uma_precision",
+            "orb_model",
+            "orb_precision",
+            "mace_model",
+            "mace_dtype",
+            "aimnet2_model",
+        }
+    }
+    ml_backend = _create_ml_backend(
+        str(calc_cfg["backend"]),
+        model_charge=q,
+        model_mult=mult,
+        ml_device=device,
+        **backend_kwargs,
+    )
+
     energies_h: List[float] = []
     for atoms in frames:
-        atoms.info.update({"charge": q, "spin": mult})
-        # r_data_keys is REQUIRED or fairchem's from_ase hardcodes charge=0/spin=0 (see
-        # backends/mlmm_calc.py). "spin"=mult here is already the multiplicity (correct).
-        data = AtomicData.from_ase(
-            atoms,
-            max_neigh=uma_max_neigh,
-            radius=uma_radius,
-            r_edges=False,
-            r_data_keys=["spin", "charge"],
-        ).to(device)
-        data.dataset = "omol"
-        batch = data_list_collater([data], otf_graph=True).to(device)
-        with torch.no_grad():
-            res = predictor.predict(batch)
-        energy_ev = float(res["energy"].squeeze().detach().item())
+        energy_ev, _, _ = ml_backend.eval(atoms, need_grad=False)
         energies_h.append(energy_ev / AU2EV)
     return energies_h
+
+
+def _resolved_backend_config(
+    backend: str,
+    *,
+    backend_model: Optional[str] = None,
+    precision: Optional[str] = None,
+) -> tuple[dict, dict]:
+    """Resolve backend-specific model/precision and its public provenance."""
+    from mlmm.backends import (
+        apply_backend_model_to_calc_cfg,
+        apply_precision_to_calc_cfg,
+    )
+    from mlmm.core.utils import calculator_provenance
+
+    calc_cfg = {"backend": str(backend).strip().lower()}
+    apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+    apply_precision_to_calc_cfg(calc_cfg, precision)
+    provenance = calculator_provenance(calc_cfg)
+    return calc_cfg, {
+        key: provenance[key]
+        for key in ("mlip_backend", "mlip_model", "mlip_precision")
+    }
 
 
 def _parse_reference_spec(spec: str | None) -> str | int | None:
@@ -282,50 +319,6 @@ def write_csv(
     emit(f"[trj2fig] Saved CSV -> {out}", detail=True)
 
 
-#  CLI (argparse)
-def parse_cli() -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        prog="trj2fig",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Plot ΔE or E from an XYZ trajectory and export a figure and/or CSV (no title).",
-    )
-    p.add_argument("-i", "--input", required=True, help="XYZ trajectory file")
-    p.add_argument(
-        "-o",
-        "--out",
-        nargs="+",
-        default=["energy.png"],
-        help="Output file(s) [.png/.html/.svg/.pdf/.csv]. Multiple names allowed.",
-    )
-    p.add_argument("--unit", choices=["kcal", "hartree"], default="kcal", help="Energy unit")
-    p.add_argument(
-        "-r",
-        "--reference",
-        default="init",
-        help='Reference: "init" (initial frame; last frame if --reverse-x), "None" (absolute E), or an integer index.',
-    )
-    p.add_argument(
-        "-q",
-        "--charge",
-        type=int,
-        required=False,
-        help="Total charge. Recompute energies when supplied.",
-    )
-    p.add_argument(
-        "-m",
-        "--multiplicity",
-        type=int,
-        required=False,
-        help="Spin multiplicity (2S+1). Recompute energies when supplied.",
-    )
-    p.add_argument(
-        "--reverse-x",
-        action="store_true",
-        help="Reverse the x-axis (last frame on the left).",
-    )
-    return p.parse_args()
-
-
 def run_trj2fig(
     input_path: Path,
     outs: Sequence[Path],
@@ -334,16 +327,43 @@ def run_trj2fig(
     reverse_x: bool,
     charge: Optional[int] = None,
     multiplicity: Optional[int] = None,
-) -> None:
+    backend: str = "uma",
+    backend_model: Optional[str] = None,
+    precision: Optional[str] = None,
+) -> dict:
+    """Run trj2fig and return energies, outputs, and actual provenance."""
     traj = input_path.expanduser().resolve()
     if not traj.is_file():
         raise FileNotFoundError(traj)
 
-    if charge is None and multiplicity is None:
+    recomputed = charge is not None or multiplicity is not None
+    if not recomputed:
         energies = read_energies_xyz(traj)
+        provenance = {
+            "mlip_backend": None,
+            "mlip_model": None,
+            "mlip_precision": None,
+        }
     else:
-        emit("[trj2fig] Recomputing energies with UMA model ...", detail=True)
-        energies = recompute_energies(traj, charge, multiplicity)
+        _, provenance = _resolved_backend_config(
+            backend,
+            backend_model=backend_model,
+            precision=precision,
+        )
+        emit(
+            "[trj2fig] Recomputing energies with "
+            f"{provenance['mlip_backend']} "
+            f"({provenance['mlip_model']}, {provenance['mlip_precision']}) ...",
+            detail=True,
+        )
+        energies = recompute_energies(
+            traj,
+            charge,
+            multiplicity,
+            backend=backend,
+            backend_model=backend_model,
+            precision=precision,
+        )
     values, ylabel, is_delta = transform_series(energies, reference, unit, reverse_x)
 
     need_plot = any(Path(o).suffix.lower() != ".csv" for o in outs)
@@ -352,18 +372,18 @@ def run_trj2fig(
     out_paths = [Path(o).expanduser().resolve() for o in outs]
     save_outputs(out_paths, fig, energies, values, unit, is_delta)
 
-
-def main() -> None:
-    args = parse_cli()
-    run_trj2fig(
-        Path(args.input),
-        args.out,
-        args.unit,
-        args.reference,
-        args.reverse_x,
-        args.charge,
-        args.multiplicity,
-    )
+    return {
+        "energies_hartree": energies,
+        "out_paths": out_paths,
+        "energy_source": "mlip_recomputed" if recomputed else "trajectory_comment",
+        "charge": int(charge if charge is not None else 0) if recomputed else None,
+        "multiplicity": (
+            int(multiplicity if multiplicity is not None else 1)
+            if recomputed
+            else None
+        ),
+        **provenance,
+    }
 
 
 @click.command(
@@ -427,6 +447,31 @@ def main() -> None:
     show_default=True,
     help="Reverse the x-axis (last frame on the left).",
 )
+@click.option(
+    "-b",
+    "--backend",
+    type=click.Choice(["uma", "orb", "mace", "aimnet2"]),
+    default="uma",
+    show_default=True,
+    help="MLIP backend used when energies are recomputed.",
+)
+@click.option(
+    "--backend-model",
+    default=None,
+    help="Model variant for the selected backend; defaults to its built-in model.",
+)
+@click.option(
+    "--precision",
+    type=click.Choice(["fp32", "fp64"], case_sensitive=False),
+    default=None,
+    help="Backend-neutral precision used when energies are recomputed.",
+)
+@click.option(
+    "--out-json/--no-out-json",
+    default=False,
+    show_default=True,
+    help="Write machine-readable result.json next to the first output.",
+)
 def cli(
     input_path: Path,
     outs: Tuple[Path, ...],
@@ -436,14 +481,53 @@ def cli(
     charge: Optional[int],
     multiplicity: Optional[int],
     reverse_x: bool,
+    backend: str,
+    backend_model: Optional[str],
+    precision: Optional[str],
+    out_json: bool,
 ) -> None:
     # Combine outputs from -o with positional filenames that follow the options
     all_outs: List[Path] = list(outs) + list(extra_outs)
     if not all_outs:
         # Use the default when nothing is specified
         all_outs = [Path("energy.png")]
-    run_trj2fig(input_path, all_outs, unit, reference, reverse_x, charge, multiplicity)
+    info = run_trj2fig(
+        input_path,
+        all_outs,
+        unit,
+        reference,
+        reverse_x,
+        charge,
+        multiplicity,
+        backend=backend,
+        backend_model=backend_model,
+        precision=precision,
+    )
+
+    if out_json:
+        from mlmm.core.utils import write_result_json
+
+        energies = info["energies_hartree"]
+        written_paths = info["out_paths"]
+        out_dir = written_paths[0].parent if written_paths else Path.cwd()
+        result_data = {
+            "status": "ok",
+            "n_frames": len(energies),
+            "min_energy_hartree": float(min(energies)) if energies else None,
+            "max_energy_hartree": float(max(energies)) if energies else None,
+            "energy_source": info["energy_source"],
+            "mlip_backend": info["mlip_backend"],
+            "mlip_model": info["mlip_model"],
+            "mlip_precision": info["mlip_precision"],
+            "charge": info["charge"],
+            "multiplicity": info["multiplicity"],
+            # Preserve order and duplicate basenames across output
+            # directories. ``files`` remains the legacy compatibility map.
+            "output_files": [str(path) for path in written_paths],
+            "files": {path.name: str(path) for path in written_paths},
+        }
+        write_result_json(out_dir, result_data, command="trj2fig")
 
 
 if __name__ == "__main__":
-    main()
+    cli()

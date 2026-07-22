@@ -11,7 +11,7 @@ from __future__ import annotations
 import ast
 import sys
 from pathlib import Path
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 import click
 
@@ -58,31 +58,62 @@ def _collect_flag_values(
 ) -> List[str]:
     vals: List[str] = []
     names_set = set(names)
+    long_names = tuple(name for name in names_set if name.startswith("--"))
+    short_names = tuple(
+        name for name in names_set if name.startswith("-") and not name.startswith("--")
+    )
     stop_set = set(stop_flags)
     i = 0
     while i < len(argv):
         tok = argv[i]
-        if tok in names_set:
-            j = i + 1
-            while j < len(argv) and argv[j] not in stop_set:
-                vals.append(argv[j])
-                j += 1
-            i = j
-        else:
+        matched = tok in names_set
+        inline: Optional[str] = None
+        if not matched:
+            for name in long_names:
+                if tok.startswith(name + "="):
+                    matched = True
+                    inline = tok.split("=", 1)[1]
+                    break
+        if not matched:
+            for name in short_names:
+                if tok.startswith(name) and tok != name:
+                    matched = True
+                    inline = tok[len(name):]
+                    break
+        if not matched:
+            i += 1
+            continue
+        if inline is not None:
+            vals.append(inline)
+        i += 1
+        while i < len(argv):
+            candidate = argv[i]
+            if candidate in stop_set:
+                break
+            if candidate.startswith("-"):
+                try:
+                    float(candidate)
+                except ValueError:
+                    break
+            vals.append(candidate)
             i += 1
     return vals
 
 
-def _collect_inputs(default_values: Sequence[str]) -> List[str]:
-    argv = list(sys.argv[1:])
+def _collect_inputs(
+    default_values: Sequence[str], argv: Optional[Sequence[str]] = None
+) -> List[str]:
+    argv = list(sys.argv[1:] if argv is None else argv)
     raw = _collect_flag_values(argv, ("-i", "--input"), _ALL_FLAGS)
     if raw:
         return raw
     return list(default_values)
 
 
-def _collect_label_x(default_values: Sequence[str]) -> List[str]:
-    argv = list(sys.argv[1:])
+def _collect_label_x(
+    default_values: Sequence[str], argv: Optional[Sequence[str]] = None
+) -> List[str]:
+    argv = list(sys.argv[1:] if argv is None else argv)
     raw = _collect_flag_values(argv, ("--label-x",), _ALL_FLAGS)
     if raw:
         return raw
@@ -224,17 +255,30 @@ def _parse_label_x(tokens: Sequence[str]) -> List[str]:
     show_default=True,
     help="Write machine-readable result.json next to the output image.",
 )
+@click.pass_context
 def cli(
+    ctx: click.Context,
     input_values: Sequence[str],
     output_path: Path,
     label_x: Sequence[str],
     label_y: str,
     out_json: bool,
 ) -> None:
-    input_tokens = _collect_inputs(input_values)
+    from mlmm.core.utils import current_cli_args, reject_option_like_extra_args
+
+    argv = current_cli_args(ctx)
+    claimed = _collect_flag_values(argv, ("-i", "--input"), _ALL_FLAGS)
+    claimed += _collect_flag_values(argv, ("--label-x",), _ALL_FLAGS)
+    reject_option_like_extra_args(
+        ctx.args,
+        allowed_values=claimed,
+        consumed_values=[*input_values, *label_x],
+    )
+
+    input_tokens = _collect_inputs(input_values, argv)
     energies = _parse_numeric_inputs(input_tokens)
 
-    label_tokens = _collect_label_x(label_x)
+    label_tokens = _collect_label_x(label_x, argv)
     labels = _parse_label_x(label_tokens)
     if labels:
         if len(labels) != len(energies):

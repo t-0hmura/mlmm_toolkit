@@ -235,7 +235,7 @@ def _select_closest_state_1d(
     "-s", "--scan-lists",
     "scan_list_raw",
     type=str,
-    required=False,
+    required=True,
     help="Scan targets: inline Python literal or a YAML/JSON spec file path.",
 )
 @click.option(
@@ -348,7 +348,7 @@ def cli(
     freeze_atoms_cli: Optional[str],
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
-    scan_list_raw: Optional[str],
+    scan_list_raw: str,
     one_based: bool,
     print_parsed: bool,
     dry_run: bool,
@@ -550,8 +550,6 @@ def cli(
             if source_path.suffix.lower() == ".pdb":
                 pdb_atom_meta = load_pdb_atom_metadata(source_path)
 
-            if scan_list_raw is None:
-                raise click.BadParameter("--scan-lists is required.")
             scan_one_based = bool(one_based)
             scan_source = "--scan-lists"
             if is_scan_spec_file(scan_list_raw):
@@ -596,7 +594,7 @@ def cli(
                     )
                 )
                 # --print-parsed = "just show the parsed spec": exit before
-                # any GPU calculation. scan2d has no --dry-run, so this is
+                # the general dry-run plan and before any GPU calculation.
                 sys.exit(0)
             if dry_run:
                 click.echo(

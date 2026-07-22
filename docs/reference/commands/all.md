@@ -87,10 +87,16 @@ Options:
                                   to TSopt, IRC, freq, and flatten PHVA. The
                                   default respects frozen anchors.  [default:
                                   constrained]
-  --max-nodes INTEGER             Max internal nodes for *segment* GSM (String
-                                  has max_nodes+2 images including endpoints).
+  --mep-mode [gsm|dmf]            MEP optimizer: Growing String Method (gsm) or
+                                  Direct Max Flux (dmf).  [default: gsm]
+  --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
+                                  (dmf.torch / CUDA) or cpu (dmf / NumPy). On a
+                                  GPU out-of-memory error, retry with cpu.
+                                  [default: gpu]
+  --max-nodes INTEGER             Max internal nodes per GSM/DMF segment
+                                  (max_nodes+2 images including endpoints).
                                   [default: 20]
-  --max-cycles INTEGER            Maximum GSM optimization cycles.  [default:
+  --max-cycles INTEGER            Maximum MEP optimization cycles.  [default:
                                   300]
   --climb / --no-climb            Enable transition-state climbing after growth
                                   for the *first* segment in each pair.
@@ -102,16 +108,17 @@ Options:
   --opt-mode-post [grad|hess]     Optimizer mode for TSOPT and post-IRC endpoint
                                   optimizations. Takes precedence over --opt-
                                   mode for these stages.  [default: hess]
-  --dump / --no-dump              Dump GSM / single-structure trajectories
+  --dump / --no-dump              Dump MEP / single-structure trajectories
                                   during the run, forwarding the same flag to
                                   scan/tsopt/freq.  [default: no-dump]
   --refine-path / --no-refine-path
-                                  If False (default), run a single-pass path-opt
-                                  GSM between each adjacent pair and concatenate
-                                  the segments (no path_search); if True, run
-                                  recursive path_search on the full ordered
-                                  series for automatic multistep discovery.
-                                  [default: no-refine-path]
+                                  If False (default), run single-pass path-opt
+                                  with the selected MEP optimizer between each
+                                  adjacent pair and concatenate the segments (no
+                                  path_search); if True, run recursive
+                                  path_search on the full ordered series for
+                                  automatic multistep discovery.  [default: no-
+                                  refine-path]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset (gau_loose|gau|gau_tight|ga
                                   u_vtight|baker|never). Defaults to 'gau_loose'
@@ -166,6 +173,9 @@ Options:
                                   optimization or path search. --no-reject-
                                   uphill disables it for the endpoint re-
                                   optimization.  [default: reject-uphill]
+  --irc-step-size FLOAT           Override IRC --step-size (Bohr). If an IRC
+                                  stops after only a few frames, retry with a
+                                  smaller value such as 0.05.
   --irc-never-stop / --no-irc-never-stop
                                   Forward IRC never-stop mode to every post-TS
                                   IRC. It ignores energy-rise/plateau stops but

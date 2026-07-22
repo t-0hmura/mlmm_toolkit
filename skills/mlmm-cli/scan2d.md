@@ -10,7 +10,7 @@ surfaces (e.g. SN2 attack + leaving-group departure).
 ## Synopsis
 
 ```bash
-mlmm scan2d -i input.pdb \
+mlmm scan2d -i input.pdb --parm real.parm7 \
     -s '[(a1, b1, low1, high1), (a2, b2, low2, high2)]' \
     [-l 'RES:Q,...'] \
     [-b uma|orb|mace|aimnet2] [-o ./result_scan2d/]
@@ -55,7 +55,7 @@ are driven simultaneously, generating the grid.
 ## Examples
 
 ```bash
-mlmm scan2d -i 1.R.pdb -l 'SAM:1,GPP:-3' \
+mlmm scan2d -i 1.R.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
     -s '[("CS1 SAM 320","C7 GPP 321",1.60,3.10), ("GPP 321 H11","GLU 186 OE2",0.90,1.80)]' \
     -b uma -o result_scan2d
 ```

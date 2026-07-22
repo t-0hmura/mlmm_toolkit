@@ -60,6 +60,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--precision` | str | backend-specific | Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `--tr-projection` | str | `constrained` | Forward frozen-boundary TR treatment to TSopt, IRC, freq, and flatten PHVA |
+| `--irc-step-size` | float | IRC default `0.10` | Forward a smaller EulerPC maximum step; try `0.05` when an IRC branch stops after only a few frames |
 | `--irc-never-stop / --no-irc-never-stop` | flag | off | Ignore only IRC energy-rise/plateau stops; convergence, invalid-value, and cycle-cap stops remain |
 | `-o, --out-dir` | path | `./result_all/` | Top-level output directory |
 | `--config` | path | none | YAML config applied before CLI flags |
@@ -152,9 +153,9 @@ This flag is unrelated to the internal `tsopt --ref-mode` MEP tangent.
 `--help-advanced`). To rerun only a failed segment:
 
 ```bash
-mlmm tsopt -i _work/path_opt/hei_seg_03.xyz -o segments/seg_03/ts -b uma
-mlmm irc   -i segments/seg_03/ts/final_geometry.xyz -o segments/seg_03/irc -b uma
-mlmm freq  -i segments/seg_03/irc/finished_irc_trj.xyz -o segments/seg_03/freq -b uma
+mlmm tsopt -i _work/path_opt/hei_seg_03.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o segments/seg_03/ts -b uma
+mlmm irc   -i segments/seg_03/ts/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o segments/seg_03/irc -b uma
+mlmm freq  -i segments/seg_03/ts/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o segments/seg_03/freq -b uma
 ```
 
 The directory layout matches what `all` produces, so downstream

@@ -70,8 +70,8 @@ Examples:
 
 After scans complete, `mlmm all` stitches the scan trajectories with
 single-pass `path-opt` (GSM) by default; pass `--refine-path` to run the
-recursive `path-search` instead. Switch to DMF only by running
-`mlmm path-search` standalone.
+recursive `path-search` instead. `--mep-mode dmf` selects DMF for either
+route.
 
 Unlike endpoint-MEP mode, `-i` is **a single PDB** (the reactant). The
 toolkit synthesizes intermediate / product geometries from the scan

@@ -4,7 +4,7 @@
 
 オプティマイザは 2 種類あり、`--opt-mode` で選択します。
 
-- **RS-I-RFO**（`--opt-mode hess`）はデフォルトで、Hessian計算のコストを許容できる場合の保守的な選択肢です。マイクロイテレーション（`--microiter`、デフォルト有効）が ML 1 ステップ RS-I-RFO と MM L-BFGS 緩和を交互に実行します。
+- **RS-I-RFO**（`--opt-mode hess`）はデフォルトで、Hessian 計算のコストを許容できる場合の保守的な選択肢です。マイクロイテレーション（`--microiter`、デフォルト有効）が ML 1 ステップ RS-I-RFO と MM L-BFGS 緩和を交互に実行します。
 - **Hessian-Guided Dimer**（`--opt-mode grad`）はより軽量な代替で、低コストな探索や複数の TS 推測構造からの素早い反復に向きます。`--ml-only-hessian-dimer` を付けると ML 領域のみのHessianを Dimer 方向決定に使用できます（高速）。
 
 収束後は `--flatten` の余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。検証済み TS は**正確に 1 つ**の虚振動数を示すべきで、必ず [`freq`](freq.md) / [`irc`](irc.md) でモードと結合性を確認してください。
@@ -204,6 +204,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
+| `--allow-charge-mult-mismatch` | 警告を出した上で ML 領域の電荷・多重度の電子パリティ検証を省略。意図した不一致の場合のみ使用。 | off |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
 | `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |

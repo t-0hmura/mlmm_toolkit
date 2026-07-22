@@ -157,7 +157,7 @@ mlmm path-search -i 1.R.pdb 3.P.pdb --parm real.parm7 --detect-layer \
     -l 'SAM:1,GPP:-3' -b uma -o ps/
 ```
 
-**GATE** (`ps/summary.json`): `status == "success"`; inspect `n_segments` and EACH
+**GATE** (`ps/summary.json`): `scientific_status == "success"` and every required `stage_outcomes[]` leaf is usable; inspect `n_segments` and EACH
 segment's `bond_changes` — the intended bonds must be *formed AND broken* for the right
 atoms (`mlmm-cli/bond-summary.md`, `mlmm-ts-strategy/SKILL.md`). Wrong segmentation /
 spurious changes → fix chemistry or inputs **before** any TS work (don't optimize a TS
@@ -166,9 +166,9 @@ for the wrong step).
 **Stage 2 — per reactive segment: TS → validate → connectivity** (seed = `ps/hei_seg_NN.xyz`)
 
 ```bash
-mlmm tsopt -i ps/hei_seg_NN.xyz               --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma -o seg_NN/tsopt
-mlmm freq  -i seg_NN/tsopt/final_geometry.xyz --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma -o seg_NN/freq
-mlmm irc   -i seg_NN/tsopt/final_geometry.xyz --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma -o seg_NN/irc
+mlmm tsopt -i ps/hei_seg_NN.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/tsopt
+mlmm freq -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/freq
+mlmm irc -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/irc
 ```
 
 **GATE** in order: tsopt `result.json` `status` is exactly `converged`
@@ -185,7 +185,7 @@ for the Gibbs/QRRHO profile (`post_segments[i].gibbs_mlip`).
 **Stage 4 — DFT//MLIP/MM** (optional, = `all --dft`):
 
 ```bash
-mlmm dft -i seg_NN/reactant.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' -o seg_NN/dft/R   # repeat for ts, product
+mlmm dft -i seg_NN/reactant.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' --out-json -o seg_NN/dft/R   # repeat for ts, product
 ```
 
 **GATE**: each `dft/<state>/result.json` shows `"converged": true`.
@@ -198,8 +198,12 @@ mlmm energy-diagram -i 0.0 -i 21.5 -i -0.7 --label-x R --label-x TS --label-x P 
 
 > Resuming after a walltime hit uses these same commands — see `mlmm-cli/all.md`
 > "Resume / restart". On any non-success status read `summary.log`, then
-> `segments/seg_NN/<stage>/result.json`, before retrying. Large IRC/freq (n ≳ 4000
-> atoms) on a 16 GB GPU can OOM — run pysisyphus `bofill_update` on CPU.
+> `segments/seg_NN/<stage>/result.json`, before retrying. If an IRC Bofill Hessian
+> update exhausts GPU memory, rerun with `PYSIS_BOFILL_CPU_OFFLOAD=1`. This
+> explicit fallback moves the full Hessian to CPU, forms the dense SR1/PSB terms
+> there, and copies the update back to the original device. It trades
+> GPU-resident temporaries for host RAM and two full-matrix transfers; it does
+> not address frequency-calculation Hessian OOMs.
 
 ## summary.json schema (`mlmm all` output)
 
@@ -207,25 +211,41 @@ Top-level keys:
 
 | Key | Description |
 |---|---|
-| `command` | The subcommand (`"all"`, `"tsopt"`, …) |
-| `mlmm_toolkit_version` | Toolkit version that produced this output |
+| `command` | Full recorded invocation string for this `all` run |
+| `mlmm_toolkit_version` | Toolkit version that produced this aggregate output |
 | `status` | `"success"` (all stages OK), `"partial"` (segments produced but diagrams missing), or `"failed"` |
-| `charge` / `spin` | Resolved cluster charge / multiplicity |
+| `execution_status` / `scientific_status` | Whether required leaves executed / whether the science is usable; gate consumption on `scientific_status` |
+| `scientific_status_reasons` | Reasons for missing or unusable leaves; omitted on clean success |
+| `expected_item_ids` / `observed_item_ids` | Expected vs observed leaf IDs; compare before accepting the aggregate |
+| `stage_outcomes` / `point_outcomes` | Fail-closed per-stage / per-scan-point records; require explicit convergence and `usable` / `seed_eligible` when present |
+| `charge` / `spin` | Resolved ML-region charge / multiplicity |
 | `environment` | `{device, gpu_name, gpu_vram_gb, cuda_version, cpu, n_cpus, ram_gb}` |
 | `config` | Full effective config after CLI + YAML + defaults merge |
 | `freeze_atoms` | Indices held fixed during optimization (link-H parents) |
-| `n_segments` | Number of elementary steps detected |
+| `n_segments` | Number of path-search segments; validate chemistry before treating a segment as an elementary step |
 | `n_segments_reactive` | Number of non-bridge (reactive, `kind != "bridge"`) segments |
 | `rate_limiting_step` | Dict `{segment, barrier_kcal, method}` describing the highest-barrier segment (or `null` when no segments) |
 | `overall_reaction_energy_kcal` | R → P total energy difference |
 | `segments` | List, one per path-search segment (see below) |
 | `post_segments` | List, one per post-processed segment (TS / IRC / freq / DFT details) |
-| `key_output_files` | Map of role → path (mep_pdb, energy_diagrams, …) |
+| `key_output_files` | Root filename → description; each `seg_NN` entry is `{description, files}`, with paths relative to that segment directory. Rebuilt only from current-invocation manifest claims. |
+| `current_output_paths` | Sorted artifact paths relative to `--out-dir`; includes only files claimed by the current invocation. |
 | `pipeline_mode` | Internal mode tag |
 | `mlip_backend` | Which backend produced the energies |
 | `mlip_model` | Exact model/checkpoint identifier; `filename:factory` for custom calculators |
 | `mlip_precision` | Effective `fp32` / `fp64`; null for custom calculators |
 | `energy_diagrams` | Paths to PNG / HTML diagrams |
+
+Shape-safe artifact iteration:
+
+```python
+for key, value in (d.get("key_output_files") or {}).items():
+    if isinstance(value, str):
+        print(key, value)
+    elif isinstance(value, dict):
+        for rel in value.get("files", []):
+            print(f"segments/{key}/{rel}")
+```
 
 Per-segment keys (`summary.json["segments"][i]`, from path-search output):
 

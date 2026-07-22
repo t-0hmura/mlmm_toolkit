@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -218,6 +219,22 @@ def _no_micro_active_partition():
     return part
 
 
+def _micro_active_partition():
+    """macro-active {0}, micro-active {1}."""
+    part = build_partition(
+        2,
+        ml=[0],
+        link_parents=[],
+        hess_mm=[1],
+        movable_mm=[1],
+        frozen_mm=[],
+        original_freeze=[],
+    )
+    assert part.has_macro_active is True
+    assert part.has_micro_active is True
+    return part
+
+
 def _install_common_fakes(monkeypatch, driver_mod, tripwire):
     import torch
 
@@ -318,3 +335,117 @@ def test_tsopt_zero_micro_active_uses_vacuous_micro_not_all_frozen_lbfgs(tmp_pat
         assert micro.stalled is False
         assert micro.stop_reason is None
     assert mi.to_result_object()["micro_cycles"] == 0
+
+
+def test_tsopt_dump_keeps_initial_micro_trajectory_when_macro_never_runs(
+    tmp_path, monkeypatch
+):
+    import mlmm.workflows.tsopt as tsopt_mod
+    from mlmm.core.defaults import RSIRFO_KW
+
+    class _NonconvergedMicro:
+        cur_cycle = 0
+        is_converged = False
+        is_stalled = False
+        stop_reason = "maximum cycles reached"
+
+        def __init__(self, _geom, **kwargs):
+            self.out_dir = Path(kwargs["out_dir"])
+
+        def run(self):
+            (self.out_dir / "optimization_trj.xyz").write_text(
+                "2\ninitial micro\nH 0 0 0\nH 0 0 1\n",
+                encoding="utf-8",
+            )
+
+    _install_common_fakes(monkeypatch, tsopt_mod, _NonconvergedMicro)
+    monkeypatch.setattr(
+        tsopt_mod,
+        "_calc_full_hessian_torch",
+        lambda *a, **k: __import__("torch").zeros(
+            (3, 3), dtype=__import__("torch").float64
+        ),
+    )
+    monkeypatch.setattr(
+        tsopt_mod,
+        "resolve_partition_from_core",
+        lambda *a, **k: _micro_active_partition(),
+    )
+    monkeypatch.setitem(tsopt_mod.TSOPT_CLASS_MAP, "rsirfo", _FakeMacroOptimizer)
+
+    outcome = tsopt_mod._run_microiter_tsopt(
+        _FakeGeom(n_atoms=2),
+        {},
+        dict(RSIRFO_KW),
+        {},
+        {"max_cycles": 1, "dump": True},
+        {"micro_max_cycles": 1},
+        tmp_path,
+        dump=True,
+        thresh=None,
+        mode="rsirfo",
+        reference_mode=None,
+    )
+
+    assert outcome["cycles"] == 0
+    assert (tmp_path / "optimization_all_trj.xyz").read_text(
+        encoding="utf-8"
+    ) == (tmp_path / "optimization_trj.xyz").read_text(encoding="utf-8")
+
+
+def test_tsopt_dump_does_not_duplicate_converged_initial_micro_trajectory(
+    tmp_path, monkeypatch
+):
+    import mlmm.workflows.tsopt as tsopt_mod
+    from mlmm.core.defaults import RSIRFO_KW
+
+    class _ConvergedMicro:
+        cur_cycle = 0
+        is_converged = True
+        is_stalled = False
+        stop_reason = None
+        calls = 0
+
+        def __init__(self, _geom, **kwargs):
+            self.out_dir = Path(kwargs["out_dir"])
+
+        def run(self):
+            type(self).calls += 1
+            label = f"micro {type(self).calls}"
+            (self.out_dir / "optimization_trj.xyz").write_text(
+                f"2\n{label}\nH 0 0 0\nH 0 0 1\n",
+                encoding="utf-8",
+            )
+
+    _install_common_fakes(monkeypatch, tsopt_mod, _ConvergedMicro)
+    monkeypatch.setattr(
+        tsopt_mod,
+        "_calc_full_hessian_torch",
+        lambda *a, **k: __import__("torch").zeros(
+            (3, 3), dtype=__import__("torch").float64
+        ),
+    )
+    monkeypatch.setattr(
+        tsopt_mod,
+        "resolve_partition_from_core",
+        lambda *a, **k: _micro_active_partition(),
+    )
+    monkeypatch.setitem(tsopt_mod.TSOPT_CLASS_MAP, "rsirfo", _FakeMacroOptimizer)
+
+    tsopt_mod._run_microiter_tsopt(
+        _FakeGeom(n_atoms=2),
+        {},
+        dict(RSIRFO_KW),
+        {},
+        {"max_cycles": 1, "dump": True},
+        {"micro_max_cycles": 1},
+        tmp_path,
+        dump=True,
+        thresh=None,
+        mode="rsirfo",
+        reference_mode=None,
+    )
+
+    combined = (tmp_path / "optimization_all_trj.xyz").read_text(encoding="utf-8")
+    assert combined.count("micro 1") == 1
+    assert combined.count("micro 2") == 1

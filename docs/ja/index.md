@@ -78,6 +78,7 @@ glossary
 | ユースケース | 推奨コマンド | ガイド |
 |--------------|--------------|--------|
 | 最初の 1 回を実行（一気通貫） | `mlmm all` | [クイックスタート: all](quickstart-all.md) |
+| GPU GUI から対話的に実行 | -- | [mlmm Colab notebook を開く](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb) |
 | mmCIF・大規模残基 ID・一意な selector | -- | [mmCIF と大規模構造](cif.md) |
 | 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan](quickstart-scan-spec.md) |
 | TS 検証（`tsopt` + 振動解析） | `mlmm tsopt` | [クイックスタート: tsopt](quickstart-tsopt-freq.md) |
@@ -107,6 +108,7 @@ glossary
 | トピック | ページ |
 |---------|--------|
 | **インストールと初回実行** | [はじめに](getting-started.md) |
+| **対話型 GPU GUI** | [mlmm Colab notebook](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb) |
 | **主要概念とワークフロー概要** | [概念とワークフロー](concepts.md) |
 | **症状起点の切り分け** | [典型エラー別レシピ](recipes-common-errors.md) |
 | **よくあるエラーと対処** | [トラブルシューティング](troubleshooting.md) |

@@ -69,7 +69,9 @@ mlmm opt -i my.xyz --parm real.parm7 --ref-pdb topology.pdb -q -1 -m 1 --opt-mod
 ```bash
 mlmm opt -i 1.R.pdb --parm real.parm7 -l '...' -o /tmp/relax_R
 mlmm opt -i 3.P.pdb --parm real.parm7 -l '...' -o /tmp/relax_P
-mlmm path-opt -i /tmp/relax_R/final_geometry.xyz /tmp/relax_P/final_geometry.xyz ...
+mlmm path-opt -i /tmp/relax_R/final_geometry.xyz /tmp/relax_P/final_geometry.xyz \
+    --parm real.parm7 --ref-pdb 1.R.pdb --ref-pdb 3.P.pdb \
+    -l 'SAM:1,GPP:-3' -o result_path_opt
 ```
 
 ## Output

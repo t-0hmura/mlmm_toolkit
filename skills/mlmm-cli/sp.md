@@ -54,13 +54,13 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ### Energy + forces
 
 ```bash
-mlmm sp -i my.pdb -l 'SAM:1' -b uma -o result_sp
+mlmm sp -i my.pdb --parm real.parm7 -l 'SAM:1' -b uma -o result_sp
 ```
 
 ### Energy + full Hessian
 
 ```bash
-mlmm sp -i my.pdb -q -1 -m 1 --hess -o result_sp_hess
+mlmm sp -i my.pdb --parm real.parm7 -q -1 -m 1 --hess -o result_sp_hess
 ```
 
 ## Output

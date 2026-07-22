@@ -27,7 +27,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft   
 - (ii) one PDB with `--scan-lists`, or
 - (iii) one transition-state (TS) candidate with `--tsopt`.
 
-From that input it defines the ML region, runs `mm-parm` + `define-layer`, and performs a minimum-energy-path (MEP) search via the growing string method (GSM). It then optionally chains TS optimization, intrinsic reaction coordinate (IRC), thermochemical correction, and single-point DFT.
+From that input it defines the ML region, runs `mm-parm` + `define-layer`, and performs a minimum-energy-path (MEP) search with the growing string method (GSM, default) or Direct Max Flux (DMF). It then optionally chains TS optimization, intrinsic reaction coordinate (IRC), thermochemical correction, and single-point DFT.
 
 ```{important}
 - Input PDBs must already contain **hydrogen atoms**. The "Input prep checklist" below covers the common pitfalls.
@@ -36,6 +36,10 @@ From that input it defines the ML region, runs `mm-parm` + `define-layer`, and p
 ```
 
 For background concepts (3-layer system, link atoms, microiteration, units), read [Concepts & Workflow](concepts.md). For symptom-first diagnosis, jump to [Troubleshooting](troubleshooting.md) or [Common Error Recipes](recipes-common-errors.md).
+
+### Interactive Colab GUI
+
+[Open the mlmm Colab notebook](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb) to upload PDB/mmCIF structures and a matching full-system `parm7`, select the ML region in 3D, validate the generated command, run it, and inspect only the current invocation's results. Each user runs in a separate GPU runtime. MACE and ORB need no model login; UMA requires Hugging Face access, and switching between incompatible backends requires a runtime restart. DFT controls appear only when the DFT extra is selected in Setup. Setup installs the exact pinned PyPI wheel and fetches examples from the matching Git tag, so the production notebook becomes runnable after that wheel is published.
 
 ### CLI conventions
 
@@ -60,7 +64,7 @@ Full table: [CLI Conventions](cli-conventions.md).
 ## Installation
 
 ```bash
-# 0. Clone the repo (skip if you only want `pip install mlmm-toolkit` once published)
+# 0. Clone only for editable development or repository examples; skip for a released wheel
 git clone https://github.com/t-0hmura/mlmm_toolkit.git && cd mlmm_toolkit
 
 # 1. New env + AmberTools + CUDA-enabled PyTorch (match your CUDA runtime)
@@ -68,7 +72,10 @@ conda create -n mlmm-toolkit python=3.11 -y && conda activate mlmm-toolkit
 conda install -c conda-forge ambertools pdbfixer -y
 pip install torch --index-url https://download.pytorch.org/whl/cu129
 
-# 2. mlmm-toolkit (editable from a local clone, or `pip install mlmm-toolkit` once published)
+# 2a. Released wheel
+pip install mlmm-toolkit
+
+# 2b. Or editable source from the clone above
 pip install -e .
 # Optional MLIP extras: pip install -e ".[orb]"  /  ".[aimnet]"  /  ".[dft]"  /  ".[mcp]"
 # [orb] needs torch_scatter, whose prebuilt wheels live on PyG's index (not PyPI), so pip
@@ -90,7 +97,7 @@ mlmm --version
 | Component | When to add | Install |
 |---|---|---|
 | `hessian_ff` native build | If you see a "native extension not available" warning. JIT compilation usually handles it. | First install `ninja` on most clusters: `conda install -c conda-forge ninja -y`. Then build: `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make`. |
-| `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory error. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
+| `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for `all`, `path-search`, and `path-opt` (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory error. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
 | xTB | `--embedcharge` (xTB point-charge embedding) | `conda install -c conda-forge xtb -y` (custom binary: set `xtb_cmd` in YAML) |
 | Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
 | HPC `cuda/<X.Y>` module | HPC clusters using environment modules | Load **before** `pip install torch`; match X.Y to your wheel (`cu126` ↔ 12.6, `cu129` ↔ 12.9) |
@@ -203,17 +210,21 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `-o, --out-dir PATH` | Top-level output directory. |
 | `--tsopt` / `--thermo` / `--dft` | TS optimization + IRC / vibrational analysis / single-point DFT. |
 | `--refine-path` / `--no-refine-path` | Single-pass `path-opt` (default) vs recursive `path-search` (`--refine-path`). |
+| `--mep-mode gsm\|dmf` | MEP optimizer for either path route (default `gsm`). |
+| `--dmf-backend gpu\|cpu` | DMF implementation; use `cpu` after a GPU out-of-memory error. |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |
 | `--embedcharge` | xTB point-charge embedding correction (default off). |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. All bundled MLIP backends support `Analytical`; use it when VRAM allows. It is incompatible with `--workers > 1`. |
 
-Direct Max Flux (DMF) MEP is selectable only via the standalone `path-search` / `path-opt` subcommands (`--mep-mode dmf`). `mlmm all` always uses GSM, so passing `--mep-mode` to `mlmm all` is silently ignored.
+`mlmm all --mep-mode dmf` applies Direct Max Flux to both the default
+single-pass `path-opt` route and recursive `path-search` selected by
+`--refine-path`. GSM remains the default.
 
 Full option matrix and YAML schema: [YAML Reference](yaml-reference.md). Subcommand-by-subcommand table: [README "CLI Subcommands"](https://github.com/t-0hmura/mlmm_toolkit/blob/main/README.md#cli-subcommands).
 
 ## Run summaries
 
-Every `mlmm all` run writes `summary.log` (human) + `summary.json` (machine) with the CLI command, global MEP statistics, per-segment barriers / bond changes, and MLIP / thermo / DFT energies (when enabled). Per-segment `segments/seg_NN/` subdirectories carry their own summaries.
+Every `mlmm all` run that reaches its summary writer creates `summary.log` (human-readable) and `summary.json` (machine-readable) with the CLI command, global MEP statistics, per-segment barriers and bond changes, and MLIP/thermochemistry/DFT energies when enabled. The root summary contains the per-segment records. Each `segments/seg_NN/` directory holds canonical reactant/TS/product structures and the stage directories reached by that run; a stage-local `result.json`/`summary.json` exists only where that leaf writer emitted JSON. See [Output Directory Layout](output-layout.md).
 
 ## Getting help
 

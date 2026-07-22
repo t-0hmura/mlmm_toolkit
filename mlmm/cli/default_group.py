@@ -304,6 +304,10 @@ class DefaultGroup(click.Group):
             bool_toggle_negative_aliases,
             bool_single_flag_options,
         )
+        # Preserve the normalized token stream for commands with historical
+        # variadic options (for example ``-i A B``).  Nested Click contexts
+        # share ``meta``, unlike ``sys.argv`` under in-process invocation.
+        ctx.meta["mlmm.cli.raw_args"] = tuple(args)
         result = super().parse_args(ctx, args)
         # Any help/version request must print in full: the subcommand's eager
         # --help-advanced renderer fires later (during invoke) and routes through

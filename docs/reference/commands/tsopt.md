@@ -192,5 +192,9 @@ Options:
                                   are numerically unverified.
   --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
                                   knob).  [x>=1]
+  --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
+                                  electron-parity check (logs that it was
+                                  skipped). For an intentional open-shell or
+                                  covalently-cut ML region.
   -h, --help                      Show this message and exit.
 ```

@@ -26,6 +26,8 @@ from mlmm.workflows._all_helpers import (
 def _path_child_kwargs(*, include_opt_mode: bool) -> dict:
     return {
         "include_opt_mode": include_opt_mode,
+        "mep_mode": "dmf",
+        "dmf_backend": "cpu",
         "max_nodes": 31,
         "max_cycles": 47,
         "climb": False,
@@ -38,6 +40,7 @@ def _path_child_kwargs(*, include_opt_mode: bool) -> dict:
 
 
 _PATH_COMMON_CASES = (
+    ("dmf_backend", ["--dmf-backend", "cpu"]),
     ("max_nodes", ["--max-nodes", "31"]),
     ("max_cycles", ["--max-cycles", "47"]),
     ("climb", ["--no-climb"]),
@@ -60,7 +63,7 @@ def test_path_search_child_forwards_each_explicit_field_once(
         {parameter},
         **_path_child_kwargs(include_opt_mode=True),
     )
-    assert argv == expected
+    assert argv == ["--mep-mode", "dmf", *expected]
     assert argv.count(expected[0]) == 1
 
 
@@ -73,7 +76,7 @@ def test_path_opt_child_forwards_each_explicit_field_once(
         {parameter},
         **_path_child_kwargs(include_opt_mode=False),
     )
-    assert argv == expected
+    assert argv == ["--mep-mode", "dmf", *expected]
     assert argv.count(expected[0]) == 1
 
 
@@ -81,7 +84,7 @@ def test_path_opt_explicitly_omits_unsupported_opt_mode() -> None:
     assert build_path_child_argv(
         {"opt_mode"},
         **_path_child_kwargs(include_opt_mode=False),
-    ) == []
+    ) == ["--mep-mode", "dmf"]
 
 
 @pytest.mark.parametrize("include_opt_mode", [True, False])
@@ -104,7 +107,7 @@ def test_path_defaults_leave_pipeline_owned_and_yaml_tokens_unchanged(
         set(),
         **_path_child_kwargs(include_opt_mode=include_opt_mode),
     )
-    assert argv == pipeline_owned
+    assert argv == [*pipeline_owned, "--mep-mode", "dmf"]
 
 
 @pytest.mark.parametrize(
@@ -448,6 +451,182 @@ def test_all_injection_preserves_alias_only_calculator_values(tmp_path: Path) ->
     assert payload["calc"]["workers_per_node"] == 2
 
 
+@pytest.mark.parametrize(
+    ("backend", "precision_key", "precision_value", "model_key"),
+    [
+        ("orb", "orb_precision", "float32-high", "orb_model"),
+        ("mace", "mace_dtype", "float32", "mace_model"),
+    ],
+)
+def test_all_injection_routes_cli_values_to_explicit_backend(
+    backend: str,
+    precision_key: str,
+    precision_value: str,
+    model_key: str,
+) -> None:
+    """CLI provenance and the child calculator config describe the same run."""
+    from mlmm.workflows.all import (
+        _inject_coord_type_into_args_yaml,
+        _resolve_calculator_template,
+        _resolve_mlip_provenance,
+    )
+
+    effective = _inject_coord_type_into_args_yaml(
+        None,
+        None,
+        backend=backend,
+        precision="fp32",
+        backend_model=f"{backend}-custom",
+    )
+    assert effective is not None
+    payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
+    calc = payload["calc"]
+    assert calc["backend"] == backend
+    assert calc[precision_key] == precision_value
+    assert calc[model_key] == f"{backend}-custom"
+    assert "uma_precision" not in calc
+    assert "uma_model" not in calc
+
+    template = _resolve_calculator_template(
+        effective,
+        backend=None,
+        embedcharge=False,
+        embedcharge_explicit=False,
+        embedcharge_cutoff=None,
+        link_atom_method=None,
+        mm_backend=None,
+        use_cmap=None,
+    ).materialize()
+    provenance = _resolve_mlip_provenance(
+        backend=None,
+        backend_model=None,
+        calc_file=None,
+        calc_factory=None,
+        precision=None,
+        merged_yaml_cfg=payload,
+    )
+    assert template["backend"] == provenance[0] == backend
+    assert template[model_key] == provenance[1] == f"{backend}-custom"
+    assert provenance[2] == "fp32"
+
+
+def test_all_injection_enforces_aimnet_precision_contract() -> None:
+    from mlmm.workflows.all import _inject_coord_type_into_args_yaml
+
+    with pytest.raises(ValueError, match="fp64 is not supported by backend 'aimnet2'"):
+        _inject_coord_type_into_args_yaml(
+            None, None, backend="aimnet2", precision="fp64",
+        )
+
+    effective = _inject_coord_type_into_args_yaml(
+        None,
+        None,
+        backend="aimnet2",
+        precision="fp32",
+        backend_model="aimnet-custom",
+    )
+    assert effective is not None
+    calc = yaml.safe_load(effective.read_text(encoding="utf-8"))["calc"]
+    assert calc == {
+        "backend": "aimnet2",
+        "aimnet2_model": "aimnet-custom",
+    }
+
+
+def test_all_injection_translates_yaml_only_generic_backend_aliases(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows.all import (
+        _inject_coord_type_into_args_yaml,
+        _resolve_calculator_template,
+        _resolve_mlip_provenance,
+    )
+
+    source = tmp_path / "generic-orb.yaml"
+    source.write_text(yaml.safe_dump({
+        "calc": {
+            "backend": "orb",
+            "precision": "fp32",
+            "backend_model": "orb-custom",
+        }
+    }))
+    effective = _inject_coord_type_into_args_yaml(source, None)
+    assert effective is not None and effective != source
+    payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
+    assert payload["calc"] == {
+        "backend": "orb",
+        "orb_precision": "float32-high",
+        "orb_model": "orb-custom",
+    }
+    template = _resolve_calculator_template(
+        effective,
+        backend=None,
+        embedcharge=False,
+        embedcharge_explicit=False,
+        embedcharge_cutoff=None,
+        link_atom_method=None,
+        mm_backend=None,
+        use_cmap=None,
+    ).materialize()
+    provenance = _resolve_mlip_provenance(
+        backend=None,
+        backend_model=None,
+        calc_file=None,
+        calc_factory=None,
+        precision=None,
+        merged_yaml_cfg=payload,
+    )
+    assert template["orb_model"] == provenance[1] == "orb-custom"
+    assert template["orb_precision"] == "float32-high"
+    assert provenance == ("orb", "orb-custom", "fp32")
+
+
+def test_all_injection_translates_yaml_only_custom_calculator(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows.all import (
+        _inject_coord_type_into_args_yaml,
+        _resolve_calculator_template,
+        _resolve_mlip_provenance,
+    )
+
+    source = tmp_path / "custom.yaml"
+    source.write_text(yaml.safe_dump({
+        "calc": {
+            "backend": "orb",
+            "calc_file": "custom_calc.py",
+            "calc_factory": "build_calc",
+        }
+    }))
+    effective = _inject_coord_type_into_args_yaml(source, None)
+    assert effective is not None and effective != source
+    payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
+    assert payload["calc"]["backend"] == "custom"
+    assert payload["calc"]["calc_file"] == "custom_calc.py"
+    assert payload["calc"]["calc_factory"] == "build_calc"
+    template = _resolve_calculator_template(
+        effective,
+        backend=None,
+        embedcharge=False,
+        embedcharge_explicit=False,
+        embedcharge_cutoff=None,
+        link_atom_method=None,
+        mm_backend=None,
+        use_cmap=None,
+    ).materialize()
+    provenance = _resolve_mlip_provenance(
+        backend=None,
+        backend_model=None,
+        calc_file=None,
+        calc_factory=None,
+        precision=None,
+        merged_yaml_cfg=payload,
+    )
+    assert template["backend"] == provenance[0] == "custom"
+    assert template["calc_file"] == "custom_calc.py"
+    assert provenance[1] == "custom_calc.py:build_calc"
+
+
 def test_all_calc_file_injection_preserves_alias_only_calculator_values(
     tmp_path: Path,
 ) -> None:
@@ -600,6 +779,8 @@ def test_build_pipeline_summary_payload_shape() -> None:
             do_dft=False,
             opt_mode_norm="grad",
             opt_mode_post="HESS",
+            mep_mode="dmf",
+            dmf_backend="cpu",
             command_str="mlmm all -i foo.pdb",
             q_int=-1,
             spin=1,
@@ -609,6 +790,8 @@ def test_build_pipeline_summary_payload_shape() -> None:
     assert payload["refine_path"] is True
     assert payload["opt_mode"] == "grad"
     assert payload["opt_mode_post"] == "hess"
+    assert payload["mep_mode"] == "dmf"
+    assert payload["dmf_backend"] == "cpu"
     assert payload["charge"] == -1
     assert payload["spin"] == 1
     assert payload["mlip_backend"] == "uma"

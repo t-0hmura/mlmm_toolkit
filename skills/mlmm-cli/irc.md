@@ -60,13 +60,14 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ### Default IRC from a tsopt'd geometry
 
 ```bash
-mlmm irc -i result_tsopt/final_geometry.xyz -q 0 -m 1 -b uma -o result_irc
+mlmm irc -i result_tsopt/final_geometry.xyz --parm real.parm7 \
+    --ref-pdb enzyme_layered.pdb -q 0 -m 1 -b uma -o result_irc
 ```
 
 ### Tighter step / longer integration for shallow surfaces
 
 ```bash
-mlmm irc -i ts.xyz -q -1 -m 1 \
+mlmm irc -i ts.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 \
     --max-cycles 250 --step-size 0.05 \
     -b uma -o result_irc_long
 ```

@@ -5,6 +5,7 @@ import logging
 import math
 import os
 import re
+import sys
 import time
 import tempfile
 from collections import Counter
@@ -1255,18 +1256,91 @@ def collect_option_values(
     argv: _Sequence[str],
     names: _Sequence[str],
 ) -> List[str]:
-    """Collect all values following matching command-line option names."""
+    """Collect variadic option values in raw occurrence order.
+
+    In addition to grouped/repeated options, accept Click's
+    ``--long=value`` and attached-short ``-ivalue`` spellings.
+    """
     vals: List[str] = []
+    names_set = set(names)
+    long_names = tuple(name for name in names_set if name.startswith("--"))
+    short_names = tuple(
+        name for name in names_set if name.startswith("-") and not name.startswith("--")
+    )
     i = 0
     while i < len(argv):
-        if argv[i] in names:
+        tok = argv[i]
+        matched = tok in names_set
+        inline: Optional[str] = None
+        if not matched:
+            for name in long_names:
+                if tok.startswith(name + "="):
+                    matched = True
+                    inline = tok.split("=", 1)[1]
+                    break
+        if not matched:
+            for name in short_names:
+                if tok.startswith(name) and tok != name:
+                    matched = True
+                    inline = tok[len(name):]
+                    break
+        if not matched:
             i += 1
-            while i < len(argv) and not argv[i].startswith("-"):
-                vals.append(argv[i])
-                i += 1
-        else:
+            continue
+        if inline is not None:
+            vals.append(inline)
+        i += 1
+        while i < len(argv) and not argv[i].startswith("-"):
+            vals.append(argv[i])
             i += 1
     return vals
+
+
+def current_cli_args(ctx: Optional[click.Context] = None) -> List[str]:
+    """Return normalized arguments for the current top-level CLI invocation.
+
+    ``CliRunner`` and other in-process callers do not rewrite ``sys.argv``.
+    ``DefaultGroup`` therefore records the normalized token stream in Click's
+    shared context metadata; direct command invocation falls back to the real
+    process arguments for backward compatibility.
+    """
+    if ctx is None:
+        ctx = click.get_current_context(silent=True)
+    if ctx is not None:
+        recorded = ctx.meta.get("mlmm.cli.raw_args")
+        if recorded is not None:
+            return [str(value) for value in recorded]
+    return list(sys.argv[1:])
+
+
+def reject_option_like_extra_args(
+    extra_args: _Sequence[str],
+    *,
+    allowed_options: _Sequence[str] = (),
+    allowed_values: _Sequence[str] = (),
+    consumed_values: _Sequence[Any] = (),
+) -> None:
+    """Reject residual tokens not claimed by a legacy variadic option.
+
+    Some commands accept ``-i A B`` or staged ``-s VALUE1 VALUE2`` syntax
+    through Click's ``allow_extra_args`` compatibility mode.  Only values
+    recovered from those declared variadic options may remain unparsed.
+    """
+    allowed = frozenset(str(value) for value in allowed_options)
+    remaining = Counter(str(value) for value in allowed_values)
+    for raw in consumed_values:
+        value = str(raw)
+        if remaining[value] > 0:
+            remaining[value] -= 1
+    for raw in extra_args:
+        value = str(raw)
+        if remaining[value] > 0:
+            remaining[value] -= 1
+            continue
+        if value.startswith("-") and value not in allowed:
+            raise click.UsageError(f"No such option: {value}")
+        if value not in allowed:
+            raise click.UsageError(f"Unexpected extra argument: {value}")
 
 
 def collect_single_option_values(

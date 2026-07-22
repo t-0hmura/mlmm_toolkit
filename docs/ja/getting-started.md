@@ -52,6 +52,10 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 セットアップや実行中にエラーが発生した場合は [トラブルシューティング](troubleshooting.md) を参照してください。
 ```
 
+### 対話型 Colab GUI
+
+[mlmm Colab ノートブック](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)では、PDB/mmCIF 構造と対応する全系 `parm7` のアップロード、3D での ML 領域選択、生成コマンドの検証と実行、現在の呼び出しで生成された結果だけの確認ができます。各ユーザーは専用の GPU ランタイムで実行します。MACE と ORB はモデル利用のログインが不要ですが、UMA には Hugging Face のアクセス許可が必要です。互換性のないバックエンドへ切り替える場合は、ランタイムを再起動してください。DFT の操作項目は、Setup で DFT の追加依存関係を選択した場合だけ表示されます。Setup は指定バージョンの PyPI wheel をインストールし、対応する Git tag からサンプルを取得します。このため、本番ノートブックを実行できるのは対象 wheel の公開後です。
+
 ### CLI の慣習
 
 | 慣習 | 例 | 備考 |
@@ -91,7 +95,7 @@ PDB に水素原子がない場合は、mlmm を実行する前に次のいず�
 
 mlmm-toolkit は以下のコンポーネントを使用します:
 
-- **MLIP バックエンド**: ML 領域のエネルギー・力・Hessian計算。デフォルトは UMA（fairchem-core）。ORB（`pip install "mlmm-toolkit[orb]"`）、AIMNet2（`pip install "mlmm-toolkit[aimnet]"`）も利用可能。MACE も利用可能ですが、`e3nn` バージョン競合のため `fairchem-core` を先にアンインストールする必要があります（`pip uninstall fairchem-core && pip install mace-torch`）。
+- **MLIP バックエンド**: ML 領域のエネルギー・力・Hessian 計算。デフォルトは UMA（fairchem-core）。ORB（`pip install "mlmm-toolkit[orb]"`）、AIMNet2（`pip install "mlmm-toolkit[aimnet]"`）も利用可能。MACE も利用可能ですが、`e3nn` バージョン競合のため `fairchem-core` を先にアンインストールする必要があります（`pip uninstall fairchem-core && pip install mace-torch`）。
 - **hessian_ff**: MM 領域の Amber 力場計算（C++ 拡張のビルドが必要）
 - **AmberTools**: `mm-parm` サブコマンドによる parm7/rst7 の自動生成（tleap、antechamber、parmchk2）
 
@@ -453,13 +457,17 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `--thermo/--no-thermo` | 振動解析と熱化学を実行 |
 | `--dft/--no-dft` | DFT 一点計算を実行 |
 | `--refine-path/--no-refine-path` | 単一パス `path-opt`（デフォルト）vs `--refine-path` で再帰 `path-search` |
+| `--mep-mode gsm\|dmf` | どちらの経路探索にも用いる MEP 最適化法（デフォルト: `gsm`） |
+| `--dmf-backend gpu\|cpu` | DMF 実装。GPU メモリ不足時は `cpu` を選択 |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
 | `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（デフォルト: 無効） |
 | `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（L-BFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--workers > 1` とは併用不可。 |
+| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian 計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--workers > 1` とは併用不可。 |
 
-DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `path-opt`（`--mep-mode dmf`）でのみ選択できます。`mlmm all` は常に GSM を使用し、`mlmm all` に `--mep-mode` を渡しても警告なく無視されます。
+`mlmm all --mep-mode dmf` は、デフォルトの単一パス `path-opt` と
+`--refine-path` で選択する再帰的 `path-search` のどちらにも Direct Max Flux
+を適用します。デフォルトは GSM です。
 
 すべてのオプションと YAML スキーマについては [all](all.md) および [YAML リファレンス](yaml-reference.md) を参照してください。
 
@@ -472,7 +480,7 @@ DMF（Direct Max Flux）の MEP は独立サブコマンド `path-search` / `pat
 - `summary.log` — 人が読むための実行要約
 - `summary.json` — 機械処理向けの要約
 
-通常は、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。`segments/seg_NN/` 以下の各セグメントにも個別 summary が出力されます。
+通常は、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。セグメント別の記録はルートの `summary.json` に集約されます。`segments/seg_NN/` には正規の reactant/TS/product 構造と、実行された各段階のディレクトリが置かれます。各段階の `result.json`/`summary.json` は、その段階の writer が JSON を出力した場合だけ存在します。詳細は [出力ディレクトリ構成](output-layout.md) を参照してください。
 
 ---
 

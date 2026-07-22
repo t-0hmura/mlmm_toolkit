@@ -8,7 +8,9 @@ import pytest
 import yaml
 
 from mlmm.workflows.all import (
+    _inject_coord_type_into_args_yaml,
     _resolve_calculator_template,
+    _resolve_mlip_provenance,
     _stage_calc_kwargs,
 )
 
@@ -150,6 +152,56 @@ def test_custom_calculator_and_explicit_overlays_survive_stage_derivation(
     assert derived["link_atom_method"] == "fixed"
     assert derived["mm_backend"] == "openmm"
     assert derived["use_cmap"] is True
+
+
+@pytest.mark.parametrize("source_kind", ["config", "cli"])
+def test_custom_calculator_outranks_explicit_backend_for_every_stage(
+    tmp_path: Path,
+    source_kind: str,
+) -> None:
+    """Child and in-process stages must resolve the same custom calculator."""
+    calc_file = tmp_path / "custom_calc.py"
+    calc_file.write_text("def build_calc():\n    return None\n", encoding="utf-8")
+    source = None
+    injected_calc_file = str(calc_file) if source_kind == "cli" else None
+    if source_kind == "config":
+        source = tmp_path / "config.yaml"
+        source.write_text(
+            yaml.safe_dump({
+                "calc": {
+                    "backend": "uma",
+                    "calc_file": str(calc_file),
+                    "calc_factory": "build_calc",
+                }
+            }),
+            encoding="utf-8",
+        )
+
+    effective = _inject_coord_type_into_args_yaml(
+        source,
+        None,
+        backend="orb",
+        calc_file=injected_calc_file,
+        calc_factory="build_calc",
+    )
+    assert effective is not None
+    payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
+    template = _resolve(
+        effective,
+        backend="orb",
+    ).materialize()
+    provenance = _resolve_mlip_provenance(
+        backend="orb",
+        backend_model=None,
+        calc_file=injected_calc_file,
+        calc_factory="build_calc",
+        merged_yaml_cfg=payload,
+    )
+
+    assert payload["calc"]["backend"] == "custom"
+    assert template["backend"] == provenance[0] == "custom"
+    assert template["calc_file"] == str(calc_file)
+    assert provenance[1] == f"{calc_file.name}:build_calc"
 
 
 def test_template_drops_config_only_aliases_and_is_read_only(tmp_path: Path) -> None:

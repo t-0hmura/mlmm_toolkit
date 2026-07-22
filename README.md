@@ -40,8 +40,8 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 notebook-native PDB/mmCIF and `parm7` uploader, 3D chain-qualified residue/atom
 picking, backend/model options, an editable exact command, a separate
 `--dry-run` validation action, and result/trajectory views. It installs the
-release-matched tag and one backend into the user's own GPU runtime; MACE and
-UMA still require separate runtimes.
+pinned PyPI release and fetches example inputs from the matching Git tag into
+the user's own GPU runtime; MACE and UMA still require separate runtimes.
 
 ## System requirements
 
