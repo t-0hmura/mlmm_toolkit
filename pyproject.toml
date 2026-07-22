@@ -90,7 +90,7 @@ dft = [
     "cupy-cuda12x>=13.0,!=13.4.0; platform_machine == 'x86_64'",
     "basis-set-exchange>=0.11",
 ]
-dev = ["pytest", "pytest-cov", "pytest-timeout"]
+dev = ["pytest", "pytest-cov", "pytest-timeout", "ipywidgets"]
 docs = [
     "sphinx>=7.0",
     "myst-parser>=2.0",

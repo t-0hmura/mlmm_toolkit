@@ -30,7 +30,7 @@ jobs:
             autograd dask distributed h5py fabric jinja2 joblib \
             matplotlib natsort psutil rmsd sympy scikit-learn \
             pandas tabulate plotly kaleido ParmEd openmm \
-            pytest pytest-cov pytest-timeout
+            ipywidgets pytest pytest-cov pytest-timeout
         timeout-minutes: 15
 
       - name: Run pytest

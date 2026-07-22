@@ -33,8 +33,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add `tsopt --ref-mode`, opt-in IRC never-stop traversal, and analytical
   Hessians for ORB, MACE, and AIMNet2.
 - Add a release-pinned, keyboard-accessible Colab GUI that preserves full-system
-  coordinate/topology identity, prepares an ML-region model, builds workflow-aware
+  coordinate/topology identity, accepts a separately prepared model, builds workflow-aware
   commands, reaps interrupted jobs, and limits result views/downloads to the current run.
+  Exact 3D picks persist as a foreground atom marker and dark halo above residue sticks,
+  a translucent envelope, and a frame. The viewer keeps primary-input selections separate
+  from view-only secondary structures, preserves the camera across redraws, and rolls back
+  failed structure switches. Center selectors retain chain and insertion-code identity;
+  incompatible secondary views suppress primary selection and measurement overlays.
+  Validation follows the exact command and content hashes for every existing-file input
+  declared by the selected Click command, while its transcript remains separate from
+  current-run diagnostics. Private runtime files avoid upload collisions; Results previews
+  diagrams, SVG, HTML, CSV, PDF, and trajectories while handling missing energies, failures,
+  cancellations, and diagnostic bundles explicitly.
 - Add `opt`/`all --reject-uphill/--no-reject-uphill` (default on) to opt out of the
   RFO uphill-rejection safeguard; on `all` it is forwarded to the post-IRC endpoint
   re-optimization child only.

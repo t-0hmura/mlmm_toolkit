@@ -36,12 +36,26 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
 
-[`examples/mlmm_colab.ipynb`](examples/mlmm_colab.ipynb) provides a
-notebook-native PDB/mmCIF and `parm7` uploader, 3D chain-qualified residue/atom
-picking, backend/model options, an editable exact command, a separate
-`--dry-run` validation action, and result/trajectory views. It installs the
-pinned PyPI release and fetches example inputs from the matching Git tag into
-the user's own GPU runtime; MACE and UMA still require separate runtimes.
+[`examples/mlmm_colab.ipynb`](examples/mlmm_colab.ipynb) provides an ordered
+PDB/mmCIF input queue with explicit `parm7` and separately prepared model inputs,
+and a guided **Input → Workflow → Select → Validate → Run** path.
+Workflow-specific panels show only the inputs and flags accepted by the selected
+CLI subcommand; the editable command remains the exact execution contract. In
+the 3D viewer, a click keeps the exact chain/residue/insertion-code context
+visible as thick amber sticks, a translucent envelope, and a frame. An opaque
+orange atom marker with a dark halo is drawn last, so it remains legible above
+the residue layers. The same exact pick is available from a keyboard query.
+Multi-input workflows can inspect each reactant/intermediate/product while
+keeping ML-region, center, and charge editing owned by the primary input;
+incompatible secondary structures are clearly view-only and do not inherit the
+primary input's overlays. Validation is tied to the displayed command and every
+existing-file input declared by its Click command. Validation transcripts
+remain separate from current-run diagnostics. Results distinguish failed,
+cancelled, and artifact-free runs; preview diagrams, SVG, HTML, CSV, PDF, and
+trajectories; preserve unavailable energies as unknown; and provide current-run
+downloads and diagnostics. Setup installs the pinned PyPI release and fetches
+matching-tag examples into the user's own GPU runtime; MACE, UMA, and ORB are
+installed one backend per runtime.
 
 ## System requirements
 
