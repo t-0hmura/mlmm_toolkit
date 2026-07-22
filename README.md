@@ -38,24 +38,16 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 
 [`examples/mlmm_colab.ipynb`](examples/mlmm_colab.ipynb) provides an ordered
 PDB/mmCIF input queue with explicit `parm7` and separately prepared model inputs,
-and a guided **Input → Workflow → Select → Validate → Run** path.
-Workflow-specific panels show only the inputs and flags accepted by the selected
-CLI subcommand; the editable command remains the exact execution contract. In
-the 3D viewer, a click keeps the exact chain/residue/insertion-code context
-visible as thick amber sticks, a translucent envelope, and a frame. An opaque
-orange atom marker with a dark halo is drawn last, so it remains legible above
-the residue layers. The same exact pick is available from a keyboard query.
-Multi-input workflows can inspect each reactant/intermediate/product while
-keeping ML-region, center, and charge editing owned by the primary input;
-incompatible secondary structures are clearly view-only and do not inherit the
-primary input's overlays. Validation is tied to the displayed command and every
-existing-file input declared by its Click command. Validation transcripts
-remain separate from current-run diagnostics. Results distinguish failed,
-cancelled, and artifact-free runs; preview diagrams, SVG, HTML, CSV, PDF, and
-trajectories; preserve unavailable energies as unknown; and provide current-run
-downloads and diagnostics. Setup installs the pinned PyPI release and fetches
-matching-tag examples into the user's own GPU runtime; MACE, UMA, and ORB are
-installed one backend per runtime.
+and a compact **Input → Viewer → Options (optional) → Results** workspace. The
+Viewer places the workflow and relevant selectors beside a 4:3 molecular view;
+an exact pick shows the residue as thick element-colored sticks and keeps the
+atom distinct with a dark halo. Key and advanced options stay collapsed until
+needed, each control has click-to-open help, and inapplicable CLI options remain
+hidden. Validation covers the exact editable command and its current input
+files. Results are scoped to the current run and preview supported structures,
+diagrams, tables, documents, and trajectories. Setup installs the pinned PyPI
+release and matching-tag examples into the user's GPU runtime; MACE, UMA, and
+ORB are installed one backend per runtime.
 
 ## System requirements
 

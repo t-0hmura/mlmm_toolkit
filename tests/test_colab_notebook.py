@@ -90,8 +90,6 @@ def _viewer_contract() -> dict:
     source = _notebook()["cells"][2]["source"]
     wanted = {
         "_pick_residue_indices",
-        "_pick_residue_box",
-        "_pick_box_edges",
         "_pick_text",
         "_resolve_click_meta",
         "_residue_id_selector",
@@ -226,31 +224,34 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "max_width='100%'" in app
     assert "flex:0 0 auto; min-width:0" in app
     assert "layout=W.Layout(width='300px', max_width='100%')" in app
-    assert "view_controls = W.HBox([dd_rep, dd_col, cb_water, dd_height]," in app
+    assert "view_controls = W.HBox([dd_rep, dd_col, cb_water, dd_size]," in app
     assert "W.HBox([btn_reset, btn_zoomsel, btn_zoompick, btn_clear_pick]," in app
     assert "sel_lang" not in app
     assert "No structure loaded" in app
     assert "('Scan (1 input)', 'scan')" in app
-    assert "Run a workflow, then choose <b>Show results</b>." in app
+    assert "No results yet." in app
     assert "frame_slider.disabled = False" in app
     assert "trajectory_box.layout.display = 'none'" in app
     # Colab renders ipywidgets' Tab and Accordion as empty blocks, so the tab
     # strip is Buttons + a swapping VBox and every collapsible is Button + VBox.
-    assert "_TAB_PAGES = [('1 Input', input_box), ('2 Workflow', options_box)," in app
-    assert "('3 Select', select_box), ('4 Results', results_box)]" in app
+    assert "_TAB_PAGES = [('1 Input', input_box), ('2 Viewer', viewer_box)," in app
+    assert "('3 Options (optional)', options_box), ('4 Results', results_box)]" in app
     assert "def _tab_go(i):" in app
     assert "W.Tab(" not in app
     assert "def _collapsible(title, child, on_open=None):" in app
     assert "W.Accordion(" not in app
-    # Hover/focus help is a real CSS popover because Colab does not reliably
-    # expose widget-native tooltips.
+    # Help is a click-to-toggle popover because Colab does not reliably expose
+    # widget-native/hover tooltips.
+    assert "def _info_control(tip):" in app
+    assert "def _set_info_text(control, tip):" in app
     assert "def _hdr(content, tip):" in app
     assert "def _flag_row(widget, tip):" in app
-    assert "&#9432;" in app
-    assert 'role="tooltip"' in app
-    assert 'title="%s" aria-label="Help: %s"' in app
-    assert 'aria-label="Help: %s"' in app
-    assert ".rxflagrow:hover .rxhelp-body" in app
+    assert "W.Button(description='i', tooltip=''" in app
+    assert "body.layout.display = '' if state['open'] else 'none'" in app
+    assert "_OPEN_INFO = {'control': None}" in app
+    assert "command_editor = _collapsible('Command line', cmd_box)" in app
+    assert "W.HBox([view_input, pick_action, last_pick_info])" in app
+    assert 'role="tooltip"' not in app
     assert "rxworkspace" in app
     assert "rxviewer" in app
     assert "rxinspector" in app
@@ -262,7 +263,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "input_file_rows" in app and "description='×'" in app
     assert "def _advanced_coverage(" in app and "adv_extra" not in app
     assert "def _advanced_options(sub):" in app
-    assert "every CLI option accounted for" in app
+    assert "adv_acc = _collapsible('Advanced flags', adv_box)" in app
+    assert "every CLI option accounted for" not in app
     assert "_set_flag_visible(adv_radius, sub in FLAG_SUBS['adv_radius'])" in app
     assert "_set_flag_visible(adv_dftfb, _dftfb_applicable)" in app
 
@@ -271,39 +273,45 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     app = _notebook()["cells"][2]["source"]
 
     for marker in (
-        "'_last_pick': None", "def _pick_residue_indices", "def _pick_residue_box",
-        "def _pick_box_edges", "def _draw_last_pick", "v.addBox(", "v.addSphere(",
-        "'wireframe': True", "viewer.__rxPickFrame=viewer.addShape({})",
-        "viewer.__rxPickFrame.addCylinder(",
+        "'_last_pick': None", "def _pick_residue_indices",
+        "def _draw_last_pick", "v.addSphere(",
+        "'wireframe': True", "viewer.__rxPickHalo=viewer.addSphere(",
         "'opacity': 0.12 if S.get('_last_pick') else 0.35",
         "viewer.getView()", "v.setView(list(S['_viewer_view']))",
         "zoom to click", "clear last click", "aria-live=\"polite\"",
         "water_sel = {'resn': sorted(_WATER)}",
         "visible_atoms = {} if S['show_water'] else {'not': water_sel}",
         "exact atom", "set current pick", "view_input", "_view_mapping_ok",
-        "residue frame", "artifact preview", "Download results / diagnostics (.zip)",
+        "last_pick_info", "artifact preview", "Download results / diagnostics (.zip)",
         "results_box.add_class('rxresults')", "overflow-x:auto",
         "colab_run.log",
         "energy unavailable", "Command was cancelled", "Command failed",
     ):
         assert marker in app
     draw = app[app.index("def _draw_last_pick"):app.index("def render_viewer")]
-    atom_marker = draw.index("v.addSphere({'center': center")
-    assert draw.index("v.addStyle({'index': indices}") < draw.index("v.addBox(")
-    assert draw.index("v.addBox(") < draw.index("v.addCylinder(") < atom_marker
-    assert draw.index("'radius': 1.00") < draw.index("v.addLabel(")
+    halo = draw.index("v.addSphere({'center': center")
+    assert draw.index("v.addStyle({'index': indices}") < halo
+    assert "'colorscheme': 'default'" in draw
+    assert "'radius': 0.92" in draw
+    assert halo < draw.index("v.addLabel(")
+    assert "v.addBox(" not in app
+    assert "_pick_box_edges" not in app
     assert "addSurface" not in draw
     assert "v.addSurface(py3Dmol.VDW, {'color': '#f59e0b'" not in app
     assert "pick_action.value = 'scanB'" in app
     assert "pick_action.value = 'freezeB'" in app
     assert "if(atom.icode)sel.icode=atom.icode" in app
-    assert "color:'#111827',opacity:0.95,wireframe:true" in app
+    assert "color:'#111827',opacity:0.90,wireframe:true" in app
     assert "String(atom.serial),(atom.icode||'').trim()" in app
     assert "def _resolve_click_meta(" in app
     assert "'viewer_index': viewer_index" in app
     assert "v.addModel(text, 'pdb', {'keepH': True, 'altLoc': '*'})" in app
     assert "v.setViewChangeCallback(_VIEW_CHANGE_JS)" in app
-    assert "py3Dmol.view(width='100%', height=320)" in app
+    assert "py3Dmol.view(width=int(S.get('viewer_width', 720)), height=int(S.get('viewer_height', 540)))" in app
+    assert "view = py3Dmol.view(width=720, height=540)" in app
+    assert "view.setStyle({}, {'cartoon': {'opacity': 0.55, 'colorscheme': 'default'}})" in app
+    assert "'greenCarbon'" not in app
+    assert "'line': {'opacity': 0.35" not in app
     assert "def _invalidate_last_run(" in app
     assert "def _artifact_kind(" in app
 
@@ -320,9 +328,6 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     ]
     contract["S"].update(_atom_meta=metadata, _last_pick={"index": 0})
     assert contract["_pick_residue_indices"]() == [0, 1]
-    box = contract["_pick_residue_box"]([0, 1])
-    assert box["dimensions"]["h"] == 1.5
-    assert len(contract["_pick_box_edges"](box)) == 12
     serial_metadata = [dict(row, serial=100 + i) for i, row in enumerate(metadata)]
     contract["S"]["_atom_meta"] = serial_metadata
     assert contract["_resolve_click_meta"](
@@ -532,12 +537,35 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["_load_view_structure"] = load_view
     assert app["_ingest_saved_files"]([str(primary), str(topology)], "test drop")
     assert app["workspace"].layout.display == ""
-    assert app["selection_help"].layout.display == ""
+    assert app["selection_help"].layout.display == "none"
     assert app["selection_route"].layout.display == "none"
     assert app["_ingest_saved_files"]([str(secondary)], "test drop")
     assert app["S"]["inputs"] == [str(primary), str(secondary)]
     assert app["S"]["parm"] == str(topology)
     assert len(app["input_file_rows"].children) == 3
+    assert app["prep_radius"].value == pytest.approx(2.6)
+    assert app["adv_radius"].value == pytest.approx(2.6)
+    assert app["dd_col"].value == "element"
+    assert app["dd_rep"].value == "cartoon"
+    assert app["dd_size"].value == 720
+    assert app["S"]["viewer_width"] == 720
+    assert app["S"]["viewer_height"] == 540
+
+    info = app["last_pick_info"]
+    assert info._rx_info_body.layout.display == "none"
+    info._rx_info_button.click()
+    assert info._rx_info_body.layout.display == ""
+    second_info = app["_info_control"]("second")
+    second_info._rx_info_button.click()
+    assert info._rx_info_body.layout.display == "none"
+    assert second_info._rx_info_body.layout.display == ""
+    second_info._rx_info_button.click()
+    info._rx_info_button.click()
+    assert info._rx_info_body.layout.display == ""
+    info._rx_info_button.click()
+    assert info._rx_info_body.layout.display == "none"
+    assert app["key_opts_box"].children[1].layout.display == "none"
+    assert app["command_editor"].children[1].layout.display == "none"
     assert set(app["_center_values"]()) == {"LIG", "MG"}
     mg_row = app["charge_rows"]["MG"]
     assert mg_row["auto"] and mg_row["use"].disabled and mg_row["val"].disabled
@@ -559,6 +587,11 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
             and call[1][1].get("sphere", {}).get("radius") == 0.50
             for call in calls
         )
+        if representation == "cartoon":
+            assert not any(
+                call[0] == "addStyle" and "line" in call[1][1]
+                for call in calls
+            )
 
     calls.clear()
     app["pick_action"].value = "center"
@@ -570,23 +603,19 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         i for i, call in enumerate(calls)
         if call[0] == "addStyle" and call[1][0] == {"index": [4, 5]}
     )
-    box = next(i for i, call in enumerate(calls) if i > residue_style and call[0] == "addBox")
-    cylinders = [
-        i for i, call in enumerate(calls)
-        if i > box and call[0] == "addCylinder" and call[1][0].get("radius") == 0.07
-    ]
-    atom_sphere = next(
-        i for i, call in enumerate(calls)
-        if i > box and call[0] == "addSphere" and call[1][0].get("radius") == 0.70
-    )
     halo = next(
         i for i, call in enumerate(calls)
-        if i > atom_sphere and call[0] == "addSphere" and call[1][0].get("radius") == 1.00
+        if i > residue_style and call[0] == "addSphere" and call[1][0].get("radius") == 0.92
     )
     label = next(i for i, call in enumerate(calls) if i > halo and call[0] == "addLabel")
-    assert len(cylinders) == 12
-    assert residue_style < box < min(cylinders) < max(cylinders) < atom_sphere < halo < label
-    assert calls[atom_sphere][1][0]["center"] == {"x": 4.0, "y": 0.0, "z": 0.0}
+    assert residue_style < halo < label
+    assert calls[residue_style][1][1]["stick"]["colorscheme"] == "default"
+    assert not any(
+        call[0] == "addStyle" and call[1][0] == {"index": [4]}
+        and "sphere" in call[1][1]
+        for call in calls
+    )
+    assert calls[halo][1][0]["center"] == {"x": 4.0, "y": 0.0, "z": 0.0}
 
     close_secondary = app["input_file_rows"].children[1].children[1].children[-1]
     close_secondary.click()
@@ -827,7 +856,7 @@ def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     for _sub in ("'define-layer'", "'mm-parm'", "'oniom-export'", "'oniom-import'"):
         assert _sub in app
     # Surfaced key flags + the standalone cluster-model button.
-    assert "key_opts_box = W.VBox([" in app
+    assert "key_opts_box = _collapsible('Key options', key_opts_content)" in app
     assert "cmd += ['--flatten']" in app
     assert "cmd += ['--max-cycles', str(int(mc))]" in app
     assert "b_extract = W.Button(description='Prepare ML-region model'" in app
@@ -896,7 +925,8 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "bond table or JSON on stdout (--json)" in app
     assert "colab_run.json" in app and "zipfile.ZipFile" in app
     assert "shutil.make_archive(" not in app
-    assert 'tabindex="0"' in app and "aria-label=" in app
+    assert "W.Button(description='i', tooltip=''" in app
+    assert "body.layout.display = '' if state['open'] else 'none'" in app
     assert "layout=W.Layout(width='560px')" not in app
     assert "ML-region charge (-q)" in app and "charge verified" in app
     assert "Verify the ML-region charge (-q)" in app

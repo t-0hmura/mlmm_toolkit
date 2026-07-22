@@ -38,8 +38,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add a release-pinned, keyboard-accessible Colab GUI that preserves full-system
   coordinate/topology identity, accepts a separately prepared model, builds workflow-aware
   commands, reaps interrupted jobs, and limits result views/downloads to the current run.
-  Exact 3D picks persist as a foreground atom marker and dark halo above residue sticks,
-  a translucent envelope, and a frame. The viewer keeps primary-input selections separate
+  Its compact Input, Viewer, optional Options, and Results workspace co-locates workflow
+  selection with a 4:3 molecular view. Exact 3D picks persist as thick element-colored
+  residue sticks with a dark atom halo. The viewer keeps primary-input selections separate
   from view-only secondary structures, preserves the camera across redraws, and rolls back
   failed structure switches. Center selectors retain chain and insertion-code identity;
   incompatible secondary views suppress primary selection and measurement overlays.
@@ -48,9 +49,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   current-run diagnostics. Private runtime files avoid upload collisions; Results previews
   structures, diagrams, SVG, HTML, CSV, PDF, and trajectories while handling missing energies, failures,
   cancellations, and diagnostic bundles explicitly.
-  The compact Select workspace appends uploads as removable rows, keeps water
-  visible on request, frames the clicked residue behind a foreground atom marker,
-  and derives searchable per-option controls and help from the selected live CLI.
+  The input queue appends uploads as removable rows, keeps water visible on request,
+  and derives searchable per-option controls and click-to-open help from the selected
+  live CLI. Key, advanced, and command-line controls remain collapsed until needed.
 - Add `opt`/`all --reject-uphill/--no-reject-uphill` (default on) to opt out of the
   RFO uphill-rejection safeguard; on `all` it is forwarded to the post-IRC endpoint
   re-optimization child only.
