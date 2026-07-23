@@ -10,7 +10,6 @@ import html
 import json
 import os
 import shlex
-import sys
 import types
 from pathlib import Path
 
@@ -20,28 +19,11 @@ import pytest
 NOTEBOOK = Path(__file__).parents[1] / "examples" / "mlmm_colab.ipynb"
 
 
-class _RecordingViewer:
-    def __init__(self, calls: list, width=None, height=None):
-        self.calls = calls
-        calls.append(("view", width, height))
-
-    def _record(self, name, *args, **kwargs):
-        self.calls.append((name, args, kwargs))
-        return {"shape": name}
-
-    def __getattr__(self, name):
-        return lambda *args, **kwargs: self._record(name, *args, **kwargs)
-
-
 def _execute_app(monkeypatch, tmp_path: Path) -> tuple[dict, list]:
-    """Execute the complete app cell with real widgets and a recording viewer."""
-    calls: list = []
-    fake = types.ModuleType("py3Dmol")
-    fake.VDW = "VDW"
-    fake.view = lambda width=None, height=None: _RecordingViewer(calls, width, height)
-    monkeypatch.setitem(sys.modules, "py3Dmol", fake)
+    """Execute the complete app cell with real widgets and captured HTML."""
+    rendered: list = []
     import IPython.display as ipd
-    monkeypatch.setattr(ipd, "display", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ipd, "display", lambda *args, **kwargs: rendered.extend(args))
     monkeypatch.setattr(ipd, "clear_output", lambda *args, **kwargs: None)
     monkeypatch.setattr(ipd, "HTML", lambda value: value)
     monkeypatch.setattr(ipd, "Image", lambda *args, **kwargs: (args, kwargs))
@@ -49,7 +31,7 @@ def _execute_app(monkeypatch, tmp_path: Path) -> tuple[dict, list]:
     namespace = {"TOOL": "mlmm", "BACKEND": "mace", "REPO_DIR": "unused"}
     source = _notebook()["cells"][2]["source"]
     exec(compile(source, str(NOTEBOOK), "exec"), namespace)
-    return namespace, calls
+    return namespace, rendered
 
 
 def _notebook() -> dict:
@@ -89,7 +71,6 @@ def _viewer_contract() -> dict:
     """Execute pure selection/highlight and trajectory-label helpers."""
     source = _notebook()["cells"][2]["source"]
     wanted = {
-        "_pick_residue_indices",
         "_pick_text",
         "_resolve_click_meta",
         "_residue_id_selector",
@@ -133,12 +114,8 @@ def test_colab_notebook_has_valid_code_cells_and_gpu_metadata() -> None:
     assert notebook["metadata"]["accelerator"] == "GPU"
     assert len(notebook["cells"]) == 4
     assert "[GitHub](https://github.com/t-0hmura/mlmm_toolkit)" in introduction
-    assert (
-        "full protein environment using an ML/MM ONIOM model"
-        in introduction
-    )
-    assert "PDB/mmCIF structures and Amber topology files" in introduction
-    assert "linked trajectories and energy profiles" in introduction
+    assert "ML/MM reaction paths on the full solvated protein" in introduction
+    assert "**1 Input → 2 Viewer → 3 Options → 4 Results**" in introduction
     assert (
         "[ChemRxiv](https://chemrxiv.org/doi/full/"
         "10.26434/chemrxiv-2025-jft1k)"
@@ -158,7 +135,7 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "pip('mlmm-toolkit' + ('[dft]' if install_dft else '') + '==' + mlmm_ref.lstrip('v'))" in setup
     assert "git clone" not in setup
     assert "installed_version != mlmm_ref[1:]" in setup
-    assert "'anywidget==0.11.0'" in setup
+    assert "anywidget" not in setup
     assert "version('mlmm-toolkit')" in setup
     assert "Restart the Colab runtime first" in setup
     assert "mace-torch>=0.3.8" in setup
@@ -172,6 +149,8 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "_cupy.cuda.runtime.getDeviceCount()" in setup
     assert "DFT packages installed but failed their import/GPU check" in setup
     assert "DFT support installed: PySCF %s · GPU4PySCF %s" in setup
+    assert "py3Dmol" not in setup
+    assert "pip('ipywidgets','matplotlib')" in setup
     assert "[%%d/5] %%s".replace("%%", "%") in setup
     assert "time.monotonic()" in setup
     assert ".pysisyphusrc" in setup
@@ -193,10 +172,11 @@ def test_colab_gui_is_mlmm_native_and_tracks_structure_contracts() -> None:
     assert "prepare_input_structure" in app
     assert "load_pdb_atom_metadata" in app
     assert "Path(_runtime_path('viewer_input.pdb'))" in app
-    assert app.count("mlmm_gui.on_click") == 2
-    assert app.count("mlmm_gui.on_view_change") == 2
+    assert "callback_ns = 'mlmm_gui'" in app
+    assert "_co.register_callback('mlmm_gui.on_click', on_click)" in app
+    assert "target.invokeFunction(cfg.callback+'.'+suffix,args,{})" in app
     assert "CHAIN:RESNAME:RESSEQ" in app
-    assert "String(atom.index)" in app
+    assert "String(item.sourceIndex)" in app
     assert "ML/MM compute commands require a matching Amber parm7" in app
     assert "elif parm:" in app
     assert "S['parm'] = parm" in app
@@ -244,9 +224,17 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "max_width='100%'" in app
     assert "flex:0 0 auto; min-width:0" in app
     assert "layout=W.Layout(width='300px', max_width='100%')" in app
-    assert "view_controls = W.HBox([dd_rep, dd_col, cb_water, dd_size]," in app
-    assert "W.HBox([btn_reset, btn_zoomsel, btn_zoompick]," in app
-    assert "last_pick_row = W.HBox([last_pick_html, btn_clear_pick]," in app
+    assert "_MOLSTAR_VERSION = '5.6.1'" in app
+    assert "molstar@%s/build/viewer/molstar.js" in app
+    assert "layoutShowSequence:cfg.showSequence" in app
+    assert "layoutShowControls:true" in app
+    assert "collapseRightPanel:true" in app
+    assert "viewportFocusBehavior" not in app
+    assert "Mol* owns representation, colour, camera, measurement, and screenshot controls." in app
+    assert "view_controls = W.HBox([" in app
+    assert "cb_water," in app
+    assert "last_pick_row = W.HBox([last_pick_html]," in app
+    assert "btn_clear_pick" not in app
     assert "sel_lang" not in app
     assert "No structure loaded" in app
     assert "('Scan 1', 'scan')" in app
@@ -301,20 +289,26 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "Every remaining option" not in app
     assert "def _ingest_saved_files(" in app
     assert "input_file_rows" in app and "description='Remove file'" in app
-    assert ".rxdrop .rxnative-drop input[type=\"file\"]" in app
-    assert "class _DropUpload(anywidget.AnyWidget):" in app
-    assert "upl.on_msg(_on_drop_upload)" in app
-    assert "event.preventDefault(); event.stopPropagation();" in app
-    assert "submit(event.dataTransfer ? event.dataTransfer.files : []);" in app
-    assert "el.addEventListener('drop', onDrop);" in app
-    assert "generation = traitlets.Int(0).tag(sync=True)" in app
-    assert "model.on('change:generation', cancelPending);" in app
-    assert "if generation != widget.generation:" in app
-    assert "if _HAS_DROP_WIDGET: upl.generation += 1" in app
+    assert "upl = W.FileUpload(accept=_acc, multiple=True, description='Upload files'" in app
+    assert "_drop = W.VBox([_drop_prompt, upl, _drop_epoch]," in app
+    assert "align_items='center', justify_content='center'" in app
+    assert "event.preventDefault();event.stopPropagation();" in app
+    assert "box.addEventListener('drop',function(event)" in app
+    assert "reader.readAsDataURL(file);" in app
+    assert "callback,[out,item.id,item.generation],{})" in app
+    assert "_DROP_STATE = {'generation': 0, 'seen': set()}" in app
+    assert "def _claim_drop_batch(batch, generation):" in app
+    assert "def _bump_drop_generation():" in app
+    assert "queue.push({id:opaqueId(),generation:epoch(box),files:selected})" in app
+    assert "if(busy||!queue.length)return;" in app
+    assert "payload.batch===item.id" in app
+    assert "if clear:\n        _bump_drop_generation()" in app
+    assert app.count("mlmm_gui.on_drop") == 2
+    assert "document.querySelectorAll('.rxapp .rxdrop')" in app
+    assert "_dnd_out.register_callback('mlmm_gui.on_drop', _rxgui_drop)" in app
+    assert "_accept_upload_pairs(pairs, 'drag & drop')" in app
     assert "def _delete_owned_uploads(paths):" in app
-    assert "position:absolute !important" in app
-    assert "register_callback('rxgui.drop'" not in app
-    assert "document.querySelector('.rxdrop')" not in app
+    assert "anywidget" not in app and "_HAS_DROP_WIDGET" not in app
     assert "description='Move earlier'" in app and "description='Move later'" in app
     assert "tooltip='Move earlier'" in app and "tooltip='Move later'" in app
     assert "def _advanced_coverage(" in app and "adv_extra" not in app
@@ -331,61 +325,65 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     app = _notebook()["cells"][2]["source"]
 
     for marker in (
-        "'_last_pick': None", "'_pick_history': []", "def _pick_residue_indices",
-        "def _remember_pick", "def _draw_pick_history", "def _redraw_live_overlays",
-        "_VIEWER_GENERATION",
-        "v.addSphere(", "'wireframe': True", "viewer.__rxPicked",
-        "'opacity': 0.12 if S.get('_pick_history') else 0.35",
-        "viewer.getView()", "v.setView(list(S['_viewer_view']))",
-        "zoom to click", "clear click highlights", "aria-live=\"polite\"",
-        "water_sel = {'resn': sorted(_WATER)}",
-        "visible_atoms = {} if S['show_water'] else {'not': water_sel}",
+        "'_last_pick': None", "'_pick_history': []", "def _remember_pick",
+        "_VIEWER_GENERATION", "_MOLSTAR_VERSION = '5.6.1'",
+        "layoutShowSequence:cfg.showSequence", "layoutShowControls:true",
+        "collapseRightPanel:true", "layoutShowLog:false",
+        "layoutShowLeftPanel:false", "layoutShowRemoteState:false",
+        "await molstar.Viewer.create", "color:'element-symbol'",
+        "alpha:0.55", "structure-component-static-water",
+        "await configureWater()", "tryCreateComponentStatic(",
+        "'mmcif' if fmt in ('cif', 'mmcif')",
+        "ignoreStartupEmpty", "loci.kind==='empty-loci'",
+        "clickQueue=clickQueue.then(()=>handleClick(event))",
+        "await invoke('clear_highlights',[cfg.generation])",
+        "cfg.generation,exact",
         "exact atom", "set current pick", "view_input", "_view_mapping_ok",
         "last_pick_info", "Generated file preview", "Download current run (.zip)",
         "results_box.add_class('rxresults')", "overflow-x:auto",
-        "colab_run.log",
-        "energy unavailable", "Command was cancelled", "Command failed",
-        "_frame_link = W.jslink", "linked structure + energy",
+        "colab_run.log", "energy unavailable", "Command was cancelled",
+        "Command failed", "_frame_link = W.jslink", "linked structure + energy",
         "ax.axvline(xs[i]", "artifact_fold._rx_set_open",
-        "if center: S['_zoomsel'] = True", "if indices: v.zoom(0.78)",
+        "display(HTML(_molstar_iframe(fr[i], 'xyz', show_sequence=False)))",
+        "display(HTML(_molstar_iframe(source, fmt, show_sequence=(fmt != 'xyz'))))",
     ):
         assert marker in app
-    assert "('✓ ' if _j == i else '')" not in app
-    draw = app[app.index("def _style_pick_residue(v, pick)"):app.index("def render_viewer")]
-    halo = draw.index("v.addSphere({'center': center")
-    assert draw.index("v.addStyle({'index': indices}") < halo
-    assert "'colorscheme': 'default'" in draw
-    assert "'radius': 0.92" in draw
-    assert "v.addLabel(" not in draw
+    assert "py3Dmol" not in app
+    assert "v.addSphere(" not in app
     assert "v.addBox(" not in app
     assert "_pick_box_edges" not in app
-    assert "addSurface" not in draw
-    assert "v.addSurface(py3Dmol.VDW, {'color': '#f59e0b'" not in app
+    assert "'greenCarbon'" not in app
+    assert "viewportFocusBehavior" not in app
+    assert "tryCreateComponentFromExpression" not in app
+    assert "lociSelects.select" not in app
+    assert "canvas.setProps" not in app
+    assert "managers.interactivity.setProps" not in app
+    assert "_viewer_seed_picks" not in app
+    assert "skipInitialClick" not in app
+    assert "style_pick" not in app
+    assert "('Measure (dist/angle/dihedral)'," not in app
+    assert "measure_panel" not in app
+    assert "freeze_acc = _collapsible('Freezing', freeze_panel)" in app
+    assert "_PICK_HINT.get(pick_action.value, 'Choose a click action.')" in app
+    assert "_PICK_HINT[pick_action.value]" not in app
     assert "pick_action.value = 'scanB'" in app
     assert "pick_action.value = 'freezeB'" in app
-    assert "if(atom.icode)sel.icode=atom.icode" in app
-    assert "color:'#111827',opacity:0.90,wireframe:true" in app
-    assert "String(atom.serial),(atom.icode||'').trim(),viewer.getView(),true" in app
-    assert "viewer.removeShape" not in app
-    assert "viewer.removeLabel" not in app
-    click_completion = app[app.index("def on_click("):app.index("try:\n    from google.colab import output as _co")]
-    assert "render_viewer(); refresh()" not in click_completion
+    assert "target.invokeFunction(cfg.callback+'.'+suffix,args,{})" in app
+    assert "String(item.sourceIndex)" in app
+    assert "cfg.generation,exact" in app
+    assert "if exact in (False, 0, 'false', 'False')" in app
+    assert "Mol* focused this residue" in app
+    click_completion = app[
+        app.index("def on_click("):
+        app.index("try:\n    from google.colab import output as _co")
+    ]
     assert "if not live_marked:" in click_completion
-    assert "_redraw_live_overlays(style_pick=style_pick, reset_resn=reset_resn)" in click_completion
+    assert "selected in (False, 0, 'false', 'False')" not in click_completion
     assert "current_generation != _VIEWER_GENERATION['value']" in click_completion
+    assert app.count("mlmm_gui.clear_highlights") == 1
     assert "def _resolve_click_meta(" in app
     assert "'viewer_index': viewer_index" in app
-    assert "var r=(a.resn||'')+(a.resi===undefined?'':a.resi);" in app
-    assert "Number.isFinite(i)?i+1:'?'" in app
-    assert "a.resn+a.resi" not in app
-    assert "v.addModel(text, 'pdb', {'keepH': True, 'altLoc': '*'})" in app
-    assert "v.setViewChangeCallback(view_change_js)" in app
-    assert "_VIEW_CHANGE_JS.replace('__RX_GENERATION__'" in app
-    assert "py3Dmol.view(width=int(S.get('viewer_width', 720)), height=int(S.get('viewer_height', 540)))" in app
-    assert "view = py3Dmol.view(width=720, height=540)" in app
-    assert "view.setStyle({}, {'cartoon': {'opacity': 0.55, 'colorscheme': 'default'}})" in app
-    assert "'greenCarbon'" not in app
-    assert "'line': {'opacity': 0.35" not in app
+    assert "def _load_view_structure(path):" in app
     assert "def _invalidate_last_run(" in app
     assert "def _artifact_kind(" in app
 
@@ -400,24 +398,36 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
         {"index": 3, "chain": "A", "resname": "LIG", "resseq": 10,
          "icode": "A", "name": "N", "xyz": (8, 0, 0)},
     ]
-    contract["S"].update(_atom_meta=metadata, _last_pick={"index": 0})
-    assert contract["_pick_residue_indices"]() == [0, 1]
     serial_metadata = [dict(row, serial=100 + i) for i, row in enumerate(metadata)]
-    contract["S"]["_atom_meta"] = serial_metadata
+    contract["S"].update(_atom_meta=serial_metadata, _view_format="pdb")
+    # Stable PDB serial/signature wins over a drifted browser-side source index.
     assert contract["_resolve_click_meta"](
         0, "101", "LIG", "10", "A", "C1", "",
     )["index"] == 1
     contract["S"]["_atom_meta"] = metadata
     assert contract["_resolve_atom_query"]("A:LIG:10:C1") == 1
     assert contract["_resolve_atom_query"]("2") == 1
+    contract["S"].update(
+        _view_format="xyz",
+        _atom_meta=[{"index": 0, "serial": 1, "resname": "MOL",
+                     "resseq": 1, "name": "C1", "xyz": (0, 0, 0)}],
+    )
+    resolved_xyz = contract["_resolve_click_meta"](
+        "0", "0", "", "undefined", "", "C", "",
+    )
+    assert resolved_xyz["name"] == "C1"
     contract["S"].update(center=["LIG"], center_ids=["B:LIG:10"],
                          _primary_atom_meta=metadata)
-    assert contract["_center_cli_selectors"]() == ["A:LIG:10", "B:LIG:10", "A:LIG:10A"]
+    assert contract["_center_cli_selectors"]() == [
+        "A:LIG:10", "B:LIG:10", "A:LIG:10A",
+    ]
     contract["S"].update(center=[], center_ids=["A:LIG:10"])
     with pytest.raises(ValueError, match="insertion-code sibling"):
         contract["_center_cli_selectors"]()
-    contract["SPEC"].update({"bond-summary": {"n_in": (2, None)},
-                              "trj2fig": {"n_in": (1, 1)}})
+    contract["SPEC"].update({
+        "bond-summary": {"n_in": (2, None)},
+        "trj2fig": {"n_in": (1, 1)},
+    })
     assert contract["_input_count_error"]("bond-summary", 1)
     assert not contract["_input_count_error"]("bond-summary", 2)
     assert contract["_input_count_error"]("trj2fig", 2)
@@ -428,20 +438,36 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert contract["_artifact_kind"]("final.xyz") == "structure"
     assert contract["_artifact_kind"]("optimization_trj.xyz") is None
     opt = contract["_trajectory_semantics"]("opt", "optimization_trj.xyz")
-    path = contract["_trajectory_semantics"]("path-opt", "mep_trj.xyz")
-    vibration = contract["_trajectory_semantics"]("tsopt", "vib/imag_120i_trj.xyz")
+    path_semantics = contract["_trajectory_semantics"](
+        "path-opt", "mep_trj.xyz",
+    )
+    vibration = contract["_trajectory_semantics"](
+        "tsopt", "vib/imag_120i_trj.xyz",
+    )
     assert vibration["title"] == "Vibrational-mode animation"
     assert vibration["x"] == "phase frame" and not vibration["extrema"]
     assert contract["_stationary"]([0.0, 2.0, 0.0], opt) == [
         (0, "initial"), (2, "optimized"),
     ]
-    assert (1, "peak candidate") in contract["_stationary"]([0.0, 2.0, 0.0], path)
+    assert (1, "peak candidate") in contract["_stationary"](
+        [0.0, 2.0, 0.0], path_semantics,
+    )
 
 
 def test_colab_app_executes_atomic_view_and_result_transitions(
     tmp_path: Path, monkeypatch,
 ) -> None:
     app, calls = _execute_app(monkeypatch, tmp_path)
+    drop_generation = app["_DROP_STATE"]["generation"]
+    assert app["_claim_drop_batch"]("batch-a", drop_generation) == (True, "")
+    assert app["_claim_drop_batch"]("batch-a", drop_generation) == (
+        False, "duplicate batch",
+    )
+    app["b_clear_inputs"].click()
+    assert app["_DROP_STATE"]["generation"] == drop_generation + 1
+    assert app["_claim_drop_batch"]("late-batch", drop_generation) == (
+        False, "stale generation",
+    )
     assert app["workspace"].layout.display == "none"
     assert app["selection_help"].layout.display == "none"
     assert app["selection_route"].layout.display == ""
@@ -533,24 +559,22 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     assert app["center_widget"] is primary_widget
     assert primary_widget.disabled is True
     assert (app["S"]["center"], app["S"]["center_ids"], app["S"]["lcharge"]) == saved
-    indexed_styles = [
-        call for call in calls
-        if call[0] == "addStyle" and call[1] and isinstance(call[1][0], dict)
-        and "index" in call[1][0]
-    ]
-    assert indexed_styles == []
+    assert any(
+        isinstance(value, str) and 'class="rxmolstar-frame"' in value
+        for value in calls
+    )
     app["dd_subcmd"].value = "scan"
     def _descendants(widget):
         yield widget
         for child in getattr(widget, "children", ()):
             yield from _descendants(child)
-    clear_bond = next(
+    clear_pair = next(
         widget for widget in _descendants(app["scan_panel"])
-        if getattr(widget, "description", "") == "clear bond"
+        if getattr(widget, "description", "") == "Clear pair"
     )
-    assert clear_bond.disabled
+    assert clear_pair.disabled
     before_scan = json.dumps(app["S"]["scan_atoms"], sort_keys=True)
-    clear_bond.click()
+    clear_pair.click()
     assert json.dumps(app["S"]["scan_atoms"], sort_keys=True) == before_scan
     app["view_input"].value = 0
     assert app["center_widget"].disabled is False
@@ -583,6 +607,41 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     app["_stream"] = lambda argv: (2, "invalid options")
     app["_do_validate"](None)
     assert app["run_log_fold"].children[1].layout.display == ""
+
+    # One path-position change drives both the Mol* structure and the energy
+    # cursor/status from the same slider value.
+    trajectory = tmp_path / "linked_path_trj.xyz"
+    trajectory.write_text(
+        "2\n-1.000000\n"
+        "H 0.000 0.000 0.000\nH 0.700 0.000 0.000\n"
+        "2\n-0.990000\n"
+        "H 1.500 0.000 0.000\nH 2.200 0.000 0.000\n",
+        encoding="utf-8",
+    )
+    calls.clear()
+    app["S"]["_last_subcmd"] = "path-opt"
+    app["_load_trajectory"](str(trajectory), str(tmp_path))
+    assert app["frame_slider"].max == 1 and not app["frame_slider"].disabled
+    assert app["trajectory_box"].layout.display == ""
+    assert "Frame 1 of 2" in app["frame_state"].value
+    assert "ΔE = 0.0 kcal/mol" in app["frame_state"].value
+    first_frame = [
+        value for value in calls
+        if isinstance(value, str) and 'class="rxmolstar-frame"' in value
+    ]
+    assert first_frame and "H 0.000 0.000 0.000" in first_frame[-1]
+
+    calls.clear()
+    app["frame_slider"].value = 1
+    assert "Frame 2 of 2" in app["frame_state"].value
+    assert "ΔE = 6.3 kcal/mol" in app["frame_state"].value
+    second_frame = [
+        value for value in calls
+        if isinstance(value, str) and 'class="rxmolstar-frame"' in value
+    ]
+    assert second_frame and "H 1.500 0.000 0.000" in second_frame[-1]
+    assert not app["frame_prev"].disabled and app["frame_next"].disabled
+
     app["_invalidate_last_run"]("Input identity changed; run again.")
     assert app["S"]["_last_manifest"] == {} and app["S"]["_last_files"] == []
     assert app["artifact_choice"].disabled and app["dl_btn"].disabled
@@ -674,64 +733,52 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert mg_row["val"].value == 2
     assert "MG" not in app["S"]["lcharge"]
 
+    calls.clear()
     app["cb_water"].value = True
-    for representation in ("cartoon", "sticks", "line"):
-        calls.clear()
-        app["dd_rep"].value = representation
-        app["render_viewer"]()
-        assert any(
-            call[0] == "addModel" and call[1][2] == {"keepH": True, "altLoc": "*"}
-            for call in calls
-        )
-        assert any(
-            call[0] == "addStyle"
-            and call[1][0].get("elem") == "O"
-            and call[1][1].get("sphere", {}).get("radius") == 0.50
-            for call in calls
-        )
-        if representation == "cartoon":
-            assert not any(
-                call[0] == "addStyle" and "line" in call[1][1]
-                for call in calls
-            )
+    assert app["S"]["show_water"] is True
+    frames = [
+        value for value in calls
+        if isinstance(value, str) and 'class="rxmolstar-frame"' in value
+    ]
+    assert frames
+    document = app["_molstar_document"](
+        app["S"]["_pdb_text"], "pdb", show_water=True, interactive=True,
+    )
+    assert '"showWater":true' in document
+    assert "layoutShowControls:true" in document
+    assert "layoutShowSequence:cfg.showSequence" in document
+    assert "structure-component-static-water" in document
+    cif_document = app["_molstar_document"](
+        "data_demo\n_entry.id demo\n", "cif", show_sequence=True,
+    )
+    assert '"format":"mmcif"' in cif_document
+    assert '"showSequence":true' in cif_document
 
     calls.clear()
     app["pick_action"].value = "center"
     app["on_click"]("1", "LIG", "3", "A", "C1", "5", "")
     assert app["S"]["_last_pick"]["index"] == 4
     assert app["S"]["_last_pick"]["viewer_index"] == 1
-    assert app["_pick_residue_indices"]() == [4, 5]
-    residue_style = next(
-        i for i, call in enumerate(calls)
-        if call[0] == "addStyle" and call[1][0] == {"index": [4, 5]}
+    assert any(
+        isinstance(value, str) and 'class="rxmolstar-frame"' in value
+        for value in calls
     )
-    halo = next(
-        i for i, call in enumerate(calls)
-        if i > residue_style and call[0] == "addSphere" and call[1][0].get("radius") == 0.92
-    )
-    update = next(i for i, call in enumerate(calls) if i > halo and call[0] == "update")
-    assert residue_style < halo < update
-    assert not any(call[0] == "view" for call in calls)
-    assert calls[residue_style][1][1]["stick"]["colorscheme"] == "default"
-    assert not any(
-        call[0] == "addStyle" and call[1][0] == {"index": [4]}
-        and "sphere" in call[1][1]
-        for call in calls
-    )
-    assert calls[halo][1][0]["center"] == {"x": 4.0, "y": 0.0, "z": 0.0}
     assert [pick["index"] for pick in app["S"]["_pick_history"]] == [4]
 
     calls.clear()
     app["on_click"]("2", "MG", "2", "A", "MG", "3", "", live_marked=True)
     assert [pick["index"] for pick in app["S"]["_pick_history"]] == [4, 2]
-    assert not any(call[0] in {"view", "update"} for call in calls)
-    calls.clear()
-    app["render_viewer"]()
-    click_halos = [
-        call for call in calls
-        if call[0] == "addSphere" and call[1][0].get("radius") == 0.92
-    ]
-    assert len(click_halos) == 2
+    assert not any(
+        isinstance(value, str) and 'class="rxmolstar-frame"' in value
+        for value in calls
+    )
+    committed_centers = list(app["S"]["center_ids"])
+    app["_clear_highlights_from_browser"](app["_VIEWER_GENERATION"]["value"])
+    assert app["S"]["_pick_history"] == []
+    assert app["S"]["center_ids"] == committed_centers
+
+    app["on_click"]("2", "MG", "2", "A", "MG", "3", "", live_marked=True)
+    assert [pick["index"] for pick in app["S"]["_pick_history"]] == [2]
 
     close_secondary = app["input_file_rows"].children[1].children[1].children[-1]
     close_secondary.click()
@@ -815,7 +862,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["dd_subcmd"].value = "sp"
     assert app["key_opts_box"].layout.display == ""
     assert [value for _label, value in app["pick_action"].options] == [
-        "center", "ligand", "freezeA", "freezeB", "freezeatom", "measure",
+        "center", "ligand", "freezeA", "freezeB", "freezeatom",
     ]
     assert app["center_panel"].layout.display == ""
     assert app["charge_panel"].layout.display == ""
@@ -936,8 +983,11 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert "refined MLIP" in summary_html and "⚡" not in summary_html
     calls.clear()
     app["_structure_preview"](str(primary))
-    assert any(call[0] == "addModel" and call[1][1] == "pdb" for call in calls)
-    assert any(call[0] == "show" for call in calls)
+    assert any(
+        isinstance(value, str) and 'class="rxmolstar-frame"' in value
+        and "Mol*" in value
+        for value in calls
+    )
 
     # Charge semantics and controls follow the selected ML/MM workflow.
     app["dd_subcmd"].value = "all"
@@ -1081,22 +1131,14 @@ def test_colab_adversarial_session_upload_and_view_state(
         {"index": 0, "chain": "A", "resn": "LIG", "resi": "10", "atom": "C1", "xyz": (0.0, 0.0, 0.0)},
         {"index": 1, "chain": "A", "resn": "LIG", "resi": "10", "atom": "O1", "xyz": (1.2, 0.0, 0.0)},
     ]
-    camera = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 25.0]
-    app["S"]["_viewer_view"] = list(camera)
     app["view_input"].value = 1
     assert app["S"]["scan_atoms"][0]["xyz"] == pytest.approx((10.0, 0.0, 0.0))
     assert app["S"]["scan_atoms"][1]["xyz"] == pytest.approx((12.4, 0.0, 0.0))
-    assert app["S"]["_viewer_view"] == camera
     calls.clear()
     app["render_viewer"]()
     assert any(
-        call[0] == "addSphere" and call[1][0].get("color") == "red"
-        and call[1][0].get("wireframe") is True for call in calls
-    )
-    assert not any(
-        call[0] == "addStyle"
-        and call[1][1].get("sphere", {}).get("color") in {"red", "cyan", "blue"}
-        for call in calls
+        isinstance(value, str) and 'class="rxmolstar-frame"' in value
+        for value in calls
     )
 
     app["load_pdb"](
@@ -1258,14 +1300,12 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "DFT_READY" in app and "DMF_READY" in app
     assert "options=['(default)', 'gsm', 'dmf']" not in app
     assert "OUT_JSON_SUBS" in app and "if sub in OUT_JSON_SUBS: cmd += ['--out-json']" in app
-    assert ".rxdrop .rxnative-drop input[type=\"file\"]" in app
-    assert "class _DropUpload(anywidget.AnyWidget):" in app
-    assert "model.send({event: 'upload'" in app
-    assert "upl.on_msg(_on_drop_upload)" in app
+    assert "upl = W.FileUpload(accept=_acc, multiple=True, description='Upload files'" in app
+    assert "_dnd_out.register_callback('mlmm_gui.on_drop', _rxgui_drop)" in app
+    assert "reader.readAsDataURL(file);" in app
     assert "def _ingest_saved_files(" in app
     assert "_reset_file_upload(upl)" in app
-    assert "register_callback('rxgui.drop'" not in app
-    assert "document.querySelector('.rxdrop')" not in app
+    assert "anywidget" not in app and "_HAS_DROP_WIDGET" not in app
     assert "pts.append((k, 'TS'))" not in app
     assert "peak candidate" in app and "minimum candidate" in app
     assert "except KeyboardInterrupt:" in app
@@ -1286,14 +1326,14 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "isinstance(value_type, click.Path)" in app
     assert "flags.intersection({'-s', '--scan-lists'})" in app
     assert "_RUN_STATE['validation_log']" in app
-    assert "mapping_ok = bool(S.get('_view_mapping_ok', True))" in app
+    assert "tryCreateComponentFromExpression" not in app
     assert "sub == 'all' and all_kind == 'scan'" in app
     assert "bond table or JSON on stdout (--json)" in app
     assert "colab_run.json" in app and "zipfile.ZipFile" in app
     assert "shutil.make_archive(" not in app
     assert "W.Button(description='Show information'" not in app
     assert "<details class=\"rxinfo-details\" data-revision=" in app
-    assert "submit(event.dataTransfer ? event.dataTransfer.files : []);" in app
+    assert "submit(event.dataTransfer&&event.dataTransfer.files);" in app
     assert "_tab_body.children = [_TAB_PAGES[i][1]]" not in app
     assert "layout=W.Layout(width='560px')" not in app
     assert "ML-region charge (-q)" in app and "charge verified" in app

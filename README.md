@@ -34,10 +34,9 @@ For scan-mode on a single structure and the bundled methyltransferase walk-throu
 
 ## Colab GUI
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
+An interactive Colab notebook is available.
 
-The interactive notebook is available at
-[`examples/mlmm_colab.ipynb`](examples/mlmm_colab.ipynb).
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
 
 ## System requirements
 
