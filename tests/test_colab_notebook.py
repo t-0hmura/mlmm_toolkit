@@ -134,6 +134,12 @@ def test_colab_notebook_has_valid_code_cells_and_gpu_metadata() -> None:
     assert len(notebook["cells"]) == 4
     assert "[GitHub](https://github.com/t-0hmura/mlmm_toolkit)" in introduction
     assert (
+        "full protein environment using an ML/MM ONIOM model"
+        in introduction
+    )
+    assert "PDB/mmCIF structures and Amber topology files" in introduction
+    assert "linked trajectories and energy profiles" in introduction
+    assert (
         "[ChemRxiv](https://chemrxiv.org/doi/full/"
         "10.26434/chemrxiv-2025-jft1k)"
     ) in introduction
