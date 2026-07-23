@@ -152,6 +152,7 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "pip('mlmm-toolkit' + ('[dft]' if install_dft else '') + '==' + mlmm_ref.lstrip('v'))" in setup
     assert "git clone" not in setup
     assert "installed_version != mlmm_ref[1:]" in setup
+    assert "'anywidget==0.11.0'" in setup
     assert "version('mlmm-toolkit')" in setup
     assert "Restart the Colab runtime first" in setup
     assert "mace-torch>=0.3.8" in setup
@@ -231,7 +232,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "flex:0 0 auto; min-width:0" in app
     assert "layout=W.Layout(width='300px', max_width='100%')" in app
     assert "view_controls = W.HBox([dd_rep, dd_col, cb_water, dd_size]," in app
-    assert "W.HBox([btn_reset, btn_zoomsel, btn_zoompick, btn_clear_pick]," in app
+    assert "W.HBox([btn_reset, btn_zoomsel, btn_zoompick]," in app
+    assert "last_pick_row = W.HBox([last_pick_html, btn_clear_pick]," in app
     assert "sel_lang" not in app
     assert "No structure loaded" in app
     assert "('Scan 1', 'scan')" in app
@@ -248,22 +250,24 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "W.Tab(" not in app
     assert "def _collapsible(title, child, on_open=None):" in app
     assert "W.Accordion(" not in app
-    # Help is a click-to-toggle popover because Colab does not reliably expose
-    # widget-native/hover tooltips.
+    # Help uses the standard info-circle icon and a normal-flow panel. Fixed
+    # overlays and hover-only tooltips disappear in Colab's widget frontend.
     assert "def _info_control(tip, target=None):" in app
+    assert "def _sync_info_control(control):" in app
     assert "def _set_info_text(control, tip):" in app
     assert "def _close_info_target(target):" in app
     assert "def _hdr(content, tip):" in app
     assert "def _flag_row(widget, tip, info_target=None):" in app
-    assert "W.Button(description='Show information'" in app
-    assert "body.layout.display = '' if state['open'] else 'none'" in app
+    assert "description='Show information', icon='info-circle'" in app
+    assert "control._rx_info_body.layout.display = '' if opened else 'none'" in app
     assert "_OPEN_INFO = {'control': None}" in app
-    assert ".rxapp .rxinfo-popover { position:fixed !important" in app
-    assert "width:min(360px,calc(100vw - 24px))" in app
-    assert ".rxinfo-popover .widget-html-content small { color:#f8fafc !important; }" in app
+    assert "body.add_class('rxhelp-panel')" in app
+    assert "rxinfo-popover" not in app
     assert "📥 needs" not in app
     assert "run_log_fold = _collapsible('Run log', logbox)" in app
-    assert "command_editor = _collapsible('Command line', W.VBox([cmd_box" in app
+    assert "command_editor = W.VBox([" in app
+    assert "W.HTML('<b>Command line</b>')" in app
+    assert "command_editor = _collapsible('Command line'" not in app
     assert "W.HBox([view_input, pick_action, last_pick_info])" in app
     assert "workflow_contract_row = W.HBox([subreq, outputs_html]" in app
     assert "workflow_controls.add_class('rxworkflow-controls')" in app
@@ -280,6 +284,12 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "Every remaining option" not in app
     assert "def _ingest_saved_files(" in app
     assert "input_file_rows" in app and "description='Remove file'" in app
+    assert ".rxdrop .rxnative-drop input[type=\"file\"]" in app
+    assert "class _DropUpload(anywidget.AnyWidget):" in app
+    assert "upl.on_msg(_on_drop_upload)" in app
+    assert "position:absolute !important" in app
+    assert "register_callback('rxgui.drop'" not in app
+    assert "document.querySelector('.rxdrop')" not in app
     assert "description='Move earlier'" in app and "description='Move later'" in app
     assert "tooltip='Move earlier'" in app and "tooltip='Move later'" in app
     assert "def _advanced_coverage(" in app and "adv_extra" not in app
@@ -294,12 +304,13 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     app = _notebook()["cells"][2]["source"]
 
     for marker in (
-        "'_last_pick': None", "def _pick_residue_indices",
-        "def _draw_last_pick", "v.addSphere(",
-        "'wireframe': True", "viewer.__rxPickHalo=viewer.addSphere(",
-        "'opacity': 0.12 if S.get('_last_pick') else 0.35",
+        "'_last_pick': None", "'_pick_history': []", "def _pick_residue_indices",
+        "def _remember_pick", "def _draw_pick_history", "def _redraw_live_overlays",
+        "_VIEWER_GENERATION",
+        "v.addSphere(", "'wireframe': True", "viewer.__rxPicked",
+        "'opacity': 0.12 if S.get('_pick_history') else 0.35",
         "viewer.getView()", "v.setView(list(S['_viewer_view']))",
-        "zoom to click", "clear last click", "aria-live=\"polite\"",
+        "zoom to click", "clear click highlights", "aria-live=\"polite\"",
         "water_sel = {'resn': sorted(_WATER)}",
         "visible_atoms = {} if S['show_water'] else {'not': water_sel}",
         "exact atom", "set current pick", "view_input", "_view_mapping_ok",
@@ -313,12 +324,12 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     ):
         assert marker in app
     assert "('✓ ' if _j == i else '')" not in app
-    draw = app[app.index("def _draw_last_pick"):app.index("def render_viewer")]
+    draw = app[app.index("def _style_pick_residue(v, pick)"):app.index("def render_viewer")]
     halo = draw.index("v.addSphere({'center': center")
     assert draw.index("v.addStyle({'index': indices}") < halo
     assert "'colorscheme': 'default'" in draw
     assert "'radius': 0.92" in draw
-    assert halo < draw.index("v.addLabel(")
+    assert "v.addLabel(" not in draw
     assert "v.addBox(" not in app
     assert "_pick_box_edges" not in app
     assert "addSurface" not in draw
@@ -327,11 +338,18 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert "pick_action.value = 'freezeB'" in app
     assert "if(atom.icode)sel.icode=atom.icode" in app
     assert "color:'#111827',opacity:0.90,wireframe:true" in app
-    assert "String(atom.serial),(atom.icode||'').trim()" in app
+    assert "String(atom.serial),(atom.icode||'').trim(),viewer.getView(),true" in app
+    assert "viewer.removeShape" not in app
+    assert "viewer.removeLabel" not in app
+    click_completion = app[app.index("def on_click("):app.index("try:\n    from google.colab import output as _co")]
+    assert "render_viewer(); refresh()" not in click_completion
+    assert "_redraw_live_overlays(style_pick=style_pick, reset_resn=reset_resn)" in click_completion
+    assert "current_generation != _VIEWER_GENERATION['value']" in click_completion
     assert "def _resolve_click_meta(" in app
     assert "'viewer_index': viewer_index" in app
     assert "v.addModel(text, 'pdb', {'keepH': True, 'altLoc': '*'})" in app
-    assert "v.setViewChangeCallback(_VIEW_CHANGE_JS)" in app
+    assert "v.setViewChangeCallback(view_change_js)" in app
+    assert "_VIEW_CHANGE_JS.replace('__RX_GENERATION__'" in app
     assert "py3Dmol.view(width=int(S.get('viewer_width', 720)), height=int(S.get('viewer_height', 540)))" in app
     assert "view = py3Dmol.view(width=720, height=540)" in app
     assert "view.setStyle({}, {'cartoon': {'opacity': 0.55, 'colorscheme': 'default'}})" in app
@@ -490,6 +508,19 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
         and "index" in call[1][0]
     ]
     assert indexed_styles == []
+    app["dd_subcmd"].value = "scan"
+    def _descendants(widget):
+        yield widget
+        for child in getattr(widget, "children", ()):
+            yield from _descendants(child)
+    clear_bond = next(
+        widget for widget in _descendants(app["scan_panel"])
+        if getattr(widget, "description", "") == "clear bond"
+    )
+    assert clear_bond.disabled
+    before_scan = json.dumps(app["S"]["scan_atoms"], sort_keys=True)
+    clear_bond.click()
+    assert json.dumps(app["S"]["scan_atoms"], sort_keys=True) == before_scan
     app["view_input"].value = 0
     assert app["center_widget"].disabled is False
 
@@ -511,6 +542,8 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
         "mlmm", "irc", "-i", str(primary), "--calc-file", str(calc_file),
         "--read-hess", str(read_hess), "-o", str(validate_out),
     ])
+    assert app["S"]["_last_manifest"] == {} and app["S"]["_last_files"] == []
+    assert app["artifact_choice"].disabled and app["dl_btn"].disabled
     app["S"]["_last_log"] = "old log"
     app["_stream"] = lambda argv: (0, "validation transcript")
     app["_do_validate"](None)
@@ -587,8 +620,10 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
 
     info = app["last_pick_info"]
     assert info._rx_info_body.layout.display == "none"
+    assert info._rx_info_button.icon == "info-circle"
     info._rx_info_button.click()
     assert info._rx_info_body.layout.display == ""
+    assert info.layout.width == "100%"
     second_info = app["_info_control"]("second")
     second_info._rx_info_button.click()
     assert info._rx_info_body.layout.display == "none"
@@ -599,8 +634,10 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert info._rx_info_body.layout.display == ""
     info._rx_info_button.click()
     assert info._rx_info_body.layout.display == "none"
+    assert info.layout.width == "29px"
     assert app["key_opts_box"].children[1].layout.display == "none"
-    assert app["command_editor"].children[1].layout.display == "none"
+    assert app["command_editor"].children[1] is app["cmd_box"]
+    assert app["command_editor"].layout.display != "none"
     assert app["run_log_fold"].children[1].layout.display == "none"
     assert set(app["_center_values"]()) == {"LIG", "MG"}
     mg_row = app["charge_rows"]["MG"]
@@ -643,8 +680,9 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         i for i, call in enumerate(calls)
         if i > residue_style and call[0] == "addSphere" and call[1][0].get("radius") == 0.92
     )
-    label = next(i for i, call in enumerate(calls) if i > halo and call[0] == "addLabel")
-    assert residue_style < halo < label
+    update = next(i for i, call in enumerate(calls) if i > halo and call[0] == "update")
+    assert residue_style < halo < update
+    assert not any(call[0] == "view" for call in calls)
     assert calls[residue_style][1][1]["stick"]["colorscheme"] == "default"
     assert not any(
         call[0] == "addStyle" and call[1][0] == {"index": [4]}
@@ -652,11 +690,24 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         for call in calls
     )
     assert calls[halo][1][0]["center"] == {"x": 4.0, "y": 0.0, "z": 0.0}
+    assert [pick["index"] for pick in app["S"]["_pick_history"]] == [4]
+
+    calls.clear()
+    app["on_click"]("2", "MG", "2", "A", "MG", "3", "")
+    assert [pick["index"] for pick in app["S"]["_pick_history"]] == [4, 2]
+    assert not any(call[0] == "view" for call in calls)
+    calls.clear()
+    app["render_viewer"]()
+    click_halos = [
+        call for call in calls
+        if call[0] == "addSphere" and call[1][0].get("radius") == 0.92
+    ]
+    assert len(click_halos) == 2
 
     close_secondary = app["input_file_rows"].children[1].children[1].children[-1]
     close_secondary.click()
     assert app["S"]["inputs"] == [str(primary)]
-    assert app["S"]["center_ids"] == ["A:LIG:3"]
+    assert app["S"]["center_ids"] == ["A:LIG:3", "A:MG:2"]
     assert app["S"]["parm"] == str(topology)
 
     all_statuses = {}
@@ -982,9 +1033,9 @@ def test_colab_adversarial_session_upload_and_view_state(
     advanced_row = next(row for row in app["adv_rows_box"].children if hasattr(row, "_rx_search"))
     advanced_info = advanced_row.children[1]
     advanced_info._rx_info_button.click()
-    assert app["advanced_help"].layout.display == ""
+    assert advanced_info._rx_info_body.layout.display == ""
     app["_render_advanced_rows"]()
-    assert app["advanced_help"].layout.display == "none"
+    assert advanced_info._rx_info_body.layout.display == "none"
     assert app["_OPEN_INFO"]["control"] is None
     assert advanced_info._rx_info_button.description == "Show information"
 
@@ -1058,9 +1109,14 @@ def test_colab_adversarial_session_upload_and_view_state(
     app["_ALL_MODE_STATE"]["tsopt_before_tsonly"] = True
     stale_command = "mlmm sp -i stale.pdb --parm stale.parm7 -q 99"
     app["cmd_box"].value = stale_command
+    with pytest.raises(ValueError, match="not installed"):
+        app["_apply_session"](saved)
+    saved["backend"] = app["BACKEND"]
+    saved["model"] = app["DEFAULT_MODEL"][app["BACKEND"]]
     assert app["_apply_session"](saved) == []
     assert app["all_mode"].value == "mep" and app["w_ts"].value is False
-    assert app["dd_backend"].value == "uma" and app["dd_model"].value == "uma-m-1p1"
+    assert app["dd_backend"].value == app["BACKEND"]
+    assert app["dd_model"].value == app["DEFAULT_MODEL"][app["BACKEND"]]
     assert app["dd_rep"].value == "sticks" and app["dd_col"].value == "spectrum"
     assert app["_auto"]["on"] is True and app["cmd_box"].value != stale_command
 
@@ -1172,9 +1228,14 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "DFT_READY" in app and "DMF_READY" in app
     assert "options=['(default)', 'gsm', 'dmf']" not in app
     assert "OUT_JSON_SUBS" in app and "if sub in OUT_JSON_SUBS: cmd += ['--out-json']" in app
-    assert "out = new Array(fl.length)" in app and "out[index]" in app
-    assert "out.push(" not in app
-    assert "r.onerror = function()" in app
+    assert ".rxdrop .rxnative-drop input[type=\"file\"]" in app
+    assert "class _DropUpload(anywidget.AnyWidget):" in app
+    assert "model.send({event: 'upload'" in app
+    assert "upl.on_msg(_on_drop_upload)" in app
+    assert "def _ingest_saved_files(" in app
+    assert "_reset_file_upload(upl)" in app
+    assert "register_callback('rxgui.drop'" not in app
+    assert "document.querySelector('.rxdrop')" not in app
     assert "pts.append((k, 'TS'))" not in app
     assert "peak candidate" in app and "minimum candidate" in app
     assert "except KeyboardInterrupt:" in app
@@ -1201,7 +1262,7 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "colab_run.json" in app and "zipfile.ZipFile" in app
     assert "shutil.make_archive(" not in app
     assert "W.Button(description='Show information'" in app
-    assert "body.layout.display = '' if state['open'] else 'none'" in app
+    assert "control._rx_info_body.layout.display = '' if opened else 'none'" in app
     assert "layout=W.Layout(width='560px')" not in app
     assert "ML-region charge (-q)" in app and "charge verified" in app
     assert "Verify the ML-region charge (-q)" in app
