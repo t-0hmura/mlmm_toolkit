@@ -77,14 +77,16 @@ All residues with at least one atom (any element, including hydrogen) inside the
 ```bash
 mlmm extract -i complex.pdb \
     -c 'SAM,GPP,MG' \
-    -l 'SAM:1,GPP:-3,MG:2' \
+    -l 'SAM:1,GPP:-3' \
     -o cluster.pdb
 ```
 
 Standard amino acids are looked up from `mlmm-toolkit`'s internal
-`AMINO_ACIDS` table — you only need to provide ligand / metal /
-non-standard residues in `-l`. The total cluster charge is the sum of
-all residues kept (post extraction).
+`AMINO_ACIDS` table and recognized monatomic ions from `ION`; provide only
+unknown/non-standard ligand residues in `-l`. For example, `MG` is already
+`+2`; adding `MG:2` to `-l` does not override it and emits an unmatched-entry
+warning. The total cluster charge is the sum of all retained residues after
+extraction.
 
 If you don't know a ligand's formal charge, see
 `charge-multiplicity.md` for the lookup workflow.

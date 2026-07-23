@@ -274,6 +274,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "Every remaining option" not in app
     assert "def _ingest_saved_files(" in app
     assert "input_file_rows" in app and "description='Remove file'" in app
+    assert "description='Move earlier'" in app and "description='Move later'" in app
+    assert "tooltip='Move earlier'" in app and "tooltip='Move later'" in app
     assert "def _advanced_coverage(" in app and "adv_extra" not in app
     assert "def _advanced_options(sub):" in app
     assert "adv_acc = _collapsible('Advanced flags', adv_box)" in app
@@ -295,12 +297,16 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
         "water_sel = {'resn': sorted(_WATER)}",
         "visible_atoms = {} if S['show_water'] else {'not': water_sel}",
         "exact atom", "set current pick", "view_input", "_view_mapping_ok",
-        "last_pick_info", "artifact preview", "Download results / diagnostics (.zip)",
+        "last_pick_info", "Generated file preview", "Download current run (.zip)",
         "results_box.add_class('rxresults')", "overflow-x:auto",
         "colab_run.log",
         "energy unavailable", "Command was cancelled", "Command failed",
+        "_frame_link = W.jslink", "linked structure + energy",
+        "ax.axvline(xs[i]", "artifact_fold._rx_set_open",
+        "if center: S['_zoomsel'] = True", "if indices: v.zoom(0.78)",
     ):
         assert marker in app
+    assert "('✓ ' if _j == i else '')" not in app
     draw = app[app.index("def _draw_last_pick"):app.index("def render_viewer")]
     halo = draw.index("v.addSphere({'center': center")
     assert draw.index("v.addStyle({'index': indices}") < halo

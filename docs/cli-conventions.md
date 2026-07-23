@@ -114,7 +114,10 @@ calc:
 
 ## Charge specification
 
-For PDB inputs, `--ligand-charge` lets you specify charges only for non-standard residues (substrates, cofactors, metal ions). The net system charge is **automatically derived** by summing standard amino-acid charges, ions, and your ligand charges.
+For PDB inputs, `--ligand-charge` specifies charges for unknown/non-standard
+ligand residues such as substrates and cofactors. Recognized ions use the
+internal `ION` table and must not be repeated in `-l`; the net system charge is
+derived by summing amino-acid, recognized-ion, and supplied ligand charges.
 
 ```bash
 -l 'SAM:1,GPP:-3'              # per-residue mapping (use the ':' separator)

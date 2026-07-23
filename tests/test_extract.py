@@ -176,6 +176,39 @@ def test_compute_charge_summary_mapping_mode():
     assert summary["total_charge"] == -1.0
 
 
+def test_compute_charge_summary_does_not_override_known_ion(monkeypatch):
+    from mlmm.workflows import extract as extract_module
+
+    structure = _parse_structure(_sample_pdb(), "s")
+    all_res = list(structure.get_residues())
+    selected_ids = {r.get_full_id() for r in all_res}
+    substrate_ids = {
+        r.get_full_id() for r in all_res if r.get_resname().upper() == "GPP"
+    }
+    warnings = []
+    monkeypatch.setattr(
+        extract_module,
+        "_echo_warning",
+        lambda msg, *args: warnings.append(
+            extract_module._format_echo_message(msg, *args)
+        ),
+    )
+
+    summary = extract_module.compute_charge_summary(
+        structure,
+        selected_ids,
+        substrate_ids,
+        ligand_charge="GPP:-3,ZN:3",
+    )
+
+    assert summary["ligand_total_charge"] == -3.0
+    assert summary["ion_total_charge"] == 2.0
+    assert summary["total_charge"] == -1.0
+    assert len(warnings) == 1
+    assert "ZN" in warnings[0]
+    assert "matched no unknown" in warnings[0]
+
+
 def test_compute_charge_summary_terminus_cap_charges():
     """A kept terminal cap carries the ionized-terminus formal charge the internal
     residue charge omits: C-terminus carboxylate (OXT) -> -1, N-terminus ammonium

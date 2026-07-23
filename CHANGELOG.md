@@ -38,17 +38,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add a release-pinned, keyboard-accessible Colab GUI that preserves full-system
   coordinate/topology identity, accepts a separately prepared model, builds workflow-aware
   commands, reaps interrupted jobs, and limits result views/downloads to the current run.
-  Its compact Input, Viewer, optional Options, and Results workspace co-locates workflow
+  Its compact Input, Viewer, Options, and Results workspace co-locates workflow
   selection with a 4:3 molecular view. Exact 3D picks persist as thick element-colored
   residue sticks with a dark atom halo. The viewer keeps primary-input selections separate
-  from view-only secondary structures, preserves the camera across redraws, and rolls back
-  failed structure switches. Center selectors retain chain and insertion-code identity;
+  from view-only secondary structures, preserves the camera across redraws, focuses newly
+  selected centers with surrounding protein context, and rolls back failed structure
+  switches. Center selectors retain chain and insertion-code identity;
   incompatible secondary views suppress primary selection and measurement overlays.
   Validation follows the exact command and content hashes for every existing-file input
   declared by the selected Click command, while its transcript remains separate from
-  current-run diagnostics. Private runtime files avoid upload collisions; Results previews
-  structures, diagrams, SVG, HTML, CSV, PDF, and trajectories while handling missing energies, failures,
-  cancellations, and diagnostic bundles explicitly.
+  current-run diagnostics. Private runtime files avoid upload collisions; Results links one
+  trajectory control to the 3D frame and energy-profile cursor, while keeping structures,
+  diagrams, SVG, HTML, CSV, PDF, and other generated files in a separate preview. Missing
+  energies, failures, cancellations, and diagnostic bundles remain explicit.
   The input queue appends uploads as removable rows, keeps water visible on request,
   and derives searchable per-option controls and click-to-open help from the selected
   live CLI. Key, advanced, and command-line controls remain collapsed until needed.
@@ -232,6 +234,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Rebuild the CLI references and skills for the current ML/MM input contract,
   validate required parm7 and XYZ topology references in runnable skill examples,
   and document JSON 2.0 truth/provenance plus the Colab workflow.
+- Clarify that recognized monatomic ions use the internal charge table and that
+  `-l` entries such as `MG:3` are ignored rather than overriding that table.
 
 ## [0.3.2] — 2026-07-10
 

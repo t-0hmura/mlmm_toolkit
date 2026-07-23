@@ -1,50 +1,56 @@
 # Charge and multiplicity (charge-multiplicity.md)
 
-Sometimes a failure of the form "the optimizer ran but the chemistry is
-wrong" traces back to a wrong total charge or multiplicity. `mlmm-toolkit`
-needs both as integers; getting them right is **non-negotiable** for
-meaningful energies.
+Every run needs a total charge and a multiplicity, and a wrong value can
+silently produce a chemically wrong trajectory.
+
+**For PDB/mmCIF input, give the charge with `-l 'RES:Q'` and let
+`mlmm-toolkit` derive the ML-region total.** Name only unknown/non-standard
+ligand residues; standard amino acids and recognized ions come from internal
+tables, and waters and link atoms are neutral. Recheck the reported breakdown
+whenever the ML region, residue naming, protonation state, or oxidation state
+changes.
+
+Use `-q INTEGER` when no residue metadata is available or when deliberately
+overriding the derived ML-region charge. Set multiplicity explicitly whenever
+the electronic state is not a verified singlet.
 
 ## Multiplicity (`-m`)
 
 | Default | Use case |
 |---|---|
-| **1 (singlet, closed shell)** | The default for almost every organic / biological / metal-coordination system whose textbook description is closed-shell. |
+| **1 (singlet, closed shell)** | Use only when the modeled electron count and electronic state are known to be closed-shell. Do not infer singlet merely because the structure is biological or metal-bound. |
 | 2 (doublet) | Radical species, unpaired-electron transition states (e.g. radical SAM enzymes, Fe(III) low-spin) |
-| 3 (triplet) | O₂, some carbenes, ferromagnetic Mn(IV)–Mn(IV) couples in low-symmetry environments |
-| 4 (quartet) | Mn(II) / Fe(III) high-spin in some geometries |
+| 3 (triplet) | O₂, some carbenes, Ni(II) (d⁸) high-spin tetrahedral / weak-field octahedral |
+| 4 (quartet) | Co²⁺ (d⁷) high-spin, Cr³⁺ / V²⁺ (d³) |
 | 5 (quintet) | Mn(III), Fe(II) high-spin |
 | 6 (sextet) | Mn(II) high-spin, S=5/2 ferric |
 
-> **Default to `-m 1` unless you have a positive reason to do otherwise.**
-> If the system contains a known paramagnetic metal, look up the
-> oxidation state and use the high-spin/low-spin assignment from the
-> primary literature for that enzyme.
+> These are examples, not a spin-state calculator. For metals, radicals,
+> antiferromagnetically coupled centers, or uncertain protonation/oxidation
+> states, derive charge and multiplicity from the modeled mechanism and primary
+> literature.
 
 ## Charge (`-q`, or summed via `-l 'RES:Q'`)
 
-**For PDB inputs, prefer `-l`**: give only the non-standard-residue charges
-and let the **ML-region** total charge be auto-derived (standard AAs from the
-internal table + ions + your ligand charges; waters / link atoms are neutral).
-This matches the ML-region charge reported by the extraction and stays correct when
-the ML region changes — so you never hand-enter the charge. Reserve `-q` for
-`.xyz` / `.gjf` inputs (no residues to sum) or to deliberately override.
+1. **Per-residue mapping (for PDB/mmCIF)** — pass
+   `-l 'RES1:Q1,RES2:Q2,...'` and let `mlmm-toolkit` sum amino-acid, recognized
+   ion, and unknown-ligand charges over the ML region.
+2. **Direct total / override** — pass `-q INTEGER` when the input has no
+   residue metadata or to deliberately replace the derived charge. In
+   `mlmm all`, the explicit charge override wins and the workflow reports the
+   value it would otherwise have derived.
 
-1. **Per-residue mapping (recommended for PDB)** — pass `-l 'RES1:Q1,RES2:Q2,...'`
-   and let `mlmm-toolkit` sum amino-acid + ligand charges over the ML region.
-2. **Direct total / override** — pass `-q INTEGER` if you already know the
-   total charge of the ML region (or to override the `-l` derivation).
-
-The amino-acid table is internal:
+The residue and ion tables are internal:
 
 ```bash
-python -c "from mlmm.workflows.extract import AMINO_ACIDS as a; print(a)"  # Dict[str, int] of canonical residue charges
+python -c "from mlmm.core.residue_data import AMINO_ACIDS, ION; print(dict(AMINO_ACIDS)); print(dict(ION))"
 ```
 
-(Or read `mlmm/workflows/extract.py` directly if `dir()` shows other
-relevant attributes.)
-
-For non-standard residues / ligands / metals, you must supply `-l`.
+For unknown/non-standard ligand residues, supply `-l`. Recognized monatomic
+ions use the internal `ION` table and must not be repeated in `-l`; a mapping
+does not override a recognized ion. To represent a different oxidation state,
+use the appropriate residue name in the model or provide the verified total
+with `-q`.
 
 ## Lookup workflow for an unfamiliar substrate
 
@@ -119,18 +125,13 @@ After summing residue + ligand + metal charges, sanity-check by:
   python -c "import json; print(json.load(open('/tmp/check/result.json'))['charge'])"
   ```
 
-## Permission to web-search
+## Source policy for an unknown value
 
-When the agent does not know a charge / multiplicity:
-
-- **Confirm with the user before running a web search.** Many users
-  prefer to point to the relevant paper themselves.
-- If web search is allowed, prefer authoritative sources in this order:
-  primary research paper → PubChem / ChEBI → general databases →
-  general web. Cite the source in the agent's output.
-- If neither user input nor a clean web source is available, **stop
-  and ask** — do not silently default to `-q 0 -m 1` for a metal
-  cluster.
+Use authoritative sources in this order: the mechanism's primary paper or
+deposited structure documentation, then PubChem/ChEBI/RCSB CCD. Cite the source
+and state the modeled protonation and oxidation state. If the sources do not
+determine one unambiguous state, ask rather than defaulting a metal or radical
+model to `-q 0 -m 1`.
 
 ## Quick-reference ligand charges (commonly seen)
 
@@ -148,12 +149,30 @@ Always confirm against the relevant mechanism.
 | NAD⁺ | `NAD` | −1 |
 | FAD | `FAD` | −2 |
 | Pyridoxal phosphate (PLP) | `PLP` | −2 |
-| Mg²⁺ | `MG` | +2 |
-| Zn²⁺ | `ZN` | +2 |
-| Mn²⁺ / Mn³⁺ | `MN` | +2 / +3 |
-| Fe²⁺ / Fe³⁺ | `FE` / `FE2` / `FE3` | +2 / +3 |
 | Heme (Fe(III) protoporphyrin) | `HEM` | +1 (with Fe³⁺ + porphyrin²⁻) |
 | Phosphate ion (free) | `PO4` | −2 to −3 |
+
+### Monatomic ions are summed from the internal `ION` table
+
+`-l` applies only to residues that are in none of `AMINO_ACIDS`, `ION`, or the
+water set. A token such as `-l 'MG:3'` or `-l 'FE:2'` therefore matches no
+unknown residue, emits a warning, and is ignored; it does not change the
+built-in charge.
+
+| Ion | Resname (PDB) | `ION` value |
+|---|---|---|
+| Mg²⁺ | `MG` | +2 |
+| Zn²⁺ | `ZN` | +2 |
+| Mn²⁺ | `MN` | +2 |
+| Fe³⁺ | `FE` | +3 |
+| Fe²⁺ | `FE2` | +2 |
+| Cu²⁺ / Cu⁺ | `CU` / `CU1` | +2 / +1 |
+| Na⁺ / K⁺ | `NA` / `K` | +1 |
+| Cl⁻ | `CL` | −1 |
+
+When a deposited resname does not represent the intended oxidation state,
+correct the model's residue naming or pass the verified ML-region total with
+`-q`.
 
 ## Multiplicity for metals (look-up shortcuts)
 
