@@ -223,7 +223,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "@media (max-width: 600px)" in app
     assert "max_width='100%'" in app
     assert "flex:0 0 auto; min-width:0" in app
-    assert "layout=W.Layout(width='300px', max_width='100%')" in app
+    assert "layout=W.Layout(width='260px', max_width='100%')" in app
     assert "_MOLSTAR_VERSION = '5.6.1'" in app
     assert "molstar@%s/build/viewer/molstar.js" in app
     assert "layoutShowSequence:cfg.showSequence" in app
@@ -273,12 +273,26 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "command_editor = W.VBox([" in app
     assert "W.HTML('<b>Command line</b>')" in app
     assert "command_editor = _collapsible('Command line'" not in app
-    assert "W.HBox([view_input, pick_action, last_pick_info])" in app
+    assert "viewer_toolbar = W.HBox(" in app
+    assert "[view_input, pick_action, last_pick_info, view_controls, viewer_more]" in app
+    assert "viewer_box = W.VBox([workflow_box, viewer_toolbar, view_input_note, selection_box])" in app
+    assert "'<div class=\"rxmolstar-embed\">'" in app
     assert "workflow_contract_row = W.HBox([subreq, outputs_html]" in app
     assert "workflow_controls.add_class('rxworkflow-controls')" in app
     assert "grid-template-columns:minmax(280px,320px) minmax(150px,1fr) 240px" in app
-    assert ".rxviewer { flex:2 1 520px !important; min-width:300px; position:sticky" in app
-    assert ".rxviewer { position:static; }" in app
+    assert "height:clamp(700px,calc(100dvh - 24px),920px); overflow:hidden;" in app
+    assert ".rxapp-main { flex:1 1 auto !important; min-height:0; overflow:hidden; }" in app
+    assert ".rxpages { flex:1 1 auto !important; min-height:0; overflow:hidden; }" in app
+    assert "overscroll-behavior:contain; scrollbar-gutter:stable;" in app
+    assert "flex:0 1 clamp(420px,calc(133.333dvh - 600px),640px) !important;" in app
+    assert "max-width:clamp(600px,calc(250dvh - 1320px),1000px);" in app
+    assert ".rxpath-panel svg, .rxpath-panel img, .rxpath-panel canvas {" in app
+    assert "traj_out = W.Output(layout={'width': '100%', 'min_width': '0'})" in app
+    assert "plot_out = W.Output(layout={'width': '100%', 'min_width': '0'})" in app
+    assert "'flex': '1 1 440px'" not in app
+    assert ".rxcommand-dock {" in app
+    assert "rootbox = W.VBox([header, app, cmdline_box])" in app
+    assert "rootbox = W.VBox([header, app, W.HTML('<hr" not in app
     assert 'role="tooltip"' not in app
     assert "rxworkspace" in app
     assert "rxviewer" in app
@@ -311,6 +325,12 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "anywidget" not in app and "_HAS_DROP_WIDGET" not in app
     assert "description='Move earlier'" in app and "description='Move later'" in app
     assert "tooltip='Move earlier'" in app and "tooltip='Move later'" in app
+    assert "command_footer = W.HBox(" in app
+    assert "cmdline_box.add_class('rxcommand-dock')" in app
+    assert "for _label, _page in _TAB_PAGES:" in app
+    assert "_page.add_class('rxpage')" in app
+    assert "_tab_body.add_class('rxpages')" in app
+    assert "app.add_class('rxapp-main')" in app
     assert "def _advanced_coverage(" in app and "adv_extra" not in app
     assert "def _advanced_options(sub):" in app
     assert "adv_acc = _collapsible('Advanced flags', adv_box)" in app
