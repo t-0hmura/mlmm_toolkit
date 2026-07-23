@@ -127,10 +127,16 @@ def _viewer_contract() -> dict:
 
 def test_colab_notebook_has_valid_code_cells_and_gpu_metadata() -> None:
     notebook = _notebook()
+    introduction = notebook["cells"][0]["source"]
 
     assert notebook["nbformat"] == 4
     assert notebook["metadata"]["accelerator"] == "GPU"
     assert len(notebook["cells"]) == 4
+    assert "[GitHub](https://github.com/t-0hmura/mlmm_toolkit)" in introduction
+    assert (
+        "[ChemRxiv](https://chemrxiv.org/doi/full/"
+        "10.26434/chemrxiv-2025-jft1k)"
+    ) in introduction
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
             ast.parse(cell["source"])
