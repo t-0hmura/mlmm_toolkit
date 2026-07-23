@@ -165,6 +165,13 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "HF_TOKEN" in setup
     assert "install_dft = False" in setup
     assert "INSTALL_DFT = install_dft" in setup
+    assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda12x'}" in setup
+    assert "importlib.util.find_spec(module)" in setup
+    assert "_dft_imports = ('pyscf', 'basis_set_exchange', 'gpu4pyscf.dft')" in setup
+    assert "for _module in _dft_imports: importlib.import_module(_module)" in setup
+    assert "_cupy.cuda.runtime.getDeviceCount()" in setup
+    assert "DFT packages installed but failed their import/GPU check" in setup
+    assert "DFT support installed: PySCF %s · GPU4PySCF %s" in setup
     assert "[%%d/5] %%s".replace("%%", "%") in setup
     assert "time.monotonic()" in setup
     assert ".pysisyphusrc" in setup
@@ -247,27 +254,31 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "No results yet." in app
     assert "frame_slider.disabled = False" in app
     assert "trajectory_box.layout.display = 'none'" in app
-    # Colab renders ipywidgets' Tab and Accordion as empty blocks, so the tab
-    # strip is Buttons + a swapping VBox and every collapsible is Button + VBox.
+    # Colab renders ipywidgets' Tab and Accordion as empty blocks. The tab
+    # buttons keep all panes mounted, preserving upload queues and WebGL state.
     assert "_TAB_PAGES = [('1 Input', input_box), ('2 Viewer', viewer_box)," in app
     assert "('3 Options', options_box), ('4 Results', results_box)]" in app
+    assert "_tab_body = W.VBox([page for _label, page in _TAB_PAGES])" in app
+    assert "_tab_body.children = [_TAB_PAGES[i][1]]" not in app
+    assert "_pane.layout.display = '' if _j == i else 'none'" in app
     assert "Options (optional)" not in app
     assert "def _tab_go(i):" in app
     assert "W.Tab(" not in app
     assert "def _collapsible(title, child, on_open=None):" in app
     assert "W.Accordion(" not in app
-    # Help uses the standard info-circle icon and a normal-flow panel. Fixed
-    # overlays and hover-only tooltips disappear in Colab's widget frontend.
+    # Browser-native details/summary opens without a Python callback.
+    assert "def _info_markup(tip, revision=0):" in app
     assert "def _info_control(tip, target=None):" in app
-    assert "def _sync_info_control(control):" in app
     assert "def _set_info_text(control, tip):" in app
     assert "def _close_info_target(target):" in app
     assert "def _hdr(content, tip):" in app
     assert "def _flag_row(widget, tip, info_target=None):" in app
-    assert "description='Show information', icon='info-circle'" in app
-    assert "control._rx_info_body.layout.display = '' if opened else 'none'" in app
-    assert "_OPEN_INFO = {'control': None}" in app
-    assert "body.add_class('rxhelp-panel')" in app
+    assert "'<summary aria-label=\"More information: %s\" title=\"%s\">&#9432;</summary>'" in app
+    assert "'<details class=\"rxinfo-details\" data-revision=\"%d\">'" in app
+    assert "'<div class=\"rxhelp-panel\" role=\"note\"><small>%s</small>" in app
+    assert "_INFO_CONTROLS = weakref.WeakSet()" in app
+    assert "description='Show information', icon='info-circle'" not in app
+    assert "_rx_info_button" not in app
     assert "rxinfo-popover" not in app
     assert "📥 needs" not in app
     assert "run_log_fold = _collapsible('Run log', logbox)" in app
@@ -293,6 +304,14 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert ".rxdrop .rxnative-drop input[type=\"file\"]" in app
     assert "class _DropUpload(anywidget.AnyWidget):" in app
     assert "upl.on_msg(_on_drop_upload)" in app
+    assert "event.preventDefault(); event.stopPropagation();" in app
+    assert "submit(event.dataTransfer ? event.dataTransfer.files : []);" in app
+    assert "el.addEventListener('drop', onDrop);" in app
+    assert "generation = traitlets.Int(0).tag(sync=True)" in app
+    assert "model.on('change:generation', cancelPending);" in app
+    assert "if generation != widget.generation:" in app
+    assert "if _HAS_DROP_WIDGET: upl.generation += 1" in app
+    assert "def _delete_owned_uploads(paths):" in app
     assert "position:absolute !important" in app
     assert "register_callback('rxgui.drop'" not in app
     assert "document.querySelector('.rxdrop')" not in app
@@ -302,7 +321,9 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "def _advanced_options(sub):" in app
     assert "adv_acc = _collapsible('Advanced flags', adv_box)" in app
     assert "every CLI option accounted for" not in app
-    assert "_set_flag_visible(adv_radius, sub in FLAG_SUBS['adv_radius'])" in app
+    assert "radius_applies = (sub == 'extract' or" in app
+    assert "adv_radius.disabled = not radius_applies" in app
+    assert "_set_flag_visible(adv_radius, radius_applies)" in app
     assert "_set_flag_visible(adv_dftfb, _dftfb_applicable)" in app
 
 
@@ -349,10 +370,14 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert "viewer.removeLabel" not in app
     click_completion = app[app.index("def on_click("):app.index("try:\n    from google.colab import output as _co")]
     assert "render_viewer(); refresh()" not in click_completion
+    assert "if not live_marked:" in click_completion
     assert "_redraw_live_overlays(style_pick=style_pick, reset_resn=reset_resn)" in click_completion
     assert "current_generation != _VIEWER_GENERATION['value']" in click_completion
     assert "def _resolve_click_meta(" in app
     assert "'viewer_index': viewer_index" in app
+    assert "var r=(a.resn||'')+(a.resi===undefined?'':a.resi);" in app
+    assert "Number.isFinite(i)?i+1:'?'" in app
+    assert "a.resn+a.resi" not in app
     assert "v.addModel(text, 'pdb', {'keepH': True, 'altLoc': '*'})" in app
     assert "v.setViewChangeCallback(view_change_js)" in app
     assert "_VIEW_CHANGE_JS.replace('__RX_GENERATION__'" in app
@@ -625,22 +650,20 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["S"]["viewer_height"] == 540
 
     info = app["last_pick_info"]
-    assert info._rx_info_body.layout.display == "none"
-    assert info._rx_info_button.icon == "info-circle"
-    info._rx_info_button.click()
-    assert info._rx_info_body.layout.display == ""
-    assert info.layout.width == "100%"
+    assert '<details class="rxinfo-details"' in info.value
+    assert "<summary" in info.value and "&#9432;" in info.value
+    assert 'role="note"' in info.value
+    assert " open" not in info.value
     second_info = app["_info_control"]("second")
-    second_info._rx_info_button.click()
-    assert info._rx_info_body.layout.display == "none"
-    assert info._rx_info_button.description == "Show information"
-    assert second_info._rx_info_body.layout.display == ""
-    second_info._rx_info_button.click()
-    info._rx_info_button.click()
-    assert info._rx_info_body.layout.display == ""
-    info._rx_info_button.click()
-    assert info._rx_info_body.layout.display == "none"
-    assert info.layout.width == "29px"
+    assert "second" in second_info.value
+    assert 'aria-label="More information: second"' in second_info.value
+    assert 'title="second"' in second_info.value
+    app["_set_info_text"](second_info, "updated")
+    assert "updated" in second_info.value and "second" not in second_info.value
+    before_close = second_info.value
+    app["_close_info"](second_info)
+    assert second_info.value != before_close
+    assert "<details" in second_info.value and " open" not in second_info.value
     assert app["key_opts_box"].children[1].layout.display == "none"
     assert app["command_editor"].children[1] is app["cmd_box"]
     assert app["command_editor"].layout.display != "none"
@@ -699,9 +722,9 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert [pick["index"] for pick in app["S"]["_pick_history"]] == [4]
 
     calls.clear()
-    app["on_click"]("2", "MG", "2", "A", "MG", "3", "")
+    app["on_click"]("2", "MG", "2", "A", "MG", "3", "", live_marked=True)
     assert [pick["index"] for pick in app["S"]["_pick_history"]] == [4, 2]
-    assert not any(call[0] == "view" for call in calls)
+    assert not any(call[0] in {"view", "update"} for call in calls)
     calls.clear()
     app["render_viewer"]()
     click_halos = [
@@ -919,14 +942,14 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     # Charge semantics and controls follow the selected ML/MM workflow.
     app["dd_subcmd"].value = "all"
     assert app["w_q"].description == "system charge (-q)"
-    assert "full-system charge override" in app["charge_info"]._rx_info_body.value
+    assert "full-system charge override" in app["charge_info"].value
     app["dd_subcmd"].value = "sp"
     assert app["w_q"].description == "ML charge (-q)"
-    assert "ML region" in app["charge_info"]._rx_info_body.value
+    assert "ML region" in app["charge_info"].value
     app["cb_advsub"].value = True
     app["dd_subcmd"].value = "oniom-export"
     assert app["w_q"].description == "QM charge (-q)"
-    assert "QM region" in app["charge_info"]._rx_info_body.value
+    assert "QM region" in app["charge_info"].value
 
     # mm-parm exposes its owned ligand-charge editor and gates AmberTools.
     app["S"]["inputs"] = [str(primary)]
@@ -978,8 +1001,11 @@ def test_colab_prepared_model_upload_keeps_full_system_inputs(
     assert app["S"]["inputs"] == [str(full)] and app["S"]["parm"] == str(parm)
     assert app["S"]["model_pdb"] and Path(app["S"]["model_pdb"]).name == "model.pdb"
     assert app["model_upl"].value == ()
+    first_model = Path(app["S"]["model_pdb"])
+    assert first_model.exists()
     app["model_clear"].click()
     assert app["S"]["model_pdb"] is None
+    assert not first_model.exists()
     app["model_upl"].value = ({"name": "model.pdb", "type": "chemical/x-pdb",
                                 "size": len(payload), "content": memoryview(payload),
                                 "last_modified": datetime.datetime.now(datetime.timezone.utc)},)
@@ -1038,12 +1064,10 @@ def test_colab_adversarial_session_upload_and_view_state(
 
     advanced_row = next(row for row in app["adv_rows_box"].children if hasattr(row, "_rx_search"))
     advanced_info = advanced_row.children[1]
-    advanced_info._rx_info_button.click()
-    assert advanced_info._rx_info_body.layout.display == ""
+    assert '<details class="rxinfo-details"' in advanced_info.value
+    assert 'role="note"' in advanced_info.value
     app["_render_advanced_rows"]()
-    assert advanced_info._rx_info_body.layout.display == "none"
-    assert app["_OPEN_INFO"]["control"] is None
-    assert advanced_info._rx_info_button.description == "Show information"
+    assert " open" not in advanced_info.value
 
     # Upload order is arbitrary: a queued topology survives the first PDB.
     assert app["_ingest_saved_files"]([str(topology)], "topology first")
@@ -1201,8 +1225,8 @@ def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     assert "def _example_file(relpath):" in app
     assert "raw.githubusercontent.com/t-0hmura/mlmm_toolkit" in app
     assert "Run Setup first" not in app
-    # -r/--radius is extraction-only; scan must not receive it.
-    assert "if sub in ('all', 'extract') and r and r > 0: cmd += ['-r', str(r)]" in app
+    # -r/--radius is extraction-only and requires a structure workflow.
+    assert "if radius_applies and r and r > 0: cmd += ['-r', str(r)]" in app
     assert "adv_thresh.disabled = sub not in TOOL_CAPABILITIES['threshold']" in app
     assert "elif sub == 'dft':" in app
     assert "cmd += ['--func-basis', fb]" in app
@@ -1267,8 +1291,10 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "bond table or JSON on stdout (--json)" in app
     assert "colab_run.json" in app and "zipfile.ZipFile" in app
     assert "shutil.make_archive(" not in app
-    assert "W.Button(description='Show information'" in app
-    assert "control._rx_info_body.layout.display = '' if opened else 'none'" in app
+    assert "W.Button(description='Show information'" not in app
+    assert "<details class=\"rxinfo-details\" data-revision=" in app
+    assert "submit(event.dataTransfer ? event.dataTransfer.files : []);" in app
+    assert "_tab_body.children = [_TAB_PAGES[i][1]]" not in app
     assert "layout=W.Layout(width='560px')" not in app
     assert "ML-region charge (-q)" in app and "charge verified" in app
     assert "Verify the ML-region charge (-q)" in app
