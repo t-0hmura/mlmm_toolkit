@@ -112,7 +112,7 @@ mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis
 mlmm scan -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --max-step-size 2.0 --max-cycles 3 --no-preopt --no-endopt --out-dir test12 > test12.out 2>&1
 
 # test13: scan2d
-mlmm scan2d -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.0,3.0),('PRE 8 C1','PRE 8 C8',1.0,3.0)]" --max-step-size 2.0 --relax-max-cycles 100 --thresh gau_loose --out-dir test13 > test13.out 2>&1
+mlmm scan2d -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.4,1.8),('PRE 8 C1','PRE 8 C8',3.2,3.6)]" --max-step-size 0.4 --relax-max-cycles 100 --thresh gau_loose --out-dir test13 > test13.out 2>&1
 
 # test14: scan3d
 mlmm scan3d -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.0,3.0),('PRE 8 C1','PRE 8 C8',1.0,3.0),('PRE 8 C1','PRE 8 C7',1.0,2.0)]" --max-step-size 2.0 --relax-max-cycles 100 --thresh gau_loose --out-dir test14 > test14.out 2>&1
