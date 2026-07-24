@@ -234,6 +234,15 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
             continue
         if isinstance(val, str) and val.strip().lower() in ("", "none"):
             continue
+        # ``freq`` resolves an unset cutoff to +inf while aligning the
+        # three-layer Hessian region.  Both forms mean all movable MM atoms,
+        # so keep their cross-process PES identities identical.
+        if (
+            key == "hess_cutoff"
+            and isinstance(val, (float, np.floating))
+            and bool(np.isposinf(val))
+        ):
+            continue
         potential[key] = _canon(val)
     effective_mm_mode = normalize_mm_hessian_mode(
         calc_cfg.get("mm_hessian_mode"),

@@ -327,6 +327,26 @@ def test_hessian_file_rejects_invalid_state_metadata(tmp_path, field, value, mes
         )
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_hessian_file_rejects_nonfinite_pes_identity(tmp_path, value) -> None:
+    identity = {
+        **PES_IDENTITY,
+        "evaluator": {
+            **PES_IDENTITY["evaluator"],
+            "potential": {"unexpected_nonfinite": value},
+        },
+    }
+    with pytest.raises(ValueError, match="finite JSON-compatible values"):
+        save_hessian_file(
+            tmp_path / "nonfinite-identity.npz",
+            hessian=np.eye(3),
+            energy_ha=0.0,
+            cart_coords_bohr=np.zeros(3),
+            atomic_numbers=np.array([1]),
+            **{**SAVE_STATE, "potential_identity": identity},
+        )
+
+
 def test_hessian_file_rejects_pes_identity_mismatch(tmp_path) -> None:
     path = tmp_path / "pes.npz"
     save_hessian_file(

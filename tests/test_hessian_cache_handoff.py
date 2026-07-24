@@ -317,6 +317,37 @@ def test_mm_hessian_mode_aliases_share_one_cache_identity() -> None:
     )
 
 
+def test_persistent_identity_canonicalizes_unbounded_hessian_cutoff() -> None:
+    """The freq runtime's +inf sentinel is the default all-movable region."""
+
+    class _Geom:
+        atomic_numbers = np.array([1, 8])
+        cart_coords = np.zeros(6)
+        freeze_atoms = np.array([], dtype=int)
+
+    base = {
+        "backend": "uma",
+        "uma_model": "uma-s-1p2",
+        "uma_precision": "fp32",
+        "charge": 0,
+        "spin": 1,
+    }
+
+    default = hessian_cache.persistent_identity_from_context(
+        _Geom(), {**base, "hess_cutoff": None}
+    )
+    runtime = hessian_cache.persistent_identity_from_context(
+        _Geom(), {**base, "hess_cutoff": float("inf")}
+    )
+    finite = hessian_cache.persistent_identity_from_context(
+        _Geom(), {**base, "hess_cutoff": 6.0}
+    )
+
+    assert runtime == default
+    assert finite != default
+    assert finite["evaluator"]["potential"]["hess_cutoff"] == 6.0
+
+
 def test_reconcile_active_hessian_extracts_required_dofs_in_order() -> None:
     source = torch.arange(36, dtype=torch.float64).reshape(6, 6)
     entry = {
