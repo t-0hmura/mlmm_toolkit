@@ -1,6 +1,7 @@
 """Fail-closed validation for scan axes and scientific eligibility."""
 
 import click
+import numpy as np
 import pytest
 
 from mlmm.core.utils import (
@@ -8,6 +9,7 @@ from mlmm.core.utils import (
     parse_scan_list_triples,
     parse_scan_spec_stages,
 )
+from mlmm.workflows.scan2d import _rbf_support
 
 
 @pytest.mark.parametrize(
@@ -66,3 +68,17 @@ def test_scan_spec_expands_bidirectional_stage_with_reset_markers(tmp_path) -> N
     assert stages == [[(0, 1, 1.2)], [(0, 1, 1.8)]]
     assert snapshots == frozenset({0})
     assert resets == frozenset({1})
+
+
+@pytest.mark.parametrize(
+    ("x", "y", "expected"),
+    [
+        ([1.0], [2.0], (1, 0)),
+        ([1.0, 2.0, 3.0], [2.0, 2.0, 2.0], (3, 1)),
+        ([1.0, 2.0, 1.0], [2.0, 2.0, 3.0], (3, 2)),
+    ],
+)
+def test_scan2d_rbf_support_requires_non_collinear_points(
+    x, y, expected,
+) -> None:
+    assert _rbf_support(np.asarray(x), np.asarray(y)) == expected

@@ -164,6 +164,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Stop `scan2d` after writing `surface.csv` with a clear diagnostic when fewer
+  than three non-collinear converged grid points remain, instead of passing an
+  underdetermined data set to SciPy's RBF interpolator.
 - Read the bundled pysisyphus optimizer's legacy comma-delimited Hartree XYZ comments in
   `trj2fig` and other strict trajectory consumers without treating unrelated
   numeric comments as energies.

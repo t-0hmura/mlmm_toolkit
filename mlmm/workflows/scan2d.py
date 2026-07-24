@@ -120,6 +120,22 @@ BIAS_KW: Dict[str, Any] = deepcopy(_BIAS_KW_DEFAULT)
 _snapshot_geometry = functools.partial(snapshot_geometry, coord_type_default="cart")
 
 
+def _rbf_support(points_x: np.ndarray, points_y: np.ndarray) -> tuple[int, int]:
+    """Return the unique-point count and geometric rank for 2D interpolation."""
+
+    points = np.column_stack(
+        (
+            np.asarray(points_x, dtype=float),
+            np.asarray(points_y, dtype=float),
+        )
+    )
+    unique = np.unique(points, axis=0)
+    if len(unique) < 2:
+        return len(unique), 0
+    rank = int(np.linalg.matrix_rank(unique - unique[0]))
+    return len(unique), rank
+
+
 def _build_scan2d_result_payload(
     *,
     records: Sequence[Dict[str, Any]],
@@ -1079,8 +1095,20 @@ def cli(
                 & np.isfinite(z_points)
                 & df["seed_eligible"].to_numpy(dtype=bool)
             )
-            if not np.any(mask):
-                click.echo("[plot] No finite data for plotting.", err=True)
+            n_unique, support_rank = (
+                _rbf_support(d1_points[mask], d2_points[mask])
+                if np.any(mask)
+                else (0, 0)
+            )
+            if n_unique < 3 or support_rank < 2:
+                message = (
+                    "A 2D energy surface requires at least three non-collinear "
+                    "converged finite grid points; found "
+                    f"{n_unique} unique point(s) with geometric rank "
+                    f"{support_rank}. surface.csv was written, but plots were "
+                    "not generated."
+                )
+                click.echo(f"[plot] ERROR: {message}", err=True)
                 if out_json:
                     from mlmm.core.utils import write_result_json
 
