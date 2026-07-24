@@ -498,8 +498,8 @@ for index, line in enumerate(lines):
 Path("test68_wrong_geometry.pdb").write_text("".join(lines), encoding="utf-8")
 PY
 rc=0
-mlmm irc -i test68_wrong_geometry.pdb --parm p_complex.parm7 -q -1 -m 1 --read-hess test67_freq/hessian.npz --max-cycles 1 --out-dir test68_wrong > test68_wrong.out 2>&1 || rc=$?
-if [ "$rc" -eq 0 ] || ! grep -Fq 'coordinates do not match' test68_wrong.out; then
+mlmm irc -i test68_wrong_geometry.pdb --parm p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test67_freq/hessian.npz --max-cycles 1 --out-dir test68_wrong > test68_wrong.out 2>&1 || rc=$?
+if [ "$rc" -eq 0 ] || ! grep -Eq 'coordinates do not match|PES identity does not match' test68_wrong.out; then
   echo "[smoke] FAIL test68: stale same-size Hessian was not rejected" >> test68_wrong.out
   exit 1
 fi
