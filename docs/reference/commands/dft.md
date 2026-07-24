@@ -71,14 +71,11 @@ Options:
                                   ML region in dft is computed with DFT (PySCF),
                                   so this does not select a calculator.
   --embedcharge / --no-embedcharge
-                                  Enable electrostatic embedding: MM point
-                                  charges are added to the PySCF QM Hamiltonian
-                                  via pyscf.qmmm.mm_charge().  [default: no-
-                                  embedcharge]
-  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
-                                  point charges embedded in the PySCF QM
-                                  Hamiltonian. Default: 12.0 Å. Only used when
-                                  --embedcharge is enabled.
+                                  Unavailable in v0.3.3; retained so older
+                                  commands fail with an actionable diagnostic.
+                                  [default: no-embedcharge]
+  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
+                                  retired electronic-embedding path.
   --link-atom-method [scaled|fixed]
                                   Link-atom placement: 'scaled' (g-factor,
                                   Gaussian ONIOM standard, default) or 'fixed'

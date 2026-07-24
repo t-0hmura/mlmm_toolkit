@@ -76,7 +76,7 @@ When a subcommand fails, the parsed `summary` (or sibling `result.json`) carries
 
 | MCP tool | CLI subcmd | Purpose |
 |---|---|---|
-| `scan_1d` / `scan_2d` / `scan_3d` | `mlmm scan{,2d,3d}` | ONIOM restraint scans |
+| `scan_1d` / `scan_2d` / `scan_3d` | `mlmm scan` / `mlmm scan2d` / `mlmm scan3d` | ONIOM restraint scans |
 | `optimize_path` | `mlmm path-opt` | Two-endpoint ONIOM MEP optimization |
 | `search_paths` | `mlmm path-search` | Recursive ONIOM pathway search |
 | `run_full_pipeline` | `mlmm all` | End-to-end: extract → MEP → TS → IRC → freq → DFT |

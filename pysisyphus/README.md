@@ -10,10 +10,9 @@ The upstream `pysisyphus` does not natively handle the constraints of full-prote
 
 - **MLIP backends with autograd Hessians** evaluated on a GPU, while the ONIOM macro coordinates iterate on CPU
 - **Macro / micro alternation** in the optimiser, where the ML region and the Movable MM region take alternating steps (chemistry-rule #3)
-- **CPU-only bofill_update** for GPU OOM avoidance when the active-block partial Hessian is large
+- **GPU-resident rank-two Bofill updates**, applied in place where ownership permits, with explicit `PYSIS_BOFILL_CPU_OFFLOAD=1` fallback
 - **VRAM-aware stage handoff** — explicit `del` between IRC / tsopt / freq stages to free CUDA memory before the next stage loads its model
 - **Initial-displacement memory hygiene** in IRC for full-protein systems (~10,000 atoms, 16 GB+ Hessians on the un-contracted ML-macro)
-- **bofill_update advanced-indexing scatter** when only a subset of internal coordinates is updated (chemistry-rule #7)
 - **Atomic optimizer rollback, exact first-order-saddle validation, and frozen-boundary PHVA** for robust ML/MM paths
 
 The bundled fork keeps these divergences explicit in the table below so future upstream improvements remain reviewable.
@@ -26,9 +25,11 @@ The bundled fork keeps these divergences explicit in the table below so future u
 | `pysisyphus/irc/IRC.py` | initial-displacement memory hygiene, contracted-ML-macro path, constrained rigid-null treatment, and CPU stash of `forward_mw_hessian`; opt-in PSD convergence guard | freq-stage VRAM invariant, OOM bugfix |
 | `pysisyphus/optimizers/Optimizer.py`, `LBFGS.py`, `RFOptimizer.py` | atomic coordinate/history rollback and uphill-trial rejection for minimizers | optimizer state integrity |
 | `pysisyphus/optimizers/HessianOptimizer.py` | rho-band trust updates, multistep TS-BFGS, weighted trust, rejected-trial rollback, and torch/numpy dispatch | TSopt step-control / trust radius |
-| `pysisyphus/optimizers/hessian_updates.py` | `bofill_update` advanced-indexing scatter + CPU-only `bofill_update` for GPU OOM (CHEMISTRY-RULE:7); `multistep_ts_bfgs_update` helper; re-exports `_outer / _dot` from `_array` shim | scatter on subset of internals |
+| `pysisyphus/optimizers/hessian_updates.py` | device-resident rank-two `bofill_update`, in-place application where ownership permits, and opt-in CPU offload; `multistep_ts_bfgs_update` helper; re-exports `_outer / _dot` from `_array` shim | bounded device memory with explicit fallback |
 | `pysisyphus/optimizers/restrict_step.py` | `per_coord_type_weights` + `weighted_max_internal_step` helpers | weighted L∞ trust check |
 | `pysisyphus/optimizers/gdiis.py` | `get_xp`-based torch/numpy dispatch (xp.linalg.norm / xp.sum) | torch/numpy backend share |
+| `pysisyphus/calculators/Dimer.py` | frozen/rigid-basis projection and per-instance deterministic random state | constrained Dimer invariants |
+| `pysisyphus/cos/ChainOfStates.py` | safe tangent normalization and geometric fallback for equal-energy neighbours | finite COS tangent invariant |
 | `pysisyphus/tsoptimizers/{TSHessianOptimizer,RSIRFOptimizer,RSPRFOptimizer,TRIM}.py` | exact PHVA saddle validation, mode-loss rollback, path-mode identity, bounded recovery, and ONIOM macro/micro step control | tsopt convergence + CHEMISTRY-RULE:3 |
 | `pysisyphus/_array.py` | torch/numpy backend dispatch shim (`get_xp`, `_outer`, `_dot`, `_eigh`, `as_numpy`, `to_xp`) | used by `hessian_updates.py` + `HessianOptimizer.py` + `gdiis.py` |
 

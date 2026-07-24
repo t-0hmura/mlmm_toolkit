@@ -45,7 +45,7 @@ core = MLMMCore(
     model_charge=0,
     model_mult=1,
     backend="uma",               # uma | orb | mace | aimnet2
-    embedcharge=False,           # xTB点電荷埋め込み補正
+    embedcharge=False,           # v0.3.3 では false 固定
     return_partial_hessian=True, # 部分Hessian（ML領域のみ）
 )
 ```
@@ -60,7 +60,7 @@ core = MLMMCore(
 | `model_charge` | `int` | `0` | ML領域の電荷 |
 | `model_mult` | `int` | `1` | スピン多重度 |
 | `backend` | `str` | `"uma"` | MLIPバックエンド |
-| `embedcharge` | `bool` | `False` | xTB点電荷埋め込みの有効化 |
+| `embedcharge` | `bool` | `False` | 互換性用。v0.3.3 では `True` を指定すると allocation 前に例外 |
 | `mm_backend` | `str` | `"hessian_ff"` | MMエンジン（`hessian_ff`または`openmm`） |
 | `return_partial_hessian` | `bool` | `True` | 部分Hessian（ML + 境界）を返す |
 | `link_mlmm` | `list` | `None` | リンク原子の手動指定 |

@@ -24,15 +24,15 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 
 ## Workflow
 
-1. **Topology + coordinates** — read the `parm7` and the `-i` coordinate file (atom order must match the topology; `--element-check` validates the element sequence).
+1. **Topology + coordinates** — read the `parm7` and the `-i` coordinate file (atom order must match the topology; `--element-check` validates the element sequence). PDB/ENT input also contributes a fixed-field atom-identity digest to the exported title/comment.
 2. **QM region** — `--model-pdb` defines the QM (ML-region) atoms; `--near` sets the movable/active MM cutoff (Å).
 3. **Link atoms** — placed at each severed QM/MM bond. `--link-atom-method scaled` (default) uses the Morokuma/Dapprich g-factor (matches the `MLMMCore` runtime); `fixed` uses fixed 1.09/1.01 Å bond lengths.
-4. **Write** — emit the target-format input file at `-o`. ORCA mode additionally resolves `ORCAFF.prms` (auto-converting from Amber via `orca_mm -convff -AMBER` when `--convert-orcaff` is on).
+4. **Write** — emit the target-format input file at `-o`. ORCA mode additionally resolves `ORCAFF.prms`. With `--convert-orcaff`, conversion is attempted through `orca_mm -convff -AMBER`; if conversion is disabled or unavailable, the `.inp` is still written and reports the parameter file that must be supplied before ORCA is run.
 
 ## Outputs
 
 - `<output>.{gjf,com}` (g16) or `<output>.inp` (ORCA) — the QM/MM input file
-- ORCA mode also reads/creates `<parm7_stem>.ORCAFF.prms` in the output directory (force-field parameters)
+- ORCA mode references `<parm7_stem>.ORCAFF.prms`; it reuses an existing file or creates one only when automatic conversion is enabled and available
 
 ## CLI options
 
@@ -52,7 +52,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--nproc INT` | Number of processors. | `8` |
 | `--mem TEXT` | Memory allocation (g16 mode). | `16GB` |
 | `--total-charge INT` / `--total-mult INT` | Total charge / multiplicity of the full QM+MM system (ORCA `Charge_Total` / `Mult_Total`). | topology-derived / same as `--multiplicity` |
-| `--orcaff PATH` | Path to `ORCAFF.prms` (ORCA mode); created in the output directory if omitted. | _None_ |
+| `--orcaff PATH` | Path to `ORCAFF.prms` (ORCA mode). If omitted, a derived path is referenced and automatic creation is attempted conditionally. | _None_ |
 | `--convert-orcaff / --no-convert-orcaff` | Auto-convert a missing `ORCAFF.prms` via `orca_mm -convff -AMBER` (ORCA mode). | `True` |
 | `--element-check / --no-element-check` | Validate the `--input` element sequence against the parm7 topology. | `True` |
 | `--link-atom-method [scaled\|fixed]` | Link-H placement: `scaled` (g-factor, matches runtime) or `fixed` (1.09/1.01 Å). | `scaled` |
@@ -65,6 +65,11 @@ The full flag list is in the generated [command reference](reference/commands/in
   - `.gjf` / `.com` → `g16`
   - `.inp` → `orca`
 - If `--mode` is omitted and the `-o` suffix is unknown, the command fails.
+- For PDB/ENT input, the exported file embeds
+  `MLMM_REF_PDB_ORDER_V1_SHA256=<digest>`. Coordinates, occupancy, and B-factor
+  are excluded, while fixed atom/residue/chain/insertion/element identity is
+  covered. `oniom-import --ref-pdb` verifies this marker before positional
+  metadata restoration.
 
 ## See Also
 

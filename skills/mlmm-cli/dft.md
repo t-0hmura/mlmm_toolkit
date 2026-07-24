@@ -31,7 +31,7 @@ topology** and supports layer-aware selection. Most subcommands accept:
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | PySCF QM/MM point-charge embedding (Amber MM charges added to the QM Hamiltonian via `pyscf.qmmm.mm_charge`; default off) |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` | **ML-region** charge (not whole-system) |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
@@ -140,6 +140,6 @@ falling back.
 ## See also
 
 - `mlmm-install-backends/dft.md` — install + aarch64 handling.
-- `tsopt.md`, `irc.md` — produce the geometries you DFT-refine.
+- `tsopt.md`, `irc.md` — produce the geometries used for DFT single points.
 - `mlmm-workflows-output/SKILL.md` — DFT//MLIP/MM recipe.
 - Defaults: `import mlmm.core.defaults as d; print(d.GEOM_KW_DEFAULT)`

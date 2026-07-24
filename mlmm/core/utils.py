@@ -1624,8 +1624,11 @@ def parse_scan_list_triples(
 
     if not isinstance(obj, (list, tuple)):
         raise click.BadParameter(f"{option_name} must be a list/tuple of (i,j,target) or (i,j,start,end).")
+    if len(obj) == 0:
+        raise click.BadParameter(f"{option_name} must contain at least one atom pair.")
 
     parsed: list = []
+    seen_pairs: set[tuple[int, int]] = set()
     for entry_idx, t in enumerate(obj, start=1):
         is_3 = (
             isinstance(t, (list, tuple))
@@ -1655,6 +1658,17 @@ def parse_scan_list_triples(
             atom_meta=atom_meta,
             context=f"{option_name} entry {entry_idx} (j)",
         )
+        if i == j:
+            raise click.BadParameter(
+                f"{option_name} entry {entry_idx} selects the same atom twice."
+            )
+        pair_key = tuple(sorted((i, j)))
+        if pair_key in seen_pairs:
+            raise click.BadParameter(
+                f"{option_name} entry {entry_idx} repeats atom pair "
+                f"{pair_key}; each simultaneous scan axis must be unique."
+            )
+        seen_pairs.add(pair_key)
         if return_one_based:
             i += 1
             j += 1
@@ -1692,6 +1706,7 @@ def parse_dist_freeze_list(
         obj = [obj]
 
     parsed: List[Tuple[int, int, Optional[float]]] = []
+    seen_pairs: set[tuple[int, int]] = set()
     for entry_idx, t in enumerate(obj, start=1):
         if not (isinstance(t, (list, tuple)) and len(t) in (2, 3)):
             raise click.BadParameter(
@@ -1705,6 +1720,16 @@ def parse_dist_freeze_list(
             t[1], one_based=one_based, atom_meta=atom_meta,
             context=f"{option_name} entry {entry_idx} (j)",
         )
+        if i == j:
+            raise click.BadParameter(
+                f"{option_name} entry {entry_idx} selects the same atom twice."
+            )
+        pair_key = tuple(sorted((i, j)))
+        if pair_key in seen_pairs:
+            raise click.BadParameter(
+                f"{option_name} entry {entry_idx} repeats atom pair {pair_key}."
+            )
+        seen_pairs.add(pair_key)
         target: Optional[float] = None
         if len(t) == 3:
             if not isinstance(t[2], Real):
@@ -1779,6 +1804,7 @@ def parse_scan_list_quads(
         )
 
     parsed: List[Tuple[int, int, float, float]] = []
+    seen_pairs: set[tuple[int, int]] = set()
     for entry_idx, q in enumerate(obj, start=1):
         if not (
             isinstance(q, (list, tuple))
@@ -1800,6 +1826,17 @@ def parse_scan_list_quads(
             atom_meta=atom_meta,
             context=f"{option_name} entry {entry_idx} (j)",
         )
+        if i == j:
+            raise click.BadParameter(
+                f"{option_name} entry {entry_idx} selects the same atom twice."
+            )
+        pair_key = tuple(sorted((i, j)))
+        if pair_key in seen_pairs:
+            raise click.BadParameter(
+                f"{option_name} entry {entry_idx} repeats atom pair "
+                f"{pair_key}; each scan axis must be unique."
+            )
+        seen_pairs.add(pair_key)
         parsed.append((i, j, float(q[2]), float(q[3])))
 
     for i, j, low, high in parsed:
@@ -1876,8 +1913,14 @@ def parse_scan_spec_stages(
     one_based_default: bool,
     atom_meta: Optional[_Sequence[Dict[str, Any]]],
     option_name: str = "--scan-lists",
-) -> Tuple[List[List[Tuple[int, int, float]]], bool]:
-    """Parse staged 1D scan spec into 0-based stage triples."""
+    return_bidirectional_markers: bool = False,
+) -> Any:
+    """Parse staged 1D scan spec into 0-based executable stages.
+
+    A stage containing only ``(i, j, target)`` entries stays simultaneous.
+    The legacy ``(i, j, start, end)`` form expands exactly like the inline
+    CLI form: snapshot before the first leg, restore before the second.
+    """
     spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
     stages_key, stages_raw = _first_spec_field(spec_cfg, ("stages",))
     if stages_key is None:
@@ -1889,6 +1932,8 @@ def parse_scan_spec_stages(
         spec_cfg.get("one_based"), default=one_based_default, option_name=option_name
     )
     stages: List[List[Tuple[int, int, float]]] = []
+    reset_before: set[int] = set()
+    snapshot_before: set[int] = set()
     for stage_idx, stage_raw in enumerate(stages_raw, start=1):
         if not isinstance(stage_raw, (list, tuple)):
             raise click.BadParameter(
@@ -1904,12 +1949,32 @@ def parse_scan_spec_stages(
             raise click.BadParameter(
                 f"{option_name} {stages_key}[{stage_idx}] must contain at least one (i,j,target) triple."
             )
-        for i, j, target in parsed:
-            if target <= 0.0:
+        for entry in parsed:
+            if any(float(distance) <= 0.0 for distance in entry[2:]):
                 raise click.BadParameter(
-                    f"Non-positive target distance in {option_name} {stages_key}[{stage_idx}]: {(i, j, target)}."
+                    f"Non-positive target distance in {option_name} "
+                    f"{stages_key}[{stage_idx}]: {entry}."
                 )
-        stages.append(parsed)
+        if any(len(entry) == 4 for entry in parsed):
+            for entry in parsed:
+                if len(entry) == 4:
+                    i, j, start, end = entry
+                    first_leg = len(stages)
+                    stages.append([(i, j, start)])
+                    snapshot_before.add(first_leg)
+                    reset_before.add(first_leg + 1)
+                    stages.append([(i, j, end)])
+                else:
+                    stages.append([entry])
+        else:
+            stages.append(parsed)
+    if return_bidirectional_markers:
+        return (
+            stages,
+            one_based,
+            frozenset(snapshot_before),
+            frozenset(reset_before),
+        )
     return stages, one_based
 
 
@@ -2598,6 +2663,18 @@ def _count_atoms_in_file(path: Path) -> int:
     return 0
 
 
+def _ordered_elements_in_file(path: Path) -> Optional[List[str]]:
+    """Read the first structure's ordered element symbols when supported."""
+    try:
+        from ase.io import read as ase_read
+
+        atoms = ase_read(str(path), index=0)
+        return [str(symbol).capitalize() for symbol in atoms.get_chemical_symbols()]
+    except Exception:
+        logger.debug("Failed to read ordered elements from %s", path, exc_info=True)
+        return None
+
+
 def apply_ref_pdb_override(
     prepared_input: PreparedInputStructure,
     ref_pdb: Optional[Path],
@@ -2622,6 +2699,30 @@ def apply_ref_pdb_override(
         raise click.BadParameter(
             f"atom count mismatch: {prepared_input.geom_path.name} has {geom_count} atoms, "
             f"but --ref-pdb {ref_pdb.name} has {ref_count} atoms."
+        )
+    geom_elements = _ordered_elements_in_file(prepared_input.geom_path)
+    ref_elements = _ordered_elements_in_file(prepared_ref.geom_path)
+    if (
+        geom_elements is not None
+        and ref_elements is not None
+        and geom_elements != ref_elements
+    ):
+        mismatch = next(
+            (
+                index
+                for index, (geom_element, ref_element) in enumerate(
+                    zip(geom_elements, ref_elements)
+                )
+                if geom_element != ref_element
+            ),
+            0,
+        )
+        prepared_ref.cleanup()
+        raise click.BadParameter(
+            "atom-order element mismatch at 1-based atom "
+            f"{mismatch + 1}: geometry={geom_elements[mismatch]}, "
+            f"--ref-pdb={ref_elements[mismatch]}. The reference topology must "
+            "use the identical atom order."
         )
     prepared_input.source_path = prepared_ref.source_path
     prepared_input.structure_template = prepared_ref.structure_template
@@ -2921,6 +3022,8 @@ def resolve_ml_layer_assignment(
 
     echo = echo_fn if echo_fn is not None else _click.echo
     detect_layer_eff = detect_layer
+    if model_pdb is None and calc_cfg.get("model_pdb"):
+        model_pdb = calc_cfg.get("model_pdb")
 
     # movable_cutoff implies full distance-based layer assignment.
     # hess_cutoff alone can be combined with --detect-layer.
@@ -2935,8 +3038,51 @@ def resolve_ml_layer_assignment(
 
     model_pdb_path: Optional[Path] = None
     layer_info: Optional[Dict[str, List[int]]] = None
+    explicit_region = model_pdb is not None or bool(model_indices)
 
-    if detect_layer_eff:
+    if explicit_region:
+        if model_pdb is not None:
+            model_pdb_path = Path(model_pdb)
+        else:
+            if layer_source_pdb.suffix.lower() != ".pdb":
+                raise _click.ClickException(
+                    "--model-indices requires a PDB input (or --ref-pdb)."
+                )
+            try:
+                model_pdb_path = build_model_pdb_from_indices(
+                    layer_source_pdb, out_dir_path, list(model_indices or [])
+                )
+            except Exception as e:
+                raise _click.ClickException(str(e)) from e
+
+        if detect_layer_eff:
+            try:
+                from mlmm.core.defaults import BFACTOR_TOLERANCE
+
+                bfactors = read_bfactors_from_pdb(layer_source_pdb)
+                if not has_valid_layer_bfactors(
+                    bfactors, tolerance=BFACTOR_TOLERANCE
+                ):
+                    raise ValueError(
+                        "Invalid or missing layer B-factors (expected ~0/10/20)."
+                    )
+                layer_info = parse_layer_indices_from_bfactors(
+                    bfactors, tolerance=BFACTOR_TOLERANCE
+                )
+                calc_cfg["use_bfactor_layers"] = True
+                echo(
+                    "[layer] Using explicit ML membership with B-factor "
+                    "movable/frozen MM layers."
+                )
+            except Exception as e:
+                echo(
+                    f"[layer] WARNING: {e} Explicit ML membership remains active.",
+                    err=True,
+                )
+                calc_cfg["use_bfactor_layers"] = False
+        else:
+            calc_cfg["use_bfactor_layers"] = False
+    elif detect_layer_eff:
         try:
             model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
             calc_cfg["use_bfactor_layers"] = True
@@ -2951,7 +3097,7 @@ def resolve_ml_layer_assignment(
             echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
             detect_layer_eff = False
 
-    if not detect_layer_eff:
+    if not explicit_region and not detect_layer_eff:
         if model_pdb is None and not model_indices:
             raise _click.ClickException(
                 "Provide --model-pdb or --model-indices when --no-detect-layer."
@@ -3216,18 +3362,20 @@ def write_result_json(
             return {k: _to_json(v) for k, v in obj.items()}
         if isinstance(obj, (list, tuple)):
             return [_to_json(i) for i in obj]
+        if isinstance(obj, float) and not math.isfinite(obj):
+            return None
         try:
             import numpy as _np
             if isinstance(obj, _np.generic):
-                return obj.item()
+                return _to_json(obj.item())
             if isinstance(obj, _np.ndarray):
-                return obj.tolist()
+                return _to_json(obj.tolist())
         except ImportError:
             pass
         try:
             import torch as _th
             if isinstance(obj, _th.Tensor):
-                return obj.detach().cpu().tolist()
+                return _to_json(obj.detach().cpu().tolist())
         except ImportError:
             pass
         return obj
@@ -3261,9 +3409,14 @@ def validate_charge_spin(elements, charge, multiplicity, source: Optional[str] =
     """
     from pysisyphus.elem_data import ATOMIC_NUMBERS
 
+    multiplicity = int(multiplicity)
+    if multiplicity < 1:
+        raise ValueError(
+            f"Spin multiplicity must be an integer >= 1, got {multiplicity}."
+        )
     sum_z = sum(ATOMIC_NUMBERS[str(e).lower()] for e in elements)
     total = sum_z - int(charge)
-    unpaired = int(multiplicity) - 1
+    unpaired = multiplicity - 1
     counted_atoms = len(elements)
     source_suffix = f", source={source}" if source is not None else ""
     if total < unpaired or (total - unpaired) % 2:

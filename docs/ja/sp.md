@@ -62,9 +62,10 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 `--hess` と `--hessian-calc-mode Analytical` を指定すると、選択した
 バックエンド（UMA、ORB、MACE、AIMNet2）の解析/native Hessian 経路を使います。
-`FiniteDifference` は全バックエンドで利用でき、MM 領域はデフォルトで
-`hessian_ff` の解析 Hessian を使います。必要な backend API が無い場合は
-有限差分へ暗黙に切り替えずエラーになります。
+`FiniteDifference` は全バックエンドで利用できます。MM バックエンドは
+`hessian_ff` がデフォルトですが、MM Hessian はデフォルトでは有限差分です。
+`calc.mm_fd: false` で `hessian_ff` の解析 MM Hessian を選択できます。
+要求した backend API が無い場合はエラーになります。
 
 ### その他のオプション
 
@@ -75,9 +76,9 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 | `-b, --backend [uma\|orb\|mace\|aimnet2]` | `uma` | ML 領域の MLIP バックエンド |
 | `--hess / --no-hess` | `--no-hess` | `hessian.npy` も計算して書き込む |
 | `--hessian-calc-mode [Analytical\|FiniteDifference]` | `FiniteDifference` | `--hess` 指定時の Hessian モード。`Analytical` はバックエンドのネイティブ経路を使用 |
-| `--embedcharge / --no-embedcharge` | off | MM→ML カップリングのための xTB 点電荷埋め込み補正 |
+| `--embedcharge / --no-embedcharge` | off | v0.3.3 では使用不可。旧コマンドの明示的拒否用 |
 | `--link-atom-method [scaled\|fixed]` | `scaled` | リンク原子の配置 |
-| `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM バックエンド（解析Hessian vs 有限差分Hessian） |
+| `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM バックエンド。Hessian 法は `calc.mm_fd` で別に選択 |
 | `-o, --out-dir PATH` | `./result_sp/` | 出力ディレクトリ |
 | `--precision [fp32\|fp64]` | バックエンド依存 | バックエンドに渡す数値精度（未指定: UMA/AIMNet2 は fp32、ORB/MACE は fp64） |
 | `--config PATH` | — | `calc.*`、`geom.*` のデフォルトを与える YAML 設定 |

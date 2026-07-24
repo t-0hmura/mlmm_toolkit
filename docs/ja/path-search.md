@@ -103,14 +103,14 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える MM 原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
-| `--max-nodes INT` | セグメント GSM の内部ノード数。 | `20` |
+| `--max-nodes INT` | GSM／DMF セグメントごとの可動内部画像数（総画像数は `max_nodes + 2`）。 | `20` |
 | `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad]` | 単一構造オプティマイザプリセット（現状 `grad` = L-BFGS のみ。`hess` は未配線）。 | `grad` |
 | `--preopt/--no-preopt` | セグメンテーション前に端点を L-BFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に全入力を最初の入力へ剛体アライメントし、凍結原子を再マッチ。 | 有効 |
 | `--thresh TEXT` | 収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau_loose`） |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的 Hessian か OpenMM 有限差分か）。 | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（既定 `true`: 有限差分）。 | `hessian_ff` |
 | `--dump/--no-dump` | オプティマイザダンプを保存。 | `False` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。 | `./result_path_search/` |
 | `--ref-pdb PATH...` | XYZ→PDB 変換・トポロジー参照用の完全テンプレート PDB。 | _None_ |
@@ -118,8 +118,8 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。`--help-advanced` に表示。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
+| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
 
@@ -130,7 +130,7 @@ out_dir/ (デフォルト:./result_path_search/)
 YAML ルートはマッピングでなければなりません。受け付けるセクション:
 
 - **`geom`** -- `coord_type`（デフォルト `"cart"`）、`freeze_atoms`（1 始まりインデックス）。
-- **`calc` / `mlmm`** -- ML/MM calculator設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、バックエンド選択（`backend`、`embedcharge`）、UMA 制御（`uma_model`、`uma_task_name`、`hessian_calc_mode`）、デバイス選択、凍結原子。
+- **`calc` / `mlmm`** -- ML/MM calculator設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、バックエンド選択（`backend`）、UMA 制御（`uma_model`、`uma_task_name`、`hessian_calc_mode`）、デバイス選択、凍結原子。`embedcharge` は `false` 固定の互換性用キーです。
 - **`gs`** -- Growing String 設定: `max_nodes`、`climb`、`climb_rms`、`climb_fixed`、`reparam_every_full`、`reparam_check`。
 - **`opt`** -- StringOptimizer 制御: `max_cycles`、`print_every`、`dump`、`dump_restart`、`out_dir`。
 - **`lbfgs`** -- HEI+/-1 精密化用の単一構造オプティマイザ制御: `keep_last`、`beta`、`gamma_mult`、`max_step`、`control_step`、`double_damp`、`mu_reg`、`max_mu_reg_adaptions`。

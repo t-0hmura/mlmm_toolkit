@@ -14,6 +14,7 @@ import pytest
 import torch
 
 from pysisyphus.optimizers import hessian_updates as HU
+from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from pysisyphus.optimizers.hessian_updates import (
     bofill_update,
     bofill_rank2_factors,
@@ -53,6 +54,27 @@ def _rand_system(n, dt, dev, seed=0):
     dx = torch.randn(n, generator=g, dtype=dt).to(dev)
     dg = torch.randn(n, generator=g, dtype=dt).to(dev)
     return H, dx, dg
+
+
+@pytest.mark.parametrize("dev", DEVICES)
+@pytest.mark.parametrize("dt", DTYPES)
+def test_rfo_accelerated_step_preserves_reference_device(dev, dt):
+    opt = RFOptimizer.__new__(RFOptimizer)
+    opt.trust_radius = 0.1
+    opt.log = lambda *_: None
+    ref_step = torch.tensor([0.08, 0.0], dtype=dt, device=dev)
+    ip_step = torch.tensor([0.03, 0.0], dtype=dt, device=dev)
+
+    accepted = opt._accept_accelerated_step(
+        np.array([0.04, 0.0]), ip_step, ref_step,
+    )
+
+    assert isinstance(accepted, torch.Tensor)
+    assert accepted.dtype == dt
+    assert accepted.device == ref_step.device
+    torch.testing.assert_close(
+        accepted, torch.tensor([0.07, 0.0], dtype=dt, device=dev), **_tol(dt)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +124,56 @@ def test_bofill_numpy_path_unchanged():
     assert key == "Bofill"
     ref = _dense_bofill_ref_np(Hn, dxn, dgn)
     np.testing.assert_allclose(dH, ref, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("dev", DEVICES)
+@pytest.mark.parametrize("dt", DTYPES)
+def test_bofill_degenerate_secants_are_finite(dev, dt):
+    H = torch.diag(torch.arange(1, 5, dtype=dt, device=dev))
+    dx = torch.tensor([1.0, -0.5, 0.25, 0.75], dtype=dt, device=dev)
+
+    # An exact secant already satisfies dg = H dx, so no Hessian update is due.
+    exact_dg = H @ dx
+    for update_func in (bofill_update, _bofill_update_cpu_offload):
+        dH, _ = update_func(H, dx, exact_dg)
+        assert torch.isfinite(dH).all()
+        torch.testing.assert_close(dH, torch.zeros_like(H), **_tol(dt))
+
+    # z orthogonal to dx is the pure-PSB limit; it must not evaluate 0/0.
+    z = torch.tensor([0.5, 1.0, 0.0, 0.0], dtype=dt, device=dev)
+    assert torch.allclose(torch.dot(z, dx), torch.zeros((), dtype=dt, device=dev))
+    dxdx = torch.dot(dx, dx)
+    expected = (torch.outer(dx, z) + torch.outer(z, dx)) / dxdx
+    for update_func in (bofill_update, _bofill_update_cpu_offload):
+        dH, _ = update_func(H, dx, exact_dg + z)
+        assert torch.isfinite(dH).all()
+        torch.testing.assert_close(dH, expected, **_tol(dt))
+
+    # A zero step provides no secant information and is a no-op.
+    for update_func in (bofill_update, _bofill_update_cpu_offload):
+        dH, _ = update_func(H, torch.zeros_like(dx), torch.ones_like(dx))
+        assert torch.isfinite(dH).all()
+        torch.testing.assert_close(dH, torch.zeros_like(H), **_tol(dt))
+
+
+@pytest.mark.parametrize("dt", (np.float32, np.float64))
+def test_bofill_numpy_degenerate_secants_are_finite(dt):
+    H = np.diag(np.arange(1, 5, dtype=dt))
+    dx = np.array([1.0, -0.5, 0.25, 0.75], dtype=dt)
+    exact_dg = H @ dx
+
+    exact, _ = bofill_update(H, dx, exact_dg)
+    zero_step, _ = bofill_update(H, np.zeros_like(dx), np.ones_like(dx))
+    z = np.array([0.5, 1.0, 0.0, 0.0], dtype=dt)
+    orthogonal, _ = bofill_update(H, dx, exact_dg + z)
+    expected = (np.outer(dx, z) + np.outer(z, dx)) / np.dot(dx, dx)
+    assert np.isfinite(exact).all()
+    assert np.isfinite(zero_step).all()
+    assert np.isfinite(orthogonal).all()
+    np.testing.assert_array_equal(exact, np.zeros_like(H))
+    np.testing.assert_array_equal(zero_step, np.zeros_like(H))
+    torch_dtype = torch.float32 if dt == np.float32 else torch.float64
+    np.testing.assert_allclose(orthogonal, expected, **_tol(torch_dtype))
 
 
 def test_bofill_kernel_has_no_advanced_index_addto():

@@ -129,7 +129,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 処理の流れ
 
 1. **入力処理** — 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
-2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がHessianを解析的に評価するか有限差分で評価するかを制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
+2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がHessianを解析的に評価するか有限差分で評価するかを制御します。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は構築前に拒否します。
 3. **Light モード（Dimer）:**
    - Hessian Dimer ステージはアクティブ部分空間の部分Hessianを評価して Dimer 方向を定期的に更新します。TR 処理は `--tr-projection` に従い、デフォルトでは凍結 anchor と両立する全系剛体運動だけを除去します。保存・回転・試行する全方向で凍結Cartesian成分をゼロに保ち、中心外のforce評価でも凍結座標を中心imageと厳密に一致させます。
    - 平坦化ループが有効な場合（`--flatten`）、保存されたアクティブHessianは変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回平坦化し、Dimer 方向を更新し、Dimer + L-BFGS マイクロセグメントを実行します。
@@ -183,8 +183,8 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | _None_（デフォルト 1） |
 | **アクティブ領域の凍結** | | |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | Cartesian PHVA、Dimer 更新、flatten、最終鞍点検証の TR 処理。`legacy-active` は isolated-active 比較処理。 | `constrained` |
-| `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。`0.0` は ML のみの部分Hessian。エイリアス: `--radius-hessian`。 | `0.0` |
+| `--tr-projection [constrained\|legacy-active]` | Cartesian PHVA、Dimer 更新、flatten、最終鞍点検証の TR 処理。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
+| `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。未指定時は最終解析に必要な可動 MM 原子をすべて含めます。`0.0` で ML のみを評価する場合は、最終周波数解析も `--active-dof-mode ml-only` にします。エイリアス: `--radius-hessian`。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | **TS 探索とオプティマイザモード** | | |
 | `--hessian-calc-mode CHOICE` | MLIP Hessianモード: `Analytical` または `FiniteDifference`。 | `FiniteDifference` |
@@ -205,8 +205,8 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--allow-charge-mult-mismatch` | 警告を出した上で ML 領域の電荷・多重度の電子パリティ検証を省略。意図した不一致の場合のみ使用。 | off |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
+| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | **出力と設定** | | |
 | `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
@@ -225,7 +225,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 geom:
  coord_type: cart                  # 座標タイプ: デカルト vs dlc 内部座標
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained        # constrained（デフォルト）| legacy-active 比較
+ tr_projection: constrained        # legacy-active は非推奨・比較専用
 calc:
  charge: 0                         # 総電荷（CLI 上書き）
  spin: 1                           # スピン多重度 2S+1
@@ -233,7 +233,7 @@ mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false                # xTB 点電荷埋め込み補正
+ embedcharge: false                # 互換性用。true は拒否される
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
@@ -337,10 +337,10 @@ Dimer は中心imageが変わるたびにこの基底を再構築して方向と
 凍結境界に対する有限曲率運動であるactive fragmentの並進は差し引きません。
 
 `--tr-projection` と `--ref-mode` は別の機能です。前者は凍結境界の剛体モード射影を制御し、
-後者は鞍点回復用の高度な 3N MEP 接線を与えます。`legacy-active` は現行の共通 kernel と
-数値 rank 判定を使う isolated-active 比較処理です。rank 退化構造も現行 kernel で処理され、
-bitwise 一致は保証しません。`--out-json` 時は `result.json.rigid_projection` に treatment、有効 rank、
-Hessian source、Hessian shape を記録します。
+後者は鞍点回復用の高度な 3N MEP 接線を与えます。`legacy-active` は非推奨の比較専用処理で、
+pass/HOSP 遷移状態認定には使用できません。現行の共通 kernel と数値 rank 判定で rank 退化構造も
+処理しますが、bitwise 一致は保証しません。`--out-json` 時は
+`result.json.rigid_projection` に treatment、有効 rank、Hessian source、Hessian shape を記録します。
 
 ```{note}
 `rsirfo.trust_max` のデフォルトは 0.10 bohr です。TS 近傍での ML/MM 安定性が改善します。

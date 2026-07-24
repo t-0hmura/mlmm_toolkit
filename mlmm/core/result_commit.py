@@ -60,7 +60,12 @@ def serialize_json_bytes(payload: Mapping[str, Any]) -> bytes:
     """Serialize one immutable JSON generation exactly once."""
 
     try:
-        return json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+        return json.dumps(
+            payload,
+            indent=2,
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
     except Exception as exc:
         raise ResultCommitError("serialize", Path("<json-payload>"), exc) from exc
 

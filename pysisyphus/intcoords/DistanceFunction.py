@@ -1,3 +1,5 @@
+import numpy as np
+
 from pysisyphus.intcoords.Primitive import Primitive
 from pysisyphus.intcoords.Stretch import Stretch
 
@@ -29,6 +31,11 @@ class DistanceFunction(Primitive):
     @staticmethod
     def _jacobian(coords3d, indices, coeff):
         m, n, o, p = indices
-        jac1 = Stretch._jacobian(coords3d, [m, n])
-        jac2 = Stretch._jacobian(coords3d, [o, p])
-        return jac1 + coeff * jac2
+        jac = np.zeros((12, 12), dtype=float)
+        jac[:6, :6] = np.asarray(
+            Stretch._jacobian(coords3d, [m, n])
+        ).reshape(6, 6)
+        jac[6:, 6:] = coeff * np.asarray(
+            Stretch._jacobian(coords3d, [o, p])
+        ).reshape(6, 6)
+        return jac.reshape(-1)

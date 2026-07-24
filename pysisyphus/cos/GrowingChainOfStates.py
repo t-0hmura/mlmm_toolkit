@@ -8,6 +8,9 @@ class GrowingChainOfStates(ChainOfStates):
 
     def __init__(self, images, calc_getter, max_nodes=10,
                  **kwargs):
+        max_nodes = int(max_nodes)
+        if max_nodes < 2:
+            raise ValueError("max_nodes must be at least 2.")
         super().__init__(images, **kwargs)
 
         self.max_nodes = max_nodes

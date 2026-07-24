@@ -205,30 +205,45 @@ def bofill_rank2_factors(H, dx, dg):
     """Low-rank factors ``(U, C)`` of the Bofill update ``dH = U @ C @ U.T``.
 
     The Bofill update ``mix*SR1 + (1-mix)*PSB`` is exactly a symmetric rank-two
-    update with ``U = [z, dx]`` (n, 2) and a (2, 2) symmetric ``C``:
+    update.  Using the normalized secant residual ``u = z/|z|`` and step
+    ``v = dx/|dx|`` keeps the coefficient matrix finite at ``z·dx = 0``:
 
         z    = dg - H @ dx
-        mix  = (z·dx)^2 / ((z·z)(dx·dx))
-        C = [[ mix/(z·dx),        (1-mix)/(dx·dx)            ],
-             [ (1-mix)/(dx·dx),  -(1-mix)(z·dx)/(dx·dx)^2    ]]
+        cos  = u·v
+        scale = |z|/|dx|
+        U = [u, v]
+        C = scale * [[cos,          1-cos²       ],
+                     [1-cos², -(1-cos²)*cos]]
 
     Reconstructing ``U @ C @ U.T`` reproduces the dense formula to ordinary
     floating-point roundoff (relative error ~1e-16 in fp64) while allocating
     only O(N) explicit scratch. All returned tensors live on ``H.device`` /
-    ``H.dtype`` so an explicit-CUDA Hessian stays on CUDA.
+    ``H.dtype`` so an explicit-CUDA Hessian stays on CUDA. An exact secant
+    residual or zero step carries no usable update information and returns
+    zero factors instead of evaluating an indeterminate ``0/0``.
     """
     dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)
     dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)
     z = dg - H @ dx
-    zz = _dot(z, z)
-    zdx = _dot(z, dx)
-    dxdx = _dot(dx, dx)
-    mix = (zdx * zdx) / (zz * dxdx)
+    z_norm = torch.linalg.vector_norm(z)
+    dx_norm = torch.linalg.vector_norm(dx)
+    if not bool(torch.isfinite(z_norm)) or not bool(torch.isfinite(dx_norm)):
+        raise ValueError("Bofill update received a non-finite step or secant residual.")
+    if bool(z_norm == 0) or bool(dx_norm == 0):
+        U = torch.zeros((H.shape[0], 2), dtype=H.dtype, device=H.device)
+        C = torch.zeros((2, 2), dtype=H.dtype, device=H.device)
+        return U, C
+
+    u = z / z_norm
+    v = dx / dx_norm
+    cos = torch.clamp(_dot(u, v), min=-1.0, max=1.0)
+    mix = cos * cos
     one_m = 1.0 - mix
-    c00 = mix / zdx
-    c01 = one_m / dxdx
-    c11 = -one_m * zdx / (dxdx * dxdx)
-    U = torch.stack((z, dx), dim=1)  # (n, 2)
+    scale = z_norm / dx_norm
+    c00 = scale * cos
+    c01 = scale * one_m
+    c11 = -scale * one_m * cos
+    U = torch.stack((u, v), dim=1)  # (n, 2)
     row0 = torch.stack((c00, c01))
     row1 = torch.stack((c01, c11))
     C = torch.stack((row0, row1))  # (2, 2), symmetric
@@ -247,12 +262,9 @@ def _bofill_update_cpu_offload(H, dx, dg):
     H_cpu = H.detach().cpu()
     dx_cpu = torch.as_tensor(dx, dtype=H_cpu.dtype).cpu()
     dg_cpu = torch.as_tensor(dg, dtype=H_cpu.dtype).cpu()
-    z = dg_cpu - H_cpu @ dx_cpu
-    sr1 = sr1_update(z, dx_cpu)[0]
-    psb = psb_update(z, dx_cpu)[0]
-    mix = (_dot(z, dx_cpu) ** 2) / (_dot(z, z) * _dot(dx_cpu, dx_cpu))
-    update = mix * sr1 + (1 - mix) * psb
-    del sr1, psb, H_cpu, dx_cpu, dg_cpu, z
+    U, C = bofill_rank2_factors(H_cpu, dx_cpu, dg_cpu)
+    update = U @ (C @ U.t())
+    del U, C, H_cpu, dx_cpu, dg_cpu
     return update.to(dtype=target_dtype, device=target_device), "Bofill"
 
 
@@ -261,11 +273,12 @@ def bofill_update(H, dx, dg):
 
     For torch.Tensor input the update is computed GPU-resident as an
     algebraically-equivalent symmetric rank-two construction (C14):
-    ``dH = U @ C @ U.T`` with ``U = [z, dx]``. This removes the two full-Hessian
-    host transfers and the simultaneous dense SR1/PSB temporaries of the legacy
-    CPU-offload path while keeping every tensor on ``H.device`` (an explicit
-    CUDA Hessian stays on CUDA). ``PYSIS_BOFILL_CPU_OFFLOAD=1`` restores the
-    legacy CPU round-trip as an explicit, logged fallback.
+    ``dH = U @ C @ U.T`` with ``U = [z/||z||, dx/||dx||]``. This removes the
+    two full-Hessian host transfers and the simultaneous dense SR1/PSB
+    temporaries of the legacy CPU-offload path while keeping every tensor on
+    ``H.device`` (an explicit CUDA Hessian stays on CUDA).
+    ``PYSIS_BOFILL_CPU_OFFLOAD=1`` restores the CPU round-trip as an explicit,
+    logged fallback.
     """
     if isinstance(H, torch.Tensor):
         if bofill_cpu_offload_enabled():
@@ -275,26 +288,59 @@ def bofill_update(H, dx, dg):
         dH = U @ (C @ U.t())
         return dH, "Bofill"
 
+    H = np.asarray(H)
+    dx = np.asarray(dx, dtype=H.dtype)
+    dg = np.asarray(dg, dtype=H.dtype)
     z = dg - H @ dx
-    sr1 = sr1_update(z, dx)[0]
-    psb = psb_update(z, dx)[0]
-    mix = (_dot(z, dx) ** 2) / (_dot(z, z) * _dot(dx, dx))
-    update = mix * sr1 + (1 - mix) * psb
+    z_norm = np.linalg.norm(z)
+    dx_norm = np.linalg.norm(dx)
+    if not np.isfinite(z_norm) or not np.isfinite(dx_norm):
+        raise ValueError("Bofill update received a non-finite step or secant residual.")
+    if z_norm == 0.0 or dx_norm == 0.0:
+        return np.zeros_like(H), "Bofill"
+    u = z / z_norm
+    v = dx / dx_norm
+    cos = np.clip(_dot(u, v), -1.0, 1.0)
+    one_m = 1.0 - cos * cos
+    scale = z_norm / dx_norm
+    U = np.column_stack((u, v))
+    C = scale * np.array(
+        ((cos, one_m), (one_m, -one_m * cos)),
+        dtype=H.dtype,
+    )
+    update = U @ C @ U.T
     return update, "Bofill"
+
+
+def _ts_update_inputs(H, dx, dg):
+    """Return one backend-consistent Hessian/secant triple."""
+    if isinstance(H, torch.Tensor):
+        return (
+            torch,
+            H,
+            torch.as_tensor(dx, dtype=H.dtype, device=H.device).reshape(-1, 1),
+            torch.as_tensor(dg, dtype=H.dtype, device=H.device).reshape(-1, 1),
+        )
+    H = np.asarray(H)
+    return (
+        np,
+        H,
+        np.asarray(dx, dtype=H.dtype).reshape(-1, 1),
+        np.asarray(dg, dtype=H.dtype).reshape(-1, 1),
+    )
 
 
 def ts_bfgs_update(H, dx, dg):
     """As described in [7]"""
-    dx = dx[:, None]
-    dg = dg[:, None]
+    xp, H, dx, dg = _ts_update_inputs(H, dx, dg)
     j = dg - H @ dx
     jdx = j.T @ dx
     # Diagonalize Hessian, to construct positive definite version of it
-    w, v = np.linalg.eigh(H)
-    Hdx = np.abs(w) * v @ (v.T @ dx)
+    w, v = xp.linalg.eigh(H)
+    Hdx = xp.abs(w) * v @ (v.T @ dx)
     M = dg @ dg.T + Hdx @ Hdx.T
     dxTM = dx.T @ M
-    u = np.linalg.solve(dxTM @ dx, dxTM).T
+    u = xp.linalg.solve(dxTM @ dx, dxTM).T
     juT = j @ u.T
     ts_bfgs_update = juT + juT.T - jdx * u @ u.T
     return ts_bfgs_update, "TS-BFGS"
@@ -304,8 +350,7 @@ def ts_bfgs_update_org(H, dx, dg):
     """Do not use! Implemented as described in the 1998 bofill paper [8].
 
     This does not seem to work too well."""
-    dx = dx[:, None]
-    dg = dg[:, None]
+    xp, H, dx, dg = _ts_update_inputs(H, dx, dg)
     u = dg
     j = H @ dx
     j = u - j
@@ -317,8 +362,8 @@ def ts_bfgs_update_org(H, dx, dg):
     jTj = j.T @ j
     phi = jTdx ** 2 / dxTdx / jTj
     u = phi * dg * dg.T @ dx
-    w, v = np.linalg.eigh(H)
-    u = u + (1 - phi) * np.abs(w) * v @ (v.T @ dx)
+    w, v = xp.linalg.eigh(H)
+    u = u + (1 - phi) * xp.abs(w) * v @ (v.T @ dx)
     u = u / (u.T @ dx)
     juT = j @ u.T
     ts_bfgs_update = juT + juT.T - jTdx * u @ u.T
@@ -333,16 +378,15 @@ def ts_bfgs_update_revised(H, dx, dg):
     looks suspicious as it contains the inverse of a vector?! As also outlined
     in the paper abs(a) is used (|a| in the paper)."""
 
-    dx = dx[:, None]
-    dg = dg[:, None]
+    xp, H, dx, dg = _ts_update_inputs(H, dx, dg)
     dgTdg = dg.T @ dg
     dgTdx = dg.T @ dx
     a = (dgTdg - dg.T @ H @ dx) / (dgTdg * dgTdx)
     a = abs(a)
 
     # Diagonalize Hessian, to construct positive definite version of it
-    w, v = np.linalg.eigh(H)
-    H_pos_dx = np.abs(w) * v @ (v.T @ dx)
+    w, v = xp.linalg.eigh(H)
+    H_pos_dx = xp.abs(w) * v @ (v.T @ dx)
     # Mixing factor
     j = dg - H @ dx
     jTdx = j.T @ dx

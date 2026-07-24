@@ -30,7 +30,7 @@ This skill directory contains ten files; read them in this order:
 | `aimnet2.md` | Installing AIMNet2 |
 | `ambertools.md` | AmberTools (tleap / antechamber) for `mm-parm` |
 | `dft.md` | PySCF + GPU4PySCF (handled separately per `[dft]` extra) |
-| `xtb.md` | xTB point-charge embedding correction (`--embedcharge`) |
+| `xtb.md` | v0.3.3 electronic-embedding retirement and xTB custom-calculator routing |
 ## Install order
 
 1. **Check the env** — see `mlmm-env-detect/SKILL.md` to discover
@@ -40,7 +40,7 @@ This skill directory contains ten files; read them in this order:
 4. **At least one MLIP backend** — start with UMA (`uma.md`); add others
    only as you need them.
 5. **DFT (optional)** — `dft.md`. Skip if you only need MLIP energies.
-6. **xtb (optional)** — `xtb.md`. Skip unless you need the `--embedcharge` xTB point-charge embedding correction.
+6. **xTB** — `xtb.md`. Read only when an old command contains `--embedcharge` or xTB is requested through a custom calculator.
 
 ## Decision tree: which backend?
 
@@ -55,7 +55,7 @@ Need a fast screen across many candidates?
 Working on small organic molecules, no metals?
     └── AIMNet2 (aimnet2.md) — limited element coverage, but light
 
-Need DFT//MLIP/MM refinement?
+Need DFT//MLIP/MM single-point energies?
     └── add dft.md regardless of MLIP choice
 
 Need a non-MLIP engine for the ML region (GFN-xTB / DFTB+ / ORCA / any ASE calc)?
@@ -81,7 +81,7 @@ mlmm sp -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
 - The custom calculator drives the **ML region only**; the MM side keeps its
   usual `hessian_ff` / OpenMM backend and the ONIOM coupling is unchanged.
 - Works on every subcommand (`sp` / `opt` / `tsopt` / `freq` / `irc` /
-  `scan{,2d,3d}` / `path-opt` / `path-search`) **and the `all` pipeline**
+  `scan` / `scan2d` / `scan3d` / `path-opt` / `path-search`) **and the `all` pipeline**
   (propagated via the args-YAML `calc` section). Rename the factory with
   `--calc-factory NAME`. Hessians use the finite-difference path. Full guide:
   `docs/backends.md` (Custom backend section).
@@ -113,7 +113,7 @@ dependencies:
       - --extra-index-url https://download.pytorch.org/whl/<cu_index>
       - torch==2.8.0
       - mlmm-toolkit[orb,aimnet,dft]   # extras: see core.md / per-backend md
-  # xtb (optional, for --embedcharge): install separately via `conda install -c conda-forge xtb`
+  # xTB is not required by the v0.3.3 built-in ML/MM path.
   # since xtb is shipped as a binary, not a PyPI wheel.
 ```
 

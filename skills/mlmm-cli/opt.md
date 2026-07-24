@@ -30,7 +30,7 @@ selection. Most subcommands accept:
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` | **ML-region** charge (not whole-system) |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
@@ -44,7 +44,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `--opt-mode` | str | `grad` | `grad` (L-BFGS) or `hess` (RFO); aliases `lbfgs` / `rfo` and the mlmm-only `light` / `heavy` shortcuts (light = L-BFGS, heavy = RFO with full Hessian) are accepted |
 | `--mm-only` / `--no-mm-only` | flag | `False` | Skip the MLIP component and minimize on the MM force field only. Layers honored as usual; only `--opt-mode grad` supported (microiter auto-off). Useful as a cheap MM pre-relaxation before ML/MM ONIOM opt. |
-| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment used only by `--flatten` PHVA; `legacy-active` is comparison-only |
+| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment used only by `--flatten` PHVA. `legacy-active` is deprecated comparison-only behavior; never use it for pass/HOSP transition-state certification. |
 | `--max-cycles` | int | (live default) | Stop after N cycles; check `OPT_BASE_KW` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_opt/` | Output directory |
@@ -104,7 +104,8 @@ effective rank, Hessian source, and Hessian shape.
   non-collinear frozen anchors; realistic boundaries normally rank 0 and
   all-frozen input is an error. `legacy-active` is an isolated-active
   comparison using the current common kernel; bitwise identity is not
-  guaranteed for rank-degenerate cases.
+  guaranteed for rank-degenerate cases. It is deprecated and must not be used
+  for pass/HOSP transition-state certification.
 - L-BFGS occasionally walks past a saddle on shallow surfaces; if the
   resulting geometry has imaginary frequencies (run `freq` to check),
   re-run with `--opt-mode rfo`.

@@ -32,7 +32,7 @@ accept:
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` | **ML-region** charge (not whole-system); stored as `model_charge` |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
@@ -90,8 +90,9 @@ the path-opt status (`converged` / `not_converged`).
 - Convergence is sensitive to initial endpoint geometries. If
   `not_converged`, try running `mlmm opt` on each endpoint
   first to pre-relax to local minima.
-- For systems with > 200 atoms, GSM's per-node Hessian-free curvature
-  estimation may stall — try `--mep-mode dmf` or relax `--max-nodes`.
+- If one MEP optimizer stalls, compare GSM and DMF on the actual
+  backend/model/system and inspect the path before changing `--max-nodes`.
+  System size alone is not a portable optimizer-selection rule.
 
 ## See also
 

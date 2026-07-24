@@ -6,8 +6,8 @@ Modules:
   ``DFT_KW``, ``MM_BACKEND_KW``, etc.) and B-factor constants.
 - ``utils`` — pure helpers (YAML parse, atom-index parsing, freeze-atom resolution,
   PDB metadata, format helpers, pretty-printers).
-- ``logging`` — ``setup_logging(verbose)`` driven by the ``-v`` / ``-vv`` root flag;
-  configures stdlib logging level (WARNING / INFO / DEBUG).
+- ``logging`` — ``setup_logging(verbose)`` for the per-subcommand
+  ``-v/--verbose LEVEL`` control (0--3); level 3 enables DEBUG records.
 
 Dependency direction (measured): this layer **does not import the L1 (cli) or
 L2 (workflows) layers** — that one-way direction, plus the absence of any import

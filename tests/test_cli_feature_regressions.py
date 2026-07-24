@@ -81,6 +81,14 @@ def test_path_opt_help_shows_fix_ends() -> None:
     assert "--fix-ends" in result.output
 
 
+def test_irc_help_names_the_ml_region_charge() -> None:
+    result = CliRunner().invoke(root_cli, ["irc", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "Net charge of the ML region/model system" in result.output
+    assert "overrides calc.model_charge from YAML" in result.output
+
+
 def test_scan2d_declares_scan_lists_required() -> None:
     """Reject an incomplete scan2d invocation during Click parsing."""
     command = root_cli.get_command(None, "scan2d")
@@ -188,6 +196,35 @@ def test_all_accepts_grouped_and_repeated_scan_stages(
 
     assert result.exit_code == 0, result.output
     assert "scan=yes" in result.output
+
+
+def test_all_rejects_scan_lists_with_multiple_inputs(tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    smoke = repo / "tests" / "smoke"
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "all",
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--scan-lists",
+            "[(1,2,1.8)]",
+            "--detect-layer",
+            "--dry-run",
+            "--out-dir",
+            str(tmp_path / "invalid-mixed-mode"),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--scan-lists requires exactly one input structure" in result.output
 
 
 def test_energy_diagram_rejects_unknown_options() -> None:
@@ -550,6 +587,8 @@ def test_trj2fig_json_records_selected_backend_provenance(
     assert result.exit_code == 0, result.output
     payload = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
     assert payload["energy_source"] == "mlip_recomputed"
+    assert payload["energy_provenance"] == ["mlip-recomputed"]
+    assert payload["energy_unit"] == "hartree"
     assert payload["mlip_backend"] == "orb"
     assert payload["mlip_model"] == "orb-test-model"
     assert payload["mlip_precision"] == "fp64"
@@ -588,11 +627,57 @@ def test_trj2fig_comment_json_does_not_claim_calculator_provenance(
     assert result.exit_code == 0, result.output
     payload = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
     assert payload["energy_source"] == "trajectory_comment"
+    assert payload["energy_provenance"] == ["bare-assumed-Ha"]
+    assert payload["energy_unit"] == "hartree"
     assert payload["mlip_backend"] is None
     assert payload["mlip_model"] is None
     assert payload["mlip_precision"] is None
     assert payload["charge"] is None
     assert payload["multiplicity"] is None
+
+
+def test_trj2fig_rejects_missing_frame_zero_energy_without_outputs(
+    tmp_path: Path,
+) -> None:
+    xyz_path = tmp_path / "missing-frame-zero.xyz"
+    xyz_path.write_text(
+        "1\nframe 0\nH 0.0 0.0 0.0\n"
+        "1\nE=-0.500000 Ha\nH 0.0 0.0 0.1\n",
+        encoding="utf-8",
+    )
+    out_csv = tmp_path / "must-not-exist.csv"
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "trj2fig", "-i", str(xyz_path), "-o", str(out_csv),
+            "--out-json",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "frame 1" in (result.output + str(result.exception))
+    assert not out_csv.exists()
+    assert not (tmp_path / "result.json").exists()
+
+
+def test_trj2fig_reports_out_of_range_reference_without_traceback(
+    tmp_path: Path,
+) -> None:
+    xyz_path = tmp_path / "traj.xyz"
+    xyz_path.write_text(
+        "1\n-0.5\nH 0 0 0\n1\n-0.4\nH 0 0 0.1\n",
+        encoding="utf-8",
+    )
+    out_csv = tmp_path / "energy.csv"
+
+    result = CliRunner().invoke(
+        root_cli,
+        ["trj2fig", "-i", str(xyz_path), "-o", str(out_csv), "-r", "9"],
+    )
+
+    assert result.exit_code != 0
+    assert "Reference index 9 out of range" in result.output
+    assert "Traceback" not in result.output
+    assert not out_csv.exists()
 
 
 def test_trj2fig_json_preserves_same_named_outputs(tmp_path: Path) -> None:

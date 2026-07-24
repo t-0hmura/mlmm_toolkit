@@ -70,28 +70,33 @@ mlmm oniom-export --parm enzyme.parm7 -i complex_layered.pdb \
 ```
 
 The mode is inferred from the `.inp` suffix; `--mode orca` makes it
-explicit. The exporter calls `orca_mm -convff -AMBER` to convert the
-parm7 to `ORCAFF.prms` if the prms file is missing (controlled by
-`--convert-orcaff`).
+explicit. When the parameter file is missing and `--convert-orcaff` is
+enabled, the exporter attempts `orca_mm -convff -AMBER`. If conversion is
+disabled or `orca_mm` is unavailable, it still writes the `.inp`, reports the
+unresolved parameter path, and leaves conversion as a required step before
+running ORCA.
 
 ## Output
 
-A single text input file the chosen engine can run directly:
+A target-format text input file:
 
 - **g16 `.gjf`/`.com`**: standard Gaussian ONIOM input (with QM + MM
-  partitioning by layer).
-- **ORCA `.inp`** (+ `<parm7_stem>.ORCAFF.prms`): ORCA-style multi-layer
-  block referencing the converted MM force field.
+  partitioning by layer). PDB input adds an atom-order identity marker.
+- **ORCA `.inp`**: ORCA-style multi-layer block referencing
+  `<parm7_stem>.ORCAFF.prms`; that parameter file is reused or conditionally
+  generated when conversion is available. PDB input adds the same identity
+  marker as a comment.
 
 ## Caveats
 
 - The QM-region selection comes from `--model-pdb` if provided, else
   from the input PDB's layer B-factors (B-factor=0 marks the ML/QM region).
 - Multiplicity defaults to `1`; specify explicitly for radicals.
-- For ORCA, `--orcaff` is required when the prms file does not yet
-  exist and `--convert-orcaff` is disabled.
-- Round-trip (`oniom-export` → `oniom-import`) loses information when rebuilding atom numbering, chains, and residues; pass `--ref-pdb` on import
-  to recover names.
+- A missing ORCAFF file does not prevent input export, but the resulting
+  `.inp` cannot run until the reported parameter path is populated.
+- Pass the original `--ref-pdb` on import to recover atom numbering, chains,
+  residues, and atom names. The embedded digest verifies its atom order;
+  mismatches fail even when the legacy-order override is requested.
 
 ## See also
 

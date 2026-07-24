@@ -206,6 +206,14 @@ def _finalize_surface_and_plot(
             def _eligible_min_plot() -> float:
                 if not _elig_df_plot.empty:
                     return float(_elig_df_plot["energy_hartree"].min())
+                if write_surface_csv:
+                    click.echo(
+                        "No converged finite grid point with a written "
+                        "geometry is available; relative energies and "
+                        "interpolation are disabled.",
+                        err=True,
+                    )
+                    return float("nan")
                 return float(df["energy_hartree"].min())
         else:
             _seed_ok_plot = None
@@ -252,6 +260,10 @@ def _finalize_surface_and_plot(
         & np.isfinite(d3_points)
         & np.isfinite(z_points)
     )
+    if write_surface_csv:
+        mask &= np.asarray(
+            seed_eligible_mask(df.to_dict("records")), dtype=bool,
+        )
     if not np.any(mask):
         click.echo("[plot] No finite data for plotting.", err=True)
         sys.exit(1)
@@ -459,8 +471,9 @@ def _finalize_surface_and_plot(
 @click.option("-q", "--charge", type=int, required=False,
               help="ML-region total charge. Required unless --ligand-charge is provided.")
 @click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
-              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
-                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
+              help="Total charge for unknown ligand residues or a per-resname mapping "
+                   "(e.g., GPP:-3,SAM:1), used to derive the ML-region charge when -q "
+                   "is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -551,7 +564,7 @@ def _finalize_surface_and_plot(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -559,8 +572,7 @@ def _finalize_surface_and_plot(
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method",
@@ -576,7 +588,7 @@ def _finalize_surface_and_plot(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -662,6 +674,10 @@ def cli(
         override_yaml=None,
         args_yaml_legacy=None,
     )
+    yaml_cfg, _, _ = load_merged_yaml_cfg(
+        config_yaml=config_yaml,
+        override_yaml=None,
+    )
 
     if csv_path is not None:
         final_dir = Path(out_dir).resolve()
@@ -733,6 +749,10 @@ def cli(
             charge, spin = resolve_charge_spin_or_raise(
                 prepared_input, charge, spin,
                 ligand_charge=ligand_charge, prefix="[scan3d]",
+                model_pdb=model_pdb,
+                model_indices_spec=model_indices_str,
+                detect_layer=detect_layer,
+                yaml_cfg=yaml_cfg,
             )
 
             try:
@@ -748,11 +768,6 @@ def cli(
                 except click.BadParameter as exc:
                     click.echo(f"ERROR: {exc}", err=True)
                     sys.exit(1)
-
-            yaml_cfg, _, _ = load_merged_yaml_cfg(
-                config_yaml=config_yaml,
-                override_yaml=None,
-            )
 
             geom_cfg = dict(GEOM_KW)
             calc_cfg = dict(CALC_KW)
@@ -826,6 +841,13 @@ def cli(
                 calc_cfg["mm_backend"] = str(mm_backend).lower()
             if use_cmap is not None:
                 calc_cfg["use_cmap"] = use_cmap
+
+            from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+            reject_retired_embedcharge_cli(
+                calc_cfg,
+                cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+            )
 
             try:
                 model_pdb_path, layer_info = resolve_ml_layer_assignment(
@@ -1032,12 +1054,14 @@ def cli(
                 d2_ref_tag = distance_tag(d2_ref)
                 d3_ref_tag = distance_tag(d3_ref)
                 preopt_xyz_path = grid_dir / f"preopt_i{d1_ref_tag}_j{d2_ref_tag}_k{d3_ref_tag}.xyz"
+                preopt_artifact_written = False
                 try:
                     xyz_pre = geom_outer.as_xyz()
                     if not xyz_pre.endswith("\n"):
                         xyz_pre += "\n"
                     with open(preopt_xyz_path, "w") as handle:
                         handle.write(xyz_pre)
+                    preopt_artifact_written = True
 
                     convert_and_annotate_xyz_to_pdb(
                         preopt_xyz_path,
@@ -1063,7 +1087,7 @@ def cli(
                         "d3_A": float(d3_ref),
                         "energy_hartree": preopt_energy_h,
                         "bias_converged": _preopt_conv,
-                        "artifact_written": True,
+                        "artifact_written": preopt_artifact_written,
                         "is_preopt": True,
                     }
                 )
@@ -1114,6 +1138,7 @@ def cli(
 
                 biased.set_pairs([(i1, j1, float(d1_target))])
                 geom_outer_i.set_calculator(biased)
+                geom_outer_start = _snapshot_geometry(geom_outer_i)
 
                 opt1 = _make_lbfgs(
                     geom_outer_i,
@@ -1123,15 +1148,24 @@ def cli(
                     out_dir=tmp_opt_dir,
                     prefix=f"d1_{d1_tag}",
                 )
+                d1_converged = None
                 try:
                     opt1.run()
+                    d1_converged = optimizer_converged_bit(opt1)
                 except ZeroStepLength:
                     click.echo(f"[d1 {i_idx}] ZeroStepLength — continuing to d2/d3 scan.", err=True)
+                    d1_converged = optimizer_converged_bit(opt1)
                 except OptimizationError as exc:
                     click.echo(f"[d1 {i_idx}] OptimizationError — {exc}", err=True)
+                    d1_converged = False
 
-                geom_after_d1 = _snapshot_geometry(geom_outer_i)
-                d1_geoms[i_idx] = geom_after_d1
+                if d1_converged is True and np.isfinite(
+                    np.asarray(geom_outer_i.coords3d, dtype=float)
+                ).all():
+                    geom_after_d1 = _snapshot_geometry(geom_outer_i)
+                    d1_geoms[i_idx] = geom_after_d1
+                else:
+                    geom_after_d1 = _snapshot_geometry(geom_outer_start)
 
                 if i_idx not in d2_geoms:
                     d2_geoms[i_idx] = {}
@@ -1156,6 +1190,7 @@ def cli(
                         (i2, j2, float(d2_target)),
                     ])
                     geom_mid.set_calculator(biased)
+                    geom_mid_start = _snapshot_geometry(geom_mid)
 
                     opt2 = _make_lbfgs(
                         geom_mid,
@@ -1165,15 +1200,24 @@ def cli(
                         out_dir=tmp_opt_dir,
                         prefix=f"d1_{d1_tag}_d2_{d2_tag}",
                     )
+                    d2_converged = None
                     try:
                         opt2.run()
+                        d2_converged = optimizer_converged_bit(opt2)
                     except ZeroStepLength:
                         click.echo(f"[d1 {i_idx}, d2 {j_idx}] ZeroStepLength — continuing to d3 scan.", err=True)
+                        d2_converged = optimizer_converged_bit(opt2)
                     except OptimizationError as exc:
                         click.echo(f"[d1 {i_idx}, d2 {j_idx}] OptimizationError — {exc}", err=True)
+                        d2_converged = False
 
-                    geom_after_d2 = _snapshot_geometry(geom_mid)
-                    d2_store[j_idx] = geom_after_d2
+                    if d2_converged is True and np.isfinite(
+                        np.asarray(geom_mid.coords3d, dtype=float)
+                    ).all():
+                        geom_after_d2 = _snapshot_geometry(geom_mid)
+                        d2_store[j_idx] = geom_after_d2
+                    else:
+                        geom_after_d2 = _snapshot_geometry(geom_mid_start)
 
                     key_ij = (i_idx, j_idx)
                     if key_ij not in d3_geoms:
@@ -1314,23 +1358,35 @@ def cli(
 
             if out_json:
                 from mlmm.core.utils import write_result_json
+                grid_records = (
+                    [
+                        rec
+                        for rec in records
+                        if not bool(rec.get("is_preopt", False))
+                    ]
+                    if csv_path is None
+                    else []
+                )
                 # M48: the reported minimum comes ONLY from seed-eligible points
                 # (converged + finite); a failed point with a numerically lower
                 # energy must never become min_energy_hartree.
-                if not df.empty and "energy_hartree" in df.columns and "bias_converged" in df.columns:
-                    _seed_ok_json = pd.Series(
-                        seed_eligible_mask(df.to_dict("records")), index=df.index
-                    )
-                    if _seed_ok_json.any():
-                        min_energy = float(df.loc[_seed_ok_json, "energy_hartree"].min())
-                    else:
-                        min_energy = None
-                else:
-                    min_energy = None
+                _seed_ok_json = seed_eligible_mask(grid_records)
+                _eligible_grid_energies = [
+                    float(rec["energy_hartree"])
+                    for rec, eligible in zip(grid_records, _seed_ok_json)
+                    if bool(eligible)
+                ]
+                min_energy = (
+                    min(_eligible_grid_energies)
+                    if _eligible_grid_energies
+                    else None
+                )
                 result_data_main: Dict[str, Any] = {
                     "status": "completed",
                     "energy_reference": "bare_mlmm_pes",
-                    "n_grid_points": len(df),
+                    "n_grid_points": (
+                        len(grid_records) if csv_path is None else len(df)
+                    ),
                     "pair1": {"i": int(i1 + 1), "j": int(j1 + 1), "low": float(low1), "high": float(high1)},
                     "pair2": {"i": int(i2 + 1), "j": int(j2 + 1), "low": float(low2), "high": float(high2)},
                     "pair3": {"i": int(i3 + 1), "j": int(j3 + 1), "low": float(low3), "high": float(high3)},
@@ -1351,7 +1407,7 @@ def cli(
                         energy=rec.get("energy_hartree"),
                         artifact_written=bool(rec.get("artifact_written", False)),
                     )
-                    for rec in records
+                    for rec in grid_records
                 ]
                 _sci3, _sci3_reasons = scan_scientific_status(_point_outcomes3)
                 result_data_main["execution_status"] = "completed"

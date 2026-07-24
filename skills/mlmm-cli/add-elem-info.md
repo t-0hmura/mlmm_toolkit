@@ -21,7 +21,8 @@ mlmm add-elem-info -i in.pdb -o out.pdb
 | flag | type | default | description |
 |---|---|---|---|
 | `-i, --input` | path | required | Input PDB |
-| `-o, --out` | path | optional | Output PDB with element column populated. Omit to overwrite the input in place. |
+| `-o, --out` | path | optional | Output PDB. If omitted, writes `<input>_add_elem.pdb`. |
+| `--inplace / --no-inplace` | flag | `no-inplace` | Modify the input file directly instead of writing a derived output. |
 | `--overwrite / --no-overwrite` | flag | `no-overwrite` | Re-infer the element column even when it is already populated. |
 
 ## Examples

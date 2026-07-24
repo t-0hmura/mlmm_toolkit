@@ -408,6 +408,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     root_out_path = Path(root_out) if root_out not in (None, "-") else None
     path_module = payload.get("path_module_dir") or "-"
     pipeline_mode = payload.get("pipeline_mode") or "-"
+    ts_only = pipeline_mode == "tsopt-only"
     charge = payload.get("charge")
     spin = payload.get("spin")
     command = payload.get("command") or payload.get("cli_command")
@@ -490,9 +491,20 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
 
     mep = payload.get("mep", {}) or {}
     diag = mep.get("diagram") or {}
-    lines.append("[1] Global MEP overview")
-    lines.append(f"  Number of MEP images : {mep.get('n_images', '-')}")
-    lines.append(f"  Number of segments   : {mep.get('n_segments', '-')}")
+    lines.append(
+        "[1] Refined TS/IRC overview" if ts_only else "[1] Global MEP overview"
+    )
+    if ts_only:
+        lines.append(
+            f"  Number of IRC frames : "
+            f"{payload.get('n_images', mep.get('n_images', '-'))}"
+        )
+    else:
+        lines.append(f"  Number of MEP images : {mep.get('n_images', '-')}")
+    lines.append(
+        f"  Number of segments   : "
+        f"{payload.get('n_segments', mep.get('n_segments', '-')) if ts_only else mep.get('n_segments', '-')}"
+    )
     if mep.get("traj_pdb"):
         lines.append(
             f"  MEP trajectory (PDB) : {_shorten_path(mep.get('traj_pdb'), root_out_path)}"
@@ -502,7 +514,11 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             f"  MEP energy plot      : {_shorten_path(mep.get('mep_plot'), root_out_path)}"
         )
     lines.append("")
-    lines.append(f"  MEP energy diagram ({delta}E, kcal/mol)")
+    lines.append(
+        f"  Refined TS/endpoint energy diagram ({delta}E, kcal/mol)"
+        if ts_only
+        else f"  MEP energy diagram ({delta}E, kcal/mol)"
+    )
     if diag:
         if diag.get("image"):
             lines.append(
@@ -520,7 +536,11 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
 
     segments: Iterable[Dict[str, Any]] = payload.get("segments", []) or []
     lines.append("")
-    lines.append("[2] Segment-level MEP summary (ML/MM path)")
+    lines.append(
+        "[2] Refined TS/endpoint summary (ML/MM)"
+        if ts_only
+        else "[2] Segment-level MEP summary (ML/MM path)"
+    )
     if segments:
         for seg in segments:
             idx = int(seg.get("index", 0) or 0)
@@ -531,7 +551,11 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             delta_e = seg.get("delta_kcal")
             b_txt = f"{barrier:7.2f}" if barrier is not None else "   n/a"
             d_txt = f"{delta_e:7.2f}" if delta_e is not None else "   n/a"
-            lines.append(f"      {delta}E{dagger} = {b_txt} kcal/mol,  {delta}E = {d_txt} kcal/mol")
+            source = "refined TS - assigned endpoint" if kind == "tsopt" else "MEP"
+            lines.append(
+                f"      {delta}E{dagger} = {b_txt} kcal/mol,  "
+                f"{delta}E = {d_txt} kcal/mol  [{source}]"
+            )
             lines.append("      Bond changes:")
             lines.extend(_format_bond_changes(str(seg.get("bond_changes", ""))))
     else:
@@ -548,10 +572,11 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         )
         entry.setdefault("tag", tag)
         entry.setdefault("kind", kind)
+        prefix = "mlip" if kind == "tsopt" else "mep"
         if seg.get("barrier_kcal") is not None:
-            entry["mep_barrier"] = seg.get("barrier_kcal")
+            entry[f"{prefix}_barrier"] = seg.get("barrier_kcal")
         if seg.get("delta_kcal") is not None:
-            entry["mep_delta"] = seg.get("delta_kcal")
+            entry[f"{prefix}_delta"] = seg.get("delta_kcal")
     lines.append("")
     lines.append("[3] Per-segment post-processing (TSOPT / Thermo / DFT)")
     if post_segments:
@@ -578,7 +603,12 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                 lines, "MLIP energies (TSOPT+IRC)", seg.get("mlip"), root_out_path
             )
             _emit_energy_block(lines, "MLIP Gibbs (thermo)", seg.get("gibbs_mlip"), root_out_path)
-            _emit_energy_block(lines, "DFT single-point", seg.get("dft"), root_out_path)
+            _emit_energy_block(
+                lines,
+                "model-region DFT single-point",
+                seg.get("dft"),
+                root_out_path,
+            )
             _emit_energy_block(
                 lines, "DFT//MLIP/MM Gibbs", seg.get("gibbs_dft_mlip"), root_out_path
             )
@@ -627,11 +657,15 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             (f"MLIP {delta}E  [kcal/mol]", "mlip_delta"),
             (f"MLIP {delta}G{dagger} [kcal/mol]", "gibbs_mlip_barrier"),
             (f"MLIP {delta}G  [kcal/mol]", "gibbs_mlip_delta"),
-            (f"DFT//MLIP/MM {delta}E{dagger} [kcal/mol]", "dft_barrier"),
-            (f"DFT//MLIP/MM {delta}E  [kcal/mol]", "dft_delta"),
+            (f"model-region DFT {delta}E{dagger} [kcal/mol]", "dft_barrier"),
+            (f"model-region DFT {delta}E  [kcal/mol]", "dft_delta"),
             (f"DFT//MLIP/MM {delta}G{dagger} [kcal/mol]", "gibbs_dft_mlip_barrier"),
             (f"DFT//MLIP/MM {delta}G  [kcal/mol]", "gibbs_dft_mlip_delta"),
         ]
+        if ts_only:
+            table_rows = [
+                row for row in table_rows if not row[1].startswith("mep_")
+            ]
         sorted_entries = [segment_entries[k] for k in sorted(segment_entries.keys())]
         headers = [f"{int(e.get('index', 0)):d}({e.get('tag', '-')})" for e in sorted_entries]
         label_width = max(len(label) for label, _ in table_rows) + 2
@@ -691,7 +725,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             (f"MEP {delta}E  [kcal/mol]", "mep"),
             (f"MLIP {delta}E  [kcal/mol]", "mlip"),
             (f"MLIP {delta}G  [kcal/mol]", "gibbs_mlip"),
-            (f"DFT//MLIP/MM {delta}E  [kcal/mol]", "dft"),
+            (f"model-region DFT {delta}E  [kcal/mol]", "dft"),
             (f"DFT//MLIP/MM {delta}G  [kcal/mol]", "gibbs_dft_mlip"),
         ]
 

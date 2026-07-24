@@ -33,7 +33,7 @@ selection. Most subcommands accept:
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB/mmCIF used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` | Net charge; overrides `calc.charge` from YAML |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
@@ -48,8 +48,9 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--max-cycles` | int | 125 | Max IRC steps per branch (forward + backward) |
 | `--step-size` | float | 0.10 (Bohr) | Step in Bohr; maps to `IRC_KW['step_length']` |
 | `--never-stop / --no-never-stop` | bool | off | Ignore energy-rise/plateau stops only; convergence, invalid values, and max cycles remain active |
-| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment: `constrained` or isolated-active comparison `legacy-active` |
-| `--read-hess` | path | — | Identified NPZ from `freq --dump-hess`; geometry, atom order, and active-DOF basis must match |
+| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment. `legacy-active` is deprecated comparison-only behavior; never use it for pass/HOSP transition-state certification. |
+| `--read-hess` | path | — | Identified NPZ from `freq --dump-hess`; geometry, atom order, active-DOF basis, and schema-2 charge/multiplicity must match |
+| `--allow-unverified-hess-state` | bool | off | Permit a schema-1 Hessian whose charge/multiplicity cannot be verified. Requires `--read-hess` and independent state checking; schema-2 mismatches remain fatal. |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_irc/` | Output directory |
@@ -108,8 +109,14 @@ print(d["energy_first_hartree"], d["energy_ts_hartree"], d["energy_last_hartree"
 print(d.get("bond_changes"))       # directed first -> last; may be omitted
 print(d["status"])                  # "completed" (success path only; errors emit a separate error JSON)
 print(d["never_stop"], d["never_stop_energy_bypasses"])
+print(d["rigid_projection"]["electronic_state_verified"])  # False only for an opted-in schema-1 handoff
 print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
 ```
+
+Schema-2 Hessian handoffs fail closed on model charge or multiplicity
+mismatch. Schema-1 files can be used only with
+`--allow-unverified-hess-state`; this bypasses missing identity metadata, not a
+known mismatch.
 
 Standalone IRC does not know which endpoint is the chemical reactant or
 product. Read `energy_first_hartree` / `energy_last_hartree`; the older
@@ -123,7 +130,9 @@ that leave frozen anchors fixed. Generic ranks are 6/3/1/0 for
 zero/one/two/at least three non-collinear anchors, and realistic ML/MM
 boundaries normally have rank 0. All-frozen input is an explicit error.
 `legacy-active` is an isolated-active comparison treatment using the current
-common kernel; bitwise identity is not guaranteed for rank-degenerate cases. `result.json` records the
+common kernel; bitwise identity is not guaranteed for rank-degenerate cases.
+It is deprecated and must not be used for pass/HOSP transition-state
+certification. `result.json` records the
 treatment, effective rank, initial-Hessian source, and Hessian shape.
 
 ## Forward / backward endpoints

@@ -1256,6 +1256,7 @@ def compute_charge_summary(structure,
     unknown_fids: List[Tuple] = []
     unknown_substrate_fids: List[Tuple] = []
     ion_entries: List[Tuple[str, float]] = []
+    selected_ion_charges: Dict[str, float] = {}
 
     for fid in fids_in_order:
         res = structure[fid[1]][fid[2]].child_dict[fid[3]]
@@ -1287,6 +1288,7 @@ def compute_charge_summary(structure,
         elif rn in ION:
             q = float(ION[rn])
             ion_entries.append((_fmt_fid(structure, fid), q))
+            selected_ion_charges[rn] = q
         else:
             q = 0.0
             unknown_fids.append(fid)
@@ -1324,6 +1326,11 @@ def compute_charge_summary(structure,
                 key = _residue_key_from_fid(structure, fid)
                 per_map[key] = float(mapping_spec[rn])
                 matched_resnames.add(rn)
+        matched_resnames.update(
+            rn
+            for rn, q in selected_ion_charges.items()
+            if rn in mapping_spec and abs(float(mapping_spec[rn]) - q) <= 1e-9
+        )
         unmatched_resnames = sorted(set(mapping_spec) - matched_resnames)
         if unmatched_resnames:
             _echo_warning(
@@ -1509,10 +1516,8 @@ def _disulfide_partner_keys(structure, candidate_keys: Set[ResidueKey],
 
 def _assert_atom_ordering_identical(structs: List[PDB.Structure.Structure]):
     """
-    Light consistency check across inputs:
-    - Enforce identical atom counts.
-    - Spot‑check ordering at the beginning and end of the atom list; if mismatched there (and overall lists differ),
-      raise an error.
+    Enforce identical atom counts and compare every ordered atom identity
+    across all input structures.
     """
     def signature(st: PDB.Structure.Structure) -> List[str]:
         sig: List[str] = []

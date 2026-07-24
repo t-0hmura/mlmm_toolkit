@@ -164,7 +164,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 **`thermochemistry`** (thermoanalysis 利用不可時は null):
 
-`temperature_K`, `pressure_atm`, `zpe_ha`, `thermal_correction_energy_ha`, `thermal_correction_enthalpy_ha`, `thermal_correction_free_energy_ha`, `sum_EE_and_ZPE_ha`, `sum_EE_and_thermal_energy_ha`, `sum_EE_and_thermal_free_energy_ha`, `E_thermal_cal_per_mol`, `Cv_cal_per_mol_K`, `S_cal_per_mol_K`
+`temperature_K`, `pressure_atm`, `symmetry_number`, `symmetry_number_source`, `zpe_ha`, `thermal_correction_energy_ha`, `thermal_correction_enthalpy_ha`, `thermal_correction_free_energy_ha`, `sum_EE_and_ZPE_ha`, `sum_EE_and_thermal_energy_ha`, `sum_EE_and_thermal_free_energy_ha`, `E_thermal_cal_per_mol`, `Cv_cal_per_mol_K`, `S_cal_per_mol_K`
 
 ### `irc`
 
@@ -180,14 +180,15 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `never_stop` | bool | 任意指定のエネルギー上昇・平坦化回避モードを有効にしたか |
 | `never_stop_energy_bypasses` | int | 実際に回避したエネルギー上昇・平坦化停止イベントの数 |
 | `rigid_projection` | object | 初期/更新Hessianの凍結境界 TR provenance |
+| `rigid_projection.electronic_state_verified` | bool | ファイルから初期化したHessianの model charge・多重度を identity 検証できたか |
 | `bond_changes` | object | 最初→最後の方向の `{formed: [...], broken: [...]}`。比較できない場合は省略 |
 | `bond_changes_direction` | string | 結合変化がある場合は `"finished_first_to_finished_last"` |
 | `files` | object | 軌跡と端点ファイル（XYZと、利用可能なPDB/CIF companion） |
 
 **`rigid_projection` provenance:** 選択した処理は `treatment`、有効 rank は
 `effective_rank` として、アクティブ/凍結原子数・インデックス、および各 workflow が
-使ったHessian source/shape とともに記録します。デフォルトは `constrained`、
-`legacy-active` は isolated-active 比較処理です。`freq --dump` は同じ object を
+使ったHessian source/shape とともに記録します。デフォルトは `constrained`。
+`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用できません。`freq --dump` は同じ object を
 `thermoanalysis.yaml` にも書き出します。最後の 2 値のキー名は生成 workflow により
 `hessian_source` / `hessian_shape` または `source` / `raw_hessian_shape` です。
 
@@ -289,9 +290,10 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `n_segments_reactive` | int | bridge 以外の反応セグメント数。 |
-| `rate_limiting_step` | object | 最大障壁を持つセグメントと method。 |
+| `rate_limiting_step` | object | 互換性のため維持するキー。各段階の始状態を基準にした局所障壁が最大のセグメントと method。microkinetics に基づく律速段階の判定ではない。 |
 | `overall_reaction_energy_kcal` | float | 全体の反応エネルギー。 |
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果。 |
+| `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の回転対称 provenance。有効な `symmetry_number` と `symmetry_number_source` の両方を持つ R/TS/P 状態だけを含み、欠けた状態は省略する。どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
 | `key_output_files` | object | 現在の呼び出しの出力索引。ルートファイルはファイル名 → 説明、各 `seg_NN` は `{description, files}` で、`files` はそのセグメントディレクトリからの相対パス。 |
 | `current_output_paths` | string[] | `--out-dir` からの相対パスを並べたリスト。現在の呼び出しが記録した成果物だけを含みます。 |
 

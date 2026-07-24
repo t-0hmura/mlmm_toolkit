@@ -721,6 +721,7 @@ class HessianOptimizer(Optimizer):
             # Free old Hessian from GPU before recalculating
             H_old = self.H
             self.H = None
+            self.cur_H = None
             del H_old
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()

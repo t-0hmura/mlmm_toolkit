@@ -24,15 +24,15 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 
 ## 処理の流れ
 
-1. **トポロジー + 座標** -- `parm7` と `-i` 座標ファイルを読み込みます（原子順序はトポロジーと一致が必須。`--element-check` が元素配列を検証）。
+1. **トポロジー + 座標** -- `parm7` と `-i` 座標ファイルを読み込みます（原子順序はトポロジーと一致が必須。`--element-check` が元素配列を検証）。PDB/ENT 入力では固定フィールドの原子 identity digest も title/comment に埋め込みます。
 2. **QM 領域** -- `--model-pdb` で QM（ML 領域）原子を定義し、`--near` で可動/活性 MM のカットオフ（Å）を設定します。
 3. **リンク原子** -- 切断された QM/MM 結合ごとに配置されます。`--link-atom-method scaled`（デフォルト）は Morokuma/Dapprich の g-factor（`MLMMCore` ランタイムと一致）、`fixed` は固定 1.09/1.01 Å を使用します。
-4. **書き出し** -- `-o` に対象形式の入力ファイルを出力します。ORCA モードでは `ORCAFF.prms` のパスを特定します（`--convert-orcaff` が有効なら Amber から `orca_mm -convff -AMBER` で自動変換）。
+4. **書き出し** -- `-o` に対象形式の入力ファイルを出力します。ORCA モードでは `ORCAFF.prms` のパスも特定します。`--convert-orcaff` が有効なら `orca_mm -convff -AMBER` による変換を試みます。変換が無効または利用不能でも `.inp` は書き出され、ORCA 実行前に用意すべきパラメータパスを報告します。
 
 ## 出力
 
 - `<output>.{gjf,com}`（g16）または `<output>.inp`（ORCA） -- QM/MM 入力ファイル
-- ORCA モードでは出力ディレクトリの `<parm7_stem>.ORCAFF.prms`（力場パラメータ）も読み込み/生成します
+- ORCA モードでは `<parm7_stem>.ORCAFF.prms` を参照します。既存ファイルを再利用し、自動変換が有効かつ利用可能な場合だけ生成します
 
 ## CLI オプション
 
@@ -52,7 +52,7 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 | `--nproc INT` | プロセッサ数 | `8` |
 | `--mem TEXT` | メモリ割り当て（g16 モード） | `16GB` |
 | `--total-charge INT` / `--total-mult INT` | 全 QM+MM 系の総電荷/総多重度（ORCA `Charge_Total` / `Mult_Total`） | トポロジー由来 / `--multiplicity` と同じ |
-| `--orcaff PATH` | `ORCAFF.prms` のパス（ORCA モード）。未指定時は出力ディレクトリに生成 | _None_ |
+| `--orcaff PATH` | `ORCAFF.prms` のパス（ORCA モード）。未指定時は派生パスを参照し、条件を満たす場合に自動生成を試行 | _None_ |
 | `--convert-orcaff / --no-convert-orcaff` | `ORCAFF.prms` 欠損時に `orca_mm -convff -AMBER` で自動変換（ORCA モード） | `True` |
 | `--element-check / --no-element-check` | `--input` の元素配列を parm7 トポロジーと照合 | `True` |
 | `--link-atom-method [scaled\|fixed]` | リンク H 配置: `scaled`（g-factor、ランタイム一致）または `fixed`（1.09/1.01 Å） | `scaled` |
@@ -65,6 +65,10 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
   - `.gjf` / `.com` -> `g16`
   - `.inp` -> `orca`
 - `--mode` 未指定かつ `-o` が未知拡張子の場合はエラーになります。
+- PDB/ENT 入力では `MLMM_REF_PDB_ORDER_V1_SHA256=<digest>` を埋め込みます。
+  座標・occupancy・B-factor は除外し、固定フィールドの原子名・残基・chain・
+  insertion code・元素 identity を対象にします。`oniom-import --ref-pdb` は
+  positional metadata を復元する前にこの marker を検証します。
 
 ## 関連項目
 

@@ -127,6 +127,16 @@ def test_parse_ligand_charge_option_rejects_bad_mapping_token():
         _parse_ligand_charge_option("GPP")
 
 
+@pytest.mark.parametrize("value", ["HEM", "HEM=x", "HEM=0"])
+def test_parse_ligand_mult_rejects_bad_mapping_as_click_error(value):
+    import click
+
+    from mlmm.workflows.mm_parm import parse_ligand_mult
+
+    with pytest.raises(click.BadParameter, match="ligand-mult"):
+        parse_ligand_mult(value)
+
+
 def test_parse_res_tokens_rejects_empty_specification():
     from mlmm.workflows.extract import _parse_res_tokens
 
@@ -134,3 +144,27 @@ def test_parse_res_tokens_rejects_empty_specification():
     # catches this for the ID-vs-name dispatch fallback.
     with pytest.raises(ValueError, match="Empty -c/--center"):
         _parse_res_tokens("   ")
+
+
+def test_bond_summary_reports_positional_and_malformed_input_cleanly(
+    tmp_path: Path,
+):
+    from click.testing import CliRunner
+
+    from mlmm.cli import cli as root_cli
+
+    one = tmp_path / "one.xyz"
+    one.write_text("1\nframe\nH 0 0 0\n", encoding="utf-8")
+    too_few = CliRunner().invoke(root_cli, ["bond-summary", str(one)])
+    assert too_few.exit_code != 0
+    assert "Invalid value for inputs" in too_few.output
+    assert "'-i'" not in too_few.output
+
+    broken = tmp_path / "broken.xyz"
+    broken.write_text("not an xyz\n", encoding="utf-8")
+    malformed = CliRunner().invoke(
+        root_cli, ["bond-summary", str(one), str(broken)]
+    )
+    assert malformed.exit_code != 0
+    assert "Could not read structure" in malformed.output
+    assert "Traceback" not in malformed.output

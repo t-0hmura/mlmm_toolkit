@@ -353,17 +353,19 @@ def seed_eligible_mask(
 ) -> List[bool]:
     """Boolean mask over scan ``records`` marking seed-eligible rows.
 
-    A row is eligible only when its recorded convergence bit is exactly ``True``
-    and its energy is finite.  Legacy CSV records without a convergence column
-    are treated as ineligible-by-policy (their ``converged_key`` is absent), so a
-    consumer must decide eligibility explicitly rather than inheriting a silent
-    ``True``.
+    A row is eligible only when its recorded convergence bit is exactly
+    ``True``, its energy is finite, and its geometry artifact was written.
+    Legacy rows lacking any of these provenance fields are ineligible.
     """
 
     mask: List[bool] = []
     for rec in records:
         conv = rec.get(converged_key)
-        mask.append(_is_true(conv) and _finite(rec.get(energy_key)))
+        mask.append(
+            _is_true(conv)
+            and _finite(rec.get(energy_key))
+            and _is_true(rec.get("artifact_written"))
+        )
     return mask
 
 

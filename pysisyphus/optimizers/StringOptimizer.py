@@ -76,8 +76,9 @@ class StringOptimizer(Optimizer):
 
         fully_grown = self.geometry.fully_grown
         full_stop = fully_grown and (self.stop_in == 0)
-        # full_stop will take precedence when True.
-        return full_stop or (fully_grown and converged), conv_info
+        if full_stop and not converged:
+            self.request_stop("full-string cycle budget exhausted")
+        return fully_grown and converged, conv_info
 
     def optimize(self):
         new_image_inds = self.geometry.new_image_inds

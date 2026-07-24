@@ -10,7 +10,6 @@ For detailed documentation, see: docs/trj2fig.md
 from __future__ import annotations
 
 import csv
-import re
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
@@ -20,6 +19,7 @@ import plotly.graph_objs as go
 from ase import Atoms
 from ase.io import read
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
+from mlmm.io.xyz_trajectory import read_xyz_trajectory
 
 AXIS_WIDTH = 3         # axis and tick thickness
 FONT_SIZE = 18         # tick-label font size
@@ -29,37 +29,9 @@ MARKER_SIZE = 6        # marker size
 
 
 def read_energies_xyz(fname: Path | str) -> List[float]:
-    """
-    Extract Hartree energies from the second-line comment of each XYZ frame.
-    """
-    energies: List[float] = []
-    with open(fname, encoding="utf-8") as fh:
-        while (hdr := fh.readline()):
-            try:
-                nat = int(hdr.strip())
-            except ValueError:  # reached a non-XYZ header
-                break
-            comment = fh.readline().strip()
-            # Require a genuine floating-point energy (decimal point or
-            # scientific exponent). A bare integer is almost never a QM/MM
-            # energy in Hartree and is typically a frame index from comments
-            # like "frame 0 1.R" — matching it silently fabricated a
-            # 0,1,2,... ramp. Refuse instead of inventing energies.
-            m = re.search(r"(-?\d+\.\d+(?:[eE][-+]?\d+)?|-?\d+[eE][-+]?\d+)", comment)
-            if not m:
-                raise RuntimeError(
-                    f"No parseable energy in XYZ comment: {comment!r}. "
-                    f"trj2fig reads the Hartree energy from each frame's "
-                    f"comment line; if the trajectory has no energies, "
-                    f"recompute them (e.g. via the relevant subcommand with "
-                    f"a charge) rather than plotting frame indices."
-                )
-            energies.append(float(m.group(1)))
-            for _ in range(nat):  # skip coordinates
-                fh.readline()
-    if not energies:
-        raise RuntimeError(f"No energy data in {fname}")
-    return energies
+    """Extract Hartree energies with the strict shared XYZ parser."""
+    parsed = read_xyz_trajectory(fname, require_energies=True)
+    return [float(value) for value in parsed["energies_ha"]]
 
 
 def recompute_energies(
@@ -191,7 +163,7 @@ def _resolve_reference_index(
     # integer index
     idx = int(ref_spec)
     if idx < 0 or idx >= n_frames:
-        raise IndexError(f"Reference index {idx} out of range (0..{n_frames-1}).")
+        raise ValueError(f"Reference index {idx} out of range (0..{n_frames-1}).")
     return idx, True
 
 
@@ -338,7 +310,9 @@ def run_trj2fig(
 
     recomputed = charge is not None or multiplicity is not None
     if not recomputed:
-        energies = read_energies_xyz(traj)
+        parsed = read_xyz_trajectory(traj, require_energies=True)
+        energies = [float(value) for value in parsed["energies_ha"]]
+        energy_provenance = list(parsed["energy_provenance"])
         provenance = {
             "mlip_backend": None,
             "mlip_model": None,
@@ -364,6 +338,7 @@ def run_trj2fig(
             backend_model=backend_model,
             precision=precision,
         )
+        energy_provenance = ["mlip-recomputed"] * len(energies)
     values, ylabel, is_delta = transform_series(energies, reference, unit, reverse_x)
 
     need_plot = any(Path(o).suffix.lower() != ".csv" for o in outs)
@@ -376,6 +351,8 @@ def run_trj2fig(
         "energies_hartree": energies,
         "out_paths": out_paths,
         "energy_source": "mlip_recomputed" if recomputed else "trajectory_comment",
+        "energy_provenance": energy_provenance,
+        "energy_unit": "hartree",
         "charge": int(charge if charge is not None else 0) if recomputed else None,
         "multiplicity": (
             int(multiplicity if multiplicity is not None else 1)
@@ -407,7 +384,7 @@ def run_trj2fig(
     default=(),                         # default is empty (we inject the fallback later)
     type=click.Path(dir_okay=False, path_type=Path),
     help="Output file(s). You can repeat -o, and/or list extra filenames after options "
-         "(.png/.html/.svg/.pdf/.csv). If nothing is given, defaults to energy.png.",
+         "(.png/.jpg/.jpeg/.html/.svg/.pdf/.csv). If nothing is given, defaults to energy.png.",
 )
 @click.argument(
     "extra_outs",                        # also accept extra filenames provided positionally after options
@@ -491,18 +468,21 @@ def cli(
     if not all_outs:
         # Use the default when nothing is specified
         all_outs = [Path("energy.png")]
-    info = run_trj2fig(
-        input_path,
-        all_outs,
-        unit,
-        reference,
-        reverse_x,
-        charge,
-        multiplicity,
-        backend=backend,
-        backend_model=backend_model,
-        precision=precision,
-    )
+    try:
+        info = run_trj2fig(
+            input_path,
+            all_outs,
+            unit,
+            reference,
+            reverse_x,
+            charge,
+            multiplicity,
+            backend=backend,
+            backend_model=backend_model,
+            precision=precision,
+        )
+    except (ValueError, RuntimeError) as exc:
+        raise click.ClickException(str(exc)) from exc
 
     if out_json:
         from mlmm.core.utils import write_result_json
@@ -516,6 +496,8 @@ def cli(
             "min_energy_hartree": float(min(energies)) if energies else None,
             "max_energy_hartree": float(max(energies)) if energies else None,
             "energy_source": info["energy_source"],
+            "energy_provenance": info["energy_provenance"],
+            "energy_unit": info["energy_unit"],
             "mlip_backend": info["mlip_backend"],
             "mlip_model": info["mlip_model"],
             "mlip_precision": info["mlip_precision"],

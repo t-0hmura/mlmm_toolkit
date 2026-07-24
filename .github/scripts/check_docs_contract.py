@@ -32,6 +32,12 @@ STALE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         re.I,
     ),
      "prebuilt PyTorch wheels do not require a matching local CUDA module"),
+    (re.compile(r"result\.json\.electronic_state_verified"),
+     "IRC electronic-state verification is nested under rigid_projection"),
+    (re.compile(r"ref_order=(?:verified|unique-elements)"),
+     "ONIOM import emits identity-verified or element-verified"),
+    (re.compile(r"FD Hessians \(more VRAM\)", re.I),
+     "Hessian peak memory depends on backend, system, precision, and hardware"),
 )
 
 REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
@@ -41,6 +47,8 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`never_stop_energy_bypasses`",
         "`safeguards`",
         "`hessian_npz`",
+        "`rigid_projection.electronic_state_verified`",
+        "must not be used for\npass/HOSP transition-state certification",
     ),
     Path("docs/ja/json-output.md"): (
         "`mlip_precision`",
@@ -48,6 +56,8 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`never_stop_energy_bypasses`",
         "`safeguards`",
         "`hessian_npz`",
+        "`rigid_projection.electronic_state_verified`",
+        "pass/HOSP 遷移状態認定には使用できません",
     ),
     Path("skills/mlmm-cli/sp.md"): (
         "`mlip_backend`",
@@ -59,6 +69,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`never_stop_energy_bypasses`",
         "active-DOF basis",
         "inserts one underscore",
+        'd["rigid_projection"]["electronic_state_verified"]',
     ),
     Path("skills/mlmm-workflows-output/SKILL.md"): (
         "`mlip_model`",
@@ -93,6 +104,20 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("docs/ja/device-hpc.md"): (
         "g++ -dumpversion",
         "command -v ninja",
+    ),
+    Path("docs/oniom-import.md"): (
+        "`ref_order=identity-verified`, `element-verified`, or `unverified-opt-in`",
+    ),
+    Path("docs/ja/oniom-import.md"): (
+        "`ref_order=identity-verified` / `element-verified` / `unverified-opt-in`",
+    ),
+    Path("docs/irc.md"): (
+        "Net charge of the ML region/model system",
+        '`result.json["rigid_projection"]["electronic_state_verified"]`',
+    ),
+    Path("docs/ja/irc.md"): (
+        "ML 領域/model system の正味電荷",
+        '`result.json["rigid_projection"]["electronic_state_verified"]`',
     ),
     Path("skills/mlmm-hpc/SKILL.md"): (
         "g++ -dumpversion",

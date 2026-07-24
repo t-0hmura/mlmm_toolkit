@@ -554,18 +554,22 @@ def get_dihedral_inds(coords3d, bond_inds, bend_inds, max_deg, logger=None):
                         bend_terminal_bonds_v2 = (
                             set(bond_dict[betb]) - bend_set - bond_set
                         )
-                        set_dihedrals = [
+                        set_dihedrals.extend(
+                            [
                             (terminal, intersecting_atom, betb, betb_v2)
                             for betb_v2 in bend_terminal_bonds_v2
-                        ]
+                            ]
+                        )
                     for botb in bond_terminal_bonds:
                         bond_terminal_bonds_v2 = (
                             set(bond_dict[botb]) - bend_set - bond_set
                         )
-                        set_dihedrals = [
+                        set_dihedrals.extend(
+                            [
                             (bend_terminal, intersecting_atom, botb, botb_v2)
                             for botb_v2 in bond_terminal_bonds_v2
-                        ]
+                            ]
+                        )
             elif intersecting_atom == bend[0]:
                 set_dihedrals = [[terminal] + list(bend)]
             else:

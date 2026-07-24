@@ -15,6 +15,31 @@ from pysisyphus.tsoptimizers.TSHessianOptimizer import TSHessianOptimizer
 
 
 class RSPRFOptimizer(TSHessianOptimizer):
+    @staticmethod
+    def _partition_dstep2_dalpha(alpha, eigval, step, eigvals, gradient):
+        """Derivative of a partitioned squared RFO step (Besalú Eq. 18)."""
+        step2 = float(np.dot(step, step))
+        denom = (eigvals - eigval * alpha) ** 3
+        return (
+            2.0
+            * eigval
+            / (1.0 + step2 * alpha)
+            * np.sum(gradient**2 / denom)
+        )
+
+    def _restrict_final_step(self, step):
+        """Enforce the active-coordinate trust radius on the applied step."""
+        step_norm = float(np.linalg.norm(step))
+        if not np.isfinite(step_norm):
+            raise RuntimeError("RS-P-RFO produced a non-finite step.")
+        if step_norm > self.trust_radius * (1.0 + 1e-12):
+            self.log(
+                "RS-P-RFO did not obtain an in-radius full displacement; "
+                "applying a trust-radius fallback."
+            )
+            step = step * (self.trust_radius / step_norm)
+        return step
+
     def optimize(self):
         energy, gradient, H, eigvals, eigvecs, resetted = self.housekeeping()
         self.update_ts_mode(eigvals, eigvecs)
@@ -75,6 +100,7 @@ class RSPRFOptimizer(TSHessianOptimizer):
         """
 
         alpha = self.alpha0
+        restricted = False
         for mu in range(self.max_micro_cycles):
             self.log(f"RS-PRFO micro cycle {mu:02d}, alpha={alpha:.6f}")
 
@@ -148,47 +174,54 @@ class RSPRFOptimizer(TSHessianOptimizer):
                     f"Micro-cycles converged in cycle {mu:02d} with "
                     f"alpha={alpha:.6f}!"
                 )
+                restricted = True
                 break
 
-            # Derivative of the squared step w.r.t. alpha
-            # max subspace
-            dstep2_dalpha_max = (
-                2
-                * eigval_max
-                / (1 + step_max.dot(step_max) ** 2 * alpha)
-                * np.sum(
-                    gradient_trans[max_indices] ** 2
-                    / (eigvals[max_indices] - eigval_max * alpha) ** 3
-                )
+            # Derivative of the squared step w.r.t. alpha for both
+            # partitioned subspaces (Besalú and Bofill, Eq. 18).
+            dstep2_dalpha_max = self._partition_dstep2_dalpha(
+                alpha,
+                eigval_max,
+                step_max,
+                eigvals[max_indices],
+                gradient_trans[max_indices],
             )
-            # min subspace
-            dstep2_dalpha_min = (
-                2
-                * eigval_min
-                / (1 + step_min.dot(step_min) * alpha)
-                * np.sum(
-                    gradient_trans[min_indices] ** 2
-                    / (eigvals[min_indices] - eigval_min * alpha) ** 3
-                )
+            dstep2_dalpha_min = self._partition_dstep2_dalpha(
+                alpha,
+                eigval_min,
+                step_min,
+                eigvals[min_indices],
+                gradient_trans[min_indices],
             )
             dstep2_dalpha = dstep2_dalpha_max + dstep2_dalpha_min
-            # Update alpha
+            if not np.isfinite(dstep2_dalpha) or abs(dstep2_dalpha) <= 1e-14:
+                self.log(
+                    "Stopping RS-P-RFO microcycles because the alpha "
+                    f"derivative is invalid ({dstep2_dalpha})."
+                )
+                break
             alpha_step = (
                 2 * (self.trust_radius * step_norm - step_norm**2) / dstep2_dalpha
             )
-            alpha += alpha_step
+            next_alpha = alpha + alpha_step
+            if not np.isfinite(next_alpha):
+                self.log(
+                    "Stopping RS-P-RFO microcycles because the alpha update "
+                    "is non-finite."
+                )
+                break
+            alpha = max(float(next_alpha), 1e-8)
 
         # Right now the step is still given in the Hessians eigensystem. We
         # transform it back now.
         step += ip_step_trans
         step = eigvecs.dot(step)
-        step_norm = np.linalg.norm(step)
-
-        # With max_micro_cycles = 1 the RS part is disabled and the step
-        # probably isn't scaled correctly in the one micro cycle.
-        # In this case we use a naive scaling if the step is too big.
-        if (self.max_micro_cycles == 1) and (step_norm > self.trust_radius):
-            step = step / step_norm * self.trust_radius
+        if not restricted:
+            self.log(
+                "RS-P-RFO microcycles ended without satisfying the trust "
+                "radius."
+            )
+        step = self._restrict_final_step(step)
         self.log(f"norm(step)={np.linalg.norm(step):.6f}")
 
         # Eq. (6) from [4] seems erronous ... the prediction is usually only ~50%
@@ -197,6 +230,7 @@ class RSPRFOptimizer(TSHessianOptimizer):
         # self.predicted_energy_changes.append(predicted_energy_change)
 
         step = self.apply_saddle_recovery_step(step)
+        step = self._restrict_final_step(step)
         self.predicted_energy_changes.append(self.rfo_model(gradient, as_numpy(self.cur_H), step))
 
         self.log("")

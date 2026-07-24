@@ -562,14 +562,11 @@ python -m pip check
 
 ---
 
-### --embedcharge 使用時に xTB が見つからない
+### 旧コマンドに --embedcharge が含まれる
 
-**症状:** `XTBEmbedError: xTB command not found` が表示される
+**症状:** 電子埋め込みが v0.3.3 では使用できないというエラーが表示される
 
-**対処:** xTB をインストールし、`$PATH` 上にあることを確認します:
-```bash
-conda install -c conda-forge xtb -y
-```
+**対処:** 電子埋め込み関連オプションを削除し、機械的埋め込みで再実行します。
 
 ---
 

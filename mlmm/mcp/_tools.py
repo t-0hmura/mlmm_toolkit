@@ -77,6 +77,12 @@ def _shared_calc_flags(
     use_cmap: Optional[bool] = None,
 ) -> list[str]:
     """Common backend / precision / embedcharge / mm_backend / cmap flags shared by stage runners."""
+    from mlmm.core.embedcharge_policy import validate_retired_embedcharge
+
+    validate_retired_embedcharge(
+        embedcharge=embedcharge,
+        cutoff_requested=embedcharge_cutoff is not None,
+    )
     args: list[str] = []
     if backend:
         args.extend(["-b", str(backend)])
@@ -402,6 +408,9 @@ def register_all(mcp) -> None:
         temperature: Optional[float] = None,
         backend: Optional[str] = None,
         precision: Optional[str] = None,
+        link_atom_method: Optional[str] = None,
+        mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         hessian_calc_mode: Optional[str] = None,
         out_dir: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
@@ -417,10 +426,12 @@ def register_all(mcp) -> None:
             argv.extend(["--temperature", str(temperature)])
         if hessian_calc_mode:
             argv.extend(["--hessian-calc-mode", hessian_calc_mode])
-        if backend:
-            argv.extend(["-b", backend])
-        if precision:
-            argv.extend(["--precision", precision])
+        argv.extend(_shared_calc_flags(
+            backend=backend, precision=precision,
+            embedcharge=None, embedcharge_cutoff=None,
+            link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
+        ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
@@ -528,6 +539,9 @@ def register_all(mcp) -> None:
         precision: Optional[str] = None,
         embedcharge: Optional[bool] = None,
         embedcharge_cutoff: Optional[float] = None,
+        link_atom_method: Optional[str] = None,
+        mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         out_dir: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
@@ -550,7 +564,8 @@ def register_all(mcp) -> None:
         argv.extend(_shared_calc_flags(
             backend=backend, precision=precision,
             embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
-            link_atom_method=None, mm_backend=None,
+            link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
         ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
@@ -575,6 +590,9 @@ def register_all(mcp) -> None:
         thresh: Optional[str] = None,
         backend: Optional[str] = None,
         precision: Optional[str] = None,
+        link_atom_method: Optional[str] = None,
+        mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         out_dir: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
@@ -592,10 +610,12 @@ def register_all(mcp) -> None:
             argv.extend(["--relax-max-cycles", str(relax_max_cycles)])
         if thresh:
             argv.extend(["--thresh", thresh])
-        if backend:
-            argv.extend(["-b", backend])
-        if precision:
-            argv.extend(["--precision", precision])
+        argv.extend(_shared_calc_flags(
+            backend=backend, precision=precision,
+            embedcharge=None, embedcharge_cutoff=None,
+            link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
+        ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
@@ -619,6 +639,9 @@ def register_all(mcp) -> None:
         thresh: Optional[str] = None,
         backend: Optional[str] = None,
         precision: Optional[str] = None,
+        link_atom_method: Optional[str] = None,
+        mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         out_dir: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
@@ -636,10 +659,12 @@ def register_all(mcp) -> None:
             argv.extend(["--relax-max-cycles", str(relax_max_cycles)])
         if thresh:
             argv.extend(["--thresh", thresh])
-        if backend:
-            argv.extend(["-b", backend])
-        if precision:
-            argv.extend(["--precision", precision])
+        argv.extend(_shared_calc_flags(
+            backend=backend, precision=precision,
+            embedcharge=None, embedcharge_cutoff=None,
+            link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
+        ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
@@ -663,6 +688,9 @@ def register_all(mcp) -> None:
         mep_mode: Optional[str] = None,
         backend: Optional[str] = None,
         precision: Optional[str] = None,
+        link_atom_method: Optional[str] = None,
+        mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         out_dir: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
@@ -679,10 +707,12 @@ def register_all(mcp) -> None:
             argv.extend(["--max-cycles", str(max_cycles)])
         if mep_mode:
             argv.extend(["--mep-mode", mep_mode])
-        if backend:
-            argv.extend(["-b", backend])
-        if precision:
-            argv.extend(["--precision", precision])
+        argv.extend(_shared_calc_flags(
+            backend=backend, precision=precision,
+            embedcharge=None, embedcharge_cutoff=None,
+            link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
+        ))
         argv.append("--out-json")
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
@@ -707,6 +737,9 @@ def register_all(mcp) -> None:
         refine_mode: Optional[str] = None,
         backend: Optional[str] = None,
         precision: Optional[str] = None,
+        link_atom_method: Optional[str] = None,
+        mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         out_dir: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
@@ -729,10 +762,12 @@ def register_all(mcp) -> None:
             argv.extend(["--mep-mode", mep_mode])
         if refine_mode:
             argv.extend(["--refine-mode", refine_mode])
-        if backend:
-            argv.extend(["-b", backend])
-        if precision:
-            argv.extend(["--precision", precision])
+        argv.extend(_shared_calc_flags(
+            backend=backend, precision=precision,
+            embedcharge=None, embedcharge_cutoff=None,
+            link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
+        ))
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
         return run_subcmd(
@@ -756,6 +791,9 @@ def register_all(mcp) -> None:
         thresh_post: Optional[str] = None,
         backend: Optional[str] = None,
         precision: Optional[str] = None,
+        link_atom_method: Optional[str] = None,
+        mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         refine_path: Optional[bool] = None,
         do_tsopt: Optional[bool] = None,
         do_dft: Optional[bool] = None,
@@ -789,10 +827,12 @@ def register_all(mcp) -> None:
             argv.extend(["--thresh", thresh])
         if thresh_post:
             argv.extend(["--thresh-post", thresh_post])
-        if backend:
-            argv.extend(["-b", backend])
-        if precision:
-            argv.extend(["--precision", precision])
+        argv.extend(_shared_calc_flags(
+            backend=backend, precision=precision,
+            embedcharge=None, embedcharge_cutoff=None,
+            link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
+        ))
         if refine_path is not None:
             argv.append("--refine-path" if refine_path else "--no-refine-path")
         if do_tsopt is not None:
@@ -818,6 +858,9 @@ def register_all(mcp) -> None:
         *,
         ligand_charge: Optional[str] = None,
         func_basis: Optional[str] = None,
+        link_atom_method: Optional[str] = None,
+        mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         out_dir: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
@@ -834,6 +877,12 @@ def register_all(mcp) -> None:
             argv.extend(["-l", ligand_charge])
         if func_basis:
             argv.extend(["--func-basis", func_basis])
+        argv.extend(_shared_calc_flags(
+            backend=None, precision=None,
+            embedcharge=None, embedcharge_cutoff=None,
+            link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
+        ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)

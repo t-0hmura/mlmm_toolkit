@@ -1,7 +1,6 @@
-"""xTB point-charge embedding correction for ONIOM ML/MM.
+"""Dormant xTB embedding implementation retained for compatibility tests.
 
-The correction term accounts for the electrostatic interaction between
-the ML (QM) region and the MM point charges:
+The historical implementation computes:
 
     dE = E_xTB(QM + MM_charges) - E_xTB(QM_only)
     dF_Q = F_Q(embed) - F_Q(no-embed)
@@ -9,9 +8,10 @@ the ML (QM) region and the MM point charges:
 
 where Q are QM/ML atoms and M are external MM point charges.
 
-Note: this is the **QM/MM electrostatic embedding** correction (MM point
-charges polarise the ML region). The implicit-solvent ALPB correction is a
-separate physics path and is not used here.
+Public activation is rejected in v0.3.3. Adding the term to the subtractive
+mechanical-embedding expression double-counts ML--MM electrostatics, and this
+uncapped xTB model is inconsistent with the link-H high-level model. The
+implicit-solvent ALPB correction is a separate supported physics path.
 """
 
 from __future__ import annotations

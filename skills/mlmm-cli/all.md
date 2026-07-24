@@ -35,8 +35,8 @@ selection. Most subcommands accept:
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
-| `-q, --charge` | Force total system charge (highest priority over derived charges) |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
+| `-q, --charge` | Override the net ML-region/model charge (highest priority) |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
 Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
@@ -48,18 +48,19 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path(s) | required | One or more reaction-ordered structures, or a TS-candidate alone |
 | `-c, --center` | str | (uses input as-is) | Substrate selector: `'RES1,RES2,...'`, PDB path, or `'A:44,B:SAM'` |
 | `-l, --ligand-charge` | str | none | Per-residue charges, e.g. `'SAM:1,GPP:-3'` |
-| `-q, --charge` | int | derived from `-l` | Total cluster charge override |
+| `-q, --charge` | int | derived from `-l` | Net ML-region/model charge override |
 | `-m, --multiplicity` | int | 1 | Spin multiplicity (2S+1) |
 | `-r, --radius` | float | 2.6 | Pocket radius (Å) when `-c` triggers extraction |
 | `--scan-lists` | repeated | none | Staged distance scans (mode 2 — `all-scan-list.md`) |
-| `--tsopt / --no-tsopt` | flag | off | Run TS optimization after the MEP stage (path-opt/path-search) |
+| `--tsopt / --no-tsopt` | flag | off | Run TS optimization after MEP, or enter TS-only mode when exactly one input is supplied without `--scan-lists` |
 | `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
+| `--freq-symmetry-number` | int ≥ 1 | child YAML/default (normally 1) | Use one external rotational symmetry number for every R/TS/P frequency job. Point-group symmetry is not inferred. |
 | `--dft / --no-dft` | flag | off | Run DFT single point on R / TS / P |
 | `--dft-func-basis` | str | `wb97m-v/def2-tzvpd` | DFT functional/basis (when `--dft` is enabled) |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `--precision` | str | backend-specific | Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
-| `--tr-projection` | str | `constrained` | Forward frozen-boundary TR treatment to TSopt, IRC, freq, and flatten PHVA |
+| `--tr-projection` | str | `constrained` | Forward frozen-boundary TR treatment to TSopt, IRC, freq, and flatten PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. |
 | `--irc-step-size` | float | IRC default `0.10` | Forward a smaller EulerPC maximum step; try `0.05` when an IRC branch stops after only a few frames |
 | `--irc-never-stop / --no-irc-never-stop` | flag | off | Ignore only IRC energy-rise/plateau stops; convergence, invalid-value, and cycle-cap stops remain |
 | `-o, --out-dir` | path | `./result_all/` | Top-level output directory |
@@ -74,8 +75,8 @@ between versions).
 ## Mode selection cheatsheet
 
 ```
-Single -i input.{xyz,pdb,cif,mmcif} (no --scan-lists, no extra inputs)
-    └── all-ts-only.md     (treat input as TS candidate; tsopt+irc+freq)
+Single -i input.{xyz,pdb,cif,mmcif} + --tsopt (no --scan-lists)
+    └── all-ts-only.md     (TS candidate; tsopt+IRC, plus freq with --thermo)
 
 Single -i input.pdb + --scan-lists '...'
     └── all-scan-list.md   (single reactant + staged distance scans)
@@ -83,6 +84,8 @@ Single -i input.pdb + --scan-lists '...'
 Multiple -i 1.R.pdb [2.IM.pdb ...] N.P.pdb (reaction-ordered)
     └── all-endpoint-mep.md (multi-endpoint MEP)
 ```
+
+A single input without either `--scan-lists` or `--tsopt` is rejected.
 
 ## Output tree (typical)
 
@@ -123,7 +126,7 @@ d = json.load(open("result_all/summary.json"))
 print(d["status"])                    # "success" / "partial" / "failed"
 print(d["mlmm_toolkit_version"])
 print(d["charge"], d["spin"])
-print(d["rate_limiting_step"])        # which segment is rate-limiting
+print(d["rate_limiting_step"])        # legacy key: highest local segment barrier
 print(len(d["segments"]))             # number of elementary steps
 for seg in d["segments"]:
     print(seg["index"], seg["barrier_kcal"], seg["delta_kcal"])
@@ -142,7 +145,8 @@ frozen anchors fixed. Its generic rank is 6/3/1/0 for 0/1/2/3+
 non-collinear anchors; realistic ML/MM boundaries normally rank 0, and
 all-frozen input is an error. `legacy-active` is an isolated-active comparison
 treatment using the current common kernel; bitwise identity is not guaranteed
-for rank-degenerate cases. When
+for rank-degenerate cases. It is deprecated and must not be used for pass/HOSP
+transition-state certification. When
 stage `result.json`/`thermoanalysis.yaml` artifacts are written, their
 `rigid_projection` block records treatment, rank, Hessian source, and shape.
 This flag is unrelated to the internal `tsopt --ref-mode` MEP tangent.

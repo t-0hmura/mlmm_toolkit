@@ -97,5 +97,4 @@ class Torsion(Primitive):
 
     @staticmethod
     def _jacobian(coords3d, indices):
-        sign = np.sign(Torsion._calculate(coords3d, indices))
-        return sign * d2q_d2(*coords3d[indices].flatten())
+        return d2q_d2(*coords3d[indices].flatten())

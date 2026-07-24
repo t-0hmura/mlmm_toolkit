@@ -28,8 +28,9 @@ Options:
                                   pdb is omitted.
   -q, --charge INTEGER            ML region charge. Required unless --ligand-
                                   charge is provided.
-  -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
-                                  GPP:-3,SAM:1) used to derive charge when -q is
+  -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
+                                  per-resname mapping (e.g., GPP:-3,SAM:1), used
+                                  to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1). Defaults to 1 when
                                   omitted.
@@ -53,11 +54,12 @@ Options:
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
                                   layer.
-  --max-nodes INTEGER             Number of internal nodes (string has
-                                  max_nodes+2 images including endpoints). Used
-                                  for *segment* GSM unless overridden by YAML
-                                  search.max_nodes_segment.  [default: 20]
-  --max-cycles INTEGER            Maximum GSM optimization cycles.  [default:
+  --max-nodes INTEGER             Number of movable internal images per GSM or
+                                  DMF segment (total images = max_nodes + 2
+                                  endpoints); recursive segments may override it
+                                  with YAML search.max_nodes_segment.  [default:
+                                  20]
+  --max-cycles INTEGER            Maximum MEP optimization cycles.  [default:
                                   300]
   --climb / --no-climb            Enable transition-state search after path
                                   growth.  [default: climb]
@@ -95,19 +97,19 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).
   --embedcharge / --no-embedcharge
-                                  Enable xTB point-charge embedding correction
-                                  for MM→ML environmental effects
-                                  (experimental).  [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
-                                  point charges in xTB embedding. Default: 12.0
-                                  Å. Only used when --embedcharge is enabled.
+                                  Unavailable in v0.3.3; retained so older
+                                  commands fail with an actionable diagnostic.
+                                  [default: no-embedcharge]
+  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
+                                  retired electronic-embedding path.
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
   --mm-backend [hessian_ff|openmm]
-                                  MM backend: hessian_ff (analytical Hessian,
-                                  default) or openmm (finite-difference Hessian,
-                                  slower).
+                                  MM backend (default: hessian_ff). MM Hessians
+                                  use finite differences by default; set
+                                  calc.mm_fd: false for the hessian_ff
+                                  analytical path.
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).

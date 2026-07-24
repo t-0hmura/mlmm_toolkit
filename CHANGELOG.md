@@ -28,6 +28,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - **MCP `search_paths` now requires `product_pdb` (keyword-only).** The tool previously
   sent one structure to a CLI that requires at least two. Migration: pass the product
   endpoint explicitly; optional `intermediate_pdbs` are inserted in reaction order.
+- **Retire experimental electronic embedding.** v0.3.3 supports mechanical
+  embedding only. `--embedcharge`, an explicit `--embedcharge-cutoff`, or
+  `calc.embedcharge: true` now fails before calculator allocation because the
+  former correction double-counted ML/MM electrostatics and used an inconsistent
+  uncapped boundary model. Remove those settings and rerun earlier embedding results.
+- **Hessian handoffs now verify electronic state.** `freq --dump-hess` writes
+  schema 2 with model charge and multiplicity. `irc --read-hess` rejects a
+  state mismatch; schema-1 files require explicit
+  `--allow-unverified-hess-state` after independent verification.
+- **ONIOM reference imports now verify atom order.** Exported inputs carry an
+  atom-order digest. `oniom-import --ref-pdb` rejects malformed or mismatched
+  markers; markerless files with repeated elements require
+  `--allow-unverified-ref-order`, which cannot bypass a known mismatch.
 
 ### Added
 - Add an mmCIF/large-PDB bridge (atom-identity–preserving; multi-model input keeps the first model,
@@ -39,10 +52,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   coordinate/topology identity, accepts a separately prepared model, builds workflow-aware
   commands, reaps interrupted jobs, and limits result views/downloads to the current run.
   Its compact Input, Viewer, Options, and Results workspace co-locates workflow
-  selection with a 4:3 molecular view. Exact 3D picks persist as thick element-colored
-  residue sticks with a dark atom halo. The viewer keeps primary-input selections separate
-  from view-only secondary structures, preserves the camera across redraws, focuses newly
-  selected centers with surrounding protein context, and rolls back failed structure
+  selection with a 4:3 molecular view. Exact 3D picks use Mol*'s native focus and
+  selection behavior without rebuilding the viewer. The GUI keeps primary-input
+  selections separate from view-only secondary structures and rolls back failed structure
   switches. Center selectors retain chain and insertion-code identity;
   incompatible secondary views suppress primary selection and measurement overlays.
   Validation follows the exact command and content hashes for every existing-file input
@@ -53,12 +65,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   energies, failures, cancellations, and diagnostic bundles remain explicit.
   The input queue appends uploads as removable rows, keeps water visible on request,
   and derives searchable per-option controls and click-to-open help from the selected
-  live CLI. Key, advanced, and command-line controls remain collapsed until needed.
+  live CLI. Key and advanced controls remain collapsed until needed, while the
+  generated command line stays visible.
 - Add `opt`/`all --reject-uphill/--no-reject-uphill` (default on) to opt out of the
   RFO uphill-rejection safeguard; on `all` it is forwarded to the post-IRC endpoint
   re-optimization child only.
 - Add `all --irc-step-size` so the end-to-end workflow can forward a smaller
   EulerPC step to every post-TS IRC branch.
+- Add `freq --symmetry-number` and `all --freq-symmetry-number` for an explicit
+  external rotational symmetry number. Point-group symmetry is not inferred;
+  the standalone/default child value is 1.
 - Add selectable UMA/ORB/MACE/AIMNet2 frame rescoring to `trj2fig`, with model,
   precision, and machine-readable provenance controls. Comment-energy mode remains
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
@@ -107,14 +123,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   now names the non-destructive output or explicit `--inplace` route.
 - Keep finite-difference Hessian assembly, low-rank Bofill updates, and mass
   scaling device-resident on GPU runs, avoiding per-step host round-trips.
+- Make the `tsopt` Hessian-radius contract explicit: an omitted
+  `--radius-hessian` includes the movable MM atoms required by the default
+  `partial` final-frequency basis, while an explicit narrower cutoff is rejected
+  before optimization unless `--active-dof-mode` requests only evaluated atoms.
+- Make periodic IRC HDF5 trajectory checkpointing opt-in
+  (`irc.dump_every: null` by default). Enabled checkpoints contain coordinates,
+  energies, and gradients, but never a dense Hessian.
 - Honor YAML `opt.thresh`, the `dft` method, and `--func-basis` in `all`: these are
   forwarded to the post-MEP TSOPT and R/P endpoint-optimization children only when set
   explicitly, so a YAML value is no longer clobbered by a hardcoded default. Endpoint
   geometry/energy and DFT numbers change when configured.
 - Build the align/refine and `--no-tsopt` HEI-probe calculators from the resolved
-  calculator template, so `uma_precision`/`uma_model`/`workers`/`cutoff`/
-  `embedcharge_cutoff` (and the YAML `calc` section) now reach them; aligned geometry
-  and HEI energy/barrier move when these are set.
+  calculator template, so `uma_precision`/`uma_model`/`workers`/`cutoff` and
+  supported YAML `calc` settings now reach them; aligned geometry and HEI
+  energy/barrier move when these are set.
 - Skip the BFGS Hessian update when the curvature `s·y ≤ 0` (was applied), and force
   `use_active=False` on internal-coordinate frequency analysis, fixing a partial-Hessian
   index mismatch reachable via `--coord-type` with frozen atoms.
@@ -141,6 +164,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Read the bundled pysisyphus optimizer's legacy comma-delimited Hartree XYZ comments in
+  `trj2fig` and other strict trajectory consumers without treating unrelated
+  numeric comments as energies.
 - Expose the shared `--allow-charge-mult-mismatch` escape hatch on `tsopt`,
   matching the other ML/MM compute commands that run the same ML-region
   electron-parity validation.
@@ -150,6 +176,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Reject unknown options and orphan arguments in legacy grouped-value commands,
   while accepting grouped or repeated path-search inputs and topology references
   consistently in shell and in-process Click invocations.
+- Reject `all --scan-lists` with multiple inputs instead of silently selecting
+  the endpoint-path route and ignoring the staged scan.
 - Honor `tsopt --dump` when the initial microiteration MM relaxation fails closed
   before the first macro step; the combined trajectory now contains that executed
   micro relaxation instead of being absent.
@@ -167,6 +195,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   TS, IRC, frequency, and endpoint optimization.
 - Roll back rejected RFO/L-BFGS state, recover TS searches from `n_imag=0`, and
   keep path-guided flattening explicitly opt-in and mode-safe.
+- Keep interpolated/GDIIS RFO displacements on the reference step's tensor
+  device, preventing a CUDA-to-NumPy conversion failure during Hessian scans.
 - Report a microiterated optimization's real terminal convergence. The macro
   loop's verdict was computed and then dropped, so a converged TS — including one
   whose exact-PHVA validation found a single imaginary mode — was written as
@@ -221,6 +251,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - `key_output_files` now lists only the artifacts claimed by the current
   invocation's run manifest rather than files discovered under the output tree, so a
   reused `-o/--out-dir` no longer reports stale files from an earlier run.
+- Frequency JSON/YAML records `symmetry_number` and
+  `symmetry_number_source`; `all` copies complete child provenance into each
+  post-segment's `thermo_symmetry` map for R/TS/P. IRC result JSON records
+  `electronic_state_verified` for a reused frequency Hessian.
 - The MCP tool-return envelope moved from `schema_version` `1.0` to `1.1`, adding a
   per-invocation `run_id`, a `summary_run_mismatch` status, and a run-id byte check
   (distinct from the summary `schema_version: "2.0"`).

@@ -18,6 +18,17 @@ from pysisyphus.cos.GrowingChainOfStates import GrowingChainOfStates
 
 
 class GrowingString(GrowingChainOfStates):
+    @staticmethod
+    def _reparam_step_fraction(diff, param_dens_diff, thresh):
+        if abs(diff) < thresh:
+            return None
+        if not np.isfinite(param_dens_diff) or param_dens_diff <= 1e-15:
+            raise ValueError(
+                "Cannot reparametrize a string across coincident parameter "
+                "densities."
+            )
+        return abs(diff) / param_dens_diff
+
     def __init__(
         self,
         images,
@@ -306,8 +317,7 @@ class GrowingString(GrowingChainOfStates):
             for j in range(self.max_micro_cycles):
                 diff = (desired_param_density - cur_param_density)[i]
                 self.log(f"\t{j}: Δ={diff: .6f}")
-                # Do at least one pass
-                if (j > 0) and (abs(diff) < thresh):
+                if abs(diff) < thresh:
                     break
                 # Negative sign: image is too far right and has to be shifted left.
                 # Positive sign: image is too far left and has to be shifted right.
@@ -323,7 +333,11 @@ class GrowingString(GrowingChainOfStates):
                 param_dens_diff = abs(
                     cur_param_density[tangent_ind] - cur_param_density[i]
                 )
-                step_length = abs(diff) / param_dens_diff
+                step_length = self._reparam_step_fraction(
+                    diff, param_dens_diff, thresh,
+                )
+                if step_length is None:
+                    break
                 step = step_length * distance
                 reparam_coords = reparam_image.coords + step
                 self.set_coords(reparam_image, reparam_coords)

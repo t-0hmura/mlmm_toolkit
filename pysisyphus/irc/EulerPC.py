@@ -20,10 +20,16 @@ from collections import deque
 
 import numpy as np
 
+from pysisyphus._array import active_square
 from pysisyphus.helpers_pure import rms
 from pysisyphus.irc.DWI import DWI
 from pysisyphus.irc.IRC import IRC
-from pysisyphus.optimizers.hessian_updates import bfgs_update, bofill_update
+from pysisyphus.optimizers.hessian_updates import (
+    bfgs_update,
+    bofill_cpu_offload_enabled,
+    bofill_rank2_factors,
+    bofill_update,
+)
 
 import torch
 
@@ -80,10 +86,13 @@ class EulerPC(IRC):
         mw_grad_act   = self._to_active_vec(mw_grad_full)
         mw_coords_act = self._to_active_vec(self.mw_coords)
 
-        if isinstance(self.mw_hessian, torch.Tensor):
-            self.dwi.update(mw_coords_act, energy, mw_grad_act, self.mw_hessian.detach().clone())
-        else:
-            self.dwi.update(mw_coords_act, energy, mw_grad_act, self.mw_hessian.copy())
+        self.dwi.update(
+            mw_coords_act,
+            energy,
+            mw_grad_act,
+            self.mw_hessian,
+            copy_hessian=True,
+        )
 
         if self.downhill:
             return
@@ -92,9 +101,27 @@ class EulerPC(IRC):
         # and the initially displaced geometry.
         dx = self._to_active_vec(self.mw_coords - self.ts_mw_coords)
         dg = mw_grad_act - self._to_active_vec(self.ts_mw_gradient)
-        dH, key = self.hessian_update_func(self.mw_hessian, dx, dg)
+        key = self._apply_hessian_update(dx, dg)
         self.log(f"Did {key} hessian update.")
-        self.mw_hessian += dH
+
+    def _apply_hessian_update(self, dx, dg):
+        """Apply a quasi-Newton update without retaining a dense temporary."""
+        if (
+            isinstance(self.mw_hessian, torch.Tensor)
+            and self.hessian_update_func is bofill_update
+            and not bofill_cpu_offload_enabled()
+        ):
+            U, C = bofill_rank2_factors(self.mw_hessian, dx, dg)
+            self.mw_hessian.addmm_(U, C @ U.t())
+            return "Bofill"
+
+        dH, key = self.hessian_update_func(self.mw_hessian, dx, dg)
+        if isinstance(self.mw_hessian, torch.Tensor):
+            self.mw_hessian.add_(dH)
+        else:
+            self.mw_hessian += dH
+        del dH
+        return key
 
     def get_integration_length_func(self, init_mw_coords):
         """
@@ -124,7 +151,7 @@ class EulerPC(IRC):
                 H_new = self.geometry.hessian
                 act_n = len(self._act_dofs)
                 if H_new.shape[0] != act_n:
-                    H_new = H_new[self._act_dofs][:, self._act_dofs]
+                    H_new = active_square(H_new, self._act_dofs)
                 _old_mw_hessian = self.mw_hessian
                 self.mw_hessian = None
                 del _old_mw_hessian
@@ -136,24 +163,15 @@ class EulerPC(IRC):
             else:
                 dx = self._to_active_vec(self.mw_coords - self.irc_mw_coords[-2])
                 dg = mw_grad_act - self._to_active_vec(self.irc_mw_gradients[-2])
-                dH, key = self.hessian_update_func(self.mw_hessian, dx, dg)
-                if isinstance(dH, torch.Tensor):
-                    self.mw_hessian.add_(dH)
-                else:
-                    self.mw_hessian += dH
+                key = self._apply_hessian_update(dx, dg)
                 self.log(f"Did {key} hessian update before predictor step.")
-            if isinstance(self.mw_hessian, torch.Tensor):
-                self.dwi.update(
-                    self._to_active_vec(self.mw_coords).copy(),
-                    energy, mw_grad_act,
-                    self.mw_hessian.detach().clone()
-                )
-            else:
-                self.dwi.update(
-                    self._to_active_vec(self.mw_coords).copy(),
-                    energy, mw_grad_act,
-                    self.mw_hessian.copy()
-                )
+            self.dwi.update(
+                self._to_active_vec(self.mw_coords).copy(),
+                energy,
+                mw_grad_act,
+                self.mw_hessian,
+                copy_hessian=True,
+            )
 
         # Create a copy of the inital coordinates for the determination
         # of the actual step size in the predictor Euler integration.
@@ -218,35 +236,39 @@ class EulerPC(IRC):
             euler_step = euler_mw_coords - init_mw_coords
             euler_mw_grad = taylor_gradient(euler_step)
         else:
-            self.log(
-                f"Predictor-Euler integration did not converge in {i+1} "
-                f"steps. Δs={cur_length:.4f}."
-            )
-
-            # Check if we are already sufficiently converged. If so signal
-            # convergence.
-            self.mw_coords = euler_mw_coords
-
-            # Use rms of gradient from taylor expansion for convergence check.
-            euler_grad = self.unweight_vec(euler_mw_grad)
-            rms_grad = rms(euler_grad)
-
-            # Or check true gradient? But this would need an additional calculation,
-            # so I disabled it for now.
-            # rms_grad = rms(self.gradient)
-
-            if self.cur_cycle < self.loose_cycles:
+            # The final permitted microstep is applied at the end of the loop,
+            # after the last pre-step convergence check.  Accept it when it
+            # reached the requested integration length instead of reporting a
+            # false exhaustion.
+            cur_length = get_integration_length(euler_mw_coords)
+            if cur_length >= self.step_length:
                 self.log(
-                    f"Current cycle {self.cur_cycle} is still in 'loose' mode.\n"
-                    "Continuing IRC integration even though predictor integration "
-                    f"did not succeed.\n{self.loose_cycles - self.cur_cycle - 1} loose "
-                    "cycles remaining."
+                    "Predictor-Euler integration converged with "
+                    f"Δs={cur_length:.4f} (desired Δs={self.step_length:.4f}) "
+                    f"after {self.max_pred_steps} steps!"
                 )
-            # elif rms_grad <= 5*self.rms_grad_thresh:
-            elif rms_grad <= self.rms_grad_thresh:
-                self.log("Sufficient convergence achieved on rms(grad)")
-                self.converged = True
-                return
+            else:
+                self.log(
+                    f"Predictor-Euler integration did not converge in {i+1} "
+                    f"steps. Δs={cur_length:.4f}."
+                )
+
+                self.mw_coords = euler_mw_coords
+
+                if self.cur_cycle < self.loose_cycles:
+                    self.log(
+                        f"Current cycle {self.cur_cycle} is still in 'loose' mode.\n"
+                        "Continuing IRC integration even though predictor integration "
+                        f"did not succeed.\n{self.loose_cycles - self.cur_cycle - 1} loose "
+                        "cycles remaining."
+                    )
+                else:
+                    self.integration_stop_requested = True
+                    self.integration_stop_reason = (
+                        "Predictor integration exhausted before reaching its "
+                        "requested step length."
+                    )
+                    return
         self.log("")
 
         # Calculate energy and gradient at new predicted geometry. Update the
@@ -261,21 +283,15 @@ class EulerPC(IRC):
         # Hessian update
         dx = self._to_active_vec(self.mw_coords - self.irc_mw_coords[-1])
         dg = mw_grad_act - self._to_active_vec(self.irc_mw_gradients[-1])
-        dH, key = self.hessian_update_func(self.mw_hessian, dx, dg)
-        self.mw_hessian += dH
+        key = self._apply_hessian_update(dx, dg)
         self.log(f"Did {key} hessian update after predictor step.\n")
-        if isinstance(self.mw_hessian, torch.Tensor):
-            self.dwi.update(
-                self._to_active_vec(self.mw_coords).copy(),
-                energy, mw_grad_act,
-                self.mw_hessian.detach().clone()
-            )
-        else:
-            self.dwi.update(
-                self._to_active_vec(self.mw_coords).copy(),
-                energy, mw_grad_act,
-                self.mw_hessian.copy()
-            )
+        self.dwi.update(
+            self._to_active_vec(self.mw_coords).copy(),
+            energy,
+            mw_grad_act,
+            self.mw_hessian,
+            copy_hessian=True,
+        )
 
         corrected_mw_coords_act = self.corr_func(self._to_active_vec(init_mw_coords), self.step_length, self.dwi)
         self.mw_coords = self._to_full_vec(corrected_mw_coords_act, self.mw_coords)
@@ -297,8 +313,15 @@ class EulerPC(IRC):
             k_coords = deque(maxlen=2)
             cur_length = 0
 
-            # Integrate until the desired spacing is reached
-            max_euler_steps = max(points * 3, 100)
+            # A q-space microstep advances the unweighted path by a
+            # mass-dependent amount. Bound by the heaviest active component,
+            # then fail closed if the target still cannot be reached.
+            m_sqrt_active = self._m_sqrt[self._act_dofs]
+            max_euler_steps = max(
+                100,
+                int(np.ceil(3.0 * np.max(m_sqrt_active) * (points - 1))),
+            )
+            reached_target = False
             for _euler_step in range(max_euler_steps):
                 k_coords.append(cur_coords.copy())
                 if abs(step_length - cur_length) < 0.5 * corr_step_length:
@@ -306,16 +329,16 @@ class EulerPC(IRC):
                         f"\tk={k:02d} points={points: >4d} "
                         f"step_length={corr_step_length:.4f} Δs={cur_length:.4f}"
                     )
+                    reached_target = True
                     break
 
                 energy, gradient = dwi.interpolate(cur_coords, gradient=True)
                 grad_norm = np.linalg.norm(gradient)
-                if grad_norm < 1e-10:
-                    self.log(
-                        f"\tGradient near zero (norm={grad_norm:.2e}) "
-                        f"at k={k:02d}; stopping Euler integration."
+                if not np.isfinite(grad_norm) or grad_norm < 1e-10:
+                    raise RuntimeError(
+                        "Corrector integration encountered a zero or "
+                        f"non-finite gradient at level {k}."
                     )
-                    break
                 cur_coords += corr_step_length * -gradient / grad_norm
                 # cur_length += corr_step_length
                 cur_length = get_integration_length(cur_coords)
@@ -327,12 +350,15 @@ class EulerPC(IRC):
                     # TODO: Handle this by restarting everything with a smaller stepsize?
                     # Check 10.1039/c7cp03722h SI
                     if osc_norm <= corr_step_length:
-                        self.log(
-                            "\tDetected oscillation in Corrector-Euler "
-                            f"integration for k={k:02d} and {points} points.\n"
-                            "\tAborting corrector integration!"
+                        raise RuntimeError(
+                            "Corrector integration oscillated before reaching "
+                            f"the target at level {k}."
                         )
-                        return prev_coords
+            if not reached_target:
+                raise RuntimeError(
+                    "Corrector integration exhausted its mass-aware step "
+                    f"budget at level {k} before reaching the target."
+                )
             richardson[(k, 0)] = cur_coords
 
             # Refine using Richardson extrapolation

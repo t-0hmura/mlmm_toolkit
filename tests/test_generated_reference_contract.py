@@ -87,10 +87,10 @@ def test_mutated_scalar_value_fails_with_exact_path() -> None:
 def test_mutated_thermo_temperature_fails_with_exact_path() -> None:
     owners = _owner_values()
     data = copy.deepcopy(_template())
-    data["freq"]["temperature"] = 300.0
+    data["thermo"]["temperature"] = 300.0
     with pytest.raises(RuntimeError) as exc:
         gr._validate_starter_snapshot(data, owners)
-    assert "freq.temperature" in str(exc.value)
+    assert "thermo.temperature" in str(exc.value)
 
 
 def test_ownerless_scalar_fails() -> None:

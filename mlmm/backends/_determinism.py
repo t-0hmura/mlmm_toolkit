@@ -48,7 +48,10 @@ def _index_reduce_mean_deterministic(self, dim, index, source, reduce, include_s
     if reduce != "mean":
         return _ORIG_INDEX_REDUCE(self, dim, index, source, reduce=reduce, include_self=include_self)
     if index.dim() == 1 and source.dim() > 1:
-        idx_exp = index.unsqueeze(1).expand_as(source)
+        normalized_dim = int(dim) % source.dim()
+        index_shape = [1] * source.dim()
+        index_shape[normalized_dim] = index.numel()
+        idx_exp = index.reshape(index_shape).expand_as(source)
     else:
         idx_exp = index
     result = self.scatter_reduce(dim, idx_exp, source, reduce="mean", include_self=include_self)
@@ -80,15 +83,24 @@ def setup_deterministic() -> None:
         # One-time equivalence self-check (catch a silent scatter_reduce vs
         # index_reduce_ mean-semantics drift across torch versions). CPU-only;
         # the native op works on CPU even when its CUDA kernel is missing.
-        idx = torch.tensor([0, 0, 1])
-        src = torch.tensor([1.0, 3.0, 5.0])
-        ref = torch.zeros(3).index_reduce_(0, idx, src, reduce="mean", include_self=True)
-        got = _index_reduce_mean_deterministic(torch.zeros(3), 0, idx, src, "mean", True)
-        if not torch.allclose(ref, got):
-            raise RuntimeError(
-                "--deterministic: scatter_reduce detour diverges from native "
-                "index_reduce_(mean); the shim is unsafe on this torch build."
-            )
+        checks = (
+            (torch.zeros(3), 0, torch.tensor([0, 0, 1]), torch.tensor([1.0, 3.0, 5.0])),
+            (torch.zeros(3, 2), 0, torch.tensor([0, 0, 1]), torch.arange(6.0).reshape(3, 2)),
+            (torch.zeros(2, 3), 1, torch.tensor([0, 0, 1]), torch.arange(6.0).reshape(2, 3)),
+        )
+        for target, dim, idx, src in checks:
+            for include_self in (False, True):
+                ref = target.clone().index_reduce_(
+                    dim, idx, src, reduce="mean", include_self=include_self
+                )
+                got = _index_reduce_mean_deterministic(
+                    target.clone(), dim, idx, src, "mean", include_self
+                )
+                if not torch.allclose(ref, got):
+                    raise RuntimeError(
+                        "--deterministic: scatter_reduce detour diverges from native "
+                        "index_reduce_(mean); the shim is unsafe on this torch build."
+                    )
         torch.Tensor.index_reduce_ = _index_reduce_mean_deterministic
 
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")

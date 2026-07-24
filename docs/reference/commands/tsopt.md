@@ -35,8 +35,9 @@ Options:
                                   pdb is omitted.
   -q, --charge INTEGER            Total charge of the ML region. Required unless
                                   --ligand-charge is provided.
-  -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
-                                  GPP:-3,SAM:1) used to derive charge when -q is
+  -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
+                                  per-resname mapping (e.g., GPP:-3,SAM:1), used
+                                  to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
@@ -45,14 +46,18 @@ Options:
                                   Rigid translation/rotation treatment for
                                   Cartesian PHVA. 'constrained' removes only
                                   full-system rigid motions compatible with the
-                                  frozen atoms; 'legacy-active' treats the
-                                  active fragment as isolated.  [default:
-                                  constrained]
+                                  frozen atoms; 'legacy-active' is deprecated
+                                  comparison-only behavior and must not be used
+                                  for pass/HOSP transition-state certification.
+                                  [default: constrained]
   --radius-hessian, --hess-cutoff FLOAT
                                   Distance cutoff (Å) from ML region for MM
                                   atoms to include in Hessian calculation.
-                                  Applied to movable MM atoms. Default 0.0 means
-                                  ML-only partial Hessian.  [default: 0.0]
+                                  Applied to movable MM atoms. Unset includes
+                                  every required movable MM atom; 0.0 requests
+                                  an ML-only Hessian and should be paired with
+                                  --active-dof-mode ml-only for final frequency
+                                  validation.
   --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
@@ -120,19 +125,19 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).
   --embedcharge / --no-embedcharge
-                                  Enable xTB point-charge embedding correction
-                                  for MM→ML environmental effects
-                                  (experimental).  [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
-                                  point charges in xTB embedding. Default: 12.0
-                                  Å. Only used when --embedcharge is enabled.
+                                  Unavailable in v0.3.3; retained so older
+                                  commands fail with an actionable diagnostic.
+                                  [default: no-embedcharge]
+  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
+                                  retired electronic-embedding path.
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
   --mm-backend [hessian_ff|openmm]
-                                  MM backend: hessian_ff (analytical Hessian,
-                                  default) or openmm (finite-difference Hessian,
-                                  slower).
+                                  MM backend (default: hessian_ff). MM Hessians
+                                  use finite differences by default; set
+                                  calc.mm_fd: false for the hessian_ff
+                                  analytical path.
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).

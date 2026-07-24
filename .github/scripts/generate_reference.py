@@ -36,13 +36,6 @@ calc:
   mace_model: MACE-OMOL-0   # MACE model path or name (when backend=mace)
   mace_dtype: float64       # MACE dtype, e.g. float32 / float64 (when backend=mace)
   aimnet2_model: aimnet2    # AIMNet2 model name (when backend=aimnet2)
-  embedcharge: false        # Enable xTB point-charge embedding correction
-  embedcharge_step: 1.0e-3   # Numerical Hessian step for embedding correction (Å)
-  xtb_cmd: xtb              # Path or command for the xTB executable
-  xtb_acc: 0.2              # xTB SCF accuracy parameter
-  xtb_workdir: tmp          # Working directory for xTB scratch files
-  xtb_keep_files: false     # Keep xTB intermediate files after completion
-  xtb_ncores: 4             # Number of CPU cores for xTB
 
 extract:
   radius: 2.6
@@ -65,8 +58,11 @@ freq:
   amplitude_ang: 0.8
   n_frames: 20
   sort: value
+
+thermo:
   temperature: 298.15
   pressure_atm: 1.0
+  symmetry_number: 1
 
 dft:
   func_basis: wb97m-v/def2-tzvpd
@@ -86,6 +82,7 @@ _CURATED_SECTIONS: tuple[str, ...] = (
     "scan",
     "tsopt",
     "freq",
+    "thermo",
     "dft",
 )
 
@@ -102,13 +99,6 @@ _STARTER_OWNERS: dict[str, tuple[str, str, str]] = {
     "calc.mace_model": ("defaults", "MLMM_CALC_KW", "mace_model"),
     "calc.mace_dtype": ("defaults", "MLMM_CALC_KW", "mace_dtype"),
     "calc.aimnet2_model": ("defaults", "MLMM_CALC_KW", "aimnet2_model"),
-    "calc.embedcharge": ("defaults", "MLMM_CALC_KW", "embedcharge"),
-    "calc.embedcharge_step": ("defaults", "MLMM_CALC_KW", "embedcharge_step"),
-    "calc.xtb_cmd": ("defaults", "MLMM_CALC_KW", "xtb_cmd"),
-    "calc.xtb_acc": ("defaults", "MLMM_CALC_KW", "xtb_acc"),
-    "calc.xtb_workdir": ("defaults", "MLMM_CALC_KW", "xtb_workdir"),
-    "calc.xtb_keep_files": ("defaults", "MLMM_CALC_KW", "xtb_keep_files"),
-    "calc.xtb_ncores": ("defaults", "MLMM_CALC_KW", "xtb_ncores"),
     "extract.radius": ("click", "all", "--radius"),
     "extract.radius_het2het": ("click", "all", "--radius-het2het"),
     "path_search.max_nodes": ("defaults", "GS_KW", "max_nodes"),
@@ -121,8 +111,9 @@ _STARTER_OWNERS: dict[str, tuple[str, str, str]] = {
     "freq.amplitude_ang": ("defaults", "FREQ_KW", "amplitude_ang"),
     "freq.n_frames": ("defaults", "FREQ_KW", "n_frames"),
     "freq.sort": ("defaults", "FREQ_KW", "sort"),
-    "freq.temperature": ("defaults", "THERMO_KW", "temperature"),
-    "freq.pressure_atm": ("defaults", "THERMO_KW", "pressure_atm"),
+    "thermo.temperature": ("defaults", "THERMO_KW", "temperature"),
+    "thermo.pressure_atm": ("defaults", "THERMO_KW", "pressure_atm"),
+    "thermo.symmetry_number": ("defaults", "THERMO_KW", "symmetry_number"),
     "dft.func_basis": ("defaults", "DFT_KW", "func_basis"),
     "dft.max_cycle": ("defaults", "DFT_KW", "max_cycle"),
     "dft.conv_tol": ("defaults", "DFT_KW", "conv_tol"),
@@ -170,9 +161,6 @@ def _collect_command_docs() -> list[CommandDoc]:
 import re
 
 _VERSION_LINE_RE = re.compile(r"^mlmm(?:-toolkit)? ver\. \S+\n", re.MULTILINE)
-_PYSISRC_LINE_RE = re.compile(
-    r"^Couldn't find configuration file\. Expected it at .*\n", re.MULTILINE
-)
 
 
 def _capture_help(command_name: str, *, advanced: bool) -> str:
@@ -205,9 +193,8 @@ def _capture_help(command_name: str, *, advanced: bool) -> str:
             "subcommand could not be imported. Install the repository's "
             "development/runtime dependencies and retry."
         )
-    # Strip version line and pysisyphus config warning for reproducibility
+    # Strip the version pre-banner so generated docs are release-independent.
     text = _VERSION_LINE_RE.sub("", result.output)
-    text = _PYSISRC_LINE_RE.sub("", text)
     return text.rstrip() + "\n"
 
 

@@ -1133,11 +1133,12 @@ def register_output_template_and_write_cif(
 ) -> Optional[Path]:
     """Register an internal PDB output and write its public mmCIF companion."""
 
-    if template is None:
-        unregister_coordinate_template(pdb_path)
-        return None
     pdb_path = Path(pdb_path)
     out_cif = pdb_path.with_suffix(".cif")
+    if template is None:
+        unregister_coordinate_template(pdb_path)
+        out_cif.unlink(missing_ok=True)
+        return None
     try:
         write_pdb_as_mmcif(pdb_path, template, out_cif)
     except BaseException:

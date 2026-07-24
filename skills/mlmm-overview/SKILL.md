@@ -101,8 +101,9 @@ Supported MLIP backends:
 | `orb` | `orb_v3_conservative_omol` | fp64 default; explicit fp32 uses TF32 and needs Hessian validation |
 | `aimnet2` | AIMNet2 | fp32 only; explicit fp64 is rejected |
 
-MM backend defaults to `hessian_ff` (CPU, analytical Hessian); the
-finite-difference `openmm` backend is selectable via `--mm-backend openmm`.
+MM backend defaults to `hessian_ff` on CPU. MM Hessians use finite differences
+by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path.
+`openmm` is selectable via `--mm-backend openmm`.
 DFT (optional) uses PySCF / GPU4PySCF.
 
 ## ML/MM-aware CLI conventions
@@ -118,7 +119,7 @@ Every ML/MM-evaluating subcommand (`opt`, `tsopt`, `path-search`,
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (default on) |
 | `--model-indices` | Alternative to `--model-pdb`: comma-separated atom indices (e.g. `1-50,75,100-110`) |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` / `-l, --ligand-charge` / `-m, --multiplicity` | ML region charge / spin |
 | `-b, --backend` | ML backend (uma / orb / mace / aimnet2) |
 

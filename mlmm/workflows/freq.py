@@ -25,6 +25,7 @@ from ase.data import atomic_masses
 from ase.io import write
 
 from pysisyphus.constants import AMU2AU, ANG2BOHR, AU2EV, BOHR2ANG
+from pysisyphus._array import active_square
 from pysisyphus.helpers import geom_loader
 from pysisyphus.tr_projection import active_tr_basis, project_hessian_inplace
 
@@ -163,29 +164,34 @@ def _calc_full_hessian_torch(
     return H, energy
 
 
-def _active_atoms_from_partial_hessian_metadata(
+def _ordered_hessian_coverage_atoms(
     geom: Any,
-    hessian_dim: int,
+    n_atoms: int,
 ) -> Optional[List[int]]:
-    """Return full-atom indices spanned by a partial Hessian, if metadata matches."""
-    if hessian_dim <= 0 or hessian_dim % 3 != 0:
-        return None
-    n_active = hessian_dim // 3
+    """Return the ordered atoms whose curvature was actually evaluated.
+
+    Coverage metadata is independent of storage shape: ML/MM may scatter a
+    partial Hessian into a zero-padded ``3N x 3N`` tensor.  Treating that tensor
+    as fully evaluated solely because of its shape would certify artificial
+    zero-curvature rows.
+    """
 
     def _atoms_from_dofs(raw: Any) -> Optional[List[int]]:
         if raw is None:
             return None
         dofs = [int(d) for d in np.asarray(raw, dtype=int).reshape(-1).tolist()]
-        if len(dofs) != hessian_dim:
+        if not dofs or len(dofs) % 3:
             return None
-        atoms = sorted({d // 3 for d in dofs})
-        if len(atoms) != n_active:
-            return None
-        expected = []
-        for atom in atoms:
-            base = 3 * int(atom)
-            expected.extend((base, base + 1, base + 2))
-        if sorted(dofs) != expected:
+        atoms: List[int] = []
+        for pos in range(0, len(dofs), 3):
+            triplet = dofs[pos:pos + 3]
+            atom = triplet[0] // 3
+            if atom < 0 or atom >= int(n_atoms):
+                return None
+            if triplet != [3 * atom, 3 * atom + 1, 3 * atom + 2]:
+                return None
+            atoms.append(atom)
+        if len(set(atoms)) != len(atoms):
             return None
         return atoms
 
@@ -193,9 +199,11 @@ def _active_atoms_from_partial_hessian_metadata(
         if raw is None:
             return None
         atoms = [int(a) for a in np.asarray(raw, dtype=int).reshape(-1).tolist()]
-        if len(atoms) != n_active:
+        if not atoms or len(set(atoms)) != len(atoms):
             return None
-        return sorted(atoms)
+        if any(a < 0 or a >= int(n_atoms) for a in atoms):
+            return None
+        return atoms
 
     within = getattr(geom, "within_partial_hessian", None)
     if isinstance(within, dict):
@@ -212,8 +220,127 @@ def _active_atoms_from_partial_hessian_metadata(
     ):
         if candidate is not None:
             return candidate
-
     return None
+
+
+def _active_atoms_from_partial_hessian_metadata(
+    geom: Any,
+    hessian_dim: int,
+) -> Optional[List[int]]:
+    """Return atoms spanning a compact Hessian, retaining the legacy helper API."""
+    if hessian_dim <= 0 or hessian_dim % 3:
+        return None
+    n_atoms = len(getattr(geom, "atomic_numbers", []))
+    if n_atoms == 0:
+        within = getattr(geom, "within_partial_hessian", None)
+        if isinstance(within, dict):
+            raw_atoms = np.asarray(within.get("active_atoms", []), dtype=int).reshape(-1)
+            raw_dofs = np.asarray(within.get("active_dofs", []), dtype=int).reshape(-1)
+            maxima = []
+            if raw_atoms.size:
+                maxima.append(int(raw_atoms.max()) + 1)
+            if raw_dofs.size:
+                maxima.append(int(raw_dofs.max()) // 3 + 1)
+            if maxima:
+                n_atoms = max(maxima)
+    coverage = _ordered_hessian_coverage_atoms(geom, n_atoms)
+    if coverage is None or 3 * len(coverage) != int(hessian_dim):
+        return None
+    return coverage
+
+
+def _reconcile_hessian_analysis_basis(
+    hessian: torch.Tensor,
+    geom: Any,
+    requested_atoms: List[int],
+) -> Tuple[torch.Tensor, List[int], List[int], str]:
+    """Slice an evaluated Hessian onto the exact requested atom basis.
+
+    A computed superset is sliced in its recorded order.  Missing requested
+    atoms are a hard error: silently shrinking a PHVA basis changes the
+    frequencies and can change transition-state order.
+    """
+    n_atoms = len(getattr(geom, "atomic_numbers", []))
+    full_dim = 3 * n_atoms
+    if hessian.ndim != 2 or hessian.shape[0] != hessian.shape[1]:
+        raise click.ClickException(
+            f"Hessian must be square; got shape={tuple(hessian.shape)}."
+        )
+
+    requested: List[int] = []
+    seen = set()
+    for raw in requested_atoms:
+        atom = int(raw)
+        if atom < 0 or atom >= n_atoms:
+            raise click.ClickException(
+                f"Requested Hessian atom index {atom} is outside 0..{n_atoms - 1}."
+            )
+        if atom not in seen:
+            seen.add(atom)
+            requested.append(atom)
+    requested.sort()
+    if not requested:
+        raise click.ClickException("Frequency analysis requires at least one active atom.")
+
+    coverage = _ordered_hessian_coverage_atoms(geom, n_atoms)
+    h_dim = int(hessian.shape[0])
+    if coverage is None:
+        if h_dim != full_dim:
+            raise click.ClickException(
+                "A compact Hessian was returned without ordered coverage metadata."
+            )
+        coverage = list(range(n_atoms))
+
+    missing = sorted(set(requested) - set(coverage))
+    if missing:
+        preview = ", ".join(str(i + 1) for i in missing[:12])
+        suffix = " …" if len(missing) > 12 else ""
+        raise click.ClickException(
+            "The requested frequency-analysis basis is wider than the evaluated "
+            f"Hessian coverage; missing 1-based atom indices: {preview}{suffix}. "
+            "Increase the Hessian region or choose a narrower --active-dof-mode."
+        )
+
+    within = getattr(geom, "within_partial_hessian", None)
+    declared_compact = (
+        isinstance(within, dict)
+        and h_dim == 3 * len(coverage)
+        and (
+            within.get("active_dofs") is not None
+            or within.get("active_atoms") is not None
+        )
+    )
+    if declared_compact:
+        local = {atom: pos for pos, atom in enumerate(coverage)}
+        source_dofs = [
+            3 * local[atom] + axis for atom in requested for axis in range(3)
+        ]
+        storage = "compact"
+    elif h_dim == full_dim:
+        source_dofs = [3 * atom + axis for atom in requested for axis in range(3)]
+        storage = "full"
+    elif h_dim == 3 * len(coverage):
+        local = {atom: pos for pos, atom in enumerate(coverage)}
+        source_dofs = [
+            3 * local[atom] + axis for atom in requested for axis in range(3)
+        ]
+        storage = "compact"
+    else:
+        raise click.ClickException(
+            "Hessian shape is inconsistent with its coverage metadata: "
+            f"shape={tuple(hessian.shape)}, coverage_atoms={len(coverage)}, "
+            f"full_atoms={n_atoms}."
+        )
+
+    if source_dofs == list(range(h_dim)):
+        analysis_hessian = hessian
+    else:
+        index = torch.as_tensor(
+            source_dofs, dtype=torch.long, device=hessian.device
+        )
+        analysis_hessian = active_square(hessian, index)
+        del index
+    return analysis_hessian, requested, coverage, storage
 
 
 def _record_hessian_result_path(files: Dict[str, str], path: Path) -> Dict[str, str]:
@@ -396,6 +523,84 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
 # FREQ_KW and THERMO_KW are imported from .defaults
 
 
+def _validated_symmetry_number(value: object) -> int:
+    """Return an external rotational symmetry number accepted by thermoanalysis."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise click.UsageError(
+            "thermo.symmetry_number must be an integer greater than or equal to 1."
+        )
+    return int(value)
+
+
+def _validated_thermo_condition(value: object, *, name: str) -> float:
+    """Return a finite, strictly positive thermochemistry state variable."""
+    if isinstance(value, bool):
+        raise click.UsageError(
+            f"thermo.{name} must be a finite number greater than zero."
+        )
+    try:
+        resolved = float(value)
+    except (TypeError, ValueError) as exc:
+        raise click.UsageError(
+            f"thermo.{name} must be a finite number greater than zero."
+        ) from exc
+    if not np.isfinite(resolved) or resolved <= 0.0:
+        raise click.UsageError(
+            f"thermo.{name} must be a finite number greater than zero."
+        )
+    return resolved
+
+
+def _prepare_thermo_output_paths(
+    out_dir: Path,
+    *,
+    protected_inputs: Tuple[Optional[Path], ...] = (),
+) -> Tuple[Path, Path]:
+    """Invalidate a prior thermochemistry generation before real work starts."""
+    thermo_yaml = Path(out_dir) / "thermoanalysis.yaml"
+    thermo_yaml_tmp = Path(out_dir) / "thermoanalysis.yaml.tmp"
+    reserved = {thermo_yaml.resolve(), thermo_yaml_tmp.resolve()}
+    for protected in protected_inputs:
+        if protected is not None and Path(protected).resolve() in reserved:
+            raise click.UsageError(
+                f"Configuration input {protected} collides with a reserved "
+                f"frequency output path under {out_dir}."
+            )
+    thermo_yaml.unlink(missing_ok=True)
+    thermo_yaml_tmp.unlink(missing_ok=True)
+    return thermo_yaml, thermo_yaml_tmp
+
+
+def _prepare_frequency_output_paths(
+    out_dir: Path,
+    *,
+    protected_inputs: Tuple[Optional[Path], ...] = (),
+) -> Tuple[Path, Path]:
+    """Invalidate every public artifact owned by one real frequency run."""
+    out_dir = Path(out_dir)
+    owned = [
+        out_dir / "frequencies_cm-1.txt",
+        out_dir / "result.json",
+        out_dir / "summary.json",
+        *out_dir.glob("mode_*cm-1_trj.xyz"),
+        *out_dir.glob("mode_*cm-1.pdb"),
+    ]
+    reserved = {path.resolve() for path in owned}
+    for protected in protected_inputs:
+        if protected is not None and Path(protected).resolve() in reserved:
+            raise click.UsageError(
+                f"Input {protected} collides with a reserved frequency output "
+                f"path under {out_dir}."
+            )
+    thermo_paths = _prepare_thermo_output_paths(
+        out_dir,
+        protected_inputs=protected_inputs,
+    )
+    for path in owned:
+        path.unlink(missing_ok=True)
+    return thermo_paths
+
+
 
 @click.command(
     help="ML/MM vibrational frequency analysis (PHVA-compatible).",
@@ -446,7 +651,8 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     help=(
         "Rigid-mode treatment for PHVA. 'constrained' removes only full-system "
         "rigid motions compatible with frozen anchors (default); 'legacy-active' "
-        "treats the active fragment as isolated for comparison."
+        "is deprecated comparison-only behavior and must not be used for "
+        "pass/HOSP transition-state certification."
     ),
 )
 @click.option(
@@ -493,6 +699,13 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
 @click.option("--pressure", "pressure_atm",
               type=float, default=THERMO_KW["pressure_atm"], show_default=True,
               help="Pressure (atm) for thermochemistry summary.")
+@click.option(
+    "--symmetry-number",
+    type=click.IntRange(min=1),
+    default=THERMO_KW["symmetry_number"],
+    show_default=True,
+    help="External rotational symmetry number used in the thermochemistry partition function.",
+)
 @click.option(
     "--dump/--no-dump",
     default=THERMO_KW["dump"],
@@ -565,7 +778,7 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -573,8 +786,7 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method",
@@ -590,7 +802,7 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -606,7 +818,8 @@ CALC_KW: Dict[str, Any] = deepcopy(OPT_CALC_KW)
     default=None,
     show_default=False,
     help="Save the computed Hessian and geometry/active-basis identity to a "
-         "compressed .npz file for a matching 'mlmm irc --read-hess' run.",
+         "compressed .npz file for a matching 'mlmm irc --read-hess' run. "
+         "The file also identifies model charge and multiplicity.",
 )
 @click.option(
     "--out-json/--no-out-json",
@@ -646,6 +859,7 @@ def cli(
     sort: str,
     temperature: float,
     pressure_atm: float,
+    symmetry_number: int,
     dump: bool,
     out_dir: str,
     active_dof_mode: str,
@@ -706,6 +920,10 @@ def cli(
     charge, spin = resolve_charge_spin_or_raise(
         prepared_input, charge, spin,
         ligand_charge=ligand_charge, prefix="[freq]",
+        model_pdb=model_pdb,
+        model_indices_spec=model_indices_str,
+        detect_layer=detect_layer,
+        yaml_cfg=merged_yaml_cfg,
     )
 
     try:
@@ -748,6 +966,14 @@ def cli(
             (freq_cfg, (("freq",),)),
             (thermo_cfg, (("thermo",), ("freq", "thermo"))),
         ],
+    )
+    thermo_paths = (("thermo",), ("freq", "thermo"))
+    symmetry_number_source = (
+        "config"
+        if yaml_section_has_key(
+            config_layer_cfg, thermo_paths, "symmetry_number"
+        )
+        else "default"
     )
 
     # CLI explicit overrides (after config YAML, before override YAML)
@@ -802,6 +1028,9 @@ def cli(
         thermo_cfg["temperature"] = float(temperature)
     if _is_param_explicit("pressure_atm"):
         thermo_cfg["pressure_atm"] = float(pressure_atm)
+    if _is_param_explicit("symmetry_number"):
+        thermo_cfg["symmetry_number"] = int(symmetry_number)
+        symmetry_number_source = "cli"
     if _is_param_explicit("dump"):
         thermo_cfg["dump"] = bool(dump)
 
@@ -832,6 +1061,19 @@ def cli(
             (freq_cfg, (("freq",),)),
             (thermo_cfg, (("thermo",), ("freq", "thermo"))),
         ],
+    )
+    if yaml_section_has_key(
+        override_layer_cfg, thermo_paths, "symmetry_number"
+    ):
+        symmetry_number_source = "override"
+    thermo_cfg["symmetry_number"] = _validated_symmetry_number(
+        thermo_cfg.get("symmetry_number")
+    )
+    thermo_cfg["temperature"] = _validated_thermo_condition(
+        thermo_cfg.get("temperature"), name="temperature"
+    )
+    thermo_cfg["pressure_atm"] = _validated_thermo_condition(
+        thermo_cfg.get("pressure_atm"), name="pressure_atm"
     )
     from pysisyphus.tr_projection import normalize_tr_projection_mode
     geom_cfg["tr_projection"] = normalize_tr_projection_mode(
@@ -868,6 +1110,13 @@ def cli(
             click.echo("[layer] movable_cutoff is set; disabling detect-layer mode.", err=True)
         detect_layer_enabled = False
         calc_cfg["use_bfactor_layers"] = False
+
+    from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+    reject_retired_embedcharge_cli(
+        calc_cfg,
+        cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+    )
 
     if show_config:
         click.echo(
@@ -928,6 +1177,13 @@ def cli(
         return
 
     out_dir_path.mkdir(parents=True, exist_ok=True)
+    # A real invocation owns this exact output generation.  Invalidate both
+    # published and staged thermochemistry before layer preparation, calculator,
+    # or Hessian work can fail, including under --no-dump.
+    _thermo_yaml, _thermo_yaml_tmp = _prepare_frequency_output_paths(
+        out_dir_path,
+        protected_inputs=(config_yaml, override_yaml),
+    )
 
     if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
         click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
@@ -1107,66 +1363,79 @@ def cli(
 
         echo_resolved_device()
 
+        _raw_hessian_shape = tuple(H_t.shape)
+        _requested_atoms = [
+            i for i in range(len(geometry.atomic_numbers))
+            if i not in set(int(j) for j in freeze_list)
+        ]
+        H_analysis, _analysis_atoms, _computed_atoms, _hessian_storage = (
+            _reconcile_hessian_analysis_basis(
+                H_t,
+                geometry,
+                _requested_atoms,
+            )
+        )
+        del H_t
+
         # --dump-hess: save Hessian to compressed .npz
         if dump_hess:
-            _h_np = H_t.detach().cpu().numpy()
-            # C-NEED: numpy dump unavoidable; GPU H_t still alive for freq eval below.
-            # No empty_cache here — H_t is needed by _frequencies_cm_and_modes next.
+            _h_np = H_analysis.detach().cpu().numpy()
+            # The opt-in dump needs a host copy; H_analysis remains live for
+            # the frequency calculation immediately below.
             _dump_path = Path(dump_hess)
             # Persist partial-Hessian metadata so `mlmm irc --read-hess` can
             # restore geometry.within_partial_hessian. Without it the loaded
             # partial Hessian (active_n_dof != 3N) tripped a Geometry shape
             # assertion (the npz was not a usable round-trip).
             from mlmm.io.hessian_file import save_hessian_file
+            from mlmm.io.hessian_cache import persistent_identity_from_context
 
+            _analysis_dofs = [
+                3 * atom + axis for atom in _analysis_atoms for axis in range(3)
+            ]
+            _analysis_metadata = None
+            if len(_analysis_atoms) != len(geometry.atomic_numbers):
+                _analysis_metadata = {
+                    "active_n_dof": len(_analysis_dofs),
+                    "full_n_dof": int(geometry.cart_coords.size),
+                    "active_dofs": _analysis_dofs,
+                    "active_atoms": list(_analysis_atoms),
+                }
             _dump_path = save_hessian_file(
                 _dump_path,
                 hessian=_h_np,
                 energy_ha=float(energy_ha) if energy_ha is not None else 0.0,
                 cart_coords_bohr=geometry.cart_coords,
                 atomic_numbers=geometry.atomic_numbers,
-                partial_metadata=getattr(geometry, "within_partial_hessian", None),
+                model_charge=int(calc_cfg["model_charge"]),
+                model_mult=int(calc_cfg["model_mult"]),
+                potential_identity=persistent_identity_from_context(
+                    geometry,
+                    calc_cfg,
+                ),
+                partial_metadata=_analysis_metadata,
             )
             emit(f"[freq] Hessian saved → {_dump_path} (shape={_h_np.shape})", narrative=True)
             del _h_np
 
         coords_bohr = geometry.coords3d
-        _effective_freeze = list(freeze_list) if freeze_list else []
-        _full_n_dof = 3 * len(geometry.atomic_numbers)
-        if H_t.shape[0] != _full_n_dof:
-            _active_atoms = _active_atoms_from_partial_hessian_metadata(
-                geometry,
-                int(H_t.shape[0]),
-            )
-            if _active_atoms is not None:
-                _active_atom_set = set(_active_atoms)
-                _shape_freeze = sorted(
-                    i for i in range(len(geometry.atomic_numbers))
-                    if i not in _active_atom_set
-                )
-                if set(_shape_freeze) != set(_effective_freeze):
-                    click.echo(
-                        f"[freq] Partial Hessian shape={H_t.shape[0]} "
-                        f"({len(_active_atoms)} atoms); using Hessian metadata "
-                        "for PHVA active-subspace routing."
-                    )
-                _effective_freeze = _shape_freeze
-            elif not _effective_freeze:
-                raise click.ClickException(
-                    f"[freq] Partial Hessian detected (shape={H_t.shape[0]} vs "
-                    f"full {_full_n_dof}), but no active metadata was available."
-                )
+        _effective_freeze = sorted(
+            i for i in range(len(geometry.atomic_numbers))
+            if i not in set(_analysis_atoms)
+        )
         _n_atoms = len(geometry.atomic_numbers)
-        _n_frozen = len(set(int(i) for i in _effective_freeze))
-        _n_active = max(_n_atoms - _n_frozen, 0)
+        _n_frozen = len(_effective_freeze)
+        _n_active = len(_analysis_atoms)
         emit(
-            f"[freq] Hessian ready: shape={tuple(H_t.shape)}, active_atoms={_n_active}/{_n_atoms}, "
-            f"frozen_atoms={_n_frozen}, active_dof={3 * _n_active}",
+            f"[freq] Hessian ready: raw_shape={_raw_hessian_shape}, "
+            f"analysis_shape={tuple(H_analysis.shape)}, "
+            f"active_atoms={_n_active}/{_n_atoms}, frozen_atoms={_n_frozen}, "
+            f"computed_atoms={len(_computed_atoms)}, active_dof={3 * _n_active}",
             detail=True,
         )
         _rigid_projection = {}
         freqs_cm, modes_mw = _frequencies_cm_and_modes(
-            H_t,
+            H_analysis,
             geometry.atomic_numbers,
             coords_bohr,
             device,
@@ -1177,10 +1446,13 @@ def cli(
         _rigid_projection.update(
             {
                 "hessian_space": (
-                    "full" if H_t.shape[0] == 3 * len(geometry.atomic_numbers)
-                    else "active"
+                    "full" if not _effective_freeze else "active"
                 ),
-                "hessian_shape": list(H_t.shape),
+                "hessian_shape": list(H_analysis.shape),
+                "raw_hessian_shape": list(_raw_hessian_shape),
+                "computed_atom_count": len(_computed_atoms),
+                "analysis_atom_count": len(_analysis_atoms),
+                "storage": _hessian_storage,
                 "hessian_source": "cache" if _cached_ts is not None else "fresh",
                 "hessian_representation": "cartesian-unweighted-unprojected",
             }
@@ -1192,7 +1464,7 @@ def cli(
             f"full_rigid_rank={_rigid_projection['full_rigid_rank']}."
         )
 
-        del H_t
+        del H_analysis
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
@@ -1218,6 +1490,7 @@ def cli(
         emit(f"[INFO] Writing {n_write} mode(s) ({freq_cfg['sort']} ordering).", detail=True)
 
         ref_pdb_for_modes = source_path if source_path.suffix.lower() == ".pdb" else None
+        _mode_output_files: list[str] = []
         for k, idx in enumerate(order[:n_write], start=1):
             freq_val = float(freqs_cm[idx])
             mode_cart_3N = _mw_mode_to_cart(modes_mw[idx], masses_au_t)
@@ -1233,6 +1506,9 @@ def cli(
                 comment=f"mode {k}  {freq_val:+.2f} cm-1",
                 ref_pdb=ref_pdb_for_modes,
             )
+            _mode_output_files.append(out_trj.name)
+            if out_pdb.is_file():
+                _mode_output_files.append(out_pdb.name)
 
         (out_dir_path / "frequencies_cm-1.txt").write_text(
             "\n".join(f"{i+1:4d}  {float(freqs_cm[j]):+12.4f}" for i, j in enumerate(order)),
@@ -1243,6 +1519,7 @@ def cli(
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+        _thermo_data = None
         try:
             from thermoanalysis.QCData import QCData
             from thermoanalysis.constants import J2AU, J2CAL, NA
@@ -1257,9 +1534,11 @@ def cli(
                 "mult": int(calc_cfg["model_mult"]),
             }
             qc = QCData(qc_data, point_group="c1", mult=int(calc_cfg["model_mult"]))
+            qc.symmetry_number = int(thermo_cfg["symmetry_number"])
 
             T = float(thermo_cfg["temperature"])
             p_atm = float(thermo_cfg["pressure_atm"])
+            symmetry_number = int(thermo_cfg["symmetry_number"])
             p_pa = p_atm * 101325.0  # Pa
 
             # P05: the standalone-freq policy is library-default QRRHO with NO
@@ -1300,6 +1579,10 @@ def cli(
             click.echo("------------------------")
             click.echo(f"Temperature (K)         = {T:.2f}")
             click.echo(f"Pressure    (atm)       = {p_atm:.4f}")
+            click.echo(
+                f"Rotational symmetry no. = {symmetry_number:d} "
+                f"({symmetry_number_source})"
+            )
             if freeze_list:
                 emit("[NOTE] Thermochemistry uses active DOF (PHVA) due to frozen atoms.", narrative=True)
             click.echo(f"Number of Imaginary Freq = {n_imag:d}\n")
@@ -1325,11 +1608,13 @@ def cli(
 
             # Dump YAML when requested
             if bool(thermo_cfg["dump"]):
-                out_yaml = out_dir_path / "thermoanalysis.yaml"
                 payload = {
                     "temperature_K": T,
                     "pressure_atm": p_atm,
+                    "symmetry_number": symmetry_number,
+                    "symmetry_number_source": symmetry_number_source,
                     "num_imag_freq": n_imag,
+                    "n_freeze_atoms": int(_n_frozen),
                     "thermo_policy": _thermo_policy.as_dict(),
                     "rigid_projection": _rigid_projection,
                     "electronic_energy_ha": EE,
@@ -1345,16 +1630,44 @@ def cli(
                     "Cv_cal_per_mol_K": Cv_cal_per_Kmol,
                     "S_cal_per_mol_K": S_cal_per_Kmol,
                 }
-                with out_yaml.open("w", encoding="utf-8") as f:
-                    yaml.safe_dump(payload, f, sort_keys=False, allow_unicode=True)
-                emit(f"[dump] Wrote thermoanalysis summary → {out_yaml}", detail=True)
+                try:
+                    with _thermo_yaml_tmp.open("w", encoding="utf-8") as f:
+                        yaml.safe_dump(
+                            payload, f, sort_keys=False, allow_unicode=True
+                        )
+                    _thermo_yaml_tmp.replace(_thermo_yaml)
+                finally:
+                    _thermo_yaml_tmp.unlink(missing_ok=True)
+                emit(
+                    f"[dump] Wrote thermoanalysis summary → {_thermo_yaml}",
+                    detail=True,
+                )
 
-        except ImportError:
-            click.echo("[thermo] WARNING: 'thermoanalysis' package not found; skipped thermochemistry summary.", err=True)
+            _thermo_data = {
+                "thermo_policy": _thermo_policy.as_dict(),
+                "temperature_K": T,
+                "pressure_atm": p_atm,
+                "symmetry_number": symmetry_number,
+                "symmetry_number_source": symmetry_number_source,
+                "zpe_ha": ZPE,
+                "thermal_correction_energy_ha": dE_therm,
+                "thermal_correction_enthalpy_ha": dH_therm,
+                "thermal_correction_free_energy_ha": dG_therm,
+                "sum_EE_and_ZPE_ha": sum_EE_ZPE,
+                "sum_EE_and_thermal_energy_ha": sum_EE_thermal_E,
+                "sum_EE_and_thermal_enthalpy_ha": sum_EE_thermal_H,
+                "sum_EE_and_thermal_free_energy_ha": sum_EE_thermal_G,
+                "E_thermal_cal_per_mol": E_thermal_cal,
+                "Cv_cal_per_mol_K": Cv_cal_per_Kmol,
+                "S_cal_per_mol_K": S_cal_per_Kmol,
+            }
+
+        except ImportError as e:
+            raise click.ClickException(
+                "Thermochemistry failed because 'thermoanalysis' is unavailable."
+            ) from e
         except Exception as e:
-            import traceback
-            tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
-            click.echo("Unhandled error during thermochemistry summary:\n" + textwrap.indent(tb, "  "), err=True)
+            raise click.ClickException(f"Thermochemistry failed: {e}") from e
 
         # summary.md and key_* outputs are disabled.
         emit(f"[DONE] Wrote modes and list → {out_dir_path}", detail=True)
@@ -1365,27 +1678,6 @@ def cli(
             from mlmm.core.utils import calculator_provenance, write_result_json
             _all_freqs = [float(f) for f in freqs_cm]
             _imag_freqs = [f for f in _all_freqs if f < 0.0]
-            _thermo_data = None
-            # Capture thermochemistry if it was computed
-            try:
-                _thermo_data = {
-                    "thermo_policy": _thermo_policy.as_dict(),
-                    "temperature_K": T,
-                    "pressure_atm": p_atm,
-                    "zpe_ha": ZPE,
-                    "thermal_correction_energy_ha": dE_therm,
-                    "thermal_correction_enthalpy_ha": dH_therm,
-                    "thermal_correction_free_energy_ha": dG_therm,
-                    "sum_EE_and_ZPE_ha": sum_EE_ZPE,
-                    "sum_EE_and_thermal_energy_ha": sum_EE_thermal_E,
-                    "sum_EE_and_thermal_enthalpy_ha": sum_EE_thermal_H,
-                    "sum_EE_and_thermal_free_energy_ha": sum_EE_thermal_G,
-                    "E_thermal_cal_per_mol": E_thermal_cal,
-                    "Cv_cal_per_mol_K": Cv_cal_per_Kmol,
-                    "S_cal_per_mol_K": S_cal_per_Kmol,
-                }
-            except NameError:
-                pass
             result_data = {
                 "status": "completed",
                 "n_modes": len(_all_freqs),
@@ -1398,14 +1690,14 @@ def cli(
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
                 "n_atoms": len(geometry.atomic_numbers),
-                "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
+                "n_freeze_atoms": int(_n_frozen),
                 "input_file": str(input_path),
                 "files": {
                     "frequencies_txt": "frequencies_cm-1.txt",
+                    "mode_files": _mode_output_files,
                 },
             }
-            if _thermo_data is not None:
-                _thermo_yaml = out_dir_path / "thermoanalysis.yaml"
+            if _thermo_data is not None and bool(thermo_cfg.get("dump", False)):
                 if _thermo_yaml.exists():
                     result_data["files"]["thermoanalysis_yaml"] = "thermoanalysis.yaml"
             if dump_hess:
@@ -1426,8 +1718,8 @@ def cli(
         # Release GPU memory so subsequent pipeline stages don't OOM.
         # `= None` decref's the heavy refs; `del` then removes names from
         # the local frame so torch.nn.Module hooks / closures cannot retain.
-        geometry = H_t = modes = None
-        del geometry, H_t, modes
+        geometry = H_t = H_analysis = modes = modes_mw = None
+        del geometry, H_t, H_analysis, modes, modes_mw
         gc.collect()  # break cyclic refs inside torch.nn.Module
         if torch.cuda.is_available():
             torch.cuda.empty_cache()

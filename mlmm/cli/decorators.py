@@ -168,7 +168,7 @@ def render_cli_exception(
     if out_dir is not None and command:
         # _write_error_json is best-effort and swallows its own errors
         # internally (see its definition), so it cannot mask the real error.
-        _write_error_json(Path(out_dir).resolve(), command, e, "UnhandledError", time_start)
+        _write_error_json(Path(out_dir).resolve(), command, e, label, time_start)
     if isinstance(e, click.ClickException):
         e.show()
         click.echo(

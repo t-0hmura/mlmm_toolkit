@@ -159,3 +159,46 @@ def test_search_paths_always_passes_two_ordered_endpoints(
     assert argv[input_at + 1 : input_at + 5] == [
         "R.pdb", "IM1.pdb", "IM2.pdb", "P.pdb",
     ]
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "args", "kwargs"),
+    [
+        ("compute_frequencies", ("in.pdb", "in.parm7", 0, 1), {}),
+        ("scan_1d", ("in.pdb", "in.parm7", 0, 1, "1,2,1.5"), {}),
+        ("scan_2d", ("in.pdb", "in.parm7", 0, 1, "1,2,1.5;2,3,2.0"), {}),
+        ("scan_3d", ("in.pdb", "in.parm7", 0, 1, "1,2,1.5;2,3,2.0;3,4,2.5"), {}),
+        ("optimize_path", ("R.pdb", "P.pdb", "in.parm7", 0, 1), {}),
+        (
+            "search_paths",
+            ("R.pdb", "in.parm7", 0, 1),
+            {"product_pdb": "P.pdb"},
+        ),
+        ("run_full_pipeline", ("R.pdb",), {}),
+        ("run_single_point_dft", ("in.pdb", "in.parm7", 0, 1), {}),
+    ],
+)
+def test_stage_tools_forward_typed_mm_controls(
+    registry,
+    tmp_path: Path,
+    tool_name: str,
+    args: tuple,
+    kwargs: dict,
+) -> None:
+    tools, calls = registry
+    tools[tool_name](
+        *args,
+        **kwargs,
+        link_atom_method="scaled",
+        mm_backend="openmm",
+        use_cmap=False,
+        out_dir=str(tmp_path / tool_name),
+    )
+    argv, _ = calls[-1]
+    assert ["--link-atom-method", "scaled"] == argv[
+        argv.index("--link-atom-method") : argv.index("--link-atom-method") + 2
+    ]
+    assert ["--mm-backend", "openmm"] == argv[
+        argv.index("--mm-backend") : argv.index("--mm-backend") + 2
+    ]
+    assert "--no-cmap" in argv

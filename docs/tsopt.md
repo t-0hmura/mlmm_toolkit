@@ -129,9 +129,12 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** — load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge / spin. Frozen atoms from CLI and YAML are merged.
-2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference. With `--embedcharge`, xTB point-charge embedding provides MM-to-ML environmental corrections.
+2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference. v0.3.3 uses mechanical embedding and rejects electronic-embedding requests before construction.
 3. **Light mode (Hessian-Guided Dimer)** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian in the active subspace. Its TR treatment follows `--tr-projection`: the default removes only full-system rigid motions compatible with the frozen anchors. Every stored, rotated, and trial orientation has frozen Cartesian components set to zero, and every off-center force evaluation retains the central image's frozen coordinates exactly. The mechanics:
-   - During the loose / final Dimer loops the `hessian_ff` finite-difference Hessian is disabled (`mm_fd=False`). The ML backend Hessian is then embedded into the full 3N × 3N space with MM atoms zero-padded, giving a partial Hessian that still guides the Dimer direction updates.
+   - During the loose/final Dimer loops, the internal
+     `mm_hessian_mode: none` policy intentionally uses high-level curvature
+     guidance only. Outside those loops, `mm_fd: false` selects the analytical
+     subtractive MM Hessian; it is not a high-level-only switch.
    - When the flatten loop is enabled (`--flatten`), the stored active Hessian is updated via Bofill using displacements and gradient differences.
    - Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a Dimer + L-BFGS micro-segment.
 4. **Heavy mode (RS-I-RFO)** — runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section. The flatten behavior:
@@ -180,8 +183,8 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | **Active-region freezing** | | |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | TR treatment for Cartesian PHVA, Dimer refresh, flattening, and final saddle validation. `legacy-active` is an isolated-active comparison treatment. | `constrained` |
-| `--radius-hessian` / `--hess-cutoff FLOAT` | Distance cutoff (Å) from the ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. `0.0` means ML-only partial Hessian. | `0.0` |
+| `--tr-projection [constrained\|legacy-active]` | TR treatment for Cartesian PHVA, Dimer refresh, flattening, and final saddle validation. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |
+| `--radius-hessian` / `--hess-cutoff FLOAT` | Distance cutoff (Å) from the ML region for MM atoms to include in Hessian calculation. Unset includes every required movable MM atom. `0.0` requests an ML-only Hessian and must be paired with `--active-dof-mode ml-only` for final frequency validation. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | **TS search & optimizer mode** | | |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | `FiniteDifference` |
@@ -202,10 +205,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
 | `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--allow-charge-mult-mismatch` | Skip ML-region charge/multiplicity electron-parity validation after emitting a warning. Use only when the mismatch is intentional. | off |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
-| `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use mechanical embedding (`--no-embedcharge`). | `False` |
+| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap / --no-cmap` | CMAP (backbone cross-map dihedral correction) in the model parm7. Disabled by default, consistent with Gaussian ONIOM. | `--no-cmap` |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled (g-factor) or fixed 1.09 / 1.01 Å. | `scaled` |
 | **Output & config** | | |
 | `--dump / --no-dump` | Write the concatenated trajectory `optimization_all_trj.xyz`. | `False` |
@@ -223,7 +226,7 @@ Settings are applied with `defaults < config < explicit CLI`. Shared sections re
 geom:
   coord_type: cart
   freeze_atoms: []
-  tr_projection: constrained      # constrained (default) | legacy-active comparison
+  tr_projection: constrained      # legacy-active is deprecated and comparison-only
 calc:
   charge: 0
   spin: 1
@@ -265,11 +268,12 @@ translations that are finite-curvature motions against the frozen boundary.
 
 `--tr-projection` is unrelated to `--ref-mode`: the former controls
 frozen-boundary rigid-mode projection, while the latter supplies an advanced 3N
-MEP tangent for saddle recovery. `legacy-active` is an isolated-active
-comparison treatment using the current common kernel and numerical rank
-handling; bitwise identity is not guaranteed for rank-degenerate cases. With
-`--out-json`, `result.json.rigid_projection` records the treatment, effective
-rank, Hessian source, and Hessian shape.
+MEP tangent for saddle recovery. `legacy-active` is deprecated comparison-only
+behavior and must not be used for pass/HOSP transition-state certification. It
+uses the current common kernel and numerical rank handling; bitwise identity is
+not guaranteed for rank-degenerate cases. With `--out-json`,
+`result.json.rigid_projection` records the treatment, effective rank, Hessian
+source, and Hessian shape.
 
 ```{note}
 `rsirfo.trust_max` defaults to 0.10 bohr for improved ML/MM stability near the TS.

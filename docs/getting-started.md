@@ -95,22 +95,10 @@ mlmm --version
 |---|---|---|
 | `hessian_ff` native build | If you see a "native extension not available" warning. JIT compilation usually handles it. | First install `ninja` on most clusters: `conda install -c conda-forge ninja -y`. Then build: `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make`. |
 | `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for `all`, `path-search`, and `path-opt` (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory error. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
-| xTB | `--embedcharge` (xTB point-charge embedding) | `conda install -c conda-forge xtb -y` (custom binary: set `xtb_cmd` in YAML) |
 | Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
 | CUDA toolkit/module | Only when compiling a C/CUDA extension from source | Use the site-supported toolkit/compiler pair for that build. Official PyTorch wheels carry their CUDA user-space libraries and require only a compatible NVIDIA driver at runtime. |
 
 If you switch runtime environments (node / container / Python / PyTorch), rebuild `hessian_ff` in the new env. Detailed HPC job-script templates: [docs/device-hpc.md](device-hpc.md).
-
-If no usable conda `xtb` package is available, build xTB from source (requires GCC >= 10):
-
-```bash
-git clone --depth 1 https://github.com/grimme-lab/xtb.git
-cd xtb
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-make -C build -j8
-```
-
----
 
 ## Quickstart routes
 
@@ -135,7 +123,7 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 4. path-search   — MEP search (single-pass `path-opt` by default; `--refine-path` for recursive `path-search`)
 5. tsopt         — Transition state optimization
 6. freq          — Vibrational analysis + thermochemistry
-7. dft           — Single-point DFT energy refinement
+7. dft           — Single-point DFT energy evaluation
 ```
 
 Use the PDB written by `mm-parm` for steps 2 onward because LEaP may change
@@ -181,7 +169,6 @@ Single-input runs require **either** `--scan-lists` (staged scan → GSM) **or**
 ```bash
 mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb         # ORB
 mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace        # MACE
-mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge  # xTB embedding
 ```
 
 ## DFT refinement via Gaussian / ORCA (hand-off)
@@ -224,7 +211,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `--mep-mode gsm\|dmf` | MEP optimizer for either path route (default `gsm`). |
 | `--dmf-backend gpu\|cpu` | DMF implementation; use `cpu` after a GPU out-of-memory error. |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |
-| `--embedcharge` | xTB point-charge embedding correction (default off). |
+| `--embedcharge/--no-embedcharge` | Electronic embedding is unavailable in v0.3.3; keep the mechanical default. |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. All bundled MLIP backends support `Analytical`; use it when VRAM allows. It is incompatible with `--workers > 1`. |
 
 `mlmm all --mep-mode dmf` applies Direct Max Flux to both the default

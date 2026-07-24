@@ -62,7 +62,7 @@ Amino acids and common ions draw charges from internal dictionaries; waters are 
 
 ### Multi-structure ensembles
 
-`extract` accepts multiple input PDBs (identical atom ordering is validated at the head and tail of each file). Each structure is processed independently and the **union** of selected residues is applied to every model so outputs stay consistent.
+`extract` accepts multiple input PDBs and compares the complete ordered atom-identity sequence across every file. Each structure is processed independently and the **union** of selected residues is applied to every model so outputs stay consistent.
 
 | Output policy | Layout |
 |---|---|

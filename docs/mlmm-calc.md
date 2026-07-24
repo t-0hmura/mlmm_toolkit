@@ -19,15 +19,16 @@ The ML (high-level) component is provided by one of several MLIP backends, selec
 
 See [MLIP Backends](backends.md) for per-backend kwargs, model identifiers, precision options, and how to add a backend.
 
-### Embed-charge correction
+### Electronic embedding
 
-When `--embedcharge` is enabled (or `mlmm.embedcharge: true` in YAML), an xTB point-charge embedding correction is applied:
-
-```
-dE = E_xTB(ML + MM_charges) - E_xTB(ML_only)
-```
-
-This correction models the electrostatic influence of the MM environment on the ML region via point charges, improving the description of polarization effects at the ML/MM boundary. The corresponding force and Hessian corrections are also applied. The default is `--no-embedcharge` (disabled). Requires an xTB executable on `$PATH`.
+Electronic embedding is unavailable in v0.3.3. `--embedcharge`,
+`--embedcharge-cutoff`, and `calc.embedcharge: true` are retained only so older
+commands fail with an explicit diagnostic before calculation. The previous
+experimental correction added an electronic ML--MM interaction on top of the
+Amber interaction already retained by the subtractive ONIOM expression and
+used an uncapped model inconsistent with the link-H high-level system. Use the
+default mechanical embedding (`--no-embedcharge`) and do not reuse results
+generated with the experimental path.
 
 The calculator automatically generates link hydrogen atoms at covalent ML/MM boundaries. The ML region is defined by a model PDB (`model.pdb`), the MM topology comes from an Amber prmtop (`real.parm7`), and coordinates are taken from the input PDB (`input.pdb`). An internal `real.rst7` is generated via ParmEd by combining `real.parm7` with coordinates from `input.pdb` -- no external `real.rst7` or `real.pdb` is required.
 
@@ -71,7 +72,7 @@ Forces and Hessian contributions from link atoms are redistributed to the ML/MM 
 
 The MM backend can be selected via the `mm_backend` parameter:
 
-- **`"hessian_ff"`** (default): Analytical Hessian via `hessian_ff` (active atoms only, then optionally expanded to full Cartesian shape with frozen rows/cols zero-filled). CPU-only backend.
+- **`"hessian_ff"`** (default backend): CPU-only MM engine with an analytical-Hessian capability. The effective default remains finite difference (`mm_fd: true`); set `mm_fd: false` to use its analytical Hessian. Active blocks can optionally be expanded to full Cartesian shape with frozen rows/columns zero-filled.
   - CMAP torsion corrections (implemented but disabled by default, as in Gaussian)
 - **`"openmm"`**: Finite-difference (FD) Hessian via OpenMM. Supports both CPU and CUDA platforms. Covers force fields not supported by `hessian_ff`, or cases where OpenMM is already in your workflow. See [Device Configuration & HPC Setup](device-hpc.md) for mm_backend/mm_device YAML examples and VRAM trade-offs.
 

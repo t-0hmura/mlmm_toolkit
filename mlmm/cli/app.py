@@ -64,10 +64,24 @@ def _has_help_or_version_request(argv: list[str]) -> bool:
     return any(arg in {"-h", "--help", "--version", "--help-advanced"} for arg in argv[1:])
 
 
+def _requests_stdout_json(argv: list[str]) -> bool:
+    """Return whether the selected command promises JSON-only stdout."""
+    args = argv[1:]
+    return (
+        "bond-summary" in args
+        and "--json" in args
+        and "--no-json" not in args
+    )
+
+
 def _emit_start_header(ctx: click.Context) -> None:
     from mlmm.core.utils import is_child_mode, verbose_level
 
-    if is_child_mode() or _has_help_or_version_request(sys.argv):
+    if (
+        is_child_mode()
+        or _has_help_or_version_request(sys.argv)
+        or _requests_stdout_json(sys.argv)
+    ):
         return
 
     if verbose_level() >= 2:

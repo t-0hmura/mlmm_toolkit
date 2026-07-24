@@ -171,6 +171,8 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 |-------|------|------|
 | `temperature_K` | float | K |
 | `pressure_atm` | float | atm |
+| `symmetry_number` | int | External rotational symmetry number |
+| `symmetry_number_source` | string | `"default"`, `"config"`, `"override"`, or `"cli"` |
 | `zpe_ha` | float | Hartree |
 | `thermal_correction_energy_ha` | float | Hartree |
 | `thermal_correction_enthalpy_ha` | float | Hartree |
@@ -197,6 +199,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `never_stop` | bool | Whether opt-in energy-rise/plateau bypass mode was enabled |
 | `never_stop_energy_bypasses` | int | Number of energy-rise/plateau stops actually bypassed |
 | `rigid_projection` | object | Frozen-boundary TR provenance for the initial/updated Hessian |
+| `rigid_projection.electronic_state_verified` | bool | For a file-seeded Hessian, whether model charge and multiplicity were identity-verified |
 | `bond_changes` | object | Directed first→last `{formed: [...], broken: [...]}`; omitted if comparison was unavailable |
 | `bond_changes_direction` | string | `"finished_first_to_finished_last"` when bond changes are present |
 | `files` | object | Trajectory and endpoint files (XYZ plus available PDB/CIF companions) |
@@ -204,7 +207,8 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 **`rigid_projection` provenance:** the object records the selected treatment
 (`treatment`), `effective_rank`, active/frozen atom counts and indices, and the
 Hessian source/shape used by that workflow. `constrained` is the default;
-`legacy-active` is an isolated-active comparison treatment. A `freq --dump`
+`legacy-active` is deprecated, comparison-only, and must not be used for
+pass/HOSP transition-state certification. A `freq --dump`
 run writes the same object to `thermoanalysis.yaml`. Field names for the final
 two values follow the producing workflow (`hessian_source` / `hessian_shape`,
 or `source` / `raw_hessian_shape`).
@@ -339,9 +343,10 @@ The `all` command additionally includes:
 | Field | Type | Description |
 |-------|------|-------------|
 | `n_segments_reactive` | int | Number of non-bridge (reactive) segments |
-| `rate_limiting_step` | object | RLS segment index and barrier |
+| `rate_limiting_step` | object | Legacy key for the highest independently referenced local segment barrier. It is not a microkinetic rate-limiting-step assignment. |
 | `overall_reaction_energy_kcal` | float | Overall reaction energy |
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
+| `post_segments[].thermo_symmetry` | object | Child-reported rotational symmetry provenance by state. Only R/TS/P states with both a valid `symmetry_number` and `symmetry_number_source` are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
 | `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |
 | `current_output_paths` | string[] | Sorted paths relative to `--out-dir`, limited to artifacts claimed by the current invocation. |
 

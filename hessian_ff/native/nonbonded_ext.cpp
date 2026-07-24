@@ -47,7 +47,6 @@ int64_t min_pairs_per_thread_threshold(int64_t requested) {
 int effective_max_threads() {
 #ifdef _OPENMP
   int max_threads = std::max(1, omp_get_max_threads());
-  const int nprocs = std::max(1, omp_get_num_procs());
 
   const char* env = std::getenv("HESSIAN_FF_NONBONDED_MAX_THREADS");
   if (env != nullptr && env[0] != '\0') {
@@ -56,10 +55,6 @@ int effective_max_threads() {
     if (end != env && v > 0) {
       max_threads = static_cast<int>(v);
     }
-  } else {
-    // Prefer all OpenMP-visible processors by default. This avoids being
-    // unintentionally capped by unrelated intra-op thread settings.
-    max_threads = std::max(max_threads, nprocs);
   }
   return std::max(1, max_threads);
 #else

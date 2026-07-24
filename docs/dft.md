@@ -1,6 +1,6 @@
 # `dft`
 
-Run a single-point DFT calculation on the ML region using GPU4PySCF (or CPU PySCF), then recombine the high-level energy with MM evaluations to obtain the ML(dft)/MM total energy. Use it to refine stationary-point energies (R / TS / P / IM) at the DFT level after an MLIP path search, or to sanity-check an MLIP barrier against a benchmark functional / basis. The default functional/basis is `wb97m-v/def2-tzvpd`. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
+Run a single-point DFT calculation on the ML region using GPU4PySCF (or CPU PySCF), then recombine the high-level energy with MM evaluations to obtain the ML(dft)/MM total energy. Use it to evaluate stationary-point energies (R / TS / P / IM) at the DFT level after an MLIP path search, or to sanity-check an MLIP barrier against a benchmark functional / basis. The default functional/basis is `wb97m-v/def2-tzvpd`. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
@@ -36,7 +36,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Link hydrogens are appended automatically (C/N parents within 1.7 Å) unless explicit `link_mlmm` pairs are provided via YAML.
-2. **SCF build** -- `--func-basis` is parsed into functional and basis. The GPU4PySCF backend is used when available; closed-shell GPU runs additionally use the low-memory `gpu4pyscf.dft.rks_lowmem.RKS` SCF when `--lowmem` is on (default). Use `--engine cpu` to force CPU mode. (For the SCF JK / `density_fit()` behavior see the `--lowmem` row in the CLI options table.) When `--embedcharge` is enabled, MM point charges from the Amber topology are embedded into the QM Hamiltonian via `pyscf.qmmm.mm_charge()`, so the DFT wavefunction is self-consistently polarized by the MM environment.
+2. **SCF build** -- `--func-basis` is parsed into functional and basis. The GPU4PySCF backend is used when available; closed-shell GPU runs additionally use the low-memory `gpu4pyscf.dft.rks_lowmem.RKS` SCF when `--lowmem` is on (default). Use `--engine cpu` to force CPU mode. (For the SCF JK / `density_fit()` behavior see the `--lowmem` row in the CLI options table.) v0.3.3 uses mechanical embedding; requests for the retired electronic-embedding path fail before SCF construction.
 3. **ML(dft)/MM recombination** -- After the DFT converges, MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low) are computed. The combined energy is reported in Hartree and kcal/mol.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
 
@@ -84,10 +84,10 @@ out_dir/ (default: ./result_dft/)
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
 | `-b, --backend CHOICE` | Metadata-only label recorded in output; does not select a calculator in `dft` (the ML region is computed with DFT/PySCF, and the MM low level is chosen via `--mm-backend`): `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Electrostatic embedding: MM point charges polarize the DFT wavefunction (see Workflow step 2). | `False` |
-| `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
+| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; retained only to reject older electronic-embedding commands. | `False` |
+| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--link-atom-method {scaled,fixed}` | Link-atom placement: `scaled` (g-factor, Gaussian ONIOM standard) or `fixed` (legacy 1.09 Å for C, 1.01 Å for N). | `scaled` |
-| `--mm-backend {hessian_ff,openmm}` | MM backend for the low-level ONIOM evaluation: `hessian_ff` (analytical, default) or `openmm` (finite-difference Hessian). | `hessian_ff` |
+| `--mm-backend {hessian_ff,openmm}` | MM backend for the low-level ONIOM evaluation. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--out-json/--no-out-json` | Write a machine-readable `result.json` to `out_dir`. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. Shown in `--help-advanced`. | `False` |
@@ -131,7 +131,7 @@ Full schema (every key and default): [YAML Reference](yaml-reference.md).
 
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [freq](freq.md) — Vibrational frequency analysis (often precedes DFT refinement)
+- [freq](freq.md) — Vibrational frequency analysis (often precedes DFT single-point evaluation)
 - [opt](opt.md) — Single-structure geometry optimization
 - [all](all.md) — End-to-end workflow with `--dft`
 - [YAML Reference](yaml-reference.md) — Full `dft` configuration options

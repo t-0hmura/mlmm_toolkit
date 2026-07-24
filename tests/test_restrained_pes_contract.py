@@ -80,6 +80,56 @@ def test_harmonic_pair_force_is_negative_energy_gradient() -> None:
     assert np.allclose(force, -gradient, atol=2.0e-10, rtol=2.0e-9)
 
 
+@pytest.mark.parametrize(
+    ("coords", "k", "pairs", "message"),
+    [
+        (
+            np.zeros((2, 3)),
+            1.0,
+            [(0, 0, 1.0)],
+            "two distinct atoms",
+        ),
+        (
+            np.zeros((2, 3)),
+            1.0,
+            [(0, 2, 1.0)],
+            "outside the valid range",
+        ),
+        (
+            np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
+            1.0,
+            [(0, 1, 0.0)],
+            "greater than zero",
+        ),
+        (
+            np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
+            -1.0,
+            [(0, 1, 1.0)],
+            "non-negative",
+        ),
+        (
+            np.zeros((2, 3)),
+            1.0,
+            [(0, 1, 1.0)],
+            "coincident atoms",
+        ),
+    ],
+)
+def test_invalid_harmonic_pair_restraints_fail_closed(
+    coords: np.ndarray,
+    k: float,
+    pairs,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        harmonic_pair_energy_forces_hessian(
+            coords,
+            k,
+            pairs,
+            need_hessian=True,
+        )
+
+
 class _StaticBase:
     def __init__(self, result, *, freeze_atoms=()):
         self.result = result

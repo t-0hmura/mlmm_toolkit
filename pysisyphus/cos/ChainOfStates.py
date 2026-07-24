@@ -486,6 +486,17 @@ class ChainOfStates:
                         tangent_plus * delta_energy_min
                         + tangent_minus * delta_energy_max
                     )
+            if np.linalg.norm(tangent) < 1.0e-12:
+                # Equal/near-equal energies null both upwinding weights.
+                # Retain a geometric path direction instead of returning a
+                # zero tangent that suppresses the perpendicular force.
+                tangent = next_image - prev_image
+                if np.linalg.norm(tangent) < 1.0e-12:
+                    tangent = (
+                        tangent_plus
+                        if np.linalg.norm(tangent_plus) >= np.linalg.norm(tangent_minus)
+                        else tangent_minus
+                    )
         elif kind == "lanczos":
             # Calculating a lanczos tangent is costly, so we store the
             # tangent in a dictionary. The current coordinates are
@@ -616,9 +627,13 @@ class ChainOfStates:
             climb_indices = self.fixed_climb_indices
             _ = "index" if len(climb_indices) == 1 else "indices"
             self.log(f"Returning fixed climbing {_}.")
-        # Do one image climbing (C1) neb if explicitly requested or
-        # the HEI is the first or last item in moving_indices.
-        elif self.climb == "one" or ((hei_index == 1) or (hei_index == move_inds[-1])):
+        # A fixed endpoint cannot be a climbing image.
+        elif hei_index not in move_inds:
+            climb_indices = tuple()
+            self.log("Want to climb but can't. HEI is a fixed image!")
+        # Do one image climbing (C1) NEB if explicitly requested or
+        # the HEI is the first or last movable image.
+        elif self.climb == "one" or hei_index in (move_inds[0], move_inds[-1]):
             climb_indices = (hei_index,)
         # We can do two climbing (C2) neb if the highest energy image (HEI)
         # is in moving_indices but not the first or last item in this list.

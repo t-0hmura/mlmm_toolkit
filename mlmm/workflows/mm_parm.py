@@ -22,6 +22,8 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import click
 
+from mlmm.core.result_commit import commit_payloads
+
 logger = logging.getLogger(__name__)
 
 # ===================== User dictionaries & constants =====================
@@ -188,8 +190,14 @@ def ambertools_available() -> bool:
 # DO NOT INLINE: tleap/antechamber emit large stdout; subprocess.run(capture_output=True) buffers everything (memory) and only shows at exit (debugging pain). Line-by-line Popen gives real-time progress + bounded memory.
 def run(cmd: List[str], cwd: Optional[Path] = None, logfile: Optional[Path] = None) -> int:
     """Run a subprocess, capture stdout+stderr into a log file, and return the return code."""
+    if not cmd:
+        raise ValueError("run() requires a non-empty command")
+    executable = which(cmd[0])
+    if executable is None:
+        raise FileNotFoundError(f"Required executable '{cmd[0]}' was not found.")
+    resolved_cmd = [executable, *cmd[1:]]
     with subprocess.Popen(
-        cmd,
+        resolved_cmd,
         cwd=str(cwd) if cwd else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -203,6 +211,16 @@ def run(cmd: List[str], cwd: Optional[Path] = None, logfile: Optional[Path] = No
     if logfile:
         logfile.write_text("".join(lines), encoding="utf-8", errors="ignore")
     return rc
+
+
+_TLEAP_COMPLEX_OUTPUTS = ("complex.parm7", "complex.inpcrd", "complex.pdb")
+_TLEAP_REQUIRED_OUTPUTS = ("complex.parm7", "complex.inpcrd")
+
+
+def _invalidate_tleap_complex_outputs(tmpdir: Path) -> None:
+    """Remove the preceding LEaP pass before starting a new generation."""
+    for name in _TLEAP_COMPLEX_OUTPUTS:
+        (Path(tmpdir) / name).unlink(missing_ok=True)
 
 
 def parse_ligand_charge(expr: Optional[str]) -> Dict[str, int]:
@@ -252,8 +270,23 @@ def parse_ligand_mult(expr: Optional[str]) -> Dict[str, int]:
         elif ":" in tok:
             k, v = tok.split(":", 1)
         else:
-            raise ValueError(f"Invalid format in --ligand-mult: {tok} (use RES=M or RES:M)")
-        out[k.strip()] = int(v.strip())
+            raise click.BadParameter(
+                f"invalid --ligand-mult token '{tok}': use RES=M or RES:M "
+                f"(e.g. 'HEM:1,NO:2')."
+            )
+        try:
+            multiplicity = int(v.strip())
+        except ValueError:
+            raise click.BadParameter(
+                f"--ligand-mult value for '{k.strip()}' must be an integer, "
+                f"got '{v.strip()}'."
+            )
+        if multiplicity < 1:
+            raise click.BadParameter(
+                f"--ligand-mult value for '{k.strip()}' must be >= 1, "
+                f"got {multiplicity}."
+            )
+        out[k.strip()] = multiplicity
     return out
 
 
@@ -787,10 +820,12 @@ def ambertools_route(
         leaprc_lines=leaprc_lines,
     )
     log1 = tmpdir / "tleap_1.log"
-    run(["tleap", "-f", leap_in.name], cwd=tmpdir, logfile=log1)
+    rc1 = run(["tleap", "-f", leap_in.name], cwd=tmpdir, logfile=log1)
 
     # Collect unknown residues
     need_params: Set[str] = parse_tleap_unknown_residues(log1)
+    if rc1 != 0 and not need_params:
+        raise RuntimeError(f"tleap pass 1 exited with code {rc1}; see {log1.name}.")
 
     # Parameterize unknown residues
     lig_defs: List[Tuple[str, Path, Path]] = []
@@ -827,6 +862,10 @@ def ambertools_route(
 
     # Pass 2 (with generated parameters) -> will (re)write complex.* including PDB
     if need_params:
+        # Pass 2 is a distinct output generation.  Remove every pass-1
+        # candidate before dispatch so a failed LEaP process cannot satisfy
+        # the final existence checks with the preceding generation.
+        _invalidate_tleap_complex_outputs(tmpdir)
         leap_in2 = tmpdir / "tleap_2.in"
         write_tleap_input(
             fixed_pdb,
@@ -837,9 +876,14 @@ def ambertools_route(
             leaprc_lines=leaprc_lines,
         )
         log2 = tmpdir / "tleap_2.log"
-        run(["tleap", "-f", leap_in2.name], cwd=tmpdir, logfile=log2)
-        if not (tmpdir / "complex.parm7").exists():
-            raise RuntimeError(f"tleap failed to produce parm7; see {log2.name}.")
+        rc2 = run(["tleap", "-f", leap_in2.name], cwd=tmpdir, logfile=log2)
+        if rc2 != 0:
+            raise RuntimeError(f"tleap pass 2 exited with code {rc2}; see {log2.name}.")
+        if not all((tmpdir / name).exists() for name in _TLEAP_REQUIRED_OUTPUTS):
+            raise RuntimeError(
+                f"tleap pass 2 did not produce a complete complex generation; "
+                f"see {log2.name}."
+            )
 
     # Copy outputs (parm7, inpcrd) to final names
     src_parm = tmpdir / "complex.parm7"
@@ -852,8 +896,13 @@ def ambertools_route(
 
     parm7 = Path(f"{out_prefix}.parm7").resolve()
     rst7 = Path(f"{out_prefix}.rst7").resolve()
-    shutil.copy2(src_parm, parm7)
-    shutil.copy2(src_inp, rst7)  # copy LEaP ASCII inpcrd as <prefix>.rst7
+    commit_payloads(
+        parm7,
+        {
+            parm7: src_parm.read_bytes(),
+            rst7: src_inp.read_bytes(),
+        },
+    )
 
     # Return paths for prmtop/rst7; the caller will copy PDB using naming rule
     return parm7, rst7

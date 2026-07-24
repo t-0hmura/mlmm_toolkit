@@ -13,6 +13,7 @@ Layer encoding in output PDB B-factor:
 from __future__ import annotations
 
 import re
+import tempfile
 from pathlib import Path
 from typing import List, Optional, Sequence, Set, Tuple
 
@@ -20,6 +21,7 @@ import click
 import numpy as np
 
 from mlmm.core.defaults import BFACTOR_ML, BFACTOR_MOVABLE_MM, BFACTOR_FROZEN
+from mlmm.core.result_commit import commit_payloads
 
 
 _FLOAT_RE = r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?"
@@ -347,9 +349,13 @@ def _write_layered_pdb_with_ref(
     path: Path,
     ref_pdb: Path,
     coords: np.ndarray,
+    elements: List[str],
     qm_indices: Set[int],
     movable_indices: Set[int],
-) -> None:
+    *,
+    expected_ref_order_digest: Optional[str] = None,
+    allow_unverified_ref_order: bool = False,
+) -> str:
     ref_lines = ref_pdb.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
     atom_line_indices: List[int] = [
         i for i, line in enumerate(ref_lines) if line.startswith(("ATOM  ", "HETATM"))
@@ -361,6 +367,62 @@ def _write_layered_pdb_with_ref(
             f"--ref-pdb atom count mismatch: ref has {len(atom_line_indices)} ATOM/HETATM rows, "
             f"but ONIOM input has {n_atoms} atoms."
         )
+    try:
+        from ase.io import read as ase_read
+
+        ref_elements = [
+            _normalize_element_symbol(symbol)
+            for symbol in ase_read(str(ref_pdb), index=0).get_chemical_symbols()
+        ]
+    except Exception as exc:
+        raise click.ClickException(
+            f"Failed to read ordered elements from --ref-pdb: {exc}"
+        ) from exc
+    oniom_elements = [
+        _normalize_element_symbol(symbol) for symbol in elements
+    ]
+    if ref_elements != oniom_elements:
+        mismatch = next(
+            (
+                index
+                for index, (ref_element, oniom_element) in enumerate(
+                    zip(ref_elements, oniom_elements)
+                )
+                if ref_element != oniom_element
+            ),
+            0,
+        )
+        raise click.ClickException(
+            "--ref-pdb atom-order element mismatch at 1-based atom "
+            f"{mismatch + 1}: reference={ref_elements[mismatch]}, "
+            f"ONIOM={oniom_elements[mismatch]}."
+        )
+    from mlmm.io.oniom_identity import elements_are_unique, pdb_order_digest
+
+    if expected_ref_order_digest is not None:
+        current_digest = pdb_order_digest(ref_pdb)
+        if current_digest != expected_ref_order_digest:
+            raise click.ClickException(
+                "--ref-pdb atom identity/order does not match the reference "
+                "embedded by `mlmm oniom-export`."
+            )
+        verification = "identity-verified"
+    elif elements_are_unique(oniom_elements):
+        verification = "element-verified"
+    elif not allow_unverified_ref_order:
+        raise click.ClickException(
+            "The ONIOM input has no embedded reference-order identity and "
+            "contains repeated elements, so --ref-pdb atom order cannot be "
+            "verified. Independently verify the order, then pass "
+            "--allow-unverified-ref-order to use legacy positional mapping."
+        )
+    else:
+        verification = "unverified-opt-in"
+        click.echo(
+            "[oniom-import] WARNING: --ref-pdb atom order is not identity-verified; "
+            "using explicitly requested positional mapping.",
+            err=True,
+        )
 
     out_lines = list(ref_lines)
     for idx, line_idx in enumerate(atom_line_indices):
@@ -369,6 +431,7 @@ def _write_layered_pdb_with_ref(
         out_lines[line_idx] = _patch_ref_pdb_line(out_lines[line_idx], float(x), float(y), float(z), bfac)
 
     path.write_text("".join(out_lines), encoding="utf-8")
+    return verification
 
 
 @click.command(
@@ -406,13 +469,29 @@ def _write_layered_pdb_with_ref(
     default=None,
     help="Reference PDB to preserve atom naming/residue metadata (atom count must match).",
 )
+@click.option(
+    "--allow-unverified-ref-order/--no-allow-unverified-ref-order",
+    default=False,
+    show_default=True,
+    help="Allow legacy positional --ref-pdb mapping when repeated elements make "
+         "atom identity unverifiable. Use only after independently checking order.",
+)
 def cli(
     input_path: Path,
     mode: Optional[str],
     out_prefix: Optional[Path],
     ref_pdb: Optional[Path],
+    allow_unverified_ref_order: bool,
 ) -> None:
+    if allow_unverified_ref_order and ref_pdb is None:
+        raise click.UsageError("--allow-unverified-ref-order requires --ref-pdb.")
     mode_resolved = _resolve_mode(mode, input_path)
+    from mlmm.io.oniom_identity import extract_embedded_order_digest
+
+    try:
+        expected_ref_order_digest = extract_embedded_order_digest(input_path)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     if out_prefix is None:
         prefix = Path.cwd() / input_path.stem
@@ -433,22 +512,47 @@ def cli(
     xyz_path = prefix.with_suffix(".xyz")
     pdb_path = prefix.parent / f"{prefix.name}_layered.pdb"
 
-    _write_xyz(
-        xyz_path,
-        coords,
-        elements,
-        comment=(
-            f"mode={mode_resolved} atoms={n_atoms} qm={len(qm_indices)} movable={len(movable_indices)} "
-            f"q={qm_charge} m={qm_mult}"
-        ),
-    )
+    with tempfile.TemporaryDirectory(prefix="mlmm-oniom-import-") as staging_dir:
+        staging_root = Path(staging_dir)
+        staged_xyz = staging_root / xyz_path.name
+        staged_pdb = staging_root / pdb_path.name
+        _write_xyz(
+            staged_xyz,
+            coords,
+            elements,
+            comment=(
+                f"mode={mode_resolved} atoms={n_atoms} qm={len(qm_indices)} "
+                f"movable={len(movable_indices)} q={qm_charge} m={qm_mult}"
+            ),
+        )
 
-    if ref_pdb is not None:
-        _write_layered_pdb_with_ref(pdb_path, ref_pdb, coords, qm_indices, movable_indices)
-    else:
-        _write_layered_pdb_without_ref(pdb_path, coords, elements, qm_indices, movable_indices)
+        if ref_pdb is not None:
+            ref_verification = _write_layered_pdb_with_ref(
+                staged_pdb,
+                ref_pdb,
+                coords,
+                elements,
+                qm_indices,
+                movable_indices,
+                expected_ref_order_digest=expected_ref_order_digest,
+                allow_unverified_ref_order=allow_unverified_ref_order,
+            )
+        else:
+            _write_layered_pdb_without_ref(
+                staged_pdb, coords, elements, qm_indices, movable_indices
+            )
+
+        commit_payloads(
+            xyz_path,
+            {
+                xyz_path: staged_xyz.read_bytes(),
+                pdb_path: staged_pdb.read_bytes(),
+            },
+        )
 
     click.echo(f"[oniom-import] mode={mode_resolved}")
+    if ref_pdb is not None:
+        click.echo(f"[oniom-import] ref_order={ref_verification}")
     click.echo(
         f"[oniom-import] atoms={n_atoms}, qm={len(qm_indices)}, movable={len(movable_indices)}, "
         f"frozen={n_atoms - len(set(movable_indices) | set(qm_indices))}"

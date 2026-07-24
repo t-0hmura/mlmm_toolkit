@@ -239,25 +239,6 @@ huggingface-cli login
     # pip uninstall fairchem-core && pip install mace-torch
     ```
 
-    xTB 点電荷埋め込み補正（`--embedcharge`）を使用するには、[xTB](https://github.com/grimme-lab/xtb) をインストールし、`xtb` コマンドが `PATH` 上で利用可能であることを確認してください。
-
-    #### xTB のインストール
-
-    ```bash
-    conda install -c conda-forge xtb
-    ```
-
-    またはソースからビルド（GCC >= 10 が必要）:
-
-    ```bash
-    git clone --depth 1 https://github.com/grimme-lab/xtb.git
-    cd xtb
-    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-    make -C build -j8
-    ```
-
-    カスタム xTB バイナリを使用するには、YAML 設定ファイルで `xtb_cmd` キーを設定してください。
-
 11. **インストールの確認**
 
     ```bash
@@ -270,7 +251,7 @@ huggingface-cli login
 
 ## マルチバックエンドの使用例
 
-デフォルトの MLIP バックエンドは UMA です。`-b/--backend` で代替バックエンドに切り替え、`--embedcharge` で xTB 点電荷埋め込みを有効化できます:
+デフォルトの MLIP バックエンドは UMA です。`-b/--backend` で代替バックエンドに切り替えます:
 
 ```bash
 # ORB バックエンドを使用
@@ -279,8 +260,6 @@ mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
 # MACE バックエンドを使用
 mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
 
-# xTB 点電荷埋め込みを有効化
-mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 --embedcharge
 ```
 
 ---
@@ -465,7 +444,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `--dmf-backend gpu\|cpu` | DMF 実装。GPU メモリ不足時は `cpu` を選択 |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（デフォルト: 無効） |
+| `--embedcharge/--no-embedcharge` | 電子埋め込みは v0.3.3 では使用不可。機械的埋め込みのデフォルトを使用 |
 | `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（L-BFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian 計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--workers > 1` とは併用不可。 |
 
@@ -555,7 +534,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 | `--parm` | Amber parm7（個別サブコマンドで必要） |
 | `--model-pdb` | ML 領域定義 PDB（個別サブコマンドで必要） |
 | `-b, --backend` | MLIP バックエンド選択（`uma`, `orb`, `mace`, `aimnet2`） |
-| `--embedcharge` | xTB 点電荷埋め込み補正を有効化 |
+| `--embedcharge/--no-embedcharge` | 電子埋め込みは v0.3.3 では使用不可 |
 | `--tsopt` | TS 最適化 + IRC |
 | `--thermo` | 振動解析/熱化学 |
 | `--dft` | DFT 一点計算 |

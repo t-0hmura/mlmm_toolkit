@@ -5,8 +5,8 @@ Modules:
   (``_UMABackend`` / ``_OrbBackend`` / ``_MACEBackend`` / ``_AIMNet2Backend``),
   the ``_create_ml_backend`` factory, ``MLMMASECalculator`` (ASE), and ``mlmm``
   (pysisyphus Calculator).
-- ``xtb_embedcharge_correction`` — ``--embedcharge`` correction (xTB point-charge
-  embedding for MM→ML environmental effects).
+- ``xtb_embedcharge_correction`` — dormant compatibility implementation; public
+  electronic embedding is unavailable in v0.3.3.
 
 User-facing API (factory pattern, per-backend kwargs, unified
 ``--precision fp32|fp64`` option, add-a-backend recipe) — see
@@ -54,9 +54,10 @@ def normalize_calculator_methods(calc_cfg: Dict[str, Any]) -> None:
     the validation because it is also a public API.
     """
 
-    from mlmm.backends.mlmm_calc import (
+    from mlmm.backends.methods import (
         normalize_hessian_calc_mode,
         normalize_link_atom_method,
+        normalize_mm_hessian_mode,
     )
 
     if "hessian_calc_mode" in calc_cfg:
@@ -66,6 +67,11 @@ def normalize_calculator_methods(calc_cfg: Dict[str, Any]) -> None:
     if "link_atom_method" in calc_cfg:
         calc_cfg["link_atom_method"] = normalize_link_atom_method(
             calc_cfg.get("link_atom_method")
+        )
+    if "mm_hessian_mode" in calc_cfg:
+        calc_cfg["mm_hessian_mode"] = normalize_mm_hessian_mode(
+            calc_cfg.get("mm_hessian_mode"),
+            mm_fd=bool(calc_cfg.get("mm_fd", True)),
         )
 
 

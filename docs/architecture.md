@@ -86,7 +86,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ ├── custom.py user ASE calculator loaded from --calc-file (custom backend)
 │ │ ├── _determinism.py strict-determinism setup (--deterministic)
-│ │ └── xtb_embedcharge_correction.py xTB point-charge embedding correction (--embedcharge)
+│ │ └── xtb_embedcharge_correction.py dormant compatibility implementation
 │ │
 │ ├── io/ # === L4b Infra (I/O) ===
 │ │ ├── summary.py summary.json / summary.log writer
@@ -99,7 +99,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ ├── core/ # === L5 Foundation ===
 │ │ ├── defaults.py shared workflow/calculator defaults
 │ │ ├── utils.py PDB / XYZ / plot helpers
-│ │ ├── logging.py -v / -vv logging wiring
+│ │ ├── logging.py -v/--verbose LEVEL (0–3) logging wiring
 │ │ ├── calc_eval.py per-stage calc evaluation
 │ │ ├── output.py / result_commit.py output/result commit helpers
 │ │ ├── pes_composition.py energy-component composition
@@ -130,11 +130,11 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 Domain helpers are reusable by any L2 stage runner.
 
-**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py`) lives here together with backend dispatch (`__init__.py`) and the standalone xTB point-charge embedding correction (`xtb_embedcharge_correction.py`, driven by `--embedcharge`). The ML-region backends (UMA / ORB / MACE / AIMNet2) and OpenMM / hessian_ff coupling are dispatched from this layer. `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, and **#8 (3-layer 5-pass partial Hessian)**; rule **#9 (parm7 atom indexing)** lives in `io/pdb_indexing.py` — see §5.1.
+**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py`) lives here together with backend dispatch (`__init__.py`) and a dormant electronic-embedding compatibility module (`xtb_embedcharge_correction.py`; public activation is rejected in v0.3.3). The ML-region backends (UMA / ORB / MACE / AIMNet2) and OpenMM / hessian_ff coupling are dispatched from this layer. `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, and **#8 (3-layer 5-pass partial Hessian)**; rule **#9 (parm7 atom indexing)** lives in `io/pdb_indexing.py` — see §5.1.
 
 **L4b `io/`**. Output-side I/O concerns include the per-stage summary writer, energy diagram, trajectory rendering, PDB/altloc handling, Hessian cache, numerical Hessian construction, and frequency/vibrational I/O (`hessian_calc.py`). `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
 
-**L5 `core/`**. The lowest layer. `defaults.py` is the **single source of truth** for shared defaults — grep here before adding a number elsewhere, then inspect justified command-local defaults. `utils.py` contains shared PDB / XYZ / plotting helpers; `logging.py` (`-v` / `-vv` wiring), `calc_eval.py` (per-stage calculation evaluation), and `residue_data.py` (residue tables) also live here.
+**L5 `core/`**. The lowest layer. `defaults.py` is the **single source of truth** for shared defaults — grep here before adding a number elsewhere, then inspect justified command-local defaults. `utils.py` contains shared PDB / XYZ / plotting helpers; `logging.py` (per-subcommand `-v/--verbose LEVEL`, 0–3), `calc_eval.py` (per-stage calculation evaluation), and `residue_data.py` (residue tables) also live here.
 
 ### 2.4 Lazy-import mechanism (conceptual diagram)
 
@@ -242,7 +242,7 @@ Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS
 | ML/MM ONIOM calculator core + 4 inline MLIP backends + ONIOM coupling | `mlmm/backends/mlmm_calc.py` |
 | `--precision` routing (`apply_precision_to_calc_cfg` / `_PRECISION_DISPATCH`) | `mlmm/backends/__init__.py` |
 | Backend dispatch / factory (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
-| xTB point-charge embedding correction (`--embedcharge`) | `mlmm/backends/xtb_embedcharge_correction.py` |
+| Retired electronic-embedding compatibility module | `mlmm/backends/xtb_embedcharge_correction.py` |
 See [MLIP Backends](backends.md) for installation and runtime behavior. Backend
 implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 
@@ -264,7 +264,7 @@ implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 |---|---|
 | Shared workflow and calculator defaults | `mlmm/core/defaults.py` |
 | PDB / XYZ / plot helpers | `mlmm/core/utils.py` |
-| `-v` / `-vv` logging wiring | `mlmm/core/logging.py` |
+| `-v/--verbose LEVEL` (0–3) logging wiring | `mlmm/core/logging.py` |
 | Per-stage calc evaluation | `mlmm/core/calc_eval.py` |
 | Output/result commit helpers | `mlmm/core/output.py`, `mlmm/core/result_commit.py` |
 | Energy-component composition | `mlmm/core/pes_composition.py` |
@@ -327,14 +327,14 @@ For mlmm the practical curriculum is the 5-pass Hessian set first (#1, #2, #8 in
 
 ### 5.2 VRAM-management invariant (do not refactor `del` chains)
 
-The IRC / TSopt / Freq stages explicitly `del` GPU-resident objects (`calc`, `geom`, `hess`) between stages to free CUDA memory; the `all` workflow additionally runs `gc.collect()` at stage boundaries. **Do not refactor these `del` / `gc.collect()` statements out** — long-running ML/MM `all` jobs on the full protein environment OOM without them.
+The IRC / TSopt / Freq stages explicitly `del` GPU-resident objects (`calc`, `geom`, `hess`) between stages to free CUDA memory; stage boundaries also use `gc.collect()` and, where CUDA allocations are present, `torch.cuda.empty_cache()`. **Do not refactor these release operations out** — long-running ML/MM `all` jobs on the full protein environment OOM without them.
 
 ### 5.3 Bundled forks: do NOT install upstream alongside
 
 The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **forks** (and in the case of `hessian_ff/`, the **only** available distribution — PyPI returns 404). Reinstalling `pip install pysisyphus` or `pip install thermoanalysis` next to this package silently breaks:
 
 - `pysisyphus/irc/IRC.py` — initial-displacement memory hygiene
-- `pysisyphus/optimizers/hessian_updates.py` — Bofill scatter on advanced indices, CPU-only `bofill_update` path for GPU OOM avoidance
+- `pysisyphus/optimizers/hessian_updates.py` — GPU-resident in-place rank-two Bofill update; opt-in `PYSIS_BOFILL_CPU_OFFLOAD=1` fallback
 - `pysisyphus/tsoptimizers/TSHessianOptimizer.py` — RSIRFO kwargs
 - `pysisyphus/calculators/...` — GPU-aware backend hooks
 - `thermoanalysis/QCData.py` — branding / I/O diff vs upstream
@@ -386,7 +386,7 @@ After the Fresh-eyes tour (§3), follow this depth-first reading order:
 
 `mlmm-toolkit` operates on the **full protein environment** via ONIOM:
 
-- **ML region**: substrate + reaction-center residues, evaluated by one of 4 machine-learning interatomic potential (MLIP) backends (UMA / ORB / MACE / AIMNet2); an optional xTB point-charge embedding correction (`--embedcharge`) adds MM→ML environmental effects
+- **ML region**: substrate + reaction-center residues, evaluated by one of 4 machine-learning interatomic potential (MLIP) backends (UMA / ORB / MACE / AIMNet2); v0.3.3 uses mechanical embedding
 - **Movable-MM region**: a shell around the ML region, free to move under the AMBER force field
 - **Frozen region**: the rest of the protein, held rigid
 

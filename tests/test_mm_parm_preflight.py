@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import stat
 
+import pytest
+
 from mlmm.workflows import mm_parm
 
 
@@ -38,6 +40,85 @@ def test_ambertools_available_uses_missing_command_detection(monkeypatch) -> Non
     assert paths["antechamber"] is None
     assert paths["parmchk2"] == "/opt/amber/bin/parmchk2"
     assert mm_parm.ambertools_available() is False
+
+
+def test_run_executes_the_resolved_environment_path(monkeypatch) -> None:
+    seen = []
+
+    class FakePopen:
+        def __init__(self, argv, **_kwargs):
+            seen.append(argv)
+            self.stdout = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @staticmethod
+        def wait():
+            return 0
+
+    monkeypatch.setattr(
+        mm_parm, "which", lambda cmd: f"/env/bin/{cmd}",
+    )
+    monkeypatch.setattr(mm_parm.subprocess, "Popen", FakePopen)
+
+    assert mm_parm.run(["tleap", "-f", "input.in"]) == 0
+    assert seen == [["/env/bin/tleap", "-f", "input.in"]]
+
+
+def test_second_tleap_pass_cannot_reuse_first_pass_outputs(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "input.pdb"
+    source.write_text(
+        _atom(1, "C1", "LIG", 1, 0.0, 0.0, 0.0),
+        encoding="utf-8",
+    )
+    calls = []
+
+    def fake_run(cmd, cwd=None, logfile=None):
+        calls.append(list(cmd))
+        work = tmp_path if cwd is None else cwd
+        if len(calls) == 1:
+            for name in mm_parm._TLEAP_COMPLEX_OUTPUTS:
+                (work / name).write_text("pass-1", encoding="utf-8")
+            if logfile is not None:
+                logfile.write_text("unknown LIG", encoding="utf-8")
+            return 0
+        assert all(not (work / name).exists() for name in mm_parm._TLEAP_COMPLEX_OUTPUTS)
+        if logfile is not None:
+            logfile.write_text("pass 2 failed", encoding="utf-8")
+        return 1
+
+    monkeypatch.setattr(mm_parm, "run", fake_run)
+    monkeypatch.setattr(
+        mm_parm, "parse_tleap_unknown_residues", lambda _path: {"LIG"}
+    )
+    monkeypatch.setattr(mm_parm, "extract_first_residue_pdb", lambda *_args: True)
+    monkeypatch.setattr(
+        mm_parm,
+        "antechamber_parametrize",
+        lambda *_args: (tmp_path / "LIG.mol2", tmp_path / "LIG.frcmod"),
+    )
+
+    with pytest.raises(RuntimeError, match="pass 2 exited with code 1"):
+        mm_parm.ambertools_route(
+            source,
+            str(tmp_path / "out"),
+            {},
+            {},
+            False,
+            tmp_path,
+            "ff19SB",
+            False,
+        )
+
+    assert len(calls) == 2
+    assert not (tmp_path / "out.parm7").exists()
+    assert not (tmp_path / "out.rst7").exists()
 
 
 def test_leap_pdb_export_populates_elements_without_reordering(tmp_path) -> None:

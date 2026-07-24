@@ -1,0 +1,122 @@
+"""Policies for the bundled pysisyphus integration."""
+
+from __future__ import annotations
+
+import inspect
+import os
+from pathlib import Path
+import subprocess
+import sys
+from types import SimpleNamespace
+
+import numpy as np
+
+from pysisyphus.irc.IRC import IRC
+from pysisyphus.tr_projection import allows_saddle_certification
+from mlmm.workflows.irc import IRC_KW_DEFAULT
+from mlmm.workflows.tsopt import (
+    _finalize_dimer_saddle_status,
+    _heavy_ts_terminal_status,
+)
+
+
+def test_missing_optional_config_is_silent(tmp_path: Path) -> None:
+    repo = Path(__file__).parents[1]
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path)
+    env.pop("PYSISRC", None)
+    env["PYTHONPATH"] = os.pathsep.join(
+        part for part in (str(repo), env.get("PYTHONPATH", "")) if part
+    )
+
+    proc = subprocess.run(
+        [sys.executable, "-c", "import pysisyphus.config"],
+        cwd=repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert "Couldn't find configuration file" not in proc.stdout
+    assert "Couldn't find configuration file" not in proc.stderr
+
+
+def test_missing_explicit_config_does_not_report_false_success(
+    tmp_path: Path,
+) -> None:
+    repo = Path(__file__).parents[1]
+    env = os.environ.copy()
+    env["PYSISRC"] = str(tmp_path / "missing.pysisyphusrc")
+    env["PYTHONPATH"] = os.pathsep.join(
+        part for part in (str(repo), env.get("PYTHONPATH", "")) if part
+    )
+
+    proc = subprocess.run(
+        [sys.executable, "-c", "import pysisyphus.config"],
+        cwd=repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert "Read pysisyphus configuration" not in proc.stdout
+    assert "Read pysisyphus configuration" not in proc.stderr
+
+
+def test_irc_hdf5_is_opt_in_and_never_contains_a_hessian() -> None:
+    assert inspect.signature(IRC).parameters["dump_every"].default is None
+    assert "dump_every" in IRC_KW_DEFAULT
+    assert IRC_KW_DEFAULT["dump_every"] is None
+    assert IRC_KW_DEFAULT["dump_fn"] == "irc_data.h5"
+
+    irc = IRC.__new__(IRC)
+    irc.all_energies = [0.0]
+    irc.all_coords = [np.zeros(3)]
+    irc.all_gradients = [np.zeros(3)]
+    irc.all_mw_coords = [np.zeros(3)]
+    irc.all_mw_gradients = [np.zeros(3)]
+    irc.ts_index = 0
+
+    assert all(
+        "hess" not in key.lower() for key in irc.get_full_irc_data()
+    )
+
+
+def test_legacy_projection_cannot_certify_a_frozen_saddle() -> None:
+    assert allows_saddle_certification("constrained", [0])
+    assert allows_saddle_certification("legacy-active", [])
+    assert not allows_saddle_certification("legacy-active", [0])
+
+    runner = SimpleNamespace(
+        tr_projection="legacy-active",
+        freeze_atoms=[0],
+        is_converged=True,
+        stop_reason="",
+    )
+    indices = _finalize_dimer_saddle_status(
+        runner, np.array([-100.0, 25.0]), 5.0
+    )
+
+    assert indices.tolist() == [0]
+    assert runner.n_imaginary_modes == 1
+    assert runner.imaginary_frequencies_cm == [-100.0]
+    assert runner.saddle_order_verified is False
+    assert runner.is_converged is False
+    assert "comparison-only" in runner.stop_reason
+
+    assert _heavy_ts_terminal_status(
+        optimizer_converged=True,
+        n_imag=1,
+        stalled=False,
+        projection_certifiable=False,
+    ) == "not_converged"
+    assert _heavy_ts_terminal_status(
+        optimizer_converged=True,
+        n_imag=1,
+        stalled=False,
+        projection_certifiable=True,
+    ) == "converged"

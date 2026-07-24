@@ -36,7 +36,7 @@ mlmm oniom-import -i model.inp --ref-pdb complex_layered.pdb -o model_imported
 4. Write `<out_prefix>.xyz`.
 5. Write `<out_prefix>_layered.pdb`:
  - Without `--ref-pdb`: generic atom/residue labels are generated.
- - With `--ref-pdb`: original naming/residue metadata is preserved while coordinates/B-factors are updated.
+ - With `--ref-pdb`: original naming/residue metadata is preserved while coordinates/B-factors are updated. An embedded export digest must match. Markerless legacy input is accepted automatically only when element identities are unique; repeated elements require `--allow-unverified-ref-order`.
 
 ## Outputs
 
@@ -47,7 +47,8 @@ mlmm oniom-import -i model.inp --ref-pdb complex_layered.pdb -o model_imported
 
 - `<out_prefix>.xyz` exists and atom count matches the source ONIOM input.
 - `<out_prefix>_layered.pdb` exists and B-factor values encode layers (`0/10/20`).
-- Log lines report parsed mode, atom count, and QM/movable/frozen counts.
+- Log lines report parsed mode, atom count, QM/movable/frozen counts, and
+  `ref_order=identity-verified`, `element-verified`, or `unverified-opt-in`.
 
 ## CLI options
 
@@ -55,7 +56,7 @@ Command form:
 
 ```bash
 mlmm oniom-import -i INPUT.[gjf|com|inp] [--mode g16|orca] \
-  [-o OUT_PREFIX] [--ref-pdb REF.pdb]
+  [-o OUT_PREFIX] [--ref-pdb REF.pdb] [--allow-unverified-ref-order]
 ```
 
 | Input | Required | Notes |
@@ -64,8 +65,12 @@ mlmm oniom-import -i INPUT.[gjf|com|inp] [--mode g16|orca] \
 | `--mode` | no | Import mode (`g16`/`orca`). If omitted, inferred from input suffix. |
 | `-o, --out-prefix` | no | Output prefix. Defaults to the input stem in the current directory. |
 | `--ref-pdb` | no | Reference PDB to preserve atom naming/residue metadata (atom count must match). |
+| `--allow-unverified-ref-order` | no | Permit markerless positional mapping only when repeated elements make legacy order unverifiable and the order was checked independently. It never overrides a digest mismatch. |
 
 The full flag list (including advanced options) is in the generated [command reference](reference/commands/index.md).
+
+Exported identity markers are fail-closed: malformed or duplicated markers and
+digest mismatches are fatal even with `--allow-unverified-ref-order`.
 
 ## See Also
 

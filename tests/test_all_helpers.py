@@ -6,6 +6,17 @@ import tempfile
 from pathlib import Path
 
 import pytest
+
+
+def test_element_fix_paths_do_not_collide_for_same_basename(tmp_path: Path) -> None:
+    from mlmm.workflows.all import _element_fix_path
+
+    first = _element_fix_path(tmp_path, Path("reactant/input.pdb"), 1)
+    second = _element_fix_path(tmp_path, Path("product/input.pdb"), 2)
+
+    assert first != second
+    assert first.name == "001_input.pdb"
+    assert second.name == "002_input.pdb"
 import yaml
 
 from mlmm.workflows._all_helpers import (
@@ -16,10 +27,14 @@ from mlmm.workflows._all_helpers import (
     build_pipeline_summary_payload,
     build_scan_child_argv,
     build_tsopt_overrides,
+    build_thermo_mode_validation,
+    build_thermo_symmetry_provenance,
     copy_path_outputs_to_root,
     promote_diag_for_root,
     resolve_dft_func_basis_forwarding,
     resolve_post_thresh_forwarding,
+    has_complete_segment_energy_series,
+    validated_thermo_triplet,
 )
 
 
@@ -180,8 +195,10 @@ def _freq_override_kwargs() -> dict:
         "freq_sort": None,
         "freq_temperature": None,
         "freq_pressure": None,
+        "freq_symmetry_number": None,
         "dump_override_requested": False,
         "dump": False,
+        "require_thermo_artifact": False,
         "hessian_calc_mode": None,
         "convert_files": True,
         "convert_files_explicit": False,
@@ -248,7 +265,9 @@ def test_tsopt_override_builder_covers_each_forwarded_field(
         ({"freq_sort": "ABS"}, {"sort": "abs"}),
         ({"freq_temperature": 310.0}, {"temperature": 310.0}),
         ({"freq_pressure": 0.9}, {"pressure": 0.9}),
+        ({"freq_symmetry_number": 3}, {"symmetry_number": 3}),
         ({"dump_override_requested": True}, {"dump": False}),
+        ({"require_thermo_artifact": True}, {"dump": True}),
         ({"hessian_calc_mode": "Analytical"}, {"hessian_calc_mode": "Analytical"}),
         (
             {"convert_files": False, "convert_files_explicit": True},
@@ -263,6 +282,103 @@ def test_freq_override_builder_covers_each_forwarded_field(
     kwargs = _freq_override_kwargs()
     kwargs.update(updates)
     assert build_freq_overrides(**kwargs) == expected
+
+
+def test_thermo_symmetry_provenance_copies_only_complete_valid_states() -> None:
+    payload = build_thermo_symmetry_provenance(
+        {
+            "R": {"symmetry_number": 2, "symmetry_number_source": "config"},
+            "TS": {"symmetry_number": 3, "symmetry_number_source": "cli"},
+            "P": {"symmetry_number": 1},
+            "other": {"symmetry_number": 9, "symmetry_number_source": "test"},
+        }
+    )
+
+    assert payload == {
+        "R": {"symmetry_number": 2, "symmetry_number_source": "config"},
+        "TS": {"symmetry_number": 3, "symmetry_number_source": "cli"},
+    }
+
+
+@pytest.mark.parametrize("invalid", [True, 0, -1, 2.0, "2", None])
+def test_thermo_symmetry_provenance_rejects_invalid_values(invalid) -> None:
+    assert build_thermo_symmetry_provenance(
+        {
+            "R": {
+                "symmetry_number": invalid,
+                "symmetry_number_source": "default",
+            }
+        }
+    ) == {}
+
+
+def test_thermo_mode_validation_requires_minimum_ts_minimum_order() -> None:
+    result = build_thermo_mode_validation(
+        {
+            "R": {"num_imag_freq": 0},
+            "TS": {"num_imag_freq": 1},
+            "P": {"num_imag_freq": 0},
+        }
+    )
+    assert result["valid"] is True
+    assert result["reasons"] == []
+
+
+def test_thermo_mode_validation_rejects_frozen_legacy_active_projection() -> None:
+    payloads = {
+        "R": {"num_imag_freq": 0},
+        "TS": {
+            "num_imag_freq": 1,
+            "n_freeze_atoms": 2,
+            "rigid_projection": {
+                "treatment": "legacy-active",
+                "frozen_atom_count": 2,
+            },
+        },
+        "P": {"num_imag_freq": 0},
+    }
+
+    result = build_thermo_mode_validation(payloads)
+
+    assert result["valid"] is False
+    assert any("cannot certify" in reason for reason in result["reasons"])
+
+
+@pytest.mark.parametrize(
+    "payloads",
+    [
+        {"R": {"num_imag_freq": 1}, "TS": {"num_imag_freq": 1}, "P": {"num_imag_freq": 0}},
+        {"R": {"num_imag_freq": 0}, "TS": {"num_imag_freq": 0}, "P": {"num_imag_freq": 0}},
+        {"R": {"num_imag_freq": 0}, "TS": {"num_imag_freq": 1}, "P": {}},
+    ],
+)
+def test_thermo_mode_validation_fails_closed(payloads) -> None:
+    result = build_thermo_mode_validation(payloads)
+    assert result["valid"] is False
+    assert result["reasons"]
+
+
+def test_validated_thermo_triplet_requires_modes_and_finite_values() -> None:
+    payloads = {
+        "R": {"num_imag_freq": 0, "g": -10.0},
+        "TS": {"num_imag_freq": 1, "g": -9.0},
+        "P": {"num_imag_freq": 0, "g": -11.0},
+    }
+    assert validated_thermo_triplet(payloads, "g") == (-10.0, -9.0, -11.0)
+    payloads["P"]["g"] = float("nan")
+    assert validated_thermo_triplet(payloads, "g") is None
+    payloads["P"] = {"num_imag_freq": 1, "g": -11.0}
+    assert validated_thermo_triplet(payloads, "g") is None
+
+
+def test_all_segment_energy_series_requires_every_reactive_segment() -> None:
+    one = [(-10.0, -9.0, -11.0)]
+    two = [*one, (-11.0, -10.0, -12.0)]
+    assert not has_complete_segment_energy_series(one, expected_segments=2)
+    assert has_complete_segment_energy_series(two, expected_segments=2)
+    assert not has_complete_segment_energy_series(
+        [(-10.0, -9.0)], expected_segments=1
+    )
 
 
 @pytest.mark.parametrize(
@@ -801,3 +917,41 @@ def test_build_pipeline_summary_payload_shape() -> None:
     assert payload["mep"]["diagram"]["name"] == "MEP"
     assert payload["post_segments"] == [{"seg": 1, "status": "ok"}]
     assert payload["energy_diagrams"] == summary["energy_diagrams"]
+def test_irc_endpoint_topology_tie_uses_rmsd_and_records_provenance(
+    monkeypatch,
+):
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from mlmm.workflows import all as workflow
+
+    left = SimpleNamespace(coords=np.array([10.0, 0.0, 0.0]))
+    right = SimpleNamespace(coords=np.array([0.0, 0.0, 0.0]))
+    mep_left = SimpleNamespace(coords=np.array([0.0, 0.0, 0.0]))
+    mep_right = SimpleNamespace(coords=np.array([10.0, 0.0, 0.0]))
+    monkeypatch.setattr(
+        workflow._path_search,
+        "_has_bond_change",
+        lambda *_args, **_kwargs: (False, ""),
+    )
+
+    (
+        oriented_left,
+        oriented_right,
+        _left_tag,
+        _right_tag,
+        reversed_irc,
+        assignment,
+    ) = workflow._orient_irc_endpoint_geometries(
+        left,
+        right,
+        mep_left,
+        mep_right,
+    )
+
+    assert (oriented_left, oriented_right) == (right, left)
+    assert reversed_irc is True
+    assert assignment["method"] == "rmsd_topology_tie"
+    assert assignment["rmsd_swapped"] < assignment["rmsd_direct"]
+    assert assignment["connectivity_validated"] is True

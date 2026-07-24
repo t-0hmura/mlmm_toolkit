@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 RELEASE_WORKFLOW = Path(__file__).parents[1] / ".github" / "workflows" / "release.yml"
+MANIFEST = Path(__file__).parents[1] / "MANIFEST.in"
 
 
 def test_release_workflow_publishes_and_attaches_both_distributions() -> None:
@@ -23,3 +24,22 @@ def test_release_workflow_publishes_and_attaches_both_distributions() -> None:
     )
     assert "attestations: false" not in text
     assert "skip-existing: true" not in text
+
+
+def test_release_workflow_rejects_a_title_that_differs_from_the_tag() -> None:
+    text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "RELEASE_TAG: ${{ github.event.release.tag_name }}" in text
+    assert "RELEASE_NAME: ${{ github.event.release.name }}" in text
+    assert '[[ "$RELEASE_NAME" != "$RELEASE_TAG" ]]' in text
+    assert text.index("Verify release title matches tag") < text.index(
+        "- name: Checkout"
+    )
+
+
+def test_sdist_prunes_local_smoke_products() -> None:
+    text = MANIFEST.read_text(encoding="utf-8")
+
+    assert "recursive-include tests *" in text
+    assert "\nprune tests/smoke\n" in text
+    assert "recursive-exclude tests/smoke" not in text

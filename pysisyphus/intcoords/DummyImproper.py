@@ -68,3 +68,35 @@ class DummyImproper(Torsion):
             return val, grad.flatten()
         else:
             return results
+
+    @staticmethod
+    def _jacobian(coords3d, indices, fix_inner=False):
+        """Finite-difference the public three-atom gradient."""
+        coords = np.asarray(coords3d, dtype=float)
+        local_dofs = [
+            3 * int(atom) + axis for atom in indices for axis in range(3)
+        ]
+        jac = np.zeros((len(local_dofs), len(local_dofs)), dtype=float)
+        step = 1.0e-5
+        for column, dof in enumerate(local_dofs):
+            plus = coords.copy().reshape(-1)
+            minus = coords.copy().reshape(-1)
+            plus[dof] += step
+            minus[dof] -= step
+            grad_plus = DummyImproper._calculate(
+                plus.reshape(-1, 3),
+                indices,
+                gradient=True,
+                fix_inner=fix_inner,
+            )[1]
+            grad_minus = DummyImproper._calculate(
+                minus.reshape(-1, 3),
+                indices,
+                gradient=True,
+                fix_inner=fix_inner,
+            )[1]
+            jac[:, column] = (
+                np.asarray(grad_plus)[local_dofs]
+                - np.asarray(grad_minus)[local_dofs]
+            ) / (2.0 * step)
+        return jac.reshape(-1)

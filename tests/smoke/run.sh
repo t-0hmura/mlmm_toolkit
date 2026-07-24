@@ -33,12 +33,6 @@ export PYTHONHASHSEED=0
 # Reduce CUDA allocator fragmentation across the 40+ stage processes.
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
-# Every capability in this lane is required. Missing prerequisites block the
-# release lane before case 1; they are never converted into a passing skip.
-command -v xtb >/dev/null 2>&1 || {
-  echo "[smoke] BLOCKED: xtb is required by the embedcharge cell" >&2
-  exit 2
-}
 python - <<'PY'
 from importlib.metadata import version
 from pathlib import Path
@@ -150,10 +144,30 @@ python assert_release_result.py all test19 --require-thermo --require-dft >> tes
 mlmm all -i r_complex.pdb p_complex.pdb --parm test19/mm_parm/r_complex.parm7 --model-pdb test19/ml_region.pdb -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test20 > test20.out 2>&1
 
 # test21: tsopt (radius-hessian 0.0)
-mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb --no-detect-layer -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 0.0 --thresh gau_loose --out-dir test21 > test21.out 2>&1
+mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb --no-detect-layer -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 0.0 --active-dof-mode ml-only --thresh gau_loose --out-dir test21 > test21.out 2>&1
 
 # test22: tsopt (radius-hessian 3.6)
-mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb --no-detect-layer -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 3.6 --thresh gau_loose --out-dir test22 > test22.out 2>&1
+mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb --no-detect-layer -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 3.6 --active-dof-mode ml-only --thresh gau_loose --out-dir test22 > test22.out 2>&1
+python - <<'PY'
+import re
+from pathlib import Path
+
+def initial_active_count(name: str) -> int:
+    text = Path(name).read_text(encoding="utf-8")
+    match = re.search(r"\[tsopt\] H_act=\d+ active_atoms=(\d+)", text)
+    if match is None:
+        raise SystemExit(f"[smoke] FAIL: {name} lacks the initial Hessian coverage record")
+    return int(match.group(1))
+
+ml_only = initial_active_count("test21.out")
+expanded = initial_active_count("test22.out")
+if expanded <= ml_only:
+    raise SystemExit(
+        "[smoke] FAIL: --radius-hessian 3.6 did not expand the Dimer Hessian "
+        f"coverage ({expanded} <= {ml_only})"
+    )
+print(f"[smoke] PASS: radius-hessian coverage expanded {ml_only} -> {expanded} atoms")
+PY
 
 # test23: opt --dry-run
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --dry-run --out-dir test23 > test23.out 2>&1
@@ -204,10 +218,12 @@ mlmm oniom-import -i test33.gjf -o test36 > test36.out 2>&1
 # test37: all (--refine-path)
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test37 > test37.out 2>&1
 
-# --- xTB-dependent test (xTB is a lane preflight requirement) ---
-
-# test38: opt (embedcharge)
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --out-dir test38 > test38.out 2>&1
+# test38: retired electronic embedding fails before calculation
+if mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --out-dir test38 > test38.out 2>&1; then
+  echo "[smoke] FAIL test38: --embedcharge was accepted" >&2
+  exit 1
+fi
+grep -Fq "Electronic embedding is unavailable in v0.3.3" test38.out
 
 # --- Polish-train new CLI flags (A1 + W3 + B4 wires; all opt-in, defaults preserve Table 1 numerics) ---
 
@@ -376,8 +392,12 @@ mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mm-backend
 # test57: irc --freeze-atoms (DOF-reduction / reduced-Hessian projection path)
 mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --max-cycles 2 --out-dir test57_irc_freeze > test57_irc_freeze.out 2>&1
 
-# test58: dft --embedcharge (MM point charges into the PySCF QM Hamiltonian)
-mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --conv-tol 1e-5 --max-cycle 40 --engine cpu --embedcharge --embedcharge-cutoff 8.0 --out-dir test58_dft_embed > test58_dft_embed.out 2>&1
+# test58: DFT also rejects retired electronic embedding before SCF setup
+if mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --conv-tol 1e-5 --max-cycle 40 --engine cpu --embedcharge --embedcharge-cutoff 8.0 --out-dir test58_dft_embed > test58_dft_embed.out 2>&1; then
+  echo "[smoke] FAIL test58: DFT accepted --embedcharge" >&2
+  exit 1
+fi
+grep -Fq "Electronic embedding is unavailable in v0.3.3" test58_dft_embed.out
 
 # test59: dft --link-atom-method fixed (legacy 1.09/1.01 Å link-atom placement)
 mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --conv-tol 1e-5 --max-cycle 40 --engine cpu --link-atom-method fixed --out-dir test59_dft_linkfixed > test59_dft_linkfixed.out 2>&1

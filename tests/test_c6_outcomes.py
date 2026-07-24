@@ -69,6 +69,35 @@ def test_scan_point_seed_eligibility_fail_closed() -> None:
     assert nan.seed_eligible is False and nan.reason == "energy_invalid"
 
 
+def test_scan2d_failed_payload_exists_without_usable_plot_point() -> None:
+    from mlmm.workflows.scan2d import _build_scan2d_result_payload
+
+    payload = _build_scan2d_result_payload(
+        records=[
+            {
+                "i": 0,
+                "j": 0,
+                "bias_converged": False,
+                "energy_hartree": float("nan"),
+                "artifact_written": False,
+            }
+        ],
+        calc_cfg={"backend": "uma", "model_charge": 0, "model_mult": 1},
+        pair1={"i": 1, "j": 2, "low": 1.0, "high": 2.0},
+        pair2={"i": 3, "j": 4, "low": 1.0, "high": 2.0},
+        files={"surface_csv": "surface.csv"},
+        status="failed",
+    )
+
+    assert payload["status"] == "failed"
+    assert payload["execution_status"] == "completed"
+    assert payload["scientific_status"] == "failed"
+    assert payload["n_points_attempted"] == 1
+    assert payload["n_points_usable"] == 0
+    assert payload["min_energy_hartree"] is None
+    assert payload["files"] == {"surface_csv": "surface.csv"}
+
+
 def test_aggregate_success_partial_failed() -> None:
     # All required usable, no missing expected -> success.
     t = aggregate_workflow_truth(
@@ -163,9 +192,18 @@ def test_scan_normal_return_is_not_convergence() -> None:
     # M50: an optimizer that returns normally but reports is_converged=False (a
     # cycle-limit stop) must not be recorded as converged. seed_eligible_mask
     # reads the recorded bit; only an explicit True survives.
-    normal_return_but_not_converged = {"energy_hartree": -1.0, "bias_converged": False}
-    unknown_convergence = {"energy_hartree": -1.0, "bias_converged": None}
-    converged = {"energy_hartree": -1.0, "bias_converged": True}
+    normal_return_but_not_converged = {
+        "energy_hartree": -1.0, "bias_converged": False,
+        "artifact_written": True,
+    }
+    unknown_convergence = {
+        "energy_hartree": -1.0, "bias_converged": None,
+        "artifact_written": True,
+    }
+    converged = {
+        "energy_hartree": -1.0, "bias_converged": True,
+        "artifact_written": True,
+    }
     assert seed_eligible_mask(
         [normal_return_but_not_converged, unknown_convergence, converged]
     ) == [False, False, True]
@@ -500,6 +538,69 @@ def test_freq_zero_exit_returns_parsed_thermo(tmp_path: Path, monkeypatch) -> No
     assert out.get("sum_EE_and_thermal_free_energy_ha") == pytest.approx(-123.456)
 
 
+def test_freq_no_dump_does_not_consume_stale_thermo(tmp_path: Path, monkeypatch) -> None:
+    from mlmm.workflows import all as all_workflow
+
+    fdir = tmp_path / "R"
+    fdir.mkdir(parents=True)
+    (fdir / "thermoanalysis.yaml").write_text(
+        "sum_EE_and_thermal_free_energy_ha: -123.456\n",
+        encoding="utf-8",
+    )
+    structure = tmp_path / "R.xyz"
+    structure.write_text("1\n\nH 0 0 0\n", encoding="utf-8")
+    monkeypatch.setattr(all_workflow, "_run_cli_main", lambda *a, **k: 0)
+
+    assert all_workflow._run_freq_for_state(
+        structure,
+        0,
+        1,
+        tmp_path / "real.parm7",
+        tmp_path / "model.pdb",
+        False,
+        fdir,
+        None,
+        overrides={"dump": False},
+    ) == {}
+
+
+@pytest.mark.parametrize("overrides, expected_count", [({}, 0), ({"symmetry_number": 3}, 1)])
+def test_all_freq_forwards_symmetry_number_only_when_overridden(
+    tmp_path: Path,
+    monkeypatch,
+    overrides: dict,
+    expected_count: int,
+) -> None:
+    from mlmm.workflows import all as all_workflow
+
+    structure = tmp_path / "R.xyz"
+    structure.write_text("1\n\nH 0 0 0\n", encoding="utf-8")
+    captured: list[str] = []
+
+    def _capture(_name, _command, argv, **_kwargs):
+        captured.extend(argv)
+        return 1
+
+    monkeypatch.setattr(all_workflow, "_run_cli_main", _capture)
+    monkeypatch.setattr(all_workflow, "_echo", lambda *a, **k: None)
+
+    all_workflow._run_freq_for_state(
+        structure,
+        0,
+        1,
+        tmp_path / "real.parm7",
+        tmp_path / "model.pdb",
+        False,
+        tmp_path / "freq",
+        None,
+        overrides=overrides,
+    )
+
+    assert captured.count("--symmetry-number") == expected_count
+    if expected_count:
+        assert captured[captured.index("--symmetry-number") + 1] == "3"
+
+
 def test_m28_thermo_gibbs_finite_gate() -> None:
     # Binds to the production finite-gates the all.py Gibbs/DFT//MLIP/MM consumers
     # use in place of the old 0.0 / MLIP substitution: a missing/nonfinite field
@@ -543,6 +644,41 @@ def test_m28_dft_energy_gates_on_dft_failed() -> None:
     # default treats an absent bit as failed rather than trusting a stray energy.
     assert _dft_energy_ha({}) is None
     assert _dft_energy_ha({"energy": {"hartree": -1.0}}) is None
+
+
+def test_dft_mlmm_gibbs_uses_subtractive_total_not_raw_model_energy() -> None:
+    from mlmm.workflows.all import _dft_mlmm_gibbs_triplet
+
+    dft_results = {
+        label: {
+            "_dft_failed": False,
+            "energy": {"hartree": -500.0},
+            "mlmm_energy": {"E_total_ml_dft_mm_hartree": total},
+        }
+        for label, total in zip(("R", "TS", "P"), (-100.0, -99.9, -100.1))
+    }
+    thermo = {
+        label: {
+            "thermal_correction_free_energy_ha": correction,
+            "num_imag_freq": n_imag,
+        }
+        for label, correction, n_imag in zip(
+            ("R", "TS", "P"), (0.01, 0.02, 0.03), (0, 1, 0)
+        )
+    }
+
+    assert _dft_mlmm_gibbs_triplet(dft_results, thermo) == pytest.approx(
+        (-99.99, -99.88, -100.07)
+    )
+    missing_total = dict(dft_results)
+    missing_total["TS"] = {
+        "_dft_failed": False,
+        "energy": {"hartree": -500.0},
+    }
+    assert _dft_mlmm_gibbs_triplet(missing_total, thermo) is None
+    nonminimum = {label: dict(payload) for label, payload in thermo.items()}
+    nonminimum["P"]["num_imag_freq"] = 1
+    assert _dft_mlmm_gibbs_triplet(dft_results, nonminimum) is None
 
 
 # ---------------------------------------------------------------------------
@@ -763,6 +899,7 @@ def test_all_pipeline_aggregate_excludes_nonconverged_irc() -> None:
         "index": 1,
         "irc_traj": "finished_irc_trj.xyz",
         "irc": {"usable": True, "reason": "ok", "traj": "finished_irc_trj.xyz"},
+        "endpoint_assignment": {"connectivity_validated": True},
         "endpoint_opt": {"reactant_converged": True, "product_converged": True},
     }]
     truth_ok = _pipeline_aggregate_truth(
@@ -779,6 +916,7 @@ def test_all_pipeline_tsopt_only_does_not_require_mep_convergence() -> None:
     post = [{
         "index": 1,
         "irc": {"usable": True, "reason": "ok"},
+        "endpoint_assignment": {"connectivity_validated": True},
         "endpoint_opt": {"reactant_converged": True, "product_converged": True},
     }]
     truth = _pipeline_aggregate_truth(
@@ -882,6 +1020,7 @@ def test_all_pipeline_aggregate_preserves_legacy_severity() -> None:
     post = [{
         "index": 1,
         "irc": {"usable": True, "reason": "ok"},
+        "endpoint_assignment": {"connectivity_validated": True},
         "endpoint_opt": {"reactant_converged": True, "product_converged": True},
     }]
     truth = _pipeline_aggregate_truth(
@@ -890,6 +1029,37 @@ def test_all_pipeline_aggregate_preserves_legacy_severity() -> None:
     )
     assert truth.scientific_status == "partial"
     assert "segment 1: DFT failed (TS)" in truth.status_reasons
+
+
+def test_all_pipeline_requires_validated_mep_irc_connectivity() -> None:
+    from mlmm.workflows.all import _pipeline_aggregate_truth
+
+    summary = {
+        "segments": [
+            {"index": 1, "kind": "seg", "converged": True}
+        ]
+    }
+    base = {
+        "index": 1,
+        "irc": {"usable": True, "reason": "ok"},
+        "endpoint_opt": {
+            "reactant_converged": True,
+            "product_converged": True,
+        },
+    }
+
+    for verdict, expected_success in ((False, False), (True, True)):
+        post = {
+            **base,
+            "endpoint_assignment": {"connectivity_validated": verdict},
+        }
+        truth = _pipeline_aggregate_truth(
+            summary,
+            post_segments=[post],
+            config={"tsopt": True},
+            legacy_status="success",
+        )
+        assert (truth.scientific_status == "success") is expected_success
 
 
 def test_all_pipeline_aggregate_post_missing_fails_closed_when_tsopt_requested() -> None:

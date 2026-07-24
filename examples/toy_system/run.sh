@@ -106,7 +106,13 @@ mlmm energy-diagram -i "[0, 12.5, 4.3, 18.7, -1.2]" -o test30.png > test30.out 2
 # test31: oniom-export
 mlmm oniom-export --parm p_complex.parm7 -i r_complex_layered.pdb --model-pdb ml_region_r.pdb -q -1 -m 1 -o test31.gjf > test31.out 2>&1
 
-# --- xTB-dependent tests (requires xtb binary) ---
-
-# test32: opt (embedcharge)
+# test32: retired electronic embedding fails before calculation
+set +e
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --embedcharge --embedcharge-cutoff 6.0 --out-dir test32 > test32.out 2>&1
+test32_status=$?
+set -e
+if [[ "$test32_status" -eq 0 ]]; then
+  echo "test32 unexpectedly accepted --embedcharge" >&2
+  exit 1
+fi
+grep -Fq "Electronic embedding is unavailable in v0.3.3" test32.out

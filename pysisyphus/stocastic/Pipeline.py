@@ -294,7 +294,7 @@ class Pipeline:
             return self.new_geoms
 
         matched_geoms = [first_geom, ]
-        for geom, energy in zip(self.new_geoms[1:], self.new_energies):
+        for geom, energy in zip(self.new_geoms[1:], self.new_energies[1:]):
             rmsd, (_, matched_geom) = matched_rmsd(first_geom, geom)
             matched_geom.energy = energy
             matched_geoms.append(matched_geom)

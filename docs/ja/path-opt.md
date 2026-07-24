@@ -86,15 +86,15 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を L-BFGS で事前最適化。 | `True` |
 | `--preopt-max-cycles INT` | 端点事前最適化サイクルの上限。 | `10000` |
 | `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実効: `gau_loose`） |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的Hessian vs OpenMM 有限差分）。 | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（既定 `true`: 有限差分）。 | `hessian_ff` |
 | `--dump/--no-dump` | `out_dir` 内にオプティマイザ軌跡とリスタートをダンプ。 | `False` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_path_opt/` |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。`--help-advanced` に表示。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
+| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
 
@@ -109,6 +109,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 | コード | 意味 |
 | --- | --- |
 | `0` | 成功 |
+| `2` | CLI 使用法または設定エラー |
 | `3` | 最適化失敗 |
 | `4` | 最終軌跡書き出しエラー |
 | `5` | HEI ダンプエラー |

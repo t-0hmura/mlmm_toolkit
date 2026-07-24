@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 from mlmm.io import hessian_cache
@@ -245,6 +246,113 @@ def test_identity_from_context_round_trips_through_cache(monkeypatch) -> None:
     ) is None
 
 
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"hessian_calc_mode": "Analytical"},
+        {"mm_hessian_mode": "none"},
+        {"mm_fd_delta": 2.0e-3},
+        {"symmetrize_hessian": False},
+        {"H_double": False},
+        {"return_partial_hessian": False},
+    ],
+)
+def test_identity_rejects_a_different_hessian_construction_policy(
+    change,
+    monkeypatch,
+) -> None:
+    from mlmm.core.result_commit import MLMM_RUN_ID_ENV as RUN_ID_ENV
+
+    monkeypatch.setenv(RUN_ID_ENV, "run-hessian-policy")
+
+    class _Geom:
+        atoms = ["H", "H"]
+        atomic_numbers = [1, 1]
+        cart_coords = np.zeros(6)
+        freeze_atoms = []
+
+    base = {
+        "backend": "uma",
+        "uma_model": "uma-s-1p2",
+        "uma_precision": "fp32",
+        "model_charge": 0,
+        "model_mult": 1,
+        "hessian_calc_mode": "FiniteDifference",
+        "mm_hessian_mode": "finite_difference",
+        "mm_fd_delta": 1.0e-3,
+        "symmetrize_hessian": True,
+        "H_double": True,
+        "return_partial_hessian": True,
+    }
+
+    base_identity = hessian_cache.identity_from_context(_Geom(), base, role="ts")
+    other_identity = hessian_cache.identity_from_context(
+        _Geom(), {**base, **change}, role="ts"
+    )
+    assert (
+        base_identity["evaluator"]["potential"]
+        != other_identity["evaluator"]["potential"]
+    )
+    hessian_cache.store("ts", np.eye(6), identity=base_identity)
+    assert hessian_cache.load_matching("ts", other_identity) is None
+
+
+def test_mm_hessian_mode_aliases_share_one_cache_identity() -> None:
+    class _Geom:
+        atomic_numbers = [1]
+        cart_coords = np.zeros(3)
+        freeze_atoms = []
+
+    base = {
+        "backend": "uma",
+        "mm_hessian_mode": "finite_difference",
+    }
+    alias = {**base, "mm_hessian_mode": "FD"}
+
+    canonical = hessian_cache.identity_from_context(_Geom(), base, role="ts")
+    aliased = hessian_cache.identity_from_context(_Geom(), alias, role="ts")
+    assert (
+        canonical["evaluator"]["potential"]
+        == aliased["evaluator"]["potential"]
+    )
+
+
+def test_reconcile_active_hessian_extracts_required_dofs_in_order() -> None:
+    source = torch.arange(36, dtype=torch.float64).reshape(6, 6)
+    entry = {
+        "hessian": source,
+        "active_dofs": [3, 4, 5, 0, 1, 2],
+    }
+
+    actual = hessian_cache.reconcile_active_hessian(
+        entry,
+        [0, 1, 2],
+        full_n_dof=6,
+    )
+
+    expected = source[torch.tensor([3, 4, 5])][:, torch.tensor([3, 4, 5])]
+    torch.testing.assert_close(actual, expected)
+
+
+def test_reconcile_active_hessian_rejects_wrong_or_ambiguous_basis() -> None:
+    wrong_same_shape = {
+        "hessian": torch.eye(3),
+        "active_dofs": [0, 1, 2],
+    }
+    no_metadata = {"hessian": torch.eye(3), "active_dofs": None}
+
+    assert hessian_cache.reconcile_active_hessian(
+        wrong_same_shape,
+        [3, 4, 5],
+        full_n_dof=6,
+    ) is None
+    assert hessian_cache.reconcile_active_hessian(
+        no_metadata,
+        [3, 4, 5],
+        full_n_dof=6,
+    ) is None
+
+
 def test_identity_from_context_rejects_backend_specific_model_and_precision() -> None:
     """The cache identity resolves the ML model + precision from the
     BACKEND-PREFIXED keys (uma_model / uma_precision, ...), so changing the ML
@@ -356,6 +464,42 @@ def test_identity_from_context_custom_backend_uses_calc_file_as_model() -> None:
         ) is None
     finally:
         os.environ.pop("MLMM_RUN_ID", None)
+
+
+def test_custom_calculator_content_change_rejects_same_path_cache(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    class _Geom:
+        atomic_numbers = np.array([1])
+        cart_coords = np.zeros(3, dtype=float)
+        freeze_atoms = np.array([], dtype=int)
+
+    calc_file = tmp_path / "calculator.py"
+    calc_file.write_text("VALUE = 1\n", encoding="utf-8")
+    cfg = {
+        "backend": "custom",
+        "calc_file": str(calc_file),
+        "calc_factory": "get_calculator",
+        "charge": 0,
+        "spin": 1,
+        "freeze_atoms": [],
+    }
+    monkeypatch.setenv("MLMM_RUN_ID", "run-custom-content")
+
+    first = hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
+    hessian_cache.store("ts", np.eye(3), identity=first)
+    assert hessian_cache.load_matching(
+        "ts", hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
+    ) is not None
+
+    calc_file.write_text("VALUE = 2\n", encoding="utf-8")
+    changed = hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
+
+    assert first["evaluator"]["potential"]["calc_file_sha256"] != (
+        changed["evaluator"]["potential"]["calc_file_sha256"]
+    )
+    assert hessian_cache.load_matching("ts", changed) is None
 
 
 def test_mlmm_potential_identity_rejects_parm7_link_embed_region_changes(tmp_path) -> None:

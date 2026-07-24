@@ -21,6 +21,20 @@ class TSHessianOptimizer(HessianOptimizer):
 
     valid_updates = ("bofill", "ts_bfgs", "ts_bfgs_org", "ts_bfgs_rev")
 
+    def _projection_allows_saddle_certification(self) -> bool:
+        """Reject comparison-only active-fragment projection with frozen atoms."""
+        from pysisyphus.tr_projection import (
+            DEFAULT_TR_PROJECTION,
+            allows_saddle_certification,
+        )
+
+        return allows_saddle_certification(
+            getattr(self.geometry, "tr_projection", DEFAULT_TR_PROJECTION),
+            np.asarray(
+                getattr(self.geometry, "freeze_atoms", ()), dtype=int
+            ).reshape(-1),
+        )
+
     def __init__(
         self,
         geometry: Geometry,
@@ -799,7 +813,18 @@ class TSHessianOptimizer(HessianOptimizer):
                 if target_is_negative is None
                 else target_is_negative
             )
-            exact_order = negative_count == len(self.roots) and has_saddle_modes
+            projection_certifiable = (
+                self._projection_allows_saddle_certification()
+            )
+            exact_order = (
+                negative_count == len(self.roots)
+                and has_saddle_modes
+                and projection_certifiable
+            )
+            if not projection_certifiable:
+                self.request_stop(
+                    "legacy-active projection is comparison-only for frozen systems"
+                )
             self._last_exact_n_imaginary = negative_count
             self._last_exact_cart_coords = self.geometry.cart_coords.copy()
             self._last_exact_saddle_verified = exact_order
@@ -901,7 +926,16 @@ class TSHessianOptimizer(HessianOptimizer):
             has_saddle_modes = n_imaginary >= len(self.roots)
         else:
             has_saddle_modes = target_is_negative
-        exact_order = n_imaginary == len(self.roots) and has_saddle_modes
+        projection_certifiable = self._projection_allows_saddle_certification()
+        exact_order = (
+            n_imaginary == len(self.roots)
+            and has_saddle_modes
+            and projection_certifiable
+        )
+        if not projection_certifiable:
+            self.request_stop(
+                "legacy-active projection is comparison-only for frozen systems"
+            )
         # Several unrelated negative modes do not make a higher-order saddle
         # for the requested reaction if the path-correlated mode itself has
         # become positive. Recover that target first; flattening at this point
@@ -1091,7 +1125,7 @@ class TSHessianOptimizer(HessianOptimizer):
         """Whether force/energy or plateau criteria are nearly terminal."""
         if not self.forces:
             return False
-        forces = np.asarray(self.forces[-1])
+        forces = self._active_convergence_vector(self.forces[-1])
         force_ok = True
         if "max_force_thresh" in self.convergence:
             force_ok &= np.abs(forces).max() <= self.max_force_thresh
@@ -1143,7 +1177,7 @@ class TSHessianOptimizer(HessianOptimizer):
         return energy, gradient, H, eigvals, eigvecs, True
 
     def _refresh_exact_saddle_model(self, gradient_full):
-        self.H = self.geometry.hessian
+        self.H = self.geometry.take_hessian()
         if self.using_active_dofs:
             self.H = self.active_hessian(self.H)
         if self.hessian_recalc is not None:
@@ -1197,6 +1231,12 @@ class TSHessianOptimizer(HessianOptimizer):
             and self._near_terminal_without_eigval_check()
             and not self._saddle_recovery_active
         ):
+            snapshot = None
+            self.H = None
+            self.cur_H = None
+            del H, eigvals, eigvecs
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             gradient, H, eigvals, eigvecs = self._refresh_exact_saddle_model(
                 -np.asarray(self.forces[-1])
             )
@@ -1271,6 +1311,12 @@ class TSHessianOptimizer(HessianOptimizer):
                 recovered_on_exact = False
                 physical_mode = None
                 if self.verify_saddle:
+                    snapshot = None
+                    self.H = None
+                    self.cur_H = None
+                    del H, eigvals, eigvecs
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
                     gradient, H, eigvals, eigvecs = (
                         self._refresh_exact_saddle_model(
                             -np.asarray(self.forces[-1])
@@ -1578,9 +1624,20 @@ class TSHessianOptimizer(HessianOptimizer):
         # --- END DEBUG ---
 
         if not self.track_mode_by_overlap:
-            # Fixed-root mode: always follow root=0 (most negative eigenvalue).
-            # Robust for Cartesian-coordinate TS optimization with MLIPs.
-            self.roots = np.array([0] * len(self.roots), dtype=int)
+            # Fixed-root mode follows the roots requested by the caller.  Root
+            # zero is only the constructor default; replacing every configured
+            # root with zero silently changes higher-order saddle searches.
+            roots = np.asarray(self.roots, dtype=int)
+            if roots.ndim != 1 or roots.size == 0:
+                raise ValueError("At least one TS root must be configured.")
+            if np.any(roots < 0) or np.any(roots >= eigvecs.shape[1]):
+                raise ValueError(
+                    f"TS roots {roots.tolist()} are outside the available "
+                    f"Hessian-root range 0..{eigvecs.shape[1] - 1}."
+                )
+            if np.unique(roots).size != roots.size:
+                raise ValueError(f"TS roots must be unique: {roots.tolist()}.")
+            self.roots = roots
             self.ts_modes = eigvecs[:, self.roots].T
             self.ts_mode_eigvals = eigvals[self.roots]
             # _cm1 = self._lowest_mw_freq_cm()

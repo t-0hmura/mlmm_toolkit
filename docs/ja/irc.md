@@ -57,8 +57,8 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 ## 処理の流れ
 
 1. **入力準備** -- TS 構造、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを確定します。直接PDB/mmCIF入力または`--ref-pdb`がcompanion出力用topologyを提供します。
-2. **ML/MM calculatorの構築** -- `--parm` と `--model-pdb` から ML/MM calculatorを構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP Hessian評価を制御します。`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
-3. **凍結境界の TR 処理** -- `--tr-projection constrained` は、凍結 anchor をすべて動かさない全系剛体運動だけを除去します。一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では通常 0 です。`legacy-active` は isolated-active 比較処理であり、物理的なデフォルトではありません。
+2. **ML/MM calculatorの構築** -- `--parm` と `--model-pdb` から ML/MM calculatorを構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP Hessian評価を制御します。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は calculator 構築前に拒否します。
+3. **凍結境界の TR 処理** -- `--tr-projection constrained` は、凍結 anchor をすべて動かさない全系剛体運動だけを除去します。一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では通常 0 です。`legacy-active` は非推奨の比較専用処理で、pass/HOSP 遷移状態認定には使用できません。
 4. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` または `--no-backward` でブランチを無効化可能）。ステップサイズとサイクル数で積分長を制御します。
 5. **出力と変換** -- 軌跡はXYZで書き出されます。PDB/mmCIF topologyが利用可能で`--convert-files`が有効ならPDB companionを生成し、bridge入力では元ID付きCIF companionも生成します。
 
@@ -67,7 +67,7 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 ```
 out_dir/ (デフォルト: ./result_irc/)
 ├─ result.json                      # --out-json 時。rigid_projection provenance を含む
-├─ <prefix>irc_data.h5              # irc.dump_every ステップごとに書き出される HDF5 ダンプ
+├─ <prefix>irc_data.h5              # 低レベルの周期 checkpoint。YAML でのみ opt-in
 ├─ <prefix>finished_irc_trj.xyz     # 完全 IRC 軌跡（XYZ/TRJ）
 ├─ <prefix>forward_irc_trj.xyz      # 正方向パスセグメント
 ├─ <prefix>backward_irc_trj.xyz     # 逆方向パスセグメント
@@ -77,8 +77,8 @@ out_dir/ (デフォルト: ./result_irc/)
 ├─ <prefix>forward_irc.cif          # bridge入力の順方向CIF
 ├─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb または --ref-pdb 指定時）
 ├─ <prefix>backward_irc.cif         # bridge入力の逆方向CIF
-├─ <prefix>forward_last.xyz         # 正方向 IRC 終点（XYZ、単一フレーム）
-├─ <prefix>forward_last.pdb/.cif    # 正方向IRC終点companion（利用可能時）
+├─ <prefix>forward_first.xyz        # 正方向 IRC 終点（XYZ、単一フレーム）
+├─ <prefix>forward_first.pdb/.cif   # 正方向IRC終点companion（利用可能時）
 ├─ <prefix>backward_last.xyz        # 逆方向 IRC 終点（XYZ、単一フレーム）
 └─ <prefix>backward_last.pdb/.cif   # 逆方向IRC終点companion（利用可能時）
 ```
@@ -86,6 +86,11 @@ out_dir/ (デフォルト: ./result_irc/)
 `irc.prefix`が空でない場合、EulerPCはファイル名との間に`_`を1つ補います。たとえば
 `prefix: trial`は`trial_finished_irc_trj.xyz`を生成し、`result.json.files`にも
 正規化後の名前を記録します。
+
+`irc.dump_every` のデフォルトは `null` なので、HDF5 checkpoint は作成されません。
+YAML で正の値を指定した場合のみ、現在方向の座標・エネルギー・勾配で周期的に
+上書きされます。最終的な双方向 IRC 成果物ではなく、Hessian は含まず、
+`result.json.files` にも登録しません。
 
 standalone IRCはstitched pathの`first` / `last`端点と、その方向のbond changesを
 記録します。化学的なreactant/product identityは割り当てないため、R/Pの命名前に
@@ -101,8 +106,8 @@ standalone IRCはstitched pathの`first` / `last`端点と、その方向のbond
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
+| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--hess-device CHOICE` | 初期Hessianの格納・IRC演算のデバイス: `auto`、`cuda`、`cpu`。大規模非凍結系では `cpu` を推奨。 | `auto` |
 | `--read-hess PATH` | `mlmm freq --dump-hess`のidentified `.npz`を読み込む。geometry、原子順序、layer選択、active-DOF basisが一致する必要があり、cache／新規計算より優先。 | _None_ |
@@ -113,9 +118,9 @@ standalone IRCはstitched pathの`first` / `last`端点と、その方向のbond
 | `--model-indices-one-based/--model-indices-zero-based` | `--model-indices` を 1 始まり/0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（`B=0/10/20`）から ML/MM レイヤーを検出。 | `True` |
 | `--freeze-atoms TEXT` | 1 始まりの凍結原子インデックスをカンマ区切りで指定。 | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | 凍結/部分Hessianの剛体モード処理。`legacy-active` は isolated-active 比較処理。 | `constrained` |
-| `-q, --charge INT` | 総電荷。YAML の `calc.charge` を上書き。 | _None_（`-l` 未指定時は必須） |
-| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
+| `--tr-projection [constrained\|legacy-active]` | 凍結/部分Hessianの剛体モード処理。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
+| `-q, --charge INT` | ML 領域/model system の正味電荷。YAML の `calc.model_charge` を上書き。 | _None_（`-l` 未指定時は必須） |
+| `-l, --ligand-charge TEXT` | 未知リガンド残基の合計電荷または残基別マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に ML 領域の正味電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.spin` を上書き。 | `1` |
 | `--max-cycles INT` | IRC ステップの最大数。`irc.max_cycles` を上書き。 | `125` |
 | `--step-size FLOAT` | ステップ長（Bohr、非質量加重デカルト座標）。`irc.step_length` を上書き。 | `0.10` |
@@ -131,14 +136,17 @@ standalone IRCはstitched pathの`first` / `last`端点と、その方向のbond
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（hessian_ff: 解析的Hessian / openmm: 有限差分Hessian）。 | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（既定 `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（$g$ 係数）または fixed（1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
+| `--allow-unverified-hess-state/--no-allow-unverified-hess-state` | charge/多重度を検証できない schema 1 Hessian を許可。`--read-hess` と独立した状態確認が必要。 | `False` |
 
-geometry identity metadataを持たない旧NPZは拒否します。構造またはHessian対象layerを
-変更した場合は`freq`で再生成してください。有効なhandoffではpartial-Hessian/PHVA
-metadataを保持します。
+NPZ の geometry、原子順序、active basis、model charge、多重度は現在の実行と
+一致する必要があります。電子状態 identity を持たない schema 1 は
+`--allow-unverified-hess-state` の明示的 opt-in が必要で、schema 2 の状態不一致は
+常に致命的です。
+`result.json["rigid_projection"]["electronic_state_verified"]` が検証結果を記録します。
 
 ## YAML 設定
 
@@ -167,15 +175,15 @@ metadataを保持します。
 geom:
  coord_type: cart                  # irc では cart に強制（YAML 値は無視）
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained        # constrained（デフォルト）| legacy-active 比較
+ tr_projection: constrained        # legacy-active は非推奨・比較専用
 calc:
- charge: 0                         # 総電荷（CLI 上書き）
+ model_charge: 0                   # ML 領域/model system の正味電荷
  spin: 1                           # スピン多重度 2S+1
 mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false                # xTB 点電荷埋め込み補正
+ embedcharge: false                # 互換性用。true は拒否される
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
@@ -217,8 +225,9 @@ irc:
 - 全原子凍結では IRC 方向が無いため、明示的なエラーになります。
 - `--out-json` 時は `result.json.rigid_projection` に treatment、有効 rank、
   初期Hessian source、Hessian shape を記録します。
-- `legacy-active` は現行の共通射影 kernel と数値 rank 判定を使います。
-  rank 退化構造も現行 kernel で処理され、bitwise 一致は保証しません。
+- `legacy-active` は非推奨の比較専用処理で、pass/HOSP 遷移状態認定には
+  使用できません。現行の共通射影 kernel で rank 退化構造も処理しますが、
+  bitwise 一致は保証しません。
 
 ## 関連項目
 

@@ -633,7 +633,7 @@ class RedundantCoords:
 
     def __str__(self):
         bonds = len(self.bond_indices)
-        bends = len(self.bending_indices)
+        bends = len(self.bend_indices)
         dihedrals = len(self.dihedral_indices)
         name = self.__class__.__name__
         return f"{name}({bonds} bonds, {bends} bends, {dihedrals} dihedrals)"

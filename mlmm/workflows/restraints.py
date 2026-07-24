@@ -77,16 +77,38 @@ def harmonic_pair_energy_forces_hessian(
     energy = 0.0
     identity = np.eye(3, dtype=float)
     k = float(k_au_bohr2)
+    if not np.isfinite(coords).all():
+        raise ValueError("Harmonic restraint coordinates must be finite.")
+    if not np.isfinite(k) or k < 0.0:
+        raise ValueError(
+            "Harmonic restraint force constant must be finite and non-negative."
+        )
 
-    for i_raw, j_raw, target_ang in pairs:
+    for pair_index, (i_raw, j_raw, target_ang) in enumerate(pairs, start=1):
         i, j = int(i_raw), int(j_raw)
         if not (0 <= i < n_atoms and 0 <= j < n_atoms):
-            continue
+            raise ValueError(
+                f"Harmonic restraint pair {pair_index} uses atom index "
+                f"({i}, {j}) outside the valid range 0..{n_atoms - 1}."
+            )
+        if i == j:
+            raise ValueError(
+                f"Harmonic restraint pair {pair_index} must use two distinct atoms."
+            )
+        target = float(target_ang)
+        if not np.isfinite(target) or target <= 0.0:
+            raise ValueError(
+                f"Harmonic restraint pair {pair_index} target must be finite "
+                "and greater than zero."
+            )
         delta = coords[i] - coords[j]
         distance = float(np.linalg.norm(delta))
         if distance < 1.0e-14:
-            continue
-        target_bohr = float(target_ang) * ANG2BOHR
+            raise ValueError(
+                f"Harmonic restraint pair {pair_index} has coincident atoms; "
+                "its direction is undefined."
+            )
+        target_bohr = target * ANG2BOHR
         displacement = distance - target_bohr
         unit = delta / distance
 

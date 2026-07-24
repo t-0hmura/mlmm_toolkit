@@ -12,6 +12,8 @@ This module imports only ``mlmm.core.defaults`` (foundation data) and ``click``.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
+from numbers import Integral
 from typing import Any, Dict, List
 
 import click
@@ -51,8 +53,24 @@ def _convert_yaml_layer_atoms_1to0(calc_cfg: dict) -> None:
     """
     for key in ("hess_mm_atoms", "movable_mm_atoms", "frozen_mm_atoms"):
         val = calc_cfg.get(key)
-        if val is not None and not isinstance(val, str):
-            try:
-                calc_cfg[key] = sorted(int(i) - 1 for i in val)
-            except (TypeError, ValueError):
-                pass  # Leave as-is if not iterable of ints
+        if val is None:
+            continue
+        label = f"calc.{key}"
+        if (
+            isinstance(val, (str, bytes, Mapping))
+            or not isinstance(val, Iterable)
+        ):
+            raise click.BadParameter(
+                f"{label} must be a sequence of 1-based integer atom indices."
+            )
+        items = list(val)
+        if any(
+            isinstance(item, bool)
+            or not isinstance(item, Integral)
+            or int(item) < 1
+            for item in items
+        ):
+            raise click.BadParameter(
+                f"{label} must contain only integers >= 1."
+            )
+        calc_cfg[key] = sorted({int(item) - 1 for item in items})

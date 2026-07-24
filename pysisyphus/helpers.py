@@ -454,7 +454,7 @@ FinalHessianResult = namedtuple(
 
 def do_final_hessian(
     geom,
-    save_hessian=True,
+    save_hessian=False,
     write_imag_modes=False,
     is_ts=False,
     prefix="",
@@ -506,7 +506,6 @@ def do_final_hessian(
     if save_hessian:
         final_h5_hessian_fn = prefix + "final_hessian.h5"
         save_h5_hessian(out_dir / final_h5_hessian_fn, geom)
-        print(f"Wrote Hessian data HD5 file '{final_h5_hessian_fn}'.")
 
     imag_fns = list()
     if write_imag_modes:
@@ -521,11 +520,11 @@ def do_final_hessian(
             )
         print()
 
-    thermo = None
-    if can_thermoanalysis:
-        thermo = geom.get_thermoanalysis(geom, T=T, p=p)
-        if print_thermo:
-            print_thermoanalysis(thermo, geom=geom, is_ts=is_ts)
+    thermo = geom.get_thermoanalysis(T=T, p=p)
+    if print_thermo:
+        from thermoanalysis.thermo import print_thermo_results
+
+        print_thermo_results(thermo)
 
     res = FinalHessianResult(
         neg_eigvals=neg_eigvals,

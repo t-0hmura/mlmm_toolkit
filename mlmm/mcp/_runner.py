@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -188,6 +190,76 @@ def _read_current_summary(
     return "ok", loaded, None
 
 
+def _process_group_exists(pgid: int) -> bool:
+    """Return whether a POSIX process group still has a live member."""
+
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _terminate_process_group(
+    proc: subprocess.Popen[str],
+    *,
+    grace_seconds: float = 1.0,
+) -> None:
+    """Terminate the complete subprocess group, escalating after a grace."""
+
+    pgid = proc.pid
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+
+    deadline = time.monotonic() + grace_seconds
+    while _process_group_exists(pgid) and time.monotonic() < deadline:
+        time.sleep(0.02)
+    if _process_group_exists(pgid):
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def _run_with_timeout_group(
+    argv: Sequence[str],
+    *,
+    timeout: float,
+    env: dict[str, str],
+) -> subprocess.CompletedProcess[str]:
+    """Run ``argv`` in a session whose complete process group is timeout-bound."""
+
+    proc = subprocess.Popen(
+        list(argv),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        _terminate_process_group(proc)
+        stdout, stderr = proc.communicate()
+        raise subprocess.TimeoutExpired(
+            cmd=list(argv),
+            timeout=timeout,
+            output=stdout,
+            stderr=stderr,
+        ) from exc
+    return subprocess.CompletedProcess(
+        args=list(argv),
+        returncode=proc.returncode,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+
 def run_subcmd(
     argv: Sequence[str],
     *,
@@ -220,13 +292,20 @@ def run_subcmd(
     env = _child_env(run_id=run_id, env_overrides=env_overrides)
 
     try:
-        proc = subprocess.run(
-            executed_argv,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-        )
+        if timeout is None or os.name != "posix":
+            proc = subprocess.run(
+                executed_argv,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,
+            )
+        else:
+            proc = _run_with_timeout_group(
+                executed_argv,
+                timeout=timeout,
+                env=env,
+            )
     except FileNotFoundError as exc:
         return SubcmdResult(
             status="failed",
@@ -245,7 +324,7 @@ def run_subcmd(
             exit_code=124,
             stderr_tail=f"TIMEOUT after {timeout}s: {exc}",
             hint=(
-                "Increase the `timeout` parameter or rerun with a smaller "
+                "Increase the `timeout_seconds` tool argument or rerun with a smaller "
                 "system / fewer cycles."
             ),
             argv=executed_argv,

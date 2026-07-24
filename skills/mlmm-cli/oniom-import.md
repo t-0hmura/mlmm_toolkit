@@ -26,7 +26,8 @@ mlmm oniom-import -i oniom.gjf [--mode g16|orca] \
 |---|---|---|---|
 | `-i, --input` | path | required | Gaussian `.gjf`/`.com` (g16) or ORCA `.inp` ONIOM input |
 | `--mode` | choice | inferred | `g16` or `orca`; falls back to input-file suffix |
-| `--ref-pdb` | path | none | Reference PDB used to recover residue / chain / atom-name metadata (atom count must match) |
+| `--ref-pdb` | path | none | Reference PDB used to recover residue / chain / atom-name metadata. Exported order digest must match; atom count alone is insufficient. |
+| `--allow-unverified-ref-order` | flag | off | Permit markerless legacy positional mapping only after independent order verification when elements repeat. It never overrides a digest mismatch. |
 | `-o, --out-prefix` | path | input stem | Output prefix (writes `<prefix>.xyz` and `<prefix>_layered.pdb`) |
 | `--help-advanced` | flag | — | Reveal advanced flags |
 
@@ -52,8 +53,11 @@ its per-atom freeze flag in the gjf.
 mlmm oniom-import -i oniom.gjf --ref-pdb original.pdb -o reconstructed
 ```
 
-The reference PDB must have the **same atom count and ordering** as
-the gjf; the importer matches by index.
+An `oniom-export` input carries an atom-order digest; the reference PDB must
+match it. A markerless legacy input is accepted automatically only when every
+element identity is unique. With repeated elements, independently verify the
+order and opt in with `--allow-unverified-ref-order`. Malformed, duplicate, or
+mismatched digest markers always fail closed.
 
 ### ORCA input
 
@@ -74,6 +78,8 @@ mlmm oniom-import -i oniom.inp --mode orca -o reconstructed
 |---|---|
 | All atoms end up in residue `MOL` | No `--ref-pdb` was given; supply one to recover residue identities. |
 | Atom-count mismatch with `--ref-pdb` | Reference PDB has a different ordering; re-export from the original PDB. |
+| Markerless input with repeated elements | Verify atom order independently, then pass `--allow-unverified-ref-order`; do not use the flag for a digest mismatch. |
+| Digest mismatch | The reference is not the exported atom order. Use the original PDB or re-export; the override cannot bypass this check. |
 | `ClickException` on a coordinate row | Gjf was a non-ONIOM Gaussian input; without `H`/`L` layer markers the importer cannot parse the coordinate rows and raises an error rather than emitting layers. |
 | Mode guess wrong | Pass `--mode g16` or `--mode orca` explicitly. |
 

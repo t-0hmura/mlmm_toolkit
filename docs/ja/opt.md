@@ -38,12 +38,12 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 処理の流れ
 
 1. **入力処理** -- `-i/--input` は PDB または XYZ ファイルを受け付けます（XYZ 入力時は `--ref-pdb` を使用）。オプティマイザは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Movable-MM、B=20 Frozen）から取得されます。
-2. **ML/MM calculatorの構築** -- ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--embedcharge` で xTB 点電荷埋め込み補正を有効化できます。
+2. **ML/MM calculatorの構築** -- ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択します（デフォルト: `uma`）。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は calculator 構築前に拒否します。
 3. **最適化** -- `--opt-mode grad`（`light`）は L-BFGS、`--opt-mode hess`（`heavy`）は RFOptimizer（RFO）を実行します。
    - `--flatten` は最適化後の虚振動数モードのフラット化を有効にします。検出されたすべての虚振動数モードが各反復でフラット化され、虚振動数モードがなくなるか内部ループ上限に達するまで続きます。
 4. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を受け付けます。`target_A` は目標距離（Å）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/Å²）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
 5. **ダンプと変換** -- `--dump` は `optimization_trj.xyz` を書き出します。変換が有効な場合、PDB 入力では軌跡も `.pdb` に変換されます（B 因子アノテーション付き）。`opt.dump_restart` はリスタート YAML スナップショットを出力できます。
-6. **終了コード** -- `0` 成功、`2` ゼロステップ（ステップノルム < `min_step_norm`）、`3` オプティマイザエラー、`130` キーボード割り込み、`1` 予期しないエラー。
+6. **終了コード** -- `0` 成功、`2` CLI 使用法・設定エラーまたはオプティマイザのゼロステップ（ステップノルム < `min_step_norm`）、`3` オプティマイザエラー、`130` キーボード割り込み、`1` 予期しないエラー。
 
 ## 出力
 
@@ -84,7 +84,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | `--flatten` PHVA で使う TR 処理。`constrained` は凍結 anchor を尊重し、`legacy-active` は isolated-active 比較処理。 | `constrained` |
+| `--tr-projection [constrained\|legacy-active]` | `--flatten` PHVA で使う TR 処理。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
 | `--radius-freeze FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える原子は凍結。指定時は `--detect-layer` が無効化。エイリアス: `--movable-cutoff`。 | _None_ |
 | `--dist-freeze TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
 | `--one-based / --zero-based` | `--dist-freeze` のインデックス規約。 | 1 始まり |
@@ -101,8 +101,8 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--config FILE` | ベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済み YAML レイヤー情報を表示。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
+| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。`--help-advanced` に表示。 | `False` |
 
@@ -124,9 +124,10 @@ out_dir/ (デフォルト: ./result_opt/)
 デフォルトの `constrained` は凍結 anchor を動かさない全系剛体運動だけを除去します。
 一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、
 実用的な ML/MM 境界では通常 0 です。全原子凍結は明示的なエラーになります。
-`legacy-active` は現行の共通 kernel を使う isolated-active 比較処理です。rank 退化構造も
-現行 kernel で処理され、bitwise 一致は保証しません。`--out-json` 時、flatten 実行は treatment、有効 rank、
-Hessian source、Hessian shape を `result.json.rigid_projection` に記録します。
+`legacy-active` は非推奨の比較専用処理で、pass/HOSP 遷移状態認定には使用できません。
+現行の共通 kernel で rank 退化構造も処理しますが、bitwise 一致は保証しません。
+`--out-json` 時、flatten 実行は treatment、有効 rank、Hessian source、Hessian shape を
+`result.json.rigid_projection` に記録します。
 
 ## YAML 設定
 
@@ -143,7 +144,7 @@ Hessian source、Hessian shape を `result.json.rigid_projection` に記録し�
 - `input_pdb`、`real_parm7`、`model_pdb`: 必須ファイルパス（文字列）。
 - `model_charge`（`-q/--charge`、必須）と `model_mult`（`-m/--multiplicity`、デフォルト 1）。
 - `link_mlmm`: ML/MM リンクペアを固定する `(ML_atom_id, MM_atom_id)` 文字列のオプションリスト（リンク原子は作成されません）。
-- バックエンド選択: `backend`（デフォルト `"uma"`、選択肢: `uma`/`orb`/`mace`/`aimnet2`）。`embedcharge`（bool、xTB 点電荷埋め込み補正）。
+- バックエンド選択: `backend`（デフォルト `"uma"`、選択肢: `uma`/`orb`/`mace`/`aimnet2`）。`embedcharge` は互換性用で、`true` は拒否されます。
 - UMA 制御: `uma_model`（デフォルト `"uma-s-1p2"`）、`uma_task_name`（デフォルト `"omol"`）。
 - 共通制御（全バックエンド）: `hessian_calc_mode`（`"Analytical"` または `"FiniteDifference"`）、`out_hess_torch`（bool）、`H_double`（bool）。
 - デバイス選択: `ml_device`（`"auto"`/`"cuda"`/`"cpu"`）、`ml_cuda_idx`、`mm_device`、`mm_cuda_idx`、`mm_threads`。
@@ -179,14 +180,14 @@ RFOptimizer 固有の拡張: 信頼領域サイジング（`trust_radius`、`tru
 geom:
  coord_type: cart               # 座標タイプ: デカルト vs dlc 内部座標
  freeze_atoms: []               # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained     # constrained（デフォルト）| legacy-active 比較
+ tr_projection: constrained     # legacy-active は非推奨・比較専用
 calc:                           # calc 計算機キーは単一セクションにまとめる
  model_charge: 0                # 総電荷（キーは charge ではなく model_charge。CLI 上書き）
  model_mult: 1                  # スピン多重度 2S+1（キーは spin ではなく model_mult）
  real_parm7: real.parm7         # 全酵素の Amber parm7 トポロジー
  model_pdb: ml_region.pdb       # ML 領域を定義する PDB
  backend: uma                   # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false             # xTB 点電荷埋め込み補正
+ embedcharge: false             # 互換性用。true は拒否される
  uma_model: uma-s-1p2           # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol            # UMA タスク名 (backend=uma 時)
  ml_device: auto                # ML デバイス選択

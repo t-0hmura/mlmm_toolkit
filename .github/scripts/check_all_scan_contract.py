@@ -10,6 +10,7 @@ from typing import Set
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ALL_PY = REPO_ROOT / "mlmm" / "workflows" / "all.py"
+ALL_HELPERS_PY = REPO_ROOT / "mlmm" / "workflows" / "_all_helpers.py"
 SCAN_PY = REPO_ROOT / "mlmm" / "workflows" / "scan.py"
 # Shared option decorators (e.g. ``add_ml_layer_detection_options``) inject
 # Click flags onto ``scan.cli`` from here, so they count as declared too.
@@ -34,6 +35,16 @@ def _const_flag(node: ast.AST) -> str | None:
     return None
 
 
+def _const_flags(node: ast.AST) -> Set[str]:
+    """Return every literal long option contained in an expression."""
+    flags: Set[str] = set()
+    for child in ast.walk(node):
+        flag = _const_flag(child)
+        if flag is not None:
+            flags.add(flag)
+    return flags
+
+
 def _expand_flag_spec(spec: str) -> Set[str]:
     # click toggle declarations may appear as "--a/--b".
     parts = [p.strip() for p in spec.split("/") if p.strip()]
@@ -56,54 +67,61 @@ def _collect_scan_declared_flags(scan_tree: ast.AST) -> Set[str]:
 
 
 class _ForwardedScanFlags(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.in_cli = False
+    def __init__(self, function_targets: dict[str, Set[str]]) -> None:
+        self.function_targets = function_targets
+        self.targets: Set[str] = set()
         self.flags: Set[str] = set()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        was_in_cli = self.in_cli
-        if node.name == "cli":
-            self.in_cli = True
+        previous = self.targets
+        self.targets = self.function_targets.get(node.name, set())
         self.generic_visit(node)
-        self.in_cli = was_in_cli
+        self.targets = previous
 
     def visit_Assign(self, node: ast.Assign) -> None:
-        if self.in_cli:
+        if self.targets:
             for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "scan_args":
-                    if isinstance(node.value, ast.List):
-                        for elt in node.value.elts:
-                            flag = _const_flag(elt)
-                            if flag is not None:
-                                self.flags.add(flag)
+                if isinstance(target, ast.Name) and target.id in self.targets:
+                    self.flags.update(_const_flags(node.value))
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        if self.in_cli:
+        if self.targets:
             if isinstance(node.func, ast.Name) and node.func.id == "_append_cli_arg":
-                if len(node.args) >= 2 and isinstance(node.args[0], ast.Name) and node.args[0].id == "scan_args":
-                    flag = _const_flag(node.args[1])
-                    if flag is not None:
-                        self.flags.add(flag)
+                if (
+                    len(node.args) >= 2
+                    and isinstance(node.args[0], ast.Name)
+                    and node.args[0].id in self.targets
+                ):
+                    self.flags.update(_const_flags(node.args[1]))
 
-            if isinstance(node.func, ast.Attribute) and node.func.attr == "append":
-                if isinstance(node.func.value, ast.Name) and node.func.value.id == "scan_args" and node.args:
-                    value = node.args[0]
-                    flag = _const_flag(value)
-                    if flag is not None:
-                        self.flags.add(flag)
-                    elif isinstance(value, ast.IfExp):
-                        body_flag = _const_flag(value.body)
-                        else_flag = _const_flag(value.orelse)
-                        if body_flag is not None:
-                            self.flags.add(body_flag)
-                        if else_flag is not None:
-                            self.flags.add(else_flag)
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in {"append", "extend"}
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id in self.targets
+            ):
+                for arg in node.args:
+                    self.flags.update(_const_flags(arg))
         self.generic_visit(node)
+
+
+def _collect_named_function_flags(
+    tree: ast.AST, function_names: Set[str],
+) -> Set[str]:
+    flags: Set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name in function_names:
+            flags.update(_const_flags(node))
+    return flags
 
 
 def main() -> int:
     all_tree = ast.parse(ALL_PY.read_text(encoding="utf-8"), filename=str(ALL_PY))
+    helpers_tree = ast.parse(
+        ALL_HELPERS_PY.read_text(encoding="utf-8"),
+        filename=str(ALL_HELPERS_PY),
+    )
     scan_tree = ast.parse(SCAN_PY.read_text(encoding="utf-8"), filename=str(SCAN_PY))
 
     declared = _collect_scan_declared_flags(scan_tree)
@@ -114,9 +132,16 @@ def main() -> int:
             COMMON_OPTIONS_PY.read_text(encoding="utf-8"), filename=str(COMMON_OPTIONS_PY)
         )
         declared |= _collect_scan_declared_flags(common_tree)
-    collector = _ForwardedScanFlags()
+    collector = _ForwardedScanFlags({"cli": {"scan_args"}})
     collector.visit(all_tree)
-    forwarded = collector.flags
+    helper_collector = _ForwardedScanFlags(
+        {"append_backend_forwarding_args": {"args"}},
+    )
+    helper_collector.visit(helpers_tree)
+    forwarded = collector.flags | helper_collector.flags
+    forwarded |= _collect_named_function_flags(
+        helpers_tree, {"build_scan_child_argv"},
+    )
 
     missing = sorted(flag for flag in forwarded if flag not in declared)
     if missing:

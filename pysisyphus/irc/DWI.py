@@ -45,7 +45,20 @@ class DWI:
         self.gradients = deque(maxlen=self.maxlen)
         self.hessians = deque(maxlen=self.maxlen)
     
-    def update(self, coords, energy, gradient, hessian):
+    def update(self, coords, energy, gradient, hessian, *, copy_hessian=False):
+        # Evict the oldest dense Hessian before allocating its replacement.
+        # ``deque(maxlen=...)`` would otherwise evaluate a caller-side clone
+        # first and only then release the old matrix, increasing peak memory.
+        if len(self.coords) == self.maxlen:
+            self.coords.popleft()
+            self.energies.popleft()
+            self.gradients.popleft()
+            self.hessians.popleft()
+        if copy_hessian:
+            if isinstance(hessian, torch.Tensor):
+                hessian = hessian.detach().clone()
+            else:
+                hessian = hessian.copy()
         self.coords.append(coords)
         self.energies.append(energy)
         self.gradients.append(gradient)

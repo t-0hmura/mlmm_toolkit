@@ -63,11 +63,11 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).
   --embedcharge / --no-embedcharge
-                                  Enable xTB point-charge embedding correction
-                                  for MM→ML environmental effects
-                                  (experimental).  [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Embed-charge cutoff radius (Å) around the ML
-                                  region.
+                                  Unavailable in v0.3.3; retained so older
+                                  commands fail with an actionable diagnostic.
+                                  [default: no-embedcharge]
+  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
+                                  retired electronic-embedding path.
   --link-atom-method [scaled|fixed]
                                   Link-atom positioning: scaled (g-factor) or
                                   fixed (1.09/1.01 Å).

@@ -361,14 +361,15 @@ def add_ml_charge_spin_options() -> Callable[[Callable], Callable]:
             default=None,
             show_default=False,
             help=(
-                "Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
-                "charge when -q is omitted (requires PDB input or --ref-pdb)."
+                "Total charge for unknown ligand residues or a per-resname mapping "
+                "(e.g., GPP:-3,SAM:1), used to derive the ML-region charge when -q "
+                "is omitted (requires PDB input or --ref-pdb)."
             ),
         ),
         click.option(
             "-m", "--multiplicity",
             "spin",
-            type=int,
+            type=click.IntRange(min=1),
             default=None,
             show_default=False,
             help="Spin multiplicity (2S+1) for the ML region. Defaults to 1 when omitted.",

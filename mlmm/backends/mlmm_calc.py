@@ -36,6 +36,30 @@ from ase.io import read as _ase_read
 from ase.calculators.calculator import Calculator, all_changes
 from ase.constraints import FixAtoms
 
+from pysisyphus._array import active_square
+from mlmm.backends.methods import (
+    normalize_hessian_calc_mode,
+    normalize_link_atom_method,
+    normalize_mm_hessian_mode,
+)
+
+
+def _gather_atom_hessian_square(H, atom_indices):
+    """Gather an atom-indexed 4-D Hessian square with bounded workspace."""
+    n_atoms = int(H.shape[0])
+    atom_indices = torch.as_tensor(
+        atom_indices, dtype=torch.long, device=H.device
+    )
+    dof_indices = (
+        atom_indices[:, None] * 3
+        + torch.arange(3, dtype=torch.long, device=H.device)[None, :]
+    ).reshape(-1)
+    square = active_square(
+        H.reshape(3 * n_atoms, 3 * n_atoms), dof_indices
+    )
+    selected = int(atom_indices.numel())
+    return square.reshape(selected, 3, selected, 3)
+
 
 def read(filename, *args, **kwargs):
     """ASE read() that tolerates virtual-site atoms (element 'EP', e.g. OPC/TIP4P 4-point water
@@ -67,7 +91,7 @@ from hessian_ff import ForceFieldTorch, load_coords, load_system
 from hessian_ff.analytical_hessian import build_analytical_hessian
 
 from mlmm.core.defaults import DEFAULT_UMA_MODEL  # noqa: E402
-from mlmm.io.pdb_indexing import parse_pdb_ordinal_atoms
+from mlmm.io.pdb_indexing import resolve_mlmm_atoms
 
 # Optional OpenMM import
 try:
@@ -153,35 +177,6 @@ def _get_g_factor(qm1_elem: str, mm_elem: str, link_elem: str = "H") -> float:
     return (cr_qm1 + cr_link) / (cr_qm1 + cr_mm)
 EV2AU = 1.0 / AU2EV  # eV → Hartree
 KCALMOL2EV = AU2EV / AU2KCALPERMOL  # kcal/mol -> eV
-
-
-def normalize_hessian_calc_mode(value: Optional[str]) -> str:
-    """Return the canonical Hessian method or reject an unknown token."""
-
-    text = "FiniteDifference" if value is None else str(value).strip()
-    canonical = {
-        "finitedifference": "FiniteDifference",
-        "analytical": "Analytical",
-    }.get(text.casefold())
-    if canonical is None:
-        raise ValueError(
-            "Unsupported hessian_calc_mode "
-            f"{value!r}. Choose from: FiniteDifference, Analytical."
-        )
-    return canonical
-
-
-def normalize_link_atom_method(value: Optional[str]) -> str:
-    """Return the canonical link-atom placement method or reject a typo."""
-
-    text = "scaled" if value is None else str(value).strip()
-    canonical = {"scaled": "scaled", "fixed": "fixed"}.get(text.casefold())
-    if canonical is None:
-        raise ValueError(
-            "Unsupported link_atom_method "
-            f"{value!r}. Choose from: scaled, fixed."
-        )
-    return canonical
 
 
 def _prepare_model_for_autograd_hessian(model_obj: Any) -> Dict[str, Any]:
@@ -1029,6 +1024,9 @@ def _create_ml_backend(
     ml_device: torch.device,
 ) -> _MLBackend:
     """Factory function to create the appropriate ML backend."""
+    model_mult = int(model_mult)
+    if model_mult < 1:
+        raise ValueError(f"Spin multiplicity must be >= 1, got {model_mult}.")
     backend = backend.strip().lower()
     # Env-var / direct-API entry point for strict determinism (the CLI uses the
     # --deterministic flag callback). Idempotent; no-op unless requested.
@@ -1103,17 +1101,17 @@ def _create_ml_backend(
 
 
 class _EmbedChargeCorrection:
-    """xTB-based point-charge embedding correction for ONIOM ML/MM.
+    """Dormant xTB embedding implementation retained for compatibility tests.
 
-    Computes the electrostatic interaction between the ML region and
-    the MM point charges via xTB:
+    The historical implementation evaluated:
 
         dE = E_xTB(ML + MM_charges) - E_xTB(ML_only)
         dF = F_xTB(ML + MM_charges) - F_xTB(ML_only)
 
-    This accounts for the environmental electrostatic effect of MM
-    atoms on the ML region, which is not captured by the subtractive
-    ONIOM scheme alone.
+    Public activation is rejected in v0.3.3 because adding this term to the
+    subtractive mechanical-embedding expression double-counts ML--MM
+    electrostatics and the uncapped xTB model is inconsistent with the link-H
+    high-level model.
     """
 
     def __init__(
@@ -1170,10 +1168,10 @@ class _EmbedChargeCorrection:
         -------
         dE : float
             Energy correction in eV.
-        dF_ml : ndarray (N_ML, 3) or None
-            Force corrections for ML atoms in eV/Å.
-        dH_ml : ndarray (3*N_ML, 3*N_ML) or None
-            Hessian correction for ML atoms in eV/Å².
+        dF : ndarray (N_ML + N_MM, 3) or None
+            Force corrections in ``[ML atoms, MM charge sites]`` order, eV/Å.
+        dH : ndarray (3*(N_ML + N_MM), 3*(N_ML + N_MM)) or None
+            Hessian correction in the same ordered basis, eV/Å².
         """
         from mlmm.backends.xtb_embedcharge_correction import delta_embedcharge_minus_noembed
 
@@ -1204,19 +1202,26 @@ class _EmbedChargeCorrection:
             hessian_step=self.hessian_step,
         )
 
-        dF_ml = None
+        dF = None
         if dF_full_ev is not None:
-            # Extract only the ML-atom forces (first n_ml rows)
-            dF_ml = np.asarray(dF_full_ev, dtype=np.float64).reshape(-1, 3)[:n_ml]
+            dF = np.asarray(dF_full_ev, dtype=np.float64).reshape(-1, 3)
+            if dF.shape != (n_ml + n_mm, 3):
+                raise ValueError(
+                    "Embedding correction force shape does not match its "
+                    f"[ML, MM] basis: {dF.shape} vs {(n_ml + n_mm, 3)}."
+                )
 
-        dH_ml = None
+        dH = None
         if dH_full_ev is not None:
-            # Extract only the ML-atom Hessian block
-            dof_ml = 3 * n_ml
-            dH_full = np.asarray(dH_full_ev, dtype=np.float64)
-            dH_ml = dH_full[:dof_ml, :dof_ml]
+            dH = np.asarray(dH_full_ev, dtype=np.float64)
+            expected = 3 * (n_ml + n_mm)
+            if dH.shape != (expected, expected):
+                raise ValueError(
+                    "Embedding correction Hessian shape does not match its "
+                    f"[ML, MM] basis: {dH.shape} vs {(expected, expected)}."
+                )
 
-        return float(dE_ev), dF_ml, dH_ml
+        return float(dE_ev), dF, dH
 
 
 
@@ -1414,13 +1419,26 @@ class hessianffCalculator(Calculator):
         dtype: np.dtype = np.float64,
         return_partial_hessian: bool = False,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
-        _ = float(delta)  # Kept for backward-compatible signature.
-        return self.analytical_hessian(
+        from mlmm.io.hessian_calc import hessian_calc
+
+        H_full = hessian_calc(
             atoms,
+            self,
+            delta=float(delta),
             info_path=info_path,
             dtype=dtype,
-            return_partial_hessian=return_partial_hessian,
         )
+        if return_partial_hessian:
+            fixed = _fixed_indices_from_constraints(atoms)
+            active_atoms = np.asarray(
+                [i for i in range(len(atoms)) if i not in fixed], dtype=int
+            )
+            idx3 = np.concatenate(
+                [3 * active_atoms + component for component in range(3)]
+            )
+            idx3.sort()
+            return H_full[np.ix_(idx3, idx3)], active_atoms
+        return H_full, None
 
 
 
@@ -1610,7 +1628,7 @@ def validate_parmed_atom_order(
     input_label: str = "input structure",
     topology_label: str = "parm7 topology",
 ) -> None:
-    """Validate count and known-element order before positional assignment."""
+    """Validate count and available atom identity before positional assignment."""
     n_input = int(len(input_structure.atoms))
     n_top = int(len(real_topology.atoms))
     if n_input != n_top:
@@ -1636,6 +1654,39 @@ def validate_parmed_atom_order(
                 f"{chemical_symbols[top_z]}. Regenerate the topology from the "
                 "same atom ordering or reorder the input structure."
             )
+        input_name = str(getattr(input_atom, "name", "") or "").strip()
+        top_name = str(getattr(top_atom, "name", "") or "").strip()
+        input_residue = getattr(input_atom, "residue", None)
+        top_residue = getattr(top_atom, "residue", None)
+        input_resname = str(
+            getattr(input_residue, "name", "") or ""
+        ).strip()
+        top_resname = str(getattr(top_residue, "name", "") or "").strip()
+        input_residx = getattr(input_residue, "idx", None)
+        top_residx = getattr(top_residue, "idx", None)
+        name_mismatch = bool(
+            input_name and top_name and input_name != top_name
+        )
+        residue_mismatch = bool(
+            input_resname
+            and top_resname
+            and input_resname != top_resname
+        )
+        ordinal_mismatch = bool(
+            input_residx is not None
+            and top_residx is not None
+            and int(input_residx) != int(top_residx)
+        )
+        if name_mismatch or residue_mismatch or ordinal_mismatch:
+            raise ValueError(
+                "Atom-order mismatch between input structure and parm7 at "
+                f"atom {index + 1} (0-based {index}): input identity is "
+                f"{input_resname or '?'}[{input_residx!s}]:{input_name or '?'}, "
+                f"topology identity is "
+                f"{top_resname or '?'}[{top_residx!s}]:{top_name or '?'}. "
+                "Regenerate the topology from the same atom ordering or reorder "
+                "the input structure."
+            )
 
 
 class MLMMCore:
@@ -1643,7 +1694,8 @@ class MLMMCore:
 
     Supported ML backends: UMA (default), ORB, MACE, AIMNet2.
     Supported MM backends: hessian_ff (analytical), OpenMM (FD).
-    Optional xTB point-charge embedding correction for environmental effects.
+    Electronic embedding is unavailable in v0.3.3; activation is rejected
+    before workspace or backend allocation.
     """
 
     def __init__(
@@ -1673,6 +1725,7 @@ class MLMMCore:
         calc_factory: str = "get_calculator",
         # MM settings
         mm_fd: bool = True,
+        mm_hessian_mode: Optional[str] = None,
         mm_fd_dir: Optional[str] = None,
         mm_fd_delta: float = 1e-3,
         symmetrize_hessian: bool = True,
@@ -1719,11 +1772,17 @@ class MLMMCore:
                 kwargs.pop(_old_name)
         if kwargs:
             raise TypeError(f"MLMMCore.__init__() got unexpected keyword arguments: {', '.join(kwargs)}")
+        from mlmm.core.embedcharge_policy import validate_retired_embedcharge
+
+        validate_retired_embedcharge(embedcharge=embedcharge)
         if input_pdb is None:
             raise TypeError("MLMMCore.__init__() missing required keyword argument: 'input_pdb'")
         # Canonicalize the two numerical-method enums before any temporary
         # directory, file copy, topology preparation, or model allocation.
         hessian_calc_mode = normalize_hessian_calc_mode(hessian_calc_mode)
+        mm_hessian_mode = normalize_mm_hessian_mode(
+            mm_hessian_mode, mm_fd=mm_fd
+        )
         link_atom_method = normalize_link_atom_method(link_atom_method)
         if int(workers or 1) > 1 and hessian_calc_mode == "Analytical":
             raise ValueError(
@@ -1809,7 +1868,8 @@ class MLMMCore:
         self.H_dtype = torch.float64 if self.H_double else torch.float32
         self.H_np_dtype = np.float64 if self.H_double else np.float32
 
-        self.mm_fd = mm_fd
+        self.mm_hessian_mode = mm_hessian_mode
+        self.mm_fd = mm_hessian_mode == "finite_difference"
         self.mm_fd_dir = mm_fd_dir
         self.mm_fd_delta = mm_fd_delta
         self.symmetrize_hessian = symmetrize_hessian
@@ -1825,6 +1885,10 @@ class MLMMCore:
 
         self.model_charge = int(0 if model_charge is None else model_charge)
         self.model_mult = int(model_mult)
+        if self.model_mult < 1:
+            raise ValueError(
+                f"Spin multiplicity must be >= 1, got {self.model_mult}."
+            )
         logger.info(f"[MLMMCore] ML-region net charge = {self.model_charge}")
         self.backend_name = str(backend).strip().lower() if backend is not None else "uma"
 
@@ -1931,64 +1995,16 @@ class MLMMCore:
 
     def _ml_prep(self) -> Tuple[List[str], List[Tuple[int, int]], List[Tuple[str, str]]]:
         """Return (ml_ID, mlmm_links, link_elem_pairs)."""
-        ml_region = {atom.id for atom in parse_pdb_ordinal_atoms(self.model_pdb)}
-        # ``idx`` is the one-based ATOM/HETATM ordinal used by parm7.  The
-        # deposited ``serial`` remains separately available for diagnostics.
-        leap_atoms = parse_pdb_ordinal_atoms(self.input_pdb)
-
-        ml_ID = [str(atom.idx) for atom in leap_atoms if atom.id in ml_region]
-
-        if self.link_mlmm:
-            processed = [(" ".join(q.split()[:3]), " ".join(m.split()[:3])) for q, m in self.link_mlmm]
-
-            ml_indices: List[int] = []
-            mm_indices: List[int] = []
-            for atom in leap_atoms:
-                for qnm, mnm in processed:
-                    if atom.id == qnm:
-                        ml_indices.append(atom.idx)
-                    elif atom.id == mnm:
-                        mm_indices.append(atom.idx)
-
-            if len(set(ml_indices)) != len(ml_indices) or len(set(mm_indices)) != len(mm_indices):
-                raise ValueError("Duplicated ML or MM indices in link specification.")
-            mlmm_links = list(zip(ml_indices, mm_indices))
-        else:
-            threshold = 1.7
-            ml_set = {atom.idx for atom in leap_atoms if atom.id in ml_region}
-            coords = {atom.idx: np.asarray(atom.coord) for atom in leap_atoms}
-            elem = {atom.idx: atom.elem for atom in leap_atoms}
-
-            ml_indices: List[int] = []
-            mm_indices: List[int] = []
-            for qidx in ml_set:
-                for atom in leap_atoms:
-                    midx = atom.idx
-                    if midx in ml_set:
-                        continue
-                    if (
-                        np.linalg.norm(coords[midx] - coords[qidx]) < threshold
-                        and (
-                            (elem[midx] == "C" and elem[qidx] == "C")
-                            or (elem[midx] == "N" and elem[qidx] == "C")
-                            or (elem[midx] == "C" and elem[qidx] == "N")
-                        )
-                    ):
-                        ml_indices.append(qidx)
-                        mm_indices.append(midx)
-
-            if len(set(ml_indices)) != len(ml_indices) or len(set(mm_indices)) != len(mm_indices):
-                raise ValueError(
-                    "Automatic link detection produced duplicate pairs. Specify 'link_mlmm' manually."
-                )
-            mlmm_links = list(zip(ml_indices, mm_indices))
-
-        elem_by_idx = {atom.idx: atom.elem for atom in leap_atoms}
-        link_elem_pairs = [
-            (elem_by_idx.get(ml, "C"), elem_by_idx.get(mm, "C"))
-            for ml, mm in mlmm_links
-        ]
-        return ml_ID, mlmm_links, link_elem_pairs
+        resolved = resolve_mlmm_atoms(
+            self.input_pdb,
+            self.model_pdb,
+            self.link_mlmm,
+        )
+        return (
+            [str(idx) for idx in resolved.model_indices],
+            list(resolved.link_pairs),
+            list(resolved.link_element_pairs),
+        )
 
     def _mk_model_parm7(self) -> List[int]:
         real = pmd.load_file(self.real_parm7, self.real_rst7)
@@ -2431,7 +2447,12 @@ class MLMMCore:
         H_model_np = None
         active_atoms_from_fd = None
 
-        if return_hessian and self.mm_fd is True:
+        mm_hessian_mode = getattr(
+            self,
+            "mm_hessian_mode",
+            "finite_difference" if self.mm_fd else "analytical",
+        )
+        if return_hessian and mm_hessian_mode != "none":
             info_real = os.path.join(self.mm_fd_dir, "real.log") if self.mm_fd_dir else None
             info_model = os.path.join(self.mm_fd_dir, "model.log") if self.mm_fd_dir else None
 
@@ -2444,26 +2465,48 @@ class MLMMCore:
                     FixAtoms(indices=self.effective_hess_freeze_atoms)
                 )
 
+            method_name = (
+                "finite_difference_hessian"
+                if mm_hessian_mode == "finite_difference"
+                else "analytical_hessian"
+            )
+            real_method = getattr(self.calc_real_low, method_name, None)
+            model_method = getattr(self.calc_model_low, method_name, None)
+            if real_method is None or model_method is None:
+                raise RuntimeError(
+                    f"MM backend '{type(self.calc_real_low).__name__}' does not "
+                    f"support mm_hessian_mode='{mm_hessian_mode}'."
+                )
+            method_kwargs = (
+                {"delta": self.mm_fd_delta}
+                if mm_hessian_mode == "finite_difference"
+                else {}
+            )
+
             t0 = time.perf_counter()
-            H_real_np, active_atoms_from_fd = self.calc_real_low.finite_difference_hessian(
+            H_real_np, active_atoms_from_fd = real_method(
                 atoms_real_for_hess,
-                delta=self.mm_fd_delta,
                 info_path=info_real,
                 dtype=self.H_np_dtype,
                 return_partial_hessian=True,
+                **method_kwargs,
             )
-            local_timing["mm_fd_real_s"] = time.perf_counter() - t0
+            local_timing["mm_hessian_real_s"] = time.perf_counter() - t0
 
             t0 = time.perf_counter()
-            H_model_np, _ = self.calc_model_low.finite_difference_hessian(
+            H_model_np, _ = model_method(
                 atoms_model,
-                delta=self.mm_fd_delta,
                 info_path=info_model,
                 dtype=self.H_np_dtype,
                 return_partial_hessian=False,
+                **method_kwargs,
             )
-            local_timing["mm_fd_model_s"] = time.perf_counter() - t0
-            local_timing["mm_fd_total_s"] = float(local_timing["mm_fd_real_s"]) + float(local_timing["mm_fd_model_s"])
+            local_timing["mm_hessian_model_s"] = time.perf_counter() - t0
+            local_timing["mm_hessian_total_s"] = (
+                float(local_timing["mm_hessian_real_s"])
+                + float(local_timing["mm_hessian_model_s"])
+            )
+            local_timing["mm_hessian_mode"] = mm_hessian_mode
 
         return _MMLowOut(
             E_real=E_real_low,
@@ -2539,15 +2582,26 @@ class MLMMCore:
 
         timing.update(ml_out.timing)
         timing.update(mm_out.timing)
+        ml_energy = ml_out.E
+        ml_forces = ml_out.F
+        H_high = ml_out.H
+        mm_real_energy = mm_out.E_real
+        mm_real_forces = mm_out.F_real
+        mm_model_energy = mm_out.E_model
+        mm_model_forces = mm_out.F_model
+        mm_real_hessian = mm_out.H_real
+        mm_model_hessian = mm_out.H_model
+        mm_active_atoms_from_fd = mm_out.active_atoms_from_fd
+        del ml_out, mm_out
 
         # CHEMISTRY-RULE:1 Subtractive ONIOM formula. Do NOT alter sign/sum order.
-        total_E = mm_out.E_real + ml_out.E - mm_out.E_model
+        total_E = mm_real_energy + ml_energy - mm_model_energy
         results: Dict = {"energy": total_E}
 
         if return_forces or return_hessian:
-            F_combined = np.copy(mm_out.F_real)
+            F_combined = np.copy(mm_real_forces)
             for i, ridx in enumerate(self.selection_indices):
-                F_combined[ridx] += ml_out.F[i] - mm_out.F_model[i]
+                F_combined[ridx] += ml_forces[i] - mm_model_forces[i]
 
             real_to_model = self._idx_map_real_to_model
             # CHEMISTRY-RULE:2 Link-atom Hessian B-matrix (= scaled Jacobian projection). Do NOT skip param.
@@ -2555,7 +2609,7 @@ class MLMMCore:
                 ml_model_idx = real_to_model[ml_idx]
                 r_ml = atoms_model_LH[ml_model_idx].position
                 r_mm = atoms_real[mm_idx].position
-                grad_link = ml_out.F[link_idx]
+                grad_link = ml_forces[link_idx]
                 if self.link_atom_method == "scaled":
                     J = self._jacobian_blocks_numpy_scaled(param)
                 else:
@@ -2568,7 +2622,7 @@ class MLMMCore:
             results["forces"] = F_combined
 
         # Point-charge embedding correction (optional)
-        embed_dH = None
+        embed_dH_info = None
         if self.embedcharge and self._embed_correction is not None:
             t0_embed = time.perf_counter()
             # ML atom symbols and coordinates
@@ -2607,45 +2661,66 @@ class MLMMCore:
                 # Add energy correction
                 results["energy"] += dE_embed
 
-                # Add force corrections on ML atoms
+                correction_real_indices = [
+                    *[int(i) for i in self.selection_indices],
+                    *[int(i) for i in mm_atom_indices],
+                ]
+
+                # Scatter the complete conservative correction, including
+                # movable MM point-charge sites.
                 if dF_embed is not None and (return_forces or return_hessian):
-                    for i, ridx in enumerate(self.selection_indices):
-                        if i < len(dF_embed):
-                            results["forces"][ridx] += dF_embed[i]
+                    if len(dF_embed) != len(correction_real_indices):
+                        raise ValueError(
+                            "Embedding force basis length does not match the "
+                            "real-system index map."
+                        )
+                    for row, ridx in enumerate(correction_real_indices):
+                        results["forces"][ridx] += dF_embed[row]
 
                 # Store Hessian correction for later assembly
                 if dH_embed is not None:
-                    embed_dH = dH_embed
+                    embed_dH_info = (dH_embed, correction_real_indices)
 
                 timing["embedcharge_s"] = time.perf_counter() - t0_embed
+                del dE_embed, dF_embed, dH_embed
 
         if return_hessian:
             n_real = len(atoms_real)
             n_ml = len(self.selection_indices)
             n_hess_active = self.n_hess_active
 
-            if self.mm_fd is True:
-                if mm_out.H_real is None or mm_out.H_model is None:
+            mm_hessian_mode = getattr(
+                self,
+                "mm_hessian_mode",
+                "finite_difference" if self.mm_fd else "analytical",
+            )
+            if mm_hessian_mode != "none":
+                if mm_real_hessian is None or mm_model_hessian is None:
                     raise RuntimeError("MM Hessians were not computed as expected.")
 
-                if mm_out.active_atoms_from_fd is not None:
+                if mm_active_atoms_from_fd is not None:
                     expected = set(self.hess_active_atoms)
-                    got = set(mm_out.active_atoms_from_fd.tolist())
+                    got = set(mm_active_atoms_from_fd.tolist())
                     if expected != got:
                         raise RuntimeError(
                             f"Hessian active atoms mismatch: expected {len(expected)} atoms, got {len(got)}"
                         )
 
-                H = torch.from_numpy(mm_out.H_real).to(self.ml_device, self.H_dtype)
+                H = torch.from_numpy(mm_real_hessian).to(
+                    self.ml_device, self.H_dtype
+                )
                 H = H.view(n_hess_active, 3, n_hess_active, 3)
+                del mm_real_hessian
 
-                H_model = torch.from_numpy(mm_out.H_model).to(self.ml_device, self.H_dtype)
+                H_model = torch.from_numpy(mm_model_hessian).to(
+                    self.ml_device, self.H_dtype
+                )
                 H_model = H_model.view(n_ml, 3, n_ml, 3)
+                del mm_model_hessian
             else:
                 H = torch.zeros((n_hess_active, 3, n_hess_active, 3), dtype=self.H_dtype, device=self.ml_device)
                 H_model = torch.zeros((n_ml, 3, n_ml, 3), dtype=self.H_dtype, device=self.ml_device)
 
-            H_high = ml_out.H
             ml_pairs = [
                 (i, self.full_to_hess_active[gi_real])
                 for i, gi_real in enumerate(self.selection_indices)
@@ -2660,10 +2735,15 @@ class MLMMCore:
 
             if H_high is not None and ml_sel_idx.numel() > 0:
                 t_asm = time.perf_counter()
-                H_high_mm = H_high.index_select(0, ml_sel_idx).index_select(2, ml_sel_idx)
-                H_model_mm = H_model.index_select(0, ml_sel_idx).index_select(2, ml_sel_idx)
-                delta_mm = H_high_mm - H_model_mm
-                H[ml_active_idx[:, None], :, ml_active_idx[None, :], :] += delta_mm.permute(0, 2, 1, 3)
+                H_high_mm = _gather_atom_hessian_square(
+                    H_high, ml_sel_idx
+                )
+                H_model_mm = _gather_atom_hessian_square(
+                    H_model, ml_sel_idx
+                )
+                H_high_mm.sub_(H_model_mm)
+                H[ml_active_idx[:, None], :, ml_active_idx[None, :], :] += H_high_mm.permute(0, 2, 1, 3)
+                del H_high_mm, H_model_mm
                 timing["hess_asm_mlml_s"] = time.perf_counter() - t_asm
             del H_model
 
@@ -2714,7 +2794,9 @@ class MLMMCore:
                             block6[left_slice, right_slice]
                         )
 
-            F_high_t = torch.as_tensor(ml_out.F, dtype=self.H_dtype, device=self.ml_device)
+            F_high_t = torch.as_tensor(
+                ml_forces, dtype=self.H_dtype, device=self.ml_device
+            )
             has_link_force = bool((F_high_t.abs() > 1e-12).any().item())
             if link_data and (H_high is not None or has_link_force):
                 t_asm = time.perf_counter()
@@ -2771,6 +2853,7 @@ class MLMMCore:
                             mm_active,
                         )
                 timing["hess_asm_link_self_s"] = time.perf_counter() - t_asm
+            del F_high_t, ml_forces
 
             if H_high is not None and link_data and ml_sel_idx.numel() > 0:
                 t_asm = time.perf_counter()
@@ -2819,16 +2902,80 @@ class MLMMCore:
                             mm_a_active,
                         )
                 timing["hess_asm_link_link_s"] = time.perf_counter() - t_asm
+            del H_high
+            if self.ml_device.type == "cuda":
+                torch.cuda.empty_cache()
 
             # Add point-charge embedding Hessian correction
-            if embed_dH is not None:
+            if embed_dH_info is not None:
                 t_asm = time.perf_counter()
-                n_model_atoms = len(self.selection_indices)
-                dH_t = torch.from_numpy(embed_dH).to(self.ml_device, self.H_dtype)
-                dH_t = dH_t.view(n_model_atoms, 3, n_model_atoms, 3)
-                if ml_sel_idx.numel() > 0:
-                    dH_sub = dH_t.index_select(0, ml_sel_idx).index_select(2, ml_sel_idx)
-                    H[ml_active_idx[:, None], :, ml_active_idx[None, :], :] += dH_sub.permute(0, 2, 1, 3)
+                embed_dH, correction_real_indices = embed_dH_info
+                n_correction_atoms = len(correction_real_indices)
+                correction_positions: List[int] = []
+                hessian_active_positions: List[int] = []
+                for position, real_idx in enumerate(correction_real_indices):
+                    active_position = self.full_to_hess_active.get(real_idx)
+                    if active_position is None:
+                        continue
+                    correction_positions.append(position)
+                    hessian_active_positions.append(active_position)
+                if correction_positions:
+                    active_idx = torch.as_tensor(
+                        hessian_active_positions,
+                        dtype=torch.long,
+                        device=self.ml_device,
+                    )
+                    correction_dofs = np.asarray(
+                        [
+                            3 * position + axis
+                            for position in correction_positions
+                            for axis in range(3)
+                        ],
+                        dtype=np.intp,
+                    )
+                    embed_matrix = np.asarray(embed_dH).reshape(
+                        3 * n_correction_atoms,
+                        3 * n_correction_atoms,
+                    )
+                    if (
+                        correction_dofs.size == embed_matrix.shape[0]
+                        and np.array_equal(
+                            correction_dofs,
+                            np.arange(embed_matrix.shape[0]),
+                        )
+                    ):
+                        dH_sub_cpu = embed_matrix
+                    else:
+                        dH_sub_cpu = active_square(
+                            embed_matrix, correction_dofs
+                        )
+                    dH_sub = torch.as_tensor(
+                        dH_sub_cpu,
+                        dtype=self.H_dtype,
+                        device=self.ml_device,
+                    ).reshape(
+                        len(correction_positions),
+                        3,
+                        len(correction_positions),
+                        3,
+                    )
+                    H[
+                        active_idx[:, None],
+                        :,
+                        active_idx[None, :],
+                        :,
+                    ] += dH_sub.permute(0, 2, 1, 3)
+                    del (
+                        active_idx,
+                        correction_dofs,
+                        dH_sub,
+                        dH_sub_cpu,
+                        embed_matrix,
+                    )
+                embed_dH_info = None
+                del embed_dH
+                if self.ml_device.type == "cuda":
+                    torch.cuda.empty_cache()
                 timing["hess_asm_embed_s"] = time.perf_counter() - t_asm
 
             if self.symmetrize_hessian:
@@ -2901,11 +3048,13 @@ class MLMMCore:
                     if verbose_level() >= 3:
                         if ml_mode is not None and ml_time is not None:
                             click.echo(f"[HessianTiming] ML Hessian ({ml_mode}): {ml_time:.2f} s")
-                        if "mm_fd_total_s" in timing:
+                        if "mm_hessian_total_s" in timing:
                             click.echo(
-                                f"[HessianTiming] MM Hessian: REAL {timing['mm_fd_real_s']:.2f} s | "
-                                f"MODEL {timing['mm_fd_model_s']:.2f} s | "
-                                f"total {timing['mm_fd_total_s']:.2f} s"
+                                "[HessianTiming] MM Hessian "
+                                f"({timing.get('mm_hessian_mode', 'unknown')}): "
+                                f"REAL {timing['mm_hessian_real_s']:.2f} s | "
+                                f"MODEL {timing['mm_hessian_model_s']:.2f} s | "
+                                f"total {timing['mm_hessian_total_s']:.2f} s"
                             )
                         asm_parts = []
                         for key, label in (
@@ -2924,7 +3073,7 @@ class MLMMCore:
                 if hessian_vram_detail is not None and verbose_level() >= 3:
                     click.echo(hessian_vram_detail)
 
-            del H, H_high
+            del H
             if self.ml_device.type == "cuda":
                 torch.cuda.empty_cache()
 
@@ -3003,6 +3152,7 @@ class mlmm(PySiCalc):
         calc_factory: str = "get_calculator",
         # MM settings
         mm_fd: bool = True,
+        mm_hessian_mode: Optional[str] = None,
         mm_fd_dir: Optional[str] = None,
         mm_fd_delta: float = 1e-3,
         symmetrize_hessian: bool = True,
@@ -3074,6 +3224,7 @@ class mlmm(PySiCalc):
             calc_file=calc_file,
             calc_factory=calc_factory,
             mm_fd=mm_fd,
+            mm_hessian_mode=mm_hessian_mode,
             mm_fd_dir=mm_fd_dir,
             mm_fd_delta=mm_fd_delta,
             symmetrize_hessian=symmetrize_hessian,

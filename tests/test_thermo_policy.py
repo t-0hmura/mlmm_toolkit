@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import warnings
 
+import click
 import numpy as np
 import pytest
 
+from pysisyphus.constants import BOHR2ANG
 from thermoanalysis.QCData import QCData
 from thermoanalysis.thermo import thermochemistry
 from thermoanalysis.config import (
@@ -189,3 +191,78 @@ def test_geometry_get_thermoanalysis_records_policy():
         geom.get_thermoanalysis()
 
     assert getattr(geom, "thermo_policy", None) == GEOMETRY_THERMO_POLICY.as_dict()
+
+
+def test_geometry_thermoanalysis_converts_bohr_to_angstrom(monkeypatch):
+    """The rotational-inertia input follows QCData's Angstrom contract."""
+    from pysisyphus.Geometry import Geometry
+
+    coords_ang = np.asarray(COORDS, dtype=float)
+    geom = Geometry(["O", "H", "H"], (coords_ang / BOHR2ANG).reshape(-1))
+    geom.get_normal_modes = lambda _: (np.array([1000.0, 1500.0, 3500.0]),)
+    captured = {}
+
+    def fake_thermochemistry(qcd, *args, **kwargs):
+        captured["inertia"] = qcd.inertia_tensor()
+        return object()
+
+    monkeypatch.setattr(
+        "pysisyphus.Geometry.thermochemistry", fake_thermochemistry
+    )
+    geom.get_thermoanalysis(energy=SCF, cart_hessian=np.eye(9))
+
+    expected = QCData(
+        {
+            "coords3d": coords_ang,
+            "wavenumbers": np.array([1000.0, 1500.0, 3500.0]),
+            "scf_energy": SCF,
+            "masses": np.asarray(geom.masses),
+            "mult": 1,
+        }
+    ).inertia_tensor()
+    np.testing.assert_allclose(captured["inertia"], expected)
+
+
+def test_real_freq_generation_invalidates_prior_thermo_files(tmp_path):
+    from mlmm.workflows.freq import _prepare_thermo_output_paths
+
+    published = tmp_path / "thermoanalysis.yaml"
+    staged = tmp_path / "thermoanalysis.yaml.tmp"
+    published.write_text("stale: true\n", encoding="utf-8")
+    staged.write_text("partial", encoding="utf-8")
+
+    assert _prepare_thermo_output_paths(tmp_path) == (published, staged)
+    assert not published.exists()
+    assert not staged.exists()
+
+
+def test_real_freq_generation_invalidates_prior_modes_and_envelopes(tmp_path):
+    from mlmm.workflows.freq import _prepare_frequency_output_paths
+
+    owned = [
+        tmp_path / "frequencies_cm-1.txt",
+        tmp_path / "mode_0001_-100.00cm-1_trj.xyz",
+        tmp_path / "mode_0001_-100.00cm-1.pdb",
+        tmp_path / "result.json",
+        tmp_path / "summary.json",
+    ]
+    for path in owned:
+        path.write_text("stale\n", encoding="utf-8")
+    unrelated = tmp_path / "notes.txt"
+    unrelated.write_text("keep\n", encoding="utf-8")
+
+    _prepare_frequency_output_paths(tmp_path)
+
+    assert all(not path.exists() for path in owned)
+    assert unrelated.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_freq_config_cannot_be_deleted_as_reserved_output(tmp_path):
+    from mlmm.workflows.freq import _prepare_thermo_output_paths
+
+    config = tmp_path / "thermoanalysis.yaml"
+    config.write_text("freq: {}\n", encoding="utf-8")
+
+    with pytest.raises(click.UsageError, match="collides with a reserved"):
+        _prepare_thermo_output_paths(tmp_path, protected_inputs=(config,))
+    assert config.exists()

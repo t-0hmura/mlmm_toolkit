@@ -11,10 +11,27 @@ from click.testing import CliRunner
 from mlmm.backends import normalize_calculator_methods
 from mlmm.backends.mlmm_calc import (
     MLMMCore,
+    _gather_atom_hessian_square,
     normalize_hessian_calc_mode,
     normalize_link_atom_method,
+    normalize_mm_hessian_mode,
 )
 from mlmm.cli import cli as root_cli
+
+
+def test_atom_hessian_square_gather_matches_chained_reference() -> None:
+    import torch
+
+    generator = torch.Generator().manual_seed(123)
+    hessian = torch.randn(
+        8, 3, 8, 3, generator=generator, dtype=torch.float64
+    )
+    indices = torch.tensor([6, 1, 4], dtype=torch.long)
+
+    expected = hessian.index_select(0, indices).index_select(2, indices)
+    actual = _gather_atom_hessian_square(hessian, indices)
+
+    assert torch.equal(actual, expected)
 
 
 @pytest.mark.parametrize(
@@ -36,6 +53,57 @@ def test_hessian_mode_normalizes_only_the_supported_vocabulary(raw, expected):
 )
 def test_link_atom_method_normalizes_only_the_supported_vocabulary(raw, expected):
     assert normalize_link_atom_method(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "mm_fd", "expected"),
+    [
+        (None, True, "finite_difference"),
+        (None, False, "analytical"),
+        ("finite-difference", False, "finite_difference"),
+        ("analytical", True, "analytical"),
+        ("none", True, "none"),
+    ],
+)
+def test_mm_hessian_mode_separates_method_from_high_only_policy(
+    raw, mm_fd, expected
+):
+    assert normalize_mm_hessian_mode(raw, mm_fd=mm_fd) == expected
+
+
+def test_hessianff_finite_difference_dispatches_numerical_engine(
+    monkeypatch,
+) -> None:
+    import numpy as np
+    from ase import Atoms
+
+    from mlmm.backends.mlmm_calc import hessianffCalculator
+    from mlmm.io import hessian_calc as hessian_calc_module
+
+    calls = []
+
+    def fake_hessian_calc(atoms, calculator, **kwargs):
+        calls.append((atoms, calculator, kwargs))
+        return 2.0 * np.eye(3 * len(atoms))
+
+    monkeypatch.setattr(
+        hessian_calc_module,
+        "hessian_calc",
+        fake_hessian_calc,
+    )
+    calculator = hessianffCalculator.__new__(hessianffCalculator)
+    atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
+
+    hessian, active = calculator.finite_difference_hessian(
+        atoms,
+        delta=0.002,
+        return_partial_hessian=False,
+    )
+
+    np.testing.assert_allclose(hessian, 2.0 * np.eye(3))
+    assert active is None
+    assert calls[0][1] is calculator
+    assert calls[0][2]["delta"] == pytest.approx(0.002)
 
 
 @pytest.mark.parametrize(

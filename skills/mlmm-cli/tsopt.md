@@ -34,7 +34,7 @@ selection. Most subcommands accept:
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` | **ML-region** charge (not whole-system) |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
@@ -49,7 +49,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--opt-mode` | str | `hess` | `grad`/`dimer` (Hessian-Guided Dimer) or `hess`/`rsirfo` (RS-I-RFO); also `trim` (TRIM/Helgaker) and `rsprfo` (RS-P-RFO/Banerjee); the mlmm-only `light` / `heavy` shortcuts are also accepted (light = Dimer, heavy = full-Hessian RS-I-RFO) |
 | `--max-cycles` | int | 10000 | Optimization step cap |
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` or `FiniteDifference`; check `RSIRFO_KW` / `DIMER_KW` |
-| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment for Dimer/flatten/final PHVA; `legacy-active` is comparison-only |
+| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment for Dimer/flatten/final PHVA. `legacy-active` is deprecated comparison-only behavior; never use it for pass/HOSP transition-state certification. |
 | `--ref-mode` | path | none | Advanced Cartesian 3N MEP tangent. `all` supplies it; ordinary standalone runs omit it. |
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
@@ -112,11 +112,11 @@ print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"
 
 | Mode | Algorithm | When |
 |---|---|---|
-| `hess` / `rsirfo` (default) | RS-I-RFO with full Hessian | Robust for tricky / multi-imaginary-mode candidates; slower per cycle but converges in fewer cycles |
-| `grad` / `dimer` | Hessian-Guided Dimer | Cheaper per cycle; useful when full Hessian is too expensive (large clusters > 600 atoms with UMA-m) |
+| `hess` / `rsirfo` (default) | RS-I-RFO with full Hessian | Direct curvature treatment; memory and runtime depend on active DOFs and backend |
+| `grad` / `dimer` | Hessian-Guided Dimer | Avoids a full Hessian at every cycle; convergence remains seed- and system-dependent |
 
-Switch from `dimer` → `rsirfo` if Dimer fails to converge after ~50
-cycles.
+If Dimer stalls, inspect the followed mode and step diagnostics, then compare
+RS-I-RFO on the same seed rather than using a universal cycle threshold.
 
 ## Validation: imaginary modes
 
@@ -155,7 +155,8 @@ frozen anchors fixed (generic rank 6/3/1/0 for 0/1/2/3+ non-collinear
 anchors; realistic boundaries normally rank 0). All-frozen input is an
 explicit error. `legacy-active` is an isolated-active comparison treatment
 using the current common kernel; bitwise identity is not guaranteed for
-rank-degenerate cases.
+rank-degenerate cases. It is deprecated and must not be used for pass/HOSP
+transition-state certification.
 `result.json.rigid_projection` records treatment, rank, Hessian source, and
 shape.
 
@@ -163,11 +164,11 @@ shape.
 
 - A converged `tsopt` is **not** a complete validation; always follow
   with `irc.md` to confirm the TS connects the expected R and P.
-- `tsopt` rarely needs more than ~200 cycles to converge in practice
-  (the default `--max-cycles` is only a high safety cap); failure
-  usually means the TS guess is too far off.
-- Backend choice matters here more than for minima: UMA / MACE are
-  usually safer than Orb for TS curvature.
+- `--max-cycles` is a safety cap, not evidence of correctness. On repeated
+  nonconvergence, inspect the TS seed, followed mode, optimizer diagnostics,
+  and backend/model behavior.
+- Backend/model choice changes the curvature surface. Validate every candidate
+  by exactly one meaningful imaginary mode and the intended IRC connectivity.
 
 ## See also
 

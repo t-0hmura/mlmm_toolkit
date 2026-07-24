@@ -110,9 +110,9 @@ mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme
 Or use `mlmm all` with a single `-i` (collapses to TS-only
 mode automatically; see `mlmm-cli/all-ts-only.md`).
 
-### 6. DFT//MLIP/MM refinement
+### 6. DFT//MLIP/MM single-point energies
 
-After any of the above, refine R / TS / P energies at DFT level:
+After any of the above, evaluate R / TS / P with DFT single points:
 
 ```bash
 mlmm dft -i seg_01/reactant.pdb --parm real.parm7 \
@@ -227,7 +227,7 @@ Top-level keys:
 | `freeze_atoms` | Indices held fixed during optimization (link-H parents) |
 | `n_segments` | Number of path-search segments; validate chemistry before treating a segment as an elementary step |
 | `n_segments_reactive` | Number of non-bridge (reactive, `kind != "bridge"`) segments |
-| `rate_limiting_step` | Dict `{segment, barrier_kcal, method}` describing the highest-barrier segment (or `null` when no segments) |
+| `rate_limiting_step` | Legacy key for `{segment, barrier_kcal, method}` describing the highest independently referenced local barrier (or `null` when no segments); not a microkinetic RLS assignment |
 | `overall_reaction_energy_kcal` | R → P total energy difference |
 | `segments` | List, one per path-search segment (see below) |
 | `post_segments` | List, one per post-processed segment (TS / IRC / freq / DFT details) |
@@ -272,6 +272,7 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `ts_imag` | `{n_imag}` |
 | `mlip` | `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}` for the selected backend |
 | `gibbs_mlip` | `{energies, barrier_kcal, delta_kcal, ...}` (when `--thermo` is on) |
+| `thermo_symmetry` | Per-state `R` / `TS` / `P` map of `{symmetry_number, symmetry_number_source}` copied from successful frequency children. Missing states are omitted. |
 | `dft` | `{labels, energies_au, energies_kcal, diagram, structures, barrier_kcal, delta_kcal}` (when `--dft` is on) |
 | `gibbs_dft_mlip` | DFT//MLIP/MM Gibbs profile (when both `--dft` and `--thermo` are on) |
 | `mep_barrier_kcal` / `mep_delta_kcal` | Plain-MEP energies (no Gibbs / DFT correction) |
@@ -314,10 +315,10 @@ for seg in d["segments"]:
           f"ΔE‡ = {seg['barrier_kcal']:.1f} kcal/mol, "
           f"ΔE = {seg['delta_kcal']:.1f} kcal/mol")
 
-# Rate-limiting barrier (rate_limiting_step is a dict, not an int)
+# Highest local barrier (rate_limiting_step is a legacy dict key, not an int)
 rls = d.get("rate_limiting_step")
 if rls is not None:
-    print(f"rate-limiting: seg_{rls['segment']:02d}, "
+    print(f"highest local barrier: seg_{rls['segment']:02d}, "
           f"barrier = {rls['barrier_kcal']:.1f} kcal/mol "
           f"({rls['method']})")
 

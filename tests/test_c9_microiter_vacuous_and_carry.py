@@ -136,6 +136,7 @@ class _FakeCore:
 class _FakeCalc:
     def __init__(self, *args, **kwargs):
         self.core = _FakeCore()
+        self.freeze_atoms = []
 
 
 class _FakeConvInfo:
@@ -203,6 +204,8 @@ class _FakeGeom:
 
     def set_calculator(self, calc):
         self._calc = calc
+        if hasattr(calc, "freeze_atoms"):
+            calc.freeze_atoms = list(self.freeze_atoms)
 
     def as_xyz(self):
         return ""
@@ -290,6 +293,66 @@ def test_opt_zero_micro_active_uses_vacuous_micro_not_all_frozen_lbfgs(tmp_path,
         assert micro.stalled is False
         assert micro.stop_reason is None
     assert mi.to_result_object()["micro_cycles"] == 0
+
+
+def test_opt_initial_hessian_is_resolved_after_initial_mm_relaxation(
+    tmp_path, monkeypatch
+) -> None:
+    import torch
+    import mlmm.workflows.opt as opt_mod
+    import mlmm.workflows.freq as freq_mod
+
+    class _MovingMicro:
+        cur_cycle = 0
+        is_converged = True
+        is_stalled = False
+        stop_reason = None
+        calls = 0
+
+        def __init__(self, geom, **_kwargs):
+            self.geom = geom
+
+        def run(self):
+            type(self).calls += 1
+            self.geom.coords = np.full_like(
+                self.geom.coords, 7.0 if type(self).calls == 1 else 9.0
+            )
+
+    _install_common_fakes(monkeypatch, opt_mod, _MovingMicro)
+    monkeypatch.setattr(opt_mod, "RFOptimizer", _FakeMacroOptimizer)
+    hessian_coords = []
+    hessian_freeze_masks = []
+
+    def _capture_hessian(geom, *_args, **kwargs):
+        hessian_coords.append(np.asarray(geom.coords, dtype=float).copy())
+        hessian_freeze_masks.append(
+            (
+                tuple(geom.freeze_atoms),
+                tuple(kwargs["calculator"].freeze_atoms),
+            )
+        )
+        return torch.zeros((3, 3), dtype=torch.float64), None
+
+    monkeypatch.setattr(freq_mod, "_calc_full_hessian_torch", _capture_hessian)
+
+    partition = _micro_active_partition()
+    opt_mod._run_microiter_opt(
+        _FakeGeom(n_atoms=2),
+        calc_cfg={},
+        rfo_cfg={},
+        lbfgs_cfg={},
+        opt_cfg={"max_cycles": 1},
+        microiter_cfg={"micro_max_cycles": 1},
+        out_dir_path=tmp_path,
+        partition=partition,
+        dump=False,
+    )
+
+    assert len(hessian_coords) == 1
+    np.testing.assert_allclose(hessian_coords[0], 7.0)
+    assert hessian_freeze_masks == [
+        (partition.macro_freeze_atoms, partition.macro_freeze_atoms)
+    ]
 
 
 def test_tsopt_zero_micro_active_uses_vacuous_micro_not_all_frozen_lbfgs(tmp_path, monkeypatch):
@@ -449,3 +512,110 @@ def test_tsopt_dump_does_not_duplicate_converged_initial_micro_trajectory(
     combined = (tmp_path / "optimization_all_trj.xyz").read_text(encoding="utf-8")
     assert combined.count("micro 1") == 1
     assert combined.count("micro 2") == 1
+
+
+def test_tsopt_initial_hessian_is_resolved_after_initial_mm_relaxation(
+    tmp_path, monkeypatch
+) -> None:
+    import torch
+    import mlmm.workflows.tsopt as tsopt_mod
+    from mlmm.core.defaults import RSIRFO_KW
+
+    class _MovingMicro:
+        cur_cycle = 0
+        is_converged = True
+        is_stalled = False
+        stop_reason = None
+        calls = 0
+
+        def __init__(self, geom, **_kwargs):
+            self.geom = geom
+
+        def run(self):
+            type(self).calls += 1
+            self.geom.coords = np.full_like(
+                self.geom.coords, 7.0 if type(self).calls == 1 else 9.0
+            )
+
+    _install_common_fakes(monkeypatch, tsopt_mod, _MovingMicro)
+    monkeypatch.setattr(
+        tsopt_mod,
+        "resolve_partition_from_core",
+        lambda *a, **k: _micro_active_partition(),
+    )
+    monkeypatch.setitem(tsopt_mod.TSOPT_CLASS_MAP, "rsirfo", _FakeMacroOptimizer)
+    hessian_coords = []
+
+    def _capture_hessian(geom, *_args, **_kwargs):
+        hessian_coords.append(np.asarray(geom.coords, dtype=float).copy())
+        return torch.zeros((3, 3), dtype=torch.float64)
+
+    monkeypatch.setattr(tsopt_mod, "_calc_full_hessian_torch", _capture_hessian)
+
+    tsopt_mod._run_microiter_tsopt(
+        _FakeGeom(n_atoms=2),
+        {},
+        dict(RSIRFO_KW),
+        {},
+        {"max_cycles": 1, "dump": False},
+        {"micro_max_cycles": 1},
+        tmp_path,
+        dump=False,
+        mode="rsirfo",
+    )
+
+    assert len(hessian_coords) == 1
+    np.testing.assert_allclose(hessian_coords[0], 7.0)
+
+
+def test_tsopt_exception_restores_entry_calculator_and_freeze_mask(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import mlmm.workflows.tsopt as tsopt_mod
+    from mlmm.core.defaults import RSIRFO_KW
+
+    class _ConvergedMicro:
+        cur_cycle = 0
+        is_converged = True
+        is_stalled = False
+        stop_reason = None
+
+        def __init__(self, geom, **_kwargs):
+            self.geom = geom
+
+        def run(self):
+            return None
+
+    _install_common_fakes(monkeypatch, tsopt_mod, _ConvergedMicro)
+    partition = _micro_active_partition()
+    monkeypatch.setattr(
+        tsopt_mod,
+        "resolve_partition_from_core",
+        lambda *a, **k: partition,
+    )
+
+    def fail_hessian(*args, **kwargs):
+        raise RuntimeError("hessian sentinel")
+
+    monkeypatch.setattr(tsopt_mod, "_calc_full_hessian_torch", fail_hessian)
+    geometry = _FakeGeom(n_atoms=2)
+    entry_calculator = object()
+    geometry.calculator = entry_calculator
+    geometry._calc = entry_calculator
+
+    with pytest.raises(RuntimeError, match="hessian sentinel"):
+        tsopt_mod._run_microiter_tsopt(
+            geometry,
+            {},
+            dict(RSIRFO_KW),
+            {},
+            {"max_cycles": 1, "dump": False},
+            {"micro_max_cycles": 1},
+            tmp_path,
+            dump=False,
+            mode="rsirfo",
+        )
+
+    assert geometry.freeze_atoms == list(partition.original_freeze)
+    assert geometry._calc is entry_calculator

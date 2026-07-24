@@ -10,7 +10,10 @@ import html
 import json
 import os
 import shlex
+import subprocess
+import sys
 import types
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -36,6 +39,23 @@ def _execute_app(monkeypatch, tmp_path: Path) -> tuple[dict, list]:
 
 def _notebook() -> dict:
     return json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+
+
+def _root_normalized_subcommand_argv(app: dict, subcommand: str, argv: list[str]) -> list[str]:
+    """Apply the root CLI's compatibility normalization before direct parsing."""
+    root = app["PRODUCT_CLI"]
+    root_context = app["click"].Context(root)
+    bool_values, bool_toggles, negative_aliases, single_flags = (
+        root._resolve_bool_options(root_context, subcommand)
+    )
+    normalized, _legacy = root._normalize_bool_argv(
+        [subcommand, *argv],
+        {subcommand: bool_values},
+        {subcommand: bool_toggles},
+        {subcommand: negative_aliases},
+        {subcommand: single_flags},
+    )
+    return normalized[1:]
 
 
 def _output_contract() -> dict:
@@ -82,7 +102,10 @@ def _viewer_contract() -> dict:
         "_text_preview_html",
         "_atom_signatures",
         "_resolve_atom_query",
+        "_trajectory_result_metadata",
+        "_trajectory_segment_ranges",
         "_trajectory_semantics",
+        "_trajectory_frame_context",
         "_stationary",
     }
     tree = ast.parse(source)
@@ -97,6 +120,7 @@ def _viewer_contract() -> dict:
         "SPEC": {}, "_ARTIFACT_KINDS": {
             ".png": "image", ".jpg": "image", ".jpeg": "image", ".svg": "SVG",
             ".html": "interactive HTML", ".csv": "CSV table", ".pdf": "PDF",
+            ".gjf": "text", ".com": "text", ".inp": "text", ".prms": "text",
             ".pdb": "structure", ".ent": "structure", ".cif": "structure",
             ".mmcif": "structure",
         },
@@ -106,13 +130,55 @@ def _viewer_contract() -> dict:
     return namespace
 
 
+def _advanced_widget_values(app: dict, param) -> list:
+    """Return browser-widget values that exercise each option serializer."""
+    click = app["click"]
+    if param.name == "verbose":
+        return [0, 3]
+    if param.is_bool_flag or isinstance(param.type, click.types.BoolParamType):
+        return [True, False]
+    if isinstance(param.type, click.Choice):
+        choices = list(param.type.choices)
+        assert choices, f"{param.name} has an empty Click choice"
+        return [choices[0]]
+    nargs = max(1, int(getattr(param, "nargs", 1)))
+    groups = 2 if param.multiple else 1
+    return [" ".join(str(index + 1) for index in range(nargs * groups))]
+
+
+def _widget_descendants(widget):
+    yield widget
+    for child in getattr(widget, "children", ()):
+        yield from _widget_descendants(child)
+
+
+def _widget_with_description(widget, description: str, *, enabled: bool = True):
+    matches = [
+        child for child in _widget_descendants(widget)
+        if getattr(child, "description", "") == description
+        and (not enabled or not getattr(child, "disabled", False))
+    ]
+    assert matches, f"missing widget: {description}"
+    return matches[0]
+
+
+def _assert_advanced_argv_parses(app: dict, subcommand: str, argv: list[str]) -> None:
+    """Use Click's option parser without invoking a scientific workflow."""
+    click = app["click"]
+    command = app["_advanced_command"](subcommand)
+    assert command is not None
+    parser = command.make_parser(click.Context(command, info_name=subcommand))
+    _values, leftovers, _order = parser.parse_args(list(argv))
+    assert leftovers == [], (subcommand, argv, leftovers)
+
+
 def test_colab_notebook_has_valid_code_cells_and_gpu_metadata() -> None:
     notebook = _notebook()
     introduction = notebook["cells"][0]["source"]
 
     assert notebook["nbformat"] == 4
     assert notebook["metadata"]["accelerator"] == "GPU"
-    assert len(notebook["cells"]) == 4
+    assert len(notebook["cells"]) == 3
     assert "[GitHub](https://github.com/t-0hmura/mlmm_toolkit)" in introduction
     assert "ML/MM reaction paths on the full solvated protein" in introduction
     assert "**1 Input → 2 Viewer → 3 Options → 4 Results**" in introduction
@@ -135,14 +201,62 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "pip('mlmm-toolkit' + ('[dft]' if install_dft else '') + '==' + mlmm_ref.lstrip('v'))" in setup
     assert "git clone" not in setup
     assert "installed_version != mlmm_ref[1:]" in setup
-    assert "anywidget" not in setup
+    assert "anywidget==0.11.0" in setup
     assert "version('mlmm-toolkit')" in setup
     assert "Restart the Colab runtime first" in setup
     assert "mace-torch>=0.3.8" in setup
     assert "HF_TOKEN" in setup
     assert "install_dft = False" in setup
     assert "INSTALL_DFT = install_dft" in setup
+    assert "Setup activates the selected backend." in setup
+    assert "Only the **selected backend** is installed" not in setup
+    assert "DFT_SETUP_READY = True" in setup
     assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda12x'}" in setup
+
+
+def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch) -> None:
+    import importlib.metadata
+
+    setup = _notebook()["cells"][1]["source"].replace(
+        "install_dft = False", "install_dft = True", 1,
+    )
+    calls: list[list[str]] = []
+
+    def fake_run(argv, **_kwargs):
+        calls.append([str(value) for value in argv])
+        return types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=0)
+
+    real_import_module = importlib.import_module
+    fake_cupy = types.SimpleNamespace(
+        cuda=types.SimpleNamespace(
+            runtime=types.SimpleNamespace(getDeviceCount=lambda: 1),
+        ),
+    )
+
+    def fake_import_module(name):
+        if name == "cupy":
+            return fake_cupy
+        if name in {"pyscf", "basis_set_exchange", "gpu4pyscf.dft"}:
+            return types.SimpleNamespace()
+        return real_import_module(name)
+
+    versions = {
+        "pyscf": "2.11.0",
+        "gpu4pyscf-cuda12x": "1.5.2",
+        "mlmm-toolkit": "0.3.3",
+    }
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(importlib, "import_module", fake_import_module)
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: versions[name])
+    namespace: dict = {}
+    exec(compile(setup, str(NOTEBOOK), "exec"), namespace)
+
+    installs = [argv for argv in calls if "install" in argv]
+    assert any("mlmm-toolkit[dft]==0.3.3" in argv for argv in installs)
+    assert namespace["DFT_SETUP_READY"] is True
+    assert namespace["INSTALL_DFT"] is True
+    assert namespace["BACKEND"] == "mace"
     assert "importlib.util.find_spec(module)" in setup
     assert "_dft_imports = ('pyscf', 'basis_set_exchange', 'gpu4pyscf.dft')" in setup
     assert "for _module in _dft_imports: importlib.import_module(_module)" in setup
@@ -150,14 +264,67 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "DFT packages installed but failed their import/GPU check" in setup
     assert "DFT support installed: PySCF %s · GPU4PySCF %s" in setup
     assert "py3Dmol" not in setup
-    assert "pip('ipywidgets','matplotlib')" in setup
+    assert "pip('ipywidgets','anywidget==0.11.0','matplotlib')" in setup
     assert "[%%d/5] %%s".replace("%%", "%") in setup
     assert "time.monotonic()" in setup
-    assert ".pysisyphusrc" in setup
-    assert setup.index(".pysisyphusrc") < setup.index("pip('mlmm-toolkit'")
+    assert ".pysisyphusrc" not in setup
     assert "nglview" not in setup
     assert "first run ~5 min" in setup
     assert "first run ~5-10 min" not in setup
+
+
+@pytest.mark.parametrize(
+    ("backend", "use_token", "expected_login"),
+    [
+        ("orb", False, None),
+        ("uma", True, "token"),
+        ("uma", False, "notebook"),
+    ],
+)
+def test_colab_setup_operates_orb_and_uma_branches(
+    monkeypatch, backend, use_token, expected_login,
+) -> None:
+    import importlib.metadata
+
+    setup = _notebook()["cells"][1]["source"].replace(
+        'backend = "mace"', f'backend = "{backend}"', 1,
+    )
+    calls: list[list[str]] = []
+    logins: list[tuple] = []
+
+    def fake_run(argv, **_kwargs):
+        calls.append([str(value) for value in argv])
+        return types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=0)
+
+    fake_hf = types.ModuleType("huggingface_hub")
+    fake_hf.login = lambda **kwargs: logins.append(("token", kwargs))
+    fake_hf.notebook_login = lambda: logins.append(("notebook", {}))
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda name: "0.3.3" if name == "mlmm-toolkit" else "test",
+    )
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    if use_token:
+        monkeypatch.setenv("HF_TOKEN", "test-token")
+
+    namespace: dict = {}
+    exec(compile(setup, str(NOTEBOOK), "exec"), namespace)
+
+    joined = [" ".join(argv) for argv in calls]
+    assert namespace["BACKEND"] == backend
+    assert not any("mace-torch" in command for command in joined)
+    assert not any("uninstall -y -q fairchem-core" in command for command in joined)
+    if backend == "orb":
+        assert any("orb-models" in command for command in joined)
+        assert logins == []
+    else:
+        assert not any("orb-models" in command for command in joined)
+        assert [entry[0] for entry in logins] == [expected_login]
+        if use_token:
+            assert logins[0][1]["token"] == "test-token"
 
 
 def test_colab_gui_is_mlmm_native_and_tracks_structure_contracts() -> None:
@@ -190,8 +357,7 @@ def test_colab_gui_uses_public_cli_and_backend_neutral_results() -> None:
     assert "cmd.append('--tsopt')" in app
     assert "cmd.append('--thermo')" in app
     assert "[n, 'True']" not in app
-    assert "ps.get('mlip')" in app
-    assert "ps.get('gibbs_mlip')" in app
+    assert "'MLIP_Gibbs': 'gibbs_mlip', 'MLIP': 'mlip'" in app
     assert "ps.get('uma')" not in app
     assert "ps.get('gibbs_uma')" not in app
 
@@ -280,7 +446,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "workflow_contract_row = W.HBox([subreq, outputs_html]" in app
     assert "workflow_controls.add_class('rxworkflow-controls')" in app
     assert "grid-template-columns:minmax(280px,320px) minmax(150px,1fr) 240px" in app
-    assert "height:clamp(700px,calc(100dvh - 24px),920px); overflow:hidden;" in app
+    assert "height:clamp(640px,calc(100dvh - 104px),920px); overflow:hidden;" in app
+    assert "@media (min-width: 821px) and (max-height: 900px)" in app
     assert ".rxapp-main { flex:1 1 auto !important; min-height:0; overflow:hidden; }" in app
     assert ".rxpages { flex:1 1 auto !important; min-height:0; overflow:hidden; }" in app
     assert "overscroll-behavior:contain; scrollbar-gutter:stable;" in app
@@ -303,26 +470,27 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "Every remaining option" not in app
     assert "def _ingest_saved_files(" in app
     assert "input_file_rows" in app and "description='Remove file'" in app
+    assert "class _DropUpload(anywidget.AnyWidget):" in app
+    assert "upl = _DropUpload(accept=_acc, formats=_drop_formats)" in app
     assert "upl = W.FileUpload(accept=_acc, multiple=True, description='Upload files'" in app
-    assert "_drop = W.VBox([_drop_prompt, upl, _drop_epoch]," in app
+    assert "_drop = W.VBox(_drop_children," in app
     assert "align_items='center', justify_content='center'" in app
-    assert "event.preventDefault();event.stopPropagation();" in app
-    assert "box.addEventListener('drop',function(event)" in app
-    assert "reader.readAsDataURL(file);" in app
-    assert "callback,[out,item.id,item.generation],{})" in app
+    assert "el.addEventListener('drop', onDrop)" in app
+    assert "file.arrayBuffer()" in app
+    assert "model.send({" in app
     assert "_DROP_STATE = {'generation': 0, 'seen': set()}" in app
     assert "def _claim_drop_batch(batch, generation):" in app
     assert "def _bump_drop_generation():" in app
-    assert "queue.push({id:opaqueId(),generation:epoch(box),files:selected})" in app
-    assert "if(busy||!queue.length)return;" in app
-    assert "payload.batch===item.id" in app
+    assert "queue.push({id: opaqueId(), files: selected, generation})" in app
+    assert "if (busy || !queue.length || signal.aborted) return;" in app
+    assert "message.batch !== active" in app
     assert "if clear:\n        _bump_drop_generation()" in app
-    assert app.count("mlmm_gui.on_drop") == 2
-    assert "document.querySelectorAll('.rxapp .rxdrop')" in app
-    assert "_dnd_out.register_callback('mlmm_gui.on_drop', _rxgui_drop)" in app
-    assert "_accept_upload_pairs(pairs, 'drag & drop')" in app
+    assert "mlmm_gui.on_drop" not in app
+    assert "document.querySelectorAll('.rxapp .rxdrop')" not in app
+    assert "_accept_upload_pairs(pairs, 'browser upload')" in app
     assert "def _delete_owned_uploads(paths):" in app
-    assert "anywidget" not in app and "_HAS_DROP_WIDGET" not in app
+    assert "_HAS_DROP_WIDGET" in app
+    assert "if _HAS_DROP_WIDGET: upl.on_msg(_on_drop_upload)" in app
     assert "description='Move earlier'" in app and "description='Move later'" in app
     assert "tooltip='Move earlier'" in app and "tooltip='Move later'" in app
     assert "command_footer = W.HBox(" in app
@@ -363,8 +531,10 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
         "results_box.add_class('rxresults')", "overflow-x:auto",
         "colab_run.log", "energy unavailable", "Command was cancelled",
         "Command failed", "_frame_link = W.jslink", "linked structure + energy",
-        "ax.axvline(xs[i]", "artifact_fold._rx_set_open",
-        "display(HTML(_molstar_iframe(fr[i], 'xyz', show_sequence=False)))",
+        "host.on('plotly_click'", "Plotly.restyle", "artifact_fold._rx_set_open",
+        "message.type!=='rx-set-frame'", "update.to(model).update",
+        "channel='trajectory', generation=generation",
+        "''.join(_TRAJ['frames'])",
         "display(HTML(_molstar_iframe(source, fmt, show_sequence=(fmt != 'xyz'))))",
     ):
         assert marker in app
@@ -456,6 +626,10 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert contract["_artifact_kind"]("final.pdb") == "structure"
     assert contract["_artifact_kind"]("final.cif") == "structure"
     assert contract["_artifact_kind"]("final.xyz") == "structure"
+    assert contract["_artifact_kind"]("job.gjf") == "text"
+    assert contract["_artifact_kind"]("job.com") == "text"
+    assert contract["_artifact_kind"]("job.inp") == "text"
+    assert contract["_artifact_kind"]("forcefield.prms") == "text"
     assert contract["_artifact_kind"]("optimization_trj.xyz") is None
     opt = contract["_trajectory_semantics"]("opt", "optimization_trj.xyz")
     path_semantics = contract["_trajectory_semantics"](
@@ -472,6 +646,124 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert (1, "peak candidate") in contract["_stationary"](
         [0.0, 2.0, 0.0], path_semantics,
     )
+
+
+def test_colab_results_bind_irc_truth_and_skip_bridge_extrema(tmp_path: Path) -> None:
+    contract = _viewer_contract()
+    irc_dir = tmp_path / "irc"
+    irc_dir.mkdir()
+    irc_path = irc_dir / "finished_irc_trj.xyz"
+    irc_path.write_text("", encoding="utf-8")
+    (irc_dir / "result.json").write_text(
+        json.dumps({
+            "n_frames_forward": 2,
+            "n_frames_backward": 2,
+            "n_frames_total": 5,
+            "forward_converged": True,
+            "backward_converged": False,
+            "scientific_status": "partial",
+            "scientific_status_reasons": ["backward IRC did not converge"],
+        }),
+        encoding="utf-8",
+    )
+    irc = contract["_trajectory_semantics"]("irc", str(irc_path), n_frames=5)
+    assert irc["ts_index"] == 2
+    assert "partial" in irc["trajectory_status"]
+    assert "forward ✓" in irc["trajectory_status"]
+    assert "backward ✗" in irc["trajectory_status"]
+    mismatch = contract["_trajectory_semantics"](
+        "irc", str(irc_path), n_frames=4,
+    )
+    assert "ts_index" not in mismatch
+    assert mismatch["metadata_warning"] == "IRC frame metadata mismatch"
+
+    mep_path = tmp_path / "mep_trj.xyz"
+    mep_path.write_text("", encoding="utf-8")
+    (tmp_path / "summary.json").write_text(
+        json.dumps({
+            "segments": [
+                {"index": 1, "kind": "seg", "frame_ranges": [[0, 2]]},
+                {"index": 2, "kind": "bridge", "frame_ranges": [[2, 5]]},
+                {"index": 3, "kind": "seg", "frame_ranges": [[5, 7]]},
+            ]
+        }),
+        encoding="utf-8",
+    )
+    path = contract["_trajectory_semantics"](
+        "path-search", str(mep_path), n_frames=7,
+    )
+    assert path["bridge_ranges"] == [(2, 5)]
+    assert contract["_trajectory_frame_context"](1, path)["label"] == "seg 01"
+    assert contract["_trajectory_frame_context"](3, path)["label"] == "bridge"
+    assert contract["_trajectory_frame_context"](6, path)["label"] == "seg 03"
+    irc_context = contract["_trajectory_frame_context"](2, irc)
+    assert "backward IRC did not converge" in " ".join(irc_context["details"])
+    points = contract["_stationary"](
+        [0.0, 0.5, 0.0, 3.0, 0.0, 2.0, 0.0], path,
+    )
+    assert (3, "peak candidate") not in points
+    assert (5, "peak candidate") not in points
+    assert points == [(0, "R"), (6, "P")]
+
+
+def test_colab_drop_protocol_appends_and_rejects_incomplete_batches(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+
+    class FakeDropWidget:
+        def __init__(self, generation):
+            self.generation = generation
+            self.messages = []
+
+        def send(self, message):
+            self.messages.append(dict(message))
+
+    generation = app["_DROP_STATE"]["generation"]
+    widget = FakeDropWidget(generation)
+    pdb = (
+        b"HETATM    1  C1  LIG A  10       0.000   0.000   0.000"
+        b"  1.00  0.00           C\nEND\n"
+    )
+
+    def upload(batch, name, payload=pdb, *, size=None, buffers=None):
+        content = {
+            "event": "upload",
+            "batch": batch,
+            "generation": widget.generation,
+            "files": [{"name": name, "size": len(payload) if size is None else size}],
+        }
+        app["_on_drop_upload"](
+            widget, content, [payload] if buffers is None else buffers,
+        )
+
+    upload("batch-1", "structure.pdb")
+    upload("batch-2", "structure.pdb")
+    assert [Path(path).name for path in app["S"]["inputs"]] == [
+        "structure.pdb",
+        "structure_2.pdb",
+    ]
+    assert [message["ok"] for message in widget.messages[-2:]] == [True, True]
+
+    before = list(app["S"]["inputs"])
+    upload("bad-size", "broken.pdb", size=len(pdb) + 1)
+    upload("bad-count", "missing.pdb", buffers=[])
+    assert app["S"]["inputs"] == before
+    assert [message["ok"] for message in widget.messages[-2:]] == [False, False]
+    assert "existing files were kept" in app["input_msg"].value
+
+    old_generation = widget.generation
+    app["_bump_drop_generation"]()
+    widget.generation = app["_DROP_STATE"]["generation"]
+    stale = {
+        "event": "upload",
+        "batch": "stale",
+        "generation": old_generation,
+        "files": [{"name": "late.pdb", "size": len(pdb)}],
+    }
+    app["_on_drop_upload"](widget, stale, [pdb])
+    assert widget.messages[-1]["ok"] is False
+    assert app["S"]["inputs"] == before
 
 
 def test_colab_app_executes_atomic_view_and_result_transitions(
@@ -645,27 +937,174 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     assert app["trajectory_box"].layout.display == ""
     assert "Frame 1 of 2" in app["frame_state"].value
     assert "ΔE = 0.0 kcal/mol" in app["frame_state"].value
-    first_frame = [
+    trajectory_viewers = [
         value for value in calls
         if isinstance(value, str) and 'class="rxmolstar-frame"' in value
     ]
-    assert first_frame and "H 0.000 0.000 0.000" in first_frame[-1]
+    assert len(trajectory_viewers) == 1
+    assert "H 0.000 0.000 0.000" in trajectory_viewers[0]
+    assert "H 1.500 0.000 0.000" in trajectory_viewers[0]
+    viewer_generation = app["_TRAJ"]["generation"]
 
     calls.clear()
     app["frame_slider"].value = 1
     assert "Frame 2 of 2" in app["frame_state"].value
     assert "ΔE = 6.3 kcal/mol" in app["frame_state"].value
-    second_frame = [
+    replacement_viewers = [
         value for value in calls
         if isinstance(value, str) and 'class="rxmolstar-frame"' in value
     ]
-    assert second_frame and "H 1.500 0.000 0.000" in second_frame[-1]
+    assert replacement_viewers == []
+    frame_messages = [
+        value for value in calls
+        if isinstance(value, str) and "rx-set-frame" in value
+    ]
+    assert len(frame_messages) == 1
+    assert app["_TRAJ"]["generation"] == viewer_generation
+    assert app["_TRAJ"]["frame_message"] == {
+        "type": "rx-set-frame", "generation": viewer_generation, "index": 1,
+    }
     assert not app["frame_prev"].disabled and app["frame_next"].disabled
 
     app["_invalidate_last_run"]("Input identity changed; run again.")
     assert app["S"]["_last_manifest"] == {} and app["S"]["_last_files"] == []
     assert app["artifact_choice"].disabled and app["dl_btn"].disabled
     assert "Input identity changed" in app["results_empty"].value
+
+
+def test_colab_run_fails_closed_when_implicit_validation_fails(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    streamed = []
+    app["_sync_run"] = lambda: None
+    app["_argv"] = lambda: [
+        "mlmm", "opt", "-i", "missing.pdb", "--parm", "missing.parm7",
+        "-o", "result",
+    ]
+    app["_stream"] = lambda argv: (streamed.append(list(argv)) or (2, "invalid"))
+
+    app["_do_run"](None)
+
+    assert len(streamed) == 1
+    assert "--dry-run" in streamed[0]
+    assert app["_RUN_STATE"]["validated_fingerprint"] is None
+    assert "validation failed" in app["run_status"].value
+
+
+def test_colab_manifest_hashes_inplace_input_before_execution(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    structure = tmp_path / "structure.pdb"
+    structure.write_text("ORIGINAL\n", encoding="utf-8")
+    original_digest = app["_sha256"](str(structure))
+    argv = ["mlmm", "add-elem-info", "-i", str(structure), "--inplace"]
+    app["_sync_run"] = lambda: None
+    app["_argv"] = lambda: list(argv)
+    app["_output_scope"] = lambda _argv: {
+        "target": str(structure), "root": str(tmp_path), "shallow": True,
+        "stdout_only": False, "direct_current": True,
+    }
+    app["_output_scope_collision"] = lambda _scope: False
+    app["_snapshot_output_scope"] = lambda _scope: {}
+    app["_begin_results_attempt"] = lambda *_args: None
+    app["_results"] = lambda *_args: None
+
+    def mutate_input(_argv):
+        structure.write_text("MUTATED\n", encoding="utf-8")
+        return 0, "updated in place"
+
+    app["_stream"] = mutate_input
+    app["_do_run"](None)
+
+    assert app["S"]["_last_manifest"]["inputs"] == [{
+        "path": str(structure), "sha256": original_digest,
+    }]
+    assert app["_sha256"](str(structure)) != original_digest
+
+
+def test_colab_xyz_reference_inputs_are_transactional_and_stay_paired(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    xyz_a = tmp_path / "reactant.xyz"
+    xyz_b = tmp_path / "product.xyz"
+    ref_a = tmp_path / "reactant_ref.pdb"
+    ref_b = tmp_path / "product_ref.pdb"
+    topology = tmp_path / "system.parm7"
+    xyz_a.write_text(
+        "2\nreactant geometry\n"
+        "C 0.000 0.000 0.000\nO 1.200 0.000 0.000\n",
+        encoding="utf-8",
+    )
+    xyz_b.write_text(
+        "2\nproduct geometry\n"
+        "C 0.100 0.000 0.000\nO 1.300 0.000 0.000\n",
+        encoding="utf-8",
+    )
+    ref_template = (
+        "HETATM    1  C1  LIG A   1       0.000   0.000   0.000  1.00  1.00           C\n"
+        "HETATM    2  O1  LIG A   1       1.200   0.000   0.000  1.00  1.00           O\n"
+        "END\n"
+    )
+    ref_a.write_text(ref_template, encoding="utf-8")
+    ref_b.write_text(ref_template, encoding="utf-8")
+    topology.write_text("%VERSION VERSION_STAMP = V0001.000\n", encoding="utf-8")
+
+    assert app["_ingest_saved_files"]([str(xyz_a)], "XYZ first")
+    assert app["S"]["mode"] == "xyz"
+    assert app["S"]["inputs"] == [str(xyz_a)]
+    assert app["S"]["ref_pdbs"] == []
+    assert app["_ingest_saved_files"](
+        [str(ref_a), str(topology)], "reference and topology"
+    )
+    assert app["S"]["ref_pdbs"] == [str(ref_a)]
+    assert app["S"]["parm"] == str(topology)
+    assert app["S"]["_pdb_text"]
+
+    app["set_subcmd"]("path-opt")
+    assert app["_ingest_saved_files"]([str(xyz_b), str(ref_b)], "second endpoint")
+    assert app["S"]["subcmd"] == "path-opt"
+    assert app["S"]["inputs"] == [str(xyz_a), str(xyz_b)]
+    assert app["S"]["ref_pdbs"] == [str(ref_a), str(ref_b)]
+
+    app["_queue_change"](path=str(xyz_b), delta=-1)
+    assert app["S"]["inputs"] == [str(xyz_b), str(xyz_a)]
+    assert app["S"]["ref_pdbs"] == [str(ref_b), str(ref_a)]
+    app["w_q"].value = 0
+    app["w_charge_ok"].value = True
+    command = app["build_cmd"]()
+    assert command[1] == "path-opt"
+    assert command[command.index("-i") + 1 : command.index("-o")] == [
+        str(xyz_b), str(xyz_a), "-b", app["BACKEND"],
+    ]
+    emitted_refs = [
+        command[index + 1]
+        for index, token in enumerate(command)
+        if token == "--ref-pdb"
+    ]
+    assert emitted_refs == [str(ref_b), str(ref_a)]
+    assert command[command.index("--parm") + 1] == str(topology)
+    assert command[command.index("-q") + 1] == "0"
+
+    app["_queue_change"](path=str(xyz_b), remove=True)
+    assert app["S"]["inputs"] == [str(xyz_a)]
+    assert app["S"]["ref_pdbs"] == [str(ref_a)]
+
+    malformed = tmp_path / "bad.xyz"
+    malformed.write_text("2\nbad\nC 0 0 0\n", encoding="utf-8")
+    before = (
+        list(app["S"]["inputs"]),
+        list(app["S"]["ref_pdbs"]),
+        app["S"]["subcmd"],
+    )
+    assert not app["_ingest_saved_files"]([str(malformed)], "bad XYZ")
+    assert (
+        app["S"]["inputs"],
+        app["S"]["ref_pdbs"],
+        app["S"]["subcmd"],
+    ) == before
 
 
 def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
@@ -747,11 +1186,41 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["command_editor"].children[1] is app["cmd_box"]
     assert app["command_editor"].layout.display != "none"
     assert app["run_log_fold"].children[1].layout.display == "none"
+    assert app["_input_box_children"][1] is app["_drop"]
+    assert app["_input_box_children"][2] is app["input_msg"]
+    assert app["_input_box_children"][-1] is app["example_msg"]
+    assert "Click sets:" in app["last_pick_html"].value
+    assert "rxcard" in app["depth_box"]._dom_classes
     assert set(app["_center_values"]()) == {"LIG", "MG"}
     mg_row = app["charge_rows"]["MG"]
     assert mg_row["auto"] and mg_row["use"].disabled and mg_row["val"].disabled
     assert mg_row["val"].value == 2
     assert "MG" not in app["S"]["lcharge"]
+
+    app["center_widget"].value = ("MG",)
+    with pytest.raises(ValueError, match="Confirm each ligand charge"):
+        app["build_cmd"]()
+    app["charge_rows"]["LIG"]["use"].value = True
+    with pytest.raises(ValueError, match="Verify the ML-region charge"):
+        app["build_cmd"]()
+    app["w_q"].value = -1
+    app["w_charge_ok"].value = True
+    mg_row["val"].value = 3  # disabled widgets are still mutable from Python
+    assert app["w_charge_ok"].value is True
+    charged_command = app["build_cmd"]()
+    assert charged_command[charged_command.index("-q") + 1] == "-1"
+    ligand_values = dict(
+        item.split(":", 1)
+        for item in charged_command[charged_command.index("-l") + 1].split(",")
+    )
+    assert ligand_values == {"LIG": "0", "MG": "2"}
+    stage_scope = app["_charge_scope_fingerprint"]("sp")
+    assert app["_charge_scope_fingerprint"]("opt") == stage_scope
+    assert app["_charge_scope_fingerprint"]("all") != stage_scope
+    mg_row["val"].value = 2
+    app["charge_rows"]["LIG"]["use"].value = False
+    app["center_widget"].value = ()
+    app["w_charge_ok"].value = False
 
     calls.clear()
     app["cb_water"].value = True
@@ -768,6 +1237,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert "layoutShowControls:true" in document
     assert "layoutShowSequence:cfg.showSequence" in document
     assert "structure-component-static-water" in document
+    assert "WebGL is unavailable in this browser session." in document
     cif_document = app["_molstar_document"](
         "data_demo\n_entry.id demo\n", "cif", show_sequence=True,
     )
@@ -815,10 +1285,19 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         assert set(coverage.values()) <= {"owned", "generated", "blocked", "rendered"}
         all_statuses.update(coverage)
     assert all_statuses["tr_projection"] == "blocked"
+    assert all_statuses["verbose"] == "rendered"
     assert all_statuses["embedcharge"] == "blocked"
     assert all_statuses["embedcharge_cutoff"] == "blocked"
     assert app["_advanced_coverage"]("dft")
     assert app["_advanced_coverage"]("sp")["hessian_calc_mode"] == "rendered"
+    verbose_param = next(
+        param for param in app["_advanced_options"]("all")
+        if param.name == "verbose"
+    )
+    app["S"]["advanced_overrides"]["all"] = {"verbose": "7"}
+    verbose_row = app["_advanced_widget"]("all", verbose_param)
+    assert verbose_row.children[0].value is None
+    assert "verbose" not in app["S"]["advanced_overrides"]["all"]
 
     app["cb_advsub"].value = True
     app["dd_subcmd"].value = "add-elem-info"
@@ -846,7 +1325,8 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     click = app["click"]
     text_param = next(
         param for param in editable
-        if not param.multiple
+        if param.name != "verbose"
+        and not param.multiple
         and not param.is_bool_flag
         and not isinstance(param.type, (click.Choice, click.types.BoolParamType))
     )
@@ -879,11 +1359,67 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         app["S"]["advanced_overrides"][utility] = {"out_json": True}
         assert flag in app["_advanced_argv"](utility)
 
+    app["dd_subcmd"].value = "energy-diagram"
+    app["S"]["advanced_overrides"]["energy-diagram"] = {}
+    app["refresh"]()
+    assert not app["_ACTION_STATE"]["auto_ready"]
+    assert app["b_run"].disabled
+    assert "Advanced flags" in app["subcmd_note"].value
+    for invalid_values in (
+        {"input_values": "0"},
+        {"input_values": "0 oops"},
+        {"input_values": "0 1", "label_x": "R"},
+    ):
+        app["S"]["advanced_overrides"]["energy-diagram"] = invalid_values
+        invalid_command = app["build_cmd"]()
+        assert not app["_utility_autofill_complete"](invalid_command)
+        app["refresh"]()
+        assert app["b_run"].disabled
+    app["S"]["advanced_overrides"]["energy-diagram"] = {
+        "input_values": "0 12.5 4.3",
+        "output_path": str(tmp_path / "profile.png"),
+    }
+    energy_command = app["build_cmd"]()
+    assert energy_command.count("--input") == 3
+    assert app["_utility_autofill_complete"](energy_command)
+    app["refresh"]()
+    assert app["_ACTION_STATE"]["auto_ready"]
+    assert not app["b_run"].disabled
+
+    atom_a = {"index": 0, "chain": "A", "resn": "ALA", "resi": "1", "atom": "N"}
+    atom_b = {"index": 1, "chain": "A", "resn": "ALA", "resi": "1", "atom": "H"}
+    app["S"]["freeze_pairs"] = [{"a": atom_a, "b": atom_b, "t": None}]
+    app["dd_subcmd"].value = "opt"
+    opt_picks = {value for _label, value in app["pick_action"].options}
+    assert {"freezeA", "freezeB", "freezeatom"} <= opt_picks
+    assert "Distance restraints" in " ".join(
+        getattr(child, "value", "") for child in app["freeze_panel"].children
+    )
+
     app["dd_subcmd"].value = "sp"
     assert app["key_opts_box"].layout.display == ""
     assert [value for _label, value in app["pick_action"].options] == [
-        "center", "ligand", "freezeA", "freezeB", "freezeatom",
+        "center", "ligand", "freezeatom",
     ]
+    assert "Distance restraints" not in " ".join(
+        getattr(child, "value", "") for child in app["freeze_panel"].children
+    )
+    assert len(app["S"]["freeze_pairs"]) == 1
+    app["_render_summary"]()
+    assert "freeze:" not in app["summary_html"].value
+    app["center_widget"].value = ()
+    app["S"]["center_ids"] = []
+    app["charge_rows"]["LIG"]["use"].value = False
+    app["w_q"].value = 0
+    app["w_charge_ok"].value = True
+    assert "--dist-freeze" not in app["build_cmd"]()
+    app["dd_subcmd"].value = "opt"
+    assert "Distance restraints" in " ".join(
+        getattr(child, "value", "") for child in app["freeze_panel"].children
+    )
+    app["_render_summary"]()
+    assert "freeze:" in app["summary_html"].value
+    app["dd_subcmd"].value = "sp"
     assert app["center_panel"].layout.display == ""
     assert app["charge_panel"].layout.display == ""
     assert app["extract_panel"].layout.display == ""
@@ -903,6 +1439,8 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["dd_subcmd"].value = "sp"
     app["prep_radius"].value = 4.2
     assert app["adv_radius"].value == 4.2
+    app["charge_rows"]["LIG"]["use"].value = True
+    app["w_charge_ok"].value = True
     extract_commands = []
 
     def fake_extract(command, **_kwargs):
@@ -913,7 +1451,9 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
 
     monkeypatch.setattr(app["subprocess"], "run", fake_extract)
     app["b_extract"].click()
-    assert extract_commands and extract_commands[-1][-2:] == ["-r", "4.2"]
+    assert extract_commands
+    assert extract_commands[-1][extract_commands[-1].index("-r") + 1] == "4.2"
+    assert extract_commands[-1][extract_commands[-1].index("-l") + 1] == "LIG:0,MG:2"
     assert app["dd_subcmd"].value == "sp" and app["S"]["subcmd"] == "sp"
     assert app["S"]["model_pdb"]
     assert app["b_revert"].layout.display == ""
@@ -957,6 +1497,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["all_mode"].value = "tsonly"
     assert app["adv_refine"].layout.display == "none"
     assert app["w_ts"].value and app["w_ts"].disabled
+    app["w_charge_ok"].value = True
     command = app["build_cmd"]()
     for flag in ("--refine-path", "--mep-mode", "--thresh", "--max-cycles"):
         assert flag not in command
@@ -972,6 +1513,9 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["all_mode"].value = "mep"
     assert not app["w_ts"].value and not app["w_ts"].disabled
     app["w_th"].value = True
+    assert app["w_ts"].value and app["w_ts"].disabled
+    app["w_ts"].value = False
+    assert app["w_ts"].value and app["w_ts"].disabled
     thermo_argv = app["_advanced_argv"]("all")
     for flag in (
         "--irc-step-size", "--opt-mode-post", "--thresh-post",
@@ -979,14 +1523,30 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     ):
         assert flag in thermo_argv
     assert "--no-reject-uphill" in thermo_argv
-    assert "--skip-final-freq" not in thermo_argv
-    app["w_th"].value = False
+    assert "--skip-final-freq" in thermo_argv
     app["S"]["inputs"] = [str(primary), str(secondary)]
+    app["w_charge_ok"].value = False
+    app["w_charge_ok"].value = True
+    thermo_cmd = app["build_cmd"]()
+    assert thermo_cmd.count("--tsopt") == 1
+    assert thermo_cmd.count("--thermo") == 1
+    app["w_th"].value = False
+    assert app["w_ts"].value and not app["w_ts"].disabled
+    app["w_ts"].value = False
     assert "--tsopt" not in app["build_cmd"]()
+    app["S"]["tsopt"] = False
+    app["S"]["thermo"] = True
+    with pytest.raises(ValueError, match="require TS optimization"):
+        app["build_cmd"]()
+    app["S"]["thermo"] = False
 
     result_json = tmp_path / "result.json"
     result_json.write_text('{"energy": -1.25}', encoding="utf-8")
     assert app["_artifact_kind"](str(result_json)) == "JSON"
+    assert app["_artifact_kind"]("job.gjf") == "text"
+    assert app["_artifact_kind"]("job.com") == "text"
+    assert app["_artifact_kind"]("job.inp") == "text"
+    assert app["_artifact_kind"]("forcefield.prms") == "text"
     preview = app["_text_preview_html"](str(result_json), "JSON")
     assert "&quot;energy&quot;" in preview and "-1.25" in preview
     summary = tmp_path / "summary.json"
@@ -998,9 +1558,50 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         "rate_limiting_step": {"barrier_kcal": 7.5, "method": "mlip"},
     }), encoding="utf-8")
     summary_html = app["_summary_html"](str(summary))
-    assert "Provisional barrier" in summary_html
+    assert "Highest local barrier: 7.5" in summary_html
     assert "IRC endpoint mismatch" in summary_html
-    assert "refined MLIP" in summary_html and "⚡" not in summary_html
+    assert "MLIP" in summary_html and "partial result" in summary_html
+    ts_only_summary = tmp_path / "ts_only_summary.json"
+    ts_only_summary.write_text(json.dumps({
+        "status": "success",
+        "scientific_status": "success",
+        "pipeline_mode": "tsopt-only",
+        "n_images": 5,
+        "mlip_backend": "mace",
+        "mlip_model": "MACE-OMOL-0",
+        "endpoint_assignment": {"chemical_direction_known": False},
+        "segments": [{
+            "index": 1, "kind": "tsopt",
+            "barrier_kcal": 8.0, "delta_kcal": -1.0,
+        }],
+        "post_segments": [{
+            "index": 1,
+            "dft": {"barrier_kcal": 7.8, "delta_kcal": -1.2},
+        }],
+        "rate_limiting_step": {
+            "segment": 1, "barrier_kcal": 7.8, "method": "DFT",
+        },
+    }), encoding="utf-8")
+    ts_only_html = app["_summary_html"](str(ts_only_summary))
+    assert "raw MEP" not in ts_only_html
+    assert "IRC frames: 5" in ts_only_html
+    assert "model-region DFT" in ts_only_html
+    assert "energy order" in ts_only_html
+    extra_artifacts = []
+    for name in ("a.txt", "b.txt", "c.txt", "z.txt"):
+        artifact = tmp_path / name
+        artifact.write_text(name, encoding="utf-8")
+        extra_artifacts.append(str(artifact))
+    app["S"].update(
+        _last_out_dir=str(tmp_path),
+        _last_subcmd="all",
+        _last_files=[str(summary), *extra_artifacts],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    context_html = app["_result_context_html"](str(tmp_path))
+    assert "IRC endpoint mismatch" not in context_html
+    assert "<b>5 files</b>" in context_html
+    assert context_html.count("<code>") == 3
     calls.clear()
     app["_structure_preview"](str(primary))
     assert any(
@@ -1011,8 +1612,8 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
 
     # Charge semantics and controls follow the selected ML/MM workflow.
     app["dd_subcmd"].value = "all"
-    assert app["w_q"].description == "system charge (-q)"
-    assert "full-system charge override" in app["charge_info"].value
+    assert app["w_q"].description == "ML charge (-q)"
+    assert "Net charge of the ML region" in app["charge_info"].value
     app["dd_subcmd"].value = "sp"
     assert app["w_q"].description == "ML charge (-q)"
     assert "ML region" in app["charge_info"].value
@@ -1033,7 +1634,23 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         app["build_cmd"]()
     app["_ambertools_available"] = lambda: True
     mm_parm_command = app["build_cmd"]()
-    assert mm_parm_command[1] == "mm-parm" and mm_parm_command[-2:] == ["-l", "LIG:1"]
+    assert mm_parm_command[1] == "mm-parm"
+    assert mm_parm_command[-2:] == ["-l", "LIG:1,MG:2"]
+
+    # ONIOM export chooses an output extension that matches its selected engine.
+    app["S"].update(inputs=[str(primary)], parm=str(topology), model_pdb=None)
+    app["dd_subcmd"].value = "oniom-export"
+    app["S"]["advanced_overrides"]["oniom-export"] = {"mode": "orca"}
+    app["w_q"].value = 0
+    app["w_charge_ok"].value = False
+    app["w_charge_ok"].value = True
+    orca_export = app["build_cmd"]()
+    assert Path(orca_export[orca_export.index("-o") + 1]).suffix == ".inp"
+    assert orca_export[orca_export.index("--mode") + 1] == "orca"
+    app["S"]["advanced_overrides"]["oniom-export"] = {"mode": "g16"}
+    assert app["w_charge_ok"].value is True
+    gaussian_export = app["build_cmd"]()
+    assert Path(gaussian_export[gaussian_export.index("-o") + 1]).suffix == ".gjf"
 
     # Utility files route directly to their workflow; scan3d CSV needs no parm7.
     oniom = tmp_path / "job.gjf"
@@ -1053,6 +1670,568 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["_clear_structure_bound_state"]()
     assert app["S"]["_pre_extract"] is None
     assert app["b_revert"].layout.display == "none"
+
+
+def test_colab_exercises_every_workflow_and_advanced_flag_widget(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """Operate every workflow selector and every editable live Click option."""
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    app["cb_advsub"].value = True
+    option_values = {
+        item[1] if isinstance(item, tuple) else item
+        for item in app["dd_subcmd"].options
+    }
+    assert option_values == set(app["SUBS"])
+
+    for subcommand in sorted(option_values):
+        app["dd_subcmd"].value = subcommand
+        assert app["S"]["subcmd"] == subcommand
+        assert app["subreq"].value and app["outputs_html"].value
+        app["_render_advanced_rows"]()
+
+    root = app["PRODUCT_CLI"]
+    root_context = app["click"].Context(root)
+    for subcommand in root.list_commands(root_context):
+        rendered = {
+            param.name for param in app["_advanced_options"](subcommand)
+            if app["_advanced_status"](subcommand, param) == "rendered"
+        }
+        exercised: set[str] = set()
+        scenarios = [None]
+        if subcommand == "all":
+            scenarios = [
+                ("mep", False, False, False),
+                ("scan", False, False, False),
+                ("tsonly", True, False, False),
+                ("mep", True, True, True),
+            ]
+        for scenario in scenarios:
+            if scenario is not None:
+                mode, tsopt, thermo, dft = scenario
+                app["all_mode"].value = mode
+                app["w_ts"].value = tsopt
+                app["w_th"].value = thermo
+                app["adv_dft"].value = dft
+            for param in app["_advanced_options"](subcommand):
+                if (
+                    app["_advanced_status"](subcommand, param) != "rendered"
+                    or not app["_advanced_semantic_applicable"](
+                        subcommand, param.name
+                    )
+                ):
+                    continue
+                app["S"].setdefault("advanced_overrides", {})[subcommand] = {}
+                row = app["_advanced_widget"](subcommand, param)
+                widget = row.children[0]
+                for value in _advanced_widget_values(app, param):
+                    widget.value = value
+                    assert (
+                        app["S"]["advanced_overrides"][subcommand][param.name]
+                        == value
+                    )
+                    argv = app["_advanced_argv"](subcommand)
+                    _assert_advanced_argv_parses(app, subcommand, argv)
+                widget.value = None if hasattr(widget, "options") else ""
+                assert (
+                    param.name
+                    not in app["S"]["advanced_overrides"][subcommand]
+                )
+                exercised.add(param.name)
+        assert exercised == rendered, (
+            subcommand,
+            sorted(rendered - exercised),
+        )
+
+
+def test_colab_operates_every_workflow_through_validate_run_and_results(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """Build, parse, validate, run, and render every GUI workflow state."""
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    pdb_a = tmp_path / "reactant.pdb"
+    pdb_b = tmp_path / "product.pdb"
+    parm = tmp_path / "system.parm7"
+    trajectory = tmp_path / "path.xyz"
+    oniom_input = tmp_path / "job.gjf"
+    pdb_text = (
+        "HETATM    1  C1  LIG A   1       0.000   0.000   0.000  1.00  0.00           C\n"
+        "HETATM    2  O1  LIG A   1       1.200   0.000   0.000  1.00  0.00           O\n"
+        "HETATM    3  N1  LIG A   1       0.000   1.200   0.000  1.00  0.00           N\nEND\n"
+    )
+    pdb_a.write_text(pdb_text, encoding="utf-8")
+    pdb_b.write_text(pdb_text.replace("1.200", "1.300"), encoding="utf-8")
+    parm.write_text("minimal topology fixture\n", encoding="utf-8")
+    trajectory.write_text(
+        "2\n0.0\nH 0 0 0\nH 0 0 1\n2\n1.0\nH 0 0 0\nH 0 0 1.1\n",
+        encoding="utf-8",
+    )
+    oniom_input.write_text("# oniom\n\nmatrix\n\n", encoding="utf-8")
+
+    app["DFT_READY"] = True
+    if "dft" not in app["SUBS"]:
+        app["SUBS"].append("dft")
+    app["cb_advsub"].value = True
+    app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
+    app["_ambertools_available"] = lambda: True
+
+    streamed: list[list[str]] = []
+    results: list[tuple[str, str]] = []
+    app["_stream"] = lambda argv: (
+        streamed.append(list(argv)) or (0, "operation-matrix success")
+    )
+    app["_output_scope"] = lambda argv: {
+        "target": str(tmp_path / ("out-" + argv[1])),
+        "root": str(tmp_path / ("out-" + argv[1])),
+        "shallow": False,
+        "stdout_only": False,
+        "direct_current": False,
+    }
+    app["_output_scope_collision"] = lambda _scope: False
+    app["_snapshot_output_scope"] = lambda _scope: {}
+    app["_begin_results_attempt"] = lambda root, sub: results.append((root, sub))
+    app["_results"] = lambda root: results.append((root, "rendered"))
+
+    atoms = [
+        {"index": index, "chain": "A", "resn": "LIG", "resi": "1",
+         "atom": name, "xyz": xyz}
+        for index, (name, xyz) in enumerate((
+            ("C1", (0.0, 0.0, 0.0)),
+            ("O1", (1.2, 0.0, 0.0)),
+            ("N1", (0.0, 1.2, 0.0)),
+        ))
+    ]
+    primary_atom_meta = [
+        {
+            "index": atom["index"], "chain": atom["chain"],
+            "resname": atom["resn"], "resseq": atom["resi"], "icode": "",
+            "atom": atom["atom"], "xyz": atom["xyz"],
+        }
+        for atom in atoms
+    ]
+    cases = [
+        ("all", "mep"), ("all", "scan"), ("all", "tsonly"),
+        ("opt", None), ("sp", None), ("tsopt", None), ("freq", None),
+        ("irc", None), ("dft", None), ("scan", None), ("scan2d", None),
+        ("scan3d", None), ("path-opt", None), ("path-search", None),
+        ("extract", None), ("fix-altloc", None), ("add-elem-info", None),
+        ("energy-diagram", None), ("bond-summary", None), ("trj2fig", None),
+        ("define-layer", None), ("mm-parm", None),
+        ("oniom-export", None), ("oniom-import", None),
+    ]
+
+    for index, (subcommand, all_kind) in enumerate(cases):
+        streamed.clear()
+        app["S"].update(
+            mode="pdb", inputs=[str(pdb_a)], ref_pdbs=[], parm=str(parm),
+            model_pdb=None, center=[], center_ids=[], lcharge={},
+            scan_atoms=[None, None], scan_stages=[], scan_axes=[],
+            freeze_buf=[None, None], freeze_pairs=[], freeze_atoms=[],
+            advanced_overrides={}, _session_file_identities={},
+            _installed_backend="mace", backend="mace",
+            _primary_atom_meta=primary_atom_meta,
+        )
+        app["w_ts"].value = False
+        app["w_th"].value = False
+        app["adv_dft"].value = False
+        app["w_out"].value = "matrix-%02d-%s" % (index, subcommand)
+        app["dd_subcmd"].value = subcommand
+        app["all_mode"].value = all_kind or "mep"
+
+        if subcommand in {"all", "path-opt", "path-search", "bond-summary"}:
+            app["S"]["inputs"] = [str(pdb_a), str(pdb_b)]
+        if subcommand == "all" and all_kind in {"scan", "tsonly"}:
+            app["S"]["inputs"] = [str(pdb_a)]
+        if subcommand == "all" and all_kind == "scan":
+            bond = {"a": atoms[0], "b": atoms[1], "t": 1.5}
+            app["S"]["scan_atoms"] = [atoms[0], atoms[1]]
+            app["S"]["scan_stages"] = [[bond]]
+        if subcommand == "scan":
+            bond = {"a": atoms[0], "b": atoms[1], "t": 1.5}
+            app["S"]["scan_atoms"] = [atoms[0], atoms[1]]
+            app["S"]["scan_stages"] = [[bond]]
+        if subcommand in {"scan2d", "scan3d"}:
+            axes = [
+                {"a": atoms[0], "b": atoms[1], "lo": 1.0, "hi": 2.0},
+                {"a": atoms[0], "b": atoms[2], "lo": 1.0, "hi": 2.0},
+                {"a": atoms[1], "b": atoms[2], "lo": 1.0, "hi": 2.0},
+            ]
+            app["S"]["scan_axes"] = axes[:2 if subcommand == "scan2d" else 3]
+        if subcommand == "extract":
+            app["S"]["center_ids"] = ["A:LIG:1"]
+        elif subcommand == "energy-diagram":
+            app["S"]["inputs"] = []
+            app["S"]["mode"] = "utility"
+            app["S"]["advanced_overrides"][subcommand] = {
+                "input_values": "0 5", "output_path": str(tmp_path / "energy.png"),
+            }
+        elif subcommand == "trj2fig":
+            app["S"]["inputs"] = [str(trajectory)]
+            app["S"]["mode"] = "xyz"
+        elif subcommand == "define-layer":
+            app["S"]["advanced_overrides"][subcommand] = {
+                "model_indices_str": "1,2",
+            }
+        elif subcommand == "oniom-export":
+            app["S"]["model_pdb"] = str(pdb_a)
+            app["S"]["advanced_overrides"][subcommand] = {"mode": "orca"}
+        elif subcommand == "oniom-import":
+            app["S"]["inputs"] = [str(oniom_input)]
+            app["S"]["parm"] = None
+            app["S"]["mode"] = "utility"
+
+        if subcommand in app["COMPUTE"] or subcommand == "oniom-export":
+            app["w_q"].value = 0
+            app["w_charge_ok"].value = False
+            app["w_charge_ok"].value = True
+        command = app["build_cmd"]()
+        assert command[:2] == ["mlmm", subcommand]
+        click_command = app["PRODUCT_CLI"].get_command(
+            app["click"].Context(app["PRODUCT_CLI"]), subcommand,
+        )
+        parser_argv = _root_normalized_subcommand_argv(
+            app, subcommand, command[2:],
+        )
+        with click_command.make_context(
+            subcommand, parser_argv, resilient_parsing=False,
+        ) as context:
+            expected_extra = (
+                app["S"]["inputs"][1:]
+                if subcommand in {"all", "path-search"} else []
+            )
+            assert list(context.args) == expected_extra, (
+                subcommand, command, context.args,
+            )
+
+        app["_auto"]["on"] = False
+        app["cmd_box"].value = shlex.join(command)
+        if subcommand in app["COMPUTE"]:
+            assert not app["b_validate"].disabled
+            app["b_validate"].click()
+            assert streamed and "--dry-run" in streamed[0]
+        else:
+            before_validate = len(streamed)
+            app["b_validate"].click()
+            assert len(streamed) == before_validate
+        assert not app["b_run"].disabled, (subcommand, app["run_status"].value)
+        app["b_run"].click()
+        assert streamed[-1] == command
+        assert app["S"]["_last_manifest"]["status"] == "success"
+        assert app["S"]["_last_manifest"]["subcommand"] == subcommand
+        assert results[-1][1] == "rendered"
+
+
+def test_colab_results_keep_missing_energies_unknown(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, rendered = _execute_app(monkeypatch, tmp_path)
+    missing_first = tmp_path / "missing_first_trj.xyz"
+    missing_first.write_text(
+        "2\nenergy unavailable\nH 0 0 0\nH 0.7 0 0\n"
+        "2\nenergy=-0.990000 unit=hartree\nH 0.2 0 0\nH 0.9 0 0\n",
+        encoding="utf-8",
+    )
+    app["S"]["_last_subcmd"] = "path-opt"
+    rendered.clear()
+    app["_load_trajectory"](str(missing_first), str(tmp_path))
+    assert app["_TRAJ"]["energies"] == [None, -0.99]
+    assert app["_rel_kcal"]() is None
+    assert "profile not re-referenced" in app["frame_state"].value
+    assert any(
+        "Energy profile unavailable" in getattr(value, "value", "")
+        for value in rendered
+    )
+
+    missing_middle = tmp_path / "missing_middle_trj.xyz"
+    missing_middle.write_text(
+        "2\nenergy=-1.000000 unit=hartree\nH 0 0 0\nH 0.7 0 0\n"
+        "2\nenergy unavailable\nH 0.2 0 0\nH 0.9 0 0\n",
+        encoding="utf-8",
+    )
+    rendered.clear()
+    app["_load_trajectory"](str(missing_middle), str(tmp_path))
+    assert app["_rel_kcal"]() == [0.0, None]
+    app["frame_slider"].value = 1
+    assert "ΔE unavailable" in app["frame_state"].value
+    assert any(
+        isinstance(value, str) and 'class="rxenergy-frame"' in value
+        for value in rendered
+    )
+
+
+def test_colab_operates_scientific_selectors_and_remaining_buttons(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _rendered = _execute_app(monkeypatch, tmp_path)
+    first = tmp_path / "first.pdb"
+    second = tmp_path / "second.pdb"
+    parm = tmp_path / "system.parm7"
+    pdb_text = (
+        "HETATM    1  C1  LIG A   1       0.000   0.000   0.000  1.00  0.00           C\n"
+        "HETATM    2  O1  LIG A   1       1.200   0.000   0.000  1.00  0.00           O\n"
+        "HETATM    3  N1  LIG A   1       0.000   1.200   0.000  1.00  0.00           N\n"
+        "HETATM    4  O   HOH A   2       3.000   0.000   0.000  1.00  0.00           O\n"
+        "END\n"
+    )
+    first.write_text(pdb_text, encoding="utf-8")
+    second.write_text(pdb_text.replace("3.000", "3.100"), encoding="utf-8")
+    parm.write_text("parm", encoding="utf-8")
+    app["load_pdb"]([str(first), str(second)], parm=str(parm))
+
+    app["_set_running"](True)
+    assert app["dd_subcmd"].disabled
+    assert app["w_out"].disabled
+    assert app["upl"].disabled
+    app["_set_running"](False)
+    assert not app["dd_subcmd"].disabled
+    assert not app["w_out"].disabled
+    assert not app["upl"].disabled
+
+    app["cb_advsub"].value = True
+    app["dd_subcmd"].value = "energy-diagram"
+    for control in (
+        app["pick_action"], app["last_pick_info"], app["viewer_more"],
+        app["last_pick_row"],
+    ):
+        assert control.layout.display == "none"
+    app["dd_subcmd"].value = "scan"
+    assert app["pick_action"].layout.display == ""
+    assert app["last_pick_row"].layout.display == ""
+
+    _widget_with_description(app["input_file_rows"], "Move later").click()
+    assert app["S"]["inputs"] == [str(second), str(first)]
+    _widget_with_description(app["input_file_rows"], "Move earlier").click()
+    assert app["S"]["inputs"] == [str(first), str(second)]
+    app["load_pdb"]([str(first)], parm=str(parm))
+
+    def pick(index: int) -> None:
+        app["on_click"](str(index), live_marked=True)
+
+    def scan_pair(first_index: int, second_index: int) -> None:
+        _widget_with_description(app["scan_panel"], "1  Pick atom A").click()
+        assert app["pick_action"].value == "scanA"
+        pick(first_index)
+        _widget_with_description(app["scan_panel"], "2  Pick atom B").click()
+        assert app["pick_action"].value == "scanB"
+        pick(second_index)
+
+    app["dd_subcmd"].value = "scan"
+    scan_pair(0, 1)
+    target = _widget_with_description(app["scan_panel"], "3  Target Å")
+    target.value = 1.8
+    stage_fold = next(
+        widget for widget in _widget_descendants(app["scan_panel"])
+        if "rxfold" in getattr(widget, "_dom_classes", ())
+    )
+    stage_fold._rx_button.click()
+    _widget_with_description(stage_fold, "Add sequential stage").click()
+    assert len(app["S"]["scan_stages"]) == 1
+    stage_fold = next(
+        widget for widget in _widget_descendants(app["scan_panel"])
+        if "rxfold" in getattr(widget, "_dom_classes", ())
+    )
+    _widget_with_description(stage_fold, "Add to current stage").click()
+    assert len(app["S"]["scan_stages"][0]) == 1
+    assert "already in the current stage" in app["S"]["_last_pick_message"]
+    scan_pair(1, 0)
+    stage_fold = next(
+        widget for widget in _widget_descendants(app["scan_panel"])
+        if "rxfold" in getattr(widget, "_dom_classes", ())
+    )
+    _widget_with_description(stage_fold, "Add to current stage").click()
+    assert len(app["S"]["scan_stages"][0]) == 1
+    scan_pair(0, 2)
+    stage_fold = next(
+        widget for widget in _widget_descendants(app["scan_panel"])
+        if "rxfold" in getattr(widget, "_dom_classes", ())
+    )
+    _widget_with_description(stage_fold, "Add to current stage").click()
+    assert len(app["S"]["scan_stages"][0]) == 2
+    _widget_with_description(stage_fold, "Clear stages").click()
+    assert app["S"]["scan_stages"] == []
+    _widget_with_description(app["scan_panel"], "Clear pair").click()
+    assert app["S"]["scan_atoms"] == [None, None]
+
+    for subcommand, pairs in (
+        ("scan2d", ((0, 1), (0, 2))),
+        ("scan3d", ((0, 1), (0, 2), (1, 2))),
+    ):
+        app["dd_subcmd"].value = subcommand
+        for pair_index, (left, right) in enumerate(pairs):
+            scan_pair(left, right)
+            low = _widget_with_description(app["scan_panel"], "3  Low Å")
+            high = _widget_with_description(app["scan_panel"], "High Å")
+            low.value = 1.0 + pair_index * 0.1
+            high.value = 2.0 + pair_index * 0.1
+            _widget_with_description(app["scan_panel"], "4  Add axis").click()
+        assert len(app["S"]["scan_axes"]) == len(pairs)
+        _widget_with_description(app["scan_panel"], "Remove last").click()
+        assert len(app["S"]["scan_axes"]) == len(pairs) - 1
+        _widget_with_description(app["scan_panel"], "Clear axes").click()
+        assert app["S"]["scan_axes"] == []
+
+    app["dd_subcmd"].value = "opt"
+    app["pick_action"].value = "freezeA"
+    pick(0)
+    app["pick_action"].value = "freezeB"
+    pick(1)
+    _widget_with_description(app["freeze_panel"], "add freeze pair").click()
+    assert len(app["S"]["freeze_pairs"]) == 1
+    _widget_with_description(app["freeze_panel"], "clear pairs").click()
+    assert app["S"]["freeze_pairs"] == []
+    app["pick_action"].value = "freezeatom"
+    pick(2)
+    assert app["S"]["freeze_atoms"] == [3]
+    _widget_with_description(app["freeze_panel"], "clear atoms").click()
+    assert app["S"]["freeze_atoms"] == []
+
+    app["pick_action"].value = "center"
+    app["exact_atom"].value = "1"
+    app["exact_atom_btn"].click()
+    assert app["S"]["_last_pick"]["index"] == 0
+    app["center_widget"].value = ("LIG",)
+    app["S"]["center_ids"] = ["A:LIG:1"]
+    app["S"]["freeze_atoms"] = [3]
+    app["_render_chips"]()
+    for description in ("LIG ✕", "A:LIG:1 ✕", "⚓3 ✕"):
+        _widget_with_description(app["chips_box"], description).click()
+    assert app["center_widget"].value == ()
+    assert app["S"]["center_ids"] == [] and app["S"]["freeze_atoms"] == []
+    app["S"]["center_ids"] = ["A:LIG:1"]
+    app["S"]["freeze_atoms"] = [2]
+    app["b_clear"].click()
+    assert app["S"]["center_ids"] == [] and app["S"]["freeze_atoms"] == []
+
+    app["cb_advsub"].value = True
+    app["dd_subcmd"].value = "all"
+    app["adv_search"].value = "cycles"
+    assert "total" in app["adv_count"].value
+    app["adv_search"].value = ""
+    folds = [
+        widget for widget in _widget_descendants(app["rootbox"])
+        if "rxfold" in getattr(widget, "_dom_classes", ())
+    ]
+    assert folds
+    for fold in folds:
+        fold._rx_set_open(False)
+        fold._rx_button.click()
+        assert fold._rx_body.layout.display == ""
+        fold._rx_button.click()
+        assert fold._rx_body.layout.display == "none"
+
+    clipboard: list[str] = []
+    downloads: list[str] = []
+    google = types.ModuleType("google")
+    colab = types.ModuleType("google.colab")
+    output = types.ModuleType("google.colab.output")
+    files = types.ModuleType("google.colab.files")
+    output.eval_js = lambda script: clipboard.append(str(script))
+    files.download = lambda path: downloads.append(str(path))
+    colab.output = output
+    colab.files = files
+    google.colab = colab
+    monkeypatch.setitem(sys.modules, "google", google)
+    monkeypatch.setitem(sys.modules, "google.colab", colab)
+    monkeypatch.setitem(sys.modules, "google.colab.output", output)
+    monkeypatch.setitem(sys.modules, "google.colab.files", files)
+
+    app["dd_subcmd"].value = "fix-altloc"
+    app["b_rebuild"].click()
+    app["b_copy"].click()
+    assert clipboard and json.dumps(app["cmd_box"].value) in clipboard[-1]
+    saved_out = app["w_out"].value
+    app["b_save"].click()
+    session_path = Path(downloads[-1])
+    session_bytes = session_path.read_bytes()
+    app["w_out"].value = "changed-after-save"
+    app["up_sess"].value = ({
+        "name": "session.json", "type": "application/json",
+        "size": len(session_bytes), "content": memoryview(session_bytes),
+        "last_modified": datetime.datetime.now(datetime.timezone.utc),
+    },)
+    assert app["w_out"].value == saved_out
+    assert app["up_sess"].value == ()
+
+    trajectory_a = tmp_path / "path_a_trj.xyz"
+    trajectory_b = tmp_path / "path_b_trj.xyz"
+    trajectory_text = (
+        "2\nenergy=-1.000000 unit=hartree\nH 0 0 0\nH 0.7 0 0\n"
+        "2\nenergy=-0.990000 unit=hartree\nH 0.2 0 0\nH 0.9 0 0\n"
+    )
+    trajectory_a.write_text(trajectory_text, encoding="utf-8")
+    trajectory_b.write_text(
+        trajectory_text.replace("-0.990000", "-0.980000"), encoding="utf-8",
+    )
+    artifact_a = tmp_path / "artifact_a.pdb"
+    artifact_b = tmp_path / "artifact_b.pdb"
+    artifact_a.write_text(pdb_text, encoding="utf-8")
+    artifact_b.write_text(pdb_text.replace("1.200", "1.300"), encoding="utf-8")
+    current_files = [trajectory_a, trajectory_b, artifact_a, artifact_b]
+    app["S"].update(
+        _last_out_dir=str(tmp_path), _last_subcmd="path-search",
+        _last_files=[str(path) for path in current_files],
+        _last_manifest={"status": "success", "exit_code": 0},
+        _last_log="button coverage log",
+    )
+    app["res_btn"].disabled = False
+    app["res_btn"].click()
+    assert len(app["traj_choice"].options) == 2
+    app["traj_choice"].value = str(trajectory_b)
+    app["frame_next"].click()
+    assert app["frame_slider"].value == 1
+    app["frame_prev"].click()
+    assert app["frame_slider"].value == 0
+    app["frame_play"].value = 1
+    app["artifact_choice"].value = str(artifact_b)
+    app["artifact_fold"]._rx_set_open(False)
+    app["artifact_fold"]._rx_button.click()
+    assert app["artifact_fold"]._rx_body.layout.display == ""
+    app["dl_btn"].click()
+    archive_path = Path(downloads[-1])
+    with zipfile.ZipFile(archive_path) as archive:
+        members = set(archive.namelist())
+    assert {"colab_run.json", "colab_run.log"} <= members
+    assert {path.name for path in current_files} <= members
+
+    app["_example_file"] = lambda relpath: str(NOTEBOOK.parent / relpath)
+    for choice in app["ex_choice"].options:
+        app["ex_choice"].value = choice
+        app["ex_btn"].click()
+        assert app["S"]["inputs"], choice
+        assert app["S"]["parm"] and Path(app["S"]["parm"]).is_file()
+        assert "⚠️" not in app["example_msg"].value
+
+
+def test_colab_stop_child_reaps_after_disappeared_process_group(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+
+    class FakeProcess:
+        pid = 4242
+        returncode = None
+
+        def __init__(self):
+            self.waited = False
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, timeout=None):
+            self.waited = True
+            self.returncode = -15
+            return self.returncode
+
+    process = FakeProcess()
+    monkeypatch.setattr(app["os"], "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        app["os"], "killpg",
+        lambda *_args: (_ for _ in ()).throw(ProcessLookupError()),
+    )
+
+    app["_stop_child"](process)
+
+    assert process.waited
 
 
 def test_colab_prepared_model_upload_keeps_full_system_inputs(
@@ -1081,6 +2260,33 @@ def test_colab_prepared_model_upload_keeps_full_system_inputs(
                                 "last_modified": datetime.datetime.now(datetime.timezone.utc)},)
     assert app["S"]["model_pdb"] and Path(app["S"]["model_pdb"]).name.startswith("model")
     assert app["model_upl"].value == ()
+    second_model = Path(app["S"]["model_pdb"])
+    relative_alias = os.path.relpath(second_model, tmp_path)
+    app["_clear_structure_bound_state"](preserve_model=relative_alias)
+    assert second_model.exists()
+    assert str(second_model.resolve()) in app["S"]["_uploaded_paths"]
+    app["_delete_owned_uploads"]([relative_alias])
+    assert not second_model.exists()
+
+
+def test_colab_topology_replacement_removes_only_detached_owned_copy(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    first = app["_save_upload"]("first.parm7", memoryview(b"first topology\n"))
+    app["_remember_uploaded_paths"]([first])
+    app["S"]["parm"] = first
+    assert Path(first).exists()
+
+    assert app["_accept_upload_pairs"](
+        [("replacement.parm7", memoryview(b"replacement topology\n"))],
+        "test replacement",
+    )
+
+    replacement = app["S"]["parm"]
+    assert replacement and Path(replacement).exists()
+    assert not Path(first).exists()
+    assert os.path.abspath(replacement) in app["S"]["_uploaded_paths"]
 
 
 def test_colab_adversarial_session_upload_and_view_state(
@@ -1132,6 +2338,7 @@ def test_colab_adversarial_session_upload_and_view_state(
     app["cmd_box"].value = "# incomplete"
     assert app["b_run"].disabled
 
+    app["_render_advanced_rows"]()
     advanced_row = next(row for row in app["adv_rows_box"].children if hasattr(row, "_rx_search"))
     advanced_info = advanced_row.children[1]
     assert '<details class="rxinfo-details"' in advanced_info.value
@@ -1197,6 +2404,15 @@ def test_colab_adversarial_session_upload_and_view_state(
         subcmd="all", all_mode="mep", tsopt=False, backend="uma", model="uma-m-1p1",
         rep="sticks", color="spectrum",
     )
+    saved["file_identities"]["inputs"] = [
+        app["_file_identity"](str(primary)),
+        app["_file_identity"](str(product)),
+    ]
+    saved["file_identities"]["parm"] = app["_file_identity"](str(topology))
+    saved["primary_atom_signatures"] = [
+        list(item) for item in app["_atom_signatures"](metadata[str(primary)])
+    ]
+    saved["advanced_overrides"] = {"all": {"verbose": 3}}
     app["all_mode"].value = "tsonly"
     app["_ALL_MODE_STATE"]["tsopt_before_tsonly"] = True
     stale_command = "mlmm sp -i stale.pdb --parm stale.parm7 -q 99"
@@ -1210,7 +2426,31 @@ def test_colab_adversarial_session_upload_and_view_state(
     assert app["dd_backend"].value == app["BACKEND"]
     assert app["dd_model"].value == app["DEFAULT_MODEL"][app["BACKEND"]]
     assert app["dd_rep"].value == "sticks" and app["dd_col"].value == "spectrum"
+    assert app["S"]["advanced_overrides"]["all"]["verbose"] == 3
     assert app["_auto"]["on"] is True and app["cmd_box"].value != stale_command
+    bad_verbose = app["_session_dict"]()
+    bad_verbose["advanced_overrides"] = {"all": {"verbose": "3"}}
+    before_bad_verbose = json.dumps(app["_session_dict"](), sort_keys=True)
+    with pytest.raises(ValueError, match="integer from 0 to 3"):
+        app["_apply_session"](bad_verbose)
+    assert json.dumps(app["_session_dict"](), sort_keys=True) == before_bad_verbose
+    untrusted_confirmation = app["_session_dict"]()
+    untrusted_confirmation["charge_explicit"] = True
+    assert app["_apply_session"](untrusted_confirmation) == []
+    assert app["w_charge_ok"].value is False
+    assert app["S"]["charge_explicit"] is False
+    assert app["S"]["_charge_scope"] is None
+
+    dependent = app["_session_dict"]()
+    dependent["tsopt"] = False
+    dependent["thermo"] = True
+    dependent["advanced"]["dft"] = False
+    assert app["_apply_session"](dependent) == []
+    assert app["w_ts"].value is True and app["w_ts"].disabled is True
+    assert app["_session_dict"]()["tsopt"] is True
+    app["w_th"].value = False
+    assert app["w_ts"].value is True and app["w_ts"].disabled is False
+    app["w_ts"].value = False
 
     app["all_mode"].value = "mep"
     app["w_ts"].value = False
@@ -1220,6 +2460,20 @@ def test_colab_adversarial_session_upload_and_view_state(
     assert app["_apply_session"](ts_only_saved) == []
     app["all_mode"].value = "mep"
     assert app["w_ts"].value is False
+
+    legacy = app["_session_dict"]()
+    legacy["schema_version"] = 1
+    before_legacy = json.dumps(app["_session_dict"](), sort_keys=True)
+    with pytest.raises(ValueError, match="Save settings again"):
+        app["_apply_session"](legacy)
+    assert json.dumps(app["_session_dict"](), sort_keys=True) == before_legacy
+
+    tampered_signature = app["_session_dict"]()
+    tampered_signature["primary_atom_signatures"][0][4] = "WRONG"
+    before_tamper = json.dumps(app["_session_dict"](), sort_keys=True)
+    with pytest.raises(ValueError, match="atom identity/order"):
+        app["_apply_session"](tampered_signature)
+    assert json.dumps(app["_session_dict"](), sort_keys=True) == before_tamper
 
     app["w_reuse"].value = True
     app["_invalidate_last_run"]("new system")
@@ -1231,12 +2485,40 @@ def test_colab_adversarial_session_upload_and_view_state(
         backend="mace", model="MACE-OMOL-0", inputs=[str(missing)], parm=str(topology),
         mode="pdb", subcmd="opt", all_mode="mep", center=[], center_ids=[], lcharge={},
     )
+    pending["file_identities"]["inputs"] = [
+        app["_file_identity"](str(primary)),
+    ]
+    pending["file_identities"]["parm"] = app["_file_identity"](str(topology))
+    pending["primary_atom_signatures"] = [
+        list(item) for item in app["_atom_signatures"](metadata[str(primary)])
+    ]
     assert app["_apply_session"](pending) == [str(missing)]
     uploaded = tmp_path / "missing.pdb"
+    uploaded.write_text(incompatible.read_text(encoding="utf-8"), encoding="utf-8")
+    metadata[str(uploaded)] = [dict(row) for row in metadata[str(incompatible)]]
+    with pytest.raises(ValueError, match="SHA-256 identity"):
+        app["_ingest_saved_files"]([str(uploaded)], "wrong session re-upload")
+    assert app["S"]["inputs"] == [str(missing)]
     uploaded.write_text(primary.read_text(encoding="utf-8"), encoding="utf-8")
     metadata[str(uploaded)] = [dict(row) for row in metadata[str(primary)]]
     assert app["_ingest_saved_files"]([str(uploaded)], "session replacement")
     assert app["S"]["inputs"] == [str(uploaded)] and app["S"]["parm"] == str(topology)
+
+    missing_topology = tmp_path / "missing-dir" / "system.parm7"
+    pending_topology = app["_session_dict"]()
+    pending_topology["parm"] = str(missing_topology)
+    pending_topology["file_identities"]["parm"] = app["_file_identity"](
+        str(topology)
+    )
+    assert app["_apply_session"](pending_topology) == [str(missing_topology)]
+    wrong_topology = tmp_path / "wrong" / "system.parm7"
+    wrong_topology.parent.mkdir()
+    wrong_topology.write_text("different topology\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="SHA-256 identity"):
+        app["_ingest_saved_files"]([str(wrong_topology)], "wrong topology")
+    assert app["S"]["parm"] == str(missing_topology)
+    assert app["_ingest_saved_files"]([str(topology)], "matching topology")
+    assert app["S"]["parm"] == str(topology)
 
     bad = tmp_path / "empty.pdb"
     bad.write_text("REMARK no atoms\nEND\n", encoding="utf-8")
@@ -1246,6 +2528,7 @@ def test_colab_adversarial_session_upload_and_view_state(
     assert app["S"]["inputs"] == old_inputs and "not attached" in app["input_msg"].value
 
     duplicate = {"index": 0, "chain": "A", "resn": "LIG", "resi": "10", "atom": "C1", "xyz": (0, 0, 0)}
+    app["dd_subcmd"].value = "scan"
     app["S"]["scan_atoms"] = [dict(duplicate), dict(duplicate)]
     with pytest.raises(ValueError, match="different atoms"):
         app["build_cmd"]()
@@ -1309,7 +2592,7 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "S['model_pdb'] = out" in app
     assert "S.update(inputs=[out]" not in app
     assert "'oniom-export': dict(n_in=(0, 1)" in app
-    assert "def _clear_structure_bound_state():" in app
+    assert "def _clear_structure_bound_state(preserve_model=None):" in app
     for key in (
         "scan_stages", "scan_axes", "freeze_buf", "freeze_pairs",
         "freeze_atoms", "measure_atoms", "_pdb_text", "_atom_meta",
@@ -1320,12 +2603,12 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "DFT_READY" in app and "DMF_READY" in app
     assert "options=['(default)', 'gsm', 'dmf']" not in app
     assert "OUT_JSON_SUBS" in app and "if sub in OUT_JSON_SUBS: cmd += ['--out-json']" in app
-    assert "upl = W.FileUpload(accept=_acc, multiple=True, description='Upload files'" in app
-    assert "_dnd_out.register_callback('mlmm_gui.on_drop', _rxgui_drop)" in app
-    assert "reader.readAsDataURL(file);" in app
+    assert "class _DropUpload(anywidget.AnyWidget):" in app
+    assert "upl = _DropUpload(accept=_acc, formats=_drop_formats)" in app
+    assert "mlmm_gui.on_drop" not in app
     assert "def _ingest_saved_files(" in app
     assert "_reset_file_upload(upl)" in app
-    assert "anywidget" not in app and "_HAS_DROP_WIDGET" not in app
+    assert "if _HAS_DROP_WIDGET: upl.on_msg(_on_drop_upload)" in app
     assert "pts.append((k, 'TS'))" not in app
     assert "peak candidate" in app and "minimum candidate" in app
     assert "except KeyboardInterrupt:" in app
@@ -1353,15 +2636,23 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "shutil.make_archive(" not in app
     assert "W.Button(description='Show information'" not in app
     assert "<details class=\"rxinfo-details\" data-revision=" in app
-    assert "submit(event.dataTransfer&&event.dataTransfer.files);" in app
+    assert "submit(event.dataTransfer ? event.dataTransfer.files : []);" in app
     assert "_tab_body.children = [_TAB_PAGES[i][1]]" not in app
     assert "layout=W.Layout(width='560px')" not in app
     assert "ML-region charge (-q)" in app and "charge verified" in app
     assert "Verify the ML-region charge (-q)" in app
-    assert "utility .xyz / .gjf / .com / .inp / .csv" in app
+    assert ".xyz + reference PDB + .parm7" in app
+    assert "utility .gjf / .com / .inp / .csv" in app
     assert app.count("effective = _normalized_scope_argv(a)") == 2
-    assert "a = _force_dry_run(a)" in app
+    assert "dry_argv = _force_dry_run(list(a))" in app
+    assert "if not _validate_command(a): return" in app
     assert "real_run = not _flag_enabled(effective, '--dry-run', '--no-dry-run')" in app
+    assert "def _utility_autofill_complete(argv):" in app
+    assert (
+        app.index("input_records = (")
+        < app.index("rc, transcript = _stream(a)")
+        < app.index("'inputs': input_records")
+    )
 
 
 def test_colab_output_scope_executes_cli_grammar_and_utility_defaults(
@@ -1381,10 +2672,15 @@ def test_colab_output_scope_executes_cli_grammar_and_utility_defaults(
     }
     for subcommand in compute_subcommands:
         command = product_cli.get_command(root_context, subcommand)
-        output_param = next(
+        output_params = [
             param for param in command.params
             if {"-o", "--out", "--out-dir", "--output"}.intersection(param.opts)
+        ]
+        assert len(output_params) == 1, (
+            subcommand,
+            [(param.name, tuple(param.opts)) for param in command.params],
         )
+        output_param = output_params[0]
         assert scope_for(["mlmm", subcommand])["root"] == str(output_param.default)
     assert scope_for(["mlmm", "opt", "-oattached"])["root"] == "attached"
     assert scope_for(["mlmm", "opt", "--OUT-DIR", "Upper"])["root"] == "Upper"
@@ -1615,3 +2911,200 @@ def test_colab_output_scope_executes_cli_grammar_and_utility_defaults(
         str((tmp_path / "job.inp").resolve()),
         str((tmp_path / "system.ORCAFF.prms").resolve()),
     }
+
+
+def test_colab_release_state_and_linked_results_regressions(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, rendered = _execute_app(monkeypatch, tmp_path)
+
+    assert "never" in app["adv_thresh"].options
+    assert app["adv_dftfb"].placeholder == "wb97m-v/def2-tzvpd"
+    app["S"]["mode"] = "xyz"
+    assert app["_aspec"]({
+        "index": 3, "chain": "", "resn": "MOL", "resi": "1",
+        "icode": "", "atom": "C4",
+    }) == 4
+    app["S"]["mode"] = "pdb"
+    assert app["_aspec"]({
+        "index": 4, "chain": "", "resn": "LIG", "resi": "12A",
+        "icode": "A", "atom": "C1",
+    }) == 5
+
+    primary = tmp_path / "primary.pdb"
+    product = tmp_path / "product.pdb"
+    pdb_text = (
+        "HETATM    1  C1  LIG A  10       0.000   0.000   0.000  1.00  0.00           C\n"
+        "HETATM    2  O1  LIG A  10       1.200   0.000   0.000  1.00  0.00           O\n"
+        "END\n"
+    )
+    primary.write_text(pdb_text, encoding="utf-8")
+    product.write_text(pdb_text, encoding="utf-8")
+    topology = tmp_path / "system.parm7"
+    topology.write_text("%VERSION VERSION_STAMP = V0001.000\n", encoding="utf-8")
+
+    app["load_pdb"](
+        [str(primary), str(product)], parm=str(topology), center=["LIG"],
+    )
+    app["charge_rows"]["LIG"]["use"].value = True
+    app["charge_rows"]["LIG"]["val"].value = 1
+    app["w_charge_ok"].value = True
+    app["view_input"].value = 1
+    app["view_input"].value = 0
+    assert app["w_charge_ok"].value is True
+    assert app["S"]["lcharge"] == {"LIG": 1.0}
+    app["S"]["scan_preset"] = "[('OLD 1 A','OLD 1 B',1.4)]"
+    app["S"]["scan_atoms"] = [None, None]
+    app["dd_subcmd"].value = "scan"
+    app["pick_action"].value = "scanA"
+    app["on_click"]("0", "LIG", "10", "A", "C1", "1", "", live_marked=True)
+    assert app["S"]["scan_preset"] == ""
+    assert app["scan_literals"]() == []
+
+    center_file = tmp_path / "centers.pdb"
+    center_file.write_text("MODEL        1\nENDMDL\n", encoding="utf-8")
+    center_argv = [
+        "mlmm", "all", "-i", str(primary), "--parm", str(topology),
+        "-c", str(center_file),
+    ]
+    assert str(center_file.resolve()) in app["_command_input_files"](center_argv)
+    first_center_fingerprint = app["_validation_fingerprint"](center_argv)
+    center_file.write_text("MODEL        2\nENDMDL\n", encoding="utf-8")
+    assert app["_validation_fingerprint"](center_argv) != first_center_fingerprint
+
+    claimed_root = tmp_path / "claimed"
+    claimed_root.mkdir()
+    mode_path = claimed_root / "mode_0001_-100.00cm-1_trj.xyz"
+    mode_path.write_text(
+        "2\nenergy=-1 unit=hartree\nH 0 0 0\nH 0.7 0 0\n",
+        encoding="utf-8",
+    )
+    result_path = claimed_root / "result.json"
+    result_path.write_text(json.dumps({
+        "files": {"frequencies_txt": "frequencies_cm-1.txt",
+                  "mode_files": [mode_path.name]},
+    }), encoding="utf-8")
+    assert mode_path.resolve() in {
+        Path(path).resolve() for path in app["_structured_current_paths"](
+            str(claimed_root), [str(result_path), str(mode_path)],
+        )
+    }
+    old_mode = claimed_root / "old_mode_trj.xyz"
+    old_mode.write_text(mode_path.read_text(encoding="utf-8"), encoding="utf-8")
+    new_mode = claimed_root / "new_mode_trj.xyz"
+    new_mode.write_text(
+        mode_path.read_text(encoding="utf-8").replace("energy=-1", "energy=-0.9"),
+        encoding="utf-8",
+    )
+    result_path.write_text(json.dumps({
+        "files": {"mode_files": [old_mode.name, new_mode.name]},
+    }), encoding="utf-8")
+    reused_paths = {
+        Path(path).resolve() for path in app["_structured_current_paths"](
+            str(claimed_root), [str(result_path), str(new_mode)],
+        )
+    }
+    assert new_mode.resolve() in reused_paths
+    assert old_mode.resolve() not in reused_paths
+    assert '"mode_files": _mode_output_files' in (
+        NOTEBOOK.parents[1] / "mlmm" / "workflows" / "freq.py"
+    ).read_text(encoding="utf-8")
+
+    good = tmp_path / "good_trj.xyz"
+    good.write_text(
+        "2\nenergy=-1.000000 unit=hartree\nH 0 0 0\nH 0.7 0 0\n"
+        "2\nenergy=-0.990000 unit=hartree\nH 0.2 0 0\nH 0.9 0 0\n",
+        encoding="utf-8",
+    )
+    bad = tmp_path / "bad_trj.xyz"
+    bad.write_text("not an xyz trajectory\n", encoding="utf-8")
+    app["_result_pick_guard"]["active"] = True
+    try:
+        app["traj_choice"].options = [
+            ("bad", str(bad)), ("good", str(good)),
+        ]
+        app["traj_choice"].value = str(bad)
+    finally:
+        app["_result_pick_guard"]["active"] = False
+    app["_load_trajectory"](str(bad), str(tmp_path))
+    assert app["trajectory_box"].layout.display == ""
+    assert app["trajectory_content"].layout.display == "none"
+
+    rendered.clear()
+    app["_load_trajectory"](str(good), str(tmp_path))
+    energy_views = [
+        value for value in rendered
+        if isinstance(value, str) and 'class="rxenergy-frame"' in value
+    ]
+    assert len(energy_views) == 1
+    assert "plotly_click" in html.unescape(energy_views[0])
+    generation = app["_TRAJ"]["generation"]
+    app["_set_frame_from_browser"](generation, 1)
+    assert app["frame_slider"].value == 1
+    app["_set_frame_from_browser"](generation - 1, 0)
+    assert app["frame_slider"].value == 1
+
+    semantics = {
+        "start": "R", "end": "P", "extrema": True,
+        "bridge_ranges": [(2, 3)],
+    }
+    assert app["_stationary"]([0.0, 4.0, 10.0, 4.0, 0.0], semantics) == [
+        (0, "R"), (4, "P"),
+    ]
+
+    leaf = tmp_path / "leaf-summary.json"
+    leaf.write_text(json.dumps({
+        "status": "completed", "scientific_status": "success",
+        "n_modes": 6, "n_imaginary": 1,
+    }), encoding="utf-8")
+    leaf_html = app["_summary_html"](str(leaf))
+    assert "modes: <b>6</b>" in leaf_html
+    assert "images:" not in leaf_html and "None" not in leaf_html
+
+    app["trajectory_box"].layout.display = ""
+    app["artifact_fold"].layout.display = ""
+    app["_begin_results_attempt"](str(tmp_path / "new-result"), "scan")
+    assert app["trajectory_box"].layout.display == "none"
+    assert app["artifact_fold"].layout.display == "none"
+    assert "Run in progress" in app["results_empty"].value
+
+    app["all_mode"].value = "tsonly"
+    assert app["_ALL_MODE_STATE"]["user"] is True
+    app["_queue_change"](clear=True)
+    app["load_pdb"]([str(primary)], parm=str(topology))
+    assert app["all_mode"].value == "scan"
+    app["load_pdb"]([str(product)], parm=str(topology), append=True)
+    assert app["all_mode"].value == "mep"
+
+    first_xyz = tmp_path / "first.xyz"
+    second_xyz = tmp_path / "second.xyz"
+    xyz_text = "2\nenergy=-1 unit=hartree\nH 0 0 0\nH 0.7 0 0\n"
+    first_xyz.write_text(xyz_text, encoding="utf-8")
+    second_xyz.write_text(xyz_text, encoding="utf-8")
+    app["_queue_change"](clear=True)
+    app["_preflight_structures"] = lambda _paths: None
+    app["_preflight_xyz_files"] = lambda _paths: None
+    app["_preflight_xyz_reference_pairs"] = lambda _xyz, _refs: None
+    app["build_selection"] = lambda: True
+    assert app["_ingest_saved_files"](
+        [str(first_xyz), str(second_xyz), str(primary), str(product)],
+        "endpoint references",
+    )
+    assert app["S"]["subcmd"] == "path-search"
+    assert app["dd_subcmd"].value == "path-search"
+
+    app["S"]["_session_file_identities"] = {
+        "parm": {"sha256": "0" * 64, "size": 1, "name": "missing.parm7"},
+    }
+    app["S"]["_session_primary_atom_signatures"] = [("A", "LIG", "10", "", "C1")]
+    app["_queue_change"](clear=True)
+    assert app["S"]["_session_file_identities"] == {}
+    assert app["S"]["_session_primary_atom_signatures"] == []
+
+    surface = tmp_path / "surface.csv"
+    surface.write_text("d1,d2,d3,energy\n1,1,1,0\n", encoding="utf-8")
+    assert app["_ingest_saved_files"]([str(surface)], "plot-only")
+    app["_sync_capability_controls"]()
+    assert app["S"]["mode"] == "utility"
+    for name in ("scan_panel", "freeze_acc", "center_panel", "charge_panel", "extract_panel"):
+        assert app[name].layout.display == "none"

@@ -1,6 +1,6 @@
 # `dft`
 
-GPU4PySCF（または CPU PySCF）を使用して ML 領域の DFT 一点計算を実行し、QM 領域（ML 領域）の DFT エネルギーを、ML/MM と同じ要領で MM エネルギーと合成し、ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は酵素全体の PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点エネルギー（R / TS / P / IM）を DFT レベルで精密化したり、MLIP の障壁を基準汎関数/基底で sanity check したりする際に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
+GPU4PySCF（または CPU PySCF）を使用して ML 領域の DFT 一点計算を実行し、QM 領域（ML 領域）の DFT エネルギーを、ML/MM と同じ要領で MM エネルギーと合成し、ML(dft)/MM 総エネルギーを取得します。`mlmm dft` は酵素全体の PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点（R / TS / P / IM）に対する DFT 一点エネルギー評価や、MLIP 障壁の基準汎関数/基底による sanity check に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
@@ -31,7 +31,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 処理の流れ
 
 1. **入力処理** -- 酵素全体の PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、リンク水素は自動付加されます（C/N 親原子が 1.7 Å 以内）。
-2. **SCF 構築** -- `--func-basis` でスラッシュ区切りで汎関数/基底関数を定義します。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。`--embedcharge` が有効な場合、Amber トポロジーの MM 点電荷が `pyscf.qmmm.mm_charge()` を介して QM ハミルトニアンに埋め込まれ、DFT 波動関数が MM 環境で自己無撞着に分極します。
+2. **SCF 構築** -- `--func-basis` でスラッシュ区切りで汎関数/基底関数を定義します。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。v0.3.3 は機械的埋め込みを使用し、廃止した電子埋め込み経路の要求は SCF 構築前にエラーになります。
 3. **ML(dft)/MM 再結合** -- DFT が収束した後、全系（REAL-low）と ML サブセット（MODEL-low）の MM エネルギーが計算されます。結合エネルギーは Hartree と kcal/mol で報告されます。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
 
@@ -59,8 +59,8 @@ out_dir/ (デフォルト: ./result_dft/)
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-b, --backend CHOICE` | 出力メタデータに記録されるバックエンドラベル: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。dft では計算機を選択しない（ML 領域は DFT/PySCF、MM 低レベルは `--mm-backend` で選択）。 | `uma` |
-| `--embedcharge/--no-embedcharge` | 静電埋め込みの有効化: Amber トポロジーの MM 点電荷を PySCF QM ハミルトニアンに追加し、DFT 波動関数が MM 環境により分極。 | `False` |
-| `--embedcharge-cutoff FLOAT` | `--embedcharge` 有効時に PySCF QM ハミルトニアンに埋め込む MM 点電荷の ML 領域からのカットオフ半径（Å）。 | `12.0` |
+| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧電子埋め込みコマンドを明示的に拒否するためにのみ保持。 | `False` |
+| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `-i, --input PATH` | 酵素全体の構造ファイル（PDB または XYZ）。XYZ の場合は `--ref-pdb` でトポロジーを指定。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
@@ -80,7 +80,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--lowmem/--no-lowmem` | closed-shell の GPU 経路で `gpu4pyscf.dft.rks_lowmem.RKS` を使用（メモリ効率の良い直接 JK；`mlmm dft` はどちらの経路でも `density_fit()` を呼ばない）。open-shell、CPU、`rks_lowmem` 非搭載の旧 `gpu4pyscf` では標準 RKS/UKS に自動フォールバック。 | `True` |
 | `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
 | `--link-atom-method {scaled,fixed}` | リンク原子位置モード: `scaled`（g-factor、Gaussian ONIOM 標準）または `fixed`（旧式 1.09/1.01 Å 固定）。 | `scaled` |
-| `--mm-backend {hessian_ff,openmm}` | ONIOM 低レベル評価用 MM バックエンド: `hessian_ff`（解析Hessian）または `openmm`（有限差分Hessian）。 | `hessian_ff` |
+| `--mm-backend {hessian_ff,openmm}` | ONIOM 低レベル評価用 MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（既定 `true`: 有限差分）。 | `hessian_ff` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に出力。 | `False` |
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
@@ -132,7 +132,7 @@ dft:
 
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
-- [freq](freq.md) -- 振動解析（DFT 精密化の前に実行する場合が多い）
+- [freq](freq.md) -- 振動解析（DFT 一点エネルギー評価の前に実行する場合が多い）
 - [opt](opt.md) -- 単一構造の構造最適化
 - [all](all.md) -- `--dft` 付き一気通貫ワークフロー
 - [YAML リファレンス](yaml-reference.md) -- `dft` の完全な設定オプション

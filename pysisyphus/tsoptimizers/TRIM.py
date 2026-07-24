@@ -48,6 +48,7 @@ class TRIM(TSHessianOptimizer):
         eigvals_[self.roots] *= -1
         if self._physical_ts_mode is not None:
             residual_negative = eigvals_ < -self.small_eigval_thresh
+            residual_negative[self.roots] = False
             residual_count = int(np.count_nonzero(residual_negative))
             if residual_count:
                 eigvals_[residual_negative] *= -1
@@ -98,7 +99,9 @@ class TRIM(TSHessianOptimizer):
         self.log(f"norm(step)={step_norm:.6f}")
 
         step = self.apply_saddle_recovery_step(step)
-        self.predicted_energy_changes.append(self.quadratic_model(gradient, as_numpy(self.H), step))
+        self.predicted_energy_changes.append(
+            self.quadratic_model(gradient, as_numpy(self.cur_H), step)
+        )
 
         # Expand the step back to full-coord space when the active subspace is in
         # use, so Optimizer.run() can do `geometry.coords + step` without a shape

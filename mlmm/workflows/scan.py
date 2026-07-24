@@ -369,7 +369,7 @@ def _snapshot_geometry(g) -> Any:
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -377,8 +377,7 @@ def _snapshot_geometry(g) -> Any:
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method",
@@ -394,7 +393,7 @@ def _snapshot_geometry(g) -> Any:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -501,6 +500,10 @@ def cli(
         override_yaml=None,
         args_yaml_legacy=None,
     )
+    yaml_cfg, _, _ = load_merged_yaml_cfg(
+        config_yaml=config_yaml,
+        override_yaml=None,
+    )
 
     if relax_max_cycles is not None:
         max_cycles = int(relax_max_cycles)
@@ -534,6 +537,10 @@ def cli(
             charge, spin = resolve_charge_spin_or_raise(
                 prepared_input, charge, spin,
                 ligand_charge=ligand_charge, prefix="[scan]",
+                model_pdb=model_pdb,
+                model_indices_spec=model_indices_str,
+                detect_layer=detect_layer,
+                yaml_cfg=yaml_cfg,
             )
 
             try:
@@ -549,11 +556,6 @@ def cli(
                 except click.BadParameter as e:
                     click.echo(f"ERROR: {e}", err=True)
                     sys.exit(1)
-
-            yaml_cfg, _, _ = load_merged_yaml_cfg(
-                config_yaml=config_yaml,
-                override_yaml=None,
-            )
 
             geom_cfg = dict(GEOM_KW)
             calc_cfg = dict(CALC_KW)
@@ -648,6 +650,13 @@ def cli(
             if use_cmap is not None:
                 calc_cfg["use_cmap"] = use_cmap
 
+            from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+            reject_retired_embedcharge_cli(
+                calc_cfg,
+                cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+            )
+
             try:
                 model_pdb_path, layer_info = resolve_ml_layer_assignment(
                     source_path=source_path,
@@ -706,11 +715,17 @@ def cli(
             # Auto-detect: single value that is a YAML/JSON file → spec mode
             if len(cli_scan_values) == 1 and is_scan_spec_file(cli_scan_values[0]):
                 spec_path = Path(cli_scan_values[0])
-                stages, scan_one_based = parse_scan_spec_stages(
+                (
+                    stages,
+                    scan_one_based,
+                    _bidir_snapshot_before,
+                    _bidir_reset_before,
+                ) = parse_scan_spec_stages(
                     spec_path,
                     one_based_default=one_based,
                     atom_meta=pdb_atom_meta,
                     option_name="--scan-lists",
+                    return_bidirectional_markers=True,
                 )
                 scan_source = f"--scan-lists ({spec_path})"
             else:
@@ -1071,17 +1086,26 @@ def cli(
                 except Exception as e:
                     click.echo(f"[convert] WARNING: Failed to convert stage result to PDB: {e}", err=True)
 
-        # Write combined scan_trj.xyz + scan.pdb to out_dir
-        if all_trj_blocks:
-            combined_trj = out_dir_path / "scan_trj.xyz"
-            with open(combined_trj, "w") as f:
-                f.write("".join(all_trj_blocks))
-            click.echo(f"[write] Wrote '{combined_trj}'.")
-            try:
-                convert_xyz_to_pdb(combined_trj, source_path.resolve(), out_dir_path / "scan.pdb")
-                click.echo(f"[convert] Wrote '{out_dir_path / 'scan.pdb'}'.")
-            except Exception as e:
-                click.echo(f"[convert] WARNING: Failed to convert combined trajectory to PDB: {e}", err=True)
+            # The normalized topology may be a temporary PDB for mmCIF or
+            # oversized-PDB inputs. Convert while its preparation context is
+            # still alive.
+            if all_trj_blocks:
+                combined_trj = out_dir_path / "scan_trj.xyz"
+                with open(combined_trj, "w") as f:
+                    f.write("".join(all_trj_blocks))
+                click.echo(f"[write] Wrote '{combined_trj}'.")
+                try:
+                    convert_xyz_to_pdb(
+                        combined_trj,
+                        source_path.resolve(),
+                        out_dir_path / "scan.pdb",
+                    )
+                    click.echo(f"[convert] Wrote '{out_dir_path / 'scan.pdb'}'.")
+                except Exception as e:
+                    click.echo(
+                        f"[convert] WARNING: Failed to convert combined trajectory to PDB: {e}",
+                        err=True,
+                    )
 
         def _echo_human_summary(_stages: List[Dict[str, Any]], _max_step_size: float) -> None:
             """
@@ -1173,13 +1197,17 @@ def cli(
                         _steps + [_eo if isinstance(_eo, bool) else None]
                     )
                 _fe = srec.get("final_energy_hartree")
+                _energy_valid = (
+                    isinstance(_fe, (int, float, np.integer, np.floating))
+                    and np.isfinite(float(_fe))
+                )
                 _stage_leaves.append(
                     make_leaf(
                         "scan",
                         f"stage_{srec['index']}",
                         executed=True,
                         converged=_stage_conv,
-                        energy_valid=(_fe is not None),
+                        energy_valid=_energy_valid,
                     )
                 )
             _truth = aggregate_workflow_truth(

@@ -9,6 +9,7 @@ import torch
 from ase import Atoms
 
 from mlmm.backends.mlmm_calc import (
+    _EmbedChargeCorrection,
     MLMMASECalculator,
     MLMMCore,
     _MLHighOut,
@@ -136,6 +137,55 @@ def test_partial_link_hessian_retains_the_unconstrained_endpoint_block() -> None
     )
 
 
+def test_analytical_mm_mode_keeps_both_low_level_hessians() -> None:
+    core = _force_only_core(with_link=False)
+    core.mm_fd = False
+    core.mm_hessian_mode = "analytical"
+    core.freeze_atoms = []
+    core.H_dtype = torch.float64
+    core.H_np_dtype = np.float64
+    core.symmetrize_hessian = True
+    core.return_partial_hessian = True
+    core.hess_active_atoms = [0, 1]
+    core.n_hess_active = 2
+    core.full_to_hess_active = {0: 0, 1: 1}
+
+    def eval_high(self, _atoms, _freeze_model, *, return_hessian):
+        return _MLHighOut(
+            E=0.0,
+            F=np.zeros((1, 3), dtype=float),
+            H=torch.zeros((1, 3, 1, 3), dtype=torch.float64),
+            timing={},
+        )
+
+    def eval_low(self, _atoms_real, _atoms_model, *, return_hessian):
+        return _MMLowOut(
+            E_real=0.0,
+            F_real=np.zeros((2, 3), dtype=float),
+            E_model=0.0,
+            F_model=np.zeros((1, 3), dtype=float),
+            H_real=2.0 * np.eye(6),
+            H_model=np.eye(3),
+            active_atoms_from_fd=np.array([0, 1], dtype=int),
+            timing={},
+        )
+
+    core._eval_ml_high = MethodType(eval_high, core)
+    core._eval_mm_low = MethodType(eval_low, core)
+
+    result = core.compute(
+        np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
+        return_hessian=True,
+    )
+
+    torch.testing.assert_close(
+        result["hessian"].reshape(6, 6),
+        torch.diag(
+            torch.tensor([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=torch.float64)
+        ),
+    )
+
+
 def test_final_mask_runs_after_nonzero_embed_force_correction() -> None:
     core = _force_only_core(with_link=False)
     core.embedcharge = True
@@ -145,7 +195,14 @@ def test_final_mask_runs_after_nonzero_embed_force_correction() -> None:
 
     class EmbedCorrection:
         def compute_correction(self, **_kwargs):
-            return 0.0, np.array([[7.0, 0.0, 0.0]]), None
+            return (
+                0.0,
+                np.array([
+                    [7.0, 0.0, 0.0],
+                    [3.0, 0.0, 0.0],
+                ]),
+                None,
+            )
 
     core._embed_correction = EmbedCorrection()
     core._get_mm_charges = MethodType(
@@ -158,6 +215,102 @@ def test_final_mask_runs_after_nonzero_embed_force_correction() -> None:
     )
 
     assert np.array_equal(result["forces"][0], np.zeros(3))
+    assert np.array_equal(result["forces"][1], np.array([3.0, 0.0, 0.0]))
+
+
+def test_embed_hessian_is_compacted_before_active_block_assembly() -> None:
+    core = _force_only_core(with_link=False)
+    core.embedcharge = True
+    core.embedcharge_cutoff = None
+    core.model_charge = 0
+    core.model_mult = 1
+    core.mm_fd = True
+    core.H_dtype = torch.float64
+    core.H_np_dtype = np.float64
+    core.symmetrize_hessian = True
+    core.return_partial_hessian = True
+
+    expected = np.array(
+        [
+            [2.0, 0.1, 0.2],
+            [0.1, 3.0, 0.3],
+            [0.2, 0.3, 4.0],
+        ]
+    )
+    correction_hessian = np.zeros((6, 6), dtype=float)
+    correction_hessian[3:, 3:] = expected
+
+    class EmbedCorrection:
+        def compute_correction(self, **_kwargs):
+            return 0.0, np.zeros((2, 3)), correction_hessian
+
+    def eval_high(self, _atoms, _freeze_model, *, return_hessian):
+        return _MLHighOut(
+            E=0.0,
+            F=np.zeros((1, 3), dtype=float),
+            H=torch.zeros((1, 3, 1, 3), dtype=torch.float64),
+            timing={},
+        )
+
+    def eval_low(self, _atoms_real, _atoms_model, *, return_hessian):
+        return _MMLowOut(
+            E_real=0.0,
+            F_real=np.zeros((2, 3), dtype=float),
+            E_model=0.0,
+            F_model=np.zeros((1, 3), dtype=float),
+            H_real=np.zeros((3, 3), dtype=float),
+            H_model=np.zeros((3, 3), dtype=float),
+            active_atoms_from_fd=np.array([1], dtype=int),
+            timing={},
+        )
+
+    core._embed_correction = EmbedCorrection()
+    core._get_mm_charges = MethodType(
+        lambda self, indices: np.zeros(len(indices), dtype=float), core
+    )
+    core._eval_ml_high = MethodType(eval_high, core)
+    core._eval_mm_low = MethodType(eval_low, core)
+
+    result = core.compute(
+        np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
+        return_hessian=True,
+    )
+
+    assert result["hessian"].shape == (1, 3, 1, 3)
+    torch.testing.assert_close(
+        result["hessian"].reshape(3, 3),
+        torch.as_tensor(expected, dtype=torch.float64),
+    )
+
+
+def test_embed_correction_preserves_mm_force_and_cross_hessian_blocks(
+    monkeypatch,
+) -> None:
+    from mlmm.backends import xtb_embedcharge_correction
+
+    force = np.arange(9.0).reshape(3, 3)
+    hessian = np.arange(81.0).reshape(9, 9)
+    monkeypatch.setattr(
+        xtb_embedcharge_correction,
+        "delta_embedcharge_minus_noembed",
+        lambda **_kwargs: (1.25, force, hessian),
+    )
+    correction = _EmbedChargeCorrection()
+
+    energy, actual_force, actual_hessian = correction.compute_correction(
+        symbols=["H"],
+        coords_ml_ang=np.zeros((1, 3)),
+        mm_coords_ang=np.zeros((2, 3)),
+        mm_charges=np.array([0.2, -0.2]),
+        charge=0,
+        multiplicity=1,
+        need_forces=True,
+        need_hessian=True,
+    )
+
+    assert energy == 1.25
+    np.testing.assert_array_equal(actual_force, force)
+    np.testing.assert_array_equal(actual_hessian, hessian)
 
 
 def _mapping_core() -> MLMMCore:

@@ -116,13 +116,14 @@ calc:
 
 For PDB inputs, `--ligand-charge` specifies charges for unknown/non-standard
 ligand residues such as substrates and cofactors. Recognized ions use the
-internal `ION` table and must not be repeated in `-l`; the net system charge is
-derived by summing amino-acid, recognized-ion, and supplied ligand charges.
+internal `ION` table and must not be repeated in `-l`; the net charge of the
+selected ML region/model system is derived by summing amino-acid,
+recognized-ion, and supplied ligand charges.
 
 ```bash
 -l 'SAM:1,GPP:-3'              # per-residue mapping (use the ':' separator)
 -l -3                           # single integer = total ligand charge
--q 0                            # explicit total system charge override
+-q 0                            # explicit ML-region/model-system charge override
 ```
 
 Residue-name matching is case-insensitive; unmapped non-standard residues default to charge 0.
@@ -176,7 +177,8 @@ All calc subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan
 | Option | Description | Default |
 |---|---|---|
 | `-b, --backend` | MLIP backend: `uma`, `orb`, `mace`, `aimnet2` | `uma` |
-| `--embedcharge` / `--no-embedcharge` | xTB point-charge embedding correction | off |
+| `--embedcharge` / `--no-embedcharge` | Compatibility tombstone. v0.3.3 supports mechanical embedding only; `--embedcharge` is rejected before calculation. | `--no-embedcharge` |
+| `--embedcharge-cutoff` | Compatibility tombstone for the retired electronic-embedding path; any explicit value is rejected. | unset |
 
 Install alternatives: `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip install --no-deps mace-torch` (MACE in a dedicated env).
 

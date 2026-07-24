@@ -85,13 +85,9 @@ def update_internals(
     # See if dihedrals became invalid (collinear atoms)
     if check_dihedrals:
         are_valid = [dihedral_valid(new_coords3d, prim.inds) for prim in dihedrals]
-        try:
-            first_dihedral = dihedral_inds[0]
-        except IndexError:
-            first_dihedral = 0
-        invalid_inds = [
-            i + first_dihedral for i, is_valid in enumerate(are_valid) if not is_valid
-        ]
+        invalid_inds.extend(
+            index for index, is_valid in zip(dihedral_inds, are_valid) if not is_valid
+        )
 
     if check_bends and len(bend_inds) > 0:
         bends = [prim_internals[i] for i in bend_inds]
@@ -99,10 +95,9 @@ def update_internals(
             bend_valid(new_coords3d, prim.inds, bend_min_deg, bend_max_deg)
             for prim in bends
         ]
-        first_bend = bend_inds[0]
-        invalid_inds = [
-            i + first_bend for i, is_valid in enumerate(are_valid) if not is_valid
-        ]
+        invalid_inds.extend(
+            index for index, is_valid in zip(bend_inds, are_valid) if not is_valid
+        )
 
     if len(invalid_inds) > 0:
         invalid_prims = [primitives[i] for i in invalid_inds]
@@ -254,7 +249,7 @@ def transform_int_step(
         for j in range(max_cycles):
             cur_constrained_vals = np.array(new_internals)[constrained_inds]
             diff = constrained_vals - cur_constrained_vals
-            if any(np.abs(diff) <= 1e-5):
+            if np.all(np.abs(diff) <= 1e-5):
                 break
             remaining_int_step = np.zeros_like(remaining_int_step)
             remaining_int_step[constrained_inds] = diff

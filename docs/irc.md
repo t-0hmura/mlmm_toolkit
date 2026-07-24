@@ -52,8 +52,8 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 ## Workflow
 
 1. **Input preparation** -- Load the TS structure, Amber topology (`--parm`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Direct PDB/mmCIF input or `--ref-pdb` supplies the topology used for companion output.
-2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation. When `--embedcharge` is enabled, xTB point-charge embedding (experimental) is applied to correct for MM environment effects on the ML region.
-3. **Frozen-boundary TR treatment** -- `--tr-projection constrained` removes only full-system rigid motions that leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries normally have rank 0. `legacy-active` is an isolated-active comparison treatment, not the physical default.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation. v0.3.3 uses mechanical embedding; electronic-embedding requests are rejected before calculator construction.
+3. **Frozen-boundary TR treatment** -- `--tr-projection constrained` removes only full-system rigid motions that leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries normally have rank 0. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification.
 4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` or `--no-backward` disables a branch). Step size and cycle count control integration length.
 5. **Output & conversion** -- Trajectories are written as XYZ. PDB companions are generated when a PDB/mmCIF reference topology is available and `--convert-files` is enabled. Bridge inputs additionally produce CIF companions with original identifiers.
 
@@ -62,7 +62,7 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 ```text
 out_dir/ (default: ./result_irc/)
 ├─ result.json                      # Present with --out-json; includes rigid_projection provenance
-├─ <prefix>irc_data.h5              # HDF5 dump written every irc.dump_every steps
+├─ <prefix>irc_data.h5              # Low-level periodic checkpoint; YAML opt-in only
 ├─ <prefix>finished_irc_trj.xyz     # Full IRC trajectory (XYZ/TRJ)
 ├─ <prefix>forward_irc_trj.xyz      # Forward path segment
 ├─ <prefix>backward_irc_trj.xyz     # Backward path segment
@@ -72,8 +72,8 @@ out_dir/ (default: ./result_irc/)
 ├─ <prefix>forward_irc.cif          # Forward CIF companion (bridge input)
 ├─ <prefix>backward_irc.pdb         # Backward PDB companion (same gating)
 ├─ <prefix>backward_irc.cif         # Backward CIF companion (bridge input)
-├─ <prefix>forward_last.xyz         # Single-frame forward IRC endpoint (XYZ)
-├─ <prefix>forward_last.pdb/.cif    # Forward endpoint companions, when available
+├─ <prefix>forward_first.xyz        # Single-frame forward IRC endpoint (XYZ)
+├─ <prefix>forward_first.pdb/.cif   # Forward endpoint companions, when available
 ├─ <prefix>backward_last.xyz        # Single-frame backward IRC endpoint (XYZ)
 └─ <prefix>backward_last.pdb/.cif   # Backward endpoint companions, when available
 ```
@@ -81,6 +81,12 @@ out_dir/ (default: ./result_irc/)
 When `irc.prefix` is non-empty, EulerPC inserts one underscore before the
 filename; for example, `prefix: trial` produces
 `trial_finished_irc_trj.xyz`. `result.json.files` records the normalized names.
+
+`irc.dump_every` defaults to `null`, so the HDF5 checkpoint is not written.
+With a positive YAML value it is overwritten periodically with the current
+direction's coordinates, energies, and gradients. It is not a final combined
+IRC artifact, contains no Hessian, and is intentionally omitted from
+`result.json.files`.
 
 Standalone IRC records stitched-path `first` / `last` endpoints and their
 directed bond changes; it does not assign chemical reactant/product identity.
@@ -99,9 +105,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--model-indices-one-based/--model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer/--no-detect-layer` | Detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | `True` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based frozen-atom indices. | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | Rigid-mode treatment for the frozen/partial Hessian. `legacy-active` is an isolated-active comparison treatment. | `constrained` |
-| `-q, --charge INT` | Net charge; overrides `calc.charge` from YAML. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. | _None_ |
+| `--tr-projection [constrained\|legacy-active]` | Rigid-mode treatment for the frozen/partial Hessian. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |
+| `-q, --charge INT` | Net charge of the ML region/model system; overrides `calc.model_charge` from YAML. | _None_ (required unless `-l` is given) |
+| `-l, --ligand-charge TEXT` | Total charge for unknown ligand residues or a per-resname mapping (e.g., `GPP:-3,SAM:1`). Derives the ML-region net charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1); overrides `calc.spin`. | `1` |
 | `--max-cycles INT` | Max number of IRC steps; overrides `irc.max_cycles`. | `125` |
 | `--step-size FLOAT` | Step length in Bohr (unweighted Cartesian); overrides `irc.step_length`. | `0.10` |
@@ -118,19 +124,23 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
-| `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
+| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
+| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--hess-device CHOICE` | Device for initial Hessian storage and IRC operations: `auto`, `cuda`, `cpu`. Use `cpu` for large unfrozen systems. | `auto` |
 | `--read-hess PATH` | Read an identified `.npz` from `mlmm freq --dump-hess`; geometry, atom order, layer selection, and active-DOF basis must match. Takes priority over cache/fresh computation. | _None_ |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
+| `--allow-unverified-hess-state/--no-allow-unverified-hess-state` | Permit a schema-1 Hessian file whose charge/multiplicity cannot be verified; requires `--read-hess` and independent state checking. | `False` |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
 | `--dry-run/--no-dry-run` | Validate and print execution plan without running IRC. Shown in `--help-advanced`. | `False` |
 
-Legacy NPZ files without geometry identity metadata are rejected. If the
-structure or Hessian target layer changed, regenerate the file with `freq`;
-partial-Hessian/PHVA metadata is preserved across a valid handoff.
+NPZ geometry, atom order, active basis, model charge, and multiplicity must
+match the current run. Schema-1 files lack electronic-state identity and
+require the explicit `--allow-unverified-hess-state` opt-in; schema-2 state
+mismatches are always fatal.
+`result.json["rigid_projection"]["electronic_state_verified"]` records whether
+the file handoff was verified.
 
 ## YAML configuration
 
@@ -141,15 +151,15 @@ Shared sections reuse [YAML Reference](yaml-reference.md) for geometry/calculato
 geom:
  coord_type: cart                  # forced to cart for irc (YAML value ignored)
  freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
- tr_projection: constrained        # constrained (default) | legacy-active comparison
+ tr_projection: constrained        # legacy-active is deprecated and comparison-only
 calc:
- charge: 0                         # net charge (CLI override)
+ model_charge: 0                   # ML-region/model-system net charge
  spin: 1                           # spin multiplicity 2S+1
 mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
  backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
- embedcharge: false                # xTB point-charge embedding correction
+ embedcharge: false                # Compatibility tombstone; true is rejected
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
@@ -172,8 +182,10 @@ Full schema (every `irc` key and default): [YAML Reference](yaml-reference.md#ir
 - An all-frozen selection has no IRC direction and raises an explicit error.
 - With `--out-json`, `result.json.rigid_projection` records the selected
   treatment, effective rank, initial-Hessian source, and Hessian shape.
-- `legacy-active` uses the current common projection kernel and numerical rank
-  handling; bitwise identity is not guaranteed for rank-degenerate geometries.
+- `legacy-active` is deprecated comparison-only behavior and must not be used
+  for pass/HOSP transition-state certification. It uses the current common
+  projection kernel; bitwise identity is not guaranteed for rank-degenerate
+  geometries.
 
 ## See Also
 

@@ -289,9 +289,6 @@ class Instanton:
         return np.ravel([image.cart_forces for image in self.images])
 
     @property
-    def cart_hessian(self):
-        return sp.linalg.block_diag(*[image.cart_forces for image in self.images])
-
     def is_analytical_2d(self):
         return self.images[0].is_analytical_2d
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from pysisyphus.Geometry import Geometry
 from pysisyphus.irc.IRC import IRC
 
 
@@ -30,11 +31,10 @@ class _StubGeom:
     def cart_coords(self):
         return self._coords
 
-    @property
-    def cart_hessian(self):
+    def get_energy_and_cart_hessian_at(self, coords):
         self.hessian_calls += 1
-        self.seen_coords.append(self._coords.copy())
-        return self._exact_hessian
+        self.seen_coords.append(np.asarray(coords, dtype=float).copy())
+        return {"hessian": self._exact_hessian}
 
 
 def _guard(coords, exact_hessian, quasi_hessian):
@@ -97,3 +97,61 @@ def test_coordinate_change_requests_a_fresh_exact_hessian() -> None:
     irc.geometry._coords = np.ones(6)  # a later IRC step moved the endpoint
     irc._exact_endpoint_is_pos_def()
     assert irc.geometry.hessian_calls == 2
+
+
+def test_exact_evaluation_does_not_mutate_real_geometry_result_state() -> None:
+    class _Calculator:
+        def __init__(self, exact_hessian):
+            self.exact_hessian = exact_hessian
+            self.seen_coords = []
+
+        def get_hessian(self, _atoms, coords):
+            self.seen_coords.append(np.asarray(coords, dtype=float).copy())
+            return {
+                "energy": 12.0,
+                "forces": np.ones(6),
+                "hessian": self.exact_hessian,
+                "within_partial_hessian": {
+                    "active_n_dof": 6,
+                    "full_n_dof": 6,
+                },
+            }
+
+    coords = np.arange(6, dtype=float) / 10.0
+    exact_hessian = 3.0 * np.eye(6)
+    calculator = _Calculator(exact_hessian)
+    geom = Geometry(["H", "H"], coords, coord_type="cart")
+    geom.set_calculator(calculator)
+
+    prior_hessian = np.eye(6)
+    prior_results = {"energy": -1.0, "tag": "accepted"}
+    prior_partial = {"active_n_dof": 3, "full_n_dof": 6}
+    prior_forces = np.arange(6, dtype=float)
+    prior_true_forces = np.arange(6, dtype=float) + 10.0
+    prior_true_hessian = 2.0 * np.eye(6)
+    prior_all_energies = [-2.0, -1.0]
+    geom._hessian = prior_hessian
+    geom.results = prior_results
+    geom.within_partial_hessian = prior_partial
+    geom._energy = -1.0
+    geom._forces = prior_forces
+    geom.true_energy = -2.0
+    geom.true_forces = prior_true_forces
+    geom.true_hessian = prior_true_hessian
+    geom._all_energies = prior_all_energies
+
+    irc = IRC.__new__(IRC)
+    irc.geometry = geom
+    result = irc._exact_cart_hessian_at_current_coords()
+
+    np.testing.assert_array_equal(result, exact_hessian)
+    np.testing.assert_array_equal(calculator.seen_coords[0], coords)
+    assert geom._hessian is prior_hessian
+    assert geom.results is prior_results
+    assert geom.within_partial_hessian is prior_partial
+    assert geom._energy == -1.0
+    assert geom._forces is prior_forces
+    assert geom.true_energy == -2.0
+    assert geom.true_forces is prior_true_forces
+    assert geom.true_hessian is prior_true_hessian
+    assert geom._all_energies is prior_all_energies

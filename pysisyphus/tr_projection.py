@@ -28,6 +28,15 @@ TR_PROJECTION_MODES = ("constrained", "legacy-active")
 DEFAULT_TR_PROJECTION = "constrained"
 
 
+def allows_saddle_certification(
+    mode: str | None,
+    frozen_atoms: Sequence[int],
+) -> bool:
+    """Return whether this projection can certify a frozen-system saddle."""
+    value = DEFAULT_TR_PROJECTION if mode is None else str(mode).strip().lower()
+    return value != "legacy-active" or len(tuple(frozen_atoms)) == 0
+
+
 @dataclass(frozen=True)
 class TRProjectionInfo:
     """Provenance for a rigid-body projection in the active Cartesian space."""

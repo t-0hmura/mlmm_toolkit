@@ -13,6 +13,28 @@ from mlmm.io.hessian_file import load_hessian_file, save_hessian_file
 from mlmm.workflows.freq import _record_hessian_result_path
 
 
+PES_IDENTITY = {
+    "schema": "hessian-cache-identity/v1",
+    "system": {"atoms": [6, 1, 8]},
+    "evaluator": {
+        "backend": "uma",
+        "model": "uma-s-1p1",
+        "precision": "float64",
+        "potential": {"mm_backend": "hessian_ff"},
+    },
+}
+SAVE_STATE = {
+    "model_charge": 0,
+    "model_mult": 1,
+    "potential_identity": PES_IDENTITY,
+}
+LOAD_STATE = {
+    "expected_model_charge": 0,
+    "expected_model_mult": 1,
+    "expected_potential_identity": PES_IDENTITY,
+}
+
+
 def test_partial_hessian_round_trip_preserves_identity_and_active_dofs(tmp_path) -> None:
     path = tmp_path / "partial.npz"
     coords = np.arange(9, dtype=float) / 10.0
@@ -24,6 +46,7 @@ def test_partial_hessian_round_trip_preserves_identity_and_active_dofs(tmp_path)
         energy_ha=-1.25,
         cart_coords_bohr=coords,
         atomic_numbers=numbers,
+        **SAVE_STATE,
         partial_metadata={
             "active_dofs": active,
             "active_n_dof": 6,
@@ -36,10 +59,16 @@ def test_partial_hessian_round_trip_preserves_identity_and_active_dofs(tmp_path)
         cart_coords_bohr=coords + 1.0e-5,
         atomic_numbers=numbers,
         expected_active_dofs=active,
+        **LOAD_STATE,
     )
 
     np.testing.assert_allclose(loaded["hessian"], np.eye(6))
     assert loaded["energy_ha"] == pytest.approx(-1.25)
+    assert loaded["schema_version"] == 3
+    assert loaded["model_charge"] == 0
+    assert loaded["model_mult"] == 1
+    assert loaded["electronic_state_verified"] is True
+    assert loaded["potential_identity_verified"] is True
     assert loaded["partial_metadata"] == {
         "active_n_dof": 6,
         "full_n_dof": 9,
@@ -63,9 +92,15 @@ def test_hessian_file_rejects_wrong_geometry(tmp_path, coords, numbers, message)
         energy_ha=0.0,
         cart_coords_bohr=np.zeros(3),
         atomic_numbers=np.array([1]),
+        **SAVE_STATE,
     )
     with pytest.raises(ValueError, match=message):
-        load_hessian_file(path, cart_coords_bohr=coords, atomic_numbers=numbers)
+        load_hessian_file(
+            path,
+            cart_coords_bohr=coords,
+            atomic_numbers=numbers,
+            **LOAD_STATE,
+        )
 
 
 def test_hessian_file_rejects_legacy_unidentified_npz(tmp_path) -> None:
@@ -76,6 +111,7 @@ def test_hessian_file_rejects_legacy_unidentified_npz(tmp_path) -> None:
             path,
             cart_coords_bohr=np.zeros(3),
             atomic_numbers=np.array([1]),
+            **LOAD_STATE,
         )
 
 
@@ -97,6 +133,9 @@ def test_hessian_file_rejects_inconsistent_active_metadata(tmp_path) -> None:
             path,
             cart_coords_bohr=np.zeros(6),
             atomic_numbers=np.array([1, 1]),
+            allow_unverified_state=True,
+            allow_unverified_pes=True,
+            **LOAD_STATE,
         )
 
 
@@ -110,6 +149,7 @@ def test_hessian_file_rejects_different_current_active_basis(tmp_path) -> None:
         energy_ha=0.0,
         cart_coords_bohr=coords,
         atomic_numbers=numbers,
+        **SAVE_STATE,
         partial_metadata={
             "active_dofs": [0, 1, 2, 6, 7, 8],
             "active_n_dof": 6,
@@ -123,6 +163,7 @@ def test_hessian_file_rejects_different_current_active_basis(tmp_path) -> None:
             cart_coords_bohr=coords,
             atomic_numbers=numbers,
             expected_active_dofs=[0, 1, 2, 3, 4, 5],
+            **LOAD_STATE,
         )
 
 
@@ -137,6 +178,7 @@ def test_hessian_save_uses_exact_requested_path(tmp_path, name: str) -> None:
         energy_ha=-2.5,
         cart_coords_bohr=coords,
         atomic_numbers=numbers,
+        **SAVE_STATE,
     )
 
     assert returned == requested
@@ -146,6 +188,7 @@ def test_hessian_save_uses_exact_requested_path(tmp_path, name: str) -> None:
         requested,
         cart_coords_bohr=coords,
         atomic_numbers=numbers,
+        **LOAD_STATE,
     )
     np.testing.assert_allclose(loaded["hessian"], np.eye(6))
     assert loaded["energy_ha"] == pytest.approx(-2.5)
@@ -173,7 +216,141 @@ def test_hessian_atomic_publish_failure_preserves_old_exact_artifact(
             energy_ha=0.0,
             cart_coords_bohr=np.zeros(3),
             atomic_numbers=np.array([1]),
+            **SAVE_STATE,
         )
     assert requested.read_bytes() == old
     assert not Path(str(requested) + ".npz").exists()
     assert list(tmp_path.glob(".*.tmp")) == []
+
+
+@pytest.mark.parametrize(
+    ("expected_charge", "expected_mult"),
+    [(1, 1), (0, 3)],
+)
+def test_hessian_file_rejects_electronic_state_mismatch_even_with_override(
+    tmp_path, expected_charge, expected_mult
+) -> None:
+    path = tmp_path / "state.npz"
+    save_hessian_file(
+        path,
+        hessian=np.eye(3),
+        energy_ha=0.0,
+        cart_coords_bohr=np.zeros(3),
+        atomic_numbers=np.array([1]),
+        **SAVE_STATE,
+    )
+    with pytest.raises(ValueError, match="electronic state"):
+        load_hessian_file(
+            path,
+            cart_coords_bohr=np.zeros(3),
+            atomic_numbers=np.array([1]),
+            expected_model_charge=expected_charge,
+            expected_model_mult=expected_mult,
+            allow_unverified_state=True,
+        )
+
+
+def test_schema_one_requires_explicit_unverified_state_opt_in(tmp_path) -> None:
+    path = tmp_path / "schema-one.npz"
+    np.savez_compressed(
+        path,
+        schema_version=np.int64(1),
+        hessian=np.eye(3),
+        energy_ha=0.0,
+        cart_coords_bohr=np.zeros(3),
+        atomic_numbers=np.array([1]),
+    )
+    with pytest.raises(ValueError, match="does not identify model charge"):
+        load_hessian_file(
+            path,
+            cart_coords_bohr=np.zeros(3),
+            atomic_numbers=np.array([1]),
+            **LOAD_STATE,
+        )
+    loaded = load_hessian_file(
+        path,
+        cart_coords_bohr=np.zeros(3),
+        atomic_numbers=np.array([1]),
+        allow_unverified_state=True,
+        allow_unverified_pes=True,
+        **LOAD_STATE,
+    )
+    assert loaded["schema_version"] == 1
+    assert loaded["model_charge"] is None
+    assert loaded["model_mult"] is None
+    assert loaded["electronic_state_verified"] is False
+    assert loaded["potential_identity_verified"] is False
+
+
+@pytest.mark.parametrize("missing", ["model_charge", "model_mult"])
+def test_schema_two_requires_complete_electronic_state_metadata(tmp_path, missing) -> None:
+    payload = {
+        "schema_version": np.int64(2),
+        "hessian": np.eye(3),
+        "energy_ha": 0.0,
+        "cart_coords_bohr": np.zeros(3),
+        "atomic_numbers": np.array([1]),
+        "model_charge": np.int64(0),
+        "model_mult": np.int64(1),
+    }
+    payload.pop(missing)
+    path = tmp_path / f"missing-{missing}.npz"
+    np.savez_compressed(path, **payload)
+    with pytest.raises(ValueError, match="lacks electronic-state metadata"):
+        load_hessian_file(
+            path,
+            cart_coords_bohr=np.zeros(3),
+            atomic_numbers=np.array([1]),
+            allow_unverified_state=True,
+            **LOAD_STATE,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("model_charge", 0.5, "scalar integer"),
+        ("model_mult", 0, "must be >= 1"),
+    ],
+)
+def test_hessian_file_rejects_invalid_state_metadata(tmp_path, field, value, message) -> None:
+    kwargs = dict(SAVE_STATE)
+    kwargs[field] = value
+    with pytest.raises(ValueError, match=message):
+        save_hessian_file(
+            tmp_path / "invalid.npz",
+            hessian=np.eye(3),
+            energy_ha=0.0,
+            cart_coords_bohr=np.zeros(3),
+            atomic_numbers=np.array([1]),
+            **kwargs,
+        )
+
+
+def test_hessian_file_rejects_pes_identity_mismatch(tmp_path) -> None:
+    path = tmp_path / "pes.npz"
+    save_hessian_file(
+        path,
+        hessian=np.eye(3),
+        energy_ha=0.0,
+        cart_coords_bohr=np.zeros(3),
+        atomic_numbers=np.array([1]),
+        **SAVE_STATE,
+    )
+
+    different = {
+        **PES_IDENTITY,
+        "evaluator": {
+            **PES_IDENTITY["evaluator"],
+            "precision": "float32",
+        },
+    }
+    with pytest.raises(ValueError, match="PES identity"):
+        load_hessian_file(
+            path,
+            cart_coords_bohr=np.zeros(3),
+            atomic_numbers=np.array([1]),
+            expected_model_charge=0,
+            expected_model_mult=1,
+            expected_potential_identity=different,
+        )

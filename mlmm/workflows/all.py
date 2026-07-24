@@ -30,6 +30,16 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+
+def _validate_postprocessing_dependencies(
+    *, do_tsopt: bool, do_thermo: bool, do_dft: bool
+) -> None:
+    if (do_thermo or do_dft) and not do_tsopt:
+        raise click.UsageError(
+            "`all --thermo` and `all --dft` require `--tsopt`; an unoptimized "
+            "MEP highest-energy image is not a validated transition state."
+        )
+
 # Biopython for PDB parsing (post-processing helpers)
 from Bio import PDB
 
@@ -39,6 +49,10 @@ from pysisyphus.constants import BOHR2ANG, AU2KCALPERMOL
 
 # Local imports from the package
 from mlmm.workflows.extract import extract_api, compute_charge_summary, log_charge_summary
+from mlmm.workflows.charge_prep import (
+    configured_model_charge_spin,
+    infer_present_terminal_cap_ids,
+)
 from mlmm.workflows import path_search as _path_search
 from mlmm.workflows import path_opt as _path_opt
 from mlmm.workflows import opt as _opt_cli
@@ -91,13 +105,15 @@ from mlmm.workflows._run_session import (
     refresh_current_public_outputs as _refresh_current_public_outputs,
 )
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg
-from mlmm.cli.preflight import validate_existing_files, ensure_commands_available
+from mlmm.cli.preflight import validate_existing_files
 from mlmm.workflows import scan as _scan_cli
 from mlmm.domain.add_elem_info import assign_elements as _assign_elem_info
 from mlmm.workflows.define_layer import define_layers as _define_layers
 from mlmm.backends.mlmm_calc import mlmm as _mlmm_calc
 from mlmm.workflows.mm_parm import (
     Args as _AutoMMArgs,
+    ambertools_command_paths as _ambertools_command_paths,
+    missing_ambertools_commands as _missing_ambertools_commands,
     parse_ligand_charge as _mm_parse_ligand_charge,
     parse_ligand_mult as _mm_parse_ligand_mult,
     run_pipeline as _mm_run,
@@ -354,7 +370,7 @@ def _emit_final_summary(
     """Print a visual `====== Pipeline summary ======` block + Elapsed line.
 
     Reads ``summary.json`` if present and lifts the most-asked-for numbers
-    (status, rate-limiting barrier, reaction energy, reactive-segment count,
+    (status, highest local barrier, reaction energy, reactive-segment count,
     output dir) so the user sees them at the bottom of the log without
     scrolling back through `[diagram] Wrote ...` / `[time] Elapsed Time
     for X:` clutter. Falls back to just the Elapsed line when summary.json
@@ -389,7 +405,7 @@ def _emit_final_summary(
             method = rls.get("method", "?")
             if barrier is not None:
                 _echo(
-                    f"Rate-limiting barrier: {float(barrier):.2f} kcal/mol (segment {seg_idx}, method {method})",
+                    f"Highest local barrier: {float(barrier):.2f} kcal/mol (segment {seg_idx}, method {method})",
                     narrative=True,
                 )
         rxn_e = summary.get("overall_reaction_energy_kcal")
@@ -742,6 +758,12 @@ def _ml_region_summary_suffix(pdb_path: Path) -> str:
     return f" (atoms={summary[0]}, sumZ={summary[1]})"
 
 
+def _element_fix_path(root: Path, source: Path, ordinal: int) -> Path:
+    """Allocate a collision-free private element-repair path."""
+
+    return (Path(root) / f"{int(ordinal):03d}_{Path(source).name}").resolve()
+
+
 def _mm_charge_mapping(expr: Optional[str]) -> Dict[str, int]:
     """Return a ligand-charge mapping for mm_parm when ``expr`` uses RES=Q or RES:Q syntax."""
     if not expr:
@@ -877,14 +899,14 @@ def _format_scan_stage(stage: List[Tuple[int, int, float]]) -> str:
 
 def _round_charge_with_note(q: float) -> int:
     """
-    Cast the extractor's total charge (float) to an integer suitable for the path search.
+    Cast the extractor's ML-region charge (float) to an integer suitable for the path search.
     If it is not already an integer within 1e-6, round to the nearest integer with a console note.
     """
     q_rounded = int(round(float(q)))
     if not math.isfinite(q):
         raise click.BadParameter(f"Computed total charge is non-finite: {q!r}")
     if abs(float(q) - q_rounded) > 1e-6:
-        click.echo(f"[all] NOTE: extractor total charge = {q:g} → rounded to integer {q_rounded} for the path search.")
+        click.echo(f"[all] NOTE: extractor ML-region charge = {q:g} → rounded to integer {q_rounded} for the path search.")
     return q_rounded
 
 
@@ -892,7 +914,7 @@ def _derive_charge_from_ligand_charge_when_extract_skipped(
     pdb_path: Path,
     ligand_charge: Optional[str],
 ) -> Optional[int]:
-    """Derive total charge from a PDB using extract-style charge summary.
+    """Derive the ML-region charge from a PDB using extract-style charge summary.
 
     *pdb_path* may be a full-complex PDB or a --model-pdb pocket.
     """
@@ -902,7 +924,18 @@ def _derive_charge_from_ligand_charge_when_extract_skipped(
         parser = PDB.PDBParser(QUIET=True)
         complex_struct = parser.get_structure("complex", str(pdb_path))
         selected_ids = {res.get_full_id() for res in complex_struct.get_residues()}
-        summary = compute_charge_summary(complex_struct, selected_ids, set(), ligand_charge)
+        keep_ncap_ids, keep_ccap_ids = infer_present_terminal_cap_ids(
+            complex_struct,
+            selected_ids,
+        )
+        summary = compute_charge_summary(
+            complex_struct,
+            selected_ids,
+            set(),
+            ligand_charge,
+            keep_ncap_ids=keep_ncap_ids,
+            keep_ccap_ids=keep_ccap_ids,
+        )
         log_charge_summary("[all]", summary)
         q_total = float(summary.get("total_charge", 0.0))
         click.echo(f"[all] Charge summary from {pdb_path.name} (--ligand-charge without extraction):")
@@ -915,7 +948,7 @@ def _derive_charge_from_ligand_charge_when_extract_skipped(
         return _round_charge_with_note(q_total)
     except Exception as e:
         click.echo(
-            f"[all] NOTE: failed to derive total charge from --ligand-charge: {e}",
+            f"[all] NOTE: failed to derive ML-region charge from --ligand-charge: {e}",
             err=True,
         )
         return None
@@ -940,11 +973,7 @@ def _derive_ml_charge_from_layered_pdb(
     if ligand_charge is None:
         return None
     try:
-        from mlmm.workflows.extract import (
-            compute_charge_summary,
-            are_peptide_adjacent,
-            AMINO_ACIDS,
-        )
+        from mlmm.workflows.extract import compute_charge_summary
 
         parser = PDB.PDBParser(QUIET=True)
         st = parser.get_structure("complex", str(pdb_path))
@@ -955,26 +984,7 @@ def _derive_ml_charge_from_layered_pdb(
         }
         if not ml_ids:
             return None
-        keep_ncap = set()
-        keep_ccap = set()
-        for res in st.get_residues():
-            fid = res.get_full_id()
-            if fid not in ml_ids or res.get_resname() not in AMINO_ACIDS:
-                continue
-            chain_res = list(res.get_parent().get_residues())
-            idx = chain_res.index(res)
-            prev_aa = next(
-                (chain_res[j] for j in range(idx - 1, -1, -1) if chain_res[j].get_resname() in AMINO_ACIDS),
-                None,
-            )
-            next_aa = next(
-                (chain_res[j] for j in range(idx + 1, len(chain_res)) if chain_res[j].get_resname() in AMINO_ACIDS),
-                None,
-            )
-            if not (prev_aa is not None and are_peptide_adjacent(prev_aa, res) and prev_aa.get_full_id() in ml_ids):
-                keep_ncap.add(fid)
-            if not (next_aa is not None and are_peptide_adjacent(res, next_aa) and next_aa.get_full_id() in ml_ids):
-                keep_ccap.add(fid)
+        keep_ncap, keep_ccap = infer_present_terminal_cap_ids(st, ml_ids)
         summary = compute_charge_summary(
             st, ml_ids, set(), ligand_charge,
             keep_ncap_ids=keep_ncap, keep_ccap_ids=keep_ccap,
@@ -1020,6 +1030,24 @@ def _pdb_needs_elem_fix(p: Path) -> bool:
 # convergence-gated aggregate: scientific_status is never LESS severe than the
 # legacy ``status`` (so a nonconverged leaf can only demote, never promote).
 _STATUS_SEVERITY = {"success": 0, "partial": 1, "failed": 2}
+
+
+def _is_reactive_segment(item: Any) -> bool:
+    """Return whether a segment legitimately requires TS post-processing."""
+    if not isinstance(item, dict):
+        return False
+    kind = item.get("kind", "seg")
+    if kind == "tsopt":
+        return True
+    if kind != "seg":
+        return False
+    # Legacy/directly constructed segment records predate bond-change
+    # serialization and remain reactive.  Only an explicit no-change result
+    # suppresses post-processing.
+    if "bond_changes" not in item:
+        return True
+    changes = str(item.get("bond_changes", "")).strip()
+    return bool(changes and changes != "(no covalent changes detected)")
 
 
 def _read_irc_outcome(irc_dir: Path) -> Dict[str, Any]:
@@ -1162,10 +1190,11 @@ def _pipeline_aggregate_truth(
     )
 
     segments = summary.get("segments") or []
-    reactive = [
-        s for s in segments if isinstance(s, dict) and s.get("kind") != "bridge"
-    ]
+    reactive = [s for s in segments if _is_reactive_segment(s)]
     cfg = config or {}
+    post_requested = any(
+        bool(cfg.get(name)) for name in ("tsopt", "thermo", "dft")
+    )
     tsopt_requested = bool(cfg.get("tsopt"))
     legacy_reasons = list(legacy_reasons or [])
 
@@ -1231,6 +1260,19 @@ def _pipeline_aggregate_truth(
                 converged = _and3(converged, None)
                 if not reason:
                     reason = "irc_missing"
+            if tsopt_requested and s.get("kind") != "tsopt":
+                endpoint_assignment = post.get("endpoint_assignment")
+                connectivity = (
+                    endpoint_assignment.get("connectivity_validated")
+                    if isinstance(endpoint_assignment, dict)
+                    else None
+                )
+                connectivity_truth = (
+                    connectivity if isinstance(connectivity, bool) else None
+                )
+                converged = _and3(converged, connectivity_truth)
+                if connectivity_truth is not True and not reason:
+                    reason = "irc_endpoint_connectivity_unvalidated"
             eo = post.get("endpoint_opt")
             if isinstance(eo, dict):
                 for _k in ("reactant_converged", "product_converged"):
@@ -1239,7 +1281,7 @@ def _pipeline_aggregate_truth(
                         converged = _and3(converged, _v if isinstance(_v, bool) else None)
                         if not (isinstance(_v, bool) and _v) and not reason:
                             reason = f"endpoint_opt:{_k}"
-        elif tsopt_requested:
+        elif post_requested:
             # tsopt was requested but this segment's IRC/endpoint post-processing
             # has not run yet (the intermediate MEP summary is written before
             # post-processing). Fail closed rather than promote a reactive leaf on
@@ -1258,7 +1300,7 @@ def _pipeline_aggregate_truth(
                 "all",
                 seg_id,
                 required=True,
-                executed=True,
+                executed=(post is not None) if post_requested else True,
                 converged=converged,
                 reason=reason,
                 artifacts=artifacts,
@@ -1270,7 +1312,17 @@ def _pipeline_aggregate_truth(
         agg_sci = agg.scientific_status
         agg_exec = agg.execution_status
         agg_reasons = list(agg.status_reasons)
-        observed = list(agg.observed_item_ids)
+        observed = (
+            [
+                item_id
+                for item_id in expected
+                if item_id.removeprefix("segment_") in {
+                    str(index) for index in post_by_idx
+                }
+            ]
+            if post_requested
+            else list(agg.observed_item_ids)
+        )
     else:
         # No reactive-segment leaves to gate on (degenerate/endpoint-only
         # summary): mirror the legacy completeness axis rather than manufacture a
@@ -1349,8 +1401,22 @@ def _derive_pipeline_status(
     requested = any(bool(cfg.get(name)) for name in ("tsopt", "thermo", "dft"))
     if post_segments is not None and requested:
         logs = [item for item in post_segments if isinstance(item, dict)]
-        if not logs:
+        reactive_ids = {
+            item.get("index")
+            for item in segments
+            if _is_reactive_segment(item) and item.get("index") is not None
+        }
+        if not logs and reactive_ids:
             reasons.append("requested post-processing produced no segment records")
+        observed_ids = {
+            item.get("index")
+            for item in logs
+            if item.get("index") is not None
+        }
+        for missing_idx in sorted(reactive_ids - observed_ids, key=str):
+            reasons.append(
+                f"segment {missing_idx}: requested post-processing record is missing"
+            )
         for ordinal, item in enumerate(logs, start=1):
             prefix = f"segment {item.get('index', ordinal)}"
             if cfg.get("tsopt"):
@@ -1410,8 +1476,9 @@ def _enrich_summary(
     from mlmm.core.utils import RESULT_JSON_SCHEMA_VERSION
 
     segments = summary.get("segments", [])
-    reactive = [s for s in segments if s.get("kind") != "bridge"]
+    reactive = [s for s in segments if _is_reactive_segment(s)]
     n_reactive = len(reactive)
+    ts_only = pipeline_mode == "tsopt-only"
 
     status, status_reasons = _derive_pipeline_status(
         summary,
@@ -1428,6 +1495,8 @@ def _enrich_summary(
     method_key = None
     rls = None
     if reactive:
+        # ``rate_limiting_step`` is a legacy schema key for the highest
+        # independently referenced local barrier, not a kinetic RLS assignment.
         def _has_finite_barrier(block: Any) -> bool:
             if not isinstance(block, dict) or block.get("barrier_kcal") is None:
                 return False
@@ -1452,7 +1521,7 @@ def _enrich_summary(
                 method_key = candidate_key
                 break
         if best_method is None:
-            best_method = "MEP"
+            best_method = "MLIP" if ts_only else "MEP"
 
         max_barrier = -1e9
         for s in reactive:
@@ -1466,15 +1535,22 @@ def _enrich_summary(
                 method = best_method
             else:
                 b = float(s.get("barrier_kcal", 0) or 0)
-                method = "MEP"
+                method = (
+                    "MLIP"
+                    if ts_only and s.get("kind") == "tsopt"
+                    else "MEP"
+                )
             if b > max_barrier:
                 max_barrier = b
                 rls = {
                     "segment": s.get("index"),
                     "barrier_kcal": round(b, 2),
                     "method": method,
-                    "mep_barrier_kcal": round(float(s.get("barrier_kcal", 0) or 0), 2),
                 }
+                if not (ts_only and s.get("kind") == "tsopt"):
+                    rls["mep_barrier_kcal"] = round(
+                        float(s.get("barrier_kcal", 0) or 0), 2
+                    )
 
     overall_rxn_e = None
     overall_rxn_method = None
@@ -1540,9 +1616,14 @@ def _enrich_summary(
     summary["n_segments_reactive"] = n_reactive
     if rls:
         summary["rate_limiting_step"] = rls
+    else:
+        summary.pop("rate_limiting_step", None)
     if overall_rxn_e is not None:
         summary["overall_reaction_energy_kcal"] = overall_rxn_e
         summary["overall_reaction_energy_method"] = overall_rxn_method
+    else:
+        summary.pop("overall_reaction_energy_kcal", None)
+        summary.pop("overall_reaction_energy_method", None)
     if command:
         summary["command"] = command
     if config:
@@ -1615,6 +1696,29 @@ def _json_safe(obj):
     if isinstance(obj, (list, tuple)):
         return [_json_safe(item) for item in obj]
     return obj
+
+
+def _required_xyz_block_energies(
+    blocks: Sequence[Sequence[str]],
+    *,
+    path: Path,
+    context: str,
+) -> List[float]:
+    """Return one finite Hartree energy per XYZ block or fail the segment."""
+    from mlmm.io.xyz_trajectory import parse_xyz_energy_comment
+
+    energies: List[float] = []
+    for frame_index, block in enumerate(blocks, start=1):
+        comment = block[1] if len(block) >= 2 else ""
+        energy, provenance = parse_xyz_energy_comment(comment)
+        if energy is None or not np.isfinite(energy):
+            raise click.ClickException(
+                f"[all] {context} trajectory {path} has no unambiguous finite "
+                f"energy in frame {frame_index} ({provenance}); write "
+                "E=<value> with an optional unit."
+            )
+        energies.append(float(energy))
+    return energies
 
 
 def _commit_summary_json(
@@ -1843,6 +1947,97 @@ def _load_segment_end_geoms(seg_pdb: Path, freeze_atoms: Sequence[int]) -> Tuple
     return gL, gR
 
 
+def _orient_irc_endpoint_geometries(
+    g_left: Any,
+    g_right: Any,
+    g_mep_left: Any,
+    g_mep_right: Any,
+) -> Tuple[Any, Any, str, str, bool, Dict[str, Any]]:
+    """Orient IRC endpoints; topology decides only an unambiguous XOR."""
+
+    bond_cfg = dict(_path_search.BOND_KW)
+
+    def _matches(x: Any, y: Any) -> bool:
+        try:
+            changed, _ = _path_search._has_bond_change(x, y, bond_cfg)
+            return not changed
+        except Exception:
+            return False
+
+    def _rmsd_cart(g1: Any, g2: Any) -> float:
+        c1 = np.asarray(g1.coords).reshape(-1, 3)
+        c2 = np.asarray(g2.coords).reshape(-1, 3)
+        n = min(len(c1), len(c2))
+        return float(np.sqrt(np.mean((c1[:n] - c2[:n]) ** 2)))
+
+    match_LL = _matches(g_left, g_mep_left)
+    match_LR = _matches(g_left, g_mep_right)
+    match_RL = _matches(g_right, g_mep_left)
+    match_RR = _matches(g_right, g_mep_right)
+    direct_match = bool(match_LL and match_RR)
+    swapped_match = bool(match_LR and match_RL)
+    reverse_irc = False
+    assignment: Dict[str, Any] = {
+        "match_matrix": {
+            "left_to_mep_left": bool(match_LL),
+            "left_to_mep_right": bool(match_LR),
+            "right_to_mep_left": bool(match_RL),
+            "right_to_mep_right": bool(match_RR),
+        },
+        "reversed": False,
+    }
+
+    if direct_match ^ swapped_match:
+        assignment["method"] = "bond_topology"
+        assignment["connectivity_validated"] = True
+        reverse_irc = swapped_match
+    else:
+        assignment["method"] = (
+            "rmsd_topology_tie"
+            if direct_match and swapped_match
+            else "rmsd_topology_unmatched"
+        )
+        assignment["connectivity_validated"] = bool(
+            direct_match and swapped_match
+        )
+        try:
+            direct_score = float(
+                _rmsd_cart(g_left, g_mep_left)
+                + _rmsd_cart(g_right, g_mep_right)
+            )
+            swapped_score = float(
+                _rmsd_cart(g_left, g_mep_right)
+                + _rmsd_cart(g_right, g_mep_left)
+            )
+            assignment["rmsd_direct"] = direct_score
+            assignment["rmsd_swapped"] = swapped_score
+            reverse_irc = swapped_score < direct_score
+        except Exception as exc:
+            assignment["method"] = "unresolved"
+            assignment["connectivity_validated"] = False
+            assignment["reason"] = f"rmsd_failed:{exc}"
+        if not assignment["connectivity_validated"]:
+            assignment.setdefault(
+                "reason",
+                "neither endpoint pairing matched the MEP bond topology",
+            )
+
+    if reverse_irc:
+        g_left, g_right = g_right, g_left
+        left_tag, right_tag = "backward", "forward"
+    else:
+        left_tag, right_tag = "forward", "backward"
+    assignment["reversed"] = bool(reverse_irc)
+    return (
+        g_left,
+        g_right,
+        left_tag,
+        right_tag,
+        reverse_irc,
+        assignment,
+    )
+
+
 def _irc_and_match(seg_idx: int,
                    seg_dir: Path,
                    ref_pdb_for_seg: Path,
@@ -2002,6 +2197,14 @@ def _irc_and_match(seg_idx: int,
         left_tag = "forward"
         right_tag = "backward"
         reverse_irc = False
+        expects_mep_endpoints = mep_dir is not None
+        endpoint_assignment: Dict[str, Any] = {
+            "method": "raw",
+            "reversed": False,
+            "connectivity_validated": (
+                False if expects_mep_endpoints else None
+            ),
+        }
 
         # Try to load segment endpoints for mapping.
         # mep_seg_NN.pdb is written by the MEP engine under path_dir (now _work/path_*);
@@ -2014,48 +2217,27 @@ def _irc_and_match(seg_idx: int,
             try:
                 gL_end, gR_end = _load_segment_end_geoms(seg_pocket_path, [])
             except Exception as e:
+                endpoint_assignment["method"] = "unresolved"
+                endpoint_assignment["reason"] = f"mep_endpoint_load_failed:{e}"
                 click.echo(f"[post] WARNING: failed to load segment endpoints: {e}", err=True)
+        elif expects_mep_endpoints:
+            endpoint_assignment["reason"] = "mep_endpoint_trajectory_missing"
 
         # Map IRC endpoints to left/right using bond-change analysis
         if gL_end is not None and gR_end is not None:
-            bond_cfg = dict(_path_search.BOND_KW)
-
-            def _matches(x, y) -> bool:
-                try:
-                    chg, _ = _path_search._has_bond_change(x, y, bond_cfg)
-                    return not chg
-                except Exception:
-                    return False
-
-            def _rmsd_cart(g1, g2) -> float:
-                c1 = np.asarray(g1.coords).reshape(-1, 3)
-                c2 = np.asarray(g2.coords).reshape(-1, 3)
-                n = min(len(c1), len(c2))
-                return float(np.sqrt(np.mean((c1[:n] - c2[:n]) ** 2)))
-
-            # Check if IRC endpoints need swapping
-            match_LL = _matches(g_left, gL_end)
-            match_LR = _matches(g_left, gR_end)
-            match_RL = _matches(g_right, gL_end)
-            match_RR = _matches(g_right, gR_end)
-
-            if match_LR and match_RL and not (match_LL and match_RR):
-                # Raw stitched order is forward endpoint first, backward endpoint
-                # last.  Here forward matches the segment right and backward the
-                # segment left, so swap the geometries and their direction tags.
-                g_left, g_right = g_right, g_left
-                left_tag, right_tag = right_tag, left_tag
-                reverse_irc = True
-            elif not (match_LL and match_RR):
-                # RMSD-based fallback
-                d_LL = _rmsd_cart(g_left, gL_end)
-                d_LR = _rmsd_cart(g_left, gR_end)
-                d_RL = _rmsd_cart(g_right, gL_end)
-                d_RR = _rmsd_cart(g_right, gR_end)
-                if (d_LR + d_RL) < (d_LL + d_RR):
-                    g_left, g_right = g_right, g_left
-                    left_tag, right_tag = right_tag, left_tag
-                    reverse_irc = True
+            (
+                g_left,
+                g_right,
+                left_tag,
+                right_tag,
+                reverse_irc,
+                endpoint_assignment,
+            ) = _orient_irc_endpoint_geometries(
+                g_left,
+                g_right,
+                gL_end,
+                gR_end,
+            )
 
         return {
             "left_min_geom": g_left,
@@ -2066,6 +2248,7 @@ def _irc_and_match(seg_idx: int,
             "irc_trj": str(finished_trj) if finished_trj.exists() else None,
             "irc_plot": str(irc_plot) if irc_plot.exists() else None,
             "reverse_irc": reverse_irc,
+            "endpoint_assignment": endpoint_assignment,
             "calculator_lease": lease,
             # M42/C6: the child's truthful per-direction convergence. The IRC leaf
             # is usable only when EVERY requested direction explicitly converged; a
@@ -2322,11 +2505,15 @@ def _ensure_hei_path_tangent(
         if len(blocks) == len(images):
             parsed = []
             for block in blocks:
-                try:
-                    parsed.append(float(block[1].split()[0]))
-                except (IndexError, TypeError, ValueError):
-                    parsed.append(float("nan"))
-            if np.all(np.isfinite(parsed)):
+                from mlmm.io.xyz_trajectory import parse_xyz_energy_comment
+
+                comment = block[1] if len(block) >= 2 else ""
+                energy, _provenance = parse_xyz_energy_comment(comment)
+                parsed.append(energy)
+            if all(
+                energy is not None and np.isfinite(energy)
+                for energy in parsed
+            ):
                 energies = parsed
         tangent = _path_search._normalized_path_tangent(
             [np.asarray(image.positions, dtype=float) for image in images],
@@ -2515,6 +2702,7 @@ def _run_freq_for_state(pdb_path: Path,
         args.extend(["--sort", str(overrides.get("sort"))])
     _append_cli_arg(args, "--temperature", overrides.get("temperature"))
     _append_cli_arg(args, "--pressure", overrides.get("pressure"))
+    _append_cli_arg(args, "--symmetry-number", overrides.get("symmetry_number"))
     _append_toggle_arg(args, "--dump", dump_use)
     _append_toggle_arg(args, "--convert-files", overrides.get("convert_files"))
 
@@ -2545,6 +2733,8 @@ def _run_freq_for_state(pdb_path: Path,
             "unusable and will not enter any Gibbs diagram.",
             err=True,
         )
+        return {}
+    if not bool(dump_use):
         return {}
     # parse thermoanalysis.yaml if any
     y = fdir / "thermoanalysis.yaml"
@@ -2803,6 +2993,31 @@ def _dft_total_mlmm_energy_ha(result: Dict[str, Any]) -> Optional[float]:
     return _finite_float((result.get("mlmm_energy") or {}).get("E_total_ml_dft_mm_hartree"))
 
 
+def _dft_mlmm_gibbs_triplet(
+    dft_results: Dict[str, Dict[str, Any]],
+    thermo_payloads: Dict[str, Dict[str, Any]],
+) -> Optional[Tuple[float, float, float]]:
+    """Combine subtractive DFT//MLIP/MM totals with ML/MM thermal corrections."""
+    from mlmm.workflows._all_helpers import validated_thermo_triplet
+
+    electronic = {
+        label: _dft_total_mlmm_energy_ha(dft_results.get(label) or {})
+        for label in ("R", "TS", "P")
+    }
+    thermal_triplet = validated_thermo_triplet(
+        thermo_payloads, "thermal_correction_free_energy_ha"
+    )
+    if thermal_triplet is None or any(
+        electronic[label] is None for label in ("R", "TS", "P")
+    ):
+        return None
+    thermal = dict(zip(("R", "TS", "P"), thermal_triplet))
+    return tuple(
+        float(electronic[label]) + float(thermal[label])
+        for label in ("R", "TS", "P")
+    )
+
+
 def _run_dft_for_state(pdb_path: Path,
                        q_int: int,
                        spin: int,
@@ -3007,7 +3222,10 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "charge_override",
     type=int,
     default=None,
-    help="Force total system charge. Highest priority over derived charges.",
+    help=(
+        "Override the net charge of the ML region/model atoms. "
+        "Highest priority over the charge derived by the workflow."
+    ),
 )
 @click.option(
     "--parm",
@@ -3055,7 +3273,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default=True,
     help=(
         "Rigid translation/rotation treatment forwarded to TSopt, IRC, freq, "
-        "and flatten PHVA. The default respects frozen anchors."
+        "and flatten PHVA. The default respects frozen anchors; 'legacy-active' "
+        "is deprecated and must not be used for pass/HOSP transition-state certification."
     ),
 )
 @click.option(
@@ -3224,6 +3443,15 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Override freq thermochemistry temperature (K).")
 @click.option("--freq-pressure", type=float, default=None,
               help="Override freq thermochemistry pressure (atm).")
+@click.option(
+    "--freq-symmetry-number",
+    type=click.IntRange(min=1),
+    default=None,
+    help=(
+        "Use one rotational symmetry number for every R/TS/P frequency job. "
+        "When omitted, each child follows its YAML/default setting."
+    ),
+)
 @click.option("--dft-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override dft output base directory (relative paths resolved against the default).")
 @click.option("--dft-func-basis", type=str, default=None,
@@ -3286,7 +3514,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -3294,8 +3522,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method",
@@ -3311,7 +3538,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -3401,6 +3628,7 @@ def cli(
     freq_sort: Optional[str],
     freq_temperature: Optional[float],
     freq_pressure: Optional[float],
+    freq_symmetry_number: Optional[int],
     dft_out_dir: Optional[Path],
     dft_func_basis: Optional[str],
     dft_max_cycle: Optional[int],
@@ -3485,6 +3713,17 @@ def cli(
     # do not emit --no-embedcharge to downstream subprocesses (otherwise a `calc.embedcharge: true`
     # in --config YAML is silently overridden by the CLI default).
     embedcharge_explicit = _is_param_explicit("embedcharge")
+    from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+    # Reject explicit activation before resolving inputs or calculator state.
+    # A later check covers activation inherited from YAML.
+    if (embedcharge_explicit and embedcharge) or _is_param_explicit(
+        "embedcharge_cutoff"
+    ):
+        reject_retired_embedcharge_cli(
+            {"embedcharge": embedcharge},
+            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+        )
 
     config_yaml, override_yaml, _ = resolve_yaml_sources(config_yaml, None, None)
     args_yaml, merged_yaml_cfg = _build_effective_args_yaml(
@@ -3492,6 +3731,11 @@ def cli(
         override_yaml=None,
         tmp_prefix="mlmm_all_merged_",
     )
+    yaml_model_charge, yaml_model_spin = configured_model_charge_spin(
+        merged_yaml_cfg
+    )
+    if not _is_param_explicit("spin") and yaml_model_spin is not None:
+        spin = int(yaml_model_spin)
     _dmf_yaml_cfg = (
         merged_yaml_cfg.get("dmf", {})
         if isinstance(merged_yaml_cfg, dict)
@@ -3554,6 +3798,10 @@ def cli(
         mm_backend=mm_backend,
         use_cmap=use_cmap,
     )
+    reject_retired_embedcharge_cli(
+        resolved_calc_template.materialize(),
+        cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+    )
 
     mm_ff_set = "ff14SB" if str(mm_ff_set).lower().startswith("ff14") else "ff19SB"
 
@@ -3574,6 +3822,11 @@ def cli(
 
     is_single = (len(input_paths) == 1)
     has_scan = bool(scan_lists_raw)
+    if has_scan and not is_single:
+        raise click.BadParameter(
+            "--scan-lists requires exactly one input structure; provide one "
+            "reactant for a staged scan or omit --scan-lists for an endpoint path."
+        )
     single_tsopt_mode = (is_single and (not has_scan) and do_tsopt)
 
     if (len(input_paths) < 2) and (not (is_single and (has_scan or do_tsopt))):
@@ -3639,6 +3892,12 @@ def cli(
             narrative=True,
         )
 
+    _validate_postprocessing_dependencies(
+        do_tsopt=do_tsopt,
+        do_thermo=do_thermo,
+        do_dft=do_dft,
+    )
+
     _mode_alias = {
         "grad": "grad",
         "hess": "hess",
@@ -3703,6 +3962,16 @@ def cli(
         skip_final_freq=skip_final_freq,
         skip_final_freq_explicit=("skip_final_freq" in explicit_params),
     )
+    from mlmm.workflows.freq import _validated_thermo_condition
+
+    if freq_temperature is not None:
+        freq_temperature = _validated_thermo_condition(
+            freq_temperature, name="temperature"
+        )
+    if freq_pressure is not None:
+        freq_pressure = _validated_thermo_condition(
+            freq_pressure, name="pressure_atm"
+        )
     freq_overrides = _build_freq_overrides(
         freq_max_write=freq_max_write,
         freq_amplitude_ang=freq_amplitude_ang,
@@ -3710,8 +3979,10 @@ def cli(
         freq_sort=freq_sort,
         freq_temperature=freq_temperature,
         freq_pressure=freq_pressure,
+        freq_symmetry_number=freq_symmetry_number,
         dump_override_requested=dump_override_requested,
         dump=dump,
+        require_thermo_artifact=do_thermo,
         hessian_calc_mode=hessian_calc_mode,
         convert_files=convert_files,
         convert_files_explicit=("convert_files" in explicit_params),
@@ -3797,9 +4068,7 @@ def cli(
                     input_label=str(prepared.display_path),
                     topology_label=str(parm7_override),
                 )
-        elif not all(
-            shutil.which(command) for command in ("tleap", "antechamber", "parmchk2")
-        ):
+        elif _missing_ambertools_commands(_ambertools_command_paths()):
             raise click.ClickException(
                 "[all] AmberTools commands tleap, antechamber, and parmchk2 are "
                 "required when --parm is not supplied."
@@ -3901,13 +4170,13 @@ def cli(
     elem_tmp_dir = work_dir / "add_elem_info"
     inputs_for_extract: List[Path] = []
     elem_fix_echo=False
-    for p in input_paths:
+    for input_ordinal, p in enumerate(input_paths, start=1):
         if _pdb_needs_elem_fix(p):
             if elem_fix_echo==False:
                 _echo_section("====== [all] Preflight — add_elem_info (only when element fields are missing) ======")
                 elem_fix_echo=True
             ensure_dir(elem_tmp_dir)
-            out_p = (elem_tmp_dir / p.name).resolve()
+            out_p = _element_fix_path(elem_tmp_dir, p, input_ordinal)
             try:
                 _assign_elem_info(str(p), str(out_p), overwrite=False)
                 _echo(f"[all] add_elem_info: fixed elements → {out_p}")
@@ -4021,21 +4290,31 @@ def cli(
             )
             resolved_charge = _round_charge_with_note(q_total)
         except Exception as e:
-            raise click.ClickException(f"[all] Could not obtain total charge from extractor: {e}")
+            raise click.ClickException(f"[all] Could not obtain ML-region charge from extractor: {e}")
 
     if charge_override is not None:
         q_int = int(charge_override)
-        override_msg = f"[all] WARNING: -q/--charge override supplied; forcing TOTAL system charge to {q_int:+d}"
+        override_msg = (
+            "[all] WARNING: -q/--charge override supplied; "
+            f"forcing ML-region charge to {q_int:+d}"
+        )
         if resolved_charge is not None:
             override_msg += f" (would otherwise use {int(resolved_charge):+d} from workflow)"
         _echo(override_msg)
     else:
         if resolved_charge is None:
-            raise click.ClickException(
-                "[all] Total charge could not be resolved. Provide -q/--charge, "
-                "or provide --ligand-charge when extraction is skipped."
+            if yaml_model_charge is None:
+                raise click.ClickException(
+                    "[all] ML-region charge could not be resolved. Provide "
+                    "-q/--charge, --ligand-charge, or calc.model_charge in YAML."
+                )
+            q_int = int(yaml_model_charge)
+            _echo(
+                "[all] ML-region charge from YAML "
+                f"calc.model_charge: {q_int:+d}"
             )
-        q_int = int(resolved_charge)
+        else:
+            q_int = int(resolved_charge)
 
     # Stage 1b: ML-region definition (copy first pocket) and mm_parm on the first full input
     _echo_section("====== [all] Stage 1b — ML/MM preparation — ML region + parm7 ======")
@@ -4084,10 +4363,16 @@ def cli(
     else:
         _echo_detail(f"[all] mm_parm source PDB → {pdb_for_mm_parm}")
         mm_dir = out_dir / "mm_parm"  # reusable deliverable (parm7/rst7 = --parm input for follow-up runs)
-        ensure_commands_available(
-            ("tleap", "antechamber", "parmchk2"),
-            context="mm_parm (AmberTools)",
+        missing_ambertools = _missing_ambertools_commands(
+            _ambertools_command_paths()
         )
+        if missing_ambertools:
+            raise click.ClickException(
+                "[preflight] Missing required command(s) for mm_parm "
+                f"(AmberTools): {', '.join(missing_ambertools)}. "
+                "Install them in the active environment or make them available "
+                "on PATH."
+            )
         real_parm7_path, real_rst7_path = _build_mm_parm7(
             pdb=pdb_for_mm_parm,
             ligand_charge_expr=ligand_charge,
@@ -4238,6 +4523,18 @@ def cli(
             g_react, e_react = gR, eR
             g_prod,  e_prod  = gL, eL
 
+        endpoint_assignment = {
+            "policy": "higher_energy_endpoint_as_reactant",
+            "chemical_direction_known": False,
+            "left_role": "reactant" if eL >= eR else "product",
+            "right_role": "product" if eL >= eR else "reactant",
+            "left_energy_hartree": float(eL),
+            "right_energy_hartree": float(eR),
+            "tie_rule": (
+                "on equal energy (eL == eR) the left endpoint is the reactant"
+            ),
+        }
+
         # Save XYZ (full precision) + PDB (companion) and run endpoint-opt
         struct_dir = tsroot / "structures"
         ensure_dir(struct_dir)
@@ -4350,6 +4647,11 @@ def cli(
 
         # Thermochemistry (ML/MM) Gibbs
         thermo_payloads: Dict[str, Dict[str, Any]] = {}
+        _thermo_mode_validation: Dict[str, Any] = {
+            "valid": False,
+            "reasons": ["thermochemistry was not run"],
+        }
+        _gibbs_triplet: Optional[Tuple[float, float, float]] = None
         GR = GT = GP = None
         eR_dft = eT_dft = eP_dft = None
         _dft_all_ok = not do_dft
@@ -4376,16 +4678,30 @@ def cli(
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
+            from mlmm.workflows._all_helpers import (
+                build_thermo_mode_validation,
+                validated_thermo_triplet,
+            )
+            _thermo_mode_validation = build_thermo_mode_validation(
+                thermo_payloads
+            )
+            _gibbs_triplet = validated_thermo_triplet(
+                thermo_payloads, "sum_EE_and_thermal_free_energy_ha"
+            )
+            if not _thermo_mode_validation["valid"]:
+                _echo(
+                    "[thermo] WARNING: Gibbs output skipped because the state "
+                    "orders are not minimum / first-order TS / minimum: "
+                    + "; ".join(_thermo_mode_validation["reasons"]),
+                    err=True,
+                )
             # M28/C6: build the MLIP Gibbs diagram ONLY when every requested state
             # returned a finite FREQ free energy. A failed/partial FREQ (empty or
             # missing field) must NOT be substituted by the MLIP electronic energy
             # (e_react/eT/e_prod) into a Gibbs-named result.
-            _gR = _thermo_gibbs_ha(tR)
-            _gT = _thermo_gibbs_ha(tT)
-            _gP = _thermo_gibbs_ha(tP)
-            if None not in (_gR, _gT, _gP):
+            if _gibbs_triplet is not None:
                 try:
-                    GR, GT, GP = _gR, _gT, _gP
+                    GR, GT, GP = _gibbs_triplet
                     g_mlip_diag = _write_public_segment_diagram(
                         tsroot / "energy_diagram_G_MLIP",
                         labels=["R", "TS", "P"],
@@ -4396,11 +4712,10 @@ def cli(
                 except Exception as e:
                     _echo(f"[thermo] WARNING: failed to build Gibbs diagram: {e}", err=True)
             else:
-                _missing_g = [s for s, g in zip(("R", "TS", "P"), (_gR, _gT, _gP)) if g is None]
                 _echo(
-                    f"[thermo] WARNING: FREQ free energy unusable for state(s): "
-                    f"{', '.join(_missing_g)}; MLIP Gibbs diagram skipped (no MLIP-energy "
-                    "substitution).",
+                    "[thermo] WARNING: a finite, minimum / first-order TS / "
+                    "minimum FREQ free-energy triplet is unavailable; MLIP Gibbs "
+                    "diagram skipped (no MLIP-energy substitution).",
                     err=True,
                 )
 
@@ -4459,20 +4774,20 @@ def cli(
                 except Exception as e:
                     _echo(f"[dft] WARNING: failed to build DFT diagram: {e}", err=True)
 
-            # M28/C6: build the DFT//MLIP/MM Gibbs diagram ONLY when every requested
-            # state has BOTH a usable DFT energy (already gated by _dft_all_ok) and
-            # a finite FREQ thermal correction. A missing correction must NOT be
-            # replaced by 0.0 (which would report the electronic DFT energy as a
-            # Gibbs free energy).
-            _dgR = _thermo_correction_ha(thermo_payloads.get("R"))
-            _dgT = _thermo_correction_ha(thermo_payloads.get("TS"))
-            _dgP = _thermo_correction_ha(thermo_payloads.get("P"))
-            if do_thermo and _dft_all_ok and None not in (_dgR, _dgT, _dgP):
+            # Build the DFT//MLIP/MM Gibbs diagram only from the subtractive
+            # DFT//MLIP/MM electronic total plus a finite FREQ thermal correction.
+            # Raw model-region DFT energy and 0.0 are never substitutes.
+            _dft_mlmm_gibbs = _dft_mlmm_gibbs_triplet(
+                {"R": dR, "TS": dT, "P": dP},
+                thermo_payloads,
+            )
+            if do_thermo and _dft_mlmm_gibbs is not None:
                 try:
-                    dG_R, dG_T, dG_P = _dgR, _dgT, _dgP
-                    GR_dftMLIP = eR_dft + dG_R
-                    GT_dftMLIP = eT_dft + dG_T
-                    GP_dftMLIP = eP_dft + dG_P
+                    (
+                        GR_dftMLIP,
+                        GT_dftMLIP,
+                        GP_dftMLIP,
+                    ) = _dft_mlmm_gibbs
                     g_dft_mlip_diag = _write_public_segment_diagram(
                         tsroot / "energy_diagram_G_DFT_plus_MLIP",
                         labels=["R", "TS", "P"],
@@ -4482,12 +4797,11 @@ def cli(
                     )
                 except Exception as e:
                     _echo(f"[dft//mlip] WARNING: failed to build DFT//MLIP/MM Gibbs diagram: {e}", err=True)
-            elif do_thermo and _dft_all_ok:
-                _missing_dg = [s for s, g in zip(("R", "TS", "P"), (_dgR, _dgT, _dgP)) if g is None]
+            elif do_thermo:
                 _echo(
-                    f"[dft//mlip] WARNING: FREQ thermal correction unusable for state(s): "
-                    f"{', '.join(_missing_dg)}; DFT//MLIP/MM Gibbs diagram skipped (no 0.0 "
-                    "substitution).",
+                    "[dft//mlip] WARNING: a subtractive DFT//MLIP/MM electronic "
+                    "total or FREQ thermal correction is unusable; Gibbs diagram "
+                    "skipped (no raw-model DFT or 0.0 substitution).",
                     err=True,
                 )
 
@@ -4516,10 +4830,24 @@ def cli(
             if promoted is not None:
                 energy_diagrams.append(promoted)
 
+        n_irc_frames: Optional[int] = None
+        if irc_trj_path:
+            try:
+                n_irc_frames = len(
+                    read_xyz_as_blocks(Path(irc_trj_path), strict=True)
+                )
+            except Exception as exc:
+                _echo(
+                    "[post] WARNING: could not count complete IRC trajectory "
+                    f"frames: {exc}",
+                    err=True,
+                )
+
         summary = {
             "out_dir": str(tsroot),
-            "n_images": 0,
+            "n_images": n_irc_frames,
             "n_segments": 1,
+            "endpoint_assignment": endpoint_assignment,
             "segments": [
                 {
                     "index": 1,
@@ -4528,6 +4856,7 @@ def cli(
                     "barrier_kcal": float(barrier),
                     "delta_kcal": float(delta),
                     "bond_changes": bond_summary,
+                    "endpoint_assignment": endpoint_assignment,
                 }
             ],
             "energy_diagrams": list(energy_diagrams),
@@ -4585,8 +4914,7 @@ def cli(
             "kind": "tsopt",
             "bond_changes": bond_summary,
             "post_dir": str(tsroot),
-            "mep_barrier_kcal": barrier,
-            "mep_delta_kcal": delta,
+            "endpoint_assignment": endpoint_assignment,
         }
         if irc_plot_path:
             segment_log["irc_plot"] = str(irc_plot_path)
@@ -4597,6 +4925,9 @@ def cli(
         _irc_outcome_seg = irc_res.get("irc_outcome")
         if isinstance(_irc_outcome_seg, dict):
             segment_log["irc"] = _irc_outcome_seg
+        segment_log["endpoint_assignment"] = irc_res.get(
+            "endpoint_assignment"
+        )
         # M42/C6: record endpoint-opt convergence so a nonconverged endpoint
         # (whose geometry is still used for the diagram) does not silently
         # promote its segment to a usable success.
@@ -4611,6 +4942,9 @@ def cli(
             if tsopt_n_imag is not None:
                 segment_log["ts_imag"] = {"n_imag": int(tsopt_n_imag)}
         if do_thermo:
+            segment_log["thermo_mode_validation"] = (
+                _thermo_mode_validation
+            )
             n_imag = None
             try:
                 n_imag = int(thermo_payloads.get("TS", {}).get("num_imag_freq"))
@@ -4619,7 +4953,13 @@ def cli(
             if n_imag is not None:
                 segment_log["ts_imag"] = {"n_imag": n_imag}
 
-        from mlmm.workflows._all_helpers import build_energy_level_dict
+        from mlmm.workflows._all_helpers import (
+            build_energy_level_dict,
+            build_thermo_symmetry_provenance,
+        )
+        _thermo_symmetry = build_thermo_symmetry_provenance(thermo_payloads)
+        if _thermo_symmetry:
+            segment_log["thermo_symmetry"] = _thermo_symmetry
         _structs = {"R": pR, "TS": pT, "P": pP}
         segment_log["mlip"] = build_energy_level_dict(
             labels=["R", "TS", "P"],
@@ -4662,6 +5002,8 @@ def cli(
             "path_dir": str(tsroot),
             "path_module_dir": "tsopt_single",
             "pipeline_mode": "tsopt-only",
+            "n_images": n_irc_frames,
+            "n_segments": 1,
             "refine_path": bool(refine_path),
             "thresh": thresh,
             "thresh_post": thresh_post,
@@ -4923,11 +5265,9 @@ def cli(
                 pockets_for_path = _new_pockets
                 _echo("[all] Pre-alignment completed.")
         except Exception as e:
-            _echo(
-                f"[all] WARNING: Pre-alignment failed: {e}. "
-                "Continuing with original files.",
-                err=True,
-            )
+            raise click.ClickException(
+                f"Path pre-alignment failed: {e}"
+            ) from e
 
     # Stage 2: Path search on full-system layered PDBs
     mep_mode_label = mep_mode_kind.upper()
@@ -5142,16 +5482,12 @@ def cli(
                 blocks = blocks[1:]
             combined_blocks.extend(blocks)
 
-            # Extract energies from trajectory comment lines
-            energies_seg: List[float] = []
-            for blk in raw_blocks:
-                E = np.nan
-                if len(blk) >= 2:
-                    try:
-                        E = float(blk[1].split()[0])
-                    except Exception:
-                        E = np.nan
-                energies_seg.append(E)
+            # Segment energetics require one finite energy for every frame.
+            energies_seg = _required_xyz_block_energies(
+                raw_blocks,
+                path=seg_trj,
+                context=f"path-opt segment {seg_idx}",
+            )
 
             # Parse first/last frame coordinates for bond-change detection
             first_last = None
@@ -5219,7 +5555,7 @@ def cli(
                     continue
                 if si == 0:
                     energies_chain.append(Es[0])
-                energies_chain.append(float(np.nanmax(Es)))
+                energies_chain.append(max(Es))
                 energies_chain.append(Es[-1])
             if labels and energies_chain and len(labels) == len(energies_chain):
                 title_note = (
@@ -5246,7 +5582,7 @@ def cli(
         segments_summary: List[Dict[str, Any]] = []
         bond_cfg = dict(_path_search.BOND_KW)
         for seg_idx, info in enumerate(path_opt_segments, start=1):
-            Es = [float(x) for x in info.get("energies", []) if np.isfinite(x)]
+            Es = [float(x) for x in info.get("energies", [])]
             if not Es:
                 continue
             barrier = (max(Es) - Es[0]) * AU2KCALPERMOL
@@ -5439,7 +5775,7 @@ def cli(
         return
 
     # Iterate only bond-change segments (kind='seg' and bond_changes not empty and not '(no covalent...)')
-    reactive = [s for s in segments if (s.get("kind", "seg") == "seg" and str(s.get("bond_changes", "")).strip() and str(s.get("bond_changes", "")).strip() != "(no covalent changes detected)")]
+    reactive = [s for s in segments if _is_reactive_segment(s)]
     if not reactive:
         _echo("[post] No bond-change segments. Skipping TS/thermo/DFT.", narrative=True)
         _write_pipeline_summary_log([])
@@ -5690,6 +6026,11 @@ def cli(
 
         # 4.4 Thermochemistry (ML/MM frequencies) and Gibbs diagram
         thermo_payloads: Dict[str, Dict[str, Any]] = {}
+        _thermo_mode_validation: Dict[str, Any] = {
+            "valid": False,
+            "reasons": ["thermochemistry was not run"],
+        }
+        _gibbs_triplet: Optional[Tuple[float, float, float]] = None
         GR = GT = GP = None
         freq_seg_root = _resolve_override_dir(seg_dir / "freq", freq_out_dir)
         dft_seg_root = _resolve_override_dir(seg_dir / "dft", dft_out_dir)
@@ -5719,6 +6060,23 @@ def cli(
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR,
             )
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
+            from mlmm.workflows._all_helpers import (
+                build_thermo_mode_validation,
+                validated_thermo_triplet,
+            )
+            _thermo_mode_validation = build_thermo_mode_validation(
+                thermo_payloads
+            )
+            _gibbs_triplet = validated_thermo_triplet(
+                thermo_payloads, "sum_EE_and_thermal_free_energy_ha"
+            )
+            if not _thermo_mode_validation["valid"]:
+                _echo(
+                    "[thermo] WARNING: Gibbs output skipped because the state "
+                    "orders are not minimum / first-order TS / minimum: "
+                    + "; ".join(_thermo_mode_validation["reasons"]),
+                    err=True,
+                )
             _echo_energy_triplet(
                 "thermo",
                 seg_idx,
@@ -5756,12 +6114,9 @@ def cli(
             # requested state returned a finite FREQ free energy. A failed/partial
             # FREQ must NOT be substituted by the MLIP electronic energy
             # (eR/eT/eP) into a Gibbs-named result.
-            _gR = _thermo_gibbs_ha(tR)
-            _gT = _thermo_gibbs_ha(tT)
-            _gP = _thermo_gibbs_ha(tP)
-            if None not in (_gR, _gT, _gP):
+            if _gibbs_triplet is not None:
                 try:
-                    GR, GT, GP = _gR, _gT, _gP
+                    GR, GT, GP = _gibbs_triplet
                     g_mlip_seg_energies.append((GR, GT, GP))
                     _g_rel = _relative_energy_values_kcal({"R": GR, "TS": GT, "P": GP})
                     if _g_rel is not None:
@@ -5783,11 +6138,11 @@ def cli(
                 except Exception as e:
                     _echo(f"[thermo] WARNING: failed to build Gibbs diagram: {e}", err=True)
             else:
-                _missing_g = [s for s, g in zip(("R", "TS", "P"), (_gR, _gT, _gP)) if g is None]
                 _echo(
-                    f"[thermo] WARNING: seg {seg_idx}: FREQ free energy unusable for "
-                    f"state(s): {', '.join(_missing_g)}; MLIP Gibbs diagram skipped "
-                    "(no MLIP-energy substitution).",
+                    f"[thermo] WARNING: seg {seg_idx}: a finite, minimum / "
+                    "first-order TS / minimum FREQ free-energy triplet is "
+                    "unavailable; MLIP Gibbs diagram skipped (no MLIP-energy "
+                    "substitution).",
                     err=True,
                 )
 
@@ -5879,26 +6234,21 @@ def cli(
             except Exception as e:
                 _echo(f"[dft] WARNING: failed to build DFT diagram: {e}", err=True)
 
-            # DFT//MLIP/MM thermal Gibbs (E_DFT + ML/MM thermal correction)
-            # M28/C6: build ONLY when every state has BOTH a usable DFT energy
-            # (_dft_energy_ha gates on _dft_failed) and a finite FREQ thermal
-            # correction. A missing DFT energy must NOT be substituted by the MLIP
-            # electronic energy (eR/eT/eP), and a missing correction must NOT be
-            # replaced by 0.0.
+            # DFT//MLIP/MM thermal Gibbs uses the subtractive electronic total
+            # plus the ML/MM thermal correction. Raw model-region DFT, MLIP, and
+            # 0.0 are never substitutes for a missing component.
             if do_thermo:
-                _dgR = _thermo_correction_ha(thermo_payloads.get("R"))
-                _dgT = _thermo_correction_ha(thermo_payloads.get("TS"))
-                _dgP = _thermo_correction_ha(thermo_payloads.get("P"))
-                _edR = _dft_energy_ha(dR)
-                _edT = _dft_energy_ha(dT)
-                _edP = _dft_energy_ha(dP)
-                if None not in (_dgR, _dgT, _dgP, _edR, _edT, _edP):
+                _dft_mlmm_gibbs = _dft_mlmm_gibbs_triplet(
+                    {"R": dR, "TS": dT, "P": dP},
+                    thermo_payloads,
+                )
+                if _dft_mlmm_gibbs is not None:
                     try:
-                        dG_R, dG_T, dG_P = _dgR, _dgT, _dgP
-                        eR_dft, eT_dft, eP_dft = _edR, _edT, _edP
-                        GR_dftMLIP = eR_dft + dG_R
-                        GT_dftMLIP = eT_dft + dG_T
-                        GP_dftMLIP = eP_dft + dG_P
+                        (
+                            GR_dftMLIP,
+                            GT_dftMLIP,
+                            GP_dftMLIP,
+                        ) = _dft_mlmm_gibbs
                         g_dft_mlip_seg_energies.append((GR_dftMLIP, GT_dftMLIP, GP_dftMLIP))
                         _g_dft_mlip_rel = _relative_energy_values_kcal(
                             {"R": GR_dftMLIP, "TS": GT_dftMLIP, "P": GP_dftMLIP}
@@ -5923,9 +6273,10 @@ def cli(
                         _echo(f"[dft//mlip] WARNING: failed to build DFT//MLIP/MM Gibbs diagram: {e}", err=True)
                 else:
                     _echo(
-                        f"[dft//mlip] WARNING: seg {seg_idx}: DFT energy or FREQ thermal "
-                        "correction unusable for one or more states; DFT//MLIP/MM Gibbs "
-                        "diagram skipped (no 0.0/MLIP substitution).",
+                        f"[dft//mlip] WARNING: seg {seg_idx}: a subtractive "
+                        "DFT//MLIP/MM electronic total or FREQ thermal correction "
+                        "is unusable; Gibbs diagram skipped (no raw-model DFT, "
+                        "MLIP, or 0.0 substitution).",
                         err=True,
                     )
 
@@ -5947,6 +6298,9 @@ def cli(
         _irc_outcome_seg = irc_res.get("irc_outcome")
         if isinstance(_irc_outcome_seg, dict):
             segment_log["irc"] = _irc_outcome_seg
+        segment_log["endpoint_assignment"] = irc_res.get(
+            "endpoint_assignment"
+        )
         # M42/C6: record endpoint-opt convergence so a nonconverged endpoint
         # (whose geometry is still used for the diagram) does not silently
         # promote its segment to a usable success.
@@ -5961,6 +6315,9 @@ def cli(
             if tsopt_n_imag is not None:
                 segment_log["ts_imag"] = {"n_imag": int(tsopt_n_imag)}
         if do_thermo:
+            segment_log["thermo_mode_validation"] = (
+                _thermo_mode_validation
+            )
             n_imag = None
             try:
                 n_imag = int(thermo_payloads.get("TS", {}).get("num_imag_freq"))
@@ -5968,7 +6325,13 @@ def cli(
                 n_imag = None
             if n_imag is not None:
                 segment_log["ts_imag"] = {"n_imag": n_imag}
-        from mlmm.workflows._all_helpers import build_energy_level_dict
+        from mlmm.workflows._all_helpers import (
+            build_energy_level_dict,
+            build_thermo_symmetry_provenance,
+        )
+        _thermo_symmetry = build_thermo_symmetry_provenance(thermo_payloads)
+        if _thermo_symmetry:
+            segment_log["thermo_symmetry"] = _thermo_symmetry
         _structs_seg = {"R": pL, "TS": pT, "P": pR}
         segment_log["mlip"] = build_energy_level_dict(
             labels=["R", "TS", "P"],
@@ -6020,8 +6383,12 @@ def cli(
         (do_dft and do_thermo, g_dft_mlip_seg_energies, "energy_diagram_G_DFT_plus_MLIP_all",
          f"({dft_method_fallback} // MLIP + Thermal Correction; all segments)", "ΔG (kcal/mol)"),
     ]
+    from mlmm.workflows._all_helpers import has_complete_segment_energy_series
+
     for cond, seg_energies, fname_stem, title_note, ylabel in _all_diagram_specs:
-        if not cond or not seg_energies:
+        if not cond or not has_complete_segment_energy_series(
+            seg_energies, expected_segments=len(reactive)
+        ):
             continue
         all_energies = [e for triple in seg_energies for e in triple]
         all_labels = _build_global_segment_labels(len(seg_energies))

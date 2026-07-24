@@ -41,12 +41,12 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region. When `--embedcharge` is enabled, xTB point-charge embedding is applied to correct for MM-to-ML environmental electrostatic effects.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region. v0.3.3 uses mechanical embedding; electronic-embedding requests are rejected before calculator construction.
 3. **Optimization** -- The optimizer runs in the selected `--opt-mode` (`grad` = L-BFGS, `hess` = RFOptimizer); see the CLI options table for the accepted aliases.
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
 4. **Restraints** -- Optional harmonic distance restraints via `--dist-freeze` / `--bias-k` (see CLI options).
 5. **Dumping & conversion** -- `--dump` writes `optimization_trj.xyz`; when conversion is enabled, trajectories are mirrored to `.pdb` for PDB inputs (with B-factor annotations). `opt.dump_restart` can emit restart YAML snapshots.
-6. **Exit codes** -- `0` success, `2` zero step (step norm < `min_step_norm`), `3` optimizer failure, `130` keyboard interrupt, `1` unexpected error.
+6. **Exit codes** -- `0` success, `2` CLI usage/configuration failure or optimizer zero step (step norm < `min_step_norm`), `3` optimizer failure, `130` keyboard interrupt, `1` unexpected error.
 
 ## Outputs
 
@@ -80,10 +80,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | TR treatment used only by `--flatten` PHVA. `constrained` respects frozen anchors; `legacy-active` is an isolated-active comparison treatment. | `constrained` |
+| `--tr-projection [constrained\|legacy-active]` | TR treatment used only by `--flatten` PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |
 | `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. Alias: `--movable-cutoff`. | _None_ |
 | `--radius-partial-hessian, --hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms included in Hessian calculation. Combinable with `--detect-layer`. | _None_ |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--mm-only / --no-mm-only` | Skip the MLIP component and minimize on the MM force field only. Layers are still honored via B-factor / `--radius-freeze`; only `--opt-mode grad` is supported in this mode and microiteration is disabled automatically. Suited to fast MM pre-relaxation before ML/MM ONIOM optimization. | `False` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
@@ -102,8 +102,8 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--config FILE` | Base YAML configuration file. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layer information before execution. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
-| `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
+| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
+| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running optimization. Shown in `--help-advanced`. | `False` |
 
@@ -126,10 +126,11 @@ default `constrained` treatment removes only full-system rigid motions that do
 not move frozen anchors; its generic effective rank is 6/3/1/0 for
 zero/one/two/at least three non-collinear anchors. Realistic ML/MM boundaries
 normally have rank 0, and an all-frozen selection raises an explicit error.
-`legacy-active` is an isolated-active comparison treatment using the current
-common kernel; bitwise identity is not guaranteed for rank-degenerate cases. With
-`--out-json`, flatten runs record treatment, effective rank, Hessian source,
-and Hessian shape under `result.json.rigid_projection`.
+`legacy-active` is deprecated comparison-only behavior and must not be used for
+pass/HOSP transition-state certification. It uses the current common kernel;
+bitwise identity is not guaranteed for rank-degenerate cases. With
+`--out-json`, flatten runs record treatment, effective rank, Hessian source, and
+Hessian shape under `result.json.rigid_projection`.
 
 ## YAML configuration
 
@@ -139,7 +140,7 @@ Settings are applied with **defaults < config < explicit CLI**. The accepted sec
 geom:
  coord_type: cart               # cartesian vs dlc internals (dlc needs --opt-mode hess; grad/L-BFGS falls back to cart)
  freeze_atoms: []               # 1-based frozen atoms
- tr_projection: constrained     # constrained (default) | legacy-active comparison
+ tr_projection: constrained     # legacy-active is deprecated and comparison-only
 calc:
  charge: 0                      # net charge
  spin: 1                        # spin multiplicity 2S+1

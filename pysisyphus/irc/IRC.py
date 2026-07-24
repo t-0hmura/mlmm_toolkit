@@ -53,7 +53,7 @@ class IRC:
         out_dir=".",
         prefix="",
         dump_fn="irc_data.h5",
-        dump_every=5,
+        dump_every=None,
         require_pos_def_hessian=False,
         never_stop=False,
     ):
@@ -115,7 +115,7 @@ class IRC:
         dump_fn : str, optional
             Base name for the HDF5 files.
         dump_every : int, optional
-            Dump to HDF5 every n-th cycle.
+            Dump to HDF5 every n-th cycle. Disabled by default.
         """
         assert step_length > 0, "step_length must be positive"
         assert max_cycles > 0, "max_cycles must be positive"
@@ -165,7 +165,9 @@ class IRC:
             os.mkdir(self.out_dir)
         self.prefix = f"{prefix}_" if prefix else prefix
         self.dump_fn = dump_fn
-        self.dump_every = int(dump_every)
+        self.dump_every = None if dump_every is None else int(dump_every)
+        if self.dump_every is not None and self.dump_every < 1:
+            raise ValueError("dump_every must be at least 1.")
 
         # Determine bonds at TS
         self.ts_bond_sets = self.geometry.bond_sets
@@ -180,6 +182,8 @@ class IRC:
         else:
             self._act_atoms = self.geometry.active_atom_indices
             self._act_dofs  = self.geometry.active_dof_indices
+        if len(self._act_dofs) == 0:
+            raise ValueError("IRC has no active degrees of freedom.")
 
         self.all_energies = list()
         self.all_coords = list()
@@ -194,7 +198,9 @@ class IRC:
 
         self.cycle_places = ceil(log(self.max_cycles, 10))
 
-        self.mm_inv2 = self.geometry.mm_sqrt_inv[np.ix_(self._act_dofs, self._act_dofs)]
+        self.mm_inv2 = 1.0 / np.sqrt(
+            np.asarray(self.geometry.masses_rep)[self._act_dofs]
+        )
 
     def _energy_stop_message(self):
         """Return the legacy energy-based stop reason, if it is enabled."""
@@ -233,6 +239,20 @@ class IRC:
     def gradient(self):
         return self.geometry.gradient
 
+    def active_gradient(self, gradient=None):
+        """Return an unweighted gradient in the IRC integration basis."""
+        if gradient is None:
+            gradient = self.gradient
+        gradient = np.asarray(gradient).reshape(-1)
+        if gradient.size == len(self._act_dofs):
+            return gradient
+        if np.any(self._act_dofs < 0) or np.any(self._act_dofs >= gradient.size):
+            raise ValueError("IRC active degrees of freedom do not match gradient.")
+        return gradient[self._act_dofs]
+
+    def active_rms_gradient(self, gradient=None):
+        return rms(self.active_gradient(gradient))
+
     @property
     def mw_gradient(self):
         return self.geometry.mw_gradient
@@ -264,18 +284,17 @@ class IRC:
     def _exact_cart_hessian_at_current_coords(self):
         """Force one exact Cartesian Hessian at the current coordinates.
 
-        Does not disturb the integrator's cached quasi-Newton ``mw_hessian``:
-        only the geometry's Cartesian-Hessian cache is transiently cleared so
-        the calculator is re-queried, then restored.
+        The calculator is queried through Geometry's non-caching evaluation
+        path. This leaves all Geometry result/cache fields untouched and avoids
+        retaining the transient dense Hessian in both ``_hessian`` and
+        ``results`` after the endpoint predicate has been reduced to a boolean.
         """
         geom = self.geometry
-        prev = getattr(geom, "_hessian", None)
-        try:
-            geom._hessian = None
-            H = geom.cart_hessian
-        finally:
-            geom._hessian = prev
-        return H
+        coords = np.asarray(geom.cart_coords, dtype=float).copy()
+        results = geom.get_energy_and_cart_hessian_at(coords)
+        if not isinstance(results, dict) or results.get("hessian") is None:
+            raise ValueError("Exact endpoint evaluation returned no Cartesian Hessian.")
+        return results["hessian"]
 
     def _exact_mw_active_hessian(self, coords_before):
         """Return the mass-weighted active exact Hessian, or None on any mismatch."""
@@ -322,11 +341,11 @@ class IRC:
         coords_before = np.asarray(self.geometry.cart_coords, dtype=float).copy()
         cached = getattr(self, "_exact_endpoint_hessian_cache", None)
         if cached is not None:
-            cached_coords, cached_H = cached
+            cached_coords, cached_result = cached
             if cached_coords.shape == coords_before.shape and np.array_equal(
                 cached_coords, coords_before
             ):
-                return self._mw_active_is_pos_def(cached_H)
+                return bool(cached_result)
         try:
             H_mw_act = self._exact_mw_active_hessian(coords_before)
         except Exception:
@@ -335,8 +354,9 @@ class IRC:
         if H_mw_act is None:
             self._exact_endpoint_hessian_cache = None
             return False
-        self._exact_endpoint_hessian_cache = (coords_before, H_mw_act)
-        return self._mw_active_is_pos_def(H_mw_act)
+        result = self._mw_active_is_pos_def(H_mw_act)
+        self._exact_endpoint_hessian_cache = (coords_before, result)
+        return result
 
     def log(self, msg):
         # self.logger.debug(f"step {self.cur_cycle:03d}, {msg}")
@@ -354,18 +374,24 @@ class IRC:
     
     # mass‑weight only the sub‑Hessian that belongs to the moving atoms
     def _mw_hessian_active(self, H_act):
-        # C14 (H09): mm_inv2 is a diagonal mass-scaling matrix by construction
-        # (Geometry.mm_sqrt_inv = diag(1/sqrt(m))), so ``D @ H @ D`` reduces
-        # exactly to row/column scaling by its diagonal vector. This avoids two
-        # dense O(N^3) matmuls and the dense-diagonal temporaries; the result is
-        # bit-identical (max error 0) to the dense product for a diagonal D.
+        # IRC stores only diag(M^-1/2); broadcast it across rows and columns.
         if isinstance(H_act, torch.Tensor):
-            if not isinstance(self.mm_inv2, torch.Tensor):
-                self.mm_inv2 = torch.as_tensor(self.mm_inv2, dtype=H_act.dtype, device=H_act.device)
-            d = torch.diagonal(self.mm_inv2)
-            return d.unsqueeze(1) * H_act * d.unsqueeze(0)
-        d = np.diagonal(np.asarray(self.mm_inv2))
-        return (d[:, None] * np.asarray(H_act)) * d[None, :]
+            d = torch.as_tensor(
+                self.mm_inv2, dtype=H_act.dtype, device=H_act.device,
+            )
+            if d.ndim == 2:
+                d = torch.diagonal(d)
+            weighted = H_act.clone()
+            weighted.mul_(d.unsqueeze(1))
+            weighted.mul_(d.unsqueeze(0))
+            return weighted
+        d = np.asarray(self.mm_inv2)
+        if d.ndim == 2:
+            d = np.diagonal(d)
+        weighted = np.array(H_act, copy=True)
+        weighted *= d[:, None]
+        weighted *= d[None, :]
+        return weighted
     
     # Rigid projector for the Cartesian-constrained active space.
     def _project_active(self, mw_H_act, *, return_P=False):
@@ -405,6 +431,9 @@ class IRC:
     def prepare(self, direction):
         self.direction = direction
         self.converged = False
+        self.integration_stop_requested = False
+        self.integration_stop_reason = ""
+        self._exact_endpoint_hessian_cache = None
         self.energy_increased = False
         self.energy_converged = False
         self.past_inflection = not self.force_inflection
@@ -426,6 +455,14 @@ class IRC:
         # run.
 
         self.mw_hessian = self._mw_hessian_active(self.init_hessian)
+        if (
+            self.downhill
+            or direction == "backward"
+            or (direction == "forward" and not self.backward)
+        ):
+            # The final requested branch has now been seeded. Retain only its
+            # mass-weighted working matrix, not the original dense Hessian.
+            self._release_initial_hessian()
 
         trj_fn = self.get_path_for_fn(f"{direction}_irc_trj.xyz")
         self.trj_handle = open(trj_fn, "w")
@@ -475,6 +512,33 @@ class IRC:
             f"Did inital step of length {initial_step_length:.4f} " "from the TS."
         )
 
+    def _release_direction_hessian_state(self):
+        """Release dense per-direction Hessians before starting another branch."""
+        self.mw_hessian = None
+        if hasattr(self, "dwi"):
+            self.dwi = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    def _release_initial_hessian(self):
+        """Drop the TS seed after the final requested branch is initialized."""
+        init_hessian = getattr(self, "init_hessian", None)
+        if init_hessian is not None:
+            self.init_hessian_shape = tuple(init_hessian.shape)
+        self.init_hessian = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    def _release_finished_interpolation_state(self):
+        """Release DWI snapshots once no corrector step can consume them."""
+        if hasattr(self, "dwi"):
+            self.dwi = None
+        if not self.backward:
+            # Forward-only runs already stashed their endpoint Hessian on CPU.
+            self.mw_hessian = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     def initial_displacement(self):
         """Returns non-mass-weighted steps in +s and -s direction
         for initial displacement from the TS. Earlier version only
@@ -518,14 +582,21 @@ class IRC:
             eigvals, eigvecs = torch.linalg.eigh(proj_hessian)
             eigvals = eigvals.to(torch.double).cpu().numpy()
             mw_cart_displs = P.T @ eigvecs if P is not None else eigvecs
-            if not isinstance(self.mm_inv2, torch.Tensor):
-                self.mm_inv2 = torch.as_tensor(self.mm_inv2, dtype=proj_hessian.dtype, device=proj_hessian.device)
-            # C14 (H09): diagonal D @ (mode matrix) == row scaling by diag(D).
-            cart_displs = torch.diagonal(self.mm_inv2).unsqueeze(1) * mw_cart_displs
+            d = torch.as_tensor(
+                self.mm_inv2,
+                dtype=proj_hessian.dtype,
+                device=proj_hessian.device,
+            )
+            if d.ndim == 2:
+                d = torch.diagonal(d)
+            cart_displs = d.unsqueeze(1) * mw_cart_displs
         else:
             eigvals, eigvecs = np.linalg.eigh(proj_hessian)
             mw_cart_displs = eigvecs if P is None else P.T.dot(eigvecs)
-            cart_displs = np.diagonal(np.asarray(self.mm_inv2))[:, None] * mw_cart_displs
+            d = np.asarray(self.mm_inv2)
+            if d.ndim == 2:
+                d = np.diagonal(d)
+            cart_displs = d[:, None] * mw_cart_displs
         
         nus = eigval_to_wavenumber(eigvals)
         nu_root = nus[self.root]
@@ -711,7 +782,12 @@ class IRC:
             self.irc_mw_coords.append(self.mw_coords)
             self.irc_mw_gradients.append(self.mw_gradient)
 
-            rms_grad = rms(self.gradient)
+            rms_grad = self.active_rms_gradient()
+            if (
+                self.dump_every is not None
+                and (self.cur_cycle + 1) % self.dump_every == 0
+            ):
+                self.dump_data()
 
             # Only update once
             if not self.past_inflection:
@@ -748,9 +824,7 @@ class IRC:
             break_msg = ""
             self.energy_increased = this_energy > last_energy
             self.energy_converged = abs(last_energy - this_energy) <= self.energy_thresh
-            if self.converged:
-                break_msg = "Integrator indicated convergence!"
-            elif self.past_inflection and (rms_grad <= self.rms_grad_thresh):
+            if self.past_inflection and (rms_grad <= self.rms_grad_thresh):
                 if self.require_pos_def_hessian and not self._exact_endpoint_is_pos_def():
                     # Gradient small but Hessian still has negative mode — we're on
                     # a shoulder, not at the true minimum. Skip convergence this cycle
@@ -760,6 +834,8 @@ class IRC:
                 else:
                     break_msg = "rms(grad) converged!"
                     self.converged = True
+            elif self.integration_stop_requested:
+                break_msg = self.integration_stop_reason
             elif (
                 self.hard_rms_grad_thresh
                 and (not self.past_inflection)
@@ -768,8 +844,6 @@ class IRC:
                 break_msg = "rms(grad) below hard threshold."
             else:
                 break_msg = self._energy_stop_message()
-                if break_msg == "Energy converged!":
-                    self.converged = True
 
             if self.never_stop and not break_msg:
                 if self.energy_increased:
@@ -818,6 +892,30 @@ class IRC:
         setattr(self, mw_grad_name, self.irc_mw_gradients)
         setattr(self, energies_name, self.irc_energies)
 
+        # The incremental writer in ``irc()`` emits each pre-step geometry, so
+        # it necessarily misses the accepted terminal point.  Rewrite the
+        # directional trajectory from the finalized arrays.  Forward arrays
+        # are reversed above for stitching (endpoint -> TS); keep the
+        # direction-specific file chronological (TS -> endpoint).
+        direction_coords = getattr(self, coords_name)
+        direction_energies = getattr(self, energies_name)
+        if prefix == "forward":
+            direction_coords = reversed(direction_coords)
+            direction_energies = reversed(direction_energies)
+        trj_fn = self.get_path_for_fn(f"{prefix}_irc_trj.xyz")
+        with open(trj_fn, "w") as handle:
+            for frame, (coords, energy) in enumerate(
+                zip(direction_coords, direction_energies)
+            ):
+                handle.write(
+                    make_xyz_str(
+                        self.atoms,
+                        BOHR2ANG * np.asarray(coords).reshape((-1, 3)),
+                        f"{prefix} IRC, frame {frame}, energy={float(energy):.12f}",
+                    )
+                    + "\n"
+                )
+
         self.all_energies.extend(getattr(self, energies_name))
         self.all_coords.extend(getattr(self, coords_name))
         self.all_gradients.extend(getattr(self, grad_name))
@@ -832,6 +930,11 @@ class IRC:
         del self.irc_energies
 
         setattr(self, f"{prefix}_is_converged", self.converged)
+        setattr(
+            self,
+            f"{prefix}_integration_stop_reason",
+            self.integration_stop_reason,
+        )
         setattr(self, f"{prefix}_energy_increased", self.energy_increased)
         setattr(self, f"{prefix}_energy_converged", self.energy_converged)
         setattr(self, f"{prefix}_never_stop", self.never_stop)
@@ -886,14 +989,21 @@ class IRC:
         if has_partial:
             self._act_atoms = self.geometry.hess_active_atom_indices
             self._act_dofs = self.geometry.hess_active_dof_indices
-            self.mm_inv2 = self.geometry.mm_sqrt_inv[np.ix_(self._act_dofs, self._act_dofs)]
+            self.mm_inv2 = 1.0 / np.sqrt(
+                np.asarray(self.geometry.masses_rep)[self._act_dofs]
+            )
         self.geometry.clear()
         # convert to active doFs (skip if already partial)
         if has_partial:
             if self.init_hessian.shape != (act_n_dof, act_n_dof):
-                self.init_hessian = self.init_hessian[self._act_dofs][:, self._act_dofs]
+                self.init_hessian = active_square(
+                    self.init_hessian, self._act_dofs
+                )
         else:
-            self.init_hessian = self.init_hessian[self._act_dofs][:, self._act_dofs]
+            self.init_hessian = active_square(
+                self.init_hessian, self._act_dofs
+            )
+        self.init_hessian_shape = tuple(self.init_hessian.shape)
 
         # For forward/backward runs from a TS we need an intial displacement,
         # calculated from the transition vector (imaginary mode) of the TS
@@ -915,10 +1025,17 @@ class IRC:
             if isinstance(self.mw_hessian, torch.Tensor):
                 # Stash on CPU during backward integration so we don't hold
                 # forward + active mw_hessian on GPU simultaneously
-                # (~3.2 GB on 14k-DOF systems).
-                self.forward_mw_hessian = self.mw_hessian.detach().cpu().clone()
+                # (~3.2 GB on 14k-DOF systems). ``cpu()`` already transfers to
+                # independent host storage for CUDA input; for CPU input the
+                # retained tensor itself keeps that storage alive after release.
+                self.forward_mw_hessian = self.mw_hessian.detach().cpu()
             else:
                 self.forward_mw_hessian = self.mw_hessian.copy()
+            if self.backward:
+                # EulerPC's DWI retains two dense Hessian snapshots. Drop
+                # those and the active quasi-Newton Hessian before backward
+                # ``prepare()`` allocates the next direction's matrix.
+                self._release_direction_hessian_state()
 
         # Add TS/starting data
         self.all_energies.append(self.ts_energy)
@@ -938,15 +1055,13 @@ class IRC:
             self.irc("downhill")
             self.set_data("downhill")
 
+        self._release_finished_interpolation_state()
+
         self.all_mw_coords = np.array(self.all_mw_coords)
         self.all_energies = np.array(self.all_energies)
         self.postprocess()
         if not self.downhill:
             self.dump_ends(".", "finished", trj=True)
-
-        #     # Dump the whole IRC to HDF5
-        #     dump_fn = self.get_path_for_fn("finished_" + self.dump_fn)
-        #     self.dump_data(dump_fn, full=True)
 
         # Convert to arrays and free original Python lists
         for name in "all_energies all_coords all_gradients all_mw_coords all_mw_gradients".split():

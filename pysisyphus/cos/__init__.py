@@ -13,3 +13,7 @@ fmt_str = "%(message)s"
 formatter = logging.Formatter(fmt_str)
 handler.setFormatter(formatter)
 # logger.addHandler(handler)
+
+from pysisyphus.cos.ChainOfStates import ChainOfStates
+from pysisyphus.cos.GrowingChainOfStates import GrowingChainOfStates
+from pysisyphus.cos.GrowingString import GrowingString

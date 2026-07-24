@@ -93,6 +93,46 @@ class RFOptimizer(HessianOptimizer):
         self.successful_gdiis = 0
         self.successful_line_search = 0
 
+    def _accept_accelerated_step(self, step, ip_step, ref_step):
+        """Return an accelerated step only when its full displacement is safe."""
+        # The interpolation gradient can cross the NumPy/torch boundary even
+        # when the reference RFO step lives on CUDA.  Keep the combined step in
+        # the reference step's representation so neither NumPy's implicit
+        # ``Tensor.__array__`` nor a device-changing copy is triggered.
+        if isinstance(ref_step, torch.Tensor):
+            candidate = (
+                torch.as_tensor(step, dtype=ref_step.dtype, device=ref_step.device)
+                + torch.as_tensor(
+                    ip_step, dtype=ref_step.dtype, device=ref_step.device
+                )
+            )
+            candidate_norm = float(torch.linalg.norm(candidate).detach().cpu())
+            finite = bool(torch.isfinite(candidate).all().detach().cpu())
+        else:
+            def _as_numpy(value):
+                if isinstance(value, torch.Tensor):
+                    value = value.detach().cpu().numpy()
+                return np.asarray(value)
+
+            candidate = _as_numpy(step) + _as_numpy(ip_step)
+            candidate_norm = float(np.linalg.norm(candidate))
+            finite = bool(np.isfinite(candidate).all())
+
+        if finite and candidate_norm <= self.trust_radius * (1.0 + 1e-12):
+            return candidate
+
+        reason = (
+            "non-finite"
+            if not finite
+            else f"outside trust radius ({candidate_norm:.6f} > "
+            f"{self.trust_radius:.6f})"
+        )
+        self.log(
+            "Rejected the interpolated/GDIIS displacement because it is "
+            f"{reason}; using the restricted reference step."
+        )
+        return ref_step
+
     def optimize(self):
         energy, gradient, H, big_eigvals, big_eigvecs, resetted = self.housekeeping()
         step_func, pred_func = self.get_step_func(big_eigvals, gradient)
@@ -178,10 +218,9 @@ class RFOptimizer(HessianOptimizer):
         if (ip_gradient is not None) and (ip_step is not None):
             gradient = ip_gradient
             step = step_func(big_eigvals, big_eigvecs, gradient) # heavy-compute
-            # Form full step with interpolation offset.
-            if isinstance(ip_step, torch.Tensor):
-                ip_step = ip_step.detach().cpu().numpy()
-            step = step + ip_step
+            # The trust region constrains the full displacement, including
+            # the interpolation/GDIIS offset.
+            step = self._accept_accelerated_step(step, ip_step, ref_step)
         # Keep the original gradient when the interpolation failed; reuse ref_step.
         else:
             step = ref_step

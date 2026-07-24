@@ -36,7 +36,8 @@ _ALL_ONLY_PATH_EXTS = {".pdb", ".xyz", ".gjf", ".yaml", ".yml", ".json"}
 
 def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
     pdb_text = (
-        "ATOM      1  C   LIG A   1       0.000   0.000   0.000  1.00  0.00           C\n"
+        "HETATM    1  C1  LIG A   1       0.000   0.000   0.000  1.00  0.00           C\n"
+        "HETATM    2  C2  LIG A   1       1.400   0.000   0.000  1.00  0.00           C\n"
         "END\n"
     )
     r_pdb = tmp / "R.pdb"
@@ -53,16 +54,20 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
     gjf.write_text("%chk=test\n#p hf/3-21g\n\nTitle\n\n0 1\nC 0.0 0.0 0.0\n\n", encoding="utf-8")
     cfg.write_text("extract:\n  radius: 2.6\n", encoding="utf-8")
     # all --dry-run now performs the real topology atom-count/order check.
-    # Build a minimal, parameterized one-atom Amber topology so the smoke
-    # validates that contract without requiring AmberTools executables.
+    # Build a minimal, parameterized two-atom Amber topology so staged scans
+    # can name a real pair without requiring AmberTools executables. PDB bond
+    # inference has no force-field BondType, so omit that inferred bond: the
+    # dry-run contract under test is atom count/order, not bonded parameters.
     import parmed as pmd
     from parmed.topologyobjects import AtomType
 
     structure = pmd.load_file(str(r_pdb))
     atom_type = AtomType("C", 1, 12.011, 6)
     atom_type.set_lj_params(0.1, 1.7)
-    structure.atoms[0].atom_type = atom_type
-    structure.atoms[0].type = "C"
+    for atom in structure.atoms:
+        atom.atom_type = atom_type
+        atom.type = "C"
+    structure.bonds.clear()
     pmd.amber.AmberParm.from_structure(structure).save(str(parm7))
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -79,6 +84,10 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
 
 def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
     out: list[str] = []
+    staged_scan = any(tok in {"-s", "--scan-lists"} for tok in args)
+    fixture_inputs = [str(fixture["r_pdb"])]
+    if not staged_scan:
+        fixture_inputs.append(str(fixture["p_pdb"]))
     saw_input = False
     saw_dry_run = False
     saw_center = False
@@ -103,6 +112,15 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
             # the extractor derives a charge consistent with the LIG fixture.
             i += 2
             continue
+        if tok in {"-s", "--scan-lists"}:
+            out.append(tok)
+            i += 1
+            n_values = 0
+            while i < len(args) and not args[i].startswith("-"):
+                out.append(f"[(1,2,{1.5 + 0.1 * n_values:.1f})]")
+                n_values += 1
+                i += 1
+            continue
         if tok == "--parm":
             saw_parm = True
             out.extend([tok, str(fixture["parm7"])])
@@ -110,7 +128,7 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
             continue
         if tok in {"-i", "--input"}:
             saw_input = True
-            out.extend([tok, str(fixture["r_pdb"]), str(fixture["p_pdb"])])
+            out.extend([tok, *fixture_inputs])
             i += 1
             while i < len(args) and not args[i].startswith("-"):
                 i += 1
@@ -150,7 +168,7 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
         i += 1
 
     if not saw_input:
-        out.extend(["-i", str(fixture["r_pdb"]), str(fixture["p_pdb"])])
+        out.extend(["-i", *fixture_inputs])
     if not saw_center:
         out.extend(["-c", "LIG"])
     if not saw_parm:

@@ -156,15 +156,27 @@ def parse_pdb(text):
         name = fields[2]
         # Always derive element from atom name to guard against corrupted
         # element columns (e.g., ASE writing "Nh" for NH1, "N" for ZN).
-        # Fall back to element column only when parse_atom_name fails.
-        try:
-            atom = parse_atom_name(name)
-        except (AssertionError, KeyError):
-            if atom.lower() not in KNOWN_ATOMS:
-                raise ValueError(
-                    f"Cannot determine element for PDB atom name '{name.strip()}' "
-                    f"(element column: '{atom}')."
-                )
+        # A valid two-letter field is authoritative only for the PDB-standard
+        # left-aligned two-letter name (e.g. ``HG  ``/HG or ``HE  ``/HE).
+        # Right-aligned `` HG ``/H and `` HE ``/H remain protein hydrogens.
+        field_lower = atom.lower()
+        left_pair = name[:2].lower()
+        if (
+            len(atom) == 2
+            and field_lower in KNOWN_ATOMS
+            and not name.startswith(" ")
+            and left_pair == field_lower
+        ):
+            atom = atom.capitalize()
+        else:
+            try:
+                atom = parse_atom_name(name)
+            except (AssertionError, KeyError):
+                if field_lower not in KNOWN_ATOMS:
+                    raise ValueError(
+                        f"Cannot determine element for PDB atom name '{name.strip()}' "
+                        f"(element column: '{atom}')."
+                    )
         atoms.append(atom)
         coords.append(xyz)
         id_ = int(fields[1])

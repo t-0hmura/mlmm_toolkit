@@ -31,7 +31,7 @@ Each row points to the full per-subcommand md in this skill directory.
 | `scan.md` | `scan` | 1D distance scan with harmonic restraints to seed a path search.<br>Useful when neither endpoint nor TS guess is available — drives the bond manually. |
 | `scan2d.md` | `scan2d` | 2D analog of `scan` with two restrained distances.<br>Generates a grid; mlmm interpolates the MEP through the grid minima. |
 | `scan3d.md` | `scan3d` | 3D analog with three restrained distances.<br>Rare but supported; output volume grows quickly, plan resources. |
-| `trj2fig.md` | `trj2fig` | Plot an energy profile from an XYZ trajectory.<br>Reads ASE-style energies in the comment line and writes a figure or CSV (PNG/HTML/SVG/PDF/CSV). |
+| `trj2fig.md` | `trj2fig` | Plot an energy profile from an XYZ trajectory.<br>Reads ASE-style energies in the comment line and writes a figure or CSV (PNG/JPEG/HTML/SVG/PDF/CSV). |
 | `energy-diagram.md` | `energy-diagram` | Build an ad-hoc energy diagram from a list of state names + energies.<br>For composing diagrams that combine multiple `mlmm-toolkit` runs. |
 | `add-elem-info.md` | `add-elem-info` | Repair / add the element column (PDB cols 77-78).<br>Run before `extract` if your PDB came out of PyMOL or Maestro and elements are missing. |
 | `fix-altloc.md` | `fix-altloc` | Resolve PDB alternate locations (`altloc` field).<br>Pick a single conformation per residue; needed before `extract` on raw RCSB downloads. |
@@ -47,8 +47,8 @@ PDB(s) ──► extract ──► path-search ──┐
 
 `path-opt` and `path-search` are parallel MEP strategies (single-pass
 vs recursive). `dft` is an optional terminal node and can be attached
-to `freq` or directly after `irc`/`tsopt` for ML-region single-point
-energy refinement. `mlmm all` chains the whole pipeline; each box is
+to `freq` or directly after `irc`/`tsopt` for an ML-region DFT single-point
+energy evaluation. `mlmm all` chains the whole pipeline; each box is
 also available as its own subcommand.
 
 ## Common flag conventions
@@ -59,8 +59,8 @@ These flags appear on most subcommands (canonical list:
 | Flag | Meaning |
 |---|---|
 | `-i, --input` | Input file(s); calculation workflows use `.pdb` / `.xyz` (Gaussian/ORCA input belongs to `oniom-import`) |
-| `-q, --charge` | Total charge (integer) |
-| `-l, --ligand-charge` | `'RES1:Q1,RES2:Q2'` per-residue mapping (PDB inputs) |
+| `-q, --charge` | Net ML-region/model-system charge (integer) |
+| `-l, --ligand-charge` | Unknown-ligand total or `'RES1:Q1,RES2:Q2'` mapping used to derive the ML-region charge |
 | `-m, --multiplicity` | Spin multiplicity (2S+1), default 1 |
 | `-b, --backend` | MLIP backend: `uma` / `orb` / `mace` / `aimnet2` |
 | `--precision` | Unset defaults by backend: UMA/AIMNet2 fp32; ORB/MACE fp64 |
@@ -103,7 +103,7 @@ mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme
 mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
 ```
 
-### DFT//MLIP/MM single point on the rate-limiting TS
+### DFT//MLIP/MM single point on the highest-local-barrier TS candidate
 
 ```bash
 mlmm dft -i seg_01/ts.pdb --parm real.parm7 \

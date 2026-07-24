@@ -50,7 +50,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 2. **PHVA & translation/rotation (TR) projection** — With frozen atoms, eigenanalysis occurs inside the active subspace. The default constrained projector removes only full-system rigid motions that leave every frozen anchor fixed; it does not treat the active fragment as an isolated molecule. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
 3. **Active DOF mode** — `--active-dof-mode` selects which atoms enter the analysis (default `partial`); see the CLI options table for the four modes.
 4. **Mode export** — `--max-write` limits how many modes are animated. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` (XYZ-like trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering). The sinusoidal animation amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
-5. **Thermochemistry** — If `thermoanalysis` is installed, a QRRHO-like summary (EE, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. CLI pressure in atm is converted internally to Pa. When `--dump`, a `thermoanalysis.yaml` snapshot is also written. **Frequency-treatment policy**: `freq` applies the **standalone-freq policy** — QRRHO with a 100 cm⁻¹ rotor cutoff, unit frequency/ZPE scaling, **no** imaginary-frequency inversion, and **no** positive-frequency floor. This is deliberately different from the internal `Geometry.get_thermoanalysis` policy used by some bundled-engine paths, which additionally inverts small imaginaries (from −15 cm⁻¹) and floors positive frequencies below 25 cm⁻¹. Neither is a universal scientific default; each is tied to its entry point. The effective policy (`kind`, `rotor_cutoff_cm`, `frequency_scale`, `zpe_scale`, `invert_imag_from_cm`, `positive_frequency_floor_cm`) is serialized under `thermo_policy` in `thermoanalysis.yaml` and in `result.json`.
+5. **Thermochemistry** — If `thermoanalysis` is installed, a QRRHO-like summary (EE, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. CLI pressure in atm is converted internally to Pa. The rotational symmetry number defaults to 1; set the molecule's external rotational symmetry explicitly with `--symmetry-number` (or `thermo.symmetry_number` in YAML). The workflow does not infer a point group. When `--dump`, a `thermoanalysis.yaml` snapshot is also written. **Frequency-treatment policy**: `freq` applies the **standalone-freq policy** — QRRHO with a 100 cm⁻¹ rotor cutoff, unit frequency/ZPE scaling, **no** imaginary-frequency inversion, and **no** positive-frequency floor. This is deliberately different from the internal `Geometry.get_thermoanalysis` policy used by some bundled-engine paths, which additionally inverts small imaginaries (from −15 cm⁻¹) and floors positive frequencies below 25 cm⁻¹. Neither is a universal scientific default; each is tied to its entry point. The effective policy (`kind`, `rotor_cutoff_cm`, `frequency_scale`, `zpe_scale`, `invert_imag_from_cm`, `positive_frequency_floor_cm`) is serialized under `thermo_policy` in `thermoanalysis.yaml` and in `result.json`.
 6. **Device selection** — `ml_device="auto"` triggers CUDA when available, otherwise CPU. The internal TR projection/mode assembly runs on the same device to minimize transfers.
 7. **Exit behavior** — Keyboard interrupts exit with code 130; other failures print a traceback and exit with code 1.
 
@@ -71,7 +71,7 @@ Realistic ML/MM boundaries normally have several non-collinear anchors, so the
 effective rank is usually zero and no active-space direction is removed. An
 all-frozen selection has no active DOF and raises an explicit error.
 
-`--tr-projection legacy-active` is an isolated-active comparison treatment: it
+`--tr-projection legacy-active` is a deprecated isolated-active comparison treatment: it
 treats the active block as an isolated molecule while using the current common
 projection kernel and numerical rank handling. Linear, collinear, coincident,
 and other rank-degenerate cases follow that current kernel; bitwise identity is
@@ -115,20 +115,20 @@ out_dir/ (default: ./result_freq/)
 | `--precision [fp32\|fp64]` | MLIP backend precision; unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
 | `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
 | `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend (analytical Hessian vs OpenMM finite-difference). | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
-| `--embedcharge/--no-embedcharge` | Enable xTB point-charge embedding correction for MM-to-ML environmental effects (experimental). | `False` |
-| `--embedcharge-cutoff FLOAT` | Cutoff radius (Å) for embed-charge MM atoms. | `12.0` |
+| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
+| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--hess-device CHOICE` | Device for Hessian assembly/diagonalization: `auto`, `cuda`, `cpu`. Use `cpu` to avoid VRAM issues with large systems. | `auto` |
 | **Active-region freezing & Hessian** | | |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | Rigid-mode treatment for PHVA. `constrained` respects frozen anchors; `legacy-active` is an isolated-active comparison mode. | `constrained` |
+| `--tr-projection [constrained\|legacy-active]` | Rigid-mode treatment for PHVA. `legacy-active` is comparison-only and must not be used for pass/HOSP transition-state certification. | `constrained` |
 | `--active-dof-mode CHOICE` | Active DOF selection: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
 | `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
-| `--dump-hess PATH` | Save Hessian, atom order, Cartesian geometry, active-DOF basis, and PHVA metadata to `.npz` for a matching `mlmm irc --read-hess` run. | _None_ |
+| `--dump-hess PATH` | Save Hessian, atom order, Cartesian geometry, active-DOF basis, PHVA metadata, model charge, and multiplicity to `.npz` for a matching `mlmm irc --read-hess` run. | _None_ |
 | **Mode export** | | |
 | `--max-write INT` | Number of modes to export. | `10` |
 | `--sort CHOICE` | Mode ordering: `value` (cm^-1) or `abs`. | `value` |
@@ -138,6 +138,7 @@ out_dir/ (default: ./result_freq/)
 | **Thermochemistry** | | |
 | `--temperature FLOAT` | Thermochemistry temperature (K). | `298.15` |
 | `--pressure FLOAT` | Thermochemistry pressure (atm). | `1.0` |
+| `--symmetry-number INT` | External rotational symmetry number used in the molecular partition function. | `1` |
 | `--dump/--no-dump` | Write `thermoanalysis.yaml`. | `False` |
 | **Output & config** | | |
 | `-o, --out-dir TEXT` | Output directory. | `./result_freq/` |
@@ -146,9 +147,11 @@ out_dir/ (default: ./result_freq/)
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate and print execution plan without running frequency analysis. Shown in `--help-advanced`. | `False` |
 
-The handoff is identity-checked: IRC rejects legacy files without identity
-metadata and files from a different atom order, geometry, layer selection, or
-Hessian active basis. Regenerate the file with the same layer/Hessian settings.
+The handoff is identity-checked: IRC rejects files from a different atom order,
+geometry, layer selection, Hessian active basis, model charge, or multiplicity.
+Schema-1 files predate electronic-state identity and are rejected unless
+`--allow-unverified-hess-state` is explicitly supplied to IRC after independent
+state verification.
 
 ## YAML configuration
 
@@ -164,7 +167,7 @@ An additional `thermo` section is supported for thermochemistry controls.
 geom:
  coord_type: cart                  # coordinate type: cartesian vs dlc internals
  freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
- tr_projection: constrained        # constrained (default) | legacy-active comparison
+ tr_projection: constrained        # legacy-active is deprecated and comparison-only
 calc:
  charge: 0                         # net charge (CLI override)
  spin: 1                           # spin multiplicity 2S+1
@@ -172,7 +175,7 @@ mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
  backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
- embedcharge: false                # xTB point-charge embedding correction
+ embedcharge: false                # Compatibility tombstone; true is rejected
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
@@ -188,6 +191,7 @@ freq:
 thermo:
  temperature: 298.15               # thermochemistry temperature (K)
  pressure_atm: 1.0                 # thermochemistry pressure (atm)
+ symmetry_number: 1                # external rotational symmetry number
  dump: false                       # write thermoanalysis.yaml when true
 ```
 
@@ -195,7 +199,7 @@ thermo:
 
 - [tsopt](tsopt.md) — Optimize TS candidates (validate with freq/IRC; expected: one imaginary frequency)
 - [opt](opt.md) — Geometry optimization (often precedes freq)
-- [dft](dft.md) — Single-point DFT for higher-level energy refinement
+- [dft](dft.md) — Single-point DFT for higher-level energy evaluation
 - [all](all.md) — End-to-end workflow with `--thermo`
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide

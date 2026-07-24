@@ -117,7 +117,7 @@ saddle**; see "Distinctive failure modes" below.
 |---|---|---|
 | `tsopt.status == "not_converged"` | Initial Hessian misleading or step size too large | `mlmm tsopt -i ts.xyz --opt-mode rsirfo --max-cycles 200` standalone, then re-run downstream stages |
 | `tsopt.n_imaginary_modes == 0` | Geometry collapsed to a minimum during refinement | TS guess was not a real saddle; re-do `path-search` instead |
-| `tsopt.n_imaginary_modes == 2+` | Two near-degenerate negative modes | Normal for some metalloenzyme TSs; check whether the second imaginary mode is a residual translation / rotation (often resolved by tightening `freeze_atoms`) |
+| `tsopt.n_imaginary_modes >= 2` | Higher-order saddle or unresolved constrained-mode artifact; first-order certification failed | Inspect both modes, tighten convergence/frozen-boundary setup, then flatten or reoptimize from a better TS seed. Accept only exactly one meaningful imaginary mode with IRC connectivity to the intended endpoints. |
 | `irc.bond_changes == {}` (no bonds change) | TS connects two essentially identical wells (numerical ringing) | Verify the imaginary mode visualization in `freq/`; this is sometimes a non-physical TS |
 
 ## When *not* to use TS-only mode
@@ -160,8 +160,8 @@ selection. Most subcommands accept:
 | `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (0.0=ML, 10.0=movable-MM, 20.0=frozen). Default on. |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
-| `-q, --charge` | Force total system charge (highest priority over derived charges) |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
+| `-q, --charge` | Override the net ML-region/model charge (highest priority) |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
 Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.

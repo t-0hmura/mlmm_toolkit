@@ -36,7 +36,7 @@ accept:
 | `--model-indices` | Comma-separated atom indices for ML region (e.g. `'1-50,75,100-110'`); used only when `--model-pdb` is omitted (`--model-pdb` takes precedence) |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | xTB point-charge embedding for MM→ML environment (default off) |
+| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` | **ML-region** charge (not whole-system); stored as `model_charge` |
 | `-l, --ligand-charge` | Per-residue ML-region charge mapping |
 
@@ -116,8 +116,9 @@ produced only by `mlmm all`, not by standalone `path-search`.
 - Recursive segmentation can produce **more** segments than `len(-i) - 1`
   — that's the whole point: it finds intermediates the user didn't
   supply.
-- `--max-nodes` bigger than 30 rarely helps; if a segment doesn't
-  converge with 20 nodes, the chemistry is usually the problem.
+- Increasing `--max-nodes` trades cost for path resolution but does not repair
+  chemically inconsistent endpoints. Benchmark convergence on the actual
+  system and inspect the trajectory and bond changes.
 - Output **does not** include refined TSs; those are `segments/seg_NN/tsopt/`
   in the `all` pipeline.
 

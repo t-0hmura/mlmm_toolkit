@@ -47,7 +47,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われます。デフォルトの constrained 射影は、凍結 anchor をすべて動かさない全系剛体運動のみを除去し、アクティブ断片を孤立分子として扱いません。3N x 3N とアクティブブロックの両方のHessianを受け付け、振動数は cm^-1 で報告します（負の値 = 虚振動数）。
 3. **アクティブ自由度モード** — `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層、B=0）、`partial`（ML + MovableMM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
 4. **モードエクスポート** — `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `_trj.xyz`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML のデフォルト値と同じです。
-5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（EE、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。CLI の圧力（atm）は内部で Pa に変換されます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
+5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（EE、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。CLI の圧力（atm）は内部で Pa に変換されます。回転対称数のデフォルトは 1 です。分子の外部回転対称数は `--symmetry-number`（または YAML の `thermo.symmetry_number`）で明示してください。point group の自動推定は行いません。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
 6. **デバイス選択** — `ml_device="auto"` は CUDA が利用可能な場合は CUDA を使用し、それ以外は CPU を使用します。内部の TR 射影/モード組み立ては転送を抑えるため同じデバイスで実行されます。
 7. **終了動作** — キーボード割り込みはコード 130 で終了します。その他の失敗はトレースバックを出力してコード 1 で終了します。
 
@@ -68,8 +68,9 @@ PHVA の物理的なデフォルトは `--tr-projection constrained` です。
 有効 rank は通常 0 で、アクティブ部分空間の方向は除去されません。
 全原子を凍結するとアクティブ自由度が無いため、明示的なエラーになります。
 
-`--tr-projection legacy-active` は isolated-active 比較処理で、アクティブブロックを
-孤立分子として扱いますが、現行の共通射影 kernel と数値 rank 判定を使用します。
+`--tr-projection legacy-active` は非推奨の比較専用処理で、pass/HOSP 遷移状態認定には
+使用できません。アクティブブロックを孤立分子として扱い、現行の共通射影 kernel と
+数値 rank 判定を使用します。
 直線、共線、同一座標など rank が退化する構造も現行 kernel で処理され、
 bitwise 一致は保証しません。
 
@@ -118,21 +119,21 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド（解析的Hessian vs OpenMM 有限差分）。 | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（既定 `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（g 因子）または fixed（1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
+| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--hess-device CHOICE` | Hessian組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
 | **アクティブ領域の凍結とHessian** | | |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | PHVA の剛体モード処理。`constrained` は凍結 anchor を尊重し、`legacy-active` は isolated-active 比較モード。 | `constrained` |
+| `--tr-projection [constrained\|legacy-active]` | PHVA の剛体モード処理。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM 層のカットオフ距離。 | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessianモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
-| `--dump-hess PATH` | Hessian、原子順序、Cartesian geometry、active-DOF basis、PHVA metadataを`.npz`へ保存し、一致する`mlmm irc --read-hess`へ渡す。 | _None_ |
+| `--dump-hess PATH` | Hessian、原子順序、Cartesian geometry、active-DOF basis、PHVA metadata、model charge、多重度を`.npz`へ保存し、一致する`mlmm irc --read-hess`へ渡す。 | _None_ |
 | **モードエクスポート** | | |
 | `--max-write INT` | エクスポートするモード数。 | `10` |
 | `--sort CHOICE` | モードのソート方法: `value`（cm^-1）または `abs`。 | `value` |
@@ -142,6 +143,7 @@ out_dir/ (デフォルト: ./result_freq/)
 | **熱化学** | | |
 | `--temperature FLOAT` | 熱化学温度 (K)。 | `298.15` |
 | `--pressure FLOAT` | 熱化学圧力 (atm)。 | `1.0` |
+| `--symmetry-number INT` | 分子分配関数に使用する外部回転対称数。 | `1` |
 | `--dump/--no-dump` | `thermoanalysis.yaml` を書き出し。 | `False` |
 | **出力と設定** | | |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_freq/` |
@@ -149,7 +151,10 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--show-config/--no-show-config` | 確定した YAML レイヤー/設定を表示して続行。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
 
-受け渡し時に識別情報（identity）を検証します。IRC は、識別メタデータを持たない旧形式や、原子順序・座標・レイヤー選択・Hessian のアクティブ基底が異なるファイルを拒否します。同じレイヤー/Hessian 設定でファイルを再生成してください。
+受け渡し時に識別情報（identity）を検証します。IRC は、原子順序・座標・
+レイヤー選択・Hessian のアクティブ基底・model charge・多重度が異なる
+ファイルを拒否します。電子状態 identity 導入前の schema 1 は、独立に状態を
+確認したうえで IRC に `--allow-unverified-hess-state` を明示した場合だけ使用できます。
 
 ## YAML 設定
 
@@ -164,7 +169,7 @@ out_dir/ (デフォルト: ./result_freq/)
 geom:
  coord_type: cart                  # 座標タイプ: デカルト vs dlc 内部座標
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained        # constrained（デフォルト）| legacy-active 比較
+ tr_projection: constrained        # legacy-active は非推奨・比較専用
 calc:
  charge: 0                         # 総電荷（CLI 上書き）
  spin: 1                           # スピン多重度 2S+1
@@ -172,7 +177,7 @@ mlmm:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false                # xTB 点電荷埋め込み補正
+ embedcharge: false                # 互換性用。true は拒否される
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
@@ -188,6 +193,7 @@ freq:
 thermo:
  temperature: 298.15               # 熱化学温度 (K)
  pressure_atm: 1.0                 # 熱化学圧力 (atm)
+ symmetry_number: 1                # 外部回転対称数
  dump: false                       # true の場合 thermoanalysis.yaml を書き出し
 ```
 
@@ -195,7 +201,7 @@ thermo:
 
 - [tsopt](tsopt.md) — TS 候補の最適化（freq/IRC で検証; 期待: 1 つの虚振動数）
 - [opt](opt.md) — 構造最適化（多くの場合 freq の前に実行）
-- [dft](dft.md) — より高レベルのエネルギー精密化のための DFT 一点計算
+- [dft](dft.md) — より高い理論レベルでエネルギーを評価するための DFT 一点計算
 - [all](all.md) — `--thermo` 付き一気通貫ワークフロー
 - [典型エラー別レシピ](recipes-common-errors.md) — 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) — 詳細なトラブルシューティングガイド

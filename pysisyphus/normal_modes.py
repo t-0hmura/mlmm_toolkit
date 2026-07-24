@@ -22,6 +22,7 @@ import ase.units as units
 from ase.data import atomic_masses
 
 from pysisyphus.constants import BOHR2ANG, AMU2AU, AU2EV
+from pysisyphus._array import active_square
 from pysisyphus.tr_projection import active_tr_basis, project_hessian_inplace
 
 
@@ -288,7 +289,9 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                     mask_dof[3 * i:3 * i + 3] = False
 
                 # Create the reduced Hessian; free the full one immediately to keep only one in VRAM
-                H_act = H_t[mask_dof][:, mask_dof]
+                active_dof = torch.nonzero(mask_dof, as_tuple=False).flatten()
+                H_act = active_square(H_t, active_dof)
+                del active_dof
                 del H_t
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()

@@ -24,10 +24,12 @@ Options:
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
-  -q, --charge INTEGER            Total charge; overrides calc.charge from YAML.
+  -q, --charge INTEGER            Net charge of the ML region/model system;
+                                  overrides calc.model_charge from YAML.
                                   Required unless --ligand-charge is provided.
-  -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
-                                  GPP:-3,SAM:1) used to derive charge when -q is
+  -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
+                                  per-resname mapping (e.g., GPP:-3,SAM:1), used
+                                  to derive the ML-region charge when -q is
                                   omitted (requires PDB/mmCIF input or --ref-
                                   pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1); overrides calc.spin
@@ -72,19 +74,19 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).
   --embedcharge / --no-embedcharge
-                                  Enable xTB point-charge embedding correction
-                                  for MM→ML environmental effects
-                                  (experimental).  [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
-                                  point charges in xTB embedding. Default: 12.0
-                                  Å. Only used when --embedcharge is enabled.
+                                  Unavailable in v0.3.3; retained so older
+                                  commands fail with an actionable diagnostic.
+                                  [default: no-embedcharge]
+  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
+                                  retired electronic-embedding path.
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
   --mm-backend [hessian_ff|openmm]
-                                  MM backend: hessian_ff (analytical Hessian,
-                                  default) or openmm (finite-difference Hessian,
-                                  slower).
+                                  MM backend (default: hessian_ff). MM Hessians
+                                  use finite differences by default; set
+                                  calc.mm_fd: false for the hessian_ff
+                                  analytical path.
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).
@@ -93,18 +95,26 @@ Options:
                                   large unfrozen systems to avoid VRAM limits.
                                   [default: auto]
   --read-hess FILE                Read an identified initial Hessian from 'mlmm
-                                  freq --dump-hess'. The geometry, atom order,
-                                  and active-DOF basis must match; the file
-                                  takes priority over hessian_cache and fresh
-                                  computation.
+                                  freq --dump-hess'. Geometry, atom order,
+                                  active-DOF basis, charge, and multiplicity
+                                  must match; the file takes priority over
+                                  hessian_cache and fresh computation.
+  --allow-unverified-hess-state / --no-allow-unverified-hess-state
+                                  Allow a schema-1 Hessian file whose charge and
+                                  multiplicity cannot be verified. Use only
+                                  after independently checking the electronic
+                                  state.  [default: no-allow-unverified-hess-
+                                  state]
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
   --tr-projection [constrained|legacy-active]
                                   Rigid-mode treatment for a frozen/partial
                                   Hessian. 'constrained' removes only full-
                                   system rigid motions compatible with the
-                                  anchors (default); 'legacy-active' treats the
-                                  active fragment as isolated for comparison.
+                                  anchors (default); 'legacy-active' is
+                                  deprecated comparison-only behavior and must
+                                  not be used for pass/HOSP transition-state
+                                  certification.
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer

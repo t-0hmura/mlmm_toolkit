@@ -106,6 +106,10 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "mm_cuda_idx": 0,
     "mm_threads": 16,
     "mm_fd": True,
+    # None preserves the legacy boolean contract (true=finite difference,
+    # false=analytical). Algorithms that intentionally use only high-level
+    # curvature set the explicit internal mode "none".
+    "mm_hessian_mode": None,
     "mm_fd_dir": None,
     "mm_fd_delta": 1e-3,         # Displacement step for OpenMM FD Hessian (Å)
     "symmetrize_hessian": True,  # Symmetrize final Hessian as 0.5*(H+H^T)
@@ -128,10 +132,11 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "hess_mm_atoms": None,    # Explicit Hessian-target MM atom indices
     "movable_mm_atoms": None, # Explicit movable MM atom indices
     "frozen_mm_atoms": None,  # Explicit frozen MM atom indices
-    # xTB point-charge embedding correction
-    "embedcharge": False,           # Enable xTB-based point-charge embedding
-    "embedcharge_step": 1.0e-3,     # Numerical Hessian step for embedding correction (Å)
-    "embedcharge_cutoff": 12.0,     # Distance cutoff (Å) for MM point charges in xTB embedding
+    # Retired electronic-embedding compatibility keys. Public workflows reject
+    # activation in v0.3.3; keep the defaults readable for old false-valued YAML.
+    "embedcharge": False,
+    "embedcharge_step": 1.0e-3,
+    "embedcharge_cutoff": 12.0,
     "xtb_cmd": "xtb",              # xTB executable command
     "xtb_acc": 0.2,                # xTB accuracy parameter
     "xtb_workdir": "tmp",          # xTB working directory
@@ -362,6 +367,10 @@ IRC_KW: Dict[str, Any] = {
     "prefix": "",
     "hessian_update": "bofill",
     "hessian_recalc": None,
+    # Low-level periodic checkpointing is disabled by default. The checkpoint
+    # contains coordinates/energies/gradients only, never a dense Hessian.
+    "dump_fn": "irc_data.h5",
+    "dump_every": None,
     "max_pred_steps": 500,
     "loose_cycles": 3,
     "corr_func": "mbs",
@@ -388,6 +397,7 @@ FREQ_KW: Dict[str, Any] = {
 THERMO_KW: Dict[str, Any] = {
     "temperature": 298.15,
     "pressure_atm": 1.0,
+    "symmetry_number": 1,
     "dump": False,
 }
 

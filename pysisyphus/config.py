@@ -48,16 +48,14 @@ DEFAULTS = {
 try:
     pysisrc_env = os.getenv("PYSISRC", default=None)
     config_fn = Path(pysisrc_env).resolve()
-    print(f"Read pysisyphus configuration from '{config_fn}'")
 # Fallback to $HOME/.pysisyphusrc
 except TypeError:
     config_fn = Path.home() / ".pysisyphusrc"
 
-if not config_fn.is_file():
-    print(f"Couldn't find configuration file. Expected it at '{config_fn}'.")
-
 Config = configparser.ConfigParser()
 read_fns = Config.read(config_fn)
+if read_fns and pysisrc_env is not None:
+    print(f"Read pysisyphus configuration from '{config_fn}'")
 
 
 def get_cmd(section, key="cmd", use_defaults=True):

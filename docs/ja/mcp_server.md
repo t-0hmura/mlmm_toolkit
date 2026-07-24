@@ -71,7 +71,7 @@ output option を上書きできません。短縮 option の連結形と
 
 | MCP ツール | CLI サブコマンド | 目的 |
 |---|---|---|
-| `scan_1d` / `scan_2d` / `scan_3d` | `mlmm scan{,2d,3d}` | ONIOM 拘束スキャン |
+| `scan_1d` / `scan_2d` / `scan_3d` | `mlmm scan` / `mlmm scan2d` / `mlmm scan3d` | ONIOM 拘束スキャン |
 | `optimize_path` | `mlmm path-opt` | 両端点 ONIOM MEP 最適化 |
 | `search_paths` | `mlmm path-search` | 再帰的 ONIOM 経路探索 |
 | `run_full_pipeline` | `mlmm all` | エンドツーエンド: extract → MEP → TS → IRC → freq → DFT |

@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
+from pysisyphus._array import active_square
 
 
 def _is_torch_tensor(value: Any) -> bool:
@@ -31,42 +32,47 @@ def clone_pes_result(result: Mapping[str, Any]) -> dict[str, Any]:
     return {key: _clone_array(value) for key, value in result.items()}
 
 
-def _add_like(reference: Any, correction: Any) -> Any:
-    """Add *correction* in the reference array's representation."""
+def _add_inplace(target: Any, correction: Any) -> Any:
+    """Add *correction* to a result-owned numerical buffer."""
 
-    if _is_torch_tensor(reference):
+    if _is_torch_tensor(target):
         import torch
 
         delta = torch.as_tensor(
-            correction, dtype=reference.dtype, device=reference.device
-        ).reshape(reference.shape)
-        return reference.clone().add(delta)
+            correction, dtype=target.dtype, device=target.device
+        ).reshape(target.shape)
+        target.add_(delta)
+        return target
 
-    ref = np.asarray(reference)
-    delta = np.asarray(correction, dtype=ref.dtype).reshape(ref.shape)
-    return ref.copy() + delta
+    out = np.asarray(target)
+    if _is_torch_tensor(correction):
+        correction = correction.detach().cpu().numpy()
+    delta = np.asarray(correction, dtype=out.dtype).reshape(out.shape)
+    np.add(out, delta, out=out)
+    return target
 
 
-def _zero_indices(value: Any, indices: Sequence[int], *, matrix: bool) -> Any:
+def _zero_indices_inplace(
+    value: Any, indices: Sequence[int], *, matrix: bool
+) -> Any:
     if not indices:
-        return _clone_array(value)
+        return value
     if _is_torch_tensor(value):
         import torch
 
-        out = value.clone()
-        idx = torch.as_tensor(indices, dtype=torch.long, device=out.device)
+        idx = torch.as_tensor(indices, dtype=torch.long, device=value.device)
         if matrix:
-            n_dof = int(round(out.numel() ** 0.5))
-            if n_dof * n_dof != out.numel():
+            n_dof = int(round(value.numel() ** 0.5))
+            if n_dof * n_dof != value.numel():
                 raise ValueError("Hessian buffer is not square.")
-            square = out.reshape(n_dof, n_dof)
+            square = value.reshape(n_dof, n_dof)
             square.index_fill_(0, idx, 0.0)
             square.index_fill_(1, idx, 0.0)
         else:
-            out.reshape(-1).index_fill_(0, idx, 0.0)
-        return out
+            value.reshape(-1).index_fill_(0, idx, 0.0)
+        return value
 
-    out = np.asarray(value).copy()
+    out = np.asarray(value)
     if matrix:
         n_dof = int(round(out.size ** 0.5))
         if n_dof * n_dof != out.size:
@@ -77,6 +83,37 @@ def _zero_indices(value: Any, indices: Sequence[int], *, matrix: bool) -> Any:
     else:
         out.reshape(-1)[np.asarray(indices, dtype=int)] = 0.0
     return out
+
+
+def _array_size(value: Any) -> int:
+    if _is_torch_tensor(value):
+        return int(value.numel())
+    return int(np.asarray(value).size)
+
+
+def _mapped_hessian_delta(
+    delta_full: Any,
+    represented_dofs: np.ndarray,
+    *,
+    full_n_dof: int,
+    is_full: bool,
+) -> Any:
+    """Return a full or compact correction without cloning the output buffer."""
+
+    if _array_size(delta_full) != full_n_dof * full_n_dof:
+        raise ValueError(
+            f"Hessian correction must have shape ({full_n_dof}, {full_n_dof})."
+        )
+    if _is_torch_tensor(delta_full):
+        square = delta_full.reshape(full_n_dof, full_n_dof)
+        if is_full:
+            return square
+        return active_square(square, represented_dofs)
+
+    square = np.asarray(delta_full).reshape(full_n_dof, full_n_dof)
+    if is_full:
+        return square
+    return square[np.ix_(represented_dofs, represented_dofs)]
 
 
 def _hessian_map(
@@ -161,29 +198,28 @@ def compose_additive_pes_result(
 
     if force_delta_full is not None:
         expected = 3 * n_atoms
-        if np.asarray(force_delta_full).size != expected:
+        if _array_size(force_delta_full) != expected:
             raise ValueError(
                 f"Force correction must contain {expected} values for {n_atoms} atoms."
             )
-        result["forces"] = _add_like(
-            base_result["forces"], np.asarray(force_delta_full).reshape(-1)
+        result["forces"] = _add_inplace(
+            result["forces"], force_delta_full
         )
     if "forces" in result and constrained_dofs:
-        result["forces"] = _zero_indices(
+        result["forces"] = _zero_indices_inplace(
             result["forces"], constrained_dofs, matrix=False
         )
 
     if hessian_delta_full is not None:
         full_n_dof = 3 * n_atoms
-        delta = np.asarray(hessian_delta_full)
-        if delta.size != full_n_dof * full_n_dof:
-            raise ValueError(
-                f"Hessian correction must have shape ({full_n_dof}, {full_n_dof})."
-            )
-        delta = delta.reshape(full_n_dof, full_n_dof)
         represented_dofs, is_full = _hessian_map(base_result, n_atoms=n_atoms)
-        mapped = delta[np.ix_(represented_dofs, represented_dofs)]
-        result["hessian"] = _add_like(base_result["hessian"], mapped)
+        mapped = _mapped_hessian_delta(
+            hessian_delta_full,
+            represented_dofs,
+            full_n_dof=full_n_dof,
+            is_full=is_full,
+        )
+        result["hessian"] = _add_inplace(result["hessian"], mapped)
     elif "hessian" in result:
         represented_dofs, is_full = _hessian_map(base_result, n_atoms=n_atoms)
     else:
@@ -202,7 +238,7 @@ def compose_additive_pes_result(
             ]
         )
         if local_constrained:
-            result["hessian"] = _zero_indices(
+            result["hessian"] = _zero_indices_inplace(
                 result["hessian"], local_constrained, matrix=True
             )
 

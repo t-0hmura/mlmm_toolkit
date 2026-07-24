@@ -22,9 +22,15 @@ def geom_from_qcschema(qcschema: Dict, **geom_kwargs):
 
 @geom_from_qcschema.register
 def _(text: str, **geom_kwargs):
-    if (p := Path(text).exists()):
-        with open(p, "r") as handle:
-            text = handle.read()
+    path = Path(text)
+    try:
+        is_file = path.is_file()
+    except OSError:
+        # Long JSON strings and other non-path payloads may be invalid as a
+        # filesystem name.  They are still valid QCSchema input.
+        is_file = False
+    if is_file:
+        text = path.read_text()
     qcschema = json.loads(text)
     return geom_from_qcschema(qcschema, **geom_kwargs)
 

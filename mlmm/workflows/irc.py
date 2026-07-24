@@ -10,7 +10,7 @@ For detailed documentation, see: docs/irc.md
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 
 import gc
 import logging
@@ -68,11 +68,7 @@ from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make
 
 CALC_KW_DEFAULT: Dict[str, Any] = dict(_UMA_CALC_KW)
 
-IRC_KW_DEFAULT: Dict[str, Any] = {
-    **IRC_KW,
-    "dump_fn": "irc_data.h5",
-    "dump_every": 5,
-}
+IRC_KW_DEFAULT: Dict[str, Any] = dict(IRC_KW)
 
 
 def _directional_endpoint_energy_fields(
@@ -93,9 +89,85 @@ def _directional_endpoint_energy_fields(
     }
 
 
+def _consume_mw_hessian_to_cartesian_active(
+    mw_hessian: Any,
+    mass_sqrt_active: Any,
+) -> np.ndarray:
+    """Mass-unweight a terminal active Hessian in place and return it on CPU.
+
+    The input is consumed: callers must first detach it from the EulerPC owner
+    and must not reuse it. This avoids a second dense device allocation at the
+    IRC-to-cache stage boundary.
+    """
+    if isinstance(mw_hessian, torch.Tensor):
+        ms_t = torch.as_tensor(
+            mass_sqrt_active,
+            dtype=mw_hessian.dtype,
+            device=mw_hessian.device,
+        )
+        with torch.no_grad():
+            mw_hessian.mul_(ms_t.unsqueeze(1))
+            mw_hessian.mul_(ms_t.unsqueeze(0))
+        return mw_hessian.detach().cpu().numpy()
+
+    result = np.asarray(mw_hessian)
+    masses = np.asarray(mass_sqrt_active, dtype=result.dtype)
+    result *= masses[:, None]
+    result *= masses[None, :]
+    return result
+
+
 def _irc_output_path(eulerpc: EulerPC, filename: str) -> Path:
     """Resolve an engine-authored IRC filename, including normalized prefix."""
     return Path(eulerpc.get_path_for_fn(filename))
+
+
+_IRC_GENERATION_FILENAMES = tuple(
+    f"{stem}{suffix}"
+    for stem in (
+        "finished_irc",
+        "forward_irc",
+        "backward_irc",
+        "finished_first",
+        "finished_last",
+        "forward_first",
+        "forward_last",
+        "backward_first",
+        "backward_last",
+    )
+    for suffix in (
+        ("_trj.xyz", ".pdb", ".cif")
+        if stem.endswith("_irc")
+        else (".xyz", ".pdb", ".cif")
+    )
+)
+
+
+def _prepare_irc_output_dir(
+    path: Path,
+    *,
+    prefix: str = "",
+    protected_inputs: Tuple[Optional[Path], ...] = (),
+) -> Path:
+    """Invalidate command-owned IRC artifacts before a real generation."""
+    resolved = Path(path).resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
+    normalized_prefix = f"{prefix}_" if prefix else ""
+    owned = [
+        *(resolved / f"{normalized_prefix}{name}" for name in _IRC_GENERATION_FILENAMES),
+        resolved / "result.json",
+        resolved / "summary.json",
+    ]
+    reserved = {candidate.resolve() for candidate in owned}
+    for protected in protected_inputs:
+        if protected is not None and Path(protected).resolve() in reserved:
+            raise click.UsageError(
+                f"Input {protected} collides with a reserved IRC output path "
+                f"under {resolved}."
+            )
+    for candidate in owned:
+        candidate.unlink(missing_ok=True)
+    return resolved
 
 
 def _collect_irc_output_files(eulerpc: EulerPC) -> Dict[str, str]:
@@ -116,6 +188,12 @@ def _collect_irc_output_files(eulerpc: EulerPC) -> Dict[str, str]:
         ("backward_last.pdb", "backward_last_pdb"),
         ("forward_last.cif", "forward_last_cif"),
         ("backward_last.cif", "backward_last_cif"),
+        ("forward_first.xyz", "forward_endpoint"),
+        ("backward_last.xyz", "backward_endpoint"),
+        ("forward_first.pdb", "forward_endpoint_pdb"),
+        ("backward_last.pdb", "backward_endpoint_pdb"),
+        ("forward_first.cif", "forward_endpoint_cif"),
+        ("backward_last.cif", "backward_endpoint_cif"),
     )
     files: Dict[str, str] = {}
     for filename, key in specs:
@@ -174,10 +252,12 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
          "Used when --model-pdb is omitted.",
 )
 @click.option("-q", "--charge", type=int, required=False,
-              help="Total charge; overrides calc.charge from YAML. Required unless --ligand-charge is provided.")
+              help="Net charge of the ML region/model system; overrides calc.model_charge from YAML. "
+                   "Required unless --ligand-charge is provided.")
 @click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
-              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
-                   "charge when -q is omitted (requires PDB/mmCIF input or --ref-pdb).")
+              help="Total charge for unknown ligand residues or a per-resname mapping "
+                   "(e.g., GPP:-3,SAM:1), used to derive the ML-region charge when -q "
+                   "is omitted (requires PDB/mmCIF input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -267,7 +347,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -275,8 +355,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method",
@@ -292,7 +371,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -317,8 +396,16 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     default=None,
     show_default=False,
     help="Read an identified initial Hessian from 'mlmm freq --dump-hess'. "
-         "The geometry, atom order, and active-DOF basis must match; the file "
-         "takes priority over hessian_cache and fresh computation.",
+         "Geometry, atom order, active-DOF basis, charge, and multiplicity must "
+         "match; the file takes priority over hessian_cache and fresh computation.",
+)
+@click.option(
+    "--allow-unverified-hess-state/--no-allow-unverified-hess-state",
+    "allow_unverified_hess_state",
+    default=False,
+    show_default=True,
+    help="Allow a schema-1 Hessian file whose charge and multiplicity cannot be "
+         "verified. Use only after independently checking the electronic state.",
 )
 @click.option(
     "--freeze-atoms",
@@ -335,7 +422,8 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help=(
         "Rigid-mode treatment for a frozen/partial Hessian. 'constrained' "
         "removes only full-system rigid motions compatible with the anchors "
-        "(default); 'legacy-active' treats the active fragment as isolated for comparison."
+        "(default); 'legacy-active' is deprecated comparison-only behavior and "
+        "must not be used for pass/HOSP transition-state certification."
     ),
 )
 @click.option(
@@ -388,6 +476,7 @@ def cli(
     use_cmap: Optional[bool],
     hess_device: str,
     read_hess: Optional[str],
+    allow_unverified_hess_state: bool,
     out_json: bool,
     precision: Optional[str],
     workers: Optional[int],
@@ -399,6 +488,10 @@ def cli(
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
+    if allow_unverified_hess_state and not read_hess:
+        raise click.UsageError(
+            "--allow-unverified-hess-state requires --read-hess."
+        )
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -422,6 +515,10 @@ def cli(
     charge, spin = resolve_charge_spin_or_raise(
         prepared_input, charge, spin,
         ligand_charge=ligand_charge, prefix="[irc]",
+        model_pdb=model_pdb,
+        model_indices_spec=model_indices_str,
+        detect_layer=detect_layer,
+        yaml_cfg=merged_yaml_cfg,
     )
 
     model_indices: Optional[List[int]] = None
@@ -561,6 +658,13 @@ def cli(
         detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
         model_pdb_cfg = calc_cfg.get("model_pdb")
 
+        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+        reject_retired_embedcharge_cli(
+            calc_cfg,
+            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+        )
+
         if show_config:
             click.echo(
                 pretty_block(
@@ -611,7 +715,18 @@ def cli(
             click.echo("[dry-run] Validation complete. IRC execution was skipped.")
             return
 
-        out_dir_path.mkdir(parents=True, exist_ok=True)
+        out_dir_path = _prepare_irc_output_dir(
+            out_dir_path,
+            prefix=str(irc_cfg.get("prefix") or ""),
+            protected_inputs=(
+                prepared_input.source_path,
+                geom_input_path,
+                config_yaml,
+                override_yaml,
+                Path(calc_cfg["real_parm7"]) if calc_cfg.get("real_parm7") else None,
+                Path(model_pdb_cfg) if model_pdb_cfg else None,
+            ),
+        )
 
         if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
             raise click.BadParameter("--detect-layer requires a PDB input (or --ref-pdb).")
@@ -745,13 +860,22 @@ def cli(
             _initial_hessian_source = "file"
             click.echo(f"[irc] Loading initial Hessian from {read_hess}")
             from mlmm.io.hessian_file import load_hessian_file
+            from mlmm.io.hessian_cache import persistent_identity_from_context
 
             try:
                 _loaded_hessian = load_hessian_file(
                     read_hess,
                     cart_coords_bohr=geometry.cart_coords,
                     atomic_numbers=geometry.atomic_numbers,
+                    expected_model_charge=int(calc_cfg["model_charge"]),
+                    expected_model_mult=int(calc_cfg["model_mult"]),
+                    expected_potential_identity=persistent_identity_from_context(
+                        geometry,
+                        calc_cfg,
+                    ),
                     expected_active_dofs=_expected_hessian_dofs,
+                    allow_unverified_state=allow_unverified_hess_state,
+                    allow_unverified_pes=allow_unverified_hess_state,
                 )
             except ValueError as exc:
                 raise click.ClickException(str(exc)) from exc
@@ -762,6 +886,35 @@ def cli(
             # so a partial Hessian (active_n_dof != 3N) is consumed correctly
             # instead of tripping the Geometry cart_hessian shape assertion.
             _partial_metadata = _loaded_hessian["partial_metadata"]
+            _hessian_state_verified = bool(
+                _loaded_hessian["electronic_state_verified"]
+            )
+            _hessian_pes_verified = bool(
+                _loaded_hessian["potential_identity_verified"]
+            )
+            _hessian_file_schema = int(_loaded_hessian["schema_version"])
+            import hashlib
+
+            _hessian_hasher = hashlib.sha256()
+            with Path(read_hess).open("rb") as _hessian_stream:
+                for _hessian_block in iter(
+                    lambda: _hessian_stream.read(1 << 20),
+                    b"",
+                ):
+                    _hessian_hasher.update(_hessian_block)
+            _hessian_file_sha256 = _hessian_hasher.hexdigest()
+            if not _hessian_state_verified:
+                click.echo(
+                    "[irc] WARNING: the schema-1 Hessian does not identify "
+                    "charge or multiplicity; proceeding by explicit opt-in.",
+                    err=True,
+                )
+            if not _hessian_pes_verified:
+                click.echo(
+                    "[irc] WARNING: the legacy Hessian does not identify its "
+                    "generating PES; proceeding by explicit opt-in.",
+                    err=True,
+                )
             if _partial_metadata is not None:
                 geometry.within_partial_hessian = dict(_partial_metadata)
                 click.echo(
@@ -770,6 +923,10 @@ def cli(
                 )
             del _loaded_hessian
         else:
+            _hessian_state_verified = True
+            _hessian_pes_verified = True
+            _hessian_file_schema = None
+            _hessian_file_sha256 = None
             # M70: reuse the tsopt TS Hessian only on a full evaluation-identity
             # match; the all workflow may round-trip the TS through a
             # three-decimal PDB, so the coordinate field keeps the wider bohr
@@ -899,20 +1056,12 @@ def cli(
         # Cache IRC endpoint Hessians (Bofill-updated mw → Cartesian)
         def _unmw_and_store(mw_H, key, endpoint_cart_coords, direction):
             """Un-mass-weight active-DOF Hessian on device, store partial on CPU."""
-            import numpy as np
             act = eulerpc._act_dofs
             m_sqrt = geometry.masses_rep ** 0.5
             ms_act = m_sqrt[act]
-            if isinstance(mw_H, torch.Tensor):
-                ms_t = torch.as_tensor(ms_act, dtype=mw_H.dtype, device=mw_H.device)
-                H_cart_act = ms_t.unsqueeze(1) * mw_H * ms_t.unsqueeze(0)
-                H_cart_act_np = H_cart_act.detach().cpu().numpy()
-                # disk cache contract; free GPU copy after npy dump.
-                del H_cart_act
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-            else:
-                H_cart_act_np = np.diag(ms_act) @ mw_H @ np.diag(ms_act)
+            H_cart_act_np = _consume_mw_hessian_to_cartesian_active(
+                mw_H, ms_act
+            )
             _hess_store(
                 key,
                 H_cart_act_np,
@@ -946,37 +1095,57 @@ def cli(
             and _fwd_conv
             and getattr(eulerpc, "forward_mw_hessian", None) is not None
         ):
+            forward_mw_hessian = eulerpc.forward_mw_hessian
+            eulerpc.forward_mw_hessian = None
             forward_endpoint = (
                 np.asarray(eulerpc.forward_mw_coords[0], dtype=float)
                 / np.asarray(eulerpc.m_sqrt, dtype=float)
             )
-            _unmw_and_store(
-                eulerpc.forward_mw_hessian,
-                "irc_left",
-                forward_endpoint,
-                "forward",
-            )
+            try:
+                _unmw_and_store(
+                    forward_mw_hessian,
+                    "irc_left",
+                    forward_endpoint,
+                    "forward",
+                )
+            finally:
+                del forward_mw_hessian
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
             click.echo("[irc] Cached forward endpoint Hessian as 'irc_left'.")
         else:
+            eulerpc.forward_mw_hessian = None
             _hess_discard("irc_left")
         if (
             eulerpc.backward
             and _bwd_conv
             and getattr(eulerpc, "mw_hessian", None) is not None
         ):
+            backward_mw_hessian = eulerpc.mw_hessian
+            eulerpc.mw_hessian = None
             backward_endpoint = (
                 np.asarray(eulerpc.backward_mw_coords[-1], dtype=float)
                 / np.asarray(eulerpc.m_sqrt, dtype=float)
             )
-            _unmw_and_store(
-                eulerpc.mw_hessian,
-                "irc_right",
-                backward_endpoint,
-                "backward",
-            )
+            try:
+                _unmw_and_store(
+                    backward_mw_hessian,
+                    "irc_right",
+                    backward_endpoint,
+                    "backward",
+                )
+            finally:
+                del backward_mw_hessian
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
             click.echo("[irc] Cached backward endpoint Hessian as 'irc_right'.")
         else:
+            eulerpc.mw_hessian = None
             _hess_discard("irc_right")
+        eulerpc.mw_hessian = None
+        eulerpc.forward_mw_hessian = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         if source_path.suffix.lower() == ".pdb":
             ref_pdb_path = source_path.resolve()
@@ -988,8 +1157,9 @@ def cli(
                     ref_pdb_path,
                     _irc_output_path(eulerpc, f"{stem}_irc.pdb"),
                 )
-            # Single-frame endpoint PDBs (forward_last, backward_last)
-            for tag in ("forward_last", "backward_last"):
+            # Forward arrays are reversed for the stitched IRC, so the
+            # direction-semantic endpoints are forward_first/backward_last.
+            for tag in ("forward_first", "backward_last"):
                 endpoint_xyz = _irc_output_path(eulerpc, f"{tag}.xyz")
                 endpoint_pdb = _irc_output_path(eulerpc, f"{tag}.pdb")
                 if endpoint_xyz.exists() and not endpoint_pdb.exists():
@@ -1033,8 +1203,12 @@ def cli(
                     "hessian_space": (
                         "active" if len(eulerpc._act_atoms) < len(geometry.atoms) else "full"
                     ),
-                    "hessian_shape": list(eulerpc.init_hessian.shape),
+                    "hessian_shape": list(eulerpc.init_hessian_shape),
                     "hessian_source": _initial_hessian_source,
+                    "electronic_state_verified": _hessian_state_verified,
+                    "pes_identity_verified": _hessian_pes_verified,
+                    "hessian_file_schema": _hessian_file_schema,
+                    "hessian_file_sha256": _hessian_file_sha256,
                     "hessian_representation": "cartesian-unweighted-unprojected",
                 },
                 "input_file": str(source_path),

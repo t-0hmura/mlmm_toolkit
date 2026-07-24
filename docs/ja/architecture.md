@@ -84,7 +84,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ ├── custom.py user ASE calculator loaded from --calc-file (custom backend)
 │ │ ├── _determinism.py strict-determinism setup (--deterministic)
-│ │ └── xtb_embedcharge_correction.py xTB point-charge embedding correction (--embedcharge)
+│ │ └── xtb_embedcharge_correction.py 非アクティブな互換性用実装
 │ │
 │ ├── io/ # === L4b Infra (I/O) ===
 │ │ ├── summary.py summary.json / summary.log writer
@@ -97,7 +97,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ ├── core/ # === L5 Foundation ===
 │ │ ├── defaults.py shared workflow/calculator defaults
 │ │ ├── utils.py PDB / XYZ / plot helpers
-│ │ ├── logging.py -v / -vv logging wiring
+│ │ ├── logging.py -v/--verbose LEVEL（0–3）ロギング配線
 │ │ ├── calc_eval.py per-stage calc evaluation
 │ │ ├── output.py / result_commit.py output/result commit helpers
 │ │ ├── pes_composition.py energy-component composition
@@ -123,11 +123,11 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。この deny list は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーは、これとは異なる CI ゲート (`_check_domain_pure`) です。このマーカーは、MLIP-free を保つ必要があるバックエンド非依存の特定モジュール（`backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py`、および `workflows/sp.py` に存在）を検出します。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
 
-**L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py`) はバックエンドディスパッチ (`__init__.py`) と xTB 点電荷埋め込み補正 (`xtb_embedcharge_correction.py`、`--embedcharge` で駆動) とともにここにあります。ML 領域の UMA / ORB / MACE / AIMNet2 と OpenMM / hessian_ff の連携はこのレイヤーからディスパッチされます。`mlmm_calc.py` は化学ルール **#1 (subtractive ONIOM)**、**#2 (link-atom Hessian B-matrix)**、**#8 (3-layer 5-pass partial Hessian)** を保持し、ルール **#9 (parm7 atom indexing)** は `io/pdb_indexing.py` にあります — §5.1 を参照してください。
+**L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py`) はバックエンドディスパッチ (`__init__.py`) と非アクティブな電子埋め込み互換モジュール (`xtb_embedcharge_correction.py`; v0.3.3 では公開経路からの有効化を拒否) とともにここにあります。ML 領域の UMA / ORB / MACE / AIMNet2 と OpenMM / hessian_ff の連携はこのレイヤーからディスパッチされます。`mlmm_calc.py` は化学ルール **#1 (subtractive ONIOM)**、**#2 (link-atom Hessian B-matrix)**、**#8 (3-layer 5-pass partial Hessian)** を保持し、ルール **#9 (parm7 atom indexing)** は `io/pdb_indexing.py` にあります — §5.1 を参照してください。
 
 **L4b `io/`**。出力側の I/O には、ステージごとのサマリーライター、エネルギー図、軌跡レンダリング、PDB/altloc 処理、Hessian キャッシュ、数値 Hessian 構築、および振動数・振動 I/O (`hessian_calc.py`) が含まれます。`io/` は `workflows/` に依存しません。出力形式はここで管理され、ステージランナーから使用されます。
 
-**L5 `core/`**。最下層です。`defaults.py` は共有デフォルトの **ソース** です。まずここを確認し、その後で正当なコマンド固有デフォルトを確認します。`utils.py` は共有 PDB / XYZ / プロットヘルパーを保持し、`logging.py` (`-v` / `-vv`)、`calc_eval.py` (ステージごとの計算評価)、`residue_data.py` (残基テーブル) もここにあります。
+**L5 `core/`**。最下層です。`defaults.py` は共有デフォルトの **ソース** です。まずここを確認し、その後で正当なコマンド固有デフォルトを確認します。`utils.py` は共有 PDB / XYZ / プロットヘルパーを保持し、`logging.py`（サブコマンドごとの `-v/--verbose LEVEL`、0–3）、`calc_eval.py` (ステージごとの計算評価)、`residue_data.py` (残基テーブル) もここにあります。
 
 ### 2.4 遅延インポート機構 (概念図)
 
@@ -234,7 +234,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | ML/MM ONIOM 計算コア + 4 つのインライン MLIP バックエンド + ONIOM カップリング | `mlmm/backends/mlmm_calc.py` |
 | `--precision` ルーティング (`apply_precision_to_calc_cfg` / `_PRECISION_DISPATCH`) | `mlmm/backends/__init__.py` |
 | バックエンドディスパッチ / ファクトリ (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
-| xTB 点電荷埋め込み補正 (`--embedcharge`) | `mlmm/backends/xtb_embedcharge_correction.py` |
+| 廃止した電子埋め込みの互換性用モジュール | `mlmm/backends/xtb_embedcharge_correction.py` |
 [MLIP Backends](backends.md) ではインストール方法と実行時の挙動を説明します。
 バックエンド実装の変更は、現時点では `mlmm_calc.py` とディスパッチャに反映します。
 
@@ -256,7 +256,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 |---|---|
 | 共有ワークフロー・calculator デフォルト | `mlmm/core/defaults.py` |
 | PDB / XYZ / プロットヘルパー | `mlmm/core/utils.py` |
-| `-v` / `-vv` ロギングの配線 | `mlmm/core/logging.py` |
+| `-v/--verbose LEVEL`（0–3）ロギング配線 | `mlmm/core/logging.py` |
 | ステージごとの calc 評価 | `mlmm/core/calc_eval.py` |
 | 出力・結果確定ヘルパー | `mlmm/core/output.py`、`mlmm/core/result_commit.py` |
 | エネルギー成分の合成 | `mlmm/core/pes_composition.py` |
@@ -319,14 +319,14 @@ mlmm における実践的なカリキュラムは、まず 5-pass Hessian セ�
 
 ### 5.2 VRAM 管理の不変条件 (`del` チェーンをリファクタしないこと)
 
-IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにステージ間で GPU 常駐オブジェクト (`calc`、`geom`、`hess`) を明示的に `del` します。`all` ワークフローはさらにステージ境界で `gc.collect()` を実行します。**これらの `del` / `gc.collect()` 文をリファクタで取り除かないでください** — 完全なタンパク質環境での長時間 ML/MM `all` ジョブは、これらがないと OOM します。
+IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにステージ間で GPU 常駐オブジェクト (`calc`、`geom`、`hess`) を明示的に `del` します。ステージ境界では `gc.collect()` に加え、CUDA allocation がある場合は `torch.cuda.empty_cache()` も実行します。**これらの解放処理をリファクタで取り除かないでください** — 完全なタンパク質環境での長時間 ML/MM `all` ジョブは、これらがないと OOM します。
 
 ### 5.3 内蔵フォーク: upstream を併存インストールしないこと
 
 内蔵された `pysisyphus/`、`thermoanalysis/`、`hessian_ff/` パッケージは **フォーク** です (そして `hessian_ff/` の場合は、入手可能な **唯一** の配布物です — PyPI は 404 を返します)。このパッケージの隣に `pip install pysisyphus` や `pip install thermoanalysis` を再インストールすると、次が静かに壊れます:
 
 - `pysisyphus/irc/IRC.py` — 初期変位のメモリ管理
-- `pysisyphus/optimizers/hessian_updates.py` — advanced index 上の Bofill scatter、GPU OOM 回避のための CPU 専用 `bofill_update` パス
+- `pysisyphus/optimizers/hessian_updates.py` — GPU 常駐の in-place rank-two Bofill 更新、オプトインの `PYSIS_BOFILL_CPU_OFFLOAD=1` フォールバック
 - `pysisyphus/tsoptimizers/TSHessianOptimizer.py` — RSIRFO kwargs
 - `pysisyphus/calculators/...` — GPU を意識したバックエンドフック
 - `thermoanalysis/QCData.py` — upstream とのブランディング / I/O 差分
@@ -378,7 +378,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 
 `mlmm-toolkit` は ONIOM を介して **完全なタンパク質環境** を扱います:
 
-- **ML 領域**: 基質 + 反応中心残基。4 つの MLIP バックエンド (UMA / ORB / MACE / AIMNet2) のいずれかで評価されます。オプションの xTB 点電荷埋め込み補正 (`--embedcharge`) は MM→ML の環境効果を加えます
+- **ML 領域**: 基質 + 反応中心残基。4 つの MLIP バックエンド (UMA / ORB / MACE / AIMNet2) のいずれかで評価されます。v0.3.3 は機械的埋め込みを使用します
 - **Movable-MM 領域**: ML 領域を取り囲むシェルで、AMBER 力場の下で自由に移動できます
 - **Frozen 領域**: タンパク質の残りの部分で、剛体として保持されます
 

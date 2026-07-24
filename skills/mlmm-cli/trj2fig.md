@@ -2,11 +2,14 @@
 
 ## Purpose
 
-Plot an energy profile from an XYZ trajectory. Reads the first
-floating-point number found in each frame's comment line (interpreted as
-the Hartree energy) and exports the figure or CSV. Output format is
-inferred from the filename suffix (`.png` / `.html` / `.svg` / `.pdf` /
-`.csv`). Useful for quickly visualizing IRC, MEP, or scan output.
+Plot an energy profile from an XYZ trajectory. Reads a strict energy
+record from each frame's comment line (interpreted as Hartree) and exports
+the figure or CSV. Accepted records are a lone decimal/scientific value,
+an explicit `E=<value>` or `Energy=<value>` field, or the pysisyphus
+`<value> , ...` form. Output format is
+inferred from the filename suffix (`.png` / `.jpg` / `.jpeg` / `.html` /
+`.svg` / `.pdf` / `.csv`). Useful for quickly visualizing IRC, MEP, or scan
+output.
 
 ## Synopsis
 
@@ -59,9 +62,10 @@ mlmm trj2fig -i trajectory.xyz -q 0 -m 1 -b uma \
 
 ## Caveats
 
-- The XYZ comment line must contain the energy as a decimal or scientific
-  float (e.g. `-1234.56` or `-1.23e3`); the first such number is used. A bare
-  integer is rejected to avoid mistaking a frame index for an energy.
+- Use a lone decimal/scientific energy (for example `-1234.56` or
+  `-1.23e3`), an explicit `E=<value>` / `Energy=<value>` field, or the
+  pysisyphus `<value> , ...` form. Other surrounding text is rejected as
+  ambiguous, and a bare integer is rejected as a possible frame index.
 - Either `-q` or `-m` recomputes every frame with the selected MLIP; omitted values resolve to charge 0 and multiplicity 1. This is a direct MLIP rescore, not an ONIOM energy.
 - Comment-mode JSON records null backend/model/precision/charge/multiplicity; recomputation records the resolved provenance.
 - For a labeled energy diagram (R / TS / IM / P), use `energy-diagram.md`

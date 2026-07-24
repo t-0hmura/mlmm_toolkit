@@ -4,15 +4,13 @@ Positive: the real repository's landing headers render ``v{{ release }}`` and th
 CFF/pyproject SPDX license identities agree on ``GPL-3.0-only``. Negative: a
 hardcoded landing literal or a mismatched CFF license fails.
 
-NOTE (P03): ``cffconvert`` is not installed in the current environment, so the
-``cffconvert --validate`` leg is exercised only when available. Freeze-time
-confirmation that ``cffconvert --validate`` accepts ``GPL-3.0-only`` is still
-required before release.
+The ``cffconvert --validate`` leg runs when its console entry point is
+available, matching the release workflow invocation.
 """
 
 from __future__ import annotations
 
-import importlib.util
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -63,13 +61,14 @@ def test_mismatched_cff_license_fails(monkeypatch) -> None:
 
 
 def test_cffconvert_accepts_license_when_available() -> None:
-    # Exercised only if cffconvert is installed; otherwise the exact-equality
-    # checks above stand in until freeze-time confirmation.
-    if importlib.util.find_spec("cffconvert") is None:
+    # Exercise the same console entry point used by the release workflow.
+    executable = shutil.which("cffconvert")
+    if executable is None:
         assert crv._cff_license() == crv._pyproject_license() == "GPL-3.0-only"
         return
     completed = subprocess.run(
-        [sys.executable, "-m", "cffconvert", "--validate", "-i", str(REPO_ROOT / "CITATION.cff")],
+        [executable, "--validate"],
+        cwd=REPO_ROOT,
         capture_output=True,
         text=True,
     )

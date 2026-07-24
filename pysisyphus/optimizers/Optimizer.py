@@ -663,18 +663,10 @@ class Optimizer(metaclass=abc.ABCMeta):
         else:
             forces = self.forces[-1]
 
-        # The forces of fixed images may be zero and this may distort the RMS
-        # values. So we take into account the number of moving images with
-        # non-zero forces vectors.
-        if self.is_cos:
-            non_zero_elements = (
-                len(self.geometry.moving_indices) * self.geometry.coords_length
-            )
-            rms_force = np.sqrt(np.sum(np.square(forces)) / non_zero_elements)
-            rms_step = np.sqrt(np.sum(np.square(step)) / non_zero_elements)
-        else:
-            rms_force = np.sqrt(np.mean(np.square(forces)))
-            rms_step = np.sqrt(np.mean(np.square(step)))
+        forces = self._active_convergence_vector(forces)
+        step = self._active_convergence_vector(step)
+        rms_force = np.sqrt(np.mean(np.square(forces)))
+        rms_step = np.sqrt(np.mean(np.square(step)))
 
         max_force = np.abs(forces).max()
         max_step = np.abs(step).max()
@@ -809,6 +801,51 @@ class Optimizer(metaclass=abc.ABCMeta):
             )
 
         return real_converged, conv_info
+
+    def _active_convergence_vector(self, vector):
+        """Return the coordinate components this optimizer actually controls."""
+        flat = np.asarray(vector).reshape(-1)
+
+        if self.is_cos:
+            indices = []
+            block_size = int(self.geometry.coords_length)
+            for image_index in self.geometry.moving_indices:
+                image = self.geometry.images[int(image_index)]
+                if image.coord_type in ("cart", "cartesian", "mwcartesian"):
+                    local = np.asarray(image.active_dof_indices, dtype=int)
+                else:
+                    local = np.arange(block_size, dtype=int)
+                indices.extend(
+                    (int(image_index) * block_size + local).tolist()
+                )
+            indices = np.asarray(indices, dtype=int)
+        elif self.geometry.coord_type in ("cart", "cartesian", "mwcartesian"):
+            use_optimizer_basis = bool(
+                getattr(self, "using_active_dofs", False)
+            )
+            optimizer_indices = getattr(self, "active_dof_indices", None)
+            if use_optimizer_basis and optimizer_indices is not None:
+                indices = np.asarray(optimizer_indices, dtype=int)
+            else:
+                indices = np.asarray(
+                    self.geometry.active_dof_indices, dtype=int,
+                )
+        else:
+            indices = np.arange(flat.size, dtype=int)
+
+        if indices.size == 0:
+            raise ValueError("Optimization has no active degrees of freedom.")
+
+        # Some Hessian paths already supply a compact active-space vector.
+        if (
+            not self.is_cos
+            and flat.size == indices.size
+            and flat.size != self.geometry.cart_coords.size
+        ):
+            return flat
+        if np.any(indices < 0) or np.any(indices >= flat.size):
+            raise ValueError("Convergence basis does not match the vector shape.")
+        return flat[indices]
 
     def print_opt_progress(self, conv_info):
         try:
@@ -1222,7 +1259,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 self.stopped = True
                 break
             elif sign == "converged":
-                self.converged = True
+                self.is_converged = True
                 self.table.print("Operator indicated convergence!")
                 break
 

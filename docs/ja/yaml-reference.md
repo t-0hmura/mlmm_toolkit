@@ -44,8 +44,8 @@ geom:
   全系剛体運動だけを除去します。一般的な有効 rank は anchor が
   0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では
   通常 0 です。全原子凍結は明示的なエラーになります。
-- `legacy-active` はアクティブブロックを孤立分子として扱う比較処理ですが、
-  現行の共通射影 kernel と数値 rank 判定を使います。rank 退化構造も現行 kernel で処理され、
+- `legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用できません。
+  現行の共通射影 kernel と数値 rank 判定を使うため、rank 退化構造での
   bitwise 一致は保証しません。
 - `tr_projection` は `freq`、`irc`、`tsopt`、`opt --flatten` の凍結境界 PHVA を
   制御します。`tsopt --ref-mode` の MEP 接線とは無関係です。
@@ -67,14 +67,14 @@ calc:
  link_mlmm: null # リンク原子ペアの明示指定 (null で自動検出)
  link_atom_method: scaled    # リンク原子配置: "scaled" (g-factor) または "fixed" (1.09/1.01 Å)
  backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
- embedcharge: false # xTB 点電荷埋め込み補正 (CLI --embedcharge で有効化)
- embedcharge_step: 0.001 # 埋め込み補正の数値Hessianステップ (Å)
- embedcharge_cutoff: 12.0 # xTB 埋め込み用 MM 点電荷のカットオフ距離 (Å)
- xtb_cmd: xtb # xTB 実行コマンド
- xtb_acc: 0.2 # xTB 精度パラメータ
- xtb_workdir: tmp # xTB 作業ディレクトリ
- xtb_keep_files: false # xTB 一時ファイルを保持
- xtb_ncores: 4 # xTB のコア数
+ embedcharge: false # v0.3.3 では false 固定。true は拒否
+ embedcharge_step: 0.001 # 非アクティブな互換性用の値
+ embedcharge_cutoff: 12.0 # 非アクティブな互換性用の値
+ xtb_cmd: xtb # 非アクティブな互換性用の値
+ xtb_acc: 0.2 # 非アクティブな互換性用の値
+ xtb_workdir: tmp # 非アクティブな互換性用の値
+ xtb_keep_files: false # 非アクティブな互換性用の値
+ xtb_ncores: 4 # 非アクティブな互換性用の値
  uma_model: uma-s-1p2 # UMA モデル名: uma-s-1p2, uma-m-1p1
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  uma_precision: fp32 # fp32 | fp64 (UMA バックエンドの数値精度)
@@ -94,6 +94,7 @@ calc:
  mm_cuda_idx: 0 # MM CUDA インデックス (OpenMM のみ)
  mm_threads: 16 # MM 計算のスレッド数
  mm_fd: true # MM Hessianに有限差分を使用
+ mm_hessian_mode: null # 明示指定は finite_difference/analytical。null は mm_fd に従う
  mm_fd_dir: null # MM Hessianログの出力ディレクトリ
  mm_fd_delta: 0.001 # 有限差分ステップ（保持）
  symmetrize_hessian: true # 最終Hessianを 0.5*(H+H^T) で対称化
@@ -118,15 +119,18 @@ calc:
   - `orb_model`、`orb_precision` — ORB バックエンドのみ
   - `mace_model`、`mace_dtype` — MACE バックエンドのみ
   - `aimnet2_model` — AIMNet2 バックエンドのみ
-- `embedcharge`: `true` に設定すると、xTB 点電荷埋め込み補正が有効化されます。MM 領域の部分電荷を点電荷として ML 計算に埋め込み、MM 環境から ML 領域への静電的影響（分極効果）を考慮します。デフォルトは `false` です。`$PATH` 上に `xtb` 実行ファイルが必要です。
-- `xtb_cmd`、`xtb_acc`、`xtb_ncores`、`xtb_workdir`、`xtb_keep_files` は `embedcharge` が有効な場合に xTB サブプロセスを設定します。
+- v0.3.3 では `embedcharge` を `false` のまま使用します。`embedcharge: true`、`--embedcharge`、または CLI の明示的 `--embedcharge-cutoff` は、二重計数と uncapped 境界 model の不整合のため計算前に拒否されます。
+- YAML の `embedcharge_cutoff` とその他の `embedcharge_*`/`xtb_*` キーは不活性な設定互換値として読み取り可能なだけで、サポート対象の計算経路を有効化しません。
 - `hessian_calc_mode: Analytical` はバックエンドの解析 Hessian を明示的に要求します。UMA、ORB、MACE、AIMNet2 がこの経路を実装しており、インストール済みバックエンドが非対応なら計算法を暗黙に変更せずエラーになります。`workers > 1` との併用もエラーです。
 - `hess_cutoff` のデフォルト `null` は可動 MM 原子をすべて Hessian 対象に含めることを意味します（freq/irc/opt はすべての可動原子を解析します）。値（>0.0）を指定すると、その距離以内の MM 原子のみに Hessian 対象を限定します。`movable_cutoff` を指定しない場合は `freeze_atoms` の指定に従います。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
 - `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分Hessianをデフォルトで使用します。
 - これらのコマンドで完全Hessianを強制するには `calc.return_partial_hessian: false` を明示してください。
-- `mm_fd: true` は MM Hessianに有限差分を使用します。解析的 MM Hessian（hessian_ff）を使用するには `false` に設定してください。
+- `mm_fd: true` は有限差分 MM Hessian、`false` は `hessian_ff` の解析
+  MM Hessianを使います。`mm_hessian_mode` は
+  `finite_difference`/`analytical` の明示形で、`null` の場合は互換用の
+  `mm_fd` に従います。
 - `use_cmap: false`（デフォルト）は model parm7 から CMAP 項（骨格クロスマップ二面角補正）を除外します。これは Gaussian ONIOM の挙動（CMAP を model MM に含めない）と一致します。`true` に設定すると model parm7 に CMAP が含まれ、ONIOM 差し引きで骨格 CMAP が相殺されます。ML 領域に骨格原子を含まない典型的な活性部位モデルでは、どちらの設定も実質的に同じ結果になります。
 - `real_parm7` と `model_pdb` は ML/MM 計算に必須です。
 - `irc` は YAML の設定にかかわらず `geom.coord_type = cart` を強制します。
@@ -479,7 +483,7 @@ irc:
  out_dir: ./result_irc/ # 出力ディレクトリ
  prefix: "" # ファイル名プレフィックス
  dump_fn: irc_data.h5 # IRC データファイル名
- dump_every: 5 # ダンプ間隔
+ dump_every: null # 既定では無効。有効化する場合のみ正の間隔を指定
  max_pred_steps: 500 # 予測子-修正子の最大ステップ数
  loose_cycles: 3 # 引き締め前の緩いサイクル数
  corr_func: mbs # 相関関数の選択
@@ -517,6 +521,7 @@ freq:
 thermo:
  temperature: 298.15 # 熱化学温度 (K)
  pressure_atm: 1.0 # 熱化学圧力 (atm)
+ symmetry_number: 1 # 外部回転対称数（1 以上の整数）
  dump: false # thermoanalysis.yaml の書き出し
 ```
 
@@ -607,7 +612,7 @@ calc:
  model_charge: 0
  model_mult: 1
  backend: uma                  # ML バックエンド: uma | orb | mace | aimnet2
- embedcharge: false            # xTB 点電荷埋め込み補正
+ embedcharge: false            # 互換性用。true は拒否される
  uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # VRAM に余裕がある場合に推奨
@@ -648,6 +653,7 @@ freq:
 thermo:
  temperature: 298.15
  pressure_atm: 1.0
+ symmetry_number: 1
 
 dft:
  func_basis: wb97m-v/def2-tzvpd

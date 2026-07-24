@@ -6,7 +6,7 @@ Add/repair PDB element symbols (columns 77-78) using Biopython inference.
 Example:
     mlmm add-elem-info -i input.pdb -o fixed.pdb
 
-For detailed documentation, see: docs/add_elem_info.md
+For detailed documentation, see: docs/add-elem-info.md
 """
 
 from __future__ import annotations
@@ -95,8 +95,11 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
     """
     name_u = atom_name.strip().upper()
     res_u = resname.strip().upper()
+    is_protein = res_u in PROTEIN_RES
+    is_nucl = res_u in NUCLEIC_RES
+    is_water = res_u in WATER_RES
 
-    if res_u in {k.upper() for k in ION.keys()}:
+    if res_u in {k.upper() for k in ION.keys()} and not is_nucl:
         # Genuinely polyatomic ions (NH4, H3O+) contain more than one element,
         # so decide per atom name (treat D* as H). Monatomic metal/halogen ions
         # fall through to residue-name resolution below, so an ion whose symbol
@@ -122,13 +125,11 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
         if name_u.startswith("F"):
             return "F"
 
-    is_protein = res_u in PROTEIN_RES
-    is_nucl = res_u in NUCLEIC_RES
-    is_water = res_u in WATER_RES
     if is_protein or is_nucl or is_water:
         # Water: only O and H (treat D* as H)
         if is_water:
-            if name_u.startswith(("H", "D")):
+            water_name = name_u.lstrip("0123456789")
+            if water_name.startswith(("H", "D")):
                 return "H"
             return "O"
 

@@ -15,6 +15,15 @@ PDB_TEXT = (
 )
 
 
+def test_element_inference_disambiguates_inosine_and_numeric_water_hydrogen() -> None:
+    from mlmm.domain.add_elem_info import guess_element
+
+    assert guess_element("C1'", "I", False) == "C"
+    assert guess_element("N9", "I", False) == "N"
+    assert guess_element("1HW", "HOH", True) == "H"
+    assert guess_element("OW", "HOH", True) == "O"
+
+
 def test_default_is_non_destructive_and_inplace_is_explicit(tmp_path: Path) -> None:
     source = tmp_path / "enzyme.pdb"
     source.write_text(PDB_TEXT, encoding="utf-8")

@@ -16,8 +16,8 @@ Options:
   -i, --input FILE                XYZ trajectory file  [required]
   -o, --out FILE                  Output file(s). You can repeat -o, and/or list
                                   extra filenames after options
-                                  (.png/.html/.svg/.pdf/.csv). If nothing is
-                                  given, defaults to energy.png.
+                                  (.png/.jpg/.jpeg/.html/.svg/.pdf/.csv). If
+                                  nothing is given, defaults to energy.png.
   --unit [kcal|hartree]           Energy unit.
   -r, --reference TEXT            Reference: "init" (initial frame; last frame
                                   if --reverse-x), "None" (absolute E), or an

@@ -92,7 +92,10 @@ The same decomposition applies to forces and (where applicable) Hessians. Link-h
 
 The MLIP backend is selected via `-b/--backend` (default: `uma`). `orb` installs via `pip install "mlmm-toolkit[orb]"` and `aimnet2` via the `[aimnet]` extra; `mace` has no extra and must be installed in a separate conda env (its `e3nn` pin conflicts with UMA's `fairchem-core`).
 
-When `--embedcharge` is enabled, an xTB point-charge embedding correction is applied to account for the electrostatic influence of the MM environment on the ML region.
+v0.3.3 supports mechanical embedding only. The retained `--embedcharge`
+compatibility option always fails before calculation because the former
+experimental correction double-counted ML--MM electrostatics and used an
+inconsistent uncapped boundary model.
 
 ### Comparison with conventional QM/MM
 
@@ -101,7 +104,7 @@ When `--embedcharge` is enabled, an xTB point-charge embedding correction is app
 | High-level method | DFT, HF, post-HF | MLIP (UMA, ORB, MACE, AIMNet2) |
 | Low-level method | OpenMM / Amber | hessian_ff (C++ native extension) |
 | Link atoms | Usually required | Automatically generated at covalent boundaries |
-| Electrostatic embedding | Common | Not used by default (mechanical embedding via ONIOM subtraction). Enable xTB point-charge embedding with `--embedcharge` |
+| Electrostatic embedding | Common | Unavailable in v0.3.3; mechanical embedding via ONIOM subtraction is used |
 | Speed | Slow (QM is bottleneck) | Fast (ML inference on GPU) |
 
 ---

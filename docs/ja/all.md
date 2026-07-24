@@ -55,11 +55,11 @@ mlmm all -i A.pdb -c "GPP,MMT" -l "GPP:-3,MMT:-1" \
  --tsopt --thermo --dft --out-dir result_tsopt_only
 ```
 
-xTB 点電荷埋め込み付きの ORB バックエンド:
+ORB バックエンド:
 
 ```bash
 mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
- --backend orb --embedcharge --out-dir ./result_all_orb
+ --backend orb --out-dir ./result_all_orb
 ```
 
 CPU 実装の DMF（DMF バックエンドのデフォルトは GPU）:
@@ -100,7 +100,7 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
    - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
    - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
-   - `--dft`: (R, TS, P) で DFT 一点計算を実行し、DFT ダイアグラムを追加します。`--thermo` と組み合わせると、DFT//MLIP/MM Gibbs ダイアグラムも生成されます。
+   - `--dft`: (R, TS, P) のモデル領域で DFT 一点計算を実行し、モデル DFT 電子エネルギーダイアグラムを追加します。`--thermo` と組み合わせると、subtractive DFT//MLIP/MM 全エネルギーに ML/MM 熱補正を加えた DFT//MLIP/MM Gibbs ダイアグラムも生成されます。
    - `--tr-projection` は TS 最適化、IRC、振動解析、flatten PHVA に転送されます。デフォルトの `constrained` は凍結 anchor を動かさない全系剛体運動だけを除去し、実用的な ML/MM 境界では有効 rank は通常 0 です。
    - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します（デフォルトの FiniteDifference より優先）。
 
@@ -177,7 +177,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `-i, --input PATH...` | 反応順の 2 つ以上の完全 PDB（`--scan-lists`（段階的スキャン）または `--tsopt`（TSOPT のみ）の場合のみ単一入力可）。 | 必須 |
 | `-c, --center TEXT` | 基質指定（PDB パス、残基 ID（`308,309`）、または残基名（`SAM,GPP`））。省略時は抽出をスキップし完全構造をそのまま使用。 | _None_ |
 | `-l, --ligand-charge TEXT` | 非標準残基の総電荷または残基別マッピング（例: `GPP:-3,MMT:-1`）。 | _None_ |
-| `-q, --charge INT` | 総電荷を強制指定（最優先の上書き）。 | _None_ |
+| `-q, --charge INT` | ML 領域/model system の正味電荷を強制指定（最優先の上書き）。 | _None_ |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ。 | `./result_all/` |
 | `--parm FILE` | 全系の AMBER parm7 トポロジーファイル。省略時は `mm_parm` で自動生成。 | _None_ |
 | `--model-pdb FILE` | 構築済み ML 領域 PDB。指定時は ML 領域決定をスキップし、このファイルで ML 領域を直接定義。 | _None_ |
@@ -216,8 +216,8 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | --- | --- | --- |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。全計算サブコマンドに転送。 | `uma` |
-| `--embedcharge/--no-embedcharge` | xTB 点電荷埋め込み補正（実験的機能）の有効化。MM 環境から ML 領域への静電的影響を考慮。 | `False` |
-| `--embedcharge-cutoff FLOAT` | xTB 埋め込み用 MM 原子のカットオフ半径（Å）。 | `12.0` |
+| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
+| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
 | `--mep-mode [gsm\|dmf]` | `path-opt` と再帰的 `path-search` の両方へ転送する MEP 最適化法。 | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF 実装。明示指定時だけ子コマンドへ転送するため、省略時は子コマンドの YAML 設定 `dmf.backend` が有効。 | `gpu` |
@@ -260,7 +260,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--dft/--no-dft` | R/TS/P で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
 | `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップを拒否（opt 子へ転送。低エネルギー形状へロールバックし trust radius を縮小）。TS 最適化や経路探索には影響しない。 | `True` |
-| `--tr-projection [constrained\|legacy-active]` | 凍結境界 TR 処理を `tsopt`、`irc`、`freq`、flatten PHVA へ転送。`legacy-active` は現行の共通 kernel を使う isolated-active 比較処理。 | `constrained` |
+| `--tr-projection [constrained\|legacy-active]` | 凍結境界 TR 処理を `tsopt`、`irc`、`freq`、flatten PHVA へ転送。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
 | `--irc-step-size FLOAT` | TS 後の各 IRC に EulerPC 最大ステップ（Bohr）を転送。数フレームで停止する場合は `0.05` など小さい値で再試行。 | IRC 既定 `0.10` |
 | `--irc-never-stop/--no-irc-never-stop` | エネルギー上昇/plateau 停止だけを無視して IRC を継続。収束、非有限値、サイクル上限では停止。 | `False` |
 | `--tsopt-max-cycles INT` | `tsopt --max-cycles` の上書き。 | _デフォルト_ |
@@ -272,6 +272,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--freq-sort TEXT` | モードソート方法。 | _デフォルト_ |
 | `--freq-temperature FLOAT` | 熱化学温度 (K)。 | _デフォルト_ |
 | `--freq-pressure FLOAT` | 熱化学圧力 (atm)。 | _デフォルト_ |
+| `--freq-symmetry-number INT` | R/TS/P の全 freq 計算に共通の回転対称数。省略時は各子計算の YAML/デフォルトに従う。 | _None_ |
 | `--dft-out-dir PATH` | DFT 出力ディレクトリの上書き。 | _None_ |
 | `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | _デフォルト_ |
 | `--dft-max-cycle INT` | 最大 SCF 反復数。 | _デフォルト_ |
@@ -302,14 +303,14 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 **最小の YAML 例:**
 ```yaml
 geom:
- tr_projection: constrained      # constrained（デフォルト）| legacy-active 比較
+ tr_projection: constrained      # legacy-active は非推奨・比較専用
 calc:
  charge: 0
  spin: 1
  real_parm7: real.parm7
  model_pdb: ml_region.pdb
  backend: uma                    # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false              # xTB 点電荷埋め込み補正
+ embedcharge: false              # 互換性用。true は拒否される
  uma_model: uma-s-1p2            # uma-s-1p2 | uma-m-1p1
  hessian_calc_mode: Analytical     # VRAM に余裕がある場合に推奨
 gs:

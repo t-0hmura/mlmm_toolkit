@@ -20,6 +20,28 @@ from mlmm.core.output import emit
 from mlmm.domain.bond_changes import compare_structures, summarize_changes
 
 
+def _bond_records(geom, result, pairs, *, one_based: bool) -> List[dict]:
+    """Serialize changed bonds without materializing dense distance matrices."""
+    from pysisyphus.constants import BOHR2ANG
+
+    elements = [str(atom).capitalize() for atom in geom.atoms]
+    records: List[dict] = []
+    for i, j in sorted(pairs):
+        d1_bohr, d2_bohr = (result.changed_lengths or {})[(i, j)]
+        offset = 1 if one_based else 0
+        records.append(
+            {
+                "atom_i": int(i + offset),
+                "atom_j": int(j + offset),
+                "element_i": elements[i],
+                "element_j": elements[j],
+                "distance_a_angstrom": float(d1_bohr * BOHR2ANG),
+                "distance_b_angstrom": float(d2_bohr * BOHR2ANG),
+            }
+        )
+    return records
+
+
 def _load_geom(path: str):
     """Load a geometry from XYZ, PDB, or GJF file."""
     p = Path(path)
@@ -77,14 +99,22 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
     """
     files: List[str] = list(inputs) + list(extra_inputs)
     if len(files) < 2:
-        raise click.BadParameter("At least two input files are required.", param_hint="'-i'")
+        raise click.BadParameter(
+            "At least two input files are required.", param_hint="inputs"
+        )
 
     geoms = []
     for f in files:
         p = Path(f)
         if not p.exists():
             raise click.FileError(f, hint="File not found.")
-        geoms.append((p.name, _load_geom(f)))
+        try:
+            geometry = _load_geom(f)
+        except Exception as exc:
+            raise click.ClickException(
+                f"Could not read structure {str(p)!r}: {exc}"
+            ) from exc
+        geoms.append((p.name, geometry))
 
     comparisons_json: List[dict] = []
     n_failed = 0  # pairs whose comparison raised
@@ -102,11 +132,19 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
         try:
             result = compare_structures(g1, g2, device=device, bond_factor=bond_factor)
             if out_json:
+                formed = _bond_records(
+                    g2, result, result.formed_covalent, one_based=one_based
+                )
+                broken = _bond_records(
+                    g2, result, result.broken_covalent, one_based=one_based
+                )
                 comparisons_json.append({
                     "structure_a": name1,
                     "structure_b": name2,
-                    "bonds_formed": len(result.formed_covalent),
-                    "bonds_broken": len(result.broken_covalent),
+                    "bonds_formed": len(formed),
+                    "bonds_broken": len(broken),
+                    "formed": formed,
+                    "broken": broken,
                 })
             else:
                 summary = summarize_changes(g2, result, one_based=one_based)

@@ -122,29 +122,52 @@ def _get_ml_indices_from_model_pdb(
         else None
     )
     model_template = coordinate_template_for(model_pdb_path)
-    if input_template is not None and model_template is not None:
-        model_keys = {
-            (
-                rec.chain_id,
-                rec.resseq,
-                rec.icode,
-                rec.resname,
-                rec.atom_name,
+    if input_template is not None or model_template is not None:
+        def _identity(record):
+            if isinstance(record, dict):
+                return (
+                    str(record["chain_id"]),
+                    str(record["res_seq"]),
+                    str(record["icode"]),
+                    str(record["res_name"]),
+                    str(record["atom_name"]),
+                )
+            return (
+                str(record.chain_id),
+                str(record.resseq),
+                str(record.icode),
+                str(record.resname),
+                str(record.atom_name),
             )
-            for rec in model_template.records
-        }
-        return [
-            index
-            for index, rec in enumerate(input_template.records)
-            if (
-                rec.chain_id,
-                rec.resseq,
-                rec.icode,
-                rec.resname,
-                rec.atom_name,
-            )
-            in model_keys
-        ]
+
+        input_records = (
+            input_template.records
+            if input_template is not None
+            else input_atoms
+        )
+        model_records = (
+            model_template.records
+            if model_template is not None
+            else _parse_pdb_atoms(model_pdb_path)
+        )
+        model_chain_keys = set()
+        model_blank_keys = set()
+        for record in model_records:
+            key = _identity(record)
+            if key[0]:
+                model_chain_keys.add(key)
+            else:
+                model_blank_keys.add(key[1:])
+        matched = []
+        for index, record in enumerate(input_records):
+            key = _identity(record)
+            if key in model_chain_keys or key[1:] in model_blank_keys:
+                matched.append(index)
+        if matched:
+            return matched
+        # An extracted model PDB can deliberately use the internal identifiers
+        # of a normalized full structure.  If author-identifier matching found
+        # nothing, retain the established internal-PDB fallback below.
 
     # Parse model PDB
     model_atoms = _parse_pdb_atoms(model_pdb_path)
@@ -453,9 +476,7 @@ def define_layers(
     prepared_model = (
         prepare_input_structure(Path(model_pdb)) if model_pdb is not None else None
     )
-    output_pdb = Path(output_pdb)
-    if output_pdb.suffix.lower() in {".cif", ".mmcif"}:
-        output_pdb = output_pdb.with_suffix(".pdb")
+    output_pdb = _effective_output_pdb(output_pdb)
     try:
         layer_indices = _define_layers_pdb(
             input_pdb=prepared_input.source_path,
@@ -475,6 +496,15 @@ def define_layers(
         prepared_input.cleanup()
         if prepared_model is not None:
             prepared_model.cleanup()
+
+
+def _effective_output_pdb(output_path: Path) -> Path:
+    """Return the actual PDB path used by the computational bridge."""
+
+    output_path = Path(output_path)
+    if output_path.suffix.lower() in {".cif", ".mmcif"}:
+        return output_path.with_suffix(".pdb")
+    return output_path
 
 
 
@@ -584,6 +614,7 @@ def cli(
     # Default output path
     if output_pdb is None:
         output_pdb = input_pdb.parent / f"{input_pdb.stem}_layered.pdb"
+    output_pdb = _effective_output_pdb(output_pdb)
 
     # Echo configuration
     emit("\n====== Define Layer Configuration ======\n", narrative=True)
@@ -626,6 +657,9 @@ def cli(
         click.echo(f"Total atoms: {total}")
         click.echo()
         click.echo(f"[output] Wrote '{output_pdb}'")
+        output_cif = output_pdb.with_suffix(".cif")
+        if output_cif.exists():
+            click.echo(f"[output] Wrote '{output_cif}'")
 
     except ValueError as e:
         click.echo(f"ERROR: {e}", err=True)

@@ -19,15 +19,15 @@ ML（高レベル）コンポーネントは、`-b/--backend` CLI オプショ�
 
 内部的に、すべてのバックエンドは `_MLBackend` 抽象クラスに準拠しており、エネルギー、力、Hessianの評価に対して統一的なインターフェースを提供します。ファクトリ関数が `backend` パラメータに基づいて適切なバックエンドを選択・インスタンス化します。
 
-### 点電荷埋め込み補正
+### 電子埋め込み
 
-`--embedcharge` を有効化すると（YAML では `mlmm.embedcharge: true`）、xTB 点電荷埋め込み補正が適用されます:
-
-```
-dE = E_xTB(ML + MM_charges) - E_xTB(ML_only)
-```
-
-この補正は、ML 領域に対する MM 環境の静電的影響を点電荷で表現し、ML/MM 境界での分極効果の記述を改善します。対応する力とHessianの補正も同様に適用されます。デフォルトは `--no-embedcharge`（無効）です。`$PATH` 上に xTB 実行ファイルが必要です。
+電子埋め込みは v0.3.3 では使用できません。`--embedcharge`、
+`--embedcharge-cutoff`、`calc.embedcharge: true` は、旧コマンドを計算開始前に
+明示的なエラーへ導くためだけに残されています。以前の実験的補正は、減算型
+ONIOM 式に残る Amber の ML--MM 相互作用へ電子的相互作用を重ねて二重計数し、
+link-H を含む高レベル model と整合しない uncapped model を使用していました。
+デフォルトの機械的埋め込み（`--no-embedcharge`）を使用し、実験的経路で得た
+結果は再利用しないでください。
 
 この計算機は共有結合的 ML/MM 境界にリンク水素原子を自動生成します。ML 領域はモデル PDB（`model.pdb`）で定義され、MM トポロジーは Amber prmtop（`real.parm7`）から取得され、座標は入力 PDB（`input.pdb`）から読み取られます。内部 `real.rst7` は ParmEd により `real.parm7` と `input.pdb` の座標を組み合わせて生成されます -- 外部の `real.rst7` や `real.pdb` は不要です。
 
@@ -72,7 +72,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 
 MM バックエンドは `mm_backend` パラメータで選択できます：
 
-- **`"hessian_ff"`** (デフォルト): `hessian_ff` による解析的Hessian（アクティブ原子のみ。任意で凍結行/列をゼロ埋めした完全デカルト形状に展開）。CPU のみ対応。
+- **`"hessian_ff"`**（デフォルトの MM バックエンド）: 解析 Hessian 機能を持つ CPU 専用 MM エンジンです。実効デフォルトは有限差分（`mm_fd: true`）で、`mm_fd: false` を指定すると解析 MM Hessian を使います。アクティブブロックは、必要に応じて凍結行/列をゼロ埋めした完全デカルト形状へ展開できます。
   - CMAP トーション補正（実装済みだが Gaussian と同様にデフォルトでは無効）
 - **`"openmm"`**: OpenMM による有限差分 (FD) Hessian。CPU と CUDA の両プラットフォームに対応。`hessian_ff` が対応していない力場や、ワークフローで OpenMM を既に使用している場合に有用。
 

@@ -3,11 +3,26 @@
 from __future__ import annotations
 
 import numpy as np
+import click
+import pytest
 from ase import Atoms
 from ase.io import write
 
-from mlmm.workflows.all import _ensure_hei_path_tangent
+from mlmm.workflows.all import (
+    _ensure_hei_path_tangent,
+    _required_xyz_block_energies,
+)
 from mlmm.workflows.path_search import _write_xyz_trj_with_energy_from_ase
+
+
+def _replace_xyz_comments(path, comments) -> None:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    cursor = 0
+    for comment in comments:
+        atom_count = int(lines[cursor])
+        lines[cursor + 1] = comment
+        cursor += atom_count + 2
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def test_hei_path_tangent_uses_neighbors_of_matching_image(tmp_path) -> None:
@@ -23,6 +38,14 @@ def test_hei_path_tangent_uses_neighbors_of_matching_image(tmp_path) -> None:
     hei = tmp_path / "hei.xyz"
     mode = tmp_path / "hei_mode.txt"
     write(mep, images)
+    _replace_xyz_comments(
+        mep,
+        [
+            "mode 1 -120.0 cm-1 frame=0",
+            "mode 1 -80.0 cm-1 frame=1",
+            "mode 1 -40.0 cm-1 frame=2",
+        ],
+    )
     write(hei, images[1])
 
     assert _ensure_hei_path_tangent(mep, hei, mode) == mode
@@ -34,6 +57,22 @@ def test_hei_path_tangent_uses_neighbors_of_matching_image(tmp_path) -> None:
     expected = incoming + outgoing
     expected /= np.linalg.norm(expected)
     np.testing.assert_allclose(tangent, expected)
+
+
+def test_required_segment_energies_fail_on_one_ambiguous_frame(tmp_path) -> None:
+    path = tmp_path / "segment.xyz"
+    blocks = [
+        ["1", "-1.0", "H 0 0 0"],
+        ["1", "mode 1 -100.0 cm-1", "H 0 0 0"],
+        ["1", "E=-0.5 Ha", "H 0 0 0"],
+    ]
+    with pytest.raises(click.ClickException, match=r"frame 2 .*ambiguous"):
+        _required_xyz_block_energies(
+            blocks, path=path, context="path-opt segment 1"
+        )
+    assert _required_xyz_block_energies(
+        [blocks[0], blocks[2]], path=path, context="path-opt segment 1"
+    ) == [-1.0, -0.5]
 
 
 def test_hei_path_tangent_uses_energy_upwinding_when_available(tmp_path) -> None:

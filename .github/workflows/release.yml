@@ -14,6 +14,17 @@ jobs:
     name: Build and publish
     runs-on: ubuntu-latest
     steps:
+      - name: Verify release title matches tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+        run: |
+          if [[ "$RELEASE_NAME" != "$RELEASE_TAG" ]]; then
+            echo "Release title must exactly match tag: expected '$RELEASE_TAG', got '$RELEASE_NAME'." >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:

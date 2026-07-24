@@ -228,7 +228,7 @@ def test_resolve_charge_spin_or_raise_requires_charge():
         source_path=Path("dummy.pdb"),
         geom_path=Path("dummy.pdb"),
     )
-    with pytest.raises(Exception, match="Total charge is unresolved"):
+    with pytest.raises(Exception, match="ML-region charge is unresolved"):
         resolve_charge_spin_or_raise(prepared, charge=None, spin=None)
 
 
@@ -286,6 +286,20 @@ def test_validate_charge_spin_methylene_with_one_link_h_singlet_raises():
 
     with pytest.raises(ValueError, match="electron count inconsistent"):
         validate_charge_spin(["C", "H", "H", "H"], charge=0, multiplicity=1)
+
+
+@pytest.mark.parametrize("multiplicity", [0, -2])
+def test_validate_charge_spin_rejects_nonpositive_multiplicity(
+    multiplicity: int,
+) -> None:
+    from mlmm.core.utils import (
+        set_allow_charge_mult_mismatch,
+        validate_charge_spin,
+    )
+
+    set_allow_charge_mult_mismatch(True)
+    with pytest.raises(ValueError, match="multiplicity must be an integer >= 1"):
+        validate_charge_spin(["H"], charge=0, multiplicity=multiplicity)
 
 
 if __name__ == "__main__":

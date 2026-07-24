@@ -54,8 +54,9 @@ Options:
   -l, --ligand-charge TEXT        Either a total charge (number) to distribute
                                   across unknown residues or a mapping like
                                   'GPP:-3,MMT:-1'.
-  -q, --charge INTEGER            Force total system charge. Highest priority
-                                  over derived charges.
+  -q, --charge INTEGER            Override the net charge of the ML region/model
+                                  atoms. Highest priority over the charge
+                                  derived by the workflow.
   --parm FILE                     Pre-built AMBER parm7 topology file. When
                                   provided, mm_parm generation is skipped.
   --model-pdb FILE                Pre-built ML-region PDB (with B-factor layer
@@ -85,8 +86,10 @@ Options:
   --tr-projection [constrained|legacy-active]
                                   Rigid translation/rotation treatment forwarded
                                   to TSopt, IRC, freq, and flatten PHVA. The
-                                  default respects frozen anchors.  [default:
-                                  constrained]
+                                  default respects frozen anchors; 'legacy-
+                                  active' is deprecated and must not be used for
+                                  pass/HOSP transition-state certification.
+                                  [default: constrained]
   --mep-mode [gsm|dmf]            MEP optimizer: Growing String Method (gsm) or
                                   Direct Max Flux (dmf).  [default: gsm]
   --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
@@ -195,6 +198,10 @@ Options:
   --freq-sort [value|abs]         Override freq mode sorting.
   --freq-temperature FLOAT        Override freq thermochemistry temperature (K).
   --freq-pressure FLOAT           Override freq thermochemistry pressure (atm).
+  --freq-symmetry-number INTEGER RANGE
+                                  Use one rotational symmetry number for every
+                                  R/TS/P frequency job. When omitted, each child
+                                  follows its YAML/default setting.  [x>=1]
   --dft-out-dir DIRECTORY         Override dft output base directory (relative
                                   paths resolved against the default).
   --dft-func-basis TEXT           Override dft --func-basis value.
@@ -238,19 +245,19 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).
   --embedcharge / --no-embedcharge
-                                  Enable xTB point-charge embedding correction
-                                  for MM→ML environmental effects
-                                  (experimental).  [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
-                                  point charges in xTB embedding. Default: 12.0
-                                  Å. Only used when --embedcharge is enabled.
+                                  Unavailable in v0.3.3; retained so older
+                                  commands fail with an actionable diagnostic.
+                                  [default: no-embedcharge]
+  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
+                                  retired electronic-embedding path.
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
   --mm-backend [hessian_ff|openmm]
-                                  MM backend: hessian_ff (analytical Hessian,
-                                  default) or openmm (finite-difference Hessian,
-                                  slower).
+                                  MM backend (default: hessian_ff). MM Hessians
+                                  use finite differences by default; set
+                                  calc.mm_fd: false for the hessian_ff
+                                  analytical path.
   --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
                                   model parm7. Default: disabled (Gaussian
                                   ONIOM-compatible).

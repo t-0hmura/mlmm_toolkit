@@ -31,7 +31,10 @@ from ase.io import read
 
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 
-from mlmm.backends.mlmm_calc import hessianffCalculator
+from mlmm.backends.mlmm_calc import (
+    hessianffCalculator,
+    validate_parmed_atom_order,
+)
 from mlmm.workflows.opt import (
     GEOM_KW as OPT_GEOM_KW,
     CALC_KW as OPT_CALC_KW,
@@ -43,20 +46,25 @@ from mlmm.core.utils import (
     apply_layer_freeze_constraints,
     apply_ref_pdb_override,
     apply_yaml_overrides,
+    convert_xyz_to_pdb,
     pretty_block,
     format_freeze_atoms_for_echo,
     format_elapsed,
     merge_freeze_atom_indices,
     prepare_input_structure,
     parse_indices_string,
-    build_model_pdb_from_bfactors,
-    build_model_pdb_from_indices,
+    resolve_ml_layer_assignment,
     set_convert_file_enabled,
+    validate_charge_spin,
 )
 from mlmm.cli.common_options import add_ml_layer_detection_options
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 from mlmm.core.defaults import DFT_KW as _DFT_KW_DEFAULT
-from mlmm.io.pdb_indexing import PDBOrdinalAtom, parse_pdb_ordinal_atoms
+from mlmm.io.pdb_indexing import (
+    PDBOrdinalAtom,
+    parse_pdb_ordinal_atoms,
+    resolve_mlmm_atoms,
+)
 
 from functools import reduce
 
@@ -110,56 +118,10 @@ def _atoms_to_pyscf_atoms(atoms: Atoms) -> List[Tuple[str, Tuple[float, float, f
     return entries
 
 
-def _load_model_region_ids(model_pdb: Path) -> set[str]:
-    return {atom.id for atom in parse_pdb_ordinal_atoms(model_pdb)}
-
-
 def _load_input_atoms(input_pdb: Path) -> List[PDBOrdinalAtom]:
     """Compatibility wrapper around the product-local ordinal parser."""
 
     return parse_pdb_ordinal_atoms(input_pdb)
-
-
-def _detect_link_pairs(
-    leap_atoms: Sequence[PDBOrdinalAtom],
-    ml_region_ids: set[str],
-    manual_links: Optional[Sequence[Sequence[str]]],
-) -> List[Tuple[int, int]]:
-    if manual_links:
-        processed = [(" ".join(q.split()[:3]), " ".join(m.split()[:3])) for q, m in manual_links]
-        ml_indices: List[int] = []
-        mm_indices: List[int] = []
-        for atom in leap_atoms:
-            for qnm, mnm in processed:
-                if atom.id == qnm:
-                    ml_indices.append(atom.idx)
-                elif atom.id == mnm:
-                    mm_indices.append(atom.idx)
-        if len(set(ml_indices)) != len(ml_indices) or len(set(mm_indices)) != len(mm_indices):
-            raise ValueError("Duplicated ML or MM indices detected in link_mlmm specification.")
-        return list(zip(ml_indices, mm_indices))
-
-    threshold = 1.7
-    ml_set = {atom.idx for atom in leap_atoms if atom.id in ml_region_ids}
-    coords = {atom.idx: np.asarray(atom.coord) for atom in leap_atoms}
-    elems = {atom.idx: atom.elem for atom in leap_atoms}
-    ml_indices: List[int] = []
-    mm_indices: List[int] = []
-    for qidx in ml_set:
-        for atom in leap_atoms:
-            midx = atom.idx
-            if midx in ml_set:
-                continue
-            if np.linalg.norm(coords[midx] - coords[qidx]) < threshold and (
-                (elems[midx] == "C" and elems[qidx] == "C")
-                or (elems[midx] == "N" and elems[qidx] == "C")
-                or (elems[midx] == "C" and elems[qidx] == "N")
-            ):
-                ml_indices.append(qidx)
-                mm_indices.append(midx)
-    if len(set(ml_indices)) != len(ml_indices) or len(set(mm_indices)) != len(mm_indices):
-        raise ValueError("Automatic link detection produced duplicate ML/MM indices; specify link_mlmm explicitly.")
-    return list(zip(ml_indices, mm_indices))
 
 
 def _resolve_link_parent_element(atoms_real: Atoms, idx0: int, real_top=None) -> str:
@@ -249,6 +211,7 @@ def _append_link_hydrogens(
 def _prepare_ml_region_workspace(
     *,
     input_pdb: Path,
+    coordinate_path: Optional[Path] = None,
     real_parm7: Path,
     model_pdb: Path,
     link_mlmm: Optional[Sequence[Sequence[str]]],
@@ -260,7 +223,23 @@ def _prepare_ml_region_workspace(
     input_copy = tmp / "input.pdb"
     real_copy = tmp / "real.parm7"
     model_copy = tmp / "model.pdb"
-    shutil.copyfile(input_pdb, input_copy)
+    coordinate_source = (
+        Path(input_pdb) if coordinate_path is None else Path(coordinate_path)
+    )
+    uses_external_coordinates = (
+        coordinate_source.resolve() != Path(input_pdb).resolve()
+    )
+    coordinate_atoms: Optional[Atoms] = None
+    if uses_external_coordinates:
+        convert_xyz_to_pdb(coordinate_source, input_pdb, input_copy)
+        # The workspace only needs the materialized PDB text. Avoid leaving a
+        # registry entry for a path owned by TemporaryDirectory.
+        from mlmm.io.structure_formats import unregister_coordinate_template
+
+        unregister_coordinate_template(input_copy)
+        coordinate_atoms = read(str(coordinate_source), index=0)
+    else:
+        shutil.copyfile(input_pdb, input_copy)
     shutil.copyfile(real_parm7, real_copy)
     shutil.copyfile(model_pdb, model_copy)
 
@@ -270,7 +249,21 @@ def _prepare_ml_region_workspace(
 
         real_top = pmd.load_file(str(real_copy))
         start_struct = pmd.load_file(str(input_copy))
-        real_top.coordinates = start_struct.coordinates
+        validate_parmed_atom_order(
+            start_struct,
+            real_top,
+            input_label=str(input_pdb),
+            topology_label=str(real_parm7),
+        )
+        if coordinate_atoms is not None:
+            if len(coordinate_atoms) != len(real_top.atoms):
+                raise ValueError(
+                    "Coordinate input and Amber topology have different atom counts: "
+                    f"{len(coordinate_atoms)} != {len(real_top.atoms)}."
+                )
+            real_top.coordinates = coordinate_atoms.get_positions()
+        else:
+            real_top.coordinates = start_struct.coordinates
         real_top.box = None
         real_top.save(str(real_copy), overwrite=True)
         real_rst7 = tmp / "real.rst7"
@@ -279,14 +272,13 @@ def _prepare_ml_region_workspace(
         tmpdir.cleanup()
         raise RuntimeError(f"Failed to prepare sanitized Amber inputs: {exc}") from exc
 
-    ml_region_ids = _load_model_region_ids(model_copy)
-    leap_atoms = _load_input_atoms(input_copy)
-    ml_ids = [atom.idx for atom in leap_atoms if atom.id in ml_region_ids]
-    if not ml_ids:
+    try:
+        resolved = resolve_mlmm_atoms(input_copy, model_copy, link_mlmm)
+    except Exception:
         tmpdir.cleanup()
-        raise ValueError("No overlap between model_pdb atoms and the input PDB was found.")
-
-    link_pairs = _detect_link_pairs(leap_atoms, ml_region_ids, link_mlmm)
+        raise
+    ml_ids = list(resolved.model_indices)
+    link_pairs = list(resolved.link_pairs)
     selection_indices = [idx - 1 for idx in ml_ids]
 
     model_parm7 = tmp / "model.parm7"
@@ -301,7 +293,11 @@ def _prepare_ml_region_workspace(
         model.save(str(model_parm7), overwrite=True)
         model.save(str(model_rst7), overwrite=True)
 
-    atoms_real = read(str(input_copy))
+    atoms_real = (
+        coordinate_atoms.copy()
+        if coordinate_atoms is not None
+        else read(str(input_copy))
+    )
     atoms_model = read(str(model_copy))
     if len(atoms_model) != len(selection_indices):
         tmpdir.cleanup()
@@ -428,6 +424,16 @@ def _finalize_dft_result(
         )
     if not bool(payload["converged"]):
         raise SystemExit(3)
+
+
+def _prepare_dft_output_dir(path: Path) -> Path:
+    """Create the output directory and invalidate prior public DFT results."""
+
+    resolved = Path(path).resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
+    for name in ("result.yaml", "result.json", "summary.json"):
+        (resolved / name).unlink(missing_ok=True)
+    return resolved
 
 
 class FlowList(list):
@@ -770,7 +776,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable electrostatic embedding: MM point charges are added to the PySCF QM Hamiltonian via pyscf.qmmm.mm_charge().",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -778,8 +784,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges embedded in the PySCF QM Hamiltonian. "
-         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method",
@@ -867,6 +872,7 @@ def cli(
     # assignment site reaches the `except Exception as exc:` branch with
     # time_start unbound, masking the real error with UnboundLocalError.
     time_start: float = time.perf_counter()
+    out_dir_path = Path(out_dir).resolve()
 
     model_indices: Optional[List[int]] = None
     if model_indices_str:
@@ -924,6 +930,7 @@ def cli(
             out_dir=out_dir,
             lowmem=lowmem,
         )
+        out_dir_path = Path(dft_kw["out_dir"]).resolve()
 
         func_basis_value = str(dft_kw.get("func_basis", func_basis))
         if _is_param_explicit("func_basis"):
@@ -951,16 +958,16 @@ def cli(
         # TypeError(None→int). resolve_charge_spin_or_raise handles both
         # charge=None + ligand_charge=... (derives charge from PDB residues)
         # and charge=None + ligand_charge=None (raises a clean ClickException
-        # "Total charge is unresolved" instead of a TypeError).
+        # "ML-region charge is unresolved" instead of a TypeError).
         charge, spin = resolve_charge_spin_or_raise(
             prepared_input, charge, spin,
             ligand_charge=ligand_charge, prefix="[dft]",
+            model_pdb=model_pdb,
+            model_indices_spec=model_indices_str,
+            detect_layer=detect_layer,
+            yaml_cfg=merged_yaml_cfg,
         )
-
-        model_multiplicity = int(calc_kw.get("model_mult", spin))
-        if _is_param_explicit("spin"):
-            model_multiplicity = int(spin)
-        calc_kw["model_mult"] = model_multiplicity
+        calc_kw["model_mult"] = int(spin)
         calc_kw["model_charge"] = int(charge)
 
         dft_block = {
@@ -974,6 +981,12 @@ def cli(
             "out_dir": str(Path(dft_kw["out_dir"]).resolve()),
             "lowmem": bool(dft_kw.get("lowmem", True)),
         }
+        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+        reject_retired_embedcharge_cli(
+            calc_kw,
+            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+        )
 
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_kw, key="freeze_atoms")))
         click.echo(pretty_block("calc", {k: calc_kw[k] for k in sorted(calc_kw.keys()) if k not in {"freeze_atoms"}}))
@@ -992,65 +1005,84 @@ def cli(
             )
 
         if dry_run:
-            if (not detect_layer_enabled) and (model_pdb_cfg is None) and (not model_indices):
-                raise click.ClickException(
-                    "Provide --model-pdb or --model-indices when --no-detect-layer."
+            with tempfile.TemporaryDirectory(prefix="mlmm_dft_validate_") as tmp:
+                validation_cfg = dict(calc_kw)
+                validation_model, _ = resolve_ml_layer_assignment(
+                    source_path=layer_source_pdb,
+                    out_dir_path=Path(tmp),
+                    model_pdb=model_pdb_cfg,
+                    model_indices=model_indices,
+                    detect_layer=detect_layer_enabled,
+                    hess_cutoff=validation_cfg.get("hess_cutoff"),
+                    movable_cutoff=validation_cfg.get("movable_cutoff"),
+                    calc_cfg=validation_cfg,
+                    echo_fn=click.echo,
                 )
-            click.echo(
-                pretty_block(
-                    "dry_run_plan",
-                    {
-                        "will_prepare_input": True,
-                        "detect_layer": bool(detect_layer_enabled),
-                        "model_region_source": (
-                            "bfactor"
-                            if detect_layer_enabled
-                            else ("model_pdb" if model_pdb_cfg is not None else "model_indices")
-                        ),
-                        "model_indices_count": 0 if not model_indices else len(model_indices),
-                        "output_dir": str(Path(dft_kw["out_dir"]).resolve()),
-                        "backend": calc_kw.get("backend", "uma"),
-                        "embedcharge": bool(calc_kw.get("embedcharge", False)),
-                    },
+                validation_workspace = _prepare_ml_region_workspace(
+                    input_pdb=source_pdb,
+                    coordinate_path=prepared_input.geom_path,
+                    real_parm7=real_parm7,
+                    model_pdb=validation_model,
+                    link_mlmm=validation_cfg.get("link_mlmm"),
+                    link_atom_method=str(
+                        validation_cfg.get("link_atom_method") or "scaled"
+                    ).lower(),
                 )
-            )
-            click.echo("[dry-run] Validation complete. DFT execution was skipped.")
-            return
+                try:
+                    validate_charge_spin(
+                        validation_workspace.atoms_model_lh.get_chemical_symbols(),
+                        int(charge),
+                        int(calc_kw["model_mult"]),
+                        source=str(validation_model),
+                    )
+                finally:
+                    validation_workspace.cleanup()
+                click.echo(
+                    pretty_block(
+                        "dry_run_plan",
+                        {
+                            "will_prepare_input": True,
+                            "detect_layer": bool(detect_layer_enabled),
+                            "model_region_source": (
+                                "model_pdb"
+                                if model_pdb_cfg is not None
+                                else (
+                                    "model_indices"
+                                    if model_indices
+                                    else "bfactor"
+                                )
+                            ),
+                            "model_indices_count": (
+                                0 if not model_indices else len(model_indices)
+                            ),
+                            "output_dir": str(Path(dft_kw["out_dir"]).resolve()),
+                            "backend": calc_kw.get("backend", "uma"),
+                            "embedcharge": bool(
+                                calc_kw.get("embedcharge", False)
+                            ),
+                        },
+                    )
+                )
+                click.echo(
+                    "[dry-run] Validation complete. DFT execution was skipped."
+                )
+                return
 
         # `prepared_input` and `charge/spin` already resolved above
         # (hoisted to fix `int(charge)` TypeError with --ligand-charge only).
-        out_dir_path = Path(dft_kw["out_dir"]).resolve()
-        out_dir_path.mkdir(parents=True, exist_ok=True)
+        out_dir_path = _prepare_dft_output_dir(out_dir_path)
 
-        if detect_layer_enabled:
-            try:
-                model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
-                calc_kw["use_bfactor_layers"] = True
-                click.echo(
-                    f"[layer] Detected B-factor layers: ML={len(layer_info.get('ml_indices', []))}, "
-                    f"MovableMM={len(layer_info.get('movable_mm_indices', []))}, "
-                    f"FrozenMM={len(layer_info.get('frozen_indices', []))}"
-                )
-            except Exception as e:
-                if model_pdb_cfg is None and not model_indices:
-                    raise click.ClickException(str(e))
-                click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-                detect_layer_enabled = False
-
-        if not detect_layer_enabled:
-            if model_pdb_cfg is None and not model_indices:
-                raise click.ClickException("Provide --model-pdb or --model-indices when --no-detect-layer.")
-            if model_pdb_cfg is not None:
-                model_pdb_path = Path(model_pdb_cfg)
-            else:
-                try:
-                    model_pdb_path = build_model_pdb_from_indices(layer_source_pdb, out_dir_path, model_indices or [])
-                except Exception as e:
-                    raise click.ClickException(str(e))
-            calc_kw["use_bfactor_layers"] = False
-
-        if model_pdb_path is None:
-            raise click.ClickException("Failed to resolve model PDB for the ML region.")
+        model_pdb_path, layer_info = resolve_ml_layer_assignment(
+            source_path=layer_source_pdb,
+            out_dir_path=out_dir_path,
+            model_pdb=model_pdb_cfg,
+            model_indices=model_indices,
+            detect_layer=detect_layer_enabled,
+            hess_cutoff=calc_kw.get("hess_cutoff"),
+            movable_cutoff=calc_kw.get("movable_cutoff"),
+            calc_cfg=calc_kw,
+            echo_fn=click.echo,
+        )
 
         calc_kw["input_pdb"] = str(source_pdb.resolve())
         calc_kw["real_parm7"] = str(real_parm7.resolve())
@@ -1058,7 +1090,7 @@ def cli(
         apply_layer_freeze_constraints(
             geom_kw,
             calc_kw,
-            layer_info if detect_layer_enabled else None,
+            layer_info,
             echo_fn=click.echo,
         )
         # NOTE: time_start was previously re-assigned here, but it is now bound
@@ -1069,6 +1101,7 @@ def cli(
 
         workspace = _prepare_ml_region_workspace(
             input_pdb=Path(calc_kw["input_pdb"]),
+            coordinate_path=prepared_input.geom_path,
             real_parm7=Path(calc_kw["real_parm7"]),
             model_pdb=Path(calc_kw["model_pdb"]),
             link_mlmm=calc_kw.get("link_mlmm"),
@@ -1385,7 +1418,13 @@ def cli(
     except click.ClickException:
         raise
     except Exception as exc:
-        render_cli_exception(exc, label="ML/MM DFT", out_dir=out_dir, command="dft", time_start=time_start)
+        render_cli_exception(
+            exc,
+            label="ML/MM DFT",
+            out_dir=out_dir_path,
+            command="dft",
+            time_start=time_start,
+        )
     finally:
         if prepared_input is not None:
             prepared_input.cleanup()

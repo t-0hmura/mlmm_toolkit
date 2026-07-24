@@ -94,5 +94,5 @@ These are empirical — actual usage depends on grid_level and basis.
 
 - `env-cuda.md` — `LD_LIBRARY_PATH` and torch CUDA pairing.
 - `mlmm-cli/dft.md` — full subcommand flag reference.
-- `mlmm-workflows-output/SKILL.md` — DFT//MLIP/MM refinement
+- `mlmm-workflows-output/SKILL.md` — DFT//MLIP/MM single-point
   workflow (run `mlmm dft` after `mlmm all`).

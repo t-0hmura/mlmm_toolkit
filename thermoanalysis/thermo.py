@@ -524,10 +524,9 @@ def qrrho_vibrational_part_func(
 
     if cutoff > 0.0 and I_mean:
         # Normal mode moments of inertia
-        wavenumbers_m = 100 * wavenumbers  # in m⁻¹
         mu = PLANCK / (
-            2 * np.pi * 4 * np.pi * wavenumbers_m
-        )  # Eq. (9) in [6], in kg m³ s⁻¹
+            2 * np.pi * 4 * np.pi * frequencies
+        )  # Eq. (9) in [6], in kg m²
         # Convert average moment of inertia from Å² AMU to SI units (m² kg)
         I_mean_SI = I_mean * 1e-20 * AMU2KG
         mu_ = mu * I_mean_SI / (mu + I_mean_SI)

@@ -110,6 +110,7 @@ def test_oniom_export_g16_smoke(tmp_path: Path) -> None:
     text = out_file.read_text(encoding="utf-8")
     assert "ONIOM" in text
     assert "0 1" in text
+    assert "MLMM_REF_PDB_ORDER_V1_SHA256=" in text
 
 
 def test_oniom_export_orca_smoke(tmp_path: Path) -> None:
@@ -147,6 +148,7 @@ def test_oniom_export_orca_smoke(tmp_path: Path) -> None:
     text = out_file.read_text(encoding="utf-8")
     assert "QMMM" in text
     assert "ORCAFFFilename" in text
+    assert "# MLMM_REF_PDB_ORDER_V1_SHA256=" in text
 
 
 def test_oniom_export_mode_inferred_from_output_suffix_g16(tmp_path: Path) -> None:

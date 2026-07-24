@@ -48,11 +48,10 @@ class AngleTerm(nn.Module):
 
         r20 = torch.sum(d0 * d0, dim=-1).clamp_min(1.0e-24)
         r21 = torch.sum(d1 * d1, dim=-1).clamp_min(1.0e-24)
-        rp = torch.linalg.norm(p, dim=-1).clamp_min(1.0e-12)
+        cross_norm = torch.linalg.norm(p, dim=-1)
+        rp = cross_norm.clamp_min(1.0e-12)
         dot = torch.sum(d0 * d1, dim=-1)
-        cos_theta = dot / torch.sqrt(r20 * r21)
-        cos_theta = torch.clamp(cos_theta, -1.0, 1.0)
-        theta = torch.acos(cos_theta)
+        theta = torch.atan2(cross_norm, dot)
 
         dtheta = theta - self.theta0
         e = torch.sum(self.k_theta * dtheta * dtheta)

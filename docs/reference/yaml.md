@@ -3,7 +3,7 @@
 This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It shows a common subset of keys whose values are pinned to (and equal) their runtime owners; it is **not** the full configuration schema. For every configurable section and option, see the [YAML Reference](../yaml-reference.md).
 
 - Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`
-- Template digest: `e28cc93b71aa`
+- Template digest: `75df8f4168be`
 
 ## Included Sections
 
@@ -15,6 +15,7 @@ This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It s
 | `scan` |
 | `tsopt` |
 | `freq` |
+| `thermo` |
 | `dft` |
 
 ## Starter Template
@@ -29,13 +30,6 @@ calc:
   mace_model: MACE-OMOL-0   # MACE model path or name (when backend=mace)
   mace_dtype: float64       # MACE dtype, e.g. float32 / float64 (when backend=mace)
   aimnet2_model: aimnet2    # AIMNet2 model name (when backend=aimnet2)
-  embedcharge: false        # Enable xTB point-charge embedding correction
-  embedcharge_step: 1.0e-3   # Numerical Hessian step for embedding correction (Å)
-  xtb_cmd: xtb              # Path or command for the xTB executable
-  xtb_acc: 0.2              # xTB SCF accuracy parameter
-  xtb_workdir: tmp          # Working directory for xTB scratch files
-  xtb_keep_files: false     # Keep xTB intermediate files after completion
-  xtb_ncores: 4             # Number of CPU cores for xTB
 
 extract:
   radius: 2.6
@@ -58,8 +52,11 @@ freq:
   amplitude_ang: 0.8
   n_frames: 20
   sort: value
+
+thermo:
   temperature: 298.15
   pressure_atm: 1.0
+  symmetry_number: 1
 
 dft:
   func_basis: wb97m-v/def2-tzvpd
@@ -80,13 +77,6 @@ Each scalar is pinned to (and equals) the runtime owner shown.
 | `calc.mace_model` | `str` | `'MACE-OMOL-0'` | `MLMM_CALC_KW["mace_model"]` |
 | `calc.mace_dtype` | `str` | `'float64'` | `MLMM_CALC_KW["mace_dtype"]` |
 | `calc.aimnet2_model` | `str` | `'aimnet2'` | `MLMM_CALC_KW["aimnet2_model"]` |
-| `calc.embedcharge` | `bool` | `False` | `MLMM_CALC_KW["embedcharge"]` |
-| `calc.embedcharge_step` | `float` | `0.001` | `MLMM_CALC_KW["embedcharge_step"]` |
-| `calc.xtb_cmd` | `str` | `'xtb'` | `MLMM_CALC_KW["xtb_cmd"]` |
-| `calc.xtb_acc` | `float` | `0.2` | `MLMM_CALC_KW["xtb_acc"]` |
-| `calc.xtb_workdir` | `str` | `'tmp'` | `MLMM_CALC_KW["xtb_workdir"]` |
-| `calc.xtb_keep_files` | `bool` | `False` | `MLMM_CALC_KW["xtb_keep_files"]` |
-| `calc.xtb_ncores` | `int` | `4` | `MLMM_CALC_KW["xtb_ncores"]` |
 | `extract.radius` | `float` | `2.6` | `mlmm all --radius` default |
 | `extract.radius_het2het` | `float` | `0.0` | `mlmm all --radius-het2het` default |
 | `path_search.max_nodes` | `int` | `20` | `GS_KW["max_nodes"]` |
@@ -99,8 +89,9 @@ Each scalar is pinned to (and equals) the runtime owner shown.
 | `freq.amplitude_ang` | `float` | `0.8` | `FREQ_KW["amplitude_ang"]` |
 | `freq.n_frames` | `int` | `20` | `FREQ_KW["n_frames"]` |
 | `freq.sort` | `str` | `'value'` | `FREQ_KW["sort"]` |
-| `freq.temperature` | `float` | `298.15` | `THERMO_KW["temperature"]` |
-| `freq.pressure_atm` | `float` | `1.0` | `THERMO_KW["pressure_atm"]` |
+| `thermo.temperature` | `float` | `298.15` | `THERMO_KW["temperature"]` |
+| `thermo.pressure_atm` | `float` | `1.0` | `THERMO_KW["pressure_atm"]` |
+| `thermo.symmetry_number` | `int` | `1` | `THERMO_KW["symmetry_number"]` |
 | `dft.func_basis` | `str` | `'wb97m-v/def2-tzvpd'` | `DFT_KW["func_basis"]` |
 | `dft.max_cycle` | `int` | `100` | `DFT_KW["max_cycle"]` |
 | `dft.conv_tol` | `float` | `1e-09` | `DFT_KW["conv_tol"]` |

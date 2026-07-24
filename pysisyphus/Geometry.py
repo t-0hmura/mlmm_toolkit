@@ -21,6 +21,7 @@ except ModuleNotFoundError:
     pass
 
 from pysisyphus import logger
+from pysisyphus._array import active_square
 from pysisyphus.config import p_DEFAULT, T_DEFAULT
 from pysisyphus.constants import BOHR2ANG
 from pysisyphus.elem_data import (
@@ -1163,6 +1164,24 @@ class Geometry:
             return self.internal.transform_hessian(hessian, int_gradient)
         return hessian
 
+    def take_hessian(self):
+        """Return the current Hessian and release Geometry's dense cache owner.
+
+        Optimizers that take ownership of a terminal/exact Hessian can use this
+        transfer boundary to avoid retaining the raw Cartesian matrix in both
+        ``Geometry`` and the optimizer. Energy, forces, and partial-Hessian
+        metadata remain cached.
+        """
+
+        hessian = self.hessian
+        cached = self._hessian
+        self._hessian = None
+        if self.results.get("hessian") is cached:
+            self.results.pop("hessian", None)
+        if getattr(self, "true_hessian", None) is cached:
+            self.true_hessian = None
+        return hessian
+
     # @hessian.setter
     # def hessian(self, hessian):
     # """Internal wrapper for setting the hessian."""
@@ -1333,11 +1352,7 @@ class Geometry:
             raise ValueError(
                 "partial Hessian shape must match either active_n_dof or full_n_dof"
             )
-        if isinstance(hessian, torch.Tensor):
-            indices = torch.as_tensor(active_dofs, dtype=torch.long, device=hessian.device)
-            return hessian.index_select(0, indices).index_select(1, indices)
-        array = np.asarray(hessian)
-        return array[np.ix_(active_dofs, active_dofs)]
+        return active_square(hessian, active_dofs)
 
     # Convenience: extract / insert an active slice
     def full_from_active(self, active_vec):
@@ -1391,6 +1406,31 @@ class Geometry:
         """Normal mode wavenumbers, eigenvalues and Cartesian displacements Hessian."""
         if cart_hessian is None:
             cart_hessian = self.cart_hessian
+
+        # A full stored Hessian does not make explicitly frozen atoms part of
+        # the vibrational problem.  When no producer metadata is present,
+        # derive the PHVA layout from Geometry's hard-freeze constraint and
+        # route through the same validated active-space implementation.
+        if self.within_partial_hessian is None and len(self.freeze_atoms) > 0:
+            full_n_dof = int(self.cart_coords.size)
+            active_atoms = [int(i) for i in self.active_atom_indices]
+            active_dofs = [
+                3 * atom + axis for atom in active_atoms for axis in range(3)
+            ]
+            if cart_hessian.shape in (
+                (full_n_dof, full_n_dof),
+                (len(active_dofs), len(active_dofs)),
+            ):
+                self.within_partial_hessian = {
+                    "active_n_dof": len(active_dofs),
+                    "full_n_dof": full_n_dof,
+                    "active_atoms": active_atoms,
+                    "active_dofs": active_dofs,
+                }
+                try:
+                    return self.get_normal_modes(cart_hessian, full=full)
+                finally:
+                    self.within_partial_hessian = None
 
         if self.within_partial_hessian is not None:
             self._validated_partial_hessian_layout()
@@ -1447,7 +1487,7 @@ class Geometry:
     ):
         if cart_hessian is None:
             cart_hessian = self.cart_hessian
-            # Delte any supplied energy value when a Hessian calculation is carried out
+            # Discard a supplied energy when a fresh Hessian calculation is carried out.
             energy = None
 
         if energy is None:
@@ -1466,7 +1506,9 @@ class Geometry:
         thermo_dict = {
             "masses": self.masses,
             "wavenumbers": vibfreqs,
-            "coords3d": self.coords3d,
+            # Geometry stores Cartesian coordinates in Bohr, while
+            # thermoanalysis' inertia/rotation contract is Angstrom.
+            "coords3d": self.coords3d * BOHR2ANG,
             "scf_energy": energy,
             "mult": mult,
         }

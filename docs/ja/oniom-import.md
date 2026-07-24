@@ -35,7 +35,7 @@ mlmm oniom-import -i model.inp --ref-pdb complex_layered.pdb -o model_imported
 4. `<out_prefix>.xyz` を出力します。
 5. `<out_prefix>_layered.pdb` を出力します。
  - `--ref-pdb` 未指定: 汎用的な原子/残基名で生成。
- - `--ref-pdb` 指定: 命名/残基メタデータを保持しつつ座標/B-factor を更新。
+ - `--ref-pdb` 指定: 命名/残基メタデータを保持しつつ座標/B-factor を更新。埋め込まれた export digest は一致必須です。marker のない旧入力は元素 identity が一意な場合だけ自動許可し、同一元素が複数ある場合は `--allow-unverified-ref-order` が必要です。
 
 ## 出力
 
@@ -46,7 +46,8 @@ mlmm oniom-import -i model.inp --ref-pdb complex_layered.pdb -o model_imported
 
 - `<out_prefix>.xyz` が生成され、原子数が元 ONIOM 入力と一致する。
 - `<out_prefix>_layered.pdb` が生成され、B-factor が `0/10/20` で層を表す。
-- ログに mode、原子数、QM/Movable/Frozen の件数が表示される。
+- ログに mode、原子数、QM/Movable/Frozen の件数と
+  `ref_order=identity-verified` / `element-verified` / `unverified-opt-in` が表示される。
 
 ## CLI オプション
 
@@ -54,7 +55,7 @@ mlmm oniom-import -i model.inp --ref-pdb complex_layered.pdb -o model_imported
 
 ```bash
 mlmm oniom-import -i INPUT.[gjf|com|inp] [--mode g16|orca] \
-  [-o OUT_PREFIX] [--ref-pdb REF.pdb]
+  [-o OUT_PREFIX] [--ref-pdb REF.pdb] [--allow-unverified-ref-order]
 ```
 
 | オプション | 説明 | デフォルト |
@@ -63,8 +64,12 @@ mlmm oniom-import -i INPUT.[gjf|com|inp] [--mode g16|orca] \
 | `--mode [g16|orca]` | 入力モード。未指定時は拡張子から推定。 | 自動判定 |
 | `-o, --out-prefix PATH` | 出力プレフィックス。 | カレントディレクトリ上の入力 stem |
 | `--ref-pdb FILE` | 原子名/残基メタデータ保持用の参照 PDB（原子数一致必須）。 | _None_ |
+| `--allow-unverified-ref-order` | marker のない旧入力で同一元素が複数あり、原子順序を独立に確認済みの場合だけ positional mapping を許可。digest 不一致は上書きしない。 | `False` |
 
 高度なオプションを含む全フラグ一覧は、生成される[コマンドリファレンス](../reference/commands/index.md)を参照してください。
+
+埋め込み identity marker は fail-closed です。不正・重複 marker と digest
+不一致は `--allow-unverified-ref-order` を指定しても致命的です。
 
 ## 関連項目
 

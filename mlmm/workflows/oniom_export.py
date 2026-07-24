@@ -501,6 +501,10 @@ def _get_total_charge(parm) -> int:
         except Exception:
             q = 0.0
 
+    if not np.isfinite(q):
+        raise RuntimeError(
+            f"[oniom-export] Topology total charge is non-finite ({q!r})."
+        )
     q_int = int(round(q))
     _dev = abs(q - q_int)
     # Summed Amber partial charges carry float noise (~1e-2 for large
@@ -508,17 +512,12 @@ def _get_total_charge(parm) -> int:
     # -4.996 — that is NOT an error and must not raise a misleading
     # warning. But a value genuinely far from an integer is ambiguous:
     # refuse to silently force-round it.
-    if _dev > 0.5:
+    if _dev > 0.05:
         raise RuntimeError(
             f"[oniom-export] Topology total charge {q:.6f} is not close to "
             f"any integer (nearest={q_int}, |Δ|={_dev:.3f}). Refusing to "
             f"silently round. Check the parm7 / ligand parameterization, or "
-            f"pass an explicit charge."
-        )
-    if _dev > 0.05:
-        click.echo(
-            f"[oniom-export] WARNING: total charge {q:.6f} deviates from the "
-            f"nearest integer {q_int} by {_dev:.3f}; using {q_int}."
+            f"pass an explicit total charge where that export mode supports it."
         )
     return q_int
 
@@ -680,12 +679,12 @@ def _read_qm_atoms_from_pdb(
         used: Set[int] = set()
         sys_coords = np.asarray(system_coords, dtype=float)
 
-        missing: int = 0
+        unmatched: List[str] = []
         for ma in model_atoms:
             key = (ma["atom_name"], ma["res_name"], int(ma["res_seq"]))
             cand = key_to_candidates.get(key, [])
             if not cand:
-                missing += 1
+                unmatched.append(f"{key} (identifier absent)")
                 continue
 
             if len(cand) == 1:
@@ -701,7 +700,8 @@ def _read_qm_atoms_from_pdb(
             # Disambiguate by nearest coordinate among candidates (and avoid already-used indices)
             cand_free = [i for i in cand if i not in used]
             if not cand_free:
-                cand_free = cand  # allow reuse as a last resort
+                unmatched.append(f"{key} (all candidate topology atoms already used)")
+                continue
 
             cand_coords = sys_coords[np.asarray(cand_free, dtype=int)]
             dists = np.linalg.norm(cand_coords - ma["coord"][None, :], axis=1)
@@ -709,20 +709,21 @@ def _read_qm_atoms_from_pdb(
             chosen = int(cand_free[j])
 
             if float(dists[j]) > match_tol:
-                # ID match exists but coordinates are far apart -> likely inconsistent inputs
-                click.echo(
-                    f"[oniom-export] WARNING: matched ID {key} but nearest distance is {dists[j]:.3f} Å "
-                    f"(> {match_tol} Å). Check that input_pdb and model_pdb come from the same structure."
+                unmatched.append(
+                    f"{key} (nearest distance {dists[j]:.3f} Å > {match_tol:.3f} Å)"
                 )
+                continue
 
             qm_indices.add(chosen)
             used.add(chosen)
 
-        if missing > 0:
-            click.echo(
-                f"[oniom-export] WARNING: {missing} atoms in model_pdb could not be matched by "
-                f"(atom_name,res_name,res_seq) to input_pdb. "
-                "If this is unexpected, verify residue numbering and naming."
+        if unmatched or len(qm_indices) != len(model_atoms):
+            details = "; ".join(unmatched[:12])
+            suffix = " …" if len(unmatched) > 12 else ""
+            raise ValueError(
+                "Every --model-pdb atom must map one-to-one to the full-system "
+                f"topology; matched {len(qm_indices)}/{len(model_atoms)}. "
+                f"Unmatched: {details}{suffix}"
             )
 
         return qm_indices
@@ -735,33 +736,37 @@ def _read_qm_atoms_from_pdb(
         )
 
     sys_coords = np.asarray(system_coords, dtype=float)
-    try:
-        from scipy.spatial import cKDTree
-
-        tree = cKDTree(sys_coords)
-        for ma in model_atoms:
-            dist, idx = tree.query(ma["coord"], k=1)
-            if float(dist) > match_tol:
-                continue
-            if system_elements is not None and 0 <= int(idx) < len(system_elements):
-                e_sys = _normalize_element_symbol(system_elements[int(idx)])
-                e_mod = _normalize_element_symbol(ma["element"])
-                if e_sys != "X" and e_mod != "X" and e_sys != e_mod:
-                    continue
-            qm_indices.add(int(idx))
-    except Exception:
-        # Slow fallback
-        for ma in model_atoms:
-            d = np.linalg.norm(sys_coords - ma["coord"][None, :], axis=1)
-            idx = int(np.argmin(d))
-            if float(d[idx]) > match_tol:
+    used: Set[int] = set()
+    unmatched: List[str] = []
+    for ma in model_atoms:
+        distances = np.linalg.norm(sys_coords - ma["coord"][None, :], axis=1)
+        candidates = np.argsort(distances)
+        chosen = None
+        for raw_idx in candidates:
+            idx = int(raw_idx)
+            if idx in used or float(distances[idx]) > match_tol:
                 continue
             if system_elements is not None and 0 <= idx < len(system_elements):
                 e_sys = _normalize_element_symbol(system_elements[idx])
                 e_mod = _normalize_element_symbol(ma["element"])
                 if e_sys != "X" and e_mod != "X" and e_sys != e_mod:
                     continue
-            qm_indices.add(idx)
+            chosen = idx
+            break
+        if chosen is None:
+            unmatched.append(
+                f"{ma['atom_name']}/{ma['res_name']}{ma['res_seq']}"
+            )
+            continue
+        qm_indices.add(chosen)
+        used.add(chosen)
+
+    if unmatched or len(qm_indices) != len(model_atoms):
+        raise ValueError(
+            "Every --model-pdb atom must map one-to-one by coordinate and "
+            f"element; matched {len(qm_indices)}/{len(model_atoms)}. "
+            f"Unmatched: {', '.join(unmatched[:12])}"
+        )
 
     return qm_indices
 
@@ -907,6 +912,7 @@ def _build_link_atom_specs(
     *,
     elements: Optional[List[str]] = None,
     link_atom_method: str = "scaled",
+    strict: bool = True,
 ) -> Dict[int, Dict[str, Any]]:
     """
     Build link-atom specs keyed by boundary MM atom index.
@@ -930,7 +936,21 @@ def _build_link_atom_specs(
     specs: Dict[int, Dict[str, Any]] = {}
     warned_elems: Set[str] = set()
 
-    for qm_idx, mm_idx in _find_qmmm_boundary_pairs(parm, qm_indices):
+    boundaries = list(_find_qmmm_boundary_pairs(parm, qm_indices))
+    if strict:
+        mm_parents = [int(mm_idx) for _, mm_idx in boundaries]
+        duplicates = sorted(
+            mm_idx for mm_idx in set(mm_parents)
+            if mm_parents.count(mm_idx) > 1
+        )
+        if duplicates:
+            raise ValueError(
+                "Gaussian link annotations are ambiguous because multiple QM "
+                "bonds share MM parent atom(s): "
+                + ", ".join(str(i + 1) for i in duplicates)
+            )
+
+    for qm_idx, mm_idx in boundaries:
         if elements is not None and 0 <= qm_idx < len(elements):
             qm_elem = _normalize_element_symbol(elements[qm_idx])
         else:
@@ -960,10 +980,15 @@ def _build_link_atom_specs(
             )
 
         if link_pos is None:
-            click.echo(
-                f"[oniom-export] WARNING: failed to estimate link-H position for boundary "
-                f"(QM={qm_idx}, MM={mm_idx}); skipping link annotation for this bond."
+            message = (
+                "failed to estimate link-H position for boundary "
+                f"(QM={qm_idx + 1}, MM={mm_idx + 1})"
             )
+            if strict:
+                raise ValueError(
+                    f"Gaussian export requires one cap for every QM/MM cut; {message}."
+                )
+            click.echo(f"[oniom-export] WARNING: {message}; omitting link-position comment.")
             continue
 
         specs[int(mm_idx)] = {
@@ -974,6 +999,11 @@ def _build_link_atom_specs(
             "link_atom_method": method,
         }
 
+    if strict and len(specs) != len(boundaries):
+        raise ValueError(
+            "Gaussian export requires one unambiguous link annotation per "
+            f"QM/MM boundary; found {len(specs)}/{len(boundaries)}."
+        )
     return specs
 
 
@@ -989,6 +1019,7 @@ def _write_gaussian_header(
     qm_mult: int = 1,
     real_charge: Optional[int] = None,
     real_mult: Optional[int] = None,
+    ref_order_digest: Optional[str] = None,
 ) -> str:
     """
     Generate Gaussian ONIOM input header.
@@ -1013,6 +1044,11 @@ def _write_gaussian_header(
         )
 
     chk_name = Path(output_name).stem
+    identity_line = ""
+    if ref_order_digest is not None:
+        from mlmm.io.oniom_identity import format_order_marker
+
+        identity_line = "\n" + format_order_marker(ref_order_digest)
 
     header = f"""%chk={chk_name}.chk
 %mem={mem}
@@ -1021,7 +1057,7 @@ def _write_gaussian_header(
 scf=(xqc,intrep,maxconventionalcyc=80)
 nosymm iop(2/15=3) geom=connectivity Amber=(FirstEquiv)
 
-ONIOM inputfile generated by mlmm oniom-export from {parm_path}.
+ONIOM inputfile generated by mlmm oniom-export from {parm_path}.{identity_line}
 
 {real_charge} {real_mult} {qm_charge} {qm_mult} {qm_charge} {qm_mult}
 """
@@ -1213,58 +1249,97 @@ def _write_gaussian_ff_params(parm) -> str:
         proper_dihedrals = [d for d in dihedrals_all if not bool(getattr(d, "improper", False))]
         improper_dihedrals = [d for d in dihedrals_all if bool(getattr(d, "improper", False))]
 
+    occurrence_terms: Dict[
+        Tuple[str, str, str, str],
+        Dict[Tuple[int, int, int, int], List[Tuple[int, float, float]]],
+    ] = {}
     for dih in proper_dihedrals:
         dtype = getattr(dih, "type", None)
-        for term in _as_term_list(dtype):
+        terms = _as_term_list(dtype)
+        t1 = _fix_atom_type(getattr(dih.atom1, "atom_type", "X"))
+        t2 = _fix_atom_type(getattr(dih.atom2, "atom_type", "X"))
+        t3 = _fix_atom_type(getattr(dih.atom3, "atom_type", "X"))
+        t4 = _fix_atom_type(getattr(dih.atom4, "atom_type", "X"))
+        key = (t1, t2, t3, t4)
+        occurrence = tuple(
+            int(getattr(atom, "idx", id(atom)))
+            for atom in (dih.atom1, dih.atom2, dih.atom3, dih.atom4)
+        )
+        collected = occurrence_terms.setdefault(key, {}).setdefault(occurrence, [])
+        for term in terms:
             try:
-                per = _get_attr(term, ["per", "periodicity", "period"], None)
-                phase = float(_get_attr(term, ["phase", "phi", "phase_shift"], 0.0))
-                mag = float(_get_attr(term, ["phi_k", "pk", "k", "barrier"], 0.0))
-                div = float(_get_attr(term, ["div", "divider", "idivf", "npaths"], 1.0))
-                if div == 0.0:
-                    div = 1.0
-            except Exception:
-                continue
-
-            try:
-                n = int(round(abs(float(per))))
-            except Exception:
-                continue
-            if n < 1:
-                continue
-            if n > 4:
-                click.echo(
-                    f"[oniom-export] WARNING: skipping Amber torsion with periodicity {n} (>4) "
-                    f"for types {_fix_atom_type(dih.atom1.atom_type)}-{_fix_atom_type(dih.atom2.atom_type)}-"
-                    f"{_fix_atom_type(dih.atom3.atom_type)}-{_fix_atom_type(dih.atom4.atom_type)}"
+                period = int(round(abs(float(
+                    _get_attr(term, ["per", "periodicity", "period"], 0)
+                ))))
+                phase_value = float(
+                    _get_attr(term, ["phase", "phi", "phase_shift"], 0.0)
                 )
+                magnitude = float(
+                    _get_attr(term, ["phi_k", "pk", "k", "barrier"], 0.0)
+                )
+                divisor = float(
+                    _get_attr(term, ["div", "divider", "idivf", "npaths"], 1.0)
+                )
+                if divisor == 0.0:
+                    divisor = 1.0
+                if period < 1:
+                    continue
+                if period > 4:
+                    click.echo(
+                        f"[oniom-export] WARNING: skipping Amber torsion with "
+                        f"periodicity {period} (>4) for types {'-'.join(key)}"
+                    )
+                    continue
+                collected.append((period, phase_value % 360.0, magnitude / divisor))
+            except (TypeError, ValueError):
                 continue
 
-            t1 = _fix_atom_type(getattr(dih.atom1, "atom_type", "X"))
-            t2 = _fix_atom_type(getattr(dih.atom2, "atom_type", "X"))
-            t3 = _fix_atom_type(getattr(dih.atom3, "atom_type", "X"))
-            t4 = _fix_atom_type(getattr(dih.atom4, "atom_type", "X"))
-            key = (t1, t2, t3, t4)
+    def _collapse_occurrence(
+        key: Tuple[str, str, str, str],
+        terms: List[Tuple[int, float, float]],
+    ) -> Tuple[Tuple[int, float, float], ...]:
+        collapsed: Dict[int, Tuple[float, float]] = {}
+        for period, phase, magnitude in terms:
+            if abs(magnitude) < 1.0e-15:
+                continue
+            if period in collapsed:
+                old_phase, old_magnitude = collapsed[period]
+                phase_delta = abs(((phase - old_phase + 180.0) % 360.0) - 180.0)
+                if phase_delta > 1.0e-6:
+                    raise ValueError(
+                        "Gaussian AmbTrs cannot represent multiple nonzero "
+                        f"phases for periodicity {period} and atom types "
+                        f"{'-'.join(key)}."
+                    )
+                collapsed[period] = (old_phase, old_magnitude + magnitude)
+            else:
+                collapsed[period] = (phase, magnitude)
+        return tuple(
+            (period, round(phase, 12), round(magnitude, 12))
+            for period, (phase, magnitude) in sorted(collapsed.items())
+            if abs(magnitude) >= 1.0e-12
+        )
 
-            if key not in tors_params:
-                tors_params[key] = ([0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0])
-
-            phases, mags = tors_params[key]
-            idx = n - 1
-
-            # Amber divides each term by IDIVF; Gaussian's AmbTrs uses a single NPaths.
-            # We fold the division into the magnitude and set NPaths=1.
-            mag_eff = mag / div
-
-            if mags[idx] != 0.0 and abs(phases[idx] - phase) > 1e-6:
-                click.echo(
-                    f"[oniom-export] WARNING: multiple torsion terms with the same periodicity {n} but "
-                    f"different phases for key {key}. Keeping the first phase {phases[idx]:.3f} and "
-                    f"adding magnitudes."
+    for key, occurrences in occurrence_terms.items():
+        signatures = [
+            _collapse_occurrence(key, terms)
+            for terms in occurrences.values()
+        ]
+        if not signatures:
+            continue
+        signature = signatures[0]
+        for candidate in signatures[1:]:
+            if candidate != signature:
+                raise ValueError(
+                    "Gaussian AmbTrs cannot represent conflicting Amber "
+                    f"parameter sets for atom types {'-'.join(key)}."
                 )
-            if mags[idx] == 0.0:
-                phases[idx] = phase
-            mags[idx] += mag_eff
+        phases = [0.0, 0.0, 0.0, 0.0]
+        mags = [0.0, 0.0, 0.0, 0.0]
+        for period, phase, magnitude in signature:
+            phases[period - 1] = phase
+            mags[period - 1] = magnitude
+        tors_params[key] = (phases, mags)
 
     for (t1, t2, t3, t4) in sorted(tors_params.keys()):
         phases, mags = tors_params[(t1, t2, t3, t4)]
@@ -1484,9 +1559,15 @@ def export_gaussian(
         qm_indices,
         elements=elements_for_output,
         link_atom_method=link_atom_method,
+        strict=True,
     )
 
     # Generate sections
+    ref_order_digest = None
+    if input_path is not None and input_path.suffix.lower() in {".pdb", ".ent"}:
+        from mlmm.io.oniom_identity import pdb_order_digest
+
+        ref_order_digest = pdb_order_digest(input_path)
     header = _write_gaussian_header(
         parm,
         str(parm7_path),
@@ -1496,6 +1577,7 @@ def export_gaussian(
         mem=mem,
         qm_charge=qm_charge,
         qm_mult=qm_mult,
+        ref_order_digest=ref_order_digest,
     )
     coords, connectivity = _write_gaussian_coordinates(
         parm,
@@ -1731,6 +1813,7 @@ def export_orca(
         qm_indices,
         elements=elements_for_output,
         link_atom_method=link_atom_method,
+        strict=False,
     )
 
     # Resolve/generate ORCAFF.prms
@@ -1774,6 +1857,16 @@ def export_orca(
                         orcaff_path = candidates[0]
 
     # ORCA input (use compact range syntax; indices are 0-based)
+    ref_order_marker = ""
+    if input_path is not None and input_path.suffix.lower() in {".pdb", ".ent"}:
+        from mlmm.io.oniom_identity import (
+            format_order_marker,
+            pdb_order_digest,
+        )
+
+        ref_order_marker = (
+            "# " + format_order_marker(pdb_order_digest(input_path)) + "\n"
+        )
     qm_atoms_str = _format_orca_index_set(qm_indices)
     active_atoms_str = _format_orca_index_set(movable_indices)
     link_comment_block = ""
@@ -1787,13 +1880,14 @@ def export_orca(
             )
         link_comment_block = "\n".join(link_lines) + "\n"
 
-    # Prefer a relative filename when possible
-    orcaff_ref = str(orcaff_path) if orcaff_path.is_absolute() else orcaff_path.name
+    # Preserve the exact selected force-field file across output directories.
+    orcaff_ref = str(orcaff_path.resolve())
 
     orca_input = f"""# ORCA QM/MM input generated by mlmm oniom-orca
 # Amber topology: {parm7_path}
 # ORCAFF parameters: {orcaff_ref}
 # Coordinates: {input_path if input_path is not None else "(from topology/structure)"}
+{ref_order_marker.rstrip()}
 {link_comment_block}
 
 %pal nprocs {nproc} end

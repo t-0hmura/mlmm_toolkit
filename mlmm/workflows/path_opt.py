@@ -304,20 +304,13 @@ def _apply_bfactor_annotations_inplace(
 
 
 def _select_hei_index(energies: Sequence[float]) -> int:
-    """Pick an HEI index preferring internal local maxima."""
+    """Return the global highest-energy-image index."""
     E = np.array(energies, dtype=float)
-    nE = int(len(E))
-    hei_idx = None
-    if nE >= 3:
-        candidates = [i for i in range(1, nE - 1)
-                      if E[i] > E[i - 1] and E[i] > E[i + 1]]
-        if candidates:
-            hei_idx = int(max(candidates, key=lambda i: E[i]))
-        else:
-            hei_idx = 1 + int(np.argmax(E[1:-1]))
-    if hei_idx is None:
-        hei_idx = int(np.argmax(E))
-    return hei_idx
+    if E.size == 0:
+        raise ValueError("Cannot select an HEI from an empty energy profile.")
+    if not np.all(np.isfinite(E)):
+        raise ValueError("Cannot select an HEI from non-finite energies.")
+    return int(np.argmax(E))
 
 
 @dataclass(frozen=True)
@@ -431,6 +424,16 @@ def _build_dmf_result_data(
             "hei_xyz": "hei.xyz",
         },
     }
+
+
+def _prepare_path_output_dir(path: Path) -> Path:
+    """Create the output directory and invalidate prior result envelopes."""
+
+    resolved = Path(path).resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
+    for name in ("result.json", "summary.json"):
+        (resolved / name).unlink(missing_ok=True)
+    return resolved
 
 
 # DMF (Direct Max Flux) MEP optimization
@@ -707,8 +710,9 @@ def _run_dmf_mep(
     help="ML region charge. Required unless --ligand-charge is provided.",
 )
 @click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
-              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
-                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
+              help="Total charge for unknown ligand residues or a per-resname mapping "
+                   "(e.g., GPP:-3,SAM:1), used to derive the ML-region charge when -q "
+                   "is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -733,8 +737,16 @@ def _run_dmf_mep(
     help="DMF compute backend (--mep-mode dmf only): gpu (dmf.torch / CUDA) or cpu (dmf / NumPy). "
     "On a GPU out-of-memory error, retry with cpu.",
 )
-@click.option("--max-nodes", type=int, default=GS_KW["max_nodes"], show_default=True,
-              help="Number of internal nodes (for GSM: string has max_nodes+2 images including endpoints; for DMF: number of path waypoints).")
+@click.option(
+    "--max-nodes",
+    type=int,
+    default=GS_KW["max_nodes"],
+    show_default=True,
+    help=(
+        "Number of movable internal images for GSM or DMF "
+        "(total images = max_nodes + 2 endpoints)."
+    ),
+)
 @click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum optimization cycles.")
 @click.option(
     "--climb/--no-climb",
@@ -861,7 +873,7 @@ def _run_dmf_mep(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -869,8 +881,7 @@ def _run_dmf_mep(
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method",
@@ -886,7 +897,7 @@ def _run_dmf_mep(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -979,9 +990,9 @@ def cli(
 
     input_paths = tuple(Path(p) for p in input_paths)
     prepared_inputs: List[PreparedInputStructure] = []
+    time_start = time.perf_counter()
+    out_dir_path = Path(out_dir).resolve()
     try:
-        time_start = time.perf_counter()
-
         if len(input_paths) != 2:
             click.echo("ERROR: Provide exactly two endpoint structures (-i reactant product).", err=True)
             sys.exit(1)
@@ -1107,6 +1118,10 @@ def cli(
                 resolved_spin,
                 ligand_charge=ligand_charge,
                 prefix="[path-opt]",
+                model_pdb=model_pdb,
+                model_indices_spec=model_indices_str,
+                detect_layer=detect_layer,
+                yaml_cfg=merged_yaml_cfg,
             )
         # CLI-resolved charge/spin (from -q / -l derivation, or -m / spin_default)
         # always wins over the CALC_KW default carried in calc_cfg.
@@ -1216,6 +1231,13 @@ def cli(
                     )
             except OSError:
                 pass
+
+        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+        reject_retired_embedcharge_cli(
+            calc_cfg,
+            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+        )
 
         if show_config:
             click.echo(
@@ -1350,11 +1372,11 @@ def cli(
             )
         )
 
+        out_dir_path = _prepare_path_output_dir(out_dir_path)
+
         if int(stopt_cfg.get("max_cycles", 0)) <= 0:
             click.echo("[INFO] max_cycles <= 0: skipping path optimization.")
             return
-
-        out_dir_path.mkdir(parents=True, exist_ok=True)
 
         source_paths = [prep.source_path for prep in prepared_inputs]
 
@@ -1433,7 +1455,7 @@ def cli(
             )
             click.echo("[align] Completed input alignment.")
         except Exception as e:
-            click.echo(f"[align] WARNING: alignment skipped: {e}", err=True)
+            raise click.ClickException(f"Input alignment failed: {e}") from e
 
         # Collect freeze_atoms for DMF
         fix_atoms: List[int] = []
@@ -1451,7 +1473,7 @@ def cli(
                     shared_calc,
                     out_dir_path,
                     input_paths,
-                    max_nodes,
+                    int(gs_cfg["max_nodes"]),
                     fix_atoms,
                     dmf_cfg=dmf_cfg,
                     ml_indices_set=ml_indices_set,
@@ -1467,6 +1489,13 @@ def cli(
                 else:
                     tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
                     click.echo(f"[dmf] ERROR: DMF optimization failed:\n{textwrap.indent(tb, '  ')}", err=True)
+                _write_error_json(
+                    out_dir_path,
+                    "path-opt",
+                    e,
+                    "DMFError",
+                    time_start,
+                )
                 sys.exit(3)
             emit(format_elapsed("[time] Elapsed Time for Path Opt (DMF)", time_start), narrative=True)
 
@@ -1582,29 +1611,7 @@ def cli(
 
         try:
             energies = np.array(gs.energy, dtype=float)
-            # --- HEI identification logic ---
-            # Choose the internal local maximum (exclude endpoints) with the highest energy,
-            # i.e., nodes whose immediate neighbors have lower energy.
-            # Fallback 1: if none exist, pick the maximum among internal nodes (exclude endpoints).
-            # Fallback 2: if internal nodes are unavailable, pick the global maximum.
-            nE = int(len(energies))
-            hei_idx = None
-            if nE >= 3:
-                # Strict internal local maxima (both neighbors lower)
-                candidates = [i for i in range(1, nE - 1)
-                              if energies[i] > energies[i - 1] and energies[i] > energies[i + 1]]
-                if candidates:
-                    cand_es = energies[candidates]
-                    rel = int(np.argmax(cand_es))
-                    hei_idx = int(candidates[rel])
-                else:
-                    # Fallback 1: maximum over internal nodes (exclude endpoints)
-                    if nE > 2:
-                        rel = int(np.argmax(energies[1:-1]))
-                        hei_idx = 1 + rel
-            if hei_idx is None:
-                # Fallback 2: global maximum
-                hei_idx = int(np.argmax(energies))
+            hei_idx = _select_hei_index(energies)
 
             hei_geom = gs.images[hei_idx]
             hei_E = float(energies[hei_idx])
@@ -1704,14 +1711,22 @@ def cli(
             )
 
     except OptimizationError as e:
-        _write_error_json(Path(out_dir).resolve(), "path-opt", e, "OptimizationError", time_start)
+        _write_error_json(
+            out_dir_path, "path-opt", e, "OptimizationError", time_start
+        )
         click.echo(f"ERROR: Path optimization failed — {e}", err=True)
         sys.exit(3)
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except Exception as e:
-        render_cli_exception(e, label="path optimization", out_dir=out_dir, command="path-opt", time_start=time_start)
+        render_cli_exception(
+            e,
+            label="path optimization",
+            out_dir=out_dir_path,
+            command="path-opt",
+            time_start=time_start,
+        )
     finally:
         for prepared in prepared_inputs:
             prepared.cleanup()

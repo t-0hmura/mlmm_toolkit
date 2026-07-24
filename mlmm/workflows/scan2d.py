@@ -120,6 +120,68 @@ BIAS_KW: Dict[str, Any] = deepcopy(_BIAS_KW_DEFAULT)
 _snapshot_geometry = functools.partial(snapshot_geometry, coord_type_default="cart")
 
 
+def _build_scan2d_result_payload(
+    *,
+    records: Sequence[Dict[str, Any]],
+    calc_cfg: Dict[str, Any],
+    pair1: Dict[str, Any],
+    pair2: Dict[str, Any],
+    files: Dict[str, str],
+    status: str = "completed",
+) -> Dict[str, Any]:
+    """Build the machine-readable result from attempted current-run points."""
+
+    from mlmm.core.utils import calculator_provenance
+
+    grid_records = [
+        rec for rec in records if not bool(rec.get("is_preopt", False))
+    ]
+    point_outcomes = [
+        make_scan_point(
+            f"i{rec.get('i')}_j{rec.get('j')}",
+            executed=True,
+            converged=rec.get("bias_converged"),
+            energy=rec.get("energy_hartree"),
+            artifact_written=bool(rec.get("artifact_written", False)),
+        )
+        for rec in grid_records
+    ]
+    eligible_energies = [
+        float(rec["energy_hartree"])
+        for rec, outcome in zip(grid_records, point_outcomes)
+        if outcome.seed_eligible
+    ]
+    scientific_status, scientific_reasons = scan_scientific_status(
+        point_outcomes
+    )
+    payload: Dict[str, Any] = {
+        "status": status,
+        "execution_status": "completed",
+        "energy_reference": "bare_mlmm_pes",
+        "n_grid_points": len(grid_records),
+        "pair1": dict(pair1),
+        "pair2": dict(pair2),
+        **calculator_provenance(calc_cfg),
+        "charge": calc_cfg.get("model_charge"),
+        "spin": calc_cfg.get("model_mult"),
+        "min_energy_hartree": (
+            min(eligible_energies) if eligible_energies else None
+        ),
+        "files": dict(files),
+        "n_points_attempted": len(point_outcomes),
+        "n_points_usable": sum(
+            1 for outcome in point_outcomes if outcome.seed_eligible
+        ),
+    }
+    attach_outcomes(
+        payload,
+        point_outcomes=point_outcomes,
+        scientific_status=scientific_status,
+        scientific_status_reasons=scientific_reasons,
+    )
+    return payload
+
+
 def _select_closest_state(
     states: Sequence[Dict[str, Any]],
     d1_target: float,
@@ -194,8 +256,9 @@ def _select_closest_state_1d(
 @click.option("-q", "--charge", type=int, required=False,
               help="ML-region total charge. Required unless --ligand-charge is provided.")
 @click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
-              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
-                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
+              help="Total charge for unknown ligand residues or a per-resname mapping "
+                   "(e.g., GPP:-3,SAM:1), used to derive the ML-region charge when -q "
+                   "is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -279,7 +342,7 @@ def _select_closest_state_1d(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -287,8 +350,7 @@ def _select_closest_state_1d(
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method",
@@ -304,7 +366,7 @@ def _select_closest_state_1d(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -389,6 +451,10 @@ def cli(
         override_yaml=None,
         args_yaml_legacy=None,
     )
+    yaml_cfg, _, _ = load_merged_yaml_cfg(
+        config_yaml=config_yaml,
+        override_yaml=None,
+    )
 
     # Validate input format: PDB/mmCIF directly, or XYZ with --ref-pdb.
     suffix = input_path.suffix.lower()
@@ -412,6 +478,10 @@ def cli(
             charge, spin = resolve_charge_spin_or_raise(
                 prepared_input, charge, spin,
                 ligand_charge=ligand_charge, prefix="[scan2d]",
+                model_pdb=model_pdb,
+                model_indices_spec=model_indices_str,
+                detect_layer=detect_layer,
+                yaml_cfg=yaml_cfg,
             )
 
             try:
@@ -427,11 +497,6 @@ def cli(
                 except click.BadParameter as exc:
                     click.echo(f"ERROR: {exc}", err=True)
                     sys.exit(1)
-
-            yaml_cfg, _, _ = load_merged_yaml_cfg(
-                config_yaml=config_yaml,
-                override_yaml=None,
-            )
 
             geom_cfg = dict(GEOM_KW)
             calc_cfg = dict(CALC_KW)
@@ -506,6 +571,13 @@ def cli(
             if use_cmap is not None:
                 calc_cfg["use_cmap"] = use_cmap
 
+            from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+            reject_retired_embedcharge_cli(
+                calc_cfg,
+                cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+            )
+
             try:
                 model_pdb_path, layer_info = resolve_ml_layer_assignment(
                     source_path=source_path,
@@ -576,7 +648,7 @@ def cli(
             d1_label_html = axis_label_html(d1_label_csv)
             d2_label_html = axis_label_html(d2_label_csv)
             if print_parsed:
-                click.echo(
+                emit(
                     pretty_block(
                         "scan-parsed",
                         {
@@ -584,20 +656,22 @@ def cli(
                             "one_based": bool(scan_one_based),
                             "pairs_0based": parsed,
                         },
-                    )
+                    ),
+                    force=True,
                 )
-                click.echo(
+                emit(
                     pretty_block(
                         "scan-list",
                         {"d1": (i1 + 1, j1 + 1, low1, high1),
                          "d2": (i2 + 1, j2 + 1, low2, high2)},
-                    )
+                    ),
+                    force=True,
                 )
                 # --print-parsed = "just show the parsed spec": exit before
                 # the general dry-run plan and before any GPU calculation.
                 sys.exit(0)
             if dry_run:
-                click.echo(
+                emit(
                     pretty_block(
                         "dry_run_plan",
                         {
@@ -612,7 +686,8 @@ def cli(
                             "backend": calc_cfg.get("backend", "uma"),
                             "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                         },
-                    )
+                    ),
+                    force=True,
                 )
                 click.echo("[dry-run] Validation complete. Scan execution was skipped.")
                 return
@@ -701,12 +776,14 @@ def cli(
                 d1_ref_tag = distance_tag(d1_ref)
                 d2_ref_tag = distance_tag(d2_ref)
                 preopt_xyz_path = grid_dir / f"preopt_i{d1_ref_tag}_j{d2_ref_tag}.xyz"
+                preopt_artifact_written = False
                 try:
                     xyz_pre = geom_outer.as_xyz()
                     if not xyz_pre.endswith("\n"):
                         xyz_pre += "\n"
                     with open(preopt_xyz_path, "w") as handle:
                         handle.write(xyz_pre)
+                    preopt_artifact_written = True
 
                     convert_and_annotate_xyz_to_pdb(
                         preopt_xyz_path,
@@ -731,7 +808,7 @@ def cli(
                         "d2_A": float(d2_ref),
                         "energy_hartree": preopt_energy_h,
                         "bias_converged": _preopt_conv,
-                        "artifact_written": True,
+                        "artifact_written": preopt_artifact_written,
                         "is_preopt": True,
                     }
                 )
@@ -964,9 +1041,13 @@ def cli(
             def _eligible_min() -> float:
                 if not _elig_df.empty:
                     return float(_elig_df["energy_hartree"].min())
-                # No eligible point: fall back to the raw min so the surface still
-                # renders, but the scientific_status below reports the failure.
-                return float(df["energy_hartree"].min())
+                click.echo(
+                    "No converged finite grid point with a written geometry "
+                    "is available; relative energies and interpolation are "
+                    "disabled.",
+                    err=True,
+                )
+                return float("nan")
 
             if baseline == "first":
                 mask = (df["i"] == 0) & (df["j"] == 0) & df["seed_eligible"]
@@ -992,11 +1073,42 @@ def cli(
             d1_points = df["d1_A"].to_numpy(dtype=float)
             d2_points = df["d2_A"].to_numpy(dtype=float)
             z_points = df["energy_kcal"].to_numpy(dtype=float)
-            mask = np.isfinite(d1_points) & np.isfinite(d2_points) & np.isfinite(z_points)
+            mask = (
+                np.isfinite(d1_points)
+                & np.isfinite(d2_points)
+                & np.isfinite(z_points)
+                & df["seed_eligible"].to_numpy(dtype=bool)
+            )
             if not np.any(mask):
                 click.echo("[plot] No finite data for plotting.", err=True)
-                sys.exit(1)
+                if out_json:
+                    from mlmm.core.utils import write_result_json
 
+                    result_data = _build_scan2d_result_payload(
+                        records=records,
+                        calc_cfg=calc_cfg,
+                        pair1={
+                            "i": int(i1 + 1),
+                            "j": int(j1 + 1),
+                            "low": float(low1),
+                            "high": float(high1),
+                        },
+                        pair2={
+                            "i": int(i2 + 1),
+                            "j": int(j2 + 1),
+                            "low": float(low2),
+                            "high": float(high2),
+                        },
+                        files={"surface_csv": "surface.csv"},
+                        status="failed",
+                    )
+                    write_result_json(
+                        final_dir,
+                        result_data,
+                        command="scan2d",
+                        elapsed_seconds=time.perf_counter() - time_start,
+                    )
+                sys.exit(1)
             x_min, x_max = float(np.min(d1_points[mask])), float(np.max(d1_points[mask]))
             y_min, y_max = float(np.min(d2_points[mask])), float(np.max(d2_points[mask]))
 
@@ -1232,54 +1344,28 @@ def cli(
             emit(format_elapsed("[time] Elapsed Time for 2D Scan", time_start), narrative=True)
 
             if out_json:
-                from mlmm.core.utils import calculator_provenance, write_result_json
-                # M48: the reported minimum comes ONLY from seed-eligible points
-                # (converged + finite); a failed point with a numerically lower
-                # energy must never become min_energy_hartree.
-                if "seed_eligible" in df.columns and df["seed_eligible"].any():
-                    min_energy = float(df.loc[df["seed_eligible"], "energy_hartree"].min())
-                else:
-                    min_energy = None
-                result_data: Dict[str, Any] = {
-                    "status": "completed",
-                    "energy_reference": "bare_mlmm_pes",
-                    "n_grid_points": len(df),
-                    "pair1": {"i": int(i1 + 1), "j": int(j1 + 1), "low": float(low1), "high": float(high1)},
-                    "pair2": {"i": int(i2 + 1), "j": int(j2 + 1), "low": float(low2), "high": float(high2)},
-                    **calculator_provenance(calc_cfg),
-                    "charge": calc_cfg.get("model_charge"),
-                    "spin": calc_cfg.get("model_mult"),
-                    "min_energy_hartree": min_energy,
-                    "files": {
+                from mlmm.core.utils import write_result_json
+
+                result_data = _build_scan2d_result_payload(
+                    records=records,
+                    calc_cfg=calc_cfg,
+                    pair1={
+                        "i": int(i1 + 1),
+                        "j": int(j1 + 1),
+                        "low": float(low1),
+                        "high": float(high1),
+                    },
+                    pair2={
+                        "i": int(i2 + 1),
+                        "j": int(j2 + 1),
+                        "low": float(low2),
+                        "high": float(high2),
+                    },
+                    files={
                         "surface_csv": "surface.csv",
                         "scan2d_map_png": "scan2d_map.png",
                         "scan2d_landscape_html": "scan2d_landscape.html",
                     },
-                }
-                # Additive truthful outcomes: every attempted point, with its
-                # seed-eligibility, plus an aggregate scientific_status. Legacy
-                # ``status`` stays "completed" (the process completed).
-                _point_outcomes = [
-                    make_scan_point(
-                        f"i{rec.get('i')}_j{rec.get('j')}",
-                        executed=True,
-                        converged=rec.get("bias_converged"),
-                        energy=rec.get("energy_hartree"),
-                        artifact_written=bool(rec.get("artifact_written", False)),
-                    )
-                    for rec in records
-                ]
-                _sci, _sci_reasons = scan_scientific_status(_point_outcomes)
-                result_data["execution_status"] = "completed"
-                result_data["n_points_attempted"] = len(_point_outcomes)
-                result_data["n_points_usable"] = sum(
-                    1 for p in _point_outcomes if p.seed_eligible
-                )
-                attach_outcomes(
-                    result_data,
-                    point_outcomes=_point_outcomes,
-                    scientific_status=_sci,
-                    scientific_status_reasons=_sci_reasons,
                 )
                 write_result_json(
                     final_dir, result_data,

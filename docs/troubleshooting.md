@@ -167,8 +167,8 @@ Raise `--max-nodes` (e.g. 15–20) for complex reactions; enable `--preopt`; try
 | Symptom | Fix |
 |---|---|
 | `ImportError: orb-models is required for the ORB backend` (or similar for AIMNet2 / MACE) | `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip install --no-deps mace-torch` (MACE in a dedicated env). |
-| CUDA OOM on ORB / MACE / AIMNet2 | These backends use FD Hessians (more VRAM). Lower `hess_cutoff`, or set `ml_device: cpu` (slow but avoids the VRAM limit). |
-| `XTBEmbedError: xTB command not found` | `conda install -c conda-forge xtb -y` and ensure `xtb` is on `$PATH`. Custom binary: set `xtb_cmd` in YAML. |
+| CUDA OOM while building a Hessian | Both analytical and finite-difference modes form a dense active-space Hessian. Reduce the Hessian target with `hess_cutoff`, or benchmark `Analytical` versus `FiniteDifference` for the installed backend, system, precision, and hardware; `ml_device: cpu` avoids the GPU VRAM limit at higher runtime cost. |
+| An old command contains `--embedcharge` | Remove the electronic-embedding options and rerun with mechanical embedding; the retired path is unavailable in v0.3.3. |
 
 ---
 

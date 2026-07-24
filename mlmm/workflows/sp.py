@@ -252,12 +252,12 @@ def _resolve_sp_ml_region(
 @click.option(
     "--embedcharge/--no-embedcharge", "embedcharge",
     default=False, show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff", "embedcharge_cutoff",
     type=float, default=None, show_default=False,
-    help="Embed-charge cutoff radius (Å) around the ML region.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method", "link_atom_method",
@@ -419,11 +419,22 @@ def cli(
             prepared, charge, spin,
             ligand_charge=ligand_charge,
             prefix="[sp]",
+            model_pdb=model_pdb,
+            model_indices_spec=model_indices_str,
+            detect_layer=detect_layer,
+            yaml_cfg=merged_yaml_cfg,
         )
         calc_cfg["charge"] = int(resolved_charge)
         calc_cfg["spin"] = int(resolved_spin)
 
         out_dir_path = Path(sp_cfg["out_dir"]).resolve()
+
+        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+        reject_retired_embedcharge_cli(
+            calc_cfg,
+            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+        )
 
         if show_config:
             click.echo(yaml.safe_dump(

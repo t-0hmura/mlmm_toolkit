@@ -156,6 +156,7 @@ def test_scan_family_help_progressive_disclosure(runner, cli_group, subcmd, lega
 def test_scan_family_help_advanced_shows_hidden_options(runner, cli_group, subcmd, legacy_header):
     result = runner.invoke(cli_group, [subcmd, "--help-advanced"])
     assert result.exit_code == 0
+    assert _has_option_header(result.output, legacy_header), result.output
 
 
 @pytest.mark.parametrize("subcmd,core_opt", CALC_SUBCOMMANDS)
@@ -165,10 +166,11 @@ def test_calc_family_help_progressive_disclosure(runner, cli_group, subcmd, core
     assert "--help-advanced" in result.output
 
 
-@pytest.mark.parametrize("subcmd,_core_opt", CALC_SUBCOMMANDS)
-def test_calc_family_help_advanced_shows_hidden_options(runner, cli_group, subcmd, _core_opt):
+@pytest.mark.parametrize("subcmd,core_opt", CALC_SUBCOMMANDS)
+def test_calc_family_help_advanced_shows_hidden_options(runner, cli_group, subcmd, core_opt):
     result = runner.invoke(cli_group, [subcmd, "--help-advanced"])
     assert result.exit_code == 0
+    assert _has_option_header(result.output, core_opt), result.output
 
 
 @pytest.mark.parametrize("subcmd,core_opt,hidden_opt", UTILITY_SUBCOMMANDS)

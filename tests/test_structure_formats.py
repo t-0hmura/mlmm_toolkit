@@ -187,6 +187,18 @@ def test_xyz_overlay_prevalidates_every_frame_before_mutating_destinations(
         prepared.cleanup()
 
 
+def test_template_free_generation_removes_prior_cif_companion(tmp_path: Path) -> None:
+    from mlmm.io.structure_formats import register_output_template_and_write_cif
+
+    out_pdb = tmp_path / "current.pdb"
+    out_pdb.write_text("END\n", encoding="utf-8")
+    old_companion = out_pdb.with_suffix(".cif")
+    old_companion.write_text("data_stale\n", encoding="utf-8")
+
+    assert register_output_template_and_write_cif(out_pdb, None) is None
+    assert not old_companion.exists()
+
+
 def test_xyz_overlay_rejects_swapped_coordinate_template_before_mutation(
     tmp_path: Path,
 ) -> None:
@@ -402,6 +414,33 @@ def test_pdb_with_more_than_ten_thousand_residues_uses_safe_bridge(tmp_path: Pat
         prepared.cleanup()
 
 
+def test_bundled_pdb_parser_distinguishes_two_letter_atoms_from_hydrogens(
+    tmp_path: Path,
+) -> None:
+    from pysisyphus.io.pdb import parse_pdb
+
+    records = [
+        ("HG  ", "HG"),
+        ("HE  ", "HE"),
+        (" HG ", "H"),
+        (" HE ", "H"),
+        (" NH1", "NH"),
+        ("ZN  ", "N"),
+    ]
+    lines = []
+    for serial, (name, element) in enumerate(records, start=1):
+        lines.append(
+            f"HETATM{serial:5d} {name:4s} RES A{serial:4d}    "
+            f"{float(serial):8.3f}{0.0:8.3f}{0.0:8.3f}"
+            f"{1.0:6.2f}{0.0:6.2f}          {element:>2s}\n"
+        )
+    path = tmp_path / "elements.pdb"
+    path.write_text("".join(lines) + "END\n", encoding="utf-8")
+
+    atoms, *_ = parse_pdb(str(path))
+    assert atoms == ["Hg", "He", "H", "H", "N", "Zn"]
+
+
 def test_chain_qualified_atom_selector_disambiguates_repeated_ids() -> None:
     from mlmm.core.utils import resolve_atom_spec_index
 
@@ -571,12 +610,38 @@ def test_ref_cif_atom_count_error_cleans_temporary_bridge(
     assert all(not path.exists() for path in bridge_dirs)
 
 
-def test_dft_dry_run_uses_one_reference_overlaid_preparation_for_charge(
+def test_ref_pdb_override_rejects_element_order_mismatch(tmp_path: Path) -> None:
+    from click import BadParameter
+    from mlmm.core import utils
+
+    xyz = tmp_path / "input.xyz"
+    xyz.write_text(
+        "2\ninput\nC 0 0 0\nH 1 0 0\n",
+        encoding="utf-8",
+    )
+    ref = tmp_path / "reference.pdb"
+    ref.write_text(
+        "HETATM    1  H1  MOL A   1       0.000   0.000   0.000"
+        "  1.00  0.00           H\n"
+        "HETATM    2  C1  MOL A   1       1.000   0.000   0.000"
+        "  1.00  0.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    prepared = utils.prepare_input_structure(xyz)
+    try:
+        with pytest.raises(BadParameter, match="atom-order element mismatch"):
+            utils.apply_ref_pdb_override(prepared, ref)
+    finally:
+        prepared.cleanup()
+
+
+def test_dft_dry_run_uses_one_reference_overlaid_preparation_with_explicit_charge(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    from types import MethodType
+    from types import MethodType, SimpleNamespace
 
+    from ase import Atoms
     from click.testing import CliRunner
     from mlmm.cli import cli as root_cli
     from mlmm.workflows import dft
@@ -594,6 +659,8 @@ def test_dft_dry_run_uses_one_reference_overlaid_preparation_for_charge(
     real_prepare = dft.prepare_input_structure
     prepared_objects = []
     cleanup_calls = []
+    workspace_calls = []
+    workspace_cleanup_calls = []
 
     def recording_prepare(path):
         prepared = real_prepare(path)
@@ -609,6 +676,15 @@ def test_dft_dry_run_uses_one_reference_overlaid_preparation_for_charge(
 
     monkeypatch.setattr(dft, "prepare_input_structure", recording_prepare)
 
+    def fake_workspace(**kwargs):
+        workspace_calls.append(kwargs)
+        return SimpleNamespace(
+            atoms_model_lh=Atoms("C"),
+            cleanup=lambda: workspace_cleanup_calls.append(True),
+        )
+
+    monkeypatch.setattr(dft, "_prepare_ml_region_workspace", fake_workspace)
+
     result = CliRunner().invoke(
         root_cli,
         [
@@ -619,8 +695,10 @@ def test_dft_dry_run_uses_one_reference_overlaid_preparation_for_charge(
             str(ref),
             "--parm",
             str(parm),
-            "--ligand-charge",
-            "SAM:-1",
+            "-q",
+            "-1",
+            "-m",
+            "2",
             "--no-detect-layer",
             "--model-indices",
             "1",
@@ -631,10 +709,96 @@ def test_dft_dry_run_uses_one_reference_overlaid_preparation_for_charge(
     )
 
     assert result.exit_code == 0, result.output
-    assert "Total: -1" in result.output
     assert "[dry-run] Validation complete" in result.output
     assert len(prepared_objects) == 1
     assert cleanup_calls == prepared_objects
+    assert len(workspace_calls) == 1
+    assert workspace_calls[0]["input_pdb"].resolve() == ref.resolve()
+    assert workspace_calls[0]["coordinate_path"].resolve() == xyz.resolve()
+    assert workspace_cleanup_calls == [True]
+
+
+def test_dft_dry_run_rejects_malformed_amber_topology(tmp_path: Path) -> None:
+    from click.testing import CliRunner
+    from mlmm.cli import cli as root_cli
+
+    pdb = tmp_path / "input.pdb"
+    pdb.write_text(
+        "HETATM    1  C1  MOL A   1       1.000   2.000   3.000"
+        "  1.00  0.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    parm = tmp_path / "invalid.parm7"
+    parm.write_text("not an Amber topology\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "dft",
+            "-i",
+            str(pdb),
+            "--parm",
+            str(parm),
+            "-q",
+            "0",
+            "-m",
+            "1",
+            "--no-detect-layer",
+            "--model-indices",
+            "1",
+            "--dry-run",
+            "--out-dir",
+            str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Failed to prepare sanitized Amber inputs" in result.output
+    assert "[dry-run] Validation complete" not in result.output
+
+
+def test_dft_workspace_keeps_xyz_coordinates_with_pdb_topology(
+    tmp_path: Path,
+) -> None:
+    from ase import Atoms
+    from ase.io import write as ase_write
+    from mlmm.io.pdb_indexing import parse_pdb_ordinal_atoms
+    from mlmm.workflows.dft import _prepare_ml_region_workspace
+
+    repo = Path(__file__).resolve().parents[1]
+    input_pdb = repo / "hessian_ff/tests/data/small/p_complex_layered.pdb"
+    parm7 = repo / "hessian_ff/tests/data/small/p_complex.parm7"
+    records = parse_pdb_ordinal_atoms(input_pdb)
+    atoms = Atoms(
+        symbols=[record.elem for record in records],
+        positions=[record.coord for record in records],
+    )
+    positions = atoms.get_positions()
+    positions[0] += np.array([0.00037, -0.00041, 0.00029])
+    atoms.set_positions(positions)
+    xyz = tmp_path / "precise.xyz"
+    ase_write(str(xyz), atoms, format="xyz")
+
+    workspace = _prepare_ml_region_workspace(
+        input_pdb=input_pdb,
+        coordinate_path=xyz,
+        real_parm7=parm7,
+        model_pdb=input_pdb,
+        link_mlmm=None,
+    )
+    try:
+        np.testing.assert_allclose(
+            workspace.atoms_real.get_positions(),
+            atoms.get_positions(),
+            atol=1.0e-8,
+        )
+        np.testing.assert_allclose(
+            workspace.atoms_model.get_positions(),
+            atoms.get_positions(),
+            atol=1.0e-8,
+        )
+    finally:
+        workspace.cleanup()
 
 
 def test_pdb_to_cif_preserves_output_occupancy_and_bfactor(tmp_path: Path) -> None:
@@ -1040,21 +1204,121 @@ def test_define_layer_accepts_extracted_internal_model_pdb(tmp_path: Path) -> No
     assert layers["ml_indices"] == [0]
 
 
+@pytest.mark.parametrize("normalized_side", ["input", "model"])
+def test_define_layer_matches_author_ids_when_only_one_side_is_normalized(
+    tmp_path: Path, normalized_side: str,
+) -> None:
+    from mlmm.workflows.define_layer import define_layers
+
+    cif = tmp_path / "author.cif"
+    _write_minimal_cif(cif)
+    cif.write_text(
+        cif.read_text(encoding="utf-8")
+        .replace("LONG_CHAIN", "A")
+        .replace("10001", "7"),
+        encoding="utf-8",
+    )
+    pdb = tmp_path / "author.pdb"
+    pdb.write_text(
+        "HETATM    1  C1  SAM A   7       0.000   1.000   2.000  1.00 12.00           C\n"
+        "HETATM    2  O1  SAM A   7       1.000   1.000   2.000  1.00 13.00           O\n"
+        "END\n",
+        encoding="utf-8",
+    )
+    if normalized_side == "input":
+        full, model = cif, pdb
+    else:
+        full, model = pdb, cif
+
+    layers = define_layers(
+        full, tmp_path / f"{normalized_side}.pdb", model_pdb=model
+    )
+
+    assert layers["ml_indices"] == [0, 1]
+
+
+def test_define_layer_cli_reports_actual_pdb_for_plain_input_cif_request(
+    tmp_path: Path,
+) -> None:
+    from click.testing import CliRunner
+
+    from mlmm.cli import cli as root_cli
+
+    full = tmp_path / "full.pdb"
+    full.write_text(
+        "HETATM    1  C1  SAM A   7       0.000   1.000   2.000  1.00 12.00           C\n"
+        "HETATM    2  O1  SAM A   7       1.000   1.000   2.000  1.00 13.00           O\n"
+        "END\n",
+        encoding="utf-8",
+    )
+    requested = tmp_path / "layered.cif"
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "define-layer", "-i", str(full), "--model-indices", "1",
+            "-o", str(requested),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert requested.with_suffix(".pdb").exists()
+    assert not requested.exists()
+    assert f"Wrote '{requested.with_suffix('.pdb')}'" in result.output
+    assert f"Wrote '{requested}'" not in result.output
+
+
 def test_parm_topology_order_validator_rejects_count_and_element_mismatch() -> None:
     from types import SimpleNamespace
 
     from mlmm.backends.mlmm_calc import validate_parmed_atom_order
 
-    def structure(*atomic_numbers):
+    def structure(*atomic_numbers, names=None):
+        atom_names = names or [f"A{i}" for i in range(len(atomic_numbers))]
         return SimpleNamespace(
-            atoms=[SimpleNamespace(atomic_number=value) for value in atomic_numbers]
+            atoms=[
+                SimpleNamespace(
+                    atomic_number=value,
+                    name=atom_names[i],
+                    residue=SimpleNamespace(name="LIG", idx=0),
+                )
+                for i, value in enumerate(atomic_numbers)
+            ]
         )
 
     with pytest.raises(ValueError, match="Atom-count mismatch"):
         validate_parmed_atom_order(structure(6), structure(6, 1))
     with pytest.raises(ValueError, match="Atom-order mismatch.*atom 2"):
         validate_parmed_atom_order(structure(6, 8), structure(6, 7))
+    with pytest.raises(ValueError, match="Atom-order mismatch.*atom 1"):
+        validate_parmed_atom_order(
+            structure(6, 6, names=["C1", "C2"]),
+            structure(6, 6, names=["C2", "C1"]),
+        )
     validate_parmed_atom_order(structure(6, 0), structure(6, 1))
+
+
+def test_dft_workspace_validates_topology_before_coordinate_assignment(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from mlmm.workflows import dft
+
+    repo = Path(__file__).resolve().parents[1]
+    input_pdb = repo / "hessian_ff/tests/data/small/p_complex_layered.pdb"
+    parm7 = repo / "hessian_ff/tests/data/small/p_complex.parm7"
+
+    def reject(*args, **kwargs):
+        raise ValueError("identity sentinel")
+
+    monkeypatch.setattr(dft, "validate_parmed_atom_order", reject)
+    with pytest.raises(RuntimeError, match="identity sentinel"):
+        dft._prepare_ml_region_workspace(
+            input_pdb=input_pdb,
+            real_parm7=parm7,
+            model_pdb=input_pdb,
+            link_mlmm=None,
+        )
 
 
 def test_annotated_conversion_emits_one_final_cif(tmp_path: Path, monkeypatch) -> None:

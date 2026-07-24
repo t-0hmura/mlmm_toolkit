@@ -36,6 +36,7 @@ from typing import Any, Dict, Optional, Sequence
 import numpy as np
 import torch
 
+from mlmm.backends.methods import normalize_mm_hessian_mode
 from mlmm.core.result_commit import MLMM_RUN_ID_ENV as RUN_ID_ENV
 
 _cache: Dict[str, Any] = {}
@@ -223,7 +224,10 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
         "movable_cutoff",
         "use_bfactor_layers",
         "hessian_calc_mode",
+        "H_double",
         "hess_cutoff",
+        "return_partial_hessian",
+        "symmetrize_hessian",
     ):
         val = calc_cfg.get(key)
         if val is None:
@@ -231,6 +235,13 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
         if isinstance(val, str) and val.strip().lower() in ("", "none"):
             continue
         potential[key] = _canon(val)
+    effective_mm_mode = normalize_mm_hessian_mode(
+        calc_cfg.get("mm_hessian_mode"),
+        mm_fd=bool(calc_cfg.get("mm_fd", True)),
+    )
+    potential["mm_hessian_mode"] = effective_mm_mode
+    if effective_mm_mode == "finite_difference":
+        potential["mm_fd_delta"] = float(calc_cfg.get("mm_fd_delta", 1.0e-3))
     # Topology / region source files — identity is the content digest so a
     # same-path byte replacement rejects reuse (M54 topology content identity).
     for key in ("real_parm7", "model_pdb", "input_pdb"):
@@ -240,6 +251,12 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
             digest = _file_digest(path)
             if digest is not None:
                 potential[f"{key}_sha256"] = digest
+    calc_file = calc_cfg.get("calc_file")
+    if calc_file:
+        potential["calc_file"] = str(calc_file)
+        digest = _file_digest(calc_file)
+        if digest is not None:
+            potential["calc_file_sha256"] = digest
     # Explicit ML/MM Hessian region atom list when threaded through the config.
     hess_mm = calc_cfg.get("hess_mm_atoms")
     if hess_mm is not None:
@@ -379,8 +396,8 @@ def identity_from_context(
         backend=calc_cfg.get("backend"),
         model=model,
         precision=precision,
-        charge=calc_cfg.get("charge"),
-        spin=calc_cfg.get("spin"),
+        charge=calc_cfg.get("charge", calc_cfg.get("model_charge")),
+        spin=calc_cfg.get("spin", calc_cfg.get("model_mult")),
         potential=_potential_identity(calc_cfg),
         active_atoms=derived_active_atoms,
         active_dofs=derived_active_dofs,
@@ -388,6 +405,29 @@ def identity_from_context(
         source=source,
         method=source,
     )
+
+
+def persistent_identity_from_context(
+    geometry,
+    calc_cfg: Optional[Mapping],
+    *,
+    method: str = "mlmm_exact_hessian",
+) -> Dict[str, Any]:
+    """Return the cross-process PES identity, excluding run/coordinate fields."""
+
+    identity = identity_from_context(
+        geometry,
+        calc_cfg,
+        source=method,
+    )
+    persistent = _canon(identity)
+    persistent.pop("run_id", None)
+    system = persistent.get("system")
+    if isinstance(system, Mapping):
+        system = dict(system)
+        system.pop("cart_coords_bohr", None)
+        persistent["system"] = system
+    return persistent
 
 
 def _identity_coords(identity: Mapping) -> Optional[np.ndarray]:
@@ -443,6 +483,64 @@ def identities_match(
         return False
 
     return _identity_without_coords(stored) == _identity_without_coords(expected)
+
+
+def reconcile_active_hessian(
+    entry: Mapping[str, Any],
+    required_dofs: Sequence[int],
+    *,
+    full_n_dof: int,
+) -> Optional[torch.Tensor]:
+    """Return a cached Hessian in exactly ``required_dofs`` order.
+
+    Compact matrices without ordered DOF metadata are ambiguous and fail
+    closed.  A full ``3N`` matrix may omit metadata because its row/column
+    order is the canonical Cartesian order.
+    """
+
+    raw = entry.get("hessian")
+    if raw is None:
+        return None
+    hessian = (
+        raw.detach().clone()
+        if isinstance(raw, torch.Tensor)
+        else torch.as_tensor(raw, dtype=torch.float64).clone()
+    )
+    if hessian.ndim != 2 or hessian.shape[0] != hessian.shape[1]:
+        return None
+
+    required = [int(dof) for dof in required_dofs]
+    if len(set(required)) != len(required):
+        return None
+    if any(dof < 0 or dof >= int(full_n_dof) for dof in required):
+        return None
+
+    active_raw = entry.get("active_dofs")
+    if active_raw is None:
+        if hessian.shape[0] != int(full_n_dof):
+            return None
+        active = list(range(int(full_n_dof)))
+    else:
+        try:
+            active = [int(dof) for dof in active_raw]
+        except (TypeError, ValueError):
+            return None
+        if len(active) != hessian.shape[0] or len(set(active)) != len(active):
+            return None
+        if any(dof < 0 or dof >= int(full_n_dof) for dof in active):
+            return None
+
+    positions = {dof: index for index, dof in enumerate(active)}
+    if any(dof not in positions for dof in required):
+        return None
+    local = torch.as_tensor(
+        [positions[dof] for dof in required],
+        dtype=torch.long,
+        device=hessian.device,
+    )
+    from pysisyphus._array import active_square
+
+    return active_square(hessian, local)
 
 
 # ---------------------------------------------------------------------------

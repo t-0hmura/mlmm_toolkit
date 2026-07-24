@@ -26,7 +26,8 @@ class BondedFragment(Primitive):
         if gradient:
             bond_normed = bond / value
             row = np.zeros_like(coords3d)
-            row[indices, :] = -bond_normed
+            row[from_frag, :] = -bond_normed
+            row[to_, :] = bond_normed
             row = row.flatten()
             return value, row
         return value

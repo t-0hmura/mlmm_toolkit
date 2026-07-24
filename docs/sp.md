@@ -60,9 +60,10 @@ Either embed the partition in the input PDB's B-factor (ML=0.0, movable-MM=10.0,
 
 When `--hess` is set, `--hessian-calc-mode Analytical` uses the selected
 backend's analytical/native Hessian path (UMA, ORB, MACE, or AIMNet2), while
-`FiniteDifference` uses central differences of forces. The MM region uses the
-`hessian_ff` analytical Hessian by default. An unavailable analytical path is
-an error; mlmm does not silently change the requested method.
+`FiniteDifference` uses central differences of forces. The MM backend defaults
+to `hessian_ff`, but MM Hessians use finite differences by default. Set
+`calc.mm_fd: false` for the `hessian_ff` analytical MM Hessian. An unavailable
+requested path is an error.
 
 ### Other options
 
@@ -73,9 +74,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-b, --backend [uma\|orb\|mace\|aimnet2]` | `uma` | MLIP backend for the ML region |
 | `--hess / --no-hess` | `--no-hess` | also compute and write `hessian.npy` |
 | `--hessian-calc-mode [Analytical\|FiniteDifference]` | `FiniteDifference` | Hessian mode when `--hess` is set; `Analytical` uses the backend's native path |
-| `--embedcharge / --no-embedcharge` | off | xTB point-charge embedding correction for MM→ML coupling |
+| `--embedcharge / --no-embedcharge` | off | Unavailable in v0.3.3; retained only to reject older commands |
 | `--link-atom-method [scaled\|fixed]` | `scaled` | link-atom positioning |
-| `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM backend (analytical vs finite-difference Hessian) |
+| `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM backend; Hessian method is controlled separately by `calc.mm_fd` |
 | `-o, --out-dir PATH` | `./result_sp/` | output directory |
 | `--precision [fp32\|fp64]` | backend-specific | numeric precision passed to the backend (unset: UMA/AIMNet2 fp32, ORB/MACE fp64) |
 | `--config PATH` | — | YAML config providing `calc.*`, `geom.*` defaults |

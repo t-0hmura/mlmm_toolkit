@@ -343,12 +343,56 @@ def _tag_images(images: Sequence[Any], **attrs: Any) -> None:
                 logger.debug("Failed to set attribute %s on image", k, exc_info=True)
 
 
+def _frame_ranges_by_segment(images: Sequence[Any]) -> Dict[int, Dict[str, Any]]:
+    """Return additive half-open frame ranges for each tagged MEP segment."""
+
+    result: Dict[int, Dict[str, Any]] = {}
+    run_index: Optional[int] = None
+    run_kind = ""
+    run_start = 0
+
+    def close_run(stop: int) -> None:
+        if run_index is None or run_index <= 0:
+            return
+        entry = result.setdefault(
+            run_index,
+            {"kind": run_kind or "seg", "frame_ranges": []},
+        )
+        entry["frame_ranges"].append([run_start, stop])
+
+    for frame_index, image in enumerate(images):
+        segment_index = int(getattr(image, "mep_seg_index", 0) or 0)
+        segment_kind = str(getattr(image, "mep_seg_kind", "") or "seg")
+        if (segment_index, segment_kind) != (run_index, run_kind):
+            close_run(frame_index)
+            run_index = segment_index
+            run_kind = segment_kind
+            run_start = frame_index
+    close_run(len(images))
+
+    for entry in result.values():
+        ranges = entry["frame_ranges"]
+        if len(ranges) == 1:
+            entry["frame_start"], entry["frame_stop"] = ranges[0]
+    return result
+
+
 def _segment_base_id(tag: str) -> str:
     """
     Extract base id 'seg_XXX' from a tag like 'seg_000_refine'; fallback to `tag` or 'seg'.
     """
     m = re.search(r"(seg_\d{3})", tag or "")
     return m.group(1) if m else (tag or "seg")
+
+
+def _select_hei_index(energies: Sequence[float]) -> int:
+    """Return the global highest-energy-image index."""
+    E = np.asarray(energies, dtype=float)
+    if E.size == 0:
+        raise ValueError("Cannot select an HEI from an empty energy profile.")
+    if not np.all(np.isfinite(E)):
+        raise ValueError("Cannot select an HEI from non-finite energies.")
+    return int(np.argmax(E))
 
 
 def _is_local_minimum(idx: int, energies: Sequence[float]) -> bool:
@@ -441,14 +485,10 @@ def _run_gsm_between(
     energies = list(map(float, np.array(gs.energy, dtype=float)))
     images = list(gs.images)
 
-    # Choose HEI: prefer internal local maxima; fallback to highest internal node
-    E = np.array(energies, dtype=float)
-    nE = len(E)
-    local_max_candidates = [i for i in range(1, nE - 1) if (E[i] > E[i - 1] and E[i] > E[i + 1])]
-    if local_max_candidates:
-        hei_idx = int(max(local_max_candidates, key=lambda i: E[i]))
-    else:
-        hei_idx = int(np.argmax(E[1:-1])) + 1 if nE >= 3 else int(np.argmax(E))
+    try:
+        hei_idx = _select_hei_index(energies)
+    except ValueError as exc:
+        raise click.ClickException(f"{tag}: {exc}") from exc
 
     # Write trajectory
     final_trj = seg_dir / "final_geometries_trj.xyz"
@@ -478,7 +518,7 @@ def _run_gsm_between(
     # Write HEI structure (XYZ with energy in line 2)
     try:
         hei_geom = images[hei_idx]
-        hei_E = float(E[hei_idx])
+        hei_E = float(energies[hei_idx])
         hei_xyz = seg_dir / "hei.xyz"
         s = hei_geom.as_xyz()
         lines = s.splitlines()
@@ -670,14 +710,19 @@ def _run_dmf_between(
         tmp_xyz = seg_dir / f"_tmp_dmf_{len(imgs)}.xyz"
         with open(tmp_xyz, "w") as f:
             f.write(buf.getvalue())
-        g = gl(tmp_xyz, coord_type=gA.coord_type)
         try:
-            g.freeze_atoms = np.array(getattr(gA, "freeze_atoms", []), dtype=int)
-        except Exception:
-            logger.debug("Failed to set freeze_atoms on interpolated image", exc_info=True)
-        g.set_calculator(shared_calc)
-        imgs.append(g)
-        tmp_xyz.unlink(missing_ok=True)
+            g = gl(tmp_xyz, coord_type=gA.coord_type)
+            try:
+                g.freeze_atoms = np.array(getattr(gA, "freeze_atoms", []), dtype=int)
+            except Exception:
+                logger.debug(
+                    "Failed to set freeze_atoms on interpolated image",
+                    exc_info=True,
+                )
+            g.set_calculator(shared_calc)
+            imgs.append(g)
+        finally:
+            tmp_xyz.unlink(missing_ok=True)
 
     return GSMResult(images=imgs, energies=energies, hei_idx=hei_idx, is_converged=_dmf_converged)
 
@@ -789,11 +834,10 @@ def _refine_between(
     dmf_cfg: Optional[Dict[str, Any]] = None,
 ) -> GSMResult:
     """
-    Refine End1–End2 via GSM or DMF (force climb=True for GSM).
+    Refine End1–End2 via GSM or DMF using the resolved climbing policy.
     """
-    gs_refine_cfg = {**gs_cfg, "climb": True, "climb_lanczos": True}
     return _run_mep_between(
-        gL, gR, shared_calc, gs_refine_cfg, stopt_cfg, out_dir, tag=f"{tag}_refine",
+        gL, gR, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=f"{tag}_refine",
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
         calc_cfg=calc_cfg, max_nodes=max_nodes, dmf_cfg=dmf_cfg,
     )
@@ -921,7 +965,8 @@ def _stitch_paths(
             br = _maybe_bridge_segments(
                 tail, head, shared_calc, gs_cfg, stopt_cfg, out_dir, tag=bridge_name_base,
                 rmsd_thresh=bridge_rmsd_thresh, ref_pdb_path=ref_pdb_path,
-                mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
+                mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg,
+                max_nodes=int(gs_cfg.get("max_nodes", 5)), dmf_cfg=dmf_cfg,
             )
             if br is not None:
                 _tag_images(br.images, mep_seg_tag=f"{bridge_name_base}_bridge", mep_seg_kind="bridge",
@@ -1171,9 +1216,8 @@ def _build_multistep_path(
     seg_counter[0] += 1
     tag0 = f"seg_{seg_id:03d}"
 
-    gs_seg_cfg_first = {**gs_seg_cfg, "climb": True, "climb_lanczos": True}
     gsm0 = _run_mep_between(
-        gA, gB, shared_calc, gs_seg_cfg_first, stopt_cfg, out_dir, tag=tag0,
+        gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=tag0,
         ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
         calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
     )
@@ -1421,8 +1465,9 @@ def _build_multistep_path(
     help="ML region charge. Required unless --ligand-charge is provided.",
 )
 @click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
-              help="Total charge or per-resname mapping (e.g., GPP:-3,SAM:1) used to derive "
-                   "charge when -q is omitted (requires PDB input or --ref-pdb).")
+              help="Total charge for unknown ligand residues or a per-resname mapping "
+                   "(e.g., GPP:-3,SAM:1), used to derive the ML-region charge when -q "
+                   "is omitted (requires PDB input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",
@@ -1485,10 +1530,24 @@ def _build_multistep_path(
     help="Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. "
          "Providing --movable-cutoff disables --detect-layer.",
 )
-@click.option("--max-nodes", type=int, default=20, show_default=True,
-              help=("Number of internal nodes (string has max_nodes+2 images including endpoints). "
-                    "Used for *segment* GSM unless overridden by YAML search.max_nodes_segment."))
-@click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum GSM optimization cycles.")
+@click.option(
+    "--max-nodes",
+    type=int,
+    default=20,
+    show_default=True,
+    help=(
+        "Number of movable internal images per GSM or DMF segment "
+        "(total images = max_nodes + 2 endpoints); recursive segments may "
+        "override it with YAML search.max_nodes_segment."
+    ),
+)
+@click.option(
+    "--max-cycles",
+    type=int,
+    default=300,
+    show_default=True,
+    help="Maximum MEP optimization cycles.",
+)
 @click.option(
     "--climb/--no-climb",
     default=True,
@@ -1587,7 +1646,7 @@ def _build_multistep_path(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable xTB point-charge embedding correction for MM→ML environmental effects (experimental).",
+    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -1595,8 +1654,7 @@ def _build_multistep_path(
     type=float,
     default=None,
     show_default=False,
-    help="Distance cutoff (Å) from ML region for MM point charges in xTB embedding. "
-         "Default: 12.0 Å. Only used when --embedcharge is enabled.",
+    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method",
@@ -1612,7 +1670,7 @@ def _build_multistep_path(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="MM backend: hessian_ff (analytical Hessian, default) or openmm (finite-difference Hessian, slower).",
+    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -1838,6 +1896,10 @@ def cli(
                 resolved_spin,
                 ligand_charge=ligand_charge,
                 prefix="[path-search]",
+                model_pdb=model_pdb,
+                model_indices_spec=model_indices_str,
+                detect_layer=detect_layer,
+                yaml_cfg=merged_yaml_cfg,
             )
         # CLI-resolved charge/spin (from -q / -l derivation, or -m / spin_default)
         # always wins over the CALC_KW default carried in calc_cfg.
@@ -1851,6 +1913,7 @@ def cli(
         detect_layer_effective = bool(calc_cfg.get("use_bfactor_layers", detect_layer))
         if _is_param_explicit("detect_layer"):
             detect_layer_effective = bool(detect_layer)
+            calc_cfg["use_bfactor_layers"] = detect_layer_effective
 
         if _is_param_explicit("max_nodes"):
             gs_cfg["max_nodes"] = int(max_nodes)
@@ -1935,6 +1998,13 @@ def cli(
         if detect_layer_effective and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
             sys.exit(1)
+
+        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
+
+        reject_retired_embedcharge_cli(
+            calc_cfg,
+            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
+        )
 
         if dry_run:
             layer_info_preview: Optional[Dict[str, List[int]]] = None
@@ -2176,7 +2246,7 @@ def cli(
                 )
                 click.echo("[align] Completed input alignment.")
             except Exception as e:
-                click.echo(f"[align] WARNING: Alignment failed; continuing without alignment: {e}", err=True)
+                raise click.ClickException(f"Input alignment failed: {e}") from e
         else:
             click.echo("[align] Skipping input alignment as requested by --no-align.")
 
@@ -2338,6 +2408,7 @@ def cli(
             click.echo(f"[write] WARNING: Failed to emit per-segment pocket outputs: {e}", err=True)
         # ---- END ----
 
+        frame_ranges = _frame_ranges_by_segment(combined_all.images)
         summary = {
             "out_dir": str(out_dir_path),
             "n_images": len(combined_all.images),
@@ -2354,6 +2425,7 @@ def cli(
                     # all-pipeline aggregate can gate on it (a nonconverged segment
                     # keeps its trajectory but cannot make the path a success).
                     "converged": s.converged,
+                    **frame_ranges.get(int(s.seg_index), {}),
                 } for s in combined_all.segments
             ],
         }

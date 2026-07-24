@@ -45,9 +45,10 @@ geom:
   leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for
   zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries
   therefore usually have rank 0. An all-frozen selection is an explicit error.
-- `legacy-active` is an isolated-active comparison treatment that uses the
-  current common projection kernel and numerical rank handling. Bitwise
-  identity is not guaranteed for rank-degenerate geometries.
+- `legacy-active` is deprecated, comparison-only, and must not be used for
+  pass/HOSP transition-state certification. It uses the current common
+  projection kernel and numerical rank handling; bitwise identity is not
+  guaranteed for rank-degenerate geometries.
 - `tr_projection` controls frozen-boundary PHVA used by `freq`, `irc`, `tsopt`,
   and `opt --flatten`. It is unrelated to the `tsopt --ref-mode` MEP tangent.
 - For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging
@@ -93,23 +94,24 @@ calc:
  ml_cuda_idx: 0 # CUDA device index for ML inference
  hessian_calc_mode: FiniteDifference # ML Hessian mode: "Analytical" or "FiniteDifference"
 
- # --- xTB point-charge embedding ---
- embedcharge: false # Enable xTB point-charge embedding correction for MM->ML effects
- embedcharge_cutoff: 12.0 # Distance cutoff (Å) for MM point charges in xTB embedding
- embedcharge_step: 0.001 # Numerical Hessian step for embedding correction (Å)
- xtb_cmd: xtb # xTB executable command
- xtb_acc: 0.2 # xTB accuracy parameter
- xtb_workdir: tmp # xTB working directory
- xtb_keep_files: false # Keep xTB temporary files
- xtb_ncores: 4 # Number of cores for xTB
+ # --- Retired electronic-embedding compatibility keys ---
+ embedcharge: false # Must remain false in v0.3.3; true is rejected
+ embedcharge_cutoff: 12.0 # Inactive compatibility value
+ embedcharge_step: 0.001 # Inactive compatibility value
+ xtb_cmd: xtb # Inactive compatibility value
+ xtb_acc: 0.2 # Inactive compatibility value
+ xtb_workdir: tmp # Inactive compatibility value
+ xtb_keep_files: false # Inactive compatibility value
+ xtb_ncores: 4 # Inactive compatibility value
 
  # --- MM backend settings ---
- mm_backend: hessian_ff # MM backend: "hessian_ff" (analytical) | "openmm" (FD Hessian)
+ mm_backend: hessian_ff # MM backend; Hessian method is selected by mm_fd below
  use_cmap: false        # If true, include CMAP terms in model parm7. Default false (Gaussian ONIOM-compatible)
  mm_device: cpu # Device for MM calculation: "cuda" or "cpu" (hessian_ff is CPU-only)
  mm_cuda_idx: 0 # CUDA device index for MM calculation (OpenMM only)
  mm_threads: 16 # Number of threads for MM calculation
  mm_fd: true # Use finite-difference for MM Hessian
+ mm_hessian_mode: null # Explicit finite_difference/analytical mode; null maps mm_fd
  mm_fd_dir: null # Directory for MM finite-difference scratch files
  mm_fd_delta: 0.001 # Finite-difference step size for MM Hessian
 
@@ -141,10 +143,13 @@ calc:
   - `orb_model`, `orb_precision` — ORB backend only
   - `mace_model`, `mace_dtype` — MACE backend only
   - `aimnet2_model` — AIMNet2 backend only
-- `embedcharge: true` enables xTB point-charge embedding, which models MM-to-ML electrostatic polarization effects. Default is `false`. Requires an `xtb` executable on `$PATH`.
-- `xtb_cmd`, `xtb_acc`, `xtb_ncores`, `xtb_workdir`, `xtb_keep_files` configure the xTB subprocess when `embedcharge` is enabled.
+- `embedcharge` must remain `false` in v0.3.3. `embedcharge: true`, `--embedcharge`, or an explicit CLI `--embedcharge-cutoff` is rejected before calculation because the retired path double-counted ML--MM electrostatics and used an inconsistent uncapped boundary model.
+- YAML `embedcharge_cutoff` and the other `embedcharge_*`/`xtb_*` keys remain readable only as inert configuration-compatibility values; they do not activate a supported calculation path.
 - `hessian_calc_mode: Analytical` requests the backend's analytical Hessian and is recommended when sufficient VRAM is available. UMA, ORB, MACE, and AIMNet2 implement this path; an incompatible installed backend version raises an error instead of silently changing methods. `workers > 1` cannot be combined with an analytical Hessian and also raises an error.
-- `mm_fd: true` uses finite-difference for MM Hessian; set to `false` to use analytical MM Hessian from hessian_ff
+- `mm_fd: true` uses a finite-difference MM Hessian; `false` uses the
+  analytical `hessian_ff` Hessian. `mm_hessian_mode` is the explicit
+  `finite_difference`/`analytical` spelling; when it is `null`, `mm_fd`
+  supplies the backward-compatible selection.
 - `use_cmap: false` (default) excludes CMAP (backbone cross-map dihedral correction) from the model parm7, consistent with Gaussian ONIOM behavior. Set `true` to include CMAP in the model region (CMAP remains in the real system in both cases).
 - `real_parm7` and `model_pdb` are required for ML/MM calculations
 - `model_charge` and `model_mult` override `-q` and `-m` for the ML region specifically
@@ -500,7 +505,7 @@ irc:
  out_dir: ./result_irc/ # Output directory
  prefix: "" # Filename prefix
  dump_fn: irc_data.h5 # IRC data filename
- dump_every: 5 # Dump stride
+ dump_every: null # Disabled by default; set a positive dump stride to opt in
  max_pred_steps: 500 # Predictor-corrector max steps
  loose_cycles: 3 # Loose cycles before tightening
  corr_func: mbs # Correlation function choice
@@ -538,6 +543,7 @@ Thermochemistry settings.
 thermo:
  temperature: 298.15 # Thermochemistry temperature (K)
  pressure_atm: 1.0 # Thermochemistry pressure (atm)
+ symmetry_number: 1 # External rotational symmetry number (integer >= 1)
  dump: false # Write thermoanalysis.yaml
 ```
 
@@ -633,7 +639,7 @@ calc:
  model_charge: 0
  model_mult: 1
  backend: uma                  # MLIP backend: "uma", "orb", "mace", or "aimnet2"
- embedcharge: false            # xTB point-charge embedding correction
+ embedcharge: false            # Compatibility tombstone; true is rejected
  uma_model: uma-s-1p2          # uma-s-1p2 | uma-s-1p1 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # Recommended when VRAM permits
@@ -674,6 +680,7 @@ freq:
 thermo:
  temperature: 298.15
  pressure_atm: 1.0
+ symmetry_number: 1
 
 dft:
  func_basis: wb97m-v/def2-tzvpd

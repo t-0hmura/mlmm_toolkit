@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import numpy as np
+import pytest
+import torch
+
 from mlmm.core.defaults import IRC_KW
 from pysisyphus.irc.IRC import IRC
 
@@ -63,6 +67,65 @@ def test_workflow_uses_engine_normalized_prefix(tmp_path) -> None:
     )
 
 
+def test_real_irc_generation_invalidates_prefixed_directional_outputs(
+    tmp_path,
+) -> None:
+    from mlmm.workflows.irc import _prepare_irc_output_dir
+
+    stale = [
+        tmp_path / "segment_forward_irc_trj.xyz",
+        tmp_path / "segment_backward_irc.pdb",
+        tmp_path / "segment_finished_first.xyz",
+        tmp_path / "result.json",
+        tmp_path / "summary.json",
+    ]
+    for path in stale:
+        path.write_text("stale\n", encoding="utf-8")
+    unrelated = tmp_path / "notes.txt"
+    unrelated.write_text("keep\n", encoding="utf-8")
+
+    assert _prepare_irc_output_dir(tmp_path, prefix="segment") == tmp_path.resolve()
+
+    assert all(not path.exists() for path in stale)
+    assert unrelated.read_text(encoding="utf-8") == "keep\n"
+
+
+@pytest.mark.parametrize(
+    "device",
+    ["cpu"] + (["cuda"] if torch.cuda.is_available() else []),
+)
+def test_terminal_hessian_conversion_consumes_tensor_in_place(device) -> None:
+    from mlmm.workflows.irc import _consume_mw_hessian_to_cartesian_active
+
+    hessian = torch.tensor(
+        [[2.0, 0.5], [0.5, 3.0]],
+        dtype=torch.float64,
+        device=device,
+    )
+    original = hessian.detach().cpu().numpy().copy()
+    data_ptr = hessian.data_ptr()
+    masses = np.array([2.0, 3.0])
+
+    result = _consume_mw_hessian_to_cartesian_active(hessian, masses)
+
+    assert hessian.data_ptr() == data_ptr
+    np.testing.assert_allclose(result, masses[:, None] * original * masses[None, :])
+    np.testing.assert_allclose(hessian.detach().cpu().numpy(), result)
+
+
+def test_terminal_hessian_conversion_consumes_numpy_in_place() -> None:
+    from mlmm.workflows.irc import _consume_mw_hessian_to_cartesian_active
+
+    hessian = np.array([[2.0, 0.5], [0.5, 3.0]])
+    original = hessian.copy()
+    masses = np.array([2.0, 3.0])
+
+    result = _consume_mw_hessian_to_cartesian_active(hessian, masses)
+
+    assert result is hessian
+    np.testing.assert_allclose(result, masses[:, None] * original * masses[None, :])
+
+
 def test_result_manifest_collects_prefixed_cif_companions(tmp_path) -> None:
     from mlmm.workflows.irc import _collect_irc_output_files
 
@@ -76,6 +139,8 @@ def test_result_manifest_collects_prefixed_cif_companions(tmp_path) -> None:
         "finished_irc.cif",
         "forward_last.xyz",
         "forward_last.cif",
+        "forward_first.xyz",
+        "forward_first.cif",
     ):
         (tmp_path / f"segment_{filename}").write_text("x", encoding="utf-8")
 
@@ -85,4 +150,6 @@ def test_result_manifest_collects_prefixed_cif_companions(tmp_path) -> None:
         "finished_irc_cif": "segment_finished_irc.cif",
         "forward_last": "segment_forward_last.xyz",
         "forward_last_cif": "segment_forward_last.cif",
+        "forward_endpoint": "segment_forward_first.xyz",
+        "forward_endpoint_cif": "segment_forward_first.cif",
     }
