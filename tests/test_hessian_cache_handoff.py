@@ -348,6 +348,43 @@ def test_persistent_identity_canonicalizes_unbounded_hessian_cutoff() -> None:
     assert finite["evaluator"]["potential"]["hess_cutoff"] == 6.0
 
 
+def test_persistent_identity_uses_region_file_content_not_location(tmp_path) -> None:
+    """Generated region files with identical bytes identify the same PES."""
+
+    class _Geom:
+        atomic_numbers = np.array([1, 8])
+        cart_coords = np.zeros(6)
+        freeze_atoms = np.array([], dtype=int)
+
+    first = tmp_path / "freq" / "model_from_bfactor.pdb"
+    second = tmp_path / "irc" / "model_from_bfactor.pdb"
+    first.parent.mkdir()
+    second.parent.mkdir()
+    first.write_bytes(b"IDENTICAL-REGION-CONTENT")
+    second.write_bytes(first.read_bytes())
+    base = {
+        "backend": "uma",
+        "uma_model": "uma-s-1p2",
+        "uma_precision": "fp32",
+        "charge": 0,
+        "spin": 1,
+    }
+
+    produced = hessian_cache.persistent_identity_from_context(
+        _Geom(), {**base, "model_pdb": str(first)}
+    )
+    consumed = hessian_cache.persistent_identity_from_context(
+        _Geom(), {**base, "model_pdb": str(second)}
+    )
+
+    assert produced == consumed
+    second.write_bytes(b"DIFFERENT-REGION-CONTENT")
+    changed = hessian_cache.persistent_identity_from_context(
+        _Geom(), {**base, "model_pdb": str(second)}
+    )
+    assert changed != produced
+
+
 def test_reconcile_active_hessian_extracts_required_dofs_in_order() -> None:
     source = torch.arange(36, dtype=torch.float64).reshape(6, 6)
     entry = {

@@ -256,9 +256,11 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
     for key in ("real_parm7", "model_pdb", "input_pdb"):
         path = calc_cfg.get(key)
         if path:
-            potential[key] = str(path)
             digest = _file_digest(path)
-            if digest is not None:
+            if digest is None:
+                # Preserve a fail-closed identity when the file cannot be read.
+                potential[key] = str(path)
+            else:
                 potential[f"{key}_sha256"] = digest
     calc_file = calc_cfg.get("calc_file")
     if calc_file:
