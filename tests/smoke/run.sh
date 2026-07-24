@@ -263,7 +263,12 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 # end-to-end reproducibility across separate invocations, pass a fixed `--parm`.)
 det_args="-i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --deterministic"
 mlmm all $det_args --out-dir test44_a > test44_a.out 2>&1
-mlmm all $det_args --parm test44_a/mm_parm/r_complex.parm7 --out-dir test44_b > test44_b.out 2>&1
+mapfile -t test44_parms < <(find test44_a/mm_parm -maxdepth 1 -type f -name '*.parm7' -print)
+if [[ "${#test44_parms[@]}" -ne 1 ]]; then
+  echo "[smoke] FAIL test44: expected exactly one reusable parm7, found ${#test44_parms[@]}" >&2
+  exit 1
+fi
+mlmm all $det_args --parm "${test44_parms[0]}" --out-dir test44_b > test44_b.out 2>&1
 # Run b is given the parm via `--parm`, so by design it never runs the mm-parm
 # stage and never writes `mm_parm/`. That directory is the gate's fixed INPUT,
 # not its output, so comparing it would fail on the very workaround above.
