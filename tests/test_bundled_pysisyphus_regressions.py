@@ -487,9 +487,10 @@ def test_cos_public_exports_are_bound() -> None:
     assert cos.GrowingString.__name__ == "GrowingString"
 
 
-def test_irc_rms_gradient_uses_integration_basis() -> None:
+@pytest.mark.parametrize("act_dofs", [np.array([0, 1, 2]), [0, 1, 2]])
+def test_irc_rms_gradient_uses_integration_basis(act_dofs) -> None:
     irc = IRC.__new__(IRC)
-    irc._act_dofs = np.array([0, 1, 2])
+    irc._act_dofs = act_dofs
     full = np.array([1.2e-3] * 3 + [0.0] * 9)
     assert irc.active_rms_gradient(full) == pytest.approx(1.2e-3)
 

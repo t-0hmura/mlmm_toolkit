@@ -244,11 +244,12 @@ class IRC:
         if gradient is None:
             gradient = self.gradient
         gradient = np.asarray(gradient).reshape(-1)
-        if gradient.size == len(self._act_dofs):
+        act_dofs = np.asarray(self._act_dofs, dtype=int)
+        if gradient.size == len(act_dofs):
             return gradient
-        if np.any(self._act_dofs < 0) or np.any(self._act_dofs >= gradient.size):
+        if np.any(act_dofs < 0) or np.any(act_dofs >= gradient.size):
             raise ValueError("IRC active degrees of freedom do not match gradient.")
-        return gradient[self._act_dofs]
+        return gradient[act_dofs]
 
     def active_rms_gradient(self, gradient=None):
         return rms(self.active_gradient(gradient))
