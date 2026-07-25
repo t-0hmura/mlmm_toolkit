@@ -198,7 +198,13 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     # The release notebook installs the pinned wheel from PyPI, the same way a
     # normal user does, so the version guard below compares the version actually
     # resolved by pip against the requested tag.
-    assert "pip('mlmm-toolkit' + ('[dft]' if install_dft else '') + '==' + mlmm_ref.lstrip('v'))" in setup
+    assert "pip('mlmm-toolkit==' + mlmm_ref.lstrip('v'))" in setup
+    # The DFT extra installs with a visible log; a quiet pip looked stalled.
+    assert "pip_logged('mlmm-toolkit[dft]==' + mlmm_ref.lstrip('v'))" in setup
+    assert "install_dft is ticked" in setup
+    # Gated UMA sign-in is the last step, so no install phase waits on a prompt.
+    assert "Hugging Face sign-in runs at the end of Setup" in setup
+    assert setup.index("notebook_login()") > setup.index("_phase_done('version verified')")
     assert "git clone" not in setup
     assert "installed_version != mlmm_ref[1:]" in setup
     assert "anywidget==0.11.0" in setup
@@ -214,7 +220,7 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda12x'}" in setup
 
 
-def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch) -> None:
+def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsys) -> None:
     import importlib.metadata
 
     setup = _notebook()["cells"][1]["source"].replace(
@@ -225,6 +231,24 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch) -> No
     def fake_run(argv, **_kwargs):
         calls.append([str(value) for value in argv])
         return types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=0)
+
+    popen_calls: list[list[str]] = []
+
+    class _FakePopen:
+        """The [dft] extra installs through pip_logged, which streams pip output."""
+
+        def __init__(self, argv, **_kwargs):
+            popen_calls.append([str(value) for value in argv])
+            self.stdout = iter([
+                "Collecting pyscf\n",
+                "Downloading pyscf-2.13.0-cp311.whl (30.2 MB)\n",
+                "a quiet line that must stay unechoed\n",
+                "Installing collected packages: pyscf\n",
+                "Successfully installed pyscf-2.13.0\n",
+            ])
+
+        def wait(self):
+            return 0
 
     real_import_module = importlib.import_module
     fake_cupy = types.SimpleNamespace(
@@ -246,6 +270,7 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch) -> No
         "mlmm-toolkit": "0.3.3",
     }
     monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "Popen", _FakePopen)
     monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
     monkeypatch.setattr(importlib, "import_module", fake_import_module)
     monkeypatch.setattr(importlib.metadata, "version", lambda name: versions[name])
@@ -253,7 +278,14 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch) -> No
     exec(compile(setup, str(NOTEBOOK), "exec"), namespace)
 
     installs = [argv for argv in calls if "install" in argv]
-    assert any("mlmm-toolkit[dft]==0.3.3" in argv for argv in installs)
+    assert any("mlmm-toolkit==0.3.3" in argv for argv in installs)
+    assert any("mlmm-toolkit[dft]==0.3.3" in argv for argv in popen_calls)
+    assert any("--progress-bar" in argv and "off" in argv for argv in popen_calls)
+    logged = capsys.readouterr().out
+    assert "install_dft is ticked" in logged
+    assert "Downloading pyscf-2.13.0-cp311.whl (30.2 MB)" in logged
+    assert "Successfully installed pyscf-2.13.0" in logged
+    assert "a quiet line that must stay unechoed" not in logged
     assert namespace["DFT_SETUP_READY"] is True
     assert namespace["INSTALL_DFT"] is True
     assert namespace["BACKEND"] == "mace"
@@ -442,7 +474,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "viewer_toolbar = W.HBox(" in app
     assert "[view_input, pick_action, last_pick_info, view_controls, viewer_more]" in app
     assert "viewer_box = W.VBox([workflow_box, viewer_toolbar, view_input_note, selection_box])" in app
-    assert "'<div class=\"rxmolstar-embed\">'" in app
+    assert "'<div class=\"rxmolstar-embed\">%s</div>' % _document_iframe(" in app
     assert "workflow_contract_row = W.HBox([subreq, outputs_html]" in app
     assert "workflow_controls.add_class('rxworkflow-controls')" in app
     assert "grid-template-columns:minmax(280px,320px) minmax(150px,1fr) 240px" in app
@@ -497,11 +529,17 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "message.batch !== active" in app
     assert "if clear:\n        _bump_drop_generation()" in app
     assert "mlmm_gui.on_drop" not in app
-    assert "document.querySelectorAll('.rxapp .rxdrop')" not in app
+    # Colab draws no AnyWidget, so there the core upload widget owns the input
+    # and an inline script hands a drop on the dashed zone to that same input.
+    assert "_UPLOAD_MODE = ('colab' if _cwm is not None else" in app
+    assert "if _UPLOAD_MODE != 'colab': return" in app
+    assert "field.dispatchEvent(new Event('change',{bubbles:true}));" in app
+    assert "_drop_children = ([upl] if _UPLOAD_MODE == 'anywidget'" in app
+    assert "_install_drop_shim()" in app
     assert "_accept_upload_pairs(pairs, 'browser upload')" in app
     assert "def _delete_owned_uploads(paths):" in app
     assert "_HAS_DROP_WIDGET" in app
-    assert "if _HAS_DROP_WIDGET: upl.on_msg(_on_drop_upload)" in app
+    assert "if _UPLOAD_MODE == 'anywidget': upl.on_msg(_on_drop_upload)" in app
     assert "description='Move earlier'" in app and "description='Move later'" in app
     assert "tooltip='Move earlier'" in app and "tooltip='Move later'" in app
     assert "command_footer = W.HBox(" in app
@@ -2619,7 +2657,7 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "mlmm_gui.on_drop" not in app
     assert "def _ingest_saved_files(" in app
     assert "_reset_file_upload(upl)" in app
-    assert "if _HAS_DROP_WIDGET: upl.on_msg(_on_drop_upload)" in app
+    assert "if _UPLOAD_MODE == 'anywidget': upl.on_msg(_on_drop_upload)" in app
     assert "pts.append((k, 'TS'))" not in app
     assert "peak candidate" in app and "minimum candidate" in app
     assert "except KeyboardInterrupt:" in app
@@ -3130,3 +3168,69 @@ def test_colab_release_state_and_linked_results_regressions(
     assert app["S"]["mode"] == "utility"
     for name in ("scan_panel", "freeze_acc", "center_panel", "charge_panel", "extract_panel"):
         assert app[name].layout.display == "none"
+
+
+def test_colab_document_iframes_survive_srcdoc_stripping(monkeypatch, tmp_path) -> None:
+    """Colab strips `srcdoc`, so each document iframe also ships a blob delivery."""
+    app, _rendered = _execute_app(monkeypatch, tmp_path)
+
+    frame = app["_document_iframe"](
+        "<b>x</b><script>void 0;</script>",
+        'class="rxprobe" data-rx-channel="viewer"', "width:100%;",
+    )
+    assert 'srcdoc="' in frame                        # JupyterLab honours srcdoc
+    assert 'class="rxprobe"' in frame and 'data-rx-channel="viewer"' in frame
+    assert "URL.createObjectURL(new Blob([" in frame  # Colab needs a blob src instead
+    assert 'frame.getAttribute("srcdoc")' in frame    # ... and only when srcdoc is gone
+    script = frame[frame.index("<script>(function()"):]
+    assert script.count("</script>") == 1             # the payload cannot close the script
+
+    viewer = app["_molstar_iframe"]("HETATM\n", "pdb", interactive=True, generation=3)
+    assert 'srcdoc="' in viewer and "URL.createObjectURL" in viewer
+    assert 'data-rx-generation="3"' in viewer and 'class="rxmolstar-frame"' in viewer
+
+    energy = app["_energy_plot_iframe"]([0.0, 1.0], {}, 4)
+    assert 'srcdoc="' in energy and "URL.createObjectURL" in energy
+    assert 'data-rx-channel="trajectory"' in energy and 'data-rx-generation="4"' in energy
+
+    pdf = app["_binary_iframe"]("application/pdf", "AAAA", 'title="PDF result"', "width:100%;")
+    assert 'src="data:application/pdf;base64,AAAA"' in pdf
+    assert "atob(" in pdf and 'frame.getAttribute("src")' in pdf
+
+
+def test_colab_uma_login_accepts_a_colab_secret(monkeypatch) -> None:
+    """A stored Colab secret signs in without showing the token prompt."""
+    import importlib.metadata
+
+    setup = _notebook()["cells"][1]["source"].replace(
+        'backend = "mace"', 'backend = "uma"', 1,
+    )
+    logins: list[tuple] = []
+    fake_hf = types.ModuleType("huggingface_hub")
+    fake_hf.login = lambda **kwargs: logins.append(("token", kwargs))
+    fake_hf.notebook_login = lambda: logins.append(("notebook", {}))
+    fake_hf.get_token = lambda: None
+    userdata = types.ModuleType("google.colab.userdata")
+    userdata.get = lambda name: "secret-token" if name == "HF_TOKEN" else None
+    colab = types.ModuleType("google.colab")
+    colab.userdata = userdata
+    google = types.ModuleType("google")
+    google.colab = colab
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)
+    monkeypatch.setitem(sys.modules, "google", google)
+    monkeypatch.setitem(sys.modules, "google.colab", colab)
+    monkeypatch.setitem(sys.modules, "google.colab.userdata", userdata)
+    monkeypatch.setattr(
+        subprocess, "run",
+        lambda argv, **_kwargs: types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=0),
+    )
+    monkeypatch.setattr(
+        importlib.metadata, "version",
+        lambda name: "0.3.3" if name == "mlmm-toolkit" else "test",
+    )
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+
+    exec(compile(setup, str(NOTEBOOK), "exec"), {})
+
+    assert [entry[0] for entry in logins] == ["token"]
+    assert logins[0][1]["token"] == "secret-token"
