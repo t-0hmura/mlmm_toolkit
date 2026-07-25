@@ -450,14 +450,25 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "@media (min-width: 821px) and (max-height: 900px)" in app
     assert ".rxapp-main { flex:1 1 auto !important; min-height:0; overflow:hidden; }" in app
     assert ".rxpages { flex:1 1 auto !important; min-height:0; overflow:hidden; }" in app
+    assert "row-gap:5px !important;\n  flex:0 0 auto !important; }" in app
+    assert ".rxpage > * { flex:0 0 auto !important; }" not in app
     assert "overscroll-behavior:contain; scrollbar-gutter:stable;" in app
     assert "flex:0 1 clamp(420px,calc(133.333dvh - 600px),640px) !important;" in app
     assert "max-width:clamp(600px,calc(250dvh - 1320px),1000px);" in app
     assert ".rxpath-panel svg, .rxpath-panel img, .rxpath-panel canvas {" in app
     assert "traj_out = W.Output(layout={'width': '100%', 'min_width': '0'})" in app
     assert "plot_out = W.Output(layout={'width': '100%', 'min_width': '0'})" in app
+    assert ".rxresults-actions { flex:0 0 auto !important; min-height:38px; }" in app
+    assert "results_actions.add_class('rxresults-actions')" in app
     assert "'flex': '1 1 440px'" not in app
     assert ".rxcommand-dock {" in app
+    assert "b_validate = W.Button(description='Validate', button_style=''" in app
+    assert "b_validate.add_class('rxvalidate')" in app
+    assert "b_run = W.Button(description='Run', button_style='primary'" in app
+    assert "b_run.add_class('rxexecute')" in app
+    assert "button_style='danger'" not in app
+    assert "_btn.description = ('▾ ' if _st['open'] else '▸ ') + title" in app
+    assert "    if real_run: _open_run_log()\n    _set_running(True)\n    try:" in app
     assert "rootbox = W.VBox([header, app, cmdline_box])" in app
     assert "rootbox = W.VBox([header, app, W.HTML('<hr" not in app
     assert 'role="tooltip"' not in app
@@ -2956,6 +2967,17 @@ def test_colab_release_state_and_linked_results_regressions(
     app["S"]["scan_preset"] = "[('OLD 1 A','OLD 1 B',1.4)]"
     app["S"]["scan_atoms"] = [None, None]
     app["dd_subcmd"].value = "scan"
+    app["_render_scan_panel"]()
+    app["_render_summary"]()
+    scan_panel_text = "\n".join(
+        str(getattr(widget, "value", ""))
+        for widget in _widget_descendants(app["scan_panel"])
+    )
+    assert "A: <code>OLD 1 A</code>" in scan_panel_text
+    assert "B: <code>OLD 1 B</code>" in scan_panel_text
+    assert "Loaded example · Clear pair to redefine." in scan_panel_text
+    assert "OLD 1 A — OLD 1 B → 1.4 Å" in app["summary_html"].value
+    assert "[(&#x27;OLD 1 A&#x27;" not in app["summary_html"].value
     app["pick_action"].value = "scanA"
     app["on_click"]("0", "LIG", "10", "A", "C1", "1", "", live_marked=True)
     assert app["S"]["scan_preset"] == ""
