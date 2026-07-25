@@ -530,13 +530,20 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "message.batch !== active" in app
     assert "if clear:\n        _bump_drop_generation()" in app
     assert "mlmm_gui.on_drop" not in app
-    # Colab draws no AnyWidget, so there the core upload widget owns the input
-    # and an inline script hands a drop on the dashed zone to that same input.
+    # Colab draws no AnyWidget and drops a FileUpload's binary buffers, so there
+    # every upload ships its bytes through invokeFunction from its own zone.
     assert "_UPLOAD_MODE = ('colab' if _cwm is not None else" in app
-    assert "if _UPLOAD_MODE != 'colab': return" in app
-    assert "field.dispatchEvent(new Event('change',{bubbles:true}));" in app
     assert "_drop_children = ([upl] if _UPLOAD_MODE == 'anywidget'" in app
-    assert "_install_drop_shim()" in app
+    assert "_cwm.register_callback('mlmm_gui.upload_files', _on_colab_upload)" in app
+    # callback_ns is local to _molstar_document; the module-level block needs a literal.
+    assert "callback_ns" not in app.split("display(rootbox)")[1]
+    assert "bridge.invokeFunction(CONFIG.callback, [spec.role, payload], {})" in app
+    assert "reader.readAsDataURL(file)" in app
+    assert "def _decode_colab_batch(files):" in app
+    assert "base64.b64decode(entry['b64'], validate=True)" in app
+    for _role in ("'input'", "'model'", "'session'"):
+        assert "role=%s" % _role in app or "role == %s" % _role in app
+    assert "_accept_upload_pairs(pairs, 'browser upload')" in app
     assert "_accept_upload_pairs(pairs, 'browser upload')" in app
     assert "def _delete_owned_uploads(paths):" in app
     assert "_HAS_DROP_WIDGET" in app
