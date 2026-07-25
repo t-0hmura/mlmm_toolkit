@@ -201,6 +201,26 @@ def test_oniom_import_reference_rejects_element_permutation(
         )
 
 
+def test_oniom_import_reference_infers_protein_ca_as_carbon(tmp_path: Path) -> None:
+    reference = tmp_path / "reference.pdb"
+    reference.write_text(
+        "ATOM      1  CA  GLY A   1       0.000   0.000   0.000"
+        "  1.00  0.00              \nEND\n",
+        encoding="utf-8",
+    )
+
+    verification = oniom_import._write_layered_pdb_with_ref(
+        tmp_path / "out.pdb",
+        reference,
+        np.array([[1.0, 2.0, 3.0]]),
+        ["C"],
+        {0},
+        {0},
+    )
+
+    assert verification == "element-verified"
+
+
 def _write_two_carbon_reference(path: Path, *, reverse: bool = False) -> None:
     rows = [
         oniom_import._format_pdb_atom_line(

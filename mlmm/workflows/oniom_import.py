@@ -368,11 +368,11 @@ def _write_layered_pdb_with_ref(
             f"but ONIOM input has {n_atoms} atoms."
         )
     try:
-        from ase.io import read as ase_read
+        from mlmm.io.structure_formats import read_pdb_atom_sites
 
         ref_elements = [
-            _normalize_element_symbol(symbol)
-            for symbol in ase_read(str(ref_pdb), index=0).get_chemical_symbols()
+            _normalize_element_symbol(record.element)
+            for record in read_pdb_atom_sites(ref_pdb, warn_altloc=False)[0]
         ]
     except Exception as exc:
         raise click.ClickException(
