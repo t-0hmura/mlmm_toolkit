@@ -141,8 +141,8 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q
 # accumulates over the GSM cycles and this reaction sits on a watershed between the real
 # saddle (nu ~ -450 cm^-1) and a soft-mode structure (nu ~ -15 cm^-1). Two runs from
 # bit-identical inputs diverged at cycle 65 and landed in different basins, and the soft
-# one still certified as n_imag=1. The --ts-imag-min-cm floor below catches that basin if
-# it is ever reached; --deterministic stops the lane from choosing between them at random.
+# one still certified as n_imag=1. assert_release_result.py's TS_IMAG_FLOOR_CM catches that
+# basin if it is ever reached; --deterministic stops the lane picking between them at random.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 4.0 --ligand-charge 'PRE:0' -q -1 -m 1 --deterministic --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --tsopt --thermo --dft --flatten --irc-never-stop --tsopt-max-cycles 2000 --dft-func-basis 'hf/sto-3g' --dft-grid-level 0 --dft-conv-tol 1e-5 --dft-max-cycle 40 --dft-engine cpu --out-dir test19 > test19.out 2>&1
 python assert_release_result.py all test19 --require-thermo --require-dft >> test19.out 2>&1
 
