@@ -1029,8 +1029,8 @@ def _run_microiter_opt(
     "model_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="PDB defining atoms that belong to the ML (high-level) region. "
-         "Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices",
@@ -1154,9 +1154,8 @@ def _run_microiter_opt(
     default=True,
     show_default=True,
     help=(
-        "Reject energy-raising RFO trial steps in hess mode (roll back to the "
-        "lower-energy geometry and shrink the trust radius). Applies to "
-        "--opt-mode hess; ignored in grad/lbfgs mode."
+        "Reject uphill RFO trials in hess mode and final-check the retained "
+        "geometry at the emergency floor. Ignored in grad/lbfgs mode."
     ),
 )
 @click.option(
@@ -1557,7 +1556,7 @@ def cli(
                         "override_yaml": None if override_yaml is None else str(override_yaml),
                         "merged_keys": sorted(merged_yaml_cfg.keys()),
                     },
-                )
+                force=True)
             )
 
         mode_str = "RFO (hess)" if use_rfo else "LBFGS (grad)"

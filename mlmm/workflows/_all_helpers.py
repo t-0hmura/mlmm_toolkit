@@ -138,8 +138,13 @@ def build_pipeline_summary_payload(
     do_dft: bool,
     opt_mode_norm: str,
     opt_mode_post: Optional[str],
+    path_opt_mode: Optional[str],
+    post_opt_mode: Optional[str],
+    ts_opt_mode: Optional[str],
+    endpoint_opt_mode: Optional[str],
     mep_mode: str,
     dmf_backend: str,
+    dmf_correlated: bool,
     command_str: str,
     q_int: int,
     spin: int,
@@ -184,8 +189,19 @@ def build_pipeline_summary_payload(
         "dft": do_dft,
         "opt_mode": opt_mode_norm,
         "opt_mode_post": opt_mode_post.lower() if opt_mode_post else None,
+        "path_opt_mode": (
+            path_opt_mode.lower() if path_opt_mode else None
+        ),
+        "post_opt_mode": (
+            post_opt_mode.lower() if post_opt_mode else None
+        ),
+        "ts_opt_mode": ts_opt_mode.lower() if ts_opt_mode else None,
+        "endpoint_opt_mode": (
+            endpoint_opt_mode.lower() if endpoint_opt_mode else None
+        ),
         "mep_mode": mep_mode,
         "dmf_backend": dmf_backend,
+        "dmf_correlated": bool(dmf_correlated),
         "mlip_backend": mlip_backend,
         "mlip_model": mlip_model,
         "mlip_precision": mlip_precision,

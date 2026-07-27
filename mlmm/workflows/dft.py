@@ -111,6 +111,78 @@ def _atoms_to_xyz_string(atoms: Atoms, comment: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def write_ml_region_xyz_pair(
+    workspace: "MLRegionWorkspace",
+    out_dir: Path,
+) -> Tuple[Path, Path]:
+    """Write directly inspectable ML structures without and with generated link H."""
+
+    destination = Path(out_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    without_link = destination / "ml_region_without_linkH.xyz"
+    with_link = destination / "ml_region_with_linkH.xyz"
+    without_link.write_text(
+        _atoms_to_xyz_string(workspace.atoms_model, "ML region without link H"),
+        encoding="utf-8",
+    )
+    with_link.write_text(
+        _atoms_to_xyz_string(
+            workspace.atoms_model_lh,
+            "ML region with "
+            f"{len(workspace.link_pairs)} link H; full-system ML-MM pairs: "
+            + (
+                ", ".join(
+                    f"{ml_idx}-{mm_idx}"
+                    for ml_idx, mm_idx in workspace.link_pairs
+                )
+                if workspace.link_pairs
+                else "none"
+            ),
+        ),
+        encoding="utf-8",
+    )
+    return without_link, with_link
+
+
+def write_ml_region_pdb_pair(
+    workspace: "MLRegionWorkspace",
+    out_dir: Path,
+    *,
+    xyz_paths: Optional[Tuple[Path, Path]] = None,
+) -> Tuple[Path, Path]:
+    """Write topology-bearing PDB companions for the two ML snapshots."""
+
+    without_xyz, with_xyz = (
+        write_ml_region_xyz_pair(workspace, out_dir)
+        if xyz_paths is None
+        else xyz_paths
+    )
+    destination = Path(out_dir)
+    without_pdb = destination / "ml_region_without_linkH.pdb"
+    with_pdb = destination / "ml_region_with_linkH.pdb"
+
+    convert_xyz_to_pdb(without_xyz, workspace.model_pdb, without_pdb)
+
+    from mlmm.workflows.extract import _format_linkH_block, _max_serial_from_pdb_text
+
+    link_coordinates = workspace.atoms_model_lh.get_positions()[
+        len(workspace.atoms_model) :
+    ]
+    template_text = without_pdb.read_text(encoding="utf-8")
+    link_template = workspace.model_pdb.parent / "model_with_linkH_template.pdb"
+    link_template.write_text(
+        template_text.rstrip()
+        + "\n"
+        + _format_linkH_block(
+            [tuple(map(float, xyz)) for xyz in link_coordinates],
+            _max_serial_from_pdb_text(template_text),
+        ),
+        encoding="utf-8",
+    )
+    convert_xyz_to_pdb(with_xyz, link_template, with_pdb)
+    return without_pdb, with_pdb
+
+
 def _atoms_to_pyscf_atoms(atoms: Atoms) -> List[Tuple[str, Tuple[float, float, float]]]:
     entries: List[Tuple[str, Tuple[float, float, float]]] = []
     for sym, coord in zip(atoms.get_chemical_symbols(), atoms.get_positions()):
@@ -273,7 +345,12 @@ def _prepare_ml_region_workspace(
         raise RuntimeError(f"Failed to prepare sanitized Amber inputs: {exc}") from exc
 
     try:
-        resolved = resolve_mlmm_atoms(input_copy, model_copy, link_mlmm)
+        resolved = resolve_mlmm_atoms(
+            input_copy,
+            model_copy,
+            link_mlmm,
+            topology=real_top,
+        )
     except Exception:
         tmpdir.cleanup()
         raise
@@ -431,7 +508,15 @@ def _prepare_dft_output_dir(path: Path) -> Path:
 
     resolved = Path(path).resolve()
     resolved.mkdir(parents=True, exist_ok=True)
-    for name in ("result.yaml", "result.json", "summary.json"):
+    for name in (
+        "result.yaml",
+        "result.json",
+        "summary.json",
+        "ml_region_without_linkH.xyz",
+        "ml_region_with_linkH.xyz",
+        "ml_region_without_linkH.pdb",
+        "ml_region_with_linkH.pdb",
+    ):
         (resolved / name).unlink(missing_ok=True)
     return resolved
 
@@ -653,8 +738,8 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "model_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="PDB defining the ML region (atom IDs must match the enzyme PDB). "
-         "Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices",
@@ -1001,7 +1086,7 @@ def cli(
                         "override_yaml": None if override_yaml is None else str(override_yaml),
                         "merged_keys": sorted(merged_yaml_cfg.keys()),
                     },
-                )
+                force=True)
             )
 
         if dry_run:
@@ -1111,9 +1196,20 @@ def cli(
         model_mult = int(calc_kw["model_mult"])
         model_spin2s = model_mult - 1
 
-        xyz_path = out_dir_path / "ml_region_with_linkH.xyz"
-        xyz_path.write_text(_atoms_to_xyz_string(workspace.atoms_model_lh, "ML region + link-H"))
-        click.echo(f"[write] Wrote '{xyz_path}'.")
+        without_link_path, with_link_path = write_ml_region_xyz_pair(
+            workspace,
+            out_dir_path,
+        )
+        click.echo(f"[write] Wrote '{without_link_path}'.")
+        click.echo(f"[write] Wrote '{with_link_path}'.")
+        if Path(input_path).suffix.lower() == ".pdb":
+            without_link_pdb, with_link_pdb = write_ml_region_pdb_pair(
+                workspace,
+                out_dir_path,
+                xyz_paths=(without_link_path, with_link_path),
+            )
+            click.echo(f"[write] Wrote '{without_link_pdb}'.")
+            click.echo(f"[write] Wrote '{with_link_pdb}'.")
 
         try:
             from pyscf import gto

@@ -64,7 +64,7 @@ class RFOptimizer(HessianOptimizer):
             Emergency trust-radius floor for repeated rejected trials.
         max_rejections_at_floor
             Rejections allowed at the emergency floor before retaining the
-            lower-energy point and stopping without convergence.
+            lower-energy point for one final convergence check.
 
         Other Parameters
         ----------------
@@ -242,11 +242,18 @@ class RFOptimizer(HessianOptimizer):
                 f"skipped {self.skipped_bfgs_updates} unsafe BFGS update(s)."
             )
         if self.uphill_rejection_stalled:
-            print(
-                "RFO stopped at the rejected-trial trust floor; "
-                "the previous lower-energy geometry was retained without "
-                "claiming convergence."
-            )
+            if self.is_converged:
+                print(
+                    "RFO reached the rejected-trial trust floor; "
+                    "the retained lower-energy geometry satisfies the "
+                    "convergence criteria."
+                )
+            else:
+                print(
+                    "RFO stopped at the rejected-trial trust floor; "
+                    "the previous lower-energy geometry was retained without "
+                    "claiming convergence."
+                )
         msg = (
             f"Successful invocations:\n"
             f"\t     GEDIIS: {self.successful_gediis}\n"

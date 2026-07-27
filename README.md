@@ -100,6 +100,14 @@ For most systems the only hard requirement is a **PDB with explicit hydrogens** 
 
    **Important:** `model.pdb` must be an unchanged subset of the full PDB/`parm7` atom topology. Preserve original atom order, names, residue IDs, and chain IDs; do not add link H manually. Terminate retained backbone fragments consistently at Cα (`CA`), put other ML/MM boundaries on aliphatic C–C single bonds whenever possible, and avoid peptide/polar/conjugated/metal bonds. Use the same selection for every R/IM/P state. (In PyMOL, tick **"Original atom order"** when exporting.) See [How to construct `model.pdb`](docs/concepts.md#how-to-construct-a-reliable-modelpdb).
 
+   ML-region precedence is explicit: `--model-pdb` wins; otherwise `all` uses
+   `-c/--center` extraction, while per-stage commands may use
+   `--model-indices` or `--detect-layer` (B factors 0/10/20). You never specify
+   link H for the normal case. The calculator finds every `parm7` bond crossing
+   the ML selection and inserts one link H there; Cartesian distance is used
+   only to place that H along the known bond, not to decide whether a bond
+   exists. `--link-atom-method` selects scaled or fixed placement.
+
 ## Quick Examples
 
 ```bash
@@ -124,6 +132,9 @@ A run writes its deliverables to `--out-dir` (default `./result_all/`):
 - `mep.pdb` / `mep_trj.xyz` — the merged reaction path; `energy_diagram_MEP.png` — barrier diagram
 - `summary.log` (human-readable) / `summary.json` (machine-readable)
 - Reusable inputs for follow-up runs: `ml_region.pdb` (`--model-pdb`), `mm_parm/*.parm7` (`--parm`), `layered/` (B-factor-annotated full-system PDBs)
+- Directly inspectable model systems before/after link-H insertion:
+  `ml_region_without_linkH.xyz` and `ml_region_with_linkH.xyz`, plus matching
+  PDB companions for PDB input
 
 Pipeline scratch lives under `_work/` (safe to delete). Full layout and filename conventions: [docs/output-layout.md](docs/output-layout.md).
 

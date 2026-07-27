@@ -595,14 +595,18 @@ def calculator_run_label(calc_cfg: Mapping[str, Any]) -> str:
     return f"{backend} ({', '.join(details)})" if details else str(backend)
 
 
-def pretty_block(title: str, content: Dict[str, Any]) -> str:
+def pretty_block(title: str, content: Dict[str, Any], *, force: bool = False) -> str:
     """Return a YAML-formatted block with an underlined title.
 
     Returns an empty string below verbosity level 3 so that the default
     CLI output stays focused on milestones and user-set parameters; the
     full config dump is restored under `-v 3` for debugging.
+
+    ``force=True`` bypasses that gate. Use it for output the user asked for
+    explicitly (``--print-parsed``, ``--show-config``): a flag whose whole purpose is
+    to print something must not render nothing at the default verbosity.
     """
-    if verbose_level() < 3:
+    if not force and verbose_level() < 3:
         return ""
     if not content:
         return ""  # suppress empty blocks entirely
@@ -1098,9 +1102,21 @@ def normalize_freeze_atoms(raw: Any) -> List[int]:
         tokens = re.findall(r"-?\d+", raw)
         return [int(tok) for tok in tokens]
     try:
-        return [int(i) for i in raw]
-    except Exception:
+        items = list(raw)
+    except TypeError:
         return []
+    out: List[int] = []
+    for item in items:
+        try:
+            out.append(int(item))
+        except (TypeError, ValueError) as exc:
+            # Never fall back to an empty list for an unparsable entry: that turned
+            # `geom.freeze_atoms: [1, 2, three]` into a run with NOTHING frozen, silently
+            # making a hard-freeze / PHVA result an unconstrained one.
+            raise ValueError(
+                f"freeze_atoms: cannot interpret {item!r} as an atom index"
+            ) from exc
+    return out
 
 
 def merge_freeze_atom_indices(
@@ -1866,6 +1882,14 @@ def _load_scan_spec_root(
         raise click.BadParameter(
             f"{option_name} file '{spec_path}' must have a mapping at the YAML/JSON root."
         )
+    # A misspelled root key used to be dropped in silence, so the whole spec file became a
+    # no-op and the run continued with no scan/freeze constraints at all.
+    unknown = sorted(set(data) - {"stages", "pairs", "constraints", "one_based"})
+    if unknown:
+        raise click.BadParameter(
+            f"{option_name} file '{spec_path}' has unrecognized root key(s): "
+            f"{', '.join(unknown)}. Expected any of: stages, pairs, constraints, one_based."
+        )
     return data
 
 
@@ -2110,6 +2134,13 @@ def apply_yaml_overrides(
             if section is not None:
                 deep_update(target, section)
                 break
+            # A present-but-unusable section is a silent no-op otherwise: the user wrote
+            # `geom:` as a list/scalar/empty and the whole block is dropped.
+            if len(norm_path) == 1 and norm_path[0] in yaml_cfg:
+                click.echo(
+                    f"[config] WARNING: YAML section '{norm_path[0]}' is not a mapping; ignored.",
+                    err=True,
+                )
 
 
 def yaml_section_has_key(
@@ -2427,9 +2458,12 @@ def collect_ml_atom_keys(model_pdb: Path) -> Tuple[set, set]:
                     kf, ks = pdb_keys_from_line(line)
                     keys_full.add(kf)
                     keys_simple.add(ks)
-    except Exception:
-        # If anything goes wrong, leave sets empty; caller will handle gracefully.
-        pass
+    except OSError as exc:
+        # Do not degrade to empty sets: the caller then writes B=10.00 for every atom, i.e.
+        # publishes a PDB whose ML layer has silently vanished.
+        raise OSError(
+            f"Failed to read model PDB for layer annotation '{model_pdb}': {exc}"
+        ) from exc
     return keys_full, keys_simple
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -108,3 +109,128 @@ def test_write_summary_log_ts_only_separates_model_dft_from_composite_gibbs(
     assert "model-region DFT ΔE‡" in text
     assert "DFT//MLIP/MM ΔG‡" in text
     assert "DFT//MLIP/MM ΔE" not in text
+
+
+def test_method_citations_follow_resolved_methods_and_match_stdout(
+    tmp_path: Path, capsys
+):
+    from mlmm.io.summary import (
+        emit_method_citations,
+        format_method_citations,
+        method_references,
+        write_summary_log,
+    )
+
+    payload = {
+        "root_out_dir": str(tmp_path),
+        "path_module_dir": "path_search",
+        "pipeline_mode": "path-search",
+        "mep_mode": "gsm",
+        "path_opt_mode": "grad",
+        "post_opt_mode": "hess",
+        "ts_opt_mode": "hess",
+        "endpoint_opt_mode": "hess",
+        "post_segments": [
+            {
+                "endpoint_opt": {"reactant_converged": True},
+                "thermo_mode_validation": {"status": "ok"},
+            }
+        ],
+        "segments": [],
+        "energy_diagrams": [],
+    }
+    dest = tmp_path / "summary.log"
+
+    write_summary_log(dest, payload)
+    lines = format_method_citations(payload)
+    references = method_references(payload)
+    emit_method_citations(payload)
+
+    text = dest.read_text(encoding="utf-8")
+    stdout = capsys.readouterr().out
+    block = "\n".join(lines)
+    assert block in text
+    assert text.rstrip().endswith(block)
+    assert stdout == block + "\n"
+    assert "mlmm-toolkit:" in block
+    assert "Growing String Method (GSM)" in block
+    assert "RFO / P-RFO" in block
+    assert "RS-I-RFO" in block
+    assert "quasi-RRHO thermochemistry" in block
+    assert "Direct Max Flux (DMF)" not in block
+    assert all(set(ref) == {"method", "citation", "doi"} for ref in references)
+    assert len({ref["doi"] for ref in references}) == len(references)
+
+
+def test_method_citations_use_actual_path_and_post_stages() -> None:
+    from mlmm.io.summary import format_method_citations
+
+    path_only = {
+        "pipeline_mode": "path-search",
+        "mep_mode": "dmf",
+        "path_opt_mode": "grad",
+        "post_opt_mode": "hess",
+        "post_segments": [],
+    }
+    mixed = {
+        **path_only,
+        "post_segments": [{"endpoint_opt": {}}],
+    }
+
+    path_text = "\n".join(format_method_citations(path_only))
+    mixed_text = "\n".join(format_method_citations(mixed))
+
+    assert "Limited-memory BFGS (L-BFGS)" in path_text
+    assert "RFO / P-RFO" not in path_text
+    assert "RS-I-RFO" not in path_text
+    assert "quasi-RRHO thermochemistry" not in path_text
+    assert "Limited-memory BFGS (L-BFGS)" in mixed_text
+    assert "RFO / P-RFO" in mixed_text
+    assert "RS-I-RFO" in mixed_text
+
+
+def test_dmf_and_split_ts_endpoint_references_follow_effective_settings() -> None:
+    from mlmm.io.summary import format_method_citations
+
+    base = {
+        "pipeline_mode": "tsopt-only",
+        "mep_mode": "dmf",
+        "post_segments": [{"endpoint_opt": {}}],
+        "ts_opt_mode": "hess",
+        "endpoint_opt_mode": "grad",
+    }
+    ts_only = "\n".join(format_method_citations(base))
+    correlated_path = "\n".join(
+        format_method_citations(
+            {
+                **base,
+                "pipeline_mode": "path-search",
+                "path_opt_mode": "grad",
+                "dmf_correlated": True,
+            }
+        )
+    )
+
+    assert "RS-I-RFO" in ts_only
+    assert "Limited-memory BFGS (L-BFGS)" in ts_only
+    assert "Euler predictor-corrector IRC" in ts_only
+    assert "Correlated FB-ENM (CFB-ENM)" in correlated_path
+
+
+def test_final_stdout_places_citations_immediately_before_elapsed(capsys) -> None:
+    from mlmm.workflows.all import _emit_final_summary
+
+    _emit_final_summary(
+        None,
+        time.time(),
+        citation_payload={
+            "pipeline_mode": "path-search",
+            "mep_mode": "dmf",
+            "path_opt_mode": "grad",
+            "post_segments": [],
+        },
+    )
+
+    lines = [line for line in capsys.readouterr().out.splitlines() if line]
+    assert lines[-1].startswith("[all] Elapsed for Whole Pipeline")
+    assert "[6] Methods and citations" in lines[:-1]

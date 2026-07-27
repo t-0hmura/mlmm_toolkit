@@ -268,6 +268,14 @@ def test_tsopt_override_builder_covers_each_forwarded_field(
         ({"freq_symmetry_number": 3}, {"symmetry_number": 3}),
         ({"dump_override_requested": True}, {"dump": False}),
         ({"require_thermo_artifact": True}, {"dump": True}),
+        (
+            {
+                "dump_override_requested": True,
+                "dump": False,
+                "require_thermo_artifact": True,
+            },
+            {"dump": True},
+        ),
         ({"hessian_calc_mode": "Analytical"}, {"hessian_calc_mode": "Analytical"}),
         (
             {"convert_files": False, "convert_files_explicit": True},
@@ -895,8 +903,13 @@ def test_build_pipeline_summary_payload_shape() -> None:
             do_dft=False,
             opt_mode_norm="grad",
             opt_mode_post="HESS",
+            path_opt_mode="grad",
+            post_opt_mode="HESS",
+            ts_opt_mode="HESS",
+            endpoint_opt_mode="GRAD",
             mep_mode="dmf",
             dmf_backend="cpu",
+            dmf_correlated=True,
             command_str="mlmm all -i foo.pdb",
             q_int=-1,
             spin=1,
@@ -906,8 +919,13 @@ def test_build_pipeline_summary_payload_shape() -> None:
     assert payload["refine_path"] is True
     assert payload["opt_mode"] == "grad"
     assert payload["opt_mode_post"] == "hess"
+    assert payload["path_opt_mode"] == "grad"
+    assert payload["post_opt_mode"] == "hess"
+    assert payload["ts_opt_mode"] == "hess"
+    assert payload["endpoint_opt_mode"] == "grad"
     assert payload["mep_mode"] == "dmf"
     assert payload["dmf_backend"] == "cpu"
+    assert payload["dmf_correlated"] is True
     assert payload["charge"] == -1
     assert payload["spin"] == 1
     assert payload["mlip_backend"] == "uma"

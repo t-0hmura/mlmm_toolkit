@@ -240,7 +240,8 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "model_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="PDB defining atoms belonging to the ML region. Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices",
@@ -674,7 +675,7 @@ def cli(
                         "override_yaml": None if override_yaml is None else str(override_yaml),
                         "merged_keys": sorted(merged_yaml_cfg.keys()),
                     },
-                )
+                force=True)
             )
 
         if dry_run:
@@ -1162,7 +1163,11 @@ def cli(
             for tag in ("forward_first", "backward_last"):
                 endpoint_xyz = _irc_output_path(eulerpc, f"{tag}.xyz")
                 endpoint_pdb = _irc_output_path(eulerpc, f"{tag}.pdb")
-                if endpoint_xyz.exists() and not endpoint_pdb.exists():
+                if (
+                    is_convert_file_enabled()
+                    and endpoint_xyz.exists()
+                    and not endpoint_pdb.exists()
+                ):
                     try:
                         convert_xyz_to_pdb(endpoint_xyz, ref_pdb_path, endpoint_pdb)
                         click.echo(f"[convert] Wrote '{endpoint_pdb}'.")

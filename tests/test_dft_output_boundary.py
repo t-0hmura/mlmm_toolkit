@@ -19,14 +19,21 @@ def test_prepare_dft_output_dir_invalidates_prior_public_results(
         out_dir / "result.yaml",
         out_dir / "result.json",
         out_dir / "summary.json",
+        out_dir / "ml_region_without_linkH.xyz",
+        out_dir / "ml_region_with_linkH.xyz",
+        out_dir / "ml_region_without_linkH.pdb",
+        out_dir / "ml_region_with_linkH.pdb",
     ]
     for path in stale:
         path.write_text("stale\n", encoding="utf-8")
+    unrelated = out_dir / "notes.txt"
+    unrelated.write_text("keep\n", encoding="utf-8")
 
     resolved = _prepare_dft_output_dir(out_dir)
 
     assert resolved == out_dir.resolve()
     assert all(not path.exists() for path in stale)
+    assert unrelated.read_text(encoding="utf-8") == "keep\n"
 
 
 def test_dft_error_json_uses_yaml_effective_output_dir(

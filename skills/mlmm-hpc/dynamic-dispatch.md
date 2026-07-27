@@ -124,7 +124,7 @@ else
 fi
 
 # Cleanup
-rm -f "${WORKER}" "${STATE_FILE}" "${LOCK_FILE}" "${TASK_LIST}"
+rm -f "${WORKER}" "${STATE_FILE}" "${LOCK_FILE}"   # never the user-authored ${TASK_LIST}
 echo "All ${TOTAL_TASKS} tasks attempted (worker exit status=${status})."
 exit ${status}
 ```

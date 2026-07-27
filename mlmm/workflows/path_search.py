@@ -60,6 +60,7 @@ from mlmm.core.utils import (
     apply_layer_freeze_constraints,
     apply_ref_pdb_override,
     convert_xyz_to_pdb,
+    is_convert_file_enabled,
     set_convert_file_enabled,
     load_yaml_dict,
     apply_yaml_overrides,
@@ -84,7 +85,7 @@ from mlmm.cli.common_options import add_ml_layer_detection_options, add_precisio
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.cli.preflight import validate_existing_files
 from mlmm.io.trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
-from mlmm.io.summary import write_summary_log
+from mlmm.io.summary import emit_method_citations, method_references, write_summary_log
 from mlmm.domain.bond_changes import compare_structures, summarize_changes
 from mlmm.workflows.align_freeze import align_and_refine_sequence_inplace
 
@@ -235,6 +236,9 @@ def _maybe_convert_to_pdb(in_path: Path, ref_pdb_path: Optional[Path], out_path:
     Return the output path on success, else None.
     """
     try:
+        # path-search set the flag but never read it, so --no-convert-files was a no-op here.
+        if not is_convert_file_enabled():
+            return None
         if ref_pdb_path is None or (not in_path.exists()) or in_path.suffix.lower() not in (".xyz", "_trj.xyz"):
             return None
         out_pdb = out_path if out_path is not None else in_path.with_suffix(".pdb")
@@ -927,7 +931,13 @@ def _stitch_paths(
         if segment_builder is not None and bond_cfg is not None:
             try:
                 adj_changed, adj_summary = _has_bond_change(tail, head, bond_cfg)
-            except Exception:
+            except Exception as _bond_exc:
+                click.echo(
+                    "[path-search] WARNING: the interface bond-change check failed "
+                    f"({_bond_exc}); treating the interface as unchanged, so a reaction step "
+                    "may be missing from the path.",
+                    err=True,
+                )
                 adj_changed, adj_summary = False, ""
 
         if adj_changed and segment_builder is not None:
@@ -1445,8 +1455,8 @@ def _build_multistep_path(
     "model_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="PDB describing atoms that belong to the ML (high-level) region. "
-         "Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices",
@@ -2063,7 +2073,7 @@ def cli(
                             "override": None if override_yaml is None else str(override_yaml),
                             "merged_keys": sorted(merged_yaml_cfg.keys()),
                         },
-                    )
+                    force=True)
                 )
 
             dry_payload: Dict[str, Any] = {
@@ -2198,7 +2208,7 @@ def cli(
                         "override": None if override_yaml is None else str(override_yaml),
                         "merged_keys": sorted(merged_yaml_cfg.keys()),
                     },
-                )
+                force=True)
             )
 
         if int(stopt_cfg.get("max_cycles", 0)) <= 0:
@@ -2358,7 +2368,7 @@ def cli(
         except Exception as e:
             click.echo(f"[plot] WARNING: Failed to plot final energy: {e}", err=True)
 
-        if pdb_input:
+        if pdb_input and is_convert_file_enabled():
             try:
                 final_pdb = out_dir_path / "mep.pdb"
                 convert_xyz_to_pdb(final_trj, ref_pdb_for_segments, final_pdb)
@@ -2603,11 +2613,20 @@ def cli(
             calc_cfg=calc_cfg,
             command=command_str,
         )
+        summary["references"] = method_references(
+            {
+                "pipeline_mode": "path-search",
+                "mep_mode": mep_mode_kind,
+                "path_opt_mode": opt_mode,
+                "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
+            }
+        )
 
         summary = with_current_run_id(summary)
         commit_json_exact(out_dir_path / "summary.json", summary)
         emit(f"[write] Wrote '{out_dir_path / 'summary.json'}'.", detail=True)
 
+        summary_payload_for_citations: Dict[str, Any] = {}
         try:
             freeze_atoms_for_log: List[int] = []
             try:
@@ -2639,7 +2658,8 @@ def cli(
                 "thermo": False,
                 "dft": False,
                 "opt_mode": opt_mode,
-                "mep_mode": "path-search",
+                "mep_mode": mep_mode_kind,
+                "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
                 **_summary_log_provenance(summary),
                 "command": command_str,
                 "charge": calc_cfg.get("model_charge"),
@@ -2650,11 +2670,16 @@ def cli(
                 "energy_diagrams": summary.get("energy_diagrams", []),
                 "key_files": {},
             }
+            summary_payload_for_citations = summary_payload
             write_summary_log(out_dir_path / "summary.log", summary_payload)
             emit(f"[write] Wrote '{out_dir_path / 'summary.log'}'.", detail=True)
         except Exception as e:
             click.echo(f"[write] WARNING: Failed to write summary.log: {e}", err=True)
 
+        from mlmm.core.utils import is_child_mode
+
+        if summary_payload_for_citations and not is_child_mode():
+            emit_method_citations(summary_payload_for_citations)
         emit(format_elapsed("[time] Elapsed for Path Search", time_start), narrative=True)
 
     except ZeroStepLength as e:

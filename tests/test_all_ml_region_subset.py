@@ -24,6 +24,7 @@ from mlmm.workflows.all import (
     _ml_region_summary_suffix,
     _summarize_existing_bfactor_layers,
     _write_bfactor_ml_subset,
+    _write_ml_region_definition,
 )
 
 
@@ -103,6 +104,27 @@ def test_write_bfactor_ml_subset_returns_none_without_ml_atoms(tmp_path: Path):
     assert _write_bfactor_ml_subset(src, dest) is None
     # Caller must be able to fall back: no partial/empty file is relied upon.
     assert not dest.exists()
+
+
+def test_ml_region_definition_removes_extractor_link_h(tmp_path: Path):
+    src = tmp_path / "pocket_with_link.pdb"
+    src.write_text(
+        _atom(1, "CA", "ALA", 1, 0.0, 0.0, 0.0, 0.0, "C")
+        + "HETATM    2  HL  LKH L   1       1.090   0.000   0.000"
+        "  1.00  0.00           H\nEND\n",
+        encoding="utf-8",
+    )
+    dest = tmp_path / "ml_region.pdb"
+
+    result = _write_ml_region_definition(src, dest)
+
+    atom_lines = [
+        line
+        for line in Path(result).read_text(encoding="utf-8").splitlines()
+        if line.startswith(("ATOM", "HETATM"))
+    ]
+    assert len(atom_lines) == 1
+    assert "LKH" not in Path(result).read_text(encoding="utf-8")
 
 
 # --- (ii) validate_charge_spin diagnostics --------------------------------------

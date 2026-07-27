@@ -11,6 +11,7 @@ from pysisyphus.calculators.Calculator import Calculator
 from pysisyphus.intcoords.exceptions import RebuiltInternalsException
 from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.HessianOptimizer import HessianOptimizer
+from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from pysisyphus.tsoptimizers.RSIRFOptimizer import RSIRFOptimizer
 from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer
 from pysisyphus.tsoptimizers.TRIM import TRIM
@@ -325,6 +326,74 @@ def test_lbfgs_rejects_uphill_trial_through_shared_rollback(tmp_path) -> None:
     assert opt.rejected_uphill_steps == 1
     assert opt._trial_max_step == 0.05
     assert np.abs(retry_step).max() <= 0.05
+
+
+@pytest.mark.parametrize(
+    ("energy_change", "max_step", "expected"),
+    [
+        (0.0, 3.56e-4, True),
+        (2.0e-6, 2.00e-4, True),
+        (2.0e-6, 3.00e-4, True),
+        (2.0e-6, 3.56e-4, False),
+    ],
+)
+def test_baker_uses_energy_or_max_step_after_max_force(
+    tmp_path, energy_change, max_step, expected
+) -> None:
+    geom = Geometry(["H"], np.zeros(3), coord_type="cart")
+    geom.set_calculator(_QuadraticCalculator(tmp_path))
+    opt = LBFGS(
+        geom,
+        thresh="baker",
+        overachieve_factor=0.0,
+        out_dir=tmp_path,
+    )
+    opt.cur_cycle = 2
+    opt.last_cycle = 0
+    opt.forces = [np.array([1.0e-5, 0.0, 0.0])]
+    opt.energies = [0.0, energy_change]
+    opt.steps = [np.array([max_step, 0.0, 0.0])]
+
+    converged, conv_info = opt.check_convergence()
+
+    assert converged is expected
+    assert bool(conv_info.max_force_converged)
+    assert bool(conv_info.energy_converged) is (energy_change < 1.0e-6)
+
+
+def test_emergency_stop_accepts_converged_retained_rfo_geometry(
+    tmp_path, capsys
+) -> None:
+    class _EmergencyStopRF(RFOptimizer):
+        def optimize(self):
+            step = super().optimize()
+            if self.cur_cycle >= 1:
+                self.uphill_rejection_stalled = True
+                self.request_stop(
+                    "repeated uphill RFO trials at the emergency trust floor"
+                )
+            return step
+
+    geom = Geometry(["H"], np.array([1.0e-4, 0.0, 0.0]), coord_type="cart")
+    geom.set_calculator(_QuadraticCalculator(tmp_path))
+    opt = _EmergencyStopRF(
+        geom,
+        hessian_init="calc",
+        hessian_recalc=1,
+        thresh="baker",
+        max_cycles=3,
+        out_dir=tmp_path,
+    )
+
+    opt.run()
+
+    stdout = capsys.readouterr().out
+    assert opt.is_converged, stdout
+    assert not opt.stopped
+    assert opt.termination_status == "converged"
+    assert "Converged!" in stdout
+    assert "retained lower-energy geometry satisfies" in stdout
+    assert "without claiming convergence" not in stdout
 
 
 def _ts_optimizer(tmp_path, x, **kwargs):

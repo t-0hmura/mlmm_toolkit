@@ -357,7 +357,12 @@ def align_second_to_first_kabsch_inplace(g_ref, g_mob,
     after_sel = _rmsd(P_sel, Q_aln[use])
 
     if verbose:
-        emit(f"[align] kabsch:     RMSD {before_sel:.6f} Å → {after_sel:.6f} Å (used {n_used})", detail=True)
+        used_label = "freeze atoms" if len(idx) > 0 else "atoms"
+        emit(
+            f"[align] kabsch:     RMSD {before_sel:.6f} Å → "
+            f"{after_sel:.6f} Å (used {n_used} {used_label})",
+            detail=True,
+        )
 
     return {"before_A": before_sel, "after_A": after_sel, "n_used": n_used, "mode": mode}
 

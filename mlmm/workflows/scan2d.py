@@ -258,7 +258,8 @@ def _select_closest_state_1d(
     "--model-pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="PDB defining the ML region. Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices",
@@ -672,7 +673,7 @@ def cli(
                             "one_based": bool(scan_one_based),
                             "pairs_0based": parsed,
                         },
-                    ),
+                    force=True),
                     force=True,
                 )
                 emit(
@@ -680,7 +681,7 @@ def cli(
                         "scan-list",
                         {"d1": (i1 + 1, j1 + 1, low1, high1),
                          "d2": (i2 + 1, j2 + 1, low2, high2)},
-                    ),
+                    force=True),
                     force=True,
                 )
                 # --print-parsed = "just show the parsed spec": exit before

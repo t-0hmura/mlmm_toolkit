@@ -56,6 +56,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
 | `--freq-symmetry-number` | int ≥ 1 | child YAML/default (normally 1) | Use one external rotational symmetry number for every R/TS/P frequency job. Point-group symmetry is not inferred. |
 | `--dft / --no-dft` | flag | off | Run DFT single point on R / TS / P |
+| `--dump / --no-dump` | toggle | off | Control optional optimizer trajectories/restarts. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump`. |
 | `--dft-func-basis` | str | `wb97m-v/def2-tzvpd` | DFT functional/basis (when `--dft` is enabled) |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `--precision` | str | backend-specific | Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64 |
@@ -63,6 +64,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--tr-projection` | str | `constrained` | Forward frozen-boundary TR treatment to TSopt, IRC, freq, and flatten PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. |
 | `--irc-step-size` | float | IRC default `0.10` | Forward a smaller EulerPC maximum step; try `0.05` when an IRC branch stops after only a few frames |
 | `--irc-never-stop / --no-irc-never-stop` | flag | off | Ignore only IRC energy-rise/plateau stops; convergence, invalid-value, and cycle-cap stops remain |
+| `--reject-uphill / --no-reject-uphill` | toggle | on | Applies only to Hessian/RFO post-IRC endpoint re-optimization. At the emergency floor, the retained endpoint receives a final convergence check. It never affects TS optimization or path search. |
 | `-o, --out-dir` | path | `./result_all/` | Top-level output directory |
 | `--config` | path | none | YAML config applied before CLI flags |
 | `--show-config` | flag | off | Print resolved config and continue execution |
@@ -96,6 +98,8 @@ result_all/
 ├── mep.pdb / mep.cif / mep_trj.xyz # CIF companion for bridged input
 ├── mep_plot.png / energy_diagram_MEP.png
 ├── ml_region.pdb / mm_parm/ / layered/   # reusable ONIOM setup (--model-pdb / --parm inputs)
+├── ml_region_without_linkH.{xyz,pdb}      # exact ML selection; PDB companion for PDB input
+├── ml_region_with_linkH.{xyz,pdb}         # ML model with parm7-derived link H
 ├── segments/
 │   └── seg_NN/                     # canonical R/TS/P/IM + per-stage output
 │       ├── reactant.pdb / .cif / .xyz
@@ -137,8 +141,9 @@ and `bond_changes` — the segment record has no `structures` / `tsopt` / `irc` 
 `freq` / `dft` sub-objects. The geometries live on disk directly under
 `segments/seg_NN/`, and each stage's working files under the
 `segments/seg_NN/` stage subdirs (`ts/`, `irc/`, `freq/`, `dft/`); a per-stage
-`result.json` is written there only when `--out-json` is passed (the `all`
-pipeline does not pass it by default).
+`result.json` is written for the `ts` and `irc` stages (and for endpoint-opt and
+path-opt), because `all` passes `--out-json` to those children itself. `freq` and
+`dft` are not given it — rerun those standalone with `--out-json` if you need one.
 
 `--tr-projection constrained` removes only full-system rigid motions that leave
 frozen anchors fixed. Its generic rank is 6/3/1/0 for 0/1/2/3+

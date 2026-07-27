@@ -87,7 +87,7 @@ Every tool returns the same structured dict so the calling agent can dispatch on
 {
     "schema_version": "1.1",         # pin to MCP_SUBCMD_RESULT_SCHEMA_VERSION
     "run_id": str,                   # unique id for this run (added in schema 1.1)
-    "status": "ok" | "failed" | "summary_missing" | "summary_parse_error",
+    "status": "ok" | "failed" | "summary_missing" | "summary_parse_error" | "summary_run_mismatch",
     "exit_code": int,                # subprocess exit code
     "out_dir": str | None,           # working directory the CLI wrote to
     "summary": dict,                 # parsed summary.json (CLI output schema)

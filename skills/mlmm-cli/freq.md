@@ -102,7 +102,10 @@ print(d["frequencies_cm"][:5])          # first five frequencies
 print(d["thermochemistry"]["zpe_ha"])
 print(d["thermochemistry"]["thermal_correction_energy_ha"])
 print(d["thermochemistry"]["S_cal_per_mol_K"])
-print(d["thermochemistry"]["sum_EE_and_thermal_free_energy_ha"])
+t = d["thermochemistry"]
+print(t["electronic_energy_ha"], "+",
+      t["thermal_correction_free_energy_ha"], "=",
+      t["sum_EE_and_thermal_free_energy_ha"])  # E + G_corr = G
 print(d["thermochemistry"]["symmetry_number"],
       d["thermochemistry"]["symmetry_number_source"])
 print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])

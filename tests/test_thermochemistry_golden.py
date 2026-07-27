@@ -344,3 +344,31 @@ def test_imaginary_inversion_and_floor_policy_wavenumbers():
         np.array([25.0, 25.0, 100.0]),
         rtol=RTOL, atol=ATOL,
     )
+
+
+@pytest.mark.parametrize("name", list(FIXTURES))
+def test_reported_gibbs_identity_holds(name):
+    """`E + G_corr = G`, the identity the release reports and result.json now exposes.
+
+    `mlmm/workflows/freq.py` writes `electronic_energy_ha` from `tr.U_el`,
+    `thermal_correction_free_energy_ha` from `tr.dG` and
+    `sum_EE_and_thermal_free_energy_ha` from `tr.G`. A consumer is told those three add up, so
+    pin it against the real library rather than trusting the three writers to stay in step.
+    """
+    tr = _run(FIXTURES[name])
+    electronic_energy_ha = float(tr.U_el)
+    thermal_correction_free_energy_ha = float(tr.dG)
+    sum_EE_and_thermal_free_energy_ha = float(tr.G)
+
+    np.testing.assert_allclose(
+        electronic_energy_ha + thermal_correction_free_energy_ha,
+        sum_EE_and_thermal_free_energy_ha,
+        rtol=RTOL, atol=ATOL,
+        err_msg=f"{name}: E + G_corr != G",
+    )
+    # and the ZPE sum uses the same electronic term
+    np.testing.assert_allclose(
+        electronic_energy_ha + float(tr.ZPE),
+        float(tr.U_el) + float(tr.ZPE),
+        rtol=RTOL, atol=ATOL,
+    )

@@ -38,6 +38,8 @@ STALE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
      "ONIOM import emits identity-verified or element-verified"),
     (re.compile(r"FD Hessians \(more VRAM\)", re.I),
      "Hessian peak memory depends on backend, system, precision, and hardware"),
+    (re.compile(r"No torch / no MLIP dependency", re.I),
+     "domain may use numeric torch/numpy but not MLIP runtime dependencies"),
 )
 
 REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
@@ -48,6 +50,8 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`safeguards`",
         "`hessian_npz`",
         "`rigid_projection.electronic_state_verified`",
+        "`references`",
+        "{method, citation, doi}",
         "must not be used for\npass/HOSP transition-state certification",
     ),
     Path("docs/ja/json-output.md"): (
@@ -57,6 +61,8 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`safeguards`",
         "`hessian_npz`",
         "`rigid_projection.electronic_state_verified`",
+        "`references`",
+        "{method, citation, doi}",
         "pass/HOSP 遷移状態認定には使用できません",
     ),
     Path("skills/mlmm-cli/sp.md"): (
@@ -74,7 +80,51 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("skills/mlmm-workflows-output/SKILL.md"): (
         "`mlip_model`",
         "`mlip_precision`",
+        "`references`",
+        "{method, citation, doi}",
+        "ml_region_{without,with}_linkH.xyz",
+        "parm7 bonds crossing that selection",
     ),
+    Path("docs/dft.md"): (
+        "ml_region_without_linkH.xyz",
+        "ml_region_with_linkH.xyz",
+        "ml_region_without_linkH.pdb",
+        "ml_region_with_linkH.pdb",
+    ),
+    Path("docs/ja/dft.md"): (
+        "ml_region_without_linkH.xyz",
+        "ml_region_with_linkH.xyz",
+        "ml_region_without_linkH.pdb",
+        "ml_region_with_linkH.pdb",
+    ),
+    Path("docs/glossary.md"): (
+        "parm7 bond crossing the real-atom ML/MM selection",
+        "inspection-only pocket caps",
+    ),
+    Path("docs/ja/glossary.md"): (
+        "実在原子のML選択を横切るparm7結合",
+        "抽出用リンク水素",
+    ),
+    Path("skills/mlmm-cli/dft.md"): (
+        "ml_region_without_linkH.xyz",
+        "ml_region_with_linkH.xyz",
+        "ml_region_without_linkH.pdb",
+        "ml_region_with_linkH.pdb",
+    ),
+    Path("skills/mlmm-cli/all.md"): (
+        "the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump`",
+    ),
+    Path("skills/mlmm-cli/tsopt.md"): (
+        "`tsopt` always forces `reject_uphill=False`",
+    ),
+    Path("skills/mlmm-cli/opt.md"): (
+        "final convergence check on the retained geometry",
+        "convergence is `max(|force|) <= 3e-4`",
+        "RMS values are diagnostic",
+    ),
+    Path("docs/freq.md"): ("E + G_corr = G",),
+    Path("docs/ja/freq.md"): ("E + G_corr = G",),
+    Path("skills/mlmm-cli/freq.md"): ("E + G_corr = G",),
     Path("docs/backends.md"): ("mlmm all", "forwards the same factory"),
     Path("docs/ja/backends.md"): ("mlmm all", "同じfactory"),
     Path("docs/add-elem-info.md"): (

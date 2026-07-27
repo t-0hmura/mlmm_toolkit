@@ -125,6 +125,7 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
             "mlip": {"barrier_kcal": 12.0},
             "irc_traj": "irc.xyz",
             "ts_imag": {"n_imag": 1},
+            "endpoint_opt": {"reactant_converged": True},
         }
     ]
     _enrich_summary(
@@ -137,7 +138,16 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
         charge=0,
         spin=1,
         post_segments=post,
-        config={"tsopt": True, "thermo": False, "dft": False},
+        config={
+            "tsopt": True,
+            "thermo": False,
+            "dft": False,
+            "path_opt_mode": "grad",
+            "post_opt_mode": "hess",
+            "ts_opt_mode": "hess",
+            "endpoint_opt_mode": "grad",
+            "mep_mode": "gsm",
+        },
         out_dir=tmp_path,
     )
 
@@ -151,3 +161,15 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
     }
     assert summary["mlip_backend"] == "orb"
     assert summary["mlip_model"] == "orb_v3_conservative_omol"
+    assert any(ref["method"] == "mlmm-toolkit" for ref in summary["references"])
+    assert any(
+        ref["method"] == "Growing String Method (GSM)"
+        for ref in summary["references"]
+    )
+    assert any(
+        ref["method"] == "RS-I-RFO" for ref in summary["references"]
+    )
+    assert any(
+        ref["method"] == "Limited-memory BFGS (L-BFGS)"
+        for ref in summary["references"]
+    )

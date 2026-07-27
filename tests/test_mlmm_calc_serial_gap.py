@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import textwrap
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -49,7 +50,11 @@ def test_idx_is_file_position_not_pdb_serial(tmp_path: Path) -> None:
     core.input_pdb = str(pdb)
     core.model_pdb = str(pdb)
     core.link_mlmm = None
-    ml_ids, links, element_pairs = core._ml_prep()
+    topology = SimpleNamespace(
+        atoms=[SimpleNamespace(idx=index) for index in range(5)],
+        bonds=[],
+    )
+    ml_ids, links, element_pairs = core._ml_prep(topology)
 
     assert ml_ids == ["1", "2", "3", "4", "5"]
     assert links == []

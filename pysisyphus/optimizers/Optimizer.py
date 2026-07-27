@@ -466,7 +466,14 @@ class Optimizer(metaclass=abc.ABCMeta):
             max_thresh = None
         threshs = (rms_thresh, max_thresh)
 
-        if self.rms_force_only:
+        if self.thresh == "baker":
+            use_threshs = (
+                f"\tmax(|force|) <= 0.000300 {fu}",
+                "\tand either:",
+                "\t   |Δ(energy)| < 0.000001 E_h",
+                f"\t   max(|step|) <= 0.000300 {su}",
+            )
+        elif self.rms_force_only:
             use_threshs = (threshs[1],)
         elif self.max_force_only:
             use_threshs = (threshs[0],)
@@ -479,8 +486,6 @@ class Optimizer(metaclass=abc.ABCMeta):
                 f"\t max(|step|) <= {self.max_step_thresh:.6f} {su}",
                 f"\t   rms(step) <= {self.rms_step_thresh:.6f} {su}",
             )
-        if self.thresh == "baker":
-            use_threshs = use_threshs + ("\t   Δ(energy) <= 0.000001 E_h",)
         # Print the threshold block once per process for the same key (=
         # `thresh` setting). Subsequent optimizer instances using the
         # identical thresholds skip the 5-line repeat that otherwise fills
@@ -504,11 +509,12 @@ class Optimizer(metaclass=abc.ABCMeta):
         # self.logger.log(level, message)
 
     def request_stop(self, reason):
-        """Request a clean, non-converged stop after the current trial.
+        """Request a clean stop after the current retained-geometry check.
 
         Optimizer subclasses use this when further retries would only repeat a
-        rejected step.  Keeping this distinct from convergence prevents a
-        safeguarded failure from being reported as a stationary point.
+        rejected step. Genuine convergence found by the next full convergence
+        check takes precedence; otherwise the request terminates the run without
+        convergence.
         """
         self.stop_requested = True
         self.stop_reason = str(reason)
@@ -766,11 +772,19 @@ class Optimizer(metaclass=abc.ABCMeta):
                 if cur_energy.shape == prev_energy.shape:
                     energy_converged = np.all(np.abs(cur_energy - prev_energy) < 1e-6)
 
-            # Enforce at least one new cycle after (re)start and require energy convergence.
+            # Baker's original criterion is max(force) AND
+            # (energy change OR max(step)); RMS values are diagnostic only.
+            # Bakken & Helgaker, J. Chem. Phys. 117, 9160 (2002),
+            # doi:10.1063/1.1515483.
             convergence["energy_converged"] = bool(energy_converged)
             conv_info = ConvInfo(self.cur_cycle, **convergence)
-            converged = (self.cur_cycle > self.last_cycle) and all(convergence.values())
-            # Keep Baker strict: don't bypass the energy criterion via overachievement.
+            converged = (
+                (self.cur_cycle > self.last_cycle)
+                and desired_eigval_structure
+                and (max_force <= 3e-4)
+                and (energy_converged or (max_step <= 3e-4))
+            )
+            # Baker already has its own explicit force/energy-or-step rule.
             overachieved = False
         # Real (physical) terminal convergence, computed WITHOUT the energy
         # plateau.  An energy-only plateau is NOT convergence (M14/P14); it is
@@ -1141,8 +1155,6 @@ class Optimizer(metaclass=abc.ABCMeta):
 
             # Convergence check
             self.is_converged, conv_info = self.check_convergence()
-            if self.stop_requested:
-                self.is_converged = False
 
             end_time = time.time()
             elapsed_seconds = end_time - start_time
@@ -1159,7 +1171,15 @@ class Optimizer(metaclass=abc.ABCMeta):
                 or self.stop_requested
             ):
                 self.print_opt_progress(conv_info)
-            if self.stop_requested:
+            if self.is_converged:
+                # A safeguard may have requested a stop immediately before
+                # this final check. Genuine convergence of the retained
+                # lower-energy geometry takes precedence.
+                self.stop_requested = False
+                self.stop_reason = ""
+                self.table.print("Converged!")
+                break
+            elif self.stop_requested:
                 if self.is_stalled:
                     self.table.print(
                         f"Stalled without convergence: {self.stop_reason}"
@@ -1169,9 +1189,6 @@ class Optimizer(metaclass=abc.ABCMeta):
                         f"Stopped without convergence: {self.stop_reason}"
                     )
                 self.stopped = True
-                break
-            elif self.is_converged:
-                self.table.print("Converged!")
                 break
             # Allow convergence, before checking for too small steps
             elif self.assert_min_step and (step_norm <= self.min_step_norm):

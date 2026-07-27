@@ -1832,7 +1832,21 @@ class MLMMCore:
         self.link_mlmm = link_mlmm
         self.link_atom_method = link_atom_method
         self.use_cmap = use_cmap
-        self.ml_ID, self.mlmm_links, self._link_elem_pairs = self._ml_prep()
+        self.ml_ID, self.mlmm_links, self._link_elem_pairs = self._ml_prep(real_top)
+        link_source = "manual link_mlmm" if self.link_mlmm is not None else "parm7 bonds"
+        logger.info(
+            "[MLMMCore] ML region = %d atoms from model_pdb; link H = %d "
+            "boundary bond(s) from %s",
+            len(self.ml_ID),
+            len(self.mlmm_links),
+            link_source,
+        )
+        if self.mlmm_links:
+            logger.info(
+                "[MLMMCore] Link-H boundary pairs (1-based full-system "
+                "parm7 ML-MM): %s",
+                ", ".join(f"{ml_idx}-{mm_idx}" for ml_idx, mm_idx in self.mlmm_links),
+            )
         if self.link_atom_method == "scaled":
             self._link_g_factors = [
                 _get_g_factor(qm_e, mm_e, "H") for qm_e, mm_e in self._link_elem_pairs
@@ -1880,6 +1894,13 @@ class MLMMCore:
 
         if ml_device == "auto":
             ml_device = "cuda" if torch.cuda.is_available() else "cpu"
+        if ml_device not in ("cuda", "cpu"):
+            # Anything else silently became CPU below, so a typo'd ml_device ran the whole job
+            # on the wrong device without a word.
+            raise ValueError(
+                "ml_device must be 'auto', 'cuda' or 'cpu' (choose the GPU with ml_cuda_idx), "
+                f"got {ml_device!r}"
+            )
         self.device_str = ml_device
         self.ml_device = torch.device(f"cuda:{ml_cuda_idx}" if ml_device == "cuda" else "cpu")
 
@@ -1993,12 +2014,16 @@ class MLMMCore:
     def __del__(self):
         self.cleanup()
 
-    def _ml_prep(self) -> Tuple[List[str], List[Tuple[int, int]], List[Tuple[str, str]]]:
+    def _ml_prep(
+        self,
+        real_topology,
+    ) -> Tuple[List[str], List[Tuple[int, int]], List[Tuple[str, str]]]:
         """Return (ml_ID, mlmm_links, link_elem_pairs)."""
         resolved = resolve_mlmm_atoms(
             self.input_pdb,
             self.model_pdb,
             self.link_mlmm,
+            topology=real_topology,
         )
         return (
             [str(idx) for idx in resolved.model_indices],
@@ -2864,16 +2889,25 @@ class MLMMCore:
 
                     # Mixed scalar/tensor indexing in PyTorch returns (3, K, 3) for
                     # H[scalar, :, tensor, :], so align H_row blocks explicitly.
+                    # Write back by ASSIGNMENT (as the ML-ML block above does), never `.add_()`:
+                    # mixing a scalar and a tensor index is advanced indexing, which returns a
+                    # COPY, so an in-place add on it silently discards the coupling block.
                     if ml_active is not None:
-                        H[ml_active, :, ml_active_idx, :].add_(
-                            H_row[:, 0:3, :].permute(1, 0, 2)
+                        H[ml_active, :, ml_active_idx, :] = (
+                            H[ml_active, :, ml_active_idx, :]
+                            + H_row[:, 0:3, :].permute(1, 0, 2)
                         )
-                        H[ml_active_idx, :, ml_active, :].add_(H_col[:, :, 0:3])
+                        H[ml_active_idx, :, ml_active, :] = (
+                            H[ml_active_idx, :, ml_active, :] + H_col[:, :, 0:3]
+                        )
                     if mm_active is not None:
-                        H[mm_active, :, ml_active_idx, :].add_(
-                            H_row[:, 3:6, :].permute(1, 0, 2)
+                        H[mm_active, :, ml_active_idx, :] = (
+                            H[mm_active, :, ml_active_idx, :]
+                            + H_row[:, 3:6, :].permute(1, 0, 2)
                         )
-                        H[ml_active_idx, :, mm_active, :].add_(H_col[:, :, 3:6])
+                        H[ml_active_idx, :, mm_active, :] = (
+                            H[ml_active_idx, :, mm_active, :] + H_col[:, :, 3:6]
+                        )
                 timing["hess_asm_link_ml_s"] = time.perf_counter() - t_asm
 
             if H_high is not None and link_data:

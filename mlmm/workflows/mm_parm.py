@@ -245,7 +245,10 @@ def parse_ligand_charge(expr: Optional[str]) -> Dict[str, int]:
                 f"(e.g. 'SAM:1,GPP:-3')."
             )
         try:
-            out[k.strip()] = int(v.strip())
+            # Residue names are matched case-insensitively (docs/cli-conventions.md), so
+            # normalize here as extract.py does; a case mismatch would otherwise fall through
+            # to the charge-0 default without any warning.
+            out[k.strip().upper()] = int(v.strip())
         except ValueError:
             raise click.BadParameter(
                 f"--ligand-charge value for '{k.strip()}' must be an integer, got '{v.strip()}'."
@@ -286,7 +289,7 @@ def parse_ligand_mult(expr: Optional[str]) -> Dict[str, int]:
                 f"--ligand-mult value for '{k.strip()}' must be >= 1, "
                 f"got {multiplicity}."
             )
-        out[k.strip()] = multiplicity
+        out[k.strip().upper()] = multiplicity
     return out
 
 
@@ -547,8 +550,8 @@ def insert_ter_around_special_residues(pdb_in: Path, pdb_out: Path, special_resn
         if prev_residue_lines is not None:
             prev_resname = prev_residue_lines[0][17:20].strip()
             curr_resname = current_residue_lines[0][17:20].strip()
-            prev_special = prev_resname in special_resnames
-            curr_special = curr_resname in special_resnames
+            prev_special = prev_resname.upper() in special_resnames
+            curr_special = curr_resname.upper() in special_resnames
             if (prev_special != curr_special and (prev_special or curr_special)) or peptide_break(
                 prev_residue_lines,
                 current_residue_lines,
@@ -583,7 +586,7 @@ def insert_ter_around_special_residues(pdb_in: Path, pdb_out: Path, special_resn
     flush_current()
     if prev_residue_lines is not None:
         prev_resname = prev_residue_lines[0][17:20].strip()
-        if prev_resname in special_resnames:
+        if prev_resname.upper() in special_resnames:
             write_ter_if_needed()
 
     with open(pdb_out, "w") as w:
@@ -746,7 +749,15 @@ def write_tleap_input(
             n1, n2 = resnum_map[key1], resnum_map[key2]
             lines.append(f"bond complex.{n1}.SG complex.{n2}.SG")
         else:
+            # The tleap script comment is invisible to the user, and the residues have already
+            # been renamed to CYX — without the bond the resulting parm7 is chemically wrong.
             lines.append(f"# WARN: could not resolve SS pair ({c1}{r1})-({c2}{r2})")
+            click.echo(
+                f"[mm-parm] WARNING: could not resolve the S-S pair ({c1}{r1})-({c2}{r2}); "
+                "no disulfide bond will be created even though both residues were renamed to "
+                "CYX. Check the residue numbering in the input PDB.",
+                err=True,
+            )
 
     # For logging: print charge in tleap output
     lines.append("charge complex")
@@ -787,7 +798,13 @@ def ambertools_route(
     # PDB as-is, optional TER insertion
     fixed_pdb = copy_pdb_no_fix(pdb, tmpdir)
     if add_ter:
-        special_resnames: Set[str] = set(ligand_charge.keys()) | set(WATER_RES) | set(ION.keys())
+        # Upper-case both sides: the option parsers normalize their keys, WATER_RES/AMINO_ACIDS
+        # are uppercase, and ION deliberately carries both spellings of the same ion with the
+        # same value (e.g. "TL" and "Tl"), so folding case here loses nothing.
+        special_resnames: Set[str] = {
+            str(name).upper()
+            for name in (*ligand_charge.keys(), *WATER_RES, *ION.keys())
+        }
         fixed_pdb_with_ter = tmpdir / "fixed_withTER.pdb"
         insert_ter_around_special_residues(fixed_pdb, fixed_pdb_with_ter, special_resnames)
         fixed_pdb = fixed_pdb_with_ter
@@ -830,15 +847,19 @@ def ambertools_route(
     # Parameterize unknown residues
     lig_defs: List[Tuple[str, Path, Path]] = []
     for rn in sorted(need_params):
-        charge = ligand_charge.get(rn, AMINO_ACIDS.get(rn, 0))
-        mult = ligand_mult.get(rn, 1)
+        # `rn` stays raw for the PDB text (extraction, file names); every mapping lookup and
+        # membership test goes through the normalized form, so a lowercase residue name in the
+        # PDB still matches a `--ligand-charge` entry (and vice versa).
+        rn_key = rn.upper()
+        charge = ligand_charge.get(rn_key, AMINO_ACIDS.get(rn_key, 0))
+        mult = ligand_mult.get(rn_key, 1)
         lig_pdb = tmpdir / f"{rn}.pdb"
         ok = extract_first_residue_pdb(fixed_pdb, rn, lig_pdb)
         if not ok:
             raise RuntimeError(f"Failed to extract PDB for unknown residue {rn}")
 
         # Explicit ligand-charge mappings take highest priority and force GAFF2 parameterization.
-        if rn in ligand_charge:
+        if rn_key in ligand_charge:
             mol2, frcmod = antechamber_parametrize(rn, charge, mult, tmpdir)
             lig_defs.append((rn, mol2, frcmod))
             continue

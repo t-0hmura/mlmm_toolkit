@@ -92,6 +92,31 @@ def resolve_yaml_sources(
     return config_yaml, override_yaml, False
 
 
+# Every top-level section any subcommand reads via apply_yaml_overrides. Deliberately the UNION
+# over all commands: a per-command list would fire on a legitimate shared config file and become
+# noise. `mlmm` is an accepted alias of `calc`.
+_KNOWN_YAML_SECTIONS = frozenset({
+    "geom", "calc", "mlmm", "opt", "lbfgs", "rfo", "rsirfo", "stopt", "gs", "dmf",
+    "sp", "freq", "thermo", "microiter", "hessian_dimer", "irc", "dft", "bond",
+    "bias", "search",
+})
+
+
+def _warn_unknown_yaml_sections(merged: Mapping[str, Any]) -> None:
+    """Tell the user about YAML sections that will be silently ignored.
+
+    A misspelled section name (``clac:`` for ``calc:``) is dropped without a word, so the run
+    completes on stock defaults while the user believes the file took effect.
+    """
+    bad = sorted(k for k in merged if k not in _KNOWN_YAML_SECTIONS)
+    if bad:
+        click.echo(
+            f"[config] WARNING: YAML section(s) {', '.join(bad)} are not recognized and were "
+            f"ignored. Known sections: {', '.join(sorted(_KNOWN_YAML_SECTIONS))}.",
+            err=True,
+        )
+
+
 def load_merged_yaml_cfg(
     config_yaml: Optional[Path],
     override_yaml: Optional[Path],
@@ -107,6 +132,7 @@ def load_merged_yaml_cfg(
     merged: Dict[str, Any] = {}
     deep_update(merged, config_dict)
     deep_update(merged, override_dict)
+    _warn_unknown_yaml_sections(merged)
     return merged, config_dict, override_dict
 
 

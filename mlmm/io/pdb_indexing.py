@@ -252,54 +252,79 @@ def _resolve_manual_links(
     return tuple(pairs)
 
 
-def _detect_link_pairs(
+def _detect_link_pairs_from_topology(
     full_atoms: Sequence[PDBOrdinalAtom],
     model_indices: Sequence[int],
+    topology: object,
 ) -> tuple[tuple[int, int], ...]:
-    threshold = 1.7
-    model_set = set(model_indices)
-    coords = {atom.idx: atom.coord for atom in full_atoms}
-    elems = {atom.idx: atom.elem for atom in full_atoms}
-    pairs: list[tuple[int, int]] = []
-    for ml_idx in model_indices:
-        qcoord = coords[ml_idx]
-        for atom in full_atoms:
-            mm_idx = atom.idx
-            if mm_idx in model_set:
-                continue
-            delta = (
-                qcoord[0] - atom.coord[0],
-                qcoord[1] - atom.coord[1],
-                qcoord[2] - atom.coord[2],
-            )
-            distance = math.sqrt(sum(value * value for value in delta))
-            if distance >= threshold:
-                continue
-            if (elems[ml_idx], elems[mm_idx]) in {
-                ("C", "C"),
-                ("C", "N"),
-                ("N", "C"),
-            }:
-                pairs.append((ml_idx, mm_idx))
+    """Return ML/MM boundary bonds from the parm7 connectivity graph."""
 
-    ml_endpoints = [ml for ml, _ in pairs]
-    mm_endpoints = [mm for _, mm in pairs]
+    top_atoms = getattr(topology, "atoms", None)
+    top_bonds = getattr(topology, "bonds", None)
+    if top_atoms is None or top_bonds is None:
+        raise ValueError(
+            "Automatic link-H detection requires an Amber parm7 topology with "
+            "atom and bond records."
+        )
+    if len(top_atoms) != len(full_atoms):
+        raise ValueError(
+            "Cannot detect ML/MM boundary bonds: input PDB and parm7 contain "
+            f"different atom counts ({len(full_atoms)} != {len(top_atoms)})."
+        )
+
+    model_set = set(model_indices)
+    elems = {atom.idx: atom.elem for atom in full_atoms}
+    pairs: set[tuple[int, int]] = set()
+    for bond in top_bonds:
+        try:
+            left = int(bond.atom1.idx) + 1
+            right = int(bond.atom2.idx) + 1
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ValueError(
+                "Automatic link-H detection found a malformed parm7 bond record."
+            ) from exc
+        left_is_ml = left in model_set
+        right_is_ml = right in model_set
+        if left_is_ml == right_is_ml:
+            continue
+        ml_idx, mm_idx = (left, right) if left_is_ml else (right, left)
+        elem_pair = (elems[ml_idx], elems[mm_idx])
+        if elem_pair not in {("C", "C"), ("C", "N"), ("N", "C")}:
+            raise ValueError(
+                "Unsupported ML/MM boundary bond in parm7: "
+                f"ML atom {ml_idx} ({elem_pair[0]}) - MM atom {mm_idx} "
+                f"({elem_pair[1]}). Move the ML boundary to a supported C-C, "
+                "C-N, or N-C bond."
+            )
+        pairs.add((ml_idx, mm_idx))
+
+    ordered_pairs = sorted(pairs)
+    ml_endpoints = [ml for ml, _ in ordered_pairs]
+    mm_endpoints = [mm for _, mm in ordered_pairs]
     if len(set(ml_endpoints)) != len(ml_endpoints) or len(
         set(mm_endpoints)
     ) != len(mm_endpoints):
         raise ValueError(
-            "Automatic link detection found a boundary atom in multiple pairs; "
-            "specify link_mlmm manually."
+            "The parm7 topology places one boundary atom in multiple ML/MM bonds. "
+            "Move the ML-region boundary so each endpoint belongs to one cut bond, "
+            "or specify link_mlmm manually."
         )
-    return tuple(pairs)
+    return tuple(ordered_pairs)
 
 
 def resolve_mlmm_atoms(
     input_pdb: Path | str,
     model_pdb: Path | str,
     manual_links: Sequence[Sequence[str]] | None = None,
+    *,
+    topology: object | None = None,
 ) -> ResolvedMLMMAtoms:
-    """Resolve the model region and boundary links once, without fuzzy fallback."""
+    """Resolve the model region and boundary links once, without fuzzy fallback.
+
+    Automatic links are the parm7 bonds crossing the ML/MM selection. Coordinates
+    are deliberately not used for bond perception. ``manual_links`` remains an
+    explicit override for unusual topologies; an empty list disables link atoms.
+    """
 
     full_atoms = tuple(parse_pdb_ordinal_atoms(input_pdb))
     model_atoms = tuple(parse_pdb_ordinal_atoms(model_pdb))
@@ -307,7 +332,7 @@ def resolve_mlmm_atoms(
     link_pairs = (
         _resolve_manual_links(full_atoms, model_indices, manual_links)
         if manual_links is not None
-        else _detect_link_pairs(full_atoms, model_indices)
+        else _detect_link_pairs_from_topology(full_atoms, model_indices, topology)
     )
     elem_by_idx = {atom.idx: atom.elem for atom in full_atoms}
     link_element_pairs = tuple(

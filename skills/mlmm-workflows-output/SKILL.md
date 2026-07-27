@@ -18,6 +18,11 @@ through the toolkit.
 > - Every ML/MM-evaluating subcommand requires an Amber `--parm` plus
 >   a layer-encoded PDB (`--detect-layer` from B-factor 0.0/10.0/20.0,
 >   or explicit `--model-pdb`/`--model-indices`).
+> - `--model-pdb` and `--model-indices` select real ML atoms only. Runtime
+>   link H are derived from parm7 bonds crossing that selection, not from a
+>   distance cutoff. `all` and `dft` expose
+>   `ml_region_{without,with}_linkH.xyz`; PDB input also gets matching
+>   `.pdb` companions.
 > - **Microiteration** alternates ML-region geometry steps with MM
 >   relaxation (controlled by `MICROITER_KW` defaults; toggled via
 >   `--microiter / --no-microiter` and `--opt-mode hess` driving the
@@ -223,6 +228,7 @@ Top-level keys:
 | `stage_outcomes` / `point_outcomes` | Fail-closed per-stage / per-scan-point records; require explicit convergence and `usable` / `seed_eligible` when present |
 | `charge` / `spin` | Resolved ML-region charge / multiplicity |
 | `environment` | `{device, gpu_name, gpu_vram_gb, cuda_version, cpu, n_cpus, ram_gb}` |
+| `references` | Methods actually used by the resolved workflow, as `{method, citation, doi}` records. The same set appears at the tail of `summary.log` and final stdout immediately before elapsed time. |
 | `config` | Full effective config after CLI + YAML + defaults merge |
 | `freeze_atoms` | Indices held fixed during optimization (link-H parents) |
 | `n_segments` | Number of path-search segments; validate chemistry before treating a segment as an elementary step |

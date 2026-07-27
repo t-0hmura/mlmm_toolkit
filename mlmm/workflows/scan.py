@@ -215,7 +215,8 @@ def _snapshot_geometry(g) -> Any:
     "--model-pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="PDB defining the ML-region atoms for ML/MM. Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices",
@@ -601,7 +602,9 @@ def cli(
             calc_cfg["freeze_atoms"] = freeze_atoms_final
 
             opt_cfg["out_dir"] = out_dir
-            opt_cfg["dump"] = False
+            # Per-step optimizer dumps are off for a scan unless the user asks: an
+            # unconditional False made `--dump` a silent no-op on this command.
+            opt_cfg["dump"] = bool(dump) if _is_param_explicit("dump") else False
             # Honor the documented precedence defaults < --config YAML < CLI:
             # only override the (already YAML-merged) max_cycles when the user
             # explicitly passed --max-cycles or --relax-max-cycles. Mirrors
@@ -769,7 +772,7 @@ def cli(
                             "one_based": bool(scan_one_based),
                             "stages_0based": stages,
                         },
-                    )
+                    force=True)
                 )
                 # --print-parsed means "just show the parsed spec": exit
                 # before any GPU calculation. (Also gives scan a GPU-free

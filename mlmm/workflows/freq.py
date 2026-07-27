@@ -625,7 +625,8 @@ def _prepare_frequency_output_paths(
     "model_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="PDB defining atoms belonging to the ML region. Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices",
@@ -1127,7 +1128,7 @@ def cli(
                     "override_yaml": None if override_yaml is None else str(override_yaml),
                     "merged_keys": sorted(merged_yaml_cfg.keys()),
                 },
-            )
+            force=True)
         )
 
     if dry_run:
@@ -1577,6 +1578,7 @@ def cli(
             # Echo summary (Gaussian-like)
             click.echo("\nThermochemistry Summary")
             click.echo("------------------------")
+            click.echo(f"Structure               = {input_path}")
             click.echo(f"Temperature (K)         = {T:.2f}")
             click.echo(f"Pressure    (atm)       = {p_atm:.4f}")
             click.echo(
@@ -1591,15 +1593,15 @@ def cli(
             def _cal(x): return f"{float(x): .2f} cal/mol"
             def _calK(x): return f"{float(x): .2f} cal/(mol*K)"
 
-            click.echo(f"Electronic Energy (EE)                 = {_ha(EE)}")
+            click.echo(f"Electronic Energy (E)                  = {_ha(EE)}")
             click.echo(f"Zero-point Energy Correction           = {_ha(ZPE)}")
             click.echo(f"Thermal Correction to Energy           = {_ha(dE_therm)}")
             click.echo(f"Thermal Correction to Enthalpy         = {_ha(dH_therm)}")
-            click.echo(f"Thermal Correction to Free Energy      = {_ha(dG_therm)}")
+            click.echo(f"Gibbs Free Energy Correction (G_corr)  = {_ha(dG_therm)}")
             click.echo(f"EE + Zero-point Energy                 = {_ha(sum_EE_ZPE)}")
             click.echo(f"EE + Thermal Energy Correction         = {_ha(sum_EE_thermal_E)}")
             click.echo(f"EE + Thermal Enthalpy Correction       = {_ha(sum_EE_thermal_H)}")
-            click.echo(f"EE + Thermal Free Energy Correction    = {_ha(sum_EE_thermal_G)}")
+            click.echo(f"Gibbs Free Energy (G = E + G_corr)      = {_ha(sum_EE_thermal_G)}")
             click.echo("")
             click.echo(f"E (Thermal)                            = {_cal(E_thermal_cal)}")
             click.echo(f"Heat Capacity (Cv)                     = {_calK(Cv_cal_per_Kmol)}")
@@ -1609,6 +1611,7 @@ def cli(
             # Dump YAML when requested
             if bool(thermo_cfg["dump"]):
                 payload = {
+                    "structure": str(input_path),
                     "temperature_K": T,
                     "pressure_atm": p_atm,
                     "symmetry_number": symmetry_number,
@@ -1649,6 +1652,10 @@ def cli(
                 "pressure_atm": p_atm,
                 "symmetry_number": symmetry_number,
                 "symmetry_number_source": symmetry_number_source,
+                # The E of the reported "E + G_corr = G" identity, under the same key name
+                # thermoanalysis.yaml uses, so a consumer can check the identity from
+                # result.json alone.
+                "electronic_energy_ha": EE,
                 "zpe_ha": ZPE,
                 "thermal_correction_energy_ha": dE_therm,
                 "thermal_correction_enthalpy_ha": dH_therm,

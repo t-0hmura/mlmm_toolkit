@@ -1,4 +1,4 @@
-"""Contract for the --reject-uphill/--no-reject-uphill endpoint re-opt toggle.
+"""Contracts for uphill rejection in minimum and transition-state searches.
 
 mlmm's `all` runs post-IRC endpoint re-optimization by invoking the `opt` child
 CLI, so the toggle is threaded into `_run_opt_for_state` and forwarded to that
@@ -8,7 +8,9 @@ child as `--reject-uphill` / `--no-reject-uphill`. These tests pin:
 2. both `opt` and `all` expose the toggle with default on;
 3. the default path (flag not passed -> ``reject_uphill=None``) forwards NO token
    to the opt child (byte-identical behavior), while an explicit toggle forwards
-   the matching canonical flag through the real ``_run_opt_for_state`` code path.
+   the matching canonical flag through the real ``_run_opt_for_state`` code path;
+4. TS optimizers force uphill rejection off even when YAML-like input tries to
+   re-enable it.
 """
 
 from __future__ import annotations
@@ -21,10 +23,30 @@ import pytest
 import mlmm.workflows.all as allmod
 from mlmm.cli import cli as root_cli
 from mlmm.core.defaults import RFO_KW
+from mlmm.workflows.tsopt import (
+    _build_rsirfo_kwargs,
+    _force_ts_reject_uphill_off,
+)
 
 
 def test_shipped_default_is_reject_uphill_on() -> None:
     assert RFO_KW["reject_uphill"] is True
+
+
+def test_ts_rfo_forces_reject_uphill_off(tmp_path: Path) -> None:
+    kwargs = _build_rsirfo_kwargs(
+        {"reject_uphill": True},
+        max_cycles=10,
+        out_dir=tmp_path,
+    )
+    assert kwargs["reject_uphill"] is False
+
+
+def test_ts_dimer_forces_reject_uphill_off() -> None:
+    hostile_yaml_cfg = {"reject_uphill": True}
+    effective = _force_ts_reject_uphill_off(hostile_yaml_cfg)
+    assert effective["reject_uphill"] is False
+    assert hostile_yaml_cfg["reject_uphill"] is True
 
 
 @pytest.mark.parametrize("command", ["opt", "all"])

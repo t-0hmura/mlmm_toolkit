@@ -164,8 +164,8 @@ def _resolve_sp_ml_region(
     "--model-pdb", "model_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False, default=None,
-    help="PDB defining atoms that belong to the ML (high-level) region. "
-         "Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices", "model_indices_str",
@@ -398,8 +398,16 @@ def cli(
         # --calc-file overrides --backend with a user ASE Calculator (custom backend).
         from mlmm.backends import apply_calc_file_to_calc_cfg
         apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
+        # --print-every is an optimizer-progress knob and `sp` runs no optimizer. It must not go
+        # into calc_cfg: that dict is splatted into ``mlmm(**calc_cfg)`` below and pysisyphus'
+        # Calculator.__init__ takes no **kwargs, so an unknown key aborts the run with a bare
+        # TypeError. The option stays accepted (shared decorator), but say so rather than
+        # dropping an explicit request silently.
         if _is_param_explicit("print_every") and print_every is not None:
-            calc_cfg["print_every"] = int(print_every)
+            click.echo(
+                "[sp] NOTE: --print-every has no effect on sp (no optimizer runs); ignoring it.",
+                err=True,
+            )
 
         # SP-specific CLI overrides
         if _is_param_explicit("out_dir"):
@@ -480,6 +488,13 @@ def cli(
         calc_cfg["model_mult"] = calc_cfg.pop("spin")
         calc = mlmm(**calc_cfg)
         geom.set_calculator(calc)
+        # pysisyphus' set_calculator REPLACES calc.freeze_atoms with the geometry's list, which
+        # drops the FrozenMM layer the calculator itself unioned in. Restore the union so `sp`
+        # force-masks the frozen layer like opt/freq do — otherwise |force|_max spans atoms the
+        # user marked frozen and is not comparable with the value opt converged on.
+        _frozen_layer = getattr(getattr(calc, "core", None), "frozen_layer_indices", None)
+        if _frozen_layer:
+            calc.freeze_atoms = sorted(set(calc.freeze_atoms) | set(_frozen_layer))
 
         # Energy + forces
         t0 = time.perf_counter()

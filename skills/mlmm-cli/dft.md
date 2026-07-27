@@ -87,7 +87,10 @@ result_dft/
 ├── result.yaml                 # ML(dft)/MM energies + per-atom charges/spin densities
 ├── result.json                 # only when --out-json
 ├── summary.json                # mirror of result.json (only when --out-json)
-└── ml_region_with_linkH.xyz    # ML region + auto-appended link-H (PySCF input snapshot)
+├── ml_region_without_linkH.xyz # exact ML selection before generated link-H
+├── ml_region_with_linkH.xyz    # ML region + generated link-H (PySCF input snapshot)
+├── ml_region_without_linkH.pdb # PDB input only; topology-bearing companion
+└── ml_region_with_linkH.pdb    # PDB input only; generated link-H as HL/LKH
 ```
 
 `result.json` keys (when `--out-json`):

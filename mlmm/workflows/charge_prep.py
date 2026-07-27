@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING, Mapping, Optional, Tuple
 
 import click
 
+from mlmm.core.defaults import BFACTOR_TOLERANCE
+
 if TYPE_CHECKING:  # annotation only — no runtime import edge into ``core``
     from mlmm.core.utils import PreparedInputStructure
 
@@ -87,10 +89,14 @@ def _derive_charge_from_ligand_charge(
     residues = list(complex_struct.get_residues())
     all_residue_ids = {res.get_full_id() for res in residues}
     if select_bfactor_layer:
+        # Use the same predicate the layer parser uses (BFACTOR_TOLERANCE), so the derived
+        # ML-region charge covers exactly the residues that were layered as ML. A hard-coded
+        # 0.5 window dropped residues whose ML atoms sit inside the documented +-1.0 tolerance,
+        # silently under-counting the charge.
         selected_ids = {
             res.get_full_id()
             for res in residues
-            if any(abs(atom.get_bfactor()) < 0.5 for atom in res.get_atoms())
+            if any(abs(atom.get_bfactor()) <= BFACTOR_TOLERANCE for atom in res.get_atoms())
         }
     else:
         selected_ids = set(all_residue_ids)

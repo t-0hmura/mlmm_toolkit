@@ -817,8 +817,8 @@ def _run_dmf_mep(
     "--model-pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="PDB defining the ML region (atom IDs used by the ML/MM calculator). "
-         "Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices",
@@ -1248,7 +1248,7 @@ def cli(
                         "override_yaml": None if override_yaml is None else str(override_yaml),
                         "merged_keys": sorted(merged_yaml_cfg.keys()),
                     },
-                )
+                force=True)
             )
 
         if dry_run:
@@ -1458,13 +1458,12 @@ def cli(
             raise click.ClickException(f"Input alignment failed: {e}") from e
 
         # Collect freeze_atoms for DMF
-        fix_atoms: List[int] = []
-        try:
-            fix_atoms = sorted(
-                {int(i) for g in geoms for i in getattr(g, "freeze_atoms", [])}
-            )
-        except Exception:
-            logger.debug("Failed to extract freeze_atoms from geometries", exc_info=True)
+        # No try/except: swallowing here silently hands DMF an EMPTY frozen set, i.e. runs the
+        # segment unconstrained. The expression cannot fail for the Geometry objects built just
+        # above (freeze_atoms is an int array, and getattr already covers absence).
+        fix_atoms: List[int] = sorted(
+            {int(i) for g in geoms for i in getattr(g, "freeze_atoms", [])}
+        )
 
         if mep_mode_kind == "dmf":
             try:

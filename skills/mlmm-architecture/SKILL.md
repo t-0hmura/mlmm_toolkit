@@ -18,7 +18,8 @@ mlmm/                              ← the package body, one folder per layer
 │               #      `define_layer.py`, `mm_parm.py`, `oniom_export.py`,
 │               #      `oniom_import.py`, ...).
 ├── domain/     # L3 — chemistry-aware helpers (bond changes, bond summary,
-│               #      element-info repair). No torch / no MLIP dependency.
+│               #      element-info repair). May use torch/numpy; no MLIP
+│               #      runtime dependency.
 ├── backends/   # L4a — MLIP backend dispatcher + ML/MM ONIOM calculator core
 │               #       (`mlmm_calc.py`, monolithic — UMA / Orb / MACE /
 │               #       AIMNet2 + OpenMM + hessian_ff coupling). The xTB
