@@ -60,6 +60,7 @@ from mlmm.core.defaults import (
     RSIRFO_KW,
     MICROITER_KW,
     TSOPT_MODE_ALIASES,
+    TS_IMAG_SOFT_WARN_CM,
     BFACTOR_ML,
     BFACTOR_MOVABLE_MM,
     BFACTOR_FROZEN,
@@ -361,6 +362,13 @@ def _path_restart_mode_candidates(
 
 
 
+def _force_ts_reject_uphill_off(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Return TS optimizer kwargs with physical-energy rejection disabled."""
+    effective = dict(kwargs)
+    effective["reject_uphill"] = False
+    return effective
+
+
 def _build_rsirfo_kwargs(
     rsirfo_cfg: Dict[str, Any],
     *,
@@ -388,7 +396,7 @@ def _build_rsirfo_kwargs(
     if mode != "rsirfo":
         args["min_line_search"] = False
         args["max_line_search"] = False
-    return args
+    return _force_ts_reject_uphill_off(args)
 
 
 def _calc_full_hessian_torch(geom, calc_kwargs: Dict[str, Any], device: torch.device) -> torch.Tensor:
@@ -1255,9 +1263,13 @@ def _bofill_update_active(H_act: torch.Tensor,
     # Diagonal contributions (i == j): alpha*xi_i^2 + beta*d_i^2 + 2*gamma*d_i*xi_i
     if is_diag.any():
         idx = iu0[is_diag]
-        H_act[idx, idx].add_(alpha * xi[idx] * xi[idx]
-                             + beta * d[idx] * d[idx]
-                             + 2.0 * gamma * d[idx] * xi[idx])
+        diag_inc = (alpha * xi[idx] * xi[idx]
+                    + beta * d[idx] * d[idx]
+                    + 2.0 * gamma * d[idx] * xi[idx])
+        # CHEMISTRY-RULE:7 write back by ASSIGNMENT, never `.add_()`. `H_act[idx, idx]` with a
+        # tensor index is advanced indexing, which returns a COPY, so an in-place add on it is
+        # silently discarded and the Hessian never updates.
+        H_act[idx, idx] = H_act[idx, idx] + diag_inc
 
     # Off-diagonal (i < j): symmetric update
     if off.any():
@@ -1266,13 +1278,38 @@ def _bofill_update_active(H_act: torch.Tensor,
         inc = (alpha * xi[i] * xi[j]
                + beta * d[i] * d[j]
                + gamma * (d[i] * xi[j] + xi[i] * d[j]))
-        H_act[i, j].add_(inc)
-        H_act[j, i].add_(inc)
+        H_act[i, j] = H_act[i, j] + inc
+        H_act[j, i] = H_act[j, i] + inc
 
     return H_act
 
 
 #                        HessianDimer (extended)
+
+def _warn_if_leading_imaginary_mode_is_soft(ims: Any) -> None:
+    """Warn when the imaginary mode that certifies the saddle is very soft.
+
+    Certification counts imaginary modes (``n_imag == 1``); it does not weigh
+    them, so a few-cm^-1 soft mode certifies exactly like a real reaction
+    coordinate. Bond forming/breaking is normally several hundred cm^-1, so a
+    saddle whose leading mode is tens of cm^-1 is far more likely a soft or
+    spurious mode. This only warns — the status and the counting rule are
+    unchanged.
+    """
+    if ims is None or len(ims) == 0:
+        return
+    leading = min(float(x) for x in ims)
+    if abs(leading) >= TS_IMAG_SOFT_WARN_CM:
+        return
+    emit(
+        f"[tsopt] WARNING: the leading imaginary mode is {leading:.2f} cm^-1, "
+        f"below {TS_IMAG_SOFT_WARN_CM:.0f} cm^-1. A bond forming/breaking "
+        f"reaction coordinate is normally several hundred cm^-1; visualize the "
+        f"mode and confirm IRC connectivity before treating this as a "
+        f"transition state.",
+        narrative=True,
+    )
+
 
 def _tsopt_terminal_status(optimizer: Any, *, saddle_verified: bool) -> str:
     """Compose a TS optimizer's public status (M14/P14).
@@ -1580,7 +1617,7 @@ class HessianDimer:
         self.geom.set_calculator(dimer)
 
         # LBFGS kwargs: enforce thresh/max_cycles/out_dir/dump; allow others
-        lbfgs_kwargs = dict(self.lbfgs_kwargs)
+        lbfgs_kwargs = _force_ts_reject_uphill_off(self.lbfgs_kwargs)
         lbfgs_kwargs.update({
             "max_cycles": n_steps,
             "thresh": threshold,
@@ -2830,7 +2867,8 @@ def _validate_reference_mode_optimizer(
     "model_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="PDB containing the ML-region atoms. Optional when --detect-layer is enabled.",
+    help="ML-only, link-H-free PDB subset; atom identity/order must match the "
+         "full PDB/parm7. Optional when --detect-layer is enabled.",
 )
 @click.option(
     "--model-indices",
@@ -3310,6 +3348,13 @@ def cli(
             (rsirfo_cfg, (("rsirfo",),)),
         ],
     )
+    # A TS search follows a saddle-search direction, so physical energy is not
+    # required to decrease. Keep this invariant after every YAML merge.
+    opt_cfg["reject_uphill"] = False
+    rsirfo_cfg["reject_uphill"] = False
+    simple_cfg["lbfgs"] = _force_ts_reject_uphill_off(
+        simple_cfg.get("lbfgs", {})
+    )
     try:
         geom_cfg["tr_projection"] = normalize_tr_projection_mode(
             geom_cfg.get("tr_projection")
@@ -3410,7 +3455,7 @@ def cli(
                     "override_yaml": None if override_yaml is None else str(override_yaml),
                     "merged_keys": sorted(merged_yaml_cfg.keys()),
                 },
-            )
+            force=True)
         )
 
     if dry_run:
@@ -3585,7 +3630,7 @@ def cli(
             _heavy_micro_cycles: Optional[int] = None
             user_max_cycles = int(opt_cfg["max_cycles"])
             _heavy_cycle_ledger = _OptimizationCycleLedger(user_max_cycles)
-            rsirfo_args = dict(rsirfo_cfg)
+            rsirfo_args = _force_ts_reject_uphill_off(rsirfo_cfg)
             rsirfo_args["out_dir"] = str(out_dir_path)
             rsirfo_args["max_cycles"] = user_max_cycles
             rsirfo_args["dump"] = bool(opt_cfg["dump"])
@@ -3878,6 +3923,7 @@ def cli(
                 n_imag = int(np.sum(neg_mask))
                 ims = [float(x) for x in freqs_cm if x < -abs(neg_freq_thresh_cm)]
                 emit(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
+                _warn_if_leading_imaginary_mode_is_soft(ims)
 
                 saddle_multistart_attempts: List[Dict[str, Any]] = []
                 target_mode_is_negative = getattr(
@@ -4213,6 +4259,14 @@ def cli(
                                 )
                                 _clear_cuda_cache()
                                 freqs_cm, modes = None, None
+                                # Roll back to the last committed state before leaving the loop.
+                                # `geometry` still holds this iteration's flatten displacement,
+                                # which is an uncommitted, unvalidated branch candidate: branch
+                                # selection only commits via `geometry.cart_coords =
+                                # selected_result["coords"]` after the frequency check below.
+                                # Without this, the reported energy and final_geometry.* would
+                                # describe that uncommitted candidate.
+                                geometry.cart_coords = pre_flatten_coords
                                 break
                             raise
 
@@ -4229,6 +4283,7 @@ def cli(
                         _heavy_micro_cycles = selected_result["micro_cycles"]
                         ims = [float(x) for x in freqs_cm if x < -abs(neg_freq_thresh_cm)]
                         emit(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
+                        _warn_if_leading_imaginary_mode_is_soft(ims)
                         (out_dir_path / "final_geometry.xyz").write_text(
                             geometry.as_xyz(), encoding="utf-8"
                         )
@@ -4374,11 +4429,22 @@ def cli(
                 lbfgs_kwargs=dict(simple_cfg.get("lbfgs", {})),
                 max_total_cycles=int(opt_cfg["max_cycles"]),
                 geom_kwargs=dict(geom_cfg),
-                partial_hessian_flatten=partial_hessian_flatten,
+                # `simple_cfg` starts from HESSIAN_DIMER_KW, so these keys are ALWAYS present and
+                # a `.get(key, <cli value>)` default can never be reached — the CLI flag would be
+                # dead and only YAML would work. Apply the documented precedence explicitly.
+                partial_hessian_flatten=bool(
+                    partial_hessian_flatten
+                    if _is_param_explicit("partial_hessian_flatten")
+                    else simple_cfg.get("partial_hessian_flatten", True)
+                ),
                 flatten_sep_cutoff=float(simple_cfg.get("flatten_sep_cutoff", 0.0)),
                 flatten_k=int(simple_cfg.get("flatten_k", 10)),
                 flatten_loop_bofill=bool(simple_cfg.get("flatten_loop_bofill", False)),
-                ml_only_hessian_dimer=bool(simple_cfg.get("ml_only_hessian_dimer", ml_only_hessian_dimer)),
+                ml_only_hessian_dimer=bool(
+                    ml_only_hessian_dimer
+                    if _is_param_explicit("ml_only_hessian_dimer")
+                    else simple_cfg.get("ml_only_hessian_dimer", False)
+                ),
                 analysis_active_atoms=light_active_atoms,
                 source_path=source_path,
                 skip_final_freq=skip_final_freq,

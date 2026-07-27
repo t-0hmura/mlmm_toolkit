@@ -409,6 +409,12 @@ TSOPT_MODE_ALIASES = (
     (("rsprfo",), "rsprfo"),
 )
 
+# Saddle certification counts imaginary modes; it does not weigh them, so a
+# soft mode certifies exactly like a reaction coordinate. A bond-forming or
+# bond-breaking coordinate is normally several hundred cm^-1, so warn (only —
+# the status is unchanged) when the leading imaginary mode is softer than this.
+TS_IMAG_SOFT_WARN_CM = 50.0
+
 
 DIMER_KW: Dict[str, Any] = {
     "length": 0.0189,

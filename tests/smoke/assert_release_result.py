@@ -42,6 +42,12 @@ def count_xyz_frames(path: Path) -> int:
     return frames
 
 
+# The lane's reaction coordinate measures ~-394 cm^-1 under --deterministic.
+# The floor only has to separate a genuine coordinate from the ~-15 cm^-1 soft
+# mode the lane used to reach at random; it is not a physical constant.
+TS_IMAG_FLOOR_CM = 50.0
+
+
 def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
     summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
     require_finite(summary)
@@ -76,8 +82,26 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
     if not segments:
         raise SystemExit("all summary has no post-TS segments")
     for segment in segments:
-        if int((segment.get("ts_imag") or {}).get("n_imag", -1)) != 1:
+        ts_imag = segment.get("ts_imag") or {}
+        if int(ts_imag.get("n_imag", -1)) != 1:
             raise SystemExit("post-TS segment is not a first-order saddle")
+        # n_imag counts modes; it does not weigh them, so a soft mode certifies
+        # exactly like a reaction coordinate. Two runs of this lane from
+        # bit-identical inputs once landed on -448 cm^-1 and on -15 cm^-1, and
+        # the soft one still reported n_imag=1. Bond forming/breaking is
+        # several hundred cm^-1, so hold the lane to a floor.
+        nu = ts_imag.get("nu_imag_max_cm")
+        if nu is None:
+            raise SystemExit(
+                "post-TS segment records no nu_imag_max_cm; the frequency must "
+                "be published so a soft mode is distinguishable from a saddle"
+            )
+        if abs(float(nu)) < TS_IMAG_FLOOR_CM:
+            raise SystemExit(
+                f"post-TS imaginary mode is {float(nu):.2f} cm^-1, below the "
+                f"{TS_IMAG_FLOOR_CM:.0f} cm^-1 floor: this lane converged to a "
+                f"soft mode, not the reaction transition state"
+            )
         tag = str(segment["tag"])
         # Use the directory the producer published for this segment. ``tag`` is
         # the path-search segment id (``seg_%03d``) and is NOT a directory name;

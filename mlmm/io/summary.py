@@ -20,7 +20,223 @@ from mlmm.core.defaults import (
     BFACTOR_FROZEN,
     SEGMENTS_DIRNAME,
     WORK_DIRNAME,
+    TS_IMAG_SOFT_WARN_CM,
 )
+
+_CITATION_RECORDS: Dict[str, tuple[str, str]] = {
+    "software": (
+        "mlmm-toolkit",
+        "Ohmura, T.; Inoue, S.; Terada, T. ML/MM toolkit — Toward Accelerated "
+        "Mechanistic Investigation of Enzymatic Reactions. ChemRxiv (2025). "
+        "https://doi.org/10.26434/chemrxiv-2025-jft1k",
+    ),
+    "pysisyphus": (
+        "pysisyphus engine",
+        "Steinmetzer, J.; Kupfer, S.; Gräfe, S. pysisyphus: Exploring potential "
+        "energy surfaces in ground and excited states. Int. J. Quantum Chem. 121, "
+        "e26390 (2021). https://doi.org/10.1002/qua.26390",
+    ),
+    "gsm_peters": (
+        "Growing String Method (GSM)",
+        "Peters, B.; Heyden, A.; Bell, A. T.; Chakraborty, A. A growing string method "
+        "for determining transition states: Comparison to the nudged elastic band "
+        "and string methods. J. Chem. Phys. 120, 7877-7886 (2004). "
+        "https://doi.org/10.1063/1.1691018",
+    ),
+    "gsm_zimmerman": (
+        "Growing String Method (GSM)",
+        "Zimmerman, P. M. Growing string method with interpolation and optimization "
+        "in internal coordinates: Method and examples. J. Chem. Phys. 138, 184102 "
+        "(2013). "
+        "https://doi.org/10.1063/1.4804162",
+    ),
+    "dmf": (
+        "Direct Max Flux (DMF)",
+        "Koda, S.-i.; Saito, S. Locating Transition States by Variational Reaction "
+        "Path Optimization with an Energy-Derivative-Free Objective Function. "
+        "J. Chem. Theory Comput. 20, 2798-2811 (2024). "
+        "https://doi.org/10.1021/acs.jctc.3c01246",
+    ),
+    "fbenm": (
+        "FB-ENM initialization for DMF",
+        "Koda, S.-i.; Saito, S. Flat-Bottom Elastic Network Model for Generating "
+        "Improved Plausible Reaction Paths. J. Chem. Theory Comput. 20, 7176-7187 "
+        "(2024). https://doi.org/10.1021/acs.jctc.4c00792",
+    ),
+    "cfbenm": (
+        "Correlated FB-ENM (CFB-ENM) initialization for DMF",
+        "Koda, S.-i.; Saito, S. Correlated Flat-Bottom Elastic Network Model for "
+        "Improved Bond Rearrangement in Reaction Paths. J. Chem. Theory Comput. "
+        "21, 3513-3522 (2025). https://doi.org/10.1021/acs.jctc.4c01549",
+    ),
+    "rfo": (
+        "RFO / P-RFO",
+        "Banerjee, A.; Adams, N.; Simons, J.; Shepard, R. Search for stationary "
+        "points on surfaces. J. Phys. Chem. 89, 52-57 (1985). "
+        "https://doi.org/10.1021/j100247a015",
+    ),
+    "lbfgs": (
+        "Limited-memory BFGS (L-BFGS)",
+        "Liu, D. C.; Nocedal, J. On the limited memory BFGS method for large "
+        "scale optimization. Math. Program. 45, 503-528 (1989). "
+        "https://doi.org/10.1007/BF01589116",
+    ),
+    "baker": (
+        "Restricted-step optimization and Baker convergence",
+        "Bakken, V.; Helgaker, T. The efficient optimization of molecular "
+        "geometries using redundant internal coordinates. J. Chem. Phys. 117, "
+        "9160-9174 (2002). https://doi.org/10.1063/1.1515483",
+    ),
+    "rsprfo": (
+        "RS-P-RFO",
+        "Besalú, E.; Bofill, J. M. On the automatic restricted-step rational-"
+        "function-optimization method. Theor. Chem. Acc. 100, 265-274 (1998). "
+        "https://doi.org/10.1007/s002140050387",
+    ),
+    "rsirfo": (
+        "RS-I-RFO",
+        "Besalú, E.; Bofill, J. M. On the automatic restricted-step rational-"
+        "function-optimization method. Theor. Chem. Acc. 100, 265-274 (1998). "
+        "https://doi.org/10.1007/s002140050387",
+    ),
+    "trim": (
+        "Trust-Region Image Minimization (TRIM)",
+        "Helgaker, T. Transition-state optimizations by trust-region image "
+        "minimization. Chem. Phys. Lett. 182, 503-510 (1991). "
+        "https://doi.org/10.1016/0009-2614(91)90115-P",
+    ),
+    "dimer": (
+        "Dimer transition-state search",
+        "Henkelman, G.; Jónsson, H. A dimer method for finding saddle points on "
+        "high dimensional potential surfaces using only first derivatives. "
+        "J. Chem. Phys. 111, 7010-7022 (1999). "
+        "https://doi.org/10.1063/1.480097",
+    ),
+    "eulerpc": (
+        "Euler predictor-corrector IRC (EulerPC)",
+        "Meisner, J.; Markmeyer, M. N.; Bohner, M. U.; Kästner, J. Comparison of "
+        "classical reaction paths and tunneling paths studied with the "
+        "semiclassical instanton theory. Phys. Chem. Chem. Phys. 19, 23085-23094 "
+        "(2017). https://doi.org/10.1039/C7CP03722H",
+    ),
+    "qrrho": (
+        "quasi-RRHO thermochemistry",
+        "Grimme, S. Supramolecular Binding Thermodynamics by Dispersion-Corrected "
+        "Density Functional Theory. Chem. Eur. J. 18, 9955-9964 (2012). "
+        "https://doi.org/10.1002/chem.201200497",
+    ),
+}
+
+
+def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
+    """Resolve citations from methods actually selected in this run."""
+
+    keys = ["software", "pysisyphus"]
+    pipeline_mode = str(payload.get("pipeline_mode") or "").strip().lower()
+    if pipeline_mode != "tsopt-only":
+        mep_mode = str(payload.get("mep_mode") or "").strip().lower()
+        if mep_mode == "gsm":
+            keys.extend(("gsm_peters", "gsm_zimmerman"))
+        elif mep_mode == "dmf":
+            keys.extend(("dmf", "fbenm"))
+            if bool(payload.get("dmf_correlated")):
+                keys.append("cfbenm")
+
+        path_opt_mode = str(
+            payload.get("path_opt_mode") or payload.get("opt_mode") or ""
+        ).strip().lower()
+        if path_opt_mode in {"grad", "light", "lbfgs"}:
+            keys.append("lbfgs")
+        elif path_opt_mode in {"hess", "heavy", "rfo", "rsprfo", "rsirfo"}:
+            keys.extend(("rfo", "baker"))
+
+    post_segments = payload.get("post_segments") or []
+    tsopt_used = bool(payload.get("tsopt_executed")) or any(
+        isinstance(segment, dict) and "endpoint_opt" in segment
+        for segment in post_segments
+    )
+    thermo_used = bool(payload.get("thermo_executed")) or any(
+        isinstance(segment, dict)
+        and (
+            "thermo_mode_validation" in segment
+            or "gibbs_mlip" in segment
+            or "gibbs_dft_mlip" in segment
+        )
+        for segment in post_segments
+    )
+    if thermo_used:
+        keys.append("qrrho")
+
+    if tsopt_used:
+        keys.append("eulerpc")
+        legacy_post_mode = str(
+            payload.get("post_opt_mode")
+            or payload.get("opt_mode_post")
+            or payload.get("opt_mode")
+            or ""
+        ).strip().lower()
+        ts_opt_mode = str(
+            payload.get("ts_opt_mode") or legacy_post_mode
+        ).strip().lower()
+        endpoint_opt_mode = str(
+            payload.get("endpoint_opt_mode") or legacy_post_mode
+        ).strip().lower()
+
+        if ts_opt_mode in {"grad", "light", "lbfgs", "dimer"}:
+            keys.extend(("lbfgs", "dimer"))
+        elif ts_opt_mode in {"hess", "heavy", "rfo", "rsirfo"}:
+            keys.extend(("rfo", "baker", "rsirfo"))
+        elif ts_opt_mode == "rsprfo":
+            keys.extend(("rfo", "baker", "rsprfo"))
+        elif ts_opt_mode == "trim":
+            keys.extend(("baker", "trim"))
+
+        if endpoint_opt_mode in {"grad", "light", "lbfgs", "dimer"}:
+            keys.append("lbfgs")
+        elif endpoint_opt_mode in {
+            "hess",
+            "heavy",
+            "rfo",
+            "rsprfo",
+            "rsirfo",
+            "trim",
+        }:
+            keys.extend(("rfo", "baker"))
+
+    return list(dict.fromkeys(keys))
+
+
+def format_method_citations(payload: Dict[str, Any]) -> List[str]:
+    """Return the citation block shared by summary.log and stdout."""
+
+    lines = ["[6] Methods and citations", "  Please cite the software and methods used:"]
+    for reference in method_references(payload):
+        lines.append(f"  - {reference['method']}: {reference['citation']}")
+    return lines
+
+
+def method_references(payload: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Return machine-readable references for ``summary.json``."""
+
+    references: List[Dict[str, str]] = []
+    for key in _method_citation_record_keys(payload):
+        label, citation = _CITATION_RECORDS[key]
+        doi_url = citation.rsplit("https://doi.org/", 1)[-1]
+        references.append(
+            {
+                "method": label,
+                "citation": citation,
+                "doi": doi_url,
+            }
+        )
+    return references
+
+
+def emit_method_citations(payload: Dict[str, Any]) -> None:
+    """Print the same citation block written to summary.log."""
+
+    print("\n".join(format_method_citations(payload)))
+
 
 REQUIRED_SUMMARY_PAYLOAD_KEYS: tuple[str, ...] = (
     "root_out_dir",
@@ -139,7 +355,7 @@ def _format_ts_imag_info(ts_info: Any) -> List[str]:
     note: Optional[str] = None
     if n_imag is not None:
         if n_imag == 1:
-            if magnitude is not None and magnitude < 100.0:
+            if magnitude is not None and magnitude < TS_IMAG_SOFT_WARN_CM:
                 note = "WARNING      : Imaginary frequency magnitude is small; TS may be poorly optimized."
             else:
                 note = "NOTE         : OK (single imaginary mode)"
@@ -148,7 +364,7 @@ def _format_ts_imag_info(ts_info: Any) -> List[str]:
         else:
             note = "WARNING      : Multiple imaginary frequencies; TS may be poorly optimized."
     elif nu_imag is not None:
-        if magnitude is not None and magnitude < 100.0:
+        if magnitude is not None and magnitude < TS_IMAG_SOFT_WARN_CM:
             note = "WARNING      : Imaginary frequency magnitude is small; TS may be poorly optimized."
         else:
             note = "NOTE         : Single imaginary frequency (count unavailable)"
@@ -761,6 +977,8 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         "summary.json": "Machine-readable results (JSON)",
         "summary.log": "Human-readable results summary",
         "ml_region.pdb": "ML-region definition — reuse via --model-pdb",
+        "ml_region_without_linkH.xyz": "ML-region coordinates without link H",
+        "ml_region_with_linkH.xyz": "ML-region coordinates with parm7-derived link H",
         "mep.pdb": "Full MEP as single PDB (all segments)",
         "mep_trj.xyz": "Full MEP as XYZ trajectory",
         "mep_plot.png": "ML/MM MEP energy plot",
@@ -889,6 +1107,9 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             lines.append("  (root output directory not found on disk)")
     else:
         lines.append("  (root output directory unknown)")
+
+    lines.append("")
+    lines.extend(format_method_citations(payload))
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -61,7 +61,11 @@ from mlmm.workflows import freq as _freq_cli
 from mlmm.workflows import irc as _irc_cli
 
 from mlmm.io.trj2fig import run_trj2fig
-from mlmm.io.summary import write_summary_log
+from mlmm.io.summary import (
+    emit_method_citations,
+    method_references,
+    write_summary_log,
+)
 from mlmm.io.structure_formats import (
     coordinate_template_for,
     register_output_template_and_write_cif,
@@ -74,6 +78,7 @@ from mlmm.core.defaults import (
     SEGMENTS_DIRNAME,
     THRESH_CHOICES,
     WORK_DIRNAME,
+    fresh_dmf_config,
 )
 from mlmm.core.utils import (
     apply_ref_pdb_override,
@@ -366,6 +371,7 @@ def _emit_final_summary(
     out_dir: Path | None,
     time_start: float,
     manifest: Optional[InvocationManifest] = None,
+    citation_payload: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Print a visual `====== Pipeline summary ======` block + Elapsed line.
 
@@ -420,6 +426,8 @@ def _emit_final_summary(
         if out_dir_show:
             _echo(f"Output dir: {out_dir_show}", narrative=True)
         _echo(narrative=True)
+    if citation_payload:
+        emit_method_citations(citation_payload)
     _echo(format_elapsed("[all] Elapsed for Whole Pipeline", time_start), narrative=True)
 
 
@@ -644,16 +652,25 @@ def _inject_coord_type_into_args_yaml(
 
 def _write_ml_region_definition(pocket_pdb: Path, dest: Path) -> Path:
     """
-    Copy ``pocket_pdb`` to ``dest`` for downstream ML/MM commands.
+    Write a link-free atom-selection PDB for downstream ML/MM commands.
 
-    The copy preserves whatever link-hydrogen policy was used during extraction; use ``--no-add-linkh``
-    if you need a link-free ML-region definition.
+    Extractor-only ``HL/LKH`` atoms are removed because the calculator generates
+    link H from the parm7 bonds crossing this selection.
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
-        shutil.copyfile(pocket_pdb, dest)
+        lines = pocket_pdb.read_text(encoding="utf-8", errors="replace").splitlines(
+            keepends=True
+        )
     except FileNotFoundError:
         raise click.ClickException(f"[all] Pocket PDB not found while building ML region: {pocket_pdb}")
+    kept: List[str] = []
+    for line in lines:
+        if line.startswith(("ATOM  ", "HETATM")):
+            if line[12:16].strip() == "HL" and line[17:20].strip() == "LKH":
+                continue
+        kept.append(line)
+    dest.write_text("".join(kept), encoding="utf-8")
     return dest.resolve()
 
 
@@ -678,13 +695,27 @@ def _write_bfactor_ml_subset(src_pdb: Path, dest: Path) -> Optional[Path]:
                 if abs(bf) < 0.5:
                     ml_lines.append(ln)
         if not ml_lines:
+            _echo(
+                f"[all] NOTE: {src_pdb} carries no B-factor ML layer (no B≈0 atoms); "
+                f"the ML region falls back to the full input.",
+                err=True,
+            )
             return None
         dest.parent.mkdir(parents=True, exist_ok=True)
         with open(dest, "w", encoding="utf-8") as fh:
             fh.writelines(ml_lines)
             fh.write("END\n")
         return dest.resolve()
-    except Exception:
+    except Exception as exc:
+        # Never let a read/write failure look like "no ML atoms": the caller falls back to the
+        # FULL input as the ML region, which is exactly the electron-count defect this helper
+        # exists to prevent. Say so instead of returning a silent None.
+        _echo(
+            f"[all] WARNING: could not build the B≈0 ML-region subset from {src_pdb} ({exc}); "
+            f"falling back to the FULL input as the ML region — downstream ML-region checks "
+            f"will count the entire system.",
+            err=True,
+        )
         return None
 
 
@@ -828,6 +859,23 @@ def _build_mm_parm7(
     if not rst7.exists():
         raise click.ClickException(f"[all] mm_parm did not produce rst7 at {rst7}")
     return parm7, rst7
+
+
+def _ts_imag_record(n_imag, imag_freqs_cm=None) -> dict:
+    """Build the `ts_imag` record for summary.json / summary.log.
+
+    The formatter has always been able to render the frequency and to warn on a
+    soft mode, but nothing populated it, so `nu_imag (max)` printed `-` and the
+    warning never fired: a -15 cm^-1 soft mode and a -450 cm^-1 reaction
+    coordinate were indistinguishable downstream. Carry the values through.
+    """
+    record: dict = {"n_imag": int(n_imag)}
+    freqs = [float(x) for x in (imag_freqs_cm or [])]
+    if freqs:
+        record["imag_freqs_cm"] = freqs
+        record["nu_imag_max_cm"] = min(freqs)          # most negative = the certifying mode
+        record["min_abs_imag_cm"] = min(abs(f) for f in freqs)
+    return record
 
 
 def _parse_atom_key_from_line(line: str) -> Optional[AtomKey]:
@@ -1628,6 +1676,21 @@ def _enrich_summary(
         summary["command"] = command
     if config:
         summary["config"] = config
+    citation_config = config or {}
+    summary["references"] = method_references(
+        {
+            "pipeline_mode": pipeline_mode,
+            "opt_mode": citation_config.get("opt_mode"),
+            "opt_mode_post": citation_config.get("opt_mode_post"),
+            "path_opt_mode": citation_config.get("path_opt_mode"),
+            "post_opt_mode": citation_config.get("post_opt_mode"),
+            "ts_opt_mode": citation_config.get("ts_opt_mode"),
+            "endpoint_opt_mode": citation_config.get("endpoint_opt_mode"),
+            "mep_mode": citation_config.get("mep_mode"),
+            "dmf_correlated": citation_config.get("dmf_correlated"),
+            "post_segments": post_segments or [],
+        }
+    )
     if freeze_atoms:
         summary["freeze_atoms"] = freeze_atoms
     if post_segments:
@@ -2913,13 +2976,15 @@ def _dft_succeeded(result: Dict[str, Any]) -> bool:
 
 
 def _dft_energy_ha(result: Dict[str, Any]) -> Optional[float]:
-    """Extract DFT energy in hartree, or None if DFT failed."""
+    """Extract DFT energy in hartree, or None if DFT failed or the value is not finite.
+
+    Non-finite is reported as None at this single chokepoint so that every consumer's
+    ``is not None`` check is sufficient; a NaN/inf must never reach a diagram, summary.json
+    or a logged energy triplet.
+    """
     if not _dft_succeeded(result):
         return None
-    try:
-        return float((result.get("energy") or {}).get("hartree"))
-    except (TypeError, ValueError):
-        return None
+    return _finite_float((result.get("energy") or {}).get("hartree"))
 
 
 def _finite_float(value: Any) -> Optional[float]:
@@ -3206,7 +3271,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--exclude-backbone/--no-exclude-backbone", "exclude_backbone", default=False, show_default=True,
               help="Remove backbone atoms on non‑substrate amino acids (with PRO/HYP safeguards).")
 @click.option("--add-linkh/--no-add-linkh", "add_linkh", default=False, show_default=True,
-              help="Add link hydrogens for severed bonds (carbon-only) in pockets.")
+              help=("Add extractor-only link H to scratch pocket PDBs. The ML/MM "
+                    "model selection remains link-free; runtime link H are generated "
+                    "from parm7 boundary bonds."))
 @click.option("--selected-resn", type=str, default="", show_default=True,
               help="Force-include residues (comma/space separated; chain/insertion codes allowed).")
 @click.option("--modified-residue", type=str, default="", show_default=True,
@@ -3239,7 +3306,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "model_pdb_override",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="Pre-built ML-region PDB (with B-factor layer info). When provided, ml_region generation is skipped.",
+    help=("ML-only atom-selection PDB. It must be an unchanged, link-H-free subset "
+          "of the full PDB/parm7 in the same atom order. It takes precedence "
+          "over an ML selection produced by -c/--center."),
 )
 @click.option("--auto-mm-ff-set", "mm_ff_set",
               type=click.Choice(["ff19SB", "ff14SB"], case_sensitive=False),
@@ -3395,10 +3464,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=True,
     show_default=True,
     help=(
-        "Reject energy-raising RFO trial steps during post-IRC endpoint "
-        "re-optimization ONLY (roll back to the lower-energy geometry and shrink "
-        "the trust radius). Does not affect TS optimization or path search. "
-        "--no-reject-uphill disables it for the endpoint re-optimization."
+        "Reject uphill RFO trials during post-IRC endpoint re-optimization only "
+        "and final-check the retained endpoint at the emergency floor. Does not "
+        "affect TS optimization or path search."
     ),
 )
 @click.option(
@@ -3750,6 +3818,9 @@ def cli(
             else dmf_backend
         )
     ).lower()
+    dmf_correlated_effective = bool(
+        fresh_dmf_config(_dmf_yaml_cfg).get("correlated", False)
+    )
     _injected_coord = (
         str(cli_coord_type).lower()
         if _is_param_explicit("cli_coord_type") and cli_coord_type is not None
@@ -3922,6 +3993,21 @@ def cli(
         tsopt_opt_mode_default = opt_mode_norm
     else:
         tsopt_opt_mode_default = "hess"
+
+    citation_post_segments: List[Dict[str, Any]] = []
+
+    def _all_method_citation_payload() -> Dict[str, Any]:
+        return {
+            "pipeline_mode": all_mode,
+            "path_opt_mode": path_search_opt_mode,
+            "post_opt_mode": tsopt_opt_mode_default,
+            "ts_opt_mode": tsopt_opt_mode_default,
+            "endpoint_opt_mode": endpoint_opt_mode_default,
+            "mep_mode": mep_mode_kind,
+            "dmf_correlated": dmf_correlated_effective,
+            "post_segments": citation_post_segments,
+        }
+
     from mlmm.workflows._all_helpers import (
         build_path_child_argv as _build_path_child_argv,
         build_scan_child_argv as _build_scan_child_argv,
@@ -4116,6 +4202,10 @@ def cli(
         "mep.pdb",
         "mep.cif",
         "ml_region.pdb",
+        "ml_region_without_linkH.xyz",
+        "ml_region_with_linkH.xyz",
+        "ml_region_without_linkH.pdb",
+        "ml_region_with_linkH.pdb",
         "energy_diagram_MEP.png",
         "mep_plot.png",
         "irc_plot_all.png",
@@ -4330,22 +4420,29 @@ def cli(
     # downstream stage that can't read B-factors collapses ML to the entire input
     # (sum_Z=45875 electron-count error at freq/dft).
     if model_pdb_override is not None:
-        ml_region_pdb = model_pdb_override.resolve()
+        model_pdb_source = model_pdb_override.resolve()
         # Safeguard (a): when detect-layer is active, an override --model-pdb should be an
         # ML-only region (B≈0 atoms only). If it is instead a FULL layered system (B≈0 ML
         # atoms alongside MovableMM=10 / FrozenMM=20 atoms), downstream ML-region checks
-        # count the ENTIRE system (huge sum_Z → electron-count error). Warn but keep the
-        # override; behavior is unchanged.
+        # count the ENTIRE system (huge sum_Z → electron-count error). Warn, then
+        # materialize the link-free public selection copy below.
         if detect_layer:
-            _layers = _summarize_existing_bfactor_layers(ml_region_pdb)
+            _layers = _summarize_existing_bfactor_layers(model_pdb_source)
             if _layers.get("ml", 0) > 0 and (_layers.get("movable", 0) + _layers.get("frozen", 0)) > 0:
                 _echo(
-                    f"[all] WARNING: --model-pdb {ml_region_pdb} looks like a full layered system "
+                    f"[all] WARNING: --model-pdb {model_pdb_source} looks like a full layered system "
                     f"(ML={_layers['ml']}, MovableMM={_layers['movable']}, FrozenMM={_layers['frozen']}); "
                     f"downstream ML-region checks will count the ENTIRE system. Pass an ML-only PDB "
                     f"(B≈0 atoms only) as --model-pdb, or omit --model-pdb to auto-generate one."
                 )
-        _echo_detail(f"[all] ML region definition (--model-pdb override) → {ml_region_pdb}{_ml_region_summary_suffix(ml_region_pdb)}")
+        ml_region_pdb = _write_ml_region_definition(
+            model_pdb_source,
+            out_dir / "ml_region.pdb",
+        )
+        _echo_detail(
+            f"[all] ML region selection (--model-pdb {model_pdb_source}) → "
+            f"{ml_region_pdb}{_ml_region_summary_suffix(ml_region_pdb)}"
+        )
     else:
         ml_region_pdb = None
         if skip_extract and detect_layer:
@@ -4384,6 +4481,67 @@ def cli(
             auto_disulfide=mm_auto_disulfide,
         )
         _echo_detail(f"[all] mm_parm outputs → parm7: {real_parm7_path.name}, rst7: {real_rst7_path.name}")
+
+    # Write both model systems before any ML backend is loaded. The ML selection
+    # is link-free; link H atoms are generated exclusively from parm7 bonds that
+    # cross the ML/MM boundary.
+    from mlmm.workflows.dft import (
+        _prepare_ml_region_workspace,
+        write_ml_region_pdb_pair,
+        write_ml_region_xyz_pair,
+    )
+
+    structure_calc_cfg = resolved_calc_template.materialize()
+    region_workspace = _prepare_ml_region_workspace(
+        input_pdb=pdb_for_mm_parm,
+        coordinate_path=None,
+        real_parm7=real_parm7_path,
+        model_pdb=ml_region_pdb,
+        link_mlmm=structure_calc_cfg.get("link_mlmm"),
+        link_atom_method=str(
+            structure_calc_cfg.get("link_atom_method") or "scaled"
+        ).lower(),
+    )
+    try:
+        ml_without_link, ml_with_link = write_ml_region_xyz_pair(
+            region_workspace,
+            out_dir,
+        )
+        n_model_atoms = len(region_workspace.atoms_model)
+        n_link_atoms = len(region_workspace.link_pairs)
+        link_source = (
+            "manual link_mlmm"
+            if structure_calc_cfg.get("link_mlmm") is not None
+            else "parm7 boundary bonds"
+        )
+        _echo_detail(
+            f"[all] ML structure without link H ({n_model_atoms} atoms) → "
+            f"{ml_without_link}"
+        )
+        _echo_detail(
+            f"[all] ML structure with link H ({n_model_atoms} + {n_link_atoms}; "
+            f"links from {link_source}) → {ml_with_link}"
+        )
+        if Path(input_paths[0]).suffix.lower() == ".pdb":
+            ml_without_link_pdb, ml_with_link_pdb = write_ml_region_pdb_pair(
+                region_workspace,
+                out_dir,
+                xyz_paths=(ml_without_link, ml_with_link),
+            )
+            _echo_detail(
+                "[all] PDB companions for the two ML structures → "
+                f"{ml_without_link_pdb}, {ml_with_link_pdb}"
+            )
+        if region_workspace.link_pairs:
+            _echo_detail(
+                "[all] Link-H boundary pairs (1-based full-system parm7 ML-MM): "
+                + ", ".join(
+                    f"{ml_idx}-{mm_idx}"
+                    for ml_idx, mm_idx in region_workspace.link_pairs
+                )
+            )
+    finally:
+        region_workspace.tmpdir.cleanup()
 
     # define-layer: assign 3-layer B-factors to each full-system PDB
     _echo_section("====== [all] Stage 1c — define-layer — assign 3-layer B-factors to full-system PDBs ======")
@@ -4759,7 +4917,10 @@ def cli(
             eR_dft = _dft_energy_ha(dR)
             eT_dft = _dft_energy_ha(dT)
             eP_dft = _dft_energy_ha(dP)
-            _dft_all_ok = all(e is not None for e in (eR_dft, eT_dft, eP_dft))
+            # Match the per-segment gate: a non-finite DFT energy must not reach a diagram.
+            _dft_all_ok = all(
+                e is not None and np.isfinite(e) for e in (eR_dft, eT_dft, eP_dft)
+            )
             if not _dft_all_ok:
                 _failed_states = [s for s, e in zip(["R", "TS", "P"], [eR_dft, eT_dft, eP_dft]) if e is None]
                 _echo(f"[dft] WARNING: DFT failed for state(s): {', '.join(_failed_states)}. Skipping DFT diagrams.", err=True)
@@ -4812,7 +4973,15 @@ def cli(
             changed, bond_summary = _path_search._has_bond_change(g_react, g_prod, bond_cfg)
             if not changed:
                 bond_summary = "(no covalent changes detected)"
-        except Exception:
+        except Exception as exc:
+            # Without this the same string is published for "checked, nothing changed" and
+            # "the check itself failed", so summary.json/summary.log assert no reaction
+            # occurred for a run whose bond analysis never ran.
+            _echo(
+                f"[all] WARNING: bond-change detection failed ({exc}); reporting "
+                "'(no covalent changes detected)' without having compared the endpoints.",
+                err=True,
+            )
             bond_summary = "(no covalent changes detected)"
 
         barrier = (eT - e_react) * AU2KCALPERMOL
@@ -4879,6 +5048,12 @@ def cli(
                 "thermo": do_thermo,
                 "dft": do_dft,
                 "opt_mode": tsopt_opt_mode_default,
+                "path_opt_mode": path_search_opt_mode,
+                "post_opt_mode": tsopt_opt_mode_default,
+                "ts_opt_mode": tsopt_opt_mode_default,
+                "endpoint_opt_mode": endpoint_opt_mode_default,
+                "mep_mode": mep_mode_kind,
+                "dmf_correlated": dmf_correlated_effective,
             },
         )
         try:
@@ -4940,7 +5115,12 @@ def cli(
                 "n_imaginary_modes"
             )
             if tsopt_n_imag is not None:
-                segment_log["ts_imag"] = {"n_imag": int(tsopt_n_imag)}
+                segment_log["ts_imag"] = _ts_imag_record(
+                    tsopt_n_imag,
+                    (getattr(gT, "_tsopt_result", {}) or {}).get(
+                        "imaginary_frequencies_cm"
+                    ),
+                )
         if do_thermo:
             segment_log["thermo_mode_validation"] = (
                 _thermo_mode_validation
@@ -4951,7 +5131,19 @@ def cli(
             except Exception:
                 n_imag = None
             if n_imag is not None:
-                segment_log["ts_imag"] = {"n_imag": n_imag}
+                # thermoanalysis.yaml carries `num_imag_freq` but no frequency
+                # list, so this branch must not clobber the frequencies the
+                # tsopt branch already published above.
+                _prior_freqs = (segment_log.get("ts_imag") or {}).get(
+                    "imag_freqs_cm"
+                )
+                segment_log["ts_imag"] = _ts_imag_record(
+                    n_imag,
+                    (thermo_payloads.get("TS") or {}).get(
+                        "imaginary_frequencies_cm"
+                    )
+                    or _prior_freqs,
+                )
 
         from mlmm.workflows._all_helpers import (
             build_energy_level_dict,
@@ -5017,7 +5209,11 @@ def cli(
                 else ("converged" if do_dft else None)
             ),
             "opt_mode": tsopt_opt_mode_default,
+            "post_opt_mode": tsopt_opt_mode_default,
+            "ts_opt_mode": tsopt_opt_mode_default,
+            "endpoint_opt_mode": endpoint_opt_mode_default,
             "mep_mode": "tsopt-only",
+            "dmf_correlated": dmf_correlated_effective,
             "mlip_backend": mlip_backend_resolved,
             "mlip_model": mlip_model_resolved,
             "mlip_precision": mlip_precision_resolved,
@@ -5052,6 +5248,11 @@ def cli(
                     "dft": do_dft,
                     "dft_status": summary_payload["dft_status"],
                     "opt_mode": tsopt_opt_mode_default,
+                    "path_opt_mode": path_search_opt_mode,
+                    "post_opt_mode": tsopt_opt_mode_default,
+                    "ts_opt_mode": tsopt_opt_mode_default,
+                    "endpoint_opt_mode": endpoint_opt_mode_default,
+                    "dmf_correlated": dmf_correlated_effective,
                 },
             )
             summary["post_segments"] = _json_safe([segment_log])
@@ -5104,7 +5305,13 @@ def cli(
         )
 
         _echo_section("====== [all] TSOPT-only pipeline finished successfully ======")
-        _emit_final_summary(out_dir, time_start, manifest)
+        citation_post_segments = [segment_log]
+        _emit_final_summary(
+            out_dir,
+            time_start,
+            manifest,
+            citation_payload=_all_method_citation_payload(),
+        )
         return
 
     # Stage 1d: Optional scan (single-structure only) to build ordered pocket inputs
@@ -5644,7 +5851,12 @@ def cli(
                 "thermo": do_thermo,
                 "dft": do_dft,
                 "opt_mode": tsopt_opt_mode_default,
+                "path_opt_mode": path_search_opt_mode,
+                "post_opt_mode": tsopt_opt_mode_default,
+                "ts_opt_mode": tsopt_opt_mode_default,
+                "endpoint_opt_mode": endpoint_opt_mode_default,
                 "mep_mode": mep_mode_kind,
+                "dmf_correlated": dmf_correlated_effective,
                 "dmf_backend": dmf_backend_effective,
             },
         )
@@ -5715,6 +5927,8 @@ def cli(
         # I/O wrapper here keeps the original closure capture + error
         # routing semantics so callers do not change.
         from mlmm.workflows._all_helpers import build_pipeline_summary_payload
+        nonlocal citation_post_segments
+        citation_post_segments = list(post_segment_logs)
         try:
             summary_payload = build_pipeline_summary_payload(
                 out_dir=out_dir,
@@ -5729,8 +5943,13 @@ def cli(
                 do_dft=do_dft,
                 opt_mode_norm=opt_mode_norm,
                 opt_mode_post=opt_mode_post,
+                path_opt_mode=path_search_opt_mode,
+                post_opt_mode=tsopt_opt_mode_default,
+                ts_opt_mode=tsopt_opt_mode_default,
+                endpoint_opt_mode=endpoint_opt_mode_default,
                 mep_mode=mep_mode_kind,
                 dmf_backend=dmf_backend_effective,
+                dmf_correlated=dmf_correlated_effective,
                 command_str=command_str,
                 q_int=q_int,
                 spin=spin,
@@ -5755,7 +5974,12 @@ def cli(
             mirrors=(path_dir / "summary.json",),
         )
         # Elapsed time
-        _emit_final_summary(out_dir, time_start, manifest)
+        _emit_final_summary(
+            out_dir,
+            time_start,
+            manifest,
+            citation_payload=_all_method_citation_payload(),
+        )
         return
 
     _echo_section(f"====== [all] Stage 4/{stage_total} — Post-processing per reactive segment ======")
@@ -5771,7 +5995,12 @@ def cli(
             out_dir=out_dir,
             mirrors=(path_dir / "summary.json",),
         )
-        _emit_final_summary(out_dir, time_start, manifest)
+        _emit_final_summary(
+            out_dir,
+            time_start,
+            manifest,
+            citation_payload=_all_method_citation_payload(),
+        )
         return
 
     # Iterate only bond-change segments (kind='seg' and bond_changes not empty and not '(no covalent...)')
@@ -5786,7 +6015,12 @@ def cli(
             out_dir=out_dir,
             mirrors=(path_dir / "summary.json",),
         )
-        _emit_final_summary(out_dir, time_start, manifest)
+        _emit_final_summary(
+            out_dir,
+            time_start,
+            manifest,
+            citation_payload=_all_method_citation_payload(),
+        )
         return
 
     post_segment_logs: List[Dict[str, Any]] = []
@@ -6313,7 +6547,12 @@ def cli(
                 "n_imaginary_modes"
             )
             if tsopt_n_imag is not None:
-                segment_log["ts_imag"] = {"n_imag": int(tsopt_n_imag)}
+                segment_log["ts_imag"] = _ts_imag_record(
+                    tsopt_n_imag,
+                    (getattr(gT, "_tsopt_result", {}) or {}).get(
+                        "imaginary_frequencies_cm"
+                    ),
+                )
         if do_thermo:
             segment_log["thermo_mode_validation"] = (
                 _thermo_mode_validation
@@ -6324,7 +6563,19 @@ def cli(
             except Exception:
                 n_imag = None
             if n_imag is not None:
-                segment_log["ts_imag"] = {"n_imag": n_imag}
+                # thermoanalysis.yaml carries `num_imag_freq` but no frequency
+                # list, so this branch must not clobber the frequencies the
+                # tsopt branch already published above.
+                _prior_freqs = (segment_log.get("ts_imag") or {}).get(
+                    "imag_freqs_cm"
+                )
+                segment_log["ts_imag"] = _ts_imag_record(
+                    n_imag,
+                    (thermo_payloads.get("TS") or {}).get(
+                        "imaginary_frequencies_cm"
+                    )
+                    or _prior_freqs,
+                )
         from mlmm.workflows._all_helpers import (
             build_energy_level_dict,
             build_thermo_symmetry_provenance,
@@ -6433,7 +6684,12 @@ def cli(
                 "thermo": do_thermo,
                 "dft": do_dft,
                 "opt_mode": tsopt_opt_mode_default,
+                "path_opt_mode": path_search_opt_mode,
+                "post_opt_mode": tsopt_opt_mode_default,
+                "ts_opt_mode": tsopt_opt_mode_default,
+                "endpoint_opt_mode": endpoint_opt_mode_default,
                 "mep_mode": mep_mode_kind,
+                "dmf_correlated": dmf_correlated_effective,
                 "dmf_backend": dmf_backend_effective,
             },
         )
@@ -6455,7 +6711,12 @@ def cli(
         out_dir=out_dir,
         mirrors=(path_dir / "summary.json",),
     )
-    _emit_final_summary(out_dir, time_start, manifest)
+    _emit_final_summary(
+        out_dir,
+        time_start,
+        manifest,
+        citation_payload=_all_method_citation_payload(),
+    )
 
 
 _configure_all_help_visibility(cli)
