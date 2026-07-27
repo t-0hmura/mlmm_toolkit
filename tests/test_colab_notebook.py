@@ -195,28 +195,28 @@ def test_colab_notebook_has_valid_code_cells_and_gpu_metadata() -> None:
 def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     setup = _notebook()["cells"][1]["source"]
 
-    assert 'mlmm_ref = "v0.3.3"' in setup
+    assert 'mlmm_toolkit_version = "v0.3.3"' in setup
     # The release notebook installs the pinned wheel from PyPI, the same way a
     # normal user does, so the version guard below compares the version actually
     # resolved by pip against the requested tag.
-    assert "pip('mlmm-toolkit==' + mlmm_ref.lstrip('v'))" in setup
+    assert "pip('mlmm-toolkit==' + mlmm_toolkit_version.lstrip('v'))" in setup
     # The DFT extra installs with a visible log; a quiet pip looked stalled.
-    assert "pip('mlmm-toolkit[dft]==' + mlmm_ref.lstrip('v'))" in setup
+    assert "pip('mlmm-toolkit[dft]==' + mlmm_toolkit_version.lstrip('v'))" in setup
     assert "pip_logged" not in setup
     assert "install_dft is ticked" in setup
     # Gated UMA sign-in is the last step, so no install phase waits on a prompt.
     assert "Hugging Face sign-in runs at the end of Setup" in setup
     assert setup.index("notebook_login()") > setup.index("_phase_done('version verified')")
     assert "git clone" not in setup
-    assert "installed_version != mlmm_ref[1:]" in setup
+    assert "installed_version != mlmm_toolkit_version[1:]" in setup
     assert "anywidget==0.11.0" in setup
     assert "version('mlmm-toolkit')" in setup
     assert "Restart the Colab runtime first" in setup
     assert "mace-torch>=0.3.8" in setup
     assert "HF_TOKEN" in setup
-    assert "install_dft = False" in setup
+    assert 'install_dft = True  #@param {type:"boolean"}' in setup
     assert "INSTALL_DFT = install_dft" in setup
-    assert "Setup activates the selected backend." in setup
+    assert "installs conda-forge dependencies and the selected backend" in setup
     assert "Only the **selected backend** is installed" not in setup
     assert "DFT_SETUP_READY = True" in setup
     assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda12x'}" in setup
@@ -298,11 +298,11 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     assert "DFT support installed: PySCF %s · GPU4PySCF %s" in setup
     assert "py3Dmol" not in setup
     assert "pip('ipywidgets','anywidget==0.11.0','matplotlib')" in setup
-    assert "[%%d/5] %%s".replace("%%", "%") in setup
+    assert "[%%d/6] %%s".replace("%%", "%") in setup
     assert "time.monotonic()" in setup
     assert ".pysisyphusrc" not in setup
     assert "nglview" not in setup
-    assert "first run ~5 min" in setup
+    assert "first run ~12 min" in setup
     assert "first run ~5-10 min" not in setup
 
 
@@ -321,7 +321,7 @@ def test_colab_setup_operates_orb_and_uma_branches(
 
     setup = _notebook()["cells"][1]["source"].replace(
         'backend = "mace"', f'backend = "{backend}"', 1,
-    )
+    ).replace("install_dft = True", "install_dft = False", 1)
     calls: list[list[str]] = []
     logins: list[tuple] = []
 
@@ -374,7 +374,7 @@ def test_colab_gui_is_mlmm_native_and_tracks_structure_contracts() -> None:
     assert "Path(_runtime_path('viewer_input.pdb'))" in app
     assert "callback_ns = 'mlmm_gui'" in app
     assert "_co.register_callback('mlmm_gui.on_click', on_click)" in app
-    assert "target.invokeFunction(cfg.callback+'.'+suffix,args,{})" in app
+    assert "bridge.api.invokeFunction(cfg.callback+'.'+suffix,args,kwargs)" in app
     assert "CHAIN:RESNAME:RESSEQ" in app
     assert "String(item.sourceIndex)" in app
     assert "ML/MM compute commands require a matching Amber parm7" in app
@@ -408,12 +408,13 @@ def test_colab_gui_guards_and_reads_the_edited_output_path() -> None:
     assert "def _matches_output_scope(path, scope):" in app
     assert "def _snapshot_output_scope(scope):" in app
     assert "def _output_scope_collision(scope):" in app
-    assert "scope = _output_scope(a)" in app
+    assert "scope = _preflight_output_scope(a)" in app
     assert "target = scope['target']; out = scope['root']" in app
     assert "out = scope['root']" in app
     assert "os.path.isdir(out)" in app
     assert "_results(out)" in app
-    assert "reuse non-empty out dir" in app
+    assert "fallback = _next_numbered_output_dir(previous)" in app
+    assert "Run not started: refusing to overwrite the existing output:" in app
 
 
 def test_colab_gui_keeps_responsive_release_layout() -> None:
@@ -439,7 +440,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "('Scan 1', 'scan')" in app
     assert "style={'button_width': '74px', 'description_width': '0px'}" in app
     assert "No results yet." in app
-    assert "frame_slider.disabled = False" in app
+    assert "frame_slider.disabled = last == 0" in app
     assert "trajectory_box.layout.display = 'none'" in app
     # Colab renders ipywidgets' Tab and Accordion as empty blocks. The tab
     # buttons keep all panes mounted, preserving upload queues and WebGL state.
@@ -478,19 +479,22 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "'<div class=\"rxmolstar-embed\">%s</div>' % _document_iframe(" in app
     assert "workflow_contract_row = W.HBox([subreq, outputs_html]" in app
     assert "workflow_controls.add_class('rxworkflow-controls')" in app
-    assert "grid-template-columns:minmax(280px,320px) minmax(150px,1fr) 240px" in app
-    assert "height:clamp(640px,calc(100dvh - 104px),920px); overflow:hidden;" in app
+    assert "grid-template-columns:minmax(230px,270px) minmax(140px,1fr) 246px" in app
+    assert "grid-template-columns:minmax(0,2fr) minmax(260px,1fr);" in app
+    assert "height:auto; min-height:0; overflow-x:clip; overflow-y:visible;" in app
+    assert ".rxviewer-page { min-height:800px !important; }" in app
     assert "@media (min-width: 821px) and (max-height: 900px)" in app
-    assert ".rxapp-main { flex:1 1 auto !important; min-height:0; overflow:hidden; }" in app
-    assert ".rxpages { flex:1 1 auto !important; min-height:0; overflow:hidden; }" in app
+    assert ".rxapp-main { flex:0 0 auto !important; min-height:0; overflow:visible; }" in app
+    assert ".rxpages { flex:0 0 auto !important; min-height:0; overflow:visible; }" in app
     assert "row-gap:5px !important;\n  flex:0 0 auto !important; }" in app
     assert ".rxpage > * { flex:0 0 auto !important; }" not in app
-    assert "overscroll-behavior:contain; scrollbar-gutter:stable;" in app
-    assert "flex:0 1 clamp(420px,calc(133.333dvh - 600px),640px) !important;" in app
+    assert "height:auto; max-height:none; min-height:0; overflow:visible;" in app
+    assert "overflow:visible; overscroll-behavior:contain;" in app
+    assert "width:100% !important; min-width:0; max-width:none;" in app
     assert "max-width:clamp(600px,calc(250dvh - 1320px),1000px);" in app
     assert ".rxpath-panel svg, .rxpath-panel img, .rxpath-panel canvas {" in app
-    assert "traj_out = W.Output(layout={'width': '100%', 'min_width': '0'})" in app
-    assert "plot_out = W.Output(layout={'width': '100%', 'min_width': '0'})" in app
+    assert "traj_out = W.HTML(layout={'width': '100%', 'min_width': '0'})" in app
+    assert "plot_out = W.HTML(layout={'width': '100%', 'min_width': '0'})" in app
     assert ".rxresults-actions { flex:0 0 auto !important; min-height:38px; }" in app
     assert "results_actions.add_class('rxresults-actions')" in app
     assert "'flex': '1 1 440px'" not in app
@@ -532,7 +536,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "mlmm_gui.on_drop" not in app
     # Colab draws no AnyWidget and drops a FileUpload's binary buffers, so there
     # every upload ships its bytes through invokeFunction from its own zone.
-    assert "_UPLOAD_MODE = ('colab' if _cwm is not None else" in app
+    assert "_UPLOAD_MODE = ('colab' if IN_COLAB else" in app
     assert "_drop_children = ([upl] if _UPLOAD_MODE == 'anywidget'" in app
     assert "_cwm.register_callback('mlmm_gui.upload_files', _on_colab_upload)" in app
     # callback_ns is local to _molstar_document; the module-level block needs a literal.
@@ -575,8 +579,8 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
         "layoutShowSequence:cfg.showSequence", "layoutShowControls:true",
         "collapseRightPanel:true", "layoutShowLog:false",
         "layoutShowLeftPanel:false", "layoutShowRemoteState:false",
-        "await molstar.Viewer.create", "color:'element-symbol'",
-        "alpha:0.55", "structure-component-static-water",
+        "await molstar.Viewer.create", "params.values.type.name!=='cartoon'",
+        "alpha:0.4", "structure-component-static-water",
         "await configureWater()", "tryCreateComponentStatic(",
         "'mmcif' if fmt in ('cif', 'mmcif')",
         "ignoreStartupEmpty", "loci.kind==='empty-loci'",
@@ -615,14 +619,14 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert "_PICK_HINT[pick_action.value]" not in app
     assert "pick_action.value = 'scanB'" in app
     assert "pick_action.value = 'freezeB'" in app
-    assert "target.invokeFunction(cfg.callback+'.'+suffix,args,{})" in app
+    assert "bridge.api.invokeFunction(cfg.callback+'.'+suffix,args,kwargs)" in app
     assert "String(item.sourceIndex)" in app
     assert "cfg.generation,exact" in app
     assert "if exact in (False, 0, 'false', 'False')" in app
     assert "Mol* focused this residue" in app
     click_completion = app[
         app.index("def on_click("):
-        app.index("try:\n    from google.colab import output as _co")
+        app.index("_co.register_callback('mlmm_gui.on_click', on_click)")
     ]
     assert "if not live_marked:" in click_completion
     assert "selected in (False, 0, 'false', 'False')" not in click_completion
@@ -700,9 +704,15 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert contract["_stationary"]([0.0, 2.0, 0.0], opt) == [
         (0, "initial"), (2, "optimized"),
     ]
-    assert (1, "peak candidate") in contract["_stationary"](
-        [0.0, 2.0, 0.0], path_semantics,
-    )
+    # A trajectory plot labels R and P only (user decision, 2026-07-27). An
+    # energy-only extremum is neither a certified transition state nor a
+    # certified intermediate; the energy diagram is where the profile is read.
+    assert contract["_stationary"]([0.0, 2.0, 0.0], path_semantics) == [
+        (0, "R"), (2, "P"),
+    ]
+    assert contract["_stationary"]([2.0, 0.0, 2.0], path_semantics) == [
+        (0, "R"), (2, "P"),
+    ]
 
 
 def test_colab_results_bind_irc_truth_and_skip_bridge_extrema(tmp_path: Path) -> None:
@@ -929,7 +939,9 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     assert primary_widget.disabled is True
     assert (app["S"]["center"], app["S"]["center_ids"], app["S"]["lcharge"]) == saved
     assert any(
-        isinstance(value, str) and 'class="rxmolstar-frame"' in value
+        isinstance(value, str)
+        and '"type":"rx-load-structure"' in value
+        and '"generation":%d' % app["_VIEWER_GENERATION"]["value"] in value
         for value in calls
     )
     app["dd_subcmd"].value = "scan"
@@ -989,34 +1001,33 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     )
     calls.clear()
     app["S"]["_last_subcmd"] = "path-opt"
+    app["traj_out"].value = '<div class="rxmolstar-frame">stale viewer</div>'
     app["_load_trajectory"](str(trajectory), str(tmp_path))
     assert app["frame_slider"].max == 1 and not app["frame_slider"].disabled
     assert app["trajectory_box"].layout.display == ""
     assert "Frame 1 of 2" in app["frame_state"].value
     assert "ΔE = 0.0 kcal/mol" in app["frame_state"].value
-    trajectory_viewers = [
-        value for value in calls
-        if isinstance(value, str) and 'class="rxmolstar-frame"' in value
-    ]
-    assert len(trajectory_viewers) == 1
-    assert "H 0.000 0.000 0.000" in trajectory_viewers[0]
-    assert "H 1.500 0.000 0.000" in trajectory_viewers[0]
+    # The Results viewer shows this run only: one frame, no stale content.
+    trajectory_viewer = app["traj_out"].value
+    assert "stale viewer" not in trajectory_viewer
+    assert trajectory_viewer.count('class="rxmolstar-frame"') == 1
+    assert "H 0.000 0.000 0.000" in trajectory_viewer
+    assert "H 1.500 0.000 0.000" in trajectory_viewer
     viewer_generation = app["_TRAJ"]["generation"]
 
     calls.clear()
     app["frame_slider"].value = 1
     assert "Frame 2 of 2" in app["frame_state"].value
     assert "ΔE = 6.3 kcal/mol" in app["frame_state"].value
+    # Moving the slider drives the mounted viewer; it must not rebuild it.
+    assert app["traj_out"].value == trajectory_viewer
     replacement_viewers = [
         value for value in calls
         if isinstance(value, str) and 'class="rxmolstar-frame"' in value
     ]
     assert replacement_viewers == []
-    frame_messages = [
-        value for value in calls
-        if isinstance(value, str) and "rx-set-frame" in value
-    ]
-    assert len(frame_messages) == 1
+    frame_signal = app["traj_signal_out"].value
+    assert frame_signal.count('\\"type\\":\\"rx-set-frame\\"') == 1
     assert app["_TRAJ"]["generation"] == viewer_generation
     assert app["_TRAJ"]["frame_message"] == {
         "type": "rx-set-frame", "generation": viewer_generation, "index": 1,
@@ -1258,8 +1269,20 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     with pytest.raises(ValueError, match="Confirm each ligand charge"):
         app["build_cmd"]()
     app["charge_rows"]["LIG"]["use"].value = True
-    with pytest.raises(ValueError, match="Verify the ML-region charge"):
+    # -l is a defensible charge source, so the CLI derives the ML-region charge
+    # and the GUI emits no -q until the user opts into an explicit override.
+    derived_command = app["build_cmd"]()
+    assert "-q" not in derived_command
+    assert derived_command[derived_command.index("-l") + 1] == "LIG:0,MG:2"
+    # With no ligand-charge source at all the ML/MM stage still refuses to run.
+    app["center_widget"].value = ()
+    app["charge_rows"]["LIG"]["use"].value = False
+    app["charge_rows"]["MG"]["use"].value = False
+    with pytest.raises(ValueError, match="verify the ML-region charge"):
         app["build_cmd"]()
+    app["charge_rows"]["MG"]["use"].value = True
+    app["charge_rows"]["LIG"]["use"].value = True
+    app["center_widget"].value = ("MG",)
     app["w_q"].value = -1
     app["w_charge_ok"].value = True
     mg_row["val"].value = 3  # disabled widgets are still mutable from Python
@@ -1284,7 +1307,8 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["S"]["show_water"] is True
     frames = [
         value for value in calls
-        if isinstance(value, str) and 'class="rxmolstar-frame"' in value
+        if isinstance(value, str)
+        and '"type":"rx-load-structure"' in value and '"showWater":true' in value
     ]
     assert frames
     document = app["_molstar_document"](
@@ -1307,7 +1331,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["S"]["_last_pick"]["index"] == 4
     assert app["S"]["_last_pick"]["viewer_index"] == 1
     assert any(
-        isinstance(value, str) and 'class="rxmolstar-frame"' in value
+        isinstance(value, str) and '"type":"rx-load-structure"' in value
         for value in calls
     )
     assert [pick["index"] for pick in app["S"]["_pick_history"]] == [4]
@@ -1542,9 +1566,10 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         "hessian_calc_mode": "FiniteDifference",
         "skip_final_freq": True,
     }
-    app["w_ts"].value = False
     app["w_th"].value = False
     app["adv_dft"].value = False
+    app["w_ts"].value = False
+    assert not app["w_ts"].value and not app["w_ts"].disabled
     off_argv = app["_advanced_argv"]("all")
     for flag in (
         "--irc-step-size", "--opt-mode-post", "--thresh-post",
@@ -1670,10 +1695,11 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     # Charge semantics and controls follow the selected ML/MM workflow.
     app["dd_subcmd"].value = "all"
     assert app["w_q"].description == "ML charge (-q)"
-    assert "Net charge of the ML region" in app["charge_info"].value
+    assert ("the CLI derives the ML-region charge automatically from the "
+            "model atoms") in app["charge_info"].value
     app["dd_subcmd"].value = "sp"
     assert app["w_q"].description == "ML charge (-q)"
-    assert "ML region" in app["charge_info"].value
+    assert "ML-region charge" in app["charge_info"].value
     app["cb_advsub"].value = True
     app["dd_subcmd"].value = "oniom-export"
     assert app["w_q"].description == "QM charge (-q)"
@@ -1990,14 +2016,15 @@ def test_colab_results_keep_missing_energies_unknown(
     )
     app["S"]["_last_subcmd"] = "path-opt"
     rendered.clear()
+    app["plot_out"].value = '<div class="rxenergy-frame">stale energy view</div>'
     app["_load_trajectory"](str(missing_first), str(tmp_path))
     assert app["_TRAJ"]["energies"] == [None, -0.99]
     assert app["_rel_kcal"]() is None
     assert "profile not re-referenced" in app["frame_state"].value
-    assert any(
-        "Energy profile unavailable" in getattr(value, "value", "")
-        for value in rendered
-    )
+    # The energy panel shows this run only: the placeholder replaces the plot.
+    assert "Energy profile unavailable" in app["plot_out"].value
+    assert "stale energy view" not in app["plot_out"].value
+    assert 'class="rxenergy-frame"' not in app["plot_out"].value
 
     missing_middle = tmp_path / "missing_middle_trj.xyz"
     missing_middle.write_text(
@@ -2006,14 +2033,13 @@ def test_colab_results_keep_missing_energies_unknown(
         encoding="utf-8",
     )
     rendered.clear()
+    app["plot_out"].value = '<div class="rxenergy-frame">stale energy view</div>'
     app["_load_trajectory"](str(missing_middle), str(tmp_path))
     assert app["_rel_kcal"]() == [0.0, None]
     app["frame_slider"].value = 1
     assert "ΔE unavailable" in app["frame_state"].value
-    assert any(
-        isinstance(value, str) and 'class="rxenergy-frame"' in value
-        for value in rendered
-    )
+    assert app["plot_out"].value.count('class="rxenergy-frame"') == 1
+    assert "stale energy view" not in app["plot_out"].value
 
 
 def test_colab_operates_scientific_selectors_and_remaining_buttons(
@@ -2421,7 +2447,9 @@ def test_colab_adversarial_session_upload_and_view_state(
     calls.clear()
     app["render_viewer"]()
     assert any(
-        isinstance(value, str) and 'class="rxmolstar-frame"' in value
+        isinstance(value, str)
+        and '"type":"rx-load-structure"' in value
+        and '"generation":%d' % app["_VIEWER_GENERATION"]["value"] in value
         for value in calls
     )
 
@@ -2458,7 +2486,8 @@ def test_colab_adversarial_session_upload_and_view_state(
     saved = app["_session_dict"]()
     saved.update(
         inputs=[str(primary), str(product)], parm=str(topology), mode="pdb",
-        subcmd="all", all_mode="mep", tsopt=False, backend="uma", model="uma-m-1p1",
+        subcmd="all", all_mode="mep", tsopt=False, thermo=False,
+        backend="uma", model="uma-m-1p1",
         rep="sticks", color="spectrum",
     )
     saved["file_identities"]["inputs"] = [
@@ -2532,9 +2561,19 @@ def test_colab_adversarial_session_upload_and_view_state(
         app["_apply_session"](tampered_signature)
     assert json.dumps(app["_session_dict"](), sort_keys=True) == before_tamper
 
-    app["w_reuse"].value = True
+    # The reuse opt-in is gone: an occupied output can never be silently
+    # overwritten, so no per-run opt-in survives into the next run.
     app["_invalidate_last_run"]("new system")
-    assert app["w_reuse"].value is False
+    assert "w_reuse" not in app
+    occupied = tmp_path / "occupied-out"
+    occupied.mkdir()
+    (occupied / "leftover.txt").write_text("x", encoding="utf-8")
+    occupied_argv = ["mlmm", "opt", "-i", str(primary), "-o", str(occupied)]
+    assert app["_output_scope_collision"](app["_output_scope"](occupied_argv))
+    diverted = app["_preflight_output_scope"](occupied_argv)
+    assert diverted is not None
+    assert Path(diverted["root"]).resolve() != occupied.resolve()
+    assert not app["_output_scope_collision"](diverted)
 
     missing = tmp_path / "missing-dir" / "missing.pdb"
     pending = app["_session_dict"]()
@@ -2620,7 +2659,7 @@ def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     assert "key_opts_box = _collapsible('Key options', key_opts_content)" in app
     assert "cmd += ['--flatten']" in app
     assert "cmd += ['--max-cycles', str(int(mc))]" in app
-    assert "b_extract = W.Button(description='Prepare ML-region model'" in app
+    assert "b_extract = W.Button(description='Prepare ML region & use it'" in app
     assert "prep_radius = W.FloatText(" in app
     # The wheel ships no examples, so Load example resolves them from the git
     # tag matching the installed release (a source checkout is used when present).
@@ -2667,7 +2706,9 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "_reset_file_upload(upl)" in app
     assert "if _UPLOAD_MODE == 'anywidget': upl.on_msg(_on_drop_upload)" in app
     assert "pts.append((k, 'TS'))" not in app
-    assert "peak candidate" in app and "minimum candidate" in app
+    assert "points[k] = 'TS candidate'" not in app
+    assert "points[k] = 'minimum candidate'" not in app
+    assert "'extrema': True" not in app
     assert "except KeyboardInterrupt:" in app
     assert "start_new_session=(os.name == 'posix')" in app
     assert "os.killpg(" in app and "signal.SIGTERM" in app and "signal.SIGKILL" in app
@@ -2697,7 +2738,8 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "_tab_body.children = [_TAB_PAGES[i][1]]" not in app
     assert "layout=W.Layout(width='560px')" not in app
     assert "ML-region charge (-q)" in app and "charge verified" in app
-    assert "Verify the ML-region charge (-q)" in app
+    assert ("No ligand-charge source is available; "
+            "verify the ML-region charge (-q) in Options.") in app
     assert ".xyz + reference PDB + .parm7" in app
     assert "utility .gjf / .com / .inp / .csv" in app
     assert app.count("effective = _normalized_scope_argv(a)") == 2
@@ -3099,13 +3141,12 @@ def test_colab_release_state_and_linked_results_regressions(
     assert app["trajectory_content"].layout.display == "none"
 
     rendered.clear()
+    app["plot_out"].value = '<div class="rxenergy-frame">stale energy view</div>'
     app["_load_trajectory"](str(good), str(tmp_path))
-    energy_views = [
-        value for value in rendered
-        if isinstance(value, str) and 'class="rxenergy-frame"' in value
-    ]
-    assert len(energy_views) == 1
-    assert "plotly_click" in html.unescape(energy_views[0])
+    energy_view = app["plot_out"].value
+    assert energy_view.count('class="rxenergy-frame"') == 1
+    assert "stale energy view" not in energy_view
+    assert "plotly_click" in html.unescape(energy_view)
     generation = app["_TRAJ"]["generation"]
     app["_set_frame_from_browser"](generation, 1)
     assert app["frame_slider"].value == 1
@@ -3212,7 +3253,7 @@ def test_colab_uma_login_accepts_a_colab_secret(monkeypatch) -> None:
 
     setup = _notebook()["cells"][1]["source"].replace(
         'backend = "mace"', 'backend = "uma"', 1,
-    )
+    ).replace("install_dft = True", "install_dft = False", 1)
     logins: list[tuple] = []
     fake_hf = types.ModuleType("huggingface_hub")
     fake_hf.login = lambda **kwargs: logins.append(("token", kwargs))
@@ -3254,7 +3295,7 @@ def test_colab_setup_cell_is_frozen() -> None:
     setup = _notebook()["cells"][1]["source"]
     digest = hashlib.sha256(setup.encode("utf-8")).hexdigest()
 
-    assert digest == "2c8638388fd95af6f0a8af738455f98a82fce4c41c96838e91ecf15a723b069e", (
+    assert digest == "13b910b77969e1ec95c3479691e821eb617bedab83d9418b05fe169f59386611", (
         "the Colab Setup cell changed; it is frozen for this release. Re-read the "
         "Setup contracts above, then update this digest deliberately. Got: " + digest
     )
