@@ -881,6 +881,21 @@ def ambertools_route(
         mol2, frcmod = antechamber_parametrize(rn, charge, mult, tmpdir)
         lig_defs.append((rn, mol2, frcmod))
 
+    # A --ligand-charge/--ligand-mult entry for a residue tleap already knows is
+    # simply never read. Silence there reads as "applied", and a mistyped residue
+    # name is exactly how a user ends up parameterizing the wrong net charge.
+    _unused_lig = sorted(
+        (set(ligand_charge) | set(ligand_mult)) - {r.upper() for r in need_params}
+    )
+    if _unused_lig:
+        click.echo(
+            "[mm-parm] WARNING: --ligand-charge/--ligand-mult "
+            f"entr{'y' if len(_unused_lig) == 1 else 'ies'} "
+            f"{', '.join(_unused_lig)} matched no residue needing parameters; "
+            "tleap already has parameters for them, so the value was not used.",
+            err=True,
+        )
+
     # Pass 2 (with generated parameters) -> will (re)write complex.* including PDB
     if need_params:
         # Pass 2 is a distinct output generation.  Remove every pass-1

@@ -366,11 +366,20 @@ def _collect_layer_atom_sets(calc_cfg: Dict[str, Any]) -> Dict[str, set[int]]:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         return layer_sets
-    except Exception:
+    except Exception as exc:
         logger.debug(
             "_collect_layer_atom_sets: failed to construct temp mlmm(); "
             "returning empty layer sets",
             exc_info=True,
+        )
+        # Empty layer sets make every --active-dof-mode collapse to ALL atoms.
+        # A debug-level line is invisible on a normal run, so the user would
+        # read a full-system Hessian as the ml-only one they asked for.
+        click.echo(
+            f"[active-dof] WARNING: could not resolve ML/MM layer sets ({exc}); "
+            "the frequency analysis falls back to ALL atoms regardless of "
+            "--active-dof-mode.",
+            err=True,
         )
         return empty
 
@@ -475,8 +484,15 @@ def _write_mode_trj_and_pdb(geom,
         if is_convert_file_enabled():
             try:
                 convert_xyz_to_pdb(out_trj, ref_pdb, out_pdb)
-            except Exception:
-                # Fallback: generate MODEL/ENDMDL using ASE
+            except Exception as exc:
+                # Fallback: generate MODEL/ENDMDL using ASE. Say so — the file
+                # still appears, but without the reference topology its atom
+                # names and residues are not the input's.
+                click.echo(
+                    "[convert] WARNING: mode PDB fell back to plain ASE output "
+                    f"without the reference topology: {exc}",
+                    err=True,
+                )
                 atoms0 = Atoms(geom.atoms, positions=ref_ang, pbc=False)
                 for i in range(n_frames):
                     phase = np.sin(2.0 * np.pi * i / n_frames)
