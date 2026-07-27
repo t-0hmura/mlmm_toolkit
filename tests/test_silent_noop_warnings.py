@@ -44,3 +44,28 @@ def test_the_layer_fallback_keeps_its_return_contract() -> None:
     i = src.index("could not resolve ML/MM layer sets")
     # `return empty` still follows the echo, so callers are unaffected.
     assert "return empty" in src[i : i + 600]
+
+
+def test_dft_slices_the_model_with_the_same_cmap_rule_as_mlmm() -> None:
+    """`--no-cmap` (the default) must reach dft's own model slice.
+
+    `mlmm_calc.py` drops CMAP terms from the sliced model when `use_cmap` is
+    False, which is the shipped default. `dft.py` built its own model workspace
+    and never read the setting, so with a backbone-containing ML region the two
+    paths computed E_model_low on different models -- and `result.yaml` recorded
+    `use_cmap: False` either way.
+    """
+    import mlmm.workflows.dft as dft_mod
+
+    src = _src(dft_mod)
+    assert "if not use_cmap:" in src
+    assert "model.cmaps[:] = []" in src
+    # Threaded, not read from a global: both call sites must pass it.
+    assert src.count('use_cmap=bool(calc_kw.get("use_cmap", False))') == 2
+    assert "use_cmap: bool = False" in src
+
+
+def test_dft_cmap_default_matches_the_product_default() -> None:
+    from mlmm.core.defaults import MLMM_CALC_KW
+
+    assert MLMM_CALC_KW["use_cmap"] is False

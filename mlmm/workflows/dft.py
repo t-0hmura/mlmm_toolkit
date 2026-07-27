@@ -288,6 +288,7 @@ def _prepare_ml_region_workspace(
     model_pdb: Path,
     link_mlmm: Optional[Sequence[Sequence[str]]],
     link_atom_method: str = "scaled",
+    use_cmap: bool = False,
 ) -> MLRegionWorkspace:
     tmpdir = tempfile.TemporaryDirectory()
     tmp = Path(tmpdir.name)
@@ -367,6 +368,12 @@ def _prepare_ml_region_workspace(
     else:
         model = real_top[selection]
         model.box = None
+        # Match mlmm_calc.py: with use_cmap False (the default) the sliced model
+        # carries no CMAP term. Skipping this left dft's E_model_low computed on
+        # a different model than the ML/MM path uses, whenever the selection
+        # retained a complete CMAP.
+        if not use_cmap:
+            model.cmaps[:] = []
         model.save(str(model_parm7), overwrite=True)
         model.save(str(model_rst7), overwrite=True)
 
@@ -1112,6 +1119,7 @@ def cli(
                     link_atom_method=str(
                         validation_cfg.get("link_atom_method") or "scaled"
                     ).lower(),
+                    use_cmap=bool(calc_kw.get("use_cmap", False)),
                 )
                 try:
                     validate_charge_spin(
@@ -1191,6 +1199,7 @@ def cli(
             model_pdb=Path(calc_kw["model_pdb"]),
             link_mlmm=calc_kw.get("link_mlmm"),
             link_atom_method=str(calc_kw.get("link_atom_method") or "scaled").lower(),
+            use_cmap=bool(calc_kw.get("use_cmap", False)),
         )
         model_charge = int(calc_kw["model_charge"])
         model_mult = int(calc_kw["model_mult"])
