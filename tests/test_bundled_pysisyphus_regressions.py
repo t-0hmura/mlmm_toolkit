@@ -641,6 +641,39 @@ def test_euler_corrector_reaches_unweighted_target_for_heavy_mass() -> None:
     assert unweighted_length == pytest.approx(0.1, abs=1.0e-4)
 
 
+def test_euler_corrector_degrades_instead_of_aborting_on_oscillation(capsys) -> None:
+    """An oscillating DWI must cost one corrector, not the whole IRC.
+
+    The corrector descends the two-point DWI *interpolation*, not the real PES,
+    so a reversal there is an interpolation artefact. Raising instead of
+    returning the last non-oscillating point aborted complete ``mlmm all`` runs
+    from inside a healthy IRC (smoke test19), because this branch is also the
+    integration loop's escape hatch.
+    """
+
+    class OscillatingDWI:
+        """1-D well at the origin; fixed-length descent overshoots and flips."""
+
+        @staticmethod
+        def interpolate(coords, gradient=True):
+            return 0.0, coords.copy()
+
+    irc = EulerPC.__new__(EulerPC)
+    irc._m_sqrt = np.array([1.0])
+    irc._act_dofs = np.array([0])
+    irc.log = lambda *_: None
+    start = np.array([0.02])
+
+    corrected = irc.corrector_step(start, 0.1, OscillatingDWI())
+
+    assert np.all(np.isfinite(corrected))
+    # Degraded, not aborted: short of the requested 0.1 but still advancing, so
+    # the caller gets a usable geometry and the IRC keeps going.
+    advance = float(np.linalg.norm(corrected - start))
+    assert 0.0 < advance < 0.1
+    assert "oscillated" in capsys.readouterr().out
+
+
 def test_euler_corrector_rejects_incomplete_zero_gradient() -> None:
     class ZeroDWI:
         @staticmethod

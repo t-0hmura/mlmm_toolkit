@@ -350,10 +350,22 @@ class EulerPC(IRC):
                     # TODO: Handle this by restarting everything with a smaller stepsize?
                     # Check 10.1039/c7cp03722h SI
                     if osc_norm <= corr_step_length:
-                        raise RuntimeError(
-                            "Corrector integration oscillated before reaching "
-                            f"the target at level {k}."
+                        # The corrector descends the DWI *interpolated* surface,
+                        # not the real PES, so a reversal here is an artefact of
+                        # the two-point interpolation, not a physical failure.
+                        # Abort only the corrector and keep the last
+                        # non-oscillating point, as upstream pysisyphus does:
+                        # this branch is also the integration loop's escape
+                        # hatch, so raising leaves the step budget below as the
+                        # only exit and kills an otherwise healthy IRC.
+                        msg = (
+                            "Corrector-Euler integration oscillated at level "
+                            f"{k} ({points} points); keeping the last "
+                            "non-oscillating point for this IRC step."
                         )
+                        print(f"WARNING: {msg}")
+                        self.log(f"\t{msg}")
+                        return prev_coords
             if not reached_target:
                 raise RuntimeError(
                     "Corrector integration exhausted its mass-aware step "
