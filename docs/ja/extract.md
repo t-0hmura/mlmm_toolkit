@@ -74,7 +74,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
  # 単一入力 -> デフォルトで pocket.pdb
  # 複数入力で -o なし -> 構造ごとの pocket_<original_basename>.pdb
  # 複数入力で -o 1 つ -> 単一マルチ MODEL PDB
- # 出力ディレクトリは自動作成されません; 事前に存在を確認してください
+ # -o の親ディレクトリは存在しなければ自動作成されます
 ```
 - `pocket.pdb`（または `-o` によるカスタムパス）
 - verbose モード有効時、モデル #1 の電荷サマリー（タンパク質/リガンド/イオン/合計）がログに出力されます。

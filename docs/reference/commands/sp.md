@@ -18,9 +18,9 @@ Options:
   --parm, --real-parm7 FILE       Amber parm7 of the full enzyme (canonical flag
                                   is --parm; --real-parm7 retained as alias).
                                   [required]
-  --model-pdb FILE                PDB defining atoms that belong to the ML
-                                  (high-level) region. Optional when --detect-
-                                  layer is enabled.
+  --model-pdb FILE                ML-only, link-H-free PDB subset; atom
+                                  identity/order must match the full PDB/parm7.
+                                  Optional when --detect-layer is enabled.
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.

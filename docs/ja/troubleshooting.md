@@ -40,7 +40,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 - その後、`extract` / `all` を補完後の PDB で再実行します。
 
 なぜ発生するか:
-- PDB によっては元素カラムが一貫して埋められていないことがあります。`extract` は正確な原子型判定のために元素記号を必要とします。
+- PDB によっては元素列が一貫して埋められていないことがあります。`extract` は正確な原子型判定のために元素記号を必要とします。
 
 ---
 
@@ -316,7 +316,7 @@ To rebuild hessian_ff native extensions in this environment:
 - `--model-pdb` が正しく ML 領域の原子を定義しているか確認する
 - `define-layer` の距離カットオフを調整する:
  - `--radius-freeze`（デフォルト 8.0 Å）: Movable-MM/Frozen の境界を制御
-- 必要に応じて、計算オプション（`hess_cutoff`, `hess_mm_atoms`）でHessian対象 MM を別途制御する
+- 必要に応じて、計算オプション（`hess_cutoff`, `hess_mm_atoms`）で Hessian 対象 MM を別途制御する
 - YAML で `use_bfactor_layers: true` を使う場合、B-factor 値が期待されるエンコーディング（0.0, 10.0, 20.0; 許容差 1.0）と一致するか確認する
 
 ---
@@ -416,14 +416,14 @@ Plotly/Chrome 系のエラーで静的画像が出ない場合:
 症状:
 - `torch.cuda.OutOfMemoryError: CUDA out of memory`
 - 「CUDA out of memory」メッセージ
-- Hessian計算中にシステムがハングまたはクラッシュする
+- Hessian 計算中にシステムがハングまたはクラッシュする
 
 ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の負荷が高くなります。
 
 対処の例（優先度順）:
-- **Frozen 層を確認**: `define-layer` で Frozen 原子（B=20.0）が正しく割り当てられているか確認する。Frozen 領域が小さすぎると、Movable-MM 領域（ひいてはHessian）が不必要に大きくなる。`--radius-freeze` を小さくして Frozen 領域を拡大する。
+- **Frozen 層を確認**: `define-layer` で Frozen 原子（B=20.0）が正しく割り当てられているか確認する。Frozen 領域が小さすぎると、Movable-MM 領域（ひいては Hessian）が不必要に大きくなる。`--radius-freeze` を小さくして Frozen 領域を拡大する。
 - **ML 領域サイズを縮小**: `extract` の `--radius` を小さくするか、`--model-pdb` で手動定義した小さい ML 領域 PDB を指定する。
-- **有限差分 ML Hessianを使用**: `--hessian-calc-mode FiniteDifference`（VRAM 消費が少ないが低速）。
+- **有限差分 ML Hessian を使用**: `--hessian-calc-mode FiniteDifference`（VRAM 消費が少ないが低速）。
 - **`define-layer` で事前に層を定義** し、`use_bfactor_layers: true` で読み取る。
 - **GPU メモリが大きいカードに変更**: 500 原子以上の ML 領域には 24 GB 以上推奨、1000 原子以上には 48 GB 以上推奨。
 
@@ -441,8 +441,8 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
 - 最大サイクル数を増やす: `--max-cycles 20000`
 - より厳しい収束閾値を使う: `--thresh baker` または `--thresh gau_tight`
 
-特に、既定 `baker` で現れる**近ゼロ**の余剰虚モード（数 cm⁻¹）は、多くが第2の反応座標ではなく収束アーティファクトです。`baker` は大量計算にコスパが良い既定ですが、`n_imag >= 2` が出たら厳しい `--thresh`（`gau_tight` 以上）で再実行してください — 通常は `n_imag = 1` に解消します。締めても（ノイズ床より十分下の）robust な第2虚モードが残る場合のみ、真の高次鞍点です。
-- `hess_cutoff` を調整して、Hessian計算に含む原子の範囲を広げる
+特に、デフォルト `baker` で現れる**近ゼロ**の余剰虚モード（数 cm⁻¹）は、多くが第2の反応座標ではなく収束アーティファクトです。`baker` は大量計算にコスパが良いデフォルトですが、`n_imag >= 2` が出たら厳しい `--thresh`（`gau_tight` 以上）で再実行してください — 通常は `n_imag = 1` に解消します。締めても（ノイズ床より十分下の）robust な第2虚モードが残る場合のみ、真の高次鞍点です。
+- `hess_cutoff` を調整して、Hessian 計算に含む原子の範囲を広げる
 
 ---
 
@@ -512,10 +512,10 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
 
 ## パフォーマンス / 安定性のヒント
 
-- **VRAM 不足**: ML 領域サイズを縮小、Hessian対象 MM 領域を縮小、ノード数を削減（`--max-nodes`）、または軽量なオプティマイザ設定（`--opt-mode grad`）を使用。
-- **解析Hessianが遅いまたは OOM**: `--hessian-calc-mode FiniteDifference` を使用。`Analytical` は十分な VRAM がある場合のみ推奨（ML 原子 300 以上には 24 GB 以上推奨）
-- **MM Hessian**: `mm_fd: true`（デフォルト）は MM Hessianに有限差分を使用。解析 MM Hessian（`mm_fd: false`）は小規模系では高速だがメモリ消費が増える場合がある
-- **MM Hessian計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
+- **VRAM 不足**: ML 領域サイズを縮小、Hessian 対象 MM 領域を縮小、ノード数を削減（`--max-nodes`）、または軽量なオプティマイザ設定（`--opt-mode grad`）を使用。
+- **解析 Hessian が遅いまたは OOM**: `--hessian-calc-mode FiniteDifference` を使用。`Analytical` は十分な VRAM がある場合のみ推奨（ML 原子 300 以上には 24 GB 以上推奨）
+- **MM Hessian**: `mm_fd: true`（デフォルト）は MM Hessian に有限差分を使用。解析 MM Hessian（`mm_fd: false`）は小規模系では高速だがメモリ消費が増える場合がある
+- **MM Hessian 計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
 - **大規模系（2000 原子以上）**: `define-layer` で `--radius-freeze` を小さくして Frozen 層（B=20）を拡大し、可動自由度数を削減する
 - **マルチ GPU**: ML を 1 つの GPU（`ml_cuda_idx: 0`）、MM を別の GPU（`mm_device: cuda`, `mm_cuda_idx: 1`）に配置可能
 - **ML と MM の並列実行**: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。`mm_threads` で CPU スレッド数を調整可能
@@ -532,7 +532,7 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
 ```bash
 pip install "mlmm-toolkit[orb]"      # ORB バックエンド
 pip install "mlmm-toolkit[aimnet]"  # AIMNet2 バックエンド
-pip uninstall -y fairchem-core && pip install --no-deps mace-torch  # MACE は別 conda env で（e3nn ピンが UMA/fairchem-core と競合）
+pip uninstall -y fairchem-core && pip install mace-torch  # MACE は別 conda env で（e3nn ピンが UMA/fairchem-core と競合）
 ```
 
 ---

@@ -16,6 +16,7 @@ Each `mlmm` subcommand writes to its output directory following the filename con
 | `forward_irc_trj.xyz` / `backward_irc_trj.xyz` (and `finished_irc_trj.xyz`) | `irc` | IRC trajectories (XYZ); companion `*_irc.pdb` files carry the same frames in PDB form. |
 | `frequencies_cm-1.txt` | `freq` | Vibrational frequency listing (cm⁻¹). |
 | `*.gjf` | various (when `--convert-files`) | Gaussian-format companion structure. |
+| `ml_region_without_linkH.{xyz,pdb}` / `ml_region_with_linkH.{xyz,pdb}` | `all`, `dft` | Directly inspectable ML model before/after parm7-derived link-H insertion. PDB companions are written for PDB input. |
 
 ## Default `--out-dir`
 
@@ -52,6 +53,7 @@ result_all/
 ├─ mep.pdb · mep.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
 ├─ energy_diagram_*_all.png · irc_plot_all.png
 ├─ ml_region.pdb                              # ML-region definition (reusable as --model-pdb)
+├─ ml_region_without_linkH.{xyz,pdb} · ml_region_with_linkH.{xyz,pdb}
 ├─ mm_parm/                                   # MM topology <input>.parm7 / .rst7 (reusable as --parm)
 ├─ layered/                                   # layered full-system PDBs (B-factor annotated; reusable inputs)
 ├─ segments/

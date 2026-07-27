@@ -23,9 +23,9 @@ Options:
                                   information for output conversion.
   --parm FILE                     Amber parm7 topology covering the whole enzyme
                                   complex.  [required]
-  --model-pdb FILE                PDB defining atoms that belong to the ML
-                                  (high-level) region. Optional when --detect-
-                                  layer is enabled.
+  --model-pdb FILE                ML-only, link-H-free PDB subset; atom
+                                  identity/order must match the full PDB/parm7.
+                                  Optional when --detect-layer is enabled.
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
@@ -82,10 +82,9 @@ Options:
   --flatten / --no-flatten        Enable/disable imaginary-mode flatten loop
                                   after optimization.  [default: no-flatten]
   --reject-uphill / --no-reject-uphill
-                                  Reject energy-raising RFO trial steps in hess
-                                  mode (roll back to the lower-energy geometry
-                                  and shrink the trust radius). Applies to
-                                  --opt-mode hess; ignored in grad/lbfgs mode.
+                                  Reject uphill RFO trials in hess mode and
+                                  final-check the retained geometry at the
+                                  emergency floor. Ignored in grad/lbfgs mode.
                                   [default: reject-uphill]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.

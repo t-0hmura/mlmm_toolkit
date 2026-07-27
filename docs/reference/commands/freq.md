@@ -17,7 +17,8 @@ Options:
                                   and the ML/MM calculator.  [required]
   --parm FILE                     Amber parm7 topology for the full enzyme
                                   complex.  [required]
-  --model-pdb FILE                PDB defining atoms belonging to the ML region.
+  --model-pdb FILE                ML-only, link-H-free PDB subset; atom
+                                  identity/order must match the full PDB/parm7.
                                   Optional when --detect-layer is enabled.
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-

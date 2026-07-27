@@ -2,7 +2,7 @@
 
 ## 概要
 
-PySisyphus 用の ONIOM 型 ML/MM calculatorです。MLIP バックエンド（デフォルト: FAIR-Chem UMA、選択肢: `orb`、`mace`、`aimnet2`）と hessian_ff（低レベル MM）を結合し、酵素活性部位モデルのエネルギー、力、特に**解析的Hessian**を計算します。
+PySisyphus 用の ONIOM 型 ML/MM calculatorです。MLIP バックエンド（デフォルト: FAIR-Chem UMA、選択肢: `orb`、`mace`、`aimnet2`）と hessian_ff（低レベル MM）を結合し、酵素活性部位モデルのエネルギー、力、特に**解析的 Hessian**を計算します。
 
 `mlmm_calc.mlmm` は、機械学習原子間ポテンシャル（MLIP）と分子力学力場（Amber prmtop ベースの `hessian_ff`）を組み合わせた減算型 ONIOM の ML/MM calculator を実装しています。`mlmm` のすべての ML/MM 最適化、経路探索、スキャン、振動解析、IRC ワークフローのコア計算機として機能します。
 
@@ -17,7 +17,7 @@ ML（高レベル）コンポーネントは、`-b/--backend` CLI オプショ�
 | MACE | `mace` | `mace-torch` | 専用環境: `pip uninstall -y fairchem-core && pip install mace-torch` |
 | AIMNet2 | `aimnet2` | `aimnet` | `pip install "mlmm-toolkit[aimnet]"` |
 
-内部的に、すべてのバックエンドは `_MLBackend` 抽象クラスに準拠しており、エネルギー、力、Hessianの評価に対して統一的なインターフェースを提供します。ファクトリ関数が `backend` パラメータに基づいて適切なバックエンドを選択・インスタンス化します。
+内部的に、すべてのバックエンドは `_MLBackend` 抽象クラスに準拠しており、エネルギー、力、Hessian の評価に対して統一的なインターフェースを提供します。ファクトリ関数が `backend` パラメータに基づいて適切なバックエンドを選択・インスタンス化します。
 
 ### 電子埋め込み
 
@@ -47,11 +47,11 @@ link-H を含む高レベル model と整合しない uncapped model を使用�
 E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 ```
 
-力とHessianも同じ減算パターンに従います。
+力と Hessian も同じ減算パターンに従います。
 
 ## Hessian / 最適化用の層設定
 
-実装では 3 層の B 因子に加え、Hessian 計算対象の MM を指定する別系統の設定を用いて、どの原子が MM Hessian計算に含まれるか、どの原子が凍結されるかを制御できます:
+実装では 3 層の B 因子に加え、Hessian 計算対象の MM を指定する別系統の設定を用いて、どの原子が MM Hessian 計算に含まれるか、どの原子が凍結されるかを制御できます:
 
 - **ML 領域**（B 因子 = 0.0）: 選択された MLIP バックエンド（デフォルト: UMA）で処理
 - **Movable-MM**（B 因子 = 10.0）: 最適化中に移動する MM 原子
@@ -64,7 +64,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 
 ### リンク原子の再分配
 
-リンク原子からの力とHessian寄与はヤコビアンを介して ML/MM 親原子に再分配されます。再分配は以下を追加します:
+リンク原子からの力と Hessian 寄与はヤコビアンを介して ML/MM 親原子に再分配されます。再分配は以下を追加します:
 - セルフ項 `J^T H J`
 - ジオメトリ依存の 2 次項 `sum (dJ^T/dx * f_L)` を親原子にインプレースで追加
 
@@ -102,7 +102,7 @@ mlmm:
  use_cmap: true  # model parm7 に CMAP を含める（Gaussian 非互換の挙動）
 ```
 
-### ML Hessianモード
+### ML Hessian モード
 
 - `"Analytical"`: UMA、ORB、MACE、AIMNet2 の自動微分またはネイティブ Hessian 経路。必要な API がない場合は暗黙に計算法を変えずエラーになります。
 - `"FiniteDifference"`: 力の中心差分。全 MLIP バックエンドで使用可能です。

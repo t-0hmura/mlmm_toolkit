@@ -69,7 +69,9 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
  --mep-mode dmf --dmf-backend cpu --out-dir ./result_all_dmf
 ```
 
-対応する PDB はテンプレートが利用可能な場合に生成され、`--convert-files/--no-convert-files`（デフォルト有効）で制御されます。
+trajectory/structureを変換したPDB companionはテンプレートが利用可能な場合に生成され、
+`--convert-files/--no-convert-files`（デフォルト有効）で制御されます。後述する確認用の
+ML領域PDB pairは別の成果物であり、PDB入力では常に出力されます。
 
 ## 処理の流れ
 
@@ -77,6 +79,7 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
    - 基質を定義します（`-c/--center`、PDB、残基 ID、または残基名で指定）。
    - 任意で `--ligand-charge` を総数値（分配）またはマッピング（例: `GPP:-3,MMT:-1`）として提供します。
    - 抽出器は入力ごとのポケット PDB を `<out-dir>/_work/pockets/` に書き出します。最初のポケットが `<out-dir>/ml_region.pdb`（`--model-pdb` として再利用可能な成果物）としてコピーされ、後続の全 ML/MM 計算の ML 領域を定義します。
+   - `<out-dir>/ml_region_without_linkH.xyz` と `ml_region_with_linkH.xyz` に、リンク H 挿入前後のモデル系を出力します。PDB 入力では対応する `.pdb` companion も出力します。自動リンクペアは ML/MM 選択を横切る parm7 結合から決まり、距離による結合認識は行いません。
    - 抽出器の**最初のモデルの ML 領域の総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
    - `-c/--center` を省略した場合は抽出をスキップし、完全入力構造をそのまま使用します。
 
@@ -126,6 +129,10 @@ mlmm all -i R.pdb P.pdb -c "SAM,GPP" -l "SAM:1,GPP:-3" \
  energy_diagram_G_DFT_plus_MLIP_all.png
  irc_plot_all.png
  ml_region.pdb                         # ML 領域定義（--model-pdb として再利用可能）
+ ml_region_without_linkH.xyz           # リンク H 挿入前の ML モデル
+ ml_region_with_linkH.xyz              # parm7 結合由来リンク H 挿入後の ML モデル
+ ml_region_without_linkH.pdb           # PDB 入力時の topology 付き companion
+ ml_region_with_linkH.pdb              # 生成した HL/LKH を含む PDB companion
  mm_parm/<input1>.parm7,.rst7          # 最初の完全酵素入力 PDB から生成した MM トポロジー（--parm として再利用可能）
  layered/                              # レイヤード全系 PDB（B 因子アノテーション付き、再利用可能な入力）
  segments/                             # 反応セグメント別の成果物
@@ -183,7 +190,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--model-pdb FILE` | 構築済み ML 領域 PDB。指定時は ML 領域決定をスキップし、このファイルで ML 領域を直接定義。 | _None_ |
 | `--ref-pdb FILE` | XYZ 入力用の参照 PDB。入力が XYZ の場合に PDB メタデータ（残基、鎖、B 因子）を復元するために必要。 | _None_ |
 | `--convert-files/--no-convert-files` | テンプレート利用可能時に XYZ/TRJ から対応する PDB の生成を切り替えるグローバルトグル。 | `True` |
-| `--dump/--no-dump` | オプティマイザダンプを保存。常に `path-search`/`path-opt` に転送。`scan`/`tsopt` にはここで明示設定時のみ転送。`freq` は明示的に `--no-dump` を指定しない限りデフォルトで dump=True。 | `False` |
+| `--dump/--no-dump` | 任意のオプティマイザ軌跡・リスタートを保存。常に `path-search`/`path-opt` に転送し、`scan`/`tsopt` にはここで明示設定時のみ転送します。`--thermo` 時は Gibbs 集約を欠損させないため、必須の子 `thermoanalysis.yaml` handoff を `--no-dump` でも保持します。 | `False` |
 | `--config FILE` | 先に適用するベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済み設定を表示。 | `False` |
 | `--dry-run/--no-dry-run` | 一時ディレクトリで抽出/setup と電荷・parity 検証を実行し、計画を表示して計算 stage は省略。`--help-advanced` に表示。 | `False` |
@@ -230,7 +237,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
 | `--refine-path/--no-refine-path` | `--no-refine-path`（デフォルト）= 単一パス `path-opt`（軌跡結合 + HEI 抽出 + 結合変化検出 + `summary.json`）、`--refine-path` = 再帰的 `path-search`。どちらも `--mep-mode` の選択と Stage 5（TSOPT/thermo/DFT）に対応。 | `False` |
-| `--hessian-calc-mode CHOICE` | ML/MM Hessianモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
+| `--hessian-calc-mode CHOICE` | ML/MM Hessian モード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--precision [fp32\|fp64]` | バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
@@ -259,9 +266,9 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--thermo/--no-thermo` | R/TS/P で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | R/TS/P で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
-| `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップを拒否（opt 子へ転送。低エネルギー形状へロールバックし trust radius を縮小）。TS 最適化や経路探索には影響しない。 | `True` |
+| `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップを拒否（opt 子へ転送。低エネルギー形状へロールバックし trust radius を縮小）。TS 最適化では拒否を常に無効化し、経路探索には影響しない。emergency floor 到達時は、保持したエンドポイントを通常の収束条件で最終確認。 | `True` |
 | `--tr-projection [constrained\|legacy-active]` | 凍結境界 TR 処理を `tsopt`、`irc`、`freq`、flatten PHVA へ転送。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
-| `--irc-step-size FLOAT` | TS 後の各 IRC に EulerPC 最大ステップ（Bohr）を転送。数フレームで停止する場合は `0.05` など小さい値で再試行。 | IRC 既定 `0.10` |
+| `--irc-step-size FLOAT` | TS 後の各 IRC に EulerPC 最大ステップ（Bohr）を転送。数フレームで停止する場合は `0.05` など小さい値で再試行。 | IRC デフォルト `0.10` |
 | `--irc-never-stop/--no-irc-never-stop` | エネルギー上昇/plateau 停止だけを無視して IRC を継続。収束、非有限値、サイクル上限では停止。 | `False` |
 | `--tsopt-max-cycles INT` | `tsopt --max-cycles` の上書き。 | _デフォルト_ |
 | `--tsopt-out-dir PATH` | tsopt サブディレクトリのカスタマイズ。 | _None_ |
@@ -278,7 +285,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--dft-max-cycle INT` | 最大 SCF 反復数。 | _デフォルト_ |
 | `--dft-conv-tol FLOAT` | SCF 収束閾値。 | _デフォルト_ |
 | `--dft-grid-level INT` | PySCF グリッドレベル。 | _デフォルト_ |
-| `--dft-engine [gpu\|cpu]` | DFTエンジン（GPU or CPU PySCF）。 | _None_ |
+| `--dft-engine [gpu\|cpu]` | DFT エンジン（GPU or CPU PySCF）。 | _None_ |
 
 ## YAML 設定
 

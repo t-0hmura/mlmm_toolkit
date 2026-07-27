@@ -1,10 +1,10 @@
 # `sp`
 
-`mlmm sp` は、単一構造における ML/MM ONIOM エネルギーと原子に働く力（任意で ONIOM Hessian全体）を評価します。次のような用途に使います。
+`mlmm sp` は、単一構造における ML/MM ONIOM エネルギーと原子に働く力（任意で ONIOM Hessian 全体）を評価します。次のような用途に使います。
 
 - 最適化を実行する前に層構造を高速に確認する
 - 同一の ONIOM 分割上でバックエンドどうしを直接比較する
-- オプティマイザのループ外で参照用Hessianを生成する
+- オプティマイザのループ外で参照用 Hessian を生成する
 
 ## 実行例
 
@@ -14,7 +14,7 @@
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
-ONIOM Hessian全体も計算する（デフォルトは FiniteDifference。バックエンドのネイティブ Hessian を使うには `--hessian-calc-mode Analytical` を指定）:
+ONIOM Hessian 全体も計算する（デフォルトは FiniteDifference。バックエンドのネイティブ Hessian を使うには `--hessian-calc-mode Analytical` を指定）:
 
 ```bash
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
@@ -58,7 +58,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 | `--model-pdb FILE` | ML 原子を定義する代替 PDB |
 | `--model-indices TEXT` | カンマ区切りの 1-based 原子インデックス（例: `1-50,75,100-110`） |
 
-### Hessianバックエンド
+### Hessian バックエンド
 
 `--hess` と `--hessian-calc-mode Analytical` を指定すると、選択した
 バックエンド（UMA、ORB、MACE、AIMNet2）の解析/native Hessian 経路を使います。
@@ -84,7 +84,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 | `--config PATH` | — | `calc.*`、`geom.*` のデフォルトを与える YAML 設定 |
 | `--show-config / --dry-run` | off | 有効なマージ済み設定を表示 / 実行せずに検証 |
 
-Hessianの cutoff 上書き、MCP 形式の result.json などを含む完全な一覧は `mlmm sp --help-advanced` を実行してください。
+Hessian の cutoff 上書き、MCP 形式の result.json などを含む完全な一覧は `mlmm sp --help-advanced` を実行してください。
 
 ## 関連項目
 

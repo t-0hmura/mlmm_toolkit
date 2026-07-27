@@ -35,7 +35,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Workflow
 
-1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Link hydrogens are appended automatically (C/N parents within 1.7 Å) unless explicit `link_mlmm` pairs are provided via YAML.
+1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Unless YAML supplies explicit `link_mlmm` pairs, link hydrogens are appended at parm7 bonds that cross the ML/MM selection; distance is not used to perceive those bonds.
 2. **SCF build** -- `--func-basis` is parsed into functional and basis. The GPU4PySCF backend is used when available; closed-shell GPU runs additionally use the low-memory `gpu4pyscf.dft.rks_lowmem.RKS` SCF when `--lowmem` is on (default). Use `--engine cpu` to force CPU mode. (For the SCF JK / `density_fit()` behavior see the `--lowmem` row in the CLI options table.) v0.3.3 uses mechanical embedding; requests for the retired electronic-embedding path fail before SCF construction.
 3. **ML(dft)/MM recombination** -- After the DFT converges, MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low) are computed. The combined energy is reported in Hartree and kcal/mol.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
@@ -44,7 +44,10 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```
 out_dir/ (default: ./result_dft/)
-├── ml_region_with_linkH.xyz    # ML-region coordinates (with link-H) used for DFT
+├── ml_region_without_linkH.xyz # Exact ML selection before generated link-H
+├── ml_region_with_linkH.xyz    # PySCF input snapshot after generated link-H
+├── ml_region_without_linkH.pdb # PDB input only; topology-bearing companion
+├── ml_region_with_linkH.pdb    # PDB input only; generated link-H as HL/LKH
 ├── result.yaml                 # DFT + ML(dft)/MM energy summary, charges, spin densities
 ├── result.json                 # only when --out-json is passed
 └── (stdout)                    # Pretty-printed configuration blocks and energies

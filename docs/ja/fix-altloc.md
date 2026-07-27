@@ -57,7 +57,7 @@ mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb --force
    と出現順で解決する。
 5. 出力を書き込み:
  - 空白（共通）原子と選択した残基 conformer のみを保持
- - altLoc カラム（17）を空白（スペース 1 文字）に置換
+ - altLoc 列（17）を空白（スペース 1 文字）に置換
  - ANISOU レコードは保持された原子に一致するもののみフィルタリング
 
 ### altLoc 状態間で原子数が異なる場合の処理
@@ -129,6 +129,6 @@ if has_altloc(Path("input.pdb")):
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
-- [add-elem-info](add-elem-info.md) -- altLoc 修正前に PDB 元素カラムを修復
+- [add-elem-info](add-elem-info.md) -- altLoc 修正前に PDB 元素列を修復
 - [extract](extract.md) -- altLoc 解決後に活性部位ポケットを抽出
 - [all](all.md) -- ML/MM 一気通貫ワークフロー（入力に altLoc がある場合は事前に `fix-altloc` を実行）

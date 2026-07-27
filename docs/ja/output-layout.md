@@ -12,6 +12,7 @@
 | `summary.log` | `path-search`、`all` | 人が読むための実行ログ（セグメント / ステージごとに 1 行）。 |
 | `final_geometry.xyz` | `opt`、`tsopt` | 最適化された構造（XYZ、フル精度）。 |
 | `mep.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`、`all` | 反応経路のフレーム。bridge 入力では `mep.cif` が元の ID を復元します。単独実行の `path-opt` は代わりに `final_geometries_trj.xyz` / `final_geometries.pdb` を書き込みます。 |
+| `ml_region_without_linkH.{xyz,pdb}` / `ml_region_with_linkH.{xyz,pdb}` | `all`、`dft` | parm7 の ML/MM 境界結合からリンク H を生成する前後の ML モデル。PDB companion は PDB 入力時に出力します。 |
 | `mep_plot.png` | `path-search`、`all` | 生の MEP エネルギープロファイル（PNG）。`all` はエンジン出力からルートにコピーします。 |
 | `forward_irc_trj.xyz` / `backward_irc_trj.xyz`（および `finished_irc_trj.xyz`） | `irc` | IRC 軌跡（XYZ）。対応する `*_irc.pdb` ファイルが同じフレームを PDB 形式で保持します。 |
 | `frequencies_cm-1.txt` | `freq` | 振動数の一覧（cm⁻¹）。 |
@@ -52,6 +53,7 @@ result_all/
 ├─ mep.pdb · mep.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
 ├─ energy_diagram_*_all.png · irc_plot_all.png
 ├─ ml_region.pdb                              # ML-region definition (reusable as --model-pdb)
+├─ ml_region_without_linkH.{xyz,pdb} · ml_region_with_linkH.{xyz,pdb}
 ├─ mm_parm/                                   # MM topology <input>.parm7 / .rst7 (reusable as --parm)
 ├─ layered/                                   # layered full-system PDBs (B-factor annotated; reusable inputs)
 ├─ segments/

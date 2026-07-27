@@ -173,6 +173,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `pressure_atm` | float | atm |
 | `symmetry_number` | int | External rotational symmetry number |
 | `symmetry_number_source` | string | `"default"`, `"config"`, `"override"`, or `"cli"` |
+| `electronic_energy_ha` | float | Hartree — the `E` of the reported `E + G_corr = G` |
 | `zpe_ha` | float | Hartree |
 | `thermal_correction_energy_ha` | float | Hartree |
 | `thermal_correction_enthalpy_ha` | float | Hartree |
@@ -306,7 +307,7 @@ Supplying either `-q/--charge` or `-m/--multiplicity` recomputes every frame wit
 | `n_link_hydrogens` | int | Count of link H atoms added at severed bonds |
 | `files` | object | Map of emitted file names (per-input pocket PDB, etc.) |
 | `exclude_backbone` | bool | Value of `--exclude-backbone` at run time |
-| `include_h2o` | bool | Value of `--include-H2O` at run time |
+| `include_h2o` | bool | Value of `--include-h2o` at run time |
 | `ligand_charge_input` | string | Raw `-l/--ligand-charge` argument |
 | `ion_charges` | array | List of `[resname, charge]` pairs for ion residues encountered |
 
@@ -337,6 +338,7 @@ The `all` and `path-search` commands write `summary.json`:
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
 | `environment` | object | Hardware info |
+| `references` | object[] | Methods actually used by the resolved workflow, as `{method, citation, doi}` records. The same reference set is grouped at the end of `summary.log` and final stdout immediately before elapsed time. |
 
 The `all` command additionally includes:
 

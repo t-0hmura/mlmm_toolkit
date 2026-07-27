@@ -7,6 +7,13 @@ Two optimizers are available, and you pick between them with `--opt-mode`:
 - **Restricted-Step Image-function Rational Function Optimization (RS-I-RFO)** (`--opt-mode hess`) is the default and the conservative choice when you can afford the Hessian work. It runs with microiteration (`--microiter`, default on) that alternates a machine-learning (ML) 1-step RS-I-RFO move with a molecular-mechanics (MM) L-BFGS relaxation.
 - **Hessian-Guided Dimer** (`--opt-mode grad`) is the lighter alternative, suited to a lower-cost search or quick iteration from several TS guesses. Add `--ml-only-hessian-dimer` to use only the ML-region Hessian for dimer orientation (faster).
 
+`tsopt` always sets `reject_uphill: false` for its saddle-search RFO and
+Dimer optimizers, including after YAML overrides. A transition-state search
+must be able to raise the physical energy along its reaction mode. The
+`--reject-uphill/--no-reject-uphill` toggle belongs only to minimum
+optimization (`opt` and post-IRC endpoint re-optimization in `all`). The
+inner MM-only relaxation in microiteration remains a minimum subproblem.
+
 After convergence, a surplus-imaginary-mode flatten loop (`--flatten`) removes extra negative modes via mass-scaled displacements. A validated TS should show **exactly one** imaginary frequency — always confirm the mode and connectivity with [`freq`](freq.md) / [`irc`](irc.md).
 
 ## Building a TS candidate first

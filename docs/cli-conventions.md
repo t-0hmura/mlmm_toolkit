@@ -60,7 +60,9 @@ Per-stage subcommands (everything except `all`, `extract`, `mm-parm`, `define-la
 --model-pdb model.pdb          # ML region (model) PDB
 ```
 
-`mlmm all` generates both automatically; standalone subcommands require them explicitly.
+`mlmm all` generates both automatically. For standalone subcommands, `--parm` is always required,
+while `--model-pdb` is required only with `--no-detect-layer` (or supply `--model-indices` instead);
+under the default `--detect-layer` the ML region is read from the PDB B-factors.
 
 ```bash
 mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
@@ -176,11 +178,11 @@ All calc subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan
 
 | Option | Description | Default |
 |---|---|---|
-| `-b, --backend` | MLIP backend: `uma`, `orb`, `mace`, `aimnet2` | `uma` |
+| `-b, --backend` | MLIP backend: `uma`, `orb`, `mace`, `aimnet2`. On `dft` this is only the backend label recorded in the output metadata — the ML region is computed with DFT (PySCF/GPU4PySCF). | `uma` |
 | `--embedcharge` / `--no-embedcharge` | Compatibility tombstone. v0.3.3 supports mechanical embedding only; `--embedcharge` is rejected before calculation. | `--no-embedcharge` |
 | `--embedcharge-cutoff` | Compatibility tombstone for the retired electronic-embedding path; any explicit value is rejected. | unset |
 
-Install alternatives: `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip install --no-deps mace-torch` (MACE in a dedicated env).
+Install alternatives: `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip uninstall -y fairchem-core && pip install mace-torch` (MACE in a dedicated env; its `e3nn` pin conflicts with UMA).
 
 ## Precision, workers, and analytical Hessians
 

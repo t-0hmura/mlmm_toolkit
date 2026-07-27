@@ -8,7 +8,7 @@
 | 症状 | まず確認 | 次に読む |
 | --- | --- | --- |
 | **入力 / 抽出** | | |
-| 元素カラム欠損 / 抽出が中断 | 元の PDB に対して `add-elem-info` を実行 | [入力 / 抽出](troubleshooting.md#入力--抽出の問題) |
+| 元素列欠損 / 抽出が中断 | 元の PDB に対して `add-elem-info` を実行 | [入力 / 抽出](troubleshooting.md#入力--抽出の問題) |
 | **電荷 / スピン** | | |
 | `ML-region charge is unresolved. Provide -q/--charge or --ligand-charge.` エラー | `-q/--charge` または `-l/--ligand-charge` を明示的に指定 | [電荷 / スピン](troubleshooting.md#電荷--スピンの問題) |
 | 実行後にエネルギー/状態がおかしい | CLI 規約の電荷/多重度ポリシーを再確認 | [電荷 / スピン](troubleshooting.md#電荷--スピンの問題) |
@@ -33,7 +33,7 @@
 **最初の確認:**
 
 - 入力構造が同じ前処理フローで作られ、原子順が揃っているか。
-- `extract` / `all` 前に元素カラムが埋まっているか。
+- `extract` / `all` 前に元素列が埋まっているか。
 
 **典型的な修正手順:**
 

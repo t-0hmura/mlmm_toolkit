@@ -62,7 +62,7 @@ core = MLMMCore(
 | `backend` | `str` | `"uma"` | MLIPバックエンド |
 | `embedcharge` | `bool` | `False` | 互換性用。v0.3.3 では `True` を指定すると allocation 前に例外 |
 | `mm_backend` | `str` | `"hessian_ff"` | MMエンジン（`hessian_ff`または`openmm`） |
-| `return_partial_hessian` | `bool` | `True` | 部分Hessian（ML + 境界）を返す |
+| `return_partial_hessian` | `bool` | `True` | 部分 Hessian（ML + 境界）を返す |
 | `link_mlmm` | `list` | `None` | リンク原子の手動指定 |
 
 ### compute()

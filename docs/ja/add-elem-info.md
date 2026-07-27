@@ -1,6 +1,6 @@
 # `add-elem-info`
 
-Biopython を使用して PDB の元素記号（カラム 77-78）を追加または修復します。元素カラムを持たない PDB へ追加する場合や、それを必要とする下流ツールに渡す前に既存のカラムを修正する場合に使用します。既存の元素フィールドが信頼できない場合は、再推定して上書きすることもできます（`--overwrite`）。入力 PDB を Biopython（`PDBParser`）で解析し、残基の種類と原子名のヒューリスティクスから `atom.element` を割り当て、`PDBIO` でカラム 77-78 を書き込みます。座標を変更せず、全モデル/鎖/残基にわたって ATOM・HETATM レコードを処理します。
+Biopython を使用して PDB の元素記号（列 77-78）を追加または修復します。元素列を持たない PDB へ追加する場合や、それを必要とする下流ツールに渡す前に既存のカラムを修正する場合に使用します。既存の元素フィールドが信頼できない場合は、再推定して上書きすることもできます（`--overwrite`）。入力 PDB を Biopython（`PDBParser`）で解析し、残基の種類と原子名のヒューリスティクスから `atom.element` を割り当て、`PDBIO` で列 77-78 を書き込みます。座標を変更せず、全モデル/鎖/残基にわたって ATOM・HETATM レコードを処理します。
 
 ## 実行例
 
@@ -10,7 +10,7 @@ Biopython を使用して PDB の元素記号（カラム 77-78）を追加ま�
 mlmm add-elem-info -i INPUT [-o OUTPUT] [--inplace] [--overwrite]
 ```
 
-元素カラムを追加または修復し、安全なデフォルト出力へ書き出す:
+元素列を追加または修復し、安全なデフォルト出力へ書き出す:
 
 ```bash
 mlmm add-elem-info -i 1abc.pdb
@@ -50,7 +50,7 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 
 ## 出力
 
-- 元素カラム（77-78）が正しく設定された PDB ファイル
+- 元素列（77-78）が正しく設定された PDB ファイル
 - コンソールに処理/割り当て済み原子の合計、元素ごとのカウント、未解決原子（最大 50 件）を報告
 
 ## CLI オプション
@@ -64,7 +64,7 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 
 `PDBIO` は構造を再シリアライズします。座標と標準的な ATOM/HETATM
 フィールドは保持しますが、HEADER、REMARK、CONECT、ANISOU などの
-非 ATOM レコードや従来形式の電荷カラムをすべて保持するわけではありません。
+非 ATOM レコードや従来形式の電荷列をすべて保持するわけではありません。
 置換が必要な場合を除き、別ファイルへ書き出すデフォルトを使用してください。
 
 すべてのフラグの一覧は生成された [コマンドリファレンス](../reference/commands/index.md) を参照してください。
@@ -74,5 +74,5 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
 - [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
 
-- [mm-parm](mm-parm.md) -- AMBER トポロジー構築（正しい元素カラムが必要）
+- [mm-parm](mm-parm.md) -- AMBER トポロジー構築（正しい元素列が必要）
 - [extract](extract.md) -- タンパク質-リガンド複合体から活性部位ポケットを抽出

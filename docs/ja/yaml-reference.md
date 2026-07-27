@@ -11,10 +11,10 @@
 | [`rfo`](#rfo) | RFOの設定 | opt |
 | [`gs`](#gs) | GSM（Growing String Method）設定 | path-opt, path-search |
 | [`dmf`](#dmf) | DMF（Direct Max Flux）設定 | path-opt, path-search |
-| [`irc`](#ja-irc-section) | IRC積分設定 | irc |
+| [`irc`](#ja-irc-section) | IRC 積分設定 | irc |
 | [`freq`](#ja-freq-section) | 振動解析設定 | freq |
 | [`thermo`](#thermo) | 熱化学設定 | freq |
-| [`dft`](#ja-dft-section) | DFT計算設定 | dft |
+| [`dft`](#ja-dft-section) | DFT 計算設定 | dft |
 | [`bias`](#bias) | 調和バイアス設定 | scan, scan2d, scan3d |
 | [`bond`](#bond) | 結合変化検出設定 | scan, path-search |
 | [`search`](#search) | 再帰的経路探索設定 | path-search |
@@ -39,7 +39,7 @@ geom:
 ```
 
 **注記:**
-- Frozen 層の原子は力がゼロに設定され、Hessianの対応する列もゼロになります。
+- Frozen 層の原子は力がゼロに設定され、Hessian の対応する列もゼロになります。
 - `tr_projection: constrained` は、凍結 anchor をすべて動かさない
   全系剛体運動だけを除去します。一般的な有効 rank は anchor が
   0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では
@@ -64,7 +64,7 @@ calc:
  model_pdb: null # ML 領域を定義する PDB (CLI --model-pdb)
  model_charge: 0 # ML 領域の電荷 (CLI -q で上書き)
  model_mult: 1 # ML 領域のスピン多重度 (CLI -m で上書き)
- link_mlmm: null # リンク原子ペアの明示指定 (null で自動検出)
+ link_mlmm: null # null: parm7 結合から自動決定; list: 明示上書き
  link_atom_method: scaled    # リンク原子配置: "scaled" (g-factor) または "fixed" (1.09/1.01 Å)
  backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
  embedcharge: false # v0.3.3 では false 固定。true は拒否
@@ -125,10 +125,10 @@ calc:
 - `hess_cutoff` のデフォルト `null` は可動 MM 原子をすべて Hessian 対象に含めることを意味します（freq/irc/opt はすべての可動原子を解析します）。値（>0.0）を指定すると、その距離以内の MM 原子のみに Hessian 対象を限定します。`movable_cutoff` を指定しない場合は `freeze_atoms` の指定に従います。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
 - 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
-- `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分Hessianをデフォルトで使用します。
-- これらのコマンドで完全Hessianを強制するには `calc.return_partial_hessian: false` を明示してください。
+- `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分 Hessian をデフォルトで使用します。
+- これらのコマンドで完全 Hessian を強制するには `calc.return_partial_hessian: false` を明示してください。
 - `mm_fd: true` は有限差分 MM Hessian、`false` は `hessian_ff` の解析
-  MM Hessianを使います。`mm_hessian_mode` は
+  MM Hessian を使います。`mm_hessian_mode` は
   `finite_difference`/`analytical` の明示形で、`null` の場合は互換用の
   `mm_fd` に従います。
 - `use_cmap: false`（デフォルト）は model parm7 から CMAP 項（骨格クロスマップ二面角補正）を除外します。これは Gaussian ONIOM の挙動（CMAP を model MM に含めない）と一致します。`true` に設定すると model parm7 に CMAP が含まれ、ONIOM 差し引きで骨格 CMAP が相殺されます。ML 領域に骨格原子を含まない典型的な活性部位モデルでは、どちらの設定も実質的に同じ結果になります。
@@ -180,6 +180,11 @@ opt:
 | `gau_tight` | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
 | `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+
+`baker` は4列すべてを同時に要求するプリセットではありません。
+`max(|force|) <= 3e-4` **かつ**（`|delta E| < 1e-6` **または**
+`max(|step|) <= 3e-4`）で収束します。RMS force と RMS step の列は診断値であり、
+追加の終了条件ではありません。
 
 **エネルギープラトー・フォールバック:**
 
@@ -483,7 +488,7 @@ irc:
  out_dir: ./result_irc/ # 出力ディレクトリ
  prefix: "" # ファイル名プレフィックス
  dump_fn: irc_data.h5 # IRC データファイル名
- dump_every: null # 既定では無効。有効化する場合のみ正の間隔を指定
+ dump_every: null # デフォルトでは無効。有効化する場合のみ正の間隔を指定
  max_pred_steps: 500 # 予測子-修正子の最大ステップ数
  loose_cycles: 3 # 引き締め前の緩いサイクル数
  corr_func: mbs # 相関関数の選択

@@ -11,7 +11,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 | Missing element columns / extraction aborts | `add-elem-info` on the original PDB | [Input / extraction](troubleshooting.md#input--extraction) |
 | `[multi] Atom count mismatch` / `Coordinate shape mismatch` / `Element sequence mismatch` | Regenerate all PDBs with the same prep tool + settings; re-run `mm-parm` from the current PDB; never reorder atoms after `mm-parm` | [Input / extraction](troubleshooting.md#input--extraction) |
 | **Charge & spin** | | |
-| "Charge is required" errors | Set `-q/--charge` and `-m/--multiplicity` explicitly | [Charge / spin](troubleshooting.md#charge--spin) |
+| `ML-region charge is unresolved` errors | Set `-q/--charge` or `-l/--ligand-charge` explicitly | [Charge / spin](troubleshooting.md#charge--spin) |
 | Energies/states look wrong after a run | Re-check charge/multiplicity policy in CLI conventions | [Charge / spin](troubleshooting.md#charge--spin) |
 | **Installation & environment** | | |
 | UMA model 401/403 / gated-repo error (`huggingface_hub.errors.GatedRepoError`) | `hf auth login` and accept the model license | [Installation / environment](troubleshooting.md#installation--environment) |

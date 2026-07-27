@@ -49,11 +49,11 @@ ML/MM 3 層システム、ONIOM 分解、「セグメント」「画像（image�
 
 | 層 | B-factor | 計算レベル | 説明 |
 |----|----------|-----------|------|
-| **Layer 1: ML 領域** | 0.0 | MLIP（UMA, ORB, MACE, AIMNet2） | 活性部位。エネルギー・力・Hessianすべてを MLIP バックエンドで計算 |
+| **Layer 1: ML 領域** | 0.0 | MLIP（UMA, ORB, MACE, AIMNet2） | 活性部位。エネルギー・力・Hessian すべてを MLIP バックエンドで計算 |
 | **Layer 2: Movable-MM** | 10.0 | hessian_ff（MM） | 最適化時に移動可能な MM 原子 |
 | **Layer 3: Frozen** | 20.0 | なし | 座標固定。計算不参加 |
 
-B-factor 値は PDB ファイルの温度因子カラム（列 61-66）にエンコードされます。`define-layer` サブコマンドが ML 領域からの距離に基づいて自動設定します（`--radius-freeze`（デフォルト 8.0 Å）以内を Movable-MM、それより遠方を Frozen に割り当て）。Hessian対象 MM 原子は `hess_cutoff` や `hess_mm_atoms` で別途制御します。
+B-factor 値は PDB ファイルの温度因子列（列 61-66）にエンコードされます。`define-layer` サブコマンドが ML 領域からの距離に基づいて自動設定します（`--radius-freeze`（デフォルト 8.0 Å）以内を Movable-MM、それより遠方を Frozen に割り当て）。Hessian 対象 MM 原子は `hess_cutoff` や `hess_mm_atoms` で別途制御します。
 
 ```{tip}
 B-factor エンコーディングにより、B-factor カラーリングに対応した分子ビューアで層割り当てを視覚的に確認できます。
@@ -74,7 +74,7 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 - **E_ML(model)**: ML 領域（model system）の MLIP エネルギー（デフォルトは UMA、ORB/MACE/AIMNet2 も利用可能）
 - **E_MM(model)**: ML 領域の MM エネルギー（重複分を差し引くため）
 
-力とHessianも同様の ONIOM 分解で結合されます。リンク水素の寄与はヤコビアンを用いて ML 原子と MM 原子に再分配されます。
+力と Hessian も同様の ONIOM 分解で結合されます。リンク水素の寄与はヤコビアンを用いて ML 原子と MM 原子に再分配されます。
 
 MLIP バックエンドは `-b/--backend`（デフォルト: `uma`）で選択します。`orb` は `pip install "mlmm-toolkit[orb]"`、`aimnet2` は `[aimnet]` extra でインストールします。`mace` には専用 extra がなく、`e3nn` のピンが UMA（`fairchem-core`）と競合するため別の conda env でインストールします。
 
@@ -112,7 +112,7 @@ F_QM += (1−g) · F_link    (scaled の場合)
 F_MM += g · F_link
 ```
 
-Hessianにも同様の変換が適用されます: `H_再分配 = Jᵀ H_link J`。
+Hessian にも同様の変換が適用されます: `H_再分配 = Jᵀ H_link J`。
 
 ---
 
@@ -132,7 +132,7 @@ Hessianにも同様の変換が適用されます: `H_再分配 = Jᵀ H_link J`
 |---|---|---|
 | **Calculator** | 全 ONIOM (`E_MM_real + E_ML − E_MM_model`) | MM 力場のみ (`E_MM_real`) |
 | **最適化座標** | ML原子 + リンク原子MM親原子 | 可動MM（リンク原子MM親を除く） |
-| **オプティマイザ** | RFO（陽的Hessian、BFGS更新） | L-BFGS（Hessian不要、毎回初期化） |
+| **オプティマイザ** | RFO（陽的 Hessian、BFGS更新） | L-BFGS（Hessian 不要、毎回初期化） |
 | **収束判定** | `--thresh`（デフォルト: `gau`） | YAML の `microiter.micro_thresh`（デフォルト: `--thresh` と同じ） |
 
 ```{note}
@@ -151,7 +151,15 @@ pysisyphus は複数のプリセット閾値を提供します（単位: 力は 
 | `gau_tight` | 1.5×10⁻⁵ | 1.0×10⁻⁵ | 6.0×10⁻⁵ | 4.0×10⁻⁵ |
 | `baker` | 3.0×10⁻⁴ | 2.0×10⁻⁴ | 3.0×10⁻⁴ | 2.0×10⁻⁴ |
 
-`overachieve_factor` は収束のショートカットです。`max(force)` と `rms(force)` の両方が `threshold / overachieve_factor` を下回った場合、ステップサイズ基準が未達であっても収束と判定されます。デフォルト設定では、マイクロイテレーションの MM 緩和ループを含むすべてのオプティマイザで `overachieve_factor` は **0.0**（無効）です。必要な場合は YAML で有効化できます（例: `overachieve_factor: 3`）。
+`baker` は `max(force) <= 3e-4` かつ（`|dE| < 1e-6` または
+`max(step) <= 3e-4`）を使い、RMS 値は診断用です。
+他のプリセットでは、`overachieve_factor` は収束のショートカットです。
+`max(force)` と `rms(force)` の両方が `threshold / overachieve_factor`
+を下回ると、ステップサイズ基準が未達でも収束と判定します。Baker 分岐はこの
+ショートカットを使いません。デフォルト設定では、マイクロイテレーションの
+MM 緩和ループを含むすべてのオプティマイザで `overachieve_factor` は
+**0.0**（無効）です。非 Baker プリセットでは必要に応じて YAML で有効化できます
+（例: `overachieve_factor: 3`）。
 
 マイクロイテレーションは `--microiter` で有効化します（`--opt-mode hess` 時のデフォルト）:
 
@@ -164,7 +172,7 @@ mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter 
 
 ## hessian_ff: MM エンジン
 
-`hessian_ff` は Amber 力場パラメータ（parm7）をベースとした C++ ネイティブ拡張の力場計算エンジンです。エネルギー・力、そして特に**解析Hessian**を計算します。主な特徴:
+`hessian_ff` は Amber 力場パラメータ（parm7）をベースとした C++ ネイティブ拡張の力場計算エンジンです。エネルギー・力、そして特に**解析 Hessian**を計算します。主な特徴:
 
 - 結合、角度、二面角、不正二面角項
 - ファン・デル・ワールス（Lennard-Jones）相互作用
@@ -202,12 +210,12 @@ OpenMM とは異なり、`hessian_ff` は ONIOM 結合と振動解析に必要�
 
 ML 領域定義は主に以下で制御します。
 - `-c/--center`: 基質の指定（残基ID、残基名、または基質のみのPDB）
-- `-r/--radius`, `--radius-het2het`, `--include-H2O`, `--exclude-backbone`, `--add-linkH`, `--selected-resn`
+- `-r/--radius`, `--radius-het2het`, `--include-h2o`, `--exclude-backbone`, `--add-linkh`, `--selected-resn`
 
 ML 領域の指定には 2 通りあります。
 
 - **自動切り出し**（`-c/--center` + `--exclude-backbone`）: `extract` / `all` が Cα–Cβ
-  境界で主鎖を切断し、切断結合をリンク水素でキャップし、残基・`--modified-residue`・
+  境界で主鎖を切断し、残基・`--modified-residue`・
   `-l/--ligand-charge` から model 電荷を**導出**します。非標準アミノ酸は
   `--modified-residue NAME:charge`、リガンドは `-l NAME:charge` で与え、`-q` は不要です。
 - **手動**（`--model-pdb` + `--parm`）: ML 原子の選択を自分で与え、model 電荷は `-q` で明示
@@ -215,6 +223,24 @@ ML 領域の指定には 2 通りあります。
   当てにならない場合）や、自動切り出しが扱えない異常トポロジーで確実です。この経路では
   `--modified-residue` / `-l` は効かず、model PDB にリンク水素を入れる必要も**ありません**
   — ML/MM calculator が `--parm` のトポロジーから ML/MM 境界に付与します。
+
+個別サブコマンドでは、同じ原子選択を `--model-indices`（デフォルトは1始まり）または
+`--detect-layer`（B 因子 `0` = ML、`10` = movable MM、`20` = frozen MM）でも指定できます。
+優先順位は `--model-pdb` → `--model-indices` → B 因子検出です。いずれも実在原子だけを
+指定し、runtime link H は含めません。
+
+デフォルトの `link_mlmm: null` では、ML 選択の片側だけに端点を持つ parm7 結合を境界として
+link H を自動生成します。原子間距離から境界結合を推定することはありません。座標は、
+トポロジーで結合を決めた後の H 配置にだけ使います。特殊なトポロジーでは YAML の
+`calc.link_mlmm` でペアを明示的に上書きできます。各ペアは
+`[ML側selector, MM側selector]` の順で、全系PDBのselectorを使います。空list `[]` は
+link Hを明示的に無効化します。
+
+```yaml
+calc:
+  link_mlmm:
+    - ["A:LIG:1:C1", "A:ALA:2:CA"]
+```
 
 #### 信頼できる`model.pdb`の作り方
 

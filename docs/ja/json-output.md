@@ -164,7 +164,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 **`thermochemistry`** (thermoanalysis 利用不可時は null):
 
-`temperature_K`, `pressure_atm`, `symmetry_number`, `symmetry_number_source`, `zpe_ha`, `thermal_correction_energy_ha`, `thermal_correction_enthalpy_ha`, `thermal_correction_free_energy_ha`, `sum_EE_and_ZPE_ha`, `sum_EE_and_thermal_energy_ha`, `sum_EE_and_thermal_free_energy_ha`, `E_thermal_cal_per_mol`, `Cv_cal_per_mol_K`, `S_cal_per_mol_K`
+`temperature_K`, `pressure_atm`, `symmetry_number`, `symmetry_number_source`, `electronic_energy_ha`（報告される `E + G_corr = G` の `E`）, `zpe_ha`, `thermal_correction_energy_ha`, `thermal_correction_enthalpy_ha`, `thermal_correction_free_energy_ha`, `sum_EE_and_ZPE_ha`, `sum_EE_and_thermal_energy_ha`, `sum_EE_and_thermal_free_energy_ha`, `E_thermal_cal_per_mol`, `Cv_cal_per_mol_K`, `S_cal_per_mol_K`
 
 ### `irc`
 
@@ -179,15 +179,15 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `forward_converged` / `backward_converged` | bool\|null | 各方向の収束フラグ |
 | `never_stop` | bool | 任意指定のエネルギー上昇・平坦化回避モードを有効にしたか |
 | `never_stop_energy_bypasses` | int | 実際に回避したエネルギー上昇・平坦化停止イベントの数 |
-| `rigid_projection` | object | 初期/更新Hessianの凍結境界 TR provenance |
-| `rigid_projection.electronic_state_verified` | bool | ファイルから初期化したHessianの model charge・多重度を identity 検証できたか |
+| `rigid_projection` | object | 初期/更新 Hessian の凍結境界 TR provenance |
+| `rigid_projection.electronic_state_verified` | bool | ファイルから初期化した Hessian の model charge・多重度を identity 検証できたか |
 | `bond_changes` | object | 最初→最後の方向の `{formed: [...], broken: [...]}`。比較できない場合は省略 |
 | `bond_changes_direction` | string | 結合変化がある場合は `"finished_first_to_finished_last"` |
 | `files` | object | 軌跡と端点ファイル（XYZと、利用可能なPDB/CIF companion） |
 
 **`rigid_projection` provenance:** 選択した処理は `treatment`、有効 rank は
 `effective_rank` として、アクティブ/凍結原子数・インデックス、および各 workflow が
-使ったHessian source/shape とともに記録します。デフォルトは `constrained`。
+使った Hessian source/shape とともに記録します。デフォルトは `constrained`。
 `legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用できません。`freq --dump` は同じ object を
 `thermoanalysis.yaml` にも書き出します。最後の 2 値のキー名は生成 workflow により
 `hessian_source` / `hessian_shape` または `source` / `raw_hessian_shape` です。
@@ -255,7 +255,7 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `n_link_hydrogens` | int | 切断結合に付加されたリンク H 原子数 |
 | `files` | object | 出力ファイル名のマップ（入力ごとのポケット PDB 等） |
 | `exclude_backbone` | bool | 実行時の `--exclude-backbone` の値 |
-| `include_h2o` | bool | 実行時の `--include-H2O` の値 |
+| `include_h2o` | bool | 実行時の `--include-h2o` の値 |
 | `ligand_charge_input` | string | 生の `-l/--ligand-charge` 引数 |
 | `ion_charges` | array | イオン残基の `[残基名, 電荷]` ペアのリスト |
 
@@ -284,6 +284,7 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `charge` | int | モデル領域の電荷 |
 | `spin` | int | モデル領域のスピン多重度 |
 | `environment` | object | ハードウェア情報 |
+| `references` | object[] | 解決済みworkflowで実際に使った手法の `{method, citation, doi}` record。同じreference setを `summary.log` と最終標準出力の末尾（elapsed time直前）にまとめて出力します。 |
 
 `all` はさらに以下を含みます。
 

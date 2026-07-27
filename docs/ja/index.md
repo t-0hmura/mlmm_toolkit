@@ -88,9 +88,9 @@ glossary
 | MM トポロジー（parm7/rst7）を構築 | `mlmm mm-parm` | [mm-parm.md](mm-parm.md) |
 | ML/MM 3層領域を定義 | `mlmm define-layer` | [define-layer.md](define-layer.md) |
 | 単一構造を最適化 | `mlmm opt` | [opt.md](opt.md) |
-| MEP探索で遷移状態候補を発見 | `mlmm path-search` | [path-search.md](path-search.md) |
+| MEP 探索で遷移状態候補を発見 | `mlmm path-search` | [path-search.md](path-search.md) |
 | 遷移状態候補を最適化 | `mlmm tsopt` | [tsopt.md](tsopt.md) |
-| 遷移状態からIRCを実行 | `mlmm irc` | [irc.md](irc.md) |
+| 遷移状態から IRC を実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
 | Gaussian ONIOM / ORCA QM/MM 入力を生成 | `mlmm oniom-export --mode g16\|orca` | [oniom-export.md](oniom-export.md) |
 | ONIOM 入力から XYZ/層付き PDB を再構築 | `mlmm oniom-import` | [oniom-import.md](oniom-import.md) |
@@ -128,7 +128,7 @@ glossary
 | サブコマンド | 説明 |
 |---------|------|
 | [`extract`](extract.md) | タンパク質-リガンド複合体から ML 領域（QM 領域）を定義 |
-| [`add-elem-info`](add-elem-info.md) | PDB の元素カラム（77-78）を修復 |
+| [`add-elem-info`](add-elem-info.md) | PDB の元素列（77-78）を修復 |
 | [`mm-parm`](mm-parm.md) | AmberTools (tleap + GAFF2) を使用して Amber トポロジー（parm7/rst7）を構築 |
 | [`define-layer`](define-layer.md) | ML 領域からの距離に基づき 3 層 ML/MM 領域を定義し、B-factor でエンコード |
 

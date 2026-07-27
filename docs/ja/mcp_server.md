@@ -88,7 +88,7 @@ output option を上書きできません。短縮 option の連結形と
 
 | MCP ツール | CLI サブコマンド | 目的 |
 |---|---|---|
-| `add_element_info` | `mlmm add-elem-info` | PDB の元素カラムを修復 |
+| `add_element_info` | `mlmm add-elem-info` | PDB の元素列を修復 |
 | `fix_altloc` | `mlmm fix-altloc` | PDB の代替位置標識を解決 |
 | `plot_trajectory` | `mlmm trj2fig` | エネルギープロファイルの PNG / HTML / SVG / PDF |
 | `plot_energy_diagram` | `mlmm energy-diagram` | カテゴリ別エネルギー図 |
@@ -98,7 +98,7 @@ output option を上書きできません。短縮 option の連結形と
 
 `run_irc` は `irc_pos_def: bool` を受け付けます。これを指定すると、IRC の収束に加えて正定値の質量重み付き Hessian も必要となり、rms のみの基準が局所極小に到達する前に成功と判定してしまう IRC の「ショルダー」誤収束をブロックします。デフォルトは `None`（rms のみ、レガシー）です。
 
-`find_transition_state` は代替の TS オプティマイザとして `opt_mode="trim"`（Helgaker 1991）/ `opt_mode="rsprfo"`（Banerjee 1985）を受け付けます。3 つの Hessian TS オプティマイザ（`rsirfo`/`rsprfo`/`trim`）はいずれも microiteration に対応しており、既定で microiteration を有効にして実行します。無効化するには `microiter=False` を渡します。
+`find_transition_state` は代替の TS オプティマイザとして `opt_mode="trim"`（Helgaker 1991）/ `opt_mode="rsprfo"`（Banerjee 1985）を受け付けます。3 つの Hessian TS オプティマイザ（`rsirfo`/`rsprfo`/`trim`）はいずれも microiteration に対応しており、デフォルトで microiteration を有効にして実行します。無効化するには `microiter=False` を渡します。
 
 ## クライアント設定
 

@@ -67,7 +67,7 @@ ML/MM 計算を行う大半のサブコマンド（`all`、`extract`、`mm-parm`
 --model-pdb model.pdb  # ML 領域（model system）を定義する PDB ファイル
 ```
 
-`all` ワークフローでは、`mm-parm` と `define-layer` により自動生成されます。個別サブコマンドを使う場合は、手動で指定してください。
+`all` ワークフローでは、`mm-parm` と `define-layer` により自動生成されます。個別サブコマンドの場合、`--parm` は常に必須ですが、`--model-pdb` が必須になるのは `--no-detect-layer` を指定したとき（または代わりに `--model-indices` を渡すとき）だけです。デフォルトの `--detect-layer` では PDB の B-factor から ML 領域を読み取ります。
 
 ```bash
 # 個別サブコマンドの例
@@ -78,7 +78,7 @@ mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 
 
 ## B-factor 層エンコーディング
 
-`mlmm-toolkit` は PDB の B-factor カラム（列 61-66）を使用して、3 層 ML/MM 分割をエンコードします:
+`mlmm-toolkit` は PDB の B-factor 列（列 61-66）を使用して、3 層 ML/MM 分割をエンコードします:
 
 | 層 | B-factor | 説明 |
 |-----|----------|------|
@@ -272,7 +272,7 @@ PDB 入力の場合、`--ligand-charge` で非標準残基（基質、補因子�
 
 | オプション | 説明 | デフォルト |
 |----------|------|----------|
-| `-b, --backend` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2` | `uma` |
+| `-b, --backend` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。`dft` では出力メタデータに記録されるラベルにすぎず、ML 領域は DFT（PySCF/GPU4PySCF）で計算されます。 | `uma` |
 | `--embedcharge/--no-embedcharge` | 互換性用の廃止済みオプション。v0.3.3 は機械的埋め込みのみをサポートし、`--embedcharge` は計算前に拒否されます。 | `--no-embedcharge` |
 | `--embedcharge-cutoff` | 廃止した電子埋め込み経路の互換性用オプション。明示指定は拒否されます。 | 未指定 |
 
@@ -281,7 +281,7 @@ PDB 入力の場合、`--ligand-charge` で非標準残基（基質、補因子�
 ```bash
 pip install "mlmm-toolkit[orb]"       # ORB バックエンド
 pip install "mlmm-toolkit[aimnet]"   # AIMNet2 バックエンド
-pip install --no-deps mace-torch      # MACE バックエンド
+pip uninstall -y fairchem-core && pip install mace-torch  # MACE は別 env で（e3nn ピンが UMA と競合）
 ```
 
 ---

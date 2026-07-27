@@ -1,6 +1,6 @@
 # `freq`
 
-層を定義した酵素 PDB に対して、PHVA（部分Hessian振動解析、partial-Hessian vibrational analysis）対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。
+層を定義した酵素 PDB に対して、PHVA（部分 Hessian 振動解析、partial-Hessian vibrational analysis）対応の ML/MM 振動解析と熱化学（ZPE、Gibbs エネルギー等）を計算します。
 
 **`mlmm freq` を使う場面:**
 
@@ -9,7 +9,7 @@
 
 `mlmm freq` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA により凍結原子を扱えます。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
 
-虚振動数は負の値で表示されます。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` でHessian評価を高速化できます。
+虚振動数は負の値で表示されます。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` で Hessian 評価を高速化できます。
 
 ## 実行例
 
@@ -34,7 +34,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
-VRAM に余裕があるノードで解析的Hessianを使う:
+VRAM に余裕があるノードで解析的 Hessian を使う:
 
 ```bash
 mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
@@ -43,11 +43,11 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 
-1. **ML/MM calculatorの構築** — ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm` から読み取られます。`--hessian-calc-mode` は解析的または有限差分のHessianを選択します。計算機は完全な 3N x 3N Hessianまたはアクティブ自由度（DOF）のサブブロックを返す場合があります。
-2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われます。デフォルトの constrained 射影は、凍結 anchor をすべて動かさない全系剛体運動のみを除去し、アクティブ断片を孤立分子として扱いません。3N x 3N とアクティブブロックの両方のHessianを受け付け、振動数は cm^-1 で報告します（負の値 = 虚振動数）。
+1. **ML/MM calculatorの構築** — ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm` から読み取られます。`--hessian-calc-mode` は解析的または有限差分の Hessian を選択します。計算機は完全な 3N x 3N Hessian またはアクティブ自由度（DOF）のサブブロックを返す場合があります。
+2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われます。デフォルトの constrained 射影は、凍結 anchor をすべて動かさない全系剛体運動のみを除去し、アクティブ断片を孤立分子として扱いません。3N x 3N とアクティブブロックの両方の Hessian を受け付け、振動数は cm^-1 で報告します（負の値 = 虚振動数）。
 3. **アクティブ自由度モード** — `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層、B=0）、`partial`（ML + MovableMM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
 4. **モードエクスポート** — `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `_trj.xyz`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML のデフォルト値と同じです。
-5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（EE、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。CLI の圧力（atm）は内部で Pa に変換されます。回転対称数のデフォルトは 1 です。分子の外部回転対称数は `--symmetry-number`（または YAML の `thermo.symmetry_number`）で明示してください。point group の自動推定は行いません。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
+5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（E、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。構造の Gibbs free energy は Hartree 単位で `E + G_corr = G`（電子エネルギー + Gibbs free-energy 補正 = Gibbs free energy）と明示します。CLI の圧力（atm）は内部で Pa に変換されます。回転対称数のデフォルトは 1 です。分子の外部回転対称数は `--symmetry-number`（または YAML の `thermo.symmetry_number`）で明示してください。point group の自動推定は行いません。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
 6. **デバイス選択** — `ml_device="auto"` は CUDA が利用可能な場合は CUDA を使用し、それ以外は CPU を使用します。内部の TR 射影/モード組み立ては転送を抑えるため同じデバイスで実行されます。
 7. **終了動作** — キーボード割り込みはコード 130 で終了します。その他の失敗はトレースバックを出力してコード 1 で終了します。
 
@@ -119,20 +119,20 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（既定 `true`: 有限差分）。 | `hessian_ff` |
+| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（g 因子）または fixed（1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
 | `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
 | `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
-| `--hess-device CHOICE` | Hessian組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
-| **アクティブ領域の凍結とHessian** | | |
+| `--hess-device CHOICE` | Hessian 組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
+| **アクティブ領域の凍結と Hessian** | | |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
 | `--tr-projection [constrained\|legacy-active]` | PHVA の剛体モード処理。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM 層のカットオフ距離。 | _None_ |
-| `--hessian-calc-mode CHOICE` | Hessianモード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
+| `--hessian-calc-mode CHOICE` | Hessian モード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--dump-hess PATH` | Hessian、原子順序、Cartesian geometry、active-DOF basis、PHVA metadata、model charge、多重度を`.npz`へ保存し、一致する`mlmm irc --read-hess`へ渡す。 | _None_ |
 | **モードエクスポート** | | |
 | `--max-write INT` | エクスポートするモード数。 | `10` |

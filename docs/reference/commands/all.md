@@ -42,8 +42,10 @@ Options:
                                   Remove backbone atoms on non‑substrate amino
                                   acids (with PRO/HYP safeguards).  [default:
                                   no-exclude-backbone]
-  --add-linkh / --no-add-linkh    Add link hydrogens for severed bonds (carbon-
-                                  only) in pockets.  [default: no-add-linkh]
+  --add-linkh / --no-add-linkh    Add extractor-only link H to scratch pocket
+                                  PDBs. The ML/MM model selection remains link-
+                                  free; runtime link H are generated from parm7
+                                  boundary bonds.  [default: no-add-linkh]
   --selected-resn TEXT            Force-include residues (comma/space separated;
                                   chain/insertion codes allowed).  [default: ""]
   --modified-residue TEXT         Comma-separated residue names (with optional
@@ -59,9 +61,11 @@ Options:
                                   derived by the workflow.
   --parm FILE                     Pre-built AMBER parm7 topology file. When
                                   provided, mm_parm generation is skipped.
-  --model-pdb FILE                Pre-built ML-region PDB (with B-factor layer
-                                  info). When provided, ml_region generation is
-                                  skipped.
+  --model-pdb FILE                ML-only atom-selection PDB. It must be an
+                                  unchanged, link-H-free subset of the full
+                                  PDB/parm7 in the same atom order. It takes
+                                  precedence over an ML selection produced by
+                                  -c/--center.
   --auto-mm-ff-set [ff19sb|ff14sb]
                                   Force-field set forwarded to mm_parm (ff19SB
                                   uses OPC3; ff14SB uses TIP3P).  [default:
@@ -169,13 +173,11 @@ Options:
                                   RSIRFO); --no-flatten forces
                                   flatten_max_iter=0.  [default: no-flatten]
   --reject-uphill / --no-reject-uphill
-                                  Reject energy-raising RFO trial steps during
-                                  post-IRC endpoint re-optimization ONLY (roll
-                                  back to the lower-energy geometry and shrink
-                                  the trust radius). Does not affect TS
-                                  optimization or path search. --no-reject-
-                                  uphill disables it for the endpoint re-
-                                  optimization.  [default: reject-uphill]
+                                  Reject uphill RFO trials during post-IRC
+                                  endpoint re-optimization only and final-check
+                                  the retained endpoint at the emergency floor.
+                                  Does not affect TS optimization or path
+                                  search.  [default: reject-uphill]
   --irc-step-size FLOAT           Override IRC --step-size (Bohr). If an IRC
                                   stops after only a few frames, retry with a
                                   smaller value such as 0.05.

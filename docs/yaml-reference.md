@@ -58,6 +58,8 @@ geom:
 (calc)=
 ### `calc` (section)
 
+`mlmm:` is an accepted alias for this section — the loaders read `calc` first and fall back to
+`mlmm`, so a file may use either name (not both).
 
 ```yaml
 calc:
@@ -67,7 +69,7 @@ calc:
  model_pdb: null # PDB defining the ML (model) region atoms
  model_charge: 0 # Charge of the ML (model) region
  model_mult: 1 # Spin multiplicity of the ML (model) region
- link_mlmm: null # Link atom specification for ML/MM boundary
+ link_mlmm: null # null: derive boundary pairs from parm7 bonds; list: explicit override
  link_atom_method: scaled    # Link atom placement: "scaled" (g-factor) or "fixed" (1.09/1.01 Å)
 
  # --- MLIP backend selection ---
@@ -200,6 +202,11 @@ opt:
 | `gau_tight` | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
 | `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+
+`baker` is the exception to the four-column rule: it converges when
+`max(|force|) <= 3e-4` **and** (`|delta E| < 1e-6` **or**
+`max(|step|) <= 3e-4`). Its RMS force and RMS step columns are diagnostics,
+not additional terminal gates.
 
 **Energy plateau fallback:**
 
@@ -532,6 +539,22 @@ freq:
 
 **Notes:**
 - `active_dof_mode` selects which atoms participate in the vibrational analysis. `all` uses every atom; `ml-only` restricts to ML-region atoms; `partial` (default) uses ML + Movable-MM atoms; `unfrozen` uses every non-frozen atom. The CLI flag `--active-dof-mode` overrides the YAML value when explicitly passed.
+
+---
+
+### `sp` (section)
+
+Single-point settings. Read only by `mlmm sp`.
+
+```yaml
+sp:
+ hess: false # Also compute the full ONIOM Hessian
+ hessian_calc_mode: FiniteDifference # "FiniteDifference" | "Analytical"
+ out_dir: ./result_sp/ # Output directory
+```
+
+**Notes:**
+- The matching CLI flags (`--hess`, `--hessian-calc-mode`, `-o/--out-dir`) override these when passed explicitly.
 
 ---
 

@@ -13,8 +13,8 @@
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | 量子化学と分子力学の結合手法。ML/MM は QM 部分を機械学習ポテンシャルで置き換えた変種。 |
 | **real system** | -- | ONIOM 分解における全系（3 層すべて）。parm7 トポロジーで記述され、hessian_ff で MM エネルギーを計算。 |
 | **model system** | -- | ONIOM 分解における ML 領域（Layer 1）。MLIP バックエンド（デフォルト: UMA）と MM の両方で評価。 |
-| **リンク水素** | Link Hydrogen | ML 領域と MM 領域の境界で切断された結合をキャップする水素原子。ヤコビアンで力を再分配。 |
-| **hessian_ff** | -- | mlmm-toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析Hessianをサポート。 |
+| **リンク水素** | Link Hydrogen | 実在原子のML選択を横切るparm7結合ごとに生成する水素原子。既知のtopology結合に沿って配置し、ヤコビアンで力を再分配。任意の`extract --add-linkh`が作る水素は確認用のポケットcapであり、runtime境界の定義には使用しない。 |
+| **hessian_ff** | -- | mlmm-toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析 Hessian をサポート。 |
 | **3 層システム** | 3-layer system | mlmm-toolkit の B-factor による層分割方式: ML（B=0.0）、Movable-MM（B=10.0）、Frozen（B=20.0）。 |
 | **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）カラムに層の所属を格納する方式: 0.0 = ML、10.0 = Movable-MM、20.0 = Frozen。Hessian 対象 MM 原子はカットオフ/明示的インデックスで制御。 |
 
@@ -57,11 +57,11 @@
 
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
-| **L-BFGS** | Limited-memory BFGS | 勾配履歴からHessianを近似する準ニュートン法。`--opt-mode grad` で使用。 |
-| **RFO** | Rational Function Optimization | 明示的なHessian情報を使用する信頼領域最適化法。`--opt-mode hess` で使用。 |
+| **L-BFGS** | Limited-memory BFGS | 勾配履歴から Hessian を近似する準ニュートン法。`--opt-mode grad` で使用。 |
+| **RFO** | Rational Function Optimization | 明示的な Hessian 情報を使用する信頼領域最適化法。`--opt-mode hess` で使用。 |
 | **RS-I-RFO** | Restricted-Step Image-RFO | 1 つの負固有値方向に沿う、鞍点（TS）最適化用の RFO 変種。 |
-| **Dimer** | Dimer Method | 完全なHessianを計算せずに最低曲率モードを推定する TS 最適化法。`--opt-mode grad` の TSOPT で使用。 |
-| **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非凍結）原子のHessianブロックのみを使用した振動数計算。`freq` のデフォルト。 |
+| **Dimer** | Dimer Method | 完全な Hessian を計算せずに最低曲率モードを推定する TS 最適化法。`--opt-mode grad` の TSOPT で使用。 |
+| **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非凍結）原子の Hessian ブロックのみを使用した振動数計算。`freq` のデフォルト。 |
 
 ---
 
@@ -75,7 +75,7 @@
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。専用の conda 環境で `pip uninstall fairchem-core`（UMA の pin が `e3nn` で衝突するため）を実行してから `pip install mace-torch` でインストールします。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install "mlmm-toolkit[aimnet]"` で追加インストール。 |
 | **xTB** | Extended Tight-Binding | 半経験的量子化学手法。custom calculator では利用可能だが、v0.3.3 の廃止済み電子埋め込み経路では使用不可。 |
-| **解析Hessian** | Analytical Hessian | バックエンドの微分可能またはネイティブ Hessian 経路で二階微分を計算。一般に高速だが VRAM を多く消費。UMA、ORB、MACE、AIMNet2 で利用可能。 |
+| **解析 Hessian** | Analytical Hessian | バックエンドの微分可能またはネイティブ Hessian 経路で二階微分を計算。一般に高速だが VRAM を多く消費。UMA、ORB、MACE、AIMNet2 で利用可能。 |
 | **有限差分** | Finite Difference | 変位させた構造の力から二階微分を近似。一般に低速だがメモリ効率が良く、全 MLIP バックエンドで利用可能。 |
 
 ---
@@ -100,9 +100,9 @@
 | **XYZ** | -- | 元素記号と直交座標を並べたシンプルなテキスト形式。 |
 | **GJF** | Gaussian Job File | Gaussian の入力形式。電荷/多重度と座標の読み取りに利用可能。 |
 | **ポケット** | Active-site Pocket | `extract` サブコマンドで基質周辺から切り出した部分構造。ML/MM ワークフローでは ML 領域と周辺 MM 環境を定義する。 |
-| **リンク水素** | Link Hydrogen | ポケット抽出時に切断された結合をキャップするために付加する水素原子。 |
+| **抽出用リンク水素** | Extractor-only Link Hydrogen | `extract --add-linkh`でポケット確認用に付加するcap水素。ML/MM計算時のlink pairはこれではなくparm7境界結合から決定する。 |
 | **主鎖** | Backbone | タンパク質の主骨格（N-Ca-C-O 原子）。`--exclude-backbone` で除外可能。 |
-| **B-factor** | Temperature Factor | PDB の温度因子カラム。mlmm では 3 層への割り当てをエンコードするために使用（0.0, 10.0, 20.0）。 |
+| **B-factor** | Temperature Factor | PDB の温度因子列。mlmm では 3 層への割り当てをエンコードするために使用（0.0, 10.0, 20.0）。 |
 
 ---
 
@@ -137,7 +137,7 @@
 | **ブール値オプション** | `--flag / --no-flag` の形式で切り替えるトグルフラグの組（例: `--tsopt / --no-tsopt`）。後方互換のため `--flag True/False` の値指定形式も受け付けます。 |
 | **残基セレクタ** | `'SAM,GPP'`（名前）や `'A:123,B:456'`（チェーン:ID）のような指定方法。 |
 | **原子セレクタ** | `'TYR,285,CA'` のように残基名・番号・原子名で特定の原子を指定する方法。 |
-| **B-factor 層エンコーディング** | PDB の B-factor カラムを使用して 3 層の層割り当て（0.0, 10.0, 20.0）をエンコードする方式。Hessian 対象 MM 原子は別設定で制御。 |
+| **B-factor 層エンコーディング** | PDB の B-factor 列を使用して 3 層の層割り当て（0.0, 10.0, 20.0）をエンコードする方式。Hessian 対象 MM 原子は別設定で制御。 |
 
 ---
 

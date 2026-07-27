@@ -61,7 +61,7 @@ mlmm oniom-import -i INPUT.[gjf|com|inp] [--mode g16|orca] \
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input FILE` | 入力 ONIOM ファイル（g16: `.gjf`/`.com`, ORCA: `.inp`）。 | 必須 |
-| `--mode [g16|orca]` | 入力モード。未指定時は拡張子から推定。 | 自動判定 |
+| `--mode [g16\|orca]` | 入力モード。未指定時は拡張子から推定。 | 自動判定 |
 | `-o, --out-prefix PATH` | 出力プレフィックス。 | カレントディレクトリ上の入力 stem |
 | `--ref-pdb FILE` | 原子名/残基メタデータ保持用の参照 PDB（原子数一致必須）。 | _None_ |
 | `--allow-unverified-ref-order` | marker のない旧入力で同一元素が複数あり、原子順序を独立に確認済みの場合だけ positional mapping を許可。digest 不一致は上書きしない。 | `False` |

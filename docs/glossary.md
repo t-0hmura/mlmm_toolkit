@@ -9,7 +9,7 @@
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | A multi-scale method coupling QM for the reactive region with MM for the environment. ML/MM replaces the QM layer with an MLIP backend. |
 | **Real system** | -- | The full set of atoms (all 3 layers). Evaluated at the MM (low) level in the ONIOM decomposition. Described by the parm7 topology; MM energy computed by hessian_ff. |
 | **Model system** | -- | The ML region (Layer 1). Evaluated at both the MLIP (high) and MM (low) levels in the ONIOM decomposition. |
-| **Link Hydrogen** | -- | A hydrogen atom added to cap severed bonds at the ML/MM boundary during pocket extraction. Forces are redistributed via a Jacobian. |
+| **Link Hydrogen** | -- | A hydrogen generated for each parm7 bond crossing the real-atom ML/MM selection. Coordinates place it along that known topology bond, and forces are redistributed through a Jacobian. Optional `extract --add-linkh` hydrogens are inspection-only pocket caps, not the runtime boundary definition. |
 | **Link atom** | -- | See **Link Hydrogen**; in mlmm-toolkit the link atoms placed at severed ML/MM boundaries are hydrogens. |
 | **hessian_ff** | -- | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm-toolkit. |
 | **3-layer system** | -- | mlmm-toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen (B=20.0). |

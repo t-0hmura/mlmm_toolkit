@@ -4,9 +4,7 @@ All notable changes to **mlmm-toolkit** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## Unreleased
-
-## [0.3.3] — 2026-07-22
+## [0.3.3] — 2026-07-27
 
 > Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,
 > vibrational classifications, thermochemistry, and scientific/terminal status. Consumers of
@@ -43,6 +41,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `--allow-unverified-ref-order`, which cannot bypass a known mismatch.
 
 ### Added
+- Report citations for the methods actually used at the end of `summary.log`
+  and final stdout, and expose the same `{method, citation, doi}` records as
+  `summary.json.references`.
+- Write directly inspectable ML-region structures both before and after link
+  hydrogens generated from parm7 ML/MM boundary bonds, including PDB companions
+  for PDB input.
+- Install AmberTools in the Colab notebook through an isolated Miniforge, so
+  `mm-parm` and the DMF path mode run there; the Colab Python environment is
+  left untouched.
+- Cancel a running Colab job from the interface, and send an occupied output
+  directory to `result(1)`, `result(2)`, … instead of writing into it.
 - Add an mmCIF/large-PDB bridge (atom-identity–preserving; multi-model input keeps the first model,
   with a warning), exact selectors, safe duplicate atom names, and root/segment CIF companions with
   original identifiers.
@@ -80,6 +89,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
 
 ### Changed
+- Derive the ML-region charge in the Colab notebook from `--ligand-charge`
+  instead of requiring a confirmed `-q`; a ticked charge box is now an explicit
+  override.
+- Install the DFT extra by default in the Colab notebook and verify plot export
+  by rendering a PNG. A first run now takes about 12 minutes and needs a GPU
+  runtime.
+- Label thermochemistry as `E + G_corr = G`, force uphill rejection off for
+  transition-state optimization, and keep its toggle limited to minimum and
+  post-IRC endpoint optimization.
+- Apply Baker convergence as maximum force plus energy-change-or-maximum-step,
+  with RMS values diagnostic only, including the final check of a retained
+  lower-energy geometry at the uphill-rejection trust floor.
 - Pin backend setup recipes to the official PyTorch 2.8 wheel matrix, install
   dedicated-environment MACE only after removing `fairchem-core`, and make HPC
   templates fail fast unless the `hessian_ff` JIT compiler prerequisites are
@@ -164,6 +185,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Keep the IRC running when the EulerPC corrector oscillates. The corrector
+  descends the two-point interpolated surface rather than the real potential,
+  so a reversal there is an interpolation artifact; it now warns and keeps the
+  last non-oscillating point instead of aborting the whole run.
 - Stop `scan2d` after writing `surface.csv` with a clear diagnostic when fewer
   than three non-collinear converged grid points remain, instead of passing an
   underdetermined data set to SciPy's RBF interpolator.
@@ -190,7 +215,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   but never persisted the file the Gibbs assembly reads — every run reported
   `thermochemistry result is missing` and produced no Gibbs diagram. An explicit
   `--no-dump` still suppresses the file.
-
 - Keep Hessian-Dimer orientations and off-center images on the frozen Cartesian
   constraint manifold, refreshing constraint-compatible rigid null modes at
   each central image.

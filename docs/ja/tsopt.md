@@ -5,7 +5,14 @@
 オプティマイザは 2 種類あり、`--opt-mode` で選択します。
 
 - **RS-I-RFO**（`--opt-mode hess`）はデフォルトで、Hessian 計算のコストを許容できる場合の保守的な選択肢です。マイクロイテレーション（`--microiter`、デフォルト有効）が ML 1 ステップ RS-I-RFO と MM L-BFGS 緩和を交互に実行します。
-- **Hessian-Guided Dimer**（`--opt-mode grad`）はより軽量な代替で、低コストな探索や複数の TS 推測構造からの素早い反復に向きます。`--ml-only-hessian-dimer` を付けると ML 領域のみのHessianを Dimer 方向決定に使用できます（高速）。
+- **Hessian-Guided Dimer**（`--opt-mode grad`）はより軽量な代替で、低コストな探索や複数の TS 推測構造からの素早い反復に向きます。`--ml-only-hessian-dimer` を付けると ML 領域のみの Hessian を Dimer 方向決定に使用できます（高速）。
+
+`tsopt` は、YAML 上書き後も鞍点探索を担う RFO 系および Dimer
+optimizer の `reject_uphill` を常に `false` に固定します。TS 探索では
+反応モードに沿った物理エネルギー上昇を許す必要があるためです。
+`--reject-uphill/--no-reject-uphill` は最小値最適化（`opt` と `all` の
+IRC 後エンドポイント再最適化）だけに適用されます。マイクロイテレーション
+内部の MM-only 緩和は最小化の部分問題なので、この区別を維持します。
 
 収束後は `--flatten` の余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。検証済み TS は**正確に 1 つ**の虚振動数を示すべきで、必ず [`freq`](freq.md) / [`irc`](irc.md) でモードと結合性を確認してください。
 
@@ -109,7 +116,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
-light モード（Dimer）+ 解析的Hessian:
+light モード（Dimer）+ 解析的 Hessian:
 
 ```bash
 # VRAM に余裕がある場合に light モード + 解析的Hessianで実行する
@@ -129,12 +136,12 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 処理の流れ
 
 1. **入力処理** — 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
-2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP がHessianを解析的に評価するか有限差分で評価するかを制御します。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は構築前に拒否します。
+2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP が Hessian を解析的に評価するか有限差分で評価するかを制御します。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は構築前に拒否します。
 3. **Light モード（Dimer）:**
-   - Hessian Dimer ステージはアクティブ部分空間の部分Hessianを評価して Dimer 方向を定期的に更新します。TR 処理は `--tr-projection` に従い、デフォルトでは凍結 anchor と両立する全系剛体運動だけを除去します。保存・回転・試行する全方向で凍結Cartesian成分をゼロに保ち、中心外のforce評価でも凍結座標を中心imageと厳密に一致させます。
-   - 平坦化ループが有効な場合（`--flatten`）、保存されたアクティブHessianは変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回平坦化し、Dimer 方向を更新し、Dimer + L-BFGS マイクロセグメントを実行します。
+   - Hessian Dimer ステージはアクティブ部分空間の部分 Hessian を評価して Dimer 方向を定期的に更新します。TR 処理は `--tr-projection` に従い、デフォルトでは凍結 anchor と両立する全系剛体運動だけを除去します。保存・回転・試行する全方向で凍結Cartesian成分をゼロに保ち、中心外のforce評価でも凍結座標を中心imageと厳密に一致させます。
+   - 平坦化ループが有効な場合（`--flatten`）、保存されたアクティブ Hessian は変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回平坦化し、Dimer 方向を更新し、Dimer + L-BFGS マイクロセグメントを実行します。
 4. **Heavy モード（RS-I-RFO）:**
-   - RS-I-RFO オプティマイザを、`rsirfo` YAML セクションで定義されたオプションのHessian参照ファイルとマイクロサイクル制御とともに実行します。
+   - RS-I-RFO オプティマイザを、`rsirfo` YAML セクションで定義されたオプションの Hessian 参照ファイルとマイクロサイクル制御とともに実行します。
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードを平坦化し、1 つだけ残るか平坦化反復上限に達するまで RS-I-RFO を再実行します。
 5. **モードエクスポートと変換** — 収束した虚振動数モードは常に `vib/imag_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
 
@@ -187,18 +194,18 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。未指定時は最終解析に必要な可動 MM 原子をすべて含めます。`0.0` で ML のみを評価する場合は、最終周波数解析も `--active-dof-mode ml-only` にします。エイリアス: `--radius-hessian`。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | **TS 探索とオプティマイザモード** | | |
-| `--hessian-calc-mode CHOICE` | MLIP Hessianモード: `Analytical` または `FiniteDifference`。 | `FiniteDifference` |
+| `--hessian-calc-mode CHOICE` | MLIP Hessian モード: `Analytical` または `FiniteDifference`。 | `FiniteDifference` |
 | `--ref-mode PATH` | 高度な Cartesian 3N 経路方向ヒント。`all` が MEP から自動供給し、通常の単独 `tsopt` では省略。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザサイクル。 | `10000` |
 | `--opt-mode CHOICE` | TS オプティマイザモード（Choice: `grad` / `hess` / `light` / `heavy` / `dimer` / `rsirfo` / `trim` / `rsprfo`）。`grad`/`light`/`dimer` → Hessian-Guided Dimer; `hess`/`heavy`/`rsirfo` → RS-I-RFO（デフォルト）; `trim` → TRIM（Helgaker）; `rsprfo` → RS-P-RFO（Banerjee）。Hessian TS オプティマイザ3種（`rsirfo`/`rsprfo`/`trim`）はいずれも microiter 対応。 | `hess` |
 | `--microiter/--no-microiter` | マイクロイテレーション: 1 ステップの macro TS 移動（RS-I-RFO / RS-P-RFO / TRIM）+ MM 緩和（L-BFGS）を交互に実行。任意の Hessian モード（`hess`/`rsirfo`/`rsprfo`/`trim`）で有効。 | `True` |
-| `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | `grad` モードで Dimer 方向決定に ML 領域のみのHessianを使用。高速だが精度は低下。 | `False` |
+| `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | `grad` モードで Dimer 方向決定に ML 領域のみの Hessian を使用。高速だが精度は低下。 | `False` |
 | **収束と平坦化** | | |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--flatten/--no-flatten` | 余分な虚振動数モード平坦化ループの有効化/無効化。`--flatten` はデフォルト反復回数（50）を使用、`--no-flatten` は 0 に強制。light と heavy の両モードに適用。 | _None_（CLI デフォルトは無効 = `flatten_max_iter` 0; `--flatten` または YAML/config で初めて有効化され、その場合 50 回） |
-| `--partial-hessian-flatten / --full-hessian-flatten` | 平坦化ループでの虚振動数モード検出に部分Hessian（ML のみ）を使用。 | `True`（部分） |
+| `--partial-hessian-flatten / --full-hessian-flatten` | 平坦化ループでの虚振動数モード検出に部分 Hessian（ML のみ）を使用。 | `True`（部分） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
-| `--skip-final-freq/--no-skip-final-freq` | 収束後の振動解析と虚振動数モード平坦化をスキップ。大規模非凍結系でHessian対角化が高コストな場合に有用。TS の鞍点次数は未検証のままになる。 | `False` |
+| `--skip-final-freq/--no-skip-final-freq` | 収束後の振動解析と虚振動数モード平坦化をスキップ。大規模非凍結系で Hessian 対角化が高コストな場合に有用。TS の鞍点次数は未検証のままになる。 | `False` |
 | **バックエンドと計算** | | |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
@@ -357,5 +364,5 @@ pass/HOSP 遷移状態認定には使用できません。現行の共通 kernel
 - [freq](freq.md) — 検証済み TS の単一虚振動数を確認
 - [irc](irc.md) — 最適化された TS からの反応経路追跡
 - [all](all.md) — ML/MM モデル構築 -> MEP 探索 -> tsopt -> IRC -> freq を連鎖させる一気通貫ワークフロー
-- [YAML リファレンス](yaml-reference.md) — `hessian_dimer`（Hessianガイド付き Dimer）と `rsirfo` の完全な設定オプション
-- [用語集](glossary.md) — TS、Dimer、RS-I-RFO、Hessianの定義
+- [YAML リファレンス](yaml-reference.md) — `hessian_dimer`（Hessian ガイド付き Dimer）と `rsirfo` の完全な設定オプション
+- [用語集](glossary.md) — TS、Dimer、RS-I-RFO、Hessian の定義

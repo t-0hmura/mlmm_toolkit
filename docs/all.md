@@ -72,13 +72,17 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
     --mep-mode dmf --dmf-backend cpu --out-dir ./result_all_dmf
 ```
 
-PDB companion files are generated when reference templates are available; control with `--convert-files` (on by default).
+Converted trajectory/structure PDB companions are generated when reference
+templates are available; control those conversions with `--convert-files` (on
+by default). The inspectable ML-region PDB pair described below is a separate
+artifact and is always written for PDB input.
 
 ## Workflow
 
 1. **Active-site extraction and ML-region definition** (multi-structure union when multiple inputs)
    - Define the substrate via `-c/--center` (PDB path, residue IDs, or residue names) and optionally `--ligand-charge` as a total number (distributed) or a mapping such as `GPP:-3,MMT:-1`.
    - The extractor writes per-input pocket PDBs under `<out-dir>/_work/pockets/`. The first pocket is copied to `<out-dir>/ml_region.pdb` (a reusable deliverable you can pass back as `--model-pdb`) and defines the ML region for all subsequent ML/MM calculations.
+   - `<out-dir>/ml_region_without_linkH.xyz` and `ml_region_with_linkH.xyz` expose the exact model system before and after link-H insertion. PDB inputs also produce matching `.pdb` companions. Automatic link pairs are parm7 bonds crossing the ML/MM selection, never distance-perceived bonds.
    - The **first-model net ML-region charge** becomes the net ML-region charge for later steps.
    - Omitting `-c/--center` skips extraction and uses the full input structures directly.
 2. **ML/MM preparation (parm7 + layer assignment)**
@@ -122,6 +126,10 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
   energy_diagram_G_DFT_plus_MLIP_all.png
   irc_plot_all.png
   ml_region.pdb                  # ML-region definition (reusable as --model-pdb for follow-up runs)
+  ml_region_without_linkH.xyz    # exact ML model before link-H insertion
+  ml_region_with_linkH.xyz       # exact ML model after parm7-derived link-H insertion
+  ml_region_without_linkH.pdb    # topology-bearing companion for PDB input
+  ml_region_with_linkH.pdb       # PDB companion with generated HL/LKH atoms
   mm_parm/<input1>.parm7,.rst7   # MM topology from the first full-enzyme input (reusable as --parm)
   layered/                       # Layered full-system PDBs (B-factor annotated; reusable inputs)
   segments/                      # per-reactive-segment deliverables
@@ -179,7 +187,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--model-pdb FILE` | Pre-built ML-region PDB. When provided, ML-region determination is skipped. | _None_ |
 | `--ref-pdb FILE` | Reference PDB for XYZ input (required so PDB metadata can be recovered). | _None_ |
 | `--convert-files / --no-convert-files` | Global toggle for XYZ / TRJ → PDB companions. | `True` |
-| `--dump / --no-dump` | Save optimizer dumps. Always forwarded to `path-search` / `path-opt`; forwarded to `scan` / `tsopt` only when explicitly set. `freq` defaults to `dump=True` unless you pass `--no-dump`. | `False` |
+| `--dump / --no-dump` | Save optional optimizer trajectories/restarts. Always forwarded to `path-search` / `path-opt`; forwarded to `scan` / `tsopt` only when explicitly set. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump` so Gibbs assembly remains complete. | `False` |
 | `--config FILE` | Base YAML applied first. | _None_ |
 | `--show-config / --no-show-config` | Print resolved configuration before execution. | `False` |
 | `--dry-run / --no-dry-run` | Run extraction/setup and charge/parity validation in a temporary directory, print the plan, and skip compute stages (shown in `--help-advanced`). | `False` |
@@ -255,7 +263,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R / TS / P. | `False` |
 | `--dft / --no-dft` | Run single-point DFT on R / TS / P. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
-| `--reject-uphill / --no-reject-uphill` | Reject energy-raising RFO steps during post-IRC **endpoint re-optimization only** (forwarded to the opt child); does not affect TS optimization or path search. | `True` |
+| `--reject-uphill / --no-reject-uphill` | Reject energy-raising RFO steps during post-IRC **endpoint re-optimization only** (forwarded to the opt child); TS optimization forces rejection off, and path search is unaffected. At the emergency floor, the retained endpoint receives a final normal convergence check. | `True` |
 | `--tr-projection [constrained\|legacy-active]` | Forward the frozen-boundary TR treatment to `tsopt`, `irc`, `freq`, and flatten PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |
 | `--irc-step-size FLOAT` | Override the EulerPC maximum step (Bohr) for every post-TS IRC. If a branch stops after only a few frames, retry with a smaller value such as `0.05`. | IRC default `0.10` |
 | `--irc-never-stop / --no-irc-never-stop` | Forward opt-in IRC continuation across energy-rise/plateau stops. Integrator convergence, invalid values, and the cycle cap still stop each branch. | `False` |

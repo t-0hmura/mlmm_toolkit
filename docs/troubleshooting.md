@@ -166,7 +166,7 @@ Raise `--max-nodes` (e.g. 15–20) for complex reactions; enable `--preopt`; try
 
 | Symptom | Fix |
 |---|---|
-| `ImportError: orb-models is required for the ORB backend` (or similar for AIMNet2 / MACE) | `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip install --no-deps mace-torch` (MACE in a dedicated env). |
+| `ImportError: orb-models is required for the ORB backend` (or similar for AIMNet2 / MACE) | `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip uninstall -y fairchem-core && pip install mace-torch` (MACE in a dedicated env; its `e3nn` pin conflicts with UMA). |
 | CUDA OOM while building a Hessian | Both analytical and finite-difference modes form a dense active-space Hessian. Reduce the Hessian target with `hess_cutoff`, or benchmark `Analytical` versus `FiniteDifference` for the installed backend, system, precision, and hardware; `ml_device: cpu` avoids the GPU VRAM limit at higher runtime cost. |
 | An old command contains `--embedcharge` | Remove the electronic-embedding options and rerun with mechanical embedding; the retired path is unavailable in v0.3.3. |
 

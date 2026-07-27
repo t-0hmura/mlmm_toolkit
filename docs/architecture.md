@@ -35,7 +35,7 @@ Three bundled forks (`pysisyphus/`, `thermoanalysis/`, `hessian_ff/`) live at th
 - `.github/scripts/check_import_graph.py` (AST import-graph gate) enforces the parts that are true today: (a) the `mlmm` package has **no import cycle** (no strongly connected component among its modules); (b) `core` and `domain` **never import `workflows`**; (c) no bundled fork (`pysisyphus` / `hessian_ff` / `thermoanalysis`) imports `mlmm`.
 - `.github/scripts/check_engineering_markers.py` covers a *different* concern — chemistry-rule / `DOMAIN_PURE` marker completeness and the MLIP-runtime import scope. It does **not** parse the layer import edges, so it does not enforce the direction.
 
-Current allowed back-edges (measured, cycle-free, retained in the major rewrite): a few `core.utils` helpers reach *down* into `domain.add_elem_info` and `io.structure_formats`, and `core.calc_eval` into `backends.mlmm_calc`. `core.utils` no longer imports any `workflows` module; the historical `core.utils ↔ workflows.extract` and `workflows.freq ↔ workflows.opt` cycles were removed by relocating the shared charge/spin preparation (`workflows/charge_prep.py`) and layer helpers (`workflows/_opt_freq_common.py`). Bundled forks sit outside the layer graph and may be imported from any layer through their absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`).
+Current allowed back-edges (measured, cycle-free, retired in the major rewrite): a few `core.utils` helpers reach *down* into `domain.add_elem_info` and `io.structure_formats`, and `core.calc_eval` into `backends.mlmm_calc`. `core.utils` no longer imports any `workflows` module; the historical `core.utils ↔ workflows.extract` and `workflows.freq ↔ workflows.opt` cycles were removed by relocating the shared charge/spin preparation (`workflows/charge_prep.py`) and layer helpers (`workflows/_opt_freq_common.py`). Bundled forks sit outside the layer graph and may be imported from any layer through their absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`).
 
 ### 2.2 ASCII map of the package tree
 
@@ -243,6 +243,7 @@ Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS
 | `--precision` routing (`apply_precision_to_calc_cfg` / `_PRECISION_DISPATCH`) | `mlmm/backends/__init__.py` |
 | Backend dispatch / factory (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
 | Retired electronic-embedding compatibility module | `mlmm/backends/xtb_embedcharge_correction.py` |
+
 See [MLIP Backends](backends.md) for installation and runtime behavior. Backend
 implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 
@@ -274,7 +275,7 @@ implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 
 | dir | role | divergent files (do NOT replace with upstream) |
 |---|---|---|
-| `pysisyphus/` | optimizer / TS / IRC engine | `irc/IRC.py`, `optimizers/hessian_updates.py`, `run.py`, `tsoptimizers/TSHessianOptimizer.py`, `calculators/*` |
+| `pysisyphus/` | optimizer / TS / IRC engine | `irc/IRC.py`, `optimizers/hessian_updates.py`, `tsoptimizers/TSHessianOptimizer.py`, `calculators/*` |
 | `thermoanalysis/` | thermochemistry (ΔG, ZPE, partition functions) | `QCData.py` (branding diff vs upstream) |
 | `hessian_ff/` | analytical Hessian on MM force field — **PyPI 404, bundling is mandatory** | `analytical_hessian.py` (sole entry consumed by `mlmm/backends/mlmm_calc.py`) |
 

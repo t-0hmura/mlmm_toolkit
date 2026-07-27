@@ -64,7 +64,7 @@ core = MLMMCore(
 | `embedcharge` | `bool` | `False` | Compatibility argument; `True` raises before allocation in v0.3.3 |
 | `mm_backend` | `str` | `"hessian_ff"` | MM engine (`hessian_ff` or `openmm`) |
 | `return_partial_hessian` | `bool` | `True` | If `True`, `compute()` returns a 4D `(n_active, 3, n_active, 3)` sub-Hessian plus a `within_partial_hessian` metadata dict (active-atom indices, DOF maps). If `False`, returns the expanded 4D `(N, 3, N, 3)` full-system Hessian. |
-| `link_mlmm` | `List[Tuple[str, str]]` | `None` | Manual link-atom pairs as `[("RESN RESID ATOMNAME", "RESN RESID ATOMNAME"), ...]` (first = ML-side, second = MM-side, e.g. `[("SAM 359 CA", "SAM 359 N")]`). `None` = auto-detect. |
+| `link_mlmm` | `List[Tuple[str, str]]` | `None` | Manual link-atom pairs as `[("RESN RESID ATOMNAME", "RESN RESID ATOMNAME"), ...]` (first = ML-side, second = MM-side, e.g. `[("SAM 359 CA", "SAM 359 N")]`). `None` = derive every crossing bond from the supplied parm7 topology (not from distance). |
 
 ### compute()
 

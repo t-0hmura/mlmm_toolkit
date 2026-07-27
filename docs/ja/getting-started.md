@@ -22,7 +22,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 - ユーザーが指定した基質の周辺から **活性部位ポケット** を抽出し、**ML 領域** を定義
 - AmberTools を用いて **Amber トポロジー（parm7/rst7）** を自動生成し、**hessian_ff** の MM エンジンに渡す
-- ML 領域を MLIP バックエンド（デフォルト: UMA）で、MM 領域を hessian_ff で扱う **ONIOM 的 ML/MM** のエネルギー・力・Hessianを構築
+- ML 領域を MLIP バックエンド（デフォルト: UMA）で、MM 領域を hessian_ff で扱う **ONIOM 的 ML/MM** のエネルギー・力・Hessian を構築
 - Growing String Method (GSM) や Direct Max Flux (DMF) などの経路最適化手法で **最小エネルギー経路 (MEP)** を探索
 - 必要に応じて **遷移状態** を最適化し、**振動解析**・**IRC 計算**・**DFT 一点計算** を実行
 
@@ -493,7 +493,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `oniom-import` | Gaussian/ORCA ONIOM 入力から XYZ + 層付き PDB を再構築 | [oniom-import](oniom-import.md) |
 | `trj2fig` | エネルギープロファイルプロット | [trj2fig](trj2fig.md) |
 | `energy-diagram` | 数値系列から状態エネルギー図を描画 | [energy-diagram](energy-diagram.md) |
-| `add-elem-info` | PDB の元素カラム（77-78）を修復 | [add-elem-info](add-elem-info.md) |
+| `add-elem-info` | PDB の元素列（77-78）を修復 | [add-elem-info](add-elem-info.md) |
 | `fix-altloc` | PDB の代替位置標識（altLoc）を除去 | [fix-altloc](fix-altloc.md) |
 
 ```{tip}

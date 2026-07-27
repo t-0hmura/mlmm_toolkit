@@ -93,7 +93,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザモード: `grad`/`lbfgs`（L-BFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
 | `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（L-BFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
 | `--flatten/--no-flatten` | 最適化後の虚振動数モードフラット化ループの有効化/無効化。 | `False` |
-| `--reject-uphill/--no-reject-uphill` | `hess` モードで RFO の上り坂試行ステップを拒否（低エネルギー形状へロールバックし trust radius を縮小）。`grad`/`lbfgs` モードでは無効。 | `True` |
+| `--reject-uphill/--no-reject-uphill` | `hess` モードで RFO の上り坂試行ステップを拒否（低エネルギー形状へロールバックし trust radius を縮小）。`grad`/`lbfgs` モードでは無効。emergency trust floor 到達時は、非収束停止を報告する前に保持構造を通常の収束条件で最終確認。 | `True` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`、`optimization_all_trj.xyz`）を出力。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から対応する PDB 生成の有効化/無効化。 | `True` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |
@@ -116,7 +116,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `gau` | 標準的な Gaussian 相当の厳密さ | 4.5e-4 | 3.0e-4 | 1.8e-3 | 1.2e-3 |
 | `gau_tight` | より厳密; 良好な構造 / freq / TS 精密化向け | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
 | `gau_vtight` | 非常に厳密; ベンチマーク/高精度最終構造 | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
-| `baker` | Baker 式規則（下記の力・ステップ 4 値すべてを満たし **かつ** `\|dE\| < 1e-6` のときのみ収束） | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+| `baker` | `max(force) <= 3e-4` **かつ**（`\|dE\| < 1e-6` **または** `max(step) <= 3e-4`）。RMS 値は診断用 | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
 ### 凍結境界の TR 射影
 
@@ -149,7 +149,7 @@ out_dir/ (デフォルト: ./result_opt/)
 - 共通制御（全バックエンド）: `hessian_calc_mode`（`"Analytical"` または `"FiniteDifference"`）、`out_hess_torch`（bool）、`H_double`（bool）。
 - デバイス選択: `ml_device`（`"auto"`/`"cuda"`/`"cpu"`）、`ml_cuda_idx`、`mm_device`、`mm_cuda_idx`、`mm_threads`。
 - MM 有限差分: `mm_fd`（bool）、`mm_fd_dir`（FD 情報の出力ディレクトリ）、`return_partial_hessian`。
-- `return_partial_hessian`: `opt` では YAML で明示指定されない限り部分Hessianをデフォルトで使用します。完全Hessianを強制する場合は `calc.return_partial_hessian: false` を明示してください。
+- `return_partial_hessian`: `opt` では YAML で明示指定されない限り部分 Hessian をデフォルトで使用します。完全 Hessian を強制する場合は `calc.return_partial_hessian: false` を明示してください。
 - `freeze_atoms`: `geom.freeze_atoms` から伝播され、ML/MM とオプティマイザが同じ凍結原子を共有します。
 
 ### `opt`
@@ -169,7 +169,7 @@ L-BFGS 固有の拡張: `keep_last`、`beta`、`gamma_mult`、`max_step`、`cont
 
 ### `rfo`
 
-RFOptimizer 固有の拡張: 信頼領域サイジング（`trust_radius`、`trust_min`、`trust_max`、`trust_update`）、`max_energy_incr`、Hessian管理（`hessian_update`、`hessian_init`、`hessian_recalc`、`hessian_recalc_adapt`、`small_eigval_thresh`）、マイクロイテレーション制御（`alpha0`、`max_micro_cycles`、`rfo_overlaps`）、DIIS ヘルパー（`gdiis`、`gediis`、閾値、`gdiis_test_direction`）、`adapt_step_func`。
+RFOptimizer 固有の拡張: 信頼領域サイジング（`trust_radius`、`trust_min`、`trust_max`、`trust_update`）、`max_energy_incr`、Hessian 管理（`hessian_update`、`hessian_init`、`hessian_recalc`、`hessian_recalc_adapt`、`small_eigval_thresh`）、マイクロイテレーション制御（`alpha0`、`max_micro_cycles`、`rfo_overlaps`）、DIIS ヘルパー（`gdiis`、`gediis`、閾値、`gdiis_test_direction`）、`adapt_step_func`。
 
 ### `microiter`
 
