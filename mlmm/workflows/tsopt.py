@@ -104,6 +104,7 @@ from mlmm.workflows._microiteration import (
     OptimizerOutcome,
     PartitionError,
     build_aggregate,
+    micro_reached_force_equilibrium,
     resolve_partition_from_core,
 )
 from mlmm.cli.common_options import (
@@ -2492,7 +2493,22 @@ def _run_microiter_tsopt(
             micro_attempts.append(_init_micro_out)
             latest_micro_stalled = _init_micro_out.stalled
             latest_micro_stop_reason = _init_micro_out.stop_reason or ""
-            if _init_micro_out.converged is not True:
+            # M46 keeps the macro step off unless the micro relaxation settled.
+            # A plateau whose forces already meet the configured thresholds IS
+            # MM equilibrium, though: refusing it costs the whole TS search
+            # (zero macro steps) over step criteria the macro does not need.
+            _init_micro_equilibrium = (
+                _init_micro_out.converged is not True
+                and _init_micro_out.stalled
+                and micro_reached_force_equilibrium(_init_micro_opt)
+            )
+            if _init_micro_equilibrium:
+                click.echo(
+                    "[microiter] Initial MM equilibration plateaued with its "
+                    "force criteria met; accepting it as MM equilibrium.",
+                    err=True,
+                )
+            if _init_micro_out.converged is not True and not _init_micro_equilibrium:
                 run_macro = False
                 if dump:
                     _append_xyz_trajectory(
@@ -2674,6 +2690,12 @@ def _run_microiter_tsopt(
                 micro_opt, micro_steps = _relax_micro()
                 micro_cycles_total += micro_steps
                 _micro_out = OptimizerOutcome.from_optimizer(micro_opt, max_cycles=micro_max_cycles)
+                # Evaluate before `del`: the predicate needs the live optimizer.
+                _micro_equilibrium = (
+                    _micro_out.converged is not True
+                    and _micro_out.stalled
+                    and micro_reached_force_equilibrium(micro_opt)
+                )
                 del micro_opt
                 _clear_cuda_cache()
             else:
@@ -2684,6 +2706,7 @@ def _run_microiter_tsopt(
                 # every atom frozen (mirrors the initial-equilibration guard above).
                 _micro_out = OptimizerOutcome.vacuous_success()
                 micro_steps = 0
+                _micro_equilibrium = False
             micro_attempts.append(_micro_out)
             # M14/P14: remember whether THIS micro (MM) relaxation stalled on an
             # energy plateau. Coordinate copying alone is not evidence of
@@ -2699,7 +2722,7 @@ def _run_microiter_tsopt(
             # the macro/micro alternation; the aggregate cannot be converged and no
             # further macro step is taken (a normal LBFGS return on max-cycle
             # exhaustion is not convergence).
-            if _micro_out.converged is not True:
+            if _micro_out.converged is not True and not _micro_equilibrium:
                 click.echo(
                     "[microiter] Latest MM relaxation did not converge "
                     f"(status={_micro_out.status}); stopping the macro/micro loop.",
@@ -3243,6 +3266,10 @@ def cli(
     )
     _validate_reference_mode_optimizer(mode_resolved, reference_mode_path)
     # trim/rsprfo are Hessian-based TS opts like rsirfo (use the same non-dimer code path).
+    # Flatten outcome, published in result.json: today the only signal that a
+    # requested flatten never ran is one stderr line, which no downstream
+    # consumer reads.
+    _flatten_skip_reason = None
     use_heavy = (mode_resolved in ("rsirfo", "trim", "rsprfo"))
 
     config_layer_cfg = load_yaml_dict(config_yaml)
@@ -4086,9 +4113,14 @@ def cli(
                     target_mode_is_negative=target_mode_is_negative,
                 )
                 if flatten_vetoed:
+                    _flatten_skip_reason = (
+                        "target mode sign never determined"
+                        if target_mode_is_negative is None
+                        else "target mode is not negative"
+                    )
                     click.echo(
-                        "[flatten] Skipping extra-mode flattening because the "
-                        "path-correlated mode is not negative.",
+                        "[flatten] Skipping extra-mode flattening: "
+                        f"{_flatten_skip_reason}.",
                         err=True,
                     )
                 budget_remaining = _heavy_cycle_ledger.remaining > 0
@@ -4606,6 +4638,8 @@ def cli(
 
             result_data = {
                 "status": _tsopt_status,
+                "flatten_requested": bool(simple_cfg.get("flatten_max_iter", 0)),
+                "flatten_skip_reason": _flatten_skip_reason,
                 "energy_hartree": _tsopt_energy,
                 "n_imaginary_modes": _tsopt_n_imag,
                 "imaginary_frequencies_cm": _tsopt_imag_freqs,

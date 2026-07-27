@@ -95,6 +95,7 @@ from mlmm.workflows._microiteration import (
     PartitionError,
     build_aggregate,
     resolve_partition_from_core,
+    micro_reached_force_equilibrium,
 )
 
 EV2AU = 1.0 / AU2EV                 # eV → Hartree
@@ -708,7 +709,18 @@ def _run_microiter_opt(
             micro_attempts.append(_init_micro_out)
             latest_micro_stalled = _init_micro_out.stalled
             latest_micro_stop_reason = _init_micro_out.stop_reason or ""
-            if _init_micro_out.converged is not True:
+            _init_micro_equilibrium = (
+                _init_micro_out.converged is not True
+                and _init_micro_out.stalled
+                and micro_reached_force_equilibrium(_init_micro_opt)
+            )
+            if _init_micro_equilibrium:
+                click.echo(
+                    "[microiter] Initial MM equilibration plateaued with its "
+                    "force criteria met; accepting it as MM equilibrium.",
+                    err=True,
+                )
+            if _init_micro_out.converged is not True and not _init_micro_equilibrium:
                 run_macro = False
                 click.echo(
                     "[microiter] Initial MM equilibration did not converge "

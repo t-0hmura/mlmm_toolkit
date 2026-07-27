@@ -244,6 +244,31 @@ def resolve_partition_from_core(
     )
 
 
+def micro_reached_force_equilibrium(optimizer: Any) -> bool:
+    """True when a stalled MM relaxation nonetheless met its force criteria.
+
+    The micro stage exists to bring the MM subsystem to equilibrium before the
+    macro step reads curvature, and equilibrium is a condition on forces. An
+    energy plateau whose forces are already under their configured thresholds
+    is that equilibrium; the step criteria that remain unmet describe how far
+    the optimizer would still travel, which is not what the macro step needs
+    from it. Reads only thresholds the optimizer already carries -- this
+    introduces no new tolerance.
+    """
+    conv = getattr(optimizer, "convergence", None) or {}
+    max_thresh = conv.get("max_force_thresh")
+    if max_thresh is None:
+        return False
+    max_forces = getattr(optimizer, "max_forces", None) or []
+    if not max_forces or float(max_forces[-1]) > float(max_thresh):
+        return False
+    rms_thresh = conv.get("rms_force_thresh")
+    rms_forces = getattr(optimizer, "rms_forces", None) or []
+    if rms_thresh is not None and rms_forces:
+        return float(rms_forces[-1]) <= float(rms_thresh)
+    return True
+
+
 # ---------------------------------------------------------------------------
 # One field-isomorphic optimizer outcome (C7) + nested micro outcome (C9)
 # ---------------------------------------------------------------------------
