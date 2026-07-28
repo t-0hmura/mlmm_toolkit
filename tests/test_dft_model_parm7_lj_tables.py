@@ -1,9 +1,10 @@
-"""Regression tests for the ``mlmm dft`` model-parm7 builder (v0.3.3).
+"""Regression tests for the shared ML-region model-parm7 builder (v0.3.3).
 
-``dft._prepare_ml_region_workspace`` and ``mlmm_calc._mk_model_parm7`` build the same
-artefact -- the sliced ML-region ``model.parm7`` -- and had silently diverged: the dft
-builder applied neither the CMAP drop nor the LJ-table normalization that the ML/MM
-builder has always applied.
+Every ONIOM ``E_model_low`` -- ML/MM through ``MLMMCore`` and QM/MM through ``mlmm
+dft`` -- must describe the model region identically, or the DFT correction (a
+difference against the ML/MM energy) carries whatever the two paths disagree on.
+``dft`` used to slice and save its own model and had drifted on both the CMAP drop
+and the LJ tables; ``write_model_parm7`` is now the single owner and both call it.
 
 Covers:
   * ParmEd leaves ``LENNARD_JONES_*COEF`` at the *parent's* length whenever the selection
@@ -12,7 +13,7 @@ Covers:
   * Why the smoke suite never caught this: its ML region happens to span every atom type
     in the fixture, so the stale table is accidentally the right length. A test that only
     exercised that region would pass against the broken builder.
-  * Both builders stay in step (anti-divergence guard).
+  * A second builder cannot reappear (anti-divergence guard).
 
 All checks bind to the production functions (imported, never reimplemented).
 """
@@ -26,7 +27,12 @@ import pytest
 
 parmed = pytest.importorskip("parmed")
 
-from mlmm.backends.mlmm_calc import MLMMCore, _normalize_prmtop_lj_tables
+from mlmm.backends.mlmm_calc import (
+    MLMMCore,
+    _normalize_prmtop_lj_tables,
+    apply_cmap_policy,
+    write_model_parm7,
+)
 from mlmm.core.utils import parse_layer_indices_from_bfactors
 from mlmm.workflows.dft import _prepare_ml_region_workspace
 
@@ -104,17 +110,63 @@ def test_normalization_is_a_noop_for_a_full_atom_type_selection(tmp_path):
     assert _written_lj_lengths(out) == (ntypes, acoef)
 
 
-def test_both_model_parm7_builders_apply_the_same_normalizations():
-    """dft and ML/MM build the same artefact and must not diverge again."""
-    for builder in (_prepare_ml_region_workspace, MLMMCore._mk_model_parm7):
-        src = inspect.getsource(builder)
-        assert "model.cmaps[:] = []" in src, f"{builder.__name__} lost the CMAP drop"
-        assert "_normalize_prmtop_lj_tables(" in src, (
-            f"{builder.__name__} lost the LJ-table normalization"
+def test_exactly_one_owner_of_the_cmap_and_lj_rules():
+    """Every ONIOM layer must go through one implementation of each rule.
+
+    dft used to slice and save its own model, which is how it drifted away from
+    the ML/MM path on both CMAP and the LJ tables. Pin the single owner so a
+    second builder cannot reappear.
+    """
+    root = Path(__file__).resolve().parents[1] / "mlmm"
+    writers = []
+    for path in sorted(root.rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        if "cmaps[:] = []" in text or "_normalize_prmtop_lj_tables(" in text:
+            writers.append(str(path.relative_to(root)))
+    assert writers == ["backends/mlmm_calc.py"], writers
+
+
+def test_both_oniom_layers_share_one_cmap_policy():
+    """`E_real_low` and `E_model_low` must come from the same MM Hamiltonian.
+
+    A CMAP term lying entirely inside the ML region only cancels in the
+    subtractive total when both layers treat CMAP the same way. Stripping the
+    model alone left it uncancelled -- an empirical backbone potential stacked
+    on the high-level description.
+    """
+    core = inspect.getsource(MLMMCore.__init__)
+    assert "apply_cmap_policy(real_top, use_cmap)" in core, (
+        "the ML/MM real layer no longer applies the shared CMAP policy"
+    )
+    dft_src = inspect.getsource(_prepare_ml_region_workspace)
+    assert "apply_cmap_policy(real_top, use_cmap)" in dft_src, (
+        "the dft real layer no longer applies the shared CMAP policy"
+    )
+    assert "apply_cmap_policy(model, use_cmap)" in inspect.getsource(write_model_parm7)
+
+
+def test_cmap_policy_default_is_off_and_strips_both_layers():
+    top_real = parmed.load_file(str(FIXTURE))
+    assert len(top_real.cmaps) > 0, "fixture must carry CMAP terms to be meaningful"
+    apply_cmap_policy(top_real, False)
+    assert len(top_real.cmaps) == 0
+
+    kept = parmed.load_file(str(FIXTURE))
+    apply_cmap_policy(kept, True)
+    assert len(kept.cmaps) > 0
+
+
+def test_dft_and_mlmm_both_delegate_to_the_shared_builder():
+    for consumer in (_prepare_ml_region_workspace, MLMMCore._mk_model_parm7):
+        src = inspect.getsource(consumer)
+        assert "write_model_parm7(" in src, (
+            f"{consumer.__name__} no longer uses the shared model-parm7 builder"
         )
 
 
-def test_dft_builder_honours_use_cmap():
+def test_shared_builder_honours_use_cmap():
+    assert "use_cmap" in inspect.signature(write_model_parm7).parameters
     assert "use_cmap" in inspect.signature(_prepare_ml_region_workspace).parameters
-    src = inspect.getsource(_prepare_ml_region_workspace)
-    assert "if not use_cmap:" in src
+    assert "use_cmap" in inspect.signature(apply_cmap_policy).parameters
+    # The rule itself lives in apply_cmap_policy; the builder must delegate.
+    assert "if not use_cmap:" in inspect.getsource(apply_cmap_policy)

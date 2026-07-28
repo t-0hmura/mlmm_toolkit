@@ -11,6 +11,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 > `result.json`/`summary.json` must review the Breaking changes and Machine-readable output sections.
 
 ### Breaking changes
+- **CMAP is now excluded from both ONIOM layers, not just the model.** `--no-cmap`
+  (the default) previously deleted CMAP terms from the sliced model topology only,
+  while the real system kept them. A cross-map term lying entirely inside the ML
+  region therefore never cancelled in `E_real_low + E_high - E_model_low`: it stayed
+  on top of the high-level (ML or DFT) description of those atoms. Both layers now
+  follow one rule, so that term cancels exactly. `--cmap` keeps CMAP in both layers
+  and is unchanged in meaning.
+  Energies and barriers move on any topology carrying CMAP (ff19SB and later). On the
+  bundled 122-atom test system the total CMAP energy is +2.32 kcal/mol at the reactant
+  and +3.04 kcal/mol at the product, so its reaction energy shifts by -0.72 kcal/mol.
+  The shift for a given system is exactly `-[C(TS) - C(R)]`, evaluable from existing
+  geometries without recomputing anything. Re-check published values before comparing
+  them with output from this release.
 - **`add-elem-info` no longer overwrites its input by default.** Omitting `-o`
   now writes `<input>_add_elem.pdb`. Pass `--inplace` to replace the input;
   `--overwrite` continues to mean re-infer existing element fields.

@@ -1233,6 +1233,55 @@ def _fixed_indices_from_constraints(atoms: Atoms) -> set[int]:
     return fixed
 
 
+def apply_cmap_policy(top, use_cmap: bool) -> None:
+    """Drop CMAP terms from an ONIOM layer topology unless ``use_cmap``.
+
+    The single owner of the CMAP rule. Both layers must be stripped or kept
+    together: subtractive ONIOM only cancels the model region's MM description
+    when ``E_real_low`` and ``E_model_low`` come from the same MM Hamiltonian.
+    Removing CMAP from the sliced model alone left every cross-map term lying
+    entirely inside the ML region uncancelled, i.e. an empirical backbone
+    potential stacked on top of the high-level (ML or DFT) description.
+
+    ``use_cmap`` is False by default, matching Gaussian.
+    """
+    if not use_cmap:
+        top.cmaps[:] = []
+
+
+def write_model_parm7(
+    real_top,
+    selection,
+    real_parm7,
+    real_rst7,
+    model_parm7,
+    model_rst7,
+    use_cmap: bool,
+) -> None:
+    """Write the sliced ML-region topology and coordinates.
+
+    The single owner of the model-parm7 contract: every workflow that needs an
+    ONIOM ``E_model_low`` goes through here, so the ML/MM and DFT paths can never
+    describe the same model region differently.
+
+    A selection covering the whole system copies the real files verbatim.
+    Otherwise the slice drops CMAP unless ``use_cmap``, and its LJ tables are
+    normalized -- ParmEd leaves ``LENNARD_JONES_*COEF`` at the parent's length
+    when the selection uses fewer atom types, which our own MM backend rejects.
+    """
+    if len(selection) == len(real_top.atoms):
+        shutil.copyfile(str(real_parm7), str(model_parm7))
+        shutil.copyfile(str(real_rst7), str(model_rst7))
+        return
+
+    model = real_top[selection]
+    model.box = None
+    apply_cmap_policy(model, use_cmap)
+    model.save(str(model_parm7), overwrite=True)
+    _normalize_prmtop_lj_tables(str(model_parm7))
+    model.save(str(model_rst7), overwrite=True)
+
+
 def _normalize_prmtop_lj_tables(parm7_path: str) -> None:
     """Normalize LJ table lengths in parm7 files generated from sliced structures.
 
@@ -1826,6 +1875,7 @@ class MLMMCore:
         )
         real_top.coordinates = start_struct.coordinates
         real_top.box = None
+        apply_cmap_policy(real_top, use_cmap)
         real_top.save(self.real_parm7, overwrite=True)
         real_top.save(self.real_rst7, overwrite=True)
 
@@ -2036,19 +2086,15 @@ class MLMMCore:
         real.box = None
         ml_atoms = [real.atoms[int(i) - 1] for i in self.ml_ID]
         selection = [a.idx for a in ml_atoms]
-
-        if len(selection) == len(real.atoms):
-            shutil.copy(self.real_parm7, self.model_parm7)
-            shutil.copy(self.real_rst7, self.model_rst7)
-            return selection
-
-        model = real[selection]
-        model.box = None
-        if not self.use_cmap:
-            model.cmaps[:] = []
-        model.save(self.model_parm7, overwrite=True)
-        _normalize_prmtop_lj_tables(self.model_parm7)
-        model.save(self.model_rst7, overwrite=True)
+        write_model_parm7(
+            real,
+            selection,
+            self.real_parm7,
+            self.real_rst7,
+            self.model_parm7,
+            self.model_rst7,
+            self.use_cmap,
+        )
         return selection
 
     def _compute_layer_indices(self, coords: np.ndarray) -> None:

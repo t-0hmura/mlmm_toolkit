@@ -32,9 +32,10 @@ from ase.io import read
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 
 from mlmm.backends.mlmm_calc import (
-    _normalize_prmtop_lj_tables,
+    apply_cmap_policy,
     hessianffCalculator,
     validate_parmed_atom_order,
+    write_model_parm7,
 )
 from mlmm.workflows.opt import (
     GEOM_KW as OPT_GEOM_KW,
@@ -339,6 +340,7 @@ def _prepare_ml_region_workspace(
         else:
             real_top.coordinates = start_struct.coordinates
         real_top.box = None
+        apply_cmap_policy(real_top, use_cmap)
         real_top.save(str(real_copy), overwrite=True)
         real_rst7 = tmp / "real.rst7"
         real_top.save(str(real_rst7), overwrite=True)
@@ -363,25 +365,17 @@ def _prepare_ml_region_workspace(
     model_parm7 = tmp / "model.parm7"
     model_rst7 = tmp / "model.rst7"
     selection = selection_indices
-    if len(selection) == len(real_top.atoms):
-        shutil.copyfile(real_copy, model_parm7)
-        shutil.copyfile(real_rst7, model_rst7)
-    else:
-        model = real_top[selection]
-        model.box = None
-        # Match mlmm_calc.py: with use_cmap False (the default) the sliced model
-        # carries no CMAP term. Skipping this left dft's E_model_low computed on
-        # a different model than the ML/MM path uses, whenever the selection
-        # retained a complete CMAP.
-        if not use_cmap:
-            model.cmaps[:] = []
-        model.save(str(model_parm7), overwrite=True)
-        # ParmEd leaves LENNARD_JONES_*COEF at the parent's length whenever the
-        # selection uses fewer atom types than the full system, so the sliced
-        # model.parm7 is unreadable by our own MM backend. _mk_model_parm7 has
-        # always normalized it; this builder had not.
-        _normalize_prmtop_lj_tables(str(model_parm7))
-        model.save(str(model_rst7), overwrite=True)
+    # The ML/MM backend owns this contract; dft consumes it so the two paths
+    # describe the same model region.
+    write_model_parm7(
+        real_top,
+        selection,
+        real_copy,
+        real_rst7,
+        model_parm7,
+        model_rst7,
+        use_cmap,
+    )
 
     atoms_real = (
         coordinate_atoms.copy()
