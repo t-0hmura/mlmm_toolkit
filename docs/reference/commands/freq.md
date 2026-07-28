@@ -105,9 +105,9 @@ Options:
                                   use finite differences by default; set
                                   calc.mm_fd: false for the hessian_ff
                                   analytical path.
-  --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
-                                  model parm7. Default: disabled (Gaussian
-                                  ONIOM-compatible).
+  --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
+                                  layers. Default: enabled when present in
+                                  parm7.
   --dump-hess FILE                Save the computed Hessian and geometry/active-
                                   basis identity to a compressed .npz file for a
                                   matching 'mlmm irc --read-hess' run. The file

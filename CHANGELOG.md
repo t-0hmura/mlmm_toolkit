@@ -11,19 +11,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 > `result.json`/`summary.json` must review the Breaking changes and Machine-readable output sections.
 
 ### Breaking changes
-- **CMAP is now excluded from both ONIOM layers, not just the model.** `--no-cmap`
-  (the default) previously deleted CMAP terms from the sliced model topology only,
-  while the real system kept them. A cross-map term lying entirely inside the ML
-  region therefore never cancelled in `E_real_low + E_high - E_model_low`: it stayed
-  on top of the high-level (ML or DFT) description of those atoms. Both layers now
-  follow one rule, so that term cancels exactly. `--cmap` keeps CMAP in both layers
-  and is unchanged in meaning.
-  Energies and barriers move on any topology carrying CMAP (ff19SB and later). On the
-  bundled 122-atom test system the total CMAP energy is +2.32 kcal/mol at the reactant
-  and +3.04 kcal/mol at the product, so its reaction energy shifts by -0.72 kcal/mol.
-  The shift for a given system is exactly `-[C(TS) - C(R)]`, evaluable from existing
-  geometries without recomputing anything. Re-check published values before comparing
-  them with output from this release.
+- **CMAP now defaults to the force-field-faithful policy in both MM layers.**
+  Parm7 CMAP terms are preserved in both REAL and MODEL calculations, so complete
+  model-internal terms cancel in `E_real_low + E_high - E_model_low` while boundary
+  terms remain part of the low-level coupling. `--no-cmap` is an explicit
+  modified-force-field opt-out and removes CMAP from both layers. Earlier releases
+  removed CMAP only from MODEL by default, which mixed two low-level Hamiltonians.
 - **`add-elem-info` no longer overwrites its input by default.** Omitting `-o`
   now writes `<input>_add_elem.pdb`. Pass `--inplace` to replace the input;
   `--overwrite` continues to mean re-infer existing element fields.
@@ -198,6 +191,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Route `dft` through the ordinary `MLMMCore` preparation, MM calculators, and
+  subtractive recombination. DFT now replaces only the high-level model energy,
+  requests no forces, and cannot drift into a second model-parm7 or MM path.
 - Keep the IRC running when the EulerPC corrector oscillates. The corrector
   descends the two-point interpolated surface rather than the real potential,
   so a reversal there is an interpolation artifact; it now warns and keeps the
@@ -706,8 +702,7 @@ comprehensive documentation overhaul (EN/JA).
   machine-readable `result.json` per run, including backend, charge,
   spin, and timing. `mlmm all` migrates `summary.yaml` → `summary.json`.
 - `--link-atom-method scaled|fixed` on all computation subcommands.
-- `--cmap / --no-cmap` to exclude CMAP from the model parm7 (Gaussian
-  ONIOM compatibility).
+- `--cmap / --no-cmap` to control one CMAP policy across both MM layers.
 - `--hess-device`, `--read-hess`, `--dump-hess`, `--skip-final-freq`
   for explicit Hessian device control and serialization.
 - `--engine gpu|cpu` for `mlmm dft`; `--lowmem` selects

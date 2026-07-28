@@ -236,7 +236,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use mechanical embedding (`--no-embedcharge`). | `False` |
 | `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
-| `--cmap / --no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in the model parm7. Disabled by default, consistent with Gaussian ONIOM. | `--no-cmap` |
+| `--cmap / --no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
 | `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors (B = 0 / 10 / 20). If disabled, downstream tools require `--model-pdb` or `--model-indices`. | `True` |
 

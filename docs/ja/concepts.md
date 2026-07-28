@@ -179,7 +179,7 @@ mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter 
 - 静電相互作用
 - 解析的二次微分（Hessian）
 - CPU 実行（GPU メモリを MLIP 推論に専有させるため）
-- CMAP トーション補正（実装済みだがデフォルト無効、Gaussian と同様）
+- CMAP トーション補正（parm7 に含まれる場合は両 MM 層で保持）
 
 OpenMM とは異なり、`hessian_ff` は ONIOM 結合と振動解析に必要な **MM Hessian** を提供します。
 

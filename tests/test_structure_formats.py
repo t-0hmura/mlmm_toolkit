@@ -753,7 +753,7 @@ def test_dft_dry_run_rejects_malformed_amber_topology(tmp_path: Path) -> None:
     )
 
     assert result.exit_code != 0
-    assert "Failed to prepare sanitized Amber inputs" in result.output
+    assert "is not a valid Amber parm7 file" in result.output
     assert "[dry-run] Validation complete" not in result.output
 
 
@@ -785,6 +785,7 @@ def test_dft_workspace_keeps_xyz_coordinates_with_pdb_topology(
         real_parm7=parm7,
         model_pdb=input_pdb,
         link_mlmm=None,
+        calc_kwargs={"model_charge": 0, "model_mult": 2},
     )
     try:
         np.testing.assert_allclose(
@@ -1302,6 +1303,7 @@ def test_dft_workspace_validates_topology_before_coordinate_assignment(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    from mlmm.backends import mlmm_calc
     from mlmm.workflows import dft
 
     repo = Path(__file__).resolve().parents[1]
@@ -1311,8 +1313,8 @@ def test_dft_workspace_validates_topology_before_coordinate_assignment(
     def reject(*args, **kwargs):
         raise ValueError("identity sentinel")
 
-    monkeypatch.setattr(dft, "validate_parmed_atom_order", reject)
-    with pytest.raises(RuntimeError, match="identity sentinel"):
+    monkeypatch.setattr(mlmm_calc, "validate_parmed_atom_order", reject)
+    with pytest.raises(ValueError, match="identity sentinel"):
         dft._prepare_ml_region_workspace(
             input_pdb=input_pdb,
             real_parm7=parm7,

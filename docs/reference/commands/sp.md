@@ -73,8 +73,9 @@ Options:
                                   fixed (1.09/1.01 Å).
   --mm-backend [hessian_ff|openmm]
                                   MM backend (default: hessian_ff).
-  --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
-                                  model parm7.
+  --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
+                                  layers. Default: enabled when present in
+                                  parm7.
   --detect-layer / --no-detect-layer
                                   Detect ML/MM layers from input PDB B-factors
                                   (ML=0, MovableMM=10, FrozenMM=20). If

@@ -47,7 +47,7 @@ def test_the_layer_fallback_keeps_its_return_contract() -> None:
 
 
 def test_dft_slices_the_model_with_the_same_cmap_rule_as_mlmm() -> None:
-    """`--no-cmap` (the default) must reach the model slice dft consumes.
+    """The CMAP policy must reach the ordinary ML/MM core used by dft.
 
     `dft.py` used to build its own model workspace and never read the setting,
     so with a backbone-containing ML region the ML/MM and QM/MM paths computed
@@ -58,22 +58,21 @@ def test_dft_slices_the_model_with_the_same_cmap_rule_as_mlmm() -> None:
     import inspect
 
     import mlmm.workflows.dft as dft_mod
-    from mlmm.backends.mlmm_calc import write_model_parm7
-
-    from mlmm.backends.mlmm_calc import apply_cmap_policy
+    from mlmm.backends.mlmm_calc import apply_cmap_policy, write_model_parm7
 
     assert "if not use_cmap:" in inspect.getsource(apply_cmap_policy)
     assert "cmaps[:] = []" in inspect.getsource(apply_cmap_policy)
     assert "apply_cmap_policy(model, use_cmap)" in inspect.getsource(write_model_parm7)
 
     src = _src(dft_mod)
-    assert "write_model_parm7(" in src
+    assert "MLMMCalculator(**calculator_kwargs)" in src
+    assert "workspace.core.compute(" in src
     # Threaded, not read from a global: both call sites must pass it.
-    assert src.count('use_cmap=bool(calc_kw.get("use_cmap", False))') == 2
-    assert "use_cmap: bool = False" in src
+    assert src.count('use_cmap=bool(calc_kw.get("use_cmap", True))') == 2
+    assert "use_cmap: bool = True" in src
 
 
 def test_dft_cmap_default_matches_the_product_default() -> None:
     from mlmm.core.defaults import MLMM_CALC_KW
 
-    assert MLMM_CALC_KW["use_cmap"] is False
+    assert MLMM_CALC_KW["use_cmap"] is True

@@ -214,7 +214,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--allow-charge-mult-mismatch` | 警告を出した上で ML 領域の電荷・多重度の電子パリティ検証を省略。意図した不一致の場合のみ使用。 | off |
 | `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
 | `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
-| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
+| `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | **出力と設定** | | |
 | `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |

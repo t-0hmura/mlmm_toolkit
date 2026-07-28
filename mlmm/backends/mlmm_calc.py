@@ -14,6 +14,7 @@ from __future__ import annotations
 import abc
 import logging
 import os
+from pathlib import Path
 import warnings
 import shutil
 import tempfile
@@ -270,6 +271,17 @@ class _MLBackend(abc.ABC):
             Backend-specific data needed for analytical Hessian (e.g., batch).
         """
 
+    def energy(self, atoms: Atoms) -> float:
+        """Evaluate only the high-level energy.
+
+        Backends with a native energy-only route override this method.  The
+        compatibility fallback keeps third-party backends working, while
+        MLMMCore can give DFT and other energy-only evaluators a force-free
+        execution path.
+        """
+        energy, _, _ = self.eval(atoms, need_grad=False)
+        return float(energy)
+
     @abc.abstractmethod
     def hessian_analytical(self, opaque: Any, n_atoms: int, *, dtype: torch.dtype) -> torch.Tensor:
         """Compute analytical Hessian from the opaque batch returned by eval().
@@ -517,6 +529,10 @@ class _UMABackend(_MLBackend):
         F = res["forces"].detach().cpu().numpy()
         return E, F, batch
 
+    def energy(self, atoms: Atoms) -> float:
+        res, _ = self._predict(atoms, need_grad=False)
+        return float(res["energy"].squeeze().detach().item())
+
     def forces_tensor(self, atoms: Atoms) -> torch.Tensor:
         """Device-native forces (eV/Å) for the FD Hessian assembler (C14, mirror p2r H05).
 
@@ -612,6 +628,14 @@ class _ASEMLBackend(_MLBackend):
         F = np.array(atoms_copy.get_forces(), dtype=np.float64)
         # Keep the prepared Atoms object as the opaque analytical-Hessian input.
         return E, F, atoms_copy
+
+    def energy(self, atoms: Atoms) -> float:
+        atoms_copy = atoms.copy()
+        atoms_copy.calc = self._ase_calc
+        atoms_copy.info["charge"] = self._model_charge
+        atoms_copy.info["mult"] = self._model_mult
+        atoms_copy.info["spin"] = int(self._model_mult)
+        return float(atoms_copy.get_potential_energy())
 
     def hessian_analytical(self, opaque: Any, n_atoms: int, *, dtype: torch.dtype) -> torch.Tensor:
         raise NotImplementedError(
@@ -1243,7 +1267,9 @@ def apply_cmap_policy(top, use_cmap: bool) -> None:
     entirely inside the ML region uncancelled, i.e. an empirical backbone
     potential stacked on top of the high-level (ML or DFT) description.
 
-    ``use_cmap`` is False by default, matching Gaussian.
+    CMAP is retained by default when it is present in the parm7.  Explicit
+    ``use_cmap=False`` is a modified-force-field opt-out and removes the terms
+    from both ONIOM layers.
     """
     if not use_cmap:
         top.cmaps[:] = []
@@ -1407,12 +1433,25 @@ class hessianffCalculator(Calculator):
         forces_ev = force.detach().cpu().numpy().astype(np.float64, copy=False) * KCALMOL2EV
         return energy_ev, forces_ev
 
+    def _energy_from_positions(self, positions_ang: np.ndarray) -> float:
+        xyz = self._positions_to_tensor(positions_ang)
+        out = self.ff(xyz)
+        return float(out["E_total"].detach().cpu()) * KCALMOL2EV
+
     def calculate(self, atoms: Atoms = None, properties=None, system_changes=all_changes):
         super().calculate(atoms, properties, system_changes)
         if atoms is None:
             raise ValueError("ASE Atoms is required for MM evaluation.")
-        energy_ev, forces_ev = self._energy_forces_from_positions(atoms.get_positions())
-        self.results = {"energy": energy_ev, "forces": forces_ev}
+        need_forces = properties is None or "forces" in properties
+        if need_forces:
+            energy_ev, forces_ev = self._energy_forces_from_positions(
+                atoms.get_positions()
+            )
+            self.results = {"energy": energy_ev, "forces": forces_ev}
+        else:
+            self.results = {
+                "energy": self._energy_from_positions(atoms.get_positions())
+            }
 
     def analytical_hessian(
         self,
@@ -1588,17 +1627,24 @@ class OpenMMCalculator(Calculator):
         # so the MM point charge sits correctly even when the parent water moves. Without this the
         # optimizer's (inert) EP coordinate would be used verbatim. No-op if there are no v-sites.
         self.context.computeVirtualSites()
-        state = self.context.getState(getEnergy=True, getForces=True)
+        need_forces = properties is None or "forces" in properties
+        state = self.context.getState(
+            getEnergy=True, getForces=need_forces
+        )
 
-        # Extract energy and forces in eV units
+        # Extract energy and, only when requested, forces in eV units.
         energy = state.getPotentialEnergy().value_in_unit(eV / unit.item)
-        forces = state.getForces(asNumpy=True).value_in_unit(eV / unit.angstrom / unit.item)
-        # Zero forces on virtual sites so the optimizer never moves them (their position is set by
-        # computeVirtualSites() from the parent atoms; the MM force on real atoms is already correct).
-        if self._vsite_idx:
-            forces[self._vsite_idx] = 0.0
-
-        self.results = {"energy": energy, "forces": forces}
+        self.results = {"energy": energy}
+        if need_forces:
+            forces = state.getForces(asNumpy=True).value_in_unit(
+                eV / unit.angstrom / unit.item
+            )
+            # Zero forces on virtual sites so the optimizer never moves them
+            # (their position is set by computeVirtualSites() from the parents;
+            # the MM force on real atoms is already correct).
+            if self._vsite_idx:
+                forces[self._vsite_idx] = 0.0
+            self.results["forces"] = forces
 
     def finite_difference_hessian(
         self,
@@ -1653,7 +1699,7 @@ class OpenMMCalculator(Calculator):
 @dataclass(frozen=True)
 class _MLHighOut:
     E: float
-    F: np.ndarray
+    F: Optional[np.ndarray]
     H: Optional[torch.Tensor]
     timing: Dict[str, float | str]
 
@@ -1661,9 +1707,9 @@ class _MLHighOut:
 @dataclass(frozen=True)
 class _MMLowOut:
     E_real: float
-    F_real: np.ndarray
+    F_real: Optional[np.ndarray]
     E_model: float
-    F_model: np.ndarray
+    F_model: Optional[np.ndarray]
     H_real: Optional[np.ndarray]
     H_model: Optional[np.ndarray]
     active_atoms_from_fd: Optional[np.ndarray]
@@ -1751,6 +1797,7 @@ class MLMMCore:
         self,
         *,
         input_pdb: Optional[str] = None,
+        coordinate_path: Optional[str] = None,
         real_parm7: Optional[str] = None,
         model_pdb: Optional[str] = None,
         model_charge: Optional[int] = 0,
@@ -1805,7 +1852,8 @@ class MLMMCore:
         xtb_workdir: str = "tmp",
         xtb_keep_files: bool = False,
         xtb_ncores: int = 4,
-        use_cmap: bool = False,
+        use_cmap: bool = True,
+        _high_level_backend: Optional[Any] = None,
         **kwargs,
     ):
         # --- v0.1.x backward compatibility aliases ---
@@ -1833,7 +1881,11 @@ class MLMMCore:
             mm_hessian_mode, mm_fd=mm_fd
         )
         link_atom_method = normalize_link_atom_method(link_atom_method)
-        if int(workers or 1) > 1 and hessian_calc_mode == "Analytical":
+        if (
+            _high_level_backend is None
+            and int(workers or 1) > 1
+            and hessian_calc_mode == "Analytical"
+        ):
             raise ValueError(
                 "Analytical Hessian cannot be combined with workers>1: the "
                 "parallel UMA predictor exposes no autograd model. Use workers=1 "
@@ -1873,7 +1925,37 @@ class MLMMCore:
             input_label=f"input_pdb={input_pdb}",
             topology_label=f"real_parm7={real_parm7}",
         )
-        real_top.coordinates = start_struct.coordinates
+        coordinate_atoms: Optional[Atoms] = None
+        if (
+            coordinate_path is not None
+            and Path(coordinate_path).resolve() != Path(input_pdb).resolve()
+        ):
+            coordinate_atoms = read(str(coordinate_path), index=0)
+            if len(coordinate_atoms) != len(real_top.atoms):
+                raise ValueError(
+                    "Coordinate input and Amber topology have different atom "
+                    f"counts: {len(coordinate_atoms)} != {len(real_top.atoms)}."
+                )
+            coordinate_numbers = np.asarray(
+                coordinate_atoms.get_atomic_numbers(), dtype=int
+            )
+            topology_numbers = np.asarray(
+                [int(atom.atomic_number or 0) for atom in real_top.atoms],
+                dtype=int,
+            )
+            known = (coordinate_numbers > 0) & (topology_numbers > 0)
+            mismatch = np.flatnonzero(
+                known & (coordinate_numbers != topology_numbers)
+            )
+            if mismatch.size:
+                index = int(mismatch[0])
+                raise ValueError(
+                    "Atom-order mismatch between coordinate input and parm7 at "
+                    f"atom {index + 1} (0-based {index})."
+                )
+            real_top.coordinates = coordinate_atoms.get_positions()
+        else:
+            real_top.coordinates = start_struct.coordinates
         real_top.box = None
         apply_cmap_policy(real_top, use_cmap)
         real_top.save(self.real_parm7, overwrite=True)
@@ -1961,7 +2043,14 @@ class MLMMCore:
                 f"Spin multiplicity must be >= 1, got {self.model_mult}."
             )
         logger.info(f"[MLMMCore] ML-region net charge = {self.model_charge}")
-        self.backend_name = str(backend).strip().lower() if backend is not None else "uma"
+        if _high_level_backend is not None:
+            self.backend_name = str(
+                getattr(_high_level_backend, "name", "external")
+            ).strip().lower()
+        elif backend is not None:
+            self.backend_name = str(backend).strip().lower()
+        else:
+            self.backend_name = "uma"
 
         # Preflight charge/spin parity check BEFORE loading the heavy ML model.
         # The original validate_charge_spin call lived in _prep_3_layer_atoms,
@@ -1982,25 +2071,29 @@ class MLMMCore:
         _vcs(_ml_elements, self.model_charge, self.model_mult, source=model_pdb)
         self._charge_check_done = True
 
-        # Create ML backend via factory
-        self._ml_backend = _create_ml_backend(
-            self.backend_name,
-            uma_model=uma_model,
-            uma_task_name=uma_task_name,
-            uma_precision=uma_precision,
-            workers=workers,
-            workers_per_node=workers_per_node,
-            orb_model=orb_model,
-            orb_precision=orb_precision,
-            mace_model=mace_model,
-            mace_dtype=mace_dtype,
-            aimnet2_model=aimnet2_model,
-            calc_file=calc_file,
-            calc_factory=calc_factory,
-            model_charge=self.model_charge,
-            model_mult=self.model_mult,
-            ml_device=self.ml_device,
-        )
+        # DFT and other energy-only high-level methods can replace only this
+        # evaluator while retaining the ordinary ML/MM preparation, MM
+        # calculators, and subtractive recombination.
+        self._ml_backend = _high_level_backend
+        if self._ml_backend is None:
+            self._ml_backend = _create_ml_backend(
+                self.backend_name,
+                uma_model=uma_model,
+                uma_task_name=uma_task_name,
+                uma_precision=uma_precision,
+                workers=workers,
+                workers_per_node=workers_per_node,
+                orb_model=orb_model,
+                orb_precision=orb_precision,
+                mace_model=mace_model,
+                mace_dtype=mace_dtype,
+                aimnet2_model=aimnet2_model,
+                calc_file=calc_file,
+                calc_factory=calc_factory,
+                model_charge=self.model_charge,
+                model_mult=self.model_mult,
+                ml_device=self.ml_device,
+            )
 
         # Point-charge embedding correction
         self.embedcharge = bool(embedcharge)
@@ -2046,7 +2139,11 @@ class MLMMCore:
             "analytical" if hessian_calc_mode == "Analytical" else "fd"
         )
 
-        self._atoms_real_tpl = read(self.input_pdb)
+        self._atoms_real_tpl = (
+            coordinate_atoms.copy()
+            if coordinate_atoms is not None
+            else read(self.input_pdb)
+        )
         self._atoms_model_tpl = read(self.model_pdb)
         tmp = self._atoms_model_tpl.copy()
         for _ in self.mlmm_links:
@@ -2390,6 +2487,21 @@ class MLMMCore:
 
         return atoms_real, atoms_model, atoms_model_LH, added_link_atoms, freeze_model
 
+    def prepare_atoms(
+        self, coord_ang: Optional[np.ndarray] = None
+    ) -> Tuple[Atoms, Atoms, Atoms]:
+        """Return the REAL, MODEL, and MODEL+link-H structures prepared by this core."""
+
+        coordinates = (
+            self._atoms_real_tpl.get_positions()
+            if coord_ang is None
+            else np.asarray(coord_ang, dtype=float).reshape(-1, 3)
+        )
+        atoms_real, atoms_model, atoms_model_lh, _, _ = (
+            self._prep_3_layer_atoms(coordinates)
+        )
+        return atoms_real, atoms_model, atoms_model_lh
+
     @staticmethod
     def _jacobian_blocks_numpy(r_ml: np.ndarray, r_mm: np.ndarray, dist: float) -> Optional[np.ndarray]:
         """Returns J shape (6, 3): rows=[Q_xyz, M_xyz], cols=L_xyz."""
@@ -2472,9 +2584,23 @@ class MLMMCore:
         )
         return np.zeros(len(atom_indices), dtype=np.float64)
 
-    def _eval_ml_high(self, atoms_model_LH: Atoms, freeze_model: Sequence[int], *, return_hessian: bool) -> _MLHighOut:
+    def _eval_ml_high(
+        self,
+        atoms_model_LH: Atoms,
+        freeze_model: Sequence[int],
+        *,
+        need_forces: bool,
+        return_hessian: bool,
+    ) -> _MLHighOut:
         local_timing: Dict[str, float | str] = {}
-        E_model_high, F_model_high, opaque = self._ml_backend.eval(atoms_model_LH, need_grad=True)
+        if need_forces or return_hessian:
+            E_model_high, F_model_high, opaque = self._ml_backend.eval(
+                atoms_model_LH, need_grad=True
+            )
+        else:
+            E_model_high = self._ml_backend.energy(atoms_model_LH)
+            F_model_high = None
+            opaque = None
         local_timing["ml_backend"] = self.backend_name
 
         H_high = None
@@ -2502,17 +2628,32 @@ class MLMMCore:
 
         return _MLHighOut(E=E_model_high, F=F_model_high, H=H_high, timing=local_timing)
 
-    def _eval_mm_low(self, atoms_real: Atoms, atoms_model: Atoms, *, return_hessian: bool) -> _MMLowOut:
+    def _eval_mm_low(
+        self,
+        atoms_real: Atoms,
+        atoms_model: Atoms,
+        *,
+        need_forces: bool,
+        return_hessian: bool,
+    ) -> _MMLowOut:
         local_timing: Dict[str, float | str] = {}
 
         atoms_real.calc = self.calc_real_low
         atoms_model.calc = self.calc_model_low
 
-        E_real_low = atoms_real.get_potential_energy()
-        F_real_low = np.double(atoms_real.get_forces())
-
-        E_model_low = atoms_model.get_potential_energy()
-        F_model_low = np.double(atoms_model.get_forces())
+        if need_forces:
+            # Request forces first: both supported MM calculators return energy
+            # and forces together, so the following energy reads hit ASE's
+            # cache instead of evaluating each layer twice.
+            F_real_low = np.double(atoms_real.get_forces())
+            F_model_low = np.double(atoms_model.get_forces())
+            E_real_low = atoms_real.get_potential_energy()
+            E_model_low = atoms_model.get_potential_energy()
+        else:
+            E_real_low = atoms_real.get_potential_energy()
+            E_model_low = atoms_model.get_potential_energy()
+            F_real_low = None
+            F_model_low = None
 
         H_real_np = None
         H_model_np = None
@@ -2640,16 +2781,39 @@ class MLMMCore:
         atoms_model.set_pbc(False)
         atoms_model_LH.set_pbc(False)
 
+        need_forces = return_forces or return_hessian
         use_parallel = (self.ml_device.type == "cuda") and (getattr(self.calc_real_low, "device", None) == "cpu")
         if use_parallel:
             with ThreadPoolExecutor(max_workers=2) as executor:
-                fut_ml = executor.submit(self._eval_ml_high, atoms_model_LH, freeze_model, return_hessian=return_hessian)
-                fut_mm = executor.submit(self._eval_mm_low, atoms_real, atoms_model, return_hessian=return_hessian)
+                fut_ml = executor.submit(
+                    self._eval_ml_high,
+                    atoms_model_LH,
+                    freeze_model,
+                    need_forces=need_forces,
+                    return_hessian=return_hessian,
+                )
+                fut_mm = executor.submit(
+                    self._eval_mm_low,
+                    atoms_real,
+                    atoms_model,
+                    need_forces=need_forces,
+                    return_hessian=return_hessian,
+                )
                 ml_out = fut_ml.result()
                 mm_out = fut_mm.result()
         else:
-            ml_out = self._eval_ml_high(atoms_model_LH, freeze_model, return_hessian=return_hessian)
-            mm_out = self._eval_mm_low(atoms_real, atoms_model, return_hessian=return_hessian)
+            ml_out = self._eval_ml_high(
+                atoms_model_LH,
+                freeze_model,
+                need_forces=need_forces,
+                return_hessian=return_hessian,
+            )
+            mm_out = self._eval_mm_low(
+                atoms_real,
+                atoms_model,
+                need_forces=need_forces,
+                return_hessian=return_hessian,
+            )
 
         timing.update(ml_out.timing)
         timing.update(mm_out.timing)
@@ -2667,9 +2831,24 @@ class MLMMCore:
 
         # CHEMISTRY-RULE:1 Subtractive ONIOM formula. Do NOT alter sign/sum order.
         total_E = mm_real_energy + ml_energy - mm_model_energy
-        results: Dict = {"energy": total_E}
+        results: Dict = {
+            "energy": total_E,
+            "energy_components": {
+                "real_low": mm_real_energy,
+                "model_high": ml_energy,
+                "model_low": mm_model_energy,
+            },
+        }
 
         if return_forces or return_hessian:
+            if (
+                mm_real_forces is None
+                or mm_model_forces is None
+                or ml_forces is None
+            ):
+                raise RuntimeError(
+                    "A force/Hessian evaluation returned energy-only data."
+                )
             F_combined = np.copy(mm_real_forces)
             for i, ridx in enumerate(self.selection_indices):
                 F_combined[ridx] += ml_forces[i] - mm_model_forces[i]
@@ -3211,6 +3390,7 @@ class mlmm(PySiCalc):
         real_parm7: Optional[str] = None,
         model_pdb: Optional[str] = None,
         *,
+        coordinate_path: Optional[str] = None,
         model_charge: int = 0,
         model_mult: int = 1,
         link_mlmm: List[Tuple[str, str]] | None = None,
@@ -3264,7 +3444,8 @@ class mlmm(PySiCalc):
         xtb_workdir: str = "tmp",
         xtb_keep_files: bool = False,
         xtb_ncores: int = 4,
-        use_cmap: bool = False,
+        use_cmap: bool = True,
+        _high_level_backend: Optional[Any] = None,
         **kwargs,
     ):
         # --- v0.1.x backward compatibility aliases ---
@@ -3284,6 +3465,7 @@ class mlmm(PySiCalc):
 
         self.core = MLMMCore(
             input_pdb=input_pdb,
+            coordinate_path=coordinate_path,
             real_parm7=real_parm7,
             model_pdb=model_pdb,
             model_charge=model_charge,
@@ -3335,6 +3517,7 @@ class mlmm(PySiCalc):
             xtb_keep_files=xtb_keep_files,
             xtb_ncores=xtb_ncores,
             use_cmap=use_cmap,
+            _high_level_backend=_high_level_backend,
         )
 
         self.out_hess_torch = bool(out_hess_torch)

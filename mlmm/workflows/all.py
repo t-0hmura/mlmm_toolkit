@@ -3613,7 +3613,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "use_cmap",
     default=None,
     show_default=False,
-    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
+    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @add_coord_type_option(choices=("cart", "dlc"))
 @add_precision_option()
@@ -4492,6 +4492,12 @@ def cli(
     )
 
     structure_calc_cfg = resolved_calc_template.materialize()
+    structure_calc_cfg.update(
+        {
+            "model_charge": int(q_int),
+            "model_mult": int(spin),
+        }
+    )
     region_workspace = _prepare_ml_region_workspace(
         input_pdb=pdb_for_mm_parm,
         coordinate_path=None,
@@ -4501,6 +4507,8 @@ def cli(
         link_atom_method=str(
             structure_calc_cfg.get("link_atom_method") or "scaled"
         ).lower(),
+        use_cmap=bool(structure_calc_cfg.get("use_cmap", True)),
+        calc_kwargs=structure_calc_cfg,
     )
     try:
         ml_without_link, ml_with_link = write_ml_region_xyz_pair(
@@ -4541,7 +4549,7 @@ def cli(
                 )
             )
     finally:
-        region_workspace.tmpdir.cleanup()
+        region_workspace.cleanup()
 
     # define-layer: assign 3-layer B-factors to each full-system PDB
     _echo_section("====== [all] Stage 1c — define-layer — assign 3-layer B-factors to full-system PDBs ======")

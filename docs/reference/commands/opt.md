@@ -122,9 +122,9 @@ Options:
                                   freeze. Only --opt-mode grad (L-BFGS) is
                                   supported in this mode; microiteration is
                                   automatically disabled.  [default: no-mm-only]
-  --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
-                                  model parm7. Default: disabled (Gaussian
-                                  ONIOM-compatible).
+  --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
+                                  layers. Default: enabled when present in
+                                  parm7.
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer

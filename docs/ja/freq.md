@@ -124,7 +124,7 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
 | `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
 | `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
-| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
+| `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--hess-device CHOICE` | Hessian 組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
 | **アクティブ領域の凍結と Hessian** | | |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |

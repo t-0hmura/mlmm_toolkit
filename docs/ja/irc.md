@@ -108,7 +108,7 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
 | `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
-| `--cmap/--no-cmap` | model parm7 に CMAP（骨格クロスマップ二面角補正）を含めるかどうか。デフォルト: 無効（Gaussian ONIOM と同一）。 | `--no-cmap` |
+| `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--hess-device CHOICE` | 初期 Hessian の格納・IRC 演算のデバイス: `auto`、`cuda`、`cpu`。大規模非凍結系では `cpu` を推奨。 | `auto` |
 | `--read-hess PATH` | `mlmm freq --dump-hess`のidentified `.npz`を読み込む。geometry、原子順序、layer選択、active-DOF basisが一致する必要があり、cache／新規計算より優先。 | _None_ |
 | `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。`geom_loader` で読み取り可能な任意の形式。 | 必須 |

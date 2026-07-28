@@ -96,9 +96,9 @@ Options:
                                   use finite differences by default; set
                                   calc.mm_fd: false for the hessian_ff
                                   analytical path.
-  --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
-                                  model parm7. Default: disabled (Gaussian
-                                  ONIOM-compatible).
+  --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
+                                  layers. Default: enabled when present in
+                                  parm7.
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --ref-pdb FILE                  Full-size template PDBs in the same order as

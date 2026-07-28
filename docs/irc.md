@@ -126,7 +126,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
 | `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
-| `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
+| `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--hess-device CHOICE` | Device for initial Hessian storage and IRC operations: `auto`, `cuda`, `cpu`. Use `cpu` for large unfrozen systems. | `auto` |
 | `--read-hess PATH` | Read an identified `.npz` from `mlmm freq --dump-hess`; geometry, atom order, layer selection, and active-DOF basis must match. Takes priority over cache/fresh computation. | _None_ |
 | `--allow-unverified-hess-state/--no-allow-unverified-hess-state` | Permit a schema-1 Hessian file whose charge/multiplicity cannot be verified; requires `--read-hess` and independent state checking. | `False` |

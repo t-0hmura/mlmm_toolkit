@@ -7,6 +7,7 @@ from types import MethodType, SimpleNamespace
 import numpy as np
 import torch
 from ase import Atoms
+from ase.calculators.calculator import Calculator, all_changes
 
 from mlmm.backends.mlmm_calc import (
     _EmbedChargeCorrection,
@@ -51,7 +52,9 @@ def _force_only_core(*, with_link: bool) -> MLMMCore:
             [0],
         )
 
-    def eval_high(self, _atoms, _freeze_model, *, return_hessian):
+    def eval_high(
+        self, _atoms, _freeze_model, *, need_forces, return_hessian
+    ):
         forces = (
             np.array([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]])
             if with_link
@@ -59,7 +62,9 @@ def _force_only_core(*, with_link: bool) -> MLMMCore:
         )
         return _MLHighOut(E=0.0, F=forces, H=None, timing={})
 
-    def eval_low(self, _atoms_real, _atoms_model, *, return_hessian):
+    def eval_low(
+        self, _atoms_real, _atoms_model, *, need_forces, return_hessian
+    ):
         return _MMLowOut(
             E_real=0.0,
             F_real=np.zeros((2, 3), dtype=float),
@@ -89,6 +94,60 @@ def test_final_mask_runs_after_nonzero_link_force_redistribution() -> None:
     assert np.array_equal(result["forces"][1], np.array([2.0, 0.0, 0.0]))
 
 
+def test_energy_only_core_requests_no_high_or_low_level_forces() -> None:
+    class HighEnergyOnly:
+        name = "dft"
+
+        def energy(self, atoms):
+            return 2.0
+
+        def eval(self, atoms, need_grad=True):
+            raise AssertionError("energy-only evaluation requested high-level forces")
+
+    class LowEnergyOnly(Calculator):
+        implemented_properties = ["energy"]
+
+        def __init__(self, energy):
+            super().__init__()
+            self.energy = float(energy)
+
+        def calculate(
+            self, atoms=None, properties=("energy",), system_changes=all_changes
+        ):
+            if "forces" in properties:
+                raise AssertionError(
+                    "energy-only evaluation requested low-level forces"
+                )
+            super().calculate(atoms, properties, system_changes)
+            self.results = {"energy": self.energy}
+
+    core = _force_only_core(with_link=False)
+    core.freeze_atoms = []
+    core._ml_backend = HighEnergyOnly()
+    core.backend_name = "dft"
+    core.mm_fd = False
+    core.mm_hessian_mode = "none"
+    core.calc_real_low = LowEnergyOnly(10.0)
+    core.calc_real_low.device = "cpu"
+    core.calc_model_low = LowEnergyOnly(3.0)
+    core._eval_ml_high = MethodType(MLMMCore._eval_ml_high, core)
+    core._eval_mm_low = MethodType(MLMMCore._eval_mm_low, core)
+
+    result = core.compute(
+        np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
+        return_forces=False,
+        return_hessian=False,
+    )
+
+    assert result["energy"] == 9.0
+    assert result["energy_components"] == {
+        "real_low": 10.0,
+        "model_high": 2.0,
+        "model_low": 3.0,
+    }
+    assert "forces" not in result
+
+
 def test_partial_link_hessian_retains_the_unconstrained_endpoint_block() -> None:
     core = _force_only_core(with_link=True)
     core.mm_fd = True
@@ -97,7 +156,9 @@ def test_partial_link_hessian_retains_the_unconstrained_endpoint_block() -> None
     core.symmetrize_hessian = True
     core.return_partial_hessian = True
 
-    def eval_high(self, _atoms, _freeze_model, *, return_hessian):
+    def eval_high(
+        self, _atoms, _freeze_model, *, need_forces, return_hessian
+    ):
         hessian = torch.zeros((2, 3, 2, 3), dtype=torch.float64)
         hessian[1, :, 1, :] = torch.eye(3, dtype=torch.float64)
         return _MLHighOut(
@@ -107,7 +168,9 @@ def test_partial_link_hessian_retains_the_unconstrained_endpoint_block() -> None
             timing={},
         )
 
-    def eval_low(self, _atoms_real, _atoms_model, *, return_hessian):
+    def eval_low(
+        self, _atoms_real, _atoms_model, *, need_forces, return_hessian
+    ):
         return _MMLowOut(
             E_real=0.0,
             F_real=np.zeros((2, 3), dtype=float),
@@ -150,7 +213,9 @@ def test_analytical_mm_mode_keeps_both_low_level_hessians() -> None:
     core.n_hess_active = 2
     core.full_to_hess_active = {0: 0, 1: 1}
 
-    def eval_high(self, _atoms, _freeze_model, *, return_hessian):
+    def eval_high(
+        self, _atoms, _freeze_model, *, need_forces, return_hessian
+    ):
         return _MLHighOut(
             E=0.0,
             F=np.zeros((1, 3), dtype=float),
@@ -158,7 +223,9 @@ def test_analytical_mm_mode_keeps_both_low_level_hessians() -> None:
             timing={},
         )
 
-    def eval_low(self, _atoms_real, _atoms_model, *, return_hessian):
+    def eval_low(
+        self, _atoms_real, _atoms_model, *, need_forces, return_hessian
+    ):
         return _MMLowOut(
             E_real=0.0,
             F_real=np.zeros((2, 3), dtype=float),
@@ -244,7 +311,9 @@ def test_embed_hessian_is_compacted_before_active_block_assembly() -> None:
         def compute_correction(self, **_kwargs):
             return 0.0, np.zeros((2, 3)), correction_hessian
 
-    def eval_high(self, _atoms, _freeze_model, *, return_hessian):
+    def eval_high(
+        self, _atoms, _freeze_model, *, need_forces, return_hessian
+    ):
         return _MLHighOut(
             E=0.0,
             F=np.zeros((1, 3), dtype=float),
@@ -252,7 +321,9 @@ def test_embed_hessian_is_compacted_before_active_block_assembly() -> None:
             timing={},
         )
 
-    def eval_low(self, _atoms_real, _atoms_model, *, return_hessian):
+    def eval_low(
+        self, _atoms_real, _atoms_model, *, need_forces, return_hessian
+    ):
         return _MMLowOut(
             E_real=0.0,
             F_real=np.zeros((2, 3), dtype=float),

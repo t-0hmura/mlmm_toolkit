@@ -73,7 +73,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 MM バックエンドは `mm_backend` パラメータで選択できます：
 
 - **`"hessian_ff"`**（デフォルトの MM バックエンド）: 解析 Hessian 機能を持つ CPU 専用 MM エンジンです。実効デフォルトは有限差分（`mm_fd: true`）で、`mm_fd: false` を指定すると解析 MM Hessian を使います。アクティブブロックは、必要に応じて凍結行/列をゼロ埋めした完全デカルト形状へ展開できます。
-  - CMAP トーション補正（実装済みだが Gaussian と同様にデフォルトでは無効）
+  - CMAP トーション補正（parm7 に含まれる場合は保持）
 - **`"openmm"`**: OpenMM による有限差分 (FD) Hessian。CPU と CUDA の両プラットフォームに対応。`hessian_ff` が対応していない力場や、ワークフローで OpenMM を既に使用している場合に有用。
 
 **YAML 設定例:**
@@ -83,23 +83,21 @@ mlmm:
  mm_device: cuda # CUDA を使用 (または "cpu")
 ```
 
-### model 系の CMAP
+### 2つの MM 層の CMAP
 
-CMAP（クロスマップ骨格二面角補正）は、タンパク質 AMBER 力場で骨格コンフォメーションサンプリングを改善するために使用される 5 原子のトーション補正項です。ONIOM では、model 系の parm7 は実系トポロジーを ML 領域に合わせて切り出して生成されます。
-
-デフォルト（`use_cmap: false`）では、CMAP 項を model parm7 から**除外**します:
+CMAP（クロスマップ骨格二面角補正）は ff19SB などで使われる 5 原子のトーション補正項です。差し引き式では、REAL と MODEL の MM 計算に同じ CMAP 方針を適用します。
 
 | 領域 | E_MM(real) | E_MM(model) | ONIOM への正味の影響 |
 |--------|-----------|------------|--------------------|
-| `use_cmap: false`（デフォルト） | CMAP あり | CMAP **除外** | model 骨格 CMAP が E_total に残留 |
-| `use_cmap: true` | CMAP あり | CMAP あり | model 骨格 CMAP が差し引きでキャンセル |
+| `use_cmap: true`（デフォルト） | parm7 にあれば CMAP あり | parm7 にあれば CMAP あり | MODEL 内で完結する CMAP は相殺され、境界項は低レベル結合として残る |
+| `use_cmap: false` | CMAP 除外 | CMAP 除外 | CMAP を除いた明示的な改変力場計算 |
 
-このデフォルト動作は Gaussian ONIOM と一致しており、Gaussian ONIOM も model MM パラメータから CMAP を除外します。典型的な活性部位モデル（リガンド + 活性部位残基、ML 領域に骨格原子を含まない）では、どちらの設定でも model 系の CMAP はゼロになります。
+ff19SB では CMAP が、対応するゼロ化済み骨格 cosine 項を置き換えます（[Tian et al., 2020](https://doi.org/10.1021/acs.jctc.9b00591)）。このため CMAP を保持するのが力場に忠実なデフォルトです。`use_cmap: false` は両方の MM 層から CMAP を除去します。
 
 **YAML 設定例:**
 ```yaml
 mlmm:
- use_cmap: true  # model parm7 に CMAP を含める（Gaussian 非互換の挙動）
+ use_cmap: false  # 両方の MM 層から CMAP を明示的に除去
 ```
 
 ### ML Hessian モード

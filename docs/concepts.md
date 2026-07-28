@@ -194,7 +194,7 @@ mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter 
 - Electrostatic interactions
 - Analytical second derivatives (Hessian)
 - CPU execution (GPU memory is reserved for MLIP inference)
-- CMAP torsion corrections (implemented but disabled by default, as in Gaussian)
+- CMAP torsion corrections (preserved in both MM layers when present in parm7)
 
 Unlike OpenMM, `hessian_ff` is designed specifically to provide the **MM Hessian** needed by the ONIOM-like coupling and vibrational analysis.
 

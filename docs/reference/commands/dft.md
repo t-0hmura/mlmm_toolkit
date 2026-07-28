@@ -83,9 +83,9 @@ Options:
   --mm-backend [hessian_ff|openmm]
                                   MM backend for the low-level ONIOM evaluation:
                                   'hessian_ff' (default) or 'openmm'.
-  --cmap / --no-cmap              Enable CMAP (backbone cross-map) terms in
-                                  model parm7. Default: disabled (Gaussian
-                                  ONIOM-compatible).
+  --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
+                                  layers. Default: enabled when present in
+                                  parm7.
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer

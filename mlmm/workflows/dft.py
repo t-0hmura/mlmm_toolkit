@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import logging
-import shutil
 import sys
 import tempfile
 import time
@@ -27,16 +26,10 @@ import numpy as np
 import yaml
 
 from ase import Atoms
-from ase.io import read
 
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 
-from mlmm.backends.mlmm_calc import (
-    apply_cmap_policy,
-    hessianffCalculator,
-    validate_parmed_atom_order,
-    write_model_parm7,
-)
+from mlmm.backends.mlmm_calc import MLMMCore, mlmm as MLMMCalculator
 from mlmm.workflows.opt import (
     GEOM_KW as OPT_GEOM_KW,
     CALC_KW as OPT_CALC_KW,
@@ -57,7 +50,6 @@ from mlmm.core.utils import (
     parse_indices_string,
     resolve_ml_layer_assignment,
     set_convert_file_enabled,
-    validate_charge_spin,
 )
 from mlmm.cli.common_options import add_ml_layer_detection_options
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
@@ -65,7 +57,6 @@ from mlmm.core.defaults import DFT_KW as _DFT_KW_DEFAULT
 from mlmm.io.pdb_indexing import (
     PDBOrdinalAtom,
     parse_pdb_ordinal_atoms,
-    resolve_mlmm_atoms,
 )
 
 from functools import reduce
@@ -78,7 +69,8 @@ DFT_KW = _DFT_KW_DEFAULT
 
 @dataclass
 class MLRegionWorkspace:
-    tmpdir: tempfile.TemporaryDirectory
+    calculator: MLMMCalculator
+    high_level_backend: "_DFTEnergyOnlyBackend"
     input_pdb: Path
     real_parm7: Path
     real_rst7: Path
@@ -92,7 +84,33 @@ class MLRegionWorkspace:
     atoms_model_lh: Atoms
 
     def cleanup(self) -> None:
-        self.tmpdir.cleanup()
+        self.calculator.core.cleanup()
+
+    @property
+    def core(self) -> MLMMCore:
+        return self.calculator.core
+
+
+class _DFTEnergyOnlyBackend:
+    """High-level slot used by MLMMCore for a precomputed DFT energy."""
+
+    name = "dft"
+
+    def __init__(self) -> None:
+        self._energy_ev: Optional[float] = None
+
+    def set_energy_hartree(self, energy_hartree: float) -> None:
+        self._energy_ev = float(energy_hartree) * AU2EV
+
+    def energy(self, atoms: Atoms) -> float:
+        if self._energy_ev is None:
+            raise RuntimeError("DFT energy has not been evaluated.")
+        return self._energy_ev
+
+    def eval(self, atoms: Atoms, need_grad: bool = True):
+        raise RuntimeError(
+            "The DFT high-level backend is energy-only; forces are not available."
+        )
 
 
 def _parse_func_basis(s: str) -> Tuple[str, str]:
@@ -198,90 +216,6 @@ def _load_input_atoms(input_pdb: Path) -> List[PDBOrdinalAtom]:
     return parse_pdb_ordinal_atoms(input_pdb)
 
 
-def _resolve_link_parent_element(atoms_real: Atoms, idx0: int, real_top=None) -> str:
-    """Element symbol of atoms_real[idx0], preferring the parm7 atomic_number.
-
-    ASE's PDB reader infers the element from the atom NAME when the element
-    column is blank, so a backbone Calpha ("CA") is misread as calcium. The
-    parm7 atomic_number column is unambiguous; fall back to the ASE symbol
-    only if the topology lookup fails.
-    """
-    from ase.data import chemical_symbols
-    z = None
-    if real_top is not None:
-        try:
-            z = int(real_top.atoms[idx0].atomic_number)
-        except (IndexError, AttributeError, KeyError, ValueError, TypeError):
-            z = None
-    if z is not None and 0 <= z < len(chemical_symbols):
-        return chemical_symbols[z]
-    return atoms_real[idx0].symbol.strip().capitalize()
-
-
-def _append_link_hydrogens(
-    atoms_model: Atoms,
-    atoms_real: Atoms,
-    link_pairs: Sequence[Tuple[int, int]],
-    real_top=None,
-    link_atom_method: str = "scaled",
-) -> Atoms:
-    """Append link H atoms to atoms_model.
-
-    link_atom_method:
-      - "scaled" (default): Morokuma/Dapprich g-factor placement
-        ``r_H = r_QM + g * (r_MM - r_QM)`` with
-        ``g = (CR(QM)+CR(H))/(CR(QM)+CR(MM))``. Matches ml/mm coupling.
-      - "fixed": legacy fixed bond length (1.09 Å for C, 1.01 Å for N).
-    """
-    from mlmm.backends.mlmm_calc import _get_g_factor
-
-    method = (link_atom_method or "scaled").strip().lower()
-    if method not in ("scaled", "fixed"):
-        raise ValueError(
-            f"link_atom_method must be 'scaled' or 'fixed', got {link_atom_method!r}"
-        )
-
-    atoms_with_link = atoms_model.copy()
-    for ml_idx1, mm_idx1 in link_pairs:
-        ml_idx = ml_idx1 - 1
-        mm_idx = mm_idx1 - 1
-        ml_elem = _resolve_link_parent_element(atoms_real, ml_idx, real_top).upper()
-        vec = atoms_real[mm_idx].position - atoms_real[ml_idx].position
-        R = np.linalg.norm(vec)
-        if R < 1e-8:
-            # A degenerate link distance silently dropped one H from the QM
-            # region, producing wrong stoichiometry in downstream ONIOM/DFT.
-            # Fail loudly so the caller can fix the input geometry.
-            raise ValueError(
-                f"Degenerate link distance |r(MM={mm_idx1}) - r(ML={ml_idx1})| "
-                f"= {R:.3e} A < 1e-8 A. Check the input geometry: link parent "
-                f"and boundary MM atom share a position."
-            )
-        if method == "scaled":
-            mm_elem = _resolve_link_parent_element(atoms_real, mm_idx, real_top)
-            try:
-                g = _get_g_factor(ml_elem, mm_elem, "H")
-            except KeyError as exc:
-                raise ValueError(
-                    f"Cannot compute g-factor for ML='{ml_elem}', MM='{mm_elem}': "
-                    f"{exc}. Use --link-atom-method fixed if covalent radii are unavailable."
-                ) from exc
-            pos = atoms_real[ml_idx].position + g * vec
-        else:
-            if ml_elem == "C":
-                dist = 1.09
-            elif ml_elem == "N":
-                dist = 1.01
-            else:
-                raise ValueError(
-                    f"--link-atom-method fixed only supports C or N parents (got '{ml_elem}'). "
-                    "Use --link-atom-method scaled for other elements."
-                )
-            pos = atoms_real[ml_idx].position + (vec / R) * dist
-        atoms_with_link += Atoms("H", positions=[pos])
-    return atoms_with_link
-
-
 def _prepare_ml_region_workspace(
     *,
     input_pdb: Path,
@@ -290,122 +224,44 @@ def _prepare_ml_region_workspace(
     model_pdb: Path,
     link_mlmm: Optional[Sequence[Sequence[str]]],
     link_atom_method: str = "scaled",
-    use_cmap: bool = False,
+    use_cmap: bool = True,
+    calc_kwargs: Optional[Dict[str, Any]] = None,
 ) -> MLRegionWorkspace:
-    tmpdir = tempfile.TemporaryDirectory()
-    tmp = Path(tmpdir.name)
-
-    input_copy = tmp / "input.pdb"
-    real_copy = tmp / "real.parm7"
-    model_copy = tmp / "model.pdb"
-    coordinate_source = (
-        Path(input_pdb) if coordinate_path is None else Path(coordinate_path)
+    high_level_backend = _DFTEnergyOnlyBackend()
+    calculator_kwargs = dict(calc_kwargs or {})
+    calculator_kwargs.update(
+        {
+            "input_pdb": str(Path(input_pdb)),
+            "coordinate_path": (
+                None if coordinate_path is None else str(Path(coordinate_path))
+            ),
+            "real_parm7": str(Path(real_parm7)),
+            "model_pdb": str(Path(model_pdb)),
+            "link_mlmm": link_mlmm,
+            "link_atom_method": str(link_atom_method or "scaled").lower(),
+            "use_cmap": bool(use_cmap),
+            "_high_level_backend": high_level_backend,
+        }
     )
-    uses_external_coordinates = (
-        coordinate_source.resolve() != Path(input_pdb).resolve()
-    )
-    coordinate_atoms: Optional[Atoms] = None
-    if uses_external_coordinates:
-        convert_xyz_to_pdb(coordinate_source, input_pdb, input_copy)
-        # The workspace only needs the materialized PDB text. Avoid leaving a
-        # registry entry for a path owned by TemporaryDirectory.
-        from mlmm.io.structure_formats import unregister_coordinate_template
-
-        unregister_coordinate_template(input_copy)
-        coordinate_atoms = read(str(coordinate_source), index=0)
-    else:
-        shutil.copyfile(input_pdb, input_copy)
-    shutil.copyfile(real_parm7, real_copy)
-    shutil.copyfile(model_pdb, model_copy)
-
-    real_top = None
+    calculator = MLMMCalculator(**calculator_kwargs)
+    core = calculator.core
     try:
-        import parmed as pmd
-
-        real_top = pmd.load_file(str(real_copy))
-        start_struct = pmd.load_file(str(input_copy))
-        validate_parmed_atom_order(
-            start_struct,
-            real_top,
-            input_label=str(input_pdb),
-            topology_label=str(real_parm7),
-        )
-        if coordinate_atoms is not None:
-            if len(coordinate_atoms) != len(real_top.atoms):
-                raise ValueError(
-                    "Coordinate input and Amber topology have different atom counts: "
-                    f"{len(coordinate_atoms)} != {len(real_top.atoms)}."
-                )
-            real_top.coordinates = coordinate_atoms.get_positions()
-        else:
-            real_top.coordinates = start_struct.coordinates
-        real_top.box = None
-        apply_cmap_policy(real_top, use_cmap)
-        real_top.save(str(real_copy), overwrite=True)
-        real_rst7 = tmp / "real.rst7"
-        real_top.save(str(real_rst7), overwrite=True)
-    except Exception as exc:  # pragma: no cover - requires parmed
-        tmpdir.cleanup()
-        raise RuntimeError(f"Failed to prepare sanitized Amber inputs: {exc}") from exc
-
-    try:
-        resolved = resolve_mlmm_atoms(
-            input_copy,
-            model_copy,
-            link_mlmm,
-            topology=real_top,
-        )
+        atoms_real, atoms_model, atoms_model_lh = core.prepare_atoms()
     except Exception:
-        tmpdir.cleanup()
+        core.cleanup()
         raise
-    ml_ids = list(resolved.model_indices)
-    link_pairs = list(resolved.link_pairs)
-    selection_indices = [idx - 1 for idx in ml_ids]
-
-    model_parm7 = tmp / "model.parm7"
-    model_rst7 = tmp / "model.rst7"
-    selection = selection_indices
-    # The ML/MM backend owns this contract; dft consumes it so the two paths
-    # describe the same model region.
-    write_model_parm7(
-        real_top,
-        selection,
-        real_copy,
-        real_rst7,
-        model_parm7,
-        model_rst7,
-        use_cmap,
-    )
-
-    atoms_real = (
-        coordinate_atoms.copy()
-        if coordinate_atoms is not None
-        else read(str(input_copy))
-    )
-    atoms_model = read(str(model_copy))
-    if len(atoms_model) != len(selection_indices):
-        tmpdir.cleanup()
-        raise ValueError(
-            "model_pdb atom count does not match the detected ML-region selection from the input PDB."
-        )
-    for i, ridx in enumerate(selection_indices):
-        atoms_model[i].position = atoms_real[ridx].position
-
-    atoms_model_lh = _append_link_hydrogens(
-        atoms_model, atoms_real, link_pairs, real_top=real_top,
-        link_atom_method=str(link_atom_method or "scaled").lower(),
-    )
 
     return MLRegionWorkspace(
-        tmpdir=tmpdir,
-        input_pdb=input_copy,
-        real_parm7=real_copy,
-        real_rst7=real_rst7,
-        model_pdb=model_copy,
-        model_parm7=model_parm7,
-        model_rst7=model_rst7,
-        selection_indices=selection_indices,
-        link_pairs=link_pairs,
+        calculator=calculator,
+        high_level_backend=high_level_backend,
+        input_pdb=Path(core.input_pdb),
+        real_parm7=Path(core.real_parm7),
+        real_rst7=Path(core.real_rst7),
+        model_pdb=Path(core.model_pdb),
+        model_parm7=Path(core.model_parm7),
+        model_rst7=Path(core.model_rst7),
+        selection_indices=list(core.selection_indices),
+        link_pairs=list(core.mlmm_links),
         atoms_real=atoms_real,
         atoms_model=atoms_model,
         atoms_model_lh=atoms_model_lh,
@@ -900,7 +756,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "use_cmap",
     default=None,
     show_default=False,
-    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
+    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @click.option(
     "--out-json/--no-out-json",
@@ -1119,17 +975,10 @@ def cli(
                     link_atom_method=str(
                         validation_cfg.get("link_atom_method") or "scaled"
                     ).lower(),
-                    use_cmap=bool(calc_kw.get("use_cmap", False)),
+                    use_cmap=bool(calc_kw.get("use_cmap", True)),
+                    calc_kwargs=validation_cfg,
                 )
-                try:
-                    validate_charge_spin(
-                        validation_workspace.atoms_model_lh.get_chemical_symbols(),
-                        int(charge),
-                        int(calc_kw["model_mult"]),
-                        source=str(validation_model),
-                    )
-                finally:
-                    validation_workspace.cleanup()
+                validation_workspace.cleanup()
                 click.echo(
                     pretty_block(
                         "dry_run_plan",
@@ -1199,7 +1048,8 @@ def cli(
             model_pdb=Path(calc_kw["model_pdb"]),
             link_mlmm=calc_kw.get("link_mlmm"),
             link_atom_method=str(calc_kw.get("link_atom_method") or "scaled").lower(),
-            use_cmap=bool(calc_kw.get("use_cmap", False)),
+            use_cmap=bool(calc_kw.get("use_cmap", True)),
+            calc_kwargs=calc_kw,
         )
         model_charge = int(calc_kw["model_charge"])
         model_mult = int(calc_kw["model_mult"])
@@ -1399,51 +1249,19 @@ def cli(
             for row in spins_table:
                 click.echo(f"- {_format_row_for_echo(row)}")
 
-        mm_device = calc_kw.get("mm_device", "cpu")
-        mm_cuda_idx = int(calc_kw.get("mm_cuda_idx", 0))
-        mm_threads = int(calc_kw.get("mm_threads", 16))
-
-        atoms_real = workspace.atoms_real.copy()
-        atoms_model = workspace.atoms_model.copy()
-
-        mm_backend_choice = str(calc_kw.get("mm_backend") or "hessian_ff").strip().lower()
-        if mm_backend_choice == "openmm":
-            from mlmm.backends.mlmm_calc import OpenMMCalculator
-            _mm_cls = OpenMMCalculator
-            _real_kwargs = {"rst7": str(workspace.real_rst7)}
-            _model_kwargs = {"rst7": str(workspace.model_rst7)}
-        elif mm_backend_choice == "hessian_ff":
-            _mm_cls = hessianffCalculator
-            _real_kwargs = {"rst7": str(workspace.real_rst7)}
-            _model_kwargs = {"rst7": str(workspace.model_rst7)}
-        else:
-            raise click.UsageError(
-                f"--mm-backend must be 'hessian_ff' or 'openmm' (got '{mm_backend_choice}')."
-            )
-
-        calc_real = _mm_cls(
-            parm7=str(workspace.real_parm7),
-            device=mm_device,
-            cuda_idx=mm_cuda_idx,
-            threads=mm_threads,
-            **_real_kwargs,
+        workspace.high_level_backend.set_energy_hartree(e_h)
+        mlmm_result = workspace.core.compute(
+            workspace.atoms_real.get_positions(),
+            return_forces=False,
+            return_hessian=False,
         )
-        atoms_real.calc = calc_real
-        e_real_low = atoms_real.get_potential_energy()
-
-        calc_model = _mm_cls(
-            parm7=str(workspace.model_parm7),
-            device=mm_device,
-            cuda_idx=mm_cuda_idx,
-            threads=mm_threads,
-            **_model_kwargs,
-        )
-        atoms_model.calc = calc_model
-        e_model_low = atoms_model.get_potential_energy()
+        energy_components = mlmm_result["energy_components"]
+        e_real_low = float(energy_components["real_low"])
+        e_model_low = float(energy_components["model_low"])
 
         e_real_low_au = e_real_low * EV2AU
         e_model_low_au = e_model_low * EV2AU
-        e_total_au = e_real_low_au + e_h - e_model_low_au
+        e_total_au = float(mlmm_result["energy"]) * EV2AU
         e_total_kcal = _hartree_to_kcalmol(e_total_au)
 
         result_yaml = {

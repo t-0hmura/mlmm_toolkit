@@ -904,7 +904,7 @@ def _run_dmf_mep(
     "use_cmap",
     default=None,
     show_default=False,
-    help="Enable CMAP (backbone cross-map) terms in model parm7. Default: disabled (Gaussian ONIOM-compatible).",
+    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @click.option(
     "--out-json/--no-out-json",

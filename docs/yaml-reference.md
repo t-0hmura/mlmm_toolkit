@@ -108,7 +108,7 @@ calc:
 
  # --- MM backend settings ---
  mm_backend: hessian_ff # MM backend; Hessian method is selected by mm_fd below
- use_cmap: false        # If true, include CMAP terms in model parm7. Default false (Gaussian ONIOM-compatible)
+ use_cmap: true         # Preserve parm7 CMAP in both REAL and MODEL MM layers
  mm_device: cpu # Device for MM calculation: "cuda" or "cpu" (hessian_ff is CPU-only)
  mm_cuda_idx: 0 # CUDA device index for MM calculation (OpenMM only)
  mm_threads: 16 # Number of threads for MM calculation
@@ -152,7 +152,7 @@ calc:
   analytical `hessian_ff` Hessian. `mm_hessian_mode` is the explicit
   `finite_difference`/`analytical` spelling; when it is `null`, `mm_fd`
   supplies the backward-compatible selection.
-- `use_cmap: false` (default) excludes CMAP (backbone cross-map dihedral correction) from the model parm7, consistent with Gaussian ONIOM behavior. Set `true` to include CMAP in the model region (CMAP remains in the real system in both cases).
+- `use_cmap: true` (default) preserves CMAP in both REAL and MODEL MM layers when the parm7 contains it. Set `false` only for an explicit modified-force-field calculation; the opt-out removes CMAP from both layers.
 - `real_parm7` and `model_pdb` are required for ML/MM calculations
 - `model_charge` and `model_mult` override `-q` and `-m` for the ML region specifically
 - `opt`, `tsopt`, `irc`, and `freq` use partial Hessian by default when `calc.return_partial_hessian` is not explicitly set in YAML.

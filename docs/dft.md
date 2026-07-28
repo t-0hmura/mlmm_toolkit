@@ -1,6 +1,6 @@
 # `dft`
 
-Run a single-point DFT calculation on the ML region using GPU4PySCF (or CPU PySCF), then recombine the high-level energy with MM evaluations to obtain the ML(dft)/MM total energy. Use it to evaluate stationary-point energies (R / TS / P / IM) at the DFT level after an MLIP path search, or to sanity-check an MLIP barrier against a benchmark functional / basis. The default functional/basis is `wb97m-v/def2-tzvpd`. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
+Run an energy-only single-point DFT calculation on the ML region using GPU4PySCF (or CPU PySCF), then recombine the high-level energy with MM evaluations to obtain the ML(dft)/MM total energy. DFT gradients and forces are not requested. Use it to evaluate stationary-point energies (R / TS / P / IM) at the DFT level after an MLIP path search, or to sanity-check an MLIP barrier against a benchmark functional / basis. The default functional/basis is `wb97m-v/def2-tzvpd`. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
@@ -35,9 +35,9 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Workflow
 
-1. **Input handling** -- The full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`) are loaded. Unless YAML supplies explicit `link_mlmm` pairs, link hydrogens are appended at parm7 bonds that cross the ML/MM selection; distance is not used to perceive those bonds.
+1. **Input handling** -- The ordinary ML/MM core loads the full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`). Unless YAML supplies explicit `link_mlmm` pairs, it appends link hydrogens at parm7 bonds that cross the ML/MM selection; distance is not used to perceive those bonds.
 2. **SCF build** -- `--func-basis` is parsed into functional and basis. The GPU4PySCF backend is used when available; closed-shell GPU runs additionally use the low-memory `gpu4pyscf.dft.rks_lowmem.RKS` SCF when `--lowmem` is on (default). Use `--engine cpu` to force CPU mode. (For the SCF JK / `density_fit()` behavior see the `--lowmem` row in the CLI options table.) v0.3.3 uses mechanical embedding; requests for the retired electronic-embedding path fail before SCF construction.
-3. **ML(dft)/MM recombination** -- After the DFT converges, MM evaluations of the full system (REAL-low) and the ML subset (MODEL-low) are computed. The combined energy is reported in Hartree and kcal/mol.
+3. **ML(dft)/MM recombination** -- DFT replaces only the core's high-level MODEL energy. The same core evaluates REAL-low and MODEL-low with the selected MM backend and applies the subtractive expression. No parallel topology builder, MM calculator path, or DFT force call is used.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
 
 ## Outputs
@@ -91,7 +91,7 @@ out_dir/ (default: ./result_dft/)
 | `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--link-atom-method {scaled,fixed}` | Link-atom placement: `scaled` (g-factor, Gaussian ONIOM standard) or `fixed` (legacy 1.09 Å for C, 1.01 Å for N). | `scaled` |
 | `--mm-backend {hessian_ff,openmm}` | MM backend for the low-level ONIOM evaluation. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
-| `--cmap/--no-cmap` | Enable CMAP (backbone cross-map dihedral correction) in model parm7. Default: disabled (consistent with Gaussian ONIOM). | `--no-cmap` |
+| `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--out-json/--no-out-json` | Write a machine-readable `result.json` to `out_dir`. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |

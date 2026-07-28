@@ -23,7 +23,9 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
+import numpy as np
 import pytest
+from pysisyphus.constants import AU2EV
 
 parmed = pytest.importorskip("parmed")
 
@@ -38,7 +40,8 @@ from mlmm.workflows.dft import _prepare_ml_region_workspace
 
 FIXTURE = Path(__file__).parent / "smoke" / "p_complex.parm7"
 LAYERED_PDB = Path(__file__).parent / "smoke" / "r_complex_layered.pdb"
-for _fixture in (FIXTURE, LAYERED_PDB):
+PDB_FIXTURE = Path(__file__).parent / "smoke" / "p_complex_layered.pdb"
+for _fixture in (FIXTURE, LAYERED_PDB, PDB_FIXTURE):
     assert _fixture.exists(), f"committed smoke fixture is missing: {_fixture}"
 
 # Residues 3-5 are a contiguous backbone stretch: it uses 10 of the fixture's 18 atom
@@ -139,13 +142,16 @@ def test_both_oniom_layers_share_one_cmap_policy():
         "the ML/MM real layer no longer applies the shared CMAP policy"
     )
     dft_src = inspect.getsource(_prepare_ml_region_workspace)
-    assert "apply_cmap_policy(real_top, use_cmap)" in dft_src, (
-        "the dft real layer no longer applies the shared CMAP policy"
+    assert "MLMMCalculator(**calculator_kwargs)" in dft_src, (
+        "dft no longer delegates preparation and MM construction to MLMMCore"
     )
     assert "apply_cmap_policy(model, use_cmap)" in inspect.getsource(write_model_parm7)
 
 
-def test_cmap_policy_default_is_off_and_strips_both_layers():
+def test_cmap_policy_default_is_on_and_explicit_off_strips_both_layers():
+    from mlmm.core.defaults import MLMM_CALC_KW
+
+    assert MLMM_CALC_KW["use_cmap"] is True
     top_real = parmed.load_file(str(FIXTURE))
     assert len(top_real.cmaps) > 0, "fixture must carry CMAP terms to be meaningful"
     apply_cmap_policy(top_real, False)
@@ -156,12 +162,71 @@ def test_cmap_policy_default_is_off_and_strips_both_layers():
     assert len(kept.cmaps) > 0
 
 
-def test_dft_and_mlmm_both_delegate_to_the_shared_builder():
-    for consumer in (_prepare_ml_region_workspace, MLMMCore._mk_model_parm7):
-        src = inspect.getsource(consumer)
-        assert "write_model_parm7(" in src, (
-            f"{consumer.__name__} no longer uses the shared model-parm7 builder"
+@pytest.mark.parametrize(
+    ("use_cmap", "expect_cmap"),
+    [(None, True), (False, False)],
+)
+def test_prepared_real_and_model_topologies_follow_one_cmap_switch(
+    use_cmap, expect_cmap
+):
+    kwargs = {
+        "input_pdb": PDB_FIXTURE,
+        "real_parm7": FIXTURE,
+        "model_pdb": PDB_FIXTURE,
+        "link_mlmm": None,
+        "calc_kwargs": {"model_charge": 0, "model_mult": 2},
+    }
+    if use_cmap is not None:
+        kwargs["use_cmap"] = use_cmap
+
+    workspace = _prepare_ml_region_workspace(**kwargs)
+    try:
+        real = parmed.load_file(str(workspace.real_parm7))
+        model = parmed.load_file(str(workspace.model_parm7))
+        assert (len(real.cmaps) > 0) is expect_cmap
+        assert (len(model.cmaps) > 0) is expect_cmap
+    finally:
+        workspace.cleanup()
+
+
+def test_dft_delegates_to_core_and_core_delegates_to_the_shared_builder():
+    assert "MLMMCalculator(" in inspect.getsource(_prepare_ml_region_workspace)
+    assert "write_model_parm7(" in inspect.getsource(MLMMCore._mk_model_parm7)
+
+
+def test_dft_energy_only_backend_replaces_exactly_the_core_high_level_term():
+    workspace = _prepare_ml_region_workspace(
+        input_pdb=PDB_FIXTURE,
+        real_parm7=FIXTURE,
+        model_pdb=PDB_FIXTURE,
+        link_mlmm=None,
+        calc_kwargs={"model_charge": 0, "model_mult": 2},
+    )
+    try:
+        energy_hartree = 0.01
+        workspace.high_level_backend.set_energy_hartree(energy_hartree)
+        result = workspace.core.compute(
+            workspace.atoms_real.get_positions(),
+            return_forces=False,
+            return_hessian=False,
         )
+        components = result["energy_components"]
+        np.testing.assert_allclose(
+            components["real_low"], components["model_low"], atol=1.0e-10
+        )
+        np.testing.assert_allclose(
+            result["energy"], energy_hartree * AU2EV, atol=1.0e-10
+        )
+        assert "forces" not in result
+        mm_calc = workspace.core.calc_real_low
+        positions = workspace.atoms_real.get_positions()
+        np.testing.assert_allclose(
+            mm_calc._energy_from_positions(positions),
+            mm_calc._energy_forces_from_positions(positions)[0],
+            atol=1.0e-10,
+        )
+    finally:
+        workspace.cleanup()
 
 
 def test_shared_builder_honours_use_cmap():
@@ -170,3 +235,13 @@ def test_shared_builder_honours_use_cmap():
     assert "use_cmap" in inspect.signature(apply_cmap_policy).parameters
     # The rule itself lives in apply_cmap_policy; the builder must delegate.
     assert "if not use_cmap:" in inspect.getsource(apply_cmap_policy)
+
+
+def test_dft_has_no_second_mm_or_subtractive_recombination_path():
+    from mlmm.workflows import dft
+
+    source = Path(dft.__file__).read_text(encoding="utf-8")
+    assert "hessianffCalculator(" not in source
+    assert "OpenMMCalculator(" not in source
+    assert "e_real_low_au + e_h - e_model_low_au" not in source
+    assert "workspace.core.compute(" in source
