@@ -1,4 +1,5 @@
-"""Regression tests for authoritative final-frequency Hessian bases."""
+"""Regression tests for authoritative final-frequency Hessian bases and the
+HessianDimer cycle/coordinate guards."""
 
 from __future__ import annotations
 

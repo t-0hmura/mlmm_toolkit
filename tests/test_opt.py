@@ -1,4 +1,4 @@
-"""Unit tests for lightweight helper functions in mlmm.opt."""
+"""Unit tests for lightweight helper functions in mlmm.workflows.opt."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture(scope="module")
 def opt_module():
-    """Import mlmm.opt with mlmm_calc stubbed out."""
+    """Import mlmm.workflows.opt with mlmm_calc stubbed out."""
     previous_calc = sys.modules.get("mlmm.backends.mlmm_calc")
     previous_opt = sys.modules.get("mlmm.workflows.opt")
     stub = types.ModuleType("mlmm.backends.mlmm_calc")

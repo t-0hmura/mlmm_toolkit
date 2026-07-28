@@ -157,7 +157,8 @@ def test_dataclasses_are_json_safe() -> None:
 
 
 def test_scan_failed_low_energy_point_excluded_from_minimum() -> None:
-    # These are exactly the records scan2d/scan3d build (tri-state bias_converged).
+    # These carry the seed-eligibility fields of the records scan2d/scan3d build
+# (tri-state bias_converged).
     records = [
         {"i": 0, "j": 0, "energy_hartree": -1.00, "bias_converged": True, "artifact_written": True},
         {"i": 0, "j": 1, "energy_hartree": -1.20, "bias_converged": True, "artifact_written": True},
@@ -237,7 +238,8 @@ def test_scan_stage_leaf_partial_when_middle_step_fails() -> None:
 
 
 def test_m50_producer_records_nonconvergence_from_optimizer() -> None:
-    # scan2d/scan3d/scan record `bias_converged = optimizer_converged_bit(opt)`.
+    # scan2d/scan3d record `bias_converged = optimizer_converged_bit(opt)`; scan
+    # records the same bit per step.
     from mlmm.workflows._outcomes import optimizer_converged_bit
 
     class _FakeOpt:
@@ -690,7 +692,8 @@ def test_dft_mlmm_gibbs_uses_subtractive_total_not_raw_model_energy() -> None:
 def test_legacy_converged_output_is_byte_compatible(tmp_path: Path) -> None:
     from mlmm.core.utils import write_result_json
 
-    # The exact legacy scan2d result payload for a fully converged run.
+    # A representative subset of the legacy scan2d result payload for a fully
+# converged run.
     legacy = {
         "status": "completed",
         "energy_reference": "bare_mlmm_pes",

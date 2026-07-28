@@ -107,7 +107,8 @@ def test_opt_flatten_minus_branch_is_single_mass_unweight(monkeypatch) -> None:
     np.testing.assert_allclose(
         np.linalg.norm(disp), _AMP_ANG / BOHR2ANG, atol=1.0e-12
     )
-    # Eigenvector sign ambiguity: compare absolute collinearity with u.
+    # Check collinearity magnitude first; the sign itself is pinned to the
+    # deterministic minus branch by the assert below.
     unit = disp / np.linalg.norm(disp)
     np.testing.assert_allclose(np.abs(unit), np.abs(_expected_unit()), atol=1.0e-12)
     assert unit @ _expected_unit() < 0.0  # minus branch flips the sign

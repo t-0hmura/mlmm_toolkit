@@ -540,8 +540,9 @@ def test_dimer_root_order_is_preserved_in_compact_complement(frozen):
             collected.append(mw)
             assert abs(float(torch.dot(mw, complement[:, root]))) > 1.0 - 1.0e-10
 
-    # root=0 uses iterative LOBPCG, whose returned orthogonality is typically
-    # at the 1e-8 level for this deliberately degenerate positive complement.
+    # modes_full[0] comes from iterative LOBPCG (root=0) and modes_full[1] from
+    # exact eigh, so their mutual orthogonality only reaches the 1e-8 level on
+    # this deliberately degenerate positive complement.
     assert abs(float(torch.dot(modes_full[0], modes_full[1]))) < 1.0e-7
     for full, partial in zip(modes_full, modes_active):
         assert abs(float(torch.dot(full, partial))) > 1.0 - 1.0e-10

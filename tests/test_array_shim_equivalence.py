@@ -92,7 +92,8 @@ def test_as_numpy_detaches_torch():
     a = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
     out = as_numpy(a)
     np.testing.assert_array_equal(out, np.array([1.0, 2.0, 3.0]))
-    # Original tensor still has grad; the as_numpy detach was a copy not aliased.
+    # detach() strips autograd from the returned array but leaves the source
+    # tensor's requires_grad intact (the array is a view -- do not write into it).
     assert a.requires_grad
 
 
@@ -118,7 +119,7 @@ def test_to_xp_numpy_path():
 # ---------- hessian_updates.bfgs_update parity ----------
 
 def _bfgs_update_inline_numpy(H, dx, dg):
-    """Reference implementation copied verbatim from the pre-M2 helper."""
+    """Numpy-path expansion of the pre-M2 helper (local _outer/_dot inlined)."""
     Hdx = H @ dx
     first_term = np.outer(dg, dg) / np.dot(dg, dx)
     second_term = np.outer(Hdx, Hdx) / np.dot(dx, Hdx)

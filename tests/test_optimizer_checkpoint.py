@@ -426,7 +426,7 @@ def test_backward_tolerant_load_of_pre_adaptive_checkpoint(tmp_path) -> None:
 # ---------------------------------------------------------------------------
 # C8 M52: complete HessianOptimizer/RFO adaptive state + base cart_coords.
 #
-# Each test below is a resume-EQUIVALENCE falsifier: it fails on the pre-fix
+# Most tests below are resume-EQUIVALENCE falsifiers: they fail on the pre-fix
 # engine (the attribute is not serialized, so a resumed optimizer silently
 # reverts to its __init__ default) and passes once the attribute round-trips.
 # RFOptimizer defines no restart override, so exercising it here also covers

@@ -1,4 +1,5 @@
-"""Static contracts for the release-matched Colab GUI notebook."""
+"""Contracts for the release-matched Colab GUI notebook: source-level
+assertions plus cells compiled and executed against real ipywidgets."""
 
 from __future__ import annotations
 
@@ -200,7 +201,8 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     # normal user does, so the version guard below compares the version actually
     # resolved by pip against the requested tag.
     assert "pip('mlmm-toolkit==' + mlmm_toolkit_version.lstrip('v'))" in setup
-    # The DFT extra installs with a visible log; a quiet pip looked stalled.
+    # The [dft] extra goes through the same quiet `pip` helper as every other
+    # install; the streaming `pip_logged` variant was removed.
     assert "pip('mlmm-toolkit[dft]==' + mlmm_toolkit_version.lstrip('v'))" in setup
     assert "pip_logged" not in setup
     assert "install_dft is ticked" in setup
@@ -237,7 +239,7 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     popen_calls: list[list[str]] = []
 
     class _FakePopen:
-        """The [dft] extra installs through pip_logged, which streams pip output."""
+        """Records the argv of every subprocess the Setup cell launches."""
 
         def __init__(self, argv, **_kwargs):
             popen_calls.append([str(value) for value in argv])
@@ -2647,8 +2649,8 @@ def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     assert "'adv_maxcyc':  {'all', 'opt', 'tsopt', 'irc', 'scan', 'path-opt', 'path-search'}," in app
     assert "if 'freeze' in SPEC.get(sub, {}).get('panels', ()) and S['freeze_atoms']:" in app
     # `--tr-projection legacy-active` is deprecated (it warns and must not be used
-    # for pass/HOSP transition-state certification), and --embedcharge is
-    # experimental. Neither may be offered in the GUI, matching pdb2reaction.
+    # for pass/HOSP transition-state certification), and --embedcharge is retired
+    # and fails closed. Neither may be offered in the GUI.
     assert "legacy-active" not in app
     assert "--tr-projection" not in app
     assert "--embedcharge" not in app

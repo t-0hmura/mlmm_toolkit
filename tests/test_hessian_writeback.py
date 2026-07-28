@@ -10,7 +10,7 @@ Hessian-assembly sites in this package once did exactly that:
 The behavioural tests below pin the Bofill helper, whose inputs are small enough to construct
 directly. The coupling blocks in `mlmm_calc.py` need a real ML/MM system with link atoms, so they
 are NOT covered here and are not covered by the release smoke either — `tests/smoke/
-backend_analytical_hessian.py` compares a bare two-atom `Atoms("H2")` Hessian between backends and
+backend_analytical_hessian.py` compares each backend's analytical Hessian against its own finite-difference reference and
 never exercises a link boundary. That gap is recorded as an open item; do not read this file as
 coverage for it.
 """

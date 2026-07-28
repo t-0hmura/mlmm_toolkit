@@ -1,4 +1,4 @@
-"""Scientific-contract regressions for ONIOM exporters."""
+"""Scientific-contract regressions for the ONIOM exporter and importer."""
 
 from __future__ import annotations
 

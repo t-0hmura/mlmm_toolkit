@@ -143,7 +143,7 @@ def test_current_run_segment_diagram_declared_and_included(tmp_path: Path) -> No
 
     Guards the regression where the declared-only summary dropped the segment
     energy diagrams: the pipeline now routes them through a declare→write→claim
-    helper (mirroring p2r's ``_write_public_energy_diagram``); this exercises
+    helper; this exercises
     that exact sequence for a ``segments/seg_NN/`` PNG destination.
     """
     out_dir = tmp_path / "out"

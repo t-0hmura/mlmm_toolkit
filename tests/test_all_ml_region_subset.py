@@ -75,7 +75,7 @@ def _mm_only_pdb_text() -> str:
     return "".join(lines)
 
 
-# --- (i) _write_bfactor_ml_subset ------------------------------------------------
+# --- (i) _write_bfactor_ml_subset and the layer/charge helpers around it ------------------------------------------------
 
 def test_write_bfactor_ml_subset_keeps_only_b0_atoms(tmp_path: Path):
     src = tmp_path / "layered.pdb"

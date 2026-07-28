@@ -24,7 +24,8 @@ from mlmm.core import utils as product_utils
 
 PRODUCT_NAMESPACES = ("pdb2reaction", "mlmm")
 
-# The five pure functions lowered in M40 plus the bounded symmetrizer.
+# The five pure functions lowered in M40 (the bounded symmetrizer is checked
+# separately).
 LOWERED_KERNEL_NAMES = (
     "_safe_masses_amu",
     "_mw_projected_hessian",

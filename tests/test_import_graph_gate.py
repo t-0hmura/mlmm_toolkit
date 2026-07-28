@@ -115,7 +115,6 @@ def test_gate_does_not_false_positive_on_relative_and_type_checking(tmp_path: Pa
     assert "mlmm.core.a" in edges["mlmm.core"]
     # TYPE_CHECKING import was excluded: core.a has no runtime edge to workflows.b
     assert "mlmm.workflows.b" not in edges.get("mlmm.core.a", set())
-    # therefore: no cycle and no forbidden edge
     assert GATE.product_multi_sccs(mod2path, edges) == []
     assert GATE.forbidden_layer_edges(edges) == []
 

@@ -185,7 +185,7 @@ def _build_qc(fix):
 def _run(fix, **kw):
     qc = _build_qc(fix)
     with warnings.catch_warnings():
-        # QCData.rot_temperatures divides by a zero inertia eigenvalue for the
+        # QCData.rot_temperatures divides by the ~zero inertia eigenvalue of the linear
         # atom/linear cases; the result is unused there (is_atom/is_linear guard).
         warnings.simplefilter("ignore", RuntimeWarning)
         return thermochemistry(qc, T_K, pressure=P_PA, **kw)
@@ -193,12 +193,12 @@ def _run(fix, **kw):
 
 @pytest.mark.parametrize("name", list(FIXTURES))
 def test_golden_thermochemistry_vectors(name):
-    """Atom/linear/nonlinear RRHO golden vectors: ZPE, U, H, G, S, Cv."""
+    """Atom/linear/nonlinear QRRHO golden vectors: ZPE, U, H, G, S, Cv."""
     fix = FIXTURES[name]
     gold = GOLDEN[name]
     tr = _run(fix)  # library defaults: QRRHO, rotor cutoff 100, no invert/floor
 
-    # Scalar golden vector (energies & entropies in Ha; heat capacities in J/mol/K).
+    # Scalar golden vector (energies in Ha, entropies in Ha/K; heat capacities in J/mol/K).
     for key in (
         "ZPE", "U_trans", "U_rot", "U_vib", "U_therm", "U_tot", "H",
         "S_trans", "S_rot", "S_vib", "S_el", "S_tot",

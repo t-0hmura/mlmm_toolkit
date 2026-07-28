@@ -33,7 +33,6 @@ def test_symmetrize_inplace_matches_reference(N, dtype):
     # fp32/fp64 averaging is exact here (sum of two values then *0.5), so an
     # exact-ish tolerance is appropriate; allow tiny rounding slack only.
     assert torch.allclose(out, ref, rtol=0.0, atol=1e-6 if dtype == torch.float32 else 1e-12)
-    # Result must be symmetric.
     assert torch.allclose(out, out.t(), rtol=0.0, atol=1e-6 if dtype == torch.float32 else 1e-12)
 
 

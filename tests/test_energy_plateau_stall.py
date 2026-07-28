@@ -190,7 +190,7 @@ def test_rfo_provisional_probe_suppresses_stall_but_final_check_stalls(tmp_path)
     )
     _seed(opt, force=_HIGH, step=_HIGH, energies=_FLAT)
 
-    # Provisional probe (RFOptimizer line search uses this) must NOT stall.
+    # Provisional probe (RFOptimizer's ref_step probe uses this) must NOT stall.
     provisional, _ = opt.check_convergence(_HIGH, allow_stall=False)
     assert provisional is False
     assert opt.is_stalled is False

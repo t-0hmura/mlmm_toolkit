@@ -2,7 +2,7 @@
 
 The active-atom / active-DOF views are memoized on first access.  Before this
 fix, assigning a new ``freeze_atoms`` mask left both memoized arrays stale, so a
-downstream partial-Hessian / cache-identity consumer would reuse an active basis
+downstream partial-Hessian / consumer would reuse an active basis
 derived from the *previous* mask.
 """
 
@@ -57,7 +57,8 @@ def test_equal_normalized_mask_keeps_active_maps_equal() -> None:
 
 
 def test_refreshed_active_map_rejects_pre_mutation_cache_entry() -> None:
-    """A refreshed active map feeds the Hessian-cache identity (M70 hook)."""
+    """The Hessian-cache identity re-derives its active space from freeze_atoms, so a
+    changed mask must produce a different identity token."""
 
     from mlmm.io import hessian_cache
 

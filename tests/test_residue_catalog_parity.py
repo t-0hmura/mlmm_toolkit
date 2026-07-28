@@ -39,7 +39,7 @@ def _write_pdb(path: Path) -> Path:
     return path
 
 
-# Representative key/charge pairs across every catalog partition.
+# Representative key/charge pairs for the terminal, ion and D-amino partitions.
 _TERMINAL_REPS = {"CGLU": -2, "NLYS": +2, "CTER": -1, "NTER": +1}
 _ION_REPS = {"NA": +1, "ZN": +2, "FE": +3, "CL": -1}
 _D_AMINO_REPS = {"DAL": 0, "DAR": +1, "DAS": -1}

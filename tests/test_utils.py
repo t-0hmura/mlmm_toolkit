@@ -110,7 +110,6 @@ def test_load_yaml_dict():
     # None input
     assert load_yaml_dict(None) == {}
 
-    # Create a temporary YAML file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
         f.write("geom:\n  coord_type: cart\ncalc:\n  ml_device: cpu\n")
         yaml_path = f.name
@@ -129,10 +128,8 @@ def test_apply_yaml_overrides():
     """Test YAML override application (first matching path is used)."""
     from mlmm.core.utils import apply_yaml_overrides
 
-    # Base config
     base_cfg = {"a": 1, "b": 2, "c": 3}
 
-    # YAML overrides
     yaml_cfg = {
         "section1": {"a": 10, "d": 4},
     }
@@ -143,7 +140,6 @@ def test_apply_yaml_overrides():
         [(base_cfg, (("section1",),))]
     )
 
-    # Check results
     assert base_cfg["a"] == 10  # Overridden from section1
     assert base_cfg["b"] == 2   # Unchanged
     assert base_cfg["c"] == 3   # Unchanged
@@ -167,13 +163,10 @@ def test_ensure_dir():
     with tempfile.TemporaryDirectory() as tmpdir:
         test_dir = Path(tmpdir) / "subdir" / "nested"
 
-        # Directory should not exist initially
         assert not test_dir.exists()
 
-        # Create it
         ensure_dir(test_dir)
 
-        # Should exist now
         assert test_dir.exists()
         assert test_dir.is_dir()
 

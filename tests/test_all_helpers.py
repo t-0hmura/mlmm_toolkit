@@ -1,4 +1,5 @@
-"""Unit tests for mlmm.workflows._all_helpers."""
+"""Unit tests for mlmm.workflows._all_helpers and the `mlmm all` internals in
+mlmm.workflows.all."""
 
 from __future__ import annotations
 

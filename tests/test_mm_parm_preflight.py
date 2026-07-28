@@ -1,4 +1,5 @@
-"""Preflight checks for AmberTools dependency detection in mm_parm."""
+"""mm_parm preflight: AmberTools dependency detection plus the surrounding
+input/topology checks."""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
-"""Regression tests for opt-in IRC energy-stop bypass controls."""
+"""Regression tests for the opt-in IRC energy-stop bypass and the IRC workflow
+output handling around it."""
 
 from __future__ import annotations
 

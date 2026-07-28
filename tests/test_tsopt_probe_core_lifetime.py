@@ -74,7 +74,7 @@ def test_set_calculator_none_would_lose_the_energy() -> None:
 
 
 def test_detached_probe_core_is_closed_and_collectable() -> None:
-    """A detached probe core must be closed and must not outlive the handoff."""
+    """A detached probe core must not outlive the handoff."""
     geom = _h2()
     calc = _ProbeCalc()
     geom.set_calculator(calc)

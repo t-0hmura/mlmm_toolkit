@@ -790,8 +790,8 @@ def test_opt_tr_projection_cli_overrides_yaml(
 
 
 def test_verbose_is_a_per_subcommand_option() -> None:
-    """`-v/--verbose LEVEL` is injected into every subcommand (and carried by the
-    parser-wrapper `extract`); it is no longer a root-group option, so a
+    """`-v/--verbose LEVEL` is injected into every subcommand (including the
+    compat-parsing `extract`); it is no longer a root-group option, so a
     root-placed `-v` is rejected."""
     runner = CliRunner()
     for name in (
@@ -802,13 +802,12 @@ def test_verbose_is_a_per_subcommand_option() -> None:
         assert res.exit_code == 0, res.output
         assert "-v, --verbose" in res.output, f"{name} --help is missing -v"
 
-    # Root-placed `-v` no longer exists (it moved onto the subcommands).
     root = runner.invoke(root_cli, ["-v", "2", "opt", "--help"])
     assert root.exit_code != 0
     assert "No such option" in root.output
 
     # The level is an IntRange(0, 3); 0/1/2/3 are accepted (default 2) and
-    # out-of-range values are rejected, for both the injected commands and the
+    # out-of-range values are rejected, for the injected commands, including the
     # parser-wrapper `extract`.
     for cmd in (["opt", "-v", "4"], ["extract", "-v", "4"]):
         bad = runner.invoke(root_cli, cmd)

@@ -1,4 +1,4 @@
-"""Boundary and utility tests for mlmm.extract."""
+"""Boundary and utility tests for mlmm.workflows.extract."""
 
 from __future__ import annotations
 

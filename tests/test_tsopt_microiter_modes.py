@@ -53,10 +53,10 @@ def test_microiter_macro_optimizer_builds(tsopt_mod, mode, tmp_path):
         mode=mode,
     )
     if mode == "rsirfo":
-        # RS-I-RFO keeps its torch-backed line search (not force-disabled).
+        # For RS-I-RFO the builder leaves min_line_search alone.
         assert kw.get("min_line_search") is not False
     else:
-        # TRIM / RS-P-RFO cannot use it; the macro kwargs must disable it.
+        # For TRIM / RS-P-RFO the macro kwargs pin the line search off.
         assert kw.get("min_line_search") is False
         assert kw.get("max_line_search") is False
 

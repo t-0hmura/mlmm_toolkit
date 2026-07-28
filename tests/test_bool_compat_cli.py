@@ -111,7 +111,8 @@ def test_single_flag_negative_form_value_style() -> None:
                 )
                 tested += 1
 
-    # `_COMMAND_BOOL_SINGLE_FLAG_OPTIONS` may be empty in some snapshots;
+    # `single_opts` is resolved per command (registry + Click-discovered
+    # single-flag bools), so its size is not fixed;
     # don't require non-zero coverage so the test stays useful when the
     # registry shrinks.
     assert tested >= 0

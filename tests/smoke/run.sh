@@ -311,20 +311,22 @@ fi
 # test45: `all --coord-type cart` — explicit cart (== default), verifies CLI plumbing.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type cart --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test45 > test45.out 2>&1
 
-# test46: `all --coord-type dlc` — DLC propagated to child opt / tsopt / path-opt stages.
+# test46: `all --coord-type dlc` — DLC propagated to the child opt / path-opt
+# stages this run enables (it passes --no-tsopt).
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type dlc --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test46 > test46.out 2>&1
 
 # test47: `sp` (single-point ONIOM) — energy + forces.
 mlmm sp -i r_complex_layered.pdb --real-parm7 p_complex.parm7 -q -1 -m 1 --out-dir test47 > test47.out 2>&1
 
-# test48: `sp --hess` — energy + forces + ONIOM Hessian (UMA analytical).
+# test48: `sp --hess` — energy + forces + ONIOM Hessian (default FiniteDifference).
 mlmm sp -i r_complex_layered.pdb --real-parm7 p_complex.parm7 -q -1 -m 1 --hess --out-dir test48 > test48.out 2>&1
 
-# --- Full-pipeline, NO max-cycles throttle (release-gate runs) ---
-# These exercise the canonical `all` flow with default convergence thresholds
-# and the production-realistic optimizer cycle budgets. Each run takes
-# substantially longer (~30-90 min for ONIOM) than the throttled tests above;
-# they are the "does the pipeline actually finish on a real input" gate.
+# --- Full-pipeline release-gate runs ---
+# test49 is the untrottled one: the canonical `all` flow with default
+# convergence thresholds and production-realistic optimizer cycle budgets, so it
+# takes substantially longer (~30-90 min for ONIOM) than the throttled tests
+# above and is the "does the pipeline actually finish on a real input" gate.
+# test50 stays capped, for the reason spelled out at its own comment below.
 
 # test49: full `all` cart — default thresh, no max-cycles cap.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --out-dir test49 > test49.out 2>&1
@@ -338,7 +340,8 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type dlc --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test50 > test50.out 2>&1
 
 # --- Per-stage internal-coordinate code-path verification ---
-# Each test is scoped at max-cycles 3 + thresh gau_loose so it exercises the
+# Each test is scoped at a 2-3 cycle cap (plus gau_loose where the stage
+# needs it) so it exercises the
 # coordinate paths without requiring convergence. Frequency analysis remains
 # Cartesian because its PHVA contract consumes a Cartesian Hessian directly.
 
@@ -384,6 +387,8 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mm-backend
 
 # test50q: opt --link-atom-method fixed (legacy 1.09/1.01 Å placement)
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --link-atom-method fixed --max-cycles 3 --thresh gau_loose --out-dir test50q_opt_linkfixed > test50q_opt_linkfixed.out 2>&1
+
+# --- Non-default MLIP backend, full pipeline ---
 
 # test51: full `all` with `--backend orb` — exercises the non-default MLIP backend.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --backend orb --out-dir test51 > test51.out 2>&1

@@ -1,14 +1,14 @@
-"""Unit tests for cli_utils.py."""
+"""Unit tests for mlmm.cli.decorators."""
 
 import sys
 
 import pytest
 
-# cli_utils uses ``from __future__ import annotations`` (Python 3.7+)
+# mlmm.cli.decorators uses ``from __future__ import annotations`` (Python 3.7+)
 # and other modern features.  Skip the entire module on older interpreters.
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="mlmm.cli_utils requires Python >= 3.11",
+    reason="mlmm.cli.decorators requires Python >= 3.11",
 )
 
 
