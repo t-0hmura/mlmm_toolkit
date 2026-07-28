@@ -32,6 +32,7 @@ from ase.io import read
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 
 from mlmm.backends.mlmm_calc import (
+    _normalize_prmtop_lj_tables,
     hessianffCalculator,
     validate_parmed_atom_order,
 )
@@ -375,6 +376,11 @@ def _prepare_ml_region_workspace(
         if not use_cmap:
             model.cmaps[:] = []
         model.save(str(model_parm7), overwrite=True)
+        # ParmEd leaves LENNARD_JONES_*COEF at the parent's length whenever the
+        # selection uses fewer atom types than the full system, so the sliced
+        # model.parm7 is unreadable by our own MM backend. _mk_model_parm7 has
+        # always normalized it; this builder had not.
+        _normalize_prmtop_lj_tables(str(model_parm7))
         model.save(str(model_rst7), overwrite=True)
 
     atoms_real = (
