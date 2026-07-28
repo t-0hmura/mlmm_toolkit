@@ -191,9 +191,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
-- Route `dft` through the ordinary `MLMMCore` preparation, MM calculators, and
-  subtractive recombination. DFT now replaces only the high-level model energy,
-  requests no forces, and cannot drift into a second model-parm7 or MM path.
+- Route `dft` through `MLMMCore` for topology preparation, MM calculators, and
+  subtractive recombination. DFT now replaces only the high-level model energy
+  and requests no forces; there is no separate model-parm7 builder or MM path.
 - Keep the IRC running when the EulerPC corrector oscillates. The corrector
   descends the two-point interpolated surface rather than the real potential,
   so a reversal there is an interpolation artifact; it now warns and keeps the

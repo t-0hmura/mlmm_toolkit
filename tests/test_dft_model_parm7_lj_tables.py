@@ -189,6 +189,66 @@ def test_prepared_real_and_model_topologies_follow_one_cmap_switch(
         workspace.cleanup()
 
 
+@pytest.mark.parametrize(
+    ("use_cmap", "expected_model_cmaps"),
+    [(None, 1), (False, 0)],
+)
+def test_sliced_model_topology_follows_the_same_cmap_switch(
+    tmp_path, use_cmap, expected_model_cmaps
+):
+    """Exercise the sliced-model branch, not the whole-system copy shortcut."""
+
+    top = parmed.load_file(str(FIXTURE))
+    selection = [
+        atom.idx
+        for residue in top.residues
+        if residue.idx in BACKBONE_RESIDUES
+        for atom in residue.atoms
+    ]
+    selection_set = set(selection)
+    n_link_h = sum(
+        (bond.atom1.idx in selection_set) != (bond.atom2.idx in selection_set)
+        for bond in top.bonds
+    )
+    electron_count = (
+        sum(int(top.atoms[index].atomic_number) for index in selection)
+        + n_link_h
+    )
+    model_mult = 1 if electron_count % 2 == 0 else 2
+
+    model_pdb = tmp_path / "backbone_model.pdb"
+    selected_lines = []
+    atom_index = 0
+    for line in PDB_FIXTURE.read_text(encoding="utf-8").splitlines():
+        if line.startswith(("ATOM  ", "HETATM")):
+            if atom_index in selection_set:
+                selected_lines.append(line)
+            atom_index += 1
+    model_pdb.write_text(
+        "\n".join([*selected_lines, "END", ""]),
+        encoding="utf-8",
+    )
+
+    kwargs = {
+        "input_pdb": PDB_FIXTURE,
+        "real_parm7": FIXTURE,
+        "model_pdb": model_pdb,
+        "link_mlmm": None,
+        "calc_kwargs": {"model_charge": 0, "model_mult": model_mult},
+    }
+    if use_cmap is not None:
+        kwargs["use_cmap"] = use_cmap
+
+    workspace = _prepare_ml_region_workspace(**kwargs)
+    try:
+        real = parmed.load_file(str(workspace.real_parm7))
+        model = parmed.load_file(str(workspace.model_parm7))
+        assert len(real.cmaps) == (0 if use_cmap is False else 5)
+        assert len(model.cmaps) == expected_model_cmaps
+    finally:
+        workspace.cleanup()
+
+
 def test_dft_delegates_to_core_and_core_delegates_to_the_shared_builder():
     assert "MLMMCalculator(" in inspect.getsource(_prepare_ml_region_workspace)
     assert "write_model_parm7(" in inspect.getsource(MLMMCore._mk_model_parm7)

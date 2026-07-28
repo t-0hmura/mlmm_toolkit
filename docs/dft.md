@@ -35,9 +35,9 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Workflow
 
-1. **Input handling** -- The ordinary ML/MM core loads the full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`). Unless YAML supplies explicit `link_mlmm` pairs, it appends link hydrogens at parm7 bonds that cross the ML/MM selection; distance is not used to perceive those bonds.
+1. **Input handling** -- `MLMMCore` loads the full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`). Unless YAML supplies explicit `link_mlmm` pairs, it appends link hydrogens at parm7 bonds that cross the ML/MM selection; distance is not used to perceive those bonds.
 2. **SCF build** -- `--func-basis` is parsed into functional and basis. The GPU4PySCF backend is used when available; closed-shell GPU runs additionally use the low-memory `gpu4pyscf.dft.rks_lowmem.RKS` SCF when `--lowmem` is on (default). Use `--engine cpu` to force CPU mode. (For the SCF JK / `density_fit()` behavior see the `--lowmem` row in the CLI options table.) v0.3.3 uses mechanical embedding; requests for the retired electronic-embedding path fail before SCF construction.
-3. **ML(dft)/MM recombination** -- DFT replaces only the core's high-level MODEL energy. The same core evaluates REAL-low and MODEL-low with the selected MM backend and applies the subtractive expression. No parallel topology builder, MM calculator path, or DFT force call is used.
+3. **ML(dft)/MM recombination** -- DFT replaces only `MLMMCore`'s high-level MODEL energy. `MLMMCore` evaluates REAL-low and MODEL-low with the selected MM backend and applies the subtractive expression. This workflow has no separate topology builder, MM calculator path, or DFT force evaluation.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
 
 ## Outputs

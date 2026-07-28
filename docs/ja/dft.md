@@ -1,6 +1,6 @@
 # `dft`
 
-GPU4PySCF（または CPU PySCF）を使用して ML 領域の energy-only DFT 一点計算を実行し、QM 領域（ML 領域）の DFT エネルギーを MM エネルギーと合成して ML(dft)/MM 総エネルギーを取得します。DFT 勾配と力は要求しません。`mlmm dft` は酵素全体の PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点（R / TS / P / IM）に対する DFT 一点エネルギー評価や、MLIP 障壁の基準汎関数/基底による sanity check に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
+GPU4PySCF（または CPU PySCF）を使用して ML 領域で DFT 一点エネルギー計算を実行し、QM 領域（ML 領域）の DFT エネルギーを MM エネルギーと合成して ML(dft)/MM 総エネルギーを取得します。DFT 勾配と力は要求しません。`mlmm dft` は酵素全体の PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点（R / TS / P / IM）に対する DFT 一点エネルギー評価や、MLIP 障壁の基準汎関数/基底による sanity check に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
@@ -30,9 +30,9 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 
-1. **入力処理** -- 通常の ML/MM core が酵素全体の PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、ML/MM 選択を横切る parm7 結合にリンク水素を自動付加します。結合の認識に距離は使用しません。
+1. **入力処理** -- ML/MM 中核の `MLMMCore` が酵素全体の PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、ML/MM 選択を横切る parm7 結合にリンク水素を自動付加します。結合の認識に距離は使用しません。
 2. **SCF 構築** -- `--func-basis` でスラッシュ区切りで汎関数/基底関数を定義します。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。v0.3.3 は機械的埋め込みを使用し、廃止した電子埋め込み経路の要求は SCF 構築前にエラーになります。
-3. **ML(dft)/MM 再結合** -- DFT は core の high-level MODEL エネルギーだけを置き換えます。同じ core が選択した MM backend で REAL-low と MODEL-low を評価し、差し引き式を適用します。別の topology builder、MM calculator 経路、DFT force 計算は使用しません。
+3. **ML(dft)/MM 再結合** -- DFT は `MLMMCore` の高レベル MODEL エネルギーだけを置き換えます。`MLMMCore` は選択した MM バックエンドで REAL-low と MODEL-low を評価し、差し引き式を適用します。別個のトポロジー構築、MM calculator 経路、DFT 力計算はありません。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
 
 ## 出力
