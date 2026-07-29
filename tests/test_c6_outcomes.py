@@ -648,8 +648,11 @@ def test_m28_dft_energy_gates_on_dft_failed() -> None:
     assert _dft_energy_ha({"energy": {"hartree": -1.0}}) is None
 
 
-def test_dft_mlmm_gibbs_uses_subtractive_total_not_raw_model_energy() -> None:
-    from mlmm.workflows.all import _dft_mlmm_gibbs_triplet
+def test_dft_mlmm_gibbs_components_use_subtractive_total() -> None:
+    from mlmm.workflows.all import (
+        _dft_total_mlmm_energy_ha,
+        _thermo_correction_ha,
+    )
 
     dft_results = {
         label: {
@@ -665,22 +668,25 @@ def test_dft_mlmm_gibbs_uses_subtractive_total_not_raw_model_energy() -> None:
             "num_imag_freq": n_imag,
         }
         for label, correction, n_imag in zip(
-            ("R", "TS", "P"), (0.01, 0.02, 0.03), (0, 1, 0)
+            ("R", "TS", "P"), (0.01, 0.02, 0.03), (2, 1, 3)
         )
     }
 
-    assert _dft_mlmm_gibbs_triplet(dft_results, thermo) == pytest.approx(
-        (-99.99, -99.88, -100.07)
+    combined = {
+        label: _dft_total_mlmm_energy_ha(dft_results[label])
+        + _thermo_correction_ha(thermo[label])
+        for label in ("R", "TS", "P")
+    }
+    assert list(combined.values()) == pytest.approx(
+        [-99.99, -99.88, -100.07]
     )
     missing_total = dict(dft_results)
     missing_total["TS"] = {
         "_dft_failed": False,
         "energy": {"hartree": -500.0},
     }
-    assert _dft_mlmm_gibbs_triplet(missing_total, thermo) is None
-    nonminimum = {label: dict(payload) for label, payload in thermo.items()}
-    nonminimum["P"]["num_imag_freq"] = 1
-    assert _dft_mlmm_gibbs_triplet(dft_results, nonminimum) is None
+    assert _dft_total_mlmm_energy_ha(missing_total["TS"]) is None
+    assert _thermo_correction_ha(thermo["P"]) == pytest.approx(0.03)
 
 
 # ---------------------------------------------------------------------------

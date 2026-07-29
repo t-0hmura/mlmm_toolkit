@@ -2980,7 +2980,7 @@ def _dft_energy_ha(result: Dict[str, Any]) -> Optional[float]:
 
     Non-finite is reported as None at this single chokepoint so that every consumer's
     ``is not None`` check is sufficient; a NaN/inf must never reach a diagram, summary.json
-    or a logged energy triplet.
+    or logged state energies.
     """
     if not _dft_succeeded(result):
         return None
@@ -3025,7 +3025,7 @@ def _relative_energy_values_kcal(values_ha: Dict[str, Optional[float]]) -> Optio
     }
 
 
-def _echo_energy_triplet(
+def _echo_state_energies(
     tag: str,
     seg_idx: int,
     label: str,
@@ -3056,31 +3056,6 @@ def _dft_total_mlmm_energy_ha(result: Dict[str, Any]) -> Optional[float]:
     if not _dft_succeeded(result):
         return None
     return _finite_float((result.get("mlmm_energy") or {}).get("E_total_ml_dft_mm_hartree"))
-
-
-def _dft_mlmm_gibbs_triplet(
-    dft_results: Dict[str, Dict[str, Any]],
-    thermo_payloads: Dict[str, Dict[str, Any]],
-) -> Optional[Tuple[float, float, float]]:
-    """Combine subtractive DFT//MLIP/MM totals with ML/MM thermal corrections."""
-    from mlmm.workflows._all_helpers import validated_thermo_triplet
-
-    electronic = {
-        label: _dft_total_mlmm_energy_ha(dft_results.get(label) or {})
-        for label in ("R", "TS", "P")
-    }
-    thermal_triplet = validated_thermo_triplet(
-        thermo_payloads, "thermal_correction_free_energy_ha"
-    )
-    if thermal_triplet is None or any(
-        electronic[label] is None for label in ("R", "TS", "P")
-    ):
-        return None
-    thermal = dict(zip(("R", "TS", "P"), thermal_triplet))
-    return tuple(
-        float(electronic[label]) + float(thermal[label])
-        for label in ("R", "TS", "P")
-    )
 
 
 def _run_dft_for_state(pdb_path: Path,
@@ -4813,11 +4788,6 @@ def cli(
 
         # Thermochemistry (ML/MM) Gibbs
         thermo_payloads: Dict[str, Dict[str, Any]] = {}
-        _thermo_mode_validation: Dict[str, Any] = {
-            "valid": False,
-            "reasons": ["thermochemistry was not run"],
-        }
-        _gibbs_triplet: Optional[Tuple[float, float, float]] = None
         GR = GT = GP = None
         eR_dft = eT_dft = eP_dft = None
         _dft_all_ok = not do_dft
@@ -4844,30 +4814,15 @@ def cli(
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
-            from mlmm.workflows._all_helpers import (
-                build_thermo_mode_validation,
-                validated_thermo_triplet,
-            )
-            _thermo_mode_validation = build_thermo_mode_validation(
-                thermo_payloads
-            )
-            _gibbs_triplet = validated_thermo_triplet(
-                thermo_payloads, "sum_EE_and_thermal_free_energy_ha"
-            )
-            if not _thermo_mode_validation["valid"]:
-                _echo(
-                    "[thermo] WARNING: Gibbs output skipped because the state "
-                    "orders are not minimum / first-order TS / minimum: "
-                    + "; ".join(_thermo_mode_validation["reasons"]),
-                    err=True,
-                )
+            GR = _thermo_gibbs_ha(tR)
+            GT = _thermo_gibbs_ha(tT)
+            GP = _thermo_gibbs_ha(tP)
             # M28/C6: build the MLIP Gibbs diagram ONLY when every requested state
             # returned a finite FREQ free energy. A failed/partial FREQ (empty or
             # missing field) must NOT be substituted by the MLIP electronic energy
             # (e_react/eT/e_prod) into a Gibbs-named result.
-            if _gibbs_triplet is not None:
+            if all(value is not None for value in (GR, GT, GP)):
                 try:
-                    GR, GT, GP = _gibbs_triplet
                     g_mlip_diag = _write_public_segment_diagram(
                         tsroot / "energy_diagram_G_MLIP",
                         labels=["R", "TS", "P"],
@@ -4879,9 +4834,9 @@ def cli(
                     _echo(f"[thermo] WARNING: failed to build Gibbs diagram: {e}", err=True)
             else:
                 _echo(
-                    "[thermo] WARNING: a finite, minimum / first-order TS / "
-                    "minimum FREQ free-energy triplet is unavailable; MLIP Gibbs "
-                    "diagram skipped (no MLIP-energy substitution).",
+                    "[thermo] WARNING: one or more R/TS/P FREQ free energies are "
+                    "unavailable; MLIP Gibbs diagram skipped (no MLIP-energy "
+                    "substitution).",
                     err=True,
                 )
 
@@ -4946,17 +4901,27 @@ def cli(
             # Build the DFT//MLIP/MM Gibbs diagram only from the subtractive
             # DFT//MLIP/MM electronic total plus a finite FREQ thermal correction.
             # Raw model-region DFT energy and 0.0 are never substitutes.
-            _dft_mlmm_gibbs = _dft_mlmm_gibbs_triplet(
-                {"R": dR, "TS": dT, "P": dP},
-                thermo_payloads,
-            )
-            if do_thermo and _dft_mlmm_gibbs is not None:
+            eR_dft_mlmm = _dft_total_mlmm_energy_ha(dR)
+            eT_dft_mlmm = _dft_total_mlmm_energy_ha(dT)
+            eP_dft_mlmm = _dft_total_mlmm_energy_ha(dP)
+            dG_R = _thermo_correction_ha(thermo_payloads.get("R"))
+            dG_T = _thermo_correction_ha(thermo_payloads.get("TS"))
+            dG_P = _thermo_correction_ha(thermo_payloads.get("P"))
+            if do_thermo and all(
+                value is not None
+                for value in (
+                    eR_dft_mlmm,
+                    eT_dft_mlmm,
+                    eP_dft_mlmm,
+                    dG_R,
+                    dG_T,
+                    dG_P,
+                )
+            ):
                 try:
-                    (
-                        GR_dftMLIP,
-                        GT_dftMLIP,
-                        GP_dftMLIP,
-                    ) = _dft_mlmm_gibbs
+                    GR_dftMLIP = eR_dft_mlmm + dG_R
+                    GT_dftMLIP = eT_dft_mlmm + dG_T
+                    GP_dftMLIP = eP_dft_mlmm + dG_P
                     g_dft_mlip_diag = _write_public_segment_diagram(
                         tsroot / "energy_diagram_G_DFT_plus_MLIP",
                         labels=["R", "TS", "P"],
@@ -5130,9 +5095,6 @@ def cli(
                     ),
                 )
         if do_thermo:
-            segment_log["thermo_mode_validation"] = (
-                _thermo_mode_validation
-            )
             n_imag = None
             try:
                 n_imag = int(thermo_payloads.get("TS", {}).get("num_imag_freq"))
@@ -6268,11 +6230,6 @@ def cli(
 
         # 4.4 Thermochemistry (ML/MM frequencies) and Gibbs diagram
         thermo_payloads: Dict[str, Dict[str, Any]] = {}
-        _thermo_mode_validation: Dict[str, Any] = {
-            "valid": False,
-            "reasons": ["thermochemistry was not run"],
-        }
-        _gibbs_triplet: Optional[Tuple[float, float, float]] = None
         GR = GT = GP = None
         freq_seg_root = _resolve_override_dir(seg_dir / "freq", freq_out_dir)
         dft_seg_root = _resolve_override_dir(seg_dir / "dft", dft_out_dir)
@@ -6302,24 +6259,10 @@ def cli(
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR,
             )
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
-            from mlmm.workflows._all_helpers import (
-                build_thermo_mode_validation,
-                validated_thermo_triplet,
-            )
-            _thermo_mode_validation = build_thermo_mode_validation(
-                thermo_payloads
-            )
-            _gibbs_triplet = validated_thermo_triplet(
-                thermo_payloads, "sum_EE_and_thermal_free_energy_ha"
-            )
-            if not _thermo_mode_validation["valid"]:
-                _echo(
-                    "[thermo] WARNING: Gibbs output skipped because the state "
-                    "orders are not minimum / first-order TS / minimum: "
-                    + "; ".join(_thermo_mode_validation["reasons"]),
-                    err=True,
-                )
-            _echo_energy_triplet(
+            GR = _thermo_gibbs_ha(tR)
+            GT = _thermo_gibbs_ha(tT)
+            GP = _thermo_gibbs_ha(tP)
+            _echo_state_energies(
                 "thermo",
                 seg_idx,
                 "ZPE correction",
@@ -6330,7 +6273,7 @@ def cli(
                 unit="kcal/mol",
                 precision=2,
             )
-            _echo_energy_triplet(
+            _echo_state_energies(
                 "thermo",
                 seg_idx,
                 "thermal energy correction",
@@ -6341,7 +6284,7 @@ def cli(
                 unit="kcal/mol",
                 precision=2,
             )
-            _echo_energy_triplet(
+            _echo_state_energies(
                 "thermo",
                 seg_idx,
                 "thermal free-energy correction",
@@ -6356,13 +6299,12 @@ def cli(
             # requested state returned a finite FREQ free energy. A failed/partial
             # FREQ must NOT be substituted by the MLIP electronic energy
             # (eR/eT/eP) into a Gibbs-named result.
-            if _gibbs_triplet is not None:
+            if all(value is not None for value in (GR, GT, GP)):
                 try:
-                    GR, GT, GP = _gibbs_triplet
                     g_mlip_seg_energies.append((GR, GT, GP))
                     _g_rel = _relative_energy_values_kcal({"R": GR, "TS": GT, "P": GP})
                     if _g_rel is not None:
-                        _echo_energy_triplet(
+                        _echo_state_energies(
                             "thermo",
                             seg_idx,
                             "G_MLIP relative",
@@ -6381,9 +6323,9 @@ def cli(
                     _echo(f"[thermo] WARNING: failed to build Gibbs diagram: {e}", err=True)
             else:
                 _echo(
-                    f"[thermo] WARNING: seg {seg_idx}: a finite, minimum / "
-                    "first-order TS / minimum FREQ free-energy triplet is "
-                    "unavailable; MLIP Gibbs diagram skipped (no MLIP-energy "
+                    f"[thermo] WARNING: seg {seg_idx}: one or more R/TS/P FREQ "
+                    "free energies are unavailable; MLIP Gibbs diagram skipped "
+                    "(no MLIP-energy "
                     "substitution).",
                     err=True,
                 )
@@ -6423,7 +6365,7 @@ def cli(
                 eP_dft = _dft_energy_ha(dP)
                 if all(e is not None and np.isfinite(e) for e in (eR_dft, eT_dft, eP_dft)):
                     _dft_values = {"R": eR_dft, "TS": eT_dft, "P": eP_dft}
-                    _echo_energy_triplet(
+                    _echo_state_energies(
                         "dft",
                         seg_idx,
                         "E_DFT",
@@ -6433,7 +6375,7 @@ def cli(
                     )
                     _dft_rel = _relative_energy_values_kcal(_dft_values)
                     if _dft_rel is not None:
-                        _echo_energy_triplet(
+                        _echo_state_energies(
                             "dft",
                             seg_idx,
                             "E_DFT relative",
@@ -6446,7 +6388,7 @@ def cli(
                         "TS": _dft_total_mlmm_energy_ha(dT),
                         "P": _dft_total_mlmm_energy_ha(dP),
                     }
-                    _echo_energy_triplet(
+                    _echo_state_energies(
                         "dft",
                         seg_idx,
                         "E_total ML(dft)/MM",
@@ -6456,7 +6398,7 @@ def cli(
                     )
                     _dft_mlmm_rel = _relative_energy_values_kcal(_dft_mlmm_values)
                     if _dft_mlmm_rel is not None:
-                        _echo_energy_triplet(
+                        _echo_state_energies(
                             "dft",
                             seg_idx,
                             "E_total ML(dft)/MM relative",
@@ -6480,23 +6422,33 @@ def cli(
             # plus the ML/MM thermal correction. Raw model-region DFT, MLIP, and
             # 0.0 are never substitutes for a missing component.
             if do_thermo:
-                _dft_mlmm_gibbs = _dft_mlmm_gibbs_triplet(
-                    {"R": dR, "TS": dT, "P": dP},
-                    thermo_payloads,
-                )
-                if _dft_mlmm_gibbs is not None:
+                eR_dft_mlmm = _dft_total_mlmm_energy_ha(dR)
+                eT_dft_mlmm = _dft_total_mlmm_energy_ha(dT)
+                eP_dft_mlmm = _dft_total_mlmm_energy_ha(dP)
+                dG_R = _thermo_correction_ha(tR)
+                dG_T = _thermo_correction_ha(tT)
+                dG_P = _thermo_correction_ha(tP)
+                if all(
+                    value is not None
+                    for value in (
+                        eR_dft_mlmm,
+                        eT_dft_mlmm,
+                        eP_dft_mlmm,
+                        dG_R,
+                        dG_T,
+                        dG_P,
+                    )
+                ):
                     try:
-                        (
-                            GR_dftMLIP,
-                            GT_dftMLIP,
-                            GP_dftMLIP,
-                        ) = _dft_mlmm_gibbs
+                        GR_dftMLIP = eR_dft_mlmm + dG_R
+                        GT_dftMLIP = eT_dft_mlmm + dG_T
+                        GP_dftMLIP = eP_dft_mlmm + dG_P
                         g_dft_mlip_seg_energies.append((GR_dftMLIP, GT_dftMLIP, GP_dftMLIP))
                         _g_dft_mlip_rel = _relative_energy_values_kcal(
                             {"R": GR_dftMLIP, "TS": GT_dftMLIP, "P": GP_dftMLIP}
                         )
                         if _g_dft_mlip_rel is not None:
-                            _echo_energy_triplet(
+                            _echo_state_energies(
                                 "dft//mlip",
                                 seg_idx,
                                 "G_DFT+thermo relative",
@@ -6562,9 +6514,6 @@ def cli(
                     ),
                 )
         if do_thermo:
-            segment_log["thermo_mode_validation"] = (
-                _thermo_mode_validation
-            )
             n_imag = None
             try:
                 n_imag = int(thermo_payloads.get("TS", {}).get("num_imag_freq"))

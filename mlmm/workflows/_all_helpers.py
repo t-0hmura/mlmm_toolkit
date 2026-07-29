@@ -341,100 +341,18 @@ def build_thermo_symmetry_provenance(
     return provenance
 
 
-def build_thermo_mode_validation(
-    thermo_payloads: Mapping[str, Mapping[str, Any]],
-) -> Dict[str, Any]:
-    """Validate that R/P are minima and TS is first-order before naming Gibbs."""
-
-    expected = {"R": 0, "TS": 1, "P": 0}
-    observed: Dict[str, Optional[int]] = {}
-    reasons = []
-    for label, wanted in expected.items():
-        payload = thermo_payloads.get(label)
-        raw = payload.get("num_imag_freq") if isinstance(payload, Mapping) else None
-        value: Optional[int] = None
-        if not isinstance(raw, bool):
-            try:
-                numeric = float(raw)
-                if math.isfinite(numeric) and numeric >= 0.0 and numeric.is_integer():
-                    value = int(numeric)
-            except (TypeError, ValueError):
-                pass
-        observed[label] = value
-        if value is None:
-            reasons.append(f"{label}: imaginary-mode count is unavailable")
-        elif value != wanted:
-            reasons.append(
-                f"{label}: found {value} imaginary mode(s), expected {wanted}"
-            )
-        projection = (
-            payload.get("rigid_projection")
-            if isinstance(payload, Mapping)
-            else None
-        )
-        if (
-            isinstance(projection, Mapping)
-            and str(projection.get("treatment", "")).strip().lower()
-            == "legacy-active"
-        ):
-            raw_frozen = payload.get(
-                "n_freeze_atoms", projection.get("frozen_atom_count")
-            )
-            try:
-                frozen_count = int(raw_frozen)
-            except (TypeError, ValueError):
-                frozen_count = None
-            if frozen_count is None:
-                reasons.append(
-                    f"{label}: legacy-active projection lacks frozen-atom provenance"
-                )
-            elif frozen_count > 0:
-                reasons.append(
-                    f"{label}: legacy-active projection cannot certify a "
-                    "frozen-system stationary point"
-                )
-    return {
-        "valid": not reasons,
-        "expected_num_imag": expected,
-        "observed_num_imag": observed,
-        "reasons": reasons,
-    }
-
-
 def has_complete_segment_energy_series(
     segment_energies: Sequence[Sequence[Any]],
     *,
     expected_segments: int,
 ) -> bool:
-    """Return whether an all-segment diagram has exactly one R/TS/P triplet each."""
+    """Return whether every segment has exactly one R/TS/P energy series."""
 
     return (
         expected_segments > 0
         and len(segment_energies) == expected_segments
-        and all(len(triplet) == 3 for triplet in segment_energies)
+        and all(len(values) == 3 for values in segment_energies)
     )
-
-
-def validated_thermo_triplet(
-    thermo_payloads: Mapping[str, Mapping[str, Any]],
-    key: str,
-) -> Optional[Tuple[float, float, float]]:
-    """Return one finite R/TS/P field only for minimum/TS/minimum spectra."""
-
-    if not build_thermo_mode_validation(thermo_payloads)["valid"]:
-        return None
-    values = []
-    for label in ("R", "TS", "P"):
-        payload = thermo_payloads.get(label)
-        raw = payload.get(key) if isinstance(payload, Mapping) else None
-        try:
-            value = float(raw)
-        except (TypeError, ValueError):
-            return None
-        if not math.isfinite(value):
-            return None
-        values.append(value)
-    return values[0], values[1], values[2]
 
 
 ChildArgSpec = Tuple[str, str, Any, bool]
@@ -655,9 +573,7 @@ __all__ = [
     "build_tsopt_overrides",
     "build_freq_overrides",
     "has_complete_segment_energy_series",
-    "build_thermo_mode_validation",
     "build_thermo_symmetry_provenance",
-    "validated_thermo_triplet",
     "build_dft_overrides",
     "build_explicit_child_argv",
     "build_path_child_argv",

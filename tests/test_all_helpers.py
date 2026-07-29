@@ -28,14 +28,12 @@ from mlmm.workflows._all_helpers import (
     build_pipeline_summary_payload,
     build_scan_child_argv,
     build_tsopt_overrides,
-    build_thermo_mode_validation,
     build_thermo_symmetry_provenance,
     copy_path_outputs_to_root,
     promote_diag_for_root,
     resolve_dft_func_basis_forwarding,
     resolve_post_thresh_forwarding,
     has_complete_segment_energy_series,
-    validated_thermo_triplet,
 )
 
 
@@ -321,63 +319,16 @@ def test_thermo_symmetry_provenance_rejects_invalid_values(invalid) -> None:
     ) == {}
 
 
-def test_thermo_mode_validation_requires_minimum_ts_minimum_order() -> None:
-    result = build_thermo_mode_validation(
-        {
-            "R": {"num_imag_freq": 0},
-            "TS": {"num_imag_freq": 1},
-            "P": {"num_imag_freq": 0},
-        }
-    )
-    assert result["valid"] is True
-    assert result["reasons"] == []
+def test_thermo_values_are_independent_of_endpoint_mode_counts() -> None:
+    from mlmm.workflows.all import _thermo_correction_ha, _thermo_gibbs_ha
 
-
-def test_thermo_mode_validation_rejects_frozen_legacy_active_projection() -> None:
-    payloads = {
-        "R": {"num_imag_freq": 0},
-        "TS": {
-            "num_imag_freq": 1,
-            "n_freeze_atoms": 2,
-            "rigid_projection": {
-                "treatment": "legacy-active",
-                "frozen_atom_count": 2,
-            },
-        },
-        "P": {"num_imag_freq": 0},
+    payload = {
+        "num_imag_freq": 3,
+        "sum_EE_and_thermal_free_energy_ha": -11.0,
+        "thermal_correction_free_energy_ha": 0.2,
     }
-
-    result = build_thermo_mode_validation(payloads)
-
-    assert result["valid"] is False
-    assert any("cannot certify" in reason for reason in result["reasons"])
-
-
-@pytest.mark.parametrize(
-    "payloads",
-    [
-        {"R": {"num_imag_freq": 1}, "TS": {"num_imag_freq": 1}, "P": {"num_imag_freq": 0}},
-        {"R": {"num_imag_freq": 0}, "TS": {"num_imag_freq": 0}, "P": {"num_imag_freq": 0}},
-        {"R": {"num_imag_freq": 0}, "TS": {"num_imag_freq": 1}, "P": {}},
-    ],
-)
-def test_thermo_mode_validation_fails_closed(payloads) -> None:
-    result = build_thermo_mode_validation(payloads)
-    assert result["valid"] is False
-    assert result["reasons"]
-
-
-def test_validated_thermo_triplet_requires_modes_and_finite_values() -> None:
-    payloads = {
-        "R": {"num_imag_freq": 0, "g": -10.0},
-        "TS": {"num_imag_freq": 1, "g": -9.0},
-        "P": {"num_imag_freq": 0, "g": -11.0},
-    }
-    assert validated_thermo_triplet(payloads, "g") == (-10.0, -9.0, -11.0)
-    payloads["P"]["g"] = float("nan")
-    assert validated_thermo_triplet(payloads, "g") is None
-    payloads["P"] = {"num_imag_freq": 1, "g": -11.0}
-    assert validated_thermo_triplet(payloads, "g") is None
+    assert _thermo_gibbs_ha(payload) == -11.0
+    assert _thermo_correction_ha(payload) == 0.2
 
 
 def test_all_segment_energy_series_requires_every_reactive_segment() -> None:
