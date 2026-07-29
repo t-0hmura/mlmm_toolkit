@@ -1470,6 +1470,7 @@ class HessianDimer:
         # is never reported as a converged TS.
         self.is_stalled = False
         self.stop_reason = ""
+        self.flatten_skip_reason: Optional[str] = None
         self.saddle_order_verified = False
         self.n_imaginary_modes: Optional[int] = None
         self.imaginary_frequencies_cm: List[float] = []
@@ -2075,6 +2076,7 @@ class HessianDimer:
 
         # A stalled optimization never enters the flatten/retry loop.
         if self.flatten_max_iter > 0 and self.is_stalled:
+            self.flatten_skip_reason = "optimization stalled before flattening"
             click.echo("[tsopt] Optimization stalled (energy plateau); skipping the flatten loop.")
         elif self.flatten_max_iter > 0 and (self.max_total_cycles - self._cycles_spent) > 0:
             # (4) Flatten loop.  Bofill is an explicit approximation policy;
@@ -2113,6 +2115,9 @@ class HessianDimer:
             # Flatten iterations with *approximate* Hessian updates
             for _it in range(self.flatten_max_iter):
                 if (self.max_total_cycles - self._cycles_spent) <= 0:
+                    self.flatten_skip_reason = (
+                        "max-cycles budget exhausted during flattening"
+                    )
                     break
 
                 # (a) Estimate current imaginary modes using the *active* Hessian
@@ -2141,6 +2146,7 @@ class HessianDimer:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                 if not did_flatten:
+                    self.flatten_skip_reason = "no eligible extra imaginary modes"
                     break
 
                 # (d) Bofill update using UMA gradients across the flatten displacement
@@ -2177,6 +2183,9 @@ class HessianDimer:
                 # A stall inside the flatten loop stops the remaining iterations
                 # : do not keep retrying a stalled optimization.
                 if self.is_stalled:
+                    self.flatten_skip_reason = (
+                        "optimization stalled during flattening"
+                    )
                     break
 
                 if self.flatten_loop_bofill:
@@ -2216,6 +2225,9 @@ class HessianDimer:
                     del old_H_act
                     _clear_cuda_cache()
         elif self.flatten_max_iter > 0:
+            self.flatten_skip_reason = (
+                "max-cycles budget exhausted before flattening"
+            )
             click.echo("[tsopt] Reached --max-cycles budget; skipping flatten loop.")
 
         # Honest convergence signal: if the dimer optimization exhausted its cycle
@@ -2878,6 +2890,72 @@ def _validate_reference_mode_optimizer(
         )
 
 
+def _heavy_mode_label(mode: str) -> str:
+    """Return the public label for one Hessian transition-state optimizer."""
+
+    return {
+        "rsirfo": "RS-I-RFO",
+        "rsprfo": "RS-P-RFO",
+        "trim": "TRIM",
+    }[mode]
+
+
+def _post_analysis_hessian_config(
+    calc_cfg: Dict[str, Any],
+    *,
+    partial: bool,
+) -> Dict[str, Any]:
+    """Resolve the Hessian storage policy used by final analysis/flattening."""
+
+    resolved = dict(calc_cfg)
+    resolved["out_hess_torch"] = True
+    resolved["return_partial_hessian"] = bool(partial)
+    return resolved
+
+
+def _prepare_tsopt_output_dir(
+    path: Path,
+    *,
+    protected_inputs: Sequence[Optional[Path]] = (),
+) -> Path:
+    """Invalidate command-owned TS artifacts before a real generation."""
+
+    resolved = Path(path).resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
+    owned = [
+        *(
+            resolved / name
+            for name in (
+                "final_geometry.xyz",
+                "final_geometry.pdb",
+                "final_geometry.gjf",
+                "optimization_all_trj.xyz",
+                "optimization_all.pdb",
+                "optimization_trj.xyz",
+                "optimization.pdb",
+                "result.json",
+                "summary.json",
+            )
+        ),
+        *(
+            candidate
+            for candidate in (resolved / "vib").glob("*")
+            if candidate.is_file()
+            and candidate.suffix.lower() in {".xyz", ".pdb"}
+        ),
+    ]
+    reserved = {candidate.resolve() for candidate in owned}
+    for protected in protected_inputs:
+        if protected is not None and Path(protected).resolve() in reserved:
+            raise click.UsageError(
+                f"Input {protected} collides with a reserved TSOPT output path "
+                f"under {resolved}."
+            )
+    for candidate in owned:
+        candidate.unlink(missing_ok=True)
+    return resolved
+
+
 @click.command(
     help="TS optimization: grad (Dimer) or hess (RS-I-RFO) for the ML/MM calculator.",
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -3414,6 +3492,11 @@ def cli(
     simple_cfg["lbfgs"] = _force_ts_reject_uphill_off(
         simple_cfg.get("lbfgs", {})
     )
+    partial_hessian_flatten_effective = bool(
+        partial_hessian_flatten
+        if _is_param_explicit("partial_hessian_flatten")
+        else simple_cfg.get("partial_hessian_flatten", True)
+    )
     try:
         geom_cfg["tr_projection"] = normalize_tr_projection_mode(
             geom_cfg.get("tr_projection")
@@ -3543,12 +3626,16 @@ def cli(
                 {
                     "input_geometry": str(geom_input_path),
                     "output_dir": str(out_dir_path),
-                    "optimizer_mode": ("hess-rsirfo" if use_heavy else "grad-dimer"),
+                    "optimizer_mode": (
+                        f"hess-{mode_resolved}" if use_heavy else "grad-dimer"
+                    ),
                     "detect_layer": bool(detect_layer_enabled),
                     "model_region_source": model_region_source,
                     "model_indices_count": 0 if not model_indices else len(model_indices),
                     "hessian_calc_mode": calc_cfg.get("hessian_calc_mode"),
-                    "partial_hessian_flatten": bool(partial_hessian_flatten),
+                    "partial_hessian_flatten": (
+                        partial_hessian_flatten_effective
+                    ),
                     "active_dof_mode": str(active_dof_mode),
                     "tr_projection": geom_cfg["tr_projection"],
                     "will_run_tsopt": True,
@@ -3625,7 +3712,10 @@ def cli(
             calc_cfg[key] = str(Path(val).expanduser().resolve())
 
     # Pretty-print config summary (only non-default values for concise logging)
-    mode_desc = "RS-I-RFO (hess)" if use_heavy else "Dimer (grad)"
+    heavy_mode_label = _heavy_mode_label(mode_resolved) if use_heavy else None
+    mode_desc = (
+        f"{heavy_mode_label} (hess)" if use_heavy else "Dimer (grad)"
+    )
     if use_microiter:
         mode_desc += " + Microiteration"
 
@@ -3656,13 +3746,21 @@ def cli(
         )
         click.echo(pretty_block("hessian_dimer", sd_cfg_for_echo))
 
-    out_dir_path.mkdir(parents=True, exist_ok=True)
+    out_dir_path = _prepare_tsopt_output_dir(
+        out_dir_path,
+        protected_inputs=(
+            prepared_input.source_path,
+            config_yaml,
+            override_yaml,
+            reference_mode_path,
+        ),
+    )
 
     geometry = None
     try:
         if use_heavy:
             # Heavy mode: RS-I-RFO with full Hessian
-            rsirfo_label = "RS-I-RFO heavy mode"
+            rsirfo_label = f"{heavy_mode_label} heavy mode"
             if use_microiter:
                 rsirfo_label += " + Microiteration"
             optim_all_path = out_dir_path / "optimization_all_trj.xyz"
@@ -3790,8 +3888,10 @@ def cli(
             if skip_final_freq:
                 click.echo("[tsopt] --skip-final-freq: skipping post-convergence frequency analysis and flatten loop.")
                 click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
-            mlmm_kwargs_for_heavy = dict(calc_cfg)
-            mlmm_kwargs_for_heavy["out_hess_torch"] = True
+            mlmm_kwargs_for_heavy = _post_analysis_hessian_config(
+                calc_cfg,
+                partial=partial_hessian_flatten_effective,
+            )
             device = _torch_device(simple_cfg.get("device", calc_cfg.get("ml_device", "auto")))
 
             # Determine active atoms for frequency analysis based on --active-dof-mode.
@@ -4158,9 +4258,15 @@ def cli(
                 budget_remaining = _heavy_cycle_ledger.remaining > 0
 
                 if flatten_max_iter > 0 and n_imag > 1 and not budget_remaining:
+                    _flatten_skip_reason = (
+                        "max-cycles budget exhausted before flattening"
+                    )
                     click.echo("[tsopt] Reached --max-cycles budget; skipping flatten loop.")
                 elif flatten_max_iter > 0 and n_imag > 1 and budget_remaining:
-                    click.echo("[flatten] Extra imaginary modes detected; starting RS-I-RFO flatten loop.")
+                    click.echo(
+                        "[flatten] Extra imaginary modes detected; starting "
+                        f"{heavy_mode_label} flatten loop."
+                    )
                     masses_amu = np.array([atomic_masses[z] for z in geometry.atomic_numbers])
                     main_root = int(simple_cfg.get("root", 0))
 
@@ -4248,12 +4354,18 @@ def cli(
 
                     for it in range(flatten_max_iter):
                         if _heavy_cycle_ledger.remaining <= 0:
+                            _flatten_skip_reason = (
+                                "max-cycles budget exhausted during flattening"
+                            )
                             click.echo(
                                 "[tsopt] Reached --max-cycles budget; "
                                 "stopping flatten loop."
                             )
                             break
-                        click.echo(f"[flatten] RS-I-RFO iteration {it + 1}/{flatten_max_iter}")
+                        click.echo(
+                            f"[flatten] {heavy_mode_label} iteration "
+                            f"{it + 1}/{flatten_max_iter}"
+                        )
                         flatten_reference_mode = _transported_path_mode_full(
                             last_optimizer, geometry, reference_mode
                         )
@@ -4272,6 +4384,9 @@ def cli(
                             reference_mode=flatten_reference_mode,
                         )
                         if not did_flatten:
+                            _flatten_skip_reason = (
+                                "no eligible extra imaginary modes"
+                            )
                             click.echo("[flatten] No eligible modes to flatten; stopping.")
                             break
 
@@ -4323,6 +4438,9 @@ def cli(
                                 )
                                 _clear_cuda_cache()
                                 freqs_cm, modes = None, None
+                                _flatten_skip_reason = (
+                                    "GPU memory exhausted during flattening"
+                                )
                                 # Roll back to the last committed state before leaving the loop.
                                 # `geometry` still holds this iteration's flatten displacement,
                                 # which is an uncommitted, unvalidated branch candidate: branch
@@ -4383,7 +4501,10 @@ def cli(
                     ref_pdb=_ref_pdb_for_modes,
                 )
                 if n_written == 0:
-                    click.echo("[INFO] No imaginary mode found at the end for RS-I-RFO.")
+                    click.echo(
+                        "[INFO] No imaginary mode found at the end for "
+                        f"{heavy_mode_label}."
+                    )
                 else:
                     click.echo(f"[DONE] Wrote {n_written} final imaginary mode(s).")
                     click.echo(f"[DONE] Mode files → {vib_dir}")
@@ -4496,11 +4617,7 @@ def cli(
                 # `simple_cfg` starts from HESSIAN_DIMER_KW, so these keys are ALWAYS present and
                 # a `.get(key, <cli value>)` default can never be reached — the CLI flag would be
                 # dead and only YAML would work. Apply the documented precedence explicitly.
-                partial_hessian_flatten=bool(
-                    partial_hessian_flatten
-                    if _is_param_explicit("partial_hessian_flatten")
-                    else simple_cfg.get("partial_hessian_flatten", True)
-                ),
+                partial_hessian_flatten=partial_hessian_flatten_effective,
                 flatten_sep_cutoff=float(simple_cfg.get("flatten_sep_cutoff", 0.0)),
                 flatten_k=int(simple_cfg.get("flatten_k", 10)),
                 flatten_loop_bofill=bool(simple_cfg.get("flatten_loop_bofill", False)),
@@ -4517,6 +4634,7 @@ def cli(
             echo_resolved_device()
 
             runner.run()
+            _flatten_skip_reason = runner.flatten_skip_reason
             emit_optimizer_terminal_status(
                 "tsopt",
                 converged=getattr(runner, "is_converged", None),
