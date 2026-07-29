@@ -19,6 +19,20 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def test_root_invocation_resets_charge_multiplicity_override() -> None:
+    from mlmm.core.utils import (
+        set_allow_charge_mult_mismatch,
+        validate_charge_spin,
+    )
+
+    set_allow_charge_mult_mismatch(True)
+    result = CliRunner().invoke(root_cli, ["sp", "--help"])
+
+    assert result.exit_code == 0, result.output
+    with pytest.raises(ValueError, match="electron count inconsistent"):
+        validate_charge_spin(["H"], 0, 1)
+
+
 def test_freeze_links_removed_from_help_outputs() -> None:
     runner = CliRunner()
     for command_name in ("opt", "tsopt", "freq", "irc"):

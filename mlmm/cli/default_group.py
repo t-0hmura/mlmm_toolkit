@@ -244,7 +244,12 @@ class DefaultGroup(click.Group):
         # re-enables the gate inside super().parse_args(), and the `all` command
         # re-sets pipeline mode. This scopes both to one invocation rather than
         # letting them leak between repeated runs / CliRunner test calls.
-        from mlmm.core.utils import set_console_gating, set_pipeline_mode
+        from mlmm.core.utils import (
+            set_allow_charge_mult_mismatch,
+            set_console_gating,
+            set_pipeline_mode,
+        )
+        set_allow_charge_mult_mismatch(False)
         set_console_gating(False)
         set_pipeline_mode(False)
         # Normalize long option names to lowercase before any other processing
