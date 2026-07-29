@@ -2912,6 +2912,10 @@ def _post_analysis_hessian_config(
     return resolved
 
 
+class _TSOPTOutputCollisionError(click.UsageError):
+    """A TSOPT output/input collision."""
+
+
 def _prepare_tsopt_output_dir(
     path: Path,
     *,
@@ -2946,7 +2950,7 @@ def _prepare_tsopt_output_dir(
     reserved = {candidate.resolve() for candidate in owned}
     for protected in protected_inputs:
         if protected is not None and Path(protected).resolve() in reserved:
-            raise click.UsageError(
+            raise _TSOPTOutputCollisionError(
                 f"Input {protected} collides with a reserved TSOPT output path "
                 f"under {resolved}."
             )
@@ -3717,18 +3721,28 @@ def cli(
         )
         click.echo(pretty_block("hessian_dimer", sd_cfg_for_echo))
 
-    out_dir_path = _prepare_tsopt_output_dir(
-        out_dir_path,
-        protected_inputs=(
-            prepared_input.source_path,
-            config_yaml,
-            override_yaml,
-            reference_mode_path,
-        ),
-    )
-
     geometry = None
     try:
+        out_dir_path = _prepare_tsopt_output_dir(
+            out_dir_path,
+            protected_inputs=(
+                input_path,
+                prepared_input.original_path,
+                prepared_input.source_path,
+                geom_input_path,
+                ref_pdb,
+                real_parm7,
+                Path(model_pdb_cfg) if model_pdb_cfg is not None else None,
+                config_yaml,
+                override_yaml,
+                (
+                    Path(calc_cfg["calc_file"])
+                    if calc_cfg.get("calc_file")
+                    else None
+                ),
+                reference_mode_path,
+            ),
+        )
         if use_heavy:
             # Heavy mode: RS-I-RFO with full Hessian
             rsirfo_label = f"{heavy_mode_label} heavy mode"
@@ -4846,6 +4860,8 @@ def cli(
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
+    except _TSOPTOutputCollisionError:
+        raise
     except Exception as e:
         render_cli_exception(e, label="TS optimization", out_dir=out_dir, command="tsopt", time_start=time_start)
     finally:

@@ -158,6 +158,10 @@ _IRC_GENERATION_FILENAMES = tuple(
 )
 
 
+class _IRCOutputCollisionError(click.UsageError):
+    """An IRC output/input collision."""
+
+
 def _prepare_irc_output_dir(
     path: Path,
     *,
@@ -176,7 +180,7 @@ def _prepare_irc_output_dir(
     reserved = {candidate.resolve() for candidate in owned}
     for protected in protected_inputs:
         if protected is not None and Path(protected).resolve() in reserved:
-            raise click.UsageError(
+            raise _IRCOutputCollisionError(
                 f"Input {protected} collides with a reserved IRC output path "
                 f"under {resolved}."
             )
@@ -743,13 +747,20 @@ def cli(
             out_dir_path,
             prefix=str(irc_cfg.get("prefix") or ""),
             protected_inputs=(
+                input_path,
                 prepared_input.source_path,
                 geom_input_path,
                 prepared_input.original_path,
+                ref_pdb,
                 config_yaml,
                 override_yaml,
                 Path(calc_cfg["real_parm7"]) if calc_cfg.get("real_parm7") else None,
                 Path(model_pdb_cfg) if model_pdb_cfg else None,
+                (
+                    Path(calc_cfg["calc_file"])
+                    if calc_cfg.get("calc_file")
+                    else None
+                ),
             ),
         )
 
@@ -1289,6 +1300,8 @@ def cli(
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
+    except _IRCOutputCollisionError:
+        raise
     except click.BadParameter as e:
         _write_error_json(
             error_out_dir, "irc", e, "BadParameter", time_start

@@ -391,3 +391,31 @@ def test_force_rebuild_bypasses_memory_and_prebuilt_cache(tmp_path, monkeypatch)
         assert build_dir.is_relative_to(torch_root)
         assert build_dir.name == state["fingerprint"]
         assert not build_dir.is_relative_to(Path(loader.__file__).resolve().parent)
+
+
+def test_successful_memory_cache_skips_recomputing_build_identity(
+    tmp_path, monkeypatch,
+):
+    monkeypatch.setenv("TORCH_EXTENSIONS_DIR", str(tmp_path / "torch"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+    state = {"fingerprint": "5" * 64}
+    source_files = ["nonbonded_ext.cpp"]
+    _mock_identity(monkeypatch, state, source_files)
+    original_identity = loader._native_build_identity
+    identity_calls = 0
+
+    def counted_identity(*args, **kwargs):
+        nonlocal identity_calls
+        identity_calls += 1
+        return original_identity(*args, **kwargs)
+
+    monkeypatch.setattr(loader, "_native_build_identity", counted_identity)
+    calls = []
+    _mock_cpp_load(monkeypatch, calls)
+
+    first = _build_test_extension(key="test")
+    second = _build_test_extension(key="test")
+
+    assert first is second
+    assert identity_calls == 1
+    assert len(calls) == 1

@@ -50,6 +50,7 @@ from mlmm.workflows.opt import (
     _normalize_geom_freeze,
 )
 from mlmm.workflows.restraints import HarmonicBiasCalculator
+from mlmm.workflows.scan_common import OutputCollisionError
 from mlmm.workflows.opt import _convert_yaml_layer_atoms_1to0
 from mlmm.workflows._outcomes import optimizer_converged_bit
 from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
@@ -716,6 +717,7 @@ def cli(
             stages: List[List[Tuple[int, int, float]]]
             scan_one_based = bool(one_based)
             scan_source = "--scan-lists"
+            spec_path: Optional[Path] = None
             # Bidirectional scan support (4-tuple): track which stages
             # need geometry snapshot/reset.
             _bidir_reset_before: set = set()
@@ -854,9 +856,15 @@ def cli(
                     geom_input_path,
                     real_parm7,
                     model_pdb_path,
+                    ref_pdb,
+                    spec_path,
                     config_yaml,
                     override_yaml,
-                    calc_file,
+                    (
+                        Path(calc_cfg["calc_file"])
+                        if calc_cfg.get("calc_file")
+                        else None
+                    ),
                 )
                 if path is not None
             }
@@ -874,7 +882,7 @@ def cli(
                     or owned_resolved in protected.parents
                     for protected in protected_paths
                 ):
-                    raise click.BadParameter(
+                    raise OutputCollisionError(
                         f"Output path '{owned_dir}' overlaps a protected input."
                     )
                 if owned_dir.is_dir():
@@ -887,7 +895,7 @@ def cli(
             ):
                 owned_path = out_dir_path / owned_file
                 if owned_path.resolve() in protected_paths:
-                    raise click.BadParameter(
+                    raise OutputCollisionError(
                         f"Output path '{owned_path}' overlaps a protected input."
                     )
                 owned_path.unlink(missing_ok=True)
@@ -1355,6 +1363,8 @@ def cli(
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
+    except OutputCollisionError:
+        raise
     except Exception as e:
         render_cli_exception(e, label="scan", out_dir=out_dir, command="scan", time_start=time_start)
     finally:

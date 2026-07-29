@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import click
+import pytest
 from click.testing import CliRunner
 
 
@@ -35,6 +36,101 @@ def test_prepare_dft_output_dir_invalidates_prior_public_results(
     assert resolved == out_dir.resolve()
     assert all(not path.exists() for path in stale)
     assert unrelated.read_text(encoding="utf-8") == "keep\n"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "result.yaml",
+        "result.json",
+        "summary.json",
+        "ml_region_without_linkH.xyz",
+        "ml_region_with_linkH.xyz",
+        "ml_region_without_linkH.pdb",
+        "ml_region_with_linkH.pdb",
+    ],
+)
+def test_prepare_dft_output_dir_rejects_input_collision(
+    tmp_path: Path,
+    name: str,
+) -> None:
+    from mlmm.workflows.dft import _prepare_dft_output_dir
+
+    out_dir = tmp_path / "dft"
+    out_dir.mkdir()
+    protected = out_dir / name
+    protected.write_text("input\n", encoding="utf-8")
+
+    with pytest.raises(click.UsageError, match="reserved DFT output"):
+        _prepare_dft_output_dir(
+            out_dir,
+            protected_inputs=(protected,),
+        )
+
+    assert protected.read_text(encoding="utf-8") == "input\n"
+
+
+def test_dft_output_guard_receives_every_effective_input(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from mlmm.cli import cli as root_cli
+    from mlmm.workflows import dft
+
+    xyz = tmp_path / "system.xyz"
+    xyz.write_text(
+        "2\nsystem\nH 0.0 0.0 0.0\nH 0.0 0.0 0.74\n",
+        encoding="utf-8",
+    )
+    ref = tmp_path / "system.pdb"
+    ref.write_text(
+        "HETATM    1  H1  LIG A   1       0.000   0.000   0.000  1.00 10.00           H\n"
+        "HETATM    2  H2  LIG A   1       0.000   0.000   0.740  1.00 10.00           H\n"
+        "END\n",
+        encoding="utf-8",
+    )
+    parm = tmp_path / "system.parm7"
+    parm.write_text("not reached\n", encoding="utf-8")
+    custom = tmp_path / "custom.py"
+    custom.write_text("calculator = None\n", encoding="utf-8")
+    config = tmp_path / "config.yaml"
+    config.write_text(f"calc:\n  calc_file: {custom}\n", encoding="utf-8")
+    captured = []
+
+    def reject_after_capture(path, *, protected_inputs=()):
+        captured.extend(protected_inputs)
+        raise click.UsageError("captured protected inputs")
+
+    monkeypatch.setattr(dft, "_prepare_dft_output_dir", reject_after_capture)
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "dft",
+            "-i",
+            str(xyz),
+            "--ref-pdb",
+            str(ref),
+            "--parm",
+            str(parm),
+            "--model-pdb",
+            str(ref),
+            "--no-detect-layer",
+            "-q",
+            "0",
+            "-m",
+            "1",
+            "--config",
+            str(config),
+        ],
+    )
+
+    assert result.exit_code == 2, result.output
+    protected = {
+        Path(path).resolve()
+        for path in captured
+        if path is not None
+    }
+    assert {xyz.resolve(), ref.resolve(), parm.resolve(), config.resolve(), custom.resolve()} <= protected
 
 
 def test_dft_multiplicity_default_does_not_mask_yaml() -> None:

@@ -439,6 +439,10 @@ def _prepare_path_output_dir(path: Path) -> Path:
     return resolved
 
 
+class _PathOutputCollisionError(click.UsageError):
+    """A path-opt output/input collision."""
+
+
 def _reject_path_output_collisions(
     out_dir: Path,
     protected_inputs: Sequence[Optional[Path]],
@@ -469,7 +473,7 @@ def _reject_path_output_collisions(
             root == resolved or root in resolved.parents
             for root in reserved_roots
         ):
-            raise click.UsageError(
+            raise _PathOutputCollisionError(
                 f"Input {protected} collides with a reserved path-opt output "
                 f"under {out_dir}."
             )
@@ -1414,8 +1418,17 @@ def cli(
                 *ref_list,
                 real_parm7,
                 model_pdb,
+                (
+                    Path(calc_cfg["model_pdb"])
+                    if calc_cfg.get("model_pdb")
+                    else None
+                ),
                 config_yaml,
-                calc_file,
+                (
+                    Path(calc_cfg["calc_file"])
+                    if calc_cfg.get("calc_file")
+                    else None
+                ),
             ),
         )
         out_dir_path = _prepare_path_output_dir(out_dir_path)
@@ -1766,6 +1779,8 @@ def cli(
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
+    except _PathOutputCollisionError:
+        raise
     except Exception as e:
         render_cli_exception(
             e,

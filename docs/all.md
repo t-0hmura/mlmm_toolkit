@@ -262,8 +262,8 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | Option | Description | Default |
 | --- | --- | --- |
 | `--tsopt / --no-tsopt` | Run TS optimization + EulerPC IRC per reactive segment. | `False` |
-| `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R / TS / P. | `False` |
-| `--dft / --no-dft` | Run single-point DFT on R / TS / P. | `False` |
+| `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
+| `--dft / --no-dft` | Run single-point DFT on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
 | `--reject-uphill / --no-reject-uphill` | Reject energy-raising RFO steps during post-IRC **endpoint re-optimization only** (forwarded to the opt child); TS optimization forces rejection off, and path search is unaffected. At the emergency floor, the retained endpoint receives a final normal convergence check. | `True` |
 | `--tr-projection [constrained\|legacy-active]` | Forward the frozen-boundary TR treatment to `tsopt`, `irc`, `freq`, and flatten PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |

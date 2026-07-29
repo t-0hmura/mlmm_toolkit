@@ -15,8 +15,9 @@ default differs, and that is parameterised.
 from __future__ import annotations
 
 from copy import deepcopy
+import shutil
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Tuple
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 import click
 
@@ -27,6 +28,72 @@ from mlmm.core.utils import apply_yaml_overrides
 
 
 SCAN_THRESH_DEFAULT = "baker"
+
+
+class OutputCollisionError(click.UsageError):
+    """An output/input collision that must not create an error envelope."""
+
+
+def prepare_scan_fixed_outputs(
+    out_dir: Path,
+    *,
+    fixed_names: Sequence[str],
+    protected_inputs: Sequence[Optional[Path]] = (),
+) -> Path:
+    """Invalidate fixed scan outputs after rejecting input collisions."""
+
+    resolved = Path(out_dir).resolve()
+    fixed = [resolved / name for name in fixed_names]
+    fixed_resolved = {path.resolve(strict=False) for path in fixed}
+    for protected in protected_inputs:
+        if protected is None:
+            continue
+        if Path(protected).expanduser().resolve(strict=False) in fixed_resolved:
+            raise OutputCollisionError(
+                f"Input {protected} collides with a reserved scan output "
+                f"under {resolved}."
+            )
+    resolved.mkdir(parents=True, exist_ok=True)
+    for path in fixed:
+        path.unlink(missing_ok=True)
+    return resolved
+
+
+def prepare_grid_scan_output(
+    out_dir: Path,
+    *,
+    fixed_names: Sequence[str],
+    protected_inputs: Sequence[Optional[Path]] = (),
+) -> Tuple[Path, Path]:
+    """Reset one grid-scan generation without touching unrelated files."""
+
+    resolved = Path(out_dir).resolve()
+    grid_dir = resolved / "grid"
+    grid_resolved = grid_dir.resolve(strict=False)
+    for protected in protected_inputs:
+        if protected is None:
+            continue
+        protected_resolved = Path(protected).expanduser().resolve(strict=False)
+        if (
+            protected_resolved == grid_resolved
+            or grid_resolved in protected_resolved.parents
+        ):
+            raise OutputCollisionError(
+                f"Input {protected} collides with a reserved grid-scan output "
+                f"under {resolved}."
+            )
+
+    resolved = prepare_scan_fixed_outputs(
+        resolved,
+        fixed_names=fixed_names,
+        protected_inputs=protected_inputs,
+    )
+    if grid_dir.is_symlink() or grid_dir.is_file():
+        grid_dir.unlink()
+    elif grid_dir.is_dir():
+        shutil.rmtree(grid_dir)
+    grid_dir.mkdir()
+    return resolved, grid_dir
 
 
 def resolve_scan_optimizer_configs(

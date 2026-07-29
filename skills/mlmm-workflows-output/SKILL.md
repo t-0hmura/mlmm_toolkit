@@ -275,15 +275,18 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 |---|---|
 | `tag` | Matches the corresponding `segments[i].tag` |
 | `post_dir` | `result/segments/seg_NN/` directory |
-| `structures` | Map: `reactant`, `ts`, `product` → file paths |
 | `irc_plot` / `irc_traj` | IRC-related artifact paths |
 | `ts_imag` | `{n_imag}` |
 | `mlip` | R/TS/P runs contain `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}`; TS-only E1/TS/E2 runs instead contain one barrier from each endpoint |
 | `gibbs_mlip` | Gibbs analogue of `mlip` (when `--thermo` is on) |
 | `thermo_symmetry` | Per-state map of `{symmetry_number, symmetry_number_source}` copied from successful frequency children: `R` / `TS` / `P` for MEP runs and `E1` / `TS` / `E2` for TS-only runs. Missing states are omitted. |
-| `dft` | Model-region DFT state energies; R/P fields are present only when chemical orientation is established (when `--dft` is on) |
+| `dft` | Model-region DFT state energies for R/TS/P in MEP runs or E1/TS/E2 in TS-only runs (when `--dft` is on) |
 | `gibbs_dft_mlip` | DFT//MLIP/MM Gibbs profile (when both `--dft` and `--thermo` are on) |
 | `mep_barrier_kcal` / `mep_delta_kcal` | Plain-MEP energies (no Gibbs / DFT correction) |
+
+Each `mlip`, `gibbs_mlip`, `dft`, and `gibbs_dft_mlip` energy payload has
+its own `structures` map, keyed R/TS/P for MEP runs or E1/TS/E2 for TS-only
+runs.
 
 ## Oriented R/TS/P paths
 

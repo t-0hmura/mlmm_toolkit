@@ -597,6 +597,10 @@ def _validated_thermo_condition(value: object, *, name: str) -> float:
     return resolved
 
 
+class _FrequencyOutputCollisionError(click.UsageError):
+    """A frequency output/input collision."""
+
+
 def _prepare_thermo_output_paths(
     out_dir: Path,
     *,
@@ -608,7 +612,7 @@ def _prepare_thermo_output_paths(
     reserved = {thermo_yaml.resolve(), thermo_yaml_tmp.resolve()}
     for protected in protected_inputs:
         if protected is not None and Path(protected).resolve() in reserved:
-            raise click.UsageError(
+            raise _FrequencyOutputCollisionError(
                 f"Configuration input {protected} collides with a reserved "
                 f"frequency output path under {out_dir}."
             )
@@ -634,7 +638,7 @@ def _prepare_frequency_output_paths(
     reserved = {path.resolve() for path in owned}
     for protected in protected_inputs:
         if protected is not None and Path(protected).resolve() in reserved:
-            raise click.UsageError(
+            raise _FrequencyOutputCollisionError(
                 f"Input {protected} collides with a reserved frequency output "
                 f"path under {out_dir}."
             )
@@ -1260,7 +1264,22 @@ def cli(
     # or Hessian work can fail, including under --no-dump.
     _thermo_yaml, _thermo_yaml_tmp = _prepare_frequency_output_paths(
         out_dir_path,
-        protected_inputs=(config_yaml, override_yaml),
+        protected_inputs=(
+            input_path,
+            prepared_input.original_path,
+            source_path,
+            geom_input_path,
+            ref_pdb,
+            real_parm7,
+            Path(model_pdb_cfg) if model_pdb_cfg is not None else None,
+            config_yaml,
+            override_yaml,
+            (
+                Path(calc_cfg["calc_file"])
+                if calc_cfg.get("calc_file")
+                else None
+            ),
+        ),
     )
 
     if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
@@ -1770,6 +1789,8 @@ def cli(
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
+    except _FrequencyOutputCollisionError:
+        raise
     except Exception as e:
         render_cli_exception(e, label="frequency analysis", out_dir=out_dir, command="freq", time_start=time_start)
     finally:

@@ -377,21 +377,39 @@ def _finalize_dft_result(
         raise SystemExit(3)
 
 
-def _prepare_dft_output_dir(path: Path) -> Path:
+def _prepare_dft_output_dir(
+    path: Path,
+    *,
+    protected_inputs: Tuple[Optional[Path], ...] = (),
+) -> Path:
     """Create the output directory and invalidate prior public DFT results."""
 
     resolved = Path(path).resolve()
+    owned = [
+        resolved / name
+        for name in (
+            "result.yaml",
+            "result.json",
+            "summary.json",
+            "ml_region_without_linkH.xyz",
+            "ml_region_with_linkH.xyz",
+            "ml_region_without_linkH.pdb",
+            "ml_region_with_linkH.pdb",
+        )
+    ]
+    reserved = {path.resolve(strict=False) for path in owned}
+    for protected in protected_inputs:
+        if (
+            protected is not None
+            and Path(protected).expanduser().resolve(strict=False) in reserved
+        ):
+            raise click.UsageError(
+                f"Input {protected} collides with a reserved DFT output path "
+                f"under {resolved}."
+            )
     resolved.mkdir(parents=True, exist_ok=True)
-    for name in (
-        "result.yaml",
-        "result.json",
-        "summary.json",
-        "ml_region_without_linkH.xyz",
-        "ml_region_with_linkH.xyz",
-        "ml_region_without_linkH.pdb",
-        "ml_region_with_linkH.pdb",
-    ):
-        (resolved / name).unlink(missing_ok=True)
+    for path in owned:
+        path.unlink(missing_ok=True)
     return resolved
 
 
@@ -1037,7 +1055,24 @@ def cli(
 
         # `prepared_input` and `charge/spin` already resolved above
         # (hoisted to fix `int(charge)` TypeError with --ligand-charge only).
-        out_dir_path = _prepare_dft_output_dir(out_dir_path)
+        out_dir_path = _prepare_dft_output_dir(
+            out_dir_path,
+            protected_inputs=(
+                input_path,
+                prepared_input.geom_path,
+                source_pdb,
+                ref_pdb,
+                real_parm7,
+                model_pdb_cfg,
+                config_yaml,
+                override_yaml,
+                (
+                    Path(calc_kw["calc_file"])
+                    if calc_kw.get("calc_file")
+                    else None
+                ),
+            ),
+        )
 
         model_pdb_path, layer_info = resolve_ml_layer_assignment(
             source_path=layer_source_pdb,

@@ -449,6 +449,13 @@ def _load_or_build_extension(
     verbose: bool,
     force_rebuild: bool,
 ) -> Optional[Any]:
+    if not force_rebuild:
+        last_fingerprint = _LAST_FINGERPRINT.get(key)
+        if last_fingerprint is not None:
+            last_cache_key = (key, last_fingerprint)
+            if last_cache_key in _EXT_CACHE:
+                return _EXT_CACHE[last_cache_key]
+
     here = Path(__file__).resolve().parent
     identity, fingerprint = _native_build_identity(here, source_files)
     module_names = tuple(

@@ -10,8 +10,9 @@ resolves three input modes via flag context (see the three companion
 mds: `all-endpoint-mep.md`, `all-scan-list.md`, `all-ts-only.md`).
 
 Use `all` when you want a **single qsub-able invocation** that
-produces R / TS / P / IM coordinates plus barrier numbers for one or
-more elementary steps.
+produces R/TS/P/IM coordinates for MEP runs or unassigned E1/TS/E2
+coordinates for TS-only runs, plus barrier numbers for one or more
+elementary steps.
 
 ## Synopsis
 
@@ -101,24 +102,26 @@ result_all/
 ├── ml_region_without_linkH.{xyz,pdb}      # exact ML selection; PDB companion for PDB input
 ├── ml_region_with_linkH.{xyz,pdb}         # ML model with parm7-derived link H
 ├── segments/
-│   └── seg_NN/                     # canonical R/TS/P/IM + per-stage output
-│       ├── reactant.pdb / .cif / .xyz
+│   └── seg_NN/                     # canonical structures + per-stage output
+│       ├── reactant.pdb / .cif / .xyz  # MEP runs
 │       ├── ts.pdb / .cif / .xyz
-│       ├── product.pdb / .cif / .xyz
+│       ├── product.pdb / .cif / .xyz   # MEP runs
+│       ├── e1.pdb / .cif / .xyz        # TS-only runs
+│       ├── e2.pdb / .cif / .xyz        # TS-only runs
 │       ├── ts/                     # TS optimization output (--tsopt)
 │       ├── irc/                    # forward/backward IRC trajectories
 │       ├── freq/                   # frequencies + thermo (--thermo)
 │       └── dft/                    # single-point DFT (--dft)
 └── _work/                          # pipeline scratch (safe to delete)
     ├── pockets/ / scan/ / add_elem_info/
-    └── path_opt/                   # raw MEP-engine output (path_search/ with --refine-path)
+    └── path_opt/                   # raw MEP-engine output; absent in TS-only mode
         ├── seg_NN_mep/ / hei_seg_NN.* / mep_trj.xyz / mep.pdb
         └── energy_diagram_*.png
 ```
 
-`segments/seg_NN/` is the primary place to look for R/TS/P/IM
-coordinates after a successful run; per-stage working files live in its
-`tsopt/`, `irc/`, `freq/`, `dft/` subdirectories. See
+`segments/seg_NN/` is the primary place to look for canonical structures:
+R/TS/P/IM for MEP runs or E1/TS/E2 for TS-only runs. Per-stage working
+files live in its `tsopt/`, `irc/`, `freq/`, `dft/` subdirectories. See
 `mlmm-workflows-output/SKILL.md` for canonical path conventions and the
 bond-change interpretation.
 

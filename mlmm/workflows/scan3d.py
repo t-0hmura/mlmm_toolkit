@@ -116,6 +116,9 @@ from mlmm.core.utils import (
 from mlmm.workflows.scan_common import (
     add_scan_common_options,
     make_scan_lbfgs as _make_lbfgs,
+    OutputCollisionError,
+    prepare_grid_scan_output,
+    prepare_scan_fixed_outputs,
     resolve_scan_optimizer_configs,
 )
 from mlmm.cli.common_options import (
@@ -735,9 +738,21 @@ def cli(
 
     if csv_path is not None:
         final_dir = Path(out_dir).resolve()
-        ensure_dir(final_dir)
         resolved_csv = Path(csv_path).resolve()
         try:
+            final_dir = prepare_scan_fixed_outputs(
+                final_dir,
+                fixed_names=(
+                    "scan3d_density.html",
+                    "result.json",
+                    "summary.json",
+                ),
+                protected_inputs=(
+                    resolved_csv,
+                    config_yaml,
+                    override_yaml,
+                ),
+            )
             df = pd.read_csv(resolved_csv)
             click.echo(f"[read] Loaded precomputed grid from '{resolved_csv}'.")
             surface_stats = _finalize_surface_and_plot(
@@ -776,6 +791,8 @@ def cli(
         except KeyboardInterrupt:
             click.echo("\nInterrupted by user.", err=True)
             sys.exit(130)
+        except OutputCollisionError:
+            raise
         except Exception as exc:
             render_cli_exception(
                 exc,
@@ -961,6 +978,7 @@ def cli(
                 raise click.BadParameter("--scan-lists is required.")
             scan_one_based = bool(one_based)
             scan_source = "--scan-lists"
+            spec_path: Optional[Path] = None
             if is_scan_spec_file(scan_list_raw):
                 spec_path = Path(scan_list_raw)
                 parsed, raw_pairs, scan_one_based = parse_scan_spec_quads(
@@ -1051,11 +1069,34 @@ def cli(
 
             # Directory layout
             tmp_root = Path(tempfile.mkdtemp(prefix="scan3d_tmp_"))
-            grid_dir = out_dir_path / "grid"
+            final_dir, grid_dir = prepare_grid_scan_output(
+                out_dir_path,
+                fixed_names=(
+                    "surface.csv",
+                    "scan3d_density.html",
+                    "result.json",
+                    "summary.json",
+                ),
+                protected_inputs=(
+                    input_path,
+                    source_path,
+                    geom_input_path,
+                    real_parm7,
+                    model_pdb,
+                    model_pdb_path,
+                    ref_pdb,
+                    spec_path,
+                    config_yaml,
+                    override_yaml,
+                    (
+                        Path(calc_cfg["calc_file"])
+                        if calc_cfg.get("calc_file")
+                        else None
+                    ),
+                ),
+            )
             tmp_opt_dir = tmp_root / "opt"
-            ensure_dir(grid_dir)
             ensure_dir(tmp_opt_dir)
-            final_dir = out_dir_path
 
             freeze = list(geom_cfg.get("freeze_atoms") or [])
             coord_type = geom_cfg.get("coord_type", GEOM_KW_DEFAULT["coord_type"])
@@ -1507,6 +1548,8 @@ def cli(
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
+    except OutputCollisionError:
+        raise
     except Exception as exc:
         render_cli_exception(exc, label="3D scan", out_dir=out_dir, command="scan3d", time_start=time_start)
     finally:
