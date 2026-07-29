@@ -46,6 +46,7 @@ def test_mixed_out_of_range_indices_fail_without_full_system_fallback(
             calc_cfg=config,
             model_indices_str="1,4",
             model_indices_one_based=True,
+            protected_inputs=(),
         )
 
     assert config["model_pdb"] is None
@@ -61,6 +62,7 @@ def test_absent_selection_on_unlayered_input_fails_strictly(tmp_path: Path) -> N
             calc_cfg=_calc_cfg(model_pdb=None, use_bfactor_layers=True),
             model_indices_str=None,
             model_indices_one_based=True,
+            protected_inputs=(),
         )
 
 
@@ -73,6 +75,7 @@ def test_explicit_all_atom_indices_are_allowed_and_recorded(tmp_path: Path) -> N
         calc_cfg=config,
         model_indices_str="1-3",
         model_indices_one_based=True,
+        protected_inputs=(),
     )
 
     assert provenance["ml_region_source"] == "model_indices"
@@ -94,6 +97,7 @@ def test_explicit_model_pdb_has_precedence_and_path_provenance(tmp_path: Path) -
         # The established precedence ignores indices when model_pdb is explicit.
         model_indices_str="999",
         model_indices_one_based=True,
+        protected_inputs=(),
     )
 
     assert provenance == {
@@ -115,6 +119,7 @@ def test_valid_bfactor_subset_records_layer_provenance(tmp_path: Path) -> None:
         calc_cfg=_calc_cfg(model_pdb=None, use_bfactor_layers=True),
         model_indices_str=None,
         model_indices_one_based=True,
+        protected_inputs=(),
     )
     assert provenance["ml_region_source"] == "bfactor"
     assert provenance["ml_region_atom_count"] == 1

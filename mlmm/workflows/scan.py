@@ -626,6 +626,15 @@ def cli(
                 bias_cfg["k"] = float(bias_k)
 
             out_dir_path = Path(out_dir).resolve()
+            cli_scan_values = collect_option_values(
+                _argv, ("-s", "--scan-lists")
+            )
+            spec_path = (
+                Path(cli_scan_values[0])
+                if len(cli_scan_values) == 1
+                and is_scan_spec_file(cli_scan_values[0])
+                else None
+            )
 
             calc_cfg["model_charge"] = int(charge)
             calc_cfg["model_mult"] = int(spin)
@@ -724,23 +733,18 @@ def cli(
             if source_path.suffix.lower() == ".pdb":
                 pdb_atom_meta = load_pdb_atom_metadata(source_path)
 
-            cli_scan_values = collect_option_values(
-                _argv, ("-s", "--scan-lists")
-            )
             if not cli_scan_values:
                 raise click.BadParameter("--scan-lists is required.")
 
             stages: List[List[Tuple[int, int, float]]]
             scan_one_based = bool(one_based)
             scan_source = "--scan-lists"
-            spec_path: Optional[Path] = None
             # Bidirectional scan support (4-tuple): track which stages
             # need geometry snapshot/reset.
             _bidir_reset_before: set = set()
             _bidir_snapshot_before: set = set()
             # Auto-detect: single value that is a YAML/JSON file → spec mode
-            if len(cli_scan_values) == 1 and is_scan_spec_file(cli_scan_values[0]):
-                spec_path = Path(cli_scan_values[0])
+            if spec_path is not None:
                 (
                     stages,
                     scan_one_based,

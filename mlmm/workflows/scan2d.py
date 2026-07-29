@@ -558,6 +558,11 @@ def cli(
                 bias_cfg["k"] = float(bias_k)
 
             out_dir_path = Path(opt_cfg["out_dir"]).resolve()
+            spec_path = (
+                Path(scan_list_raw)
+                if is_scan_spec_file(scan_list_raw)
+                else None
+            )
 
             calc_cfg["model_charge"] = int(charge)
             calc_cfg["model_mult"] = int(spin)
@@ -660,9 +665,7 @@ def cli(
 
             scan_one_based = bool(one_based)
             scan_source = "--scan-lists"
-            spec_path: Optional[Path] = None
-            if is_scan_spec_file(scan_list_raw):
-                spec_path = Path(scan_list_raw)
+            if spec_path is not None:
                 parsed, raw_pairs, scan_one_based = parse_scan_spec_quads(
                     spec_path,
                     expected_len=2,

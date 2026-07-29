@@ -128,17 +128,24 @@ def test_grid_scan_output_replaces_only_current_generation(tmp_path: Path) -> No
     assert unrelated.read_text(encoding="utf-8") == "keep\n"
 
 
-@pytest.mark.parametrize("relative", ["grid/spec.yaml", "surface.csv"])
+@pytest.mark.parametrize(
+    ("relative", "message"),
+    [
+        ("grid/spec.yaml", "reserved grid-scan output"),
+        ("surface.csv", "reserved scan output"),
+    ],
+)
 def test_grid_scan_output_rejects_input_collision(
     tmp_path: Path,
     relative: str,
+    message: str,
 ) -> None:
     out_dir = tmp_path / "scan"
     protected = out_dir / relative
     protected.parent.mkdir(parents=True, exist_ok=True)
     protected.write_text("input\n", encoding="utf-8")
 
-    with pytest.raises(click.UsageError, match="reserved grid-scan output"):
+    with pytest.raises(click.UsageError, match=message):
         prepare_grid_scan_output(
             out_dir,
             fixed_names=("surface.csv",),
@@ -148,7 +155,21 @@ def test_grid_scan_output_rejects_input_collision(
     assert protected.read_text(encoding="utf-8") == "input\n"
 
 
-def test_scan2d_collision_does_not_overwrite_config_input(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("command", "scan_lists"),
+    [
+        ("scan2d", "[(1,2,1.0,1.2),(3,4,1.0,1.2)]"),
+        (
+            "scan3d",
+            "[(1,2,1.0,1.2),(2,3,1.0,1.2),(3,4,1.0,1.2)]",
+        ),
+    ],
+)
+def test_grid_scan_collision_does_not_overwrite_config_input(
+    tmp_path: Path,
+    command: str,
+    scan_lists: str,
+) -> None:
     from mlmm.cli import cli as root_cli
 
     structure = tmp_path / "system.pdb"
@@ -167,7 +188,7 @@ def test_scan2d_collision_does_not_overwrite_config_input(tmp_path: Path) -> Non
     result = CliRunner().invoke(
         root_cli,
         [
-            "scan2d",
+            command,
             "-i",
             str(structure),
             "--parm",
@@ -180,7 +201,7 @@ def test_scan2d_collision_does_not_overwrite_config_input(tmp_path: Path) -> Non
             "-m",
             "1",
             "--scan-lists",
-            "[(1,2,1.0,1.2),(3,4,1.0,1.2)]",
+            scan_lists,
             "--config",
             str(config),
             "--out-dir",
