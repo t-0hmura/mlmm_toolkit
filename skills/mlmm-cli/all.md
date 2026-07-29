@@ -54,8 +54,8 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--scan-lists` | repeated | none | Staged distance scans (mode 2 — `all-scan-list.md`) |
 | `--tsopt / --no-tsopt` | flag | off | Run TS optimization after MEP, or enter TS-only mode when exactly one input is supplied without `--scan-lists` |
 | `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
-| `--freq-symmetry-number` | int ≥ 1 | child YAML/default (normally 1) | Use one external rotational symmetry number for every R/TS/P frequency job. Point-group symmetry is not inferred. |
-| `--dft / --no-dft` | flag | off | Run DFT single point on R / TS / P |
+| `--freq-symmetry-number` | int ≥ 1 | child YAML/default (normally 1) | Use one external rotational symmetry number for every frequency job: R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. Point-group symmetry is not inferred. |
+| `--dft / --no-dft` | flag | off | Run DFT single points on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs |
 | `--dump / --no-dump` | toggle | off | Control optional optimizer trajectories/restarts. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump`. |
 | `--dft-func-basis` | str | `wb97m-v/def2-tzvpd` | DFT functional/basis (when `--dft` is enabled) |
 | `-b, --backend` | str | `uma` | MLIP backend |

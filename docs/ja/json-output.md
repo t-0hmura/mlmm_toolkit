@@ -295,7 +295,7 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `rate_limiting_step` | object | 互換性のため維持するキー。各段階の始状態を基準にした局所障壁が最大のセグメントと method。microkinetics に基づく律速段階の判定ではない。 |
 | `overall_reaction_energy_kcal` | float | 全体の反応エネルギー。 |
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果。 |
-| `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の回転対称 provenance。有効な `symmetry_number` と `symmetry_number_source` の両方を持つ R/TS/P 状態だけを含み、欠けた状態は省略する。どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
+| `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の回転対称 provenance。MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 を対象とし、有効な `symmetry_number` と `symmetry_number_source` の両方を持つ状態だけを含む。欠けた状態は省略し、どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
 | `key_output_files` | object | 現在の呼び出しの出力索引。ルートファイルはファイル名 → 説明、各 `seg_NN` は `{description, files}` で、`files` はそのセグメントディレクトリからの相対パス。 |
 | `current_output_paths` | string[] | `--out-dir` からの相対パスを並べたリスト。現在の呼び出しが記録した成果物だけを含みます。 |
 

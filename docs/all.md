@@ -278,7 +278,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--freq-sort TEXT` | Mode sorting behavior. | _Default_ |
 | `--freq-temperature FLOAT` | Thermochemistry temperature (K). | _Default_ |
 | `--freq-pressure FLOAT` | Thermochemistry pressure (atm). | _Default_ |
-| `--freq-symmetry-number INT` | One rotational symmetry number for every R/TS/P frequency job; omission preserves each child YAML/default. | _None_ |
+| `--freq-symmetry-number INT` | One rotational symmetry number for every frequency job (R/TS/P for MEP runs; E1/TS/E2 for TS-only runs); omission preserves each child YAML/default. | _None_ |
 | `--dft-out-dir PATH` | Base directory override for DFT outputs. | _None_ |
 | `--dft-func-basis TEXT` | Functional / basis pair. | _Default_ |
 | `--dft-max-cycle INT` | Maximum SCF iterations. | _Default_ |

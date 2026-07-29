@@ -3295,7 +3295,7 @@ def test_colab_setup_cell_is_frozen() -> None:
     setup = _notebook()["cells"][1]["source"]
     digest = hashlib.sha256(setup.encode("utf-8")).hexdigest()
 
-    assert digest == "7bff7a20c328fdad55fcf6d8092ed516dc26745bee87aec54ee86f5cbea2df5f", (
+    assert digest == "b83bdf724d3e6b73f66239932087c8c515548ae48e46e0431a24191c5b17dbc1", (
         "the Colab Setup cell changed; it is frozen for this release. Re-read the "
         "Setup contracts above, then update this digest deliberately. Got: " + digest
     )

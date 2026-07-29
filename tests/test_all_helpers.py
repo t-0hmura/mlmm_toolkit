@@ -291,7 +291,7 @@ def test_freq_override_builder_covers_each_forwarded_field(
     assert build_freq_overrides(**kwargs) == expected
 
 
-def test_thermo_symmetry_provenance_copies_only_complete_valid_states() -> None:
+def test_thermo_symmetry_provenance_copies_every_complete_valid_state() -> None:
     payload = build_thermo_symmetry_provenance(
         {
             "R": {"symmetry_number": 2, "symmetry_number_source": "config"},
@@ -304,6 +304,7 @@ def test_thermo_symmetry_provenance_copies_only_complete_valid_states() -> None:
     assert payload == {
         "R": {"symmetry_number": 2, "symmetry_number_source": "config"},
         "TS": {"symmetry_number": 3, "symmetry_number_source": "cli"},
+        "other": {"symmetry_number": 9, "symmetry_number_source": "test"},
     }
 
 

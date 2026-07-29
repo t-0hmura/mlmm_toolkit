@@ -123,7 +123,7 @@ def test_ordinary_opt_cycle_count_is_executed_not_zero_based():
 
 
 class _FakeCore:
-    pass
+    _ml_backend = object()
 
 
 class _FakeCalc:

@@ -265,8 +265,8 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化 + EulerPC IRC を実行。 | `False` |
-| `--thermo/--no-thermo` | R/TS/P で振動解析 (`freq`) を実行。 | `False` |
-| `--dft/--no-dft` | R/TS/P で DFT 一点計算を実行。 | `False` |
+| `--thermo/--no-thermo` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で振動解析 (`freq`) を実行。 | `False` |
+| `--dft/--no-dft` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
 | `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップを拒否（opt 子へ転送。低エネルギー形状へロールバックし trust radius を縮小）。TS 最適化では拒否を常に無効化し、経路探索には影響しない。emergency floor 到達時は、保持したエンドポイントを通常の収束条件で最終確認。 | `True` |
 | `--tr-projection [constrained\|legacy-active]` | 凍結境界 TR 処理を `tsopt`、`irc`、`freq`、flatten PHVA へ転送。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
@@ -281,7 +281,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--freq-sort TEXT` | モードソート方法。 | _デフォルト_ |
 | `--freq-temperature FLOAT` | 熱化学温度 (K)。 | _デフォルト_ |
 | `--freq-pressure FLOAT` | 熱化学圧力 (atm)。 | _デフォルト_ |
-| `--freq-symmetry-number INT` | R/TS/P の全 freq 計算に共通の回転対称数。省略時は各子計算の YAML/デフォルトに従う。 | _None_ |
+| `--freq-symmetry-number INT` | MEP 実行の R/TS/P または TS-only 実行の E1/TS/E2 の全 freq 計算に共通の回転対称数。省略時は各子計算の YAML/デフォルトに従う。 | _None_ |
 | `--dft-out-dir PATH` | DFT 出力ディレクトリの上書き。 | _None_ |
 | `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | _デフォルト_ |
 | `--dft-max-cycle INT` | 最大 SCF 反復数。 | _デフォルト_ |

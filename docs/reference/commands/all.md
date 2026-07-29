@@ -202,7 +202,8 @@ Options:
   --freq-pressure FLOAT           Override freq thermochemistry pressure (atm).
   --freq-symmetry-number INTEGER RANGE
                                   Use one rotational symmetry number for every
-                                  R/TS/P frequency job. When omitted, each child
+                                  frequency job (R/TS/P for MEP runs; E1/TS/E2
+                                  for TS-only runs). When omitted, each child
                                   follows its YAML/default setting.  [x>=1]
   --dft-out-dir DIRECTORY         Override dft output base directory (relative
                                   paths resolved against the default).

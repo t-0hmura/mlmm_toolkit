@@ -3552,8 +3552,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=click.IntRange(min=1),
     default=None,
     help=(
-        "Use one rotational symmetry number for every R/TS/P frequency job. "
-        "When omitted, each child follows its YAML/default setting."
+        "Use one rotational symmetry number for every frequency job "
+        "(R/TS/P for MEP runs; E1/TS/E2 for TS-only runs). When omitted, "
+        "each child follows its YAML/default setting."
     ),
 )
 @click.option("--dft-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,

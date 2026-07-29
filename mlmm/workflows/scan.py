@@ -853,7 +853,7 @@ def cli(
                     source_path,
                     geom_input_path,
                     real_parm7,
-                    model_pdb_effective,
+                    model_pdb_path,
                     config_yaml,
                     override_yaml,
                     calc_file,

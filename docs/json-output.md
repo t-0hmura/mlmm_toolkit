@@ -352,7 +352,7 @@ The `all` command additionally includes:
 | `rate_limiting_step` | object | Legacy key for the highest independently referenced local segment barrier. It is not a microkinetic rate-limiting-step assignment. |
 | `overall_reaction_energy_kcal` | float | Overall reaction energy |
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
-| `post_segments[].thermo_symmetry` | object | Child-reported rotational symmetry provenance by state. Only R/TS/P states with both a valid `symmetry_number` and `symmetry_number_source` are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
+| `post_segments[].thermo_symmetry` | object | Child-reported rotational symmetry provenance by state: R/TS/P for MEP runs and E1/TS/E2 for TS-only runs. States with both a valid `symmetry_number` and `symmetry_number_source` are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
 | `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |
 | `current_output_paths` | string[] | Sorted paths relative to `--out-dir`, limited to artifacts claimed by the current invocation. |
 
