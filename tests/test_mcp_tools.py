@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from pathlib import Path
 
@@ -60,13 +61,15 @@ def test_summary_tool_rejects_every_managed_output_spelling_before_spawn(
 ) -> None:
     tools, calls = registry
     with pytest.raises(ValueError, match="MCP-managed output"):
-        tools["optimize_geometry"](
-            "input.pdb",
-            "input.parm7",
-            0,
-            1,
-            out_dir=str(tmp_path / "out"),
-            extra_args=extra_args,
+        asyncio.run(
+            tools["optimize_geometry"](
+                "input.pdb",
+                "input.parm7",
+                0,
+                1,
+                out_dir=str(tmp_path / "out"),
+                extra_args=extra_args,
+            )
         )
     assert calls == []
 
@@ -80,7 +83,8 @@ def test_summary_tool_rejects_every_managed_output_spelling_before_spawn(
         ["--output=other.pdb"],
         ["--out", "other.pdb"],
         ["--out=other.pdb"],
-        ["--output-prefix", "other"],
+        ["--out-prefix", "other"],
+        ["--out-prefix=other"],
         ["--output-file=other"],
     ],
 )
@@ -89,25 +93,29 @@ def test_utility_tool_rejects_typed_output_overrides_before_spawn(
 ) -> None:
     tools, calls = registry
     with pytest.raises(ValueError, match="MCP-managed output"):
-        tools["define_layer"](
-            "input.pdb",
-            "output.pdb",
-            extra_args=extra_args,
+        asyncio.run(
+            tools["define_layer"](
+                "input.pdb",
+                "output.pdb",
+                extra_args=extra_args,
+            )
         )
     assert calls == []
 
 
 def test_tool_argv_preserves_boolean_toggle_syntax(registry, tmp_path: Path) -> None:
     tools, calls = registry
-    tools["optimize_geometry"](
-        "input.pdb",
-        "input.parm7",
-        -1,
-        2,
-        microiter=False,
-        embedcharge=False,
-        out_dir=str(tmp_path / "out"),
-        extra_args=["--thresh", "gau"],
+    asyncio.run(
+        tools["optimize_geometry"](
+            "input.pdb",
+            "input.parm7",
+            -1,
+            2,
+            microiter=False,
+            embedcharge=False,
+            out_dir=str(tmp_path / "out"),
+            extra_args=["--thresh", "gau"],
+        )
     )
     assert len(calls) == 1
     argv, kwargs = calls[0]
@@ -121,12 +129,14 @@ def test_tool_argv_preserves_boolean_toggle_syntax(registry, tmp_path: Path) -> 
 
 def test_summary_only_tools_do_not_expose_leaf_pair_override(registry, tmp_path: Path) -> None:
     tools, calls = registry
-    tools["run_full_pipeline"](
-        "reactant.pdb",
-        do_tsopt=True,
-        do_dft=False,
-        do_thermo=True,
-        out_dir=str(tmp_path / "all"),
+    asyncio.run(
+        tools["run_full_pipeline"](
+            "reactant.pdb",
+            do_tsopt=True,
+            do_dft=False,
+            do_thermo=True,
+            out_dir=str(tmp_path / "all"),
+        )
     )
     argv, kwargs = calls[0]
     assert argv[:2] == ["mlmm", "all"]
@@ -142,18 +152,39 @@ def test_single_point_tool_forwards_print_every(registry, tmp_path: Path) -> Non
     signature = inspect.signature(tools["run_single_point_oniom"])
     assert "print_every" in signature.parameters
 
-    tools["run_single_point_oniom"](
-        "input.pdb",
-        "input.parm7",
-        charge=0,
-        multiplicity=1,
-        print_every=3,
-        out_dir=str(tmp_path / "sp"),
+    asyncio.run(
+        tools["run_single_point_oniom"](
+            "input.pdb",
+            "input.parm7",
+            charge=0,
+            multiplicity=1,
+            ref_pdb="topology.pdb",
+            print_every=3,
+            out_dir=str(tmp_path / "sp"),
+        )
     )
 
     argv, _kwargs = calls[-1]
     option_start = argv.index("--print-every")
     assert argv[option_start : option_start + 2] == ["--print-every", "3"]
+    ref_start = argv.index("--ref-pdb")
+    assert argv[ref_start : ref_start + 2] == ["--ref-pdb", "topology.pdb"]
+
+
+def test_bond_change_tool_owns_json_stdout_contract(registry) -> None:
+    tools, calls = registry
+    asyncio.run(tools["detect_bond_changes"]("R.pdb", "P.pdb"))
+    argv, kwargs = calls[-1]
+    assert argv == ["mlmm", "bond-summary", "-i", "R.pdb", "P.pdb", "--json"]
+    assert kwargs["out_dir"] is None
+    assert kwargs["parse_stdout_json"] is True
+
+    with pytest.raises(ValueError, match="MCP-managed output"):
+        asyncio.run(
+            tools["detect_bond_changes"](
+                "R.pdb", "P.pdb", extra_args=["--no-json"]
+            )
+        )
 
 
 def test_search_paths_always_passes_two_ordered_endpoints(
@@ -163,14 +194,16 @@ def test_search_paths_always_passes_two_ordered_endpoints(
     signature = inspect.signature(tools["search_paths"])
     assert signature.parameters["product_pdb"].default is inspect.Parameter.empty
 
-    tools["search_paths"](
-        "R.pdb",
-        "full.parm7",
-        -1,
-        1,
-        product_pdb="P.pdb",
-        intermediate_pdbs=["IM1.pdb", "IM2.pdb"],
-        out_dir=str(tmp_path / "path-search"),
+    asyncio.run(
+        tools["search_paths"](
+            "R.pdb",
+            "full.parm7",
+            -1,
+            1,
+            product_pdb="P.pdb",
+            intermediate_pdbs=["IM1.pdb", "IM2.pdb"],
+            out_dir=str(tmp_path / "path-search"),
+        )
     )
 
     argv, _ = calls[-1]
@@ -205,13 +238,15 @@ def test_stage_tools_forward_typed_mm_controls(
     kwargs: dict,
 ) -> None:
     tools, calls = registry
-    tools[tool_name](
-        *args,
-        **kwargs,
-        link_atom_method="scaled",
-        mm_backend="openmm",
-        use_cmap=False,
-        out_dir=str(tmp_path / tool_name),
+    asyncio.run(
+        tools[tool_name](
+            *args,
+            **kwargs,
+            link_atom_method="scaled",
+            mm_backend="openmm",
+            use_cmap=False,
+            out_dir=str(tmp_path / tool_name),
+        )
     )
     argv, _ = calls[-1]
     assert ["--link-atom-method", "scaled"] == argv[

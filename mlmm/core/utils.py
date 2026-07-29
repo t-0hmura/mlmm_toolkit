@@ -1396,6 +1396,7 @@ def load_pdb_atom_metadata(pdb_path: Path) -> List[Dict[str, Any]]:
             serial_txt = line[6:11].strip()
             resseq_txt = line[22:26].strip()
             atom_name = line[12:16].strip()
+            altloc = line[16:17].strip()
             res_name = line[17:20].strip()
             chain_id = line[21:22].strip()
             icode = line[26:27].strip()
@@ -1419,11 +1420,13 @@ def load_pdb_atom_metadata(pdb_path: Path) -> List[Dict[str, Any]]:
                 {
                     "serial": serial,
                     "name": atom_name,
+                    "altloc": altloc,
                     "resname": res_name,
                     "resseq": resseq,
                     "chain": chain_id,
                     "icode": icode,
                     "element": element_txt,
+                    "is_hetatm": is_hetatm,
                 }
             )
     template = coordinate_template_for(pdb_path)
@@ -1437,6 +1440,7 @@ def load_pdb_atom_metadata(pdb_path: Path) -> List[Dict[str, Any]]:
             meta.update(
                 {
                     "name": record.atom_name,
+                    "altloc": record.altloc,
                     "resname": record.resname,
                     "resseq": (
                         int(record.resseq)
@@ -1446,6 +1450,7 @@ def load_pdb_atom_metadata(pdb_path: Path) -> List[Dict[str, Any]]:
                     "chain": record.chain_id,
                     "icode": record.icode,
                     "element": record.element,
+                    "is_hetatm": record.group_pdb.upper() == "HETATM",
                 }
             )
     return atoms
@@ -2765,6 +2770,50 @@ def apply_ref_pdb_override(
     return prepared_input.source_path
 
 
+def validate_endpoint_atom_identities(
+    inputs: Sequence[PreparedInputStructure],
+) -> None:
+    """Require identical ordered topology identities for path endpoints."""
+
+    import click
+
+    fields = (
+        "is_hetatm",
+        "chain",
+        "resname",
+        "resseq",
+        "icode",
+        "name",
+        "altloc",
+        "element",
+    )
+    reference = load_pdb_atom_metadata(inputs[0].source_path)
+    reference_identity = [
+        tuple(atom.get(field) for field in fields) for atom in reference
+    ]
+    for input_index, prepared in enumerate(inputs[1:], start=2):
+        atoms = load_pdb_atom_metadata(prepared.source_path)
+        identity = [tuple(atom.get(field) for field in fields) for atom in atoms]
+        if len(identity) != len(reference_identity):
+            raise click.BadParameter(
+                "Path endpoint atom count mismatch: "
+                f"input #1 has {len(reference_identity)}, input #{input_index} "
+                f"has {len(identity)}."
+            )
+        if identity != reference_identity:
+            mismatch = next(
+                index
+                for index, (left, right) in enumerate(
+                    zip(reference_identity, identity), start=1
+                )
+                if left != right
+            )
+            raise click.BadParameter(
+                "Path endpoint ordered atom identity mismatch at atom "
+                f"{mismatch} between input #1 and input #{input_index}."
+            )
+
+
 # Charge/spin preparation consumes the workflow-level charge-summary service.
 # Workflow subcommands import it from ``mlmm.workflows.charge_prep`` to keep
 # ``core`` independent of ``extract``.
@@ -3130,8 +3179,16 @@ def resolve_ml_layer_assignment(
     explicit_region = model_pdb is not None or bool(model_indices)
 
     if explicit_region:
+        explicit_model_indices: Optional[List[int]] = None
         if model_pdb is not None:
             model_pdb_path = Path(model_pdb)
+            try:
+                explicit_model_indices = _resolve_model_indices_for_layer_filter(
+                    layer_source_pdb,
+                    model_pdb_path,
+                )
+            except Exception as e:
+                raise _click.ClickException(str(e)) from e
         else:
             if layer_source_pdb.suffix.lower() != ".pdb":
                 raise _click.ClickException(
@@ -3161,12 +3218,7 @@ def resolve_ml_layer_assignment(
                 if model_indices:
                     explicit_ml_indices = {int(index) for index in model_indices}
                 else:
-                    explicit_ml_indices = set(
-                        _resolve_model_indices_for_layer_filter(
-                            layer_source_pdb,
-                            model_pdb_path,
-                        )
-                    )
+                    explicit_ml_indices = set(explicit_model_indices or [])
 
                 # The explicit region owns ML membership. B-factors only assign
                 # the remaining atoms to MM sublayers, so an explicit ML atom

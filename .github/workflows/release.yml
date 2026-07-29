@@ -32,6 +32,12 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Verify tag is the current main commit
+        shell: bash
+        run: |
+          git fetch origin main
+          test "$(git rev-parse HEAD^{commit})" = "$(git rev-parse origin/main^{commit})"
+
       - name: Set version from tag
         run: |
           TAG="${{ github.event.release.tag_name }}"

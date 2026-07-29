@@ -2,6 +2,10 @@
 
 Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology. This is the Gaussian-specific detail page for `oniom-export`; it reads topology data from `--parm` (via ParmEd) and optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file with method, layer flags, and connectivity.
 
+The input `parm7` must be CMAP-free. Gaussian ONIOM cannot represent the
+topology's CMAP terms faithfully, so export fails before writing when any are
+present.
+
 ## Examples
 
 Minimal export with explicit charge and multiplicity:

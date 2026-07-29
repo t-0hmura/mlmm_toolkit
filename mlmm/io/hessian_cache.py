@@ -233,6 +233,13 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
             continue
         if isinstance(val, str) and val.strip().lower() in ("", "none"):
             continue
+        if key in {"hess_cutoff", "movable_cutoff"}:
+            try:
+                if np.isposinf(float(val)):
+                    potential[key] = "unbounded"
+                    continue
+            except (TypeError, ValueError):
+                pass
         potential[key] = _canon(val)
     backend = str(calc_cfg.get("backend") or "").strip().lower()
     if backend == "uma" and calc_cfg.get("uma_task_name") is not None:

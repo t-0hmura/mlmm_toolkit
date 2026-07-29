@@ -119,7 +119,7 @@ class StringOptimizer(Optimizer):
                 cur_coords = np.delete(
                     self.coords[-1].reshape(cur_size, -1), new_image_inds, axis=0
                 ).flatten()
-                s = self.coords[-2] - cur_coords
+                s = cur_coords - self.coords[-2]
                 inds = np.delete(inds, new_image_inds)
 
             if self.double_damp:

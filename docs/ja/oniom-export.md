@@ -2,6 +2,11 @@
 
 Amber トポロジーを持つ ML/MM 系を、外部 QM/MM 入力ファイル（Gaussian ONIOM = `--mode g16`、または ORCA QM/MM = `--mode orca`）へエクスポートします。`mlmm oniom-export` は Amber `parm7` トポロジーと座標ファイル、ML 領域（QM 領域）定義を読み込み、そのまま実行できる入力ファイルを 1 つ書き出します。QM 領域は `--model-pdb` で指定し、周囲の MM 環境は対象プログラムのネイティブ形式で、QM/MM 切断面にリンク原子注釈を付けて出力します。
 
+両モードとも CMAP を含まない `parm7` が必要です。Gaussian ONIOM は
+CMAP を忠実に表現できず、ORCA の MM エンジンも CMAP を適用しないため、
+CMAP を含むトポロジーでは出力前に停止します。これはエクスポート形式の
+制約であり、通常の mlmm 計算では両 MM 層の CMAP を有効にできます。
+
 ## 実行例
 
 ```bash

@@ -43,7 +43,9 @@ def test_partial_model_mapping_is_fatal(
         {
             "atom_name": "C1",
             "res_name": "LIG",
+            "chain_id": "A",
             "res_seq": 1,
+            "icode": "",
             "idx": 0,
             "coord": np.array([0.0, 0.0, 0.0]),
             "element": "C",
@@ -51,7 +53,9 @@ def test_partial_model_mapping_is_fatal(
         {
             "atom_name": "O1",
             "res_name": "LIG",
+            "chain_id": "A",
             "res_seq": 1,
+            "icode": "",
             "idx": 1,
             "coord": np.array([1.0, 0.0, 0.0]),
             "element": "O",

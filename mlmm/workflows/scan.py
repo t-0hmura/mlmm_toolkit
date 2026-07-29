@@ -16,6 +16,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import gc
 import logging
 import math
+import re
 import sys
 import textwrap
 
@@ -605,7 +606,8 @@ def cli(
             opt_cfg["out_dir"] = out_dir
             # Per-step optimizer dumps are off for a scan unless the user asks: an
             # unconditional False made `--dump` a silent no-op on this command.
-            opt_cfg["dump"] = bool(dump) if _is_param_explicit("dump") else False
+            if _is_param_explicit("dump"):
+                opt_cfg["dump"] = bool(dump)
             # Honor the documented precedence defaults < --config YAML < CLI:
             # only override the (already YAML-merged) max_cycles when the user
             # explicitly passed --max-cycles or --relax-max-cycles. Mirrors
@@ -764,6 +766,19 @@ def cli(
                         stages.append(parsed)
             K = len(stages)
             emit(f"[scan] Received {K} stage(s).", narrative=True)
+            if not np.isfinite(float(max_step_size)) or float(max_step_size) <= 0.0:
+                raise click.BadParameter(
+                    "--max-step-size must be a finite positive value."
+                )
+            frozen_set = set(int(index) for index in freeze_atoms_final)
+            for stage_index, tuples in enumerate(stages, start=1):
+                for atom_i, atom_j, _target in tuples:
+                    if int(atom_i) in frozen_set and int(atom_j) in frozen_set:
+                        raise click.BadParameter(
+                            "A scan restraint cannot connect two frozen atoms: "
+                            f"stage {stage_index}, atoms {int(atom_i) + 1} and "
+                            f"{int(atom_j) + 1}."
+                        )
             if print_parsed:
                 click.echo(
                     pretty_block(
@@ -805,6 +820,7 @@ def cli(
                             "backend": calc_cfg.get("backend", "uma"),
                             "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                         },
+                        force=True,
                     )
                 )
                 click.echo("[dry-run] Validation complete. Scan execution was skipped.")
@@ -828,6 +844,51 @@ def cli(
             stages_summary: List[Dict[str, Any]] = []
 
             out_dir_path.mkdir(parents=True, exist_ok=True)
+            protected_paths = {
+                Path(path).expanduser().resolve()
+                for path in (
+                    input_path,
+                    prepared.source_path,
+                    geom_input_path,
+                    real_parm7,
+                    model_pdb_effective,
+                    config_yaml,
+                    override_yaml,
+                    calc_file,
+                )
+                if path is not None
+            }
+            owned_dirs = [out_dir_path / "preopt"]
+            owned_dirs.extend(
+                child
+                for child in out_dir_path.iterdir()
+                if child.is_dir()
+                and re.fullmatch(r"stage_\d+", child.name) is not None
+            )
+            for owned_dir in owned_dirs:
+                owned_resolved = owned_dir.resolve()
+                if any(
+                    protected == owned_resolved
+                    or owned_resolved in protected.parents
+                    for protected in protected_paths
+                ):
+                    raise click.BadParameter(
+                        f"Output path '{owned_dir}' overlaps a protected input."
+                    )
+                if owned_dir.is_dir():
+                    shutil.rmtree(owned_dir)
+            for owned_file in (
+                "scan_trj.xyz",
+                "scan.pdb",
+                "result.json",
+                "summary.json",
+            ):
+                owned_path = out_dir_path / owned_file
+                if owned_path.resolve() in protected_paths:
+                    raise click.BadParameter(
+                        f"Output path '{owned_path}' overlaps a protected input."
+                    )
+                owned_path.unlink(missing_ok=True)
             freeze = list(geom_cfg.get("freeze_atoms") or [])
             coord_type = geom_cfg.get("coord_type", GEOM_KW_DEFAULT["coord_type"])
             geom = geom_loader(
@@ -848,14 +909,18 @@ def cli(
             max_step_bohr = float(max_step_size) * ANG2BOHR
 
             def _make_lbfgs(_out_dir: Path, _prefix: str) -> LBFGS:
-                common = dict(opt_cfg)
+                common = strip_inherited_keys(
+                    dict(opt_cfg), OPT_BASE_KW, mode="same"
+                )
                 common["out_dir"] = str(_out_dir)
                 common["prefix"] = _prefix
                 args = {**lbfgs_cfg, **common}
                 args["max_step"] = min(float(lbfgs_cfg.get("max_step", 0.30)), max_step_bohr)
                 return LBFGS(geom, **args)
 
+            preopt_converged: Optional[bool] = None
             if preopt:
+                preopt_input = _snapshot_geometry(geom)
                 pre_dir = out_dir_path / "preopt"
                 pre_dir.mkdir(parents=True, exist_ok=True)
                 geom.set_calculator(base_calc)
@@ -863,20 +928,34 @@ def cli(
                 optimizer0 = _make_lbfgs(pre_dir, "preopt")
                 try:
                     optimizer0.run()
+                    preopt_converged = optimizer_converged_bit(optimizer0)
                 except ZeroStepLength:
                     click.echo("[preopt] ZeroStepLength — continuing.", err=True)
+                    preopt_converged = optimizer_converged_bit(optimizer0)
                 except OptimizationError as e:
                     click.echo(f"[preopt] OptimizationError — {e}", err=True)
+                    preopt_converged = False
 
-                pre_xyz = pre_dir / "result.xyz"
-                with open(pre_xyz, "w") as f:
-                    f.write(_coords3d_to_xyz_string(geom))
-                click.echo(f"[write] Wrote '{pre_xyz}'.")
-                try:
-                    convert_xyz_to_pdb(pre_xyz, source_path.resolve(), pre_dir / "result.pdb")
-                    click.echo(f"[convert] Wrote '{pre_dir / 'result.pdb'}'.")
-                except Exception as e:
-                    click.echo(f"[convert] WARNING: Failed to convert preopt result to PDB: {e}", err=True)
+                if preopt_converged is True and np.all(
+                    np.isfinite(np.asarray(geom.coords3d))
+                ):
+                    pre_xyz = pre_dir / "result.xyz"
+                    with open(pre_xyz, "w") as f:
+                        f.write(_coords3d_to_xyz_string(geom))
+                    click.echo(f"[write] Wrote '{pre_xyz}'.")
+                    try:
+                        convert_xyz_to_pdb(pre_xyz, source_path.resolve(), pre_dir / "result.pdb")
+                        click.echo(f"[convert] Wrote '{pre_dir / 'result.pdb'}'.")
+                    except Exception as e:
+                        click.echo(f"[convert] WARNING: Failed to convert preopt result to PDB: {e}", err=True)
+                else:
+                    preopt_converged = False
+                    geom = _snapshot_geometry(preopt_input)
+                    click.echo(
+                        "[preopt] Preoptimization was not converged; restoring "
+                        "the invocation input for the scan.",
+                        err=True,
+                    )
 
             biased = HarmonicBiasCalculator(base_calc, k=float(bias_cfg["k"]))
             geom.set_calculator(biased)
@@ -942,6 +1021,9 @@ def cli(
                 pairs = [(i, j) for (i, j, _) in tuples]
 
                 if Nsteps == 0:
+                    if stage_idx_0 in _bidir_reset_before:
+                        all_trj_blocks.extend(reversed(_bidir_pass1_trj))
+                        _bidir_pass1_trj = []
                     if endopt:
                         geom.set_calculator(base_calc)
                         emit(f"[stage {k}] endopt (unbiased) ...", narrative=True)
@@ -1227,10 +1309,30 @@ def cli(
                 "max_step_size_angstrom": float(max_step_size),
                 "n_stages": len(stages_summary),
                 "stages": json_stages,
-                "files": {
-                    "scan_trj_xyz": "scan_trj.xyz",
-                },
+                "files": {},
             }
+            combined_trj_path = out_dir_path / "scan_trj.xyz"
+            if combined_trj_path.exists():
+                result_data["files"]["scan_trj_xyz"] = combined_trj_path.name
+            if preopt:
+                result_data["preopt"] = {
+                    "requested": True,
+                    "converged": preopt_converged,
+                }
+                preopt_leaf = make_leaf(
+                    "scan",
+                    "preopt",
+                    executed=True,
+                    converged=preopt_converged,
+                    energy_valid=preopt_converged is True,
+                )
+                _stage_leaves.insert(0, preopt_leaf)
+                _truth = aggregate_workflow_truth(
+                    _stage_leaves,
+                    ["preopt", *[
+                        f"stage_{srec['index']}" for srec in stages_summary
+                    ]],
+                )
             for ext in (".pdb",):
                 f = out_dir_path / f"scan{ext}"
                 if f.exists():

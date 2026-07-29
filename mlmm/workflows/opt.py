@@ -582,6 +582,7 @@ def _opt_terminal_converged(
 
 def _run_microiter_opt(
     geometry,
+    base_calc,
     calc_cfg: Dict[str, Any],
     rfo_cfg: Dict[str, Any],
     lbfgs_cfg: Dict[str, Any],
@@ -641,8 +642,7 @@ def _run_microiter_opt(
     )
     click.echo(f"[microiter] Macro thresh: {thresh}, Micro thresh: {micro_thresh}")
 
-    # Create ONIOM calculator (shared core for MM-only calc)
-    base_calc = mlmm(**calc_cfg)
+    # Reuse the caller's accepted ONIOM core for MM-only work.
     mm_calc = mlmm_mm_only(base_calc.core, freeze_atoms=micro_freeze)
 
     # Ordered record of every micro (MM) relaxation outcome.
@@ -775,7 +775,10 @@ def _run_microiter_opt(
         macro_calc_cfg = dict(calc_cfg)
         macro_calc_cfg["freeze_atoms"] = macro_freeze
         macro_calc_cfg["hess_mm_atoms"] = sorted(link_mm_parents)  # ML + link MM parents in Hessian
-        macro_calc = mlmm(**macro_calc_cfg)
+        macro_calc = mlmm(
+            **macro_calc_cfg,
+            _high_level_backend=base_calc.core._ml_backend,
+        )
 
         # reuse an IRC endpoint Hessian only on a full evaluation-identity
         # match (run/system/evaluator/active space/potential).
@@ -918,9 +921,21 @@ def _run_microiter_opt(
 
             # Apply step to geometry
             new_coords = geometry.coords.copy() + step
-            geometry.coords = new_coords
-            # Record actual step (may differ due to coordinate back-transformation)
-            macro_optimizer.steps[-1] = geometry.coords - macro_optimizer.coords[-1]
+            rebuilt_internals = False
+            try:
+                geometry.coords = new_coords
+                # Record actual step (may differ due to coordinate back-transformation)
+                macro_optimizer.steps[-1] = (
+                    geometry.coords - macro_optimizer.coords[-1]
+                )
+            except RebuiltInternalsException:
+                click.echo(
+                    "[microiter] Internal coordinates were rebuilt; resetting "
+                    "the macro optimizer after MM relaxation.",
+                    err=True,
+                )
+                geometry.clear()
+                rebuilt_internals = True
 
             # ---- Micro step: MM relaxation on a cart-only twin geometry ----
             # ``_relax_micro`` runs the MM relaxation on a cart twin and copies the
@@ -988,6 +1003,9 @@ def _run_microiter_opt(
                  macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], micro_steps, cycle_time),
                 marks=marks,
             )
+            if rebuilt_internals:
+                macro_optimizer = RFOptimizer(geometry, **rfo_args)
+                macro_optimizer.prepare_opt()
 
         else:
             if run_macro:
@@ -1766,7 +1784,6 @@ def cli(
             **coord_kwargs,
         )
 
-        base_calc = mlmm(**calc_cfg)
         if mm_only:
             if use_rfo:
                 click.echo(
@@ -1778,11 +1795,17 @@ def cli(
             if microiter:
                 click.echo("[opt] --mm-only: microiteration disabled (no ML component to alternate with).")
                 microiter = False
+            mm_core_calc = mlmm(
+                **calc_cfg,
+                _skip_high_level_backend=True,
+            )
             base_calc = mlmm_mm_only(
-                base_calc.core,
-                freeze_atoms=list(freeze_atoms_cli) if freeze_atoms_cli else [],
+                mm_core_calc.core,
+                freeze_atoms=freeze_atoms_final,
             )
             click.echo("[opt] --mm-only: MLIP component skipped; minimizing on MM force field only.")
+        else:
+            base_calc = mlmm(**calc_cfg)
         geometry.set_calculator(base_calc)
 
         echo_resolved_device()
@@ -1875,6 +1898,7 @@ def cli(
             emit("\n====== Optimization (RFO + Microiteration) ======\n", narrative=True)
             microiter_result = _run_microiter_opt(
                 geometry,
+                base_calc,
                 calc_cfg,
                 rfo_cfg,
                 lbfgs_cfg,
@@ -2157,12 +2181,21 @@ def cli(
             # an energy-plateau stall is a distinct, additive outcome
             # that is never reported as converged.  ``converged`` / ``not_converged``
             # remain byte-compatible; only ``stalled`` is new.
+            provenance = calculator_provenance(calc_cfg)
+            if mm_only:
+                provenance.update(
+                    {
+                        "mlip_backend": None,
+                        "mlip_model": None,
+                        "mlip_precision": None,
+                    }
+                )
             result_data = {
                 "status": "stalled" if _opt_stalled else ("converged" if _opt_converged else "not_converged"),
                 "energy_hartree": final_energy_hartree,
                 "n_opt_cycles": _opt_cycles,
                 "opt_mode": opt_cfg.get("opt_mode", opt_mode),
-                **calculator_provenance(calc_cfg),
+                **provenance,
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
                 "n_atoms": len(geometry.atoms),

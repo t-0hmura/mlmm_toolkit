@@ -215,12 +215,15 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
 | `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend。 | `hessian_ff` |
+| `--link-atom-method [scaled\|fixed]` | link atom 配置方式。 | `scaled` |
 | **出力と設定** | | |
 | `--dump/--no-dump` | 連結軌跡 `optimization_all_trj.xyz` を書き出し。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_tsopt/` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |
+| `--out-json/--no-out-json` | machine-readable `result.json` を出力。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに入力/設定を検証し、実行計画を表示。`--help-advanced` に表示。 | `False` |
 
 ## YAML 設定

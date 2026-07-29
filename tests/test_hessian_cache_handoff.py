@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pytest
 import torch
@@ -344,7 +346,8 @@ def test_persistent_identity_distinguishes_explicit_unbounded_hessian_cutoff() -
     )
 
     assert runtime != default
-    assert np.isposinf(runtime["evaluator"]["potential"]["hess_cutoff"])
+    assert runtime["evaluator"]["potential"]["hess_cutoff"] == "unbounded"
+    json.dumps(runtime, allow_nan=False)
     assert finite != default
     assert finite["evaluator"]["potential"]["hess_cutoff"] == 6.0
 

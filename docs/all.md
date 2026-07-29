@@ -178,7 +178,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH...` | Two or more full PDBs in reaction order (single input allowed with `--scan-lists` or `--tsopt`). | Required |
+| `-i, --input PATH...` | Two or more full structures in reaction order: PDB directly, or XYZ with `--ref-pdb` (single input allowed with `--scan-lists` or `--tsopt`). | Required |
 | `-c, --center TEXT` | Substrate specification (PDB path, residue IDs, or residue names). Omit to skip extraction. | _None_ |
 | `-l, --ligand-charge TEXT` | Total charge or residue-specific mapping (e.g. `GPP:-3,MMT:-1`). | _None_ |
 | `-q, --charge INT` | Override the net charge of the ML region/model atoms (highest priority). | _None_ |
@@ -187,7 +187,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--model-pdb FILE` | Pre-built ML-region PDB. When provided, ML-region determination is skipped. | _None_ |
 | `--ref-pdb FILE` | Reference PDB for XYZ input (required so PDB metadata can be recovered). | _None_ |
 | `--convert-files / --no-convert-files` | Global toggle for XYZ / TRJ → PDB companions. | `True` |
-| `--dump / --no-dump` | Save optional optimizer trajectories/restarts. Always forwarded to `path-search` / `path-opt`; forwarded to `scan` / `tsopt` only when explicitly set. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump` so Gibbs assembly remains complete. | `False` |
+| `--dump / --no-dump` | Save optional optimizer trajectories/restarts. An explicit parent toggle is forwarded to `path-search` / `path-opt` and `scan` / `tsopt`; when omitted, each child resolves its YAML/default. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump` so Gibbs assembly remains complete. | `False` |
 | `--config FILE` | Base YAML applied first. | _None_ |
 | `--show-config / --no-show-config` | Print resolved configuration before execution. | `False` |
 | `--dry-run / --no-dry-run` | Run extraction/setup and charge/parity validation in a temporary directory, print the plan, and skip compute stages (shown in `--help-advanced`). | `False` |
@@ -326,8 +326,9 @@ handoff used for saddle recovery.
 
 Input format depends on extraction:
 
-- Extraction enabled (`-c/--center`): inputs must be **PDB** so residues can be located.
-- Extraction skipped: inputs may be **PDB / XYZ**.
+- PDB inputs are accepted directly.
+- XYZ inputs require `--ref-pdb`; XYZ supplies coordinates and the reference
+  supplies residue, chain, and B-factor metadata for extraction and later stages.
 - Multi-structure runs require ≥ 2 structures.
 
 Charge is resolved in order of priority — `-q/--charge` (explicit CLI override) → pocket extraction (when `-c` is provided, summing amino acids + ions + `--ligand-charge`) → `-l, --ligand-charge` fallback (when extraction is skipped) → default (unresolved charge is an error). Spin resolution: `--multiplicity` (CLI) → default (1). Always provide `--ligand-charge` for non-standard substrates so the correct net charge propagates downstream. The first-model net ML-region charge is cast to the nearest integer, with a console note if rounding occurs.

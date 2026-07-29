@@ -15,6 +15,8 @@ Options:
                                   and exit.
   -i, --input FILE                Layered PDB (or XYZ) defining the ML/MM/Frozen
                                   system.  [required]
+  --ref-pdb FILE                  Full-system PDB/mmCIF topology required when
+                                  --input is XYZ.
   --parm, --real-parm7 FILE       Amber parm7 of the full enzyme (canonical flag
                                   is --parm; --real-parm7 retained as alias).
                                   [required]

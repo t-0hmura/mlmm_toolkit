@@ -10,6 +10,10 @@ pipeline that expects a Gaussian-style input.
 
 The reverse direction is `oniom-import.md`.
 
+Both modes require a CMAP-free `parm7`. The exporter fails before writing if
+CMAP terms are present because neither target MM representation applies them
+faithfully; runtime mlmm calculations may still use CMAP in both MM layers.
+
 ## Synopsis
 
 ```bash

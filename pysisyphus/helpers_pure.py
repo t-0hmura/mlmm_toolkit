@@ -1,4 +1,5 @@
 import collections.abc
+import hashlib
 from difflib import SequenceMatcher
 from enum import Enum
 import itertools as it
@@ -40,8 +41,12 @@ def eigval_to_wavenumber(ev):
 
 
 def hash_arr(arr, precision=HASH_PREC):
-    str_ = np.array2string(arr, precision=precision)
-    return hash(str_)
+    rounded = np.ascontiguousarray(np.round(np.asarray(arr), decimals=precision))
+    digest = hashlib.blake2b(digest_size=16)
+    digest.update(rounded.dtype.str.encode("ascii"))
+    digest.update(repr(rounded.shape).encode("ascii"))
+    digest.update(rounded.tobytes())
+    return int.from_bytes(digest.digest(), byteorder="big", signed=False)
 
 
 def hash_args(*args, precision=HASH_PREC):
@@ -540,7 +545,19 @@ def molecular_volume(
     """Monte-Carlo estimate of molecular volume using Van der Waals spheres.
     Cartesian coordinates and VdW-radii are expected in Bohr!
     """
-    box = get_box(coords3d, offset=offset)
+    coords3d = np.asarray(coords3d, dtype=float)
+    vdw_radii = np.asarray(vdw_radii, dtype=float).reshape(-1, 1)
+    if len(coords3d) != len(vdw_radii):
+        raise ValueError("coords3d and vdw_radii must have the same length.")
+    box = np.stack(
+        (
+            np.min(coords3d - vdw_radii, axis=0),
+            np.max(coords3d + vdw_radii, axis=0),
+        ),
+        axis=1,
+    )
+    box[:, 0] -= float(offset)
+    box[:, 1] += float(offset)
     edges = np.diff(box, axis=1).flatten()
     box_volume = abs(np.prod(edges))
     # print(f"Box with volume {box_volume:.2f} a0³ and dimensions\n{box}")
@@ -553,8 +570,8 @@ def molecular_volume(
     tps = trial_points(n=n_trial)
 
     dists = np.linalg.norm(coords3d[:, None, :] - tps, axis=2)
-    below_radius = dists <= vdw_radii[:, None]
-    below_radius = below_radius.sum()
+    below_radius = dists <= vdw_radii
+    below_radius = np.any(below_radius, axis=0).sum()
     ratio = below_radius / n_trial
     mol_vol = ratio * box_volume  # a0³ / Molecule
     mol_vol_ang3 = mol_vol * BOHR2ANG**3  # Å³ / Molecule

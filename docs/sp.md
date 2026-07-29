@@ -40,7 +40,8 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 | Input | Required | Notes |
 |---|---|---|
-| `-i, --input FILE` | yes | layered PDB (or XYZ) defining the ML / movable-MM / frozen partition |
+| `-i, --input FILE` | yes | layered PDB, or XYZ coordinates accompanied by `--ref-pdb` |
+| `--ref-pdb FILE` | for XYZ | atom-order-identical full-system PDB/mmCIF supplying topology and layer metadata |
 | `--parm FILE` | yes | Amber `parm7` topology of the full enzyme (`--real-parm7` retained as alias) |
 | `-q, --charge INT` | yes (unless `-l` is given) | ML region total charge |
 | `-l, --ligand-charge TEXT` | no | per-ligand charge mapping (e.g. `SAM:1,GPP:-3`); derives the net charge when `-q` is omitted |

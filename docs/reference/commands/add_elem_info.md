@@ -3,7 +3,7 @@
 ```text
 Usage: mlmm add-elem-info [OPTIONS]
 
-  Add/repair element columns (77–78) in a PDB using Biopython.
+  Add/repair element columns (77–78) in a PDB.
 
 Options:
   -v, --verbose LEVEL           Console verbosity 0-3 (default 2). 0=silent;

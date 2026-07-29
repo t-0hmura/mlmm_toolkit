@@ -61,6 +61,7 @@ from mlmm.core.utils import (
     apply_ref_pdb_override,
     prepare_input_structure,
     PreparedInputStructure,
+    validate_endpoint_atom_identities,
     parse_indices_string,
     resolve_ml_layer_assignment,
     echo_resolved_device,
@@ -436,6 +437,42 @@ def _prepare_path_output_dir(path: Path) -> Path:
     for name in ("result.json", "summary.json"):
         (resolved / name).unlink(missing_ok=True)
     return resolved
+
+
+def _reject_path_output_collisions(
+    out_dir: Path,
+    protected_inputs: Sequence[Optional[Path]],
+) -> None:
+    fixed_names = (
+        "result.json",
+        "summary.json",
+        "dmf_initial_trj.xyz",
+        "dmf_fbenm_ipopt.out",
+        "dmf_ipopt.out",
+        "final_geometries_trj.xyz",
+        "final_geometries.pdb",
+        "hei.xyz",
+        "hei.pdb",
+    )
+    fixed = {
+        (Path(out_dir) / name).resolve(strict=False) for name in fixed_names
+    }
+    reserved_roots = {
+        (Path(out_dir) / name).resolve(strict=False)
+        for name in ("preopt", "align_refine")
+    }
+    for protected in protected_inputs:
+        if protected is None:
+            continue
+        resolved = Path(protected).expanduser().resolve(strict=False)
+        if resolved in fixed or any(
+            root == resolved or root in resolved.parents
+            for root in reserved_roots
+        ):
+            raise click.UsageError(
+                f"Input {protected} collides with a reserved path-opt output "
+                f"under {out_dir}."
+            )
 
 
 # DMF (Direct Max Flux) MEP optimization
@@ -992,6 +1029,7 @@ def cli(
     )
 
     input_paths = tuple(Path(p) for p in input_paths)
+    requested_input_paths = input_paths
     prepared_inputs: List[PreparedInputStructure] = []
     time_start = time.perf_counter()
     out_dir_path = Path(out_dir).resolve()
@@ -1259,6 +1297,19 @@ def cli(
                 force=True)
             )
 
+        effective_max_cycles = (
+            dmf_cfg.get("max_cycles", 0)
+            if mep_mode_kind == "dmf"
+            else stopt_cfg.get("max_cycles", 0)
+        )
+        if int(effective_max_cycles) <= 0:
+            raise click.BadParameter(
+                "--max-cycles must be at least 1.",
+                param_hint="--max-cycles",
+            )
+
+        validate_endpoint_atom_identities(prepared_inputs)
+
         if dry_run:
             if model_pdb_cfg is not None:
                 model_region_source = "model_pdb"
@@ -1354,11 +1405,19 @@ def cli(
             )
         )
 
+        _reject_path_output_collisions(
+            out_dir_path,
+            (
+                *requested_input_paths,
+                *(prep.source_path for prep in prepared_inputs),
+                *ref_list,
+                real_parm7,
+                model_pdb,
+                config_yaml,
+                calc_file,
+            ),
+        )
         out_dir_path = _prepare_path_output_dir(out_dir_path)
-
-        if int(stopt_cfg.get("max_cycles", 0)) <= 0:
-            click.echo("[INFO] max_cycles <= 0: skipping path optimization.")
-            return
 
         source_paths = [prep.source_path for prep in prepared_inputs]
 

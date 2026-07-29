@@ -156,6 +156,12 @@ def _extract_axis_label(df: pd.DataFrame, column: str, fallback: Optional[str]) 
     return str(values.iloc[0])
 
 
+def _explicit_true_series(series: pd.Series) -> pd.Series:
+    return series.map(
+        lambda value: value is True or str(value).strip().lower() == "true"
+    )
+
+
 def _finalize_surface_and_plot(
     *,
     df: pd.DataFrame,
@@ -168,10 +174,9 @@ def _finalize_surface_and_plot(
     d3_label_csv: Optional[str],
     write_surface_csv: bool,
     time_start: float,
-) -> None:
+) -> Dict[str, Any]:
     if df.empty:
-        click.echo("No grid records produced; aborting.", err=True)
-        sys.exit(1)
+        raise ValueError("No grid records were produced.")
 
     d1_label_csv = _extract_axis_label(df, "d1_label", d1_label_csv)
     d2_label_csv = _extract_axis_label(df, "d2_label", d2_label_csv)
@@ -186,65 +191,83 @@ def _finalize_surface_and_plot(
     d2_label_html = axis_label_html(d2_label_csv) if d2_label_csv else "d2 (Å)"
     d3_label_html = axis_label_html(d3_label_csv) if d3_label_csv else "d3 (Å)"
 
-    if "energy_kcal" not in df.columns:
-        if "energy_hartree" not in df.columns:
+    required_coords = ("d1_A", "d2_A", "d3_A")
+    missing_coords = [name for name in required_coords if name not in df.columns]
+    if missing_coords:
+        raise ValueError(
+            "surface.csv is missing coordinate column(s): "
+            + ", ".join(missing_coords)
+        )
+    if "energy_hartree" not in df.columns and "energy_kcal" not in df.columns:
+        raise ValueError(
+            "surface.csv requires energy_hartree or energy_kcal."
+        )
+
+    grid_mask = pd.Series(True, index=df.index)
+    if "is_preopt" in df.columns:
+        grid_mask &= ~_explicit_true_series(df["is_preopt"])
+
+    coordinate_finite = np.ones(len(df), dtype=bool)
+    for column in required_coords:
+        coordinate_finite &= np.isfinite(df[column].to_numpy(dtype=float))
+    energy_column = (
+        "energy_hartree" if "energy_hartree" in df.columns else "energy_kcal"
+    )
+    finite_energy = np.isfinite(df[energy_column].to_numpy(dtype=float))
+    complete_provenance = all(
+        column in df.columns
+        for column in ("bias_converged", "artifact_written")
+    )
+
+    usable_mask = grid_mask & coordinate_finite & finite_energy
+    if "bias_converged" in df.columns:
+        usable_mask &= _explicit_true_series(df["bias_converged"])
+    if "artifact_written" in df.columns:
+        usable_mask &= _explicit_true_series(df["artifact_written"])
+    if not complete_provenance:
+        click.echo(
+            "[plot] WARNING: CSV lacks complete point provenance; using "
+            "finite explicitly-converged rows in legacy plot-only mode.",
+            err=True,
+        )
+
+    if not bool(usable_mask.any()):
+        raise ValueError("No usable finite non-preoptimization grid point.")
+
+    if baseline == "first":
+        first_mask = (
+            usable_mask
+            & (df["i"] == 0)
+            & (df["j"] == 0)
+            & (df["k"] == 0)
+        )
+        if not bool(first_mask.any()):
             click.echo(
-                "[baseline] energy_kcal is missing and energy_hartree is not available in CSV; aborting.",
+                "[baseline] 'first' requested but usable (i=0,j=0,k=0) "
+                "is missing; using the usable minimum instead.",
                 err=True,
             )
-            sys.exit(1)
-
-        # Seed/reference-minimum eligibility: when the fresh-scan
-        # convergence column is present, only points whose optimizer explicitly
-        # converged with a finite energy may set the baseline. A legacy CSV
-        # without a convergence column keeps its raw baseline (eligibility policy
-        # is explicit: absent column -> raw), so plot-only mode is unchanged.
-        if "bias_converged" in df.columns:
-            _seed_ok_plot = pd.Series(seed_eligible_mask(df.to_dict("records")), index=df.index)
-            _elig_df_plot = df[_seed_ok_plot]
-
-            def _eligible_min_plot() -> float:
-                if not _elig_df_plot.empty:
-                    return float(_elig_df_plot["energy_hartree"].min())
-                if write_surface_csv:
-                    click.echo(
-                        "No converged finite grid point with a written "
-                        "geometry is available; relative energies and "
-                        "interpolation are disabled.",
-                        err=True,
-                    )
-                    return float("nan")
-                return float(df["energy_hartree"].min())
+            ref_index = df.loc[usable_mask, energy_column].idxmin()
         else:
-            _seed_ok_plot = None
+            ref_index = df.index[first_mask][0]
+    else:
+        ref_index = df.loc[usable_mask, energy_column].idxmin()
 
-            def _eligible_min_plot() -> float:
-                return float(df["energy_hartree"].min())
-
-        if baseline == "first":
-            ref_mask = (df["i"] == 0) & (df["j"] == 0) & (df["k"] == 0)
-            if _seed_ok_plot is not None:
-                ref_mask = ref_mask & _seed_ok_plot
-            if not ref_mask.any():
-                click.echo(
-                    "[baseline] 'first' requested but (i=0,j=0,k=0) missing; using global minimum instead.",
-                    err=True,
-                )
-                ref_energy = _eligible_min_plot()
-            else:
-                ref_energy = float(df.loc[ref_mask, "energy_hartree"].iloc[0])
-        else:
-            ref_energy = _eligible_min_plot()
-        df["energy_kcal"] = (df["energy_hartree"] - ref_energy) * AU2KCALPERMOL
+    if "energy_hartree" in df.columns:
+        ref_energy = float(df.loc[ref_index, "energy_hartree"])
+        df["energy_kcal"] = (
+            df["energy_hartree"] - ref_energy
+        ) * AU2KCALPERMOL
+    else:
+        ref_energy = float(df.loc[ref_index, "energy_kcal"])
+        df["energy_kcal"] = df["energy_kcal"] - ref_energy
 
     if write_surface_csv:
         surface_csv = final_dir / "surface.csv"
         df["d1_label"] = d1_label_csv
         df["d2_label"] = d2_label_csv
         df["d3_label"] = d3_label_csv
-        # Keep internal-only eligibility columns out of the public CSV so a
-        # genuinely converged run's surface.csv schema is unchanged.
-        _csv_drop3 = [c for c in ("seed_eligible", "artifact_written") if c in df.columns]
+        _csv_drop3 = [c for c in ("seed_eligible",) if c in df.columns]
         df.drop(columns=_csv_drop3).to_csv(surface_csv, index=False)
         click.echo(f"[write] Wrote '{surface_csv}'.")
 
@@ -259,14 +282,31 @@ def _finalize_surface_and_plot(
         & np.isfinite(d2_points)
         & np.isfinite(d3_points)
         & np.isfinite(z_points)
+        & usable_mask.to_numpy(dtype=bool)
     )
-    if write_surface_csv:
-        mask &= np.asarray(
-            seed_eligible_mask(df.to_dict("records")), dtype=bool,
-        )
     if not np.any(mask):
-        click.echo("[plot] No finite data for plotting.", err=True)
-        sys.exit(1)
+        raise ValueError("No finite data are available for plotting.")
+
+    points = np.column_stack((d1_points[mask], d2_points[mask], d3_points[mask]))
+    unique_points = np.unique(points, axis=0)
+    if len(unique_points) != len(points):
+        raise ValueError(
+            "3D interpolation requires unique coordinate triples; found "
+            f"{len(points) - len(unique_points)} duplicate row(s)."
+        )
+    support_rank = (
+        int(np.linalg.matrix_rank(unique_points - unique_points[0]))
+        if len(unique_points) > 1
+        else 0
+    )
+    axis_spans = np.ptp(unique_points, axis=0) if len(unique_points) else np.zeros(3)
+    if len(unique_points) < 4 or support_rank < 3 or np.any(axis_spans <= 0.0):
+        raise ValueError(
+            "3D interpolation requires at least four non-coplanar points "
+            "spanning every axis; found "
+            f"{len(unique_points)} unique point(s), rank {support_rank}, "
+            f"axis spans {axis_spans.tolist()}."
+        )
 
     x_min, x_max = float(np.min(d1_points[mask])), float(np.max(d1_points[mask]))
     y_min, y_max = float(np.min(d2_points[mask])), float(np.max(d2_points[mask]))
@@ -432,6 +472,17 @@ def _finalize_surface_and_plot(
 
     emit("\n====== 3D Scan finished ======\n", narrative=True)
     emit(format_elapsed("[time] Elapsed Time for 3D Scan", time_start), narrative=True)
+    min_energy_hartree = (
+        float(df.loc[usable_mask, "energy_hartree"].min())
+        if "energy_hartree" in df.columns
+        else None
+    )
+    return {
+        "complete_provenance": bool(complete_provenance),
+        "n_grid_points": int(np.count_nonzero(grid_mask)),
+        "n_points_usable": int(np.count_nonzero(usable_mask)),
+        "min_energy_hartree": min_energy_hartree,
+    }
 
 
 @click.command(
@@ -687,39 +738,50 @@ def cli(
         resolved_csv = Path(csv_path).resolve()
         try:
             df = pd.read_csv(resolved_csv)
+            click.echo(f"[read] Loaded precomputed grid from '{resolved_csv}'.")
+            surface_stats = _finalize_surface_and_plot(
+                df=df,
+                final_dir=final_dir,
+                baseline=baseline,
+                zmin=zmin,
+                zmax=zmax,
+                d1_label_csv=None,
+                d2_label_csv=None,
+                d3_label_csv=None,
+                write_surface_csv=False,
+                time_start=time_start,
+            )
+            if out_json:
+                from mlmm.core.utils import write_result_json
+                result_data: Dict[str, Any] = {
+                    "status": "completed",
+                    "energy_reference": "bare_mlmm_pes",
+                    "n_grid_points": surface_stats["n_grid_points"],
+                    **_result_calculator_fields(None),
+                    "min_energy_hartree": surface_stats["min_energy_hartree"],
+                    "files": {
+                        "scan3d_density_html": "scan3d_density.html",
+                    },
+                }
+                if surface_stats["complete_provenance"]:
+                    result_data["n_points_usable"] = surface_stats[
+                        "n_points_usable"
+                    ]
+                write_result_json(
+                    final_dir, result_data,
+                    command="scan3d",
+                    elapsed_seconds=time.perf_counter() - time_start,
+                )
+        except KeyboardInterrupt:
+            click.echo("\nInterrupted by user.", err=True)
+            sys.exit(130)
         except Exception as exc:
-            click.echo(f"[read] Failed to read CSV '{resolved_csv}': {exc}", err=True)
-            sys.exit(1)
-        click.echo(f"[read] Loaded precomputed grid from '{resolved_csv}'.")
-        _finalize_surface_and_plot(
-            df=df,
-            final_dir=final_dir,
-            baseline=baseline,
-            zmin=zmin,
-            zmax=zmax,
-            d1_label_csv=None,
-            d2_label_csv=None,
-            d3_label_csv=None,
-            write_surface_csv=False,
-            time_start=time_start,
-        )
-        if out_json:
-            from mlmm.core.utils import write_result_json
-            min_energy = float(df["energy_hartree"].min()) if (not df.empty and "energy_hartree" in df.columns) else None
-            result_data: Dict[str, Any] = {
-                "status": "completed",
-                "energy_reference": "bare_mlmm_pes",
-                "n_grid_points": len(df),
-                **_result_calculator_fields(None),
-                "min_energy_hartree": min_energy,
-                "files": {
-                    "scan3d_density_html": "scan3d_density.html",
-                },
-            }
-            write_result_json(
-                final_dir, result_data,
+            render_cli_exception(
+                exc,
+                label="3D scan",
+                out_dir=final_dir,
                 command="scan3d",
-                elapsed_seconds=time.perf_counter() - time_start,
+                time_start=time_start,
             )
         return
 
@@ -1017,6 +1079,7 @@ def cli(
             # replaces the default.
             _preopt_conv: Optional[bool] = True
             if preopt:
+                preopt_input = _snapshot_geometry(geom_outer)
                 click.echo("[preopt] Unbiased relaxation of the initial structure ...")
                 geom_outer.set_calculator(base_calc)
                 optimizer0 = _make_lbfgs(
@@ -1036,6 +1099,23 @@ def cli(
                 except OptimizationError as exc:
                     click.echo(f"[preopt] OptimizationError — {exc}", err=True)
                     _preopt_conv = False
+                try:
+                    preopt_energy_check = unbiased_energy_hartree(
+                        geom_outer, base_calc
+                    )
+                    preopt_state_finite = bool(
+                        np.all(np.isfinite(np.asarray(geom_outer.coords3d)))
+                        and np.isfinite(float(preopt_energy_check))
+                    )
+                except Exception:
+                    preopt_state_finite = False
+                if _preopt_conv is not True or not preopt_state_finite:
+                    click.echo(
+                        "[preopt] Preoptimization was not a finite converged "
+                        "result; restoring the input geometry for the scan.",
+                        err=True,
+                    )
+                    geom_outer = _snapshot_geometry(preopt_input)
 
             records: List[Dict[str, Any]] = []
 
@@ -1272,12 +1352,6 @@ def cli(
                             )
                             converged = False
 
-                        # Cache final geometry for nearest-neighbor reuse ONLY when
-                        # it explicitly converged; a nonconverged/failed inner point
-                        # must never seed a later grid point.
-                        if converged is True:
-                            d3_store[k_idx] = _snapshot_geometry(geom_inner)
-
                         energy_h = unbiased_energy_hartree(geom_inner, base_calc)
 
                         xyz_path = grid_dir / f"point_i{d1_tag}_j{d2_tag}_k{d3_tag}.xyz"
@@ -1302,6 +1376,19 @@ def cli(
                                 f"[write] WARNING: failed to write or convert {xyz_path.name}: {exc}",
                                 err=True,
                             )
+
+                        # Reuse only scientifically usable points. A converged
+                        # state with a non-finite energy or no geometry artifact
+                        # must not seed a later grid point.
+                        if (
+                            converged is True
+                            and math.isfinite(energy_h)
+                            and np.isfinite(
+                                np.asarray(geom_inner.coords3d, dtype=float)
+                            ).all()
+                            and _artifact_written
+                        ):
+                            d3_store[k_idx] = _snapshot_geometry(geom_inner)
 
                         if dump and trj_blocks is not None:
                             block = geom_inner.as_xyz()
@@ -1345,7 +1432,7 @@ def cli(
                             )
 
             df = pd.DataFrame.from_records(records)
-            _finalize_surface_and_plot(
+            surface_stats = _finalize_surface_and_plot(
                 df=df,
                 final_dir=final_dir,
                 baseline=baseline,
@@ -1369,31 +1456,15 @@ def cli(
                     if csv_path is None
                     else []
                 )
-                # the reported minimum comes ONLY from seed-eligible points
-                # (converged + finite); a failed point with a numerically lower
-                # energy must never become min_energy_hartree.
-                _seed_ok_json = seed_eligible_mask(grid_records)
-                _eligible_grid_energies = [
-                    float(rec["energy_hartree"])
-                    for rec, eligible in zip(grid_records, _seed_ok_json)
-                    if bool(eligible)
-                ]
-                min_energy = (
-                    min(_eligible_grid_energies)
-                    if _eligible_grid_energies
-                    else None
-                )
                 result_data_main: Dict[str, Any] = {
                     "status": "completed",
                     "energy_reference": "bare_mlmm_pes",
-                    "n_grid_points": (
-                        len(grid_records) if csv_path is None else len(df)
-                    ),
+                    "n_grid_points": surface_stats["n_grid_points"],
                     "pair1": {"i": int(i1 + 1), "j": int(j1 + 1), "low": float(low1), "high": float(high1)},
                     "pair2": {"i": int(i2 + 1), "j": int(j2 + 1), "low": float(low2), "high": float(high2)},
                     "pair3": {"i": int(i3 + 1), "j": int(j3 + 1), "low": float(low3), "high": float(high3)},
                     **_result_calculator_fields(calc_cfg),
-                    "min_energy_hartree": min_energy,
+                    "min_energy_hartree": surface_stats["min_energy_hartree"],
                     "files": {
                         "surface_csv": "surface.csv",
                         "scan3d_density_html": "scan3d_density.html",

@@ -194,7 +194,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 ### `scan` / `scan2d` / `scan3d`
 
-scan は `stages[]` 配列にステージごとのデータと `n_stages` を含みます。各 stage には（追加フィールド）`optimizer_status`（`converged`/`not_converged`/`stalled`）と、そのステージの最後の optimizer が非収束停止した場合の `stop_reason` を含みます。scan2d/scan3d は `n_grid_points` と `pair1`/`pair2`(/`pair3`)（各 `{i, j, low, high}`）に加えて、表面の最小エネルギー `min_energy_hartree` を含みます。fresh runでは共通calculator provenanceと`charge`・`spin`を記録します。plot-onlyの`scan3d --csv`も同じキーを保持しますが、importしたenergy gridからcalculatorを特定できないため、`mlip_backend`、`mlip_model`、`mlip_precision`、`mm_backend`、`link_atom_method`、`use_cmap`、`charge`、`spin`はnullです。
+scan は `stages[]` 配列にステージごとのデータと `n_stages` を含みます。各 stage には（追加フィールド）`optimizer_status`（`converged`/`not_converged`/`stalled`）と、そのステージの最後の optimizer が非収束停止した場合の `stop_reason` を含みます。scan2d/scan3d は `n_grid_points` と `pair1`/`pair2`(/`pair3`)（各 `{i, j, low, high}`）に加えて、表面の最小エネルギー `min_energy_hartree` を含みます。fresh run は事前最適化行を除く試行数 `n_points_attempted` と、明示的に収束し有限値・構造 artifact を持つ `n_points_usable`、共通 calculator provenance、`charge`・`spin`を記録します。plot-only の `scan3d --csv` は `n_points_attempted` を出力せず、収束・artifact provenance が完全な CSV の場合だけ `n_points_usable` を出力します。また import した energy grid から calculator を特定できないため、`mlip_backend`、`mlip_model`、`mlip_precision`、`mm_backend`、`link_atom_method`、`use_cmap`、`charge`、`spin` は null です。
 
 ### `path-opt`
 
@@ -203,6 +203,7 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `converged` | bool | 収束判定 |
 | `mep_mode` | string | `"dmf"` / `"gsm"` |
 | `image_energies_hartree` | float[] | 全イメージエネルギー |
+| `hei_index` | int | 最高エネルギーイメージの index |
 | `barrier_kcal` | float | 前方障壁 (kcal/mol) |
 | `delta_kcal` | float | 反応エネルギー (kcal/mol) |
 

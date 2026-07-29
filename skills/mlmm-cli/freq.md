@@ -97,7 +97,7 @@ unidentified legacy NPZ files are rejected.
 ```python
 import json
 d = json.load(open("result_freq/result.json"))
-print(d["n_imaginary"])                 # 0 for minimum, 1 for TS
+print(d["n_imaginary"])                 # minimum certification: 0; TS: 1
 print(d["frequencies_cm"][:5])          # first five frequencies
 print(d["thermochemistry"]["zpe_ha"])
 print(d["thermochemistry"]["thermal_correction_energy_ha"])
@@ -149,8 +149,9 @@ and Hessian shape under `rigid_projection`.
 
 ## Caveats
 
-- A minimum should have **0 imaginary frequencies**, a TS should have
-  **exactly 1**.
+- Separate minimum certification ideally has **0 imaginary frequencies**; a
+  certified TS must have **exactly 1**. Residual imaginary modes in R/P do not
+  block thermochemistry.
 - A small-magnitude imaginary frequency may be numerical or a real shallow
   mode. Inspect its displacement and repeat the Hessian at suitable precision;
   the QRRHO cutoff does not validate a stationary point.

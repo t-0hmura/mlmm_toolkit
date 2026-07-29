@@ -39,7 +39,8 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 
 | flag | type | default | description |
 |---|---|---|---|
-| `-i, --input` | path | required | Layered `.pdb` (or `.xyz`) |
+| `-i, --input` | path | required | Layered `.pdb`, or `.xyz` with `--ref-pdb` |
+| `--ref-pdb` | path | required for XYZ | Atom-order-identical full-system PDB/mmCIF topology and layer metadata |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `--hess` / `--no-hess` | flag | `no-hess` | Also compute the full ONIOM Hessian and save to `hessian.npy` |
 | `--hessian-calc-mode` | str | (auto) | `Analytical` (UMA/ORB/MACE/AIMNet2) or `FiniteDifference`; used only with `--hess` |
@@ -52,6 +53,13 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ## Examples
 
 ### Energy + forces
+
+For XYZ coordinates, supply the matching full-system topology:
+
+```bash
+mlmm sp -i structure.xyz --ref-pdb structure.pdb --parm real.parm7 \
+  -q 0 -m 1 -o result_sp
+```
 
 ```bash
 mlmm sp -i my.pdb --parm real.parm7 -l 'SAM:1' -b uma -o result_sp

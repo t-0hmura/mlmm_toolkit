@@ -1,7 +1,7 @@
 # mlmm/domain/add_elem_info.py
 
 """
-Add/repair PDB element symbols (columns 77-78) using Biopython inference.
+Add/repair PDB element symbols (columns 77-78) without rewriting other records.
 
 Example:
     mlmm add-elem-info -i input.pdb -o fixed.pdb
@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Optional, Set
 
 import click
-from Bio.PDB import PDBParser, PDBIO
 
 # Residue / ion / water tables live in the L5 foundation layer so the
 # L3 domain module can consume them without re-importing the L2 workflows
@@ -82,6 +81,19 @@ def _symbol_from_resname(resname: str) -> Optional[str]:
         sym = "I"
     return sym
 
+
+def _symbol_from_aligned_atom_name(atom_name: str) -> Optional[str]:
+    """Infer an element from the four-column PDB atom-name alignment."""
+    if len(atom_name) < 4:
+        return None
+    raw = atom_name[:4]
+    if raw[0].isspace():
+        return _normalize_symbol(raw.lstrip()[:1])
+    if raw[0].isdigit():
+        return _normalize_symbol(raw.lstrip("0123456789")[:1])
+    return _normalize_symbol(raw[:2])
+
+
 # Element inference (use residue to disambiguate)
 def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
     """
@@ -129,6 +141,8 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
         # Water: only O and H (treat D* as H)
         if is_water:
             water_name = name_u.lstrip("0123456789")
+            if water_name.startswith(("EP", "LP")) or water_name in {"M", "MW"}:
+                return "EP"
             if water_name.startswith(("H", "D")):
                 return "H"
             return "O"
@@ -160,7 +174,11 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
         if sym:
             return sym
 
-    #    Hydrogen (including D*) for ligands/cofactors
+    aligned = _symbol_from_aligned_atom_name(atom_name)
+    if aligned is not None:
+        return aligned
+
+    # Unaligned programmatic inputs retain the historical prefix fallback.
     if name_u.startswith(("H", "D")):
         return "H"
     #    Carbon/Phosphorus-like labels (C*, P*) -> C/P (exclude CL)
@@ -176,52 +194,15 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
 
     return None
 
-# Detect whether the input originally had element fields,
-# keyed by atom serial number (columns 7–11)
-def scan_existing_elements_by_serial(pdb_path: str) -> Set[int]:
-    """
-    Scan the raw PDB lines and return the serial numbers of ATOM/HETATM records whose
-    element field (columns 77–78) was non-empty in the original file.
-    This avoids Biopython side effects and reflects the true presence/absence in the input.
-    """
-    serials_with_elem: Set[int] = set()
-    try:
-        with open(pdb_path, "r", encoding="utf-8", errors="ignore") as fh:
-            for line in fh:
-                if not (line.startswith("ATOM") or line.startswith("HETATM")):
-                    continue
-                if len(line) < 78:
-                    # No element field present
-                    continue
-                serial_str = line[6:11].strip()
-                elem_raw = line[76:78].strip()
-                if not serial_str:
-                    continue
-                try:
-                    serial = int(serial_str)
-                except ValueError:
-                    continue
-                # If non-empty, consider that the original file had an element entry
-                # (keep isotopic labels like D as-is)
-                if elem_raw:
-                    serials_with_elem.add(serial)
-    except Exception:
-        # If the file can't be read, return empty (treat all as unset)
-        pass
-    return serials_with_elem
-
-
-def _get_atom_serial(atom) -> Optional[int]:
-    """
-    Safely obtain the serial number from a Biopython Atom, handling version differences.
-    """
-    sn = getattr(atom, "serial_number", None)
-    if sn is None and hasattr(atom, "get_serial_number"):
-        try:
-            sn = atom.get_serial_number()
-        except Exception:
-            sn = None
-    return sn
+def _replace_element_field(line: str, symbol: str) -> str:
+    if line.endswith("\r\n"):
+        content, ending = line[:-2], "\r\n"
+    elif line.endswith(("\n", "\r")):
+        content, ending = line[:-1], line[-1:]
+    else:
+        content, ending = line, ""
+    content = content.ljust(78)
+    return content[:76] + f"{symbol:>2}" + content[78:] + ending
 
 
 def _default_out_pdb_path(in_pdb: str) -> str:
@@ -237,64 +218,67 @@ def assign_elements(
     overwrite: bool = False,
     inplace: bool = False,
 ) -> None:
-    # Scan the input file for the original presence of element fields
-    existing_by_serial = scan_existing_elements_by_serial(in_pdb)
-
-    parser = PDBParser(QUIET=True)
-    structure_id = os.path.splitext(os.path.basename(in_pdb))[0]
-    structure = parser.get_structure(structure_id, in_pdb)
-
     total = 0
-    assigned_new = 0          # newly set for atoms that lacked an element field
-    overwritten = 0           # element existed originally but was re-inferred due to --overwrite
-    kept_existing = 0         # element existed originally and was preserved (no --overwrite)
-    unknown = []              # could not infer (left unchanged)
-
+    assigned_new = 0
+    overwritten = 0
+    kept_existing = 0
+    unknown = []
     by_element = collections.Counter()
+    with open(in_pdb, "r", encoding="utf-8", errors="surrogateescape", newline="") as handle:
+        lines = handle.readlines()
 
-    for model in structure:
-        for chain in model:
-            for residue in chain:
-                hetflag = residue.id[0].strip()  # '' (empty) = standard; 'W' = water; 'H_' = HETATM
-                is_het = (hetflag != "")
-                resname = residue.get_resname()
-                for atom in residue:
-                    total += 1
-                    name = atom.get_name()
+    model_id: object = 0
+    rewritten = []
+    for line in lines:
+        if line.startswith("MODEL"):
+            token = line[10:14].strip()
+            model_id = int(token) if token.isdigit() else token or model_id
+        if not line.startswith(("ATOM  ", "HETATM")):
+            rewritten.append(line)
+            continue
 
-                    serial = _get_atom_serial(atom)
-                    had_element_in_input = (serial in existing_by_serial) if serial is not None else False
+        total += 1
+        previous = line[76:78].strip() if len(line.rstrip("\r\n")) >= 78 else ""
+        if previous and not overwrite:
+            kept_existing += 1
+            rewritten.append(line)
+            continue
 
-                    if had_element_in_input and not overwrite:
-                        kept_existing += 1
-                        continue  # Respect existing element: do not modify without --overwrite
+        atom_name = line[12:16]
+        resname = line[17:20]
+        symbol = guess_element(atom_name, resname, line.startswith("HETATM"))
+        serial_text = line[6:11].strip()
+        serial = int(serial_text) if serial_text.isdigit() else None
+        if symbol is None:
+            unknown.append(
+                (
+                    model_id,
+                    line[21:22].strip(),
+                    resname.strip(),
+                    line[22:26].strip(),
+                    line[26:27].strip(),
+                    atom_name.strip(),
+                    serial,
+                )
+            )
+            rewritten.append(line)
+            continue
 
-                    sym = guess_element(name, resname, is_het)
-                    if sym is None:
-                        unknown.append((model.id, chain.id, residue.id, resname, name, serial))
-                        # If inference failed: keep the previous value (if any), otherwise leave unset
-                        continue
+        by_element[symbol] += 1
+        if previous:
+            if previous != symbol:
+                overwritten += 1
+        else:
+            assigned_new += 1
+        rewritten.append(_replace_element_field(line, symbol))
 
-                    # Biopython uses atom.element to populate columns 77–78 on output
-                    prev = getattr(atom, "element", None)
-                    atom.element = sym
-                    by_element[sym] += 1
-                    if had_element_in_input:
-                        if prev != sym:
-                            overwritten += 1
-                    else:
-                        assigned_new += 1
-
-    io = PDBIO()
-    io.set_structure(structure)
-    # File replacement and field re-inference are independent choices. An
-    # explicit output always wins over --inplace.
     out_path = (
         out_pdb
         if out_pdb
         else (in_pdb if inplace else _default_out_pdb_path(in_pdb))
     )
-    io.save(out_path)
+    with open(out_path, "w", encoding="utf-8", errors="surrogateescape", newline="") as handle:
+        handle.writelines(rewritten)
 
     # Summary
     click.echo(f"[add-elem-info] Wrote: {out_path}")
@@ -310,12 +294,7 @@ def assign_elements(
             "[add-elem-info] WARNING: Could not confidently assign "
             f"{len(unknown)} atoms; left unchanged."
         )
-        for (mid, chid, resid, resn, aname, serial) in unknown[:50]:
-            if isinstance(resid, tuple):
-                resseq = resid[1]
-                icode = resid[2].strip()
-            else:
-                resseq, icode = "?", ""
+        for mid, chid, resn, resseq, icode, aname, serial in unknown[:50]:
             s_str = f" serial {serial}" if serial is not None else ""
             click.echo(
                 f"    model {mid} chain {chid} {resn} {resseq}{icode} : "
@@ -327,7 +306,7 @@ def assign_elements(
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Add/repair element columns (77–78) in a PDB using Biopython."
+        description="Add/repair element columns (77–78) in a PDB."
     )
     ap.add_argument("pdb", help="input PDB filepath")
     ap.add_argument(
@@ -363,7 +342,7 @@ def main():
 
 # Click subcommand (mlmm add-elem-info)
 @click.command(
-    help="Add/repair element columns (77–78) in a PDB using Biopython.",
+    help="Add/repair element columns (77–78) in a PDB.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(

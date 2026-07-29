@@ -9,14 +9,18 @@
 | --- | --- | --- |
 | **入力 / 抽出** | | |
 | 元素列欠損 / 抽出が中断 | 元の PDB に対して `add-elem-info` を実行 | [入力 / 抽出](troubleshooting.md#入力--抽出の問題) |
+| `[multi] Atom count mismatch` / `Coordinate shape mismatch` / `Element sequence mismatch` | 全 PDB を同じ前処理と設定で再生成し、現 PDB から `mm-parm` を再実行。parm7 作成後に原子順を変更しない | [入力 / 抽出](troubleshooting.md#入力--抽出の問題) |
 | **電荷 / スピン** | | |
 | `ML-region charge is unresolved. Provide -q/--charge or --ligand-charge.` エラー | `-q/--charge` または `-l/--ligand-charge` を明示的に指定 | [電荷 / スピン](troubleshooting.md#電荷--スピンの問題) |
 | 実行後にエネルギー/状態がおかしい | CLI 規約の電荷/多重度ポリシーを再確認 | [電荷 / スピン](troubleshooting.md#電荷--スピンの問題) |
 | **インストール / 環境** | | |
+| UMA model の 401/403 / gated-repo error | `hf auth login` を実行し model license を承認 | [インストール / 環境](troubleshooting.md#インストール--環境の問題) |
+| `ImportError: orb-models is required`（AIMNet2 / MACE も同様） | 対応 extra を install。MACE は別環境を使用 | [インストール / 環境](troubleshooting.md#インストール--環境の問題) |
 | `mm-parm` が実行できない（`tleap`/`antechamber`/`parmchk2` が見つからない） | AmberTools の利用可能性を先に修正 | [AmberTools / mm-parm](troubleshooting.md#ambertools--mm-parm-の問題) |
 | `hessian_ff` の import/ビルドエラー | ネイティブ拡張（`hessian_ff/native`）を再ビルド | [hessian_ff ビルド](troubleshooting.md#hessian_ff-ビルドの問題) |
-| DMF モードの import エラー（`cyipopt`） | アクティブ環境に `cyipopt` をインストール | [DMF モード](troubleshooting.md#dmf-モードが動かないcyipopt-がない) |
+| DMF モードの import エラー（`ase` / `cyipopt` / `pydmf`） | `ase`、`cyipopt`、`pydmf>=1.2` をアクティブ環境にインストール | [DMF モード](troubleshooting.md#dmf-モードが動かないcyipopt-がない) |
 | **GPU / CUDA** | | |
+| CUDA OOM (`torch.cuda.OutOfMemoryError`) | ML 領域を縮小し、`FiniteDifference` Hessian または大容量 GPU を使用 | [CUDA OOM](troubleshooting.md#ja-cuda-oom) |
 | CUDA/GPU ランタイム不整合 | `torch.cuda.is_available()` と CUDA ビルドの組み合わせを確認 | [CUDA / PyTorch](troubleshooting.md#cuda--pytorch-の不整合) |
 | **収束** | | |
 | TSOPT/IRC が収束しない | ステップ長を縮小（RFO/RS-I-RFO では trust_radius、L-BFGS では max_step）、サイクル数を増やし、まず TS の品質を検証 | [計算 / 収束](troubleshooting.md#計算--収束の問題) |

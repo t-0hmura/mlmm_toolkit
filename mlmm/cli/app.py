@@ -443,6 +443,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
+            "--ref-pdb",
             "--parm",
             "--model-pdb",
             "--detect-layer",
@@ -679,6 +680,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
+            "--ref-pdb",
             "--parm",
             "--model-pdb",
             "--detect-layer",

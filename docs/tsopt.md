@@ -148,7 +148,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
    - Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a Dimer + L-BFGS micro-segment.
 4. **Heavy mode (RS-I-RFO)** — runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section. The flatten behavior:
    - With `--flatten`, when more than one imaginary mode remains after convergence the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten-iteration cap is reached.
-   - Each flatten iteration recomputes a fresh ML/MM Hessian (partial ML-only by default, or full per `--partial-hessian-flatten`) for imaginary-mode detection. There is no Bofill update in this path.
+   - Each flatten iteration recomputes a fresh ML/MM Hessian (partial ML-only by default, or full per `--full-hessian-flatten`) for imaginary-mode detection. There is no Bofill update in this path.
 5. **Mode export + conversion** — the converged imaginary mode is always written to `vib/imag_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
 
 ## Outputs

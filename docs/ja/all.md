@@ -181,7 +181,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH...` | 反応順の 2 つ以上の完全 PDB（`--scan-lists`（段階的スキャン）または `--tsopt`（TSOPT のみ）の場合のみ単一入力可）。 | 必須 |
+| `-i, --input PATH...` | 反応順の 2 つ以上の完全構造。PDB は直接、XYZ は `--ref-pdb` と併用（`--scan-lists`（段階的スキャン）または `--tsopt`（TSOPT のみ）の場合のみ単一入力可）。 | 必須 |
 | `-c, --center TEXT` | 基質指定（PDB パス、残基 ID（`308,309`）、または残基名（`SAM,GPP`））。省略時は抽出をスキップし完全構造をそのまま使用。 | _None_ |
 | `-l, --ligand-charge TEXT` | 非標準残基の総電荷または残基別マッピング（例: `GPP:-3,MMT:-1`）。 | _None_ |
 | `-q, --charge INT` | ML 領域/model system の正味電荷を強制指定（最優先の上書き）。 | _None_ |
@@ -190,7 +190,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--model-pdb FILE` | 構築済み ML 領域 PDB。指定時は ML 領域決定をスキップし、このファイルで ML 領域を直接定義。 | _None_ |
 | `--ref-pdb FILE` | XYZ 入力用の参照 PDB。入力が XYZ の場合に PDB メタデータ（残基、鎖、B 因子）を復元するために必要。 | _None_ |
 | `--convert-files/--no-convert-files` | テンプレート利用可能時に XYZ/TRJ から対応する PDB の生成を切り替えるグローバルトグル。 | `True` |
-| `--dump/--no-dump` | 任意のオプティマイザ軌跡・リスタートを保存。常に `path-search`/`path-opt` に転送し、`scan`/`tsopt` にはここで明示設定時のみ転送します。`--thermo` 時は Gibbs 集約を欠損させないため、必須の子 `thermoanalysis.yaml` handoff を `--no-dump` でも保持します。 | `False` |
+| `--dump/--no-dump` | 任意のオプティマイザ軌跡・リスタートを保存。親で明示したトグルは `path-search`/`path-opt` と `scan`/`tsopt` に転送し、省略時は各子が YAML/default を解決します。`--thermo` 時は Gibbs 集約を欠損させないため、必須の子 `thermoanalysis.yaml` handoff を `--no-dump` でも保持します。 | `False` |
 | `--config FILE` | 先に適用するベース YAML。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済み設定を表示。 | `False` |
 | `--dry-run/--no-dry-run` | 一時ディレクトリで抽出/setup と電荷・parity 検証を実行し、計画を表示して計算 stage は省略。`--help-advanced` に表示。 | `False` |
@@ -336,8 +336,9 @@ dft:
 
 入力形式は抽出の有無に依存します:
 
-- 抽出有効時（`-c/--center`）: 入力は残基を特定するため **PDB** ファイルが必要。
-- 抽出スキップ時: 入力は **PDB/XYZ** が使用可能。
+- PDB 入力はそのまま使用できます。
+- XYZ 入力には `--ref-pdb` が必要です。座標は XYZ、抽出および後続 stage
+  の残基・鎖・B 因子メタデータは参照 PDB から取得します。
 - マルチ構造実行には 2 つ以上の構造が必要。
 
 電荷は優先度の高い順に解決されます -- `-q/--charge`（明示的な CLI 上書き）-> ポケット抽出（`-c` 指定時、アミノ酸 + イオン + `--ligand-charge` の合計）-> `-l, --ligand-charge` フォールバック（抽出スキップ時）-> デフォルト（未解決の電荷はエラー）。スピンの解決: `--multiplicity`（CLI）-> デフォルト（1）。正しい電荷伝播のため、非標準基質には常に `--ligand-charge` を指定してください。最初のモデルの ML 領域の総電荷は最も近い整数に丸められ、丸め処理が発生した場合はコンソールに通知されます。

@@ -2,6 +2,12 @@
 
 Export an Amber-topology ML/MM system into an external QM/MM input file — Gaussian ONIOM (`--mode g16`, with link-atom annotations) or ORCA QM/MM (`--mode orca`, with ORCAFF handling). It combines an Amber `parm7` topology, a coordinate file, and the ML-region (QM) definition into a single ready-to-run input file: the QM region is taken from `--model-pdb`, and the surrounding MM environment is emitted in the target program's native format with link-atom annotations at the QM/MM cut.
 
+Both export modes require a CMAP-free `parm7`. Gaussian ONIOM cannot
+represent these terms faithfully, and ORCA's MM engine does not apply them;
+the exporter therefore fails before writing when the topology contains CMAP.
+This is an export-format limitation—normal mlmm calculations may keep CMAP
+enabled in both MM layers.
+
 ## Examples
 
 ```bash

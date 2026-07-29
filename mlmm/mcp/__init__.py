@@ -20,6 +20,14 @@ def serve() -> None:
     Lazily imports `mlmm.mcp.server` so that `mlmm --help` does not pull
     `mcp` into the import graph.
     """
-    from mlmm.mcp.server import serve as _serve
+    try:
+        from mlmm.mcp.server import serve as _serve
+    except ModuleNotFoundError as exc:
+        if exc.name == "mcp" or str(exc.name).startswith("mcp."):
+            raise RuntimeError(
+                "The MCP server requires the optional dependency set. "
+                "Install it with: pip install 'mlmm-toolkit[mcp]'"
+            ) from exc
+        raise
 
     _serve()

@@ -184,19 +184,18 @@ def _coherent_altloc_records(
 ) -> tuple[list[AtomSiteRecord], int]:
     """Choose one labelled conformer per residue and retain shared atoms."""
 
-    grouped: dict[tuple[str, str, str, str], list[AtomSiteRecord]] = {}
-    order: list[tuple[str, str, str, str]] = []
+    occurrences: list[list[AtomSiteRecord]] = []
+    previous_key: tuple[str, str, str, str] | None = None
     for record in records:
         key = record.residue_key
-        if key not in grouped:
-            grouped[key] = []
-            order.append(key)
-        grouped[key].append(record)
+        if previous_key != key:
+            occurrences.append([])
+            previous_key = key
+        occurrences[-1].append(record)
 
     selected: list[AtomSiteRecord] = []
     removed = 0
-    for key in order:
-        residue_records = grouped[key]
+    for residue_records in occurrences:
         labels: list[str] = []
         for record in residue_records:
             label = record.altloc.strip()
@@ -461,13 +460,48 @@ def read_pdb_atom_sites(
             residue_shift = 0
             resseq_field = line[22 + offset : 26 + offset]
             if 26 + offset < len(line) and line[26 + offset].isdigit():
+                standard_coords: tuple[float, float, float] | None = None
+                try:
+                    parsed_standard = tuple(
+                        float(line[start + offset : end + offset])
+                        for start, end in ((30, 38), (38, 46), (46, 54))
+                    )
+                    if bool(np.all(np.isfinite(parsed_standard))):
+                        standard_coords = parsed_standard
+                except ValueError:
+                    pass
                 overflow_end = 26 + offset
-                while overflow_end < len(line) and line[overflow_end].isdigit():
+                while (
+                    overflow_end < len(line)
+                    and line[overflow_end].isdigit()
+                ):
                     overflow_end += 1
                 overflow_value = line[22 + offset : overflow_end].strip()
+                overflow_shift = overflow_end - (26 + offset)
+                overflow_coords: tuple[float, float, float] | None = None
                 if re.fullmatch(r"[-+]?\d{5,}", overflow_value):
+                    try:
+                        parsed_overflow = tuple(
+                            float(
+                                line[
+                                    start + offset + overflow_shift :
+                                    end + offset + overflow_shift
+                                ]
+                            )
+                            for start, end in ((30, 38), (38, 46), (46, 54))
+                        )
+                        if bool(np.all(np.isfinite(parsed_overflow))):
+                            overflow_coords = parsed_overflow
+                    except ValueError:
+                        pass
+                if standard_coords is not None and overflow_coords is not None:
+                    raise ValueError(
+                        f"Ambiguous numeric insertion code/residue overflow "
+                        f"layout at {path}:{line_number}."
+                    )
+                if overflow_coords is not None:
                     resseq_field = overflow_value
-                    residue_shift = overflow_end - (26 + offset)
+                    residue_shift = overflow_shift
                     nonstandard = True
             try:
                 resseq_value = _hy36decode(4, resseq_field) if not residue_shift else int(resseq_field)
@@ -642,23 +676,29 @@ def write_internal_pdb(records: Sequence[AtomSiteRecord], path: Path | str) -> N
     """Write records using safe one-character chains and four-digit residue IDs."""
 
     path = Path(path)
-    residue_order = list(dict.fromkeys(record.residue_key for record in records))
-    if len(residue_order) > _MAX_RESIDUES:
+    occurrence_indices: list[int] = []
+    previous_key: Optional[tuple[str, str, str, str]] = None
+    occurrence_index = -1
+    for record in records:
+        if occurrence_index < 0 or record.residue_key != previous_key:
+            occurrence_index += 1
+            previous_key = record.residue_key
+        occurrence_indices.append(occurrence_index)
+    residue_count = occurrence_index + 1
+    if residue_count > _MAX_RESIDUES:
         raise ValueError(
-            f"Structure has {len(residue_order)} residues; internal PDB bridge supports "
+            f"Structure has {residue_count} residues; internal PDB bridge supports "
             f"at most {_MAX_RESIDUES:,}."
         )
-    residue_map: dict[tuple[str, str, str, str], tuple[str, int]] = {}
-    for index, key in enumerate(residue_order):
-        residue_map[key] = (_CHAIN_IDS[index // 9999], index % 9999 + 1)
 
     internal_atom_names = _internal_atom_names(records)
     lines: list[str] = []
     previous_chain: Optional[str] = None
-    for index, (record, internal_atom_name) in enumerate(
-        zip(records, internal_atom_names)
+    for index, (record, internal_atom_name, residue_index) in enumerate(
+        zip(records, internal_atom_names, occurrence_indices)
     ):
-        chain, resseq = residue_map[record.residue_key]
+        chain = _CHAIN_IDS[residue_index // 9999]
+        resseq = residue_index % 9999 + 1
         if previous_chain is not None and chain != previous_chain:
             lines.append("TER\n")
         previous_chain = chain
@@ -745,6 +785,25 @@ def attach_template_metadata(structure: Any, template: CoordinateTemplate) -> No
             f"Internal PDB atom count ({len(atoms)}) does not match retained template "
             f"({template.natoms}) from {template.source_path}."
         )
+    expected_names = _internal_atom_names(template.records)
+    for index, (atom, record, expected_name) in enumerate(
+        zip(atoms, template.records, expected_names), start=1
+    ):
+        if atom.get_name().strip() != expected_name:
+            raise ValueError(
+                "Internal PDB atom order differs from the retained template "
+                f"at atom {index} from {template.source_path}."
+            )
+        if not np.allclose(
+            np.asarray(atom.get_coord(), dtype=float),
+            np.asarray((record.x, record.y, record.z), dtype=float),
+            rtol=0.0,
+            atol=5.1e-4,
+        ):
+            raise ValueError(
+                "Internal PDB coordinate order differs from the retained "
+                f"template at atom {index} from {template.source_path}."
+            )
     setattr(structure, "_mlmm_coordinate_template", template)
     for atom, record in zip(atoms, template.records):
         atom.xtra["mlmm_atom_site"] = record

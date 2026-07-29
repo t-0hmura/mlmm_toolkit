@@ -7,8 +7,8 @@ inconsistent with the atom name. Many PDBs from PyMOL / Maestro come
 out with empty element columns; running `extract` on them fails
 because the element-aware truncation logic can't classify atoms.
 
-Always run `add-elem-info` (and `fix-altloc.md`) on a freshly-downloaded
-RCSB PDB before any other subcommand.
+Run `add-elem-info` when the element fields are missing or unreliable.
+Use `fix-altloc.md` separately when alternate locations are present.
 
 ## Synopsis
 
@@ -33,10 +33,9 @@ mlmm add-elem-info -i raw.pdb -o cleaned.pdb
 
 ## Algorithm
 
-The element is inferred from the **atom name and residue name** (with
-the HETATM flag), via `guess_element()`. The atom name is read with
-Biopython (`atom.get_name()`); the existing element field occupies
-cols 77–78. Inference follows a fixed priority:
+The element is inferred from the **fixed-column atom name and residue name**
+(with the HETATM flag), via `guess_element()`. The existing element field
+occupies cols 77–78. Inference follows a fixed priority:
 
 1. **Ion residues** (`ION` table): polyatomic ions (NH4, H3O+, …) are
    decided per atom name (H/D→H, N→N, O→O); monatomic metals/halogens
@@ -53,6 +52,8 @@ cols 77–78. Inference follows a fixed priority:
 
 - Existing element columns are **preserved** by default; pass
   `--overwrite` to re-infer them. Diff before committing.
+- Only cols 77–78 of repaired ATOM/HETATM records change; all other columns
+  and non-atom records are preserved.
 - Atom names that don't follow the standard convention (e.g.
   exotic ligand names) may be misclassified; verify by spot-check.
 

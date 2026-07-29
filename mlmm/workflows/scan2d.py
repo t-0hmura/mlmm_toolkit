@@ -750,10 +750,8 @@ def cli(
 
             echo_resolved_device()
 
-            # The reference/anchor structure is usable-by-default when no preopt
-            # is requested; when preopt runs, its reported convergence bit
-            # replaces the default so a nonconverged preopt never seeds the grid.
-            _preopt_conv: Optional[bool] = True
+            raw_anchor = _snapshot_geometry(geom_outer)
+            _preopt_conv: Optional[bool] = None
             if preopt:
                 click.echo("[preopt] Unbiased relaxation of the initial structure ...")
                 geom_outer.set_calculator(base_calc)
@@ -774,6 +772,17 @@ def cli(
                 except OptimizationError as exc:
                     click.echo(f"[preopt] OptimizationError — {exc}", err=True)
                     _preopt_conv = False
+
+                if not np.isfinite(
+                    np.asarray(geom_outer.coords3d, dtype=float)
+                ).all():
+                    click.echo(
+                        "[preopt] Result contains non-finite coordinates; restoring "
+                        "the unoptimized anchor for scan initialization.",
+                        err=True,
+                    )
+                    _preopt_conv = False
+                    geom_outer = _snapshot_geometry(raw_anchor)
 
             records: List[Dict[str, Any]] = []
             # Keep track of previously visited structures (preopt + biased scans)
@@ -830,11 +839,28 @@ def cli(
                         "is_preopt": True,
                     }
                 )
-                # Also store a snapshot of this structure as the first candidate
-                # starting point for subsequent biased scans — ONLY when it
-                # explicitly converged; a nonconverged preopt must never seed a
-                # later grid point.
-                if _preopt_conv is True:
+                preopt_accepted = (
+                    preopt
+                    and _preopt_conv is True
+                    and math.isfinite(preopt_energy_h)
+                    and preopt_artifact_written
+                )
+                if preopt and not preopt_accepted:
+                    click.echo(
+                        "[preopt] Result is not scientifically usable; restoring "
+                        "the unoptimized anchor for scan initialization.",
+                        err=True,
+                    )
+                    geom_outer = _snapshot_geometry(raw_anchor)
+                    d1_ref = distance_A_from_coords(
+                        np.asarray(geom_outer.coords3d), i1, j1
+                    )
+                    d2_ref = distance_A_from_coords(
+                        np.asarray(geom_outer.coords3d), i2, j2
+                    )
+
+                # The anchor initializes relaxation but is never a PES point.
+                if math.isfinite(d1_ref) and math.isfinite(d2_ref):
                     grid_states.append(
                         {
                             "d1_A": float(d1_ref),
@@ -843,10 +869,25 @@ def cli(
                         }
                     )
             else:
-                click.echo(
-                    "[center] WARNING: failed to determine reference distances; using grid order as-is.",
-                    err=True,
-                )
+                if preopt:
+                    click.echo(
+                        "[preopt] Result has non-finite scan coordinates; restoring "
+                        "the unoptimized anchor for scan initialization.",
+                        err=True,
+                    )
+                    _preopt_conv = False
+                    geom_outer = _snapshot_geometry(raw_anchor)
+                    d1_ref = distance_A_from_coords(
+                        np.asarray(geom_outer.coords3d), i1, j1
+                    )
+                    d2_ref = distance_A_from_coords(
+                        np.asarray(geom_outer.coords3d), i2, j2
+                    )
+                if not (math.isfinite(d1_ref) and math.isfinite(d2_ref)):
+                    click.echo(
+                        "[center] WARNING: failed to determine reference distances; using grid order as-is.",
+                        err=True,
+                    )
                 d1_ref_tag = None
                 d2_ref_tag = None
 
@@ -964,19 +1005,8 @@ def cli(
 
                     energy_h = unbiased_energy_hartree(geom_inner, base_calc)
 
-                    # Record this grid point as a new candidate starting structure
-                    # for subsequent scans — ONLY when it explicitly converged; a
-                    # nonconverged/failed point must never seed a later target.
                     d1_cur = distance_A_from_coords(np.asarray(geom_inner.coords3d), i1, j1)
                     d2_cur = distance_A_from_coords(np.asarray(geom_inner.coords3d), i2, j2)
-                    if converged is True and math.isfinite(d1_cur) and math.isfinite(d2_cur):
-                        grid_states.append(
-                            {
-                                "d1_A": float(d1_cur),
-                                "d2_A": float(d2_cur),
-                                "geom": _snapshot_geometry(geom_inner),
-                            }
-                        )
 
                     # Distance-based filenames: e.g., point_i125_j324.xyz for d1=1.25 Å, d2=3.24 Å
                     xyz_path = grid_dir / f"point_i{d1_tag}_j{d2_tag}.xyz"
@@ -1001,6 +1031,21 @@ def cli(
                         click.echo(
                             f"[write] WARNING: failed to write or convert {xyz_path.name}: {exc}",
                             err=True,
+                        )
+
+                    if (
+                        converged is True
+                        and math.isfinite(energy_h)
+                        and math.isfinite(d1_cur)
+                        and math.isfinite(d2_cur)
+                        and _artifact_written
+                    ):
+                        grid_states.append(
+                            {
+                                "d1_A": float(d1_cur),
+                                "d2_A": float(d2_cur),
+                                "geom": _snapshot_geometry(geom_inner),
+                            }
                         )
 
                     if dump and trj_blocks is not None:
@@ -1053,7 +1098,10 @@ def cli(
             # optimizer explicitly converged with a finite unbiased energy may
             # define the baseline or the reported minimum. Failed/nonconverged
             # rows are retained in surface.csv for diagnostics but excluded here.
-            df["seed_eligible"] = seed_eligible_mask(records)
+            df["seed_eligible"] = (
+                np.asarray(seed_eligible_mask(records), dtype=bool)
+                & ~df["is_preopt"].astype(bool).to_numpy()
+            )
             _elig_df = df[df["seed_eligible"]]
 
             def _eligible_min() -> float:
@@ -1242,6 +1290,7 @@ def cli(
                 margin=dict(l=10, r=10, b=10, t=40),
             )
             png2d = final_dir / "scan2d_map.png"
+            png2d.unlink(missing_ok=True)
             try:
                 fig2d.write_image(str(png2d), scale=2, width=680, height=600)
             except Exception as e:
@@ -1376,6 +1425,13 @@ def cli(
             if out_json:
                 from mlmm.core.utils import write_result_json
 
+                files = {
+                    "surface_csv": "surface.csv",
+                    "scan2d_landscape_html": "scan2d_landscape.html",
+                }
+                if png2d.is_file():
+                    files["scan2d_map_png"] = "scan2d_map.png"
+
                 result_data = _build_scan2d_result_payload(
                     records=records,
                     calc_cfg=calc_cfg,
@@ -1391,11 +1447,7 @@ def cli(
                         "low": float(low2),
                         "high": float(high2),
                     },
-                    files={
-                        "surface_csv": "surface.csv",
-                        "scan2d_map_png": "scan2d_map.png",
-                        "scan2d_landscape_html": "scan2d_landscape.html",
-                    },
+                    files=files,
                 )
                 write_result_json(
                     final_dir, result_data,

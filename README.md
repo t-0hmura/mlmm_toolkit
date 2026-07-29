@@ -75,6 +75,7 @@ hf auth login                               # interactive
 | `[dft]` | PySCF + GPU4PySCF single-point DFT (`--dft` / `mlmm dft`) — practical to ~500 ML-region atoms |
 | `[mcp]` | Model Context Protocol server (`mlmm-mcp`) for agent clients |
 | `[pdbfixer]` | PDBFixer extra (alternative to the conda install above) |
+| `[openmm]` | OpenMM low-level backend, including virtual-site water models |
 
 The MACE backend (`-b mace`) is **not** a pip extra: `mace-torch` pins `e3nn==0.4.4`, which conflicts with `fairchem-core`'s `e3nn>=0.5` (UMA), so it needs a dedicated environment — `pip uninstall -y fairchem-core && pip install mace-torch` (see [docs/getting-started.md#installation](docs/getting-started.md#installation)).
 
@@ -185,9 +186,12 @@ Agent Skills for Claude Code / Codex / Cursor etc. in [`skills/`](skills/) — c
 ## Known limitations
 
 - **MACE + UMA cannot coexist** (`e3nn` version conflict). Use separate conda envs.
-- **DFT single-point** is practical to ~500 ML-region atoms; larger regions incur high computational cost.
-- **ORB backend** sometimes converges TS with extra soft imaginary modes — prefer UMA / MACE for clean single-saddle spectra.
-- **CPU-only execution** is 10–100× slower than GPU; AmberTools (`tleap`) is required for `mm-parm`.
+- **DFT single-point** cost and practical region size depend on method, basis,
+  hardware, memory, and system; benchmark the intended setup before production.
+- **MLIP backends** can differ in stationary-point curvature; validate the
+  selected backend on representative structures and inspect the modes.
+- **CPU-only execution** may be substantially slower than GPU depending on the
+  backend and system; AmberTools (`tleap`) is required for `mm-parm`.
 
 ## Contributing
 
@@ -195,4 +199,4 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-GNU General Public License v3 (GPL-3.0).
+GNU General Public License version 3 or later (GPL-3.0-or-later).

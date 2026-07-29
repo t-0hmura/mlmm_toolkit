@@ -812,7 +812,13 @@ class _MACEBackend(_ASEMLBackend):
                 "mace-torch is required for the MACE backend. "
                 "Install with `pip install mace-torch`."
             )
-        from mace.calculators import mace_off, mace_mp, mace_anicc, mace_omol
+        from mace.calculators import (
+            MACECalculator,
+            mace_anicc,
+            mace_mp,
+            mace_off,
+            mace_omol,
+        )
 
         device_str = "cuda" if ml_device.type == "cuda" else "cpu"
         model_lower = mace_model.lower()
@@ -829,7 +835,18 @@ class _MACEBackend(_ASEMLBackend):
                 model=model_name, device=device_str, default_dtype=mace_dtype
             )
         elif model_lower.startswith("anicc") or model_lower.startswith("mace-anicc"):
-            self._ase_calc = mace_anicc(device=device_str, default_dtype=mace_dtype)
+            if mace_dtype == "float64":
+                self._ase_calc = mace_anicc(device=device_str)
+            else:
+                raw_model = mace_anicc(
+                    device=device_str,
+                    return_raw_model=True,
+                )
+                self._ase_calc = MACECalculator(
+                    models=raw_model,
+                    device=device_str,
+                    default_dtype=mace_dtype,
+                )
         elif model_lower.startswith("omol") or model_lower.startswith("mace-omol"):
             # MACE-OMOL loads via the dedicated mace_omol factory. mace_off treats any non-preset,
             # non-URL string as a LOCAL file path, so the default "MACE-OMOL-0"
@@ -1835,6 +1852,7 @@ class MLMMCore:
         xtb_ncores: int = 4,
         use_cmap: bool = True,
         _high_level_backend: Optional[Any] = None,
+        _skip_high_level_backend: bool = False,
         **kwargs,
     ):
         # --- v0.1.x backward compatibility aliases ---
@@ -1864,6 +1882,7 @@ class MLMMCore:
         link_atom_method = normalize_link_atom_method(link_atom_method)
         if (
             _high_level_backend is None
+            and not _skip_high_level_backend
             and int(workers or 1) > 1
             and hessian_calc_mode == "Analytical"
         ):
@@ -2023,7 +2042,9 @@ class MLMMCore:
                 f"Spin multiplicity must be >= 1, got {self.model_mult}."
             )
         logger.info(f"[MLMMCore] ML-region net charge = {self.model_charge}")
-        if _high_level_backend is not None:
+        if _skip_high_level_backend:
+            self.backend_name = "none"
+        elif _high_level_backend is not None:
             self.backend_name = str(
                 getattr(_high_level_backend, "name", "external")
             ).strip().lower()
@@ -2035,22 +2056,25 @@ class MLMMCore:
         # Validate charge/spin parity before loading the ML model.
         # selection_indices is parmed 0-based (a.idx in _mk_model_parm7); index
         # real_top.atoms directly without subtracting 1.
-        from mlmm.core.utils import validate_charge_spin as _vcs
-        from ase.data import chemical_symbols as _chem_sym
-        _ml_elements = [
-            _chem_sym[int(real_top.atoms[i].atomic_number)]
-            for i in self.selection_indices
-        ]
-        # Each link atom adds one H (+1 electron); validate including them.
-        _ml_elements.extend(["H"] * len(self.mlmm_links))
-        _vcs(_ml_elements, self.model_charge, self.model_mult, source=model_pdb)
-        self._charge_check_done = True
+        if not _skip_high_level_backend:
+            from mlmm.core.utils import validate_charge_spin as _vcs
+            from ase.data import chemical_symbols as _chem_sym
+            _ml_elements = [
+                _chem_sym[int(real_top.atoms[i].atomic_number)]
+                for i in self.selection_indices
+            ]
+            # Each link atom adds one H (+1 electron); validate including them.
+            _ml_elements.extend(["H"] * len(self.mlmm_links))
+            _vcs(_ml_elements, self.model_charge, self.model_mult, source=model_pdb)
+            self._charge_check_done = True
+        else:
+            self._charge_check_done = False
 
         # DFT and other energy-only high-level methods can replace only this
         # evaluator while retaining the ordinary ML/MM preparation, MM
         # calculators, and subtractive recombination.
         self._ml_backend = _high_level_backend
-        if self._ml_backend is None:
+        if self._ml_backend is None and not _skip_high_level_backend:
             self._ml_backend = _create_ml_backend(
                 self.backend_name,
                 uma_model=uma_model,
@@ -2226,10 +2250,20 @@ class MLMMCore:
                 frozen_from_layer = set(layer_info["frozen_indices"]) & mm_indices
                 hess_from_layer = set(layer_info["hess_mm_indices"]) & mm_indices
 
-                # Unassigned MM atoms default to movable.
-                assigned_mm = movable_from_layer | frozen_from_layer | hess_from_layer
-                unassigned_mm = mm_indices - assigned_mm
-                movable_pool = set(movable_from_layer) | set(unassigned_mm)
+                if self.movable_cutoff is not None:
+                    movable_pool = {
+                        idx
+                        for idx in mm_indices
+                        if min_dist_to_ml(idx) <= float(self.movable_cutoff)
+                    }
+                    frozen_from_layer = mm_indices - movable_pool
+                else:
+                    # Unassigned MM atoms default to movable.
+                    assigned_mm = (
+                        movable_from_layer | frozen_from_layer | hess_from_layer
+                    )
+                    unassigned_mm = mm_indices - assigned_mm
+                    movable_pool = set(movable_from_layer) | set(unassigned_mm)
 
                 # Hessian-target MM selection:
                 hess_mm: set[int]
@@ -2237,7 +2271,7 @@ class MLMMCore:
                     hess_cut = float(self.hess_cutoff)
                     hess_mm = {idx for idx in movable_pool if min_dist_to_ml(idx) <= hess_cut}
                 else:
-                    hess_mm = set(hess_from_layer)
+                    hess_mm = set(hess_from_layer) & movable_pool
 
                 movable_mm = movable_pool - hess_mm
 
@@ -3414,6 +3448,7 @@ class mlmm(PySiCalc):
         xtb_ncores: int = 4,
         use_cmap: bool = True,
         _high_level_backend: Optional[Any] = None,
+        _skip_high_level_backend: bool = False,
         **kwargs,
     ):
         # --- v0.1.x backward compatibility aliases ---
@@ -3486,6 +3521,7 @@ class mlmm(PySiCalc):
             xtb_ncores=xtb_ncores,
             use_cmap=use_cmap,
             _high_level_backend=_high_level_backend,
+            _skip_high_level_backend=_skip_high_level_backend,
         )
 
         self.out_hess_torch = bool(out_hess_torch)

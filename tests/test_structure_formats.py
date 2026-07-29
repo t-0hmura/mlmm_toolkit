@@ -105,6 +105,118 @@ def test_pdb_output_rejects_when_no_xyz_frame_matches_topology(tmp_path: Path) -
         convert_xyz_to_pdb(xyz, ref, tmp_path / "out.pdb")
 
 
+def test_all_materializes_xyz_coordinates_on_reference_topology(
+    tmp_path: Path,
+) -> None:
+    from mlmm.core.utils import (
+        apply_ref_pdb_override,
+        load_pdb_atom_metadata,
+        prepare_input_structure,
+    )
+    from mlmm.workflows.all import _materialize_all_coordinate_inputs
+
+    ref = tmp_path / "ref.pdb"
+    ref.write_text(
+        "HETATM    1  C1  LIG A   7       0.000   0.000   0.000  1.00 10.00           C\n"
+        "HETATM    2  O1  LIG A   7       1.000   0.000   0.000  1.00 20.00           O\n"
+        "END\n",
+        encoding="utf-8",
+    )
+    xyz = tmp_path / "endpoint.xyz"
+    xyz.write_text(
+        "2\nendpoint\nC 3.125 4.250 5.375\nO 6.500 7.625 8.750\n",
+        encoding="utf-8",
+    )
+    prepared = prepare_input_structure(xyz)
+    try:
+        apply_ref_pdb_override(prepared, ref)
+        (materialized,) = _materialize_all_coordinate_inputs(
+            [prepared],
+            tmp_path / "work",
+        )
+
+        metadata = load_pdb_atom_metadata(materialized)
+        atom_lines = [
+            line
+            for line in materialized.read_text(encoding="utf-8").splitlines()
+            if line.startswith(("ATOM", "HETATM"))
+        ]
+        assert metadata[0]["chain"] == "A"
+        assert metadata[0]["resname"] == "LIG"
+        assert [float(atom_lines[0][30:38]), float(atom_lines[1][30:38])] == [
+            3.125,
+            6.5,
+        ]
+        assert [float(atom_lines[0][60:66]), float(atom_lines[1][60:66])] == [
+            10.0,
+            20.0,
+        ]
+    finally:
+        prepared.cleanup()
+
+
+def test_all_coordinate_materialization_preserves_colliding_reference(
+    tmp_path: Path,
+) -> None:
+    import click
+
+    from mlmm.core.utils import apply_ref_pdb_override, prepare_input_structure
+    from mlmm.workflows.all import _materialize_all_coordinate_inputs
+
+    work_dir = tmp_path / "work"
+    ref = work_dir / "coordinate_inputs" / "endpoint_01.pdb"
+    ref.parent.mkdir(parents=True)
+    original = (
+        "HETATM    1  C1  LIG A   7       0.000   0.000   0.000  1.00 10.00           C\n"
+        "END\n"
+    )
+    ref.write_text(original, encoding="utf-8")
+    xyz = tmp_path / "endpoint.xyz"
+    xyz.write_text("1\nendpoint\nC 3.125 4.250 5.375\n", encoding="utf-8")
+    prepared = prepare_input_structure(xyz)
+    try:
+        apply_ref_pdb_override(prepared, ref)
+        with pytest.raises(click.BadParameter, match="managed all-workflow"):
+            _materialize_all_coordinate_inputs([prepared], work_dir)
+        assert ref.read_text(encoding="utf-8") == original
+    finally:
+        prepared.cleanup()
+
+
+def test_all_coordinate_materialization_preserves_other_endpoint_input(
+    tmp_path: Path,
+) -> None:
+    import click
+
+    from mlmm.core.utils import apply_ref_pdb_override, prepare_input_structure
+    from mlmm.workflows.all import _materialize_all_coordinate_inputs
+
+    work_dir = tmp_path / "work"
+    first_input = work_dir / "coordinate_inputs" / "endpoint_02.pdb"
+    first_input.parent.mkdir(parents=True)
+    original = (
+        "HETATM    1  C1  LIG A   7       0.000   0.000   0.000  1.00 10.00           C\n"
+        "END\n"
+    )
+    first_input.write_text(original, encoding="utf-8")
+    ref = tmp_path / "ref.pdb"
+    ref.write_text(original, encoding="utf-8")
+    xyz = tmp_path / "endpoint.xyz"
+    xyz.write_text("1\nendpoint\nC 3.125 4.250 5.375\n", encoding="utf-8")
+    prepared = [
+        prepare_input_structure(first_input),
+        prepare_input_structure(xyz),
+    ]
+    try:
+        apply_ref_pdb_override(prepared[1], ref)
+        with pytest.raises(click.BadParameter, match="managed all-workflow"):
+            _materialize_all_coordinate_inputs(prepared, work_dir)
+        assert first_input.read_text(encoding="utf-8") == original
+    finally:
+        for item in prepared:
+            item.cleanup()
+
+
 @pytest.mark.parametrize(
     ("bad_frame", "message"),
     [

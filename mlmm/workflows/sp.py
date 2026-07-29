@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import gc
 import logging
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -30,6 +31,7 @@ from mlmm.core.defaults import GEOM_KW_DEFAULT, MLMM_CALC_KW, OUT_DIR_SP
 from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 from mlmm.core.utils import (
     apply_yaml_overrides,
+    apply_ref_pdb_override,
     calculator_provenance,
     format_elapsed,
     merge_freeze_atom_indices,
@@ -149,6 +151,12 @@ def _resolve_sp_ml_region(
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
     help="Layered PDB (or XYZ) defining the ML/MM/Frozen system.",
+)
+@click.option(
+    "--ref-pdb",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Full-system PDB/mmCIF topology required when --input is XYZ.",
 )
 @click.option(
     "--parm", "--real-parm7", "real_parm7",
@@ -294,6 +302,7 @@ def _resolve_sp_ml_region(
 def cli(
     ctx: click.Context,
     input_path: Path,
+    ref_pdb: Optional[Path],
     real_parm7: Path,
     model_pdb: Optional[Path],
     model_indices_str: Optional[str],
@@ -343,7 +352,13 @@ def cli(
         config_yaml=config_yaml, override_yaml=None,
     )
 
+    if input_path.suffix.lower() == ".xyz" and ref_pdb is None:
+        raise click.BadParameter(
+            "XYZ input requires --ref-pdb topology.",
+            param_hint="--ref-pdb",
+        )
     prepared = prepare_input_structure(input_path)
+    apply_ref_pdb_override(prepared, ref_pdb)
     out_dir_path: Optional[Path] = None
     time_start: float = time.perf_counter()
 
@@ -458,6 +473,19 @@ def cli(
             # Honor that contract by returning before any SCF/Hessian work.
             return
 
+        # Validate the ML-region contract without creating the requested output
+        # directory or constructing a calculator. The real run repeats this
+        # resolution below and publishes its generated model PDB there.
+        with tempfile.TemporaryDirectory(prefix="mlmm_sp_validate_") as tmp_dir:
+            validation_cfg = dict(calc_cfg)
+            _resolve_sp_ml_region(
+                source_path=Path(prepared.source_path),
+                out_dir_path=Path(tmp_dir),
+                calc_cfg=validation_cfg,
+                model_indices_str=model_indices_str,
+                model_indices_one_based=model_indices_one_based,
+            )
+
         if dry_run:
             click.echo(f"[sp] dry-run: would compute ONIOM SP on {input_path} -> {out_dir_path}")
             return
@@ -566,6 +594,7 @@ def cli(
             command="sp", time_start=time_start,
         )
     finally:
+        prepared.cleanup()
         try:
             del geom  # type: ignore[name-defined]
         except NameError:

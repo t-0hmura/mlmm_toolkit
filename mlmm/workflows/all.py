@@ -91,6 +91,7 @@ from mlmm.core.utils import (
     ensure_dir,
     format_elapsed,
     prepare_input_structure,
+    PreparedInputStructure,
     load_yaml_dict,
     load_pdb_atom_metadata,
     parse_scan_list_triples,
@@ -469,6 +470,8 @@ def _run_cli_main(
         code = getattr(e, "code", 1)
         if code not in (None, 0):
             rc = code
+            if code == 130:
+                raise
             if on_nonzero == "raise":
                 raise click.ClickException(f"[{label}] {cmd_name} exit code {code}.")
             _echo(f"[{label}] WARNING: {cmd_name} exited with code {code}")
@@ -800,6 +803,49 @@ def _element_fix_path(root: Path, source: Path, ordinal: int) -> Path:
     """Allocate a collision-free private element-repair path."""
 
     return (Path(root) / f"{int(ordinal):03d}_{Path(source).name}").resolve()
+
+
+def _materialize_all_coordinate_inputs(
+    prepared_inputs: Sequence[PreparedInputStructure],
+    work_dir: Path,
+) -> Tuple[Path, ...]:
+    """Overlay XYZ coordinates on private PDB topology inputs."""
+
+    coordinate_input_dir = work_dir / "coordinate_inputs"
+    coordinate_destinations = {
+        input_ordinal: (
+            coordinate_input_dir / f"endpoint_{input_ordinal:02d}.pdb"
+        ).resolve()
+        for input_ordinal, prepared in enumerate(prepared_inputs, start=1)
+        if prepared.geom_path.suffix.lower() == ".xyz"
+    }
+    protected_paths = {
+        path.resolve()
+        for prepared in prepared_inputs
+        for path in (prepared.source_path, prepared.geom_path)
+    }
+    collisions = set(coordinate_destinations.values()) & protected_paths
+    if collisions:
+        collision = sorted(collisions, key=str)[0]
+        raise click.BadParameter(
+            "Input and --ref-pdb files must be outside the managed "
+            f"all-workflow path {collision}."
+        )
+
+    coordinate_inputs: List[Path] = []
+    for input_ordinal, prepared in enumerate(prepared_inputs, start=1):
+        if prepared.geom_path.suffix.lower() != ".xyz":
+            coordinate_inputs.append(prepared.source_path.resolve())
+            continue
+        ensure_dir(coordinate_input_dir)
+        coordinate_pdb = coordinate_destinations[input_ordinal]
+        convert_xyz_to_pdb(
+            prepared.geom_path,
+            prepared.source_path,
+            coordinate_pdb,
+        )
+        coordinate_inputs.append(coordinate_pdb.resolve())
+    return tuple(coordinate_inputs)
 
 
 def _mm_charge_mapping(expr: Optional[str]) -> Dict[str, int]:
@@ -3913,8 +3959,7 @@ def cli(
         # success/exception path too (not only the dry-run/validation branches).
         session.resources.own_cleanup(prepared)
     input_paths = tuple(
-        original if original.suffix.lower() == ".xyz" else prepared.source_path
-        for original, prepared in zip(_original_input_paths, _prepared_all_inputs)
+        prepared.source_path for prepared in _prepared_all_inputs
     )
 
     _prepared_ref_pdb = None
@@ -4174,6 +4219,10 @@ def cli(
     out_dir = out_dir.resolve()
     work_dir = out_dir / WORK_DIRNAME  # pipeline-wide scratch (safe to rm -rf)
     session.resources.own_exclusive_lock(work_dir / ".run.lock")
+    input_paths = _materialize_all_coordinate_inputs(
+        _prepared_all_inputs,
+        work_dir,
+    )
     # Declare the run's public root deliverables up front so their pre-run
     # baseline is captured before any producer writes.  A stale file from an
     # earlier invocation that this run does not rewrite stays unclaimed and is
@@ -4326,8 +4375,12 @@ def cli(
             f"====== [all] Stage 1/{stage_total} — Active-site pocket extraction ======"
         )
         ensure_dir(pockets_dir)
-        for p in extract_inputs:
-            pocket_outputs.append((pockets_dir / f"pocket_{p.stem}.pdb").resolve())
+        pocket_stems = [p.stem for p in extract_inputs]
+        for idx, p in enumerate(extract_inputs, start=1):
+            suffix = f"_{idx:02d}" if pocket_stems.count(p.stem) > 1 else ""
+            pocket_outputs.append(
+                (pockets_dir / f"pocket_{p.stem}{suffix}.pdb").resolve()
+            )
 
         try:
             ex_res = extract_api(
@@ -4394,9 +4447,8 @@ def cli(
     _echo_section("====== [all] Stage 1b — ML/MM preparation — ML region + parm7 ======")
     first_pocket = pocket_outputs[0]
     first_full_input = extract_inputs[0]
-    # When --ref-pdb is provided, use it for PDB-requiring topology operations
-    pocket_for_ml_region = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_pocket
-    pdb_for_mm_parm = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_full_input
+    pocket_for_ml_region = first_pocket
+    pdb_for_mm_parm = first_full_input
 
     # ML region definition: use --model-pdb if provided, otherwise generate from pocket.
     # When extraction was skipped + detect-layer, the "pocket" is the whole input, so
@@ -4484,7 +4536,11 @@ def cli(
     )
     region_workspace = _prepare_ml_region_workspace(
         input_pdb=pdb_for_mm_parm,
-        coordinate_path=None,
+        coordinate_path=(
+            _prepared_all_inputs[0].geom_path
+            if _prepared_all_inputs[0].geom_path.suffix.lower() == ".xyz"
+            else None
+        ),
         real_parm7=real_parm7_path,
         model_pdb=ml_region_pdb,
         link_mlmm=structure_calc_cfg.get("link_mlmm"),
@@ -4514,7 +4570,7 @@ def cli(
             f"[all] ML structure with link H ({n_model_atoms} + {n_link_atoms}; "
             f"links from {link_source}) → {ml_with_link}"
         )
-        if Path(input_paths[0]).suffix.lower() == ".pdb":
+        if _original_input_paths[0].suffix.lower() == ".pdb":
             ml_without_link_pdb, ml_with_link_pdb = write_ml_region_pdb_pair(
                 region_workspace,
                 out_dir,
@@ -4539,7 +4595,22 @@ def cli(
     _echo_section("====== [all] Stage 1c — define-layer — assign 3-layer B-factors to full-system PDBs ======")
     layered_dir = out_dir / "layered"  # deliverable (B-factor-layered PDBs for inspection / reuse)
     ensure_dir(layered_dir)
+    layer_source_dir = work_dir / "layer_sources"
     layered_inputs: List[Path] = []
+
+    def _coordinate_layer_source(full_path: Path, index: int) -> Path:
+        """Return a PDB with this endpoint's coordinates and shared metadata."""
+        if full_path.suffix.lower() == ".pdb":
+            return full_path
+        if ref_pdb_for_topology is None:
+            raise click.ClickException(
+                f"[all] {full_path.name} requires --ref-pdb for layer assignment."
+            )
+        ensure_dir(layer_source_dir)
+        source_pdb = layer_source_dir / f"endpoint_{index + 1:02d}.pdb"
+        convert_xyz_to_pdb(full_path, ref_pdb_for_topology, source_pdb)
+        return source_pdb
+
     # With extraction skipped, --detect-layer always reads the input layers.
     # An explicit --model-pdb owns ML membership while the input B-factors
     # retain their movable/frozen MM assignments. Recomputing either case here
@@ -4552,9 +4623,7 @@ def cli(
             "B-factor layer encoding (ML=0/MovableMM=10/FrozenMM=20)."
         )
         for idx, full_pdb in enumerate(extract_inputs):
-            pdb_for_layer = full_pdb
-            if ref_pdb_for_topology is not None and full_pdb.suffix.lower() != ".pdb":
-                pdb_for_layer = ref_pdb_for_topology
+            pdb_for_layer = _coordinate_layer_source(full_pdb, idx)
             counts = _summarize_existing_bfactor_layers(pdb_for_layer)
             _echo_detail(
                 f"[all] define-layer [{idx}]: {full_pdb.name} (input B-factor layers honored)  "
@@ -4562,12 +4631,23 @@ def cli(
             )
             layered_inputs.append(pdb_for_layer)
     else:
-        for idx, full_pdb in enumerate(extract_inputs):
+        layer_sources = [
+            _coordinate_layer_source(full_pdb, idx)
+            for idx, full_pdb in enumerate(extract_inputs)
+        ]
+        layer_stems = [source.stem for source in layer_sources]
+        for idx, (full_pdb, pdb_for_layer) in enumerate(
+            zip(extract_inputs, layer_sources)
+        ):
             # When --ref-pdb is given and input is not PDB, use ref_pdb for define-layer
-            pdb_for_layer = full_pdb
-            if ref_pdb_for_topology is not None and full_pdb.suffix.lower() != ".pdb":
-                pdb_for_layer = ref_pdb_for_topology
-            out_layered = layered_dir / f"{pdb_for_layer.stem}_layered.pdb"
+            suffix = (
+                f"_{idx + 1:02d}"
+                if layer_stems.count(pdb_for_layer.stem) > 1
+                else ""
+            )
+            out_layered = (
+                layered_dir / f"{pdb_for_layer.stem}{suffix}_layered.pdb"
+            )
             try:
                 layer_info = _define_layers(
                     input_pdb=pdb_for_layer,
@@ -4595,10 +4675,13 @@ def cli(
         layered_pdb = layered_inputs[0]
         # When --ref-pdb is given and input is XYZ, copy the XYZ next to the layered PDB
         # so that _run_tsopt_on_hei can use XYZ (full precision) + layered PDB (topology)
-        if ref_pdb_for_topology is not None and extract_inputs[0].suffix.lower() != ".pdb":
+        if (
+            ref_pdb_for_topology is not None
+            and _original_input_paths[0].suffix.lower() == ".xyz"
+        ):
             xyz_companion = layered_pdb.with_suffix(".xyz")
             if not xyz_companion.exists():
-                shutil.copy2(extract_inputs[0], xyz_companion)
+                shutil.copy2(_prepared_all_inputs[0].geom_path, xyz_companion)
                 _echo(f"[all] Copied XYZ input → {xyz_companion} (full precision for tsopt)")
         # TS optimization
         ts_pdb, g_ts = _run_tsopt_on_hei(

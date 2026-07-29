@@ -73,6 +73,7 @@ from mlmm.core.utils import (
     build_energy_diagram,
     prepare_input_structure,
     PreparedInputStructure,
+    validate_endpoint_atom_identities,
     parse_indices_string,
     resolve_ml_layer_assignment,
 )
@@ -253,7 +254,10 @@ def _kabsch_rmsd(A: np.ndarray, B: np.ndarray, align: bool = True, indices: Opti
     """
     RMSD between A and B (no rigid alignment; `align` is ignored). Optional subset selection via `indices`.
     """
-    assert A.shape == B.shape and A.shape[1] == 3
+    if A.shape != B.shape or A.ndim != 2 or A.shape[1] != 3:
+        raise ValueError(
+            f"RMSD coordinate shapes must match (N, 3); got {A.shape} and {B.shape}."
+        )
     if indices is not None and len(indices) > 0:
         idx = np.array(sorted({int(i) for i in indices if 0 <= int(i) < A.shape[0]}), dtype=int)
         if idx.size == 0:
@@ -318,7 +322,11 @@ def _make_linear_interpolations(gL, gR, n_internal: int) -> List[Any]:
     """
     A = np.asarray(gL.coords3d, dtype=float)
     B = np.asarray(gR.coords3d, dtype=float)
-    assert A.shape == B.shape and A.shape[1] == 3, "Atom counts must match for interpolation."
+    if A.shape != B.shape or A.ndim != 2 or A.shape[1] != 3:
+        raise ValueError(
+            "Interpolation coordinate shapes must match (N, 3); "
+            f"got {A.shape} and {B.shape}."
+        )
     atoms = [a for a in gL.atoms]
     coord_type = gL.coord_type
     faL = getattr(gL, "freeze_atoms", np.array([], dtype=int))
@@ -946,7 +954,16 @@ def _stitch_paths(
             sub = segment_builder(tail, head, f"{tag}_mid")
             seg_imgs, seg_E = sub.images, sub.energies
             if segments_out is not None and getattr(sub, "segments", None):
-                segments_out.extend(sub.segments)
+                right_tag = _first_known_seg_tag_from_images(imgs)
+                insert_pos = next(
+                    (
+                        index
+                        for index, report in enumerate(segments_out)
+                        if report.tag == right_tag
+                    ),
+                    len(segments_out),
+                )
+                segments_out[insert_pos:insert_pos] = list(sub.segments)
             if seg_imgs:
                 if _kabsch_rmsd(np.array(all_imgs[-1].coords3d), np.array(seg_imgs[0].coords3d), align=False) <= stitch_rmsd_thresh:
                     seg_imgs = seg_imgs[1:]
@@ -1367,7 +1384,7 @@ def _build_multistep_path(
         )
         click.echo(warning_msg)
         gsm = _run_mep_between(
-            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_maxdepth",
+            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_kinklimit",
             ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
             calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
         )
@@ -2175,10 +2192,18 @@ def cli(
                 force=True)
             )
 
-        if int(stopt_cfg.get("max_cycles", 0)) <= 0:
-            click.echo("[INFO] max_cycles <= 0: skipping path search.")
-            return
+        effective_max_cycles = (
+            dmf_cfg.get("max_cycles", 0)
+            if mep_mode_kind == "dmf"
+            else stopt_cfg.get("max_cycles", 0)
+        )
+        if int(effective_max_cycles) <= 0:
+            raise click.BadParameter(
+                "--max-cycles must be at least 1.",
+                param_hint="--max-cycles",
+            )
 
+        validate_endpoint_atom_identities(prepared_inputs)
         out_dir_path.mkdir(parents=True, exist_ok=True)
 
         geoms = _load_structures(

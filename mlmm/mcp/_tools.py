@@ -6,6 +6,7 @@ ONIOM input I/O subcommands.
 """
 from __future__ import annotations
 
+import asyncio
 import tempfile
 from pathlib import Path
 from typing import Any, Optional
@@ -17,8 +18,12 @@ _SUMMARY_RESERVED_OUTPUTS = frozenset(
     {"-o", "--out-dir", "--out-json", "--no-out-json"}
 )
 _UTILITY_RESERVED_OUTPUTS = frozenset(
-    {"-o", "--out", "--output", "--output-file", "--output-prefix"}
+    {"-o", "--out", "--output", "--output-file", "--out-prefix"}
 )
+
+
+async def _run_subcmd_async(*args, **kwargs):
+    return await asyncio.to_thread(run_subcmd, *args, **kwargs)
 
 
 def _validate_extra_args(
@@ -107,7 +112,7 @@ def register_all(mcp) -> None:
     # Topology / layer-prep helpers (mlmm-specific)
 
     @mcp.tool()
-    def prepare_amber_topology(
+    async def prepare_amber_topology(
         input_pdb: str,
         output_prefix: str,
         *,
@@ -137,10 +142,10 @@ def register_all(mcp) -> None:
         if keep_temp:
             argv.append("--keep-temp")
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 
     @mcp.tool()
-    def define_layer(
+    async def define_layer(
         input_pdb: str,
         output_pdb: str,
         *,
@@ -172,10 +177,10 @@ def register_all(mcp) -> None:
         if one_based is not None:
             argv.append("--one-based" if one_based else "--zero-based")
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 
     @mcp.tool()
-    def extract_pocket(
+    async def extract_pocket(
         complex_pdb: str,
         ligand_id: str,
         radius_angstrom: float,
@@ -204,12 +209,12 @@ def register_all(mcp) -> None:
         elif exclude_backbone is False:
             argv.append("--no-exclude-backbone")
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 
     # Core stage runners (opt / tsopt / irc / freq) — ONIOM-aware
 
     @mcp.tool()
-    def optimize_geometry(
+    async def optimize_geometry(
         input_pdb: str,
         parm7: str,
         charge: int,
@@ -227,6 +232,7 @@ def register_all(mcp) -> None:
         embedcharge_cutoff: Optional[float] = None,
         link_atom_method: Optional[str] = None,
         mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         print_every: Optional[int] = None,
         dump_trajectory: bool = False,
         out_dir: Optional[str] = None,
@@ -260,18 +266,19 @@ def register_all(mcp) -> None:
             backend=backend, precision=precision,
             embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
             link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
         ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def find_transition_state(
+    async def find_transition_state(
         input_pdb: str,
         parm7: str,
         charge: int,
@@ -291,6 +298,7 @@ def register_all(mcp) -> None:
         embedcharge_cutoff: Optional[float] = None,
         link_atom_method: Optional[str] = None,
         mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         print_every: Optional[int] = None,
         skip_final_freq: bool = False,
         out_dir: Optional[str] = None,
@@ -328,18 +336,19 @@ def register_all(mcp) -> None:
             backend=backend, precision=precision,
             embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
             link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
         ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def run_irc(
+    async def run_irc(
         input_pdb: str,
         parm7: str,
         charge: int,
@@ -357,6 +366,7 @@ def register_all(mcp) -> None:
         embedcharge_cutoff: Optional[float] = None,
         link_atom_method: Optional[str] = None,
         mm_backend: Optional[str] = None,
+        use_cmap: Optional[bool] = None,
         hessian_calc_mode: Optional[str] = None,
         irc_pos_def: Optional[bool] = None,
         out_dir: Optional[str] = None,
@@ -387,18 +397,19 @@ def register_all(mcp) -> None:
             backend=backend, precision=precision,
             embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
             link_atom_method=link_atom_method, mm_backend=mm_backend,
+            use_cmap=use_cmap,
         ))
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def compute_frequencies(
+    async def compute_frequencies(
         input_pdb: str,
         parm7: str,
         charge: int,
@@ -435,20 +446,21 @@ def register_all(mcp) -> None:
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def run_single_point_oniom(
+    async def run_single_point_oniom(
         input_pdb: str,
         parm7: str,
         *,
         charge: Optional[int] = None,
         multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
+        ref_pdb: Optional[str] = None,
         model_pdb: Optional[str] = None,
         model_indices: Optional[str] = None,
         detect_layer: Optional[bool] = None,
@@ -472,8 +484,8 @@ def register_all(mcp) -> None:
     ) -> dict[str, Any]:
         """Single-point ONIOM energy / forces (and optional Hessian) (CLI: `mlmm sp`).
 
-        `input_pdb` must already carry ML/MM B-factor assignments
-        (e.g. produced by `define_layer` or `extract_pocket`). Either
+        `input_pdb` may be a layered PDB/mmCIF, or an XYZ accompanied by the
+        atom-order-identical `ref_pdb`. Either
         `--model-pdb` / `--model-indices` or `--detect-layer` must resolve the
         ML region. Set `do_hess=True` to also compute and save the full ONIOM
         Hessian to `hessian.npy`.
@@ -486,6 +498,8 @@ def register_all(mcp) -> None:
             argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
+        if ref_pdb:
+            argv.extend(["--ref-pdb", ref_pdb])
         if model_pdb:
             argv.extend(["--model-pdb", model_pdb])
         if model_indices:
@@ -515,15 +529,15 @@ def register_all(mcp) -> None:
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
 
     @mcp.tool()
-    def scan_1d(
+    async def scan_1d(
         input_pdb: str,
         parm7: str,
         charge: int,
@@ -570,14 +584,14 @@ def register_all(mcp) -> None:
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def scan_2d(
+    async def scan_2d(
         input_pdb: str,
         parm7: str,
         charge: int,
@@ -619,14 +633,14 @@ def register_all(mcp) -> None:
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def scan_3d(
+    async def scan_3d(
         input_pdb: str,
         parm7: str,
         charge: int,
@@ -668,14 +682,14 @@ def register_all(mcp) -> None:
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def optimize_path(
+    async def optimize_path(
         reactant_pdb: str,
         product_pdb: str,
         parm7: str,
@@ -716,14 +730,14 @@ def register_all(mcp) -> None:
         argv.append("--out-json")
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def search_paths(
+    async def search_paths(
         input_pdb: str,
         parm7: str,
         charge: int,
@@ -770,14 +784,14 @@ def register_all(mcp) -> None:
         ))
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def run_full_pipeline(
+    async def run_full_pipeline(
         reactant_complex_pdb: str,
         product_complex_pdb: Optional[str] = None,
         *,
@@ -843,14 +857,14 @@ def register_all(mcp) -> None:
             argv.append("--thermo" if do_thermo else "--no-thermo")
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     @mcp.tool()
-    def run_single_point_dft(
+    async def run_single_point_dft(
         input_pdb: str,
         parm7: str,
         charge: int,
@@ -886,16 +900,16 @@ def register_all(mcp) -> None:
         argv.extend(["--out-json"])
         argv.extend(["--out-dir", str(od)])
         _append_extra_args(argv, extra_args, reserved=_SUMMARY_RESERVED_OUTPUTS)
-        return run_subcmd(
+        return (await _run_subcmd_async(
             argv,
             out_dir=od,
             timeout=timeout_seconds,
-        ).to_dict()
+        )).to_dict()
 
     # ONIOM I/O (Gaussian / ORCA)
 
     @mcp.tool()
-    def export_oniom_input(
+    async def export_oniom_input(
         input_layered_pdb: str,
         parm7: str,
         charge: int,
@@ -917,10 +931,10 @@ def register_all(mcp) -> None:
         if format_engine:
             argv.extend(["--mode", format_engine])
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 
     @mcp.tool()
-    def import_oniom_input(
+    async def import_oniom_input(
         input_file: str,
         output_prefix: str,
         *,
@@ -930,12 +944,12 @@ def register_all(mcp) -> None:
         """Import an ONIOM input deck and reconstruct XYZ / layered PDB (CLI: `mlmm oniom-import`)."""
         argv: list[str] = ["mlmm", "oniom-import", "-i", input_file, "-o", output_prefix]
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 
     # Structure / I/O helpers (no out_dir, no summary.json)
 
     @mcp.tool()
-    def add_element_info(
+    async def add_element_info(
         input_pdb: str,
         output_pdb: str,
         *,
@@ -948,10 +962,10 @@ def register_all(mcp) -> None:
         if overwrite:
             argv.append("--overwrite")
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 
     @mcp.tool()
-    def fix_altloc(
+    async def fix_altloc(
         input_pdb: str,
         output_pdb: str,
         *,
@@ -961,10 +975,10 @@ def register_all(mcp) -> None:
         """Resolve PDB alternate locations (CLI: `mlmm fix-altloc`)."""
         argv: list[str] = ["mlmm", "fix-altloc", "-i", input_pdb, "-o", output_pdb]
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 
     @mcp.tool()
-    def plot_trajectory(
+    async def plot_trajectory(
         input_trj_xyz: str,
         output_png: str,
         *,
@@ -974,10 +988,10 @@ def register_all(mcp) -> None:
         """Plot an energy profile from a trajectory (CLI: `mlmm trj2fig`)."""
         argv: list[str] = ["mlmm", "trj2fig", "-i", input_trj_xyz, "-o", output_png]
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 
     @mcp.tool()
-    def plot_energy_diagram(
+    async def plot_energy_diagram(
         energies: str,
         output_png: str,
         *,
@@ -990,10 +1004,10 @@ def register_all(mcp) -> None:
         """
         argv: list[str] = ["mlmm", "energy-diagram", "-i", energies, "-o", output_png]
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 
     @mcp.tool()
-    def detect_bond_changes(
+    async def detect_bond_changes(
         reactant_pdb: str,
         product_pdb: str,
         *,
@@ -1001,6 +1015,19 @@ def register_all(mcp) -> None:
         timeout_seconds: Optional[float] = None,
     ) -> dict[str, Any]:
         """Detect bond changes between two PDB structures (CLI: `mlmm bond-summary`)."""
-        argv: list[str] = ["mlmm", "bond-summary", "-i", reactant_pdb, product_pdb]
-        _append_extra_args(argv, extra_args, reserved=frozenset())
-        return run_subcmd(argv, out_dir=None, timeout=timeout_seconds).to_dict()
+        argv: list[str] = [
+            "mlmm", "bond-summary", "-i", reactant_pdb, product_pdb, "--json"
+        ]
+        _append_extra_args(
+            argv,
+            extra_args,
+            reserved=frozenset({"--json", "--no-json"}),
+        )
+        return (
+            await _run_subcmd_async(
+                argv,
+                out_dir=None,
+                timeout=timeout_seconds,
+                parse_stdout_json=True,
+            )
+        ).to_dict()

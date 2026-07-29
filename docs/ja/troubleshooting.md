@@ -411,6 +411,7 @@ Plotly/Chrome 系のエラーで静的画像が出ない場合:
 
 ## 計算 / 収束の問題
 
+(ja-cuda-oom)=
 ### CUDA メモリ不足（OOM）
 
 症状:

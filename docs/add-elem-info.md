@@ -1,6 +1,6 @@
 # `add-elem-info`
 
-`mlmm add-elem-info` adds or repairs PDB element symbols (columns 77-78) using Biopython. Use it to add element columns to a PDB that lacks them, or to correct existing ones, before downstream tools that require them; the `--overwrite` flag re-infers and overwrites unreliable element fields. It parses the input PDB with Biopython (`PDBParser`), assigns `atom.element` using residue context and atom-name heuristics, and writes via `PDBIO` to populate columns 77-78. It supports ATOM and HETATM records across all models/chains/residues without altering coordinates.
+`mlmm add-elem-info` adds or repairs PDB element symbols (columns 77-78). It infers elements from fixed-column atom names and residue context, and replaces only the element field on ATOM/HETATM records. Use it before downstream tools when element columns are missing or unreliable; `--overwrite` also replaces existing element fields.
 
 ## Examples
 
@@ -36,8 +36,8 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 
 ## Workflow
 
-1. Parse the input PDB with `Bio.PDB.PDBParser`, mirroring the residue
-    definitions used in `extract.py` (`AMINO_ACIDS`, `WATER_RES`, `ION`).
+1. Read raw PDB records and classify atoms with the residue definitions used
+   in `extract.py` (`AMINO_ACIDS`, `WATER_RES`, `ION`).
 2. For each atom, guess the element by combining the atom name, residue name,
     and whether the record is HETATM:
  - **Ion residues:** Prefers residue-derived elements; polyatomic ions
@@ -47,7 +47,8 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
   (CA/CB/CG/...) to C.
  - **Ligands/cofactors:** Uses atom-name prefixes (C*/P*, excluding CL) and
   two-letter/one-letter normalization; recognizes halogens (Cl/Br/I/F).
-3. Write the structure through `PDBIO`:
+3. Replace only columns 77–78 on ATOM/HETATM records and preserve all other
+   columns and records:
  - No `-o/--out` given: writes `<input>_add_elem.pdb`.
  - `--inplace` without `-o/--out`: replaces the input file.
  - `-o/--out` given: writes to the specified path.
@@ -69,10 +70,9 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 | `--inplace/--no-inplace` | Replace the input file when `-o/--out` is omitted. | `False` |
 | `--overwrite/--no-overwrite` | Re-infer and overwrite element fields even if already present (by default, existing values are preserved). | `False` |
 
-`PDBIO` reserializes the structure. It preserves atom coordinates and standard
-ATOM/HETATM fields, but not every non-ATOM record (for example HEADER, REMARK,
-CONECT, or ANISOU) or legacy charge columns. Keep the default separate output
-unless replacement is intentional.
+Every input line is preserved byte-for-byte except columns 77–78 of
+ATOM/HETATM records selected for repair. HEADER, REMARK, CONECT, ANISOU, and
+legacy charge columns are retained.
 
 The full flag list is in the generated [command reference](reference/commands/index.md).
 

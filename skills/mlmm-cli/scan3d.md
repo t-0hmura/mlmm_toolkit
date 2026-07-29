@@ -60,8 +60,12 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
   sizes modest (5×5×5 = 125 points already).
 - For inherently 1D or 2D mechanisms, `scan.md` / `scan2d.md` are
   drastically cheaper.
-- `--csv` is the re-plotting entry point: rerun energy diagrams or
-  contour plots without redoing the scan.
+- `--csv` is the re-plotting entry point: regenerate the 3D isosurface
+  without redoing the scan.
+- Plot-only CSV requires `d1_A`, `d2_A`, `d3_A`, and `energy_hartree` or
+  `energy_kcal`. Fresh files also carry `bias_converged`,
+  `artifact_written`, and `is_preopt`; unusable rows are excluded. At least
+  four unique non-coplanar usable points spanning all axes are required.
 
 ## See also
 

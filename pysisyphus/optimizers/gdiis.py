@@ -262,12 +262,13 @@ def gediis(coords, energies, forces, hessian=None, max_vecs=3):
     # x = res.x
     # import pdb; pdb.set_trace()
 
-    coeffs = None
-    if res.success:
-        coeffs = x2c(res.x)
-        en_ = res.fun
-        if isinstance(hessian, torch.Tensor):
-            coeffs = torch.from_numpy(coeffs).to(device=hessian.device, dtype=hessian.dtype)
+    if not res.success:
+        log("\tOptimization failed.")
+        return None
+    coeffs = x2c(res.x)
+    en_ = res.fun
+    if isinstance(hessian, torch.Tensor):
+        coeffs = torch.from_numpy(coeffs).to(device=hessian.device, dtype=hessian.dtype)
     log(f"\tOptimization converged!")
     coeff_str = array2string(coeffs, precision=4)
     log(f"\tCoefficients: {coeff_str}")

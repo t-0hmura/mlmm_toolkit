@@ -201,7 +201,26 @@ mlmm trj2fig -i test4/optimization_trj.xyz -o test31.png > test31.out 2>&1
 mlmm energy-diagram -i "[0, 12.5, 4.3, 18.7, -1.2]" -o test32.png > test32.out 2>&1
 
 # test33: oniom-export
-mlmm oniom-export --parm p_complex.parm7 -i r_complex_layered.pdb --model-pdb pocket_r.pdb -q -1 -m 1 -o test33.gjf > test33.out 2>&1
+python - <<'PY'
+import parmed as pmd
+
+parm = pmd.load_file("p_complex.parm7")
+parm.cmaps[:] = []
+parm.save("p_complex_nocmap.parm7", overwrite=True)
+PY
+mlmm oniom-export --parm p_complex_nocmap.parm7 -i r_complex_layered.pdb --model-pdb pocket_r.pdb -q -1 -m 1 -o test33.gjf > test33.out 2>&1
+if mlmm oniom-export --parm p_complex.parm7 -i r_complex_layered.pdb --model-pdb pocket_r.pdb -q -1 -m 1 -o test33_cmap.gjf > test33_cmap_g16.out 2>&1; then
+  echo "[smoke] FAIL test33: Gaussian export accepted a CMAP topology" >> test33_cmap_g16.out
+  exit 1
+fi
+grep -Fq "CMAP" test33_cmap_g16.out
+test ! -e test33_cmap.gjf
+if mlmm oniom-export --parm p_complex.parm7 -i r_complex_layered.pdb --model-pdb pocket_r.pdb -q -1 -m 1 --mode orca --no-convert-orcaff -o test33_cmap.inp > test33_cmap_orca.out 2>&1; then
+  echo "[smoke] FAIL test33: ORCA export accepted a CMAP topology" >> test33_cmap_orca.out
+  exit 1
+fi
+grep -Fq "CMAP" test33_cmap_orca.out
+test ! -e test33_cmap.inp
 
 # --- Bond-summary, fix-altloc, oniom-import ---
 
@@ -567,7 +586,7 @@ if not changed:
     raise SystemExit("could not create a frozen-MM layer for ORCA round-trip")
 Path("test73_three_layer.pdb").write_text("".join(lines), encoding="utf-8")
 PY
-mlmm oniom-export --parm p_complex.parm7 -i test73_three_layer.pdb --model-pdb pocket_r.pdb -q -1 -m 1 --mode orca --no-convert-orcaff -o test73_orca.inp > test73_orca_export.out 2>&1
+mlmm oniom-export --parm p_complex_nocmap.parm7 -i test73_three_layer.pdb --model-pdb pocket_r.pdb -q -1 -m 1 --mode orca --no-convert-orcaff -o test73_orca.inp > test73_orca_export.out 2>&1
 for token in '! QMMM' 'QMAtoms {' 'ActiveAtoms {' 'Charge_Total -1' '* xyz -1 1'; do
   grep -Fq "$token" test73_orca.inp || { echo "[smoke] FAIL test73: ORCA input missing $token" >> test73_orca_export.out; exit 1; }
 done

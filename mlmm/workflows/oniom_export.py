@@ -630,8 +630,9 @@ def _read_qm_atoms_from_pdb(
     Determine QM-region atom indices (0-based, topology order).
 
     This function tries (in order):
-      1) Match model_pdb atoms to atoms in `input_pdb` via (atom_name, res_name, res_seq),
-         with coordinate-based disambiguation when that ID is not unique.
+      1) Match model_pdb atoms to atoms in `input_pdb` via
+         (atom_name, res_name, chain_id, res_seq, insertion_code), with
+         coordinate-based disambiguation when that ID is not unique.
       2) If `input_pdb` is not available, match by nearest coordinates against `system_coords`
          (optionally requiring element agreement when available).
 
@@ -670,10 +671,17 @@ def _read_qm_atoms_from_pdb(
             # If the caller didn't provide coords, use the PDB coords for disambiguation
             system_coords = np.asarray([a["coord"] for a in input_atoms], dtype=float)
 
-        # Map from (atom_name,res_name,res_seq) -> list of candidate indices
-        key_to_candidates: Dict[Tuple[str, str, int], List[int]] = {}
+        # PDB residue numbers are not globally unique. Keep chain and
+        # insertion-code identity in the exact model-to-system mapping.
+        key_to_candidates: Dict[Tuple[str, str, str, int, str], List[int]] = {}
         for a in input_atoms:
-            key = (a["atom_name"], a["res_name"], int(a["res_seq"]))
+            key = (
+                a["atom_name"],
+                a["res_name"],
+                a["chain_id"],
+                int(a["res_seq"]),
+                a["icode"],
+            )
             key_to_candidates.setdefault(key, []).append(int(a["idx"]))
 
         used: Set[int] = set()
@@ -681,7 +689,13 @@ def _read_qm_atoms_from_pdb(
 
         unmatched: List[str] = []
         for ma in model_atoms:
-            key = (ma["atom_name"], ma["res_name"], int(ma["res_seq"]))
+            key = (
+                ma["atom_name"],
+                ma["res_name"],
+                ma["chain_id"],
+                int(ma["res_seq"]),
+                ma["icode"],
+            )
             cand = key_to_candidates.get(key, [])
             if not cand:
                 unmatched.append(f"{key} (identifier absent)")
@@ -1459,6 +1473,12 @@ def export_gaussian(
     _check_parmed()
 
     parm = pmd.load_file(str(parm7_path))
+    if list(getattr(parm, "cmaps", []) or []):
+        raise ValueError(
+            "Gaussian Amber ONIOM input cannot represent parm7 CMAP terms. "
+            "Use a topology generated without CMAP for Gaussian export, or "
+            "run the calculation through mlmm, which applies CMAP to both MM layers."
+        )
 
     # Load / attach coordinates
     elements_for_output: Optional[List[str]] = None
@@ -1707,6 +1727,12 @@ def export_orca(
     _check_parmed()
 
     parm = pmd.load_file(str(parm7_path))
+    if list(getattr(parm, "cmaps", []) or []):
+        raise ValueError(
+            "ORCA's MM engine does not currently apply CMAP terms from Amber "
+            "topologies. Use a topology generated without CMAP for ORCA export, "
+            "or run the calculation through mlmm, which applies CMAP to both MM layers."
+        )
 
     # Load / attach coordinates
     elements_for_output: Optional[List[str]] = None

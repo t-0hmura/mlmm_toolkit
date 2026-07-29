@@ -1,7 +1,7 @@
 """Contract for release metadata, landing substitution, and licensing.
 
 Positive: the real repository's landing headers render ``v{{ release }}`` and the
-CFF/pyproject SPDX license identities agree on ``GPL-3.0-only``. Negative: a
+CFF/pyproject SPDX license identities agree on ``GPL-3.0-or-later``. Negative: a
 hardcoded landing literal or a mismatched CFF license fails.
 
 The ``cffconvert --validate`` leg runs when its console entry point is
@@ -33,10 +33,10 @@ def test_real_landing_pages_use_substitution() -> None:
     assert crv._check_landing_pages() == []
 
 
-def test_real_license_identities_agree_on_gpl3_only() -> None:
+def test_real_license_identities_agree_on_gpl3_or_later() -> None:
     assert crv._check_license() == []
-    assert crv._cff_license() == "GPL-3.0-only"
-    assert crv._pyproject_license() == "GPL-3.0-only"
+    assert crv._cff_license() == "GPL-3.0-or-later"
+    assert crv._pyproject_license() == "GPL-3.0-or-later"
 
 
 def test_hardcoded_landing_literal_fails(tmp_path, monkeypatch) -> None:
@@ -64,7 +64,11 @@ def test_cffconvert_accepts_license_when_available() -> None:
     # Exercise the same console entry point used by the release workflow.
     executable = shutil.which("cffconvert")
     if executable is None:
-        assert crv._cff_license() == crv._pyproject_license() == "GPL-3.0-only"
+        assert (
+            crv._cff_license()
+            == crv._pyproject_license()
+            == "GPL-3.0-or-later"
+        )
         return
     completed = subprocess.run(
         [executable, "--validate"],

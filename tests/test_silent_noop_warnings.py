@@ -1,9 +1,8 @@
 """Flags and settings that do nothing must say so.
 
-Each case below was a surface where the user asked for something, the code
-could not honour it, and the run continued in silence -- so the result read as
-if the request had been applied. Output-only guards: no behaviour, threshold or
-default changes with them.
+Requested settings that cannot be honored must emit a diagnostic instead of
+appearing to have been applied. Output-only guards do not change behavior,
+thresholds, or defaults.
 """
 
 from pathlib import Path

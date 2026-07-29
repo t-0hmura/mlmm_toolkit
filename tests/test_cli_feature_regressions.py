@@ -55,6 +55,48 @@ def test_path_workflow_max_nodes_defaults_to_twenty(command: str) -> None:
     )
 
 
+@pytest.mark.parametrize("mep_mode", ["gsm", "dmf"])
+def test_path_opt_rejects_zero_cycles_before_touching_output(
+    tmp_path: Path,
+    mep_mode: str,
+) -> None:
+    smoke = Path(__file__).resolve().parent / "smoke"
+    out_dir = tmp_path / mep_mode
+    out_dir.mkdir()
+    stale_result = out_dir / "result.json"
+    stale_result.write_text('{"status": "complete"}\n', encoding="utf-8")
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "path-opt",
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "--model-pdb",
+            str(smoke / "pocket_r.pdb"),
+            "--no-detect-layer",
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--mep-mode",
+            mep_mode,
+            "--max-cycles",
+            "0",
+            "--dry-run",
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--max-cycles must be at least 1" in result.output
+    assert stale_result.read_text(encoding="utf-8") == '{"status": "complete"}\n'
+
+
 @pytest.mark.parametrize(
     ("argv", "expected"),
     [

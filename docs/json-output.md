@@ -232,6 +232,8 @@ or `source` / `raw_hessian_shape`).
 | Field | Type | Description |
 |-------|------|-------------|
 | `n_grid_points` | int | Total grid points |
+| `n_points_attempted` | int | Fresh-run grid points attempted (preoptimization row excluded) |
+| `n_points_usable` | int | Fresh-run points with explicit convergence, finite energy/coordinates, and a written geometry artifact |
 | `pair1`, `pair2` (,`pair3`) | object | `{i, j, low, high}` |
 | `min_energy_hartree` | float | Surface minimum energy |
 | `charge` | int \| null | Model-region charge; null for plot-only `scan3d --csv` |
@@ -241,6 +243,8 @@ or `source` / `raw_hessian_shape`).
 Fresh `scan2d`/`scan3d` results include the common MLIP/ML/MM calculator
 provenance. Plot-only `scan3d --csv` keeps the same keys but writes null because
 the imported energy grid does not identify the calculator that produced it.
+Plot-only results omit `n_points_attempted`; they include `n_points_usable`
+only when the imported CSV has complete convergence and artifact provenance.
 
 ### `path-opt`
 

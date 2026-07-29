@@ -73,7 +73,7 @@ class CartesianCoords(CoordSys):
         return coords3d.flatten()
 
     def transform_forces(self, cart_forces: NDArray) -> NDArray:
-        forces = cart_forces.reshape(-1, 3)
+        forces = np.array(cart_forces, copy=True).reshape(-1, 3)
         if self.mass_weighted:
             forces /= self.masses_sqrt[:, None]
         forces = forces[self.move_mask]

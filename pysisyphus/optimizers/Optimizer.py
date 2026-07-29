@@ -779,8 +779,7 @@ class Optimizer(metaclass=abc.ABCMeta):
             convergence["energy_converged"] = bool(energy_converged)
             conv_info = ConvInfo(self.cur_cycle, **convergence)
             converged = (
-                (self.cur_cycle > self.last_cycle)
-                and desired_eigval_structure
+                desired_eigval_structure
                 and (max_force <= 3e-4)
                 and (energy_converged or (max_step <= 3e-4))
             )

@@ -1,6 +1,6 @@
 # `scan3d`
 
-Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB, mapping a 3D PES across three coupled distances. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. The ML region comes from `--model-pdb`, and Amber parameters are read from `--parm`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus L-BFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
+Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB, mapping a 3D PES across three coupled distances. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. ML membership comes from `--model-pdb`, `--model-indices`, or B-factor layers via `--detect-layer`; Amber parameters are read from `--parm`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus L-BFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
 
 ## Examples
 
@@ -50,11 +50,21 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
     baseline shift (`--baseline {min|first}`), and generate a 3D RBF-interpolated
     isosurface plot (`scan3d_density.html`) honoring `--zmin/--zmax`.
 
+Plot-only CSV input requires `d1_A`, `d2_A`, `d3_A`, and either
+`energy_hartree` or `energy_kcal`. Fresh output also records
+`bias_converged`, `artifact_written`, and `is_preopt`; rows that are
+preoptimization references, explicitly unconverged, missing their geometry
+artifact, or non-finite are excluded. Legacy files without complete
+provenance are accepted with a warning. Interpolation requires unique
+coordinates and at least four non-coplanar usable points spanning every axis;
+`baseline=first` falls back to the usable minimum if grid point `(0,0,0)` is
+not usable.
+
 ## Outputs
 
 ```text
 out_dir/ (default: ./result_scan3d/)
- surface.csv # Grid metadata (d1, d2, d3, energy, convergence)
+ surface.csv # Grid metadata (coordinates, energy, convergence, artifact status)
  scan3d_density.html # 3D energy isosurface visualization
  grid/point_i###_j###_k###.xyz # Relaxed geometry for each grid point
  grid/point_i###_j###_k###.pdb # PDB companions (B-factors: ML=0, Movable-MM=10, Frozen=20)

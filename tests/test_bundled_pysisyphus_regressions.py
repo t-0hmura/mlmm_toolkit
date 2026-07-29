@@ -24,6 +24,7 @@ from pysisyphus.irc.EulerPC import EulerPC
 from pysisyphus.irc.DWI import DWI
 from pysisyphus.irc.IRC import IRC
 from pysisyphus.irc.Instanton import Instanton
+from pysisyphus.helpers import geom_loader
 from pysisyphus.linalg import quaternion_to_rot_mat
 from pysisyphus.cos.ChainOfStates import ChainOfStates
 from pysisyphus.cos.GrowingChainOfStates import GrowingChainOfStates
@@ -32,10 +33,17 @@ from pysisyphus.optimizers.Optimizer import Optimizer
 from pysisyphus.optimizers.HessianOptimizer import HessianOptimizer
 from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from pysisyphus.optimizers.StringOptimizer import StringOptimizer
+from pysisyphus.optimizers.closures import bfgs_multiply
+import pysisyphus.optimizers.gdiis as gdiis_module
 from pysisyphus.optimizers.hessian_updates import bofill_update
 from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer
-from thermoanalysis.constants import C
-from thermoanalysis.thermo import qrrho_vibrational_part_func
+from thermoanalysis.constants import AMU2KG, C, KB, PLANCK, R
+from thermoanalysis.thermo import (
+    chai_head_gordon_weights,
+    qrrho_vibrational_part_func,
+    vibrational_heat_capacity,
+    vibrational_part_funcs,
+)
 
 
 def _qcschema_payload() -> dict:
@@ -303,12 +311,73 @@ def test_quaternion_rotation_matrix_is_orthogonal() -> None:
 
 
 def test_qrrho_partition_function_uses_frequency_in_effective_inertia() -> None:
+    temperature = 298.15
     frequencies = np.array([20.0, 50.0, 1600.0]) * 100.0 * C
     q_vib, q_vib_v0 = qrrho_vibrational_part_func(
-        298.15, frequencies, I_mean=10.0, cutoff=100.0, alpha=4,
+        temperature, frequencies, I_mean=10.0, cutoff=100.0, alpha=4,
     )
-    assert q_vib == pytest.approx(0.04492554859960663, rel=1.0e-13)
-    assert q_vib_v0 == pytest.approx(2.148803489705469, rel=1.0e-13)
+    harmonic, harmonic_v0 = vibrational_part_funcs(temperature, frequencies)
+    weights = chai_head_gordon_weights(frequencies, 100.0, 4)
+    mu = PLANCK / (8.0 * np.pi**2 * frequencies)
+    inertia = 10.0 * 1.0e-20 * AMU2KG
+    effective_inertia = mu * inertia / (mu + inertia)
+    free_rotor = np.sqrt(
+        8.0 * np.pi**3 * effective_inertia * KB * temperature / PLANCK**2
+    )
+    expected = np.exp(
+        np.sum(weights * np.log(harmonic) + (1.0 - weights) * np.log(free_rotor))
+    )
+    expected_v0 = np.exp(
+        np.sum(
+            weights * np.log(harmonic_v0)
+            + (1.0 - weights) * np.log(free_rotor)
+        )
+    )
+    assert q_vib == pytest.approx(expected, rel=1.0e-13)
+    assert q_vib_v0 == pytest.approx(expected_v0, rel=1.0e-13)
+
+
+def test_vibrational_heat_capacity_is_stable_in_both_limits() -> None:
+    high_frequency = np.array([3000.0]) * 100.0 * C
+    assert vibrational_heat_capacity(1.0, high_frequency) == pytest.approx(0.0)
+    low_frequency = np.array([1.0e-9])
+    assert vibrational_heat_capacity(298.15, low_frequency) == pytest.approx(R)
+
+
+def test_regularized_lbfgs_scales_the_secant_correction() -> None:
+    result = bfgs_multiply(
+        [np.array([1.0, -1.0])],
+        [np.array([-2.0, 2.0])],
+        np.array([0.3, -0.4]),
+        gamma_mult=False,
+        mu_reg=0.1,
+    )
+    np.testing.assert_allclose(result, [3.45, -3.55])
+
+
+def test_gediis_returns_none_when_the_inner_solve_fails(monkeypatch) -> None:
+    monkeypatch.setattr(
+        gdiis_module,
+        "minimize",
+        lambda *_args, **_kwargs: SimpleNamespace(success=False),
+    )
+    result = gdiis_module.gediis(
+        np.array([[0.0, 0.0], [0.1, 0.0]]),
+        np.array([0.0, 0.1]),
+        np.array([[0.1, 0.0], [0.2, 0.0]]),
+    )
+    assert result is None
+
+
+def test_geom_loader_dispatches_trajectory_suffix_before_xyz(tmp_path) -> None:
+    trajectory = tmp_path / "two_trj.xyz"
+    trajectory.write_text(
+        "1\nfirst\nH 0 0 0\n1\nsecond\nH 0 0 1\n",
+        encoding="utf-8",
+    )
+    geometries = geom_loader(trajectory, iterable=True)
+    assert len(geometries) == 2
+    assert geom_loader(f"{trajectory}[1]").comment == "second"
 
 
 @pytest.mark.parametrize(

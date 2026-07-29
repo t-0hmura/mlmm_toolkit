@@ -1,12 +1,9 @@
 # MACE backend (mace.md)
 
-MACE-OMOL-0 is a high-accuracy MLIP trained on the OMol25 dataset
-(83 elements, organic + biomolecules + transition-metal complexes;
-Levine et al. 2025, arXiv:2505.08762). It is competitive with UMA for transition-state
-(TS) regions and is one of the four "chemical accuracy"
-(MAE ≲ 1 kcal/mol) backends in the Eastman et al. 2026 15-MLIP
-benchmark (arXiv:2601.16331), alongside UMA-s-1.1, UMA-m-1.1, and
-Orb-v3-omol.
+MACE-OMOL-0 is an MLIP trained on the OMol25 dataset for molecular
+chemistry, including biomolecules and transition-metal complexes. Validate
+the selected model on representative structures and stationary points for
+your system.
 
 ## Critical: separate environment required
 
@@ -78,9 +75,9 @@ MACE accepts (the `_MACEBackend.__init__` parameters in `backends/mlmm_calc.py`;
 
 | Strength | Weakness |
 |---|---|
-| Often the most accurate TS curvature on first-row organometallics | Separate env needed |
-| Slower than Orb but ~2× faster than UMA-m | Longer first-load time (~30 s) |
-| Mature, widely benchmarked | No multi-GPU sharding API |
+| Broad molecular and elemental coverage | Separate env needed |
+| Analytical/native Hessian support in mlmm | Runtime and memory depend on system, device, and precision |
+| Configurable model and precision | No multi-GPU sharding API |
 
 ## Known gotchas
 
@@ -88,7 +85,7 @@ MACE accepts (the `_MACEBackend.__init__` parameters in `backends/mlmm_calc.py`;
 |---|---|
 | `e3nn` import error | UMA + MACE in the same env. Use a fresh env. |
 | `RuntimeError: Expected all tensors to be on the same device` | Mixed `cpu`/`cuda` tensors after a `.to()` round-trip. Restart Python and ensure `device='cuda'` consistently. |
-| Slow Hessian on `mace_dtype='float64'` | Expected: float64 + 600-atom Hessian is ~4× slower than float32 with marginal accuracy gain. Use float64 only when you suspect a near-degenerate eigenvalue. |
+| Slow Hessian on `mace_dtype='float64'` | Float64 is usually more expensive than float32; benchmark both on the target system and retain the precision needed for stable curvature. |
 
 ## See also
 

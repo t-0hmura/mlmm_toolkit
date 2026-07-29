@@ -297,6 +297,14 @@ def _build_dft_result_payload(
     from mlmm.core.utils import calculator_provenance
 
     did_converge = bool(converged)
+    provenance = calculator_provenance(calc_kw)
+    provenance.update(
+        {
+            "mlip_backend": "dft",
+            "mlip_model": None,
+            "mlip_precision": None,
+        }
+    )
     return {
         "status": "converged" if did_converge else "not_converged",
         "converged": did_converge,
@@ -307,7 +315,7 @@ def _build_dft_result_payload(
         "engine": engine_label,
         "used_gpu": bool(using_gpu),
         "used_lowmem": bool(using_lowmem),
-        **calculator_provenance(calc_kw),
+        **provenance,
         "charge": calc_kw.get("model_charge"),
         "spin": calc_kw.get("model_mult"),
         "n_atoms": int(n_atoms),

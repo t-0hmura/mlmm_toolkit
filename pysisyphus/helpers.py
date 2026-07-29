@@ -84,7 +84,12 @@ def geom_loader(fn, coord_type="cart", iterable=False, **coord_kwargs):
         index = int(split_.pop(0))
     else:
         index = None
-    ext = "" if "\n" in fn else Path(fn).suffix
+    if "\n" in fn:
+        ext = ""
+    elif fn.endswith("_trj.xyz"):
+        ext = "_trj.xyz"
+    else:
+        ext = Path(fn).suffix
 
     funcs = {
         ".cjson": geom_from_cjson,
@@ -242,9 +247,7 @@ def fit_rigid(
         rotated_vector_lists.append(rvl)
 
     if hessian is not None:
-        # rotated_hessian = G.dot(hessian).dot(G.T)
-        # rotated_hessian = G.T.dot(hessian).dot(G)
-        rotated_hessian = G * hessian * G.T
+        rotated_hessian = G.T.dot(hessian).dot(G)
     return rotated_vectors, rotated_vector_lists, rotated_hessian
 
 

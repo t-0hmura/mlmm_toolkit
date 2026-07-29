@@ -494,8 +494,10 @@ def qrrho_vibrational_part_func(
 ) -> Tuple[float, float]:
     """QRRHO vibrational partition function.
 
-    As given in Eq. (7) in [6]. Mix between hindererd rotor
-    and harmonic oscillator partition function.
+    As given in Eq. (7) in [6]. Mix between hindered-rotor and harmonic-
+    oscillator partition functions. These partition-function values are
+    diagnostics; the reported QRRHO entropy and Gibbs energy use the separate
+    Grimme entropy interpolation implemented by :func:`vibrational_entropy`.
 
     Parameters
     ----------
@@ -530,7 +532,7 @@ def qrrho_vibrational_part_func(
         # Convert average moment of inertia from Å² AMU to SI units (m² kg)
         I_mean_SI = I_mean * 1e-20 * AMU2KG
         mu_ = mu * I_mean_SI / (mu + I_mean_SI)
-        q_hr = np.sqrt(
+        q_hr = np.pi * np.sqrt(
             2 * mu_ / (np.pi * (PLANCK / (2 * np.pi)) ** 2 / (temperature * KB))
         )
     # Without cutoff this partition function reduces to the partition function
@@ -757,7 +759,15 @@ def vibrational_heat_capacity(
     """
     quot = PLANCK * frequencies / (KB * temperature)
 
-    c_vib = R * (np.exp(quot) * (quot / (np.exp(quot) - 1)) ** 2).sum()
+    small = np.abs(quot) < 1.0e-6
+    contributions = np.empty_like(quot)
+    q_small = quot[small]
+    contributions[small] = 1.0 - q_small**2 / 12.0 + q_small**4 / 240.0
+    q_regular = quot[~small]
+    contributions[~small] = np.exp(-q_regular) * (
+        q_regular / -np.expm1(-q_regular)
+    ) ** 2
+    c_vib = R * contributions.sum()
     return c_vib
 
 

@@ -2,6 +2,9 @@
 
 Amber parm7 でトポロジーを記述した ML/MM 系について、ORCA QM/MM（`.inp`）入力を生成します。これは `oniom-export` の ORCA 詳細モード（`mlmm oniom-export --mode orca`）です。parm7 ファイルからトポロジー情報を読み込み、model 領域の PDB を QM 原子へ対応付け、ORCAFF パラメータを解決し、ORCA 6.0 実行向けの単一 ORCA QM/MM 入力ファイルを書き出します。
 
+入力 `parm7` は CMAP を含まない必要があります。ORCA の MM エンジンは
+CMAP 項を適用しないため、CMAP が存在する場合は出力前に停止します。
+
 ## 実行例
 
 基本的なエクスポート:

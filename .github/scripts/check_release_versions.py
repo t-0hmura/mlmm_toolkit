@@ -18,7 +18,7 @@ LANDING_PAGES = (REPO_ROOT / "docs" / "index.md", REPO_ROOT / "docs" / "ja" / "i
 LANDING_SUBSTITUTION = "{{ release }}"
 _LANDING_HEADER_MARKERS = ("Version:", "バージョン:")
 _VERSION_LITERAL_RE = re.compile(r"v?\d+\.\d+(?:\.\d+)?")
-EXPECTED_LICENSE = "GPL-3.0-only"
+EXPECTED_LICENSE = "GPL-3.0-or-later"
 
 
 def _cff_version() -> str:

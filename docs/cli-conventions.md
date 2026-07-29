@@ -221,10 +221,10 @@ Choices and defaults differ across subcommands.
 | Subcommand | Gradient-only alias | Hessian-based alias | Default | Engine |
 |---|---|---|---|---|
 | `opt` | `grad` (`light`, `lbfgs`) | `hess` (`heavy`, `rfo`) | `grad` | L-BFGS vs RFO (with optional `--microiter`). |
-| `tsopt` | `grad` (`light`, `dimer`) | `hess` (`heavy`, `rsirfo`) | `hess` | Dimer vs RS-I-RFO. |
+| `tsopt` | `grad` (`light`, `dimer`) | `hess` (`heavy`; RS-P-RFO default, with RS-I-RFO / TRIM choices) | `hess` | Dimer vs Hessian-based TS optimizers. |
 | `path-search` | `grad` (= L-BFGS) | — (RFO/`hess` not yet wired) | `grad` | Inner optimizer for GSM / DMF nodes; `hess`/`rfo` rejected with a Click error. `path-opt` has no `--opt-mode` (use `--mep-mode gsm`/`dmf`). |
-| `scan` | `grad` (`lbfgs`/`light`) | — | — | `--opt-mode` is accepted only as a compatibility alias for L-BFGS; the per-grid relaxation otherwise follows the YAML inner optimizer. |
-| `scan2d` / `scan3d` | — | — | — | No `--opt-mode`; relaxation uses the YAML inner optimizer. |
+| `scan` | `grad` (`lbfgs`/`light`) | — | — | `--opt-mode` is accepted only as a compatibility alias for L-BFGS; its settings come from the `opt` / `lbfgs` YAML sections. |
+| `scan2d` / `scan3d` | — | — | — | No `--opt-mode`; relaxation uses L-BFGS configured by the `opt` / `lbfgs` YAML sections. |
 
 `light` / `heavy` are accepted as legacy aliases for `grad` / `hess` for backward compatibility; prefer `grad` / `hess` in new scripts.
 

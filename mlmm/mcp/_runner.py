@@ -96,14 +96,23 @@ class SubcmdResult:
         }
 
 
-def _tail(text: str, max_lines: int = 60) -> str:
+def _coerce_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
+def _tail(text: str, max_lines: int = 60, max_chars: int = 12000) -> str:
     """Return at most the last `max_lines` lines of `text`."""
     if not text:
         return ""
     lines = text.rstrip().splitlines()
-    if len(lines) <= max_lines:
-        return text.rstrip()
-    return "...\n" + "\n".join(lines[-max_lines:])
+    selected = text.rstrip() if len(lines) <= max_lines else "...\n" + "\n".join(lines[-max_lines:])
+    if len(selected) > max_chars:
+        selected = "...[truncated]\n" + selected[-max_chars:]
+    return selected
 
 
 def _extract_hint(stderr: str) -> Optional[str]:
@@ -267,6 +276,7 @@ def run_subcmd(
     timeout: Optional[float] = None,
     env_overrides: Optional[dict[str, str]] = None,
     summary_filename: str = "summary.json",
+    parse_stdout_json: bool = False,
 ) -> SubcmdResult:
     """Spawn a mlmm subcmd and collect a structured result.
 
@@ -285,6 +295,9 @@ def run_subcmd(
         Optional environment variables to set for the subprocess.
     summary_filename
         Override for the summary file (default ``summary.json``).
+    parse_stdout_json
+        Parse the command's complete stdout as the returned summary. This is
+        for JSON-only utility commands that do not create an output directory.
     """
     run_id = str(uuid.uuid4())
     executed_argv = _bind_server_argv(argv)
@@ -319,13 +332,24 @@ def run_subcmd(
             run_id=run_id,
         )
     except subprocess.TimeoutExpired as exc:
+        stdout_tail = _tail(_coerce_text(exc.output))
+        captured_stderr = _tail(_coerce_text(exc.stderr))
+        timeout_marker = f"TIMEOUT after {timeout}s"
+        stderr_tail = (
+            f"{captured_stderr}\n{timeout_marker}"
+            if captured_stderr
+            else timeout_marker
+        )
         return SubcmdResult(
             status="failed",
             exit_code=124,
-            stderr_tail=f"TIMEOUT after {timeout}s: {exc}",
+            out_dir=None if out_dir is None else str(out_dir),
+            stderr_tail=stderr_tail,
+            stdout_tail=stdout_tail,
             hint=(
-                "Increase the `timeout_seconds` tool argument or rerun with a smaller "
-                "system / fewer cycles."
+                _extract_hint(captured_stderr)
+                or "Increase the `timeout_seconds` tool argument or rerun with "
+                "a smaller system / fewer cycles."
             ),
             argv=executed_argv,
             run_id=run_id,
@@ -338,7 +362,17 @@ def run_subcmd(
 
     summary: dict[str, Any] = {}
     summary_status: str = "summary_missing"
-    if out_dir is not None:
+    if parse_stdout_json:
+        try:
+            parsed_stdout = json.loads(proc.stdout)
+            if not isinstance(parsed_stdout, dict):
+                raise ValueError("top-level JSON value is not an object")
+            summary = parsed_stdout
+            summary_status = "ok"
+        except (json.JSONDecodeError, ValueError) as exc:
+            hint = hint or f"Could not parse command stdout as JSON: {exc}"
+            summary_status = "summary_parse_error"
+    elif out_dir is not None:
         summary_path = Path(out_dir) / summary_filename
         summary_status, summary, summary_hint = _read_current_summary(
             summary_path,
@@ -367,7 +401,7 @@ def run_subcmd(
 
     if exit_code != 0:
         status = "failed"
-    elif out_dir is not None and summary_status != "ok":
+    elif (out_dir is not None or parse_stdout_json) and summary_status != "ok":
         status = summary_status
     else:
         status = "ok"

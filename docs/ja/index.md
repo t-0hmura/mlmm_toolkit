@@ -294,7 +294,7 @@ result_all/
 
 ## ライセンス
 
-`mlmm-toolkit` は **GNU General Public License version 3 (GPL-3.0)** の下で配布されています。
+`mlmm-toolkit` は **GNU General Public License version 3 or later (GPL-3.0-or-later)** の下で配布されています。
 
 ---
 

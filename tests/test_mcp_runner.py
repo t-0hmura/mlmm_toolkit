@@ -55,6 +55,34 @@ def _completed(argv) -> subprocess.CompletedProcess[str]:
     return subprocess.CompletedProcess(argv, 0, stdout="ok\n", stderr="")
 
 
+@pytest.mark.parametrize(
+    ("stdout", "expected_status", "expected_summary"),
+    [
+        ('{"changed": true}', "ok", {"changed": True}),
+        ("{broken", "summary_parse_error", {}),
+        ("[]", "summary_parse_error", {}),
+    ],
+)
+def test_runner_parses_json_only_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+    stdout: str,
+    expected_status: str,
+    expected_summary: dict,
+) -> None:
+    monkeypatch.setattr(
+        "mlmm.mcp._runner.subprocess.run",
+        lambda argv, **kwargs: subprocess.CompletedProcess(
+            argv, 0, stdout=stdout, stderr=""
+        ),
+    )
+    result = run_subcmd(
+        ["mlmm", "bond-summary", "--json"],
+        parse_stdout_json=True,
+    )
+    assert result.status == expected_status
+    assert result.summary == expected_summary
+
+
 def test_timeout_terminates_spawned_process_group(tmp_path: Path) -> None:
     if os.name != "posix":
         return

@@ -104,6 +104,9 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
 | `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
+| `--mm-backend [hessian_ff\|openmm]` | MM backend。 | `hessian_ff` |
+| `--link-atom-method [scaled\|fixed]` | link atom 配置方式。 | `scaled` |
+| `--out-json/--no-out-json` | machine-readable `result.json` を出力。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。`--help-advanced` に表示。 | `False` |
 
 ### 収束閾値プリセット

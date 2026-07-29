@@ -312,6 +312,14 @@ class Geometry:
         ):
             self.__dict__.pop("_active_atom_indices", None)
             self.__dict__.pop("_active_dof_indices", None)
+            if old_freeze_atoms is not None:
+                self._forces = None
+                self._hessian = None
+                self.within_partial_hessian = None
+                self.true_forces = None
+                self.true_hessian = None
+                if hasattr(self, "results"):
+                    self.results = {}
 
         coord_kwargs = getattr(self, "coord_kwargs", None)
         coord_type = getattr(self, "coord_type", "cart")

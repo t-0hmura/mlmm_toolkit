@@ -2,6 +2,9 @@
 
 Amber parm7 トポロジーを用いて、ML/MM システムを Gaussian ONIOM（`.com`/`.gjf`）入力へエクスポートします。`oniom-export` の Gaussian 向け詳細ページです。`--parm` からトポロジー情報（ParmEd 経由）を読み、必要に応じて `-i/--input` の座標を使い、method・レイヤー・結合情報を含む Gaussian ONIOM 入力ファイルを書き出します。エクスポート全体像や Gaussian/ORCA モードの選択は [`oniom-export`](oniom-export.md) を参照してください。
 
+入力 `parm7` は CMAP を含まない必要があります。Gaussian ONIOM は
+CMAP 項を忠実に表現できないため、CMAP が存在する場合は出力前に停止します。
+
 ## 実行例
 
 電荷・多重度を明示した最小構成のエクスポート:

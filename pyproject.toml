@@ -7,7 +7,7 @@ name = "mlmm-toolkit"
 description = "mlmm - ML/MM toolkit for enzyme reaction analysis"
 readme = "README.md"
 authors = [{name = "Takuto Ohmura", email = "ohmura.takuto@gmail.com"}]
-license = "GPL-3.0-only"
+license = "GPL-3.0-or-later"
 license-files = [
     "LICENSE",
     "THIRD_PARTY_NOTICES.txt",
@@ -79,6 +79,7 @@ dependencies = [
 orb = ["orb-models"]
 aimnet = ["aimnet>=0.2.0"]
 pdbfixer = ["pdbfixer"]
+openmm = ["openmm"]
 # NOTE: there is deliberately no `[mace]` extra. `mace-torch` hard-pins
 # `e3nn==0.4.4` whereas `fairchem-core` (UMA) needs `e3nn>=0.5`, so the two
 # cannot share an env; declaring the extra here would break the default UMA
@@ -109,7 +110,7 @@ Documentation = "https://t-0hmura.github.io/mlmm_toolkit/"
 
 [project.scripts]
 mlmm = "mlmm.cli:cli"
-mlmm-mcp = "mlmm.mcp.server:serve"
+mlmm-mcp = "mlmm.mcp:serve"
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "hessian_ff/tests"]

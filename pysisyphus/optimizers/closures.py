@@ -108,7 +108,9 @@ def bfgs_multiply(
             y_hat = yi + mu_reg * si
             if y_hat.dot(si) <= 0:
                 # See 2 in [1]
-                y_hat = yi + (max(0, -si.dot(yi) / si.dot(si)) + mu_reg) + si
+                y_hat = yi + (
+                    max(0, -si.dot(yi) / si.dot(si)) + mu_reg
+                ) * si
             y_list_reg.append(y_hat)
         y_list = y_list_reg
 

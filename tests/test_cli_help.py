@@ -76,6 +76,7 @@ SHARED_PRIMARY_SCIENTIFIC_OPTIONS = [
     ("scan", "--bias-k"),
     ("scan2d", "--bias-k"),
     ("scan3d", "--bias-k"),
+    ("sp", "--ref-pdb"),
     ("tsopt", "--thresh"),
     ("irc", "--never-stop"),
     ("dft", "--engine"),

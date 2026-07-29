@@ -160,4 +160,4 @@ Ohmura, T., Inoue, S., Terada, T. (2025). *ML/MM toolkit — Towards Accelerated
 
 ## License
 
-GNU General Public License v3 (GPL-3.0).
+GNU General Public License version 3 or later (GPL-3.0-or-later).
