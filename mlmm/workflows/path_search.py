@@ -1217,7 +1217,12 @@ def _build_multistep_path(
     """
     Recursively construct a multistep MEP from A–B and return it (A→B order).
     """
-    seg_max_nodes = int(search_cfg.get("max_nodes_segment", gs_cfg.get("max_nodes", 10)))
+    seg_max_nodes = int(
+        search_cfg.get(
+            "max_nodes_segment",
+            gs_cfg.get("max_nodes", GS_KW["max_nodes"]),
+        )
+    )
     gs_seg_cfg = {**gs_cfg, "max_nodes": seg_max_nodes}
     max_seq_kink = int(search_cfg.get("max_seq_kink", 2))
 
@@ -1553,7 +1558,7 @@ def _build_multistep_path(
 @click.option(
     "--max-nodes",
     type=int,
-    default=20,
+    default=GS_KW["max_nodes"],
     show_default=True,
     help=(
         "Number of movable internal images per GSM or DMF segment "

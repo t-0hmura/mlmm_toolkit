@@ -57,7 +57,7 @@ A clean first-order saddle = **exactly one** dominant imaginary mode along the r
 - `dlc` = delocalized internal coordinates. Its cost and convergence behavior
   are system-dependent; compare against `cart` on the same seed.
 - `dlc` requires a **Hessian-based optimizer**: in `opt.py`, `--coord-type dlc` with L-BFGS (`--opt-mode grad`) is forced back to `cart` with a warning. Use it on `tsopt` (RFO/RS-I-RFO) or `opt --opt-mode hess`.
-- ML/MM scans and `path-opt`/`path-search` have no `--coord-type` flag and force Cartesian coordinates, including when shared YAML contains `geom.coord_type`. Use DLC only on Hessian-based `opt`/`tsopt`.
+- `path-opt`/`path-search` have no `--coord-type` flag; they take the coordinate system from `--config` YAML (`geom.coord_type`), and pysisyphus ChainOfStates supports only `cart`/`dlc` there.
 - `cart` is the default. Independently validate a change of coordinate system
   with frequency analysis and IRC connectivity.
 

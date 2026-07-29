@@ -345,12 +345,12 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --max-cycles 3 --thresh gau_loose --out-dir test50c_opt_freeze_dlc > test50c_opt_freeze_dlc.out 2>&1
 python check_frozen_atoms.py r_complex_layered.pdb test50c_opt_freeze_dlc/final_geometry.pdb "$MLMM_COMPLEX_FREEZE_ATOMS" test50c >> test50c_opt_freeze_dlc.out 2>&1
 
-# test50d: Cartesian scan with explicit frozen atoms.
+# test50d: scan --coord-type dlc with explicit frozen atoms.
 # Small non-reactive target: this checks coordinate integrity, not chemistry.
-mlmm scan -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.5)]" --max-step-size 0.1 --max-cycles 3 --no-endopt --out-dir test50d_scan_freeze_cart > test50d_scan_freeze_cart.out 2>&1
-python check_frozen_atoms.py r_complex_layered.pdb test50d_scan_freeze_cart/stage_01/result.pdb "$MLMM_COMPLEX_FREEZE_ATOMS" test50d >> test50d_scan_freeze_cart.out 2>&1
-if grep -q "Covalent-bond changes (start vs final): Yes" test50d_scan_freeze_cart.out; then
-  echo "[bond-check] test50d: unexpected covalent-bond changes in non-reactive Cartesian freeze scan" >> test50d_scan_freeze_cart.out
+mlmm scan -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.5)]" --max-step-size 0.1 --max-cycles 3 --no-endopt --out-dir test50d_scan_freeze_dlc > test50d_scan_freeze_dlc.out 2>&1
+python check_frozen_atoms.py r_complex_layered.pdb test50d_scan_freeze_dlc/stage_01/result.pdb "$MLMM_COMPLEX_FREEZE_ATOMS" test50d >> test50d_scan_freeze_dlc.out 2>&1
+if grep -q "Covalent-bond changes (start vs final): Yes" test50d_scan_freeze_dlc.out; then
+  echo "[bond-check] test50d: unexpected covalent-bond changes in non-reactive DLC+freeze scan" >> test50d_scan_freeze_dlc.out
   exit 1
 fi
 

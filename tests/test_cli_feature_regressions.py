@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -34,11 +35,24 @@ def test_root_invocation_resets_charge_multiplicity_override() -> None:
         validate_charge_spin(["H"], 0, 1)
 
 
-def test_sp_rejects_optimizer_progress_option() -> None:
+def test_sp_accepts_print_every_compatibility_option() -> None:
     result = CliRunner().invoke(root_cli, ["sp", "--print-every", "3"])
 
     assert result.exit_code == 2
-    assert "No such option: --print-every" in result.output
+    assert "No such option: --print-every" not in result.output
+    assert "Missing option '-i' / '--input'" in result.output
+
+
+@pytest.mark.parametrize("command", ["path-opt", "path-search"])
+def test_path_workflow_max_nodes_defaults_to_twenty(command: str) -> None:
+    result = CliRunner().invoke(root_cli, [command, "--help"])
+
+    assert result.exit_code == 0, result.output
+    option_start = result.output.index("--max-nodes")
+    assert re.search(
+        r"\[default:\s*20\]",
+        result.output[option_start : option_start + 500],
+    )
 
 
 @pytest.mark.parametrize(

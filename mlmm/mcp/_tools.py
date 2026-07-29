@@ -465,6 +465,7 @@ def register_all(mcp) -> None:
         mm_backend: Optional[str] = None,
         use_cmap: Optional[bool] = None,
         convert_files: Optional[bool] = None,
+        print_every: Optional[int] = None,
         out_dir: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
@@ -503,6 +504,8 @@ def register_all(mcp) -> None:
             argv.extend(["--hessian-calc-mode", hessian_calc_mode])
         if convert_files is not None:
             argv.append("--convert-files" if convert_files else "--no-convert-files")
+        if print_every is not None:
+            argv.extend(["--print-every", str(print_every)])
         argv.extend(_shared_calc_flags(
             backend=backend, precision=precision,
             embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,

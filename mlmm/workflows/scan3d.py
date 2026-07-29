@@ -63,7 +63,7 @@ from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import ANG2BOHR, AU2KCALPERMOL
 
 from mlmm.backends.mlmm_calc import mlmm
-from mlmm.core.defaults import BIAS_KW as _BIAS_KW_DEFAULT, OUT_DIR_SCAN3D
+from mlmm.core.defaults import BIAS_KW as _BIAS_KW_DEFAULT, GEOM_KW_DEFAULT, OUT_DIR_SCAN3D
 from mlmm.workflows.opt import (
     GEOM_KW as _OPT_GEOM_KW,
     CALC_KW as _OPT_CALC_KW,
@@ -994,7 +994,7 @@ def cli(
             final_dir = out_dir_path
 
             freeze = list(geom_cfg.get("freeze_atoms") or [])
-            coord_type = "cart"
+            coord_type = geom_cfg.get("coord_type", GEOM_KW_DEFAULT["coord_type"])
             geom_outer = geom_loader(
                 geom_input_path,
                 coord_type=coord_type,

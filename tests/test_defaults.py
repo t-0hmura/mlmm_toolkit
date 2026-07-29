@@ -82,6 +82,11 @@ def test_all_defaults_are_dicts():
         assert isinstance(obj, dict), f"{name} should be a dict"
 
 
+def test_path_workflow_max_nodes_release_defaults() -> None:
+    assert GS_KW["max_nodes"] == 20
+    assert SEARCH_KW["max_nodes_segment"] == 20
+
+
 def test_fresh_dmf_config_isolates_nested_requests_and_template() -> None:
     original = deepcopy(DMF_KW)
 

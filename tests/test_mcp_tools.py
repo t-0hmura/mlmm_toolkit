@@ -137,6 +137,25 @@ def test_summary_only_tools_do_not_expose_leaf_pair_override(registry, tmp_path:
     assert "expected_primary_filename" not in kwargs
 
 
+def test_single_point_tool_forwards_print_every(registry, tmp_path: Path) -> None:
+    tools, calls = registry
+    signature = inspect.signature(tools["run_single_point_oniom"])
+    assert "print_every" in signature.parameters
+
+    tools["run_single_point_oniom"](
+        "input.pdb",
+        "input.parm7",
+        charge=0,
+        multiplicity=1,
+        print_every=3,
+        out_dir=str(tmp_path / "sp"),
+    )
+
+    argv, _kwargs = calls[-1]
+    option_start = argv.index("--print-every")
+    assert argv[option_start : option_start + 2] == ["--print-every", "3"]
+
+
 def test_search_paths_always_passes_two_ordered_endpoints(
     registry, tmp_path: Path,
 ) -> None:
@@ -159,13 +178,6 @@ def test_search_paths_always_passes_two_ordered_endpoints(
     assert argv[input_at + 1 : input_at + 5] == [
         "R.pdb", "IM1.pdb", "IM2.pdb", "P.pdb",
     ]
-
-
-def test_single_point_tool_has_no_optimizer_progress_option(registry) -> None:
-    tools, _calls = registry
-
-    signature = inspect.signature(tools["run_single_point_oniom"])
-    assert "print_every" not in signature.parameters
 
 
 @pytest.mark.parametrize(
