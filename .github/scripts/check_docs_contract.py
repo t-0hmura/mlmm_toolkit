@@ -130,12 +130,12 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("docs/add-elem-info.md"): (
         "`--inplace/--no-inplace`",
         "`<input>_add_elem.pdb`",
-        "`PDBIO` reserializes",
+        "Every input line is preserved byte-for-byte except columns 77–78",
     ),
     Path("docs/ja/add-elem-info.md"): (
         "`--inplace/--no-inplace`",
         "`<input>_add_elem.pdb`",
-        "`PDBIO` は構造を再シリアライズ",
+        "列 77–78 を除き、各入力行はそのまま\n保持されます",
     ),
     Path("skills/mlmm-install-backends/SKILL.md"): (
         "torch==2.8.0",
