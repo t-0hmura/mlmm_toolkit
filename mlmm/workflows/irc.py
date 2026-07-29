@@ -74,21 +74,21 @@ IRC_KW_DEFAULT: Dict[str, Any] = dict(IRC_KW)
 def _validate_irc_directions(irc_cfg: Dict[str, Any]) -> None:
     """Require at least one executable IRC direction."""
 
-    if (
-        not bool(irc_cfg.get("downhill", False))
-        and not bool(irc_cfg.get("forward", False))
-        and not bool(irc_cfg.get("backward", False))
+    if bool(irc_cfg.get("downhill", False)):
+        raise click.BadParameter(
+            "irc.downhill is not supported; select forward and/or backward."
+        )
+    if not bool(irc_cfg.get("forward", False)) and not bool(
+        irc_cfg.get("backward", False)
     ):
         raise click.BadParameter(
-            "Enable at least one IRC direction: forward, backward, or downhill."
+            "Enable at least one IRC direction: forward or backward."
         )
 
 
 def _directional_endpoint_energy_fields(
     all_energies: Any,
     ts_energy: Any,
-    *,
-    orientation: str = "finished_first_to_finished_last",
 ) -> Dict[str, Any]:
     """Report standalone IRC endpoints without inventing reactant/product identity."""
     first = float(all_energies[0]) if len(all_energies) > 0 else None
@@ -98,7 +98,7 @@ def _directional_endpoint_energy_fields(
         "energy_first_hartree": first,
         "energy_ts_hartree": ts,
         "energy_last_hartree": last,
-        "endpoint_energy_orientation": orientation,
+        "endpoint_energy_orientation": "finished_first_to_finished_last",
         # Retained for schema compatibility; their orientation is declared above.
         "energy_reactant_hartree": first,
         "energy_product_hartree": last,
@@ -144,15 +144,12 @@ _IRC_GENERATION_FILENAMES = tuple(
         "finished_irc",
         "forward_irc",
         "backward_irc",
-        "downhill_irc",
         "finished_first",
         "finished_last",
         "forward_first",
         "forward_last",
         "backward_first",
         "backward_last",
-        "downhill_first",
-        "downhill_last",
     )
     for suffix in (
         ("_trj.xyz", ".pdb", ".cif")
@@ -195,27 +192,18 @@ def _collect_irc_output_files(eulerpc: EulerPC) -> Dict[str, str]:
         ("finished_irc_trj.xyz", "finished_irc"),
         ("forward_irc_trj.xyz", "forward_irc"),
         ("backward_irc_trj.xyz", "backward_irc"),
-        ("downhill_irc_trj.xyz", "downhill_irc"),
         ("finished_irc.pdb", "finished_irc_pdb"),
         ("forward_irc.pdb", "forward_irc_pdb"),
         ("backward_irc.pdb", "backward_irc_pdb"),
-        ("downhill_irc.pdb", "downhill_irc_pdb"),
         ("finished_irc.cif", "finished_irc_cif"),
         ("forward_irc.cif", "forward_irc_cif"),
         ("backward_irc.cif", "backward_irc_cif"),
-        ("downhill_irc.cif", "downhill_irc_cif"),
         ("forward_last.xyz", "forward_last"),
         ("backward_last.xyz", "backward_last"),
         ("forward_last.pdb", "forward_last_pdb"),
         ("backward_last.pdb", "backward_last_pdb"),
         ("forward_last.cif", "forward_last_cif"),
         ("backward_last.cif", "backward_last_cif"),
-        ("downhill_last.xyz", "downhill_endpoint"),
-        ("downhill_last.pdb", "downhill_endpoint_pdb"),
-        ("downhill_last.cif", "downhill_endpoint_cif"),
-        ("downhill_first.xyz", "downhill_first"),
-        ("downhill_first.pdb", "downhill_first_pdb"),
-        ("downhill_first.cif", "downhill_first_cif"),
         ("forward_first.xyz", "forward_endpoint"),
         ("backward_last.xyz", "backward_endpoint"),
         ("forward_first.pdb", "forward_endpoint_pdb"),
@@ -1071,7 +1059,7 @@ def cli(
         eulerpc.run()
 
         quick_directions = []
-        for direction in ("forward", "backward", "downhill"):
+        for direction in ("forward", "backward"):
             if not getattr(eulerpc, direction, False):
                 continue
             n_frames = len(getattr(eulerpc, f"{direction}_energies", []))
@@ -1185,7 +1173,7 @@ def cli(
             ref_pdb_path = source_path.resolve()
 
             # Whole IRC trajectory
-            for stem in ("finished", "forward", "backward", "downhill"):
+            for stem in ("finished", "forward", "backward"):
                 _echo_convert_trj_to_pdb_if_exists(
                     _irc_output_path(eulerpc, f"{stem}_irc_trj.xyz"),
                     ref_pdb_path,
@@ -1193,7 +1181,7 @@ def cli(
                 )
             # Forward arrays are reversed for the stitched IRC, so the
             # direction-semantic endpoints are forward_first/backward_last.
-            for tag in ("forward_first", "backward_last", "downhill_last"):
+            for tag in ("forward_first", "backward_last"):
                 endpoint_xyz = _irc_output_path(eulerpc, f"{tag}.xyz")
                 endpoint_pdb = _irc_output_path(eulerpc, f"{tag}.pdb")
                 if (
@@ -1216,24 +1204,15 @@ def cli(
             _all_e = eulerpc.all_energies
             _n_fwd = len(getattr(eulerpc, "forward_energies", [])) if hasattr(eulerpc, "forward_energies") else 0
             _n_bwd = len(getattr(eulerpc, "backward_energies", [])) if hasattr(eulerpc, "backward_energies") else 0
-            _n_downhill = (
-                len(getattr(eulerpc, "downhill_energies", []))
-                if hasattr(eulerpc, "downhill_energies")
-                else 0
-            )
             _ts_e = float(eulerpc.ts_energy) if hasattr(eulerpc, "ts_energy") else None
             _irc_files = _collect_irc_output_files(eulerpc)
             result_data = {
                 "status": "completed",
                 "n_frames_forward": _n_fwd,
                 "n_frames_backward": _n_bwd,
-                "n_frames_downhill": _n_downhill,
                 "n_frames_total": len(_all_e),
                 "forward_converged": getattr(eulerpc, 'forward_is_converged', None),
                 "backward_converged": getattr(eulerpc, 'backward_is_converged', None),
-                "downhill_converged": getattr(
-                    eulerpc, "downhill_is_converged", None
-                ),
                 **calculator_provenance(calc_cfg),
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
@@ -1261,17 +1240,7 @@ def cli(
                 "input_file": str(source_path),
                 "files": _irc_files,
             }
-            result_data.update(
-                _directional_endpoint_energy_fields(
-                    _all_e,
-                    _ts_e,
-                    orientation=(
-                        "downhill_first_to_downhill_last"
-                        if bool(getattr(eulerpc, "downhill", False))
-                        else "finished_first_to_finished_last"
-                    ),
-                )
-            )
+            result_data.update(_directional_endpoint_energy_fields(_all_e, _ts_e))
 
             # one LeafOutcome per requested IRC direction. A
             # requested direction is usable only when it explicitly converged; a
@@ -1298,17 +1267,6 @@ def cli(
                         _n_bwd,
                         [_irc_files["backward_irc"]] if "backward_irc" in _irc_files else [],
                     ),
-                    (
-                        "downhill",
-                        bool(getattr(eulerpc, "downhill", False)),
-                        getattr(eulerpc, "downhill_is_converged", None),
-                        _n_downhill,
-                        (
-                            [_irc_files["downhill_irc"]]
-                            if "downhill_irc" in _irc_files
-                            else []
-                        ),
-                    ),
                 )
             )
             _attach(
@@ -1320,22 +1278,12 @@ def cli(
             # Bond changes between IRC endpoints
             try:
                 from mlmm.domain.bond_changes import compare_structures
-                if bool(getattr(eulerpc, "downhill", False)):
-                    _irc_first_xyz = _irc_output_path(
-                        eulerpc, "downhill_first.xyz"
-                    )
-                    _irc_last_xyz = _irc_output_path(
-                        eulerpc, "downhill_last.xyz"
-                    )
-                    _bond_direction = "downhill_first_to_downhill_last"
-                else:
-                    _irc_first_xyz = _irc_output_path(
-                        eulerpc, "finished_first.xyz"
-                    )
-                    _irc_last_xyz = _irc_output_path(
-                        eulerpc, "finished_last.xyz"
-                    )
-                    _bond_direction = "finished_first_to_finished_last"
+                _irc_first_xyz = _irc_output_path(
+                    eulerpc, "finished_first.xyz"
+                )
+                _irc_last_xyz = _irc_output_path(
+                    eulerpc, "finished_last.xyz"
+                )
                 if _irc_first_xyz.exists() and _irc_last_xyz.exists():
                     _g1 = geom_loader(str(_irc_first_xyz))
                     _g2 = geom_loader(str(_irc_last_xyz))
@@ -1345,7 +1293,9 @@ def cli(
                         "formed": [f"{_elems[i]}{i+1}-{_elems[j]}{j+1}" for i, j in sorted(_bc.formed_covalent)],
                         "broken": [f"{_elems[i]}{i+1}-{_elems[j]}{j+1}" for i, j in sorted(_bc.broken_covalent)],
                     }
-                    result_data["bond_changes_direction"] = _bond_direction
+                    result_data["bond_changes_direction"] = (
+                        "finished_first_to_finished_last"
+                    )
             except Exception:
                 logger.debug("irc: bond-changes enrichment skipped", exc_info=True)
 

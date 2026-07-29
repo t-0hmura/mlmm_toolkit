@@ -56,30 +56,19 @@ def test_directional_endpoint_energy_fields_keep_legacy_aliases() -> None:
     assert fields["energy_product_hartree"] == fields["energy_last_hartree"]
 
 
-def test_downhill_endpoint_energy_orientation_is_explicit() -> None:
-    from mlmm.workflows.irc import _directional_endpoint_energy_fields
-
-    fields = _directional_endpoint_energy_fields(
-        [-10.0, -11.0],
-        -10.0,
-        orientation="downhill_first_to_downhill_last",
-    )
-
-    assert (
-        fields["endpoint_energy_orientation"]
-        == "downhill_first_to_downhill_last"
-    )
-
-
-def test_irc_requires_a_direction_but_accepts_downhill() -> None:
+def test_irc_requires_forward_or_backward_and_rejects_downhill() -> None:
     from mlmm.workflows.irc import _validate_irc_directions
 
     with pytest.raises(Exception, match="at least one IRC direction"):
         _validate_irc_directions(
             {"forward": False, "backward": False, "downhill": False}
         )
+    with pytest.raises(Exception, match="downhill is not supported"):
+        _validate_irc_directions(
+            {"forward": False, "backward": False, "downhill": True}
+        )
     _validate_irc_directions(
-        {"forward": False, "backward": False, "downhill": True}
+        {"forward": True, "backward": False, "downhill": False}
     )
 
 
@@ -103,8 +92,6 @@ def test_real_irc_generation_invalidates_prefixed_directional_outputs(
     stale = [
         tmp_path / "segment_forward_irc_trj.xyz",
         tmp_path / "segment_backward_irc.pdb",
-        tmp_path / "segment_downhill_irc_trj.xyz",
-        tmp_path / "segment_downhill_last.xyz",
         tmp_path / "segment_finished_first.xyz",
         tmp_path / "result.json",
         tmp_path / "summary.json",

@@ -457,22 +457,6 @@ def test_irc_one_sided_request_succeeds() -> None:
     assert expected == ["forward"]
 
 
-def test_irc_downhill_request_succeeds_as_one_required_direction() -> None:
-    from mlmm.workflows._outcomes import irc_direction_leaves
-
-    leaves, expected = irc_direction_leaves(
-        (
-            ("forward", False, None, 0, []),
-            ("backward", False, None, 0, []),
-            ("downhill", True, True, 8, ["downhill_irc.pdb"]),
-        )
-    )
-    truth = aggregate_workflow_truth(leaves, expected)
-
-    assert truth.scientific_status == "success"
-    assert expected == ["downhill"]
-
-
 def test_irc_convergence_attribute_absent_fails_closed() -> None:
     # A missing convergence attribute (None) must fail closed, not read as True.
     leaves, expected = _irc_direction_leaves(

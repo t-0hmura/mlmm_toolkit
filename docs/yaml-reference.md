@@ -493,7 +493,6 @@ IRC integration settings.
 irc:
  step_length: 0.1 # Integration step length
  max_cycles: 125 # Maximum steps along IRC
- downhill: false # Follow downhill direction only
  forward: true # Propagate in forward direction
  backward: true # Propagate in backward direction
  root: 0 # Normal-mode root index

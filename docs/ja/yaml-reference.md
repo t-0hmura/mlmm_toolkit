@@ -469,7 +469,6 @@ IRC 積分設定。
 irc:
  step_length: 0.1 # 積分ステップ長
  max_cycles: 125 # IRC の最大ステップ数
- downhill: false # 下り方向のみ追跡
  forward: true # 順方向に伝搬
  backward: true # 逆方向に伝搬
  root: 0 # 基準振動モードのルートインデックス

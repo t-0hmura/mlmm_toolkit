@@ -192,7 +192,6 @@ mlmm:
 irc:
  step_length: 0.1                  # 積分ステップ長
  max_cycles: 125                   # IRC に沿った最大ステップ数
- downhill: false                   # 下り方向のみに追従
  forward: true                     # 正方向に伝播
  backward: true                    # 逆方向に伝播
  never_stop: false                 # energy-rise/plateau 停止のみ無視
