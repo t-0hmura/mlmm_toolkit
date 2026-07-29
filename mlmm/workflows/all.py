@@ -4170,6 +4170,7 @@ def cli(
 
     out_dir = out_dir.resolve()
     work_dir = out_dir / WORK_DIRNAME  # pipeline-wide scratch (safe to rm -rf)
+    session.resources.own_exclusive_lock(work_dir / ".run.lock")
     # Declare the run's public root deliverables up front so their pre-run
     # baseline is captured before any producer writes.  A stale file from an
     # earlier invocation that this run does not rewrite stays unclaimed and is

@@ -11,6 +11,7 @@ from collections import defaultdict
 from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 import errno
+import fcntl
 from hashlib import sha256
 import gc
 import logging
@@ -24,7 +25,11 @@ from uuid import uuid4
 
 import click
 
-from mlmm.core.result_commit import MLMM_RUN_ID_ENV, commit_json_exact
+from mlmm.core.result_commit import (
+    MLMM_RUN_ID_ENV,
+    commit_json_exact,
+    symlink_ancestor,
+)
 from mlmm.core.defaults import SEGMENTS_DIRNAME
 
 
@@ -52,6 +57,8 @@ class ArtifactStamp:
     @classmethod
     def capture(cls, path: Path, *, digest: bool = False) -> "ArtifactStamp":
         candidate = _lexical_absolute(path)
+        if symlink_ancestor(candidate) is not None:
+            return cls(False)
         try:
             stat = candidate.lstat()
         except (FileNotFoundError, NotADirectoryError):
@@ -341,6 +348,38 @@ class InvocationResources:
         self.add(cleanup)
         return owner
 
+    def own_exclusive_lock(self, path: Path) -> Path:
+        """Hold one non-blocking process lock until this resource scope closes."""
+
+        lock_path = _lexical_absolute(path)
+        if symlink_ancestor(lock_path) is not None:
+            raise ArtifactClaimError(
+                f"Run lock has a symlinked ancestor: {lock_path}"
+            )
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(lock_path, flags, 0o600)
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            if "descriptor" in locals():
+                os.close(descriptor)
+            if exc.errno in {errno.EACCES, errno.EAGAIN}:
+                raise ArtifactClaimError(
+                    f"Another ML/MM run is already using output directory "
+                    f"{lock_path.parent.parent}."
+                ) from exc
+            raise
+
+        def release() -> None:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+
+        self.add(release)
+        return lock_path
+
     def close(self) -> None:
         if self.closed:
             return
@@ -525,6 +564,11 @@ def public_output_key(root: Path, path: Path) -> str:
 
     public_root = _lexical_absolute(root)
     destination = _lexical_absolute(path)
+    linked = symlink_ancestor(destination)
+    if linked is not None:
+        raise ValueError(
+            f"public output {destination} has symlinked ancestor {linked}"
+        )
     try:
         relative = destination.relative_to(public_root)
     except ValueError as exc:

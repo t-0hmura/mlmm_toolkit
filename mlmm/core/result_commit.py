@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import errno
 import os
+import stat
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -29,6 +31,30 @@ class ResultCommitError(OSError):
 
 class RunIdentityError(ValueError):
     """A caller payload conflicts with the current MLMM invocation identity."""
+
+
+def symlink_ancestor(path: Path) -> Path | None:
+    """Return the nearest symlinked ancestor of *path*, if any."""
+
+    candidate = Path(os.path.abspath(os.fspath(path)))
+    for ancestor in candidate.parents:
+        try:
+            mode = ancestor.lstat().st_mode
+        except (FileNotFoundError, NotADirectoryError):
+            continue
+        if stat.S_ISLNK(mode):
+            return ancestor
+    return None
+
+
+def _reject_symlink_ancestors(path: Path) -> None:
+    ancestor = symlink_ancestor(path)
+    if ancestor is not None:
+        raise OSError(
+            errno.ELOOP,
+            f"refusing output through symlinked ancestor {ancestor}",
+            os.fspath(path),
+        )
 
 
 def with_current_run_id(
@@ -76,7 +102,9 @@ def stage_exact(path: Path, writer: Callable[[BinaryIO], None]) -> Path:
     destination = Path(path)
     temporary: Path | None = None
     try:
+        _reject_symlink_ancestors(destination)
         destination.parent.mkdir(parents=True, exist_ok=True)
+        _reject_symlink_ancestors(destination)
         fd, raw_path = tempfile.mkstemp(
             prefix=f".{destination.name}.",
             suffix=".tmp",
@@ -170,6 +198,7 @@ def commit_exact_bytes(
 def _replace_exact(staged: Path, destination: Path) -> None:
     """Publish one staged sibling; kept separate as a fault-injection seam."""
 
+    _reject_symlink_ancestors(destination)
     os.replace(staged, destination)
 
 

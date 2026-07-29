@@ -181,6 +181,24 @@ def test_conflicting_caller_run_id_is_rejected(
     assert list(tmp_path.iterdir()) == []
 
 
+def test_atomic_write_rejects_symlinked_ancestor_without_external_write(
+    tmp_path: Path,
+) -> None:
+    from mlmm.core.result_commit import ResultCommitError, atomic_write_exact
+
+    root = tmp_path / "root"
+    external = tmp_path / "external"
+    root.mkdir()
+    external.mkdir()
+    (root / "segments").symlink_to(external, target_is_directory=True)
+    destination = root / "segments" / "result.json"
+
+    with pytest.raises(ResultCommitError, match="symlinked ancestor"):
+        atomic_write_exact(destination, lambda stream: stream.write(b"new"))
+
+    assert not (external / "result.json").exists()
+
+
 def test_heterogeneous_primary_failure_removes_new_companion(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

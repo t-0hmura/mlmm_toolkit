@@ -110,6 +110,35 @@ def test_manifest_rejects_symlink_at_exact_declared_path(tmp_path: Path) -> None
     assert manifest.claim_one("path.summary") == artifact.absolute()
 
 
+def test_public_declaration_rejects_symlinked_ancestor(tmp_path: Path) -> None:
+    root = tmp_path / "out"
+    external = tmp_path / "external"
+    root.mkdir()
+    external.mkdir()
+    (root / "segments").symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="symlinked ancestor"):
+        declare_public_output(
+            InvocationManifest(),
+            root,
+            root / "segments" / "seg_01" / "result.json",
+        )
+
+
+def test_invocation_resources_reject_concurrent_output_lock(tmp_path: Path) -> None:
+    first = InvocationResources()
+    second = InvocationResources()
+    lock_path = tmp_path / "_work" / ".run.lock"
+    first.own_exclusive_lock(lock_path)
+
+    with pytest.raises(ArtifactClaimError, match="already using output directory"):
+        second.own_exclusive_lock(lock_path)
+
+    first.close()
+    second.own_exclusive_lock(lock_path)
+    second.close()
+
+
 def test_public_refresh_requires_producer_declaration(tmp_path: Path) -> None:
     root = tmp_path / "out"
     root.mkdir()
