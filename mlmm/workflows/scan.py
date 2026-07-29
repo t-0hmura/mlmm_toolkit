@@ -216,7 +216,8 @@ def _snapshot_geometry(g) -> Any:
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
     help="ML-only, link-H-free PDB subset; atom identity/order must match the "
-         "full PDB/parm7. Optional when --detect-layer is enabled.",
+         "full PDB/parm7. When provided, it defines ML membership; "
+         "--detect-layer still reads valid movable/frozen MM B-factors.",
 )
 @click.option(
     "--model-indices",
@@ -780,12 +781,12 @@ def cli(
                 sys.exit(0)
 
             if dry_run:
-                model_region_source = "bfactor"
-                if not detect_layer:
-                    if model_pdb is not None:
-                        model_region_source = "model_pdb"
-                    elif model_indices:
-                        model_region_source = "model_indices"
+                if model_pdb is not None:
+                    model_region_source = "model_pdb"
+                elif model_indices:
+                    model_region_source = "model_indices"
+                else:
+                    model_region_source = "bfactor"
                 click.echo(
                     pretty_block(
                         "dry_run_plan",

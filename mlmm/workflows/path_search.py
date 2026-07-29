@@ -74,11 +74,7 @@ from mlmm.core.utils import (
     prepare_input_structure,
     PreparedInputStructure,
     parse_indices_string,
-    build_model_pdb_from_bfactors,
-    build_model_pdb_from_indices,
-    read_bfactors_from_pdb,
-    has_valid_layer_bfactors,
-    parse_layer_indices_from_bfactors,
+    resolve_ml_layer_assignment,
 )
 from mlmm.core.result_commit import commit_json_exact, with_current_run_id
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
@@ -1471,7 +1467,8 @@ def _build_multistep_path(
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
     help="ML-only, link-H-free PDB subset; atom identity/order must match the "
-         "full PDB/parm7. Optional when --detect-layer is enabled.",
+         "full PDB/parm7. When provided, it defines ML membership; "
+         "--detect-layer still reads valid movable/frozen MM B-factors.",
 )
 @click.option(
     "--model-indices",
@@ -2032,52 +2029,30 @@ def cli(
         )
 
         if dry_run:
-            layer_info_preview: Optional[Dict[str, List[int]]] = None
-            model_region_source = "bfactor"
+            if model_pdb_effective is not None:
+                model_region_source = "model_pdb"
+            elif model_indices:
+                model_region_source = "model_indices"
+            else:
+                model_region_source = "bfactor"
 
-            if detect_layer_effective:
-                try:
-                    bfactors = read_bfactors_from_pdb(layer_source_pdb)
-                    if not bfactors:
-                        raise ValueError(f"No ATOM/HETATM records found in {layer_source_pdb}.")
-                    if not has_valid_layer_bfactors(bfactors):
-                        raise ValueError(
-                            "Invalid or missing layer B-factors (expected ~0/10/20). "
-                            "Provide --no-detect-layer with --model-pdb/--model-indices."
-                        )
-                    layer_info_preview = parse_layer_indices_from_bfactors(bfactors)
-                    if not layer_info_preview.get("ml_indices"):
-                        raise ValueError("No ML atoms detected from B-factors (value ~0).")
-                except Exception as e:
-                    if model_pdb_effective is None and not model_indices:
-                        click.echo(f"ERROR: {e}", err=True)
-                        sys.exit(1)
-                    click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-                    detect_layer_effective = False
-
-            if not detect_layer_effective:
-                if model_pdb_effective is not None:
-                    model_region_source = "model_pdb"
-                elif model_indices:
-                    model_region_source = "model_indices"
-                    if layer_source_pdb.suffix.lower() != ".pdb":
-                        click.echo("ERROR: --model-indices requires a PDB input.", err=True)
-                        sys.exit(1)
-                    n_atoms = 0
-                    with layer_source_pdb.open("r", encoding="utf-8", errors="ignore") as fh:
-                        for line in fh:
-                            if line.startswith(("ATOM  ", "HETATM")):
-                                n_atoms += 1
-                    bad_idx = [i for i in model_indices if i < 0 or i >= n_atoms]
-                    if bad_idx:
-                        click.echo(
-                            f"ERROR: model index out of range: {bad_idx[0]} (valid: 0 <= idx < {n_atoms})",
-                            err=True,
-                        )
-                        sys.exit(1)
-                else:
-                    click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
-                    sys.exit(1)
+            validation_cfg = dict(calc_cfg)
+            try:
+                with tempfile.TemporaryDirectory(prefix="mlmm_path_search_validate_") as tmp:
+                    _, layer_info_preview = resolve_ml_layer_assignment(
+                        source_path=layer_source_pdb,
+                        out_dir_path=Path(tmp),
+                        model_pdb=model_pdb_effective,
+                        model_indices=model_indices,
+                        detect_layer=detect_layer_effective,
+                        hess_cutoff=hess_cutoff_effective,
+                        movable_cutoff=movable_cutoff_effective,
+                        calc_cfg=validation_cfg,
+                        echo_fn=click.echo,
+                    )
+            except click.ClickException as exc:
+                click.echo(f"ERROR: {exc.message}", err=True)
+                sys.exit(1)
 
             if show_config:
                 click.echo(
@@ -2123,47 +2098,21 @@ def cli(
             click.echo("[dry-run] Validation complete. Path search execution was skipped.")
             return
 
-        model_pdb_path: Optional[Path] = None
-        layer_info: Optional[Dict[str, List[int]]] = None
-
-        if detect_layer_effective:
-            try:
-                model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
-                calc_cfg["use_bfactor_layers"] = True
-                click.echo(
-                    f"[layer] Detected B-factor layers: ML={len(layer_info.get('ml_indices', []))}, "
-                    f"MovableMM={len(layer_info.get('movable_mm_indices', []))}, "
-                    f"FrozenMM={len(layer_info.get('frozen_indices', []))}"
-                )
-            except Exception as e:
-                if model_pdb_effective is None and not model_indices:
-                    click.echo(f"ERROR: {e}", err=True)
-                    sys.exit(1)
-                click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-                detect_layer_effective = False
-
-        if not detect_layer_effective:
-            if model_pdb_effective is None and not model_indices:
-                click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
-                sys.exit(1)
-            if model_pdb_effective is not None:
-                model_pdb_path = Path(model_pdb_effective)
-            else:
-                if layer_source_pdb.suffix.lower() != ".pdb":
-                    click.echo("ERROR: --model-indices requires a PDB input.", err=True)
-                    sys.exit(1)
-                try:
-                    model_pdb_path = build_model_pdb_from_indices(layer_source_pdb, out_dir_path, model_indices or [])
-                except Exception as e:
-                    click.echo(f"ERROR: {e}", err=True)
-                    sys.exit(1)
-            calc_cfg["use_bfactor_layers"] = False
-
-        if model_pdb_path is None:
-            click.echo("ERROR: Failed to resolve model PDB for the ML region.", err=True)
+        try:
+            model_pdb_path, layer_info = resolve_ml_layer_assignment(
+                source_path=layer_source_pdb,
+                out_dir_path=out_dir_path,
+                model_pdb=model_pdb_effective,
+                model_indices=model_indices,
+                detect_layer=detect_layer_effective,
+                hess_cutoff=hess_cutoff_effective,
+                movable_cutoff=movable_cutoff_effective,
+                calc_cfg=calc_cfg,
+                echo_fn=click.echo,
+            )
+        except click.ClickException as exc:
+            click.echo(f"ERROR: {exc.message}", err=True)
             sys.exit(1)
-
-        calc_cfg["model_pdb"] = str(model_pdb_path)
         freeze_atoms_final = apply_layer_freeze_constraints(
             geom_cfg,
             calc_cfg,

@@ -62,8 +62,7 @@ from mlmm.core.utils import (
     prepare_input_structure,
     PreparedInputStructure,
     parse_indices_string,
-    build_model_pdb_from_bfactors,
-    build_model_pdb_from_indices,
+    resolve_ml_layer_assignment,
     echo_resolved_device,
 )
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
@@ -821,7 +820,8 @@ def _run_dmf_mep(
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
     help="ML-only, link-H-free PDB subset; atom identity/order must match the "
-         "full PDB/parm7. Optional when --detect-layer is enabled.",
+         "full PDB/parm7. When provided, it defines ML membership; "
+         "--detect-layer still reads valid movable/frozen MM B-factors.",
 )
 @click.option(
     "--model-indices",
@@ -1206,7 +1206,12 @@ def cli(
         # layering (every atom B≈ML) makes the WHOLE system the ML region,
         # which silently OOMs the MLIP on large inputs. Warn with the remedy
         # before any GPU work instead of dying later with a CUDA OOM.
-        if detect_layer_enabled and layer_source_pdb.suffix.lower() == ".pdb":
+        if (
+            detect_layer_enabled
+            and model_pdb_cfg is None
+            and not model_indices
+            and layer_source_pdb.suffix.lower() == ".pdb"
+        ):
             try:
                 _n_atoms = 0
                 _n_nonml = 0
@@ -1255,15 +1260,15 @@ def cli(
             )
 
         if dry_run:
-            model_region_source = "bfactor"
-            if not detect_layer_enabled:
-                if model_pdb_cfg is not None:
-                    model_region_source = "model_pdb"
-                elif model_indices:
-                    model_region_source = "model_indices"
-                else:
-                    click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
-                    sys.exit(1)
+            if model_pdb_cfg is not None:
+                model_region_source = "model_pdb"
+            elif model_indices:
+                model_region_source = "model_indices"
+            elif detect_layer_enabled:
+                model_region_source = "bfactor"
+            else:
+                click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
+                sys.exit(1)
             if (
                 not detect_layer_enabled
                 and model_pdb_cfg is None
@@ -1295,47 +1300,21 @@ def cli(
             click.echo("[dry-run] Validation complete. Path optimization execution was skipped.")
             return
 
-        model_pdb_path: Optional[Path] = None
-        layer_info: Optional[Dict[str, List[int]]] = None
-
-        if detect_layer_enabled:
-            try:
-                model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
-                calc_cfg["use_bfactor_layers"] = True
-                click.echo(
-                    f"[layer] Detected B-factor layers: ML={len(layer_info.get('ml_indices', []))}, "
-                    f"MovableMM={len(layer_info.get('movable_mm_indices', []))}, "
-                    f"FrozenMM={len(layer_info.get('frozen_indices', []))}"
-                )
-            except Exception as e:
-                if model_pdb_cfg is None and not model_indices:
-                    click.echo(f"ERROR: {e}", err=True)
-                    sys.exit(1)
-                click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-                detect_layer_enabled = False
-
-        if not detect_layer_enabled:
-            if model_pdb_cfg is None and not model_indices:
-                click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
-                sys.exit(1)
-            if model_pdb_cfg is not None:
-                model_pdb_path = Path(model_pdb_cfg)
-            else:
-                if layer_source_pdb.suffix.lower() != ".pdb":
-                    click.echo("ERROR: --model-indices requires a PDB input.", err=True)
-                    sys.exit(1)
-                try:
-                    model_pdb_path = build_model_pdb_from_indices(layer_source_pdb, out_dir_path, model_indices or [])
-                except Exception as e:
-                    click.echo(f"ERROR: {e}", err=True)
-                    sys.exit(1)
-            calc_cfg["use_bfactor_layers"] = False
-
-        if model_pdb_path is None:
-            click.echo("ERROR: Failed to resolve model PDB for the ML region.", err=True)
+        try:
+            model_pdb_path, layer_info = resolve_ml_layer_assignment(
+                source_path=layer_source_pdb,
+                out_dir_path=out_dir_path,
+                model_pdb=model_pdb_cfg,
+                model_indices=model_indices,
+                detect_layer=detect_layer_enabled,
+                hess_cutoff=calc_cfg.get("hess_cutoff"),
+                movable_cutoff=calc_cfg.get("movable_cutoff"),
+                calc_cfg=calc_cfg,
+                echo_fn=click.echo,
+            )
+        except click.ClickException as exc:
+            click.echo(f"ERROR: {exc.message}", err=True)
             sys.exit(1)
-
-        calc_cfg["model_pdb"] = str(model_pdb_path)
         freeze_atoms_final = apply_layer_freeze_constraints(
             geom_cfg,
             calc_cfg,

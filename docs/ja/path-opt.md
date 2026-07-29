@@ -70,7 +70,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--detect-layer / --no-detect-layer` | 入力 PDB の B-factor（B=0/10/20）から ML/MM 層を自動検出。無効時は `--model-pdb` または `--model-indices` の指定が必要。 | `True` |
+| `--detect-layer / --no-detect-layer` | B-factor 層（B=0/10/20）を読み取ります。ML 原子集合を明示した場合は MM 側の層だけを保持し、明示しない場合は B-factor が ML 原子集合も定義します。無効時は `--model-pdb` または `--model-indices` が必要です。 | `True` |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `SAM:1,PHN:-1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |

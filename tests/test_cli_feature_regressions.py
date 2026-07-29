@@ -169,6 +169,87 @@ def test_path_search_dry_run_uses_prepared_layer_source(tmp_path: Path) -> None:
     assert "[dry-run] Validation complete. Path search execution was skipped." in result.output
 
 
+def test_freq_dry_run_resolves_active_dof_mode(tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    smoke = repo / "tests" / "smoke"
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "freq",
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--active-dof-mode",
+            "ml-only",
+            "--dry-run",
+            "-v",
+            "3",
+            "--out-dir",
+            str(tmp_path / "freq"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "active_dof_mode" in result.output
+    assert "ml-only" in result.output
+    assert "[dry-run] Validation complete. Frequency execution was skipped." in result.output
+
+
+@pytest.mark.parametrize(
+    ("command_name", "input_style"),
+    [
+        ("opt", "single"),
+        ("tsopt", "single"),
+        ("freq", "single"),
+        ("irc", "single"),
+        ("path-opt", "path-opt"),
+        ("path-search", "path-search"),
+    ],
+)
+def test_explicit_model_pdb_precedes_default_bfactor_ml_membership(
+    tmp_path: Path, command_name: str, input_style: str
+) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    smoke = repo / "tests" / "smoke"
+    reactant = str(smoke / "r_complex_layered.pdb")
+    product = str(smoke / "p_complex_layered.pdb")
+    if input_style == "path-opt":
+        input_args = ["-i", reactant, product]
+    elif input_style == "path-search":
+        input_args = ["-i", reactant, "-i", product]
+    else:
+        input_args = ["-i", product if command_name in {"tsopt", "irc"} else reactant]
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            command_name,
+            *input_args,
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "--model-pdb",
+            str(smoke / "pocket_r.pdb"),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--dry-run",
+            "-v",
+            "3",
+            "--out-dir",
+            str(tmp_path / command_name),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "model_region_source: model_pdb" in result.output
+
+
 def test_path_opt_help_shows_fix_ends() -> None:
     runner = CliRunner()
     result = runner.invoke(root_cli, ["path-opt", "--help"])
@@ -210,13 +291,16 @@ def test_scan_accepts_grouped_and_repeated_stages(
         [
             "scan", "-i", str(smoke / "r_complex_layered.pdb"),
             "--parm", str(smoke / "p_complex.parm7"),
+            "--model-pdb", str(smoke / "pocket_r.pdb"),
             "-q", "-1", "-m", "1", *stages,
-            "--dry-run", "--out-dir", str(tmp_path / f"scan-{repeated}"),
+            "--dry-run", "-v", "3",
+            "--out-dir", str(tmp_path / f"scan-{repeated}"),
         ],
     )
 
     assert result.exit_code == 0, result.output
     assert "Received 2 stage(s)" in result.output
+    assert "model_region_source: model_pdb" in result.output
 
 
 @pytest.mark.parametrize("repeated", [False, True])

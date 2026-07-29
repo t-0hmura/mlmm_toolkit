@@ -115,9 +115,9 @@ Every ML/MM-evaluating subcommand (`opt`, `tsopt`, `path-search`,
 |---|---|
 | `-i, --input` | Full-enzyme PDB (or XYZ + `--ref-pdb`) |
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
-| `--model-pdb FILE` | PDB defining the ML region atoms (optional with `--detect-layer`) |
-| `--detect-layer / --no-detect-layer` | Pick layer assignment from PDB B-factor (default on) |
-| `--model-indices` | Alternative to `--model-pdb`: comma-separated atom indices (e.g. `1-50,75,100-110`) |
+| `--model-pdb FILE` | Explicit ML-region PDB; highest-priority ML membership source |
+| `--detect-layer / --no-detect-layer` | With no explicit membership, read all layers from PDB B-factors; with explicit membership, retain valid movable/frozen MM B-factor layers. Default on |
+| `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; higher priority than B-factor ML membership |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` / `-l, --ligand-charge` / `-m, --multiplicity` | ML region charge / spin |

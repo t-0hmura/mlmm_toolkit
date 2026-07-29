@@ -144,9 +144,10 @@ runs this chain (the MEP stage is single-pass `path-opt` by default; recursive
 extract → [mm-parm] → path-opt → (per reactive seg) tsopt → irc → freq → [dft] → energy-diagram
 ```
 
-**mlmm carry-through**: every ML/MM-evaluating stage needs the *same* `--parm` + layer
-definition (`--detect-layer` on a B-factor-encoded PDB, or `--model-pdb` / `--model-indices`)
-and the *same* `-l` / `-q` / `-m`. Pass them on every command. After each stage, read its
+**mlmm carry-through**: every ML/MM-evaluating stage needs the *same* `--parm`,
+explicit ML membership (`--model-pdb` / `--model-indices`) or B-factor fallback,
+and the same `--detect-layer` policy for MM sublayers. It also needs the *same*
+`-l` / `-q` / `-m`. Pass them on every command. After each stage, read its
 `result.json` / `summary.json` `status` and gate before continuing.
 
 **Stage 0 — prep** (only from a full enzyme PDB; most staged campaigns start from

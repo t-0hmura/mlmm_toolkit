@@ -165,7 +165,8 @@ def _resolve_sp_ml_region(
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False, default=None,
     help="ML-only, link-H-free PDB subset; atom identity/order must match the "
-         "full PDB/parm7. Optional when --detect-layer is enabled.",
+         "full PDB/parm7. When provided, it defines ML membership; "
+         "--detect-layer still reads valid movable/frozen MM B-factors.",
 )
 @click.option(
     "--model-indices", "model_indices_str",

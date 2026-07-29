@@ -50,8 +50,7 @@ from mlmm.core.utils import (
     merge_freeze_atom_indices,
     prepare_input_structure,
     parse_indices_string,
-    build_model_pdb_from_bfactors,
-    build_model_pdb_from_indices,
+    resolve_ml_layer_assignment,
     yaml_section_has_key,
     echo_resolved_device,
 )
@@ -257,7 +256,8 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
     help="ML-only, link-H-free PDB subset; atom identity/order must match the "
-         "full PDB/parm7. Optional when --detect-layer is enabled.",
+         "full PDB/parm7. When provided, it defines ML membership; "
+         "--detect-layer still reads valid movable/frozen MM B-factors.",
 )
 @click.option(
     "--model-indices",
@@ -699,14 +699,14 @@ def cli(
             )
 
         if dry_run:
-            model_region_source = "bfactor"
-            if not detect_layer_enabled:
-                if model_pdb_cfg is not None:
-                    model_region_source = "model_pdb"
-                elif model_indices:
-                    model_region_source = "model_indices"
-                else:
-                    raise click.BadParameter("Provide --model-pdb or --model-indices when --no-detect-layer.")
+            if model_pdb_cfg is not None:
+                model_region_source = "model_pdb"
+            elif model_indices:
+                model_region_source = "model_indices"
+            elif detect_layer_enabled:
+                model_region_source = "bfactor"
+            else:
+                raise click.BadParameter("Provide --model-pdb or --model-indices when --no-detect-layer.")
             if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
                 raise click.BadParameter("--detect-layer requires a PDB input (or --ref-pdb).")
             if (
@@ -753,42 +753,20 @@ def cli(
         if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
             raise click.BadParameter("--detect-layer requires a PDB input (or --ref-pdb).")
 
-        model_pdb_path: Optional[Path] = None
-        layer_info: Optional[Dict[str, List[int]]] = None
-
-        if detect_layer_enabled:
-            try:
-                model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
-                calc_cfg["use_bfactor_layers"] = True
-                click.echo(
-                    f"[layer] Detected B-factor layers: ML={len(layer_info.get('ml_indices', []))}, "
-                    f"MovableMM={len(layer_info.get('movable_mm_indices', []))}, "
-                    f"FrozenMM={len(layer_info.get('frozen_indices', []))}"
-                )
-            except Exception as e:
-                if model_pdb_cfg is None and not model_indices:
-                    raise click.BadParameter(str(e))
-                click.echo(f"[layer] WARNING: {e} Falling back to explicit ML region.", err=True)
-                detect_layer_enabled = False
-
-        if not detect_layer_enabled:
-            if model_pdb_cfg is None and not model_indices:
-                raise click.BadParameter("Provide --model-pdb or --model-indices when --no-detect-layer.")
-            if model_pdb_cfg is not None:
-                model_pdb_path = Path(model_pdb_cfg)
-            else:
-                if layer_source_pdb.suffix.lower() != ".pdb":
-                    raise click.BadParameter("--model-indices requires a PDB input (or --ref-pdb).")
-                try:
-                    model_pdb_path = build_model_pdb_from_indices(layer_source_pdb, out_dir_path, model_indices or [])
-                except Exception as e:
-                    raise click.BadParameter(str(e))
-            calc_cfg["use_bfactor_layers"] = False
-
-        if model_pdb_path is None:
-            raise click.BadParameter("Failed to resolve model PDB for the ML region.")
-
-        calc_cfg["model_pdb"] = str(model_pdb_path)
+        try:
+            model_pdb_path, layer_info = resolve_ml_layer_assignment(
+                source_path=layer_source_pdb,
+                out_dir_path=out_dir_path,
+                model_pdb=model_pdb_cfg,
+                model_indices=model_indices,
+                detect_layer=detect_layer_enabled,
+                hess_cutoff=calc_cfg.get("hess_cutoff"),
+                movable_cutoff=calc_cfg.get("movable_cutoff"),
+                calc_cfg=calc_cfg,
+                echo_fn=click.echo,
+            )
+        except click.ClickException as exc:
+            raise click.BadParameter(exc.message) from exc
         _ = apply_layer_freeze_constraints(
             geom_cfg,
             calc_cfg,

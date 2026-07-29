@@ -73,7 +73,10 @@ subcommand reads the layered structure from `-i` and the topology from
 mlmm opt -i complex.pdb --parm complex.parm7 -q 0 -m 1 -b uma -o result_opt
 ```
 
-For a PDB input the ML region comes from B-factor-0 atoms via `--detect-layer` (default on), regardless of `--ref-pdb`; "all-MM" results only when the PDB has no ML-tagged atoms. `--ref-pdb` only supplies topology for XYZ input.
+For a PDB input with no explicit ML selection, `--detect-layer` (default on)
+uses B-factor-0 atoms as the ML region. `--model-pdb` or `--model-indices`
+instead defines ML membership; valid B-factor-10/20 labels still define the
+movable/frozen MM sublayers. `--ref-pdb` only supplies topology for XYZ input.
 
 If you need to update layer labels, edit the PDB's B-factor column
 (see `pdb.md` § "B-factor layer encoding") or use

@@ -52,12 +52,16 @@ Do you need a parm7 / rst7 from a raw enzyme PDB?
 
 ## ML/MM-aware CLI conventions
 
-Most subcommands take `--parm FILE` (the parm7) plus one of:
+Most subcommands take `--parm FILE` (the parm7). ML membership resolves in
+this order:
 
-- `--detect-layer` (default on) — read the layer assignment from the
-  input PDB's B-factor field
-- `--model-pdb FILE` — explicit ML-region PDB
-- `--model-indices '1-50,75,100-110'` — explicit atom-index list
+1. `--model-pdb FILE`
+2. `--model-indices '1-50,75,100-110'` when no model PDB is supplied
+3. input PDB B-factor ML atoms under the default `--detect-layer`
+
+With explicit ML membership, `--detect-layer` still reads valid
+movable/frozen MM B-factor layers without replacing the explicit ML atoms.
+`--no-detect-layer` requires one of the two explicit forms.
 
 When `-i` is XYZ, also pass a PDB/mmCIF to `--ref-pdb` so atom ordering and residue
 context are recoverable.

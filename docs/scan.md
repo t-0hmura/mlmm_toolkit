@@ -38,8 +38,9 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
-    or defaults. Provide `--parm`, `--model-pdb`, `-q/--charge`, and optionally
-    `-m/--multiplicity` for the ML/MM calculator.
+    or defaults. Provide `--parm`, `-q/--charge`, and optionally
+    `-m/--multiplicity` for the ML/MM calculator. Define ML membership with
+    `--model-pdb`, `--model-indices`, or B-factor layers.
 2. Optionally run an unbiased preoptimization (`--preopt`) before any
     biasing so the starting point is relaxed.
 3. Parse stage targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal), then normalize the

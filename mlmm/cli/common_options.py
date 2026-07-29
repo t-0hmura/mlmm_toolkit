@@ -368,8 +368,10 @@ def add_ml_layer_detection_options() -> Callable[[Callable], Callable]:
             "detect_layer",
             default=True,
             show_default=True,
-            help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). "
-                 "If disabled, you must provide --model-pdb or --model-indices.",
+            help="Without --model-pdb/--model-indices, detect ML/MM layers from "
+                 "input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20). With "
+                 "explicit ML membership, retain valid movable/frozen MM "
+                 "B-factor layers. If disabled, explicit membership is required.",
         ),
         click.option(
             "--model-indices-one-based/--model-indices-zero-based",

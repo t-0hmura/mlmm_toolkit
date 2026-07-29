@@ -60,14 +60,23 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 
 ## ML/MM 必須オプション
 
-ML/MM 計算を行う大半のサブコマンド（`all`、`extract`、`mm-parm`、`define-layer` を除く）では、以下の 2 つのオプションが必要です:
+ML/MM 計算を行う大半のサブコマンド（`all`、`extract`、`mm-parm`、`define-layer` を除く）では、以下のトポロジー指定が常に必要です:
 
 ```bash
 --parm real.parm7      # 全系（real system）の Amber parm7 トポロジーファイル
---model-pdb model.pdb  # ML 領域（model system）を定義する PDB ファイル
 ```
 
-`all` ワークフローでは、`mm-parm` と `define-layer` により自動生成されます。個別サブコマンドの場合、`--parm` は常に必須ですが、`--model-pdb` が必須になるのは `--no-detect-layer` を指定したとき（または代わりに `--model-indices` を渡すとき）だけです。デフォルトの `--detect-layer` では PDB の B-factor から ML 領域を読み取ります。
+`all` ワークフローでは、`--parm` を省略するとトポロジーを自動生成します。
+個別サブコマンドの ML 原子集合は、次の順で決まります。
+
+1. `--model-pdb` を指定した場合はその原子集合
+2. `--model-pdb` を省略し、`--model-indices` を指定した場合はその原子番号
+3. どちらも指定せず、デフォルトの `--detect-layer` が有効な場合は入力 PDB の B-factor が示す ML 原子
+
+明示的な ML 原子集合と `--detect-layer` を併用すると、有効な B-factor は
+Movable-MM/Frozen-MM の割り当てに引き続き使われますが、明示した ML 原子集合を
+置き換えません。`--no-detect-layer` では `--model-pdb` または
+`--model-indices` が必要です。
 
 ```bash
 # 個別サブコマンドの例

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from mlmm.core.utils import (
+    apply_layer_freeze_constraints,
     read_bfactors_from_pdb,
     resolve_ml_layer_assignment,
 )
@@ -41,6 +42,12 @@ def test_explicit_model_wins_over_valid_bfactor_membership(tmp_path: Path) -> No
     assert layer_info is not None
     assert cfg["model_pdb"] == str(model)
     assert cfg["use_bfactor_layers"] is True
+    assert layer_info["ml_indices"] == [2]
+    assert layer_info["frozen_indices"] == []
+    assert layer_info["unassigned_indices"] == [0]
+
+    geom_cfg: dict = {}
+    assert apply_layer_freeze_constraints(geom_cfg, cfg, layer_info) == []
 
 
 def test_indices_win_when_model_is_absent(tmp_path: Path) -> None:

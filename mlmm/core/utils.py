@@ -3038,14 +3038,18 @@ def resolve_ml_layer_assignment(
 ) -> Tuple[Path, Optional[Dict[str, List[int]]]]:
     """Resolve the ML-region model PDB path + layer_info dict.
 
-    Shared by `scan`, `scan2d`, and `scan3d`. Mutates ``calc_cfg`` in place
-    to set ``use_bfactor_layers``, ``hess_cutoff``, ``movable_cutoff``,
-    and ``model_pdb``. Raises ``click.ClickException`` on user-input
-    failure so each caller can map to the same exit-code semantics.
+    Shared by ML/MM per-stage workflows. Explicit ``model_pdb`` or
+    ``model_indices`` defines ML membership; when layer detection remains
+    enabled, valid input B-factors still define the movable/frozen MM layers.
+    With no explicit membership, B-factors define all layers. Mutates
+    ``calc_cfg`` in place to set ``use_bfactor_layers``, ``hess_cutoff``,
+    ``movable_cutoff``, and ``model_pdb``. Raises ``click.ClickException`` on
+    user-input failure so each caller can map to the same exit-code semantics.
 
     Returns:
-        (model_pdb_path, layer_info) — layer_info is None when the
-        explicit model_pdb / model_indices fall-through is taken.
+        (model_pdb_path, layer_info) — layer_info is present when valid
+        B-factor movable/frozen layers were read, including with explicit ML
+        membership.
     """
     import click as _click  # local import to keep core.utils click-light
 
@@ -3098,6 +3102,45 @@ def resolve_ml_layer_assignment(
                 layer_info = parse_layer_indices_from_bfactors(
                     bfactors, tolerance=BFACTOR_TOLERANCE
                 )
+                if model_indices:
+                    explicit_ml_indices = {int(index) for index in model_indices}
+                else:
+                    from mlmm.io.pdb_indexing import resolve_mlmm_atoms
+
+                    resolved_atoms = resolve_mlmm_atoms(
+                        layer_source_pdb,
+                        model_pdb_path,
+                        manual_links=[],
+                    )
+                    explicit_ml_indices = {
+                        int(index) - 1 for index in resolved_atoms.model_indices
+                    }
+
+                # The explicit region owns ML membership. B-factors only assign
+                # the remaining atoms to MM sublayers, so an explicit ML atom
+                # can never also become a geometry-level frozen atom.
+                mm_layer_keys = (
+                    "hess_mm_indices",
+                    "movable_mm_indices",
+                    "frozen_indices",
+                )
+                normalized_layer_info = {
+                    key: sorted(
+                        set(int(index) for index in layer_info.get(key, []))
+                        - explicit_ml_indices
+                    )
+                    for key in mm_layer_keys
+                }
+                assigned = explicit_ml_indices | {
+                    index
+                    for key in mm_layer_keys
+                    for index in normalized_layer_info[key]
+                }
+                normalized_layer_info["ml_indices"] = sorted(explicit_ml_indices)
+                normalized_layer_info["unassigned_indices"] = sorted(
+                    set(range(len(bfactors))) - assigned
+                )
+                layer_info = normalized_layer_info
                 calc_cfg["use_bfactor_layers"] = True
                 echo(
                     "[layer] Using explicit ML membership with B-factor "

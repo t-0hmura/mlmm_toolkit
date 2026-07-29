@@ -64,8 +64,8 @@ Options:
   --model-pdb FILE                ML-only atom-selection PDB. It must be an
                                   unchanged, link-H-free subset of the full
                                   PDB/parm7 in the same atom order. It takes
-                                  precedence over an ML selection produced by
-                                  -c/--center.
+                                  precedence over ML membership from -c/--center
+                                  or input B-factors.
   --auto-mm-ff-set [ff19sb|ff14sb]
                                   Force-field set forwarded to mm_parm (ff19SB
                                   uses OPC3; ff14SB uses TIP3P).  [default:

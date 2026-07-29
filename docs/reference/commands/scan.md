@@ -20,7 +20,9 @@ Options:
                                   enzyme complex.  [required]
   --model-pdb FILE                ML-only, link-H-free PDB subset; atom
                                   identity/order must match the full PDB/parm7.
-                                  Optional when --detect-layer is enabled.
+                                  When provided, it defines ML membership;
+                                  --detect-layer still reads valid
+                                  movable/frozen MM B-factors.
   --model-indices TEXT            Comma-separated atom indices for the ML region
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
@@ -105,10 +107,13 @@ Options:
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer
-                                  Detect ML/MM layers from input PDB B-factors
-                                  (ML=0, MovableMM=10, FrozenMM=20). If
-                                  disabled, you must provide --model-pdb or
-                                  --model-indices.  [default: detect-layer]
+                                  Without --model-pdb/--model-indices, detect
+                                  ML/MM layers from input PDB B-factors (ML=0,
+                                  MovableMM=10, FrozenMM=20). With explicit ML
+                                  membership, retain valid movable/frozen MM
+                                  B-factor layers. If disabled, explicit
+                                  membership is required.  [default: detect-
+                                  layer]
   --model-indices-one-based / --model-indices-zero-based
                                   Interpret --model-indices as 1-based (default)
                                   or 0-based.  [default: model-indices-one-

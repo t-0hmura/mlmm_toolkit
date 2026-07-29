@@ -53,16 +53,24 @@ A semantic failure is a failure at any level: a `Traceback` that appears only at
 
 ## ML/MM required options
 
-Per-stage subcommands (everything except `all`, `extract`, `mm-parm`, `define-layer`) need:
+Per-stage subcommands (everything except `all`, `extract`, `mm-parm`, `define-layer`) always need:
 
 ```bash
 --parm real.parm7              # Amber parm7 topology of the full (real) system
---model-pdb model.pdb          # ML region (model) PDB
 ```
 
-`mlmm all` generates both automatically. For standalone subcommands, `--parm` is always required,
-while `--model-pdb` is required only with `--no-detect-layer` (or supply `--model-indices` instead);
-under the default `--detect-layer` the ML region is read from the PDB B-factors.
+`mlmm all` generates the topology automatically when `--parm` is omitted.
+Per-stage ML membership resolves in this order:
+
+1. `--model-pdb` when supplied.
+2. `--model-indices` when `--model-pdb` is omitted.
+3. Input PDB B-factor ML atoms under the default `--detect-layer`, when no
+   explicit membership is supplied.
+
+With explicit ML membership and `--detect-layer` still enabled, valid input
+B-factors continue to define the movable/frozen MM layers; they do not replace
+the explicit ML atom set. `--no-detect-layer` requires `--model-pdb` or
+`--model-indices`.
 
 ```bash
 mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1

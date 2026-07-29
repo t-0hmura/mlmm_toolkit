@@ -3291,7 +3291,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=None,
     help=("ML-only atom-selection PDB. It must be an unchanged, link-H-free subset "
           "of the full PDB/parm7 in the same atom order. It takes precedence "
-          "over an ML selection produced by -c/--center."),
+          "over ML membership from -c/--center or input B-factors."),
 )
 @click.option("--auto-mm-ff-set", "mm_ff_set",
               type=click.Choice(["ff19SB", "ff14SB"], case_sensitive=False),
