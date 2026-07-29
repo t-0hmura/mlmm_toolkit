@@ -6,6 +6,7 @@ Example:
 For detailed documentation, see: docs/define_layer.md
 """
 
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import sys
@@ -150,6 +151,19 @@ def _get_ml_indices_from_model_pdb(
             if model_template is not None
             else _parse_pdb_atoms(model_pdb_path)
         )
+        input_chain_counts = Counter(_identity(record) for record in input_records)
+        input_blank_counts = Counter(
+            _identity(record)[1:] for record in input_records
+        )
+        unmatched = []
+        for record in model_records:
+            key = _identity(record)
+            available = input_chain_counts if key[0] else input_blank_counts
+            lookup = key if key[0] else key[1:]
+            if available[lookup] <= 0:
+                unmatched.append(key)
+            else:
+                available[lookup] -= 1
         model_chain_keys = set()
         model_blank_keys = set()
         for record in model_records:
@@ -164,6 +178,11 @@ def _get_ml_indices_from_model_pdb(
             if key in model_chain_keys or key[1:] in model_blank_keys:
                 matched.append(index)
         if matched:
+            if unmatched:
+                raise ValueError(
+                    "Model PDB atom identity is absent from the full input: "
+                    f"{unmatched[0]!r}."
+                )
             return matched
         # An extracted model PDB can deliberately use the internal identifiers
         # of a normalized full structure.  If author-identifier matching found
@@ -184,6 +203,47 @@ def _get_ml_indices_from_model_pdb(
             ml_ids_blank.add(
                 (atom["res_seq"], atom["icode"], atom["res_name"], atom["atom_name"])
             )
+
+    input_chain_counts = Counter(
+        (
+            atom["chain_id"],
+            atom["res_seq"],
+            atom["icode"],
+            atom["res_name"],
+            atom["atom_name"],
+        )
+        for atom in input_atoms
+    )
+    input_blank_counts = Counter(
+        (
+            atom["res_seq"],
+            atom["icode"],
+            atom["res_name"],
+            atom["atom_name"],
+        )
+        for atom in input_atoms
+    )
+    unmatched = []
+    for atom in model_atoms:
+        chain = atom["chain_id"]
+        key = (
+            chain,
+            atom["res_seq"],
+            atom["icode"],
+            atom["res_name"],
+            atom["atom_name"],
+        )
+        available = input_chain_counts if chain else input_blank_counts
+        lookup = key if chain else key[1:]
+        if available[lookup] <= 0:
+            unmatched.append(key)
+        else:
+            available[lookup] -= 1
+    if unmatched:
+        raise ValueError(
+            "Model PDB atom identity is absent from the full input: "
+            f"{unmatched[0]!r}."
+        )
 
     # Find matching atoms in input
     ml_indices = []

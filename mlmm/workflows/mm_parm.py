@@ -25,6 +25,8 @@ import click
 from mlmm.core.result_commit import commit_payloads
 
 logger = logging.getLogger(__name__)
+DisulfideResidue = Tuple[str, int, str]
+DisulfidePair = Tuple[DisulfideResidue, DisulfideResidue]
 
 # ===================== User dictionaries & constants =====================
 
@@ -330,18 +332,21 @@ def detect_disulfides_from_pdb(
     pdb_path: Path,
     cutoff: float = DISULFIDE_CUTOFF,
     cyx_only: bool = False,
-) -> List[Tuple[Tuple[str, int], Tuple[str, int]]]:
+) -> List[DisulfidePair]:
     """
-    Extract SG (or S) atoms from CYS/CYM/CYX in a PDB and return residue-pairs
+    Extract SG (or S) atoms from CYS/CYX in a PDB and return residue-pairs
     with SG–SG distance ≤ cutoff Å.
 
     With ``cyx_only`` the scan is restricted to residues already named CYX, so a
     disulfide is formed only where the input says so explicitly and a CYS that
     merely happens to sit close to another one is left alone.
 
-    Return format: [((chainID, resSeq), (chainID, resSeq)), ...]
+    CYM is excluded because its thiolate template and charge are incompatible
+    with adding a disulfide bond without an explicit CYX protonation choice.
+
+    Return format: [((chainID, resSeq, iCode), (...)), ...]
     """
-    sg_sites: List[Tuple[str, int, float, float, float]] = []
+    sg_sites: List[Tuple[str, int, str, float, float, float]] = []
     with open(pdb_path, "r") as f:
         for line in f:
             if not (line.startswith("ATOM") or line.startswith("HETATM")):
@@ -350,7 +355,7 @@ def detect_disulfides_from_pdb(
             # Restrict disulfide detection to residues defined in AMINO_ACIDS.
             if resname not in AMINO_ACIDS:
                 continue
-            if resname not in ({"CYX"} if cyx_only else {"CYS", "CYM", "CYX"}):
+            if resname not in ({"CYX"} if cyx_only else {"CYS", "CYX"}):
                 continue
             atom_name = line[12:16].strip()
             if atom_name not in {"SG", "S"}:
@@ -360,6 +365,7 @@ def detect_disulfides_from_pdb(
             if altloc not in ("", "A"):
                 continue
             chain = line[21]
+            icode = line[26].strip()
             resseq_field = line[22:26]
             try:
                 resseq = int(resseq_field)
@@ -374,25 +380,25 @@ def detect_disulfides_from_pdb(
                 z = float(line[46:54])
             except Exception:
                 continue
-            sg_sites.append((chain, resseq, x, y, z))
-    pairs: List[Tuple[Tuple[str, int], Tuple[str, int]]] = []
+            sg_sites.append((chain, resseq, icode, x, y, z))
+    pairs: List[DisulfidePair] = []
     for i in range(len(sg_sites)):
-        ci, ri, xi, yi, zi = sg_sites[i]
+        ci, ri, ii, xi, yi, zi = sg_sites[i]
         for j in range(i + 1, len(sg_sites)):
-            cj, rj, xj, yj, zj = sg_sites[j]
+            cj, rj, ij, xj, yj, zj = sg_sites[j]
             dx = xi - xj
             dy = yi - yj
             dz = zi - zj
             dist = (dx * dx + dy * dy + dz * dz) ** 0.5
             if dist <= cutoff:
-                pairs.append(((ci, ri), (cj, rj)))
+                pairs.append(((ci, ri, ii), (cj, rj, ij)))
     return pairs
 
 
 def rename_disulfide_cys_to_cyx(
     pdb_in: Path,
     pdb_out: Path,
-    ss_pairs: List[Tuple[Tuple[str, int], Tuple[str, int]]],
+    ss_pairs: List[DisulfidePair],
 ) -> int:
     """
     Rename CYS -> CYX for every residue taking part in a detected disulfide.
@@ -401,48 +407,41 @@ def rename_disulfide_cys_to_cyx(
     template's HG. A disulfide cysteine left named CYS therefore keeps HG and
     its SG becomes hypervalent (CB + HG + SG). CYX is the Amber template for a
     disulfide-bonded cysteine (no HG), so the rename must happen before
-    ``loadpdb``. CYM (thiolate, formal -1) is left untouched because renaming
-    it would silently change the net charge; it is reported instead.
+    ``loadpdb``.
 
     Returns the number of renamed residues.
     """
     targets = {res for pair in ss_pairs for res in pair}
-    renamed_res: Set[Tuple[str, int]] = set()
-    cym_left: List[Tuple[str, int]] = []
+    renamed_res: Set[DisulfideResidue] = set()
     with open(pdb_in, "r") as fi, open(pdb_out, "w") as fo:
         for line in fi:
             if line.startswith(("ATOM", "HETATM")) and len(line) >= 26:
                 resname = line[17:20].strip()
                 chain = line[21]
+                icode = line[26].strip()
                 try:
                     resseq = int(line[22:26])
                 except ValueError:
                     fo.write(line)
                     continue
-                if (chain, resseq) in targets:
+                if (chain, resseq, icode) in targets:
                     if resname == "CYS":
                         line = line[:17] + "CYX" + line[20:]
-                        renamed_res.add((chain, resseq))
-                    elif resname == "CYM" and (chain, resseq) not in cym_left:
-                        cym_left.append((chain, resseq))
+                        renamed_res.add((chain, resseq, icode))
             fo.write(line)
-    for chain, resseq in cym_left:
-        print(
-            f"[mm-parm] WARNING: {chain}{resseq} is CYM but takes part in a detected "
-            "disulfide; leaving it as CYM (renaming would change the net charge). "
-            "Rename it to CYX in the input if the disulfide is intended."
-        )
     return len(renamed_res)
 
 
-def build_leap_residue_index(pdb_path: Path) -> Dict[Tuple[str, str], int]:
+def build_leap_residue_index(
+    pdb_path: Path,
+) -> Dict[Tuple[str, str, str], int]:
     """
-    Build a mapping (chainID, resSeq as 4-char string) → LEaP 1-based residue index
+    Build a mapping (chainID, resSeq field, insertion code) → LEaP residue index
     by scanning the PDB in order. LEaP numbers residues by appearance order, which can
     differ from RESSEQ integers; this avoids mismatches when bonding.
     """
-    mapping: Dict[Tuple[str, str], int] = {}
-    seen: Set[Tuple[str, str]] = set()
+    mapping: Dict[Tuple[str, str, str], int] = {}
+    seen: Set[Tuple[str, str, str]] = set()
     idx = 0
     with open(pdb_path, "r") as f:
         for line in f:
@@ -450,7 +449,8 @@ def build_leap_residue_index(pdb_path: Path) -> Dict[Tuple[str, str], int]:
                 continue
             chain = line[21]
             resseq = line[22:26]  # 4-character, right-justified
-            key = (chain, resseq)
+            icode = line[26].strip()
+            key = (chain, resseq, icode)
             if key not in seen:
                 idx += 1
                 seen.add(key)
@@ -714,7 +714,7 @@ def antechamber_parametrize(resname: str, res_charge: int, res_mult: int, workdi
 def write_tleap_input(
     fixed_pdb: Path,
     lig_defs: List[Tuple[str, Path, Path]],
-    ss_pairs: List[Tuple[Tuple[str, int], Tuple[str, int]]],
+    ss_pairs: List[DisulfidePair],
     out_prefix: str,
     tleap_in: Path,
     leaprc_lines: List[str],
@@ -724,7 +724,7 @@ def write_tleap_input(
     - lig_defs: list of (RESNAME, lib_or_mol2_path, frcmod_path)
         * .lib  → loadoff + loadamberparams frcmod
         * .mol2 → RES = loadmol2 + loadamberparams frcmod
-    - ss_pairs: ((chainID, resSeq), (chainID, resSeq)) residue pairs to bond (S–S)
+    - ss_pairs: ((chainID, resSeq, iCode), (...)) residue pairs to bond (S–S)
       (LEaP residue indices are resolved from PDB order via an internal mapping).
     """
     lines: List[str] = []
@@ -744,18 +744,22 @@ def write_tleap_input(
 
     # S–S bonds
     resnum_map = build_leap_residue_index(fixed_pdb)
-    for (c1, r1), (c2, r2) in ss_pairs:
-        key1 = (c1, f"{r1:>4}")
-        key2 = (c2, f"{r2:>4}")
+    for (c1, r1, i1), (c2, r2, i2) in ss_pairs:
+        key1 = (c1, f"{r1:>4}", i1)
+        key2 = (c2, f"{r2:>4}", i2)
         if key1 in resnum_map and key2 in resnum_map:
             n1, n2 = resnum_map[key1], resnum_map[key2]
             lines.append(f"bond complex.{n1}.SG complex.{n2}.SG")
         else:
             # The tleap script comment is invisible to the user, and the residues have already
             # been renamed to CYX — without the bond the resulting parm7 is chemically wrong.
-            lines.append(f"# WARN: could not resolve SS pair ({c1}{r1})-({c2}{r2})")
+            lines.append(
+                f"# WARN: could not resolve SS pair "
+                f"({c1}{r1}{i1})-({c2}{r2}{i2})"
+            )
             click.echo(
-                f"[mm-parm] WARNING: could not resolve the S-S pair ({c1}{r1})-({c2}{r2}); "
+                f"[mm-parm] WARNING: could not resolve the S-S pair "
+                f"({c1}{r1}{i1})-({c2}{r2}{i2}); "
                 "no disulfide bond will be created even though both residues were renamed to "
                 "CYX. Check the residue numbering in the input PDB.",
                 err=True,
@@ -1051,11 +1055,19 @@ def run_pipeline(args: Args) -> None:
         except Exception as e:
             # Fallback export of H-added PDB on failure
             if fixed_pdb_with_H is not None and fixed_pdb_with_H.exists() and final_pdb_out is not None:
-                try:
-                    shutil.copy2(fixed_pdb_with_H, final_pdb_out)
-                    click.echo(f"[mm-parm] Build failed, but wrote hydrogen-added PDB fallback: {final_pdb_out}")
-                except Exception as copy_e:
-                    click.echo(f"[mm-parm] WARNING: Failed to write fallback hydrogen-added PDB: {copy_e}", err=True)
+                if final_pdb_out.exists():
+                    click.echo(
+                        "[mm-parm] Build failed; preserved the existing canonical "
+                        f"PDB instead of replacing it with a partial fallback: "
+                        f"{final_pdb_out}",
+                        err=True,
+                    )
+                else:
+                    try:
+                        shutil.copy2(fixed_pdb_with_H, final_pdb_out)
+                        click.echo(f"[mm-parm] Build failed, but wrote hydrogen-added PDB fallback: {final_pdb_out}")
+                    except Exception as copy_e:
+                        click.echo(f"[mm-parm] WARNING: Failed to write fallback hydrogen-added PDB: {copy_e}", err=True)
             if args.keep_temp:
                 click.echo(f"[mm-parm] ERROR: Failed: {e}\nTemporary working directory kept at: {tmpdir_path}", err=True)
             # Re-raise to preserve error behavior

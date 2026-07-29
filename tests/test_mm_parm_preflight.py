@@ -10,10 +10,19 @@ import pytest
 from mlmm.workflows import mm_parm
 
 
-def _atom(serial: int, name: str, resname: str, resseq: int, x: float, y: float, z: float) -> str:
+def _atom(
+    serial: int,
+    name: str,
+    resname: str,
+    resseq: int,
+    x: float,
+    y: float,
+    z: float,
+    icode: str = "",
+) -> str:
     elem = name.strip()[0]
     return (
-        f"ATOM  {serial:5d} {name:^4s} {resname:>3s} A{resseq:4d}    "
+        f"ATOM  {serial:5d} {name:^4s} {resname:>3s} A{resseq:4d}{icode:1s}   "
         f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00          {elem:>2s}\n"
     )
 
@@ -226,7 +235,7 @@ def test_disulfide_cys_pair_is_renamed_to_cyx(tmp_path) -> None:
     )
 
     pairs = mm_parm.detect_disulfides_from_pdb(src, cutoff=mm_parm.DISULFIDE_CUTOFF)
-    assert pairs == [(("A", 10), ("A", 20))]
+    assert pairs == [(("A", 10, ""), ("A", 20, ""))]
 
     renamed = mm_parm.rename_disulfide_cys_to_cyx(src, dst, pairs)
 
@@ -236,12 +245,7 @@ def test_disulfide_cys_pair_is_renamed_to_cyx(tmp_path) -> None:
     assert out.count("CYX") == 5
 
 
-def test_isolated_cys_and_disulfide_cym_are_left_alone(tmp_path) -> None:
-    """Only bonded CYS is renamed; an isolated CYS and a CYM keep their names.
-
-    CYM is the thiolate (formal -1); renaming it would silently change the net
-    charge, so it is reported rather than converted.
-    """
+def test_auto_disulfide_excludes_cym_thiolate_pairs(tmp_path) -> None:
     src = tmp_path / "in.pdb"
     dst = tmp_path / "out.pdb"
     src.write_text(
@@ -255,7 +259,7 @@ def test_isolated_cys_and_disulfide_cym_are_left_alone(tmp_path) -> None:
     )
 
     pairs = mm_parm.detect_disulfides_from_pdb(src, cutoff=mm_parm.DISULFIDE_CUTOFF)
-    assert pairs == [(("A", 40), ("A", 41))]
+    assert pairs == []
 
     renamed = mm_parm.rename_disulfide_cys_to_cyx(src, dst, pairs)
 
@@ -306,11 +310,85 @@ def test_auto_disulfide_off_bonds_only_explicit_cyx(tmp_path) -> None:
         src, cutoff=mm_parm.DISULFIDE_CUTOFF, cyx_only=True
     )
 
-    assert auto == [(("A", 10), ("A", 20)), (("A", 30), ("A", 40))]
-    assert explicit == [(("A", 30), ("A", 40))]
+    assert auto == [
+        (("A", 10, ""), ("A", 20, "")),
+        (("A", 30, ""), ("A", 40, "")),
+    ]
+    assert explicit == [(("A", 30, ""), ("A", 40, ""))]
 
     dst = tmp_path / "out.pdb"
     renamed = mm_parm.rename_disulfide_cys_to_cyx(src, dst, explicit)
 
     assert renamed == 0
     assert dst.read_text().count("CYS") == 2
+
+
+def test_disulfide_identity_retains_insertion_code(tmp_path) -> None:
+    source = tmp_path / "insertions.pdb"
+    source.write_text(
+        "".join(
+            [
+                _atom(1, "SG", "CYS", 10, 20.0, 0.0, 0.0),
+                _atom(2, "SG", "CYS", 10, 0.0, 0.0, 0.0, "A"),
+                _atom(3, "SG", "CYS", 20, 2.05, 0.0, 0.0),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    pairs = mm_parm.detect_disulfides_from_pdb(source)
+    assert pairs == [(("A", 10, "A"), ("A", 20, ""))]
+
+    mapping = mm_parm.build_leap_residue_index(source)
+    assert mapping[("A", "  10", "")] == 1
+    assert mapping[("A", "  10", "A")] == 2
+    assert mapping[("A", "  20", "")] == 3
+
+
+def test_failed_hydrogenated_fallback_preserves_existing_canonical_pdb(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "input.pdb"
+    source.write_text(_atom(1, "C1", "LIG", 1, 0.0, 0.0, 0.0))
+    prefix = tmp_path / "system"
+    canonical = prefix.with_suffix(".pdb")
+    canonical.write_bytes(b"existing canonical generation\n")
+
+    monkeypatch.setattr(
+        mm_parm,
+        "ambertools_command_paths",
+        lambda: {
+            name: f"/bin/{name}"
+            for name in mm_parm._AMBERTOOLS_REQUIRED_COMMANDS
+        },
+    )
+
+    def add_h(_source, destination, _ph):
+        destination.write_bytes(b"partial hydrogenated fallback\n")
+
+    monkeypatch.setattr(mm_parm, "add_hydrogens_with_pdbfixer", add_h)
+    monkeypatch.setattr(
+        mm_parm,
+        "ambertools_route",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("injected")
+        ),
+    )
+    args = mm_parm.Args(
+        pdb=source,
+        out_prefix=str(prefix),
+        ligand_charge={},
+        ligand_mult={},
+        keep_temp=False,
+        add_ter=False,
+        auto_disulfide=True,
+        add_h=True,
+        ph=7.0,
+        ff_set="ff19SB",
+        out_prefix_given=True,
+    )
+
+    with pytest.raises(RuntimeError, match="injected"):
+        mm_parm.run_pipeline(args)
+
+    assert canonical.read_bytes() == b"existing canonical generation\n"

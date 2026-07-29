@@ -106,6 +106,39 @@ def test_yaml_charge_spin_precedence(yaml_cfg, expected):
     ) == expected
 
 
+def test_null_canonical_charge_spin_falls_back_to_legacy_yaml():
+    prepared = PreparedInputStructure(
+        source_path=Path("dummy.pdb"),
+        geom_path=Path("dummy.pdb"),
+    )
+
+    assert resolve_charge_spin_or_raise(
+        prepared,
+        charge=None,
+        spin=None,
+        yaml_cfg={
+            "calc": {"model_charge": None, "model_mult": None},
+            "mlmm": {"model_charge": -1, "model_mult": 2},
+        },
+    ) == (-1, 2)
+
+
+@pytest.mark.parametrize("invalid", [True, False, 1.5, "1"])
+def test_yaml_charge_rejects_non_integer_types(invalid):
+    prepared = PreparedInputStructure(
+        source_path=Path("dummy.pdb"),
+        geom_path=Path("dummy.pdb"),
+    )
+
+    with pytest.raises(Exception, match="must be an integer"):
+        resolve_charge_spin_or_raise(
+            prepared,
+            charge=None,
+            spin=None,
+            yaml_cfg={"calc": {"model_charge": invalid, "model_mult": 1}},
+        )
+
+
 def test_explicit_cli_charge_spin_override_yaml():
     prepared = PreparedInputStructure(
         source_path=Path("dummy.pdb"),

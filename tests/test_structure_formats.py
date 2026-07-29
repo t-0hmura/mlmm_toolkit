@@ -1243,6 +1243,28 @@ def test_define_layer_accepts_extracted_internal_model_pdb(tmp_path: Path) -> No
     assert layers["ml_indices"] == [0]
 
 
+def test_define_layer_rejects_partial_model_identity_match(tmp_path: Path) -> None:
+    from mlmm.workflows.define_layer import define_layers
+
+    full = tmp_path / "full.pdb"
+    full.write_text(
+        "HETATM    1  C1  SAM A   7       0.000   1.000   2.000  1.00 12.00           C\n"
+        "HETATM    2  O1  SAM A   7       1.000   1.000   2.000  1.00 13.00           O\n"
+        "END\n",
+        encoding="utf-8",
+    )
+    model = tmp_path / "model.pdb"
+    model.write_text(
+        "HETATM    1  C1  SAM A   7       0.000   1.000   2.000  1.00 12.00           C\n"
+        "HETATM    2  N1  SAM A   7       1.000   1.000   2.000  1.00 13.00           N\n"
+        "END\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="absent from the full input"):
+        define_layers(full, tmp_path / "layered.pdb", model_pdb=model)
+
+
 @pytest.mark.parametrize("normalized_side", ["input", "model"])
 def test_define_layer_matches_author_ids_when_only_one_side_is_normalized(
     tmp_path: Path, normalized_side: str,

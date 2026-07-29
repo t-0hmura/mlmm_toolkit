@@ -12,6 +12,7 @@ step lives here and workflow subcommands import it from this module.
 from __future__ import annotations
 
 import math
+from numbers import Integral
 from pathlib import Path
 from typing import TYPE_CHECKING, Mapping, Optional, Tuple
 
@@ -146,16 +147,20 @@ def configured_model_charge_spin(
             legacy_yaml = raw_legacy
 
     def _configured_int(key: str) -> Optional[int]:
-        raw = calc_yaml.get(key, legacy_yaml.get(key))
+        if calc_yaml.get(key) is not None:
+            raw = calc_yaml[key]
+            section = "calc"
+        else:
+            raw = legacy_yaml.get(key)
+            section = "mlmm"
         if raw is None:
             return None
-        try:
-            return int(raw)
-        except (TypeError, ValueError) as exc:
+        if isinstance(raw, bool) or not isinstance(raw, Integral):
             raise click.BadParameter(
-                f"{'calc' if key in calc_yaml else 'mlmm'}.{key} must be an "
+                f"{section}.{key} must be an "
                 f"integer, got {raw!r}."
-            ) from exc
+            )
+        return int(raw)
 
     charge = _configured_int("model_charge")
     spin = _configured_int("model_mult")
