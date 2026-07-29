@@ -71,8 +71,24 @@ CALC_KW_DEFAULT: Dict[str, Any] = dict(_UMA_CALC_KW)
 IRC_KW_DEFAULT: Dict[str, Any] = dict(IRC_KW)
 
 
+def _validate_irc_directions(irc_cfg: Dict[str, Any]) -> None:
+    """Require at least one executable IRC direction."""
+
+    if (
+        not bool(irc_cfg.get("downhill", False))
+        and not bool(irc_cfg.get("forward", False))
+        and not bool(irc_cfg.get("backward", False))
+    ):
+        raise click.BadParameter(
+            "Enable at least one IRC direction: forward, backward, or downhill."
+        )
+
+
 def _directional_endpoint_energy_fields(
-    all_energies: Any, ts_energy: Any
+    all_energies: Any,
+    ts_energy: Any,
+    *,
+    orientation: str = "finished_first_to_finished_last",
 ) -> Dict[str, Any]:
     """Report standalone IRC endpoints without inventing reactant/product identity."""
     first = float(all_energies[0]) if len(all_energies) > 0 else None
@@ -82,7 +98,7 @@ def _directional_endpoint_energy_fields(
         "energy_first_hartree": first,
         "energy_ts_hartree": ts,
         "energy_last_hartree": last,
-        "endpoint_energy_orientation": "finished_first_to_finished_last",
+        "endpoint_energy_orientation": orientation,
         # Retained for schema compatibility; their orientation is declared above.
         "energy_reactant_hartree": first,
         "energy_product_hartree": last,
@@ -128,12 +144,15 @@ _IRC_GENERATION_FILENAMES = tuple(
         "finished_irc",
         "forward_irc",
         "backward_irc",
+        "downhill_irc",
         "finished_first",
         "finished_last",
         "forward_first",
         "forward_last",
         "backward_first",
         "backward_last",
+        "downhill_first",
+        "downhill_last",
     )
     for suffix in (
         ("_trj.xyz", ".pdb", ".cif")
@@ -176,18 +195,27 @@ def _collect_irc_output_files(eulerpc: EulerPC) -> Dict[str, str]:
         ("finished_irc_trj.xyz", "finished_irc"),
         ("forward_irc_trj.xyz", "forward_irc"),
         ("backward_irc_trj.xyz", "backward_irc"),
+        ("downhill_irc_trj.xyz", "downhill_irc"),
         ("finished_irc.pdb", "finished_irc_pdb"),
         ("forward_irc.pdb", "forward_irc_pdb"),
         ("backward_irc.pdb", "backward_irc_pdb"),
+        ("downhill_irc.pdb", "downhill_irc_pdb"),
         ("finished_irc.cif", "finished_irc_cif"),
         ("forward_irc.cif", "forward_irc_cif"),
         ("backward_irc.cif", "backward_irc_cif"),
+        ("downhill_irc.cif", "downhill_irc_cif"),
         ("forward_last.xyz", "forward_last"),
         ("backward_last.xyz", "backward_last"),
         ("forward_last.pdb", "forward_last_pdb"),
         ("backward_last.pdb", "backward_last_pdb"),
         ("forward_last.cif", "forward_last_cif"),
         ("backward_last.cif", "backward_last_cif"),
+        ("downhill_last.xyz", "downhill_endpoint"),
+        ("downhill_last.pdb", "downhill_endpoint_pdb"),
+        ("downhill_last.cif", "downhill_endpoint_cif"),
+        ("downhill_first.xyz", "downhill_first"),
+        ("downhill_first.pdb", "downhill_first_pdb"),
+        ("downhill_first.cif", "downhill_first_cif"),
         ("forward_first.xyz", "forward_endpoint"),
         ("backward_last.xyz", "backward_endpoint"),
         ("forward_first.pdb", "forward_endpoint_pdb"),
@@ -531,6 +559,7 @@ def cli(
             prepared_input.cleanup()
             sys.exit(1)
     calc = eulerpc = geometry = None
+    error_out_dir = Path(out_dir).resolve()
     try:
         time_start = time.perf_counter()
 
@@ -552,6 +581,7 @@ def cli(
                 (irc_cfg, (("irc",),)),
             ],
         )
+        error_out_dir = Path(irc_cfg["out_dir"]).resolve()
 
         # CLI explicit overrides (after config YAML, before override YAML)
         if backend is not None:
@@ -626,6 +656,7 @@ def cli(
                 (irc_cfg, (("irc",),)),
             ],
         )
+        error_out_dir = Path(irc_cfg["out_dir"]).resolve()
         from pysisyphus.tr_projection import normalize_tr_projection_mode
         geom_cfg["tr_projection"] = normalize_tr_projection_mode(
             geom_cfg.get("tr_projection")
@@ -648,6 +679,7 @@ def cli(
         calc_cfg["freeze_atoms"] = list(geom_cfg.get("freeze_atoms", []))
         from mlmm.workflows.opt import _convert_yaml_layer_atoms_1to0
         _convert_yaml_layer_atoms_1to0(calc_cfg)
+        _validate_irc_directions(irc_cfg)
         if not calc_cfg.get("real_parm7"):
             raise click.BadParameter(
                 "Missing --parm (or calc.real_parm7 in YAML).; "
@@ -722,6 +754,7 @@ def cli(
             protected_inputs=(
                 prepared_input.source_path,
                 geom_input_path,
+                prepared_input.original_path,
                 config_yaml,
                 override_yaml,
                 Path(calc_cfg["real_parm7"]) if calc_cfg.get("real_parm7") else None,
@@ -1038,7 +1071,7 @@ def cli(
         eulerpc.run()
 
         quick_directions = []
-        for direction in ("forward", "backward"):
+        for direction in ("forward", "backward", "downhill"):
             if not getattr(eulerpc, direction, False):
                 continue
             n_frames = len(getattr(eulerpc, f"{direction}_energies", []))
@@ -1152,7 +1185,7 @@ def cli(
             ref_pdb_path = source_path.resolve()
 
             # Whole IRC trajectory
-            for stem in ("finished", "forward", "backward"):
+            for stem in ("finished", "forward", "backward", "downhill"):
                 _echo_convert_trj_to_pdb_if_exists(
                     _irc_output_path(eulerpc, f"{stem}_irc_trj.xyz"),
                     ref_pdb_path,
@@ -1160,7 +1193,7 @@ def cli(
                 )
             # Forward arrays are reversed for the stitched IRC, so the
             # direction-semantic endpoints are forward_first/backward_last.
-            for tag in ("forward_first", "backward_last"):
+            for tag in ("forward_first", "backward_last", "downhill_last"):
                 endpoint_xyz = _irc_output_path(eulerpc, f"{tag}.xyz")
                 endpoint_pdb = _irc_output_path(eulerpc, f"{tag}.pdb")
                 if (
@@ -1183,15 +1216,24 @@ def cli(
             _all_e = eulerpc.all_energies
             _n_fwd = len(getattr(eulerpc, "forward_energies", [])) if hasattr(eulerpc, "forward_energies") else 0
             _n_bwd = len(getattr(eulerpc, "backward_energies", [])) if hasattr(eulerpc, "backward_energies") else 0
+            _n_downhill = (
+                len(getattr(eulerpc, "downhill_energies", []))
+                if hasattr(eulerpc, "downhill_energies")
+                else 0
+            )
             _ts_e = float(eulerpc.ts_energy) if hasattr(eulerpc, "ts_energy") else None
             _irc_files = _collect_irc_output_files(eulerpc)
             result_data = {
                 "status": "completed",
                 "n_frames_forward": _n_fwd,
                 "n_frames_backward": _n_bwd,
+                "n_frames_downhill": _n_downhill,
                 "n_frames_total": len(_all_e),
                 "forward_converged": getattr(eulerpc, 'forward_is_converged', None),
                 "backward_converged": getattr(eulerpc, 'backward_is_converged', None),
+                "downhill_converged": getattr(
+                    eulerpc, "downhill_is_converged", None
+                ),
                 **calculator_provenance(calc_cfg),
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
@@ -1204,7 +1246,7 @@ def cli(
                     + getattr(eulerpc, "never_stop_energy_convergence_bypasses", 0)
                 ),
                 "rigid_projection": {
-                    **getattr(eulerpc, "rigid_projection_info", _rigid_info).as_dict(),
+                    **_rigid_info.as_dict(),
                     "hessian_space": (
                         "active" if len(eulerpc._act_atoms) < len(geometry.atoms) else "full"
                     ),
@@ -1220,7 +1262,15 @@ def cli(
                 "files": _irc_files,
             }
             result_data.update(
-                _directional_endpoint_energy_fields(_all_e, _ts_e)
+                _directional_endpoint_energy_fields(
+                    _all_e,
+                    _ts_e,
+                    orientation=(
+                        "downhill_first_to_downhill_last"
+                        if bool(getattr(eulerpc, "downhill", False))
+                        else "finished_first_to_finished_last"
+                    ),
+                )
             )
 
             # one LeafOutcome per requested IRC direction. A
@@ -1248,6 +1298,17 @@ def cli(
                         _n_bwd,
                         [_irc_files["backward_irc"]] if "backward_irc" in _irc_files else [],
                     ),
+                    (
+                        "downhill",
+                        bool(getattr(eulerpc, "downhill", False)),
+                        getattr(eulerpc, "downhill_is_converged", None),
+                        _n_downhill,
+                        (
+                            [_irc_files["downhill_irc"]]
+                            if "downhill_irc" in _irc_files
+                            else []
+                        ),
+                    ),
                 )
             )
             _attach(
@@ -1259,8 +1320,22 @@ def cli(
             # Bond changes between IRC endpoints
             try:
                 from mlmm.domain.bond_changes import compare_structures
-                _irc_first_xyz = _irc_output_path(eulerpc, "finished_first.xyz")
-                _irc_last_xyz = _irc_output_path(eulerpc, "finished_last.xyz")
+                if bool(getattr(eulerpc, "downhill", False)):
+                    _irc_first_xyz = _irc_output_path(
+                        eulerpc, "downhill_first.xyz"
+                    )
+                    _irc_last_xyz = _irc_output_path(
+                        eulerpc, "downhill_last.xyz"
+                    )
+                    _bond_direction = "downhill_first_to_downhill_last"
+                else:
+                    _irc_first_xyz = _irc_output_path(
+                        eulerpc, "finished_first.xyz"
+                    )
+                    _irc_last_xyz = _irc_output_path(
+                        eulerpc, "finished_last.xyz"
+                    )
+                    _bond_direction = "finished_first_to_finished_last"
                 if _irc_first_xyz.exists() and _irc_last_xyz.exists():
                     _g1 = geom_loader(str(_irc_first_xyz))
                     _g2 = geom_loader(str(_irc_last_xyz))
@@ -1270,9 +1345,7 @@ def cli(
                         "formed": [f"{_elems[i]}{i+1}-{_elems[j]}{j+1}" for i, j in sorted(_bc.formed_covalent)],
                         "broken": [f"{_elems[i]}{i+1}-{_elems[j]}{j+1}" for i, j in sorted(_bc.broken_covalent)],
                     }
-                    result_data["bond_changes_direction"] = (
-                        "finished_first_to_finished_last"
-                    )
+                    result_data["bond_changes_direction"] = _bond_direction
             except Exception:
                 logger.debug("irc: bond-changes enrichment skipped", exc_info=True)
 
@@ -1286,11 +1359,18 @@ def cli(
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except click.BadParameter as e:
-        _write_error_json(Path(out_dir).resolve(), "irc", e, "BadParameter", time_start)
-        click.echo(f"ERROR: {e}", err=True)
-        sys.exit(1)
+        _write_error_json(
+            error_out_dir, "irc", e, "BadParameter", time_start
+        )
+        raise
     except Exception as e:
-        render_cli_exception(e, label="IRC", out_dir=out_dir, command="irc", time_start=time_start)
+        render_cli_exception(
+            e,
+            label="IRC",
+            out_dir=error_out_dir,
+            command="irc",
+            time_start=time_start,
+        )
     finally:
         prepared_input.cleanup()
         # Drop local references before collecting cycles held by calculator and

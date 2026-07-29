@@ -56,6 +56,33 @@ def test_directional_endpoint_energy_fields_keep_legacy_aliases() -> None:
     assert fields["energy_product_hartree"] == fields["energy_last_hartree"]
 
 
+def test_downhill_endpoint_energy_orientation_is_explicit() -> None:
+    from mlmm.workflows.irc import _directional_endpoint_energy_fields
+
+    fields = _directional_endpoint_energy_fields(
+        [-10.0, -11.0],
+        -10.0,
+        orientation="downhill_first_to_downhill_last",
+    )
+
+    assert (
+        fields["endpoint_energy_orientation"]
+        == "downhill_first_to_downhill_last"
+    )
+
+
+def test_irc_requires_a_direction_but_accepts_downhill() -> None:
+    from mlmm.workflows.irc import _validate_irc_directions
+
+    with pytest.raises(Exception, match="at least one IRC direction"):
+        _validate_irc_directions(
+            {"forward": False, "backward": False, "downhill": False}
+        )
+    _validate_irc_directions(
+        {"forward": False, "backward": False, "downhill": True}
+    )
+
+
 def test_workflow_uses_engine_normalized_prefix(tmp_path) -> None:
     from mlmm.workflows.irc import _irc_output_path
 
@@ -76,6 +103,8 @@ def test_real_irc_generation_invalidates_prefixed_directional_outputs(
     stale = [
         tmp_path / "segment_forward_irc_trj.xyz",
         tmp_path / "segment_backward_irc.pdb",
+        tmp_path / "segment_downhill_irc_trj.xyz",
+        tmp_path / "segment_downhill_last.xyz",
         tmp_path / "segment_finished_first.xyz",
         tmp_path / "result.json",
         tmp_path / "summary.json",
@@ -89,6 +118,18 @@ def test_real_irc_generation_invalidates_prefixed_directional_outputs(
 
     assert all(not path.exists() for path in stale)
     assert unrelated.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_irc_generation_refuses_to_delete_a_reserved_input(tmp_path) -> None:
+    from mlmm.workflows.irc import _prepare_irc_output_dir
+
+    source = tmp_path / "backward_last.cif"
+    source.write_text("input\n", encoding="utf-8")
+
+    with pytest.raises(Exception, match="collides"):
+        _prepare_irc_output_dir(tmp_path, protected_inputs=(source,))
+
+    assert source.read_text(encoding="utf-8") == "input\n"
 
 
 @pytest.mark.parametrize(
