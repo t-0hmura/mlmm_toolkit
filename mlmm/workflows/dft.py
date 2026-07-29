@@ -51,7 +51,10 @@ from mlmm.core.utils import (
     resolve_ml_layer_assignment,
     set_convert_file_enabled,
 )
-from mlmm.cli.common_options import add_ml_layer_detection_options
+from mlmm.cli.common_options import (
+    add_allow_charge_mult_mismatch_option,
+    add_ml_layer_detection_options,
+)
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 from mlmm.core.defaults import DFT_KW as _DFT_KW_DEFAULT
 from mlmm.io.pdb_indexing import (
@@ -765,6 +768,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=True,
     help="Write machine-readable result.json to out_dir.",
 )
+@add_allow_charge_mult_mismatch_option()
 @add_ml_layer_detection_options()
 @click.pass_context
 def cli(

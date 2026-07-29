@@ -45,6 +45,18 @@ def test_dft_multiplicity_default_does_not_mask_yaml() -> None:
     assert parameter.default is None
 
 
+def test_dft_exposes_charge_multiplicity_mismatch_override() -> None:
+    from mlmm.workflows.dft import cli
+
+    option_names = {
+        name
+        for parameter in cli.params
+        if isinstance(parameter, click.Option)
+        for name in parameter.opts
+    }
+    assert "--allow-charge-mult-mismatch" in option_names
+
+
 def test_dft_rejects_unknown_yaml_engine_before_layer_setup(
     tmp_path: Path,
 ) -> None:
